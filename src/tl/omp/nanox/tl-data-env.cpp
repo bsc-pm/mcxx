@@ -352,7 +352,7 @@ namespace TL
 
     void Nanox::compute_data_environment(
             OpenMP::DataSharingEnvironment &data_sharing,
-            ScopeLink scope_link,
+            PragmaCustomConstruct ctr,
             DataEnvironInfo &data_env_info,
             ObjectList<Symbol>& converted_vlas)
     {
@@ -386,7 +386,7 @@ namespace TL
                 Symbol &sym(*it);
 
                 std::string field_name = sym.get_name();
-                (aux_struct[i].transform_type)(sym, scope_link, data_env_info, converted_vlas);
+                (aux_struct[i].transform_type)(sym, ctr.get_scope_link(), data_env_info, converted_vlas);
             }
         }
 
@@ -436,6 +436,37 @@ namespace TL
         ObjectList<OpenMP::ReductionSymbol> reduction_symbols;
         data_sharing.get_all_reduction_symbols(reduction_symbols);
         data_env_info.set_reduction_symbols(reduction_symbols);
+
+        /* if the task is a inline task, _this_accessor will be "this". Otherwise
+           _this_accessor will be "tmp_this. */
+        
+        //by default, _this_accessor is "this"
+        data_env_info.set_this_accessor("this");
+        
+        // Check for __symbol clause, and if found, get the task function symbol
+        Symbol task_symbol = NULL;
+        PragmaCustomClause function_clause = ctr.get_clause("__symbol");
+        if (function_clause.is_defined())
+        {
+            ObjectList<Expression> expr_list = function_clause.get_expression_list();
+            if (expr_list.size() != 1)
+            {
+                running_error("%s: internal error: clause '__symbol' requires just one argument\n",
+                        ctr.get_ast().get_locus().c_str());
+            }
+
+            Expression &expr = expr_list[0];
+            IdExpression id_expr = expr.get_id_expression();
+
+            if (id_expr.get_computed_symbol().is_valid())
+            {
+                task_symbol = id_expr.get_computed_symbol();
+                if (task_symbol.is_function())
+                {
+                    data_env_info.set_this_accessor("__tmp_this");
+                }
+            }
+        }
     }
 
     namespace Nanox
@@ -627,7 +658,9 @@ namespace TL
                 Source this_accessor;
                 if (sym.is_member() && !sym.is_static()) 
                 {
-                    this_accessor << "this->";
+                    this_accessor << data_env.get_this_accessor()
+                                  << "->"
+                                  ;
                 }
                 if (type.is_array())
                 {

@@ -31,50 +31,11 @@
 
 namespace TL { namespace OpenMP {
 
-    static Symbol get_symbol_of_data_reference(Expression expr)
-    {
-        if (expr.is_id_expression())
-        {
-            IdExpression id_expr = expr.get_id_expression();
-            return id_expr.get_symbol();
-        }
-        else if (expr.is_unary_operation())
-        {
-            if (expr.get_operation_kind() == Expression::DERREFERENCE)
-            {
-                Expression ref = expr.get_unary_operand();
-
-                if (ref.is_unary_operation()
-                        && ref.get_operation_kind() == Expression::REFERENCE)
-                    return get_symbol_of_data_reference(ref.get_unary_operand());
-                else
-                    return get_symbol_of_data_reference(ref);
-            }
-        }
-        else if (expr.is_array_subscript())
-        {
-            return get_symbol_of_data_reference(expr.get_subscripted_expression());
-        }
-        else if (expr.is_array_section_range()
-                || expr.is_array_section_size())
-        {
-            return get_symbol_of_data_reference(expr.array_section_item());
-        }
-        else if (expr.is_shaping_expression())
-        {
-            return get_symbol_of_data_reference(expr.shaped_expression());
-        }
-        else
-        {
-            internal_error("Invalid expression kind", 0);
-        }
-    }
-
-    static void add_data_sharings(ObjectList<Expression> &expression_list, 
+    static void add_data_sharings(ObjectList<Nodecl::NodeclBase> &expression_list, 
             DataSharingEnvironment& data_sharing, 
             DependencyDirection dep_attr)
     {
-        for (ObjectList<Expression>::iterator it = expression_list.begin();
+        for (ObjectList<Nodecl::NodeclBase>::iterator it = expression_list.begin();
                 it != expression_list.end();
                 it++)
         {
@@ -83,7 +44,7 @@ namespace TL { namespace OpenMP {
             if (!expr.is_valid(warning))
             {
                 std::cerr << warning;
-                std::cerr << expr.get_ast().get_locus() 
+                std::cerr << expr.get_locus() 
                     << ": warning: skipping invalid dependency expression '" << expr.prettyprint() << "'" << std::endl;
                 continue;
             }
@@ -100,8 +61,9 @@ namespace TL { namespace OpenMP {
                 data_type = data_type.references_to();
             }
 
-            if (expr.is_id_expression() 
-                || (sym.is_member() && !sym.is_static()))
+            if (expr.is<Nodecl::Symbol>() || sym.is_member())
+               // || (sym.is_member() && !sym.is_static()) 
+               // || (sym.is_member() && sym.is_static())) 
             {
                 data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT));
             }
@@ -126,7 +88,7 @@ namespace TL { namespace OpenMP {
         }
     }
 
-    void Core::get_dependences_info(PragmaCustomConstruct construct, DataSharingEnvironment& data_sharing)
+    void Core::get_dependences_info(TL::PragmaCustomLine construct, DataSharingEnvironment& data_sharing)
     {
         PragmaCustomClause input_clause = construct.get_clause("input");
         get_dependences_info_clause(input_clause, data_sharing, DEP_DIR_INPUT);
@@ -165,7 +127,7 @@ namespace TL { namespace OpenMP {
     {
         if (clause.is_defined())
         {
-            ObjectList<Expression> expr_list = clause.get_expression_list();
+            ObjectList<Nodecl::NodeclBase> expr_list = clause.get_arguments_as_expressions();
             add_data_sharings(expr_list, data_sharing, dep_attr);
         }
     }

@@ -8,6 +8,8 @@
 
 MCXX_BEGIN_DECLS
 
+#define NODECL_STATIC_NULL { NULL }
+
 nodecl_t nodecl_null(void);
 char nodecl_is_null(nodecl_t t);
 

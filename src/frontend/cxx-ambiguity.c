@@ -1946,19 +1946,123 @@ char checking_ambiguity(void)
     return (_ambiguity_testing != 0);
 }
 
+static void favor_known_expression_ambiguities(AST previous_choice, 
+        AST current_choice, 
+        int current_index, 
+        int *correct_choice,
+        nodecl_t current_nodecl,
+        nodecl_t* previous_output)
+{
+    // How to read this checks
+    //
+    //  either_type(a, b, T1, T2) 
+    //     will return  1 if a == T1 and b == T2
+    //     will return -1 if a == T2 and b == T1 
+    //     will return  0 otherwise
+    //
+    //  So if 
+    //
+    //     either_type(previous_choice, current_choice, A, B)
+    //
+    //  returns -1 it means that the previous choice is a B and the
+    //  current_choice is an A. If it returns 1 it means that the
+    //  previous_choice is an A and current_choice is a B
+    //
+    //  Tests are arranged so we only take action for the -1 case
+    //  since the 1 case is already OK to us (so we go into the if
+    //  but nothing is done)
+    //
+    //  Example:
+    //
+    //   sizeof(T()) could be either a type or an expression but we
+    //   favor the type 'function () returning T' instead of 'call
+    //   T with zero arguments'
+    int either;
+    if ((either = either_type(previous_choice, current_choice,
+                    AST_SIZEOF_TYPEID, AST_SIZEOF)))
+    {
+        if (either < 0)
+        {
+            (*correct_choice) = current_index;
+            (*previous_output) = current_nodecl;
+        }
+    }
+    // This one covers cases like this one
+    //
+    // template <typename _T>
+    // void f(_T *t)
+    // {
+    //    _T::f(t);
+    // }
+    //
+    // here '_T::f' must be a function call and not an explicit type
+    // conversion. If you meant an explicit type conversion '_T::f'
+    // must be seen as a type, so 'typename' is mandatory
+    //
+    // template <typename _T>
+    // void f(_T *t)
+    // {
+    //    typename _T::f(t);
+    // }
+    //
+    // But this last case is not ambiguous so it will never go
+    // through this desambiguation code
+    else if ((either = either_type(previous_choice, current_choice, 
+                    AST_EXPLICIT_TYPE_CONVERSION, AST_FUNCTION_CALL)))
+    {
+        if (either < 0)
+        {
+            (*correct_choice) = current_index;
+            (*previous_output) = current_nodecl;
+        }
+    }
+    // If we see this is a valid function call forget anything about
+    // strange greater than operations (this happens because of
+    // template functions)
+    //
+    // template <int _N>
+    // void f(int k);
+    //
+    // template <int _N>
+    // void g()
+    // {
+    //   f<_N>(3);
+    // }
+    //
+    // is obviously a call not the expression 'f < (_N > (3))'
+    //
+    else if ((either = either_type(previous_choice, current_choice,
+                    AST_FUNCTION_CALL, AST_GREATER_THAN)))
+    {
+        if (either < 0)
+        {
+            (*correct_choice) = current_index;
+            (*previous_output) = current_nodecl;
+        }
+    }
+    else
+    {
+        internal_error("More than one valid choice for ambig_expression (%s)\n'%s' vs '%s'\n%s\n", 
+                ast_location(previous_choice), ast_print_node_type(ASTType(current_choice)),
+                ast_print_node_type(ASTType(previous_choice)),
+                prettyprint_in_buffer(previous_choice));
+    }
+}
+
 void solve_ambiguous_expression(AST ambig_expression, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     ERROR_CONDITION(ASTType(ambig_expression) != AST_AMBIGUITY,
             "Must be ambiguous node", 0);
 
+    nodecl_t previous_nodecl = nodecl_null();
     int correct_choice = -1;
     int i;
     for (i = 0; i < ast_get_num_ambiguities(ambig_expression); i++)
     {
-        nodecl_t nodecl_dummy = nodecl_null();
+        nodecl_t current_nodecl = nodecl_null();
         enter_test_expression();
         char current_check = 
-            check_expression(ast_get_ambiguity(ambig_expression, i), decl_context, &nodecl_dummy);
+            check_expression(ast_get_ambiguity(ambig_expression, i), decl_context, &current_nodecl);
         leave_test_expression();
 
         if (current_check)
@@ -1966,108 +2070,13 @@ void solve_ambiguous_expression(AST ambig_expression, decl_context_t decl_contex
             if (correct_choice < 0)
             {
                 correct_choice = i;
-                *nodecl_output = nodecl_dummy;
+                previous_nodecl = current_nodecl;
             }
             else
             {
-                // Favor known ambiguities
                 AST previous_choice = ast_get_ambiguity(ambig_expression, correct_choice);
                 AST current_choice = ast_get_ambiguity(ambig_expression, i);
-
-                // How to read this checks
-                //
-                //  either_type(a, b, T1, T2) 
-                //     will return  1 if a == T1 and b == T2
-                //     will return -1 if a == T2 and b == T1 
-                //     will return  0 otherwise
-                //
-                //  So if 
-                //
-                //     either_type(previous_choice, current_choice, A, B)
-                //
-                //  returns -1 it means that the previous choice is a B and the
-                //  current_choice is an A. If it returns 1 it means that the
-                //  previous_choice is an A and current_choice is a B
-                //
-                //  Tests are arranged so we only take action for the -1 case
-                //  since the 1 case is already OK to us (so we go into the if
-                //  but nothing is done)
-                //
-                //  Example:
-                //
-                //   sizeof(T()) could be either a type or an expression but we
-                //   favor the type 'function () returning T' instead of 'call
-                //   T with zero arguments'
-                int either;
-                if ((either = either_type(previous_choice, current_choice,
-                                AST_SIZEOF_TYPEID, AST_SIZEOF)))
-                {
-                    if (either < 0)
-                    {
-                        correct_choice = i;
-                        *nodecl_output = nodecl_dummy;
-                    }
-                }
-                // This one covers cases like this one
-                //
-                // template <typename _T>
-                // void f(_T *t)
-                // {
-                //    _T::f(t);
-                // }
-                //
-                // here '_T::f' must be a function call and not an explicit type
-                // conversion. If you meant an explicit type conversion '_T::f'
-                // must be seen as a type, so 'typename' is mandatory
-                //
-                // template <typename _T>
-                // void f(_T *t)
-                // {
-                //    typename _T::f(t);
-                // }
-                //
-                // But this last case is not ambiguous so it will never go
-                // through this desambiguation code
-                else if ((either = either_type(previous_choice, current_choice, 
-                                AST_EXPLICIT_TYPE_CONVERSION, AST_FUNCTION_CALL)))
-                {
-                    if (either < 0)
-                    {
-                        correct_choice = i;
-                        *nodecl_output = nodecl_dummy;
-                    }
-                }
-                // If we see this is a valid function call forget anything about
-                // strange greater than operations (this happens because of
-                // template functions)
-                //
-                // template <int _N>
-                // void f(int k);
-                //
-                // template <int _N>
-                // void g()
-                // {
-                //   f<_N>(3);
-                // }
-                //
-                // is obviously a call not the expression 'f < (_N > (3))'
-                //
-                else if ((either = either_type(previous_choice, current_choice,
-                                AST_FUNCTION_CALL, AST_GREATER_THAN)))
-                {
-                    if (either < 0)
-                    {
-                        correct_choice = i;
-                        *nodecl_output = nodecl_dummy;
-                    }
-                }
-                else
-                {
-                    internal_error("More than one valid choice for ambig_expression (%s)\n'%s' vs '%s'\n%s\n", 
-                            ast_location(ambig_expression), ast_print_node_type(ASTType(ast_get_ambiguity(ambig_expression, i))), 
-                            ast_print_node_type(ASTType(ast_get_ambiguity(ambig_expression, correct_choice))),
-                            prettyprint_in_buffer(ambig_expression));
-                }
+                favor_known_expression_ambiguities(previous_choice, current_choice, i, &correct_choice, current_nodecl, &previous_nodecl);
             }
         }
     }
@@ -2106,6 +2115,7 @@ void solve_ambiguous_expression(AST ambig_expression, decl_context_t decl_contex
     else
     {
         choose_option(ambig_expression, correct_choice);
+        *nodecl_output = previous_nodecl;
     }
 }
 
@@ -2120,15 +2130,21 @@ void solve_condition_ambiguity(AST a, decl_context_t decl_context)
             "Must be ambiguous node", 0);
     int correct_choice = -1;
     int i;
+
+    AST previous_expression = NULL;
+    nodecl_t previous_nodecl = nodecl_null();
+
     for (i = 0; i < ast_get_num_ambiguities(a); i++)
     {
+        nodecl_t current_nodecl = nodecl_null();
         char current_check = 0;
+        AST current_expression = NULL;
         AST current_condition = ast_get_ambiguity(a, i);
         if (ASTSon0(current_condition) == NULL) // Expression
         {
-            nodecl_t nodecl_dummy = nodecl_null();
             enter_test_expression();
-            current_check = check_expression(ASTSon2(current_condition), decl_context, &nodecl_dummy);
+            current_expression = ASTSon2(current_condition);
+            current_check = check_expression(current_expression, decl_context, &current_nodecl);
             leave_test_expression();
         }
         else
@@ -2140,14 +2156,14 @@ void solve_condition_ambiguity(AST a, decl_context_t decl_context)
             AST equal_initializer = ASTSon2(current_condition);
 
             AST type_specifier = ASTSon1(type_specifier_seq);
-
+            
+            
             current_check = check_type_specifier(type_specifier, decl_context)
                 && check_declarator(declarator, decl_context);
-
-            nodecl_t nodecl_dummy = nodecl_null();
+           
             enter_test_expression();
-            AST expr = ASTSon0(equal_initializer);
-            current_check = current_check && check_expression(expr, decl_context, &nodecl_dummy);
+            current_expression = ASTSon0(equal_initializer);
+            current_check = current_check && check_expression(current_expression, decl_context, &current_nodecl);
             leave_test_expression();
         }
 
@@ -2156,15 +2172,12 @@ void solve_condition_ambiguity(AST a, decl_context_t decl_context)
             if (correct_choice < 0)
             {
                 correct_choice = i;
+                previous_expression = current_expression;
+                previous_nodecl = current_nodecl;
             }
             else
             {
-                AST first_option = ast_get_ambiguity(a, correct_choice);
-                AST second_option = current_condition;
-                internal_error("More than one valid choice! '%s' vs '%s' %s", 
-                        ast_print_node_type(ASTType(first_option)),
-                        ast_print_node_type(ASTType(second_option)),
-                        ast_location(second_option));
+                favor_known_expression_ambiguities(previous_expression, current_expression, i, &correct_choice, current_nodecl, &previous_nodecl);
             }
         }
     }

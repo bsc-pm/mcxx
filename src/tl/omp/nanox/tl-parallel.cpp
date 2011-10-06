@@ -58,7 +58,7 @@ void OMPTransform::parallel_postorder(PragmaCustomConstruct ctr)
     DataEnvironInfo data_environ_info;
     compute_data_environment(
             data_sharing,
-            ctr.get_scope_link(),
+            ctr,
             data_environ_info,
             _converted_vlas);
 

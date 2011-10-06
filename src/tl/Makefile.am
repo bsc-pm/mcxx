@@ -91,8 +91,11 @@ libtl_la_SOURCES = \
     tl-nodecl-visitor.cpp \
     tl-nodecl-fwd.hpp \
     tl-nodecl-base.hpp \
+    tl-nodecl-base.cpp \
     tl-nodecl.hpp \
     tl-nodecl.cpp \
+    tl-nodecl-alg.hpp \
+    tl-nodecl-alg.cpp \
     tl-scope.hpp \
     tl-scope.cpp \
     tl-dto.hpp \
@@ -129,6 +132,14 @@ libtl_la_SOURCES = \
     tl-functor.cpp \
     tl-handler.hpp \
     tl-handler.cpp \
+    tl-predicateutils.hpp \
+    tl-predicateutils.cpp \
+	tl-clauses-info.hpp \
+	tl-clauses-info.cpp \
+	tl-pragmasupport.hpp \
+	tl-pragmasupport.cpp \
+	tl-datareference.hpp \
+	tl-datareference.cpp \
     $(END)
 
 # libtl_la_SOURCES = \

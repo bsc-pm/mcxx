@@ -144,6 +144,9 @@ namespace TL
                 return _decl_context.current_scope->kind == NAMESPACE_SCOPE;
             }
 
+            //! States if the current scope is lexically contained in \a sc
+            bool is_contained_in(Scope sc) const;
+
             //! States if the current scope is prototype scope
             /*!
               Prototype scope only exists for parameters in function-type

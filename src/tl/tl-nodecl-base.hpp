@@ -6,6 +6,7 @@
 #include "tl-symbol.hpp"
 #include "tl-type.hpp"
 #include "tl-scope.hpp"
+#include "tl-refptr.hpp"
 #include "cxx-nodecl.h"
 #include <cstdlib>
 
@@ -16,6 +17,7 @@ namespace Nodecl {
         protected:
             nodecl_t _n;
         public:
+            // Main API
             NodeclBase() : _n(::nodecl_null()) { }
             NodeclBase(const nodecl_t& n) : _n(n) { }
             node_t get_kind() const { return ::nodecl_get_kind(_n); }
@@ -23,7 +25,9 @@ namespace Nodecl {
             static NodeclBase null() { return NodeclBase(::nodecl_null()); }
             virtual ~NodeclBase() { }
             TL::Type get_type() const { return TL::Type(::nodecl_get_type(_n)); }
+            bool has_type() const { return ::nodecl_get_type(_n) != NULL; }
             TL::Symbol get_symbol() const { return TL::Symbol(::nodecl_get_symbol(_n)); }
+            bool has_symbol() const { return ::nodecl_get_symbol(_n) != NULL; }
             TL::Scope retrieve_context() const { return nodecl_retrieve_context(_n); }
             std::string get_text() const { return std::string(::nodecl_get_text(_n)); }
             std::string get_filename() const { const char* c = nodecl_get_filename(_n); if (c == NULL) c = "(null)"; return c; }
@@ -43,16 +47,25 @@ namespace Nodecl {
                 return nodecl_copy(this->_n);
             }
 
+            // Prettyprint
+            std::string prettyprint();
+
             // Simple RTTI
             template <typename T> bool is() const { return !this->is_null() && (T::_kind == this->get_kind()); }
             template <typename T> T as() const { return T(this->_n); }
             template <typename Ret> friend class BaseNodeclVisitor;
 
             // Sorting of trees by pointer
-            bool operator<(const NodeclBase& n) { return nodecl_get_ast(this->_n) < nodecl_get_ast(n._n); }
+            bool operator<(const NodeclBase& n) const { return nodecl_get_ast(this->_n) < nodecl_get_ast(n._n); }
 
             // Equality by pointer
-            bool operator==(const NodeclBase& n) { return nodecl_get_ast(this->_n) == nodecl_get_ast(n._n); }
+            bool operator==(const NodeclBase& n) const { return nodecl_get_ast(this->_n) == nodecl_get_ast(n._n); }
+
+            // Convenience
+            NodeclBase(TL::RefPtr<TL::Object>);
+
+            // Basic replacement
+            void replace(Nodecl::NodeclBase new_node);
     };
 
     class List : public NodeclBase, public std::vector<NodeclBase>

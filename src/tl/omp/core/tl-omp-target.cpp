@@ -33,61 +33,59 @@ namespace TL
 {
     namespace OpenMP
     {
-        void Core::target_handler_pre(PragmaCustomConstruct ctr)
+        void Core::common_target_handler_pre(TL::PragmaCustomLine pragma_line, TargetContext& target_ctx)
         {
-            PragmaCustomClause device = ctr.get_clause("device");
-
+            PragmaCustomClause device = pragma_line.get_clause("device");
             if (!device.is_defined())
             {
-                std::cerr << ctr.get_ast().get_locus() << ": warning: '#pragma omp target' needs a 'device' clause" << std::endl;
+                std::cerr << pragma_line.get_locus() << ": warning: '#pragma omp target' needs a 'device' clause" << std::endl;
             }
-            TargetContext target_ctx;
-            target_ctx.device_list = device.get_arguments(ExpressionTokenizerTrim());
 
-            PragmaCustomClause copy_in = ctr.get_clause("copy_in");
+            target_ctx.device_list = device.get_tokenized_arguments();
+
+            PragmaCustomClause copy_in = pragma_line.get_clause("copy_in");
             if (copy_in.is_defined())
             {
-                target_ctx.copy_in = copy_in.get_arguments(ExpressionTokenizer());
+                target_ctx.copy_in = copy_in.get_arguments_as_expressions();
             }
 
-            PragmaCustomClause copy_out = ctr.get_clause("copy_out");
+            PragmaCustomClause copy_out = pragma_line.get_clause("copy_out");
             if (copy_out.is_defined())
             {
-                target_ctx.copy_out = copy_out.get_arguments(ExpressionTokenizer());
+                target_ctx.copy_out = copy_out.get_arguments_as_expressions();
             }
 
-            PragmaCustomClause copy_inout = ctr.get_clause("copy_inout");
+            PragmaCustomClause copy_inout = pragma_line.get_clause("copy_inout");
             if (copy_inout.is_defined())
             {
-                target_ctx.copy_inout = copy_inout.get_arguments(ExpressionTokenizer());
+                target_ctx.copy_inout = copy_inout.get_arguments_as_expressions();
             }
 
-            PragmaCustomClause copy_deps = ctr.get_clause("copy_deps");
+            PragmaCustomClause copy_deps = pragma_line.get_clause("copy_deps");
             if (copy_deps.is_defined())
             {
                 target_ctx.copy_deps = true;
             }
 
-            PragmaCustomClause implements = ctr.get_clause("implements");
+            PragmaCustomClause implements = pragma_line.get_clause("implements");
             if (implements.is_defined())
             {
-                ObjectList<Expression> implements_list = implements.get_expression_list();
+                ObjectList<Nodecl::NodeclBase> implements_list = implements.get_arguments_as_expressions();
 
                 if (implements_list.size() != 1)
                 {
-                    std::cerr << ctr.get_ast().get_locus() << ": warning: clause 'implements' expects one identifier, skipping" << std::endl;
+                    std::cerr << pragma_line.get_locus() << ": warning: clause 'implements' expects one identifier, skipping" << std::endl;
                 }
                 else
                 {
-                    Expression implements_name = implements_list[0];
+                    Nodecl::NodeclBase implements_name = implements_list[0];
 
                     bool valid = false;
 
                     Symbol sym (NULL);
-                    if (implements_name.is_id_expression())
+                    if (implements_name.is<Nodecl::Symbol>())
                     {
-                        IdExpression id_expr = implements_name.get_id_expression();
-                        sym = id_expr.get_computed_symbol();
+                        sym = implements_name.get_symbol();
 
                         if (sym.is_valid()
                                 && sym.is_function())
@@ -96,7 +94,7 @@ namespace TL
 
                     if (!valid)
                     {
-                        std::cerr << ctr.get_ast().get_locus() << ": warning: '" 
+                        std::cerr << implements_name.get_locus() << ": warning: '" 
                             << implements_name.prettyprint() 
                             << "' is not a valid identifier, skipping" 
                             << std::endl;
@@ -108,69 +106,33 @@ namespace TL
                     }
                 }
             }
+        }
+
+        void Core::target_handler_pre(TL::PragmaCustomDeclaration ctr)
+        {
+            PragmaCustomLine pragma_line = ctr.get_pragma_line();
+            TargetContext target_ctx;
+
+            common_target_handler_pre(pragma_line, target_ctx);
 
             if (target_ctx.has_implements)
             {
-                // We need to check this #pragma omp target precedes a function-decl or function-def
-                DeclaredEntity decl_entity(AST_t(), ctr.get_scope_link());
-                bool valid_target = true;
+                Symbol function_sym = ctr.get_symbol();
 
-                AST_t current_decl = ctr.get_declaration();
-                // Advance pragmae task or target
-                while (current_decl.is_valid()
-                        && (is_pragma_custom_construct("omp", "task", current_decl, ctr.get_scope_link())
-                            || is_pragma_custom_construct("omp", "target", current_decl, ctr.get_scope_link())))
+                if (!function_sym.is_function())
                 {
-                    PragmaCustomConstruct current_pragma(current_decl, ctr.get_scope_link());
-                    current_decl = current_pragma.get_declaration();
-                }
-
-                if (Declaration::predicate(current_decl))
-                {
-                    Declaration decl(current_decl, ctr.get_scope_link());
-                    ObjectList<DeclaredEntity> declared_entities = decl.get_declared_entities();
-
-                    if (declared_entities.size() != 1)
-                    {
-                        valid_target = false;
-                    }
-                    else
-                    {
-                        decl_entity = declared_entities[0];
-                    }
-                }
-                else if (FunctionDefinition::predicate(current_decl))
-                {
-                    FunctionDefinition funct_def(current_decl, ctr.get_scope_link());
-                    decl_entity = funct_def.get_declared_entity();
-                }
-                else
-                {
-                    valid_target = false;
-                }
-
-                if (valid_target
-                        && !decl_entity.is_functional_declaration())
-                {
-                    valid_target = false;
-                }
-
-                if (!valid_target)
-                {
-                    std::cerr << ctr.get_ast().get_locus() 
+                    std::cerr << ctr.get_locus() 
                         << ": warning: '#pragma omp target' with an 'implements' clause must "
                         "precede a single function declaration or a function definition"
                         << std::endl;
-                    std::cerr << ctr.get_ast().get_locus() << ": warning: skipping the whole '#pragma omp target'" << std::endl;
+                    std::cerr << ctr.get_locus() << ": warning: skipping the whole '#pragma omp target'" << std::endl;
                     return;
                 }
-
-                Symbol function_sym = decl_entity.get_declared_symbol();
 
                 // Now lookup a FunctionTaskInfo
                 if (!_function_task_set->is_function_task(target_ctx.implements))
                 {
-                    std::cerr << ctr.get_ast().get_locus() << ": warning: '" 
+                    std::cerr << ctr.get_locus() << ": warning: '" 
                         << target_ctx.implements.get_qualified_name()
                         << "' is not a '#pragma omp task' function, skipping"
                         << std::endl;
@@ -187,7 +149,7 @@ namespace TL
                     {
                         if (!devices_with_impl.contains(std::make_pair(*it, function_sym)))
                         {
-                            std::cerr << ctr.get_ast().get_locus() << 
+                            std::cerr << ctr.get_locus() << 
                                 ": note: adding function '" << function_sym.get_qualified_name() << "'"
                                 << " as the implementation of '" << target_ctx.implements.get_qualified_name() << "'"
                                 << " for device '" << *it << "'" << std::endl;
@@ -198,57 +160,21 @@ namespace TL
             }
             else
             {
-                // Check it precedes a function declaration/definition or a task 
-                DeclaredEntity decl_entity(AST_t(), ctr.get_scope_link());
-                bool valid_target = false;
-                if (Declaration::predicate(ctr.get_declaration()))
+                Symbol function_sym = ctr.get_symbol();
+                if (!function_sym.is_function())
                 {
-                    Declaration decl(ctr.get_declaration(), ctr.get_scope_link());
-                    ObjectList<DeclaredEntity> declared_entities = decl.get_declared_entities();
-                    valid_target = true;
-                    // if (declared_entities.size() == 1
-                    //         && declared_entities[0].is_functional_declaration())
-                    // {
-                    //     valid_target = true;
-                    // }
-                }
-                else if (FunctionDefinition::predicate(ctr.get_declaration()))
-                {
-                    valid_target = true;
-                }
-                // FIXME - Two cases one for "declaration scope" task
-                else if (is_pragma_custom_construct("omp", "task", ctr.get_declaration(), ctr.get_scope_link()))
-                {
-                    valid_target = true;
-                }
-                // FIXME - and another one for statement scope task
-                else if (is_pragma_custom_construct("omp", "task", ctr.get_statement().get_ast(), ctr.get_scope_link()))
-                {
-                    valid_target = true;
-                }
-                // FIXME - Verbatim should have its own LangConstruct
-                else if (ctr.get_declaration().is_valid() && ctr.get_declaration().internal_ast_type_() == AST_VERBATIM)
-                {
-                    valid_target = true;
-                }
-                if (!valid_target)
-                {
-                    std::cerr 
-                            << ctr.get_ast().get_locus() 
-                            << ": warning: '#pragma omp target' must "
-                            << "precede a function declaration, a function definition or a '#pragma omp task'"
-                            << std::endl;
-                    std::cerr 
-                            << ctr.get_ast().get_locus() 
-                            << ": warning: skipping the whole '#pragma omp target'" 
-                            << std::endl;
+                    std::cerr << ctr.get_locus() 
+                        << ": warning: '#pragma omp target' must "
+                        "precede a single function declaration or a function definition"
+                        << std::endl;
+                    std::cerr << ctr.get_locus() << ": warning: skipping the whole '#pragma omp target'" << std::endl;
                     return;
                 }
             }
             _target_context.push(target_ctx);
         }
 
-        void Core::target_handler_post(PragmaCustomConstruct ctr)
+        void Core::target_handler_post(TL::PragmaCustomDeclaration)
         {
             // It might be empty due to early exits in the preorder routine
             if (!_target_context.empty())
@@ -257,30 +183,60 @@ namespace TL
             }
         }
 
-        static void add_copy_items(PragmaCustomConstruct construct, 
+        void Core::target_handler_pre(TL::PragmaCustomStatement ctr)
+        {
+            PragmaCustomLine pragma_line = ctr.get_pragma_line();
+            TargetContext target_ctx;
+
+            common_target_handler_pre(pragma_line, target_ctx);
+
+            if (target_ctx.has_implements)
+            {
+                std::cerr << ctr.get_locus()
+                    << ": warning: '#pragma omp target' cannot have 'implements' clause in this context" << std::endl;
+                std::cerr << ctr.get_locus() << ": warning: skipping the whole '#pragma omp target'" << std::endl;
+                return;
+            }
+
+            Nodecl::NodeclBase nested_pragma = ctr.get_statement();
+
+            if (nested_pragma.is_null() 
+                    || !PragmaUtils::is_pragma_construct("omp", "target", nested_pragma))
+            {
+                std::cerr << ctr.get_locus()
+                    << ": warning: '#pragma omp target' must precede a '#pragma omp task' in this context" << std::endl;
+                std::cerr << ctr.get_locus() << ": warning: skipping the whole '#pragma omp target'" << std::endl;
+                return;
+            }
+
+            _target_context.push(target_ctx);
+        }
+
+        void Core::target_handler_post(TL::PragmaCustomStatement)
+        {
+            // It might be empty due to early exits in the preorder routine
+            if (!_target_context.empty())
+            {
+                _target_context.pop();
+            }
+        }
+
+        static void add_copy_items(PragmaCustomLine construct, 
                 DataSharingEnvironment& data_sharing,
-                const ObjectList<std::string>& list,
+                const ObjectList<Nodecl::NodeclBase>& list,
                 CopyDirection copy_direction)
         {
-            for (ObjectList<std::string>::const_iterator it = list.begin();
+            for (ObjectList<Nodecl::NodeclBase>::const_iterator it = list.begin();
                     it != list.end();
                     it++)
             {
-                Source src;
-                src 
-                    << "#line " << construct.get_ast().get_line() << " \"" << construct.get_ast().get_file() << "\"\n"
-                    << *it;
-
-                AST_t ast = src.parse_expression(construct.get_ast(),
-                        construct.get_scope_link());
-
-                DataReference expr(ast, construct.get_scope_link());
+                DataReference expr(*it);
 
                 std::string warning;
                 if (!expr.is_valid(warning))
                 {
                     std::cerr << warning;
-                    std::cerr << construct.get_ast().get_locus() 
+                    std::cerr << construct.get_locus() 
                         << ": warning: '" << expr.prettyprint() << "' is not a valid copy data-reference, skipping" 
                         << std::endl;
                     continue;
@@ -289,12 +245,12 @@ namespace TL
                 Symbol sym = expr.get_base_symbol();
                 OpenMP::DataSharingAttribute data_sharing_attr = data_sharing.get_data_sharing(sym);
 
-                if (expr.is_id_expression())
+                if (expr.is<Nodecl::Symbol>())
                 {
                     if (data_sharing_attr == DS_UNDEFINED)
                     {
                         std::cerr 
-                            << construct.get_ast().get_locus()
+                            << construct.get_locus()
                             << ": warning: symbol '" << sym.get_name() << "' does not have any data sharing, assuming SHARED" 
                             << std::endl;
                         // Make it shared if we know nothing about this entity
@@ -308,7 +264,7 @@ namespace TL
                             // This is an explicit data sharing of a private
                             // entity, which is being copied, this is wrong
                             running_error("%s: error: invalid non-shared data-sharing for copied entity '%s'\n",
-                                    construct.get_ast().get_locus().c_str(),
+                                    construct.get_locus().c_str(),
                                     sym.get_name().c_str());
                         }
                         else
@@ -341,9 +297,7 @@ namespace TL
             }
         }
 
-
-		// XXX - Fixme, maybe is not necessary ask about 
-        void Core::get_target_info(PragmaCustomConstruct construct, DataSharingEnvironment& data_sharing)
+        void Core::get_target_info(TL::PragmaCustomLine construct, DataSharingEnvironment& data_sharing)
         {
             if (_target_context.empty())
                 return;
@@ -375,14 +329,14 @@ namespace TL
                 ObjectList<DependencyItem> dependences;
                 data_sharing.get_all_dependences(dependences);
 
-                ObjectList<std::string> dep_list_in;
-                ObjectList<std::string> dep_list_out;
-                ObjectList<std::string> dep_list_inout;
+                ObjectList<Nodecl::NodeclBase> dep_list_in;
+                ObjectList<Nodecl::NodeclBase> dep_list_out;
+                ObjectList<Nodecl::NodeclBase> dep_list_inout;
                 for (ObjectList<DependencyItem>::iterator it = dependences.begin();
                         it != dependences.end();
                         it++)
                 {
-                    ObjectList<std::string>* p = NULL;
+                    ObjectList<Nodecl::NodeclBase>* p = NULL;
                     DependencyDirection dir = DependencyDirection(it->get_kind() & DEP_DIR_INOUT);
                     if (dir == DEP_DIR_INPUT)
                     {
@@ -400,6 +354,8 @@ namespace TL
                     {
                         internal_error("Invalid dependency kind", 0);
                     }
+
+                    internal_error("Not yet implemented", 0);
 
                     p->append(it->get_dependency_expression());
                 }
@@ -432,22 +388,27 @@ namespace TL
 			ObjectList<Symbol> ds_syms;
 			data_sharing.get_all_symbols(DS_SHARED, ds_syms);
 
-            ObjectList<std::string> shared_to_inout;
+            ObjectList<Nodecl::NodeclBase> shared_to_inout;
 			for(ObjectList<Symbol>::iterator io_it = ds_syms.begin(); 
 					io_it != ds_syms.end(); 
 					io_it++)
 			{
 				if (!all_copied_syms.contains(*io_it))
-				{
-					if (construct.get_show_warnings())
-					{
-		                std::cerr << construct.get_ast().get_locus() 
-		                    << ": warning: symbol '" << io_it->get_qualified_name(construct.get_scope())
-		                    << "' does not have copy directionality. Assuming copy_inout. "
-		                    << std::endl;
-					}
-					shared_to_inout.append(io_it->get_qualified_name(construct.get_scope()));
-				}
+                {
+                    // FIXME 
+                    //
+                    // if (construct.get_show_warnings())
+                    // {
+                        std::cerr << construct.get_locus() 
+                            << ": warning: symbol '" << io_it->get_qualified_name()
+                            << "' does not have copy directionality. Assuming copy_inout. "
+                            << std::endl;
+                    // }
+
+                    shared_to_inout.append(
+                            Nodecl::Symbol::make(*io_it, construct.get_filename(), construct.get_line())
+                            );
+                }
 			}
 		    add_copy_items(construct, data_sharing,
 		            shared_to_inout,

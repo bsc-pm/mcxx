@@ -36,9 +36,11 @@
 #include "tl-handler.hpp"
 #include "tl-dto.hpp"
 
-#include "tl-omp-udr.hpp"
+#include "tl-pragmasupport.hpp"
 #include "tl-omp-udr_2.hpp"
 #include "tl-omp-deps.hpp"
+
+#include "tl-datareference.hpp"
 
 #include <map>
 #include <set>
@@ -50,7 +52,6 @@ namespace TL
     //! All OpenMP related classes are defined in this namespace
     namespace OpenMP
     {
-#if 0
         //! \addtogroup OpenMP OpenMP related classes
         // @{
 #define BITMAP(x) (1<<x)
@@ -133,16 +134,9 @@ namespace TL
         {
             private:
                 Symbol _symbol;
-                UDRInfoItem _udr_item;
                 UDRInfoItem2 _udr_item_2;
 
             public:
-                ReductionSymbol(Symbol s, 
-                        const UDRInfoItem& udr_info_item)
-                    : _symbol(s), _udr_item(udr_info_item)
-                {
-                }
-
                 ReductionSymbol(Symbol s, 
                         const UDRInfoItem2& udr_info_item_2)
                     : _symbol(s), _udr_item_2(udr_info_item_2)
@@ -150,18 +144,13 @@ namespace TL
                 }
 
                 ReductionSymbol(const ReductionSymbol& red_sym)
-                    : _symbol(red_sym._symbol), _udr_item(red_sym._udr_item), _udr_item_2(red_sym._udr_item_2)
+                    : _symbol(red_sym._symbol), _udr_item_2(red_sym._udr_item_2)
                 {
                 }
 
                 Symbol get_symbol() const 
                 {
                     return _symbol;
-                }
-
-                const UDRInfoItem& get_udr() const
-                {
-                    return _udr_item;
                 }
 
                 const UDRInfoItem2& get_udr_2() const
@@ -174,31 +163,71 @@ namespace TL
 
         class LIBTL_CLASS RealTimeInfo  
         {
+            
             public:
                 
-                enum RealTimeErrorBehavior 
+                #define ENUM_OMP_ERROR_EVENT_LIST \
+                    ENUM_OMP_ERROR_EVENT(OMP_ANY_EVENT) \
+                    ENUM_OMP_ERROR_EVENT(OMP_DEADLINE_EXPIRED)
+                
+                enum omp_error_event_t 
                 {
-                    OMP_ABORT = 0
+                   #define ENUM_OMP_ERROR_EVENT(x) x,
+                        ENUM_OMP_ERROR_EVENT_LIST
+                   #undef ENUM_OMP_ERROR_EVENT
                 };
                 
+                #define ENUM_OMP_ERROR_ACTION_LIST \
+                    ENUM_OMP_ERROR_ACTION(OMP_NO_ACTION,OMP_NO_ACTION)  \
+                    ENUM_OMP_ERROR_ACTION(OMP_IGNORE,OMP_ACTION_IGNORE) \
+                    ENUM_OMP_ERROR_ACTION(OMP_SKIP,OMP_ACTION_SKIP)
+
+                
+                enum omp_error_action_t  
+                {
+                    #define ENUM_OMP_ERROR_ACTION(x,y) y,
+                        ENUM_OMP_ERROR_ACTION_LIST
+                    #undef ENUM_OMP_ERROR_ACTION
+                };
+                
+                typedef std::map<omp_error_event_t, omp_error_action_t> map_error_behavior_t;
+                
+            private:
+
+                Nodecl::NodeclBase *_time_deadline;
+
+                Nodecl::NodeclBase *_time_release;
+               
+                map_error_behavior_t _map_error_behavior;
+                
+                map_error_behavior_t get_map_error_behavior() const;
+            
+            public:      
                 RealTimeInfo();
                 
                 ~RealTimeInfo();
-
-                void set_is_release_deadline(bool value);
                 
-                bool get_is_release_deadline();
-
-                void set_error_behavior(RealTimeErrorBehavior err);
-
-                RealTimeErrorBehavior get_error_behavior();
-            
-            private:
+                RealTimeInfo (const RealTimeInfo& rt_copy);
                 
-                bool _is_release_deadline;
+                RealTimeInfo & operator=(const RealTimeInfo & rt_copy);
 
-                RealTimeErrorBehavior _error_behavior;
+                Nodecl::NodeclBase get_time_deadline() const;
 
+                Nodecl::NodeclBase get_time_release() const;
+
+                bool has_deadline_time() const;
+
+                bool has_release_time() const;
+
+                void set_time_deadline(Nodecl::NodeclBase exp);
+
+                void set_time_release(Nodecl::NodeclBase exp);
+                
+                std::string get_action_error(omp_error_event_t event);
+
+                void add_error_behavior(std::string event, std::string action);
+                 
+                void add_error_behavior(std::string action);
         };
 
         //! This class represents data sharing environment in a OpenMP construct
@@ -246,7 +275,7 @@ namespace TL
                 /*!
                  * \param sym The symbol to be set the data sharing attribute
                  * \param data_attr The symbol to which the data sharing will be set
-                 * \param data_ref Extended reference of this symbol (other than a plain IdExpression)
+                 * \param data_ref Extended reference of this symbol (other than a plain Nodecl::NodeclBase)
                  */
                 void set_data_sharing(Symbol sym, DataSharingAttribute data_attr, DataReference data_ref);
 
@@ -300,24 +329,24 @@ namespace TL
             private:
                 DataSharingEnvironment* _root_data_sharing;
                 DataSharingEnvironment* _current_data_sharing;
-                std::map<AST_t, DataSharingEnvironment*> _map_data_sharing;
+                std::map<Nodecl::NodeclBase, DataSharingEnvironment*> _map_data_sharing;
                 std::stack<DataSharingEnvironment*> _stack_data_sharing;
-                std::map<AST_t, ObjectList<UDRInfoItem2> > _map_udr_info;
+                std::map<Nodecl::NodeclBase, ObjectList<UDRInfoItem2> > _map_udr_info;
 
             public:
                 Info(DataSharingEnvironment* root_data_sharing)
                     : _root_data_sharing(root_data_sharing), 
                     _current_data_sharing(root_data_sharing) { }
 
-                DataSharingEnvironment& get_new_data_sharing(AST_t);
-                DataSharingEnvironment& get_data_sharing(AST_t);
+                DataSharingEnvironment& get_new_data_sharing(Nodecl::NodeclBase);
+                DataSharingEnvironment& get_data_sharing(Nodecl::NodeclBase);
 
                 DataSharingEnvironment& get_current_data_sharing();
                 DataSharingEnvironment& get_root_data_sharing();
 
-                ObjectList<UDRInfoItem2> get_udr_list(AST_t a);
-                void set_udr_list(AST_t expr, ObjectList<UDRInfoItem2> udr_list);
-                void set_udr_symbols(AST_t a, ObjectList<Symbol>);
+                ObjectList<UDRInfoItem2> get_udr_list(Nodecl::NodeclBase a);
+                void set_udr_list(Nodecl::NodeclBase expr, ObjectList<UDRInfoItem2> udr_list);
+                void set_udr_symbols(Nodecl::NodeclBase a, ObjectList<Symbol>);
 
                 void push_current_data_sharing(DataSharingEnvironment&);
                 void pop_current_data_sharing();
@@ -371,6 +400,7 @@ namespace TL
         {
             private:
                 Symbol _sym;
+
                 ObjectList<FunctionTaskDependency> _parameters;
 
                 typedef std::map<std::string, Symbol> implementation_table_t;
@@ -379,11 +409,18 @@ namespace TL
                 FunctionTaskTargetInfo _target_info;
                 
                 RealTimeInfo _real_time_info;
+
+                Nodecl::NodeclBase _if_clause_cond_expr;
+
+                Symbol get_symbol() const;
+
+                implementation_table_t get_implementation_table() const;
+
             public:
                 FunctionTaskInfo(Symbol sym,
                         ObjectList<FunctionTaskDependency> parameter_info,
                         FunctionTaskTargetInfo target_info);
-
+                
                 ObjectList<FunctionTaskDependency> get_parameter_info() const;
 
                 ObjectList<Symbol> get_involved_parameters() const;
@@ -391,6 +428,7 @@ namespace TL
                 FunctionTaskTargetInfo get_target_info() const;
 
                 void add_device(const std::string& device_name);
+                
                 void add_device_with_implementation(
                         const std::string& device_name,
                         Symbol implementor_symbol);
@@ -404,6 +442,10 @@ namespace TL
                 void set_real_time_info(const RealTimeInfo & rt_info);
 
                 RealTimeInfo get_real_time_info();
+                
+                bool has_if_clause() const;
+                void set_if_clause_conditional_expression(Nodecl::NodeclBase expr);
+                Nodecl::NodeclBase get_if_clause_conditional_expression() const;
         };
 
         class LIBTL_CLASS FunctionTaskSet : public TL::Object
@@ -417,7 +459,7 @@ namespace TL
 
                 FunctionTaskInfo& get_function_task(Symbol sym);
                 const FunctionTaskInfo& get_function_task(Symbol sym) const;
-                bool add_function_task(Symbol sym, const FunctionTaskInfo&);
+                void add_function_task(Symbol sym, const FunctionTaskInfo&);
 
                 bool empty() const;
 
@@ -433,8 +475,7 @@ namespace TL
         class LIBTL_CLASS OpenMPPhase : public PragmaCustomCompilerPhase
         {
             protected:
-                AST_t translation_unit;
-                ScopeLink scope_link;
+                Nodecl::NodeclBase translation_unit;
                 Scope global_scope;
                 bool _disable_clause_warnings;
 
@@ -471,7 +512,6 @@ namespace TL
         
 
     // @}
-#endif
     }
     
 }

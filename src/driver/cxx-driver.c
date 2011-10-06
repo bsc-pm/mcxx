@@ -2142,11 +2142,6 @@ static void remove_parameter_from_argv(int i)
     compilation_process.argc--;
 }
 
-static int strcmp_ptr_list(const char** a, const char** b)
-{
-    return strcmp(*a, *b);
-}
-
 static void load_configuration(void)
 {
     // Solve here the egg and chicken problem of the option --config-file
@@ -2250,8 +2245,8 @@ static void load_configuration(void)
             }
             dir_entry = readdir(config_dir);
         }
-
-        qsort(list_config_files, num_config_files, sizeof(const char*), (int(*)(const void*, const void*))strcmp_ptr_list);
+       
+        merge_sort_list_str(list_config_files, num_config_files, /* ascendent */ 1);
         
         int i;
         for(i = 0; i < num_config_files; ++i)
@@ -2261,7 +2256,6 @@ static void load_configuration(void)
                         list_config_files[i]);
             
             load_configuration_file(full_path);
-            //Deallocating configuration filename 
         }
         closedir(config_dir);
     }

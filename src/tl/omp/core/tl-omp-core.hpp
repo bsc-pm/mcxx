@@ -31,9 +31,11 @@
 
 #include <stack>
 
+#include "tl-nodecl.hpp"
 #include "tl-compilerphase.hpp"
 
 #include "tl-omp.hpp"
+#include "tl-pragmasupport.hpp"
 #include "tl-omp-tasks.hpp"
 
 #include "tl-omp-target.hpp"
@@ -43,99 +45,90 @@ namespace TL
 {
     namespace OpenMP
     {
-#if 0
     	struct UDRParsedInfo 
 		{
 			Type type;
-			AST_t combine_expression;
+            Nodecl::NodeclBase combine_expression;
 			Symbol in_symbol;
 			Symbol out_symbol;
 
-            UDRParsedInfo() : type(NULL), combine_expression(NULL), in_symbol(NULL), out_symbol(NULL) {}
+            UDRParsedInfo() : type(NULL), combine_expression(), in_symbol(NULL), out_symbol(NULL) {}
 		};
-#endif
 
-        // class Core : public TL::PragmaCustomCompilerPhase
-        class Core : public TL::CompilerPhase
+        class Core : public TL::PragmaCustomCompilerPhase
         {
             private:
 
-                std::string _new_udr_str;
-                bool _new_udr;
                 int _udr_counter;
                 void parse_new_udr(const std::string& str);
 
 
                 void register_omp_constructs();
 
-#if 0
 
                 // Handler functions
 #define OMP_DIRECTIVE(_directive, _name) \
-                void _name##_handler_pre(PragmaCustomConstruct); \
-                void _name##_handler_post(PragmaCustomConstruct);
+                void _name##_handler_pre(TL::PragmaCustomDirective); \
+                void _name##_handler_post(TL::PragmaCustomDirective);
 #define OMP_CONSTRUCT(_directive, _name) \
-                OMP_DIRECTIVE(_directive, _name)
+                void _name##_handler_pre(TL::PragmaCustomStatement); \
+                void _name##_handler_post(TL::PragmaCustomStatement); \
+                void _name##_handler_pre(TL::PragmaCustomDeclaration); \
+                void _name##_handler_post(TL::PragmaCustomDeclaration); 
 #define OMP_CONSTRUCT_NOEND(_directive, _name) \
-                OMP_DIRECTIVE(_directive, _name)
+                OMP_CONSTRUCT(_directive, _name)
 #include "tl-omp-constructs.def"
 #undef OMP_CONSTRUCT
 #undef OMP_CONSTRUCT_NOEND
 #undef OMP_DIRECTIVE
 
-#endif
                 static bool _already_registered;
 
-#if 0
                 RefPtr<OpenMP::Info> _openmp_info;
                 RefPtr<OpenMP::FunctionTaskSet> _function_task_set;
 
                 std::stack<TargetContext> _target_context;
 
+                void common_target_handler_pre(TL::PragmaCustomLine pragma_line, TargetContext& target_ctx);
+
+                void task_function_handler_pre(TL::PragmaCustomDirective construct);
+                void task_inline_handler_pre(TL::PragmaCustomStatement construct);
 
                 void get_clause_symbols(PragmaCustomClause clause, 
                         ObjectList<DataReference>& sym_list, 
                         bool allow_extended_references = false);
-                void get_reduction_symbols(PragmaCustomConstruct construct, 
+                void get_reduction_symbols(TL::PragmaCustomLine construct, 
                         PragmaCustomClause clause, ObjectList<ReductionSymbol>& sym_list);
-                void get_data_explicit_attributes(PragmaCustomConstruct construct, 
+                void get_data_explicit_attributes(TL::PragmaCustomLine construct,
                         DataSharingEnvironment& data_sharing);
-                void get_data_implicit_attributes(PragmaCustomConstruct construct, 
+                void get_data_implicit_attributes(TL::PragmaCustomStatement construct, 
                         DataSharingAttribute default_data_attr, 
                         DataSharingEnvironment& data_sharing);
-                void get_data_implicit_attributes_task(PragmaCustomConstruct construct,
+                void get_data_implicit_attributes_task(TL::PragmaCustomStatement construct,
                         DataSharingEnvironment& data_sharing,
                         DataSharingAttribute default_data_attr);
 
-                void get_target_info(PragmaCustomConstruct construct, 
+                void get_target_info(TL::PragmaCustomLine pragma_line,
                         DataSharingEnvironment& data_sharing);
-                void get_dependences_info(PragmaCustomConstruct construct, 
+                void get_dependences_info(PragmaCustomLine construct, 
                         DataSharingEnvironment& data_sharing);
                 void get_dependences_info_clause(PragmaCustomClause clause,
                         DataSharingEnvironment& data_sharing,
                         DependencyDirection dep_attr);
 
-                DataSharingAttribute get_default_data_sharing(PragmaCustomConstruct construct,
+                DataSharingAttribute get_default_data_sharing(TL::PragmaCustomLine construct,
                         DataSharingAttribute fallback_data_sharing);
 
-                void common_parallel_handler(PragmaCustomConstruct ctr, DataSharingEnvironment& data_sharing);
-                void common_for_handler(PragmaCustomConstruct ctr, DataSharingEnvironment& data_sharing);
-                void common_workshare_handler(PragmaCustomConstruct construct, DataSharingEnvironment& data_sharing);
+                void common_parallel_handler(TL::PragmaCustomStatement ctr, DataSharingEnvironment& data_sharing);
+                void common_for_handler(TL::PragmaCustomStatement ctr, DataSharingEnvironment& data_sharing);
+                void common_workshare_handler(TL::PragmaCustomStatement construct, DataSharingEnvironment& data_sharing);
 
-                void task_function_handler_pre(PragmaCustomConstruct construct);
-      			void task_inline_handler_pre(PragmaCustomConstruct construct);
+				RealTimeInfo task_real_time_handler_pre(TL::PragmaCustomLine construct);
 
-				RealTimeInfo task_real_time_handler_pre(PragmaCustomConstruct construct);
+                void common_sections_handler(TL::PragmaCustomStatement construct, const std::string& pragma_name);
+                void fix_first_section(TL::PragmaCustomStatement construct);
 
-                void common_sections_handler(PragmaCustomConstruct construct, const std::string& pragma_name);
-                void fix_first_section(PragmaCustomConstruct construct);
-
-                void collapse_loop_first(PragmaCustomConstruct& construct);
-
-                // Temporary hack
-                void declare_reduction_handler_pre_2(PragmaCustomConstruct construct);
-                void declare_reduction_handler_post_2(PragmaCustomConstruct construct);
-#endif
+                void collapse_loop_first(Nodecl::NodeclBase& construct);
 
             public:
                 Core();

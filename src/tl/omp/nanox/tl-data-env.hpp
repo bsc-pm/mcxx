@@ -197,13 +197,14 @@ namespace TL
                 ObjectList<OpenMP::CopyItem> _copy_items;
                 ObjectList<OpenMP::ReductionSymbol> _reduction_symbols;
                 OpenMP::DataSharingEnvironment* _data_sharing;
+                std::string _this_accessor;
                 bool _has_local_copies;
 
                 static bool data_env_item_has_sym(const DataEnvironItem &item)
                 {
                     return item.get_symbol().is_valid();
                 }
-
+            
             public:
 
                 DataEnvironInfo()
@@ -211,7 +212,9 @@ namespace TL
                     _copy_items(),
                     _reduction_symbols(),
                     _data_sharing(NULL),
-                    _has_local_copies(false) { }
+                    _this_accessor(),
+                    _has_local_copies(false)
+                     { }
 
                 //! Adds a data environment item to the data environment
                 void add_item(const DataEnvironItem& item)
@@ -365,6 +368,16 @@ namespace TL
                 {
                     _reduction_symbols.append(reduction_symbols);
                 }
+
+                std::string get_this_accessor() const
+                {
+                    return _this_accessor;
+                }
+                
+                void set_this_accessor(std::string s)
+                {
+                    _this_accessor = s;
+                }
         };
 
         //! \cond NO_DOCUMENT
@@ -372,7 +385,7 @@ namespace TL
         // This one is not to be exported
         void compute_data_environment(
                 OpenMP::DataSharingEnvironment& data_sharing,
-                ScopeLink scope_link,
+                PragmaCustomConstruct ctr,
                 DataEnvironInfo &data_env_info,
                 ObjectList<Symbol>& converted_vlas);
 

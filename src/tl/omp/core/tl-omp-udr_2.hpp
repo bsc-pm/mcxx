@@ -37,14 +37,13 @@ namespace TL
 {
     namespace OpenMP
     {
-#if 0
         class LIBTL_CLASS UDRInfoItem2 : public TL::Object
         {
 
             private:
                 std::string _name;
 			    Type _type;
-			    AST_t _combine_expression;
+			    Nodecl::NodeclBase _combine_expression;
 			    Symbol _in_symbol;
 			    Symbol _out_symbol;
 
@@ -52,7 +51,7 @@ namespace TL
                 std::string _builtin_op;
 
                 bool _has_identity;
-                AST_t _identity;
+                Nodecl::NodeclBase _identity;
                 bool _need_equal_initializer;
                 bool _is_constructor;
 
@@ -66,24 +65,24 @@ namespace TL
                 void sign_in_scope(Scope sc, Type types) const;
 
                 UDRInfoItem2 bases_lookup(Type type,
-                        AST_t reductor_tree,
+                        Nodecl::NodeclBase reductor_tree,
                         bool &found) const;
 
                 UDRInfoItem2 argument_dependent_lookup(Type type,
-                        AST_t reductor_tree,
+                        Nodecl::NodeclBase reductor_tree,
                         bool &found, Scope sc) const;
 
                 UDRInfoItem2 lookup_udr(Scope sc,
                         bool &found,
                         Type udr_type,
-                        AST_t reductor_tree,
+                        Nodecl::NodeclBase reductor_tree,
                         int udr_counter) const;
 
                 std::string get_symbol_name(Type t) const;
 
-                AST_t parse_omp_udr_operator_name(const std::string &omp_udr_oper_name, 
-                        AST_t ref_tree,
-                        ScopeLink sl);
+                Nodecl::NodeclBase parse_omp_udr_operator_name(
+                        Source::ReferenceScope ref_scope,
+                        const std::string &omp_udr_oper_name);
 
                 // Getters, setters and consults
                 std::string get_name() const;
@@ -92,8 +91,8 @@ namespace TL
                 Type get_type() const;
                 void set_type(Type t);
 
-                AST_t get_combine_expr() const;
-                void set_combine_expr(AST_t combine_expr);
+                Nodecl::NodeclBase get_combine_expr() const;
+                void set_combine_expr(Nodecl::NodeclBase combine_expr);
 
                 Symbol get_in_symbol() const;
                 void set_in_symbol(Symbol s);
@@ -110,9 +109,9 @@ namespace TL
                 bool get_need_equal_initializer() const;
                 void set_need_equal_initializer(bool need_equal_init);
                 bool has_identity() const; 
-                AST_t get_identity() const;
-                AST_t get_raw_identity() const;
-                void set_identity(AST_t identity);
+                Nodecl::NodeclBase get_identity() const;
+                Nodecl::NodeclBase get_raw_identity() const;
+                void set_identity(Nodecl::NodeclBase identity);
                 bool identity_is_constructor() const;
 
                 Symbol get_function_definition_symbol() const;
@@ -121,10 +120,9 @@ namespace TL
 
         // Functions used in tl-omp-core.cpp
         // {
-        void initialize_builtin_udr_reductions_2(AST_t translation_unit, ScopeLink scope_link);
+        void initialize_builtin_udr_reductions_2(Nodecl::NodeclBase translation_unit);
         bool udr_is_builtin_operator_2(const std::string &op_name);
         // }
-#endif
     }
 }
 

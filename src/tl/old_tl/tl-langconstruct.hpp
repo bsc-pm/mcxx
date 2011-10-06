@@ -518,6 +518,11 @@ namespace TL
             //! Returns the symbol expressed by a 'this' expression
             Symbol get_this_symbol();
 
+            //! States whether this is a 'this' access expression
+            /*!
+             * \return True if the expression is of the form 'this->x'
+             */
+            bool is_this_access();
             //! States whether this is a member access expression
             /*!
              * \return True if the expression is of the form 'a.b'

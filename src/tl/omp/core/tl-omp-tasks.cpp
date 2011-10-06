@@ -27,6 +27,7 @@
 
 
 #include "tl-omp-core.hpp"
+#include "tl-nodecl-alg.hpp"
 
 namespace TL
 {
@@ -125,6 +126,16 @@ namespace TL
         {
         }
 
+        Symbol FunctionTaskInfo::get_symbol() const
+        {
+            return _sym;
+        }
+
+        FunctionTaskInfo::implementation_table_t FunctionTaskInfo::get_implementation_table() const
+        {
+           return _implementation_table;
+        }
+        
         ObjectList<Symbol> FunctionTaskInfo::get_involved_parameters() const
         {
             ObjectList<Symbol> result;
@@ -133,9 +144,9 @@ namespace TL
                     it != _parameters.end();
                     it++)
             {
-                Expression expr(it->get_data_reference());
+                Nodecl::NodeclBase expr(it->get_data_reference());
 
-                ObjectList<Symbol> current_syms = expr.all_symbol_occurrences().map(functor(&IdExpression::get_symbol));
+                ObjectList<Symbol> current_syms = Nodecl::Utils::get_all_symbols(expr);
                 result.insert(current_syms);
             }
 
@@ -199,7 +210,16 @@ namespace TL
         {
             return _real_time_info;
         }
-
+        
+        void FunctionTaskInfo::set_if_clause_conditional_expression(Nodecl::NodeclBase expr)
+        {
+            _if_clause_cond_expr = expr;
+        }
+        
+        Nodecl::NodeclBase FunctionTaskInfo::get_if_clause_conditional_expression() const
+        {
+            return _if_clause_cond_expr;
+        }
 
         FunctionTaskSet::FunctionTaskSet()
         {
@@ -246,7 +266,7 @@ namespace TL
             return _map.find(sym)->second;
         }
 
-        bool FunctionTaskSet::add_function_task(Symbol sym, const FunctionTaskInfo& function_info)
+        void FunctionTaskSet::add_function_task(Symbol sym, const FunctionTaskInfo& function_info)
         {
             std::pair<Symbol, FunctionTaskInfo> pair(sym, function_info);
             _map.insert(pair);
@@ -266,13 +286,12 @@ namespace TL
         {
             private:
                 DependencyDirection _direction;
-                AST_t _ref_tree;
-                ScopeLink _sl;
+                Nodecl::NodeclBase _ref_tree;
 
             public:
                 FunctionTaskDependencyGenerator(DependencyDirection direction,
-                        AST_t ref_tree, ScopeLink sl)
-                    : _direction(direction), _ref_tree(ref_tree), _sl(sl)
+                        Nodecl::NodeclBase ref_tree)
+                    : _direction(direction), _ref_tree(ref_tree)
                 {
                 }
 
@@ -280,11 +299,12 @@ namespace TL
                 {
                     Source src;
                     src
-                        << "#line " << _ref_tree.get_line() << " \"" << _ref_tree.get_file() << "\"\n"
+                        << "#line " << _ref_tree.get_line() << " \"" << _ref_tree.get_filename() << "\"\n"
                         << str;
 
-                    AST_t expr_tree = src.parse_expression(_ref_tree, _sl);
-                    DataReference expr(expr_tree, _sl);
+                    Nodecl::NodeclBase expr_tree = src.parse_expression(_ref_tree);
+
+                    DataReference expr(expr_tree);
 
                     return FunctionTaskDependency(expr, _direction);
                 }
@@ -294,13 +314,12 @@ namespace TL
         {
             private:
                 CopyDirection _copy_direction;
-                AST_t _ref_tree;
-                ScopeLink _sl;
+                Nodecl::NodeclBase _ref_tree;
 
             public:
                 FunctionCopyItemGenerator(CopyDirection copy_direction,
-                        AST_t ref_tree, ScopeLink sl)
-                    : _copy_direction(copy_direction), _ref_tree(ref_tree), _sl(sl)
+                        Nodecl::NodeclBase ref_tree)
+                    : _copy_direction(copy_direction), _ref_tree(ref_tree)
                 {
                 }
 
@@ -308,12 +327,12 @@ namespace TL
                 {
                     Source src;
                     src
-                        << "#line " << _ref_tree.get_line() << " \"" << _ref_tree.get_file() << "\"\n"
+                        << "#line " << _ref_tree.get_line() << " \"" << _ref_tree.get_filename() << "\"\n"
                         << str
                         ;
 
-                    AST_t expr_tree = src.parse_expression(_ref_tree, _sl);
-                    DataReference data_ref(expr_tree, _sl);
+                    Nodecl::NodeclBase expr_tree = src.parse_expression(_ref_tree);
+                    DataReference data_ref(expr_tree);
 
                     return CopyItem(data_ref, _copy_direction);
                 }
@@ -321,10 +340,12 @@ namespace TL
 
         static bool is_useless_dependence(const FunctionTaskDependency& function_dep)
         {
-            Expression expr(function_dep.get_data_reference());
-            if (expr.is_id_expression())
+            internal_error("Not yet implemented", 0);
+            Nodecl::NodeclBase expr(function_dep.get_data_reference());
+
+            if (expr.is<Nodecl::Symbol>())
             {
-                Symbol sym = expr.get_id_expression().get_computed_symbol();
+                Symbol sym = expr.get_symbol();
                 if (sym.is_parameter()
                         && !sym.get_type().is_reference())
                 {
@@ -345,11 +366,11 @@ namespace TL
                     it++)
             {
                 DependencyDirection direction(it->get_direction());
-                Expression expr(it->get_data_reference());
+                Nodecl::NodeclBase expr(it->get_data_reference());
 
-                if (expr.is_id_expression())
+                if (expr.is<Nodecl::Symbol>())
                 {
-                    Symbol sym = expr.get_id_expression().get_computed_symbol();
+                    Symbol sym = expr.get_symbol();
                     if (sym.is_parameter()
                             && !sym.get_type().is_reference())
                     {
@@ -361,12 +382,12 @@ namespace TL
                             running_error("%s: error: output dependence '%s' "
                                     "only names a parameter. The value of a parameter is never copied out of a function "
                                     "so it cannot generate an output dependence",
-                                    expr.get_ast().get_locus().c_str(),
+                                    expr.get_locus().c_str(),
                                     expr.prettyprint().c_str());
                         }
                         else
                         {
-                            std::cerr << expr.get_ast().get_locus() << ": warning: "
+                            std::cerr << expr.get_locus() << ": warning: "
                                 "skipping useless dependence '"<< expr.prettyprint() << "'. The value of a parameter "
                                 "is always copied and cannot define an input dependence"
                                 << std::endl;
@@ -379,76 +400,55 @@ namespace TL
             function_task_param_list.erase(begin_remove, function_task_param_list.end());
         }
 
-        void Core::task_function_handler_pre(PragmaCustomConstruct construct)
+        void Core::task_function_handler_pre(TL::PragmaCustomDirective construct)
         {
-            RealTimeInfo rt_info = task_real_time_handler_pre(construct);
+            internal_error("Not yet implemented", 0);
+#if 0
+            TL::PragmaCustomLine pragma_line = construct.get_pragma_line();
 
-            PragmaCustomClause input_clause = construct.get_clause("input");
+            RealTimeInfo rt_info = task_real_time_handler_pre(pragma_line);
+
+            PragmaCustomClause input_clause = pragma_line.get_clause("input");
             ObjectList<std::string> input_arguments;
             if (input_clause.is_defined())
             {
-                input_arguments = input_clause.get_arguments(ExpressionTokenizer());
+                input_arguments = input_clause.get_arguments_as_expressions();
             }
 
-            PragmaCustomClause output_clause = construct.get_clause("output");
+            PragmaCustomClause output_clause = pragma_line.get_clause("output");
             ObjectList<std::string> output_arguments;
             if (output_clause.is_defined())
             {
-                output_arguments = output_clause.get_arguments(ExpressionTokenizer());
+                output_arguments = output_clause.get_arguments_as_expressions();
             }
 
-            PragmaCustomClause inout_clause = construct.get_clause("inout");
+            PragmaCustomClause inout_clause = pragma_line.get_clause("inout");
             ObjectList<std::string> inout_arguments;
             if (inout_clause.is_defined())
             {
-                inout_arguments = inout_clause.get_arguments(ExpressionTokenizer());
+                inout_arguments = inout_clause.get_arguments_as_expressions();
             }
 
-            PragmaCustomClause reduction_clause = construct.get_clause("__shared_reduction");
+            PragmaCustomClause reduction_clause = pragma_line.get_clause("__shared_reduction");
             ObjectList<std::string> reduction_arguments;
             if (reduction_clause.is_defined())
             {
-                reduction_arguments = reduction_clause.get_arguments(ExpressionTokenizer());
+                reduction_arguments = reduction_clause.get_arguments_as_expressions();
             }
 
-            // Now discover whether this is a function definition or a declaration
-            DeclaredEntity decl_entity(AST_t(), construct.get_scope_link());
-            if (Declaration::predicate(construct.get_declaration()))
-            {
-                Declaration decl(construct.get_declaration(), construct.get_scope_link());
-                ObjectList<DeclaredEntity> declared_entities = decl.get_declared_entities();
+            Symbol function_sym = construct.get_symbol();
 
-                if (declared_entities.size() != 1)
-                {
-                    std::cerr << construct.get_ast().get_locus()
-                        << ": warning: '#pragma omp task' construct applied to non suitable declaration, skipping" << std::endl;
-                    return;
-                }
-
-                decl_entity = declared_entities[0];
-            }
-            else if (FunctionDefinition::predicate(construct.get_declaration()))
+            if (!function_sym.is_function())
             {
-                FunctionDefinition funct_def(construct.get_declaration(), construct.get_scope_link());
-                decl_entity = funct_def.get_declared_entity();
-            }
-            else
-            {
-                std::cerr << construct.get_ast().get_locus()
-                    << ": warning: invalid use of '#pragma omp task', skipping" << std::endl;
+                std::cerr << construct.get_locus()
+                    << ": warning: '#pragma omp task' cannot be applied to this declaration since it does not declare a function, skipping" << std::endl;
                 return;
             }
 
-            if (!decl_entity.is_functional_declaration())
-            {
-                std::cerr << construct.get_ast().get_locus()
-                    << ": warning: '#pragma omp task' must precede a single function declaration or a function definition, skipping" << std::endl;
-                return;
-            }
+            Type function_type = function_sym.get_type();
 
             bool has_ellipsis = false;
-            ObjectList<ParameterDeclaration> parameter_decl = decl_entity.get_parameter_declarations(has_ellipsis);
-            Symbol function_sym = decl_entity.get_declared_symbol();
+            function_type.parameters(has_ellipsis);
 
             if (has_ellipsis)
             {
@@ -465,26 +465,20 @@ namespace TL
                 return;
             }
 
+            internal_error("Not yet implemented", 0);
+#if 0
             ObjectList<FunctionTaskDependency> dependence_list;
             FunctionTaskTargetInfo target_info;
 
-            AST_t param_ref_tree = function_sym.get_point_of_declaration();
-            if (parameter_decl.empty()
-                    || (parameter_decl.size() == 1 && parameter_decl[0].get_type().is_void()))
-            {
-                if(!function_sym.is_member() || function_sym.is_static())
-                {
-                    std::cerr << construct.get_ast().get_locus()
-                              << ": warning: '#pragma omp task' "
-                              << "applied to a function with no parameters"
-                              << std::endl;
-                }
-            }
-            else
-            {
-                // Use the first parameter as a reference tree so we can parse the specifications
+            Nodecl::NodeclBase param_ref_tree = function_sym.get_point_of_declaration();
+
+             if(!parameter_decl.empty()
+                 && (parameter_decl.size() != 1 || !parameter_decl[0].get_type().is_void()))
+             {
+                //Use the first parameter as a reference tree so we can parse the specifications
                 param_ref_tree = parameter_decl[0].get_ast();
-            }
+             }
+
              dependence_list.append(input_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_INPUT,
                              param_ref_tree,construct.get_scope_link())));
 
@@ -526,100 +520,109 @@ namespace TL
 
             //adding real time information to the task
             task_info.set_real_time_info(rt_info);
+            
+            // Support if clause 
+            PragmaCustomClause if_clause = construct.get_clause("if");
+            if (if_clause.is_defined())
+            {
+                ObjectList<std::string> expr_list = if_clause.get_arguments();
+                if (expr_list.size() != 1)
+                {
+                    running_error("%s: error: clause 'if' requires just one argument\n",
+                            construct.get_ast().get_locus().c_str());
+                }
+                TL::Nodecl::NodeclBase expr_tree = Source(expr_list[0]).parse_expression(param_ref_tree, construct.get_scope_link()); 
+                Nodecl::NodeclBase cond_expr = Nodecl::NodeclBase(expr_tree, construct.get_scope_link());
+                task_info.set_if_clause_conditional_expression(cond_expr);
+            }
 
             std::cerr << construct.get_ast().get_locus()
                 << ": note: adding task function '" << function_sym.get_name() << "'" << std::endl;
             _function_task_set->add_function_task(function_sym, task_info);
+#endif
+#endif
         }
 
-
-        void Core::task_inline_handler_pre(PragmaCustomConstruct construct)
+        void Core::task_inline_handler_pre(TL::PragmaCustomStatement construct)
         {
-            RealTimeInfo rt_info = task_real_time_handler_pre(construct);
+            TL::PragmaCustomLine pragma_line = construct.get_pragma_line();
 
-            DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
+            RealTimeInfo rt_info = task_real_time_handler_pre(pragma_line);
+            
+            DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct);
             _openmp_info->push_current_data_sharing(data_sharing);
 
             //adding real time information to the task
             data_sharing.set_real_time_info(rt_info);
 
-            get_data_explicit_attributes(construct, data_sharing);
+            get_data_explicit_attributes(pragma_line, data_sharing);
 
-            get_dependences_info(construct, data_sharing);
+            get_dependences_info(pragma_line, data_sharing);
 
-            DataSharingAttribute default_data_attr = get_default_data_sharing(construct, /* fallback */ DS_UNDEFINED);
+            DataSharingAttribute default_data_attr = get_default_data_sharing(pragma_line, /* fallback */ DS_UNDEFINED);
             get_data_implicit_attributes_task(construct, data_sharing, default_data_attr);
 
             // Target info applies after
-            get_target_info(construct, data_sharing);
+            get_target_info(pragma_line, data_sharing);
         }
 
 
-        RealTimeInfo Core::task_real_time_handler_pre(PragmaCustomConstruct construct)
+        RealTimeInfo Core::task_real_time_handler_pre(TL::PragmaCustomLine construct)
         {
             RealTimeInfo rt_info;
-
-             
 
             //looking for deadline clause
             PragmaCustomClause deadline_clause = construct.get_clause("deadline");
             if (deadline_clause.is_defined())
             {
-                ObjectList<std::string> deadline_args =
-                    deadline_clause.get_arguments(ExpressionTokenizer());
+                ObjectList<Nodecl::NodeclBase> deadline_exprs =
+                    deadline_clause.get_arguments_as_expressions();
                 
-                if(deadline_args.size() != 1) 
+                if(deadline_exprs.size() != 1) 
                 {
-                    std::cerr << construct.get_ast().get_locus()
+                    std::cerr << construct.get_locus()
                               << ": warning: '#pragma omp task deadline' "
                               << "has a wrong number of arguments, skipping"
                               << std::endl;
                 }
                 else 
                 {
-                    std::cerr << "warning: '#pragma omp task deadline' "
-                              << "is not implemented yet."
-                              << std::endl;
+                    rt_info.set_time_deadline(deadline_exprs[0]);
                 }
 
             }
 
             //looking for release_deadline clause
-            PragmaCustomClause release_deadline_clause = construct.get_clause("release_deadline");
-            if (release_deadline_clause.is_defined())
+            PragmaCustomClause release_clause = construct.get_clause("release_after");
+            if (release_clause.is_defined())
             {
-                ObjectList<std::string> release_deadline_args =
-                    release_deadline_clause.get_arguments(ExpressionTokenizer());
+                ObjectList<Nodecl::NodeclBase> release_exprs =
+                    release_clause.get_arguments_as_expressions();
                 
-                if(release_deadline_args.size() != 1) 
+                if(release_exprs.size() != 1) 
                 {
-                    std::cerr << construct.get_ast().get_locus()
+                    std::cerr << construct.get_locus()
                               << ": warning: '#pragma omp task release_deadline' "
                               << "has a wrong number of arguments, skipping"
                               << std::endl;
                 }
                 else
                 {
-                    std::cerr << "warning: '#pragma omp task release_deadline' "
-                              << "is not implemented yet."
-                              << std::endl;
+                    rt_info.set_time_release(release_exprs[0]);
                 }
             }
             
-            //looking for on_error clause
-            ObjectList<std::string> names;
-            names.push_back("on_error");
-            names.push_back("onerror");
-            PragmaCustomClause on_error_clause = construct.get_clause(names);
+            //looking for onerror clause
+            PragmaCustomClause on_error_clause = construct.get_clause("onerror");
             if (on_error_clause.is_defined())
             {
                 ObjectList<std::string> on_error_args =
-                    on_error_clause.get_arguments(ExpressionTokenizer());
+                    on_error_clause.get_tokenized_arguments(ExpressionTokenizer());
                 
                 if(on_error_args.size() != 1) 
                 {
-                    std::cerr << construct.get_ast().get_locus()
-                              << ": warning: '#pragma omp task on_error' "
+                    std::cerr << construct.get_locus()
+                              << ": warning: '#pragma omp task onerror' "
                               << "has a wrong number of arguments, skipping"
                               << std::endl;
                 }
@@ -627,26 +630,24 @@ namespace TL
                 {
                     Lexer l = Lexer::get_current_lexer();
 
-                    ObjectList<int> tokens = l.lex_string(on_error_args[0]);
+                    ObjectList<Lexer::pair_token> tokens = l.lex_string(on_error_args[0]);
                     switch (tokens.size())
                     {
                         
                         // tokens structure: 'indentifier'
                         case 1:
                         {
-                            if ((IS_C_LANGUAGE   && (tokens[0] != TokensC::IDENTIFIER)) ||
-                                (IS_CXX_LANGUAGE && (tokens[0] != TokensCXX::IDENTIFIER)))
+                            if ((IS_C_LANGUAGE   && (tokens[0].first != TokensC::IDENTIFIER)) ||
+                                (IS_CXX_LANGUAGE && (tokens[0].first != TokensCXX::IDENTIFIER)))
                             {
-                                  std::cerr << construct.get_ast().get_locus()
+                                  std::cerr << construct.get_locus()
                                             << ": warning: '#pragma omp task onerror' "
                                             << "first token must be an identifier, skipping"
                                             << std::endl;
                             }
                             else
                             {
-                                std::cerr << "warning: '#pragma omp task on_error' "
-                                          << "is not implemented yet."
-                                          << std::endl;
+                                rt_info.add_error_behavior(tokens[0].second);
                             }
                             break;
                         }
@@ -654,41 +655,39 @@ namespace TL
                         //tokens structure: 'identifier:identifier'
                         case 3:
                         {
-                            if ((IS_C_LANGUAGE   && (tokens[0] != TokensC::IDENTIFIER)) ||
-                                (IS_CXX_LANGUAGE && (tokens[0] != TokensCXX::IDENTIFIER)))
+                            if ((IS_C_LANGUAGE   && (tokens[0].first != TokensC::IDENTIFIER)) ||
+                                (IS_CXX_LANGUAGE && (tokens[0].first != TokensCXX::IDENTIFIER)))
                             {
-                                std::cerr << construct.get_ast().get_locus()
-                                          << ": warning: '#pragma omp task on_error' "
+                                std::cerr << construct.get_locus()
+                                          << ": warning: '#pragma omp task onerror' "
                                           << "first token must be an identifier, skipping"
                                           << std::endl;
                             }
-                            else if (tokens[1] != (int)':')
+                            else if (tokens[1].first != (int)':')
                             {
-                                std::cerr << construct.get_ast().get_locus()
-                                          << ": warning: '#pragma omp task on_error' "
+                                std::cerr << construct.get_locus()
+                                          << ": warning: '#pragma omp task onerror' "
                                           << "second token must be a colon, skipping"
                                           << std::endl;
                             }
-                            else if ((IS_C_LANGUAGE   && (tokens[2] != TokensC::IDENTIFIER)) ||
-                                     (IS_CXX_LANGUAGE && (tokens[2] != TokensCXX::IDENTIFIER)))
+                            else if ((IS_C_LANGUAGE   && (tokens[2].first != TokensC::IDENTIFIER)) ||
+                                     (IS_CXX_LANGUAGE && (tokens[2].first != TokensCXX::IDENTIFIER)))
                             {
-                                std::cerr << construct.get_ast().get_locus()
-                                          << ": warning: '#pragma omp task on_error' "
+                                std::cerr << construct.get_locus()
+                                          << ": warning: '#pragma omp task onerror' "
                                           << "third token must be an identifier, skipping"
                                           << std::endl;
                             }
                             else
                             {
-                                std::cerr << "warning: '#pragma omp task on_error' "
-                                          << "is not implemented yet."
-                                          << std::endl;
+                                rt_info.add_error_behavior(tokens[0].second, tokens[2].second);
                             }
                             break;
                         }
                         default:
                         {
                             std::cerr 
-                                  << construct.get_ast().get_locus()
+                                  << construct.get_locus()
                                   << ": warning: '#pragma omp task onerror' "
                                   << "has a wrong number of tokens. "
                                   << "It is expecting 'identifier:identifier' "
@@ -698,6 +697,7 @@ namespace TL
                     }
                 }
             }
+
             return rt_info;
         }
     }
