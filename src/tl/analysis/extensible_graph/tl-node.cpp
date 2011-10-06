@@ -792,14 +792,13 @@ namespace TL
             ue_aux = get_ue_vars();
             for(ext_sym_set::iterator it = ue_aux.begin(); it != ue_aux.end(); ++it)
             {
-                if (killed_vars.find(*it) == killed_vars.end())
+                if (!killed_vars.contains(*it))
                 {
                     ue_vars.insert(*it);
                 }
             }
             // Compute killed variables
-            killed_aux = get_killed_vars();
-            killed_vars.insert(killed_aux.begin(), killed_aux.end());
+            killed_vars.insert(get_killed_vars());
             
             // Complete the use-def info for every children of the node
             ObjectList<Node*> children = get_children();
@@ -813,14 +812,13 @@ namespace TL
                     ue_aux = use_def_aux[0];
                     for(ext_sym_set::iterator it = ue_aux.begin(); it != ue_aux.end(); ++it)
                     {
-                        if (killed_vars.find(*it) == killed_vars.end())
+                        if (!killed_vars.contains(*it))
                         {
                             ue_vars.insert(*it);
                         }
                     }
                     // Compute killed variables
-                    killed_aux = use_def_aux[1];
-                    killed_vars.insert(killed_aux.begin(), killed_aux.end());
+                    killed_vars.insert(use_def_aux[1]);
                 }
             }
             
@@ -884,9 +882,8 @@ namespace TL
                     actual = (*it);
                 }
                 actual = actual->advance_over_non_statement_nodes();
-                
-                live_in_aux = actual->get_live_in_vars();
-                live_in_vars.insert(live_in_aux.begin(), live_in_aux.end());
+               
+                live_in_vars.insert(actual->get_live_in_vars());
             }
         }
         
@@ -908,8 +905,7 @@ namespace TL
         else
         {   // Node has more than one parent
             ObjectList<Node*> actual_parents = actual->get_parents();
-            
-            ext_sym_set live_out_aux;
+           
             for(ObjectList<Node*>::iterator it = actual_parents.begin();
                 it != actual_parents.end();
                 ++it)
@@ -924,9 +920,8 @@ namespace TL
                     actual = (*it);
                 }
                 actual = actual->back_over_non_statement_nodes();
-                
-                live_out_aux = actual->get_live_out_vars();
-                live_out_vars.insert(live_out_aux.begin(), live_out_aux.end());
+               
+                live_out_vars.insert(actual->get_live_out_vars());
             }
         }
         
@@ -1028,16 +1023,13 @@ namespace TL
     void Node::set_ue_var(ExtensibleSymbol new_ue_var)
     {
         ext_sym_set ue_vars;
-        
-        std::cerr << "inserting UE var " << c_cxx_codegen_to_str(new_ue_var.get_nodecl().get_internal_nodecl()) << std::endl;
+       
         
         if (this->has_key(_UPPER_EXPOSED))
         {   
             ue_vars = get_data<ext_sym_set>(_UPPER_EXPOSED);
-            std::cerr << "       size before: " << ue_vars.size() << std::endl;
         }
         ue_vars.insert(new_ue_var);
-        std::cerr << "       size after: " << ue_vars.size() << std::endl;
         
         set_data(_UPPER_EXPOSED, ue_vars);
     }

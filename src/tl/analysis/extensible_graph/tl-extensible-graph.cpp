@@ -36,7 +36,6 @@ namespace TL
     {
         _graph = create_graph_node(NULL, Nodecl::NodeclBase::null(), "extensible_graph");
         _last_nodes.append(_graph->get_graph_entry_node());
-        std::cerr << "Creating extensible graph for funtion " << name << std::endl;
     }
 
     ExtensibleGraph* ExtensibleGraph::copy()

@@ -120,7 +120,7 @@ namespace TL
         else
         {
             ext_sym_set killed_vars = get_killed_vars();
-            if (killed_vars.find(s) == killed_vars.end())
+            if (!killed_vars.contains(s))
             {
                 set_ue_var(s);
             }
@@ -205,8 +205,7 @@ namespace TL
                                     itic != inner_children.end();
                                     ++itic)
                                 {
-                                    ext_sym_set aux_set = (*itic)->get_live_in_vars();
-                                    aux_live_in.insert(aux_set.begin(), aux_set.end());
+                                    aux_live_in.insert((*itic)->get_live_in_vars());
                                 }
                             }
                             else if (nt == BASIC_EXIT_NODE)
@@ -216,15 +215,14 @@ namespace TL
                                     itoc != outer_children.end();
                                     ++itoc)
                                 {
-                                    ext_sym_set aux_set = (*itoc)->get_live_in_vars();
-                                    aux_live_in.insert(aux_set.begin(), aux_set.end());
+                                    aux_live_in.insert((*itoc)->get_live_in_vars());
                                 }
                             }
                             else
                             {
                                 aux_live_in = (*it)->get_live_in_vars();
                             }
-                            live_out.insert(aux_live_in.begin(), aux_live_in.end());
+                            live_out.insert(aux_live_in);
                         }
                         
                         aux = sets_difference(live_out, actual->get_killed_vars());
@@ -407,14 +405,13 @@ namespace TL
      */
     static nodecl_t match_nodecl_with_symbol(Nodecl::NodeclBase n, Symbol s, Nodecl::NodeclBase s_map)
     {
-        std::cerr << "Matching in UE/DEF var '" << c_cxx_codegen_to_str(n.get_internal_nodecl()) 
-                  << "' symbol '" << s.get_name() << "' to be substituted with '" << c_cxx_codegen_to_str(s_map.get_internal_nodecl())
-                  << "'" << std::endl;
+//         std::cerr << "Matching in UE/DEF var '" << c_cxx_codegen_to_str(n.get_internal_nodecl()) 
+//                   << "' symbol '" << s.get_name() << "' to be substituted with '" << c_cxx_codegen_to_str(s_map.get_internal_nodecl())
+//                   << "'" << std::endl;
         if (n.is<Nodecl::Symbol>() || n.is<Nodecl::PointerToMember>())
         {
             if (n.get_symbol() == s)
             {
-                std::cerr << "    equal symbols" << std::endl;
                 return nodecl_copy(s_map.copy().get_internal_nodecl());
             }
             return ::nodecl_null();
@@ -588,7 +585,6 @@ namespace TL
                     it != basic_block.end();
                     ++it)
             {
-                std::cerr << "Analyising node " << node->get_id() << std::endl;
                 CfgAnalysisVisitor cfg_analysis_visitor(node);
                 cfg_analysis_visitor.walk(*it);
             }

@@ -661,7 +661,8 @@ namespace TL
                 scope_entry_t* next_sym_ = next_sym.get_internal_symbol();
                 struct AST_tag* def = next_sym_->point_of_definition;
                 // TODO
-                std::cerr << " Nodecl of function has value '" << prettyprint_in_buffer(def) << "'" << std::endl;
+                internal_error("Task pragma '%s' at declaration level. Not implemented yet",
+                                prettyprint_in_buffer(def));
             }
             else
             {   // Nothing to do. Variable declarations do not create any graph
@@ -738,7 +739,6 @@ namespace TL
                 || pragma == "task")
             {
                 // We include here a Flush node before the pragma statements
-                // FIXME Review Task here!!
                 Node* flush_node = new Node(_actual_cfg->_nid, FLUSH_NODE, pragma_graph_node);
                 _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, flush_node);
                 _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(flush_node);
@@ -751,8 +751,7 @@ namespace TL
             {
                 internal_error("Unexpected omp pragma construct '%s' while building the CFG", pragma.c_str());
             }
-        
-            // FIXME When core phase works, this will not be necessary. It will be the phase which will perform this transformation
+       
             if (pragma == "sections" || pragma == "parallel|sections")
             {   // push a new struct in the stack to store info about entries and exits
                 struct omp_pragma_sections_t actual_sections_info(_actual_cfg->_last_nodes);
@@ -766,7 +765,8 @@ namespace TL
                         scope_entry_t* next_sym_ = next_sym.get_internal_symbol();
                         struct AST_tag* def = next_sym_->point_of_definition;
                         // TODO
-                        std::cerr << " Nodecl of function has value '" << prettyprint_in_buffer(def) << "'" << std::endl;
+                        internal_error("Sections pragma '%s' at declaration level. Not implemented yet",
+                                       prettyprint_in_buffer(def));
                     }
                     else
                     {   // Nothing to do. Variable declarations do not create any graph
@@ -781,7 +781,7 @@ namespace TL
                     Nodecl::CompoundStatement sections_compound_stmt = sections_stmt_list[0].as<Nodecl::CompoundStatement>();
                     Nodecl::List sections_stmts = sections_compound_stmt.get_statements().as<Nodecl::List>();
                     if (!sections_stmts.empty() && !sections_stmts[0].is<Nodecl::PragmaCustomStatement>())
-                    {
+                    {   // FIXME When core phase works, this will not be necessary. The phase will perform this transformation
                         const char* text = "section";
                         const char* filename =  n.get_filename().c_str();
                         int line = n.get_line();
@@ -822,7 +822,8 @@ namespace TL
                         scope_entry_t* next_sym_ = next_sym.get_internal_symbol();
                         struct AST_tag* def = next_sym_->point_of_definition;
                         // TODO
-                        std::cerr << " Nodecl of function has value '" << prettyprint_in_buffer(def) << "'" << std::endl;
+                        internal_error("Non sections pragma '%s' at declaration level. Not implemented yet",
+                                       prettyprint_in_buffer(def));
                     }
                     else
                     {   // Nothing to do. Variable declarations do not create any graph

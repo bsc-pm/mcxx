@@ -25,8 +25,6 @@ Cambridge, MA 02139, USA.
 #ifndef EXTENSIBLE_SYMBOL_HPP
 #define EXTENSIBLE_SYMBOL_HPP
 
-#include <set>
-
 #include "tl-nodecl.hpp"
 #include "tl-symbol.hpp"
 
@@ -98,20 +96,8 @@ namespace TL
             bool operator<(const ExtensibleSymbol &es) const;
     };
     
-    
-    //! Compare class for ExtensibleSymbols
-    /*!
-      It is used as Comparison Class when a std::set of ExtensibleSymbols is built.
-     */
-    struct ExtensibleSymbol_comp
-    {
-        bool operator() (const ExtensibleSymbol& es1, const ExtensibleSymbol& es2) const
-        { 
-            return es1 < es2; 
-        }
-    };
-    
-    typedef std::set<ExtensibleSymbol, ExtensibleSymbol_comp> ext_sym_set;
+    // FIXME This should be changed by an unordered_set in c++0x
+    typedef ObjectList<ExtensibleSymbol> ext_sym_set;
 }
 
 #endif // EXTENSIBLE_SYMBOL_HPP

@@ -24,6 +24,7 @@ Cambridge, MA 02139, USA.
 
 #include <algorithm>
 
+
 #include "cxx-codegen.h"
 #include "cxx-process.h"
 
@@ -181,16 +182,16 @@ namespace TL
         // a < b -> ¬ (b > a)
         // a == b <=> ¬(a < b) /\ ¬(b < a)
         if (equal_nodecls(_n, es._n))
-        {    
-        std::cerr << "Nodecl " << c_cxx_codegen_to_str(_n.get_internal_nodecl()) 
-                  << " == " << c_cxx_codegen_to_str(es._n.get_internal_nodecl()) << " are the same " << std::endl;                
+        {   
             return false;
         }
         else
         {
-                    std::cerr << "Nodecl " << c_cxx_codegen_to_str(_n.get_internal_nodecl()) 
-                  << " == " << c_cxx_codegen_to_str(es._n.get_internal_nodecl()) << " are different " << std::endl;           
-            return nodecl_get_ast(_n.get_internal_nodecl()) < nodecl_get_ast(es._n.get_internal_nodecl());
+            AST this_ast = nodecl_get_ast(_n.get_internal_nodecl());
+            AST es_ast = nodecl_get_ast(es._n.get_internal_nodecl());
+            bool less_than = this_ast < es_ast;
+           
+            return  less_than;
         }
     }
 }
