@@ -1656,7 +1656,6 @@ type_t* template_type_get_specialized_type_after_type(type_t* t,
 
     specialized_symbol->line = line;
     specialized_symbol->file = filename;
-    specialized_symbol->point_of_declaration = primary_symbol->point_of_declaration;
 
     // Keep information of the entity except for template_is_declared which
     // must be cleared at this point

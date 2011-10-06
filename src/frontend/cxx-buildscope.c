@@ -248,8 +248,6 @@ static scope_entry_t* find_function_declaration(AST declarator_id,
         gather_decl_spec_t* gather_info,
         decl_context_t decl_context);
 
-static AST get_enclosing_declaration(AST point_of_declarator);
-
 static void build_scope_pragma_custom_directive(AST a, decl_context_t decl_context, 
         nodecl_t* nodecl_output);
 static void build_scope_pragma_custom_construct_declaration(AST a, 
@@ -1372,7 +1370,6 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                     {
                         // Define the symbol
                         entry->defined = 1;
-                        entry->point_of_definition = get_enclosing_declaration(init_declarator);
                     }
                 }
 
@@ -2274,7 +2271,6 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
 
             new_class->line = ASTLine(id_expression);
             new_class->file = ASTFileName(id_expression);
-            new_class->point_of_declaration = get_enclosing_declaration(id_expression);
 
             if ((!gather_info->is_template
                         || !gather_info->no_declarators)
@@ -2311,7 +2307,6 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
 
                     new_class->line = ASTLine(a);
                     new_class->file = ASTFileName(a);
-                    new_class->point_of_declaration = get_enclosing_declaration(id_expression);
 
                     new_class->entity_specs.is_friend_declared = is_friend_class_declaration;
 
@@ -2331,7 +2326,6 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
                     // Update some fields
                     class_entry->line = ASTLine(a);
                     class_entry->file = ASTFileName(a);
-                    class_entry->point_of_declaration = get_enclosing_declaration(id_expression);
 
                     class_type = class_entry->type_information;
                 }
@@ -2567,7 +2561,6 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a,
             scope_entry_t* new_enum = new_symbol(new_decl_context, new_decl_context.current_scope, enum_name);
             new_enum->line = ASTLine(id_expression);
             new_enum->file = ASTFileName(id_expression);
-            new_enum->point_of_declaration = get_enclosing_declaration(id_expression);
             new_enum->kind = SK_ENUM;
             new_enum->type_information = get_new_enum_type(decl_context);
 
@@ -2905,7 +2898,6 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
             new_entry = new_symbol(decl_context, decl_context.current_scope, enum_name_str);
             new_entry->line = ASTLine(enum_name);
             new_entry->file = ASTFileName(enum_name);
-            new_entry->point_of_declaration = get_enclosing_declaration(a);
             new_entry->kind = SK_ENUM;
             new_entry->type_information = get_new_enum_type(decl_context);
         }
@@ -2931,7 +2923,6 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
         new_entry = new_symbol(decl_context, decl_context.current_scope, uniquestr(c));
         new_entry->line = ASTLine(a);
         new_entry->file = ASTFileName(a);
-        new_entry->point_of_declaration = get_enclosing_declaration(a);
         new_entry->kind = SK_ENUM;
         new_entry->type_information = get_new_enum_type(decl_context);
 
@@ -2950,7 +2941,6 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
     type_t* underlying_type = get_signed_int_type();
 
     new_entry->defined = 1;
-    new_entry->point_of_definition = get_enclosing_declaration(a);
     // Since this type is not anonymous we'll want that type_info
     // refers to this newly created type
     *type_info = get_user_defined_type(new_entry);
@@ -2995,7 +2985,6 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
             scope_entry_t* enumeration_item = new_symbol(enumerators_context, enumerators_context.current_scope, ASTText(enumeration_name));
             enumeration_item->line = ASTLine(enumeration_name);
             enumeration_item->file = ASTFileName(enumeration_name);
-            enumeration_item->point_of_declaration = get_enclosing_declaration(enumeration_name);
             enumeration_item->kind = SK_ENUMERATOR;
 
             if (enumeration_expr != NULL)
@@ -5112,9 +5101,6 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
             }
             class_entry->decl_context.template_parameters = decl_context.template_parameters;
 
-            // Update point of declaration
-            class_entry->point_of_declaration = get_enclosing_declaration(class_id_expression);
-
             inner_decl_context = new_class_context(class_entry->decl_context, class_entry);
             class_type_set_inner_context(class_type, inner_decl_context);
         }
@@ -5165,7 +5151,6 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
 
             class_entry->line = ASTLine(class_id_expression);
             class_entry->file = ASTFileName(class_id_expression);
-            class_entry->point_of_declaration = get_enclosing_declaration(class_id_expression);
 
             // Create the class type for this newly created class
             if (!gather_info->is_template)
@@ -5189,7 +5174,6 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
 
                     class_entry->file = ASTFileName(class_id_expression);
                     class_entry->line = ASTLine(class_id_expression);
-                    class_entry->point_of_declaration = get_enclosing_declaration(class_id_expression);
 
                     // Set it as a member if needed
                     if (decl_context.current_scope->kind == CLASS_SCOPE)
@@ -5208,7 +5192,6 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                     // Update some fields
                     class_entry->file = ASTFileName(class_id_expression);
                     class_entry->line = ASTLine(class_id_expression);
-                    class_entry->point_of_declaration = get_enclosing_declaration(class_id_expression);
 
                     class_type = class_entry->type_information;
                 }
@@ -5269,7 +5252,6 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
         class_entry->type_information = get_new_class_type(decl_context, class_kind);
         class_type = class_entry->type_information;
 
-        class_entry->point_of_declaration = get_enclosing_declaration(a);
         class_entry->line = ASTLine(a);
         class_entry->file = ASTFileName(a);
 
@@ -5381,7 +5363,6 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     entry_list_free(declared_symbols);
 
     class_entry->defined = 1;
-    class_entry->point_of_definition = get_enclosing_declaration(a);
 
     class_type_set_instantiation_trees(class_type, member_specification, base_clause);
 
@@ -6806,7 +6787,6 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
 
     entry->line = ASTLine(declarator_id);
     entry->file = ASTFileName(declarator_id);
-    entry->point_of_declaration = get_enclosing_declaration(declarator_id);
 
     // Dealing with typedefs against function types
     //
@@ -6917,13 +6897,6 @@ static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* decl
         if (check_list != NULL)
         {
             scope_entry_t* entry = entry_list_head(check_list);
-
-            // Always use the latest one, unfortunately a variable can be
-            // declared several times by means of "extern" keyword
-            if (!entry->entity_specs.is_member)
-            {
-                entry->point_of_declaration = get_enclosing_declaration(declarator_id);
-            }
             return entry;
         }
 
@@ -6963,7 +6936,6 @@ static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* decl
 
         entry->line = ASTLine(declarator_id);
         entry->file = ASTFileName(declarator_id);
-        entry->point_of_declaration = get_enclosing_declaration(declarator_id);
         entry->kind = SK_VARIABLE;
         entry->type_information = declarator_type;
 
@@ -7023,7 +6995,6 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
             new_entry->kind = SK_FUNCTION;
             new_entry->line = ASTLine(declarator_id);
             new_entry->file = ASTFileName(declarator_id);
-            new_entry->point_of_declaration = get_enclosing_declaration(declarator_id);
 
             new_entry->entity_specs.is_friend_declared = gather_info->is_friend;
         }
@@ -7068,7 +7039,6 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
             new_entry->kind = SK_TEMPLATE;
             new_entry->line = ASTLine(declarator_id);
             new_entry->file = ASTFileName(declarator_id);
-            new_entry->point_of_declaration = get_enclosing_declaration(declarator_id);
 
             new_entry->entity_specs.is_friend_declared = gather_info->is_friend;
 
@@ -7092,7 +7062,6 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
             // Update info
             new_entry->line = ASTLine(declarator_id);
             new_entry->file = ASTFileName(declarator_id);
-            new_entry->point_of_declaration = get_enclosing_declaration(declarator_id);
         }
 
         DEBUG_CODE()
@@ -8023,8 +7992,6 @@ static void build_scope_template_template_parameter(AST a,
 
     new_entry->line = ASTLine(a);
     new_entry->file = ASTFileName(a);
-    new_entry->point_of_declaration = 
-        (ASTSon1(a) == NULL) ? a : ASTSon1(a);
 
     new_entry->kind = SK_TEMPLATE_TEMPLATE_PARAMETER;
 
@@ -8168,7 +8135,6 @@ static void build_scope_type_template_parameter(AST a,
 
     new_entry->line = line;
     new_entry->file = file;
-    new_entry->point_of_declaration = name;
     new_entry->kind = SK_TEMPLATE_TYPE_PARAMETER;
 
     new_entry->entity_specs.is_template_parameter = 1;
@@ -8353,7 +8319,6 @@ static void build_scope_namespace_alias(AST a, decl_context_t decl_context)
 
     alias_entry->line = ASTLine(alias_ident);
     alias_entry->file = ASTFileName(alias_ident);
-    alias_entry->point_of_declaration = alias_ident;
     alias_entry->kind = SK_NAMESPACE;
     alias_entry->related_decl_context = entry->related_decl_context;
 }
@@ -8430,7 +8395,6 @@ static void build_scope_namespace_definition(AST a,
 
             entry->line = ASTLine(namespace_name);
             entry->file = ASTFileName(namespace_name);
-            entry->point_of_declaration = namespace_name;
             entry->kind = SK_NAMESPACE;
             entry->related_decl_context = namespace_context;
 
@@ -8489,7 +8453,6 @@ static void build_scope_namespace_definition(AST a,
 
             entry->line = ASTLine(a);
             entry->file = ASTFileName(a);
-            entry->point_of_declaration = a;
             entry->kind = SK_NAMESPACE;
             entry->related_decl_context = namespace_context;
 
@@ -8555,8 +8518,6 @@ void build_scope_kr_parameter_declaration(scope_entry_t* function_entry UNUSED_P
                 entry->type_information = get_signed_int_type();
                 entry->line = ASTLine(kr_param);
                 entry->file = ASTFileName(kr_param);
-
-                entry->point_of_declaration = kr_param;
             }
             else
             {
@@ -8884,8 +8845,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
         entry->entity_specs.emission_handler = NULL;
         entry->entity_specs.emission_template = NULL;
     }
-    entry->point_of_definition = get_enclosing_declaration(a);
-
+    
     // Keep parameter names
     int i;
     for (i = 0; i < gather_info.num_parameters; i++)
@@ -8972,7 +8932,6 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
             this_symbol->line = ASTLine(function_body);
             this_symbol->file = ASTFileName(function_body);
 
-            this_symbol->point_of_declaration = function_body;
             this_symbol->kind = SK_VARIABLE;
             this_symbol->type_information = this_type;
             this_symbol->defined = 1;
@@ -9122,10 +9081,8 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     {
         *nodecl_output = nodecl_make_list_1(nodecl_function_def);
     }
-    else
-    {
-        entry->entity_specs.template_code = nodecl_function_def;
-    }
+
+    entry->entity_specs.function_code = nodecl_function_def;
 
     return entry;
 }
@@ -10097,8 +10054,6 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                         bitfield_symbol->entity_specs.bitfield_size_context = decl_context;
 
                         bitfield_symbol->defined = 1;
-                        bitfield_symbol->point_of_declaration = get_enclosing_declaration(declarator);
-                        bitfield_symbol->point_of_definition = get_enclosing_declaration(declarator);
 
                         if (declared_symbols != NULL)
                         {
@@ -10192,7 +10147,6 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                         if (entry->kind == SK_FUNCTION)
                         {
                             update_member_function_info(declarator_name, is_constructor, entry, class_type);
-                            entry->point_of_declaration = get_enclosing_declaration(declarator);
 
                             // This function might be hiding using declarations, remove those
                             hide_using_declarations(class_type, entry);
@@ -10208,8 +10162,6 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                 }
                                 // This is a nonstatic data member
                                 entry->defined = 1;
-                                entry->point_of_declaration = get_enclosing_declaration(declarator);
-                                entry->point_of_definition = get_enclosing_declaration(declarator);
                             }
                             else
                             {
@@ -10219,13 +10171,13 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                             entry->symbol_name, class_name);
                                 }
                                 // This is a static data member
-                                entry->point_of_declaration = get_enclosing_declaration(declarator);
+                                entry->defined = 0;
                             }
                         }
                         else if (entry->kind == SK_TYPEDEF
                                 || entry->kind == SK_TEMPLATE)
                         {
-                            entry->point_of_declaration = get_enclosing_declaration(declarator);
+                            // Do nothing
                         }
 
                         if (initializer != NULL)
@@ -12024,29 +11976,6 @@ char* get_conversion_function_name(decl_context_t decl_context,
     }
 
     return "$.operator";
-}
-
-static AST get_enclosing_declaration(AST point_of_declarator)
-{
-    AST point = point_of_declarator;
-
-    while (point != NULL
-            && ASTType(point) != AST_SIMPLE_DECLARATION
-            && ASTType(point) != AST_MEMBER_DECLARATION
-            && ASTType(point) != AST_FUNCTION_DEFINITION
-            && ASTType(point) != AST_DELETED_FUNCTION_DEFINITION
-            && ASTType(point) != AST_DEFAULTED_FUNCTION_DEFINITION
-            && ASTType(point) != AST_PARAMETER_DECL
-            && ASTType(point) != AST_EXPLICIT_INSTANTIATION
-            && ASTType(point) != AST_TYPE_ID)
-    {
-        point = ASTParent(point);
-    }
-
-    ERROR_CONDITION(point == NULL,
-            "This cannot be NULL!", 0);
-
-    return point;
 }
 
 nodecl_t internal_expression_parse(const char *source, decl_context_t decl_context)

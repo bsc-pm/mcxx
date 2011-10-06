@@ -105,4 +105,4 @@ typeof(codegen_status_t)|all|*codegen_status|Status during codegen
 typeof(simplify_function_t)|all|*simplify_function|Function used to simplify expressions
 typeof(emission_handler_t)|all|*emission_handler|When is_non_emitted is true, this function can emit it
 nodecl|all|asm_specification|__asm specification of GCC 
-nodecl|all|template_code|Nodecl statement of a template function
+nodecl|all|function_code|Nodecl statement of a function
