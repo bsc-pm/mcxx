@@ -1071,6 +1071,8 @@ static int get_extra_gcc_attrs(void *datum,
     p->symbol->entity_specs.num_gcc_attributes++;
     ERROR_CONDITION(p->symbol->entity_specs.num_gcc_attributes == MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL, 
             "Too many gcc attributes", 0);
+    p->symbol->entity_specs.gcc_attributes = calloc(p->symbol->entity_specs.num_gcc_attributes, 
+            sizeof(*p->symbol->entity_specs.gcc_attributes));
     p->symbol->entity_specs.gcc_attributes[p->symbol->entity_specs.num_gcc_attributes-1].attribute_name = uniquestr(attr_name);
     p->symbol->entity_specs.gcc_attributes[p->symbol->entity_specs.num_gcc_attributes-1].expression_list = 
         _nodecl_wrap(load_ast(p->handle, safe_atoll(tree)));

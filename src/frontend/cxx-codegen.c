@@ -2015,7 +2015,7 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
 
                 const char* gcc_attributes = "";
                 int i;
-                for (i = 0; i < MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL; i++)
+                for (i = 0; i < symbol->entity_specs.num_gcc_attributes; i++)
                 {
                     if (symbol->entity_specs.gcc_attributes[i].attribute_name != NULL)
                     {
@@ -4160,7 +4160,7 @@ static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t no
 
     const char* gcc_attributes = "";
     int num_attrs = 0;
-    for (i = 0; i < MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL; i++)
+    for (i = 0; i < symbol->entity_specs.num_gcc_attributes; i++)
     {
         if (symbol->entity_specs.gcc_attributes[i].attribute_name != NULL)
             num_attrs++;
