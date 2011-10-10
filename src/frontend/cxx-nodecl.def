@@ -94,7 +94,9 @@ loop-control: NODECL_LOOP_CONTROL([init]expression-opt, [cond]expression-opt, [n
 pragma-directive: NODECL_PRAGMA_CUSTOM_DIRECTIVE([pragma_line]pragma-line) text
                 | pragma-declaration
 
-pragma-declaration: NODECL_PRAGMA_CUSTOM_DECLARATION([pragma_line]pragma-line, [nested_pragma]pragma-declaration-opt) text symbol
+pragma-declaration: NODECL_PRAGMA_CUSTOM_DECLARATION([pragma_line]pragma-line, [nested_pragma]pragma-declaration-opt, [context_of_decl]pragma-context, [context_of_parameters]pragma-context-opt) text symbol
+
+pragma-context : NODECL_PRAGMA_CONTEXT() context
 
 pragma-statement : NODECL_PRAGMA_CUSTOM_STATEMENT([pragma_line]pragma-line, [statement]statement-seq) text
 
