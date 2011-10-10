@@ -42,11 +42,11 @@ CONFIG_FILES =  \
        50.config.ocl \
        10.config.omp-base \
        50.config.omp.mercurium \
-       50.config.omp.intel \
-       50.config.omp.ibm \
-       50.config.omp.nvidia \
        50.config.omp.profiling \
        50.config.omp.fortran \
+       55.config.omp.intel \
+       55.config.omp.ibm \
+       55.config.omp.nvidia \
        10.config.sscc-common \
        50.config.sscc \
        50.config.sscxx \

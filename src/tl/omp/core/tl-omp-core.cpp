@@ -211,6 +211,7 @@ namespace TL
                         {
                             std::cerr << data_ref.get_ast().get_locus() << ": ignoring: '" << data_ref 
                                 << "' since nonstatic data members cannot appear un data-sharing clauses" << std::endl;
+                            continue;
                         }
 
                         data_ref_list.append(data_ref);
@@ -850,7 +851,8 @@ namespace TL
                 Symbol sym = it->get_symbol();
 
                 if (!sym.is_valid()
-                        || !sym.is_variable())
+                        || !sym.is_variable()
+                        || (sym.is_member() && !sym.is_static()))
                     continue;
 
                 DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym);

@@ -449,7 +449,10 @@ namespace TL
 
             //! States whether this is an id-expression
             bool is_id_expression();
-            //! Returns an id-expression
+            //! States whether this is an id-expression
+            bool is_accessed_member();
+            //! Returns an id-expression. 
+            // Only valid if is_id_expression, is_member_acces return true
             IdExpression get_id_expression();
 
             //! States whether this is a binary operation
@@ -515,6 +518,11 @@ namespace TL
             //! Returns the symbol expressed by a 'this' expression
             Symbol get_this_symbol();
 
+            //! States whether this is a 'this' access expression
+            /*!
+             * \return True if the expression is of the form 'this->x'
+             */
+            bool is_this_access();
             //! States whether this is a member access expression
             /*!
              * \return True if the expression is of the form 'a.b'

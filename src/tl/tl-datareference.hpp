@@ -71,6 +71,7 @@ namespace TL
                     Source &addr, 
                     Type& type,
                     bool enclosing_is_array,
+                    bool & pointer_access_member,
                     std::stringstream& warnlog);
 
             static bool gather_info_data_expr(Expression &expr, 
@@ -109,7 +110,7 @@ namespace TL
               use this function to check it
               */
             bool is_valid(std::string& reason) const;
-
+            
             //! Returns the warning log
             /*!
               This is the same message as is_valid(std::string&) stores in its first parameter

@@ -37,13 +37,16 @@ using namespace TL::Nanox;
 void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 {
     OpenMP::DataSharingEnvironment& data_sharing = openmp_info->get_data_sharing(ctr.get_ast());
-
+    
+    //if the task is a function task rt_info must be changed
+    OpenMP::RealTimeInfo rt_info = data_sharing.get_real_time_info();
+    
     ObjectList<OpenMP::DependencyItem> dependences;
     data_sharing.get_all_dependences(dependences);
 
     DataEnvironInfo data_environ_info;
     compute_data_environment(data_sharing,
-            ctr.get_scope_link(),
+            ctr,
             data_environ_info,
             _converted_vlas);
     data_environ_info.set_local_copies(true);
@@ -168,6 +171,10 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
         OpenMP::FunctionTaskInfo& function_task_info 
             = function_task_set->get_function_task(task_symbol);
+        
+        //sets the right value to rt_info 
+        rt_info = function_task_info.get_real_time_info();
+
         ObjectList<OpenMP::FunctionTaskInfo::implementation_pair_t> implementation_list 
             = function_task_info.get_devices_with_implementation();
 
@@ -236,12 +243,6 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
     Source dependency_array, num_dependences, dependency_struct, dependency_regions;
 
-    fill_data_args("ol_args", 
-            data_environ_info, 
-            dependences, 
-            /* is_pointer */ true,
-            fill_outline_arguments);
-
     bool immediate_is_alloca = false;
     bool env_is_runtime_sized = data_environ_info.environment_is_runtime_sized();
 
@@ -249,6 +250,16 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
     {
         immediate_is_alloca = true;
     }
+    if(function_symbol.is_member() && !function_symbol.is_static()) 
+    {
+            fill_outline_arguments << "ol_args->_this = this;";
+            fill_immediate_arguments  << "imm_args" << (immediate_is_alloca ? "->" : ".") << "_this = this;";
+    }
+    fill_data_args("ol_args", 
+            data_environ_info, 
+            dependences, 
+            /* is_pointer */ true,
+            fill_outline_arguments);
 
     fill_data_args(
             "imm_args",
@@ -268,7 +279,6 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
     if (if_clause.is_defined())
     {
         ObjectList<Expression> expr_list = if_clause.get_expression_list();
-
         if (expr_list.size() != 1)
         {
             running_error("%s: error: clause 'if' requires just one argument\n",
@@ -611,6 +621,61 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         alignment <<  "__alignof__(" << struct_arg_type_name << "),"
             ;
     }
+    
+    Source fill_real_time_info;
+    if(Nanos::Version::interface_is_at_least("realtime",1000)) 
+    {
+        Source release_after, deadline, onerror;
+        fill_real_time_info 
+            << deadline
+            << release_after
+            << onerror
+            ;
+        //Adds release time information
+        if(rt_info.has_release_time())
+        {
+            release_after << "props._release_after = "
+                          << rt_info.get_time_release().prettyprint() << ";";
+        }
+        else
+        {
+            release_after << "props._release_after = -1;";
+        }
+       
+        //Adds deadline time information
+        if(rt_info.has_deadline_time())
+        {
+            deadline  << "props._deadline_time = "
+                      << rt_info.get_time_deadline().prettyprint() << ";";
+        }
+        else
+        {
+            deadline << "props._deadline_time = -1;";
+        }
+
+        //Adds action error information
+        //looking for the event 'OMP_DEADLINE_EXPIRED'
+        std::string action = 
+            rt_info.get_action_error(OpenMP::RealTimeInfo::OMP_DEADLINE_EXPIRED); 
+        
+        if(action != "")
+        {
+            onerror  << "props._onerror_action = " << action << ";";
+        }
+        else 
+        {
+            //looking for the event 'OMP_ANY_EVENT'
+            action = rt_info.get_action_error(OpenMP::RealTimeInfo::OMP_ANY_EVENT); 
+            if(action != "") 
+            {
+                onerror  << "props._onerror_action = " << action << ";";
+            }
+            else
+            {
+                onerror  << "props._onerror_action = OMP_NO_ACTION;";
+            }
+        }
+    }
 
     // Global device
     AST_t device_tree = device_description.parse_declaration(ctr.get_ast().get_enclosing_function_definition_declaration().get_parent(), 
@@ -627,6 +692,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         <<     creation
         <<     priority
         <<     tiedness
+        <<     fill_real_time_info
         <<     copy_decl
         <<     "nanos_err_t err;"
         <<     if_expr_cond_start

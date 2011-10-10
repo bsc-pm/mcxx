@@ -34,6 +34,7 @@
 
 #include "c99-parser.h"
 #include "cxx-parser.h"
+#include "cxx-lexer.h"
 #ifdef FORTRAN_SUPPORT
 #include "fortran03-parser.h"
 #endif
@@ -56,16 +57,22 @@ extern "C"
     extern void mc99_delete_buffer(YY_BUFFER_STATE b);
     extern int mc99lex(void);
 
+    extern token_atrib_t mc99lval;
+
     extern YY_BUFFER_STATE mcxx_scan_string (const char *yy_str);
     extern void mcxx_switch_to_buffer (YY_BUFFER_STATE new_buffer);
     extern void mcxx_delete_buffer(YY_BUFFER_STATE b);
     extern int mcxxlex(void);
+
+    extern token_atrib_t mcxxlval;
 
 #ifdef FORTRAN_SUPPORT
     extern YY_BUFFER_STATE mf03_scan_string (const char *yy_str);
     extern void mf03_switch_to_buffer (YY_BUFFER_STATE new_buffer);
     extern void mf03_delete_buffer(YY_BUFFER_STATE b);
     extern int mf03lex(void);
+
+    extern token_atrib_t mf03lval;
 #endif
 }
 
@@ -74,7 +81,7 @@ namespace TL {
     class LexerImpl
     {
         public:
-        virtual ObjectList<int> lex_string(const std::string& str) = 0;
+        virtual ObjectList<Lexer::pair_token> lex_string(const std::string& str) = 0;
 
         LexerImpl() { }
         virtual ~LexerImpl() { }
@@ -83,9 +90,9 @@ namespace TL {
     class LexerImpl_C : public LexerImpl
     {
         public:
-        ObjectList<int> lex_string(const std::string& str)
+        ObjectList<Lexer::pair_token> lex_string(const std::string& str)
         {
-            ObjectList<int> result;
+            ObjectList<Lexer::pair_token> result;
 
             char *line = ::strdup(str.c_str());
 			YY_BUFFER_STATE scan_line = mc99_scan_string(line);
@@ -94,7 +101,11 @@ namespace TL {
 			int token = mc99lex();
 			while (token != 0)
 			{
-                result.append(token);
+                std::string token_text;
+                if (mc99lval.token_text != NULL)
+                    token_text = mc99lval.token_text;
+
+                result.append(Lexer::pair_token(token, token_text));
                 token = mc99lex();
             }
 
@@ -109,9 +120,9 @@ namespace TL {
     class LexerImpl_CXX : public LexerImpl
     {
         public:
-        ObjectList<int> lex_string(const std::string& str)
+        ObjectList<Lexer::pair_token> lex_string(const std::string& str)
         {
-            ObjectList<int> result;
+            ObjectList<Lexer::pair_token> result;
 
             char *line = ::strdup(str.c_str());
 			YY_BUFFER_STATE scan_line = mcxx_scan_string(line);
@@ -120,7 +131,11 @@ namespace TL {
 			int token = mcxxlex();
 			while (token != 0)
 			{
-                result.append(token);
+                std::string token_text;
+                if (mcxxlval.token_text != NULL)
+                    token_text = mcxxlval.token_text;
+
+                result.append(Lexer::pair_token(token, token_text));
                 token = mcxxlex();
             }
 
@@ -135,13 +150,13 @@ namespace TL {
     class LexerImpl_Fortran : public LexerImpl
     {
         public:
-        ObjectList<int> lex_string(const std::string& str)
+        ObjectList<Lexer::pair_token> lex_string(const std::string& str)
         {
 #ifndef FORTRAN_SUPPORT
             internal_error("Fortran not supported", 0);
-            return ObjectList<int>();
+            return ObjectList<Lexer::pair_token>();
 #else
-            ObjectList<int> result;
+            ObjectList<Lexer::pair_token> result;
 
             char *line = ::strdup(str.c_str());
 			YY_BUFFER_STATE scan_line = mf03_scan_string(line);
@@ -150,7 +165,11 @@ namespace TL {
 			int token = mf03lex();
 			while (token != 0)
 			{
-                result.append(token);
+                std::string token_text;
+                if (mf03lval.token_text != NULL)
+                    token_text = mf03lval.token_text;
+
+                result.append(Lexer::pair_token(token, token_text));
                 token = mf03lex();
             }
 
@@ -234,7 +253,7 @@ namespace TL {
         delete _lexer;
     }
 
-    ObjectList<int> Lexer::lex_string(const std::string &str)
+    ObjectList<Lexer::Lexer::pair_token> Lexer::lex_string(const std::string &str)
     {
         return _lexer->lex_string(str);
     }

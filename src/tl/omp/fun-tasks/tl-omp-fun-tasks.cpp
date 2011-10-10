@@ -177,6 +177,9 @@ namespace OpenMP
             Source new_stmt_src;
             Source additional_decls;
             Source new_call;
+
+            AST_t location;
+
             new_stmt_src
                 << "{"
                 << additional_decls
@@ -188,6 +191,7 @@ namespace OpenMP
                 << "#line " << it->get_line() << " \"" << it->get_file() << "\"\n"
                 << new_call << ";"
                 << "}"
+                << statement_placeholder(location)
                 << "}"
                 ;
 
@@ -206,13 +210,13 @@ namespace OpenMP
             ObjectList<int> parameters_as_dependences;
 
             ObjectList<Expression> argument_list = expr.get_argument_list();
+           
            /* get dependences */ 
             ObjectList<Symbol> sym_list = task_info.get_involved_parameters();
             for (ObjectList<Symbol>::iterator it2 = sym_list.begin();
                     it2 != sym_list.end();
                     it2++)
             {
-
                 Symbol &current_sym(*it2);
                 if (current_sym.is_parameter())
                 {
@@ -259,6 +263,7 @@ namespace OpenMP
             Source fp_inout_args;
             Source reduction_args;
             Source shared_args;
+            Source firstprivate_args;
 
             for (ObjectList<FunctionTaskDependency>::iterator it2 = task_params.begin();
                     it2 != task_params.end();
@@ -301,7 +306,7 @@ namespace OpenMP
                 if (!base_sym.is_parameter() && base_sym.is_member())
                 {
                     Source src;
-                    src << "__tmp_this." << base_sym.get_name();
+                    src << "__tmp_this->" << base_sym.get_name();
                     replace.add_replacement(base_sym,src.get_source());
                 }
                 (*args).append_with_separator(replace.replace(data_ref),",");
@@ -318,23 +323,23 @@ namespace OpenMP
                 if (callee.is_member_access())
                 {
                     called_object_type = callee.get_accessed_entity().get_type();
+                    
+                    if (called_object_type.is_reference())
+                        called_object_type = called_object_type.references_to();
+                    
+                    called_object_type = called_object_type.get_pointer_to();
 
-                    new_callee << "__tmp_this." << callee.get_accessed_member();
+                    new_callee << "__tmp_this->" << callee.get_accessed_member();
 
-                    init_this << callee.get_accessed_entity();
+                    init_this << "&(" << callee.get_accessed_entity() << ")";
                 }
                 else if (callee.is_pointer_member_access())
                 {
                     called_object_type = callee.get_accessed_entity().get_type();
 
-                    if (called_object_type.is_reference())
-                        called_object_type = called_object_type.references_to();
+                    new_callee << "__tmp_this->" << callee.get_accessed_member();
 
-                    called_object_type = called_object_type.points_to().get_reference_to();
-
-                    new_callee << "__tmp_this." << callee.get_accessed_member();
-
-                    init_this << "*" << callee.get_accessed_entity();
+                    init_this << callee.get_accessed_entity();
                 }
                 else if (callee.is_id_expression())
                 {
@@ -344,12 +349,12 @@ namespace OpenMP
                         running_error("%s: error: invalid nonstatic member call\n",
                                 expr.get_ast().get_locus().c_str());
                     }
-                    called_object_type = this_sym.get_type().points_to().get_reference_to();
+                    called_object_type = this_sym.get_type();
 
-                    new_callee << "__tmp_this." << callee
+                    new_callee << "__tmp_this->" << callee
                         ;
 
-                    init_this << "*this";
+                    init_this << "this";
                 }
                 else
                 {
@@ -357,18 +362,12 @@ namespace OpenMP
                             expr.get_ast().get_locus().c_str());
                 }
 
-                if (sym.get_type().is_const())
-                {
-                    fp_input_args.append_with_separator("__tmp_this", ",");
-                }
-                else
-                {
-                    shared_args.append_with_separator("__tmp_this", ",");
-                }
+                //By default, 'this' will be firstprivate
+                firstprivate_args.append_with_separator("__tmp_this", ",");
 
                 additional_decls
                     << "#line " << expr.get_ast().get_line() << " \"" << expr.get_ast().get_file() << "\"\n" 
-                    << called_object_type.get_declaration(callee.get_scope(), "__tmp_this") << "(" << init_this << ");"
+                    << called_object_type.get_declaration(callee.get_scope(), " __tmp_this") << " = " << init_this << ";"
                     ;
             }
             else
@@ -415,6 +414,7 @@ namespace OpenMP
 
                 std::stringstream var;
                 var << "__tmp_" << i;
+              
 
                 additional_decls
                     << "#line " << it->get_line() << " \"" << it->get_file() << "\"\n"
@@ -431,7 +431,6 @@ namespace OpenMP
 
             // Now check parameters that do not appear in dependences since
             // they must appear in firstprivate
-            Source firstprivate_args;
             for (unsigned int i = 0; i < argument_list.size(); i++)
             {
                 if (!parameters_as_dependences.contains(i))
@@ -492,6 +491,8 @@ namespace OpenMP
             //     arg_clauses << " __implemented(" << it2->first << ", " << it2->second.get_qualified_name() << ")"
             //         ;
             // }
+            
+            
 
             FunctionTaskTargetInfo target_info = task_info.get_target_info();
 
@@ -669,10 +670,70 @@ namespace OpenMP
                 }
             }
 
+            //support if clause
+            if(task_info.has_if_clause())
+            {
+                // we need to replace the symbols in the if clause because
+                // this symbols are from a different scope.
+                Expression cond_expr = task_info.get_if_clause_conditional_expression();
+                
+                //replace parameters in the clause
+                AST_t func_decl_ast = sym.get_point_of_declaration();
+                FunctionDefinition func_def(func_decl_ast, scope_link);
+                DeclaredEntity decl_entity = func_def.get_declared_entity();
+                ObjectList<ParameterDeclaration> params = decl_entity.get_parameter_declarations();
+                int param_num = 0;
+                for(ObjectList<ParameterDeclaration>::iterator it = params.begin();
+                    it != params.end(); 
+                    ++it)
+                {
+                    IdExpression expr = (*it).get_name();
+                    std::stringstream tmp_param_name;
+                    tmp_param_name << "__tmp_" << param_num;
+                    replace.add_replacement(expr.get_symbol(), tmp_param_name.str());
+                    ++param_num;
+                }
+
+                //replace data members in the clause
+                ObjectList<IdExpression> all_sym = cond_expr.all_symbol_occurrences();
+                for(ObjectList<IdExpression>::iterator it = all_sym.begin();
+                    it != all_sym.end(); 
+                    ++it)
+                {
+                    Symbol act_sym = (*it).get_symbol();
+                    
+                    //add a new declaration for every used data member in the clause
+                    if(act_sym.is_member() && !act_sym.is_static())
+                    {
+                        std::stringstream tmp_data_member_name;
+                        tmp_data_member_name << "__tmp_" << param_num;
+
+                        additional_decls  << "const " 
+                                          << act_sym.get_type().get_declaration(
+                                                    (*it).get_scope(),tmp_data_member_name.str())
+                                          << " = __tmp_this->" << act_sym.get_name() 
+                                          << ";";
+                        
+                        replace.add_replacement(act_sym, tmp_data_member_name.str());
+                        ++param_num;
+                    }
+                }
+                //do all replaces in the conditional expression
+                arg_clauses << " if ( "<< replace.replace(cond_expr) <<" )";
+            }
+
             AST_t new_stmt_tree = new_stmt_src.parse_statement(stmt.get_ast(),
                     scope_link);
 
             stmt.get_ast().replace(new_stmt_tree);
+
+            Scope sc = scope_link.get_scope(location);
+            // FIXME - This lookup should be constrained to the current scope only
+            Symbol tmp_this_sym = sc.get_symbol_from_name("__tmp_this");
+            if (tmp_this_sym.is_valid())
+            {
+                tmp_this_sym.set_attribute("IS_TMP_THIS", true);
+            }
         }
     }
 

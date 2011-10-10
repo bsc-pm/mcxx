@@ -335,10 +335,10 @@ AC_ARG_ENABLE([nanox-regions],
     if test x$enableval = xyes -o x$enableval = x;
     then
         nanox_regions="yes"
-        AC_MSG_RESULT([yes])
+        AC_MSG_RESULT([yes, --enable-nanox-regions=yes])
     else if test x$enableval = xno;
          then
-            AC_MSG_RESULT([no])
+            AC_MSG_RESULT([no, --enable-nanox-regions=no])
             nanox_regions="no"
          else
             AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
@@ -346,13 +346,37 @@ AC_ARG_ENABLE([nanox-regions],
     fi
   ],
   [
-    if test x$is_enabled_openmpt = xyes;
+    # Autodetect by checking headers
+    nanos_h_interface_is_at_least_6000=no
+    nanos_h=$nanox_include/nanos.h
+    if test -e $nanos_h ; 
     then
-        nanox_regions="yes"
-        AC_MSG_RESULT([yes (ENCORE)])
+        pragma_nanos_interface=`$SED -ne '/^\s*#\s*pragma\s\+nanos\s\+interface\s\+family\s*(\s*master\s*)/p' $nanos_h`
+        nanox_family_version=`echo $pragma_nanos_interface | sed -e 's/^.*version(\(@<:@0-9@:>@\+\)).*$/\1/'`
+        if test "$nanox_family_version" -ge 6000;
+        then
+            nanos_h_interface_is_at_least_6000=yes
+        fi
+
+        if test $nanos_h_interface_is_at_least_6000 = xyes;
+        then
+             nanox_regions="no"
+             AC_MSG_RESULT([yes (Supported by Nanos++)])
+        else
+             AC_MSG_RESULT([no (Not supported by Nanos++, master API $nanox_family_version is <6000)])
+             if test x$is_enabled_openmpt = xyes;
+             then
+                 AC_MSG_WARN([ENCORE support requested but could not ensure regions are supported by Nanos++])
+             fi
+        fi
     else
         nanox_regions="no"
-        AC_MSG_RESULT([no])
+        if test x$nanox_include = x;
+        then
+              AC_MSG_RESULT([no, disabled by default])
+        else
+              AC_MSG_RESULT([no, nanos.h not found in Nanos++ include directory])
+        fi
     fi
   ]
 )
@@ -463,7 +487,7 @@ AC_SUBST([CUDA_LIBS])
 
 if test x$gpu_valid = xyes;
 then
-   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.nvidia"
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.nvidia"
    COMPILER_NAMES="${COMPILER_NAMES} mnvcc mnvcxx"
 fi
 
@@ -589,7 +613,7 @@ then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 10.config.omp-base 50.config.omp.mercurium"
    TL_EXTENSIONS="${TL_EXTENSIONS} omp"
 
-   if x$is_enabled_tl_omp_profile = xyes;
+   if test x$is_enabled_tl_omp_profile = xyes;
    then
        TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} profile"
        COMPILER_NAMES="${COMPILER_NAMES} omp-profcc omp-profcxx"
@@ -610,9 +634,9 @@ then
       COMPILER_NAMES="${COMPILER_NAMES} imcxx"
    fi
 
-   if test x$ICC != x -o test x$ICPC != x;
+   if test x$ICC != x -o x$ICPC != x;
    then
-      INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.intel"
+      INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.intel"
    fi
 
    dnl XL (gcc driver)
@@ -630,9 +654,9 @@ then
    fi
 
 
-   if test x$GXLC != x -o test x$GXLCXX != x;
+   if test x$GXLC != x -o x$GXLCXX != x;
    then
-      INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.ibm"
+      INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.ibm"
    fi
 
 fi
