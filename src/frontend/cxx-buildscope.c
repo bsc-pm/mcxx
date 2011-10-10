@@ -243,10 +243,11 @@ static void build_exception_spec(type_t* function_type, AST a, gather_decl_spec_
 
 static char is_constructor_declarator(AST a);
 
-static scope_entry_t* find_function_declaration(AST declarator_id, 
+static char find_function_declaration(AST declarator_id, 
         type_t* declarator_type, 
         gather_decl_spec_t* gather_info,
-        decl_context_t decl_context);
+        decl_context_t decl_context,
+        scope_entry_t** result_entry);
 
 static void build_scope_pragma_custom_directive(AST a, decl_context_t decl_context, 
         nodecl_t* nodecl_output);
@@ -6546,11 +6547,11 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
                 {
                     scope_entry_t *entry = NULL;
 
-                    entry = find_function_declaration(declarator_id, declarator_type, gather_info, decl_context);
+                    char ok = find_function_declaration(declarator_id, declarator_type, gather_info, decl_context, &entry);
 
                     CXX_LANGUAGE()
                     {
-                        if (entry != NULL)
+                        if (ok && entry != NULL)
                         {
                             update_function_default_arguments(entry, declarator_type, gather_info);
                         }
@@ -6628,11 +6629,11 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
                         declarator_type = get_const_qualified_type(get_new_function_type(get_void_type(), NULL, 0));
                     }
 
-                    entry = find_function_declaration(declarator_id, declarator_type, gather_info, decl_context);
+                    char ok = find_function_declaration(declarator_id, declarator_type, gather_info, decl_context, &entry);
 
                     CXX_LANGUAGE()
                     {
-                        if (entry != NULL)
+                        if (ok && entry != NULL)
                         {
                             update_function_default_arguments(entry, declarator_type, gather_info);
                         }
@@ -6946,7 +6947,10 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
         gather_decl_spec_t* gather_info, decl_context_t decl_context)
 {
     scope_entry_t* entry = NULL;
-    entry = find_function_declaration(declarator_id, declarator_type, gather_info, decl_context);
+    char ok = find_function_declaration(declarator_id, declarator_type, gather_info, decl_context, &entry);
+
+    if (!ok)
+        return NULL;
 
     if (entry == NULL)
     {
@@ -7217,11 +7221,14 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
     }
 }
 
-static scope_entry_t* find_function_declaration(AST declarator_id, 
+static char find_function_declaration(AST declarator_id, 
         type_t* declarator_type, 
         gather_decl_spec_t* gather_info,
-        decl_context_t decl_context)
+        decl_context_t decl_context,
+        scope_entry_t** result_entry)
 {
+    *result_entry = NULL;
+
     decl_flags_t decl_flags = DF_NONE;
     if (BITMAP_TEST(decl_context.decl_flags, DF_CONSTRUCTOR))
     {
@@ -7274,7 +7281,8 @@ static scope_entry_t* find_function_declaration(AST declarator_id,
         {
             if (gather_info->is_friend)
             {
-                return entry;
+                *result_entry = entry;
+                return 1;
             }
             continue;
         }
@@ -7296,7 +7304,7 @@ static scope_entry_t* find_function_declaration(AST declarator_id,
                         ast_location(declarator_id),
                         prettyprint_in_buffer(declarator_id));
             }
-            return NULL;
+            return 0;
         }
 
         if (entry->entity_specs.is_member
@@ -7358,14 +7366,14 @@ static scope_entry_t* find_function_declaration(AST declarator_id,
                 {
                     if (!checking_ambiguity())
                     {
-                        error_printf("%s: error: function '%s' has been declared with different prototype (see '%s:%d')", 
+                        error_printf("%s: error: function '%s' has been declared with different prototype (see '%s:%d')\n", 
                                 ast_location(declarator_id),
                                 ASTText(declarator_id),
                                 entry->file,
                                 entry->line
                                 );
                     }
-                    return NULL;
+                    return 0;
                 }
                 equal_entry = considered_symbol;
                 found_equal = 1;
@@ -7416,7 +7424,7 @@ static scope_entry_t* find_function_declaration(AST declarator_id,
                         ast_location(declarator_id),
                         prettyprint_in_buffer(declarator_id));
             }
-            return NULL;
+            return 0;
         }
 
         scope_entry_t* result = counted_calloc(1, sizeof(*result), &_bytes_used_buildscope);
@@ -7430,7 +7438,8 @@ static scope_entry_t* find_function_declaration(AST declarator_id,
         result->value = nodecl_name;
         result->type_information = declarator_type;
 
-        return result;
+        *result_entry = result;
+        return 1;
     }
 
     // Second attempt, match a specialization of a template function
@@ -7460,14 +7469,12 @@ static scope_entry_t* find_function_declaration(AST declarator_id,
 
     entry_list_free(entry_list);
 
-    if (!found_equal)
+    if (found_equal)
     {
-        return NULL;
+        *result_entry = equal_entry;
     }
-    else
-    {
-        return equal_entry;
-    }
+
+    return 1;
 }
 
 /*
@@ -11393,8 +11400,31 @@ static int pragma_nesting = 0;
 static nodecl_t nodecl_pragma_output = NODECL_STATIC_NULL;
 // - End of state for pragma declaration processing -
 
+// Picks the context of the first non null parameter
+static decl_context_t get_prototype_context_if_any(decl_context_t decl_context,
+        scope_entry_t* entry)
+{
+    decl_context_t result = decl_context;
+
+    if (entry->kind == SK_FUNCTION)
+    {
+        int i;
+        for (i = 0; i < entry->entity_specs.num_related_symbols; i++)
+        {
+            if (entry->entity_specs.related_symbols[i] != NULL)
+            {
+                result = entry->entity_specs.related_symbols[i]->decl_context;
+                break;
+            }
+        }
+    }
+
+    return result;
+}
+
 static void finish_pragma_declaration(
         scope_entry_list_t* declared_symbols,
+        decl_context_t decl_context,
         nodecl_t nodecl_pragma_line,
         nodecl_t nodecl_decl,
         const char* text,
@@ -11426,8 +11456,10 @@ static void finish_pragma_declaration(
                     nodecl_make_pragma_custom_declaration(
                         nodecl_copy(nodecl_pragma_line), 
                         nodecl_null(), 
-                        nodecl_make_pragma_context(entry->decl_context, entry->file, entry->line),
-                        nodecl_null(),
+                        nodecl_make_pragma_context(decl_context, entry->file, entry->line),
+                        nodecl_make_pragma_context(
+                            get_prototype_context_if_any(decl_context, entry), 
+                            entry->file, entry->line),
                         entry, 
                         text, filename, line));
         }
@@ -11445,15 +11477,16 @@ static void finish_pragma_declaration(
             ERROR_CONDITION(nodecl_get_kind(list[i]) != NODECL_PRAGMA_CUSTOM_DECLARATION, 
                     "Invalid node in nodecl_pragma_output", 0);
 
+            nodecl_t pragma_context = nodecl_get_child(list[i], 2);
+            nodecl_t prototype_context = nodecl_get_child(list[i], 3);
+
             nodecl_pragma_output = nodecl_append_to_list(
                     nodecl_pragma_output,
                     nodecl_make_pragma_custom_declaration(
                         nodecl_copy(nodecl_pragma_line), 
                         list[i], 
-                        nodecl_make_pragma_context(nodecl_get_symbol(list[i])->decl_context, 
-                            nodecl_get_symbol(list[i])->file, 
-                            nodecl_get_symbol(list[i])->line),
-                        nodecl_null(),
+                        nodecl_copy(pragma_context),
+                        nodecl_copy(prototype_context),
                         nodecl_get_symbol(list[i]), 
                         text, filename, line));
         }
@@ -11486,6 +11519,7 @@ static void build_scope_pragma_custom_construct_declaration(AST a,
     ERROR_CONDITION(pragma_nesting < 0, "Invalid pragma nesting", 0);
 
     finish_pragma_declaration(declared_symbols, 
+            decl_context,
             nodecl_pragma_line, nodecl_decl,
             ASTText(a), ASTFileName(a), ASTLine(a),
             nodecl_output);
@@ -11536,6 +11570,7 @@ static void build_scope_pragma_custom_construct_member_declaration(AST a,
     ERROR_CONDITION(pragma_nesting < 0, "Invalid pragma nesting", 0);
 
     finish_pragma_declaration(declared_symbols,
+            decl_context,
             nodecl_pragma_line, nodecl_member_decl,
             ASTText(a), ASTFileName(a), ASTLine(a),
             nodecl_output);
