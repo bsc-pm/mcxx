@@ -94,7 +94,62 @@ static void symbol_dump_graphviz(FILE* f, scope_entry_t* entry)
             symbol_name = get_qualified_symbol_name(entry, entry->decl_context);
         }
     }
-    fprintf(f, "sym_%zd[shape=rectangle,label=\"%s\\n%s:%d\"]", (size_t)entry, symbol_name, entry->file, entry->line);
+    fprintf(f, "sym_%zd[shape=rectangle,label=\"%s\\n%s:%d\"]\n", (size_t)entry, symbol_name, entry->file, entry->line);
+}
+
+static void scope_t_dump_graphviz(FILE* f, scope_t* scope)
+{
+    size_t s = (size_t)scope;
+
+    fprintf(f, "scope_%zd[label=\"SCOPE %p\", shape=rectangle, layer=\"scopes\"]\n", s, scope);
+}
+
+static int decl_context_t_dump_graphviz(FILE* f, decl_context_t decl_context)
+{
+    static int i = 1;
+
+
+#define DUMP_ALL \
+    DUMP_SCOPE(block) \
+    DUMP_SCOPE(prototype) \
+    DUMP_SCOPE(class) \
+    DUMP_SCOPE(function) \
+    DUMP_SCOPE(namespace) \
+    DUMP_SCOPE(global) \
+    DUMP_SCOPE(current) 
+
+
+#define DUMP_SCOPE(name) \
+    if (decl_context.name##_scope != NULL) \
+    { \
+        scope_t_dump_graphviz(f, decl_context.name##_scope); \
+    }
+    DUMP_ALL
+#undef DUMP_SCOPE
+
+    int num = 0;
+#define DUMP_SCOPE(name) \
+    if (decl_context.name##_scope != NULL) \
+    { \
+        if (num != 0) \
+            fprintf(f, "| "); \
+        fprintf(f, "<%s> %s", #name, #name); \
+        num++; \
+    }
+    fprintf(f, "decl_context_%d[shape=record, layer=\"scopes\", label=\"{<context> Context|", i);
+    DUMP_ALL
+    fprintf(f, "}\"]\n");
+#undef DUMP_SCOPE
+
+#define DUMP_SCOPE(name) \
+    if (decl_context.name##_scope != NULL) \
+    { \
+        fprintf(f, "decl_context_%d:" #name " -> scope_%zd [style=dashed, layer=\"scopes\"]\n", i, (size_t)decl_context.name##_scope); \
+    }
+    DUMP_ALL
+#undef DUMP_SCOPE
+
+    return i++;
 }
 
 static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int position, char is_extended UNUSED_PARAMETER)
@@ -125,21 +180,21 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int positi
         {
             char *quoted = quote_protect(ASTText(a));
 
-            fprintf(f, "n%zd[shape=%s,label=\"%s\\nNode=%p\\nParent=%p\\n%s\\nText: \\\"%s\\\"\"]\n", 
+            fprintf(f, "n%zd[layer=\"trees\",shape=%s,label=\"%s\\nNode=%p\\nParent=%p\\n%s\\nText: \\\"%s\\\"\"]\n", 
                     current_node, shape, ast_print_node_type(ASTType(a)), a, ASTParent(a), ast_location(a), quoted);
 
             free(quoted);
         }
         else
         {
-            fprintf(f, "n%zd[shape=%s,label=\"%s\\nNode=%p\\nParent=%p\\n%s\"]\n", 
+            fprintf(f, "n%zd[layer=\"trees\",shape=%s,label=\"%s\\nNode=%p\\nParent=%p\\n%s\"]\n", 
                     current_node, shape, ast_print_node_type(ASTType(a)), a, ASTParent(a), ast_location(a));
         }
 
         // Print this only for non extended referenced nodes
         if (parent_node != 0)
         {
-            fprintf(f, "n%zd -> n%zd [label=\"%d\"]\n", parent_node, current_node, position);
+            fprintf(f, "n%zd -> n%zd [layer=\"trees\",label=\"%d\"]\n", parent_node, current_node, position);
         }
 
         if (ASTType(a) != AST_AMBIGUITY)
@@ -184,7 +239,7 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int positi
                         }
 
                         // Add an edge
-                        fprintf(f, "n%zd -> n%zd [label=\"%s\",style=dashed]\n",
+                        fprintf(f, "n%zd -> n%zd [layer=\"trees\",label=\"%s\",style=dashed]\n",
                                 current_node,
                                 (size_t)(child),
                                 field_name);
@@ -201,12 +256,22 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int positi
             }
         }
 
+        if (ASTType(a) == NODECL_CONTEXT || 
+                ASTType(a) == NODECL_PRAGMA_CONTEXT)
+        {
+            int k = decl_context_t_dump_graphviz(f, nodecl_get_decl_context(_nodecl_wrap(a)));
+
+            fprintf(f, "n%zd -> decl_context_%d:context:n [layer=\"scopes\", label=\"%s\",style=dashed]\n",
+                    current_node, k,
+                    "context");
+        }
+
         scope_entry_t* entry = nodecl_get_symbol(_nodecl_wrap(a));
 
         if (entry != NULL)
         {
             symbol_dump_graphviz(f, entry);
-            fprintf(f, "n%zd -> sym_%zd [label=\"%s\",style=dotted]\n",
+            fprintf(f, "n%zd -> sym_%zd [layer=\"symbols\",label=\"%s\",style=dotted]\n",
                     current_node,
                     (size_t)entry,
                     "sym");
@@ -214,7 +279,7 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int positi
     }
     else
     {
-        fprintf(f, "n%zd[shape=circle,label=\"\",fixedsize=true,style=filled,fillcolor=black,height=0.1,width=0.1]\n", current_node);
+        fprintf(f, "n%zd[shape=circle,label=\"\",fixedsize=true,style=filled,fillcolor=black,height=0.1,width=0.1,layer=\"trees\"]\n", current_node);
         if (parent_node != 0)
         {
             fprintf(f, "n%zd -> n%zd [label=\"%d\"]\n", parent_node, current_node, position);
@@ -226,6 +291,10 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int positi
 void ast_dump_graphviz(AST a, FILE* f)
 {
     fprintf(f, "digraph mcxx_ast { \n");
+    // fprintf(f, "   colorscheme=ColorBrewer;\n");
+    fprintf(f, "   layers=\"trees:symbols:scopes\";\n");
+    fprintf(f, "   node [layer=\"all\"];\n");
+	fprintf(f, "   edge [layer=\"all\"];\n");
     ast_dump_graphviz_rec(a, f, 0, 0, /* is_extended */ 0);
     fprintf(f, "}\n");
 }
