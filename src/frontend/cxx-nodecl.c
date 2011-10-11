@@ -450,7 +450,8 @@ static decl_context_t nodecl_retrieve_context_rec(nodecl_t n)
     {
         return CURRENT_COMPILED_FILE->global_decl_context;
     }
-    else if (nodecl_get_kind(n) == NODECL_CONTEXT)
+    else if (nodecl_get_kind(n) == NODECL_CONTEXT
+            || nodecl_get_kind(n) == NODECL_PRAGMA_CONTEXT)
     {
         return nodecl_get_decl_context(n);
     }
