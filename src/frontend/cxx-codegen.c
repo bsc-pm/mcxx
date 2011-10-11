@@ -3429,6 +3429,12 @@ static void codegen_builtin(nodecl_codegen_visitor_t* visitor, nodecl_t node)
         fprintf(visitor->file, ")");
         free(unpacked_list);
     }
+    else if (strcmp(builtin_name, "verbatim") == 0)
+    {
+        int num_items = 0;
+        nodecl_t* unpacked_list = nodecl_unpack_list(any_list, &num_items);
+        fprintf(visitor->file, "%s", nodecl_get_text(unpacked_list[0]));
+    }
     else
     {
         internal_error("Unhandled '%s' builtin at %s\n", builtin_name, nodecl_get_locus(node));
