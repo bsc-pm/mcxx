@@ -161,6 +161,66 @@ namespace Nodecl
         IsLocalOcurrence local(n);
         return get_all_symbols_first_occurrence(n).filter(negate(local));
     }
+
+    static bool equal_trees_rec(nodecl_t n1, nodecl_t n2)
+    {
+        if (nodecl_is_null(n1) == nodecl_is_null(n2))
+        {
+            if (!nodecl_is_null(n1))
+            {
+                if ((nodecl_get_kind(n1) == nodecl_get_kind(n2))
+                    &&  (nodecl_get_symbol(n1) == nodecl_get_symbol(n2))
+                    &&  (nodecl_get_constant(n1) == nodecl_get_constant(n2)))
+                {
+                    bool equal = true;
+                    
+                    for (int i = 0; i < MCXX_MAX_AST_CHILDREN && equal; i++)
+                    {
+                        equal = equal_trees_rec(nodecl_get_child(n1, i), nodecl_get_child(n2, i));
+                    }
+                    return equal;
+                }
+            }
+            else
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }    
+    
+    bool Utils::equal_nodecls(Nodecl::NodeclBase n1, Nodecl::NodeclBase n2)
+    {
+        nodecl_t n1_ = n1.get_internal_nodecl();
+        nodecl_t n2_ = n2.get_internal_nodecl();
+
+        if (nodecl_is_list(n1_) || nodecl_is_list(n2_))
+        {
+            std::cerr << "warning: method 'equal_nodecls' is implemented to compare nodecls containing trees with "
+                      << " no lists inside. The method returns false but they can be the same tree" << std::endl;
+            return false;
+        }
+
+        return equal_trees_rec(n1_, n2_);
+    }
+    
+    struct nodecl_comp {
+        bool operator() (const Nodecl::NodeclBase& n1, const Nodecl::NodeclBase& n2) const
+        {
+            if (Utils::equal_nodecls(n1, n2))
+            {   
+                return false;
+            }
+            else
+            {
+                AST n1_ast = nodecl_get_ast(n1.get_internal_nodecl());
+                AST n2_ast = nodecl_get_ast(n2.get_internal_nodecl());
+            
+                return  n1_ast < n2_ast;
+            }
+        }
+    };    
 }
 
 namespace TL

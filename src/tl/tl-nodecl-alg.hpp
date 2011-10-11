@@ -18,6 +18,8 @@ namespace Nodecl
         TL::ObjectList<Nodecl::Symbol> get_all_symbols_first_occurrence(Nodecl::NodeclBase);
         TL::ObjectList<Nodecl::Symbol> get_nonlocal_symbols_first_occurrence(Nodecl::NodeclBase);
         TL::ObjectList<Nodecl::Symbol> get_local_symbols_first_occurrence(Nodecl::NodeclBase);
+        
+        bool equal_nodecls(Nodecl::NodeclBase n1, Nodecl::NodeclBase n2);
     }
 }
 
