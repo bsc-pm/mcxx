@@ -665,8 +665,12 @@ static void build_scope_declaration(AST a, decl_context_t decl_context,
                 *nodecl_output = 
                     nodecl_make_list_1(
                             nodecl_make_builtin_decl(
-                                nodecl_make_text(ASTText(a), ASTFileName(a), ASTLine(a)),
+                                nodecl_make_any_list(
+                                    nodecl_make_list_1(
+                                        nodecl_make_text(ASTText(a), ASTFileName(a), ASTLine(a))),
+                                    ASTFileName(a), ASTLine(a)),
                                 "pp-comment", ASTFileName(a), ASTLine(a)));
+
                 break;
             }
         case AST_PP_TOKEN :
@@ -674,8 +678,12 @@ static void build_scope_declaration(AST a, decl_context_t decl_context,
                 *nodecl_output = 
                     nodecl_make_list_1(
                             nodecl_make_builtin_decl(
-                                nodecl_make_text(ASTText(a), ASTFileName(a), ASTLine(a)),
+                                nodecl_make_any_list(
+                                    nodecl_make_list_1(
+                                        nodecl_make_text(ASTText(a), ASTFileName(a), ASTLine(a))),
+                                    ASTFileName(a), ASTLine(a)),
                                 "pp-token", ASTFileName(a), ASTLine(a)));
+
                 break;
             }
         case AST_VERBATIM :
@@ -683,7 +691,10 @@ static void build_scope_declaration(AST a, decl_context_t decl_context,
                 *nodecl_output = 
                     nodecl_make_list_1(
                             nodecl_make_builtin_decl(
-                                nodecl_make_text(ASTText(a), ASTFileName(a), ASTLine(a)),
+                                nodecl_make_any_list(
+                                    nodecl_make_list_1(
+                                        nodecl_make_text(ASTText(a), ASTFileName(a), ASTLine(a))),
+                                    ASTFileName(a), ASTLine(a)),
                                 "verbatim", ASTFileName(a), ASTLine(a)));
                 break;
             }
