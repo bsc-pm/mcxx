@@ -1755,6 +1755,9 @@ static sqlite3_int64 insert_const_value(sqlite3* handle, const_value_t* value)
     if (oid_already_inserted(handle, "const_value", value))
         return (sqlite3_int64)(intptr_t)value;
 
+    // Some floats can be really large
+    char float_literal_value[2048] = { 0 };
+
     if (const_value_is_integer(value))
     {
         char * literal_value = sqlite3_mprintf("%llu", const_value_cast_to_8(value));
@@ -1771,38 +1774,38 @@ static sqlite3_int64 insert_const_value(sqlite3* handle, const_value_t* value)
     }
     else if (const_value_is_float(value))
     {
-        char * literal_value = sqlite3_mprintf(FLOAT_FORMAT_STR, const_value_cast_to_float(value));
+        snprintf(float_literal_value, 2047, FLOAT_FORMAT_STR, const_value_cast_to_float(value));
+        float_literal_value[2047] = '\0';
 
         sqlite3_int64 result = insert_single_const_value(handle, value, 
                 "FLOAT", 
                 0, 0,
-                literal_value);
+                float_literal_value);
 
-        sqlite3_free(literal_value);
         return result;
     }
     else if (const_value_is_double(value))
     {
-        char * literal_value = sqlite3_mprintf(DOUBLE_FORMAT_STR, const_value_cast_to_double(value));
+        snprintf(float_literal_value, 2047, DOUBLE_FORMAT_STR, const_value_cast_to_double(value));
+        float_literal_value[2047] = '\0';
 
         sqlite3_int64 result = insert_single_const_value(handle, value, 
                 "DOUBLE", 
                 0, 0,
-                literal_value);
+                float_literal_value);
 
-        sqlite3_free(literal_value);
         return result;
     }
     else if (const_value_is_long_double(value))
     {
-        char * literal_value = sqlite3_mprintf(LONG_DOUBLE_FORMAT_STR, const_value_cast_to_long_double(value));
+        snprintf(float_literal_value, 2047, LONG_DOUBLE_FORMAT_STR, const_value_cast_to_long_double(value));
+        float_literal_value[2047] = '\0';
 
         sqlite3_int64 result = insert_single_const_value(handle, value, 
                 "LONG DOUBLE", 
                 0, 0,
-                literal_value);
+                float_literal_value);
 
-        sqlite3_free(literal_value);
         return result;
     }
     else if (const_value_is_complex(value))
