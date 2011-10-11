@@ -282,7 +282,7 @@ namespace TL
             return _target_info;
         }
 
-        struct FunctionTaskDependencyGenerator : public Functor<FunctionTaskDependency, std::string>
+        struct FunctionTaskDependencyGenerator : public Functor<FunctionTaskDependency, Nodecl::NodeclBase>
         {
             private:
                 DependencyDirection _direction;
@@ -295,22 +295,15 @@ namespace TL
                 {
                 }
 
-                FunctionTaskDependency do_(FunctionTaskDependencyGenerator::ArgType str) const
+                FunctionTaskDependency do_(FunctionTaskDependencyGenerator::ArgType nodecl) const
                 {
-                    Source src;
-                    src
-                        << "#line " << _ref_tree.get_line() << " \"" << _ref_tree.get_filename() << "\"\n"
-                        << str;
-
-                    Nodecl::NodeclBase expr_tree = src.parse_expression(_ref_tree);
-
-                    DataReference expr(expr_tree);
+                    DataReference expr(nodecl);
 
                     return FunctionTaskDependency(expr, _direction);
                 }
         };
 
-        struct FunctionCopyItemGenerator : public Functor<CopyItem, std::string>
+        struct FunctionCopyItemGenerator : public Functor<CopyItem, Nodecl::NodeclBase>
         {
             private:
                 CopyDirection _copy_direction;
@@ -323,16 +316,9 @@ namespace TL
                 {
                 }
 
-                CopyItem do_(FunctionCopyItemGenerator::ArgType str) const
+                CopyItem do_(FunctionCopyItemGenerator::ArgType node) const
                 {
-                    Source src;
-                    src
-                        << "#line " << _ref_tree.get_line() << " \"" << _ref_tree.get_filename() << "\"\n"
-                        << str
-                        ;
-
-                    Nodecl::NodeclBase expr_tree = src.parse_expression(_ref_tree);
-                    DataReference data_ref(expr_tree);
+                    DataReference data_ref(node);
 
                     return CopyItem(data_ref, _copy_direction);
                 }
@@ -400,40 +386,40 @@ namespace TL
             function_task_param_list.erase(begin_remove, function_task_param_list.end());
         }
 
-        void Core::task_function_handler_pre(TL::PragmaCustomDirective construct)
+        void Core::task_function_handler_pre(TL::PragmaCustomDeclaration construct)
         {
-            internal_error("Not yet implemented", 0);
-#if 0
+            Nodecl::NodeclBase param_ref_tree = construct.get_context_of_parameters();
+
             TL::PragmaCustomLine pragma_line = construct.get_pragma_line();
 
             RealTimeInfo rt_info = task_real_time_handler_pre(pragma_line);
 
             PragmaCustomClause input_clause = pragma_line.get_clause("input");
-            ObjectList<std::string> input_arguments;
+            ObjectList<Nodecl::NodeclBase> input_arguments;
             if (input_clause.is_defined())
             {
-                input_arguments = input_clause.get_arguments_as_expressions();
+                input_arguments = input_clause.get_arguments_as_expressions(param_ref_tree);
             }
 
             PragmaCustomClause output_clause = pragma_line.get_clause("output");
-            ObjectList<std::string> output_arguments;
+            ObjectList<Nodecl::NodeclBase> output_arguments;
             if (output_clause.is_defined())
             {
-                output_arguments = output_clause.get_arguments_as_expressions();
+                output_arguments = output_clause.get_arguments_as_expressions(param_ref_tree);
             }
 
             PragmaCustomClause inout_clause = pragma_line.get_clause("inout");
-            ObjectList<std::string> inout_arguments;
+            ObjectList<Nodecl::NodeclBase> inout_arguments;
             if (inout_clause.is_defined())
             {
-                inout_arguments = inout_clause.get_arguments_as_expressions();
+                inout_arguments = inout_clause.get_arguments_as_expressions(param_ref_tree);
             }
 
             PragmaCustomClause reduction_clause = pragma_line.get_clause("__shared_reduction");
-            ObjectList<std::string> reduction_arguments;
+            ObjectList<Nodecl::NodeclBase> reduction_arguments;
             if (reduction_clause.is_defined())
             {
-                reduction_arguments = reduction_clause.get_arguments_as_expressions();
+                reduction_arguments = reduction_clause.get_arguments_as_expressions(param_ref_tree);
             }
 
             Symbol function_sym = construct.get_symbol();
@@ -452,44 +438,32 @@ namespace TL
 
             if (has_ellipsis)
             {
-                std::cerr << construct.get_ast().get_locus()
+                std::cerr << construct.get_locus()
                     << ": warning: '#pragma omp task' cannot be applied to functions declarations with ellipsis, skipping" << std::endl;
                 return;
             }
 
-            Type function_type = function_sym.get_type();
             if (!function_type.returns().is_void())
             {
-                std::cerr << construct.get_ast().get_locus()
+                std::cerr << construct.get_locus()
                     << ": warning: '#pragma omp task' cannot be applied to functions returning non-void, skipping" << std::endl;
                 return;
             }
 
-            internal_error("Not yet implemented", 0);
-#if 0
             ObjectList<FunctionTaskDependency> dependence_list;
             FunctionTaskTargetInfo target_info;
 
-            Nodecl::NodeclBase param_ref_tree = function_sym.get_point_of_declaration();
-
-             if(!parameter_decl.empty()
-                 && (parameter_decl.size() != 1 || !parameter_decl[0].get_type().is_void()))
-             {
-                //Use the first parameter as a reference tree so we can parse the specifications
-                param_ref_tree = parameter_decl[0].get_ast();
-             }
-
              dependence_list.append(input_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_INPUT,
-                             param_ref_tree,construct.get_scope_link())));
+                             param_ref_tree)));
 
              dependence_list.append(output_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_OUTPUT,
-                             param_ref_tree,construct.get_scope_link())));
+                             param_ref_tree)));
 
              dependence_list.append(inout_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_INOUT,
-                             param_ref_tree,construct.get_scope_link())));
+                             param_ref_tree)));
 
              dependence_list.append(reduction_arguments.map(FunctionTaskDependencyGenerator(DEP_REDUCTION,
-                             param_ref_tree,construct.get_scope_link())));
+                             param_ref_tree)));
 
              dependence_list_check(dependence_list);
 
@@ -499,15 +473,15 @@ namespace TL
                  TargetContext& target_context = _target_context.top();
 
                  ObjectList<CopyItem> copy_in = target_context.copy_in.map(FunctionCopyItemGenerator(
-                             COPY_DIR_IN, param_ref_tree, construct.get_scope_link()));
+                             COPY_DIR_IN, param_ref_tree));
                  target_info.set_copy_in(copy_in);
 
                  ObjectList<CopyItem> copy_out = target_context.copy_out.map(FunctionCopyItemGenerator(
-                             COPY_DIR_OUT, param_ref_tree, construct.get_scope_link()));
+                             COPY_DIR_OUT, param_ref_tree));
                  target_info.set_copy_out(copy_out);
 
                  ObjectList<CopyItem> copy_inout = target_context.copy_inout.map(FunctionCopyItemGenerator(
-                             COPY_DIR_INOUT, param_ref_tree, construct.get_scope_link()));
+                             COPY_DIR_INOUT, param_ref_tree));
                  target_info.set_copy_inout(copy_inout);
 
                  target_info.set_device_list(target_context.device_list);
@@ -522,25 +496,21 @@ namespace TL
             task_info.set_real_time_info(rt_info);
             
             // Support if clause 
-            PragmaCustomClause if_clause = construct.get_clause("if");
+            PragmaCustomClause if_clause = pragma_line.get_clause("if");
             if (if_clause.is_defined())
             {
-                ObjectList<std::string> expr_list = if_clause.get_arguments();
+                ObjectList<Nodecl::NodeclBase> expr_list = if_clause.get_arguments_as_expressions(param_ref_tree);
                 if (expr_list.size() != 1)
                 {
                     running_error("%s: error: clause 'if' requires just one argument\n",
-                            construct.get_ast().get_locus().c_str());
+                            construct.get_locus().c_str());
                 }
-                TL::Nodecl::NodeclBase expr_tree = Source(expr_list[0]).parse_expression(param_ref_tree, construct.get_scope_link()); 
-                Nodecl::NodeclBase cond_expr = Nodecl::NodeclBase(expr_tree, construct.get_scope_link());
-                task_info.set_if_clause_conditional_expression(cond_expr);
+                task_info.set_if_clause_conditional_expression(expr_list[0]);
             }
 
-            std::cerr << construct.get_ast().get_locus()
+            std::cerr << construct.get_locus()
                 << ": note: adding task function '" << function_sym.get_name() << "'" << std::endl;
             _function_task_set->add_function_task(function_sym, task_info);
-#endif
-#endif
         }
 
         void Core::task_inline_handler_pre(TL::PragmaCustomStatement construct)

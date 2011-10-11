@@ -91,7 +91,7 @@ namespace TL
 
                 void common_target_handler_pre(TL::PragmaCustomLine pragma_line, TargetContext& target_ctx);
 
-                void task_function_handler_pre(TL::PragmaCustomDirective construct);
+                void task_function_handler_pre(TL::PragmaCustomDeclaration construct);
                 void task_inline_handler_pre(TL::PragmaCustomStatement construct);
 
                 void get_clause_symbols(PragmaCustomClause clause, 
