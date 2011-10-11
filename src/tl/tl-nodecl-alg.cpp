@@ -204,23 +204,21 @@ namespace Nodecl
 
         return equal_trees_rec(n1_, n2_);
     }
-    
-    struct nodecl_comp {
-        bool operator() (const Nodecl::NodeclBase& n1, const Nodecl::NodeclBase& n2) const
-        {
-            if (Utils::equal_nodecls(n1, n2))
-            {   
-                return false;
-            }
-            else
-            {
-                AST n1_ast = nodecl_get_ast(n1.get_internal_nodecl());
-                AST n2_ast = nodecl_get_ast(n2.get_internal_nodecl());
-            
-                return  n1_ast < n2_ast;
-            }
+   
+    bool Utils::Nodecl_comp::operator() (const Nodecl::NodeclBase& n1, const Nodecl::NodeclBase& n2) const
+    {
+        if (Utils::equal_nodecls(n1, n2))
+        {   
+            return false;
         }
-    };    
+        else
+        {
+            AST n1_ast = nodecl_get_ast(n1.get_internal_nodecl());
+            AST n2_ast = nodecl_get_ast(n2.get_internal_nodecl());
+        
+            return  n1_ast < n2_ast;
+        }
+    }
 }
 
 namespace TL

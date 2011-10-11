@@ -20,6 +20,10 @@ namespace Nodecl
         TL::ObjectList<Nodecl::Symbol> get_local_symbols_first_occurrence(Nodecl::NodeclBase);
         
         bool equal_nodecls(Nodecl::NodeclBase n1, Nodecl::NodeclBase n2);
+        
+        struct Nodecl_comp {
+            bool operator() (const Nodecl::NodeclBase& n1, const Nodecl::NodeclBase& n2) const;
+        };  
     }
 }
 

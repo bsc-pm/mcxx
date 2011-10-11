@@ -31,13 +31,17 @@ Cambridge, MA 02139, USA.
 
 #include "tl-builtin.hpp"
 #include "tl-nodecl.hpp"
+#include "tl-nodecl-alg.hpp"
 #include "tl-objectlist.hpp"
 
 namespace TL 
 {
+    typedef std::map<Nodecl::NodeclBase, Nodecl::NodeclBase, Nodecl::Utils::Nodecl_comp> reaching_def_map;
+
     class Edge;
     
     class LIBTL_CLASS Node : public LinkData {
+        
         private:
             // *** Class attributes *** //
            
@@ -242,8 +246,12 @@ namespace TL
             //! Returns the node type.
             Node_type get_type();
             
-            //! Returns a string representing the node type of the node.
+            //! Returns a string with the node type of the node.
             std::string get_type_as_string();
+            
+            //! Returns a string with the graph type of the node.
+            //! Node must be a GRAPH_NODE
+            std::string get_graph_type_as_string();
             
             //! Returns the entry node of a Graph node. Only valid for graph nodes
             Node* get_graph_entry_node();
@@ -256,6 +264,25 @@ namespace TL
             
             //! Set the exit node of a graph node. Only valid for graph nodes
             void set_graph_exit_node(Node* node);
+            
+            //! Returns the nodecl containing the label of the graph node (Only valid for graph nodes)
+            //! If the graph doesn't have a label, a null Nodecl is returned
+            Nodecl::NodeclBase get_graph_label(Nodecl::NodeclBase n = Nodecl::NodeclBase::null());
+            
+            //! Set the label of the graph node (Only valid for graph nodes)
+            void set_graph_label(Nodecl::NodeclBase n);
+            
+            //! Returns type of the graph (Only valid for graph nodes)
+            Graph_type get_graph_type();
+            
+            //! Set the graph type to the node (Only valid for graph nodes)
+            void set_graph_type(Graph_type graph_type);
+            
+            //! Returns the type of the loop contained in the node. (Only valid for loop graph nodes)
+            Loop_type get_loop_node_type();
+            
+            //! Set the type of loop contained in a loop graph node
+            void set_loop_node_type(Loop_type loop_type);
             
             //! Returns a pointer to the node which contains the actual node
             //! When the node don't have an outer node, NULL is returned
@@ -271,19 +298,6 @@ namespace TL
             //! Set the node that contains the actual node. It must be a graph node
             //! It is only valid for Normal nodes, Labeled nodes or Function Call nodes
             void set_statements(ObjectList<Nodecl::NodeclBase> stmts);
-            
-            //! Returns the nodecl containing the label of the graph node (Only valid for graph nodes)
-            //! If the graph doesn't have a label, a null Nodecl is returned
-            Nodecl::NodeclBase get_graph_label(Nodecl::NodeclBase n = Nodecl::NodeclBase::null());
-            
-            //! Set the label of the graph node (Only valid for graph nodes)
-            void set_graph_label(Nodecl::NodeclBase n);
-            
-            //! Returns the string with the type of the graph(Only valid for graph nodes)
-            std::string get_graph_type();
-            
-            //! Set the graph type to the node (Only valid for graph nodes)
-            void set_graph_type(std::string graph_type);
             
             //! Returns the Symbol of the statement label contained in the node
             //! If is only valid for Goto or Labeled nodes
@@ -315,6 +329,9 @@ namespace TL
              */
             void set_graph_node_liveness();
             
+            //! This method computes the reaching definitions of a graph node from the reaching definitions in the nodes within it
+            void set_graph_node_reaching_defintions();
+            
             //! Returns the set of variables that are alive at the entry of the node.
             ext_sym_set get_live_in_vars();
             
@@ -345,11 +362,23 @@ namespace TL
             //! Adds a new upper exposed variable to the node
             void set_ue_var(ExtensibleSymbol new_ue_var);
             
+            //! Deletes an old upper exposed variable form the node
+            void unset_ue_var(ExtensibleSymbol old_ue_var);
+            
             //! Returns the list of killed variables of the node
             ext_sym_set get_killed_vars();
             
             //! Adds a new killed variable to the node
             void set_killed_var(ExtensibleSymbol new_killed_var);
+            
+            //! Deletes an old killed variable form the node
+            void unset_killed_var(ExtensibleSymbol old_killed_var);            
+            
+            //! Returns the list of undefined behaviour variables of the node
+            ext_sym_set get_undefined_behaviour_vars();
+            
+            //! Adds a new undefined behaviour variable to the node
+            void set_undefined_behaviour_var(ExtensibleSymbol new_killed_var);            
             
             //! Returns the list of input dependences of a task node
             ext_sym_set get_input_deps();
@@ -359,6 +388,12 @@ namespace TL
             
             //! Returns the list of inout dependences of a task node
             ext_sym_set get_inout_deps();
+            
+            //! Return the map containing, for each symbol defined until this moment, its correspondent expression
+            reaching_def_map get_reaching_definitions();
+            
+            //! Set to one variable a new expression value and append this relationship to the node
+            void set_reaching_definition(Nodecl::NodeclBase var, Nodecl::NodeclBase init);
             
         friend class CfgAnalysisVisitor;
     };

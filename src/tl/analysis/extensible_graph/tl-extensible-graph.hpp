@@ -162,6 +162,10 @@ namespace TL
              */
             static void solve_live_equations_recursive(Node* actual, bool& changed);
             
+            //! This method spreads the computed info about reaching definitions during the Use-Def construction.
+            //! When more than one expression is assigned to the same symbol within a node, the method gets just the last expression.
+            static void extend_reaching_defintions_info(Node* node);            
+            
             //! Recompute the identifiers of the nodes graph hanging from actual_node from the value of _nid
             //! This method is used when a node s replaced by another, because the identifiers may be repeated
             void recompute_identifiers(Node* actual_node);
@@ -285,7 +289,7 @@ namespace TL
              * \return The new composite node.
              */
             Node* create_graph_node(Node* outer_node, Nodecl::NodeclBase label, 
-                                    std::string graph_type, Nodecl::NodeclBase context = Nodecl::NodeclBase::null());
+                                    Graph_type graph_type, Nodecl::NodeclBase context = Nodecl::NodeclBase::null());
             
             //! Builds a Barrier node with its corresponding Flush nodes and connects it with the existent graph
             /*!
@@ -365,7 +369,7 @@ namespace TL
             
             //! Computes dependences for a node containing a task code
             void analyse_task(Node* task_node);
-           
+            
             
             // *** Getters and Setters *** //
             

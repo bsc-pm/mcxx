@@ -54,7 +54,13 @@ namespace TL
          * This attribute stores the actual nodecl when we are traversing a class member access or a reference/dereference
          */
         Nodecl::NodeclBase _actual_nodecl;
-
+        
+        //! Nodecl containing the initializing expression of the symbol which is being defined in the actual statement
+        /*!
+         * For example, within an assignment, this Nodecl contain the rhs of the assignment
+         */
+        Nodecl::NodeclBase _init_expression;
+        
     private:
         //! This method implements the visitor for any Literal
         //! It do nothing

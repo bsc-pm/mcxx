@@ -46,6 +46,23 @@ namespace TL
         GRAPH_NODE                      //! Composite node
     };
     
+    enum Graph_type {
+        EXTENSIBLE_GRAPH,               //! Special graph: this is the most outer graph node in an Extensible Graph
+        SPLIT_STMT,                     //! Expression being split because it contains a sub-expression with a separated node
+        FUNC_CALL,                      //! Function Call
+        COND_EXPR,                      //! Conditional expression
+        LOOP,                           //! Set of nodes of a for loop
+        OMP_PRAGMA,                     //! Pragma Custom Definition / Statement
+        TASK                            //! Pragma Task
+    };
+    
+    enum Loop_type {
+        FOR,
+        WHILE,
+        DO_WHILE,
+        GOTO
+    };
+    
     //! Enumeration of the different edge types
     enum Edge_type
     {
@@ -103,15 +120,16 @@ namespace TL
     #define _EXIT_NODE      "exit"
     
     /*! \def _GRAPH_TYPE
-     * String containing the type of a composite node. The possible values are:
-     *   - split_stmt
-     *   - function_call
-     *   - conditional_expression
-     *   - omp_pragma
-     *   - task
-     * Mandatory and only available in composite nodes.
+     * Type of the graph node. This will be a value of the enumeration Graph_type.
+     * Mandatory in all graph nodes.
      */    
     #define _GRAPH_TYPE     "graph_type"
+    
+    /*! \def _LOOP_TYPE
+     * Type of the loop in a graph node. This will be a value of the enumeration Loop_type.
+     * Mandatory in all loop graph nodes.
+     */    
+    #define _LOOP_TYPE      "loop_type"    
     
     /*!
      * Nodecl containing the context associated to a task
@@ -143,23 +161,35 @@ namespace TL
      */ 
     #define _KILLED         "killed_vars"
 
+    /*! \def _UNDEF
+     * Set of variables within a node that we cannot define the behaviour.
+     * Available in all nodes (Mandatory once the Liveness analysis is performed).
+     */ 
+    #define _UNDEF          "undefined_behaviour_vars"
+
     /*! \def _IN_DEPS
      * Set of symbols with input dependence in a task
      * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once the Liveness analysis is performed).
      */ 
-    #define _IN_DEPS         "input_deps"
+    #define _IN_DEPS        "input_deps"
     
     /*! \def _OUT_DEPS
      * Set of symbols with output dependence in a task
      * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once the Liveness analysis is performed).
      */ 
-    #define _OUT_DEPS         "output_deps"    
+    #define _OUT_DEPS       "output_deps"    
 
     /*! \def _INOUT_DEPS
      * Set of symbols with inout dependence in a task
      * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once the Liveness analysis is performed).
      */ 
-    #define _INOUT_DEPS         "inout_deps"   
+    #define _INOUT_DEPS     "inout_deps"   
+
+    /*! \def _REACH_DEFS
+     * Map containing the reaching definitions in a given point
+     * Available in all nodes (Mandatory once the Liveness analysis is performed).
+     */ 
+    #define _REACH_DEFS      "reaching_defs"   
 
     /*! \def _CLAUSES
      * Set of clauses associated to a pragma

@@ -21,12 +21,15 @@ not, write to the Free Software Foundation, Inc., 675 Mass Ave,
 Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+
+#include <typeinfo>
+
 #include "tl-cfg-analysis-visitor.hpp"
 #include "tl-cfg-visitor.hpp"
 #include "tl-extensible-graph.hpp"
 #include "tl-extensible-symbol.hpp"
+#include "tl-loop-analysis.hpp"
 
-#include <typeinfo>
 
 namespace TL
 {
@@ -126,7 +129,7 @@ namespace TL
             }
         }
     }   
-    
+   
     void Node::fill_use_def_sets(Nodecl::List n_l, bool defined)
     {
         for(std::vector<Nodecl::NodeclBase>::iterator it = n_l.begin(); it != n_l.end(); ++it)
@@ -135,6 +138,78 @@ namespace TL
         }
     }
 
+    void ExtensibleGraph::extend_reaching_defintions_info(Node* node)
+    {
+        if (!node->is_visited())
+        {
+            node->set_visited(true);
+
+            ObjectList<Edge*> entry_edges = node->get_entry_edges();
+            ObjectList<Node*> parents = node->get_parents();
+            
+            reaching_def_map reach_defs;
+            if (entry_edges.size() > 0)
+            {
+                for(ObjectList<Node*>::iterator it = parents.begin(); it != parents.end(); ++it)
+                {
+                    if ((*it)->has_key(_REACH_DEFS))
+                    {
+                        reaching_def_map parent_reach_defs = (*it)->get_data<reaching_def_map>(_REACH_DEFS);
+                        for(reaching_def_map::iterator itm = parent_reach_defs.begin(); itm != parent_reach_defs.end(); ++itm)
+                        {
+                            if (reach_defs.find(itm->first) != reach_defs.end())
+                            {   // When the symbol already existed in other parent, invalidate the value
+                                reach_defs[itm->first] = Nodecl::NodeclBase::null();
+                            }
+                            else
+                            {   // otherwise, insert the new symbol definition
+                                reach_defs[itm->first] = itm->second;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Mix the parents info with the definitions in the actual node
+            if (node->get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
+            {
+                Node* entry = node->get_data<Node*>(_ENTRY_NODE);
+                extend_reaching_defintions_info(entry);
+                
+                node->set_graph_node_reaching_defintions();
+                ExtensibleGraph::clear_visits(entry);
+            }
+            if (node->has_key(_REACH_DEFS))
+            {
+                reaching_def_map actual_reach_defs = node->get_data<reaching_def_map>(_REACH_DEFS);
+                for(reaching_def_map::iterator it = actual_reach_defs.begin(); it != actual_reach_defs.end(); ++it)
+                {
+                    reach_defs[it->first] = it->second;
+                }
+            }
+
+            // Set the new value if necessary: more than one parent or some new definition
+            if ((entry_edges.size() > 1 || node->has_key(_REACH_DEFS)) && (!reach_defs.empty()))
+            {
+                node->set_data(_REACH_DEFS, reach_defs);
+            }
+            else if (entry_edges.size() == 1)
+            {   
+                if(parents[0]->has_key(_REACH_DEFS) && reach_defs.empty())
+                {
+                    node->set_data(_REACH_DEFS, parents[0]->get_data<reaching_def_map>(_REACH_DEFS));
+                }
+            }
+            
+            // Recursive call for children
+            ObjectList<Node*> children = node->get_children();
+            for (ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
+            {
+                extend_reaching_defintions_info(*it);
+            }
+        }
+    }
+    
 
     // *** EXTENSIBLE_GRAPH *** //
     
@@ -264,7 +339,7 @@ namespace TL
       
         ObjectList<Node*> node_l = task_node->get_inner_nodes();
         
-//         // Compute the actions performed over the symbols in all nodes
+        // Compute the actions performed over the symbols in all nodes
         ObjectList<ExtensibleSymbol> in_symbols;
         ObjectList<ExtensibleSymbol> out_symbols;
         ext_sym_set li_vars = task_node->get_data<ext_sym_set>(_LIVE_IN);
@@ -318,7 +393,21 @@ namespace TL
         task_node->set_data(_OUT_DEPS, output_deps);
         task_node->set_data(_INOUT_DEPS, inout_deps);
     }
-    
+   
+    ExtensibleGraph* CfgVisitor::find_function_for_ipa(Node* function_call)
+    {
+        for (ObjectList<ExtensibleGraph*>::iterator it = _cfgs.begin(); it != _cfgs.end(); ++it)
+        {
+            Symbol actual_sym = (*it)->get_function_symbol();
+            if (actual_sym.is_valid() && function_call->get_function_node_symbol() == actual_sym)
+            {
+                return *it;
+            }
+        }
+        
+        return NULL;
+    }
+
     
     // *** CFG_VISITOR *** //
     
@@ -633,19 +722,13 @@ namespace TL
 
         gather_live_initial_information(node);
         ExtensibleGraph::clear_visits(node);
-    }   
-    
-    ExtensibleGraph* CfgVisitor::find_function_for_ipa(Node* function_call)
-    {
-        for (ObjectList<ExtensibleGraph*>::iterator it = _cfgs.begin(); it != _cfgs.end(); ++it)
-        {
-            Symbol actual_sym = (*it)->get_function_symbol();
-            if (actual_sym.is_valid() && function_call->get_function_node_symbol() == actual_sym)
-            {
-                return *it;
-            }
-        }
+
+        std::cerr << "Extending reaching defintions info " << std::endl;
+        ExtensibleGraph::extend_reaching_defintions_info(node);
+        ExtensibleGraph::clear_visits(node);
         
-        return NULL;
+        LoopAnalysis loop_anal;
+        loop_anal.analyse_loops(node);
+        ExtensibleGraph::clear_visits(node);
     }
 }

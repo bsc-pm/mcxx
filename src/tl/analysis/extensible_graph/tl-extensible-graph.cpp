@@ -34,7 +34,7 @@ namespace TL
           _last_nodes(), _outer_node(), 
           _task_nodes_l(), _use_def_computed(false)
     {
-        _graph = create_graph_node(NULL, Nodecl::NodeclBase::null(), "extensible_graph");
+        _graph = create_graph_node(NULL, Nodecl::NodeclBase::null(), EXTENSIBLE_GRAPH);
         _last_nodes.append(_graph->get_graph_entry_node());
     }
 
@@ -99,12 +99,12 @@ namespace TL
                     
                     // Set the label and the graph type
                     Nodecl::NodeclBase label = old_node->get_graph_label();
-                    std::string graph_type = old_node->get_graph_type();
+                    Graph_type graph_type = old_node->get_graph_type();
                     new_node->set_graph_label(label);
                     new_node->set_graph_type(graph_type);
                     
                     // Set additional info for pragma nodes
-                    if (graph_type == "omp_pragma" || graph_type == "task")
+                    if (graph_type == OMP_PRAGMA || graph_type == TASK)
                     {
                         ObjectList<Nodecl::NodeclBase> clauses = old_node->get_data<ObjectList<Nodecl::NodeclBase> >(_CLAUSES);
                         ObjectList<Nodecl::NodeclBase> args = old_node->get_data<ObjectList<Nodecl::NodeclBase> >(_ARGS);
@@ -451,7 +451,7 @@ namespace TL
     }
 
     Node* ExtensibleGraph::create_graph_node(Node* outer_node, Nodecl::NodeclBase label, 
-                                             std::string graph_type, Nodecl::NodeclBase context)
+                                             Graph_type graph_type, Nodecl::NodeclBase context)
     {
         Node* result = new Node(_nid, GRAPH_NODE, outer_node);
         
@@ -462,7 +462,7 @@ namespace TL
     
         result->set_graph_label(label);
         result->set_graph_type(graph_type);
-        if (graph_type == "task")
+        if (graph_type == TASK)
         {    
             result->set_task_context(context);
         }
@@ -874,6 +874,7 @@ namespace TL
                     disconnect_nodes(actual, children);
                     connect_nodes(parents, children, etypes, elabels);
                     
+                    std::cerr << "deleting node " << actual->get_id() << std::endl;;
                     delete (actual);
                 }
                 else if (ntype == GRAPH_NODE)
@@ -926,23 +927,24 @@ namespace TL
         return result;
     }
        
-    void ExtensibleGraph::clear_visits(Node* actual)
+    void ExtensibleGraph::clear_visits(Node* node)
     {
-        if (actual->is_visited())
+        if (node->is_visited())
         {
-            actual->set_visited(false);
+//             std::cerr << "clear visits - node: " << node->get_id() << std::endl;
+            node->set_visited(false);
             
-            Node_type ntype = actual->get_type();
+            Node_type ntype = node->get_type();
             if (ntype == BASIC_EXIT_NODE)
             {
                 return;
             }
             else if (ntype == GRAPH_NODE)
             {
-                clear_visits(actual->get_graph_entry_node());
+                clear_visits(node->get_graph_entry_node());
             }
             
-            ObjectList<Node*> children = actual->get_children();
+            ObjectList<Node*> children = node->get_children();
             for(ObjectList<Node*>::iterator it = children.begin();
                     it != children.end();
                     ++it)

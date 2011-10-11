@@ -77,19 +77,8 @@ namespace TL
             //! neither an array access nor a member access, but a symbol.
             bool is_simple_symbol() const;
             
-            //! Compares the content of two AST nodes
-            bool equal_ast_nodes(nodecl_t t1, nodecl_t t2) const;
-            
-            //! Compares the one to one the nodes from two roots
-            bool equal_trees_rec(nodecl_t t1, nodecl_t t2) const;
-            
-            //! Returns equals when the two nodes are the same
-            /*!
-             * Be the same here means that the two nodes have exactly the same nodes 
-             * organized in the same way and containing the same symbols inside.
-             * FIXME This comparison should compare canonical version of expressions
-             */
-            bool equal_nodecls(Nodecl::NodeclBase n1, Nodecl::NodeclBase n2) const;
+            //! Returns true when the symbol stored is a position in an array
+            bool is_array() const;
             
             // *** Overloaded methods *** //
             bool operator==(const ExtensibleSymbol &es) const;

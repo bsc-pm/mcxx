@@ -31,6 +31,7 @@ Cambridge, MA 02139, USA.
 
 namespace TL
 {
+    static std::string prettyprint_reaching_definitions(reaching_def_map syms_def);
     static std::string prettyprint_ext_sym_set(ext_sym_set s);
     static std::string prettyprint_sym_list(ObjectList<Symbol> s);
     
@@ -154,7 +155,8 @@ namespace TL
                 Nodecl::NodeclBase actual_label(actual_node->get_graph_label());
                 if (!actual_label.is_null())
                 {
-                    subgraph_label += actual_label.get_text();
+                    subgraph_label += c_cxx_codegen_to_str(actual_label.get_internal_nodecl());
+//                         actual_label.get_text();
                 }
                 std::string subgr_liveness = "LI: "   + prettyprint_ext_sym_set(actual_node->get_live_in_vars()) + "\\n" +
                                              "KILL: " + prettyprint_ext_sym_set(actual_node->get_killed_vars()) + "\\n" +
@@ -162,7 +164,7 @@ namespace TL
                                              "LO: "   + prettyprint_ext_sym_set(actual_node->get_live_out_vars());
    
                 std::string task_deps = "";
-                if (actual_node->get_graph_type() == "task")
+                if (actual_node->get_graph_type() == TASK)
                 {
                     task_deps = "\\n"
                                 "input: "  + prettyprint_ext_sym_set(actual_node->get_input_deps()) + "\\n" +
@@ -354,7 +356,9 @@ namespace TL
                                 " | LI: "   + prettyprint_ext_sym_set(actual_node->get_live_in_vars()) + 
                                 " | KILL: " + prettyprint_ext_sym_set(actual_node->get_killed_vars()) +
                                 " | UE: "   + prettyprint_ext_sym_set(actual_node->get_ue_vars()) +
-                                " | LO: "   + prettyprint_ext_sym_set(actual_node->get_live_out_vars()) + "}\", shape=record];\n";          
+                                " | LO: "   + prettyprint_ext_sym_set(actual_node->get_live_out_vars()) +
+                                " | DEFS: "   + prettyprint_reaching_definitions(actual_node->get_reaching_definitions()) + 
+                                "}\", shape=record];\n";
     
                 break;
             }
@@ -364,22 +368,40 @@ namespace TL
         };
     }
     
+    static std::string prettyprint_reaching_definitions(reaching_def_map reach_defs)
+    {
+        std::string result;
+        
+        for(reaching_def_map::iterator it = reach_defs.begin(); it != reach_defs.end(); ++it)
+        {
+            if (it->second.is_null())
+            {
+                result += std::string(c_cxx_codegen_to_str(it->first.get_internal_nodecl())) + " = UNKNOWN VALUE; ";
+            }
+            else
+            {
+                result += std::string(c_cxx_codegen_to_str(it->first.get_internal_nodecl())) + " = " 
+                          + std::string(c_cxx_codegen_to_str(it->second.get_internal_nodecl())) + "; ";
+            }
+        }
+        
+        return result;        
+    }
+    
     static std::string prettyprint_ext_sym_set(ext_sym_set s)
     {
         std::string result;
         
-        for(ext_sym_set::iterator it = s.begin();
-                it != s.end();
-                ++it)
+        for(ext_sym_set::iterator it = s.begin(); it != s.end(); ++it)
         {
             if (it->get_nodecl().is_null())
             {
-//                 result += it->get_name() + ", ";
+                result += it->get_name() + ", ";
             }
             else
             {
                 std::string nodecl_string(c_cxx_codegen_to_str(it->get_nodecl().get_internal_nodecl()));
-                result += nodecl_string + ", ";
+                result += nodecl_string + ", ";                
             }
         }
         
@@ -398,5 +420,5 @@ namespace TL
         }
         
         return result.substr(0, result.size()-2);
-    }    
+    }
 }

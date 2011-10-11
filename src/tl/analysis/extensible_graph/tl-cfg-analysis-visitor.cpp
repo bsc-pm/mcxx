@@ -21,7 +21,7 @@ not, write to the Free Software Foundation, Inc., 675 Mass Ave,
 Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-
+#include "cxx-cexpr.h"
 #include "cxx-codegen.h"
 #include "cxx-process.h"
 
@@ -45,14 +45,23 @@ namespace TL
 
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Symbol& n)
     {
+        Nodecl::NodeclBase defined_var = n;
+        
         if (_actual_nodecl.is_null())
         {    
             _node->fill_use_def_sets(n, _define);
         }
         else
         {
+            defined_var = _actual_nodecl;
             _node->fill_use_def_sets(_actual_nodecl, _define);
             _actual_nodecl = Nodecl::NodeclBase::null();
+        }
+        
+        if (!_init_expression.is_null())
+        {
+            _node->set_reaching_definition(defined_var, _init_expression);
+            _init_expression = Nodecl::NodeclBase::null();
         }
     }
     
@@ -118,12 +127,21 @@ namespace TL
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::ObjectInit& n)
     {
         _node->fill_use_def_sets(n, true);
-        walk(n.get_symbol().get_initialization());
+        Symbol s = n.get_symbol();
+        Nodecl::NodeclBase init = s.get_initialization();
+        
+        if (!init.is_null())
+        {
+            Nodecl::Symbol sym_node = Nodecl::Symbol::make(s, n.get_filename(), n.get_line());
+            _node->set_reaching_definition(sym_node, init);
+            walk(init);
+        }
     }
 
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Assignment& n)
     {
         walk(n.get_rhs());
+        _init_expression = n.get_rhs();
         _define = true;
         walk(n.get_lhs());
         _define = false;
@@ -132,9 +150,10 @@ namespace TL
     template <typename T>
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::binary_assignment(const T& n)
     {
-        walk(n.get_rhs());        
+        walk(n.get_rhs());
         walk(n.get_lhs());
         _define = true;
+        _init_expression = n.get_rhs();
         walk(n.get_lhs());
         _define = false;
     }
@@ -322,33 +341,61 @@ namespace TL
     {
         binary_visit(n);
     }
-    
-    template <typename T>
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::unary_visit(const T& n)
-    {
-        walk(n.get_rhs());
-    }    
-    
+   
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Predecrement& n)
     {
-        unary_visit(n);
+        Nodecl::NodeclBase rhs = n.get_rhs();
+        walk(rhs);
+        _define = true;
+        nodecl_t one = const_value_to_nodecl(const_value_get_one(/* bytes */ 4, /* signed*/ 1));
+        _init_expression = Nodecl::Minus::make(rhs, Nodecl::IntegerLiteral(one), rhs.get_type(),
+                                               n.get_filename(), n.get_line());
+        walk(rhs);
+        _define = false;
     }
     
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Postdecrement& n)
     {
-        unary_visit(n);
+        Nodecl::NodeclBase rhs = n.get_rhs();
+        walk(rhs);
+        _define = true;
+        nodecl_t one = const_value_to_nodecl(const_value_get_one(/* bytes */ 4, /* signed*/ 1));
+        _init_expression = Nodecl::Minus::make(rhs, Nodecl::IntegerLiteral(one), rhs.get_type(), 
+                                               n.get_filename(), n.get_line());
+        walk(rhs);
+        _define = false;
     }
     
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Preincrement& n)
     {
-        unary_visit(n);
+        Nodecl::NodeclBase rhs = n.get_rhs();
+        walk(rhs);
+        _define = true;
+        nodecl_t one = const_value_to_nodecl(const_value_get_one(/* bytes */ 4, /* signed*/ 1));
+        _init_expression = Nodecl::Add::make(rhs, Nodecl::IntegerLiteral(one), rhs.get_type(), 
+                                               n.get_filename(), n.get_line());
+        walk(rhs);
+        _define = false;
     }
     
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Postincrement& n)
     {
-        unary_visit(n);
+        Nodecl::NodeclBase rhs = n.get_rhs();
+        walk(rhs);
+        _define = true;
+        nodecl_t one = const_value_to_nodecl(const_value_get_one(/* bytes */ 4, /* signed*/ 1));
+        _init_expression = Nodecl::Add::make(rhs, Nodecl::IntegerLiteral(one), rhs.get_type(), 
+                                               n.get_filename(), n.get_line());
+        walk(rhs);
+        _define = false;
     }
-    
+
+    template <typename T>
+    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::unary_visit(const T& n)
+    {
+        walk(n.get_rhs());
+    }
+
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Plus& n)
     {
         unary_visit(n);
