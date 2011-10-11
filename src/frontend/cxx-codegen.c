@@ -3646,6 +3646,27 @@ static void codegen_array_section(nodecl_codegen_visitor_t* visitor, nodecl_t no
     fprintf(visitor->file, "]");
 }
 
+static void codegen_shaping_expression(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    nodecl_t postfix = nodecl_get_child(node, 0);
+    nodecl_t seq_exp = nodecl_get_child(node, 1);
+   
+    int size = 0;
+    nodecl_t* expr_list = nodecl_unpack_list(seq_exp, &size);
+    
+    int i;
+    for(i = 0; i < size; ++i)
+    {
+        fprintf(visitor->file, "[");
+        codegen_walk(visitor, expr_list[i]);
+        fprintf(visitor->file, "]");
+    }
+    free(expr_list); 
+    
+    fprintf(visitor->file, " ");
+    codegen_walk(visitor, postfix);
+}
+
 // Statements
 static void codegen_catch_handler(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
@@ -4524,6 +4545,7 @@ static void c_cxx_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
     NODECL_VISITOR(codegen_visitor)->visit_index_designator = codegen_visitor_fun(codegen_index_designator);
     NODECL_VISITOR(codegen_visitor)->visit_array_subscript = codegen_visitor_fun(codegen_array_subscript);
     NODECL_VISITOR(codegen_visitor)->visit_array_section = codegen_visitor_fun(codegen_array_section);
+    NODECL_VISITOR(codegen_visitor)->visit_shaping = codegen_visitor_fun(codegen_shaping_expression);
     NODECL_VISITOR(codegen_visitor)->visit_text = codegen_visitor_fun(codegen_text);
     // All binary infix, unary prefix and unary postfix are here, look for the definition of OPERATOR_TABLE above
 #define PREFIX_UNARY_EXPRESSION(_name, _) \
