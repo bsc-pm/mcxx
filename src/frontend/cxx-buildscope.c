@@ -243,10 +243,11 @@ static void build_exception_spec(type_t* function_type, AST a, gather_decl_spec_
 
 static char is_constructor_declarator(AST a);
 
-static scope_entry_t* find_function_declaration(AST declarator_id, 
+static char find_function_declaration(AST declarator_id, 
         type_t* declarator_type, 
         gather_decl_spec_t* gather_info,
-        decl_context_t decl_context);
+        decl_context_t decl_context,
+        scope_entry_t** result_entry);
 
 static void build_scope_pragma_custom_directive(AST a, decl_context_t decl_context, 
         nodecl_t* nodecl_output);
@@ -664,8 +665,12 @@ static void build_scope_declaration(AST a, decl_context_t decl_context,
                 *nodecl_output = 
                     nodecl_make_list_1(
                             nodecl_make_builtin_decl(
-                                nodecl_make_text(ASTText(a), ASTFileName(a), ASTLine(a)),
+                                nodecl_make_any_list(
+                                    nodecl_make_list_1(
+                                        nodecl_make_text(ASTText(a), ASTFileName(a), ASTLine(a))),
+                                    ASTFileName(a), ASTLine(a)),
                                 "pp-comment", ASTFileName(a), ASTLine(a)));
+
                 break;
             }
         case AST_PP_TOKEN :
@@ -673,8 +678,12 @@ static void build_scope_declaration(AST a, decl_context_t decl_context,
                 *nodecl_output = 
                     nodecl_make_list_1(
                             nodecl_make_builtin_decl(
-                                nodecl_make_text(ASTText(a), ASTFileName(a), ASTLine(a)),
+                                nodecl_make_any_list(
+                                    nodecl_make_list_1(
+                                        nodecl_make_text(ASTText(a), ASTFileName(a), ASTLine(a))),
+                                    ASTFileName(a), ASTLine(a)),
                                 "pp-token", ASTFileName(a), ASTLine(a)));
+
                 break;
             }
         case AST_VERBATIM :
@@ -682,7 +691,10 @@ static void build_scope_declaration(AST a, decl_context_t decl_context,
                 *nodecl_output = 
                     nodecl_make_list_1(
                             nodecl_make_builtin_decl(
-                                nodecl_make_text(ASTText(a), ASTFileName(a), ASTLine(a)),
+                                nodecl_make_any_list(
+                                    nodecl_make_list_1(
+                                        nodecl_make_text(ASTText(a), ASTFileName(a), ASTLine(a))),
+                                    ASTFileName(a), ASTLine(a)),
                                 "verbatim", ASTFileName(a), ASTLine(a)));
                 break;
             }
@@ -6107,7 +6119,7 @@ static void set_function_type(type_t** declarator_type,
         nodecl_t* nodecl_output)
 {
     decl_context_t prototype_context;
-    memset(&prototype_context, 0, sizeof(prototype_context));
+
     if (p_prototype_context == NULL)
     {
         // Allocate one here
@@ -6278,31 +6290,6 @@ static void build_scope_declarator_rec(
             }
         case AST_DECLARATOR_FUNC :
             {
-                // This is a bit awkward. For compatibility reasons we must get
-                // the enclosing declarator or the enclosing init_declarator
-                // (the latter if it exists, the former otherwise)
-                AST enclosing_init_decl = ASTParent(a);
-                while (enclosing_init_decl != NULL
-                        && ASTType(enclosing_init_decl) != AST_DECLARATOR
-                        && ASTType(enclosing_init_decl) != AST_GCC_DECLARATOR)
-                {
-                    enclosing_init_decl = ASTParent(enclosing_init_decl);
-                }
-                while (enclosing_init_decl != NULL
-                        && ASTType(enclosing_init_decl) != AST_INIT_DECLARATOR
-                        && ASTType(enclosing_init_decl) != AST_MEMBER_DECLARATOR
-                        && ASTType(enclosing_init_decl) != AST_GCC_INIT_DECLARATOR
-                        && ASTType(enclosing_init_decl) != AST_GCC_MEMBER_DECLARATOR)
-                {
-                    enclosing_init_decl = ASTParent(enclosing_init_decl);
-                }
-                if (enclosing_init_decl != NULL)
-                {
-                }
-                else
-                {
-                }
-
                 set_function_type(declarator_type, gather_info, ASTSon1(a), 
                         ASTSon2(a), ASTSon3(a), entity_context, prototype_context, nodecl_output);
                 if (is_error_type(*declarator_type))
@@ -6571,11 +6558,11 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
                 {
                     scope_entry_t *entry = NULL;
 
-                    entry = find_function_declaration(declarator_id, declarator_type, gather_info, decl_context);
+                    char ok = find_function_declaration(declarator_id, declarator_type, gather_info, decl_context, &entry);
 
                     CXX_LANGUAGE()
                     {
-                        if (entry != NULL)
+                        if (ok && entry != NULL)
                         {
                             update_function_default_arguments(entry, declarator_type, gather_info);
                         }
@@ -6653,11 +6640,11 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
                         declarator_type = get_const_qualified_type(get_new_function_type(get_void_type(), NULL, 0));
                     }
 
-                    entry = find_function_declaration(declarator_id, declarator_type, gather_info, decl_context);
+                    char ok = find_function_declaration(declarator_id, declarator_type, gather_info, decl_context, &entry);
 
                     CXX_LANGUAGE()
                     {
-                        if (entry != NULL)
+                        if (ok && entry != NULL)
                         {
                             update_function_default_arguments(entry, declarator_type, gather_info);
                         }
@@ -6675,6 +6662,24 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
 
     return NULL;
 }
+
+static void copy_related_symbols(scope_entry_t* dest, scope_entry_t* orig)
+{
+    dest->entity_specs.num_related_symbols = orig->entity_specs.num_related_symbols;
+    dest->entity_specs.related_symbols = counted_calloc(dest->entity_specs.num_related_symbols, 
+            sizeof(*dest->entity_specs.related_symbols), &_bytes_used_buildscope);
+
+    int i;
+    for (i = 0; i < dest->entity_specs.num_related_symbols; i++)
+    {
+        dest->entity_specs.related_symbols[i] = orig->entity_specs.related_symbols[i];
+    }
+}
+
+static void set_parameters_as_related_symbols(scope_entry_t* entry, 
+        gather_decl_spec_t* gather_info,
+        char is_definition,
+        const char* filename, int line);
 
 /*
  * This function registers a new typedef name.
@@ -6829,6 +6834,9 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
         entry->entity_specs.any_exception = gather_info->any_exception;
         entry->entity_specs.num_exceptions = gather_info->num_exceptions;
         entry->entity_specs.exceptions = gather_info->exceptions;
+
+        set_parameters_as_related_symbols(entry, gather_info, /* is_definition */ 0, 
+                ASTFileName(declarator_id), ASTLine(declarator_id));
     }
 
     // Case 2 - typedef against a typedef that was a functional declarator typedef ...
@@ -6866,6 +6874,9 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
             entry->entity_specs.any_exception = gather_info->any_exception;
             entry->entity_specs.num_exceptions = named_type->entity_specs.num_exceptions;
             entry->entity_specs.exceptions = named_type->entity_specs.exceptions;
+
+            // Copy parameter info
+            copy_related_symbols(entry, named_type);
         }
     }
 
@@ -6966,7 +6977,10 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
         gather_decl_spec_t* gather_info, decl_context_t decl_context)
 {
     scope_entry_t* entry = NULL;
-    entry = find_function_declaration(declarator_id, declarator_type, gather_info, decl_context);
+    char ok = find_function_declaration(declarator_id, declarator_type, gather_info, decl_context, &entry);
+
+    if (!ok)
+        return NULL;
 
     if (entry == NULL)
     {
@@ -6999,8 +7013,26 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
             new_entry->kind = SK_FUNCTION;
             new_entry->line = ASTLine(declarator_id);
             new_entry->file = ASTFileName(declarator_id);
-
+            
             new_entry->entity_specs.is_friend_declared = gather_info->is_friend;
+
+            if (is_named_type(declarator_type))
+            {
+                // This must be a typedef to a function type (directly or indirectly)
+                scope_entry_t* typedef_sym = named_type_get_symbol(declarator_type);
+
+                // Copy parameter names
+                copy_related_symbols(new_entry, typedef_sym);
+            }
+            else
+            {
+                // Keep parameter names
+                set_parameters_as_related_symbols(new_entry, 
+                        gather_info, 
+                        /* is_definition */ 0,
+                        ASTFileName(declarator_id),
+                        ASTLine(declarator_id));
+            }
         }
         else /* gather_info->is_template */
         {
@@ -7066,6 +7098,13 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
             // Update info
             new_entry->line = ASTLine(declarator_id);
             new_entry->file = ASTFileName(declarator_id);
+            
+            // Keep parameter names
+            set_parameters_as_related_symbols(new_entry, 
+                    gather_info, 
+                    /* is_definition */ 0,
+                    ASTFileName(declarator_id),
+                    ASTLine(declarator_id));
         }
 
         DEBUG_CODE()
@@ -7193,6 +7232,13 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
                 template_symbol->entity_specs.is_friend_declared = 0;
             }
         }
+        
+        // Update parameter names
+        set_parameters_as_related_symbols(entry, 
+                gather_info, 
+                /* is_definition */ 0,
+                ASTFileName(declarator_id),
+                ASTLine(declarator_id));
 
         // An existing function was found
         CXX_LANGUAGE()
@@ -7211,16 +7257,19 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
                 entry->type_information = declarator_type;
             }
         }
-
+        
         return entry;
     }
 }
 
-static scope_entry_t* find_function_declaration(AST declarator_id, 
+static char find_function_declaration(AST declarator_id, 
         type_t* declarator_type, 
         gather_decl_spec_t* gather_info,
-        decl_context_t decl_context)
+        decl_context_t decl_context,
+        scope_entry_t** result_entry)
 {
+    *result_entry = NULL;
+
     decl_flags_t decl_flags = DF_NONE;
     if (BITMAP_TEST(decl_context.decl_flags, DF_CONSTRUCTOR))
     {
@@ -7273,7 +7322,8 @@ static scope_entry_t* find_function_declaration(AST declarator_id,
         {
             if (gather_info->is_friend)
             {
-                return entry;
+                *result_entry = entry;
+                return 1;
             }
             continue;
         }
@@ -7295,7 +7345,7 @@ static scope_entry_t* find_function_declaration(AST declarator_id,
                         ast_location(declarator_id),
                         prettyprint_in_buffer(declarator_id));
             }
-            return NULL;
+            return 0;
         }
 
         if (entry->entity_specs.is_member
@@ -7357,14 +7407,14 @@ static scope_entry_t* find_function_declaration(AST declarator_id,
                 {
                     if (!checking_ambiguity())
                     {
-                        error_printf("%s: error: function '%s' has been declared with different prototype (see '%s:%d')", 
+                        error_printf("%s: error: function '%s' has been declared with different prototype (see '%s:%d')\n", 
                                 ast_location(declarator_id),
                                 ASTText(declarator_id),
                                 entry->file,
                                 entry->line
                                 );
                     }
-                    return NULL;
+                    return 0;
                 }
                 equal_entry = considered_symbol;
                 found_equal = 1;
@@ -7415,7 +7465,7 @@ static scope_entry_t* find_function_declaration(AST declarator_id,
                         ast_location(declarator_id),
                         prettyprint_in_buffer(declarator_id));
             }
-            return NULL;
+            return 0;
         }
 
         scope_entry_t* result = counted_calloc(1, sizeof(*result), &_bytes_used_buildscope);
@@ -7429,7 +7479,8 @@ static scope_entry_t* find_function_declaration(AST declarator_id,
         result->value = nodecl_name;
         result->type_information = declarator_type;
 
-        return result;
+        *result_entry = result;
+        return 1;
     }
 
     // Second attempt, match a specialization of a template function
@@ -7459,14 +7510,12 @@ static scope_entry_t* find_function_declaration(AST declarator_id,
 
     entry_list_free(entry_list);
 
-    if (!found_equal)
+    if (found_equal)
     {
-        return NULL;
+        *result_entry = equal_entry;
     }
-    else
-    {
-        return equal_entry;
-    }
+
+    return 1;
 }
 
 /*
@@ -8680,6 +8729,51 @@ static void build_scope_defaulted_function_definition(AST a, decl_context_t decl
     common_defaulted_or_deleted(a, decl_context, check_defaulted, set_defaulted, nodecl_output);
 }
 
+static void set_parameters_as_related_symbols(scope_entry_t* entry, 
+        gather_decl_spec_t* gather_info,
+        char is_definition,
+        const char* filename,
+        int line)
+{
+    // Do not keep anything for nonprototype function types
+    if (entry->kind == SK_FUNCTION
+            && function_type_get_lacking_prototype(entry->type_information))
+        return;
+
+    // Keep parameter names
+    if (entry->entity_specs.related_symbols == NULL)
+    {
+        entry->entity_specs.num_related_symbols = gather_info->num_parameters;
+        entry->entity_specs.related_symbols = counted_calloc(gather_info->num_parameters, 
+                sizeof(*entry->entity_specs.related_symbols), 
+                &_bytes_used_buildscope);
+    }
+    else
+    {
+        ERROR_CONDITION(entry->entity_specs.num_related_symbols != gather_info->num_parameters, 
+                "Inconsistency detected in the related symbols of the function", 0);
+    }
+
+    int i;
+    for (i = 0; i < gather_info->num_parameters; i++)
+    {
+        // In C they must have name
+        C_LANGUAGE()
+        {
+            if (is_definition
+                    && gather_info->arguments_info[i].entry == NULL)
+            {
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s:%d: error: parameter '%d' does not have name\n", 
+                            filename, line, i);
+                }
+            }
+        }
+        entry->entity_specs.related_symbols[i] = gather_info->arguments_info[i].entry;
+    }
+}
+
 /*
  * This function builds symbol table information for a function definition
  *  
@@ -8854,65 +8948,15 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
         entry->entity_specs.emission_template = NULL;
     }
     
-    // Keep parameter names
-    int i;
-    for (i = 0; i < gather_info.num_parameters; i++)
-    {
-        // In C they must have name
-        C_LANGUAGE()
-        {
-            if (gather_info.arguments_info[i].entry == NULL)
-            {
-                if (!checking_ambiguity())
-                {
-                    error_printf("%s: error: parameter '%d' does not have name\n", 
-                            ast_location(function_declarator),
-                            i);
-                }
-            }
-        }
-        P_LIST_ADD(entry->entity_specs.related_symbols,
-                entry->entity_specs.num_related_symbols,
-                gather_info.arguments_info[i].entry);
-    }
-
-    {
-        // Function declaration name
-        AST declarator_name = get_declarator_name(function_declarator, decl_context);
-
-        if (ASTType(declarator_name) == AST_QUALIFIED_ID)
-        {
-            AST global_qualif = ASTSon0(declarator_name);
-            AST nested_name_spec = ASTSon1(declarator_name);
-            AST unqualified_id = ASTSon2(declarator_name);
-
-
-            if (global_qualif != NULL)
-            {
-            }
-
-            if (nested_name_spec != NULL)
-            {
-            }
-
-
-            if (ASTType(unqualified_id) == AST_TEMPLATE_ID)
-            {
-            }
-        }
-        else if (ASTType(declarator_name) == AST_SYMBOL)
-        {
-        }
-        else if (ASTType(declarator_name) == AST_TEMPLATE_ID)
-        {
-        }
-    }
-
     // The scope seen by this function definition
-
     ERROR_CONDITION((entry->kind != SK_FUNCTION), 
             "This is not a function!!!", 0);
-
+    
+    // Keep parameter names
+    set_parameters_as_related_symbols(entry, &gather_info, 
+            /* is_definition */ 1,
+            ASTFileName(a),
+            ASTLine(a));
 
     // Function_body
     AST function_body = ASTSon2(a);
@@ -10055,6 +10099,17 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                         ast_location(expression),
                                         prettyprint_in_buffer(expression));
                             }
+                        }
+
+                        if (!nodecl_is_constant(nodecl_bit_size))
+                        {
+                            if (!checking_ambiguity())
+                            {
+                                error_printf("%s: error: bitfield size is not constant '%s'\n",
+                                        ast_location(expression),
+                                        prettyprint_in_buffer(expression));
+                            }
+                            nodecl_bit_size = const_value_to_nodecl(const_value_get_one( /* bytes */ 4, /* signed */ 1));
                         }
 
                         bitfield_symbol->entity_specs.is_bitfield = 1;
@@ -11391,8 +11446,31 @@ static int pragma_nesting = 0;
 static nodecl_t nodecl_pragma_output = NODECL_STATIC_NULL;
 // - End of state for pragma declaration processing -
 
+// Picks the context of the first non null parameter
+static decl_context_t get_prototype_context_if_any(decl_context_t decl_context,
+        scope_entry_t* entry)
+{
+    decl_context_t result = decl_context;
+
+    if (entry->kind == SK_FUNCTION)
+    {
+        int i;
+        for (i = 0; i < entry->entity_specs.num_related_symbols; i++)
+        {
+            if (entry->entity_specs.related_symbols[i] != NULL)
+            {
+                result = entry->entity_specs.related_symbols[i]->decl_context;
+                break;
+            }
+        }
+    }
+
+    return result;
+}
+
 static void finish_pragma_declaration(
         scope_entry_list_t* declared_symbols,
+        decl_context_t decl_context,
         nodecl_t nodecl_pragma_line,
         nodecl_t nodecl_decl,
         const char* text,
@@ -11424,6 +11502,10 @@ static void finish_pragma_declaration(
                     nodecl_make_pragma_custom_declaration(
                         nodecl_copy(nodecl_pragma_line), 
                         nodecl_null(), 
+                        nodecl_make_pragma_context(decl_context, entry->file, entry->line),
+                        nodecl_make_pragma_context(
+                            get_prototype_context_if_any(decl_context, entry), 
+                            entry->file, entry->line),
                         entry, 
                         text, filename, line));
         }
@@ -11441,11 +11523,16 @@ static void finish_pragma_declaration(
             ERROR_CONDITION(nodecl_get_kind(list[i]) != NODECL_PRAGMA_CUSTOM_DECLARATION, 
                     "Invalid node in nodecl_pragma_output", 0);
 
+            nodecl_t pragma_context = nodecl_get_child(list[i], 2);
+            nodecl_t prototype_context = nodecl_get_child(list[i], 3);
+
             nodecl_pragma_output = nodecl_append_to_list(
                     nodecl_pragma_output,
                     nodecl_make_pragma_custom_declaration(
                         nodecl_copy(nodecl_pragma_line), 
                         list[i], 
+                        nodecl_copy(pragma_context),
+                        nodecl_copy(prototype_context),
                         nodecl_get_symbol(list[i]), 
                         text, filename, line));
         }
@@ -11478,6 +11565,7 @@ static void build_scope_pragma_custom_construct_declaration(AST a,
     ERROR_CONDITION(pragma_nesting < 0, "Invalid pragma nesting", 0);
 
     finish_pragma_declaration(declared_symbols, 
+            decl_context,
             nodecl_pragma_line, nodecl_decl,
             ASTText(a), ASTFileName(a), ASTLine(a),
             nodecl_output);
@@ -11528,6 +11616,7 @@ static void build_scope_pragma_custom_construct_member_declaration(AST a,
     ERROR_CONDITION(pragma_nesting < 0, "Invalid pragma nesting", 0);
 
     finish_pragma_declaration(declared_symbols,
+            decl_context,
             nodecl_pragma_line, nodecl_member_decl,
             ASTText(a), ASTFileName(a), ASTLine(a),
             nodecl_output);

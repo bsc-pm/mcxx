@@ -65,7 +65,7 @@ void common_build_scope_pragma_custom_declaration(AST a,
         void* info)
 {
     common_build_scope_pragma_custom_line(ASTSon0(a), decl_context, nodecl_pragma_line);
-    function_for_child(ASTSon1(a), new_block_context(decl_context), nodecl_nested_decl, info);
+    function_for_child(ASTSon1(a), decl_context, nodecl_nested_decl, info);
 }
 
 void common_build_scope_pragma_custom_statement(AST a, 

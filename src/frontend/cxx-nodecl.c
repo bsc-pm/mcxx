@@ -404,7 +404,8 @@ void nodecl_set_child(nodecl_t n, int nc, nodecl_t c)
 decl_context_t nodecl_get_decl_context(nodecl_t n)
 {
     ERROR_CONDITION(nodecl_is_null(n) || 
-            nodecl_get_kind(n) != NODECL_CONTEXT,
+            (nodecl_get_kind(n) != NODECL_CONTEXT
+            && nodecl_get_kind(n) != NODECL_PRAGMA_CONTEXT),
             "This is not a context node", 0);
     decl_context_t* p = (decl_context_t*)ast_get_field(nodecl_get_ast(n), LANG_DECL_CONTEXT);
 
@@ -416,7 +417,8 @@ decl_context_t nodecl_get_decl_context(nodecl_t n)
 void nodecl_set_decl_context(nodecl_t n, decl_context_t decl_context)
 {
     ERROR_CONDITION(nodecl_is_null(n) || 
-            nodecl_get_kind(n) != NODECL_CONTEXT,
+            (nodecl_get_kind(n) != NODECL_CONTEXT
+            && nodecl_get_kind(n) != NODECL_PRAGMA_CONTEXT),
             "This is not a context node", 0);
 
     decl_context_t* p = (decl_context_t*)ast_get_field(nodecl_get_ast(n), LANG_DECL_CONTEXT);

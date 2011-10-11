@@ -1601,6 +1601,8 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                 const char* decl_specifiers = "";
                 const char* gcc_attributes = "";
                 const char* declarator = "";
+                char bit_field[256];
+                bit_field[0]='\0';
 
                 if (is_named_class_type(symbol->type_information)
                         && named_type_get_symbol(symbol->type_information)->entity_specs.is_anonymous_union)
@@ -1637,6 +1639,13 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                 {
                     decl_specifiers = strappend(decl_specifiers, "register ");
                 }
+                if (symbol->entity_specs.is_bitfield)
+                {
+                    unsigned int bits_of_bitfield =  const_value_cast_to_4(
+                            nodecl_get_constant(symbol->entity_specs.bitfield_size));
+                    
+                    sprintf(bit_field," : %d", bits_of_bitfield);
+                }
 
                 declarator = print_decl_type_str(symbol->type_information, symbol->decl_context, 
                         unmangle_symbol_name(symbol));
@@ -1659,8 +1668,8 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
 
                 codegen_move_to_namespace_of_symbol(visitor, symbol);
                 indent(visitor);
-                fprintf(visitor->file, "%s%s%s",
-                        decl_specifiers, gcc_attributes, declarator);
+                fprintf(visitor->file, "%s%s%s%s",
+                        decl_specifiers, gcc_attributes, declarator, bit_field);
 
                 // Initializer
                 if (emit_initializer)
@@ -2218,22 +2227,23 @@ static void walk_list(nodecl_codegen_visitor_t *visitor, nodecl_t node, const ch
     if (nodecl_is_null(node))
         return;
 
-    AST list = nodecl_get_ast(node);
-
-    ERROR_CONDITION(ASTType(list) != AST_NODE_LIST, "Invalid node kind", 0);
-
-    AST it;
-    for_each_element(list, it)
+    ERROR_CONDITION(ASTType(nodecl_get_ast(node)) != AST_NODE_LIST, "Invalid node kind", 0);
+    
+    int size = 0;
+    nodecl_t* list = nodecl_unpack_list(node, &size);
+    
+    int i;
+    for(i = 0; i < size; ++i)
     {
-        AST current = ASTSon1(it);
-        codegen_walk(visitor, _nodecl_wrap(current));
+        codegen_walk(visitor, list[i]);
 
         // If we are not the last
-        if (it != list)
+        if (i != (size-1))
         {
             fprintf(visitor->file, "%s", separator);
         }
     }
+    free(list);
 }
 
 // Special case for expression lists where top level comma operators demmand
@@ -2243,21 +2253,22 @@ static void walk_expression_list(nodecl_codegen_visitor_t *visitor, nodecl_t nod
     if (nodecl_is_null(node))
         return;
 
-    AST list = nodecl_get_ast(node);
+    ERROR_CONDITION(ASTType(nodecl_get_ast(node)) != AST_NODE_LIST, "Invalid node kind", 0);
+    
+    int size = 0;
+    nodecl_t* list = nodecl_unpack_list(node, &size);
 
-    ERROR_CONDITION(ASTType(list) != AST_NODE_LIST, "Invalid node kind", 0);
-
-    AST it;
-    for_each_element(list, it)
+    int i;
+    for(i = 0; i < size; ++i)
     {
-        AST current = ASTSon1(it);
+        AST current = nodecl_get_ast(list[i]);
 
         if (ASTType(current) == NODECL_COMMA)
         {
             fprintf(visitor->file, "(");
         }
 
-        codegen_walk(visitor, _nodecl_wrap(current));
+        codegen_walk(visitor, list[i]);
 
         if (ASTType(current) == NODECL_COMMA)
         {
@@ -2265,11 +2276,12 @@ static void walk_expression_list(nodecl_codegen_visitor_t *visitor, nodecl_t nod
         }
 
         // If we are not the last
-        if (it != list)
+        if (i != (size - 1))
         {
             fprintf(visitor->file, ", ");
         }
     }
+    free(list);
 }
 
 static void walk_expression_unpacked_list(nodecl_codegen_visitor_t *visitor, nodecl_t* node, int i)
@@ -3420,6 +3432,12 @@ static void codegen_builtin(nodecl_codegen_visitor_t* visitor, nodecl_t node)
         fprintf(visitor->file, ")");
         free(unpacked_list);
     }
+    else if (strcmp(builtin_name, "verbatim") == 0)
+    {
+        int num_items = 0;
+        nodecl_t* unpacked_list = nodecl_unpack_list(any_list, &num_items);
+        fprintf(visitor->file, "%s", nodecl_get_text(unpacked_list[0]));
+    }
     else
     {
         internal_error("Unhandled '%s' builtin at %s\n", builtin_name, nodecl_get_locus(node));
@@ -3606,14 +3624,53 @@ static void codegen_array_subscript(nodecl_codegen_visitor_t* visitor, nodecl_t 
 
     // We keep a list instead of a single dimension for multidimensional arrays
     // alla Fortran
-    AST subscript_list = nodecl_get_ast(subscript);
-    AST it;
-    for_each_element(subscript_list, it)
+    int size = 0;
+    nodecl_t *subscript_list = nodecl_unpack_list(subscript, &size);
+
+    int i;
+    for(i = 0; i < size; ++i)
     {
         fprintf(visitor->file, "[");
-        codegen_walk(visitor, _nodecl_wrap(ASTSon1(it)));
+        codegen_walk(visitor, subscript_list[i]);
         fprintf(visitor->file, "]");
     }
+    free(subscript_list);
+}
+
+static void codegen_array_section(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    nodecl_t array = nodecl_get_child(node, 0);
+    nodecl_t l_expr = nodecl_get_child(node, 1);
+    nodecl_t r_expr = nodecl_get_child(node, 2);
+
+    //array[l_expr: r_expr]    
+    codegen_walk(visitor, array);
+    fprintf(visitor->file, "[");
+    codegen_walk(visitor, l_expr);
+    fprintf(visitor->file, ":");
+    codegen_walk(visitor, r_expr);
+    fprintf(visitor->file, "]");
+}
+
+static void codegen_shaping_expression(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    nodecl_t postfix = nodecl_get_child(node, 0);
+    nodecl_t seq_exp = nodecl_get_child(node, 1);
+   
+    int size = 0;
+    nodecl_t* expr_list = nodecl_unpack_list(seq_exp, &size);
+    
+    int i;
+    for(i = 0; i < size; ++i)
+    {
+        fprintf(visitor->file, "[");
+        codegen_walk(visitor, expr_list[i]);
+        fprintf(visitor->file, "]");
+    }
+    free(expr_list); 
+    
+    fprintf(visitor->file, " ");
+    codegen_walk(visitor, postfix);
 }
 
 // Statements
@@ -4493,6 +4550,8 @@ static void c_cxx_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
     NODECL_VISITOR(codegen_visitor)->visit_field_designator = codegen_visitor_fun(codegen_field_designator);
     NODECL_VISITOR(codegen_visitor)->visit_index_designator = codegen_visitor_fun(codegen_index_designator);
     NODECL_VISITOR(codegen_visitor)->visit_array_subscript = codegen_visitor_fun(codegen_array_subscript);
+    NODECL_VISITOR(codegen_visitor)->visit_array_section = codegen_visitor_fun(codegen_array_section);
+    NODECL_VISITOR(codegen_visitor)->visit_shaping = codegen_visitor_fun(codegen_shaping_expression);
     NODECL_VISITOR(codegen_visitor)->visit_text = codegen_visitor_fun(codegen_text);
     // All binary infix, unary prefix and unary postfix are here, look for the definition of OPERATOR_TABLE above
 #define PREFIX_UNARY_EXPRESSION(_name, _) \
