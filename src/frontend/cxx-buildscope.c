@@ -6652,6 +6652,24 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
     return NULL;
 }
 
+static void copy_related_symbols(scope_entry_t* dest, scope_entry_t* orig)
+{
+    dest->entity_specs.num_related_symbols = orig->entity_specs.num_related_symbols;
+    dest->entity_specs.related_symbols = counted_calloc(dest->entity_specs.num_related_symbols, 
+            sizeof(*dest->entity_specs.related_symbols), &_bytes_used_buildscope);
+
+    int i;
+    for (i = 0; i < dest->entity_specs.num_related_symbols; i++)
+    {
+        dest->entity_specs.related_symbols[i] = orig->entity_specs.related_symbols[i];
+    }
+}
+
+static void set_parameters_as_related_symbols(scope_entry_t* entry, 
+        gather_decl_spec_t* gather_info,
+        char is_definition,
+        const char* filename, int line);
+
 /*
  * This function registers a new typedef name.
  */
@@ -6805,6 +6823,9 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
         entry->entity_specs.any_exception = gather_info->any_exception;
         entry->entity_specs.num_exceptions = gather_info->num_exceptions;
         entry->entity_specs.exceptions = gather_info->exceptions;
+
+        set_parameters_as_related_symbols(entry, gather_info, /* is_definition */ 0, 
+                ASTFileName(declarator_id), ASTLine(declarator_id));
     }
 
     // Case 2 - typedef against a typedef that was a functional declarator typedef ...
@@ -6842,6 +6863,9 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
             entry->entity_specs.any_exception = gather_info->any_exception;
             entry->entity_specs.num_exceptions = named_type->entity_specs.num_exceptions;
             entry->entity_specs.exceptions = named_type->entity_specs.exceptions;
+
+            // Copy parameter info
+            copy_related_symbols(entry, named_type);
         }
     }
 
@@ -6938,11 +6962,6 @@ static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* decl
     }
 }
 
-static void set_parameters_as_related_symbols(scope_entry_t* entry, 
-        gather_decl_spec_t* gather_info,
-        char is_definition,
-        const char* filename, int line);
-
 static scope_entry_t* register_function(AST declarator_id, type_t* declarator_type, 
         gather_decl_spec_t* gather_info, decl_context_t decl_context)
 {
@@ -6985,13 +7004,24 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
             new_entry->file = ASTFileName(declarator_id);
             
             new_entry->entity_specs.is_friend_declared = gather_info->is_friend;
-            
-            // Keep parameter names
-            set_parameters_as_related_symbols(new_entry, 
-                    gather_info, 
-                    /* is_definition */ 0,
-                    ASTFileName(declarator_id),
-                    ASTLine(declarator_id));
+
+            if (is_named_type(declarator_type))
+            {
+                // This must be a typedef to a function type (directly or indirectly)
+                scope_entry_t* typedef_sym = named_type_get_symbol(declarator_type);
+
+                // Copy parameter names
+                copy_related_symbols(new_entry, typedef_sym);
+            }
+            else
+            {
+                // Keep parameter names
+                set_parameters_as_related_symbols(new_entry, 
+                        gather_info, 
+                        /* is_definition */ 0,
+                        ASTFileName(declarator_id),
+                        ASTLine(declarator_id));
+            }
         }
         else /* gather_info->is_template */
         {
@@ -8694,6 +8724,11 @@ static void set_parameters_as_related_symbols(scope_entry_t* entry,
         const char* filename,
         int line)
 {
+    // Do not keep anything for nonprototype function types
+    if (entry->kind == SK_FUNCTION
+            && function_type_get_lacking_prototype(entry->type_information))
+        return;
+
     // Keep parameter names
     if (entry->entity_specs.related_symbols == NULL)
     {
