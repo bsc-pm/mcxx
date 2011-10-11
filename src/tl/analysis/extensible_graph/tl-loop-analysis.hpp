@@ -128,7 +128,7 @@ namespace TL
        
         
         // *** Modifiers *** //
-        void compute_induction_varaibles_info(Node* loop_node);
+        void compute_induction_variables_info(Node* loop_node);
         
         void compute_arrays_info(Node* node);
         

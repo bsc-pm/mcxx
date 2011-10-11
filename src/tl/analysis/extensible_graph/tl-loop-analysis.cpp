@@ -324,11 +324,11 @@ namespace TL
         }
     }
 
-    void LoopAnalysis::compute_induction_varaibles_info(Node* node)
+    void LoopAnalysis::compute_induction_variables_info(Node* node)
     {
         if (!node->is_visited())
         {
-            std::cerr << "compute_induction_varaibles_info - node: " << node->get_id() << std::endl;
+//             std::cerr << "compute_induction_variables_info node " << node->get_id() << std::endl;
             node->set_visited(true);
             
             Node_type ntype = node->get_data<Node_type>(_NODE_TYPE);
@@ -342,13 +342,13 @@ namespace TL
                         Nodecl::LoopControl loop_control = node->get_data<Nodecl::NodeclBase>(_NODE_LABEL).as<Nodecl::LoopControl>();
                         compute_induction_vars_from_loop_control(loop_control, node);
                     }
-                    compute_induction_varaibles_info(node->get_data<Node*>(_ENTRY_NODE));
+                    compute_induction_variables_info(node->get_data<Node*>(_ENTRY_NODE));
                 }
                 
                 ObjectList<Node*> children = node->get_children();
                 for (ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
                 {
-                    compute_induction_varaibles_info(*it);
+                    compute_induction_variables_info(*it);
                 }
             }
             else
@@ -379,8 +379,6 @@ namespace TL
                 InductionVarInfo* ind_var;
                 if ( (ind_var = induction_vars_l_contains_symbol(s)) != NULL )
                 {
-                    std::cerr << "Array accessed by an induction varaible!!" << std::endl;
-                    
                     // Unset the old extensible symbol from the proper list
                     if (use_type == '0')
                     {   
@@ -388,8 +386,6 @@ namespace TL
                     }
                     else if (use_type == '1')
                     {
-                        std::cerr << "Deleting symbol " << ei.get_symbol().get_name() 
-                                  << " from killed vars in node " << node->get_id() << std::endl;
                         node->unset_killed_var(ei);
                     }
                     else
@@ -410,9 +406,7 @@ namespace TL
                             node->set_ue_var(new_ei);
                         }
                         else
-                        {   // use_type = '1'
-                            std::cerr << "setting new  symbol " << new_ei.get_symbol().get_name() 
-                                      << " from killed vars in node " << node->get_id() << std::endl;                        
+                        {   // use_type = '1'                     
                             node->set_killed_var(new_ei);
                         }
                     }
@@ -448,8 +442,9 @@ namespace TL
                     Nodecl::ArraySection new_array_access = set_array_access_range(node, array_access, *it, use_type);
                 }
                 else
-                {
-                    internal_error("Array sections not yet implemented in array analysis within loops", 0);
+                {   // TODO 
+                    std::cerr << "warning: ranged access to an array. Induction variables within a ranged access not yet implemented"
+                              << std::endl;
                 }
             }
             else
@@ -462,6 +457,7 @@ namespace TL
     {
         if (!node->is_visited())
         {
+            std::cerr << "compute_arrays_info_in_loop node " << node->get_id() << std::endl;
             node->set_visited(true);
             
             Node_type ntype = node->get_data<Node_type>(_NODE_TYPE);
@@ -514,6 +510,8 @@ namespace TL
                     {
                         compute_arrays_info(entry);
                     }
+                    ExtensibleGraph::clear_visits(node);
+                    node->set_graph_node_use_def();
                 }
                 
                 ObjectList<Node*> children = node->get_children();
@@ -532,7 +530,7 @@ namespace TL
     void LoopAnalysis::analyse_loops(Node* node)
     {
         // Compute induction_variables_info
-        compute_induction_varaibles_info(node);
+        compute_induction_variables_info(node);
         ExtensibleGraph::clear_visits(node);
         
         // Analyse the possible arrays in the node

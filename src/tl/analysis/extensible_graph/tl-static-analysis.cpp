@@ -492,53 +492,58 @@ namespace TL
      * \param s Symbol containing a parameter of the function where de nodecl has being used/defined    -> A& a
      * \param s_map Nodecl containing the argument corresponding to de parameter                        -> a' of type A&
      */
-    static nodecl_t match_nodecl_with_symbol(Nodecl::NodeclBase n, Symbol s, Nodecl::NodeclBase s_map)
+    static Nodecl::NodeclBase match_nodecl_with_symbol(Nodecl::NodeclBase n, Symbol s, Nodecl::NodeclBase s_map)
     {
-//         std::cerr << "Matching in UE/DEF var '" << c_cxx_codegen_to_str(n.get_internal_nodecl()) 
-//                   << "' symbol '" << s.get_name() << "' to be substituted with '" << c_cxx_codegen_to_str(s_map.get_internal_nodecl())
-//                   << "'" << std::endl;
         if (n.is<Nodecl::Symbol>() || n.is<Nodecl::PointerToMember>())
         {
             if (n.get_symbol() == s)
             {
-                return nodecl_copy(s_map.copy().get_internal_nodecl());
+                return s_map.copy();
             }
             return ::nodecl_null();
         }
         else if (n.is<Nodecl::ClassMemberAccess>())
         {
             Nodecl::ClassMemberAccess aux = n.as<Nodecl::ClassMemberAccess>();
-            nodecl_t lhs = match_nodecl_with_symbol(aux.get_lhs(), s, s_map);
-            if (!nodecl_is_null(lhs))
+            Nodecl::NodeclBase lhs = match_nodecl_with_symbol(aux.get_lhs(), s, s_map);
+            if (!lhs.is_null())
             {
-                return nodecl_make_class_member_access(lhs, aux.get_member().get_internal_nodecl(), 
-                                                       s_map.get_type().get_internal_type(),
+                return Nodecl::ClassMemberAccess::make(lhs, aux.get_member(), s_map.get_type(), 
                                                        s_map.get_filename().c_str(), s_map.get_line());
             }
-            return ::nodecl_null();
+            return Nodecl::NodeclBase::null();
         }
         else if (n.is<Nodecl::ArraySubscript>())
         {
             Nodecl::ArraySubscript aux = n.as<Nodecl::ArraySubscript>();
-            nodecl_t subscripted = match_nodecl_with_symbol(aux.get_subscripted(), s, s_map);
-            if (!nodecl_is_null(subscripted))
+            Nodecl::NodeclBase subscripted = match_nodecl_with_symbol(aux.get_subscripted(), s, s_map);
+            if (!subscripted.is_null())
             {
-                return nodecl_make_array_subscript(subscripted, aux.get_subscripts().get_internal_nodecl(),
-                                                   s_map.get_type().get_internal_type(),
-                                                   s_map.get_filename().c_str(), s_map.get_line());
+                return Nodecl::ArraySubscript::make(subscripted, aux.get_subscripts(), s_map.get_type(),
+                                                    s_map.get_filename().c_str(), s_map.get_line());
             }
-            return ::nodecl_null();
+            return Nodecl::NodeclBase::null();
+        }
+        else if (n.is<Nodecl::ArraySection>())
+        {
+            Nodecl::ArraySection aux = n.as<Nodecl::ArraySection>();
+            Nodecl::NodeclBase subscripted = match_nodecl_with_symbol(aux.get_subscripted(), s, s_map);
+            if (!subscripted.is_null())
+            {
+                return Nodecl::ArraySection::make(subscripted, aux.get_lower(), aux.get_upper(),
+                                                  s_map.get_type(), s_map.get_filename().c_str(), s_map.get_line());
+            }
+            return Nodecl::NodeclBase::null();
         }
         else if (n.is<Nodecl::Derreference>())
         {
             Nodecl::Derreference aux = n.as<Nodecl::Derreference>();
-            nodecl_t rhs = match_nodecl_with_symbol(aux.get_rhs(), s, s_map);
-            if (!nodecl_is_null(rhs))
+            Nodecl::NodeclBase rhs = match_nodecl_with_symbol(aux.get_rhs(), s, s_map);
+            if (!rhs.is_null())
             {
-                return nodecl_make_derreference(rhs, s_map.get_type().get_internal_type(),
-                                                s_map.get_filename().c_str(), s_map.get_line());
+                return Nodecl::Derreference::make(rhs, s_map.get_type(), s_map.get_filename().c_str(), s_map.get_line());
             }
-            return ::nodecl_null();
+            return Nodecl::NodeclBase::null();
         }
         else
         {
@@ -548,24 +553,25 @@ namespace TL
     }
     
     // The method looks for every element in the symbol list whether the nodecl corresponds to the symbol
-    // It returns the nodecl corresponding to the match
+    // It returns a copy of the nodecl corresponding to the match
     static Nodecl::NodeclBase match_nodecl_in_symbol_l(Nodecl::NodeclBase n, ObjectList<Symbol> s_l, 
                                                        std::vector<Nodecl::NodeclBase> s_map_l,
                                                       Symbol& matching_symbol)
     {
         ObjectList<Symbol>::iterator it_s = s_l.begin();
         std::vector<Nodecl::NodeclBase>::iterator it_s_map = s_map_l.begin();
+        Nodecl::NodeclBase actual_nodecl;
         for (; (it_s != s_l.end()) && (it_s_map != s_map_l.end()); ++it_s, ++it_s_map)
         {
-            nodecl_t actual_nodecl = match_nodecl_with_symbol(n, *it_s, *it_s_map);
-            if (!nodecl_is_null(actual_nodecl))
+            actual_nodecl = match_nodecl_with_symbol(n, *it_s, *it_s_map);
+            if (!actual_nodecl.is_null())
             {
                 matching_symbol = *it_s;
-                return Nodecl::NodeclBase(actual_nodecl);
+                break;
             }
         }
         
-        return Nodecl::NodeclBase::null();
+        return actual_nodecl;
     }
     
     void CfgVisitor::set_live_initial_information(Node* node)
@@ -577,8 +583,7 @@ namespace TL
             ExtensibleGraph* called_func_graph = find_function_for_ipa(node);
             if (called_func_graph != NULL && !called_func_graph->has_use_def_computed())
             {
-                gather_live_initial_information(called_func_graph->get_graph());
-                ExtensibleGraph::clear_visits(called_func_graph->get_graph());
+                compute_use_def_chains(called_func_graph->get_graph());
                 called_func_graph->set_use_def_computed();
             }
             
@@ -637,6 +642,10 @@ namespace TL
             {
                 node->set_data<ext_sym_set>(_UPPER_EXPOSED, node_ue_vars);
             }
+            else
+            {
+                std::cerr << "UE vars empty for node " << node->get_id() << std::endl;
+            }
            
             ext_sym_set called_func_killed_vars = called_func_graph->get_graph()->get_killed_vars(), node_killed_vars;
             for(ext_sym_set::iterator it = called_func_killed_vars.begin(); it != called_func_killed_vars.end(); ++it)
@@ -664,6 +673,10 @@ namespace TL
             if (!node_killed_vars.empty())
             {
                 node->set_data<ext_sym_set>(_KILLED, node_killed_vars);
+            }
+            else
+            {
+                std::cerr << "KILLED vars empty for node " << node->get_id() << std::endl;
             }
 
         }
@@ -723,7 +736,6 @@ namespace TL
         gather_live_initial_information(node);
         ExtensibleGraph::clear_visits(node);
 
-        std::cerr << "Extending reaching defintions info " << std::endl;
         ExtensibleGraph::extend_reaching_defintions_info(node);
         ExtensibleGraph::clear_visits(node);
         

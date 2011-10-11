@@ -946,6 +946,7 @@ namespace TL
    
     void Node::set_graph_node_use_def()
     {
+        std::cerr << "Setting graph node use-def info to node " << _id << std::endl;
         if (get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
         {
             _visited = true;
@@ -1200,7 +1201,7 @@ namespace TL
         if (this->has_key(_UPPER_EXPOSED))
         {   
             ue_vars = get_data<ext_sym_set>(_UPPER_EXPOSED);
-            ue_vars.not_find(old_ue_var);
+            ue_vars = ue_vars.not_find(old_ue_var);
         }
         
         set_data(_UPPER_EXPOSED, ue_vars);
@@ -1238,7 +1239,7 @@ namespace TL
         if (has_key(_KILLED))
         {
             killed_vars = get_data<ext_sym_set>(_KILLED);
-            killed_vars.not_find(old_killed_var);
+            killed_vars = killed_vars.not_find(old_killed_var);
         }
         
         set_data(_KILLED, killed_vars);        

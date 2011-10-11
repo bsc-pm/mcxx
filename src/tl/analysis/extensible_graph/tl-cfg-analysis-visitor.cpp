@@ -126,13 +126,15 @@ namespace TL
 
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::ObjectInit& n)
     {
-        _node->fill_use_def_sets(n, true);
         Symbol s = n.get_symbol();
+        
+        Nodecl::Symbol sym_node = Nodecl::Symbol::make(s, n.get_filename(), n.get_line());
+        _node->fill_use_def_sets(sym_node, true);
+       
         Nodecl::NodeclBase init = s.get_initialization();
         
         if (!init.is_null())
         {
-            Nodecl::Symbol sym_node = Nodecl::Symbol::make(s, n.get_filename(), n.get_line());
             _node->set_reaching_definition(sym_node, init);
             walk(init);
         }

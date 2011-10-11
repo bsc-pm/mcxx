@@ -353,11 +353,11 @@ namespace TL
                 basic_block = basic_block.substr(0, basic_block.size()-2);   // Remove the last back space
             
                 dot_graph += indent + ss.str() + "[label=\"{" + ss.str() + " # " + basic_block +
-                                " | LI: "   + prettyprint_ext_sym_set(actual_node->get_live_in_vars()) + 
-                                " | KILL: " + prettyprint_ext_sym_set(actual_node->get_killed_vars()) +
-                                " | UE: "   + prettyprint_ext_sym_set(actual_node->get_ue_vars()) +
-                                " | LO: "   + prettyprint_ext_sym_set(actual_node->get_live_out_vars()) +
-                                " | DEFS: "   + prettyprint_reaching_definitions(actual_node->get_reaching_definitions()) + 
+                                " | LI: "           + prettyprint_ext_sym_set(actual_node->get_live_in_vars()) + 
+                                " | KILL: "         + prettyprint_ext_sym_set(actual_node->get_killed_vars()) +
+                                " | UE: "           + prettyprint_ext_sym_set(actual_node->get_ue_vars()) +
+                                " | LO: "           + prettyprint_ext_sym_set(actual_node->get_live_out_vars()) +
+                                " | REACH DEFS: "   + prettyprint_reaching_definitions(actual_node->get_reaching_definitions()) + 
                                 "}\", shape=record];\n";
     
                 break;

@@ -68,14 +68,23 @@ namespace TL
             Nodecl::ArraySection aux = n.as<Nodecl::ArraySection>();
             return get_nodecl_symbol(aux.get_subscripted());
         }
+        else if (n.is<Nodecl::Conversion>())
+        {
+            Nodecl::Conversion aux = n.as<Nodecl::Conversion>();
+            return get_nodecl_symbol(aux.get_nest());
+        }
         else if (n.is<Nodecl::FunctionCall>())
+        {
+            return Symbol();
+        }
+        else if (n.is<Nodecl::IntegerLiteral>())
         {
             return Symbol();
         }
         else
         {
-            internal_error("Unexpected type of nodecl '%s' contained in an ExtendedSymbol", 
-                           ast_print_node_type(n.get_kind()));
+            internal_error("Unexpected type of nodecl '%s' contained in an ExtendedSymbol '%s'", 
+                           ast_print_node_type(n.get_kind()), c_cxx_codegen_to_str(n.get_internal_nodecl()));
         }
     }
    
@@ -123,7 +132,7 @@ namespace TL
 
     bool ExtensibleSymbol::operator==(const ExtensibleSymbol& es) const
     {
-        bool equals = Nodecl::Utils::equal_nodecls(_n, es._n);    
+        bool equals = Nodecl::Utils::equal_nodecls(_n, es._n);   
         return equals;
     }
     
