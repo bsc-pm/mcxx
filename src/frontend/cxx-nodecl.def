@@ -201,7 +201,7 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | NODECL_PREDECREMENT([rhs]expression) type
                   | NODECL_POSTDECREMENT([rhs]expression) type
                   | NODECL_SIZEOF([size_type]type) type
-                  | NODECL_ALIGNOF([size_type]type) type
+                  | NODECL_ALIGNOF([align_type]type) type
                   | NODECL_OFFSET([base]expression, [offset]expression) type
                   | NODECL_TYPEID([arg]type-or-expr) type
                   | NODECL_NEW([init]expression-opt, [placement]expression-seq-opt, [alloc_func]name-opt) type text
@@ -210,7 +210,7 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | NODECL_POINTER_TO_MEMBER() symbol type
                   | NODECL_REAL_PART([rhs]expression) type
                   | NODECL_IMAG_PART([rhs]expression) type
-                  | NODECL_OFFSETOF([type]type, [designator]cxx-dependent-initializer-seq) type
+                  | NODECL_OFFSETOF([offset_type]type, [designator]cxx-dependent-initializer-seq) type
                   | NODECL_SHAPING([postfix] expression, [shape] expression-seq) type
                   | NODECL_PSEUDO_DESTRUCTOR_NAME([accessed] expression, [destructor_name] cxx-dependent-name) type
                   | cxx-dependent-nodecls
