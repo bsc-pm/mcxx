@@ -39,6 +39,8 @@ libextensible_graph_la_SOURCES = \
    tl-edge.cpp \
    tl-node.hpp \
    tl-node.cpp \
+   tl-cfg-renaming-visitor.hpp \
+   tl-cfg-renaming-visitor.cpp \
    tl-extensible-symbol.hpp \
    tl-extensible-symbol.cpp \
    tl-extensible-graph.cpp \

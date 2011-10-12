@@ -59,6 +59,11 @@ namespace TL
             ExtensibleSymbol(Nodecl::NodeclBase n);
             
             
+            // *** Modifiers *** //
+            
+            Nodecl::NodeclBase propagate_constant_values(std::map<Symbol, Nodecl::NodeclBase> values_map);
+            
+            
             // *** Getters and Setters *** //
 
             //! Returns the symbol wrapped in the Extended Symbol

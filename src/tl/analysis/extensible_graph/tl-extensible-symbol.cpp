@@ -30,6 +30,7 @@ Cambridge, MA 02139, USA.
 
 #include "tl-extensible-symbol.hpp"
 #include "tl-nodecl-alg.hpp"
+#include "tl-cfg-renaming-visitor.hpp"
 
 
 namespace TL
@@ -40,7 +41,18 @@ namespace TL
     
     ExtensibleSymbol::ExtensibleSymbol(Nodecl::NodeclBase n)
         : _n(n)
-    {}
+    {
+        if (n.is<Nodecl::Conversion>())
+        {
+            std::cerr << "inserting conversion as an extensible symbol" << std::endl;
+        }
+    }
+    
+    Nodecl::NodeclBase ExtensibleSymbol::propagate_constant_values(std::map<Symbol, Nodecl::NodeclBase> values_map)
+    {
+        CfgRenamingVisitor renaming_v(values_map, _n.get_filename().c_str(), _n.get_line());
+        renaming_v.walk(_n);     
+    }
     
     Symbol ExtensibleSymbol::get_nodecl_symbol(Nodecl::NodeclBase n) const
     {
@@ -70,14 +82,11 @@ namespace TL
         }
         else if (n.is<Nodecl::Conversion>())
         {
+            // FIXME This shouldn't be here
             Nodecl::Conversion aux = n.as<Nodecl::Conversion>();
             return get_nodecl_symbol(aux.get_nest());
         }
         else if (n.is<Nodecl::FunctionCall>())
-        {
-            return Symbol();
-        }
-        else if (n.is<Nodecl::IntegerLiteral>())
         {
             return Symbol();
         }

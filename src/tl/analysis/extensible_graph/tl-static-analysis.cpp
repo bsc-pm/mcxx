@@ -417,12 +417,10 @@ namespace TL
         {
             if (n.get_symbol() == s)
             {
-                std::cerr << "   symbols " << s.get_name() << " and " << n.get_symbol().get_name() << " are the same" << std::endl;
                 return true;
             }
             else
             {
-                std::cerr << "   symbols " << s.get_name() << " and " << n.get_symbol().get_name() << " are different" << std::endl;
                 return false;
             }
         }
@@ -436,14 +434,17 @@ namespace TL
             else if (n.is<Nodecl::ClassMemberAccess>())
             {
                 Nodecl::ClassMemberAccess n_ = n.as<Nodecl::ClassMemberAccess>();
-                std::cerr << "   lhs: " << c_cxx_codegen_to_str(n_.get_lhs().get_internal_nodecl()) << std::endl;
-                std::cerr << "   lhs type : " << ast_print_node_type(n_.get_lhs().get_kind()) << std::endl;
                 return nodecl_is_base_of_symbol(s, n_.get_lhs());
             }
             else if (n.is<Nodecl::ArraySubscript>())
             {
                 Nodecl::ArraySubscript n_ = n.as<Nodecl::ArraySubscript>();
                 return nodecl_is_base_of_symbol(s, n_.get_subscripted());
+            }
+            else
+            {
+                internal_error("Unexpected type of node '%s' while looking for base symbol in an extensible symbol", 
+                               ast_print_node_type(n.get_kind()));
             }
         }
     }
@@ -487,6 +488,17 @@ namespace TL
         
     }
 
+    static bool nodecl_is_constant_value(Nodecl::NodeclBase n)
+    {
+        if (n.is<Nodecl::IntegerLiteral>() || n.is<Nodecl::FloatingLiteral>() 
+            || n.is<Nodecl::ComplexLiteral>() || n.is<Nodecl::BooleanLiteral>()
+            || n.is<Nodecl::StringLiteral>())
+        {
+            return true;
+        }
+        return false;
+    }
+
     /*!
      * \param n Nodecl being used/defined which has been stored in an ExtensibleSymbol                  -> a.b.c
      * \param s Symbol containing a parameter of the function where de nodecl has being used/defined    -> A& a
@@ -494,69 +506,75 @@ namespace TL
      */
     static Nodecl::NodeclBase match_nodecl_with_symbol(Nodecl::NodeclBase n, Symbol s, Nodecl::NodeclBase s_map)
     {
-        if (n.is<Nodecl::Symbol>() || n.is<Nodecl::PointerToMember>())
-        {
-            if (n.get_symbol() == s)
+        if (nodecl_is_constant_value(s_map))
+        {   // When the argument is a literal, no symbol is involved
+            if (n.is<Nodecl::Symbol>() || n.is<Nodecl::PointerToMember>())
             {
-                return s_map.copy();
+                if (n.get_symbol() == s)
+                {
+                    return s_map.copy();
+                }
             }
-            return ::nodecl_null();
-        }
-        else if (n.is<Nodecl::ClassMemberAccess>())
-        {
-            Nodecl::ClassMemberAccess aux = n.as<Nodecl::ClassMemberAccess>();
-            Nodecl::NodeclBase lhs = match_nodecl_with_symbol(aux.get_lhs(), s, s_map);
-            if (!lhs.is_null())
+            else if (n.is<Nodecl::ClassMemberAccess>())
             {
-                return Nodecl::ClassMemberAccess::make(lhs, aux.get_member(), s_map.get_type(), 
-                                                       s_map.get_filename().c_str(), s_map.get_line());
+                Nodecl::ClassMemberAccess aux = n.as<Nodecl::ClassMemberAccess>();
+                Nodecl::NodeclBase lhs = match_nodecl_with_symbol(aux.get_lhs(), s, s_map);
+                if (!lhs.is_null())
+                {
+                    return Nodecl::ClassMemberAccess::make(lhs, aux.get_member(), s_map.get_type(), 
+                                                        s_map.get_filename().c_str(), s_map.get_line());
+                }
             }
-            return Nodecl::NodeclBase::null();
-        }
-        else if (n.is<Nodecl::ArraySubscript>())
-        {
-            Nodecl::ArraySubscript aux = n.as<Nodecl::ArraySubscript>();
-            Nodecl::NodeclBase subscripted = match_nodecl_with_symbol(aux.get_subscripted(), s, s_map);
-            if (!subscripted.is_null())
+            else if (n.is<Nodecl::ArraySubscript>())
             {
-                return Nodecl::ArraySubscript::make(subscripted, aux.get_subscripts(), s_map.get_type(),
-                                                    s_map.get_filename().c_str(), s_map.get_line());
+                Nodecl::ArraySubscript aux = n.as<Nodecl::ArraySubscript>();
+                Nodecl::NodeclBase subscripted = match_nodecl_with_symbol(aux.get_subscripted(), s, s_map);
+                if (!subscripted.is_null())
+                {
+                    return Nodecl::ArraySubscript::make(subscripted, aux.get_subscripts(), s_map.get_type(),
+                                                        s_map.get_filename().c_str(), s_map.get_line());
+                }
             }
-            return Nodecl::NodeclBase::null();
-        }
-        else if (n.is<Nodecl::ArraySection>())
-        {
-            Nodecl::ArraySection aux = n.as<Nodecl::ArraySection>();
-            Nodecl::NodeclBase subscripted = match_nodecl_with_symbol(aux.get_subscripted(), s, s_map);
-            if (!subscripted.is_null())
+            else if (n.is<Nodecl::ArraySection>())
             {
-                return Nodecl::ArraySection::make(subscripted, aux.get_lower(), aux.get_upper(),
-                                                  s_map.get_type(), s_map.get_filename().c_str(), s_map.get_line());
+                Nodecl::ArraySection aux = n.as<Nodecl::ArraySection>();
+                Nodecl::NodeclBase subscripted = match_nodecl_with_symbol(aux.get_subscripted(), s, s_map);
+                if (!subscripted.is_null())
+                {
+                    return Nodecl::ArraySection::make(subscripted, aux.get_lower(), aux.get_upper(),
+                                                    s_map.get_type(), s_map.get_filename().c_str(), s_map.get_line());
+                }
             }
-            return Nodecl::NodeclBase::null();
-        }
-        else if (n.is<Nodecl::Derreference>())
-        {
-            Nodecl::Derreference aux = n.as<Nodecl::Derreference>();
-            Nodecl::NodeclBase rhs = match_nodecl_with_symbol(aux.get_rhs(), s, s_map);
-            if (!rhs.is_null())
+            else if (n.is<Nodecl::Derreference>())
             {
-                return Nodecl::Derreference::make(rhs, s_map.get_type(), s_map.get_filename().c_str(), s_map.get_line());
+                Nodecl::Derreference aux = n.as<Nodecl::Derreference>();
+                Nodecl::NodeclBase rhs = match_nodecl_with_symbol(aux.get_rhs(), s, s_map);
+                if (!rhs.is_null())
+                {
+                    return Nodecl::Derreference::make(rhs, s_map.get_type(), s_map.get_filename().c_str(), s_map.get_line());
+                }
             }
-            return Nodecl::NodeclBase::null();
+            else
+            {
+                internal_error("Unexpected type of node '%s' founded while parsing an Extensible symbol",
+                            ast_print_node_type(n.get_kind()));
+            }
         }
-        else
-        {
-            internal_error("Unexpected type of node '%s' founded while parsing an Extensible symbol",
-                           ast_print_node_type(n.get_kind()));
-        }
+
+        return Nodecl::NodeclBase::null();
     }
-    
-    // The method looks for every element in the symbol list whether the nodecl corresponds to the symbol
-    // It returns a copy of the nodecl corresponding to the match
+   
+    /*!
+     * This method searches a parameter of a symbol list that matches with a nodecl
+     * The method returns a copy of the symbol, if matched
+     * \param n                Nodecl we are looking for
+     * \param s_l List         List of parameters
+     * \param s_map-l          List of arguments
+     * \param matching_symbol  Symbol in the parameter list which matches 
+     */
     static Nodecl::NodeclBase match_nodecl_in_symbol_l(Nodecl::NodeclBase n, ObjectList<Symbol> s_l, 
                                                        std::vector<Nodecl::NodeclBase> s_map_l,
-                                                      Symbol& matching_symbol)
+                                                       Symbol& matching_symbol)
     {
         ObjectList<Symbol>::iterator it_s = s_l.begin();
         std::vector<Nodecl::NodeclBase>::iterator it_s_map = s_map_l.begin();
@@ -620,7 +638,11 @@ namespace TL
                 params_to_args[*it] = args[i];
             }
 
-            // Compute use-def chains for the function call
+            // filter map maintaining those arguments that are constants for "constant propagation" in USE-DEF info
+            
+            
+
+            // compute use-def chains for the function call
             ext_sym_set called_func_ue_vars = called_func_graph->get_graph()->get_ue_vars();
             ext_sym_set node_ue_vars;
             ext_sym_set::iterator it = called_func_ue_vars.begin();
@@ -630,12 +652,14 @@ namespace TL
                 Nodecl::NodeclBase new_ue = match_nodecl_in_symbol_l(it->get_nodecl(), params, args, s);
                 if ( !new_ue.is_null() )
                 {   // UE variable is a parameter or a part of a parameter
-                    node_ue_vars.insert(new_ue);
+                    ExtensibleSymbol ei(new_ue);
+                    ei.propagate_constant_values(params_to_args);
+                    node_ue_vars.insert(ei);
                 }
                 else if ( !it->get_symbol().get_scope().scope_is_enclosed_by(function_sym.get_scope()) 
                           && it->get_symbol().get_scope() != function_sym.get_scope() )
                 {   // UE variable is global
-                    node_ue_vars.insert(it->get_nodecl());
+                    node_ue_vars.insert(*it);
                 }
             }
             if (!node_ue_vars.empty())
