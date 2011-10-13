@@ -4115,8 +4115,8 @@ static void compute_bin_operator_mul_assig_type(nodecl_t* lhs, nodecl_t* rhs,
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
                 ASTLeaf(AST_MUL_ASSIGN_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
-
-    compute_bin_operator_assig_only_arithmetic_type(lhs, rhs, 
+    
+    compute_bin_operator_assig_arithmetic_or_pointer_type(lhs, rhs,
             operation_tree, decl_context, nodecl_make_mul_assignment,
             filename, line, nodecl_output);
 }
@@ -4151,7 +4151,7 @@ static void compute_bin_operator_div_assig_type(nodecl_t* lhs, nodecl_t* rhs,
                 ASTLeaf(AST_DIV_ASSIGN_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
-    compute_bin_operator_assig_only_arithmetic_type(lhs, rhs, 
+    compute_bin_operator_assig_arithmetic_or_pointer_type(lhs, rhs,
             operation_tree, decl_context, nodecl_make_div_assignment,
             filename, line, nodecl_output);
 }
