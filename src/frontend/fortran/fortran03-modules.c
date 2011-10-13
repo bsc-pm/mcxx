@@ -1961,6 +1961,12 @@ static int get_const_value(void *datum,
 
 static const_value_t* load_const_value(sqlite3* handle, sqlite3_int64 oid)
 {
+    void *p = get_ptr_of_oid(handle, oid);
+    if (p != NULL)
+    {
+        return (const_value_t*)p;
+    }
+
     char * select_const_value = sqlite3_mprintf("SELECT oid, kind, sign, bytes, literal_value, compound_values FROM const_value WHERE oid = %lld\n;",
             oid);
     char* errmsg = NULL;
