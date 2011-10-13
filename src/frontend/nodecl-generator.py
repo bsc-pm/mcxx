@@ -51,7 +51,8 @@ def parse_rules(f):
     rule_map = { }
     for r in rule_set:
         (rule_name, rule_rhs) = r
-        rule_map[rule_name] = [] 
+        if rule_name not in rule_map:
+            rule_map[rule_name] = [] 
         for rhs in rule_rhs:
             # Assume this is a NODECL_ name
             if (rhs[0:len(NODECL_PREFIX)] == NODECL_PREFIX):
