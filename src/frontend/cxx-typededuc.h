@@ -35,11 +35,16 @@
 MCXX_BEGIN_DECLS
 
 LIBMCXX_EXTERN char deduce_template_parameters_common(
+        // These are the template parameters of this function specialization
         template_parameter_list_t* template_parameters,
-        struct type_tag** arguments, int num_arguments,
-        struct type_tag** parameters,
+        // These are the template parameters of template-type
+        // We need these because of default template arguments for template
+        // functions (they are not kept in each specialization)
+        template_parameter_list_t* type_template_parameters,
+        type_t** arguments, int num_arguments,
+        type_t** parameters,
         decl_context_t decl_context,
-        deduction_set_t **deduced_arguments,
+        template_parameter_list_t** deduced_template_arguments,
         const char *filename, int line,
         template_parameter_list_t* explicit_template_parameters,
         deduction_flags_t flags);
@@ -47,22 +52,20 @@ LIBMCXX_EXTERN char deduce_template_parameters_common(
 LIBMCXX_EXTERN char deduce_arguments_from_call_to_specific_template_function(struct type_tag** call_argument_types,
         int num_arguments, struct type_tag* specialized_named_type, 
         template_parameter_list_t* template_parameters, 
+        template_parameter_list_t* type_template_parameters, 
         decl_context_t decl_context,
-        deduction_set_t **deduction_result, 
+        template_parameter_list_t** deduced_template_arguments,
         const char* filename, int line,
         template_parameter_list_t* explicit_template_parameters);
 
 LIBMCXX_EXTERN char deduce_arguments_of_conversion(
-        struct type_tag* destination_type,
-        struct type_tag* specialized_named_type,
+        type_t* destination_type,
+        type_t* specialized_named_type,
         template_parameter_list_t* template_parameters,
-        decl_context_t decl_context_t,
-        deduction_set_t **deduction_result,
+        template_parameter_list_t* type_template_parameters,
+        decl_context_t decl_context,
+        template_parameter_list_t** deduced_template_arguments,
         const char *filename, int line);
-
-LIBMCXX_EXTERN template_parameter_list_t* build_template_parameter_list_from_deduction_set(
-        template_parameter_list_t* template_parameters,
-        deduction_set_t* deduction_set);
 
 LIBMCXX_EXTERN unsigned long long int typededuc_used_memory(void);
 

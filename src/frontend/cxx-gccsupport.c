@@ -977,7 +977,7 @@ static char eval_type_trait__is_polymorphic(type_t* first_type,
     {
         type_t* class_type = get_actual_class_type(first_type);
         scope_entry_list_t* virtual_functions = class_type_get_virtual_functions(class_type);
-        char there_are_virtual_functions = virtual_functions == NULL;
+        char there_are_virtual_functions = (virtual_functions != NULL);
         entry_list_free(virtual_functions);
 
         return there_are_virtual_functions;

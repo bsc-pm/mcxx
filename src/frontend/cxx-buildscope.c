@@ -3938,6 +3938,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         scope_entry_list_t* member_functions = class_type_get_member_functions(class_type);
         scope_entry_list_iterator_t* it0 = NULL;
 
+        // Check if this class is trivially virtual
         for (it0 = entry_list_iterator_begin(member_functions);
                 !entry_list_iterator_end(it0);
                 entry_list_iterator_next(it0))
@@ -3947,40 +3948,53 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
             if (entry->entity_specs.is_static)
                 continue;
 
-            if (entry->entity_specs.is_virtual)
+            if (entry->entity_specs.is_virtual
+                    && entry->entity_specs.is_pure)
             {
-                if (entry->entity_specs.is_pure)
-                {
-                    class_type_set_is_abstract(class_type, 1);
-                }
+                class_type_set_is_abstract(class_type, 1);
+                // Nothing else to do if this a virtual pure
                 continue;
             }
 
-            char found_virtual = 0;
+        }
+        entry_list_iterator_free(it0);
 
-            scope_entry_list_iterator_t* it1 = NULL;
-            for (it1 = entry_list_iterator_begin(all_bases);
-                    !entry_list_iterator_end(it1) && !found_virtual;
-                    entry_list_iterator_next(it1))
+        // For each base, get all its virtual functions and see if one of our
+        // member functions is an override. If none is an override and the
+        // function is a virtual pure, our class is abstract
+        scope_entry_list_iterator_t* it1 = NULL;
+        for (it1 = entry_list_iterator_begin(all_bases);
+                !entry_list_iterator_end(it1);
+                entry_list_iterator_next(it1))
+        {
+            scope_entry_t *base_class = entry_list_iterator_current(it1);
+
+            scope_entry_list_t* virtual_functions = class_type_get_virtual_functions(base_class->type_information);
+
+            scope_entry_list_iterator_t* it2 = NULL;
+
+            for (it2 = entry_list_iterator_begin(virtual_functions);
+                    !entry_list_iterator_end(it2);
+                    entry_list_iterator_next(it2))
             {
-                scope_entry_t *base_class = entry_list_iterator_current(it1);
+                scope_entry_t* current_virtual = entry_list_iterator_current(it2);
 
-                scope_entry_list_t* virtual_functions = class_type_get_virtual_functions(base_class->type_information);
-
-                scope_entry_list_iterator_t* it2 = NULL;
-
-                for (it2 = entry_list_iterator_begin(virtual_functions);
-                        !entry_list_iterator_end(it2) && !found_virtual;
-                        entry_list_iterator_next(it2))
+                // I know this loop looks is weird but otherwise is not possible to know if the member functions
+                // of the current class override the virtual functions of the base
+                char is_overriden = 0;
+                scope_entry_list_iterator_t* it3 = NULL;
+                for (it3 = entry_list_iterator_begin(member_functions);
+                        !entry_list_iterator_end(it3);
+                        entry_list_iterator_next(it3))
                 {
-                    scope_entry_t* current_virtual = entry_list_iterator_current(it2);
+                    scope_entry_t *entry = entry_list_iterator_current(it3);
 
                     if (strcmp(entry->symbol_name, current_virtual->symbol_name) == 0
                             && function_type_can_override(entry->type_information, current_virtual->type_information))
                     {
                         entry->entity_specs.is_virtual = 1;
 
-                        found_virtual = 1;
+                        is_overriden = 1;
 
                         DEBUG_CODE()
                         {
@@ -3991,13 +4005,21 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                         }
                     }
                 }
+                entry_list_iterator_free(it3);
 
-                entry_list_iterator_free(it2);
-                entry_list_free(virtual_functions);
+                // If the current virtual of the base class is not being
+                // overriden and it is virtual pure this converts this class in
+                // abstract
+                if (!is_overriden
+                        && current_virtual->entity_specs.is_pure)
+                {
+                    class_type_set_is_abstract(class_type, 1);
+                }
             }
-            entry_list_iterator_free(it1);
+            entry_list_iterator_free(it2);
+            entry_list_free(virtual_functions);
         }
-        entry_list_iterator_free(it0);
+        entry_list_iterator_free(it1);
         entry_list_free(member_functions);
     }
 
@@ -4051,16 +4073,13 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         class_type_add_member(class_type, implicit_default_constructor);
         class_type_set_default_constructor(class_type, implicit_default_constructor);
 
-        nodecl_t nodecl_ctor_initializer = nodecl_null();
-        build_scope_ctor_initializer(/* ctor_initializer */ NULL,
-                implicit_default_constructor, decl_context,
-                filename, line,
-                &nodecl_ctor_initializer);
-
-        // nodecl_t nodecl_default_ctor = nodecl_null();
-        // compute_code_for_default_constructor(class_type, &nodecl_default_ctor,
-        //         implicit_default_constructor, filename, line);
-        // *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_default_ctor);
+        // We cannot do this here
+        //
+        // nodecl_t nodecl_ctor_initializer = nodecl_null();
+        // build_scope_ctor_initializer(/* ctor_initializer */ NULL,
+        //         implicit_default_constructor, decl_context,
+        //         filename, line,
+        //         &nodecl_ctor_initializer);
 
         char has_virtual_bases = (virtual_base_classes != NULL);
 

@@ -143,6 +143,8 @@ scope_entry_t* expand_template_given_arguments(scope_entry_t* entry,
         template_parameter_list_t* explicit_template_parameters)
 {
     // We have to expand the template
+    template_parameter_list_t* type_template_parameters 
+        = template_type_get_template_parameters(entry->type_information);
     type_t* specialization_type = template_type_get_primary_type(entry->type_information);
     scope_entry_t* specialization_symbol = named_type_get_symbol(specialization_type);
     type_t* specialized_function_type = specialization_symbol->type_information;
@@ -150,17 +152,14 @@ scope_entry_t* expand_template_given_arguments(scope_entry_t* entry,
     template_parameter_list_t* template_parameters = 
         template_specialized_type_get_template_arguments(specialized_function_type);
 
-    deduction_set_t* deduction_result = NULL;
+    template_parameter_list_t* argument_list = NULL;
 
     if (deduce_arguments_from_call_to_specific_template_function(argument_types,
-                num_arguments, specialization_type, template_parameters,
-                decl_context, &deduction_result, filename, line, 
+                num_arguments, specialization_type, 
+                template_parameters, type_template_parameters,
+                decl_context, &argument_list, filename, line, 
                 explicit_template_parameters))
     {
-        template_parameter_list_t* argument_list = build_template_parameter_list_from_deduction_set(
-                template_parameters,
-                deduction_result);
-
         // Now get a specialized template type for this
         // function (this will sign it in if it does not exist)
         type_t* named_specialization_type = template_type_get_specialized_type(entry->type_information,
@@ -3976,11 +3975,15 @@ static void compute_bin_nonoperator_assig_only_arithmetic_type(nodecl_t *lhs, no
         else
         {
             *nodecl_output = 
-                    cxx_nodecl_make_function_call(
+                cxx_nodecl_make_function_call(
                         nodecl_make_symbol(selected_operator, filename, line),
                         nodecl_make_list_2(*lhs, *rhs),
                         result, filename, line);
         }
+    }
+    else
+    {
+        *nodecl_output = nodecl_make_err_expr(filename, line);
     }
 }
 

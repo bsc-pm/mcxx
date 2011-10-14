@@ -1231,6 +1231,8 @@ static void unificate_unresolved_overloaded(type_t* t1, type_t* t2,
         else if (entry->kind == SK_TEMPLATE)
         {
             // Try to deduce it with what we are given
+            template_parameter_list_t* type_template_parameters = 
+                template_type_get_template_parameters(entry->type_information);
             type_t* specialization_type = template_type_get_primary_type(entry->type_information);
             scope_entry_t* specialization_symbol = named_type_get_symbol(specialization_type);
             type_t* specialized_function_type = specialization_symbol->type_information;
@@ -1238,20 +1240,17 @@ static void unificate_unresolved_overloaded(type_t* t1, type_t* t2,
             template_parameter_list_t* template_parameters = 
                 template_specialized_type_get_template_arguments(specialized_function_type);
 
-            deduction_set_t* deduction_result = NULL;
+            template_parameter_list_t* deduced_template_arguments = NULL;
             if (deduce_arguments_from_call_to_specific_template_function(/* no arguments */ NULL,
-                        /* num_arguments */ 0, specialization_type, template_parameters,
-                        decl_context, &deduction_result, filename, line, 
+                        /* num_arguments */ 0, specialization_type, 
+                        template_parameters, type_template_parameters,
+                        decl_context, &deduced_template_arguments, filename, line, 
                         explicit_template_parameters))
             {
-                template_parameter_list_t* argument_list = build_template_parameter_list_from_deduction_set(
-                        template_parameters,
-                        deduction_result);
-
                 // Now get a specialized template type for this
                 // function (this will sign it in if it does not exist)
                 type_t* named_specialization_type = template_type_get_specialized_type(entry->type_information,
-                        argument_list, decl_context, filename, line);
+                        deduced_template_arguments, decl_context, filename, line);
 
                 // Update entry and its function type
                 entry = named_type_get_symbol(named_specialization_type);
