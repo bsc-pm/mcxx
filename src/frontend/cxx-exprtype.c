@@ -3976,6 +3976,17 @@ static type_t* compute_type_no_overload_assig_only_arithmetic_type(nodecl_t *lhs
 
         return lhs_type;
     }
+    else if (both_operands_are_vector_types(no_ref(lhs_type),
+                no_ref(rhs_type)))
+    {
+        return lhs_type;
+    }
+    else if (left_operand_is_vector_and_right_operand_is_scalar(no_ref(lhs_type), no_ref(rhs_type)))
+    {
+        unary_record_conversion_to_result(lhs_type, rhs);
+
+        return lhs_type;
+    }
 
     return get_error_type();
 }
