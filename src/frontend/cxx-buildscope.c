@@ -1867,7 +1867,7 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
 
                 // Compute the expression type and use it for the whole type
                 nodecl_t nodecl_expr = nodecl_null();
-                if (check_expression(expression, decl_context, &nodecl_expr)
+                if (check_expression_non_executable(expression, decl_context, &nodecl_expr)
                         && (nodecl_get_type(nodecl_expr) != NULL))
                 {
                     // Do not remove the reference here, we will do this later
@@ -1883,7 +1883,7 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                         { 
                             if (!checking_ambiguity())
                             {
-                                error_printf("%s: error: '%s' yields an unresolved overload type",
+                                error_printf("%s: error: '%s' yields an unresolved overload type\n",
                                         ast_location(a), 
                                         prettyprint_in_buffer(a));
                             }
@@ -1903,7 +1903,7 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                         {
                             computed_type = get_pointer_to_member_type(
                                     entry->type_information,
-                                    entry);
+                                    named_type_get_symbol(entry->entity_specs.class_type));
                         }
                     }
 
@@ -1960,6 +1960,73 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                 break;
             }
             // GCC Extensions
+        case AST_GCC_TYPEOF_EXPR :
+            {
+                // Compute the expression type and use it for the whole type
+                nodecl_t nodecl_expr = nodecl_null();
+                if (check_expression_non_executable(ASTSon0(a), decl_context, &nodecl_expr)
+                        && (nodecl_get_type(nodecl_expr) != NULL))
+                {
+                    type_t* computed_type = nodecl_get_type(nodecl_expr);
+
+                    CXX_LANGUAGE()
+                    {
+                        // Ignore top level references like g++ does
+                        computed_type = no_ref(computed_type);
+
+                        if (is_unresolved_overloaded_type(computed_type))
+                        {
+                            scope_entry_list_t* entry_list = 
+                                unresolved_overloaded_type_get_overload_set(computed_type);
+
+                            if (entry_list_size(entry_list) > 1)
+                            {
+                                if (!checking_ambiguity())
+                                {
+                                    error_printf("%s: error: '%s' yields an unresolved overload type\n",
+                                            ast_location(a), 
+                                            prettyprint_in_buffer(a));
+                                }
+                                *simple_type_info = get_error_type();
+                                return;
+                            }
+
+                            scope_entry_t* entry = entry_list_head(entry_list);
+                            entry_list_free(entry_list);
+
+                            if (!entry->entity_specs.is_member
+                                    || entry->entity_specs.is_static)
+                            {
+                                computed_type = entry->type_information;
+                            }
+                            else
+                            {
+                                computed_type = get_pointer_to_member_type(
+                                        entry->type_information, 
+                                        named_type_get_symbol(entry->entity_specs.class_type));
+                            }
+                        }
+                        else if (nodecl_expr_is_type_dependent(nodecl_expr))
+                        {
+                            // The expression type is dependent, so we will wrap in an typeof expression
+                            computed_type = get_gcc_typeof_expr_type(nodecl_expr, decl_context);
+                        }
+                    }
+
+                    *simple_type_info = computed_type;
+                }
+                else
+                {
+                    if (!checking_ambiguity())
+                    {
+                        error_printf("%s: error: could not solve type '%s'\n",
+                                ast_location(a),
+                                prettyprint_in_buffer(a));
+                    }
+                    *simple_type_info = get_error_type();
+                }
+                break;
+            }
         case AST_GCC_TYPEOF :
             {
                 // This one can be computed here, in fact, i don't understand
@@ -1991,73 +2058,6 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                         decl_context, nodecl_output);
 
                 *simple_type_info = declarator_type;
-                break;
-            }
-        case AST_GCC_TYPEOF_EXPR :
-            {
-                // Compute the expression type and use it for the whole type
-                nodecl_t nodecl_expr = nodecl_null();
-                if (check_expression(ASTSon0(a), decl_context, &nodecl_expr)
-                        && (nodecl_get_type(nodecl_expr) != NULL))
-                {
-                    type_t* computed_type = nodecl_get_type(nodecl_expr);
-
-                    CXX_LANGUAGE()
-                    {
-                        // Ignore top level references like g++ does
-                        computed_type = no_ref(computed_type);
-
-                        if (is_unresolved_overloaded_type(computed_type))
-                        {
-                            scope_entry_list_t* entry_list = 
-                                unresolved_overloaded_type_get_overload_set(computed_type);
-
-                            if (entry_list_size(entry_list) > 1)
-                            {
-                                if (!checking_ambiguity())
-                                {
-                                    error_printf("%s: error: '%s' yields an unresolved overload type",
-                                            ast_location(a), 
-                                            prettyprint_in_buffer(a));
-                                }
-                                *simple_type_info = get_error_type();
-                                return;
-                            }
-
-                            scope_entry_t* entry = entry_list_head(entry_list);
-                            entry_list_free(entry_list);
-
-                            if (!entry->entity_specs.is_member
-                                    || entry->entity_specs.is_static)
-                            {
-                                computed_type = entry->type_information;
-                            }
-                            else
-                            {
-                                computed_type = get_pointer_to_member_type(
-                                        entry->type_information, 
-                                        entry);
-                            }
-                        }
-                        else if (nodecl_expr_is_type_dependent(nodecl_expr))
-                        {
-                            // The expression type is dependent, so we will wrap in an typeof expression
-                            computed_type = get_gcc_typeof_expr_type(nodecl_expr, decl_context);
-                        }
-                    }
-
-                    *simple_type_info = computed_type;
-                }
-                else
-                {
-                    if (!checking_ambiguity())
-                    {
-                        error_printf("%s: error: could not solve type '%s'\n",
-                                ast_location(a),
-                                prettyprint_in_buffer(a));
-                    }
-                    *simple_type_info = get_error_type();
-                }
                 break;
             }
         case AST_AMBIGUITY:

@@ -76,8 +76,12 @@ struct builtin_operators_set_tag
 typedef
 struct check_expr_flags_tag
 {
-    // It will be true if the expression is non_executable: decltype(expr).
-    // Otherwise it will be false.
+    /* It will be true if the expression is non_executable.
+     * Examples of non-executable expressions contains:
+     * sizeof, alignof, typeof, decltype
+     * 
+     * Otherwise it will be false.
+     */
     char is_non_executable:1;
 } check_expr_flags_t;
 
@@ -201,7 +205,7 @@ type_t* compute_type_for_type_id_tree(AST type_id, decl_context_t decl_context)
 {
     AST type_specifier = ASTSon0(type_id);
     AST abstract_declarator = ASTSon1(type_id);
-
+    
     gather_decl_spec_t gather_info;
     memset(&gather_info, 0, sizeof(gather_info));
 
@@ -405,7 +409,7 @@ char check_expression(AST expression, decl_context_t decl_context, nodecl_t* nod
 #endif
 }
 
-char check_expr_non_executable(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
+char check_expression_non_executable(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     // Save the value of 'is_non_executable' of the last expression expression
     char was_non_executable = check_expr_flags.is_non_executable;
@@ -5321,7 +5325,8 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
         }
 
         if (!accessing_symbol->entity_specs.is_member
-                || accessing_symbol->entity_specs.is_static)
+                || accessing_symbol->entity_specs.is_static
+                || check_expr_flags.is_non_executable)
         {
             *nodecl_output = nodecl_access_to_symbol;
         }
@@ -12166,7 +12171,7 @@ static void check_sizeof_expr(AST expr, decl_context_t decl_context, nodecl_t* n
     AST sizeof_expression = ASTSon0(expr);
 
     nodecl_t nodecl_expr = nodecl_null();
-    check_expression_impl_(sizeof_expression, decl_context, &nodecl_expr);
+    check_expression_non_executable(sizeof_expression, decl_context, &nodecl_expr);
 
     const char* filename = ASTFileName(expr);
     int line = ASTLine(expr);
@@ -12194,7 +12199,6 @@ static void check_sizeof_typeid(AST expr, decl_context_t decl_context, nodecl_t*
     int line = ASTLine(expr);
 
     AST type_id = ASTSon0(expr);
-
     type_t* declarator_type = compute_type_for_type_id_tree(type_id, decl_context);
     if (is_error_type(declarator_type))
     {
@@ -12579,7 +12583,7 @@ static void check_gcc_alignof_expr(AST expression,
         nodecl_t* nodecl_output)
 {
     nodecl_t nodecl_expr = nodecl_null();
-    check_expression_impl_(expression, decl_context, &nodecl_expr);
+    check_expression_non_executable(expression, decl_context, &nodecl_expr);
 
     if (nodecl_is_err_expr(nodecl_expr))
     {
