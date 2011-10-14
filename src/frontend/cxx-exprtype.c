@@ -4004,6 +4004,17 @@ static type_t* compute_type_no_overload_assig_only_arithmetic_type(nodecl_t *lhs
 
         return lhs_type;
     }
+    else if (both_operands_are_vector_types(no_ref(lhs_type),
+                no_ref(rhs_type)))
+    {
+        return lhs_type;
+    }
+    else if (left_operand_is_vector_and_right_operand_is_scalar(no_ref(lhs_type), no_ref(rhs_type)))
+    {
+        unary_record_conversion_to_result(lhs_type, rhs);
+
+        return lhs_type;
+    }
 
     return get_error_type();
 }
@@ -4143,8 +4154,8 @@ static void compute_bin_operator_mul_assig_type(nodecl_t* lhs, nodecl_t* rhs,
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
                 ASTLeaf(AST_MUL_ASSIGN_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
-    
-    compute_bin_operator_assig_arithmetic_or_pointer_type(lhs, rhs,
+
+    compute_bin_operator_assig_only_arithmetic_type(lhs, rhs, 
             operation_tree, decl_context, nodecl_make_mul_assignment,
             filename, line, nodecl_output);
 }
@@ -4179,7 +4190,7 @@ static void compute_bin_operator_div_assig_type(nodecl_t* lhs, nodecl_t* rhs,
                 ASTLeaf(AST_DIV_ASSIGN_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
-    compute_bin_operator_assig_arithmetic_or_pointer_type(lhs, rhs,
+    compute_bin_operator_assig_only_arithmetic_type(lhs, rhs, 
             operation_tree, decl_context, nodecl_make_div_assignment,
             filename, line, nodecl_output);
 }
