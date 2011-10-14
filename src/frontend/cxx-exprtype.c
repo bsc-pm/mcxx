@@ -72,6 +72,17 @@ struct builtin_operators_set_tag
     int num_builtins;
 } builtin_operators_set_t;
 
+// This structure contains information about the context of the current expression
+typedef
+struct check_expr_flags_tag
+{
+    // It will be true if the expression is non_executable: decltype(expr).
+    // Otherwise it will be false.
+    char is_non_executable:1;
+} check_expr_flags_t;
+
+static check_expr_flags_t check_expr_flags = {0};
+
 static
 void build_unary_builtin_operators(type_t* t1,
         builtin_operators_set_t *result,
@@ -392,6 +403,23 @@ char check_expression(AST expression, decl_context_t decl_context, nodecl_t* nod
         internal_error("Code unreachable", 0);
     }
 #endif
+}
+
+char check_expr_non_executable(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
+{
+    // Save the value of 'is_non_executable' of the last expression expression
+    char was_non_executable = check_expr_flags.is_non_executable;
+    
+    // The current expression is non executable
+    check_expr_flags.is_non_executable = 1;
+
+    // Check_expression the current expression
+    char output = check_expression(a, decl_context, nodecl_output);
+
+    // Restore the right value
+    check_expr_flags.is_non_executable = was_non_executable;
+
+    return output;
 }
 
 void ensure_function_is_emitted(scope_entry_t* entry,
@@ -12144,7 +12172,6 @@ static void check_sizeof_expr(AST expr, decl_context_t decl_context, nodecl_t* n
         nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
         return;
     }
-
     type_t* t = nodecl_get_type(nodecl_expr);
 
     check_sizeof_type(t, decl_context, filename, line, nodecl_output);
@@ -12163,7 +12190,6 @@ static void check_sizeof_typeid(AST expr, decl_context_t decl_context, nodecl_t*
         *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
-
     check_sizeof_type(declarator_type, decl_context, filename, line, nodecl_output);
 }
 
