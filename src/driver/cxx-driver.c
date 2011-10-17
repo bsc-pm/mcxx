@@ -2126,11 +2126,6 @@ static void remove_parameter_from_argv(int i)
     compilation_process.argc--;
 }
 
-static int strcmp_ptr_list(const char** a, const char** b)
-{
-    return strcmp(*a, *b);
-}
-
 static void load_configuration(void)
 {
     // Solve here the egg and chicken problem of the option --config-file
@@ -2237,7 +2232,6 @@ static void load_configuration(void)
         }
        
         merge_sort_list_str(list_config_files, num_config_files, /* ascendent */ 1);
-        //qsort(list_config_files, num_config_files, sizeof(const char*), (int(*)(const void*, const void*))strcmp_ptr_list);
         
         int i;
         for(i = 0; i < num_config_files; ++i)
