@@ -60,6 +60,7 @@ option_function_t config_set_identifier;
 #endif
 option_function_t config_set_target_options;
 option_function_t config_set_compiler_dto;
+option_function_t config_set_codegen_phase;
 
 void print_help_target_options(void);
 

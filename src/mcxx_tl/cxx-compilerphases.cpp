@@ -33,6 +33,7 @@
 #include <cstdio>
 #include <cstring>
 #include <vector>
+#include <set>
 #ifndef WIN32_BUILD
   #include <dlfcn.h>
 #else
@@ -73,7 +74,7 @@ namespace TL
             typedef HMODULE lib_handle_t;
 #endif
         public:
-            static std::vector<lib_handle_t> lib_handle_list;
+            static std::set<lib_handle_t> lib_handle_list;
         public :
             static void start_compiler_phase_pre_execution(compilation_configuration_t *config,
                     translation_unit_t* translation_unit)
@@ -272,7 +273,7 @@ namespace TL
                 }
 
                 // Close handles of libraries
-                for (std::vector<lib_handle_t>::iterator it = lib_handle_list.begin();
+                for (std::set<lib_handle_t>::iterator it = lib_handle_list.begin();
                         it != lib_handle_list.end();
                         it++)
                 {
@@ -388,7 +389,7 @@ namespace TL
     };
 
     CompilerPhaseRunner::compiler_phases_t CompilerPhaseRunner::compiler_phases;
-    std::vector<CompilerPhaseRunner::lib_handle_t> CompilerPhaseRunner::lib_handle_list;
+    std::set<CompilerPhaseRunner::lib_handle_t> CompilerPhaseRunner::lib_handle_list;
 }
 
 
@@ -414,7 +415,7 @@ static const char* add_dso_extension(const char* c)
 extern "C"
 {
 #ifndef WIN32_BUILD
-    static void load_compiler_phases_cxx_unix(compilation_configuration_t* config, const char* library_name)
+    static TL::CompilerPhase* load_compiler_phases_cxx_unix(compilation_configuration_t* config, const char* library_name)
     {
         library_name = add_dso_extension(library_name);
 
@@ -430,8 +431,11 @@ extern "C"
         {
             fprintf(stderr, "Cannot open '%s'.\nReason: '%s'\n", library_name, dlerror());
             fprintf(stderr, "Skipping '%s'\n", library_name);
-            return;
+            return NULL;
         }
+
+        TL::CompilerPhaseRunner::lib_handle_list.insert(handle);
+
         DEBUG_CODE()
         {
             fprintf(stderr, "'%s' properly loaded\n", library_name);
@@ -449,7 +453,7 @@ extern "C"
             fprintf(stderr, "Cannot get the factory function 'give_compiler_phase_object'\n");
             fprintf(stderr, "%s\n", dlerror());
             fprintf(stderr, "Skipping\n");
-            return;
+            return NULL;
         }
         DEBUG_CODE()
         {
@@ -460,28 +464,10 @@ extern "C"
         factory_function_t factory_function = (factory_function_t) factory_function_sym;
 
         TL::CompilerPhase* new_phase = (factory_function)();
-
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "Adding '%s' phase object to the compiler pipeline\n", library_name);
-        }
-
-        // If the phase did not set its own phase name, use the DSO name
-        if (new_phase->get_phase_name() == "")
-        {
-            new_phase->set_phase_name(library_name);
-        }
-        // Likewise for the phase description
-        if (new_phase->get_phase_description() == "")
-        {
-            new_phase->set_phase_description("No description available");
-        }
-
-        TL::CompilerPhaseRunner::add_compiler_phase(config, new_phase);
-        TL::CompilerPhaseRunner::lib_handle_list.push_back(handle);
+        return new_phase;
     }
 #else
-    static void load_compiler_phases_cxx_win32(compilation_configuration_t* config, const char* library_name)
+    static TL::CompilerPhase* load_compiler_phases_cxx_win32(compilation_configuration_t* config, const char* library_name)
     {
         library_name = add_dso_extension(library_name);
 
@@ -490,7 +476,6 @@ extern "C"
             fprintf(stderr, "Loading compiler phase '%s'\n", library_name);
         }
 
-        // RTLD_GLOBAL is needed for RTTI among libraries
         HMODULE handle = LoadLibrary(library_name);
 
         if (handle == NULL)
@@ -514,8 +499,11 @@ extern "C"
             LocalFree(lpMsgBuf);
 
             fprintf(stderr, "Skipping '%s'\n", library_name);
-            return;
+            return NULL;
         }
+
+        TL::CompilerPhaseRunner::lib_handle_list.insert(handle);
+
         DEBUG_CODE()
         {
             fprintf(stderr, "'%s' properly loaded\n", library_name);
@@ -546,7 +534,7 @@ extern "C"
             fprintf(stderr, "%s\n", lpMsgBuf);
             fprintf(stderr, "Skipping\n");
             LocalFree(lpMsgBuf);
-            return;
+            return NULL;
         }
         DEBUG_CODE()
         {
@@ -557,7 +545,12 @@ extern "C"
         factory_function_t factory_function = (factory_function_t) factory_function_sym;
 
         TL::CompilerPhase* new_phase = (factory_function)();
+        return new_phase;
+    }
+#endif
 
+    static void finalize_regular_compiler_phase(TL::CompilerPhase* new_phase, compilation_configuration_t* config, const char* library_name)
+    {
         DEBUG_CODE()
         {
             fprintf(stderr, "Adding '%s' phase object to the compiler pipeline\n", library_name);
@@ -575,14 +568,23 @@ extern "C"
         }
 
         TL::CompilerPhaseRunner::add_compiler_phase(config, new_phase);
-        TL::CompilerPhaseRunner::lib_handle_list.push_back(handle);
     }
+
+    static TL::CompilerPhase* load_compiler_phase_from_libname(compilation_configuration_t* config, const char* lib_name)
+    {
+        TL::CompilerPhase* new_phase = NULL;
+#ifdef WIN32_BUILD
+        new_phase = load_compiler_phases_cxx_win32(config, lib_name);
+#else
+        new_phase = load_compiler_phases_cxx_unix(config, lib_name);
 #endif
+        return new_phase;
+    }
 
 
 	// This function will change the DTO adding an abstract information that will contain
 	// I'm waiting something like 'variable:type:text'
-    void compiler_set_dto(compilation_configuration_t* config, const char* data)
+    void compiler_special_phase_set_dto(compilation_configuration_t* config, const char* data)
     {
         TL::SetDTOCompilerPhase* new_phase = new TL::SetDTOCompilerPhase();
 
@@ -593,14 +595,20 @@ extern "C"
 		TL::CompilerPhaseRunner::add_compiler_phase(config, new_phase);
     }
 
-    void compiler_phase_loader(compilation_configuration_t* config, const char* data)
+    void compiler_regular_phase_loader(compilation_configuration_t* config, const char* data)
     {
-    	const char* nom_lib = (const char*) data;
-		#ifdef WIN32_BUILD
-			load_compiler_phases_cxx_win32(config, nom_lib);
-		#else
-			load_compiler_phases_cxx_unix(config, nom_lib);
-		#endif
+    	const char* lib_name = (const char*) data;
+        TL::CompilerPhase* new_phase = load_compiler_phase_from_libname(config, lib_name);
+
+        if (new_phase != NULL)
+        {
+            finalize_regular_compiler_phase(new_phase, config, lib_name);
+        }
+    }
+
+    void compiler_special_phase_set_codegen(compilation_configuration_t* config, const char* data)
+    {
+        internal_error("Not yet implemented", 0);
     }
 
     void load_compiler_phases_cxx(compilation_configuration_t* config)
@@ -610,9 +618,9 @@ extern "C"
 
         int num = config->num_compiler_phases;
         int i;
-		for(i=0; i<num; i++)
+        for(i=0; i<num; i++)
         {
-			config->phase_loader[i]->func(config, config->phase_loader[i]->data);
+            config->phase_loader[i]->func(config, config->phase_loader[i]->data);
         }
 
         config->phases_loaded = 1;
