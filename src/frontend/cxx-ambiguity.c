@@ -2040,6 +2040,29 @@ static void favor_known_expression_ambiguities(AST previous_choice,
             (*previous_output) = current_nodecl;
         }
     }
+    // If we see this is a valid explicit type conversion, forget anything  
+    // about strange greater than operations
+    //
+    // template<int _N>
+    //     class A
+    //     {
+    //         A() {}
+    //         A<_N> operator<<(int __p) const
+    //         { 
+    //             return A<_N>(*this) <<= __p; 
+    //         }
+    //     };
+    //
+    // is a explicit type conversion, not the expression 'A < (_N > (*this) <<= __p)'
+    else if ((either = either_type(previous_choice, current_choice,
+                    AST_EXPLICIT_TYPE_CONVERSION, AST_GREATER_THAN)))
+    {
+        if (either < 0)
+        {
+            (*correct_choice) = current_index;
+            (*previous_output) = current_nodecl;
+        }
+    }
     else
     {
         internal_error("More than one valid choice for ambig_expression (%s)\n'%s' vs '%s'\n%s\n", 
