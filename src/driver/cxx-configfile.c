@@ -222,7 +222,7 @@ int config_set_linker_options(struct compilation_configuration_tag* config, cons
 int config_add_compiler_phase(struct compilation_configuration_tag* config, const char* index, const char* value)
 {
 	compiler_phase_loader_t* cl = calloc(1, sizeof(*cl));
-	cl->func = compiler_phase_loader;
+	cl->func = compiler_regular_phase_loader;
 	cl->data = (void*)uniquestr(value);
 
     P_LIST_ADD(config->phase_loader, 
@@ -273,94 +273,6 @@ int config_set_environment(struct compilation_configuration_tag* config, const c
     config->type_environment = chosen_env;
     return 0;
 }
-
-#if 0
-embed_map_t* get_embed_map(struct compilation_configuration_tag* config, const char* index, char return_default)
-{
-    embed_map_t* embed_map = NULL;
-    embed_map_t* def_embed_map = NULL;
-    int i;
-    for (i = 0; i < config->num_embed_maps; i++)
-    {
-        if (config->embed_maps[i]->profile == NULL)
-        {
-            def_embed_map = config->embed_maps[i];
-        }
-        if ((config->embed_maps[i]->profile == NULL
-                    && index == NULL)
-                || (index != NULL 
-                    && config->embed_maps[i]->profile != NULL
-                    && strcmp(index, config->embed_maps[i]->profile) == 0))
-        {
-            embed_map = config->embed_maps[i];
-            break;
-        }
-
-    }
-
-    if (embed_map == NULL
-            && return_default)
-    {
-        return def_embed_map;
-    }
-
-    return embed_map;
-}
-
-int config_set_embedder(struct compilation_configuration_tag* config, const char* index, const char* value)
-{
-    embed_map_t* new_embed_map = get_embed_map(config, index, /* return_default */ 0);
-    if (new_embed_map == NULL)
-    {
-        new_embed_map = calloc(1, sizeof(*new_embed_map));
-        new_embed_map->profile = index;
-
-        P_LIST_ADD(config->embed_maps, config->num_embed_maps, new_embed_map);
-    }
-
-    new_embed_map->command = value;
-
-    return 0;
-}
-
-static identifier_map_t* get_identifier_map(struct compilation_configuration_tag* config, const char* index)
-{
-    identifier_map_t* identifier_map = NULL;
-    int i;
-    for (i = 0; i < config->num_identifier_maps; i++)
-    {
-        if ((config->identifier_maps[i]->profile == NULL
-                    && index == NULL)
-                || (index != NULL 
-                    && config->identifier_maps[i]->profile != NULL
-                    && strcmp(index, config->identifier_maps[i]->profile) == 0))
-        {
-            identifier_map = config->identifier_maps[i];
-            break;
-        }
-    }
-
-    return identifier_map;
-}
-
-int config_set_identifier(struct compilation_configuration_tag* config, const char* index, const char* value)
-{
-    identifier_map_t* new_identifier_map = get_identifier_map(config, index);
-
-    if (new_identifier_map == NULL)
-    {
-        new_identifier_map = calloc(1, sizeof(*new_identifier_map));
-        new_identifier_map->profile = index;
-
-        P_LIST_ADD(config->identifier_maps, config->num_identifier_maps, new_identifier_map);
-    }
-
-    // FIXME - We should parse the action here
-    new_identifier_map->action = value;
-
-    return 0;
-}
-#endif
 
 static void enable_sublink(
         target_options_map_t* options,
@@ -505,7 +417,20 @@ int config_set_target_options(struct compilation_configuration_tag* config, cons
 int config_set_compiler_dto(struct compilation_configuration_tag* config, const char* index, const char* value)
 {
 	compiler_phase_loader_t* cl = calloc(1, sizeof(*cl));
-	cl->func = compiler_set_dto;
+	cl->func = compiler_special_phase_set_dto;
+	cl->data = (void*)uniquestr(value);
+
+    P_LIST_ADD(config->phase_loader, 
+            config->num_compiler_phases,
+			cl);
+
+    return 0;
+}
+
+int config_set_codegen_phase(compilation_configuration_t* config, const char* index, const char* value)
+{
+	compiler_phase_loader_t* cl = calloc(1, sizeof(*cl));
+	cl->func = compiler_special_phase_set_codegen;
 	cl->data = (void*)uniquestr(value);
 
     P_LIST_ADD(config->phase_loader, 

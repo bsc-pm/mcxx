@@ -44,6 +44,7 @@ linker_name, config_set_linker_name
 linker_options_pre, config_set_linker_options_pre
 linker_options, config_set_linker_options
 compiler_phase, config_add_compiler_phase
+codegen_phase, config_set_codegen_phase
 pragma_prefix, config_add_preprocessor_prefix
 environment, config_set_environment
 environ, config_set_environment

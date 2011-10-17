@@ -1395,6 +1395,10 @@ AC_CONFIG_FILES([Makefile
            src/tl/analysis/extensible_graph/Makefile
            src/tl/hlt/Makefile
            src/tl/manip/Makefile
+           src/tl/codegen/Makefile 
+           src/tl/codegen/base/Makefile 
+           src/tl/codegen/base/cxx/Makefile 
+           src/tl/codegen/base/fortran/Makefile 
            src/tl/omp/Makefile 
            src/tl/omp/core/Makefile
            src/tl/omp/fun-tasks/Makefile 
