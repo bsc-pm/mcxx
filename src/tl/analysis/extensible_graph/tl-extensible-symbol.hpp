@@ -25,8 +25,6 @@ Cambridge, MA 02139, USA.
 #ifndef EXTENSIBLE_SYMBOL_HPP
 #define EXTENSIBLE_SYMBOL_HPP
 
-#include <set>
-
 #include "tl-nodecl.hpp"
 #include "tl-symbol.hpp"
 
@@ -41,31 +39,35 @@ namespace TL
     class LIBTL_CLASS ExtensibleSymbol : public TL::Object
     {
         private:
-            Symbol _sym;
             Nodecl::NodeclBase _n;
+            
+            //! Returns the symbol contained in a nodecl which is an Extensible Symbol or 
+            //! a part of a nodecl which is an Extensible Symbol
+            Symbol get_nodecl_symbol(Nodecl::NodeclBase n) const;
             
         public:
             // *** Constructors *** //
-            
-            //! Empty Constructor of an Extensible Symbol.
-            /*!
-              It builds an Extensible Symbol with non-associated Symbol.
-             */
+           
             ExtensibleSymbol();
-            
+           
             //! Constructor building an Extensible Symbol from a valid Symbol.
             /*!
-              Use is_valid if the Symbol wrapped as an ExtensibleSymbol is eligible as an 
-              extensible symbol.
-              \param s Symbol which is wrapped in the new ExtensibleSymbol
-              \param n Nodecl containg additional information about the Symbol like
-                       the member accessed in a struct or the subscript of an array access.
-                       By default, this parameter contains a null nodecl.
+             * Use is valid if the nodecl is be an lvalue.
+             * \param n Nodecl containing s Symbol. 
+             *          This will be more than a Symbol when the nodecl is a member access or an array access
              */
-            ExtensibleSymbol(Symbol s, Nodecl::NodeclBase n = Nodecl::NodeclBase::null());
+            ExtensibleSymbol(Nodecl::NodeclBase n);
+            
+            
+            // *** Modifiers *** //
+            
+            void propagate_constant_values(std::map<Symbol, Nodecl::NodeclBase> values_map);
             
             
             // *** Getters and Setters *** //
+
+            //! Returns the symbol wrapped in the Extended Symbol
+            Symbol get_symbol() const;
             
             //! Returns the name of the wrapped symbol.
             std::string get_name() const;
@@ -80,54 +82,16 @@ namespace TL
             //! neither an array access nor a member access, but a symbol.
             bool is_simple_symbol() const;
             
-            //! Returns true when the extensible symbol contains an array access.
-            /*!
-             * This method is only valid when the extensible symbol wraps a non-simple symbol
-             */            
-            bool is_array_access() const;
-            
-            //! Returns true when the extensible symbol contains a member access.
-            /*!
-             * This method is only valid when the extensible symbol wraps a non-simple symbol
-             */            
-            bool is_member_access() const;
-            
-            //! Returns the symbol wrapped in the Extended Symbol
-            Symbol get_symbol() const;
-            
-            //! Compares the content of two AST nodes
-            bool equal_ast_nodes(nodecl_t t1, nodecl_t t2) const;
-            
-            //! Compares the one to one the nodes from two roots
-            bool equal_trees_rec(nodecl_t t1, nodecl_t t2) const;
-            
-            //! Returns equals when the two nodes are the same
-            /*!
-             * Be the same here means that the two nodes have exactly the same nodes 
-             * organized in the same way and containing the same symbols inside.
-             * FIXME This comparison should compare canonical version of expressions
-             */
-            bool equal_nodecls(Nodecl::NodeclBase n1, Nodecl::NodeclBase n2) const;
+            //! Returns true when the symbol stored is a position in an array
+            bool is_array() const;
             
             // *** Overloaded methods *** //
             bool operator==(const ExtensibleSymbol &es) const;
             bool operator<(const ExtensibleSymbol &es) const;
     };
     
-    
-    //! Compare class for ExtensibleSymbols
-    /*!
-      It is used as Comparison Class when a std::set of ExtensibleSymbols is built.
-     */
-    struct ExtensibleSymbol_comp
-    {
-        bool operator() (const ExtensibleSymbol& es1, const ExtensibleSymbol& es2) const
-        { 
-            return es1 < es2; 
-        }
-    };
-    
-    typedef std::set<ExtensibleSymbol, ExtensibleSymbol_comp> ext_sym_set;
+    // FIXME This should be changed by an unordered_set in c++0x
+    typedef ObjectList<ExtensibleSymbol> ext_sym_set;
 }
 
 #endif // EXTENSIBLE_SYMBOL_HPP

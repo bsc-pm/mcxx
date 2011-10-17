@@ -5495,7 +5495,7 @@ static void cxx_common_name_check(AST expr, decl_context_t decl_context, nodecl_
     cxx_compute_name_from_entry_list(nodecl_name, result_list, decl_context, nodecl_output);
 }
 
-static void check_array_subscript_expr_nodecl(
+static void check_nodecl_array_subscript_expression(
         nodecl_t nodecl_subscripted, 
         nodecl_t nodecl_subscript, 
         decl_context_t decl_context, 
@@ -5744,7 +5744,7 @@ static void check_array_subscript_expr(AST expr, decl_context_t decl_context, no
     nodecl_t nodecl_subscript = nodecl_null();
     check_expression_impl_(ASTSon1(expr), decl_context, &nodecl_subscript);
 
-    check_array_subscript_expr_nodecl(nodecl_subscripted, nodecl_subscript, decl_context, nodecl_output);
+    check_nodecl_array_subscript_expression(nodecl_subscripted, nodecl_subscript, decl_context, nodecl_output);
 }
 
 static void check_conversion_function_id_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -12763,21 +12763,24 @@ static void check_gcc_builtin_va_arg(AST expression,
 }
 
 static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
-        nodecl_t nodecl_lower,
-        nodecl_t nodecl_upper,
+        nodecl_t nodecl_range,
         decl_context_t decl_context, 
         char is_array_section_size,
         const char* filename,
         int line,
         nodecl_t* nodecl_output)
 {
+
     if (nodecl_is_err_expr(nodecl_postfix)
-            || (!nodecl_is_null(nodecl_lower) && nodecl_is_err_expr(nodecl_lower))
-            || (!nodecl_is_null(nodecl_upper) && nodecl_is_err_expr(nodecl_upper)))
+            || (!nodecl_is_null(nodecl_range) && nodecl_is_err_expr(nodecl_range)))
     {
         *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
+
+    nodecl_t nodecl_lower = nodecl_get_child(nodecl_range, 0);
+    nodecl_t nodecl_upper = nodecl_get_child(nodecl_range, 1);
+    nodecl_t nodecl_stride = nodecl_get_child(nodecl_range, 2);
 
     if (nodecl_expr_is_type_dependent(nodecl_postfix)
             || (!nodecl_is_null(nodecl_lower) && nodecl_expr_is_type_dependent(nodecl_lower))
@@ -12848,14 +12851,13 @@ static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
         nodecl_t array_lower_bound = array_type_get_array_lower_bound(indexed_type);
         nodecl_t array_upper_bound = array_type_get_array_upper_bound(indexed_type);
         decl_context_t array_decl_context = array_type_get_array_size_expr_context(indexed_type);
-
+    
         result_type = get_array_type_bounds_with_regions(
                 array_type_get_element_type(indexed_type),
                 array_lower_bound,
                 array_upper_bound,
                 array_decl_context,
-                nodecl_lower,
-                nodecl_upper,
+                nodecl_range,
                 decl_context);
     }
     else if (is_pointer_type(indexed_type))
@@ -12875,8 +12877,7 @@ static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
                 nodecl_lower,
                 nodecl_upper,
                 decl_context,
-                nodecl_lower,
-                nodecl_upper,
+                nodecl_range,
                 decl_context);
     }
     else
@@ -12895,10 +12896,15 @@ static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
     while (i > 0)
     {
         type_t* current_array_type = advanced_types[i - 1];
+       
         nodecl_t array_lower_bound = array_type_get_array_lower_bound(current_array_type);
         nodecl_t array_upper_bound = array_type_get_array_upper_bound(current_array_type);
         nodecl_t array_region_lower_bound = array_type_get_region_lower_bound(current_array_type);
         nodecl_t array_region_upper_bound = array_type_get_region_upper_bound(current_array_type);
+        nodecl_t array_region_stride = array_type_get_region_stride(current_array_type);
+        nodecl_t array_region_range = nodecl_make_range(array_region_lower_bound, array_region_upper_bound, array_region_stride,
+                                                        current_array_type, filename, line);
+        
         decl_context_t array_decl_context = array_type_get_array_size_expr_context(current_array_type);
 
         result_type = get_array_type_bounds_with_regions(
@@ -12906,15 +12912,16 @@ static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
                 array_lower_bound,
                 array_upper_bound,
                 array_decl_context,
-                array_region_lower_bound,
-                array_region_upper_bound,
+                array_region_range,
                 decl_context);
         i--;
     }
 
     // Should the type be a reference in C++?
-
-    *nodecl_output = nodecl_make_array_section(nodecl_postfix, nodecl_lower, nodecl_upper, 
+    type_t* index_type = no_ref(nodecl_get_type(nodecl_lower));
+    nodecl_t array_range = nodecl_make_range(nodecl_lower, nodecl_upper, nodecl_stride,
+                                             index_type, filename, line);
+    *nodecl_output = nodecl_make_array_subscript(nodecl_postfix, array_range, 
             result_type,
             filename, line);
     nodecl_expr_set_is_lvalue(*nodecl_output, 1);
@@ -12928,10 +12935,11 @@ static void check_array_section_expression(AST expression, decl_context_t decl_c
     AST postfix_expression = ASTSon0(expression);
     AST lower_bound = ASTSon1(expression);
     AST upper_bound = ASTSon2(expression);
-
+    AST stride = ASTSon3(expression);
+    
     nodecl_t nodecl_postfix = nodecl_null();
     check_expression_impl_(postfix_expression, decl_context, &nodecl_postfix);
-
+    
     nodecl_t nodecl_lower = nodecl_null();
     if (lower_bound != NULL)
         check_expression_impl_(lower_bound, decl_context, &nodecl_lower);
@@ -12940,9 +12948,19 @@ static void check_array_section_expression(AST expression, decl_context_t decl_c
     if (upper_bound != NULL)
         check_expression_impl_(upper_bound, decl_context, &nodecl_upper);
 
+    nodecl_t nodecl_stride = nodecl_null();
+    if (stride != NULL)
+        check_expression_impl_(stride, decl_context, &nodecl_stride);
+    else
+        nodecl_stride = const_value_to_nodecl(const_value_get_one(/* bytes */ 4, /* signed */ 1));
+    
+    type_t* subscript_type = nodecl_get_type(nodecl_postfix);
+    
+    nodecl_t nodecl_range = nodecl_make_range(nodecl_lower, nodecl_upper, nodecl_stride, subscript_type, filename, line);
+    
     char is_array_section_size = (ASTType(expression) == AST_ARRAY_SECTION_SIZE);
 
-    check_nodecl_array_section_expression(nodecl_postfix, nodecl_lower, nodecl_upper,
+    check_nodecl_array_section_expression(nodecl_postfix, nodecl_range,
             decl_context, is_array_section_size, filename, line, nodecl_output);
 }
 

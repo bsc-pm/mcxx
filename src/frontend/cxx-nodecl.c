@@ -1,6 +1,7 @@
 #include "cxx-nodecl.h"
 #include "cxx-exprtype.h"
 #include "cxx-utils.h"
+#include "cxx-codegen.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -450,8 +451,7 @@ static decl_context_t nodecl_retrieve_context_rec(nodecl_t n)
     {
         return CURRENT_COMPILED_FILE->global_decl_context;
     }
-    else if (nodecl_get_kind(n) == NODECL_CONTEXT
-            || nodecl_get_kind(n) == NODECL_PRAGMA_CONTEXT)
+    else if (nodecl_get_kind(n) == NODECL_CONTEXT)
     {
         return nodecl_get_decl_context(n);
     }
@@ -494,4 +494,52 @@ void nodecl_exchange(nodecl_t old_node, nodecl_t new_node)
     }
 
     internal_error("Old node was not properly chained to its parent", 0);
+}
+
+size_t hash_string(const char* str)
+{
+    size_t str_hash = 0;
+    int c;
+
+    if (str != NULL)
+    {
+        while ( (c = *str++) )   
+            str_hash = c + (str_hash << 6) + (str_hash << 16) - str_hash;
+    }
+
+    return str_hash;
+}
+
+size_t hash_table(nodecl_t key)
+{
+    size_t hash = 0;
+    
+    if (!nodecl_is_null(key))
+    {
+        // Actual hash
+        if (!nodecl_is_list(key))
+        {
+            const char* kind = ast_print_node_type(nodecl_get_kind(key));
+            scope_entry_t* s = nodecl_get_symbol(key);
+            const char* sym = NULL; if (s != NULL) sym = s->symbol_name;
+            const char* text = nodecl_get_text(key);
+            const char* type = print_type_str(nodecl_get_type(key), CURRENT_COMPILED_FILE->global_decl_context);
+            
+            hash = hash_string(kind) + hash_string(sym) + hash_string(text) + hash_string(type);
+//             char* key_s = c_cxx_codegen_to_str(key);
+//             printf("kind = '%s',\t sym = '%s',\t text = '%s',\t type = '%s',\t hash <'%s' , '%d'>\n", kind, sym, text, type, key_s, hash);         
+  
+        }
+        
+        // Hash for all children
+        int i = 0;
+        size_t child_hash;
+        for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+        {
+            child_hash = hash_table(nodecl_get_child(key, i));
+            hash += child_hash << (i * 2);
+        }    
+    }
+    
+    return hash;
 }

@@ -42,6 +42,11 @@ namespace Nodecl {
                 }
                 return result;
             }
+            Nodecl::NodeclBase copy() const
+            {
+                return nodecl_copy(this->_n);
+            }
+            bool is_constant() const { return ::nodecl_is_constant(_n); }
 
             // Prettyprint
             std::string prettyprint();

@@ -54,7 +54,13 @@ namespace TL
          * This attribute stores the actual nodecl when we are traversing a class member access or a reference/dereference
          */
         Nodecl::NodeclBase _actual_nodecl;
-
+        
+        //! Nodecl containing the initializing expression of the symbol which is being defined in the actual statement
+        /*!
+         * For example, within an assignment, this Nodecl contain the rhs of the assignment
+         */
+        Nodecl::NodeclBase _init_expression;
+        
     private:
         //! This method implements the visitor for any Literal
         //! It do nothing
@@ -82,10 +88,6 @@ namespace TL
         template<typename T>
         Ret nested_visit(const T& n);
         
-        //! This method implements the visitor for all Function Call, virtual or not
-        template <typename T>
-        Ret func_call(const T& n);
-        
     public:
         // Constructors
         CfgAnalysisVisitor(Node* n);
@@ -99,19 +101,18 @@ namespace TL
         Ret visit(const Nodecl::ParenthesizedExpression& n);
         Ret visit(const Nodecl::ObjectInit& n);
         Ret visit(const Nodecl::ArraySubscript& n);
-        Ret visit(const Nodecl::ArraySection& n);
+        Ret visit(const Nodecl::Range& n);
         Ret visit(const Nodecl::ClassMemberAccess& n);    
         Ret visit(const Nodecl::Concat& n);
         Ret visit(const Nodecl::New& n);
         Ret visit(const Nodecl::Delete& n);
         Ret visit(const Nodecl::DeleteArray& n);
+        Ret visit(const Nodecl::Offsetof& n);
         Ret visit(const Nodecl::Sizeof& n);
         Ret visit(const Nodecl::Type& n);
         Ret visit(const Nodecl::Typeid& n);
         Ret visit(const Nodecl::Cast& n);
         Ret visit(const Nodecl::Offset& n);
-        Ret visit(const Nodecl::VirtualFunctionCall& n);
-        Ret visit(const Nodecl::FunctionCall& n);
         Ret visit(const Nodecl::StringLiteral& n);
         Ret visit(const Nodecl::BooleanLiteral& n);
         Ret visit(const Nodecl::IntegerLiteral& n);

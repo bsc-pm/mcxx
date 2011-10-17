@@ -21,7 +21,7 @@ not, write to the Free Software Foundation, Inc., 675 Mass Ave,
 Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-
+#include "cxx-cexpr.h"
 #include "cxx-codegen.h"
 #include "cxx-process.h"
 
@@ -35,7 +35,7 @@ namespace TL
 
     CfgAnalysisVisitor::CfgAnalysisVisitor(const CfgAnalysisVisitor& v)
         : _node(v._node), _define(v._define), _actual_nodecl(v._actual_nodecl)
-    {}
+    {} 
 
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::unhandled_node(const Nodecl::NodeclBase& n)
     {
@@ -45,8 +45,24 @@ namespace TL
 
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Symbol& n)
     {
-        _node->fill_use_def_sets(n.get_symbol(), _define, _actual_nodecl);
-        _actual_nodecl = Nodecl::NodeclBase::null();
+        Nodecl::NodeclBase defined_var = n;
+        
+        if (_actual_nodecl.is_null())
+        {    
+            _node->fill_use_def_sets(n, _define);
+        }
+        else
+        {
+            defined_var = _actual_nodecl;
+            _node->fill_use_def_sets(_actual_nodecl, _define);
+            _actual_nodecl = Nodecl::NodeclBase::null();
+        }
+        
+        if (!_init_expression.is_null())
+        {
+            _node->set_reaching_definition(defined_var, _init_expression);
+            _init_expression = Nodecl::NodeclBase::null();
+        }
     }
     
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Text& n)
@@ -91,129 +107,43 @@ namespace TL
         literal_visit(n);
     }
 
-    // TODO
-    template <typename T>
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::func_call(const T& n)
+    static ObjectList<Symbol> get_symbols(Nodecl::NodeclBase n)
     {
+        if (n.get_symbol().is_valid())
+        {
+            return ObjectList<Symbol>(1, n.get_symbol());
+        }
         
-//         CfgArgumentVisitor new_visitor();
-//         new_visitor.walk(n);
+        ObjectList<Symbol> result;
+        ObjectList<Nodecl::NodeclBase> children = n.children();
+        for(ObjectList<Nodecl::NodeclBase>::iterator it = children.begin(); it != children.end(); ++it)
+        {
+            result.append(get_symbols(*it));
+        }
         
-        /*Type t = n.get_type();
-        
-        bool has_ellipsis;
-        ObjectList<Type> parameters_types = t.parameters(has_ellipsis);
-        Nodecl::List arguments(n.get_internal_nodecl());*/        
-        
-//         ObjectList<Nodecl::NodeclBase>::iterator ita = arguments.begin();
-//         for (ObjectList<Type>::iterator itp = parameters_types.begin();
-//             itp != parameters_types.end();
-//             ++itp, ++ita)
-//         {   // While we can use the parameters (arguments that are not ellipsis), we do
-//             // FIXME Escape analysis??
-//             if (itp->is_reference() || itp->is_pointer())
-//             {
-//                 ObjectList<Symbol> syms = (*ita).get_symbols();
-//                 if (!syms.empty())
-//                 {
-//                     for (ObjectList<Symbol>::iterator its = syms.begin();
-//                         it != syms.end();
-//                         ++it)
-//                     {
-//                         _node->fill_use_def_sets(ita.get_symbol(), false);
-//                         _node->fill_use_def_sets(ita.get_symbol(), true);
-//                     }
-//                 }
-//             }
-//         }
-        
-//         if (has_ellipsis)
-//         {
-//             for(; ita != arguments.end(); ++ita)
-//             {
-//                 // FIXME get_type will not work if Fortran when argument is 'named-pair' or 'alt-return'
-//                 if (ita->is_reference() || ita->is_pointer())
-//                 {
-//                     _node->fill_use_def_sets(ita.get_symbol(), false);
-//                     _node->fill_use_def_sets(ita.get_symbol(), true);
-//                 }
-//             }
-//         }
-             
-        //         else if (e.is_function_call())
-//         {
-//             Expression called_expression = e.get_called_expression();
-//             Type type = called_expression.get_type();
-//             ObjectList<Type> parameter_types = type.parameters(has_ellipsis);
-//             
-//             ObjectList<Expression> args = e.get_argument_list();
-//             ObjectList<Type>::iterator itp = parameter_types.begin();
-//             ObjectList<Expression>::iterator ita = args.begin();
-//             for(; itp != parameter_types.end(); ita++, itp++)
-//             {
-//                 // Regarding the parameter, if possible (arguments that are not in ellipsis)
-//                 if ((itp->is_pointer() && !itp->points_to().is_const()) || 
-//                     (itp->is_reference() && !itp->references_to().is_const()))
-//                 {
-// //                     std::cerr << "Parameter " << ita->prettyprint() 
-// //                               << " is pointer and not const" << std::endl;
-//                     // Assuming that the argument is used and defined, in this order
-//                     set_live_initial_expression_information(*ita, /* Defined */ false);
-//                     set_live_initial_expression_information(*ita, /* Defined */ true);
-//                 }
-//                 else
-//                 {
-// //                     std::cerr << "Parameter " << ita->prettyprint() 
-// //                               << " is not pointer or const" << std::endl;
-//                     set_live_initial_expression_information(*ita, /* Defined */ false);
-//                 }
-//             }
-//             if (has_ellipsis)
-//             {
-//                 // There are more arguments than parameters, so we must regard the argument
-//                 for(; ita != args.end(); ita++)
-//                 {
-//                     if ((ita->get_type().is_pointer() && !ita->get_type().points_to().is_const()) ||
-//                         (ita->get_type().is_reference() && 
-//                              !ita->get_type().references_to().is_const()))
-//                     {
-// //                         std::cerr << "Argument " << ita->prettyprint() 
-// //                                   << " is pointer and not const" << std::endl;
-//                         // Assuming that the argument is used and defined, in this order
-//                         set_live_initial_expression_information(*ita, /* Defined */ false);
-//                         set_live_initial_expression_information(*ita, /* Defined */ true);
-//                     }
-//                     else
-//                     {    
-// //                         std::cerr << "Argument " << ita->prettyprint() 
-// //                                   << " is not pointer or const" << std::endl;
-//                         set_live_initial_expression_information(*ita, /* Defined */ false);
-//                     }
-//                 }
-//             }
-//         }        
-        
-    }
-
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::VirtualFunctionCall& n)
-    {
-        func_call(n);
-    }
-   
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::FunctionCall& n)
-    {
-        func_call(n);
+        return result;
     }
 
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::ObjectInit& n)
     {
-        _node->fill_use_def_sets(n.get_symbol(), true);
-        walk(n.get_symbol().get_initialization());
+        Symbol s = n.get_symbol();
+       
+        Nodecl::Symbol sym_node = Nodecl::Symbol::make(s, n.get_filename(), n.get_line());
+        _node->fill_use_def_sets(sym_node, true);
+       
+        Nodecl::NodeclBase init = s.get_initialization();
+        
+        if (!init.is_null())
+        {
+            _node->set_reaching_definition(sym_node, init);
+            walk(init);
+        }
     }
 
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Assignment& n)
     {
         walk(n.get_rhs());
+        _init_expression = n.get_rhs();
         _define = true;
         walk(n.get_lhs());
         _define = false;
@@ -222,9 +152,10 @@ namespace TL
     template <typename T>
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::binary_assignment(const T& n)
     {
-        walk(n.get_rhs());        
+        walk(n.get_rhs());
         walk(n.get_lhs());
         _define = true;
+        _init_expression = n.get_rhs();
         walk(n.get_lhs());
         _define = false;
     }
@@ -412,33 +343,53 @@ namespace TL
     {
         binary_visit(n);
     }
-    
-    template <typename T>
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::unary_visit(const T& n)
-    {
-        walk(n.get_rhs());
-    }    
-    
+   
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Predecrement& n)
     {
-        unary_visit(n);
+        Nodecl::NodeclBase rhs = n.get_rhs();
+        walk(rhs);
+        _define = true;
+        _init_expression = rhs;
+        walk(rhs);
+        _define = false;
     }
     
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Postdecrement& n)
     {
-        unary_visit(n);
+        Nodecl::NodeclBase rhs = n.get_rhs();
+        walk(rhs);
+        _define = true;
+        _init_expression = rhs;
+        walk(rhs);
+        _define = false;
     }
     
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Preincrement& n)
     {
-        unary_visit(n);
+        Nodecl::NodeclBase rhs = n.get_rhs();
+        walk(rhs);
+        _define = true;
+        _init_expression = rhs;
+        walk(rhs);
+        _define = false;
     }
     
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Postincrement& n)
     {
-        unary_visit(n);
+        Nodecl::NodeclBase rhs = n.get_rhs();
+        walk(rhs);
+        _define = true;
+        _init_expression = rhs;
+        walk(rhs);
+        _define = false;
     }
-    
+
+    template <typename T>
+    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::unary_visit(const T& n)
+    {
+        walk(n.get_rhs());
+    }
+
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Plus& n)
     {
         unary_visit(n);
@@ -481,13 +432,20 @@ namespace TL
     
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::ArraySubscript& n)
     {
+        if (_actual_nodecl.is_null())
+        {
+            _actual_nodecl = n;
+        }
+        
         walk(n.get_subscripted());
         walk(n.get_subscripts());
     }
-   
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::ArraySection& n)
+    
+    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Range& n)
     {
-        unhandled_node(n);
+        walk(n.get_lower());
+        walk(n.get_upper());
+        walk(n.get_stride());
     }
     
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::ClassMemberAccess& n)
@@ -514,7 +472,11 @@ namespace TL
     {   // FIXME We should specify the object destruction
         // walk(n.get_rhs());
     }
-    
+
+    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Offsetof& n)
+    {   // do nothing
+    }
+
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Sizeof& n)
     {   // do nothing
     }

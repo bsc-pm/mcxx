@@ -38,21 +38,38 @@ namespace TL
     {
         RefPtr<Nodecl::NodeclBase> nodecl = RefPtr<Nodecl::NodeclBase>::cast_dynamic(dto["nodecl"]);
         
-        CfgVisitor cfg_visitor;
+        // *** Build the graphs for every method in the translation unit *** //
+        CfgVisitor cfg_visitor(0);
         cfg_visitor.build_cfg(nodecl, std::string(""));
-        
-        // TODO with the list of functions with its correspondent list of graphs in @cfgs
-        // now we can perform some kind of inter-procedural analysis
-        
-        
-        // Perform Live Variable Analysis and Print the Graph to a dot file
+       
+        // *** Use-def chains + IPA *** //
         ObjectList<ExtensibleGraph*> cfgs = cfg_visitor.get_cfgs();
-        for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin();
-            it != cfgs.end(); 
-            ++it)
+        
+        // First compute individually the Use-Def chains for each graph
+        for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
         {
-            (*it)->live_variable_analysis();
-            (*it)->print_graph_to_dot();
+            if (!(*it)->has_use_def_computed())
+            {
+                std::cerr << "****************** GRAPH " << (*it)->get_name() << " ******************" << std::endl;
+                cfg_visitor.set_actual_cfg(*it);
+                cfg_visitor.compute_use_def_chains((*it)->get_graph());
+            }
+        }
+      
+        // *** Live Variable Analysis *** //
+        for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
+        {
+            // Non-task nodes
+            ExtensibleGraph::live_variable_analysis((*it)->get_graph());
+            
+            // Task nodes
+            (*it)->analyse_tasks();
+        }
+        
+        // Print graphs into dot files
+        for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
+        {
+            ExtensibleGraph::print_graph_to_dot((*it)->get_graph(), (*it)->get_name());
         }
     }
 }

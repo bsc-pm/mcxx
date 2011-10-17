@@ -26,41 +26,16 @@ Cambridge, MA 02139, USA.
 #define EXTENSIBLE_GRAPH_HPP
 
 #include <algorithm>
+#include <map>
 #include <stack>
 
+#include "cxx-codegen.h"
 #include "cxx-utils.h"
 #include "tl-node.hpp"
 #include "tl-nodecl.hpp"
 
 namespace TL
 {
-    struct sym_info_t
-    {
-        ExtensibleSymbol _sym;
-        char _first_action;      /* -1 if UNDEFINED, 0 if USE, 1 if DEFINE */
-        char _different_action;  /* -1 if UNDEFINED, 0 if no different action performed, 1 if performed */
-        
-        sym_info_t(ExtensibleSymbol sym)
-            : _sym(ExtensibleSymbol()), _first_action(-1), _different_action(-1)
-        {}
-        
-        sym_info_t(ExtensibleSymbol s, char fa, char da)
-            : _sym(s), _first_action(fa), _different_action(da)
-        {}
-
-        sym_info_t(const sym_info_t& sym_info)
-        {
-            _sym = sym_info._sym;
-            _first_action = sym_info._first_action;
-            _different_action = sym_info._different_action;
-        }
-        
-        bool operator==(const sym_info_t& sym_info) const
-        {
-            return (_sym == sym_info._sym);
-        }
-    };  
-    
     class LIBTL_CLASS ExtensibleGraph
     {
         protected:
@@ -69,6 +44,22 @@ namespace TL
             std::string _name;
             int _nid;
             
+            //! Symbol of the function is contained in the graph.
+            /*! This symbol is empty when the code contained in the graph do not correspond to a function
+             */
+            Symbol _function_sym;
+            
+            //! List of nodes containing a function call
+            ObjectList<Node*> _function_calls;         
+            
+            //! Map of nodes with the relationship between a new node and an old node when a piece of graph is copied
+            /*! The key is the old node and the value is the new node
+             */
+            std::map<Node*, Node*> nodes_m;            
+            
+            
+            // *** Values used during the construction of the graph *** //
+            
             //! Stacks to keep the exit nodes of Loop Statements
             std::stack<Node*> _continue_stack;
             std::stack<Node*> _break_stack;
@@ -76,7 +67,6 @@ namespace TL
             //! Lists to keep special nodes that breaks the expected behaviour of the flow
             ObjectList<Node*> _labeled_node_l;
             ObjectList<Node*> _goto_node_l;
-            ObjectList<Node*> _tasks_node_l;
             
             //! List of nodes that will be parents of a new node
             ObjectList<Node*> _last_nodes;
@@ -85,13 +75,24 @@ namespace TL
             //! CfgVisitor will create and destroy this node depending on the statements it is traversing
             std::stack<Node*> _outer_node;
             
+            
+            // *** Values used during the analysis *** //
+            
+            //! List of nodes containing task's code
             ObjectList<Node*> _task_nodes_l;
             
-            // *** Private methods *** //
-                     
+            //! Boolean indicating whether the use-def chains are already computed for the graph
+            bool _use_def_computed;
+            
+            
+    private:
+            //! We don't want to allow this kind of constructions
+            ExtensibleGraph(const ExtensibleGraph& graph);
+            ExtensibleGraph& operator=(const ExtensibleGraph&);
+        
             //! Makes up the content of the nodes by deleting the line feeds and escaping all
             //! those symbols that can not be freely write in DOT language.
-            void makeup_dot_block(std::string &str);
+            static void makeup_dot_block(std::string& str);
             
             //! This method removes all those nodes that are unreachable and those that were created
             //! as auxiliary nodes when the graph was created. 
@@ -114,12 +115,11 @@ namespace TL
               \param outer_nodes Set of nodes that must be printed in an outer DOT cluster.
               \param indent Indentation for the actual node when it is printed.
               \param subgraph_id Identifier for the actual cluster.
-              \return Last node printed.
              */
-            Node* get_nodes_dot_data(Node* actual_node, std::string& dot_graph, 
-                                     std::vector<std::string>& outer_edges, 
-                                     std::vector<Node*>& outer_nodes,
-                                     std::string indent, int& subgraph_id);
+            static void get_nodes_dot_data(Node* actual_node, std::string& dot_graph, 
+                                           std::vector<std::string>& outer_edges, 
+                                           std::vector<Node*>& outer_nodes,
+                                           std::string indent, int& subgraph_id);
                                      
             //! Prints both nodes and edges within a cfg subgraph
                         //! Prints nodes and relations between them in a string in a recursive way.
@@ -131,34 +131,27 @@ namespace TL
               \param indent Indentation for the actual node when it is printed.
               \param subgraph_id Identifier for the actual cluster.
              */
-            void get_dot_subgraph(Node* actual_node, std::string& graph_data, 
+            static void get_dot_subgraph(Node* actual_node, std::string& graph_data, 
                                   std::vector<std::string>& outer_edges,
                                   std::vector<Node*>& outer_nodes, 
                                   std::string indent, int& subgraph_id);
                                   
             //! Prints the data of an only node.                                    
-            void get_node_dot_data(Node* node, std::string& graph_data, std::string indent);
+            static void get_node_dot_data(Node* node, std::string& graph_data, std::string indent);
            
             
             //! Returns whether the source and the target of an edge belongs to the same outer node.
             /*!
               If both the source and the target do not have an outer node, then true is returned.
              */
-            bool belongs_to_the_same_graph(Edge* edge);
-            
-            //! Computes the liveness information of each node regarding only its inner statements
-            /*!
-              A variable is Killed (X) when it is defined before than used in X.
-              A variable is Upper Exposed (X) when it is used before than defined in X.
-             */
-            void gather_live_initial_information(Node* actual);
+            static bool belongs_to_the_same_graph(Edge* edge);
             
             //! Computes the data-flow equation for each node in a iterative way 
             //! until the information stops changing.
             /*!
               It is mandatory to use before #gather_live_initial_information.
              */
-            void solve_live_equations();
+            static void solve_live_equations(Node* node);
             
             //! Computes on iteration of the method #solve_live_equations.
             /*!
@@ -167,7 +160,28 @@ namespace TL
               Live in (X) = Upper exposed (X) + 
                             ( Live out (X) - Killed (X) )
              */
-            void solve_live_equations_recursive(Node* actual, bool& changed);
+            static void solve_live_equations_recursive(Node* actual, bool& changed);
+            
+            //! This method spreads the computed info about reaching definitions during the Use-Def construction.
+            //! When more than one expression is assigned to the same symbol within a node, the method gets just the last expression.
+            static void extend_reaching_defintions_info(Node* node);            
+            
+            //! Recompute the identifiers of the nodes graph hanging from actual_node from the value of _nid
+            //! This method is used when a node s replaced by another, because the identifiers may be repeated
+            void recompute_identifiers(Node* actual_node);
+
+            //! Method used during the copy method when the edges must be copied before connecting the nodes
+            void connect_nodes(ObjectList<Node*> parents, Node* child, ObjectList<Edge*> edges);
+            
+            //! Method used during the copy method when the edges must be copied before connecting the nodes
+            void connect_nodes(Node* parent, ObjectList<Node*> children, ObjectList<Edge*> edges);
+            
+            //! Method used during the copy method that copies the graph recursively
+            
+            
+            void copy_and_map_nodes(Node* old_node);
+            
+            void connect_copied_nodes(Node* old_node);
             
         public:
             // *** Constructors *** //
@@ -176,14 +190,14 @@ namespace TL
             /*!
               \param name Name which will identify the graph.
              */
-            ExtensibleGraph(std::string name);
+            explicit ExtensibleGraph(std::string name);
             
-            //! Copy constructor
-            ExtensibleGraph(const ExtensibleGraph& graph);
+            //! Creates a new graph with the same characteristics of the actual graph
+            ExtensibleGraph* copy();
             
-           
+            
             // *** Modifiers *** //
-           
+
             //! This method creates a new node containing a Basic Block and connects it to its
             //! parent node with a new edge.
             /*!
@@ -246,7 +260,7 @@ namespace TL
             //! only child and the nature of the connection is the same for all of them.
             void connect_nodes(ObjectList<Node*> parents, Node* child, 
                                Edge_type etype = ALWAYS_EDGE, std::string label = "");
-
+            
             //! Wrapper method for #disconnect_nodes when a set of parents is connected to a child.
             void disconnect_nodes(ObjectList<Node*> parents, Node* child);
             
@@ -270,9 +284,12 @@ namespace TL
              * \param graph_type Type of the composite node. 
              *                   It must be some of these values: 'split_stmt',
              *                   'function_call', 'conditional_expression', 'omp_pragma'.
+             * \param context Nodecl containing the context of the graph
+             *                It is only not null for graph nodes containing tasks
              * \return The new composite node.
              */
-            Node* create_graph_node(Node* outer_node, Nodecl::NodeclBase label, std::string graph_type);            
+            Node* create_graph_node(Node* outer_node, Nodecl::NodeclBase label, 
+                                    Graph_type graph_type, Nodecl::NodeclBase context = Nodecl::NodeclBase::null());
             
             //! Builds a Barrier node with its corresponding Flush nodes and connects it with the existent graph
             /*!
@@ -318,9 +335,12 @@ namespace TL
              */
             void concat_nodes(ObjectList<Node*> node_l);
             
+            //!
+            void replace_node(Node* old_node, Node* new_node);
+            
             //! This function clears the attribute #visited from nodes bellow @actual node.
             //! It works properly if there isn't any unreachable node in the graph bellow @actual.
-            void clear_visits(Node* actual);
+            static void clear_visits(Node* actual);
                        
             //! Set of methods that removes those nodes that can never be reached.                 
             void clear_orphaned_nodes(Node* actual_node);
@@ -329,19 +349,20 @@ namespace TL
             
             //! Removes those nodes that has UNCLASSIFIED_NODE type and reconects parents and
             //! children nodes properly.
-            void erase_unclassified_nodes(Node* actual);            
+            void erase_unclassified_nodes(Node* actual);
             
             
             // *** DOT Graph *** //
             
             //! Build a DOT file that represents the CFG
-            void print_graph_to_dot();
+            static void print_graph_to_dot(Node* node, std::string name);
             
             
             // *** Static CFG Analysis *** //
             
-            //! Computes the define-use chain of the cfg
-            void live_variable_analysis();            
+            //! Computes the liveness analysis of a node
+            //! The method needs the use-def chains to be calculated before
+            static void live_variable_analysis(Node* node);            
             
             //! Computes dependences for all task node in the Extensible Graph
             void analyse_tasks();
@@ -349,38 +370,35 @@ namespace TL
             //! Computes dependences for a node containing a task code
             void analyse_task(Node* task_node);
             
+            
             // *** Getters and Setters *** //
             
+            //! Returns the name of the graph
             std::string get_name() const;
             
-
-
-// OLD method
+            //! Returns the symbol of the function contained in the graph
+            //! It is null when the graph do not corresponds to a function code
+            Symbol get_function_symbol() const;
             
-            //! Builds a set of connected nodes that contains a Pragma Construct Statement
-            /*!
-              When a non-omp pragma is founded, then the method don't do anything.
-              \param parent Parent of the first of the new nodes to be built.
-              \param pragma_stmt Pragma Construct Statement to be parsed.
-              \param outer_graph Node to which the new structure will belong to.
-                                 It must be a Composite node.
-              \return Composite node containing the set of pragma statements nodes.
-            */             
-            // Node* build_pragma_construct(Node* parent, Statement pragma_stmt, 
-            //                              Node* outer_graph = NULL);
+            //! Returns a list with all the function call symbols contained in the graph
+            ObjectList<Node*> get_function_calls() const;
             
-            //! Builds a set of connected nodes that contains an omp sections statement
-            /*!
-              \param parent Parent of the first of the new nodes to be built.
-              \param pragma_stmt Omp Sections Directive to be parsed.
-              \param outer_graph Node to which the new structure will belong to.
-                                 It must be a Composite node.
-              \return Composite node containing the set of statements of the directive.
-            */                       
-            // Node* build_sections_node(Node* parent, Statement pragma_stmt, Node* outer_graph);
-           
-           
- 
+            //! Returns the node containing the graph
+            Node* get_graph() const;
+            
+            //! Returns the list of nodes containing a task which are created within this graph
+            ObjectList<Node*> get_tasks_list() const;
+            
+            //! Returns 1 when the graph has use-def info already computed; otherwise returns 0
+            bool has_use_def_computed() const;
+            
+            //! Sets to 1 the variable containing whether the graph has the use-def info computed
+            void set_use_def_computed();
+            
+            
+            // *** Consultants *** //
+            static Node* is_for_loop_increment(Node* node);
+
         friend class CfgVisitor;
     };
 }

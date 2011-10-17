@@ -195,6 +195,18 @@ namespace TL
         insert_entry(_decl_context.current_scope, sym.get_internal_symbol());
     }
 
+    bool Scope::scope_is_enclosed_by(Scope potential_encloser) const
+    {
+        if (_decl_context.current_scope != potential_encloser.get_decl_context().current_scope)
+        {
+            return ::scope_is_enclosed_by(_decl_context.current_scope, potential_encloser.get_decl_context().current_scope);
+        }
+        else
+        {
+            return false;
+        }
+    }
+
     ObjectList<Symbol> Scope::cascade_lookup(const std::string& str, const std::string& filename, int line)
     {
         scope_entry_list_t* entry_list = ::cascade_lookup(_decl_context, str.c_str(), DF_NONE, filename.c_str(), line);

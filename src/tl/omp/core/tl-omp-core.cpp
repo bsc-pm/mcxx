@@ -120,7 +120,7 @@ namespace TL
             Nodecl::NodeclBase translation_unit = dto["nodecl"];
             Scope global_scope = translation_unit.retrieve_context();
 
-            // initialize_builtin_udr_reductions_2(translation_unit);
+//             initialize_builtin_udr_reductions_2(translation_unit);
 
             PragmaCustomCompilerPhase::run(dto);
         }
