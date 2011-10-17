@@ -3643,14 +3643,11 @@ static void codegen_range(nodecl_codegen_visitor_t* visitor, nodecl_t node)
     nodecl_t ub_expr = nodecl_get_child(node, 1);
     nodecl_t step_expr = nodecl_get_child(node, 2);
     
-    // {lb : ub : step}
-    fprintf(visitor->file, "{");
     codegen_walk(visitor, lb_expr);
-    fprintf(visitor->file, " : ");
+    fprintf(visitor->file, ":");
     codegen_walk(visitor, ub_expr);
-    fprintf(visitor->file, " : ");
+    fprintf(visitor->file, ":");
     codegen_walk(visitor, step_expr);
-    fprintf(visitor->file, "}");    
 }
 
 static void codegen_shaping_expression(nodecl_codegen_visitor_t* visitor, nodecl_t node)

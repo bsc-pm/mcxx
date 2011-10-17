@@ -405,7 +405,7 @@ namespace TL
         Ret visit(const Nodecl::Text& n);
         Ret visit(const Nodecl::FortranWhere& n);
         Ret visit(const Nodecl::FortranWherePair& n);
-        Ret visit(const Nodecl::SubscriptTriplet& n);
+        // Ret visit(const Nodecl::SubscriptTriplet& n);
         Ret visit(const Nodecl::FortranLabelAssignStatement& n);
         Ret visit(const Nodecl::FortranIoSpec& n);
         Ret visit(const Nodecl::FieldDesignator& n);

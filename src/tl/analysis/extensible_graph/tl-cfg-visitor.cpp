@@ -1687,11 +1687,11 @@ namespace TL
         return Ret();
     }   
 
-    CfgVisitor::Ret CfgVisitor::visit(const Nodecl::SubscriptTriplet& n)
-    {
-        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
-        return Ret();
-    }   
+    // CfgVisitor::Ret CfgVisitor::visit(const Nodecl::SubscriptTriplet& n)
+    // {
+    //     internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
+    //     return Ret();
+    // }   
 
     CfgVisitor::Ret CfgVisitor::visit(const Nodecl::FortranLabelAssignStatement& n)
     {

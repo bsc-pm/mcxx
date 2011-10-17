@@ -531,7 +531,9 @@ void mcxx_refcount_array_t_children(void *p, void (*f)(void*))
     }
 }
 
+#if 0
 static __attribute__((destructor)) void cleanup(void)
 {
     _mcxx_collectcycles();
 }
+#endif

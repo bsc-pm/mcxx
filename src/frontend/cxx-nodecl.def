@@ -76,7 +76,6 @@ statement-but-object-init: NODECL_EMPTY_STATEMENT()
 compound-statement : NODECL_COMPOUND_STATEMENT([statements]statement-seq-opt, [finally]statement-seq-opt) 
 
 case-expression : expression
-                | subscript-triplet
 
 builtin-decl: NODECL_BUILTIN_DECL([components]any-list-opt) text
 builtin-expr: NODECL_BUILTIN_EXPR([components]any-list-opt) text type
@@ -121,7 +120,7 @@ expression : literal
            | name
            | context
            | NODECL_FUNCTION_CALL([called] expression, [arguments] argument-seq-opt) type
-           | NODECL_ARRAY_SUBSCRIPT([subscripted] expression, [subscripts]subscript-seq) type
+           | NODECL_ARRAY_SUBSCRIPT([subscripted] expression, [subscripts]expression-seq) type
            | NODECL_RANGE([lower] expression-opt, [upper] expression-opt, [stride] expression) type
            | NODECL_CLASS_MEMBER_ACCESS([lhs]expression, [member]expression) type
            | NODECL_PLUS([rhs]expression) type
@@ -168,7 +167,7 @@ initializer-item: NODECL_FIELD_DESIGNATOR([field]name, [next]initializer-item)
           | expression
           | fortran-implied-do
 
-fortran-implied-do: NODECL_FORTRAN_IMPLIED_DO([symbol]name, [range]subscript-triplet, [items]initializer-item-seq)
+fortran-implied-do: NODECL_FORTRAN_IMPLIED_DO([symbol]name, [range]expression, [items]initializer-item-seq)
 
 argument : named-pair
          | expression
@@ -177,11 +176,6 @@ argument : named-pair
 named-pair: NODECL_FORTRAN_NAMED_PAIR_SPEC([name]name-opt, [argument]expression)
 
 alt-return: NODECL_FORTRAN_ALT_RETURN()
-
-subscript : expression
-          | subscript-triplet
-
-subscript-triplet : NODECL_SUBSCRIPT_TRIPLET([lower]expression-opt, [upper]expression-opt, [stride]expression-opt)
 
 c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]expression, [false]expression) type
                   | NODECL_REFERENCE([rhs]expression) type
@@ -256,9 +250,9 @@ cxx-dependent-expressions: NODECL_CXX_ARROW([lhs]expression, [member]expression)
 # (type) { ... }
     | NODECL_CXX_POSTFIX_INITIALIZER([postfix]expression) type
 # a[e:e]
-    | NODECL_CXX_ARRAY_SECTION_RANGE([postfix] expression, [lower] expression-opt, [upper] expression-opt]) type
+    | NODECL_CXX_ARRAY_SECTION_RANGE([postfix] expression, [lower] expression-opt, [upper] expression-opt, [stride] expression-opt) type
 # a[e;e]
-    | NODECL_CXX_ARRAY_SECTION_SIZE([postfix] expression, [start] expression-opt, [num_items] expression-opt]) type
+    | NODECL_CXX_ARRAY_SECTION_SIZE([postfix] expression, [start] expression-opt, [num_items] expression-opt, [stride] expression-opt) type
 # T(expr-list)
     | NODECL_CXX_EXPLICIT_TYPE_CAST([init_list]cxx-dependent-initializer) type
 

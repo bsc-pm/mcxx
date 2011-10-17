@@ -1883,7 +1883,7 @@ static void fortran_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
 #undef BINARY_EXPRESSION
 #undef PREFIX_UNARY_EXPRESSION
 
-    NODECL_VISITOR(codegen_visitor)->visit_subscript_triplet = codegen_visitor_fun(codegen_subscript_triplet);
+    NODECL_VISITOR(codegen_visitor)->visit_range = codegen_visitor_fun(codegen_subscript_triplet);
     NODECL_VISITOR(codegen_visitor)->visit_string_literal = codegen_visitor_fun(codegen_string_literal);
     NODECL_VISITOR(codegen_visitor)->visit_text = codegen_visitor_fun(codegen_text);
     NODECL_VISITOR(codegen_visitor)->visit_structured_value = codegen_visitor_fun(codegen_structured_value);

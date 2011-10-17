@@ -9,13 +9,20 @@
 
 postfix_expression : postfix_expression '[' expression_opt ':' expression_opt ']'
 {
-    $$ = ASTMake3(AST_ARRAY_SECTION, $1, $3, $5, ASTFileName($1), ASTLine($1), NULL);
+    $$ = ASTMake4(AST_ARRAY_SECTION, $1, $3, $5, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+| postfix_expression '[' expression_opt ':' expression_opt ':' expression ']'
+{
+    $$ = ASTMake4(AST_ARRAY_SECTION, $1, $3, $5, $7, ASTFileName($1), ASTLine($1), NULL);
 }
 | postfix_expression '[' expression ';' expression ']'
 {
-    $$ = ASTMake3(AST_ARRAY_SECTION_SIZE, $1, $3, $5, ASTFileName($1), ASTLine($1), NULL);
+    $$ = ASTMake4(AST_ARRAY_SECTION_SIZE, $1, $3, $5, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
-
+| postfix_expression '[' expression ';' expression ':' expression ']'
+{
+    $$ = ASTMake4(AST_ARRAY_SECTION_SIZE, $1, $3, $5, $7, ASTFileName($1), ASTLine($1), NULL);
+}
 ;
 
 noshape_cast_expression : unary_expression %merge<ambiguityHandler>

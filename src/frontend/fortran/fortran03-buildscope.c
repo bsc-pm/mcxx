@@ -2495,10 +2495,13 @@ static void build_scope_case_statement(AST a, decl_context_t decl_context, nodec
             if (upper_bound != NULL)
                 fortran_check_expression(upper_bound, decl_context, &nodecl_upper_bound);
 
-            nodecl_t nodecl_triplet = nodecl_make_subscript_triplet(
+            nodecl_t nodecl_stride = const_value_to_nodecl(const_value_get_one(/* bytes */ 4, /* signed */ 1));
+
+            nodecl_t nodecl_triplet = nodecl_make_range(
                     nodecl_lower_bound,
                     nodecl_upper_bound,
-                    nodecl_null(),
+                    nodecl_stride,
+                    fortran_get_default_integer_type(),
                     ASTFileName(case_value_range),
                     ASTLine(case_value_range));
 
@@ -2877,7 +2880,8 @@ static void generic_implied_do_handler(AST a, decl_context_t decl_context,
 
     *nodecl_output = nodecl_make_fortran_implied_do(
             nodecl_make_symbol(do_variable, ASTFileName(io_do_variable), ASTLine(io_do_variable)),
-            nodecl_make_subscript_triplet(nodecl_lower, nodecl_upper, nodecl_stride, 
+            nodecl_make_range(nodecl_lower, nodecl_upper, nodecl_stride, 
+                fortran_get_default_integer_type(),
                 ASTFileName(implied_do_control), ASTLine(implied_do_control)),
             nodecl_rec,
             ASTFileName(a), ASTLine(a));

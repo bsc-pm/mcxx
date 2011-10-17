@@ -311,9 +311,10 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context, 
             nodecl_t nodecl_implied_do = 
                 nodecl_make_fortran_implied_do(
                         nodecl_make_symbol(do_variable, ASTFileName(ac_do_variable), ASTLine(ac_do_variable)),
-                        nodecl_make_subscript_triplet(nodecl_lower, 
+                        nodecl_make_range(nodecl_lower, 
                             nodecl_upper, 
                             nodecl_stride, 
+                            fortran_get_default_integer_type(),
                             ASTFileName(implied_do_control), 
                             ASTLine(implied_do_control)),
                         nodecl_ac_value,
@@ -420,9 +421,12 @@ static void check_substring(AST expr, decl_context_t decl_context, nodecl_t node
     // Do not compute the exact size at the moment
     synthesized_type = get_array_type_bounds(array_type_get_element_type(subscripted_type), nodecl_lower, nodecl_upper, decl_context);
 
+    nodecl_t nodecl_stride = const_value_to_nodecl(const_value_get_one(/* num_bytes */ 4, /* signed */ 1));
+
     *nodecl_output = nodecl_make_array_subscript(
             nodecl_subscripted,
-            nodecl_make_list_1(nodecl_make_subscript_triplet(nodecl_lower, nodecl_upper, nodecl_null(), ASTFileName(expr), ASTLine(expr))),
+            nodecl_make_list_1(
+                nodecl_make_range(nodecl_lower, nodecl_upper, nodecl_stride, fortran_get_default_integer_type(), ASTFileName(expr), ASTLine(expr))),
             synthesized_type,
             ASTFileName(expr), ASTLine(expr));
     nodecl_set_symbol(*nodecl_output, nodecl_get_symbol(nodecl_subscripted));
@@ -498,10 +502,11 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
                 synthesized_type = get_array_type_bounds(synthesized_type, nodecl_lower, nodecl_upper, decl_context);
             }
 
-            nodecl_indexes[num_subscripts] = nodecl_make_subscript_triplet(
+            nodecl_indexes[num_subscripts] = nodecl_make_range(
                     nodecl_lower,
                     nodecl_upper,
                     nodecl_stride,
+                    fortran_get_default_integer_type(),
                     ASTFileName(subscript),
                     ASTLine(subscript));
         }
