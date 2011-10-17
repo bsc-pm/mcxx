@@ -122,7 +122,7 @@ namespace TL
         // Connect the exit nodes to the Exit node of the master graph   
         _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, graph_exit);
         
-        _actual_cfg->dress_up_graph();
+//         _actual_cfg->dress_up_graph();
         
         _cfgs.append(_actual_cfg);
         _actual_cfg = NULL;
@@ -322,14 +322,14 @@ namespace TL
 
     CfgVisitor::Ret CfgVisitor::visit(const Nodecl::ObjectInit& n)
     {
-//         std::cerr << "ObjectInit in visit: " << c_cxx_codegen_to_str(n.get_internal_nodecl()) << std::endl;
-        
         if (_actual_cfg == NULL)
         {   // do nothing: A shared variable is declared
             return Ret();
         }
         else
         {
+            std::cerr << "ObjectInit in visit: " << c_cxx_codegen_to_str(n.get_internal_nodecl()) 
+                      << " making new symbol" << std::endl;
             ObjectList<Node*> object_init_last_nodes = _actual_cfg->_last_nodes;
             nodecl_t n_sym = nodecl_make_symbol(n.get_symbol().get_internal_symbol(), n.get_filename().c_str(), n.get_line());
             Nodecl::Symbol nodecl_symbol(n_sym);
@@ -700,7 +700,7 @@ namespace TL
             
             _actual_cfg->connect_nodes(graph_entry, graph_exit);
             
-            _actual_cfg->dress_up_graph();
+//             _actual_cfg->dress_up_graph();
         
             _cfgs.append(_actual_cfg);
         }
@@ -930,17 +930,34 @@ namespace TL
     // ************* Control Flow constructs ************* //
     CfgVisitor::Ret CfgVisitor::visit(const Nodecl::ForStatement& n)
     {
+        // Compute the information about the loop control and keep the results in the struct '_actual_loop_info'
+        ObjectList<Node*> actual_last_nodes = _actual_cfg->_last_nodes;
+        walk(n.get_loop_header());
+        _actual_cfg->_last_nodes = actual_last_nodes;
+        
+        // Connect the init
+        if (_loop_info_s.top().init != NULL)
+        {
+            int n_connects = _actual_cfg->_last_nodes.size();
+            _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, _loop_info_s.top().init,
+                          ObjectList<Edge_type>(n_connects, ALWAYS_EDGE), ObjectList<std::string>(n_connects, ""));
+            _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(_loop_info_s.top().init);
+        }
+        
+        // Create the natural loop graph node
         Node* for_graph_node = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), n.get_loop_header(), 
                                                               LOOP, Nodecl::NodeclBase::null());
         for_graph_node->set_loop_node_type(FOR);
         int n_connects = _actual_cfg->_last_nodes.size();
         _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, for_graph_node, 
                                    ObjectList<Edge_type>(n_connects, ALWAYS_EDGE), ObjectList<std::string>(n_connects, ""));
-        _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(for_graph_node->get_graph_entry_node());        
         
-        // We don't need to catch the result of this visit because it is stored in the struct '_actual_loop_info'
-        walk(n.get_loop_header());
-       
+        // Connect the conditional node
+        Node* entry_node = for_graph_node->get_graph_entry_node();
+        _loop_info_s.top().cond->set_outer_node(for_graph_node);
+        _actual_cfg->connect_nodes(entry_node, _loop_info_s.top().cond);
+        _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(_loop_info_s.top().cond);
+        
         Node* exit_node = for_graph_node->get_graph_exit_node();
        
         // Create the nodes from the list of inner statements of the loop
@@ -967,6 +984,7 @@ namespace TL
         // Fill the empty fields of the Increment node
         if (_loop_info_s.top().next != NULL)
         {
+            _loop_info_s.top().next->set_outer_node(for_graph_node);
             _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, _loop_info_s.top().next, aux_etype);
             _actual_cfg->connect_nodes(_loop_info_s.top().next, _loop_info_s.top().cond);
         }
@@ -978,15 +996,18 @@ namespace TL
         _actual_cfg->_outer_node.pop();
         _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(for_graph_node);
        
-        return ObjectList<Node*>(1, for_graph_node);
+        if (_loop_info_s.top().init != NULL)
+            return ObjectList<Node*>(1, _loop_info_s.top().init);
+        else
+            return ObjectList<Node*>(1, for_graph_node);
     }        
 
     CfgVisitor::Ret CfgVisitor::visit(const Nodecl::LoopControl& n)
     {
-        // Create initializing node
         struct loop_control_nodes_t actual_loop_info;
-        
-        ObjectList<Node*> init_last_nodes = _actual_cfg->_last_nodes;
+       
+        // Create initializing node
+        _actual_cfg->_last_nodes.clear();
         ObjectList<Node*> init_node_l = walk(n.get_init());
         if (init_node_l.empty())
         {   // The empty statement will return anything here. No node needs to be created
@@ -995,12 +1016,10 @@ namespace TL
         else
         {
             actual_loop_info.init = init_node_l[0];
-            _actual_cfg->connect_nodes(init_last_nodes, actual_loop_info.init);
-            _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(actual_loop_info.init);
         }
         
         // Create condition node
-        ObjectList<Node*> cond_last_nodes = _actual_cfg->_last_nodes;
+        _actual_cfg->_last_nodes.clear();
         ObjectList<Node*> cond_node_l = walk(n.get_cond());
         if (cond_node_l.empty())
         {   // The condition is an empty statement. 
@@ -1011,7 +1030,6 @@ namespace TL
         {
             actual_loop_info.cond = cond_node_l[0];
         }
-        _actual_cfg->connect_nodes(cond_last_nodes, actual_loop_info.cond);
         
         // Create next node
         _actual_cfg->_last_nodes.clear();
@@ -1024,10 +1042,6 @@ namespace TL
         {
             actual_loop_info.next = next_node_l[0];
         }
-            
-        // Recompute actual last nodes
-        _actual_cfg->_last_nodes.clear();
-        _actual_cfg->_last_nodes.append(actual_loop_info.cond);
         
         _loop_info_s.push(actual_loop_info);
         

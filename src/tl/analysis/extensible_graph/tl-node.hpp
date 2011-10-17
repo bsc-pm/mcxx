@@ -36,7 +36,7 @@ Cambridge, MA 02139, USA.
 
 namespace TL 
 {
-    typedef std::map<Nodecl::NodeclBase, Nodecl::NodeclBase, Nodecl::Utils::Nodecl_comp> reaching_def_map;
+    typedef std::tr1::unordered_map<Nodecl::NodeclBase, Nodecl::NodeclBase, Nodecl::Utils::Nodecl_hash, Nodecl::Utils::Nodecl_comp> nodecl_map;
 
     class Edge;
     
@@ -362,7 +362,7 @@ namespace TL
             //! Adds a new upper exposed variable to the node
             void set_ue_var(ExtensibleSymbol new_ue_var);
             
-            //! Deletes an old upper exposed variable form the node
+            //! Deletes an old upper exposed variable from the node
             void unset_ue_var(ExtensibleSymbol old_ue_var);
             
             //! Returns the list of killed variables of the node
@@ -390,10 +390,13 @@ namespace TL
             ext_sym_set get_inout_deps();
             
             //! Return the map containing, for each symbol defined until this moment, its correspondent expression
-            reaching_def_map get_reaching_definitions();
-            
+            nodecl_map get_reaching_definitions();
+
             //! Set to one variable a new expression value and append this relationship to the node
             void set_reaching_definition(Nodecl::NodeclBase var, Nodecl::NodeclBase init);
+            
+            //!Deletes an old reaching definition from the node
+            void unset_reaching_definition(Nodecl::NodeclBase var);
             
         friend class CfgAnalysisVisitor;
     };

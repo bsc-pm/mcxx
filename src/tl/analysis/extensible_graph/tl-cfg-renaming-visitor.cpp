@@ -28,15 +28,21 @@ Cambridge, MA 02139, USA.
 
 namespace TL
 {
-    CfgRenamingVisitor::CfgRenamingVisitor(std::map<Symbol, Nodecl::NodeclBase> const_map, const char* filename, int line)
-        : _const_map(const_map), _filename(filename), _line(line)
+    CfgRenamingVisitor::CfgRenamingVisitor(std::map<Symbol, Nodecl::NodeclBase> rename_map, const char* filename, int line)
+        : _rename_map(rename_map), _filename(filename), _line(line), _s(NULL)
     {}
     
     CfgRenamingVisitor::CfgRenamingVisitor(const CfgRenamingVisitor& rename_v)
     {
-        _const_map = rename_v._const_map;
+        _rename_map = rename_v._rename_map;
         _filename = rename_v._filename;
         _line = rename_v._line;
+        _s = rename_v._s;
+    }
+    
+    Symbol CfgRenamingVisitor::get_matching_symbol() const
+    {
+        return _s;
     }
     
     nodecl_t CfgRenamingVisitor::create_nodecl_list(ObjectList<Nodecl::NodeclBase> list)
@@ -61,11 +67,11 @@ namespace TL
     
     CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::Symbol& n)
     {
-        if (_const_map.find(n.get_symbol()) != _const_map.end())
+        if (_rename_map.find(n.get_symbol()) != _rename_map.end())
         {
-            Nodecl::NodeclBase const_value = _const_map[n.get_symbol()];
-            std::cerr << "Renaming symbol from " << n.get_symbol().get_name() << " to " << const_value.prettyprint() << std::endl;
-            return ObjectList<Nodecl::NodeclBase>(1, const_value);
+            Nodecl::NodeclBase mapped_value = _rename_map[n.get_symbol()];
+            _s = n.get_symbol();
+            return ObjectList<Nodecl::NodeclBase>(1, mapped_value);
         }
         
         return ObjectList<Nodecl::NodeclBase>();
@@ -139,11 +145,11 @@ namespace TL
         
         if (!renamed_lhs.empty() || !renamed_member.empty())
         {
-            if (renamed_lhs.empty())
+            if (!renamed_lhs.empty())
             {
                 lhs = renamed_lhs[0];
             }
-            if (renamed_member.empty())
+            if (!renamed_member.empty())
             {
                 member = renamed_member[0];
             }
@@ -166,11 +172,11 @@ namespace TL
         
         if (!renamed_lhs.empty() || !renamed_rhs.empty())
         {
-            if (renamed_lhs.empty())
+            if (!renamed_lhs.empty())
             {
                 lhs = renamed_lhs[0];
             }
-            if (renamed_rhs.empty())
+            if (!renamed_rhs.empty())
             {
                 rhs = renamed_rhs[0];
             }
@@ -237,9 +243,7 @@ namespace TL
 
     CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::Add& n)
     {
-
-        
-        return ObjectList<Nodecl::NodeclBase>();
+        return visit_binary(n);
     }
     
     CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::Minus& n)
@@ -408,5 +412,46 @@ namespace TL
     CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::Reference& n)
     {
         return visit_unary(n);
+    }
+    
+    CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::Conversion& n)
+    {
+        Nodecl::NodeclBase nest = n.get_nest();
+        ObjectList<Nodecl::NodeclBase> renamed_nest = walk(nest);
+        
+        if (!renamed_nest.empty())
+        {
+            nest = Nodecl::NodeclBase(create_nodecl_list(renamed_nest));
+            Nodecl::NodeclBase renamed = Nodecl::Conversion::make(nest, n.get_type(), _filename, _line);
+            
+            return ObjectList<Nodecl::NodeclBase>(1, renamed);
+        }
+        
+        return ObjectList<Nodecl::NodeclBase>();
+    }
+    
+    CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::IntegerLiteral& n)
+    {
+        return ObjectList<Nodecl::NodeclBase>();
+    }
+    
+    CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::FloatingLiteral& n)
+    {
+        return ObjectList<Nodecl::NodeclBase>();
+    }
+    
+    CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::ComplexLiteral& n)
+    {
+        return ObjectList<Nodecl::NodeclBase>();
+    }
+    
+    CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::BooleanLiteral& n)
+    {
+        return ObjectList<Nodecl::NodeclBase>();
+    }
+    
+    CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::StringLiteral& n)
+    {
+        return ObjectList<Nodecl::NodeclBase>();
     }
 }

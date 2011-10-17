@@ -123,6 +123,7 @@ expression : literal
            | NODECL_FUNCTION_CALL([called] expression, [arguments] argument-seq-opt) type
            | NODECL_ARRAY_SUBSCRIPT([subscripted] expression, [subscripts]subscript-seq) type
            | NODECL_ARRAY_SECTION([subscripted] expression, [lower] expression, [upper] expression) type
+           | NODECL_RANGE([lower] expression-opt, [upper] expression-opt, [stride] expression) type
            | NODECL_CLASS_MEMBER_ACCESS([lhs]expression, [member]expression) type
            | NODECL_PLUS([rhs]expression) type
            | NODECL_NEG([rhs]expression) type

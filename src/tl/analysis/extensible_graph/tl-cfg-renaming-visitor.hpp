@@ -41,10 +41,12 @@ namespace TL
     class LIBTL_CLASS CfgRenamingVisitor : public Nodecl::NodeclVisitor<Nodecl::NodeclBase>
     {
         private:
-            std::map<Symbol, Nodecl::NodeclBase> _const_map;
+            std::map<Symbol, Nodecl::NodeclBase> _rename_map;
             const char* _filename;
             int _line;
             
+//             // Value stored to recuperate info about the symbol that matches in a rename process
+            Symbol _s;
             
             // *** Auxiliar methods *** //
             
@@ -61,6 +63,10 @@ namespace TL
             CfgRenamingVisitor(std::map<Symbol, Nodecl::NodeclBase> rename_map, const char* _filename, int _line);
             CfgRenamingVisitor(const CfgRenamingVisitor& rename_v);
            
+            
+            // *** Getters and Setters *** //
+            Symbol get_matching_symbol() const;
+            
            
             // *** Visitors *** //
             Ret unhandled_node(const Nodecl::NodeclBase& n);
@@ -91,8 +97,12 @@ namespace TL
             Ret visit(const Nodecl::Neg& n);     
             Ret visit(const Nodecl::BitwiseNot& n);
             Ret visit(const Nodecl::LogicalNot& n);
-
-//             
+            Ret visit(const Nodecl::Conversion& n);
+            Ret visit(const Nodecl::IntegerLiteral& n);
+            Ret visit(const Nodecl::FloatingLiteral& n);
+            Ret visit(const Nodecl::ComplexLiteral& n);
+            Ret visit(const Nodecl::BooleanLiteral& n);
+            Ret visit(const Nodecl::StringLiteral& n);
     };
 }
 

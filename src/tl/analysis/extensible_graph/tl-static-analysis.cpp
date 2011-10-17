@@ -142,63 +142,80 @@ namespace TL
     {
         if (!node->is_visited())
         {
+            std::cerr << " ***** NODE " << node->get_id() << std::endl;
             node->set_visited(true);
 
-            ObjectList<Edge*> entry_edges = node->get_entry_edges();
-            ObjectList<Node*> parents = node->get_parents();
+            Node_type ntype = node->get_data<Node_type>(_NODE_TYPE);
             
-            reaching_def_map reach_defs;
-            if (entry_edges.size() > 0)
+            if (ntype != GRAPH_NODE)
             {
-                for(ObjectList<Node*>::iterator it = parents.begin(); it != parents.end(); ++it)
+                ObjectList<Edge*> entry_edges;
+                ObjectList<Node*> parents;
+                if (ntype == BASIC_ENTRY_NODE)
                 {
-                    if ((*it)->has_key(_REACH_DEFS))
+                    entry_edges = node->get_outer_node()->get_entry_edges();
+                    parents = node->get_outer_node()->get_parents();
+                }
+                else
+                {
+                    entry_edges = node->get_entry_edges();
+                    parents = node->get_parents();
+                }
+                
+                nodecl_map reach_defs;
+                if (entry_edges.size() > 0)
+                {
+                    for(ObjectList<Node*>::iterator it = parents.begin(); it != parents.end(); ++it)
                     {
-                        reaching_def_map parent_reach_defs = (*it)->get_data<reaching_def_map>(_REACH_DEFS);
-                        for(reaching_def_map::iterator itm = parent_reach_defs.begin(); itm != parent_reach_defs.end(); ++itm)
+                        if ((*it)->has_key(_REACH_DEFS))
                         {
-                            if (reach_defs.find(itm->first) != reach_defs.end())
-                            {   // When the symbol already existed in other parent, invalidate the value
-                                reach_defs[itm->first] = Nodecl::NodeclBase::null();
-                            }
-                            else
-                            {   // otherwise, insert the new symbol definition
-                                reach_defs[itm->first] = itm->second;
+                            nodecl_map parent_reach_defs = (*it)->get_data<nodecl_map>(_REACH_DEFS);
+                            for(nodecl_map::iterator itm = parent_reach_defs.begin(); itm != parent_reach_defs.end(); ++itm)
+                            {
+                                Nodecl::NodeclBase a = itm->first, b = itm->second;
+                                if (reach_defs.find(itm->first) != reach_defs.end())
+                                {   // When the symbol already existed in other parent, invalidate the value
+                                    reach_defs[itm->first] = Nodecl::NodeclBase::null();                                
+                                }
+                                else
+                                {   // otherwise, insert the new symbol definition
+                                    reach_defs[itm->first] = itm->second;                        
+   
+                                }
                             }
                         }
                     }
                 }
+                
+                if (node->has_key(_REACH_DEFS))
+                {
+                    nodecl_map actual_reach_defs = node->get_data<nodecl_map>(_REACH_DEFS);
+                    for(nodecl_map::iterator it = actual_reach_defs.begin(); it != actual_reach_defs.end(); ++it)
+                    {
+                        reach_defs[it->first] = it->second;
+                    }
+                }
+                
+                // Set the new value if necessary: more than one parent or some new definition
+                if (entry_edges.size() > 1 || !reach_defs.empty())
+                {
+                    node->set_data(_REACH_DEFS, reach_defs);
+                }
+                else if (entry_edges.size() == 1)
+                {
+                    if(parents[0]->has_key(_REACH_DEFS) && reach_defs.empty())
+                    {
+                        node->set_data(_REACH_DEFS, parents[0]->get_data<nodecl_map>(_REACH_DEFS));
+                    }
+                }                
             }
-            
-            // Mix the parents info with the definitions in the actual node
-            if (node->get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
+            else
             {
                 Node* entry = node->get_data<Node*>(_ENTRY_NODE);
                 extend_reaching_defintions_info(entry);
+                ExtensibleGraph::clear_visits(entry);
                 
                 node->set_graph_node_reaching_defintions();
-                ExtensibleGraph::clear_visits(entry);
-            }
-            if (node->has_key(_REACH_DEFS))
-            {
-                reaching_def_map actual_reach_defs = node->get_data<reaching_def_map>(_REACH_DEFS);
-                for(reaching_def_map::iterator it = actual_reach_defs.begin(); it != actual_reach_defs.end(); ++it)
-                {
-                    reach_defs[it->first] = it->second;
-                }
-            }
-
-            // Set the new value if necessary: more than one parent or some new definition
-            if ((entry_edges.size() > 1 || node->has_key(_REACH_DEFS)) && (!reach_defs.empty()))
-            {
-                node->set_data(_REACH_DEFS, reach_defs);
-            }
-            else if (entry_edges.size() == 1)
-            {   
-                if(parents[0]->has_key(_REACH_DEFS) && reach_defs.empty())
-                {
-                    node->set_data(_REACH_DEFS, parents[0]->get_data<reaching_def_map>(_REACH_DEFS));
-                }
             }
             
             // Recursive call for children
@@ -506,7 +523,7 @@ namespace TL
      */
     static Nodecl::NodeclBase match_nodecl_with_symbol(Nodecl::NodeclBase n, Symbol s, Nodecl::NodeclBase s_map)
     {
-        if (nodecl_is_constant_value(s_map))
+        if (!nodecl_is_constant_value(s_map))
         {   // When the argument is a literal, no symbol is involved
             if (n.is<Nodecl::Symbol>() || n.is<Nodecl::PointerToMember>())
             {
@@ -541,6 +558,7 @@ namespace TL
                 Nodecl::NodeclBase subscripted = match_nodecl_with_symbol(aux.get_subscripted(), s, s_map);
                 if (!subscripted.is_null())
                 {
+                    std::cerr << "Returning an array section of symbol " << subscripted.prettyprint() << std::endl;
                     return Nodecl::ArraySection::make(subscripted, aux.get_lower(), aux.get_upper(),
                                                     s_map.get_type(), s_map.get_filename().c_str(), s_map.get_line());
                 }
@@ -584,6 +602,7 @@ namespace TL
             actual_nodecl = match_nodecl_with_symbol(n, *it_s, *it_s_map);
             if (!actual_nodecl.is_null())
             {
+                std::cerr << "Matching symbol is" << it_s->get_name() << std::endl;
                 matching_symbol = *it_s;
                 break;
             }
@@ -638,9 +657,15 @@ namespace TL
                 params_to_args[*it] = args[i];
             }
 
-            // filter map maintaining those arguments that are constants for "constant propagation" in USE-DEF info
-            
-            
+            // Filter map maintaining those arguments that are constants for "constant propagation" in USE-DEF info
+            std::map<Symbol, Nodecl::NodeclBase> const_args;
+            for(std::map<Symbol, Nodecl::NodeclBase>::iterator it = params_to_args.begin(); it != params_to_args.end(); ++it)
+            {
+                if (it->second.is_constant())
+                {
+                    const_args[it->first] = it->second;
+                }
+            }
 
             // compute use-def chains for the function call
             ext_sym_set called_func_ue_vars = called_func_graph->get_graph()->get_ue_vars();
@@ -653,7 +678,7 @@ namespace TL
                 if ( !new_ue.is_null() )
                 {   // UE variable is a parameter or a part of a parameter
                     ExtensibleSymbol ei(new_ue);
-                    ei.propagate_constant_values(params_to_args);
+                    ei.propagate_constant_values(const_args);
                     node_ue_vars.insert(ei);
                 }
                 else if ( !it->get_symbol().get_scope().scope_is_enclosed_by(function_sym.get_scope()) 
@@ -666,15 +691,10 @@ namespace TL
             {
                 node->set_data<ext_sym_set>(_UPPER_EXPOSED, node_ue_vars);
             }
-            else
-            {
-                std::cerr << "UE vars empty for node " << node->get_id() << std::endl;
-            }
            
             ext_sym_set called_func_killed_vars = called_func_graph->get_graph()->get_killed_vars(), node_killed_vars;
             for(ext_sym_set::iterator it = called_func_killed_vars.begin(); it != called_func_killed_vars.end(); ++it)
             {
-                // FIXME Temporaries cannot be modified!
                 Symbol s(NULL);
                 Nodecl::NodeclBase new_killed = match_nodecl_in_symbol_l(it->get_nodecl(), params, args, s);
                 if ( !new_killed.is_null() )
@@ -683,9 +703,11 @@ namespace TL
                     if (!params_to_args[s].is<Nodecl::Derreference>()   // Argument is not an address
                         && ( s.get_type().is_reference()                // Parameter is passed by reference
                             || s.get_type().is_pointer() )              // Parameter is a pointer
-                        /*&& (s.get_scope() != Scope(param_context))*/)     // The argument is not a temporal value
+                        /*&& (s.get_scope() != Scope(param_context))*/)     // FIXME The argument is not a temporal value
                     {
-                        node_killed_vars.insert(new_killed);
+                        ExtensibleSymbol ei(new_killed);
+                        ei.propagate_constant_values(const_args);
+                        node_killed_vars.insert(ei);
                     }
                 }
                 else if ( !it->get_symbol().get_scope().scope_is_enclosed_by(function_sym.get_scope()) 
@@ -697,10 +719,6 @@ namespace TL
             if (!node_killed_vars.empty())
             {
                 node->set_data<ext_sym_set>(_KILLED, node_killed_vars);
-            }
-            else
-            {
-                std::cerr << "KILLED vars empty for node " << node->get_id() << std::endl;
             }
 
         }
@@ -759,9 +777,9 @@ namespace TL
 
         gather_live_initial_information(node);
         ExtensibleGraph::clear_visits(node);
-
-        ExtensibleGraph::extend_reaching_defintions_info(node);
-        ExtensibleGraph::clear_visits(node);
+        
+        /*ExtensibleGraph::extend_reaching_defintions_info(node);
+        ExtensibleGraph::clear_visits(node);*/
         
         LoopAnalysis loop_anal;
         loop_anal.analyse_loops(node);

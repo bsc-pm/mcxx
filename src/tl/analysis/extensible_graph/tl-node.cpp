@@ -1066,31 +1066,46 @@ namespace TL
     }
     
     // The method suppose all it dependent nodes have its reaching definitions calculated
-    static reaching_def_map get_inner_reaching_defintions(Node* node)
-    {
-        reaching_def_map reach_defs;
-        
+    static void get_reaching_defintions_rec(Node* node, nodecl_map& reach_defs)
+    {   // We only keep those definitions that are not modified in the whole graph; the rest have an unknown value
         if (!node->is_visited())
         {
             node->set_visited(true);
-       
-            ObjectList<Node*> children = node->get_children();
-            for (ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
+            
+            // Insert actual reaching definitions
+            if (node->has_key(_REACH_DEFS))
             {
-                reaching_def_map child_reach_defs = get_inner_reaching_defintions(*it);
-                for (reaching_def_map::iterator itc = child_reach_defs.begin(); itc != child_reach_defs.end(); ++itc)
+                nodecl_map actual_reach_defs = node->get_reaching_definitions();
+                for (nodecl_map::iterator itc = actual_reach_defs.begin(); itc != actual_reach_defs.end(); ++itc)
                 {
-                    if ( ( (reach_defs.find(itc->first) != reach_defs.end()) 
-                            && !reach_defs.find(itc->first)->second.is_null() ) 
-                        || (reach_defs.find(itc->first) == reach_defs.end()) )
+                    Nodecl::NodeclBase a = itc->first;
+                    if ( reach_defs.find(itc->first) != reach_defs.end() )
                     {
-                        reach_defs.insert(*itc);
+                        if ( !Nodecl::Utils::equal_nodecls(reach_defs[itc->first], itc->second) )
+                        {
+                            std::cerr << "nodecl " << a.prettyprint() << " already exists as REACH DEF for node " 
+                                    << node->get_id() << std::endl;
+                            reach_defs[itc->first] = Nodecl::NodeclBase::null();
+                        }
+                    }
+                    else
+                    {
+                        std::cerr << "nodecl " << a.prettyprint() << " does NOT exist as REACH DEF for node " 
+                            << node->get_id() << std::endl;
+                        reach_defs[itc->first] = itc->second;
+                        reach_defs.insert(nodecl_map::value_type(itc->first, itc->second));
                     }
                 }
             }
+            
+            // Recursive call with the actual children
+            ObjectList<Node*> children = node->get_children();
+            nodecl_map child_reach_defs;
+            for (ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
+            {
+                get_reaching_defintions_rec(*it, reach_defs);
+            }
         }
-        
-        return reach_defs;
     }
     
     void Node::set_graph_node_reaching_defintions()
@@ -1098,7 +1113,46 @@ namespace TL
         if (get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
         {
             Node* entry = get_data<Node*>(_ENTRY_NODE);
-            reaching_def_map inner_reach_defs = get_inner_reaching_defintions(entry);
+            
+            // Get the reaching defintitions info from the inner nodes
+            nodecl_map inner_reach_defs;
+            get_reaching_defintions_rec(entry, inner_reach_defs);
+            
+            // This this info with the one coming form the parent nodes
+            nodecl_map parents_reach_defs, actual_parent_reach_defs;
+            ObjectList<Node*> parents = get_parents();
+            for(ObjectList<Node*>::iterator it = parents.begin(); it != parents.end(); ++it)
+            {
+                // When more than one parent defines the same value, it have now UNKNOWN VALUE
+                // When all parents define the same value and it is not defined in the actual node, the value is propagated
+                actual_parent_reach_defs = (*it)->get_reaching_definitions();
+                
+                for (nodecl_map::iterator it = actual_parent_reach_defs.begin();
+                    it != actual_parent_reach_defs.end(); ++it)
+                {
+                    if (parents_reach_defs.find(it->first) != parents_reach_defs.end())
+                    {
+                        if (Nodecl::Utils::equal_nodecls(parents_reach_defs[it->first], it->second))
+                        {
+                            parents_reach_defs[it->first] = Nodecl::NodeclBase::null();
+                        }
+                    }
+                    else
+                    {
+                        parents_reach_defs[it->first] = it->second;
+                    }
+                }
+            }
+            
+            // Mix both infos
+            for (nodecl_map::iterator it = parents_reach_defs.begin(); it != parents_reach_defs.end(); ++it)
+            {
+                if (inner_reach_defs.find(it->first) == inner_reach_defs.end())
+                {
+                    inner_reach_defs[it->first] = it->second;
+                }
+            }
+            
             set_data(_REACH_DEFS, inner_reach_defs);
         }
         else
@@ -1306,13 +1360,13 @@ namespace TL
         return inout_deps;
     }
     
-    reaching_def_map Node::get_reaching_definitions()
+    nodecl_map Node::get_reaching_definitions()
     {
-        reaching_def_map reaching_defs;
+        nodecl_map reaching_defs;
         
         if (has_key(_REACH_DEFS))
         {
-            reaching_defs = get_data<reaching_def_map>(_REACH_DEFS);
+            reaching_defs = get_data<nodecl_map>(_REACH_DEFS);
         }
         
         return reaching_defs;
@@ -1321,12 +1375,23 @@ namespace TL
 
     void Node::set_reaching_definition(Nodecl::NodeclBase var, Nodecl::NodeclBase init)
     {
-        reaching_def_map reaching_defs;
+        nodecl_map reaching_defs;
         if (has_key(_REACH_DEFS))
         {
-            reaching_defs = get_data<reaching_def_map>(_REACH_DEFS);
+            reaching_defs = get_data<nodecl_map>(_REACH_DEFS);
         }
         reaching_defs[var] = init;
         set_data(_REACH_DEFS, reaching_defs);
-    }    
+    }
+    
+    void Node::unset_reaching_definition(Nodecl::NodeclBase var)
+    {
+        nodecl_map reaching_defs;
+        if (has_key(_REACH_DEFS))
+        {
+            reaching_defs = get_data<nodecl_map>(_REACH_DEFS);
+            reaching_defs.erase(var);
+        }
+        set_data(_REACH_DEFS, reaching_defs);
+    }
 }

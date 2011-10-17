@@ -127,7 +127,7 @@ namespace TL
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::ObjectInit& n)
     {
         Symbol s = n.get_symbol();
-        
+       
         Nodecl::Symbol sym_node = Nodecl::Symbol::make(s, n.get_filename(), n.get_line());
         _node->fill_use_def_sets(sym_node, true);
        
@@ -349,9 +349,7 @@ namespace TL
         Nodecl::NodeclBase rhs = n.get_rhs();
         walk(rhs);
         _define = true;
-        nodecl_t one = const_value_to_nodecl(const_value_get_one(/* bytes */ 4, /* signed*/ 1));
-        _init_expression = Nodecl::Minus::make(rhs, Nodecl::IntegerLiteral(one), rhs.get_type(),
-                                               n.get_filename(), n.get_line());
+        _init_expression = rhs;
         walk(rhs);
         _define = false;
     }
@@ -361,9 +359,7 @@ namespace TL
         Nodecl::NodeclBase rhs = n.get_rhs();
         walk(rhs);
         _define = true;
-        nodecl_t one = const_value_to_nodecl(const_value_get_one(/* bytes */ 4, /* signed*/ 1));
-        _init_expression = Nodecl::Minus::make(rhs, Nodecl::IntegerLiteral(one), rhs.get_type(), 
-                                               n.get_filename(), n.get_line());
+        _init_expression = rhs;
         walk(rhs);
         _define = false;
     }
@@ -373,9 +369,7 @@ namespace TL
         Nodecl::NodeclBase rhs = n.get_rhs();
         walk(rhs);
         _define = true;
-        nodecl_t one = const_value_to_nodecl(const_value_get_one(/* bytes */ 4, /* signed*/ 1));
-        _init_expression = Nodecl::Add::make(rhs, Nodecl::IntegerLiteral(one), rhs.get_type(), 
-                                               n.get_filename(), n.get_line());
+        _init_expression = rhs;
         walk(rhs);
         _define = false;
     }
@@ -385,9 +379,7 @@ namespace TL
         Nodecl::NodeclBase rhs = n.get_rhs();
         walk(rhs);
         _define = true;
-        nodecl_t one = const_value_to_nodecl(const_value_get_one(/* bytes */ 4, /* signed*/ 1));
-        _init_expression = Nodecl::Add::make(rhs, Nodecl::IntegerLiteral(one), rhs.get_type(), 
-                                               n.get_filename(), n.get_line());
+        _init_expression = rhs;
         walk(rhs);
         _define = false;
     }

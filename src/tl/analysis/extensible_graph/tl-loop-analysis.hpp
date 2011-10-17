@@ -39,61 +39,45 @@ namespace TL
         Nodecl::NodeclBase _ub;     // value included in the range
         Nodecl::NodeclBase _step;
         bool _step_is_one;
+        int _step_is_positive;
         
-        InductionVarInfo(Symbol s, Nodecl::NodeclBase lb)
-            : _s(s), _lb(lb), _ub(Nodecl::NodeclBase::null()), _step(Nodecl::NodeclBase::null()), _step_is_one(false)
-        {}
+        InductionVarInfo(Symbol s, Nodecl::NodeclBase lb);
         
-        Symbol get_symbol()
-        {
-            return _s;
-        }
-
-        Nodecl::NodeclBase get_lb() const
-        {
-            return _lb;
-        }
-
-        void set_lb(Nodecl::NodeclBase lb)
-        {
-            _lb = lb;
-        }
-
-        Nodecl::NodeclBase get_ub() const
-        {
-            return _ub;
-        }
-
-        void set_ub(Nodecl::NodeclBase ub)
-        {
-            _ub = ub;
-        }
-
-        Nodecl::NodeclBase get_step() const
-        {
-            return _step;
-        }
-
-        void set_step(Nodecl::NodeclBase step)
-        {
-            _step = step;
-        }
+        // *** Getters and setters *** //
+        Symbol get_symbol() const;
+        Type get_type() const;
+        Nodecl::NodeclBase get_lb() const;
+        void set_lb(Nodecl::NodeclBase lb);
+        Nodecl::NodeclBase get_ub() const;
+        void set_ub(Nodecl::NodeclBase ub);
+        Nodecl::NodeclBase get_step() const;
+        void set_step(Nodecl::NodeclBase step);
+        bool step_is_one() const;
+        void set_step_is_one(bool step_is_one);
+        /*!\return 0 if negative, 1 if positive, 2 if we cannot compute it
+         */        
+        int step_is_positive() const;
+        void set_step_is_positive(int step_is_positive);
         
-        bool step_is_one() const
-        {
-            return _step_is_one;
-        }
+        bool operator==(const InductionVarInfo &v) const;
+        bool operator<(const InductionVarInfo &v) const;
         
-        void set_step_is_one(bool step_is_one)
-        {
-            _step_is_one = step_is_one;
-        }
+        // *** Comparators *** //
+        struct InductionVarInfo_comp {
+            bool operator() (const InductionVarInfo& v1, const InductionVarInfo& v2) const;
+        };
     };
         
+    typedef std::multimap<Nodecl::LoopControl, InductionVarInfo*, Nodecl::Utils::Nodecl_comp> induc_vars_map;
+    
     class LIBTL_CLASS LoopAnalysis {    
         
     private:
-        ObjectList<InductionVarInfo*> _induction_vars;
+        induc_vars_map _induction_vars;
+        
+        //! Temporary value used during the loop analysis
+        //! It stores the nested loop control we are in
+        std::stack<Nodecl::LoopControl> _loop_control_s;
         
         // *** Private methods *** //
         void compute_induction_vars_from_loop_control(Nodecl::LoopControl loop_control, Node* loop_node);
@@ -101,16 +85,29 @@ namespace TL
         void traverse_loop_cond(Nodecl::NodeclBase cond);
         void traverse_loop_step(Nodecl::NodeclBase step);
         
-        void compute_arrays_info_in_loop(Node* node);
+        void compute_ranges_for_variables_in_loop(Node* node);
+        
+        void set_access_range(Node* node, const char use_type, Nodecl::NodeclBase nodecl, 
+                              std::map<Symbol, Nodecl::NodeclBase> ind_var_map);
         
         /*!
-         * 
+         * Looks for any induction variable contained in a list of nodecls and
+         * substitutes its scalar access by the corresponding ranged access computed from the loop boundaries
+         * \param node Node of the graph we are analysing right now
+         * \param nodecl_l list containing the potential nodecls where we want to substitute an scalar by a range
+         * \param use_type kind of the list we are analysing; it can be a UpperExposed list, a Killed list or a 
+         *                 ReachingDefintions list
          */
-        Nodecl::ArraySection set_array_access_range(Node* node, Nodecl::ArraySubscript subscript, 
-                                                    ExtensibleSymbol ei, char use_type);
-        void set_array_access_range_in_list(Node* node, ext_sym_set ext_syms_l, char use_type);
+        void set_access_range_in_ext_sym_set(Node* node, ext_sym_set nodecl_l, const char use_type);
         
         /*!
+         * Wrapping method for #set_access_range_in_ext_sym_list in the case we traverse a nodecl map container
+         */
+        void set_access_range_in_nodecl_map(Node* node, nodecl_map nodecl_m);
+        
+        /*!
+         * Returns whether a node contains some of the induction variables of the graph containing this node
+         * It is necessary to have already computed the induction variables of the graph
          * \param node Node in the graph we are analysing
          * \return Whether the node defines any of the induction variables or if those variables have an undefined behaviour
          *         - 0 the symbol is not defined
@@ -128,15 +125,30 @@ namespace TL
        
         
         // *** Modifiers *** //
+        /*!
+         * Calculates the induction variables from a loop control
+         * \param loop_node node of the graph containing a ForStatement graph node
+         */
         void compute_induction_variables_info(Node* loop_node);
         
-        void compute_arrays_info(Node* node);
+        /*!
+         * Looks for loops in the graph hanging up from a node and 
+         * computes the ranges for induction variables of each loop
+         * \param node Node form the graph used to start the up-bottom analysis
+         */
+        void compute_ranges_for_variables(Node* node);
         
+        /*!
+         * The method recomputes use-def and reaching definitions in a graph taking into account loop information
+         * \param node Node containing the graph to be analysed
+         */
         void analyse_loops(Node* node);
         
         
         // *** Getters and setters *** //
-        InductionVarInfo* induction_vars_l_contains_symbol(Symbol s);
+        InductionVarInfo* induction_vars_l_contains_symbol(Symbol s) const;
+        
+        std::map<Symbol, Nodecl::NodeclBase> get_induction_vars_mapping() const;
     };
 }
 

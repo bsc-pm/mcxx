@@ -61,7 +61,7 @@ namespace TL
             
             // *** Modifiers *** //
             
-            Nodecl::NodeclBase propagate_constant_values(std::map<Symbol, Nodecl::NodeclBase> values_map);
+            void propagate_constant_values(std::map<Symbol, Nodecl::NodeclBase> values_map);
             
             
             // *** Getters and Setters *** //

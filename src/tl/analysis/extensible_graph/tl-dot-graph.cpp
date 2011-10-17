@@ -31,7 +31,7 @@ Cambridge, MA 02139, USA.
 
 namespace TL
 {
-    static std::string prettyprint_reaching_definitions(reaching_def_map syms_def);
+    static std::string prettyprint_reaching_definitions(nodecl_map syms_def);
     static std::string prettyprint_ext_sym_set(ext_sym_set s);
     static std::string prettyprint_sym_list(ObjectList<Symbol> s);
     
@@ -158,11 +158,18 @@ namespace TL
                     subgraph_label += c_cxx_codegen_to_str(actual_label.get_internal_nodecl());
 //                         actual_label.get_text();
                 }
-                std::string subgr_liveness = "LI: "   + prettyprint_ext_sym_set(actual_node->get_live_in_vars()) + "\\n" +
-                                             "KILL: " + prettyprint_ext_sym_set(actual_node->get_killed_vars()) + "\\n" +
-                                             "UE: "   + prettyprint_ext_sym_set(actual_node->get_ue_vars()) + "\\n" +
-                                             "LO: "   + prettyprint_ext_sym_set(actual_node->get_live_out_vars());
-   
+                
+                std::string live_in = prettyprint_ext_sym_set(actual_node->get_live_in_vars()); makeup_dot_block(live_in);
+                std::string live_out = prettyprint_ext_sym_set(actual_node->get_live_out_vars()); makeup_dot_block(live_out);
+                std::string ue = prettyprint_ext_sym_set(actual_node->get_ue_vars()); makeup_dot_block(ue);
+                std::string killed = prettyprint_ext_sym_set(actual_node->get_killed_vars()); makeup_dot_block(killed);
+                std::string reach_defs = prettyprint_reaching_definitions(actual_node->get_reaching_definitions()); makeup_dot_block(reach_defs);
+                std::string subgr_liveness = "LI: "   + live_in + "\\n" +
+                                             "KILL: " + killed + "\\n" +
+                                             "UE: "   + ue + "\\n" +
+                                             "LO: "   + live_out + "\\n" +
+                                             "REACH DEFS: " + reach_defs;
+                                             
                 std::string task_deps = "";
                 if (actual_node->get_graph_type() == TASK)
                 {
@@ -310,7 +317,9 @@ namespace TL
         switch(actual_node->get_type())
         {
             case BASIC_ENTRY_NODE: 
-                dot_graph += indent + ss.str() + "[label=\"{" + ss.str() + " # ENTRY}\", shape=box, fillcolor=lightgray, style=filled];\n";
+                dot_graph += indent + ss.str() + "[label=\"{" + ss.str() + " # ENTRY \\n" 
+                          + "REACH DEFS: " + prettyprint_reaching_definitions(actual_node->get_reaching_definitions())
+                          + "}\", shape=box, fillcolor=lightgray, style=filled];\n";
                 break;
             case BASIC_EXIT_NODE:
                 dot_graph += indent + ss.str() + "[label=\"{" + ss.str() + " # EXIT}\", shape=box, fillcolor=lightgray, style=filled];\n";
@@ -351,14 +360,20 @@ namespace TL
                     basic_block += aux_str + "\\n";
                 }
                 basic_block = basic_block.substr(0, basic_block.size()-2);   // Remove the last back space
-            
-                dot_graph += indent + ss.str() + "[label=\"{" + ss.str() + " # " + basic_block +
-                                " | LI: "           + prettyprint_ext_sym_set(actual_node->get_live_in_vars()) + 
-                                " | KILL: "         + prettyprint_ext_sym_set(actual_node->get_killed_vars()) +
-                                " | UE: "           + prettyprint_ext_sym_set(actual_node->get_ue_vars()) +
-                                " | LO: "           + prettyprint_ext_sym_set(actual_node->get_live_out_vars()) +
-                                " | REACH DEFS: "   + prettyprint_reaching_definitions(actual_node->get_reaching_definitions()) + 
-                                "}\", shape=record];\n";
+
+                std::string live_in = prettyprint_ext_sym_set(actual_node->get_live_in_vars()); makeup_dot_block(live_in);
+                std::string live_out = prettyprint_ext_sym_set(actual_node->get_live_out_vars()); makeup_dot_block(live_out);
+                std::string ue = prettyprint_ext_sym_set(actual_node->get_ue_vars()); makeup_dot_block(ue);
+                std::string killed = prettyprint_ext_sym_set(actual_node->get_killed_vars()); makeup_dot_block(killed);
+                std::string reach_defs = prettyprint_reaching_definitions(actual_node->get_reaching_definitions()); makeup_dot_block(reach_defs);
+                std::string live_info = " | LI: "           + live_in + 
+                                        " | KILL: "         + killed +
+                                        " | UE: "           + ue +
+                                        " | LO: "           + live_out +
+                                        " | REACH DEFS: "   + reach_defs;
+                    
+                    
+                dot_graph += indent + ss.str() + "[label=\"{" + ss.str() + " # " + basic_block + live_info + "}\", shape=record];\n";
     
                 break;
             }
@@ -368,11 +383,11 @@ namespace TL
         };
     }
     
-    static std::string prettyprint_reaching_definitions(reaching_def_map reach_defs)
+    static std::string prettyprint_reaching_definitions(nodecl_map reach_defs)
     {
         std::string result;
         
-        for(reaching_def_map::iterator it = reach_defs.begin(); it != reach_defs.end(); ++it)
+        for(nodecl_map::iterator it = reach_defs.begin(); it != reach_defs.end(); ++it)
         {
             if (it->second.is_null())
             {

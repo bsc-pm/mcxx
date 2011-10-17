@@ -41,17 +41,24 @@ namespace TL
     
     ExtensibleSymbol::ExtensibleSymbol(Nodecl::NodeclBase n)
         : _n(n)
-    {
-        if (n.is<Nodecl::Conversion>())
-        {
-            std::cerr << "inserting conversion as an extensible symbol" << std::endl;
-        }
-    }
+    {}
     
-    Nodecl::NodeclBase ExtensibleSymbol::propagate_constant_values(std::map<Symbol, Nodecl::NodeclBase> values_map)
+    void ExtensibleSymbol::propagate_constant_values(std::map<Symbol, Nodecl::NodeclBase> values_map)
     {
         CfgRenamingVisitor renaming_v(values_map, _n.get_filename().c_str(), _n.get_line());
-        renaming_v.walk(_n);     
+        ObjectList<Nodecl::NodeclBase> renamed = renaming_v.walk(_n);
+        if (!renamed.empty())
+        {
+            if (renamed.size() == 1)
+            {
+                std::cerr << "Converting nodecl " << _n.prettyprint() << " to " << renamed[0].prettyprint() << std::endl;
+                _n = renamed[0];
+            }
+            else
+            {
+                internal_error("More than one nodecl returned while renaming constant values", 0);
+            }
+        }
     }
     
     Symbol ExtensibleSymbol::get_nodecl_symbol(Nodecl::NodeclBase n) const
