@@ -495,10 +495,12 @@ namespace TL
         ::check_expression(a, decl_context, nodecl_output);
     }
 
+#ifdef FORTRAN_SUPPORT
     static void fortran_check_expression_adaptor_(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
     {
         ::fortran_check_expression(a, decl_context, nodecl_output);
     }
+#endif
 
     Nodecl::NodeclBase Source::parse_expression(ReferenceScope ref_scope, ParseFlags parse_flags)
     {

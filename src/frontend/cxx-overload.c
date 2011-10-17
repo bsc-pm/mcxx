@@ -661,14 +661,16 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
                 // Get the primary specialization
                 type_t* specialization_function = get_user_defined_type(conv_funct);
                 // Get its template parameters
+                template_parameter_list_t* type_template_parameters = 
+                    template_type_get_template_parameters(template_specialized_type_get_related_template_type(conv_funct->type_information));
                 template_parameter_list_t* template_parameters 
                     = template_specialized_type_get_template_arguments(conv_funct->type_information);
 
-                deduction_set_t* deduction_result = NULL;
+                template_parameter_list_t* deduced_template_arguments = NULL;
                 // Now deduce the arguments
                 if (!deduce_arguments_of_conversion(dest, specialization_function,
-                            template_parameters,
-                            decl_context, &deduction_result, filename, line))
+                            template_parameters, type_template_parameters,
+                            decl_context, &deduced_template_arguments, filename, line))
                 {
                     DEBUG_CODE()
                     {
@@ -684,13 +686,10 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
 
                 // If the deduction succeeded just get a specialization and use it for the whole
                 // conversion
-                template_parameter_list_t* deduced_template_parameters = 
-                    build_template_parameter_list_from_deduction_set(template_parameters, deduction_result);
-
                 type_t* template_type = template_specialized_type_get_related_template_type(conv_funct->type_information);
 
                 type_t* named_specialization_type = template_type_get_specialized_type(template_type,
-                        deduced_template_parameters,
+                        deduced_template_arguments,
                         decl_context, filename, line);
 
                 if (named_specialization_type == NULL)
@@ -833,18 +832,20 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
                 // Get the primary specialization
                 type_t* specialization_function = get_user_defined_type(constructor);
                 // Get its template parameters
+                template_parameter_list_t* type_template_parameters = 
+                    template_type_get_template_parameters(template_specialized_type_get_related_template_type(constructor->type_information));
                 template_parameter_list_t* template_parameters 
                     = template_specialized_type_get_template_arguments(constructor->type_information);
 
-                deduction_set_t* deduction_result = NULL;
                 // Now deduce the arguments
+                template_parameter_list_t* deduced_template_arguments = NULL;
                 type_t* argument_types[1] = { orig };
                 if (!deduce_arguments_from_call_to_specific_template_function(argument_types, 
                             /* num_arguments = */ 1, 
                             specialization_function,
-                            template_parameters,
+                            template_parameters, type_template_parameters,
                             decl_context, 
-                            &deduction_result, filename, line,
+                            &deduced_template_arguments, filename, line,
                             /* explicit template arguments */ NULL))
                 {
                     DEBUG_CODE()
@@ -861,13 +862,10 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
 
                 // If the deduction succeeded just get a specialization and use it for the whole
                 // conversion
-                template_parameter_list_t* deduced_template_parameters = 
-                    build_template_parameter_list_from_deduction_set(template_parameters, deduction_result);
-
                 type_t* template_type = template_specialized_type_get_related_template_type(constructor->type_information);
  
                 type_t* named_specialization_type = template_type_get_specialized_type(template_type,
-                        deduced_template_parameters,
+                        deduced_template_arguments,
                         decl_context, filename, line); 
 
                 if (named_specialization_type == NULL)
@@ -1775,14 +1773,14 @@ char is_better_function_flags(overload_entry_list_t* ovl_f,
                         g->line);
             }
             // if ¬(f <= g) then f > g
-            deduction_set_t* deduction_set = NULL;
+            template_parameter_list_t* deduced_template_arguments = NULL;
             if (!is_less_or_equal_specialized_template_function(
                         // Why is it so convoluted to get the type of the primary specialization ?
                         named_type_get_symbol(template_type_get_primary_type(
                                 template_specialized_type_get_related_template_type(f->type_information)))->type_information,
                         named_type_get_symbol(template_type_get_primary_type(
                                 template_specialized_type_get_related_template_type(g->type_information)))->type_information, 
-                        decl_context, &deduction_set, 
+                        decl_context, &deduced_template_arguments, 
                         /* explicit_template_parameters */ NULL,
                         filename, line, /* is_conversion */ 0))
             {
@@ -2310,8 +2308,9 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
 
             if (can_match)
             {
-                template_parameter_list_t* template_parameters 
+                template_parameter_list_t* type_template_parameters 
                     = template_type_get_template_parameters(current_fun->type_information);
+
 
                 type_t* argument_types[1] = { functional_type };
                 int num_argument_types = 1;
@@ -2319,14 +2318,16 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
                 type_t* primary_type = primary_symbol->type_information;
                 type_t* parameter_types[1] = { primary_type };
 
-                deduction_set_t* deduced_arguments = NULL;
+                template_parameter_list_t* template_parameters 
+                    = template_specialized_type_get_template_parameters(primary_symbol->type_information);
 
+                template_parameter_list_t* deduced_template_arguments = NULL;
                 if (deduce_template_parameters_common(
-                            template_parameters,
+                            template_parameters, type_template_parameters,
                             argument_types, num_argument_types,
                             parameter_types, 
                             decl_context,
-                            &deduced_arguments, filename, line,
+                            &deduced_template_arguments, filename, line,
                             explicit_template_parameters,
                             deduction_flags_empty()))
                 {
@@ -2338,11 +2339,8 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
                                 current_fun->symbol_name);
                     }
 
-                    template_parameter_list_t* argument_list = build_template_parameter_list_from_deduction_set(
-                            template_parameters,
-                            deduced_arguments);
                     type_t* named_specialization_type = template_type_get_specialized_type(current_fun->type_information,
-                            argument_list, decl_context, filename, line);
+                            deduced_template_arguments, decl_context, filename, line);
 
                     if (named_specialization_type != NULL)
                     {
@@ -2418,12 +2416,12 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
         while (!entry_list_iterator_end(it2))
         {
             scope_entry_t* current = entry_list_iterator_current(it2);
-            deduction_set_t* deduction_set = NULL;
+            template_parameter_list_t* deduced_template_arguments = NULL;
             if (!is_less_or_equal_specialized_template_function(
                         current->type_information,
                         most_specialized->type_information,
                         decl_context,
-                        &deduction_set, 
+                        &deduced_template_arguments, 
                         /* explicit_template_parameters */ NULL,
                         filename, line, /* is_conversion */ 0))
             {
@@ -2441,12 +2439,12 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
             scope_entry_t* current = entry_list_iterator_current(it2);
             if (current != most_specialized)
             {
-                deduction_set_t* deduction_set = NULL;
+                template_parameter_list_t* deduced_template_arguments = NULL;
                 if (is_less_or_equal_specialized_template_function(
                             most_specialized->type_information,
                             current->type_information,
                             decl_context,
-                            &deduction_set, 
+                            &deduced_template_arguments, 
                             /* explicit_template_parameters */ NULL,
                             filename, line, /* is_conversion */ 0))
                 {

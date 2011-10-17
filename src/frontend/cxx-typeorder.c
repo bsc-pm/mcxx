@@ -156,11 +156,12 @@ char is_sound_type(type_t* t, decl_context_t decl_context)
 
 static char is_less_or_equal_specialized_template_conversion_function(
         type_t* f1, type_t* f2, 
-        decl_context_t decl_context, deduction_set_t** deduction_set,
+        decl_context_t decl_context, template_parameter_list_t** deduced_template_arguments,
         const char *filename, int line);
 
 static char is_less_or_equal_specialized_template_function_common_(type_t* f1, type_t* f2,
-        decl_context_t decl_context, deduction_set_t** deduction_set,
+        decl_context_t decl_context, 
+        template_parameter_list_t** deduced_template_arguments,
         template_parameter_list_t* explicit_template_parameters,
         const char *filename, int line, char is_conversion,
         char is_template_class)
@@ -168,7 +169,7 @@ static char is_less_or_equal_specialized_template_function_common_(type_t* f1, t
     if (is_conversion)
     {
         return is_less_or_equal_specialized_template_conversion_function(f1, f2,
-                decl_context, deduction_set, filename, line);
+                decl_context, deduced_template_arguments, filename, line);
     }
 
     DEBUG_CODE()
@@ -176,11 +177,6 @@ static char is_less_or_equal_specialized_template_function_common_(type_t* f1, t
         fprintf(stderr, "TYPEORDER: Computing whether one function is less or equal specialized than the other\n");
     }
     ERROR_CONDITION(!is_function_type(f1) || !is_function_type(f2), "functions types are not", 0);
-
-    if (deduction_set != NULL)
-    {
-        *deduction_set = NULL;
-    }
 
     int num_arguments = function_type_get_num_parameters(f2);
     if (function_type_get_has_ellipsis(f2))
@@ -211,9 +207,9 @@ static char is_less_or_equal_specialized_template_function_common_(type_t* f1, t
         parameters[i] = function_type_get_parameter_type_num(f1, i);
     }
 
-    deduction_set_t* deduction_result = NULL;
     // Try to deduce types of template type F1 using F2
-
+    template_parameter_list_t* type_template_parameters = 
+        template_type_get_template_parameters(template_specialized_type_get_related_template_type(f1));
     template_parameter_list_t* template_parameters = 
         template_specialized_type_get_template_arguments(f1);
 
@@ -225,10 +221,11 @@ static char is_less_or_equal_specialized_template_function_common_(type_t* f1, t
     }
 
     if (!deduce_template_parameters_common(
-                template_parameters,
+                template_parameters, type_template_parameters,
                 arguments, num_arguments,
                 parameters, decl_context,
-                &deduction_result, filename, line,
+                deduced_template_arguments, 
+                filename, line,
                 explicit_template_parameters,
                 deduction_flags))
     {
@@ -239,12 +236,8 @@ static char is_less_or_equal_specialized_template_function_common_(type_t* f1, t
         return 0;
     }
 
-    // Now check that the updated types match exactly
-    template_parameter_list_t* deduced_template_parameter_list = 
-        build_template_parameter_list_from_deduction_set(template_parameters, deduction_result);
-
     decl_context_t updated_context = decl_context;
-    updated_context.template_parameters = deduced_template_parameter_list;
+    updated_context.template_parameters = *deduced_template_arguments;
 
     for (i = 0; i < num_arguments; i++)
     {
@@ -289,11 +282,6 @@ static char is_less_or_equal_specialized_template_function_common_(type_t* f1, t
         }
     }
 
-    if (deduction_set != NULL)
-    {
-        *deduction_set = deduction_result;
-    }
-
     DEBUG_CODE()
     {
         fprintf(stderr, "TYPEORDER: It IS less or equal specialized\n");
@@ -304,7 +292,7 @@ static char is_less_or_equal_specialized_template_function_common_(type_t* f1, t
 
 char is_less_or_equal_specialized_template_class(type_t* c1, type_t* c2, 
         decl_context_t decl_context UNUSED_PARAMETER,
-        deduction_set_t** deduction_set, const char *filename, int line)
+        template_parameter_list_t** deduced_template_arguments, const char *filename, int line)
 {
     ERROR_CONDITION(!is_named_class_type(c1)
             || !is_named_class_type(c2)
@@ -334,7 +322,7 @@ char is_less_or_equal_specialized_template_class(type_t* c1, type_t* c2,
 
     return is_less_or_equal_specialized_template_function_common_(faked_type_1, faked_type_2, 
             named_type_get_symbol(c1)->decl_context, 
-            deduction_set, 
+            deduced_template_arguments, 
             /* explicit_template_parameters */ NULL,
             filename, line,
             /* is_conversion */ 0,
@@ -343,7 +331,8 @@ char is_less_or_equal_specialized_template_class(type_t* c1, type_t* c2,
 
 static char is_less_or_equal_specialized_template_conversion_function(
         type_t* f1, type_t* f2, 
-        decl_context_t decl_context, deduction_set_t** deduction_set,
+        decl_context_t decl_context, 
+        template_parameter_list_t** deduced_template_arguments,
         const char *filename, int line)
 {
     DEBUG_CODE()
@@ -351,11 +340,6 @@ static char is_less_or_equal_specialized_template_conversion_function(
         fprintf(stderr, "TYPEORDER: Computing whether one function is less or equal specialized than the other\n");
     }
     ERROR_CONDITION(!is_function_type(f1) || !is_function_type(f2), "functions types are not", 0);
-
-    if (deduction_set != NULL)
-    {
-        *deduction_set = NULL;
-    }
 
     int num_arguments = function_type_get_num_parameters(f2);
     if (function_type_get_has_ellipsis(f2))
@@ -383,17 +367,19 @@ static char is_less_or_equal_specialized_template_conversion_function(
     num_parameters = 1;
     parameters[0] = function_type_get_parameter_type_num(f1, 0);
 
-    deduction_set_t* deduction_result = NULL;
     // Try to deduce types of template type F1 using F2
 
+    template_parameter_list_t* type_template_parameters = 
+        template_type_get_template_parameters(template_specialized_type_get_related_template_type(f1));
     template_parameter_list_t* template_parameters = 
         template_specialized_type_get_template_arguments(f1);
 
     if (!deduce_template_parameters_common(
-                template_parameters,
+                template_parameters, type_template_parameters,
                 arguments, num_arguments,
                 parameters, decl_context,
-                &deduction_result, filename, line,
+                deduced_template_arguments,
+                filename, line,
                 /* explicit_template_parameters */ NULL,
                 deduction_flags_empty()))
     {
@@ -405,11 +391,8 @@ static char is_less_or_equal_specialized_template_conversion_function(
     }
 
     // Now check that the updated types match exactly
-    template_parameter_list_t* deduced_template_parameter_list = 
-        build_template_parameter_list_from_deduction_set(template_parameters, deduction_result);
-
     decl_context_t updated_context = decl_context;
-    updated_context.template_parameters = deduced_template_parameter_list;
+    updated_context.template_parameters = *deduced_template_arguments;
 
     {
         type_t* original_type = function_type_get_parameter_type_num(f1, 0);
@@ -453,11 +436,6 @@ static char is_less_or_equal_specialized_template_conversion_function(
         }
     }
 
-    if (deduction_set != NULL)
-    {
-        *deduction_set = deduction_result;
-    }
-
     DEBUG_CODE()
     {
         fprintf(stderr, "TYPEORDER: It IS less or equal specialized\n");
@@ -468,7 +446,7 @@ static char is_less_or_equal_specialized_template_conversion_function(
 
 
 char is_less_or_equal_specialized_template_function(type_t* f1, type_t* f2,
-        decl_context_t decl_context, deduction_set_t** deduction_set,
+        decl_context_t decl_context, template_parameter_list_t** deduction_set,
         template_parameter_list_t* explicit_template_parameters,
         const char *filename, int line, char is_conversion)
 {

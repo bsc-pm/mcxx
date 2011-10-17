@@ -40,7 +40,7 @@ MCXX_BEGIN_DECLS
 
 LIBMCXX_EXTERN struct type_tag* solve_class_template(struct type_tag* template_type,
         struct type_tag* specialized_type,
-        deduction_set_t** deduction_set,
+        template_parameter_list_t** deduced_template_arguments,
         const char *filename,
         int line);
 

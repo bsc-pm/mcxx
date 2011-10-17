@@ -1540,31 +1540,37 @@ static int get_type(void *datum,
     if (strcmp(kind, "INTEGER") == 0)
     {
         *pt = choose_int_type_from_kind(nodecl_fake, kind_size);
+        *pt = get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name);
         insert_map_ptr(handle, current_oid, *pt);
     }
     else if (strcmp(kind, "REAL") == 0)
     {
         *pt = choose_float_type_from_kind(nodecl_fake, kind_size);
+        *pt = get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name);
         insert_map_ptr(handle, current_oid, *pt);
     }
     else if (strcmp(kind, "LOGICAL") == 0)
     {
         *pt = choose_logical_type_from_kind(nodecl_fake, kind_size);
+        *pt = get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name);
         insert_map_ptr(handle, current_oid, *pt);
     }
     else if (strcmp(kind, "COMPLEX") == 0)
     {
         *pt = get_complex_type(choose_float_type_from_kind(nodecl_fake, kind_size));
+        *pt = get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name);
         insert_map_ptr(handle, current_oid, *pt);
     }
     else if (strcmp(kind, "POINTER") == 0)
     {
         *pt = get_pointer_type(load_type(handle, ref));
+        *pt = get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name);
         insert_map_ptr(handle, current_oid, *pt);
     }
     else if (strcmp(kind, "REFERENCE") == 0)
     {
         *pt = get_lvalue_reference_type(load_type(handle, ref));
+        *pt = get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name);
         insert_map_ptr(handle, current_oid, *pt);
     }
     else if (strcmp(kind, "CHARACTER") == 0)
@@ -1578,6 +1584,7 @@ static int get_type(void *datum,
         // Hopefully this will be enough
         decl_context_t decl_context = CURRENT_COMPILED_FILE->global_decl_context;
         *pt = get_array_type_bounds(element_type, lower_bound, upper_bound, decl_context);
+        *pt = get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name);
         insert_map_ptr(handle, current_oid, *pt);
     }
     else if (strcmp(kind, "ARRAY") == 0)
@@ -1591,6 +1598,7 @@ static int get_type(void *datum,
         // Hopefully this will be enough
         decl_context_t decl_context = CURRENT_COMPILED_FILE->global_decl_context;
         *pt = get_array_type_bounds(element_type, lower_bound, upper_bound, decl_context);
+        *pt = get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name);
         insert_map_ptr(handle, current_oid, *pt);
     }
     else if (strcmp(kind, "CLASS") == 0)
@@ -1599,6 +1607,7 @@ static int get_type(void *datum,
 
         *pt = get_new_class_type(CURRENT_COMPILED_FILE->global_decl_context, CK_STRUCT);
 
+        *pt = get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name);
         insert_map_ptr(handle, current_oid, *pt);
 
         char *context = NULL;
@@ -1638,11 +1647,13 @@ static int get_type(void *datum,
         type_t* result = load_type(handle, ref);
 
         *pt = get_new_function_type(result, parameter_info, num_parameters);
+        *pt = get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name);
         insert_map_ptr(handle, current_oid, *pt);
     }
     else if (strcmp(kind, "VOID") == 0)
     {
         *pt = get_void_type();
+        *pt = get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name);
         insert_map_ptr(handle, current_oid, *pt);
     }
     else if (strcmp(kind, "NAMED") == 0)
@@ -1652,13 +1663,13 @@ static int get_type(void *datum,
         scope_entry_t* symbol = load_symbol(handle, symbol_oid);
 
         *pt = get_user_defined_type(symbol);
+        *pt = get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name);
+        // Do not insert this type in the pointer map
     }
     else
     {
         internal_error("Invalid type '%s'\n", kind);
     }
-
-    *pt = get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name);
 
     return 0;
 }
@@ -1755,6 +1766,9 @@ static sqlite3_int64 insert_const_value(sqlite3* handle, const_value_t* value)
     if (oid_already_inserted(handle, "const_value", value))
         return (sqlite3_int64)(intptr_t)value;
 
+    // Some floats can be really large
+    char float_literal_value[2048] = { 0 };
+
     if (const_value_is_integer(value))
     {
         char * literal_value = sqlite3_mprintf("%llu", const_value_cast_to_8(value));
@@ -1771,38 +1785,38 @@ static sqlite3_int64 insert_const_value(sqlite3* handle, const_value_t* value)
     }
     else if (const_value_is_float(value))
     {
-        char * literal_value = sqlite3_mprintf(FLOAT_FORMAT_STR, const_value_cast_to_float(value));
+        snprintf(float_literal_value, 2047, FLOAT_FORMAT_STR, const_value_cast_to_float(value));
+        float_literal_value[2047] = '\0';
 
         sqlite3_int64 result = insert_single_const_value(handle, value, 
                 "FLOAT", 
                 0, 0,
-                literal_value);
+                float_literal_value);
 
-        sqlite3_free(literal_value);
         return result;
     }
     else if (const_value_is_double(value))
     {
-        char * literal_value = sqlite3_mprintf(DOUBLE_FORMAT_STR, const_value_cast_to_double(value));
+        snprintf(float_literal_value, 2047, DOUBLE_FORMAT_STR, const_value_cast_to_double(value));
+        float_literal_value[2047] = '\0';
 
         sqlite3_int64 result = insert_single_const_value(handle, value, 
                 "DOUBLE", 
                 0, 0,
-                literal_value);
+                float_literal_value);
 
-        sqlite3_free(literal_value);
         return result;
     }
     else if (const_value_is_long_double(value))
     {
-        char * literal_value = sqlite3_mprintf(LONG_DOUBLE_FORMAT_STR, const_value_cast_to_long_double(value));
+        snprintf(float_literal_value, 2047, LONG_DOUBLE_FORMAT_STR, const_value_cast_to_long_double(value));
+        float_literal_value[2047] = '\0';
 
         sqlite3_int64 result = insert_single_const_value(handle, value, 
                 "LONG DOUBLE", 
                 0, 0,
-                literal_value);
+                float_literal_value);
 
-        sqlite3_free(literal_value);
         return result;
     }
     else if (const_value_is_complex(value))
@@ -1958,6 +1972,12 @@ static int get_const_value(void *datum,
 
 static const_value_t* load_const_value(sqlite3* handle, sqlite3_int64 oid)
 {
+    void *p = get_ptr_of_oid(handle, oid);
+    if (p != NULL)
+    {
+        return (const_value_t*)p;
+    }
+
     char * select_const_value = sqlite3_mprintf("SELECT oid, kind, sign, bytes, literal_value, compound_values FROM const_value WHERE oid = %lld\n;",
             oid);
     char* errmsg = NULL;

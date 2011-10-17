@@ -48,7 +48,7 @@ static type_t* determine_most_specialized_template_class(type_t* template_type,
 
 type_t* solve_class_template(type_t* template_type,
         type_t* specialized_type,
-        deduction_set_t** unification_set,
+        template_parameter_list_t** deduced_template_arguments,
         const char *filename,
         int line)
 {
@@ -62,7 +62,7 @@ type_t* solve_class_template(type_t* template_type,
     type_t** matching_set = NULL;
     int num_matching_set = 0;
 
-    deduction_set_t **deduction_results = NULL;
+    template_parameter_list_t **deduction_results = NULL;
     int num_deductions = 0;
 
     for (i = 0; i < num_specializations; i++)
@@ -104,17 +104,17 @@ type_t* solve_class_template(type_t* template_type,
         ERROR_CONDITION((arguments->num_parameters != specialized->num_parameters),
             "Template argument lists are not of equal length", 0);
 
-        deduction_set_t* deduction_result = NULL;
+        template_parameter_list_t* current_deduced_template_arguments = NULL;
 
         if (is_less_or_equal_specialized_template_class(
                     current_specialized_type,
                     specialized_type,
                     named_type_get_symbol(current_specialized_type)->decl_context,
-                    &deduction_result,
+                    &current_deduced_template_arguments,
                     filename, line))
         {
             P_LIST_ADD(matching_set, num_matching_set, current_specialized_type);
-            P_LIST_ADD(deduction_results, num_deductions, deduction_result);
+            P_LIST_ADD(deduction_results, num_deductions, current_deduced_template_arguments);
         }
     }
 
@@ -156,7 +156,7 @@ type_t* solve_class_template(type_t* template_type,
         {
             if (matching_set[i] == more_specialized)
             {
-                *unification_set = deduction_results[i];
+                *deduced_template_arguments = deduction_results[i];
             }
         }
 
@@ -178,7 +178,7 @@ static type_t* determine_most_specialized_template_class(
     int current_i = 0;
     type_t* current_most_specialized = matching_specializations[0];
 
-    deduction_set_t* deduce_result = NULL;
+    template_parameter_list_t* deduced_template_arguments = NULL;
 
     DEBUG_CODE()
     {
@@ -213,7 +213,7 @@ static type_t* determine_most_specialized_template_class(
                     matching_specializations[i],
                     current_most_specialized,
                     decl_context,
-                    &deduce_result, filename, line))
+                    &deduced_template_arguments, filename, line))
         {
             // It is more specialized
             DEBUG_CODE()
@@ -247,7 +247,7 @@ static type_t* determine_most_specialized_template_class(
                     matching_specializations[i],
                     current_most_specialized,
                     decl_context,
-                    &deduce_result, filename, line))
+                    &deduced_template_arguments, filename, line))
         {
             DEBUG_CODE()
             {
@@ -323,11 +323,12 @@ type_t* determine_most_specialized_template_function(int num_feasible_templates,
         f = extend_function_with_return_type(f);
         g = extend_function_with_return_type(g);
 
+        template_parameter_list_t* deduced_template_arguments = NULL;
         if (!is_less_or_equal_specialized_template_function(
                     f,
                     g,
                     f_sym->decl_context,
-                    /* deduction_set */ NULL,
+                    &deduced_template_arguments,
                     /* explicit_template_parameters */ NULL, 
                     filename, line,
                     is_conversion))
@@ -376,11 +377,12 @@ type_t* determine_most_specialized_template_function(int num_feasible_templates,
         f = extend_function_with_return_type(f);
         g = extend_function_with_return_type(g);
 
+        template_parameter_list_t* deduced_template_arguments = NULL;
         if (!is_less_or_equal_specialized_template_function(
                     f,
                     g,
                     f_sym->decl_context,
-                    /* deduction_set */ NULL,
+                    &deduced_template_arguments,
                     /* explicit_template_parameters */ NULL, 
                     filename, line,
                     is_conversion))
@@ -478,7 +480,7 @@ scope_entry_t* solve_template_function(scope_entry_list_t* template_set,
         type_t* function_type, const char *filename, int line)
 {
     type_t* feasible_templates[MCXX_MAX_FEASIBLE_SPECIALIZATIONS];
-    deduction_set_t *feasible_deductions[MCXX_MAX_FEASIBLE_SPECIALIZATIONS];
+    template_parameter_list_t *feasible_deductions[MCXX_MAX_FEASIBLE_SPECIALIZATIONS];
     int num_feasible_templates = 0;
 
     type_t* extended_function_type = extend_function_with_return_type(function_type);
@@ -501,7 +503,7 @@ scope_entry_t* solve_template_function(scope_entry_list_t* template_set,
 
         type_t* extended_primary_type = extend_function_with_return_type(primary_type);
 
-        deduction_set_t *feasible_deduction = NULL;
+        template_parameter_list_t *feasible_deduction = NULL;
         if (is_less_or_equal_specialized_template_function(
                     extended_primary_type,
                     extended_function_type,
@@ -556,7 +558,7 @@ scope_entry_t* solve_template_function(scope_entry_list_t* template_set,
                 print_decl_type_str(function_type, head->decl_context, full_name));
     }
 
-    deduction_set_t* selected_deduction = NULL;
+    template_parameter_list_t* selected_deduction = NULL;
     // Now we have to find which one is the selected deduction
     int i;
     for (i = 0; i < num_feasible_templates; i++)
@@ -574,14 +576,10 @@ scope_entry_t* solve_template_function(scope_entry_list_t* template_set,
     type_t* template_type = template_specialized_type_get_related_template_type(
             named_type_get_symbol(result)->type_information);
     scope_entry_t* primary_template = template_type_get_related_symbol(template_type);
-    template_parameter_list_t* primary_template_parameters = 
-        template_type_get_template_parameters(template_type);
-    template_parameter_list_t* template_parameters = 
-        build_template_parameter_list_from_deduction_set(primary_template_parameters, selected_deduction);
 
     type_t* result_specialized = template_type_get_specialized_type(
             template_type,
-            template_parameters, 
+            selected_deduction, 
             primary_template->decl_context, 
             filename, line);
 

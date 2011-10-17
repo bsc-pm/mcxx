@@ -72,6 +72,21 @@ struct builtin_operators_set_tag
     int num_builtins;
 } builtin_operators_set_t;
 
+// This structure contains information about the context of the current expression
+typedef
+struct check_expr_flags_tag
+{
+    /* It will be true if the expression is non_executable.
+     * Examples of non-executable expressions contains:
+     * sizeof, alignof, typeof, decltype
+     * 
+     * Otherwise it will be false.
+     */
+    char is_non_executable:1;
+} check_expr_flags_t;
+
+static check_expr_flags_t check_expr_flags = {0};
+
 static
 void build_unary_builtin_operators(type_t* t1,
         builtin_operators_set_t *result,
@@ -128,6 +143,8 @@ scope_entry_t* expand_template_given_arguments(scope_entry_t* entry,
         template_parameter_list_t* explicit_template_parameters)
 {
     // We have to expand the template
+    template_parameter_list_t* type_template_parameters 
+        = template_type_get_template_parameters(entry->type_information);
     type_t* specialization_type = template_type_get_primary_type(entry->type_information);
     scope_entry_t* specialization_symbol = named_type_get_symbol(specialization_type);
     type_t* specialized_function_type = specialization_symbol->type_information;
@@ -135,17 +152,14 @@ scope_entry_t* expand_template_given_arguments(scope_entry_t* entry,
     template_parameter_list_t* template_parameters = 
         template_specialized_type_get_template_arguments(specialized_function_type);
 
-    deduction_set_t* deduction_result = NULL;
+    template_parameter_list_t* argument_list = NULL;
 
     if (deduce_arguments_from_call_to_specific_template_function(argument_types,
-                num_arguments, specialization_type, template_parameters,
-                decl_context, &deduction_result, filename, line, 
+                num_arguments, specialization_type, 
+                template_parameters, type_template_parameters,
+                decl_context, &argument_list, filename, line, 
                 explicit_template_parameters))
     {
-        template_parameter_list_t* argument_list = build_template_parameter_list_from_deduction_set(
-                template_parameters,
-                deduction_result);
-
         // Now get a specialized template type for this
         // function (this will sign it in if it does not exist)
         type_t* named_specialization_type = template_type_get_specialized_type(entry->type_information,
@@ -190,7 +204,7 @@ type_t* compute_type_for_type_id_tree(AST type_id, decl_context_t decl_context)
 {
     AST type_specifier = ASTSon0(type_id);
     AST abstract_declarator = ASTSon1(type_id);
-
+    
     gather_decl_spec_t gather_info;
     memset(&gather_info, 0, sizeof(gather_info));
 
@@ -392,6 +406,23 @@ char check_expression(AST expression, decl_context_t decl_context, nodecl_t* nod
         internal_error("Code unreachable", 0);
     }
 #endif
+}
+
+char check_expression_non_executable(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
+{
+    // Save the value of 'is_non_executable' of the last expression expression
+    char was_non_executable = check_expr_flags.is_non_executable;
+    
+    // The current expression is non executable
+    check_expr_flags.is_non_executable = 1;
+
+    // Check_expression the current expression
+    char output = check_expression(a, decl_context, nodecl_output);
+
+    // Restore the right value
+    check_expr_flags.is_non_executable = was_non_executable;
+
+    return output;
 }
 
 void ensure_function_is_emitted(scope_entry_t* entry,
@@ -3944,11 +3975,15 @@ static void compute_bin_nonoperator_assig_only_arithmetic_type(nodecl_t *lhs, no
         else
         {
             *nodecl_output = 
-                    cxx_nodecl_make_function_call(
+                cxx_nodecl_make_function_call(
                         nodecl_make_symbol(selected_operator, filename, line),
                         nodecl_make_list_2(*lhs, *rhs),
                         result, filename, line);
         }
+    }
+    else
+    {
+        *nodecl_output = nodecl_make_err_expr(filename, line);
     }
 }
 
@@ -3971,6 +4006,17 @@ static type_t* compute_type_no_overload_assig_only_arithmetic_type(nodecl_t *lhs
     }
 
     if (both_operands_are_arithmetic(no_ref(rhs_type), no_ref(lhs_type)))
+    {
+        unary_record_conversion_to_result(lhs_type, rhs);
+
+        return lhs_type;
+    }
+    else if (both_operands_are_vector_types(no_ref(lhs_type),
+                no_ref(rhs_type)))
+    {
+        return lhs_type;
+    }
+    else if (left_operand_is_vector_and_right_operand_is_scalar(no_ref(lhs_type), no_ref(rhs_type)))
     {
         unary_record_conversion_to_result(lhs_type, rhs);
 
@@ -5282,7 +5328,8 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
         }
 
         if (!accessing_symbol->entity_specs.is_member
-                || accessing_symbol->entity_specs.is_static)
+                || accessing_symbol->entity_specs.is_static
+                || check_expr_flags.is_non_executable)
         {
             *nodecl_output = nodecl_access_to_symbol;
         }
@@ -12127,7 +12174,7 @@ static void check_sizeof_expr(AST expr, decl_context_t decl_context, nodecl_t* n
     AST sizeof_expression = ASTSon0(expr);
 
     nodecl_t nodecl_expr = nodecl_null();
-    check_expression_impl_(sizeof_expression, decl_context, &nodecl_expr);
+    check_expression_non_executable(sizeof_expression, decl_context, &nodecl_expr);
 
     const char* filename = ASTFileName(expr);
     int line = ASTLine(expr);
@@ -12144,7 +12191,6 @@ static void check_sizeof_expr(AST expr, decl_context_t decl_context, nodecl_t* n
         nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
         return;
     }
-
     type_t* t = nodecl_get_type(nodecl_expr);
 
     check_sizeof_type(t, decl_context, filename, line, nodecl_output);
@@ -12156,14 +12202,12 @@ static void check_sizeof_typeid(AST expr, decl_context_t decl_context, nodecl_t*
     int line = ASTLine(expr);
 
     AST type_id = ASTSon0(expr);
-
     type_t* declarator_type = compute_type_for_type_id_tree(type_id, decl_context);
     if (is_error_type(declarator_type))
     {
         *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
-
     check_sizeof_type(declarator_type, decl_context, filename, line, nodecl_output);
 }
 
@@ -12542,7 +12586,7 @@ static void check_gcc_alignof_expr(AST expression,
         nodecl_t* nodecl_output)
 {
     nodecl_t nodecl_expr = nodecl_null();
-    check_expression_impl_(expression, decl_context, &nodecl_expr);
+    check_expression_non_executable(expression, decl_context, &nodecl_expr);
 
     if (nodecl_is_err_expr(nodecl_expr))
     {

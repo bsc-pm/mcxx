@@ -657,7 +657,7 @@ static char check_type_specifier_aux(AST type_id, decl_context_t decl_context, c
             {
                 nodecl_t nodecl_dummy = nodecl_null();
                 enter_test_expression();
-                char result = check_expression(ASTSon0(type_id), decl_context, &nodecl_dummy);
+                char result = check_expression_non_executable(ASTSon0(type_id), decl_context, &nodecl_dummy);
                 leave_test_expression();
                 return result;
             }
@@ -1763,7 +1763,7 @@ void solve_ambiguous_type_specifier(AST ambig_type, decl_context_t decl_context)
         {
             nodecl_t nodecl_dummy = nodecl_null();
             enter_test_expression();
-            current_typeof = check_expression(typeof_argument, decl_context, &nodecl_dummy);
+            current_typeof = check_expression_non_executable(typeof_argument, decl_context, &nodecl_dummy);
             leave_test_expression();
         }
         else

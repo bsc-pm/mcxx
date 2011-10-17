@@ -51,6 +51,8 @@ LIBMCXX_EXTERN char can_be_called_with_number_of_arguments(scope_entry_t *entry,
 
 LIBMCXX_EXTERN char check_expression(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
 
+LIBMCXX_EXTERN char check_expression_non_executable(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
+
 LIBMCXX_EXTERN char check_expression_list(AST expression_list, decl_context_t decl_context, nodecl_t* nodecl_output);
 
 LIBMCXX_EXTERN char check_initialization(AST initializer, 

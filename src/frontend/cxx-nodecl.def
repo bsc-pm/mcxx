@@ -307,3 +307,54 @@ fortran-io-spec: NODECL_FORTRAN_IO_SPEC([value]expression-opt) text
 fortran-io-item : expression
            | fortran-implied-do
 
+##############################
+# Parallelism (ongoing work) #
+##############################
+
+parallel-statements : parallel-execution
+                    | synchronization
+
+parallel-execution : async-execution
+                   | sequential-execution
+                   | replicated-execution
+                   | distributed-execution
+                   | atomic-execution
+                   | composited-execution
+
+sequential-execution : NODECL_PAR_SEQUENTIAL_CODE([environment]exec-environment-seq-opt, [statements]statement-seq-opt)
+
+async-execution : NODECL_PAR_ASYNC_CODE([environment]exec-environment-seq-opt, [statements]statement-seq-opt) 
+                | async-call
+
+async-call : NODECL_PAR_ASYNC_CALL([environment]exec-environment-seq-opt, [call]expression)
+
+# Futures?
+# expression : async-call
+# expression : NODECL_PAR_ATOMIC_UPDATE_STATEMENT([expr] expression)
+
+exec-environment : NODECL_PAR_CONDITION([condition]expression)
+                 | NODECL_PAR_CAPTURE([captured_symbols]name-seq)
+                 | NODECL_PAR_SHARED([shared_symbols]name-seq)
+                 | NODECL_PAR_PRIVATE([private_symbols]name-seq)
+                 | NODECL_PAR_REDUCTION([reductions]async-reduction-seq)
+                 | NODECL_PAR_DEP_INPUT([input_deps]expression-seq)
+                 | NODECL_PAR_DEP_OUTPUT([output_deps]expression-seq)
+                 | NODECL_PAR_DEP_INOUT([inout_deps]expression-seq)
+
+async-reduction : NODECL_PAR_REDUCTION_ITEM([reductor]name, [reduced_symbols]name-seq)
+
+synchronizable-execution : NODECL_PAR_SYNCHRONIZABLE([do_sync]expression, [exec]async-execution)
+                         | async-execution
+
+replicated-execution : NODECL_PAR_REPLICATED([environment]exec-environment-seq-opt, [num_replicas]expression-opt, [exec]synchronizable-execution)
+
+distributed-execution : NODECL_PAR_DISTRIBUTE([environment]exec-environment-seq-opt, [ranges]distribute-range-seq, [exec]synchronizable-execution)
+distribute-range : NODECL_PAR_DISTRIBUTE_RANGE([lower]expression, [upper]expression, [step]expression) symbol
+
+atomic-execution : NODECL_PAR_ATOMIC([name]name-opt, [statements]statement-seq-opt)
+
+composited-execution : NODECL_PAR_COMPOSITE([environment]exec-environment-seq-opt, [regions]parallel-execution-seq)
+
+synchronization : NODECL_PAR_ASYNC_WAIT([expressions] expression-seq-opt)
+                | NODECL_PAR_FLUSH_MEMORY([expressions] expression-seq-opt)
+                | NODECL_PAR_BARRIER()

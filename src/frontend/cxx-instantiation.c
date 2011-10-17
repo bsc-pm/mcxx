@@ -753,7 +753,7 @@ static void instantiate_bases(
 
 static void instantiate_specialized_template_class(type_t* selected_template,
         type_t* being_instantiated,
-        deduction_set_t* deduction_set,
+        template_parameter_list_t* template_arguments,
         const char *filename, int line)
 {
     DEBUG_CODE()
@@ -777,11 +777,6 @@ static void instantiate_specialized_template_class(type_t* selected_template,
     // Update the template parameter with the deduced template parameters
     decl_context_t instantiation_context = being_instantiated_sym->decl_context;
 
-    // Build the template arguments. We use the selected template to update its deduction
-    template_parameter_list_t* template_arguments = 
-        build_template_parameter_list_from_deduction_set(
-                template_specialized_type_get_template_parameters(get_actual_class_type(selected_template)),
-                deduction_set);
     // But the selected_template might be a nested one in a dependent context so we must update
     // the enclosing template arguments with those of the original class
     ERROR_CONDITION(being_instantiated_sym->decl_context.template_parameters == NULL, "Wrong nesting in template parameters", 0);
@@ -1057,12 +1052,12 @@ void instantiate_template_class(scope_entry_t* entry, decl_context_t decl_contex
     type_t* template_type = 
         template_specialized_type_get_related_template_type(template_specialized_type);
 
-    deduction_set_t* unification_set = NULL;
+    template_parameter_list_t* deduced_template_arguments = NULL;
 
     type_t* selected_template = solve_class_template(
             template_type, 
             get_user_defined_type(entry),
-            &unification_set, filename, line);
+            &deduced_template_arguments, filename, line);
 
     if (selected_template != NULL)
     {
@@ -1076,7 +1071,7 @@ void instantiate_template_class(scope_entry_t* entry, decl_context_t decl_contex
 
         instantiate_specialized_template_class(selected_template, 
                 get_user_defined_type(entry),
-                unification_set, filename, line);
+                deduced_template_arguments, filename, line);
     }
     else
     {
