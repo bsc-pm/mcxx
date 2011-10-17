@@ -24,9 +24,8 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
+SUBDIRS = . codegen omp analysis
 # SUBDIRS = . hlt analysis manip @TL_EXTENSIONS@ 
-
-SUBDIRS = . omp analysis
 
 END=
 
