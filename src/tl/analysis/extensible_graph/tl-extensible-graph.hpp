@@ -394,6 +394,10 @@ namespace TL
             
             //! Sets to 1 the variable containing whether the graph has the use-def info computed
             void set_use_def_computed();
+            
+            
+            // *** Consultants *** //
+            static Node* is_for_loop_increment(Node* node);
 
         friend class CfgVisitor;
     };

@@ -103,22 +103,18 @@ namespace TL
         return ObjectList<Nodecl::NodeclBase>();
     }
     
-    CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::ArraySection& n)
+    CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::Range& n)
     {
-        Nodecl::NodeclBase subscripted = n.get_subscripted();
         Nodecl::NodeclBase lower = n.get_lower();
         Nodecl::NodeclBase upper = n.get_upper();
+        Nodecl::NodeclBase stride = n.get_stride();
         
-        ObjectList<Nodecl::NodeclBase> renamed_subscripted = walk(subscripted);
         ObjectList<Nodecl::NodeclBase> renamed_lower = walk(lower);
         ObjectList<Nodecl::NodeclBase> renamed_upper = walk(upper);
-        
-        if (!renamed_subscripted.empty() || !renamed_lower.empty() || !renamed_upper.empty())
+        ObjectList<Nodecl::NodeclBase> renamed_stride = walk(stride);
+
+        if (!renamed_lower.empty() || !renamed_upper.empty() || !renamed_stride.empty())
         {
-            if (!renamed_subscripted.empty())
-            {
-                subscripted = renamed_subscripted[0];
-            }
             if (!renamed_lower.empty())
             {
                 lower = renamed_lower[0];
@@ -127,10 +123,14 @@ namespace TL
             {
                 upper = renamed_upper[0];
             }
+            if (!renamed_stride.empty())
+            {
+                stride = renamed_stride[0];
+            }
             
-            Nodecl::NodeclBase renamed = Nodecl::ArraySection::make(subscripted, lower, upper, n.get_type(), _filename, _line);
+            Nodecl::NodeclBase renamed = Nodecl::Range::make(lower, upper, stride, n.get_type(), _filename, _line);
             return ObjectList<Nodecl::NodeclBase>(1, renamed);
-        }
+        }    
         
         return ObjectList<Nodecl::NodeclBase>();
     }

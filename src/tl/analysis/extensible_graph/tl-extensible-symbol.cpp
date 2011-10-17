@@ -82,17 +82,6 @@ namespace TL
             Nodecl::ArraySubscript aux = n.as<Nodecl::ArraySubscript>();
             return get_nodecl_symbol(aux.get_subscripted());
         }
-        else if (n.is<Nodecl::ArraySection>())
-        {
-            Nodecl::ArraySection aux = n.as<Nodecl::ArraySection>();
-            return get_nodecl_symbol(aux.get_subscripted());
-        }
-        else if (n.is<Nodecl::Conversion>())
-        {
-            // FIXME This shouldn't be here
-            Nodecl::Conversion aux = n.as<Nodecl::Conversion>();
-            return get_nodecl_symbol(aux.get_nest());
-        }
         else if (n.is<Nodecl::FunctionCall>())
         {
             return Symbol();
@@ -143,7 +132,7 @@ namespace TL
 
     bool ExtensibleSymbol::is_array() const
     {
-        return (_n.is<Nodecl::ArraySubscript>() || _n.is<Nodecl::ArraySection>());
+        return (_n.is<Nodecl::ArraySubscript>());
     }
 
     bool ExtensibleSymbol::operator==(const ExtensibleSymbol& es) const

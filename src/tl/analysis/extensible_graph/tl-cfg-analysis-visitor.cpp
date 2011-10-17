@@ -438,14 +438,14 @@ namespace TL
         }
         
         walk(n.get_subscripted());
-        
-        
         walk(n.get_subscripts());
     }
-   
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::ArraySection& n)
+    
+    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Range& n)
     {
-        unhandled_node(n);
+        walk(n.get_lower());
+        walk(n.get_upper());
+        walk(n.get_stride());
     }
     
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::ClassMemberAccess& n)

@@ -78,52 +78,9 @@ namespace TL
         set_data(_NODE_STMTS, ObjectList<Nodecl::NodeclBase>(1,nodecl));
     }
     
-    Node* Node::copy(Node* outer_node)
+    bool Node::operator==(const Node& node) const
     {
-        Node_type ntype = get_data<Node_type>(_NODE_TYPE);
-        
-        if (ntype == GRAPH_NODE)
-        {
-            internal_error("Method copy node can only be used with non GRAPH_NODE node types", 0);
-        }
-        
-        // Create the node
-        Node* new_node = new Node(_id, ntype, outer_node);
-        
-        // Set the special properties for each node
-        switch(ntype)
-        {
-            case BASIC_LABELED_NODE:
-            case BASIC_GOTO_NODE: 
-                new_node->set_data(_NODE_LABEL, get_data<Symbol>(_NODE_LABEL));
-            case BASIC_FUNCTION_CALL_NODE:
-            case BASIC_NORMAL_NODE:
-            {
-                ObjectList<Nodecl::NodeclBase> stmts = get_data<ObjectList<Nodecl::NodeclBase> >(_NODE_STMTS);
-                new_node->set_data(_NODE_STMTS, stmts);
-                
-                if (has_key(_LIVE_IN))
-                {   // Liveness analysis has been performed, so we copy this information too
-                    new_node->set_data(_LIVE_IN, get_data<ext_sym_set>(_LIVE_IN));
-                    new_node->set_data(_LIVE_OUT, get_data<ext_sym_set>(_LIVE_OUT));
-                    new_node->set_data(_UPPER_EXPOSED, get_data<ext_sym_set>(_UPPER_EXPOSED));
-                    new_node->set_data(_KILLED, get_data<ext_sym_set>(_KILLED));
-                }
-                if (has_key(_IN_DEPS))
-                {   // Auto-deps analysis has been performed
-                    new_node->set_data(_IN_DEPS, get_data<ext_sym_set>(_IN_DEPS));
-                    new_node->set_data(_OUT_DEPS, get_data<ext_sym_set>(_OUT_DEPS));
-                    new_node->set_data(_INOUT_DEPS, get_data<ext_sym_set>(_INOUT_DEPS));                    
-                }
-                break;
-            }
-            case FLUSH_NODE:    // FIXME We have to set here the sybols to be flushed
-                break;
-            default:            // nothing to do
-                break;
-        }
-        
-        return new_node;
+        return (_id == node._id);
     }
     
     void Node::erase_entry_edge(Node* source)
@@ -1381,6 +1338,34 @@ namespace TL
             reaching_defs = get_data<nodecl_map>(_REACH_DEFS);
         }
         reaching_defs[var] = init;
+        set_data(_REACH_DEFS, reaching_defs);
+    }
+    
+    void Node::rename_reaching_defintion_var(Nodecl::NodeclBase old_var, Nodecl::NodeclBase new_var)
+    {
+        nodecl_map reaching_defs;
+        if (has_key(_REACH_DEFS))
+        {
+            reaching_defs = get_data<nodecl_map>(_REACH_DEFS);
+            std::cerr << "******** SIZE = " << reaching_defs.size() << std::endl;
+            if (reaching_defs.find(old_var) != reaching_defs.end())
+            {
+                Nodecl::NodeclBase init = reaching_defs[old_var];
+                reaching_defs.erase(old_var);
+                reaching_defs[new_var] = init;
+            }
+            else
+            {
+                std::cerr << "warning: Trying to rename reaching definition '" << old_var.prettyprint()
+                          << "', which not exists in reaching definition list of node '" << _id << "'" << std::endl;
+                          
+                for(nodecl_map::iterator it = reaching_defs.begin(); it != reaching_defs.end(); ++it)
+                {
+                    Nodecl::NodeclBase first = it->first, second = it->second;
+                    std::cerr << "    - " << first.prettyprint() << " = " << second.prettyprint() << std::endl;
+                }
+            }
+        }
         set_data(_REACH_DEFS, reaching_defs);
     }
     

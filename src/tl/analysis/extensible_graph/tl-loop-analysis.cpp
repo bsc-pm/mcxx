@@ -35,8 +35,8 @@ namespace TL
     // *** Induction Var Info *** //
     
     InductionVarInfo::InductionVarInfo(Symbol s, Nodecl::NodeclBase lb)
-        : _s(s), _lb(lb), _ub(Nodecl::NodeclBase::null()), _step(Nodecl::NodeclBase::null()), 
-          _step_is_one(false), _step_is_positive(2)
+        : _s(s), _lb(lb), _ub(Nodecl::NodeclBase::null()), _stride(Nodecl::NodeclBase::null()), 
+          _stride_is_one(false), _stride_is_positive(2)
     {}
     
     Symbol InductionVarInfo::get_symbol() const
@@ -69,39 +69,39 @@ namespace TL
         _ub = ub;
     }
 
-    Nodecl::NodeclBase InductionVarInfo::get_step() const
+    Nodecl::NodeclBase InductionVarInfo::get_stride() const
     {
-        return _step;
+        return _stride;
     }
 
-    void InductionVarInfo::set_step(Nodecl::NodeclBase step)
+    void InductionVarInfo::set_stride(Nodecl::NodeclBase stride)
     {
-        _step = step;
+        _stride = stride;
     }
     
-    bool InductionVarInfo::step_is_one() const
+    bool InductionVarInfo::stride_is_one() const
     {
-        return _step_is_one;
+        return _stride_is_one;
     }
     
-    void InductionVarInfo::set_step_is_one(bool step_is_one)
+    void InductionVarInfo::set_stride_is_one(bool stride_is_one)
     {
-        _step_is_one = step_is_one;
+        _stride_is_one = stride_is_one;
     }
 
-    int InductionVarInfo::step_is_positive() const
+    int InductionVarInfo::stride_is_positive() const
     {
-        return _step_is_positive;
+        return _stride_is_positive;
     }
     
-    void InductionVarInfo::set_step_is_positive(int step_is_positive)
+    void InductionVarInfo::set_stride_is_positive(int stride_is_positive)
     {
-        _step_is_positive = step_is_positive;
+        _stride_is_positive = stride_is_positive;
     }
 
     bool InductionVarInfo::operator==(const InductionVarInfo &v) const
     {
-        return ( (_s == v._s) && (_lb ==  v._lb) && (_ub == v._ub) && (_step == v._step) );
+        return ( (_s == v._s) && (_lb ==  v._lb) && (_ub == v._ub) && (_stride == v._stride) );
     }
 
     bool InductionVarInfo::operator<(const InductionVarInfo &v) const
@@ -109,7 +109,7 @@ namespace TL
         if ( (_s < v._s) 
              || ( (_s == v._s) && (_lb < v._lb) )
              || ( (_s == v._s) && (_lb ==  v._lb) && (_ub < v._ub) )
-             || ( (_s == v._s) && (_lb ==  v._lb) && (_ub == v._ub) && (_step < v._step) ) )
+             || ( (_s == v._s) && (_lb ==  v._lb) && (_ub == v._ub) && (_stride < v._stride) ) )
         {
             return true;
         }
@@ -178,7 +178,7 @@ namespace TL
 //             
 //             result = traverse_loop_cond(init_info_l, cond_.get_lhs());
 //             
-//             // To mix the values is not trivial, we have to get the bigger or the smaller, depending on the step (positive or negative)
+//             // To mix the values is not trivial, we have to get the bigger or the smaller, depending on the stride (positive or negative)
 //             cond_values.insert(traverse_loop_cond(init_info_l, cond_.get_rhs()));
             internal_error("Combined && expressions as loop condition not yet implemented", 0);
         }
@@ -286,12 +286,12 @@ namespace TL
         }
     }
     
-    void LoopAnalysis::traverse_loop_step(Nodecl::NodeclBase step)
+    void LoopAnalysis::traverse_loop_stride(Nodecl::NodeclBase stride)
     {
-        if (step.is<Nodecl::Preincrement>())
+        if (stride.is<Nodecl::Preincrement>())
         {
-            Nodecl::Preincrement step_ = step.as<Nodecl::Preincrement>();
-            Nodecl::NodeclBase rhs = step_.get_rhs();
+            Nodecl::Preincrement stride_ = stride.as<Nodecl::Preincrement>();
+            Nodecl::NodeclBase rhs = stride_.get_rhs();
             
             Symbol s = rhs.get_symbol();
             if (s.is_valid())
@@ -300,9 +300,9 @@ namespace TL
                 if ( (loop_info_var = induction_vars_l_contains_symbol(s)) != NULL )
                 {
                     nodecl_t one = const_value_to_nodecl(const_value_get_one(/* bytes */ 4, /* signed*/ 1));
-                    loop_info_var->set_step(Nodecl::NodeclBase(one));
-                    loop_info_var->set_step_is_one(true);
-                    loop_info_var->set_step_is_positive(1);
+                    loop_info_var->set_stride(Nodecl::NodeclBase(one));
+                    loop_info_var->set_stride_is_one(true);
+                    loop_info_var->set_stride_is_positive(1);
                 }
                 else
                 {
@@ -311,13 +311,13 @@ namespace TL
             }
             else 
             {
-                internal_error("Analysis of loop step which is not a symbol not yet implemented", 0);
+                internal_error("Analysis of loop stride which is not a symbol not yet implemented", 0);
             }
         }
-        else if (step.is<Nodecl::Postincrement>())
+        else if (stride.is<Nodecl::Postincrement>())
         {
-            Nodecl::Preincrement step_ = step.as<Nodecl::Preincrement>();
-            Nodecl::NodeclBase rhs = step_.get_rhs();
+            Nodecl::Preincrement stride_ = stride.as<Nodecl::Preincrement>();
+            Nodecl::NodeclBase rhs = stride_.get_rhs();
             
             Symbol s = rhs.get_symbol();
             if (s.is_valid())
@@ -326,10 +326,10 @@ namespace TL
                 if ( (loop_info_var = induction_vars_l_contains_symbol(s)) != NULL )
                 {
                     nodecl_t one = const_value_to_nodecl(const_value_get_one(/* bytes */ 4, /* signed*/ 1));
-                    loop_info_var->set_step(Nodecl::NodeclBase(one));
-                    loop_info_var->set_step_is_one(true);
-                    loop_info_var->set_step_is_positive(1);
-                    std::cerr << "Setting to 1 positive step in symbol " << loop_info_var->get_symbol().get_name() << std::endl;
+                    loop_info_var->set_stride(Nodecl::NodeclBase(one));
+                    loop_info_var->set_stride_is_one(true);
+                    loop_info_var->set_stride_is_positive(1);
+                    std::cerr << "Setting to 1 positive stride in symbol " << loop_info_var->get_symbol().get_name() << std::endl;
                 }
                 else
                 {
@@ -338,13 +338,13 @@ namespace TL
             }
             else 
             {
-                internal_error("Analysis of loop step which is not a symbol not yet implemented", 0);
+                internal_error("Analysis of loop stride which is not a symbol not yet implemented", 0);
             }            
         }
         else
         {
-            internal_error("Node kind '%s' while analysing the induction variables in loop step expression not yet implemented",
-                ast_print_node_type(step.get_kind()));            
+            internal_error("Node kind '%s' while analysing the induction variables in loop stride expression not yet implemented",
+                ast_print_node_type(stride.get_kind()));            
         }
     }
     
@@ -353,8 +353,8 @@ namespace TL
         std::cerr << "***** Symbol: " << var_info->get_symbol().get_name() << std::endl;
         std::cerr << "          LB = " << c_cxx_codegen_to_str(var_info->get_lb().get_internal_nodecl()) << std::endl;
         std::cerr << "          UB = " << c_cxx_codegen_to_str(var_info->get_ub().get_internal_nodecl()) << std::endl;
-        std::cerr << "          STEP = " << c_cxx_codegen_to_str(var_info->get_step().get_internal_nodecl()) << std::endl;
-        std::cerr << "          IS_ONE = " << (var_info->step_is_one() == 1) << std::endl;
+        std::cerr << "          STEP = " << c_cxx_codegen_to_str(var_info->get_stride().get_internal_nodecl()) << std::endl;
+        std::cerr << "          IS_ONE = " << (var_info->stride_is_one() == 1) << std::endl;
     }
     
 
@@ -407,7 +407,7 @@ namespace TL
         // Compute loop control info
         traverse_loop_init(loop_control.get_init());
         traverse_loop_cond(loop_control.get_cond());
-        traverse_loop_step(loop_control.get_next());
+        traverse_loop_stride(loop_control.get_next());
         
         // Check whether the statements within the loop modify the induction variables founded in the loop control
         induction_vars_are_defined_in_node(loop_node);
@@ -431,7 +431,7 @@ namespace TL
         {
             InductionVarInfo* ivar = it->second;
             Symbol s(ivar->get_symbol());
-            result[s] = Nodecl::Range::make(ivar->get_lb(), ivar->get_ub(), ivar->get_step(), ivar->get_type(), 
+            result[s] = Nodecl::Range::make(ivar->get_lb(), ivar->get_ub(), ivar->get_stride(), ivar->get_type(), 
                                             s.get_filename(), s.get_line());
         }
         
@@ -472,9 +472,8 @@ namespace TL
     }
    
     void LoopAnalysis::set_access_range(Node* node, const char use_type, Nodecl::NodeclBase nodecl, 
-                                        std::map<Symbol, Nodecl::NodeclBase> ind_var_map)
+                                        std::map<Symbol, Nodecl::NodeclBase> ind_var_map, Nodecl::NodeclBase reach_def_var)
     {
-        std::cerr << "Renaming nodecl " << nodecl.prettyprint() << std::endl;
         CfgRenamingVisitor renaming_v(ind_var_map, nodecl.get_filename().c_str(), nodecl.get_line());
         ObjectList<Nodecl::NodeclBase> renamed = renaming_v.walk(nodecl);
         if (!renamed.empty())
@@ -492,52 +491,25 @@ namespace TL
                     node->unset_killed_var(ExtensibleSymbol(nodecl));
                     node->set_killed_var(ExtensibleSymbol(renamed[0]));
                 }
-                else if (use_type == '2')
+                else if (use_type == '2' || use_type == '3')
                 {
-                    node->unset_reaching_definition(nodecl);
-                    if (nodecl.is<Nodecl::ArraySubscript>() || nodecl.is<Nodecl::ArraySection>())
+                    InductionVarInfo* ind_var = induction_vars_l_contains_symbol(renaming_v.get_matching_symbol());
+                    int is_positive = ind_var->stride_is_positive();
+                    
+                    if (nodecl.is<Nodecl::ArraySubscript>())
                     {   // The access of the array is protected by the loop boundaries, we have to reduce by one the limits
-                        InductionVarInfo* ind_var = induction_vars_l_contains_symbol(renaming_v.get_matching_symbol());
-                        char is_positive = ind_var->step_is_positive();
-                        if (is_positive == 1)
-                        {
-                            nodecl_t one = const_value_to_nodecl(const_value_get_one(/* bytes */ 4, /* signed*/ 1));
+                        if ((is_positive == 0) || (is_positive == 1))
+                        {   
+                            std::cerr << "Renaming Subscript nodecl " << nodecl.prettyprint() << " by " << renamed[0].prettyprint() << std::endl;
                             
-                            if (nodecl.is<Nodecl::ArraySubscript>())
-                            {
-                                Nodecl::ArraySubscript rename = renamed[0].as<Nodecl::ArraySubscript>();
-                                Nodecl::NodeclBase subscripts = rename.get_subscripts();
-                                Nodecl::Range actual_range = rename.get_subscripts().as<Nodecl::Range>();
-                                Nodecl::NodeclBase upper = actual_range.get_upper();
-                                std::cerr << "actual range " << actual_range.prettyprint() << std::endl;
-                                std::cerr << " upper node " << upper.prettyprint() << " type: " << ast_print_node_type(subscripts.get_kind()) 
-                                        << std::endl;
-                                Nodecl::NodeclBase new_range = Nodecl::Range::make(actual_range.get_lower(),
-                                                                                Nodecl::Minus::make(actual_range.get_upper(),
-                                                                                                    Nodecl::IntegerLiteral(one),
-                                                                                                    nodecl.get_type(), 
-                                                                                                    nodecl.get_filename(), nodecl.get_line()),
-                                                                                actual_range.get_stride(),
-                                                                                nodecl.get_type(), nodecl.get_filename(), nodecl.get_line());
-                                node->set_reaching_definition(nodecl, new_range);
+                            if (use_type == '2')
+                            {   // We are renaming the key, this is the defined variable
+                                node->rename_reaching_defintion_var(nodecl, renamed[0]);
                             }
                             else
-                            {
-                                internal_error("Array Sections not yet implemented for induction variable range substitution", 0);
+                            {   //  We are renaming the init expression of a reaching definition
+                                node->set_reaching_definition(reach_def_var, renamed[0]);
                             }
-                        }
-                        else if (is_positive == 0)
-                        {
-                            nodecl_t one = const_value_to_nodecl(const_value_get_one(/* bytes */ 4, /* signed*/ 1));
-                            Nodecl::Range actual_range = renamed[0].as<Nodecl::Range>();
-                            Nodecl::NodeclBase new_range = Nodecl::Range::make(Nodecl::Add::make(actual_range.get_lower(),
-                                                                                                 Nodecl::IntegerLiteral(one),
-                                                                                                 nodecl.get_type(), 
-                                                                                                 nodecl.get_filename(), nodecl.get_line()), 
-                                                                               actual_range.get_upper(),
-                                                                               actual_range.get_stride(),
-                                                                               nodecl.get_type(), nodecl.get_filename(), nodecl.get_line());
-                            node->set_reaching_definition(nodecl, new_range);
                         }
                         else
                         {   // We cannot define the boundaries of the loop
@@ -545,15 +517,64 @@ namespace TL
                         }
                     }
                     else
-                    {   // if the variable is the induction variable, then the range overpasses the loop limits
-                        node->set_reaching_definition(nodecl, renamed[0]);
+                    {  
+                        if (use_type == '3')
+                        {   // In a reaching definition, we cannot modify the defined variable, just the init expression
+                            Nodecl::NodeclBase new_range = renamed[0];
+                            
+                            if (is_positive == 0 || is_positive == 1)
+                            {
+                                // if induction variable is in the stride of a FOR loop, then the range overpasses the loop limits
+                                if (ExtensibleGraph::is_for_loop_increment(node) != NULL)
+                                {
+                                    nodecl_t one = const_value_to_nodecl(const_value_get_one(/* bytes */ 4, /* signed*/ 1));
+                                    
+                                    if (is_positive == 0)
+                                    {
+                                        Nodecl::ArraySubscript rename = renamed[0].as<Nodecl::ArraySubscript>();
+                                        Nodecl::List subscripts = rename.get_subscripts().as<Nodecl::List>();
+                                        Nodecl::Range actual_range = subscripts[0].as<Nodecl::Range>();
+                                        Nodecl::NodeclBase new_range = Nodecl::Range::make(actual_range.get_lower(), actual_range.get_upper(), 
+                                                                                           actual_range.get_stride(), nodecl.get_type(),
+                                                                                           nodecl.get_filename(), nodecl.get_line());
+                                        
+                                        new_range = Nodecl::Range::make(Nodecl::Minus::make(actual_range.get_lower(),
+                                                                                            Nodecl::IntegerLiteral(one),
+                                                                                            nodecl.get_type(),
+                                                                                            nodecl.get_filename(), nodecl.get_line()),
+                                                                        actual_range.get_upper(),
+                                                                        actual_range.get_stride(),
+                                                                        nodecl.get_type(), nodecl.get_filename(), nodecl.get_line());
+                                
+                                    }
+                                    else if (is_positive == 1)
+                                    {
+                                        Nodecl::Range actual_range = renamed[0].as<Nodecl::Range>();
+                                        
+                                        new_range = Nodecl::Range::make(actual_range.get_lower(),
+                                                                                        Nodecl::Add::make(actual_range.get_upper(),
+                                                                                                            Nodecl::IntegerLiteral(one),
+                                                                                                            nodecl.get_type(), 
+                                                                                                            nodecl.get_filename(), nodecl.get_line()),
+                                                                                        actual_range.get_stride(),
+                                                                                        nodecl.get_type(), nodecl.get_filename(), nodecl.get_line());
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                new_range == Nodecl::NodeclBase::null();
+                            }
+                            
+                            std::cerr << "Renaming nodecl " << nodecl.prettyprint() << " by " << new_range.prettyprint() << std::endl;
+                            node->set_reaching_definition(nodecl, new_range);                            
+                        }
                     }
                 }                
                 else
                 {
                     internal_error("Unexpected type of variable use '%s' in node '%d'", use_type, node->get_id());
-                }                    
-                std::cerr << "Converting nodecl " << nodecl.prettyprint() << " to " << renamed[0].prettyprint() << std::endl;
+                }
             }
             else
             {
@@ -579,8 +600,9 @@ namespace TL
         std::map<Symbol, Nodecl::NodeclBase> ind_var_map = get_induction_vars_mapping();
         for(nodecl_map::iterator it = nodecl_m.begin(); it != nodecl_m.end(); ++it)
         {
+            Nodecl::NodeclBase first = it->first, second = it->second;
             set_access_range(node, '2', it->first, ind_var_map);
-            set_access_range(node, '2', it->second, ind_var_map);
+            set_access_range(node, '3', it->second, ind_var_map, it->first);
         }        
     }
     
@@ -599,7 +621,6 @@ namespace TL
                 }
                 else if (ntype == BASIC_NORMAL_NODE || ntype == BASIC_LABELED_NODE)
                 {   // Check for arrays in that are used in some way within the BB statements
-                    
                     set_access_range_in_ext_sym_set(node, node->get_ue_vars(), /* use type */ '0');
                     set_access_range_in_ext_sym_set(node, node->get_killed_vars(), /* use type */ '1');
                     set_access_range_in_nodecl_map(node, node->get_reaching_definitions());

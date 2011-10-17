@@ -51,8 +51,8 @@ namespace TL
             if (!(*it)->has_use_def_computed())
             {
                 std::cerr << "****************** GRAPH " << (*it)->get_name() << " ******************" << std::endl;
+                cfg_visitor.set_actual_cfg(*it);
                 cfg_visitor.compute_use_def_chains((*it)->get_graph());
-                (*it)->set_use_def_computed();
             }
         }
       

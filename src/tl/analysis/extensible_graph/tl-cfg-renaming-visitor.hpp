@@ -72,7 +72,7 @@ namespace TL
             Ret unhandled_node(const Nodecl::NodeclBase& n);
             Ret visit(const Nodecl::Symbol& n);
             Ret visit(const Nodecl::ArraySubscript& n);
-            Ret visit(const Nodecl::ArraySection& n);
+            Ret visit(const Nodecl::Range& n);
             Ret visit(const Nodecl::ClassMemberAccess& n);
             Ret visit(const Nodecl::Derreference& n);
             Ret visit(const Nodecl::Reference& n);

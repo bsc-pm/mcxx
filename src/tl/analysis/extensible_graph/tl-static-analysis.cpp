@@ -552,17 +552,6 @@ namespace TL
                                                         s_map.get_filename().c_str(), s_map.get_line());
                 }
             }
-            else if (n.is<Nodecl::ArraySection>())
-            {
-                Nodecl::ArraySection aux = n.as<Nodecl::ArraySection>();
-                Nodecl::NodeclBase subscripted = match_nodecl_with_symbol(aux.get_subscripted(), s, s_map);
-                if (!subscripted.is_null())
-                {
-                    std::cerr << "Returning an array section of symbol " << subscripted.prettyprint() << std::endl;
-                    return Nodecl::ArraySection::make(subscripted, aux.get_lower(), aux.get_upper(),
-                                                    s_map.get_type(), s_map.get_filename().c_str(), s_map.get_line());
-                }
-            }
             else if (n.is<Nodecl::Derreference>())
             {
                 Nodecl::Derreference aux = n.as<Nodecl::Derreference>();

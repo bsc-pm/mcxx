@@ -54,6 +54,11 @@ namespace TL
         return _cfgs;
     }
     
+    void CfgVisitor::set_actual_cfg(ExtensibleGraph* graph)
+    {
+        _actual_cfg = graph;
+    }
+    
     void CfgVisitor::build_cfg(RefPtr<Nodecl::NodeclBase> nodecl, std::string graph_name)
     {
         if (nodecl->is<Nodecl::TopLevel>() || nodecl->is<Nodecl::FunctionCode>())
@@ -377,25 +382,22 @@ namespace TL
         _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(subscripts);
         
         Node* merged = merge_nodes(n, subscripted[0], subscripts[0]);
-        _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(merged);
-
+        _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(merged);        
+        
         return ObjectList<Node*>(1, merged);
     }
-   
-    CfgVisitor::Ret CfgVisitor::visit(const Nodecl::ArraySection& n)
+
+    CfgVisitor::Ret CfgVisitor::visit(const Nodecl::Range& n)
     {
-        internal_error("ArraySection nodes are not properly built", 0);
-        ObjectList<Node*> subscripted = walk(n.get_subscripted());
-        
-        ObjectList<Node*> lb_last_nodes = _actual_cfg->_last_nodes;
-        _actual_cfg->_last_nodes.clear();
         ObjectList<Node*> lower = walk(n.get_lower());
         ObjectList<Node*> upper = walk(n.get_upper());
-        
-        ObjectList<Node*> section = subscripted; section.append(lower); section.append(upper);
-        Node* merged = merge_nodes(n, section);
-        _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(merged);
+        ObjectList<Node*> stride = walk(n.get_stride());
 
+        std::cerr << "FIXME: Range node creation not correct." << std::endl;
+        Node* merged_limits = merge_nodes(n, lower[0], upper[0]);
+        Node* merged = merge_nodes(n, merged_limits, stride[0]);
+        _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(merged);
+       
         return ObjectList<Node*>(1, merged);
     }
 

@@ -37,9 +37,9 @@ namespace TL
         Symbol _s;
         Nodecl::NodeclBase _lb;
         Nodecl::NodeclBase _ub;     // value included in the range
-        Nodecl::NodeclBase _step;
-        bool _step_is_one;
-        int _step_is_positive;
+        Nodecl::NodeclBase _stride;
+        bool _stride_is_one;
+        int _stride_is_positive;
         
         InductionVarInfo(Symbol s, Nodecl::NodeclBase lb);
         
@@ -50,14 +50,14 @@ namespace TL
         void set_lb(Nodecl::NodeclBase lb);
         Nodecl::NodeclBase get_ub() const;
         void set_ub(Nodecl::NodeclBase ub);
-        Nodecl::NodeclBase get_step() const;
-        void set_step(Nodecl::NodeclBase step);
-        bool step_is_one() const;
-        void set_step_is_one(bool step_is_one);
+        Nodecl::NodeclBase get_stride() const;
+        void set_stride(Nodecl::NodeclBase stride);
+        bool stride_is_one() const;
+        void set_stride_is_one(bool stride_is_one);
         /*!\return 0 if negative, 1 if positive, 2 if we cannot compute it
          */        
-        int step_is_positive() const;
-        void set_step_is_positive(int step_is_positive);
+        int stride_is_positive() const;
+        void set_stride_is_positive(int stride_is_positive);
         
         bool operator==(const InductionVarInfo &v) const;
         bool operator<(const InductionVarInfo &v) const;
@@ -83,12 +83,12 @@ namespace TL
         void compute_induction_vars_from_loop_control(Nodecl::LoopControl loop_control, Node* loop_node);
         void traverse_loop_init(Nodecl::NodeclBase init);
         void traverse_loop_cond(Nodecl::NodeclBase cond);
-        void traverse_loop_step(Nodecl::NodeclBase step);
+        void traverse_loop_stride(Nodecl::NodeclBase stride);
         
         void compute_ranges_for_variables_in_loop(Node* node);
         
         void set_access_range(Node* node, const char use_type, Nodecl::NodeclBase nodecl, 
-                              std::map<Symbol, Nodecl::NodeclBase> ind_var_map);
+                              std::map<Symbol, Nodecl::NodeclBase> ind_var_map, Nodecl::NodeclBase reach_def_var = Nodecl::NodeclBase::null());
         
         /*!
          * Looks for any induction variable contained in a list of nodecls and

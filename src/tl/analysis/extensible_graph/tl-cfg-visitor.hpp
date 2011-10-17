@@ -146,6 +146,7 @@ namespace TL
     class LIBTL_CLASS CfgVisitor : public Nodecl::NodeclVisitor<Node*>
     {
     protected:
+        //! Used during the building of the graphs
         ExtensibleGraph* _actual_cfg;
         
         ObjectList<ExtensibleGraph*> _cfgs;
@@ -273,6 +274,8 @@ namespace TL
         
         // *** Non visiting methods *** //
         
+        void set_actual_cfg(ExtensibleGraph* graph);
+        
         //! This method returns the list of extensible graphs generated while visiting a Nodecl
         ObjectList<ExtensibleGraph*> get_cfgs() const;
         
@@ -312,7 +315,7 @@ namespace TL
         Ret visit(const Nodecl::ParenthesizedExpression& n);
         Ret visit(const Nodecl::ObjectInit& n);
         Ret visit(const Nodecl::ArraySubscript& n);
-        Ret visit(const Nodecl::ArraySection& n);
+        Ret visit(const Nodecl::Range& n);
         Ret visit(const Nodecl::ClassMemberAccess& n);
         Ret visit(const Nodecl::FortranNamedPairSpec& n);
         Ret visit(const Nodecl::Concat& n);

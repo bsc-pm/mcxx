@@ -991,4 +991,39 @@ namespace TL
     {
         _use_def_computed = '1';
     }
+    
+    //! This method returns the most outer node of a node before finding a loop node
+    static Node* advance_over_outer_nodes_until_loop(Node* node)
+    {
+        Node* outer = node->get_outer_node();
+        if (outer->get_graph_type() == LOOP)
+        {
+            return node;
+        }
+        else if (outer != NULL)
+        {
+            return advance_over_outer_nodes_until_loop(outer);
+        }
+        
+        return outer;
+    }
+    
+    // A node will be the increment of a FOR loop if its only children has 
+    // - as parent a ENTRY_NODE, 
+    // - as one of its children, joined with a FALSE_EDGE, a EXIT_NODE
+    Node* ExtensibleGraph::is_for_loop_increment(Node* node)
+    {
+        // Get outer node of the actual node which is the potential increment of a loop (jump over func_calls, split_exprs, ...)
+        Node* potential_loop_increment = advance_over_outer_nodes_until_loop(node);
+        Node* loop_node = potential_loop_increment->get_outer_node();
+        Node* loop_entry = loop_node->get_graph_entry_node();
+        
+        ObjectList<Node*> children = potential_loop_increment->get_children();
+        if ( (children.size() == 1) && (*children[0] == *loop_entry->get_children()[0]) )
+        {
+            return potential_loop_increment;
+        }
+        
+        return NULL;
+    }
 }

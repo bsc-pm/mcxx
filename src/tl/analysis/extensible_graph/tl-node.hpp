@@ -131,7 +131,7 @@ namespace TL
             //! must be included in the list
             Node(int& id, Node_type type, Node* outer_graph, Nodecl::NodeclBase nodecl);
             
-            Node* copy(Node* outer_node);
+            bool operator==(const Node& node) const;
            
             
             // *** Modifiers *** //
@@ -394,6 +394,7 @@ namespace TL
 
             //! Set to one variable a new expression value and append this relationship to the node
             void set_reaching_definition(Nodecl::NodeclBase var, Nodecl::NodeclBase init);
+            void rename_reaching_defintion_var(Nodecl::NodeclBase old_var, Nodecl::NodeclBase new_var);
             
             //!Deletes an old reaching definition from the node
             void unset_reaching_definition(Nodecl::NodeclBase var);
