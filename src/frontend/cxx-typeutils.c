@@ -317,6 +317,9 @@ struct array_region_tag
     // array, this is always whole_size - 1
     nodecl_t upper_bound;
     
+    // The stride of a region is 1 by default
+    nodecl_t stride;
+    
     // Scope of the array region expressions
     decl_context_t region_decl_context;
 } array_region_t;
@@ -2538,54 +2541,6 @@ type_t* get_array_type(type_t* element_type, nodecl_t whole_size, decl_context_t
     return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context, /* array_region */ NULL);
 }
 
-type_t* get_array_type_with_regions(type_t* element_type, 
-        nodecl_t whole_size, 
-        decl_context_t decl_context,
-        nodecl_t region_whole_size,
-        decl_context_t region_decl_context)
-{
-    whole_size = nodecl_copy(whole_size);
-
-    nodecl_t lower_bound = nodecl_null(); 
-    nodecl_t upper_bound = nodecl_null(); 
-    if (!nodecl_is_null(whole_size))
-    {
-        lower_bound = get_zero_tree(nodecl_get_filename(whole_size), nodecl_get_line(whole_size));
-
-        upper_bound = nodecl_make_minus(
-                nodecl_make_parenthesized_expression(nodecl_copy(whole_size), 
-                    nodecl_get_type(whole_size),
-                    nodecl_get_filename(whole_size), 
-                    nodecl_get_line(whole_size)),
-                get_one_tree(nodecl_get_filename(whole_size), nodecl_get_line(whole_size)),
-                nodecl_get_type(whole_size),
-                nodecl_get_filename(whole_size), nodecl_get_line(whole_size));
-    }
-
-    nodecl_t region_lower_bound = nodecl_null(); 
-    nodecl_t region_upper_bound = nodecl_null(); 
-
-    region_lower_bound = get_zero_tree(nodecl_get_filename(region_whole_size), nodecl_get_line(region_whole_size));
-
-    region_upper_bound = nodecl_make_minus(
-            nodecl_make_parenthesized_expression(nodecl_copy(region_whole_size), 
-                nodecl_get_type(region_whole_size),
-                nodecl_get_filename(region_whole_size), 
-                nodecl_get_line(region_whole_size)),
-            get_one_tree(nodecl_get_filename(region_whole_size), nodecl_get_line(region_whole_size)),
-            nodecl_get_type(region_whole_size),
-            nodecl_get_filename(region_whole_size), nodecl_get_line(region_whole_size));
-
-
-    array_region_t* array_region = counted_calloc(1, sizeof(*array_region), &_bytes_due_to_type_system);
-    array_region->lower_bound = region_lower_bound;
-    array_region->upper_bound = region_upper_bound;
-    array_region->whole_size = region_whole_size;
-    array_region->region_decl_context = region_decl_context;
-
-    return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context, array_region);
-}
-
 type_t* get_array_type_bounds(type_t* element_type,
         nodecl_t lower_bound,
         nodecl_t upper_bound,
@@ -2633,8 +2588,7 @@ type_t* get_array_type_bounds_with_regions(type_t* element_type,
         nodecl_t lower_bound,
         nodecl_t upper_bound,
         decl_context_t decl_context,
-        nodecl_t region_lower_bound,
-        nodecl_t region_upper_bound,
+        nodecl_t region,
         decl_context_t region_decl_context)
 {
     nodecl_t whole_size = nodecl_null();
@@ -2671,6 +2625,10 @@ type_t* get_array_type_bounds_with_regions(type_t* element_type,
 
     nodecl_t one_tree = get_one_tree(nodecl_get_filename(lower_bound), nodecl_get_line(lower_bound));
 
+    nodecl_t region_lower_bound = nodecl_get_child(region, 0);
+    nodecl_t region_upper_bound = nodecl_get_child(region, 1);
+    nodecl_t region_stride = nodecl_get_child(region, 2);
+    
     nodecl_t region_whole_size = nodecl_make_add(
             nodecl_make_parenthesized_expression(
                 nodecl_make_minus(
@@ -2696,6 +2654,7 @@ type_t* get_array_type_bounds_with_regions(type_t* element_type,
     array_region_t* array_region = counted_calloc(1, sizeof(*array_region), &_bytes_due_to_type_system);
     array_region->lower_bound = region_lower_bound;
     array_region->upper_bound = region_upper_bound;
+    array_region->stride = region_stride;
     array_region->whole_size = region_whole_size;
     array_region->region_decl_context = region_decl_context;
     
@@ -5382,6 +5341,14 @@ nodecl_t array_type_get_region_upper_bound(type_t* t)
     t = advance_over_typedefs(t);
 
     return t->array->region->upper_bound;    
+}
+
+nodecl_t array_type_get_region_stride(type_t* t)
+{
+    ERROR_CONDITION(!is_array_type(t), "This is not an array type", 0);
+    t = advance_over_typedefs(t);
+
+    return t->array->region->stride;    
 }
 
 char array_type_is_vla(type_t* t)
