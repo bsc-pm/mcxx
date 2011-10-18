@@ -136,10 +136,21 @@ namespace Codegen
 
         private:
 
-            // State
-            TL::Scope current_scope;
             std::stringstream file;
-            TL::Symbol current_symbol;
+
+            // State
+            struct State
+            {
+                TL::Scope current_scope;
+
+                TL::Symbol current_symbol;
+
+                bool in_condition;
+
+                Nodecl::NodeclBase condition_top;
+
+                bool do_not_emit_declarations;
+            } state;
             // End of State
 
             void define_symbol(TL::Symbol symbol);
@@ -147,6 +158,7 @@ namespace Codegen
 
             void define_all_entities_in_trees(const Nodecl::NodeclBase&);
             void define_nonlocal_entities_in_trees(const Nodecl::NodeclBase&);
+            void define_local_entities_in_trees(const Nodecl::NodeclBase&);
 
             void walk_type_for_symbols(TL::Type, 
                     bool needs_def, 
@@ -157,6 +169,21 @@ namespace Codegen
             std::map<TL::Symbol, codegen_status_t> _codegen_status;
             void set_codegen_status(TL::Symbol sym, codegen_status_t status);
             codegen_status_t get_codegen_status(TL::Symbol sym);
+
+            void move_to_namespace_of_symbol(TL::Symbol symbol);
+
+            void indent();
+            void inc_indent(int n = 1);
+            void dec_indent(int n = 1);
+            int get_indent_level();
+            void set_indent_level(int);
+
+            void walk_list(const Nodecl::NodeclBase&, const std::string& separator);
+            void walk_expression_list(const Nodecl::NodeclBase&);
+
+            static bool operand_has_lower_priority(const Nodecl::NodeclBase& operation, const Nodecl::NodeclBase& operand);
+            static std::string quote_c_string(int* c, int length, char is_wchar);
+            static bool nodecl_calls_to_constructor(const Nodecl::NodeclBase&, TL::Type t);
     };
 }
 

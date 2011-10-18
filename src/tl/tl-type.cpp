@@ -838,14 +838,6 @@ namespace TL
         return Type(::advance_over_typedefs(_type_info));
     }
 
-    Type Type::advance_over_typedefs_cv()
-    {
-        cv_qualifier_t cv = CV_NONE;
-        type_t* type = ::advance_over_typedefs_with_cv_qualif(_type_info, &cv);
-
-        return Type(get_cv_qualified_type(type, cv));
-    }
-
     ObjectList<Symbol> Type::get_bases_class_symbol_list()
     {
         ObjectList<Symbol> base_symbol_list;

@@ -99,16 +99,26 @@ namespace TL
             std::string get_name() const;
 
             //! Returns a fully qualified name
-            /*
+            /*!
              * \remark This function will give bogus names to templates parameters. Use get_qualified_name(Scope)
              * instead.
              */
-            std::string get_qualified_name(bool without_template_id = 0) const;
+            std::string get_qualified_name(bool without_template_id = false) const;
+            
             //! Returns a fully qualified name
-            /*
+            /*!
              * \param sc Scope used to lookup template parameter names
              */
-            std::string get_qualified_name(Scope sc, bool without_template_id = 0) const;
+            std::string get_qualified_name(Scope sc, bool without_template_id = false) const;
+
+            //! Returns the part of the qualified name that involves classes
+            std::string get_class_qualification(bool without_template_id = false) const;
+            
+            //! Returns the part of the qualified name that involves classes
+            /*!
+             * \param sc Scope used to lookup template parameters names
+             */
+            std::string get_class_qualification(Scope sc, bool without_template_id = false) const;
 
             //! Gets the scope where this symbol is defined
             Scope get_scope() const;
@@ -141,10 +151,15 @@ namespace TL
             bool is_function() const;
             //! States whether this symbol is a template function
             bool is_template_function_name() const;
+            
             //! States whether this symbol is a parameter of a function
             bool is_parameter() const;
             //! Returns the position of this parameter
             int get_parameter_position() const;
+
+            //! States whether this symbol is a template parameter
+            //! States whether this symbol is a template parameter
+            bool is_template_parameter() const;
 
             //! States whether what was named is a dependent entity
             bool is_dependent_entity() const;
@@ -201,11 +216,25 @@ namespace TL
             //! States whether this member function is a conversion function
             bool is_conversion_function() const;
 
+            //! States whether this member function is a destructor
+            bool is_destructor() const;
+
             //! States whether this member function is a constructor
             bool is_constructor() const;
 
             //! States whether this member function is a constructor flagged as explicit
             bool is_explicit_constructor() const;
+
+            //! States whether this function was defined with no exception-specifier
+            bool function_throws_any_exception() const;
+
+            //! Returns the thrown exceptions
+            /*!
+             * \note This function returns empty if function_throws_any_exception is true
+             * but it may return empty if it function_throws_any_exception returns false.
+             * That latter case means 'throw()'
+             */
+            ObjectList<TL::Type> get_thrown_exceptions() const;
 
             //! States whether the symbol has been defined in namespace scope
             bool has_namespace_scope() const;
@@ -250,12 +279,6 @@ namespace TL
               class specifier.
              */
             Nodecl::NodeclBase get_definition_tree() const;
-
-            //! States whether the symbol has a given gcc attribute
-            bool has_gcc_attribute(const std::string &str) const;
-            
-            //! Returns the associated argument of a gcc attribute
-            Nodecl::NodeclBase get_argument_of_gcc_attribute(const std::string &str) const;
 
             // States whether the symbol is defined 
             /*! This function might not make sense for all kind of symbols
@@ -358,7 +381,7 @@ namespace TL
             bool is_generic_specifier() const;
 
             //! Returns the symbols related to this one
-            /*
+            /*!
              * The exact set returned depends on the kind of the symbol as kept by the frontend
              */
             ObjectList<TL::Symbol> get_related_symbols() const;
@@ -366,6 +389,11 @@ namespace TL
             //! Returns the gcc attributes of this symbol
             ObjectList<GCCAttribute> get_gcc_attributes() const;
 
+            //! __asm__ specifier
+            /*!
+             * The tree related to the __asm__ specifier. This is a GCC extension
+             */
+            Nodecl::NodeclBase get_asm_specification() const;
         private:
             scope_entry_t* _symbol;
     };

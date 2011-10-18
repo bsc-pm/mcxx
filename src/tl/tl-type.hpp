@@ -367,32 +367,11 @@ namespace TL
             /*! 
               This function advances over a typedef as many times
               as needed until it reaches a type that is not a typedef.
-              Note that this function does not combine cv-qualifiers
-              found while advancing typedefs. This is relevant
-              for cases like the one below:
-
-              \code
-              typedef int T;
-              typedef const T Q;
-              typedef volatile S;
-              \endcode
-
-              'S' would be simplified to 'int' while if cv-qualifiers
-              were properly considered it would be 'const volatile int'.
-              Use advance_over_typedefs_cv to get the properly cv-qualified
-              type.
               */
             Type advance_over_typedefs();
 
-            //! Advances over typedefs preserving cv-qualification
-            /*!
-              \see advance_over_typedefs
-             */
-            Type advance_over_typedefs_cv();
-
             //! Get the symbol list of classes which are base of the type
             ObjectList<Symbol> get_bases_class_symbol_list();
-
 
             //! States whether current type type is a function-type
             bool is_function() const;

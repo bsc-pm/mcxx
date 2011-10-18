@@ -103,6 +103,37 @@ namespace TL
         }
     }
 
+    std::string Symbol::get_class_qualification(bool without_template_id) const
+    {
+        return this->get_class_qualification(_symbol->decl_context, without_template_id);
+    }
+
+    std::string Symbol::get_class_qualification(Scope sc, bool without_template_id) const
+    {
+        if (_symbol->symbol_name == NULL)
+        {
+            return std::string("");
+        }
+        else
+        {
+            const char* (*ptr_fun)(struct
+                    scope_entry_tag* entry, decl_context_t decl_context, char*
+                    is_dependent, int* max_qualif_level) = get_class_qualification_of_symbol;
+
+            if (without_template_id)
+            {
+                ptr_fun = get_class_qualification_of_symbol_without_template;
+            }
+
+            int max_level = 0;
+            char is_dependent = 0;
+            const char* qualified_name = ptr_fun(_symbol, sc._decl_context, 
+                    &is_dependent, &max_level);
+
+            return std::string(qualified_name);
+        }
+    }
+
     bool Symbol::operator<(Symbol s) const
     {
         return this->_symbol < s._symbol;
@@ -171,6 +202,11 @@ namespace TL
     bool Symbol::is_dependent_entity() const
     {
         return (this->_symbol->kind == SK_DEPENDENT_ENTITY);
+    }
+
+    bool Symbol::is_template_parameter() const
+    {
+        return _symbol->entity_specs.is_template_parameter;
     }
 
     bool Symbol::is_typename() const
@@ -258,6 +294,11 @@ namespace TL
         return (_symbol->entity_specs.is_conversion);
     }
 
+    bool Symbol::is_destructor() const
+    {
+        return (_symbol->entity_specs.is_destructor);
+    }
+
     // Is a constructor
     bool Symbol::is_constructor() const
     {
@@ -268,6 +309,23 @@ namespace TL
     bool Symbol::is_explicit_constructor() const
     {
         return (_symbol->entity_specs.is_explicit);
+    }
+    
+    bool Symbol::function_throws_any_exception() const
+    {
+        return (_symbol->entity_specs.any_exception);
+    }
+
+    ObjectList<TL::Type> Symbol::get_thrown_exceptions() const
+    {
+        ObjectList<TL::Type> result;
+
+        for (int i = 0; i < _symbol->entity_specs.num_exceptions; i++)
+        {
+            result.append(_symbol->entity_specs.exceptions[i]);
+        }
+
+        return result;
     }
 
     bool Symbol::has_initialization() const
@@ -324,35 +382,12 @@ namespace TL
     {
         return Nodecl::NodeclBase::null();
     }
+
+    Nodecl::NodeclBase Symbol::get_asm_specification() const
+    {
+        return _symbol->entity_specs.asm_specification;
+    }
     
-    bool Symbol::has_gcc_attribute(const std::string &str) const
-    {
-        for (int i = 0; i < _symbol->entity_specs.num_gcc_attributes; i++)
-        {
-            std::string current_gcc_attr(_symbol->entity_specs.gcc_attributes[i].attribute_name);
-
-            if (current_gcc_attr == str)
-                return true;
-        }
-
-        return false;
-    }
-
-    Nodecl::NodeclBase Symbol::get_argument_of_gcc_attribute(const std::string &str) const
-    {
-        for (int i = 0; i < _symbol->entity_specs.num_gcc_attributes; i++)
-        {
-            std::string current_gcc_attr(_symbol->entity_specs.gcc_attributes[i].attribute_name);
-
-            if (current_gcc_attr == str)
-            {
-                return _symbol->entity_specs.gcc_attributes[i].expression_list;
-            }
-        }
-
-        return Nodecl::NodeclBase::null();
-    }
-
     bool Symbol::is_defined() const
     {
         return _symbol->defined;
@@ -509,4 +544,5 @@ namespace TL
     {
         return Nodecl::List(_attr.expression_list);
     }
+
 }
