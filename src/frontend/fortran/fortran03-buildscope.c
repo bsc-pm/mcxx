@@ -2495,7 +2495,7 @@ static void build_scope_case_statement(AST a, decl_context_t decl_context, nodec
             if (upper_bound != NULL)
                 fortran_check_expression(upper_bound, decl_context, &nodecl_upper_bound);
 
-            nodecl_t nodecl_stride = const_value_to_nodecl(const_value_get_one(/* bytes */ 4, /* signed */ 1));
+            nodecl_t nodecl_stride = const_value_to_nodecl(const_value_get_one(/* bytes */ fortran_get_default_integer_type_kind(), /* signed */ 1));
 
             nodecl_t nodecl_triplet = nodecl_make_range(
                     nodecl_lower_bound,
@@ -2856,6 +2856,10 @@ static void generic_implied_do_handler(AST a, decl_context_t decl_context,
     if (stride != NULL)
     {
         fortran_check_expression(stride, decl_context, &nodecl_stride);
+    }
+    else
+    {
+        nodecl_stride = const_value_to_nodecl(const_value_get_one(/* bytes */ fortran_get_default_integer_type_kind(), /* signed */ 1));
     }
 
     scope_entry_t* do_variable = query_name_with_locus(decl_context, io_do_variable, ASTText(io_do_variable));
@@ -3385,6 +3389,10 @@ static void build_scope_do_construct(AST a, decl_context_t decl_context, nodecl_
     if (stride != NULL)
     {
         fortran_check_expression(stride, decl_context, &nodecl_stride);
+    }
+    else
+    {
+        nodecl_stride = const_value_to_nodecl(const_value_get_one(/* bytes */ fortran_get_default_integer_type_kind(), /* signed */ 1));
     }
 
     nodecl_t nodecl_statement = nodecl_null();
