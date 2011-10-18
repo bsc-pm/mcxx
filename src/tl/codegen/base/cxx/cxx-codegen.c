@@ -4495,9 +4495,6 @@ static void c_cxx_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
 {
     nodecl_init_walker((nodecl_external_visitor_t*)codegen_visitor, not_implemented_yet);
 
-    NODECL_VISITOR(codegen_visitor)->visit_try_block = codegen_visitor_fun(codegen_try_block);
-    NODECL_VISITOR(codegen_visitor)->visit_catch_handler = codegen_visitor_fun(codegen_catch_handler);
-    NODECL_VISITOR(codegen_visitor)->visit_parenthesized_expression = codegen_visitor_fun(codegen_parenthesized_expression);
     NODECL_VISITOR(codegen_visitor)->visit_new = codegen_visitor_fun(codegen_new);
     NODECL_VISITOR(codegen_visitor)->visit_delete = codegen_visitor_fun(codegen_delete);
     NODECL_VISITOR(codegen_visitor)->visit_delete_array = codegen_visitor_fun(codegen_delete_array);
