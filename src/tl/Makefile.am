@@ -50,6 +50,7 @@ BUILT_SOURCES += tl-lexer-tokens.hpp
 
 BUILT_SOURCES += tl-nodecl-visitor.hpp
 BUILT_SOURCES += tl-nodecl-visitor.cpp
+BUILT_SOURCES += tl-nodecl-fwd.hpp
 BUILT_SOURCES += tl-nodecl.hpp
 BUILT_SOURCES += tl-nodecl.cpp
 
@@ -89,6 +90,7 @@ libtl_la_SOURCES = \
     tl-nodecl-visitor.hpp \
     tl-nodecl-visitor.cpp \
     tl-nodecl-fwd.hpp \
+    tl-nodecl-base-fwd.hpp \
     tl-nodecl-base.hpp \
     tl-nodecl-base.cpp \
     tl-nodecl.hpp \
@@ -258,6 +260,9 @@ tl-lexer-tokens.hpp : $(PARSER_INFO_C) $(PARSER_INFO_CXX) $(PARSER_INFO_FORTRAN)
 
 NODECL_DEPS=$(srcdir)/../frontend/nodecl-generator.py $(srcdir)/../frontend/cxx-nodecl.def
 
+CLEANFILES += tl-nodecl-fwd.hpp
+tl-nodecl-fwd.hpp : $(NODECL_DEPS)
+	$(PYTHON_verbose)$(PYTHON) $(srcdir)/../frontend/nodecl-generator.py $(srcdir)/../frontend/cxx-nodecl.def cxx_nodecl_class_fwd_header > $@
 CLEANFILES += tl-nodecl.hpp
 tl-nodecl.hpp : $(NODECL_DEPS)
 	$(PYTHON_verbose)$(PYTHON) $(srcdir)/../frontend/nodecl-generator.py $(srcdir)/../frontend/cxx-nodecl.def cxx_nodecl_class_header > $@

@@ -734,6 +734,11 @@ namespace TL
         return (::is_template_type(_type_info));
     }
 
+    TemplateParameters Type::template_type_get_template_parameters() const
+    {
+        return ::template_type_get_template_parameters(_type_info);
+    }
+
     Type Type::get_primary_template() const
     {
         return ::template_type_get_primary_type(_type_info);
@@ -742,6 +747,11 @@ namespace TL
     bool Type::is_template_specialized_type() const
     {
         return (::is_template_specialized_type(_type_info));
+    }
+
+    TemplateParameters Type::template_specialized_type_get_template_arguments() const
+    {
+        return ::template_specialized_type_get_template_arguments(_type_info);
     }
 
     Type Type::get_related_template_type() const
@@ -912,5 +922,57 @@ namespace TL
     bool Type::is_variably_modified() const
     {
         return ::is_variably_modified_type(_type_info);
+    }
+
+    TemplateArgument::TemplateArgumentKind TemplateArgument::get_kind() const
+    {
+        return _tpl_param_value->kind;
+    }
+
+    Nodecl::NodeclBase TemplateArgument::get_value() const
+    {
+        return _tpl_param_value->value;
+    }
+
+    Type TemplateArgument::get_type() const
+    {
+        return _tpl_param_value->type;
+    }
+
+    bool TemplateArgument::is_default() const
+    {
+        return _tpl_param_value->is_default;
+    }
+    
+    int TemplateParameters::get_num_parameters() const
+    {
+        return _tpl_params->num_parameters;
+    }
+
+    std::pair<TL::Symbol, TemplateParameters::TemplateParameterKind> TemplateParameters::get_parameter_num(int n) const
+    {
+        return std::make_pair(_tpl_params->parameters[n]->entry, _tpl_params->parameters[n]->kind);
+    }
+
+    bool TemplateParameters::has_argument(int n) const
+    {
+        return (n < _tpl_params->num_parameters 
+                && _tpl_params->arguments != NULL
+                && _tpl_params->arguments[n] != NULL);
+    }
+
+    TemplateArgument TemplateParameters::get_argument_num(int n) const
+    {
+        return _tpl_params->arguments[n];
+    }
+
+    bool TemplateParameters::has_enclosing_parameters() const
+    {
+        return _tpl_params->enclosing != NULL;
+    }
+
+    TemplateParameters TemplateParameters::get_enclosing_parameters() const
+    {
+        return TemplateParameters(_tpl_params->enclosing);
     }
 }

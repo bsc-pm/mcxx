@@ -3,6 +3,8 @@
 
 namespace TL
 {
+    class TemplateArgument;
+    class TemplateParameters;
     class Type;
 }
 

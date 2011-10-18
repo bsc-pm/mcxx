@@ -2322,7 +2322,7 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
                     = template_specialized_type_get_template_parameters(primary_symbol->type_information);
 
                 template_parameter_list_t* deduced_template_arguments = NULL;
-                if (deduce_template_parameters_common(
+                if (deduce_template_arguments_common(
                             template_parameters, type_template_parameters,
                             argument_types, num_argument_types,
                             parameter_types, 

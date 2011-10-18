@@ -479,4 +479,34 @@ namespace TL
         return false;
 #endif
     }
+
+    ObjectList<Symbol> Symbol::get_related_symbols() const
+    {
+        ObjectList<Symbol> result;
+        for (int i = 0; i < _symbol->entity_specs.num_related_symbols; i++)
+        {
+            result.append(_symbol->entity_specs.related_symbols[i]);
+        }
+        return result;
+    }
+
+    ObjectList<GCCAttribute> Symbol::get_gcc_attributes() const
+    {
+        ObjectList<GCCAttribute> result;
+        for (int i = 0; i < _symbol->entity_specs.num_gcc_attributes; i++)
+        {
+            result.append(_symbol->entity_specs.gcc_attributes[i]);
+        }
+        return result;
+    }
+
+    std::string GCCAttribute::get_attribute_name() const
+    {
+        return _attr.attribute_name;
+    }
+
+    Nodecl::List GCCAttribute::get_expression_list() const
+    {
+        return Nodecl::List(_attr.expression_list);
+    }
 }

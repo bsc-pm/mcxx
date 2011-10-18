@@ -35,14 +35,15 @@
 #include <sstream>
 #include "tl-object.hpp"
 #include "tl-nodecl-fwd.hpp"
+#include "tl-symbol-fwd.hpp"
+#include "tl-scope-fwd.hpp"
 #include "tl-type-fwd.hpp"
+#include "tl-objectlist.hpp"
+#include "cxx-gccsupport-decls.h"
 #include "cxx-scope.h"
 
 namespace TL
 {
-    class Type;
-    class Scope;
-    
     //! \addtogroup Wrap 
     //! @{
     
@@ -356,8 +357,28 @@ namespace TL
               */
             bool is_generic_specifier() const;
 
+            //! Returns the symbols related to this one
+            /*
+             * The exact set returned depends on the kind of the symbol as kept by the frontend
+             */
+            ObjectList<TL::Symbol> get_related_symbols() const;
+
+            //! Returns the gcc attributes of this symbol
+            ObjectList<GCCAttribute> get_gcc_attributes() const;
+
         private:
             scope_entry_t* _symbol;
+    };
+
+    class LIBTL_CLASS GCCAttribute
+    {
+        private:
+            gather_gcc_attribute_t _attr;
+        public:
+            GCCAttribute(gather_gcc_attribute_t attr) : _attr() { }
+
+            std::string get_attribute_name() const;
+            Nodecl::List get_expression_list() const;
     };
     
     //! @}

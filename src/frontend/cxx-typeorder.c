@@ -220,7 +220,7 @@ static char is_less_or_equal_specialized_template_function_common_(type_t* f1, t
         deduction_flags.do_not_allow_conversions = 1;
     }
 
-    if (!deduce_template_parameters_common(
+    if (!deduce_template_arguments_common(
                 template_parameters, type_template_parameters,
                 arguments, num_arguments,
                 parameters, decl_context,
@@ -374,7 +374,7 @@ static char is_less_or_equal_specialized_template_conversion_function(
     template_parameter_list_t* template_parameters = 
         template_specialized_type_get_template_arguments(f1);
 
-    if (!deduce_template_parameters_common(
+    if (!deduce_template_arguments_common(
                 template_parameters, type_template_parameters,
                 arguments, num_arguments,
                 parameters, decl_context,

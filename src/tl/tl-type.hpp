@@ -35,6 +35,7 @@
 #include "tl-objectlist.hpp"
 #include "tl-symbol-fwd.hpp"
 #include "tl-scope-fwd.hpp"
+#include "tl-type-fwd.hpp"
 #include "tl-nodecl-fwd.hpp"
 
 #include "cxx-scope.h"
@@ -43,6 +44,57 @@ namespace TL
 {
     //! \addtogroup Wrap
     //! @{
+
+    class LIBTL_CLASS TemplateArgument : public Object
+    {
+        private:
+            template_parameter_value_t* _tpl_param_value;
+        public:
+            TemplateArgument(template_parameter_value_t* tpl_param_value) : _tpl_param_value(tpl_param_value) { }
+
+            typedef enum template_parameter_kind TemplateArgumentKind;
+
+            //! Returns the kind of this template argument
+            TemplateArgumentKind get_kind() const;
+
+            //! Retrieves the value of nontype template arguments
+            Nodecl::NodeclBase get_value() const;
+
+            //! Retrieves the type of the template argument
+            TL::Type get_type() const;
+
+            //! States whether this template argument is actually a default template argument of some template parameter
+            bool is_default() const;
+    };
+    
+    //! This class wraps a context of template parameters and its arguments
+    class LIBTL_CLASS TemplateParameters : public Object
+    {
+        private:
+            template_parameter_list_t* _tpl_params;
+        public:
+            TemplateParameters(template_parameter_list_t* tpl_params) : _tpl_params(tpl_params) { }
+
+            //! Returns the number of parameters in the current parameter level
+            int get_num_parameters() const;
+
+            typedef enum template_parameter_kind TemplateParameterKind;
+
+            //! Returns the n-th template parameter as a pair of the symbol and its kind
+            std::pair<TL::Symbol, TemplateParameterKind> get_parameter_num(int n) const;
+
+            //! Returns if this template parameter level has an argument at position n
+            bool has_argument(int n) const;
+
+            //! Returns the n-th template argument
+            TemplateArgument get_argument_num(int n) const;
+
+            //! States whether this level of template parameters is nested in another level of template parameters
+            bool has_enclosing_parameters() const;
+
+            //! Returns the enclosing template parameter level
+            TemplateParameters get_enclosing_parameters() const;
+    };
     
     //! This class wraps a type in the compiler type system
     class LIBTL_CLASS Type : public Object
@@ -549,17 +601,23 @@ namespace TL
              */
             bool is_template_type() const;
 
+            //! Returns the template parameters of a template type
+            TemplateParameters template_type_get_template_parameters() const;
+
             //! Returns the primary template of a template type
             //! This is always a named type, so you can get a symbol after it
             Type get_primary_template() const;
 
             //! States whether the type is a template specialized one
             /*!
-              A template specialized type is a type which was created
-              not by a user declaration but the instantiation of
-              a template type.
+              A template specialized type is a type which belongs to
+              the specialized set of a template type
             */
             bool is_template_specialized_type() const;
+
+            //! Returns the template arguments of a specialized template type
+            TemplateParameters template_specialized_type_get_template_arguments() const;
+            
 
             //! Returns the related template type of a specialized template type
             /*!

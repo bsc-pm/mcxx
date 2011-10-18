@@ -4,6 +4,7 @@
 namespace TL
 {
     class Symbol;
+    class GCCAttribute;
 }
 
 #endif // TL_SYMBOL_FWD_HPP

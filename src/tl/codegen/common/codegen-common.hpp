@@ -8,17 +8,17 @@
 
 namespace Codegen
 {
-    class CodegenVisitor : public Nodecl::NodeclVisitor<std::string>
+    class CodegenVisitor : public Nodecl::NodeclVisitor<void>
     {
-        virtual std::string codegen(const Nodecl::NodeclBase&) const = 0;
+        virtual std::string codegen(const Nodecl::NodeclBase&) = 0;
 
-        std::string codegen_to_file(const Nodecl::NodeclBase& n, FILE* f) const
+        void codegen_to_file(const Nodecl::NodeclBase& n, FILE* f)
         {
             std::string str ( this->codegen(n) );
             fprintf(f, "%s", str.c_str());
         }
 
-        std::ostream& codegen_to_ostream(const Nodecl::NodeclBase& n, std::ostream& os) const
+        std::ostream& codegen_to_ostream(const Nodecl::NodeclBase& n, std::ostream& os)
         {
             std::string str ( this->codegen(n) );
             os << str;
