@@ -7022,9 +7022,11 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
                 new_entry = new_symbol(decl_context, decl_context.current_scope, function_name);
             }
             // If it is friend it must be signed in in the enclosing namespace
+            // and the current_scope must be the namespace_scope
             else
             {
                 new_entry = new_symbol(decl_context, decl_context.namespace_scope, function_name);
+                new_entry->decl_context.current_scope = decl_context.namespace_scope;
             }
 
             new_entry->type_information = declarator_type;
@@ -7083,9 +7085,11 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
                 new_entry = new_symbol(decl_context, decl_context.current_scope, function_name);
             }
             // If it is friend it must be signed in in the enclosing namespace
+            // and the current_scope must be the namespace_scope
             else
             {
                 new_entry = new_symbol(decl_context, decl_context.namespace_scope, function_name);
+                new_entry->decl_context.current_scope = decl_context.namespace_scope;
             }
 
             new_entry->type_information = template_type;
