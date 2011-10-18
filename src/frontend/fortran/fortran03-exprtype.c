@@ -287,7 +287,13 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context, 
             fortran_check_expression_impl_(upper_bound, decl_context, &nodecl_upper);
             nodecl_t nodecl_stride = nodecl_null();
             if (stride != NULL)
+            {
                 fortran_check_expression_impl_(stride, decl_context, &nodecl_stride);
+            }
+            else
+            {
+                nodecl_stride = const_value_to_nodecl(const_value_get_one(/* bytes */ fortran_get_default_integer_type_kind(), /* signed */ 1));
+            }
 
             scope_entry_t* do_variable = query_name_with_locus(decl_context, ac_do_variable, ASTText(ac_do_variable));
 
@@ -421,7 +427,7 @@ static void check_substring(AST expr, decl_context_t decl_context, nodecl_t node
     // Do not compute the exact size at the moment
     synthesized_type = get_array_type_bounds(array_type_get_element_type(subscripted_type), nodecl_lower, nodecl_upper, decl_context);
 
-    nodecl_t nodecl_stride = const_value_to_nodecl(const_value_get_one(/* num_bytes */ 4, /* signed */ 1));
+    nodecl_t nodecl_stride = const_value_to_nodecl(const_value_get_one(/* bytes */ fortran_get_default_integer_type_kind(), /* signed */ 1));
 
     *nodecl_output = nodecl_make_array_subscript(
             nodecl_subscripted,
@@ -493,6 +499,8 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
                 fortran_check_expression_impl_(upper, decl_context, &nodecl_upper);
             if (stride != NULL)
                 fortran_check_expression_impl_(stride, decl_context, &nodecl_stride);
+            else
+                nodecl_stride = const_value_to_nodecl(const_value_get_one(/* bytes */ fortran_get_default_integer_type_kind(), /* signed */ 1));
 
             // Do not attempt to compute at the moment the sizes of the bounds
             // maybe we will in the future
