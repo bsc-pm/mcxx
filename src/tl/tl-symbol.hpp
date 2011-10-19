@@ -145,19 +145,28 @@ namespace TL
             bool is_variable() const;
             //! States whether this symbol is a typedef
             bool is_typedef() const;
-            //! States whether this symbol is a name of a type
-            bool is_typename() const;
+            //! States whether this symbol is a class
+            bool is_class() const;
+            //! States whether this symbol is an enum name
+            bool is_enum() const;
+            //! States whether this symbol is an enumerator name
+            bool is_enumerator() const;
+            //! States whether this symbol is template name
+            bool is_template() const;
             //! States whether this symbol is a function
             bool is_function() const;
             //! States whether this symbol is a template function
             bool is_template_function_name() const;
+            //! States whether this symbol is an anonymous union
+            bool is_anonymous_union() const;
+            //! States that this symbol is the injected class name
+            bool is_injected_class_name() const;
             
             //! States whether this symbol is a parameter of a function
             bool is_parameter() const;
             //! Returns the position of this parameter
             int get_parameter_position() const;
 
-            //! States whether this symbol is a template parameter
             //! States whether this symbol is a template parameter
             bool is_template_parameter() const;
 
@@ -186,6 +195,21 @@ namespace TL
             bool is_static() const;
             //! States whether this symbol is register
             bool is_register() const;
+            
+            //! States whether this symbol is __thread
+            bool is_thread() const;
+
+            //! States if this member is a bitfield
+            bool is_bitfield() const;
+            
+            //! Returns the size of the bitfield
+            Nodecl::NodeclBase get_bitfield_size() const;
+
+            //! States whether the symbol is user declared
+            /*!
+             * \note This only applies to member functions
+             */
+            bool is_user_declared() const;
 
             //! States whether this symbol is extern
             /*!
@@ -290,6 +314,9 @@ namespace TL
             {
                 return _symbol;
             }
+
+            //! Internal usage
+            bool not_to_be_printed() const;
 
             //! Is a COMMON name
             /*! 

@@ -140,7 +140,7 @@ namespace TL
                         if (reductor_name[0] == '.')
                         {
                             if (!var_type.is_named_class()
-                                    && !var_type.is_dependent())
+                                    && !var_type.is_dependent_typename())
                             {
                                 std::cerr << construct.get_locus() << ": warning: reductor '" << reductor_name 
                                     << "' is no valid for non class-type variable '" << var_sym.get_qualified_name() << "'"

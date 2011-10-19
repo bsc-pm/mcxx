@@ -6,6 +6,7 @@
 #include "tl-symbol.hpp"
 #include <sstream>
 #include <map>
+#include <set>
 
 namespace Codegen
 {
@@ -144,21 +145,61 @@ namespace Codegen
                 TL::Scope current_scope;
 
                 TL::Symbol current_symbol;
+                TL::Symbol global_namespace;
+                TL::Symbol opened_namespace;
 
                 bool in_condition;
-
                 Nodecl::NodeclBase condition_top;
 
+                bool in_member_declaration;
+
                 bool do_not_emit_declarations;
+
+                bool inside_structured_value;
+
+                TL::ObjectList<TL::Symbol> classes_being_defined;
+
+                std::set<TL::Type> walked_types;
+
+                // Not meant to be used directly, use functions 
+                // get_indent_level, set_indent_level
+                // inc_indent, dec_indent
+                int _indent_level;
             } state;
             // End of State
+
+            bool symbol_is_same_or_nested_in(TL::Symbol symbol, TL::Symbol class_sym);
+            bool symbol_is_nested_in_defined_classes(TL::Symbol symbol);
+
+            void define_class_symbol(TL::Symbol symbol);
 
             void define_symbol(TL::Symbol symbol);
             void declare_symbol(TL::Symbol symbol);
 
+            void define_generic_entities(Nodecl::NodeclBase node,
+                    void (CXXBase::*decl_sym_fun)(TL::Symbol symbol),
+                    void (CXXBase::*def_sym_fun)(TL::Symbol symbol),
+                    void (CXXBase::*define_entities_fun)(const Nodecl::NodeclBase& node),
+                    void (CXXBase::*define_entry_fun)(
+                        const Nodecl::NodeclBase& node, TL::Symbol entry,
+                        void (CXXBase::*def_sym_fun_2)(TL::Symbol symbol))
+                    );
+
+            bool is_local_symbol(TL::Symbol entry);
+
             void define_all_entities_in_trees(const Nodecl::NodeclBase&);
             void define_nonlocal_entities_in_trees(const Nodecl::NodeclBase&);
+            void define_nonnested_entities_in_trees(const Nodecl::NodeclBase&);
             void define_local_entities_in_trees(const Nodecl::NodeclBase&);
+
+            void declare_symbol_if_nonlocal(TL::Symbol);
+            void define_symbol_if_nonlocal(TL::Symbol);
+
+            void declare_symbol_if_local(TL::Symbol);
+            void define_symbol_if_local(TL::Symbol);
+
+            void declare_symbol_if_nonnested(TL::Symbol);
+            void define_symbol_if_nonnested(TL::Symbol);
 
             void walk_type_for_symbols(TL::Type, 
                     bool needs_def, 
@@ -166,24 +207,62 @@ namespace Codegen
                     void (CXXBase::* define_fun)(TL::Symbol),
                     void (CXXBase::* define_entities)(const Nodecl::NodeclBase&));
 
+            void entry_just_define(
+                    const Nodecl::NodeclBase&, 
+                    TL::Symbol symbol,
+                    void (CXXBase::*def_sym_fun)(TL::Symbol));
+
+            void entry_local_definition(
+                    const Nodecl::NodeclBase&,
+                    TL::Symbol entry,
+                    void (CXXBase::*def_sym_fun)(TL::Symbol));
+
             std::map<TL::Symbol, codegen_status_t> _codegen_status;
             void set_codegen_status(TL::Symbol sym, codegen_status_t status);
             codegen_status_t get_codegen_status(TL::Symbol sym);
 
+            void codegen_fill_namespace_list_rec(
+                    scope_entry_t* namespace_sym, 
+                    scope_entry_t** list, 
+                    int* position);
+            void codegen_move_namespace_from_to(TL::Symbol from, TL::Symbol to);
             void move_to_namespace_of_symbol(TL::Symbol symbol);
 
             void indent();
             void inc_indent(int n = 1);
             void dec_indent(int n = 1);
+
             int get_indent_level();
             void set_indent_level(int);
 
-            void walk_list(const Nodecl::NodeclBase&, const std::string& separator);
-            void walk_expression_list(const Nodecl::NodeclBase&);
+            void walk_list(const Nodecl::List&, const std::string& separator);
+            void walk_expression_list(const Nodecl::List&);
+            template <typename Iterator>
+            void walk_expression_unpacked_list(Iterator begin, Iterator end);
 
+            template <typename Node>
+                CXXBase::Ret visit_function_call(const Node&, bool is_virtual_call);
+
+            static int get_rank_kind(node_t n, const std::string& t);
+            static int get_rank(const Nodecl::NodeclBase &n);
             static bool operand_has_lower_priority(const Nodecl::NodeclBase& operation, const Nodecl::NodeclBase& operand);
             static std::string quote_c_string(int* c, int length, char is_wchar);
             static bool nodecl_calls_to_constructor(const Nodecl::NodeclBase&, TL::Type t);
+            static bool nodecl_is_zero_args_call_to_constructor(Nodecl::NodeclBase node);
+            static bool nodecl_is_zero_args_structured_value(Nodecl::NodeclBase node);
+
+            static std::string unmangle_symbol_name(TL::Symbol);
+
+            void declare_all_in_template_arguments(TL::TemplateParameters template_arguments);
+
+            void codegen_template_parameters(TL::TemplateParameters template_parameters);
+
+            std::string template_arguments_to_str(TL::Symbol);
+
+            std::string exception_specifier_to_str(TL::Symbol);
+
+            std::string gcc_attributes_to_str(TL::Symbol);
+            std::string gcc_asm_specifier_to_str(TL::Symbol);
     };
 }
 

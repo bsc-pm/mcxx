@@ -169,6 +169,29 @@ CXXBase::Ret CXXBase::visit(const Nodecl::AnyList& node)
 
 CXXBase::Ret CXXBase::visit(const Nodecl::ArraySubscript& node)
 {
+    Nodecl::NodeclBase subscripted = node.get_subscripted();
+    Nodecl::List subscript = node.get_subscripts().as<Nodecl::List>();
+
+    if (operand_has_lower_priority(node, subscripted))
+    {
+        file << "(";
+    }
+    walk(subscripted);
+    if (operand_has_lower_priority(node, subscripted))
+    {
+        file << ")";
+    }
+
+    // We keep a list instead of a single dimension for multidimensional arrays
+    // alla Fortran
+    for(TL::ObjectList<Nodecl::NodeclBase>::iterator it = subscript.begin(); 
+           it != subscript.end();
+           it++)
+    {
+        file << "[";
+        walk(*it);
+        file << "]";
+    }
 }
 
 CXXBase::Ret CXXBase::visit(const Nodecl::BooleanLiteral& node)
@@ -201,14 +224,22 @@ CXXBase::Ret CXXBase::visit(const Nodecl::BuiltinExpr& node)
 
 CXXBase::Ret CXXBase::visit(const Nodecl::C99DesignatedInitializer& node)
 {
+    walk(node.get_designation());
+    file << " = ";
+    walk(node.get_init());
 }
 
 CXXBase::Ret CXXBase::visit(const Nodecl::C99FieldDesignator& node)
 {
+    file << ".";
+    walk(node.get_name());
 }
 
 CXXBase::Ret CXXBase::visit(const Nodecl::C99IndexDesignator& node)
 {
+    file << "[";
+    walk(node.get_expr());
+    file << "]";
 }
 
 CXXBase::Ret CXXBase::visit(const Nodecl::CaseStatement& node)
@@ -226,6 +257,31 @@ CXXBase::Ret CXXBase::visit(const Nodecl::CaseStatement& node)
 
 CXXBase::Ret CXXBase::visit(const Nodecl::Cast& node)
 {
+    std::string cast_kind = node.get_text();
+    TL::Type t = node.get_type();
+    Nodecl::NodeclBase nest = node.get_rhs();
+
+    if (IS_C_LANGUAGE
+            || cast_kind == "C")
+    {
+        file << "(" << t.get_declaration(state.current_scope, "") << ")";
+        char needs_parentheses = operand_has_lower_priority(node, nest);
+        if (needs_parentheses)
+        {
+            file << "(";
+        }
+        walk(nest);
+        if (needs_parentheses)
+        {
+            file << ")";
+        }
+    }
+    else
+    {
+        file << cast_kind << "<" << t.get_declaration(state.current_scope, "") << ">(";
+        walk(nest);
+        file << ")";
+    }
 }
 
 CXXBase::Ret CXXBase::visit(const Nodecl::CatchHandler& node)
@@ -266,6 +322,40 @@ CXXBase::Ret CXXBase::visit(const Nodecl::CatchHandler& node)
 
 CXXBase::Ret CXXBase::visit(const Nodecl::ClassMemberAccess& node)
 {
+    Nodecl::NodeclBase lhs = node.get_lhs();
+    Nodecl::NodeclBase rhs = node.get_member();
+
+    TL::Symbol sym = rhs.get_symbol();
+
+    bool is_anonymous = sym.is_valid()
+        && sym.get_type().is_named_class()
+        && sym.get_type().get_symbol().is_anonymous_union();
+
+    char needs_parentheses = operand_has_lower_priority(node, lhs); 
+    if (needs_parentheses) 
+    { 
+        file << "(";
+    } 
+    walk(lhs);
+    if (needs_parentheses) 
+    { 
+        file << ")";
+    } 
+    // Do not print anonymous symbols
+    if (!is_anonymous)
+    {
+        file << ".";
+        needs_parentheses = operand_has_lower_priority(node, rhs); 
+        if (needs_parentheses) 
+        { 
+            file << "(";
+        } 
+        walk(rhs);
+        if (needs_parentheses) 
+        { 
+            file << ")";
+        } 
+    }
 }
 
 CXXBase::Ret CXXBase::visit(const Nodecl::ComplexLiteral& node)
@@ -284,6 +374,29 @@ CXXBase::Ret CXXBase::visit(const Nodecl::ComplexLiteral& node)
 
 CXXBase::Ret CXXBase::visit(const Nodecl::CompoundExpression& node)
 {
+    file << "(";
+
+    Nodecl::Context context = node.get_nest().as<Nodecl::Context>();
+    Nodecl::List statements = context.get_in_context().as<Nodecl::List>();
+
+    TL::Scope old_scope = state.current_scope;
+    state.current_scope = context.retrieve_context();
+
+    file << "{\n";
+    inc_indent();
+
+    ERROR_CONDITION(statements.size() != 1, "In C/C++ blocks only have one statement", 0);
+    define_local_entities_in_trees(statements[0]);
+    walk(statements[0]);
+
+    dec_indent();
+
+    indent();
+    file << "}";
+
+    state.current_scope = old_scope;
+
+    file << ")";
 }
 
 CXXBase::Ret CXXBase::visit(const Nodecl::CompoundStatement& node)
@@ -305,6 +418,43 @@ CXXBase::Ret CXXBase::visit(const Nodecl::CompoundStatement& node)
 
 CXXBase::Ret CXXBase::visit(const Nodecl::ConditionalExpression& node)
 {
+    Nodecl::NodeclBase cond = node.get_condition();
+    Nodecl::NodeclBase then = node.get_true();
+    Nodecl::NodeclBase _else = node.get_false();
+
+    if (operand_has_lower_priority(node, cond))
+    {
+        file << "(";
+    }
+    walk(cond);
+    if (operand_has_lower_priority(node, cond))
+    {
+        file << ")";
+    }
+
+    file << " ? ";
+
+    if (operand_has_lower_priority(node, then))
+    {
+        file << "(";
+    }
+    walk(then);
+    if (operand_has_lower_priority(node, then))
+    {
+        file << ")";
+    }
+
+    file << " : ";
+
+    if (operand_has_lower_priority(node, _else))
+    {
+        file << "(";
+    }
+    walk(_else);
+    if (operand_has_lower_priority(node, _else))
+    {
+        file << ")";
+    }
 }
 
 CXXBase::Ret CXXBase::visit(const Nodecl::Context& node)
@@ -325,42 +475,72 @@ CXXBase::Ret CXXBase::visit(const Nodecl::ContinueStatement& node)
 
 CXXBase::Ret CXXBase::visit(const Nodecl::Conversion& node)
 {
+    // Do nothing
+    walk(node.get_nest());
 }
 
 CXXBase::Ret CXXBase::visit(const Nodecl::CxxBracedInitializer& node)
 {
+    file << "{";
+    if (!node.get_init().is_null())
+    {
+        walk(node.get_init());
+    }
+    file << "}";
 }
 
 CXXBase::Ret CXXBase::visit(const Nodecl::CxxDepGlobalNameNested& node)
 {
+    file << "::";
+    visit(node.as<Nodecl::CxxDepNameNested>());
 }
 
 CXXBase::Ret CXXBase::visit(const Nodecl::CxxDepNameConversion& node)
 {
+    file << "operator " << node.get_type().get_declaration(state.current_scope, "");
 }
 
 CXXBase::Ret CXXBase::visit(const Nodecl::CxxDepNameNested& node)
 {
+    walk_list(node.get_items().as<Nodecl::List>(), "::");
 }
 
 CXXBase::Ret CXXBase::visit(const Nodecl::CxxDepNameSimple& node)
 {
+    file << node.get_text();
 }
 
 CXXBase::Ret CXXBase::visit(const Nodecl::CxxDepTemplateId& node)
 {
+    walk(node.get_name());
+
+    file << ::template_arguments_to_str(nodecl_get_template_parameters(node.get_internal_nodecl()), 
+            state.current_scope.get_decl_context());
 }
 
 CXXBase::Ret CXXBase::visit(const Nodecl::CxxEqualInitializer& node)
 {
+    file << " = ";
+    walk(node.get_init());
 }
 
 CXXBase::Ret CXXBase::visit(const Nodecl::CxxExplicitTypeCast& node)
 {
+    TL::Type t = node.get_type();
+
+    file << t.get_declaration(state.current_scope, "");
+
+    walk(node.get_init_list());
 }
 
 CXXBase::Ret CXXBase::visit(const Nodecl::CxxParenthesizedInitializer& node)
 {
+    file << "(";
+    if (!node.get_init().is_null())
+    {
+        walk(node.get_init());
+    }
+    file << ")";
 }
 
 CXXBase::Ret CXXBase::visit(const Nodecl::DefaultStatement& node)
@@ -399,6 +579,7 @@ CXXBase::Ret CXXBase::visit(const Nodecl::EmptyStatement& node)
 
 CXXBase::Ret CXXBase::visit(const Nodecl::ErrExpr& node)
 {
+    file << "<<error expression>>";
 }
 
 CXXBase::Ret CXXBase::visit(const Nodecl::ExpressionStatement& node)
@@ -411,6 +592,18 @@ CXXBase::Ret CXXBase::visit(const Nodecl::ExpressionStatement& node)
 
 CXXBase::Ret CXXBase::visit(const Nodecl::FieldDesignator& node)
 {
+    Nodecl::NodeclBase field = node.get_field();
+    Nodecl::NodeclBase next = node.get_next();
+
+    file << ".";
+    walk(field);
+
+    if (!field.is<Nodecl::FieldDesignator>()
+            && !field.is<Nodecl::IndexDesignator>())
+    {
+        file << " = ";
+    }
+    walk(next);
 }
 
 CXXBase::Ret CXXBase::visit(const Nodecl::FloatingLiteral& node)
@@ -473,8 +666,118 @@ CXXBase::Ret CXXBase::visit(const Nodecl::ForStatement& node)
     dec_indent();
 }
 
+template <typename Node>
+CXXBase::Ret CXXBase::visit_function_call(const Node& node, bool is_virtual_call)
+{
+    Nodecl::NodeclBase called_entity = node.get_called();
+    Nodecl::List arguments = node.get_arguments().template as<Nodecl::List>();
+
+    enum call_kind
+    {
+        INVALID_CALL = 0,
+        ORDINARY_CALL,
+        NONSTATIC_MEMBER_CALL,
+        STATIC_MEMBER_CALL,
+        CONSTRUCTOR_INITIALIZATION
+    } kind = ORDINARY_CALL;
+
+    TL::Symbol called_symbol = called_entity.get_symbol();
+    if (called_symbol.is_valid())
+    {
+        if (called_symbol.is_function()
+                && called_symbol.is_member())
+        {
+            if (called_symbol.is_constructor())
+            {
+                kind = CONSTRUCTOR_INITIALIZATION;
+            }
+            else if (!called_symbol.is_static())
+            {
+                kind = NONSTATIC_MEMBER_CALL;
+            }
+            else // if (called_symbol.is_static())
+            {
+                kind = STATIC_MEMBER_CALL;
+            }
+        }
+    }
+
+    switch (kind)
+    {
+        case ORDINARY_CALL:
+        case STATIC_MEMBER_CALL:
+            {
+                char needs_parentheses = operand_has_lower_priority(node, called_entity);
+                if (needs_parentheses) 
+                {
+                    file << "(";
+                }
+                walk(called_entity);
+                if (needs_parentheses)
+                {
+                    file << ")";
+                }
+                file << "(";
+                walk_expression_list(arguments);
+                file << ")";
+                break;
+            }
+        case NONSTATIC_MEMBER_CALL:
+            {
+                ERROR_CONDITION(!(arguments.size() >= 1), "A nonstatic member call lacks the implicit argument", 0);
+
+                char needs_parentheses = (get_rank(arguments[0])
+                        < get_rank_kind(NODECL_CLASS_MEMBER_ACCESS, NULL));
+
+                if (needs_parentheses)
+                {
+                    file << "(";
+                }
+                walk(arguments);
+                if (needs_parentheses)
+                {
+                    file << ")";
+                }
+                file << ".";
+
+                if (is_virtual_call)
+                {
+                    ERROR_CONDITION(!called_symbol.is_valid(), "Virtual call lacks called symbol", 0);
+                    file << unmangle_symbol_name(called_symbol);
+                }
+                else
+                {
+                    walk(called_entity);
+                }
+
+                file << "(";
+
+                walk_expression_unpacked_list(arguments.begin() + 1, arguments.end());
+
+                file << ")";
+                break;
+            }
+        case CONSTRUCTOR_INITIALIZATION:
+            {
+                TL::Symbol class_symbol = called_symbol.get_class_type().get_symbol();
+                file << class_symbol.get_qualified_name();
+                file << "(";
+
+                walk_expression_list(arguments);
+
+                file << ")";
+                break;
+            }
+        default:
+            {
+                internal_error("Unhandled function call kind", 0);
+            }
+    }
+}
+
 CXXBase::Ret CXXBase::visit(const Nodecl::FunctionCall& node)
 {
+    visit_function_call(node, /* is_virtual_call */ false);
 }
 
 CXXBase::Ret CXXBase::visit(const Nodecl::FunctionCode& node)
@@ -579,39 +882,16 @@ CXXBase::Ret CXXBase::visit(const Nodecl::FunctionCode& node)
         }
     }
 
-    std::string gcc_attributes;
+    std::string gcc_attributes = gcc_attributes_to_str(symbol);
 
-    TL::ObjectList<TL::GCCAttribute> gcc_attr_list = symbol.get_gcc_attributes();
-
-    for (TL::ObjectList<TL::GCCAttribute>::iterator it = gcc_attr_list.begin();
-            it != gcc_attr_list.end();
-            it++)
-    {
-        if (it->get_expression_list().is_null())
-        {
-            std::stringstream ss;
-            ss << "__attribute__((" << it->get_attribute_name() << ")) ";
-        }
-        else
-        {
-            internal_error("Not yet implemented", 0);
-        }
-    }
-
-    std::string asm_specification;
-
-    if (!symbol.get_asm_specification().is_null())
-    {
-        internal_error("Not yet implemented", 0);
-    }
+    std::string asm_specification = gcc_asm_specifier_to_str(symbol);
 
     std::string qualified_name = symbol.get_class_qualification(symbol.get_scope(), /* without_template */ true);
 
     if (symbol_type.is_template_specialized_type()
             && !symbol.is_conversion_function())
     {
-        // FIXME - This function is not wrapped
-        qualified_name += get_template_arguments_str(symbol.get_internal_symbol(), symbol.get_scope().get_decl_context());
+        qualified_name += template_arguments_to_str(symbol);
     }
 
     TL::Type real_type = symbol_type.advance_over_typedefs();
@@ -626,28 +906,7 @@ CXXBase::Ret CXXBase::visit(const Nodecl::FunctionCode& node)
     std::string declarator;
     declarator = real_type.get_declaration_with_parameters(symbol.get_scope(), qualified_name, parameter_names);
 
-    std::string exception_spec;
-    CXX_LANGUAGE()
-    {
-        if (!symbol.function_throws_any_exception())
-        {
-            exception_spec += " throw(";
-
-            TL::ObjectList<TL::Type> exceptions = symbol.get_thrown_exceptions();
-            for (TL::ObjectList<TL::Type>::iterator it = exceptions.begin();
-                    it != exceptions.end();
-                    it++)
-            {
-                if (it != exceptions.begin())
-                {
-                    exception_spec += ", ";
-                }
-                exception_spec += it->get_declaration(symbol.get_scope(), "");
-            }
-
-            exception_spec += ")";
-        }
-    }
+    std::string exception_spec = exception_specifier_to_str(symbol);
 
     move_to_namespace_of_symbol(symbol);
 
@@ -670,7 +929,7 @@ CXXBase::Ret CXXBase::visit(const Nodecl::FunctionCode& node)
         indent();
         file << ": ";
 
-        walk_list(initializers, ", ");
+        walk_list(initializers.as<Nodecl::List>(), ", ");
 
         dec_indent();
 
@@ -729,6 +988,19 @@ CXXBase::Ret CXXBase::visit(const Nodecl::IfElseStatement& node)
 
 CXXBase::Ret CXXBase::visit(const Nodecl::IndexDesignator& node)
 {
+    Nodecl::NodeclBase _index = node.get_index();
+    Nodecl::NodeclBase next = node.get_next();
+
+    file << "[";
+    walk(_index);
+    file << "]";
+
+    if (!_index.is<Nodecl::FieldDesignator>()
+            && !_index.is<Nodecl::IndexDesignator>())
+    {
+        file << " = ";
+    }
+    walk(next);
 }
 
 CXXBase::Ret CXXBase::visit(const Nodecl::IntegerLiteral& node)
@@ -886,7 +1158,7 @@ CXXBase::Ret CXXBase::visit(const Nodecl::MemberInit& node)
         if (nodecl_calls_to_constructor(init_expr, entry.get_type()))
         {
             // Ignore top level constructor
-            walk_expression_list(init_expr.children()[1]);
+            walk_expression_list(init_expr.children()[1].as<Nodecl::List>());
         }
         else
         {
@@ -899,6 +1171,32 @@ CXXBase::Ret CXXBase::visit(const Nodecl::MemberInit& node)
 
 CXXBase::Ret CXXBase::visit(const Nodecl::New& node)
 {
+    Nodecl::NodeclBase structured_value = node.get_init();
+    ERROR_CONDITION(structured_value.is_null(), "New lacks structured value", 0);
+
+    Nodecl::NodeclBase placement = node.get_placement();
+    // Nodecl::NodeclBase operator_new = nodecl_get_child(node, 2);
+
+    file << "new ";
+
+    if (!placement.is_null())
+    {
+        file << "(";
+        walk_expression_list(placement.as<Nodecl::List>());
+        file << ")";
+    }
+
+    TL::Type t = structured_value.get_type();
+
+    if (!t.is_array())
+    {
+        walk(structured_value);
+    }
+    else
+    {
+        // new[] cannot have an initializer, so just print the type
+        file << t.get_declaration(state.current_scope, "");
+    }
 }
 
 CXXBase::Ret CXXBase::visit(const Nodecl::ObjectInit& node)
@@ -924,6 +1222,32 @@ CXXBase::Ret CXXBase::visit(const Nodecl::ObjectInit& node)
 
 CXXBase::Ret CXXBase::visit(const Nodecl::Offsetof& node)
 {
+    file << "__builtin_offsetof(";
+
+    walk(node.get_offset_type());
+
+    file << ", ";
+
+    // Except for the first, the remaining must be printed as usual
+    Nodecl::List designator = node.get_designator().as<Nodecl::List>();
+
+    for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = designator.begin();
+            it != designator.end();
+            it++)
+    {
+        if (it == designator.begin())
+        {
+            ERROR_CONDITION(!it->is<Nodecl::C99FieldDesignator>(), "Invalid node", 0);
+
+            walk(it->as<Nodecl::C99FieldDesignator>().get_name());
+        }
+        else
+        {
+            walk(*it);
+        }
+    }
+
+    file << ")";
 }
 
 CXXBase::Ret CXXBase::visit(const Nodecl::ParenthesizedExpression& node)
@@ -936,6 +1260,9 @@ CXXBase::Ret CXXBase::visit(const Nodecl::ParenthesizedExpression& node)
 
 CXXBase::Ret CXXBase::visit(const Nodecl::PointerToMember& node)
 {
+    TL::Symbol symbol = node.get_symbol();
+
+    file << "&" << symbol.get_qualified_name();
 }
 
 CXXBase::Ret CXXBase::visit(const Nodecl::PragmaClauseArg& node)
@@ -952,7 +1279,7 @@ CXXBase::Ret CXXBase::visit(const Nodecl::PragmaCustomClause& node)
     if (!arguments.is_null())
     {
         file << "(";
-        walk_list(arguments, ", ");
+        walk_list(arguments.as<Nodecl::List>(), ", ");
         file << ")";
     }
 }
@@ -990,7 +1317,7 @@ CXXBase::Ret CXXBase::visit(const Nodecl::PragmaCustomLine& node)
     if (!parameters.is_null())
     {
         file << "(";
-        walk_list(parameters, ", ");
+        walk_list(parameters.as<Nodecl::List>(), ", ");
         file << ")";
     }
     else
@@ -998,7 +1325,7 @@ CXXBase::Ret CXXBase::visit(const Nodecl::PragmaCustomLine& node)
         file << " ";
     }
 
-    walk_list(clauses, " ");
+    walk_list(clauses.as<Nodecl::List>(), " ");
 }
 
 CXXBase::Ret CXXBase::visit(const Nodecl::PragmaCustomStatement& node)
@@ -1017,10 +1344,34 @@ CXXBase::Ret CXXBase::visit(const Nodecl::PragmaCustomStatement& node)
 
 CXXBase::Ret CXXBase::visit(const Nodecl::PseudoDestructorName& node)
 {
+    Nodecl::NodeclBase lhs = node.get_accessed();
+    Nodecl::NodeclBase rhs = node.get_destructor_name();
+
+    char needs_parentheses = operand_has_lower_priority(node, lhs); 
+    if (needs_parentheses) 
+    { 
+        file << "(";
+    } 
+    walk(lhs); 
+    if (needs_parentheses) 
+    { 
+        file << ")";
+    } 
+    file << ".";
+    walk(rhs); 
 }
 
 CXXBase::Ret CXXBase::visit(const Nodecl::Range& node)
 {
+    Nodecl::NodeclBase lb_expr = node.get_lower();
+    Nodecl::NodeclBase ub_expr = node.get_upper();
+    Nodecl::NodeclBase step_expr = node.get_stride();
+
+    walk(lb_expr);
+    file << ":";
+    walk(ub_expr);
+    file << ":";
+    walk(step_expr);
 }
 
 CXXBase::Ret CXXBase::visit(const Nodecl::ReturnStatement& node)
@@ -1037,13 +1388,1741 @@ CXXBase::Ret CXXBase::visit(const Nodecl::ReturnStatement& node)
 
 CXXBase::Ret CXXBase::visit(const Nodecl::Shaping& node)
 {
+    Nodecl::NodeclBase postfix = node.get_postfix();
+    Nodecl::List seq_exp = node.get_shape().as<Nodecl::List>();
+   
+    for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = seq_exp.begin();
+            it != seq_exp.end();
+            it++)
+    {
+        file << "[";
+        walk(*it);
+        file << "]";
+    }
+    
+    file << " ";
+    walk(postfix);
 }
 
 CXXBase::Ret CXXBase::visit(const Nodecl::Sizeof& node)
 {
+    TL::Type t = node.get_size_type().get_type();
+
+    file << "sizeof(" << t.get_declaration(state.current_scope, "") << ")";
 }
 
-std::string quote_c_string(int* c, int length, char is_wchar)
+
+CXXBase::Ret CXXBase::visit(const Nodecl::StringLiteral& node)
+{
+    const_value_t* v = nodecl_get_constant(node.get_internal_nodecl());
+
+    int *bytes = NULL;
+    int length = 0;
+    const_value_string_unpack(v, &bytes, &length);
+
+    type_t* element_type = array_type_get_element_type(no_ref(nodecl_get_type(node.get_internal_nodecl())));
+    char is_wchar = !is_unsigned_char_type(element_type)
+        && !is_signed_char_type(element_type);
+
+    file << quote_c_string(bytes, length, is_wchar);
+
+    ::free(bytes);
+}
+
+CXXBase::Ret CXXBase::visit(const Nodecl::StructuredValue& node)
+{
+    Nodecl::List items = node.get_items().as<Nodecl::List>();
+    TL::Type type = node.get_type();
+
+    enum structured_value_kind 
+    {
+        INVALID = 0,
+        // (T) { expr-list }
+        GCC_POSTFIX,
+        // T(single-expression)
+        CXX03_EXPLICIT,
+        // T{expr-list}
+        CXX1X_EXPLICIT,
+    } kind = INVALID;
+
+    if (IS_C_LANGUAGE)
+    {
+        kind = GCC_POSTFIX;
+    }
+    else if (IS_CXX03_LANGUAGE)
+    {
+        if ((items.empty()
+                    || (items.size() == 1)
+                && (type.is_named()
+                    || type.no_ref().is_builtin()))
+                && !(type.is_class()
+                    && type.is_aggregate()))
+        {
+            kind = CXX03_EXPLICIT;
+        }
+        else
+        {
+            kind = GCC_POSTFIX;
+        }
+    }
+    else if (IS_CXX1X_LANGUAGE)
+    {
+        if (type.no_ref().is_vector())
+        {
+            // This is nonstandard, lets fallback to gcc
+            kind = GCC_POSTFIX;
+        }
+        else if (type.is_named())
+        {
+            kind = CXX1X_EXPLICIT;
+        }
+        else
+        {
+            // If this is not a named type fallback to gcc
+            kind = GCC_POSTFIX;
+        }
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
+
+    if (state.inside_structured_value)
+    {
+        kind = GCC_POSTFIX;
+    }
+
+    switch (kind)
+    {
+        // (T) { expr-list }
+        case GCC_POSTFIX:
+            {
+                if (!state.inside_structured_value)
+                {
+                    file << "(" << type.get_declaration(state.current_scope, "") << ")";
+                }
+
+                char inside_structured_value = state.inside_structured_value;
+                state.inside_structured_value = 1;
+
+                file << "{ ";
+                walk_expression_list(items);
+                file << " }";
+
+                state.inside_structured_value = inside_structured_value;
+                break;
+            }
+            // T(expr-list)
+        case CXX03_EXPLICIT:
+            {
+                file << type.get_declaration(state.current_scope, "");
+
+                if (items.empty())
+                {
+                    file << "()";
+                }
+                else
+                {
+                    file << "(";
+
+                    char inside_structured_value = state.inside_structured_value;
+                    state.inside_structured_value = 0;
+
+                    walk_expression_list(items);
+
+                    state.inside_structured_value = inside_structured_value;
+
+                    file << ")";
+                }
+
+                break;
+            }
+            // T{expr-list}
+        case CXX1X_EXPLICIT:
+            {
+                file << type.get_declaration(state.current_scope, "");
+
+                char inside_structured_value = state.inside_structured_value;
+                state.inside_structured_value = 1;
+
+                file << "{ ";
+                walk_expression_list(items);
+                file << " }";
+
+                state.inside_structured_value = inside_structured_value;
+                break;
+            }
+        default:
+            {
+                internal_error("Code unreachable", 0);
+            }
+    }
+}
+
+CXXBase::Ret CXXBase::visit(const Nodecl::SwitchStatement& node)
+{
+    Nodecl::NodeclBase expression = node.get_switch();
+    Nodecl::NodeclBase statement = node.get_statement();
+
+    indent();
+    file << "switch (";
+    Nodecl::NodeclBase old_condition_top = state.condition_top;
+    int old_condition = state.in_condition;
+    int old_indent = get_indent_level();
+
+    set_indent_level(0);
+    state.in_condition = 1;
+    state.condition_top = expression;
+
+    walk(expression);
+
+    set_indent_level(old_indent);
+    state.in_condition = old_condition;
+    state.condition_top = old_condition_top;
+
+    file << ")\n";
+
+    inc_indent(2);
+    walk(statement);
+    dec_indent(2);
+}
+
+CXXBase::Ret CXXBase::visit(const Nodecl::Symbol& node)
+{
+    TL::Symbol entry = node.get_symbol();
+
+    if (entry.is_member())
+    {
+        define_symbol(entry.get_class_type().get_symbol());
+    }
+
+    CXX_LANGUAGE()
+    {
+        if (!entry.is_template_parameter()
+                && !entry.is_builtin())
+        {
+            file << entry.get_qualified_name(entry.get_scope());
+        }
+        else
+        {
+            file << entry.get_name();
+        }
+    }
+
+    C_LANGUAGE()
+    {
+        file << entry.get_name();
+    }
+}
+
+CXXBase::Ret CXXBase::visit(const Nodecl::Text& node)
+{
+    file << node.get_text();
+}
+
+CXXBase::Ret CXXBase::visit(const Nodecl::Throw& node)
+{
+    Nodecl::NodeclBase expr = node.get_rhs();
+
+    file << "throw";
+
+    if (!expr.is_null())
+    {
+        file << " ";
+        walk(expr);
+    }
+}
+
+CXXBase::Ret CXXBase::visit(const Nodecl::TopLevel& node)
+{
+    walk(node.get_top_level());
+}
+
+CXXBase::Ret CXXBase::visit(const Nodecl::TryBlock& node)
+{
+    Nodecl::NodeclBase statement = node.get_statement();
+    Nodecl::NodeclBase catch_handlers = node.get_catch_handlers();
+    Nodecl::NodeclBase any_catch_handler = node.get_any();
+    indent();
+
+    file << "try\n";
+
+    walk(statement);
+    walk(catch_handlers);
+
+    if (!any_catch_handler.is_null())
+    {
+        indent();
+        file << "catch (...)\n";
+        walk(any_catch_handler);
+    }
+}
+
+CXXBase::Ret CXXBase::visit(const Nodecl::Type& node)
+{
+    TL::Type type = node.get_type();
+    file << type.get_declaration(state.current_scope, "");
+}
+
+CXXBase::Ret CXXBase::visit(const Nodecl::Typeid& node)
+{
+    Nodecl::NodeclBase expr = node.get_arg();
+
+    file << "typeid(";
+    walk(expr);
+    file << ")";
+}
+
+CXXBase::Ret CXXBase::visit(const Nodecl::VirtualFunctionCall& node)
+{
+    visit_function_call(node, /* is_virtual_call */ true);
+}
+
+CXXBase::Ret CXXBase::visit(const Nodecl::WhileStatement& node)
+{
+    Nodecl::NodeclBase condition = node.get_condition();
+    Nodecl::NodeclBase statement = node.get_statement();
+
+    indent();
+    file << "while (";
+
+    int old = state.in_condition;
+    Nodecl::NodeclBase old_condition_top = state.condition_top;
+    int old_indent = get_indent_level();
+    set_indent_level(0);
+    state.in_condition = 1;
+    state.condition_top = condition;
+
+    walk(condition);
+
+    set_indent_level(old_indent);
+    state.in_condition = old;
+    state.condition_top = old_condition_top;
+    file << ")\n";
+
+    inc_indent();
+    walk(statement);
+    dec_indent();
+}
+
+bool CXXBase::symbol_is_same_or_nested_in(TL::Symbol symbol, TL::Symbol class_sym)
+{
+    if (symbol.is_member())
+    {
+        return symbol_is_same_or_nested_in(
+                symbol.get_class_type().get_symbol(),
+                class_sym);
+    }
+    else
+    {
+        return symbol == class_sym;
+    }
+}
+
+bool CXXBase::symbol_is_nested_in_defined_classes(TL::Symbol symbol)
+{
+    for (TL::ObjectList<TL::Symbol>::iterator it = state.classes_being_defined.begin();
+            it != state.classes_being_defined.end();
+            it++)
+    {
+        // If the symbol we are going to define is nested in one of
+        // the classes being defined, do not define now. It will be defined later
+        if (symbol_is_same_or_nested_in(symbol, *it))
+        {
+            return true;
+        }
+    }
+
+    return false;
+} 
+
+bool CXXBase::is_local_symbol(TL::Symbol entry)
+{
+    return entry.is_valid()
+        && (entry.get_scope().is_block_scope()
+                || entry.get_scope().is_function_scope()
+                || (entry.is_member() && is_local_symbol(entry.get_class_type().get_symbol())));
+}
+
+void CXXBase::define_symbol_if_local(TL::Symbol symbol)
+{
+    if (is_local_symbol(symbol))
+    {
+        define_symbol(symbol);
+    }
+}
+
+void CXXBase::declare_symbol_if_local(TL::Symbol symbol)
+{
+    if (is_local_symbol(symbol))
+    {
+        declare_symbol(symbol);
+    }
+}
+
+void CXXBase::define_symbol_if_nonlocal(TL::Symbol symbol)
+{
+    if (!is_local_symbol(symbol))
+    {
+        define_symbol(symbol);
+    }
+}
+
+void CXXBase::declare_symbol_if_nonlocal(TL::Symbol symbol)
+{
+    if (!is_local_symbol(symbol))
+    {
+        declare_symbol(symbol);
+    }
+}
+
+void CXXBase::define_symbol_if_nonnested(TL::Symbol symbol)
+{
+    if (!symbol_is_nested_in_defined_classes(symbol))
+    {
+        define_symbol(symbol);
+    }
+}
+
+void CXXBase::declare_symbol_if_nonnested(TL::Symbol symbol)
+{
+    if (!symbol_is_nested_in_defined_classes(symbol)
+            || !symbol.is_member())
+    {
+        declare_symbol(symbol);
+    }
+}
+
+void CXXBase::define_nonnested_entities_in_trees(Nodecl::NodeclBase const& node)
+{
+    define_generic_entities(node, 
+            &CXXBase::declare_symbol_if_nonnested,
+            &CXXBase::define_symbol_if_nonnested,
+            &CXXBase::define_nonnested_entities_in_trees,
+            &CXXBase::entry_just_define);
+}
+
+void CXXBase::define_symbol(TL::Symbol symbol)
+{
+    if (state.do_not_emit_declarations)
+        return;
+
+    if (symbol.not_to_be_printed())
+        return;
+
+    if (symbol.is_injected_class_name())
+        symbol = symbol.get_class_type().get_symbol();
+
+    if (symbol.is_member())
+    {
+        TL::Symbol class_entry = symbol.get_class_type().get_symbol();
+        if (!symbol_is_nested_in_defined_classes(class_entry))
+        {
+            define_symbol_if_nonnested(class_entry);
+        }
+    }
+
+    // Do nothing if already defined
+    if (get_codegen_status(symbol) == CODEGEN_STATUS_DEFINED)
+        return;
+
+    if (symbol.is_variable())
+    {
+                declare_symbol(symbol);
+    }
+    else if (symbol.is_typedef())
+    {
+        // Template parameters are not to be defined, ever
+        if (!symbol.is_template_parameter())
+        {
+            move_to_namespace_of_symbol(symbol);
+            indent();
+            file << "typedef " 
+                << symbol.get_type().get_declaration(symbol.get_scope(), 
+                        symbol.get_name()) 
+                << ";\n";
+        }
+    }
+    else if (symbol.is_enumerator())
+    {
+        define_symbol(symbol.get_type().get_symbol());
+    }
+    else if (symbol.is_enum())
+    {
+        move_to_namespace_of_symbol(symbol);
+        C_LANGUAGE()
+        {
+            // the symbol will be already called 'enum X' in C
+            indent();
+            file << symbol.get_name() << "\n";
+            indent();
+            file << "{\n";
+        }
+        CXX_LANGUAGE()
+        {
+            indent();
+            file << "enum " << symbol.get_name() << "\n";
+            indent();
+            file << "{\n";
+        }
+        inc_indent();
+
+        TL::ObjectList<TL::Symbol> enumerators = symbol.get_type().enum_get_enumerators();
+        for (TL::ObjectList<TL::Symbol>::iterator it = enumerators.begin();
+                it != enumerators.end();
+                it++)
+        {
+            TL::Symbol &enumerator(*it);
+            if (it != enumerators.begin())
+            {
+                file << ",\n";
+            }
+            indent();
+            file << enumerator.get_name();
+
+            if (!enumerator.get_initialization().is_null())
+            {
+                file << " = ";
+                walk(enumerator.get_initialization());
+            }
+        }
+
+        dec_indent();
+
+        file << "\n";
+        indent();
+        file << "};\n";
+    }
+    else if (symbol.is_class())
+    {
+        define_class_symbol(symbol);
+    }
+    else if (symbol.is_function())
+    {
+        // Functions are not defined but only declared
+        declare_symbol(symbol);
+    }
+    else if (symbol.is_template_parameter())
+    {
+        // Do nothing
+    }
+    else if (symbol.is_dependent_entity())
+    {
+        TL::Symbol entry(NULL);
+        Nodecl::NodeclBase n = Nodecl::NodeclBase::null();
+
+        symbol.get_type().dependent_typename_get_components(entry, n);
+
+        declare_symbol(entry);
+    }
+    else
+    {
+        internal_error("I do not know how to define a %s\n", symbol_kind_name(symbol.get_internal_symbol()));
+    }
+
+    set_codegen_status(symbol, CODEGEN_STATUS_DEFINED);
+}
+
+void CXXBase::declare_symbol(TL::Symbol symbol)
+{
+    if (state.do_not_emit_declarations)
+        return;
+
+    if (symbol.is_injected_class_name())
+        symbol = symbol.get_class_type().get_symbol();
+
+    if (symbol.not_to_be_printed())
+        return;
+
+    if (symbol.is_member())
+    {
+        TL::Symbol class_entry = symbol.get_class_type().get_symbol();
+        if (!symbol_is_nested_in_defined_classes(class_entry))
+        {
+            define_symbol_if_nonnested(class_entry);
+        }
+    }
+
+    // Do nothing if already defined or declared
+    if (get_codegen_status(symbol) == CODEGEN_STATUS_DEFINED
+            || get_codegen_status(symbol) == CODEGEN_STATUS_DECLARED)
+        return;
+
+    set_codegen_status(symbol, CODEGEN_STATUS_DECLARED);
+
+
+    if (symbol.is_variable())
+    {
+        // Builtins or anonymous unions are not printed
+        if (!(symbol.is_builtin()
+                    || (symbol.get_type().is_named_class()
+                        && symbol.get_type().get_symbol().is_anonymous_union())))
+        {
+            std::string decl_specifiers;
+            std::string gcc_attributes;
+            std::string declarator;
+            std::string bit_field;
+
+            if (symbol.is_static())
+            {
+                decl_specifiers += "static ";
+            }
+            else if (symbol.is_extern())
+            {
+                decl_specifiers += "extern ";
+            }
+            else 
+            {
+                // If this not a member, or if it is, is nonstatic, this has already been defined
+                if (!symbol.is_member()
+                        || !symbol.is_static())
+                {
+                    set_codegen_status(symbol, CODEGEN_STATUS_DEFINED);
+                }
+            }
+            if (symbol.is_thread())
+            {
+                decl_specifiers += "__thread ";
+            }
+            if (symbol.is_mutable())
+            {
+                decl_specifiers += "mutable ";
+            }
+            if (symbol.is_register())
+            {
+                decl_specifiers += "register ";
+            }
+            if (symbol.is_bitfield())
+            {
+                unsigned int bits_of_bitfield =  const_value_cast_to_4(
+                        nodecl_get_constant(symbol.get_bitfield_size().get_internal_nodecl()));
+
+                std::stringstream ss;
+                ss << bits_of_bitfield;
+
+                bit_field = ss.str();
+            }
+
+            declarator = symbol.get_type().get_declaration(
+                    symbol.get_scope(),
+                    unmangle_symbol_name(symbol));
+
+            // Emit the initializer for nonmembers and nonstatic members in
+            // non member declarations or member declarations if they have
+            // integral or enum type
+            char emit_initializer = 0;
+            if (!symbol.get_initialization().is_null()
+                    && (!symbol.is_member()
+                        || (symbol.is_static()
+                            && (!state.in_member_declaration
+                                || (symbol.get_type().is_integral_type() 
+                                    || symbol.get_type().is_enum())
+                                && symbol.get_type().is_const()))))
+            {
+                emit_initializer = 1;
+                define_nonnested_entities_in_trees(symbol.get_initialization());
+            }
+
+            move_to_namespace_of_symbol(symbol);
+            indent();
+            file << decl_specifiers << gcc_attributes << declarator << bit_field;
+
+            // Initializer
+            if (emit_initializer)
+            {
+                char equal_is_needed = 0;
+                char is_call_to_self_constructor = 0;
+                C_LANGUAGE()
+                {
+                    equal_is_needed = 1;
+                }
+
+                CXX03_LANGUAGE()
+                {
+                    // We only need = if the initializer is a structured one
+                    // and this is C++03, in C++1x syntax { } is always allowed
+                    equal_is_needed = 1;
+
+                    if (nodecl_calls_to_constructor(symbol.get_initialization(), symbol.get_type()))
+                    {
+                        equal_is_needed = 0;
+                        is_call_to_self_constructor = 1;
+
+                        // But it might happen the user wrote
+                        //
+                        // A a = A(); which looks like A a(A()); and it will be parsed as a function declarator
+                        Nodecl::List nodecl_args = symbol.get_initialization()
+                            .as<Nodecl::FunctionCall>()
+                            .get_arguments()
+                            .as<Nodecl::List>(); 
+
+                        char zero_arg_types = 1;
+
+                        for (Nodecl::List::iterator it = nodecl_args.begin();
+                                it != nodecl_args.end() && zero_arg_types;
+                                it++)
+                        {
+                            Nodecl::NodeclBase current = *it;
+                            if (current.is<Nodecl::Conversion>())
+                                current = current.as<Nodecl::Conversion>().get_nest();
+
+                            if (!nodecl_is_zero_args_call_to_constructor(current)
+                                    && !nodecl_is_zero_args_structured_value(current))
+                            {
+                                zero_arg_types = 0;
+                            }
+                        }
+
+                        // In this case, to avoid printing something like
+                        //
+                        // A a(A(), B(), C());
+                        //
+                        // where A, B and C are types
+                        //
+                        // we mandate an equal so it looks like
+                        //
+                        // A a = A(A(), B(), C());
+                        if (nodecl_args.size() != 0
+                                && zero_arg_types)
+                        {
+                            equal_is_needed = 1;
+                        }
+                    }
+                }
+
+                if (equal_is_needed)
+                {
+                    file << " = ";
+
+                    if (is_call_to_self_constructor)
+                    {
+                        // Ignore the top constructor call
+                        Nodecl::List nodecl_args = symbol
+                            .get_initialization()
+                            .as<Nodecl::FunctionCall>()
+                            .get_arguments()
+                            .as<Nodecl::List>();
+
+                        if (!nodecl_args.empty())
+                        {
+                            walk_expression_list(nodecl_args);
+                        }
+                    }
+                    else if (symbol.get_initialization().is<Nodecl::StructuredValue>())
+                    {
+                        if (!symbol.get_type().is_aggregate()
+                                && symbol.get_initialization()
+                                .as<Nodecl::StructuredValue>()
+                                .get_items()
+                                .as<Nodecl::List>()
+                                .size() == 1)
+                        {
+                            // We can ignore '{' and '}'
+                            walk_expression_list(symbol
+                                    .get_initialization()
+                                    .as<Nodecl::StructuredValue>()
+                                    .get_items()
+                                    .as<Nodecl::List>());
+                        }
+                        else
+                        {
+                            char old_inside_struct = state.inside_structured_value;
+                            state.inside_structured_value = 1;
+
+                            walk(symbol.get_initialization());
+
+                            state.inside_structured_value = old_inside_struct;
+                        }
+                    }
+                    else
+                    {
+                        char top_is_comma = symbol.get_initialization().is<Nodecl::Comma>();
+
+                        if (top_is_comma)
+                        {
+                            file << "(";
+                        }
+
+                        walk(symbol.get_initialization());
+
+                        if (top_is_comma)
+                        {
+                            file << ")";
+                        }
+                    }
+                }
+                else
+                {
+                    if (is_call_to_self_constructor)
+                    {
+                        // Do not print the top constructor call
+                        Nodecl::List nodecl_args = symbol
+                            .get_initialization()
+                            .as<Nodecl::FunctionCall>()
+                            .get_arguments()
+                            .as<Nodecl::List>();
+
+                        if (!nodecl_args.empty())
+                        {
+                            file << "(";
+                            walk_expression_list(nodecl_args);
+                            file << ")";
+                        }
+                    }
+                    else
+                    {
+                        walk(symbol.get_initialization());
+                    }
+                }
+            }
+
+            if (!state.in_condition)
+            {
+                file << ";\n";
+            }
+        }
+    }
+    else if (symbol.is_class())
+    {
+        C_LANGUAGE()
+        {
+            // the symbol will be already called 'struct/union X' in C
+            indent();
+            file << symbol.get_name();
+        }
+
+        CXX_LANGUAGE()
+        {
+            if (symbol.is_member())
+            {
+                // A nested symbol can be declared only if we are
+                // defining its immediate enclosing class, otherwise request for a definition of the enclosing class
+                if (state.classes_being_defined.empty()
+                        || (state.classes_being_defined.back() != 
+                            symbol.get_class_type().get_symbol()))
+                {
+                    define_symbol(symbol.get_class_type().get_symbol());
+                    return;
+                }
+            }
+
+            char is_template_specialized = 0;
+            char is_primary_template = 0;
+
+            TL::Type template_type(NULL);
+            TL::Type primary_template(NULL);
+            TL::Symbol primary_symbol(NULL);
+
+            if (symbol.get_type().is_template_specialized_type()
+                    && symbol.get_type().template_specialized_type_get_template_arguments().get_num_parameters() != 0)
+            {
+                is_template_specialized = 1;
+                template_type = symbol.get_type().get_related_template_type();
+                primary_template = symbol.get_type().get_primary_template();
+                primary_symbol = primary_template.get_symbol();
+                declare_symbol(primary_symbol);
+
+                if (primary_symbol != symbol)
+                {
+                    declare_symbol(primary_symbol);
+                }
+                else
+                {
+                    is_primary_template = 1;
+                }
+
+                TL::TemplateParameters template_arguments = symbol.get_type().template_specialized_type_get_template_arguments();
+                declare_all_in_template_arguments(template_arguments);
+
+                if (!symbol.get_type().class_type_is_complete_independent()
+                        && !symbol.get_type().class_type_is_incomplete_independent())
+                {
+                    // If this is dependent and it is not the primary template do
+                    // not continue, declaring the primary should have been enough
+                    //
+                    // This may happen for template functions which implicitly name
+                    // dependent specializations (such as those defined using
+                    // default template arguments). It also may be caused by a bug
+                    // in the frontend, though
+                    if (!is_primary_template)
+                    {
+                        return; 
+                    }
+                }
+            }
+
+            // TODO - Namespaces
+            std::string class_key;
+            switch (symbol.get_type().class_type_get_class_kind())
+            {
+                case CK_CLASS:
+                    class_key = "class";
+                    break;
+                case CK_STRUCT:
+                    class_key = "struct";
+                    break;
+                case CK_UNION:
+                    class_key = "union";
+                    break;
+                default:
+                    internal_error("Invalid class kind", 0);
+            }
+
+            move_to_namespace_of_symbol(symbol);
+
+            if (is_template_specialized)
+            {
+                if (symbol.get_type().class_type_is_complete_independent()
+                        || symbol.get_type().class_type_is_incomplete_independent())
+                {
+                    indent();
+                    file << "template <>\n";
+                }
+                else
+                {
+                    ERROR_CONDITION(!is_primary_template, "Only the primary template is allowed "
+                            "as a dependent template specialized type!\n", 0);
+
+                    TL::TemplateParameters template_parameters = symbol.get_type().template_specialized_type_get_template_arguments();
+
+                    indent();
+                    file << "template <";
+                    codegen_template_parameters(template_parameters);
+                    file << ">\n";
+                }
+            }
+
+            indent();
+            file << class_key << " " << symbol.get_name();
+
+            if (is_template_specialized
+                    && !is_primary_template)
+            {
+                file << get_template_arguments_str(symbol.get_internal_symbol(), symbol.get_scope().get_decl_context());
+            }
+
+            file << ";\n";
+        }
+    }
+    else if (symbol.is_enumerator())
+    {
+        declare_symbol(symbol.get_type().get_symbol());
+    }
+    else if (symbol.is_enum())
+    {
+        // Enums cannot be only declared but defined
+        define_symbol(symbol);
+    }
+    else if (symbol.is_typedef())
+    {
+        // Typedefs can't be simply declared
+        define_symbol(symbol);
+    }
+    else if (symbol.is_function())
+    {
+        // If this function was not user declared, do not print
+        if (!(symbol.is_member()
+                    && !symbol.is_user_declared()))
+        {
+            walk_type_for_symbols(
+                    symbol.get_type(),
+                    /* needs_def */ false,
+                    &CXXBase::declare_symbol_if_nonlocal,
+                    &CXXBase::define_symbol_if_nonlocal,
+                    &CXXBase::define_nonlocal_entities_in_trees);
+
+            char is_primary_template = 0;
+            CXX_LANGUAGE()
+            {
+                move_to_namespace_of_symbol(symbol);
+
+                if (symbol.get_type().is_template_specialized_type()
+                        && symbol.get_type().template_specialized_type_get_template_arguments().get_num_parameters() != 0)
+                {
+                    TL::Type template_type = symbol.get_type().get_related_template_type();
+                    TL::Type primary_template = template_type.get_primary_template();
+                    TL::Symbol primary_symbol = primary_template.get_symbol();
+                    declare_symbol(primary_symbol);
+
+                    if (primary_symbol != symbol)
+                    {
+                        indent();
+                        file << "template <>\n";
+                    }
+                    else
+                    {
+                        indent();
+                        file << "template <";
+                        TL::TemplateParameters template_parameters = template_type.template_type_get_template_parameters();
+                        codegen_template_parameters(template_parameters);
+                        file << ">\n";
+                        is_primary_template = 1;
+                    }
+                }
+            }
+
+            std::string decl_spec_seq;
+            if (symbol.is_static())
+            {
+                decl_spec_seq += "static ";
+            }
+            if (symbol.is_extern())
+            {
+                decl_spec_seq += "extern ";
+            }
+            if (symbol.is_inline())
+            {
+                C_LANGUAGE()
+                {
+                    decl_spec_seq += "__inline ";
+                }
+                CXX_LANGUAGE()
+                {
+                    decl_spec_seq += "inline ";
+                }
+            }
+
+            std::string gcc_attributes = gcc_attributes_to_str(symbol);
+            std::string asm_specification = gcc_asm_specifier_to_str(symbol);
+
+            TL::Type real_type = symbol.get_type();
+            if (symbol.is_conversion_function()
+                    || symbol.is_destructor())
+            {
+                // FIXME
+                real_type = get_new_function_type(NULL, NULL, 0);
+            }
+
+            std::string function_name = unmangle_symbol_name(symbol);
+
+            if (symbol.get_type().is_template_specialized_type()
+                    // Conversions do not allow templates
+                    && !is_primary_template
+                    && !symbol.is_conversion_function())
+            {
+                function_name += template_arguments_to_str(symbol);
+            }
+
+            std::string declarator = real_type.get_declaration(
+                    symbol.get_scope(),
+                    function_name);
+
+            std::string exception_spec = exception_specifier_to_str(symbol);
+
+            indent();
+            file << decl_spec_seq << declarator << exception_spec << asm_specification << gcc_attributes;
+        }
+    }
+    else if (symbol.is_template_parameter())
+    {
+        // Do nothing
+    }
+    else if (symbol.is_dependent_entity())
+    {
+        TL::Symbol entry(NULL);
+        Nodecl::NodeclBase n = Nodecl::NodeclBase::null();
+
+        symbol.get_type().dependent_typename_get_components(entry, n);
+
+        declare_symbol(entry);
+    }
+    else
+    {
+        internal_error("Do not know how to declare a %s\n", symbol_kind_name(symbol.get_internal_symbol()));
+    }
+}
+
+void CXXBase::define_generic_entities(Nodecl::NodeclBase node,
+        void (CXXBase::*decl_sym_fun)(TL::Symbol symbol),
+        void (CXXBase::*def_sym_fun)(TL::Symbol symbol),
+        void (CXXBase::*define_entities_fun)(const Nodecl::NodeclBase& node),
+        void (CXXBase::*define_entry_fun)(
+            const Nodecl::NodeclBase &node, TL::Symbol entry,
+            void (CXXBase::*def_sym_fun_2)(TL::Symbol symbol))
+        )
+{
+    if (node.is_null())
+        return;
+    
+    TL::ObjectList<Nodecl::NodeclBase> children;
+
+    for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+           it != children.end(); 
+           it++)
+    {
+        define_generic_entities(
+                *it,
+                decl_sym_fun,
+                def_sym_fun,
+                define_entities_fun,
+                define_entry_fun
+                );
+    }
+
+    TL::Symbol entry = node.get_symbol();
+    if (entry.is_valid()
+            && entry.get_type().is_valid())
+    {
+        walk_type_for_symbols(entry.get_type(), 
+                /* needs_def */ 1, 
+                decl_sym_fun,
+                def_sym_fun,
+                define_entities_fun
+                );
+
+        (this->*define_entry_fun)(node, entry, def_sym_fun);
+
+        define_generic_entities(entry.get_initialization(),
+                decl_sym_fun,
+                def_sym_fun,
+                define_entities_fun,
+                define_entry_fun
+                );
+    }
+
+    TL::Type type = node.get_type();
+    if (type.is_valid())
+    {
+        walk_type_for_symbols(
+                type, 
+                /* needs_def */ 1, 
+                decl_sym_fun,
+                def_sym_fun,
+                define_entities_fun);
+    }
+
+    if (node.is<Nodecl::Conversion>())
+    {
+        // Special cases for conversion nodes 
+        //
+        // When a pointer or reference to class type (or pointer to member) is
+        // converted from a derived class to a base class, it requires both
+        // classes be defined but since they are pointers, generic
+        // walk_type_for_symbols does not realize this fact. NODECL_CONVERSION
+        // nodes appear where a standard conversion has been applied by the
+        // frontend during typechecking
+        TL::Type dest_type = node.get_type();
+        TL::Type source_type = node.as<Nodecl::Conversion>().get_nest().get_type();
+
+        if ((dest_type.is_reference_to_class()
+                    && source_type.is_reference_to_class()
+                    && dest_type.no_ref().is_base_class(source_type.no_ref()))
+                || (dest_type.no_ref().is_pointer_to_class()
+                    && source_type.no_ref().is_pointer_to_class()
+                    && dest_type.no_ref().points_to().is_base_class(
+                        source_type.no_ref().points_to()))
+                || (dest_type.no_ref().is_pointer_to_member()
+                    && source_type.no_ref().is_pointer_to_member()
+                    // This is OK, for pointers to members conversion is Base to Derived (not Derived to Base)
+                    && source_type.no_ref().pointed_class().is_base_class(
+                        dest_type.no_ref().pointed_class())))
+        {
+            TL::Type base_class(NULL);
+            TL::Type derived_class(NULL);
+
+            if (dest_type.is_reference_to_class()
+                        && source_type.is_reference_to_class())
+            {
+                base_class = dest_type.no_ref();
+                derived_class = source_type.no_ref();
+            }
+            else if (dest_type.no_ref().is_pointer_to_class()
+                    && source_type.no_ref().is_pointer_to_class())
+            {
+                base_class = dest_type.no_ref().points_to();
+                derived_class = source_type.no_ref().points_to();
+            }
+            else if (dest_type.no_ref().is_pointer_to_member()
+                    && source_type.no_ref().is_pointer_to_member())
+            {
+                base_class = source_type.no_ref().pointed_class();
+                derived_class = dest_type.no_ref().pointed_class();
+            }
+            else
+            {
+                internal_error("Code unreachable", 0);
+            }
+
+
+            walk_type_for_symbols(base_class, /* needs_def */ 1, 
+                    decl_sym_fun, 
+                    def_sym_fun,
+                    define_entities_fun);
+            walk_type_for_symbols(derived_class, /* needs_def */ 1, 
+                    decl_sym_fun, 
+                    def_sym_fun,
+                    define_entities_fun);
+        }
+    }
+}
+
+void CXXBase::entry_just_define(
+        const Nodecl::NodeclBase&, 
+        TL::Symbol entry,
+        void (CXXBase::*def_sym_fun)(TL::Symbol))
+{
+    (this->*def_sym_fun)(entry);
+}
+
+void CXXBase::entry_local_definition(
+        const Nodecl::NodeclBase& node,
+        TL::Symbol entry,
+        void (CXXBase::*def_sym_fun)(TL::Symbol))
+{
+    // FIXME - Improve this
+    if (state.current_scope.get_decl_context().current_scope 
+            == state.current_scope.get_decl_context().current_scope)
+    {
+        if (!node.is<Nodecl::ObjectInit>())
+        {
+            (this->*def_sym_fun)(entry);
+        }
+        else
+        {
+            // If this is an object init (and the traversal ensures that
+            // they will be seen first) we assume it's already been defined
+            set_codegen_status(entry, CODEGEN_STATUS_DEFINED);
+        }
+    }
+}
+
+void CXXBase::define_all_entities_in_trees(const Nodecl::NodeclBase& node)
+{
+    define_generic_entities(node, 
+            &CXXBase::declare_symbol,
+            &CXXBase::define_symbol,
+            &CXXBase::define_all_entities_in_trees,
+            &CXXBase::entry_just_define);
+}
+
+void CXXBase::define_nonlocal_entities_in_trees(const Nodecl::NodeclBase& node)
+{
+    define_generic_entities(node, 
+            &CXXBase::declare_symbol_if_nonlocal,
+            &CXXBase::define_symbol_if_nonlocal,
+            &CXXBase::define_nonlocal_entities_in_trees,
+            &CXXBase::entry_just_define);
+}
+
+void CXXBase::define_local_entities_in_trees(const Nodecl::NodeclBase& node)
+{
+    define_generic_entities(node, 
+            &CXXBase::declare_symbol_if_local,
+            &CXXBase::define_symbol_if_local,
+            &CXXBase::define_local_entities_in_trees,
+            &CXXBase::entry_local_definition);
+}
+
+void CXXBase::walk_type_for_symbols(TL::Type t, 
+        bool needs_def, 
+        void (CXXBase::* symbol_to_declare)(TL::Symbol),
+        void (CXXBase::* symbol_to_define)(TL::Symbol),
+        void (CXXBase::* define_entities_in_tree)(const Nodecl::NodeclBase&))
+{
+    if (t.is_valid())
+        return;
+
+    if (state.walked_types.find(t) != state.walked_types.end())
+        return;
+
+    // This effectively poisons return, do not return from this function
+#define return 1=1;
+
+    state.walked_types.insert(t);
+
+    // This must be checked first since all query functions ignore typedefs
+    if (t.is_named()
+            && t.get_symbol().is_typedef())
+    {
+        walk_type_for_symbols(
+                t.get_symbol().get_type(),
+                needs_def, 
+                symbol_to_declare, 
+                symbol_to_define,
+                define_entities_in_tree);
+
+        (this->*symbol_to_define)(t.get_symbol());
+    }
+    else if (t.is_pointer())
+    {
+        walk_type_for_symbols(t.points_to(), /* needs_def */ 0, symbol_to_declare, symbol_to_define,
+                define_entities_in_tree);
+    }
+    else if (t.is_pointer_to_member())
+    {
+        walk_type_for_symbols(t.pointed_class(), /* needs_def */ 0, symbol_to_declare, symbol_to_define,
+                define_entities_in_tree);
+
+        walk_type_for_symbols(t.points_to(), /* needs_def */ 0, symbol_to_declare, symbol_to_define,
+                define_entities_in_tree);
+    }
+    else if (t.is_array())
+    {
+        (this->*define_entities_in_tree)(t.array_get_size());
+        walk_type_for_symbols(t.array_element(), 
+                /* needs_def */ 1, symbol_to_declare, symbol_to_define,
+                define_entities_in_tree);
+    }
+    else if (t.is_lvalue_reference()
+            || t.is_rvalue_reference())
+    {
+        walk_type_for_symbols(t.references_to(), 
+                needs_def, 
+                symbol_to_declare, symbol_to_define,
+                define_entities_in_tree);
+    }
+    else if (t.is_function())
+    {
+        walk_type_for_symbols(t.returns(),
+                /* needs_def */ 0, symbol_to_declare, symbol_to_define, define_entities_in_tree);
+        TL::ObjectList<TL::Type> params = t.parameters();
+        for (TL::ObjectList<TL::Type>::iterator it = params.begin();
+                it != params.end();
+                it++)
+        {
+            walk_type_for_symbols(*it,
+                    /* needs_def */ 0, symbol_to_declare, symbol_to_define, define_entities_in_tree);
+        }
+    }
+    else if (t.is_vector())
+    {
+        walk_type_for_symbols(t.vector_element(), /* needs_def */ 1, symbol_to_declare, symbol_to_define, define_entities_in_tree);
+    }
+    else if (t.is_named_class())
+    {
+        TL::Symbol class_entry = t.get_symbol();
+        if (needs_def)
+        {
+            (this->*symbol_to_define)(class_entry);
+        }
+        else
+        {
+            (this->*symbol_to_declare)(class_entry);
+        }
+    }
+    else if (t.is_unnamed_class())
+    {
+        // Special case for nested members
+        TL::ObjectList<TL::Symbol> members = t.get_all_members();
+
+        for (TL::ObjectList<TL::Symbol>::iterator it = members.begin();
+                it != members.end();
+                it++)
+        {
+            walk_type_for_symbols(it->get_type(), /* needs_def */ 1, symbol_to_declare, symbol_to_define, define_entities_in_tree);
+        }
+    }
+    else if (t.is_unnamed_enum())
+    {
+        TL::ObjectList<TL::Symbol> enumerators = t.enum_get_enumerators();
+        for (TL::ObjectList<TL::Symbol>::iterator it = enumerators.begin();
+                it != enumerators.end();
+                it++)
+        {
+            TL::Symbol &enumerator(*it);
+            (this->*define_entities_in_tree)(enumerator.get_initialization());
+        }
+    }
+    else if (t.is_named_enum())
+    {
+        TL::Symbol enum_entry = t.get_symbol();
+
+        walk_type_for_symbols(enum_entry.get_type(), /* needs_def */ 1, symbol_to_declare, symbol_to_define, define_entities_in_tree);
+
+        if (needs_def)
+        {
+            (this->*symbol_to_define)(enum_entry);
+        }
+        else
+        {
+            (this->*symbol_to_declare)(enum_entry);
+        }
+    }
+    else if (t.is_unresolved_overload())
+    {
+        TL::ObjectList<TL::Symbol> unresolved_set = t.get_unresolved_overload_set();
+
+        for (TL::ObjectList<TL::Symbol>::iterator it = unresolved_set.begin();
+                it != unresolved_set.end();
+                it++)
+        {
+            if (needs_def)
+            {
+                (this->*symbol_to_define)(*it);
+            }
+            else
+            {
+                (this->*symbol_to_declare)(*it);
+            }
+        }
+    }
+    else if (t.is_dependent_typename())
+    {
+        Nodecl::NodeclBase nodecl_parts = Nodecl::NodeclBase::null();
+        TL::Symbol dependent_entry(NULL);
+        t.dependent_typename_get_components(dependent_entry, nodecl_parts);
+
+        if (needs_def)
+        {
+            (this->*symbol_to_define)(dependent_entry);
+        }
+        else
+        {
+            (this->*symbol_to_declare)(dependent_entry);
+        }
+    }
+    else
+    {
+        // Do nothing as it should be a builtin type
+    }
+#undef return
+
+    state.walked_types.erase(t);
+}
+
+void CXXBase::set_codegen_status(TL::Symbol sym, codegen_status_t status)
+{
+    _codegen_status[sym] = status;
+}
+
+codegen_status_t CXXBase::get_codegen_status(TL::Symbol sym)
+{
+    std::map<TL::Symbol, codegen_status_t>::iterator it = _codegen_status.find(sym);
+
+    if (it == _codegen_status.end())
+    {
+        return CODEGEN_STATUS_NONE;
+    }
+    else
+    {
+        return it->second;
+    }
+}
+
+void CXXBase::codegen_fill_namespace_list_rec(
+        scope_entry_t* namespace_sym, 
+        scope_entry_t** list, 
+        int* position)
+{
+    ERROR_CONDITION(namespace_sym == NULL, "Invalid symbol", 0);
+    ERROR_CONDITION(namespace_sym->kind != SK_NAMESPACE, "Symbol '%s' is not a namespace", namespace_sym->symbol_name);
+    if (namespace_sym == state.global_namespace.get_internal_symbol())
+    {
+        *position = 0;
+    }
+    else
+    {
+        codegen_fill_namespace_list_rec(
+                namespace_sym->decl_context.current_scope->related_entry,
+                list,
+                position);
+        ERROR_CONDITION(*position == MCXX_MAX_SCOPES_NESTING, "Too many scopes", 0);
+        list[*position] = namespace_sym;
+        (*position)++;
+    }
+}
+
+void CXXBase::codegen_move_namespace_from_to(TL::Symbol from, TL::Symbol to)
+{
+    scope_entry_t* namespace_nesting_from[MCXX_MAX_SCOPES_NESTING] = { 0 };
+    scope_entry_t* namespace_nesting_to[MCXX_MAX_SCOPES_NESTING] = { 0 };
+
+    int num_from = 0;
+    codegen_fill_namespace_list_rec(from.get_internal_symbol(), namespace_nesting_from, &num_from);
+    int num_to = 0;
+    codegen_fill_namespace_list_rec(to.get_internal_symbol(), namespace_nesting_to, &num_to);
+
+    // We only have to close and open the noncommon suffixes
+    int common;
+    for (common = 0; 
+            (common < num_from) 
+            && (common < num_to) 
+            && (namespace_nesting_from[common] == namespace_nesting_to[common]); 
+            common++)
+    {
+        // Empty body
+    }
+
+    int i;
+    for (i = common; i < num_from; i++)
+    {
+        dec_indent();
+        indent();
+        file << "}\n";
+    }
+
+    for (i = common; i < num_to; i++)
+    {
+        std::string real_name = namespace_nesting_to[i]->symbol_name;
+        //
+        // Anonymous namespace has special properties that we want to preserve
+        if (real_name == "(unnamed)")
+        {
+            real_name = "/* anonymous */";
+        }
+
+        indent();
+        file << "namespace " << real_name << " {\n";
+        if ((i + 1) < num_from)
+        {
+            file << " ";
+        }
+        inc_indent();
+    }
+}
+
+void CXXBase::move_to_namespace_of_symbol(TL::Symbol symbol)
+{
+    C_LANGUAGE()
+    {
+        return;
+    }
+
+    // Get the namespace where this symbol has been declared
+    scope_t* enclosing_namespace = symbol.get_internal_symbol()->decl_context.namespace_scope;
+    scope_entry_t* namespace_sym = enclosing_namespace->related_entry;
+
+    // First close the namespaces
+    codegen_move_namespace_from_to(state.opened_namespace, namespace_sym);
+    state.opened_namespace = namespace_sym;
+}
+
+void CXXBase::indent()
+{
+    for (int i = 0; i < state._indent_level; i++)
+    {
+        file << "  ";
+    }
+}
+
+void CXXBase::inc_indent(int n)
+{
+    state._indent_level += n;
+}
+
+void CXXBase::dec_indent(int n)
+{
+    state._indent_level -= n;
+}
+
+int CXXBase::get_indent_level()
+{
+    return state._indent_level;
+}
+
+void CXXBase::set_indent_level(int n)
+{
+    state._indent_level = n;
+}
+
+void CXXBase::walk_list(const Nodecl::List& list, const std::string& separator)
+{
+    Nodecl::List::const_iterator it = list.begin();
+
+    while (it != list.end())
+    {
+        if (it != list.begin())
+        {
+            file << separator;
+        }
+
+        walk(*it);
+        it++;
+    }
+}
+
+void CXXBase::walk_expression_list(const Nodecl::List& node)
+{
+    walk_list(node, ", ");
+}
+
+template <typename Iterator>
+void CXXBase::walk_expression_unpacked_list(Iterator begin, Iterator end)
+{
+    Iterator it = begin;
+    while (it != end)
+    {
+        if (it != begin)
+        {
+            file << ", ";
+        }
+        walk(*it);
+        it++;
+    }
+}
+
+int CXXBase::get_rank_kind(node_t n, const std::string& text)
+{
+    switch (n)
+    {
+        case NODECL_SYMBOL:
+        case NODECL_STRING_LITERAL:
+        case NODECL_INTEGER_LITERAL:
+        case NODECL_FLOATING_LITERAL:
+        case NODECL_BOOLEAN_LITERAL:
+        case NODECL_STRUCTURED_VALUE:
+        case NODECL_PARENTHESIZED_EXPRESSION:
+        case NODECL_BUILTIN_EXPR:
+        case NODECL_COMPOUND_EXPRESSION:
+            {
+                return -1;
+            }
+        case NODECL_ARRAY_SUBSCRIPT:
+        case NODECL_FUNCTION_CALL:
+        case NODECL_CLASS_MEMBER_ACCESS:
+        case NODECL_PSEUDO_DESTRUCTOR_NAME:
+        case NODECL_TYPEID:
+        case NODECL_POSTINCREMENT:
+        case NODECL_POSTDECREMENT:
+            {
+                return -2;
+            }
+        case NODECL_REFERENCE:
+        case NODECL_DERREFERENCE:
+        case NODECL_PLUS:
+        case NODECL_NEG:
+        case NODECL_LOGICAL_NOT:
+        case NODECL_BITWISE_NOT:
+        case NODECL_SIZEOF:
+        case NODECL_NEW:
+        case NODECL_DELETE:
+        case NODECL_PREINCREMENT:
+        case NODECL_PREDECREMENT:
+        case NODECL_REAL_PART:
+        case NODECL_IMAG_PART:
+            // FIXME: Missing GCC nodes 
+            // FIXME: Do we want them or we can use builtins?
+            // case NODECL_ALIGNOF
+            // case NODECL_LABEL_ADDR
+            {
+                return -3;
+            }
+            // This one is special as we keep several casts in a single node
+        case NODECL_CAST:
+            {
+                if (IS_C_LANGUAGE
+                        || (text == "C"))
+                {
+                    return -4;
+                }
+                else
+                {
+                    // These casts are postfix expressions actually
+                    // static_cast, dynamic_cast, reinterpret_cast, const_cast
+                    return -2;
+                }
+            }
+            // This is a pointer to member
+        case NODECL_OFFSET:
+            return -5;
+        case NODECL_MUL:
+        case NODECL_DIV:
+        case NODECL_MOD:
+            return -6;
+        case NODECL_ADD:
+        case NODECL_MINUS:
+            return -7;
+        case NODECL_SHL:
+        case NODECL_SHR:
+            return -8;
+        case NODECL_LOWER_THAN:
+        case NODECL_LOWER_OR_EQUAL_THAN:
+        case NODECL_GREATER_THAN:
+        case NODECL_GREATER_OR_EQUAL_THAN:
+            return -9;
+        case NODECL_EQUAL:
+        case NODECL_DIFFERENT:
+            return -10;
+        case NODECL_BITWISE_AND:
+            return -11;
+        case NODECL_BITWISE_XOR:
+            return -12;
+        case NODECL_BITWISE_OR:
+            return -13;
+        case NODECL_LOGICAL_AND:
+            return -14;
+        case NODECL_LOGICAL_OR:
+            return -15;
+        case NODECL_CONDITIONAL_EXPRESSION:
+            return -16;
+        case NODECL_ASSIGNMENT:
+        case NODECL_MUL_ASSIGNMENT :
+        case NODECL_DIV_ASSIGNMENT:
+        case NODECL_ADD_ASSIGNMENT:
+        case NODECL_SUB_ASSIGNMENT:
+        case NODECL_SHL_ASSIGNMENT:
+        case NODECL_SHR_ASSIGNMENT:
+        case NODECL_BITWISE_AND_ASSIGNMENT:
+        case NODECL_BITWISE_OR_ASSIGNMENT:
+        case NODECL_BITWISE_XOR_ASSIGNMENT:
+        case NODECL_THROW:
+            return -17;
+        case NODECL_COMMA:
+            return -18;
+        default:
+            // Lowest priority possible. This is a conservative approach that
+            // will work always albeit it will introduce some unnecessary
+            // parentheses for unknown expressions
+            return -1000;
+    }
+    return -1000;
+}
+
+int CXXBase::get_rank(const Nodecl::NodeclBase &n)
+{
+    if (n.is<Nodecl::Conversion>())
+    {
+        return get_rank(n.as<Nodecl::Conversion>().get_nest());
+    }
+    else
+    {
+        return get_rank_kind(n.get_kind(), n.get_text());
+    }
+}
+
+static char is_bitwise_bin_operator(node_t n)
+{
+    return n == NODECL_BITWISE_AND
+        || n == NODECL_BITWISE_OR
+        || n == NODECL_BITWISE_XOR;
+}
+
+static char is_shift_bin_operator(node_t n)
+{
+    return n == NODECL_SHL
+        || n == NODECL_SHR;
+}
+
+static char is_additive_bin_operator(node_t n)
+{
+    return n == NODECL_ADD
+        || n == NODECL_MINUS;
+}
+
+bool CXXBase::operand_has_lower_priority(const Nodecl::NodeclBase& current_operator, const Nodecl::NodeclBase& operand)
+{
+    int rank_current = get_rank(current_operator);
+    int rank_operand = get_rank(operand);
+
+    node_t current_kind = current_operator.get_kind();
+    node_t operand_kind = operand.get_kind();
+
+    // For the sake of clarity
+    // a | b & c  -> a | (b & c)
+    // a << b - c   -> a << (b - c)
+    if ((is_bitwise_bin_operator(current_kind)
+                && is_bitwise_bin_operator(operand_kind))
+            || (is_shift_bin_operator(current_kind) 
+                && is_additive_bin_operator(operand_kind))
+       )
+    {
+        return 1;
+    }
+
+    return rank_operand < rank_current;
+}
+
+std::string CXXBase::quote_c_string(int* c, int length, char is_wchar)
 {
     std::string result;
     if (is_wchar)
@@ -1134,172 +3213,228 @@ std::string quote_c_string(int* c, int length, char is_wchar)
     return result;
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::StringLiteral& node)
+bool CXXBase::nodecl_calls_to_constructor(const Nodecl::NodeclBase& node, TL::Type t)
 {
-    const_value_t* v = nodecl_get_constant(node.get_internal_nodecl());
-
-    int *bytes = NULL;
-    int length = 0;
-    const_value_string_unpack(v, &bytes, &length);
-
-    type_t* element_type = array_type_get_element_type(no_ref(nodecl_get_type(node.get_internal_nodecl())));
-    char is_wchar = !is_unsigned_char_type(element_type)
-        && !is_signed_char_type(element_type);
-
-    file << quote_c_string(bytes, length, is_wchar);
-
-    ::free(bytes);
-}
-
-CXXBase::Ret CXXBase::visit(const Nodecl::StructuredValue& node)
-{
-}
-
-CXXBase::Ret CXXBase::visit(const Nodecl::SwitchStatement& node)
-{
-    Nodecl::NodeclBase expression = node.get_switch();
-    Nodecl::NodeclBase statement = node.get_statement();
-
-    indent();
-    file << "switch (";
-    Nodecl::NodeclBase old_condition_top = state.condition_top;
-    int old_condition = state.in_condition;
-    int old_indent = get_indent_level();
-
-    set_indent_level(0);
-    state.in_condition = 1;
-    state.condition_top = expression;
-
-    walk(expression);
-
-    set_indent_level(old_indent);
-    state.in_condition = old_condition;
-    state.condition_top = old_condition_top;
-
-    file << ")\n";
-
-    inc_indent(2);
-    walk(statement);
-    dec_indent(2);
-}
-
-CXXBase::Ret CXXBase::visit(const Nodecl::Symbol& node)
-{
-    TL::Symbol entry = node.get_symbol();
-
-    if (entry.is_member())
+    if (node.is<Nodecl::FunctionCall>())
     {
-        define_symbol(entry.get_class_type().get_symbol());
-    }
+        TL::Symbol called_sym = node.as<Nodecl::FunctionCall>().get_called().get_symbol();
 
-    CXX_LANGUAGE()
-    {
-        if (!entry.is_template_parameter()
-                && !entry.is_builtin())
+        if (called_sym.is_valid()
+                && called_sym.is_constructor())
         {
-            file << entry.get_qualified_name(entry.get_scope());
+            return (t.is_valid())
+                || (t.no_ref()
+                        .get_unqualified_type()
+                        .is_same_type(called_sym.get_class_type().get_unqualified_type()));
+        }
+    }
+    return 0;
+}
+
+bool CXXBase::nodecl_is_zero_args_call_to_constructor(Nodecl::NodeclBase node)
+{
+    return (nodecl_calls_to_constructor(node, TL::Type(NULL))
+            && node.is<Nodecl::List>()
+            && node.as<Nodecl::List>().empty());
+}
+
+bool CXXBase::nodecl_is_zero_args_structured_value(Nodecl::NodeclBase node)
+{
+    return (node.is<Nodecl::StructuredValue>()
+            && (node.as<Nodecl::StructuredValue>().get_items().is_null()
+                || node.as<Nodecl::StructuredValue>().get_items().as<Nodecl::List>().empty()));
+}
+
+
+std::string CXXBase::unmangle_symbol_name(TL::Symbol symbol)
+{
+    return ::unmangle_symbol_name(symbol.get_internal_symbol());
+}
+
+void CXXBase::declare_all_in_template_arguments(TL::TemplateParameters template_arguments)
+{
+    int i, n = template_arguments.get_num_parameters();
+
+    for (i = 0; i < n; i++)
+    {
+        TL::TemplateArgument argument = template_arguments.get_argument_num(i);
+
+        switch (argument.get_kind())
+        {
+            case TPK_TYPE:
+                {
+                    walk_type_for_symbols(
+                            argument.get_type(),
+                            /* needs_def */ 0,
+                            &CXXBase::declare_symbol_if_nonnested,
+                            &CXXBase::define_symbol_if_nonnested,
+                            &CXXBase::define_nonnested_entities_in_trees);
+                    break;
+                }
+            case TPK_NONTYPE:
+                {
+                    walk_type_for_symbols(
+                            argument.get_type(),
+                            /* needs_def */ 1,
+                            &CXXBase::declare_symbol_if_nonnested,
+                            &CXXBase::define_symbol_if_nonnested,
+                            &CXXBase::define_nonnested_entities_in_trees);
+                    define_nonnested_entities_in_trees(argument.get_value());
+                    break;
+                }
+            case TPK_TEMPLATE:
+                {
+                    declare_symbol(argument.get_type().get_symbol());
+                    break;
+                }
+            default:
+                {
+                    internal_error("Code unreachable", 0);
+                }
+        }
+    }
+}
+
+void CXXBase::codegen_template_parameters(TL::TemplateParameters template_parameters)
+{
+    // First traversal to ensure that everything is declared
+    for (int i = 0; i < template_parameters.get_num_parameters(); i++)
+    {
+        std::pair<TL::Symbol, TL::TemplateParameters::TemplateParameterKind> tpl_param = template_parameters.get_parameter_num(i);
+
+        switch (tpl_param.second)
+        {
+            case TPK_NONTYPE:
+                {
+                    walk_type_for_symbols(
+                            tpl_param.first.get_type(),
+                            /* needs_def */ 1,
+                            &CXXBase::declare_symbol_if_nonnested,
+                            &CXXBase::define_symbol_if_nonnested,
+                            &CXXBase::define_nonnested_entities_in_trees);
+                    break;
+                }
+            case TPK_TYPE:
+            case TPK_TEMPLATE:
+                {
+                    break;
+                }
+            default:
+                {
+                    internal_error("Invalid template parameter kind", 0);
+                }
+        }
+    }
+    for (int i = 0; i < template_parameters.get_num_parameters(); i++)
+    {
+        std::pair<TL::Symbol, TL::TemplateParameters::TemplateParameterKind> tpl_param = template_parameters.get_parameter_num(i);
+
+        if (i != 0)
+        {
+            file << ", ";
+        }
+        TL::Symbol symbol = tpl_param.first;
+
+        switch (tpl_param.second)
+        {
+            case TPK_TYPE:
+                {
+                    file << "typename " << symbol.get_name();
+                    break;
+                }
+            case TPK_NONTYPE:
+                {
+                    std::string declaration = symbol.get_type().get_declaration(
+                            symbol.get_scope(),
+                            symbol.get_name());
+                    if (declaration[0] == ':'
+                            && i == 0)
+                    {
+                        file << " ";
+                    }
+
+                    file << declaration;
+                    break;
+                }
+            case TPK_TEMPLATE:
+                {
+                    TL::Type template_type = symbol.get_type();
+                    file << "template <";
+                    codegen_template_parameters(symbol.get_type().template_type_get_template_parameters());
+                    file << "> class " << symbol.get_name();
+                    break;
+                }
+            default:
+                {
+                    internal_error("Invalid template parameter kind", 0);
+                }
+        }
+    }
+}
+
+std::string CXXBase::gcc_attributes_to_str(TL::Symbol symbol)
+{
+    std::string result;
+    TL::ObjectList<TL::GCCAttribute> gcc_attr_list = symbol.get_gcc_attributes();
+
+    for (TL::ObjectList<TL::GCCAttribute>::iterator it = gcc_attr_list.begin();
+            it != gcc_attr_list.end();
+            it++)
+    {
+        if (it->get_expression_list().is_null())
+        {
+            std::stringstream ss;
+            result += "__attribute__((" + it->get_attribute_name() + ")) ";
         }
         else
         {
-            file << entry.get_name();
+            internal_error("Not yet implemented", 0);
         }
     }
 
-    C_LANGUAGE()
+    return result;
+}
+
+std::string CXXBase::gcc_asm_specifier_to_str(TL::Symbol symbol)
+{
+    std::string result;
+    if (!symbol.get_asm_specification().is_null())
     {
-        file << entry.get_name();
+        internal_error("Not yet implemented", 0);
     }
+    return result;
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::Text& node)
+std::string CXXBase::exception_specifier_to_str(TL::Symbol symbol)
 {
-}
-
-CXXBase::Ret CXXBase::visit(const Nodecl::Throw& node)
-{
-}
-
-CXXBase::Ret CXXBase::visit(const Nodecl::TopLevel& node)
-{
-    walk(node.get_top_level());
-}
-
-CXXBase::Ret CXXBase::visit(const Nodecl::TryBlock& node)
-{
-    Nodecl::NodeclBase statement = node.get_statement();
-    Nodecl::NodeclBase catch_handlers = node.get_catch_handlers();
-    Nodecl::NodeclBase any_catch_handler = node.get_any();
-    indent();
-
-    file << "try\n";
-
-    walk(statement);
-    walk(catch_handlers);
-
-    if (!any_catch_handler.is_null())
+    std::string exception_spec;
+    CXX_LANGUAGE()
     {
-        indent();
-        file << "catch (...)\n";
-        walk(any_catch_handler);
+        if (!symbol.function_throws_any_exception())
+        {
+            exception_spec += " throw(";
+
+            TL::ObjectList<TL::Type> exceptions = symbol.get_thrown_exceptions();
+            for (TL::ObjectList<TL::Type>::iterator it = exceptions.begin();
+                    it != exceptions.end();
+                    it++)
+            {
+                if (it != exceptions.begin())
+                {
+                    exception_spec += ", ";
+                }
+                exception_spec += it->get_declaration(symbol.get_scope(), "");
+            }
+
+            exception_spec += ")";
+        }
     }
+    return exception_spec;
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::Type& node)
+std::string CXXBase::template_arguments_to_str(TL::Symbol)
 {
-}
-
-CXXBase::Ret CXXBase::visit(const Nodecl::Typeid& node)
-{
-}
-
-CXXBase::Ret CXXBase::visit(const Nodecl::VirtualFunctionCall& node)
-{
-}
-
-CXXBase::Ret CXXBase::visit(const Nodecl::WhileStatement& node)
-{
-    Nodecl::NodeclBase condition = node.get_condition();
-    Nodecl::NodeclBase statement = node.get_statement();
-
-    indent();
-    file << "while (";
-
-    int old = state.in_condition;
-    Nodecl::NodeclBase old_condition_top = state.condition_top;
-    int old_indent = get_indent_level();
-    set_indent_level(0);
-    state.in_condition = 1;
-    state.condition_top = condition;
-
-    walk(condition);
-
-    set_indent_level(old_indent);
-    state.in_condition = old;
-    state.condition_top = old_condition_top;
-    file << ")\n";
-
-    inc_indent();
-    walk(statement);
-    dec_indent();
-}
-
-void CXXBase::set_codegen_status(TL::Symbol sym, codegen_status_t status)
-{
-    _codegen_status[sym] = status;
-}
-
-codegen_status_t CXXBase::get_codegen_status(TL::Symbol sym)
-{
-    std::map<TL::Symbol, codegen_status_t>::iterator it = _codegen_status.find(sym);
-
-    if (it == _codegen_status.end())
-    {
-        return CODEGEN_STATUS_NONE;
-    }
-    else
-    {
-        return it->second;
-    }
+    internal_error("Not yet implemented", 0);
 }
 
 } // Codegen

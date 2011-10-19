@@ -73,7 +73,7 @@ namespace TL
         static std::string get_valid_value_initializer(Type t)
         {
             // Fall back
-            if (t.is_dependent())
+            if (t.is_dependent_typename())
                 return "";
 
             if (t.is_class())

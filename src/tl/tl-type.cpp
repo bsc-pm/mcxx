@@ -244,7 +244,18 @@ namespace TL
 
     bool Type::is_reference() const
     {
+        return (is_lvalue_reference_type(_type_info)
+                || is_rvalue_reference_type(_type_info));
+    }
+
+    bool Type::is_lvalue_reference() const
+    {
         return (is_lvalue_reference_type(_type_info));
+    }
+
+    bool Type::is_rvalue_reference() const
+    {
+        return (is_rvalue_reference_type(_type_info));
     }
 
     bool Type::is_function() const
@@ -252,9 +263,19 @@ namespace TL
         return is_function_type(_type_info);
     }
 
-    bool Type::is_dependent() const
+    bool Type::is_dependent_typename() const
     {
-        return ::is_dependent_type(_type_info);
+        return ::is_dependent_typename_type(_type_info);
+    }
+
+    void Type::dependent_typename_get_components(Symbol& entry_symbol, Nodecl::NodeclBase& parts)
+    {
+        scope_entry_t* entry = NULL;
+        nodecl_t n = nodecl_null();
+        ::dependent_typename_get_components(_type_info, &entry, &n);
+
+        entry_symbol = Symbol(entry);
+        parts = Nodecl::NodeclBase(n);
     }
 
     bool Type::is_expression_dependent() const
@@ -399,11 +420,6 @@ namespace TL
     bool Type::is_unnamed_class() const
     {
         return (is_unnamed_class_type(_type_info));
-    }
-
-    bool Type::explicit_array_dimension() const 
-    {
-        return array_has_size();
     }
 
     int Type::get_num_dimensions() const
@@ -660,9 +676,19 @@ namespace TL
                 (cv_qualifier_t)(get_cv_qualifier(this->_type_info) | CV_RESTRICT));
     }
 
+    Type Type::no_ref()
+    {
+        if (::is_lvalue_reference_type(this->_type_info)
+                || ::is_rvalue_reference_type(this->_type_info))
+        {
+            return ::reference_type_get_referenced_type(this->_type_info);
+        }
+        return this->_type_info;
+    }
+
     int Type::get_alignment_of()
     {
-        return type_get_alignment(this->get_internal_type());
+        return type_get_alignment(this->_type_info);
     }
 
     bool Type::is_const() const
@@ -707,6 +733,15 @@ namespace TL
     {
         ObjectList<Symbol> result = get_nonstatic_data_members();
         result.append(get_static_data_members());
+        return result;
+    }
+
+    ObjectList<Symbol> Type::get_all_members() const
+    {
+        ObjectList<Symbol> result;
+        Scope::convert_to_vector(class_type_get_members(
+                    ::get_actual_class_type(_type_info)), result);
+
         return result;
     }
 
@@ -764,11 +799,6 @@ namespace TL
         return equivalent_types(this->_type_info, t._type_info);
     }
 
-    bool Type::is_same_type(Type t, Scope)
-    {
-        return is_same_type(t);
-    }
-
     bool Type::lacks_prototype() const
     {
         return function_type_get_lacking_prototype(this->_type_info);
@@ -813,9 +843,48 @@ namespace TL
         return ::enum_type_get_underlying_type(this->_type_info);
     }
 
+    ObjectList<Symbol> Type::enum_get_enumerators()
+    {
+        ObjectList<Symbol> enumerators;
+        
+        int i;
+        for (i = 0; i < enum_type_get_num_enumerators(this->_type_info); i++)
+        {
+            scope_entry_t* enumerator = enum_type_get_enumerator_num(this->_type_info, i);
+            enumerators.append(enumerator);
+        };
+
+        return enumerators;
+    }
+
     bool Type::is_incomplete() const
     {
         return is_incomplete_type(_type_info);
+    }
+
+    bool Type::class_type_is_complete_independent() const
+    {
+        return ::class_type_is_complete_independent(_type_info);
+    }
+
+    bool Type::class_type_is_complete_dependent() const
+    {
+        return ::class_type_is_complete_dependent(_type_info);
+    }
+
+    bool Type::class_type_is_incomplete_independent() const
+    {
+        return ::class_type_is_incomplete_independent(_type_info);
+    }
+
+    bool Type::class_type_is_incomplete_dependent() const
+    {
+        return ::class_type_is_incomplete_dependent(_type_info);
+    }
+
+    class_kind_t Type::class_type_get_class_kind() const
+    {
+        return ::class_type_get_class_kind(_type_info);
     }
 
     unsigned int Type::get_size() 
@@ -855,9 +924,39 @@ namespace TL
         return ::is_pod_type(_type_info);
     }
 
+    bool Type::is_aggregate()
+    {
+        return ::is_aggregate_type(_type_info);
+    }
+
+    bool Type::is_builtin()
+    {
+        return ::is_builtin_type(_type_info);
+    }
+
     bool Type::is_unresolved_overload()
     {
         return ::is_unresolved_overloaded_type(_type_info);
+    }
+
+    bool Type::is_pointer_to_class() const
+    {
+        return ::is_pointer_to_class_type(_type_info);
+    }
+
+    bool Type::is_reference_to_class() const
+    {
+        return ::is_reference_to_class_type(_type_info);
+    }
+
+    bool Type::is_base_class(Type t) const
+    {
+        return ::class_type_is_base(_type_info, t._type_info);
+    }
+
+    bool Type::is_derived_class(Type t) const
+    {
+        return ::class_type_is_derived(_type_info, t._type_info);
     }
 
     ObjectList<Symbol> Type::get_unresolved_overload_set()

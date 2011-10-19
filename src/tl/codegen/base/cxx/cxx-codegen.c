@@ -39,8 +39,6 @@ struct nodecl_codegen_visitor_tag
     int num_classes_being_defined;
     scope_entry_t* classes_being_defined[MCXX_MAX_SCOPES_NESTING];
 
-    scope_entry_list_t* pending_nested_types_to_define;
-
     char in_member_declaration;
 
     char do_not_emit_declarations;
@@ -592,8 +590,6 @@ static scope_entry_list_t* define_required_before_class(nodecl_codegen_visitor_t
     static int _num_being_checked_for_required = 0;
     static scope_entry_t* _being_checked_for_required[MCXX_MAX_SCOPES_NESTING] = { 0 };
 
-    visitor->pending_nested_types_to_define = NULL;
-
     int i;
     for (i = 0; i < _num_being_checked_for_required; i++)
     {
@@ -710,22 +706,6 @@ static scope_entry_list_t* define_required_before_class(nodecl_codegen_visitor_t
 
     // This will compute a list of symbols that must be defined inside the class
     scope_entry_list_t* result = NULL;
-
-    // Remove ourselves from the result list. This happens because nonnested
-    // routines add all the enclosing symbols too, and the top most should not
-    // be included
-    for (it = entry_list_iterator_begin(visitor->pending_nested_types_to_define);
-            !entry_list_iterator_end(it);
-            entry_list_iterator_next(it))
-    {
-        scope_entry_t* current = entry_list_iterator_current(it);
-        if (current != symbol)
-        {
-            result = entry_list_add_once(result, current);
-        }
-    }
-
-    visitor->pending_nested_types_to_define = NULL;
 
     scope_entry_list_t* must_be_defined_inside_class = entry_list_copy(result);
 
@@ -1303,8 +1283,6 @@ static void define_class_symbol(nodecl_codegen_visitor_t* visitor, scope_entry_t
 {
     // fprintf(stderr, "DEFINING CLASS '%s'\n", get_qualified_symbol_name(symbol, symbol->decl_context));
 
-    scope_entry_list_t* old_pending = visitor->pending_nested_types_to_define;
-
     ERROR_CONDITION(visitor->num_classes_being_defined >= MCXX_MAX_SCOPES_NESTING, "Too many classes", 0);
     visitor->classes_being_defined[visitor->num_classes_being_defined] = symbol;
     visitor->num_classes_being_defined++;
@@ -1314,8 +1292,6 @@ static void define_class_symbol(nodecl_codegen_visitor_t* visitor, scope_entry_t
     define_class_symbol_aux(visitor, symbol, symbols_defined_inside_class, /* level */ 0);
 
     visitor->num_classes_being_defined--;
-
-    visitor->pending_nested_types_to_define = old_pending;
 }
 
 static char symbol_is_nested_in_defined_classes(nodecl_codegen_visitor_t* visitor, scope_entry_t* symbol);
@@ -2214,11 +2190,6 @@ static void define_symbol_if_nonnested(nodecl_codegen_visitor_t *visitor, scope_
     {
         define_symbol(visitor, symbol);
     }
-    else
-    {
-        visitor->pending_nested_types_to_define = 
-            entry_list_add_once(visitor->pending_nested_types_to_define, symbol);
-    }
 }
 
 // Lists during codegen
@@ -2956,9 +2927,9 @@ static void codegen_class_member_access(nodecl_codegen_visitor_t* visitor, nodec
     { 
         fprintf(visitor->file, "("); 
     } 
-    codegen_walk(visitor, lhs); 
+    codegen_walk(visitor, lhs);ce cr 
     if (needs_parentheses) 
-    { 
+    { n
         fprintf(visitor->file, ")"); 
     } 
     // Do not print anonymous symbols
@@ -4495,62 +4466,10 @@ static void c_cxx_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
 {
     nodecl_init_walker((nodecl_external_visitor_t*)codegen_visitor, not_implemented_yet);
 
-    NODECL_VISITOR(codegen_visitor)->visit_new = codegen_visitor_fun(codegen_new);
-    NODECL_VISITOR(codegen_visitor)->visit_delete = codegen_visitor_fun(codegen_delete);
-    NODECL_VISITOR(codegen_visitor)->visit_delete_array = codegen_visitor_fun(codegen_delete_array);
-    NODECL_VISITOR(codegen_visitor)->visit_throw = codegen_visitor_fun(codegen_throw);
-    NODECL_VISITOR(codegen_visitor)->visit_function_call = codegen_visitor_fun(codegen_function_call);
-    NODECL_VISITOR(codegen_visitor)->visit_virtual_function_call = codegen_visitor_fun(codegen_virtual_function_call);
-    NODECL_VISITOR(codegen_visitor)->visit_cast = codegen_visitor_fun(codegen_cast);
-    NODECL_VISITOR(codegen_visitor)->visit_sizeof = codegen_visitor_fun(codegen_sizeof);
-    NODECL_VISITOR(codegen_visitor)->visit_conditional_expression = codegen_visitor_fun(codegen_conditional_expression);
+    // FIXME - Solve this historical injustice
     NODECL_VISITOR(codegen_visitor)->visit_builtin_decl = codegen_visitor_fun(codegen_builtin);
     NODECL_VISITOR(codegen_visitor)->visit_builtin_expr = codegen_visitor_fun(codegen_builtin);
     NODECL_VISITOR(codegen_visitor)->visit_any_list = codegen_visitor_fun(codegen_any_list);
-    NODECL_VISITOR(codegen_visitor)->visit_structured_value = codegen_visitor_fun(codegen_structured_value);
-    NODECL_VISITOR(codegen_visitor)->visit_field_designator = codegen_visitor_fun(codegen_field_designator);
-    NODECL_VISITOR(codegen_visitor)->visit_index_designator = codegen_visitor_fun(codegen_index_designator);
-    NODECL_VISITOR(codegen_visitor)->visit_array_subscript = codegen_visitor_fun(codegen_array_subscript);
-    NODECL_VISITOR(codegen_visitor)->visit_range = codegen_visitor_fun(codegen_range);
-    NODECL_VISITOR(codegen_visitor)->visit_shaping = codegen_visitor_fun(codegen_shaping_expression);
-    NODECL_VISITOR(codegen_visitor)->visit_text = codegen_visitor_fun(codegen_text);
-    // All binary infix, unary prefix and unary postfix are here, look for the definition of OPERATOR_TABLE above
-#define PREFIX_UNARY_EXPRESSION(_name, _) \
-    NODECL_VISITOR(codegen_visitor)->visit_##_name = codegen_visitor_fun(codegen_##_name);
-#define POSTFIX_UNARY_EXPRESSION(_name, _) PREFIX_UNARY_EXPRESSION(_name, _)
-#define BINARY_EXPRESSION(_name, _) PREFIX_UNARY_EXPRESSION(_name, _)
-#define BINARY_EXPRESSION_ASSIG(_name, _) PREFIX_UNARY_EXPRESSION(_name, _)
-    OPERATOR_TABLE
-#undef PREFIX_UNARY_EXPRESSION
-#undef POSTFIX_UNARY_EXPRESSION
-#undef BINARY_EXPRESSION
-    NODECL_VISITOR(codegen_visitor)->visit_class_member_access = codegen_visitor_fun(codegen_class_member_access);
-    NODECL_VISITOR(codegen_visitor)->visit_pseudo_destructor_name = codegen_visitor_fun(codegen_pseudo_destructor_name);
-    NODECL_VISITOR(codegen_visitor)->visit_pointer_to_member = codegen_visitor_fun(codegen_pointer_to_member);
-    NODECL_VISITOR(codegen_visitor)->visit_compound_expression = codegen_visitor_fun(codegen_compound_expression);
-    NODECL_VISITOR(codegen_visitor)->visit_typeid = codegen_visitor_fun(codegen_typeid);
-    NODECL_VISITOR(codegen_visitor)->visit_type = codegen_visitor_fun(codegen_type);
-
-    NODECL_VISITOR(codegen_visitor)->visit_conversion = codegen_visitor_fun(codegen_conversion);
-
-    NODECL_VISITOR(codegen_visitor)->visit_err_expr = codegen_visitor_fun(codegen_err_expr);
-
-    NODECL_VISITOR(codegen_visitor)->visit_c99_field_designator = codegen_visitor_fun(codegen_c99_field_designator);
-    NODECL_VISITOR(codegen_visitor)->visit_c99_index_designator = codegen_visitor_fun(codegen_c99_index_designator);
-    NODECL_VISITOR(codegen_visitor)->visit_c99_designated_initializer = codegen_visitor_fun(codegen_c99_designated_initializer);
-    NODECL_VISITOR(codegen_visitor)->visit_offsetof = codegen_visitor_fun(codegen_offsetof);
-
-    NODECL_VISITOR(codegen_visitor)->visit_cxx_parenthesized_initializer = codegen_visitor_fun(codegen_cxx_parenthesized_initializer);
-    NODECL_VISITOR(codegen_visitor)->visit_cxx_braced_initializer = codegen_visitor_fun(codegen_cxx_braced_initializer);
-    NODECL_VISITOR(codegen_visitor)->visit_cxx_equal_initializer = codegen_visitor_fun(codegen_cxx_equal_initializer);
-
-    NODECL_VISITOR(codegen_visitor)->visit_cxx_dep_name_simple = codegen_visitor_fun(codegen_cxx_dep_name_simple);
-    NODECL_VISITOR(codegen_visitor)->visit_cxx_dep_template_id = codegen_visitor_fun(codegen_cxx_dep_template_id);
-    NODECL_VISITOR(codegen_visitor)->visit_cxx_dep_global_name_nested = codegen_visitor_fun(codegen_cxx_dep_global_name_nested);
-    NODECL_VISITOR(codegen_visitor)->visit_cxx_dep_name_nested = codegen_visitor_fun(codegen_cxx_dep_name_nested);
-    NODECL_VISITOR(codegen_visitor)->visit_cxx_dep_name_conversion = codegen_visitor_fun(codegen_cxx_dep_name_conversion);
-
-    NODECL_VISITOR(codegen_visitor)->visit_cxx_explicit_type_cast = codegen_visitor_fun(codegen_explicit_type_cast);
 }
 
 // External interface

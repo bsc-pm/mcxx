@@ -214,6 +214,9 @@ namespace TL
             //! Returns the underlying type of an enumeration
             Type get_enum_underlying_type();
 
+            //! For an enum type get all its enumerators
+            ObjectList<Symbol> enum_get_enumerators();
+
             //! Returns a pointer to the current type
             Type get_pointer_to();
 
@@ -266,7 +269,13 @@ namespace TL
              */
             Type get_function_returning(const ObjectList<Type>& type_list, bool has_ellipsis = false);
 
+            //! If the type is a reference, it returns the referenced tye
+            /*!
+             * This function is a no-op in C and Fortran
+             */
+            Type no_ref();
 
+            //! Returns the alignment of the type
             int get_alignment_of();
 
             bool operator==(Type t) const;
@@ -323,11 +332,14 @@ namespace TL
             //! States whether this type is '_Complex' qualified
             bool is_complex() const;
 
-            //! States this type is POD
-            /*! 
-              Informally, in C++ terms, a POD types is something you could have
-              written in C */
+            //! States this type is a POD in C++ Standard meaning
             bool is_pod();
+
+            //! States if this type is an aggregate in the meaning of C++
+            bool is_aggregate();
+
+            //! States if this type is a builtin type
+            bool is_builtin();
             
             //! States wheter this is a direct type
             /*!
@@ -420,10 +432,22 @@ namespace TL
             //! In pointer-types or pointer-to-member types returns the referenced type
             Type points_to() const;
 
+            //! States whether the current type is a pointer to a class type
+            /*!
+             * \note Not to be confused with being a pointer to member of class
+             */
+            bool is_pointer_to_class() const;
+
             //! States whether current type is a pointer-to-member type
             bool is_pointer_to_member() const;
             //! In pointer-to-member types returns the class of the pointer
             Type pointed_class() const;
+
+            //! Current class is a base of t
+            bool is_base_class(Type t) const;
+            
+            //! Current class is a derived class of t
+            bool is_derived_class(Type t) const;
 
             //! States whether current type is an array-type
             bool is_array() const;
@@ -431,12 +455,6 @@ namespace TL
             Type array_element() const;
             //! States whether this array-type has an explicit array dimension
             bool array_has_size() const;
-
-            //! This is an alias to array_has_size
-            /*!
-              \deprecated Do not use it, use array_has_size instead
-              */
-            DEPRECATED bool explicit_array_dimension() const;
 
             //! Returns the expression of the array dimension
             Nodecl::NodeclBase array_get_size() const; 
@@ -505,7 +523,10 @@ namespace TL
              * };
              * \endcode
              */
-            bool is_dependent() const;
+            bool is_dependent_typename() const;
+
+            //! Decomposes the dependent typename into its entry symbol and its syntactic part
+            void dependent_typename_get_components(Symbol& entry_symbol, Nodecl::NodeclBase& parts);
 
             //! States whether the type is the result of a type dependent expression
             /*! Consider the following case
@@ -525,8 +546,21 @@ namespace TL
             //! States whether the current type is incomplete
             bool is_incomplete() const;
 
-            //! States whether the type is a reference type
+            bool class_type_is_complete_independent() const;
+            bool class_type_is_complete_dependent() const;
+            bool class_type_is_incomplete_independent() const;
+            bool class_type_is_incomplete_dependent() const;
+
+            class_kind_t class_type_get_class_kind() const;
+
+            //! States whether the type is a lvalue or rvalue reference type
             bool is_reference() const;
+
+            bool is_rvalue_reference() const;
+            bool is_lvalue_reference() const;
+
+            //! States whether the type is a reference to a class type
+            bool is_reference_to_class() const;
             //! Returns the referenced type
             Type references_to() const;
 
@@ -543,6 +577,9 @@ namespace TL
 
             //! Returns all the data members, either static or non-static
             ObjectList<Symbol> get_all_data_members() const;
+            
+            //! Returns all the data members, either static or non-static
+            ObjectList<Symbol> get_all_members() const;
 
             //! States whether any nonstatic member of class-type is defined as mutable
             bool some_member_is_mutable() const;
@@ -611,12 +648,6 @@ namespace TL
             * So do not use 'operator==' to check type system equality.
             */
             bool is_same_type(Type t);
-
-            //! States whether two types represent the same type
-            /*!
-             * \deprecated Do not use this one instead use is_same_type(Type)
-             */
-            bool is_same_type(Type t, Scope sc) DEPRECATED;
 
             /* We should consider to remove this one day */
             friend class Symbol;

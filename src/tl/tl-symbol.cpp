@@ -194,6 +194,16 @@ namespace TL
                 && is_function_type(named_type_get_symbol(template_type_get_primary_type(_symbol->type_information))->type_information));
     }
 
+    bool Symbol::is_anonymous_union() const
+    {
+        return this->_symbol->entity_specs.is_anonymous_union;
+    }
+
+    bool Symbol::is_injected_class_name() const
+    {
+        return this->_symbol->entity_specs.is_injected_class_name;
+    }
+
     bool Symbol::is_typedef() const
     {
         return (this->_symbol->kind == SK_TYPEDEF);
@@ -209,12 +219,24 @@ namespace TL
         return _symbol->entity_specs.is_template_parameter;
     }
 
-    bool Symbol::is_typename() const
+    bool Symbol::is_class() const
     {
-        return (this->_symbol->kind == SK_TYPEDEF
-                || this->_symbol->kind == SK_ENUM
-                || this->_symbol->kind == SK_CLASS
-                || this->_symbol->kind == SK_TEMPLATE_TYPE_PARAMETER);
+        return this->_symbol->kind == SK_CLASS;
+    }
+
+    bool Symbol::is_template() const
+    {
+        return this->_symbol->kind == SK_TEMPLATE;
+    }
+
+    bool Symbol::is_enum() const
+    {
+        return this->_symbol->kind == SK_ENUM;
+    }
+
+    bool Symbol::is_enumerator() const
+    {
+        return this->_symbol->kind == SK_ENUMERATOR;
     }
 
     bool Symbol::is_member() const
@@ -250,6 +272,21 @@ namespace TL
     bool Symbol::is_register() const
     {
         return (_symbol->entity_specs.is_register);
+    }
+
+    bool Symbol::is_thread() const
+    {
+        return (_symbol->entity_specs.is_thread);
+    }
+
+    bool Symbol::is_bitfield() const
+    {
+        return (_symbol->entity_specs.is_bitfield);
+    }
+
+    Nodecl::NodeclBase Symbol::get_bitfield_size() const
+    {
+        return _symbol->entity_specs.bitfield_size;
     }
 
     // FIXME : This only holds if the 'extern' qualifier was given
@@ -391,6 +428,11 @@ namespace TL
     bool Symbol::is_defined() const
     {
         return _symbol->defined;
+    }
+
+    bool Symbol::not_to_be_printed() const
+    {
+        return _symbol->do_not_print;
     }
 
     std::string Symbol::get_locus() const
