@@ -1460,7 +1460,7 @@ static void codegen_subscript_triplet(nodecl_codegen_visitor_t* visitor, nodecl_
 {
     nodecl_t nodecl_lower = nodecl_get_child(node, 0);
     nodecl_t nodecl_upper = nodecl_get_child(node, 1);
-    nodecl_t nodecl_strid = nodecl_get_child(node, 2);
+    nodecl_t nodecl_stride = nodecl_get_child(node, 2);
 
     if (!nodecl_is_null(nodecl_lower))
         codegen_walk(visitor, nodecl_lower);
@@ -1470,10 +1470,15 @@ static void codegen_subscript_triplet(nodecl_codegen_visitor_t* visitor, nodecl_
     if (!nodecl_is_null(nodecl_upper))
         codegen_walk(visitor, nodecl_upper);
 
-    if (!nodecl_is_null(nodecl_strid))
+    // If the stride is not 1, do not print
+    if (!(nodecl_is_constant(nodecl_stride)
+                && const_value_is_integer(nodecl_get_constant(nodecl_stride))
+                && const_value_is_nonzero(
+                    const_value_eq(nodecl_get_constant(nodecl_stride),
+                        const_value_get_one(/* num_bytes */ fortran_get_default_integer_type_kind(), /* signed */ 1)))))
     {
         fprintf(visitor->file, ":");
-        codegen_walk(visitor, nodecl_strid);
+        codegen_walk(visitor, nodecl_stride);
     }
 }
 
