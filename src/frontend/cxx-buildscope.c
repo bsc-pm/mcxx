@@ -7098,14 +7098,13 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
             new_entry->kind = SK_TEMPLATE;
             new_entry->line = ASTLine(declarator_id);
             new_entry->file = ASTFileName(declarator_id);
-
+            
             new_entry->entity_specs.is_friend_declared = gather_info->is_friend;
-
-            if (decl_context.current_scope->kind == CLASS_SCOPE)
+            if (decl_context.current_scope->kind == CLASS_SCOPE
+                    && !new_entry->entity_specs.is_friend_declared)
             {
                 new_entry->entity_specs.is_member = 1;
-                // FIXME
-                // new_entry->entity_specs.access = AS_PUBLIC;
+                
                 new_entry->entity_specs.class_type = 
                     get_user_defined_type(decl_context.current_scope->related_entry);
             }
@@ -7160,6 +7159,19 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
             counted_calloc(gather_info->num_parameters, 
                     sizeof(*new_entry->entity_specs.default_argument_info),
                     &_bytes_used_buildscope);
+        
+
+        new_entry->entity_specs.is_friend_declared = gather_info->is_friend;
+        
+        // If the declaration context is CLASS_SCOPE and the function definition is friend,
+        // It is not a member class
+        if(decl_context.current_scope->kind == CLASS_SCOPE
+            && !new_entry->entity_specs.is_friend_declared)
+        {
+            new_entry->entity_specs.is_member = 1;
+            new_entry->entity_specs.class_type =
+                get_user_defined_type(decl_context.current_scope->related_entry);
+        }
 
         int i;
         for (i = 0; i < gather_info->num_parameters; i++)
@@ -7292,7 +7304,7 @@ static char find_function_declaration(AST declarator_id,
         scope_entry_t** result_entry)
 {
     *result_entry = NULL;
-
+    
     decl_flags_t decl_flags = DF_NONE;
     if (BITMAP_TEST(decl_context.decl_flags, DF_CONSTRUCTOR))
     {
@@ -7302,6 +7314,7 @@ static char find_function_declaration(AST declarator_id,
     // Restrict ourselves to the current scope
     // if the declarator-id is unqualified
     // and we are not naming a friend
+    decl_context_t lookup_context = decl_context;
     if (!gather_info->is_friend)
     {
         switch (ASTType(declarator_id))
@@ -7319,9 +7332,13 @@ static char find_function_declaration(AST declarator_id,
                 break;
         }
     }
+    else
+    {
+        lookup_context.current_scope = lookup_context.namespace_scope;
+    }
 
     scope_entry_list_t* entry_list 
-        = query_id_expression_flags(decl_context, declarator_id, decl_flags);
+        = query_id_expression_flags(lookup_context, declarator_id, decl_flags);
 
     type_t* function_type_being_declared = declarator_type;
 
@@ -7339,7 +7356,7 @@ static char find_function_declaration(AST declarator_id,
             entry_list_iterator_next(it))
     {
         scope_entry_t* entry = entry_list_iterator_current(it);
-
+        
         // Ignore this case unless we are in a friend declaration
         if (entry->kind == SK_DEPENDENT_ENTITY)
         {
@@ -9726,7 +9743,9 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
                 ast_location(a),
                 entry->symbol_name); 
     }
-    entry->entity_specs.is_member = 1;
+    
+
+
     entry->entity_specs.access = current_access;
     entry->entity_specs.class_type = class_info;
     class_type_add_member(get_actual_class_type(class_type), entry);
