@@ -2413,6 +2413,12 @@ static type_t* _get_array_type(type_t* element_type,
             // If we used the hash of array types, these two will be null
             result->array->lower_bound = lower_bound;
             result->array->upper_bound = upper_bound;
+            
+            // If the element_type is array propagate the 'is_vla' value
+            if(element_type->array != NULL) 
+            {
+                result->array->is_vla = element_type->array->is_vla;
+            }
 
             result->array->array_expr_decl_context = decl_context;
 
@@ -2447,6 +2453,12 @@ static type_t* _get_array_type(type_t* element_type,
                 result->unqualified_type = result;
                 result->array = counted_calloc(1, sizeof(*(result->array)), &_bytes_due_to_type_system);
                 result->array->element_type = element_type;
+                
+                // If the element_type is array propagate the 'is_vla' value
+                if(element_type->array != NULL)
+                {
+                    result->array->is_vla = element_type->array->is_vla;
+                }
 
                 result->array->whole_size = whole_size;
                 result->array->lower_bound = lower_bound;

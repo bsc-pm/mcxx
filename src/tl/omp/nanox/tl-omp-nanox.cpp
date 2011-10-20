@@ -79,6 +79,11 @@ OMPTransform::OMPTransform()
             "Some compilers do not allow weak symbols be defined in specific sections. Make them static instead",
             _static_weak_symbols_str,
             "0").connect(functor(&OMPTransform::set_weaks_as_statics, *this));
+ 
+    register_parameter("no-nanox-calls",
+            "Specifies that the generated code must not contain calls to the runtime. The execution will be serial.",
+            _no_nanox_calls_str,
+            "0").connect(functor(&OMPTransform::set_no_nanox_calls_flag, *this));
 
     on_directive_post["critical"].connect(functor(&OMPTransform::critical_postorder, *this));
     on_directive_post["master"].connect(functor(&OMPTransform::master_postorder, *this));
@@ -123,6 +128,11 @@ void OMPTransform::set_compiler_alignment(const std::string& str)
 void OMPTransform::set_translation_function_flag(const std::string& str)
 {
     parse_boolean_option("do_not_create_translation_function", str, _do_not_create_translation_fun, "Assuming false.");
+}
+
+void OMPTransform::set_no_nanox_calls_flag(const std::string& str)
+{
+    parse_boolean_option("no_nanox_calls", str, _no_nanox_calls, "Assuming false.");
 }
 
 void OMPTransform::phase_cleanup(DTO& data_flow)
