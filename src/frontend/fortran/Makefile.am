@@ -117,6 +117,8 @@ libmf03_prescanner_la_CFLAGS = -DLIBMF03_PRESCANNER_DLL_EXPORT \
                     -fexceptions \
 				    -DPKGDATADIR=\"$(pkgdatadir)\"
 
+libmf03_prescanner_la_LDFLAGS = $(dll_exports) -avoid-version $(no_undefined)
+
 # Remaining stuff
 
 ADDITIONAL_GRAMMARS_FORTRAN = 

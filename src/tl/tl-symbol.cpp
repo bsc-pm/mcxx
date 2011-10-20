@@ -294,6 +294,11 @@ namespace TL
         return _symbol->entity_specs.bitfield_size;
     }
 
+    bool Symbol::is_user_declared() const
+    {
+        return _symbol->entity_specs.is_user_declared;
+    }
+
     // FIXME : This only holds if the 'extern' qualifier was given
     // in the declaration of the symbol but global symbols
     // without it are 'extern' too. Using 'is_static' is better

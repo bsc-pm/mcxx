@@ -1,7 +1,7 @@
 #ifndef CODEGEN_CXX_HPP
 #define CODEGEN_CXX_HPP
 
-#include "codegen-common.hpp"
+#include "codegen-phase.hpp"
 #include "tl-scope.hpp"
 #include "tl-symbol.hpp"
 #include <sstream>
@@ -10,10 +10,11 @@
 
 namespace Codegen
 {
-    class CXXBase : public CodegenVisitor
+    class CxxBase : public CodegenPhase
     {
-        public:
+        protected:
             virtual std::string codegen(const Nodecl::NodeclBase&);
+        public:
 
             Ret visit(const Nodecl::Add &);
             Ret visit(const Nodecl::AddAssignment &);
@@ -153,8 +154,6 @@ namespace Codegen
 
                 bool in_member_declaration;
 
-                bool do_not_emit_declarations;
-
                 bool inside_structured_value;
 
                 TL::ObjectList<TL::Symbol> classes_being_defined;
@@ -171,6 +170,26 @@ namespace Codegen
                 // get_indent_level, set_indent_level
                 // inc_indent, dec_indent
                 int _indent_level;
+
+                State()
+                    : current_scope(),
+                    global_namespace(),
+                    opened_namespace(),
+                    in_condition(false),
+                    condition_top(Nodecl::NodeclBase::null()),
+                    in_member_declaration(false),
+                    inside_structured_value(),
+                    classes_being_defined(),
+                    walked_types(),
+                    being_checked_for_required(),
+                    pending_nested_types_to_define(),
+                    _indent_level(0) { }
+
+                void reset()
+                {
+                    // A bit crude but very effective
+                    *this = State();
+                }
             } state;
             // End of State
 
@@ -187,12 +206,12 @@ namespace Codegen
             void declare_symbol(TL::Symbol symbol);
 
             void define_generic_entities(Nodecl::NodeclBase node,
-                    void (CXXBase::*decl_sym_fun)(TL::Symbol symbol),
-                    void (CXXBase::*def_sym_fun)(TL::Symbol symbol),
-                    void (CXXBase::*define_entities_fun)(const Nodecl::NodeclBase& node),
-                    void (CXXBase::*define_entry_fun)(
+                    void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
+                    void (CxxBase::*def_sym_fun)(TL::Symbol symbol),
+                    void (CxxBase::*define_entities_fun)(const Nodecl::NodeclBase& node),
+                    void (CxxBase::*define_entry_fun)(
                         const Nodecl::NodeclBase& node, TL::Symbol entry,
-                        void (CXXBase::*def_sym_fun_2)(TL::Symbol symbol))
+                        void (CxxBase::*def_sym_fun_2)(TL::Symbol symbol))
                     );
 
             bool is_local_symbol(TL::Symbol entry);
@@ -213,19 +232,19 @@ namespace Codegen
 
             void walk_type_for_symbols(TL::Type, 
                     bool needs_def, 
-                    void (CXXBase::* declare_fun)(TL::Symbol),
-                    void (CXXBase::* define_fun)(TL::Symbol),
-                    void (CXXBase::* define_entities)(const Nodecl::NodeclBase&));
+                    void (CxxBase::* declare_fun)(TL::Symbol),
+                    void (CxxBase::* define_fun)(TL::Symbol),
+                    void (CxxBase::* define_entities)(const Nodecl::NodeclBase&));
 
             void entry_just_define(
                     const Nodecl::NodeclBase&, 
                     TL::Symbol symbol,
-                    void (CXXBase::*def_sym_fun)(TL::Symbol));
+                    void (CxxBase::*def_sym_fun)(TL::Symbol));
 
             void entry_local_definition(
                     const Nodecl::NodeclBase&,
                     TL::Symbol entry,
-                    void (CXXBase::*def_sym_fun)(TL::Symbol));
+                    void (CxxBase::*def_sym_fun)(TL::Symbol));
 
             std::map<TL::Symbol, codegen_status_t> _codegen_status;
             void set_codegen_status(TL::Symbol sym, codegen_status_t status);
@@ -251,7 +270,7 @@ namespace Codegen
             void walk_expression_unpacked_list(Iterator begin, Iterator end);
 
             template <typename Node>
-                CXXBase::Ret visit_function_call(const Node&, bool is_virtual_call);
+                CxxBase::Ret visit_function_call(const Node&, bool is_virtual_call);
 
             static int get_rank_kind(node_t n, const std::string& t);
             static int get_rank(const Nodecl::NodeclBase &n);
@@ -273,6 +292,7 @@ namespace Codegen
 
             std::string gcc_attributes_to_str(TL::Symbol);
             std::string gcc_asm_specifier_to_str(TL::Symbol);
+
     };
 }
 

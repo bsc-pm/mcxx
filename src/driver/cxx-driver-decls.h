@@ -354,10 +354,8 @@ typedef struct compilation_configuration_tag
 
     const char* linker_name;
 
-    //FIXME: we don't use this yet
     const char** linker_options_pre;
     
-
     int num_args_linker_command;
     parameter_linker_command_t** linker_command;
 
@@ -371,6 +369,10 @@ typedef struct compilation_configuration_tag
 
     int num_compiler_phases;
 	compiler_phase_loader_t** phase_loader;
+
+    // Codegen phase for this profile
+    // This is a void* because it points to a C++ class
+    void* codegen_phase;
 
     // States whether the phases of this compiler were loaded
     char phases_loaded;
@@ -419,9 +421,6 @@ typedef struct compilation_configuration_tag
 
     // Enable CUDA
     char enable_cuda;
-
-    // Disable nodecl (this is UNSUPPORTED)
-    char disable_nodecl;
 
     // Target options
     int num_target_option_maps;

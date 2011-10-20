@@ -1400,6 +1400,8 @@ AC_CONFIG_FILES([Makefile
            src/tl/codegen/base/Makefile 
            src/tl/codegen/base/cxx/Makefile 
            src/tl/codegen/base/fortran/Makefile 
+           src/tl/codegen/base/legacy_cxx/Makefile 
+           src/tl/codegen/base/legacy_fortran/Makefile 
            src/tl/omp/Makefile 
            src/tl/omp/core/Makefile
            src/tl/omp/fun-tasks/Makefile 

@@ -27,21 +27,30 @@
 
 include ../../../Makefile.phases
 
-phases_LTLIBRARIES = libcodegen-cxx.la
-
-libcodegen_cxx_la_CFLAGS = $(tl_cflags) -I$(srcdir)/../../common
-libcodegen_cxx_la_CXXFLAGS = $(tl_cflags) -I$(srcdir)/../../common
+phases_LTLIBRARIES = libcodegen-legacy_fortran.la
 
 END=
 
-libcodegen_cxx_la_LDFLAGS = $(tl_ldflags)
-libcodegen_cxx_la_LIBADD = ../../common/libcodegen-common.la \
+libcodegen_legacy_fortran_la_CFLAGS = $(tl_cflags) \
+									  -I$(srcdir)/../../common \
+									  -I$(top_srcdir)/src/frontend/fortran \
+									  -I$(top_builddir)/src/frontend/fortran \
+									  $(END)
+libcodegen_legacy_fortran_la_CXXFLAGS = $(tl_cflags) \
+									  -I$(srcdir)/../../common \
+									  -I$(top_srcdir)/src/frontend/fortran \
+									  -I$(top_builddir)/src/frontend/fortran \
+									  $(END)
+
+
+libcodegen_legacy_fortran_la_LDFLAGS = $(tl_ldflags)
+libcodegen_legacy_fortran_la_LIBADD = ../../common/libcodegen-common.la \
 						   $(tl_libadd) \
 					       $(quadmath_LIBS) \
 					       $(END)
 
 
-libcodegen_cxx_la_SOURCES = \
-	 codegen-cxx.hpp \
-	 codegen-cxx.cpp \
+libcodegen_legacy_fortran_la_SOURCES = \
+	 codegen-fortran.hpp \
+	 codegen-fortran.cpp \
   	 $(END)

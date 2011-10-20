@@ -24,5 +24,10 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
+SUBDIRS=cxx legacy_cxx
 
-SUBDIRS=cxx fortran
+if FORTRAN_SUPPORT
+SUBDIRS += fortran legacy_fortran
+endif
+
+DIST_SUBDIRS=cxx fortran legacy_cxx legacy_fortran

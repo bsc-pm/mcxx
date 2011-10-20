@@ -4,13 +4,21 @@
 #include "cxx-cexpr.h"
 
 #ifdef HAVE_QUADMATH_H
+MCXX_BEGIN_DECLS
 #include <quadmath.h>
+MCXX_END_DECLS
 #endif
 
 namespace Codegen {
 
-std::string CXXBase::codegen(const Nodecl::NodeclBase &n) 
+std::string CxxBase::codegen(const Nodecl::NodeclBase &n) 
 {
+    // Reset the state
+    state.reset();
+    file.str("");
+
+    walk(n);
+    return file.str();
 }
 
 #define OPERATOR_TABLE \
@@ -61,7 +69,7 @@ std::string CXXBase::codegen(const Nodecl::NodeclBase &n)
     BINARY_EXPRESSION(Comma, ", ") \
 
 #define PREFIX_UNARY_EXPRESSION(_name, _operand) \
-    void CXXBase::visit(const Nodecl::_name &node) \
+    void CxxBase::visit(const Nodecl::_name &node) \
     { \
         Nodecl::NodeclBase rhs = node.children()[0]; \
         char needs_parentheses = operand_has_lower_priority(node, rhs); \
@@ -78,7 +86,7 @@ std::string CXXBase::codegen(const Nodecl::NodeclBase &n)
     }
 
 #define POSTFIX_UNARY_EXPRESSION(_name, _operand) \
-    void CXXBase::visit(const Nodecl::_name& node) \
+    void CxxBase::visit(const Nodecl::_name& node) \
     { \
         Nodecl::NodeclBase rhs = node.children()[0]; \
         char needs_parentheses = operand_has_lower_priority(node, rhs); \
@@ -95,7 +103,7 @@ std::string CXXBase::codegen(const Nodecl::NodeclBase &n)
     }
 
 #define BINARY_EXPRESSION(_name, _operand) \
-    void CXXBase::visit(const Nodecl::_name& node) \
+    void CxxBase::visit(const Nodecl::_name& node) \
     { \
         Nodecl::NodeclBase lhs = node.children()[0]; \
         Nodecl::NodeclBase rhs = node.children()[1]; \
@@ -122,7 +130,7 @@ std::string CXXBase::codegen(const Nodecl::NodeclBase &n)
         } \
     }
 #define BINARY_EXPRESSION_ASSIG(_name, _operand) \
-    void CXXBase::visit(const Nodecl::_name& node) \
+    void CxxBase::visit(const Nodecl::_name& node) \
     { \
         Nodecl::NodeclBase lhs = node.children()[0]; \
         Nodecl::NodeclBase rhs = node.children()[1]; \
@@ -163,11 +171,11 @@ OPERATOR_TABLE
 #undef BINARY_EXPRESSION_ASSIG
 
 
-CXXBase::Ret CXXBase::visit(const Nodecl::AnyList& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::AnyList& node)
 {
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::ArraySubscript& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::ArraySubscript& node)
 {
     Nodecl::NodeclBase subscripted = node.get_subscripted();
     Nodecl::List subscript = node.get_subscripts().as<Nodecl::List>();
@@ -194,7 +202,7 @@ CXXBase::Ret CXXBase::visit(const Nodecl::ArraySubscript& node)
     }
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::BooleanLiteral& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::BooleanLiteral& node)
 {
     const_value_t* val = nodecl_get_constant(node.get_internal_nodecl());
 
@@ -208,41 +216,41 @@ CXXBase::Ret CXXBase::visit(const Nodecl::BooleanLiteral& node)
     }
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::BreakStatement& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::BreakStatement& node)
 {
     indent();
     file << "break;\n";
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::BuiltinDecl& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::BuiltinDecl& node)
 {
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::BuiltinExpr& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::BuiltinExpr& node)
 {
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::C99DesignatedInitializer& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::C99DesignatedInitializer& node)
 {
     walk(node.get_designation());
     file << " = ";
     walk(node.get_init());
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::C99FieldDesignator& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::C99FieldDesignator& node)
 {
     file << ".";
     walk(node.get_name());
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::C99IndexDesignator& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::C99IndexDesignator& node)
 {
     file << "[";
     walk(node.get_expr());
     file << "]";
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::CaseStatement& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::CaseStatement& node)
 {
     Nodecl::NodeclBase expression = node.get_case();
     Nodecl::NodeclBase statement = node.get_statement();
@@ -255,7 +263,7 @@ CXXBase::Ret CXXBase::visit(const Nodecl::CaseStatement& node)
     walk(statement);
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::Cast& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::Cast& node)
 {
     std::string cast_kind = node.get_text();
     TL::Type t = node.get_type();
@@ -284,7 +292,7 @@ CXXBase::Ret CXXBase::visit(const Nodecl::Cast& node)
     }
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::CatchHandler& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::CatchHandler& node)
 {
     Nodecl::NodeclBase name = node.get_name();
     Nodecl::NodeclBase statement = node.get_statement();
@@ -320,7 +328,7 @@ CXXBase::Ret CXXBase::visit(const Nodecl::CatchHandler& node)
     walk(statement);
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::ClassMemberAccess& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::ClassMemberAccess& node)
 {
     Nodecl::NodeclBase lhs = node.get_lhs();
     Nodecl::NodeclBase rhs = node.get_member();
@@ -358,7 +366,7 @@ CXXBase::Ret CXXBase::visit(const Nodecl::ClassMemberAccess& node)
     }
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::ComplexLiteral& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::ComplexLiteral& node)
 {
     // This is a GCC extension
     //
@@ -372,7 +380,7 @@ CXXBase::Ret CXXBase::visit(const Nodecl::ComplexLiteral& node)
     file << "i";
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::CompoundExpression& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::CompoundExpression& node)
 {
     file << "(";
 
@@ -399,7 +407,7 @@ CXXBase::Ret CXXBase::visit(const Nodecl::CompoundExpression& node)
     file << ")";
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::CompoundStatement& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::CompoundStatement& node)
 {
     indent();
     file << "{\n";
@@ -416,7 +424,7 @@ CXXBase::Ret CXXBase::visit(const Nodecl::CompoundStatement& node)
     file << "}\n";
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::ConditionalExpression& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::ConditionalExpression& node)
 {
     Nodecl::NodeclBase cond = node.get_condition();
     Nodecl::NodeclBase then = node.get_true();
@@ -457,7 +465,7 @@ CXXBase::Ret CXXBase::visit(const Nodecl::ConditionalExpression& node)
     }
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::Context& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::Context& node)
 {
     TL::Scope old_scope = state.current_scope;
     state.current_scope = node.retrieve_context();
@@ -467,19 +475,19 @@ CXXBase::Ret CXXBase::visit(const Nodecl::Context& node)
     state.current_scope = old_scope;
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::ContinueStatement& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::ContinueStatement& node)
 {
     indent();
     file << "continue;\n";
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::Conversion& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::Conversion& node)
 {
     // Do nothing
     walk(node.get_nest());
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::CxxBracedInitializer& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::CxxBracedInitializer& node)
 {
     file << "{";
     if (!node.get_init().is_null())
@@ -489,28 +497,28 @@ CXXBase::Ret CXXBase::visit(const Nodecl::CxxBracedInitializer& node)
     file << "}";
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::CxxDepGlobalNameNested& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepGlobalNameNested& node)
 {
     file << "::";
     visit(node.as<Nodecl::CxxDepNameNested>());
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::CxxDepNameConversion& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepNameConversion& node)
 {
     file << "operator " << node.get_type().get_declaration(state.current_scope, "");
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::CxxDepNameNested& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepNameNested& node)
 {
     walk_list(node.get_items().as<Nodecl::List>(), "::");
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::CxxDepNameSimple& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepNameSimple& node)
 {
     file << node.get_text();
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::CxxDepTemplateId& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepTemplateId& node)
 {
     walk(node.get_name());
 
@@ -518,13 +526,13 @@ CXXBase::Ret CXXBase::visit(const Nodecl::CxxDepTemplateId& node)
             state.current_scope.get_decl_context());
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::CxxEqualInitializer& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::CxxEqualInitializer& node)
 {
     file << " = ";
     walk(node.get_init());
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::CxxExplicitTypeCast& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::CxxExplicitTypeCast& node)
 {
     TL::Type t = node.get_type();
 
@@ -533,7 +541,7 @@ CXXBase::Ret CXXBase::visit(const Nodecl::CxxExplicitTypeCast& node)
     walk(node.get_init_list());
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::CxxParenthesizedInitializer& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::CxxParenthesizedInitializer& node)
 {
     file << "(";
     if (!node.get_init().is_null())
@@ -543,7 +551,7 @@ CXXBase::Ret CXXBase::visit(const Nodecl::CxxParenthesizedInitializer& node)
     file << ")";
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::DefaultStatement& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::DefaultStatement& node)
 {
     Nodecl::NodeclBase statement = node.get_statement();
 
@@ -553,7 +561,7 @@ CXXBase::Ret CXXBase::visit(const Nodecl::DefaultStatement& node)
     walk(statement);
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::DoStatement& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::DoStatement& node)
 {
     Nodecl::NodeclBase statement = node.get_statement();
     Nodecl::NodeclBase condition = node.get_condition();
@@ -571,18 +579,18 @@ CXXBase::Ret CXXBase::visit(const Nodecl::DoStatement& node)
     file << ");\n";
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::EmptyStatement& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::EmptyStatement& node)
 {
     indent();
     file << ";\n";
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::ErrExpr& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::ErrExpr& node)
 {
     file << "<<error expression>>";
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::ExpressionStatement& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::ExpressionStatement& node)
 {
     Nodecl::NodeclBase expression = node.get_nest();
     indent();
@@ -590,7 +598,7 @@ CXXBase::Ret CXXBase::visit(const Nodecl::ExpressionStatement& node)
     file << ";\n";
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::FieldDesignator& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::FieldDesignator& node)
 {
     Nodecl::NodeclBase field = node.get_field();
     Nodecl::NodeclBase next = node.get_next();
@@ -606,7 +614,7 @@ CXXBase::Ret CXXBase::visit(const Nodecl::FieldDesignator& node)
     walk(next);
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::FloatingLiteral& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::FloatingLiteral& node)
 {
     const_value_t* value = nodecl_get_constant(node.get_internal_nodecl());
     ERROR_CONDITION(value == NULL, "Invalid value", 0);
@@ -651,7 +659,7 @@ CXXBase::Ret CXXBase::visit(const Nodecl::FloatingLiteral& node)
 #endif
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::ForStatement& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::ForStatement& node)
 {
     Nodecl::NodeclBase loop_control = node.get_loop_header();
     Nodecl::NodeclBase statement = node.get_statement();
@@ -667,7 +675,7 @@ CXXBase::Ret CXXBase::visit(const Nodecl::ForStatement& node)
 }
 
 template <typename Node>
-CXXBase::Ret CXXBase::visit_function_call(const Node& node, bool is_virtual_call)
+CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call)
 {
     Nodecl::NodeclBase called_entity = node.get_called();
     Nodecl::List arguments = node.get_arguments().template as<Nodecl::List>();
@@ -775,12 +783,12 @@ CXXBase::Ret CXXBase::visit_function_call(const Node& node, bool is_virtual_call
     }
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::FunctionCall& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCall& node)
 {
     visit_function_call(node, /* is_virtual_call */ false);
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::FunctionCode& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 {
     Nodecl::Context context = node.get_statements().as<Nodecl::Context>();
     Nodecl::List statement_seq = context.get_in_context().as<Nodecl::List>();
@@ -800,7 +808,7 @@ CXXBase::Ret CXXBase::visit(const Nodecl::FunctionCode& node)
     Nodecl::NodeclBase statement = statement_seq[0];
 
     TL::Symbol symbol = node.get_symbol();
-    TL::Type symbol_type = node.get_type();
+    TL::Type symbol_type = symbol.get_type();
 
     ERROR_CONDITION(!symbol.is_function(), "Invalid symbol", 0);
 
@@ -823,9 +831,9 @@ CXXBase::Ret CXXBase::visit(const Nodecl::FunctionCode& node)
 
     walk_type_for_symbols(symbol_type.returns(), 
             /* needs_def */ true,
-            &CXXBase::declare_symbol,
-            &CXXBase::define_symbol,
-            &CXXBase::define_all_entities_in_trees);
+            &CxxBase::declare_symbol,
+            &CxxBase::define_symbol,
+            &CxxBase::define_all_entities_in_trees);
 
     state.current_symbol = symbol;
 
@@ -838,9 +846,9 @@ CXXBase::Ret CXXBase::visit(const Nodecl::FunctionCode& node)
             it++)
     {
         walk_type_for_symbols(*it, /* needs_def */ 1, 
-                &CXXBase::declare_symbol,
-                &CXXBase::define_symbol,
-                &CXXBase::define_all_entities_in_trees);
+                &CxxBase::declare_symbol,
+                &CxxBase::define_symbol,
+                &CxxBase::define_all_entities_in_trees);
     }
 
     define_nonlocal_entities_in_trees(statement);
@@ -918,7 +926,7 @@ CXXBase::Ret CXXBase::visit(const Nodecl::FunctionCode& node)
     }
 
     indent();
-    file << decl_spec_seq << gcc_attributes << declarator << exception_spec << asm_specification;
+    file << decl_spec_seq << gcc_attributes << declarator << exception_spec << asm_specification << "\n";
 
     set_codegen_status(symbol, CODEGEN_STATUS_DEFINED);
 
@@ -939,7 +947,7 @@ CXXBase::Ret CXXBase::visit(const Nodecl::FunctionCode& node)
     this->walk(context);
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::GotoStatement& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::GotoStatement& node)
 {
     TL::Symbol label_sym = node.get_symbol();
 
@@ -947,7 +955,7 @@ CXXBase::Ret CXXBase::visit(const Nodecl::GotoStatement& node)
     file << "goto " << label_sym.get_name() << ";\n";
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::IfElseStatement& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::IfElseStatement& node)
 {
     Nodecl::NodeclBase condition = node.get_condition();
     Nodecl::NodeclBase then = node.get_then();
@@ -986,7 +994,7 @@ CXXBase::Ret CXXBase::visit(const Nodecl::IfElseStatement& node)
     }
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::IndexDesignator& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::IndexDesignator& node)
 {
     Nodecl::NodeclBase _index = node.get_index();
     Nodecl::NodeclBase next = node.get_next();
@@ -1003,7 +1011,7 @@ CXXBase::Ret CXXBase::visit(const Nodecl::IndexDesignator& node)
     walk(next);
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::IntegerLiteral& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::IntegerLiteral& node)
 {
     const_value_t* value = nodecl_get_constant(node.get_internal_nodecl());
     ERROR_CONDITION(value == NULL, "Invalid value", 0);
@@ -1095,7 +1103,7 @@ CXXBase::Ret CXXBase::visit(const Nodecl::IntegerLiteral& node)
 
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::LabeledStatement& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::LabeledStatement& node)
 {
     TL::Symbol label_sym = node.get_symbol();
     Nodecl::NodeclBase statement = node.get_statement();
@@ -1109,7 +1117,7 @@ CXXBase::Ret CXXBase::visit(const Nodecl::LabeledStatement& node)
     set_indent_level(old);
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::LoopControl& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::LoopControl& node)
 {
     Nodecl::NodeclBase init = node.get_init();
     Nodecl::NodeclBase cond = node.get_cond();
@@ -1136,12 +1144,12 @@ CXXBase::Ret CXXBase::visit(const Nodecl::LoopControl& node)
     state.in_condition = old;
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::MemberInit& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::MemberInit& node)
 {
     TL::Symbol entry = node.get_symbol();
     Nodecl::NodeclBase init_expr = node.get_init_expr();
 
-    if (state.do_not_emit_declarations)
+    if (!this->is_file_output())
     {
         file << entry.get_type().get_declaration(entry.get_scope(), entry.get_qualified_name());
 
@@ -1169,7 +1177,7 @@ CXXBase::Ret CXXBase::visit(const Nodecl::MemberInit& node)
     }
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::New& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::New& node)
 {
     Nodecl::NodeclBase structured_value = node.get_init();
     ERROR_CONDITION(structured_value.is_null(), "New lacks structured value", 0);
@@ -1199,11 +1207,11 @@ CXXBase::Ret CXXBase::visit(const Nodecl::New& node)
     }
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::ObjectInit& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::ObjectInit& node)
 {
     TL::Symbol sym = node.get_symbol();
 
-    if (state.do_not_emit_declarations)
+    if (!this->is_file_output())
     {
         file << sym.get_type().get_declaration(sym.get_scope(), sym.get_qualified_name());
     }
@@ -1211,16 +1219,16 @@ CXXBase::Ret CXXBase::visit(const Nodecl::ObjectInit& node)
     {
         walk_type_for_symbols(sym.get_type(),
                 /* needs def */ 1,
-                &CXXBase::declare_symbol,
-                &CXXBase::define_symbol,
-                &CXXBase::define_all_entities_in_trees);
+                &CxxBase::declare_symbol,
+                &CxxBase::define_symbol,
+                &CxxBase::define_all_entities_in_trees);
 
         set_codegen_status(sym, CODEGEN_STATUS_NONE);
         define_symbol(sym);
     }
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::Offsetof& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::Offsetof& node)
 {
     file << "__builtin_offsetof(";
 
@@ -1250,7 +1258,7 @@ CXXBase::Ret CXXBase::visit(const Nodecl::Offsetof& node)
     file << ")";
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::ParenthesizedExpression& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::ParenthesizedExpression& node)
 {
     Nodecl::NodeclBase nest = node.get_nest();
     file << "(";
@@ -1258,19 +1266,19 @@ CXXBase::Ret CXXBase::visit(const Nodecl::ParenthesizedExpression& node)
     file << ")";
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::PointerToMember& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::PointerToMember& node)
 {
     TL::Symbol symbol = node.get_symbol();
 
     file << "&" << symbol.get_qualified_name();
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::PragmaClauseArg& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::PragmaClauseArg& node)
 {
     file << node.get_text();
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::PragmaCustomClause& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::PragmaCustomClause& node)
 {
     Nodecl::NodeclBase arguments = node.get_arguments();
 
@@ -1284,7 +1292,7 @@ CXXBase::Ret CXXBase::visit(const Nodecl::PragmaCustomClause& node)
     }
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::PragmaCustomDeclaration& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::PragmaCustomDeclaration& node)
 {
     Nodecl::NodeclBase pragma_line = node.get_pragma_line();
     TL::Symbol symbol = node.get_symbol();
@@ -1297,7 +1305,7 @@ CXXBase::Ret CXXBase::visit(const Nodecl::PragmaCustomDeclaration& node)
     file << "'" << symbol.get_qualified_name() << "' */\n";
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::PragmaCustomDirective& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::PragmaCustomDirective& node)
 {
     Nodecl::NodeclBase pragma_line = node.get_pragma_line();
 
@@ -1307,7 +1315,7 @@ CXXBase::Ret CXXBase::visit(const Nodecl::PragmaCustomDirective& node)
     file << "\n";
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::PragmaCustomLine& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::PragmaCustomLine& node)
 {
     Nodecl::NodeclBase parameters = node.get_parameters();
     Nodecl::NodeclBase clauses = node.get_clauses();
@@ -1328,7 +1336,7 @@ CXXBase::Ret CXXBase::visit(const Nodecl::PragmaCustomLine& node)
     walk_list(clauses.as<Nodecl::List>(), " ");
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::PragmaCustomStatement& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::PragmaCustomStatement& node)
 {
     Nodecl::NodeclBase pragma_line = node.get_pragma_line();
     Nodecl::NodeclBase statement = node.get_statement();
@@ -1342,7 +1350,7 @@ CXXBase::Ret CXXBase::visit(const Nodecl::PragmaCustomStatement& node)
     walk(statement);
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::PseudoDestructorName& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::PseudoDestructorName& node)
 {
     Nodecl::NodeclBase lhs = node.get_accessed();
     Nodecl::NodeclBase rhs = node.get_destructor_name();
@@ -1361,7 +1369,7 @@ CXXBase::Ret CXXBase::visit(const Nodecl::PseudoDestructorName& node)
     walk(rhs); 
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::Range& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::Range& node)
 {
     Nodecl::NodeclBase lb_expr = node.get_lower();
     Nodecl::NodeclBase ub_expr = node.get_upper();
@@ -1374,7 +1382,7 @@ CXXBase::Ret CXXBase::visit(const Nodecl::Range& node)
     walk(step_expr);
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::ReturnStatement& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::ReturnStatement& node)
 {
     Nodecl::NodeclBase expression = node.get_value();
 
@@ -1386,7 +1394,7 @@ CXXBase::Ret CXXBase::visit(const Nodecl::ReturnStatement& node)
     file << ";\n";
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::Shaping& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::Shaping& node)
 {
     Nodecl::NodeclBase postfix = node.get_postfix();
     Nodecl::List seq_exp = node.get_shape().as<Nodecl::List>();
@@ -1404,7 +1412,7 @@ CXXBase::Ret CXXBase::visit(const Nodecl::Shaping& node)
     walk(postfix);
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::Sizeof& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::Sizeof& node)
 {
     TL::Type t = node.get_size_type().get_type();
 
@@ -1412,7 +1420,7 @@ CXXBase::Ret CXXBase::visit(const Nodecl::Sizeof& node)
 }
 
 
-CXXBase::Ret CXXBase::visit(const Nodecl::StringLiteral& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::StringLiteral& node)
 {
     const_value_t* v = nodecl_get_constant(node.get_internal_nodecl());
 
@@ -1429,7 +1437,7 @@ CXXBase::Ret CXXBase::visit(const Nodecl::StringLiteral& node)
     ::free(bytes);
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::StructuredValue& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
 {
     Nodecl::List items = node.get_items().as<Nodecl::List>();
     TL::Type type = node.get_type();
@@ -1559,7 +1567,7 @@ CXXBase::Ret CXXBase::visit(const Nodecl::StructuredValue& node)
     }
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::SwitchStatement& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::SwitchStatement& node)
 {
     Nodecl::NodeclBase expression = node.get_switch();
     Nodecl::NodeclBase statement = node.get_statement();
@@ -1587,7 +1595,7 @@ CXXBase::Ret CXXBase::visit(const Nodecl::SwitchStatement& node)
     dec_indent(2);
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::Symbol& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::Symbol& node)
 {
     TL::Symbol entry = node.get_symbol();
 
@@ -1615,12 +1623,12 @@ CXXBase::Ret CXXBase::visit(const Nodecl::Symbol& node)
     }
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::Text& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::Text& node)
 {
     file << node.get_text();
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::Throw& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::Throw& node)
 {
     Nodecl::NodeclBase expr = node.get_rhs();
 
@@ -1633,12 +1641,12 @@ CXXBase::Ret CXXBase::visit(const Nodecl::Throw& node)
     }
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::TopLevel& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::TopLevel& node)
 {
     walk(node.get_top_level());
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::TryBlock& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::TryBlock& node)
 {
     Nodecl::NodeclBase statement = node.get_statement();
     Nodecl::NodeclBase catch_handlers = node.get_catch_handlers();
@@ -1658,13 +1666,13 @@ CXXBase::Ret CXXBase::visit(const Nodecl::TryBlock& node)
     }
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::Type& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::Type& node)
 {
     TL::Type type = node.get_type();
     file << type.get_declaration(state.current_scope, "");
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::Typeid& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::Typeid& node)
 {
     Nodecl::NodeclBase expr = node.get_arg();
 
@@ -1673,12 +1681,12 @@ CXXBase::Ret CXXBase::visit(const Nodecl::Typeid& node)
     file << ")";
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::VirtualFunctionCall& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::VirtualFunctionCall& node)
 {
     visit_function_call(node, /* is_virtual_call */ true);
 }
 
-CXXBase::Ret CXXBase::visit(const Nodecl::WhileStatement& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::WhileStatement& node)
 {
     Nodecl::NodeclBase condition = node.get_condition();
     Nodecl::NodeclBase statement = node.get_statement();
@@ -1705,7 +1713,7 @@ CXXBase::Ret CXXBase::visit(const Nodecl::WhileStatement& node)
     dec_indent();
 }
 
-bool CXXBase::symbol_is_same_or_nested_in(TL::Symbol symbol, TL::Symbol class_sym)
+bool CxxBase::symbol_is_same_or_nested_in(TL::Symbol symbol, TL::Symbol class_sym)
 {
     if (symbol.is_member())
     {
@@ -1719,7 +1727,7 @@ bool CXXBase::symbol_is_same_or_nested_in(TL::Symbol symbol, TL::Symbol class_sy
     }
 }
 
-bool CXXBase::symbol_is_nested_in_defined_classes(TL::Symbol symbol)
+bool CxxBase::symbol_is_nested_in_defined_classes(TL::Symbol symbol)
 {
     for (TL::ObjectList<TL::Symbol>::iterator it = state.classes_being_defined.begin();
             it != state.classes_being_defined.end();
@@ -1736,7 +1744,7 @@ bool CXXBase::symbol_is_nested_in_defined_classes(TL::Symbol symbol)
     return false;
 } 
 
-TL::ObjectList<TL::Symbol> CXXBase::define_required_before_class(TL::Symbol symbol)
+TL::ObjectList<TL::Symbol> CxxBase::define_required_before_class(TL::Symbol symbol)
 {
     state.pending_nested_types_to_define.clear();
 
@@ -1797,9 +1805,9 @@ TL::ObjectList<TL::Symbol> CXXBase::define_required_before_class(TL::Symbol symb
                 walk_type_for_symbols(
                         member.get_type(), 
                         /* needs_def */ 1, 
-                        &CXXBase::declare_symbol_if_nonnested, 
-                        &CXXBase::define_symbol_if_nonnested,
-                        &CXXBase::define_nonnested_entities_in_trees);
+                        &CxxBase::declare_symbol_if_nonnested, 
+                        &CxxBase::define_symbol_if_nonnested,
+                        &CxxBase::define_nonnested_entities_in_trees);
             }
             else if (member.is_enum())
             {
@@ -1823,9 +1831,9 @@ TL::ObjectList<TL::Symbol> CXXBase::define_required_before_class(TL::Symbol symb
             walk_type_for_symbols(
                     _friend.get_type(), 
                     /* needs_def */ 0, 
-                    &CXXBase::declare_symbol_if_nonnested, 
-                    &CXXBase::define_symbol_if_nonnested,
-                    &CXXBase::define_nonnested_entities_in_trees);
+                    &CxxBase::declare_symbol_if_nonnested, 
+                    &CxxBase::define_symbol_if_nonnested,
+                    &CxxBase::define_nonnested_entities_in_trees);
 
             if (!_friend.is_friend_declared())
             {
@@ -1839,9 +1847,9 @@ TL::ObjectList<TL::Symbol> CXXBase::define_required_before_class(TL::Symbol symb
     {
         walk_type_for_symbols(
                 symbol.get_type(), /* needs_def */ 0, 
-                &CXXBase::declare_symbol_if_nonnested, 
-                &CXXBase::define_symbol_if_nonnested,
-                &CXXBase::define_nonnested_entities_in_trees);
+                &CxxBase::declare_symbol_if_nonnested, 
+                &CxxBase::define_symbol_if_nonnested,
+                &CxxBase::define_nonnested_entities_in_trees);
     }
     else 
     {
@@ -1889,7 +1897,7 @@ static bool is_member_nontype(TL::Symbol t)
 }
 
 
-void CXXBase::define_class_symbol_aux(TL::Symbol symbol,
+void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
         TL::ObjectList<TL::Symbol> symbols_defined_inside_class,
         int level)
 {
@@ -2366,7 +2374,7 @@ void CXXBase::define_class_symbol_aux(TL::Symbol symbol,
     file << "};\n";
 }
 
-void CXXBase::define_class_symbol(TL::Symbol symbol)
+void CxxBase::define_class_symbol(TL::Symbol symbol)
 {
     std::set<TL::Symbol> current_pending = state.pending_nested_types_to_define;
 
@@ -2381,7 +2389,7 @@ void CXXBase::define_class_symbol(TL::Symbol symbol)
     state.pending_nested_types_to_define = current_pending;
 }
 
-bool CXXBase::is_local_symbol(TL::Symbol entry)
+bool CxxBase::is_local_symbol(TL::Symbol entry)
 {
     return entry.is_valid()
         && (entry.get_scope().is_block_scope()
@@ -2389,7 +2397,7 @@ bool CXXBase::is_local_symbol(TL::Symbol entry)
                 || (entry.is_member() && is_local_symbol(entry.get_class_type().get_symbol())));
 }
 
-void CXXBase::define_symbol_if_local(TL::Symbol symbol)
+void CxxBase::define_symbol_if_local(TL::Symbol symbol)
 {
     if (is_local_symbol(symbol))
     {
@@ -2397,7 +2405,7 @@ void CXXBase::define_symbol_if_local(TL::Symbol symbol)
     }
 }
 
-void CXXBase::declare_symbol_if_local(TL::Symbol symbol)
+void CxxBase::declare_symbol_if_local(TL::Symbol symbol)
 {
     if (is_local_symbol(symbol))
     {
@@ -2405,7 +2413,7 @@ void CXXBase::declare_symbol_if_local(TL::Symbol symbol)
     }
 }
 
-void CXXBase::define_symbol_if_nonlocal(TL::Symbol symbol)
+void CxxBase::define_symbol_if_nonlocal(TL::Symbol symbol)
 {
     if (!is_local_symbol(symbol))
     {
@@ -2413,7 +2421,7 @@ void CXXBase::define_symbol_if_nonlocal(TL::Symbol symbol)
     }
 }
 
-void CXXBase::declare_symbol_if_nonlocal(TL::Symbol symbol)
+void CxxBase::declare_symbol_if_nonlocal(TL::Symbol symbol)
 {
     if (!is_local_symbol(symbol))
     {
@@ -2421,7 +2429,7 @@ void CXXBase::declare_symbol_if_nonlocal(TL::Symbol symbol)
     }
 }
 
-void CXXBase::define_symbol_if_nonnested(TL::Symbol symbol)
+void CxxBase::define_symbol_if_nonnested(TL::Symbol symbol)
 {
     if (!symbol_is_nested_in_defined_classes(symbol))
     {
@@ -2435,7 +2443,7 @@ void CXXBase::define_symbol_if_nonnested(TL::Symbol symbol)
     }
 }
 
-void CXXBase::declare_symbol_if_nonnested(TL::Symbol symbol)
+void CxxBase::declare_symbol_if_nonnested(TL::Symbol symbol)
 {
     if (!symbol_is_nested_in_defined_classes(symbol)
             || !symbol.is_member())
@@ -2444,18 +2452,18 @@ void CXXBase::declare_symbol_if_nonnested(TL::Symbol symbol)
     }
 }
 
-void CXXBase::define_nonnested_entities_in_trees(Nodecl::NodeclBase const& node)
+void CxxBase::define_nonnested_entities_in_trees(Nodecl::NodeclBase const& node)
 {
     define_generic_entities(node, 
-            &CXXBase::declare_symbol_if_nonnested,
-            &CXXBase::define_symbol_if_nonnested,
-            &CXXBase::define_nonnested_entities_in_trees,
-            &CXXBase::entry_just_define);
+            &CxxBase::declare_symbol_if_nonnested,
+            &CxxBase::define_symbol_if_nonnested,
+            &CxxBase::define_nonnested_entities_in_trees,
+            &CxxBase::entry_just_define);
 }
 
-void CXXBase::define_symbol(TL::Symbol symbol)
+void CxxBase::define_symbol(TL::Symbol symbol)
 {
-    if (state.do_not_emit_declarations)
+    if (!this->is_file_output())
         return;
 
     if (symbol.not_to_be_printed())
@@ -2574,9 +2582,9 @@ void CXXBase::define_symbol(TL::Symbol symbol)
     set_codegen_status(symbol, CODEGEN_STATUS_DEFINED);
 }
 
-void CXXBase::declare_symbol(TL::Symbol symbol)
+void CxxBase::declare_symbol(TL::Symbol symbol)
 {
-    if (state.do_not_emit_declarations)
+    if (!this->is_file_output())
         return;
 
     if (symbol.is_injected_class_name())
@@ -2978,9 +2986,9 @@ void CXXBase::declare_symbol(TL::Symbol symbol)
             walk_type_for_symbols(
                     symbol.get_type(),
                     /* needs_def */ false,
-                    &CXXBase::declare_symbol_if_nonlocal,
-                    &CXXBase::define_symbol_if_nonlocal,
-                    &CXXBase::define_nonlocal_entities_in_trees);
+                    &CxxBase::declare_symbol_if_nonlocal,
+                    &CxxBase::define_symbol_if_nonlocal,
+                    &CxxBase::define_nonlocal_entities_in_trees);
 
             char is_primary_template = 0;
             CXX_LANGUAGE()
@@ -3083,13 +3091,13 @@ void CXXBase::declare_symbol(TL::Symbol symbol)
     }
 }
 
-void CXXBase::define_generic_entities(Nodecl::NodeclBase node,
-        void (CXXBase::*decl_sym_fun)(TL::Symbol symbol),
-        void (CXXBase::*def_sym_fun)(TL::Symbol symbol),
-        void (CXXBase::*define_entities_fun)(const Nodecl::NodeclBase& node),
-        void (CXXBase::*define_entry_fun)(
+void CxxBase::define_generic_entities(Nodecl::NodeclBase node,
+        void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
+        void (CxxBase::*def_sym_fun)(TL::Symbol symbol),
+        void (CxxBase::*define_entities_fun)(const Nodecl::NodeclBase& node),
+        void (CxxBase::*define_entry_fun)(
             const Nodecl::NodeclBase &node, TL::Symbol entry,
-            void (CXXBase::*def_sym_fun_2)(TL::Symbol symbol))
+            void (CxxBase::*def_sym_fun_2)(TL::Symbol symbol))
         )
 {
     if (node.is_null())
@@ -3207,18 +3215,18 @@ void CXXBase::define_generic_entities(Nodecl::NodeclBase node,
     }
 }
 
-void CXXBase::entry_just_define(
+void CxxBase::entry_just_define(
         const Nodecl::NodeclBase&, 
         TL::Symbol entry,
-        void (CXXBase::*def_sym_fun)(TL::Symbol))
+        void (CxxBase::*def_sym_fun)(TL::Symbol))
 {
     (this->*def_sym_fun)(entry);
 }
 
-void CXXBase::entry_local_definition(
+void CxxBase::entry_local_definition(
         const Nodecl::NodeclBase& node,
         TL::Symbol entry,
-        void (CXXBase::*def_sym_fun)(TL::Symbol))
+        void (CxxBase::*def_sym_fun)(TL::Symbol))
 {
     // FIXME - Improve this
     if (state.current_scope.get_decl_context().current_scope 
@@ -3237,38 +3245,38 @@ void CXXBase::entry_local_definition(
     }
 }
 
-void CXXBase::define_all_entities_in_trees(const Nodecl::NodeclBase& node)
+void CxxBase::define_all_entities_in_trees(const Nodecl::NodeclBase& node)
 {
     define_generic_entities(node, 
-            &CXXBase::declare_symbol,
-            &CXXBase::define_symbol,
-            &CXXBase::define_all_entities_in_trees,
-            &CXXBase::entry_just_define);
+            &CxxBase::declare_symbol,
+            &CxxBase::define_symbol,
+            &CxxBase::define_all_entities_in_trees,
+            &CxxBase::entry_just_define);
 }
 
-void CXXBase::define_nonlocal_entities_in_trees(const Nodecl::NodeclBase& node)
+void CxxBase::define_nonlocal_entities_in_trees(const Nodecl::NodeclBase& node)
 {
     define_generic_entities(node, 
-            &CXXBase::declare_symbol_if_nonlocal,
-            &CXXBase::define_symbol_if_nonlocal,
-            &CXXBase::define_nonlocal_entities_in_trees,
-            &CXXBase::entry_just_define);
+            &CxxBase::declare_symbol_if_nonlocal,
+            &CxxBase::define_symbol_if_nonlocal,
+            &CxxBase::define_nonlocal_entities_in_trees,
+            &CxxBase::entry_just_define);
 }
 
-void CXXBase::define_local_entities_in_trees(const Nodecl::NodeclBase& node)
+void CxxBase::define_local_entities_in_trees(const Nodecl::NodeclBase& node)
 {
     define_generic_entities(node, 
-            &CXXBase::declare_symbol_if_local,
-            &CXXBase::define_symbol_if_local,
-            &CXXBase::define_local_entities_in_trees,
-            &CXXBase::entry_local_definition);
+            &CxxBase::declare_symbol_if_local,
+            &CxxBase::define_symbol_if_local,
+            &CxxBase::define_local_entities_in_trees,
+            &CxxBase::entry_local_definition);
 }
 
-void CXXBase::walk_type_for_symbols(TL::Type t, 
+void CxxBase::walk_type_for_symbols(TL::Type t, 
         bool needs_def, 
-        void (CXXBase::* symbol_to_declare)(TL::Symbol),
-        void (CXXBase::* symbol_to_define)(TL::Symbol),
-        void (CXXBase::* define_entities_in_tree)(const Nodecl::NodeclBase&))
+        void (CxxBase::* symbol_to_declare)(TL::Symbol),
+        void (CxxBase::* symbol_to_define)(TL::Symbol),
+        void (CxxBase::* define_entities_in_tree)(const Nodecl::NodeclBase&))
 {
     if (t.is_valid())
         return;
@@ -3431,12 +3439,12 @@ void CXXBase::walk_type_for_symbols(TL::Type t,
     state.walked_types.erase(t);
 }
 
-void CXXBase::set_codegen_status(TL::Symbol sym, codegen_status_t status)
+void CxxBase::set_codegen_status(TL::Symbol sym, codegen_status_t status)
 {
     _codegen_status[sym] = status;
 }
 
-codegen_status_t CXXBase::get_codegen_status(TL::Symbol sym)
+codegen_status_t CxxBase::get_codegen_status(TL::Symbol sym)
 {
     std::map<TL::Symbol, codegen_status_t>::iterator it = _codegen_status.find(sym);
 
@@ -3450,7 +3458,7 @@ codegen_status_t CXXBase::get_codegen_status(TL::Symbol sym)
     }
 }
 
-void CXXBase::codegen_fill_namespace_list_rec(
+void CxxBase::codegen_fill_namespace_list_rec(
         scope_entry_t* namespace_sym, 
         scope_entry_t** list, 
         int* position)
@@ -3473,7 +3481,7 @@ void CXXBase::codegen_fill_namespace_list_rec(
     }
 }
 
-void CXXBase::codegen_move_namespace_from_to(TL::Symbol from, TL::Symbol to)
+void CxxBase::codegen_move_namespace_from_to(TL::Symbol from, TL::Symbol to)
 {
     scope_entry_t* namespace_nesting_from[MCXX_MAX_SCOPES_NESTING] = { 0 };
     scope_entry_t* namespace_nesting_to[MCXX_MAX_SCOPES_NESTING] = { 0 };
@@ -3522,7 +3530,7 @@ void CXXBase::codegen_move_namespace_from_to(TL::Symbol from, TL::Symbol to)
     }
 }
 
-void CXXBase::move_to_namespace_of_symbol(TL::Symbol symbol)
+void CxxBase::move_to_namespace_of_symbol(TL::Symbol symbol)
 {
     C_LANGUAGE()
     {
@@ -3538,7 +3546,7 @@ void CXXBase::move_to_namespace_of_symbol(TL::Symbol symbol)
     state.opened_namespace = namespace_sym;
 }
 
-void CXXBase::indent()
+void CxxBase::indent()
 {
     for (int i = 0; i < state._indent_level; i++)
     {
@@ -3546,27 +3554,27 @@ void CXXBase::indent()
     }
 }
 
-void CXXBase::inc_indent(int n)
+void CxxBase::inc_indent(int n)
 {
     state._indent_level += n;
 }
 
-void CXXBase::dec_indent(int n)
+void CxxBase::dec_indent(int n)
 {
     state._indent_level -= n;
 }
 
-int CXXBase::get_indent_level()
+int CxxBase::get_indent_level()
 {
     return state._indent_level;
 }
 
-void CXXBase::set_indent_level(int n)
+void CxxBase::set_indent_level(int n)
 {
     state._indent_level = n;
 }
 
-void CXXBase::walk_list(const Nodecl::List& list, const std::string& separator)
+void CxxBase::walk_list(const Nodecl::List& list, const std::string& separator)
 {
     Nodecl::List::const_iterator it = list.begin();
 
@@ -3582,13 +3590,13 @@ void CXXBase::walk_list(const Nodecl::List& list, const std::string& separator)
     }
 }
 
-void CXXBase::walk_expression_list(const Nodecl::List& node)
+void CxxBase::walk_expression_list(const Nodecl::List& node)
 {
     walk_list(node, ", ");
 }
 
 template <typename Iterator>
-void CXXBase::walk_expression_unpacked_list(Iterator begin, Iterator end)
+void CxxBase::walk_expression_unpacked_list(Iterator begin, Iterator end)
 {
     Iterator it = begin;
     while (it != end)
@@ -3602,7 +3610,7 @@ void CXXBase::walk_expression_unpacked_list(Iterator begin, Iterator end)
     }
 }
 
-int CXXBase::get_rank_kind(node_t n, const std::string& text)
+int CxxBase::get_rank_kind(node_t n, const std::string& text)
 {
     switch (n)
     {
@@ -3719,7 +3727,7 @@ int CXXBase::get_rank_kind(node_t n, const std::string& text)
     return -1000;
 }
 
-int CXXBase::get_rank(const Nodecl::NodeclBase &n)
+int CxxBase::get_rank(const Nodecl::NodeclBase &n)
 {
     if (n.is<Nodecl::Conversion>())
     {
@@ -3750,7 +3758,7 @@ static char is_additive_bin_operator(node_t n)
         || n == NODECL_MINUS;
 }
 
-bool CXXBase::operand_has_lower_priority(const Nodecl::NodeclBase& current_operator, const Nodecl::NodeclBase& operand)
+bool CxxBase::operand_has_lower_priority(const Nodecl::NodeclBase& current_operator, const Nodecl::NodeclBase& operand)
 {
     int rank_current = get_rank(current_operator);
     int rank_operand = get_rank(operand);
@@ -3773,7 +3781,7 @@ bool CXXBase::operand_has_lower_priority(const Nodecl::NodeclBase& current_opera
     return rank_operand < rank_current;
 }
 
-std::string CXXBase::quote_c_string(int* c, int length, char is_wchar)
+std::string CxxBase::quote_c_string(int* c, int length, char is_wchar)
 {
     std::string result;
     if (is_wchar)
@@ -3864,7 +3872,7 @@ std::string CXXBase::quote_c_string(int* c, int length, char is_wchar)
     return result;
 }
 
-bool CXXBase::nodecl_calls_to_constructor(const Nodecl::NodeclBase& node, TL::Type t)
+bool CxxBase::nodecl_calls_to_constructor(const Nodecl::NodeclBase& node, TL::Type t)
 {
     if (node.is<Nodecl::FunctionCall>())
     {
@@ -3882,14 +3890,14 @@ bool CXXBase::nodecl_calls_to_constructor(const Nodecl::NodeclBase& node, TL::Ty
     return 0;
 }
 
-bool CXXBase::nodecl_is_zero_args_call_to_constructor(Nodecl::NodeclBase node)
+bool CxxBase::nodecl_is_zero_args_call_to_constructor(Nodecl::NodeclBase node)
 {
     return (nodecl_calls_to_constructor(node, TL::Type(NULL))
             && node.is<Nodecl::List>()
             && node.as<Nodecl::List>().empty());
 }
 
-bool CXXBase::nodecl_is_zero_args_structured_value(Nodecl::NodeclBase node)
+bool CxxBase::nodecl_is_zero_args_structured_value(Nodecl::NodeclBase node)
 {
     return (node.is<Nodecl::StructuredValue>()
             && (node.as<Nodecl::StructuredValue>().get_items().is_null()
@@ -3897,12 +3905,12 @@ bool CXXBase::nodecl_is_zero_args_structured_value(Nodecl::NodeclBase node)
 }
 
 
-std::string CXXBase::unmangle_symbol_name(TL::Symbol symbol)
+std::string CxxBase::unmangle_symbol_name(TL::Symbol symbol)
 {
     return ::unmangle_symbol_name(symbol.get_internal_symbol());
 }
 
-void CXXBase::declare_all_in_template_arguments(TL::TemplateParameters template_arguments)
+void CxxBase::declare_all_in_template_arguments(TL::TemplateParameters template_arguments)
 {
     int i, n = template_arguments.get_num_parameters();
 
@@ -3917,9 +3925,9 @@ void CXXBase::declare_all_in_template_arguments(TL::TemplateParameters template_
                     walk_type_for_symbols(
                             argument.get_type(),
                             /* needs_def */ 0,
-                            &CXXBase::declare_symbol_if_nonnested,
-                            &CXXBase::define_symbol_if_nonnested,
-                            &CXXBase::define_nonnested_entities_in_trees);
+                            &CxxBase::declare_symbol_if_nonnested,
+                            &CxxBase::define_symbol_if_nonnested,
+                            &CxxBase::define_nonnested_entities_in_trees);
                     break;
                 }
             case TPK_NONTYPE:
@@ -3927,9 +3935,9 @@ void CXXBase::declare_all_in_template_arguments(TL::TemplateParameters template_
                     walk_type_for_symbols(
                             argument.get_type(),
                             /* needs_def */ 1,
-                            &CXXBase::declare_symbol_if_nonnested,
-                            &CXXBase::define_symbol_if_nonnested,
-                            &CXXBase::define_nonnested_entities_in_trees);
+                            &CxxBase::declare_symbol_if_nonnested,
+                            &CxxBase::define_symbol_if_nonnested,
+                            &CxxBase::define_nonnested_entities_in_trees);
                     define_nonnested_entities_in_trees(argument.get_value());
                     break;
                 }
@@ -3946,7 +3954,7 @@ void CXXBase::declare_all_in_template_arguments(TL::TemplateParameters template_
     }
 }
 
-void CXXBase::codegen_template_parameters(TL::TemplateParameters template_parameters)
+void CxxBase::codegen_template_parameters(TL::TemplateParameters template_parameters)
 {
     // First traversal to ensure that everything is declared
     for (int i = 0; i < template_parameters.get_num_parameters(); i++)
@@ -3960,9 +3968,9 @@ void CXXBase::codegen_template_parameters(TL::TemplateParameters template_parame
                     walk_type_for_symbols(
                             tpl_param.first.get_type(),
                             /* needs_def */ 1,
-                            &CXXBase::declare_symbol_if_nonnested,
-                            &CXXBase::define_symbol_if_nonnested,
-                            &CXXBase::define_nonnested_entities_in_trees);
+                            &CxxBase::declare_symbol_if_nonnested,
+                            &CxxBase::define_symbol_if_nonnested,
+                            &CxxBase::define_nonnested_entities_in_trees);
                     break;
                 }
             case TPK_TYPE:
@@ -4023,7 +4031,7 @@ void CXXBase::codegen_template_parameters(TL::TemplateParameters template_parame
     }
 }
 
-std::string CXXBase::gcc_attributes_to_str(TL::Symbol symbol)
+std::string CxxBase::gcc_attributes_to_str(TL::Symbol symbol)
 {
     std::string result;
     TL::ObjectList<TL::GCCAttribute> gcc_attr_list = symbol.get_gcc_attributes();
@@ -4046,7 +4054,7 @@ std::string CXXBase::gcc_attributes_to_str(TL::Symbol symbol)
     return result;
 }
 
-std::string CXXBase::gcc_asm_specifier_to_str(TL::Symbol symbol)
+std::string CxxBase::gcc_asm_specifier_to_str(TL::Symbol symbol)
 {
     std::string result;
     if (!symbol.get_asm_specification().is_null())
@@ -4056,7 +4064,7 @@ std::string CXXBase::gcc_asm_specifier_to_str(TL::Symbol symbol)
     return result;
 }
 
-std::string CXXBase::exception_specifier_to_str(TL::Symbol symbol)
+std::string CxxBase::exception_specifier_to_str(TL::Symbol symbol)
 {
     std::string exception_spec;
     CXX_LANGUAGE()
@@ -4083,9 +4091,11 @@ std::string CXXBase::exception_specifier_to_str(TL::Symbol symbol)
     return exception_spec;
 }
 
-std::string CXXBase::template_arguments_to_str(TL::Symbol)
+std::string CxxBase::template_arguments_to_str(TL::Symbol)
 {
     internal_error("Not yet implemented", 0);
 }
 
 } // Codegen
+
+EXPORT_PHASE(Codegen::CxxBase)

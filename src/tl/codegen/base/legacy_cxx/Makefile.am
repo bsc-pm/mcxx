@@ -27,21 +27,21 @@
 
 include ../../../Makefile.phases
 
-phases_LTLIBRARIES = libcodegen-cxx.la
+phases_LTLIBRARIES = libcodegen-legacy_cxx.la
 
-libcodegen_cxx_la_CFLAGS = $(tl_cflags) -I$(srcdir)/../../common
-libcodegen_cxx_la_CXXFLAGS = $(tl_cflags) -I$(srcdir)/../../common
+libcodegen_legacy_cxx_la_CFLAGS = $(tl_cflags) -I$(srcdir)/../../common
+libcodegen_legacy_cxx_la_CXXFLAGS = $(tl_cflags) -I$(srcdir)/../../common
 
 END=
 
-libcodegen_cxx_la_LDFLAGS = $(tl_ldflags)
-libcodegen_cxx_la_LIBADD = ../../common/libcodegen-common.la \
+libcodegen_legacy_cxx_la_LDFLAGS = $(tl_ldflags)
+libcodegen_legacy_cxx_la_LIBADD = ../../common/libcodegen-common.la \
 						   $(tl_libadd) \
 					       $(quadmath_LIBS) \
 					       $(END)
 
 
-libcodegen_cxx_la_SOURCES = \
+libcodegen_legacy_cxx_la_SOURCES = \
 	 codegen-cxx.hpp \
 	 codegen-cxx.cpp \
   	 $(END)

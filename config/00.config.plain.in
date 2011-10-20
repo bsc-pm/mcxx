@@ -33,5 +33,6 @@ compiler_name = gfortran
 compiler_options = 
 linker_name = gfortran
 linker_options = 
+codegen_phase = libcodegen-legacy_fortran.so
 
 [plainf95 : plainfc]

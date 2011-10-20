@@ -24,5 +24,17 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-EXTRA_DIST=\
-		   codegen-common.hpp
+lib_LTLIBRARIES = libcodegen-common.la
+
+include ../../Makefile.phases
+
+END=
+libcodegen_common_la_CFLAGS=$(tl_cflags)
+libcodegen_common_la_CXXFLAGS=$(tl_cflags)
+
+libcodegen_common_la_LDFLAGS = $(tl_ldflags)
+libcodegen_common_la_SOURCES = \
+    codegen-common.hpp \
+    codegen-phase.cpp \
+    codegen-phase.hpp \
+	$(END)

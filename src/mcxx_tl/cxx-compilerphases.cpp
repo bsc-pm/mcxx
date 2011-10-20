@@ -46,19 +46,8 @@
 #include "tl-setdto-phase.hpp"
 #include "tl-objectlist.hpp"
 #include "tl-refptr.hpp"
+#include "tl-builtin.hpp"
 #include "tl-nodecl.hpp"
-
-
-
-/*
-   void *dlopen(const char *filename, int flag);
-
-   char *dlerror(void);
-
-   void *dlsym(void *handle, const char *symbol);
-
-   int dlclose(void *handle);
- */
 
 namespace TL
 {
@@ -82,14 +71,8 @@ namespace TL
                 if (compiler_phases.find(config) == compiler_phases.end())
                     return;
 
-                // Create the DTO stored in the translation unit
-                TL::DTO &dto = *(new TL::DTO());
-                translation_unit->dto = &dto;
-
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "[DTO] Initialized\n");
-                }
+                TL::DTO* _dto = reinterpret_cast<TL::DTO*>(translation_unit->dto);
+                TL::DTO& dto = *_dto;
 
                 compiler_phases_list_t &compiler_phases_list = compiler_phases[config];
 
@@ -163,9 +146,6 @@ namespace TL
 
                 TL::DTO* _dto = reinterpret_cast<TL::DTO*>(translation_unit->dto);
                 TL::DTO& dto = *_dto;
-
-                RefPtr<Nodecl::TopLevel> top_level_nodecl(new Nodecl::TopLevel(translation_unit->nodecl));
-                dto.set_object("nodecl", top_level_nodecl);
 
                 compiler_phases_list_t &compiler_phases_list = compiler_phases[config];
 
@@ -608,7 +588,15 @@ extern "C"
 
     void compiler_special_phase_set_codegen(compilation_configuration_t* config, const char* data)
     {
-        internal_error("Not yet implemented", 0);
+    	const char* lib_name = (const char*) data;
+        TL::CompilerPhase* new_phase = load_compiler_phase_from_libname(config, lib_name);
+
+        if (new_phase == NULL)
+        {
+            running_error("Codegen phase '%s' could not be loaded. Aborting\n", data);
+        }
+
+        config->codegen_phase = new_phase;
     }
 
     void load_compiler_phases_cxx(compilation_configuration_t* config)
@@ -624,6 +612,28 @@ extern "C"
         }
 
         config->phases_loaded = 1;
+    }
+
+    void initialize_dto(translation_unit_t* translation_unit)
+    {
+        // Create the DTO stored in the translation unit
+        TL::DTO &dto = *(new TL::DTO());
+        translation_unit->dto = &dto;
+
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "[DTO] Initialized\n");
+        }
+    }
+
+    // FIXME - This function should be merged with initialize_dto
+    void setup_dto(translation_unit_t* translation_unit)
+    {
+        TL::DTO* _dto = reinterpret_cast<TL::DTO*>(translation_unit->dto);
+        TL::DTO& dto = *_dto;
+
+        TL::RefPtr<Nodecl::TopLevel> top_level_nodecl(new Nodecl::TopLevel(translation_unit->nodecl));
+        dto.set_object("nodecl", top_level_nodecl);
     }
 
     void start_compiler_phase_pre_execution(compilation_configuration_t* config, translation_unit_t* translation_unit)
@@ -643,6 +653,19 @@ extern "C"
             fprintf(stderr, "Starting the compiler phase pipeline\n");
         }
         TL::CompilerPhaseRunner::start_compiler_phase_execution(config, translation_unit);
+    }
+
+    void run_codegen_phase(FILE *out_file, translation_unit_t* translation_unit)
+    {
+        TL::DTO* _dto = reinterpret_cast<TL::DTO*>(translation_unit->dto);
+        TL::DTO& dto = *_dto;
+
+        TL::CompilerPhase* codegen_phase = reinterpret_cast<TL::CompilerPhase*>(CURRENT_CONFIGURATION->codegen_phase);
+
+        TL::RefPtr<TL::File> output_file(new TL::File(out_file));
+        dto.set_object("output_file", output_file);
+
+        codegen_phase->run(dto);
     }
 
     void unload_compiler_phases(void)

@@ -10,21 +10,33 @@ namespace Codegen
 {
     class CodegenVisitor : public Nodecl::NodeclVisitor<void>
     {
-        virtual std::string codegen(const Nodecl::NodeclBase&) = 0;
+        private:
+            bool _is_file_output;
+        protected:
+            virtual std::string codegen(const Nodecl::NodeclBase&) = 0;
+        public:
+            CodegenVisitor()
+                : _is_file_output(false)
+            {
+            }
 
-        void codegen_to_file(const Nodecl::NodeclBase& n, FILE* f)
-        {
-            std::string str ( this->codegen(n) );
-            fprintf(f, "%s", str.c_str());
-        }
+            bool is_file_output() const
+            {
+                return _is_file_output;
+            }
 
-        std::ostream& codegen_to_ostream(const Nodecl::NodeclBase& n, std::ostream& os)
-        {
-            std::string str ( this->codegen(n) );
-            os << str;
+            std::string codegen_to_str(const Nodecl::NodeclBase& n)
+            {
+                this->_is_file_output = false;
+                return this->codegen(n);
+            }
 
-            return os;
-        }
+            void codegen_top_level(const Nodecl::NodeclBase& n, FILE* f)
+            {
+                this->_is_file_output = true;
+                std::string str ( this->codegen(n) );
+                fprintf(f, "%s", str.c_str());
+            }
     };
 }
 
