@@ -62,8 +62,6 @@ namespace TL { namespace OpenMP {
             }
 
             if (expr.is<Nodecl::Symbol>() || sym.is_member())
-               // || (sym.is_member() && !sym.is_static()) 
-               // || (sym.is_member() && sym.is_static())) 
             {
                 data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT));
             }

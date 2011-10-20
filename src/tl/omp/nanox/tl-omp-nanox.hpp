@@ -74,6 +74,7 @@ namespace Nanox
             bool _enable_instrumentation;
             std::string _enable_instrumentation_str;
             void set_instrumentation(const std::string& str);
+            
             bool _compiler_alignment;
             std::string _compiler_alignment_str;
             void set_compiler_alignment(const std::string& str);
@@ -81,6 +82,10 @@ namespace Nanox
             std::string _do_not_create_translation_str;
             bool _do_not_create_translation_fun;
             void set_translation_function_flag(const std::string& str);
+            
+            std::string _no_nanox_calls_str;
+            bool _no_nanox_calls;
+            void set_no_nanox_calls_flag(const std::string& str);
 
             // Data that does not last between files
             ObjectList<Symbol> _converted_vlas;
