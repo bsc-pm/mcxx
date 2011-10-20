@@ -383,7 +383,23 @@ namespace TL
             Type advance_over_typedefs();
 
             //! Get the symbol list of classes which are base of the type
-            ObjectList<Symbol> get_bases_class_symbol_list();
+            ObjectList<Symbol> get_bases_class_symbol_list() DEPRECATED;
+
+            struct BaseInfo
+            {
+                TL::Symbol base;
+                bool is_virtual;
+                access_specifier_t access_specifier;
+
+                BaseInfo(TL::Symbol _base, 
+                        bool _is_virtual,
+                        access_specifier_t _access_specifier);
+            };
+
+            ObjectList<BaseInfo> get_bases();
+
+            //! Returns the friends of this class
+            ObjectList<Symbol> class_get_friends();
 
             //! States whether current type type is a function-type
             bool is_function() const;
@@ -617,6 +633,9 @@ namespace TL
              */
             bool is_template_type() const;
 
+            //! Returns all the specializations of a template type
+            ObjectList<Type> get_specializations() const;
+
             //! Returns the template parameters of a template type
             TemplateParameters template_type_get_template_parameters() const;
 
@@ -640,6 +659,12 @@ namespace TL
               This function is only valid for template specialized types
             */
             Type get_related_template_type() const;
+
+            //! Returns the symbol of this template type
+            /*! 
+             * \note Do not confuse with get_related_template_type which only applies for specialized_template types
+             */
+            Symbol get_related_template_symbol() const;
 
             //! States whether two types represent the same type
             /*!

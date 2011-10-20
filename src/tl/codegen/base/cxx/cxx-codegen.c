@@ -1281,8 +1281,6 @@ static void define_class_symbol_aux(nodecl_codegen_visitor_t* visitor, scope_ent
 
 static void define_class_symbol(nodecl_codegen_visitor_t* visitor, scope_entry_t* symbol)
 {
-    // fprintf(stderr, "DEFINING CLASS '%s'\n", get_qualified_symbol_name(symbol, symbol->decl_context));
-
     ERROR_CONDITION(visitor->num_classes_being_defined >= MCXX_MAX_SCOPES_NESTING, "Too many classes", 0);
     visitor->classes_being_defined[visitor->num_classes_being_defined] = symbol;
     visitor->num_classes_being_defined++;

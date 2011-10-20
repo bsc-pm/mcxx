@@ -161,6 +161,12 @@ namespace Codegen
 
                 std::set<TL::Type> walked_types;
 
+                // This one is to be used only in define_required_before_class
+                std::set<TL::Symbol> being_checked_for_required;
+
+                // Used in define_required_before_class and define_symbol_if_nonnested
+                std::set<TL::Symbol> pending_nested_types_to_define;
+
                 // Not meant to be used directly, use functions 
                 // get_indent_level, set_indent_level
                 // inc_indent, dec_indent
@@ -171,6 +177,10 @@ namespace Codegen
             bool symbol_is_same_or_nested_in(TL::Symbol symbol, TL::Symbol class_sym);
             bool symbol_is_nested_in_defined_classes(TL::Symbol symbol);
 
+            TL::ObjectList<TL::Symbol> define_required_before_class(TL::Symbol symbol);
+            void define_class_symbol_aux(TL::Symbol symbol,
+                    TL::ObjectList<TL::Symbol> symbols_defined_inside_class,
+                    int level);
             void define_class_symbol(TL::Symbol symbol);
 
             void define_symbol(TL::Symbol symbol);

@@ -254,6 +254,11 @@ namespace TL
         return Type(_symbol->entity_specs.class_type);
     }
 
+    access_specifier_t Symbol::get_access_specifier()
+    {
+        return _symbol->entity_specs.access;
+    }
+
     bool Symbol::is_parameter() const
     {
         return (_symbol->entity_specs.is_parameter);
@@ -347,6 +352,11 @@ namespace TL
     {
         return (_symbol->entity_specs.is_explicit);
     }
+
+    bool Symbol::is_friend_declared() const
+    {
+        return (_symbol->entity_specs.is_friend_declared);
+    }
     
     bool Symbol::function_throws_any_exception() const
     {
@@ -407,6 +417,11 @@ namespace TL
     {
         return _symbol->decl_context.current_scope != NULL
             && _symbol->decl_context.current_scope->kind == PROTOTYPE_SCOPE;
+    }
+
+    bool Symbol::is_using_symbol() const
+    {
+        return _symbol->kind == SK_USING;
     }
 
     bool Symbol::is_builtin() const

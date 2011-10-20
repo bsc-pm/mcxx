@@ -186,6 +186,9 @@ namespace TL
             //! Returns the class to which this member belongs
             Type get_class_type() const;
 
+            //! Returns the access specifier of a member or base class
+            access_specifier_t get_access_specifier();
+
             //! States whether this symbol has been initialized
             bool has_initialization() const;
             //! Returns the initialization tree
@@ -249,6 +252,13 @@ namespace TL
             //! States whether this member function is a constructor flagged as explicit
             bool is_explicit_constructor() const;
 
+            //! States whether symbol exists just because was mentioned in a friend declaration
+            /*!
+             * This symbol has not been technically declared by the user but the compiler
+             * created it because it appeared in a friend declaration
+             */
+            bool is_friend_declared() const;
+
             //! States whether this function was defined with no exception-specifier
             bool function_throws_any_exception() const;
 
@@ -283,6 +293,9 @@ namespace TL
              * definition.
              */
             bool has_prototype_scope() const;
+
+            //! Special symbol for using A::x inside classes
+            bool is_using_symbol() const;
 
             //! States whether the symbol is actually a builtin of the compiler
             bool is_builtin() const;

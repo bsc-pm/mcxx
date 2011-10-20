@@ -26,6 +26,7 @@
 
 
 
+#include "tl-symbol.hpp"
 #include "tl-type.hpp"
 #include "tl-scope.hpp"
 #include "tl-nodecl.hpp"
@@ -769,6 +770,20 @@ namespace TL
         return (::is_template_type(_type_info));
     }
 
+    ObjectList<Type> Type::get_specializations() const
+    {
+        ObjectList<Type> result;
+
+        int n = template_type_get_num_specializations(_type_info);
+
+        for (int i = 0; i < n; i++)
+        {
+            result.append(template_type_get_specialization_num(_type_info, i));
+        }
+
+        return result;
+    }
+
     TemplateParameters Type::template_type_get_template_parameters() const
     {
         return ::template_type_get_template_parameters(_type_info);
@@ -792,6 +807,11 @@ namespace TL
     Type Type::get_related_template_type() const
     {
         return Type(::template_specialized_type_get_related_template_type(_type_info));
+    }
+
+    Symbol Type::get_related_template_symbol() const
+    {
+        return template_type_get_related_symbol(_type_info);
     }
 
     bool Type::is_same_type(Type t)
@@ -911,12 +931,46 @@ namespace TL
     {
         ObjectList<Symbol> base_symbol_list;
 
-        scope_entry_list_t* all_bases = class_type_get_all_bases(_type_info, 0);
+        scope_entry_list_t* all_bases = class_type_get_all_bases(_type_info, /* include_dependent */ 0);
         scope_entry_list_t* it = all_bases;
 
         Scope::convert_to_vector(it, base_symbol_list);
 
         return base_symbol_list;
+    }
+
+    ObjectList<Type::BaseInfo> Type::get_bases()
+    {
+        ObjectList<Type::BaseInfo> result;
+
+        int n = class_type_get_num_bases(_type_info);
+        for (int i = 0; i < n; i++)
+        {
+            scope_entry_t* symbol = NULL;
+            char is_virtual = 0, is_dependent = 0;
+            access_specifier_t as = AS_UNKNOWN;
+
+            symbol = class_type_get_base_num(_type_info, i, 
+                    &is_virtual,
+                    &is_dependent,
+                    &as);
+
+            result.append(BaseInfo(symbol, is_virtual, as));
+        }
+
+        return result;
+    }
+
+    ObjectList<Symbol> Type::class_get_friends()
+    {
+        ObjectList<Symbol> friend_symbol_list;
+
+        scope_entry_list_t* all_friends = class_type_get_friends(_type_info);
+        scope_entry_list_t* it = all_friends;
+
+        Scope::convert_to_vector(it, friend_symbol_list);
+
+        return friend_symbol_list;
     }
 
     bool Type::is_pod()
@@ -1066,4 +1120,14 @@ namespace TL
     {
         return TemplateParameters(_tpl_params->enclosing);
     }
+
+    Type::BaseInfo::BaseInfo(TL::Symbol _base, 
+            bool _is_virtual,
+            access_specifier_t _access_specifier)
+        : base(_base),
+        is_virtual(_is_virtual),
+        access_specifier(_access_specifier)
+    {
+    }
+
 }

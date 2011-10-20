@@ -805,6 +805,8 @@ namespace TL
 
         static void find_bases(Type t, ObjectList<Symbol> &bases)
         {
+            internal_error("Not yet implemented", 0);
+#if 0
             ObjectList<Symbol> actual_bases = t.get_bases_class_symbol_list();
             if (actual_bases.empty())
             {
@@ -829,6 +831,7 @@ namespace TL
                     find_bases(it->get_type(), bases);
                 }
             }
+#endif
         }
 
         UDRInfoItem2 UDRInfoItem2::bases_lookup(Type type,
