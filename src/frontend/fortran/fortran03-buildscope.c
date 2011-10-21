@@ -2251,8 +2251,9 @@ static void build_scope_allocate_stmt(AST a, decl_context_t decl_context, nodecl
             if (!entry->entity_specs.is_allocatable
                     && !is_pointer_type(no_ref(entry->type_information)))
             {
-                running_error("%s: error: only ALLOCATABLE or POINTER can be used in an ALLOCATE statement\n", 
-                        ast_location(a));
+                running_error("%s: error: entity '%s' does not have ALLOCATABLE or POINTER attribute\n", 
+                        ast_location(a),
+                        entry->symbol_name);
             }
         }
 
@@ -3269,6 +3270,17 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
                                 decl_context,
                                 /* array_spec_kind */ NULL);
                         entry->type_information = array_type;
+                    }
+
+                    if (current_attr_spec.is_allocatable)
+                    {
+                        if (!current_attr_spec.is_dimension)
+                        {
+                            running_error("%s: error: ALLOCATABLE attribute cannot be used on scalars\n", 
+                                    ast_location(declaration));
+                        }
+                        entry->entity_specs.is_allocatable = 1;
+                        entry->kind = SK_VARIABLE;
                     }
 
                     entry->entity_specs.is_target = current_attr_spec.is_target;
