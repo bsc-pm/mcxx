@@ -404,6 +404,34 @@ static void print_scope_entry(const char* key, scope_entry_t* entry, int global_
     {
         PRINT_INDENTED_LINE(stderr, global_indent+1, "Is friend-declared symbol\n");
     }
+    
+    if(entry->kind == SK_CLASS)
+    {
+         scope_entry_list_t* friends_list = class_type_get_friends(entry->type_information);
+         if(friends_list != NULL)
+         {
+             scope_entry_list_iterator_t* it = NULL;
+             PRINT_INDENTED_LINE(stderr, global_indent+1, "Friends: ");
+             for (it = entry_list_iterator_begin(friends_list);
+                     !entry_list_iterator_end(it);
+                     entry_list_iterator_next(it))
+             {
+                 scope_entry_t* current_friend = entry_list_iterator_current(it);
+                 if(current_friend->symbol_name != NULL) 
+                 {
+                     PRINT_INDENTED_LINE(stderr,0,"\"%s\" %s, ",
+                             current_friend->symbol_name, symbol_kind_name(current_friend));
+                 }
+                 else
+                 {
+                     PRINT_INDENTED_LINE(stderr,0,"\"UNNAMED\" %s, ",
+                             symbol_kind_name(current_friend));
+                 }
+             }
+             PRINT_INDENTED_LINE(stderr, global_indent+1, "\n");
+             entry_list_iterator_free(it);
+         }
+    }
 #ifdef FORTRAN_SUPPORT
     if (entry->kind == SK_PROGRAM
             || entry->kind == SK_FUNCTION
