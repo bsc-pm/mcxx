@@ -836,8 +836,13 @@ static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t*
 
     type_t* t = no_ref(nodecl_get_type(nodecl_base));
 
-    if (!is_pointer_to_class_type(t)
-            && !is_class_type(t))
+    if (is_pointer_type(t))
+        t = pointer_type_get_pointee_type(t);
+
+    type_t* class_type = get_rank0_type(t);
+
+    if (!is_pointer_to_class_type(class_type)
+            && !is_class_type(class_type))
     {
         if (!checking_ambiguity())
         {
@@ -873,18 +878,30 @@ static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t*
         return;
     }
 
-
-
-    if (is_pointer_to_class_type(t))
+    if (get_rank_of_type(t) != 0
+            && get_rank_of_type(entry->type_information) != 0)
     {
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: error: in data-reference '%s' both parts have nonzero rank\n",
+                    ast_location(expr),
+                    fortran_prettyprint_in_buffer(expr));
+        }
+        *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
+        return;
     }
-    else
+
+    type_t* synthesized_type = entry->type_information;
+    
+    if (!is_fortran_array_type(synthesized_type)
+            && !is_pointer_to_fortran_array_type(synthesized_type))
     {
+        synthesized_type = rebuild_array_type(entry->type_information, t);
     }
 
     *nodecl_output = nodecl_make_class_member_access(nodecl_base, 
             nodecl_make_symbol(entry, ASTFileName(ASTSon1(expr)), ASTLine(ASTSon1(expr))),
-            entry->type_information,
+            synthesized_type,
             ASTFileName(expr), ASTLine(expr));
     nodecl_set_symbol(*nodecl_output, entry);
 }
