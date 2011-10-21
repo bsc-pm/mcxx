@@ -3840,29 +3840,56 @@ static void build_scope_interface_block(AST a, decl_context_t decl_context,
             }
             else if (ASTType(interface_specification) == AST_MODULE_PROCEDURE)
             {
-                if (decl_context.current_scope->related_entry->kind != SK_MODULE)
-                {
-                    running_error("%s: error: MODULE PROCEDURE statement not valid in this INTERFACE block\n",
-                            ast_location(interface_specification));
-                }
-
                 AST procedure_name_list = ASTSon0(interface_specification);
                 AST it2;
-                for_each_element(procedure_name_list, it2)
+                if (decl_context.current_scope->related_entry->kind == SK_MODULE)
                 {
-                    AST procedure_name = ASTSon1(it2);
-
-                    scope_entry_t* entry = get_symbol_for_name_untyped(decl_context, procedure_name,
-                            ASTText(procedure_name_list));
-
-                    entry->kind = SK_FUNCTION;
-                    entry->entity_specs.is_module_procedure = 1;
-
-                    if (generic_spec != NULL)
+                    for_each_element(procedure_name_list, it2)
                     {
-                        P_LIST_ADD(related_symbols,
-                                num_related_symbols,
-                                entry);
+                        AST procedure_name = ASTSon1(it2);
+
+                        scope_entry_t* entry = get_symbol_for_name_untyped(decl_context, procedure_name,
+                                ASTText(procedure_name));
+
+                        entry->kind = SK_FUNCTION;
+                        entry->entity_specs.is_module_procedure = 1;
+
+                        if (generic_spec != NULL)
+                        {
+                            P_LIST_ADD(related_symbols,
+                                    num_related_symbols,
+                                    entry);
+                        }
+                    }
+                }
+                else
+                {
+                    for_each_element(procedure_name_list, it2)
+                    {
+                        AST procedure_name = ASTSon1(it2);
+
+                        scope_entry_t* entry = get_symbol_for_name(decl_context, procedure_name,
+                                ASTText(procedure_name));
+
+                        if (entry == NULL
+                                || entry->entity_specs.from_module == NULL
+                                || entry->kind != SK_FUNCTION)
+                        {
+                            error_printf("%s: error: name '%s' is not a module procedure\n", 
+                                    ast_location(procedure_name),
+                                    prettyprint_in_buffer(procedure_name));
+                        }
+                        else
+                        {
+                            if (generic_spec != NULL)
+                            {
+                                P_LIST_ADD(related_symbols,
+                                        num_related_symbols,
+                                        entry);
+                            }
+                            // We do not insert the symbol since it is already
+                            // available in this scope
+                        }
                     }
                 }
             }
