@@ -841,7 +841,6 @@ static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t*
         return;
     }
 
-    type_t* class_type = t;
     if (is_pointer_to_class_type(class_type))
     {
         class_type = pointer_type_get_pointee_type(t);
