@@ -363,7 +363,17 @@ static int intrinsic_descr_cmp(const void* i1, const void* i2)
     if ((c = strcasecmp(d1->name, d2->name)) != 0)
         return c;
 
-    if ((c = compare_types(d1->result_type, d2->result_type)) != 0)
+    if (d1->result_type  == NULL
+            && d1->result_type != d2->result_type)
+        return -1;
+
+    if (d2->result_type  == NULL
+            && d1->result_type != d2->result_type)
+        return 1;
+
+    if (d1->result_type != NULL
+            && d2->result_type != NULL
+            && (c = compare_types(d1->result_type, d2->result_type)) != 0)
         return c;
 
     if (d1->num_types != d2->num_types)
