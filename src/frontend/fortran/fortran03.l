@@ -97,15 +97,18 @@ static char last_eos = 1;
 
 %}
 
-INCLUDE_CONSTANT_STRING_A (([0-9]+)_)?[']([^'\n]|(['][']))+[']
-INCLUDE_CONSTANT_STRING_B (([0-9]+)_)?["]([^"\n]|(["]["]))+["]
+ /* Compatibility with different file formats unix/mac/dos */
+newline ([\n]|[\r]|([\r][\n]))
 
-QUOTE_STRING ([']([^'\n]|(['][']))*['])
-DOUBLEQUOTE_STRING (["]([^"\n]|(["]["]))*["])
+INCLUDE_CONSTANT_STRING_A (([0-9]+)_)?[']([^'\n\r]|(['][']))+[']
+INCLUDE_CONSTANT_STRING_B (([0-9]+)_)?["]([^"\n\r]|(["]["]))+["]
+
+QUOTE_STRING ([']([^'\n\r]|(['][']))*['])
+DOUBLEQUOTE_STRING (["]([^"\n\r]|(["]["]))*["])
 
 FORTRAN_STRING ({QUOTE_STRING}|{DOUBLEQUOTE_STRING})
-UNENDED_QUOTE_STRING       ([']([^'\n]|(['][']))*)
-UNENDED_DOUBLEQUOTE_STRING (["]([^"\n]|(["]["]))*)
+UNENDED_QUOTE_STRING       ([']([^'\n\r]|(['][']))*)
+UNENDED_DOUBLEQUOTE_STRING (["]([^"\n\r]|(["]["]))*)
 
 UNENDED_STRING ({UNENDED_QUOTE_STRING}|{UNENDED_DOUBLEQUOTE_STRING})
 
@@ -124,8 +127,7 @@ sentinel [!][$][a-zA-Z0-9_]{0,32}
 c_octaldigit      [0-7]
 c_hexdigit        [a-fA-F0-9]
 c_escape_seq      ((\\["'?eabfnrtv\\])|(\\{c_octaldigit}{1,3})|((\\x)+{c_hexdigit}+))
-schar       ([^\\"\n]|{c_escape_seq}|(\\["]))
-
+schar       ([^\\"\n\r]|{c_escape_seq}|(\\["]))
 
 %x preprocess
 %x COMMENT
@@ -144,7 +146,7 @@ schar       ([^\\"\n]|{c_escape_seq}|(\\["]))
     BEGIN(preprocess); 
 }
 
-<preprocess>[ ]*line[ ]+[[:digit:]]+([ ]+\"{schar}*\")?[^\n]* {
+<preprocess>[ ]*line[ ]+[[:digit:]]+([ ]+\"{schar}*\")?[^\n\r]* {
  const char *p = yytext;
 
  // Jump initial blanks (if any)
@@ -176,7 +178,7 @@ schar       ([^\\"\n]|{c_escape_seq}|(\\["]))
  }
 
    // Update the line number, note that it is line_num - 1 
-   // because \n is not handled here, but in another rule
+   // because {end-of-line} is not handled here, but in another rule
  fortran_scanning_now->line_number = (line_num - 1);
 
  // Jump blanks (if any)
@@ -209,7 +211,7 @@ schar       ([^\\"\n]|{c_escape_seq}|(\\["]))
  }
 }
 
-<preprocess>[ ]{digit}+[ ]+["][^"]+["][^\n]* {
+<preprocess>[ ]{digit}+[ ]+["][^"]+["][^\n\r]* {
 	char* directive = yytext;
 
 	// Jump the blank
@@ -351,14 +353,14 @@ schar       ([^\\"\n]|{c_escape_seq}|(\\["]))
     }
 
     // Update the line number, note that it is line_num - 1 
-    // because \n is not handled here, but in another rule
+    // because {newline} is not handled here, but in another rule
 	fortran_scanning_now->line_number = (line_num - 1);
     // Update file
 	fortran_scanning_now->current_filename = uniquestr(filename);
 }
 
 <preprocess>.       { /* ignore line */  }
-<preprocess>\n  { fortran_scanning_now->line_number++; BEGIN(INITIAL); }
+<preprocess>{newline}  { fortran_scanning_now->line_number++; BEGIN(INITIAL); }
 
 <<EOF>> {
 	if (!last_eos)
@@ -372,7 +374,7 @@ schar       ([^\\"\n]|{c_escape_seq}|(\\["]))
 	}
 }
 
-^[[:blank:]]*INCLUDE[[:blank:]]*{INCLUDE_CONSTANT_STRING_A}[[:blank:]]*([!][^\n]*)?\n {
+^[[:blank:]]*INCLUDE[[:blank:]]*{INCLUDE_CONSTANT_STRING_A}[[:blank:]]*([!][^\n\r]*)?{newline} {
 	char* filename;
 
 	filename = get_included_filename(yytext, '\'');
@@ -385,7 +387,7 @@ schar       ([^\\"\n]|{c_escape_seq}|(\\["]))
 	free(filename);
 }
 
-^[[:blank:]]*INCLUDE[[:blank:]]*{INCLUDE_CONSTANT_STRING_B}[[:blank:]]*([!][^\n]*)?\n {
+^[[:blank:]]*INCLUDE[[:blank:]]*{INCLUDE_CONSTANT_STRING_B}[[:blank:]]*([!][^\n\r]*)?{newline} {
 	char* filename;
 
 	filename = get_included_filename(yytext, '"');
@@ -398,7 +400,7 @@ schar       ([^\\"\n]|{c_escape_seq}|(\\["]))
 	free(filename);
 }
 
-^[[:blank:]]*{sentinel}[[:blank:]]+(([^\n!'"])|{FORTRAN_STRING})+&[[:blank:]]*(![^\n]*)?\n[[:blank:]]*{sentinel}[[:blank:]]*&[^\n]+\n {
+^[[:blank:]]*{sentinel}[[:blank:]]+(([^\n\r!'"])|{FORTRAN_STRING})+&[[:blank:]]*(![^\n\r]*)?{newline}[[:blank:]]*{sentinel}[[:blank:]]*&[^\n\r]+{newline} {
 	// !$SENTINEL INT&
 	// !$SENTINEL   &EGE&
 	// !$SENTINEL &R :: A=3
@@ -418,8 +420,8 @@ schar       ([^\\"\n]|{c_escape_seq}|(\\["]))
 	}
 }
 
-^(([^\n!'"])|{FORTRAN_STRING})+&[[:blank:]]*(![^\n]*)?\n[[:blank:]]*&[^\n]+\n |
-^(([^\n!'"])|{FORTRAN_STRING})*{UNENDED_STRING}&[[:blank:]]*\n[[:blank:]]*&[^\n]+\n {
+^(([^\n\r!'"])|{FORTRAN_STRING})+&[[:blank:]]*(![^\n\r]*)?{newline}[[:blank:]]*&[^\n\r]+{newline} |
+^(([^\n\r!'"])|{FORTRAN_STRING})*{UNENDED_STRING}&[[:blank:]]*{newline}[[:blank:]]*&[^\n\r]+{newline} {
 	// The first regex allows comments because all strings are closed
     // The second one does not allows them because the last string is opened
     // This recognizes double continued lines
@@ -435,7 +437,7 @@ schar       ([^\\"\n]|{c_escape_seq}|(\\["]))
 	fortran_scanning_now->line_number++;
 }
 
-^[[:blank:]]*{sentinel}[[:blank:]]+(([^\n!'"])|{FORTRAN_STRING})+&[[:blank:]]*(![^\n]*)?\n[[:blank:]]*{sentinel}[[:blank:]]+[^&][^\n]*\n {
+^[[:blank:]]*{sentinel}[[:blank:]]+(([^\n\r!'"])|{FORTRAN_STRING})+&[[:blank:]]*(![^\n\r]*)?{newline}[[:blank:]]*{sentinel}[[:blank:]]+[^&][^\n\r]*{newline} {
 	// !$SENTINEL INTEGER &
 	// !$SENTINEL :: A=3
 
@@ -454,8 +456,8 @@ schar       ([^\\"\n]|{c_escape_seq}|(\\["]))
 	}
 }
 
-^(([^\n!'"])|{FORTRAN_STRING})+&[[:blank:]]*(![^\n]*)?\n[[:blank:]]*[^&][^\n]*\n |
-^(([^\n!'"])|{FORTRAN_STRING})*{UNENDED_STRING}&[[:blank:]]*\n[[:blank:]]*[^&][^\n]*\n {
+^(([^\n\r!'"])|{FORTRAN_STRING})+&[[:blank:]]*(![^\n\r]*)?{newline}[[:blank:]]*[^&][^\n\r]*{newline} |
+^(([^\n\r!'"])|{FORTRAN_STRING})*{UNENDED_STRING}&[[:blank:]]*{newline}[[:blank:]]*[^&][^\n\r]*{newline} {
 	// The first regex allows comments because all strings are closed
     // The second one does not allows them because the last string is opened
     // This recognizes continued lines with continuation mark at the end
@@ -471,7 +473,7 @@ schar       ([^\\"\n]|{c_escape_seq}|(\\["]))
 	// At this point all continuated lines should already be joined
 }
 
-[0-9]+[[:blank:]]+format([^'"\n;]|([']([^'\n]|(['][']))*['])|(["]([^"\n]|(["]["]))*["]))*[\n;]  {
+[0-9]+[[:blank:]]+format([^'"\n\r;]|([']([^'\n\r]|(['][']))*['])|(["]([^"\n\r]|(["]["]))*["]))*([;]|{newline})  {
 	// Format preanalisis
 	// Format must be scanned different and we must recognize it first
 
@@ -494,7 +496,7 @@ schar       ([^\\"\n]|{c_escape_seq}|(\\["]))
 	REJECT;
 }
 
-<SEEN_FORMAT>[(]([^'"\n;]|([']([^'\n]|(['][']))*['])|(["]([^"\n]|(["]["]))*["]))*[)][[:blank:]]*/[;\n] {
+<SEEN_FORMAT>[(]([^'"\n\r;]|([']([^'\n\r]|(['][']))*['])|(["]([^"\n\r]|(["]["]))*["]))*[)][[:blank:]]*/([;]|{newline}) {
 
 	BEGIN(0);
 	parse_token_text();
@@ -565,7 +567,7 @@ schar       ([^\\"\n]|{c_escape_seq}|(\\["]))
 }
 
 <unknown_pragma>{
-[^\n]* {
+[^\n\r]* {
   
   /* This will also catch #pragma gcc */
   // Fortran does not work with pragmas so, if it's failed matching a prefix, the whole line will be considered a comment.
@@ -716,7 +718,7 @@ schar       ([^\\"\n]|{c_escape_seq}|(\\["]))
 
 <pragma_custom_clause_first>{
 
-\n {
+{newline} {
     fortran_scanning_now->line_number++;
 	BEGIN(INITIAL);
 	RETURN_PRAGMA_EOS;
@@ -746,7 +748,7 @@ schar       ([^\\"\n]|{c_escape_seq}|(\\["]))
 
 <pragma_custom_clause>{
 
-\n {
+{newline} {
     fortran_scanning_now->line_number++;
 	BEGIN(INITIAL);
 	RETURN_PRAGMA_EOS;
@@ -823,7 +825,7 @@ schar       ([^\\"\n]|{c_escape_seq}|(\\["]))
     }
 }
 
-\n {
+{newline} {
     // We found a newline
     if (pragma_custom_var_list_parentheses != 0)
     {
@@ -840,7 +842,7 @@ schar       ([^\\"\n]|{c_escape_seq}|(\\["]))
 }
 
   /* Catch all rule */
-[^\n] {
+[^\n\r] {
     parse_token_text();
     RETURN_TOKEN(PRAGMA_CLAUSE_ARG_TEXT);
 }
@@ -866,14 +868,14 @@ schar       ([^\\"\n]|{c_escape_seq}|(\\["]))
 	// Eat everything in the comment
 }
 
-<COMMENT>\n {
+<COMMENT>{newline} {
 	// We have arrived at the end
 	fortran_scanning_now->line_number++;
 	BEGIN(0);
 	RETURN_EOS;
 }
 
-[\n] {
+{newline} {
 	fortran_scanning_now->line_number++;
 	parse_token_text();
 	BEGIN(INITIAL);
@@ -1016,12 +1018,12 @@ x["][0-9a-f]+["] {
 	RETURN_TOKEN(REAL_LITERAL);
 }
 
-(([a-z][a-z0-9]{0,30}|[0-9]+)_)?["]([^"\n]|["]["])*["] {
+(([a-z][a-z0-9]{0,30}|[0-9]+)_)?["]([^"\n\r]|["]["])*["] {
 	parse_token_text();
 	RETURN_TOKEN(CHAR_LITERAL);
 }
 
-(([a-z][a-z0-9]{0,30}|[0-9]+)_)?[']([^'\n]|[']['])*['] {
+(([a-z][a-z0-9]{0,30}|[0-9]+)_)?[']([^'\n\r]|[']['])*['] {
 	parse_token_text();
 	RETURN_TOKEN(CHAR_LITERAL);
 }
@@ -2307,12 +2309,21 @@ static void reintroduce_continued_line(char* continued_line, char double_continu
         // Now ignore the sentinel of the first line until a blank
         while (*p != ' ' && *p != '\t') p++;
 
-        while (*p != '\n')
+        while (*p != '\n'
+                && *p != '\r')
         {
-            // Copy all until the \n
+            // Copy all until the \n (or \r)
             *q = *p;
             q++; p++;
         }
+
+        if (*p == '\r'
+                && *(p+1) == '\n') // DOS CR-NL
+        {
+            // Ignore \r
+            p++;
+        }
+
         // And the newline as well
         *q = *p;
         q++; p++;
@@ -2747,6 +2758,13 @@ static char check_continued_sentinel_line(const char* line, const char** sentine
     // Get the second sentinel
     char sentinel2[33] = { 0 };
     p = strchr(yytext, '\n');
+    if (p == NULL)
+    {
+        p = strchr(yytext, '\r');
+        if (p != NULL 
+                && *(p+1) == '\n') // CR-NL
+            p++;
+    }
     ERROR_CONDITION(p == NULL, "Invalid regex\n", 0);
     p++;
     q = sentinel2;
@@ -2794,7 +2812,7 @@ static int is_format_statement(char* token)
 	// Here we are no more protected by the regex so we have to deal
 	// with anything. Fortunately the token ends with ';' or '\n'
 
-	if (*p == ';' || *p == '\n') 
+	if (*p == ';' || *p == '\n' || *p == '\r') 
 	{
 		DEBUG_CODE() DEBUG_MESSAGE("This format ends too early", "");
 		return 0;
