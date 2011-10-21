@@ -1207,6 +1207,21 @@ static scope_entry_t* get_specific_interface(scope_entry_t* symbol,
         const char **keyword_names,
         nodecl_t* nodecl_actual_arguments)
 {
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "EXPRTYPE: Getting specific interface of '%s' called with the following argument types\n",
+                symbol->symbol_name);
+
+        int i;
+        for (i = 0; i < num_arguments; i++)
+        {
+            fprintf(stderr, "EXPRTYPE:    Name: %s\n", 
+                    keyword_names[i] != NULL ? keyword_names[i] : "<<no-name>>");
+            fprintf(stderr, "EXPRTYPE:    Argument: %s\n", 
+                    fortran_print_type_str(nodecl_get_type(nodecl_actual_arguments[i])));
+        }
+    }
+
     scope_entry_t* result = NULL;
     int k;
     for (k = 0; k < symbol->entity_specs.num_related_symbols; k++)
@@ -1219,6 +1234,25 @@ static scope_entry_t* get_specific_interface(scope_entry_t* symbol,
         // Reorder the arguments
         actual_argument_info_t argument_types[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
         memset(argument_types, 0, sizeof(argument_types));
+
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "EXPRTYPE: Checking with specific interface %s:%d\n",
+                    specific_symbol->file, 
+                    specific_symbol->line);
+            int i;
+            for (i = 0; (i < num_arguments) && ok; i++)
+            {
+                type_t* formal_type = no_ref(function_type_get_parameter_type_num(specific_symbol->type_information, i));
+
+                fprintf(stderr, "EXPRTYPE:    Name: %s\n", 
+                       specific_symbol->entity_specs.related_symbols[i] != NULL ? 
+                       specific_symbol->entity_specs.related_symbols[i]->symbol_name : 
+                       "<<no-name>>");
+                fprintf(stderr, "EXPRTYPE:    Parameter: %s\n", 
+                        fortran_print_type_str(formal_type));
+            }
+        }
 
         int i;
         for (i = 0; (i < num_arguments) && ok; i++)
@@ -1257,60 +1291,67 @@ static scope_entry_t* get_specific_interface(scope_entry_t* symbol,
             argument_types[position].type = nodecl_get_type(nodecl_actual_arguments[i]);
         }
 
-        if (!ok)
-            continue;
-
-        // Now complete with the optional ones
-        for (i = 0; (i < specific_symbol->entity_specs.num_related_symbols) && ok; i++)
+        if (ok)
         {
-            scope_entry_t* related_sym = specific_symbol->entity_specs.related_symbols[i];
-
-            if (related_sym->entity_specs.is_parameter)
+            // Now complete with the optional ones
+            for (i = 0; (i < specific_symbol->entity_specs.num_related_symbols) && ok; i++)
             {
-                if (argument_types[related_sym->entity_specs.parameter_position].type == NULL)
+                scope_entry_t* related_sym = specific_symbol->entity_specs.related_symbols[i];
+
+                if (related_sym->entity_specs.is_parameter)
                 {
-                    if (related_sym->entity_specs.is_optional)
+                    if (argument_types[related_sym->entity_specs.parameter_position].type == NULL)
                     {
-                        argument_types[related_sym->entity_specs.parameter_position].type = related_sym->type_information;
-                        argument_types[related_sym->entity_specs.parameter_position].not_present = 1;
-                        num_arguments++;
-                    }
-                    else 
-                    {
-                        ok = 0;
-                        break;
+                        if (related_sym->entity_specs.is_optional)
+                        {
+                            argument_types[related_sym->entity_specs.parameter_position].type = related_sym->type_information;
+                            argument_types[related_sym->entity_specs.parameter_position].not_present = 1;
+                            num_arguments++;
+                        }
+                        else 
+                        {
+                            ok = 0;
+                            break;
+                        }
                     }
                 }
             }
         }
 
-        if (!ok)
-            continue;
-
-        if (num_arguments != function_type_get_num_parameters(specific_symbol->type_information))
-            continue;
-
-        // Now check that every type matches, otherwise error
-        for (i = 0; (i < num_arguments) && ok; i++)
+        if (ok)
         {
-            type_t* formal_type = function_type_get_parameter_type_num(specific_symbol->type_information, i);
-            type_t* real_type = argument_types[i].type;
-
-            // Note that for ELEMENTAL some more checks should be done
-            if (specific_symbol->entity_specs.is_elemental)
-            {
-                real_type = get_rank0_type(real_type);
-            }
-
-            if (!equivalent_tkr_types(formal_type, real_type))
-            {
+            if (num_arguments != function_type_get_num_parameters(specific_symbol->type_information))
                 ok = 0;
-                break;
+        }
+
+        if (ok)
+        {
+            // Now check that every type matches, otherwise error
+            for (i = 0; (i < num_arguments) && ok; i++)
+            {
+                type_t* formal_type = no_ref(function_type_get_parameter_type_num(specific_symbol->type_information, i));
+                type_t* real_type = no_ref(argument_types[i].type);
+
+                // Note that for ELEMENTAL some more checks should be done
+                if (specific_symbol->entity_specs.is_elemental) 
+                {
+                    real_type = get_rank0_type(real_type);
+                }
+
+                if (!equivalent_tkr_types(formal_type, real_type))
+                {
+                    ok = 0;
+                    break;
+                }
             }
         }
 
         if (ok)
         {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "EXPRTYPE: Current specifier DOES match\n");
+            }
             if (result == NULL)
             {
                 result = specific_symbol;
@@ -1318,8 +1359,30 @@ static scope_entry_t* get_specific_interface(scope_entry_t* symbol,
             else
             {
                 // More than one match, ambiguity detected
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "EXPRTYPE: More than one generic specifier matched!\n");
+                }
                 return NULL;
             }
+        }
+        else
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "EXPRTYPE: Current specifier does NOT match\n");
+            }
+        }
+    }
+
+    DEBUG_CODE()
+    {
+        if (result != NULL)
+        {
+            fprintf(stderr, "EXPRTYPE: Specifier '%s' at '%s:%d' matches\n", 
+                    result->symbol_name,
+                    result->file,
+                    result->line);
         }
     }
 
