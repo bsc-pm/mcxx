@@ -566,20 +566,7 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
 
             if (is_fortran_array_type(t))
             {
-                if (!array_type_is_unknown_size(t))
-                {
-                    synthesized_type = get_array_type_bounds(synthesized_type, 
-                            array_type_get_array_lower_bound(t),
-                            array_type_get_array_upper_bound(t),
-                            decl_context);
-                }
-                else
-                {
-                    synthesized_type = get_array_type_bounds(synthesized_type, 
-                            nodecl_null(),
-                            nodecl_null(),
-                            decl_context);
-                }
+                synthesized_type = rebuild_array_type(synthesized_type, t);
             }
         }
         num_subscripts++;
