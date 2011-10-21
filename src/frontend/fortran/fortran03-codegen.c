@@ -385,6 +385,8 @@ static void codegen_type(nodecl_codegen_visitor_t* visitor,
         array_spec_idx++;
         (*array_specifier) = "(";
 
+        char explicitly_shaped = 0;
+
         while (array_spec_idx <= (MCXX_MAX_ARRAY_SPECIFIER - 1))
         {
             if (!array_spec_list[array_spec_idx].is_undefined)
@@ -392,6 +394,8 @@ static void codegen_type(nodecl_codegen_visitor_t* visitor,
                 (*array_specifier) = strappend((*array_specifier), fortran_codegen_to_str(array_spec_list[array_spec_idx].lower));
                 (*array_specifier) = strappend((*array_specifier), ":");
                 (*array_specifier) = strappend((*array_specifier), fortran_codegen_to_str(array_spec_list[array_spec_idx].upper));
+
+                explicitly_shaped = 1;
             }
             else
             {
@@ -402,7 +406,17 @@ static void codegen_type(nodecl_codegen_visitor_t* visitor,
                         (*array_specifier) = strappend((*array_specifier), fortran_codegen_to_str(array_spec_list[array_spec_idx].lower));
                         (*array_specifier) = strappend((*array_specifier), ":");
                     }
-                    (*array_specifier) = strappend((*array_specifier), "*");
+                    else
+                    {
+                        if (!explicitly_shaped)
+                        {
+                            (*array_specifier) = strappend((*array_specifier), ":");
+                        }
+                        else
+                        {
+                            (*array_specifier) = strappend((*array_specifier), "*");
+                        }
+                    }
                 }
                 else
                 {
