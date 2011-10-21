@@ -7242,7 +7242,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
 
         return new_entry;
     }
-    else
+    else if (entry->kind==SK_FUNCTION)
     {
         // Merge inline attribute
         entry->entity_specs.is_inline |= gather_info->is_inline;
@@ -7292,9 +7292,15 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
                 entry->type_information = declarator_type;
             }
         }
-        
-        return entry;
     }
+    else if (entry->kind == SK_DEPENDENT_FRIEND_FUNCTION)
+    {
+        //Do nothing
+    }
+    else
+    {
+    }
+    return entry;
 }
 
 static char find_function_declaration(AST declarator_id, 
@@ -7304,7 +7310,26 @@ static char find_function_declaration(AST declarator_id,
         scope_entry_t** result_entry)
 {
     *result_entry = NULL;
-    
+    if (gather_info->is_friend 
+        && decl_context.class_scope != NULL 
+        && is_template_specialized_type(decl_context.class_scope->related_entry->type_information)
+        && is_dependent_type(decl_context.class_scope->related_entry->type_information))  
+    {   
+        scope_entry_t* result = counted_calloc(1, sizeof(*result), &_bytes_used_buildscope);
+        result->kind = SK_DEPENDENT_FRIEND_FUNCTION;
+        result->file = ASTFileName(declarator_id);
+        result->line = ASTLine(declarator_id);
+
+        nodecl_t nodecl_name = nodecl_null();
+        compute_nodecl_name_from_id_expression(declarator_id, decl_context, &nodecl_name);
+
+        result->value = nodecl_name;
+        result->type_information = declarator_type;
+
+        *result_entry = result;
+        return 1;
+    }
+
     decl_flags_t decl_flags = DF_NONE;
     if (BITMAP_TEST(decl_context.decl_flags, DF_CONSTRUCTOR))
     {
@@ -7490,24 +7515,6 @@ static char find_function_declaration(AST declarator_id,
             && gather_info->is_friend
             && is_dependent_type(declarator_type))
     {
-        if (!declarator_is_template_id)
-        {
-            // template <typename S> void f();
-            //
-            // template <typename T>
-            // struct A
-            // {
-            //   friend void f(T*);     // ill-formed: it should be 'friend void f<>(T*)'
-            // };
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: friend declaration '%s' declares a template function but the declarator is not a template-id\n",
-                        ast_location(declarator_id),
-                        prettyprint_in_buffer(declarator_id));
-            }
-            return 0;
-        }
-
         scope_entry_t* result = counted_calloc(1, sizeof(*result), &_bytes_used_buildscope);
         result->kind = SK_DEPENDENT_FRIEND_FUNCTION;
         result->file = ASTFileName(declarator_id);
@@ -9731,33 +9738,35 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
     entry = build_scope_declarator_name(function_declarator, declarator_type, &gather_info, decl_context, nodecl_output);
 
     ERROR_CONDITION(entry == NULL, "Invalid entry computed", 0);
-
-    entry->entity_specs.access = current_access;
-    entry->entity_specs.is_defined_inside_class_specifier = 1;
-
-    update_member_function_info(declarator_name, is_constructor, entry, class_type);
-
-    DEBUG_CODE()
+     
+    if(entry->kind != SK_DEPENDENT_FRIEND_FUNCTION)
     {
-        fprintf(stderr, "BUILDSCOPE: Setting member function definition at '%s' of '%s' as a member\n", 
-                ast_location(a),
-                entry->symbol_name); 
+        entry->entity_specs.access = current_access;
+        entry->entity_specs.is_defined_inside_class_specifier = 1;
+
+        update_member_function_info(declarator_name, is_constructor, entry, class_type);
+
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "BUILDSCOPE: Setting member function definition at '%s' of '%s' as a member\n", 
+                    ast_location(a),
+                    entry->symbol_name); 
+        }
+
+
+
+        entry->entity_specs.access = current_access;
+        entry->entity_specs.class_type = class_info;
+        class_type_add_member(get_actual_class_type(class_type), entry);
+
+        if (declared_symbols != NULL)
+        {
+            *declared_symbols = entry_list_new(entry);
+        }
+
+        // This function might be hiding using declarations, remove those
+        hide_using_declarations(class_info, entry);
     }
-    
-
-
-    entry->entity_specs.access = current_access;
-    entry->entity_specs.class_type = class_info;
-    class_type_add_member(get_actual_class_type(class_type), entry);
-
-    if (declared_symbols != NULL)
-    {
-        *declared_symbols = entry_list_new(entry);
-    }
-
-    // This function might be hiding using declarations, remove those
-    hide_using_declarations(class_info, entry);
-
     build_scope_delayed_add_delayed_function_def(a, entry, decl_context, is_template, is_explicit_instantiation);
 
     return entry;
@@ -9884,7 +9893,7 @@ void build_scope_friend_declarator(decl_context_t decl_context,
         }
         return;
     }
-
+#if 0
     if (entry->kind == SK_FUNCTION
             && is_dependent_type(entry->type_information))
     {
@@ -9908,7 +9917,7 @@ void build_scope_friend_declarator(decl_context_t decl_context,
         entry->kind = SK_DEPENDENT_FRIEND_FUNCTION;
         internal_error("Not yet implemented", 0);
     }
-
+#endif
     class_type_add_friend_symbol(class_type, entry);
 }
 
