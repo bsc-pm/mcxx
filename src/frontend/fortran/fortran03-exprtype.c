@@ -502,11 +502,29 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
             else
                 nodecl_stride = const_value_to_nodecl(const_value_get_one(/* bytes */ fortran_get_default_integer_type_kind(), /* signed */ 1));
 
-            // Do not attempt to compute at the moment the sizes of the bounds
-            // maybe we will in the future
+            if (!nodecl_is_null(nodecl_lower)
+                    && nodecl_is_err_expr(nodecl_lower))
+            {
+                *nodecl_output = nodecl_lower;
+                return;
+            }
+
+            if (!nodecl_is_null(nodecl_upper)
+                    && nodecl_is_err_expr(nodecl_upper))
+            {
+                *nodecl_output = nodecl_upper;
+                return;
+            }
+
+            if (nodecl_is_err_expr(nodecl_stride))
+            {
+                *nodecl_output = nodecl_stride;
+                return;
+            }
+
             if (!symbol_is_invalid)
             {
-                // FIXME - Stride may imply an array with smaller sizer (rank is unaffected)
+                // FIXME - Stride may imply an array with smaller size (rank is unaffected)
                 synthesized_type = get_array_type_bounds(synthesized_type, nodecl_lower, nodecl_upper, decl_context);
             }
 
@@ -521,6 +539,48 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
         else
         {
             fortran_check_expression_impl_(subscript, decl_context, &nodecl_indexes[num_subscripts]);
+
+            if (nodecl_is_err_expr(nodecl_indexes[num_subscripts]))
+            {
+                *nodecl_output = nodecl_indexes[num_subscripts];
+                return;
+            }
+
+            type_t* t = nodecl_get_type(nodecl_indexes[num_subscripts]);
+
+            type_t* rank_0 = get_rank0_type(t);
+
+            if (!is_any_int_type(rank_0))
+            {
+                if (!checking_ambiguity())
+                {
+                    warn_printf("%s: warning: subscript of array should be of type INTEGER\n", 
+                            ast_location(subscript));
+                }
+            }
+
+            if (is_pointer_type(no_ref(t)))
+                t = pointer_type_get_pointee_type(no_ref(t));
+
+            t = no_ref(t);
+
+            if (is_fortran_array_type(t))
+            {
+                if (!array_type_is_unknown_size(t))
+                {
+                    synthesized_type = get_array_type_bounds(synthesized_type, 
+                            array_type_get_array_lower_bound(t),
+                            array_type_get_array_upper_bound(t),
+                            decl_context);
+                }
+                else
+                {
+                    synthesized_type = get_array_type_bounds(synthesized_type, 
+                            nodecl_null(),
+                            nodecl_null(),
+                            decl_context);
+                }
+            }
         }
         num_subscripts++;
     }
