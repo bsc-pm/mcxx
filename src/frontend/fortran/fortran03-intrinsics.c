@@ -4769,8 +4769,6 @@ scope_entry_t* fortran_intrinsic_solve_call(scope_entry_t* symbol,
 {
     if (nodecl_simplified != NULL)
         *nodecl_simplified = nodecl_null();
-    type_t* reordered_types[MCXX_MAX_FUNCTION_CALL_ARGUMENTS] = { 0 };
-    nodecl_t reordered_exprs[MCXX_MAX_FUNCTION_CALL_ARGUMENTS] = { nodecl_null() };
 
     computed_function_type_t fun = computed_function_type_get_computing_function(symbol->type_information);
 
@@ -4783,6 +4781,9 @@ scope_entry_t* fortran_intrinsic_solve_call(scope_entry_t* symbol,
     int i;
     for (i = 0; i < num_keywords; i++)
     {
+        type_t* reordered_types[MCXX_MAX_FUNCTION_CALL_ARGUMENTS] = { 0 };
+        nodecl_t reordered_exprs[MCXX_MAX_FUNCTION_CALL_ARGUMENTS] = { nodecl_null() };
+
         if (generic_keyword_check(symbol, 
                     &num_actual_arguments, 
                     actual_arguments_keywords,
