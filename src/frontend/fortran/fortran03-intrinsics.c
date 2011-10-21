@@ -214,6 +214,7 @@ FORTRAN_GENERIC_INTRINSIC(sign, "A,B", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(sin, "X", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(sinh, "X", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(size, "ARRAY,?DIM,?KIND", I, simplify_size) \
+FORTRAN_GENERIC_INTRINSIC(sizeof, "X", I, NULL) \
 FORTRAN_GENERIC_INTRINSIC(spacing, "X", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(spread, "SOURCE,DIM,NCOPIES", T, NULL) \
 FORTRAN_GENERIC_INTRINSIC(sqrt, "X", E, NULL) \
@@ -4423,6 +4424,21 @@ scope_entry_t* compute_intrinsic_storage_size(scope_entry_t* symbol UNUSED_PARAM
                 choose_int_type_from_kind(argument_expressions[1], di),
                 t0);
     }
+
+    return NULL;
+}
+
+scope_entry_t* compute_intrinsic_sizeof(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = argument_types[0];
+
+    return GET_INTRINSIC_INQUIRY("sizeof",
+            get_size_t_type(),
+            t0);
 
     return NULL;
 }
