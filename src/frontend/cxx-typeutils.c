@@ -85,6 +85,7 @@ enum builtin_type_tag
     BT_FLOAT,
     BT_DOUBLE,
     BT_OTHER_FLOAT,
+    BT_BYTE,
     BT_CHAR,
     BT_WCHAR,
     BT_VOID,
@@ -568,6 +569,42 @@ static type_t* get_simple_type(void)
     result->type = counted_calloc(1, sizeof(*result->type), &_bytes_due_to_type_system);
     result->unqualified_type = result;
     return result;
+}
+
+type_t* get_unsigned_byte_type(void)
+{
+    static type_t* _type = NULL;
+
+    if (_type == NULL)
+    {
+        _type = get_simple_type();
+        _type->type->kind = STK_BUILTIN_TYPE;
+        _type->type->builtin_type = BT_BYTE;
+        _type->type->is_unsigned = 1;
+        _type->info->size = 1;
+        _type->info->alignment = 1;
+        _type->info->valid_size = 1;
+    }
+
+    return _type;
+}
+
+type_t* get_signed_byte_type(void)
+{
+    static type_t* _type = NULL;
+
+    if (_type == NULL)
+    {
+        _type = get_simple_type();
+        _type->type->kind = STK_BUILTIN_TYPE;
+        _type->type->builtin_type = BT_BYTE;
+        _type->type->is_signed = 1;
+        _type->info->size = 1;
+        _type->info->alignment = 1;
+        _type->info->valid_size = 1;
+    }
+
+    return _type;
 }
 
 type_t* get_char_type(void)
@@ -4109,6 +4146,7 @@ char equivalent_builtin_type(simple_type_t* t1, simple_type_t *t2)
 
     // unsigned
     if (t1->builtin_type == BT_INT
+            || t1->builtin_type == BT_BYTE
             || t1->builtin_type == BT_CHAR)
     {
         if (t1->is_unsigned != t2->is_unsigned)
@@ -4117,6 +4155,7 @@ char equivalent_builtin_type(simple_type_t* t1, simple_type_t *t2)
     
     // signed
     if (t1->builtin_type == BT_INT
+            || t1->builtin_type == BT_BYTE
             || t1->builtin_type == BT_CHAR)
     {
         if (t1->is_signed != t2->is_signed)
@@ -5031,7 +5070,8 @@ char is_any_int_type(type_t* t)
     return (t != NULL
             && t->kind == TK_DIRECT
             && t->type->kind == STK_BUILTIN_TYPE
-            && t->type->builtin_type == BT_INT);
+            && (t->type->builtin_type == BT_INT 
+                || t->type->builtin_type == BT_BYTE));
 }
 
 char is_any_unsigned_int_type(type_t* t)
@@ -5041,7 +5081,8 @@ char is_any_unsigned_int_type(type_t* t)
     return (t != NULL
             && t->kind == TK_DIRECT
             && t->type->kind == STK_BUILTIN_TYPE
-            && t->type->builtin_type == BT_INT
+            && (t->type->builtin_type == BT_INT
+                || t->type->builtin_type == BT_BYTE)
             && t->type->is_unsigned);
 }
 
@@ -5175,6 +5216,30 @@ char is_unsigned_long_long_int_type(type_t *t)
             && t->type->builtin_type == BT_INT
             && t->type->is_unsigned
             && (t->type->is_long == 2)
+            && !t->type->is_short);
+}
+
+char is_signed_byte_type(type_t *t)
+{
+    return (t != NULL
+            && t->kind == TK_DIRECT
+            && t->type->kind == STK_BUILTIN_TYPE
+            && t->type->builtin_type == BT_BYTE
+            && t->type->is_signed 
+            && !t->type->is_unsigned
+            && !t->type->is_long
+            && !t->type->is_short);
+}
+
+char is_unsigned_byte_type(type_t *t)
+{
+    return (t != NULL
+            && t->kind == TK_DIRECT
+            && t->type->kind == STK_BUILTIN_TYPE
+            && t->type->builtin_type == BT_BYTE
+            && t->type->is_unsigned
+            && !t->type->is_signed 
+            && !t->type->is_long
             && !t->type->is_short);
 }
 
