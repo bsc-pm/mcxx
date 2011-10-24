@@ -2546,6 +2546,15 @@ type_t* get_array_type(type_t* element_type, nodecl_t whole_size, decl_context_t
                 get_signed_int_type(),
                 nodecl_get_filename(whole_size), nodecl_get_line(whole_size));
 
+        if (nodecl_is_constant(whole_size))
+        {
+            // Compute the constant
+            const_value_t* c = const_value_sub(
+                    nodecl_get_constant(whole_size),
+                    const_value_get_one(/* bytes */ 4, /* signed */ 1));
+            nodecl_set_constant(upper_bound, c);
+        }
+
         nodecl_expr_set_is_value_dependent(upper_bound,
                 nodecl_expr_is_value_dependent(whole_size));
     }
