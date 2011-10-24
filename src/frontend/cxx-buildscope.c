@@ -11185,6 +11185,11 @@ static void build_scope_labeled_statement(AST a,
     nodecl_t nodecl_statement = nodecl_null();
     build_scope_statement_(statement, decl_context, &nodecl_statement);
 
+    if (nodecl_is_null(nodecl_statement))
+    {
+        // It can be null because of declarations, just use an empty statement instead
+        nodecl_statement = nodecl_make_list_1(nodecl_make_empty_statement(ASTFileName(a), ASTLine(a)));
+    }
 
     *nodecl_output = 
         nodecl_make_list_1(
