@@ -1356,9 +1356,10 @@ static void compute_length_of_literal_string(AST expr, int* length, char *is_wch
                                 // Advance up to three octals
                                 {
                                     // Advance this octal, so the remaining figures are 2
+                                    unsigned int current_value = (*literal) - '0';
+
                                     literal++;
                                     int remaining_figures = 2;
-                                    unsigned int current_value = (*literal) - '0';
 
                                     while (IS_OCTA_CHAR(*literal)
                                             && (remaining_figures > 0))
