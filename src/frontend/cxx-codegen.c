@@ -3052,6 +3052,8 @@ static void codegen_compound_statement_for_compound_expression(nodecl_codegen_vi
     fprintf(visitor->file, "{\n");
     visitor->indent_level++;
 
+    char old_in_condition = visitor->in_condition;
+    visitor->in_condition = 0;
 
     nodecl_t nodecl_statement_seq = nodecl_get_child(node, 0);
     nodecl_t nodecl_first_statement = nodecl_list_head(nodecl_statement_seq);
@@ -3061,6 +3063,8 @@ static void codegen_compound_statement_for_compound_expression(nodecl_codegen_vi
     define_local_entities_in_trees(visitor, compound_statement_seq);
 
     codegen_walk(visitor, compound_statement_seq);
+
+    visitor->in_condition = old_in_condition;
 
     visitor->indent_level--;
     indent(visitor);

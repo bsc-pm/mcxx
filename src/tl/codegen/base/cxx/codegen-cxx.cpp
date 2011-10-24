@@ -393,10 +393,14 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CompoundExpression& node)
     file << "{\n";
     inc_indent();
 
+    bool in_condition = state.in_condition;
+    state.in_condition = 0;
+
     ERROR_CONDITION(statements.size() != 1, "In C/C++ blocks only have one statement", 0);
     define_local_entities_in_trees(statements[0]);
     walk(statements[0]);
 
+    state.in_condition = in_condition;
     dec_indent();
 
     indent();
