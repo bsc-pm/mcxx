@@ -367,9 +367,36 @@ static void check_array_constructor(AST expr, decl_context_t decl_context, nodec
     type_t* ac_value_type = NULL;
     check_ac_value_list(ac_value_list, decl_context, &nodecl_ac_value, &ac_value_type);
 
+    if (nodecl_is_err_expr(nodecl_ac_value))
+    {
+        *nodecl_output = nodecl_ac_value;
+        return;
+    }
+
+    // Check for const-ness
+    int i, n;
+    char all_constants = 1;
+    nodecl_t* list = nodecl_unpack_list(nodecl_ac_value, &n);
+
+    const_value_t* constants[n];
+    memset(constants, 0, sizeof(constants));
+
+    for (i = 0; i < n && all_constants; i++)
+    {
+        constants[i] = nodecl_get_constant(list[i]);
+        all_constants = all_constants && (constants[i] != NULL);
+    }
+    free(list);
+
     *nodecl_output = nodecl_make_structured_value(nodecl_ac_value,
             ac_value_type,
             ASTFileName(expr), ASTLine(expr));
+
+    if (all_constants)
+    {
+        const_value_t* array_val = const_value_make_array(n, constants);
+        nodecl_set_constant(*nodecl_output, array_val);
+    }
 }
 
 static void check_substring(AST expr, decl_context_t decl_context, nodecl_t nodecl_subscripted, nodecl_t* nodecl_output)

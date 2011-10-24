@@ -2361,7 +2361,7 @@ static void codegen_integer_literal(nodecl_codegen_visitor_t* visitor, nodecl_t 
             case '\\': { fprintf(visitor->file, "%s",  "'\\\\'"); break; }
             case '\a' : { fprintf(visitor->file, "%s", "'\\a'"); break; }
             case '\b' : { fprintf(visitor->file, "%s", "'\\b'"); break; }
-            case '\e' : { fprintf(visitor->file, "%s", "'\\e'"); break; } // GCC extension
+            // case '\e' : { fprintf(visitor->file, "%s", "'\\e'"); break; } // GCC extension
             case '\f' : { fprintf(visitor->file, "%s", "'\\f'"); break; }
             case '\n' : { fprintf(visitor->file, "%s", "'\\n'"); break; }
             case '\r' : { fprintf(visitor->file, "%s", "'\\r'"); break; }
@@ -2382,7 +2382,7 @@ static void codegen_integer_literal(nodecl_codegen_visitor_t* visitor, nodecl_t 
                          }
                          else
                          {
-                             fprintf(visitor->file, "'\\x%x'", b);
+                             fprintf(visitor->file, "'\\%03o'", b);
                          }
                      }
         }
@@ -2390,7 +2390,7 @@ static void codegen_integer_literal(nodecl_codegen_visitor_t* visitor, nodecl_t 
     else if (IS_CXX_LANGUAGE && is_wchar_t_type(t))
     {
         unsigned int mb = const_value_cast_to_4(value);
-        fprintf(visitor->file, "L'\\x%x'", mb);
+        fprintf(visitor->file, "L'\\x%04x'", mb);
     }
     else 
     {
@@ -2478,7 +2478,7 @@ static const char* quote_c_string(int* c, int length, char is_wchar)
         }
         else if (current ==  '\'')
         {
-            fprintf(temporal_stream, "\\\'");
+            fprintf(temporal_stream, "\\'");
         }
         else if (current ==  '"')
         {
@@ -2486,7 +2486,7 @@ static const char* quote_c_string(int* c, int length, char is_wchar)
         }
         else if (current ==  '?')
         {
-            fprintf(temporal_stream, "\\\?");
+            fprintf(temporal_stream, "\\?");
         }
         else if (current ==  '\\')
         {
@@ -2494,31 +2494,31 @@ static const char* quote_c_string(int* c, int length, char is_wchar)
         }
         else if (current ==  '\a')
         {
-            fprintf(temporal_stream, "\\\a");
+            fprintf(temporal_stream, "\\a");
         }
         else if (current ==  '\b')
         {
-            fprintf(temporal_stream, "\\\b");
+            fprintf(temporal_stream, "\\b");
         }
         else if (current ==  '\f')
         {
-            fprintf(temporal_stream, "\\\f");
+            fprintf(temporal_stream, "\\f");
         }
         else if (current ==  '\n')
         {
-            fprintf(temporal_stream, "\\\n");
+            fprintf(temporal_stream, "\\n");
         }
         else if (current ==  '\r')
         {
-            fprintf(temporal_stream, "\\\r");
+            fprintf(temporal_stream, "\\r");
         }
         else if (current ==  '\t')
         {
-            fprintf(temporal_stream, "\\\t");
+            fprintf(temporal_stream, "\\t");
         }
         else if (current ==  '\v')
         {
-            fprintf(temporal_stream, "\\\v");
+            fprintf(temporal_stream, "\\v");
         }
         else if (isprint(current))
         {
@@ -2530,11 +2530,11 @@ static const char* quote_c_string(int* c, int length, char is_wchar)
             if (!is_wchar
                     || (current < 255))
             {
-                fprintf(temporal_stream, "\\x%x", current);
+                fprintf(temporal_stream, "\\%03o", current);
             }
             else
             {
-                fprintf(temporal_stream, "\\U%x", current);
+                fprintf(temporal_stream, "\\U%08x", current);
             }
         }
     }
@@ -3052,6 +3052,8 @@ static void codegen_compound_statement_for_compound_expression(nodecl_codegen_vi
     fprintf(visitor->file, "{\n");
     visitor->indent_level++;
 
+    char old_in_condition = visitor->in_condition;
+    visitor->in_condition = 0;
 
     nodecl_t nodecl_statement_seq = nodecl_get_child(node, 0);
     nodecl_t nodecl_first_statement = nodecl_list_head(nodecl_statement_seq);
@@ -3061,6 +3063,8 @@ static void codegen_compound_statement_for_compound_expression(nodecl_codegen_vi
     define_local_entities_in_trees(visitor, compound_statement_seq);
 
     codegen_walk(visitor, compound_statement_seq);
+
+    visitor->in_condition = old_in_condition;
 
     visitor->indent_level--;
     indent(visitor);

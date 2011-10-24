@@ -220,12 +220,54 @@ const_value_t* const_value_get_float128(__float128 ld)
 
 #define OTHER_KIND default : { internal_error("Unexpected literal kind", 0); }
 
+#define CAST_TO_INTX(_bytes, _field) \
+case _bytes:  \
+    { \
+        if (sign) \
+        { \
+            return const_value_get_integer((int## _bytes ##_t)val->value._field, bytes, 1); \
+        } \
+        else \
+        { \
+            return const_value_get_integer((uint## _bytes ##_t)val->value._field, bytes, 0); \
+        } \
+        break; \
+    }
+
+
+#define CAST_FLOAT_POINT_TO_INT(_field) \
+{ \
+    int bits = bytes * 8; \
+    switch (bits) \
+    { \
+        CAST_TO_INTX(8, _field) \
+        CAST_TO_INTX(16, _field) \
+        CAST_TO_INTX(32, _field) \
+        CAST_TO_INTX(64, _field) \
+        default: { internal_error("Cannot perform conversion of floating point to integer of %d bytes\n", bytes); } \
+    } \
+}
+
 const_value_t* const_value_cast_to_bytes(const_value_t* val, int bytes, char sign)
 {
     switch (val->kind)
     {
         case CVK_INTEGER:
             return const_value_get_integer(val->value.i, bytes, sign);
+        case CVK_FLOAT:
+            CAST_FLOAT_POINT_TO_INT(f);
+            break;
+        case CVK_DOUBLE:
+            CAST_FLOAT_POINT_TO_INT(d);
+            break;
+        case CVK_LONG_DOUBLE:
+            CAST_FLOAT_POINT_TO_INT(ld);
+            break;
+#ifdef HAVE_QUADMATH_H
+        case CVK_FLOAT128:
+            CAST_FLOAT_POINT_TO_INT(f128);
+            break;
+#endif
         OTHER_KIND;
     }
     return NULL;
@@ -233,13 +275,7 @@ const_value_t* const_value_cast_to_bytes(const_value_t* val, int bytes, char sig
 
 const_value_t* const_value_cast_to_signed_int_value(const_value_t* val)
 {
-    switch (val->kind)
-    {
-        case CVK_INTEGER:
-            return const_value_get_integer(val->value.i, type_get_size(get_signed_int_type()), 1);
-        OTHER_KIND;
-    }
-    return NULL;
+    return const_value_cast_to_bytes(val, type_get_size(get_signed_int_type()), 1);
 }
 
 const_value_t* const_value_round_to_zero_bytes(const_value_t* val, int num_bytes)

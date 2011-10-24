@@ -1,0 +1,11 @@
+! <testinfo>
+! test_generator=config/mercurium-fortran
+! </testinfo>
+PURE FUNCTION ENCONTRA(S, F, PRIMUS, ULTUS) RESULT (DIMIDIO)
+   IMPLICIT NONE
+   INTEGER, INTENT(IN), OPTIONAL :: PRIMUS, ULTUS
+   INTEGER, INTENT(IN) :: S
+   INTEGER, DIMENSION(:), INTENT(IN) :: F
+   INTEGER :: DIMIDIO
+   CONTINUE
+END FUNCTION

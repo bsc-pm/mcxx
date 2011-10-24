@@ -3,6 +3,8 @@
 #include "tl-type.hpp"
 #include "cxx-cexpr.h"
 
+#include <iomanip>
+
 #ifdef HAVE_QUADMATH_H
 MCXX_BEGIN_DECLS
 #include <quadmath.h>
@@ -393,10 +395,14 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CompoundExpression& node)
     file << "{\n";
     inc_indent();
 
+    bool in_condition = state.in_condition;
+    state.in_condition = 0;
+
     ERROR_CONDITION(statements.size() != 1, "In C/C++ blocks only have one statement", 0);
     define_local_entities_in_trees(statements[0]);
     walk(statements[0]);
 
+    state.in_condition = in_condition;
     dec_indent();
 
     indent();
@@ -1049,7 +1055,10 @@ CxxBase::Ret CxxBase::visit(const Nodecl::IntegerLiteral& node)
                          }
                          else
                          {
-                             file << "\\x" << std::hex << b << std::dec << "'";
+                             file << "'\\" 
+                                 << std::oct << std::setfill('0') << std::setw(3) 
+                                 << b 
+                                 << std::dec << std::setw(0) << "'";
                          }
                      }
         }
@@ -1057,7 +1066,10 @@ CxxBase::Ret CxxBase::visit(const Nodecl::IntegerLiteral& node)
     else if (IS_CXX_LANGUAGE && t.is_wchar_t())
     {
         unsigned int mb = const_value_cast_to_4(value);
-        file << "L'\\x" << std::hex << mb << std::dec << "'";
+        file << "L'\\x" 
+            << std::hex << std::setfill('0') << std::setw(4) 
+            << mb 
+            << std::dec << std::setw(0) << "'";
     }
     else 
     {
@@ -3810,7 +3822,7 @@ std::string CxxBase::quote_c_string(int* c, int length, char is_wchar)
         }
         else if (current ==  '?')
         {
-            result += "\\\?";
+            result += "\\?";
         }
         else if (current ==  '\\')
         {
@@ -3818,31 +3830,31 @@ std::string CxxBase::quote_c_string(int* c, int length, char is_wchar)
         }
         else if (current ==  '\a')
         {
-            result += "\\\a";
+            result += "\\a";
         }
         else if (current ==  '\b')
         {
-            result += "\\\b";
+            result += "\\b";
         }
         else if (current ==  '\f')
         {
-            result += "\\\f";
+            result += "\\f";
         }
         else if (current ==  '\n')
         {
-            result += "\\\n";
+            result += "\\n";
         }
         else if (current ==  '\r')
         {
-            result += "\\\r";
+            result += "\\r";
         }
         else if (current ==  '\t')
         {
-            result += "\\\t";
+            result += "\\t";
         }
         else if (current ==  '\v')
         {
-            result += "\\\v";
+            result += "\\v";
         }
         else if (isprint(current))
         {
@@ -3856,12 +3868,18 @@ std::string CxxBase::quote_c_string(int* c, int length, char is_wchar)
             if (!is_wchar
                     || (current < 255))
             {
-                ss << "\\x" << std::hex << current << std::dec;
+                ss << "\\" 
+                    << std::oct << std::setw(3) << std::setfill('0') 
+                    << current 
+                    << std::setw(0) << std::dec;
                 result += ss.str();
             }
             else
             {
-                ss << "\\U" << std::hex << current << std::dec;
+                ss << "\\U" 
+                    << std::hex << std::setw(8) << std::setfill('0') 
+                    << current 
+                    << std::dec << std::setw(0);
                 result += ss.str();
             }
         }

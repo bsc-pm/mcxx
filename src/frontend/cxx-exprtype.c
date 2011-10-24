@@ -1356,9 +1356,10 @@ static void compute_length_of_literal_string(AST expr, int* length, char *is_wch
                                 // Advance up to three octals
                                 {
                                     // Advance this octal, so the remaining figures are 2
+                                    unsigned int current_value = (*literal) - '0';
+
                                     literal++;
                                     int remaining_figures = 2;
-                                    unsigned int current_value = (*literal) - '0';
 
                                     while (IS_OCTA_CHAR(*literal)
                                             && (remaining_figures > 0))
@@ -12668,16 +12669,18 @@ static void check_nodecl_gcc_parenthesized_expression(nodecl_t nodecl_context,
     {
         nodecl_t nodecl_last_stmt = nodecl_list[num_items - 1];
 
-        if (nodecl_get_kind(nodecl_last_stmt) != NODECL_EXPRESSION_STATEMENT)
-        {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s:%d: error: last statement must be an expression statement\n",
-                        filename, line);
-            }
-            *nodecl_output = nodecl_make_err_expr(filename, line);
-            return;
-        }
+        // This check is only true if the whole statement is not later casted to void
+        //
+        // if (nodecl_get_kind(nodecl_last_stmt) != NODECL_EXPRESSION_STATEMENT)
+        // {
+        //     if (!checking_ambiguity())
+        //     {
+        //         error_printf("%s:%d: error: last statement must be an expression statement\n",
+        //                 filename, line);
+        //     }
+        //     *nodecl_output = nodecl_make_err_expr(filename, line);
+        //     return;
+        // }
 
         nodecl_t nodecl_expr = nodecl_get_child(nodecl_last_stmt, 0);
 
@@ -12688,8 +12691,11 @@ static void check_nodecl_gcc_parenthesized_expression(nodecl_t nodecl_context,
         computed_type = get_void_type();
     }
 
-    if (computed_type == NULL
-            || is_error_type(computed_type))
+    if (computed_type == NULL)
+    {
+        computed_type = get_void_type();
+    }
+    else if (is_error_type(computed_type))
     {
         *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
