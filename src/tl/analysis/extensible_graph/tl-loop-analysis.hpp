@@ -29,6 +29,7 @@ Cambridge, MA 02139, USA.
 #include "tl-nodecl.hpp"
 #include "tl-node.hpp"
 #include "tl-symbol.hpp"
+#include "tl-static-analysis.hpp"
 
 
 namespace TL
@@ -161,7 +162,7 @@ namespace TL
         
         std::map<Symbol, int> get_induction_vars_direction() const;
         
-        friend class ExtensibleGraph;
+        friend class StaticAnalysis;
     };
 }
 

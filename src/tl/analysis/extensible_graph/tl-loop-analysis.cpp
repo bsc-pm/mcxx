@@ -680,7 +680,7 @@ namespace TL
         
         // Propagate reach defs to entry node
         Node* entry = loop_node->get_graph_entry_node();
-        nodecl_map combined_parents_reach_defs = ExtensibleGraph::compute_parents_reach_defs(entry);
+        nodecl_map combined_parents_reach_defs = StaticAnalysis::compute_parents_reach_defs(loop_node);
         nodecl_map actual_reach_defs = entry->get_reaching_definitions();
         for(nodecl_map::iterator it = combined_parents_reach_defs.begin(); it != combined_parents_reach_defs.end(); ++it)
         {
@@ -692,7 +692,7 @@ namespace TL
         
         // Propagate reach defs to conditional node
         Node* cond = entry->get_children()[0];
-        combined_parents_reach_defs = ExtensibleGraph::compute_parents_reach_defs(cond);
+        combined_parents_reach_defs = StaticAnalysis::compute_parents_reach_defs(cond);
         actual_reach_defs = cond->get_reaching_definitions();
         for(nodecl_map::iterator it = combined_parents_reach_defs.begin(); it != combined_parents_reach_defs.end(); ++it)
         {
@@ -716,7 +716,7 @@ namespace TL
         {
             true_node = (*(ite+1))->get_target();
         }
-        combined_parents_reach_defs = ExtensibleGraph::compute_parents_reach_defs(true_node);
+        combined_parents_reach_defs = StaticAnalysis::compute_parents_reach_defs(true_node);
         actual_reach_defs = true_node->get_reaching_definitions();
         for(nodecl_map::iterator it = combined_parents_reach_defs.begin(); it != combined_parents_reach_defs.end(); ++it)
         {

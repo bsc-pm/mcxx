@@ -24,7 +24,7 @@ Cambridge, MA 02139, USA.
 #include "cxx-utils.h"
 #include "tl-analysis-phase.hpp"
 #include "tl-cfg-visitor.hpp"
-
+#include "tl-static-analysis.hpp"
 
 namespace TL
 {
@@ -60,10 +60,10 @@ namespace TL
         for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
         {
             // Non-task nodes
-            ExtensibleGraph::live_variable_analysis((*it)->get_graph());
+            StaticAnalysis::live_variable_analysis((*it)->get_graph());
             
             // Task nodes
-            (*it)->analyse_tasks();
+            StaticAnalysis::analyse_tasks((*it)->get_tasks_list());
         }
         
         // Print graphs into dot files

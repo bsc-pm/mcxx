@@ -30,6 +30,7 @@ Cambridge, MA 02139, USA.
 #include "tl-extensible-graph.hpp"
 #include "tl-extensible-symbol.hpp"
 #include "tl-loop-analysis.hpp"
+#include "tl-static-analysis.hpp"
 
 
 namespace TL
@@ -229,7 +230,7 @@ namespace TL
         return result;
     }
 
-    nodecl_map ExtensibleGraph::compute_parents_reach_defs(Node* node)
+    nodecl_map StaticAnalysis::compute_parents_reach_defs(Node* node)
     {
         ObjectList<Edge*> entry_edges;
         ObjectList<Node*> parents;
@@ -265,7 +266,7 @@ namespace TL
         return intersect_parents_reach_def(reach_defs, entry_edges);
     }
 
-    void ExtensibleGraph::propagate_reach_defs_among_nodes(Node* node, std::map<Symbol, Nodecl::NodeclBase> induction_vars_m, bool& changes)
+    void StaticAnalysis::propagate_reach_defs_among_nodes(Node* node, std::map<Symbol, Nodecl::NodeclBase> induction_vars_m, bool& changes)
     {
         if (!node->is_visited())
         {
@@ -342,7 +343,31 @@ namespace TL
         }
     }
     
-    void ExtensibleGraph::extend_reaching_defintions_info(Node* node, std::map<Symbol, Nodecl::NodeclBase> induction_vars_m)
+    /*!
+     * This method substitute those reaching definitions based on other values which are known
+     * For example:
+     *      - node A Reach Defs: i = n;
+     *      - node B (dependent on A) Reach Defs: i = i - 1;
+     *      - We can compute value on B as: i = n - 1;
+     */
+    // TODO
+    void StaticAnalysis::substitute_reaching_definition_known_values(Node* node)
+    {
+        if (node->is_visited())
+        {
+            node->set_visited(true);
+            
+            ObjectList<Node*> parents = node->get_parents();
+            nodecl_map parents_reach_defs = compute_parents_reach_defs(node);
+            
+            if (node->get_type() == GRAPH_NODE)
+            {
+                
+            }
+        }
+    }
+    
+    void StaticAnalysis::extend_reaching_definitions_info(Node* node, std::map<Symbol, Nodecl::NodeclBase> induction_vars_m)
     {
         bool changes = true;
         while (changes)
@@ -354,12 +379,15 @@ namespace TL
        
         ExtensibleGraph::clear_visits(node);
         make_permanent_auxiliar_values(node);
+        
+        ExtensibleGraph::clear_visits(node);
+        substitute_reaching_definition_known_values(node);
     }
     
 
     // *** EXTENSIBLE_GRAPH *** //
     
-    void ExtensibleGraph::live_variable_analysis(Node* node)
+    void StaticAnalysis::live_variable_analysis(Node* node)
     {
         DEBUG_CODE()
         {
@@ -367,21 +395,21 @@ namespace TL
         }
         
         solve_live_equations(node);
-        clear_visits(node);
+        ExtensibleGraph::clear_visits(node);
     }
     
-    void ExtensibleGraph::solve_live_equations(Node* node)
+    void StaticAnalysis::solve_live_equations(Node* node)
     {
         bool changed = true;
         while (changed)
         {
             changed = false;
             solve_live_equations_recursive(node, changed);
-            clear_visits(node);
+            ExtensibleGraph::clear_visits(node);
         }
     }
     
-    void ExtensibleGraph::solve_live_equations_recursive(Node* actual, bool& changed)
+    void StaticAnalysis::solve_live_equations_recursive(Node* actual, bool& changed)
     {
         while (!actual->is_visited())
         {
@@ -469,17 +497,17 @@ namespace TL
         }
     }
 
-    void ExtensibleGraph::analyse_tasks()
+    void StaticAnalysis::analyse_tasks(ObjectList<Node*> tasks)
     {
-        for (ObjectList<Node*>::iterator it = _task_nodes_l.begin(); it != _task_nodes_l.end(); ++it)
+        for (ObjectList<Node*>::iterator it = tasks.begin(); it != tasks.end(); ++it)
         {
-            analyse_task(*it);
-            clear_visits(*it);
+            StaticAnalysis::analyse_task(*it);
+            ExtensibleGraph::clear_visits(*it);
         }
     }
     
     // FIXME For the moment we assume the user has used the 'auto-deps' clause  
-    void ExtensibleGraph::analyse_task(Node* task_node)
+    void StaticAnalysis::analyse_task(Node* task_node)
     {
         Node* entry = task_node->get_graph_entry_node();
       
@@ -899,7 +927,7 @@ namespace TL
         loop_anal.analyse_loops(node);
         ExtensibleGraph::clear_visits(node);
         
-        ExtensibleGraph::extend_reaching_defintions_info(node, loop_anal.get_induction_vars_mapping());
+        StaticAnalysis::extend_reaching_definitions_info(node, loop_anal.get_induction_vars_mapping());
         ExtensibleGraph::clear_visits(node);        
     }
 }

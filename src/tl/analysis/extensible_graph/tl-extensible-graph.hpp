@@ -83,8 +83,7 @@ namespace TL
             
             //! Boolean indicating whether the use-def chains are already computed for the graph
             bool _use_def_computed;
-            
-            static nodecl_map compute_parents_reach_defs(Node* node);
+
             
     private:
             //! We don't want to allow this kind of constructions
@@ -147,26 +146,6 @@ namespace TL
              */
             static bool belongs_to_the_same_graph(Edge* edge);
             
-            //! Computes the data-flow equation for each node in a iterative way 
-            //! until the information stops changing.
-            /*!
-              It is mandatory to use before #gather_live_initial_information.
-             */
-            static void solve_live_equations(Node* node);
-            
-            //! Computes on iteration of the method #solve_live_equations.
-            /*!
-              Live out (X) = Union of all Live in (Y),
-                             for all Y successors of X.
-              Live in (X) = Upper exposed (X) + 
-                            ( Live out (X) - Killed (X) )
-             */
-            static void solve_live_equations_recursive(Node* actual, bool& changed);
-            
-            static void propagate_reach_defs_among_nodes(Node* node, std::map<Symbol, Nodecl::NodeclBase> induction_vars_m, bool& changes);
-            
-            static void extend_reaching_defintions_info(Node* node, std::map<Symbol, Nodecl::NodeclBase> induction_vars_m);
-            
             //! Recompute the identifiers of the nodes graph hanging from actual_node from the value of _nid
             //! This method is used when a node s replaced by another, because the identifiers may be repeated
             void recompute_identifiers(Node* actual_node);
@@ -178,8 +157,6 @@ namespace TL
             void connect_nodes(Node* parent, ObjectList<Node*> children, ObjectList<Edge*> edges);
             
             //! Method used during the copy method that copies the graph recursively
-            
-            
             void copy_and_map_nodes(Node* old_node);
             
             void connect_copied_nodes(Node* old_node);
@@ -340,19 +317,19 @@ namespace TL
             //!
             void replace_node(Node* old_node, Node* new_node);
             
-            //! This function clears the attribute #visited from nodes bellow @actual node.
-            //! It works properly if there isn't any unreachable node in the graph bellow @actual.
-            static void clear_visits(Node* node);
-            static void clear_visits_in_level(Node* node);
-            
             //! Set of methods that removes those nodes that can never be reached.                 
             void clear_orphaned_nodes(Node* actual_node);
             void clear_orphaned_nodes_in_subgraph(Node* actual_node);
             void clear_orphaned_cascade(Node* actual_node);
-            
+           
             //! Removes those nodes that has UNCLASSIFIED_NODE type and reconects parents and
             //! children nodes properly.
             void erase_unclassified_nodes(Node* actual);
+
+            //! This function clears the attribute #visited from nodes bellow @actual node.
+            //! It works properly if there isn't any unreachable node in the graph bellow @actual.
+            static void clear_visits(Node* node);
+            static void clear_visits_in_level(Node* node);            
             
             
             // *** DOT Graph *** //
@@ -361,19 +338,7 @@ namespace TL
             static void print_graph_to_dot(Node* node, std::string name);
             
             
-            // *** Static CFG Analysis *** //
-            
-            //! Computes the liveness analysis of a node
-            //! The method needs the use-def chains to be calculated before
-            static void live_variable_analysis(Node* node);            
-            
-            //! Computes dependences for all task node in the Extensible Graph
-            void analyse_tasks();
-            
-            //! Computes dependences for a node containing a task code
-            void analyse_task(Node* task_node);
-            
-            
+ 
             // *** Getters and Setters *** //
             
             //! Returns the name of the graph
@@ -403,7 +368,6 @@ namespace TL
             static Node* is_for_loop_increment(Node* node);
 
         friend class CfgVisitor;
-        friend class LoopAnalysis;
     };
 }
 

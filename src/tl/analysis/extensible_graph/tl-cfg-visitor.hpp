@@ -289,7 +289,7 @@ namespace TL
         
         // *** IPA *** //
         
-                //! Computes the define-use chain a node
+        //! Computes the define-use chain a node
         void compute_use_def_chains(Node* node);
         
         //! The method searches matching between the function call and the graphs built in the function unit
@@ -405,7 +405,6 @@ namespace TL
         Ret visit(const Nodecl::Text& n);
         Ret visit(const Nodecl::FortranWhere& n);
         Ret visit(const Nodecl::FortranWherePair& n);
-        // Ret visit(const Nodecl::SubscriptTriplet& n);
         Ret visit(const Nodecl::FortranLabelAssignStatement& n);
         Ret visit(const Nodecl::FortranIoSpec& n);
         Ret visit(const Nodecl::FieldDesignator& n);
