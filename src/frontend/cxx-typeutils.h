@@ -56,6 +56,9 @@ LIBMCXX_EXTERN _size_t type_get_size(type_t*);
 LIBMCXX_EXTERN _size_t type_get_alignment(type_t*);
 
 /* Type constructors: Builtins */
+LIBMCXX_EXTERN type_t* get_signed_byte_type(void);
+LIBMCXX_EXTERN type_t* get_unsigned_byte_type(void);
+
 LIBMCXX_EXTERN type_t* get_char_type(void);
 LIBMCXX_EXTERN type_t* get_signed_char_type(void);
 LIBMCXX_EXTERN type_t* get_unsigned_char_type(void);
@@ -249,6 +252,9 @@ LIBMCXX_EXTERN char is_signed_long_int_type(type_t *t);
 LIBMCXX_EXTERN char is_unsigned_long_int_type(type_t *t);
 LIBMCXX_EXTERN char is_signed_long_long_int_type(type_t *t);
 LIBMCXX_EXTERN char is_unsigned_long_long_int_type(type_t *t);
+
+LIBMCXX_EXTERN char is_signed_byte_type(type_t* t);
+LIBMCXX_EXTERN char is_unsigned_byte_type(type_t* t);
 
 LIBMCXX_EXTERN char is_character_type(type_t* t);
 LIBMCXX_EXTERN char is_char_type(type_t* t);

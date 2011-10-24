@@ -1355,7 +1355,7 @@ type_t* choose_int_type_from_kind(nodecl_t expr, int kind_size)
         int_types[type_get_size(get_signed_long_int_type())] = get_signed_long_int_type();
         int_types[type_get_size(get_signed_int_type())] = get_signed_int_type();
         int_types[type_get_size(get_signed_short_int_type())] = get_signed_short_int_type();
-        int_types[type_get_size(get_signed_char_type())] = get_signed_char_type();
+        int_types[type_get_size(get_signed_byte_type())] = get_signed_byte_type();
         int_types_init = 1;
     }
     return choose_type_from_kind_table(expr, int_types, MAX_INT_KIND, kind_size);
@@ -1392,7 +1392,7 @@ type_t* choose_logical_type_from_kind(nodecl_t expr, int kind_size)
         logical_types[type_get_size(get_signed_long_int_type())] = get_bool_of_integer_type(get_signed_long_int_type());
         logical_types[type_get_size(get_signed_int_type())] = get_bool_of_integer_type(get_signed_int_type());
         logical_types[type_get_size(get_signed_short_int_type())] = get_bool_of_integer_type(get_signed_short_int_type());
-        logical_types[type_get_size(get_signed_char_type())] = get_bool_of_integer_type(get_signed_char_type());
+        logical_types[type_get_size(get_signed_byte_type())] = get_bool_of_integer_type(get_signed_byte_type());
         logical_types_init = 1;
     }
     return choose_type_from_kind_table(expr, logical_types, MAX_LOGICAL_KIND, kind_size);

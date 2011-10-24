@@ -82,22 +82,22 @@ namespace TL
                 {
                     DEBUG_CODE()
                     {
-                        fprintf(stderr, "[DTO] Contains following keys at pre_run time: \n");
+                        fprintf(stderr, "COMPILERPHASES: DTO contains following keys at pre_run time: \n");
                         ObjectList<std::string> _keys = dto.get_keys();
                         for (ObjectList<std::string>::iterator it2 = _keys.begin();
                                 it2 != _keys.end();
                                 it2++)
                         {
-                            fprintf(stderr, "[DTO]    '%s'\n", it2->c_str());
+                            fprintf(stderr, "COMPILERPHASES: DTO:    '%s'\n", it2->c_str());
                         }
-                        fprintf(stderr, "[DTO] - No more keys\n");
+                        fprintf(stderr, "COMPILERPHASES: DTO: No more keys\n");
                     }
 
                     TL::CompilerPhase* phase = (*it);
 
                     DEBUG_CODE()
                     {
-                        fprintf(stderr, "[PHASE] Execution of pre_run of phase '%s'\n", phase->get_phase_name().c_str());
+                        fprintf(stderr, "COMPILERPHASES: Execution of pre_run of phase '%s'\n", phase->get_phase_name().c_str());
                     }
 
                     phase->pre_run(dto);
@@ -111,13 +111,13 @@ namespace TL
 
                     DEBUG_CODE()
                     {
-                        fprintf(stderr, "[PHASE] Phase '%s' has been pre_run\n", phase->get_phase_name().c_str());
+                        fprintf(stderr, "COMPILERPHASES: Phase '%s' has been pre_run\n", phase->get_phase_name().c_str());
                     }
                     
                     // For consistency, check the tree
                     DEBUG_CODE()
                     {
-                        fprintf(stderr, "[PHASE] Checking tree after pre_run of phase '%s'\n",
+                        fprintf(stderr, "COMPILERPHASES: Checking tree after pre_run of phase '%s'\n",
                                 phase->get_phase_name().c_str());
 
                     }
@@ -131,7 +131,7 @@ namespace TL
                     {
                         DEBUG_CODE()
                         {
-                            fprintf(stderr, "[PHASE] Tree seems fine after pre_run of phase '%s'\n",
+                            fprintf(stderr, "COMPILERPHASES: Tree seems fine after pre_run of phase '%s'\n",
                                     phase->get_phase_name().c_str());
 
                         }
@@ -155,22 +155,22 @@ namespace TL
                 {
                     DEBUG_CODE()
                     {
-                        fprintf(stderr, "[DTO] Contains following keys: \n");
+                        fprintf(stderr, "COMPILERPHASES: DTO contains following keys: \n");
                         ObjectList<std::string> _keys = dto.get_keys();
                         for (ObjectList<std::string>::iterator it2 = _keys.begin();
                                 it2 != _keys.end();
                                 it2++)
                         {
-                            fprintf(stderr, "[DTO]    '%s'\n", it2->c_str());
+                            fprintf(stderr, "COMPILERPHASES: DTO:    '%s'\n", it2->c_str());
                         }
-                        fprintf(stderr, "[DTO] - No more keys\n");
+                        fprintf(stderr, "COMPILERPHASES: DTO: No more keys\n");
                     }
 
                     TL::CompilerPhase* phase = (*it);
 
                     DEBUG_CODE()
                     {
-                        fprintf(stderr, "[PHASE] Running phase '%s'\n", phase->get_phase_name().c_str());
+                        fprintf(stderr, "COMPILERPHASES: Running phase '%s'\n", phase->get_phase_name().c_str());
                     }
 
                     phase->run(dto);
@@ -184,13 +184,13 @@ namespace TL
 
                     DEBUG_CODE()
                     {
-                        fprintf(stderr, "[PHASE] Phase '%s' has been run\n", phase->get_phase_name().c_str());
+                        fprintf(stderr, "COMPILERPHASES: Phase '%s' has been run\n", phase->get_phase_name().c_str());
                     }
                     
                     // For consistency, check the tree
                     DEBUG_CODE()
                     {
-                        fprintf(stderr, "[PHASE] Checking tree after execution of phase '%s'\n",
+                        fprintf(stderr, "COMPILERPHASES: Checking tree after execution of phase '%s'\n",
                                 phase->get_phase_name().c_str());
 
                     }
@@ -204,7 +204,7 @@ namespace TL
                     {
                         DEBUG_CODE()
                         {
-                            fprintf(stderr, "[PHASE] Tree seems fine after execution of phase '%s'\n",
+                            fprintf(stderr, "COMPILERPHASES: Tree seems fine after execution of phase '%s'\n",
                                     phase->get_phase_name().c_str());
 
                         }
@@ -212,14 +212,14 @@ namespace TL
 
                     DEBUG_CODE()
                     {
-                        fprintf(stderr, "[PHASE] Running phase cleanup of phase '%s'\n",
+                        fprintf(stderr, "COMPILERPHASES: Running phase cleanup of phase '%s'\n",
                                 phase->get_phase_name().c_str());
                     }
                     // Invoke file cleanup for phase
                     phase->phase_cleanup(dto);
                     DEBUG_CODE()
                     {
-                        fprintf(stderr, "[PHASE] Phase cleanup of phase '%s' finished\n",
+                        fprintf(stderr, "COMPILERPHASES: Phase cleanup of phase '%s' finished\n",
                                 phase->get_phase_name().c_str());
                     }
                 }
@@ -242,12 +242,12 @@ namespace TL
                         TL::CompilerPhase* phase = (*it);
                         DEBUG_CODE()
                         {
-                            fprintf(stderr, "[PHASE] Unloading phase '%s'\n", phase->get_phase_name().c_str());
+                            fprintf(stderr, "COMPILERPHASES: Unloading phase '%s'\n", phase->get_phase_name().c_str());
                         }
                         delete phase;
                         DEBUG_CODE()
                         {
-                            fprintf(stderr, "[PHASE] Phase '%s' unloaded\n", phase->get_phase_name().c_str());
+                            fprintf(stderr, "COMPILERPHASES: Phase '%s' unloaded\n", phase->get_phase_name().c_str());
                         }
                     }
                 }
@@ -401,7 +401,7 @@ extern "C"
 
         DEBUG_CODE()
         {
-            fprintf(stderr, "Loading compiler phase '%s'\n", library_name);
+            fprintf(stderr, "COMPILERPHASES: Loading compiler phase '%s'\n", library_name);
         }
 
         // RTLD_GLOBAL is needed for RTTI among libraries
@@ -418,13 +418,13 @@ extern "C"
 
         DEBUG_CODE()
         {
-            fprintf(stderr, "'%s' properly loaded\n", library_name);
+            fprintf(stderr, "COMPILERPHASES: '%s' properly loaded\n", library_name);
         }
 
         // Now get the function
         DEBUG_CODE()
         {
-            fprintf(stderr, "Getting the factory function 'give_compiler_phase_object'\n");
+            fprintf(stderr, "COMPILERPHASES: Getting the factory function 'give_compiler_phase_object'\n");
         }
         void* factory_function_sym = dlsym(handle, "give_compiler_phase_object");
 
@@ -437,7 +437,7 @@ extern "C"
         }
         DEBUG_CODE()
         {
-            fprintf(stderr, "Factory function obtained\n");
+            fprintf(stderr, "COMPILERPHASES: Factory function obtained\n");
         }
 
         typedef TL::CompilerPhase*(*factory_function_t)(void);
@@ -453,7 +453,7 @@ extern "C"
 
         DEBUG_CODE()
         {
-            fprintf(stderr, "Loading compiler phase '%s'\n", library_name);
+            fprintf(stderr, "COMPILERPHASES: Loading compiler phase '%s'\n", library_name);
         }
 
         HMODULE handle = LoadLibrary(library_name);
@@ -486,13 +486,13 @@ extern "C"
 
         DEBUG_CODE()
         {
-            fprintf(stderr, "'%s' properly loaded\n", library_name);
+            fprintf(stderr, "COMPILERPHASES: '%s' properly loaded\n", library_name);
         }
 
         // Now get the function
         DEBUG_CODE()
         {
-            fprintf(stderr, "Getting the factory function 'give_compiler_phase_object'\n");
+            fprintf(stderr, "COMPILERPHASES: Getting the factory function 'give_compiler_phase_object'\n");
         }
         FARPROC WINAPI factory_function_sym = GetProcAddress(handle, "give_compiler_phase_object");
 
@@ -518,7 +518,7 @@ extern "C"
         }
         DEBUG_CODE()
         {
-            fprintf(stderr, "Factory function obtained\n");
+            fprintf(stderr, "COMPILERPHASES: Factory function obtained\n");
         }
 
         typedef TL::CompilerPhase*(*factory_function_t)(void);
@@ -533,7 +533,7 @@ extern "C"
     {
         DEBUG_CODE()
         {
-            fprintf(stderr, "Adding '%s' phase object to the compiler pipeline\n", library_name);
+            fprintf(stderr, "COMPILERPHASES: Adding '%s' phase object to the compiler pipeline\n", library_name);
         }
 
         // If the phase did not set its own phase name, use the DSO name
@@ -622,7 +622,7 @@ extern "C"
 
         DEBUG_CODE()
         {
-            fprintf(stderr, "[DTO] Initialized\n");
+            fprintf(stderr, "COMPILERPHASES: DTO Initialized\n");
         }
     }
 
@@ -640,7 +640,7 @@ extern "C"
     {
         DEBUG_CODE()
         {
-            fprintf(stderr, "Starting the compiler pre-phase pipeline\n");
+            fprintf(stderr, "COMPILERPHASES: Starting the compiler pre-phase pipeline\n");
         }
         TL::CompilerPhaseRunner::phases_update_parameters(config);
         TL::CompilerPhaseRunner::start_compiler_phase_pre_execution(config, translation_unit);
@@ -650,7 +650,7 @@ extern "C"
     {
         DEBUG_CODE()
         {
-            fprintf(stderr, "Starting the compiler phase pipeline\n");
+            fprintf(stderr, "COMPILERPHASES: Starting the compiler phase pipeline\n");
         }
         TL::CompilerPhaseRunner::start_compiler_phase_execution(config, translation_unit);
     }
