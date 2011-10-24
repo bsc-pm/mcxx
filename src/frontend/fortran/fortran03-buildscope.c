@@ -3292,6 +3292,16 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
                     entry->entity_specs.access = AS_PRIVATE;
                 }
 
+                if (current_attr_spec.is_pointer)
+                {
+                    char was_ref = is_lvalue_reference_type(entry->type_information);
+                    entry->type_information = get_pointer_type(no_ref(entry->type_information));
+                    if (was_ref)
+                    {
+                        entry->type_information = get_lvalue_reference_type(entry->type_information);
+                    }
+                }
+
                 entry->entity_specs.is_member = 1;
                 entry->entity_specs.class_type = get_user_defined_type(class_name);
 
