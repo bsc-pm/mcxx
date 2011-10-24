@@ -12668,16 +12668,18 @@ static void check_nodecl_gcc_parenthesized_expression(nodecl_t nodecl_context,
     {
         nodecl_t nodecl_last_stmt = nodecl_list[num_items - 1];
 
-        if (nodecl_get_kind(nodecl_last_stmt) != NODECL_EXPRESSION_STATEMENT)
-        {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s:%d: error: last statement must be an expression statement\n",
-                        filename, line);
-            }
-            *nodecl_output = nodecl_make_err_expr(filename, line);
-            return;
-        }
+        // This check is only true if the whole statement is not later casted to void
+        //
+        // if (nodecl_get_kind(nodecl_last_stmt) != NODECL_EXPRESSION_STATEMENT)
+        // {
+        //     if (!checking_ambiguity())
+        //     {
+        //         error_printf("%s:%d: error: last statement must be an expression statement\n",
+        //                 filename, line);
+        //     }
+        //     *nodecl_output = nodecl_make_err_expr(filename, line);
+        //     return;
+        // }
 
         nodecl_t nodecl_expr = nodecl_get_child(nodecl_last_stmt, 0);
 
