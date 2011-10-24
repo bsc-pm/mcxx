@@ -31,34 +31,64 @@ test_generator=config/mercurium
 </testinfo>
 */
 
-// g++ cannot compile this code, it gets lost during
-// the instantiation of A<B>
 
-template <typename _T>
-struct A;
+template <typename T>
+    void f3(T);
 
-struct B
-{
-    template <typename S>
-        void f(S s)
+struct A                                                                                                                                                             
+{  
+    friend void f1(int);
+
+    template <typename T>
+        friend void f2(T);
+
+
+    friend void f3(long);
+
+    friend int f3(int)
+    { 
+    }
+
+    template <typename T>
+        friend void f4(T)
         {
-            A<S>::c = 3;
         }
 };
 
-template <typename _T>
-struct A
-{
-    private:
-    static int c;
 
-    public:
-    friend void _T::template f<>(_T);
+
+template<typename S>
+struct B                                                                                                                                                             
+{  
+    friend void f1(S);
+    friend void f1(int);
+
+    template <typename T>
+        friend void f2(T);
+
+
+    friend void f3<>(S);
+
+    friend int f3(int)
+    { 
+    }
+
+    template <typename T>
+        friend void f4(T)
+        {
+        }
 };
 
 
-void g()
+struct D
 {
-    B b;
-    b.f(b);
-}
+    void f(int);
+};
+
+template <typename T>
+struct C 
+{
+    friend void T::f(int);
+};
+
+// C<D> a;

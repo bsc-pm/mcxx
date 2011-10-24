@@ -4705,9 +4705,14 @@ static void build_scope_delayed_functions(nodecl_t* nodecl_output)
         }
 
         nodecl_t nodecl_funct_def = nodecl_null();
+
         build_scope_function_definition(function_def, previous_symbol, decl_context, 
                 is_template, is_explicit_instantiation, /* declared_symbols */ NULL, &nodecl_funct_def);
-        *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_funct_def);
+
+        if(previous_symbol->kind != SK_DEPENDENT_FRIEND_FUNCTION)
+        {
+            *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_funct_def);
+        }
     }
     build_scope_delayed_clear_pending();
 }
@@ -7299,6 +7304,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
     }
     else
     {
+        internal_error("Code unreachable", 0);
     }
     return entry;
 }
@@ -8918,12 +8924,24 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
 
     // This does not modify block_context.current_scope, it simply adds a function_scope to the context
     block_context = new_function_context(block_context);
-
-    // block-context will be updated for qualified-id to reflect the exact context
-    build_scope_declarator_with_parameter_context(ASTSon1(function_header), &gather_info, type_info, &declarator_type, 
-            new_decl_context, &block_context, nodecl_output);
-    entry = build_scope_declarator_name(ASTSon1(function_header), declarator_type, &gather_info, new_decl_context, nodecl_output);
-
+    
+    if(previous_symbol != NULL
+            && previous_symbol->kind == SK_DEPENDENT_FRIEND_FUNCTION)
+    {
+        // The function symbol is not stored (currently) in the build scope because it's a SK_DEPENDENT_FRIEND_FUNCTION.
+        // We don't use 'entry = build_scope_declarator_name' because this function searches the function symbol in the scope
+        // and, if this symbol is not found, creates a new one.
+        entry = previous_symbol;
+        declarator_type = entry->type_information;
+    }
+    else
+    {
+        // block-context will be updated for qualified-id to reflect the exact context
+        build_scope_declarator_with_parameter_context(ASTSon1(function_header), &gather_info, type_info, &declarator_type,
+                new_decl_context, &block_context, nodecl_output);
+        entry = build_scope_declarator_name(ASTSon1(function_header), declarator_type, &gather_info, new_decl_context, nodecl_output);
+    }
+    
     if (entry == NULL)
     {
         if (!checking_ambiguity())
@@ -8935,6 +8953,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
         }
         return NULL;
     }
+    
 
     if (declared_symbols != NULL)
     {
@@ -8996,7 +9015,8 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     }
     
     // The scope seen by this function definition
-    ERROR_CONDITION((entry->kind != SK_FUNCTION), 
+    ERROR_CONDITION((entry->kind != SK_FUNCTION
+                && entry->kind != SK_DEPENDENT_FRIEND_FUNCTION),
             "This is not a function!!!", 0);
     
     // Keep parameter names
@@ -9893,31 +9913,13 @@ void build_scope_friend_declarator(decl_context_t decl_context,
         }
         return;
     }
-#if 0
-    if (entry->kind == SK_FUNCTION
-            && is_dependent_type(entry->type_information))
-    {
-        // We should have checked this in find_function_declaration
-        internal_error("%s Code unreachable", ast_location(declarator));
 
-        // // Create a dependent friend object since we need to update it later
-        // scope_entry_t* new_dependent_friend = counted_calloc(1, sizeof(*new_dependent_friend), &_bytes_used_buildscope);
-        // new_dependent_friend->kind = SK_DEPENDENT_FRIEND_FUNCTION;
-        // new_dependent_friend->decl_context = decl_context;
-        // new_dependent_friend->file = entry->file;
-        // new_dependent_friend->line = entry->line;
-        // new_dependent_friend->type_information = entry->type_information;
-        // new_dependent_friend->value = nodecl_make_symbol(entry, entry->file, entry->line);
-
-        // entry = new_dependent_friend;
-    }
-    else if (entry->kind == SK_DEPENDENT_ENTITY)
+    if (entry->kind == SK_DEPENDENT_ENTITY)
     {
         // Fix the dependent entity here to be a dependent friend
         entry->kind = SK_DEPENDENT_FRIEND_FUNCTION;
         internal_error("Not yet implemented", 0);
     }
-#endif
     class_type_add_friend_symbol(class_type, entry);
 }
 
