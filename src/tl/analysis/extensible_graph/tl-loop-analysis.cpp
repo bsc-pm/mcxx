@@ -329,7 +329,6 @@ namespace TL
                     loop_info_var->set_stride(Nodecl::NodeclBase(one));
                     loop_info_var->set_stride_is_one(true);
                     loop_info_var->set_stride_is_positive(1);
-                    std::cerr << "Setting to 1 positive stride in symbol " << loop_info_var->get_symbol().get_name() << std::endl;
                 }
                 else
                 {
@@ -438,6 +437,20 @@ namespace TL
         return result;
     }
 
+    std::map<Symbol, int> LoopAnalysis::get_induction_vars_direction() const
+    {
+        std::map<Symbol, int> result;
+        
+        for(induc_vars_map::const_iterator it = _induction_vars.begin(); it != _induction_vars.end(); ++it)
+        {
+            InductionVarInfo* ivar = it->second;
+            Symbol s(ivar->get_symbol());
+            result[s] = ivar->stride_is_positive();
+        }
+        
+        return result;
+    }
+
     void LoopAnalysis::compute_induction_variables_info(Node* node)
     {
         if (!node->is_visited())
@@ -471,11 +484,14 @@ namespace TL
         }
     }
    
-    void LoopAnalysis::set_access_range(Node* node, const char use_type, Nodecl::NodeclBase nodecl, 
-                                        std::map<Symbol, Nodecl::NodeclBase> ind_var_map, Nodecl::NodeclBase reach_def_var)
+    Nodecl::NodeclBase LoopAnalysis::set_access_range(Node* node, const char use_type, Nodecl::NodeclBase nodecl, 
+                                                      std::map<Symbol, Nodecl::NodeclBase> ind_var_map, Nodecl::NodeclBase reach_def_var)
     {
+        Nodecl::NodeclBase renamed_nodecl;
+        
         CfgRenamingVisitor renaming_v(ind_var_map, nodecl.get_filename().c_str(), nodecl.get_line());
         ObjectList<Nodecl::NodeclBase> renamed = renaming_v.walk(nodecl);
+        
         if (!renamed.empty())
         {
             if (renamed.size() == 1)
@@ -484,12 +500,14 @@ namespace TL
                 { 
                     node->unset_ue_var(ExtensibleSymbol(nodecl));
                     node->set_ue_var(ExtensibleSymbol(renamed[0]));
+                    renamed_nodecl = renamed[0];
                 }
                 else if (use_type == '1')
                 {
                     
                     node->unset_killed_var(ExtensibleSymbol(nodecl));
                     node->set_killed_var(ExtensibleSymbol(renamed[0]));
+                    renamed_nodecl = renamed[0];
                 }
                 else if (use_type == '2' || use_type == '3')
                 {
@@ -499,75 +517,45 @@ namespace TL
                     if (nodecl.is<Nodecl::ArraySubscript>())
                     {   // The access of the array is protected by the loop boundaries, we have to reduce by one the limits
                         if ((is_positive == 0) || (is_positive == 1))
-                        {   
-                            std::cerr << "Renaming Subscript nodecl " << nodecl.prettyprint() << " by " << renamed[0].prettyprint() << std::endl;
-                            
+                        {  
                             if (use_type == '2')
                             {   // We are renaming the key, this is the defined variable
                                 node->rename_reaching_defintion_var(nodecl, renamed[0]);
+                                renamed_nodecl = renamed[0];
                             }
                             else
                             {   //  We are renaming the init expression of a reaching definition
                                 node->set_reaching_definition(reach_def_var, renamed[0]);
+                                renamed_nodecl = reach_def_var;
                             }
                         }
                         else
                         {   // We cannot define the boundaries of the loop
                             node->set_reaching_definition(nodecl, Nodecl::NodeclBase::null());
+                            renamed_nodecl = nodecl;
                         }
                     }
                     else
                     {  
                         if (use_type == '3')
                         {   // In a reaching definition, we cannot modify the defined variable, just the init expression
-                            Nodecl::NodeclBase new_range = renamed[0];
+                            Nodecl::NodeclBase range;
                             
                             if (is_positive == 0 || is_positive == 1)
                             {
-                                // if induction variable is in the stride of a FOR loop, then the range overpasses the loop limits
-                                if (ExtensibleGraph::is_for_loop_increment(node) != NULL)
-                                {
-                                    nodecl_t one = const_value_to_nodecl(const_value_get_one(/* bytes */ 4, /* signed*/ 1));
-                                    
-                                    if (is_positive == 0)
-                                    {
-                                        Nodecl::ArraySubscript rename = renamed[0].as<Nodecl::ArraySubscript>();
-                                        Nodecl::List subscripts = rename.get_subscripts().as<Nodecl::List>();
-                                        Nodecl::Range actual_range = subscripts[0].as<Nodecl::Range>();
-                                        Nodecl::NodeclBase new_range = Nodecl::Range::make(actual_range.get_lower(), actual_range.get_upper(), 
-                                                                                           actual_range.get_stride(), nodecl.get_type(),
-                                                                                           nodecl.get_filename(), nodecl.get_line());
-                                        
-                                        new_range = Nodecl::Range::make(Nodecl::Minus::make(actual_range.get_lower(),
-                                                                                            Nodecl::IntegerLiteral(one),
-                                                                                            nodecl.get_type(),
-                                                                                            nodecl.get_filename(), nodecl.get_line()),
-                                                                        actual_range.get_upper(),
-                                                                        actual_range.get_stride(),
-                                                                        nodecl.get_type(), nodecl.get_filename(), nodecl.get_line());
-                                
-                                    }
-                                    else if (is_positive == 1)
-                                    {
-                                        Nodecl::Range actual_range = renamed[0].as<Nodecl::Range>();
-                                        
-                                        new_range = Nodecl::Range::make(actual_range.get_lower(),
-                                                                                        Nodecl::Add::make(actual_range.get_upper(),
-                                                                                                            Nodecl::IntegerLiteral(one),
-                                                                                                            nodecl.get_type(), 
-                                                                                                            nodecl.get_filename(), nodecl.get_line()),
-                                                                                        actual_range.get_stride(),
-                                                                                        nodecl.get_type(), nodecl.get_filename(), nodecl.get_line());
-                                    }
-                                }
+                                range = renamed[0];
                             }
                             else
                             {
-                                new_range == Nodecl::NodeclBase::null();
+                                range == Nodecl::NodeclBase::null();
                             }
-                            
-                            std::cerr << "Renaming nodecl " << nodecl.prettyprint() << " by " << new_range.prettyprint() << std::endl;
-                            node->set_reaching_definition(nodecl, new_range);                            
+                           
+                            node->set_reaching_definition(reach_def_var, range);
+                            renamed_nodecl = reach_def_var;
+                        }
+                        else
+                        {
+                            renamed_nodecl = nodecl;
                         }
                     }
                 }                
@@ -580,7 +568,13 @@ namespace TL
             {
                 internal_error("More than one nodecl returned while renaming constant values", 0);
             }
-        }        
+        }
+        else
+        {
+            renamed_nodecl = nodecl;
+        }
+        
+        return renamed_nodecl;
     }
    
     void LoopAnalysis::set_access_range_in_ext_sym_set(Node* node, ext_sym_set nodecl_l, const char use_type)
@@ -601,8 +595,8 @@ namespace TL
         for(nodecl_map::iterator it = nodecl_m.begin(); it != nodecl_m.end(); ++it)
         {
             Nodecl::NodeclBase first = it->first, second = it->second;
-            set_access_range(node, '2', it->first, ind_var_map);
-            set_access_range(node, '3', it->second, ind_var_map, it->first);
+            Nodecl::NodeclBase renamed_reach_def = set_access_range(node, '2', it->first, ind_var_map);
+            set_access_range(node, '3', it->second, ind_var_map, renamed_reach_def);
         }        
     }
     
@@ -628,6 +622,7 @@ namespace TL
                 else if (ntype == BASIC_FUNCTION_CALL_NODE)
                 {   // Check for arrays in the arguments
                     // TODO
+                    internal_error("Induction variables analysis within function call not yet implemented", 0);
                 }
                 
                 ObjectList<Node*> children = node->get_children();
@@ -679,7 +674,68 @@ namespace TL
             }
         }        
     }
-    
+  
+    void LoopAnalysis::propagate_reach_defs_in_for_loop_special_nodes(Node* loop_node, std::map<Symbol, Nodecl::NodeclBase> induction_vars_m)
+    {   // Ranges for the Condition and Increment node are different that ranges for the code within the For Statement
+        
+        // Propagate reach defs to entry node
+        Node* entry = loop_node->get_graph_entry_node();
+        nodecl_map combined_parents_reach_defs = ExtensibleGraph::compute_parents_reach_defs(entry);
+        nodecl_map actual_reach_defs = entry->get_reaching_definitions();
+        for(nodecl_map::iterator it = combined_parents_reach_defs.begin(); it != combined_parents_reach_defs.end(); ++it)
+        {
+            if (actual_reach_defs.find(it->first) == actual_reach_defs.end())
+            {   // Only if the definition is not performed within the node, we store the parents values
+                entry->set_reaching_definition(it->first, it->second);
+            }
+        }
+        
+        // Propagate reach defs to conditional node
+        Node* cond = entry->get_children()[0];
+        combined_parents_reach_defs = ExtensibleGraph::compute_parents_reach_defs(cond);
+        actual_reach_defs = cond->get_reaching_definitions();
+        for(nodecl_map::iterator it = combined_parents_reach_defs.begin(); it != combined_parents_reach_defs.end(); ++it)
+        {
+            if (actual_reach_defs.find(it->first) == actual_reach_defs.end())
+            {   // Only if the definition is not performed within the node, we store the parents values
+                cond->set_reaching_definition(it->first, it->second);
+                Nodecl::NodeclBase first = it->first, second = it->second;
+            }
+        }        
+       
+        ObjectList<Edge*> cond_exit_edges = cond->get_exit_edges();
+        ObjectList<Edge*>::iterator ite = cond_exit_edges.begin();
+        
+        // Nodes through the True edge has a smaller range for the induction variable
+        Node* true_node;
+        if ((*ite)->get_type() == TRUE_EDGE)
+        {
+            true_node = (*ite)->get_target();
+        }
+        else
+        {
+            true_node = (*(ite+1))->get_target();
+        }
+        combined_parents_reach_defs = ExtensibleGraph::compute_parents_reach_defs(true_node);
+        actual_reach_defs = true_node->get_reaching_definitions();
+        for(nodecl_map::iterator it = combined_parents_reach_defs.begin(); it != combined_parents_reach_defs.end(); ++it)
+        {
+            if (actual_reach_defs.find(it->first) == actual_reach_defs.end())
+            {   // Only if the definition is not performed within the node, we store the parents values
+                // If the variable is an induction var, we get here the range of the var within the loop
+                if (it->first.is<Nodecl::Symbol>() 
+                    && induction_vars_m.find(it->first.get_symbol()) != induction_vars_m.end())
+                {
+                    true_node->set_reaching_definition(it->first, induction_vars_m[it->first.get_symbol()]);
+                }
+                else
+                {
+                    true_node->set_reaching_definition(it->first, it->second);
+                }
+            }
+        }
+    }    
+
     void LoopAnalysis::analyse_loops(Node* node)
     {
         // Compute induction_variables_info

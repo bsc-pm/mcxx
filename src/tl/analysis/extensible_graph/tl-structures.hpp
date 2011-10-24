@@ -191,6 +191,16 @@ namespace TL
      */ 
     #define _REACH_DEFS      "reaching_defs"   
 
+    /*! \def _AUX_REACH_DEFS
+     * Map containing the propagated reaching definitions in a given point
+     * This varaible is used while propagating the reaching definitions among the nodes to differentiate 
+     * those definitions performed within the node and those that has been propagated
+     * At the end of the propagation, the reaching definitions stored in this value are copied in the _REACH_DEFS varaible
+     * an this is deleted
+     * Available in all nodes (Mandatory once the Liveness analysis is performed).
+     */ 
+    #define _AUX_REACH_DEFS      "aux_reaching_defs"   
+
     /*! \def _CLAUSES
      * Set of clauses associated to a pragma
      * Available in Graph nodes of type 'omp_pragma' and 'task' but not mandat
@@ -215,6 +225,12 @@ namespace TL
      * Available and mandatory in all edges but those with 'Always' type.
      */
     #define _EDGE_LABEL     "edge_label"
+    
+    /*! \def _IS_BACK_EDGE
+     * Boolean indicating whether an edge connects a source with a target with a back edge (loop)
+     * Available and mandatory in all edges.
+     */
+    #define _IS_BACK_EDGE     "is_back_edge"
 }
 
 #endif // STRUCTURES_HPP

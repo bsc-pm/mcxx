@@ -988,11 +988,12 @@ namespace TL
         {
             _loop_info_s.top().next->set_outer_node(for_graph_node);
             _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, _loop_info_s.top().next, aux_etype);
-            _actual_cfg->connect_nodes(_loop_info_s.top().next, _loop_info_s.top().cond);
+            _actual_cfg->connect_nodes(_loop_info_s.top().next, _loop_info_s.top().cond, ALWAYS_EDGE, "", /* is back edge */ true);
         }
         else
         {
-            _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, _loop_info_s.top().cond);
+            int n_connects = _actual_cfg->_last_nodes.size();
+            _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, _loop_info_s.top().cond, ALWAYS_EDGE, "", /* is back edge */ true);
         }
       
         _actual_cfg->_outer_node.pop();

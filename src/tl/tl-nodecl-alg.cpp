@@ -1,4 +1,5 @@
 #include "tl-nodecl-alg.hpp"
+#include "tl-nodecl-calc.hpp"
 #include "tl-predicateutils.hpp"
 #include "cxx-utils.h"
 
@@ -204,7 +205,7 @@ namespace Nodecl
 
         return equal_trees_rec(n1_, n2_);
     }
-   
+    
     size_t Utils::Nodecl_hash::operator() (const Nodecl::NodeclBase& n) const
     {
         return hash_table(n.get_internal_nodecl());
@@ -213,7 +214,150 @@ namespace Nodecl
     bool Utils::Nodecl_comp::operator() (const Nodecl::NodeclBase& n1, const Nodecl::NodeclBase& n2) const
     {
         return equal_nodecls(n1, n2);
+    }
+    
+    NodeclBase Utils::reduce_expression(NodeclBase n)
+    {
+        if (n.is<Nodecl::Symbol>() || n.is<IntegerLiteral>() || n.is<FloatingLiteral>())
+        {
+            return n;
+        }
+        else
+        {
+            NodeclBase simplified_expr;
+            
+            if (n.is<Nodecl::Add>())
+            {
+                Add n_add = n.as<Add>();
+                NodeclBase lhs = n_add.get_lhs(); NodeclBase rhs = n_add.get_rhs();
+                NodeclBase new_lhs = reduce_expression(lhs);
+                NodeclBase new_rhs = reduce_expression(rhs);
+                if (!equal_nodecls(new_lhs, lhs) || !equal_nodecls(new_rhs, rhs))
+                {
+                    n = Add::make(new_lhs, new_rhs, lhs.get_type(), n.get_filename(), n.get_line());
+                }
+                simplified_expr = algebraic_simplification(n);
+            }
+            else if (n.is<Nodecl::Minus>())
+            {
+                Minus n_minus = n.as<Minus>();
+                NodeclBase lhs = n_minus.get_lhs(); NodeclBase rhs = n_minus.get_rhs();
+                NodeclBase new_lhs = reduce_expression(lhs);
+                NodeclBase new_rhs = reduce_expression(rhs);
+                if (!equal_nodecls(new_lhs, lhs) || !equal_nodecls(new_rhs, rhs))
+                {
+                    n = Minus::make(new_lhs, new_rhs, lhs.get_type(), n.get_filename(), n.get_line());
+                }
+                simplified_expr = algebraic_simplification(n);
+            }
+            else
+            {
+                internal_error("Unexpected node type '%s' while simplifying algebraic expressions", ast_print_node_type(n.get_kind()));
+            }
+            
+            return simplified_expr;
+        }
     }    
+    
+    /*!
+     * This method must be called in pre-order form the bottom of a tree expression
+     * 
+     * R1 :   +                                     R3 :    -
+     *      /   \          =>     c1 + c2                 /   \     =>    c1 - c2
+     *    c1    c2                                      c1    c2
+     * 
+     * R2 :   +                       +             R4      -                +
+     *      /   \          =>       /   \                 /   \     =>     /   \
+     *     t    c                  c     t               t    c          -c     t
+     * 
+     * R5 :       +                    +
+     *          /   \               /     \
+     *         +    c2     =>    c1+c2     t
+     *       /   \
+     *     c1    t
+     */
+    NodeclBase Utils::algebraic_simplification(NodeclBase n)
+    {
+        NodeclBase result = n;
+        Calculator calc;
+        if (n.is<Add>())
+        {
+            Add n_add = n.as<Add>();
+            NodeclBase lhs = n_add.get_lhs();
+            NodeclBase rhs = n_add.get_rhs();
+            if (lhs.is_constant() && rhs.is_constant())
+            {   // R1
+                const_value_t* const_value = calc.compute_const_value(n);
+                result = const_value_to_nodecl(const_value);
+            }
+            else if (rhs.is_constant())
+            {
+                if (lhs.is<Add>())
+                {   // R5
+                    Add lhs_add = lhs.as<Add>();
+                    NodeclBase lhs_lhs = lhs_add.get_lhs();
+                    NodeclBase lhs_rhs = lhs_add.get_rhs();
+                    if (lhs_lhs.is_constant() && rhs.is_constant())
+                    {
+                        NodeclBase const_node = Add::make(lhs_lhs, rhs, rhs.get_type(), n.get_filename(), n.get_line());
+                        const_value_t* const_value = calc.compute_const_value(const_node);
+                        if (!const_value_is_zero(const_value))
+                        {    
+                            result = Add::make(const_value_to_nodecl(const_value), lhs_rhs, 
+                                               rhs.get_type(), n.get_filename(), n.get_line());
+                        }
+                        else
+                        {
+                            result = lhs_rhs;
+                        }
+                    }
+                }
+                else
+                {   // R2
+                    result = Add::make(rhs, lhs, lhs.get_type(), n.get_filename(), n.get_line());
+                }
+            }
+        }
+        else if (n.is<Minus>())
+        {
+            Minus n_minus = n.as<Minus>();
+            NodeclBase lhs = n_minus.get_lhs();
+            NodeclBase rhs = n_minus.get_rhs();
+            if (lhs.is_constant() && rhs.is_constant())
+            {   // R3
+                Calculator calc;
+                const_value_t* const_value = calc.compute_const_value(n);
+                result = const_value_to_nodecl(const_value);
+            }
+            else if (rhs.is_constant())
+            {
+                Nodecl::NodeclBase zero = const_value_to_nodecl(const_value_get_zero(/*num_bytes*/ 4, /*sign*/1));
+                NodeclBase neg_rhs = Minus::make(zero, rhs, rhs.get_type(), 
+                                                 n.get_filename(), n.get_line());
+                const_value_t* const_value = calc.compute_const_value(neg_rhs);
+                if (!const_value_is_zero(const_value))
+                {    
+                    result = Add::make(const_value_to_nodecl(const_value), lhs, lhs.get_type(), n.get_filename(), n.get_line());
+                }
+                else
+                {
+                    result = lhs;
+                }
+            }            
+        }
+        else
+        {
+            internal_error("Unexpected node type '%s' while simplifying algebraic expressions", ast_print_node_type(n.get_kind()));
+        }
+        
+        DEBUG_CODE()
+        {
+            std::cerr << "=== Algebraic Simplification '" << n.prettyprint() << "' --> '" 
+                      << result.prettyprint() << "' ===" << std::endl;
+        }
+        
+        return result;
+    }
 }
 
 namespace TL

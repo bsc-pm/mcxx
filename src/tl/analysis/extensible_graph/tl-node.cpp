@@ -24,6 +24,8 @@ Cambridge, MA 02139, USA.
 
 #include "cxx-codegen.h"
 #include "cxx-process.h"
+
+#include "tl-cfg-renaming-visitor.hpp"
 #include "tl-node.hpp"
 
 
@@ -599,7 +601,8 @@ namespace TL
     void Node::set_statements(ObjectList<Nodecl::NodeclBase> stmts)
     {
         Node_type ntype = get_data<Node_type>(_NODE_TYPE);
-        if (ntype == BASIC_NORMAL_NODE || ntype == BASIC_FUNCTION_CALL_NODE || ntype == BASIC_LABELED_NODE)
+        if (ntype == BASIC_NORMAL_NODE || ntype == BASIC_FUNCTION_CALL_NODE || ntype == BASIC_LABELED_NODE
+            || ntype == BASIC_BREAK_NODE || ntype == BASIC_CONTINUE_NODE)
         {
             set_data(_NODE_STMTS, stmts);
         }
@@ -903,7 +906,6 @@ namespace TL
    
     void Node::set_graph_node_use_def()
     {
-        std::cerr << "Setting graph node use-def info to node " << _id << std::endl;
         if (get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
         {
             _visited = true;
@@ -1022,95 +1024,77 @@ namespace TL
         }
     }
     
-    // The method suppose all it dependent nodes have its reaching definitions calculated
-    static void get_reaching_defintions_rec(Node* node, nodecl_map& reach_defs)
-    {   // We only keep those definitions that are not modified in the whole graph; the rest have an unknown value
-        if (!node->is_visited())
-        {
-            node->set_visited(true);
-            
-            // Insert actual reaching definitions
-            if (node->has_key(_REACH_DEFS))
-            {
-                nodecl_map actual_reach_defs = node->get_reaching_definitions();
-                for (nodecl_map::iterator itc = actual_reach_defs.begin(); itc != actual_reach_defs.end(); ++itc)
-                {
-                    Nodecl::NodeclBase a = itc->first;
-                    if ( reach_defs.find(itc->first) != reach_defs.end() )
-                    {
-                        if ( !Nodecl::Utils::equal_nodecls(reach_defs[itc->first], itc->second) )
-                        {
-                            std::cerr << "nodecl " << a.prettyprint() << " already exists as REACH DEF for node " 
-                                    << node->get_id() << std::endl;
-                            reach_defs[itc->first] = Nodecl::NodeclBase::null();
-                        }
-                    }
-                    else
-                    {
-                        std::cerr << "nodecl " << a.prettyprint() << " does NOT exist as REACH DEF for node " 
-                            << node->get_id() << std::endl;
-                        reach_defs[itc->first] = itc->second;
-                        reach_defs.insert(nodecl_map::value_type(itc->first, itc->second));
-                    }
-                }
-            }
-            
-            // Recursive call with the actual children
-            ObjectList<Node*> children = node->get_children();
-            nodecl_map child_reach_defs;
-            for (ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
-            {
-                get_reaching_defintions_rec(*it, reach_defs);
-            }
-        }
-    }
-    
-    void Node::set_graph_node_reaching_defintions()
+    void Node::set_graph_node_reaching_defintions(std::map<Symbol, Nodecl::NodeclBase> induct_vars,
+                                                  const char* filename, int line)
     {
         if (get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
-        {
-            Node* entry = get_data<Node*>(_ENTRY_NODE);
-            
-            // Get the reaching defintitions info from the inner nodes
-            nodecl_map inner_reach_defs;
-            get_reaching_defintions_rec(entry, inner_reach_defs);
-            
-            // This this info with the one coming form the parent nodes
-            nodecl_map parents_reach_defs, actual_parent_reach_defs;
-            ObjectList<Node*> parents = get_parents();
-            for(ObjectList<Node*>::iterator it = parents.begin(); it != parents.end(); ++it)
+        {   // When node is a LOOP graph, we have to look for the 'next' node of the loop
+            // otherwise, we can keep the value of the exit node
+            Node* exit_node = get_data<Node*>(_EXIT_NODE);
+            if (get_data<Graph_type>(_GRAPH_TYPE) == LOOP)
             {
-                // When more than one parent defines the same value, it have now UNKNOWN VALUE
-                // When all parents define the same value and it is not defined in the actual node, the value is propagated
-                actual_parent_reach_defs = (*it)->get_reaching_definitions();
+                Node* cond = exit_node->get_parents()[0];
                 
-                for (nodecl_map::iterator it = actual_parent_reach_defs.begin();
-                    it != actual_parent_reach_defs.end(); ++it)
+                // Get the parent corresponding to the 'next' node
+                ObjectList<Edge*> cond_entries = cond->get_entry_edges();
+                Node* next = NULL;
+                for (ObjectList<Edge*>::iterator it = cond_entries.begin(); it != cond_entries.end(); ++it)
                 {
-                    if (parents_reach_defs.find(it->first) != parents_reach_defs.end())
+                    if ((*it)->is_back_edge())
                     {
-                        if (Nodecl::Utils::equal_nodecls(parents_reach_defs[it->first], it->second))
+                        next = (*it)->get_source();
+                    }
+                }
+                
+                if (next == NULL)
+                {
+                    internal_error("Cannot found node corresponding to the 'stride node' of the loop graph node '%d'", _id);
+                }
+                
+                // Now, all ranges must be converted to the first/last value depending on the sign of the stride
+                nodecl_map old_reach_defs = get_reaching_definitions();
+                nodecl_map stride_reach_defs = next->get_data<nodecl_map>(_REACH_DEFS);
+                for(nodecl_map::iterator it = stride_reach_defs.begin(); it != stride_reach_defs.end(); ++it)
+                {
+                    Nodecl::NodeclBase first = it->first, second = it->second;
+                    CfgRenamingVisitor renaming_v(induct_vars, filename, line);
+                    renaming_v.set_computing_range_limits(true);
+
+                    ObjectList<Nodecl::NodeclBase> renamed;
+                    // Visit lhs of the reach def
+                    if (!first.is<Nodecl::Symbol>())
+                    {
+                        renamed = renaming_v.walk(it->first);
+                        if (!renamed.empty())
                         {
-                            parents_reach_defs[it->first] = Nodecl::NodeclBase::null();
-                        }
+                            first = renamed[0];
+                            if (old_reach_defs.empty() || old_reach_defs.find(first) != old_reach_defs.end())
+                            {
+                                rename_reaching_defintion_var(first, renamed[0]);
+                            }
+                            else if (old_reach_defs.find(renamed[0]) != old_reach_defs.end())
+                            {   // The renaming was already done. Nothing to do
+                            }
+                            else
+                            {
+                                internal_error("A previous renaming in node '%d' has been performed for initial value '%s' and "\
+                                               " actual renaming '%s'", _id, first.prettyprint().c_str(), renamed[0].prettyprint().c_str());
+                            }
+                        }                        
                     }
-                    else
+                    
+                    // Visit rhs of the reach def
+                    renamed = renaming_v.walk(it->second);
+                    if (!renamed.empty())
                     {
-                        parents_reach_defs[it->first] = it->second;
+                        set_reaching_definition(first, renamed[0]);
                     }
                 }
             }
-            
-            // Mix both infos
-            for (nodecl_map::iterator it = parents_reach_defs.begin(); it != parents_reach_defs.end(); ++it)
+            else
             {
-                if (inner_reach_defs.find(it->first) == inner_reach_defs.end())
-                {
-                    inner_reach_defs[it->first] = it->second;
-                }
+                set_data(_REACH_DEFS, exit_node->get_data<nodecl_map>(_REACH_DEFS));
             }
-            
-            set_data(_REACH_DEFS, inner_reach_defs);
         }
         else
         {
@@ -1341,13 +1325,27 @@ namespace TL
         set_data(_REACH_DEFS, reaching_defs);
     }
     
+    void Node::set_reaching_definition_list(nodecl_map reach_defs_l)
+    {
+        nodecl_map reaching_defs;
+        if (has_key(_REACH_DEFS))
+        {
+            reaching_defs = get_data<nodecl_map>(_REACH_DEFS);
+        }
+        for(nodecl_map::iterator it = reach_defs_l.begin(); it != reach_defs_l.end(); ++it)
+        {
+            reaching_defs[it->first] = it->second;
+        }
+       
+        set_data(_REACH_DEFS, reaching_defs);
+    }    
+    
     void Node::rename_reaching_defintion_var(Nodecl::NodeclBase old_var, Nodecl::NodeclBase new_var)
     {
         nodecl_map reaching_defs;
         if (has_key(_REACH_DEFS))
         {
             reaching_defs = get_data<nodecl_map>(_REACH_DEFS);
-            std::cerr << "******** SIZE = " << reaching_defs.size() << std::endl;
             if (reaching_defs.find(old_var) != reaching_defs.end())
             {
                 Nodecl::NodeclBase init = reaching_defs[old_var];
@@ -1358,15 +1356,32 @@ namespace TL
             {
                 std::cerr << "warning: Trying to rename reaching definition '" << old_var.prettyprint()
                           << "', which not exists in reaching definition list of node '" << _id << "'" << std::endl;
-                          
-                for(nodecl_map::iterator it = reaching_defs.begin(); it != reaching_defs.end(); ++it)
-                {
-                    Nodecl::NodeclBase first = it->first, second = it->second;
-                    std::cerr << "    - " << first.prettyprint() << " = " << second.prettyprint() << std::endl;
-                }
             }
         }
         set_data(_REACH_DEFS, reaching_defs);
+    }
+    
+    nodecl_map Node::get_auxiliar_reaching_definitions()
+    {
+        nodecl_map aux_reaching_defs;
+        
+        if (has_key(_AUX_REACH_DEFS))
+        {
+            aux_reaching_defs = get_data<nodecl_map>(_AUX_REACH_DEFS);
+        }
+        
+        return aux_reaching_defs;
+    }
+    
+    void Node::set_auxiliar_reaching_definition(Nodecl::NodeclBase var, Nodecl::NodeclBase init)
+    {
+        nodecl_map aux_reaching_defs;
+        if (has_key(_AUX_REACH_DEFS))
+        {
+            aux_reaching_defs = get_data<nodecl_map>(_AUX_REACH_DEFS);
+        }
+        aux_reaching_defs[var] = init;
+        set_data(_AUX_REACH_DEFS, aux_reaching_defs);        
     }
     
     void Node::unset_reaching_definition(Nodecl::NodeclBase var)

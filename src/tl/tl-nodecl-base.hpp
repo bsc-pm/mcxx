@@ -48,6 +48,18 @@ namespace Nodecl {
             }
             bool is_constant() const { return ::nodecl_is_constant(_n); }
 
+            const_value_t* get_constant() const 
+            {
+                if (is_constant())
+                {
+                    return ::nodecl_get_constant(get_internal_nodecl());
+                }
+                else
+                {
+                    return NULL;
+                }
+            }
+            
             // Prettyprint
             std::string prettyprint();
 

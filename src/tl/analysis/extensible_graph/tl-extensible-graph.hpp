@@ -84,6 +84,7 @@ namespace TL
             //! Boolean indicating whether the use-def chains are already computed for the graph
             bool _use_def_computed;
             
+            static nodecl_map compute_parents_reach_defs(Node* node);
             
     private:
             //! We don't want to allow this kind of constructions
@@ -162,9 +163,9 @@ namespace TL
              */
             static void solve_live_equations_recursive(Node* actual, bool& changed);
             
-            //! This method spreads the computed info about reaching definitions during the Use-Def construction.
-            //! When more than one expression is assigned to the same symbol within a node, the method gets just the last expression.
-            static void extend_reaching_defintions_info(Node* node);            
+            static void propagate_reach_defs_among_nodes(Node* node, std::map<Symbol, Nodecl::NodeclBase> induction_vars_m, bool& changes);
+            
+            static void extend_reaching_defintions_info(Node* node, std::map<Symbol, Nodecl::NodeclBase> induction_vars_m);
             
             //! Recompute the identifiers of the nodes graph hanging from actual_node from the value of _nid
             //! This method is used when a node s replaced by another, because the identifiers may be repeated
@@ -233,10 +234,11 @@ namespace TL
              * \param etype Type of the connection between the two nodes.
              * \param label Label for the connection. It will be used when a Catch or a Case edges
              *              are built.
+             * \param is_back_edge Bool indicating whether the nodes must be connected by a back edge
              * \return The new edge created between the two nodes             
              */
             Edge* connect_nodes(Node* parent, Node* child, 
-                               Edge_type etype = ALWAYS_EDGE, std::string label = "");        
+                               Edge_type etype = ALWAYS_EDGE, std::string label = "", bool is_back_edge = false);        
            
             //! Wrapper method for #connect_nodes when a set of parents must be connected to a
             //! set of children and each connection may be different from the others. 
@@ -259,7 +261,7 @@ namespace TL
             //! Wrapper method for #connect_nodes when a set of parents must be connected to an
             //! only child and the nature of the connection is the same for all of them.
             void connect_nodes(ObjectList<Node*> parents, Node* child, 
-                               Edge_type etype = ALWAYS_EDGE, std::string label = "");
+                               Edge_type etype = ALWAYS_EDGE, std::string label = "", bool is_back_edge = false);
             
             //! Wrapper method for #disconnect_nodes when a set of parents is connected to a child.
             void disconnect_nodes(ObjectList<Node*> parents, Node* child);
@@ -340,8 +342,9 @@ namespace TL
             
             //! This function clears the attribute #visited from nodes bellow @actual node.
             //! It works properly if there isn't any unreachable node in the graph bellow @actual.
-            static void clear_visits(Node* actual);
-                       
+            static void clear_visits(Node* node);
+            static void clear_visits_in_level(Node* node);
+            
             //! Set of methods that removes those nodes that can never be reached.                 
             void clear_orphaned_nodes(Node* actual_node);
             void clear_orphaned_nodes_in_subgraph(Node* actual_node);
@@ -400,6 +403,7 @@ namespace TL
             static Node* is_for_loop_increment(Node* node);
 
         friend class CfgVisitor;
+        friend class LoopAnalysis;
     };
 }
 

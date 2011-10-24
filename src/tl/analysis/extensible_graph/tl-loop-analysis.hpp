@@ -87,8 +87,9 @@ namespace TL
         
         void compute_ranges_for_variables_in_loop(Node* node);
         
-        void set_access_range(Node* node, const char use_type, Nodecl::NodeclBase nodecl, 
-                              std::map<Symbol, Nodecl::NodeclBase> ind_var_map, Nodecl::NodeclBase reach_def_var = Nodecl::NodeclBase::null());
+        Nodecl::NodeclBase set_access_range(Node* node, const char use_type, Nodecl::NodeclBase nodecl, 
+                                            std::map<Symbol, Nodecl::NodeclBase> ind_var_map, 
+                                            Nodecl::NodeclBase reach_def_var = Nodecl::NodeclBase::null());
         
         /*!
          * Looks for any induction variable contained in a list of nodecls and
@@ -117,6 +118,14 @@ namespace TL
         char induction_vars_are_defined_in_node(Node* node);
         
         void prettyprint_induction_var_info(InductionVarInfo* var_info);
+        
+        /*!
+         * Computes values of reaching definitions for entry, condition and true_node of the for loop node.
+         * We perform this propagation apart because the range of the inductions variables is not the same for increment and condition node
+         * that for the other ones.
+         * After this computation, we can apply the common propagation method of the static analysis
+         */
+        static void propagate_reach_defs_in_for_loop_special_nodes(Node* loop_node, std::map<Symbol, Nodecl::NodeclBase> induction_vars_m);        
         
     public:
         
@@ -149,6 +158,10 @@ namespace TL
         InductionVarInfo* induction_vars_l_contains_symbol(Symbol s) const;
         
         std::map<Symbol, Nodecl::NodeclBase> get_induction_vars_mapping() const;
+        
+        std::map<Symbol, int> get_induction_vars_direction() const;
+        
+        friend class ExtensibleGraph;
     };
 }
 

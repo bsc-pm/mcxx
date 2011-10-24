@@ -215,7 +215,7 @@ namespace TL
                         Node* new_source = nodes_m[(*it)->get_source()];
                         Node* new_target = nodes_m[old_node];
                         new_parents.append(new_source);
-                        new_entry_edges.append(new Edge(new_source, new_target, (*it)->get_type(), (*it)->get_label()));
+                        new_entry_edges.append(new Edge(new_source, new_target, (*it)->is_back_edge(), (*it)->get_type(), (*it)->get_label()));
                     }
                     connect_nodes(new_parents, nodes_m[old_node], new_entry_edges);
                     
@@ -228,7 +228,7 @@ namespace TL
                         Node* new_source = nodes_m[old_node];
                         Node* new_target = nodes_m[(*it)->get_target()];
                         new_children.append(new_target);
-                        new_exit_edges.append(new Edge(new_source, new_target, (*it)->get_type(), (*it)->get_label()));            
+                        new_exit_edges.append(new Edge(new_source, new_target, (*it)->is_back_edge(), (*it)->get_type(), (*it)->get_label()));   
                     }
                     connect_nodes(nodes_m[old_node], new_children, new_exit_edges);
                     
@@ -291,14 +291,14 @@ namespace TL
         return append_new_node_to_parent(parents, ObjectList<Nodecl::NodeclBase>(1, nodecl), ntype, etype);
     }
 
-    Edge* ExtensibleGraph::connect_nodes(Node* parent, Node* child, Edge_type etype, std::string label)
+    Edge* ExtensibleGraph::connect_nodes(Node* parent, Node* child, Edge_type etype, std::string label, bool is_back_edge)
     {
         if (parent != NULL && child != NULL)
         {
             if (!parent->has_child(child))
             {
 //                 std::cerr << "Connecting " << parent->get_id() << " with " << child->get_id() << std::endl;
-                Edge* new_edge = new Edge(parent, child, etype, label);
+                Edge* new_edge = new Edge(parent, child, is_back_edge, etype, label);
                 parent->set_exit_edge(new_edge);
                 child->set_entry_edge(new_edge);
                 return new_edge;
@@ -376,13 +376,13 @@ namespace TL
         }        
     }
 
-    void ExtensibleGraph::connect_nodes(ObjectList<Node*> parents, Node* child, Edge_type etype, std::string label)
+    void ExtensibleGraph::connect_nodes(ObjectList<Node*> parents, Node* child, Edge_type etype, std::string label, bool is_back_edge)
     {
         for(ObjectList<Node*>::iterator it = parents.begin();
             it != parents.end();
             ++it)
         {
-            connect_nodes(*it, child, etype, label);         
+            connect_nodes(*it, child, etype, label, is_back_edge);
         }
     }
 
@@ -931,7 +931,7 @@ namespace TL
     {
         if (node->is_visited())
         {
-//             std::cerr << "clear visits - node: " << node->get_id() << std::endl;
+//             std::cerr << "           clear visits --> " << node->get_id() << std::endl;
             node->set_visited(false);
             
             Node_type ntype = node->get_type();
@@ -942,6 +942,32 @@ namespace TL
             else if (ntype == GRAPH_NODE)
             {
                 clear_visits(node->get_graph_entry_node());
+            }
+            
+            ObjectList<Node*> children = node->get_children();
+            for(ObjectList<Node*>::iterator it = children.begin();
+                    it != children.end();
+                    ++it)
+            {
+                if ((*it)->is_visited())
+                {
+                    clear_visits(*it);
+                }
+            }
+        }
+    }
+    
+    void ExtensibleGraph::clear_visits_in_level(Node* node)
+    {
+        if (node->is_visited())
+        {
+//             std::cerr << "           clear visits --> " << node->get_id() << std::endl;
+            node->set_visited(false);
+            
+            Node_type ntype = node->get_type();
+            if (ntype == BASIC_EXIT_NODE)
+            {
+                return;
             }
             
             ObjectList<Node*> children = node->get_children();

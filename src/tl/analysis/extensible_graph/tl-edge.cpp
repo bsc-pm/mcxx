@@ -26,11 +26,12 @@ Cambridge, MA 02139, USA.
 
 namespace TL
 {
-    Edge::Edge(Node *source, Node *target, Edge_type type, std::string label)
+    Edge::Edge(Node *source, Node *target, bool is_back_edge, Edge_type type, std::string label)
         : _source(source), _target(target)
     {
         set_data<Edge_type>(_EDGE_TYPE, type);
         set_data<std::string>(_EDGE_LABEL, label);
+        set_data<bool>(_IS_BACK_EDGE, is_back_edge);
     }
 
     Node* Edge::get_source() const
@@ -88,6 +89,18 @@ namespace TL
         }
         
         return result;
+    }
+
+    bool Edge::is_back_edge()
+    {
+        if (has_key(_IS_BACK_EDGE))
+        {    
+            return get_data<bool>(_IS_BACK_EDGE);
+        }
+        else
+        {    
+            return false;
+        }
     }
 
     std::string Edge::get_label()

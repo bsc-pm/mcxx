@@ -51,7 +51,6 @@ namespace TL
         {
             if (renamed.size() == 1)
             {
-                std::cerr << "Converting nodecl " << _n.prettyprint() << " to " << renamed[0].prettyprint() << std::endl;
                 _n = renamed[0];
             }
             else

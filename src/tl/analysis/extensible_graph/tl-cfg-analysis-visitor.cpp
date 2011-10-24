@@ -26,9 +26,13 @@ Cambridge, MA 02139, USA.
 #include "cxx-process.h"
 
 #include "tl-cfg-analysis-visitor.hpp"
+#include "tl-nodecl-calc.hpp"
+
 
 namespace TL
 {
+    static Nodecl::NodeclBase compute_init_expr(Nodecl::NodeclBase actual_val, int op);
+    
     CfgAnalysisVisitor::CfgAnalysisVisitor(Node* n)
         : _node(n), _define(false), _actual_nodecl(Nodecl::NodeclBase::null())
     {}
@@ -343,13 +347,57 @@ namespace TL
     {
         binary_visit(n);
     }
+    
+    static Nodecl::NodeclBase compute_init_expr(Nodecl::NodeclBase n, int op)
+    {
+        nodecl_t one = const_value_to_nodecl(const_value_get_one(/* bytes */ 4, /* signed*/ 1));
+        
+        Nodecl::NodeclBase val;
+        switch (op)
+        {
+            case 0:     // Add
+                        val = Nodecl::Add::make(n, Nodecl::NodeclBase(one), n.get_type(), n.get_filename(), n.get_line());
+                        break;
+            case 1:     // Sub
+                        val = Nodecl::Minus::make(n, Nodecl::NodeclBase(one), n.get_type(), n.get_filename(), n.get_line());
+                        break;
+            default:    internal_error("Unexpected type of operation '%d' while computing initial expression", op);
+        }
+
+        
+        Nodecl::Calculator calc;
+        const_value_t* const_val = calc.compute_const_value(val);
+        Nodecl::NodeclBase result;
+        if (const_val != NULL)
+        {
+            if (n.is<Nodecl::IntegerLiteral>())
+            {
+                result = Nodecl::IntegerLiteral::make(n.get_type(), const_val, n.get_filename(), n.get_line());
+            }
+            else if (n.is<Nodecl::FloatingLiteral>())
+            {
+                result = Nodecl::FloatingLiteral::make(n.get_type(), const_val, n.get_filename(), n.get_line());
+            }
+            else
+            {
+                internal_error("Unexpected node type '%s' while computing initial value in a constant expression", 
+                               ast_print_node_type(n.get_kind()));
+            }
+        }
+        else
+        {
+            result = val;
+        }
+        
+        return result;
+    }
    
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Predecrement& n)
     {
         Nodecl::NodeclBase rhs = n.get_rhs();
         walk(rhs);
         _define = true;
-        _init_expression = rhs;
+        _init_expression = compute_init_expr(rhs, 1);
         walk(rhs);
         _define = false;
     }
@@ -359,17 +407,17 @@ namespace TL
         Nodecl::NodeclBase rhs = n.get_rhs();
         walk(rhs);
         _define = true;
-        _init_expression = rhs;
+        _init_expression = compute_init_expr(rhs, 1);
         walk(rhs);
         _define = false;
     }
-    
+
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Preincrement& n)
     {
         Nodecl::NodeclBase rhs = n.get_rhs();
         walk(rhs);
         _define = true;
-        _init_expression = rhs;
+        _init_expression = compute_init_expr(rhs, 0);
         walk(rhs);
         _define = false;
     }
@@ -379,7 +427,7 @@ namespace TL
         Nodecl::NodeclBase rhs = n.get_rhs();
         walk(rhs);
         _define = true;
-        _init_expression = rhs;
+        _init_expression = compute_init_expr(rhs, 0);
         walk(rhs);
         _define = false;
     }

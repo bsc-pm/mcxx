@@ -46,16 +46,16 @@ namespace TL
             
             //! Edge Constructor
             /*!
-              A new edge connecting to nodes is built.
-              This method does not modify the information of source and target nodes.
-              \param source Pointer to the source node of the new edge
-              \param target Pointer to the target node of the new edge
-              \param type Type of the new edge, belonging to the enum Edge_type
-              \param label Additional argument, when the edge will not be always taken in the graph
-                           flow. It indicates the condition of the edge.
+             * A new edge connecting to nodes is built.
+             * This method does not modify the information of source and target nodes.
+             * \param source Pointer to the source node of the new edge
+             * \param target Pointer to the target node of the new edge
+             * \param type Type of the new edge, belonging to the enum Edge_type
+             * \param label Additional argument, when the edge will not be always taken in the graph
+             *              flow. It indicates the condition of the edge.
+             * \param is_back_edge Boolean indicating whether the edge is to a back node (loop)             
              */
-            Edge(Node *source, Node *target, Edge_type type,
-                 std::string label="");
+            Edge(Node *source, Node *target, bool is_back_edge, Edge_type type, std::string label="");
             
             
             // *** Getters and Setters *** //
@@ -71,6 +71,9 @@ namespace TL
             
             //! Returns a string with the type of the node
             std::string get_type_as_string();
+            
+            //! Returns the boolean indicating whether the edge is a back edge
+            bool is_back_edge();
             
             //! Returns the label of the edge. 
             /*!

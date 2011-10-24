@@ -28,6 +28,9 @@ namespace Nodecl
         struct Nodecl_comp {
             bool operator() (const Nodecl::NodeclBase& n1, const Nodecl::NodeclBase& n2) const;
         };
+        
+        NodeclBase reduce_expression(Nodecl::NodeclBase n);
+        NodeclBase algebraic_simplification(Nodecl::NodeclBase n);
     }
 }
 

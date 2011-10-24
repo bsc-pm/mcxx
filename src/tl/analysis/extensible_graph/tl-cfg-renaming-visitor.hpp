@@ -41,12 +41,16 @@ namespace TL
     class LIBTL_CLASS CfgRenamingVisitor : public Nodecl::NodeclVisitor<Nodecl::NodeclBase>
     {
         private:
+            //! map used to rename de nodes
+            //! when this value is null, the renaming visitor just substitutes a range by its LB or UB, depending on #limit value
             std::map<Symbol, Nodecl::NodeclBase> _rename_map;
             const char* _filename;
             int _line;
             
-//             // Value stored to recuperate info about the symbol that matches in a rename process
+            //! Value stored to recuperate info about the symbol that matches in a rename process
             Symbol _s;
+           
+            bool _computing_limits;
             
             // *** Auxiliar methods *** //
             
@@ -55,6 +59,14 @@ namespace TL
             template <typename T>
             Ret visit_binary(const T& n);
 
+            template <typename T>
+            Nodecl::NodeclBase create_new_range_from_binary_node(T& n, Nodecl::NodeclBase lb1, Nodecl::NodeclBase ub1,
+                                                                 Nodecl::NodeclBase lb2, Nodecl::NodeclBase ub2,
+                                                                 Nodecl::NodeclBase stride);
+            
+            template <typename T>
+            Nodecl::NodeclBase create_new_binary_node(T& n, Nodecl::NodeclBase lhs, Nodecl::NodeclBase rhs);
+            
             template <typename T>
             Ret visit_unary(const T& n);
             
@@ -67,7 +79,10 @@ namespace TL
             // *** Getters and Setters *** //
             Symbol get_matching_symbol() const;
             
+            void set_computing_range_limits(bool computing_limits);
            
+            static Nodecl::NodeclBase combine_variable_values(Nodecl::NodeclBase node1, Nodecl::NodeclBase node2);
+            
             // *** Visitors *** //
             Ret unhandled_node(const Nodecl::NodeclBase& n);
             Ret visit(const Nodecl::Symbol& n);

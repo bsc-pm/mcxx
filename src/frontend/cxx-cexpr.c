@@ -353,6 +353,28 @@ char const_value_is_zero(const_value_t* v)
     return !const_value_is_nonzero(v);
 }
 
+char const_value_is_positive(const_value_t* v)
+{
+    
+    switch (v->kind)
+    {
+        case CVK_INTEGER:
+            if (!v->sign)
+                return 1;
+            else
+                return (*(int64_t*)&v->value.i) > 0;
+        case CVK_FLOAT:
+            return v->value.f > 0.0f;
+        case CVK_DOUBLE:
+            return v->value.d > 0.0;
+        case CVK_LONG_DOUBLE:
+            return v->value.ld > 0.0L;
+        OTHER_KIND;        
+    }
+
+    return 0;    
+}
+
 uint64_t const_value_cast_to_8(const_value_t* val)
 {
     switch (val->kind)
@@ -1846,3 +1868,4 @@ const_value_t* const_value_string_concat(const_value_t* v1, const_value_t* v2)
 
     return const_value_make_string(str, num_elements);
 }
+

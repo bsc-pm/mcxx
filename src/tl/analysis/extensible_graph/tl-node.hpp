@@ -330,7 +330,8 @@ namespace TL
             void set_graph_node_liveness();
             
             //! This method computes the reaching definitions of a graph node from the reaching definitions in the nodes within it
-            void set_graph_node_reaching_defintions();
+            void set_graph_node_reaching_defintions(std::map<Symbol, Nodecl::NodeclBase> induct_vars,
+                                                    const char* filename, int line);
             
             //! Returns the set of variables that are alive at the entry of the node.
             ext_sym_set get_live_in_vars();
@@ -394,7 +395,11 @@ namespace TL
 
             //! Set to one variable a new expression value and append this relationship to the node
             void set_reaching_definition(Nodecl::NodeclBase var, Nodecl::NodeclBase init);
+            void set_reaching_definition_list(nodecl_map reach_defs_l);
             void rename_reaching_defintion_var(Nodecl::NodeclBase old_var, Nodecl::NodeclBase new_var);
+           
+            nodecl_map get_auxiliar_reaching_definitions();
+            void set_auxiliar_reaching_definition(Nodecl::NodeclBase var, Nodecl::NodeclBase init);
             
             //!Deletes an old reaching definition from the node
             void unset_reaching_definition(Nodecl::NodeclBase var);
