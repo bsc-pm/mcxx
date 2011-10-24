@@ -4826,9 +4826,6 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
                 running_error("%s: error: INTENT attribute is only for dummy arguments\n",
                         ast_location(declaration));
             }
-        }
-        else
-        {
             entry->entity_specs.intent_kind = current_attr_spec.intent_kind;
         }
 
