@@ -4013,7 +4013,7 @@ static void build_scope_intrinsic_stmt(AST a, decl_context_t decl_context UNUSED
         if (entry == NULL
                 || !entry->entity_specs.is_builtin)
         {
-            warn_printf("%s: warning: name '%s' is not known as an intrinsic\n", 
+            error_printf("%s: error: name '%s' is not known as an intrinsic\n", 
                     ast_location(name),
                     ASTText(name));
         }

@@ -871,11 +871,15 @@ static scope_entry_t* register_custom_intrinsic(
 {
     type_t* types[3] = { t0, t1, t2 };
 
-    return get_intrinsic_symbol_(specific_name,
+    scope_entry_t* entry = get_intrinsic_symbol_(specific_name,
             result_type, 
             num_types, types, 
             decl_context,
             0, 0, 0, 0);
+
+    insert_alias(decl_context.current_scope, entry, specific_name);
+
+    return entry;
 }
 
 #if 0
@@ -1016,9 +1020,10 @@ static void fortran_init_specific_names(decl_context_t decl_context)
     // Very old (normally from g77) intrinsics
     REGISTER_SPECIFIC_INTRINSIC_1("cdabs", "abs", get_complex_type(get_double_type()));
     REGISTER_SPECIFIC_INTRINSIC_1("zabs", "abs", get_complex_type(get_double_type()));
+    REGISTER_SPECIFIC_INTRINSIC_1("dconjg", "conjg", get_complex_type(get_double_type()));
+    REGISTER_SPECIFIC_INTRINSIC_1("dimag", "aimag", get_complex_type(get_double_type()));
+
     REGISTER_CUSTOM_INTRINSIC_1("dfloat", get_double_type(), get_signed_int_type());
-    REGISTER_CUSTOM_INTRINSIC_1("dconjg", get_complex_type(get_double_type()), get_complex_type(get_double_type()));
-    REGISTER_CUSTOM_INTRINSIC_1("dimag", get_double_type(), get_complex_type(get_double_type()));
 }
 
 scope_entry_t* compute_intrinsic_abs(scope_entry_t* symbol UNUSED_PARAMETER,
@@ -4350,7 +4355,8 @@ scope_entry_t* compute_intrinsic_size(scope_entry_t* symbol UNUSED_PARAMETER,
         return GET_INTRINSIC_INQUIRY("size", 
                 choose_int_type_from_kind(argument_expressions[2], di),
                 t0,
-                t1 == NULL ? get_signed_int_type() : t1);
+                t1 == NULL ? get_signed_int_type() : t1,
+                get_signed_int_type());
     }
 
     return NULL;
