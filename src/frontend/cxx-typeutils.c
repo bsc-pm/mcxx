@@ -4246,10 +4246,12 @@ static char compatible_parameters(function_info_t* t1, function_info_t* t2)
             continue;
         }
 
-        type_t* par1 = t1->parameter_list[i]->type_info;
-        type_t* par2 = t2->parameter_list[i]->type_info;
+        // Remove top level qualification. Note that we do not use
+        // get_unqualified_type as it preserves __restrict
+        type_t* par1 = get_cv_qualified_type(t1->parameter_list[i]->type_info, CV_NONE);
+        type_t* par2 = get_cv_qualified_type(t2->parameter_list[i]->type_info, CV_NONE);
 
-        if (!equivalent_types(get_unqualified_type(par1), get_unqualified_type(par2)))
+        if (!equivalent_types(par1, par2))
         {
             // They are not equivalent types.
             //
