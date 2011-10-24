@@ -862,7 +862,11 @@ static sqlite3_int64 insert_type(sqlite3* handle, type_t* t)
         const char *name = "ARRAY";
 
         sqlite3_int64 lower_tree = insert_nodecl(handle, array_type_get_array_lower_bound(t));
-        sqlite3_int64 upper_tree = insert_nodecl(handle, array_type_get_array_upper_bound(t));
+        sqlite3_int64 upper_tree = 0;
+        if (!array_type_is_unknown_size(t))
+        {
+            upper_tree = insert_nodecl(handle, array_type_get_array_upper_bound(t));
+        }
 
         sqlite3_int64 element_type = insert_type(handle, array_type_get_element_type(t));
 
