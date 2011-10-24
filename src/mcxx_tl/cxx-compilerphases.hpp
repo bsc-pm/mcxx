@@ -54,6 +54,13 @@ LIBMCXXTL_EXTERN void compiler_regular_phase_loader(compilation_configuration_t*
 LIBMCXXTL_EXTERN void compiler_special_phase_set_dto(compilation_configuration_t* config, const char* data);
 LIBMCXXTL_EXTERN void compiler_special_phase_set_codegen(compilation_configuration_t* config, const char* data);
 
+LIBMCXXTL_EXTERN void run_codegen_phase(FILE *out_file, translation_unit_t* translation_unit);
+
+LIBMCXXTL_EXTERN void initialize_dto(translation_unit_t* translation_unit);
+
+// Temporal solution until we fix the issue with semantic analysis creating the top level nodecl
+LIBMCXXTL_EXTERN void setup_dto(translation_unit_t* translation_unit);
+
 #ifdef __cplusplus
 }
 #endif

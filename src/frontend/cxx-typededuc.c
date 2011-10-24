@@ -52,7 +52,7 @@ static template_parameter_list_t* build_template_parameter_list_from_deduction_s
         template_parameter_list_t* template_parameters,
         deduction_set_t* deduction_set);
 
-char deduce_template_parameters_common(
+char deduce_template_arguments_common(
         // These are the template parameters of this function specialization
         template_parameter_list_t* template_parameters,
         // These are the template parameters of template-type
@@ -714,7 +714,7 @@ char deduce_arguments_of_conversion(
     (*parameter_types) = get_unqualified_type((*parameter_types));
 
     // Deduce template arguments
-    if (!deduce_template_parameters_common(template_parameters,
+    if (!deduce_template_arguments_common(template_parameters,
                 type_template_parameters,
                 argument_types, /* relevant arguments */ 1,
                 parameter_types, decl_context,
@@ -922,7 +922,7 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
     }
 
 
-    if (!deduce_template_parameters_common(template_parameters,
+    if (!deduce_template_arguments_common(template_parameters,
                 type_template_parameters,
                 argument_types, relevant_arguments,
                 parameter_types, specialized_symbol->decl_context,

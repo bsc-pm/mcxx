@@ -35,14 +35,15 @@
 #include <sstream>
 #include "tl-object.hpp"
 #include "tl-nodecl-fwd.hpp"
+#include "tl-symbol-fwd.hpp"
+#include "tl-scope-fwd.hpp"
 #include "tl-type-fwd.hpp"
+#include "tl-objectlist.hpp"
+#include "cxx-gccsupport-decls.h"
 #include "cxx-scope.h"
 
 namespace TL
 {
-    class Type;
-    class Scope;
-    
     //! \addtogroup Wrap 
     //! @{
     
@@ -98,16 +99,26 @@ namespace TL
             std::string get_name() const;
 
             //! Returns a fully qualified name
-            /*
+            /*!
              * \remark This function will give bogus names to templates parameters. Use get_qualified_name(Scope)
              * instead.
              */
-            std::string get_qualified_name(bool without_template_id = 0) const;
+            std::string get_qualified_name(bool without_template_id = false) const;
+            
             //! Returns a fully qualified name
-            /*
+            /*!
              * \param sc Scope used to lookup template parameter names
              */
-            std::string get_qualified_name(Scope sc, bool without_template_id = 0) const;
+            std::string get_qualified_name(Scope sc, bool without_template_id = false) const;
+
+            //! Returns the part of the qualified name that involves classes
+            std::string get_class_qualification(bool without_template_id = false) const;
+            
+            //! Returns the part of the qualified name that involves classes
+            /*!
+             * \param sc Scope used to lookup template parameters names
+             */
+            std::string get_class_qualification(Scope sc, bool without_template_id = false) const;
 
             //! Gets the scope where this symbol is defined
             Scope get_scope() const;
@@ -134,16 +145,30 @@ namespace TL
             bool is_variable() const;
             //! States whether this symbol is a typedef
             bool is_typedef() const;
-            //! States whether this symbol is a name of a type
-            bool is_typename() const;
+            //! States whether this symbol is a class
+            bool is_class() const;
+            //! States whether this symbol is an enum name
+            bool is_enum() const;
+            //! States whether this symbol is an enumerator name
+            bool is_enumerator() const;
+            //! States whether this symbol is template name
+            bool is_template() const;
             //! States whether this symbol is a function
             bool is_function() const;
             //! States whether this symbol is a template function
             bool is_template_function_name() const;
+            //! States whether this symbol is an anonymous union
+            bool is_anonymous_union() const;
+            //! States that this symbol is the injected class name
+            bool is_injected_class_name() const;
+            
             //! States whether this symbol is a parameter of a function
             bool is_parameter() const;
             //! Returns the position of this parameter
             int get_parameter_position() const;
+
+            //! States whether this symbol is a template parameter
+            bool is_template_parameter() const;
 
             //! States whether what was named is a dependent entity
             bool is_dependent_entity() const;
@@ -161,6 +186,9 @@ namespace TL
             //! Returns the class to which this member belongs
             Type get_class_type() const;
 
+            //! Returns the access specifier of a member or base class
+            access_specifier_t get_access_specifier();
+
             //! States whether this symbol has been initialized
             bool has_initialization() const;
             //! Returns the initialization tree
@@ -170,6 +198,21 @@ namespace TL
             bool is_static() const;
             //! States whether this symbol is register
             bool is_register() const;
+            
+            //! States whether this symbol is __thread
+            bool is_thread() const;
+
+            //! States if this member is a bitfield
+            bool is_bitfield() const;
+            
+            //! Returns the size of the bitfield
+            Nodecl::NodeclBase get_bitfield_size() const;
+
+            //! States whether the symbol is user declared
+            /*!
+             * \note This only applies to member functions
+             */
+            bool is_user_declared() const;
 
             //! States whether this symbol is extern
             /*!
@@ -200,11 +243,32 @@ namespace TL
             //! States whether this member function is a conversion function
             bool is_conversion_function() const;
 
+            //! States whether this member function is a destructor
+            bool is_destructor() const;
+
             //! States whether this member function is a constructor
             bool is_constructor() const;
 
             //! States whether this member function is a constructor flagged as explicit
             bool is_explicit_constructor() const;
+
+            //! States whether symbol exists just because was mentioned in a friend declaration
+            /*!
+             * This symbol has not been technically declared by the user but the compiler
+             * created it because it appeared in a friend declaration
+             */
+            bool is_friend_declared() const;
+
+            //! States whether this function was defined with no exception-specifier
+            bool function_throws_any_exception() const;
+
+            //! Returns the thrown exceptions
+            /*!
+             * \note This function returns empty if function_throws_any_exception is true
+             * but it may return empty if it function_throws_any_exception returns false.
+             * That latter case means 'throw()'
+             */
+            ObjectList<TL::Type> get_thrown_exceptions() const;
 
             //! States whether the symbol has been defined in namespace scope
             bool has_namespace_scope() const;
@@ -230,6 +294,9 @@ namespace TL
              */
             bool has_prototype_scope() const;
 
+            //! Special symbol for using A::x inside classes
+            bool is_using_symbol() const;
+
             //! States whether the symbol is actually a builtin of the compiler
             bool is_builtin() const;
 
@@ -250,12 +317,6 @@ namespace TL
              */
             Nodecl::NodeclBase get_definition_tree() const;
 
-            //! States whether the symbol has a given gcc attribute
-            bool has_gcc_attribute(const std::string &str) const;
-            
-            //! Returns the associated argument of a gcc attribute
-            Nodecl::NodeclBase get_argument_of_gcc_attribute(const std::string &str) const;
-
             // States whether the symbol is defined 
             /*! This function might not make sense for all kind of symbols
              */
@@ -266,6 +327,9 @@ namespace TL
             {
                 return _symbol;
             }
+
+            //! Internal usage
+            bool not_to_be_printed() const;
 
             //! Is a COMMON name
             /*! 
@@ -356,8 +420,33 @@ namespace TL
               */
             bool is_generic_specifier() const;
 
+            //! Returns the symbols related to this one
+            /*!
+             * The exact set returned depends on the kind of the symbol as kept by the frontend
+             */
+            ObjectList<TL::Symbol> get_related_symbols() const;
+
+            //! Returns the gcc attributes of this symbol
+            ObjectList<GCCAttribute> get_gcc_attributes() const;
+
+            //! __asm__ specifier
+            /*!
+             * The tree related to the __asm__ specifier. This is a GCC extension
+             */
+            Nodecl::NodeclBase get_asm_specification() const;
         private:
             scope_entry_t* _symbol;
+    };
+
+    class LIBTL_CLASS GCCAttribute
+    {
+        private:
+            gather_gcc_attribute_t _attr;
+        public:
+            GCCAttribute(gather_gcc_attribute_t attr) : _attr() { }
+
+            std::string get_attribute_name() const;
+            Nodecl::List get_expression_list() const;
     };
     
     //! @}

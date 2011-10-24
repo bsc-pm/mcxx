@@ -30,6 +30,7 @@
 #define TL_SETDTO_COMPILER_PHASE_HPP
 
 #include "tl-compilerphase.hpp"
+#include "tl-symbol.hpp"
 #include "tl-type.hpp"
 
 namespace TL

@@ -85,6 +85,7 @@ namespace Nodecl {
     {
         private:
             static const int _kind = ::AST_NODE_LIST;
+            friend class NodeclBase;
         public:
 
             List(const nodecl_t& n) : NodeclBase (n)

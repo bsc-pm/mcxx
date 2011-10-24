@@ -33,7 +33,9 @@ libcodegen_fortran_la_CFLAGS = $(tl_cflags) -I$(srcdir)/../../common
 libcodegen_fortran_la_CXXFLAGS = $(tl_cflags) -I$(srcdir)/../../common
 
 libcodegen_fortran_la_LDFLAGS = $(tl_ldflags)
-libcodegen_fortran_la_LIBADD = $(tl_libadd)
+libcodegen_fortran_la_LIBADD = ../../common/libcodegen-common.la \
+						   $(tl_libadd) \
+						   $(END)
 
 END=
 

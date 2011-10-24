@@ -85,6 +85,7 @@ enum builtin_type_tag
     BT_FLOAT,
     BT_DOUBLE,
     BT_OTHER_FLOAT,
+    BT_BYTE,
     BT_CHAR,
     BT_WCHAR,
     BT_VOID,
@@ -568,6 +569,42 @@ static type_t* get_simple_type(void)
     result->type = counted_calloc(1, sizeof(*result->type), &_bytes_due_to_type_system);
     result->unqualified_type = result;
     return result;
+}
+
+type_t* get_unsigned_byte_type(void)
+{
+    static type_t* _type = NULL;
+
+    if (_type == NULL)
+    {
+        _type = get_simple_type();
+        _type->type->kind = STK_BUILTIN_TYPE;
+        _type->type->builtin_type = BT_BYTE;
+        _type->type->is_unsigned = 1;
+        _type->info->size = 1;
+        _type->info->alignment = 1;
+        _type->info->valid_size = 1;
+    }
+
+    return _type;
+}
+
+type_t* get_signed_byte_type(void)
+{
+    static type_t* _type = NULL;
+
+    if (_type == NULL)
+    {
+        _type = get_simple_type();
+        _type->type->kind = STK_BUILTIN_TYPE;
+        _type->type->builtin_type = BT_BYTE;
+        _type->type->is_signed = 1;
+        _type->info->size = 1;
+        _type->info->alignment = 1;
+        _type->info->valid_size = 1;
+    }
+
+    return _type;
 }
 
 type_t* get_char_type(void)
@@ -2413,6 +2450,12 @@ static type_t* _get_array_type(type_t* element_type,
             // If we used the hash of array types, these two will be null
             result->array->lower_bound = lower_bound;
             result->array->upper_bound = upper_bound;
+            
+            // If the element_type is array propagate the 'is_vla' value
+            if(element_type->array != NULL) 
+            {
+                result->array->is_vla = element_type->array->is_vla;
+            }
 
             result->array->array_expr_decl_context = decl_context;
 
@@ -2447,6 +2490,12 @@ static type_t* _get_array_type(type_t* element_type,
                 result->unqualified_type = result;
                 result->array = counted_calloc(1, sizeof(*(result->array)), &_bytes_due_to_type_system);
                 result->array->element_type = element_type;
+                
+                // If the element_type is array propagate the 'is_vla' value
+                if(element_type->array != NULL)
+                {
+                    result->array->is_vla = element_type->array->is_vla;
+                }
 
                 result->array->whole_size = whole_size;
                 result->array->lower_bound = lower_bound;
@@ -2533,6 +2582,15 @@ type_t* get_array_type(type_t* element_type, nodecl_t whole_size, decl_context_t
                 get_one_tree(nodecl_get_filename(whole_size), nodecl_get_line(whole_size)),
                 get_signed_int_type(),
                 nodecl_get_filename(whole_size), nodecl_get_line(whole_size));
+
+        if (nodecl_is_constant(whole_size))
+        {
+            // Compute the constant
+            const_value_t* c = const_value_sub(
+                    nodecl_get_constant(whole_size),
+                    const_value_get_one(/* bytes */ 4, /* signed */ 1));
+            nodecl_set_constant(upper_bound, c);
+        }
 
         nodecl_expr_set_is_value_dependent(upper_bound,
                 nodecl_expr_is_value_dependent(whole_size));
@@ -4088,6 +4146,7 @@ char equivalent_builtin_type(simple_type_t* t1, simple_type_t *t2)
 
     // unsigned
     if (t1->builtin_type == BT_INT
+            || t1->builtin_type == BT_BYTE
             || t1->builtin_type == BT_CHAR)
     {
         if (t1->is_unsigned != t2->is_unsigned)
@@ -4096,6 +4155,7 @@ char equivalent_builtin_type(simple_type_t* t1, simple_type_t *t2)
     
     // signed
     if (t1->builtin_type == BT_INT
+            || t1->builtin_type == BT_BYTE
             || t1->builtin_type == BT_CHAR)
     {
         if (t1->is_signed != t2->is_signed)
@@ -4234,10 +4294,12 @@ static char compatible_parameters(function_info_t* t1, function_info_t* t2)
             continue;
         }
 
-        type_t* par1 = t1->parameter_list[i]->type_info;
-        type_t* par2 = t2->parameter_list[i]->type_info;
+        // Remove top level qualification. Note that we do not use
+        // get_unqualified_type as it preserves __restrict
+        type_t* par1 = get_cv_qualified_type(t1->parameter_list[i]->type_info, CV_NONE);
+        type_t* par2 = get_cv_qualified_type(t2->parameter_list[i]->type_info, CV_NONE);
 
-        if (!equivalent_types(get_unqualified_type(par1), get_unqualified_type(par2)))
+        if (!equivalent_types(par1, par2))
         {
             // They are not equivalent types.
             //
@@ -5008,7 +5070,8 @@ char is_any_int_type(type_t* t)
     return (t != NULL
             && t->kind == TK_DIRECT
             && t->type->kind == STK_BUILTIN_TYPE
-            && t->type->builtin_type == BT_INT);
+            && (t->type->builtin_type == BT_INT 
+                || t->type->builtin_type == BT_BYTE));
 }
 
 char is_any_unsigned_int_type(type_t* t)
@@ -5018,7 +5081,8 @@ char is_any_unsigned_int_type(type_t* t)
     return (t != NULL
             && t->kind == TK_DIRECT
             && t->type->kind == STK_BUILTIN_TYPE
-            && t->type->builtin_type == BT_INT
+            && (t->type->builtin_type == BT_INT
+                || t->type->builtin_type == BT_BYTE)
             && t->type->is_unsigned);
 }
 
@@ -5152,6 +5216,30 @@ char is_unsigned_long_long_int_type(type_t *t)
             && t->type->builtin_type == BT_INT
             && t->type->is_unsigned
             && (t->type->is_long == 2)
+            && !t->type->is_short);
+}
+
+char is_signed_byte_type(type_t *t)
+{
+    return (t != NULL
+            && t->kind == TK_DIRECT
+            && t->type->kind == STK_BUILTIN_TYPE
+            && t->type->builtin_type == BT_BYTE
+            && t->type->is_signed 
+            && !t->type->is_unsigned
+            && !t->type->is_long
+            && !t->type->is_short);
+}
+
+char is_unsigned_byte_type(type_t *t)
+{
+    return (t != NULL
+            && t->kind == TK_DIRECT
+            && t->type->kind == STK_BUILTIN_TYPE
+            && t->type->builtin_type == BT_BYTE
+            && t->type->is_unsigned
+            && !t->type->is_signed 
+            && !t->type->is_long
             && !t->type->is_short);
 }
 

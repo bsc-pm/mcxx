@@ -365,6 +365,54 @@ namespace TL
             }
     };
 
+    class LIBTL_CLASS File : public Object
+    {
+        private:
+            FILE* _file;
+
+        protected:
+            virtual tl_type_t* get_extended_attribute(const std::string&) const
+            {
+                return NULL;
+            }
+        public:
+            File()
+                : _file(NULL)
+            {
+            }
+
+            File(FILE *file)
+                : _file(file)
+            {
+            }
+
+            FILE* get_file()
+            {
+                return _file;
+            }
+
+            File(RefPtr<Object> obj)
+                : _file(NULL)
+            {
+                RefPtr<File> pint = RefPtr<File>::cast_dynamic(obj);
+                if (pint.get_pointer() != NULL)
+                {
+                    this->operator=(*pint.operator->());
+                }
+                else
+                {
+                    if (typeid(*obj.get_pointer()) != typeid(Undefined))
+                    {
+                        std::cerr << "Bad initialization of File" << std::endl;
+                    }
+                }
+            }
+
+            ~File()
+            {
+            }
+    };
+
     //! This class allows linking arbitrary named data into any class.
     /*!
      * This class is used in TL::OpenMP::Construct to store information

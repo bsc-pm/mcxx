@@ -40,7 +40,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
     
     //if the task is a function task rt_info must be changed
     OpenMP::RealTimeInfo rt_info = data_sharing.get_real_time_info();
-    
+         
     ObjectList<OpenMP::DependencyItem> dependences;
     data_sharing.get_all_dependences(dependences);
 
@@ -64,7 +64,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
     std::stringstream ss;
     ss << "_ol_" << function_symbol.get_name() << "_" << outline_num;
     std::string outline_name = ss.str();
-
+    
 
     Source device_descriptor, 
            device_description, 
@@ -127,7 +127,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                 ctr.get_scope_link(),
                 initial_setup,
                 replaced_body);
-
+        
         device_provider->create_outline(outline_name,
                 struct_arg_type_name,
                 data_environ_info,
@@ -671,57 +671,82 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         }
     }
 
-    spawn_code
-        << "{"
-        // Devices related to this task
-        <<     device_description
-        <<     struct_arg_type_name << "* ol_args = (" << struct_arg_type_name << "*)0;"
-        <<     struct_runtime_size
-        <<     "nanos_wd_t wd = (nanos_wd_t)0;"
-        <<     "nanos_wd_props_t props;"
-        <<     "__builtin_memset(&props, 0, sizeof(props));"
-        <<     creation
-        <<     priority
-        <<     tiedness
-        <<     fill_real_time_info
-        <<     copy_decl
-        <<     "nanos_err_t err;"
-        <<     if_expr_cond_start
-        <<     "err = nanos_create_wd(&wd, " << num_devices << "," << device_descriptor << ","
-        <<                 struct_size << ","
-        <<                 alignment
-        <<                 "(void**)&ol_args, nanos_current_wd(),"
-        <<                 "&props, " << num_copies << ", " << copy_data << ");"
-        <<     "if (err != NANOS_OK) nanos_handle_error (err);"
-        <<     if_expr_cond_end
-        <<     "if (wd != (nanos_wd_t)0)"
-        <<     "{"
-        <<        fill_outline_arguments
-        <<        fill_dependences_outline
-        <<        copy_setup
-        <<        set_translation_fun
-        <<        "err = nanos_submit(wd, " << num_dependences << ", (" << dependency_struct << "*)" 
-                                            << dependency_array << ", (nanos_team_t)0);"
-        <<        "if (err != NANOS_OK) nanos_handle_error (err);"
-        <<     "}"
-        <<     "else"
-        <<     "{"
-        <<        immediate_decl
-        <<        fill_immediate_arguments
-        <<        fill_dependences_immediate
-        <<        copy_immediate_setup
-        <<        "err = nanos_create_wd_and_run(" 
-        <<                num_devices << ", " << device_descriptor << ", "
-        <<                struct_size << ", " 
-        <<                alignment
-        <<                (immediate_is_alloca ? "imm_args" : "&imm_args") << ","
-        <<                num_dependences << ", (" << dependency_struct << "*)" << dependency_array << ", &props,"
-        <<                num_copies << "," << copy_imm_data 
-        <<                translation_fun_arg_name << ");"
-        <<        "if (err != NANOS_OK) nanos_handle_error (err);"
-        <<     "}"
-        << "}"
-        ;
+    if(!_no_nanox_calls)
+    {
+        spawn_code
+            << "{"
+            // Devices related to this task
+            <<     device_description
+            <<     struct_arg_type_name << "* ol_args = (" << struct_arg_type_name << "*)0;"
+            <<     struct_runtime_size
+            <<     "nanos_wd_t wd = (nanos_wd_t)0;"
+            <<     "nanos_wd_props_t props;"
+            <<     "__builtin_memset(&props, 0, sizeof(props));"
+            <<     creation
+            <<     priority
+            <<     tiedness
+            <<     fill_real_time_info
+            <<     copy_decl
+            <<     "nanos_err_t err;"
+            <<     if_expr_cond_start
+            <<     "err = nanos_create_wd(&wd, " << num_devices << "," << device_descriptor << ","
+            <<                 struct_size << ","
+            <<                 alignment
+            <<                 "(void**)&ol_args, nanos_current_wd(),"
+            <<                 "&props, " << num_copies << ", " << copy_data << ");"
+            <<     "if (err != NANOS_OK) nanos_handle_error (err);"
+            <<     if_expr_cond_end
+            <<     "if (wd != (nanos_wd_t)0)"
+            <<     "{"
+            <<        fill_outline_arguments
+            <<        fill_dependences_outline
+            <<        copy_setup
+            <<        set_translation_fun
+            <<        "err = nanos_submit(wd, " << num_dependences << ", (" << dependency_struct << "*)" 
+            << dependency_array << ", (nanos_team_t)0);"
+            <<        "if (err != NANOS_OK) nanos_handle_error (err);"
+            <<     "}"
+            <<     "else"
+            <<   "{"
+            <<        immediate_decl
+            <<        fill_immediate_arguments
+            <<        fill_dependences_immediate
+            <<        copy_immediate_setup
+            <<        "err = nanos_create_wd_and_run(" 
+            <<                num_devices << ", " << device_descriptor << ", "
+            <<                struct_size << ", " 
+            <<                alignment
+            <<                (immediate_is_alloca ? "imm_args" : "&imm_args") << ","
+            <<                num_dependences << ", (" << dependency_struct << "*)" << dependency_array << ", &props,"
+            <<                num_copies << "," << copy_imm_data 
+            <<                translation_fun_arg_name << ");"
+            <<        "if (err != NANOS_OK) nanos_handle_error (err);"
+            <<     "}"
+            << "}"
+            ;
+    }
+    else 
+    {
+        if(current_targets.contains("smp"))
+        {
+            std::stringstream smp_device_call;
+            smp_device_call << "_smp_" << outline_name << "(&imm_args);";
+            
+            // The code generated must not contain calls to runtime. The execution will be serial
+            spawn_code
+                << "{"
+                <<     immediate_decl
+                <<     fill_immediate_arguments
+                <<     smp_device_call.str() 
+                << "}"
+                ;
+        }
+        else 
+        {
+            running_error("%s: error: the code generation without calls to runtime only works in smp devices\n", 
+                ctr.get_ast().get_locus().c_str());
+        }
+    }
 
     AST_t spawn_tree = spawn_code.parse_statement(ctr.get_ast(), ctr.get_scope_link());
     ctr.get_ast().replace(spawn_tree);

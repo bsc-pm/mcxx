@@ -34,7 +34,7 @@
 
 MCXX_BEGIN_DECLS
 
-LIBMCXX_EXTERN char deduce_template_parameters_common(
+LIBMCXX_EXTERN char deduce_template_arguments_common(
         // These are the template parameters of this function specialization
         template_parameter_list_t* template_parameters,
         // These are the template parameters of template-type

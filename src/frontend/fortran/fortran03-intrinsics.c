@@ -214,6 +214,7 @@ FORTRAN_GENERIC_INTRINSIC(sign, "A,B", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(sin, "X", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(sinh, "X", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(size, "ARRAY,?DIM,?KIND", I, simplify_size) \
+FORTRAN_GENERIC_INTRINSIC(sizeof, "X", I, NULL) \
 FORTRAN_GENERIC_INTRINSIC(spacing, "X", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(spread, "SOURCE,DIM,NCOPIES", T, NULL) \
 FORTRAN_GENERIC_INTRINSIC(sqrt, "X", E, NULL) \
@@ -363,7 +364,17 @@ static int intrinsic_descr_cmp(const void* i1, const void* i2)
     if ((c = strcasecmp(d1->name, d2->name)) != 0)
         return c;
 
-    if ((c = compare_types(d1->result_type, d2->result_type)) != 0)
+    if (d1->result_type  == NULL
+            && d1->result_type != d2->result_type)
+        return -1;
+
+    if (d2->result_type  == NULL
+            && d1->result_type != d2->result_type)
+        return 1;
+
+    if (d1->result_type != NULL
+            && d2->result_type != NULL
+            && (c = compare_types(d1->result_type, d2->result_type)) != 0)
         return c;
 
     if (d1->num_types != d2->num_types)
@@ -4417,6 +4428,21 @@ scope_entry_t* compute_intrinsic_storage_size(scope_entry_t* symbol UNUSED_PARAM
     return NULL;
 }
 
+scope_entry_t* compute_intrinsic_sizeof(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = argument_types[0];
+
+    return GET_INTRINSIC_INQUIRY("sizeof",
+            get_size_t_type(),
+            t0);
+
+    return NULL;
+}
+
 scope_entry_t* compute_intrinsic_sum_0(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         nodecl_t* argument_expressions UNUSED_PARAMETER,
@@ -4769,8 +4795,6 @@ scope_entry_t* fortran_intrinsic_solve_call(scope_entry_t* symbol,
 {
     if (nodecl_simplified != NULL)
         *nodecl_simplified = nodecl_null();
-    type_t* reordered_types[MCXX_MAX_FUNCTION_CALL_ARGUMENTS] = { 0 };
-    nodecl_t reordered_exprs[MCXX_MAX_FUNCTION_CALL_ARGUMENTS] = { nodecl_null() };
 
     computed_function_type_t fun = computed_function_type_get_computing_function(symbol->type_information);
 
@@ -4783,6 +4807,9 @@ scope_entry_t* fortran_intrinsic_solve_call(scope_entry_t* symbol,
     int i;
     for (i = 0; i < num_keywords; i++)
     {
+        type_t* reordered_types[MCXX_MAX_FUNCTION_CALL_ARGUMENTS] = { 0 };
+        nodecl_t reordered_exprs[MCXX_MAX_FUNCTION_CALL_ARGUMENTS] = { nodecl_null() };
+
         if (generic_keyword_check(symbol, 
                     &num_actual_arguments, 
                     actual_arguments_keywords,

@@ -502,11 +502,29 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
             else
                 nodecl_stride = const_value_to_nodecl(const_value_get_one(/* bytes */ fortran_get_default_integer_type_kind(), /* signed */ 1));
 
-            // Do not attempt to compute at the moment the sizes of the bounds
-            // maybe we will in the future
+            if (!nodecl_is_null(nodecl_lower)
+                    && nodecl_is_err_expr(nodecl_lower))
+            {
+                *nodecl_output = nodecl_lower;
+                return;
+            }
+
+            if (!nodecl_is_null(nodecl_upper)
+                    && nodecl_is_err_expr(nodecl_upper))
+            {
+                *nodecl_output = nodecl_upper;
+                return;
+            }
+
+            if (nodecl_is_err_expr(nodecl_stride))
+            {
+                *nodecl_output = nodecl_stride;
+                return;
+            }
+
             if (!symbol_is_invalid)
             {
-                // FIXME - Stride may imply an array with smaller sizer (rank is unaffected)
+                // FIXME - Stride may imply an array with smaller size (rank is unaffected)
                 synthesized_type = get_array_type_bounds(synthesized_type, nodecl_lower, nodecl_upper, decl_context);
             }
 
@@ -521,6 +539,35 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
         else
         {
             fortran_check_expression_impl_(subscript, decl_context, &nodecl_indexes[num_subscripts]);
+
+            if (nodecl_is_err_expr(nodecl_indexes[num_subscripts]))
+            {
+                *nodecl_output = nodecl_indexes[num_subscripts];
+                return;
+            }
+
+            type_t* t = nodecl_get_type(nodecl_indexes[num_subscripts]);
+
+            type_t* rank_0 = get_rank0_type(t);
+
+            if (!is_any_int_type(rank_0))
+            {
+                if (!checking_ambiguity())
+                {
+                    warn_printf("%s: warning: subscript of array should be of type INTEGER\n", 
+                            ast_location(subscript));
+                }
+            }
+
+            if (is_pointer_type(no_ref(t)))
+                t = pointer_type_get_pointee_type(no_ref(t));
+
+            t = no_ref(t);
+
+            if (is_fortran_array_type(t))
+            {
+                synthesized_type = rebuild_array_type(synthesized_type, t);
+            }
         }
         num_subscripts++;
     }
@@ -776,8 +823,13 @@ static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t*
 
     type_t* t = no_ref(nodecl_get_type(nodecl_base));
 
-    if (!is_pointer_to_class_type(t)
-            && !is_class_type(t))
+    if (is_pointer_type(t))
+        t = pointer_type_get_pointee_type(t);
+
+    type_t* class_type = get_rank0_type(t);
+
+    if (!is_pointer_to_class_type(class_type)
+            && !is_class_type(class_type))
     {
         if (!checking_ambiguity())
         {
@@ -789,7 +841,6 @@ static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t*
         return;
     }
 
-    type_t* class_type = t;
     if (is_pointer_to_class_type(class_type))
     {
         class_type = pointer_type_get_pointee_type(t);
@@ -813,18 +864,30 @@ static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t*
         return;
     }
 
-
-
-    if (is_pointer_to_class_type(t))
+    if (get_rank_of_type(t) != 0
+            && get_rank_of_type(entry->type_information) != 0)
     {
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: error: in data-reference '%s' both parts have nonzero rank\n",
+                    ast_location(expr),
+                    fortran_prettyprint_in_buffer(expr));
+        }
+        *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
+        return;
     }
-    else
+
+    type_t* synthesized_type = entry->type_information;
+    
+    if (!is_fortran_array_type(synthesized_type)
+            && !is_pointer_to_fortran_array_type(synthesized_type))
     {
+        synthesized_type = rebuild_array_type(entry->type_information, t);
     }
 
     *nodecl_output = nodecl_make_class_member_access(nodecl_base, 
             nodecl_make_symbol(entry, ASTFileName(ASTSon1(expr)), ASTLine(ASTSon1(expr))),
-            entry->type_information,
+            synthesized_type,
             ASTFileName(expr), ASTLine(expr));
     nodecl_set_symbol(*nodecl_output, entry);
 }
@@ -1144,6 +1207,21 @@ static scope_entry_t* get_specific_interface(scope_entry_t* symbol,
         const char **keyword_names,
         nodecl_t* nodecl_actual_arguments)
 {
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "EXPRTYPE: Getting specific interface of '%s' called with the following argument types\n",
+                symbol->symbol_name);
+
+        int i;
+        for (i = 0; i < num_arguments; i++)
+        {
+            fprintf(stderr, "EXPRTYPE:    Name: %s\n", 
+                    keyword_names[i] != NULL ? keyword_names[i] : "<<no-name>>");
+            fprintf(stderr, "EXPRTYPE:    Argument: %s\n", 
+                    fortran_print_type_str(nodecl_get_type(nodecl_actual_arguments[i])));
+        }
+    }
+
     scope_entry_t* result = NULL;
     int k;
     for (k = 0; k < symbol->entity_specs.num_related_symbols; k++)
@@ -1156,6 +1234,25 @@ static scope_entry_t* get_specific_interface(scope_entry_t* symbol,
         // Reorder the arguments
         actual_argument_info_t argument_types[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
         memset(argument_types, 0, sizeof(argument_types));
+
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "EXPRTYPE: Checking with specific interface %s:%d\n",
+                    specific_symbol->file, 
+                    specific_symbol->line);
+            int i;
+            for (i = 0; (i < num_arguments) && ok; i++)
+            {
+                type_t* formal_type = no_ref(function_type_get_parameter_type_num(specific_symbol->type_information, i));
+
+                fprintf(stderr, "EXPRTYPE:    Name: %s\n", 
+                       specific_symbol->entity_specs.related_symbols[i] != NULL ? 
+                       specific_symbol->entity_specs.related_symbols[i]->symbol_name : 
+                       "<<no-name>>");
+                fprintf(stderr, "EXPRTYPE:    Parameter: %s\n", 
+                        fortran_print_type_str(formal_type));
+            }
+        }
 
         int i;
         for (i = 0; (i < num_arguments) && ok; i++)
@@ -1194,60 +1291,67 @@ static scope_entry_t* get_specific_interface(scope_entry_t* symbol,
             argument_types[position].type = nodecl_get_type(nodecl_actual_arguments[i]);
         }
 
-        if (!ok)
-            continue;
-
-        // Now complete with the optional ones
-        for (i = 0; (i < specific_symbol->entity_specs.num_related_symbols) && ok; i++)
+        if (ok)
         {
-            scope_entry_t* related_sym = specific_symbol->entity_specs.related_symbols[i];
-
-            if (related_sym->entity_specs.is_parameter)
+            // Now complete with the optional ones
+            for (i = 0; (i < specific_symbol->entity_specs.num_related_symbols) && ok; i++)
             {
-                if (argument_types[related_sym->entity_specs.parameter_position].type == NULL)
+                scope_entry_t* related_sym = specific_symbol->entity_specs.related_symbols[i];
+
+                if (related_sym->entity_specs.is_parameter)
                 {
-                    if (related_sym->entity_specs.is_optional)
+                    if (argument_types[related_sym->entity_specs.parameter_position].type == NULL)
                     {
-                        argument_types[related_sym->entity_specs.parameter_position].type = related_sym->type_information;
-                        argument_types[related_sym->entity_specs.parameter_position].not_present = 1;
-                        num_arguments++;
-                    }
-                    else 
-                    {
-                        ok = 0;
-                        break;
+                        if (related_sym->entity_specs.is_optional)
+                        {
+                            argument_types[related_sym->entity_specs.parameter_position].type = related_sym->type_information;
+                            argument_types[related_sym->entity_specs.parameter_position].not_present = 1;
+                            num_arguments++;
+                        }
+                        else 
+                        {
+                            ok = 0;
+                            break;
+                        }
                     }
                 }
             }
         }
 
-        if (!ok)
-            continue;
-
-        if (num_arguments != function_type_get_num_parameters(specific_symbol->type_information))
-            continue;
-
-        // Now check that every type matches, otherwise error
-        for (i = 0; (i < num_arguments) && ok; i++)
+        if (ok)
         {
-            type_t* formal_type = function_type_get_parameter_type_num(specific_symbol->type_information, i);
-            type_t* real_type = argument_types[i].type;
-
-            // Note that for ELEMENTAL some more checks should be done
-            if (specific_symbol->entity_specs.is_elemental)
-            {
-                real_type = get_rank0_type(real_type);
-            }
-
-            if (!equivalent_tkr_types(formal_type, real_type))
-            {
+            if (num_arguments != function_type_get_num_parameters(specific_symbol->type_information))
                 ok = 0;
-                break;
+        }
+
+        if (ok)
+        {
+            // Now check that every type matches, otherwise error
+            for (i = 0; (i < num_arguments) && ok; i++)
+            {
+                type_t* formal_type = no_ref(function_type_get_parameter_type_num(specific_symbol->type_information, i));
+                type_t* real_type = no_ref(argument_types[i].type);
+
+                // Note that for ELEMENTAL some more checks should be done
+                if (specific_symbol->entity_specs.is_elemental) 
+                {
+                    real_type = get_rank0_type(real_type);
+                }
+
+                if (!equivalent_tkr_types(formal_type, real_type))
+                {
+                    ok = 0;
+                    break;
+                }
             }
         }
 
         if (ok)
         {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "EXPRTYPE: Current specifier DOES match\n");
+            }
             if (result == NULL)
             {
                 result = specific_symbol;
@@ -1255,8 +1359,30 @@ static scope_entry_t* get_specific_interface(scope_entry_t* symbol,
             else
             {
                 // More than one match, ambiguity detected
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "EXPRTYPE: More than one generic specifier matched!\n");
+                }
                 return NULL;
             }
+        }
+        else
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "EXPRTYPE: Current specifier does NOT match\n");
+            }
+        }
+    }
+
+    DEBUG_CODE()
+    {
+        if (result != NULL)
+        {
+            fprintf(stderr, "EXPRTYPE: Specifier '%s' at '%s:%d' matches\n", 
+                    result->symbol_name,
+                    result->file,
+                    result->line);
         }
     }
 

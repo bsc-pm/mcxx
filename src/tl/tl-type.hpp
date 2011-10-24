@@ -35,6 +35,7 @@
 #include "tl-objectlist.hpp"
 #include "tl-symbol-fwd.hpp"
 #include "tl-scope-fwd.hpp"
+#include "tl-type-fwd.hpp"
 #include "tl-nodecl-fwd.hpp"
 
 #include "cxx-scope.h"
@@ -43,6 +44,57 @@ namespace TL
 {
     //! \addtogroup Wrap
     //! @{
+
+    class LIBTL_CLASS TemplateArgument : public Object
+    {
+        private:
+            template_parameter_value_t* _tpl_param_value;
+        public:
+            TemplateArgument(template_parameter_value_t* tpl_param_value) : _tpl_param_value(tpl_param_value) { }
+
+            typedef enum template_parameter_kind TemplateArgumentKind;
+
+            //! Returns the kind of this template argument
+            TemplateArgumentKind get_kind() const;
+
+            //! Retrieves the value of nontype template arguments
+            Nodecl::NodeclBase get_value() const;
+
+            //! Retrieves the type of the template argument
+            TL::Type get_type() const;
+
+            //! States whether this template argument is actually a default template argument of some template parameter
+            bool is_default() const;
+    };
+    
+    //! This class wraps a context of template parameters and its arguments
+    class LIBTL_CLASS TemplateParameters : public Object
+    {
+        private:
+            template_parameter_list_t* _tpl_params;
+        public:
+            TemplateParameters(template_parameter_list_t* tpl_params) : _tpl_params(tpl_params) { }
+
+            //! Returns the number of parameters in the current parameter level
+            int get_num_parameters() const;
+
+            typedef enum template_parameter_kind TemplateParameterKind;
+
+            //! Returns the n-th template parameter as a pair of the symbol and its kind
+            std::pair<TL::Symbol, TemplateParameterKind> get_parameter_num(int n) const;
+
+            //! Returns if this template parameter level has an argument at position n
+            bool has_argument(int n) const;
+
+            //! Returns the n-th template argument
+            TemplateArgument get_argument_num(int n) const;
+
+            //! States whether this level of template parameters is nested in another level of template parameters
+            bool has_enclosing_parameters() const;
+
+            //! Returns the enclosing template parameter level
+            TemplateParameters get_enclosing_parameters() const;
+    };
     
     //! This class wraps a type in the compiler type system
     class LIBTL_CLASS Type : public Object
@@ -162,6 +214,9 @@ namespace TL
             //! Returns the underlying type of an enumeration
             Type get_enum_underlying_type();
 
+            //! For an enum type get all its enumerators
+            ObjectList<Symbol> enum_get_enumerators();
+
             //! Returns a pointer to the current type
             Type get_pointer_to();
 
@@ -214,7 +269,13 @@ namespace TL
              */
             Type get_function_returning(const ObjectList<Type>& type_list, bool has_ellipsis = false);
 
+            //! If the type is a reference, it returns the referenced tye
+            /*!
+             * This function is a no-op in C and Fortran
+             */
+            Type no_ref();
 
+            //! Returns the alignment of the type
             int get_alignment_of();
 
             bool operator==(Type t) const;
@@ -271,11 +332,14 @@ namespace TL
             //! States whether this type is '_Complex' qualified
             bool is_complex() const;
 
-            //! States this type is POD
-            /*! 
-              Informally, in C++ terms, a POD types is something you could have
-              written in C */
+            //! States this type is a POD in C++ Standard meaning
             bool is_pod();
+
+            //! States if this type is an aggregate in the meaning of C++
+            bool is_aggregate();
+
+            //! States if this type is a builtin type
+            bool is_builtin();
             
             //! States wheter this is a direct type
             /*!
@@ -315,32 +379,27 @@ namespace TL
             /*! 
               This function advances over a typedef as many times
               as needed until it reaches a type that is not a typedef.
-              Note that this function does not combine cv-qualifiers
-              found while advancing typedefs. This is relevant
-              for cases like the one below:
-
-              \code
-              typedef int T;
-              typedef const T Q;
-              typedef volatile S;
-              \endcode
-
-              'S' would be simplified to 'int' while if cv-qualifiers
-              were properly considered it would be 'const volatile int'.
-              Use advance_over_typedefs_cv to get the properly cv-qualified
-              type.
               */
             Type advance_over_typedefs();
 
-            //! Advances over typedefs preserving cv-qualification
-            /*!
-              \see advance_over_typedefs
-             */
-            Type advance_over_typedefs_cv();
-
             //! Get the symbol list of classes which are base of the type
-            ObjectList<Symbol> get_bases_class_symbol_list();
+            ObjectList<Symbol> get_bases_class_symbol_list() DEPRECATED;
 
+            struct BaseInfo
+            {
+                TL::Symbol base;
+                bool is_virtual;
+                access_specifier_t access_specifier;
+
+                BaseInfo(TL::Symbol _base, 
+                        bool _is_virtual,
+                        access_specifier_t _access_specifier);
+            };
+
+            ObjectList<BaseInfo> get_bases();
+
+            //! Returns the friends of this class
+            ObjectList<Symbol> class_get_friends();
 
             //! States whether current type type is a function-type
             bool is_function() const;
@@ -389,10 +448,22 @@ namespace TL
             //! In pointer-types or pointer-to-member types returns the referenced type
             Type points_to() const;
 
+            //! States whether the current type is a pointer to a class type
+            /*!
+             * \note Not to be confused with being a pointer to member of class
+             */
+            bool is_pointer_to_class() const;
+
             //! States whether current type is a pointer-to-member type
             bool is_pointer_to_member() const;
             //! In pointer-to-member types returns the class of the pointer
             Type pointed_class() const;
+
+            //! Current class is a base of t
+            bool is_base_class(Type t) const;
+            
+            //! Current class is a derived class of t
+            bool is_derived_class(Type t) const;
 
             //! States whether current type is an array-type
             bool is_array() const;
@@ -400,12 +471,6 @@ namespace TL
             Type array_element() const;
             //! States whether this array-type has an explicit array dimension
             bool array_has_size() const;
-
-            //! This is an alias to array_has_size
-            /*!
-              \deprecated Do not use it, use array_has_size instead
-              */
-            DEPRECATED bool explicit_array_dimension() const;
 
             //! Returns the expression of the array dimension
             Nodecl::NodeclBase array_get_size() const; 
@@ -474,7 +539,10 @@ namespace TL
              * };
              * \endcode
              */
-            bool is_dependent() const;
+            bool is_dependent_typename() const;
+
+            //! Decomposes the dependent typename into its entry symbol and its syntactic part
+            void dependent_typename_get_components(Symbol& entry_symbol, Nodecl::NodeclBase& parts);
 
             //! States whether the type is the result of a type dependent expression
             /*! Consider the following case
@@ -494,8 +562,21 @@ namespace TL
             //! States whether the current type is incomplete
             bool is_incomplete() const;
 
-            //! States whether the type is a reference type
+            bool class_type_is_complete_independent() const;
+            bool class_type_is_complete_dependent() const;
+            bool class_type_is_incomplete_independent() const;
+            bool class_type_is_incomplete_dependent() const;
+
+            class_kind_t class_type_get_class_kind() const;
+
+            //! States whether the type is a lvalue or rvalue reference type
             bool is_reference() const;
+
+            bool is_rvalue_reference() const;
+            bool is_lvalue_reference() const;
+
+            //! States whether the type is a reference to a class type
+            bool is_reference_to_class() const;
             //! Returns the referenced type
             Type references_to() const;
 
@@ -512,6 +593,9 @@ namespace TL
 
             //! Returns all the data members, either static or non-static
             ObjectList<Symbol> get_all_data_members() const;
+            
+            //! Returns all the data members, either static or non-static
+            ObjectList<Symbol> get_all_members() const;
 
             //! States whether any nonstatic member of class-type is defined as mutable
             bool some_member_is_mutable() const;
@@ -549,23 +633,38 @@ namespace TL
              */
             bool is_template_type() const;
 
+            //! Returns all the specializations of a template type
+            ObjectList<Type> get_specializations() const;
+
+            //! Returns the template parameters of a template type
+            TemplateParameters template_type_get_template_parameters() const;
+
             //! Returns the primary template of a template type
             //! This is always a named type, so you can get a symbol after it
             Type get_primary_template() const;
 
             //! States whether the type is a template specialized one
             /*!
-              A template specialized type is a type which was created
-              not by a user declaration but the instantiation of
-              a template type.
+              A template specialized type is a type which belongs to
+              the specialized set of a template type
             */
             bool is_template_specialized_type() const;
+
+            //! Returns the template arguments of a specialized template type
+            TemplateParameters template_specialized_type_get_template_arguments() const;
+            
 
             //! Returns the related template type of a specialized template type
             /*!
               This function is only valid for template specialized types
             */
             Type get_related_template_type() const;
+
+            //! Returns the symbol of this template type
+            /*! 
+             * \note Do not confuse with get_related_template_type which only applies for specialized_template types
+             */
+            Symbol get_related_template_symbol() const;
 
             //! States whether two types represent the same type
             /*!
@@ -574,12 +673,6 @@ namespace TL
             * So do not use 'operator==' to check type system equality.
             */
             bool is_same_type(Type t);
-
-            //! States whether two types represent the same type
-            /*!
-             * \deprecated Do not use this one instead use is_same_type(Type)
-             */
-            bool is_same_type(Type t, Scope sc) DEPRECATED;
 
             /* We should consider to remove this one day */
             friend class Symbol;

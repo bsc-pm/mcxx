@@ -32,10 +32,14 @@ phases_LTLIBRARIES = libcodegen-cxx.la
 libcodegen_cxx_la_CFLAGS = $(tl_cflags) -I$(srcdir)/../../common
 libcodegen_cxx_la_CXXFLAGS = $(tl_cflags) -I$(srcdir)/../../common
 
-libcodegen_cxx_la_LDFLAGS = $(tl_ldflags)
-libcodegen_cxx_la_LIBADD = $(tl_libadd)
-
 END=
+
+libcodegen_cxx_la_LDFLAGS = $(tl_ldflags)
+libcodegen_cxx_la_LIBADD = ../../common/libcodegen-common.la \
+						   $(tl_libadd) \
+					       $(quadmath_LIBS) \
+					       $(END)
+
 
 libcodegen_cxx_la_SOURCES = \
 	 codegen-cxx.hpp \

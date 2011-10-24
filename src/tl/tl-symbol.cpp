@@ -103,6 +103,37 @@ namespace TL
         }
     }
 
+    std::string Symbol::get_class_qualification(bool without_template_id) const
+    {
+        return this->get_class_qualification(_symbol->decl_context, without_template_id);
+    }
+
+    std::string Symbol::get_class_qualification(Scope sc, bool without_template_id) const
+    {
+        if (_symbol->symbol_name == NULL)
+        {
+            return std::string("");
+        }
+        else
+        {
+            const char* (*ptr_fun)(struct
+                    scope_entry_tag* entry, decl_context_t decl_context, char*
+                    is_dependent, int* max_qualif_level) = get_class_qualification_of_symbol;
+
+            if (without_template_id)
+            {
+                ptr_fun = get_class_qualification_of_symbol_without_template;
+            }
+
+            int max_level = 0;
+            char is_dependent = 0;
+            const char* qualified_name = ptr_fun(_symbol, sc._decl_context, 
+                    &is_dependent, &max_level);
+
+            return std::string(qualified_name);
+        }
+    }
+
     bool Symbol::operator<(Symbol s) const
     {
         return this->_symbol < s._symbol;
@@ -163,6 +194,16 @@ namespace TL
                 && is_function_type(named_type_get_symbol(template_type_get_primary_type(_symbol->type_information))->type_information));
     }
 
+    bool Symbol::is_anonymous_union() const
+    {
+        return this->_symbol->entity_specs.is_anonymous_union;
+    }
+
+    bool Symbol::is_injected_class_name() const
+    {
+        return this->_symbol->entity_specs.is_injected_class_name;
+    }
+
     bool Symbol::is_typedef() const
     {
         return (this->_symbol->kind == SK_TYPEDEF);
@@ -173,12 +214,29 @@ namespace TL
         return (this->_symbol->kind == SK_DEPENDENT_ENTITY);
     }
 
-    bool Symbol::is_typename() const
+    bool Symbol::is_template_parameter() const
     {
-        return (this->_symbol->kind == SK_TYPEDEF
-                || this->_symbol->kind == SK_ENUM
-                || this->_symbol->kind == SK_CLASS
-                || this->_symbol->kind == SK_TEMPLATE_TYPE_PARAMETER);
+        return _symbol->entity_specs.is_template_parameter;
+    }
+
+    bool Symbol::is_class() const
+    {
+        return this->_symbol->kind == SK_CLASS;
+    }
+
+    bool Symbol::is_template() const
+    {
+        return this->_symbol->kind == SK_TEMPLATE;
+    }
+
+    bool Symbol::is_enum() const
+    {
+        return this->_symbol->kind == SK_ENUM;
+    }
+
+    bool Symbol::is_enumerator() const
+    {
+        return this->_symbol->kind == SK_ENUMERATOR;
     }
 
     bool Symbol::is_member() const
@@ -194,6 +252,11 @@ namespace TL
     Type Symbol::get_class_type() const
     {
         return Type(_symbol->entity_specs.class_type);
+    }
+
+    access_specifier_t Symbol::get_access_specifier()
+    {
+        return _symbol->entity_specs.access;
     }
 
     bool Symbol::is_parameter() const
@@ -214,6 +277,26 @@ namespace TL
     bool Symbol::is_register() const
     {
         return (_symbol->entity_specs.is_register);
+    }
+
+    bool Symbol::is_thread() const
+    {
+        return (_symbol->entity_specs.is_thread);
+    }
+
+    bool Symbol::is_bitfield() const
+    {
+        return (_symbol->entity_specs.is_bitfield);
+    }
+
+    Nodecl::NodeclBase Symbol::get_bitfield_size() const
+    {
+        return _symbol->entity_specs.bitfield_size;
+    }
+
+    bool Symbol::is_user_declared() const
+    {
+        return _symbol->entity_specs.is_user_declared;
     }
 
     // FIXME : This only holds if the 'extern' qualifier was given
@@ -258,6 +341,11 @@ namespace TL
         return (_symbol->entity_specs.is_conversion);
     }
 
+    bool Symbol::is_destructor() const
+    {
+        return (_symbol->entity_specs.is_destructor);
+    }
+
     // Is a constructor
     bool Symbol::is_constructor() const
     {
@@ -268,6 +356,28 @@ namespace TL
     bool Symbol::is_explicit_constructor() const
     {
         return (_symbol->entity_specs.is_explicit);
+    }
+
+    bool Symbol::is_friend_declared() const
+    {
+        return (_symbol->entity_specs.is_friend_declared);
+    }
+    
+    bool Symbol::function_throws_any_exception() const
+    {
+        return (_symbol->entity_specs.any_exception);
+    }
+
+    ObjectList<TL::Type> Symbol::get_thrown_exceptions() const
+    {
+        ObjectList<TL::Type> result;
+
+        for (int i = 0; i < _symbol->entity_specs.num_exceptions; i++)
+        {
+            result.append(_symbol->entity_specs.exceptions[i]);
+        }
+
+        return result;
     }
 
     bool Symbol::has_initialization() const
@@ -314,6 +424,11 @@ namespace TL
             && _symbol->decl_context.current_scope->kind == PROTOTYPE_SCOPE;
     }
 
+    bool Symbol::is_using_symbol() const
+    {
+        return _symbol->kind == SK_USING;
+    }
+
     bool Symbol::is_builtin() const
     {
         // Despite the name this applies to variables too
@@ -324,38 +439,20 @@ namespace TL
     {
         return Nodecl::NodeclBase::null();
     }
+
+    Nodecl::NodeclBase Symbol::get_asm_specification() const
+    {
+        return _symbol->entity_specs.asm_specification;
+    }
     
-    bool Symbol::has_gcc_attribute(const std::string &str) const
-    {
-        for (int i = 0; i < _symbol->entity_specs.num_gcc_attributes; i++)
-        {
-            std::string current_gcc_attr(_symbol->entity_specs.gcc_attributes[i].attribute_name);
-
-            if (current_gcc_attr == str)
-                return true;
-        }
-
-        return false;
-    }
-
-    Nodecl::NodeclBase Symbol::get_argument_of_gcc_attribute(const std::string &str) const
-    {
-        for (int i = 0; i < _symbol->entity_specs.num_gcc_attributes; i++)
-        {
-            std::string current_gcc_attr(_symbol->entity_specs.gcc_attributes[i].attribute_name);
-
-            if (current_gcc_attr == str)
-            {
-                return _symbol->entity_specs.gcc_attributes[i].expression_list;
-            }
-        }
-
-        return Nodecl::NodeclBase::null();
-    }
-
     bool Symbol::is_defined() const
     {
         return _symbol->defined;
+    }
+
+    bool Symbol::not_to_be_printed() const
+    {
+        return _symbol->do_not_print;
     }
 
     std::string Symbol::get_locus() const
@@ -479,4 +576,35 @@ namespace TL
         return false;
 #endif
     }
+
+    ObjectList<Symbol> Symbol::get_related_symbols() const
+    {
+        ObjectList<Symbol> result;
+        for (int i = 0; i < _symbol->entity_specs.num_related_symbols; i++)
+        {
+            result.append(_symbol->entity_specs.related_symbols[i]);
+        }
+        return result;
+    }
+
+    ObjectList<GCCAttribute> Symbol::get_gcc_attributes() const
+    {
+        ObjectList<GCCAttribute> result;
+        for (int i = 0; i < _symbol->entity_specs.num_gcc_attributes; i++)
+        {
+            result.append(_symbol->entity_specs.gcc_attributes[i]);
+        }
+        return result;
+    }
+
+    std::string GCCAttribute::get_attribute_name() const
+    {
+        return _attr.attribute_name;
+    }
+
+    Nodecl::List GCCAttribute::get_expression_list() const
+    {
+        return Nodecl::List(_attr.expression_list);
+    }
+
 }

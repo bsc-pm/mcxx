@@ -42,7 +42,10 @@
 
 #include <stdint.h>
 #ifdef HAVE_QUADMATH_H
-  #include <quadmath.h>
+// Somebody forgot to protect this
+MCXX_BEGIN_DECLS
+#include <quadmath.h>
+MCXX_END_DECLS
 #endif
 
 MCXX_BEGIN_DECLS
