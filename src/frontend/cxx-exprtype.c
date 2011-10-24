@@ -12691,8 +12691,11 @@ static void check_nodecl_gcc_parenthesized_expression(nodecl_t nodecl_context,
         computed_type = get_void_type();
     }
 
-    if (computed_type == NULL
-            || is_error_type(computed_type))
+    if (computed_type == NULL)
+    {
+        computed_type = get_void_type();
+    }
+    else if (is_error_type(computed_type))
     {
         *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
