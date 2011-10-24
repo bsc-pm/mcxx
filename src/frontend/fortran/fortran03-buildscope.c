@@ -3205,7 +3205,7 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
                     AST array_spec = ASTSon0(entity_decl_specs);
                     AST coarray_spec = ASTSon1(entity_decl_specs);
                     AST char_length = ASTSon2(entity_decl_specs);
-                    // AST initialization = ASTSon3(entity_decl_specs);
+                    AST initialization = ASTSon3(entity_decl_specs);
 
                     if (array_spec != NULL)
                     {
@@ -3255,6 +3255,22 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
                                     array_type_get_element_type(entry->type_information), 
                                     nodecl_null(), decl_context);
                         }
+                    }
+
+                    if (initialization != NULL)
+                    {
+                        if (ASTType(initialization) == AST_POINTER_INITIALIZATION)
+                        {
+                            if (!current_attr_spec.is_pointer)
+                            {
+                                running_error("%s: error: no POINTER attribute, required for pointer initialization\n",
+                                        ast_location(initialization));
+                            }
+                            initialization = ASTSon0(initialization);
+                        }
+                        entry->kind = SK_VARIABLE;
+
+                        fortran_check_expression(initialization, decl_context, &entry->value);
                     }
 
                     // Stop the madness here
