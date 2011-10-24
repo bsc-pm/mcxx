@@ -72,6 +72,7 @@ statement-but-object-init: NODECL_EMPTY_STATEMENT()
           | c-cxx-only-statements
           | fortran-only-statements
           | builtin-decl
+          | parallel-statements
 
 compound-statement : NODECL_COMPOUND_STATEMENT([statements]statement-seq-opt, [finally]statement-seq-opt) 
 
@@ -344,7 +345,7 @@ replicated-execution : NODECL_PAR_REPLICATED([environment]exec-environment-seq-o
 distributed-execution : NODECL_PAR_DISTRIBUTE([environment]exec-environment-seq-opt, [ranges]distribute-range-seq, [exec]synchronizable-execution)
 distribute-range : NODECL_PAR_DISTRIBUTE_RANGE([lower]expression, [upper]expression, [step]expression) symbol
 
-atomic-execution : NODECL_PAR_ATOMIC([name]name-opt, [statements]statement-seq-opt)
+atomic-execution : NODECL_PAR_ATOMIC_EXECUTION([name]name-opt, [statements]statement-seq-opt)
 
 composited-execution : NODECL_PAR_COMPOSITE([environment]exec-environment-seq-opt, [regions]parallel-execution-seq)
 
