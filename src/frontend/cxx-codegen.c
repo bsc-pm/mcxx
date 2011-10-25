@@ -1631,7 +1631,7 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                 {
                     decl_specifiers = strappend(decl_specifiers, "static ");
                 }
-                else if (symbol->entity_specs.is_extern)
+                else if (symbol->entity_specs.is_extern && nodecl_is_null(symbol->value))
                 {
                     decl_specifiers = strappend(decl_specifiers, "extern ");
                 }

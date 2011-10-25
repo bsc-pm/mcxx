@@ -880,7 +880,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
     {
         decl_spec_seq += "static ";
     }
-    if (symbol.is_extern())
+    if (symbol.is_extern() && symbol.get_initialization().is_null())
     {
         decl_spec_seq += "extern ";
     }
