@@ -10386,12 +10386,22 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                 && named_type_get_symbol(member_type)->entity_specs.is_anonymous_union)
         {
             scope_entry_t* named_type = named_type_get_symbol(member_type);
+
+            // Anonymous unions are members even in C
+            C_LANGUAGE()
+            {
+                named_type->entity_specs.is_member = 1;
+                named_type->entity_specs.access = current_access;
+                named_type->entity_specs.is_defined_inside_class_specifier = 1;
+                named_type->entity_specs.class_type = class_info;
+            }
+
             scope_entry_t* new_member = finish_anonymous_class(named_type, decl_context);
 
             // Add this member to the current class
             new_member->entity_specs.is_member = 1;
-            new_member->entity_specs.class_type = class_info;
             new_member->entity_specs.access = current_access;
+            new_member->entity_specs.class_type = class_info;
             class_type_add_member(class_type, new_member);
         }
     }

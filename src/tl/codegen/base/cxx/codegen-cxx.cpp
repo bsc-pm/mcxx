@@ -1939,7 +1939,14 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
     {
         indent();
         // The symbol will be already called 'struct/union X' in C
-        file << symbol.get_name();
+        if (!symbol.is_anonymous_union())
+        {
+            file << symbol.get_name() << "\n";
+        }
+        else
+        {
+            file << class_key << "\n";
+        }
         indent();
         file << "{\n";
     }

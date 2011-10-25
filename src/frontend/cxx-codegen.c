@@ -574,16 +574,17 @@ static void run_clear_list(void)
 
 static char symbol_is_same_or_nested_in(scope_entry_t* symbol, scope_entry_t* class_sym)
 {
-    if (symbol->entity_specs.is_member)
+    if (symbol == class_sym)
+    {
+        return 1;
+    }
+    else if (symbol->entity_specs.is_member)
     {
         return symbol_is_same_or_nested_in(
                 named_type_get_symbol(symbol->entity_specs.class_type),
                 class_sym);
     }
-    else
-    {
-        return symbol == class_sym;
-    }
+    return 0;
 }
 
 // Classes are so complex that they deserve a whole routine for them
@@ -832,7 +833,14 @@ static void define_class_symbol_aux(nodecl_codegen_visitor_t* visitor, scope_ent
     {
         indent(visitor);
         // Usual case: the symbol will be already called 'struct/union X' in C
-        fprintf(visitor->file, "%s\n", symbol->symbol_name);
+        if (!symbol->entity_specs.is_anonymous_union)
+        {
+            fprintf(visitor->file, "%s\n", symbol->symbol_name);
+        }
+        else
+        {
+            fprintf(visitor->file, "%s\n", class_key);
+        }
         indent(visitor);
         fprintf(visitor->file, "{\n");
     }
@@ -1065,8 +1073,17 @@ static void define_class_symbol_aux(nodecl_codegen_visitor_t* visitor, scope_ent
 
             C_LANGUAGE()
             {
-                // Everything must be properly defined in C
-                define_symbol(visitor, member);
+                if (is_named_class_type(member->type_information)
+                        && named_type_get_symbol(member->type_information)->entity_specs.is_anonymous_union)
+                {
+                    scope_entry_t* class_sym = named_type_get_symbol(member->type_information);
+                    define_class_symbol_aux(visitor, class_sym, symbols_defined_inside_class, level + 1);
+                    class_sym->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
+                }
+                else
+                {
+                    define_symbol(visitor, member);
+                }
                 member->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
             }
             CXX_LANGUAGE()
