@@ -3794,7 +3794,7 @@ static char is_additive_bin_operator(node_t n)
         || n == NODECL_MINUS;
 }
 
-bool CxxBase::operand_has_lower_priority(const Nodecl::NodeclBase& current_operator, const Nodecl::NodeclBase& operand)
+bool CxxBase::operand_has_lower_priority(Nodecl::NodeclBase current_operator, Nodecl::NodeclBase operand)
 {
     if (current_operator.is<Nodecl::Conversion>())
     {
