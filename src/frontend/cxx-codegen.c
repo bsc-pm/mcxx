@@ -2850,7 +2850,6 @@ static char operand_has_lower_priority(nodecl_t current_operator, nodecl_t opera
     BINARY_EXPRESSION(mul, " * ") \
     BINARY_EXPRESSION(div, " / ") \
     BINARY_EXPRESSION(mod, " % ") \
-    BINARY_EXPRESSION(minus, " - ") \
     BINARY_EXPRESSION(equal, " == ") \
     BINARY_EXPRESSION(different, " != ") \
     BINARY_EXPRESSION(lower_than, " < ") \
@@ -2981,6 +2980,36 @@ OPERATOR_TABLE
 #undef BINARY_EXPRESSION
 #undef BINARY_EXPRESSION_ASSIG
 
+
+static void codegen_minus(nodecl_codegen_visitor_t* visitor, nodecl_t node) 
+{ 
+    nodecl_t lhs = nodecl_get_child(node, 0); 
+    nodecl_t rhs = nodecl_get_child(node, 1); 
+    char needs_parentheses = operand_has_lower_priority(node, lhs); 
+    char left_is_pointer = is_pointer_type(no_ref(nodecl_get_type(lhs)));
+    char right_is_pointer = is_pointer_type(no_ref(nodecl_get_type(rhs)));
+    if (needs_parentheses) 
+    { 
+        fprintf(visitor->file, "("); 
+    } 
+    codegen_walk(visitor, lhs); 
+    if (needs_parentheses) 
+    { 
+        fprintf(visitor->file, ")"); 
+    } 
+    fprintf(visitor->file, "%s", " - "); 
+    needs_parentheses = operand_has_lower_priority(node, rhs) 
+        || (left_is_pointer && !right_is_pointer); 
+    if (needs_parentheses) 
+    { 
+        fprintf(visitor->file, "("); 
+    } 
+    codegen_walk(visitor, rhs); 
+    if (needs_parentheses) 
+    { 
+        fprintf(visitor->file, ")"); 
+    } 
+}
 
 static void codegen_class_member_access(nodecl_codegen_visitor_t* visitor, nodecl_t node) 
 {
@@ -4607,6 +4636,7 @@ static void c_cxx_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
 #undef PREFIX_UNARY_EXPRESSION
 #undef POSTFIX_UNARY_EXPRESSION
 #undef BINARY_EXPRESSION
+    NODECL_VISITOR(codegen_visitor)->visit_minus = codegen_visitor_fun(codegen_minus);
     NODECL_VISITOR(codegen_visitor)->visit_class_member_access = codegen_visitor_fun(codegen_class_member_access);
     NODECL_VISITOR(codegen_visitor)->visit_pseudo_destructor_name = codegen_visitor_fun(codegen_pseudo_destructor_name);
     NODECL_VISITOR(codegen_visitor)->visit_pointer_to_member = codegen_visitor_fun(codegen_pointer_to_member);
