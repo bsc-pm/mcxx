@@ -42,6 +42,7 @@
 #include "cxx-entrylist.h"
 #include "cxx-graphviz.h"
 #include "cxx-diagnostic.h"
+#include "cxx-codegen.h"
 
 #include "cxx-printscope.h"
 
@@ -715,25 +716,66 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
 }
 
 static void instantiate_dependent_friend(type_t* selected_template UNUSED_PARAMETER,
-        type_t* being_instantiated UNUSED_PARAMETER, 
-        scope_entry_t* friend UNUSED_PARAMETER,
-        decl_context_t context_of_being_instantiated UNUSED_PARAMETER,
+        type_t* being_instantiated, 
+        scope_entry_t* friend,
+        decl_context_t context_of_being_instantiated,
         decl_context_t context_translation_function(decl_context_t UNUSED_PARAMETER, void* UNUSED_PARAMETER) UNUSED_PARAMETER,
         void *translation_data UNUSED_PARAMETER,
-        const char *filename UNUSED_PARAMETER, 
-        int line UNUSED_PARAMETER)
+        const char *filename, 
+        int line)
 {
     if(friend->kind == SK_DEPENDENT_FRIEND_CLASS) 
     {
-        char is_dependent = (nodecl_get_kind(friend->value) == NODECL_CXX_DEP_GLOBAL_NAME_NESTED 
-                ||  nodecl_get_kind(friend->value) == NODECL_CXX_DEP_GLOBAL_NAME_NESTED);
+        // Search the name of the friend class
+        scope_entry_list_t* result_list = query_nodecl_name(context_of_being_instantiated, friend->value);
 
+        // We only want the SK_CLASS entries of the result_list
+        scope_entry_list_t* filter_list = filter_symbol_kind(result_list, SK_CLASS); 
+        entry_list_free(result_list);
+        
+        scope_entry_t* entry = NULL;
+        if(filter_list != NULL)
+        {
+            entry = entry_list_iterator_current(entry_list_iterator_begin(filter_list));
+        }
+        else 
+        {
+            char is_qualified = (nodecl_get_kind(friend->value) == NODECL_CXX_DEP_GLOBAL_NAME_NESTED
+                    ||  nodecl_get_kind(friend->value) == NODECL_CXX_DEP_NAME_NESTED);
+            
+            if(is_qualified)
+            {
+                error_printf("%s:%d: error: in friend declaration, class '%s' does not exist\n",
+                        filename, line, c_cxx_codegen_to_str(friend->value));
+                return;
+            }
+            
+            scope_entry_t* new_class = NULL;
+
+            new_class = new_symbol(context_of_being_instantiated,
+                    context_of_being_instantiated.namespace_scope,
+                    c_cxx_codegen_to_str(friend->value));
+            
+            new_class->line = line;
+            new_class->file = filename;
+            new_class->kind = SK_CLASS;
+            new_class->entity_specs.is_friend_declared = 1;
+            new_class->type_information = get_new_class_type(context_of_being_instantiated, SK_CLASS);
+
+            entry = new_class;
+        }
+        
+        class_type_add_friend_symbol(being_instantiated, entry);
+        entry_list_free(filter_list);
     }
-    else
+    else if (friend->kind == SK_DEPENDENT_FRIEND_FUNCTION)
     {
         internal_error("instantiate dependent function friend is not implemented yet.\n",0);
     }
-
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
 
 #if 0
     decl_context_t orig_decl_context;
