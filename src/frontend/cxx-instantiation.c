@@ -723,7 +723,18 @@ static void instantiate_dependent_friend(type_t* selected_template UNUSED_PARAME
         const char *filename UNUSED_PARAMETER, 
         int line UNUSED_PARAMETER)
 {
-    internal_error("Not yet implemented", 0);
+    if(friend->kind == SK_DEPENDENT_FRIEND_CLASS) 
+    {
+        char is_dependent = (nodecl_get_kind(friend->value) == NODECL_CXX_DEP_GLOBAL_NAME_NESTED 
+                ||  nodecl_get_kind(friend->value) == NODECL_CXX_DEP_GLOBAL_NAME_NESTED);
+
+    }
+    else
+    {
+        internal_error("instantiate dependent function friend is not implemented yet.\n",0);
+    }
+
+
 #if 0
     decl_context_t orig_decl_context;
     AST declarator = nodecl_unwrap_cxx_dependent_expr(friend->value, &orig_decl_context);
