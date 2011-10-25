@@ -2698,7 +2698,18 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
                                 && symbol.get_type().is_const()))))
             {
                 emit_initializer = 1;
-                define_nonnested_entities_in_trees(symbol.get_initialization());
+                if (symbol.is_member()
+                        || (!symbol.get_scope().is_block_scope()
+                            && !symbol.get_scope().is_function_scope()))
+                {
+                    // This is a member or nonlocal symbol
+                    define_nonnested_entities_in_trees(symbol.get_initialization());
+                }
+                else
+                {
+                    // This is a local symbol
+                    define_local_entities_in_trees(symbol.get_initialization());
+                }
             }
 
             move_to_namespace_of_symbol(symbol);

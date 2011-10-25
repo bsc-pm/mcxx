@@ -1680,7 +1680,18 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                                         && is_const_qualified_type(symbol->type_information))))))
                 {
                     emit_initializer = 1;
-                    define_nonnested_entities_in_trees(visitor, symbol->value);
+                    if (symbol->entity_specs.is_member
+                            || (symbol->decl_context.current_scope->kind != BLOCK_SCOPE
+                                && symbol->decl_context.current_scope->kind != FUNCTION_SCOPE))
+                    {
+                        // This is a member or nonlocal symbol
+                        define_nonnested_entities_in_trees(visitor, symbol->value);
+                    }
+                    else 
+                    {
+                        // This is a local symbol
+                        define_local_entities_in_trees(visitor, symbol->value);
+                    }
                 }
 
                 codegen_move_to_namespace_of_symbol(visitor, symbol);
