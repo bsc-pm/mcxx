@@ -591,24 +591,6 @@ namespace TL
     }
 
 
-    // ************* Built-in ************* //
-    // TODO    
-    CfgVisitor::Ret CfgVisitor::visit(const Nodecl::BuiltinExpr& n)
-    {
-        walk(n.get_components());
-        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
-        return Ret();
-    }
-
-    // TODO
-    CfgVisitor::Ret CfgVisitor::visit(const Nodecl::BuiltinDecl& n)
-    {
-        walk(n.get_components());
-        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
-        return Ret();
-    }
-
-
     // ************* Pragmas ************* //
     CfgVisitor::Ret CfgVisitor::visit(const Nodecl::PragmaCustomDirective& n)
     {

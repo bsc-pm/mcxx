@@ -18,7 +18,6 @@ namespace Codegen
 
             Ret visit(const Nodecl::Add &);
             Ret visit(const Nodecl::AddAssignment &);
-            Ret visit(const Nodecl::AnyList &);
             Ret visit(const Nodecl::ArraySubscript &);
             Ret visit(const Nodecl::Assignment &);
             Ret visit(const Nodecl::BitwiseAnd &);
@@ -30,8 +29,6 @@ namespace Codegen
             Ret visit(const Nodecl::BitwiseXorAssignment &);
             Ret visit(const Nodecl::BooleanLiteral &);
             Ret visit(const Nodecl::BreakStatement &);
-            Ret visit(const Nodecl::BuiltinDecl &);
-            Ret visit(const Nodecl::BuiltinExpr &);
             Ret visit(const Nodecl::C99DesignatedInitializer &);
             Ret visit(const Nodecl::C99FieldDesignator &);
             Ret visit(const Nodecl::C99IndexDesignator &);

@@ -172,11 +172,6 @@ OPERATOR_TABLE
 #undef BINARY_EXPRESSION
 #undef BINARY_EXPRESSION_ASSIG
 
-
-CxxBase::Ret CxxBase::visit(const Nodecl::AnyList& node)
-{
-}
-
 CxxBase::Ret CxxBase::visit(const Nodecl::ArraySubscript& node)
 {
     Nodecl::NodeclBase subscripted = node.get_subscripted();
@@ -222,14 +217,6 @@ CxxBase::Ret CxxBase::visit(const Nodecl::BreakStatement& node)
 {
     indent();
     file << "break;\n";
-}
-
-CxxBase::Ret CxxBase::visit(const Nodecl::BuiltinDecl& node)
-{
-}
-
-CxxBase::Ret CxxBase::visit(const Nodecl::BuiltinExpr& node)
-{
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::C99DesignatedInitializer& node)
@@ -3651,7 +3638,6 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
         case NODECL_BOOLEAN_LITERAL:
         case NODECL_STRUCTURED_VALUE:
         case NODECL_PARENTHESIZED_EXPRESSION:
-        case NODECL_BUILTIN_EXPR:
         case NODECL_COMPOUND_EXPRESSION:
             {
                 return -1;

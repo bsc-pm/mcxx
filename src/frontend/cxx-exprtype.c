@@ -12761,15 +12761,10 @@ static void check_gcc_builtin_va_arg(AST expression,
         return;
     }
 
-    *nodecl_output = nodecl_make_builtin_expr(
-            nodecl_make_any_list(
-                nodecl_make_list_2(
-                    nodecl_expr,
-                    nodecl_make_type(t, filename, line)),
-                filename, line),
-            t,
-            "__builtin_va_arg",
-            filename, line);
+    *nodecl_output = nodecl_make_gcc_builtin_va_arg(
+            nodecl_expr,
+            nodecl_make_type(t, filename, line),
+            t, filename, line);
 }
 
 static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
