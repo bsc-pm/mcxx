@@ -25,6 +25,7 @@ Cambridge, MA 02139, USA.
 #include "cxx-cexpr.h"
 #include "cxx-codegen.h"
 #include "cxx-process.h"
+#include "cxx-utils.h"
 
 #include "tl-cfg-renaming-visitor.hpp"
 #include "tl-extensible-graph.hpp"
@@ -349,11 +350,10 @@ namespace TL
     
     void LoopAnalysis::prettyprint_induction_var_info(InductionVarInfo* var_info)
     {
-        std::cerr << "***** Symbol: " << var_info->get_symbol().get_name() << std::endl;
-        std::cerr << "          LB = " << c_cxx_codegen_to_str(var_info->get_lb().get_internal_nodecl()) << std::endl;
-        std::cerr << "          UB = " << c_cxx_codegen_to_str(var_info->get_ub().get_internal_nodecl()) << std::endl;
-        std::cerr << "          STEP = " << c_cxx_codegen_to_str(var_info->get_stride().get_internal_nodecl()) << std::endl;
-        std::cerr << "          IS_ONE = " << (var_info->stride_is_one() == 1) << std::endl;
+        std::cerr << "Symbol: " << var_info->get_symbol().get_name()
+                  << " LB = '" << c_cxx_codegen_to_str(var_info->get_lb().get_internal_nodecl()) << "'"
+                  << " UB = '" << c_cxx_codegen_to_str(var_info->get_ub().get_internal_nodecl()) << "'"
+                  << " STEP = '" << c_cxx_codegen_to_str(var_info->get_stride().get_internal_nodecl()) << "'" << std::endl;
     }
     
 
@@ -412,12 +412,15 @@ namespace TL
         induction_vars_are_defined_in_node(loop_node);
         
         // Print induction variables info
-        std::cerr << "Info computed about the induction variables for Loop Control: '" 
-                  << loop_control.prettyprint() << "'" << std::endl;
-        std::pair<induc_vars_map::iterator, induc_vars_map::iterator> actual_ind_vars = _induction_vars.equal_range(loop_control);
-        for(induc_vars_map::iterator it = actual_ind_vars.first; it != actual_ind_vars.second; ++it)
+        DEBUG_CODE()
         {
-            prettyprint_induction_var_info(it->second);
+            std::cerr << "Info computed about the induction variables for Loop Control: '" 
+                    << loop_control.prettyprint() << "'" << std::endl;
+            std::pair<induc_vars_map::iterator, induc_vars_map::iterator> actual_ind_vars = _induction_vars.equal_range(loop_control);
+            for(induc_vars_map::iterator it = actual_ind_vars.first; it != actual_ind_vars.second; ++it)
+            {
+                prettyprint_induction_var_info(it->second);
+            }            
         }
         _loop_control_s.pop();
     }
@@ -699,7 +702,6 @@ namespace TL
             if (actual_reach_defs.find(it->first) == actual_reach_defs.end())
             {   // Only if the definition is not performed within the node, we store the parents values
                 cond->set_reaching_definition(it->first, it->second);
-                Nodecl::NodeclBase first = it->first, second = it->second;
             }
         }        
        
@@ -723,13 +725,15 @@ namespace TL
             if (actual_reach_defs.find(it->first) == actual_reach_defs.end())
             {   // Only if the definition is not performed within the node, we store the parents values
                 // If the variable is an induction var, we get here the range of the var within the loop
-                if (it->first.is<Nodecl::Symbol>() 
+                if (it->first.is<Nodecl::Symbol>()
                     && induction_vars_m.find(it->first.get_symbol()) != induction_vars_m.end())
                 {
+                    Nodecl::NodeclBase first = it->first, second = induction_vars_m[it->first.get_symbol()];
                     true_node->set_reaching_definition(it->first, induction_vars_m[it->first.get_symbol()]);
                 }
                 else
                 {
+                    Nodecl::NodeclBase first = it->first, second = it->second;
                     true_node->set_reaching_definition(it->first, it->second);
                 }
             }

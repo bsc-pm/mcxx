@@ -18,8 +18,8 @@ namespace Nodecl
  
     Calculator::Ret Calculator::unhandled_node(const Nodecl::NodeclBase& n)
     {
-        std::cerr << "Unhandled node while inline renaming '" << c_cxx_codegen_to_str(n.get_internal_nodecl())
-                << "' of type '" << ast_print_node_type(n.get_kind()) << "'" << std::endl;
+        std::cerr << "Unhandled node type " << ast_print_node_type(n.get_kind()) << "'"
+                  << " while calculating constant value of expression '" << c_cxx_codegen_to_str(n.get_internal_nodecl()) << std::endl;
         return Ret();
     }
     
@@ -362,6 +362,11 @@ namespace Nodecl
     }
     
     Calculator::Ret Calculator::visit(const Nodecl::StringLiteral& n)
+    {
+        return TL::ObjectList<const_value_t*>();
+    }
+    
+    Calculator::Ret Calculator::visit(const Nodecl::Derreference& n)
     {
         return TL::ObjectList<const_value_t*>();
     }

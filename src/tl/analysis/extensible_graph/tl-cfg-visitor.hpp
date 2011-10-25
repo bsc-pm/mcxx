@@ -195,6 +195,14 @@ namespace TL
          */
         Node* merge_nodes(Nodecl::NodeclBase n, Node* first, Node* second);
         
+        //! This a wrapper method of #merge_nodes for the case we are merging an array subscript
+        /*!
+         * Since the subscripts are built form left to right, we may not have a nodecl containing the whole subscript
+         * \param subscripted Pointer to the node containing the subscripted part
+         * \param subscript Pointer to the node containing the actual subscript
+         */
+        Node* merge_nodes(Node* subscripted, Node* subscript);
+        
         //! This method finds the parent nodes in a sequence of connected nodes
         /*!
          * The method fails when the sub-graph has more than one entry node.

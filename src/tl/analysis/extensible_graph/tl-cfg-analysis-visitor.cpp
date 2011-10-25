@@ -43,7 +43,7 @@ namespace TL
 
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::unhandled_node(const Nodecl::NodeclBase& n)
     {
-        std::cerr << "Unhandled node during CFG Analysis'" << c_cxx_codegen_to_str(n.get_internal_nodecl())
+        std::cerr << "Unhandled node while CFG Analysis'" << c_cxx_codegen_to_str(n.get_internal_nodecl())
                   << "' of type '" << ast_print_node_type(n.get_kind()) << "'" << std::endl;
     }
 
@@ -536,10 +536,14 @@ namespace TL
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Typeid& n)
     {   // do nothing
     }
-    
+   
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Cast& n)
     {
-        unhandled_node(n);
+        if (_actual_nodecl.is_null())
+        {
+            _actual_nodecl = n;
+        }
+        walk(n.get_rhs());
     }
     
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Offset& n)

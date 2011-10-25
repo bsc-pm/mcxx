@@ -39,6 +39,10 @@ namespace TL
         RefPtr<Nodecl::NodeclBase> nodecl = RefPtr<Nodecl::NodeclBase>::cast_dynamic(dto["nodecl"]);
         
         // *** Build the graphs for every method in the translation unit *** //
+//         DEBUG_CODE()
+        {
+            std::cerr << "=== CFG Construction ===" << std::endl;
+        }        
         CfgVisitor cfg_visitor(0);
         cfg_visitor.build_cfg(nodecl, std::string(""));
        
@@ -46,25 +50,29 @@ namespace TL
         ObjectList<ExtensibleGraph*> cfgs = cfg_visitor.get_cfgs();
         
         // First compute individually the Use-Def chains for each graph
-        for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
-        {
-            if (!(*it)->has_use_def_computed())
-            {
-                std::cerr << "****************** GRAPH " << (*it)->get_name() << " ******************" << std::endl;
-                cfg_visitor.set_actual_cfg(*it);
-                cfg_visitor.compute_use_def_chains((*it)->get_graph());
-            }
-        }
+//         std::cerr << "=== USE-DEF CHAINS COMPUTATION ===" << std::endl;
+//         for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
+//         {
+//             if (!(*it)->has_use_def_computed())
+//             {
+// //                 DEBUG_CODE()
+//                 {
+//                     std::cerr << "Graph '" << (*it)->get_name() << "'" << std::endl;
+//                 }               
+//                 cfg_visitor.set_actual_cfg(*it);
+//                 cfg_visitor.compute_use_def_chains((*it)->get_graph());
+//             }
+//         }
       
-        // *** Live Variable Analysis *** //
-        for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
-        {
-            // Non-task nodes
-            StaticAnalysis::live_variable_analysis((*it)->get_graph());
-            
-            // Task nodes
-            StaticAnalysis::analyse_tasks((*it)->get_tasks_list());
-        }
+//         // *** Live Variable Analysis *** //
+//         for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
+//         {
+//             // Non-task nodes
+//             StaticAnalysis::live_variable_analysis((*it)->get_graph());
+//             
+//             // Task nodes
+//             StaticAnalysis::analyse_tasks((*it)->get_tasks_list());
+//         }
         
         // Print graphs into dot files
         for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)

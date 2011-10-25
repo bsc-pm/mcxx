@@ -341,10 +341,10 @@ namespace TL
     
     CfgRenamingVisitor::Ret CfgRenamingVisitor::unhandled_node(const Nodecl::NodeclBase& n)
     {
-        std::cerr << "Unhandled node while inline renaming '" << c_cxx_codegen_to_str(n.get_internal_nodecl())
+        std::cerr << "Unhandled node while Renaming '" << c_cxx_codegen_to_str(n.get_internal_nodecl())
                   << "' of type '" << ast_print_node_type(n.get_kind()) << "'" << std::endl;
         return Ret();
-    }
+    }    
     
     CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::Symbol& n)
     {
@@ -360,6 +360,7 @@ namespace TL
 
     CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::ArraySubscript& n)
     {
+        Nodecl::NodeclBase array = n;
         Nodecl::NodeclBase subscripted = n.get_subscripted();
         Nodecl::NodeclBase subscripts = n.get_subscripts();
         

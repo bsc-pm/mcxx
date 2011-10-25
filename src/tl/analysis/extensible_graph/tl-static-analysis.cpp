@@ -767,105 +767,108 @@ namespace TL
             {
                 compute_use_def_chains(called_func_graph->get_graph());
                 called_func_graph->set_use_def_computed();
-            }
-            
-            // Map this information between arguments and parameters
-            // For info abut variables which are not parameters, look at the context:
-            //       - if they are in the called function context, do nothing
-            //       - otherwise, their info must be also propagated to the actual node
-            std::vector<Nodecl::NodeclBase> args;
-            Nodecl::NodeclBase func_nodecl = node->get_statements()[0];
-            if (func_nodecl.is<Nodecl::FunctionCall>())
-            {
-                Nodecl::FunctionCall func_call_nodecl = func_nodecl.as<Nodecl::FunctionCall>();
-                args = func_call_nodecl.get_arguments().as<Nodecl::List>();
-            }
-            else
-            {   // is VirtualFunctionCall
-                Nodecl::VirtualFunctionCall func_call_nodecl = func_nodecl.as<Nodecl::VirtualFunctionCall>();
-                args = func_call_nodecl.get_arguments().as<Nodecl::List>();
-            }
-            ObjectList<Symbol> params;
-            Symbol function_sym = called_func_graph->get_function_symbol();
-            scope_entry_t* function_header = function_sym.get_internal_symbol();
-            int num_params = function_header->entity_specs.num_related_symbols;
-            scope_entry_t** related_symbols = function_header->entity_specs.related_symbols;
-            for (int i=0; i<num_params; ++i)
-            {
-                Symbol s(related_symbols[i]);
-                params.append(s);
-            }
-            std::map<Symbol, Nodecl::NodeclBase> params_to_args;
-            int i = 0;
-            for(ObjectList<Symbol>::iterator it = params.begin(); it != params.end() && i < args.size(); ++it, ++i)
-            {
-                params_to_args[*it] = args[i];
-            }
-
-            // Filter map maintaining those arguments that are constants for "constant propagation" in USE-DEF info
-            std::map<Symbol, Nodecl::NodeclBase> const_args;
-            for(std::map<Symbol, Nodecl::NodeclBase>::iterator it = params_to_args.begin(); it != params_to_args.end(); ++it)
-            {
-                if (it->second.is_constant())
+                
+                // Map this information between arguments and parameters
+                // For info abut variables which are not parameters, look at the context:
+                //       - if they are in the called function context, do nothing
+                //       - otherwise, their info must be also propagated to the actual node
+                std::vector<Nodecl::NodeclBase> args;
+                Nodecl::NodeclBase func_nodecl = node->get_statements()[0];
+                if (func_nodecl.is<Nodecl::FunctionCall>())
                 {
-                    const_args[it->first] = it->second;
+                    Nodecl::FunctionCall func_call_nodecl = func_nodecl.as<Nodecl::FunctionCall>();
+                    args = func_call_nodecl.get_arguments().as<Nodecl::List>();
                 }
-            }
+                else
+                {   // is VirtualFunctionCall
+                    Nodecl::VirtualFunctionCall func_call_nodecl = func_nodecl.as<Nodecl::VirtualFunctionCall>();
+                    args = func_call_nodecl.get_arguments().as<Nodecl::List>();
+                }
+                ObjectList<Symbol> params;
+                Symbol function_sym = called_func_graph->get_function_symbol();
+                scope_entry_t* function_header = function_sym.get_internal_symbol();
+                int num_params = function_header->entity_specs.num_related_symbols;
+                scope_entry_t** related_symbols = function_header->entity_specs.related_symbols;
+                for (int i=0; i<num_params; ++i)
+                {
+                    Symbol s(related_symbols[i]);
+                    params.append(s);
+                }
+                std::map<Symbol, Nodecl::NodeclBase> params_to_args;
+                int i = 0;
+                for(ObjectList<Symbol>::iterator it = params.begin(); it != params.end() && i < args.size(); ++it, ++i)
+                {
+                    params_to_args[*it] = args[i];
+                }
 
-            // compute use-def chains for the function call
-            ext_sym_set called_func_ue_vars = called_func_graph->get_graph()->get_ue_vars();
-            ext_sym_set node_ue_vars;
-            ext_sym_set::iterator it = called_func_ue_vars.begin();
-            for(; it != called_func_ue_vars.end(); ++it)
-            {
-                Symbol s(NULL);
-                Nodecl::NodeclBase new_ue = match_nodecl_in_symbol_l(it->get_nodecl(), params, args, s);
-                if ( !new_ue.is_null() )
-                {   // UE variable is a parameter or a part of a parameter
-                    ExtensibleSymbol ei(new_ue);
-                    ei.propagate_constant_values(const_args);
-                    node_ue_vars.insert(ei);
-                }
-                else if ( !it->get_symbol().get_scope().scope_is_enclosed_by(function_sym.get_scope()) 
-                          && it->get_symbol().get_scope() != function_sym.get_scope() )
-                {   // UE variable is global
-                    node_ue_vars.insert(*it);
-                }
-            }
-            if (!node_ue_vars.empty())
-            {
-                node->set_data<ext_sym_set>(_UPPER_EXPOSED, node_ue_vars);
-            }
-           
-            ext_sym_set called_func_killed_vars = called_func_graph->get_graph()->get_killed_vars(), node_killed_vars;
-            for(ext_sym_set::iterator it = called_func_killed_vars.begin(); it != called_func_killed_vars.end(); ++it)
-            {
-                Symbol s(NULL);
-                Nodecl::NodeclBase new_killed = match_nodecl_in_symbol_l(it->get_nodecl(), params, args, s);
-                if ( !new_killed.is_null() )
-                {   // KILLED variable is a parameter or a part of a parameter
-                    decl_context_t param_context = function_sym.get_internal_symbol()->entity_specs.related_symbols[0]->decl_context;
-                    if (!params_to_args[s].is<Nodecl::Derreference>()   // Argument is not an address
-                        && ( s.get_type().is_reference()                // Parameter is passed by reference
-                            || s.get_type().is_pointer() )              // Parameter is a pointer
-                        /*&& (s.get_scope() != Scope(param_context))*/)     // FIXME The argument is not a temporal value
+                // Filter map maintaining those arguments that are constants for "constant propagation" in USE-DEF info
+                std::map<Symbol, Nodecl::NodeclBase> const_args;
+                for(std::map<Symbol, Nodecl::NodeclBase>::iterator it = params_to_args.begin(); it != params_to_args.end(); ++it)
+                {
+                    if (it->second.is_constant())
                     {
-                        ExtensibleSymbol ei(new_killed);
-                        ei.propagate_constant_values(const_args);
-                        node_killed_vars.insert(ei);
+                        const_args[it->first] = it->second;
                     }
                 }
-                else if ( !it->get_symbol().get_scope().scope_is_enclosed_by(function_sym.get_scope()) 
-                        && it->get_symbol().get_scope() != function_sym.get_scope() )
-                {   // KILLED variable is global
-                    node_killed_vars.insert(it->get_nodecl());
+
+                // compute use-def chains for the function call
+                ext_sym_set called_func_ue_vars = called_func_graph->get_graph()->get_ue_vars();
+                ext_sym_set node_ue_vars;
+                ext_sym_set::iterator it = called_func_ue_vars.begin();
+                for(; it != called_func_ue_vars.end(); ++it)
+                {
+                    Symbol s(NULL);
+                    Nodecl::NodeclBase new_ue = match_nodecl_in_symbol_l(it->get_nodecl(), params, args, s);
+                    if ( !new_ue.is_null() )
+                    {   // UE variable is a parameter or a part of a parameter
+                        ExtensibleSymbol ei(new_ue);
+                        ei.propagate_constant_values(const_args);
+                        node_ue_vars.insert(ei);
+                    }
+                    else if ( !it->get_symbol().get_scope().scope_is_enclosed_by(function_sym.get_scope()) 
+                            && it->get_symbol().get_scope() != function_sym.get_scope() )
+                    {   // UE variable is global
+                        node_ue_vars.insert(*it);
+                    }
+                }
+                if (!node_ue_vars.empty())
+                {
+                    node->set_data<ext_sym_set>(_UPPER_EXPOSED, node_ue_vars);
+                }
+            
+                ext_sym_set called_func_killed_vars = called_func_graph->get_graph()->get_killed_vars(), node_killed_vars;
+                for(ext_sym_set::iterator it = called_func_killed_vars.begin(); it != called_func_killed_vars.end(); ++it)
+                {
+                    Symbol s(NULL);
+                    Nodecl::NodeclBase new_killed = match_nodecl_in_symbol_l(it->get_nodecl(), params, args, s);
+                    if ( !new_killed.is_null() )
+                    {   // KILLED variable is a parameter or a part of a parameter
+                        decl_context_t param_context = function_sym.get_internal_symbol()->entity_specs.related_symbols[0]->decl_context;
+                        if (!params_to_args[s].is<Nodecl::Derreference>()   // Argument is not an address
+                            && ( s.get_type().is_reference()                // Parameter is passed by reference
+                                || s.get_type().is_pointer() )              // Parameter is a pointer
+                            /*&& (s.get_scope() != Scope(param_context))*/)     // FIXME The argument is not a temporal value
+                        {
+                            ExtensibleSymbol ei(new_killed);
+                            ei.propagate_constant_values(const_args);
+                            node_killed_vars.insert(ei);
+                        }
+                    }
+                    else if ( !it->get_symbol().get_scope().scope_is_enclosed_by(function_sym.get_scope()) 
+                            && it->get_symbol().get_scope() != function_sym.get_scope() )
+                    {   // KILLED variable is global
+                        node_killed_vars.insert(it->get_nodecl());
+                    }
+                }
+                if (!node_killed_vars.empty())
+                {
+                    node->set_data<ext_sym_set>(_KILLED, node_killed_vars);
                 }
             }
-            if (!node_killed_vars.empty())
-            {
-                node->set_data<ext_sym_set>(_KILLED, node_killed_vars);
+            else
+            {   // When the method is not in our translation unit, then we don't know what happens in within the function code
+                // FIXME
             }
-
         }
         else if (node->has_key(_NODE_STMTS)) 
         {
@@ -922,11 +925,11 @@ namespace TL
 
         gather_live_initial_information(node);
         ExtensibleGraph::clear_visits(node);
-        
+       
         LoopAnalysis loop_anal;
         loop_anal.analyse_loops(node);
         ExtensibleGraph::clear_visits(node);
-        
+       
         StaticAnalysis::extend_reaching_definitions_info(node, loop_anal.get_induction_vars_mapping());
         ExtensibleGraph::clear_visits(node);        
     }

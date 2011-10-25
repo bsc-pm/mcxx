@@ -106,9 +106,9 @@ namespace TL
     {
         Symbol s = n.get_symbol();
         std::string func_decl = s.get_type().get_declaration(s.get_scope(), s.get_name());
-        DEBUG_CODE()
+//         DEBUG_CODE()
         {
-            std::cerr << "=== CFG Function Visit [" << func_decl << "]===" << std::endl;
+            std::cerr << "Function '" << func_decl << "'" << std::endl;
         }
         
         std::string nom = s.get_name();
@@ -333,8 +333,6 @@ namespace TL
         }
         else
         {
-            std::cerr << "ObjectInit in visit: " << c_cxx_codegen_to_str(n.get_internal_nodecl()) 
-                      << " making new symbol" << std::endl;
             ObjectList<Node*> object_init_last_nodes = _actual_cfg->_last_nodes;
             nodecl_t n_sym = nodecl_make_symbol(n.get_symbol().get_internal_symbol(), n.get_filename().c_str(), n.get_line());
             Nodecl::Symbol nodecl_symbol(n_sym);
@@ -353,36 +351,60 @@ namespace TL
         }
     }
 
+//     static void get_array_subscript_as_list(Nodecl::ArraySubscript n, ObjectList<Nodecl::NodeclBase>& array, 
+//                                             ObjectList<Nodecl::NodeclBase>& array_accesses)
+//     {
+//         // prologue
+//         Nodecl::ArraySubscript node_array = n;
+//         std::cerr << "PRO Appending to array accesses " << node_array.prettyprint() << std::endl;
+//         Nodecl::NodeclBase subscripts = n.get_subscripts();
+//         if (subscripts.is<Nodecl::List>())
+//         {
+//             for (ObjectList<std::vector>::iterator it = subscripts.begin(); it != subscripts.end(); ++it)
+//             {
+//                 
+//             }
+//         }
+//         else
+//         {
+//             std::cerr << "PRO Appending to array " << subscripts.prettyprint() << std::endl;
+//             array_accesses.append(subscripts);
+//         }
+//         array.append(n.get_subscripts());
+//         
+//         // code
+//         Nodecl::NodeclBase node = n.get_subscripted();
+//         while (node.is<Nodecl::ArraySubscript>())
+//         {
+//             array_accesses.append(node);
+//             node_array = node.as<Nodecl::ArraySubscript>();
+//             array.append(node_array.get_subscripts());
+//             std::cerr << "IN Appending to array accesses " << node.prettyprint() << std::endl;
+//             std::cerr << "IN Appending to array " << node_array.get_subscripts().prettyprint() << std::endl;
+//             node = node_array.get_subscripted();
+//         }
+//         // epilogue
+//         
+//         array.append(node_array.get_subscripted());
+//         std::cerr << "EP Appending to array " << node_array.get_subscripted().prettyprint() << std::endl;
+//     }
+
     CfgVisitor::Ret CfgVisitor::visit(const Nodecl::ArraySubscript& n)
     {
-        ObjectList<Node*> subscripted_last_nodes = _actual_cfg->_last_nodes;
-        _actual_cfg->_last_nodes.clear();
         ObjectList<Node*> subscripted = walk(n.get_subscripted());
-
-        ObjectList<Node*> subscripts_last_nodes = _actual_cfg->_last_nodes;
-        _actual_cfg->_last_nodes.clear();
-        ObjectList<Node*> subscripts = walk(n.get_subscripts());
-        // Connect the partial node created recursively with the piece of Graph build until this moment
-        ObjectList<Node*> subscripts_first_nodes = get_first_nodes(subscripts[0]);
-        for (ObjectList<Node*>::iterator it = subscripts_first_nodes.begin();
-            it != subscripts_first_nodes.end();
-            ++it)
-        {
-            _actual_cfg->clear_visits(*it);
-        }
-        if (!subscripts_last_nodes.empty())
-        {   // This will be empty when last statement visited was a Break Statement
-            int n_connects = subscripts_first_nodes.size() * subscripts_last_nodes.size();
-            if (n_connects != 0)
-            {
-                _actual_cfg->connect_nodes(subscripts_last_nodes, subscripts_first_nodes, 
-                                        ObjectList<Edge_type>(n_connects, ALWAYS_EDGE), ObjectList<std::string>(n_connects, ""));
-            }
-        }
-        _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(subscripts);
+        ObjectList<Node*> subscripts = walk(n.get_subscripted());
         
-        Node* merged = merge_nodes(n, subscripted[0], subscripts[0]);
-        _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(merged);        
+        Node* merged;
+        if (subscripted.size() == 1 && subscripts.size() == 1)
+        {
+            merged = merge_nodes(n, subscripted[0], subscripts[0]);
+        }
+        else
+        {
+            Nodecl::ArraySubscript array = n;
+            internal_error("Subscripts size = '%d' while building CFG for Array subscript '%s'", 
+                           subscripts.size(), array.prettyprint().c_str());
+        }
         
         return ObjectList<Node*>(1, merged);
     }
@@ -392,8 +414,8 @@ namespace TL
         ObjectList<Node*> lower = walk(n.get_lower());
         ObjectList<Node*> upper = walk(n.get_upper());
         ObjectList<Node*> stride = walk(n.get_stride());
-
-        std::cerr << "FIXME: Range node creation not correct." << std::endl;
+        
+        internal_error("Range traverse not yet implemented creating the CFG", 0);
         Node* merged_limits = merge_nodes(n, lower[0], upper[0]);
         Node* merged = merge_nodes(n, merged_limits, stride[0]);
         _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(merged);
@@ -476,6 +498,7 @@ namespace TL
     template <typename T>
     CfgVisitor::Ret CfgVisitor::function_call_visit(const T& n)
     {
+        Nodecl::NodeclBase node = n;
         // Create the new Function Call node and built it
         Node* func_graph_node = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), Nodecl::NodeclBase::null(), FUNC_CALL);
         if (!_actual_cfg->_last_nodes.empty())
@@ -937,6 +960,8 @@ namespace TL
         walk(n.get_loop_header());
         _actual_cfg->_last_nodes = actual_last_nodes;
         
+        
+        
         // Connect the init
         if (_loop_info_s.top().init != NULL)
         {
@@ -976,7 +1001,7 @@ namespace TL
             _loop_info_s.top().cond->get_exit_edges()[0]->set_data<Edge_type>(_EDGE_TYPE, TRUE_EDGE);
         }
         else
-        { // It will be empty when the loop's body is empty.
+        {   // It will be empty when the loop's body is empty.
             aux_etype = TRUE_EDGE;
         }        
         
@@ -999,10 +1024,15 @@ namespace TL
         _actual_cfg->_outer_node.pop();
         _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(for_graph_node);
        
+        Node* return_node;
         if (_loop_info_s.top().init != NULL)
-            return ObjectList<Node*>(1, _loop_info_s.top().init);
+            return_node = _loop_info_s.top().init;
         else
-            return ObjectList<Node*>(1, for_graph_node);
+            return_node = for_graph_node;
+        
+        _loop_info_s.pop();
+        
+        return ObjectList<Node*>(1, return_node);
     }        
 
     CfgVisitor::Ret CfgVisitor::visit(const Nodecl::LoopControl& n)
@@ -1027,7 +1057,7 @@ namespace TL
         if (cond_node_l.empty())
         {   // The condition is an empty statement. 
             // In any case, we build here a node for easiness
-            actual_loop_info.cond = new Node(_actual_cfg->_nid, BASIC_NORMAL_NODE, _actual_cfg->_outer_node.top(), n.get_cond());
+            actual_loop_info.cond = new Node(_actual_cfg->_nid, BASIC_NORMAL_NODE, _actual_cfg->_outer_node.top(), Nodecl::NodeclBase::null());
         }
         else
         {
@@ -1039,7 +1069,7 @@ namespace TL
         ObjectList<Node*> next_node_l = walk(n.get_next());
         if (next_node_l.empty())
         {
-            actual_loop_info.next = NULL;
+            actual_loop_info.next = new Node(_actual_cfg->_nid, BASIC_NORMAL_NODE, _actual_cfg->_outer_node.top(), Nodecl::NodeclBase::null());
         }
         else
         {
@@ -1138,27 +1168,39 @@ namespace TL
             
         // Compose the then node
         ObjectList<Node*> then_node_l = walk(n.get_then());
-        cond_node_l[0]->get_exit_edges()[0]->set_data<Edge_type>(_EDGE_TYPE, TRUE_EDGE);
-        _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, exit_node);
-       
-        // Compose the else node, if it exists
-        _actual_cfg->_last_nodes.clear();
-        _actual_cfg->_last_nodes.append(cond_node_l[0]);
-        ObjectList<Node*> else_node_l = walk(n.get_else());
-        
-        exit_node->set_id(++_actual_cfg->_nid);
-        exit_node->set_outer_node(_actual_cfg->_outer_node.top());     
-        if (!else_node_l.empty())
-        {   // There exists an else statement
+        Nodecl::NodeclBase then = n.get_then();
+        if (!cond_node_l[0]->get_exit_edges().empty())
+        {
+            cond_node_l[0]->get_exit_edges()[0]->set_data<Edge_type>(_EDGE_TYPE, TRUE_EDGE);
             _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, exit_node);
+        
+            // Compose the else node, if it exists
+            _actual_cfg->_last_nodes.clear();
+            _actual_cfg->_last_nodes.append(cond_node_l[0]);
+            ObjectList<Node*> else_node_l = walk(n.get_else());
+            
+            exit_node->set_id(++_actual_cfg->_nid);
+            exit_node->set_outer_node(_actual_cfg->_outer_node.top());     
+            if (!else_node_l.empty())
+            {   // There exists an else statement
+                _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, exit_node);
+            }
+            else
+            {
+                _actual_cfg->connect_nodes(cond_node_l[0], exit_node);
+            }
+
+            // Link the If condition with the FALSE statement (else or empty node)
+            cond_node_l[0]->get_exit_edges()[1]->set_data(_EDGE_TYPE, FALSE_EDGE);            
         }
         else
         {
-            _actual_cfg->connect_nodes(cond_node_l[0], exit_node);
+            // Both for true and false evaluation for the if condition, we go to the exit node
+            exit_node->set_id(++_actual_cfg->_nid);
+            exit_node->set_outer_node(_actual_cfg->_outer_node.top());     
+            _actual_cfg->connect_nodes(cond_node_l[0], exit_node, TRUE_EDGE);
+            _actual_cfg->connect_nodes(cond_node_l[0], exit_node, FALSE_EDGE);
         }
-
-        // Link the If condition with the FALSE statement (else or empty node)
-        cond_node_l[0]->get_exit_edges()[1]->set_data(_EDGE_TYPE, FALSE_EDGE);
         
         _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(exit_node);
         
@@ -2043,7 +2085,8 @@ namespace TL
         }
         else
         {
-            std::cerr << "warning: trying to merge an empty list of nodes. This shouldn't happen'" << std::endl;
+//             FIXME Why are we merging a list of empty nodes???
+//             std::cerr << "warning: trying to merge an empty list of nodes. This shouldn't happen'" << std::endl;
             result = new Node(_actual_cfg->_nid, ntype, _actual_cfg->_outer_node.top(), n);
         }
 
@@ -2061,5 +2104,28 @@ namespace TL
         }
        
         return merge_nodes(n, previous_nodes);
+    }
+    
+    Node* CfgVisitor::merge_nodes(Node* subscripted, Node* subscript)
+    {
+        if (subscripted->get_data<Node_type>(_NODE_TYPE) || subscript->get_data<Node_type>(_NODE_TYPE))
+        {
+            
+        }
+        else
+        {
+            ObjectList<Nodecl::NodeclBase> lhs = subscripted->get_data<ObjectList<Nodecl::NodeclBase> >(_NODE_STMTS);
+            ObjectList<Nodecl::NodeclBase> rhs = subscript->get_data<ObjectList<Nodecl::NodeclBase> >(_NODE_STMTS);
+            if (lhs.size() != 1)
+            {
+                internal_error("Non graph subscripted value not correct. It must have just one statement", 0);
+            }
+            if (rhs.size() != 1)
+            {
+                internal_error("Non graph subscript value not correct. It must have just one statement", 0);
+            }
+            
+            
+        }
     }
 }

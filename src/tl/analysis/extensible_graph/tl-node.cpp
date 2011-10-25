@@ -1054,6 +1054,12 @@ namespace TL
                 // Now, all ranges must be converted to the first/last value depending on the sign of the stride
                 nodecl_map old_reach_defs = get_reaching_definitions();
                 nodecl_map stride_reach_defs = next->get_data<nodecl_map>(_REACH_DEFS);
+                
+                if (old_reach_defs.empty())
+                {   // When the graph node has no reach definition defined, we initially propagate the values of the stride node
+                    set_reaching_definition_list(stride_reach_defs);
+                }
+                
                 for(nodecl_map::iterator it = stride_reach_defs.begin(); it != stride_reach_defs.end(); ++it)
                 {
                     Nodecl::NodeclBase first = it->first, second = it->second;
@@ -1062,26 +1068,26 @@ namespace TL
 
                     ObjectList<Nodecl::NodeclBase> renamed;
                     // Visit lhs of the reach def
-                    if (!first.is<Nodecl::Symbol>())
-                    {
-                        renamed = renaming_v.walk(it->first);
-                        if (!renamed.empty())
-                        {
-                            first = renamed[0];
-                            if (old_reach_defs.empty() || old_reach_defs.find(first) != old_reach_defs.end())
-                            {
-                                rename_reaching_defintion_var(first, renamed[0]);
-                            }
-                            else if (old_reach_defs.find(renamed[0]) != old_reach_defs.end())
-                            {   // The renaming was already done. Nothing to do
-                            }
-                            else
-                            {
-                                internal_error("A previous renaming in node '%d' has been performed for initial value '%s' and "\
-                                               " actual renaming '%s'", _id, first.prettyprint().c_str(), renamed[0].prettyprint().c_str());
-                            }
-                        }                        
-                    }
+//                     if (!first.is<Nodecl::Symbol>())
+//                     {
+//                         renamed = renaming_v.walk(it->first);
+//                         if (!renamed.empty())
+//                         {
+//                             if (old_reach_defs.empty() || old_reach_defs.find(first) != old_reach_defs.end())
+//                             {
+//                                 rename_reaching_defintion_var(first, renamed[0]);
+//                                 first = renamed[0];
+//                             }
+//                             else if (old_reach_defs.find(renamed[0]) != old_reach_defs.end())
+//                             {   // The renaming was already done. Nothing to do
+//                             }
+//                             else
+//                             {
+//                                 internal_error("A previous renaming in node '%d' has been performed for initial value '%s' and "\
+//                                                " actual renaming '%s'", _id, first.prettyprint().c_str(), renamed[0].prettyprint().c_str());
+//                             }
+//                         }                        
+//                     }
                     
                     // Visit rhs of the reach def
                     renamed = renaming_v.walk(it->second);
