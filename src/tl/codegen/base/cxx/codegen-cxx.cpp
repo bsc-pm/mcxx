@@ -120,7 +120,7 @@ std::string CxxBase::codegen(const Nodecl::NodeclBase &n)
             file << ")"; \
         } \
         file << _operand; \
-        needs_parentheses = operand_has_lower_priority(node, rhs); \
+        needs_parentheses = operand_has_lower_priority(node, rhs) || same_operation(node, rhs); \
         if (needs_parentheses) \
         { \
             file << "("; \
@@ -140,7 +140,7 @@ std::string CxxBase::codegen(const Nodecl::NodeclBase &n)
         { \
             file << "("; \
         } \
-        char needs_parentheses = operand_has_lower_priority(node, lhs); \
+        char needs_parentheses = operand_has_lower_priority(node, lhs) || same_operation(node, lhs); \
         if (needs_parentheses) \
         { \
             file << "("; \
@@ -3792,6 +3792,24 @@ static char is_additive_bin_operator(node_t n)
 {
     return n == NODECL_ADD
         || n == NODECL_MINUS;
+}
+
+bool CxxBase::same_operation(Nodecl::NodeclBase current_operator, Nodecl::NodeclBase operand)
+{
+    if (current_operator.is<Nodecl::Conversion>())
+    {
+        current_operator = current_operator.as<Nodecl::Conversion>().get_nest();
+    }
+    if (operand.is<Nodecl::Conversion>())
+    {
+        operand = operand.as<Nodecl::Conversion>().get_nest();
+    }
+
+    int rank_current = get_rank(current_operator);
+    int rank_operand = get_rank(operand);
+
+    return (current_operator.get_kind() == operand.get_kind())
+        || (rank_current == rank_operand);
 }
 
 bool CxxBase::operand_has_lower_priority(Nodecl::NodeclBase current_operator, Nodecl::NodeclBase operand)

@@ -2796,6 +2796,21 @@ static char is_additive_bin_operator(node_t n)
 }
 
 
+static char same_operation(nodecl_t current_operator, nodecl_t operand)
+{
+    if (nodecl_get_kind(current_operator) == NODECL_CONVERSION)
+        current_operator = nodecl_get_child(current_operator, 0);
+    if (nodecl_get_kind(operand) == NODECL_CONVERSION)
+        operand = nodecl_get_child(operand, 0);
+
+    int rank_current = get_rank(current_operator);
+    int rank_operand = get_rank(operand);
+
+    return ((nodecl_get_kind(current_operator) == nodecl_get_kind(operand))
+            || (rank_current == rank_operand));
+
+}
+
 // We do not keep parentheses in C/C++ so we may need to restore some of them
 static char operand_has_lower_priority(nodecl_t current_operator, nodecl_t operand)
 {
@@ -2847,6 +2862,7 @@ static char operand_has_lower_priority(nodecl_t current_operator, nodecl_t opera
     POSTFIX_UNARY_EXPRESSION(postincrement, "++") \
     POSTFIX_UNARY_EXPRESSION(postdecrement, "--") \
     BINARY_EXPRESSION(add, " + ") \
+    BINARY_EXPRESSION(minus, " - ") \
     BINARY_EXPRESSION(mul, " * ") \
     BINARY_EXPRESSION(div, " / ") \
     BINARY_EXPRESSION(mod, " % ") \
@@ -2928,7 +2944,7 @@ static char operand_has_lower_priority(nodecl_t current_operator, nodecl_t opera
             fprintf(visitor->file, ")"); \
         } \
         fprintf(visitor->file, "%s", _operand); \
-        needs_parentheses = operand_has_lower_priority(node, rhs); \
+        needs_parentheses = operand_has_lower_priority(node, rhs) || same_operation(node, rhs); \
         if (needs_parentheses) \
         { \
             fprintf(visitor->file, "("); \
@@ -2948,7 +2964,7 @@ static char operand_has_lower_priority(nodecl_t current_operator, nodecl_t opera
         } \
         nodecl_t lhs = nodecl_get_child(node, 0); \
         nodecl_t rhs = nodecl_get_child(node, 1); \
-        char needs_parentheses = operand_has_lower_priority(node, lhs); \
+        char needs_parentheses = operand_has_lower_priority(node, lhs) || same_operation(node, lhs); \
         if (needs_parentheses) \
         { \
             fprintf(visitor->file, "("); \
@@ -2979,37 +2995,6 @@ OPERATOR_TABLE
 #undef PREFIX_UNARY_EXPRESSION
 #undef BINARY_EXPRESSION
 #undef BINARY_EXPRESSION_ASSIG
-
-
-static void codegen_minus(nodecl_codegen_visitor_t* visitor, nodecl_t node) 
-{ 
-    nodecl_t lhs = nodecl_get_child(node, 0); 
-    nodecl_t rhs = nodecl_get_child(node, 1); 
-    char needs_parentheses = operand_has_lower_priority(node, lhs); 
-    char left_is_pointer = is_pointer_type(no_ref(nodecl_get_type(lhs)));
-    char right_is_pointer = is_pointer_type(no_ref(nodecl_get_type(rhs)));
-    if (needs_parentheses) 
-    { 
-        fprintf(visitor->file, "("); 
-    } 
-    codegen_walk(visitor, lhs); 
-    if (needs_parentheses) 
-    { 
-        fprintf(visitor->file, ")"); 
-    } 
-    fprintf(visitor->file, "%s", " - "); 
-    needs_parentheses = operand_has_lower_priority(node, rhs) 
-        || (left_is_pointer && !right_is_pointer); 
-    if (needs_parentheses) 
-    { 
-        fprintf(visitor->file, "("); 
-    } 
-    codegen_walk(visitor, rhs); 
-    if (needs_parentheses) 
-    { 
-        fprintf(visitor->file, ")"); 
-    } 
-}
 
 static void codegen_class_member_access(nodecl_codegen_visitor_t* visitor, nodecl_t node) 
 {
@@ -4636,7 +4621,6 @@ static void c_cxx_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
 #undef PREFIX_UNARY_EXPRESSION
 #undef POSTFIX_UNARY_EXPRESSION
 #undef BINARY_EXPRESSION
-    NODECL_VISITOR(codegen_visitor)->visit_minus = codegen_visitor_fun(codegen_minus);
     NODECL_VISITOR(codegen_visitor)->visit_class_member_access = codegen_visitor_fun(codegen_class_member_access);
     NODECL_VISITOR(codegen_visitor)->visit_pseudo_destructor_name = codegen_visitor_fun(codegen_pseudo_destructor_name);
     NODECL_VISITOR(codegen_visitor)->visit_pointer_to_member = codegen_visitor_fun(codegen_pointer_to_member);
