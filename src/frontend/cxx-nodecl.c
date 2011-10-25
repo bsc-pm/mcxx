@@ -123,7 +123,7 @@ type_t* nodecl_get_type(nodecl_t t)
 
 void nodecl_set_type(nodecl_t t, type_t* type)
 {
-    return nodecl_expr_set_type(t.tree, type);
+    nodecl_expr_set_type(t.tree, type);
 }
 
 nodecl_t nodecl_copy(nodecl_t t)
@@ -225,7 +225,7 @@ scope_entry_t* nodecl_get_symbol(nodecl_t node)
 
 void nodecl_set_symbol(nodecl_t node, scope_entry_t* entry)
 {
-    return nodecl_expr_set_symbol(node.tree, entry);
+    nodecl_expr_set_symbol(node.tree, entry);
 }
 
 nodecl_t _nodecl_wrap(AST a)

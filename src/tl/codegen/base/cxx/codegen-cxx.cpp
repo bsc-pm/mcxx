@@ -880,7 +880,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
     {
         decl_spec_seq += "static ";
     }
-    if (symbol.is_extern())
+    if (symbol.is_extern() && symbol.get_initialization().is_null())
     {
         decl_spec_seq += "extern ";
     }
@@ -1939,7 +1939,14 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
     {
         indent();
         // The symbol will be already called 'struct/union X' in C
-        file << symbol.get_name();
+        if (!symbol.is_anonymous_union())
+        {
+            file << symbol.get_name() << "\n";
+        }
+        else
+        {
+            file << class_key << "\n";
+        }
         indent();
         file << "{\n";
     }
@@ -2691,7 +2698,18 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
                                 && symbol.get_type().is_const()))))
             {
                 emit_initializer = 1;
-                define_nonnested_entities_in_trees(symbol.get_initialization());
+                if (symbol.is_member()
+                        || (!symbol.get_scope().is_block_scope()
+                            && !symbol.get_scope().is_function_scope()))
+                {
+                    // This is a member or nonlocal symbol
+                    define_nonnested_entities_in_trees(symbol.get_initialization());
+                }
+                else
+                {
+                    // This is a local symbol
+                    define_local_entities_in_trees(symbol.get_initialization());
+                }
             }
 
             move_to_namespace_of_symbol(symbol);
@@ -3758,6 +3776,12 @@ static char is_bitwise_bin_operator(node_t n)
         || n == NODECL_BITWISE_XOR;
 }
 
+static char is_logical_bin_operator(node_t n)
+{
+    return n == NODECL_LOGICAL_AND
+        || n == NODECL_LOGICAL_OR;
+}
+
 static char is_shift_bin_operator(node_t n)
 {
     return n == NODECL_SHL
@@ -3770,8 +3794,17 @@ static char is_additive_bin_operator(node_t n)
         || n == NODECL_MINUS;
 }
 
-bool CxxBase::operand_has_lower_priority(const Nodecl::NodeclBase& current_operator, const Nodecl::NodeclBase& operand)
+bool CxxBase::operand_has_lower_priority(Nodecl::NodeclBase current_operator, Nodecl::NodeclBase operand)
 {
+    if (current_operator.is<Nodecl::Conversion>())
+    {
+        current_operator = current_operator.as<Nodecl::Conversion>().get_nest();
+    }
+    if (operand.is<Nodecl::Conversion>())
+    {
+        operand = operand.as<Nodecl::Conversion>().get_nest();
+    }
+
     int rank_current = get_rank(current_operator);
     int rank_operand = get_rank(operand);
 
@@ -3779,13 +3812,15 @@ bool CxxBase::operand_has_lower_priority(const Nodecl::NodeclBase& current_opera
     node_t operand_kind = operand.get_kind();
 
     // For the sake of clarity
-    // a | b & c  -> a | (b & c)
-    // a << b - c   -> a << (b - c)
-    if ((is_bitwise_bin_operator(current_kind)
-                && is_bitwise_bin_operator(operand_kind))
+    // For the sake of clarity and to avoid warnings
+    if (0 
+            // a | b & c  -> a | (b & c)
+            // a || b && c  -> a || (b && c)
+            || ((is_logical_bin_operator(current_kind) || is_bitwise_bin_operator(current_kind))
+                && (is_logical_bin_operator(operand_kind) || is_bitwise_bin_operator(operand_kind)))
+            // a << b - c   -> a << (b - c)
             || (is_shift_bin_operator(current_kind) 
-                && is_additive_bin_operator(operand_kind))
-       )
+                && is_additive_bin_operator(operand_kind)))
     {
         return 1;
     }

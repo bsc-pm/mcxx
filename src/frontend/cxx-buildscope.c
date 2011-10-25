@@ -2073,6 +2073,17 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
     }
 }
 
+/*
+ * This function returns 1 if the class scope exists and it's dependent.
+ * Otherwise returns 0.
+ */
+static char is_dependent_class_scope(decl_context_t decl_context)
+{
+    return (decl_context.class_scope != NULL 
+            && is_template_specialized_type(decl_context.class_scope->related_entry->type_information)
+            && is_dependent_type(decl_context.class_scope->related_entry->type_information));  
+}
+
 static void gather_type_spec_from_elaborated_class_specifier(AST a, 
         type_t** type_info,
         gather_decl_spec_t *gather_info,
@@ -2135,12 +2146,28 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
 
     char is_friend_class_declaration = 
         (gather_info->no_declarators && gather_info->is_friend);
+    
+    if(is_friend_class_declaration 
+         && is_dependent_class_scope(decl_context)) 
+     {
+        // create a new entry
+        scope_entry_t* new_entry = counted_calloc(1, sizeof(*new_entry), &_bytes_used_buildscope);
+        new_entry->kind = SK_DEPENDENT_FRIEND_CLASS;
 
-    if (is_friend_class_declaration)
-    {
-        decl_flags |= DF_DEPENDENT_TYPENAME;
-    }
+        //create a new nodecl 
+        nodecl_t nodecl_name = nodecl_null();
+        compute_nodecl_name_from_id_expression(id_expression, decl_context, &nodecl_name);
+        new_entry->value = nodecl_name;
 
+        scope_entry_t* class_symbol = decl_context.current_scope->related_entry;
+        ERROR_CONDITION(class_symbol->kind != SK_CLASS, "Invalid symbol", 0);
+
+        class_type_add_friend_symbol(class_symbol->type_information, new_entry);
+        
+        // ???
+        *type_info = get_void_type();
+        return;
+     }
     CXX_LANGUAGE()
     {
         if (gather_info->no_declarators
@@ -2218,15 +2245,12 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
     decl_context_t orig_decl_context = decl_context;
 
     if (entry != NULL
-            && is_friend_class_declaration
-            && entry->kind == SK_DEPENDENT_ENTITY)
+            && is_friend_class_declaration)
     {
-        entry->kind = SK_DEPENDENT_FRIEND_CLASS;
-        scope_entry_t* class_symbol = orig_decl_context.current_scope->related_entry;
+        scope_entry_t* class_symbol = decl_context.current_scope->related_entry;
         ERROR_CONDITION(class_symbol->kind != SK_CLASS, "Invalid symbol", 0);
-
         class_type_add_friend_symbol(class_symbol->type_information, entry);
-        // ???
+       // ???
         *type_info = get_void_type();
         return;
     }
@@ -7317,9 +7341,7 @@ static char find_function_declaration(AST declarator_id,
 {
     *result_entry = NULL;
     if (gather_info->is_friend 
-        && decl_context.class_scope != NULL 
-        && is_template_specialized_type(decl_context.class_scope->related_entry->type_information)
-        && is_dependent_type(decl_context.class_scope->related_entry->type_information))  
+            && is_dependent_class_scope(decl_context))
     {   
         scope_entry_t* result = counted_calloc(1, sizeof(*result), &_bytes_used_buildscope);
         result->kind = SK_DEPENDENT_FRIEND_FUNCTION;
@@ -10386,12 +10408,22 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                 && named_type_get_symbol(member_type)->entity_specs.is_anonymous_union)
         {
             scope_entry_t* named_type = named_type_get_symbol(member_type);
+
+            // Anonymous unions are members even in C
+            C_LANGUAGE()
+            {
+                named_type->entity_specs.is_member = 1;
+                named_type->entity_specs.access = current_access;
+                named_type->entity_specs.is_defined_inside_class_specifier = 1;
+                named_type->entity_specs.class_type = class_info;
+            }
+
             scope_entry_t* new_member = finish_anonymous_class(named_type, decl_context);
 
             // Add this member to the current class
             new_member->entity_specs.is_member = 1;
-            new_member->entity_specs.class_type = class_info;
             new_member->entity_specs.access = current_access;
+            new_member->entity_specs.class_type = class_info;
             class_type_add_member(class_type, new_member);
         }
     }
@@ -11289,9 +11321,9 @@ static void build_scope_return_statement(AST a,
             if (nodecl_is_err_expr(nodecl_return))
             {
                 error_printf("%s: error: no conversion is possible from '%s' to '%s' in return statement\n", 
+                        ast_location(a),
                         print_type_str(nodecl_get_type(nodecl_expr), decl_context),
-                        print_type_str(return_type, decl_context),
-                        ast_location(a));
+                        print_type_str(return_type, decl_context));
             }
         }
     }

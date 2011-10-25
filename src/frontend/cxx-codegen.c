@@ -574,16 +574,17 @@ static void run_clear_list(void)
 
 static char symbol_is_same_or_nested_in(scope_entry_t* symbol, scope_entry_t* class_sym)
 {
-    if (symbol->entity_specs.is_member)
+    if (symbol == class_sym)
+    {
+        return 1;
+    }
+    else if (symbol->entity_specs.is_member)
     {
         return symbol_is_same_or_nested_in(
                 named_type_get_symbol(symbol->entity_specs.class_type),
                 class_sym);
     }
-    else
-    {
-        return symbol == class_sym;
-    }
+    return 0;
 }
 
 // Classes are so complex that they deserve a whole routine for them
@@ -832,7 +833,14 @@ static void define_class_symbol_aux(nodecl_codegen_visitor_t* visitor, scope_ent
     {
         indent(visitor);
         // Usual case: the symbol will be already called 'struct/union X' in C
-        fprintf(visitor->file, "%s\n", symbol->symbol_name);
+        if (!symbol->entity_specs.is_anonymous_union)
+        {
+            fprintf(visitor->file, "%s\n", symbol->symbol_name);
+        }
+        else
+        {
+            fprintf(visitor->file, "%s\n", class_key);
+        }
         indent(visitor);
         fprintf(visitor->file, "{\n");
     }
@@ -1065,8 +1073,17 @@ static void define_class_symbol_aux(nodecl_codegen_visitor_t* visitor, scope_ent
 
             C_LANGUAGE()
             {
-                // Everything must be properly defined in C
-                define_symbol(visitor, member);
+                if (is_named_class_type(member->type_information)
+                        && named_type_get_symbol(member->type_information)->entity_specs.is_anonymous_union)
+                {
+                    scope_entry_t* class_sym = named_type_get_symbol(member->type_information);
+                    define_class_symbol_aux(visitor, class_sym, symbols_defined_inside_class, level + 1);
+                    class_sym->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
+                }
+                else
+                {
+                    define_symbol(visitor, member);
+                }
                 member->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
             }
             CXX_LANGUAGE()
@@ -1614,7 +1631,7 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                 {
                     decl_specifiers = strappend(decl_specifiers, "static ");
                 }
-                else if (symbol->entity_specs.is_extern)
+                else if (symbol->entity_specs.is_extern && nodecl_is_null(symbol->value))
                 {
                     decl_specifiers = strappend(decl_specifiers, "extern ");
                 }
@@ -1663,7 +1680,18 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                                         && is_const_qualified_type(symbol->type_information))))))
                 {
                     emit_initializer = 1;
-                    define_nonnested_entities_in_trees(visitor, symbol->value);
+                    if (symbol->entity_specs.is_member
+                            || (symbol->decl_context.current_scope->kind != BLOCK_SCOPE
+                                && symbol->decl_context.current_scope->kind != FUNCTION_SCOPE))
+                    {
+                        // This is a member or nonlocal symbol
+                        define_nonnested_entities_in_trees(visitor, symbol->value);
+                    }
+                    else 
+                    {
+                        // This is a local symbol
+                        define_local_entities_in_trees(visitor, symbol->value);
+                    }
                 }
 
                 codegen_move_to_namespace_of_symbol(visitor, symbol);
@@ -2749,6 +2777,12 @@ static char is_bitwise_bin_operator(node_t n)
         || n == NODECL_BITWISE_XOR;
 }
 
+static char is_logical_bin_operator(node_t n)
+{
+    return n == NODECL_LOGICAL_AND
+        || n == NODECL_LOGICAL_OR;
+}
+
 static char is_shift_bin_operator(node_t n)
 {
     return n == NODECL_SHL
@@ -2765,6 +2799,12 @@ static char is_additive_bin_operator(node_t n)
 // We do not keep parentheses in C/C++ so we may need to restore some of them
 static char operand_has_lower_priority(nodecl_t current_operator, nodecl_t operand)
 {
+    // Ignore conversions
+    if (nodecl_get_kind(current_operator) == NODECL_CONVERSION)
+        current_operator = nodecl_get_child(current_operator, 0);
+    if (nodecl_get_kind(operand) == NODECL_CONVERSION)
+        operand = nodecl_get_child(operand, 0);
+
     // It does not have known lower priority
     int rank_current = get_rank(current_operator);
     int rank_operand = get_rank(operand);
@@ -2772,11 +2812,13 @@ static char operand_has_lower_priority(nodecl_t current_operator, nodecl_t opera
     node_t current_kind = nodecl_get_kind(current_operator);
     node_t operand_kind = nodecl_get_kind(operand);
 
-    // For the sake of clarity
-    // a | b & c  -> a | (b & c)
-    // a << b - c   -> a << (b - c)
-    if ((is_bitwise_bin_operator(current_kind)
-                && is_bitwise_bin_operator(operand_kind))
+    // For the sake of clarity and to avoid warnings
+    if (0 
+            // a | b & c  -> a | (b & c)
+            // a || b && c  -> a || (b && c)
+            || ((is_logical_bin_operator(current_kind) || is_bitwise_bin_operator(current_kind))
+                && (is_logical_bin_operator(operand_kind) || is_bitwise_bin_operator(operand_kind)))
+            // a << b - c   -> a << (b - c)
             || (is_shift_bin_operator(current_kind) 
                 && is_additive_bin_operator(operand_kind))
        )
@@ -2808,7 +2850,6 @@ static char operand_has_lower_priority(nodecl_t current_operator, nodecl_t opera
     BINARY_EXPRESSION(mul, " * ") \
     BINARY_EXPRESSION(div, " / ") \
     BINARY_EXPRESSION(mod, " % ") \
-    BINARY_EXPRESSION(minus, " - ") \
     BINARY_EXPRESSION(equal, " == ") \
     BINARY_EXPRESSION(different, " != ") \
     BINARY_EXPRESSION(lower_than, " < ") \
@@ -2939,6 +2980,36 @@ OPERATOR_TABLE
 #undef BINARY_EXPRESSION
 #undef BINARY_EXPRESSION_ASSIG
 
+
+static void codegen_minus(nodecl_codegen_visitor_t* visitor, nodecl_t node) 
+{ 
+    nodecl_t lhs = nodecl_get_child(node, 0); 
+    nodecl_t rhs = nodecl_get_child(node, 1); 
+    char needs_parentheses = operand_has_lower_priority(node, lhs); 
+    char left_is_pointer = is_pointer_type(no_ref(nodecl_get_type(lhs)));
+    char right_is_pointer = is_pointer_type(no_ref(nodecl_get_type(rhs)));
+    if (needs_parentheses) 
+    { 
+        fprintf(visitor->file, "("); 
+    } 
+    codegen_walk(visitor, lhs); 
+    if (needs_parentheses) 
+    { 
+        fprintf(visitor->file, ")"); 
+    } 
+    fprintf(visitor->file, "%s", " - "); 
+    needs_parentheses = operand_has_lower_priority(node, rhs) 
+        || (left_is_pointer && !right_is_pointer); 
+    if (needs_parentheses) 
+    { 
+        fprintf(visitor->file, "("); 
+    } 
+    codegen_walk(visitor, rhs); 
+    if (needs_parentheses) 
+    { 
+        fprintf(visitor->file, ")"); 
+    } 
+}
 
 static void codegen_class_member_access(nodecl_codegen_visitor_t* visitor, nodecl_t node) 
 {
@@ -4565,6 +4636,7 @@ static void c_cxx_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
 #undef PREFIX_UNARY_EXPRESSION
 #undef POSTFIX_UNARY_EXPRESSION
 #undef BINARY_EXPRESSION
+    NODECL_VISITOR(codegen_visitor)->visit_minus = codegen_visitor_fun(codegen_minus);
     NODECL_VISITOR(codegen_visitor)->visit_class_member_access = codegen_visitor_fun(codegen_class_member_access);
     NODECL_VISITOR(codegen_visitor)->visit_pseudo_destructor_name = codegen_visitor_fun(codegen_pseudo_destructor_name);
     NODECL_VISITOR(codegen_visitor)->visit_pointer_to_member = codegen_visitor_fun(codegen_pointer_to_member);

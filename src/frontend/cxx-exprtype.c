@@ -10028,11 +10028,15 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                )
             {
                 // Attempt an interpretation like char a[] = "hello";
+                enter_test_expression();
                 check_nodecl_expr_initializer(nodecl_list_head(initializer_clause_list), 
                         decl_context,
                         declared_type,
                         nodecl_output);
-                return;
+                leave_test_expression();
+
+                if (!nodecl_is_err_expr(*nodecl_output))
+                    return;
             }
 
             int i, num_items = 0;
