@@ -3765,6 +3765,12 @@ static char is_bitwise_bin_operator(node_t n)
         || n == NODECL_BITWISE_XOR;
 }
 
+static char is_logical_bin_operator(node_t n)
+{
+    return n == NODECL_LOGICAL_AND
+        || n == NODECL_LOGICAL_OR;
+}
+
 static char is_shift_bin_operator(node_t n)
 {
     return n == NODECL_SHL
@@ -3779,6 +3785,15 @@ static char is_additive_bin_operator(node_t n)
 
 bool CxxBase::operand_has_lower_priority(const Nodecl::NodeclBase& current_operator, const Nodecl::NodeclBase& operand)
 {
+    if (current_operator.is<Nodecl::Conversion>())
+    {
+        current_operator = current_operator.as<Nodecl::Conversion>().get_nest();
+    }
+    if (operand.is<Nodecl::Conversion>())
+    {
+        operand = operand.as<Nodecl::Conversion>().get_nest();
+    }
+
     int rank_current = get_rank(current_operator);
     int rank_operand = get_rank(operand);
 
@@ -3786,13 +3801,15 @@ bool CxxBase::operand_has_lower_priority(const Nodecl::NodeclBase& current_opera
     node_t operand_kind = operand.get_kind();
 
     // For the sake of clarity
-    // a | b & c  -> a | (b & c)
-    // a << b - c   -> a << (b - c)
-    if ((is_bitwise_bin_operator(current_kind)
-                && is_bitwise_bin_operator(operand_kind))
+    // For the sake of clarity and to avoid warnings
+    if (0 
+            // a | b & c  -> a | (b & c)
+            // a || b && c  -> a || (b && c)
+            || ((is_logical_bin_operator(current_kind) || is_bitwise_bin_operator(current_kind))
+                && (is_logical_bin_operator(operand_kind) || is_bitwise_bin_operator(operand_kind)))
+            // a << b - c   -> a << (b - c)
             || (is_shift_bin_operator(current_kind) 
-                && is_additive_bin_operator(operand_kind))
-       )
+                && is_additive_bin_operator(operand_kind)))
     {
         return 1;
     }

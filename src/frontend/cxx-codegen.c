@@ -2766,6 +2766,12 @@ static char is_bitwise_bin_operator(node_t n)
         || n == NODECL_BITWISE_XOR;
 }
 
+static char is_logical_bin_operator(node_t n)
+{
+    return n == NODECL_LOGICAL_AND
+        || n == NODECL_LOGICAL_OR;
+}
+
 static char is_shift_bin_operator(node_t n)
 {
     return n == NODECL_SHL
@@ -2782,6 +2788,12 @@ static char is_additive_bin_operator(node_t n)
 // We do not keep parentheses in C/C++ so we may need to restore some of them
 static char operand_has_lower_priority(nodecl_t current_operator, nodecl_t operand)
 {
+    // Ignore conversions
+    if (nodecl_get_kind(current_operator) == NODECL_CONVERSION)
+        current_operator = nodecl_get_child(current_operator, 0);
+    if (nodecl_get_kind(operand) == NODECL_CONVERSION)
+        operand = nodecl_get_child(operand, 0);
+
     // It does not have known lower priority
     int rank_current = get_rank(current_operator);
     int rank_operand = get_rank(operand);
@@ -2789,11 +2801,13 @@ static char operand_has_lower_priority(nodecl_t current_operator, nodecl_t opera
     node_t current_kind = nodecl_get_kind(current_operator);
     node_t operand_kind = nodecl_get_kind(operand);
 
-    // For the sake of clarity
-    // a | b & c  -> a | (b & c)
-    // a << b - c   -> a << (b - c)
-    if ((is_bitwise_bin_operator(current_kind)
-                && is_bitwise_bin_operator(operand_kind))
+    // For the sake of clarity and to avoid warnings
+    if (0 
+            // a | b & c  -> a | (b & c)
+            // a || b && c  -> a || (b && c)
+            || ((is_logical_bin_operator(current_kind) || is_bitwise_bin_operator(current_kind))
+                && (is_logical_bin_operator(operand_kind) || is_bitwise_bin_operator(operand_kind)))
+            // a << b - c   -> a << (b - c)
             || (is_shift_bin_operator(current_kind) 
                 && is_additive_bin_operator(operand_kind))
        )
