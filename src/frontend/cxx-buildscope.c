@@ -11289,9 +11289,9 @@ static void build_scope_return_statement(AST a,
             if (nodecl_is_err_expr(nodecl_return))
             {
                 error_printf("%s: error: no conversion is possible from '%s' to '%s' in return statement\n", 
+                        ast_location(a),
                         print_type_str(nodecl_get_type(nodecl_expr), decl_context),
-                        print_type_str(return_type, decl_context),
-                        ast_location(a));
+                        print_type_str(return_type, decl_context));
             }
         }
     }
