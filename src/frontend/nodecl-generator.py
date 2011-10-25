@@ -436,6 +436,7 @@ NodeclBase nb(::_nodecl_wrap(elem)); result.append(this->walk(nb)); } return res
            { internal_error("Unexpected tree kind '%s'\\n", ast_print_node_type(n.get_kind())); }
     }
 
+    return Ret();
 """
     print "}"
     print "} /* namespace Nodecl */"
@@ -474,7 +475,6 @@ NodeclBase nb(::_nodecl_wrap(elem)); this->walk(nb); } break; }
        default:
            { internal_error("Unexpected tree kind '%s'\\n", ast_print_node_type(n.get_kind())); }
     }
-
 """
     print "}"
     print "} /* namespace Nodecl */"
