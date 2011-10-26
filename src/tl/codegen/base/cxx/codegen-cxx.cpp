@@ -15,6 +15,9 @@ namespace Codegen {
 
 std::string CxxBase::codegen(const Nodecl::NodeclBase &n) 
 {
+    if (n.is_null())
+        return "";
+
     // Keep the state and reset it
     State old_state = state;
     state = State();

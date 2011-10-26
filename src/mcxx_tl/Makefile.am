@@ -60,6 +60,7 @@ libmcxxtl_la_LIBADD = \
         $(top_builddir)/src/frontend/libmcxx-process.la \
         $(top_builddir)/src/frontend/libmcxx.la \
         $(top_builddir)/src/tl/libtl.la \
+        $(top_builddir)/src/tl/codegen/common/libcodegen-common.la \
 	    $(top_builddir)/lib/libmcxx-utils.la \
         $(DL_LIBRARY)
 		$(END)

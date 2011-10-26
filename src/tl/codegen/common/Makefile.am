@@ -35,6 +35,7 @@ libcodegen_common_la_CXXFLAGS=$(tl_cflags)
 libcodegen_common_la_LDFLAGS = $(tl_ldflags)
 libcodegen_common_la_SOURCES = \
     codegen-common.hpp \
+    codegen-common.cpp \
     codegen-phase.cpp \
     codegen-phase.hpp \
 	$(END)
