@@ -15,8 +15,10 @@ namespace Codegen {
 
 std::string CxxBase::codegen(const Nodecl::NodeclBase &n) 
 {
-    // Reset the state
-    state.reset();
+    // Keep the state and reset it
+    State old_state = state;
+    state = State();
+
     TL::Scope sc = n.retrieve_context();
     state.current_scope = sc;
 
@@ -25,6 +27,8 @@ std::string CxxBase::codegen(const Nodecl::NodeclBase &n)
     state.global_namespace = decl_context.global_scope->related_entry;
     state.opened_namespace = decl_context.namespace_scope->related_entry;
 
+    std::string old_file = file.str();
+
     file.clear();
     file.str("");
 
@@ -32,8 +36,15 @@ std::string CxxBase::codegen(const Nodecl::NodeclBase &n)
 
     // Make sure the global namespace is closed
     codegen_move_namespace_from_to(state.opened_namespace, state.global_namespace);
+    
+    std::string result = file.str();
 
-    return file.str();
+    // Restore previous state
+    state = old_state;
+    file.str(old_file);
+    file.seekp(0, std::ios_base::end);
+
+    return result;
 }
 
 #define OPERATOR_TABLE \
@@ -1930,6 +1941,7 @@ TL::ObjectList<TL::Symbol> CxxBase::define_required_before_class(TL::Symbol symb
             }
         }
 
+
         TL::ObjectList<TL::Symbol> friends = symbol.get_type().class_get_friends();
         for (TL::ObjectList<TL::Symbol>::iterator it = friends.begin();
                 it != friends.end();
@@ -2012,6 +2024,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
         TL::ObjectList<TL::Symbol> symbols_defined_inside_class,
         int level)
 {
+
     access_specifier_t default_access_spec = AS_UNKNOWN;
 
     std::string class_key;
@@ -2500,6 +2513,7 @@ void CxxBase::define_class_symbol(TL::Symbol symbol)
 
     // This indirectly fills state.pending_nested_types_to_define
     TL::ObjectList<TL::Symbol> symbols_defined_inside_class = define_required_before_class(symbol);
+
     define_class_symbol_aux(symbol, symbols_defined_inside_class, /* level */ 0);
 
     state.classes_being_defined.pop_back();

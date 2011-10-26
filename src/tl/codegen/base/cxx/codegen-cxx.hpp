@@ -191,12 +191,6 @@ namespace Codegen
                     being_checked_for_required(),
                     pending_nested_types_to_define(),
                     _indent_level(0) { }
-
-                void reset()
-                {
-                    // A bit crude but very effective
-                    *this = State();
-                }
             } state;
             // End of State
 
