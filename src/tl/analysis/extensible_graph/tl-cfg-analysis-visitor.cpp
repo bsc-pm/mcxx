@@ -39,7 +39,7 @@ namespace TL
 
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::unhandled_node(const Nodecl::NodeclBase& n)
     {
-        std::cerr << "Unhandled node during CFG Analysis'" << c_cxx_codegen_to_str(n.get_internal_nodecl())
+        std::cerr << "Unhandled node during CFG Analysis'" << codegen_to_str(n.get_internal_nodecl())
                   << "' of type '" << ast_print_node_type(n.get_kind()) << "'" << std::endl;
     }
 

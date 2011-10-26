@@ -3415,7 +3415,7 @@ static void build_scope_do_construct(AST a, decl_context_t decl_context, nodecl_
         {
             warn_printf("%s: warning: loop variable '%s' should be of integer type\n",
                     ast_location(a),
-                    fortran_codegen_to_str(do_loop_var));
+                    codegen_to_str(do_loop_var));
         }
     }
     nodecl_t nodecl_upper = nodecl_null();
@@ -5387,12 +5387,7 @@ static void build_scope_pragma_custom_dir(AST a, decl_context_t decl_context, no
 static void build_scope_unknown_pragma(AST a, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
     *nodecl_output = 
-        nodecl_make_builtin_decl(
-                nodecl_make_any_list(
-                    nodecl_make_list_1(
-                        nodecl_make_text(ASTText(a), ASTFileName(a), ASTLine(a))), 
-                    ASTFileName(a), ASTLine(a)),
-                "unknown-pragma", ASTFileName(a), ASTLine(a));
+        nodecl_make_unknown_pragma(ASTText(a), ASTFileName(a), ASTLine(a));
 }
 
 typedef void opt_value_fun_handler_t(AST io_stmt, AST opt_value, decl_context_t, nodecl_t*);

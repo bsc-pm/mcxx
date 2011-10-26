@@ -264,7 +264,7 @@ void check_nodecl_cuda_kernel_call(nodecl_t nodecl_postfix, nodecl_t nodecl_cuda
                 error_printf("%s: error: %s argument '%s' for kernel call cannot be converted to type '%s'\n",
                         nodecl_get_locus(nodecl_arg),
                         kernel_args[i].position,
-                        c_cxx_codegen_to_str(nodecl_arg),
+                        codegen_to_str(nodecl_arg),
                         print_type_str(dest_type, decl_context));
             }
             *nodecl_output = nodecl_make_err_expr(filename, line);

@@ -89,7 +89,7 @@ namespace TL
         else
         {
             internal_error("Unexpected type of nodecl '%s' contained in an ExtendedSymbol '%s'", 
-                           ast_print_node_type(n.get_kind()), c_cxx_codegen_to_str(n.get_internal_nodecl()));
+                           ast_print_node_type(n.get_kind()), codegen_to_str(n.get_internal_nodecl()));
         }
     }
    

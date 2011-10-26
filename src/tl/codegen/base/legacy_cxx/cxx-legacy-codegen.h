@@ -6,10 +6,11 @@
 #include "cxx-macros.h"
 #include "libmcxx-common.h"
 
-// We need this for codegen_to_str
-#include "cxx-compilerphases.hpp"
-
 MCXX_BEGIN_DECLS
+
+void _c_cxx_codegen_translation_unit(FILE* f, nodecl_t a);
+
+char* _c_cxx_codegen_to_str(nodecl_t node);
 
 MCXX_END_DECLS
 

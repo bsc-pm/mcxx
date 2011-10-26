@@ -1,5 +1,5 @@
 #include "codegen-cxx.hpp"
-#include "cxx-codegen.h"
+#include "cxx-legacy-codegen.h"
 #include <cstdio>
 
 // This is a legacy codegen phase. It is here just for A/B testing with the existing code
@@ -14,7 +14,7 @@ namespace Codegen {
             size_t size = 0;
             FILE* temporal_stream = ::open_memstream(&str, &size);
 
-            ::c_cxx_codegen_translation_unit(temporal_stream, n.get_internal_nodecl());
+            _c_cxx_codegen_translation_unit(temporal_stream, n.get_internal_nodecl());
 
             fclose(temporal_stream);
 
@@ -24,7 +24,7 @@ namespace Codegen {
         }
         else
         {
-            return c_cxx_codegen_to_str(n.get_internal_nodecl());
+            return _c_cxx_codegen_to_str(n.get_internal_nodecl());
         }
     }
 }

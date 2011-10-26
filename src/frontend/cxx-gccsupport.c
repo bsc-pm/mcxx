@@ -1064,27 +1064,20 @@ void check_gxx_type_traits(AST expression, decl_context_t decl_context, nodecl_t
     {
         if (second_type_id != NULL)
         {
-            *nodecl_output = nodecl_make_builtin_expr(
-                    nodecl_make_any_list(
-                        nodecl_make_list_3(
-                            nodecl_make_text(trait_name, ASTFileName(expression), ASTLine(expression)),
-                            nodecl_make_type(first_type, ASTFileName(expression), ASTLine(expression)),
-                            nodecl_make_type(second_type, ASTFileName(expression), ASTLine(expression))),
-                        ASTFileName(expression), ASTLine(expression)),
+            *nodecl_output = nodecl_make_gxx_trait(
+                    nodecl_make_type(first_type, ASTFileName(expression), ASTLine(expression)),
+                    nodecl_make_type(second_type, ASTFileName(expression), ASTLine(expression)),
                     get_bool_type(),
-                    "gxx-trait",
+                    trait_name,
                     ASTFileName(expression), ASTLine(expression));
         }
         else
         {
-            *nodecl_output = nodecl_make_builtin_expr(
-                    nodecl_make_any_list(
-                        nodecl_make_list_2(
-                            nodecl_make_text(trait_name, ASTFileName(expression), ASTLine(expression)),
-                            nodecl_make_type(first_type, ASTFileName(expression), ASTLine(expression))),
-                        ASTFileName(expression), ASTLine(expression)),
+            *nodecl_output = nodecl_make_gxx_trait(
+                    nodecl_make_type(first_type, ASTFileName(expression), ASTLine(expression)),
+                    nodecl_null(),
                     get_bool_type(),
-                    "gxx-trait",
+                    trait_name,
                     ASTFileName(expression), ASTLine(expression));
         }
         // This is like a constant expression with a dependent value

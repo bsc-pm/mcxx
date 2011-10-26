@@ -443,7 +443,7 @@ namespace TL
         private:
             gather_gcc_attribute_t _attr;
         public:
-            GCCAttribute(gather_gcc_attribute_t attr) : _attr() { }
+            GCCAttribute(gather_gcc_attribute_t attr) : _attr(attr) { }
 
             std::string get_attribute_name() const;
             Nodecl::List get_expression_list() const;

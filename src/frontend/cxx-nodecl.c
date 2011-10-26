@@ -527,7 +527,7 @@ size_t hash_table(nodecl_t key)
             const char* type = print_type_str(nodecl_get_type(key), CURRENT_COMPILED_FILE->global_decl_context);
             
             hash = hash_string(kind) + hash_string(sym) + hash_string(text) + hash_string(type);
-//             char* key_s = c_cxx_codegen_to_str(key);
+//             char* key_s = codegen_to_str(key);
 //             printf("kind = '%s',\t sym = '%s',\t text = '%s',\t type = '%s',\t hash <'%s' , '%d'>\n", kind, sym, text, type, key_s, hash);         
   
         }

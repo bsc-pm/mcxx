@@ -757,7 +757,7 @@ static void instantiate_dependent_friend(type_t* selected_template UNUSED_PARAME
             if(is_qualified)
             {
                 error_printf("%s:%d: error: in friend declaration, class '%s' does not exist\n",
-                        filename, line, c_cxx_codegen_to_str(name));
+                        filename, line, codegen_to_str(name));
                 return;
             }
 
@@ -765,7 +765,7 @@ static void instantiate_dependent_friend(type_t* selected_template UNUSED_PARAME
 
             new_class = new_symbol(context_of_being_instantiated,
                     context_of_being_instantiated.namespace_scope,
-                    c_cxx_codegen_to_str(friend->value));
+                    codegen_to_str(friend->value));
 
             new_class->line = line;
             new_class->file = filename;
