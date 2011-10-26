@@ -25,6 +25,7 @@ std::string CxxBase::codegen(const Nodecl::NodeclBase &n)
     state.global_namespace = decl_context.global_scope->related_entry;
     state.opened_namespace = decl_context.namespace_scope->related_entry;
 
+    file.clear();
     file.str("");
 
     walk(n);
@@ -3172,6 +3173,7 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
             std::string gcc_attributes = gcc_attributes_to_str(symbol);
             std::string asm_specification = gcc_asm_specifier_to_str(symbol);
 
+
             TL::Type real_type = symbol.get_type();
             if (symbol.is_conversion_function()
                     || symbol.is_destructor())
@@ -3195,6 +3197,7 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
                     function_name);
 
             std::string exception_spec = exception_specifier_to_str(symbol);
+
 
             indent();
             file << decl_spec_seq << declarator << exception_spec << asm_specification << gcc_attributes << ";\n";
@@ -4208,21 +4211,27 @@ std::string CxxBase::gcc_attributes_to_str(TL::Symbol symbol)
     {
         if (it->get_expression_list().is_null())
         {
-            std::stringstream ss;
             result += "__attribute__((" + it->get_attribute_name() + ")) ";
         }
         else
         {
             result += "__attribute__((" + it->get_attribute_name() + "(";
 
-            // Invoke ourselves, but keep the old text first to restore it later
             std::string old_str = file.str();
-            file.str("");
-            walk_expression_list(it->get_expression_list().as<Nodecl::List>());
-            result += file.str();
-            file.str(old_str);
 
-            result += ") ))";
+            file.clear();
+            file.str("");
+
+            walk_expression_list(it->get_expression_list().as<Nodecl::List>());
+
+            result += file.str();
+
+            file.clear();
+            file.str(old_str);
+            // Go to the end of the stream...
+            file.seekp(0, std::ios_base::end);
+
+            result += "))) ";
         }
     }
 
@@ -4235,10 +4244,17 @@ std::string CxxBase::gcc_asm_specifier_to_str(TL::Symbol symbol)
     if (!symbol.get_asm_specification().is_null())
     {
         std::string old_str = file.str();
+
+        file.clear();
         file.str("");
+
         walk(symbol.get_asm_specification());
         result = file.str();
+
+        file.clear();
         file.str(old_str);
+        // Go to the end of the stream...
+        file.seekp(0, std::ios_base::end);
     }
     return result;
 }

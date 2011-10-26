@@ -2536,6 +2536,30 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 mf03_flex_debug = CURRENT_CONFIGURATION->debug_options.debug_lexer;
                 mf03debug = CURRENT_CONFIGURATION->debug_options.debug_parser;
 #endif
+               
+                // Load codegen if not yet loaded
+                if (CURRENT_CONFIGURATION->codegen_phase == NULL)
+                {
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "DRIVER: Loading codegen phase since it is not loaded yet\n");
+                    }
+                    if (IS_C_LANGUAGE
+                            || IS_CXX_LANGUAGE)
+                    {
+                        compiler_special_phase_set_codegen(CURRENT_CONFIGURATION, "libcodegen-cxx.so");
+                    }
+#ifdef FORTRAN_SUPPORT
+                    else if (IS_FORTRAN_LANGUAGE)
+                    {
+                        compiler_special_phase_set_codegen(CURRENT_CONFIGURATION, "libcodegen-legacy_fortran.so");
+                    }
+#endif
+                    else
+                    {
+                        internal_error("Code unreachable", 0);
+                    }
+                }
 
                 initialize_semantic_analysis(translation_unit, parsed_filename);
 
@@ -2981,30 +3005,6 @@ static const char* codegen_translation_unit(translation_unit_t* translation_unit
 
     // This will be used by a native compiler
     prettyprint_set_not_internal_output();
-
-    if (CURRENT_CONFIGURATION->codegen_phase == NULL)
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "DRIVER: Loading codegen phase since it is not loaded yet\n");
-        }
-        if (IS_C_LANGUAGE
-                || IS_CXX_LANGUAGE)
-        {
-            compiler_special_phase_set_codegen(CURRENT_CONFIGURATION, "libcodegen-cxx.so");
-        }
-#ifdef FORTRAN_SUPPORT
-        else if (IS_FORTRAN_LANGUAGE)
-        {
-            compiler_special_phase_set_codegen(CURRENT_CONFIGURATION, "libcodegen-legacy_fortran.so");
-        }
-#endif
-        else
-        {
-            internal_error("Code unreachable", 0);
-        }
-    }
-
 
     if (IS_C_LANGUAGE
             || IS_CXX_LANGUAGE)

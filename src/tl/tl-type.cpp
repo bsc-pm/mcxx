@@ -51,9 +51,11 @@ namespace TL
         int num_parameters = this->parameters().size();
         const char** parameter_names = new const char*[num_parameters + 1];
 
-        for (int i = 0; i < num_parameters; i++)
+        int orig_size = parameters.size();
+        for (int i = 0; i < orig_size; i++)
         {
-            parameter_names[i] = uniquestr(parameters[i].c_str());
+            if (i < orig_size)
+                parameter_names[i] = uniquestr(parameters[i].c_str());
         }
 
         const char* result = get_declaration_string_internal(_type_info, sc._decl_context, symbol_name.c_str(), 
@@ -61,7 +63,10 @@ namespace TL
 
         for (int i = 0; i < num_parameters; i++)
         {
-            parameters[i] = parameter_names[i];
+            if (i < orig_size)
+                parameters[i] = parameter_names[i];
+            else
+                parameters[i].append(parameter_names[i]);
         }
 
         delete[] parameter_names;

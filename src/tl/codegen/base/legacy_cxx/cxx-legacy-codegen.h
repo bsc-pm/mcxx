@@ -8,8 +8,9 @@
 
 MCXX_BEGIN_DECLS
 
-// This function is deprecated, call codegen_to_str instead
-LIBMCXX_EXTERN const char* c_cxx_codegen_to_str(nodecl_t node) DEPRECATED;
+void _c_cxx_codegen_translation_unit(FILE* f, nodecl_t a);
+
+char* _c_cxx_codegen_to_str(nodecl_t node);
 
 MCXX_END_DECLS
 
