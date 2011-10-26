@@ -1026,7 +1026,7 @@ void introduce_using_entity_nodecl_name(nodecl_t nodecl_name, decl_context_t dec
         {
             error_printf("%s: error: entity '%s' in using-declaration is unknown",
                     nodecl_get_locus(nodecl_name),
-                    c_cxx_codegen_to_str(nodecl_name));
+                    codegen_to_str(nodecl_name));
         }
         return;
     }
@@ -2825,10 +2825,10 @@ static type_t* compute_underlying_type_enum(const_value_t* min_value,
         DEBUG_CODE()
         {
             fprintf(stderr, "BUILDSCOPE: Checking enum values range '%s..%s' with range '%s..%s' of %s\n",
-                    c_cxx_codegen_to_str(const_value_to_nodecl(min_value)),
-                    c_cxx_codegen_to_str(const_value_to_nodecl(max_value)),
-                    c_cxx_codegen_to_str(const_value_to_nodecl(integer_type_get_minimum(*result))),
-                    c_cxx_codegen_to_str(const_value_to_nodecl(integer_type_get_maximum(*result))),
+                    codegen_to_str(const_value_to_nodecl(min_value)),
+                    codegen_to_str(const_value_to_nodecl(max_value)),
+                    codegen_to_str(const_value_to_nodecl(integer_type_get_minimum(*result))),
+                    codegen_to_str(const_value_to_nodecl(integer_type_get_maximum(*result))),
                     print_declarator(*result));
         }
 
@@ -2841,8 +2841,8 @@ static type_t* compute_underlying_type_enum(const_value_t* min_value,
     }
 #undef B_
     internal_error("Cannot come up with a wide enough integer type for range %s..%s\n",
-            c_cxx_codegen_to_str(const_value_to_nodecl(min_value)),
-            c_cxx_codegen_to_str(const_value_to_nodecl(max_value)));
+            codegen_to_str(const_value_to_nodecl(min_value)),
+            codegen_to_str(const_value_to_nodecl(max_value)));
 }
 
 /*
@@ -3096,7 +3096,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                 else
                 {
                     fprintf(stderr, "BUILDSCOPE: Registering enumerator '%s' with value '%s' and type '%s'\n", ASTText(enumeration_name),
-                            c_cxx_codegen_to_str(enumeration_item->value),
+                            codegen_to_str(enumeration_item->value),
                             print_declarator(enumeration_item->type_information));
                 }
             }

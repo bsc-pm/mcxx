@@ -351,9 +351,9 @@ namespace TL
     void LoopAnalysis::prettyprint_induction_var_info(InductionVarInfo* var_info)
     {
         std::cerr << "***** Symbol: " << var_info->get_symbol().get_name() << std::endl;
-        std::cerr << "          LB = " << c_cxx_codegen_to_str(var_info->get_lb().get_internal_nodecl()) << std::endl;
-        std::cerr << "          UB = " << c_cxx_codegen_to_str(var_info->get_ub().get_internal_nodecl()) << std::endl;
-        std::cerr << "          STEP = " << c_cxx_codegen_to_str(var_info->get_stride().get_internal_nodecl()) << std::endl;
+        std::cerr << "          LB = " << codegen_to_str(var_info->get_lb().get_internal_nodecl()) << std::endl;
+        std::cerr << "          UB = " << codegen_to_str(var_info->get_ub().get_internal_nodecl()) << std::endl;
+        std::cerr << "          STEP = " << codegen_to_str(var_info->get_stride().get_internal_nodecl()) << std::endl;
         std::cerr << "          IS_ONE = " << (var_info->stride_is_one() == 1) << std::endl;
     }
     

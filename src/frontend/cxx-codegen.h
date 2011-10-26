@@ -6,10 +6,10 @@
 #include "cxx-macros.h"
 #include "libmcxx-common.h"
 
-MCXX_BEGIN_DECLS
+// We need this for codegen_to_str
+#include "cxx-compilerphases.hpp"
 
-// This function is deprecated, call codegen_to_str instead
-LIBMCXX_EXTERN const char* c_cxx_codegen_to_str(nodecl_t node) DEPRECATED;
+MCXX_BEGIN_DECLS
 
 MCXX_END_DECLS
 

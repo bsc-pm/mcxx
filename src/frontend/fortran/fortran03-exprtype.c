@@ -236,7 +236,7 @@ static void fortran_check_expression_impl_(AST expression, decl_context_t decl_c
                     ast_location(expression),
                     fortran_prettyprint_in_buffer(expression),
                     print_declarator(nodecl_get_type(*nodecl_output)),
-                    fortran_codegen_to_str(*nodecl_output));
+                    codegen_to_str(*nodecl_output));
         }
     }
 
@@ -962,7 +962,7 @@ static int compute_kind_from_literal(const char* p, AST expr, decl_context_t dec
 
         ERROR_CONDITION(!nodecl_is_constant(sym->value),
                 "Invalid nonconstant expression for kind '%s'", 
-                fortran_codegen_to_str(sym->value));
+                codegen_to_str(sym->value));
 
         return const_value_cast_to_4(nodecl_get_constant(sym->value));
     }

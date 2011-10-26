@@ -1674,7 +1674,7 @@ static nodecl_t update_nodecl_template_argument_expression(nodecl_t nodecl,
     DEBUG_CODE()
     {
         fprintf(stderr, "SCOPE: Updating expression '%s'\n", 
-                c_cxx_codegen_to_str(nodecl));
+                codegen_to_str(nodecl));
     }
 
     nodecl_t nodecl_output = nodecl_null();
@@ -1693,7 +1693,7 @@ static nodecl_t update_nodecl_constant_expression(nodecl_t nodecl,
     DEBUG_CODE()
     {
         fprintf(stderr, "SCOPE: Updating expression '%s'\n", 
-                c_cxx_codegen_to_str(nodecl));
+                codegen_to_str(nodecl));
     }
     nodecl = instantiate_expression(nodecl, decl_context);
 
@@ -1704,7 +1704,7 @@ static nodecl_t update_nodecl_constant_expression(nodecl_t nodecl,
         {
             error_printf("%s: error: expression '%s' is not constant\n",
                     nodecl_get_locus(nodecl),
-                    c_cxx_codegen_to_str(nodecl));
+                    codegen_to_str(nodecl));
         }
     }
 
@@ -2252,7 +2252,7 @@ static type_t* update_type_aux_(type_t* orig_type,
             DEBUG_CODE()
             {
                 fprintf(stderr, "SCOPE: Expression '%s' successfully updated\n",
-                        c_cxx_codegen_to_str(array_size));
+                        codegen_to_str(array_size));
             }
         }
 
@@ -2879,7 +2879,7 @@ const char* template_arguments_to_str(
                 }
             case TPK_NONTYPE:
                 {
-                    argument_str = c_cxx_codegen_to_str(argument->value);
+                    argument_str = codegen_to_str(argument->value);
                     break;
                 }
             default:
@@ -2996,7 +2996,7 @@ static const char* get_fully_qualified_symbol_name_of_dependent_typename(
                     case TPK_NONTYPE:
                         {
                             result = strappend(result, 
-                                    c_cxx_codegen_to_str(template_arg->value));
+                                    codegen_to_str(template_arg->value));
                             break;
                         }
                     case TPK_TEMPLATE:
@@ -3548,7 +3548,7 @@ void print_template_parameter_list_aux(template_parameter_list_t* template_param
                         }
                     case TPK_NONTYPE:
                         {
-                            fprintf(stderr, "  Argument: %s\n", c_cxx_codegen_to_str(v->value));
+                            fprintf(stderr, "  Argument: %s\n", codegen_to_str(v->value));
                             fprintf(stderr, "  (Type: %s)\n", print_declarator(v->type));
                             break;
                         }

@@ -27,17 +27,8 @@ namespace Nodecl
     std::string NodeclBase::prettyprint()
     {
         const char* result = NULL;
-        if (IS_C_LANGUAGE
-                || IS_CXX_LANGUAGE)
-        {
-            result = c_cxx_codegen_to_str(_n);
-        }
-#ifdef FORTRAN_SUPPORT
-        else if (IS_FORTRAN_LANGUAGE)
-        {
-            result = fortran_codegen_to_str(_n);
-        }
-#endif
+        result = codegen_to_str(_n);
+
         if (result == NULL)
         {
             return "<<<null codegen>>>";

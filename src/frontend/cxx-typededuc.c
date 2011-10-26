@@ -111,7 +111,7 @@ char deduce_template_arguments_common(
                             value = print_declarator(current_template_argument->type);
                             break;
                         case TPK_NONTYPE:
-                            value = c_cxx_codegen_to_str(current_template_argument->value);
+                            value = codegen_to_str(current_template_argument->value);
                             break;
                         default:
                             internal_error("Code unreachable", 0);
@@ -635,7 +635,7 @@ char deduce_template_arguments_common(
                     case TPK_NONTYPE:
                         {
                             fprintf(stderr, "TYPEDEDUC:    [%d] Deduced expression: %s\n", j,
-                                    c_cxx_codegen_to_str(current_deduction->deduced_parameters[j]->value));
+                                    codegen_to_str(current_deduction->deduced_parameters[j]->value));
                             fprintf(stderr, "TYPEDEDUC:    [%d] (Deduced) Type: %s\n", j,
                                     print_declarator(current_deduction->deduced_parameters[j]->type));
                             break;
@@ -1295,7 +1295,7 @@ static template_parameter_list_t* build_template_parameter_list_from_deduction_s
                         fprintf(stderr, "TYPEDEDUC: Position '%d' and nesting '%d' nontype template parameter updated to '%s'\n",
                                 current_deduction->parameter_position,
                                 nesting,
-                                c_cxx_codegen_to_str(argument->value));
+                                codegen_to_str(argument->value));
                     }
                 }
                 break;

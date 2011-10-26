@@ -5284,7 +5284,7 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
         if (!checking_ambiguity())
         {
             error_printf("%s: error: symbol '%s' not found in current scope\n",
-                    nodecl_get_locus(nodecl_name), c_cxx_codegen_to_str(nodecl_name));
+                    nodecl_get_locus(nodecl_name), codegen_to_str(nodecl_name));
         }
         *nodecl_output = nodecl_make_err_expr(nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name));
         return;
@@ -5413,7 +5413,7 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
             DEBUG_CODE()
             {
                 fprintf(stderr, "EXPRTYPE: Found '%s' at '%s' to be dependent\n",
-                        nodecl_get_locus(nodecl_name), c_cxx_codegen_to_str(nodecl_name));
+                        nodecl_get_locus(nodecl_name), codegen_to_str(nodecl_name));
             }
             nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
         }
@@ -5446,7 +5446,7 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
             {
                 error_printf("%s: error: invalid template class-name '%s' in expression\n", 
                         nodecl_get_locus(nodecl_name),
-                        c_cxx_codegen_to_str(nodecl_name));
+                        codegen_to_str(nodecl_name));
             }
             *nodecl_output = nodecl_make_err_expr(nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name));
             return;
@@ -5589,9 +5589,9 @@ static void check_nodecl_array_subscript_expression(
             {
                 error_printf("%s: error: expression '%s[%s]' is invalid since '%s' has type '%s' which is neither an array-type or pointer-type\n",
                         nodecl_get_locus(nodecl_subscripted),
-                        c_cxx_codegen_to_str(nodecl_subscripted),
-                        c_cxx_codegen_to_str(nodecl_subscript),
-                        c_cxx_codegen_to_str(nodecl_subscripted),
+                        codegen_to_str(nodecl_subscripted),
+                        codegen_to_str(nodecl_subscript),
+                        codegen_to_str(nodecl_subscripted),
                         print_type_str(subscripted_type, decl_context));
             }
             *nodecl_output = nodecl_make_err_expr(filename, line);
@@ -5730,8 +5730,8 @@ static void check_nodecl_array_subscript_expression(
     {
         error_printf("%s: error: in '%s[%s]' no matching operator[] for types '%s'\n",
                 nodecl_get_locus(nodecl_subscripted),
-                c_cxx_codegen_to_str(nodecl_subscripted),
-                c_cxx_codegen_to_str(nodecl_subscript),
+                codegen_to_str(nodecl_subscripted),
+                codegen_to_str(nodecl_subscript),
                 print_type_str(subscripted_type, decl_context));
     }
     *nodecl_output = nodecl_make_err_expr(filename, line);
@@ -6399,9 +6399,9 @@ static void check_conditional_expression_impl_nodecl(nodecl_t first_op,
             error_printf("%s: error: ternary operand '?' cannot be applied to first operand '%s' (of type '%s'), "
                     "second operand '%s' (of type '%s') and third operand '%s' (of type '%s')\n",
                     nodecl_get_locus(first_op),
-                    c_cxx_codegen_to_str(first_op), print_type_str(nodecl_get_type(first_op), decl_context),
-                    c_cxx_codegen_to_str(second_op), print_type_str(nodecl_get_type(second_op), decl_context),
-                    c_cxx_codegen_to_str(third_op), print_type_str(nodecl_get_type(third_op), decl_context));
+                    codegen_to_str(first_op), print_type_str(nodecl_get_type(first_op), decl_context),
+                    codegen_to_str(second_op), print_type_str(nodecl_get_type(second_op), decl_context),
+                    codegen_to_str(third_op), print_type_str(nodecl_get_type(third_op), decl_context));
         }
     }
     else
@@ -7690,7 +7690,7 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
             {
                 error_printf("%s: expression '%s' cannot be called\n", 
                         nodecl_get_locus(nodecl_called),
-                        c_cxx_codegen_to_str(nodecl_called));
+                        codegen_to_str(nodecl_called));
             }
             *nodecl_output = nodecl_make_err_expr(filename, line);
             return;
@@ -7747,7 +7747,7 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
             {
                 error_printf("%s:%d: error: called name '%s' not found in the current scope\n",
                         filename, line,
-                        c_cxx_codegen_to_str(nodecl_called));
+                        codegen_to_str(nodecl_called));
             }
             *nodecl_output = nodecl_make_err_expr(filename, line);
             return;
@@ -7815,7 +7815,7 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
             {
                 error_printf("%s:%d: error: expression '%s' cannot be called\n",
                         filename, line,
-                        c_cxx_codegen_to_str(nodecl_called));
+                        codegen_to_str(nodecl_called));
             }
             *nodecl_output = nodecl_make_err_expr(filename, line);
             return;
@@ -8890,8 +8890,8 @@ static void check_nodecl_member_access(
             {
                 error_printf("%s: error: '->%s' cannot be applied to '%s' (of type '%s')\n",
                         nodecl_get_locus(nodecl_accessed),
-                        c_cxx_codegen_to_str(nodecl_member),
-                        c_cxx_codegen_to_str(nodecl_accessed),
+                        codegen_to_str(nodecl_member),
+                        codegen_to_str(nodecl_accessed),
                         print_type_str(no_ref(accessed_type), decl_context));
             }
             *nodecl_output = nodecl_make_err_expr(filename, line);
@@ -9009,8 +9009,8 @@ static void check_nodecl_member_access(
             error_printf("%s: error: '%s%s' cannot be applied to '%s' (of type '%s')\n",
                     nodecl_get_locus(nodecl_accessed),
                     operator_arrow ? "->" : ".",
-                    c_cxx_codegen_to_str(nodecl_member),
-                    c_cxx_codegen_to_str(nodecl_accessed),
+                    codegen_to_str(nodecl_member),
+                    codegen_to_str(nodecl_accessed),
                     print_type_str(no_ref(accessed_type), decl_context));
         }
         *nodecl_output = nodecl_make_err_expr(filename, line);
@@ -9035,7 +9035,7 @@ static void check_nodecl_member_access(
         {
             error_printf("%s: error: '%s' is not a member/field of type '%s'\n",
                     nodecl_get_locus(nodecl_member),
-                    c_cxx_codegen_to_str(nodecl_member),
+                    codegen_to_str(nodecl_member),
                     print_type_str(no_ref(accessed_type), decl_context));
         }
         *nodecl_output = nodecl_make_err_expr(filename, line);
@@ -10516,7 +10516,7 @@ static void check_nodecl_designation_type(nodecl_t nodecl_designation,
                         {
                             error_printf("%s: in designated initializer '%s', field designator not valid for type '%s'\n",
                                     nodecl_get_locus(nodecl_current_designator),
-                                    c_cxx_codegen_to_str(nodecl_current_designator),
+                                    codegen_to_str(nodecl_current_designator),
                                     print_type_str(*designated_type, decl_context));
                         }
                         ok = 0;
@@ -10558,7 +10558,7 @@ static void check_nodecl_designation_type(nodecl_t nodecl_designation,
                         {
                             error_printf("%s: in designated initializer '%s', subscript designator not valid for type '%s'\n",
                                     nodecl_get_locus(nodecl_current_designator),
-                                    c_cxx_codegen_to_str(nodecl_current_designator),
+                                    codegen_to_str(nodecl_current_designator),
                                     print_type_str(*designated_type, decl_context));
                         }
                         ok = 0;
@@ -10867,7 +10867,7 @@ static void check_nodecl_pointer_to_pointer_member(
             if (!checking_ambiguity())
             {
                 error_printf("%s: error: '%s' does not have pointer to class type\n",
-                        nodecl_get_locus(nodecl_lhs), c_cxx_codegen_to_str(nodecl_lhs));
+                        nodecl_get_locus(nodecl_lhs), codegen_to_str(nodecl_lhs));
             }
             *nodecl_output = nodecl_make_err_expr(filename, line);
             return;
@@ -10878,7 +10878,7 @@ static void check_nodecl_pointer_to_pointer_member(
             if (!checking_ambiguity())
             {
                 error_printf("%s: error: '%s' is does not have pointer to member type\n",
-                        nodecl_get_locus(nodecl_rhs), c_cxx_codegen_to_str(nodecl_rhs));
+                        nodecl_get_locus(nodecl_rhs), codegen_to_str(nodecl_rhs));
             }
             *nodecl_output = nodecl_make_err_expr(filename, line);
             return;
@@ -11043,7 +11043,7 @@ static void check_nodecl_pointer_to_member(
         if (!checking_ambiguity())
         {
             error_printf("%s: error: '%s' does not have class type\n",
-                    nodecl_get_locus(nodecl_lhs), c_cxx_codegen_to_str(nodecl_lhs));
+                    nodecl_get_locus(nodecl_lhs), codegen_to_str(nodecl_lhs));
         }
         *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
@@ -11053,7 +11053,7 @@ static void check_nodecl_pointer_to_member(
         if (!checking_ambiguity())
         {
             error_printf("%s: error: '%s' is not a pointer to member\n",
-                    nodecl_get_locus(nodecl_rhs), c_cxx_codegen_to_str(nodecl_rhs));
+                    nodecl_get_locus(nodecl_rhs), codegen_to_str(nodecl_rhs));
         }
         *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
@@ -11347,7 +11347,7 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
     DEBUG_CODE()
     {
         fprintf(stderr, "EXPRTYPE: Conversion from expression '%s' with type '%s' to type '%s'\n",
-                c_cxx_codegen_to_str(nodecl_expr),
+                codegen_to_str(nodecl_expr),
                 print_declarator(nodecl_get_type(nodecl_expr)),
                 print_declarator(declared_type));
     }
@@ -11388,7 +11388,7 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
             {
                 error_printf("%s: error: initializer '%s' has type '%s' not convertible to '%s'\n",
                         nodecl_get_locus(nodecl_expr),
-                        c_cxx_codegen_to_str(nodecl_expr),
+                        codegen_to_str(nodecl_expr),
                         print_decl_type_str(initializer_expr_type, decl_context, ""),
                         print_decl_type_str(declared_type, decl_context, ""));
             }
@@ -11438,7 +11438,7 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
             {
                 error_printf("%s: error: initializer '%s' has type '%s' not convertible to '%s'\n",
                         nodecl_get_locus(nodecl_expr),
-                        c_cxx_codegen_to_str(nodecl_expr),
+                        codegen_to_str(nodecl_expr),
                         print_decl_type_str(initializer_expr_type, decl_context, ""),
                         print_decl_type_str(declared_type, decl_context, ""));
             }
@@ -12896,7 +12896,7 @@ static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
         {
             fprintf(stderr, "%s: warning: array section is invalid since '%s' has type '%s'\n",
                     nodecl_get_locus(nodecl_postfix),
-                    c_cxx_codegen_to_str(nodecl_postfix),
+                    codegen_to_str(nodecl_postfix),
                     print_type_str(indexed_type, decl_context));
         }
         *nodecl_output = nodecl_make_err_expr(filename, line);
@@ -13025,7 +13025,7 @@ static void check_nodecl_shaping_expression(nodecl_t nodecl_shaped_expr,
             {
                 error_printf("%s: error: shaping expression '%s' cannot be converted to 'int'\n",
                         nodecl_get_locus(current_expr),
-                        c_cxx_codegen_to_str(current_expr));
+                        codegen_to_str(current_expr));
             }
             free(list);
             *nodecl_output = nodecl_make_err_expr(filename, line);
@@ -13048,7 +13048,7 @@ static void check_nodecl_shaping_expression(nodecl_t nodecl_shaped_expr,
         {
             error_printf("%s: error: shaped expression '%s' does not have pointer type\n",
                     nodecl_get_locus(nodecl_shaped_expr),
-                    c_cxx_codegen_to_str(nodecl_shaped_expr));
+                    codegen_to_str(nodecl_shaped_expr));
         }
         free(list);
         *nodecl_output = nodecl_make_err_expr(filename, line);
@@ -13061,7 +13061,7 @@ static void check_nodecl_shaping_expression(nodecl_t nodecl_shaped_expr,
         {
             error_printf("%s: error: shaped expression '%s' has type 'void*' which is invalid\n",
                     nodecl_get_locus(nodecl_shaped_expr),
-                    c_cxx_codegen_to_str(nodecl_shaped_expr));
+                    codegen_to_str(nodecl_shaped_expr));
         }
         free(list);
         *nodecl_output = nodecl_make_err_expr(filename, line);
@@ -13765,7 +13765,7 @@ char check_nodecl_nontype_template_argument_expression(nodecl_t nodecl_expr,
         {
             error_printf("%s: error: invalid template argument '%s' for a nontype template parameter\n",
                     nodecl_get_locus(nodecl_expr),
-                    c_cxx_codegen_to_str(nodecl_expr));
+                    codegen_to_str(nodecl_expr));
         }
 
         *nodecl_output = nodecl_make_err_expr(nodecl_get_filename(nodecl_expr), nodecl_get_line(nodecl_expr));

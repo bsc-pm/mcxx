@@ -1,19 +1,24 @@
 phasesdir = $(pkglibdir)
 
-tl_cflags=-I $(top_srcdir)/src/tl \
+tl_cflags=\
+    -I $(top_srcdir)/src/tl \
+    -I $(top_srcdir)/src/mcxx_tl \
     -I $(top_srcdir)/src/frontend \
     -I $(top_srcdir)/src/driver \
     -I $(top_srcdir)/lib \
     -I $(top_builddir)/src/tl \
+    -I $(top_builddir)/src/mcxx_tl \
     -I $(top_builddir)/src/frontend \
     -I $(top_builddir)/src/driver \
-    -I $(top_builddir)/lib
+    -I $(top_builddir)/lib \
+	$(END)
 
 tl_cxxflags=$(tl_cflags)
 
 tl_libadd=$(top_builddir)/src/tl/libtl.la \
         $(top_builddir)/src/frontend/libmcxx-process.la \
-        $(top_builddir)/src/frontend/libmcxx.la
+        $(top_builddir)/src/frontend/libmcxx.la \
+		$(END)
 
 no_undefined=@WIN32_NO_UNDEFINED@
 

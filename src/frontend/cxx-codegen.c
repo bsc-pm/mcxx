@@ -1,7 +1,4 @@
-#include "cxx-codegen.h"
-#include "cxx-compilerphases.hpp"
-
-const char* c_cxx_codegen_to_str(nodecl_t node)
-{
-    return codegen_to_str(node);
-}
+/* EMPTY FILE. Nothing to see here. 
+ *
+ * What was here is now in tl/codegen/base/legacy_cxx/cxx-legacy-codegen.c 
+ * */

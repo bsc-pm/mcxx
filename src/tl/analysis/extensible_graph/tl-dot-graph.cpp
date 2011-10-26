@@ -155,7 +155,7 @@ namespace TL
                 Nodecl::NodeclBase actual_label(actual_node->get_graph_label());
                 if (!actual_label.is_null())
                 {
-                    subgraph_label += c_cxx_codegen_to_str(actual_label.get_internal_nodecl());
+                    subgraph_label += codegen_to_str(actual_label.get_internal_nodecl());
 //                         actual_label.get_text();
                 }
                 
@@ -355,7 +355,7 @@ namespace TL
                         it != node_block.end();
                         it++)
                 {
-                    aux_str = c_cxx_codegen_to_str(it->get_internal_nodecl());
+                    aux_str = codegen_to_str(it->get_internal_nodecl());
                     makeup_dot_block(aux_str);
                     basic_block += aux_str + "\\n";
                 }
@@ -391,12 +391,12 @@ namespace TL
         {
             if (it->second.is_null())
             {
-                result += std::string(c_cxx_codegen_to_str(it->first.get_internal_nodecl())) + " = UNKNOWN VALUE; ";
+                result += std::string(codegen_to_str(it->first.get_internal_nodecl())) + " = UNKNOWN VALUE; ";
             }
             else
             {
-                result += std::string(c_cxx_codegen_to_str(it->first.get_internal_nodecl())) + " = " 
-                          + std::string(c_cxx_codegen_to_str(it->second.get_internal_nodecl())) + "; ";
+                result += std::string(codegen_to_str(it->first.get_internal_nodecl())) + " = " 
+                          + std::string(codegen_to_str(it->second.get_internal_nodecl())) + "; ";
             }
         }
         
@@ -415,7 +415,7 @@ namespace TL
             }
             else
             {
-                std::string nodecl_string(c_cxx_codegen_to_str(it->get_nodecl().get_internal_nodecl()));
+                std::string nodecl_string(codegen_to_str(it->get_nodecl().get_internal_nodecl()));
                 result += nodecl_string + ", ";                
             }
         }

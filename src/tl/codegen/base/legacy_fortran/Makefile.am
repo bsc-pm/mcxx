@@ -51,6 +51,8 @@ libcodegen_legacy_fortran_la_LIBADD = ../../common/libcodegen-common.la \
 
 
 libcodegen_legacy_fortran_la_SOURCES = \
+     fortran03-legacy-codegen.c \
+     fortran03-legacy-codegen.h \
 	 codegen-fortran.hpp \
 	 codegen-fortran.cpp \
   	 $(END)

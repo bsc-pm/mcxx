@@ -3415,7 +3415,7 @@ static void build_scope_do_construct(AST a, decl_context_t decl_context, nodecl_
         {
             warn_printf("%s: warning: loop variable '%s' should be of integer type\n",
                     ast_location(a),
-                    fortran_codegen_to_str(do_loop_var));
+                    codegen_to_str(do_loop_var));
         }
     }
     nodecl_t nodecl_upper = nodecl_null();

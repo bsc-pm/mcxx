@@ -5966,13 +5966,13 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
                         || IS_CXX03_LANGUAGE)
                 {
                     result = strappend(result, "__typeof__(");
-                    result = strappend(result, c_cxx_codegen_to_str(simple_type->typeof_expr));
+                    result = strappend(result, codegen_to_str(simple_type->typeof_expr));
                     result = strappend(result, ")");
                 }
                 else if (IS_CXX1X_LANGUAGE)
                 {
                     result = strappend(result, "decltype(");
-                    result = strappend(result, c_cxx_codegen_to_str(simple_type->typeof_expr));
+                    result = strappend(result, codegen_to_str(simple_type->typeof_expr));
                     result = strappend(result, ")");
                 }
                 else
@@ -6163,7 +6163,7 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
                                     case TPK_NONTYPE:
                                         {
                                             result = strappend(result, 
-                                                    c_cxx_codegen_to_str(template_arg->value));
+                                                    codegen_to_str(template_arg->value));
                                             break;
                                         }
                                     case TPK_TEMPLATE:
@@ -6571,10 +6571,9 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                 }
                 else
                 {
-                    char* whole_size_str = c_cxx_codegen_to_str(type_info->array->whole_size);
+                    const char* whole_size_str = uniquestr(codegen_to_str(type_info->array->whole_size));
 
                     whole_size = strappend("[", whole_size_str);
-                    free(whole_size_str);
                     whole_size = strappend(whole_size, "]");
                 }
 
@@ -6809,7 +6808,7 @@ static const char* get_template_parameters_list_str(template_parameter_list_t* t
             case TPK_NONTYPE:
                 {
                     result = strappend(result, 
-                            c_cxx_codegen_to_str(template_parameter->value));
+                            codegen_to_str(template_parameter->value));
                     break;
                 }
             default:
@@ -6961,7 +6960,7 @@ static const char* get_builtin_type_name(type_t* type_info)
             break;
         case STK_TYPEOF :
             result = strappend(result, "__typeof__(");
-            result = strappend(result, c_cxx_codegen_to_str(simple_type_info->typeof_expr));
+            result = strappend(result, codegen_to_str(simple_type_info->typeof_expr));
             result = strappend(result, ")");
             break;
         case STK_TEMPLATE_DEPENDENT_TYPE :
@@ -7175,16 +7174,16 @@ const char* print_declarator(type_t* printed_declarator)
             case TK_ARRAY :
                 tmp_result = strappend(tmp_result, "array ");
                 tmp_result = strappend(tmp_result, "[");
-                tmp_result = strappend(tmp_result, c_cxx_codegen_to_str(printed_declarator->array->lower_bound));
+                tmp_result = strappend(tmp_result, codegen_to_str(printed_declarator->array->lower_bound));
                 tmp_result = strappend(tmp_result, ":");
-                tmp_result = strappend(tmp_result, c_cxx_codegen_to_str(printed_declarator->array->upper_bound));
+                tmp_result = strappend(tmp_result, codegen_to_str(printed_declarator->array->upper_bound));
                 tmp_result = strappend(tmp_result, "] of ");
                 if (printed_declarator->array->region != NULL)
                 {
                     tmp_result = strappend(tmp_result, "{");
-                    tmp_result = strappend(tmp_result, c_cxx_codegen_to_str(printed_declarator->array->region->lower_bound));
+                    tmp_result = strappend(tmp_result, codegen_to_str(printed_declarator->array->region->lower_bound));
                     tmp_result = strappend(tmp_result, " ; ");
-                    tmp_result = strappend(tmp_result, c_cxx_codegen_to_str(printed_declarator->array->region->upper_bound));
+                    tmp_result = strappend(tmp_result, codegen_to_str(printed_declarator->array->region->upper_bound));
                     tmp_result = strappend(tmp_result, "}" );
                 }
                 tmp_result = strappend(tmp_result, " of ");
@@ -7224,7 +7223,7 @@ const char* print_declarator(type_t* printed_declarator)
                                 case TPK_NONTYPE:
                                     {
                                         tmp_result = strappend(tmp_result, 
-                                                c_cxx_codegen_to_str(template_parameter->value));
+                                                codegen_to_str(template_parameter->value));
                                         break;
                                     }
                                 default:
