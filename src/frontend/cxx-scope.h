@@ -139,6 +139,12 @@ LIBMCXX_EXTERN type_t* update_type_for_instantiation(type_t* orig_type,
         decl_context_t context_of_being_instantiated,
         const char* filename, int line);
 
+LIBMCXX_EXTERN template_parameter_list_t* update_template_argument_list(
+        decl_context_t decl_context,
+        template_parameter_list_t* dependent_type_template_arguments,
+        const char* filename,
+        int line);
+
 // Other stuff
 LIBMCXX_EXTERN scope_entry_list_t* cascade_lookup(decl_context_t decl_context, 
         const char* name, 

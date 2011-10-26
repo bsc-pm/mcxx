@@ -1764,7 +1764,7 @@ template_parameter_value_t* update_template_parameter_value(
     return update_template_parameter_value_aux(v, decl_context, /* is_template_class */ 0, filename, line);
 }
 
-static template_parameter_list_t* update_template_argument_list_in_dependent_typename(
+template_parameter_list_t* update_template_argument_list(
         decl_context_t decl_context,
         template_parameter_list_t* dependent_type_template_arguments,
         const char* filename, 
@@ -1840,7 +1840,7 @@ static type_t* update_dependent_typename(
             template_parameter_list_t* template_arguments 
                 = nodecl_get_template_parameters(new_current_part);
             template_parameter_list_t* new_template_arguments 
-                = update_template_argument_list_in_dependent_typename(decl_context, 
+                = update_template_argument_list(decl_context, 
                         template_arguments, 
                         filename, line);
 

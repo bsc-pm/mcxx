@@ -14177,6 +14177,63 @@ static void instantiate_explicit_type_cast(nodecl_instantiate_expr_visitor_t* v,
             nodecl_get_line(node));
 }
 
+static void instantiate_dep_name_simple(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    v->nodecl_result =
+        nodecl_make_cxx_dep_name_simple(nodecl_get_text(node),
+        nodecl_get_filename(node),
+        nodecl_get_line(node));
+}
+
+static void instantiate_dep_template_id(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    template_parameter_list_t* template_args = nodecl_get_template_parameters(node);
+    template_parameter_list_t* update_template_args =
+        update_template_argument_list(v->decl_context,
+                template_args,
+                nodecl_get_filename(node),
+                nodecl_get_line(node));
+
+    nodecl_t nodecl_name = instantiate_expr_walk(v, nodecl_get_child(node, 0));
+
+    v->nodecl_result = nodecl_make_cxx_dep_template_id(nodecl_name,
+            update_template_args,
+            nodecl_get_filename(node),
+            nodecl_get_line(node));
+}
+
+static void instantiate_common_dep_name_nested(nodecl_instantiate_expr_visitor_t* v, nodecl_t node, nodecl_t (*func)(nodecl_t,const char*, int))
+{
+    nodecl_t nodecl_result_list = nodecl_null();
+    int num_items = 0;
+    nodecl_t* list = nodecl_unpack_list(nodecl_get_child(node, 0), &num_items);
+
+    int i;
+    for (i = 0; i < num_items; i++)
+    {
+        nodecl_t expr = instantiate_expr_walk(v, list[i]);
+        if (nodecl_is_err_expr(expr))
+        {
+            v->nodecl_result = expr;
+            return;
+        }
+        nodecl_result_list = nodecl_append_to_list(nodecl_result_list, expr);
+    }
+    free(list);
+
+    v->nodecl_result = (*func)(nodecl_result_list, nodecl_get_filename(node), nodecl_get_line(node));
+}
+
+static void instantiate_dep_global_name_nested(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    instantiate_common_dep_name_nested(v, node, &nodecl_make_cxx_dep_global_name_nested);
+}
+
+static void instantiate_dep_name_nested(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    instantiate_common_dep_name_nested(v, node, &nodecl_make_cxx_dep_name_nested);
+}
+
 static void instantiate_parenthesized_initializer(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
 {
     nodecl_t nodecl_result_list = nodecl_null();
@@ -14379,6 +14436,12 @@ static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, 
     NODECL_VISITOR(v)->visit_cxx_braced_initializer = instantiate_expr_visitor_fun(instantiate_braced_initializer);
     NODECL_VISITOR(v)->visit_cxx_parenthesized_initializer = instantiate_expr_visitor_fun(instantiate_parenthesized_initializer);
     NODECL_VISITOR(v)->visit_cxx_explicit_type_cast = instantiate_expr_visitor_fun(instantiate_explicit_type_cast);
+
+    // Names
+    NODECL_VISITOR(v)->visit_cxx_dep_name_simple = instantiate_expr_visitor_fun(instantiate_dep_name_simple);
+    NODECL_VISITOR(v)->visit_cxx_dep_template_id = instantiate_expr_visitor_fun(instantiate_dep_template_id);
+    NODECL_VISITOR(v)->visit_cxx_dep_name_nested = instantiate_expr_visitor_fun(instantiate_dep_name_nested);
+    NODECL_VISITOR(v)->visit_cxx_dep_global_name_nested = instantiate_expr_visitor_fun(instantiate_dep_global_name_nested);
 
     // Conditional
     NODECL_VISITOR(v)->visit_conditional_expression = instantiate_expr_visitor_fun(instantiate_conditional_expression);
