@@ -2991,7 +2991,7 @@ static const char* codegen_translation_unit(translation_unit_t* translation_unit
         if (IS_C_LANGUAGE
                 || IS_CXX_LANGUAGE)
         {
-            compiler_special_phase_set_codegen(CURRENT_CONFIGURATION, "libcodegen-legacy_cxx.so");
+            compiler_special_phase_set_codegen(CURRENT_CONFIGURATION, "libcodegen-cxx.so");
         }
 #ifdef FORTRAN_SUPPORT
         else if (IS_FORTRAN_LANGUAGE)

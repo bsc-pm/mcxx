@@ -48,16 +48,12 @@ namespace TL
             const std::string& symbol_name, ObjectList<std::string>& parameters,
             TypeDeclFlags flags) const
     {
-        int num_parameters = 0;
-        if (this->is_function())
+        int num_parameters = this->parameters().size();
+        const char** parameter_names = new const char*[num_parameters + 1];
+
+        for (int i = 0; i < num_parameters; i++)
         {
-            num_parameters = this->parameters().size();
-        }
-        const char** parameter_names = NULL;
-        if (num_parameters > 0)
-        {
-            // + 1 for the ellipsis
-            parameter_names = new const char*[num_parameters + 1];
+            parameter_names[i] = uniquestr(parameters[i].c_str());
         }
 
         const char* result = get_declaration_string_internal(_type_info, sc._decl_context, symbol_name.c_str(), 
@@ -65,7 +61,7 @@ namespace TL
 
         for (int i = 0; i < num_parameters; i++)
         {
-            parameters.push_back(std::string(parameter_names[i]));
+            parameters[i] = parameter_names[i];
         }
 
         delete[] parameter_names;

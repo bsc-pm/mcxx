@@ -760,10 +760,9 @@ static void build_scope_gcc_asm_definition(AST a, decl_context_t decl_context, n
 
                     nodecl_t nodecl_asm_param = 
                         nodecl_make_gcc_asm_operand(
-                                nodecl_make_list_3(
-                                    nodecl_constraint,
-                                    nodecl_expr,
-                                    nodecl_identifier), 
+                                nodecl_identifier,
+                                nodecl_constraint,
+                                nodecl_expr,
                                 ASTFileName(asm_operand), ASTLine(asm_operand));
 
                     nodecl_asm_params[i-1] = nodecl_append_to_list(nodecl_asm_params[i-1], 
@@ -779,13 +778,10 @@ static void build_scope_gcc_asm_definition(AST a, decl_context_t decl_context, n
 
     nodecl_t nodecl_gcc_asm = 
         nodecl_make_gcc_asm_definition(
-                nodecl_make_text(
-                    ASTText(ASTSon0(asm_parms)), 
-                    ASTFileName(ASTSon0(asm_parms)), 
-                    ASTLine(ASTSon0(asm_parms))),
                 nodecl_asm_params[0],
                 nodecl_asm_params[1],
                 nodecl_asm_params[2],
+                ASTText(ASTSon0(asm_parms)),
                 ASTFileName(a), ASTLine(a));
 
     *nodecl_output = nodecl_make_list_1(nodecl_gcc_asm);
@@ -1399,10 +1395,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
             if (asm_specification != NULL)
             {
                 nodecl_t asm_spec = nodecl_make_gcc_asm_spec(
-                        nodecl_make_text(
-                            ASTText(ASTSon0(asm_specification)), 
-                            ASTFileName(ASTSon0(asm_specification)), 
-                            ASTLine(ASTSon0(asm_specification))),
+                        ASTText(ASTSon0(asm_specification)), 
                         ASTFileName(asm_specification), 
                         ASTLine(asm_specification));
                 entry->entity_specs.asm_specification = asm_spec;

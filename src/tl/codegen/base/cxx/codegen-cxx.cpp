@@ -17,9 +17,21 @@ std::string CxxBase::codegen(const Nodecl::NodeclBase &n)
 {
     // Reset the state
     state.reset();
+    TL::Scope sc = n.retrieve_context();
+    state.current_scope = sc;
+
+    decl_context_t decl_context = sc.get_decl_context();
+
+    state.global_namespace = decl_context.global_scope->related_entry;
+    state.opened_namespace = decl_context.namespace_scope->related_entry;
+
     file.str("");
 
     walk(n);
+
+    // Make sure the global namespace is closed
+    codegen_move_namespace_from_to(state.opened_namespace, state.global_namespace);
+
     return file.str();
 }
 
@@ -34,8 +46,8 @@ std::string CxxBase::codegen(const Nodecl::NodeclBase &n)
     PREFIX_UNARY_EXPRESSION(Predecrement, "--") \
     PREFIX_UNARY_EXPRESSION(Delete, "delete ") \
     PREFIX_UNARY_EXPRESSION(DeleteArray, "delete[] ") \
-    PREFIX_UNARY_EXPRESSION(RealPart, "_Real__ ") \
-    PREFIX_UNARY_EXPRESSION(ImagPart, "_Imag__ ") \
+    PREFIX_UNARY_EXPRESSION(RealPart, "__real__ ") \
+    PREFIX_UNARY_EXPRESSION(ImagPart, "__imag__ ") \
     POSTFIX_UNARY_EXPRESSION(Postincrement, "++") \
     POSTFIX_UNARY_EXPRESSION(Postdecrement, "--") \
     BINARY_EXPRESSION(Add, " + ") \
@@ -75,7 +87,7 @@ std::string CxxBase::codegen(const Nodecl::NodeclBase &n)
     { \
         Nodecl::NodeclBase rhs = node.children()[0]; \
         char needs_parentheses = operand_has_lower_priority(node, rhs); \
-        file << "%s" << _operand; \
+        file << _operand; \
         if (needs_parentheses) \
         { \
             file << "("; \
@@ -101,7 +113,7 @@ std::string CxxBase::codegen(const Nodecl::NodeclBase &n)
         { \
             file << ")"; \
         } \
-        file << "%s" << _operand; \
+        file << _operand; \
     }
 
 #define BINARY_EXPRESSION(_name, _operand) \
@@ -371,7 +383,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ComplexLiteral& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::CompoundExpression& node)
 {
-    file << "(";
+    file << " (";
 
     Nodecl::Context context = node.get_nest().as<Nodecl::Context>();
     Nodecl::List statements = context.get_in_context().as<Nodecl::List>();
@@ -386,8 +398,12 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CompoundExpression& node)
     state.in_condition = 0;
 
     ERROR_CONDITION(statements.size() != 1, "In C/C++ blocks only have one statement", 0);
-    define_local_entities_in_trees(statements[0]);
-    walk(statements[0]);
+    ERROR_CONDITION(!statements[0].is<Nodecl::CompoundStatement>(), "Invalid statement", 0);
+
+    Nodecl::NodeclBase statement_seq = statements[0].as<Nodecl::CompoundStatement>().get_statements();
+
+    define_local_entities_in_trees(statement_seq);
+    walk(statement_seq);
 
     state.in_condition = in_condition;
     dec_indent();
@@ -397,7 +413,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CompoundExpression& node)
 
     state.current_scope = old_scope;
 
-    file << ")";
+    file << ") ";
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::CompoundStatement& node)
@@ -728,13 +744,13 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
                 ERROR_CONDITION(!(arguments.size() >= 1), "A nonstatic member call lacks the implicit argument", 0);
 
                 char needs_parentheses = (get_rank(arguments[0])
-                        < get_rank_kind(NODECL_CLASS_MEMBER_ACCESS, NULL));
+                        < get_rank_kind(NODECL_CLASS_MEMBER_ACCESS, ""));
 
                 if (needs_parentheses)
                 {
                     file << "(";
                 }
-                walk(arguments);
+                walk(arguments[0]);
                 if (needs_parentheses)
                 {
                     file << ")";
@@ -1033,18 +1049,18 @@ CxxBase::Ret CxxBase::visit(const Nodecl::IntegerLiteral& node)
                          {
                              if (t.is_signed_char())
                              {
-                                 file << (signed char) b;
+                                 file << "'" << (signed char) b << "'";
                              }
                              else
                              {
-                                 file << (unsigned char) b;
+                                 file << "'" << (unsigned char) b << "'";
                              }
                          }
                          else
                          {
                              file << "'\\" 
                                  << std::oct << std::setfill('0') << std::setw(3) 
-                                 << b 
+                                 << (unsigned int)b 
                                  << std::dec << std::setw(0) << "'";
                          }
                      }
@@ -1060,6 +1076,13 @@ CxxBase::Ret CxxBase::visit(const Nodecl::IntegerLiteral& node)
     }
     else 
     {
+        std::string complex_prefix;
+        if (const_value_is_complex(value))
+        {
+            // In C complex constants only have imag part
+            value = const_value_complex_get_imag_part(value);
+        }
+
         unsigned long long int v = const_value_cast_to_8(value);
 
         if (t.is_signed_int())
@@ -1160,7 +1183,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::MemberInit& node)
     }
     else // !do_not_emit_declarations
     {
-        file << "%s(" << entry.get_name();
+        file << entry.get_name() << "(";
 
         if (nodecl_calls_to_constructor(init_expr, entry.get_type()))
         {
@@ -1343,7 +1366,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::PragmaCustomStatement& node)
     indent();
 
     // FIXME  parallel|for must be printed as parallel for
-    file << "#pragma %s " << node.get_text();
+    file << "#pragma " << node.get_text();
     walk(pragma_line);
     file << "\n";
     walk(statement);
@@ -1712,6 +1735,91 @@ CxxBase::Ret CxxBase::visit(const Nodecl::WhileStatement& node)
     dec_indent();
 }
 
+CxxBase::Ret CxxBase::visit(const Nodecl::Verbatim& node)
+{
+    file << node.get_text();
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::UnknownPragma& node)
+{
+    file << "#pragma " << node.get_text() << "\n";
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::GxxTrait& node)
+{
+    Nodecl::NodeclBase lhs = node.get_lhs();
+    Nodecl::NodeclBase rhs = node.get_lhs();
+
+    file << node.get_text() << "(";
+
+    walk(lhs);
+
+    if (!rhs.is_null())
+    {
+        file << ", ";
+        walk(rhs);
+    }
+
+    file << ")";
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::GccAsmDefinition& node)
+{
+    Nodecl::NodeclBase op0 = node.get_operands0();
+    Nodecl::NodeclBase op1 = node.get_operands1();
+    Nodecl::NodeclBase op2 = node.get_operands2();
+
+    // FIXME - We are missing the volatile keyword!
+    file << "__asm__ (";
+    file << node.get_text();
+    file << " : ";
+    walk_list(op0.as<Nodecl::List>(), ", ");
+    file << " : ";
+    walk_list(op1.as<Nodecl::List>(), ", ");
+    file << " : ";
+    walk_list(op2.as<Nodecl::List>(), ", ");
+    file << ");";
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::GccAsmOperand& node)
+{
+    Nodecl::NodeclBase identifier = node.get_identifier();
+    Nodecl::NodeclBase constraint = node.get_constraint();
+    Nodecl::NodeclBase expr = node.get_expr();
+
+    if (!identifier.is_null())
+    {
+        file << "[" << identifier.get_text() << "]";
+    }
+
+    walk(constraint);
+    file << "(";
+    walk(expr);
+    file << ")";
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::GccAsmSpec& node)
+{
+    file << " __asm(" << node.get_text() << ")";
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::UpcSyncStatement& node)
+{
+    file << node.get_text() << "(";
+    walk(node.get_expr()); 
+    file << ")";
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::SourceComment& node)
+{
+    file << "/* " << node.get_text() << " */\n";
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::PreprocessorLine& node)
+{
+    file << node.get_text() << "\n";
+}
+
 bool CxxBase::symbol_is_same_or_nested_in(TL::Symbol symbol, TL::Symbol class_sym)
 {
     if (symbol.is_member())
@@ -1761,7 +1869,7 @@ TL::ObjectList<TL::Symbol> CxxBase::define_required_before_class(TL::Symbol symb
             declare_all_in_template_arguments(template_arguments);
 
             TL::Type template_type = symbol.get_type().get_related_template_type();
-            TL::Type primary_template = symbol.get_type().get_primary_template();
+            TL::Type primary_template = template_type.get_primary_template();
             TL::Symbol primary_symbol = primary_template.get_symbol();
 
             if (primary_symbol != symbol)
@@ -1861,7 +1969,10 @@ TL::ObjectList<TL::Symbol> CxxBase::define_required_before_class(TL::Symbol symb
     TL::ObjectList<TL::Symbol> result(state.pending_nested_types_to_define.begin(), state.pending_nested_types_to_define.end());
 
     // Remove current class if it appears
-    result.erase(std::find(result.begin(), result.end(), symbol));
+    TL::ObjectList<TL::Symbol>::iterator it = std::find(result.begin(), result.end(), symbol);
+
+    if (it != result.end())
+        result.erase(it);
 
     // Clear pending now as we are going to call define_required_before_class again
     state.pending_nested_types_to_define.clear();
@@ -2024,7 +2135,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
 
         if (!symbol.is_anonymous_union())
         {
-            file << class_key << qualified_name;
+            file << class_key << " " << qualified_name;
         }
         else
         {
@@ -2493,7 +2604,7 @@ void CxxBase::define_symbol(TL::Symbol symbol)
 
     if (symbol.is_variable())
     {
-                declare_symbol(symbol);
+        declare_symbol(symbol);
     }
     else if (symbol.is_typedef())
     {
@@ -2615,7 +2726,6 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
 
     set_codegen_status(symbol, CODEGEN_STATUS_DECLARED);
 
-
     if (symbol.is_variable())
     {
         // Builtins or anonymous unions are not printed
@@ -2686,6 +2796,7 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
             {
                 emit_initializer = 1;
                 if (symbol.is_member()
+                        // FIXME -> || !is_local_symbol(symbol))
                         || (!symbol.get_scope().is_block_scope()
                             && !symbol.get_scope().is_function_scope()))
                 {
@@ -2894,7 +3005,7 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
             {
                 is_template_specialized = 1;
                 template_type = symbol.get_type().get_related_template_type();
-                primary_template = symbol.get_type().get_primary_template();
+                primary_template = template_type.get_primary_template();
                 primary_symbol = primary_template.get_symbol();
                 declare_symbol(primary_symbol);
 
@@ -2976,9 +3087,9 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
             {
                 file << get_template_arguments_str(symbol.get_internal_symbol(), symbol.get_scope().get_decl_context());
             }
-
-            file << ";\n";
         }
+
+        file << ";\n";
     }
     else if (symbol.is_enumerator())
     {
@@ -3086,7 +3197,7 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
             std::string exception_spec = exception_specifier_to_str(symbol);
 
             indent();
-            file << decl_spec_seq << declarator << exception_spec << asm_specification << gcc_attributes;
+            file << decl_spec_seq << declarator << exception_spec << asm_specification << gcc_attributes << ";\n";
         }
     }
     else if (symbol.is_template_parameter())
@@ -3119,9 +3230,8 @@ void CxxBase::define_generic_entities(Nodecl::NodeclBase node,
 {
     if (node.is_null())
         return;
-    
-    TL::ObjectList<Nodecl::NodeclBase> children;
 
+    TL::ObjectList<Nodecl::NodeclBase> children = node.children();
     for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
            it != children.end(); 
            it++)
@@ -3247,7 +3357,7 @@ void CxxBase::entry_local_definition(
 {
     // FIXME - Improve this
     if (state.current_scope.get_decl_context().current_scope 
-            == state.current_scope.get_decl_context().current_scope)
+            == entry.get_scope().get_decl_context().current_scope)
     {
         if (!node.is<Nodecl::ObjectInit>())
         {
@@ -3295,7 +3405,7 @@ void CxxBase::walk_type_for_symbols(TL::Type t,
         void (CxxBase::* symbol_to_define)(TL::Symbol),
         void (CxxBase::* define_entities_in_tree)(const Nodecl::NodeclBase&))
 {
-    if (t.is_valid())
+    if (!t.is_valid())
         return;
 
     if (state.walked_types.find(t) != state.walked_types.end())
@@ -3909,7 +4019,7 @@ std::string CxxBase::quote_c_string(int* c, int length, char is_wchar)
             {
                 ss << "\\" 
                     << std::oct << std::setw(3) << std::setfill('0') 
-                    << current 
+                    << (unsigned int) current 
                     << std::setw(0) << std::dec;
                 result += ss.str();
             }
@@ -3938,7 +4048,7 @@ bool CxxBase::nodecl_calls_to_constructor(const Nodecl::NodeclBase& node, TL::Ty
         if (called_sym.is_valid()
                 && called_sym.is_constructor())
         {
-            return (t.is_valid())
+            return (!t.is_valid())
                 || (t.no_ref()
                         .get_unqualified_type()
                         .is_same_type(called_sym.get_class_type().get_unqualified_type()));
@@ -3950,8 +4060,7 @@ bool CxxBase::nodecl_calls_to_constructor(const Nodecl::NodeclBase& node, TL::Ty
 bool CxxBase::nodecl_is_zero_args_call_to_constructor(Nodecl::NodeclBase node)
 {
     return (nodecl_calls_to_constructor(node, TL::Type(NULL))
-            && node.is<Nodecl::List>()
-            && node.as<Nodecl::List>().empty());
+            && node.as<Nodecl::FunctionCall>().get_arguments().as<Nodecl::List>().empty());
 }
 
 bool CxxBase::nodecl_is_zero_args_structured_value(Nodecl::NodeclBase node)
@@ -4104,7 +4213,16 @@ std::string CxxBase::gcc_attributes_to_str(TL::Symbol symbol)
         }
         else
         {
-            internal_error("Not yet implemented", 0);
+            result += "__attribute__((" + it->get_attribute_name() + "(";
+
+            // Invoke ourselves, but keep the old text first to restore it later
+            std::string old_str = file.str();
+            file.str("");
+            walk_expression_list(it->get_expression_list().as<Nodecl::List>());
+            result += file.str();
+            file.str(old_str);
+
+            result += ") ))";
         }
     }
 
@@ -4116,7 +4234,11 @@ std::string CxxBase::gcc_asm_specifier_to_str(TL::Symbol symbol)
     std::string result;
     if (!symbol.get_asm_specification().is_null())
     {
-        internal_error("Not yet implemented", 0);
+        std::string old_str = file.str();
+        file.str("");
+        walk(symbol.get_asm_specification());
+        result = file.str();
+        file.str(old_str);
     }
     return result;
 }
@@ -4148,9 +4270,9 @@ std::string CxxBase::exception_specifier_to_str(TL::Symbol symbol)
     return exception_spec;
 }
 
-std::string CxxBase::template_arguments_to_str(TL::Symbol)
+std::string CxxBase::template_arguments_to_str(TL::Symbol symbol)
 {
-    internal_error("Not yet implemented", 0);
+    return ::get_template_arguments_str(symbol.get_internal_symbol(), symbol.get_scope().get_decl_context());
 }
 
 } // Codegen

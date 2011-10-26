@@ -1852,22 +1852,9 @@ static void codegen_compound_statement(nodecl_codegen_visitor_t* visitor, nodecl
     codegen_walk(visitor, nodecl_get_child(node, 0));
 }
 
-static void codegen_builtin_decl(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+static void codegen_unknown_pragma(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
-    const char* builtin_name = nodecl_get_text(node);
-    nodecl_t any_list_holder = nodecl_get_child(node, 0);
-    nodecl_t any_list = nodecl_get_child(any_list_holder, 0);
-
-    if (strcasecmp(builtin_name, "unknown-pragma") == 0)
-    {
-        // fprintf(visitor->file, "!");
-        codegen_walk(visitor, any_list);
-        fprintf(visitor->file, "\n");
-    }
-    else
-    {
-        internal_error("Unhandled '%s' builtin at %s\n", builtin_name, nodecl_get_locus(node));
-    }
+    fprintf(visitor->file, "%s\n", nodecl_get_text(node));
 }
 
 static void codegen_conversion(nodecl_codegen_visitor_t* visitor, nodecl_t node)
@@ -1958,7 +1945,7 @@ static void fortran_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
 
     NODECL_VISITOR(codegen_visitor)->visit_conversion = codegen_visitor_fun(codegen_conversion);
 
-    // NODECL_VISITOR(codegen_visitor)->visit_builtin_decl = codegen_visitor_fun(codegen_builtin_decl);
+    NODECL_VISITOR(codegen_visitor)->visit_unknown_pragma = codegen_visitor_fun(codegen_unknown_pragma);
 }
 
 void fortran_codegen_translation_unit(FILE* f, nodecl_t node)

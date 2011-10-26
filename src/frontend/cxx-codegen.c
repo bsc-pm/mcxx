@@ -2471,7 +2471,7 @@ static void codegen_complex_literal(nodecl_codegen_visitor_t* visitor, nodecl_t 
     // literal integer/float and the real part will be zero
     
     // nodecl_t real_part = nodecl_get_child(node, 0); // Zero
-    nodecl_t imag_part = nodecl_get_child(node, 0); 
+    nodecl_t imag_part = nodecl_get_child(node, 1); 
 
     codegen_walk(visitor, imag_part);
     fprintf(visitor->file, "i"); // we could use 'j' too

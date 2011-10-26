@@ -72,6 +72,7 @@ statement-but-object-init: NODECL_EMPTY_STATEMENT()
           | c-cxx-only-statements
           | fortran-only-statements
           | parallel-statements
+          | compatibility
 
 compound-statement : NODECL_COMPOUND_STATEMENT([statements]statement-seq-opt, [finally]statement-seq-opt) 
 
@@ -144,6 +145,7 @@ expression : literal
            | c-cxx-expressions
            | fortran-expressions
            | object-init
+           | compatibility
 # This one is intended to represent implicit conversions allowed by the base language
            | NODECL_CONVERSION([nest] expression) type
            | NODECL_ERR_EXPR()
@@ -298,6 +300,7 @@ compatibility: unknown-pragma
           | upc-sync-statement
           | gcc-builtin-va-arg
           | gxx-traits
+          | text
 
 gcc-builtin-va-arg: NODECL_GCC_BUILTIN_VA_ARG([expr] expression, [va_type]type) type
 
@@ -308,10 +311,10 @@ source-comment: NODECL_SOURCE_COMMENT() text
 preprocessor-text : NODECL_PREPROCESSOR_LINE() text
 verbatim: NODECL_VERBATIM() text
 
-gcc-asm-spec : NODECL_GCC_ASM_SPEC([asm_text]text)
+gcc-asm-spec : NODECL_GCC_ASM_SPEC() text
 
-gcc-asm-definition : NODECL_GCC_ASM_DEFINITION([asm_text] text, [operands0]gcc-asm-operand-seq, [operands1]gcc-asm-operand-seq, [operands2]gcc-asm-operand-seq)
-gcc-asm-operand : NODECL_GCC_ASM_OPERAND([asm_text] text-seq)
+gcc-asm-definition : NODECL_GCC_ASM_DEFINITION([operands0]gcc-asm-operand-seq, [operands1]gcc-asm-operand-seq, [operands2]gcc-asm-operand-seq) text
+gcc-asm-operand : NODECL_GCC_ASM_OPERAND( [identifier]text-opt, [constraint]text, [expr]text)
 
 upc-sync-statement : NODECL_UPC_SYNC_STATEMENT([expr]expression) text
 
