@@ -1381,9 +1381,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::PragmaCustomStatement& node)
     Nodecl::NodeclBase statement = node.get_statement();
 
     indent();
-
     // FIXME  parallel|for must be printed as parallel for
-    file << "#pragma " << node.get_text();
+    file << "#pragma " << node.get_text() << " ";
     walk(pragma_line);
     file << "\n";
     walk(statement);

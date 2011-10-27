@@ -148,12 +148,12 @@ pragma_custom_construct_range : block pragma_custom_end_construct
 // These cases only allows a single statements but does not require an end construct to appear
 pragma_custom_noend_construct_range : non_top_level_program_unit_stmts pragma_custom_end_construct
 {
-    $$[0] = $1;
+    $$[0] = ASTMake1(AST_COMPOUND_STATEMENT, ASTListLeaf($1), ASTFileName($1), ASTLine($1), NULL);
     $$[1] = $2;
 }
 | non_top_level_program_unit_stmts
 {
-    $$[0] = $1;
+    $$[0] = ASTMake1(AST_COMPOUND_STATEMENT, ASTListLeaf($1), ASTFileName($1), ASTLine($1), NULL);
     $$[1] = NULL;
 }
 ;

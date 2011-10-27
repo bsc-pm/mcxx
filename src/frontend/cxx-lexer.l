@@ -166,7 +166,8 @@ static const char* verbatim_buffer_get(void);
 
 static const char* return_pragma_prefix_longest_match(const char* prefix, 
         const char* lexed_directive,
-        pragma_directive_kind_t* kind);
+        pragma_directive_kind_t* kind,
+        char* original_directive);
 
 
 %}
@@ -405,9 +406,12 @@ type {
 
     pragma_directive_kind_t directive_kind = PDK_NONE; 
 
+    char original_directive[strlen(yytext)];
+    memset(original_directive, 0, sizeof(original_directive));
+
     // This call will unput appropriately what was lexed too much
-    const char* longest_match = return_pragma_prefix_longest_match(
-            current_pragma_prefix, yytext, &directive_kind);
+    /* const char* longest_match = */ return_pragma_prefix_longest_match(
+            current_pragma_prefix, yytext, &directive_kind, original_directive);
 
     if (directive_kind == PDK_NONE)
     {
@@ -418,7 +422,7 @@ type {
     }
     else
     {
-        parse_token_text_str(longest_match);
+        parse_token_text_str(original_directive);
     }
 
 
@@ -1586,7 +1590,8 @@ static const char* return_pragma_prefix_longest_match_inner(pragma_directive_set
 
 static const char* return_pragma_prefix_longest_match(const char* prefix, 
         const char* lexed_directive,
-        pragma_directive_kind_t* kind)
+        pragma_directive_kind_t* kind,
+        char* original_directive)
 {
     const char* longest_match = NULL;
     const char* discard_source = NULL;
@@ -1601,6 +1606,18 @@ static const char* return_pragma_prefix_longest_match(const char* prefix,
                     &discard_source, kind);
         }
     }
+
+    const char *p = lexed_directive;
+    char *q = original_directive;
+
+    while (p != discard_source
+            && *p != '\0')
+    {
+        *q = *p;
+        q++;
+        p++;
+    }
+    *q = '\0';
 
     if (discard_source != NULL
             && strlen(discard_source) > 0)
