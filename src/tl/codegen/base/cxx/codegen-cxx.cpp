@@ -190,7 +190,7 @@ std::string CxxBase::codegen(const Nodecl::NodeclBase &n)
         } \
         if (state.in_condition && state.condition_top == node) \
         { \
-            file << "("; \
+            file << ")"; \
         } \
     }
 OPERATOR_TABLE
