@@ -49,7 +49,6 @@ enum intrinsic_kind_tag
  * kind-of-intrinsic: can be A, E, ES, I, PS, S or T. See above for its meaning
  *
  * constant-evaluation: pointer to a function implementing constant evaluation of this intrinsic. 
- *                      Currently not implemented, set it to NULL
  *
  * FORTRAN_GENERIC_INTRINSIC_2 is used for those intrinsics sharing the same name but callable with very different argument keywords
  *

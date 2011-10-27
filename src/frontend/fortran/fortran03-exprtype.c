@@ -736,7 +736,10 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
         if (is_array_type(dimension_type))
         {
             nodecl_lower_dim[(num_subscripts - 1) - i] = array_type_get_array_lower_bound(dimension_type);
-            nodecl_upper_dim[(num_subscripts - 1) - i] = array_type_get_array_upper_bound(dimension_type);
+
+            if (!array_type_is_unknown_size(dimension_type))
+                nodecl_upper_dim[(num_subscripts - 1) - i] = array_type_get_array_upper_bound(dimension_type);
+
             dimension_type = array_type_get_element_type(dimension_type);
         }
 
@@ -773,9 +776,13 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
                 nodecl_upper = nodecl_copy(nodecl_upper_dim[num_subscripts]);
             }
             if (stride != NULL)
+            {
                 fortran_check_expression_impl_(stride, decl_context, &nodecl_stride);
+            }
             else
+            {
                 nodecl_stride = const_value_to_nodecl(const_value_get_one(/* bytes */ fortran_get_default_integer_type_kind(), /* signed */ 1));
+            }
 
             if (!nodecl_is_null(nodecl_lower)
                     && nodecl_is_err_expr(nodecl_lower))
@@ -2960,7 +2967,7 @@ static void check_symbol(AST expr, decl_context_t decl_context, nodecl_t* nodecl
 
 }
 
-static void conform_types(type_t* lhs_type, type_t* rhs_type, type_t** conf_lhs_type, type_t** conf_rhs_type);
+static void conform_types_in_assignment(type_t* lhs_type, type_t* rhs_type, type_t** conf_lhs_type, type_t** conf_rhs_type);
 
 static char is_intrinsic_assignment(type_t* lvalue_type, type_t* rvalue_type)
 {
@@ -2979,7 +2986,7 @@ static char is_intrinsic_assignment(type_t* lvalue_type, type_t* rvalue_type)
     type_t* conf_lhs_type = NULL;
     type_t* conf_rhs_type = NULL;
 
-    conform_types(lvalue_type, rvalue_type, &conf_lhs_type, &conf_rhs_type);
+    conform_types_in_assignment(lvalue_type, rvalue_type, &conf_lhs_type, &conf_rhs_type);
 
     if ((is_integer_type(conf_lhs_type)
                 || is_floating_type(conf_lhs_type)
@@ -3122,6 +3129,85 @@ static void check_assignment(AST expr, decl_context_t decl_context, nodecl_t* no
         nodecl_set_constant(*nodecl_output, nodecl_get_constant(nodecl_rvalue));
     }
 }
+
+void fortran_check_initialization(
+        scope_entry_t* entry,
+        AST expr, 
+        decl_context_t decl_context, 
+        char is_pointer_initialization,
+        nodecl_t* nodecl_output)
+{
+    char ok = 1;
+    if (entry->entity_specs.is_parameter)
+    {
+        error_printf("%s: error: a dummy argument cannot have initializer\n", 
+                ast_location(expr));
+        ok = 0;
+    }
+
+    if (!ok)
+    {
+        *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
+        return;
+    }
+
+    fortran_check_expression(expr, decl_context, nodecl_output);
+
+    if (nodecl_is_err_expr(*nodecl_output))
+        return;
+
+    if (is_pointer_initialization)
+    {
+        // Just check that is => NULL()
+        scope_entry_t* function_called = NULL;
+        if (nodecl_get_kind(*nodecl_output) != NODECL_FUNCTION_CALL
+                || ((function_called = nodecl_get_symbol(nodecl_get_child(*nodecl_output, 0))) == NULL)
+                || strcasecmp(function_called->symbol_name, "null") != 0
+                || !function_called->entity_specs.is_builtin)
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: pointer initializer of '%s' is not '=> NULL()'",
+                        ast_location(expr),
+                        entry->symbol_name);
+            }
+            *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
+            return;
+        }
+    }
+    else
+    {
+        // Check if the initializer is valid
+        if (!is_intrinsic_assignment(entry->type_information, 
+                    nodecl_get_type(*nodecl_output)))
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: initializer '%s' of type '%s' is not valid to initialize '%s' of type '%s'\n",
+                        ast_location(expr),
+                        codegen_to_str(*nodecl_output),
+                        fortran_print_type_str(nodecl_get_type(*nodecl_output)),
+                        entry->symbol_name,
+                        fortran_print_type_str(entry->type_information));
+            }
+            *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
+            return;
+        }
+
+        if (!nodecl_is_constant(*nodecl_output))
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: initializer '%s' is not a constant expression\n",
+                        ast_location(expr),
+                        codegen_to_str(*nodecl_output));
+            }
+            *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
+            return;
+        }
+    }
+}
+
 
 static void check_ptr_assignment(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
@@ -3551,6 +3637,9 @@ static const char * get_operator_for_expr(AST expr);
 
 static type_t* rerank_type(type_t* rank0_common, type_t* lhs_type, type_t* rhs_type);
 
+static void conform_types(type_t* lhs_type, type_t* rhs_type, 
+        type_t** conf_lhs_type, type_t** conf_rhs_type);
+
 static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t decl_context, 
         type_t* lhs_type, 
         type_t* rhs_type,
@@ -3785,7 +3874,9 @@ static const char * get_operator_for_expr(AST expr)
     return operator_names[ASTType(expr)];
 }
 
-static void conform_types(type_t* lhs_type, type_t* rhs_type, type_t** conf_lhs_type, type_t** conf_rhs_type)
+static void conform_types_(type_t* lhs_type, type_t* rhs_type, 
+        type_t** conf_lhs_type, type_t** conf_rhs_type,
+        char conform_only_lhs)
 {
     lhs_type = no_ref(lhs_type);
     rhs_type = no_ref(rhs_type);
@@ -3796,8 +3887,11 @@ static void conform_types(type_t* lhs_type, type_t* rhs_type, type_t** conf_lhs_
         *conf_lhs_type = lhs_type;
         *conf_rhs_type = rhs_type;
     }
-    else if (is_fortran_array_type(lhs_type)
-            != is_fortran_array_type(rhs_type))
+    else if ((is_fortran_array_type(lhs_type)
+                && !is_fortran_array_type(rhs_type))
+            || (!conform_only_lhs
+                && !is_fortran_array_type(lhs_type)
+                && is_fortran_array_type(rhs_type)))
     {
         // One is array and the other is scalar
         *conf_lhs_type = get_rank0_type(lhs_type);
@@ -3819,6 +3913,20 @@ static void conform_types(type_t* lhs_type, type_t* rhs_type, type_t** conf_lhs_
             *conf_rhs_type = rhs_type;
         }
     }
+}
+
+static void conform_types_in_assignment(type_t* lhs_type, type_t* rhs_type, 
+        type_t** conf_lhs_type, type_t** conf_rhs_type)
+{
+    conform_types_(lhs_type, rhs_type, conf_lhs_type, conf_rhs_type,
+            /* conform_only_left */ 1);
+}
+
+static void conform_types(type_t* lhs_type, type_t* rhs_type, 
+        type_t** conf_lhs_type, type_t** conf_rhs_type)
+{
+    conform_types_(lhs_type, rhs_type, conf_lhs_type, conf_rhs_type,
+            /* conform_only_left */ 0);
 }
 
 static type_t* rerank_type(type_t* rank0_common, type_t* lhs_type, type_t* rhs_type)

@@ -210,7 +210,7 @@ static void clear_unknown_symbols(decl_context_t decl_context)
 
     if (unresolved_implicits)
     {
-        running_error("%s", message);
+        error_printf("%s", message);
     }
 
     free(unknown_info->entity_specs.related_symbols);
@@ -478,6 +478,8 @@ static void build_scope_function_program_unit(AST program_unit,
     scope_entry_t *new_entry = new_procedure_symbol(program_unit_context,
             name, prefix, suffix, 
             dummy_arg_name_list, /* is_function */ 1);
+    if (new_entry == NULL)
+        return;
 
     insert_alias(program_unit_context.current_scope->contained_in, new_entry,
             strappend("._", new_entry->symbol_name));
@@ -556,6 +558,8 @@ static void build_scope_subroutine_program_unit(AST program_unit,
     scope_entry_t *new_entry = new_procedure_symbol(program_unit_context,
             name, prefix, suffix, 
             dummy_arg_name_list, /* is_function */ 0);
+    if (new_entry == NULL)
+        return;
 
     // It is void but it is not implicit
     new_entry->entity_specs.is_implicit_basic_type = 0;
@@ -716,9 +720,10 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
                 || (!entry->entity_specs.is_parameter
                     && !entry->entity_specs.is_module_procedure))
         {
-            running_error("%s: error: redeclaration of entity '%s'\n", 
+            error_printf("%s: error: redeclaration of entity '%s'\n", 
                     ast_location(name), 
                     ASTText(name));
+            return NULL;
         }
         // It can't be redefined anymore
         entry->entity_specs.is_module_procedure = 0;
@@ -763,20 +768,22 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
             {
                 if (!is_function)
                 {
-                    running_error("%s: error: declaration type-specifier is only valid for FUNCTION statement\n",
+                    error_printf("%s: error: declaration type-specifier is only valid for FUNCTION statement\n",
                             ast_location(prefix_spec));
                 }
-
-                AST declaration_type_spec = ASTSon0(prefix_spec);
-                return_type = gather_type_from_declaration_type_spec(declaration_type_spec, decl_context);
-
-                if (return_type != NULL)
+                else
                 {
-                    entry->entity_specs.is_implicit_basic_type = 0;
-                    entry->type_information = return_type;
-                }
+                    AST declaration_type_spec = ASTSon0(prefix_spec);
+                    return_type = gather_type_from_declaration_type_spec(declaration_type_spec, decl_context);
 
-                function_has_type_spec = 1;
+                    if (return_type != NULL)
+                    {
+                        entry->entity_specs.is_implicit_basic_type = 0;
+                        entry->type_information = return_type;
+                    }
+
+                    function_has_type_spec = 1;
+                }
             }
             else if (strcasecmp(prefix_spec_str, "elemental") == 0)
             {
@@ -853,24 +860,26 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
     {
         if (!is_function)
         {
-            running_error("%s: error: RESULT is only valid for FUNCTION statement\n",
+            error_printf("%s: error: RESULT is only valid for FUNCTION statement\n",
                     ast_location(result));
         }
+        else
+        {
+            result_sym = get_symbol_for_name(decl_context, result, ASTText(result));
 
-        result_sym = get_symbol_for_name(decl_context, result, ASTText(result));
+            result_sym->kind = SK_VARIABLE;
+            result_sym->file = ASTFileName(result);
+            result_sym->line = ASTLine(result);
+            result_sym->entity_specs.is_result = 1;
 
-        result_sym->kind = SK_VARIABLE;
-        result_sym->file = ASTFileName(result);
-        result_sym->line = ASTLine(result);
-        result_sym->entity_specs.is_result = 1;
+            result_sym->type_information = get_lvalue_reference_type(return_type);
 
-        result_sym->type_information = get_lvalue_reference_type(return_type);
+            return_type = get_indirect_type(result_sym);
 
-        return_type = get_indirect_type(result_sym);
-
-        P_LIST_ADD(entry->entity_specs.related_symbols,
-                entry->entity_specs.num_related_symbols,
-                result_sym);
+            P_LIST_ADD(entry->entity_specs.related_symbols,
+                    entry->entity_specs.num_related_symbols,
+                    result_sym);
+        }
     }
     else if (is_function)
     {
@@ -981,7 +990,7 @@ static void build_scope_program_body_module(AST program_body, decl_context_t dec
 
             if (!allowed_statement(stmt, decl_context))
             {
-                running_error("%s: error: this statement cannot be used in this context\n",
+                error_printf("%s: error: this statement cannot be used in this context\n",
                         ast_location(stmt));
             }
 
@@ -1028,7 +1037,7 @@ static void build_scope_program_body(AST program_body, decl_context_t decl_conte
 
             if (!allowed_statement(stmt, decl_context))
             {
-                running_error("%s: warning: this statement cannot be used in this context\n",
+                error_printf("%s: warning: this statement cannot be used in this context\n",
                         ast_location(stmt));
             }
 
@@ -1338,7 +1347,9 @@ static type_t* choose_type_from_kind_table(nodecl_t expr, type_t** type_table, i
 
     if (result == NULL)
     {
-        running_error("%s: error: KIND=%d not supported\n", nodecl_get_locus(expr), kind_size);
+        error_printf("%s: error: KIND=%d not supported\n", nodecl_get_locus(expr), kind_size);
+        result = (type_table[4] != NULL ? type_table[4] : type_table[1]);
+        ERROR_CONDITION(result == NULL, "Fallback kind should not be NULL", 0);
     }
 
     return result;
@@ -1559,9 +1570,10 @@ static type_t* gather_type_from_declaration_type_spec_(AST a,
                 result = get_derived_type_name(ASTSon0(a), decl_context);
                 if (result == NULL)
                 {
-                    running_error("%s: error: invalid type-specifier '%s'\n",
+                    error_printf("%s: error: invalid type-specifier '%s'\n",
                             ast_location(a),
                             fortran_prettyprint_in_buffer(a));
+                    result = get_error_type();
                 }
                 break;
             }
@@ -2070,7 +2082,7 @@ static void build_scope_access_stmt(AST a, decl_context_t decl_context, nodecl_t
 
             if (sym->entity_specs.access != AS_UNKNOWN)
             {
-                running_error("%s: access specifier already given for entity '%s'\n",
+                error_printf("%s: access specifier already given for entity '%s'\n",
                         ast_location(access_id),
                         sym->symbol_name);
             }
@@ -2098,19 +2110,21 @@ static void build_scope_access_stmt(AST a, decl_context_t decl_context, nodecl_t
         if (current_sym == NULL
                 || current_sym->kind != SK_MODULE)
         {
-            running_error("%s: error: wrong usage of access-statement\n",
+            error_printf("%s: error: wrong usage of access-statement\n",
                     ast_location(a));
         }
-
-        if (current_sym->kind == SK_MODULE)
+        else
         {
-            if (attr_spec.is_public)
+            if (current_sym->kind == SK_MODULE)
             {
-                current_sym->entity_specs.access = AS_PUBLIC;
-            }
-            else
-            {
-                current_sym->entity_specs.access = AS_PRIVATE;
+                if (attr_spec.is_public)
+                {
+                    current_sym->entity_specs.access = AS_PUBLIC;
+                }
+                else
+                {
+                    current_sym->entity_specs.access = AS_PRIVATE;
+                }
             }
         }
     }
@@ -2140,17 +2154,19 @@ static void build_dimension_decl(AST a, decl_context_t decl_context)
 
     if (entry->kind != SK_VARIABLE)
     {
-        running_error("%s: error: invalid entity '%s' in dimension declaration\n", 
+        error_printf("%s: error: invalid entity '%s' in dimension declaration\n", 
                 ast_location(a),
                 ASTText(name));
+        return;
     }
     
     if (is_fortran_array_type(no_ref(entry->type_information))
             || is_pointer_to_fortran_array_type(no_ref(entry->type_information)))
     {
-        running_error("%s: error: entity '%s' already has a DIMENSION attribute\n",
+        error_printf("%s: error: entity '%s' already has a DIMENSION attribute\n",
                 ast_location(a),
                 entry->symbol_name);
+        return;
     }
 
     type_t* array_type = compute_type_from_array_spec(no_ref(entry->type_information), 
@@ -2190,24 +2206,27 @@ static void build_scope_allocatable_stmt(AST a, decl_context_t decl_context, nod
 
         if (entry->kind != SK_VARIABLE)
         {
-            running_error("%s: error: invalid entity '%s' in ALLOCATABLE clause\n", 
+            error_printf("%s: error: invalid entity '%s' in ALLOCATABLE clause\n", 
                     ast_location(name), 
                     ASTText(name));
+            continue;
         }
 
         if (!is_fortran_array_type(no_ref(entry->type_information))
                 && !is_pointer_to_fortran_array_type(no_ref(entry->type_information)))
         {
-            running_error("%s: error: ALLOCATABLE attribute cannot be set to scalar entity '%s'\n",
+            error_printf("%s: error: ALLOCATABLE attribute cannot be set to scalar entity '%s'\n",
                     ast_location(name),
                     ASTText(name));
+            continue;
         }
 
         if (entry->entity_specs.is_allocatable)
         {
-            running_error("%s: error: attribute ALLOCATABLE was already set for entity '%s'\n",
+            error_printf("%s: error: attribute ALLOCATABLE was already set for entity '%s'\n",
                     ast_location(name),
                     ASTText(name));
+            continue;
         }
         entry->entity_specs.is_allocatable = 1;
     }
@@ -2251,9 +2270,10 @@ static void build_scope_allocate_stmt(AST a, decl_context_t decl_context, nodecl
             if (!entry->entity_specs.is_allocatable
                     && !is_pointer_type(no_ref(entry->type_information)))
             {
-                running_error("%s: error: entity '%s' does not have ALLOCATABLE or POINTER attribute\n", 
+                error_printf("%s: error: entity '%s' does not have ALLOCATABLE or POINTER attribute\n", 
                         ast_location(a),
                         entry->symbol_name);
+                continue;
             }
         }
 
@@ -2425,9 +2445,10 @@ static void build_scope_bind_stmt(AST a UNUSED_PARAMETER,
 
         if (entry == NULL)
         {
-            running_error("%s: error: unknown entity '%s' in BIND statement\n",
+            error_printf("%s: error: unknown entity '%s' in BIND statement\n",
                     ast_location(bind_entity),
                     fortran_prettyprint_in_buffer(bind_entity));
+            continue;
         }
     }
 
@@ -2636,9 +2657,10 @@ static void build_scope_common_stmt(AST a,
 
             if (sym->entity_specs.is_in_common)
             {
-                running_error("%s: error: entity '%s' is already in a COMMON\n", 
+                error_printf("%s: error: entity '%s' is already in a COMMON\n", 
                         ast_location(name),
                         sym->symbol_name);
+                continue;
             }
 
             if (sym->kind == SK_UNDEFINED)
@@ -2652,9 +2674,10 @@ static void build_scope_common_stmt(AST a,
                 if (is_fortran_array_type(no_ref(sym->type_information))
                         || is_pointer_to_fortran_array_type(no_ref(sym->type_information)))
                 {
-                    running_error("%s: error: entity '%s' has already a DIMENSION attribute\n",
+                    error_printf("%s: error: entity '%s' has already a DIMENSION attribute\n",
                             ast_location(a),
                             sym->symbol_name);
+                    continue;
                 }
 
                 char was_ref = is_lvalue_reference_type(sym->type_information);
@@ -2781,12 +2804,15 @@ static scope_entry_t* query_label(AST label,
         {
             if (new_label->defined)
             {
-                running_error("%s: error: label %s has already been defined in %s:%d\n",
+                error_printf("%s: error: label %s has already been defined in %s:%d\n",
                         ast_location(label),
                         new_label->symbol_name,
                         new_label->file, new_label->line);
             }
-            new_label->defined = 1;
+            else
+            {
+                new_label->defined = 1;
+            }
         }
     }
 
@@ -2867,7 +2893,9 @@ static void generic_implied_do_handler(AST a, decl_context_t decl_context,
 
     if (do_variable == NULL)
     {
-        running_error("%s: error: unknown symbol '%s' in io-implied-do\n", ast_location(io_do_variable), ASTText(io_do_variable));
+        error_printf("%s: error: unknown symbol '%s' in io-implied-do\n", ast_location(io_do_variable), ASTText(io_do_variable));
+        *nodecl_output = nodecl_make_err_expr(ASTFileName(io_do_variable), ASTLine(io_do_variable));
+        return;
     }
 
     if (do_variable->kind == SK_UNDEFINED)
@@ -2876,7 +2904,9 @@ static void generic_implied_do_handler(AST a, decl_context_t decl_context,
     }
     else if (do_variable->kind != SK_VARIABLE)
     {
-        running_error("%s: error: invalid name '%s' for io-implied-do\n", ast_location(io_do_variable), ASTText(io_do_variable));
+        error_printf("%s: error: invalid name '%s' for io-implied-do\n", ast_location(io_do_variable), ASTText(io_do_variable));
+        *nodecl_output = nodecl_make_err_expr(ASTFileName(io_do_variable), ASTLine(io_do_variable));
+        return;
     }
 
 
@@ -3006,8 +3036,9 @@ static void build_scope_deallocate_stmt(AST a,
             if (!entry->entity_specs.is_allocatable
                     && !is_pointer_type(no_ref(entry->type_information)))
             {
-                running_error("%s: error: only ALLOCATABLE or POINTER can be used in a DEALLOCATE statement\n", 
+                error_printf("%s: error: only ALLOCATABLE or POINTER can be used in a DEALLOCATE statement\n", 
                         ast_location(a));
+                continue;
             }
         }
 
@@ -3118,7 +3149,7 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
             {
                 if (is_sequence)
                 {
-                    running_error("%s: error: SEQUENCE statement specified twice", 
+                    error_printf("%s: error: SEQUENCE statement specified twice", 
                             ast_location(private_or_sequence));
                 }
                 is_sequence = 1;
@@ -3127,7 +3158,7 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
             {
                 if (fields_are_private)
                 {
-                    running_error("%s: error: PRIVATE statement specified twice", 
+                    error_printf("%s: error: PRIVATE statement specified twice", 
                             ast_location(private_or_sequence));
                 }
                 // This can only be a private_stmt, no need to check it here
@@ -3200,108 +3231,105 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
 
                 entry->defined = 1;
 
+                AST initialization = NULL;
+                AST array_spec = NULL;
+                AST coarray_spec = NULL;
+                AST char_length = NULL;
+
                 if (entity_decl_specs != NULL)
                 {
-                    AST array_spec = ASTSon0(entity_decl_specs);
-                    AST coarray_spec = ASTSon1(entity_decl_specs);
-                    AST char_length = ASTSon2(entity_decl_specs);
-                    AST initialization = ASTSon3(entity_decl_specs);
+                    array_spec = ASTSon0(entity_decl_specs);
+                    coarray_spec = ASTSon1(entity_decl_specs);
+                    char_length = ASTSon2(entity_decl_specs);
+                    initialization = ASTSon3(entity_decl_specs);
+                }
 
-                    if (array_spec != NULL)
+                if (array_spec != NULL)
+                {
+                    if (current_attr_spec.is_dimension)
                     {
-                        if (current_attr_spec.is_dimension)
-                        {
-                            running_error("%s: error: DIMENSION attribute specified twice\n", ast_location(declaration));
-                        }
+                        error_printf("%s: error: DIMENSION attribute specified twice\n", ast_location(declaration));
+                    }
+                    else
+                    {
                         current_attr_spec.is_dimension = 1;
                         current_attr_spec.array_spec = array_spec;
                     }
+                }
 
-                    if (coarray_spec != NULL)
+                if (coarray_spec != NULL)
+                {
+                    if (current_attr_spec.is_codimension)
                     {
-                        if (current_attr_spec.is_codimension)
-                        {
-                            running_error("%s: error: CODIMENSION attribute specified twice\n", ast_location(declaration));
-                        }
+                        error_printf("%s: error: CODIMENSION attribute specified twice\n", ast_location(declaration));
+                    }
+                    else
+                    {
                         current_attr_spec.is_codimension = 1;
                         current_attr_spec.coarray_spec = coarray_spec;
                     }
+                }
 
-                    if (char_length != NULL)
+                if (char_length != NULL)
+                {
+                    if (!is_fortran_character_type(no_ref(entry->type_information)))
                     {
-                        if (!is_fortran_character_type(no_ref(entry->type_information)))
-                        {
-                            running_error("%s: error: char-length specified but type is not CHARACTER\n", ast_location(declaration));
-                        }
-
-                        if (ASTType(char_length) != AST_SYMBOL
-                                || strcmp(ASTText(char_length), "*") != 0)
-                        {
-                            nodecl_t nodecl_char_length = nodecl_null();
-                            fortran_check_expression(char_length, decl_context, &nodecl_char_length);
-
-                            nodecl_t lower_bound = nodecl_make_integer_literal(
-                                    get_signed_int_type(),
-                                    const_value_get_one(type_get_size(get_signed_int_type()), 1),
-                                    ASTFileName(char_length), ASTLine(char_length));
-
-                            entry->type_information = get_array_type_bounds(
-                                    array_type_get_element_type(entry->type_information), 
-                                    lower_bound, nodecl_char_length, decl_context);
-                        }
-                        else
-                        {
-                            entry->type_information = get_array_type(
-                                    array_type_get_element_type(entry->type_information), 
-                                    nodecl_null(), decl_context);
-                        }
+                        error_printf("%s: error: char-length specified but type is not CHARACTER\n", ast_location(declaration));
                     }
 
-                    if (initialization != NULL)
+                    if (ASTType(char_length) != AST_SYMBOL
+                            || strcmp(ASTText(char_length), "*") != 0)
                     {
-                        if (ASTType(initialization) == AST_POINTER_INITIALIZATION)
-                        {
-                            if (!current_attr_spec.is_pointer)
-                            {
-                                running_error("%s: error: no POINTER attribute, required for pointer initialization\n",
-                                        ast_location(initialization));
-                            }
-                            initialization = ASTSon0(initialization);
-                        }
-                        entry->kind = SK_VARIABLE;
+                        nodecl_t nodecl_char_length = nodecl_null();
+                        fortran_check_expression(char_length, decl_context, &nodecl_char_length);
 
-                        fortran_check_expression(initialization, decl_context, &entry->value);
+                        nodecl_t lower_bound = nodecl_make_integer_literal(
+                                get_signed_int_type(),
+                                const_value_get_one(type_get_size(get_signed_int_type()), 1),
+                                ASTFileName(char_length), ASTLine(char_length));
+
+                        entry->type_information = get_array_type_bounds(
+                                array_type_get_element_type(entry->type_information), 
+                                lower_bound, nodecl_char_length, decl_context);
                     }
-
-                    // Stop the madness here
-                    if (current_attr_spec.is_codimension)
+                    else
                     {
-                        running_error("%s: sorry: coarrays are not supported\n", ast_location(declaration));
+                        entry->type_information = get_array_type(
+                                array_type_get_element_type(entry->type_information), 
+                                nodecl_null(), decl_context);
                     }
+                }
 
-                    if (current_attr_spec.is_dimension)
+                // Stop the madness here
+                if (current_attr_spec.is_codimension)
+                {
+                    running_error("%s: sorry: coarrays are not supported\n", ast_location(declaration));
+                }
+
+                if (current_attr_spec.is_dimension)
+                {
+                    type_t* array_type = compute_type_from_array_spec(entry->type_information, 
+                            current_attr_spec.array_spec,
+                            decl_context,
+                            /* array_spec_kind */ NULL);
+                    entry->type_information = array_type;
+                }
+
+                if (current_attr_spec.is_allocatable)
+                {
+                    if (!current_attr_spec.is_dimension)
                     {
-                        type_t* array_type = compute_type_from_array_spec(entry->type_information, 
-                                current_attr_spec.array_spec,
-                                decl_context,
-                                /* array_spec_kind */ NULL);
-                        entry->type_information = array_type;
+                        error_printf("%s: error: ALLOCATABLE attribute cannot be used on scalars\n", 
+                                ast_location(declaration));
                     }
-
-                    if (current_attr_spec.is_allocatable)
+                    else
                     {
-                        if (!current_attr_spec.is_dimension)
-                        {
-                            running_error("%s: error: ALLOCATABLE attribute cannot be used on scalars\n", 
-                                    ast_location(declaration));
-                        }
                         entry->entity_specs.is_allocatable = 1;
                         entry->kind = SK_VARIABLE;
                     }
-
-                    entry->entity_specs.is_target = current_attr_spec.is_target;
                 }
 
+                entry->entity_specs.is_target = current_attr_spec.is_target;
                 if (fields_are_private
                         && entry->entity_specs.access == AS_UNKNOWN)
                 {
@@ -3310,16 +3338,47 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
 
                 if (current_attr_spec.is_pointer)
                 {
-                    char was_ref = is_lvalue_reference_type(entry->type_information);
-                    entry->type_information = get_pointer_type(no_ref(entry->type_information));
-                    if (was_ref)
-                    {
-                        entry->type_information = get_lvalue_reference_type(entry->type_information);
-                    }
+                    entry->type_information = get_pointer_type(entry->type_information);
                 }
 
                 entry->entity_specs.is_member = 1;
                 entry->entity_specs.class_type = get_user_defined_type(class_name);
+
+                if (initialization != NULL)
+                {
+                    entry->kind = SK_VARIABLE;
+                    nodecl_t nodecl_init = nodecl_null();
+
+                    if (ASTType(initialization) == AST_POINTER_INITIALIZATION
+                            && current_attr_spec.is_pointer)
+                    {
+                        initialization = ASTSon0(initialization);
+                        fortran_check_initialization(entry, initialization, decl_context, 
+                                /* is_pointer_init */ 1,
+                                &nodecl_init);
+                    }
+                    else if (current_attr_spec.is_pointer)
+                    {
+                        error_printf("%s: error: a POINTER must be initialized using pointer initialization\n",
+                                ast_location(initialization));
+                    }
+                    else if (ASTType(initialization) == AST_POINTER_INITIALIZATION)
+                    {
+                        error_printf("%s: error: no POINTER attribute, required for pointer initialization\n",
+                                ast_location(initialization));
+                    }
+                    else
+                    {
+                        fortran_check_initialization(entry, initialization, decl_context, 
+                                /* is_pointer_init */ 0,
+                                &nodecl_init);
+
+                    }
+                    if (!nodecl_is_err_expr(nodecl_init))
+                    {
+                        entry->value = nodecl_init;
+                    }
+                }
 
                 class_type_add_member(class_name->type_information, entry);
             }
@@ -3356,9 +3415,10 @@ static void build_scope_dimension_stmt(AST a, decl_context_t decl_context, nodec
         if (is_fortran_array_type(no_ref(entry->type_information))
                 || is_pointer_to_fortran_array_type(no_ref(entry->type_information)))
         {
-            running_error("%s: error: entity '%s' already has a DIMENSION attribute\n",
+            error_printf("%s: error: entity '%s' already has a DIMENSION attribute\n",
                     ast_location(name),
                     ASTText(name));
+            continue;
         }
 
         char was_ref = is_lvalue_reference_type(entry->type_information);
@@ -3541,9 +3601,10 @@ static void build_scope_external_stmt(AST a, decl_context_t decl_context, nodecl
         }
         else
         {
-            running_error("%s: error: entity '%s' already has EXTERNAL attribute\n",
+            error_printf("%s: error: entity '%s' already has EXTERNAL attribute\n",
                     ast_location(name),
                     entry->symbol_name);
+            continue;
         }
     }
 
@@ -3717,12 +3778,12 @@ static void build_scope_implicit_stmt(AST a, decl_context_t decl_context, nodecl
         {
             if (is_implicit_none(decl_context))
             {
-                running_error("%s: error: IMPLICIT NONE specified twice\n",
+                error_printf("%s: error: IMPLICIT NONE specified twice\n",
                         ast_location(a));
             }
             else 
             {
-                running_error("%s: error: IMPLICIT NONE after IMPLICIT\n",
+                error_printf("%s: error: IMPLICIT NONE after IMPLICIT\n",
                         ast_location(a));
             }
         }
@@ -3733,7 +3794,7 @@ static void build_scope_implicit_stmt(AST a, decl_context_t decl_context, nodecl
         if (implicit_has_been_set(decl_context)
                 && is_implicit_none(decl_context))
         {
-            running_error("%s: error: IMPLICIT after IMPLICIT NONE\n",
+            error_printf("%s: error: IMPLICIT after IMPLICIT NONE\n",
                     ast_location(a));
         }
 
@@ -3749,9 +3810,10 @@ static void build_scope_implicit_stmt(AST a, decl_context_t decl_context, nodecl
 
             if (basic_type == NULL)
             {
-                running_error("%s: error: invalid type specifier '%s' in IMPLICIT statement\n",
+                error_printf("%s: error: invalid type specifier '%s' in IMPLICIT statement\n",
                         ast_location(declaration_type_spec),
                         fortran_prettyprint_in_buffer(declaration_type_spec));
+                continue;
             }
 
             AST it2;
@@ -3770,6 +3832,7 @@ static void build_scope_implicit_stmt(AST a, decl_context_t decl_context, nodecl
                     letter1_str = ASTText(letter1);
                 }
 
+                char valid = 1;
                 if (strlen(letter0_str) != 1
                         || !(('a' <= tolower(letter0_str[0]))
                             && (tolower(letter0_str[0]) <= 'z'))
@@ -3778,15 +3841,19 @@ static void build_scope_implicit_stmt(AST a, decl_context_t decl_context, nodecl
                                 || !(('a' <= tolower(letter1_str[0]))
                                     && (tolower(letter1_str[0]) <= 'z')))))
                 {
-                    running_error("%s: error: invalid IMPLICIT letter specifier '%s'\n", 
+                    error_printf("%s: error: invalid IMPLICIT letter specifier '%s'\n", 
                             ast_location(letter_spec),
                             fortran_prettyprint_in_buffer(letter_spec));
+                    valid = 0;
                 }
 
-                if (letter1_str == NULL)
-                    letter1_str = letter0_str;
+                if (valid)
+                {
+                    if (letter1_str == NULL)
+                        letter1_str = letter0_str;
 
-                set_implicit_info(decl_context, letter0_str[0], letter1_str[0], basic_type);
+                    set_implicit_info(decl_context, letter0_str[0], letter1_str[0], basic_type);
+                }
             }
         }
     }
@@ -3815,16 +3882,18 @@ static void build_scope_intent_stmt(AST a, decl_context_t decl_context,
 
         if (!entry->entity_specs.is_parameter)
         {
-            running_error("%s: error: entity '%s' is not a dummy argument\n",
+            error_printf("%s: error: entity '%s' is not a dummy argument\n",
                     ast_location(dummy_arg),
                     fortran_prettyprint_in_buffer(dummy_arg));
+            continue;
         }
 
         if (entry->entity_specs.intent_kind != INTENT_INVALID)
         {
-            running_error("%s: error: entity '%s' already has an INTENT attribute\n",
+            error_printf("%s: error: entity '%s' already has an INTENT attribute\n",
                     ast_location(dummy_arg),
                     fortran_prettyprint_in_buffer(dummy_arg));
+            continue;
         }
 
         attr_spec_t attr_spec;
@@ -3968,9 +4037,10 @@ static void build_scope_interface_block(AST a, decl_context_t decl_context,
         if (generic_spec_sym->kind != SK_UNDEFINED
                 && generic_spec_sym->kind != SK_FUNCTION)
         {
-            running_error("%s: error: redefining symbol '%s'\n", 
+            error_printf("%s: error: redefining symbol '%s'\n", 
                     ast_location(generic_spec),
                     name);
+            return;
         }
 
         generic_spec_sym->kind = SK_FUNCTION;
@@ -4084,9 +4154,10 @@ static void build_scope_nullify_stmt(AST a, decl_context_t decl_context, nodecl_
 
         if (!is_pointer_type(no_ref(sym->type_information)))
         {
-            running_error("%s: error: '%s' does not designate a POINTER\n",
+            error_printf("%s: error: '%s' does not designate a POINTER\n",
                     ast_location(a),
                     fortran_prettyprint_in_buffer(pointer_object));
+            continue;
         }
 
         nodecl_expr_list = nodecl_append_to_list(nodecl_expr_list, 
@@ -4117,8 +4188,10 @@ static void build_scope_optional_stmt(AST a, decl_context_t decl_context, nodecl
 
         if (!entry->entity_specs.is_parameter)
         {
-            running_error("%s: error: entity '%s' is not a dummy argument\n",
+            error_printf("%s: error: entity '%s' is not a dummy argument\n",
+                    ast_location(name),
                     ASTText(name));
+            continue;
         }
         entry->entity_specs.is_optional = 1;
     }
@@ -4145,9 +4218,17 @@ static void build_scope_parameter_stmt(AST a, decl_context_t decl_context, nodec
 
         if (is_void_type(no_ref(entry->type_information)))
         {
-            running_error("%s: error: unknown entity '%s' in PARAMETER statement\n",
+            error_printf("%s: error: unknown entity '%s' in PARAMETER statement\n",
                     ast_location(name),
                     ASTText(name));
+            continue;
+        }
+
+        if (is_const_qualified_type(no_ref(entry->type_information)))
+        {
+            error_printf("%s: error: PARAMETER attribute is not compatible with POINTER attribute\n", 
+                    ast_location(a));
+            continue;
         }
 
         if (entry->kind == SK_UNDEFINED)
@@ -4186,15 +4267,17 @@ static void build_scope_cray_pointer_stmt(AST a, decl_context_t decl_context, no
         {
             if (!is_integer_type(pointer_entry->type_information))
             {
-                running_error("%s: error: a Cray pointer must have integer type\n", 
+                error_printf("%s: error: a Cray pointer must have integer type\n", 
                         ast_location(pointer_name));
+                continue;
             }
         }
         else
         {
-            running_error("%s: error: invalid entity '%s' for Cray pointer\n",
+            error_printf("%s: error: invalid entity '%s' for Cray pointer\n",
                     ast_location(pointer_name),
                     ASTText(pointer_name));
+            continue;
         }
 
         AST pointee_name = pointee_decl;
@@ -4209,18 +4292,20 @@ static void build_scope_cray_pointer_stmt(AST a, decl_context_t decl_context, no
 
         if (pointee_entry->entity_specs.is_cray_pointee)
         {
-            running_error("%s: error: entity '%s' is already a pointee of Cray pointer '%s'\n",
+            error_printf("%s: error: entity '%s' is already a pointee of Cray pointer '%s'\n",
                     ast_location(pointee_name),
                     pointee_entry->symbol_name,
                     pointee_entry->entity_specs.cray_pointer->symbol_name);
+            continue;
         }
         if (array_spec != NULL)
         {
             if (is_fortran_array_type(no_ref(pointee_entry->type_information)))
             {
-                running_error("%s: error: entity '%s' has already a DIMENSION attribute\n",
+                error_printf("%s: error: entity '%s' has already a DIMENSION attribute\n",
                         ast_location(pointee_name),
                         pointee_entry->symbol_name);
+                continue;
             }
 
             type_t* array_type = compute_type_from_array_spec(no_ref(pointee_entry->type_information), 
@@ -4261,9 +4346,17 @@ static void build_scope_pointer_stmt(AST a, decl_context_t decl_context, nodecl_
 
         if (is_pointer_type(no_ref(entry->type_information)))
         {
-            running_error("%s: error: entity '%s' has already the POINTER attribute\n",
+            error_printf("%s: error: entity '%s' has already the POINTER attribute\n",
                     ast_location(a),
                     entry->symbol_name);
+            continue;
+        }
+
+        if (is_const_qualified_type(no_ref(entry->type_information)))
+        {
+            error_printf("%s: error: POINTER attribute is not compatible with PARAMETER attribute\n", 
+                    ast_location(a));
+            continue;
         }
 
         if (array_spec != NULL)
@@ -4271,9 +4364,10 @@ static void build_scope_pointer_stmt(AST a, decl_context_t decl_context, nodecl_
             if (is_fortran_array_type(no_ref(entry->type_information))
                     || is_pointer_to_fortran_array_type(no_ref(entry->type_information)))
             {
-                running_error("%s: error: entity '%s' has already a DIMENSION attribute\n",
+                error_printf("%s: error: entity '%s' has already a DIMENSION attribute\n",
                         ast_location(a),
                         entry->symbol_name);
+                continue;
             }
 
             type_t* array_type = compute_type_from_array_spec(no_ref(entry->type_information), 
@@ -4417,9 +4511,10 @@ static void build_scope_save_stmt(AST a, decl_context_t decl_context UNUSED_PARA
 
             if (entry == NULL)
             {
-                running_error("%s: error: unknown common '%s' in SAVE statement", 
+                error_printf("%s: error: unknown common '%s' in SAVE statement", 
                         ast_location(a),
                         fortran_prettyprint_in_buffer(saved_entity));
+                continue;
             }
         }
         else
@@ -4465,9 +4560,10 @@ static void build_scope_stmt_function_stmt(AST a, decl_context_t decl_context,
 
             if (!is_scalar_type(no_ref(dummy_arg->type_information)))
             {
-                running_error("%s: error: dummy argument '%s' of statement function statement\n",
+                error_printf("%s: error: dummy argument '%s' of statement function statement is not a scalar\n",
                         ast_location(dummy_arg_item),
                         fortran_prettyprint_in_buffer(dummy_arg_item));
+                return;
             }
 
             // This can be used latter if trying to give a nonzero rank to this
@@ -4586,9 +4682,10 @@ static void build_scope_target_stmt(AST a, decl_context_t decl_context, nodecl_t
                 if (is_fortran_array_type(no_ref(entry->type_information))
                         || is_pointer_to_fortran_array_type(no_ref(entry->type_information)))
                 {
-                    running_error("%s: error: DIMENSION attribute specified twice for entity '%s'\n", 
+                    error_printf("%s: error: DIMENSION attribute specified twice for entity '%s'\n", 
                             ast_location(a),
                             entry->symbol_name);
+                    continue;
                 }
 
                 char was_ref = is_lvalue_reference_type(entry->type_information);
@@ -4608,9 +4705,10 @@ static void build_scope_target_stmt(AST a, decl_context_t decl_context, nodecl_t
 
         if (entry->entity_specs.is_target)
         {
-            running_error("%s: error: entity '%s' already has TARGET attribute\n", 
+            error_printf("%s: error: entity '%s' already has TARGET attribute\n", 
                     ast_location(target_decl),
                     entry->symbol_name);
+            continue;
         }
 
         if (entry->kind == SK_UNDEFINED)
@@ -4654,9 +4752,10 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
 
         if (!entry->entity_specs.is_implicit_basic_type)
         {
-            running_error("%s: error: entity '%s' already has a basic type\n",
+            error_printf("%s: error: entity '%s' already has a basic type\n",
                     ast_location(name),
                     entry->symbol_name);
+            continue;
         }
         else
         {
@@ -4666,11 +4765,12 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
 
         if (entry->defined)
         {
-            running_error("%s: error: redeclaration of entity '%s', first declared at '%s:%d'\n",
+            error_printf("%s: error: redeclaration of entity '%s', first declared at '%s:%d'\n",
                     ast_location(declaration),
                     entry->symbol_name,
                     entry->file,
                     entry->line);
+            continue;
         }
 
         entry->type_information = update_basic_type_with_type(entry->type_information, basic_type);
@@ -4698,100 +4798,69 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
             }
         }
 
+        AST array_spec = NULL;
+        AST coarray_spec = NULL;
+        AST char_length = NULL;
+        AST initialization = NULL;
         if (entity_decl_specs != NULL)
         {
-            AST array_spec = ASTSon0(entity_decl_specs);
-            AST coarray_spec = ASTSon1(entity_decl_specs);
-            AST char_length = ASTSon2(entity_decl_specs);
-            AST initialization = ASTSon3(entity_decl_specs);
+            array_spec = ASTSon0(entity_decl_specs);
+            coarray_spec = ASTSon1(entity_decl_specs);
+            char_length = ASTSon2(entity_decl_specs);
+            initialization = ASTSon3(entity_decl_specs);
+        }
 
-            if (array_spec != NULL)
+        if (array_spec != NULL)
+        {
+            if (current_attr_spec.is_dimension)
             {
-                if (current_attr_spec.is_dimension)
-                {
-                    running_error("%s: error: DIMENSION attribute specified twice\n", ast_location(declaration));
-                }
-                current_attr_spec.is_dimension = 1;
-                current_attr_spec.array_spec = array_spec;
+                error_printf("%s: error: DIMENSION attribute specified twice\n", ast_location(declaration));
+                continue;
             }
+            current_attr_spec.is_dimension = 1;
+            current_attr_spec.array_spec = array_spec;
+        }
 
-            if (coarray_spec != NULL)
+        if (coarray_spec != NULL)
+        {
+            if (current_attr_spec.is_codimension)
             {
-                if (current_attr_spec.is_codimension)
-                {
-                    running_error("%s: error: CODIMENSION attribute specified twice\n", ast_location(declaration));
-                }
-                current_attr_spec.is_codimension = 1;
-                current_attr_spec.coarray_spec = coarray_spec;
+                error_printf("%s: error: CODIMENSION attribute specified twice\n", ast_location(declaration));
+                continue;
             }
+            current_attr_spec.is_codimension = 1;
+            current_attr_spec.coarray_spec = coarray_spec;
+        }
 
-            if (char_length != NULL)
+        if (char_length != NULL)
+        {
+            if (ASTType(char_length) != AST_SYMBOL
+                    || strcmp(ASTText(char_length), "*") != 0)
             {
-                if (ASTType(char_length) != AST_SYMBOL
-                        || strcmp(ASTText(char_length), "*") != 0)
-                {
-                    nodecl_t nodecl_char_length = nodecl_null();
-                    fortran_check_expression(char_length, decl_context, &nodecl_char_length);
+                nodecl_t nodecl_char_length = nodecl_null();
+                fortran_check_expression(char_length, decl_context, &nodecl_char_length);
 
-                    nodecl_t lower_bound = nodecl_make_integer_literal(
-                            get_signed_int_type(),
-                            const_value_get_one(type_get_size(get_signed_int_type()), 1),
-                            ASTFileName(char_length), ASTLine(char_length));
-                    entry->type_information = get_array_type_bounds(
-                            array_type_get_element_type(entry->type_information), 
-                            lower_bound, nodecl_char_length, decl_context);
-                }
-                else
-                {
-                    entry->type_information = get_array_type(
-                            array_type_get_element_type(entry->type_information), 
-                            nodecl_null(), decl_context);
-                }
+                nodecl_t lower_bound = nodecl_make_integer_literal(
+                        get_signed_int_type(),
+                        const_value_get_one(type_get_size(get_signed_int_type()), 1),
+                        ASTFileName(char_length), ASTLine(char_length));
+                entry->type_information = get_array_type_bounds(
+                        array_type_get_element_type(entry->type_information), 
+                        lower_bound, nodecl_char_length, decl_context);
             }
-
-            if (initialization != NULL)
+            else
             {
-                if (ASTType(initialization) == AST_POINTER_INITIALIZATION)
-                {
-                    if (!current_attr_spec.is_pointer)
-                    {
-                        running_error("%s: error: no POINTER attribute, required for pointer initialization\n",
-                                ast_location(initialization));
-                    }
-                    initialization = ASTSon0(initialization);
-                }
-                entry->kind = SK_VARIABLE;
-
-                fortran_check_expression(initialization, decl_context, &entry->value);
-
-                if (!current_attr_spec.is_constant)
-                {
-                    entry->entity_specs.is_static = 1;
-                }
-                else
-                {
-                    if (!nodecl_is_constant(entry->value))
-                    {
-                        error_printf("%s: error: expression '%s' is not a constant expression\n",
-                                ast_location(initialization),
-                                fortran_prettyprint_in_buffer(initialization));
-                    }
-
-                    entry->type_information = get_const_qualified_type(entry->type_information);
-                }
-            }
-
-            if (current_attr_spec.is_constant 
-                    && initialization == NULL)
-            {
-                running_error("%s: error: PARAMETER is missing an initializer\n", ast_location(declaration));
+                entry->type_information = get_array_type(
+                        array_type_get_element_type(entry->type_information), 
+                        nodecl_null(), decl_context);
             }
         }
+
 
         // Stop the madness here
         if (current_attr_spec.is_codimension)
         {
-            running_error("%s: sorry: coarrays are not supported\n", ast_location(declaration));
+            error_printf("%s: sorry: coarrays are not supported\n", ast_location(declaration));
         }
 
         if (current_attr_spec.is_dimension)
@@ -4818,8 +4887,9 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
         {
             if (!entry->entity_specs.is_parameter)
             {
-                running_error("%s: error: VALUE attribute is only for dummy arguments\n",
+                error_printf("%s: error: VALUE attribute is only for dummy arguments\n",
                         ast_location(declaration));
+                continue;
             }
         }
 
@@ -4827,8 +4897,9 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
         {
             if (!entry->entity_specs.is_parameter)
             {
-                running_error("%s: error: INTENT attribute is only for dummy arguments\n",
+                error_printf("%s: error: INTENT attribute is only for dummy arguments\n",
                         ast_location(declaration));
+                continue;
             }
             entry->entity_specs.intent_kind = current_attr_spec.intent_kind;
         }
@@ -4837,8 +4908,9 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
         {
             if (!entry->entity_specs.is_parameter)
             {
-                running_error("%s: error: OPTIONAL attribute is only for dummy arguments\n",
+                error_printf("%s: error: OPTIONAL attribute is only for dummy arguments\n",
                         ast_location(declaration));
+                continue;
             }
             entry->entity_specs.is_optional = 1;
         }
@@ -4847,8 +4919,9 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
         {
             if (!current_attr_spec.is_dimension)
             {
-                running_error("%s: error: ALLOCATABLE attribute cannot be used on scalars\n", 
+                error_printf("%s: error: ALLOCATABLE attribute cannot be used on scalars\n", 
                         ast_location(declaration));
+                continue;
             }
             entry->entity_specs.is_allocatable = 1;
             entry->kind = SK_VARIABLE;
@@ -4882,6 +4955,63 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
         }
 
         entry->entity_specs.is_target = current_attr_spec.is_target;
+
+        if (initialization != NULL)
+        {
+            entry->kind = SK_VARIABLE;
+            nodecl_t nodecl_init = nodecl_null();
+
+            if (ASTType(initialization) == AST_POINTER_INITIALIZATION
+                    && current_attr_spec.is_pointer)
+            {
+                initialization = ASTSon0(initialization);
+                fortran_check_initialization(entry, initialization, decl_context, 
+                        /* is_pointer_init */ 1,
+                        &nodecl_init);
+            }
+            else if (current_attr_spec.is_pointer)
+            {
+                error_printf("%s: error: a POINTER must be initialized using pointer initialization\n",
+                        ast_location(initialization));
+            }
+            else if (ASTType(initialization) == AST_POINTER_INITIALIZATION)
+            {
+                error_printf("%s: error: no POINTER attribute, required for pointer initialization\n",
+                        ast_location(initialization));
+            }
+            else
+            {
+                fortran_check_initialization(entry, initialization, decl_context, 
+                        /* is_pointer_init */ 0,
+                        &nodecl_init);
+
+            }
+            if (!nodecl_is_err_expr(nodecl_init))
+            {
+                entry->value = nodecl_init;
+                if (!current_attr_spec.is_constant)
+                {
+                    entry->entity_specs.is_static = 1;
+                }
+                else
+                {
+                    entry->type_information = get_const_qualified_type(entry->type_information);
+                }
+            }
+        }
+
+        if (current_attr_spec.is_pointer
+                && current_attr_spec.is_constant)
+        {
+            error_printf("%s: error: PARAMETER attribute is not compatible with POINTER attribute\n",
+                    ast_location(declaration));
+        }
+
+        if (current_attr_spec.is_constant 
+                && initialization == NULL)
+        {
+            error_printf("%s: error: PARAMETER is missing an initializer\n", ast_location(declaration));
+        }
 
         DEBUG_CODE()
         {
@@ -5170,9 +5300,10 @@ static void build_scope_value_stmt(AST a, decl_context_t decl_context, nodecl_t*
 
         if (!entry->entity_specs.is_parameter)
         {
-            running_error("%s: error: entity '%s' is not a dummy argument\n",
+            error_printf("%s: error: entity '%s' is not a dummy argument\n",
                     ast_location(name),
                     entry->symbol_name);
+            continue;
         }
 
         if (entry->kind == SK_UNDEFINED)
@@ -5213,8 +5344,9 @@ static void build_scope_volatile_stmt(AST a, decl_context_t decl_context, nodecl
         }
         else
         {
-            running_error("%s: error: entity '%s' already has VOLATILE attribute\n",
+            error_printf("%s: error: entity '%s' already has VOLATILE attribute\n",
                     ast_location(a), entry->symbol_name);
+            continue;
         }
     }
 
@@ -6214,9 +6346,10 @@ static void opt_ambiguous_io_spec_handler(AST io_stmt, AST opt_value_ambig, decl
     }
     else
     {
-        running_error("%s: error: invalid io-control-spec '%s'\n", 
+        error_printf("%s: error: invalid io-control-spec '%s'\n", 
                 ast_location(opt_value_ambig),
                 fortran_prettyprint_in_buffer(opt_value_ambig));
+        *nodecl_output = nodecl_make_err_expr(ASTFileName(opt_value_ambig), ASTLine(opt_value_ambig));
     }
 }
 
