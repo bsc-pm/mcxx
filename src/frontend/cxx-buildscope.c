@@ -11460,6 +11460,9 @@ static void build_scope_pragma_custom_directive(AST a,
         nodecl_t* nodecl_output)
 {
     common_build_scope_pragma_custom_directive(a, decl_context, nodecl_output);
+
+    // We expect lists of statements at statement level
+    *nodecl_output = nodecl_make_list_1(*nodecl_output);
 }
 
 void build_scope_statement_pragma(AST a, 
@@ -11476,6 +11479,9 @@ static void build_scope_pragma_custom_construct_statement(AST a,
 {
     nodecl_t nodecl_pragma_line = nodecl_null();
     common_build_scope_pragma_custom_statement(a, decl_context, nodecl_output, &nodecl_pragma_line, build_scope_statement_pragma, NULL);
+
+    // We expect lists of statements at statement level
+    *nodecl_output = nodecl_make_list_1(*nodecl_output);
 }
 
 static void build_scope_declaration_pragma(AST a,
