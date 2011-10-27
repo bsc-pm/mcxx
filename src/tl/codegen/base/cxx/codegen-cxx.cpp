@@ -836,6 +836,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 
     ERROR_CONDITION(!symbol.is_function(), "Invalid symbol", 0);
 
+    std::cerr << "Function code " << symbol.get_qualified_name() << std::endl;
+
     if (symbol.is_member())
     {
         TL::Symbol class_symbol = symbol.get_class_type().get_symbol();
@@ -1837,15 +1839,22 @@ CxxBase::Ret CxxBase::visit(const Nodecl::PreprocessorLine& node)
 
 bool CxxBase::symbol_is_same_or_nested_in(TL::Symbol symbol, TL::Symbol class_sym)
 {
-    if (symbol.is_member())
+    if (symbol == class_sym)
     {
-        return symbol_is_same_or_nested_in(
-                symbol.get_class_type().get_symbol(),
-                class_sym);
+        return true;
     }
     else
     {
-        return symbol == class_sym;
+        if (symbol.is_member())
+        {
+            return symbol_is_same_or_nested_in(
+                    symbol.get_class_type().get_symbol(),
+                    class_sym);
+        }
+        else
+        {
+            return false;
+        }
     }
 }
 
@@ -2283,8 +2292,17 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
 
             C_LANGUAGE()
             {
-                // Everything must be properly defined in C
-                define_symbol(member);
+                if (member.get_type().is_named_class()
+                        && member.get_type().get_symbol().is_anonymous_union())
+                {
+                    TL::Symbol class_sym = member.get_type().get_symbol();
+                    define_class_symbol_aux(class_sym, symbols_defined_inside_class, level + 1);
+                    set_codegen_status(class_sym, CODEGEN_STATUS_DEFINED);
+                }
+                else
+                {
+                    define_symbol(member);
+                }
                 set_codegen_status(member, CODEGEN_STATUS_DEFINED);
             }
             CXX_LANGUAGE()
