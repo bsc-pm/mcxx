@@ -2791,7 +2791,7 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
                         nodecl_get_constant(symbol.get_bitfield_size().get_internal_nodecl()));
 
                 std::stringstream ss;
-                ss << bits_of_bitfield;
+                ss << ":" << bits_of_bitfield;
 
                 bit_field = ss.str();
             }
