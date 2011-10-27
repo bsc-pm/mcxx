@@ -679,10 +679,13 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
     if(!_no_nanox_calls)
     {
+        // Global device
+        AST_t device_tree = device_description.parse_declaration(ctr.get_ast().get_enclosing_function_definition_declaration().get_parent(), 
+                ctr.get_scope_link());
+        ctr.get_ast().prepend_sibling_function(device_tree);
+
         spawn_code
             << "{"
-            // Devices related to this task
-            <<     device_description
             <<     struct_arg_type_name << "* ol_args = (" << struct_arg_type_name << "*)0;"
             <<     struct_runtime_size
             <<     "nanos_wd_t wd = (nanos_wd_t)0;"
@@ -713,7 +716,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             <<        "if (err != NANOS_OK) nanos_handle_error (err);"
             <<     "}"
             <<     "else"
-            <<   "{"
+            <<     "{"
             <<        immediate_decl
             <<        fill_immediate_arguments
             <<        fill_dependences_immediate
