@@ -69,7 +69,8 @@ typedef enum const_value_kind_tag
     CVK_ARRAY,
     CVK_STRUCT,
     CVK_VECTOR,
-    CVK_STRING
+    CVK_STRING,
+    CVK_RANGE
 } const_value_kind_t;
 
 typedef struct const_multi_value_tag
@@ -102,6 +103,7 @@ struct const_value_tag
         // CVK_ARRAY
         // CVK_STRUCT
         // CVK_VECTOR
+        // CVK_RANGE
         const_multi_value_t* m;
     } value;
 };
@@ -707,6 +709,11 @@ char const_value_is_string(const_value_t* v)
     return v->kind == CVK_STRING;
 }
 
+char const_value_is_range(const_value_t* v)
+{
+    return v->kind == CVK_RANGE;
+}
+
 float const_value_cast_to_float(const_value_t* v)
 {
     if (v->kind == CVK_FLOAT)
@@ -985,6 +992,14 @@ const_value_t* const_value_make_complex(const_value_t* real_part, const_value_t*
     const_value_t* complex_[] = { real_part, imag_part };
     const_value_t* result = make_multival(2, complex_);
     result->kind = CVK_COMPLEX;
+    return result;
+}
+
+const_value_t* const_value_make_range(const_value_t* lower, const_value_t* upper, const_value_t* stride)
+{
+    const_value_t* range[] = { lower, upper, stride };
+    const_value_t* result = make_multival(2, range);
+    result->kind = CVK_RANGE;
     return result;
 }
 

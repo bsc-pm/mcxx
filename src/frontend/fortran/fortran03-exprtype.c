@@ -240,7 +240,7 @@ static void fortran_check_expression_impl_(AST expression, decl_context_t decl_c
                     ast_location(expression),
                     fortran_prettyprint_in_buffer(expression),
                     print_declarator(nodecl_get_type(*nodecl_output)),
-                    codegen_to_str(*nodecl_output));
+                    codegen_to_str(const_value_to_nodecl(nodecl_get_constant(*nodecl_output))));
         }
     }
 
@@ -557,6 +557,138 @@ static void check_substring(AST expr, decl_context_t decl_context, nodecl_t node
     nodecl_set_symbol(*nodecl_output, nodecl_get_symbol(nodecl_subscripted));
 }
 
+
+static const_value_t* compute_subconstant_of_array_rec(
+        const_value_t* current_rank_value,
+        type_t* current_array_type,
+        nodecl_t* all_subscripts,
+        int current_subscript, 
+        int total_subscripts)
+{
+    nodecl_t current_nodecl_subscript = all_subscripts[(total_subscripts - 1) - current_subscript];
+    const_value_t* const_of_subscript = nodecl_get_constant(current_nodecl_subscript);
+
+    const_value_t* result_value = NULL;
+
+    int array_rank_base = const_value_cast_to_signed_int(
+            nodecl_get_constant(array_type_get_array_lower_bound(current_array_type)));
+
+    if (const_value_is_range(const_of_subscript))
+    {
+        int lower = const_value_cast_to_signed_int(const_value_get_element_num(const_of_subscript, 0));
+        int upper = const_value_cast_to_signed_int(const_value_get_element_num(const_of_subscript, 1));
+        int stride = const_value_cast_to_signed_int(const_value_get_element_num(const_of_subscript, 2));
+        int trip = (upper - lower + stride) / stride;
+
+        const_value_t* result_array[trip];
+        memset(result_array, 0, sizeof(result_array));
+
+        int i, item = 0;
+        if (stride > 0)
+        {
+            for (i = lower; i <= upper; i += stride, item++)
+            {
+                if ((current_subscript + 1) == total_subscripts)
+                {
+                    result_array[item] = const_value_get_element_num(current_rank_value, i);
+                }
+                else
+                {
+                    result_array[item] = compute_subconstant_of_array_rec(
+                            const_value_get_element_num(current_rank_value, i - array_rank_base),
+                            array_type_get_element_type(current_array_type),
+                            all_subscripts,
+                            current_subscript + 1,
+                            total_subscripts);
+                }
+            }
+        }
+        else
+        {
+            for (i = lower; i >= upper; i += stride, item++)
+            {
+                if ((current_subscript + 1) == total_subscripts)
+                {
+                    result_array[item] = const_value_get_element_num(current_rank_value, i - array_rank_base);
+                }
+                else
+                {
+                    result_array[item] = compute_subconstant_of_array_rec(
+                            const_value_get_element_num(current_rank_value, i - array_rank_base),
+                            array_type_get_element_type(current_array_type),
+                            all_subscripts,
+                            current_subscript + 1,
+                            total_subscripts);
+                }
+            }
+        }
+
+        result_value = const_value_make_array(trip, result_array);
+    }
+    else if (const_value_is_array(const_of_subscript))
+    {
+        int trip = const_value_get_num_elements(const_of_subscript);
+
+        const_value_t* result_array[trip];
+        memset(result_array, 0, sizeof(result_array));
+
+        int p;
+        for (p = 0; p < trip; p++)
+        {
+            int i = const_value_cast_to_signed_int(
+                    const_value_get_element_num(const_of_subscript, p));
+
+            if ((current_subscript + 1) == total_subscripts)
+            {
+                result_array[p] = const_value_get_element_num(current_rank_value, i - array_rank_base);
+            }
+            else
+            {
+                result_array[p] = compute_subconstant_of_array_rec(
+                        const_value_get_element_num(current_rank_value, i - array_rank_base),
+                        array_type_get_element_type(current_array_type),
+                        all_subscripts,
+                        current_subscript + 1,
+                        total_subscripts);
+            }
+        }
+
+        result_value = const_value_make_array(trip, result_array);
+    }
+    else
+    {
+        int i = const_value_cast_to_signed_int(const_of_subscript);
+        if ((current_subscript + 1) == total_subscripts)
+        {
+            result_value = const_value_get_element_num(current_rank_value, i - array_rank_base);
+        }
+        else
+        {
+            result_value = compute_subconstant_of_array_rec(
+                    const_value_get_element_num(current_rank_value, i - array_rank_base),
+                    array_type_get_element_type(current_array_type),
+                    all_subscripts,
+                    current_subscript + 1,
+                    total_subscripts);
+        }
+    }
+
+    ERROR_CONDITION(result_value == NULL, "This is not possible", 0);
+    return result_value;
+}
+
+static const_value_t* compute_subconstant_of_array(
+        const_value_t* current_rank_value,
+        type_t* array_type,
+        nodecl_t* all_subscripts,
+        int total_subscripts)
+{
+    return compute_subconstant_of_array_rec(current_rank_value, 
+            array_type,
+            all_subscripts,
+            0, total_subscripts);
+}
+
 static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nodecl_subscripted, nodecl_t* nodecl_output)
 {
     char symbol_is_invalid = 0;
@@ -686,13 +818,11 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
                     && nodecl_is_constant(nodecl_upper)
                     && nodecl_is_constant(nodecl_stride))
             {
-                // This range is constant!
-                const_value_t* vals[3] = {nodecl_get_constant(nodecl_lower),
-                    nodecl_get_constant(nodecl_upper),
-                    nodecl_get_constant(nodecl_stride)};
-
+                // This range is constant
                 nodecl_set_constant(nodecl_indexes[num_subscripts],
-                        const_value_make_struct(3, vals));
+                        const_value_make_range(nodecl_get_constant(nodecl_lower),
+                            nodecl_get_constant(nodecl_upper),
+                            nodecl_get_constant(nodecl_stride)));
             }
         }
         else
@@ -771,26 +901,15 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
             ASTLine(expr));
     nodecl_set_symbol(*nodecl_output, symbol);
 
-    // const_value_t* current_const_value = nodecl_get_constant(symbol->value);
-
     if (is_const_qualified_type(no_ref(symbol->type_information))
             && all_subscripts_const)
     {
-        for (i = num_subscripts-1; i >= 0; i--)
-        {
-            // We have to build a range
-            if (nodecl_get_kind(nodecl_indexes[i]) == NODECL_RANGE)
-            {
-            }
-            // We have to build a range
-            else if (const_value_is_array(nodecl_get_constant(nodecl_indexes[i])))
-            {
-            }
-            // This should be an integer
-            else
-            {
-            }
-        }
+        const_value_t* subconstant = compute_subconstant_of_array(
+                nodecl_get_constant(symbol->value),
+                array_type,
+                nodecl_indexes,
+                num_subscripts);
+        nodecl_set_constant(*nodecl_output, subconstant);
     }
 }
 
