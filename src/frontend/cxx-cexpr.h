@@ -79,6 +79,8 @@ LIBMCXX_EXTERN uint32_t const_value_cast_to_4(const_value_t* val);
 LIBMCXX_EXTERN uint16_t const_value_cast_to_2(const_value_t* val);
 LIBMCXX_EXTERN uint8_t const_value_cast_to_1(const_value_t* val);
 
+LIBMCXX_EXTERN int const_value_cast_to_signed_int(const_value_t* val);
+
 LIBMCXX_EXTERN const_value_t* const_value_cast_to_bytes(const_value_t* val, int bytes, char sign);
 
 LIBMCXX_EXTERN const_value_t* const_value_cast_to_signed_int_value(const_value_t* value);

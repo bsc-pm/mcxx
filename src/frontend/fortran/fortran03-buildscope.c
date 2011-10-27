@@ -4797,12 +4797,16 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
         if (current_attr_spec.is_dimension)
         {
             char was_ref = is_lvalue_reference_type(entry->type_information);
-            type_t* array_type = compute_type_from_array_spec(no_ref(entry->type_information), 
+            cv_qualifier_t cv_qualif = get_cv_qualifier(entry->type_information);
+            type_t* array_type = compute_type_from_array_spec(no_ref(get_unqualified_type(entry->type_information)),
                     current_attr_spec.array_spec,
                     decl_context,
                     /* array_spec_kind */ NULL);
             entry->kind = SK_VARIABLE;
             entry->type_information = array_type;
+
+            entry->type_information = get_cv_qualified_type(entry->type_information, cv_qualif);
+
             if (was_ref)
             {
                 entry->type_information = get_lvalue_reference_type(entry->type_information);

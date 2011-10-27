@@ -453,6 +453,22 @@ uint8_t const_value_cast_to_1(const_value_t* val)
     }
 }
 
+int const_value_cast_to_signed_int(const_value_t* val)
+{
+    switch (val->kind)
+    {
+        case CVK_INTEGER:
+            return val->value.i;
+        case CVK_FLOAT:
+            return val->value.f;
+        case CVK_DOUBLE:
+            return val->value.d;
+        case CVK_LONG_DOUBLE:
+            return val->value.ld;
+        OTHER_KIND;
+    }
+}
+
 #ifdef HAVE_QUADMATH_H
   #define IS_FLOAT(kind) (kind == CVK_FLOAT || kind == CVK_DOUBLE || kind == CVK_LONG_DOUBLE || kind == CVK_FLOAT128)
 #else
@@ -588,46 +604,6 @@ type_t* const_value_get_minimal_integer_type(const_value_t* val)
     return get_minimal_integer_for_value(val->sign, val->value.i);
 }
 
-
-#if 0
-static void get_proper_suffix_integer(char is_signed, uint64_t value, const char** suffix, type_t** t)
-{
-    *t = get_minimal_integer_for_value(is_signed, value);
-
-    if (is_signed_char_type(*t)
-            || is_signed_short_int_type(*t)
-            || is_signed_int_type(*t))
-    {
-        *suffix = uniquestr("");
-    }
-    else if (is_unsigned_char_type(*t)
-            || is_unsigned_short_int_type(*t)
-            || is_unsigned_int_type(*t))
-    {
-        *suffix = uniquestr("u");
-    }
-    else if (is_signed_long_int_type(*t))
-    {
-        *suffix = uniquestr("l");
-    }
-    else if (is_unsigned_long_int_type(*t))
-    {
-        *suffix = uniquestr("ul");
-    }
-    else if (is_signed_long_long_int_type(*t))
-    {
-        *suffix = uniquestr("ll");
-    }
-    else if (is_unsigned_long_long_int_type(*t))
-    {
-        *suffix = uniquestr("ull");
-    }
-    else
-    {
-        internal_error("Invalid type", 0);
-    }
-}
-#endif
 
 nodecl_t const_value_to_nodecl(const_value_t* v)
 {

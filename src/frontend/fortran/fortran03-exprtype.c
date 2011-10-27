@@ -47,6 +47,10 @@
 
 static void fortran_check_expression_impl_(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
 
+static nodecl_t fortran_nodecl_adjust_function_argument(
+        type_t* parameter_type,
+        nodecl_t argument);
+
 char fortran_check_expression(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     fortran_check_expression_impl_(a, decl_context, nodecl_output);
@@ -264,7 +268,9 @@ static void check_add_op(AST expr, decl_context_t decl_context, nodecl_t* nodecl
     common_binary_check(expr, decl_context, nodecl_output);
 }
 
-static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context, nodecl_t* nodecl_output, type_t** current_type)
+static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context, 
+        nodecl_t* nodecl_output, 
+        type_t** current_type, int *num_items)
 {
     AST it;
     for_each_element(ac_value_list, it)
@@ -311,23 +317,88 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context, 
                 running_error("%s: error: invalid name '%s' for ac-implied-do\n", ast_location(ac_do_variable), ASTText(ac_do_variable));
             }
 
-            nodecl_t nodecl_ac_value = nodecl_null();
-            check_ac_value_list(implied_do_ac_value, decl_context, &nodecl_ac_value, current_type);
+            if (nodecl_is_constant(nodecl_lower)
+                    && nodecl_is_constant(nodecl_upper)
+                    && nodecl_is_constant(nodecl_stride))
+            {
+                int val_lower = const_value_cast_to_signed_int(nodecl_get_constant(nodecl_lower));
+                int val_upper = const_value_cast_to_signed_int(nodecl_get_constant(nodecl_upper));
+                int val_stride = const_value_cast_to_signed_int(nodecl_get_constant(nodecl_stride));
 
-            nodecl_t nodecl_implied_do = 
-                nodecl_make_fortran_implied_do(
-                        nodecl_make_symbol(do_variable, ASTFileName(ac_do_variable), ASTLine(ac_do_variable)),
-                        nodecl_make_range(nodecl_lower, 
-                            nodecl_upper, 
-                            nodecl_stride, 
-                            fortran_get_default_integer_type(),
+                int trip = (val_upper
+                        - val_lower
+                        + val_stride)
+                    / val_stride;
+
+                if (trip < 0)
+                {
+                    trip = 0;
+                }
+                (*num_items) += trip;
+
+                // Save information of the symbol
+                type_t* original_type = do_variable->type_information;
+                nodecl_t original_value = do_variable->value;
+
+                // Set it as a PARAMETER of kind INTEGER (so we will effectively use its value)
+                do_variable->type_information = get_const_qualified_type(fortran_get_default_integer_type());
+
+                int i;
+                if (val_stride > 0)
+                {
+                    for (i = val_lower;
+                            i <= val_upper;
+                            i+= val_stride)
+                    {
+                        // Set the value of the variable
+                        do_variable->value = const_value_to_nodecl(const_value_get_signed_int(i));
+
+                        check_ac_value_list(implied_do_ac_value, decl_context, nodecl_output, current_type, num_items);
+                    }
+                }
+                else if (val_stride < 0)
+                {
+                    for (i = val_lower;
+                            i >= val_upper;
+                            i += val_stride)
+                    {
+                        // Set the value of the variable
+                        do_variable->value = const_value_to_nodecl(const_value_get_signed_int(i));
+
+                        check_ac_value_list(implied_do_ac_value, decl_context, nodecl_output, current_type, num_items);
+                    }
+                }
+                else
+                {
+                    error_printf("%s: error: step of implied-do is zero\n", ast_location(stride));
+                }
+
+                // Restore the variable used for the expansion
+                do_variable->type_information = original_type;
+                do_variable->value = original_value;
+            }
+            else
+            {
+                int current_num_items = 0;
+                nodecl_t nodecl_ac_value = nodecl_null();
+                check_ac_value_list(implied_do_ac_value, decl_context, &nodecl_ac_value, current_type, &current_num_items);
+
+                nodecl_t nodecl_implied_do = 
+                    nodecl_make_fortran_implied_do(
+                            nodecl_make_symbol(do_variable, ASTFileName(ac_do_variable), ASTLine(ac_do_variable)),
+                            nodecl_make_range(nodecl_lower, 
+                                nodecl_upper, 
+                                nodecl_stride, 
+                                fortran_get_default_integer_type(),
+                                ASTFileName(implied_do_control), 
+                                ASTLine(implied_do_control)),
+                            nodecl_ac_value,
                             ASTFileName(implied_do_control), 
-                            ASTLine(implied_do_control)),
-                        nodecl_ac_value,
-                        ASTFileName(implied_do_control), 
-                        ASTLine(implied_do_control));
+                            ASTLine(implied_do_control));
+                (*num_items) = -1;
+                *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_implied_do);
+            }
 
-            *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_implied_do);
         }
         else
         {
@@ -343,6 +414,9 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context, 
             {
                 *current_type = nodecl_get_type(nodecl_expr);
             }
+
+            if ((*num_items) >= 0)
+                (*num_items)++;
 
             *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_expr);
         }
@@ -365,7 +439,8 @@ static void check_array_constructor(AST expr, decl_context_t decl_context, nodec
     AST ac_value_list = ASTSon1(ac_spec);
     nodecl_t nodecl_ac_value = nodecl_null();
     type_t* ac_value_type = NULL;
-    check_ac_value_list(ac_value_list, decl_context, &nodecl_ac_value, &ac_value_type);
+    int num_items = 0;
+    check_ac_value_list(ac_value_list, decl_context, &nodecl_ac_value, &ac_value_type, &num_items);
 
     if (nodecl_is_err_expr(nodecl_ac_value))
     {
@@ -387,6 +462,23 @@ static void check_array_constructor(AST expr, decl_context_t decl_context, nodec
         all_constants = all_constants && (constants[i] != NULL);
     }
     free(list);
+
+    if (num_items > 0)
+    {
+        ac_value_type = get_array_type_bounds(ac_value_type,
+                const_value_to_nodecl(const_value_get_one(fortran_get_default_integer_type_kind(), /* signed */ 1)),
+                const_value_to_nodecl(const_value_get_signed_int(num_items)),
+                decl_context);
+
+        if (all_constants)
+        {
+            ac_value_type = get_const_qualified_type(ac_value_type);
+        }
+    }
+    else
+    {
+        ac_value_type = get_array_type_bounds(ac_value_type, nodecl_null(), nodecl_null(), decl_context);
+    }
 
     *nodecl_output = nodecl_make_structured_value(nodecl_ac_value,
             ac_value_type,
@@ -484,8 +576,8 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
     else
     {
         array_type = no_ref(symbol->type_information);
-        if (is_pointer_to_array_type(no_ref(symbol->type_information)))
-            array_type = pointer_type_get_pointee_type(no_ref(symbol->type_information));
+        if (is_pointer_to_array_type(array_type))
+            array_type = pointer_type_get_pointee_type(array_type);
 
         synthesized_type = get_rank0_type(array_type);
         rank_of_type = get_rank_of_type(array_type);
@@ -500,10 +592,22 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
         num_subscripts++;
     }
 
+    type_t* dimension_type = array_type;
     nodecl_t nodecl_indexes[num_subscripts];
+    nodecl_t nodecl_lower_dim[num_subscripts];
+    nodecl_t nodecl_upper_dim[num_subscripts];
     int i;
     for (i = 0; i < num_subscripts; i++)
     {
+        nodecl_lower_dim[(num_subscripts - 1) - i] = nodecl_null();
+        nodecl_upper_dim[(num_subscripts - 1) - i] = nodecl_null();
+        if (is_array_type(dimension_type))
+        {
+            nodecl_lower_dim[(num_subscripts - 1) - i] = array_type_get_array_lower_bound(dimension_type);
+            nodecl_upper_dim[(num_subscripts - 1) - i] = array_type_get_array_upper_bound(dimension_type);
+            dimension_type = array_type_get_element_type(dimension_type);
+        }
+
         nodecl_indexes[i] = nodecl_null();
     }
 
@@ -521,9 +625,21 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
             nodecl_t nodecl_upper = nodecl_null();
             nodecl_t nodecl_stride = nodecl_null();
             if (lower != NULL)
+            {
                 fortran_check_expression_impl_(lower, decl_context, &nodecl_lower);
+            }
+            else
+            {
+                nodecl_lower = nodecl_copy(nodecl_lower_dim[num_subscripts]);
+            }
             if (upper != NULL)
+            {
                 fortran_check_expression_impl_(upper, decl_context, &nodecl_upper);
+            }
+            else
+            {
+                nodecl_upper = nodecl_copy(nodecl_upper_dim[num_subscripts]);
+            }
             if (stride != NULL)
                 fortran_check_expression_impl_(stride, decl_context, &nodecl_stride);
             else
@@ -562,6 +678,22 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
                     fortran_get_default_integer_type(),
                     ASTFileName(subscript),
                     ASTLine(subscript));
+
+            if (!nodecl_is_null(nodecl_lower)
+                    && !nodecl_is_null(nodecl_upper)
+                    && !nodecl_is_null(nodecl_stride)
+                    && nodecl_is_constant(nodecl_lower)
+                    && nodecl_is_constant(nodecl_upper)
+                    && nodecl_is_constant(nodecl_stride))
+            {
+                // This range is constant!
+                const_value_t* vals[3] = {nodecl_get_constant(nodecl_lower),
+                    nodecl_get_constant(nodecl_upper),
+                    nodecl_get_constant(nodecl_stride)};
+
+                nodecl_set_constant(nodecl_indexes[num_subscripts],
+                        const_value_make_struct(3, vals));
+            }
         }
         else
         {
@@ -623,10 +755,12 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
         return;
     }
 
-
+    char all_subscripts_const = 1;
     nodecl_t nodecl_list = nodecl_null();
     for (i = num_subscripts-1; i >= 0; i--)
     {
+        if (!nodecl_is_constant(nodecl_indexes[i]))
+            all_subscripts_const = 0;
         nodecl_list = nodecl_append_to_list(nodecl_list, nodecl_indexes[i]);
     }
 
@@ -635,7 +769,29 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
             synthesized_type,
             ASTFileName(expr),
             ASTLine(expr));
-    nodecl_set_symbol(*nodecl_output, nodecl_get_symbol(nodecl_subscripted));
+    nodecl_set_symbol(*nodecl_output, symbol);
+
+    // const_value_t* current_const_value = nodecl_get_constant(symbol->value);
+
+    if (is_const_qualified_type(no_ref(symbol->type_information))
+            && all_subscripts_const)
+    {
+        for (i = num_subscripts-1; i >= 0; i--)
+        {
+            // We have to build a range
+            if (nodecl_get_kind(nodecl_indexes[i]) == NODECL_RANGE)
+            {
+            }
+            // We have to build a range
+            else if (const_value_is_array(nodecl_get_constant(nodecl_indexes[i])))
+            {
+            }
+            // This should be an integer
+            else
+            {
+            }
+        }
+    }
 }
 
 static void check_array_ref(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -905,17 +1061,43 @@ static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t*
     }
 
     type_t* synthesized_type = entry->type_information;
+
+    char is_pointer = 0;
+    if (is_pointer_type(no_ref(synthesized_type)))
+    {
+        is_pointer = 1;
+        synthesized_type = pointer_type_get_pointee_type(no_ref(synthesized_type));
+    }
     
     if (!is_fortran_array_type(synthesized_type)
             && !is_pointer_to_fortran_array_type(synthesized_type))
     {
-        synthesized_type = rebuild_array_type(entry->type_information, t);
+        synthesized_type = rebuild_array_type(synthesized_type, t);
     }
 
-    *nodecl_output = nodecl_make_class_member_access(nodecl_base, 
-            nodecl_make_symbol(entry, ASTFileName(ASTSon1(expr)), ASTLine(ASTSon1(expr))),
-            synthesized_type,
-            ASTFileName(expr), ASTLine(expr));
+    if (is_pointer)
+    {
+        // We do this in two steps since we want the symbol in the class member access as well
+        *nodecl_output = nodecl_make_class_member_access(nodecl_base, 
+                nodecl_make_symbol(entry, ASTFileName(ASTSon1(expr)), ASTLine(ASTSon1(expr))),
+                get_pointer_type(synthesized_type),
+                ASTFileName(expr), ASTLine(expr)),
+        nodecl_set_symbol(*nodecl_output, entry);
+
+        *nodecl_output = 
+            nodecl_make_derreference(
+                    *nodecl_output,
+                    synthesized_type,
+                    ASTFileName(expr), ASTLine(expr));
+    }
+    else
+    {
+        *nodecl_output = nodecl_make_class_member_access(nodecl_base, 
+                nodecl_make_symbol(entry, ASTFileName(ASTSon1(expr)), ASTLine(ASTSon1(expr))),
+                synthesized_type,
+                ASTFileName(expr), ASTLine(expr));
+    }
+
     nodecl_set_symbol(*nodecl_output, entry);
 }
 
@@ -1227,6 +1409,7 @@ struct actual_argument_info_tag
     const char* keyword;
     type_t* type;
     char not_present;
+    nodecl_t argument;
 } actual_argument_info_t;
 
 static scope_entry_t* get_specific_interface(scope_entry_t* symbol, 
@@ -1667,6 +1850,7 @@ static void check_called_symbol(
                 return;
             }
             argument_info_items[position].type = nodecl_get_type(nodecl_actual_arguments[i]);
+            argument_info_items[position].argument = nodecl_actual_arguments[i];
         }
 
         int num_completed_arguments = num_actual_arguments;
@@ -1759,8 +1943,22 @@ static void check_called_symbol(
 
             for (i = 0; i < num_completed_arguments; i++)
             {
-                type_t* formal_type = function_type_get_parameter_type_num(symbol->type_information, i);
-                type_t* real_type = fixed_argument_info_items[i].type;
+                type_t* formal_type = no_ref(function_type_get_parameter_type_num(symbol->type_information, i));
+                type_t* real_type = no_ref(fixed_argument_info_items[i].type);
+
+                if (is_pointer_type(formal_type)
+                        && !fixed_argument_info_items[i].not_present)
+                {
+                    scope_entry_t* sym = nodecl_get_symbol(fixed_argument_info_items[i].argument);
+                    if (sym != NULL 
+                            && sym->kind == SK_VARIABLE
+                            && is_pointer_type(sym->type_information))
+                    {
+                        ERROR_CONDITION(nodecl_get_kind(fixed_argument_info_items[i].argument) != NODECL_DERREFERENCE,
+                                "Invalid pointer acess", 0);
+                        real_type = no_ref(sym->type_information);
+                    }
+                }
 
                 if (!equivalent_tkr_types(formal_type, real_type))
                 {
@@ -2041,6 +2239,7 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
 
                 nodecl_t nodecl_argument = nodecl_null();
                 fortran_check_expression_impl_(actual_arg, decl_context, &nodecl_argument);
+                ERROR_CONDITION(nodecl_is_err_expr(nodecl_argument), "This should not have happened", 0);
 
                 if (no_argument_info)
                 {
@@ -2049,6 +2248,10 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
                 else
                 {
                     ERROR_CONDITION(parameter == NULL, "We did not find the parameter", 0);
+                    nodecl_argument = fortran_nodecl_adjust_function_argument(
+                            parameter->type_information,
+                            nodecl_argument);
+
                     nodecl_argument_spec = nodecl_make_fortran_named_pair_spec(
                             nodecl_make_symbol(parameter, ASTFileName(actual_arg_spec), ASTLine(actual_arg_spec)),
                             nodecl_argument,
@@ -2058,23 +2261,6 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
             else
             {
                 internal_error("Alternate return not implemented yet", 0);
-                // nodecl_argument_spec = nodecl_make_fortran_named_pair_spec(
-                //         nodecl_null(),
-                //         nodecl_make_builtin_expr(
-                //             nodecl_make_any_list(
-                //                 nodecl_make_list_1(
-                //                     nodecl_make_string_literal(get_void_type(), 
-                //                         /* label */ ASTText(ASTSon0(actual_arg)), 
-                //                         ASTFileName(ASTSon0(actual_arg)), 
-                //                         ASTLine(ASTSon0(actual_arg)))),
-                //                 ASTFileName(ASTSon0(actual_arg)), 
-                //                 ASTLine(ASTSon0(actual_arg)) ),
-                //             get_void_type(),
-                //             "fortran-alternate-result",
-                //             ASTFileName(actual_arg),
-                //             ASTLine(actual_arg)),
-                //         ASTFileName(actual_arg),
-                //         ASTLine(actual_arg) );
             }
 
             nodecl_argument_list = nodecl_append_to_list(nodecl_argument_list, nodecl_argument_spec);
@@ -2376,11 +2562,21 @@ static void check_user_defined_unary_op(AST expr, decl_context_t decl_context, n
             &called_symbol,
             &nodecl_simplify);
 
+    ERROR_CONDITION(result_type == NULL, "Invalid type returned by check_called_symbol", 0);
+
+    if (is_error_type(result_type))
+    {
+        *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
+        return;
+    }
+
     *nodecl_output = nodecl_make_function_call(
             nodecl_make_symbol(called_symbol, ASTFileName(expr), ASTLine(expr)),
             nodecl_make_list_1(
                 nodecl_make_fortran_named_pair_spec(nodecl_null(),
-                    nodecl_expr,
+                    fortran_nodecl_adjust_function_argument(
+                        function_type_get_parameter_type_num(called_symbol->type_information, 0),
+                        nodecl_expr),
                     ASTFileName(operand_expr),
                     ASTLine(operand_expr))),
             result_type,
@@ -2450,15 +2646,27 @@ static void check_user_defined_binary_op(AST expr, decl_context_t decl_context, 
             &called_symbol,
             &nodecl_simplify);
 
+    ERROR_CONDITION(result_type == NULL, "Invalid type returned by check_called_symbol", 0);
+
+    if (is_error_type(result_type))
+    {
+        *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
+        return;
+    }
+
     *nodecl_output = nodecl_make_function_call(
             nodecl_make_symbol(called_symbol, ASTFileName(expr), ASTLine(expr)),
             nodecl_make_list_2(
                 nodecl_make_fortran_named_pair_spec(nodecl_null(),
-                    nodecl_lhs,
+                    fortran_nodecl_adjust_function_argument(
+                        function_type_get_parameter_type_num(called_symbol->type_information, 0),
+                        nodecl_lhs),
                     ASTFileName(lhs_expr),
                     ASTLine(lhs_expr)),
                 nodecl_make_fortran_named_pair_spec(nodecl_null(),
-                    nodecl_rhs,
+                    fortran_nodecl_adjust_function_argument(
+                        function_type_get_parameter_type_num(called_symbol->type_information, 1),
+                        nodecl_rhs),
                     ASTFileName(rhs_expr),
                     ASTLine(rhs_expr))),
             result_type,
@@ -2593,8 +2801,7 @@ static void check_symbol(AST expr, decl_context_t decl_context, nodecl_t* nodecl
                 && !nodecl_is_null(entry->value)
                 && nodecl_is_constant(entry->value))
         {
-            // Effectively replace the synthesized nodecl by its constant 
-            *nodecl_output = entry->value;
+            nodecl_set_constant(*nodecl_output, nodecl_get_constant(entry->value));
         }
 
         if (is_pointer_type(no_ref(entry->type_information)))
@@ -2805,15 +3012,20 @@ static void check_ptr_assignment(AST expr, decl_context_t decl_context, nodecl_t
     nodecl_t nodecl_lvalue = nodecl_null();
     fortran_check_expression_impl_(lvalue, decl_context, &nodecl_lvalue);
 
-    type_t* lvalue_type = nodecl_get_type(nodecl_lvalue);
-    if (is_error_type(lvalue_type))
+    if (nodecl_is_err_expr(nodecl_lvalue))
     {
-        *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
+        *nodecl_output = nodecl_lvalue;
         return;
     }
 
     nodecl_t nodecl_rvalue = nodecl_null();
     fortran_check_expression_impl_(rvalue, decl_context, &nodecl_rvalue);
+
+    if (nodecl_is_err_expr(nodecl_rvalue))
+    {
+        *nodecl_output = nodecl_rvalue;
+        return;
+    }
 
     type_t* rvalue_type = nodecl_get_type(nodecl_rvalue);
     if (is_error_type(rvalue_type))
@@ -2822,14 +3034,14 @@ static void check_ptr_assignment(AST expr, decl_context_t decl_context, nodecl_t
         return;
     }
 
-    scope_entry_t* sym = NULL;
+    scope_entry_t* lvalue_sym = NULL;
     if (nodecl_get_symbol(nodecl_lvalue) != NULL)
     {
-        sym = nodecl_get_symbol(nodecl_lvalue);
+        lvalue_sym = nodecl_get_symbol(nodecl_lvalue);
     }
-    if (sym == NULL
-            || sym->kind != SK_VARIABLE
-            || !is_pointer_type(no_ref(sym->type_information)))
+    if (lvalue_sym == NULL
+            || lvalue_sym->kind != SK_VARIABLE
+            || !is_pointer_type(no_ref(lvalue_sym->type_information)))
     {
         if (!checking_ambiguity())
         {
@@ -2838,6 +3050,41 @@ static void check_ptr_assignment(AST expr, decl_context_t decl_context, nodecl_t
         }
         *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
         return;
+    }
+
+    scope_entry_t* rvalue_sym = NULL;
+    if (nodecl_get_symbol(nodecl_rvalue) != NULL)
+    {
+        rvalue_sym = nodecl_get_symbol(nodecl_rvalue);
+    }
+    if (rvalue_sym == NULL
+            || rvalue_sym->kind != SK_VARIABLE
+            || (!is_pointer_type(no_ref(rvalue_sym->type_information)) &&
+                !rvalue_sym->entity_specs.is_target))
+    {
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: error: right hand of pointer assignment is not a POINTER or TARGET data-reference\n",
+                    ast_location(expr));
+        }
+        *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
+        return;
+    }
+
+    if (is_pointer_type(no_ref(rvalue_sym->type_information)))
+    {
+        ERROR_CONDITION(nodecl_get_kind(nodecl_rvalue) != NODECL_DERREFERENCE,
+                "References to pointers must be derreferenced!", 0);
+        // Get the inner part of the derreference
+        nodecl_rvalue = nodecl_get_child(nodecl_rvalue, 0);
+    }
+    else
+    {
+        // Build a reference here
+        nodecl_rvalue = nodecl_make_reference(nodecl_rvalue,
+                get_pointer_type(no_ref(rvalue_sym->type_information)),
+                nodecl_get_filename(nodecl_rvalue),
+                nodecl_get_line(nodecl_rvalue));
     }
 
     ERROR_CONDITION(nodecl_get_kind(nodecl_lvalue) != NODECL_DERREFERENCE, 
@@ -3295,28 +3542,27 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
             {
                 result = rerank_type(result, lhs_type, rhs_type);
 
-                if (nodecl_is_null(nodecl_simplify))
+                nodecl_t nodecl_argument_list = nodecl_null();
+
+                if (nodecl_is_null(nodecl_lhs))
                 {
-                    nodecl_t nodecl_argument_list = nodecl_null();
-
-                    if (nodecl_is_null(nodecl_lhs))
-                    {
-                        nodecl_argument_list = nodecl_make_list_1(nodecl_rhs);
-                    }
-                    else
-                    {
-                        nodecl_argument_list = nodecl_make_list_2(nodecl_rhs, nodecl_lhs);
-                    }
-
-                    *nodecl_output = nodecl_make_function_call(
-                            nodecl_make_symbol(call_sym, ast_get_filename(expr), ast_get_line(expr)),
-                            nodecl_argument_list,
-                            result,
-                            ASTFileName(expr), ASTLine(expr));
+                    nodecl_argument_list = nodecl_make_list_1(nodecl_rhs);
                 }
                 else
                 {
-                    *nodecl_output = nodecl_simplify;
+                    nodecl_argument_list = nodecl_make_list_2(nodecl_rhs, nodecl_lhs);
+                }
+
+                *nodecl_output = nodecl_make_function_call(
+                        nodecl_make_symbol(call_sym, ast_get_filename(expr), ast_get_line(expr)),
+                        nodecl_argument_list,
+                        result,
+                        ASTFileName(expr), ASTLine(expr));
+
+                if (nodecl_is_null(nodecl_simplify)
+                        && nodecl_is_constant(nodecl_simplify))
+                {
+                    nodecl_set_constant(*nodecl_output, nodecl_get_constant(nodecl_simplify));
                 }
             }
         }
@@ -3636,4 +3882,17 @@ type_t* common_type_of_equality_operation(type_t* t1, type_t* t2)
         }
     }
     return NULL;
+}
+
+static nodecl_t fortran_nodecl_adjust_function_argument(
+        type_t* parameter_type,
+        nodecl_t argument)
+{
+    if (is_pointer_type(no_ref(parameter_type)))
+    {
+        ERROR_CONDITION(nodecl_get_kind(argument) != NODECL_DERREFERENCE, "Invalid pointer access", 0);
+        argument = nodecl_get_child(argument, 0);
+    }
+
+    return argument;
 }
