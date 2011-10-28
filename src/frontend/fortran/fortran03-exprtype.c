@@ -2172,7 +2172,9 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
         {
             // This should be regarded as an error, but it is not for some
             // obscure reasons
-            call_sym = new_fortran_symbol(decl_context, ASTText(procedure_designator));
+            decl_context_t program_unit_context =
+                decl_context.current_scope->related_entry->related_decl_context;
+            call_sym = new_fortran_symbol(program_unit_context, ASTText(procedure_designator));
             call_sym->kind = SK_FUNCTION;
             call_sym->type_information = get_nonproto_function_type(NULL, 0);
             call_sym->entity_specs.is_extern = 1;

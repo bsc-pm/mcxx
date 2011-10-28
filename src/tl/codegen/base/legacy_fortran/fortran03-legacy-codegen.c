@@ -279,20 +279,34 @@ static void codegen_type(nodecl_codegen_visitor_t* visitor,
             internal_error("too many array dimensions %d\n", MCXX_MAX_ARRAY_SPECIFIER);
         }
 
+        array_spec_list[array_spec_idx].lower = array_type_get_array_lower_bound(t);
+        if (nodecl_is_constant(array_spec_list[array_spec_idx].lower))
+        {
+            array_spec_list[array_spec_idx].lower = 
+                const_value_to_nodecl(nodecl_get_constant(array_spec_list[array_spec_idx].lower));
+        }
+        else
+        {
+            declare_symbols_rec(visitor, array_spec_list[array_spec_idx].lower);
+        }
+
         if (!array_type_is_unknown_size(t))
         {
-            array_spec_list[array_spec_idx].lower = array_type_get_array_lower_bound(t);
             array_spec_list[array_spec_idx].upper = array_type_get_array_upper_bound(t);
 
-            declare_symbols_rec(visitor, array_spec_list[array_spec_idx].lower);
-            declare_symbols_rec(visitor, array_spec_list[array_spec_idx].upper);
+            if (nodecl_is_constant(array_spec_list[array_spec_idx].upper))
+            {
+                array_spec_list[array_spec_idx].upper = 
+                    const_value_to_nodecl(nodecl_get_constant(array_spec_list[array_spec_idx].upper));
+            }
+            else
+            {
+                declare_symbols_rec(visitor, array_spec_list[array_spec_idx].upper);
+            }
         }
         else
         {
             array_spec_list[array_spec_idx].is_undefined = 1;
-
-            // They may have lower bound
-            array_spec_list[array_spec_idx].lower = array_type_get_array_lower_bound(t);
         }
 
         t = array_type_get_element_type(t);
@@ -641,7 +655,7 @@ static void declare_symbol(nodecl_codegen_visitor_t* visitor, scope_entry_t* ent
                 }
                 else // COMMON
                 {
-                    keyword = "NAMELIST";
+                    keyword = "COMMON";
                     // Ignore ".common."
                     symbol_name = entry->symbol_name + strlen(".common.");
                 }
@@ -1857,13 +1871,26 @@ static void codegen_unknown_pragma(nodecl_codegen_visitor_t* visitor, nodecl_t n
     fprintf(visitor->file, "%s\n", nodecl_get_text(node));
 }
 
-static void codegen_pragma_custom_line(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+static void codegen_pragma_clause_arg(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
     fprintf(visitor->file, "%s", nodecl_get_text(node));
 }
+
+static void codegen_pragma_custom_clause(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    fprintf(visitor->file, " %s(", nodecl_get_text(node));
+    codegen_comma_separated_list(visitor, nodecl_get_child(node, 0));
+    fprintf(visitor->file, ")");
+}
+
+static void codegen_pragma_custom_line(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    fprintf(visitor->file, " %s", nodecl_get_text(node));
+    codegen_walk(visitor, nodecl_get_child(node, 1));
+}
 static void codegen_pragma_custom_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
-    fprintf(visitor->file, "!$%s ", nodecl_get_text(node));
+    fprintf(visitor->file, "!$%s", nodecl_get_text(node));
     codegen_walk(visitor, nodecl_get_child(node, 0));
     fprintf(visitor->file, "\n");
     codegen_walk(visitor, nodecl_get_child(node, 1));
@@ -1958,8 +1985,11 @@ static void fortran_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
     NODECL_VISITOR(codegen_visitor)->visit_conversion = codegen_visitor_fun(codegen_conversion);
 
     NODECL_VISITOR(codegen_visitor)->visit_unknown_pragma = codegen_visitor_fun(codegen_unknown_pragma);
+    NODECL_VISITOR(codegen_visitor)->visit_pragma_custom_clause = codegen_visitor_fun(codegen_pragma_custom_clause);
     NODECL_VISITOR(codegen_visitor)->visit_pragma_custom_line = codegen_visitor_fun(codegen_pragma_custom_line);
     NODECL_VISITOR(codegen_visitor)->visit_pragma_custom_statement = codegen_visitor_fun(codegen_pragma_custom_statement);
+    NODECL_VISITOR(codegen_visitor)->visit_pragma_clause_arg = codegen_visitor_fun(codegen_pragma_clause_arg);
+
 }
 
 void _fortran_codegen_translation_unit(FILE* f, nodecl_t node)

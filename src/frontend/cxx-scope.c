@@ -367,8 +367,16 @@ void insert_alias(scope_t* sc, scope_entry_t* entry, const char* name)
     rb_tree_insert(sc->hash, symbol_name, result_set);
 }
 
-// Normally we work on decl_context.current_scope but for template parameters
-// sc != decl_context.current_scope so allow the user such freedom
+static const char* scope_names[] =
+{
+    [UNDEFINED_SCOPE] = "UNDEFINED_SCOPE",
+    [NAMESPACE_SCOPE] = "NAMESPACE_SCOPE",
+    [FUNCTION_SCOPE] = "FUNCTION_SCOPE",
+    [PROTOTYPE_SCOPE] = "PROTOTYPE_SCOPE",
+    [BLOCK_SCOPE] = "BLOCK_SCOPE",
+    [CLASS_SCOPE] = "CLASS_SCOPE",
+};
+
 scope_entry_t* new_symbol(decl_context_t decl_context, scope_t* sc, const char* name)
 {
     ERROR_CONDITION(name == NULL ||
@@ -384,7 +392,6 @@ scope_entry_t* new_symbol(decl_context_t decl_context, scope_t* sc, const char* 
 
     result->extended_data = counted_calloc(1, sizeof(*(result->extended_data)), &_bytes_used_symbols);
     extensible_struct_init(&result->extended_data);
-
     insert_alias(sc, result, result->symbol_name);
 
     return result;
@@ -394,16 +401,6 @@ char same_scope(scope_t* stA, scope_t* stB)
 {
     return (stA->hash == stB->hash);
 }
-
-static const char* scope_names[] =
-{
-    [UNDEFINED_SCOPE] = "UNDEFINED_SCOPE",
-    [NAMESPACE_SCOPE] = "NAMESPACE_SCOPE",
-    [FUNCTION_SCOPE] = "FUNCTION_SCOPE",
-    [PROTOTYPE_SCOPE] = "PROTOTYPE_SCOPE",
-    [BLOCK_SCOPE] = "BLOCK_SCOPE",
-    [CLASS_SCOPE] = "CLASS_SCOPE",
-};
 
 static scope_entry_list_t* query_name_in_scope(scope_t* sc, const char* name)
 {
