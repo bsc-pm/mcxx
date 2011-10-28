@@ -3522,6 +3522,13 @@ static void native_compilation(translation_unit_t* translation_unit,
 
     if (execute_program(CURRENT_CONFIGURATION->native_compiler_name, native_compilation_args) != 0)
     {
+#ifdef FORTRAN_SUPPORT
+        // Clean things up if they go wrong here before aborting
+        if (CURRENT_CONFIGURATION->source_language == SOURCE_LANGUAGE_FORTRAN)
+        {
+            driver_fortran_restore_mercurium_modules();
+        }
+#endif
         running_error("Native compilation failed for file '%s'", translation_unit->input_filename);
     }
     timing_end(&timing_compilation);
