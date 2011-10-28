@@ -1350,9 +1350,9 @@ static void check_derived_type_constructor(AST expr, decl_context_t decl_context
         return;
     }
 
-    // decl_context_t class_context = class_type_get_inner_context(entry->type_information);
-
     nodecl_t nodecl_initializer_list = nodecl_null();
+
+    scope_entry_list_t* initialized_in_constructor = NULL;
 
     int member_index = 0;
     int component_position = 1;
@@ -1426,6 +1426,14 @@ static void check_derived_type_constructor(AST expr, decl_context_t decl_context
                 member_index = -1;
             }
 
+            if (entry_list_contains(initialized_in_constructor, member))
+            {
+                error_printf("%s: error: component '%s' initialized more than once\n",
+                        ast_location(expr),
+                        member->symbol_name);
+                *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
+                return;
+            }
 
             nodecl_t nodecl_expr = nodecl_null();
             fortran_check_expression_impl_(component_data_source, decl_context, &nodecl_expr);
@@ -1436,14 +1444,47 @@ static void check_derived_type_constructor(AST expr, decl_context_t decl_context
 
             nodecl_initializer_list = nodecl_append_to_list(nodecl_initializer_list, nodecl_field_designator);
 
+            initialized_in_constructor = entry_list_add(initialized_in_constructor, member);
+
             component_position++;
         }
     }
 
+    scope_entry_list_t* nonstatic_data_members = class_type_get_nonstatic_data_members(entry->type_information);
+    // Now review components not initialized yet
+    scope_entry_list_iterator_t* iter = NULL;
+    for (iter = entry_list_iterator_begin(nonstatic_data_members);
+            !entry_list_iterator_end(iter);
+            entry_list_iterator_next(iter))
+    {
+        scope_entry_t* member = entry_list_iterator_current(iter);
+
+        if (!entry_list_contains(initialized_in_constructor, member))
+        {
+            if (nodecl_is_null(member->value))
+            {
+                error_printf("%s: error: component '%s' lacks an initializer\n",
+                        ast_location(expr),
+                        member->symbol_name);
+                *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
+                return;
+            }
+            else
+            {
+                nodecl_t nodecl_field = nodecl_make_symbol(member, ASTFileName(expr), ASTLine(expr));
+                nodecl_t nodecl_field_designator = nodecl_make_field_designator(nodecl_field, 
+                        nodecl_copy(member->value),
+                        ASTFileName(expr), ASTLine(expr));
+
+                nodecl_initializer_list = nodecl_append_to_list(nodecl_initializer_list, nodecl_field_designator);
+            }
+        }
+    }
 
     *nodecl_output = nodecl_make_structured_value(nodecl_initializer_list, 
-            entry->type_information, 
+            get_user_defined_type(entry), 
             ASTFileName(expr), ASTLine(expr));
+    nodecl_set_symbol(*nodecl_output, entry);
 }
 
 static void check_different_op(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)

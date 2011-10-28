@@ -903,7 +903,14 @@ static void declare_symbols_from_modules_rec(nodecl_codegen_visitor_t* visitor, 
     scope_entry_t* entry = nodecl_get_symbol(node);
     if (entry != NULL)
     {
-        if (is_class_type(entry->type_information))
+        if (entry->kind == SK_CLASS)
+        {
+            if (entry->entity_specs.from_module)
+            {
+                codegen_use_statement(visitor, entry);
+            }
+        }
+        if (is_named_class_type(entry->type_information))
         {
             scope_entry_t* class_entry = named_type_get_symbol(entry->type_information);
             if (class_entry->entity_specs.from_module)
@@ -1678,11 +1685,33 @@ static void codegen_complex_literal(nodecl_codegen_visitor_t* visitor, nodecl_t 
     fprintf(visitor->file, ")");
 }
 
+static void codegen_field_designator(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    nodecl_t name = nodecl_get_child(node, 0);
+    nodecl_t initializer = nodecl_get_child(node, 1);
+    fprintf(visitor->file, "%s = ", nodecl_get_symbol(name)->symbol_name);
+    codegen_walk(visitor, initializer);
+}
+
 static void codegen_structured_value(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
-    fprintf(visitor->file, "(/ ");
-    codegen_comma_separated_list(visitor, nodecl_get_child(node, 0));
-    fprintf(visitor->file, " /)");
+    type_t* type = nodecl_get_type(node);
+    if (is_array_type(type))
+    {
+        fprintf(visitor->file, "(/ ");
+        codegen_comma_separated_list(visitor, nodecl_get_child(node, 0));
+        fprintf(visitor->file, " /)");
+    }
+    else if (is_named_class_type(type))
+    {
+        fprintf(visitor->file, "%s(", named_type_get_symbol(type)->symbol_name);
+        codegen_comma_separated_list(visitor, nodecl_get_child(node, 0));
+        fprintf(visitor->file, ")");
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
 }
 
 static void codegen_array_subscript(nodecl_codegen_visitor_t* visitor, nodecl_t node)
@@ -1981,6 +2010,8 @@ static void fortran_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
 
     NODECL_VISITOR(codegen_visitor)->visit_fortran_forall = codegen_visitor_fun(codegen_forall);
     NODECL_VISITOR(codegen_visitor)->visit_fortran_where = codegen_visitor_fun(codegen_where);
+
+    NODECL_VISITOR(codegen_visitor)->visit_field_designator = codegen_visitor_fun(codegen_field_designator);
 
     NODECL_VISITOR(codegen_visitor)->visit_conversion = codegen_visitor_fun(codegen_conversion);
 
