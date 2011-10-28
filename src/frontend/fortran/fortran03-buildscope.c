@@ -4845,7 +4845,7 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
                         const_value_get_one(type_get_size(get_signed_int_type()), 1),
                         ASTFileName(char_length), ASTLine(char_length));
                 entry->type_information = get_array_type_bounds(
-                        array_type_get_element_type(entry->type_information), 
+                        array_type_get_element_type(no_ref(entry->type_information)), 
                         lower_bound, nodecl_char_length, decl_context);
             }
             else
