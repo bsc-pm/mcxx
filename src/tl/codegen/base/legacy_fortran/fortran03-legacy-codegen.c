@@ -131,6 +131,9 @@ static void codegen_module_header(nodecl_codegen_visitor_t* visitor, scope_entry
 
     visitor->indent_level += 2;
 
+    indent(visitor);
+    fprintf(visitor->file, "IMPLICIT NONE\n", entry->symbol_name);
+
     scope_entry_t* previous_sym = visitor->current_sym;
     visitor->current_sym = entry;
     for (i = 0; i < num_components; i++)
@@ -379,8 +382,27 @@ static void codegen_type(nodecl_codegen_visitor_t* visitor,
     else if (is_fortran_character_type(t))
     {
         char c[128] = { 0 };
-        snprintf(c, 127, "CHARACTER(LEN=%s)",
-                array_type_is_unknown_size(t) ? "*" : _fortran_codegen_to_str(array_type_get_array_upper_bound(t)));
+
+        if (!array_type_is_unknown_size(t))
+        {
+            nodecl_t upper_bound = array_type_get_array_upper_bound(t);
+            if (nodecl_is_constant(upper_bound))
+            {
+                upper_bound = const_value_to_nodecl(nodecl_get_constant(upper_bound));
+            }
+            else
+            {
+                declare_symbols_rec(visitor, upper_bound);
+            }
+
+            snprintf(c, 127, "CHARACTER(LEN=%s)",
+                    array_type_is_unknown_size(t) ? "*" : _fortran_codegen_to_str(upper_bound));
+        }
+        else
+        {
+            snprintf(c, 127, "CHARACTER(LEN=*)");
+        }
+
         c[127] = '\0';
         (*type_specifier) = uniquestr(c);
     }

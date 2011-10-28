@@ -3041,8 +3041,8 @@ static char is_intrinsic_assignment(type_t* lvalue_type, type_t* rvalue_type)
 
     if (is_fortran_character_type(conf_lhs_type)
             && is_fortran_character_type(conf_rhs_type)
-            && equivalent_types(array_type_get_element_type(conf_lhs_type), 
-                array_type_get_element_type(conf_rhs_type))) 
+            && equivalent_types(get_unqualified_type(array_type_get_element_type(conf_lhs_type)), 
+                get_unqualified_type(array_type_get_element_type(conf_rhs_type)))) 
     {
         return 1;
     }
