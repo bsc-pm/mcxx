@@ -1498,9 +1498,9 @@ static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t no
     BINARY_EXPRESSION(add, " + ") \
     BINARY_EXPRESSION(minus, " - ") \
     BINARY_EXPRESSION(lower_than, " < ") \
+    BINARY_EXPRESSION(lower_or_equal_than, " <= ") \
     BINARY_EXPRESSION(greater_than, " > ") \
-    BINARY_EXPRESSION(greater_or_equal_than, " <= ") \
-    BINARY_EXPRESSION(lower_or_equal_than, " >= ") \
+    BINARY_EXPRESSION(greater_or_equal_than, " >= ") \
     BINARY_EXPRESSION(logical_and, " .AND. ") \
     BINARY_EXPRESSION(logical_or, " .OR. ") \
     BINARY_EXPRESSION(power, " ** ") \
