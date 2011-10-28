@@ -1521,7 +1521,7 @@ static void check_floating_literal(AST expr, decl_context_t decl_context, nodecl
    }
    else if ((q = strchr(floating_text, 'd')) != NULL)
    {
-       *q = '\0';
+       *q = 'e';
        kind = 8;
    }
 
