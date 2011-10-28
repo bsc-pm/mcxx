@@ -1225,6 +1225,36 @@ static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t*
     }
 
     nodecl_set_symbol(*nodecl_output, entry);
+
+    if (nodecl_is_constant(nodecl_base))
+    {
+        // The base is const, thus this component reference is const as well
+        const_value_t* const_value = nodecl_get_constant(nodecl_base);
+        ERROR_CONDITION(!const_value_is_structured(const_value), "Invalid constant value for data-reference of part", 0);
+
+        // First figure the index inside the const value
+        int i = 0;
+        scope_entry_list_t* components = class_type_get_nonstatic_data_members(class_type);
+
+        scope_entry_list_iterator_t* iter = NULL;
+        for (iter = entry_list_iterator_begin(components);
+                !entry_list_iterator_end(iter);
+                entry_list_iterator_next(iter), i++)
+        {
+            scope_entry_t* current_member = entry_list_iterator_current(iter);
+            if (current_member == entry)
+            {
+                break;
+            }
+        }
+        entry_list_iterator_free(iter);
+
+        ERROR_CONDITION((i == entry_list_size(components)), "This should not happen", 0);
+
+        const_value_t* const_value_member = const_value_get_element_num(const_value, i);
+
+        nodecl_set_constant(*nodecl_output, const_value_member);
+    }
 }
 
 static void check_concat_op(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -1350,9 +1380,12 @@ static void check_derived_type_constructor(AST expr, decl_context_t decl_context
         return;
     }
 
-    nodecl_t nodecl_initializer_list = nodecl_null();
+    char all_components_are_const = 1;
 
-    scope_entry_list_t* initialized_in_constructor = NULL;
+    scope_entry_list_t* nonstatic_data_members = class_type_get_nonstatic_data_members(entry->type_information);
+
+    nodecl_t initialization_expressions[entry_list_size(nonstatic_data_members) + 1];
+    memset(initialization_expressions, 0, sizeof(initialization_expressions));
 
     int member_index = 0;
     int component_position = 1;
@@ -1364,6 +1397,8 @@ static void check_derived_type_constructor(AST expr, decl_context_t decl_context
             AST component_spec = ASTSon1(it);
             AST component_name = ASTSon0(component_spec);
             AST component_data_source = ASTSon1(component_spec);
+
+            int current_member_index = 0;
 
             scope_entry_t* member = NULL;
             if (component_name == NULL)
@@ -1379,9 +1414,6 @@ static void check_derived_type_constructor(AST expr, decl_context_t decl_context
                     return;
                 }
 
-                int i;
-                scope_entry_list_t* nonstatic_data_members = class_type_get_nonstatic_data_members(entry->type_information);
-
                 if (member_index > entry_list_size(nonstatic_data_members))
                 {
                     if (!checking_ambiguity())
@@ -1393,6 +1425,7 @@ static void check_derived_type_constructor(AST expr, decl_context_t decl_context
                 }
 
                 scope_entry_list_iterator_t* iter = entry_list_iterator_begin(nonstatic_data_members);
+                int i;
                 for (i = 0; i < member_index; i++)
                 {
                     entry_list_iterator_next(iter);
@@ -1400,7 +1433,8 @@ static void check_derived_type_constructor(AST expr, decl_context_t decl_context
                 member = entry_list_iterator_current(iter);
 
                 entry_list_iterator_free(iter);
-                entry_list_free(nonstatic_data_members);
+
+                current_member_index = member_index;
 
                 member_index++;
             }
@@ -1423,10 +1457,23 @@ static void check_derived_type_constructor(AST expr, decl_context_t decl_context
                     return;
                 }
 
+                current_member_index = 0;
+                scope_entry_list_iterator_t* iter = NULL;
+                for (iter = entry_list_iterator_begin(nonstatic_data_members);
+                        !entry_list_iterator_end(iter);
+                        entry_list_iterator_next(iter), current_member_index++)
+                {
+                    scope_entry_t* current_member = entry_list_iterator_current(iter);
+                    if (current_member == member)
+                        break;
+                }
+
+                ERROR_CONDITION((current_member_index == entry_list_size(nonstatic_data_members)), "This should never happen", 0);
+
                 member_index = -1;
             }
 
-            if (entry_list_contains(initialized_in_constructor, member))
+            if (!nodecl_is_null(initialization_expressions[current_member_index]))
             {
                 error_printf("%s: error: component '%s' initialized more than once\n",
                         ast_location(expr),
@@ -1438,28 +1485,35 @@ static void check_derived_type_constructor(AST expr, decl_context_t decl_context
             nodecl_t nodecl_expr = nodecl_null();
             fortran_check_expression_impl_(component_data_source, decl_context, &nodecl_expr);
 
-            nodecl_t nodecl_field = nodecl_make_symbol(member, ASTFileName(component_spec), ASTLine(component_spec));
-            nodecl_t nodecl_field_designator = nodecl_make_field_designator(nodecl_field, nodecl_expr, 
-                    ASTFileName(component_spec), ASTLine(component_spec));
+            if (nodecl_is_err_expr(nodecl_expr))
+            {
+                *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
+                return;
+            }
 
-            nodecl_initializer_list = nodecl_append_to_list(nodecl_initializer_list, nodecl_field_designator);
+            if (!nodecl_is_constant(nodecl_expr))
+            {
+                all_components_are_const = 0;
+            }
 
-            initialized_in_constructor = entry_list_add(initialized_in_constructor, member);
+            initialization_expressions[current_member_index] = nodecl_expr;
 
             component_position++;
         }
     }
 
-    scope_entry_list_t* nonstatic_data_members = class_type_get_nonstatic_data_members(entry->type_information);
-    // Now review components not initialized yet
+    nodecl_t nodecl_initializer_list = nodecl_null();
     scope_entry_list_iterator_t* iter = NULL;
+
+    // Now review components not initialized yet
+    int i = 0;
     for (iter = entry_list_iterator_begin(nonstatic_data_members);
             !entry_list_iterator_end(iter);
-            entry_list_iterator_next(iter))
+            entry_list_iterator_next(iter), i++)
     {
         scope_entry_t* member = entry_list_iterator_current(iter);
 
-        if (!entry_list_contains(initialized_in_constructor, member))
+        if (nodecl_is_null(initialization_expressions[i]))
         {
             if (nodecl_is_null(member->value))
             {
@@ -1471,20 +1525,47 @@ static void check_derived_type_constructor(AST expr, decl_context_t decl_context
             }
             else
             {
-                nodecl_t nodecl_field = nodecl_make_symbol(member, ASTFileName(expr), ASTLine(expr));
-                nodecl_t nodecl_field_designator = nodecl_make_field_designator(nodecl_field, 
-                        nodecl_copy(member->value),
-                        ASTFileName(expr), ASTLine(expr));
+                // This should be const, shouldn't it?
+                if (!nodecl_is_constant(member->value))
+                {
+                    all_components_are_const = 0;
+                }
 
-                nodecl_initializer_list = nodecl_append_to_list(nodecl_initializer_list, nodecl_field_designator);
+                initialization_expressions[i] = member->value;
             }
         }
+
+        nodecl_initializer_list = nodecl_append_to_list(nodecl_initializer_list, 
+                nodecl_make_field_designator(
+                    nodecl_make_symbol(member, ASTFileName(expr), ASTLine(expr)),
+                    initialization_expressions[i],
+                    ASTFileName(expr),
+                    ASTLine(expr)));
     }
+    entry_list_iterator_free(iter);
 
     *nodecl_output = nodecl_make_structured_value(nodecl_initializer_list, 
             get_user_defined_type(entry), 
             ASTFileName(expr), ASTLine(expr));
     nodecl_set_symbol(*nodecl_output, entry);
+
+    if (all_components_are_const)
+    {
+        const_value_t* items[nodecl_list_length(nodecl_initializer_list) + 1];
+        memset(items, 0, sizeof(items));
+
+        int num_items = entry_list_size(nonstatic_data_members);
+
+        for (i = 0; i < num_items; i++)
+        {
+            items[i] = nodecl_get_constant(initialization_expressions[i]);
+        }
+
+        const_value_t* value = const_value_make_struct(num_items, items);
+        nodecl_set_constant(*nodecl_output, value);
+    }
+
+    entry_list_free(nonstatic_data_members);
 }
 
 static void check_different_op(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -2675,7 +2756,6 @@ static void check_string_literal(AST expr, decl_context_t decl_context, nodecl_t
 
     type_t* t = get_array_type_bounds(fortran_get_default_character_type(), one, length_tree, decl_context);
 
-
     const_value_t* value = const_value_make_string(real_string, real_length);
 
     *nodecl_output = nodecl_make_string_literal(t, value, ASTFileName(expr), ASTLine(expr));
@@ -3041,7 +3121,8 @@ static char is_intrinsic_assignment(type_t* lvalue_type, type_t* rvalue_type)
 
     if (is_fortran_character_type(conf_lhs_type)
             && is_fortran_character_type(conf_rhs_type)
-            && equivalent_types(get_unqualified_type(array_type_get_element_type(conf_lhs_type)), 
+            && equivalent_types(
+                get_unqualified_type(array_type_get_element_type(conf_lhs_type)), 
                 get_unqualified_type(array_type_get_element_type(conf_rhs_type)))) 
     {
         return 1;
@@ -3053,7 +3134,9 @@ static char is_intrinsic_assignment(type_t* lvalue_type, type_t* rvalue_type)
 
     if (is_class_type(conf_lhs_type)
             && is_class_type(conf_rhs_type)
-            && equivalent_types(conf_lhs_type, conf_rhs_type))
+            && equivalent_types(
+                get_unqualified_type(conf_lhs_type), 
+                get_unqualified_type(conf_rhs_type)))
         return 1;
 
     return 0;

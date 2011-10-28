@@ -123,6 +123,67 @@ static void not_implemented_yet(nodecl_external_visitor_t* visitor UNUSED_PARAME
             nodecl_get_locus(node));
 }
 
+static void codegen_use_statement(nodecl_codegen_visitor_t* visitor, scope_entry_t* entry)
+{
+    ERROR_CONDITION(!entry->entity_specs.from_module, "Symbol '%s' must be from module\n", entry->symbol_name);
+
+    if (entry->entity_specs.codegen_status == CODEGEN_STATUS_DEFINED)
+        return;
+
+    indent(visitor);
+    if (!entry->entity_specs.is_renamed)
+    {
+        fprintf(visitor->file, "USE %s, ONLY: %s\n", 
+                entry->entity_specs.from_module->symbol_name,
+                entry->symbol_name);
+    }
+    else
+    {
+        fprintf(visitor->file, "USE %s, ONLY: %s => %s\n", 
+                entry->entity_specs.from_module->symbol_name,
+                entry->symbol_name,
+                entry->entity_specs.alias_to->symbol_name);
+    }
+
+    entry->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
+}
+
+static void emit_use_statement_if_symbol_comes_from_module(nodecl_codegen_visitor_t* visitor, scope_entry_t* entry)
+{
+    if (entry->kind == SK_CLASS)
+    {
+        if (entry->entity_specs.from_module)
+        {
+            codegen_use_statement(visitor, entry);
+        }
+        // Check every component recursively
+        scope_entry_list_t* nonstatic_members = class_type_get_nonstatic_data_members(entry->type_information);
+        scope_entry_list_iterator_t* it = NULL;
+        for (it = entry_list_iterator_begin(nonstatic_members);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
+        {
+            scope_entry_t* member = entry_list_iterator_current(it);
+
+            emit_use_statement_if_symbol_comes_from_module(visitor, member);
+        }
+        entry_list_iterator_free(it);
+        entry_list_free(nonstatic_members);
+    }
+    if (is_named_class_type(entry->type_information))
+    {
+        scope_entry_t* class_entry = named_type_get_symbol(entry->type_information);
+        if (class_entry->entity_specs.from_module)
+        {
+            codegen_use_statement(visitor, class_entry);
+        }
+    }
+    if (entry->entity_specs.from_module)
+    {
+        codegen_use_statement(visitor, entry);
+    }
+}
+
 static void codegen_module_header(nodecl_codegen_visitor_t* visitor, scope_entry_t* entry)
 {
     fprintf(visitor->file, "MODULE %s\n", entry->symbol_name);
@@ -130,6 +191,12 @@ static void codegen_module_header(nodecl_codegen_visitor_t* visitor, scope_entry
     int i, num_components = entry->entity_specs.num_related_symbols;
 
     visitor->indent_level += 2;
+    
+    // Check every related entries lest they required stuff coming from other modules
+    for (i = 0; i < entry->entity_specs.num_related_symbols; i++)
+    {
+        emit_use_statement_if_symbol_comes_from_module(visitor, entry->entity_specs.related_symbols[i]);
+    }
 
     indent(visitor);
     fprintf(visitor->file, "IMPLICIT NONE\n", entry->symbol_name);
@@ -886,30 +953,7 @@ static void declare_everything_needed(nodecl_codegen_visitor_t* visitor, nodecl_
     declare_symbols_rec(visitor, node);
 }
 
-static void codegen_use_statement(nodecl_codegen_visitor_t* visitor, scope_entry_t* entry)
-{
-    ERROR_CONDITION(!entry->entity_specs.from_module, "Symbol '%s' must be from module\n", entry->symbol_name);
 
-    if (entry->entity_specs.codegen_status == CODEGEN_STATUS_DEFINED)
-        return;
-
-    indent(visitor);
-    if (!entry->entity_specs.is_renamed)
-    {
-        fprintf(visitor->file, "USE %s, ONLY: %s\n", 
-                entry->entity_specs.from_module->symbol_name,
-                entry->symbol_name);
-    }
-    else
-    {
-        fprintf(visitor->file, "USE %s, ONLY: %s => %s\n", 
-                entry->entity_specs.from_module->symbol_name,
-                entry->symbol_name,
-                entry->entity_specs.alias_to->symbol_name);
-    }
-
-    entry->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
-}
 
 static void declare_symbols_from_modules_rec(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
@@ -925,25 +969,7 @@ static void declare_symbols_from_modules_rec(nodecl_codegen_visitor_t* visitor, 
     scope_entry_t* entry = nodecl_get_symbol(node);
     if (entry != NULL)
     {
-        if (entry->kind == SK_CLASS)
-        {
-            if (entry->entity_specs.from_module)
-            {
-                codegen_use_statement(visitor, entry);
-            }
-        }
-        if (is_named_class_type(entry->type_information))
-        {
-            scope_entry_t* class_entry = named_type_get_symbol(entry->type_information);
-            if (class_entry->entity_specs.from_module)
-            {
-                codegen_use_statement(visitor, class_entry);
-            }
-        }
-        if (entry->entity_specs.from_module)
-        {
-            codegen_use_statement(visitor, entry);
-        }
+        emit_use_statement_if_symbol_comes_from_module(visitor, entry);
     }
 }
 
@@ -957,13 +983,19 @@ static void codegen_procedure(nodecl_codegen_visitor_t* visitor, scope_entry_t* 
     visitor->indent_level++;
 
     declare_use_statements(visitor, statement_seq);
+    // Check every related entries lest they required stuff coming from other modules
+    int i;
+    for (i = 0; i < entry->entity_specs.num_related_symbols; i++)
+    {
+        emit_use_statement_if_symbol_comes_from_module(visitor, entry->entity_specs.related_symbols[i]);
+    }
 
     indent(visitor);
     fprintf(visitor->file, "IMPLICIT NONE\n");
 
     if (entry->kind == SK_FUNCTION)
     {
-        int i, num_params = entry->entity_specs.num_related_symbols;
+        int num_params = entry->entity_specs.num_related_symbols;
         for (i = 0; i < num_params; i++)
         {
             declare_symbol(visitor, entry->entity_specs.related_symbols[i]);

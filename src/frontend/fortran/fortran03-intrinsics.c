@@ -242,8 +242,7 @@ FORTRAN_GENERIC_INTRINSIC(amin0, NULL, E, simplify_amin0) \
 FORTRAN_GENERIC_INTRINSIC(amin1, NULL, E, simplify_amin1) \
 FORTRAN_GENERIC_INTRINSIC(dmax1, NULL, E, simplify_dmax1) \
 FORTRAN_GENERIC_INTRINSIC(dmin1, NULL, E, simplify_dmin1) \
-FORTRAN_GENERIC_INTRINSIC(loc, NULL, E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(getenv,"NAME,VALUE", PS, NULL) \
+FORTRAN_GENERIC_INTRINSIC(loc, NULL, E, NULL) 
 
 #define MAX_KEYWORDS_INTRINSICS 10
 
@@ -1024,6 +1023,8 @@ static void fortran_init_specific_names(decl_context_t decl_context)
     REGISTER_SPECIFIC_INTRINSIC_1("dimag", "aimag", get_complex_type(get_double_type()));
 
     REGISTER_CUSTOM_INTRINSIC_1("dfloat", get_double_type(), get_signed_int_type());
+    REGISTER_CUSTOM_INTRINSIC_2("getenv", NULL, fortran_get_default_character_type(), 
+            fortran_get_default_character_type());
 }
 
 scope_entry_t* compute_intrinsic_abs(scope_entry_t* symbol UNUSED_PARAMETER,
@@ -4776,22 +4777,6 @@ scope_entry_t* compute_intrinsic_loc(scope_entry_t* symbol UNUSED_PARAMETER,
             t0);
 }
 
-scope_entry_t* compute_intrinsic_getenv(scope_entry_t* symbol UNUSED_PARAMETER,
-        type_t** argument_types UNUSED_PARAMETER,
-        nodecl_t* argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER,
-        const_value_t** const_value UNUSED_PARAMETER)
-{
-    if (num_arguments != 2)
-        return NULL;
-
-    type_t* t0 = argument_types[0];
-
-    return GET_INTRINSIC_PURE("getenv",
-        /*subroutine*/ NULL,
-        fortran_get_default_character_type(),
-        fortran_get_default_character_type());
-}
 static void update_keywords_of_intrinsic(scope_entry_t* entry, const char* keywords)
 {
     intrinsic_variant_info_t current_variant = get_variant(keywords);
