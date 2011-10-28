@@ -148,6 +148,8 @@ static void codegen_use_statement(nodecl_codegen_visitor_t* visitor, scope_entry
     entry->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
 }
 
+static void declare_symbols_from_modules_rec(nodecl_codegen_visitor_t* visitor, nodecl_t node);
+
 static void emit_use_statement_if_symbol_comes_from_module(nodecl_codegen_visitor_t* visitor, scope_entry_t* entry)
 {
     if (entry->kind == SK_CLASS)
@@ -166,6 +168,8 @@ static void emit_use_statement_if_symbol_comes_from_module(nodecl_codegen_visito
             scope_entry_t* member = entry_list_iterator_current(it);
 
             emit_use_statement_if_symbol_comes_from_module(visitor, member);
+
+            declare_symbols_from_modules_rec(visitor, member->value);
         }
         entry_list_iterator_free(it);
         entry_list_free(nonstatic_members);
@@ -952,8 +956,6 @@ static void declare_everything_needed(nodecl_codegen_visitor_t* visitor, nodecl_
 {
     declare_symbols_rec(visitor, node);
 }
-
-
 
 static void declare_symbols_from_modules_rec(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {

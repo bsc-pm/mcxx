@@ -850,7 +850,12 @@ static sqlite3_int64 insert_type(sqlite3* handle, type_t* t)
         const char* name = "CHARACTER";
 
         sqlite3_int64 lower_tree = insert_nodecl(handle, array_type_get_array_lower_bound(t));
-        sqlite3_int64 upper_tree = insert_nodecl(handle, array_type_get_array_upper_bound(t));
+        sqlite3_int64 upper_tree = 0; 
+        
+        if (!array_type_is_unknown_size(t))
+        {
+            upper_tree = insert_nodecl(handle, array_type_get_array_upper_bound(t));
+        }
 
         // When loading, a 'signed char' will be used instead
         sqlite3_int64 element_type = 0;

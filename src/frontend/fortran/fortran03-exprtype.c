@@ -3058,7 +3058,7 @@ static void check_symbol(AST expr, decl_context_t decl_context, nodecl_t* nodecl
             *nodecl_output = 
                 nodecl_make_derreference(
                         *nodecl_output,
-                        pointer_type_get_pointee_type(entry->type_information),
+                        pointer_type_get_pointee_type(no_ref(entry->type_information)),
                         ASTFileName(expr), ASTLine(expr));
             nodecl_set_symbol(*nodecl_output, entry);
         }
