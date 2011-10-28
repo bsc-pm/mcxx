@@ -218,15 +218,24 @@ namespace Nodecl
     
     NodeclBase Utils::reduce_expression(NodeclBase n)
     {
-        if (n.is<Nodecl::Symbol>() || n.is<IntegerLiteral>() || n.is<FloatingLiteral>())
+        NodeclBase simplified_expr;
+        if (n.is<Symbol>() || n.is<IntegerLiteral>() || n.is<FloatingLiteral>())
         {
             return n;
         }
+        else if (n.is<Conversion>())
+        {
+            Conversion n_conv = n.as<Conversion>();
+            NodeclBase new_conv = reduce_expression(n_conv.get_nest());
+            if (!equal_nodecls(n_conv, new_conv))
+            {
+                n_conv = Conversion::make(new_conv, n.get_type(), n.get_filename(), n.get_line());
+            }
+            simplified_expr = algebraic_simplification(n_conv.get_nest());
+        }
         else
         {
-            NodeclBase simplified_expr;
-            
-            if (n.is<Nodecl::Add>())
+            if (n.is<Add>())
             {
                 Add n_add = n.as<Add>();
                 NodeclBase lhs = n_add.get_lhs(); NodeclBase rhs = n_add.get_rhs();
@@ -238,7 +247,7 @@ namespace Nodecl
                 }
                 simplified_expr = algebraic_simplification(n);
             }
-            else if (n.is<Nodecl::Minus>())
+            else if (n.is<Minus>())
             {
                 Minus n_minus = n.as<Minus>();
                 NodeclBase lhs = n_minus.get_lhs(); NodeclBase rhs = n_minus.get_rhs();
@@ -250,13 +259,38 @@ namespace Nodecl
                 }
                 simplified_expr = algebraic_simplification(n);
             }
+            else if (n.is<Mul>())
+            {
+                Mul n_mul = n.as<Mul>();
+                NodeclBase lhs = n_mul.get_lhs(); NodeclBase rhs = n_mul.get_rhs();
+                NodeclBase new_lhs = reduce_expression(lhs);
+                NodeclBase new_rhs = reduce_expression(rhs);
+                if (!equal_nodecls(new_lhs, lhs) || !equal_nodecls(new_rhs, rhs))
+                {
+                    n = Mul::make(new_lhs, new_rhs, lhs.get_type(), n.get_filename(), n.get_line());
+                }
+                simplified_expr = algebraic_simplification(n);
+            }
+            else if (n.is<LowerOrEqualThan>())
+            {
+                LowerOrEqualThan n_low_eq = n.as<LowerOrEqualThan>();
+                NodeclBase lhs = n_low_eq.get_lhs(); NodeclBase rhs = n_low_eq.get_rhs();
+                NodeclBase new_lhs = reduce_expression(lhs);
+                NodeclBase new_rhs = reduce_expression(rhs);
+                if (!equal_nodecls(new_lhs, lhs) || !equal_nodecls(new_rhs, rhs))
+                {
+                    n = Minus::make(new_lhs, new_rhs, lhs.get_type(), n.get_filename(), n.get_line());
+                }
+                simplified_expr = algebraic_simplification(n);                
+            }
             else
             {
-                internal_error("Unexpected node type '%s' while simplifying algebraic expressions", ast_print_node_type(n.get_kind()));
+                internal_error("Node type '%s' while simplifying algebraic expression '%s' not yet implemented", 
+                               ast_print_node_type(n.get_kind()), n.prettyprint().c_str());
             }
-            
-            return simplified_expr;
         }
+        
+        return simplified_expr;
     }    
     
     /*!
@@ -270,11 +304,31 @@ namespace Nodecl
      *      /   \          =>       /   \                 /   \     =>     /   \
      *     t    c                  c     t               t    c          -c     t
      * 
-     * R5 :       +                    +
+     * R5 :   -
+     *      /   \               =>    0
+     *     t1   t2 , t1 = t2
+     * 
+     * R6 :       +                    +
      *          /   \               /     \
      *         +    c2     =>    c1+c2     t
      *       /   \
      *     c1    t
+     *
+     * R7 :   *                                     R8 :    *                 *
+     *      /   \          =>     c1 * c2                 /   \     =>      /   \
+     *    c1    c2                                       t    c            c     t
+     * 
+     * R9 :       *                    *
+     *          /   \               /     \
+     *         *    c2     =>    c1*c2     t
+     *       /   \
+     *     c1    t
+     * 
+     * R20 :    <=                  <=
+     *        /    \              /    \
+     *       +     c2      =>    t   c2-c1
+     *     /   \
+     *   c1     t
      */
     NodeclBase Utils::algebraic_simplification(NodeclBase n)
     {
@@ -285,7 +339,15 @@ namespace Nodecl
             Add n_add = n.as<Add>();
             NodeclBase lhs = n_add.get_lhs();
             NodeclBase rhs = n_add.get_rhs();
-            if (lhs.is_constant() && rhs.is_constant())
+            if (lhs.is_constant() && const_value_is_zero(lhs.get_constant()))
+            {   // 0 + t = t
+                result = rhs;
+            }
+            else if (rhs.is_constant() && const_value_is_zero(rhs.get_constant()))
+            {   // t + 0 = t
+                result = lhs;
+            }
+            else if (lhs.is_constant() && rhs.is_constant())
             {   // R1
                 const_value_t* const_value = calc.compute_const_value(n);
                 result = const_value_to_nodecl(const_value);
@@ -293,11 +355,11 @@ namespace Nodecl
             else if (rhs.is_constant())
             {
                 if (lhs.is<Add>())
-                {   // R5
+                {   // R6
                     Add lhs_add = lhs.as<Add>();
                     NodeclBase lhs_lhs = lhs_add.get_lhs();
                     NodeclBase lhs_rhs = lhs_add.get_rhs();
-                    if (lhs_lhs.is_constant() && rhs.is_constant())
+                    if (lhs_lhs.is_constant())
                     {
                         NodeclBase const_node = Add::make(lhs_lhs, rhs, rhs.get_type(), n.get_filename(), n.get_line());
                         const_value_t* const_value = calc.compute_const_value(const_node);
@@ -343,11 +405,87 @@ namespace Nodecl
                 {
                     result = lhs;
                 }
-            }            
+            }
+            else if (equal_nodecls(lhs, rhs))
+            {
+                result = const_value_to_nodecl(const_value_get_zero(/*num_bytes*/ 4, /*sign*/1));
+            }
+        }
+        else if (n.is<Mul>())
+        {
+            Mul n_mul = n.as<Mul>();
+            NodeclBase lhs = n_mul.get_lhs();
+            NodeclBase rhs = n_mul.get_rhs();
+            if (lhs.is_constant() && const_value_is_zero(lhs.get_constant()))
+            {   // 0 + t = t
+                result = const_value_to_nodecl(const_value_get_zero(/*num_bytes*/ 4, /*sign*/1));
+            }
+            else if (rhs.is_constant() && const_value_is_zero(rhs.get_constant()))
+            {   // t + 0 = t
+                result = lhs;
+            }
+            else if (lhs.is_constant() && rhs.is_constant())
+            {   // R7
+                const_value_t* const_value = calc.compute_const_value(n);
+                result = const_value_to_nodecl(const_value);
+            }
+            else if (rhs.is_constant())
+            {
+                if (lhs.is<Mul>())
+                {   // R9
+                    Mul lhs_mul = lhs.as<Mul>();
+                    NodeclBase lhs_lhs = lhs_mul.get_lhs();
+                    NodeclBase lhs_rhs = lhs_mul.get_rhs();
+                    if (lhs_lhs.is_constant())
+                    {
+                        NodeclBase const_node = Mul::make(lhs_lhs, rhs, rhs.get_type(), n.get_filename(), n.get_line());
+                        const_value_t* const_value = calc.compute_const_value(const_node);
+                        if (!const_value_is_zero(const_value))
+                        {    
+                            result = Mul::make(const_value_to_nodecl(const_value), lhs_rhs, 
+                                               rhs.get_type(), n.get_filename(), n.get_line());
+                        }
+                        else
+                        {
+                            result = const_value_to_nodecl(const_value_get_zero(/*num_bytes*/ 4, /*sign*/1));
+                        }
+                    }
+                }
+                else
+                {   // R8
+                    result = Mul::make(rhs, lhs, lhs.get_type(), n.get_filename(), n.get_line());
+                }
+            }
+        }        
+        else if (n.is<LowerOrEqualThan>())
+        {
+            LowerOrEqualThan n_low_eq = n.as<LowerOrEqualThan>();
+            NodeclBase lhs = n_low_eq.get_lhs();
+            NodeclBase rhs = n_low_eq.get_rhs();
+            if (rhs.is_constant())
+            {
+                if (lhs.is<Add>())
+                {   // R20
+                    Add lhs_add = lhs.as<Add>();
+                    NodeclBase lhs_lhs = lhs_add.get_lhs();
+                    NodeclBase lhs_rhs = lhs_add.get_rhs();
+                    if (lhs_lhs.is_constant())
+                    {
+                        NodeclBase const_node = Minus::make(rhs, lhs_lhs, rhs.get_type(), n.get_filename(), n.get_line());
+                        const_value_t* const_value = calc.compute_const_value(const_node);
+                        result = LowerOrEqualThan::make(lhs_rhs, const_value_to_nodecl(const_value), 
+                                                        rhs.get_type(), n.get_filename(), n.get_line());
+                    }
+                }
+            }
+        }
+        else if (n.is<IntegerLiteral>())
+        {
+            result = n;
         }
         else
         {
-            internal_error("Unexpected node type '%s' while simplifying algebraic expressions", ast_print_node_type(n.get_kind()));
+            internal_error("Node type '%s' while simplifying algebraic expressions not yet implemented", ast_print_node_type(n.get_kind()));
         }
         
         DEBUG_CODE()
