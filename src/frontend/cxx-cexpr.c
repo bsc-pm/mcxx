@@ -339,6 +339,11 @@ const_value_t* const_value_get_one(int num_bytes, char sign)
     return const_value_get_integer(1, num_bytes, sign);
 }
 
+const_value_t* const_value_get_minus_one(int num_bytes, char sign)
+{
+    return const_value_get_integer(-1, num_bytes, sign);
+}
+
 static void common_bytes(const_value_t* v1, const_value_t* v2, int *num_bytes, char *sign)
 {
     if (v1->num_bytes == v2->num_bytes
