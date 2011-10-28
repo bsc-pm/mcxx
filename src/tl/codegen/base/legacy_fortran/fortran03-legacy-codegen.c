@@ -1925,6 +1925,13 @@ static void codegen_pragma_custom_statement(nodecl_codegen_visitor_t* visitor, n
     codegen_walk(visitor, nodecl_get_child(node, 1));
 }
 
+static void codegen_pragma_custom_directive(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    fprintf(visitor->file, "!$%s", nodecl_get_text(node));
+    codegen_walk(visitor, nodecl_get_child(node, 0));
+    fprintf(visitor->file, "\n");
+}
+
 static void codegen_conversion(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
     // Do nothing
@@ -2019,6 +2026,7 @@ static void fortran_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
     NODECL_VISITOR(codegen_visitor)->visit_pragma_custom_clause = codegen_visitor_fun(codegen_pragma_custom_clause);
     NODECL_VISITOR(codegen_visitor)->visit_pragma_custom_line = codegen_visitor_fun(codegen_pragma_custom_line);
     NODECL_VISITOR(codegen_visitor)->visit_pragma_custom_statement = codegen_visitor_fun(codegen_pragma_custom_statement);
+    NODECL_VISITOR(codegen_visitor)->visit_pragma_custom_directive = codegen_visitor_fun(codegen_pragma_custom_directive);
     NODECL_VISITOR(codegen_visitor)->visit_pragma_clause_arg = codegen_visitor_fun(codegen_pragma_clause_arg);
 
 }
