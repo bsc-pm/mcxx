@@ -325,9 +325,94 @@ namespace TL
             lb = Nodecl::Shl::make(lb1, lb2, n.get_type(), _filename, _line);
             ub = Nodecl::Shl::make(ub1, ub2, n.get_type(), _filename, _line);
         }
+        else if (n.template is<Nodecl::Assignment>())
+        {
+            lb = Nodecl::Assignment::make(lb1, lb2, n.get_type(), _filename, _line);
+            ub = Nodecl::Assignment::make(ub1, ub2, n.get_type(), _filename, _line);
+        }
+        else if (n.template is<Nodecl::AddAssignment>())
+        {
+            lb = Nodecl::AddAssignment::make(lb1, lb2, n.get_type(), _filename, _line);
+            ub = Nodecl::AddAssignment::make(ub1, ub2, n.get_type(), _filename, _line);
+        }
+        else if (n.template is<Nodecl::SubAssignment>())
+        {
+            lb = Nodecl::SubAssignment::make(lb1, lb2, n.get_type(), _filename, _line);
+            ub = Nodecl::SubAssignment::make(ub1, ub2, n.get_type(), _filename, _line);
+        }
+        else if (n.template is<Nodecl::DivAssignment>())
+        {
+            lb = Nodecl::DivAssignment::make(lb1, lb2, n.get_type(), _filename, _line);
+            ub = Nodecl::DivAssignment::make(ub1, ub2, n.get_type(), _filename, _line);
+        }
+        else if (n.template is<Nodecl::MulAssignment>())
+        {
+            lb = Nodecl::MulAssignment::make(lb1, lb2, n.get_type(), _filename, _line);
+            ub = Nodecl::MulAssignment::make(ub1, ub2, n.get_type(), _filename, _line);
+        }
+        else if (n.template is<Nodecl::ModAssignment>())
+        {
+            lb = Nodecl::ModAssignment::make(lb1, lb2, n.get_type(), _filename, _line);
+            ub = Nodecl::ModAssignment::make(ub1, ub2, n.get_type(), _filename, _line);
+        }
+        else if (n.template is<Nodecl::BitwiseAndAssignment>())
+        {
+            lb = Nodecl::BitwiseAndAssignment::make(lb1, lb2, n.get_type(), _filename, _line);
+            ub = Nodecl::BitwiseAndAssignment::make(ub1, ub2, n.get_type(), _filename, _line);
+        }
+        else if (n.template is<Nodecl::BitwiseOrAssignment>())
+        {
+            lb = Nodecl::BitwiseOrAssignment::make(lb1, lb2, n.get_type(), _filename, _line);
+            ub = Nodecl::BitwiseOrAssignment::make(ub1, ub2, n.get_type(), _filename, _line);
+        }
+        else if (n.template is<Nodecl::BitwiseXorAssignment>())
+        {
+            lb = Nodecl::BitwiseXorAssignment::make(lb1, lb2, n.get_type(), _filename, _line);
+            ub = Nodecl::BitwiseXorAssignment::make(ub1, ub2, n.get_type(), _filename, _line);
+        }
+        else if (n.template is<Nodecl::ShrAssignment>())
+        {
+            lb = Nodecl::ShrAssignment::make(lb1, lb2, n.get_type(), _filename, _line);
+            ub = Nodecl::ShrAssignment::make(ub1, ub2, n.get_type(), _filename, _line);
+        }
+        else if (n.template is<Nodecl::ShlAssignment>())
+        {
+            lb = Nodecl::ShlAssignment::make(lb1, lb2, n.get_type(), _filename, _line);
+            ub = Nodecl::ShlAssignment::make(ub1, ub2, n.get_type(), _filename, _line);
+        }
+        else if (n.template is<Nodecl::Equal>())
+        {
+            lb = Nodecl::Equal::make(lb1, lb2, n.get_type(), _filename, _line);
+            ub = Nodecl::Equal::make(ub1, ub2, n.get_type(), _filename, _line);
+        }
+        else if (n.template is<Nodecl::Different>())
+        {
+            lb = Nodecl::Different::make(lb1, lb2, n.get_type(), _filename, _line);
+            ub = Nodecl::Different::make(ub1, ub2, n.get_type(), _filename, _line);
+        }
+        else if (n.template is<Nodecl::LowerThan>())
+        {
+            lb = Nodecl::LowerThan::make(lb1, lb2, n.get_type(), _filename, _line);
+            ub = Nodecl::LowerThan::make(ub1, ub2, n.get_type(), _filename, _line);
+        }
+        else if (n.template is<Nodecl::GreaterThan>())
+        {
+            lb = Nodecl::GreaterThan::make(lb1, lb2, n.get_type(), _filename, _line);
+            ub = Nodecl::GreaterThan::make(ub1, ub2, n.get_type(), _filename, _line);
+        }
+        else if (n.template is<Nodecl::LowerOrEqualThan>())
+        {
+            lb = Nodecl::LowerOrEqualThan::make(lb1, lb2, n.get_type(), _filename, _line);
+            ub = Nodecl::LowerOrEqualThan::make(ub1, ub2, n.get_type(), _filename, _line);
+        }
+        else if (n.template is<Nodecl::GreaterOrEqualThan>())
+        {
+            lb = Nodecl::GreaterOrEqualThan::make(lb1, lb2, n.get_type(), _filename, _line);
+            ub = Nodecl::GreaterOrEqualThan::make(ub1, ub2, n.get_type(), _filename, _line);
+        }
         else
         {            
-            internal_error("Unexpected node type '%s' while renaming binary node", ast_print_node_type(n.get_kind()));
+            internal_error("Unexpected node type '%s' while renaming ranged binary node", ast_print_node_type(n.get_kind()));
         }
         
         // Compute constant values for LB and UB if possible
@@ -524,6 +609,74 @@ namespace TL
         {
             renamed = Nodecl::Shl::make(lhs, rhs, n.get_type(), _filename, _line);
         }
+        else if (n.template is<Nodecl::Assignment>())
+        {
+            renamed = Nodecl::Assignment::make(lhs, rhs, n.get_type(), _filename, _line);
+        }
+        else if (n.template is<Nodecl::AddAssignment>())
+        {
+            renamed = Nodecl::AddAssignment::make(lhs, rhs, n.get_type(), _filename, _line);
+        }
+        else if (n.template is<Nodecl::SubAssignment>())
+        {
+            renamed = Nodecl::SubAssignment::make(lhs, rhs, n.get_type(), _filename, _line);
+        }
+        else if (n.template is<Nodecl::DivAssignment>())
+        {
+            renamed = Nodecl::DivAssignment::make(lhs, rhs, n.get_type(), _filename, _line);
+        }
+        else if (n.template is<Nodecl::MulAssignment>())
+        {
+            renamed = Nodecl::MulAssignment::make(lhs, rhs, n.get_type(), _filename, _line);
+        }
+        else if (n.template is<Nodecl::ModAssignment>())
+        {
+            renamed = Nodecl::ModAssignment::make(lhs, rhs, n.get_type(), _filename, _line);
+        }
+        else if (n.template is<Nodecl::BitwiseAndAssignment>())
+        {
+            renamed = Nodecl::BitwiseAndAssignment::make(lhs, rhs, n.get_type(), _filename, _line);
+        }
+        else if (n.template is<Nodecl::BitwiseOrAssignment>())
+        {
+            renamed = Nodecl::BitwiseOrAssignment::make(lhs, rhs, n.get_type(), _filename, _line);
+        }
+        else if (n.template is<Nodecl::BitwiseXorAssignment>())
+        {
+            renamed = Nodecl::BitwiseXorAssignment::make(lhs, rhs, n.get_type(), _filename, _line);
+        }
+        else if (n.template is<Nodecl::ShrAssignment>())
+        {
+            renamed = Nodecl::ShrAssignment::make(lhs, rhs, n.get_type(), _filename, _line);
+        }
+        else if (n.template is<Nodecl::ShlAssignment>())
+        {
+            renamed = Nodecl::ShlAssignment::make(lhs, rhs, n.get_type(), _filename, _line);
+        }
+        else if (n.template is<Nodecl::Equal>())
+        {
+            renamed = Nodecl::Equal::make(lhs, rhs, n.get_type(), _filename, _line);
+        }
+        else if (n.template is<Nodecl::Different>())
+        {
+            renamed = Nodecl::Different::make(lhs, rhs, n.get_type(), _filename, _line);
+        }
+        else if (n.template is<Nodecl::LowerThan>())
+        {
+            renamed = Nodecl::LowerThan::make(lhs, rhs, n.get_type(), _filename, _line);
+        }
+        else if (n.template is<Nodecl::GreaterThan>())
+        {
+            renamed = Nodecl::GreaterThan::make(lhs, rhs, n.get_type(), _filename, _line);
+        }
+        else if (n.template is<Nodecl::LowerOrEqualThan>())
+        {
+            renamed = Nodecl::LowerOrEqualThan::make(lhs, rhs, n.get_type(), _filename, _line);
+        }
+        else if (n.template is<Nodecl::GreaterOrEqualThan>())
+        {
+            renamed = Nodecl::GreaterOrEqualThan::make(lhs, rhs, n.get_type(), _filename, _line);
+        }
         else
         {
             internal_error("Unexpected node type '%s' while renaming binary node", ast_print_node_type(n.get_kind()));
@@ -682,7 +835,92 @@ namespace TL
     {
         return visit_binary(n);
     }
-        
+   
+    CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::Assignment& n)
+    {
+        return visit_binary(n);
+    }
+    
+    CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::AddAssignment& n)
+    {
+        return visit_binary(n);
+    }
+    
+    CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::SubAssignment& n)
+    {
+        return visit_binary(n);
+    }
+    
+    CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::DivAssignment& n)
+    {
+        return visit_binary(n);
+    }
+    
+    CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::MulAssignment& n)
+    {
+        return visit_binary(n);
+    }
+    
+    CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::ModAssignment& n)
+    {
+        return visit_binary(n);
+    }
+    
+    CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::BitwiseAndAssignment& n)
+    {
+        return visit_binary(n);
+    }
+    
+    CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::BitwiseOrAssignment& n)
+    {
+        return visit_binary(n);
+    }
+    
+    CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::BitwiseXorAssignment& n)
+    {
+        return visit_binary(n);
+    }
+    
+    CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::ShrAssignment& n)
+    {
+        return visit_binary(n);
+    }
+    
+    CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::ShlAssignment& n)
+    {
+        return visit_binary(n);
+    }
+
+    CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::Equal& n)
+    {
+        return visit_binary(n);
+    }
+    
+    CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::Different& n)
+    {
+        return visit_binary(n);
+    }
+            
+    CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::LowerThan& n)
+    {
+        return visit_binary(n);
+    }
+    
+    CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::GreaterThan& n)
+    {
+        return visit_binary(n);
+    }
+    
+    CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::LowerOrEqualThan& n)
+    {
+        return visit_binary(n);
+    }
+    
+    CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::GreaterOrEqualThan& n)
+    {
+        return visit_binary(n);
+    }
+
     template <typename T>
     CfgRenamingVisitor::Ret CfgRenamingVisitor::visit_unary(const T& n)
     {
@@ -707,7 +945,7 @@ namespace TL
                 renamed = Nodecl::Preincrement::make(rhs, n.get_type(), _filename, _line);
             }
             else if (n.template is<Nodecl::Postincrement>())
-            {
+            {           
                 renamed = Nodecl::Postincrement::make(rhs, n.get_type(), _filename, _line);
             }
             else if (n.template is<Nodecl::Plus>())
@@ -780,7 +1018,7 @@ namespace TL
     {
         return visit_unary(n);
     }
-    
+   
     CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::Derreference& n)
     {
         return visit_unary(n);
@@ -789,22 +1027,6 @@ namespace TL
     CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::Reference& n)
     {
         return visit_unary(n);
-    }
-    
-    CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::Conversion& n)
-    {
-        Nodecl::NodeclBase nest = n.get_nest();
-        ObjectList<Nodecl::NodeclBase> renamed_nest = walk(nest);
-        
-        if (!renamed_nest.empty())
-        {
-            nest = Nodecl::NodeclBase(create_nodecl_list(renamed_nest));
-            Nodecl::NodeclBase renamed = Nodecl::Conversion::make(nest, n.get_type(), _filename, _line);
-            
-            return ObjectList<Nodecl::NodeclBase>(1, renamed);
-        }
-        
-        return ObjectList<Nodecl::NodeclBase>();
     }
     
     CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::IntegerLiteral& n)
@@ -829,6 +1051,118 @@ namespace TL
     
     CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::StringLiteral& n)
     {
+        return ObjectList<Nodecl::NodeclBase>();
+    }  
+   
+    CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::Conversion& n)
+    {
+        Nodecl::NodeclBase nest = n.get_nest();
+        ObjectList<Nodecl::NodeclBase> renamed_nest = walk(nest);
+        
+        if (!renamed_nest.empty())
+        {
+            nest = Nodecl::NodeclBase(create_nodecl_list(renamed_nest));
+            Nodecl::NodeclBase renamed = Nodecl::Conversion::make(nest, n.get_type(), _filename, _line);
+            
+            return ObjectList<Nodecl::NodeclBase>(1, renamed);
+        }
+        
+        return ObjectList<Nodecl::NodeclBase>();
+    }    
+    
+    CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::ConditionalExpression& n)
+    {
+        Nodecl::NodeclBase cond = n.get_condition();
+        Nodecl::NodeclBase true_nodecl = n.get_true();
+        Nodecl::NodeclBase false_nodecl = n.get_false();
+        ObjectList<Nodecl::NodeclBase> renamed_cond = walk(cond);
+        ObjectList<Nodecl::NodeclBase> renamed_true = walk(true_nodecl);
+        ObjectList<Nodecl::NodeclBase> renamed_false = walk(false_nodecl);
+        
+        if (!renamed_cond.empty() || !renamed_true.empty() || !renamed_false.empty())
+        {
+            if (!renamed_cond.empty())
+            {
+                cond = renamed_cond[0];
+            }
+            if (!renamed_true.empty())
+            {
+                true_nodecl = renamed_true[0];
+            }
+            if (!renamed_false.empty())
+            {
+                false_nodecl = renamed_false[0];
+            }
+            
+            Nodecl::NodeclBase renamed = Nodecl::ConditionalExpression::make(cond, true_nodecl, false_nodecl, n.get_type(), _filename, _line);
+            return ObjectList<Nodecl::NodeclBase>(1, renamed);
+        }
+       
+        return ObjectList<Nodecl::NodeclBase>();
+    }
+    
+    CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::Cast& n)
+    {
+        Nodecl::NodeclBase rhs = n.get_rhs();
+        ObjectList<Nodecl::NodeclBase> renamed_rhs = walk(rhs);
+        
+        if (!renamed_rhs.empty())
+        {
+            rhs =renamed_rhs[0];
+            Nodecl::NodeclBase renamed = Nodecl::Cast::make(rhs, n.get_type(), n.get_text(), _filename, _line);
+            return ObjectList<Nodecl::NodeclBase>(1, renamed);
+        }
+        
+        return ObjectList<Nodecl::NodeclBase>();
+    }
+    
+    CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::FunctionCall& n)
+    {
+        Nodecl::NodeclBase called = n.get_called();
+        Nodecl::NodeclBase arguments = n.get_arguments();
+        ObjectList<Nodecl::NodeclBase> renamed_called = walk(called);
+        ObjectList<Nodecl::NodeclBase> renamed_arguments = walk(arguments);
+        
+        if (!renamed_called.empty() || !renamed_arguments.empty())
+        {
+            if (!renamed_called.empty())
+            {
+                called = renamed_called[0];
+            }
+            if (!renamed_arguments.empty())
+            {
+                arguments = Nodecl::NodeclBase(create_nodecl_list(renamed_arguments));
+            }
+
+            Nodecl::NodeclBase renamed = Nodecl::VirtualFunctionCall::make(called, arguments, n.get_type(), _filename, _line);
+            return ObjectList<Nodecl::NodeclBase>(1, renamed);
+        }
+       
+        return ObjectList<Nodecl::NodeclBase>();
+    }
+    
+    CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::VirtualFunctionCall& n)
+    {
+        Nodecl::NodeclBase called = n.get_called();
+        Nodecl::NodeclBase arguments = n.get_arguments();
+        ObjectList<Nodecl::NodeclBase> renamed_called = walk(called);
+        ObjectList<Nodecl::NodeclBase> renamed_arguments = walk(arguments);
+        
+        if (!renamed_called.empty() || !renamed_arguments.empty())
+        {
+            if (!renamed_called.empty())
+            {
+                called = renamed_called[0];
+            }
+            if (!renamed_arguments.empty())
+            {
+                arguments = Nodecl::NodeclBase(create_nodecl_list(renamed_arguments));
+            }
+
+            Nodecl::NodeclBase renamed = Nodecl::VirtualFunctionCall::make(called, arguments, n.get_type(), _filename, _line);
+            return ObjectList<Nodecl::NodeclBase>(1, renamed);
+        }
+       
         return ObjectList<Nodecl::NodeclBase>();
     }
 }

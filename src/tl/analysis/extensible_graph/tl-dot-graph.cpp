@@ -31,72 +31,11 @@ Cambridge, MA 02139, USA.
 
 namespace TL
 {
+    static void makeup_dot_block(std::string& str);
     static std::string prettyprint_reaching_definitions(nodecl_map syms_def);
     static std::string prettyprint_ext_sym_set(ext_sym_set s);
-    static std::string prettyprint_sym_list(ObjectList<Symbol> s);
-    
-    void ExtensibleGraph::makeup_dot_block(std::string& str)
-    {
-        int pos;
-        // Escape double quotes
-        pos = 0;
-        while ((pos=str.find("\"", pos))!=-1) {
-            str.replace(pos, 1, "\\\"");
-            pos += 2;
-        }
-        // Delete implicit line feeds
-        pos = 0;
-        while ((pos=str.find("\n", pos))!=-1) {
-            str.replace(pos, 1, "");
-        }
-        // Delete explicit line feeds
-        pos = 0;
-        while ((pos=str.find("\\n", pos))!=-1) {
-            str.replace(pos, 2, "\\\\n");
-            pos += 3;
-        }
-        // Escape the comparison symbols '<' and '>'
-        pos = 0;
-        while ((pos=str.find("<", pos))!=-1) {
-            str.replace(pos, 1, "\\<");
-            pos += 2;
-        }
-        pos = 0;
-        while ((pos=str.find(">", pos))!=-1) {
-            str.replace(pos, 1, "\\>");
-            pos += 2;
-        }
-        // Escape the brackets '{' '}'
-        pos = 0;
-        while ((pos=str.find("{", pos))!=-1) {
-            str.replace(pos, 1, "\\{");
-            pos += 2;
-        }
-        pos = 0;
-        while ((pos=str.find("}", pos))!=-1) {
-            str.replace(pos, 1, "\\}");
-            pos += 2;
-        }
-        // Escape the OR operand
-        pos = 0;
-        while ((pos=str.find("|", pos))!=-1) {
-            str.replace(pos, 1, "\\|");
-            pos += 2;
-        }
-        // Escape '%' operand
-        pos = 0;
-        while ((pos=str.find("%", pos))!=-1) {
-            str.replace(pos, 1, "\\%");
-            pos += 2;
-        }
-        // Escape '?' token
-        pos = 0;
-        while ((pos=str.find("?", pos))!=-1) {
-            str.replace(pos, 1, "\\?");
-            pos += 2;
-        }
-    }
-
+//     static std::string prettyprint_sym_list(ObjectList<Symbol> s);
+   
     void ExtensibleGraph::print_graph_to_dot(Node* node, std::string name)
     {
         std::ofstream dot_cfg;
@@ -159,11 +98,11 @@ namespace TL
 //                         actual_label.get_text();
                 }
                 
-                std::string live_in = prettyprint_ext_sym_set(actual_node->get_live_in_vars()); makeup_dot_block(live_in);
-                std::string live_out = prettyprint_ext_sym_set(actual_node->get_live_out_vars()); makeup_dot_block(live_out);
-                std::string ue = prettyprint_ext_sym_set(actual_node->get_ue_vars()); makeup_dot_block(ue);
-                std::string killed = prettyprint_ext_sym_set(actual_node->get_killed_vars()); makeup_dot_block(killed);
-                std::string reach_defs = prettyprint_reaching_definitions(actual_node->get_reaching_definitions()); makeup_dot_block(reach_defs);
+                std::string live_in = prettyprint_ext_sym_set(actual_node->get_live_in_vars());
+                std::string live_out = prettyprint_ext_sym_set(actual_node->get_live_out_vars());
+                std::string ue = prettyprint_ext_sym_set(actual_node->get_ue_vars());
+                std::string killed = prettyprint_ext_sym_set(actual_node->get_killed_vars());
+                std::string reach_defs = prettyprint_reaching_definitions(actual_node->get_reaching_definitions());
                 std::string subgr_liveness = "LI: "   + live_in + "\\n" +
                                              "KILL: " + killed + "\\n" +
                                              "UE: "   + ue + "\\n" +
@@ -361,11 +300,11 @@ namespace TL
                 }
                 basic_block = basic_block.substr(0, basic_block.size()-2);   // Remove the last back space
 
-                std::string live_in = prettyprint_ext_sym_set(actual_node->get_live_in_vars()); makeup_dot_block(live_in);
-                std::string live_out = prettyprint_ext_sym_set(actual_node->get_live_out_vars()); makeup_dot_block(live_out);
-                std::string ue = prettyprint_ext_sym_set(actual_node->get_ue_vars()); makeup_dot_block(ue);
-                std::string killed = prettyprint_ext_sym_set(actual_node->get_killed_vars()); makeup_dot_block(killed);
-                std::string reach_defs = prettyprint_reaching_definitions(actual_node->get_reaching_definitions()); makeup_dot_block(reach_defs);
+                std::string live_in = prettyprint_ext_sym_set(actual_node->get_live_in_vars());
+                std::string live_out = prettyprint_ext_sym_set(actual_node->get_live_out_vars());
+                std::string ue = prettyprint_ext_sym_set(actual_node->get_ue_vars());
+                std::string killed = prettyprint_ext_sym_set(actual_node->get_killed_vars());
+                std::string reach_defs = prettyprint_reaching_definitions(actual_node->get_reaching_definitions());
                 std::string live_info = " | LI: "           + live_in + 
                                         " | KILL: "         + killed +
                                         " | UE: "           + ue +
@@ -383,6 +322,68 @@ namespace TL
         };
     }
     
+    static void makeup_dot_block(std::string& str)
+    {
+        int pos;
+        // Escape double quotes
+        pos = 0;
+        while ((pos=str.find("\"", pos))!=-1) {
+            str.replace(pos, 1, "\\\"");
+            pos += 2;
+        }
+        // Delete implicit line feeds
+        pos = 0;
+        while ((pos=str.find("\n", pos))!=-1) {
+            str.replace(pos, 1, "");
+        }
+        // Delete explicit line feeds
+        pos = 0;
+        while ((pos=str.find("\\n", pos))!=-1) {
+            str.replace(pos, 2, "\\\\n");
+            pos += 3;
+        }
+        // Escape the comparison symbols '<' and '>'
+        pos = 0;
+        while ((pos=str.find("<", pos))!=-1) {
+            str.replace(pos, 1, "\\<");
+            pos += 2;
+        }
+        pos = 0;
+        while ((pos=str.find(">", pos))!=-1) {
+            str.replace(pos, 1, "\\>");
+            pos += 2;
+        }
+        // Escape the brackets '{' '}'
+        pos = 0;
+        while ((pos=str.find("{", pos))!=-1) {
+            str.replace(pos, 1, "\\{");
+            pos += 2;
+        }
+        pos = 0;
+        while ((pos=str.find("}", pos))!=-1) {
+            str.replace(pos, 1, "\\}");
+            pos += 2;
+        }
+        // Escape the OR operand
+        pos = 0;
+        while ((pos=str.find("|", pos))!=-1) {
+            str.replace(pos, 1, "\\|");
+            pos += 2;
+        }
+        // Escape '%' operand
+        pos = 0;
+        while ((pos=str.find("%", pos))!=-1) {
+            str.replace(pos, 1, "\\%");
+            pos += 2;
+        }
+        // Escape '?' token
+        pos = 0;
+        while ((pos=str.find("?", pos))!=-1) {
+            str.replace(pos, 1, "\\?");
+            pos += 2;
+        }
+    }    
+    
     static std::string prettyprint_reaching_definitions(nodecl_map reach_defs)
     {
         std::string result;
@@ -391,14 +392,23 @@ namespace TL
         {
             if (it->second.is_null())
             {
-                result += std::string(c_cxx_codegen_to_str(it->first.get_internal_nodecl())) + " = UNKNOWN VALUE; ";
+                result += std::string(c_cxx_codegen_to_str(it->first.get_internal_nodecl())) + " = UNKNOWN VALUE;@";
             }
             else
             {
                 result += std::string(c_cxx_codegen_to_str(it->first.get_internal_nodecl())) + " = " 
-                          + std::string(c_cxx_codegen_to_str(it->second.get_internal_nodecl())) + "; ";
+                          + std::string(c_cxx_codegen_to_str(it->second.get_internal_nodecl())) + ";@";
             }
         }
+        
+        makeup_dot_block(result);
+        
+        // We separate here in lines each reaching definition
+        int pos = 0;
+        while ((pos=result.find("@", pos))!=-1) {
+            result.replace(pos, 1, "\\n");
+            pos += 1;
+        }        
         
         return result;        
     }
@@ -420,20 +430,10 @@ namespace TL
             }
         }
         
-        return result.substr(0, result.size()-2);
-    }
-    
-    static std::string prettyprint_sym_list(ObjectList<Symbol> s)
-    {
-        std::string result;
+        result = result.substr(0, result.size()-2);
         
-        for(ObjectList<Symbol>::iterator it = s.begin();
-                it != s.end();
-                ++it)
-        {
-            result += it->get_name() + ", ";
-        }
+        makeup_dot_block(result);
         
-        return result.substr(0, result.size()-2);
+        return result;
     }
 }

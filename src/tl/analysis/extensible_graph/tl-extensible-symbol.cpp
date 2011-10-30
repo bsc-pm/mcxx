@@ -66,11 +66,6 @@ namespace TL
         {
             return n.get_symbol();
         }
-        else if (n.is<Nodecl::Derreference>())
-        {
-            Nodecl::Derreference aux = n.as<Nodecl::Derreference>();
-            return get_nodecl_symbol(aux.get_rhs());
-        }
         else if (n.is<Nodecl::ClassMemberAccess>())
         {
             Nodecl::ClassMemberAccess aux = n.as<Nodecl::ClassMemberAccess>();
@@ -81,9 +76,19 @@ namespace TL
             Nodecl::ArraySubscript aux = n.as<Nodecl::ArraySubscript>();
             return get_nodecl_symbol(aux.get_subscripted());
         }
+        else if (n.is<Nodecl::Derreference>())
+        {
+            Nodecl::Derreference aux = n.as<Nodecl::Derreference>();
+            return get_nodecl_symbol(aux.get_rhs());
+        }        
         else if (n.is<Nodecl::FunctionCall>())
         {
             return Symbol();
+        }
+        else if (n.is<Nodecl::Conversion>())
+        {
+            Nodecl::Conversion aux = n.as<Nodecl::Conversion>();
+            return get_nodecl_symbol(aux.get_nest());
         }
         else
         {

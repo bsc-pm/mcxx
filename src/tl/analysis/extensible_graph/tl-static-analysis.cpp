@@ -266,7 +266,7 @@ namespace TL
         return intersect_parents_reach_def(reach_defs, entry_edges);
     }
 
-    void StaticAnalysis::propagate_reach_defs_among_nodes(Node* node, std::map<Symbol, Nodecl::NodeclBase> induction_vars_m, bool& changes)
+    void StaticAnalysis::propagate_reach_defs_among_nodes(Node* node, bool& changes)
     {
         if (!node->is_visited())
         {
@@ -276,15 +276,17 @@ namespace TL
             
             if (ntype == GRAPH_NODE)
             {  
+                std::map<Symbol, Nodecl::NodeclBase> induction_vars_m;
                 if (node->get_graph_type() == LOOP)
                 {   // FIXME This case is only for FORstatements, not WHILE or DOWHILE
-                    LoopAnalysis::propagate_reach_defs_in_for_loop_special_nodes(node, induction_vars_m);
+                    _loop_analysis->propagate_reach_defs_in_for_loop_special_nodes(node);
+                    induction_vars_m = _loop_analysis->get_induction_vars_mapping(node);
                 }
 
                 Node* entry = node->get_graph_entry_node();
                 
                 // Compute recursively info from nodes within the graph node
-                propagate_reach_defs_among_nodes(entry, induction_vars_m, changes);
+                propagate_reach_defs_among_nodes(entry, changes);
                 ExtensibleGraph::clear_visits(entry);
                 make_permanent_auxiliar_values(entry);
                
@@ -297,7 +299,8 @@ namespace TL
                     filename = label.get_filename().c_str();
                     line = label.get_line();
                 }
-                node->set_graph_node_reaching_defintions(induction_vars_m, filename, line);
+               
+                node->set_graph_node_reaching_definitions(induction_vars_m, filename, line);
             }
             
             // Compute reaching parents definitions
@@ -321,7 +324,7 @@ namespace TL
             ObjectList<Node*> children = node->get_children();
             for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
             {
-                propagate_reach_defs_among_nodes(*it, induction_vars_m, changes);
+                propagate_reach_defs_among_nodes(*it, changes);
             }
         } 
     }
@@ -367,14 +370,14 @@ namespace TL
         }
     }
     
-    void StaticAnalysis::extend_reaching_definitions_info(Node* node, std::map<Symbol, Nodecl::NodeclBase> induction_vars_m)
+    void StaticAnalysis::extend_reaching_definitions_info(Node* node)
     {
         bool changes = true;
         while (changes)
         {
             changes = false;
             ExtensibleGraph::clear_visits(node);
-            propagate_reach_defs_among_nodes(node, induction_vars_m, changes);
+            propagate_reach_defs_among_nodes(node, changes);
         }
        
         ExtensibleGraph::clear_visits(node);
@@ -384,8 +387,9 @@ namespace TL
         substitute_reaching_definition_known_values(node);
     }
     
-
-    // *** EXTENSIBLE_GRAPH *** //
+    StaticAnalysis::StaticAnalysis(LoopAnalysis* loop_analysis)
+        :_loop_analysis(loop_analysis)
+    {}
     
     void StaticAnalysis::live_variable_analysis(Node* node)
     {
@@ -527,7 +531,31 @@ namespace TL
                     task_node->get_task_context().retrieve_context())
                     && !in_symbols.contains(*it_ue))
                 {
-                    in_symbols.insert(*it_ue);
+                    if (task_node->has_key(_TASK_FUNCTION))
+                    {   // Only if the symbol is not a parameter, we include it
+                        Symbol function_sym = task_node->get_task_function();
+                        scope_entry_t* function_header = function_sym.get_internal_symbol();
+                        int num_params = function_header->entity_specs.num_related_symbols;
+                        scope_entry_t** related_symbols = function_header->entity_specs.related_symbols;
+                        bool sym_is_param = false;
+                        for (int i=0; i<num_params; ++i)
+                        {
+                            Symbol s(related_symbols[i]);
+                            if (s == it_ue->get_symbol())
+                            {
+                                sym_is_param = true;
+                                break;
+                            }
+                        }
+                        if (sym_is_param)
+                        {
+                            in_symbols.insert(*it_ue);
+                        }
+                    }
+                    else
+                    {
+                        in_symbols.insert(*it_ue);
+                    }
                 }
             }
                 
@@ -538,7 +566,31 @@ namespace TL
                     task_node->get_task_context().retrieve_context())
                     && !out_symbols.contains(*it_kill))
                 {
-                    out_symbols.insert(*it_kill);
+                    if (task_node->has_key(_TASK_FUNCTION))
+                    {   // Only if the symbol is not a parameter, we include it
+                        Symbol function_sym = task_node->get_task_function();
+                        scope_entry_t* function_header = function_sym.get_internal_symbol();
+                        int num_params = function_header->entity_specs.num_related_symbols;
+                        scope_entry_t** related_symbols = function_header->entity_specs.related_symbols;
+                        bool sym_is_param = false;
+                        for (int i=0; i<num_params; ++i)
+                        {
+                            Symbol s(related_symbols[i]);
+                            if (s == it_kill->get_symbol())
+                            {
+                                sym_is_param = true;
+                                break;
+                            }
+                        }
+                        if (sym_is_param)
+                        {
+                            out_symbols.insert(*it_kill);
+                        }
+                    }
+                    else
+                    {
+                        out_symbols.insert(*it_kill);
+                    }
                 }
             }          
         }
@@ -566,6 +618,26 @@ namespace TL
         task_node->set_data(_IN_DEPS, input_deps);
         task_node->set_data(_OUT_DEPS, output_deps);
         task_node->set_data(_INOUT_DEPS, inout_deps);
+        
+//         DEBUG_CODE
+        {
+            std::cerr << "=== TASK '" << task_node->get_graph_label().prettyprint() << "' dependences ===" << std::endl;
+            std::cerr << "    ** Input" << std::endl;
+            for(ext_sym_set::iterator it = input_deps.begin(); it != input_deps.end(); ++it)
+            {
+                std::cerr << "         - " << it->get_nodecl().prettyprint() << std::endl;
+            }
+            std::cerr << "    ** Output" << std::endl;
+            for(ext_sym_set::iterator it = output_deps.begin(); it != output_deps.end(); ++it)
+            {
+                std::cerr << "         - " << it->get_nodecl().prettyprint() << std::endl;
+            }
+            std::cerr << "    ** Inout" << std::endl;
+            for(ext_sym_set::iterator it = inout_deps.begin(); it != inout_deps.end(); ++it)
+            {
+                std::cerr << "         - " << it->get_nodecl().prettyprint() << std::endl;
+            }
+        }
     }
    
     ExtensibleGraph* CfgVisitor::find_function_for_ipa(Node* function_call)
@@ -718,10 +790,28 @@ namespace TL
                     return Nodecl::Derreference::make(rhs, s_map.get_type(), s_map.get_filename().c_str(), s_map.get_line());
                 }
             }
+            else if (n.is<Nodecl::Conversion>())
+            {
+                Nodecl::Conversion aux = n.as<Nodecl::Conversion>();
+                Nodecl::NodeclBase nest = match_nodecl_with_symbol(aux.get_nest(), s, s_map);
+                if (!nest.is_null())
+                {
+                    return Nodecl::Conversion::make(nest, s_map.get_type(), s_map.get_filename().c_str(), s_map.get_line());
+                }
+            }
+            else if (n.is<Nodecl::Cast>())
+            {
+                Nodecl::Cast aux = n.as<Nodecl::Cast>();
+                Nodecl::NodeclBase rhs = match_nodecl_with_symbol(aux.get_rhs(), s, s_map);
+                if (!rhs.is_null())
+                {
+                    return Nodecl::Conversion::make(rhs, s_map.get_type(), s_map.get_filename().c_str(), s_map.get_line());
+                }
+            }      
             else
             {
-                internal_error("Unexpected type of node '%s' founded while parsing an Extensible symbol",
-                            ast_print_node_type(n.get_kind()));
+                internal_error("Unexpected node type '%s' in node '%s' founded while parsing an Extensible symbol",
+                            ast_print_node_type(n.get_kind()), n.prettyprint().c_str());
             }
         }
 
@@ -833,7 +923,7 @@ namespace TL
                 }
                 if (!node_ue_vars.empty())
                 {
-                    node->set_data<ext_sym_set>(_UPPER_EXPOSED, node_ue_vars);
+                    node->set_data(_UPPER_EXPOSED, node_ue_vars);
                 }
             
                 ext_sym_set called_func_killed_vars = called_func_graph->get_graph()->get_killed_vars(), node_killed_vars;
@@ -862,7 +952,7 @@ namespace TL
                 }
                 if (!node_killed_vars.empty())
                 {
-                    node->set_data<ext_sym_set>(_KILLED, node_killed_vars);
+                    node->set_data(_KILLED, node_killed_vars);
                 }
             }
             else
@@ -896,7 +986,8 @@ namespace TL
                 {
                     Node* entry = node->get_graph_entry_node();
                     gather_live_initial_information(entry);
-                    ExtensibleGraph::clear_visits(entry);
+                    ExtensibleGraph::clear_visits_in_level(entry);
+
                     node->set_graph_node_use_def();
                 }
                 else if (ntype != BASIC_ENTRY_NODE)
@@ -925,12 +1016,18 @@ namespace TL
 
         gather_live_initial_information(node);
         ExtensibleGraph::clear_visits(node);
-       
-        LoopAnalysis loop_anal;
-        loop_anal.analyse_loops(node);
+        
+        LoopAnalysis loop_analysis;
+        loop_analysis.analyse_loops(node);
+        
+        DEBUG_CODE()
+        {
+            std::cerr << "=== INDUCTION VARIABLES INFO AFTER LOOP ANALYSIS ===" << std::endl;
+            loop_analysis.print_induction_vars_info();
+        }
+        
+        StaticAnalysis static_analysis(&loop_analysis);
+        static_analysis.extend_reaching_definitions_info(node);
         ExtensibleGraph::clear_visits(node);
-       
-        StaticAnalysis::extend_reaching_definitions_info(node, loop_anal.get_induction_vars_mapping());
-        ExtensibleGraph::clear_visits(node);        
     }
 }

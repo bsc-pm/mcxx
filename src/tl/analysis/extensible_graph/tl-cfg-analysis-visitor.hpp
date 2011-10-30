@@ -51,7 +51,7 @@ namespace TL
         
         //! Nodecl we are traversing actually
         /*!
-         * This attribute stores the actual nodecl when we are traversing a class member access or a reference/dereference
+         * This attribute stores the actual nodecl when we are traversing class member access, reference/dereference or array subscript
          */
         Nodecl::NodeclBase _actual_nodecl;
         
@@ -168,6 +168,9 @@ namespace TL
         Ret visit(const Nodecl::Text& n);
         Ret visit(const Nodecl::Comma& n);
         Ret visit(const Nodecl::Conversion& n);
+        Ret visit(const Nodecl::ConditionalExpression& n);
+        Ret visit(const Nodecl::FunctionCall& n);
+        Ret visit(const Nodecl::VirtualFunctionCall& n);
     };
 }
     

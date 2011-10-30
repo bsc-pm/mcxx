@@ -28,6 +28,7 @@ Cambridge, MA 02139, USA.
 
 #include "tl-nodecl.hpp"
 #include "tl-extensible-graph.hpp"
+#include "tl-loop-analysis.hpp"
 
 
 namespace TL
@@ -36,6 +37,8 @@ namespace TL
     class LIBTL_CLASS StaticAnalysis {    
         
     private:
+        LoopAnalysis* _loop_analysis;
+        
         //! Computes the data-flow equation for each node in a iterative way 
         //! until the information stops changing.
         /*!
@@ -52,15 +55,18 @@ namespace TL
             */
         static void solve_live_equations_recursive(Node* actual, bool& changed);
         
-        static void propagate_reach_defs_among_nodes(Node* node, std::map<Symbol, Nodecl::NodeclBase> induction_vars_m, bool& changes);
-        
         static void substitute_reaching_definition_known_values(Node* node);
         
-        static void extend_reaching_definitions_info(Node* node, std::map<Symbol, Nodecl::NodeclBase> induction_vars_m);
+        void propagate_reach_defs_among_nodes(Node* node, bool& changes);
+        
+        void extend_reaching_definitions_info(Node* node);
        
         static nodecl_map compute_parents_reach_defs(Node* node);
     
     public:
+        
+        StaticAnalysis(LoopAnalysis* loop_analysis);
+        
         //! Computes the liveness analysis of a node
         //! The method needs the use-def chains to be calculated before
         static void live_variable_analysis(Node* node);            

@@ -29,7 +29,6 @@ Cambridge, MA 02139, USA.
 #include "tl-nodecl.hpp"
 #include "tl-node.hpp"
 #include "tl-symbol.hpp"
-#include "tl-static-analysis.hpp"
 
 
 namespace TL
@@ -53,8 +52,6 @@ namespace TL
         void set_ub(Nodecl::NodeclBase ub);
         Nodecl::NodeclBase get_stride() const;
         void set_stride(Nodecl::NodeclBase stride);
-        bool stride_is_one() const;
-        void set_stride_is_one(bool stride_is_one);
         /*!\return 0 if negative, 1 if positive, 2 if we cannot compute it
          */        
         int stride_is_positive() const;
@@ -62,34 +59,33 @@ namespace TL
         
         bool operator==(const InductionVarInfo &v) const;
         bool operator<(const InductionVarInfo &v) const;
-        
-        // *** Comparators *** //
-        struct InductionVarInfo_comp {
-            bool operator() (const InductionVarInfo& v1, const InductionVarInfo& v2) const;
-        };
     };
-        
-    typedef std::multimap<Nodecl::LoopControl, InductionVarInfo*, Nodecl::Utils::Nodecl_comp> induc_vars_map;
+    
+    struct Node_hash {
+            size_t operator() (const int& n) const;
+    };
+    
+    struct Node_comp {
+            bool operator() (const int& n1, const int& n2) const;
+    };
+    
+    typedef std::tr1::unordered_multimap<int, InductionVarInfo*, Node_hash, Node_comp> induc_vars_map;
     
     class LIBTL_CLASS LoopAnalysis {    
         
     private:
         induc_vars_map _induction_vars;
         
-        //! Temporary value used during the loop analysis
-        //! It stores the nested loop control we are in
-        std::stack<Nodecl::LoopControl> _loop_control_s;
-        
         // *** Private methods *** //
-        void compute_induction_vars_from_loop_control(Nodecl::LoopControl loop_control, Node* loop_node);
-        void traverse_loop_init(Nodecl::NodeclBase init);
-        void traverse_loop_cond(Nodecl::NodeclBase cond);
-        void traverse_loop_stride(Nodecl::NodeclBase stride);
+        void compute_loop_induction_vars(Node* loop_node);
+        void traverse_loop_init(Node* loop_node, Nodecl::NodeclBase init);
+        void traverse_loop_cond(Node* loop_node, Nodecl::NodeclBase cond);
+        void traverse_loop_stride(Node* loop_node, Nodecl::NodeclBase stride);
         
-        void compute_ranges_for_variables_in_loop(Node* node);
+        void compute_ranges_for_variables_in_loop(Node* node, Node* loop_node);
         
-        Nodecl::NodeclBase set_access_range(Node* node, const char use_type, Nodecl::NodeclBase nodecl, 
-                                            std::map<Symbol, Nodecl::NodeclBase> ind_var_map, 
+        Nodecl::NodeclBase set_access_range(Node* node, Node* loop_node, const char use_type, Nodecl::NodeclBase nodecl, 
+                                            std::map<Symbol, Nodecl::NodeclBase> ind_var_map,
                                             Nodecl::NodeclBase reach_def_var = Nodecl::NodeclBase::null());
         
         /*!
@@ -100,25 +96,26 @@ namespace TL
          * \param use_type kind of the list we are analysing; it can be a UpperExposed list, a Killed list or a 
          *                 ReachingDefintions list
          */
-        void set_access_range_in_ext_sym_set(Node* node, ext_sym_set nodecl_l, const char use_type);
-        
+        void set_access_range_in_ext_sym_set(Node* node, Node* loop_node, ext_sym_set nodecl_l, const char use_type);
         /*!
          * Wrapping method for #set_access_range_in_ext_sym_list in the case we traverse a nodecl map container
          */
-        void set_access_range_in_nodecl_map(Node* node, nodecl_map nodecl_m);
-        
+        void set_access_range_in_nodecl_map(Node* node, Node* loop_node, nodecl_map nodecl_m);
         /*!
          * Returns whether a node contains some of the induction variables of the graph containing this node
          * It is necessary to have already computed the induction variables of the graph
          * \param node Node in the graph we are analysing
+         * \param loop_node Outer loop node where is contained the node we are checking
          * \return Whether the node defines any of the induction variables or if those variables have an undefined behaviour
          *         - 0 the symbol is not defined
          *         - 1 the symbol is defined
          *         - 2 we cannot ensure what's happening with the symbol
          */
-        char induction_vars_are_defined_in_node(Node* node);
+        char induction_vars_are_defined_in_node(Node* node, Node* loop_node);
         
         void prettyprint_induction_var_info(InductionVarInfo* var_info);
+        
+        void print_induction_vars_in_loop_info(Node* loop_node);
         
         /*!
          * Computes values of reaching definitions for entry, condition and true_node of the for loop node.
@@ -126,7 +123,7 @@ namespace TL
          * that for the other ones.
          * After this computation, we can apply the common propagation method of the static analysis
          */
-        static void propagate_reach_defs_in_for_loop_special_nodes(Node* loop_node, std::map<Symbol, Nodecl::NodeclBase> induction_vars_m);        
+        void propagate_reach_defs_in_for_loop_special_nodes(Node* loop_node);        
         
     public:
         
@@ -156,11 +153,15 @@ namespace TL
         
         
         // *** Getters and setters *** //
-        InductionVarInfo* induction_vars_l_contains_symbol(Symbol s) const;
+        InductionVarInfo* induction_vars_l_contains_symbol(Node*, Symbol s) const;
+       
+        std::map<Symbol, Nodecl::NodeclBase> get_induction_vars_mapping(Node* loop_node) const;
         
-        std::map<Symbol, Nodecl::NodeclBase> get_induction_vars_mapping() const;
+        std::map<Symbol, int> get_induction_vars_direction(Node* loop_node) const;
         
-        std::map<Symbol, int> get_induction_vars_direction() const;
+        
+        // *** Utils *** //
+        void print_induction_vars_info();
         
         friend class StaticAnalysis;
     };

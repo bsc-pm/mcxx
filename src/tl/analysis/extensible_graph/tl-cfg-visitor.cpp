@@ -32,7 +32,7 @@ namespace TL
     
     CfgVisitor::CfgVisitor(int i)
         : _actual_cfg(NULL), _cfgs(), 
-          _context_s(), _loop_info_s(), _actual_try_info(), 
+          _context_s(), _return_nodes(), _loop_info_s(), _actual_try_info(), 
           _pragma_info_s(), _omp_sections_info(), 
           _switch_cond_s()
     {}
@@ -42,6 +42,7 @@ namespace TL
         _actual_cfg = visitor._actual_cfg;
         _cfgs = visitor._cfgs;
         _context_s = visitor._context_s;
+        _return_nodes = visitor._return_nodes;
         _loop_info_s = visitor._loop_info_s;
         _actual_try_info = visitor._actual_try_info;
         _pragma_info_s = visitor._pragma_info_s;
@@ -73,8 +74,9 @@ namespace TL
             // Connect the exit nodes to the Exit node of the master graph
             Node* graph_exit = _actual_cfg->_graph->get_graph_exit_node();
             graph_exit->set_id(++_actual_cfg->_nid);
-            
+           
             _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, graph_exit);
+            _actual_cfg->connect_nodes(_return_nodes, graph_exit);
             
             _actual_cfg->dress_up_graph();
         
@@ -124,10 +126,11 @@ namespace TL
         Node* graph_exit = _actual_cfg->_graph->get_graph_exit_node();
         graph_exit->set_id(++_actual_cfg->_nid);    
             
-        // Connect the exit nodes to the Exit node of the master graph   
+        // Connect the exit nodes to the Exit node of the master graph
         _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, graph_exit);
+        _actual_cfg->connect_nodes(_return_nodes, graph_exit);
         
-//         _actual_cfg->dress_up_graph();
+        _actual_cfg->dress_up_graph();
         
         _cfgs.append(_actual_cfg);
         _actual_cfg = NULL;
@@ -266,7 +269,7 @@ namespace TL
         ObjectList<Node*> expr_last_nodes = _actual_cfg->_last_nodes;
         ObjectList<Node*> expression_nodes = walk(n.get_nest());
         
-        if (expression_nodes.size() >= 1)
+        if (expression_nodes.size() > 0)
         {
             // When the size of expression_nodes list is >1, the expression contained contains a comma operator.
             // Otherwise, the expression is any other kind of expression
@@ -301,8 +304,11 @@ namespace TL
                 }
                 
                 // Recompute actual last nodes for the actual graph
-                _actual_cfg->_last_nodes.clear();
-                _actual_cfg->_last_nodes.append(last_node);
+                if (!_actual_cfg->_last_nodes.empty())
+                {
+                    _actual_cfg->_last_nodes.clear();
+                    _actual_cfg->_last_nodes.append(last_node);
+                }
             }
             else
             {   // do nothing; this case appears when the expression is "new"
@@ -508,10 +514,10 @@ namespace TL
         }
         _actual_cfg->_last_nodes.append(func_graph_node->get_graph_entry_node());
         
-        ObjectList<Node*> arguments_l = walk(n.get_arguments());
-
-        // walk(n.get_called());    // This is not necessary, always return the called function
+        // Create the nodes for the arguments
         Node* func_node;
+        Nodecl::List args = n.get_arguments().template as<Nodecl::List>();
+        ObjectList<Node*> arguments_l = walk(args);
         if (!arguments_l.empty())
         {
             // Method merge_nodes connects properly the nodes created
@@ -522,14 +528,32 @@ namespace TL
             func_node = new Node(_actual_cfg->_nid, BASIC_FUNCTION_CALL_NODE, func_graph_node, n);
         }
         _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, func_node);
-
+        
         Node* graph_exit = func_graph_node->get_graph_exit_node();
         graph_exit->set_id(++_actual_cfg->_nid);
         _actual_cfg->connect_nodes(func_node, graph_exit);
        
         _actual_cfg->_outer_node.pop();
         _actual_cfg->_last_nodes.clear();
-        _actual_cfg->_last_nodes.append(func_graph_node);
+        
+        // When the called function aborts the execution we must not insert the function node in the _last_nodes list
+        Nodecl::NodeclBase called = n.get_called();
+        bool abort_execution = false;
+        if (IS_CXX_LANGUAGE || IS_C_LANGUAGE)
+        {
+            std::string func_name = called.get_symbol().get_name();
+            if ( (func_name == "abort" && args.empty())
+                || (func_name == "exit" && args.size() == 1 /*In this case we should ensure that the paramenter is an integer*/))
+            {
+                abort_execution = true;
+                _return_nodes.append(func_graph_node);
+            }
+        }
+        
+        if (!abort_execution)
+        {
+            _actual_cfg->_last_nodes.append(func_graph_node);
+        }
        
         // Add the function node to the list of called functions for later IPA
         _actual_cfg->_function_calls.append(func_node);
@@ -606,11 +630,14 @@ namespace TL
             
     CfgVisitor::Ret CfgVisitor::visit(const Nodecl::ReturnStatement& n)
     {
+        ObjectList<Node*> return_last_nodes = _actual_cfg->_last_nodes;
         ObjectList<Node*> returned_value = walk(n.get_value());
+        std::cerr << "Returned value node " << returned_value[0]->get_id() << " has type: " << returned_value[0]->get_type_as_string() << std::endl;
         Node* return_node = merge_nodes(n, returned_value);
         _actual_cfg->connect_nodes(_actual_cfg->_last_nodes[0], return_node);
-        _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(return_node);
-        return ObjectList<Node*>(1, return_node);
+        _actual_cfg->_last_nodes.clear();
+        _return_nodes.append(return_node);
+        return ObjectList<Node*>();
     }
 
 
@@ -666,7 +693,6 @@ namespace TL
         Node* task_graph_node;
         if (n.template is<Nodecl::PragmaCustomDeclaration>())
         {   // We must build here a new Extensible Graph
-            std::cerr << "Declaration" << std::endl;
             _actual_cfg = new ExtensibleGraph("pragma_" + n.get_symbol().get_name());
             
             Symbol next_sym = n.get_symbol();
@@ -677,6 +703,7 @@ namespace TL
                 Nodecl::Context ctx = func.get_statements().as<Nodecl::Context>();
                 
                 task_graph_node = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), n.get_pragma_line(), TASK, ctx);
+                task_graph_node->set_task_function(next_sym);
                 int n_connects = _actual_cfg->_last_nodes.size();
                 _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, task_graph_node, 
                                         ObjectList<Edge_type>(n_connects, TASK_EDGE), ObjectList<std::string>(n_connects, ""));
@@ -725,7 +752,7 @@ namespace TL
             
             _actual_cfg->connect_nodes(graph_entry, graph_exit);
             
-//             _actual_cfg->dress_up_graph();
+            _actual_cfg->dress_up_graph();
         
             _cfgs.append(_actual_cfg);
         }
@@ -959,9 +986,7 @@ namespace TL
         ObjectList<Node*> actual_last_nodes = _actual_cfg->_last_nodes;
         walk(n.get_loop_header());
         _actual_cfg->_last_nodes = actual_last_nodes;
-        
-        
-        
+
         // Connect the init
         if (_loop_info_s.top().init != NULL)
         {
@@ -998,7 +1023,7 @@ namespace TL
         Edge_type aux_etype = ALWAYS_EDGE;
         if (!_loop_info_s.top().cond->get_exit_edges().empty())
         {
-            _loop_info_s.top().cond->get_exit_edges()[0]->set_data<Edge_type>(_EDGE_TYPE, TRUE_EDGE);
+            _loop_info_s.top().cond->get_exit_edges()[0]->set_data(_EDGE_TYPE, TRUE_EDGE);
         }
         else
         {   // It will be empty when the loop's body is empty.
@@ -1009,30 +1034,18 @@ namespace TL
         _actual_cfg->connect_nodes(_loop_info_s.top().cond, exit_node, FALSE_EDGE);
         
         // Fill the empty fields of the Increment node
-        if (_loop_info_s.top().next != NULL)
-        {
-            _loop_info_s.top().next->set_outer_node(for_graph_node);
-            _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, _loop_info_s.top().next, aux_etype);
-            _actual_cfg->connect_nodes(_loop_info_s.top().next, _loop_info_s.top().cond, ALWAYS_EDGE, "", /* is back edge */ true);
-        }
-        else
-        {
-            int n_connects = _actual_cfg->_last_nodes.size();
-            _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, _loop_info_s.top().cond, ALWAYS_EDGE, "", /* is back edge */ true);
-        }
+        _loop_info_s.top().next->set_outer_node(for_graph_node);
+        _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, _loop_info_s.top().next, aux_etype);
+        _actual_cfg->connect_nodes(_loop_info_s.top().next, _loop_info_s.top().cond, ALWAYS_EDGE, "", /* is back edge */ true);
       
+        for_graph_node->set_stride_node(_loop_info_s.top().next);
+        
         _actual_cfg->_outer_node.pop();
         _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(for_graph_node);
-       
-        Node* return_node;
-        if (_loop_info_s.top().init != NULL)
-            return_node = _loop_info_s.top().init;
-        else
-            return_node = for_graph_node;
         
         _loop_info_s.pop();
         
-        return ObjectList<Node*>(1, return_node);
+        return ObjectList<Node*>(1, for_graph_node);
     }        
 
     CfgVisitor::Ret CfgVisitor::visit(const Nodecl::LoopControl& n)
@@ -1098,7 +1111,7 @@ namespace TL
         walk(n.get_statement());    // This list of nodes returned here will never be used
         _actual_cfg->_continue_stack.pop();
         _actual_cfg->_break_stack.pop();
-        cond_node->get_exit_edges()[0]->set_data<Edge_type>(_EDGE_TYPE, TRUE_EDGE);
+        cond_node->get_exit_edges()[0]->set_data(_EDGE_TYPE, TRUE_EDGE);
         _actual_cfg->connect_nodes(cond_node, exit_node, FALSE_EDGE);
         
         // Build the exit node
@@ -1171,7 +1184,7 @@ namespace TL
         Nodecl::NodeclBase then = n.get_then();
         if (!cond_node_l[0]->get_exit_edges().empty())
         {
-            cond_node_l[0]->get_exit_edges()[0]->set_data<Edge_type>(_EDGE_TYPE, TRUE_EDGE);
+            cond_node_l[0]->get_exit_edges()[0]->set_data(_EDGE_TYPE, TRUE_EDGE);
             _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, exit_node);
         
             // Compose the else node, if it exists
@@ -1191,7 +1204,7 @@ namespace TL
             }
 
             // Link the If condition with the FALSE statement (else or empty node)
-            cond_node_l[0]->get_exit_edges()[1]->set_data(_EDGE_TYPE, FALSE_EDGE);            
+            cond_node_l[0]->get_exit_edges()[1]->set_data(_EDGE_TYPE, FALSE_EDGE);
         }
         else
         {
@@ -1391,6 +1404,7 @@ namespace TL
     
     CfgVisitor::Ret CfgVisitor::visit(const Nodecl::ConditionalExpression& n)
     {
+        Nodecl::NodeclBase cond_expr = n;
         Node* cond_expr_node = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), 
                                                               Nodecl::NodeclBase::null(), COND_EXPR);
         Node* entry_node = cond_expr_node->get_graph_entry_node();
@@ -1950,7 +1964,8 @@ namespace TL
             ntype = BASIC_NORMAL_NODE;
         }
         
-        if (nodes_l.size() > 1)
+        if ( nodes_l.size() > 1 
+            || ((nodes_l.size() == 1) && (nodes_l[0]->get_type() == GRAPH_NODE)) )
         {   // There is some node to merge. Otherwise, we only have to create the new node
             
             // Check whether we need to build a graph node
@@ -2085,8 +2100,6 @@ namespace TL
         }
         else
         {
-//             FIXME Why are we merging a list of empty nodes???
-//             std::cerr << "warning: trying to merge an empty list of nodes. This shouldn't happen'" << std::endl;
             result = new Node(_actual_cfg->_nid, ntype, _actual_cfg->_outer_node.top(), n);
         }
 

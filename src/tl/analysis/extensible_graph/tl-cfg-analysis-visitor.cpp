@@ -31,7 +31,7 @@ Cambridge, MA 02139, USA.
 
 namespace TL
 {
-    static Nodecl::NodeclBase compute_init_expr(Nodecl::NodeclBase actual_val, int op);
+    static Nodecl::NodeclBase compute_init_expr(Nodecl::NodeclBase actual_val, Nodecl::NodeclBase stride, int op);
     
     CfgAnalysisVisitor::CfgAnalysisVisitor(Node* n)
         : _node(n), _define(false), _actual_nodecl(Nodecl::NodeclBase::null())
@@ -43,7 +43,7 @@ namespace TL
 
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::unhandled_node(const Nodecl::NodeclBase& n)
     {
-        std::cerr << "Unhandled node while CFG Analysis'" << c_cxx_codegen_to_str(n.get_internal_nodecl())
+        std::cerr << "Unhandled node while CFG Analysis '" << c_cxx_codegen_to_str(n.get_internal_nodecl())
                   << "' of type '" << ast_print_node_type(n.get_kind()) << "'" << std::endl;
     }
 
@@ -52,7 +52,7 @@ namespace TL
         Nodecl::NodeclBase defined_var = n;
         
         if (_actual_nodecl.is_null())
-        {    
+        {   
             _node->fill_use_def_sets(n, _define);
         }
         else
@@ -146,6 +146,7 @@ namespace TL
 
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Assignment& n)
     {
+        Nodecl::NodeclBase assig = n;
         walk(n.get_rhs());
         _init_expression = n.get_rhs();
         _define = true;
@@ -156,10 +157,25 @@ namespace TL
     template <typename T>
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::binary_assignment(const T& n)
     {
-        walk(n.get_rhs());
-        walk(n.get_lhs());
+        Nodecl::NodeclBase rhs = n.get_rhs();
+        Nodecl::NodeclBase lhs = n.get_lhs();
+        walk(rhs);
+        walk(lhs);
         _define = true;
-        _init_expression = n.get_rhs();
+        if (n.template is<Nodecl::AddAssignment>())
+        {
+            _init_expression = _init_expression = compute_init_expr(rhs, lhs, 0);
+        }
+        else if (n.template is<Nodecl::SubAssignment>())
+        {
+            
+        }
+        else
+        {
+            Nodecl::NodeclBase node = n;
+            internal_error("Non add or sub assignment not yet implemented in CFG analysis. Founded '%s'", 
+                           node.prettyprint().c_str());
+        }
         walk(n.get_lhs());
         _define = false;
     }
@@ -348,18 +364,16 @@ namespace TL
         binary_visit(n);
     }
     
-    static Nodecl::NodeclBase compute_init_expr(Nodecl::NodeclBase n, int op)
+    static Nodecl::NodeclBase compute_init_expr(Nodecl::NodeclBase n, Nodecl::NodeclBase stride, int op)
     {
-        nodecl_t one = const_value_to_nodecl(const_value_get_one(/* bytes */ 4, /* signed*/ 1));
-        
         Nodecl::NodeclBase val;
         switch (op)
         {
             case 0:     // Add
-                        val = Nodecl::Add::make(n, Nodecl::NodeclBase(one), n.get_type(), n.get_filename(), n.get_line());
+                        val = Nodecl::Add::make(n, stride, n.get_type(), n.get_filename(), n.get_line());
                         break;
             case 1:     // Sub
-                        val = Nodecl::Minus::make(n, Nodecl::NodeclBase(one), n.get_type(), n.get_filename(), n.get_line());
+                        val = Nodecl::Minus::make(n, stride, n.get_type(), n.get_filename(), n.get_line());
                         break;
             default:    internal_error("Unexpected type of operation '%d' while computing initial expression", op);
         }
@@ -397,7 +411,8 @@ namespace TL
         Nodecl::NodeclBase rhs = n.get_rhs();
         walk(rhs);
         _define = true;
-        _init_expression = compute_init_expr(rhs, 1);
+        nodecl_t one = const_value_to_nodecl(const_value_get_one(/* bytes */ 4, /* signed*/ 1));
+        _init_expression = compute_init_expr(rhs, Nodecl::NodeclBase(one), 1);
         walk(rhs);
         _define = false;
     }
@@ -407,7 +422,8 @@ namespace TL
         Nodecl::NodeclBase rhs = n.get_rhs();
         walk(rhs);
         _define = true;
-        _init_expression = compute_init_expr(rhs, 1);
+        nodecl_t one = const_value_to_nodecl(const_value_get_one(/* bytes */ 4, /* signed*/ 1));
+        _init_expression = compute_init_expr(rhs, Nodecl::NodeclBase(one), 1);
         walk(rhs);
         _define = false;
     }
@@ -417,7 +433,8 @@ namespace TL
         Nodecl::NodeclBase rhs = n.get_rhs();
         walk(rhs);
         _define = true;
-        _init_expression = compute_init_expr(rhs, 0);
+        nodecl_t one = const_value_to_nodecl(const_value_get_one(/* bytes */ 4, /* signed*/ 1));
+        _init_expression = compute_init_expr(rhs, Nodecl::NodeclBase(one), 0);
         walk(rhs);
         _define = false;
     }
@@ -427,7 +444,8 @@ namespace TL
         Nodecl::NodeclBase rhs = n.get_rhs();
         walk(rhs);
         _define = true;
-        _init_expression = compute_init_expr(rhs, 0);
+        nodecl_t one = const_value_to_nodecl(const_value_get_one(/* bytes */ 4, /* signed*/ 1));
+        _init_expression = compute_init_expr(rhs, Nodecl::NodeclBase(one), 0);
         walk(rhs);
         _define = false;
     }
@@ -486,6 +504,7 @@ namespace TL
         }
         
         walk(n.get_subscripted());
+        _define = false;        // We may come form a LHS walk and subscripts not defined!
         walk(n.get_subscripts());
     }
     
@@ -539,10 +558,6 @@ namespace TL
    
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Cast& n)
     {
-        if (_actual_nodecl.is_null())
-        {
-            _actual_nodecl = n;
-        }
         walk(n.get_rhs());
     }
     
@@ -574,7 +589,26 @@ namespace TL
     }
     
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Conversion& n)
-    {
+    {      
         walk(n.get_nest());
+    }
+    
+    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::ConditionalExpression& n)
+    {
+        walk(n.get_condition());
+        walk(n.get_true());      
+        walk(n.get_false());
+    }
+    
+    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::FunctionCall& n)
+    {
+        walk(n.get_called());
+        walk(n.get_arguments());        
+    }
+    
+    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::VirtualFunctionCall& n)
+    {
+        walk(n.get_called());
+        walk(n.get_arguments());
     }
 }

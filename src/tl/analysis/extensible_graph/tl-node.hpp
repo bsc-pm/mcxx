@@ -241,6 +241,7 @@ namespace TL
             Symbol get_function_node_symbol();
             
             
+            
             // *** Getters and setters for liked data *** //
            
             //! Returns the node type.
@@ -311,6 +312,14 @@ namespace TL
             
             void set_task_context(Nodecl::NodeclBase c);
             
+            Symbol get_task_function();
+            
+            void set_task_function(Symbol func_sym);
+            
+            Node* get_stride_node();
+            
+            void set_stride_node(Node* stride);
+            
             
             // *** Consultants *** //
             //! Returns true if the node has the same identifier and the same entries and exits
@@ -330,8 +339,9 @@ namespace TL
             void set_graph_node_liveness();
             
             //! This method computes the reaching definitions of a graph node from the reaching definitions in the nodes within it
-            void set_graph_node_reaching_defintions(std::map<Symbol, Nodecl::NodeclBase> induct_vars,
+            void set_graph_node_reaching_definitions(std::map<Symbol, Nodecl::NodeclBase> induct_vars,
                                                     const char* filename, int line);
+           
             
             //! Returns the set of variables that are alive at the entry of the node.
             ext_sym_set get_live_in_vars();

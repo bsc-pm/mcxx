@@ -89,10 +89,6 @@ namespace TL
             //! We don't want to allow this kind of constructions
             ExtensibleGraph(const ExtensibleGraph& graph);
             ExtensibleGraph& operator=(const ExtensibleGraph&);
-        
-            //! Makes up the content of the nodes by deleting the line feeds and escaping all
-            //! those symbols that can not be freely write in DOT language.
-            static void makeup_dot_block(std::string& str);
             
             //! This method removes all those nodes that are unreachable and those that were created
             //! as auxiliary nodes when the graph was created. 
@@ -160,6 +156,18 @@ namespace TL
             void copy_and_map_nodes(Node* old_node);
             
             void connect_copied_nodes(Node* old_node);
+            
+            //! Set of methods that removes those nodes that can never be reached.                 
+            void clear_orphaned_nodes(Node* actual_node);
+            void clear_orphaned_nodes_in_subgraph(Node* actual_node);
+            void clear_orphaned_cascade(Node* actual_node);
+           
+            //! Removes those nodes that has UNCLASSIFIED_NODE type and reconects parents and
+            //! children nodes properly.
+            void erase_unclassified_nodes(Node* actual);            
+            
+            void erase_break_nodes(Node* node);
+            
             
         public:
             // *** Constructors *** //
@@ -316,15 +324,6 @@ namespace TL
             
             //!
             void replace_node(Node* old_node, Node* new_node);
-            
-            //! Set of methods that removes those nodes that can never be reached.                 
-            void clear_orphaned_nodes(Node* actual_node);
-            void clear_orphaned_nodes_in_subgraph(Node* actual_node);
-            void clear_orphaned_cascade(Node* actual_node);
-           
-            //! Removes those nodes that has UNCLASSIFIED_NODE type and reconects parents and
-            //! children nodes properly.
-            void erase_unclassified_nodes(Node* actual);
 
             //! This function clears the attribute #visited from nodes bellow @actual node.
             //! It works properly if there isn't any unreachable node in the graph bellow @actual.

@@ -525,7 +525,7 @@ namespace TL
         }
         else if (get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
         {
-            return set_data<Node*>(_ENTRY_NODE, node);
+            return set_data(_ENTRY_NODE, node);
         }
         else
         {
@@ -556,7 +556,7 @@ namespace TL
         }
         else if (get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
         {
-            return set_data<Node*>(_EXIT_NODE, node);
+            return set_data(_EXIT_NODE, node);
         }
         else
         {
@@ -757,7 +757,7 @@ namespace TL
         }
         else
         {
-            internal_error("Unexpected node type '%s' while setting the label to node '%d'. GRAPH NODE expected.",
+            internal_error("Unexpected node type '%s' while getting the context of the task node '%d'. \"task\" type expected.",
                            get_type_as_string().c_str(), _id);                
         }
     }
@@ -773,13 +773,103 @@ namespace TL
             }
             else
             {
-                internal_error("Unexpected graph type '%s' while getting the context of the task node '%d'. " \
+                internal_error("Unexpected graph type '%s' while setting the context of the task node '%d'. " \
                                "\"task\" type expected", get_graph_type_as_string().c_str(), _id);                  
             }
         }
         else
         {
             internal_error("Unexpected node type '%s' while setting the label to node '%d'. GRAPH NODE expected.",
+                           get_type_as_string().c_str(), _id);                
+        }
+    }
+
+    Symbol Node::get_task_function()
+    {
+        if (get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
+        {
+            Graph_type graph_type = get_data<Graph_type>(_GRAPH_TYPE);
+            if (graph_type == TASK)
+            {
+                return get_data<Symbol>(_TASK_FUNCTION);
+            }
+            else
+            {
+                internal_error("Unexpected graph type '%s' while getting the symbol of the function embedded in the task '%s'. " \
+                               "\"task\" type expected", get_graph_type_as_string().c_str(), 
+                               get_data<Nodecl::NodeclBase>(_NODE_LABEL).prettyprint().c_str());
+            }
+        }
+        else
+        {
+            internal_error("Unexpected node type '%s' while getting the symbol of the function embedded in a task'. GRAPH NODE expected.",
+                           get_type_as_string().c_str());
+        }
+    }
+
+    void Node::set_task_function(Symbol func_sym)
+    {
+        if (get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
+        {
+            Graph_type graph_type = get_data<Graph_type>(_GRAPH_TYPE);
+            if (graph_type == TASK)
+            {
+                return set_data(_TASK_FUNCTION, func_sym);
+            }
+            else
+            {
+                internal_error("Unexpected graph type '%s' while setting the symbol of the function embedded in the task '%s'. " \
+                               "\"task\" type expected", get_graph_type_as_string().c_str(), 
+                               get_data<Nodecl::NodeclBase>(_NODE_LABEL).prettyprint().c_str());
+            }
+        }
+        else
+        {
+            internal_error("Unexpected node type '%s' while setting the symbol of the function embedded in a task. GRAPH NODE expected.",
+                           get_type_as_string().c_str());
+        }
+    }
+
+    Node* Node::get_stride_node()
+    {
+        if (get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
+        {
+            Graph_type graph_type = get_data<Graph_type>(_GRAPH_TYPE);
+            if (graph_type == LOOP)
+            {
+                return get_data<Node*>(_STRIDE_NODE);
+            }
+            else
+            {
+                internal_error("Unexpected graph type '%s' while getting the stride node of loop node '%d'. LOOP expected", 
+                               get_graph_type_as_string().c_str(), _id);                  
+            }
+        }
+        else
+        {
+            internal_error("Unexpected node type '%s' while getting stride node of loop graph node '%d'. GRAPH NODE expected.",
+                           get_type_as_string().c_str(), _id);                
+        }
+    }
+
+    void Node::set_stride_node(Node* stride)
+    {
+        if (get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
+        {
+            Graph_type graph_type = get_data<Graph_type>(_GRAPH_TYPE);
+            if (graph_type == LOOP)
+            {
+                set_data(_STRIDE_NODE, stride);
+            }
+            else
+            {
+                internal_error("Unexpected graph type '%s' while setting the stride node to loop node '%d'. LOOP expected", 
+                               get_graph_type_as_string().c_str(), _id);                  
+            }
+        }
+        else
+        {
+            internal_error("Unexpected node type '%s' while setting stride node to loop graph node '%d'. GRAPH NODE expected.",
                            get_type_as_string().c_str(), _id);                
         }
     }
@@ -908,7 +998,6 @@ namespace TL
     {
         if (get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
         {
-            _visited = true;
             Node* entry_node = get_data<Node*>(_ENTRY_NODE);
             
             // Get upper_exposed and killed variables
@@ -1023,8 +1112,45 @@ namespace TL
                            _id, get_type_as_string().c_str());
         }
     }
-    
-    void Node::set_graph_node_reaching_defintions(std::map<Symbol, Nodecl::NodeclBase> induct_vars,
+
+    static bool is_range(Nodecl::NodeclBase nodecl)
+    {
+        if (nodecl.is<Nodecl::Symbol>())
+        {
+            return false;
+        }
+        else if (nodecl.is<Nodecl::Range>())
+        {
+            return true;
+        }
+        else if (nodecl.is<Nodecl::List>())
+        {
+            bool result = false;
+            Nodecl::List aux = nodecl.as<Nodecl::List>();
+            for(std::vector<Nodecl::NodeclBase>::iterator it = aux.begin(); it != aux.end(); ++it)
+            {
+                result = result || is_range(*it);
+            }
+            return result;
+        }
+        else if (nodecl.is<Nodecl::ArraySubscript>())
+        {
+            Nodecl::ArraySubscript aux = nodecl.as<Nodecl::ArraySubscript>();
+            return (is_range(aux.get_subscripted()) || is_range(aux.get_subscripts()));
+        }
+        else if (nodecl.is<Nodecl::ClassMemberAccess>())
+        {
+            Nodecl::ClassMemberAccess aux = nodecl.as<Nodecl::ClassMemberAccess>();
+            return (is_range(aux.get_lhs()) || is_range(aux.get_member()));
+        }
+        else
+        {
+            internal_error("Unexpected node type '%s' while traversing a nodecl embedded in an extensible symbol", 
+                           ast_print_node_type(nodecl.get_kind()));
+        }
+    }
+
+    void Node::set_graph_node_reaching_definitions(std::map<Symbol, Nodecl::NodeclBase> induct_vars,
                                                   const char* filename, int line)
     {
         if (get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
@@ -1033,27 +1159,11 @@ namespace TL
             Node* exit_node = get_data<Node*>(_EXIT_NODE);
             if (get_data<Graph_type>(_GRAPH_TYPE) == LOOP)
             {
-                Node* cond = exit_node->get_parents()[0];
-                
-                // Get the parent corresponding to the 'next' node
-                ObjectList<Edge*> cond_entries = cond->get_entry_edges();
-                Node* next = NULL;
-                for (ObjectList<Edge*>::iterator it = cond_entries.begin(); it != cond_entries.end(); ++it)
-                {
-                    if ((*it)->is_back_edge())
-                    {
-                        next = (*it)->get_source();
-                    }
-                }
-                
-                if (next == NULL)
-                {
-                    internal_error("Cannot found node corresponding to the 'stride node' of the loop graph node '%d'", _id);
-                }
+                Node* stride = get_stride_node();
                 
                 // Now, all ranges must be converted to the first/last value depending on the sign of the stride
                 nodecl_map old_reach_defs = get_reaching_definitions();
-                nodecl_map stride_reach_defs = next->get_data<nodecl_map>(_REACH_DEFS);
+                nodecl_map stride_reach_defs = stride->get_data<nodecl_map>(_REACH_DEFS);
                 
                 if (old_reach_defs.empty())
                 {   // When the graph node has no reach definition defined, we initially propagate the values of the stride node
@@ -1065,35 +1175,15 @@ namespace TL
                     Nodecl::NodeclBase first = it->first, second = it->second;
                     CfgRenamingVisitor renaming_v(induct_vars, filename, line);
                     renaming_v.set_computing_range_limits(true);
-
-                    ObjectList<Nodecl::NodeclBase> renamed;
-                    // Visit lhs of the reach def
-//                     if (!first.is<Nodecl::Symbol>())
-//                     {
-//                         renamed = renaming_v.walk(it->first);
-//                         if (!renamed.empty())
-//                         {
-//                             if (old_reach_defs.empty() || old_reach_defs.find(first) != old_reach_defs.end())
-//                             {
-//                                 rename_reaching_defintion_var(first, renamed[0]);
-//                                 first = renamed[0];
-//                             }
-//                             else if (old_reach_defs.find(renamed[0]) != old_reach_defs.end())
-//                             {   // The renaming was already done. Nothing to do
-//                             }
-//                             else
-//                             {
-//                                 internal_error("A previous renaming in node '%d' has been performed for initial value '%s' and "\
-//                                                " actual renaming '%s'", _id, first.prettyprint().c_str(), renamed[0].prettyprint().c_str());
-//                             }
-//                         }                        
-//                     }
-                    
-                    // Visit rhs of the reach def
-                    renamed = renaming_v.walk(it->second);
-                    if (!renamed.empty())
+                   
+                    // The rhs only must be renamed when it is not accessing an array
+                    if (!is_range(first))
                     {
-                        set_reaching_definition(first, renamed[0]);
+                        ObjectList<Nodecl::NodeclBase> renamed = renaming_v.walk(it->second);
+                        if (!renamed.empty())
+                        {
+                            set_reaching_definition(first, renamed[0]);
+                        }
                     }
                 }
             }

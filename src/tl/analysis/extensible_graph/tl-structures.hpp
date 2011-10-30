@@ -118,7 +118,13 @@ namespace TL
      * Mandatory and only available in composite nodes.
      */
     #define _EXIT_NODE      "exit"
-    
+
+    /*! \def _STRIDE_NODE
+     * Node containing the loop stride statement within a loop graph node.
+     * Mandatory and only available in Loop Graph nodes.
+     */
+    #define _STRIDE_NODE      "stride"
+
     /*! \def _GRAPH_TYPE
      * Type of the graph node. This will be a value of the enumeration Graph_type.
      * Mandatory in all graph nodes.
@@ -136,6 +142,12 @@ namespace TL
      * Mandatory and only available in composite nodes with _GRAPH_TYPE "task"
      */
     #define _TASK_CONTEXT   "task_context"
+    
+    /*!
+     * Nodecl containing the symbol of the function contained contained in task
+     * Mandatory and only available in composite nodes with _GRAPH_TYPE "task" of declaration level tasks
+     */
+    #define _TASK_FUNCTION  "task_function"
     
     /*! \def _LIVE_IN
      * Set of variables that are alive at the entry point of a node.

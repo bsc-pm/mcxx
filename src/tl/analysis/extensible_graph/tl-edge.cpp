@@ -29,9 +29,9 @@ namespace TL
     Edge::Edge(Node *source, Node *target, bool is_back_edge, Edge_type type, std::string label)
         : _source(source), _target(target)
     {
-        set_data<Edge_type>(_EDGE_TYPE, type);
-        set_data<std::string>(_EDGE_LABEL, label);
-        set_data<bool>(_IS_BACK_EDGE, is_back_edge);
+        set_data(_EDGE_TYPE, type);
+        set_data(_EDGE_LABEL, label);
+        set_data(_IS_BACK_EDGE, is_back_edge);
     }
 
     Node* Edge::get_source() const

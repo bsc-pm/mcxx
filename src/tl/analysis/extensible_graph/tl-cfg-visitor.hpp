@@ -153,6 +153,8 @@ namespace TL
         
         std::stack<Nodecl::NodeclBase> _context_s;
         
+        ObjectList<Node*> _return_nodes;
+        
         std::stack<struct loop_control_nodes_t> _loop_info_s;
         
         //! List with the struct containing information about the try hierarchy we are

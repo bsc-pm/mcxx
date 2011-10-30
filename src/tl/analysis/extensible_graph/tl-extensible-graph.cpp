@@ -109,8 +109,8 @@ namespace TL
                         ObjectList<Nodecl::NodeclBase> clauses = old_node->get_data<ObjectList<Nodecl::NodeclBase> >(_CLAUSES);
                         ObjectList<Nodecl::NodeclBase> args = old_node->get_data<ObjectList<Nodecl::NodeclBase> >(_ARGS);
                         
-                        new_node->set_data<ObjectList<Nodecl::NodeclBase> >(_CLAUSES, clauses);
-                        new_node->set_data<ObjectList<Nodecl::NodeclBase> >(_ARGS, args);
+                        new_node->set_data(_CLAUSES, clauses);
+                        new_node->set_data(_ARGS, args);
                     }
                    
                     break;
@@ -518,7 +518,7 @@ namespace TL
     void ExtensibleGraph::dress_up_graph()
     {
         clear_unnecessary_nodes();
-        concat_sequential_nodes();
+//         concat_sequential_nodes();
     }
     
     void ExtensibleGraph::concat_sequential_nodes()
@@ -697,6 +697,9 @@ namespace TL
         
         erase_unclassified_nodes(entry);
         clear_visits(entry);
+        
+        erase_break_nodes(entry);
+        clear_visits(entry);
     }
     
     void ExtensibleGraph::clear_orphaned_nodes(Node* actual_node)
@@ -873,8 +876,7 @@ namespace TL
                     disconnect_nodes(parents, actual);
                     disconnect_nodes(actual, children);
                     connect_nodes(parents, children, etypes, elabels);
-                    
-                    std::cerr << "deleting node " << actual->get_id() << std::endl;;
+                   
                     delete (actual);
                 }
                 else if (ntype == GRAPH_NODE)
@@ -890,7 +892,52 @@ namespace TL
                 }
             }
         }
-    }   
+    }
+   
+    void ExtensibleGraph::erase_break_nodes(Node* node)
+    {
+        if (!node->is_visited())
+        {
+            node->set_visited(true);
+            
+            ObjectList<Node*> children = node->get_children();
+            Node_type ntype = node->get_data<Node_type>(_NODE_TYPE);
+            if (ntype == BASIC_BREAK_NODE)
+            {
+                // Check correctness
+                if (children.size() != 1)
+                {
+                    internal_error("A Break node should have just one child. Break node '%d' has '%d'", node->get_id(), children.size());
+                }
+                if (children[0]->get_data<Node_type>(_NODE_TYPE) != BASIC_EXIT_NODE)
+                {
+                    internal_error("The child of a Break node should be an Exit node. Break node '%d' child is a '%s'", 
+                                   node->get_id(), children[0]->get_type_as_string().c_str());
+                }
+                
+                ObjectList<Node*> parents = node->get_parents();
+                ObjectList<Edge_type> etypes = node->get_entry_edge_types();
+                ObjectList<std::string> elabels = node->get_entry_edge_labels();
+                
+                // Disconnect nodes
+                disconnect_nodes(parents, node);
+                disconnect_nodes(node, children);
+                connect_nodes(parents, children, etypes, elabels);
+                
+                // Delete the node
+                delete (node);
+            }
+            else if (ntype == GRAPH_NODE)
+            {
+                erase_break_nodes(node->get_data<Node*>(_ENTRY_NODE));
+            }
+            
+            for (ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
+            {
+                erase_break_nodes(*it);
+            }
+        }
+    }    
     
     bool ExtensibleGraph::belongs_to_the_same_graph(Edge* edge)
     {
@@ -961,7 +1008,7 @@ namespace TL
     {
         if (node->is_visited())
         {
-//             std::cerr << "           clear visits --> " << node->get_id() << std::endl;
+//             std::cerr << "           clear visits in level --> " << node->get_id() << std::endl;
             node->set_visited(false);
             
             Node_type ntype = node->get_type();
@@ -977,7 +1024,7 @@ namespace TL
             {
                 if ((*it)->is_visited())
                 {
-                    clear_visits(*it);
+                    clear_visits_in_level(*it);
                 }
             }
         }
@@ -1015,7 +1062,7 @@ namespace TL
     
     void ExtensibleGraph::set_use_def_computed()
     {
-        _use_def_computed = '1';
+        _use_def_computed = true;
     }
     
     //! This method returns the most outer node of a node before finding a loop node

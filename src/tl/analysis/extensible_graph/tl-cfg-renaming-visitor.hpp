@@ -104,6 +104,23 @@ namespace TL
             Ret visit(const Nodecl::BitwiseXor& n);
             Ret visit(const Nodecl::Shr& n);
             Ret visit(const Nodecl::Shl& n);
+            Ret visit(const Nodecl::Assignment& n);
+            Ret visit(const Nodecl::AddAssignment& n);
+            Ret visit(const Nodecl::SubAssignment& n);
+            Ret visit(const Nodecl::DivAssignment& n);
+            Ret visit(const Nodecl::MulAssignment& n);
+            Ret visit(const Nodecl::ModAssignment& n);
+            Ret visit(const Nodecl::BitwiseAndAssignment& n);
+            Ret visit(const Nodecl::BitwiseOrAssignment& n);
+            Ret visit(const Nodecl::BitwiseXorAssignment& n);
+            Ret visit(const Nodecl::ShrAssignment& n);
+            Ret visit(const Nodecl::ShlAssignment& n);
+            Ret visit(const Nodecl::Equal& n);
+            Ret visit(const Nodecl::Different& n);
+            Ret visit(const Nodecl::LowerThan& n);
+            Ret visit(const Nodecl::GreaterThan& n);
+            Ret visit(const Nodecl::LowerOrEqualThan& n);
+            Ret visit(const Nodecl::GreaterOrEqualThan& n);
             Ret visit(const Nodecl::Predecrement& n);
             Ret visit(const Nodecl::Postdecrement& n);
             Ret visit(const Nodecl::Preincrement& n);
@@ -111,13 +128,17 @@ namespace TL
             Ret visit(const Nodecl::Plus& n);
             Ret visit(const Nodecl::Neg& n);     
             Ret visit(const Nodecl::BitwiseNot& n);
-            Ret visit(const Nodecl::LogicalNot& n);
-            Ret visit(const Nodecl::Conversion& n);
+            Ret visit(const Nodecl::LogicalNot& n);       
             Ret visit(const Nodecl::IntegerLiteral& n);
             Ret visit(const Nodecl::FloatingLiteral& n);
             Ret visit(const Nodecl::ComplexLiteral& n);
             Ret visit(const Nodecl::BooleanLiteral& n);
             Ret visit(const Nodecl::StringLiteral& n);
+            Ret visit(const Nodecl::Conversion& n);
+            Ret visit(const Nodecl::ConditionalExpression& n);
+            Ret visit(const Nodecl::Cast& n);
+            Ret visit(const Nodecl::FunctionCall& n);
+            Ret visit(const Nodecl::VirtualFunctionCall& n);
     };
 }
 
