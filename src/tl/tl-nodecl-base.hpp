@@ -29,7 +29,7 @@ namespace Nodecl {
             TL::Symbol get_symbol() const { return TL::Symbol(::nodecl_get_symbol(_n)); }
             bool has_symbol() const { return ::nodecl_get_symbol(_n) != NULL; }
             TL::Scope retrieve_context() const { return nodecl_retrieve_context(_n); }
-            std::string get_text() const { return std::string(::nodecl_get_text(_n)); }
+            std::string get_text() const { const char* c = ::nodecl_get_text(_n); if (c == NULL) c = ""; return c; }
             std::string get_filename() const { const char* c = nodecl_get_filename(_n); if (c == NULL) c = "(null)"; return c; }
             int get_line() const { return nodecl_get_line(_n); }
             std::string get_locus() const { std::stringstream ss; ss << this->get_filename() << ":" << this->get_line(); return ss.str(); }

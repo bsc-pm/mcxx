@@ -193,6 +193,7 @@ libmcxx_la_CFLAGS = -DLIBMCXX_DLL_EXPORT \
 					-Wextra \
 				    -I$(top_srcdir)/lib \
 				    -I$(top_srcdir)/src/driver \
+					-I$(top_srcdir)/src/mcxx_tl \
                     -fexceptions \
 				    -DPKGDATADIR=\"$(pkgdatadir)\"
 

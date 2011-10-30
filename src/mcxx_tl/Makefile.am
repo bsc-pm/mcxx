@@ -35,6 +35,7 @@ COMMON_CFLAGS= -DLIBMCXXTL_DLL_EXPORT \
     -I $(top_srcdir)/src/frontend \
     -I $(top_srcdir)/src/driver \
     -I $(top_srcdir)/src/tl \
+    -I $(top_srcdir)/src/tl/codegen/common \
     -I $(top_srcdir)/lib \
     -I $(top_builddir)/src/frontend \
     -I $(top_builddir)/src/driver \
@@ -59,6 +60,7 @@ libmcxxtl_la_LIBADD = \
         $(top_builddir)/src/frontend/libmcxx-process.la \
         $(top_builddir)/src/frontend/libmcxx.la \
         $(top_builddir)/src/tl/libtl.la \
+        $(top_builddir)/src/tl/codegen/common/libcodegen-common.la \
 	    $(top_builddir)/lib/libmcxx-utils.la \
         $(DL_LIBRARY)
 		$(END)

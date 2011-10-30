@@ -87,6 +87,7 @@ libmf03_la_CFLAGS = -DLIBMF03_DLL_EXPORT \
 					-Wextra \
 				    -I$(top_srcdir)/lib \
 				    -I$(top_srcdir)/src/frontend \
+				    -I$(top_srcdir)/src/mcxx_tl \
 				    -I$(top_builddir)/src/frontend \
 				    -I$(top_srcdir)/src/driver \
 				    -I$(top_srcdir)/src/driver/fortran \

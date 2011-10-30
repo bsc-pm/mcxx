@@ -10,6 +10,10 @@
 
 MCXX_BEGIN_DECLS
 
+char* _fortran_codegen_to_str(nodecl_t node);
+void _fortran_codegen_translation_unit(FILE* f, nodecl_t node);
+
+
 MCXX_END_DECLS
 
 #endif // FORTRAN03_CODEGEN_H

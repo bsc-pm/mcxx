@@ -349,8 +349,6 @@ namespace TL
         Ret visit(const Nodecl::StructuredValue& n);
         Ret visit(const Nodecl::EmptyStatement& n);
         Ret visit(const Nodecl::ReturnStatement& n);
-        Ret visit(const Nodecl::BuiltinExpr& n);
-        Ret visit(const Nodecl::BuiltinDecl& n);
         Ret visit(const Nodecl::PragmaCustomDirective& n);
         Ret visit(const Nodecl::PragmaCustomStatement& n);
         Ret visit(const Nodecl::PragmaCustomDeclaration& n);

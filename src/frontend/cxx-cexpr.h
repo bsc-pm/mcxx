@@ -81,6 +81,8 @@ LIBMCXX_EXTERN uint32_t const_value_cast_to_4(const_value_t* val);
 LIBMCXX_EXTERN uint16_t const_value_cast_to_2(const_value_t* val);
 LIBMCXX_EXTERN uint8_t const_value_cast_to_1(const_value_t* val);
 
+LIBMCXX_EXTERN int const_value_cast_to_signed_int(const_value_t* val);
+
 LIBMCXX_EXTERN const_value_t* const_value_cast_to_bytes(const_value_t* val, int bytes, char sign);
 
 LIBMCXX_EXTERN const_value_t* const_value_cast_to_signed_int_value(const_value_t* value);
@@ -107,6 +109,7 @@ LIBMCXX_EXTERN char const_value_is_structured(const_value_t* v);
 LIBMCXX_EXTERN char const_value_is_array(const_value_t* v);
 LIBMCXX_EXTERN char const_value_is_vector(const_value_t* v);
 LIBMCXX_EXTERN char const_value_is_string(const_value_t* v);
+LIBMCXX_EXTERN char const_value_is_range(const_value_t* v);
 
 LIBMCXX_EXTERN float const_value_cast_to_float(const_value_t* val);
 LIBMCXX_EXTERN double const_value_cast_to_double(const_value_t* val);
@@ -126,6 +129,7 @@ LIBMCXX_EXTERN const_value_t* const_value_make_array(int num_elements, const_val
 LIBMCXX_EXTERN const_value_t* const_value_make_vector(int num_elements, const_value_t **elements);
 LIBMCXX_EXTERN const_value_t* const_value_make_struct(int num_elements, const_value_t **elements);
 LIBMCXX_EXTERN const_value_t* const_value_make_complex(const_value_t* real_part, const_value_t* imag_part);
+LIBMCXX_EXTERN const_value_t* const_value_make_range(const_value_t* lower, const_value_t* upper, const_value_t* stride);
 
 LIBMCXX_EXTERN const_value_t* const_value_make_string(const char* literal, int num_elems);
 LIBMCXX_EXTERN const_value_t* const_value_make_wstring(int * literal, int num_elems);

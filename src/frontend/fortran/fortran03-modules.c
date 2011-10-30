@@ -850,7 +850,12 @@ static sqlite3_int64 insert_type(sqlite3* handle, type_t* t)
         const char* name = "CHARACTER";
 
         sqlite3_int64 lower_tree = insert_nodecl(handle, array_type_get_array_lower_bound(t));
-        sqlite3_int64 upper_tree = insert_nodecl(handle, array_type_get_array_upper_bound(t));
+        sqlite3_int64 upper_tree = 0; 
+        
+        if (!array_type_is_unknown_size(t))
+        {
+            upper_tree = insert_nodecl(handle, array_type_get_array_upper_bound(t));
+        }
 
         // When loading, a 'signed char' will be used instead
         sqlite3_int64 element_type = 0;
@@ -1754,6 +1759,7 @@ static sqlite3_int64 insert_multiple_const_value(sqlite3* handle, const_value_t*
             kind,
             list);
 
+    run_query(handle, insert_values);
     sqlite3_int64 result = sqlite3_last_insert_rowid(handle);
     sqlite3_free(insert_values);
     sqlite3_free(list);
@@ -1843,6 +1849,10 @@ static sqlite3_int64 insert_const_value(sqlite3* handle, const_value_t* value)
     {
         return insert_multiple_const_value(handle, value, "STRING");
     }
+    else if (const_value_is_range(value))
+    {
+        return insert_multiple_const_value(handle, value, "VALUE");
+    }
     else
     {
         internal_error("Invalid const value kind", 0);
@@ -1903,7 +1913,8 @@ static int get_const_value(void *datum,
             || (strcmp(kind, "VECTOR") == 0)
             || (strcmp(kind, "STRING") == 0)
             || (strcmp(kind, "STRUCT") == 0)
-            || (strcmp(kind, "COMPLEX") == 0))
+            || (strcmp(kind, "COMPLEX") == 0)
+            || (strcmp(kind, "RANGE") == 0))
     {
         int num_elems = 0;
         char * copy = strdup(compound_values_str);
@@ -1923,7 +1934,7 @@ static int get_const_value(void *datum,
 
             list = calloc(num_elems, sizeof(*list));
 
-            int i;
+            int i = 0;
             field = strtok_r(copy, ",", &context);
             while (field != NULL)
             {
@@ -1956,6 +1967,12 @@ static int get_const_value(void *datum,
         else if (strcmp(kind, "STRING") == 0)
         {
             p->v = const_value_make_string_from_values(num_elems, list);
+        }
+        else if (strcmp(kind, "RANGE") == 0)
+        {
+            ERROR_CONDITION(num_elems != 3, "Invalid range constant!", 0);
+
+            p->v = const_value_make_range(list[0], list[1], list[2]);
         }
         else
         {

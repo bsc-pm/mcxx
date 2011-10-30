@@ -69,7 +69,8 @@ typedef enum const_value_kind_tag
     CVK_ARRAY,
     CVK_STRUCT,
     CVK_VECTOR,
-    CVK_STRING
+    CVK_STRING,
+    CVK_RANGE
 } const_value_kind_t;
 
 typedef struct const_multi_value_tag
@@ -102,6 +103,7 @@ struct const_value_tag
         // CVK_ARRAY
         // CVK_STRUCT
         // CVK_VECTOR
+        // CVK_RANGE
         const_multi_value_t* m;
     } value;
 };
@@ -480,6 +482,22 @@ uint8_t const_value_cast_to_1(const_value_t* val)
     }
 }
 
+int const_value_cast_to_signed_int(const_value_t* val)
+{
+    switch (val->kind)
+    {
+        case CVK_INTEGER:
+            return val->value.i;
+        case CVK_FLOAT:
+            return val->value.f;
+        case CVK_DOUBLE:
+            return val->value.d;
+        case CVK_LONG_DOUBLE:
+            return val->value.ld;
+        OTHER_KIND;
+    }
+}
+
 #ifdef HAVE_QUADMATH_H
   #define IS_FLOAT(kind) (kind == CVK_FLOAT || kind == CVK_DOUBLE || kind == CVK_LONG_DOUBLE || kind == CVK_FLOAT128)
 #else
@@ -616,46 +634,6 @@ type_t* const_value_get_minimal_integer_type(const_value_t* val)
 }
 
 
-#if 0
-static void get_proper_suffix_integer(char is_signed, uint64_t value, const char** suffix, type_t** t)
-{
-    *t = get_minimal_integer_for_value(is_signed, value);
-
-    if (is_signed_char_type(*t)
-            || is_signed_short_int_type(*t)
-            || is_signed_int_type(*t))
-    {
-        *suffix = uniquestr("");
-    }
-    else if (is_unsigned_char_type(*t)
-            || is_unsigned_short_int_type(*t)
-            || is_unsigned_int_type(*t))
-    {
-        *suffix = uniquestr("u");
-    }
-    else if (is_signed_long_int_type(*t))
-    {
-        *suffix = uniquestr("l");
-    }
-    else if (is_unsigned_long_int_type(*t))
-    {
-        *suffix = uniquestr("ul");
-    }
-    else if (is_signed_long_long_int_type(*t))
-    {
-        *suffix = uniquestr("ll");
-    }
-    else if (is_unsigned_long_long_int_type(*t))
-    {
-        *suffix = uniquestr("ull");
-    }
-    else
-    {
-        internal_error("Invalid type", 0);
-    }
-}
-#endif
-
 nodecl_t const_value_to_nodecl(const_value_t* v)
 {
     if (v->kind == CVK_INTEGER 
@@ -756,6 +734,11 @@ char const_value_is_vector(const_value_t* v)
 char const_value_is_string(const_value_t* v)
 {
     return v->kind == CVK_STRING;
+}
+
+char const_value_is_range(const_value_t* v)
+{
+    return v->kind == CVK_RANGE;
 }
 
 float const_value_cast_to_float(const_value_t* v)
@@ -1036,6 +1019,14 @@ const_value_t* const_value_make_complex(const_value_t* real_part, const_value_t*
     const_value_t* complex_[] = { real_part, imag_part };
     const_value_t* result = make_multival(2, complex_);
     result->kind = CVK_COMPLEX;
+    return result;
+}
+
+const_value_t* const_value_make_range(const_value_t* lower, const_value_t* upper, const_value_t* stride)
+{
+    const_value_t* range[] = { lower, upper, stride };
+    const_value_t* result = make_multival(2, range);
+    result->kind = CVK_RANGE;
     return result;
 }
 

@@ -726,36 +726,47 @@ static void instantiate_dependent_friend(type_t* selected_template UNUSED_PARAME
 {
     if(friend->kind == SK_DEPENDENT_FRIEND_CLASS) 
     {
-        // Search the name of the friend class
-        scope_entry_list_t* result_list = query_nodecl_name(context_of_being_instantiated, friend->value);
-
-        // We only want the SK_CLASS entries of the result_list
-        scope_entry_list_t* filter_list = filter_symbol_kind(result_list, SK_CLASS); 
-        entry_list_free(result_list);
+        nodecl_t name = instantiate_expression(friend->value, context_of_being_instantiated);
         
+        // Search the name of the friend class
+        scope_entry_list_t* result_list = query_nodecl_name(context_of_being_instantiated, name);
+
+        // Now look for a type
+        enum cxx_symbol_kind filter_classes[] =
+        {
+            SK_CLASS,
+            /* SK_DEPENDENT_ENTITY,*/
+            SK_TEMPLATE, // For the primary template
+        };
+
+        // We only want the filter_classes entries of the result_list
+        scope_entry_list_t* filter_list = filter_symbol_kind_set(result_list,
+                STATIC_ARRAY_LENGTH(filter_classes), filter_classes);
+        entry_list_free(result_list);
+
         scope_entry_t* entry = NULL;
         if(filter_list != NULL)
         {
-            entry = entry_list_iterator_current(entry_list_iterator_begin(filter_list));
+            entry = entry_list_head(filter_list);
         }
         else 
         {
             char is_qualified = (nodecl_get_kind(friend->value) == NODECL_CXX_DEP_GLOBAL_NAME_NESTED
                     ||  nodecl_get_kind(friend->value) == NODECL_CXX_DEP_NAME_NESTED);
-            
+
             if(is_qualified)
             {
                 error_printf("%s:%d: error: in friend declaration, class '%s' does not exist\n",
-                        filename, line, c_cxx_codegen_to_str(friend->value));
+                        filename, line, codegen_to_str(name));
                 return;
             }
-            
+
             scope_entry_t* new_class = NULL;
 
             new_class = new_symbol(context_of_being_instantiated,
                     context_of_being_instantiated.namespace_scope,
-                    c_cxx_codegen_to_str(friend->value));
-            
+                    codegen_to_str(friend->value));
+
             new_class->line = line;
             new_class->file = filename;
             new_class->kind = SK_CLASS;
@@ -764,7 +775,7 @@ static void instantiate_dependent_friend(type_t* selected_template UNUSED_PARAME
 
             entry = new_class;
         }
-        
+
         class_type_add_friend_symbol(being_instantiated, entry);
         entry_list_free(filter_list);
     }

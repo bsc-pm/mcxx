@@ -42,6 +42,8 @@ libcodegen_legacy_cxx_la_LIBADD = ../../common/libcodegen-common.la \
 
 
 libcodegen_legacy_cxx_la_SOURCES = \
+	 cxx-legacy-codegen.h \
+	 cxx-legacy-codegen.c \
 	 codegen-cxx.hpp \
 	 codegen-cxx.cpp \
   	 $(END)

@@ -18,8 +18,9 @@ namespace Nodecl
  
     Calculator::Ret Calculator::unhandled_node(const Nodecl::NodeclBase& n)
     {
+        Nodecl::NodeclBase unhandled_n = n;
         std::cerr << "Unhandled node type " << ast_print_node_type(n.get_kind()) << "'"
-                  << " while calculating constant value of expression '" << c_cxx_codegen_to_str(n.get_internal_nodecl()) << std::endl;
+                  << " while calculating constant value of expression '" << unhandled_n.prettyprint() << std::endl;
         return Ret();
     }
     

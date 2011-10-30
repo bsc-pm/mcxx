@@ -49,7 +49,6 @@ enum intrinsic_kind_tag
  * kind-of-intrinsic: can be A, E, ES, I, PS, S or T. See above for its meaning
  *
  * constant-evaluation: pointer to a function implementing constant evaluation of this intrinsic. 
- *                      Currently not implemented, set it to NULL
  *
  * FORTRAN_GENERIC_INTRINSIC_2 is used for those intrinsics sharing the same name but callable with very different argument keywords
  *
@@ -243,7 +242,7 @@ FORTRAN_GENERIC_INTRINSIC(amin0, NULL, E, simplify_amin0) \
 FORTRAN_GENERIC_INTRINSIC(amin1, NULL, E, simplify_amin1) \
 FORTRAN_GENERIC_INTRINSIC(dmax1, NULL, E, simplify_dmax1) \
 FORTRAN_GENERIC_INTRINSIC(dmin1, NULL, E, simplify_dmin1) \
-FORTRAN_GENERIC_INTRINSIC(loc, NULL, E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(loc, NULL, E, NULL) 
 
 #define MAX_KEYWORDS_INTRINSICS 10
 
@@ -1024,6 +1023,8 @@ static void fortran_init_specific_names(decl_context_t decl_context)
     REGISTER_SPECIFIC_INTRINSIC_1("dimag", "aimag", get_complex_type(get_double_type()));
 
     REGISTER_CUSTOM_INTRINSIC_1("dfloat", get_double_type(), get_signed_int_type());
+    REGISTER_CUSTOM_INTRINSIC_2("getenv", NULL, fortran_get_default_character_type(), 
+            fortran_get_default_character_type());
 }
 
 scope_entry_t* compute_intrinsic_abs(scope_entry_t* symbol UNUSED_PARAMETER,
@@ -1288,22 +1289,32 @@ scope_entry_t* compute_intrinsic_associated(scope_entry_t* symbol UNUSED_PARAMET
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
-    type_t* t0 = argument_types[0];
-    type_t* t1 = argument_types[1];
-    if (is_pointer_type(t0))
+    type_t* t0 = NULL;
+    type_t* t1 = NULL;
+    scope_entry_t* sym = NULL;
+    if (!nodecl_is_null(argument_expressions[0])
+            && ((sym = nodecl_get_symbol(argument_expressions[0])) != NULL)
+            && sym->kind == SK_VARIABLE
+            && is_pointer_type((t0 = no_ref(sym->type_information))))
     {
-        if (t1 == NULL)
+        ERROR_CONDITION(nodecl_get_kind(argument_expressions[0]) != NODECL_DERREFERENCE, "Invalid access to pointer", 0);
+
+        if (nodecl_is_null(argument_expressions[1]))
         {
-            return GET_INTRINSIC_INQUIRY("associated", fortran_get_default_logical_type(), t0);
+            return GET_INTRINSIC_INQUIRY("associated", fortran_get_default_logical_type(), t0, t0);
         }
         else
         {
-            if (is_pointer_type(t1))
-                t1 = pointer_type_get_pointee_type(t1);
-
-            if (equivalent_tkr_types(pointer_type_get_pointee_type(t0), t1))
+            if (((sym = nodecl_get_symbol(argument_expressions[1])) != NULL)
+                    && sym->kind == SK_VARIABLE
+                    && is_pointer_type((t1 = no_ref(sym->type_information))))
             {
-                return GET_INTRINSIC_INQUIRY("associated", fortran_get_default_logical_type(), t0, t1);
+                ERROR_CONDITION(nodecl_get_kind(argument_expressions[1]) != NODECL_DERREFERENCE, "Invalid access to pointer", 0);
+
+                if (equivalent_tkr_types(pointer_type_get_pointee_type(t0), pointer_type_get_pointee_type(t1)))
+                {
+                    return GET_INTRINSIC_INQUIRY("associated", fortran_get_default_logical_type(), t0, t1);
+                }
             }
         }
     }

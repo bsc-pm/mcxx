@@ -86,7 +86,7 @@ namespace TL
     
     CfgVisitor::Ret CfgVisitor::unhandled_node(const Nodecl::NodeclBase& n) 
     {
-        std::cerr << "Unhandled node while CFG construction '" << c_cxx_codegen_to_str(n.get_internal_nodecl())
+        std::cerr << "Unhandled node while CFG construction '" << codegen_to_str(n.get_internal_nodecl())
                   << "' of type '" << ast_print_node_type(n.get_kind()) << "'" << std::endl;
         return Ret();
     }
@@ -318,7 +318,7 @@ namespace TL
         else
         {
             internal_error("Parsing the expression '%s' 0 nodes has been returned, and they must be one or more\n", 
-                           c_cxx_codegen_to_str(n.get_internal_nodecl()));
+                           codegen_to_str(n.get_internal_nodecl()));
         }
         return expression_nodes;
     }
@@ -326,7 +326,7 @@ namespace TL
     // TODO for Fortran codes
     CfgVisitor::Ret CfgVisitor::visit(const Nodecl::ParenthesizedExpression& n)
     {
-        std::cerr << "TODO: Parenthesized expression: '" << c_cxx_codegen_to_str(n.get_internal_nodecl()) << "'" << std::endl;
+        std::cerr << "TODO: Parenthesized expression: '" << codegen_to_str(n.get_internal_nodecl()) << "'" << std::endl;
         walk(n.get_nest());
         return Ret();
     }
@@ -638,24 +638,6 @@ namespace TL
         _actual_cfg->_last_nodes.clear();
         _return_nodes.append(return_node);
         return ObjectList<Node*>();
-    }
-
-
-    // ************* Built-in ************* //
-    // TODO    
-    CfgVisitor::Ret CfgVisitor::visit(const Nodecl::BuiltinExpr& n)
-    {
-        walk(n.get_components());
-        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
-        return Ret();
-    }
-
-    // TODO
-    CfgVisitor::Ret CfgVisitor::visit(const Nodecl::BuiltinDecl& n)
-    {
-        walk(n.get_components());
-        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
-        return Ret();
     }
 
 
@@ -1279,7 +1261,7 @@ namespace TL
                 else
                 {
                     internal_error("Unexpected type of Nodecl '%s' found in Case Default visit.",
-                                c_cxx_codegen_to_str(n.get_internal_nodecl()));
+                                codegen_to_str(n.get_internal_nodecl()));
                 }
                 e->set_data(_EDGE_LABEL, label);
               
@@ -1319,7 +1301,7 @@ namespace TL
                 else
                 {
                     internal_error("Unexpected type of Nodecl '%s' found in Case Default visit.",
-                                c_cxx_codegen_to_str(n.get_internal_nodecl()));
+                                codegen_to_str(n.get_internal_nodecl()));
                 }
                 ee->set_data(_EDGE_LABEL, label);
             }

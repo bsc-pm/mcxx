@@ -620,12 +620,7 @@ static void build_scope_declaration(AST a, decl_context_t decl_context,
             {
                 *nodecl_output = 
                     nodecl_make_list_1(
-                            nodecl_make_builtin_decl(
-                                nodecl_make_any_list(
-                                    nodecl_make_list_1(
-                                        nodecl_make_text(ASTText(a), ASTFileName(a), ASTLine(a))), 
-                                    ASTFileName(a), ASTLine(a)),
-                                "unknown-pragma", ASTFileName(a), ASTLine(a)));
+                            nodecl_make_unknown_pragma(ASTText(a), ASTFileName(a), ASTLine(a)));
                 break;
             }
         case AST_PRAGMA_CUSTOM_DIRECTIVE :
@@ -664,12 +659,7 @@ static void build_scope_declaration(AST a, decl_context_t decl_context,
             {
                 *nodecl_output = 
                     nodecl_make_list_1(
-                            nodecl_make_builtin_decl(
-                                nodecl_make_any_list(
-                                    nodecl_make_list_1(
-                                        nodecl_make_text(ASTText(a), ASTFileName(a), ASTLine(a))),
-                                    ASTFileName(a), ASTLine(a)),
-                                "pp-comment", ASTFileName(a), ASTLine(a)));
+                            nodecl_make_source_comment(ASTText(a), ASTFileName(a), ASTLine(a)));
 
                 break;
             }
@@ -677,12 +667,7 @@ static void build_scope_declaration(AST a, decl_context_t decl_context,
             {
                 *nodecl_output = 
                     nodecl_make_list_1(
-                            nodecl_make_builtin_decl(
-                                nodecl_make_any_list(
-                                    nodecl_make_list_1(
-                                        nodecl_make_text(ASTText(a), ASTFileName(a), ASTLine(a))),
-                                    ASTFileName(a), ASTLine(a)),
-                                "pp-token", ASTFileName(a), ASTLine(a)));
+                            nodecl_make_preprocessor_line(ASTText(a), ASTFileName(a), ASTLine(a)));
 
                 break;
             }
@@ -690,12 +675,7 @@ static void build_scope_declaration(AST a, decl_context_t decl_context,
             {
                 *nodecl_output = 
                     nodecl_make_list_1(
-                            nodecl_make_builtin_decl(
-                                nodecl_make_any_list(
-                                    nodecl_make_list_1(
-                                        nodecl_make_text(ASTText(a), ASTFileName(a), ASTLine(a))),
-                                    ASTFileName(a), ASTLine(a)),
-                                "verbatim", ASTFileName(a), ASTLine(a)));
+                            nodecl_make_verbatim(ASTText(a), ASTFileName(a), ASTLine(a)));
                 break;
             }
         default :
@@ -714,20 +694,19 @@ static void build_scope_asm_definition(AST a,
     AST string_literal = ASTSon0(a);
     AST volatile_optional = ASTSon1(a);
 
-    nodecl_t any_list = nodecl_null();
+    nodecl_t text_list = nodecl_null();
 
-    if (string_literal != NULL)
+    if (volatile_optional != NULL)
     {
-        any_list = nodecl_append_to_list(any_list, 
+        text_list = nodecl_append_to_list(text_list, 
                 nodecl_make_text("volatile", ASTFileName(volatile_optional), ASTLine(volatile_optional)));
     }
 
-    any_list = nodecl_append_to_list(any_list, 
+    text_list = nodecl_append_to_list(text_list, 
             nodecl_make_text(ASTText(string_literal), ASTFileName(string_literal), ASTLine(string_literal)));
 
-    nodecl_t nodecl_gcc_asm = nodecl_make_builtin_decl(
-            nodecl_make_any_list(any_list, ASTFileName(a), ASTLine(a)),
-            "asm-definition", ASTFileName(a), ASTLine(a));
+    nodecl_t nodecl_gcc_asm = nodecl_make_asm_definition(
+            text_list, ASTFileName(a), ASTLine(a));
 
     *nodecl_output = nodecl_make_list_1(nodecl_gcc_asm);
 }
@@ -779,15 +758,12 @@ static void build_scope_gcc_asm_definition(AST a, decl_context_t decl_context, n
                         nodecl_constraint = nodecl_make_text(ASTText(constraint), ASTFileName(constraint), ASTLine(constraint));
                     }
 
-                    nodecl_t nodecl_asm_param = nodecl_make_builtin_decl(
-                            nodecl_make_any_list(
-                                nodecl_make_list_3(
-                                    nodecl_constraint,
-                                    nodecl_expr,
-                                    nodecl_identifier), 
-                                ASTFileName(asm_operand), ASTLine(asm_operand)),
-                            "gcc-asm-operand", 
-                            ASTFileName(asm_operand), ASTLine(asm_operand));
+                    nodecl_t nodecl_asm_param = 
+                        nodecl_make_gcc_asm_operand(
+                                nodecl_identifier,
+                                nodecl_constraint,
+                                nodecl_expr,
+                                ASTFileName(asm_operand), ASTLine(asm_operand));
 
                     nodecl_asm_params[i-1] = nodecl_append_to_list(nodecl_asm_params[i-1], 
                             nodecl_asm_param);
@@ -796,23 +772,17 @@ static void build_scope_gcc_asm_definition(AST a, decl_context_t decl_context, n
                 {
                     internal_error("Unexpected tree '%s'\n", ast_print_node_type(ASTType(asm_operand)));
                 }
-
             }
         }
     }
 
-    nodecl_t nodecl_gcc_asm = nodecl_make_builtin_decl(
-            nodecl_make_any_list(
-                nodecl_make_list_4(
-                    nodecl_make_text(
-                        ASTText(ASTSon0(asm_parms)), 
-                        ASTFileName(ASTSon0(asm_parms)), 
-                        ASTLine(ASTSon0(asm_parms))),
-                    nodecl_make_any_list(nodecl_asm_params[0], ASTFileName(a), ASTLine(a)),
-                    nodecl_make_any_list(nodecl_asm_params[1], ASTFileName(a), ASTLine(a)),
-                    nodecl_make_any_list(nodecl_asm_params[2], ASTFileName(a), ASTLine(a))),
-                ASTFileName(a), ASTLine(a)),
-            "gcc-asm-definition", ASTFileName(a), ASTLine(a));
+    nodecl_t nodecl_gcc_asm = 
+        nodecl_make_gcc_asm_definition(
+                nodecl_asm_params[0],
+                nodecl_asm_params[1],
+                nodecl_asm_params[2],
+                ASTText(ASTSon0(asm_parms)),
+                ASTFileName(a), ASTLine(a));
 
     *nodecl_output = nodecl_make_list_1(nodecl_gcc_asm);
 }
@@ -1056,7 +1026,7 @@ void introduce_using_entity_nodecl_name(nodecl_t nodecl_name, decl_context_t dec
         {
             error_printf("%s: error: entity '%s' in using-declaration is unknown",
                     nodecl_get_locus(nodecl_name),
-                    c_cxx_codegen_to_str(nodecl_name));
+                    codegen_to_str(nodecl_name));
         }
         return;
     }
@@ -1424,16 +1394,8 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
             // GCC weird stuff
             if (asm_specification != NULL)
             {
-                nodecl_t asm_spec = nodecl_make_builtin_decl(
-                        nodecl_make_any_list(
-                            nodecl_make_list_1(
-                                nodecl_make_text(
-                                    ASTText(ASTSon0(asm_specification)), 
-                                    ASTFileName(ASTSon0(asm_specification)), 
-                                    ASTLine(ASTSon0(asm_specification)))),
-                            ASTFileName(asm_specification), 
-                            ASTLine(asm_specification)),
-                        "gcc-asm-spec",
+                nodecl_t asm_spec = nodecl_make_gcc_asm_spec(
+                        ASTText(ASTSon0(asm_specification)), 
                         ASTFileName(asm_specification), 
                         ASTLine(asm_specification));
                 entry->entity_specs.asm_specification = asm_spec;
@@ -2863,10 +2825,10 @@ static type_t* compute_underlying_type_enum(const_value_t* min_value,
         DEBUG_CODE()
         {
             fprintf(stderr, "BUILDSCOPE: Checking enum values range '%s..%s' with range '%s..%s' of %s\n",
-                    c_cxx_codegen_to_str(const_value_to_nodecl(min_value)),
-                    c_cxx_codegen_to_str(const_value_to_nodecl(max_value)),
-                    c_cxx_codegen_to_str(const_value_to_nodecl(integer_type_get_minimum(*result))),
-                    c_cxx_codegen_to_str(const_value_to_nodecl(integer_type_get_maximum(*result))),
+                    codegen_to_str(const_value_to_nodecl(min_value)),
+                    codegen_to_str(const_value_to_nodecl(max_value)),
+                    codegen_to_str(const_value_to_nodecl(integer_type_get_minimum(*result))),
+                    codegen_to_str(const_value_to_nodecl(integer_type_get_maximum(*result))),
                     print_declarator(*result));
         }
 
@@ -2879,8 +2841,8 @@ static type_t* compute_underlying_type_enum(const_value_t* min_value,
     }
 #undef B_
     internal_error("Cannot come up with a wide enough integer type for range %s..%s\n",
-            c_cxx_codegen_to_str(const_value_to_nodecl(min_value)),
-            c_cxx_codegen_to_str(const_value_to_nodecl(max_value)));
+            codegen_to_str(const_value_to_nodecl(min_value)),
+            codegen_to_str(const_value_to_nodecl(max_value)));
 }
 
 /*
@@ -3134,7 +3096,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                 else
                 {
                     fprintf(stderr, "BUILDSCOPE: Registering enumerator '%s' with value '%s' and type '%s'\n", ASTText(enumeration_name),
-                            c_cxx_codegen_to_str(enumeration_item->value),
+                            codegen_to_str(enumeration_item->value),
                             print_declarator(enumeration_item->type_information));
                 }
             }
@@ -11498,6 +11460,9 @@ static void build_scope_pragma_custom_directive(AST a,
         nodecl_t* nodecl_output)
 {
     common_build_scope_pragma_custom_directive(a, decl_context, nodecl_output);
+
+    // We expect lists of statements at statement level
+    *nodecl_output = nodecl_make_list_1(*nodecl_output);
 }
 
 void build_scope_statement_pragma(AST a, 
@@ -11514,6 +11479,9 @@ static void build_scope_pragma_custom_construct_statement(AST a,
 {
     nodecl_t nodecl_pragma_line = nodecl_null();
     common_build_scope_pragma_custom_statement(a, decl_context, nodecl_output, &nodecl_pragma_line, build_scope_statement_pragma, NULL);
+
+    // We expect lists of statements at statement level
+    *nodecl_output = nodecl_make_list_1(*nodecl_output);
 }
 
 static void build_scope_declaration_pragma(AST a,
@@ -11754,7 +11722,7 @@ static void build_scope_upc_synch_statement(AST a,
        CHECK(UPC_FENCE)
     END_CHECKS
 
-    *nodecl_output = nodecl_make_builtin_decl(nodecl_expression, stmt_name, ASTFileName(a), ASTLine(a));
+    *nodecl_output = nodecl_make_upc_sync_statement(nodecl_expression, stmt_name, ASTFileName(a), ASTLine(a));
 }
 
 static void build_scope_upc_forall_statement(AST a, 
@@ -11839,8 +11807,7 @@ static void build_scope_upc_forall_statement(AST a,
 
     build_scope_statement(statement, block_context, nodecl_output);
 
-
-    *nodecl_output = nodecl_make_builtin_decl(nodecl_list, UPC_FORALL_STATEMENT, ASTFileName(a), ASTLine(a));
+    internal_error("Not yet implemented", 0);
 }
 
 #define STMT_HANDLER(type, hndl) [type] = { .handler = (hndl) }

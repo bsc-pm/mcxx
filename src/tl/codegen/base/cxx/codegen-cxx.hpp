@@ -18,7 +18,6 @@ namespace Codegen
 
             Ret visit(const Nodecl::Add &);
             Ret visit(const Nodecl::AddAssignment &);
-            Ret visit(const Nodecl::AnyList &);
             Ret visit(const Nodecl::ArraySubscript &);
             Ret visit(const Nodecl::Assignment &);
             Ret visit(const Nodecl::BitwiseAnd &);
@@ -30,8 +29,6 @@ namespace Codegen
             Ret visit(const Nodecl::BitwiseXorAssignment &);
             Ret visit(const Nodecl::BooleanLiteral &);
             Ret visit(const Nodecl::BreakStatement &);
-            Ret visit(const Nodecl::BuiltinDecl &);
-            Ret visit(const Nodecl::BuiltinExpr &);
             Ret visit(const Nodecl::C99DesignatedInitializer &);
             Ret visit(const Nodecl::C99FieldDesignator &);
             Ret visit(const Nodecl::C99IndexDesignator &);
@@ -136,6 +133,16 @@ namespace Codegen
             Ret visit(const Nodecl::VirtualFunctionCall &);
             Ret visit(const Nodecl::WhileStatement &);
 
+            Ret visit(const Nodecl::Verbatim& node);
+            Ret visit(const Nodecl::UnknownPragma& node);
+            Ret visit(const Nodecl::GxxTrait& node);
+            Ret visit(const Nodecl::GccAsmDefinition& node);
+            Ret visit(const Nodecl::GccAsmOperand& node);
+            Ret visit(const Nodecl::GccAsmSpec& node);
+            Ret visit(const Nodecl::UpcSyncStatement& node);
+            Ret visit(const Nodecl::SourceComment& node);
+            Ret visit(const Nodecl::PreprocessorLine& node);
+
         private:
 
             std::stringstream file;
@@ -184,12 +191,6 @@ namespace Codegen
                     being_checked_for_required(),
                     pending_nested_types_to_define(),
                     _indent_level(0) { }
-
-                void reset()
-                {
-                    // A bit crude but very effective
-                    *this = State();
-                }
             } state;
             // End of State
 
@@ -274,6 +275,7 @@ namespace Codegen
 
             static int get_rank_kind(node_t n, const std::string& t);
             static int get_rank(const Nodecl::NodeclBase &n);
+            bool same_operation(Nodecl::NodeclBase current_operator, Nodecl::NodeclBase operand);
             static bool operand_has_lower_priority(Nodecl::NodeclBase operation, Nodecl::NodeclBase operand);
             static std::string quote_c_string(int* c, int length, char is_wchar);
             static bool nodecl_calls_to_constructor(const Nodecl::NodeclBase&, TL::Type t);

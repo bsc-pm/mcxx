@@ -30,8 +30,8 @@
 nodecl : NODECL_TOP_LEVEL([top_level] top-level-seq-opt)
 top-level : function-code 
           | object-init
-          | builtin-decl
           | pragma-directive
+          | compatibility
 
 name : NODECL_SYMBOL() symbol
 type : NODECL_TYPE() type
@@ -71,23 +71,12 @@ statement-but-object-init: NODECL_EMPTY_STATEMENT()
           | pragma-statement
           | c-cxx-only-statements
           | fortran-only-statements
-          | builtin-decl
           | parallel-statements
+          | compatibility
 
 compound-statement : NODECL_COMPOUND_STATEMENT([statements]statement-seq-opt, [finally]statement-seq-opt) 
 
 case-expression : expression
-
-builtin-decl: NODECL_BUILTIN_DECL([components]any-list-opt) text
-builtin-expr: NODECL_BUILTIN_EXPR([components]any-list-opt) text type
-            | NODECL_TEXT() text
-
-any-list: NODECL_ANY_LIST([list]any-seq-opt)
-
-any : statement-but-object-init
-    | expression
-    | any-list
-    | type
 
 loop-control: NODECL_LOOP_CONTROL([init]expression-opt, [cond]expression-opt, [next]expression-opt)
 
@@ -156,7 +145,7 @@ expression : literal
            | c-cxx-expressions
            | fortran-expressions
            | object-init
-           | builtin-expr
+           | compatibility
 # This one is intended to represent implicit conversions allowed by the base language
            | NODECL_CONVERSION([nest] expression) type
            | NODECL_ERR_EXPR()
@@ -300,6 +289,38 @@ fortran-io-spec: NODECL_FORTRAN_IO_SPEC([value]expression-opt) text
 
 fortran-io-item : expression
            | fortran-implied-do
+
+compatibility: unknown-pragma
+          | source-comment
+          | preprocessor-text
+          | verbatim
+          | asm-definition
+          | gcc-asm-definition
+          | gcc-asm-spec
+          | upc-sync-statement
+          | gcc-builtin-va-arg
+          | gxx-traits
+          | text
+
+gcc-builtin-va-arg: NODECL_GCC_BUILTIN_VA_ARG([expr] expression, [va_type]type) type
+
+asm-definition : NODECL_ASM_DEFINITION([asm_text]text-seq)
+
+unknown-pragma : NODECL_UNKNOWN_PRAGMA() text
+source-comment: NODECL_SOURCE_COMMENT() text
+preprocessor-text : NODECL_PREPROCESSOR_LINE() text
+verbatim: NODECL_VERBATIM() text
+
+gcc-asm-spec : NODECL_GCC_ASM_SPEC() text
+
+gcc-asm-definition : NODECL_GCC_ASM_DEFINITION([operands0]gcc-asm-operand-seq-opt, [operands1]gcc-asm-operand-seq-opt, [operands2]gcc-asm-operand-seq-opt) text
+gcc-asm-operand : NODECL_GCC_ASM_OPERAND( [identifier]text-opt, [constraint]text, [expr]expression)
+
+upc-sync-statement : NODECL_UPC_SYNC_STATEMENT([expr]expression) text
+
+gxx-traits: NODECL_GXX_TRAIT([lhs]type, [rhs]type-opt) text type
+
+text : NODECL_TEXT() text
 
 ##############################
 # Parallelism (ongoing work) #

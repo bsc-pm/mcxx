@@ -29,6 +29,9 @@
 #ifndef CXX_COMPILERPHASES
 #define CXX_COMPILERPHASES
 
+#include "cxx-driver-decls.h"
+#include <stdio.h>
+
 #ifdef __cplusplus
 extern "C"
 {
@@ -60,6 +63,9 @@ LIBMCXXTL_EXTERN void initialize_dto(translation_unit_t* translation_unit);
 
 // Temporal solution until we fix the issue with semantic analysis creating the top level nodecl
 LIBMCXXTL_EXTERN void setup_dto(translation_unit_t* translation_unit);
+
+// This creates a dependence of fronted with mcxx_tl and tl, which is the worst thing it can happen
+LIBMCXXTL_EXTERN const char* codegen_to_str(nodecl_t node);
 
 #ifdef __cplusplus
 }

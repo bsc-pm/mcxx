@@ -15,28 +15,13 @@ namespace Codegen
         protected:
             virtual std::string codegen(const Nodecl::NodeclBase&) = 0;
         public:
-            CodegenVisitor()
-                : _is_file_output(false)
-            {
-            }
+            CodegenVisitor();
 
-            bool is_file_output() const
-            {
-                return _is_file_output;
-            }
+            bool is_file_output() const;
 
-            std::string codegen_to_str(const Nodecl::NodeclBase& n)
-            {
-                this->_is_file_output = false;
-                return this->codegen(n);
-            }
+            std::string codegen_to_str(const Nodecl::NodeclBase& n);
 
-            void codegen_top_level(const Nodecl::NodeclBase& n, FILE* f)
-            {
-                this->_is_file_output = true;
-                std::string str ( this->codegen(n) );
-                fprintf(f, "%s", str.c_str());
-            }
+            void codegen_top_level(const Nodecl::NodeclBase& n, FILE* f);
     };
 }
 

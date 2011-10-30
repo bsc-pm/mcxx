@@ -429,9 +429,9 @@ namespace TL
     void LoopAnalysis::prettyprint_induction_var_info(InductionVarInfo* var_info)
     {
         std::cerr << "    Symbol: " << var_info->get_symbol().get_name()
-                  << "    LB = '" << c_cxx_codegen_to_str(var_info->get_lb().get_internal_nodecl()) << "'"
-                  << "    UB = '" << c_cxx_codegen_to_str(var_info->get_ub().get_internal_nodecl()) << "'"
-                  << "    STEP = '" << c_cxx_codegen_to_str(var_info->get_stride().get_internal_nodecl()) << "'" << std::endl;
+                  << "    LB = '" << var_info->get_lb().prettyprint() << "'"
+                  << "    UB = '" << var_info->get_ub().prettyprint() << "'"
+                  << "    STEP = '" << var_info->get_stride().prettyprint() << "'" << std::endl;
     }    
     
     void LoopAnalysis::print_induction_vars_in_loop_info(Node* loop_node)

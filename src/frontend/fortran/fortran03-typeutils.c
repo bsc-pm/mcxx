@@ -111,7 +111,7 @@ const char* fortran_print_type_str(type_t* t)
         nodecl_t length = array_type_get_array_size_expr(t);
         char c[128] = { 0 };
         snprintf(c, 127, "CHARACTER(LEN=%s)",
-                nodecl_is_null(length) ? "*" : fortran_codegen_to_str(length));
+                nodecl_is_null(length) ? "*" : codegen_to_str(length));
         c[127] = '\0';
         result = uniquestr(c);
     }
@@ -155,9 +155,9 @@ const char* fortran_print_type_str(type_t* t)
         {
             if (!array_spec_list[array_spec_idx].is_undefined)
             {
-                result = strappend(result, fortran_codegen_to_str(array_spec_list[array_spec_idx].lower));
+                result = strappend(result, codegen_to_str(array_spec_list[array_spec_idx].lower));
                 result = strappend(result, ":");
-                result = strappend(result, fortran_codegen_to_str(array_spec_list[array_spec_idx].upper));
+                result = strappend(result, codegen_to_str(array_spec_list[array_spec_idx].upper));
             }
             else
             {
@@ -265,6 +265,17 @@ char equivalent_tkr_types(type_t* t1, type_t* t2)
 {
     type_t* r1 = get_rank0_type(t1);
     type_t* r2 = get_rank0_type(t2);
+
+    if (is_fortran_character_type(r1))
+    {
+        // We want the character type
+        r1 = get_unqualified_type(array_type_get_element_type(r1));
+    }
+    if (is_fortran_character_type(r2))
+    {
+        // We want the character type
+        r2 = get_unqualified_type(array_type_get_element_type(r2));
+    }
 
     if (!equivalent_types(get_unqualified_type(r1), get_unqualified_type(r2)))
         return 0;

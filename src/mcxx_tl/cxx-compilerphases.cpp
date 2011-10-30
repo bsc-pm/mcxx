@@ -48,6 +48,7 @@
 #include "tl-refptr.hpp"
 #include "tl-builtin.hpp"
 #include "tl-nodecl.hpp"
+#include "codegen-phase.hpp"
 
 namespace TL
 {
@@ -666,6 +667,18 @@ extern "C"
         dto.set_object("output_file", output_file);
 
         codegen_phase->run(dto);
+    }
+
+    const char* codegen_to_str(nodecl_t node)
+    {
+        ERROR_CONDITION(CURRENT_CONFIGURATION->codegen_phase == NULL,
+                "Codegen phase has not been loaded yet for this configuration", 0);
+
+        Codegen::CodegenPhase* codegen_phase = reinterpret_cast<Codegen::CodegenPhase*>(CURRENT_CONFIGURATION->codegen_phase);
+
+        std::string str = codegen_phase->codegen_to_str(node);
+
+        return uniquestr(str.c_str());
     }
 
     void unload_compiler_phases(void)

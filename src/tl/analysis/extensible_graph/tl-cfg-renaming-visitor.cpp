@@ -426,7 +426,8 @@ namespace TL
     
     CfgRenamingVisitor::Ret CfgRenamingVisitor::unhandled_node(const Nodecl::NodeclBase& n)
     {
-        std::cerr << "Unhandled node while Renaming '" << c_cxx_codegen_to_str(n.get_internal_nodecl())
+        Nodecl::NodeclBase unhandled_n = n;
+        std::cerr << "Unhandled node while Renaming '" << unhandled_n.prettyprint()
                   << "' of type '" << ast_print_node_type(n.get_kind()) << "'" << std::endl;
         return Ret();
     }    
