@@ -836,8 +836,6 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 
     ERROR_CONDITION(!symbol.is_function(), "Invalid symbol", 0);
 
-    std::cerr << "Function code " << symbol.get_qualified_name() << std::endl;
-
     if (symbol.is_member())
     {
         TL::Symbol class_symbol = symbol.get_class_type().get_symbol();
