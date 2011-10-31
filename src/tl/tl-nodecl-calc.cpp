@@ -36,6 +36,20 @@ namespace Nodecl
         }
     }
     
+    Calculator::Ret Calculator::visit(const Nodecl::Conversion& n)
+    {
+        TL::ObjectList<const_value_t*> nest = walk(n.get_nest());
+        
+        if (nest.empty())
+        {
+            return TL::ObjectList<const_value_t*>();
+        }
+        else
+        {
+            return TL::ObjectList<const_value_t*>(1, nest[0]);
+        }
+    }
+    
     Calculator::Ret Calculator::visit(const Nodecl::Add& n)
     {
         TL::ObjectList<const_value_t*> lhs = walk(n.get_lhs());

@@ -57,10 +57,11 @@ namespace TL
             {
 //                 DEBUG_CODE()
                 {
-                    std::cerr << "Graph '" << (*it)->get_name() << "'" << std::endl;
+                    std::cerr << std::endl << " ==> Graph '" << (*it)->get_name() << "'" << std::endl;
                 }               
                 cfg_visitor.set_actual_cfg(*it);
                 cfg_visitor.compute_use_def_chains((*it)->get_graph());
+                (*it)->set_use_def_computed();
             }
         }
       

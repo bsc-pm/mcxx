@@ -534,10 +534,8 @@ namespace TL
         for(ObjectList<Node*>::iterator it = node_l.begin(); it != node_l.end(); ++it)
         {
             ext_sym_set ue_vars = (*it)->get_data<ext_sym_set>(_UPPER_EXPOSED);
-            std::cerr << "============ NODE " << (*it)->get_id() << std::endl;
             for(ext_sym_set::iterator it_ue = ue_vars.begin(); it_ue != ue_vars.end(); ++it_ue)
             {
-                std::cerr << "***** UE var: " << it_ue->get_nodecl().prettyprint() << std::endl;
                 if (!it_ue->get_symbol().get_scope().scope_is_enclosed_by(
                     task_node->get_task_context().retrieve_context())
                     && !in_symbols.contains(*it_ue))
@@ -795,6 +793,15 @@ namespace TL
                                                         s_map.get_filename().c_str(), s_map.get_line());
                 }
             }
+            else if (n.is<Nodecl::Reference>())
+            {
+                Nodecl::Reference aux = n.as<Nodecl::Reference>();
+                Nodecl::NodeclBase rhs = match_nodecl_with_symbol(aux.get_rhs(), s, s_map);
+                if (!rhs.is_null())
+                {
+                    return Nodecl::Reference::make(rhs, s_map.get_type(), s_map.get_filename().c_str(), s_map.get_line());
+                }
+            }
             else if (n.is<Nodecl::Derreference>())
             {
                 Nodecl::Derreference aux = n.as<Nodecl::Derreference>();
@@ -867,10 +874,13 @@ namespace TL
         
             // Compute use-def of the called function if necessary
             ExtensibleGraph* called_func_graph = find_function_for_ipa(node);
-            if (called_func_graph != NULL && !called_func_graph->has_use_def_computed())
+            if (called_func_graph != NULL)
             {
-                compute_use_def_chains(called_func_graph->get_graph());
-                called_func_graph->set_use_def_computed();
+                if (!called_func_graph->has_use_def_computed())
+                {
+                    compute_use_def_chains(called_func_graph->get_graph());
+                    called_func_graph->set_use_def_computed();
+                }
                 
                 // Map this information between arguments and parameters
                 // For info abut variables which are not parameters, look at the context:
@@ -972,6 +982,8 @@ namespace TL
             else
             {   // When the method is not in our translation unit, then we don't know what happens in within the function code
                 // FIXME
+                std::cerr << "warning: Called method '" << node->get_data<ObjectList<Nodecl::NodeclBase> >(_NODE_STMTS)[0].prettyprint().c_str()
+                          << "' is not in the translation unit. This is not yet implemented" << std::endl;
             }
         }
         else if (node->has_key(_NODE_STMTS)) 

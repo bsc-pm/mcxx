@@ -13,6 +13,7 @@ namespace Nodecl
         // *** Visitors *** //
         Ret unhandled_node(const Nodecl::NodeclBase& n);
         Ret visit(const Nodecl::Symbol& n);
+        Ret visit(const Nodecl::Conversion& n);
         Ret visit(const Nodecl::Add& n);
         Ret visit(const Nodecl::Minus& n);
         Ret visit(const Nodecl::Mul& n);

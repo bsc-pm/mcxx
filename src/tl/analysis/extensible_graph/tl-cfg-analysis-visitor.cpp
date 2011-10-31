@@ -164,11 +164,43 @@ namespace TL
         _define = true;
         if (n.template is<Nodecl::AddAssignment>())
         {
-            _init_expression = _init_expression = compute_init_expr(rhs, lhs, 0);
+            _init_expression = compute_init_expr(rhs, lhs, 0);
         }
         else if (n.template is<Nodecl::SubAssignment>())
         {
-            
+            _init_expression = compute_init_expr(rhs, lhs, 1);
+        }
+        else if (n.template is<Nodecl::DivAssignment>())
+        {
+            _init_expression = compute_init_expr(rhs, lhs, 2);
+        }
+        else if (n.template is<Nodecl::MulAssignment>())
+        {
+            _init_expression = compute_init_expr(rhs, lhs, 3);
+        }
+        else if (n.template is<Nodecl::ModAssignment>())
+        {
+            _init_expression = compute_init_expr(rhs, lhs, 4);
+        }
+        else if (n.template is<Nodecl::BitwiseAndAssignment>())
+        {
+            _init_expression = compute_init_expr(rhs, lhs, 5);
+        }
+        else if (n.template is<Nodecl::BitwiseOrAssignment>())
+        {
+            _init_expression = compute_init_expr(rhs, lhs, 6);
+        }
+        else if (n.template is <Nodecl::BitwiseXorAssignment>())
+        {
+            _init_expression = compute_init_expr(rhs, lhs, 7);
+        }
+        else if (n.template is <Nodecl::ShlAssignment>())
+        {
+            _init_expression = compute_init_expr(rhs, lhs, 8);
+        }
+        else if (n.template is <Nodecl::ShrAssignment>())
+        {
+            _init_expression = compute_init_expr(rhs, lhs, 9);
         }
         else
         {
@@ -369,15 +401,28 @@ namespace TL
         Nodecl::NodeclBase val;
         switch (op)
         {
-            case 0:     // Add
-                        val = Nodecl::Add::make(n, stride, n.get_type(), n.get_filename(), n.get_line());
+            case 0:     val = Nodecl::Add::make(n, stride, n.get_type(), n.get_filename(), n.get_line());
                         break;
-            case 1:     // Sub
-                        val = Nodecl::Minus::make(n, stride, n.get_type(), n.get_filename(), n.get_line());
+            case 1:     val = Nodecl::Minus::make(n, stride, n.get_type(), n.get_filename(), n.get_line());
+                        break;
+            case 2:     val = Nodecl::Div::make(n, stride, n.get_type(), n.get_filename(), n.get_line());
+                        break;
+            case 3:     val = Nodecl::Mul::make(n, stride, n.get_type(), n.get_filename(), n.get_line());
+                        break;
+            case 4:     val = Nodecl::Mod::make(n, stride, n.get_type(), n.get_filename(), n.get_line());
+                        break;
+            case 5:     val = Nodecl::BitwiseAnd::make(n, stride, n.get_type(), n.get_filename(), n.get_line());
+                        break;
+            case 6:     val = Nodecl::BitwiseOr::make(n, stride, n.get_type(), n.get_filename(), n.get_line());
+                        break;
+            case 7:     val = Nodecl::BitwiseXor::make(n, stride, n.get_type(), n.get_filename(), n.get_line());
+                        break;
+            case 8:     val = Nodecl::Shl::make(n, stride, n.get_type(), n.get_filename(), n.get_line());
+                        break;
+            case 9:     val = Nodecl::Shr::make(n, stride, n.get_type(), n.get_filename(), n.get_line());
                         break;
             default:    internal_error("Unexpected type of operation '%d' while computing initial expression", op);
         }
-
         
         Nodecl::Calculator calc;
         const_value_t* const_val = calc.compute_const_value(val);

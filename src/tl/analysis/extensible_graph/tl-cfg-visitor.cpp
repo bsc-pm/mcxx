@@ -80,6 +80,7 @@ namespace TL
             
             _actual_cfg->dress_up_graph();
         
+            std::cerr << "Appending graph: " << _actual_cfg->get_name() << std::endl;
             _cfgs.append(_actual_cfg);
         }
     }
@@ -132,6 +133,7 @@ namespace TL
         
         _actual_cfg->dress_up_graph();
         
+        std::cerr << "Appending graph: " << _actual_cfg->get_name() << std::endl;
         _cfgs.append(_actual_cfg);
         _actual_cfg = NULL;
         
@@ -632,7 +634,6 @@ namespace TL
     {
         ObjectList<Node*> return_last_nodes = _actual_cfg->_last_nodes;
         ObjectList<Node*> returned_value = walk(n.get_value());
-        std::cerr << "Returned value node " << returned_value[0]->get_id() << " has type: " << returned_value[0]->get_type_as_string() << std::endl;
         Node* return_node = merge_nodes(n, returned_value);
         _actual_cfg->connect_nodes(_actual_cfg->_last_nodes[0], return_node);
         _actual_cfg->_last_nodes.clear();
@@ -675,11 +676,14 @@ namespace TL
         Node* task_graph_node;
         if (n.template is<Nodecl::PragmaCustomDeclaration>())
         {   // We must build here a new Extensible Graph
+            std::cerr << "TASK IS DECLARATION" << std::endl;
+            ExtensibleGraph* last_actual_cfg = _actual_cfg;
             _actual_cfg = new ExtensibleGraph("pragma_" + n.get_symbol().get_name());
             
             Symbol next_sym = n.get_symbol();
             if (next_sym.is_function())
             {
+                std::cerr << "IT IS RELATED TO A FUNCTION" << std::endl;
                 scope_entry_t* next_sym_ = next_sym.get_internal_symbol();
                 Nodecl::FunctionCode func(next_sym_->entity_specs.function_code);
                 Nodecl::Context ctx = func.get_statements().as<Nodecl::Context>();
@@ -695,14 +699,34 @@ namespace TL
                                             // but do not create any additional node                        
                
                 walk(func.get_statements());
+                
+                Node* task_graph_exit = task_graph_node->get_graph_exit_node();
+                task_graph_exit->set_id(++_actual_cfg->_nid);
+                _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, task_graph_exit);
+                _actual_cfg->_outer_node.pop();
+                _actual_cfg->_task_nodes_l.append(task_graph_node);
+                
+                Node* graph_entry = _actual_cfg->_graph->get_graph_entry_node();
+                Node* graph_exit = _actual_cfg->_graph->get_graph_exit_node();
+                graph_exit->set_id(++_actual_cfg->_nid);
+                
+                _actual_cfg->connect_nodes(graph_entry, graph_exit);
+                
+                _actual_cfg->dress_up_graph();
+           
+                std::cerr << "Appending task graph: " << _actual_cfg->get_name() << std::endl;
+                _cfgs.append(_actual_cfg);
+                
+                _actual_cfg = last_actual_cfg;
             }
             else
             {   // Nothing to do. Variable declarations do not create any graph
-                std::cerr << "Next symbol is not a function" << std::endl;
+                internal_error("Pragma tasks declaration not related to a function not yet implemented", 0);
             }
         }
         else
         {   // PragmaCustomStatement
+            std::cerr << "TASK IS STATEMENT" << std::endl;
             previous_nodes = _actual_cfg->_last_nodes;
             task_graph_node = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), n.get_pragma_line(), TASK, 
                                                              _context_s.top());
@@ -716,34 +740,16 @@ namespace TL
         
             Nodecl::PragmaCustomStatement n_stmt = n.template as<Nodecl::PragmaCustomStatement>();
             walk(n_stmt.get_statement());
-        }
-        if (task_graph_node != NULL)
-        {
+            
             Node* graph_exit = task_graph_node->get_graph_exit_node();
             graph_exit->set_id(++_actual_cfg->_nid);
             _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, graph_exit);
             _actual_cfg->_outer_node.pop();
             _actual_cfg->_task_nodes_l.append(task_graph_node);
-        }
-        
-        if (n.template is<Nodecl::PragmaCustomDeclaration>())
-        {   // Complete the Extensible Graph created for this task
-            Node* graph_entry = _actual_cfg->_graph->get_graph_entry_node();
-            Node* graph_exit = _actual_cfg->_graph->get_graph_exit_node();
-            graph_exit->set_id(++_actual_cfg->_nid);
             
-            _actual_cfg->connect_nodes(graph_entry, graph_exit);
-            
-            _actual_cfg->dress_up_graph();
-        
-            _cfgs.append(_actual_cfg);
-        }
-        else
-        {
             _actual_cfg->_last_nodes = previous_nodes;
         }
-        
-        
+
         return ObjectList<Node*>(1, task_graph_node);        
     }
     

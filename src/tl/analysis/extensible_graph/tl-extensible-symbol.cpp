@@ -76,6 +76,11 @@ namespace TL
             Nodecl::ArraySubscript aux = n.as<Nodecl::ArraySubscript>();
             return get_nodecl_symbol(aux.get_subscripted());
         }
+        else if (n.is<Nodecl::Reference>())
+        {
+            Nodecl::Reference aux = n.as<Nodecl::Reference>();
+            return get_nodecl_symbol(aux.get_rhs());
+        }            
         else if (n.is<Nodecl::Derreference>())
         {
             Nodecl::Derreference aux = n.as<Nodecl::Derreference>();
