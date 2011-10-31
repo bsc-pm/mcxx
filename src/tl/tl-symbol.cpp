@@ -577,6 +577,18 @@ namespace TL
 #endif
     }
 
+    bool Symbol::has_nondefault_linkage() const
+    {
+        return (_symbol->entity_specs.linkage_spec != NULL)
+            && !std::string(_symbol->entity_specs.linkage_spec).empty();
+    }
+
+    //! Returns the linkage identifier or empty if is the default
+    std::string Symbol::get_linkage() const
+    {
+        return std::string(_symbol->entity_specs.linkage_spec);
+    }
+
     ObjectList<Symbol> Symbol::get_related_symbols() const
     {
         ObjectList<Symbol> result;

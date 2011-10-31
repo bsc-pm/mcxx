@@ -264,8 +264,8 @@ static void call_destructors_of_classes(decl_context_t block_context,
         const char* filename, int line,
         nodecl_t* nodecl_output);
 
-// Current linkage, by default C++
-static const char* current_linkage = "\"C++\"";
+// Current linkage: NULL means the default linkage (if any) of the symbol
+static const char* current_linkage = NULL;
 
 static void initialize_builtin_symbols(decl_context_t decl_context);
 
@@ -6918,6 +6918,10 @@ static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* decl
         if (check_list != NULL)
         {
             scope_entry_t* entry = entry_list_head(check_list);
+
+            // Update extern attribute
+            // Maybe other attributes must be updated too
+            entry->entity_specs.is_extern = gather_info->is_extern;
             return entry;
         }
 
@@ -6965,6 +6969,8 @@ static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* decl
         entry->entity_specs.is_extern = gather_info->is_extern;
         entry->entity_specs.is_register = gather_info->is_register;
         entry->entity_specs.is_thread = gather_info->is_thread;
+
+        entry->entity_specs.linkage_spec = current_linkage;
 
         // Copy gcc attributes
         entry->entity_specs.num_gcc_attributes = gather_info->num_gcc_attributes;
@@ -7025,7 +7031,9 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
             new_entry->kind = SK_FUNCTION;
             new_entry->line = ASTLine(declarator_id);
             new_entry->file = ASTFileName(declarator_id);
-            
+
+            new_entry->entity_specs.linkage_spec = current_linkage;
+
             new_entry->entity_specs.is_friend_declared = gather_info->is_friend;
 
             if (is_named_type(declarator_type))
@@ -7138,6 +7146,8 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
         new_entry->entity_specs.is_inline = gather_info->is_inline;
         new_entry->entity_specs.is_virtual = gather_info->is_virtual;
 
+        new_entry->entity_specs.linkage_spec = current_linkage;
+
         // "is_pure" of a function is computed in "build_scope_member_simple_declaration"
 
         new_entry->entity_specs.any_exception = gather_info->any_exception;
@@ -7233,7 +7243,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
 
         return new_entry;
     }
-    else if (entry->kind==SK_FUNCTION)
+    else if (entry->kind == SK_FUNCTION)
     {
         // Merge inline attribute
         entry->entity_specs.is_inline |= gather_info->is_inline;
@@ -7568,7 +7578,10 @@ static void build_scope_linkage_specifier(AST a, decl_context_t decl_context, no
     const char* previous_linkage = current_linkage;
 
     AST linkage_spec = ASTSon0(a);
-    current_linkage = ASTText(linkage_spec);
+    current_linkage = uniquestr(ASTText(linkage_spec));
+    // Ignore C++ linkage as it is the default
+    if (strcmp(current_linkage, "\"C++\"") == 0)
+        current_linkage = NULL;
 
     build_scope_declaration_sequence(declaration_sequence, decl_context, nodecl_output);
 
@@ -7590,7 +7603,10 @@ static void build_scope_linkage_specifier_declaration(AST a,
     const char* previous_linkage = current_linkage;
 
     AST linkage_spec = ASTSon0(a);
-    current_linkage = ASTText(linkage_spec);
+    current_linkage = uniquestr(ASTText(linkage_spec));
+    // Ignore C++ linkage as it is the default
+    if (strcmp(current_linkage, "\"C++\"") == 0)
+        current_linkage = NULL;
 
     if (ASTType(declaration)  == AST_LINKAGE_SPEC_DECL)
     {
@@ -7601,7 +7617,6 @@ static void build_scope_linkage_specifier_declaration(AST a,
     {
         build_scope_declaration(declaration, decl_context, nodecl_output, declared_symbols);
     }
-
 
     current_linkage = previous_linkage;
 }

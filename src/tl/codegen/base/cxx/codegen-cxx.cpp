@@ -949,6 +949,18 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
         file << "template<>\n";
     }
 
+    CXX_LANGUAGE()
+    {
+        if (symbol.has_nondefault_linkage())
+        {
+            file << "extern " + symbol.get_linkage() + "\n";
+            indent();
+            file << "{\n";
+
+            inc_indent();
+        }
+    }
+
     indent();
     file << decl_spec_seq << gcc_attributes << declarator << exception_spec << asm_specification << "\n";
 
@@ -969,6 +981,16 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
     }
 
     this->walk(context);
+
+    CXX_LANGUAGE()
+    {
+        if (symbol.has_nondefault_linkage())
+        {
+            dec_indent();
+            indent();
+            file << "}\n";
+        }
+    }
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::GotoStatement& node)
@@ -2771,6 +2793,18 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
             std::string declarator;
             std::string bit_field;
 
+            CXX_LANGUAGE()
+            {
+                if (symbol.has_nondefault_linkage())
+                {
+                    file << "extern " + symbol.get_linkage() + "\n";
+                    indent();
+                    file << "{\n";
+
+                    inc_indent();
+                }
+            }
+
             if (symbol.is_static())
             {
                 decl_specifiers += "static ";
@@ -2781,13 +2815,14 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
             }
             else 
             {
-                // If this not a member, or if it is, is nonstatic, this has already been defined
+                // If this not a member, or if it is, is nonstatic, then it has already been defined
                 if (!symbol.is_member()
                         || !symbol.is_static())
                 {
                     set_codegen_status(symbol, CODEGEN_STATUS_DEFINED);
                 }
             }
+
             if (symbol.is_thread())
             {
                 decl_specifiers += "__thread ";
@@ -3000,6 +3035,16 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
             {
                 file << ";\n";
             }
+
+            CXX_LANGUAGE()
+            {
+                if (symbol.has_nondefault_linkage())
+                {
+                    dec_indent();
+                    indent();
+                    file << "}\n";
+                }
+            }
         }
     }
     else if (symbol.is_class())
@@ -3156,6 +3201,15 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
             {
                 move_to_namespace_of_symbol(symbol);
 
+                if (symbol.has_nondefault_linkage())
+                {
+                    file << "extern " + symbol.get_linkage() + "\n";
+                    indent();
+                    file << "{\n";
+
+                    inc_indent();
+                }
+
                 if (symbol.get_type().is_template_specialized_type()
                         && symbol.get_type().template_specialized_type_get_template_arguments().get_num_parameters() != 0)
                 {
@@ -3180,6 +3234,7 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
                     }
                 }
             }
+
 
             std::string decl_spec_seq;
             if (symbol.is_static())
@@ -3233,6 +3288,16 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
 
             indent();
             file << decl_spec_seq << declarator << exception_spec << asm_specification << gcc_attributes << ";\n";
+
+            CXX_LANGUAGE()
+            {
+                if (symbol.has_nondefault_linkage())
+                {
+                    dec_indent();
+                    indent();
+                    file << "}\n";
+                }
+            }
         }
     }
     else if (symbol.is_template_parameter())
