@@ -4079,7 +4079,11 @@ static void build_scope_intrinsic_stmt(AST a, decl_context_t decl_context UNUSED
     {
         AST name = ASTSon1(it);
 
-        scope_entry_t* entry = query_name_no_implicit(decl_context, ASTText(name));
+        // Intrinsics are kept in global scope
+        decl_context_t global_context = decl_context;
+        global_context.current_scope = decl_context.global_scope;
+
+        scope_entry_t* entry = query_name_no_implicit(global_context, ASTText(name));
         if (entry == NULL
                 || !entry->entity_specs.is_builtin)
         {
@@ -4087,8 +4091,11 @@ static void build_scope_intrinsic_stmt(AST a, decl_context_t decl_context UNUSED
                     ast_location(name),
                     ASTText(name));
         }
+        else
+        {
+            insert_alias(decl_context.current_scope, entry, entry->symbol_name);
+        }
     }
-
 }
 
 static void build_scope_lock_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER, 
@@ -4749,7 +4756,7 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
         AST entity_decl_specs = ASTSon1(declaration);
 
         scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
-
+        
         if (!entry->entity_specs.is_implicit_basic_type)
         {
             error_printf("%s: error: entity '%s' already has a basic type\n",
@@ -4927,8 +4934,30 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
             entry->kind = SK_VARIABLE;
         }
 
-        if (current_attr_spec.is_external
-                || current_attr_spec.is_intrinsic)
+        if (current_attr_spec.is_intrinsic)
+        {
+            // Intrinsics are kept in global scope
+            decl_context_t global_context = decl_context;
+            global_context.current_scope = decl_context.global_scope;
+
+            scope_entry_t* intrinsic_name = query_name_no_implicit(global_context, intrinsic_name->symbol_name);
+            if (intrinsic_name == NULL
+                    || !intrinsic_name->entity_specs.is_builtin)
+            {
+                error_printf("%s: error: name '%s' is not known as an intrinsic\n", 
+                        ast_location(name),
+                        ASTText(name));
+            }
+            else
+            {
+                remove_entry(entry->decl_context.current_scope, entry);
+                insert_alias(entry->decl_context.current_scope, intrinsic_name, intrinsic_name->symbol_name);
+                // Do nothing else otherwise we may be overwriting intrinsics
+                continue;
+            }
+        }
+
+        if (current_attr_spec.is_external)
         {
             entry->kind = SK_FUNCTION;
             entry->type_information = get_nonproto_function_type(entry->type_information, 0);
