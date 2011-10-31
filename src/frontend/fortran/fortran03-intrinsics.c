@@ -242,7 +242,8 @@ FORTRAN_GENERIC_INTRINSIC(amin0, NULL, E, simplify_amin0) \
 FORTRAN_GENERIC_INTRINSIC(amin1, NULL, E, simplify_amin1) \
 FORTRAN_GENERIC_INTRINSIC(dmax1, NULL, E, simplify_dmax1) \
 FORTRAN_GENERIC_INTRINSIC(dmin1, NULL, E, simplify_dmin1) \
-FORTRAN_GENERIC_INTRINSIC(loc, NULL, E, NULL) 
+FORTRAN_GENERIC_INTRINSIC(loc, NULL, E, NULL)  \
+FORTRAN_GENERIC_INTRINSIC(etime, NULL, E, NULL) \
 
 #define MAX_KEYWORDS_INTRINSICS 10
 
@@ -4775,6 +4776,36 @@ scope_entry_t* compute_intrinsic_loc(scope_entry_t* symbol UNUSED_PARAMETER,
     return GET_INTRINSIC_INQUIRY("loc",
             choose_int_type_from_kind(argument_expressions[0], CURRENT_CONFIGURATION->type_environment->sizeof_pointer),
             t0);
+}
+
+scope_entry_t* compute_intrinsic_etime(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    // CALL ETIME(TARRAY, RESULT)
+    type_t* t0 = argument_types[0];
+    type_t* t1 = argument_types[1];
+
+    if (num_arguments == 2
+            && get_rank_of_type(t0) == 1
+            && is_float_type(get_rank0_type(t0))
+            && is_floating_type(t1))
+    {
+        return GET_INTRINSIC_INQUIRY("etime",
+                NULL, // subroutine 
+                t0, t1);
+    }
+    else if (num_arguments == 1
+            && get_rank_of_type(t0) == 1
+            && is_float_type(get_rank0_type(t0)))
+    {
+        return GET_INTRINSIC_INQUIRY("etime",
+                get_float_type(),
+                t0);
+    }
+    return NULL;
 }
 
 static void update_keywords_of_intrinsic(scope_entry_t* entry, const char* keywords)
