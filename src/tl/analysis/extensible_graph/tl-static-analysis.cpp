@@ -290,7 +290,7 @@ namespace TL
                 ExtensibleGraph::clear_visits(entry);
                 make_permanent_auxiliar_values(entry);
                
-                // Extend to info to the graph node
+                // Extend info to the graph node
                 const char* filename;
                 int line;
                 if (node->get_data<Graph_type>(_GRAPH_TYPE) == LOOP)
@@ -299,7 +299,6 @@ namespace TL
                     filename = label.get_filename().c_str();
                     line = label.get_line();
                 }
-               
                 node->set_graph_node_reaching_definitions(induction_vars_m, filename, line);
             }
             
@@ -510,12 +509,23 @@ namespace TL
         }
     }
     
+    static bool contains_same_nodecl(Nodecl::NodeclBase nodecl, ext_sym_set symbol_l)
+    {
+        bool result;
+       
+        for (ext_sym_set::iterator it = symbol_l.begin(); it != symbol_l.end(); ++it)
+        {
+            
+        }
+        return result;
+    }
+    
     // FIXME For the moment we assume the user has used the 'auto-deps' clause  
     void StaticAnalysis::analyse_task(Node* task_node)
     {
         Node* entry = task_node->get_graph_entry_node();
       
-        ObjectList<Node*> node_l = task_node->get_inner_nodes();
+        ObjectList<Node*> node_l = task_node->get_inner_nodes_in_level();
         
         // Compute the actions performed over the symbols in all nodes
         ObjectList<ExtensibleSymbol> in_symbols;
@@ -524,9 +534,10 @@ namespace TL
         for(ObjectList<Node*>::iterator it = node_l.begin(); it != node_l.end(); ++it)
         {
             ext_sym_set ue_vars = (*it)->get_data<ext_sym_set>(_UPPER_EXPOSED);
-            ext_sym_set shared_ue_vars = sets_intersection(ue_vars, li_vars);
+            std::cerr << "============ NODE " << (*it)->get_id() << std::endl;
             for(ext_sym_set::iterator it_ue = ue_vars.begin(); it_ue != ue_vars.end(); ++it_ue)
             {
+                std::cerr << "***** UE var: " << it_ue->get_nodecl().prettyprint() << std::endl;
                 if (!it_ue->get_symbol().get_scope().scope_is_enclosed_by(
                     task_node->get_task_context().retrieve_context())
                     && !in_symbols.contains(*it_ue))
@@ -550,6 +561,9 @@ namespace TL
                         if (sym_is_param)
                         {
                             in_symbols.insert(*it_ue);
+                        }
+                        else
+                        {
                         }
                     }
                     else

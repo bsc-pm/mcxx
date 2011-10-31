@@ -335,7 +335,7 @@ namespace TL
         return ((_id == n->_id) && (_entry_edges == n->_entry_edges) && (_exit_edges == n->_exit_edges));
     }
 
-    ObjectList<Node*> Node::get_inner_nodes()
+    ObjectList<Node*> Node::get_inner_nodes_in_level()
     {
         if (get_data<Node_type>(_NODE_TYPE) != GRAPH_NODE)
         {
@@ -361,9 +361,10 @@ namespace TL
             if (ntype == GRAPH_NODE)
             {
                 // Get the nodes inside the graph
-                Node* entry = get_data<Node*>(_ENTRY_NODE);
-                entry->set_visited(true);
-                actual = entry;
+//                 Node* entry = get_data<Node*>(_ENTRY_NODE);
+//                 entry->set_visited(true);
+//                 actual = entry;
+                node_l.insert(this);
             }
             else if (ntype == BASIC_EXIT_NODE)
             {
@@ -945,16 +946,22 @@ namespace TL
         return result;
     }
    
+  
     ObjectList<ext_sym_set> Node::get_use_def_over_nodes()
     {
         ObjectList<ext_sym_set> use_def, use_def_aux;
         
         if (!_visited)          
         {
-            _visited = true;
             ext_sym_set ue_vars, killed_vars, ue_aux, killed_aux;
-           
-            // Compute upper exposed variables
+          
+            if (get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
+            {
+                set_graph_node_use_def();
+            }
+            _visited = true;
+            
+            // Compute upper exposed variables in actual node
             ue_aux = get_ue_vars();
             for(ext_sym_set::iterator it = ue_aux.begin(); it != ue_aux.end(); ++it)
             {
@@ -963,7 +970,7 @@ namespace TL
                     ue_vars.insert(*it);
                 }
             }
-            // Compute killed variables
+            // Compute killed variables in actual node
             killed_vars.insert(get_killed_vars());
             
             // Complete the use-def info for every children of the node
@@ -976,11 +983,11 @@ namespace TL
                 {
                     // Compute upper exposed variables
                     ue_aux = use_def_aux[0];
-                    for(ext_sym_set::iterator it = ue_aux.begin(); it != ue_aux.end(); ++it)
+                    for(ext_sym_set::iterator it_ue = ue_aux.begin(); it_ue != ue_aux.end(); ++it_ue)
                     {
-                        if (!killed_vars.contains(*it))
+                        if (!killed_vars.contains(*it_ue))
                         {
-                            ue_vars.insert(*it);
+                            ue_vars.insert(*it_ue);
                         }
                     }
                     // Compute killed variables
@@ -998,13 +1005,18 @@ namespace TL
     {
         if (get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
         {
-            Node* entry_node = get_data<Node*>(_ENTRY_NODE);
+            if (!_visited)
+            {
+                _visited = true;
+                
+                Node* entry_node = get_data<Node*>(_ENTRY_NODE);
             
-            // Get upper_exposed and killed variables
-            ObjectList<ext_sym_set> use_def = entry_node->get_use_def_over_nodes();
-            
-            set_data(_UPPER_EXPOSED, use_def[0]);
-            set_data(_KILLED, use_def[1]);
+                // Get upper_exposed and killed variables
+                ObjectList<ext_sym_set> use_def = entry_node->get_use_def_over_nodes();
+                
+                set_data(_UPPER_EXPOSED, use_def[0]);
+                set_data(_KILLED, use_def[1]);
+            }
         }
         else
         {
@@ -1160,8 +1172,7 @@ namespace TL
             if (get_data<Graph_type>(_GRAPH_TYPE) == LOOP)
             {
                 Node* stride = get_stride_node();
-                
-                // Now, all ranges must be converted to the first/last value depending on the sign of the stride
+               
                 nodecl_map old_reach_defs = get_reaching_definitions();
                 nodecl_map stride_reach_defs = stride->get_data<nodecl_map>(_REACH_DEFS);
                 

@@ -225,10 +225,9 @@ namespace TL
             //! Returns the list of nodes contained inside a node with type graph
             /*!
              * When the node is not a GRAPH_NODE, the list is empty.
-             * Otherwise, returns all nodes in the graph node that have statements: 
-             * BASIC_NORMAL_NODE, BASIC_LABELED_NODE, BASIC_FUNCTION_CALL_NODE
+             * Otherwise, returns all nodes in the the same level of nesting as the entry node of the graph node
              */
-            ObjectList<Node*> get_inner_nodes();
+            ObjectList<Node*> get_inner_nodes_in_level();
             
             //! Recursive method to store a chain of nodes into a list
             /*!

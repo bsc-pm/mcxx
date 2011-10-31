@@ -50,29 +50,30 @@ namespace TL
         ObjectList<ExtensibleGraph*> cfgs = cfg_visitor.get_cfgs();
         
         // First compute individually the Use-Def chains for each graph
-//         std::cerr << "=== USE-DEF CHAINS COMPUTATION ===" << std::endl;
-//         for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
-//         {
-//             if (!(*it)->has_use_def_computed())
-//             {
-// //                 DEBUG_CODE()
-//                 {
-//                     std::cerr << "Graph '" << (*it)->get_name() << "'" << std::endl;
-//                 }               
-//                 cfg_visitor.set_actual_cfg(*it);
-//                 cfg_visitor.compute_use_def_chains((*it)->get_graph());
-//             }
-//         }
+        std::cerr << "=== USE-DEF CHAINS COMPUTATION ===" << std::endl;
+        for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
+        {
+            if (!(*it)->has_use_def_computed())
+            {
+//                 DEBUG_CODE()
+                {
+                    std::cerr << "Graph '" << (*it)->get_name() << "'" << std::endl;
+                }               
+                cfg_visitor.set_actual_cfg(*it);
+                cfg_visitor.compute_use_def_chains((*it)->get_graph());
+            }
+        }
       
-//         // *** Live Variable Analysis *** //
-//         for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
-//         {
-//             // Non-task nodes
-//             StaticAnalysis::live_variable_analysis((*it)->get_graph());
-//             
-//             // Task nodes
-//             StaticAnalysis::analyse_tasks((*it)->get_tasks_list());
-//         }
+        // *** Live Variable Analysis *** //
+        std::cerr << "=== LIVE VARIABLES AND TASKS ANALYSIS  ===" << std::endl;
+        for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
+        {
+            // Non-task nodes
+            StaticAnalysis::live_variable_analysis((*it)->get_graph());
+            
+            // Task nodes
+            StaticAnalysis::analyse_tasks((*it)->get_tasks_list());
+        }
         
         // Print graphs into dot files
         for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)

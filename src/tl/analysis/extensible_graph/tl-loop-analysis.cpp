@@ -591,46 +591,22 @@ namespace TL
                     
                     if (nodecl.is<Nodecl::ArraySubscript>())
                     {
-//                         if ((is_positive == 0) || (is_positive == 1))
-//                         {
-                            if (use_type == '2')
-                            {   // We are renaming the key, this is the defined variable
-                                node->rename_reaching_defintion_var(nodecl, renamed[0]);
-                                renamed_nodecl = renamed[0];
-                            }
-                            else
-                            {   //  We are renaming the init expression of a reaching definition
-                                node->set_reaching_definition(reach_def_var, renamed[0]);
-                                renamed_nodecl = reach_def_var;
-                            }
-//                         }
-//                         else
-//                         {   // We cannot define the boundaries of the loop
-//                             std::cerr << "warning Since we don't know the sign of the stride in node " << node->get_id()
-//                                       << " we set to NULL the reaching definition of '" << nodecl.prettyprint() << "'" << std::endl;
-//                             node->set_reaching_definition(nodecl, Nodecl::NodeclBase::null());
-//                             renamed_nodecl = nodecl;
-//                         }
+                        if (use_type == '2')
+                        {   // We are renaming the key, this is the defined variable
+                            node->rename_reaching_defintion_var(nodecl, renamed[0]);
+                            renamed_nodecl = renamed[0];
+                        }
+                        else
+                        {   //  We are renaming the init expression of a reaching definition
+                            node->set_reaching_definition(reach_def_var, renamed[0]);
+                            renamed_nodecl = reach_def_var;
+                        }
                     }
                     else
-                    {  
-                        std::cerr << "Nodecl type: " << ast_print_node_type(nodecl.get_kind()) << std::endl;
+                    { 
                         if (use_type == '3')
                         {   // In a reaching definition, we cannot modify the defined variable, just the init expression
-                            Nodecl::NodeclBase range;
-                            
-//                             if (is_positive == 0 || is_positive == 1)
-//                             {
-                                range = renamed[0];
-//                             }
-//                             else
-//                             {
-//                             std::cerr << "warning Since we don't know the signe of the stride in node " << node->get_id()
-//                                       << " we set to NULL the reaching definition of '" << nodecl.prettyprint() << "'" << std::endl;               
-  //              
-//                                 range == Nodecl::NodeclBase::null();
-//                             }
-                           
+                            Nodecl::NodeclBase range = renamed[0];
                             node->set_reaching_definition(reach_def_var, range);
                             renamed_nodecl = reach_def_var;
                         }
@@ -664,7 +640,7 @@ namespace TL
         for(ext_sym_set::iterator it = nodecl_l.begin(); it != nodecl_l.end(); ++it)
         {
             if (it->is_array())
-            {   
+            {  
                 set_access_range(node, loop_node, use_type, it->get_nodecl(), ind_var_map);
             }
         }
@@ -698,7 +674,6 @@ namespace TL
                 {   // Check for arrays in that are used in some way within the BB statements
                     set_access_range_in_ext_sym_set(node, loop_node, node->get_ue_vars(), /* use type */ '0');
                     set_access_range_in_ext_sym_set(node, loop_node, node->get_killed_vars(), /* use type */ '1');
-                    std::cerr << "Computing values for REACH DEFS" << std::endl;
                     set_access_range_in_nodecl_map(node, loop_node, node->get_reaching_definitions());
                 }
                 
@@ -735,7 +710,7 @@ namespace TL
                     {
                         compute_ranges_for_variables(entry);
                     }
-                    ExtensibleGraph::clear_visits(entry);
+                    ExtensibleGraph::clear_visits(node);
                     node->set_graph_node_use_def();
                 }
                 

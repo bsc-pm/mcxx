@@ -451,7 +451,32 @@ namespace TL
         Nodecl::NodeclBase subscripts = n.get_subscripts();
         
         ObjectList<Nodecl::NodeclBase> renamed_subscripted = walk(subscripted);
-        ObjectList<Nodecl::NodeclBase> renamed_subscripts = walk(subscripts);
+        ObjectList<Nodecl::NodeclBase> renamed_subscripts, aux_subscripts;
+        if (subscripts.is<Nodecl::List>())
+        {
+            Nodecl::List subscripts_l = subscripts.as<Nodecl::List>();
+            for(std::vector<Nodecl::NodeclBase>::iterator it = subscripts_l.begin(); it != subscripts_l.end(); ++it)
+            {
+                ObjectList<Nodecl::NodeclBase> aux = walk(*it);
+                if (aux.empty())
+                {
+                    renamed_subscripts.append(*it);
+                    aux_subscripts.append(*it);
+                }
+                else
+                {
+                    renamed_subscripts.append(aux[0]);
+                }
+            }
+            if (renamed_subscripts == aux_subscripts)
+            {   // No renaming has been performed
+                renamed_subscripts.clear();
+            }
+        }
+        else
+        {
+            renamed_subscripts = walk(subscripts);
+        }
         
         if (!renamed_subscripted.empty() || !renamed_subscripts.empty())
         {

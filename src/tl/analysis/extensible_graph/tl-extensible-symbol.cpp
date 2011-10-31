@@ -141,7 +141,7 @@ namespace TL
 
     bool ExtensibleSymbol::operator==(const ExtensibleSymbol& es) const
     {
-        bool equals = Nodecl::Utils::equal_nodecls(_n, es._n);   
+        bool equals = Nodecl::Utils::equal_nodecls(_n, es._n);
         return equals;
     }
     
