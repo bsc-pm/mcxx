@@ -94,7 +94,7 @@ type|all|class_type|The class type where a member belongs. See is_member
 symbol|fortran|from_module|If not NULL, it states that this symbol comes from this module
 symbol|fortran|in_module|If not NULL it means that this symbol is a component of the module
 symbol|fortran|cray_pointer|If this symbol is_cray_pointee then this is its Cray pointer
-string|all|linkage_spec|The linkage specifier (C, C++). Currently unused
+string|all|linkage_spec|The linkage specifier (C, C++)
 array(type)|all|exceptions|Exception specifier for functions. Can be empty. See any_exception
 array(typeof(default_argument_info_t*))|all|num_parameters,default_argument_info|Default arguments for functions
 nodecl|all|bitfield_size|Expression of the bitfield

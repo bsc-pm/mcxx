@@ -2979,13 +2979,25 @@ static void check_symbol(AST expr, decl_context_t decl_context, nodecl_t* nodecl
     {
         if (is_name_of_funtion_call(expr))
         {
-            entry->kind = SK_FUNCTION;
-            entry->type_information = get_nonproto_function_type(entry->type_information, 0);
+            // Could it be an intrinsic?
+            decl_context_t global_namespace = decl_context;
+            global_namespace.current_scope = decl_context.global_scope;
+
+            scope_entry_t* intrinsic_name = query_name_no_implicit(global_namespace, ASTText(expr));
+            if (intrinsic_name != NULL)
+            {
+                // Replace this entry with the intrinsic one
+                remove_entry(entry->decl_context.current_scope, entry);
+                insert_alias(entry->decl_context.current_scope, intrinsic_name, entry->symbol_name);
+                entry = intrinsic_name;
+            }
+            else
+            {
+                // Does not look like an intrinsic
+                entry->kind = SK_FUNCTION;
+                entry->type_information = get_nonproto_function_type(entry->type_information, 0);
+            }
         }
-        // else if (is_name_in_actual_arg_spec_list(expr))
-        // {
-        //     // If we are an actual argument do not change our status
-        // }
         else
         {
             // Otherwise we are a variable

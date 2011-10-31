@@ -420,6 +420,12 @@ namespace TL
               */
             bool is_generic_specifier() const;
 
+            //! States if this symbol has a linkage different to that of the base language
+            bool has_nondefault_linkage() const;
+            
+            //! Returns the linkage identifier or empty if is the default
+            std::string get_linkage() const;
+
             //! Returns the symbols related to this one
             /*!
              * The exact set returned depends on the kind of the symbol as kept by the frontend

@@ -1925,7 +1925,6 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
 {
     char was_ref = is_lvalue_reference_type(basic_type);
 
-    type_t* array_type = no_ref(basic_type);
     // explicit-shape-spec   is   [lower:]upper
     // assumed-shape-spec    is   [lower]:
     // deferred-shape-spec   is   :
@@ -1935,9 +1934,18 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
 
     array_spec_kind_t kind = ARRAY_SPEC_KIND_NONE;
 
+    nodecl_t lower_bound_seq[MCXX_MAX_ARRAY_SPECIFIER];
+    memset(lower_bound_seq, 0, sizeof(lower_bound_seq));
+    nodecl_t upper_bound_seq[MCXX_MAX_ARRAY_SPECIFIER];
+    memset(upper_bound_seq, 0, sizeof(upper_bound_seq));
+
+    int i = 0;
+
     AST it = NULL;
     for_each_element(array_spec_list, it)
     {
+        ERROR_CONDITION(i == MCXX_MAX_ARRAY_SPECIFIER, "Too many array specifiers", 0);
+
         AST array_spec_item = ASTSon1(it);
         AST lower_bound_tree = ASTSon0(array_spec_item);
         AST upper_bound_tree = ASTSon1(array_spec_item);
@@ -2034,16 +2042,54 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
             }
         }
 
-        if (kind != ARRAY_SPEC_KIND_ERROR
-                && !is_error_type(array_type))
-        {
-            array_type = get_array_type_bounds(array_type, lower_bound, upper_bound, decl_context);
-        }
-        else
-        {
-            array_type = get_error_type();
+        if (kind == ARRAY_SPEC_KIND_ERROR)
             break;
+
+        lower_bound_seq[i] = lower_bound;
+        upper_bound_seq[i] = upper_bound;
+
+        i++;
+    }
+
+    type_t* array_type = no_ref(basic_type);
+
+    if (kind != ARRAY_SPEC_KIND_ERROR)
+    {
+        // All dimensions will have the attribute needs descriptor set to 0 or 1
+        char needs_descriptor = ((kind == ARRAY_SPEC_KIND_ASSUMED_SHAPE)
+                || (kind == ARRAY_SPEC_KIND_DEFERRED_SHAPE));
+
+        // const char* array_spec_kind_name[] = 
+        // {
+        //     [ARRAY_SPEC_KIND_NONE] = "ARRAY_SPEC_KIND_NONE",
+        //     [ARRAY_SPEC_KIND_EXPLICIT_SHAPE] = "ARRAY_SPEC_KIND_EXPLICIT_SHAPE",
+        //     [ARRAY_SPEC_KIND_ASSUMED_SHAPE] = "ARRAY_SPEC_KIND_ASSUMED_SHAPE",
+        //     [ARRAY_SPEC_KIND_DEFERRED_SHAPE] = "ARRAY_SPEC_KIND_DEFERRED_SHAPE",
+        //     [ARRAY_SPEC_KIND_ASSUMED_SIZE] = "ARRAY_SPEC_KIND_ASSUMED_SIZE",
+        //     [ARRAY_SPEC_KIND_IMPLIED_SHAPE] = "ARRAY_SPEC_KIND_IMPLIED_SHAPE",
+        //     [ARRAY_SPEC_KIND_ERROR] = "ARRAY_SPEC_KIND_ERROR",
+        // };
+
+        // fprintf(stderr, "KIND OF ARRAY SPEC -> '%s' || needs_descr = %d\n", 
+        //         array_spec_kind_name[kind],
+        //         needs_descriptor);
+
+        int j;
+        for (j = 0; j < i; j++)
+        {
+            if (needs_descriptor)
+            {
+                array_type = get_array_type_bounds_with_descriptor(array_type, lower_bound_seq[j], upper_bound_seq[j], decl_context);
+            }
+            else
+            {
+                array_type = get_array_type_bounds(array_type, lower_bound_seq[j], upper_bound_seq[j], decl_context);
+            }
         }
+    }
+    else
+    {
+        array_type = get_error_type();
     }
 
     if (array_spec_kind != NULL)
@@ -2051,7 +2097,8 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
         *array_spec_kind = kind;
     }
 
-    if (was_ref)
+    if (was_ref
+            && !is_error_type(array_type))
     {
         array_type = get_lvalue_reference_type(array_type);
     }
@@ -4079,7 +4126,11 @@ static void build_scope_intrinsic_stmt(AST a, decl_context_t decl_context UNUSED
     {
         AST name = ASTSon1(it);
 
-        scope_entry_t* entry = query_name_no_implicit(decl_context, ASTText(name));
+        // Intrinsics are kept in global scope
+        decl_context_t global_context = decl_context;
+        global_context.current_scope = decl_context.global_scope;
+
+        scope_entry_t* entry = query_name_no_implicit(global_context, ASTText(name));
         if (entry == NULL
                 || !entry->entity_specs.is_builtin)
         {
@@ -4087,8 +4138,11 @@ static void build_scope_intrinsic_stmt(AST a, decl_context_t decl_context UNUSED
                     ast_location(name),
                     ASTText(name));
         }
+        else
+        {
+            insert_alias(decl_context.current_scope, entry, entry->symbol_name);
+        }
     }
-
 }
 
 static void build_scope_lock_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER, 
@@ -4749,7 +4803,7 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
         AST entity_decl_specs = ASTSon1(declaration);
 
         scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
-
+        
         if (!entry->entity_specs.is_implicit_basic_type)
         {
             error_printf("%s: error: entity '%s' already has a basic type\n",
@@ -4927,8 +4981,30 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
             entry->kind = SK_VARIABLE;
         }
 
-        if (current_attr_spec.is_external
-                || current_attr_spec.is_intrinsic)
+        if (current_attr_spec.is_intrinsic)
+        {
+            // Intrinsics are kept in global scope
+            decl_context_t global_context = decl_context;
+            global_context.current_scope = decl_context.global_scope;
+
+            scope_entry_t* intrinsic_name = query_name_no_implicit(global_context, intrinsic_name->symbol_name);
+            if (intrinsic_name == NULL
+                    || !intrinsic_name->entity_specs.is_builtin)
+            {
+                error_printf("%s: error: name '%s' is not known as an intrinsic\n", 
+                        ast_location(name),
+                        ASTText(name));
+            }
+            else
+            {
+                remove_entry(entry->decl_context.current_scope, entry);
+                insert_alias(entry->decl_context.current_scope, intrinsic_name, intrinsic_name->symbol_name);
+                // Do nothing else otherwise we may be overwriting intrinsics
+                continue;
+            }
+        }
+
+        if (current_attr_spec.is_external)
         {
             entry->kind = SK_FUNCTION;
             entry->type_information = get_nonproto_function_type(entry->type_information, 0);

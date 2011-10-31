@@ -349,11 +349,11 @@ struct array_tag
     // Region information
     array_region_t* region;
     
+    // Is a doped array (array with an in-memory descriptor)
+    unsigned char with_descriptor:1;
     // Is literal string type ?
     unsigned char is_literal_string:1;
     unsigned char is_vla:1;
-    // This one states that we should be using dim instead of array_expr_decl_context
-    unsigned char is_plain:1;
 } array_info_t;
 
 // Vector type
@@ -1897,23 +1897,26 @@ static void init_qualification_hash(void)
 
 static void _get_array_type_components(type_t* array_type, 
         nodecl_t *whole_size, nodecl_t *lower_bound, nodecl_t *upper_bound, decl_context_t* decl_context,
-        array_region_t** array_region);
+        array_region_t** array_region,
+        char *with_descriptor);
 
 static type_t* _get_array_type(type_t* element_type, 
         nodecl_t whole_size, nodecl_t lower_bound, nodecl_t upper_bound, decl_context_t decl_context,
-        array_region_t* array_region);
+        array_region_t* array_region,
+        char with_descriptor);
 
 static type_t* _clone_array_type(type_t* array_type, type_t* new_element_type)
 {
         nodecl_t whole_size = nodecl_null();
         nodecl_t lower_bound = nodecl_null();
         nodecl_t upper_bound = nodecl_null();
+        char with_descriptor = 0;
         array_region_t* array_region = NULL;
 
         decl_context_t decl_context;
         memset(&decl_context, 0, sizeof(decl_context));
 
-        _get_array_type_components(array_type, &whole_size, &lower_bound, &upper_bound, &decl_context, &array_region);
+        _get_array_type_components(array_type, &whole_size, &lower_bound, &upper_bound, &decl_context, &array_region, &with_descriptor);
 
         // And now rebuild the array type
         type_t* result = _get_array_type(new_element_type, 
@@ -1921,7 +1924,8 @@ static type_t* _clone_array_type(type_t* array_type, type_t* new_element_type)
                 nodecl_copy(lower_bound), 
                 nodecl_copy(upper_bound), 
                 decl_context,
-                array_region);
+                array_region,
+                with_descriptor);
 
         // Keep this attribute
         result->array->is_literal_string = array_type->array->is_literal_string;
@@ -2217,6 +2221,7 @@ typedef struct array_sized_hash
     _size_t whole_size;
     _size_t lower_bound;
     _size_t upper_bound;
+    char with_descriptor;
     rb_red_blk_tree *element_hash;
 } array_sized_hash_t;
 
@@ -2226,11 +2231,13 @@ static int _array_sized_hash_size = 0;
 static rb_red_blk_tree* _init_array_sized_hash(array_sized_hash_t *array_sized_hash_elem, 
         _size_t whole_size,
         _size_t lower_bound,
-        _size_t upper_bound)
+        _size_t upper_bound,
+        char with_descriptor)
 {
     array_sized_hash_elem->whole_size = whole_size;
     array_sized_hash_elem->lower_bound = lower_bound;
     array_sized_hash_elem->upper_bound = upper_bound;
+    array_sized_hash_elem->with_descriptor = with_descriptor;
     array_sized_hash_elem->element_hash = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
 
     return array_sized_hash_elem->element_hash;
@@ -2293,15 +2300,26 @@ int array_hash_compar(const void* v1, const void* v2)
     {
         return 1;
     }
-    else
+    else // (x0, y0, z0) == (x1, y1, z1)
     {
-        return 0;
+        if (a1->with_descriptor < a2->with_descriptor)
+            return -1;
+        else if (a1->with_descriptor > a2->with_descriptor)
+            return 1;
+        else
+            return 0;
     }
 }
 
-static rb_red_blk_tree* get_array_sized_hash(_size_t whole_size, _size_t lower_bound, _size_t upper_bound)
+static rb_red_blk_tree* get_array_sized_hash(_size_t whole_size, _size_t lower_bound, _size_t upper_bound, 
+        char with_descriptor)
 {
-    array_sized_hash_t key = { .whole_size = whole_size, .lower_bound = lower_bound, .upper_bound = upper_bound };
+    array_sized_hash_t key = { 
+        .whole_size = whole_size, 
+        .lower_bound = lower_bound, 
+        .upper_bound = upper_bound, 
+        .with_descriptor = with_descriptor 
+    };
 
     array_sized_hash_t* sized_hash = bsearch(&key, 
             _array_sized_hash, _array_sized_hash_size, 
@@ -2313,7 +2331,7 @@ static rb_red_blk_tree* get_array_sized_hash(_size_t whole_size, _size_t lower_b
         _array_sized_hash = realloc(_array_sized_hash, _array_sized_hash_size * sizeof(array_sized_hash_t));
 
         rb_red_blk_tree* result = _init_array_sized_hash(&_array_sized_hash[_array_sized_hash_size - 1], 
-                whole_size, lower_bound, upper_bound);
+                whole_size, lower_bound, upper_bound, with_descriptor);
 
         // So we can use bsearch again
         qsort(_array_sized_hash, _array_sized_hash_size, sizeof(array_sized_hash_t), array_hash_compar);
@@ -2338,7 +2356,8 @@ type_t* get_array_type_str(type_t* element_type UNUSED_PARAMETER,
 // This is used only for cloning array types
 static void _get_array_type_components(type_t* array_type, 
         nodecl_t *whole_size, nodecl_t *lower_bound, nodecl_t *upper_bound, decl_context_t* decl_context,
-        array_region_t** array_region)
+        array_region_t** array_region,
+        char *with_descriptor)
 {
     ERROR_CONDITION((array_type->kind != TK_ARRAY), "Not an array type!", 0);
 
@@ -2347,13 +2366,15 @@ static void _get_array_type_components(type_t* array_type,
     *upper_bound = array_type->array->upper_bound;
     *decl_context = array_type->array->array_expr_decl_context;
     *array_region = array_type->array->region;
+    *with_descriptor = array_type->array->with_descriptor;
 }
 
 // This function owns the three trees passed to it (unless they are NULL, of
 // course)
 static type_t* _get_array_type(type_t* element_type, 
         nodecl_t whole_size, nodecl_t lower_bound, nodecl_t upper_bound, decl_context_t decl_context,
-        array_region_t* array_region)
+        array_region_t* array_region, 
+        char with_descriptor)
 {
     ERROR_CONDITION(element_type == NULL, "Invalid element type", 0);
 
@@ -2424,18 +2445,18 @@ static type_t* _get_array_type(type_t* element_type,
     if (nodecl_is_null(whole_size))
     {
         // Use the same strategy we use for pointers
-        static rb_red_blk_tree *_undefined_array_types = NULL;
+        static rb_red_blk_tree *_undefined_array_types[2] = { NULL, NULL };
 
-        if (_undefined_array_types == NULL)
+        if (_undefined_array_types[!!with_descriptor] == NULL)
         {
-            _undefined_array_types = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
+            _undefined_array_types[!!with_descriptor] = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
         }
 
         type_t* undefined_array_type = NULL;
         if (nodecl_is_null(lower_bound)
                 && nodecl_is_null(upper_bound))
         {
-            undefined_array_type = rb_tree_query_type(_undefined_array_types, element_type);
+            undefined_array_type = rb_tree_query_type(_undefined_array_types[!!with_descriptor], element_type);
         }
         if (undefined_array_type == NULL)
         {
@@ -2451,6 +2472,8 @@ static type_t* _get_array_type(type_t* element_type,
             result->array->lower_bound = lower_bound;
             result->array->upper_bound = upper_bound;
             
+            result->array->with_descriptor = with_descriptor;
+
             // If the element_type is array propagate the 'is_vla' value
             if(element_type->array != NULL) 
             {
@@ -2463,7 +2486,7 @@ static type_t* _get_array_type(type_t* element_type,
 
             result->info->is_dependent = is_dependent_type(element_type);
 
-            rb_tree_insert(_undefined_array_types, element_type, result);
+            rb_tree_insert(_undefined_array_types[!!with_descriptor], element_type, result);
         }
         else
         {
@@ -2478,7 +2501,7 @@ static type_t* _get_array_type(type_t* element_type,
                 && upper_bound_is_constant
                 && array_region == NULL)
         {
-            rb_red_blk_tree* array_sized_hash = get_array_sized_hash(whole_size_k, lower_bound_k, upper_bound_k);
+            rb_red_blk_tree* array_sized_hash = get_array_sized_hash(whole_size_k, lower_bound_k, upper_bound_k, with_descriptor);
 
             type_t* array_type = rb_tree_query_type(array_sized_hash, element_type);
 
@@ -2491,6 +2514,8 @@ static type_t* _get_array_type(type_t* element_type,
                 result->array = counted_calloc(1, sizeof(*(result->array)), &_bytes_due_to_type_system);
                 result->array->element_type = element_type;
                 
+                result->array->with_descriptor = with_descriptor;
+
                 // If the element_type is array propagate the 'is_vla' value
                 if(element_type->array != NULL)
                 {
@@ -2502,9 +2527,9 @@ static type_t* _get_array_type(type_t* element_type,
                 result->array->upper_bound = upper_bound;
 
                 result->array->array_expr_decl_context = decl_context;
-                rb_tree_insert(array_sized_hash, element_type, result);
-
                 result->info->is_dependent = is_dependent_type(element_type);
+
+                rb_tree_insert(array_sized_hash, element_type, result);
             }
             else
             {
@@ -2524,6 +2549,8 @@ static type_t* _get_array_type(type_t* element_type,
             result->array->upper_bound = upper_bound;
             result->array->array_expr_decl_context = decl_context;
             result->array->region = array_region;
+
+            result->array->with_descriptor = with_descriptor;
 
             C_LANGUAGE()
             {
@@ -2596,13 +2623,15 @@ type_t* get_array_type(type_t* element_type, nodecl_t whole_size, decl_context_t
                 nodecl_expr_is_value_dependent(whole_size));
     }
 
-    return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context, /* array_region */ NULL);
+    return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context, 
+            /* array_region */ NULL, /* with_descriptor */ 0);
 }
 
-type_t* get_array_type_bounds(type_t* element_type,
+static type_t* get_array_type_bounds_common(type_t* element_type,
         nodecl_t lower_bound,
         nodecl_t upper_bound,
-        decl_context_t decl_context)
+        decl_context_t decl_context,
+        char with_descriptor)
 {
     nodecl_t whole_size = nodecl_null();
     lower_bound = nodecl_copy(lower_bound);
@@ -2639,7 +2668,24 @@ type_t* get_array_type_bounds(type_t* element_type,
         }
     }
 
-    return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context, /* array_region */ NULL);
+    return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context, 
+            /* array_region */ NULL, with_descriptor);
+}
+
+type_t* get_array_type_bounds(type_t* element_type,
+        nodecl_t lower_bound,
+        nodecl_t upper_bound,
+        decl_context_t decl_context)
+{
+    return get_array_type_bounds_common(element_type, lower_bound, upper_bound, decl_context, /* with_descriptor */ 0);
+}
+
+type_t* get_array_type_bounds_with_descriptor(type_t* element_type,
+        nodecl_t lower_bound,
+        nodecl_t upper_bound,
+        decl_context_t decl_context)
+{
+    return get_array_type_bounds_common(element_type, lower_bound, upper_bound, decl_context, /* with_descriptor */ 1);
 }
 
 type_t* get_array_type_bounds_with_regions(type_t* element_type,
@@ -2716,7 +2762,8 @@ type_t* get_array_type_bounds_with_regions(type_t* element_type,
     array_region->whole_size = region_whole_size;
     array_region->region_decl_context = region_decl_context;
     
-    return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context, array_region);
+    return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context, 
+            array_region, /* with_descriptor */ 0);
 }
 
 type_t* get_vector_type(type_t* element_type, unsigned int vector_size)
@@ -5390,6 +5437,14 @@ decl_context_t array_type_get_array_size_expr_context(type_t* t)
     return t->array->array_expr_decl_context;
 }
 
+
+char array_type_with_descriptor(type_t* t)
+{
+    ERROR_CONDITION(!is_array_type(t), "This is not an array type", 0);
+    t = advance_over_typedefs(t);
+
+    return t->array->with_descriptor;
+}
 
 char array_type_has_region(type_t* t)
 {

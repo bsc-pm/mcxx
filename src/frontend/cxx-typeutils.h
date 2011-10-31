@@ -164,6 +164,11 @@ LIBMCXX_EXTERN type_t* get_array_type_bounds(type_t*,
         nodecl_t upper_bound, 
         decl_context_t decl_context);
 
+LIBMCXX_EXTERN type_t* get_array_type_bounds_with_descriptor(type_t*, 
+        nodecl_t lower_bound, 
+        nodecl_t upper_bound, 
+        decl_context_t decl_context);
+
 LIBMCXX_EXTERN type_t* get_array_type_bounds_with_regions(type_t*, 
         nodecl_t lower_bound, 
         nodecl_t upper_bound, 
