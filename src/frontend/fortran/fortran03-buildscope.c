@@ -1925,7 +1925,6 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
 {
     char was_ref = is_lvalue_reference_type(basic_type);
 
-    type_t* array_type = no_ref(basic_type);
     // explicit-shape-spec   is   [lower:]upper
     // assumed-shape-spec    is   [lower]:
     // deferred-shape-spec   is   :
@@ -1935,9 +1934,18 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
 
     array_spec_kind_t kind = ARRAY_SPEC_KIND_NONE;
 
+    nodecl_t lower_bound_seq[MCXX_MAX_ARRAY_SPECIFIER];
+    memset(lower_bound_seq, 0, sizeof(lower_bound_seq));
+    nodecl_t upper_bound_seq[MCXX_MAX_ARRAY_SPECIFIER];
+    memset(upper_bound_seq, 0, sizeof(upper_bound_seq));
+
+    int i = 0;
+
     AST it = NULL;
     for_each_element(array_spec_list, it)
     {
+        ERROR_CONDITION(i == MCXX_MAX_ARRAY_SPECIFIER, "Too many array specifiers", 0);
+
         AST array_spec_item = ASTSon1(it);
         AST lower_bound_tree = ASTSon0(array_spec_item);
         AST upper_bound_tree = ASTSon1(array_spec_item);
@@ -2034,16 +2042,54 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
             }
         }
 
-        if (kind != ARRAY_SPEC_KIND_ERROR
-                && !is_error_type(array_type))
-        {
-            array_type = get_array_type_bounds(array_type, lower_bound, upper_bound, decl_context);
-        }
-        else
-        {
-            array_type = get_error_type();
+        if (kind == ARRAY_SPEC_KIND_ERROR)
             break;
+
+        lower_bound_seq[i] = lower_bound;
+        upper_bound_seq[i] = upper_bound;
+
+        i++;
+    }
+
+    type_t* array_type = no_ref(basic_type);
+
+    if (kind != ARRAY_SPEC_KIND_ERROR)
+    {
+        // All dimensions will have the attribute needs descriptor set to 0 or 1
+        char needs_descriptor = ((kind == ARRAY_SPEC_KIND_ASSUMED_SHAPE)
+                || (kind == ARRAY_SPEC_KIND_DEFERRED_SHAPE));
+
+        // const char* array_spec_kind_name[] = 
+        // {
+        //     [ARRAY_SPEC_KIND_NONE] = "ARRAY_SPEC_KIND_NONE",
+        //     [ARRAY_SPEC_KIND_EXPLICIT_SHAPE] = "ARRAY_SPEC_KIND_EXPLICIT_SHAPE",
+        //     [ARRAY_SPEC_KIND_ASSUMED_SHAPE] = "ARRAY_SPEC_KIND_ASSUMED_SHAPE",
+        //     [ARRAY_SPEC_KIND_DEFERRED_SHAPE] = "ARRAY_SPEC_KIND_DEFERRED_SHAPE",
+        //     [ARRAY_SPEC_KIND_ASSUMED_SIZE] = "ARRAY_SPEC_KIND_ASSUMED_SIZE",
+        //     [ARRAY_SPEC_KIND_IMPLIED_SHAPE] = "ARRAY_SPEC_KIND_IMPLIED_SHAPE",
+        //     [ARRAY_SPEC_KIND_ERROR] = "ARRAY_SPEC_KIND_ERROR",
+        // };
+
+        // fprintf(stderr, "KIND OF ARRAY SPEC -> '%s' || needs_descr = %d\n", 
+        //         array_spec_kind_name[kind],
+        //         needs_descriptor);
+
+        int j;
+        for (j = 0; j < i; j++)
+        {
+            if (needs_descriptor)
+            {
+                array_type = get_array_type_bounds_with_descriptor(array_type, lower_bound_seq[j], upper_bound_seq[j], decl_context);
+            }
+            else
+            {
+                array_type = get_array_type_bounds(array_type, lower_bound_seq[j], upper_bound_seq[j], decl_context);
+            }
         }
+    }
+    else
+    {
+        array_type = get_error_type();
     }
 
     if (array_spec_kind != NULL)
@@ -2051,7 +2097,8 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
         *array_spec_kind = kind;
     }
 
-    if (was_ref)
+    if (was_ref
+            && !is_error_type(array_type))
     {
         array_type = get_lvalue_reference_type(array_type);
     }
