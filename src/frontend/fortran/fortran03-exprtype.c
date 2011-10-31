@@ -989,6 +989,9 @@ static void compute_boz_literal(AST expr, const char *valid_prefix, int base, no
 
     const char delim = *literal_token;
 
+    // Jump delimiter
+    literal_token++;
+
     while (*literal_token != delim)
     {
         *q = *literal_token;
@@ -1006,10 +1009,9 @@ static void compute_boz_literal(AST expr, const char *valid_prefix, int base, no
         }
     }
 
-    long long int value = strtoll(literal_text, NULL, base);
+    unsigned long long int value = strtoull(literal_text, NULL, base);
 
-    const_value_t* const_value = const_value_get_signed_int(value);
-
+    const_value_t* const_value = const_value_get_unsigned_long_long_int(value);
 
     *nodecl_output = nodecl_make_integer_literal(fortran_get_default_logical_type(), const_value, ASTFileName(expr), ASTLine(expr));
 }
