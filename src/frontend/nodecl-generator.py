@@ -47,7 +47,7 @@ def parse_rules(f):
     if (rule_name != "") :
        rule_set.append( (rule_name, rule_rhs) )
     
-    regex_name = re.compile("\[([_A-Za-z][_A-Za-z0-9]*)\]\s*([-_A-Za-z0-9]+)")
+    regex_name = re.compile("\[([_A-Za-z][_*A-Za-z0-9]*)\]\s*([-_A-Za-z0-9]+)")
     rule_map = { }
     for r in rule_set:
         (rule_name, rule_rhs) = r
@@ -107,19 +107,36 @@ class NodeclStructure(Variable):
         self.needs_cval = needs_cval
         self.needs_template_parameters = needs_template_parameters
         self.needs_decl_context = needs_decl_context
+
+    def name_to_underscore(self):
+        return self.tree_kind.replace("-", "_").replace("*", "_")
+    def name_to_underscore_lowercase(self):
+        return self.name_to_underscore().lower()
+
     def is_nullable(self, already_seen = []):
         return False
     def first(self, already_seen = []) :
-        return set([self.tree_kind])
+        return set([self.name_to_underscore()])
+
+    def base_name(self):
+        return self.tree_kind[len(NODECL_PREFIX):]
+    def base_name_to_underscore(self):
+        return self.base_name().replace("-", "_").replace("*", "_")
+    def base_name_to_underscore_lowercase(self):
+        return self.base_name_to_underscore().lower()
+
     def check_function_name(self):
-        return "nodecl_check_%s" % (self.tree_kind)
+        return "nodecl_check_%s" % (self.base_name_to_underscore())
+    def c_name(self):
+        return "nodecl_" + self.base_name_to_underscore_lowercase()
+
     def call_to_check(self, tree_name):
         return "%s(%s);" % (self.check_function_name(), tree_name);
     def function_check_code(self):
         print "static void %s(nodecl_t n)" % (self.check_function_name())
         print "{"
         print "ERROR_CONDITION(nodecl_is_null(n), \"Node is null\", 0);"
-        print "ERROR_CONDITION(nodecl_get_kind(n) != %s, \"Invalid node\", 0);" % self.tree_kind
+        print "ERROR_CONDITION(nodecl_get_kind(n) != %s, \"Invalid node\", 0);" % self.name_to_underscore()
         if (self.needs_symbol):
            print "   ERROR_CONDITION(nodecl_get_symbol(n) == NULL, \"Tree lacks a symbol\", 0);" 
         if (self.needs_type):
@@ -146,11 +163,14 @@ class RuleRef(Variable):
         is_seq = rule_ref.find("-seq") > 0
         is_opt = rule_ref.find("-opt") > 0
         rule_ref = rule_ref.replace("-seq", "").replace("-opt", "")
-        rule_ref_c = rule_ref.replace("-", "_")
+        rule_ref_c = rule_ref.replace("-", "_").replace("*", "_")
         return (rule_ref, rule_ref_c, is_seq, is_opt) 
     def canonical_rule(self):
         (rule_ref, rule_ref_c, is_seq, is_opt) = self.normalize_rule_name(self.rule_ref)
         return rule_ref
+    def rule_c_name(self):
+        (rule_ref, rule_ref_c, is_seq, is_opt) = self.normalize_rule_name(self.rule_ref)
+        return rule_ref_c
     def is_canonical_rule(self):
         (rule_ref, rule_ref_c, is_seq, is_opt) = self.normalize_rule_name(self.rule_ref)
         return rule_ref == self.rule_ref
@@ -187,7 +207,7 @@ class RuleRef(Variable):
             s = s.union(rhs.first(already_seen))
         return s
     def check_function_name(self):
-        return "nodecl_check_%s" % (self.canonical_rule().replace("-", "_"))
+        return "nodecl_check_%s" % (self.rule_c_name())
     def call_to_check(self, tree_name):
         if self.is_nullable():
             if self.is_seq():
@@ -236,8 +256,8 @@ def get_all_nodecl_structs():
         rule_rhs = rule_map[rule_name]
         for rhs in rule_rhs:
             if rhs.__class__ == NodeclStructure:
-                if rhs.tree_kind not in node_kind_set:
-                    node_kind_set.add(rhs.tree_kind)
+                if rhs.name_to_underscore() not in node_kind_set:
+                    node_kind_set.add(rhs.name_to_underscore())
                     nodes.append(rhs)
     return nodes
 
@@ -303,6 +323,23 @@ def from_underscore_to_camel_case(x):
             result += c.lower()
     return result
 
+def from_underscore_to_camel_case_namespaces(x):
+    result = ''
+    namespaces = []
+    previous_is_underscore = True
+    for c in x:
+        if c == '_' or c == '-':
+            previous_is_underscore = True
+        elif c == '*':
+            previous_is_underscore = True
+            namespaces.append(result)
+            result = ''
+        elif previous_is_underscore:
+            previous_is_underscore = False
+            result += c.upper()
+        else:
+            result += c.lower()
+    return (tuple(namespaces), result)
 
 def get_all_class_names(rule_map):
     classes = set([])
@@ -310,7 +347,16 @@ def get_all_class_names(rule_map):
         rule_rhs = rule_map[rule_name]
         for rhs in rule_rhs:
             if rhs.__class__ == NodeclStructure:
-                classes.add(from_underscore_to_camel_case(rhs.tree_kind[len(NODECL_PREFIX):]))
+                classes.add(from_underscore_to_camel_case(rhs.base_name()))
+    return classes
+
+def get_all_class_names_and_namespaces(rule_map):
+    classes = set([])
+    for rule_name in rule_map:
+        rule_rhs = rule_map[rule_name]
+        for rhs in rule_rhs:
+            if rhs.__class__ == NodeclStructure:
+                classes.add(from_underscore_to_camel_case_namespaces(rhs.base_name()))
     return classes
 
 def get_all_class_names_and_children_names(rule_map):
@@ -320,11 +366,25 @@ def get_all_class_names_and_children_names(rule_map):
         rule_rhs = rule_map[rule_name]
         for rhs in rule_rhs:
             if rhs.__class__ == NodeclStructure:
-                class_name = from_underscore_to_camel_case(rhs.tree_kind[len(NODECL_PREFIX):]);
+                class_name = from_underscore_to_camel_case(rhs.base_name())
                 if class_name not in classes_set:
                     classes_set.add(class_name)
                     subtrees = map(lambda x : x[0], rhs.subtrees)
-                    result.append((class_name, subtrees, rhs.tree_kind, rhs))
+                    result.append((class_name, subtrees, rhs.name_to_underscore(), rhs))
+    return result
+
+def get_all_class_names_and_children_names_namespaces(rule_map):
+    result = []
+    classes_set = set([])
+    for rule_name in rule_map:
+        rule_rhs = rule_map[rule_name]
+        for rhs in rule_rhs:
+            if rhs.__class__ == NodeclStructure:
+                class_name = from_underscore_to_camel_case_namespaces(rhs.base_name())
+                if class_name not in classes_set:
+                    classes_set.add(class_name)
+                    subtrees = map(lambda x : x[0], rhs.subtrees)
+                    result.append((class_name, subtrees, rhs.name_to_underscore(), rhs))
     return result
 
 def generate_nodecl_classes_fwd_decls(rule_map):
@@ -336,12 +396,19 @@ def generate_nodecl_classes_fwd_decls(rule_map):
     print "#include \"tl-nodecl-base-fwd.hpp\""
     print ""
     print "namespace Nodecl {"
-    classes = get_all_class_names(rule_map)
-    for class_name in classes:
+    classes = get_all_class_names_and_namespaces(rule_map)
+    for (namespaces, class_name) in classes:
+        for namespace in namespaces:
+            print "namespace %s { " % (namespace)
         print "class %s;" % (class_name)
+        for namespace in namespaces:
+            print "}"
     print ""
     print "} // Nodecl"
     print "#endif // TL_NODECL_FWD_HPP"
+
+def get_qualified_name(namespaces, name):
+    return string.join(list(namespaces) + [name], "::")
 
 def generate_visitor_class_header(rule_map):
     print "/* Autogenerated file. DO NOT MODIFY. */"
@@ -355,7 +422,7 @@ def generate_visitor_class_header(rule_map):
     print ""
     print "namespace Nodecl {"
     print ""
-    classes = get_all_class_names(rule_map)
+    classes = get_all_class_names_and_namespaces(rule_map)
     print "template <typename _Ret>"
     print "class BaseNodeclVisitor;"
     print "template <>"
@@ -367,8 +434,9 @@ def generate_visitor_class_header(rule_map):
     print "   public:"
     print "     typedef TL::ObjectList<_Ret> Ret;"
     print "     Ret walk(const NodeclBase&); /* If you override this member function you will be fired */"
-    for class_name in classes:
-        print "     virtual Ret visit(const Nodecl::%s &) = 0;" % (class_name)
+    for (namespaces, class_name) in classes:
+        qualified_name = get_qualified_name(namespaces, class_name)
+        print "     virtual Ret visit(const Nodecl::%s &) = 0;" % (qualified_name)
     print "   virtual ~BaseNodeclVisitor() { }"
     print "};"
     print "template <>"
@@ -377,8 +445,9 @@ def generate_visitor_class_header(rule_map):
     print "   public:"
     print "     typedef void Ret;"
     print "     Ret walk(const NodeclBase&); /* If you override this member function you will be fired */"
-    for class_name in classes:
-        print "     virtual Ret visit(const Nodecl::%s &) = 0;" % (class_name)
+    for (namespaces, class_name) in classes:
+        qualified_name = get_qualified_name(namespaces, class_name)
+        print "     virtual Ret visit(const Nodecl::%s &) = 0;" % (qualified_name)
     print "   virtual ~BaseNodeclVisitor() { }"
     print "};"
     print "template <typename _Ret>"
@@ -387,8 +456,9 @@ def generate_visitor_class_header(rule_map):
     print "   public:"
     print "     typedef typename BaseNodeclVisitor<_Ret>::Ret Ret;"
     print "   virtual Ret unhandled_node(const Nodecl::NodeclBase &) { return Ret(); }"
-    for class_name in classes:
-        print "     virtual Ret visit(const Nodecl::%s & n) { return this->unhandled_node(n); }" % (class_name)
+    for (namespaces, class_name) in classes:
+        qualified_name = get_qualified_name(namespaces, class_name)
+        print "     virtual Ret visit(const Nodecl::%s & n) { return this->unhandled_node(n); }" % (qualified_name)
     print "   virtual ~NodeclVisitor() { }"
     print "};"
     print "template <typename _Ret>"
@@ -396,11 +466,12 @@ def generate_visitor_class_header(rule_map):
     print "{"
     print "public:"
     print "     typedef typename BaseNodeclVisitor<_Ret>::Ret Ret;"
-    classes_and_children = get_all_class_names_and_children_names(rule_map)
-    for (class_name, children_name, tree_kind, nodecl_class) in classes_and_children:
-         print "     virtual Ret visit_pre(const Nodecl::%s & n) { return Ret(); }" % (class_name)
-         print "     virtual Ret visit_post(const Nodecl::%s & n) { return Ret(); }" % (class_name)
-         print "     virtual Ret visit(const Nodecl::%s & n)" % (class_name)
+    classes_and_children = get_all_class_names_and_children_names_namespaces(rule_map)
+    for ((namespaces, class_name), children_name, tree_kind, nodecl_class) in classes_and_children:
+         qualified_name = get_qualified_name(namespaces, class_name)
+         print "     virtual Ret visit_pre(const Nodecl::%s & n) { return Ret(); }" % (qualified_name)
+         print "     virtual Ret visit_post(const Nodecl::%s & n) { return Ret(); }" % (qualified_name)
+         print "     virtual Ret visit(const Nodecl::%s & n)" % (qualified_name)
          print "     {"
          print "        this->visit_pre(n);"
          child_num = 0
@@ -428,9 +499,9 @@ NodeclBase nb(::_nodecl_wrap(elem)); result.append(this->walk(nb)); } return res
         rule_rhs = rule_map[rule_name]
         for rhs in rule_rhs:
             if rhs.__class__ == NodeclStructure:
-                node_kind.add((rhs.tree_kind, from_underscore_to_camel_case(rhs.tree_kind[len(NODECL_PREFIX):].lower())))
-    for node in node_kind:
-        print "       case %s: { return this->visit(static_cast<const Nodecl::%s &>(n)); break; }" % (node[0], node[1])
+                node_kind.add((rhs.name_to_underscore(), from_underscore_to_camel_case_namespaces(rhs.base_name().lower())))
+    for (kind_name, (namespaces, class_name)) in node_kind:
+        print "       case %s: { return this->visit(static_cast<const Nodecl::%s &>(n)); break; }" % (kind_name, get_qualified_name(namespaces, class_name))
     print """
        default:
            { internal_error("Unexpected tree kind '%s'\\n", ast_print_node_type(n.get_kind())); }
@@ -467,9 +538,9 @@ NodeclBase nb(::_nodecl_wrap(elem)); this->walk(nb); } break; }
         rule_rhs = rule_map[rule_name]
         for rhs in rule_rhs:
             if rhs.__class__ == NodeclStructure:
-                node_kind.add((rhs.tree_kind, from_underscore_to_camel_case(rhs.tree_kind[len(NODECL_PREFIX):].lower())))
-    for node in node_kind:
-        print "       case %s: { this->visit(static_cast<const Nodecl::%s &>(n)); break; }" % (node[0], node[1])
+                node_kind.add((rhs.name_to_underscore(), from_underscore_to_camel_case_namespaces(rhs.base_name().lower())))
+    for (kind_name, (namespaces, class_name)) in node_kind:
+        print "       case %s: { this->visit(static_cast<const Nodecl::%s &>(n)); break; }" % (kind_name, get_qualified_name(namespaces, class_name))
     print """
        default:
            { internal_error("Unexpected tree kind '%s'\\n", ast_print_node_type(n.get_kind())); }
@@ -492,9 +563,10 @@ def generate_nodecl_classes_base(rule_map):
    
    print "namespace Nodecl {"
 
-   classes_and_children = get_all_class_names_and_children_names(rule_map)
-   for (class_name, children_name, tree_kind, nodecl_class) in classes_and_children:
-       print "class %s : public NodeclBase" % (class_name)
+   classes_and_children = get_all_class_names_and_children_names_namespaces(rule_map)
+   for ((namespaces, class_name), children_name, tree_kind, nodecl_class) in classes_and_children:
+       qualified_name = get_qualified_name(namespaces, class_name)
+       print "class %s : public NodeclBase" % (qualified_name)
        print "{"
        print "    private:"
        print "       static const int _kind = ::%s;" % (tree_kind)
@@ -545,8 +617,8 @@ def generate_nodecl_classes_specs(rule_map):
    print "#include \"tl-nodecl.hpp\""
    print ""
    print "namespace Nodecl {"
-   classes_and_children = get_all_class_names_and_children_names(rule_map)
-   for (class_name, children_name, tree_kind, nodecl_class) in classes_and_children:
+   classes_and_children = get_all_class_names_and_children_names_namespaces(rule_map)
+   for ((namespaces, class_name), children_name, tree_kind, nodecl_class) in classes_and_children:
 
        factory_parameters = []
        factory_arguments = []
@@ -578,9 +650,10 @@ def generate_nodecl_classes_specs(rule_map):
        factory_parameters.append("int line")
        factory_arguments.append("line");
 
-       nodecl_make_name = "nodecl_make_%s" % ((nodecl_class.tree_kind[len(NODECL_PREFIX):]).lower())
+       nodecl_make_name = "nodecl_make_%s" % (nodecl_class.base_name_to_underscore_lowercase())
 
-       print "%s %s::make(%s)" % (class_name, class_name, string.join(factory_parameters, ", "))
+       qualified_name = get_qualified_name(namespaces, class_name)
+       print "%s %s::make(%s)" % (qualified_name, qualified_name, string.join(factory_parameters, ", "))
        print "{"
        print "    return ::%s(%s);" % (nodecl_make_name, string.join(factory_arguments, ", "))
        print "}"
@@ -611,7 +684,7 @@ def generate_routines_header(rule_map):
        rule_rhs = rule_map[rule_name]
        for rhs in rule_rhs:
            if rhs.__class__ == NodeclStructure:
-               classes[(rhs.tree_kind[len(NODECL_PREFIX):]).lower()] = rhs
+               classes[rhs.base_name_to_underscore_lowercase()] = rhs
    for (key, rhs_rule) in classes.iteritems() :
        param_list_nodecl = map(lambda x : "nodecl_t", rhs_rule.subtrees)
        if rhs_rule.needs_symbol:
@@ -658,13 +731,13 @@ def generate_routines_impl(rule_map):
        rule_rhs = rule_map[rule_name]
        for rhs in rule_rhs:
            if rhs.__class__ == NodeclStructure:
-               classes[(rhs.tree_kind[len(NODECL_PREFIX):]).lower()] = rhs
+               classes[rhs.base_name_to_underscore_lowercase()] = rhs
    for (key, rhs_rule) in classes.iteritems() :
        param_list_nodecl = []
        param_name_list = []
        for item in rhs_rule.subtrees:
            i = 0
-           pattern = item[1].replace("-", "_") + "_%d"
+           pattern = item[1].replace("-", "_").replace("*", "_") + "_%d"
            while (pattern % i) in param_name_list:
                i = i + 1
            param_name = pattern % i
@@ -732,9 +805,9 @@ def generate_routines_impl(rule_map):
        print "  nodecl_t result = nodecl_null();"
        num_children = len(rhs_rule.subtrees)
        if num_children == 0:
-          print "  result.tree = ASTLeaf(%s, filename, line, NULL);" % (rhs_rule.tree_kind)
+          print "  result.tree = ASTLeaf(%s, filename, line, NULL);" % (rhs_rule.name_to_underscore())
        else:
-          print "  result.tree = ASTMake%d(%s, %s, filename, line, NULL);" % (num_children, rhs_rule.tree_kind, \
+          print "  result.tree = ASTMake%d(%s, %s, filename, line, NULL);" % (num_children, rhs_rule.name_to_underscore(), \
                  string.join(map(lambda x : x + ".tree", param_name_list), ", "));
 
        if rhs_rule.needs_symbol:
@@ -781,7 +854,7 @@ struct nodecl_external_visitor_tag
         rule_rhs = rule_map[rule_name]
         for rhs in rule_rhs:
             if rhs.__class__ == NodeclStructure:
-                node_kind.add(rhs.tree_kind[len(NODECL_PREFIX):].lower())
+                node_kind.add(rhs.base_name_to_underscore_lowercase())
     for node in node_kind:
         print "void (*visit_%s)(nodecl_external_visitor_t*, nodecl_t a);" % ( node )
 
@@ -821,7 +894,7 @@ void nodecl_walk(nodecl_external_visitor_t* external_visitor, nodecl_t n)
         rule_rhs = rule_map[rule_name]
         for rhs in rule_rhs:
             if rhs.__class__ == NodeclStructure:
-                node_kind.add((rhs.tree_kind, rhs.tree_kind[len(NODECL_PREFIX):].lower()))
+                node_kind.add((rhs.name_to_underscore(), rhs.base_name_to_underscore().lower()))
     for node in node_kind:
         print "       case %s: { if (external_visitor->visit_%s != NULL) external_visitor->visit_%s(external_visitor, n); break; }" % (node[0], node[1], node[1])
     print """
@@ -845,7 +918,7 @@ def generate_asttypes(rule_map):
         rule_rhs = rule_map[rule_name]
         for rhs in rule_rhs:
             if rhs.__class__ == NodeclStructure:
-                node_kind.add(rhs.tree_kind)
+                node_kind.add(rhs.name_to_underscore())
     l = list(node_kind)
     l.sort()
     for kind_name in l:
@@ -868,21 +941,21 @@ elif op_mode == "generation_routines_header":
     generate_routines_header(rule_map)
 elif op_mode == "generation_routines_impl":
     generate_routines_impl(rule_map)
-elif op_mode == "cxx_visitor_decl":
-    generate_visitor_class_header(rule_map)
-elif op_mode == "cxx_visitor_impl":
-    generate_visitor_class_impl(rule_map)
-elif op_mode == "cxx_nodecl_class_fwd_header":
-    generate_nodecl_classes_fwd_decls(rule_map)
-elif op_mode == "cxx_nodecl_class_header":
-    generate_nodecl_classes_base(rule_map)
-elif op_mode == "cxx_nodecl_class_impl":
-    generate_nodecl_classes_specs(rule_map)
 elif op_mode == "c_visitor_decl":
     generate_c_visitor_decl(rule_map)
 elif op_mode == "c_visitor_def":
     generate_c_visitor_def(rule_map)
 elif op_mode == "asttype_nodecl":
     generate_asttypes(rule_map)
+elif op_mode == "cxx_nodecl_class_fwd_header":
+    generate_nodecl_classes_fwd_decls(rule_map)
+elif op_mode == "cxx_nodecl_class_header":
+    generate_nodecl_classes_base(rule_map)
+elif op_mode == "cxx_nodecl_class_impl":
+    generate_nodecl_classes_specs(rule_map)
+elif op_mode == "cxx_visitor_decl":
+    generate_visitor_class_header(rule_map)
+elif op_mode == "cxx_visitor_impl":
+    generate_visitor_class_impl(rule_map)
 else:    
     raise Exception("Invalid op_mode %s" % (op_mode))
