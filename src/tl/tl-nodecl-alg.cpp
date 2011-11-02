@@ -271,6 +271,30 @@ namespace Nodecl
                 }
                 simplified_expr = algebraic_simplification(n);
             }
+            else if (n.is<Div>())
+            {
+                Div n_div = n.as<Div>();
+                NodeclBase lhs = n_div.get_lhs(); NodeclBase rhs = n_div.get_rhs();
+                NodeclBase new_lhs = reduce_expression(lhs);
+                NodeclBase new_rhs = reduce_expression(rhs);
+                if (!equal_nodecls(new_lhs, lhs) || !equal_nodecls(new_rhs, rhs))
+                {
+                    n = Div::make(new_lhs, new_rhs, lhs.get_type(), n.get_filename(), n.get_line());
+                }
+                simplified_expr = algebraic_simplification(n);
+            }
+            else if (n.is<Mod>())
+            {
+                Mod n_mod = n.as<Mod>();
+                NodeclBase lhs = n_mod.get_lhs(); NodeclBase rhs = n_mod.get_rhs();
+                NodeclBase new_lhs = reduce_expression(lhs);
+                NodeclBase new_rhs = reduce_expression(rhs);
+                if (!equal_nodecls(new_lhs, lhs) || !equal_nodecls(new_rhs, rhs))
+                {
+                    n = Div::make(new_lhs, new_rhs, lhs.get_type(), n.get_filename(), n.get_line());
+                }
+                simplified_expr = algebraic_simplification(n);
+            }
             else if (n.is<LowerOrEqualThan>())
             {
                 LowerOrEqualThan n_low_eq = n.as<LowerOrEqualThan>();
@@ -282,6 +306,10 @@ namespace Nodecl
                     n = Minus::make(new_lhs, new_rhs, lhs.get_type(), n.get_filename(), n.get_line());
                 }
                 simplified_expr = algebraic_simplification(n);                
+            }
+            else if (n.is<Derreference>())
+            {   // It cannot be a simplificable expression
+                simplified_expr = n;
             }
             else
             {
@@ -323,6 +351,14 @@ namespace Nodecl
      *         *    c2     =>    c1*c2     t
      *       /   \
      *     c1    t
+     * 
+     * R10 :  /
+     *      /   \          =>     0
+     *     0    c,  c != 0 
+     * 
+     * R11 :  %         %
+     *      /   \  ,  /   \   =>  0
+     *     t    1    t    t
      * 
      * R20 :    <=                  <=
      *        /    \              /    \
@@ -456,7 +492,28 @@ namespace Nodecl
                     result = Mul::make(rhs, lhs, lhs.get_type(), n.get_filename(), n.get_line());
                 }
             }
-        }        
+        }
+        else if (n.is<Div>())
+        {   // R10
+            Div n_div = n.as<Div>();
+            NodeclBase lhs = n_div.get_lhs();
+            NodeclBase rhs = n_div.get_rhs();
+            if (lhs.is_constant() && rhs.is_constant() && const_value_is_zero(lhs.get_constant()) && !const_value_is_zero(rhs.get_constant()))
+            {
+                result = const_value_to_nodecl(const_value_get_zero(/*num_bytes*/ 4, /*sign*/1));
+            }
+        }
+        else if (n.is<Mod>())
+        {
+            Mod n_mod = n.as<Mod>();
+            NodeclBase lhs = n_mod.get_lhs();
+            NodeclBase rhs = n_mod.get_rhs();
+            if ( (rhs.is_constant() && (lhs.is_constant() && const_value_is_one(lhs.get_constant())))
+                 || equal_nodecls(lhs, rhs))
+            {   // R12
+                result = const_value_to_nodecl(const_value_get_zero(/*num_bytes*/ 4, /*sign*/1));
+            }
+        }
         else if (n.is<LowerOrEqualThan>())
         {
             LowerOrEqualThan n_low_eq = n.as<LowerOrEqualThan>();
