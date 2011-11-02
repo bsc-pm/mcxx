@@ -2721,6 +2721,10 @@ static void build_scope_common_stmt(AST a,
             sym->entity_specs.is_in_common = 1;
             sym->entity_specs.in_common = common_sym;
 
+            // This name cannot be used as a function name anymore
+            if (sym->entity_specs.is_implicit_basic_type)
+                sym->entity_specs.is_implicit_but_not_function = 1;
+
             if (array_spec != NULL)
             {
                 if (is_fortran_array_type(no_ref(sym->type_information))
@@ -3054,6 +3058,10 @@ static void build_scope_data_stmt(AST a, decl_context_t decl_context, nodecl_t* 
 
         entry->value = nodecl_append_to_list(entry->value, 
                 nodecl_make_fortran_data(nodecl_item_set, nodecl_data_set, ASTFileName(data_stmt_set), ASTLine(data_stmt_set)));
+        
+        // This name cannot be used as a function name anymore
+        if (entry->entity_specs.is_implicit_basic_type)
+            entry->entity_specs.is_implicit_but_not_function = 1;
     }
 
 }
@@ -3490,6 +3498,10 @@ static void build_scope_dimension_stmt(AST a, decl_context_t decl_context, nodec
 
         if (entry->kind == SK_UNDEFINED)
             entry->kind = SK_VARIABLE;
+        
+        // This name cannot be used as a function name anymore
+        if (entry->entity_specs.is_implicit_basic_type)
+            entry->entity_specs.is_implicit_but_not_function = 1;
 
         entry->type_information = array_type;
 
@@ -4834,6 +4846,7 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
 
         entry->type_information = update_basic_type_with_type(entry->type_information, basic_type);
         entry->entity_specs.is_implicit_basic_type = 0;
+        entry->entity_specs.is_implicit_but_not_function = 0;
         entry->defined = 1;
         entry->file = ASTFileName(declaration);
         entry->line = ASTLine(declaration);
@@ -4852,6 +4865,7 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
                 {
                     sym->type_information = update_basic_type_with_type(sym->type_information, basic_type);
                     sym->entity_specs.is_implicit_basic_type = 0;
+                    sym->entity_specs.is_implicit_but_not_function = 0;
                     sym->defined = 1;
                 }
             }

@@ -1877,7 +1877,11 @@ static void check_called_symbol(
 {
     if (symbol != NULL
             && symbol->kind == SK_VARIABLE
-            && symbol->entity_specs.is_implicit_basic_type)
+            && symbol->entity_specs.is_implicit_basic_type
+            // The symbol did not have an explicit type but because of a previous usage
+            // it cannot be a function name (e.g the name appears in a DATA or COMMON)
+            && !symbol->entity_specs.is_implicit_but_not_function
+            )
     {
         // Upgrade the symbol to a function with unknown arguments
         symbol->kind = SK_FUNCTION;
@@ -3200,7 +3204,7 @@ static void check_assignment(AST expr, decl_context_t decl_context, nodecl_t* no
 {
     AST lvalue = ASTSon0(expr);
     AST rvalue = ASTSon1(expr);
-
+    
     nodecl_t nodecl_lvalue = nodecl_null();
     fortran_check_expression_impl_(lvalue, decl_context, &nodecl_lvalue);
     if (nodecl_is_err_expr(nodecl_lvalue))
@@ -3218,7 +3222,7 @@ static void check_assignment(AST expr, decl_context_t decl_context, nodecl_t* no
         return;
     }
     type_t* rvalue_type = nodecl_get_type(nodecl_rvalue);
-
+    
     scope_entry_t* assignment_op = NULL;
     char is_defined_assig = is_defined_assignment(expr, lvalue, rvalue, nodecl_lvalue, nodecl_rvalue, decl_context, &assignment_op);
 
