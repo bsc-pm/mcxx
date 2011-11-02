@@ -477,7 +477,7 @@ static void nodecl_set_parent(nodecl_t node, nodecl_t parent)
 void nodecl_exchange(nodecl_t old_node, nodecl_t new_node)
 {
     ERROR_CONDITION(nodecl_is_null(old_node), "Old node cannot be null", 0);
-    ERROR_CONDITION(nodecl_is_null(new_node), "Old node cannot be null", 0);
+    ERROR_CONDITION(nodecl_is_null(new_node), "New node cannot be null", 0);
 
     nodecl_t parent_of_old = nodecl_get_parent(old_node);
 

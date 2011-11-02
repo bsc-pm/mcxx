@@ -8,6 +8,7 @@
 #include "tl-scope.hpp"
 #include "tl-refptr.hpp"
 #include "cxx-nodecl.h"
+#include "cxx-utils.h"
 #include <cstdlib>
 
 namespace Nodecl {
@@ -236,10 +237,16 @@ namespace Nodecl {
                         return *this;
                     }
 
-
+                    private:
+                    // Constructors (only to be used by Nodecl::List)
                     struct Begin { };
                     struct Last { };
                     struct End { };
+
+                    iterator(nodecl_t top, nodecl_t current)
+                        : _top(top), _current(current), _cleanup()
+                    {
+                    }
 
                     iterator(nodecl_t top, Begin)
                         : _top(top), _current(), _cleanup()
@@ -256,6 +263,8 @@ namespace Nodecl {
                         : _top(top), _current(), _cleanup()
                     {
                     }
+
+                    friend class List;
             };
 
             // Refine this
@@ -283,6 +292,19 @@ namespace Nodecl {
             {
                 return iterator(this->get_internal_nodecl(), iterator::End());
             }
+
+            // This is end() - 1
+            const_iterator last() const
+            {
+                return const_iterator(this->get_internal_nodecl(), const_iterator::Last());
+            }
+
+            // This is end() - 1
+            iterator last()
+            {
+                return iterator(this->get_internal_nodecl(), iterator::Last());
+            }
+
             const_iterator end() const
             {
                 return const_iterator(this->get_internal_nodecl(), const_iterator::End());
@@ -317,13 +339,97 @@ namespace Nodecl {
 
             Nodecl::NodeclBase back() const
             {
-                const_iterator last(this->get_internal_nodecl(), const_iterator::Last());
-                return *last;
+                return *(this->last());
             }
 
             bool empty() const
             {
                 return this->is_null();
+            }
+
+            // Inserts _before_ the iterator it
+            void insert(iterator it, Nodecl::NodeclBase new_node)
+            {
+                if (it != this->end())
+                {
+                    nodecl_t singleton = nodecl_make_list_1(new_node.get_internal_nodecl());
+
+                    nodecl_set_child(singleton, 0, 
+                            nodecl_get_child(it._current, 0));
+
+                    nodecl_set_child(it._current, 0, singleton);
+                }
+                else // If we are the end we have to modify "this"
+                {
+                    nodecl_t old_previous = nodecl_get_child(this->get_internal_nodecl(), 0);
+                    nodecl_t old_last = nodecl_get_child(this->get_internal_nodecl(), 1);
+
+                    nodecl_set_child(this->get_internal_nodecl(), 1, new_node.get_internal_nodecl());
+
+                    nodecl_t singleton = nodecl_make_list_1(old_last);
+                    nodecl_set_child(singleton, 0, old_previous);
+
+                    nodecl_set_child(this->get_internal_nodecl(), 0, singleton);
+                }
+            }
+
+            void push_front(Nodecl::NodeclBase n)
+            {
+                insert(this->begin(), n);
+            }
+
+            void push_back(Nodecl::NodeclBase n)
+            {
+                insert(this->end(), n);
+            }
+
+            // Removes the iterator it
+            iterator erase(iterator it)
+            {
+                nodecl_t parent = nodecl_get_parent(it._current);
+
+                if (!nodecl_is_null(parent))
+                {
+                    bool is_last = (it == this->last());
+
+                    bool found = false;
+                    for (int i = 0; i < MCXX_MAX_AST_CHILDREN && !found; i++)
+                    {
+                        if (nodecl_get_ast(nodecl_get_child(parent, i)) == nodecl_get_ast(it._current))
+                        {
+                            nodecl_set_child(parent, i, 
+                                    nodecl_get_child(it._current, 0));
+                            found = true;
+                        }
+                    }
+
+                    ERROR_CONDITION(!found, "Wrong chain found in a list", 0);
+
+                    if (!is_last)
+                    {
+                        // The parent is the next one
+                        return iterator(it._top, parent);
+                    }
+                    else
+                    {
+                        // We removed the last, then we should return end
+                        return this->end();
+                    }
+                }
+                else
+                {
+                    internal_error("Impossible to remove a list without parent", 0);
+                }
+            }
+
+            void pop_front()
+            {
+                erase(this->begin());
+            }
+
+            void pop_back()
+            {
+                erase(this->last());
             }
 
             static List make(const TL::ObjectList<NodeclBase>& list);
