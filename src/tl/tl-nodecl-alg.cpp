@@ -207,7 +207,7 @@ namespace Nodecl
    
     size_t Utils::Nodecl_hash::operator() (const Nodecl::NodeclBase& n) const
     {
-        return hash_table(n.get_internal_nodecl());
+        return nodecl_hash_table(n.get_internal_nodecl());
     }
     
     bool Utils::Nodecl_comp::operator() (const Nodecl::NodeclBase& n1, const Nodecl::NodeclBase& n2) const

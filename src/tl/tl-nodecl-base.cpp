@@ -43,4 +43,27 @@ namespace Nodecl
     {
         nodecl_exchange(this->_n, new_node._n);
     }
+
+    static nodecl_t make_list_helper(const TL::ObjectList<NodeclBase>::const_iterator& first, 
+            const TL::ObjectList<NodeclBase>::const_iterator& last)
+    {
+        if (first == last)
+        {
+            return nodecl_make_list_1(first->get_internal_nodecl());
+        }
+        else
+        {
+            nodecl_t previous_list =  make_list_helper(first, last - 1);
+
+            return nodecl_append_to_list(previous_list, 
+                    last->get_internal_nodecl());
+        }
+    }
+
+    List List::make(const TL::ObjectList<NodeclBase>& list)
+    {
+        if (list.empty())
+            return nodecl_null();
+        return make_list_helper(list.begin(), list.end() - 1);
+    }
 }

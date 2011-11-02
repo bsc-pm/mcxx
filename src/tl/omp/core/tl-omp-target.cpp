@@ -198,7 +198,7 @@ namespace TL
                 return;
             }
 
-            Nodecl::NodeclBase nested_pragma = ctr.get_statement();
+            Nodecl::NodeclBase nested_pragma = ctr.get_statements();
 
             if (nested_pragma.is_null() 
                     || !PragmaUtils::is_pragma_construct("omp", "target", nested_pragma))

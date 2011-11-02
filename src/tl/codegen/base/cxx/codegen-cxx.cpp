@@ -216,7 +216,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ArraySubscript& node)
 
     // We keep a list instead of a single dimension for multidimensional arrays
     // alla Fortran
-    for(TL::ObjectList<Nodecl::NodeclBase>::iterator it = subscript.begin(); 
+    for(Nodecl::List::iterator it = subscript.begin(); 
            it != subscript.end();
            it++)
     {
@@ -1298,7 +1298,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Offsetof& node)
     // Except for the first, the remaining must be printed as usual
     Nodecl::List designator = node.get_designator().as<Nodecl::List>();
 
-    for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = designator.begin();
+    for (Nodecl::List::iterator it = designator.begin();
             it != designator.end();
             it++)
     {
@@ -1398,7 +1398,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::PragmaCustomLine& node)
 CxxBase::Ret CxxBase::visit(const Nodecl::PragmaCustomStatement& node)
 {
     Nodecl::NodeclBase pragma_line = node.get_pragma_line();
-    Nodecl::NodeclBase statement = node.get_statement();
+    Nodecl::NodeclBase statement = node.get_statements();
 
     indent();
     // FIXME  parallel|for must be printed as parallel for
@@ -1457,7 +1457,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Shaping& node)
     Nodecl::NodeclBase postfix = node.get_postfix();
     Nodecl::List seq_exp = node.get_shape().as<Nodecl::List>();
    
-    for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = seq_exp.begin();
+    for (Nodecl::List::iterator it = seq_exp.begin();
             it != seq_exp.end();
             it++)
     {

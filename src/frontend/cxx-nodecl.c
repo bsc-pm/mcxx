@@ -438,7 +438,7 @@ void nodecl_set_decl_context(nodecl_t n, decl_context_t decl_context)
     }
 }
 
-static nodecl_t nodecl_get_parent(nodecl_t n)
+nodecl_t nodecl_get_parent(nodecl_t n)
 {
     ERROR_CONDITION(nodecl_is_null(n), "Invalid node", 0);
 
@@ -497,7 +497,7 @@ void nodecl_exchange(nodecl_t old_node, nodecl_t new_node)
     internal_error("Old node was not properly chained to its parent", 0);
 }
 
-size_t hash_string(const char* str)
+static size_t hash_string(const char* str)
 {
     size_t str_hash = 0;
     int c;
@@ -511,7 +511,7 @@ size_t hash_string(const char* str)
     return str_hash;
 }
 
-size_t hash_table(nodecl_t key)
+size_t nodecl_hash_table(nodecl_t key)
 {
     size_t hash = 0;
     
@@ -537,7 +537,7 @@ size_t hash_table(nodecl_t key)
         size_t child_hash;
         for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
         {
-            child_hash = hash_table(nodecl_get_child(key, i));
+            child_hash = nodecl_hash_table(nodecl_get_child(key, i));
             hash += child_hash << (i * 2);
         }    
     }

@@ -87,7 +87,7 @@ pragma-declaration: NODECL_PRAGMA_CUSTOM_DECLARATION([pragma_line]pragma-line, [
 
 pragma-context : NODECL_PRAGMA_CONTEXT() context
 
-pragma-statement : NODECL_PRAGMA_CUSTOM_STATEMENT([pragma_line]pragma-line, [statement]statement-seq) text
+pragma-statement : NODECL_PRAGMA_CUSTOM_STATEMENT([pragma_line]pragma-line, [statements]statement-seq) text
 
 pragma-line: NODECL_PRAGMA_CUSTOM_LINE([parameters]pragma-clause-arg-seq-opt, [clauses]pragma-custom-clause-seq-opt) text
 pragma-custom-clause: NODECL_PRAGMA_CUSTOM_CLAUSE([arguments]pragma-clause-arg-seq-opt) text
@@ -336,9 +336,9 @@ parallel-execution : async-execution
                    | atomic-execution
                    | composited-execution
 
-sequential-execution : NODECL_PARALLEL*SEQUENTIAL_CODE([environment]exec-environment-seq-opt, [statements]statement-seq-opt)
+sequential-execution : NODECL_PARALLEL*SERIALIZE([environment]exec-environment-seq-opt, [statements]statement-seq-opt)
 
-async-execution : NODECL_PARALLEL*ASYNC_CODE([environment]exec-environment-seq-opt, [statements]statement-seq-opt) 
+async-execution : NODECL_PARALLEL*ASYNC([environment]exec-environment-seq-opt, [statements]statement-seq-opt) 
                 | async-call
 
 async-call : NODECL_PARALLEL*ASYNC_CALL([environment]exec-environment-seq-opt, [call]expression)
@@ -363,12 +363,12 @@ async-reduction : NODECL_PARALLEL*REDUCTION_ITEM([reductor]name, [reduced_symbol
 synchronizable-execution : NODECL_PARALLEL*SYNCHRONIZABLE([do_sync]expression, [exec]async-execution)
                          | async-execution
 
-replicated-execution : NODECL_PARALLEL*REPLICATED([environment]exec-environment-seq-opt, [num_replicas]expression-opt, [exec]synchronizable-execution)
+replicated-execution : NODECL_PARALLEL*REPLICATE([environment]exec-environment-seq-opt, [num_replicas]expression-opt, [exec]synchronizable-execution)
 
 distributed-execution : NODECL_PARALLEL*DISTRIBUTE([environment]exec-environment-seq-opt, [ranges]distribute-range-seq, [exec]synchronizable-execution)
 distribute-range : NODECL_PARALLEL*DISTRIBUTE_RANGE([lower]expression, [upper]expression, [step]expression) symbol
 
-atomic-execution : NODECL_PARALLEL*ATOMIC_EXECUTION([name]name-opt, [statements]statement-seq-opt)
+atomic-execution : NODECL_PARALLEL*ATOMIC([name]name-opt, [statements]statement-seq-opt)
 
 composited-execution : NODECL_PARALLEL*COMPOSITE([environment]exec-environment-seq-opt, [regions]parallel-execution-seq)
 

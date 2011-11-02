@@ -13,9 +13,14 @@ MCXX_BEGIN_DECLS
 nodecl_t nodecl_null(void);
 char nodecl_is_null(nodecl_t t);
 
+// Returns the internal AST
 AST nodecl_get_ast(nodecl_t t);
 
+// Deep copy of the tree
 nodecl_t nodecl_copy(nodecl_t t);
+
+// Parent
+nodecl_t nodecl_get_parent(nodecl_t t);
 
 // Children
 nodecl_t nodecl_get_child(nodecl_t n, int i);
@@ -101,7 +106,7 @@ void nodecl_set_decl_context(nodecl_t, decl_context_t);
 void nodecl_exchange(nodecl_t old_nod, nodecl_t new_node);
 
 // Hash table
-size_t hash_table(nodecl_t key);
+size_t nodecl_hash_table(nodecl_t key);
 
 MCXX_END_DECLS
 

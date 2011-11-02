@@ -69,23 +69,264 @@ namespace Nodecl {
             void replace(Nodecl::NodeclBase new_node);
     };
 
-    class List : public NodeclBase, public std::vector<NodeclBase>
+    // This class mimicks a std::list<T> but everything works by value
+    class List : public NodeclBase
     {
         private:
             static const int _kind = ::AST_NODE_LIST;
             friend class NodeclBase;
-        public:
 
-            List(const nodecl_t& n) : NodeclBase (n)
+        public:
+            typedef Nodecl::NodeclBase value_type;
+            typedef Nodecl::NodeclBase reference_type;
+            typedef Nodecl::NodeclBase const_reference_type;
+
+            struct iterator
             {
-                int num_items = 0;
-                nodecl_t* list = nodecl_unpack_list(_n, &num_items);
-                for (int i = 0; i < num_items; i++)
-                {
-                    this->push_back(list[i]);
-                }
-                ::free(list);
+                private:
+                    nodecl_t _top;
+                    nodecl_t _current;
+
+                    mutable std::vector<Nodecl::NodeclBase*> _cleanup;
+
+                    void next()
+                    {
+                        if (nodecl_get_ast(_current) == nodecl_get_ast(_top))
+                        {
+                            _current = nodecl_null();
+                        }
+                        else
+                        {
+                            _current = nodecl_get_parent(_current);
+                        }
+                    }
+
+                    void previous()
+                    {
+                        _current = nodecl_get_child(_current, 0);
+                    }
+
+                    void rewind()
+                    {
+                        _current = _top;
+                        if (nodecl_is_null(_current))
+                            return;
+
+                        while (!nodecl_is_null(nodecl_get_child(_current, 0)))
+                        {
+                            _current = nodecl_get_child(_current, 0);
+                        }
+                    }
+                public:
+                    bool operator==(const iterator& it) const
+                    { 
+                        return (nodecl_get_ast(this->_current) == nodecl_get_ast(it._current))
+                            && (nodecl_get_ast(this->_top) == nodecl_get_ast(it._top));
+                    }
+
+                    bool operator!=(const iterator& it) const
+                    {
+                        return !this->operator==(it);
+                    }
+
+                    Nodecl::NodeclBase operator*() const
+                    {
+                        return Nodecl::NodeclBase(nodecl_get_child(_current, 1));
+                    }
+
+                    Nodecl::NodeclBase* operator->() const
+                    {
+                        Nodecl::NodeclBase* p = new Nodecl::NodeclBase(nodecl_get_child(_current, 1));
+
+                        _cleanup.push_back(p);
+
+                        return p;
+                    }
+
+                    iterator(const iterator& it)
+                        : _top(it._top), _current(it._current), 
+                        // Transfer cleanup ownership
+                        _cleanup(it._cleanup)
+                    {
+                        it._cleanup.clear();
+                    }
+
+                    iterator& operator=(const iterator& it)
+                    {
+                        if (this != &it)
+                        {
+                            this->_top = it._top;
+                            this->_current = it._current;
+
+                            // Transfer cleanup ownership
+                            for (std::vector<Nodecl::NodeclBase*>::iterator it2 = it._cleanup.begin();
+                                    it2 != it._cleanup.end();
+                                    it2++)
+                            {
+                                this->_cleanup.push_back(*it2);
+                            }
+
+                            it._cleanup.clear();
+                        }
+                        return *this;
+                    }
+
+                    ~iterator()
+                    {
+                        for (std::vector<Nodecl::NodeclBase*>::iterator it = _cleanup.begin();
+                                it != _cleanup.end();
+                                it++)
+                        {
+                            Nodecl::NodeclBase* p = *it;
+                            delete p;
+                        }
+                    }
+
+                    iterator operator+(int n)
+                    {
+                        iterator it(*this);
+                        for (int i = 0; i < n; i++)
+                        {
+                            it.next();
+                        }
+                        return it;
+                    }
+
+                    iterator operator-(int n)
+                    {
+                        iterator it(*this);
+                        for (int i = 0; i < n; i++)
+                        {
+                            it.previous();
+                        }
+                        return it;
+                    }
+
+                    // it++
+                    iterator operator++(int)
+                    {
+                        iterator t(*this);
+
+                        this->next();
+
+                        return t;
+                    }
+
+                    // ++it
+                    iterator operator++()
+                    {
+                        this->next();
+                        return *this;
+                    }
+                    
+                    // it--
+                    iterator operator--(int)
+                    {
+                        iterator t(*this);
+
+                        this->previous();
+
+                        return t;
+                    }
+
+                    // --it
+                    iterator operator--()
+                    {
+                        this->next();
+                        return *this;
+                    }
+
+
+                    struct Begin { };
+                    struct Last { };
+                    struct End { };
+
+                    iterator(nodecl_t top, Begin)
+                        : _top(top), _current(), _cleanup()
+                    {
+                        rewind();
+                    }
+
+                    iterator(nodecl_t top, Last)
+                        : _top(top), _current(top), _cleanup()
+                    {
+                    }
+
+                    iterator(nodecl_t top, End)
+                        : _top(top), _current(), _cleanup()
+                    {
+                    }
+            };
+
+            // Refine this
+            typedef iterator const_iterator;
+
+            List()
+                : NodeclBase()
+            {
             }
+
+            List(const nodecl_t n) : NodeclBase(n)
+            {
+            }
+
+            iterator begin()
+            {
+                return iterator(this->get_internal_nodecl(), iterator::Begin());
+            }
+            const_iterator begin() const
+            {
+                return const_iterator(this->get_internal_nodecl(), const_iterator::Begin());
+            }
+
+            iterator end()
+            {
+                return iterator(this->get_internal_nodecl(), iterator::End());
+            }
+            const_iterator end() const
+            {
+                return const_iterator(this->get_internal_nodecl(), const_iterator::End());
+            }
+
+            size_t size() const
+            {
+                if (empty())
+                    return 0;
+                else
+                    return nodecl_list_length(this->get_internal_nodecl());
+            }
+
+            Nodecl::NodeclBase operator[](int n) const
+            {
+                // Not exactly the same but it will do
+                return at(n);
+            }
+
+            Nodecl::NodeclBase at(int n) const
+            {
+                const_iterator it = this->begin();
+                it = it + n;
+
+                return *it;
+            }
+
+            Nodecl::NodeclBase front() const
+            {
+                return *(this->begin());
+            }
+
+            Nodecl::NodeclBase back() const
+            {
+                const_iterator last(this->get_internal_nodecl(), const_iterator::Last());
+                return *last;
+            }
+
+            bool empty() const
+            {
+                return this->is_null();
+            }
+
+            static List make(const TL::ObjectList<NodeclBase>& list);
     };
 }
 
