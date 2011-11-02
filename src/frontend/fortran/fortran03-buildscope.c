@@ -2666,12 +2666,17 @@ static void build_scope_common_stmt(AST a,
     {
         AST common_block_item = ASTSon1(it);
 
-        AST common_name = ASTSon0(common_block_item);
         AST common_block_object_list = ASTSon1(common_block_item);
 
-        const char* common_name_str = ASTText(common_name);
+        const char* common_name_str = NULL;
+        AST common_name = ASTSon0(common_block_item);
+        if(common_name != NULL)
+        {
+            //It is a named common statement
+            common_name_str = ASTText(common_name);
+        }
         
-        scope_entry_t* common_sym = query_name_no_implicit_or_builtin(decl_context, get_common_name_str(ASTText(common_name)));
+        scope_entry_t* common_sym = query_name_no_implicit_or_builtin(decl_context, get_common_name_str(common_name_str));
         if (common_sym == NULL)
         {
             common_sym = new_common(decl_context, common_name_str);
@@ -2715,6 +2720,10 @@ static void build_scope_common_stmt(AST a,
 
             sym->entity_specs.is_in_common = 1;
             sym->entity_specs.in_common = common_sym;
+
+            // This name cannot be used as a function name anymore
+            if (sym->entity_specs.is_implicit_basic_type)
+                sym->entity_specs.is_implicit_but_not_function = 1;
 
             if (array_spec != NULL)
             {
@@ -3049,6 +3058,10 @@ static void build_scope_data_stmt(AST a, decl_context_t decl_context, nodecl_t* 
 
         entry->value = nodecl_append_to_list(entry->value, 
                 nodecl_make_fortran_data(nodecl_item_set, nodecl_data_set, ASTFileName(data_stmt_set), ASTLine(data_stmt_set)));
+        
+        // This name cannot be used as a function name anymore
+        if (entry->entity_specs.is_implicit_basic_type)
+            entry->entity_specs.is_implicit_but_not_function = 1;
     }
 
 }
@@ -3485,6 +3498,10 @@ static void build_scope_dimension_stmt(AST a, decl_context_t decl_context, nodec
 
         if (entry->kind == SK_UNDEFINED)
             entry->kind = SK_VARIABLE;
+        
+        // This name cannot be used as a function name anymore
+        if (entry->entity_specs.is_implicit_basic_type)
+            entry->entity_specs.is_implicit_but_not_function = 1;
 
         entry->type_information = array_type;
 
@@ -4829,6 +4846,7 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
 
         entry->type_information = update_basic_type_with_type(entry->type_information, basic_type);
         entry->entity_specs.is_implicit_basic_type = 0;
+        entry->entity_specs.is_implicit_but_not_function = 0;
         entry->defined = 1;
         entry->file = ASTFileName(declaration);
         entry->line = ASTLine(declaration);
@@ -4847,6 +4865,7 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
                 {
                     sym->type_information = update_basic_type_with_type(sym->type_information, basic_type);
                     sym->entity_specs.is_implicit_basic_type = 0;
+                    sym->entity_specs.is_implicit_but_not_function = 0;
                     sym->defined = 1;
                 }
             }
