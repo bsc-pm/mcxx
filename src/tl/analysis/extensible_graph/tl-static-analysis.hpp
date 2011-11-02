@@ -56,11 +56,16 @@ namespace TL
         static void solve_live_equations_recursive(Node* actual, bool& changed);
         
         static void substitute_reaching_definition_known_values(Node* node);
+
+        void propagate_reaching_definitions_to_graph_node(Node* node, std::map<Symbol, Nodecl::NodeclBase> induct_vars,
+                                                          const char* filename, int line);
         
         void propagate_reach_defs_among_nodes(Node* node, bool& changes);
-        
+     
         void extend_reaching_definitions_info(Node* node);
-       
+        
+        static Nodecl::NodeclBase rename_nodecl(Nodecl::NodeclBase nodecl, std::map<Symbol, Nodecl::NodeclBase> rename_map);
+      
         static nodecl_map compute_parents_reach_defs(Node* node);
     
     public:

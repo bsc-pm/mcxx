@@ -1192,4 +1192,9 @@ namespace TL
        
         return ObjectList<Nodecl::NodeclBase>();
     }
+    
+    CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::Sizeof& n)
+    {   // No evaluation performed in the sizeof expression, so no renaming needed
+        return ObjectList<Nodecl::NodeclBase>();
+    }
 }

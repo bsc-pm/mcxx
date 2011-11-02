@@ -625,7 +625,8 @@ namespace TL
             }
             else
             {
-                internal_error("More than one nodecl returned while renaming constant values", 0);
+                internal_error("More than one nodecl returned while renaming variables to ranges within a loop [%d] '%s'", 
+                               loop_node->get_id(), loop_node->get_graph_label().prettyprint().c_str());
             }
         }
         else

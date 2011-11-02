@@ -338,8 +338,7 @@ namespace TL
             void set_graph_node_liveness();
             
             //! This method computes the reaching definitions of a graph node from the reaching definitions in the nodes within it
-            void set_graph_node_reaching_definitions(std::map<Symbol, Nodecl::NodeclBase> induct_vars,
-                                                    const char* filename, int line);
+            void set_graph_node_reaching_definitions();
            
             
             //! Returns the set of variables that are alive at the entry of the node.
