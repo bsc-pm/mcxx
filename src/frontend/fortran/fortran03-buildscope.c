@@ -2666,12 +2666,17 @@ static void build_scope_common_stmt(AST a,
     {
         AST common_block_item = ASTSon1(it);
 
-        AST common_name = ASTSon0(common_block_item);
         AST common_block_object_list = ASTSon1(common_block_item);
 
-        const char* common_name_str = ASTText(common_name);
+        const char* common_name_str = NULL;
+        AST common_name = ASTSon0(common_block_item);
+        if(common_name != NULL)
+        {
+            //It is a named common statement
+            common_name_str = ASTText(common_name);
+        }
         
-        scope_entry_t* common_sym = query_name_no_implicit_or_builtin(decl_context, get_common_name_str(ASTText(common_name)));
+        scope_entry_t* common_sym = query_name_no_implicit_or_builtin(decl_context, get_common_name_str(common_name_str));
         if (common_sym == NULL)
         {
             common_sym = new_common(decl_context, common_name_str);
