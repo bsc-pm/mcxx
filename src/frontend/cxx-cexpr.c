@@ -396,6 +396,24 @@ char const_value_is_zero(const_value_t* v)
     return !const_value_is_nonzero(v);
 }
 
+char const_value_is_one(const_value_t* v)
+{
+    switch (v->kind)
+    {
+        case CVK_INTEGER:
+            return v->value.i == 1;
+        case CVK_FLOAT:
+            return v->value.f == 1.0f;
+        case CVK_DOUBLE:
+            return v->value.d == 1.0;
+        case CVK_LONG_DOUBLE:
+            return v->value.ld == 1.0L;
+        OTHER_KIND;
+    }
+
+    return 0;   
+}
+
 char const_value_is_positive(const_value_t* v)
 {
     
