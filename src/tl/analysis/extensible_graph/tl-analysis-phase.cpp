@@ -54,11 +54,7 @@ namespace TL
         for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
         {
             if (!(*it)->has_use_def_computed())
-            {
-//                 DEBUG_CODE()
-                {
-                    std::cerr << std::endl << " ==> Graph '" << (*it)->get_name() << "'" << std::endl;
-                }               
+            {             
                 cfg_visitor.set_actual_cfg(*it);
                 cfg_visitor.compute_use_def_chains((*it)->get_graph());
                 (*it)->set_use_def_computed();
@@ -69,6 +65,11 @@ namespace TL
         std::cerr << "=== LIVE VARIABLES AND TASKS ANALYSIS  ===" << std::endl;
         for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
         {
+//                 DEBUG_CODE()
+            {
+                std::cerr << std::endl << " ==> Graph '" << (*it)->get_name() << "'" << std::endl;
+            }
+                
             // Non-task nodes
             StaticAnalysis::live_variable_analysis((*it)->get_graph());
             

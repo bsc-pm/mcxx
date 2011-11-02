@@ -24,6 +24,7 @@ Cambridge, MA 02139, USA.
 
 #include <fstream>
 #include <sstream>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "cxx-codegen.h"
@@ -43,12 +44,25 @@ namespace TL
         char buffer[1024];
         getcwd(buffer, 1024);
         std::stringstream ss; ss << rand();
-        std::string dot_file_name = std::string(buffer) + "/" + name /*+ ss.str()*/ + ".dot";
+        
+        // Create the directory of dot files if necessary and the new dot file
+        struct stat st;
+        std::string directory_name = std::string(buffer) + "/dot/";
+        if ( stat(directory_name.c_str(), &st) != 0 )
+        {
+            int dot_directory = mkdir(directory_name.c_str(), S_IRWXU);
+            if (dot_directory != 0)
+            {
+                internal_error("An error occurred while creating the dot files directory in '%s'", directory_name.c_str());
+            }
+        }
+        std::string dot_file_name = directory_name + name /*+ ss.str()*/ + ".dot";
         dot_cfg.open(dot_file_name.c_str());
         
+        // Create the dog graphs
         if (dot_cfg.good())
         {
-            DEBUG_CODE()
+//             DEBUG_CODE()
             {
                 std::cerr << "=== Printing CFG to file [" << dot_file_name << "]===" << std::endl;
             }
@@ -271,6 +285,9 @@ namespace TL
                 break;
             case FLUSH_NODE:
                 dot_graph += indent + ss.str() + "[label=\"" + ss.str() + " # FLUSH\", shape=ellipse]\n";
+                break;
+            case TASKWAIT_NODE:
+                dot_graph += indent + ss.str() + "[label=\"" + ss.str() + " # TASKWAIT\", shape=ellipse]\n";
                 break;
             case BASIC_PRAGMA_DIRECTIVE_NODE:
                 internal_error("'%s' found while printing graph. We must think what to do with this kind of node", 

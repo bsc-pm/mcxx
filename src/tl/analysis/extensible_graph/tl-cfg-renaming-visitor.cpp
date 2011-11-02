@@ -417,7 +417,9 @@ namespace TL
         
         // Compute constant values for LB and UB if possible
         Nodecl::NodeclBase reduced_lb = Nodecl::Utils::reduce_expression(lb);
+        std::cerr << "Reducing LB: " << lb.prettyprint() << "  --> " << reduced_lb.prettyprint() << std::endl;
         Nodecl::NodeclBase reduced_ub = Nodecl::Utils::reduce_expression(ub);
+        std::cerr << "Reducing UB: " << ub.prettyprint() << "  --> " << reduced_ub.prettyprint() << std::endl;
         
         renamed = Nodecl::Range::make(reduced_lb, reduced_ub, stride, n.get_type(), _filename, _line);
         
@@ -1087,8 +1089,7 @@ namespace TL
         
         if (!renamed_nest.empty())
         {
-            nest = Nodecl::NodeclBase(create_nodecl_list(renamed_nest));
-            Nodecl::NodeclBase renamed = Nodecl::Conversion::make(nest, n.get_type(), _filename, _line);
+            Nodecl::NodeclBase renamed = Nodecl::Conversion::make(renamed_nest[0], n.get_type(), _filename, _line);
             
             return ObjectList<Nodecl::NodeclBase>(1, renamed);
         }

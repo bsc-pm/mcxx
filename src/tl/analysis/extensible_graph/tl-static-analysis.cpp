@@ -42,7 +42,7 @@ namespace TL
     static ext_sym_set sets_difference(ext_sym_set set1, ext_sym_set set2);
     
     //! This function returns the set which is the intersection of the two input sets
-    static ext_sym_set sets_intersection(ext_sym_set set1, ext_sym_set set2);
+//     static ext_sym_set sets_intersection(ext_sym_set set1, ext_sym_set set2);
     
     //! This function returns true if the two sets contain the same elements
     static bool sets_equals(ext_sym_set set1, ext_sym_set set2);
@@ -51,62 +51,88 @@ namespace TL
     
     static ext_sym_set sets_union(ext_sym_set set1, ext_sym_set set2)
     {
-        std::vector<ExtensibleSymbol> v_result(set1.size() + set2.size());
-        std::vector<ExtensibleSymbol>::iterator it;
-        ext_sym_set result;
-        
-        it = set_union(set1.begin(), set1.end(), set2.begin(), set2.end(), v_result.begin());
-        
-        for(int i=0; i<int(it-v_result.begin()); i++)
-        {    
-            result.insert(v_result.at(i));
-        }
+//         std::vector<ExtensibleSymbol> v_result(set1.size() + set2.size());
+//         std::vector<ExtensibleSymbol>::iterator it;
+//         ext_sym_set result;
+//         
+//         it = set_union(set1.begin(), set1.end(), set2.begin(), set2.end(), v_result.begin());
+//         
+//         for(int i=0; i<int(it-v_result.begin()); i++)
+//         {    
+//             result.insert(v_result.at(i));
+//         }
+//         
+//         return result;
+
+        ext_sym_set result = set1;
+        result.insert(set2);
         
         return result;
     }
    
     static ext_sym_set sets_difference(ext_sym_set set1, ext_sym_set set2)
     {
-        std::vector<ExtensibleSymbol> v_result(set1.size());
-        std::vector<ExtensibleSymbol>::iterator it;
+//         std::vector<ExtensibleSymbol> v_result(set1.size());
+//         std::vector<ExtensibleSymbol>::iterator it;
+//         ext_sym_set result;
+//         
+//         it = set_difference(set1.begin(), set1.end(), set2.begin(), set2.end(), v_result.begin());
+//         
+//         for(int i=0; i<int(it-v_result.begin()); i++)
+//         {    
+//             result.insert(v_result.at(i));
+//         }
+//         
+//         return result;
+
         ext_sym_set result;
-        
-        it = set_difference(set1.begin(), set1.end(), set2.begin(), set2.end(), v_result.begin());
-        
-        for(int i=0; i<int(it-v_result.begin()); i++)
-        {    
-            result.insert(v_result.at(i));
+        for (ext_sym_set::iterator it = set1.begin(); it != set1.end(); ++it)
+        {
+            if (set2.find(*it).empty())
+            {
+                result.insert(*it);
+            }
         }
+        result.insert(set2);
         
         return result;
     }
     
-    static ext_sym_set sets_intersection(ext_sym_set set1, ext_sym_set set2)
-    {
-        std::vector<ExtensibleSymbol> v_result(set1.size());
-        std::vector<ExtensibleSymbol>::iterator it;
-        ext_sym_set result;
-        
-        it = set_intersection(set1.begin(), set1.end(), set2.begin(), set2.end(), v_result.begin());
-        
-        for(int i=0; i<int(it-v_result.begin()); i++)
-        {    
-            result.insert(v_result.at(i));
-        }
-        
-        return result;        
-    }
+//     static ext_sym_set sets_intersection(ext_sym_set set1, ext_sym_set set2)
+//     {
+//         std::vector<ExtensibleSymbol> v_result(set1.size());
+//         std::vector<ExtensibleSymbol>::iterator it;
+//         ext_sym_set result;
+//         
+//         it = set_intersection(set1.begin(), set1.end(), set2.begin(), set2.end(), v_result.begin());
+//         
+//         for(int i=0; i<int(it-v_result.begin()); i++)
+//         {    
+//             result.insert(v_result.at(i));
+//         }
+//         
+//         return result;        
+//     }
 
     static bool sets_equals(ext_sym_set set1, ext_sym_set set2)
     {
         if (set1.size() == set2.size())
         {
-            std::vector<ExtensibleSymbol>::iterator it;
-            std::vector<ExtensibleSymbol> v_result(set1.size());
+//             std::vector<ExtensibleSymbol>::iterator it;
+//             std::vector<ExtensibleSymbol> v_result(set1.size());
+//             
+//             it = set_intersection(set1.begin(), set1.end(), set2.begin(), set2.end(), v_result.begin());
+//             
+//             return (int(it-v_result.begin()) == set1.size());
+            for(ext_sym_set::iterator it = set1.begin(); it != set1.end(); ++it)
+            {
+                if (set2.find(*it).empty())
+                {
+                    return false;
+                }
+            }
             
-            it = set_intersection(set1.begin(), set1.end(), set2.begin(), set2.end(), v_result.begin());
-            
-            return (int(it-v_result.begin()) == set1.size());
+            return true;
         }
         else
         {    
@@ -404,16 +430,41 @@ namespace TL
     void StaticAnalysis::solve_live_equations(Node* node)
     {
         bool changed = true;
-        while (changed)
+        int i = 0;
+        while (changed && i<20)
         {
+            i++;
             changed = false;
             solve_live_equations_recursive(node, changed);
             ExtensibleGraph::clear_visits(node);
         }
     }
-    
+
+    static std::string prettyprint_ext_sym_set(ext_sym_set s)
+    {
+        std::string result;
+        
+        for(ext_sym_set::iterator it = s.begin(); it != s.end(); ++it)
+        {
+            if (it->get_nodecl().is_null())
+            {
+                result += it->get_name() + ", ";
+            }
+            else
+            {
+                std::string nodecl_string(codegen_to_str(it->get_nodecl().get_internal_nodecl()));
+                result += nodecl_string + ", ";                
+            }
+        }
+        
+        result = result.substr(0, result.size()-2);
+        
+        return result;
+    }
+
     void StaticAnalysis::solve_live_equations_recursive(Node* actual, bool& changed)
     {
+        int i = 1;
         while (!actual->is_visited())
         {
             actual->set_visited(true);
@@ -479,7 +530,7 @@ namespace TL
                         
                         aux = sets_difference(live_out, actual->get_killed_vars());
                         live_in = sets_union(actual->get_ue_vars(), aux);
-                        
+                       
                         if (!sets_equals(old_live_in, live_in) || 
                             !sets_equals(old_live_out, live_out))
                         {
@@ -504,6 +555,10 @@ namespace TL
     {
         for (ObjectList<Node*>::iterator it = tasks.begin(); it != tasks.end(); ++it)
         {
+//                 DEBUG_CODE()
+            {
+                std::cerr << std::endl << " ==> Task '" << (*it)->get_graph_label().prettyprint() << "'" << std::endl;
+            }
             StaticAnalysis::analyse_task(*it);
             ExtensibleGraph::clear_visits(*it);
         }
@@ -765,8 +820,12 @@ namespace TL
     static Nodecl::NodeclBase match_nodecl_with_symbol(Nodecl::NodeclBase n, Symbol s, Nodecl::NodeclBase s_map)
     {
         if (!nodecl_is_constant_value(s_map))
-        {   // When the argument is a literal, no symbol is involved
-            if (n.is<Nodecl::Symbol>() || n.is<Nodecl::PointerToMember>())
+        {
+            if (n.is<Nodecl::IntegerLiteral>() || n.is<Nodecl::FloatingLiteral>() || n.is<Nodecl::ComplexLiteral>()
+                || n.is<Nodecl::StringLiteral>() || n.is<Nodecl::BooleanLiteral>())
+            {   // When the argument is a literal, no symbol is involved
+            }
+            else if (n.is<Nodecl::Symbol>() || n.is<Nodecl::PointerToMember>())
             {
                 if (n.get_symbol() == s)
                 {
@@ -828,10 +887,21 @@ namespace TL
                 {
                     return Nodecl::Conversion::make(rhs, s_map.get_type(), s_map.get_filename().c_str(), s_map.get_line());
                 }
-            }      
+            }
+            // While checking parameters, we can have many types of "Extensible symbols"
+            else if (n.is<Nodecl::Minus>())
+            {
+                Nodecl::Minus aux = n.as<Nodecl::Minus>();
+                Nodecl::NodeclBase lhs = match_nodecl_with_symbol(aux.get_lhs(), s, s_map);
+                Nodecl::NodeclBase rhs = match_nodecl_with_symbol(aux.get_rhs(), s, s_map);
+                if (!lhs.is_null() || !rhs.is_null())
+                {
+                    return Nodecl::Minus::make(lhs, rhs, s_map.get_type(), s_map.get_filename().c_str(), s_map.get_line());
+                }                
+            }
             else
             {
-                internal_error("Unexpected node type '%s' in node '%s' founded while parsing an Extensible symbol",
+                internal_error("Node type '%s' in node '%s' not yet implemented while parsing an Extensible symbol matching",
                             ast_print_node_type(n.get_kind()), n.prettyprint().c_str());
             }
         }
@@ -878,8 +948,11 @@ namespace TL
             {
                 if (!called_func_graph->has_use_def_computed())
                 {
+                    ExtensibleGraph* actual_cfg = _actual_cfg;
+                    _actual_cfg = called_func_graph;
                     compute_use_def_chains(called_func_graph->get_graph());
                     called_func_graph->set_use_def_computed();
+                    _actual_cfg = actual_cfg;
                 }
                 
                 // Map this information between arguments and parameters
@@ -949,7 +1022,7 @@ namespace TL
                 {
                     node->set_data(_UPPER_EXPOSED, node_ue_vars);
                 }
-            
+                
                 ext_sym_set called_func_killed_vars = called_func_graph->get_graph()->get_killed_vars(), node_killed_vars;
                 for(ext_sym_set::iterator it = called_func_killed_vars.begin(); it != called_func_killed_vars.end(); ++it)
                 {
@@ -1035,10 +1108,10 @@ namespace TL
     
     void CfgVisitor::compute_use_def_chains(Node* node)
     {
-        DEBUG_CODE()
+//                 DEBUG_CODE()
         {
-            std::cerr << "=== CFG Use-Def computation ===" << std::endl;
-        }
+            std::cerr << std::endl << " ==> Graph '" << _actual_cfg->get_name() << "'" << std::endl;
+        }  
 
         gather_live_initial_information(node);
         ExtensibleGraph::clear_visits(node);

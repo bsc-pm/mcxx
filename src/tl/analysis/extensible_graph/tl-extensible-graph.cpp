@@ -82,17 +82,17 @@ namespace TL
                 {
                     // Get the outer node of the new node
                     Node* outer_node = NULL;
-                    bool most_outer_graph = true;
+                    bool most_outer_node = true;
                     if (nodes_m.find(old_node->get_outer_node()) != nodes_m.end())
                     {   // We are not in the most outer node of the ExtensibleGraph
                         outer_node == nodes_m[old_node->get_outer_node()];
-                        most_outer_graph = false;
+                        most_outer_node = false;
                     }
                     
                     int id = old_node->get_id() - 1;
                     new_node = new Node(id, ntype, outer_node);
                     
-                    if (most_outer_graph)
+                    if (most_outer_node)
                     {
                         _graph = new_node;
                     }
@@ -947,10 +947,10 @@ namespace TL
         
         if (source->has_key(_OUTER_NODE) && target->has_key(_OUTER_NODE))
         {
-            Node* source_outer_graph = source->get_outer_node();
-            Node* target_outer_graph = target->get_outer_node();
+            Node* source_outer_node = source->get_outer_node();
+            Node* target_outer_node = target->get_outer_node();
 
-            if (source_outer_graph->get_id() == target_outer_graph->get_id())
+            if (source_outer_node->get_id() == target_outer_node->get_id())
             {
                 result = true;
             }

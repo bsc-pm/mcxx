@@ -95,8 +95,14 @@ namespace TL
             Nodecl::Conversion aux = n.as<Nodecl::Conversion>();
             return get_nodecl_symbol(aux.get_nest());
         }
+        else if (n.is<Nodecl::Cast>())
+        {
+            Nodecl::Cast aux = n.as<Nodecl::Cast>();
+            return get_nodecl_symbol(aux.get_rhs());
+        }
         else
         {
+            std::cerr << "AAAAAAAAAAAAAAAAAAAAA" << std::endl;
             internal_error("Unexpected type of nodecl '%s' contained in an ExtendedSymbol '%s'", 
                            ast_print_node_type(n.get_kind()), codegen_to_str(n.get_internal_nodecl()));
         }

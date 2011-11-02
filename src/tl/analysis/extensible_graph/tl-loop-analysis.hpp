@@ -102,16 +102,12 @@ namespace TL
          */
         void set_access_range_in_nodecl_map(Node* node, Node* loop_node, nodecl_map nodecl_m);
         /*!
-         * Returns whether a node contains some of the induction variables of the graph containing this node
-         * It is necessary to have already computed the induction variables of the graph
+         * Deletes those induction variables included in the list during a previous traverse through the loop control 
+         * that are redefined within the loop
          * \param node Node in the graph we are analysing
          * \param loop_node Outer loop node where is contained the node we are checking
-         * \return Whether the node defines any of the induction variables or if those variables have an undefined behaviour
-         *         - 0 the symbol is not defined
-         *         - 1 the symbol is defined
-         *         - 2 we cannot ensure what's happening with the symbol
          */
-        char induction_vars_are_defined_in_node(Node* node, Node* loop_node);
+        void delete_false_induction_vars(Node* node, Node* loop_node);
         
         void prettyprint_induction_var_info(InductionVarInfo* var_info);
         

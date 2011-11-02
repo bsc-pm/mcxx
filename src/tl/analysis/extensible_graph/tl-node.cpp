@@ -37,14 +37,14 @@ namespace TL
         set_data(_NODE_TYPE, UNCLASSIFIED_NODE);
     }
     
-    Node::Node(int& id, Node_type ntype, Node* outer_graph)
+    Node::Node(int& id, Node_type ntype, Node* outer_node)
         : _id(++id), _entry_edges(), _exit_edges(), _visited(false)
     {
         set_data(_NODE_TYPE, ntype);
         
-        if (outer_graph != NULL)
+        if (outer_node != NULL)
         {
-            set_data(_OUTER_NODE, outer_graph);
+            set_data(_OUTER_NODE, outer_node);
         }
 
         if (ntype == GRAPH_NODE)
@@ -54,27 +54,27 @@ namespace TL
         }
     }
     
-    Node::Node(int& id, Node_type type, Node* outer_graph, ObjectList<Nodecl::NodeclBase> nodecls)
+    Node::Node(int& id, Node_type type, Node* outer_node, ObjectList<Nodecl::NodeclBase> nodecls)
         : _id(++id), _entry_edges(), _exit_edges(), _visited(false)
     {        
         set_data(_NODE_TYPE, type);
         
-        if (outer_graph != NULL)
+        if (outer_node != NULL)
         {    
-            set_data(_OUTER_NODE, outer_graph);
+            set_data(_OUTER_NODE, outer_node);
         }
         
         set_data(_NODE_STMTS, nodecls);
     }
     
-    Node::Node(int& id, Node_type type, Node* outer_graph, Nodecl::NodeclBase nodecl)
+    Node::Node(int& id, Node_type type, Node* outer_node, Nodecl::NodeclBase nodecl)
         : _id(++id), _entry_edges(), _exit_edges(), _visited(false)
     {      
         set_data(_NODE_TYPE, type);
         
-        if (outer_graph != NULL)
+        if (outer_node != NULL)
         {    
-            set_data(_OUTER_NODE, outer_graph);
+            set_data(_OUTER_NODE, outer_node);
         }
         
         set_data(_NODE_STMTS, ObjectList<Nodecl::NodeclBase>(1,nodecl));
@@ -1127,7 +1127,7 @@ namespace TL
 
     static bool is_range(Nodecl::NodeclBase nodecl)
     {
-        if (nodecl.is<Nodecl::Symbol>())
+        if (nodecl.is<Nodecl::Symbol>() || nodecl.is<Nodecl::IntegerLiteral>())
         {
             return false;
         }
@@ -1155,6 +1155,42 @@ namespace TL
             Nodecl::ClassMemberAccess aux = nodecl.as<Nodecl::ClassMemberAccess>();
             return (is_range(aux.get_lhs()) || is_range(aux.get_member()));
         }
+        else if (nodecl.is<Nodecl::Reference>())
+        {
+            Nodecl::Reference aux = nodecl.as<Nodecl::Reference>();
+            return (is_range(aux.get_rhs()));
+        }
+        else if (nodecl.is<Nodecl::Derreference>())
+        {
+            Nodecl::Derreference aux = nodecl.as<Nodecl::Derreference>();
+            return (is_range(aux.get_rhs()));
+        }
+        // Many different expression can be built while the renaming period: so, here we can find any kind of expression
+        else if (nodecl.is<Nodecl::Conversion>())
+        {
+            Nodecl::Conversion aux = nodecl.as<Nodecl::Conversion>();
+            return is_range(aux.get_nest());
+        }
+        else if (nodecl.is<Nodecl::Add>())
+        {
+            Nodecl::Add aux = nodecl.as<Nodecl::Add>();
+            return (is_range(aux.get_lhs()) || is_range(aux.get_rhs()));
+        }
+        else if (nodecl.is<Nodecl::Minus>())
+        {
+            Nodecl::Minus aux = nodecl.as<Nodecl::Minus>();
+            return (is_range(aux.get_lhs()) || is_range(aux.get_rhs()));
+        }
+        else if (nodecl.is<Nodecl::Mul>())
+        {
+            Nodecl::Mul aux = nodecl.as<Nodecl::Mul>();
+            return (is_range(aux.get_lhs()) || is_range(aux.get_rhs()));
+        }
+        else if (nodecl.is<Nodecl::Div>())
+        {
+            Nodecl::Div aux = nodecl.as<Nodecl::Div>();
+            return (is_range(aux.get_lhs()) || is_range(aux.get_rhs()));
+        }        
         else
         {
             internal_error("Unexpected node type '%s' while traversing a nodecl embedded in an extensible symbol", 
@@ -1188,6 +1224,7 @@ namespace TL
                     renaming_v.set_computing_range_limits(true);
                    
                     // The rhs only must be renamed when it is not accessing an array
+                    std::cerr << " >>>>>>>>>>>>>>>>>>>>>>>>>>>> RANGE: " << first.prettyprint() << std::endl;
                     if (!is_range(first))
                     {
                         ObjectList<Nodecl::NodeclBase> renamed = renaming_v.walk(it->second);

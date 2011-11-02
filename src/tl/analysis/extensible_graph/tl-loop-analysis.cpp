@@ -176,16 +176,20 @@ namespace TL
     
     void LoopAnalysis::traverse_loop_cond(Node* loop_node, Nodecl::NodeclBase cond)
     {
+        Nodecl::LoopControl loop_control = loop_node->get_graph_label().as<Nodecl::LoopControl>();
+        
         // Logical Operators
-        if (cond.is<Nodecl::LogicalAnd>())
+        if (cond.is<Nodecl::Symbol>())
+        {   // No limits to be computed
+        }
+        else if (cond.is<Nodecl::LogicalAnd>())
         {
-//             Nodecl::LogicalAnd cond_ = cond.as<Nodecl::LogicalAnd>();
-//             
-//             result = traverse_loop_cond(init_info_l, cond_.get_lhs());
-//             
-//             // To mix the values is not trivial, we have to get the bigger or the smaller, depending on the stride (positive or negative)
-//             cond_values.insert(traverse_loop_cond(init_info_l, cond_.get_rhs()));
-            internal_error("Combined && expressions as loop condition not yet implemented", 0);
+            // Traverse left and right parts
+            Nodecl::LogicalAnd cond_ = cond.as<Nodecl::LogicalAnd>();
+            traverse_loop_cond(loop_node, cond_.get_lhs());
+            traverse_loop_cond(loop_node, cond_.get_rhs());
+            
+            std::cerr << "warning: Combined && expressions as loop condition not properly implemented" << std::endl;
         }
         else if (cond.is<Nodecl::LogicalOr>())
         {
@@ -373,7 +377,7 @@ namespace TL
         }
     }
 
-    char LoopAnalysis::induction_vars_are_defined_in_node(Node* node, Node* loop_node)
+    void LoopAnalysis::delete_false_induction_vars(Node* node, Node* loop_node)
     {
         if (!node->is_visited())
         {
@@ -390,16 +394,30 @@ namespace TL
                     for (ext_sym_set::iterator it = killed_vars.begin(); it != killed_vars.end(); ++it)
                     {
                         if (induction_vars_l_contains_symbol(loop_node, it->get_symbol()) != NULL)
-                        {
-                            return '1';
+                        {   // Delete the Ind var
+                            for(induc_vars_map::iterator it_ind = _induction_vars.begin(); it_ind != _induction_vars.end(); ++it_ind)
+                            {
+                                if (it_ind->first == loop_node->get_id()
+                                    && it_ind->second->get_symbol() == it->get_symbol())
+                                {
+                                    _induction_vars.erase(it_ind);
+                                }
+                            }
                         }
                     }
                     ext_sym_set undef_behaviour_vars = node->get_undefined_behaviour_vars();
                     for (ext_sym_set::iterator it = undef_behaviour_vars.begin(); it != undef_behaviour_vars.end(); ++it)
                     {
                         if (induction_vars_l_contains_symbol(loop_node, it->get_symbol()) != NULL)
-                        {
-                            return '2';
+                        {   // Delete the Ind var
+                            for(induc_vars_map::iterator it_ind = _induction_vars.begin(); it_ind != _induction_vars.end(); ++it_ind)
+                            {
+                                if (it_ind->first == loop_node->get_id()
+                                    && it_ind->second->get_symbol() == it->get_symbol())
+                                {
+                                    _induction_vars.erase(it_ind);
+                                }
+                            }
                         }
                     }                       
                 }
@@ -407,22 +425,9 @@ namespace TL
                 ObjectList<Node*> children = node->get_children();
                 for (ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
                 {
-                    char result = induction_vars_are_defined_in_node(*it, loop_node);
-                    if (result != '0')
-                    {
-                        return result;
-                    }
+                    delete_false_induction_vars(*it, loop_node);
                 }
-                return '0';
             }
-            else
-            {
-                return '0';
-            }
-        }
-        else
-        {
-            return '0';
         }
     }
     
@@ -465,11 +470,12 @@ namespace TL
             {
                 std::pair<induc_vars_map::const_iterator, induc_vars_map::const_iterator> outer_ind_vars =
                         _induction_vars.equal_range(outer_node->get_id());
-                
+               
                 for (induc_vars_map::const_iterator it = outer_ind_vars.first; it != outer_ind_vars.second; ++it)
                 {
                     _induction_vars.insert(induc_vars_map::value_type(loop_node->get_id(), it->second));
                 }
+                break;  // If there are more outer loops analysed, their info has been already propagated to the nearest outer node
             }
             outer_node = outer_node->get_outer_node();
         }
@@ -482,11 +488,7 @@ namespace TL
         
         // Check whether the statements within the loop modify the induction variables founded in the loop control
         Node* entry = loop_node->get_data<Node*>(_ENTRY_NODE);
-        char result = induction_vars_are_defined_in_node(entry, loop_node);
-        if (result != '0')
-        {   // FIXME The variable in the loop control is not an invariant
-            internal_error("Analysis of variables in a loop control that are not an induction variable are not yet implemented", 0);
-        }
+        delete_false_induction_vars(entry, loop_node);
         
         ExtensibleGraph::clear_visits(entry);
     }

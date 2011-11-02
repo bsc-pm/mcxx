@@ -114,7 +114,7 @@ namespace TL
               \param outer_node Pointer to the wrapper node. If the node does not belong to other
                                 node, then this parameter must be NULL.
              */
-            Node(int& id, Node_type type, Node* outer_graph);
+            Node(int& id, Node_type type, Node* outer_node);
             
             //! Node Constructor for Basic Normal Nodes.
             /*!
@@ -125,11 +125,11 @@ namespace TL
              *                   node, then this parameter must be NULL.
              * \param nodecls List of Nodecl containing the Statements to be included in the new node
              */
-            Node(int& id, Node_type type, Node* outer_graph, ObjectList<Nodecl::NodeclBase> nodecls);
+            Node(int& id, Node_type type, Node* outer_node, ObjectList<Nodecl::NodeclBase> nodecls);
 
             //! Wrapper constructor in the for Basic Nodes with statements in the case that only one statement
             //! must be included in the list
-            Node(int& id, Node_type type, Node* outer_graph, Nodecl::NodeclBase nodecl);
+            Node(int& id, Node_type type, Node* outer_node, Nodecl::NodeclBase nodecl);
             
             bool operator==(const Node& node) const;
            

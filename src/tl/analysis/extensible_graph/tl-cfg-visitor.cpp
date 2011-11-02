@@ -650,6 +650,12 @@ namespace TL
         {
             _actual_cfg->create_barrier_node(_actual_cfg->_outer_node.top());
         }
+        else if (pragma_line == "taskwait")
+        {
+            Node* taskwait_node = new Node(_actual_cfg->_nid, TASKWAIT_NODE, _actual_cfg->_outer_node.top());
+            _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, taskwait_node);
+            _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(taskwait_node);
+        }
         else
         {    
             internal_error("Unexpected directive '%s' found while building the CFG.", pragma_line.c_str());
@@ -676,14 +682,12 @@ namespace TL
         Node* task_graph_node;
         if (n.template is<Nodecl::PragmaCustomDeclaration>())
         {   // We must build here a new Extensible Graph
-            std::cerr << "TASK IS DECLARATION" << std::endl;
             ExtensibleGraph* last_actual_cfg = _actual_cfg;
             _actual_cfg = new ExtensibleGraph("pragma_" + n.get_symbol().get_name());
             
             Symbol next_sym = n.get_symbol();
             if (next_sym.is_function())
             {
-                std::cerr << "IT IS RELATED TO A FUNCTION" << std::endl;
                 scope_entry_t* next_sym_ = next_sym.get_internal_symbol();
                 Nodecl::FunctionCode func(next_sym_->entity_specs.function_code);
                 Nodecl::Context ctx = func.get_statements().as<Nodecl::Context>();
@@ -713,8 +717,7 @@ namespace TL
                 _actual_cfg->connect_nodes(graph_entry, graph_exit);
                 
                 _actual_cfg->dress_up_graph();
-           
-                std::cerr << "Appending task graph: " << _actual_cfg->get_name() << std::endl;
+          
                 _cfgs.append(_actual_cfg);
                 
                 _actual_cfg = last_actual_cfg;
@@ -726,7 +729,6 @@ namespace TL
         }
         else
         {   // PragmaCustomStatement
-            std::cerr << "TASK IS STATEMENT" << std::endl;
             previous_nodes = _actual_cfg->_last_nodes;
             task_graph_node = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), n.get_pragma_line(), TASK, 
                                                              _context_s.top());

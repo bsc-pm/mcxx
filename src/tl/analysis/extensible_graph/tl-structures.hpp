@@ -41,6 +41,7 @@ namespace TL
         BASIC_FUNCTION_CALL_NODE,       //! Node containing a Function Call
         FLUSH_NODE,                     //! Node containing an OMP Flush directive
         BARRIER_NODE,                   //! Node containing an OMP Barrier directive
+        TASKWAIT_NODE,                  //! Node containing a Taskwait directive
         BASIC_PRAGMA_DIRECTIVE_NODE,    //! Node containing an OMP Pragma directive (not permanent)
         // COMPOSITE
         GRAPH_NODE                      //! Composite node

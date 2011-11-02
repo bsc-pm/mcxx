@@ -385,4 +385,14 @@ namespace Nodecl
     {
         return TL::ObjectList<const_value_t*>();
     }
+    
+    Calculator::Ret Calculator::visit(const Nodecl::ArraySubscript& n)
+    {
+        return TL::ObjectList<const_value_t*>();
+    }
+
+    Calculator::Ret Calculator::visit(const Nodecl::Cast& n)
+    {
+        return walk(n.get_rhs());
+    }
 }

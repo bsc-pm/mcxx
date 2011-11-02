@@ -91,6 +91,7 @@ namespace TL
     };
     
     // FIXME This should be changed by an unordered_set in c++0x
+    // Changing te type of ext_sym_set forces changing the static methods in "static_analysis" sets union, difference, equal and intersection
     typedef ObjectList<ExtensibleSymbol> ext_sym_set;
 }
 

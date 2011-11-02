@@ -41,6 +41,8 @@ namespace Nodecl
         Ret visit(const Nodecl::BooleanLiteral& n);
         Ret visit(const Nodecl::StringLiteral& n);
         Ret visit(const Nodecl::Derreference& n);
+        Ret visit(const Nodecl::ArraySubscript& n);
+        Ret visit(const Nodecl::Cast& n);
         
     public:
         // *** Constructors *** //
