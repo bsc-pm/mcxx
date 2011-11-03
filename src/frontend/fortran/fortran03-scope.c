@@ -160,8 +160,10 @@ static scope_entry_t* new_implicit_symbol(decl_context_t decl_context, AST locus
             (*(decl_context.implicit_info->data->implicit_letter_set))[tolower(name[0]) - 'a'];
         if (implicit_type == NULL)
             return NULL;
-
-        scope_entry_t* sym = new_symbol(decl_context, decl_context.current_scope, strtolower(name));
+        
+        //The implicits ymbols will be stored in the current scope of the program unit
+        decl_context_t program_unit_context = decl_context.current_scope->related_entry->related_decl_context;
+        scope_entry_t* sym = new_symbol(program_unit_context, program_unit_context.current_scope, strtolower(name));
         sym->kind = SK_VARIABLE;
         sym->type_information = implicit_type;
         sym->entity_specs.is_implicit_basic_type = 1;
