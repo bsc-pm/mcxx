@@ -5990,6 +5990,14 @@ static char declarator_needs_parentheses(type_t* type_info)
     return result;
 }
 
+static char is_function_or_template_function_name(scope_entry_t* entry, void* p UNUSED_PARAMETER)
+{
+    return (entry->kind == SK_FUNCTION
+            || (entry->kind == SK_TEMPLATE
+                && (named_type_get_symbol(
+                        template_type_get_primary_type(entry->type_information))->kind == SK_FUNCTION)));
+}
+
 // Gives a string with the name of this simple type
 static const char* get_simple_type_name_string_internal(decl_context_t decl_context, simple_type_t* simple_type)
 {
@@ -6013,6 +6021,40 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
                 {
                     result = strappend("typename ", result);
                 }
+
+                if (entry->kind == SK_CLASS
+                        || entry->kind == SK_ENUM)
+                {
+                    // It may happen that a function is hiding our typename in this scope
+                    scope_entry_list_t* entry_list = query_in_scope_str(entry->decl_context, entry->symbol_name);
+                    entry_list = filter_symbol_using_predicate(entry_list, is_function_or_template_function_name, NULL);
+
+                    // It seems somebody is hiding our name in this scope
+                    if (entry_list != NULL)
+                    {
+                        if (entry->kind == SK_ENUM)
+                        {
+                            result = strappend("enum ", result);
+                        }
+                        else if (entry->kind == SK_CLASS)
+                        {
+                            switch (class_type_get_class_kind(entry->type_information))
+                            {
+                                case CK_UNION:
+                                    result = strappend("union ", result); break;
+                                case CK_STRUCT:
+                                    result = strappend("struct ", result); break;
+                                case CK_CLASS:
+                                    result = strappend("class ", result); break;
+                                default:
+                                    internal_error("Code unreachable", 0);
+                            }
+                        }
+                    }
+
+                    entry_list_free(entry_list);
+                }
+
                 break;
             }
         case STK_TYPEOF :
