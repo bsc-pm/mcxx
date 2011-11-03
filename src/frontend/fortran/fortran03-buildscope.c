@@ -5186,12 +5186,7 @@ static scope_entry_t* insert_symbol_from_module(scope_entry_t* entry,
         {
             return existing_name;
         }
-        else if (explicitly_used)
-        {
-            warn_printf("%s:%d: warning: name '%s' is already in use by some other entity\n",
-                    filename, line, aliased_name);
-        }
-        // We allow the symbol be repeated, using it should be wrong
+        // We allow the symbol be repeated, using it should be wrong (but this is not checked!)
     }
     entry_list_free(check_repeated_name);
 

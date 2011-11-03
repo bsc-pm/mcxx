@@ -347,6 +347,10 @@ def print_fortran_modules_functions(lines):
           attr_names.append(name)
           _format.append("%lld")
           _insert_code.append("    insert_type(handle, sym->entity_specs." + name + ");");
+      elif (_type == "symbol"):
+          attr_names.append(name)
+          _format.append("%lld")
+          _insert_code.append("    insert_symbol(handle, sym->entity_specs." + name + ");");
       elif (_type == "string"):
           attr_names.append(name)
           _format.append("%Q")
