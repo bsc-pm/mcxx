@@ -5139,12 +5139,61 @@ static scope_entry_t* query_module_for_symbol_name(scope_entry_t* module_symbol,
     return sym_in_module;
 }
 
+static char come_from_the_same_module(scope_entry_t* new_symbol_used,
+        scope_entry_t* existing_symbol)
+{
+    // Jump all indirections through modules
+    if (new_symbol_used->entity_specs.from_module != NULL)
+    {
+        ERROR_CONDITION(new_symbol_used->entity_specs.alias_to == NULL, "Invalid symbol", 0);
+        return come_from_the_same_module(new_symbol_used->entity_specs.alias_to, 
+                existing_symbol);
+    }
+    if (existing_symbol->entity_specs.from_module != NULL)
+    {
+        ERROR_CONDITION(existing_symbol->entity_specs.alias_to == NULL, "Invalid symbol", 0);
+        return come_from_the_same_module(new_symbol_used, 
+                existing_symbol->entity_specs.alias_to);
+    }
+
+    ERROR_CONDITION(new_symbol_used->entity_specs.in_module == NULL, "This should not happen to a symbol coming from a MODULE\n", 0);
+
+    if (existing_symbol->entity_specs.in_module != NULL)
+    {
+        return (strcasecmp(new_symbol_used->entity_specs.in_module->symbol_name, 
+                existing_symbol->entity_specs.in_module->symbol_name) == 0);
+    }
+
+    return 0;
+}
+
 static scope_entry_t* insert_symbol_from_module(scope_entry_t* entry, 
         decl_context_t decl_context, 
         const char* aliased_name, 
-        scope_entry_t* module_symbol)
+        scope_entry_t* module_symbol,
+        char explicitly_used,
+        const char* filename,
+        int line)
 {
     ERROR_CONDITION(aliased_name == NULL, "Invalid alias name", 0);
+
+    scope_entry_list_t* check_repeated_name = query_name_str(decl_context, aliased_name);
+
+    if (check_repeated_name != NULL)
+    {
+        scope_entry_t* existing_name = entry_list_head(check_repeated_name);
+        if (come_from_the_same_module(entry, existing_name))
+        {
+            return existing_name;
+        }
+        else if (explicitly_used)
+        {
+            warn_printf("%s:%d: warning: name '%s' is already in use by some other entity\n",
+                    filename, line, aliased_name);
+        }
+        // We allow the symbol be repeated, using it should be wrong
+    }
+    entry_list_free(check_repeated_name);
 
     // Why do we duplicate instead of insert_entry or insert_alias?
     //
@@ -5153,16 +5202,28 @@ static scope_entry_t* insert_symbol_from_module(scope_entry_t* entry,
     scope_entry_t* current_symbol = NULL;
     current_symbol = new_fortran_symbol(decl_context, aliased_name);
 
+    if (decl_context.current_scope->related_entry != NULL
+            && decl_context.current_scope->related_entry->kind == SK_MODULE)
+    {
+        scope_entry_t* module = decl_context.current_scope->related_entry;
+
+        P_LIST_ADD_ONCE(module->entity_specs.related_symbols,
+                module->entity_specs.num_related_symbols,
+                current_symbol);
+
+        current_symbol->entity_specs.in_module = module;
+    }
+
     // Copy everything and restore the name
     *current_symbol = *entry;
     current_symbol->symbol_name = aliased_name;
 
     current_symbol->entity_specs.from_module = module_symbol;
+    current_symbol->entity_specs.alias_to = entry;
 
     if (strcmp(aliased_name, entry->symbol_name) != 0)
     {
         current_symbol->entity_specs.is_renamed = 1;
-        current_symbol->entity_specs.alias_to = entry;
     }
 
     if (entry->entity_specs.is_generic_spec)
@@ -5178,7 +5239,10 @@ static scope_entry_t* insert_symbol_from_module(scope_entry_t* entry,
                     entry->entity_specs.related_symbols[i],
                     decl_context,
                     entry->entity_specs.related_symbols[i]->symbol_name,
-                    module_symbol);
+                    module_symbol,
+                    // ???
+                    /* explicitly_used */ 0,
+                    filename, line);
 
             P_LIST_ADD(current_symbol->entity_specs.related_symbols,
                     current_symbol->entity_specs.num_related_symbols,
@@ -5292,7 +5356,13 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
                             module_symbol->symbol_name);
                 }
 
-                insert_symbol_from_module(sym_in_module, decl_context, get_name_of_generic_spec(local_name), module_symbol);
+                insert_symbol_from_module(sym_in_module, 
+                        decl_context, 
+                        get_name_of_generic_spec(local_name), 
+                        module_symbol, 
+                        /* explicitly_used */ 1,
+                        ASTFileName(local_name), 
+                        ASTLine(local_name));
 
                 // "USE M, C => A, D => A" is valid so we avoid adding twice
                 // 'A' in the list (it would be harmless, though)
@@ -5324,7 +5394,13 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
             }
             if (!found)
             {
-                insert_symbol_from_module(sym_in_module, decl_context, sym_in_module->symbol_name, module_symbol);
+                insert_symbol_from_module(sym_in_module, 
+                        decl_context, 
+                        sym_in_module->symbol_name, 
+                        module_symbol,
+                        /* explicitly_used */ 0,
+                        ASTFileName(a), 
+                        ASTLine(a));
             }
         }
     }
@@ -5354,7 +5430,13 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
                                     module_symbol->symbol_name);
                         }
 
-                        insert_symbol_from_module(sym_in_module, decl_context, get_name_of_generic_spec(local_name), module_symbol);
+                        insert_symbol_from_module(sym_in_module, 
+                                decl_context, 
+                                get_name_of_generic_spec(local_name), 
+                                module_symbol, 
+                                /* explicitly_used */ 1,
+                                ASTFileName(local_name), 
+                                ASTLine(local_name));
                         break;
                     }
                 default:
@@ -5374,7 +5456,13 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
                                     module_symbol->symbol_name);
                         }
 
-                        insert_symbol_from_module(sym_in_module, decl_context, sym_in_module->symbol_name, module_symbol);
+                        insert_symbol_from_module(sym_in_module, 
+                                decl_context, 
+                                sym_in_module->symbol_name, 
+                                module_symbol,
+                                /* explicitly_used */ 1,
+                                ASTFileName(sym_in_module_name), 
+                                ASTLine(sym_in_module_name));
                         break;
                     }
             }
