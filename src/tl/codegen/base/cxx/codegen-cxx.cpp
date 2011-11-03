@@ -611,7 +611,14 @@ CxxBase::Ret CxxBase::visit(const Nodecl::EmptyStatement& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::ErrExpr& node)
 {
-    file << "<<error expression>>";
+    if (!this->is_file_output())
+    {
+        file << "<<error expression>>";
+    }
+    else
+    {
+        internal_error("Error expression found when the output is a file", 0);
+    }
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::ExpressionStatement& node)
@@ -949,9 +956,13 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
         file << "template<>\n";
     }
 
+    bool requires_extern_linkage = false;
     CXX_LANGUAGE()
     {
-        if (symbol.has_nondefault_linkage())
+        requires_extern_linkage = (!symbol.is_member() 
+                && symbol.has_nondefault_linkage());
+
+        if (requires_extern_linkage)
         {
             file << "extern " + symbol.get_linkage() + "\n";
             indent();
@@ -984,7 +995,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 
     CXX_LANGUAGE()
     {
-        if (symbol.has_nondefault_linkage())
+        if (requires_extern_linkage)
         {
             dec_indent();
             indent();
@@ -2793,9 +2804,13 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
             std::string declarator;
             std::string bit_field;
 
+            bool requires_extern_linkage = false;
             CXX_LANGUAGE()
             {
-                if (symbol.has_nondefault_linkage())
+                requires_extern_linkage = (!symbol.is_member() 
+                        && symbol.has_nondefault_linkage());
+
+                if (requires_extern_linkage)
                 {
                     file << "extern " + symbol.get_linkage() + "\n";
                     indent();
@@ -3038,7 +3053,7 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
 
             CXX_LANGUAGE()
             {
-                if (symbol.has_nondefault_linkage())
+                if (requires_extern_linkage)
                 {
                     dec_indent();
                     indent();
@@ -3197,11 +3212,15 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
                     &CxxBase::define_nonlocal_entities_in_trees);
 
             char is_primary_template = 0;
+            bool requires_extern_linkage = false;
             CXX_LANGUAGE()
             {
                 move_to_namespace_of_symbol(symbol);
 
-                if (symbol.has_nondefault_linkage())
+                requires_extern_linkage = (!symbol.is_member() 
+                        && symbol.has_nondefault_linkage());
+
+                if (requires_extern_linkage)
                 {
                     file << "extern " + symbol.get_linkage() + "\n";
                     indent();
@@ -3291,7 +3310,7 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
 
             CXX_LANGUAGE()
             {
-                if (symbol.has_nondefault_linkage())
+                if (requires_extern_linkage)
                 {
                     dec_indent();
                     indent();
