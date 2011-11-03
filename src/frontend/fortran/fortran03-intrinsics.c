@@ -195,6 +195,7 @@ FORTRAN_GENERIC_INTRINSIC(random_number, "HARVEST", S, NULL) \
 FORTRAN_GENERIC_INTRINSIC(random_seed, "SIZE,PUT,GET", S, NULL) \
 FORTRAN_GENERIC_INTRINSIC(range, "X", I, simplify_range) \
 FORTRAN_GENERIC_INTRINSIC(real, "A,?KIND", E, simplify_real) \
+FORTRAN_GENERIC_INTRINSIC(float, "A", E, simplify_float) \
 FORTRAN_GENERIC_INTRINSIC(repeat, "STRING,NCOPIES", T, NULL) \
 FORTRAN_GENERIC_INTRINSIC(reshape, "SOURCE,SHAPE,?PAD,?ORDER", T, NULL) \
 FORTRAN_GENERIC_INTRINSIC(rrspacing, "X", E, NULL) \
@@ -991,7 +992,6 @@ static void fortran_init_specific_names(decl_context_t decl_context)
     REGISTER_SPECIFIC_INTRINSIC_1("dtan", "tan", get_double_type());
     REGISTER_SPECIFIC_INTRINSIC_1("dtanh", "tanh", get_double_type());
     REGISTER_SPECIFIC_INTRINSIC_1("exp", "exp", get_float_type());
-    REGISTER_SPECIFIC_INTRINSIC_2("float", "real", get_signed_int_type(), NULL);
     REGISTER_SPECIFIC_INTRINSIC_1("iabs", "abs", get_signed_int_type());
     REGISTER_SPECIFIC_INTRINSIC_2("ichar", "ichar", default_char, NULL);
     REGISTER_SPECIFIC_INTRINSIC_2("idim", "dim", get_signed_int_type(), get_signed_int_type());
@@ -4033,6 +4033,23 @@ scope_entry_t* compute_intrinsic_real(scope_entry_t* symbol UNUSED_PARAMETER,
                 choose_float_type_from_kind(argument_expressions[1], dr),
                 t0,
                 get_signed_int_type());
+    }
+    return NULL;
+}
+
+scope_entry_t* compute_intrinsic_float(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = get_rank0_type(argument_types[0]);
+
+    if (is_integer_type(t0))
+    {
+        return GET_INTRINSIC_ELEMENTAL("float", 
+                get_float_type(),
+                t0);
     }
     return NULL;
 }

@@ -162,25 +162,6 @@ static int check_expression_function_compare(const void *a, const void *b)
         return 0;
 }
 
-#define RETURN_IF_ERROR_2(t1, t2, e) \
-{ \
-    if (is_error_type(t1) \
-        || is_error_type(t2)) \
-    { \
-       *nodecl_output = nodecl_make_err_expr(ASTFileName(e), ASTLine(e)); \
-       return; \
-    }\
-}
-
-#define RETURN_IF_ERROR_1(t1, e) \
-{ \
-    if (is_error_type(t1)) \
-    { \
-       *nodecl_output = nodecl_make_err_expr(ASTFileName(e), ASTLine(e)); \
-       return; \
-    } \
-}
-
 static void fortran_check_expression_impl_(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     ERROR_CONDITION(expression == NULL, "Invalid tree for expression", 0);
@@ -2651,10 +2632,14 @@ static void common_binary_check(AST expr, decl_context_t decl_context, nodecl_t*
     type_t* lhs_type = nodecl_get_type(nodecl_lhs);
     type_t* rhs_type = nodecl_get_type(nodecl_rhs);
 
-    RETURN_IF_ERROR_2(lhs_type, rhs_type, expr);
+    if (nodecl_is_err_expr(nodecl_lhs)
+            || nodecl_is_err_expr(nodecl_rhs))
+    {
+       *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr)); 
+       return;
+    }
 
     common_binary_intrinsic_check(expr, decl_context, lhs_type, rhs_type, nodecl_lhs, nodecl_rhs, nodecl_output);
-
 }
 
 static void common_binary_intrinsic_check(AST expr, decl_context_t decl_context, type_t* lhs_type, type_t* rhs_type,
@@ -2674,7 +2659,11 @@ static void common_unary_check(AST expr, decl_context_t decl_context, nodecl_t* 
 
     type_t* rhs_type = nodecl_get_type(nodecl_expr);
 
-    RETURN_IF_ERROR_1(rhs_type, expr);
+    if (nodecl_is_err_expr(nodecl_expr))
+    {
+       *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr)); 
+       return;
+    }
 
     common_unary_intrinsic_check(expr, decl_context, rhs_type, nodecl_expr, nodecl_output);
 
