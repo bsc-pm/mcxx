@@ -108,7 +108,7 @@ namespace TL { namespace OpenMP {
     void Base::barrier_handler_post(TL::PragmaCustomDirective directive) 
     {
         directive.replace(
-                Nodecl::Parallel::Barrier::make(directive.get_filename(), directive.get_line())
+                Nodecl::Parallel::BarrierFull::make(directive.get_filename(), directive.get_line())
                 );
     }
 

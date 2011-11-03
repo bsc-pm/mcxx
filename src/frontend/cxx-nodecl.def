@@ -360,18 +360,21 @@ exec-environment : NODECL_PARALLEL*CONDITION([condition]expression)
 
 async-reduction : NODECL_PARALLEL*REDUCTION_ITEM([reductor]name, [reduced_symbols]name-seq)
 
-synchronizable-execution : NODECL_PARALLEL*SYNCHRONIZABLE([do_sync]expression, [exec]async-execution)
-                         | async-execution
+replicated-execution : NODECL_PARALLEL*REPLICATE([environment]exec-environment-seq-opt, [num_replicas]expression-opt, [exec]async-execution)
 
-replicated-execution : NODECL_PARALLEL*REPLICATE([environment]exec-environment-seq-opt, [num_replicas]expression-opt, [exec]synchronizable-execution)
-
-distributed-execution : NODECL_PARALLEL*DISTRIBUTE([environment]exec-environment-seq-opt, [ranges]distribute-range-seq, [exec]synchronizable-execution)
+distributed-execution : NODECL_PARALLEL*DISTRIBUTE([environment]exec-environment-seq-opt, [ranges]distribute-range-seq, [exec]async-execution)
 distribute-range : NODECL_PARALLEL*DISTRIBUTE_RANGE([lower]expression, [upper]expression, [step]expression) symbol
 
 atomic-execution : NODECL_PARALLEL*ATOMIC([name]name-opt, [statements]statement-seq-opt)
 
 composited-execution : NODECL_PARALLEL*COMPOSITE([environment]exec-environment-seq-opt, [regions]parallel-execution-seq)
 
-synchronization : NODECL_PARALLEL*ASYNC_WAIT([expressions] expression-seq-opt)
+synchronization : NODECL_PARALLEL*WAIT_ASYNCS_DEPENDENCES([expressions] expression-seq-opt)
+# First level
+                | NODECL_PARALLEL*WAIT_ASYNCS_SHALLOW()
+# All levels
+                | NODECL_PARALLEL*WAIT_ASYNCS_DEEP()
                 | NODECL_PARALLEL*FLUSH_MEMORY([expressions] expression-seq-opt)
-                | NODECL_PARALLEL*BARRIER()
+                | NODECL_PARALLEL*BARRIER_FULL()
+                | NODECL_PARALLEL*BARRIER_SIGNAL()
+                | NODECL_PARALLEL*BARRIER_WAIT()
