@@ -973,8 +973,17 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
         }
     }
 
+    if (!symbol.is_member()
+            && asm_specification != "")
+    {
+        // gcc does not like asm specifications appear in the
+        // function-definition so emit a declaration before the definition
+        indent();
+        file << decl_spec_seq << gcc_attributes << declarator << exception_spec << asm_specification << ";\n";
+    }
+
     indent();
-    file << decl_spec_seq << gcc_attributes << declarator << exception_spec << asm_specification << "\n";
+    file << decl_spec_seq << gcc_attributes << declarator << exception_spec << "\n";
 
     set_codegen_status(symbol, CODEGEN_STATUS_DEFINED);
 
