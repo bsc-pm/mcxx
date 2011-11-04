@@ -949,6 +949,25 @@ static char in_string_set(char c, const char* char_set)
     return 0;
 }
 
+static unsigned int get_kind_of_unsigned_value(unsigned long long v)
+{
+    const unsigned long long b[] = {0xFFUL, 0xFFFFULL, 0xFFFFFFFFULL, 0xFFFFFFFFFFFFFFFFULL }; 
+    const unsigned long long S[] = {1ULL,   2ULL,      4ULL,          8ULL };
+
+    int MAX = (sizeof(S) / sizeof(S[0]));
+
+    int i;
+    for (i = 0; i < MAX; i++)
+    {
+        if (v <= b[i])
+        {
+            return S[i];
+        } 
+    }
+
+    return S[MAX-1];
+}
+
 static void compute_boz_literal(AST expr, const char *valid_prefix, int base, nodecl_t* nodecl_output)
 {
     const char* literal_token = ASTText(expr);
@@ -990,11 +1009,22 @@ static void compute_boz_literal(AST expr, const char *valid_prefix, int base, no
         }
     }
 
+
     unsigned long long int value = strtoull(literal_text, NULL, base);
 
-    const_value_t* const_value = const_value_get_unsigned_long_long_int(value);
+    unsigned int kind_size = get_kind_of_unsigned_value(value);
 
-    *nodecl_output = nodecl_make_integer_literal(fortran_get_default_logical_type(), const_value, ASTFileName(expr), ASTLine(expr));
+    // We need a nodecl just for diagnostic purposes
+    nodecl_t loc = nodecl_make_text(ASTText(expr), ASTFileName(expr), ASTLine(expr));
+    type_t* integer_type = choose_int_type_from_kind(loc, kind_size);
+    nodecl_free(loc);
+
+    const_value_t* const_value = const_value_get_integer(value, kind_size, /* signed */ 1);
+
+    *nodecl_output = nodecl_make_fortran_boz_literal(
+            integer_type, ASTText(expr), const_value,
+            ASTFileName(expr),
+            ASTLine(expr));
 }
 
 
