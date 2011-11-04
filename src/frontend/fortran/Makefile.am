@@ -62,8 +62,6 @@ libmf03_la_SOURCES = \
                      fortran03-intrinsics.h \
                      fortran03-intrinsics-simplify.h \
                      fortran03-intrinsics.c \
-                     fortran03-nodecl.c \
-                     fortran03-nodecl.h \
                      fortran03-modules.h \
                      fortran03-modules-bits.h \
                      fortran03-modules.c \

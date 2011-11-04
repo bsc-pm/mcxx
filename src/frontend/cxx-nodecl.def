@@ -281,6 +281,7 @@ where-pair: NODECL_FORTRAN_WHERE_PAIR([mask] expression-opt, [statement] stateme
 #   data storage
 fortran-expressions : NODECL_FORTRAN_DATA([objects]fortran-data-item-seq, [values]fortran-data-item-seq)
                     | NODECL_FORTRAN_EQUIVALENCE([first]expression, [second]expression-seq)
+                    | NODECL_FORTRAN_BOZ_LITERAL() type text const_value
 
 fortran-data-item : expression
                   | fortran-implied-do

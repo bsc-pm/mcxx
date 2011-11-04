@@ -34,9 +34,6 @@ struct nodecl_codegen_visitor_tag
 
     // Print loop control using colons instead of commas
     char in_forall;
-
-    // Use BOZ literals instead of plain integers
-    char in_data;
 } nodecl_codegen_visitor_t;
 
 typedef void (*codegen_visitor_fun_t)(nodecl_codegen_visitor_t* visitor, nodecl_t node);
@@ -1720,22 +1717,13 @@ static void codegen_integer_literal(nodecl_codegen_visitor_t* visitor, nodecl_t 
 {
     const_value_t* value = nodecl_get_constant(node);
 
-    if (!visitor->in_data)
-    {
-        fprintf(visitor->file, "%lld", (long long int)const_value_cast_to_8(value));
+    fprintf(visitor->file, "%lld", (long long int)const_value_cast_to_8(value));
 
-        int num_bytes = const_value_get_bytes(value);
+    int num_bytes = const_value_get_bytes(value);
 
-        // Print the kind if it is different to the usual one 
-        // FIXME: This should be configurable
-        if (num_bytes != fortran_get_default_integer_type_kind())
-        {
-            fprintf(visitor->file, "_%d", num_bytes);
-        }
-    }
-    else // Use a BOZ literal
+    if (num_bytes != fortran_get_default_integer_type_kind())
     {
-        fprintf(visitor->file, "X'%016llX'", (unsigned long long int) const_value_cast_to_8(value));
+        fprintf(visitor->file, "_%d", num_bytes);
     }
 }
 
@@ -1836,9 +1824,7 @@ static void codegen_fortran_data(nodecl_codegen_visitor_t* visitor, nodecl_t nod
     fprintf(visitor->file, "DATA ");
     codegen_comma_separated_list(visitor, nodecl_get_child(node, 0));
     fprintf(visitor->file, " / ");
-    visitor->in_data = 1;
     codegen_comma_separated_list(visitor, nodecl_get_child(node, 1));
-    visitor->in_data = 0;
     fprintf(visitor->file, " /\n");
 }
 
@@ -2109,6 +2095,8 @@ static void fortran_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
 
     NODECL_VISITOR(codegen_visitor)->visit_fortran_forall = codegen_visitor_fun(codegen_forall);
     NODECL_VISITOR(codegen_visitor)->visit_fortran_where = codegen_visitor_fun(codegen_where);
+
+    NODECL_VISITOR(codegen_visitor)->visit_fortran_boz_literal = codegen_visitor_fun(codegen_text);
 
     NODECL_VISITOR(codegen_visitor)->visit_field_designator = codegen_visitor_fun(codegen_field_designator);
 
