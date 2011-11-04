@@ -2198,6 +2198,11 @@ static void build_dimension_decl(AST a, decl_context_t decl_context)
     scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
 
     char was_ref = is_lvalue_reference_type(entry->type_information);
+    
+    if(entry->kind == SK_UNDEFINED)
+    {
+        entry->kind = SK_VARIABLE;
+    }
 
     if (entry->kind != SK_VARIABLE)
     {
