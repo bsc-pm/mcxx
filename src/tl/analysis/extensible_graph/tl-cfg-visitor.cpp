@@ -68,7 +68,7 @@ namespace TL
         }
         else
         {   // We must built now the CFG for 'nodecl'
-            _actual_cfg = new ExtensibleGraph(graph_name);
+            _actual_cfg = new ExtensibleGraph(graph_name, nodecl->retrieve_context());
             ObjectList<Node*> partial_cfg = walk(*nodecl);
             
             // Connect the exit nodes to the Exit node of the master graph
@@ -79,8 +79,7 @@ namespace TL
             _actual_cfg->connect_nodes(_return_nodes, graph_exit);
             
             _actual_cfg->dress_up_graph();
-        
-            std::cerr << "Appending graph: " << _actual_cfg->get_name() << std::endl;
+       
             _cfgs.append(_actual_cfg);
         }
     }
@@ -117,7 +116,7 @@ namespace TL
         std::string nom = s.get_name();
        
         // Create a new graph for the current function
-        ExtensibleGraph* actual_cfg = new ExtensibleGraph(s.get_name());
+        ExtensibleGraph* actual_cfg = new ExtensibleGraph(s.get_name(), n.retrieve_context());
         _actual_cfg = actual_cfg;
         
         _actual_cfg->_function_sym = s;
@@ -132,8 +131,7 @@ namespace TL
         _actual_cfg->connect_nodes(_return_nodes, graph_exit);
         
         _actual_cfg->dress_up_graph();
-        
-        std::cerr << "Appending graph: " << _actual_cfg->get_name() << std::endl;
+       
         _cfgs.append(_actual_cfg);
         _actual_cfg = NULL;
         
@@ -683,7 +681,7 @@ namespace TL
         if (n.template is<Nodecl::PragmaCustomDeclaration>())
         {   // We must build here a new Extensible Graph
             ExtensibleGraph* last_actual_cfg = _actual_cfg;
-            _actual_cfg = new ExtensibleGraph("pragma_" + n.get_symbol().get_name());
+            _actual_cfg = new ExtensibleGraph("pragma_" + n.get_symbol().get_name(), n.retrieve_context());
             
             Symbol next_sym = n.get_symbol();
             if (next_sym.is_function())

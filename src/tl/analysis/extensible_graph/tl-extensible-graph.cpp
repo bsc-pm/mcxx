@@ -26,8 +26,8 @@ Cambridge, MA 02139, USA.
 
 namespace TL
 {  
-    ExtensibleGraph::ExtensibleGraph(std::string name)
-        : _graph(NULL), _name(name), _nid(-1),
+    ExtensibleGraph::ExtensibleGraph(std::string name, Scope sc)
+        : _graph(NULL), _name(name), _nid(-1), _sc(sc), _global_vars(),
           _function_sym(NULL), _function_calls(), nodes_m(),
           _continue_stack(), _break_stack(),
           _labeled_node_l(), _goto_node_l(),
@@ -40,10 +40,12 @@ namespace TL
 
     ExtensibleGraph* ExtensibleGraph::copy()
     {
-        ExtensibleGraph* new_ext_graph = new ExtensibleGraph(this->_name);
+        ExtensibleGraph* new_ext_graph = new ExtensibleGraph(this->_name, this->_sc);
         
-        new_ext_graph->_nid = this->_nid;
         new_ext_graph->_name = this->_name;
+        new_ext_graph->_nid = this->_nid;
+        new_ext_graph->_sc = this->_sc;
+        new_ext_graph->_global_vars = this->_global_vars;
         new_ext_graph->_function_sym = this->_function_sym;
         new_ext_graph->_function_calls = this->_function_calls;
         new_ext_graph->_continue_stack = this->_continue_stack;
@@ -759,7 +761,7 @@ namespace TL
                 }
             }
             else
-            {
+            {    
                 if (parents.empty())
                 {
                     clear_orphaned_cascade(actual_node);
@@ -778,7 +780,7 @@ namespace TL
         }
         return;
     }
-    
+   
     void ExtensibleGraph::clear_orphaned_cascade(Node* actual_node)
     {
         ObjectList<Node*> children = actual_node->get_children();
@@ -1030,9 +1032,56 @@ namespace TL
         }
     }
     
+    void ExtensibleGraph::compute_global_variables_usage_rec(Node* node)
+    {
+        if (!node->is_visited())
+        {
+            node->set_visited(true);
+            
+            Node_type ntype = node->get_type();
+            if (ntype == GRAPH_NODE)
+            {
+                compute_global_variables_usage_rec(node->get_graph_entry_node());
+            }
+            else if (node->has_key(_NODE_STMTS))
+            {
+                ObjectList<Nodecl::NodeclBase> stmts = node->get_statements();
+                for(ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin(); it != stmts.end(); ++it)
+                {
+                    CfgGlobalVarsVisitor cfg_global_vars_visitor(_sc);
+                    cfg_global_vars_visitor.walk(*it);
+                    
+                    _global_vars.insert(cfg_global_vars_visitor.get_global_variables());
+                }           
+            }
+            
+            ObjectList<Node*> children = node->get_children();
+            for (ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
+            {
+                compute_global_variables_usage_rec(*it);
+            }
+        }
+    }
+    
+    void ExtensibleGraph::compute_global_variables_usage()
+    {
+        compute_global_variables_usage_rec(_graph);
+        clear_visits(_graph);
+    }
+    
     std::string ExtensibleGraph::get_name() const
     {
         return _name;
+    }
+    
+    Scope ExtensibleGraph::get_scope() const
+    {
+        return _sc;
+    }
+    
+    ObjectList<Symbol> ExtensibleGraph::get_global_variables() const
+    {
+        return _global_vars;
     }
     
     Symbol ExtensibleGraph::get_function_symbol() const

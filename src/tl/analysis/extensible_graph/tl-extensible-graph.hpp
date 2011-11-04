@@ -31,6 +31,7 @@ Cambridge, MA 02139, USA.
 
 #include "cxx-codegen.h"
 #include "cxx-utils.h"
+#include "tl-cfg-analysis-visitor.hpp"
 #include "tl-node.hpp"
 #include "tl-nodecl.hpp"
 
@@ -43,6 +44,8 @@ namespace TL
             Node* _graph;    // Node with type GRAPH_NODE which contains the whole graph
             std::string _name;
             int _nid;
+            Scope _sc;
+            ObjectList<Symbol> _global_vars;
             
             //! Symbol of the function is contained in the graph.
             /*! This symbol is empty when the code contained in the graph do not correspond to a function
@@ -168,6 +171,7 @@ namespace TL
             
             void erase_break_nodes(Node* node);
             
+            void compute_global_variables_usage_rec(Node* node);
             
         public:
             // *** Constructors *** //
@@ -176,7 +180,7 @@ namespace TL
             /*!
               \param name Name which will identify the graph.
              */
-            explicit ExtensibleGraph(std::string name);
+            ExtensibleGraph(std::string name, Scope sc);
             
             //! Creates a new graph with the same characteristics of the actual graph
             ExtensibleGraph* copy();
@@ -330,6 +334,8 @@ namespace TL
             static void clear_visits(Node* node);
             static void clear_visits_in_level(Node* node);            
             
+            void compute_global_variables_usage();
+            
             
             // *** DOT Graph *** //
             
@@ -342,6 +348,11 @@ namespace TL
             
             //! Returns the name of the graph
             std::string get_name() const;
+            
+            //! Returns the scope enclosing the code contained in the graph
+            Scope get_scope() const;
+            
+            ObjectList<Symbol> get_global_variables() const;
             
             //! Returns the symbol of the function contained in the graph
             //! It is null when the graph do not corresponds to a function code

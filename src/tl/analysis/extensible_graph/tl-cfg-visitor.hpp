@@ -299,8 +299,12 @@ namespace TL
         
         // *** IPA *** //
         
-        //! Computes the define-use chain a node
+        //! Computes the define-use chain of a node
         void compute_use_def_chains(Node* node);
+        
+        //! Analyse loops and ranged access to variables. Recomputes use-def and reaching definitions
+        //! with the info of iterated accesses
+        void analyse_loops(Node* node);
         
         //! The method searches matching between the function call and the graphs built in the function unit
         ExtensibleGraph* find_function_for_ipa(Node* function_call);
@@ -435,4 +439,5 @@ namespace TL
         Ret visit(const Nodecl::Comma& n);
     };
 }
+
 #endif  // TL_CFG_VISITOR_HPP

@@ -656,4 +656,26 @@ namespace TL
         walk(n.get_called());
         walk(n.get_arguments());
     }
+    
+    
+    /// *** GLOBAL VARIABLES VISITOR *** //
+    
+    CfgGlobalVarsVisitor::CfgGlobalVarsVisitor(Scope sc)
+        : _sc(sc), _global_vars()
+    {}
+    
+    CfgGlobalVarsVisitor::Ret CfgGlobalVarsVisitor::visit(const Nodecl::Symbol& n)
+    {
+        Symbol s = n.get_symbol();
+        Scope s_sc = s.get_scope();
+        if (!s_sc.scope_is_enclosed_by(_sc))
+        {
+            _global_vars.insert(s);
+        }
+    }
+    
+    ObjectList<Symbol> CfgGlobalVarsVisitor::get_global_variables() const
+    {
+        return _global_vars;
+    }
 }

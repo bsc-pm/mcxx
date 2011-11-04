@@ -1298,12 +1298,15 @@ namespace TL
     {
 //                 DEBUG_CODE()
         {
-            std::cerr << std::endl << " ==> Graph '" << _actual_cfg->get_name() << "'" << std::endl;
+            std::cerr << std::endl << "   ==> Graph '" << _actual_cfg->get_name() << "'" << std::endl;
         }  
 
         gather_live_initial_information(node);
         ExtensibleGraph::clear_visits(node);
-        
+    }
+    
+    void CfgVisitor::analyse_loops(Node* node)
+    {
         LoopAnalysis loop_analysis;
         loop_analysis.analyse_loops(node);
         

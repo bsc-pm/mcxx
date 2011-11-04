@@ -41,16 +41,28 @@ namespace TL
         // *** Build the graphs for every method in the translation unit *** //
 //         DEBUG_CODE()
         {
-            std::cerr << "=== CFG Construction ===" << std::endl;
+            std::cerr << std::endl << "=== CFG Construction ===" << std::endl;
         }        
         CfgVisitor cfg_visitor(0);
         cfg_visitor.build_cfg(nodecl, std::string(""));
-       
-        // *** Use-def chains + IPA *** //
+        
         ObjectList<ExtensibleGraph*> cfgs = cfg_visitor.get_cfgs();
         
-        // First compute individually the Use-Def chains for each graph
-        std::cerr << "=== USE-DEF CHAINS COMPUTATION ===" << std::endl;
+        // *** Global variables labelling *** //
+        std::cerr << std::endl << "=== GLOBAL VARIABLES ANNOTATION ===" << std::endl;
+        for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
+        {
+            std::cerr << std::endl << "   ==> Graph '" << (*it)->get_name() << "'" << std::endl;
+            (*it)->compute_global_variables_usage();
+            ObjectList<Symbol> global_vars = (*it)->get_global_variables();
+            for (ObjectList<Symbol>::iterator its = global_vars.begin(); its != global_vars.end(); ++its)
+            {
+                std::cerr << "       - " << its->get_name() << std::endl;
+            }
+        }
+       
+        // *** Use-def chains + IPA *** //
+        std::cerr << std::endl << "=== USE-DEF CHAINS COMPUTATION ===" << std::endl;
         for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
         {
             if (!(*it)->has_use_def_computed())
@@ -62,7 +74,7 @@ namespace TL
         }
       
         // *** Live Variable Analysis *** //
-        std::cerr << "=== LIVE VARIABLES AND TASKS ANALYSIS  ===" << std::endl;
+        std::cerr << std::endl << "=== LIVE VARIABLES AND TASKS ANALYSIS  ===" << std::endl;
         for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
         {
 //                 DEBUG_CODE()

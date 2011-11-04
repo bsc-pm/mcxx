@@ -31,8 +31,6 @@ Cambridge, MA 02139, USA.
 
 namespace TL
 {
-    // FIXME Here we don't want anything to be returned for the visit
-    // We may build a basic visit for not returning anything
     class LIBTL_CLASS CfgAnalysisVisitor : public Nodecl::NodeclVisitor<void>
     {
     protected:
@@ -172,6 +170,24 @@ namespace TL
         Ret visit(const Nodecl::FunctionCall& n);
         Ret visit(const Nodecl::VirtualFunctionCall& n);
     };
+    
+
+    //! This visitor parses a nodecl searching global variables
+    //! All symbols are inserted in the list #global_vars
+    class LIBTL_CLASS CfgGlobalVarsVisitor : public Nodecl::ExhaustiveVisitor<void>
+    {
+    private:
+        Scope _sc;
+        ObjectList<Symbol> _global_vars;
+        
+    public:
+        
+        CfgGlobalVarsVisitor(Scope sc);
+        
+        Ret visit(const Nodecl::Symbol& n);
+        
+        ObjectList<Symbol> get_global_variables() const;
+    };    
 }
     
 #endif      // TL_CFG_ANALYSIS_VISITOR_HPP
