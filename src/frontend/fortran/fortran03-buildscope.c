@@ -2188,7 +2188,7 @@ static void build_dimension_decl(AST a, decl_context_t decl_context)
 
     AST name = ASTSon0(a);
     AST array_spec = ASTSon1(a);
-    AST coarray_spec = ASTSon1(a);
+    AST coarray_spec = ASTSon2(a);
 
     if (coarray_spec != NULL)
     {
