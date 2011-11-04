@@ -1972,14 +1972,20 @@ static void codegen_pragma_clause_arg(nodecl_codegen_visitor_t* visitor, nodecl_
 
 static void codegen_pragma_custom_clause(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
-    fprintf(visitor->file, " %s(", nodecl_get_text(node));
-    codegen_comma_separated_list(visitor, nodecl_get_child(node, 0));
-    fprintf(visitor->file, ")");
+    fprintf(visitor->file, "%s", nodecl_get_text(node));
+    
+    nodecl_t parameters = nodecl_get_child(node, 0);
+    if (!nodecl_is_null(parameters))
+    {
+        fprintf(visitor->file, "(");
+        codegen_comma_separated_list(visitor, parameters);
+        fprintf(visitor->file, ")");
+    }
 }
 
 static void codegen_pragma_custom_line(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
-    fprintf(visitor->file, " %s", nodecl_get_text(node));
+    fprintf(visitor->file, "%s", nodecl_get_text(node));
     nodecl_t parameters = nodecl_get_child(node, 0);
     if (!nodecl_is_null(parameters))
     {
@@ -1992,15 +1998,28 @@ static void codegen_pragma_custom_line(nodecl_codegen_visitor_t* visitor, nodecl
 }
 static void codegen_pragma_custom_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
-    fprintf(visitor->file, "!$%s", nodecl_get_text(node));
-    codegen_walk(visitor, nodecl_get_child(node, 0));
+    //Code generation of the pragma
+    fprintf(visitor->file, "!$%s ", nodecl_get_text(node));
+    nodecl_t pragma_custom_line = nodecl_get_child(node, 0);
+    codegen_walk(visitor, pragma_custom_line);
     fprintf(visitor->file, "\n");
+
+    //Code generation of the statement
     codegen_walk(visitor, nodecl_get_child(node, 1));
+
+    //Code generation of the pragma end clauses
+    nodecl_t end_clauses = nodecl_get_child(pragma_custom_line, 2);
+    if (!nodecl_is_null(end_clauses))
+    {
+        fprintf(visitor->file, "!$%s ", nodecl_get_text(node));
+        codegen_walk(visitor, end_clauses);
+        fprintf(visitor->file, "\n");
+    }
 }
 
 static void codegen_pragma_custom_directive(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
-    fprintf(visitor->file, "!$%s", nodecl_get_text(node));
+    fprintf(visitor->file, "!$%s ", nodecl_get_text(node));
     codegen_walk(visitor, nodecl_get_child(node, 0));
     fprintf(visitor->file, "\n");
 }

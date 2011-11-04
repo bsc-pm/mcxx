@@ -25,6 +25,7 @@ static void common_build_scope_pragma_custom_clause(AST a, decl_context_t decl_c
 }
 
 void common_build_scope_pragma_custom_line(AST a, 
+        AST end_clauses,
         decl_context_t decl_context, 
         nodecl_t* nodecl_output)
 {
@@ -49,12 +50,17 @@ void common_build_scope_pragma_custom_line(AST a,
     if (ASTSon1(a) != NULL)
     {
         common_build_scope_pragma_custom_clause_argument(ASTSon1(a), decl_context, &nodecl_parameter);
-        
         nodecl_parameter = nodecl_make_list_1(nodecl_parameter);
-
+    }
+    
+    nodecl_t nodecl_end_clauses = nodecl_null();
+    if(end_clauses != NULL) 
+    {
+        common_build_scope_pragma_custom_clause(end_clauses, decl_context, &nodecl_end_clauses);
+        nodecl_end_clauses = nodecl_make_list_1(nodecl_end_clauses);
     }
 
-    *nodecl_output = nodecl_make_pragma_custom_line(nodecl_parameter, nodecl_clauses, ASTText(a), ASTFileName(a), ASTLine(a));
+    *nodecl_output = nodecl_make_pragma_custom_line(nodecl_parameter, nodecl_clauses, nodecl_end_clauses, ASTText(a), ASTFileName(a), ASTLine(a));
 }
 
 void common_build_scope_pragma_custom_declaration(AST a, 
@@ -64,7 +70,7 @@ void common_build_scope_pragma_custom_declaration(AST a,
         void (*function_for_child)(AST, decl_context_t decl_context, nodecl_t*, void* info),
         void* info)
 {
-    common_build_scope_pragma_custom_line(ASTSon0(a), decl_context, nodecl_pragma_line);
+    common_build_scope_pragma_custom_line(ASTSon0(a), /* end clauses */ NULL, decl_context, nodecl_pragma_line);
     function_for_child(ASTSon1(a), decl_context, nodecl_nested_decl, info);
 }
 
@@ -75,7 +81,7 @@ void common_build_scope_pragma_custom_statement(AST a,
         void (*function_for_child)(AST, decl_context_t decl_context, nodecl_t*, void* info),
         void* info)
 {
-    common_build_scope_pragma_custom_line(ASTSon0(a), decl_context, nodecl_pragma_line);
+    common_build_scope_pragma_custom_line(ASTSon0(a), ASTSon2(a), decl_context, nodecl_pragma_line);
 
     nodecl_t nodecl_child = nodecl_null();
     function_for_child(ASTSon1(a), new_block_context(decl_context), &nodecl_child, info);
@@ -88,7 +94,7 @@ void common_build_scope_pragma_custom_directive(AST a,
         nodecl_t* nodecl_output)
 {
     nodecl_t nodecl_pragma_line = nodecl_null();
-    common_build_scope_pragma_custom_line(ASTSon0(a), decl_context, &nodecl_pragma_line);
+    common_build_scope_pragma_custom_line(ASTSon0(a), /* end clauses */ NULL, decl_context, &nodecl_pragma_line);
 
 
     *nodecl_output = nodecl_make_pragma_custom_directive(nodecl_pragma_line, ASTText(a), ASTFileName(a), ASTLine(a));

@@ -781,6 +781,7 @@ namespace TL
                         Nodecl::List empty_nodecl_list(nodecl_null());              
                         nodecl_t pragma_line = nodecl_make_pragma_custom_line(/* clause args */ empty_nodecl_list.get_internal_nodecl(), 
                                                                                 /* clauses */ empty_nodecl_list.get_internal_nodecl(),
+                                                                                /* end clauses */ empty_nodecl_list.get_internal_nodecl(),
                                                                             text, filename, line);
                         Nodecl::CompoundStatement first_section = sections_stmts[0].as<Nodecl::CompoundStatement>();
                         Nodecl::List stmt_seq(first_section.get_statements().get_internal_nodecl());
