@@ -13,8 +13,10 @@
 %token<token_atrib> PRAGMA_CUSTOM_NEWLINE "<pragma-custom-newline>"
 %token<token_atrib> PRAGMA_CUSTOM_DIRECTIVE "<pragma-custom-directive>"
 %token<token_atrib> PRAGMA_CUSTOM_CONSTRUCT "<pragma-custom-construct>"
-%token<token_atrib> PRAGMA_CUSTOM_CONSTRUCT_NOEND "<pragma-custom-construct-noend>"
 %token<token_atrib> PRAGMA_CUSTOM_END_CONSTRUCT "<pragma-custom-end-construct>"
+%token<token_atrib> PRAGMA_CUSTOM_CONSTRUCT_NOEND "<pragma-custom-construct-noend>"
+%token<token_atrib> PRAGMA_CUSTOM_END_CONSTRUCT_NOEND "<pragma-custom-end-construct-noend>"
+
 %token<token_atrib> PRAGMA_CUSTOM_CLAUSE "<pragma-custom-clause>"
 
 %token<token_atrib> PRAGMA_CLAUSE_ARG_TEXT "<pragma-clause-argument-text>"
@@ -32,6 +34,7 @@
 %type<ast2> pragma_custom_noend_construct_range
 %type<ast> pragma_custom_noend_line_construct
 %type<ast> pragma_custom_end_construct
+%type<ast> pragma_custom_end_construct_noend
 %type<ast> pragma_custom_construct_program_unit
 /*!endif*/
 %type<ast> pragma_custom_clause
@@ -146,7 +149,7 @@ pragma_custom_construct_range : block pragma_custom_end_construct
 ;
 
 // These cases only allows a single statements but does not require an end construct to appear
-pragma_custom_noend_construct_range : non_top_level_program_unit_stmts pragma_custom_end_construct
+pragma_custom_noend_construct_range : non_top_level_program_unit_stmts pragma_custom_end_construct_noend
 {
     $$[0] = ASTMake1(AST_COMPOUND_STATEMENT, ASTListLeaf($1), ASTFileName($1), ASTLine($1), NULL);
     $$[1] = $2;
@@ -159,6 +162,12 @@ pragma_custom_noend_construct_range : non_top_level_program_unit_stmts pragma_cu
 ;
 
 pragma_custom_end_construct : PRAGMA_CUSTOM PRAGMA_CUSTOM_END_CONSTRUCT pragma_custom_clause_opt_seq PRAGMA_CUSTOM_NEWLINE
+{
+	$$ = ASTMake2(AST_PRAGMA_CUSTOM_LINE, $3, NULL, $2.token_file, $2.token_line, $2.token_text);
+}
+;
+
+pragma_custom_end_construct_noend : PRAGMA_CUSTOM PRAGMA_CUSTOM_END_CONSTRUCT_NOEND pragma_custom_clause_opt_seq PRAGMA_CUSTOM_NEWLINE
 {
 	$$ = ASTMake2(AST_PRAGMA_CUSTOM_LINE, $3, NULL, $2.token_file, $2.token_line, $2.token_text);
 }

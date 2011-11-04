@@ -86,13 +86,9 @@ LIBUTILS_EXTERN _mcxx_children_fun *_mcxx_children(void *p);
     do { \
         if ((x) != NULL) \
         { \
-            MCXX_REF(x); \
+            MCXX_UNREF(x); \
         } \
-        (x) = (y); \
-        if ((x) != NULL) \
-        { \
-            MCXX_REF(x); \
-        } \
+        (x) = MCXX_REF(y); \
     } while (0)
 
 // Fixed arrays
