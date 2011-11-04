@@ -597,7 +597,7 @@ schar       ([^\\"\n\r]|{c_escape_seq}|(\\["]))
 
     pragma_directive_kind_t directive_kind = PDK_NONE; 
     // This call will unput appropriately what was lexed too much
-    char original_directive[strlen(yytext)];
+    char original_directive[strlen(yytext) + 1];
     memset(original_directive, 0, sizeof(original_directive));
 
     const char* longest_match = return_pragma_prefix_longest_match(
@@ -647,7 +647,7 @@ schar       ([^\\"\n\r]|{c_escape_seq}|(\\["]))
                 }
                 else
                 {
-                    token = PRAGMA_CUSTOM_END_CONSTRUCT;
+                    token = PRAGMA_CUSTOM_END_CONSTRUCT_NOEND;
                 }
                 break;
             }
