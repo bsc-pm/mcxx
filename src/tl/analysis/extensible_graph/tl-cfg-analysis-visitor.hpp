@@ -31,7 +31,7 @@ Cambridge, MA 02139, USA.
 
 namespace TL
 {
-    class LIBTL_CLASS CfgAnalysisVisitor : public Nodecl::NodeclVisitor<void>
+    class LIBTL_CLASS CfgAnalysisVisitor : public Nodecl::ExhaustiveVisitor<void>
     {
     protected:
         //! Pointer to the Node in a CFG of type ExtensibleGraph where the Nodecl is contained
@@ -60,10 +60,6 @@ namespace TL
         Nodecl::NodeclBase _init_expression;
         
     private:
-        //! This method implements the visitor for any Literal
-        //! It do nothing
-        template <typename T>
-        Ret literal_visit(const T& n);
         
         //! This method implements the visitor for any Binary operation
         /*!
@@ -82,47 +78,20 @@ namespace TL
         template <typename T>
         Ret unary_visit(const T& n);
         
-        //! This method implements the visitor for any expression having nested expression
-        template<typename T>
-        Ret nested_visit(const T& n);
-        
     public:
-        // Constructors
+        // *** Constructors *** //
         CfgAnalysisVisitor(Node* n);
         CfgAnalysisVisitor(const CfgAnalysisVisitor& v);
         
-        // Visitors
+        // *** Visitors *** //
         Ret unhandled_node(const Nodecl::NodeclBase& n);
-        Ret visit(const Nodecl::Throw& n);
-        Ret visit(const Nodecl::Symbol& n);
-        Ret visit(const Nodecl::ExpressionStatement& n);        
-        Ret visit(const Nodecl::ParenthesizedExpression& n);
+        // Basic nodes
+        Ret visit(const Nodecl::Symbol& n);  
         Ret visit(const Nodecl::ObjectInit& n);
+        // Composed nodes
         Ret visit(const Nodecl::ArraySubscript& n);
-        Ret visit(const Nodecl::Range& n);
-        Ret visit(const Nodecl::ClassMemberAccess& n);    
-        Ret visit(const Nodecl::Concat& n);
-        Ret visit(const Nodecl::New& n);
-        Ret visit(const Nodecl::Delete& n);
-        Ret visit(const Nodecl::DeleteArray& n);
-        Ret visit(const Nodecl::Offsetof& n);
-        Ret visit(const Nodecl::Sizeof& n);
-        Ret visit(const Nodecl::Type& n);
-        Ret visit(const Nodecl::Typeid& n);
-        Ret visit(const Nodecl::Cast& n);
-        Ret visit(const Nodecl::Offset& n);
-        Ret visit(const Nodecl::StringLiteral& n);
-        Ret visit(const Nodecl::BooleanLiteral& n);
-        Ret visit(const Nodecl::IntegerLiteral& n);
-        Ret visit(const Nodecl::ComplexLiteral& n);
-        Ret visit(const Nodecl::FloatingLiteral& n);
-        Ret visit(const Nodecl::StructuredValue& n);
-        Ret visit(const Nodecl::EmptyStatement& n);
-        Ret visit(const Nodecl::ReturnStatement& n);  
-        Ret visit(const Nodecl::GotoStatement& n);
-        Ret visit(const Nodecl::LabeledStatement& n);
-        Ret visit(const Nodecl::ContinueStatement& n);
-        Ret visit(const Nodecl::BreakStatement& n);        
+        Ret visit(const Nodecl::ClassMemberAccess& n);
+        // Assignments
         Ret visit(const Nodecl::Assignment& n);
         Ret visit(const Nodecl::AddAssignment& n);
         Ret visit(const Nodecl::SubAssignment& n);
@@ -134,6 +103,9 @@ namespace TL
         Ret visit(const Nodecl::BitwiseXorAssignment& n);
         Ret visit(const Nodecl::ShrAssignment& n);
         Ret visit(const Nodecl::ShlAssignment& n);
+        // Binary nodes
+        Ret visit(const Nodecl::Comma& n);
+        Ret visit(const Nodecl::Concat& n);
         Ret visit(const Nodecl::Add& n);
         Ret visit(const Nodecl::Minus& n);
         Ret visit(const Nodecl::Mul& n);
@@ -145,30 +117,22 @@ namespace TL
         Ret visit(const Nodecl::BitwiseAnd& n);
         Ret visit(const Nodecl::BitwiseOr& n);
         Ret visit(const Nodecl::BitwiseXor& n);
+        Ret visit(const Nodecl::Shr& n);
+        Ret visit(const Nodecl::Shl& n);
         Ret visit(const Nodecl::Equal& n);
         Ret visit(const Nodecl::Different& n);
         Ret visit(const Nodecl::LowerThan& n);
         Ret visit(const Nodecl::GreaterThan& n);
         Ret visit(const Nodecl::LowerOrEqualThan& n);
-        Ret visit(const Nodecl::GreaterOrEqualThan& n);
-        Ret visit(const Nodecl::Shr& n);
-        Ret visit(const Nodecl::Shl& n);
+        Ret visit(const Nodecl::GreaterOrEqualThan& n);        
+        // Pre-post increments-decrements
         Ret visit(const Nodecl::Predecrement& n);
         Ret visit(const Nodecl::Postdecrement& n);
         Ret visit(const Nodecl::Preincrement& n);
         Ret visit(const Nodecl::Postincrement& n);
-        Ret visit(const Nodecl::Plus& n);
-        Ret visit(const Nodecl::Neg& n);     
-        Ret visit(const Nodecl::BitwiseNot& n);
-        Ret visit(const Nodecl::LogicalNot& n);
+        // Unary nodes
         Ret visit(const Nodecl::Derreference& n);
         Ret visit(const Nodecl::Reference& n);
-        Ret visit(const Nodecl::Text& n);
-        Ret visit(const Nodecl::Comma& n);
-        Ret visit(const Nodecl::Conversion& n);
-        Ret visit(const Nodecl::ConditionalExpression& n);
-        Ret visit(const Nodecl::FunctionCall& n);
-        Ret visit(const Nodecl::VirtualFunctionCall& n);
     };
     
 

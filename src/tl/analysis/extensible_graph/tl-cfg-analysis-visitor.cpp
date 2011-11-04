@@ -31,8 +31,78 @@ Cambridge, MA 02139, USA.
 
 namespace TL
 {
-    static Nodecl::NodeclBase compute_init_expr(Nodecl::NodeclBase actual_val, Nodecl::NodeclBase stride, int op);
-    
+    static ObjectList<Symbol> get_symbols(Nodecl::NodeclBase n)
+    {
+        if (n.get_symbol().is_valid())
+        {
+            return ObjectList<Symbol>(1, n.get_symbol());
+        }
+        
+        ObjectList<Symbol> result;
+        ObjectList<Nodecl::NodeclBase> children = n.children();
+        for(ObjectList<Nodecl::NodeclBase>::iterator it = children.begin(); it != children.end(); ++it)
+        {
+            result.append(get_symbols(*it));
+        }
+        
+        return result;
+    }
+
+    static Nodecl::NodeclBase compute_init_expr(Nodecl::NodeclBase n, Nodecl::NodeclBase stride, int op)
+    {
+        Nodecl::NodeclBase val;
+        switch (op)
+        {
+            case 0:     val = Nodecl::Add::make(n, stride, n.get_type(), n.get_filename(), n.get_line());
+                        break;
+            case 1:     val = Nodecl::Minus::make(n, stride, n.get_type(), n.get_filename(), n.get_line());
+                        break;
+            case 2:     val = Nodecl::Div::make(n, stride, n.get_type(), n.get_filename(), n.get_line());
+                        break;
+            case 3:     val = Nodecl::Mul::make(n, stride, n.get_type(), n.get_filename(), n.get_line());
+                        break;
+            case 4:     val = Nodecl::Mod::make(n, stride, n.get_type(), n.get_filename(), n.get_line());
+                        break;
+            case 5:     val = Nodecl::BitwiseAnd::make(n, stride, n.get_type(), n.get_filename(), n.get_line());
+                        break;
+            case 6:     val = Nodecl::BitwiseOr::make(n, stride, n.get_type(), n.get_filename(), n.get_line());
+                        break;
+            case 7:     val = Nodecl::BitwiseXor::make(n, stride, n.get_type(), n.get_filename(), n.get_line());
+                        break;
+            case 8:     val = Nodecl::Shl::make(n, stride, n.get_type(), n.get_filename(), n.get_line());
+                        break;
+            case 9:     val = Nodecl::Shr::make(n, stride, n.get_type(), n.get_filename(), n.get_line());
+                        break;
+            default:    internal_error("Unexpected type of operation '%d' while computing initial expression", op);
+        }
+        
+        Nodecl::Calculator calc;
+        const_value_t* const_val = calc.compute_const_value(val);
+        Nodecl::NodeclBase result;
+        if (const_val != NULL)
+        {
+            if (n.is<Nodecl::IntegerLiteral>())
+            {
+                result = Nodecl::IntegerLiteral::make(n.get_type(), const_val, n.get_filename(), n.get_line());
+            }
+            else if (n.is<Nodecl::FloatingLiteral>())
+            {
+                result = Nodecl::FloatingLiteral::make(n.get_type(), const_val, n.get_filename(), n.get_line());
+            }
+            else
+            {
+                internal_error("Unexpected node type '%s' while computing initial value in a constant expression", 
+                               ast_print_node_type(n.get_kind()));
+            }
+        }
+        else
+        {
+            result = val;
+        }
+        
+        return result;
+    }
+
     CfgAnalysisVisitor::CfgAnalysisVisitor(Node* n)
         : _node(n), _define(false), _actual_nodecl(Nodecl::NodeclBase::null())
     {}
@@ -64,68 +134,9 @@ namespace TL
         
         if (!_init_expression.is_null())
         {
-            _node->set_reaching_definition(defined_var, _init_expression);
+//             _node->set_reaching_definition(defined_var, _init_expression);
             _init_expression = Nodecl::NodeclBase::null();
         }
-    }
-    
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Text& n)
-    {   // do nothing
-    }
-    
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::ContinueStatement& n)
-    {   // do nothing
-    }
-    
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::BreakStatement& n)
-    {   // do nothing
-    }    
-    
-    template <typename T>
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::literal_visit(const T& n)
-    {   // do nothing
-    }
-    
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::StringLiteral& n)
-    {
-        literal_visit(n);
-    }
-    
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::BooleanLiteral& n)
-    {
-        literal_visit(n);
-    }
-    
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::IntegerLiteral& n)
-    {
-        literal_visit(n);
-    }
-    
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::ComplexLiteral& n)
-    {
-        literal_visit(n);
-    }
-    
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::FloatingLiteral& n)
-    {
-        literal_visit(n);
-    }
-
-    static ObjectList<Symbol> get_symbols(Nodecl::NodeclBase n)
-    {
-        if (n.get_symbol().is_valid())
-        {
-            return ObjectList<Symbol>(1, n.get_symbol());
-        }
-        
-        ObjectList<Symbol> result;
-        ObjectList<Nodecl::NodeclBase> children = n.children();
-        for(ObjectList<Nodecl::NodeclBase>::iterator it = children.begin(); it != children.end(); ++it)
-        {
-            result.append(get_symbols(*it));
-        }
-        
-        return result;
     }
 
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::ObjectInit& n)
@@ -139,9 +150,32 @@ namespace TL
         
         if (!init.is_null())
         {
-            _node->set_reaching_definition(sym_node, init);
+//             _node->set_reaching_definition(sym_node, init);
             walk(init);
         }
+    }
+
+    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::ArraySubscript& n)
+    {
+        if (_actual_nodecl.is_null())
+        {
+            _actual_nodecl = n;
+        }
+        
+        walk(n.get_subscripted());
+        _define = false;        // We may come form a LHS walk and subscripts not defined!
+        walk(n.get_subscripts());
+    }
+   
+    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::ClassMemberAccess& n)
+    {
+        if (_actual_nodecl.is_null())
+        {    
+            _actual_nodecl = n;
+        }
+        
+        // walk(n.get_lhs());  // In a member access, the use/definition is always of the member, not the base
+        walk(n.get_member());
     }
 
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Assignment& n)
@@ -261,28 +295,6 @@ namespace TL
     {
         binary_assignment(n);
     }
-        
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Throw& n)
-    {
-        walk(n.get_rhs());
-    }
-    
-    template<typename T>
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::nested_visit(const T& n)
-    {
-        walk(n.get_nest());
-    }
-    
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::ExpressionStatement& n)
-    {
-        nested_visit(n);
-    }
-    
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::ParenthesizedExpression& n)
-    {
-        unhandled_node(n);
-//         nested_visit(n);
-    }
 
     template <typename T>
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::binary_visit(const T& n)
@@ -356,6 +368,16 @@ namespace TL
         binary_visit(n);
     }
     
+    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Shr& n)
+    {
+        binary_visit(n);
+    }
+    
+    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Shl& n)
+    {
+        binary_visit(n);
+    }
+    
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Equal& n)
     {
         binary_visit(n);
@@ -384,71 +406,6 @@ namespace TL
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::GreaterOrEqualThan& n)
     {
         binary_visit(n);
-    }
-    
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Shr& n)
-    {
-        binary_visit(n);
-    }
-    
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Shl& n)
-    {
-        binary_visit(n);
-    }
-    
-    static Nodecl::NodeclBase compute_init_expr(Nodecl::NodeclBase n, Nodecl::NodeclBase stride, int op)
-    {
-        Nodecl::NodeclBase val;
-        switch (op)
-        {
-            case 0:     val = Nodecl::Add::make(n, stride, n.get_type(), n.get_filename(), n.get_line());
-                        break;
-            case 1:     val = Nodecl::Minus::make(n, stride, n.get_type(), n.get_filename(), n.get_line());
-                        break;
-            case 2:     val = Nodecl::Div::make(n, stride, n.get_type(), n.get_filename(), n.get_line());
-                        break;
-            case 3:     val = Nodecl::Mul::make(n, stride, n.get_type(), n.get_filename(), n.get_line());
-                        break;
-            case 4:     val = Nodecl::Mod::make(n, stride, n.get_type(), n.get_filename(), n.get_line());
-                        break;
-            case 5:     val = Nodecl::BitwiseAnd::make(n, stride, n.get_type(), n.get_filename(), n.get_line());
-                        break;
-            case 6:     val = Nodecl::BitwiseOr::make(n, stride, n.get_type(), n.get_filename(), n.get_line());
-                        break;
-            case 7:     val = Nodecl::BitwiseXor::make(n, stride, n.get_type(), n.get_filename(), n.get_line());
-                        break;
-            case 8:     val = Nodecl::Shl::make(n, stride, n.get_type(), n.get_filename(), n.get_line());
-                        break;
-            case 9:     val = Nodecl::Shr::make(n, stride, n.get_type(), n.get_filename(), n.get_line());
-                        break;
-            default:    internal_error("Unexpected type of operation '%d' while computing initial expression", op);
-        }
-        
-        Nodecl::Calculator calc;
-        const_value_t* const_val = calc.compute_const_value(val);
-        Nodecl::NodeclBase result;
-        if (const_val != NULL)
-        {
-            if (n.is<Nodecl::IntegerLiteral>())
-            {
-                result = Nodecl::IntegerLiteral::make(n.get_type(), const_val, n.get_filename(), n.get_line());
-            }
-            else if (n.is<Nodecl::FloatingLiteral>())
-            {
-                result = Nodecl::FloatingLiteral::make(n.get_type(), const_val, n.get_filename(), n.get_line());
-            }
-            else
-            {
-                internal_error("Unexpected node type '%s' while computing initial value in a constant expression", 
-                               ast_print_node_type(n.get_kind()));
-            }
-        }
-        else
-        {
-            result = val;
-        }
-        
-        return result;
     }
    
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Predecrement& n)
@@ -500,26 +457,6 @@ namespace TL
     {
         walk(n.get_rhs());
     }
-
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Plus& n)
-    {
-        unary_visit(n);
-    }
-    
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Neg& n)
-    {
-        unary_visit(n);
-    }
-    
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::BitwiseNot& n)
-    {
-        unary_visit(n);
-    }
-    
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::LogicalNot& n)
-    {
-        unary_visit(n);
-    }
     
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Derreference& n)
     {
@@ -539,124 +476,7 @@ namespace TL
         }
         
         unary_visit(n);
-    }
-    
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::ArraySubscript& n)
-    {
-        if (_actual_nodecl.is_null())
-        {
-            _actual_nodecl = n;
-        }
-        
-        walk(n.get_subscripted());
-        _define = false;        // We may come form a LHS walk and subscripts not defined!
-        walk(n.get_subscripts());
-    }
-    
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Range& n)
-    {
-        walk(n.get_lower());
-        walk(n.get_upper());
-        walk(n.get_stride());
-    }
-    
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::ClassMemberAccess& n)
-    {
-        if (_actual_nodecl.is_null())
-        {    
-            _actual_nodecl = n;
-        }
-        
-        // walk(n.get_lhs());  // In a member access, the use/definition is always of the member, not the base
-        walk(n.get_member());
-    }
-    
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::New& n)
-    {   // do nothing
-    }
-    
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Delete& n)
-    {   // FIXME We should specify the object destruction
-        // walk(n.get_rhs());
-    }
-    
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::DeleteArray& n)
-    {   // FIXME We should specify the object destruction
-        // walk(n.get_rhs());
-    }
-
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Offsetof& n)
-    {   // do nothing
-    }
-
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Sizeof& n)
-    {   // do nothing
-    }
-    
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Type& n)
-    {   // do nothing
-    }
-    
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Typeid& n)
-    {   // do nothing
-    }
-   
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Cast& n)
-    {
-        walk(n.get_rhs());
-    }
-    
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Offset& n)
-    {   // do nothing
-    }
-    
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::StructuredValue& n)
-    {
-        walk(n.get_items());
-    }
-    
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::EmptyStatement& n)
-    {   // do nothing
-    }
-    
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::ReturnStatement& n)
-    {
-        walk(n.get_value());
-    }
-    
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::GotoStatement& n)
-    {   // do nothing
-    }
-    
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::LabeledStatement& n)
-    {
-        walk(n.get_statement());
-    }
-    
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Conversion& n)
-    {      
-        walk(n.get_nest());
-    }
-    
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::ConditionalExpression& n)
-    {
-        walk(n.get_condition());
-        walk(n.get_true());      
-        walk(n.get_false());
-    }
-    
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::FunctionCall& n)
-    {
-        walk(n.get_called());
-        walk(n.get_arguments());        
-    }
-    
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::VirtualFunctionCall& n)
-    {
-        walk(n.get_called());
-        walk(n.get_arguments());
-    }
-    
+    } 
     
     /// *** GLOBAL VARIABLES VISITOR *** //
     
@@ -672,10 +492,5 @@ namespace TL
         {
             _global_vars.insert(s);
         }
-    }
-    
-    ObjectList<Symbol> CfgGlobalVarsVisitor::get_global_variables() const
-    {
-        return _global_vars;
     }
 }
