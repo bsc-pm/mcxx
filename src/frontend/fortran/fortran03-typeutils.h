@@ -13,13 +13,20 @@ LIBMF03_EXTERN int get_rank_of_type(type_t* t);
 LIBMF03_EXTERN type_t* get_rank0_type(type_t* t);
 LIBMF03_EXTERN type_t* get_n_ranked_type(type_t* scalar_type, int rank, decl_context_t decl_context);
 
+LIBMF03_EXTERN char equivalent_tk_types(type_t* t1, type_t* t2);
 LIBMF03_EXTERN char equivalent_tkr_types(type_t* t1, type_t* t2);
 
+// States that this is an array of character type
 LIBMF03_EXTERN char is_fortran_character_type(type_t*);
+// A pointer to is_fortran_character_type
 LIBMF03_EXTERN char is_pointer_to_fortran_character_type(type_t* t);
+LIBMF03_EXTERN char is_fortran_character_type_or_pointer_to(type_t* t);
 
+// States that this is an array of non-character type
 LIBMF03_EXTERN char is_fortran_array_type(type_t* t);
+// A pointer to is_fortran_array_type
 LIBMF03_EXTERN char is_pointer_to_fortran_array_type(type_t* t);
+LIBMF03_EXTERN char is_fortran_array_type_or_pointer_to(type_t* t);
 
 LIBMF03_EXTERN type_t* replace_return_type_of_function_type(type_t* function_type, 
         type_t* new_return_type);

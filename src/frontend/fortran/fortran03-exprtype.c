@@ -681,15 +681,15 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
 
     scope_entry_t* symbol = nodecl_get_symbol(nodecl_subscripted);
     if (symbol == NULL
-            || (!is_array_type(no_ref(symbol->type_information))
-                && !is_pointer_to_array_type(no_ref(symbol->type_information))))
+            || (!is_fortran_array_type(no_ref(symbol->type_information))
+                && !is_pointer_to_fortran_array_type(no_ref(symbol->type_information))))
     {
         symbol_is_invalid = 1;
     }
     else
     {
         array_type = no_ref(symbol->type_information);
-        if (is_pointer_to_array_type(array_type))
+        if (is_pointer_to_fortran_array_type(array_type))
             array_type = pointer_type_get_pointee_type(array_type);
 
         synthesized_type = get_rank0_type(array_type);
@@ -1664,6 +1664,130 @@ static void check_floating_literal(AST expr, decl_context_t decl_context, nodecl
    free(floating_text);
 }
 
+static char check_argument_association(
+        scope_entry_t* function UNUSED_PARAMETER, 
+        type_t* formal_type,
+        type_t* real_type,
+        nodecl_t real_argument,
+
+        char ranks_must_agree,
+
+        char diagnostic,
+        int argument_num,
+        const char* filename, int line)
+{
+    formal_type = no_ref(formal_type);
+    real_type = no_ref(real_type);
+
+    if (!equivalent_tk_types(formal_type, real_type))
+    {
+        if (!checking_ambiguity()
+                && diagnostic)
+        {
+            error_printf("%s:%d: error: type or kind '%s' of actual argument %d does not agree type or kind '%s' of dummy argument\n",
+                    filename, line,
+                    fortran_print_type_str(real_type),
+                    argument_num + 1,
+                    fortran_print_type_str(formal_type));
+        }
+        return 0;
+    }
+
+    if (// If both types are pointers or ...
+            ((is_pointer_type(formal_type)
+              && is_pointer_type(real_type))
+             // ... the dummy argument is an array requiring descriptor ...
+             || (is_array_type(formal_type) 
+                 && array_type_with_descriptor(formal_type))
+             // Or we explicitly need ranks to agree
+             || ranks_must_agree
+             )
+            // then their ranks should match
+            && get_rank_of_type(formal_type) != get_rank_of_type(real_type))
+    {
+        if (!checking_ambiguity()
+                && diagnostic)
+        {
+            error_printf("%s:%d: error: rank %d of actual argument %d does not agree rank %d of dummy argument\n",
+                    filename, line,
+                    get_rank_of_type(real_type),
+                    argument_num + 1,
+                    get_rank_of_type(formal_type));
+        }
+        return 0;
+    }
+
+    // If the actual argument is a scalar, ...
+    if (!is_fortran_array_type(real_type))
+    {
+        // ... the dummy argument should be a scalar ...
+        if (is_fortran_array_type(formal_type))
+        {
+            char ok = 0;
+            // ... unless the actual argument is an element of an array ...
+            if (nodecl_get_kind(real_argument) == NODECL_ARRAY_SUBSCRIPT)
+            {
+                ok = 1;
+                // ... that is _not_ an assumed shape (an array requiring descriptor) or pointer array ...
+                scope_entry_t* array = nodecl_get_symbol(nodecl_get_child(real_argument, 0));
+
+                if (array != NULL)
+                {
+                    // ... or a substring of such element ...
+                    if (is_fortran_character_type(no_ref(array->type_information)))
+                    {
+                        // The argument was X(1)(1:2), we are now in X(1)  get 'X'
+                        if (nodecl_get_kind(nodecl_get_child(real_argument, 0)) == NODECL_ARRAY_SUBSCRIPT)
+                        {
+                            array = nodecl_get_symbol(
+                                    nodecl_get_child(
+                                        nodecl_get_child(real_argument, 0),
+                                        0));
+                        }
+                        else
+                        {
+                            // This is just X(1:2) 
+                            ok = 0;
+                        }
+                    }
+
+                    if (ok
+                            && array != NULL
+                            && (array_type_with_descriptor(no_ref(array->type_information))
+                                || is_pointer_to_fortran_array_type(no_ref(array->type_information))))
+                    {
+                        ok = 0;
+                    }
+                }
+            }
+            // Fortran 2003: or a default character
+            else if (is_fortran_character_type(real_type)
+                    && equivalent_types(get_unqualified_type(array_type_get_element_type(real_type)),
+                        fortran_get_default_character_type()))
+            {
+                ok = 1;
+            }
+
+            if (!ok)
+            {
+                if (!checking_ambiguity()
+                        && diagnostic)
+                {
+                    error_printf("%s:%d: error: scalar type '%s' of actual argument %d cannot be associated to non-scalar type '%s' of dummy argument\n",
+                            filename, line,
+                            fortran_print_type_str(real_type),
+                            argument_num + 1,
+                            fortran_print_type_str(formal_type));
+                }
+                return 0;
+            }
+        }
+    }
+
+    // Everything looks fine here
+    return 1;
+}
+
 typedef
 struct actual_argument_info_tag
 {
@@ -1809,7 +1933,17 @@ static scope_entry_t* get_specific_interface(scope_entry_t* symbol,
                     real_type = get_rank0_type(real_type);
                 }
 
-                if (!equivalent_tkr_types(formal_type, real_type))
+                if (!check_argument_association(
+                            specific_symbol,
+                            formal_type, 
+                            real_type, 
+                            argument_types[i].argument,
+
+                            /* ranks_must_agree only if non-elemental */ !specific_symbol->entity_specs.is_elemental,
+
+                            /* do_diagnostic */ 0,
+                            /* argument_num */ i,
+                            NULL, 0))
                 {
                     ok = 0;
                     break;
@@ -1871,6 +2005,7 @@ static char inside_context_of_symbol(decl_context_t decl_context, scope_entry_t*
     }
     return 0;
 }
+
 
 static void check_called_symbol(
         scope_entry_t* symbol, 
@@ -2225,17 +2360,27 @@ static void check_called_symbol(
                     }
                 }
 
-                if (!equivalent_tkr_types(formal_type, real_type))
+                if (!check_argument_association(
+                            symbol,
+                            formal_type, 
+                            real_type, 
+                            fixed_argument_info_items[i].argument,
+
+                            /* ranks_must_agree */ 0,
+
+                            /* diagnostics */ 1,
+                            /* argument_num */ i,
+                            ASTFileName(location), ASTLine(location)))
                 {
-                    if (!checking_ambiguity())
-                    {
-                        error_printf("%s: error: type mismatch in argument %d between the "
-                                "real argument %s and the dummy argument %s\n",
-                                ast_location(location),
-                                i + 1,
-                                fortran_print_type_str(real_type),
-                                fortran_print_type_str(formal_type));
-                    }
+                    // if (!checking_ambiguity())
+                    // {
+                    //     error_printf("%s: error: type mismatch in argument %d between the "
+                    //             "real argument %s and the dummy argument %s\n",
+                    //             ast_location(location),
+                    //             i + 1,
+                    //             fortran_print_type_str(real_type),
+                    //             fortran_print_type_str(formal_type));
+                    // }
                     argument_type_mismatch = 1;
                 }
             }
@@ -3661,12 +3806,6 @@ static operand_types_t arithmetic_binary[] =
     { is_complex_type, is_complex_type, common_kind, DO_CONVERT_TO_RESULT },
 };
 
-static char is_fortran_character_type_or_pointer_to(type_t* t)
-{
-    t = no_ref(t);
-    return is_pointer_to_fortran_character_type(t)
-        || is_fortran_character_type(t);
-}
 
 static operand_types_t concat_op[] = 
 {
