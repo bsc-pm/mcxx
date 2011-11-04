@@ -3030,30 +3030,64 @@ static void build_scope_data_stmt(AST a, decl_context_t decl_context, nodecl_t* 
         AST it2;
         for_each_element(data_stmt_value_list, it2)
         {
-            nodecl_t nodecl_data = nodecl_null();
-
             AST data_stmt_value = ASTSon1(it2);
             if (ASTType(data_stmt_value) == AST_MUL)
             {
-                // Do not try to check at the same time because the mult does
-                // not have to be valid
-                nodecl_t nodecl1;
-                fortran_check_expression(ASTSon0(data_stmt_value), decl_context, &nodecl1);
-                nodecl_t nodecl2;
-                fortran_check_expression(ASTSon1(data_stmt_value), decl_context, &nodecl2);
+                nodecl_t nodecl_repeat;
+                fortran_check_expression(ASTSon0(data_stmt_value), decl_context, &nodecl_repeat);
 
-                nodecl_data = nodecl_make_mul(
-                        nodecl1, nodecl2,
-                        get_void_type(),
-                        ASTFileName(data_stmt_value),
-                        ASTLine(data_stmt_value));
+                if (!nodecl_is_constant(nodecl_repeat))
+                {
+                    error_printf("%s: error: data-stmt-repeat '%s' is not a constant expression\n",
+                            nodecl_get_locus(nodecl_repeat),
+                            codegen_to_str(nodecl_repeat));
+                }
+
+                nodecl_t nodecl_value;
+                fortran_check_expression(ASTSon1(data_stmt_value), decl_context, &nodecl_value);
+
+                if (!nodecl_is_constant(nodecl_value))
+                {
+                    error_printf("%s: error: data-stmt-value '%s' is not a constant expression\n",
+                            nodecl_get_locus(nodecl_value),
+                            codegen_to_str(nodecl_value));
+                }
+
+                if (!nodecl_is_constant(nodecl_repeat)
+                        || !nodecl_is_constant(nodecl_value))
+                    continue;
+
+                if (const_value_is_nonzero
+                        (const_value_lt(nodecl_get_constant(nodecl_repeat), 
+                                        const_value_get_zero(fortran_get_default_integer_type_kind(), 1))))
+                {
+                    error_printf("%s: error: data-stmt-repeat is negative\n", nodecl_get_locus(nodecl_repeat));
+                    continue;
+                }
+
+                uint64_t repeat = const_value_cast_to_8(nodecl_get_constant(nodecl_repeat));
+                uint64_t i;
+                for (i = 0; i < repeat; i++)
+                {
+                    nodecl_data_set = nodecl_append_to_list(nodecl_data_set, nodecl_copy(nodecl_value));
+                }
             }
             else
             {
-                fortran_check_expression(data_stmt_value, decl_context, &nodecl_data);
-            }
+                nodecl_t nodecl_value = nodecl_null();
 
-            nodecl_data_set = nodecl_append_to_list(nodecl_data_set, nodecl_data);
+                fortran_check_expression(data_stmt_value, decl_context, &nodecl_value);
+
+                if (!nodecl_is_constant(nodecl_value))
+                {
+                    error_printf("%s: error: data-stmt-value '%s' is not a constant expression\n",
+                            nodecl_get_locus(nodecl_value),
+                            codegen_to_str(nodecl_value));
+                    continue;
+                }
+
+                nodecl_data_set = nodecl_append_to_list(nodecl_data_set, nodecl_value);
+            }
         }
 
         entry->value = nodecl_append_to_list(entry->value, 
@@ -5171,7 +5205,6 @@ static scope_entry_t* insert_symbol_from_module(scope_entry_t* entry,
         decl_context_t decl_context, 
         const char* aliased_name, 
         scope_entry_t* module_symbol,
-        char explicitly_used,
         const char* filename,
         int line)
 {
@@ -5235,8 +5268,6 @@ static scope_entry_t* insert_symbol_from_module(scope_entry_t* entry,
                     decl_context,
                     entry->entity_specs.related_symbols[i]->symbol_name,
                     module_symbol,
-                    // ???
-                    /* explicitly_used */ 0,
                     filename, line);
 
             P_LIST_ADD(current_symbol->entity_specs.related_symbols,
@@ -5355,7 +5386,6 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
                         decl_context, 
                         get_name_of_generic_spec(local_name), 
                         module_symbol, 
-                        /* explicitly_used */ 1,
                         ASTFileName(local_name), 
                         ASTLine(local_name));
 
@@ -5393,7 +5423,6 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
                         decl_context, 
                         sym_in_module->symbol_name, 
                         module_symbol,
-                        /* explicitly_used */ 0,
                         ASTFileName(a), 
                         ASTLine(a));
             }
@@ -5429,7 +5458,6 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
                                 decl_context, 
                                 get_name_of_generic_spec(local_name), 
                                 module_symbol, 
-                                /* explicitly_used */ 1,
                                 ASTFileName(local_name), 
                                 ASTLine(local_name));
                         break;
@@ -5455,7 +5483,6 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
                                 decl_context, 
                                 sym_in_module->symbol_name, 
                                 module_symbol,
-                                /* explicitly_used */ 1,
                                 ASTFileName(sym_in_module_name), 
                                 ASTLine(sym_in_module_name));
                         break;
