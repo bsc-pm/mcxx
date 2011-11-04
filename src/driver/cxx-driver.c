@@ -89,7 +89,6 @@
 #include "fortran03-prettyprint.h"
 #include "fortran03-split.h"
 #include "fortran03-buildscope.h"
-#include "fortran03-nodecl.h"
 #include "fortran03-codegen.h"
 #include "cxx-driver-fortran.h"
 #endif
