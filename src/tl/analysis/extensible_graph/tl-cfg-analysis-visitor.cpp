@@ -481,8 +481,39 @@ namespace TL
     /// *** GLOBAL VARIABLES VISITOR *** //
     
     CfgGlobalVarsVisitor::CfgGlobalVarsVisitor(Scope sc)
-        : _sc(sc), _global_vars()
+        : _sc(sc), _global_vars(), _defining(false)
     {}
+    
+    bool CfgGlobalVarsVisitor::global_vars_list_contains_sym(Nodecl::Symbol n)
+    {
+        for (ObjectList<struct global_var_usage_t*>::iterator it = _global_vars.begin(); it != _global_vars.end(); ++it)
+        {
+            if (Nodecl::Utils::equal_nodecls((*it)->get_nodecl(), n))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    struct global_var_usage_t* CfgGlobalVarsVisitor::get_global_variable(Nodecl::Symbol n)
+    {
+        for (ObjectList<struct global_var_usage_t*>::iterator it = _global_vars.begin(); it != _global_vars.end(); ++it)
+        {
+            if (Nodecl::Utils::equal_nodecls((*it)->get_nodecl(), n))
+            {
+                return *it;
+            }
+        }
+        
+        internal_error("No symbol '%s' founded in global variable list", n.get_symbol().get_name().c_str());
+    }
+    
+    
+    ObjectList<struct global_var_usage_t*> CfgGlobalVarsVisitor::get_global_variables() const
+    {
+        return _global_vars;
+    }
     
     CfgGlobalVarsVisitor::Ret CfgGlobalVarsVisitor::visit(const Nodecl::Symbol& n)
     {
@@ -490,7 +521,141 @@ namespace TL
         Scope s_sc = s.get_scope();
         if (!s_sc.scope_is_enclosed_by(_sc))
         {
-            _global_vars.insert(s);
+            if (global_vars_list_contains_sym(n))
+            {
+                struct global_var_usage_t* global_var = get_global_variable(n);
+                char usage = global_var->get_usage();
+                if (usage == '0' || usage == '2')
+                {   // nothing to do: It doesn't matters what happens with an already Killed variable
+                }
+                else if (usage == '1')
+                {
+                    if (_defining)
+                    {   // Set to 2 the usage value
+                        global_var->set_usage('2');
+                    }
+                    else {} // nothing to do, the variable was already used
+                }
+            }
+            else
+            {
+                char usage;
+                if (_defining) usage = '0';
+                else usage = '1';
+                
+                struct global_var_usage_t* new_global_var_usage = new global_var_usage_t(n, usage);
+                _global_vars.insert(new_global_var_usage);
+            }
         }
     }
+    
+    template <typename T>
+    void CfgGlobalVarsVisitor::op_assignment_visit(const T& n)
+    {
+        walk(n.get_lhs());
+        _defining = true;
+        walk(n.get_lhs());
+        _defining = false;
+        walk(n.get_rhs());        
+    }
+
+    template <typename T>
+    void CfgGlobalVarsVisitor::unary_visit(const T& n)
+    {
+        walk(n.get_rhs());
+        _defining = true;
+        walk(n.get_rhs());
+        _defining = false;        
+    }
+
+    CfgGlobalVarsVisitor::Ret CfgGlobalVarsVisitor::visit(const Nodecl::Assignment& n)
+    {
+        _defining = true;
+        walk(n.get_lhs());
+        _defining = false;
+        walk(n.get_rhs());  
+    }
+    
+    CfgGlobalVarsVisitor::Ret CfgGlobalVarsVisitor::visit(const Nodecl::AddAssignment& n)
+    {
+        op_assignment_visit(n);
+    }
+    
+    CfgGlobalVarsVisitor::Ret CfgGlobalVarsVisitor::visit(const Nodecl::SubAssignment& n)
+    {
+        op_assignment_visit(n);
+    }
+    
+    CfgGlobalVarsVisitor::Ret CfgGlobalVarsVisitor::visit(const Nodecl::DivAssignment& n)
+    {
+        op_assignment_visit(n);
+    }
+    
+    CfgGlobalVarsVisitor::Ret CfgGlobalVarsVisitor::visit(const Nodecl::MulAssignment& n)
+    {
+        op_assignment_visit(n);
+    }
+    
+    CfgGlobalVarsVisitor::Ret CfgGlobalVarsVisitor::visit(const Nodecl::ModAssignment& n)
+    {
+        op_assignment_visit(n);
+    }
+    
+    CfgGlobalVarsVisitor::Ret CfgGlobalVarsVisitor::visit(const Nodecl::BitwiseAndAssignment& n)
+    {
+        op_assignment_visit(n);
+    }
+    
+    CfgGlobalVarsVisitor::Ret CfgGlobalVarsVisitor::visit(const Nodecl::BitwiseOrAssignment& n)
+    {
+        op_assignment_visit(n);
+    }
+    
+    CfgGlobalVarsVisitor::Ret CfgGlobalVarsVisitor::visit(const Nodecl::BitwiseXorAssignment& n)
+    {
+        op_assignment_visit(n);
+    }
+    
+    CfgGlobalVarsVisitor::Ret CfgGlobalVarsVisitor::visit(const Nodecl::ShrAssignment& n)
+    {
+        op_assignment_visit(n);
+    }
+    
+    CfgGlobalVarsVisitor::Ret CfgGlobalVarsVisitor::visit(const Nodecl::ShlAssignment& n)
+    {
+        op_assignment_visit(n);
+    }
+    
+    CfgGlobalVarsVisitor::Ret CfgGlobalVarsVisitor::visit(const Nodecl::Predecrement& n)
+    {
+        unary_visit(n);
+    }
+    
+    CfgGlobalVarsVisitor::Ret CfgGlobalVarsVisitor::visit(const Nodecl::Postdecrement& n)
+    {
+        unary_visit(n);
+    }
+    
+    CfgGlobalVarsVisitor::Ret CfgGlobalVarsVisitor::visit(const Nodecl::Preincrement& n)
+    {
+        unary_visit(n);
+    }
+    
+    CfgGlobalVarsVisitor::Ret CfgGlobalVarsVisitor::visit(const Nodecl::Postincrement& n)
+    {
+        unary_visit(n);
+    }
+    
+    CfgGlobalVarsVisitor::Ret CfgGlobalVarsVisitor::visit(const Nodecl::FunctionCall& n)
+    {
+        //TODO
+        internal_error("Not yet implemented", 0);
+    }
+    
+    CfgGlobalVarsVisitor::Ret CfgGlobalVarsVisitor::visit(const Nodecl::VirtualFunctionCall& n)
+    {
+        //TODO
+        internal_error("Not yet implemented", 0);
+    }
+    
 }

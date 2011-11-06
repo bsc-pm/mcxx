@@ -43,7 +43,7 @@ namespace TL
         {
             std::cerr << std::endl << "=== CFG Construction ===" << std::endl;
         }        
-        CfgVisitor cfg_visitor(0);
+        CfgVisitor cfg_visitor;
         cfg_visitor.build_cfg(nodecl, std::string(""));
         
         ObjectList<ExtensibleGraph*> cfgs = cfg_visitor.get_cfgs();
@@ -54,10 +54,10 @@ namespace TL
         {
             std::cerr << std::endl << "   ==> Graph '" << (*it)->get_name() << "'" << std::endl;
             (*it)->compute_global_variables_usage();
-            ObjectList<Symbol> global_vars = (*it)->get_global_variables();
-            for (ObjectList<Symbol>::iterator its = global_vars.begin(); its != global_vars.end(); ++its)
+            ObjectList<struct global_var_usage_t*> global_vars = (*it)->get_global_variables();
+            for (ObjectList<struct global_var_usage_t*>::iterator its = global_vars.begin(); its != global_vars.end(); ++its)
             {
-                std::cerr << "       - " << its->get_name() << std::endl;
+                std::cerr << "       - " << (*its)->get_nodecl().prettyprint() << std::endl;
             }
         }
        
@@ -66,7 +66,9 @@ namespace TL
         for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
         {
             if (!(*it)->has_use_def_computed())
-            {             
+            {  
+                (*it)->init_function_call_nest();
+                cfg_visitor.set_last_func_call((*it)->get_function_call_nest());
                 cfg_visitor.set_actual_cfg(*it);
                 cfg_visitor.compute_use_def_chains((*it)->get_graph());
                 (*it)->set_use_def_computed();

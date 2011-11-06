@@ -135,22 +135,72 @@ namespace TL
         Ret visit(const Nodecl::Reference& n);
     };
     
+    struct global_var_usage_t {
+        Nodecl::Symbol _sym;
+        char _usage;     // 0 => KILLED, 1 => USED, 2 => UE + KILLED
+        
+        global_var_usage_t(Nodecl::Symbol s, char usage)
+            : _sym(s), _usage(usage)
+        {}
+        
+        Nodecl::Symbol get_nodecl() const
+        {
+            return _sym;
+        }
+        
+        char get_usage() const
+        {
+            return _usage;
+        }
 
-    //! This visitor parses a nodecl searching global variables
-    //! All symbols are inserted in the list #global_vars
+        void set_usage(char usage)
+        {
+            _usage = usage;
+        }
+    };
+    
+    //! This visitor parses a nodecl searching global variables and the use
+    /*! By default, the usage of the variable is USE. Visitor only marks DEFINITION usages
+     */
     class LIBTL_CLASS CfgGlobalVarsVisitor : public Nodecl::ExhaustiveVisitor<void>
     {
     private:
         Scope _sc;
-        ObjectList<Symbol> _global_vars;
+        ObjectList<struct global_var_usage_t*> _global_vars;
+        char _defining;     // Temporary value used during the visit           
+        
+        template <typename T>
+        void op_assignment_visit(const T& n);
+        
+        template <typename T>
+        void unary_visit(const T& n);
         
     public:
         
         CfgGlobalVarsVisitor(Scope sc);
         
-        Ret visit(const Nodecl::Symbol& n);
+        bool global_vars_list_contains_sym(Nodecl::Symbol n);
+        struct global_var_usage_t* get_global_variable(Nodecl::Symbol n);
+        ObjectList<struct global_var_usage_t*> get_global_variables() const;
         
-        ObjectList<Symbol> get_global_variables() const;
+        Ret visit(const Nodecl::Symbol& n);
+        Ret visit(const Nodecl::Assignment& n);
+        Ret visit(const Nodecl::AddAssignment& n);
+        Ret visit(const Nodecl::SubAssignment& n);
+        Ret visit(const Nodecl::DivAssignment& n);
+        Ret visit(const Nodecl::MulAssignment& n);
+        Ret visit(const Nodecl::ModAssignment& n);
+        Ret visit(const Nodecl::BitwiseAndAssignment& n);
+        Ret visit(const Nodecl::BitwiseOrAssignment& n);
+        Ret visit(const Nodecl::BitwiseXorAssignment& n);
+        Ret visit(const Nodecl::ShrAssignment& n);
+        Ret visit(const Nodecl::ShlAssignment& n);
+        Ret visit(const Nodecl::Predecrement& n);
+        Ret visit(const Nodecl::Postdecrement& n);
+        Ret visit(const Nodecl::Preincrement& n);
+        Ret visit(const Nodecl::Postincrement& n);
+        Ret visit(const Nodecl::FunctionCall& n);
+        Ret visit(const Nodecl::VirtualFunctionCall& n);
     };    
 }
     

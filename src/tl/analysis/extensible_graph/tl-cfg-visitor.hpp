@@ -141,27 +141,24 @@ namespace TL
             section_parents = sections.section_parents;
             sections_exits = sections.sections_exits;
         }
-    };
+    };  
     
     class LIBTL_CLASS CfgVisitor : public Nodecl::NodeclVisitor<Node*>
     {
     protected:
-        //! Used during the building of the graphs
-        ExtensibleGraph* _actual_cfg;
-        
         ObjectList<ExtensibleGraph*> _cfgs;
+        
+        // *** All these variables are used while building of the graphs *** //
+        
+    private:
+        ExtensibleGraph* _actual_cfg;
         
         std::stack<Nodecl::NodeclBase> _context_s;
         
         ObjectList<Node*> _return_nodes;
         
         std::stack<struct loop_control_nodes_t> _loop_info_s;
-        
-        //! List with the struct containing information about the try hierarchy we are
-        /*!
-         * This member is a list because we need to access the different levels without deleting them
-         * in the case we detect a Throw, we want to connect it to any catch of any try level of hierarchy
-         */
+       
         ObjectList<struct try_block_nodes_t> _actual_try_info;
         
         std::stack<struct pragma_t> _pragma_info_s;
@@ -170,6 +167,9 @@ namespace TL
         
         std::stack<Node*> _switch_cond_s;
         
+        //! Pointer to the function in #_func_calls_nest we are analysing right now
+        //! Needed only during the construction of #_func_calls_nest
+        struct func_call_graph_t* _last_func_call;
         
     private:
         
@@ -266,11 +266,13 @@ namespace TL
         
         
     public:
-        //! Empty constructor
+        // *** Constructors *** //
+        
+        //! Default constructor
         /*!
          * This method is used when we want to perform the analysis from the Analyisis phase
          */
-        CfgVisitor(int i);
+        CfgVisitor();
         
         //! Constructor which built a CFG
         /*!
@@ -279,8 +281,6 @@ namespace TL
          */        
         CfgVisitor(std::string actual_cfg_name, int i);
         
-        //! Copy constructor
-        CfgVisitor(const CfgVisitor& visitor);
         
         // *** Non visiting methods *** //
         
@@ -312,6 +312,7 @@ namespace TL
         //! Once the use-def chains are calculated for every graph, we are able to recalculate the use-def of every function call
         bool propagate_use_def_ipa(Node* node);        
         
+        void set_last_func_call(struct func_call_graph_t* last_func_call);
         
         // *** Visiting methods *** //
         

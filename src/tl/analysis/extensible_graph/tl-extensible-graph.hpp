@@ -37,6 +37,25 @@ Cambridge, MA 02139, USA.
 
 namespace TL
 {
+    struct func_call_graph_t {
+        Symbol _root;
+        ObjectList<struct func_call_graph_t*> calls;
+        
+        func_call_graph_t(Symbol s)
+            : _root(s)
+        {}
+
+        Symbol get_symbol()
+        {
+            return _root;
+        }
+
+        void set_symbol(Symbol s)
+        {
+            _root = s;
+        }
+    };
+      
     class LIBTL_CLASS ExtensibleGraph
     {
         protected:
@@ -45,7 +64,7 @@ namespace TL
             std::string _name;
             int _nid;
             Scope _sc;
-            ObjectList<Symbol> _global_vars;
+            ObjectList<struct global_var_usage_t*> _global_vars;
             
             //! Symbol of the function is contained in the graph.
             /*! This symbol is empty when the code contained in the graph do not correspond to a function
@@ -86,8 +105,18 @@ namespace TL
             
             //! Boolean indicating whether the use-def chains are already computed for the graph
             bool _use_def_computed;
-
             
+            /*!
+            * This structure stores the graph of calls performed from 'f'.
+            * While computing use-def we store the functions calls in order to determine patterns as recursion or cycles.
+            * When a function call 'g' is founded, we include 'g' in the list, and continue analysing 'g'.
+            * All function call 'h' from 'g' are appended to 'g' symbol.
+            * After that if 'f' calls another function 'i' its symbols is appended to 'f'.
+            * Ex.:    f -> g -> h
+            *           -> i
+            */
+            struct func_call_graph_t* _func_calls_nest;            
+        
     private:
             //! We don't want to allow this kind of constructions
             ExtensibleGraph(const ExtensibleGraph& graph);
@@ -172,6 +201,8 @@ namespace TL
             void erase_break_nodes(Node* node);
             
             void compute_global_variables_usage_rec(Node* node);
+            
+            bool function_is_in_function_call_nest_rec(Symbol s, struct func_call_graph_t* actual_nest_s);
             
         public:
             // *** Constructors *** //
@@ -352,7 +383,7 @@ namespace TL
             //! Returns the scope enclosing the code contained in the graph
             Scope get_scope() const;
             
-            ObjectList<Symbol> get_global_variables() const;
+            ObjectList<struct global_var_usage_t*> get_global_variables();
             
             //! Returns the symbol of the function contained in the graph
             //! It is null when the graph do not corresponds to a function code
@@ -372,10 +403,15 @@ namespace TL
             
             //! Sets to 1 the variable containing whether the graph has the use-def info computed
             void set_use_def_computed();
+           
+            void init_function_call_nest();
             
+            struct func_call_graph_t* get_function_call_nest() const;
             
             // *** Consultants *** //
             static Node* is_for_loop_increment(Node* node);
+            
+            bool function_is_in_function_call_nest(Symbol s);
 
         friend class CfgVisitor;
     };

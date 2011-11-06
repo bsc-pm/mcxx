@@ -30,25 +30,11 @@ namespace TL
 {
     static bool pragma_is_worksharing(std::string pragma);
     
-    CfgVisitor::CfgVisitor(int i)
+    CfgVisitor::CfgVisitor()
         : _actual_cfg(NULL), _cfgs(), 
           _context_s(), _return_nodes(), _loop_info_s(), _actual_try_info(), 
-          _pragma_info_s(), _omp_sections_info(), 
-          _switch_cond_s()
+          _pragma_info_s(), _omp_sections_info(), _switch_cond_s(), _last_func_call()
     {}
-    
-    CfgVisitor::CfgVisitor(const CfgVisitor& visitor)
-    {
-        _actual_cfg = visitor._actual_cfg;
-        _cfgs = visitor._cfgs;
-        _context_s = visitor._context_s;
-        _return_nodes = visitor._return_nodes;
-        _loop_info_s = visitor._loop_info_s;
-        _actual_try_info = visitor._actual_try_info;
-        _pragma_info_s = visitor._pragma_info_s;
-        _omp_sections_info = visitor._omp_sections_info;
-        _switch_cond_s = visitor._switch_cond_s;
-    }
     
     ObjectList<ExtensibleGraph*> CfgVisitor::get_cfgs() const
     {
@@ -2128,5 +2114,10 @@ namespace TL
             
             
         }
+    }
+    
+    void CfgVisitor::set_last_func_call(struct func_call_graph_t* last_func_call)
+    {
+        _last_func_call = last_func_call;
     }
 }

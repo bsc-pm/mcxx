@@ -32,7 +32,7 @@ namespace TL
           _continue_stack(), _break_stack(),
           _labeled_node_l(), _goto_node_l(),
           _last_nodes(), _outer_node(), 
-          _task_nodes_l(), _use_def_computed(false)
+          _task_nodes_l(), _use_def_computed(false), _func_calls_nest()
     {
         _graph = create_graph_node(NULL, Nodecl::NodeclBase::null(), EXTENSIBLE_GRAPH);
         _last_nodes.append(_graph->get_graph_entry_node());
@@ -56,7 +56,8 @@ namespace TL
         new_ext_graph->_outer_node = this->_outer_node;
         new_ext_graph->_task_nodes_l = this->_task_nodes_l;
         new_ext_graph->_use_def_computed = this->_use_def_computed;
-       
+        new_ext_graph->_func_calls_nest = this->_func_calls_nest;
+        
         // First, just copy the nodes and create a map connecting the old nodes with the new nodes
         new_ext_graph->copy_and_map_nodes(_graph);
         clear_visits(_graph);
@@ -1079,7 +1080,7 @@ namespace TL
         return _sc;
     }
     
-    ObjectList<Symbol> ExtensibleGraph::get_global_variables() const
+    ObjectList<struct global_var_usage_t*> ExtensibleGraph::get_global_variables()
     {
         return _global_vars;
     }
@@ -1112,6 +1113,46 @@ namespace TL
     void ExtensibleGraph::set_use_def_computed()
     {
         _use_def_computed = true;
+    }
+    
+    void ExtensibleGraph::init_function_call_nest()
+    {
+        if (_function_sym != NULL)
+        {
+            _func_calls_nest->set_symbol(_function_sym);
+        }
+    }
+    
+    struct func_call_graph_t* ExtensibleGraph::get_function_call_nest() const
+    {
+        return _func_calls_nest;
+    }
+    
+    bool ExtensibleGraph::function_is_in_function_call_nest_rec(Symbol s, struct func_call_graph_t* actual_nest_s)
+    {
+        if (s == actual_nest_s->get_symbol())
+        {
+            return true;
+        }
+        else
+        {
+            bool res;
+            for (ObjectList<struct func_call_graph_t*>::iterator it = actual_nest_s->calls.begin();
+                 it != actual_nest_s->calls.end(); ++it)
+            {
+                res = function_is_in_function_call_nest_rec(s, *it);
+                if (res)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+    
+    bool ExtensibleGraph::function_is_in_function_call_nest(Symbol s)
+    {
+        return function_is_in_function_call_nest_rec(s, _func_calls_nest);
     }
     
     //! This method returns the most outer node of a node before finding a loop node
