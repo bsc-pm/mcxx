@@ -434,7 +434,6 @@ static void build_scope_main_program_unit(AST program_unit,
     if (program_body != NULL)
     {
         build_scope_program_body(program_body, program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
-
     }
 
     if (nodecl_is_null(nodecl_body))
@@ -494,7 +493,6 @@ static void build_scope_function_program_unit(AST program_unit,
     if (program_body != NULL)
     {
         build_scope_program_body(program_body, program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
-
     }
 
     if (nodecl_is_null(nodecl_body))
@@ -577,7 +575,6 @@ static void build_scope_subroutine_program_unit(AST program_unit,
     if (program_body != NULL)
     {
         build_scope_program_body(program_body, program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
-
     }
 
     if (nodecl_is_null(nodecl_body))
@@ -1170,7 +1167,7 @@ typedef struct build_scope_statement_handler_tag
  STATEMENT_HANDLER(AST_TARGET_STATEMENT,             build_scope_target_stmt,           kind_nonexecutable_0 ) \
  STATEMENT_HANDLER(AST_DECLARATION_STATEMENT,        build_scope_type_declaration_stmt, kind_nonexecutable_0 ) \
  STATEMENT_HANDLER(AST_UNLOCK_STATEMENT,             build_scope_unlock_stmt,           kind_executable_0    ) \
- STATEMENT_HANDLER(AST_USE_STATEMENT,                build_scope_use_stmt,              kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_USE_STATEMENT,                build_scope_use_stmt,              kind_nonexecutable_0    ) \
  STATEMENT_HANDLER(AST_USE_ONLY_STATEMENT,           build_scope_use_stmt,              kind_executable_0    ) \
  STATEMENT_HANDLER(AST_VALUE_STATEMENT,              build_scope_value_stmt,            kind_nonexecutable_0 ) \
  STATEMENT_HANDLER(AST_VOLATILE_STATEMENT,           build_scope_volatile_stmt,         kind_nonexecutable_0 ) \
