@@ -480,25 +480,43 @@ namespace TL
     
     /// *** GLOBAL VARIABLES VISITOR *** //
     
-    CfgGlobalVarsVisitor::CfgGlobalVarsVisitor(Scope sc)
-        : _sc(sc), _global_vars(), _defining(false)
+    CfgRecursiveAnalysisVisitor::CfgRecursiveAnalysisVisitor(Scope sc)
+        : _sc(sc), _global_vars(), _parameters(), _defining(false), _reference_params_to_args()
     {}
     
-    bool CfgGlobalVarsVisitor::global_vars_list_contains_sym(Nodecl::Symbol n)
+    void CfgRecursiveAnalysisVisitor::set_param_to_args_mapping(std::map<Symbol, Nodecl::NodeclBase> params_to_args)
     {
-        for (ObjectList<struct global_var_usage_t*>::iterator it = _global_vars.begin(); it != _global_vars.end(); ++it)
+        _reference_params_to_args = params_to_args;
+    }
+    
+    bool CfgRecursiveAnalysisVisitor::usage_list_contains_sym(Nodecl::Symbol n, char list)
+    {
+        if (list == '0')
         {
-            if (Nodecl::Utils::equal_nodecls((*it)->get_nodecl(), n))
+            for (ObjectList<struct var_usage_t*>::iterator it = _global_vars.begin(); it != _global_vars.end(); ++it)
             {
-                return true;
+                if (Nodecl::Utils::equal_nodecls((*it)->get_nodecl(), n))
+                {
+                    return true;
+                }
+            }
+        }
+        else
+        {
+            for (ObjectList<struct var_usage_t*>::iterator it = _parameters.begin(); it != _parameters.end(); ++it)
+            {
+                if (Nodecl::Utils::equal_nodecls((*it)->get_nodecl(), n))
+                {
+                    return true;
+                }
             }
         }
         return false;
     }
     
-    struct global_var_usage_t* CfgGlobalVarsVisitor::get_global_variable(Nodecl::Symbol n)
+    struct var_usage_t* CfgRecursiveAnalysisVisitor::get_global_variable_in_list(Nodecl::Symbol n)
     {
-        for (ObjectList<struct global_var_usage_t*>::iterator it = _global_vars.begin(); it != _global_vars.end(); ++it)
+        for (ObjectList<struct var_usage_t*>::iterator it = _global_vars.begin(); it != _global_vars.end(); ++it)
         {
             if (Nodecl::Utils::equal_nodecls((*it)->get_nodecl(), n))
             {
@@ -509,21 +527,34 @@ namespace TL
         internal_error("No symbol '%s' founded in global variable list", n.get_symbol().get_name().c_str());
     }
     
+    struct var_usage_t* CfgRecursiveAnalysisVisitor::get_parameter_in_list(Nodecl::Symbol n)
+    {
+        for (ObjectList<struct var_usage_t*>::iterator it = _parameters.begin(); it != _parameters.end(); ++it)
+        {
+            if (Nodecl::Utils::equal_nodecls((*it)->get_nodecl(), n))
+            {
+                return *it;
+            }
+        }
+        
+        internal_error("No symbol '%s' founded in parameters list", n.get_symbol().get_name().c_str());
+    }
     
-    ObjectList<struct global_var_usage_t*> CfgGlobalVarsVisitor::get_global_variables() const
+    ObjectList<struct var_usage_t*> CfgRecursiveAnalysisVisitor::get_global_variables_usage() const
     {
         return _global_vars;
     }
     
-    CfgGlobalVarsVisitor::Ret CfgGlobalVarsVisitor::visit(const Nodecl::Symbol& n)
+    CfgRecursiveAnalysisVisitor::Ret CfgRecursiveAnalysisVisitor::visit(const Nodecl::Symbol& n)
     {
         Symbol s = n.get_symbol();
         Scope s_sc = s.get_scope();
+      
         if (!s_sc.scope_is_enclosed_by(_sc))
-        {
-            if (global_vars_list_contains_sym(n))
+        {   // The symbol is a global variable
+            if (usage_list_contains_sym(n, /*global variable*/ '0'))
             {
-                struct global_var_usage_t* global_var = get_global_variable(n);
+                struct var_usage_t* global_var = get_global_variable_in_list(n);
                 char usage = global_var->get_usage();
                 if (usage == '0' || usage == '2')
                 {   // nothing to do: It doesn't matters what happens with an already Killed variable
@@ -543,14 +574,48 @@ namespace TL
                 if (_defining) usage = '0';
                 else usage = '1';
                 
-                struct global_var_usage_t* new_global_var_usage = new global_var_usage_t(n, usage);
+                struct var_usage_t* new_global_var_usage = new var_usage_t(n, usage);
                 _global_vars.insert(new_global_var_usage);
+            }
+        }
+        else
+        {   
+            if (!_reference_params_to_args.empty())
+            {
+                if (_reference_params_to_args.find(n.get_symbol()) != _reference_params_to_args.end())
+                {   // This symbol is a parameter
+                    if (usage_list_contains_sym(n, /*parameter*/ '1'))
+                    {
+                        struct var_usage_t* parameter = get_parameter_in_list(n);
+                        char usage = parameter->get_usage();
+                        if (usage == '0' || usage == '2')
+                        {   // nothing to do: It doesn't matters what happens with an already Killed variable
+                        }
+                        else if (usage == '1')
+                        {
+                            if (_defining)
+                            {   // Set to 2 the usage value
+                                parameter->set_usage('2');
+                            }
+                            else {} // nothing to do, the variable was already used
+                        }
+                    }
+                    else
+                    {
+                        char usage;
+                        if (_defining) usage = '0';
+                        else usage = '1';
+                        
+                        struct var_usage_t* new_parameter_usage = new var_usage_t(n, usage);
+                        _parameters.insert(new_parameter_usage);
+                    }
+                }
             }
         }
     }
     
     template <typename T>
-    void CfgGlobalVarsVisitor::op_assignment_visit(const T& n)
+    void CfgRecursiveAnalysisVisitor::op_assignment_visit(const T& n)
     {
         walk(n.get_lhs());
         _defining = true;
@@ -560,7 +625,7 @@ namespace TL
     }
 
     template <typename T>
-    void CfgGlobalVarsVisitor::unary_visit(const T& n)
+    void CfgRecursiveAnalysisVisitor::unary_visit(const T& n)
     {
         walk(n.get_rhs());
         _defining = true;
@@ -568,7 +633,7 @@ namespace TL
         _defining = false;        
     }
 
-    CfgGlobalVarsVisitor::Ret CfgGlobalVarsVisitor::visit(const Nodecl::Assignment& n)
+    CfgRecursiveAnalysisVisitor::Ret CfgRecursiveAnalysisVisitor::visit(const Nodecl::Assignment& n)
     {
         _defining = true;
         walk(n.get_lhs());
@@ -576,83 +641,83 @@ namespace TL
         walk(n.get_rhs());  
     }
     
-    CfgGlobalVarsVisitor::Ret CfgGlobalVarsVisitor::visit(const Nodecl::AddAssignment& n)
+    CfgRecursiveAnalysisVisitor::Ret CfgRecursiveAnalysisVisitor::visit(const Nodecl::AddAssignment& n)
     {
         op_assignment_visit(n);
     }
     
-    CfgGlobalVarsVisitor::Ret CfgGlobalVarsVisitor::visit(const Nodecl::SubAssignment& n)
+    CfgRecursiveAnalysisVisitor::Ret CfgRecursiveAnalysisVisitor::visit(const Nodecl::SubAssignment& n)
     {
         op_assignment_visit(n);
     }
     
-    CfgGlobalVarsVisitor::Ret CfgGlobalVarsVisitor::visit(const Nodecl::DivAssignment& n)
+    CfgRecursiveAnalysisVisitor::Ret CfgRecursiveAnalysisVisitor::visit(const Nodecl::DivAssignment& n)
     {
         op_assignment_visit(n);
     }
     
-    CfgGlobalVarsVisitor::Ret CfgGlobalVarsVisitor::visit(const Nodecl::MulAssignment& n)
+    CfgRecursiveAnalysisVisitor::Ret CfgRecursiveAnalysisVisitor::visit(const Nodecl::MulAssignment& n)
     {
         op_assignment_visit(n);
     }
     
-    CfgGlobalVarsVisitor::Ret CfgGlobalVarsVisitor::visit(const Nodecl::ModAssignment& n)
+    CfgRecursiveAnalysisVisitor::Ret CfgRecursiveAnalysisVisitor::visit(const Nodecl::ModAssignment& n)
     {
         op_assignment_visit(n);
     }
     
-    CfgGlobalVarsVisitor::Ret CfgGlobalVarsVisitor::visit(const Nodecl::BitwiseAndAssignment& n)
+    CfgRecursiveAnalysisVisitor::Ret CfgRecursiveAnalysisVisitor::visit(const Nodecl::BitwiseAndAssignment& n)
     {
         op_assignment_visit(n);
     }
     
-    CfgGlobalVarsVisitor::Ret CfgGlobalVarsVisitor::visit(const Nodecl::BitwiseOrAssignment& n)
+    CfgRecursiveAnalysisVisitor::Ret CfgRecursiveAnalysisVisitor::visit(const Nodecl::BitwiseOrAssignment& n)
     {
         op_assignment_visit(n);
     }
     
-    CfgGlobalVarsVisitor::Ret CfgGlobalVarsVisitor::visit(const Nodecl::BitwiseXorAssignment& n)
+    CfgRecursiveAnalysisVisitor::Ret CfgRecursiveAnalysisVisitor::visit(const Nodecl::BitwiseXorAssignment& n)
     {
         op_assignment_visit(n);
     }
     
-    CfgGlobalVarsVisitor::Ret CfgGlobalVarsVisitor::visit(const Nodecl::ShrAssignment& n)
+    CfgRecursiveAnalysisVisitor::Ret CfgRecursiveAnalysisVisitor::visit(const Nodecl::ShrAssignment& n)
     {
         op_assignment_visit(n);
     }
     
-    CfgGlobalVarsVisitor::Ret CfgGlobalVarsVisitor::visit(const Nodecl::ShlAssignment& n)
+    CfgRecursiveAnalysisVisitor::Ret CfgRecursiveAnalysisVisitor::visit(const Nodecl::ShlAssignment& n)
     {
         op_assignment_visit(n);
     }
     
-    CfgGlobalVarsVisitor::Ret CfgGlobalVarsVisitor::visit(const Nodecl::Predecrement& n)
+    CfgRecursiveAnalysisVisitor::Ret CfgRecursiveAnalysisVisitor::visit(const Nodecl::Predecrement& n)
     {
         unary_visit(n);
     }
     
-    CfgGlobalVarsVisitor::Ret CfgGlobalVarsVisitor::visit(const Nodecl::Postdecrement& n)
+    CfgRecursiveAnalysisVisitor::Ret CfgRecursiveAnalysisVisitor::visit(const Nodecl::Postdecrement& n)
     {
         unary_visit(n);
     }
     
-    CfgGlobalVarsVisitor::Ret CfgGlobalVarsVisitor::visit(const Nodecl::Preincrement& n)
+    CfgRecursiveAnalysisVisitor::Ret CfgRecursiveAnalysisVisitor::visit(const Nodecl::Preincrement& n)
     {
         unary_visit(n);
     }
     
-    CfgGlobalVarsVisitor::Ret CfgGlobalVarsVisitor::visit(const Nodecl::Postincrement& n)
+    CfgRecursiveAnalysisVisitor::Ret CfgRecursiveAnalysisVisitor::visit(const Nodecl::Postincrement& n)
     {
         unary_visit(n);
     }
     
-    CfgGlobalVarsVisitor::Ret CfgGlobalVarsVisitor::visit(const Nodecl::FunctionCall& n)
+    CfgRecursiveAnalysisVisitor::Ret CfgRecursiveAnalysisVisitor::visit(const Nodecl::FunctionCall& n)
     {
         //TODO
         internal_error("Not yet implemented", 0);
     }
     
-    CfgGlobalVarsVisitor::Ret CfgGlobalVarsVisitor::visit(const Nodecl::VirtualFunctionCall& n)
+    CfgRecursiveAnalysisVisitor::Ret CfgRecursiveAnalysisVisitor::visit(const Nodecl::VirtualFunctionCall& n)
     {
         //TODO
         internal_error("Not yet implemented", 0);

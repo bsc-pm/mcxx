@@ -1049,10 +1049,11 @@ namespace TL
                 ObjectList<Nodecl::NodeclBase> stmts = node->get_statements();
                 for(ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin(); it != stmts.end(); ++it)
                 {
-                    CfgGlobalVarsVisitor cfg_global_vars_visitor(_sc);
-                    cfg_global_vars_visitor.walk(*it);
+                    CfgRecursiveAnalysisVisitor cfg_rec_visitor(_sc);
+                    cfg_rec_visitor.walk(*it);
                     
-                    _global_vars.insert(cfg_global_vars_visitor.get_global_variables());
+                    ObjectList<struct var_usage_t*> global_vars_usage = cfg_rec_visitor.get_global_variables_usage();
+                    _global_vars.insert(global_vars_usage);
                 }           
             }
             
@@ -1080,7 +1081,7 @@ namespace TL
         return _sc;
     }
     
-    ObjectList<struct global_var_usage_t*> ExtensibleGraph::get_global_variables()
+    ObjectList<struct var_usage_t*> ExtensibleGraph::get_global_variables()
     {
         return _global_vars;
     }

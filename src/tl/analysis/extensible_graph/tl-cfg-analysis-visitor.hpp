@@ -135,11 +135,11 @@ namespace TL
         Ret visit(const Nodecl::Reference& n);
     };
     
-    struct global_var_usage_t {
+    struct var_usage_t {
         Nodecl::Symbol _sym;
         char _usage;     // 0 => KILLED, 1 => USED, 2 => UE + KILLED
         
-        global_var_usage_t(Nodecl::Symbol s, char usage)
+        var_usage_t(Nodecl::Symbol s, char usage)
             : _sym(s), _usage(usage)
         {}
         
@@ -162,12 +162,14 @@ namespace TL
     //! This visitor parses a nodecl searching global variables and the use
     /*! By default, the usage of the variable is USE. Visitor only marks DEFINITION usages
      */
-    class LIBTL_CLASS CfgGlobalVarsVisitor : public Nodecl::ExhaustiveVisitor<void>
+    class LIBTL_CLASS CfgRecursiveAnalysisVisitor : public Nodecl::ExhaustiveVisitor<void>
     {
     private:
         Scope _sc;
-        ObjectList<struct global_var_usage_t*> _global_vars;
-        char _defining;     // Temporary value used during the visit           
+        ObjectList<struct var_usage_t*> _global_vars;
+        ObjectList<struct var_usage_t*> _parameters;
+        std::map<Symbol, Nodecl::NodeclBase> _reference_params_to_args;
+        char _defining;     // Temporary value used during the visit 
         
         template <typename T>
         void op_assignment_visit(const T& n);
@@ -175,14 +177,21 @@ namespace TL
         template <typename T>
         void unary_visit(const T& n);
         
+        struct var_usage_t* get_global_variable_in_list(Nodecl::Symbol n);
+        struct var_usage_t* get_parameter_in_list(Nodecl::Symbol n);
+        bool usage_list_contains_sym(Nodecl::Symbol n, char list);
+        
     public:
         
-        CfgGlobalVarsVisitor(Scope sc);
-        
-        bool global_vars_list_contains_sym(Nodecl::Symbol n);
-        struct global_var_usage_t* get_global_variable(Nodecl::Symbol n);
-        ObjectList<struct global_var_usage_t*> get_global_variables() const;
-        
+        // *** Constructors *** //
+        CfgRecursiveAnalysisVisitor(Scope sc);
+       
+        // *** Getters and setters *** //
+        void set_param_to_args_mapping(std::map<Symbol, Nodecl::NodeclBase> params_to_args);
+        ObjectList<struct var_usage_t*> get_global_variables_usage() const;
+        ObjectList<struct var_usage_t*> get_parameters_usage() const;
+       
+        // *** Visitors *** //
         Ret visit(const Nodecl::Symbol& n);
         Ret visit(const Nodecl::Assignment& n);
         Ret visit(const Nodecl::AddAssignment& n);

@@ -64,7 +64,7 @@ namespace TL
             std::string _name;
             int _nid;
             Scope _sc;
-            ObjectList<struct global_var_usage_t*> _global_vars;
+            ObjectList<struct var_usage_t*> _global_vars;
             
             //! Symbol of the function is contained in the graph.
             /*! This symbol is empty when the code contained in the graph do not correspond to a function
@@ -383,7 +383,7 @@ namespace TL
             //! Returns the scope enclosing the code contained in the graph
             Scope get_scope() const;
             
-            ObjectList<struct global_var_usage_t*> get_global_variables();
+            ObjectList<struct var_usage_t*> get_global_variables();
             
             //! Returns the symbol of the function contained in the graph
             //! It is null when the graph do not corresponds to a function code

@@ -54,11 +54,14 @@ namespace TL
         {
             std::cerr << std::endl << "   ==> Graph '" << (*it)->get_name() << "'" << std::endl;
             (*it)->compute_global_variables_usage();
-            ObjectList<struct global_var_usage_t*> global_vars = (*it)->get_global_variables();
-            for (ObjectList<struct global_var_usage_t*>::iterator its = global_vars.begin(); its != global_vars.end(); ++its)
-            {
-                std::cerr << "       - " << (*its)->get_nodecl().prettyprint() << std::endl;
-            }
+//             DEBUG_CODE()
+//             {
+                ObjectList<struct var_usage_t*> global_vars = (*it)->get_global_variables();
+                for (ObjectList<struct var_usage_t*>::iterator its = global_vars.begin(); its != global_vars.end(); ++its)
+                {
+                    std::cerr << "       - " << (*its)->get_nodecl().prettyprint() << std::endl;
+                }
+//             }
         }
        
         // *** Use-def chains + IPA *** //

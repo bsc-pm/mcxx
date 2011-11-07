@@ -1153,14 +1153,62 @@ namespace TL
                     _last_func_call->calls.append(called_func_graph->get_function_call_nest());
                 }
                 
+                // Get the parameters of the called function
+                ObjectList<Symbol> params;
+                Symbol function_sym = called_func_graph->get_function_symbol();
+                scope_entry_t* function_header = function_sym.get_internal_symbol();
+                int num_params = function_header->entity_specs.num_related_symbols;
+                scope_entry_t** related_symbols = function_header->entity_specs.related_symbols;
+                for (int i=0; i<num_params; ++i)
+                {
+                    Symbol s(related_symbols[i]);
+                    params.append(s);
+                }
+                // Map this information between arguments and parameters
+                // For info abut variables which are not parameters, look at the context:
+                //       - if they are in the called function context, do nothing
+                //       - otherwise, their info must be also propagated to the actual node
+                std::vector<Nodecl::NodeclBase> args;
+                Nodecl::NodeclBase func_nodecl = node->get_statements()[0];
+                if (func_nodecl.is<Nodecl::FunctionCall>())
+                {
+                    Nodecl::FunctionCall func_call_nodecl = func_nodecl.as<Nodecl::FunctionCall>();
+                    args = func_call_nodecl.get_arguments().as<Nodecl::List>();
+                }
+                else
+                {   // is VirtualFunctionCall
+                    Nodecl::VirtualFunctionCall func_call_nodecl = func_nodecl.as<Nodecl::VirtualFunctionCall>();
+                    args = func_call_nodecl.get_arguments().as<Nodecl::List>();
+                }
+                std::map<Symbol, Nodecl::NodeclBase> params_to_args;
+                int i = 0;
+                for(ObjectList<Symbol>::iterator it = params.begin(); it != params.end() && i < args.size(); ++it, ++i)
+                {
+                    params_to_args[*it] = args[i];
+                }
+                    
                 ext_sym_set called_func_ue_vars, called_func_killed_vars, node_killed_vars;
-                
                 if (_actual_cfg->function_is_in_function_call_nest(called_func_graph->get_function_symbol()))
                 {   // recursive analysis
                 
-                    // global variables
-                    ObjectList<struct global_var_usage_t*> called_func_global_vars_usage = called_func_graph->get_global_variables();
-                    for (ObjectList<struct global_var_usage_t*>::iterator it = called_func_global_vars_usage.begin(); 
+                    // *** Reference parameters: only case that can modify an argument or the value pointed by an argument *** //
+                    // Keep just the parameters that are pointers or are passed by reference
+                    std::map<Symbol, Nodecl::NodeclBase> reference_params_to_args;
+                    for (std::map<Symbol, Nodecl::NodeclBase>::iterator it = params_to_args.begin(); it != params_to_args.end(); ++it)
+                    {
+                        Type t = it->first.get_type();
+                        if (t.is_pointer() || t.is_reference())
+                        {
+                            reference_params_to_args[it->first] = it->second;
+                        }
+                    }
+                    
+//                     CfgRacuesiveAnalysisVisitor ()
+
+                
+                    // *** Global variables *** //
+                    ObjectList<struct var_usage_t*> called_func_global_vars_usage = called_func_graph->get_global_variables();
+                    for (ObjectList<struct var_usage_t*>::iterator it = called_func_global_vars_usage.begin(); 
                          it != called_func_global_vars_usage.end(); ++it)
                     {
                         // Set the variable to UE or KILLED list
@@ -1187,44 +1235,9 @@ namespace TL
                                            usage, called_func_graph->get_function_symbol().get_name().c_str());
                         }
                     }
-                    
-                    //  reference parameters
                 }
                 else
                 {
-                    // Map this information between arguments and parameters
-                    // For info abut variables which are not parameters, look at the context:
-                    //       - if they are in the called function context, do nothing
-                    //       - otherwise, their info must be also propagated to the actual node
-                    std::vector<Nodecl::NodeclBase> args;
-                    Nodecl::NodeclBase func_nodecl = node->get_statements()[0];
-                    if (func_nodecl.is<Nodecl::FunctionCall>())
-                    {
-                        Nodecl::FunctionCall func_call_nodecl = func_nodecl.as<Nodecl::FunctionCall>();
-                        args = func_call_nodecl.get_arguments().as<Nodecl::List>();
-                    }
-                    else
-                    {   // is VirtualFunctionCall
-                        Nodecl::VirtualFunctionCall func_call_nodecl = func_nodecl.as<Nodecl::VirtualFunctionCall>();
-                        args = func_call_nodecl.get_arguments().as<Nodecl::List>();
-                    }
-                    ObjectList<Symbol> params;
-                    Symbol function_sym = called_func_graph->get_function_symbol();
-                    scope_entry_t* function_header = function_sym.get_internal_symbol();
-                    int num_params = function_header->entity_specs.num_related_symbols;
-                    scope_entry_t** related_symbols = function_header->entity_specs.related_symbols;
-                    for (int i=0; i<num_params; ++i)
-                    {
-                        Symbol s(related_symbols[i]);
-                        params.append(s);
-                    }
-                    std::map<Symbol, Nodecl::NodeclBase> params_to_args;
-                    int i = 0;
-                    for(ObjectList<Symbol>::iterator it = params.begin(); it != params.end() && i < args.size(); ++it, ++i)
-                    {
-                        params_to_args[*it] = args[i];
-                    }
-
                     // Filter map maintaining those arguments that are constants for "constant propagation" in USE-DEF info
                     std::map<Symbol, Nodecl::NodeclBase> const_args;
                     for(std::map<Symbol, Nodecl::NodeclBase>::iterator it = params_to_args.begin(); it != params_to_args.end(); ++it)
