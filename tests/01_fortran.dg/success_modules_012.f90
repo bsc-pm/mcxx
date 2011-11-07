@@ -31,25 +31,14 @@
 ! test_FFLAGS_nocache="--debug-flags=disable_module_cache"
 ! </testinfo>
 
-MODULE M1
-    IMPLICIT NONE
-    TYPE T
-        INTEGER :: X
-    END TYPE T
-END MODULE M1
 
-MODULE M2
-    IMPLICIT NONE
-    USE M1
-    TYPE(T) :: S
-    INTEGER, PARAMETER :: P = 4
-END MODULE M2
+MODULE m
+    COMMON /c/ i
+END MODULE m
 
-MODULE M
-    IMPLICIT NONE
-    USE M2
-CONTAINS 
-    SUBROUTINE FOO
-        PRINT *, S % X
-    END SUBROUTINE FOO
-END MODULE M
+subroutine s(x)
+   use m
+   implicit none
+   integer :: x(0:i)
+   print *, x
+END

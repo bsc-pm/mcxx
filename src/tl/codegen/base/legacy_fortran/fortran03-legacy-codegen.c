@@ -125,7 +125,7 @@ static void not_implemented_yet(nodecl_external_visitor_t* visitor UNUSED_PARAME
 
 static void codegen_use_statement(nodecl_codegen_visitor_t* visitor, scope_entry_t* entry)
 {
-    ERROR_CONDITION(!entry->entity_specs.from_module, "Symbol '%s' must be from module\n", entry->symbol_name);
+    ERROR_CONDITION(entry->entity_specs.from_module == NULL, "Symbol '%s' must be from module\n", entry->symbol_name);
 
     if (entry->entity_specs.codegen_status == CODEGEN_STATUS_DEFINED)
         return;
@@ -152,12 +152,9 @@ static void declare_symbols_from_modules_rec(nodecl_codegen_visitor_t* visitor, 
 
 static void emit_use_statement_if_symbol_comes_from_module(nodecl_codegen_visitor_t* visitor, scope_entry_t* entry)
 {
-    if (entry->kind == SK_CLASS)
+    if (entry->kind == SK_CLASS
+            && entry->entity_specs.from_module == NULL)
     {
-        if (entry->entity_specs.from_module)
-        {
-            codegen_use_statement(visitor, entry);
-        }
         // Check every component recursively
         scope_entry_list_t* nonstatic_members = class_type_get_nonstatic_data_members(entry->type_information);
         scope_entry_list_iterator_t* it = NULL;
@@ -205,16 +202,17 @@ static void emit_use_statement_if_symbol_comes_from_module(nodecl_codegen_visito
             entry_type = array_type_get_element_type(entry_type);
         }
     }
-
-    if (is_named_class_type(entry->type_information))
+    
+    if (entry->entity_specs.from_module == NULL
+            && is_named_class_type(entry->type_information))
     {
         scope_entry_t* class_entry = named_type_get_symbol(entry->type_information);
-        if (class_entry->entity_specs.from_module)
+        if (class_entry->entity_specs.from_module != NULL)
         {
             codegen_use_statement(visitor, class_entry);
         }
     }
-    if (entry->entity_specs.from_module)
+    if (entry->entity_specs.from_module != NULL)
     {
         codegen_use_statement(visitor, entry);
     }
@@ -274,6 +272,9 @@ static void codegen_object_init(nodecl_codegen_visitor_t* visitor, nodecl_t node
         // If the FE generates this it means we found a module with no functions
         case SK_MODULE:
             {
+                // We are currently printing a module, we w
+                ERROR_CONDITION(visitor->current_module != NULL, "We are already printing a module!\n", 0);
+
                 // This is needed when a module (which had no functions) is
                 // extended with new functions, the tree is scanned first for
                 // functions, but this node is left untouched, so just do
@@ -297,6 +298,14 @@ static void codegen_object_init(nodecl_codegen_visitor_t* visitor, nodecl_t node
     }
 }
 
+typedef struct nodecl_codegen_pre_module_info_tag
+{
+    scope_entry_t* module;
+
+    int num_nodes;
+    nodecl_t* nodes;
+} nodecl_codegen_pre_module_info_t;
+
 typedef
 struct nodecl_codegen_pre_visitor_tag
 {
@@ -304,8 +313,49 @@ struct nodecl_codegen_pre_visitor_tag
     nodecl_external_visitor_t _base_visitor;
 
     int num_modules;
-    scope_entry_t** modules;
+    nodecl_codegen_pre_module_info_t** modules;
 } nodecl_codegen_pre_visitor_t;
+
+static void pre_visit_add_module_node(nodecl_external_visitor_t* visitor, 
+        scope_entry_t* module, 
+        nodecl_t node)
+{
+    nodecl_codegen_pre_visitor_t *pre_visitor = (nodecl_codegen_pre_visitor_t*)visitor;
+
+    char found = 0;
+    int i;
+    for (i = 0; (i < pre_visitor->num_modules) && !found; i++)
+    {
+        if (pre_visitor->modules[i]->module == module)
+        {
+            if (!nodecl_is_null(node))
+            {
+                P_LIST_ADD(
+                        pre_visitor->modules[i]->nodes,
+                        pre_visitor->modules[i]->num_nodes,
+                        node);
+            }
+            found = 1;
+        }
+    }
+
+    if (!found)
+    {
+        nodecl_codegen_pre_module_info_t* info = calloc(1, sizeof(*info));
+
+        info->module = module;
+        if (!nodecl_is_null(node))
+        {
+            P_LIST_ADD(info->nodes,
+                    info->num_nodes,
+                    node);
+        }
+
+        P_LIST_ADD(pre_visitor->modules,
+                pre_visitor->num_modules,
+                info);
+    }
+}
 
 static void pre_visit_function_code(nodecl_external_visitor_t* visitor, nodecl_t node)
 {
@@ -315,9 +365,19 @@ static void pre_visit_function_code(nodecl_external_visitor_t* visitor, nodecl_t
 
     if (entry->entity_specs.in_module != NULL)
     {
-        P_LIST_ADD_ONCE(pre_visitor->modules,
-                pre_visitor->num_modules,
-                entry->entity_specs.in_module);
+        pre_visit_add_module_node(visitor, entry->entity_specs.in_module, node);
+    }
+}
+
+static void pre_visit_object_init(nodecl_external_visitor_t* visitor, nodecl_t node)
+{
+    nodecl_codegen_pre_visitor_t *pre_visitor = (nodecl_codegen_pre_visitor_t*)visitor;
+
+    scope_entry_t* entry = nodecl_get_symbol(node);
+
+    if (entry->kind == SK_MODULE)
+    {
+        pre_visit_add_module_node(visitor, entry, nodecl_null());
     }
 }
 
@@ -331,6 +391,7 @@ static void codegen_top_level(nodecl_codegen_visitor_t* visitor, nodecl_t node)
     nodecl_init_walker((nodecl_external_visitor_t*)&pre_visitor, NULL);
 
     NODECL_VISITOR(&pre_visitor)->visit_function_code = pre_visit_function_code;
+    NODECL_VISITOR(&pre_visitor)->visit_object_init = pre_visit_object_init;
     nodecl_walk((nodecl_external_visitor_t*)&pre_visitor, list);
 
     int i;
@@ -338,14 +399,22 @@ static void codegen_top_level(nodecl_codegen_visitor_t* visitor, nodecl_t node)
     {
         scope_entry_t* old_module = visitor->current_module;
 
-        scope_entry_t* current_module = pre_visitor.modules[i];
+        scope_entry_t* current_module = pre_visitor.modules[i]->module;
 
         current_module->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
 
         visitor->current_module = current_module;
 
         codegen_module_header(visitor, current_module);
-        codegen_walk(visitor, list);
+
+        int j;
+        for (j = 0; j < pre_visitor.modules[i]->num_nodes; j++)
+        {
+            nodecl_t node = pre_visitor.modules[i]->nodes[j];
+
+            codegen_walk(visitor, node);
+        }
+
         codegen_module_footer(visitor, current_module);
 
         visitor->current_module = old_module;
@@ -975,7 +1044,7 @@ static void declare_symbols_rec(nodecl_codegen_visitor_t* visitor, nodecl_t node
 
     scope_entry_t* entry = nodecl_get_symbol(node);
     if (entry != NULL
-            && !entry->entity_specs.from_module)
+            && (entry->entity_specs.from_module == NULL))
     {
         declare_symbol(visitor, entry);
     }
