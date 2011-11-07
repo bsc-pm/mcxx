@@ -2038,6 +2038,7 @@ static void codegen_pragma_custom_clause(nodecl_codegen_visitor_t* visitor, node
         codegen_comma_separated_list(visitor, parameters);
         fprintf(visitor->file, ")");
     }
+    fprintf(visitor->file, " ");
 }
 
 static void codegen_pragma_custom_line(nodecl_codegen_visitor_t* visitor, nodecl_t node)
@@ -2046,11 +2047,11 @@ static void codegen_pragma_custom_line(nodecl_codegen_visitor_t* visitor, nodecl
     nodecl_t parameters = nodecl_get_child(node, 0);
     if (!nodecl_is_null(parameters))
     {
-        fprintf(visitor->file, " (");
+        fprintf(visitor->file, "(");
         codegen_walk(visitor, parameters);
-        fprintf(visitor->file, " )");
+        fprintf(visitor->file, ")");
     }
-
+    fprintf(visitor->file, " ");
     codegen_walk(visitor, nodecl_get_child(node, 1));
 }
 static void codegen_pragma_custom_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
@@ -2068,7 +2069,9 @@ static void codegen_pragma_custom_statement(nodecl_codegen_visitor_t* visitor, n
     nodecl_t end_clauses = nodecl_get_child(pragma_custom_line, 2);
     if (!nodecl_is_null(end_clauses))
     {
-        fprintf(visitor->file, "!$%s ", nodecl_get_text(node));
+        fprintf(visitor->file, "!$%s END %s ", 
+                nodecl_get_text(node),
+                nodecl_get_text(pragma_custom_line));
         codegen_walk(visitor, end_clauses);
         fprintf(visitor->file, "\n");
     }

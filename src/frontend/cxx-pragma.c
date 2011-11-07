@@ -3,6 +3,8 @@
 #include "cxx-ast.h"
 #include "cxx-tltype.h"
 #include "cxx-scope.h"
+#include <stdio.h>
+        
 
 static void common_build_scope_pragma_custom_clause_argument(AST a, 
         decl_context_t decl_context UNUSED_PARAMETER,
@@ -24,43 +26,62 @@ static void common_build_scope_pragma_custom_clause(AST a, decl_context_t decl_c
     *nodecl_output = nodecl_make_pragma_custom_clause(nodecl_argument, ASTText(a), ASTFileName(a), ASTLine(a));
 }
 
-void common_build_scope_pragma_custom_line(AST a, 
+void common_build_scope_pragma_custom_line(
+        AST start_clauses, 
         AST end_clauses,
         decl_context_t decl_context, 
         nodecl_t* nodecl_output)
 {
     nodecl_t nodecl_clauses = nodecl_null();
-    if (ASTSon0(a) != NULL)
+    nodecl_t nodecl_parameter = nodecl_null();
+
+    if (start_clauses != NULL)
     {
         AST list, iter;
-        list = ASTSon0(a);
+        list = ASTSon0(start_clauses);
 
-        for_each_element(list, iter)
+        if (list != NULL)
         {
-            AST pragma_clause = ASTSon1(iter);
+            for_each_element(list, iter)
+            {
+                AST pragma_clause = ASTSon1(iter);
 
-            nodecl_t nodecl_clause = nodecl_null();
-            common_build_scope_pragma_custom_clause(pragma_clause, decl_context, &nodecl_clause);
+                nodecl_t nodecl_clause = nodecl_null();
+                common_build_scope_pragma_custom_clause(pragma_clause, decl_context, &nodecl_clause);
 
-            nodecl_clauses = nodecl_append_to_list(nodecl_clauses, nodecl_clause);
+                nodecl_clauses = nodecl_append_to_list(nodecl_clauses, nodecl_clause);
+            }
+        }
+
+        // #pragma XXX(parameter)
+        AST parameter = ASTSon1(start_clauses);
+
+        if (parameter != NULL)
+        {
+            common_build_scope_pragma_custom_clause_argument(ASTSon1(start_clauses), decl_context, &nodecl_parameter);
+            nodecl_parameter = nodecl_make_list_1(nodecl_parameter);
         }
     }
 
-    nodecl_t nodecl_parameter = nodecl_null();
-    if (ASTSon1(a) != NULL)
-    {
-        common_build_scope_pragma_custom_clause_argument(ASTSon1(a), decl_context, &nodecl_parameter);
-        nodecl_parameter = nodecl_make_list_1(nodecl_parameter);
-    }
-    
     nodecl_t nodecl_end_clauses = nodecl_null();
     if(end_clauses != NULL) 
-    {
-        common_build_scope_pragma_custom_clause(end_clauses, decl_context, &nodecl_end_clauses);
-        nodecl_end_clauses = nodecl_make_list_1(nodecl_end_clauses);
+    {    
+        AST list, iter;
+        list = ASTSon0(end_clauses);
+        if(list != NULL)
+        {
+            for_each_element(list, iter)
+            {
+                AST pragma_clause = ASTSon1(iter);
+
+                nodecl_t nodecl_end_clause = nodecl_null();
+                common_build_scope_pragma_custom_clause(pragma_clause, decl_context, &nodecl_end_clause);
+                nodecl_end_clauses = nodecl_append_to_list(nodecl_end_clauses, nodecl_end_clause);
+            }
+        }
     }
 
-    *nodecl_output = nodecl_make_pragma_custom_line(nodecl_parameter, nodecl_clauses, nodecl_end_clauses, ASTText(a), ASTFileName(a), ASTLine(a));
+    *nodecl_output = nodecl_make_pragma_custom_line(nodecl_parameter, nodecl_clauses, nodecl_end_clauses, ASTText(start_clauses), ASTFileName(start_clauses), ASTLine(start_clauses));
 }
 
 void common_build_scope_pragma_custom_declaration(AST a, 
