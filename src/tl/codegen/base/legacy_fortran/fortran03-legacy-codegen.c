@@ -174,6 +174,38 @@ static void emit_use_statement_if_symbol_comes_from_module(nodecl_codegen_visito
         entry_list_iterator_free(it);
         entry_list_free(nonstatic_members);
     }
+    else if(entry->kind == SK_VARIABLE 
+            && entry->entity_specs.from_module == NULL)
+    {
+        type_t * entry_type = entry->type_information;
+
+        entry_type = no_ref(entry_type);
+        if (is_pointer_type(entry_type))
+        {
+            entry_type = pointer_type_get_pointee_type(entry_type);
+        }
+
+        while (is_array_type(entry_type))
+        {
+            nodecl_t lower = array_type_get_array_lower_bound(entry_type);
+            if(!nodecl_is_constant(lower))
+            {
+                declare_symbols_from_modules_rec(visitor, lower);
+            }
+
+            if (!array_type_is_unknown_size(entry_type))
+            {
+                nodecl_t upper = array_type_get_array_upper_bound(entry_type);
+                if(!nodecl_is_constant(upper))
+                {
+                    declare_symbols_from_modules_rec(visitor, upper);
+                }
+            }
+
+            entry_type = array_type_get_element_type(entry_type);
+        }
+    }
+
     if (is_named_class_type(entry->type_information))
     {
         scope_entry_t* class_entry = named_type_get_symbol(entry->type_information);
