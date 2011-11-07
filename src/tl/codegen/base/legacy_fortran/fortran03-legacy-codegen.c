@@ -125,7 +125,7 @@ static void not_implemented_yet(nodecl_external_visitor_t* visitor UNUSED_PARAME
 
 static void codegen_use_statement(nodecl_codegen_visitor_t* visitor, scope_entry_t* entry)
 {
-    ERROR_CONDITION(!entry->entity_specs.from_module, "Symbol '%s' must be from module\n", entry->symbol_name);
+    ERROR_CONDITION(entry->entity_specs.from_module == NULL, "Symbol '%s' must be from module\n", entry->symbol_name);
 
     if (entry->entity_specs.codegen_status == CODEGEN_STATUS_DEFINED)
         return;
@@ -152,12 +152,9 @@ static void declare_symbols_from_modules_rec(nodecl_codegen_visitor_t* visitor, 
 
 static void emit_use_statement_if_symbol_comes_from_module(nodecl_codegen_visitor_t* visitor, scope_entry_t* entry)
 {
-    if (entry->kind == SK_CLASS)
+    if (entry->kind == SK_CLASS
+            && entry->entity_specs.from_module == NULL)
     {
-        if (entry->entity_specs.from_module)
-        {
-            codegen_use_statement(visitor, entry);
-        }
         // Check every component recursively
         scope_entry_list_t* nonstatic_members = class_type_get_nonstatic_data_members(entry->type_information);
         scope_entry_list_iterator_t* it = NULL;
@@ -174,15 +171,16 @@ static void emit_use_statement_if_symbol_comes_from_module(nodecl_codegen_visito
         entry_list_iterator_free(it);
         entry_list_free(nonstatic_members);
     }
-    if (is_named_class_type(entry->type_information))
+    if (entry->entity_specs.from_module == NULL
+            && is_named_class_type(entry->type_information))
     {
         scope_entry_t* class_entry = named_type_get_symbol(entry->type_information);
-        if (class_entry->entity_specs.from_module)
+        if (class_entry->entity_specs.from_module != NULL)
         {
             codegen_use_statement(visitor, class_entry);
         }
     }
-    if (entry->entity_specs.from_module)
+    if (entry->entity_specs.from_module != NULL)
     {
         codegen_use_statement(visitor, entry);
     }
@@ -1014,7 +1012,7 @@ static void declare_symbols_rec(nodecl_codegen_visitor_t* visitor, nodecl_t node
 
     scope_entry_t* entry = nodecl_get_symbol(node);
     if (entry != NULL
-            && !entry->entity_specs.from_module)
+            && (entry->entity_specs.from_module == NULL))
     {
         declare_symbol(visitor, entry);
     }
