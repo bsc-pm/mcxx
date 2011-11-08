@@ -880,14 +880,6 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
     }
     else if (is_function)
     {
-        // Invent a symbol and make it a variable, so when the function name is
-        // used as a variable we'll use this symbol instead. This eases lots of
-        // things
-        
-        //result_sym = calloc(1, sizeof(*result_sym));
-        //result_sym->symbol_name = entry->symbol_name;
-        //result_sym->decl_context = decl_context;
-        
         //Since this function does not have an explicit result variable we will insert an alias
         //that will hide the function name
         result_sym = new_symbol(decl_context, decl_context.current_scope, entry->symbol_name);
