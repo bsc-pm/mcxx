@@ -3093,40 +3093,10 @@ static void check_user_defined_binary_op(AST expr, decl_context_t decl_context, 
             ASTLine(expr));
 }
 
-static char function_has_named_result(scope_entry_t* entry)
-{
-    int i;
-    for (i = 0; i < entry->entity_specs.num_related_symbols; i++)
-    {
-        if (entry->entity_specs.related_symbols[i]->entity_specs.is_result
-                && strcasecmp(entry->entity_specs.related_symbols[i]->symbol_name, entry->symbol_name) != 0)
-            return 1;
-    }
-    return 0;
-}
-
-
 static char is_name_of_funtion_call(AST expr)
 {
     return ASTParent(expr) != NULL
         && ASTType(ASTParent(expr)) == AST_FUNCTION_CALL;
-}
-
-static char is_name_in_actual_arg_spec_list(AST expr)
-{
-    node_t hierarchy[] = { AST_NAMED_PAIR_SPEC, AST_NODE_LIST, AST_FUNCTION_CALL, AST_INVALID_NODE };
-
-    AST p = ASTParent(expr);
-    int i = 0;
-    while (hierarchy[i] != AST_INVALID_NODE
-            && p != NULL
-            && ASTType(p) == hierarchy[i])
-    {
-        p = ASTParent(p);
-        i++;
-    }
-
-    return (hierarchy[i] == AST_INVALID_NODE);
 }
 
 static void check_symbol(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -3175,40 +3145,6 @@ static void check_symbol(AST expr, decl_context_t decl_context, nodecl_t* nodecl
         }
     }
 
-    if (entry->kind == SK_FUNCTION)
-    {
-        // This must act as a variable
-        if (!is_name_of_funtion_call(expr)
-                && !is_name_in_actual_arg_spec_list(expr))
-        {
-            // FIXME: This is not exactly OK here, we may be passing a function
-            // name as a variable to another function
-            type_t* return_type = NULL; 
-            if (is_function_type(no_ref(entry->type_information)))
-                return_type = function_type_get_return_type(entry->type_information);
-            if (return_type == NULL
-                    || function_has_named_result(entry))
-            {
-                if (!checking_ambiguity())
-                {
-                    fprintf(stderr, "%s: error: '%s' is not a variable\n",
-                            ast_location(expr),
-                            fortran_prettyprint_in_buffer(expr));
-                }
-                *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
-                return;
-            }
-
-            // Update to the result symbol
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "EXPRTYPE: Reference to function name '%s' where a variable is expected, using result symbol\n",
-                        entry->symbol_name);
-            }
-            entry = function_get_result_symbol(entry);
-        }
-    }
-
     if (entry->kind == SK_VARIABLE)
     {
         // It might happen that dummy arguments/result do not have any implicit
@@ -3252,24 +3188,13 @@ static void check_symbol(AST expr, decl_context_t decl_context, nodecl_t* nodecl
     }
     else if (entry->kind == SK_FUNCTION)
     {
-        if (!is_name_of_funtion_call(expr) 
-                && !is_name_in_actual_arg_spec_list(expr))
-        {
-            *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
-            return;
-        }
-        else
-        {
-            *nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
-            nodecl_set_type(*nodecl_output, entry->type_information);
-        }
+        *nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
+        nodecl_set_type(*nodecl_output, entry->type_information);
     }
     else
     {
         *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
     }
-
-
 }
 
 static void conform_types_in_assignment(type_t* lhs_type, type_t* rhs_type, type_t** conf_lhs_type, type_t** conf_rhs_type);
