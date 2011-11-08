@@ -201,7 +201,8 @@
 "                           C/C++: .i, .ii\n"\
 "                           Fortran: .f, .f77, .f90, .f95\n"\
 "  --pp-stdout              Preprocessor uses stdout for output\n" \
-"  --width=<width>          Fortran column width. By default 132\n" \
+"  --width=<width>          Fortran column width used in the output\n" \
+"                           By default 132\n" \
 "  --free                   Force Fortran free form regardless of\n" \
 "                           extension.\n"\
 "                           This is the default for files ending with\n"\
