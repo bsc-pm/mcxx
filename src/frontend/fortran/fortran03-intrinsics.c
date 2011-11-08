@@ -3103,7 +3103,7 @@ scope_entry_t* compute_intrinsic_matmul(scope_entry_t* symbol UNUSED_PARAMETER,
     {
         type_t* result_type = common_type_of_binary_operation(get_rank0_type(t0), get_rank0_type(t1));
 
-        if (is_rank2_0 && is_rank2_0)
+        if (is_rank2_0 && is_rank2_1)
         {
             return GET_INTRINSIC_TRANSFORMATIONAL("matmul", 
                     get_n_ranked_type(result_type, 2, symbol->decl_context),
