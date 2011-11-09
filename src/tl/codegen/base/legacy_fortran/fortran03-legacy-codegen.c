@@ -1841,7 +1841,8 @@ static void codegen_field_designator(nodecl_codegen_visitor_t* visitor, nodecl_t
 {
     nodecl_t name = nodecl_get_child(node, 0);
     nodecl_t initializer = nodecl_get_child(node, 1);
-    fprintf(visitor->file, "%s = ", nodecl_get_symbol(name)->symbol_name);
+    // This is Fortran 2003
+    // fprintf(visitor->file, "%s = ", nodecl_get_symbol(name)->symbol_name);
     codegen_walk(visitor, initializer);
 }
 
