@@ -820,8 +820,8 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
 
             if (strcmp(ASTText(dummy_arg_name), "*") == 0)
             {
-                warn_printf("%s: warning: deprecated alternate return in procedure declaration\n",
-                        ast_location(dummy_arg_name));
+                // warn_printf("%s: warning: deprecated alternate return in procedure declaration\n",
+                //         ast_location(dummy_arg_name));
                 continue;
             }
 
@@ -2362,8 +2362,8 @@ static void build_scope_arithmetic_if_stmt(AST a, decl_context_t decl_context, n
     AST equal = ASTSon1(label_set);
     AST upper = ASTSon2(label_set);
 
-    warn_printf("%s: warning: deprecated arithmetic-if statement\n", 
-            ast_location(a));
+    // warn_printf("%s: warning: deprecated arithmetic-if statement\n", 
+    //         ast_location(a));
     nodecl_t nodecl_numeric_expr = nodecl_null();
     fortran_check_expression(numeric_expr, decl_context, &nodecl_numeric_expr);
 
@@ -2757,8 +2757,8 @@ static void build_scope_common_stmt(AST a,
 
 static void build_scope_computed_goto_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    warn_printf("%s: warning: deprecated computed-goto statement\n", 
-            ast_location(a));
+    // warn_printf("%s: warning: deprecated computed-goto statement\n", 
+    //         ast_location(a));
     AST label_list = ASTSon0(a);
     nodecl_t nodecl_label_list = nodecl_null();
     AST it;
@@ -2784,8 +2784,8 @@ static void build_scope_computed_goto_stmt(AST a, decl_context_t decl_context, n
 
 static void build_scope_assigned_goto_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
-    warn_printf("%s: warning: deprecated assigned-goto statement\n", 
-            ast_location(a));
+    // warn_printf("%s: warning: deprecated assigned-goto statement\n", 
+    //         ast_location(a));
 
     scope_entry_t* label_var = query_name_with_locus(decl_context, ASTSon0(a), ASTText(ASTSon0(a)));
 
@@ -2811,8 +2811,8 @@ static void build_scope_assigned_goto_stmt(AST a UNUSED_PARAMETER, decl_context_
 
 static void build_scope_label_assign_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
-    warn_printf("%s: warning: deprecated label-assignment statement\n", 
-            ast_location(a));
+    // warn_printf("%s: warning: deprecated label-assignment statement\n", 
+    //         ast_location(a));
 
     AST literal_const = ASTSon0(a);
 
