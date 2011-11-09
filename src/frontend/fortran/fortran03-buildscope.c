@@ -5751,6 +5751,7 @@ typedef struct opt_value_map_tag
   OPT_VALUE(blank) \
   OPT_VALUE(decimal) \
   OPT_VALUE(delim) \
+  OPT_VALUE(direct) \
   OPT_VALUE(encoding) \
   OPT_VALUE(eor) \
   OPT_VALUE(err) \
@@ -6001,6 +6002,14 @@ static void opt_delim_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_
     nodecl_t nodecl_value = nodecl_null();
     opt_common_character_expr(value, decl_context, "DELIM", &nodecl_value);
     *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "DELIM", ASTFileName(opt_value), ASTLine(opt_value));
+}
+
+static void opt_direct_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
+{
+    AST value = ASTSon0(opt_value);
+    nodecl_t nodecl_value = nodecl_null();
+    opt_common_character_expr(value, decl_context, "DIRECT", &nodecl_value);
+    *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "DIRECT", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
 static void opt_encoding_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
