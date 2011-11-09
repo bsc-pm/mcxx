@@ -1303,7 +1303,7 @@ static void codegen_io_statement(nodecl_codegen_visitor_t* visitor, nodecl_t nod
         fprintf(visitor->file, ")");
     }
 
-    nodecl_t nodecl_io_items = nodecl_get_child(node, 0);
+    nodecl_t nodecl_io_items = nodecl_get_child(node, 1);
     if (!nodecl_is_null(nodecl_io_items))
     {
         if (!nodecl_is_null(nodecl_io_spec))
