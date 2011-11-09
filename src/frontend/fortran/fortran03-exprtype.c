@@ -1126,11 +1126,33 @@ static void check_complex_literal(AST expr, decl_context_t decl_context, nodecl_
         return;
     }
 
+    if (!nodecl_is_constant(nodecl_real))
+    {
+        error_printf("%s: error: real part '%s' of complex constant is not constant\n",
+            ast_location(real_part),
+            fortran_prettyprint_in_buffer(real_part));
+        *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
+        return;
+    }
+    if (!nodecl_is_constant(nodecl_imag))
+    {
+        error_printf("%s: error: imaginary part '%s' of complex constant is not constant\n",
+            ast_location(imag_part),
+            fortran_prettyprint_in_buffer(imag_part));
+        *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
+        return;
+    }
+
+    const_value_t* complex_constant = const_value_make_complex(
+            nodecl_get_constant(nodecl_real),
+            nodecl_get_constant(nodecl_imag));
 
     *nodecl_output = nodecl_make_complex_literal(
             nodecl_real, nodecl_imag, 
             result_type,
             ASTFileName(expr), ASTLine(expr));
+
+    nodecl_set_constant(*nodecl_output, complex_constant);
 }
 
 static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
