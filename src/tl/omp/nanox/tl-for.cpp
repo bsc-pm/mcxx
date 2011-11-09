@@ -578,51 +578,81 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
             ;
     }
 
+    Source create_sliced_wd, loop_information, decl_slicer_data_if_needed;
+
+    if (Nanos::Version::interface_is_at_least("master", 5008))
+    {
+        create_sliced_wd
+            <<"nanos_create_sliced_wd(&wd, "
+            <<   /* num_devices */ "1, " << device_descriptor << ", "
+            <<   "sizeof(" << struct_arg_type_name << "),"
+            <<   alignment
+            <<   "(void**)&ol_args,"
+            <<   "nanos_current_wd(),"
+            <<   current_slicer << ","
+            <<   "&props," << num_copies1 << "," << copy_data1 << ");"
+            ;
+        loop_information
+            << "ol_args->loop_info.lower = " << for_statement.get_lower_bound() << ";"
+            << "ol_args->loop_info.upper = " << for_statement.get_upper_bound() << ";"
+            << "ol_args->loop_info.step  = " << for_statement.get_step() << ";"
+            << "ol_args->loop_info.chunk = " << chunk_value << ";"
+            ;
+    }
+    else
+    {
+        create_sliced_wd
+            << "nanos_create_sliced_wd(&wd, "
+            <<   /* num_devices */ "1, " << device_descriptor << ", "
+            <<   "sizeof(" << struct_arg_type_name << "),"
+            <<   alignment
+            <<   "(void**)&ol_args,"
+            <<   "nanos_current_wd(),"
+            <<   current_slicer << ","
+            <<   "sizeof(nanos_slicer_data_for_t),"
+            <<   slicer_alignment
+            <<   "(nanos_slicer_t*) &slicer_data_for,"
+            <<   "&props," << num_copies1 << "," << copy_data1 << ");"
+            ;
+        decl_slicer_data_if_needed
+            << "nanos_slicer_data_for_t* slicer_data_for = (nanos_slicer_data_for_t*)0;"
+            ;
+        loop_information
+            << "slicer_data_for->_lower = " << for_statement.get_lower_bound() << ";"
+            << "slicer_data_for->_upper = " << for_statement.get_upper_bound() << ";"
+            << "slicer_data_for->_step = " << for_statement.get_step() << ";"
+            << "slicer_data_for->_chunk = " << chunk_value << ";"
+            ;
+    }
+
     spawn_source
         << "{"
-        <<     struct_arg_type_name << "* ol_args = (" << struct_arg_type_name << "*)0;"
-        <<     struct_runtime_size
-        <<     "nanos_wd_t wd = (nanos_wd_t)0;"
-        <<     "nanos_wd_props_t props;"
-        <<     "__builtin_memset(&props, 0, sizeof(props));"
-        <<     creation
-        <<     priority
-        <<     tiedness
-        <<     copy_decl
         <<     get_single_guard("single_guard")
         <<     "if (err != NANOS_OK) nanos_handle_error(err);"
         <<     reduction_join_arr_decls
         <<     "if (single_guard)"
         <<     "{"
-        <<        "static nanos_slicer_t " << current_slicer << " = 0;"
-        <<        "nanos_err_t err;"
+        <<        struct_arg_type_name << "* ol_args = (" << struct_arg_type_name << "*)0;"
+        <<        struct_runtime_size
         <<        "nanos_wd_t wd = (nanos_wd_t)0;"
-        <<        device_description
-        <<        "nanos_wd_props_t props;" 
-        <<        "if (!" << current_slicer << ") " << current_slicer <<  " = nanos_find_slicer(\"" << current_slicer << "\");"
+        <<        "nanos_wd_props_t props;"
         <<        "__builtin_memset(&props, 0, sizeof(props));"
+        <<        creation
         <<        "props.mandatory_creation = 1;"
-        <<        "nanos_slicer_data_for_t* slicer_data_for = (nanos_slicer_data_for_t*)0;"
-        <<        "err = nanos_create_sliced_wd(&wd, "
-        <<              /* num_devices */ "1, " << device_descriptor << ", "
-        <<              "sizeof(" << struct_arg_type_name << "),"
-        <<              alignment
-        <<              "(void**)&ol_args,"
-        <<              "nanos_current_wd(),"
-        <<              current_slicer << ","
-        <<              "sizeof(nanos_slicer_data_for_t),"
-        <<              slicer_alignment
-        <<              "(nanos_slicer_t*) &slicer_data_for,"
-        <<              "&props," << num_copies1 << "," << copy_data1 << ");"
+        <<        priority
+        <<        tiedness
+        <<        copy_decl
+        <<        "static nanos_slicer_t " << current_slicer << " = 0;"
+        <<        device_description
+        <<        "if (!" << current_slicer << ") " << current_slicer <<  " = nanos_find_slicer(\"" << current_slicer << "\");"
+        <<        decl_slicer_data_if_needed
+        <<        "err = " << create_sliced_wd
         <<        "if (err != NANOS_OK) nanos_handle_error(err);"
         <<            fill_outline_arguments
         <<            omp_reduction_argument
         <<            fill_dependences_outline
         <<            copy_setup
-        <<        "slicer_data_for->_lower = " << for_statement.get_lower_bound() << ";"
-        <<        "slicer_data_for->_upper = " << for_statement.get_upper_bound() << ";"
-        <<        "slicer_data_for->_step = " << for_statement.get_step() << ";"
-        <<        "slicer_data_for->_chunk = " << chunk_value << ";"
+        <<            loop_information
         <<            "err = nanos_submit(wd, " << num_dependences << ", (nanos_dependence_t*)" << dependency_array << ", (nanos_team_t)0);"
         <<            "if (err != NANOS_OK) nanos_handle_error (err);"
         <<     "}"
@@ -630,7 +660,6 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
         <<     omp_reduction_join
         << "}"
         ;
-
     AST_t spawn_tree = spawn_source.parse_statement(ctr.get_ast(), ctr.get_scope_link());
     ctr.get_ast().replace(spawn_tree);
 }
