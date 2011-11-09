@@ -4670,6 +4670,9 @@ static void build_scope_stmt_function_stmt(AST a, decl_context_t decl_context,
                 return;
             }
 
+            if (dummy_arg->kind == SK_UNDEFINED)
+                dummy_arg->kind = SK_VARIABLE;
+
             // This can be used latter if trying to give a nonzero rank to this
             // entity
             dummy_arg->entity_specs.is_dummy_arg_stmt_function = 1;
