@@ -2095,16 +2095,19 @@ static void codegen_pragma_custom_statement(nodecl_codegen_visitor_t* visitor, n
     //Code generation of the statement
     codegen_walk(visitor, nodecl_get_child(node, 1));
 
+
+    fprintf(visitor->file, "!$%s END %s ", 
+            nodecl_get_text(node),
+            nodecl_get_text(pragma_custom_line));
+    
     //Code generation of the pragma end clauses
     nodecl_t end_clauses = nodecl_get_child(pragma_custom_line, 2);
     if (!nodecl_is_null(end_clauses))
     {
-        fprintf(visitor->file, "!$%s END %s ", 
-                nodecl_get_text(node),
-                nodecl_get_text(pragma_custom_line));
         codegen_walk(visitor, end_clauses);
-        fprintf(visitor->file, "\n");
     }
+   fprintf(visitor->file, "\n");
+
 }
 
 static void codegen_pragma_custom_directive(nodecl_codegen_visitor_t* visitor, nodecl_t node)
