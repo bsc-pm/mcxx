@@ -87,6 +87,7 @@ typedef struct check_expression_handler_tag
  STATEMENT_HANDLER(AST_IMAGE_REF, check_image_ref) \
  STATEMENT_HANDLER(AST_LOGICAL_AND, check_logical_and) \
  STATEMENT_HANDLER(AST_LOGICAL_EQUAL, check_logical_equal) \
+ STATEMENT_HANDLER(AST_LOGICAL_DIFFERENT, check_logical_different) \
  STATEMENT_HANDLER(AST_LOGICAL_OR, check_logical_or) \
  STATEMENT_HANDLER(AST_LOWER_OR_EQUAL_THAN, check_lower_or_equal_than) \
  STATEMENT_HANDLER(AST_LOWER_THAN, check_lower_than) \
@@ -2722,6 +2723,11 @@ static void check_logical_and(AST expr, decl_context_t decl_context, nodecl_t* n
 }
 
 static void check_logical_equal(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+{
+    common_binary_check(expr, decl_context, nodecl_output);
+}
+
+static void check_logical_different(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     common_binary_check(expr, decl_context, nodecl_output);
 }
