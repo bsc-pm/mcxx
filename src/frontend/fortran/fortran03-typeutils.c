@@ -309,7 +309,7 @@ type_t* update_basic_type_with_type(type_t* type_info, type_t* basic_type)
                 update_basic_type_with_type(pointer_type_get_pointee_type(type_info), basic_type)
                 );
     }
-    else if (is_array_type(type_info))
+    else if (is_fortran_array_type(type_info))
     {
         return get_array_type_bounds(
                 update_basic_type_with_type(array_type_get_element_type(type_info), basic_type),
