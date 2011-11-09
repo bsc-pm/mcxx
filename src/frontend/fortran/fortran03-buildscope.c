@@ -4730,9 +4730,13 @@ static void build_scope_pause_stmt(AST a UNUSED_PARAMETER,
         decl_context_t decl_context UNUSED_PARAMETER, 
         nodecl_t* nodecl_output UNUSED_PARAMETER)
 {
-    // TODO - Remove this from the grammar as well
-    // It is ludicrous to support this. It was deleted in Fortran 95, let's forget about it
-    unsupported_statement(a, "PAUSE");
+    nodecl_t nodecl_pause_code = nodecl_null();
+    AST pause_code = ASTSon0(a);
+    if (pause_code != NULL)
+    {
+        fortran_check_expression(pause_code, decl_context, &nodecl_pause_code);
+    }
+    *nodecl_output = nodecl_make_fortran_pause_statement(nodecl_pause_code, ASTFileName(a), ASTLine(a));
 }
 
 static void build_scope_sync_all_stmt(AST a UNUSED_PARAMETER, 

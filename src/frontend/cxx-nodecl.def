@@ -268,6 +268,7 @@ fortran-only-statements : NODECL_FORTRAN_ALLOCATE_STATEMENT([items]expression-se
                         | NODECL_FORTRAN_READ_STATEMENT([io_spec_list]fortran-io-spec-seq-opt, [io_items]fortran-io-item-seq-opt)
                         | NODECL_FORTRAN_WRITE_STATEMENT([io_spec_list]fortran-io-spec-seq-opt, [io_items]fortran-io-item-seq-opt)
                         | NODECL_FORTRAN_STOP_STATEMENT([stop_code]expression-opt)
+                        | NODECL_FORTRAN_PAUSE_STATEMENT([pause_code]expression-opt)
                         | NODECL_FORTRAN_WHERE([where_set] where-pair-seq)
                         | NODECL_FORTRAN_FORALL([loop_control] loop-control-seq, [mask] expression-opt, [statement] statement-seq)
 

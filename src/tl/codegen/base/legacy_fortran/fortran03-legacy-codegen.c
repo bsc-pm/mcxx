@@ -1197,6 +1197,21 @@ static void codegen_stop_statement(nodecl_codegen_visitor_t* visitor, nodecl_t n
     fprintf(visitor->file, "\n");
 }
 
+static void codegen_pause_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    indent(visitor);
+    fprintf(visitor->file, "PAUSE");
+
+    nodecl_t nodecl_code = nodecl_get_child(node, 0);
+
+    if (!nodecl_is_null(nodecl_code))
+    {
+        fprintf(visitor->file, " ");
+        codegen_walk(visitor, nodecl_code);
+    }
+    fprintf(visitor->file, "\n");
+}
+
 static void codegen_computed_goto_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
     indent(visitor);
@@ -2187,6 +2202,7 @@ static void fortran_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
     NODECL_VISITOR(codegen_visitor)->visit_fortran_write_statement = codegen_visitor_fun(codegen_write_statement);
     NODECL_VISITOR(codegen_visitor)->visit_fortran_read_statement = codegen_visitor_fun(codegen_read_statement);
     NODECL_VISITOR(codegen_visitor)->visit_fortran_stop_statement = codegen_visitor_fun(codegen_stop_statement);
+    NODECL_VISITOR(codegen_visitor)->visit_fortran_pause_statement = codegen_visitor_fun(codegen_pause_statement);
     NODECL_VISITOR(codegen_visitor)->visit_fortran_computed_goto_statement = codegen_visitor_fun(codegen_computed_goto_statement);
     NODECL_VISITOR(codegen_visitor)->visit_fortran_io_statement = codegen_visitor_fun(codegen_io_statement);
     NODECL_VISITOR(codegen_visitor)->visit_fortran_open_statement = codegen_visitor_fun(codegen_open_statement);
