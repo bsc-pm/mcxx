@@ -164,7 +164,6 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
     num_devices << current_targets.size();
 
 
-    Source spawn_code;
     Source fill_outline_arguments, 
            fill_dependences_outline;
 
@@ -624,42 +623,68 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
             << "slicer_data_for->_chunk = " << chunk_value << ";"
             ;
     }
-
-    spawn_source
-        << "{"
-        <<     get_single_guard("single_guard")
-        <<     "if (err != NANOS_OK) nanos_handle_error(err);"
-        <<     reduction_join_arr_decls
-        <<     "if (single_guard)"
-        <<     "{"
-        <<        struct_arg_type_name << "* ol_args = (" << struct_arg_type_name << "*)0;"
-        <<        struct_runtime_size
-        <<        "nanos_wd_t wd = (nanos_wd_t)0;"
-        <<        "nanos_wd_props_t props;"
-        <<        "__builtin_memset(&props, 0, sizeof(props));"
-        <<        creation
-        <<        "props.mandatory_creation = 1;"
-        <<        priority
-        <<        tiedness
-        <<        copy_decl
-        <<        "static nanos_slicer_t " << current_slicer << " = 0;"
-        <<        device_description
-        <<        "if (!" << current_slicer << ") " << current_slicer <<  " = nanos_find_slicer(\"" << current_slicer << "\");"
-        <<        decl_slicer_data_if_needed
-        <<        "err = " << create_sliced_wd
-        <<        "if (err != NANOS_OK) nanos_handle_error(err);"
-        <<            fill_outline_arguments
-        <<            omp_reduction_argument
-        <<            fill_dependences_outline
-        <<            copy_setup
-        <<            loop_information
-        <<            "err = nanos_submit(wd, " << num_dependences << ", (nanos_dependence_t*)" << dependency_array << ", (nanos_team_t)0);"
-        <<            "if (err != NANOS_OK) nanos_handle_error (err);"
-        <<     "}"
-        <<     final_barrier
-        <<     omp_reduction_join
-        << "}"
-        ;
+    if(!_no_nanox_calls)
+    {
+        spawn_source
+            << "{"
+            <<     get_single_guard("single_guard")
+            <<     "if (err != NANOS_OK) nanos_handle_error(err);"
+            <<     reduction_join_arr_decls
+            <<     "if (single_guard)"
+            <<     "{"
+            <<        struct_arg_type_name << "* ol_args = (" << struct_arg_type_name << "*)0;"
+            <<        struct_runtime_size
+            <<        "nanos_wd_t wd = (nanos_wd_t)0;"
+            <<        "nanos_wd_props_t props;"
+            <<        "__builtin_memset(&props, 0, sizeof(props));"
+            <<        creation
+            <<        "props.mandatory_creation = 1;"
+            <<        priority
+            <<        tiedness
+            <<        copy_decl
+            <<        "static nanos_slicer_t " << current_slicer << " = 0;"
+            <<        device_description
+            <<        "if (!" << current_slicer << ") " << current_slicer <<  " = nanos_find_slicer(\"" << current_slicer << "\");"
+            <<        decl_slicer_data_if_needed
+            <<        "err = " << create_sliced_wd
+            <<        "if (err != NANOS_OK) nanos_handle_error(err);"
+            <<            fill_outline_arguments
+            <<            omp_reduction_argument
+            <<            fill_dependences_outline
+            <<            copy_setup
+            <<            loop_information
+            <<            "err = nanos_submit(wd, " << num_dependences << ", (nanos_dependence_t*)" << dependency_array << ", (nanos_team_t)0);"
+            <<            "if (err != NANOS_OK) nanos_handle_error (err);"
+            <<     "}"
+            <<     final_barrier
+            <<     omp_reduction_join
+            << "}"
+            ;
+    }
+    else
+    {
+        if(current_targets.contains("smp"))
+        {
+            std::stringstream smp_device_call;
+            smp_device_call << "_smp_" << outline_name << "(ol_args);";
+            
+            // The code generated must not contain calls to runtime. The execution will be serial
+            spawn_source
+                << "{"
+                <<     struct_arg_type_name << "* ol_args = (" << struct_arg_type_name << "*)0;"
+                <<     fill_outline_arguments
+                <<     omp_reduction_argument
+                <<     loop_information
+                <<     smp_device_call.str() 
+                << "}"
+                ;
+        }
+        else
+        {
+            running_error("%s: error: the code generation without calls to runtime only works in smp devices\n",
+                    ctr.get_ast().get_locus().c_str()); 
+        }
+    }
     AST_t spawn_tree = spawn_source.parse_statement(ctr.get_ast(), ctr.get_scope_link());
     ctr.get_ast().replace(spawn_tree);
 }
