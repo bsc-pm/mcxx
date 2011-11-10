@@ -30,6 +30,7 @@
 #define CXX_MULTIFILE_H
 
 #include "cxx-macros.h"
+#include "cxx-driver-decls.h"
 
 MCXX_BEGIN_DECLS
 
@@ -51,6 +52,9 @@ void multifile_get_extracted_profiles(const char*** multifile_profiles, int *num
 void multifile_get_profile_file_list(const char* profile_name,
         const char*** multifile_file_list,
         int *num_multifile_files);
+
+void multifile_embed_bfd_single(void** data, compilation_file_process_t* secondary_compilation_file);
+void multifile_embed_bfd_collective(void **data, const char* output_filename);
 
 MCXX_END_DECLS
 
