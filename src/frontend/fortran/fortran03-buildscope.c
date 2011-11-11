@@ -692,6 +692,7 @@ static void build_scope_module_program_unit(AST program_unit,
         *nodecl_output = nodecl_internal_subprograms;
     }
 
+    // Now adjust attributes of symbols
     int i, num_symbols = new_entry->entity_specs.num_related_symbols;
     for (i = 0; i < num_symbols; i++)
     {
@@ -701,6 +702,15 @@ static void build_scope_module_program_unit(AST program_unit,
         if (new_entry->entity_specs.related_symbols[i]->kind == SK_UNDEFINED)
         {
             new_entry->entity_specs.related_symbols[i]->kind = SK_VARIABLE;
+        }
+
+        // Fix their access
+        if (new_entry->entity_specs.related_symbols[i]->entity_specs.access == AS_UNKNOWN)
+        {
+            if (new_entry->entity_specs.access == AS_PRIVATE)
+                new_entry->entity_specs.related_symbols[i]->entity_specs.access = AS_PRIVATE;
+            else
+                new_entry->entity_specs.related_symbols[i]->entity_specs.access = AS_PUBLIC;
         }
     }
 
@@ -1276,11 +1286,13 @@ static void build_scope_program_unit_body(
         {
             scope_entry_t* module = decl_context.current_scope->related_entry;
 
-            P_LIST_ADD(module->entity_specs.related_symbols, 
-                    module->entity_specs.num_related_symbols, 
-                    internal_program_units_info[i].symbol);
+            scope_entry_t* current_symbol = internal_program_units_info[i].symbol;
 
-            internal_program_units_info[i].symbol->entity_specs.in_module = module;
+            P_LIST_ADD_ONCE(module->entity_specs.related_symbols, 
+                    module->entity_specs.num_related_symbols, 
+                    current_symbol);
+
+            current_symbol->entity_specs.in_module = module;
         }
     }
     
@@ -2381,7 +2393,7 @@ static void build_scope_access_stmt(AST a, decl_context_t decl_context, nodecl_t
                 }
                 else
                 {
-                    internal_error("code unreachable", 0);
+                    internal_error("Code unreachable", 0);
                 }
             }
         }
@@ -2398,16 +2410,23 @@ static void build_scope_access_stmt(AST a, decl_context_t decl_context, nodecl_t
         }
         else
         {
-            if (current_sym->kind == SK_MODULE)
+            if (current_sym->entity_specs.access != AS_UNKNOWN)
             {
-                if (attr_spec.is_public)
-                {
-                    current_sym->entity_specs.access = AS_PUBLIC;
-                }
-                else
-                {
-                    current_sym->entity_specs.access = AS_PRIVATE;
-                }
+                error_printf("%s: error: module '%s' already given a default access\n", 
+                        ast_location(a),
+                        current_sym->symbol_name);
+            }
+            if (attr_spec.is_public)
+            {
+                current_sym->entity_specs.access = AS_PUBLIC;
+            }
+            else if (attr_spec.is_private)
+            {
+                current_sym->entity_specs.access = AS_PRIVATE;
+            }
+            else
+            {
+                internal_error("Code unreachable", 0);
             }
         }
     }
@@ -3732,7 +3751,6 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
 
         class_name->entity_specs.in_module = module;
     }
-
 }
 
 static void build_scope_dimension_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output UNUSED_PARAMETER)
@@ -5101,7 +5119,7 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
         AST entity_decl_specs = ASTSon1(declaration);
 
         scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
-        
+
         if (!entry->entity_specs.is_implicit_basic_type)
         {
             error_printf("%s: error: entity '%s' already has a basic type\n",
@@ -5389,12 +5407,30 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
             error_printf("%s: error: PARAMETER is missing an initializer\n", ast_location(declaration));
         }
 
+        if (current_attr_spec.is_public
+                || current_attr_spec.is_private)
+        {
+            if (entry->entity_specs.access != AS_UNKNOWN)
+            {
+                error_printf("%s: access specifier already given for entity '%s'\n",
+                        ast_location(declaration),
+                        entry->symbol_name);
+            }
+            if (current_attr_spec.is_public)
+            {
+                entry->entity_specs.access = AS_PUBLIC;
+            }
+            else if (current_attr_spec.is_private)
+            {
+                entry->entity_specs.access = AS_PRIVATE;
+            }
+        }
+
         DEBUG_CODE()
         {
             fprintf(stderr, "BUILDSCOPE: Type of symbol '%s' is '%s'\n", entry->symbol_name, print_declarator(entry->type_information));
         }
     }
-
 }
 
 static void build_scope_unlock_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output UNUSED_PARAMETER)
@@ -5410,7 +5446,9 @@ static scope_entry_t* query_module_for_symbol_name(scope_entry_t* module_symbol,
     {
         scope_entry_t* sym = module_symbol->entity_specs.related_symbols[i];
 
-        if (strcasecmp(sym->symbol_name, name) == 0)
+        if (strcasecmp(sym->symbol_name, name) == 0
+                // Filter private symbols
+                && sym->entity_specs.access != AS_PRIVATE)
         {
             sym_in_module = sym;
             break;
@@ -5658,6 +5696,10 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
         for (i = 0; i < module_symbol->entity_specs.num_related_symbols; i++)
         {
             scope_entry_t* sym_in_module = module_symbol->entity_specs.related_symbols[i];
+
+            if (sym_in_module->entity_specs.access == AS_PRIVATE)
+                continue;
+
             char found = 0;
             int j;
             for (j = 0; j < num_renamed_symbols && !found; j++)
