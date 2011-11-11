@@ -3616,10 +3616,6 @@ static void embed_files(void)
     if (!there_are_secondary_files)
         return;
 
-
-    // Create the temporal directory
-    temporal_file_t temp_dir = new_temporal_dir();
-
     for (i = 0; i < compilation_process.num_translation_units; i++)
     {
         int num_secondary_translation_units = 
@@ -3641,112 +3637,85 @@ static void embed_files(void)
             fprintf(stderr, "Embedding secondary files into '%s'\n", output_filename);
         }
 
-        // For each translation unit create the profile directory if needed
+#define MAX_EMBED_MODES 8
+        int num_embed_modes_seen = 0;
+        int embed_modes[MAX_EMBED_MODES] = { 0 };
+        void *embed_mode_data[MAX_EMBED_MODES] = { 0 };
+
         int j;
         for (j = 0; j < num_secondary_translation_units; j++)
         {
             compilation_file_process_t* secondary_compilation_file = secondary_translation_units[j];
-            translation_unit_t* current_secondary = secondary_compilation_file->translation_unit;
-            char dir_path[1024];
-            snprintf(dir_path, 1023, "%s%s%s", 
-                    temp_dir->name, 
-                    DIR_SEPARATOR, 
-                    secondary_compilation_file->compilation_configuration->configuration_name);
-            dir_path[1023] = '\0';
+            compilation_configuration_t* secondary_configuration = secondary_compilation_file->compilation_configuration;
 
-            struct stat buf;
-            int res = stat(dir_path, &buf);
+            target_options_map_t* target_options = get_target_options(secondary_configuration, CURRENT_CONFIGURATION->configuration_name);
 
-            if (res != 0)
+            if (target_options == NULL)
             {
-                if (errno == ENOENT)
+                running_error("During embedding, there are no target options defined from profile '%s' to profile '%s' in the configuration\n",
+                        secondary_configuration->configuration_name,
+                        CURRENT_CONFIGURATION->configuration_name);
+            }
+
+            if (!target_options->do_embedding)
+            {
+                // Do nothing if we are told not to embed
+                continue;
+            }
+            
+            // Remember the embed mode to run the collective embed procedure later
+            ERROR_CONDITION(num_embed_modes_seen == MAX_EMBED_MODES, "Too many embed modes. Max is %d", MAX_EMBED_MODES);
+            int k; 
+            char found = 0;
+
+            void **embed_data = NULL;
+
+            for (k = 0;  k < num_embed_modes_seen && !found; k++)
+            {
+                if (embed_modes[k] == target_options->embedding_mode)
                 {
-                    // Create the directory if it does not exist
-                    if (mkdir(dir_path, 0700) != 0)
-                    {
-                        running_error("When creating multifile archive, cannot create directory '%s': %s\n",
-                                dir_path,
-                                strerror(errno));
-                    }
+                    found = 1;
+                    break;
                 }
-                else
-                {
-                    running_error("Stat failed on '%s': %s\n",
-                            dir_path,
-                            strerror(errno));
-                }
+            }
+            if (!found)
+            {
+                embed_modes[num_embed_modes_seen] = target_options->embedding_mode;
+                embed_data = &(embed_mode_data[num_embed_modes_seen]);
+                num_embed_modes_seen++;
             }
             else
             {
-                if (!S_ISDIR(buf.st_mode))
-                {
-                    running_error("When creating multifile archive, path '%s' is not a directory\n",
-                            dir_path);
-                }
+                embed_data = &(embed_mode_data[k]);
             }
 
-            // Now move the secondary file
-
-            char dest_path[1024];
-            snprintf(dest_path, 1023, "%s%s%s", 
-                    dir_path, 
-                    DIR_SEPARATOR, 
-                    give_basename(current_secondary->output_filename));
-
-            if (move_file(current_secondary->output_filename, dest_path) != 0)
+            // Single embed
+            switch (target_options->embedding_mode)
             {
-                running_error("When creating multifile archive, file '%s' could not be moved to '%s'\n",
-                        current_secondary->output_filename,
-                        dest_path);
+                case EMBEDDING_MODE_BFD:
+                    {
+                        multifile_embed_bfd_single(embed_data, secondary_compilation_file);
+                        break;
+                    }
+                default:
+                    internal_error("Unknown embedding mode", 0);
             }
-        }
-        // Now all files have been moved into the temporal directory, run the tar there
-        temporal_file_t new_tar_file = new_temporal_file_extension(".tar");
-        const char* tar_args[] =
-        {
-            "cf",
-            new_tar_file->name,
-            "-C", temp_dir->name,
-            ".",
-            NULL
-        };
 
-        if (execute_program("tar", tar_args) != 0)
-        {
-            running_error("When creating multifile archive, 'tar' failed\n");
         }
 
-        // Now we have tar that we are going to embed into the .o file
-
-        // objcopy --add-section .mercurium=architectures.tar --set-section-flags .mercurium=alloc,readonly prova.o
-
-        char multifile_section_and_file[1024], multifile_section_and_flags[1024];
-
-        snprintf(multifile_section_and_file, 1023, "%s=%s",
-                MULTIFILE_SECTION, new_tar_file->name);
-        multifile_section_and_file[1023] = '\0';
-
-        snprintf(multifile_section_and_flags, 1023, "%s=alloc,readonly",
-                MULTIFILE_SECTION);
-        multifile_section_and_flags[1023] = '\0';
-
-        const char* objcopy_args[] =
+        // Collective embed
+        for (j = 0; j < num_embed_modes_seen; j++)
         {
-            "--add-section", multifile_section_and_file, 
-            "--set-section-flags", multifile_section_and_flags,
-            output_filename,
-            NULL,
-        };
-
-        if (execute_program("objcopy", objcopy_args) != 0)
-        {
-            running_error("When creating multifile archive, 'objcopy' failed\n");
-        }
-
-        if (CURRENT_CONFIGURATION->verbose)
-        {
-            fprintf(stderr, "Secondary files successfully embedded into '%s' file\n", 
-                    output_filename);
+            switch (embed_modes[j])
+            {
+                case EMBEDDING_MODE_BFD:
+                    {
+                        multifile_embed_bfd_collective(&(embed_mode_data[j]), output_filename);
+                        break;
+                    }
+                default:
+                    internal_error("Unknown embedding mode", 0);
+            }
         }
     }
 }
@@ -3993,7 +3962,7 @@ static void extract_files_and_sublink(const char** file_list, int num_files,
 
         if (target_map == NULL)
         {
-            running_error("There are no target options defined from profile '%s' to profile '%s' in the configuration\n",
+            running_error("During sublinking, there are no target options defined from profile '%s' to profile '%s' in the configuration\n",
                     configuration->configuration_name, 
                     target_configuration->configuration_name);
         }
