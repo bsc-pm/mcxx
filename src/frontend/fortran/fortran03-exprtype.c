@@ -529,14 +529,34 @@ static void check_substring(AST expr, decl_context_t decl_context, nodecl_t node
     synthesized_type = get_array_type_bounds(array_type_get_element_type(subscripted_type), nodecl_lower, nodecl_upper, decl_context);
 
     nodecl_t nodecl_stride = const_value_to_nodecl(const_value_get_one(/* bytes */ fortran_get_default_integer_type_kind(), /* signed */ 1));
+    
+    char is_derref_subscripted = nodecl_get_kind(nodecl_subscripted) == NODECL_DERREFERENCE;
+
+    type_t* data_type = synthesized_type;
+    if (is_derref_subscripted)
+    {
+        nodecl_subscripted = nodecl_get_child(nodecl_subscripted, 0);
+        data_type = get_pointer_type(data_type);
+    }
 
     *nodecl_output = nodecl_make_array_subscript(
             nodecl_subscripted,
             nodecl_make_list_1(
                 nodecl_make_range(nodecl_lower, nodecl_upper, nodecl_stride, fortran_get_default_integer_type(), ASTFileName(expr), ASTLine(expr))),
-            synthesized_type,
+            data_type,
             ASTFileName(expr), ASTLine(expr));
+
     nodecl_set_symbol(*nodecl_output, nodecl_get_symbol(nodecl_subscripted));
+
+    if (is_derref_subscripted)
+    {
+        *nodecl_output = nodecl_make_derreference(
+                *nodecl_output,
+                synthesized_type,
+                nodecl_get_filename(*nodecl_output),
+                nodecl_get_line(*nodecl_output));
+        nodecl_set_symbol(*nodecl_output, nodecl_get_symbol(nodecl_subscripted));
+    }
 }
 
 
@@ -883,12 +903,31 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
         nodecl_list = nodecl_append_to_list(nodecl_list, nodecl_indexes[i]);
     }
 
+    char is_derref_subscripted = nodecl_get_kind(nodecl_subscripted) == NODECL_DERREFERENCE;
+
+    type_t* data_type = synthesized_type;
+    if (is_derref_subscripted)
+    {
+        nodecl_subscripted = nodecl_get_child(nodecl_subscripted, 0);
+        data_type = get_pointer_type(data_type);
+    }
+
     *nodecl_output = nodecl_make_array_subscript(nodecl_subscripted, 
             nodecl_list,
-            synthesized_type,
+            data_type,
             ASTFileName(expr),
             ASTLine(expr));
     nodecl_set_symbol(*nodecl_output, symbol);
+
+    if (is_derref_subscripted)
+    {
+        *nodecl_output = nodecl_make_derreference(
+                *nodecl_output,
+                synthesized_type,
+                nodecl_get_filename(*nodecl_output),
+                nodecl_get_line(*nodecl_output));
+        nodecl_set_symbol(*nodecl_output, nodecl_get_symbol(nodecl_subscripted));
+    }
 
     if (is_const_qualified_type(no_ref(symbol->type_information))
             && all_subscripts_const)
