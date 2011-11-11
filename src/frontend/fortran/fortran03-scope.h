@@ -55,6 +55,7 @@ LIBMF03_EXTERN scope_entry_t* query_name_no_implicit(decl_context_t, const char*
 // IMPLIICT info and creates SK_VARIABLEs as needed using the locus
 // information. locus may be NULL
 LIBMF03_EXTERN scope_entry_t* query_name_with_locus(decl_context_t, AST locus, const char* name);
+LIBMF03_EXTERN scope_entry_t* query_name_no_builtin_with_locus(decl_context_t, AST locus, const char* name);
 
 // Query of derived type. 
 // class_context should have a current_scope->kind ==  CLASS_SCOPE

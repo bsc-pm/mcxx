@@ -3131,6 +3131,7 @@ static void check_symbol(AST expr, decl_context_t decl_context, nodecl_t* nodecl
 {
     scope_entry_t* entry = query_name_with_locus(decl_context, expr, ASTText(expr));
 
+    // When IMPLICIT NONE query_name_with_locus can return NULL
     if (entry == NULL)
     {
         if (!checking_ambiguity())
@@ -3143,6 +3144,8 @@ static void check_symbol(AST expr, decl_context_t decl_context, nodecl_t* nodecl
         return;
     }
 
+    // When NO implicit none, a name can be in this undefined state meaning we
+    // do not exactly know what it is
     if (entry->kind == SK_UNDEFINED)
     {
         if (is_name_of_funtion_call(expr))

@@ -161,7 +161,7 @@ static scope_entry_t* new_implicit_symbol(decl_context_t decl_context, AST locus
         if (implicit_type == NULL)
             return NULL;
         
-        //The implicits ymbols will be stored in the current scope of the program unit
+        //The implicits symbols will be stored in the current scope of the program unit
         decl_context_t program_unit_context = decl_context.current_scope->related_entry->related_decl_context;
         scope_entry_t* sym = new_symbol(program_unit_context, program_unit_context.current_scope, strtolower(name));
         sym->kind = SK_VARIABLE;
@@ -232,6 +232,34 @@ scope_entry_t* query_name_no_implicit(decl_context_t decl_context, const char* n
 scope_entry_t* query_name_with_locus(decl_context_t decl_context, AST locus, const char* name)
 {
     scope_entry_t* result = query_name_no_implicit(decl_context, name);
+
+    if (result == NULL)
+    {
+        if (decl_context.implicit_info != NULL
+                && decl_context.implicit_info->data != NULL
+                && decl_context.implicit_info->data->implicit_letter_set != NULL)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: Getting implicit entity for name '%s'\n", name);
+            }
+            result = new_implicit_symbol(decl_context, locus, name);
+        }
+        DEBUG_CODE()
+        {
+            if (result == NULL)
+            {
+                fprintf(stderr, "SCOPE: There is no implicit name for entity '%s'\n", name);
+            }
+        }
+    }
+
+    return result;
+}
+
+scope_entry_t* query_name_no_builtin_with_locus(decl_context_t decl_context, AST locus, const char* name)
+{
+    scope_entry_t* result = query_name_no_implicit_or_builtin(decl_context, name);
 
     if (result == NULL)
     {
