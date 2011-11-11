@@ -379,22 +379,18 @@ static void build_scope_program_unit_internal(AST program_unit,
 static scope_entry_t* new_procedure_symbol(decl_context_t decl_context, 
         AST name, AST prefix, AST suffix, AST dummy_arg_name_list,
         char is_function);
-static void build_scope_program_body(AST program_body, 
-        decl_context_t decl_context,
-        char (*allowed_statement)(AST a, decl_context_t),
-        nodecl_t* nodecl_output,
-        nodecl_t* nodecl_internal_subprograms);
-static void build_scope_program_body_module(AST program_body, 
-        decl_context_t decl_context,
-        char (*allowed_statement)(AST a, decl_context_t),
-        nodecl_t* nodecl_output,
-        nodecl_t* nodecl_internal_subprograms);
 
 static char allow_all_statements(AST a UNUSED_PARAMETER, 
         decl_context_t decl_context UNUSED_PARAMETER)
 {
     return 1;
 }
+
+static void build_scope_program_unit_body(AST program_body, 
+        decl_context_t decl_context,
+        char (*allowed_statement)(AST, decl_context_t),
+        nodecl_t* nodecl_output,
+        nodecl_t* nodecl_internal_subprograms);
 
 static void build_scope_main_program_unit(AST program_unit, 
         decl_context_t program_unit_context, 
@@ -433,7 +429,7 @@ static void build_scope_main_program_unit(AST program_unit,
     nodecl_t nodecl_internal_subprograms = nodecl_null();
     if (program_body != NULL)
     {
-        build_scope_program_body(program_body, program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
+        build_scope_program_unit_body(program_body, program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
     }
 
     if (nodecl_is_null(nodecl_body))
@@ -455,16 +451,9 @@ static void build_scope_main_program_unit(AST program_unit,
                 ASTFileName(program_unit), ASTLine(program_unit)));
 }
 
-static void build_scope_function_program_unit(AST program_unit, 
-        decl_context_t program_unit_context, 
-        scope_entry_t** program_unit_symbol,
-        nodecl_t* nodecl_output)
+static scope_entry_t* register_function(AST program_unit, 
+        decl_context_t program_unit_context)
 {
-    ERROR_CONDITION(program_unit_symbol == NULL, "Invalid parameter", 0)
-    DEBUG_CODE()
-    {
-        fprintf(stderr, "==== [%s] Program unit: FUNCTION ===\n", ast_location(program_unit));
-    }
     AST function_stmt = ASTSon0(program_unit);
 
     AST prefix = ASTSon0(function_stmt);
@@ -477,6 +466,29 @@ static void build_scope_function_program_unit(AST program_unit,
     scope_entry_t *new_entry = new_procedure_symbol(program_unit_context,
             name, prefix, suffix, 
             dummy_arg_name_list, /* is_function */ 1);
+
+    if (new_entry != NULL)
+    {
+        new_entry->entity_specs.is_implicit_basic_type = 0;
+    }
+
+    return new_entry;
+}
+
+
+static void build_scope_function_program_unit(AST program_unit, 
+        decl_context_t program_unit_context, 
+        scope_entry_t** program_unit_symbol,
+        nodecl_t* nodecl_output)
+{
+    ERROR_CONDITION(program_unit_symbol == NULL, "Invalid parameter", 0)
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "==== [%s] Program unit: FUNCTION ===\n", ast_location(program_unit));
+    }
+
+    scope_entry_t* new_entry = register_function(program_unit, program_unit_context);
+
     if (new_entry == NULL)
         return;
 
@@ -492,7 +504,7 @@ static void build_scope_function_program_unit(AST program_unit,
     AST program_body = ASTSon1(program_unit);
     if (program_body != NULL)
     {
-        build_scope_program_body(program_body, program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
+        build_scope_program_unit_body(program_body, program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
     }
 
     if (nodecl_is_null(nodecl_body))
@@ -526,17 +538,9 @@ static void build_scope_function_program_unit(AST program_unit,
                 ASTFileName(program_unit), ASTLine(program_unit)));
 }
 
-static void build_scope_subroutine_program_unit(AST program_unit, 
-        decl_context_t program_unit_context, 
-        scope_entry_t** program_unit_symbol,
-        nodecl_t* nodecl_output)
+static scope_entry_t* register_subroutine(AST program_unit,
+        decl_context_t program_unit_context)
 {
-    ERROR_CONDITION(program_unit_symbol == NULL, "Invalid parameter", 0)
-    DEBUG_CODE()
-    {
-        fprintf(stderr, "==== [%s] Program unit: SUBROUTINE ===\n", ast_location(program_unit));
-    }
-
     AST subroutine_stmt = ASTSon0(program_unit);
 
     AST prefix = ASTSon0(subroutine_stmt);
@@ -556,8 +560,33 @@ static void build_scope_subroutine_program_unit(AST program_unit,
     scope_entry_t *new_entry = new_procedure_symbol(program_unit_context,
             name, prefix, suffix, 
             dummy_arg_name_list, /* is_function */ 0);
-    if (new_entry == NULL)
-        return;
+    if (new_entry != NULL)
+    {
+        new_entry->entity_specs.is_implicit_basic_type = 0;
+    }
+
+    return new_entry;
+}
+
+static void build_scope_subroutine_program_unit(AST program_unit, 
+        decl_context_t program_unit_context, 
+        scope_entry_t** program_unit_symbol,
+        nodecl_t* nodecl_output)
+{
+    ERROR_CONDITION(program_unit_symbol == NULL, "Invalid parameter", 0)
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "==== [%s] Program unit: SUBROUTINE ===\n", ast_location(program_unit));
+    }
+
+    scope_entry_t *new_entry = register_subroutine(program_unit, program_unit_context);
+
+    *program_unit_symbol = new_entry;
+
+    insert_alias(program_unit_context.current_scope->contained_in, new_entry,
+            strappend("._", new_entry->symbol_name));
+
+    new_entry->related_decl_context = program_unit_context;
 
     // It is void but it is not implicit
     new_entry->entity_specs.is_implicit_basic_type = 0;
@@ -574,13 +603,12 @@ static void build_scope_subroutine_program_unit(AST program_unit,
     AST program_body = ASTSon1(program_unit);
     if (program_body != NULL)
     {
-        build_scope_program_body(program_body, program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
+        build_scope_program_unit_body(program_body, program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
     }
 
     if (nodecl_is_null(nodecl_body))
     {
         nodecl_body = nodecl_make_list_1(nodecl_make_empty_statement(ASTFileName(program_unit), ASTLine(program_unit)));
-
     }
 
     int i, num_params = new_entry->entity_specs.num_related_symbols;
@@ -641,7 +669,8 @@ static void build_scope_module_program_unit(AST program_unit,
 
     nodecl_t nodecl_body = nodecl_null();
     nodecl_t nodecl_internal_subprograms = nodecl_null();
-    build_scope_program_body_module(module_body, program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
+    // build_scope_program_body_module(module_body, program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
+    build_scope_program_unit_body(module_body, program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
 
     // This deserves an explanation: if a module does not contain any procedure
     // we need to remember it appeared (use a NODECL_OBJECT_INIT) otherwise use
@@ -918,103 +947,15 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
     return entry;
 }
 
-static void build_scope_internal_subprograms(AST internal_subprograms, 
-        decl_context_t decl_context,
-        nodecl_t* nodecl_output)
-{
-    if (internal_subprograms == NULL)
-        return;
-
-    AST it;
-    for_each_element(internal_subprograms, it)
-    {
-        AST internal_subprogram = ASTSon1(it);
-        scope_entry_t* subprogram_sym = NULL;
-        nodecl_t nodecl_internal_program = nodecl_null();
-        build_scope_program_unit_internal(internal_subprogram, 
-                decl_context, 
-                new_internal_program_unit_context,
-                &subprogram_sym,
-                &nodecl_internal_program);
-
-        *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_internal_program);
-
-        // Add the symbol to the current scope
-        scope_t* current_scope = decl_context.current_scope;
-        insert_entry(current_scope, subprogram_sym);
-
-        if (decl_context.current_scope->related_entry != NULL
-                && decl_context.current_scope->related_entry->kind == SK_MODULE)
-        {
-            scope_entry_t* module = decl_context.current_scope->related_entry;
-
-            P_LIST_ADD_ONCE(module->entity_specs.related_symbols,
-                    module->entity_specs.num_related_symbols,
-                    subprogram_sym);
-
-            subprogram_sym->entity_specs.in_module = module;
-        }
-    }
-}
-
 static char statement_is_executable(AST statement);
 static void build_scope_ambiguity_statement(AST ambig_stmt, decl_context_t decl_context);
 
-static void build_scope_program_body_module(AST program_body, decl_context_t decl_context,
+static void build_scope_program_unit_body_declarations(
         char (*allowed_statement)(AST, decl_context_t),
-        nodecl_t* nodecl_output,
-        nodecl_t* nodecl_internal_subprograms)
+        AST program_unit_stmts,
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output)
 {
-    AST program_unit_stmts = ASTSon0(program_body);
-    AST internal_subprograms = ASTSon1(program_body);
-
-    if (program_unit_stmts != NULL)
-    {
-        AST it;
-        for_each_element(program_unit_stmts, it)
-        {
-            AST stmt = ASTSon1(it);
-
-            // Exceptionally we run this one first otherwise it is not possible to
-            // tell whether this is an executable or non-executable statement
-            if (ASTType(stmt) == AST_AMBIGUITY)
-            {
-                build_scope_ambiguity_statement(stmt, decl_context);
-            }
-
-            if (!allowed_statement(stmt, decl_context))
-            {
-                error_printf("%s: error: this statement cannot be used in this context\n",
-                        ast_location(stmt));
-            }
-
-            nodecl_t nodecl_statement = nodecl_null();
-            fortran_build_scope_statement(stmt, decl_context, &nodecl_statement);
-
-            *nodecl_output = nodecl_concat_lists(*nodecl_output,
-                    nodecl_statement);
-        }
-    }
-
-    build_scope_internal_subprograms(internal_subprograms, decl_context, nodecl_internal_subprograms);
-
-    clear_unknown_symbols(decl_context);
-
-}
-
-static void build_scope_program_body(AST program_body, decl_context_t decl_context,
-        char (*allowed_statement)(AST, decl_context_t),
-        nodecl_t* nodecl_output,
-        nodecl_t* nodecl_internal_subprograms)
-{
-    AST program_part = ASTSon0(program_body);
-    AST program_unit_stmts = ASTSon0(program_part);
-
-    AST internal_subprograms = ASTSon1(program_body);
-
-    char seen_internal_subprograms = 0;
-    char seen_executables = 0;
-
     if (program_unit_stmts != NULL)
     {
         AST it;
@@ -1034,16 +975,51 @@ static void build_scope_program_body(AST program_body, decl_context_t decl_conte
                 error_printf("%s: warning: this statement cannot be used in this context\n",
                         ast_location(stmt));
             }
+            
+            // We stop at the first executable statement seen
+            if (statement_is_executable(stmt))
+                break;
 
-            if (!seen_executables 
-                    && statement_is_executable(stmt))
+            nodecl_t nodecl_statement = nodecl_null();
+            fortran_build_scope_statement(stmt, decl_context, &nodecl_statement);
+
+            *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_statement);
+        }
+    }
+}
+
+static void build_scope_program_unit_body_executable(
+        char (*allowed_statement)(AST, decl_context_t),
+        AST program_unit_stmts,
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output)
+{
+    char seen_an_executable = 0;
+    if (program_unit_stmts != NULL)
+    {
+        AST it;
+        for_each_element(program_unit_stmts, it)
+        {
+            AST stmt = ASTSon1(it);
+
+            // Exceptionally we run this one first otherwise it is not possible to
+            // tell whether this is an executable or non-executable statement
+            if (ASTType(stmt) == AST_AMBIGUITY)
             {
-                // Make sure all symbols seen so far have basic type
-                clear_unknown_symbols(decl_context);
+                build_scope_ambiguity_statement(stmt, decl_context);
+            }
 
-                build_scope_internal_subprograms(internal_subprograms, decl_context, nodecl_internal_subprograms);
-                seen_executables = 1;
-                seen_internal_subprograms = 1;
+            if (!allowed_statement(stmt, decl_context))
+            {
+                error_printf("%s: warning: this statement cannot be used in this context\n",
+                        ast_location(stmt));
+            }
+            
+            if (!seen_an_executable)
+            {
+                if (!statement_is_executable(stmt))
+                    continue;
+                seen_an_executable = 1;
             }
 
             nodecl_t nodecl_statement = nodecl_null();
@@ -1053,16 +1029,266 @@ static void build_scope_program_body(AST program_body, decl_context_t decl_conte
         }
     }
 
-    if (!seen_executables)
-    {
-        clear_unknown_symbols(decl_context);
-    }
-    if (!seen_internal_subprograms)
-    {
-        build_scope_internal_subprograms(internal_subprograms, decl_context, nodecl_internal_subprograms);
-        seen_internal_subprograms = 1;
-    }
+    clear_unknown_symbols(decl_context);
+}
 
+typedef
+struct internal_subprograms_info_tag
+{
+    scope_entry_t* symbol;
+    decl_context_t decl_context;
+    nodecl_t nodecl_output;
+    AST program_unit_stmts;
+    AST internal_subprograms;
+    const char* filename;
+    int line;
+} internal_subprograms_info_t;
+
+static int count_internal_subprograms(AST internal_subprograms)
+{
+    int num_internal_program_units = 0;
+    if (internal_subprograms != NULL)
+    {
+        AST it;
+        for_each_element(internal_subprograms, it)
+        {
+            num_internal_program_units++;
+        }
+    }
+    return num_internal_program_units;
+}
+
+static void build_scope_program_unit_body_internal_subprograms_declarations(
+        AST internal_subprograms, 
+        int num_internal_program_units,
+        internal_subprograms_info_t *internal_subprograms_info,
+        decl_context_t decl_context)
+{
+    if (internal_subprograms == NULL)
+        return;
+
+    int i = 0;
+    AST it;
+    for_each_element(internal_subprograms, it)
+    {
+        ERROR_CONDITION(i >= num_internal_program_units, "Too many internal subprograms", 0);
+
+        decl_context_t subprogram_unit_context = new_internal_program_unit_context(decl_context);
+
+        AST subprogram = ASTSon1(it);
+
+        scope_entry_t* new_entry = NULL;
+        switch (ASTType(subprogram))
+        {
+            case AST_SUBROUTINE_PROGRAM_UNIT:
+                {
+                    new_entry = register_subroutine(subprogram, subprogram_unit_context);
+                    break;
+                }
+            case AST_FUNCTION_PROGRAM_UNIT:
+                {
+                    new_entry = register_function(subprogram, subprogram_unit_context);
+                    break;
+                }
+            default:
+                {
+                    internal_error("Unexpected node of kind %s\n", ast_print_node_type(ASTType(subprogram)));
+                }
+        }
+
+        if (new_entry != NULL)
+        {
+            AST program_body = ASTSon1(subprogram);
+
+            AST program_part = ASTSon0(program_body);
+            AST program_unit_stmts = ASTSon0(program_part);
+            AST n_internal_subprograms = ASTSon1(program_body);
+
+            internal_subprograms_info[i].symbol = new_entry;
+            internal_subprograms_info[i].decl_context = subprogram_unit_context;
+            internal_subprograms_info[i].program_unit_stmts = program_unit_stmts;
+            internal_subprograms_info[i].internal_subprograms = n_internal_subprograms;
+            internal_subprograms_info[i].filename = ASTFileName(program_body);
+            internal_subprograms_info[i].line = ASTLine(program_body);
+
+            build_scope_program_unit_body_declarations(
+                    allow_all_statements,
+                    internal_subprograms_info[i].program_unit_stmts, 
+                    internal_subprograms_info[i].decl_context,
+                    &(internal_subprograms_info[i].nodecl_output));
+        }
+        i++;
+    }
+}
+
+static void build_scope_program_unit_body_internal_subprograms_executable(
+        AST internal_subprograms, 
+        int num_internal_program_units,
+        internal_subprograms_info_t *internal_subprograms_info,
+        decl_context_t decl_context UNUSED_PARAMETER)
+{
+    if (internal_subprograms == NULL)
+        return;
+
+    int i = 0;
+    AST it;
+    for_each_element(internal_subprograms, it)
+    {
+        ERROR_CONDITION(i >= num_internal_program_units, "Too many internal program units", 0);
+
+        if (internal_subprograms_info[i].symbol != NULL)
+        {
+            AST n_internal_subprograms = internal_subprograms_info[i].internal_subprograms;
+
+            int n_num_internal_program_units = count_internal_subprograms(n_internal_subprograms);
+            // Count how many internal subprograms are there
+            internal_subprograms_info_t n_internal_subprograms_info[n_num_internal_program_units + 1];
+            memset(n_internal_subprograms_info, 0, sizeof(n_internal_subprograms_info));
+            
+            build_scope_program_unit_body_internal_subprograms_declarations(
+                    n_internal_subprograms, 
+                    n_num_internal_program_units,
+                    n_internal_subprograms_info,
+                    internal_subprograms_info[i].decl_context);
+            
+            // Insert the internal program unit names into the enclosing scope
+            int j;
+            for (j = 0; j < n_num_internal_program_units; j++)
+            {
+                insert_entry(internal_subprograms_info[j].decl_context.current_scope, 
+                       n_internal_subprograms_info[j].symbol);
+            }
+
+            build_scope_program_unit_body_executable(
+                    allow_all_statements,
+                    internal_subprograms_info[i].program_unit_stmts,
+                    internal_subprograms_info[i].decl_context,
+                    &(internal_subprograms_info[i].nodecl_output));
+
+            build_scope_program_unit_body_internal_subprograms_executable(
+                    n_internal_subprograms, 
+                    n_num_internal_program_units,
+                    n_internal_subprograms_info,
+                    internal_subprograms_info[i].decl_context);
+
+            // 4.1) Remember the internal subprogram nodecls
+            // FIXME
+            nodecl_t nodecl_internal_subprograms = nodecl_null();
+            for (j = 0; j < n_num_internal_program_units; j++)
+            {
+                nodecl_internal_subprograms =
+                    nodecl_append_to_list(nodecl_internal_subprograms, 
+                            n_internal_subprograms_info[j].nodecl_output);
+            }
+
+
+            scope_entry_t* function_symbol = internal_subprograms_info[i].symbol;
+            int num_params = function_symbol->entity_specs.num_related_symbols;
+            for (j = 0; j < num_params; j++)
+            {
+                // This happens because nobody uses these dummies (or
+                // result) symbols and their undefined state remains
+                // Fix them to be plain variables
+                if (function_symbol->entity_specs.related_symbols[j]->kind == SK_UNDEFINED)
+                {
+                    function_symbol->entity_specs.related_symbols[j]->kind = SK_VARIABLE;
+                }
+            }
+
+            nodecl_t nodecl_statements = internal_subprograms_info[i].nodecl_output;
+            if (nodecl_is_null(nodecl_statements))
+            {
+                nodecl_statements = nodecl_make_list_1(
+                        nodecl_make_empty_statement(
+                            internal_subprograms_info[i].filename,
+                            internal_subprograms_info[i].line));
+            }
+
+            internal_subprograms_info[i].nodecl_output = 
+                nodecl_make_function_code(
+                        nodecl_make_context(
+                            nodecl_statements,
+                            internal_subprograms_info[i].decl_context,
+                            internal_subprograms_info[i].filename,
+                            internal_subprograms_info[i].line),
+                        /* initializers */ nodecl_null(),
+                        nodecl_internal_subprograms,
+                        internal_subprograms_info[i].symbol,
+                        internal_subprograms_info[i].filename,
+                        internal_subprograms_info[i].line);
+        }
+        i++;
+    }
+}
+
+static void build_scope_program_unit_body(AST program_body, 
+        decl_context_t decl_context,
+        char (*allowed_statement)(AST, decl_context_t),
+        nodecl_t* nodecl_output,
+        nodecl_t* nodecl_internal_subprograms)
+{
+    AST program_part = ASTSon0(program_body);
+    AST program_unit_stmts = ASTSon0(program_part);
+
+    AST internal_subprograms = ASTSon1(program_body);
+
+    // 1) Program unit declaration only
+    build_scope_program_unit_body_declarations(
+            allowed_statement,
+            program_unit_stmts, 
+            decl_context, 
+            nodecl_output);
+
+    int num_internal_program_units = count_internal_subprograms(internal_subprograms);
+    // Count how many internal subprograms are there
+    internal_subprograms_info_t internal_program_units_info[num_internal_program_units + 1];
+    memset(internal_program_units_info, 0, sizeof(internal_program_units_info));
+
+    // 2) Internal program units, declaration statements only
+    build_scope_program_unit_body_internal_subprograms_declarations(
+            internal_subprograms, 
+            num_internal_program_units,
+            internal_program_units_info,
+            decl_context);
+
+    // 2.1) Insert the internal program unit names into the enclosing scope
+    int i;
+    for (i = 0; i < num_internal_program_units; i++)
+    {
+        insert_entry(decl_context.current_scope, internal_program_units_info[i].symbol);
+
+        if (decl_context.current_scope->related_entry != NULL
+                && decl_context.current_scope->related_entry->kind == SK_MODULE)
+        {
+            scope_entry_t* module = decl_context.current_scope->related_entry;
+
+            P_LIST_ADD(module->entity_specs.related_symbols, 
+                    module->entity_specs.num_related_symbols, 
+                    internal_program_units_info[i].symbol);
+        }
+    }
+    
+    // 3) Program unit remaining statements
+    build_scope_program_unit_body_executable(
+            allowed_statement,
+            program_unit_stmts, 
+            decl_context,
+            nodecl_output);
+    
+    // 4) Internal program units remaining statements
+    build_scope_program_unit_body_internal_subprograms_executable(
+            internal_subprograms, 
+            num_internal_program_units,
+            internal_program_units_info,
+            decl_context);
+
+    // 4.1) Remember the internal subprogram nodecls
+    for (i = 0; i < num_internal_program_units; i++)
+    {
+        *nodecl_internal_subprograms =
+            nodecl_append_to_list(*nodecl_internal_subprograms, 
+                    internal_program_units_info[i].nodecl_output);
+    }
 }
 
 typedef void (*build_scope_statement_function_t)(AST statement, decl_context_t, nodecl_t* nodecl_output);
