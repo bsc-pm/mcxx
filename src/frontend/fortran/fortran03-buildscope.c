@@ -749,9 +749,16 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
 
     if (entry != NULL)
     {
+        // We do not allow redeclaration if the symbol has already been defined
         if (entry->defined
+                // If not defined it can only be a parameter of the current procedure
+                // being given an interface
                 || (!entry->entity_specs.is_parameter
-                    && !entry->entity_specs.is_module_procedure))
+                    // Or an advanced declaration of a module procedure found in an INTERFACE at module level
+                    && !entry->entity_specs.is_module_procedure
+                    // Or a symbol we said something about it in the specification part of a module
+                    && !(entry->kind == SK_UNDEFINED
+                        && entry->entity_specs.in_module != NULL)))
         {
             error_printf("%s: error: redeclaration of entity '%s'\n", 
                     ast_location(name), 
