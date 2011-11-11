@@ -2111,7 +2111,7 @@ static void attr_spec_private_handler(AST a UNUSED_PARAMETER,
         decl_context_t decl_context UNUSED_PARAMETER,
         attr_spec_t* attr_spec)
 {
-    attr_spec->is_public = 1;
+    attr_spec->is_private = 1;
 }
 
 static void attr_spec_bind_handler(AST a, 
