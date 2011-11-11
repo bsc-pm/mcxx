@@ -246,6 +246,15 @@ static void codegen_module_header(nodecl_codegen_visitor_t* visitor, scope_entry
         {
             declare_symbol(visitor, sym);
         }
+        else
+        {
+            if (sym->entity_specs.access == AS_PRIVATE)
+            {
+                // If it has a private access specifier
+                indent(visitor);
+                fprintf(visitor->file, "PRIVATE :: %s\n", sym->symbol_name);
+            }
+        }
     }
     visitor->current_sym = previous_sym;
     visitor->indent_level -= 1;
@@ -789,6 +798,23 @@ static void declare_symbol(nodecl_codegen_visitor_t* visitor, scope_entry_t* ent
                             {
                             }
                     }
+                }
+
+                switch (entry->entity_specs.access)
+                {
+                    case AS_PUBLIC:
+                        {
+                            attribute_list = strappend(attribute_list, ", PUBLIC");
+                            break;
+                        }
+                    case AS_PRIVATE:
+                        {
+                            attribute_list = strappend(attribute_list, ", PRIVATE");
+                            break;
+                        }
+                    default:
+                        {
+                        }
                 }
 
                 if (!nodecl_is_null(entry->value))
