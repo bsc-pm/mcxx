@@ -67,7 +67,6 @@ void build_scope_fortran_translation_unit(translation_unit_t* translation_unit)
 
 static void build_scope_program_unit_internal(AST program_unit, 
         decl_context_t decl_context,
-        decl_context_t (*new_context)(decl_context_t),
         scope_entry_t** program_unit_symbol,
         nodecl_t* nodecl_output);
 
@@ -77,7 +76,6 @@ void build_scope_program_unit(AST program_unit,
 {
     build_scope_program_unit_internal(program_unit,
             decl_context, 
-            new_program_unit_context,
             /* program_unit symbol */ NULL, 
             nodecl_output);
 }
@@ -92,7 +90,6 @@ static void build_scope_program_unit_seq(AST program_unit_seq,
         nodecl_t nodecl_top_level_items = nodecl_null();
         build_scope_program_unit_internal(ASTSon1(it), 
                 decl_context, 
-                new_program_unit_context,
                 NULL, &nodecl_top_level_items);
         *nodecl_output = nodecl_concat_lists(*nodecl_output,
                 nodecl_top_level_items);
@@ -329,11 +326,10 @@ static void handle_opt_value_list(AST io_stmt, AST opt_value_list,
 
 static void build_scope_program_unit_internal(AST program_unit, 
         decl_context_t decl_context,
-        decl_context_t (*new_context)(decl_context_t),
         scope_entry_t** program_unit_symbol,
         nodecl_t* nodecl_output)
 {
-    decl_context_t program_unit_context = new_context(decl_context);
+    decl_context_t program_unit_context = new_program_unit_context(decl_context);
 
     scope_entry_t* _program_unit_symbol = NULL;
 
@@ -386,7 +382,9 @@ static char allow_all_statements(AST a UNUSED_PARAMETER,
     return 1;
 }
 
-static void build_scope_program_unit_body(AST program_body, 
+static void build_scope_program_unit_body(
+        AST program_unit_stmts,
+        AST internal_subprograms,
         decl_context_t decl_context,
         char (*allowed_statement)(AST, decl_context_t),
         nodecl_t* nodecl_output,
@@ -429,7 +427,13 @@ static void build_scope_main_program_unit(AST program_unit,
     nodecl_t nodecl_internal_subprograms = nodecl_null();
     if (program_body != NULL)
     {
-        build_scope_program_unit_body(program_body, program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
+        AST top_level = ASTSon0(program_body);
+        AST statement_seq = ASTSon0(top_level);
+        AST internal_subprograms = ASTSon1(program_body);
+
+        build_scope_program_unit_body(
+                statement_seq, internal_subprograms,
+                program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
     }
 
     if (nodecl_is_null(nodecl_body))
@@ -467,11 +471,6 @@ static scope_entry_t* register_function(AST program_unit,
             name, prefix, suffix, 
             dummy_arg_name_list, /* is_function */ 1);
 
-    if (new_entry != NULL)
-    {
-        new_entry->entity_specs.is_implicit_basic_type = 0;
-    }
-
     return new_entry;
 }
 
@@ -497,20 +496,23 @@ static void build_scope_function_program_unit(AST program_unit,
 
     *program_unit_symbol = new_entry;
 
-    new_entry->related_decl_context = program_unit_context;
-
     nodecl_t nodecl_body = nodecl_null();
     nodecl_t nodecl_internal_subprograms = nodecl_null();
     AST program_body = ASTSon1(program_unit);
     if (program_body != NULL)
     {
-        build_scope_program_unit_body(program_body, program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
+        AST top_level = ASTSon0(program_body);
+        AST statement_seq = ASTSon0(top_level);
+        AST internal_subprograms = ASTSon1(program_body);
+
+        build_scope_program_unit_body(
+                statement_seq, internal_subprograms,
+                program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
     }
 
     if (nodecl_is_null(nodecl_body))
     {
         nodecl_body = nodecl_make_list_1(nodecl_make_empty_statement(ASTFileName(program_unit), ASTLine(program_unit)));
-
     }
 
     int i, num_params = new_entry->entity_specs.num_related_symbols;
@@ -560,10 +562,6 @@ static scope_entry_t* register_subroutine(AST program_unit,
     scope_entry_t *new_entry = new_procedure_symbol(program_unit_context,
             name, prefix, suffix, 
             dummy_arg_name_list, /* is_function */ 0);
-    if (new_entry != NULL)
-    {
-        new_entry->entity_specs.is_implicit_basic_type = 0;
-    }
 
     return new_entry;
 }
@@ -586,7 +584,6 @@ static void build_scope_subroutine_program_unit(AST program_unit,
     insert_alias(program_unit_context.current_scope->contained_in, new_entry,
             strappend("._", new_entry->symbol_name));
 
-    new_entry->related_decl_context = program_unit_context;
 
     // It is void but it is not implicit
     new_entry->entity_specs.is_implicit_basic_type = 0;
@@ -596,14 +593,18 @@ static void build_scope_subroutine_program_unit(AST program_unit,
     insert_alias(program_unit_context.current_scope->contained_in, new_entry,
             strappend("._", new_entry->symbol_name));
 
-    new_entry->related_decl_context = program_unit_context;
-
     nodecl_t nodecl_body = nodecl_null();
     nodecl_t nodecl_internal_subprograms = nodecl_null();
     AST program_body = ASTSon1(program_unit);
     if (program_body != NULL)
     {
-        build_scope_program_unit_body(program_body, program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
+        AST top_level = ASTSon0(program_body);
+        AST statement_seq = ASTSon0(top_level);
+        AST internal_subprograms = ASTSon1(program_body);
+
+        build_scope_program_unit_body(
+                statement_seq, internal_subprograms,
+                program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
     }
 
     if (nodecl_is_null(nodecl_body))
@@ -659,8 +660,6 @@ static void build_scope_module_program_unit(AST program_unit,
     program_unit_context.current_scope->related_entry = new_entry;
 
     AST module_body = ASTSon1(program_unit);
-    if (module_body == NULL)
-        return;
 
     insert_alias(program_unit_context.current_scope->contained_in, new_entry,
             strappend("._", new_entry->symbol_name));
@@ -669,8 +668,16 @@ static void build_scope_module_program_unit(AST program_unit,
 
     nodecl_t nodecl_body = nodecl_null();
     nodecl_t nodecl_internal_subprograms = nodecl_null();
-    // build_scope_program_body_module(module_body, program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
-    build_scope_program_unit_body(module_body, program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
+
+    if (module_body != NULL)
+    {
+        AST statement_seq = ASTSon0(module_body);
+        AST internal_subprograms = ASTSon1(module_body);
+
+        build_scope_program_unit_body(
+                statement_seq, internal_subprograms,
+                program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
+    }
 
     // This deserves an explanation: if a module does not contain any procedure
     // we need to remember it appeared (use a NODECL_OBJECT_INIT) otherwise use
@@ -943,6 +950,9 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
 
     type_t* function_type = get_new_function_type(return_type, parameter_info, num_dummy_arguments);
     entry->type_information = function_type;
+
+    entry->entity_specs.is_implicit_basic_type = 0;
+    entry->related_decl_context = decl_context;
 
     return entry;
 }
@@ -1221,17 +1231,14 @@ static void build_scope_program_unit_body_internal_subprograms_executable(
     }
 }
 
-static void build_scope_program_unit_body(AST program_body, 
+static void build_scope_program_unit_body(
+        AST program_unit_stmts,
+        AST internal_subprograms,
         decl_context_t decl_context,
         char (*allowed_statement)(AST, decl_context_t),
         nodecl_t* nodecl_output,
         nodecl_t* nodecl_internal_subprograms)
 {
-    AST program_part = ASTSon0(program_body);
-    AST program_unit_stmts = ASTSon0(program_part);
-
-    AST internal_subprograms = ASTSon1(program_body);
-
     // 1) Program unit declaration only
     build_scope_program_unit_body_declarations(
             allowed_statement,
@@ -1265,6 +1272,8 @@ static void build_scope_program_unit_body(AST program_body,
             P_LIST_ADD(module->entity_specs.related_symbols, 
                     module->entity_specs.num_related_symbols, 
                     internal_program_units_info[i].symbol);
+
+            internal_program_units_info[i].symbol->entity_specs.in_module = module;
         }
     }
     
@@ -4318,7 +4327,6 @@ static void build_scope_interface_block(AST a, decl_context_t decl_context,
                 scope_entry_t* procedure_sym = NULL;
                 build_scope_program_unit_internal(interface_specification, 
                         decl_context, 
-                        new_program_unit_context, 
                         &procedure_sym,
                         &nodecl_program_unit);
 
