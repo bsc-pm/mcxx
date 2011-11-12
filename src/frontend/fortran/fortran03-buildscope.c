@@ -6735,12 +6735,16 @@ static void opt_ambiguous_io_spec_handler(AST io_stmt, AST opt_value_ambig, decl
     int namelist_option = -1;
     int format_option = -1;
 
+    extern void ast_dump_graphviz(AST a, FILE* f);
+    ast_dump_graphviz(opt_value_ambig, stdout);
+
     int i;
     for (i = 0; i < ast_get_num_ambiguities(opt_value_ambig); i++)
     {
         AST option = ast_get_ambiguity(opt_value_ambig, i);
         const char* t = ASTText(option);
         ERROR_CONDITION((t == NULL), "io-spec is missing text", 0);
+
 
         int *p = NULL;
         if (strcasecmp(t, "unit") == 0)
@@ -6760,7 +6764,7 @@ static void opt_ambiguous_io_spec_handler(AST io_stmt, AST opt_value_ambig, decl
             internal_error("%s: Unexpected opt_value_ambig io-spec '%s'\n", ast_location(option), t);
         }
 
-        ERROR_CONDITION(*p >= 0, "%s Repeated ambiguity tree!", ast_location(option));
+        // ERROR_CONDITION(*p >= 0, "%s Repeated ambiguity tree!", ast_location(option));
 
         *p = i;
     }

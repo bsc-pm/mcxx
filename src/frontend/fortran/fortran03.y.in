@@ -431,6 +431,10 @@ static void append_statement_to_block(AST block, AST stmt)
 %type<ast> common_block_item
 %type<ast> asynchronous_stmt
 %type<ast> type_bound_proc_decl
+%type<ast> io_unit_spec
+%type<ast> io_format_spec
+%type<ast> io_namelist_spec
+%type<ast> io_format_or_namelist_spec
 %type<ast> io_control_spec
 %type<ast> proc_interface
 %type<ast> flush_stmt
@@ -573,6 +577,8 @@ static void append_statement_to_block(AST block, AST stmt)
 %type<ast> bind_entity_list
 %type<ast> flush_spec_list
 %type<ast> io_control_spec_list
+%type<ast> io_control_spec_list2
+%type<ast> io_control_spec_list2_opt
 %type<ast> proc_component_attr_spec_list
 %type<ast> saved_entity_list
 %type<ast> input_output_item_list
@@ -3793,25 +3799,13 @@ io_control_spec : TOK_UNIT '=' io_unit
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, $1.token_file, $1.token_line, $1.token_text);
 }
-| io_unit %merge<ambig_io_control_spec>
-{
-    $$ = ASTMake1(AST_OPT_VALUE, $1, ASTFileName($1), ASTLine($1), "unit");
-}
 | TOK_FMT '=' format
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, $1.token_file, $1.token_line, $1.token_text);
 }
-| format %merge<ambig_io_control_spec>
-{
-    $$ = ASTMake1(AST_OPT_VALUE, $1, ASTFileName($1), ASTLine($1), "fmt");
-}
 | TOK_NML '=' name
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, $1.token_file, $1.token_line, $1.token_text);
-}
-| name %merge<ambig_io_control_spec>
-{
-    $$ = ASTMake1(AST_OPT_VALUE, $1, ASTFileName($1), ASTLine($1), "nml");
 }
 | TOK_ADVANCE '=' default_char_expr
 {
@@ -5380,11 +5374,52 @@ flush_spec_list : flush_spec
   $$ = ASTList($1, $3);
 }
 ;
-io_control_spec_list : io_control_spec
+io_control_spec_list : io_control_spec_list2
+{
+    $$ = $1;
+}
+| io_unit_spec io_control_spec_list2_opt
+{
+    $$ = ast_list_concat(ASTListLeaf($1), $2);
+}
+| io_unit_spec ',' io_format_or_namelist_spec io_control_spec_list2_opt
+{
+    $$ = ast_list_concat(ASTList(ASTListLeaf($1), $3), $4);
+}
+;
+io_format_or_namelist_spec : io_namelist_spec
+|
+io_format_spec
+;
+io_unit_spec : io_unit %merge<ambig_io_control_spec>
+{
+    $$ = ASTMake1(AST_OPT_VALUE, $1, ASTFileName($1), ASTLine($1), "unit");
+}
+;
+io_format_spec : format %merge<ambig_io_control_spec>
+{
+    $$ = ASTMake1(AST_OPT_VALUE, $1, ASTFileName($1), ASTLine($1), "fmt");
+}
+;
+io_namelist_spec : name %merge<ambig_io_control_spec>
+{
+    $$ = ASTMake1(AST_OPT_VALUE, $1, ASTFileName($1), ASTLine($1), "nml");
+}
+;
+io_control_spec_list2_opt : /* empty */
+{
+    $$ = NULL;
+}
+| ',' io_control_spec_list2
+{
+    $$ = $2;
+}
+;
+io_control_spec_list2 : io_control_spec
 {
   $$ = ASTListLeaf($1);
 }
-| io_control_spec_list ',' io_control_spec
+| io_control_spec_list2 ',' io_control_spec
 {
   $$ = ASTList($1, $3);
 }
