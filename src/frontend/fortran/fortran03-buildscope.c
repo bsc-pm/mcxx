@@ -6764,7 +6764,7 @@ static void opt_ambiguous_io_spec_handler(AST io_stmt, AST opt_value_ambig, decl
             internal_error("%s: Unexpected opt_value_ambig io-spec '%s'\n", ast_location(option), t);
         }
 
-        // ERROR_CONDITION(*p >= 0, "%s Repeated ambiguity tree!", ast_location(option));
+        ERROR_CONDITION(*p >= 0, "%s Repeated ambiguity tree!", ast_location(option));
 
         *p = i;
     }
