@@ -6735,9 +6735,6 @@ static void opt_ambiguous_io_spec_handler(AST io_stmt, AST opt_value_ambig, decl
     int namelist_option = -1;
     int format_option = -1;
 
-    extern void ast_dump_graphviz(AST a, FILE* f);
-    ast_dump_graphviz(opt_value_ambig, stdout);
-
     int i;
     for (i = 0; i < ast_get_num_ambiguities(opt_value_ambig); i++)
     {

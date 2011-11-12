@@ -5387,16 +5387,16 @@ io_control_spec_list : io_control_spec_list2
     $$ = ast_list_concat(ASTList(ASTListLeaf($1), $3), $4);
 }
 ;
-io_format_or_namelist_spec : io_namelist_spec
+io_format_or_namelist_spec : io_namelist_spec %merge<ambig_io_control_spec>
 |
-io_format_spec
+io_format_spec %merge<ambig_io_control_spec>
 ;
-io_unit_spec : io_unit %merge<ambig_io_control_spec>
+io_unit_spec : io_unit 
 {
     $$ = ASTMake1(AST_OPT_VALUE, $1, ASTFileName($1), ASTLine($1), "unit");
 }
 ;
-io_format_spec : format %merge<ambig_io_control_spec>
+io_format_spec : format 
 {
     $$ = ASTMake1(AST_OPT_VALUE, $1, ASTFileName($1), ASTLine($1), "fmt");
 }
