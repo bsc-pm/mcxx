@@ -6748,8 +6748,8 @@ static void opt_unit_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_c
 
         type_t* t = nodecl_get_type(nodecl_value);
         if (!(is_integer_type(no_ref(t))
-                    || ((nodecl_get_symbol(nodecl_value) != NULL)
-                        && is_fortran_character_type(no_ref(nodecl_get_symbol(nodecl_value)->type_information)))))
+                    || (nodecl_get_symbol(nodecl_value) != NULL
+                        && is_fortran_character_type_or_pointer_to(no_ref(t)))))
         {
             error_printf("%s: error: specifier UNIT requires a character variable or a scalar integer expression\n",
                     ast_location(value));
