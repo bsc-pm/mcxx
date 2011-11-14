@@ -931,6 +931,10 @@ static void declare_symbol(nodecl_codegen_visitor_t* visitor, scope_entry_t* ent
                     keyword = "COMMON";
                     // Ignore ".common."
                     symbol_name = entry->symbol_name + strlen(".common.");
+
+                    // Unnamed common
+                    if (strcmp(symbol_name, "_unnamed") == 0)
+                        symbol_name = "";
                 }
 
                 indent(visitor);
