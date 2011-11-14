@@ -6985,6 +6985,9 @@ static void build_scope_ambiguity_statement(AST ambig_stmt, decl_context_t decl_
     {
         AST stmt = ast_get_ambiguity(ambig_stmt, i);
 
+		if (ASTType(stmt) == AST_LABELED_STATEMENT)
+			stmt = ASTSon1(stmt);
+
         char ok = 0;
         switch (ASTType(stmt))
         {
@@ -7005,7 +7008,7 @@ static void build_scope_ambiguity_statement(AST ambig_stmt, decl_context_t decl_
                 }
             default:
                 {
-                    internal_error("Invalid node '%s'\n", ast_print_node_type(ASTType(ambig_stmt)));
+                    internal_error("Invalid node '%s' at %s\n", ast_print_node_type(ASTType(ambig_stmt)), ast_location(ambig_stmt));
                 }
         }
 
