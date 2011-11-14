@@ -655,6 +655,7 @@ static void append_statement_to_block(AST block, AST stmt)
 %type<token_atrib> elseif_toks
 %type<token_atrib> elsewhere_toks
 %type<token_atrib> selectcase_toks
+%type<token_atrib> two_slashes
 // Tokens
 %token<token_atrib> TOK_FORMAT "FORMAT"
 %token<token_atrib> TOK_GENERIC "GENERIC"
@@ -2237,20 +2238,26 @@ common_block_item_list : common_block_item
   AST common_block = ASTMake2(AST_COMMON_BLOCK_ITEM, NULL, $1, ASTFileName($1), ASTLine($1), NULL);
   $$ = ASTListLeaf(common_block);
 }
+| common_block_item_list common_block_item
+{
+  $$ = ASTList($1, $2);
+}
 | common_block_item_list ',' common_block_item
 {
   $$ = ASTList($1, $3);
 }
 ;
+two_slashes : '/' '/'
+{
+$$ = $1;
+}
+| TOK_DOUBLE_SLASH
+;
 common_block_item : '/' name '/' common_block_object_list
 {
     $$ = ASTMake2(AST_COMMON_BLOCK_ITEM, $2, $4, $1.token_file, $1.token_line, NULL);
 }
-| '/' '/' common_block_object_list
-{
-    $$ = ASTMake2(AST_COMMON_BLOCK_ITEM, NULL, $3, $1.token_file, $1.token_line, NULL);
-}
-| TOK_DOUBLE_SLASH common_block_object_list
+| two_slashes common_block_object_list
 {
     $$ = ASTMake2(AST_COMMON_BLOCK_ITEM, NULL, $2, $1.token_file, $1.token_line, NULL);
 }

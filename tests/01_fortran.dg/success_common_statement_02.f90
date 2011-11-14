@@ -1,0 +1,14 @@
+! <testinfo>
+! test_generator=config/mercurium-fortran
+! </testinfo>
+PROGRAM P
+  IMPLICIT LOGICAL (L)
+  IMPLICIT CHARACTER*14 (C)
+  COMMON IVCN01
+  COMMON //IVCN02,LVCN01
+  COMMON RVCN01//IVCN03
+
+  PRINT *, LVCN01
+  PRINT *, IVCN01
+  PRINT *, IVCN03
+END PROGRAM P
