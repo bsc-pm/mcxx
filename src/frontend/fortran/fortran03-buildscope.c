@@ -2763,7 +2763,7 @@ static void build_io_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_o
 
 static const char* get_common_name_str(const char* common_name)
 {
-    const char *common_name_str = ".common.unnamed";
+    const char *common_name_str = ".common._unnamed";
     if (common_name != NULL)
     {
         common_name_str = strappend(".common.", strtolower(common_name));
@@ -6985,8 +6985,8 @@ static void build_scope_ambiguity_statement(AST ambig_stmt, decl_context_t decl_
     {
         AST stmt = ast_get_ambiguity(ambig_stmt, i);
 
-		if (ASTType(stmt) == AST_LABELED_STATEMENT)
-			stmt = ASTSon1(stmt);
+        if (ASTType(stmt) == AST_LABELED_STATEMENT)
+            stmt = ASTSon1(stmt);
 
         char ok = 0;
         switch (ASTType(stmt))
