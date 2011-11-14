@@ -2556,7 +2556,6 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
     if (actual_arg_spec_list != NULL)
     {
         char with_keyword = 0;
-        char seen_alternate_return = 0;
         char wrong_arg_spec_list = 0;
         AST it;
         for_each_element(actual_arg_spec_list, it)
@@ -2602,22 +2601,13 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
                     *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
                     return;
                 }
-                if (!seen_alternate_return)
-                {
-                    seen_alternate_return = 1;
 
-                    nodecl_arguments[num_actual_arguments] = nodecl_make_fortran_alt_return(ASTFileName(actual_arg), ASTLine(actual_arg));
-                }
-                else
-                {
-                    if (!checking_ambiguity())
-                    {
-                        error_printf("%s: error: in a procedure reference an alternate return must be at the last position\n", 
-                                ast_location(actual_arg_spec));
-                    }
-                    *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
-                    return;
-                }
+                scope_entry_t* label = fortran_query_label(ASTSon0(actual_arg), 
+                        decl_context, /* is_definition */ 0);
+
+                nodecl_arguments[num_actual_arguments] = nodecl_make_fortran_alternate_return_argument(
+                        label, get_void_type(),
+                        ASTFileName(actual_arg), ASTLine(actual_arg));
             }
 
             num_actual_arguments++;
@@ -2664,8 +2654,8 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
         return;
     }
 
-
-    // Check arguments again...
+    // Recheck arguments so we can associate them their dummy argument name
+    // (if the function is not implicit)
     nodecl_t nodecl_argument_list = nodecl_null();
     if (actual_arg_spec_list != NULL)
     {
@@ -2734,7 +2724,14 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
             }
             else
             {
-                internal_error("Alternate return not implemented yet", 0);
+                scope_entry_t* label = fortran_query_label(ASTSon0(actual_arg),
+                        decl_context, /* is_definition */ 0);
+
+                nodecl_argument_spec = nodecl_make_fortran_alternate_return_argument(
+                        label, get_void_type(),
+                        ASTFileName(actual_arg), ASTLine(actual_arg));
+
+                parameter_index++;
             }
 
             nodecl_argument_list = nodecl_append_to_list(nodecl_argument_list, nodecl_argument_spec);

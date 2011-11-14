@@ -608,7 +608,6 @@ static void append_statement_to_block(AST block, AST stmt)
 %type<ast> allocation_list
 %type<ast> allocate_object_list
 %type<ast> dummy_arg_name_list
-%type<ast> dummy_arg_name_list_proto
 %type<ast> proc_attr_spec_list
 %type<ast> proc_decl_list
 %type<ast> data_stmt_value_list
@@ -4859,7 +4858,7 @@ function_stmt : labeldef prefix TOK_FUNCTION name function_prototype eos
     $$ = ASTMake4Label(AST_FUNCTION_STATEMENT, $1, NULL, $3, $4, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
-function_prototype : '(' dummy_arg_name_list_proto ')' suffix 
+function_prototype : '(' dummy_arg_list ')' suffix 
 {
     $$ = ASTMake2(AST_FUNCTION_PROTOTYPE, $2, $4, $1.token_file, $1.token_line, NULL);
 }
@@ -4867,7 +4866,7 @@ function_prototype : '(' dummy_arg_name_list_proto ')' suffix
 {
     $$ = ASTMake2(AST_FUNCTION_PROTOTYPE, NULL, $3, $1.token_file, $1.token_line, NULL);
 }
-| '(' dummy_arg_name_list_proto ')' 
+| '(' dummy_arg_list ')' 
 {
     $$ = ASTMake2(AST_FUNCTION_PROTOTYPE, $2, NULL, $1.token_file, $1.token_line, NULL);
 }
@@ -5194,17 +5193,6 @@ final_subroutine_name_list : a_list_of_names;
 procedure_name_list : a_list_of_names;
 intrinsic_procedure_name_list : a_list_of_names;
 dummy_arg_name_list : a_list_of_names;
-dummy_arg_name_list_proto : a_list_of_names 
-| a_list_of_names ',' '*'
-{
-    AST symbol = ASTLeaf(AST_SYMBOL, $3.token_file, $3.token_line, $3.token_text);
-    $$ = ASTList($1, symbol);
-}
-| '*'
-{
-    AST symbol = ASTLeaf(AST_SYMBOL, $1.token_file, $1.token_line, $1.token_text);
-    $$ = ASTListLeaf(symbol);
-};
 import_name_list : a_list_of_names;
 
 data_stmt_set_list : data_stmt_set

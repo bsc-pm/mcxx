@@ -28,10 +28,6 @@
 static void unsupported_construct(AST a, const char* name);
 static void unsupported_statement(AST a, const char* name);
 
-static scope_entry_t* query_label(AST label, 
-        decl_context_t decl_context, 
-        char is_definition);
-
 static void null_dtor(const void* p UNUSED_PARAMETER) { }
 
 void fortran_initialize_translation_unit_scope(translation_unit_t* translation_unit)
@@ -866,27 +862,50 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
     int num_dummy_arguments = 0;
     if (dummy_arg_name_list != NULL)
     {
+        int num_alternate_returns = 0;
         AST it;
         for_each_element(dummy_arg_name_list, it)
         {
             AST dummy_arg_name = ASTSon1(it);
 
+            scope_entry_t* dummy_arg = NULL;
+
             if (strcmp(ASTText(dummy_arg_name), "*") == 0)
             {
-                // warn_printf("%s: warning: deprecated alternate return in procedure declaration\n",
-                //         ast_location(dummy_arg_name));
-                continue;
+                if (is_function)
+                {
+                    error_printf("%s: error: alternate return is not allowed in a FUNCTION specification\n",
+                            ast_location(dummy_arg_name));
+                    continue;
+                }
+
+                char alternate_return_name[64];
+                snprintf(alternate_return_name, 64, ".alternate-return-%d", num_alternate_returns);
+                alternate_return_name[63] = '\0';
+
+                dummy_arg = calloc(1, sizeof(*dummy_arg));
+
+                dummy_arg->symbol_name = uniquestr(alternate_return_name);
+                // This is actually a label parameter
+                dummy_arg->kind = SK_LABEL;
+                dummy_arg->type_information = get_void_type();
+                dummy_arg->decl_context = decl_context;
+                
+                num_alternate_returns++;
+            }
+            else
+            {
+                dummy_arg = get_symbol_for_name(decl_context, dummy_arg_name, ASTText(dummy_arg_name));
+
+                // Note that we do not set the exact kind of the dummy argument as
+                // it might be a function. If left SK_UNDEFINED, we later fix them
+                // to SK_VARIABLE
+                // Get a reference to its type (it will be properly updated later)
+                dummy_arg->type_information = get_lvalue_reference_type(dummy_arg->type_information);
             }
 
-            scope_entry_t* dummy_arg = get_symbol_for_name(decl_context, dummy_arg_name, ASTText(dummy_arg_name));
-
-            // Note that we do not set the exact kind of the dummy argument as
-            // it might be a function. If left SK_UNDEFINED, we later fix them
-            // to SK_VARIABLE
             dummy_arg->file = ASTFileName(dummy_arg_name);
             dummy_arg->line = ASTLine(dummy_arg_name);
-            // Get a reference to its type (it will be properly updated later)
-            dummy_arg->type_information = get_lvalue_reference_type(dummy_arg->type_information);
             dummy_arg->entity_specs.is_parameter = 1;
             dummy_arg->entity_specs.parameter_position = num_dummy_arguments;
 
@@ -2628,9 +2647,9 @@ static void build_scope_arithmetic_if_stmt(AST a, decl_context_t decl_context, n
     nodecl_t nodecl_numeric_expr = nodecl_null();
     fortran_check_expression(numeric_expr, decl_context, &nodecl_numeric_expr);
 
-    scope_entry_t* lower_label = query_label(lower, decl_context, /* is_definition */ 0);
-    scope_entry_t* equal_label = query_label(equal, decl_context, /* is_definition */ 0);
-    scope_entry_t* upper_label = query_label(upper, decl_context, /* is_definition */ 0);
+    scope_entry_t* lower_label = fortran_query_label(lower, decl_context, /* is_definition */ 0);
+    scope_entry_t* equal_label = fortran_query_label(equal, decl_context, /* is_definition */ 0);
+    scope_entry_t* upper_label = fortran_query_label(upper, decl_context, /* is_definition */ 0);
 
     *nodecl_output = nodecl_make_fortran_arithmetic_if_statement(
                 nodecl_numeric_expr,
@@ -3027,7 +3046,7 @@ static void build_scope_computed_goto_stmt(AST a, decl_context_t decl_context, n
     {
         AST label = ASTSon1(it);
 
-        scope_entry_t* label_sym = query_label(label, decl_context, /* is_definition */ 0);
+        scope_entry_t* label_sym = fortran_query_label(label, decl_context, /* is_definition */ 0);
 
         nodecl_label_list = nodecl_append_to_list(nodecl_label_list, 
                 nodecl_make_symbol(label_sym, ASTFileName(label), ASTLine(label)));
@@ -3057,7 +3076,7 @@ static void build_scope_assigned_goto_stmt(AST a UNUSED_PARAMETER, decl_context_
     {
         AST label = ASTSon1(it);
 
-        scope_entry_t* label_sym = query_label(label, decl_context, /* is_definition */ 0);
+        scope_entry_t* label_sym = fortran_query_label(label, decl_context, /* is_definition */ 0);
 
         nodecl_label_list = nodecl_append_to_list(nodecl_label_list, 
                 nodecl_make_symbol(label_sym, ASTFileName(label), ASTLine(label)));
@@ -3091,7 +3110,7 @@ static void build_scope_label_assign_stmt(AST a UNUSED_PARAMETER, decl_context_t
             ASTLine(a));
 }
 
-static scope_entry_t* query_label(AST label, 
+scope_entry_t* fortran_query_label(AST label, 
         decl_context_t decl_context, 
         char is_definition)
 {
@@ -3142,7 +3161,7 @@ static void build_scope_labeled_stmt(AST a, decl_context_t decl_context, nodecl_
     AST statement = ASTSon1(a);
 
     // Sign in the label
-    scope_entry_t* label_sym = query_label(label, decl_context, /* is_definition */ 1);
+    scope_entry_t* label_sym = fortran_query_label(label, decl_context, /* is_definition */ 1);
 
     nodecl_t nodecl_statement = nodecl_null();
     fortran_build_scope_statement(statement, decl_context, &nodecl_statement);
@@ -4078,14 +4097,14 @@ static void build_scope_format_stmt(AST a,
     AST format = ASTSon1(a);
 
     // Keep the format in the label
-    scope_entry_t* label_sym = query_label(label, decl_context, /* is_definition */ 0);
+    scope_entry_t* label_sym = fortran_query_label(label, decl_context, /* is_definition */ 0);
     label_sym->value = nodecl_make_text(ASTText(format), ASTFileName(format), ASTLine(format));
 }
 
 static void build_scope_goto_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     // Do nothing for GOTO at the moment
-    scope_entry_t* label_symbol = query_label(ASTSon0(a), decl_context, /* is_definition */ 0);
+    scope_entry_t* label_symbol = fortran_query_label(ASTSon0(a), decl_context, /* is_definition */ 0);
     *nodecl_output = nodecl_make_goto_statement(label_symbol, ASTFileName(a), ASTLine(a));
 }
 
@@ -4823,30 +4842,49 @@ static void build_scope_read_stmt(AST a, decl_context_t decl_context, nodecl_t* 
 
 static void build_scope_return_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    AST int_expr = ASTSon1(a);
-    if (int_expr != NULL)
+    if (decl_context.current_scope->related_entry == NULL
+            || decl_context.current_scope->related_entry->kind != SK_FUNCTION)
     {
-        error_printf("%s: sorry: deprecated RETURN with alternate return is not supported\n",
-                ast_location(a));
-        nodecl_t nodecl_dummy = nodecl_null();
-        fortran_check_expression(a, decl_context, &nodecl_dummy);
+        error_printf("%s: error: RETURN statement not valid in this context", ast_location(a));
         return;
     }
 
-    ERROR_CONDITION(decl_context.current_scope->related_entry == NULL
-            || decl_context.current_scope->related_entry->kind != SK_FUNCTION, "Wrong context for a RETURN statement", 0);
     scope_entry_t* current_function = decl_context.current_scope->related_entry;
-    if (function_type_get_return_type(current_function->type_information) == NULL)
+
+    AST int_expr = ASTSon1(a);
+    if (int_expr != NULL)
     {
-        // SUBROUTINE
-        *nodecl_output = nodecl_make_return_statement(nodecl_null(), ASTFileName(a), ASTLine(a));
+        nodecl_t nodecl_return = nodecl_null();
+        fortran_check_expression(ASTSon1(a), decl_context, &nodecl_return);
+
+        if (nodecl_is_err_expr(nodecl_return))
+        {
+            *nodecl_output = nodecl_return;
+        }
+
+        if (function_type_get_return_type(current_function->type_information) != NULL)
+        {
+            error_printf("%s: error: RETURN with alternate return is only valid in a SUBROUTINE program unit\n", 
+                    ast_location(a));
+            return;
+        }
+
+        *nodecl_output = nodecl_make_fortran_alternate_return_statement(nodecl_return, ASTFileName(a), ASTLine(a));
     }
     else
     {
-        // FUNCTION
-        *nodecl_output = nodecl_make_return_statement(
-                nodecl_make_symbol(function_get_result_symbol(current_function), ASTFileName(a), ASTLine(a)), 
-                ASTFileName(a), ASTLine(a));
+        if (function_type_get_return_type(current_function->type_information) == NULL)
+        {
+            // SUBROUTINE
+            *nodecl_output = nodecl_make_return_statement(nodecl_null(), ASTFileName(a), ASTLine(a));
+        }
+        else
+        {
+            // FUNCTION
+            *nodecl_output = nodecl_make_return_statement(
+                    nodecl_make_symbol(function_get_result_symbol(current_function), ASTFileName(a), ASTLine(a)), 
+                    ASTFileName(a), ASTLine(a));
+        }
     }
 }
 
@@ -6312,7 +6350,7 @@ static void opt_eor_handler(AST io_stmt UNUSED_PARAMETER,
         nodecl_t* nodecl_output)
 {
     AST label = ASTSon0(opt_value);
-    scope_entry_t* entry = query_label(label, decl_context, /* is_definition */ 0);
+    scope_entry_t* entry = fortran_query_label(label, decl_context, /* is_definition */ 0);
     *nodecl_output = nodecl_make_fortran_io_spec(
             nodecl_make_symbol(entry, ASTFileName(label), ASTLine(label)), 
             "EOR", ASTFileName(opt_value), ASTLine(opt_value));
@@ -6324,7 +6362,7 @@ static void opt_err_handler(AST io_stmt UNUSED_PARAMETER,
         nodecl_t* nodecl_output)
 {
     AST label = ASTSon0(opt_value);
-    scope_entry_t* entry = query_label(label, decl_context, /* is_definition */ 0);
+    scope_entry_t* entry = fortran_query_label(label, decl_context, /* is_definition */ 0);
     *nodecl_output = nodecl_make_fortran_io_spec(
             nodecl_make_symbol(entry, ASTFileName(label), ASTLine(label)), 
             "ERR", ASTFileName(opt_value), ASTLine(opt_value));
@@ -6336,7 +6374,7 @@ static void opt_end_handler(AST io_stmt UNUSED_PARAMETER,
         nodecl_t* nodecl_output)
 {
     AST label = ASTSon0(opt_value);
-    scope_entry_t* entry = query_label(label, decl_context, /* is_definition */ 0);
+    scope_entry_t* entry = fortran_query_label(label, decl_context, /* is_definition */ 0);
     *nodecl_output = nodecl_make_fortran_io_spec(
             nodecl_make_symbol(entry, ASTFileName(label), ASTLine(label)), 
             "END", ASTFileName(opt_value), ASTLine(opt_value));
@@ -6387,7 +6425,7 @@ static void opt_fmt_value(AST value, decl_context_t decl_context, nodecl_t* node
         }
         else
         {
-            scope_entry_t* entry = query_label(value, decl_context, /* is_definition */ 0);
+            scope_entry_t* entry = fortran_query_label(value, decl_context, /* is_definition */ 0);
             if (entry == NULL)
             {
                 valid = 0;

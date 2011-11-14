@@ -681,7 +681,16 @@ static void codegen_procedure_declaration_header(nodecl_codegen_visitor_t* visit
         {
             fprintf(visitor->file, ", ");
         }
-        fprintf(visitor->file, "%s", entry->entity_specs.related_symbols[i]->symbol_name);
+        scope_entry_t* current_sym = entry->entity_specs.related_symbols[i];
+        if (current_sym->kind == SK_LABEL)
+        {
+            ERROR_CONDITION(is_function, "Alternate return in a FUNCTION", 0);
+            fprintf(visitor->file, "*");
+        }
+        else
+        {
+            fprintf(visitor->file, "%s", current_sym->symbol_name);
+        }
     }
     fprintf(visitor->file, ")");
     if (is_function)
@@ -1984,6 +1993,20 @@ static void codegen_fortran_equivalence(nodecl_codegen_visitor_t* visitor, nodec
     fprintf(visitor->file, ")\n");
 }
 
+static void codegen_fortran_alt_return_argument(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    scope_entry_t* entry = nodecl_get_symbol(node);
+    fprintf(visitor->file, "*%s", entry->symbol_name);
+}
+
+static void codegen_fortran_alt_return_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    indent(visitor);
+    fprintf(visitor->file, "RETURN ");
+    codegen_walk(visitor, nodecl_get_child(node, 0));
+    fprintf(visitor->file, "\n");
+}
+
 static void codegen_implied_do(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
     nodecl_t nodecl_symbol = nodecl_get_child(node, 0);
@@ -2242,6 +2265,8 @@ static void fortran_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
     NODECL_VISITOR(codegen_visitor)->visit_fortran_implied_do = codegen_visitor_fun(codegen_implied_do);
     NODECL_VISITOR(codegen_visitor)->visit_fortran_data = codegen_visitor_fun(codegen_fortran_data);
     NODECL_VISITOR(codegen_visitor)->visit_fortran_equivalence = codegen_visitor_fun(codegen_fortran_equivalence);
+    NODECL_VISITOR(codegen_visitor)->visit_fortran_alternate_return_argument = codegen_visitor_fun(codegen_fortran_alt_return_argument);
+    NODECL_VISITOR(codegen_visitor)->visit_fortran_alternate_return_statement = codegen_visitor_fun(codegen_fortran_alt_return_statement);
 
     NODECL_VISITOR(codegen_visitor)->visit_fortran_forall = codegen_visitor_fun(codegen_forall);
     NODECL_VISITOR(codegen_visitor)->visit_fortran_where = codegen_visitor_fun(codegen_where);
