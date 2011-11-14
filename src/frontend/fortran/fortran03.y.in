@@ -4546,7 +4546,7 @@ end_submodule_stmt : labeldef TOK_END TOK_SUBMODULE name eos
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
-block_data : block_data_stmt block end_block_data_stmt
+block_data : block_data_stmt non_top_level_program_unit_stmts_seq end_block_data_stmt
 {
     $$ = ASTMake3(AST_BLOCK_DATA_PROGRAM_UNIT, $1, $2, $3, ASTFileName($1), ASTLine($1), NULL);
 }
@@ -4568,7 +4568,6 @@ block_data_stmt : labeldef TOK_BLOCK TOK_DATA name eos
     $$ = ASTMake2Label(AST_BLOCK_DATA_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
-
 end_block_data_stmt : labeldef end_block_data_toks name eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
@@ -4578,16 +4577,11 @@ end_block_data_stmt : labeldef end_block_data_toks name eos
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
-
-end_block_data_toks: TOK_END TOK_BLOCK TOK_DATA
-| TOK_END
+end_block_data_toks: TOK_END
+| TOK_ENDBLOCKDATA
+| TOK_ENDBLOCK TOK_DATA
+| TOK_END TOK_BLOCKDATA
 | TOK_END TOK_BLOCK TOK_DATA
-| TOK_ENDBLOCK TOK_DATA
-| TOK_ENDBLOCK TOK_DATA
-| TOK_END TOK_BLOCKDATA
-| TOK_END TOK_BLOCKDATA
-| TOK_ENDBLOCKDATA
-| TOK_ENDBLOCKDATA
 ;
 interface_block : interface_stmt interface_specification_seq end_interface_stmt
 {

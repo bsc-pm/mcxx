@@ -272,6 +272,40 @@ static void codegen_module_footer(nodecl_codegen_visitor_t* visitor, scope_entry
     fprintf(visitor->file, "END MODULE %s\n", entry->symbol_name);
 }
 
+static void codegen_blockdata_header(nodecl_codegen_visitor_t* visitor, scope_entry_t* entry)
+{
+    const char* real_name = entry->symbol_name;
+    if (real_name[0] == '_')
+        real_name = "";
+
+    fprintf(visitor->file, "BLOCK DATA %s\n", real_name);
+
+    visitor->indent_level += 1;
+
+    indent(visitor);
+    fprintf(visitor->file, "IMPLICIT NONE\n");
+
+    int i, num_components = entry->entity_specs.num_related_symbols;
+    for (i = 0; i < num_components; i++)
+    {
+        scope_entry_t* sym = entry->entity_specs.related_symbols[i];
+
+        declare_symbol(visitor, sym);
+    }
+}
+
+static void codegen_blockdata_footer(nodecl_codegen_visitor_t* visitor, scope_entry_t* entry)
+{
+    visitor->indent_level -= 1;
+
+    const char* real_name = entry->symbol_name;
+    if (real_name[0] == '_')
+        real_name = "";
+
+    indent(visitor);
+    fprintf(visitor->file, "END BLOCK DATA %s\n", real_name);
+}
+
 static void codegen_object_init(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
     scope_entry_t* entry = nodecl_get_symbol(node);
@@ -297,6 +331,19 @@ static void codegen_object_init(nodecl_codegen_visitor_t* visitor, nodecl_t node
                 codegen_module_header(visitor, entry);
                 codegen_module_footer(visitor, entry);
                 visitor->current_module = old_module;
+                break;
+            }
+        case SK_BLOCKDATA:
+            {
+                entry->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
+
+                scope_entry_t* old_sym = visitor->current_sym;
+                visitor->current_sym = entry;
+
+                codegen_blockdata_header(visitor, entry);
+                codegen_blockdata_footer(visitor, entry);
+
+                visitor->current_sym = old_sym;
                 break;
             }
         default:

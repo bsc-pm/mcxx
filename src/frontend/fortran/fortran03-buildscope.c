@@ -273,7 +273,8 @@ static scope_entry_t* get_symbol_for_name_(decl_context_t decl_context,
         result->line = ASTLine(locus);
 
         if (decl_context.current_scope->related_entry != NULL
-                && decl_context.current_scope->related_entry->kind == SK_MODULE)
+                && (decl_context.current_scope->related_entry->kind == SK_MODULE
+                    || decl_context.current_scope->related_entry->kind == SK_BLOCKDATA))
         {
             scope_entry_t* module = decl_context.current_scope->related_entry;
 
@@ -722,9 +723,9 @@ static void build_scope_module_program_unit(AST program_unit,
 }
 
 static void build_scope_block_data_program_unit(AST program_unit,
-        decl_context_t program_unit_context UNUSED_PARAMETER,
-        scope_entry_t** program_unit_symbol UNUSED_PARAMETER,
-        nodecl_t* nodecl_output UNUSED_PARAMETER)
+        decl_context_t program_unit_context,
+        scope_entry_t** program_unit_symbol,
+        nodecl_t* nodecl_output)
 {
     // FIXME
     // Do nothing with these
@@ -733,8 +734,47 @@ static void build_scope_block_data_program_unit(AST program_unit,
         fprintf(stderr, "=== [%s] Program unit: BLOCK DATA ===\n", ast_location(program_unit));
     }
 
+    ERROR_CONDITION(program_unit_symbol == NULL, "Invalid parameter", 0)
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "==== [%s] Program unit: PROGRAM ===\n", ast_location(program_unit));
+    }
 
-    internal_error("BLOCK DATA not yet implemented", 0);
+    AST program_stmt = ASTSon0(program_unit);
+    const char * program_name = "__BLOCK_DATA_UNNAMED__";
+    AST name = ASTSon0(program_stmt);
+    if (name != NULL)
+        program_name = ASTText(name);
+
+    scope_entry_t* program_sym = new_fortran_symbol(program_unit_context, program_name);
+    program_sym->kind = SK_BLOCKDATA;
+    program_sym->file = ASTFileName(program_unit);
+    program_sym->line = ASTLine(program_unit);
+
+    insert_alias(program_unit_context.current_scope->contained_in, program_sym,
+            strappend("._", program_sym->symbol_name));
+
+    program_sym->related_decl_context = program_unit_context;
+    program_unit_context.current_scope->related_entry = program_sym;
+
+    *program_unit_symbol = program_sym;
+
+    AST program_body = ASTSon1(program_unit);
+
+    nodecl_t nodecl_body = nodecl_null();
+    nodecl_t nodecl_internal_subprograms = nodecl_null();
+    if (program_body != NULL)
+    {
+        AST statement_seq = program_body;
+        AST internal_subprograms = NULL;
+
+        build_scope_program_unit_body(
+                statement_seq, internal_subprograms,
+                program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
+    }
+
+    *nodecl_output = nodecl_make_list_1(
+            nodecl_make_object_init(program_sym, ASTFileName(program_unit), ASTLine(program_unit)));
 }
 
 static type_t* gather_type_from_declaration_type_spec_(AST a, 
@@ -1301,7 +1341,7 @@ static void build_scope_program_unit_body(
         insert_entry(decl_context.current_scope, internal_program_units_info[i].symbol);
 
         if (decl_context.current_scope->related_entry != NULL
-                && decl_context.current_scope->related_entry->kind == SK_MODULE)
+                && (decl_context.current_scope->related_entry->kind == SK_MODULE))
         {
             scope_entry_t* module = decl_context.current_scope->related_entry;
 
@@ -4441,7 +4481,6 @@ static void build_scope_interface_block(AST a, decl_context_t decl_context,
             generic_spec_sym->entity_specs.in_module = module;
         }
     }
-
 }
 
 static void build_scope_intrinsic_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER, 
