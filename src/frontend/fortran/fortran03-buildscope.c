@@ -4951,7 +4951,7 @@ static void build_scope_save_stmt(AST a, decl_context_t decl_context UNUSED_PARA
 
             if (entry == NULL)
             {
-                error_printf("%s: error: unknown common '%s' in SAVE statement", 
+                error_printf("%s: error: unknown common '%s' in SAVE statement\n", 
                         ast_location(a),
                         fortran_prettyprint_in_buffer(saved_entity));
                 continue;
