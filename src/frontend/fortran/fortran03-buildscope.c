@@ -4507,7 +4507,7 @@ static void build_scope_intrinsic_stmt(AST a, decl_context_t decl_context UNUSED
         }
         else
         {
-            insert_alias(decl_context.current_scope, entry, entry->symbol_name);
+            insert_alias(decl_context.current_scope, entry, strtolower(ASTText(name)));
         }
     }
 }
