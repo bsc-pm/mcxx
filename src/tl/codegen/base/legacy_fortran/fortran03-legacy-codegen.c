@@ -1012,6 +1012,8 @@ static void declare_symbol(nodecl_codegen_visitor_t* visitor, scope_entry_t* ent
                         declare_symbol(visitor, sym);
                     }
 
+					declare_symbols_rec(visitor, entry->value);
+
                     indent(visitor);
                     fprintf(visitor->file, "%s(", entry->symbol_name);
                     for (i = 0; i < num_params; i++)
@@ -1152,6 +1154,12 @@ static void declare_symbols_from_modules_rec(nodecl_codegen_visitor_t* visitor, 
     if (entry != NULL)
     {
         emit_use_statement_if_symbol_comes_from_module(visitor, entry);
+
+		if (entry->kind == SK_FUNCTION
+				&& entry->entity_specs.is_stmt_function)
+		{
+			declare_symbols_from_modules_rec(visitor, entry->value);
+		}
     }
 }
 
