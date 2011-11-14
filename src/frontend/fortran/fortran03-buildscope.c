@@ -3141,11 +3141,18 @@ static void build_scope_label_assign_stmt(AST a UNUSED_PARAMETER, decl_context_t
 
     AST label_name = ASTSon1(a);
 
-    scope_entry_t* label_var = query_name_with_locus(decl_context, ASTSon0(a), ASTText(ASTSon0(a)));
+    scope_entry_t* label_var = query_name_with_locus(decl_context, label_name, ASTText(label_name));
+
+    if (label_var == NULL)
+    {
+        error_printf("%s: error: symbol '%s' is unknown\n", ast_location(label_name), ASTText(label_name));
+        return;
+    }
+    ERROR_CONDITION(label_var == NULL, "Invalid symbol", 0);
 
     *nodecl_output = nodecl_make_fortran_label_assign_statement(
-            nodecl_make_symbol(label_var, ASTFileName(label_name), ASTLine(label_name)),
             nodecl_literal,
+            nodecl_make_symbol(label_var, ASTFileName(label_name), ASTLine(label_name)),
             ASTFileName(a),
             ASTLine(a));
 }
