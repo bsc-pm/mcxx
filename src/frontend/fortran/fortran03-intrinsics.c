@@ -822,7 +822,7 @@ static scope_entry_t* register_specific_intrinsic_name(
         int num_args,
         type_t* t0, type_t* t1, type_t* t2, type_t* t3, type_t* t4, type_t* t5, type_t* t6)
 {
-    scope_entry_t* generic_entry = query_name_no_implicit(decl_context, generic_name);
+    scope_entry_t* generic_entry = fortran_query_implicit_name_str(decl_context, generic_name);
     ERROR_CONDITION(generic_entry == NULL
             || !generic_entry->entity_specs.is_builtin, "Invalid symbol when registering specific intrinsic name\n", 0);
 

@@ -165,7 +165,7 @@ static scope_entry_t* get_or_create_equivalence_symbol_info(decl_context_t decl_
     return get_or_create_special_symbol(decl_context, ".equivalence");
 }
 
-static void add_unknown_symbol(decl_context_t decl_context, scope_entry_t* entry)
+void add_unknown_symbol(decl_context_t decl_context, scope_entry_t* entry)
 {
     scope_entry_t* unknown_info = get_or_create_unknown_symbols_info(decl_context);
 
@@ -297,12 +297,12 @@ static scope_entry_t* get_symbol_for_name_(decl_context_t decl_context,
     return result;
 }
 
-static scope_entry_t* get_symbol_for_name(decl_context_t decl_context, AST locus, const char* name)
+static scope_entry_t* get_symbol_for_declaration(decl_context_t decl_context, AST locus, const char* name)
 {
     return get_symbol_for_name_(decl_context, locus, name, /* no_implicit */ 0);
 }
 
-static scope_entry_t* get_symbol_for_name_untyped(decl_context_t decl_context, AST locus, const char* name)
+static scope_entry_t* get_symbol_for_declaration_no_implicit(decl_context_t decl_context, AST locus, const char* name)
 {
     return get_symbol_for_name_(decl_context, locus, name, /* no_implicit */ 1);
 }
@@ -709,7 +709,7 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
 {
     scope_entry_t* entry = NULL;
 
-    entry = query_name_no_implicit_or_builtin(decl_context, ASTText(name));
+    entry = fortran_query_no_implicit_or_builtin_name_str(decl_context, ASTText(name));
 
     if (entry != NULL)
     {
@@ -825,7 +825,7 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
                 continue;
             }
 
-            scope_entry_t* dummy_arg = get_symbol_for_name(decl_context, dummy_arg_name, ASTText(dummy_arg_name));
+            scope_entry_t* dummy_arg = get_symbol_for_declaration(decl_context, dummy_arg_name, ASTText(dummy_arg_name));
 
             // Note that we do not set the exact kind of the dummy argument as
             // it might be a function. If left SK_UNDEFINED, we later fix them
@@ -862,7 +862,7 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
         }
         else
         {
-            result_sym = get_symbol_for_name(decl_context, result, ASTText(result));
+            result_sym = get_symbol_for_declaration(decl_context, result, ASTText(result));
 
             result_sym->kind = SK_VARIABLE;
             result_sym->file = ASTFileName(result);
@@ -1438,7 +1438,7 @@ static type_t* get_derived_type_name(AST a, decl_context_t decl_context)
 
     type_t* result = NULL;
 
-    scope_entry_t* entry = query_name_no_implicit_or_builtin(decl_context, strtolower(ASTText(name)));
+    scope_entry_t* entry = fortran_query_no_implicit_or_builtin_name_str(decl_context, strtolower(ASTText(name)));
     if (entry != NULL
             && entry->kind == SK_CLASS)
     {
@@ -2119,7 +2119,7 @@ static void build_scope_access_stmt(AST a, decl_context_t decl_context, nodecl_t
 
             const char* name = get_name_of_generic_spec(access_id);
 
-            scope_entry_t* sym = get_symbol_for_name(decl_context, access_id, name);
+            scope_entry_t* sym = get_symbol_for_declaration(decl_context, access_id, name);
 
             if (sym->entity_specs.access != AS_UNKNOWN)
             {
@@ -2189,7 +2189,7 @@ static void build_dimension_decl(AST a, decl_context_t decl_context)
        running_error("%s: sorry: coarrays not supported", ast_location(a));
     }
 
-    scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
+    scope_entry_t* entry = get_symbol_for_declaration(decl_context, name, ASTText(name));
 
     char was_ref = is_lvalue_reference_type(entry->type_information);
     
@@ -2248,7 +2248,7 @@ static void build_scope_allocatable_stmt(AST a, decl_context_t decl_context, nod
             name = ASTSon0(allocatable_decl);
         }
 
-        scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
+        scope_entry_t* entry = get_symbol_for_declaration(decl_context, name, ASTText(name));
 
         if (entry->kind != SK_VARIABLE)
         {
@@ -2453,7 +2453,7 @@ static const char* get_common_name_str(const char* common_name)
 
 static scope_entry_t* query_common_name(decl_context_t decl_context, const char* common_name)
 {
-    scope_entry_t* result = query_name_no_implicit_or_builtin(decl_context, 
+    scope_entry_t* result = fortran_query_no_implicit_or_builtin_name_str(decl_context, 
             get_common_name_str(common_name));
 
     return result;
@@ -2484,7 +2484,7 @@ static void build_scope_bind_stmt(AST a UNUSED_PARAMETER,
         }
         else
         {
-            entry = get_symbol_for_name(decl_context, bind_entity, ASTText(bind_entity));
+            entry = get_symbol_for_declaration(decl_context, bind_entity, ASTText(bind_entity));
         }
 
         entry->entity_specs.bind_c = 1;
@@ -2675,7 +2675,7 @@ static void build_scope_common_stmt(AST a,
             common_name_str = ASTText(common_name);
         }
         
-        scope_entry_t* common_sym = query_name_no_implicit_or_builtin(decl_context, get_common_name_str(common_name_str));
+        scope_entry_t* common_sym = fortran_query_no_implicit_or_builtin_name_str(decl_context, get_common_name_str(common_name_str));
         if (common_sym == NULL)
         {
             common_sym = new_common(decl_context, common_name_str);
@@ -2704,7 +2704,7 @@ static void build_scope_common_stmt(AST a,
                 internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(common_block_object)));
             }
 
-            scope_entry_t* sym = get_symbol_for_name(decl_context, name, ASTText(name));
+            scope_entry_t* sym = get_symbol_for_declaration(decl_context, name, ASTText(name));
 
             if (sym->entity_specs.is_in_common)
             {
@@ -2787,7 +2787,7 @@ static void build_scope_assigned_goto_stmt(AST a UNUSED_PARAMETER, decl_context_
     // warn_printf("%s: warning: deprecated assigned-goto statement\n", 
     //         ast_location(a));
 
-    scope_entry_t* label_var = query_name_with_locus(decl_context, ASTSon0(a), ASTText(ASTSon0(a)));
+    scope_entry_t* label_var = fortran_query_name_with_locus(decl_context, ASTSon0(a), ASTText(ASTSon0(a)));
 
     AST label_list = ASTSon1(a);
     nodecl_t nodecl_label_list = nodecl_null();
@@ -2821,7 +2821,7 @@ static void build_scope_label_assign_stmt(AST a UNUSED_PARAMETER, decl_context_t
 
     AST label_name = ASTSon1(a);
 
-    scope_entry_t* label_var = query_name_with_locus(decl_context, ASTSon0(a), ASTText(ASTSon0(a)));
+    scope_entry_t* label_var = fortran_query_name_with_locus(decl_context, ASTSon0(a), ASTText(ASTSon0(a)));
 
     *nodecl_output = nodecl_make_fortran_label_assign_statement(
             nodecl_make_symbol(label_var, ASTFileName(label_name), ASTLine(label_name)),
@@ -2944,7 +2944,7 @@ static void generic_implied_do_handler(AST a, decl_context_t decl_context,
         nodecl_stride = const_value_to_nodecl(const_value_get_one(/* bytes */ fortran_get_default_integer_type_kind(), /* signed */ 1));
     }
 
-    scope_entry_t* do_variable = query_name_with_locus(decl_context, io_do_variable, ASTText(io_do_variable));
+    scope_entry_t* do_variable = fortran_query_name_with_locus(decl_context, io_do_variable, ASTText(io_do_variable));
 
     if (do_variable == NULL)
     {
@@ -3502,8 +3502,7 @@ static void build_scope_dimension_stmt(AST a, decl_context_t decl_context, nodec
     {
         AST dimension_decl = ASTSon1(it);
         AST name = ASTSon0(dimension_decl);
-
-        scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
+        scope_entry_t* entry = get_symbol_for_declaration(decl_context, name, ASTText(name));
 
         if (is_fortran_array_type(no_ref(entry->type_information))
                 || is_pointer_to_fortran_array_type(no_ref(entry->type_information)))
@@ -3679,7 +3678,7 @@ static void build_scope_external_stmt(AST a, decl_context_t decl_context, nodecl
     {
         AST name = ASTSon1(it);
 
-        scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
+        scope_entry_t* entry = get_symbol_for_declaration(decl_context, name, ASTText(name));
         entry->kind = SK_FUNCTION;
 
         if (!entry->entity_specs.is_extern)
@@ -3975,7 +3974,7 @@ static void build_scope_intent_stmt(AST a, decl_context_t decl_context,
     {
         AST dummy_arg = ASTSon1(it);
 
-        scope_entry_t* entry = get_symbol_for_name(decl_context, dummy_arg, ASTText(dummy_arg));
+        scope_entry_t* entry = get_symbol_for_declaration(decl_context, dummy_arg, ASTText(dummy_arg));
 
         if (!entry->entity_specs.is_parameter)
         {
@@ -4040,7 +4039,7 @@ static void build_scope_interface_block(AST a, decl_context_t decl_context,
                     {
                         AST procedure_name = ASTSon1(it2);
 
-                        scope_entry_t* entry = get_symbol_for_name_untyped(decl_context, procedure_name,
+                        scope_entry_t* entry = get_symbol_for_declaration_no_implicit(decl_context, procedure_name,
                                 ASTText(procedure_name));
 
                         entry->kind = SK_FUNCTION;
@@ -4060,7 +4059,7 @@ static void build_scope_interface_block(AST a, decl_context_t decl_context,
                     {
                         AST procedure_name = ASTSon1(it2);
 
-                        scope_entry_t* entry = get_symbol_for_name(decl_context, procedure_name,
+                        scope_entry_t* entry = get_symbol_for_declaration(decl_context, procedure_name,
                                 ASTText(procedure_name));
 
                         if (entry == NULL
@@ -4119,7 +4118,7 @@ static void build_scope_interface_block(AST a, decl_context_t decl_context,
     {
         const char* name = get_name_of_generic_spec(generic_spec);
         
-        scope_entry_t* generic_spec_sym = query_name_no_implicit_or_builtin(decl_context, name);
+        scope_entry_t* generic_spec_sym = fortran_query_no_implicit_or_builtin_name_str(decl_context, name);
 
         if (generic_spec_sym == NULL)
         {
@@ -4180,7 +4179,7 @@ static void build_scope_intrinsic_stmt(AST a, decl_context_t decl_context UNUSED
         decl_context_t global_context = decl_context;
         global_context.current_scope = decl_context.global_scope;
 
-        scope_entry_t* entry = query_name_no_implicit(global_context, ASTText(name));
+        scope_entry_t* entry = fortran_query_name_str(global_context, ASTText(name));
         if (entry == NULL
                 || !entry->entity_specs.is_builtin)
         {
@@ -4228,7 +4227,7 @@ static void build_scope_namelist_stmt(AST a, decl_context_t decl_context,
         {
             AST namelist_item_name = ASTSon1(it2);
 
-            scope_entry_t* namelist_element = get_symbol_for_name(decl_context, namelist_item_name, ASTText(namelist_item_name));
+            scope_entry_t* namelist_element = get_symbol_for_declaration(decl_context, namelist_item_name, ASTText(namelist_item_name));
 
             namelist_element->entity_specs.is_in_namelist = 1;
             namelist_element->entity_specs.namelist = new_namelist;
@@ -4288,7 +4287,7 @@ static void build_scope_optional_stmt(AST a, decl_context_t decl_context, nodecl
     for_each_element(name_list, it)
     {
         AST name = ASTSon1(it);
-        scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
+        scope_entry_t* entry = get_symbol_for_declaration(decl_context, name, ASTText(name));
 
         if (!entry->entity_specs.is_parameter)
         {
@@ -4318,7 +4317,7 @@ static void build_scope_parameter_stmt(AST a, decl_context_t decl_context, nodec
         nodecl_t nodecl_constant = nodecl_null();
         fortran_check_expression(constant_expr, decl_context, &nodecl_constant);
 
-        scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
+        scope_entry_t* entry = get_symbol_for_declaration(decl_context, name, ASTText(name));
 
         if (is_void_type(no_ref(entry->type_information)))
         {
@@ -4356,7 +4355,7 @@ static void build_scope_cray_pointer_stmt(AST a, decl_context_t decl_context, no
         AST pointer_name = ASTSon0(cray_pointer_spec);
         AST pointee_decl = ASTSon1(cray_pointer_spec);
 
-        scope_entry_t* pointer_entry = get_symbol_for_name(decl_context, pointer_name, ASTText(pointer_name));
+        scope_entry_t* pointer_entry = get_symbol_for_declaration(decl_context, pointer_name, ASTText(pointer_name));
 
         if (pointer_entry->kind == SK_UNDEFINED)
         {
@@ -4392,7 +4391,7 @@ static void build_scope_cray_pointer_stmt(AST a, decl_context_t decl_context, no
             array_spec = ASTSon1(pointee_decl);
         }
 
-        scope_entry_t* pointee_entry = get_symbol_for_name(decl_context, pointer_name, ASTText(pointee_name));
+        scope_entry_t* pointee_entry = get_symbol_for_declaration(decl_context, pointer_name, ASTText(pointee_name));
 
         if (pointee_entry->entity_specs.is_cray_pointee)
         {
@@ -4444,7 +4443,7 @@ static void build_scope_pointer_stmt(AST a, decl_context_t decl_context, nodecl_
             array_spec = ASTSon1(pointer_decl);
         }
 
-        scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
+        scope_entry_t* entry = get_symbol_for_declaration(decl_context, name, ASTText(name));
 
         char was_ref = is_lvalue_reference_type(entry->type_information);
 
@@ -4623,7 +4622,7 @@ static void build_scope_save_stmt(AST a, decl_context_t decl_context UNUSED_PARA
         }
         else
         {
-            entry = get_symbol_for_name(decl_context, saved_entity, ASTText(saved_entity));
+            entry = get_symbol_for_declaration(decl_context, saved_entity, ASTText(saved_entity));
         }
 
         if (entry->kind == SK_UNDEFINED)
@@ -4648,7 +4647,7 @@ static void build_scope_stmt_function_stmt(AST a, decl_context_t decl_context,
     AST dummy_arg_name_list = ASTSon1(a);
     AST expr = ASTSon2(a);
 
-    scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
+    scope_entry_t* entry = get_symbol_for_declaration(decl_context, name, ASTText(name));
 
     entry->kind = SK_FUNCTION;
     entry->entity_specs.is_stmt_function = 1;
@@ -4660,7 +4659,7 @@ static void build_scope_stmt_function_stmt(AST a, decl_context_t decl_context,
         for_each_element(dummy_arg_name_list, it)
         {
             AST dummy_arg_item = ASTSon1(it);
-            scope_entry_t* dummy_arg = get_symbol_for_name(decl_context, dummy_arg_item, ASTText(dummy_arg_item));
+            scope_entry_t* dummy_arg = get_symbol_for_declaration(decl_context, dummy_arg_item, ASTText(dummy_arg_item));
 
             if (!is_scalar_type(no_ref(dummy_arg->type_information)))
             {
@@ -4774,7 +4773,7 @@ static void build_scope_target_stmt(AST a, decl_context_t decl_context, nodecl_t
 
         AST name = target_decl;
 
-        scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
+        scope_entry_t* entry = get_symbol_for_declaration(decl_context, name, ASTText(name));
 
 
         if (ASTType(target_decl_list) == AST_DIMENSION_DECL)
@@ -4859,7 +4858,7 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
         AST name = ASTSon0(declaration);
         AST entity_decl_specs = ASTSon1(declaration);
 
-        scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
+        scope_entry_t* entry = get_symbol_for_declaration(decl_context, name, ASTText(name));
         
         if (!entry->entity_specs.is_implicit_basic_type)
         {
@@ -5046,7 +5045,7 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
             decl_context_t global_context = decl_context;
             global_context.current_scope = decl_context.global_scope;
 
-            scope_entry_t* intrinsic_name = query_name_no_implicit(global_context, intrinsic_name->symbol_name);
+            scope_entry_t* intrinsic_name = fortran_query_name_str(global_context, intrinsic_name->symbol_name);
             if (intrinsic_name == NULL
                     || !intrinsic_name->entity_specs.is_builtin)
             {
@@ -5507,7 +5506,7 @@ static void build_scope_value_stmt(AST a, decl_context_t decl_context, nodecl_t*
     {
         AST name = ASTSon1(it);
 
-        scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
+        scope_entry_t* entry = get_symbol_for_declaration(decl_context, name, ASTText(name));
 
         if (!entry->entity_specs.is_parameter)
         {
@@ -5534,7 +5533,7 @@ static void build_scope_volatile_stmt(AST a, decl_context_t decl_context, nodecl
     {
         AST name = ASTSon1(it);
 
-        scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
+        scope_entry_t* entry = get_symbol_for_declaration(decl_context, name, ASTText(name));
 
         if (entry->kind == SK_UNDEFINED)
             entry->kind = SK_VARIABLE;
@@ -6211,7 +6210,7 @@ static void opt_nextrec_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, dec
 static void opt_nml_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
-    scope_entry_t* entry = query_name_no_implicit_or_builtin(decl_context, ASTText(value));
+    scope_entry_t* entry = fortran_query_no_implicit_or_builtin_name_str(decl_context, ASTText(value));
     if (entry == NULL
             || entry->kind != SK_NAMELIST)
     {
@@ -6531,7 +6530,7 @@ static void opt_ambiguous_io_spec_handler(AST io_stmt, AST opt_value_ambig, decl
                 AST nml_io_spec = ast_get_ambiguity(opt_value_ambig, namelist_option);
                 AST value = ASTSon0(nml_io_spec);
 
-                scope_entry_t* entry = query_name_no_implicit_or_builtin(decl_context, ASTText(value));
+                scope_entry_t* entry = fortran_query_no_implicit_or_builtin_name_str(decl_context, ASTText(value));
 
                 if (entry == NULL
                         || entry->kind != SK_NAMELIST)
@@ -6580,7 +6579,7 @@ static char check_statement_function_statement(AST stmt, decl_context_t decl_con
     AST dummy_arg_name_list = ASTSon1(stmt);
     AST expr = ASTSon2(stmt);
 
-    scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
+    scope_entry_t* entry = get_symbol_for_declaration(decl_context, name, ASTText(name));
 
     if (!is_scalar_type(no_ref(entry->type_information)))
         return 0;
@@ -6591,7 +6590,7 @@ static char check_statement_function_statement(AST stmt, decl_context_t decl_con
         for_each_element(dummy_arg_name_list, it)
         {
             AST dummy_name = ASTSon1(it);
-            scope_entry_t* dummy_arg = get_symbol_for_name(decl_context, dummy_name, ASTText(dummy_name));
+            scope_entry_t* dummy_arg = get_symbol_for_declaration(decl_context, dummy_name, ASTText(dummy_name));
 
             if (!is_scalar_type(no_ref(dummy_arg->type_information)))
                 return 0;

@@ -164,7 +164,7 @@ static scope_entry_t* new_implicit_symbol(decl_context_t decl_context, AST locus
         //The implicits symbols will be stored in the current scope of the program unit
         decl_context_t program_unit_context = decl_context.current_scope->related_entry->related_decl_context;
         scope_entry_t* sym = new_symbol(program_unit_context, program_unit_context.current_scope, strtolower(name));
-        sym->kind = SK_VARIABLE;
+        sym->kind = SK_UNDEFINED;
         sym->type_information = implicit_type;
         sym->entity_specs.is_implicit_basic_type = 1;
         
@@ -196,42 +196,9 @@ type_t* get_implicit_type_for_symbol(decl_context_t decl_context, const char* na
     return implicit_type;
 }
 
-scope_entry_t* query_name_no_implicit_or_builtin(decl_context_t decl_context, const char* name)
+scope_entry_t* fortran_query_name_with_locus(decl_context_t decl_context, AST locus, const char* name)
 {
-    scope_entry_list_t* entry_list = query_name_str(decl_context, strtolower(name));
-
-    scope_entry_t* result = NULL;
-
-    if (entry_list != NULL )
-    {
-        result = entry_list_head(entry_list);
-        entry_list_free(entry_list);
-
-        if (result->entity_specs.is_builtin)
-            result = NULL;
-    }
-
-    return result;
-}
-
-scope_entry_t* query_name_no_implicit(decl_context_t decl_context, const char* name)
-{
-    scope_entry_list_t* entry_list = query_name_str(decl_context, strtolower(name));
-
-    scope_entry_t* result = NULL;
-
-    if (entry_list != NULL )
-    {
-        result = entry_list_head(entry_list);
-        entry_list_free(entry_list);
-    }
-
-    return result;
-}
-
-scope_entry_t* query_name_with_locus(decl_context_t decl_context, AST locus, const char* name)
-{
-    scope_entry_t* result = query_name_no_implicit(decl_context, name);
+    scope_entry_t* result = fortran_query_name_str(decl_context, name);
 
     if (result == NULL)
     {
@@ -244,34 +211,10 @@ scope_entry_t* query_name_with_locus(decl_context_t decl_context, AST locus, con
                 fprintf(stderr, "SCOPE: Getting implicit entity for name '%s'\n", name);
             }
             result = new_implicit_symbol(decl_context, locus, name);
-        }
-        DEBUG_CODE()
-        {
-            if (result == NULL)
+            if(result != NULL)
             {
-                fprintf(stderr, "SCOPE: There is no implicit name for entity '%s'\n", name);
+                result->kind = SK_VARIABLE;
             }
-        }
-    }
-
-    return result;
-}
-
-scope_entry_t* query_name_no_builtin_with_locus(decl_context_t decl_context, AST locus, const char* name)
-{
-    scope_entry_t* result = query_name_no_implicit_or_builtin(decl_context, name);
-
-    if (result == NULL)
-    {
-        if (decl_context.implicit_info != NULL
-                && decl_context.implicit_info->data != NULL
-                && decl_context.implicit_info->data->implicit_letter_set != NULL)
-        {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "SCOPE: Getting implicit entity for name '%s'\n", name);
-            }
-            result = new_implicit_symbol(decl_context, locus, name);
         }
         DEBUG_CODE()
         {
@@ -289,6 +232,12 @@ decl_context_t fortran_new_block_context(decl_context_t decl_context)
 {
     decl_context_t result = new_block_context(decl_context);
     return result;
+}
+
+scope_entry_t* new_fortran_implicit_symbol(decl_context_t decl_context, AST locus, const char* name)
+{
+    scope_entry_t* sym = new_implicit_symbol(decl_context, locus, name);
+    return sym;
 }
 
 scope_entry_t* new_fortran_symbol(decl_context_t decl_context, const char* name)
@@ -313,4 +262,54 @@ scope_entry_t* query_name_in_class(decl_context_t class_context, const char* nam
     entry_list_free(entry_list);
 
     return entry;
+}
+
+scope_entry_t* fortran_query_name_str(decl_context_t decl_context, const char* unqualified_name)
+{
+    scope_entry_t* result = NULL;
+    decl_context_t current_decl_context = decl_context;
+    scope_t* current_scope = decl_context.current_scope;
+
+    while (result == NULL 
+            && current_scope != NULL 
+            && current_scope != decl_context.global_scope)
+    {
+        current_decl_context.current_scope = current_scope;
+        scope_entry_list_t* result_list = query_in_scope_str(current_decl_context, unqualified_name);    
+        if (result_list != NULL)
+        {
+            result = entry_list_head(result_list);
+            entry_list_free(result_list);
+        }
+
+        current_scope = current_scope->contained_in;
+    }
+    
+    return result;
+}
+
+scope_entry_t* fortran_query_no_implicit_or_builtin_name_str(decl_context_t decl_context, const char* name)
+{
+    scope_entry_t* result = fortran_query_name_str(decl_context, name);
+    if (result != NULL && result->entity_specs.is_builtin) 
+    {
+        result = NULL;
+    }
+    return result;
+}
+
+scope_entry_t* fortran_query_implicit_name_str(decl_context_t decl_context, const char* unqualified_name)
+{
+    decl_context_t global_context = decl_context;
+    global_context.current_scope = decl_context.global_scope;
+    
+    scope_entry_t* result = NULL;
+    scope_entry_list_t* result_list = query_in_scope_str(global_context, unqualified_name);
+    if (result_list != NULL) 
+    {
+        result = entry_list_head(result_list);
+        entry_list_free(result_list);
+    }
+    
+    return result;
 }
