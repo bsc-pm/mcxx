@@ -1,0 +1,54 @@
+// These macros are defined in several places to automatically generate all OpenMP support
+// 
+// OMP_CONSTRUCT(pragma_directive, id)
+//    * pragma_directive is a string | separated for compound directive names used when registering the construct
+//    * id an identifier used to build names
+//
+// - OMP_DIRECTIVE is the same as OMP_CONSTRUCT but for directives
+// - OMP_CONSTRUCT_NOEND is the same as OMP_CONSTRUCT but *only* for Fortran constructs 
+// In Fortran every OMP_CONSTRUCT("x", x) will require the user write
+// 
+//   $!SENTINEL X <clauses-opt>
+//      <block-opt>
+//   $!SENTINEL END X <clauses-opt>
+// 
+// But sometimes it may be convenient to have something like this
+// 
+//   $!SENTINEL X <clauses-opt>
+//     only-one-statement (probably a construct)
+//   [$!SENTINEL END X <clauses-opt>]         <-- optional
+// 
+
+OMP_CONSTRUCT("parallel", parallel)
+
+OMP_CONSTRUCT("parallel|for", parallel_for)
+OMP_CONSTRUCT("for", for)
+
+OMP_DIRECTIVE("barrier", barrier)
+OMP_CONSTRUCT("atomic", atomic)
+OMP_CONSTRUCT("master", master)
+
+OMP_CONSTRUCT("critical", critical)
+OMP_DIRECTIVE("flush", flush)
+
+OMP_CONSTRUCT("single", single)
+
+OMP_CONSTRUCT("parallel|sections", parallel_sections)
+OMP_CONSTRUCT("sections", sections)
+OMP_CONSTRUCT("section", section)
+
+OMP_CONSTRUCT("task", task)
+OMP_DIRECTIVE("taskwait", taskwait)
+
+OMP_DIRECTIVE("threadprivate", threadprivate)
+
+OMP_CONSTRUCT("ordered", ordered)
+
+OMP_DIRECTIVE("declare|reduction", declare_reduction)
+
+OMP_CONSTRUCT("target", target)
+
+#ifdef FORTRAN_SUPPORT
+OMP_CONSTRUCT_NOEND("parallel|do", parallel_do)
+OMP_CONSTRUCT_NOEND("do", do)
+#endif

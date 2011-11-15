@@ -2,6 +2,7 @@
 [plain-base]
 {cfg} compiler_phase = libextensible_graph.so
 {omp} compiler_phase = libtlomp-core.so
+{ompbase} compiler_phase = libtlomp-base.so
 
 # Plain profile
 [plaincc : plain-base]
