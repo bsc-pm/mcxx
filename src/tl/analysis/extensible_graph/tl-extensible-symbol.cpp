@@ -35,142 +35,145 @@ Cambridge, MA 02139, USA.
 
 namespace TL
 {
-    ExtensibleSymbol::ExtensibleSymbol()
-        : _n(Nodecl::NodeclBase::null())
-    {}
-    
-    ExtensibleSymbol::ExtensibleSymbol(Nodecl::NodeclBase n)
-        : _n(n)
-    {}
-    
-    void ExtensibleSymbol::propagate_constant_values(std::map<Symbol, Nodecl::NodeclBase> values_map)
+    namespace Analysis
     {
-        CfgRenamingVisitor renaming_v(values_map, _n.get_filename().c_str(), _n.get_line());
-        ObjectList<Nodecl::NodeclBase> renamed = renaming_v.walk(_n);
-        if (!renamed.empty())
+        ExtensibleSymbol::ExtensibleSymbol()
+            : _n(Nodecl::NodeclBase::null())
+        {}
+        
+        ExtensibleSymbol::ExtensibleSymbol(Nodecl::NodeclBase n)
+            : _n(n)
+        {}
+        
+        void ExtensibleSymbol::propagate_constant_values(std::map<Symbol, Nodecl::NodeclBase> values_map)
         {
-            if (renamed.size() == 1)
+            CfgRenamingVisitor renaming_v(values_map, _n.get_filename().c_str(), _n.get_line());
+            ObjectList<Nodecl::NodeclBase> renamed = renaming_v.walk(_n);
+            if (!renamed.empty())
             {
-                _n = renamed[0];
+                if (renamed.size() == 1)
+                {
+                    _n = renamed[0];
+                }
+                else
+                {
+                    internal_error("More than one nodecl returned while renaming constant values", 0);
+                }
+            }
+        }
+        
+        Symbol ExtensibleSymbol::get_nodecl_symbol(Nodecl::NodeclBase n) const
+        {
+            if (n.is<Nodecl::Symbol>() || n.is<Nodecl::PointerToMember>() || n.is<Nodecl::ObjectInit>())
+            {
+                return n.get_symbol();
+            }
+            else if (n.is<Nodecl::ClassMemberAccess>())
+            {
+                Nodecl::ClassMemberAccess aux = n.as<Nodecl::ClassMemberAccess>();
+                return get_nodecl_symbol(aux.get_member());
+            }
+            else if (n.is<Nodecl::ArraySubscript>())
+            {
+                Nodecl::ArraySubscript aux = n.as<Nodecl::ArraySubscript>();
+                return get_nodecl_symbol(aux.get_subscripted());
+            }
+            else if (n.is<Nodecl::Reference>())
+            {
+                Nodecl::Reference aux = n.as<Nodecl::Reference>();
+                return get_nodecl_symbol(aux.get_rhs());
+            }            
+            else if (n.is<Nodecl::Derreference>())
+            {
+                Nodecl::Derreference aux = n.as<Nodecl::Derreference>();
+                return get_nodecl_symbol(aux.get_rhs());
+            }        
+            else if (n.is<Nodecl::FunctionCall>())
+            {
+                return Symbol();
+            }
+            else if (n.is<Nodecl::Conversion>())
+            {
+                Nodecl::Conversion aux = n.as<Nodecl::Conversion>();
+                return get_nodecl_symbol(aux.get_nest());
+            }
+            else if (n.is<Nodecl::Cast>())
+            {
+                Nodecl::Cast aux = n.as<Nodecl::Cast>();
+                return get_nodecl_symbol(aux.get_rhs());
             }
             else
             {
-                internal_error("More than one nodecl returned while renaming constant values", 0);
+                std::cerr << "AAAAAAAAAAAAAAAAAAAAA" << std::endl;
+                internal_error("Unexpected type of nodecl '%s' contained in an ExtendedSymbol '%s'", 
+                            ast_print_node_type(n.get_kind()), codegen_to_str(n.get_internal_nodecl()));
             }
         }
-    }
     
-    Symbol ExtensibleSymbol::get_nodecl_symbol(Nodecl::NodeclBase n) const
-    {
-        if (n.is<Nodecl::Symbol>() || n.is<Nodecl::PointerToMember>() || n.is<Nodecl::ObjectInit>())
+        Symbol ExtensibleSymbol::get_symbol() const
         {
-            return n.get_symbol();
-        }
-        else if (n.is<Nodecl::ClassMemberAccess>())
-        {
-            Nodecl::ClassMemberAccess aux = n.as<Nodecl::ClassMemberAccess>();
-            return get_nodecl_symbol(aux.get_member());
-        }
-        else if (n.is<Nodecl::ArraySubscript>())
-        {
-            Nodecl::ArraySubscript aux = n.as<Nodecl::ArraySubscript>();
-            return get_nodecl_symbol(aux.get_subscripted());
-        }
-        else if (n.is<Nodecl::Reference>())
-        {
-            Nodecl::Reference aux = n.as<Nodecl::Reference>();
-            return get_nodecl_symbol(aux.get_rhs());
-        }            
-        else if (n.is<Nodecl::Derreference>())
-        {
-            Nodecl::Derreference aux = n.as<Nodecl::Derreference>();
-            return get_nodecl_symbol(aux.get_rhs());
-        }        
-        else if (n.is<Nodecl::FunctionCall>())
-        {
-            return Symbol();
-        }
-        else if (n.is<Nodecl::Conversion>())
-        {
-            Nodecl::Conversion aux = n.as<Nodecl::Conversion>();
-            return get_nodecl_symbol(aux.get_nest());
-        }
-        else if (n.is<Nodecl::Cast>())
-        {
-            Nodecl::Cast aux = n.as<Nodecl::Cast>();
-            return get_nodecl_symbol(aux.get_rhs());
-        }
-        else
-        {
-            std::cerr << "AAAAAAAAAAAAAAAAAAAAA" << std::endl;
-            internal_error("Unexpected type of nodecl '%s' contained in an ExtendedSymbol '%s'", 
-                           ast_print_node_type(n.get_kind()), codegen_to_str(n.get_internal_nodecl()));
-        }
-    }
-   
-    Symbol ExtensibleSymbol::get_symbol() const
-    {
-        return get_nodecl_symbol(_n);
-    }    
-    
-    std::string ExtensibleSymbol::get_name() const
-    {
-        std::string name = "";
+            return get_nodecl_symbol(_n);
+        }    
         
-        Symbol sym(get_nodecl_symbol(_n));
-        if (sym.is_valid())
-            name = sym.get_name();
+        std::string ExtensibleSymbol::get_name() const
+        {
+            std::string name = "";
+            
+            Symbol sym(get_nodecl_symbol(_n));
+            if (sym.is_valid())
+                name = sym.get_name();
+            
+            return name;
+        }
         
-        return name;
-    }
-    
-    Type ExtensibleSymbol::get_type() const
-    {
-        Type res(NULL);
+        Type ExtensibleSymbol::get_type() const
+        {
+            Type res(NULL);
+            
+            Symbol sym(get_nodecl_symbol(_n));
+            if (sym.is_valid())
+                res = sym.get_type();
+            
+            return res;
+        }
         
-        Symbol sym(get_nodecl_symbol(_n));
-        if (sym.is_valid())
-            res = sym.get_type();
+        Nodecl::NodeclBase ExtensibleSymbol::get_nodecl() const
+        {
+            return _n;
+        }
         
-        return res;
-    }
-    
-    Nodecl::NodeclBase ExtensibleSymbol::get_nodecl() const
-    {
-        return _n;
-    }
-    
-    bool ExtensibleSymbol::is_simple_symbol() const
-    {
-        return (_n.is<Nodecl::Symbol>());
-    }
+        bool ExtensibleSymbol::is_simple_symbol() const
+        {
+            return (_n.is<Nodecl::Symbol>());
+        }
 
-    bool ExtensibleSymbol::is_array() const
-    {
-        return (_n.is<Nodecl::ArraySubscript>());
-    }
-
-    bool ExtensibleSymbol::operator==(const ExtensibleSymbol& es) const
-    {
-        bool equals = Nodecl::Utils::equal_nodecls(_n, es._n);
-        return equals;
-    }
-    
-    bool ExtensibleSymbol::operator<(const ExtensibleSymbol& es) const
-    {
-        // a < b -> ¬ (b > a)
-        // a == b <=> ¬(a < b) /\ ¬(b < a)
-        if (Nodecl::Utils::equal_nodecls(_n, es._n))
-        {   
-            return false;
-        }
-        else
+        bool ExtensibleSymbol::is_array() const
         {
-            AST this_ast = nodecl_get_ast(_n.get_internal_nodecl());
-            AST es_ast = nodecl_get_ast(es._n.get_internal_nodecl());
-            bool less_than = this_ast < es_ast;
-           
-            return  less_than;
+            return (_n.is<Nodecl::ArraySubscript>());
+        }
+
+        bool ExtensibleSymbol::operator==(const ExtensibleSymbol& es) const
+        {
+            bool equals = Nodecl::Utils::equal_nodecls(_n, es._n);
+            return equals;
+        }
+        
+        bool ExtensibleSymbol::operator<(const ExtensibleSymbol& es) const
+        {
+            // a < b -> ¬ (b > a)
+            // a == b <=> ¬(a < b) /\ ¬(b < a)
+            if (Nodecl::Utils::equal_nodecls(_n, es._n))
+            {   
+                return false;
+            }
+            else
+            {
+                AST this_ast = nodecl_get_ast(_n.get_internal_nodecl());
+                AST es_ast = nodecl_get_ast(es._n.get_internal_nodecl());
+                bool less_than = this_ast < es_ast;
+            
+                return  less_than;
+            }
         }
     }
 }

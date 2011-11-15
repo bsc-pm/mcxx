@@ -31,6 +31,8 @@ Cambridge, MA 02139, USA.
 
 namespace TL
 {
+namespace Analysis
+{
     static ObjectList<Symbol> get_symbols(Nodecl::NodeclBase n)
     {
         if (n.get_symbol().is_valid())
@@ -478,45 +480,66 @@ namespace TL
         unary_visit(n);
     } 
     
-    /// *** GLOBAL VARIABLES VISITOR *** //
+    template <typename T>
+    void CfgAnalysisVisitor::function_visit(const T& n)
+    {   // The function has its Use-def computed from a previous node.
+        // We arrive here if a function call is inside other expression like "b + f(a)", "return g(b, c)", etc.
+        
+    }
     
-    CfgRecursiveAnalysisVisitor::CfgRecursiveAnalysisVisitor(Scope sc)
-        : _sc(sc), _global_vars(), _parameters(), _defining(false), _reference_params_to_args()
+    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::FunctionCall& n)
+    {
+        function_visit(n);
+    }
+    
+    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::VirtualFunctionCall& n)
+    {
+        function_visit(n);
+    }
+        
+    
+    /// *** GLOBAL VARIABLES & FUNCTION PARAMETERS VISITOR *** //
+    
+    CfgIPAVisitor::CfgIPAVisitor(ExtensibleGraph* cfg, ObjectList<var_usage_t*> glob_vars, ObjectList<Symbol> reference_params)
+        : _cfg(cfg), _global_vars(glob_vars), _ref_params(), _usage(), _defining(false)
     {}
     
-    void CfgRecursiveAnalysisVisitor::set_param_to_args_mapping(std::map<Symbol, Nodecl::NodeclBase> params_to_args)
+    void CfgIPAVisitor::compute_usage_rec(Node* node)
     {
-        _reference_params_to_args = params_to_args;
-    }
-    
-    bool CfgRecursiveAnalysisVisitor::usage_list_contains_sym(Nodecl::Symbol n, char list)
-    {
-        if (list == '0')
+        Node_type ntype = node->get_type();
+        if (ntype == GRAPH_NODE)
         {
-            for (ObjectList<struct var_usage_t*>::iterator it = _global_vars.begin(); it != _global_vars.end(); ++it)
+            compute_usage_rec(node->get_graph_entry_node());
+        }
+        else if (node->has_key(_NODE_STMTS))
+        {
+            ObjectList<Nodecl::NodeclBase> stmts = node->get_statements();
+            for (ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin(); it != stmts.end(); ++it)
             {
-                if (Nodecl::Utils::equal_nodecls((*it)->get_nodecl(), n))
-                {
-                    return true;
-                }
+                walk(*it);
             }
         }
-        else
+        
+        ObjectList<Node*> children = node->get_children();
+        for (ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
         {
-            for (ObjectList<struct var_usage_t*>::iterator it = _parameters.begin(); it != _parameters.end(); ++it)
-            {
-                if (Nodecl::Utils::equal_nodecls((*it)->get_nodecl(), n))
-                {
-                    return true;
-                }
-            }
+            compute_usage_rec(*it);
         }
-        return false;
     }
-    
-    struct var_usage_t* CfgRecursiveAnalysisVisitor::get_global_variable_in_list(Nodecl::Symbol n)
+
+    void CfgIPAVisitor::compute_usage()
     {
-        for (ObjectList<struct var_usage_t*>::iterator it = _global_vars.begin(); it != _global_vars.end(); ++it)
+        Node* graph_node = _cfg->get_graph();
+        
+        compute_usage_rec(graph_node);
+        
+        ExtensibleGraph::clear_visits(graph_node);
+    }
+   
+    
+    struct var_usage_t* CfgIPAVisitor::get_var_in_list(Nodecl::Symbol n, ObjectList<struct var_usage_t*> list)
+    {
+        for (ObjectList<struct var_usage_t*>::iterator it = list.begin(); it != list.end(); ++it)
         {
             if (Nodecl::Utils::equal_nodecls((*it)->get_nodecl(), n))
             {
@@ -527,34 +550,17 @@ namespace TL
         internal_error("No symbol '%s' founded in global variable list", n.get_symbol().get_name().c_str());
     }
     
-    struct var_usage_t* CfgRecursiveAnalysisVisitor::get_parameter_in_list(Nodecl::Symbol n)
+    ObjectList<struct var_usage_t*> CfgIPAVisitor::get_usage() const
     {
-        for (ObjectList<struct var_usage_t*>::iterator it = _parameters.begin(); it != _parameters.end(); ++it)
-        {
-            if (Nodecl::Utils::equal_nodecls((*it)->get_nodecl(), n))
-            {
-                return *it;
-            }
-        }
-        
-        internal_error("No symbol '%s' founded in parameters list", n.get_symbol().get_name().c_str());
+        return _usage;
     }
     
-    ObjectList<struct var_usage_t*> CfgRecursiveAnalysisVisitor::get_global_variables_usage() const
+    CfgIPAVisitor::Ret CfgIPAVisitor::visit(const Nodecl::Symbol& n)
     {
-        return _global_vars;
-    }
-    
-    CfgRecursiveAnalysisVisitor::Ret CfgRecursiveAnalysisVisitor::visit(const Nodecl::Symbol& n)
-    {
-        Symbol s = n.get_symbol();
-        Scope s_sc = s.get_scope();
-      
-        if (!s_sc.scope_is_enclosed_by(_sc))
-        {   // The symbol is a global variable
-            if (usage_list_contains_sym(n, /*global variable*/ '0'))
+        if (_ref_params.contains(n.get_symbol()) || TL::Analysis::usage_list_contains_sym(n, _global_vars))
+            if (usage_list_contains_sym(n, _global_vars))
             {
-                struct var_usage_t* global_var = get_global_variable_in_list(n);
+                struct var_usage_t* global_var = get_var_in_list(n, _global_vars);
                 char usage = global_var->get_usage();
                 if (usage == '0' || usage == '2')
                 {   // nothing to do: It doesn't matters what happens with an already Killed variable
@@ -577,45 +583,10 @@ namespace TL
                 struct var_usage_t* new_global_var_usage = new var_usage_t(n, usage);
                 _global_vars.insert(new_global_var_usage);
             }
-        }
-        else
-        {   
-            if (!_reference_params_to_args.empty())
-            {
-                if (_reference_params_to_args.find(n.get_symbol()) != _reference_params_to_args.end())
-                {   // This symbol is a parameter
-                    if (usage_list_contains_sym(n, /*parameter*/ '1'))
-                    {
-                        struct var_usage_t* parameter = get_parameter_in_list(n);
-                        char usage = parameter->get_usage();
-                        if (usage == '0' || usage == '2')
-                        {   // nothing to do: It doesn't matters what happens with an already Killed variable
-                        }
-                        else if (usage == '1')
-                        {
-                            if (_defining)
-                            {   // Set to 2 the usage value
-                                parameter->set_usage('2');
-                            }
-                            else {} // nothing to do, the variable was already used
-                        }
-                    }
-                    else
-                    {
-                        char usage;
-                        if (_defining) usage = '0';
-                        else usage = '1';
-                        
-                        struct var_usage_t* new_parameter_usage = new var_usage_t(n, usage);
-                        _parameters.insert(new_parameter_usage);
-                    }
-                }
-            }
-        }
     }
     
     template <typename T>
-    void CfgRecursiveAnalysisVisitor::op_assignment_visit(const T& n)
+    void CfgIPAVisitor::op_assignment_visit(const T& n)
     {
         walk(n.get_lhs());
         _defining = true;
@@ -625,7 +596,7 @@ namespace TL
     }
 
     template <typename T>
-    void CfgRecursiveAnalysisVisitor::unary_visit(const T& n)
+    void CfgIPAVisitor::unary_visit(const T& n)
     {
         walk(n.get_rhs());
         _defining = true;
@@ -633,7 +604,7 @@ namespace TL
         _defining = false;        
     }
 
-    CfgRecursiveAnalysisVisitor::Ret CfgRecursiveAnalysisVisitor::visit(const Nodecl::Assignment& n)
+    CfgIPAVisitor::Ret CfgIPAVisitor::visit(const Nodecl::Assignment& n)
     {
         _defining = true;
         walk(n.get_lhs());
@@ -641,86 +612,90 @@ namespace TL
         walk(n.get_rhs());  
     }
     
-    CfgRecursiveAnalysisVisitor::Ret CfgRecursiveAnalysisVisitor::visit(const Nodecl::AddAssignment& n)
+    CfgIPAVisitor::Ret CfgIPAVisitor::visit(const Nodecl::AddAssignment& n)
     {
         op_assignment_visit(n);
     }
     
-    CfgRecursiveAnalysisVisitor::Ret CfgRecursiveAnalysisVisitor::visit(const Nodecl::SubAssignment& n)
+    CfgIPAVisitor::Ret CfgIPAVisitor::visit(const Nodecl::SubAssignment& n)
     {
         op_assignment_visit(n);
     }
     
-    CfgRecursiveAnalysisVisitor::Ret CfgRecursiveAnalysisVisitor::visit(const Nodecl::DivAssignment& n)
+    CfgIPAVisitor::Ret CfgIPAVisitor::visit(const Nodecl::DivAssignment& n)
     {
         op_assignment_visit(n);
     }
     
-    CfgRecursiveAnalysisVisitor::Ret CfgRecursiveAnalysisVisitor::visit(const Nodecl::MulAssignment& n)
+    CfgIPAVisitor::Ret CfgIPAVisitor::visit(const Nodecl::MulAssignment& n)
     {
         op_assignment_visit(n);
     }
     
-    CfgRecursiveAnalysisVisitor::Ret CfgRecursiveAnalysisVisitor::visit(const Nodecl::ModAssignment& n)
+    CfgIPAVisitor::Ret CfgIPAVisitor::visit(const Nodecl::ModAssignment& n)
     {
         op_assignment_visit(n);
     }
     
-    CfgRecursiveAnalysisVisitor::Ret CfgRecursiveAnalysisVisitor::visit(const Nodecl::BitwiseAndAssignment& n)
+    CfgIPAVisitor::Ret CfgIPAVisitor::visit(const Nodecl::BitwiseAndAssignment& n)
     {
         op_assignment_visit(n);
     }
     
-    CfgRecursiveAnalysisVisitor::Ret CfgRecursiveAnalysisVisitor::visit(const Nodecl::BitwiseOrAssignment& n)
+    CfgIPAVisitor::Ret CfgIPAVisitor::visit(const Nodecl::BitwiseOrAssignment& n)
     {
         op_assignment_visit(n);
     }
     
-    CfgRecursiveAnalysisVisitor::Ret CfgRecursiveAnalysisVisitor::visit(const Nodecl::BitwiseXorAssignment& n)
+    CfgIPAVisitor::Ret CfgIPAVisitor::visit(const Nodecl::BitwiseXorAssignment& n)
     {
         op_assignment_visit(n);
     }
     
-    CfgRecursiveAnalysisVisitor::Ret CfgRecursiveAnalysisVisitor::visit(const Nodecl::ShrAssignment& n)
+    CfgIPAVisitor::Ret CfgIPAVisitor::visit(const Nodecl::ShrAssignment& n)
     {
         op_assignment_visit(n);
     }
     
-    CfgRecursiveAnalysisVisitor::Ret CfgRecursiveAnalysisVisitor::visit(const Nodecl::ShlAssignment& n)
+    CfgIPAVisitor::Ret CfgIPAVisitor::visit(const Nodecl::ShlAssignment& n)
     {
         op_assignment_visit(n);
     }
     
-    CfgRecursiveAnalysisVisitor::Ret CfgRecursiveAnalysisVisitor::visit(const Nodecl::Predecrement& n)
+    CfgIPAVisitor::Ret CfgIPAVisitor::visit(const Nodecl::Predecrement& n)
     {
         unary_visit(n);
     }
     
-    CfgRecursiveAnalysisVisitor::Ret CfgRecursiveAnalysisVisitor::visit(const Nodecl::Postdecrement& n)
+    CfgIPAVisitor::Ret CfgIPAVisitor::visit(const Nodecl::Postdecrement& n)
     {
         unary_visit(n);
     }
     
-    CfgRecursiveAnalysisVisitor::Ret CfgRecursiveAnalysisVisitor::visit(const Nodecl::Preincrement& n)
+    CfgIPAVisitor::Ret CfgIPAVisitor::visit(const Nodecl::Preincrement& n)
     {
         unary_visit(n);
     }
     
-    CfgRecursiveAnalysisVisitor::Ret CfgRecursiveAnalysisVisitor::visit(const Nodecl::Postincrement& n)
+    CfgIPAVisitor::Ret CfgIPAVisitor::visit(const Nodecl::Postincrement& n)
     {
         unary_visit(n);
     }
     
-    CfgRecursiveAnalysisVisitor::Ret CfgRecursiveAnalysisVisitor::visit(const Nodecl::FunctionCall& n)
+    template <typename T>
+    void CfgIPAVisitor::function_visit(const T& n)
     {
-        //TODO
-        internal_error("Not yet implemented", 0);
+        // 
     }
     
-    CfgRecursiveAnalysisVisitor::Ret CfgRecursiveAnalysisVisitor::visit(const Nodecl::VirtualFunctionCall& n)
+    CfgIPAVisitor::Ret CfgIPAVisitor::visit(const Nodecl::FunctionCall& n)
     {
-        //TODO
-        internal_error("Not yet implemented", 0);
+        function_visit(n);
     }
     
+    CfgIPAVisitor::Ret CfgIPAVisitor::visit(const Nodecl::VirtualFunctionCall& n)
+    {
+        function_visit(n);
+    }
+}
 }

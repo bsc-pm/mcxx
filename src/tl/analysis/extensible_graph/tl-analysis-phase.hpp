@@ -30,20 +30,23 @@ Cambridge, MA 02139, USA.
 
 namespace TL
 {
-    //! Phase that allows several analysis of code
-    class LIBTL_CLASS AnalysisPhase : public CompilerPhase
+    namespace Analysis
     {
-        public:
-            //! Constructor of this phase
-            AnalysisPhase();
-            
-            //! Entry point of the phase
-            /*!
-              This function gets the different FunctionDefinitions / ProgramUnits of the DTO,
-              depending on the language of the code
-             */
-            virtual void run(TL::DTO& dto);
-    };
+        //! Phase that allows several analysis of code
+        class LIBTL_CLASS AnalysisPhase : public CompilerPhase
+        {
+            public:
+                //! Constructor of this phase
+                AnalysisPhase();
+                
+                //! Entry point of the phase
+                /*!
+                This function gets the different FunctionDefinitions / ProgramUnits of the DTO,
+                depending on the language of the code
+                */
+                virtual void run(TL::DTO& dto);
+        };
+    }
 }
 
 #endif  // TL_ANALYSIS_PHASE_HPP

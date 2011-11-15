@@ -31,116 +31,119 @@ Cambridge, MA 02139, USA.
 
 namespace TL
 {
-    //! This class traverses a Nodecl and creates a new Nodecl renaming the symbols inside
-    //! depending on the renaming map. 
-    /*!
-     * The list may contain:
-     * - Zero elements: no renames has been performed
-     * - More element: renamed nodecls
-     */
-    class LIBTL_CLASS CfgRenamingVisitor : public Nodecl::NodeclVisitor<Nodecl::NodeclBase>
+    namespace Analysis
     {
-        private:
-            //! map used to rename de nodes
-            //! when this value is null, the renaming visitor just substitutes a range by its LB or UB, depending on #limit value
-            std::map<Symbol, Nodecl::NodeclBase> _rename_map;
-            const char* _filename;
-            int _line;
+        //! This class traverses a Nodecl and creates a new Nodecl renaming the symbols inside
+        //! depending on the renaming map. 
+        /*!
+        * The list may contain:
+        * - Zero elements: no renames has been performed
+        * - More element: renamed nodecls
+        */
+        class LIBTL_CLASS CfgRenamingVisitor : public Nodecl::NodeclVisitor<Nodecl::NodeclBase>
+        {
+            private:
+                //! map used to rename de nodes
+                //! when this value is null, the renaming visitor just substitutes a range by its LB or UB, depending on #limit value
+                std::map<Symbol, Nodecl::NodeclBase> _rename_map;
+                const char* _filename;
+                int _line;
+                
+                //! Value stored to recuperate info about the symbol that matches in a rename process
+                Symbol _s;
             
-            //! Value stored to recuperate info about the symbol that matches in a rename process
-            Symbol _s;
-           
-            bool _computing_limits;
-            
-            // *** Auxiliar methods *** //
-            
-            nodecl_t create_nodecl_list(ObjectList<Nodecl::NodeclBase> list);
+                bool _computing_limits;
+                
+                // *** Auxiliar methods *** //
+                
+                nodecl_t create_nodecl_list(ObjectList<Nodecl::NodeclBase> list);
 
-            template <typename T>
-            Ret visit_binary(const T& n);
+                template <typename T>
+                Ret visit_binary(const T& n);
 
-            template <typename T>
-            Nodecl::NodeclBase create_new_range_from_binary_node(T& n, Nodecl::NodeclBase lb1, Nodecl::NodeclBase ub1,
-                                                                 Nodecl::NodeclBase lb2, Nodecl::NodeclBase ub2,
-                                                                 Nodecl::NodeclBase stride);
+                template <typename T>
+                Nodecl::NodeclBase create_new_range_from_binary_node(T& n, Nodecl::NodeclBase lb1, Nodecl::NodeclBase ub1,
+                                                                    Nodecl::NodeclBase lb2, Nodecl::NodeclBase ub2,
+                                                                    Nodecl::NodeclBase stride);
+                
+                template <typename T>
+                Nodecl::NodeclBase create_new_binary_node(T& n, Nodecl::NodeclBase lhs, Nodecl::NodeclBase rhs);
+                
+                template <typename T>
+                Ret visit_unary(const T& n);
+                
+            public:
+                // *** Constructors *** //
+                CfgRenamingVisitor(std::map<Symbol, Nodecl::NodeclBase> rename_map, const char* _filename, int _line);
+                CfgRenamingVisitor(const CfgRenamingVisitor& rename_v);
             
-            template <typename T>
-            Nodecl::NodeclBase create_new_binary_node(T& n, Nodecl::NodeclBase lhs, Nodecl::NodeclBase rhs);
+                
+                // *** Getters and Setters *** //
+                Symbol get_matching_symbol() const;
+                
+                void set_computing_range_limits(bool computing_limits);
             
-            template <typename T>
-            Ret visit_unary(const T& n);
-            
-        public:
-            // *** Constructors *** //
-            CfgRenamingVisitor(std::map<Symbol, Nodecl::NodeclBase> rename_map, const char* _filename, int _line);
-            CfgRenamingVisitor(const CfgRenamingVisitor& rename_v);
-           
-            
-            // *** Getters and Setters *** //
-            Symbol get_matching_symbol() const;
-            
-            void set_computing_range_limits(bool computing_limits);
-           
-            static Nodecl::NodeclBase combine_variable_values(Nodecl::NodeclBase node1, Nodecl::NodeclBase node2);
-            
-            // *** Visitors *** //
-            Ret unhandled_node(const Nodecl::NodeclBase& n);
-            Ret visit(const Nodecl::Symbol& n);
-            Ret visit(const Nodecl::ArraySubscript& n);
-            Ret visit(const Nodecl::Range& n);
-            Ret visit(const Nodecl::ClassMemberAccess& n);
-            Ret visit(const Nodecl::Derreference& n);
-            Ret visit(const Nodecl::Reference& n);
-            Ret visit(const Nodecl::Add& n);
-            Ret visit(const Nodecl::Minus& n);
-            Ret visit(const Nodecl::Mul& n);
-            Ret visit(const Nodecl::Div& n);
-            Ret visit(const Nodecl::Mod& n);
-            Ret visit(const Nodecl::Power& n);
-            Ret visit(const Nodecl::LogicalAnd& n);
-            Ret visit(const Nodecl::LogicalOr& n);
-            Ret visit(const Nodecl::BitwiseAnd& n);
-            Ret visit(const Nodecl::BitwiseOr& n);
-            Ret visit(const Nodecl::BitwiseXor& n);
-            Ret visit(const Nodecl::Shr& n);
-            Ret visit(const Nodecl::Shl& n);
-            Ret visit(const Nodecl::Assignment& n);
-            Ret visit(const Nodecl::AddAssignment& n);
-            Ret visit(const Nodecl::SubAssignment& n);
-            Ret visit(const Nodecl::DivAssignment& n);
-            Ret visit(const Nodecl::MulAssignment& n);
-            Ret visit(const Nodecl::ModAssignment& n);
-            Ret visit(const Nodecl::BitwiseAndAssignment& n);
-            Ret visit(const Nodecl::BitwiseOrAssignment& n);
-            Ret visit(const Nodecl::BitwiseXorAssignment& n);
-            Ret visit(const Nodecl::ShrAssignment& n);
-            Ret visit(const Nodecl::ShlAssignment& n);
-            Ret visit(const Nodecl::Equal& n);
-            Ret visit(const Nodecl::Different& n);
-            Ret visit(const Nodecl::LowerThan& n);
-            Ret visit(const Nodecl::GreaterThan& n);
-            Ret visit(const Nodecl::LowerOrEqualThan& n);
-            Ret visit(const Nodecl::GreaterOrEqualThan& n);
-            Ret visit(const Nodecl::Predecrement& n);
-            Ret visit(const Nodecl::Postdecrement& n);
-            Ret visit(const Nodecl::Preincrement& n);
-            Ret visit(const Nodecl::Postincrement& n);
-            Ret visit(const Nodecl::Plus& n);
-            Ret visit(const Nodecl::Neg& n);     
-            Ret visit(const Nodecl::BitwiseNot& n);
-            Ret visit(const Nodecl::LogicalNot& n);       
-            Ret visit(const Nodecl::IntegerLiteral& n);
-            Ret visit(const Nodecl::FloatingLiteral& n);
-            Ret visit(const Nodecl::ComplexLiteral& n);
-            Ret visit(const Nodecl::BooleanLiteral& n);
-            Ret visit(const Nodecl::StringLiteral& n);
-            Ret visit(const Nodecl::Conversion& n);
-            Ret visit(const Nodecl::ConditionalExpression& n);
-            Ret visit(const Nodecl::Cast& n);
-            Ret visit(const Nodecl::FunctionCall& n);
-            Ret visit(const Nodecl::VirtualFunctionCall& n);
-            Ret visit(const Nodecl::Sizeof& n);
-    };
+                static Nodecl::NodeclBase combine_variable_values(Nodecl::NodeclBase node1, Nodecl::NodeclBase node2);
+                
+                // *** Visitors *** //
+                Ret unhandled_node(const Nodecl::NodeclBase& n);
+                Ret visit(const Nodecl::Symbol& n);
+                Ret visit(const Nodecl::ArraySubscript& n);
+                Ret visit(const Nodecl::Range& n);
+                Ret visit(const Nodecl::ClassMemberAccess& n);
+                Ret visit(const Nodecl::Derreference& n);
+                Ret visit(const Nodecl::Reference& n);
+                Ret visit(const Nodecl::Add& n);
+                Ret visit(const Nodecl::Minus& n);
+                Ret visit(const Nodecl::Mul& n);
+                Ret visit(const Nodecl::Div& n);
+                Ret visit(const Nodecl::Mod& n);
+                Ret visit(const Nodecl::Power& n);
+                Ret visit(const Nodecl::LogicalAnd& n);
+                Ret visit(const Nodecl::LogicalOr& n);
+                Ret visit(const Nodecl::BitwiseAnd& n);
+                Ret visit(const Nodecl::BitwiseOr& n);
+                Ret visit(const Nodecl::BitwiseXor& n);
+                Ret visit(const Nodecl::Shr& n);
+                Ret visit(const Nodecl::Shl& n);
+                Ret visit(const Nodecl::Assignment& n);
+                Ret visit(const Nodecl::AddAssignment& n);
+                Ret visit(const Nodecl::SubAssignment& n);
+                Ret visit(const Nodecl::DivAssignment& n);
+                Ret visit(const Nodecl::MulAssignment& n);
+                Ret visit(const Nodecl::ModAssignment& n);
+                Ret visit(const Nodecl::BitwiseAndAssignment& n);
+                Ret visit(const Nodecl::BitwiseOrAssignment& n);
+                Ret visit(const Nodecl::BitwiseXorAssignment& n);
+                Ret visit(const Nodecl::ShrAssignment& n);
+                Ret visit(const Nodecl::ShlAssignment& n);
+                Ret visit(const Nodecl::Equal& n);
+                Ret visit(const Nodecl::Different& n);
+                Ret visit(const Nodecl::LowerThan& n);
+                Ret visit(const Nodecl::GreaterThan& n);
+                Ret visit(const Nodecl::LowerOrEqualThan& n);
+                Ret visit(const Nodecl::GreaterOrEqualThan& n);
+                Ret visit(const Nodecl::Predecrement& n);
+                Ret visit(const Nodecl::Postdecrement& n);
+                Ret visit(const Nodecl::Preincrement& n);
+                Ret visit(const Nodecl::Postincrement& n);
+                Ret visit(const Nodecl::Plus& n);
+                Ret visit(const Nodecl::Neg& n);     
+                Ret visit(const Nodecl::BitwiseNot& n);
+                Ret visit(const Nodecl::LogicalNot& n);       
+                Ret visit(const Nodecl::IntegerLiteral& n);
+                Ret visit(const Nodecl::FloatingLiteral& n);
+                Ret visit(const Nodecl::ComplexLiteral& n);
+                Ret visit(const Nodecl::BooleanLiteral& n);
+                Ret visit(const Nodecl::StringLiteral& n);
+                Ret visit(const Nodecl::Conversion& n);
+                Ret visit(const Nodecl::ConditionalExpression& n);
+                Ret visit(const Nodecl::Cast& n);
+                Ret visit(const Nodecl::FunctionCall& n);
+                Ret visit(const Nodecl::VirtualFunctionCall& n);
+                Ret visit(const Nodecl::Sizeof& n);
+        };
+    }
 }
 
 #endif      // TL_CFG_RENAMING_VISITOR_HPP

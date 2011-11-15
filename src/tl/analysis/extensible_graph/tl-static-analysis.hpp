@@ -33,58 +33,60 @@ Cambridge, MA 02139, USA.
 
 namespace TL
 {
+    namespace Analysis
+    {
+        class LIBTL_CLASS StaticAnalysis {    
+            
+        private:
+            LoopAnalysis* _loop_analysis;
+            
+            //! Computes the data-flow equation for each node in a iterative way 
+            //! until the information stops changing.
+            /*!
+                It is mandatory to use before #gather_live_initial_information.
+                */
+            static void solve_live_equations(Node* node);
+            
+            //! Computes on iteration of the method #solve_live_equations.
+            /*!
+                Live out (X) = Union of all Live in (Y),
+                                for all Y successors of X.
+                Live in (X) = Upper exposed (X) + 
+                            ( Live out (X) - Killed (X) )
+                */
+            static void solve_live_equations_recursive(Node* actual, bool& changed);
+            
+            static void substitute_reaching_definition_known_values(Node* node);
 
-    class LIBTL_CLASS StaticAnalysis {    
+            void propagate_reaching_definitions_to_graph_node(Node* node, std::map<Symbol, Nodecl::NodeclBase> induct_vars,
+                                                            const char* filename, int line);
+            
+            void propagate_reach_defs_among_nodes(Node* node, bool& changes);
         
-    private:
-        LoopAnalysis* _loop_analysis;
+            void extend_reaching_definitions_info(Node* node);
+            
+            static Nodecl::NodeclBase rename_nodecl(Nodecl::NodeclBase nodecl, std::map<Symbol, Nodecl::NodeclBase> rename_map);
         
-        //! Computes the data-flow equation for each node in a iterative way 
-        //! until the information stops changing.
-        /*!
-            It is mandatory to use before #gather_live_initial_information.
-            */
-        static void solve_live_equations(Node* node);
+            static nodecl_map compute_parents_reach_defs(Node* node);
         
-        //! Computes on iteration of the method #solve_live_equations.
-        /*!
-            Live out (X) = Union of all Live in (Y),
-                            for all Y successors of X.
-            Live in (X) = Upper exposed (X) + 
-                        ( Live out (X) - Killed (X) )
-            */
-        static void solve_live_equations_recursive(Node* actual, bool& changed);
-        
-        static void substitute_reaching_definition_known_values(Node* node);
-
-        void propagate_reaching_definitions_to_graph_node(Node* node, std::map<Symbol, Nodecl::NodeclBase> induct_vars,
-                                                          const char* filename, int line);
-        
-        void propagate_reach_defs_among_nodes(Node* node, bool& changes);
-     
-        void extend_reaching_definitions_info(Node* node);
-        
-        static Nodecl::NodeclBase rename_nodecl(Nodecl::NodeclBase nodecl, std::map<Symbol, Nodecl::NodeclBase> rename_map);
-      
-        static nodecl_map compute_parents_reach_defs(Node* node);
-    
-    public:
-        
-        StaticAnalysis(LoopAnalysis* loop_analysis);
-        
-        //! Computes the liveness analysis of a node
-        //! The method needs the use-def chains to be calculated before
-        static void live_variable_analysis(Node* node);            
-        
-        //! Computes dependences for all task node in the Extensible Graph
-        static void analyse_tasks(ObjectList<Node*> tasks);
-        
-        //! Computes dependences for a node containing a task code
-        static void analyse_task(Node* task_node);
-        
-        friend class CfgVisitor;    // Needed for IPA Analysis
-        friend class LoopAnalysis;
-    };
+        public:
+            
+            StaticAnalysis(LoopAnalysis* loop_analysis);
+            
+            //! Computes the liveness analysis of a node
+            //! The method needs the use-def chains to be calculated before
+            static void live_variable_analysis(Node* node);            
+            
+            //! Computes dependences for all task node in the Extensible Graph
+            static void analyse_tasks(ObjectList<Node*> tasks);
+            
+            //! Computes dependences for a node containing a task code
+            static void analyse_task(Node* task_node);
+            
+            friend class CfgVisitor;    // Needed for IPA Analysis
+            friend class LoopAnalysis;
+        };
+    }
 }
 
 #endif      // TL_STATIC_ANALYSIS_HPP

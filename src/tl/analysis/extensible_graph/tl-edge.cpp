@@ -26,134 +26,137 @@ Cambridge, MA 02139, USA.
 
 namespace TL
 {
-    Edge::Edge(Node *source, Node *target, bool is_back_edge, Edge_type type, std::string label)
-        : _source(source), _target(target)
+    namespace Analysis
     {
-        set_data(_EDGE_TYPE, type);
-        set_data(_EDGE_LABEL, label);
-        set_data(_IS_BACK_EDGE, is_back_edge);
-    }
-
-    Node* Edge::get_source() const
-    {
-        return _source;
-    }
-
-    Node* Edge::get_target() const
-    {
-        return _target;
-    }
-
-    Edge_type Edge::get_type()
-    {
-        if (has_key(_EDGE_TYPE))
-        {    
-            return get_data<Edge_type>(_EDGE_TYPE);
-        }
-        else
-        {    
-            return UNCLASSIFIED_EDGE;
-        }
-    }
-
-    std::string Edge::get_type_as_string()
-    {
-        std::string result = "";
-        
-        if (has_key(_EDGE_TYPE))
+        Edge::Edge(Node *source, Node *target, bool is_back_edge, Edge_type type, std::string label)
+            : _source(source), _target(target)
         {
-            Edge_type etype = get_data<Edge_type>((const std::string) _EDGE_TYPE);
-            
-            switch(etype)
-            {
-                case TRUE_EDGE:     result = "TRUE_EDGE";
-                break;
-                case FALSE_EDGE:    result = "FALSE_EDGE";
-                break;
-                case ALWAYS_EDGE:   result = "ALWAYS_EDGE";
-                break;
-                case CASE_EDGE:     result = "CASE_EDGE";
-                break;
-                case CATCH_EDGE:    result = "CATCH_EDGE";
-                break;
-                case GOTO_EDGE:     result = "GOTO_EDGE";
-                break;
-                case TASK_EDGE:     result = "TASK_EDGE";
-                break;
-                case UNCLASSIFIED_EDGE: result = "UNCLASSIFIED_EDGE";
-                break;
-                default:            std::cerr << " ** Edge.cpp :: get_label() ** "
-                                   << "warning: Unexpected type '" << etype << "' while getting "
-                                   << "the Edge type as a string" << std::endl;
+            set_data(_EDGE_TYPE, type);
+            set_data(_EDGE_LABEL, label);
+            set_data(_IS_BACK_EDGE, is_back_edge);
+        }
+
+        Node* Edge::get_source() const
+        {
+            return _source;
+        }
+
+        Node* Edge::get_target() const
+        {
+            return _target;
+        }
+
+        Edge_type Edge::get_type()
+        {
+            if (has_key(_EDGE_TYPE))
+            {    
+                return get_data<Edge_type>(_EDGE_TYPE);
+            }
+            else
+            {    
+                return UNCLASSIFIED_EDGE;
             }
         }
-        
-        return result;
-    }
 
-    bool Edge::is_back_edge()
-    {
-        if (has_key(_IS_BACK_EDGE))
-        {    
-            return get_data<bool>(_IS_BACK_EDGE);
-        }
-        else
-        {    
-            return false;
-        }
-    }
-
-    std::string Edge::get_label()
-    {
-        std::string label = "";
-            
-        if (has_key(_EDGE_TYPE) && 
-            get_data<Edge_type>(_EDGE_TYPE) != UNCLASSIFIED_EDGE)
+        std::string Edge::get_type_as_string()
         {
-            Edge_type etype = get_data<Edge_type>((const std::string) _EDGE_TYPE);
-            switch (etype)
+            std::string result = "";
+            
+            if (has_key(_EDGE_TYPE))
             {
-                case TRUE_EDGE:     label = "True";
-                break;
-                case FALSE_EDGE:    label = "False";
-                break;
-                case TASK_EDGE:
-                case ALWAYS_EDGE:   label = "";
-                break;
-                case CASE_EDGE:     {
-                                        ObjectList<Nodecl::NodeclBase> labels = get_data<ObjectList<Nodecl::NodeclBase> >(_EDGE_LABEL);
-                                        if (labels[0].is_null())
-                                            label = "default";
-                                        else
-                                            label = labels[0].get_symbol().get_name();
-                                        int i = 1;
-                                        while (i<labels.size())
-                                        {
-                                            if (labels[i].is_null())
-                                                label += ", default";
-                                            else
-                                                label += ", " + labels[i].get_symbol().get_name();                                         
- 
-                                            ++i;
-                                        }
-                                    }
-                break;
-                case CATCH_EDGE:    {
-                                        ObjectList<Nodecl::NodeclBase> labels = get_data<ObjectList<Nodecl::NodeclBase> >(_EDGE_LABEL);
-                                        if (labels[0].is_null())
-                                            label = "...";
-                                        else
-                                            label = labels[0].get_symbol().get_name();
-                                    }
-                break;
-                case GOTO_EDGE:     label = get_data<std::string>(_EDGE_LABEL);
-                break;
-                default: std::cerr << " ** Edge.cpp :: get_label() ** "
-                                   << "warning: Unexpected type '" << etype << "' while getting "
-                                   << "the Edge label" << std::endl;
-            };
+                Edge_type etype = get_data<Edge_type>((const std::string) _EDGE_TYPE);
+                
+                switch(etype)
+                {
+                    case TRUE_EDGE:     result = "TRUE_EDGE";
+                    break;
+                    case FALSE_EDGE:    result = "FALSE_EDGE";
+                    break;
+                    case ALWAYS_EDGE:   result = "ALWAYS_EDGE";
+                    break;
+                    case CASE_EDGE:     result = "CASE_EDGE";
+                    break;
+                    case CATCH_EDGE:    result = "CATCH_EDGE";
+                    break;
+                    case GOTO_EDGE:     result = "GOTO_EDGE";
+                    break;
+                    case TASK_EDGE:     result = "TASK_EDGE";
+                    break;
+                    case UNCLASSIFIED_EDGE: result = "UNCLASSIFIED_EDGE";
+                    break;
+                    default:            std::cerr << " ** Edge.cpp :: get_label() ** "
+                                    << "warning: Unexpected type '" << etype << "' while getting "
+                                    << "the Edge type as a string" << std::endl;
+                }
+            }
+            
+            return result;
         }
-        
-        return label;
+
+        bool Edge::is_back_edge()
+        {
+            if (has_key(_IS_BACK_EDGE))
+            {    
+                return get_data<bool>(_IS_BACK_EDGE);
+            }
+            else
+            {    
+                return false;
+            }
+        }
+
+        std::string Edge::get_label()
+        {
+            std::string label = "";
+                
+            if (has_key(_EDGE_TYPE) && 
+                get_data<Edge_type>(_EDGE_TYPE) != UNCLASSIFIED_EDGE)
+            {
+                Edge_type etype = get_data<Edge_type>((const std::string) _EDGE_TYPE);
+                switch (etype)
+                {
+                    case TRUE_EDGE:     label = "True";
+                    break;
+                    case FALSE_EDGE:    label = "False";
+                    break;
+                    case TASK_EDGE:
+                    case ALWAYS_EDGE:   label = "";
+                    break;
+                    case CASE_EDGE:     {
+                                            ObjectList<Nodecl::NodeclBase> labels = get_data<ObjectList<Nodecl::NodeclBase> >(_EDGE_LABEL);
+                                            if (labels[0].is_null())
+                                                label = "default";
+                                            else
+                                                label = labels[0].get_symbol().get_name();
+                                            int i = 1;
+                                            while (i<labels.size())
+                                            {
+                                                if (labels[i].is_null())
+                                                    label += ", default";
+                                                else
+                                                    label += ", " + labels[i].get_symbol().get_name();                                         
+    
+                                                ++i;
+                                            }
+                                        }
+                    break;
+                    case CATCH_EDGE:    {
+                                            ObjectList<Nodecl::NodeclBase> labels = get_data<ObjectList<Nodecl::NodeclBase> >(_EDGE_LABEL);
+                                            if (labels[0].is_null())
+                                                label = "...";
+                                            else
+                                                label = labels[0].get_symbol().get_name();
+                                        }
+                    break;
+                    case GOTO_EDGE:     label = get_data<std::string>(_EDGE_LABEL);
+                    break;
+                    default: std::cerr << " ** Edge.cpp :: get_label() ** "
+                                    << "warning: Unexpected type '" << etype << "' while getting "
+                                    << "the Edge label" << std::endl;
+                };
+            }
+            
+            return label;
+        }
     }
 }
