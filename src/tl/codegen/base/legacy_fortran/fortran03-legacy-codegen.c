@@ -246,6 +246,15 @@ static void codegen_module_header(nodecl_codegen_visitor_t* visitor, scope_entry
         {
             declare_symbol(visitor, sym);
         }
+        else
+        {
+            if (sym->entity_specs.access == AS_PRIVATE)
+            {
+                // If it has a private access specifier
+                indent(visitor);
+                fprintf(visitor->file, "PRIVATE :: %s\n", sym->symbol_name);
+            }
+        }
     }
     visitor->current_sym = previous_sym;
     visitor->indent_level -= 1;
@@ -261,6 +270,40 @@ static void codegen_module_footer(nodecl_codegen_visitor_t* visitor, scope_entry
 {
     visitor->indent_level -= 2;
     fprintf(visitor->file, "END MODULE %s\n", entry->symbol_name);
+}
+
+static void codegen_blockdata_header(nodecl_codegen_visitor_t* visitor, scope_entry_t* entry)
+{
+    const char* real_name = entry->symbol_name;
+    if (real_name[0] == '_')
+        real_name = "";
+
+    fprintf(visitor->file, "BLOCK DATA %s\n", real_name);
+
+    visitor->indent_level += 1;
+
+    indent(visitor);
+    fprintf(visitor->file, "IMPLICIT NONE\n");
+
+    int i, num_components = entry->entity_specs.num_related_symbols;
+    for (i = 0; i < num_components; i++)
+    {
+        scope_entry_t* sym = entry->entity_specs.related_symbols[i];
+
+        declare_symbol(visitor, sym);
+    }
+}
+
+static void codegen_blockdata_footer(nodecl_codegen_visitor_t* visitor, scope_entry_t* entry)
+{
+    visitor->indent_level -= 1;
+
+    const char* real_name = entry->symbol_name;
+    if (real_name[0] == '_')
+        real_name = "";
+
+    indent(visitor);
+    fprintf(visitor->file, "END BLOCK DATA %s\n", real_name);
 }
 
 static void codegen_object_init(nodecl_codegen_visitor_t* visitor, nodecl_t node)
@@ -288,6 +331,19 @@ static void codegen_object_init(nodecl_codegen_visitor_t* visitor, nodecl_t node
                 codegen_module_header(visitor, entry);
                 codegen_module_footer(visitor, entry);
                 visitor->current_module = old_module;
+                break;
+            }
+        case SK_BLOCKDATA:
+            {
+                entry->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
+
+                scope_entry_t* old_sym = visitor->current_sym;
+                visitor->current_sym = entry;
+
+                codegen_blockdata_header(visitor, entry);
+                codegen_blockdata_footer(visitor, entry);
+
+                visitor->current_sym = old_sym;
                 break;
             }
         default:
@@ -672,7 +728,16 @@ static void codegen_procedure_declaration_header(nodecl_codegen_visitor_t* visit
         {
             fprintf(visitor->file, ", ");
         }
-        fprintf(visitor->file, "%s", entry->entity_specs.related_symbols[i]->symbol_name);
+        scope_entry_t* current_sym = entry->entity_specs.related_symbols[i];
+        if (current_sym->kind == SK_LABEL)
+        {
+            ERROR_CONDITION(is_function, "Alternate return in a FUNCTION", 0);
+            fprintf(visitor->file, "*");
+        }
+        else
+        {
+            fprintf(visitor->file, "%s", current_sym->symbol_name);
+        }
     }
     fprintf(visitor->file, ")");
     if (is_function)
@@ -791,6 +856,23 @@ static void declare_symbol(nodecl_codegen_visitor_t* visitor, scope_entry_t* ent
                     }
                 }
 
+                switch (entry->entity_specs.access)
+                {
+                    case AS_PUBLIC:
+                        {
+                            attribute_list = strappend(attribute_list, ", PUBLIC");
+                            break;
+                        }
+                    case AS_PRIVATE:
+                        {
+                            attribute_list = strappend(attribute_list, ", PRIVATE");
+                            break;
+                        }
+                    default:
+                        {
+                        }
+                }
+
                 if (!nodecl_is_null(entry->value))
                 {
                     declare_symbols_rec(visitor, entry->value);
@@ -849,6 +931,10 @@ static void declare_symbol(nodecl_codegen_visitor_t* visitor, scope_entry_t* ent
                     keyword = "COMMON";
                     // Ignore ".common."
                     symbol_name = entry->symbol_name + strlen(".common.");
+
+                    // Unnamed common
+                    if (strcmp(symbol_name, "_unnamed") == 0)
+                        symbol_name = "";
                 }
 
                 indent(visitor);
@@ -929,6 +1015,8 @@ static void declare_symbol(nodecl_codegen_visitor_t* visitor, scope_entry_t* ent
                         scope_entry_t* sym = entry->entity_specs.related_symbols[i];
                         declare_symbol(visitor, sym);
                     }
+
+                    declare_symbols_rec(visitor, entry->value);
 
                     indent(visitor);
                     fprintf(visitor->file, "%s(", entry->symbol_name);
@@ -1070,6 +1158,12 @@ static void declare_symbols_from_modules_rec(nodecl_codegen_visitor_t* visitor, 
     if (entry != NULL)
     {
         emit_use_statement_if_symbol_comes_from_module(visitor, entry);
+
+        if (entry->kind == SK_FUNCTION
+                && entry->entity_specs.is_stmt_function)
+        {
+            declare_symbols_from_modules_rec(visitor, entry->value);
+        }
     }
 }
 
@@ -1958,6 +2052,20 @@ static void codegen_fortran_equivalence(nodecl_codegen_visitor_t* visitor, nodec
     fprintf(visitor->file, ")\n");
 }
 
+static void codegen_fortran_alt_return_argument(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    scope_entry_t* entry = nodecl_get_symbol(node);
+    fprintf(visitor->file, "*%s", entry->symbol_name);
+}
+
+static void codegen_fortran_alt_return_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    indent(visitor);
+    fprintf(visitor->file, "RETURN ");
+    codegen_walk(visitor, nodecl_get_child(node, 0));
+    fprintf(visitor->file, "\n");
+}
+
 static void codegen_implied_do(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
     nodecl_t nodecl_symbol = nodecl_get_child(node, 0);
@@ -2216,6 +2324,8 @@ static void fortran_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
     NODECL_VISITOR(codegen_visitor)->visit_fortran_implied_do = codegen_visitor_fun(codegen_implied_do);
     NODECL_VISITOR(codegen_visitor)->visit_fortran_data = codegen_visitor_fun(codegen_fortran_data);
     NODECL_VISITOR(codegen_visitor)->visit_fortran_equivalence = codegen_visitor_fun(codegen_fortran_equivalence);
+    NODECL_VISITOR(codegen_visitor)->visit_fortran_alternate_return_argument = codegen_visitor_fun(codegen_fortran_alt_return_argument);
+    NODECL_VISITOR(codegen_visitor)->visit_fortran_alternate_return_statement = codegen_visitor_fun(codegen_fortran_alt_return_statement);
 
     NODECL_VISITOR(codegen_visitor)->visit_fortran_forall = codegen_visitor_fun(codegen_forall);
     NODECL_VISITOR(codegen_visitor)->visit_fortran_where = codegen_visitor_fun(codegen_where);

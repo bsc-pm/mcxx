@@ -454,7 +454,7 @@ static int get_ptr_of_oid_(void* datum,
     // ptr - values[1]
 
     // Ugly
-    *p = (void*)(intptr_t)safe_atoull(values[1]);
+    *p = (void*)(uintptr_t)safe_atoull(values[1]);
 
     return 0;
 }
@@ -571,7 +571,7 @@ static sqlite3_uint64 insert_type_simple(sqlite3* handle, type_t* t,
 {
     ERROR_CONDITION(t == NULL, "Invalid type", 0);
     if (oid_already_inserted(handle, "type", t))
-        return (sqlite3_uint64)(intptr_t)t;
+        return (sqlite3_uint64)(uintptr_t)t;
 
     const char* qualifier_name = get_qualifier_name_of_type(t);
 
@@ -590,7 +590,7 @@ static sqlite3_uint64 insert_type_ref_to(sqlite3* handle, type_t* t, const char*
 {
     ERROR_CONDITION(t == NULL, "Invalid type", 0);
     if (oid_already_inserted(handle, "type", t))
-        return (sqlite3_uint64)(intptr_t)t;
+        return (sqlite3_uint64)(uintptr_t)t;
 
     char * insert_type_query = sqlite3_mprintf("INSERT INTO type(oid, kind, ref_type) VALUES(%llu, " Q ", %llu);", P2ULL(t), name, ref_type);
     run_query(handle, insert_type_query);
@@ -608,7 +608,7 @@ static sqlite3_uint64 insert_type_ref_to_list_types(sqlite3* handle,
 {
     ERROR_CONDITION(t == NULL, "Invalid type", 0);
     if (oid_already_inserted(handle, "type", t))
-        return (sqlite3_uint64)(intptr_t)t;
+        return (sqlite3_uint64)(uintptr_t)t;
 
     char *list = sqlite3_mprintf("%s", "");
     unsigned int i;
@@ -644,7 +644,7 @@ static sqlite3_uint64 insert_type_ref_to_list_symbols(sqlite3* handle,
 {
     ERROR_CONDITION(t == NULL, "Invalid type", 0);
     if (oid_already_inserted(handle, "type", t))
-        return (sqlite3_uint64)(intptr_t)t;
+        return (sqlite3_uint64)(uintptr_t)t;
 
     char *list = sqlite3_mprintf("%s", "");
     unsigned int i;
@@ -689,7 +689,7 @@ static sqlite3_uint64 insert_type_ref_to_ast(sqlite3* handle,
 {
     ERROR_CONDITION(t == NULL, "Invalid type", 0);
     if (oid_already_inserted(handle, "type", t))
-        return (sqlite3_uint64)(intptr_t)t;
+        return (sqlite3_uint64)(uintptr_t)t;
 
     char *insert_type_query = sqlite3_mprintf("INSERT INTO type(oid, kind, ref_type, ast0, ast1) VALUES (%llu, " Q ", %llu, %llu, %llu);",
             P2ULL(t), name, ref_type, ast0, ast1);
@@ -705,7 +705,7 @@ static sqlite3_uint64 insert_ast(sqlite3* handle, AST a)
         return 0;
 
     if (oid_already_inserted(handle, "ast", a))
-        return (sqlite3_uint64)(intptr_t)a;
+        return (sqlite3_uint64)(uintptr_t)a;
 
     sqlite3_uint64 children[MCXX_MAX_AST_CHILDREN];
     memset(children, 0, sizeof(children));
@@ -800,6 +800,10 @@ static sqlite3_uint64 insert_type(sqlite3* handle, type_t* t)
     {
         result = insert_type_simple(handle, t, "INTEGER", type_get_size(t));
     }
+    else if (is_character_type(t))
+    {
+        result = insert_type_simple(handle, t, "CHARACTER", type_get_size(t));
+    }
     else if (is_bool_type(t))
     {
         result = insert_type_simple(handle, t, "LOGICAL", type_get_size(t));
@@ -845,24 +849,8 @@ static sqlite3_uint64 insert_type(sqlite3* handle, type_t* t)
 
         result = insert_type_ref_to_list_types(handle, t, name, result, num_parameters, parameter_types);
     }
-    else if (is_fortran_character_type(t))
-    {
-        const char* name = "CHARACTER";
-
-        sqlite3_uint64 lower_tree = insert_nodecl(handle, array_type_get_array_lower_bound(t));
-        sqlite3_uint64 upper_tree = 0; 
-        
-        if (!array_type_is_unknown_size(t))
-        {
-            upper_tree = insert_nodecl(handle, array_type_get_array_upper_bound(t));
-        }
-
-        // When loading, a 'signed char' will be used instead
-        sqlite3_uint64 element_type = 0;
-
-        result = insert_type_ref_to_ast(handle, t, name, element_type, lower_tree, upper_tree);
-    }
-    else if (is_fortran_array_type(t))
+    else if (is_fortran_character_type(t)
+            || is_fortran_array_type(t))
     {
         const char *name = "ARRAY";
 
@@ -1131,7 +1119,7 @@ static sqlite3_uint64 insert_scope(sqlite3* handle, scope_t* scope)
 
     if (oid_already_inserted(handle, "scope", scope))
     {
-        return (sqlite3_uint64)(intptr_t)scope;
+        return (sqlite3_uint64)(uintptr_t)scope;
     }
 
     char * insert_scope_query = sqlite3_mprintf("INSERT INTO scope(oid, kind, contained_in, related_entry) VALUES (%llu, %d, %llu, %llu);",
@@ -1172,7 +1160,7 @@ static sqlite3_uint64 insert_symbol(sqlite3* handle, scope_entry_t* symbol)
         return 0;
 
     if (oid_already_inserted(handle, "symbol", symbol))
-        return (sqlite3_uint64)(intptr_t)symbol;
+        return (sqlite3_uint64)(uintptr_t)symbol;
 
     char * insert_symbol_query = sqlite3_mprintf("INSERT INTO symbol(oid) "
             "VALUES (%llu);",
@@ -1552,6 +1540,12 @@ static int get_type(void *datum,
         *pt = get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name);
         insert_map_ptr(handle, current_oid, *pt);
     }
+    else if (strcmp(kind, "CHARACTER") == 0)
+    {
+        *pt = choose_character_type_from_kind(nodecl_fake, kind_size);
+        *pt = get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name);
+        insert_map_ptr(handle, current_oid, *pt);
+    }
     else if (strcmp(kind, "REAL") == 0)
     {
         *pt = choose_float_type_from_kind(nodecl_fake, kind_size);
@@ -1579,20 +1573,6 @@ static int get_type(void *datum,
     else if (strcmp(kind, "REFERENCE") == 0)
     {
         *pt = get_lvalue_reference_type(load_type(handle, ref));
-        *pt = get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name);
-        insert_map_ptr(handle, current_oid, *pt);
-    }
-    else if (strcmp(kind, "CHARACTER") == 0)
-    {
-        nodecl_t lower_bound = load_nodecl(handle, ast0);
-        nodecl_t upper_bound = load_nodecl(handle, ast1);
-
-        type_t* element_type = get_signed_char_type();
-
-        // At the moment we do not store the decl_context
-        // Hopefully this will be enough
-        decl_context_t decl_context = CURRENT_COMPILED_FILE->global_decl_context;
-        *pt = get_array_type_bounds(element_type, lower_bound, upper_bound, decl_context);
         *pt = get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name);
         insert_map_ptr(handle, current_oid, *pt);
     }
@@ -1774,7 +1754,7 @@ static sqlite3_uint64 insert_multiple_const_value(sqlite3* handle, const_value_t
 static sqlite3_uint64 insert_const_value(sqlite3* handle, const_value_t* value)
 {
     if (oid_already_inserted(handle, "const_value", value))
-        return (sqlite3_uint64)(intptr_t)value;
+        return (sqlite3_uint64)(uintptr_t)value;
 
     // Some floats can be really large
     char float_literal_value[2048] = { 0 };
