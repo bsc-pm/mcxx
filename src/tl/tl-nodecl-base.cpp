@@ -66,4 +66,9 @@ namespace Nodecl
             return nodecl_null();
         return make_list_helper(list.begin(), list.end() - 1);
     }
+
+    List List::make(const NodeclBase& list)
+    {
+        return nodecl_make_list_1(list.get_internal_nodecl());
+    }
 }
