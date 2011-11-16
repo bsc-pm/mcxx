@@ -853,6 +853,7 @@ static scope_entry_t* register_specific_intrinsic_name(
     // Insert alias only if they are different names
     if (strcasecmp(generic_name, specific_name) != 0)
     {
+        specific_entry->symbol_name = specific_name;
         insert_alias(generic_entry->decl_context.current_scope, specific_entry, specific_name);
     }
     else

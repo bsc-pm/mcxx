@@ -5,6 +5,7 @@
 #include "fortran03-legacy-codegen.h"
 #include "fortran03-typeutils.h"
 #include "fortran03-buildscope.h"
+#include "fortran03-scope.h"
 #include "cxx-nodecl-visitor.h"
 #include "cxx-driver-decls.h"
 #include "cxx-utils.h"
@@ -797,7 +798,8 @@ static void declare_symbol(nodecl_codegen_visitor_t* visitor, scope_entry_t* ent
         return;
 
     // Do not declare stuff not in our context
-    if (visitor->current_sym != entry->decl_context.current_scope->related_entry)
+    if (visitor->current_sym != entry->decl_context.current_scope->related_entry
+            && !entry->entity_specs.is_builtin)
         return;
 
     entry->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
@@ -959,7 +961,21 @@ static void declare_symbol(nodecl_codegen_visitor_t* visitor, scope_entry_t* ent
             }
         case SK_FUNCTION:
             {
-                if (entry->entity_specs.is_generic_spec)
+                if (entry->entity_specs.is_builtin) 
+                {
+                    scope_entry_t* generic_entry = fortran_query_implicit_name_str(entry->decl_context, entry->symbol_name);
+
+                    if (generic_entry == entry)
+                    {
+                        indent(visitor);
+                        fprintf(visitor->file, "INTRINSIC :: %s\n", entry->symbol_name);
+                    }
+                    else
+                    {
+                        declare_symbol(visitor, generic_entry);
+                    }
+                }
+                else if (entry->entity_specs.is_generic_spec)
                 {
                     indent(visitor);
                     fprintf(visitor->file, "INTERFACE %s\n", 
@@ -1071,14 +1087,27 @@ static void declare_symbol(nodecl_codegen_visitor_t* visitor, scope_entry_t* ent
             }
         case SK_CLASS:
             {
+                scope_entry_list_t* members = class_type_get_nonstatic_data_members(entry->type_information);
+
+                // First pass to declare everything that might be needed by the initializers
+                scope_entry_list_iterator_t* it = NULL;
+                for (it = entry_list_iterator_begin(members);
+                        !entry_list_iterator_end(it);
+                        entry_list_iterator_next(it))
+                {
+                    scope_entry_t* component = entry_list_iterator_current(it);
+                    declare_symbols_rec(visitor, component->value);
+                }
+                entry_list_iterator_free(it);
+
                 indent(visitor);
                 fprintf(visitor->file, "TYPE :: %s\n", entry->symbol_name);
 
                 scope_entry_t* old_sym = visitor->current_sym;
                 visitor->current_sym = entry;
                 visitor->indent_level++;
-                scope_entry_list_t* members = class_type_get_nonstatic_data_members(entry->type_information);
-                scope_entry_list_iterator_t* it = NULL;
+
+                // Second pass to declare components
                 for (it = entry_list_iterator_begin(members);
                         !entry_list_iterator_end(it);
                         entry_list_iterator_next(it))
@@ -1088,6 +1117,7 @@ static void declare_symbol(nodecl_codegen_visitor_t* visitor, scope_entry_t* ent
                 }
                 entry_list_iterator_free(it);
                 entry_list_free(members);
+
                 visitor->indent_level--;
                 visitor->current_sym = old_sym;
 
