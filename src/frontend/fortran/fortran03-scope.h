@@ -45,11 +45,6 @@ LIBMF03_EXTERN decl_context_t fortran_new_block_context(decl_context_t);
 LIBMF03_EXTERN scope_entry_t* fortran_query_name_str(decl_context_t decl_context, const char* unqualified_name);
 LIBMF03_EXTERN scope_entry_t* fortran_query_implicit_name_str(decl_context_t decl_context, const char* unqualified_name);
 
-// Use this one as a normal lookup of a name without using IMPLICIT info and
-// ignoring intrinsic names
-LIBMF03_EXTERN scope_entry_t* fortran_query_no_implicit_or_builtin_name_str(decl_context_t, const char* name);
-
-
 // Creates a new fortran symbol. Use this function instead of new_symbol as
 // this one takes care of case. It always uses current_scope.
 LIBMF03_EXTERN scope_entry_t* new_fortran_symbol(decl_context_t, const char* name);

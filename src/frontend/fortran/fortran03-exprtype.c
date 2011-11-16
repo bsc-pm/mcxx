@@ -3134,13 +3134,14 @@ static char is_name_of_funtion_call(AST expr)
 static void check_symbol_of_called_name(AST sym, decl_context_t decl_context, nodecl_t* nodecl_output, char is_call_stmt)
 { 
     // Looking for the symbol, avoiding intrinsic functions 
-    scope_entry_t* entry = fortran_query_no_implicit_or_builtin_name_str(decl_context, ASTText(sym));
+    scope_entry_t* entry = fortran_query_name_str(decl_context, ASTText(sym));
     if (entry == NULL)
     {
         // Looking again for the symbol. The search doesn't avoid intrinsic functions
         entry = fortran_query_implicit_name_str(decl_context, ASTText(sym));
         if (entry != NULL)
         {
+
             if (is_call_stmt
                     && !entry->entity_specs.is_builtin_subroutine)
             {
@@ -3190,6 +3191,14 @@ static void check_symbol_of_called_name(AST sym, decl_context_t decl_context, no
     }
     else
     {
+        // If entry has kind == SK_FUNCTION and is an intrinsic, we must delete
+        // this symbol from the unknow_symbol_list
+        if (entry->kind == SK_FUNCTION &&
+                entry->entity_specs.is_builtin)
+        {
+            remove_unknown_symbol(decl_context, entry); 
+        }
+        
         if (entry->kind == SK_UNDEFINED
                 || (entry->kind == SK_FUNCTION
                     && entry->entity_specs.is_implicit_basic_type))
@@ -3246,7 +3255,7 @@ static void check_symbol_of_called_name(AST sym, decl_context_t decl_context, no
 static void check_symbol_of_argument(AST sym, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     // Looking for the symbol, avoiding intrinsic functions 
-    scope_entry_t* entry = fortran_query_no_implicit_or_builtin_name_str(decl_context, ASTText(sym));
+    scope_entry_t* entry = fortran_query_name_str(decl_context, ASTText(sym));
     if (entry == NULL)
     {
         // Looking again for the symbol. The search doesn't avoid intrinsic functions
@@ -3255,14 +3264,14 @@ static void check_symbol_of_argument(AST sym, decl_context_t decl_context, nodec
         // In this context, if entry != NULL the symbol name matches with a intrinsic function name
         if (entry != NULL)
         {
-            add_unknown_symbol(decl_context, entry); 
             if (!is_implicit_none(decl_context))
             {
                 entry = new_fortran_implicit_symbol(decl_context, sym, ASTText(sym));
             }
             else
             {
-                 insert_alias(decl_context.current_scope, entry, strtolower(ASTText(sym)));
+                add_unknown_symbol(decl_context, entry); 
+                insert_alias(decl_context.current_scope, entry, strtolower(ASTText(sym)));
             }
         }
         else
