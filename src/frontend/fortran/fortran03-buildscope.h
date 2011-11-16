@@ -61,7 +61,7 @@ LIBMF03_EXTERN scope_entry_t* fortran_query_label(AST label,
         char is_definition);
 
 LIBMF03_EXTERN void add_unknown_symbol(decl_context_t decl_context, scope_entry_t* entry);
-LIBMF03_EXTERN void rm_unknown_symbol(decl_context_t decl_context, scope_entry_t* entry);
+LIBMF03_EXTERN void remove_unknown_symbol(decl_context_t decl_context, scope_entry_t* entry);
 
 MCXX_END_DECLS
 

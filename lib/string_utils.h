@@ -113,7 +113,7 @@ do { \
     } \
 } while (0)
 
-#define P_LIST_RM(list, size, elem) \
+#define P_LIST_REMOVE(list, size, elem) \
 do { \
     int _i, _index; \
     _index = 0; \

@@ -3196,7 +3196,7 @@ static void check_symbol_of_called_name(AST sym, decl_context_t decl_context, no
         if (entry->kind == SK_FUNCTION &&
                 entry->entity_specs.is_builtin)
         {
-            rm_unknown_symbol(decl_context, entry); 
+            remove_unknown_symbol(decl_context, entry); 
         }
         
         if (entry->kind == SK_UNDEFINED

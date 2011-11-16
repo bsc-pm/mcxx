@@ -167,11 +167,11 @@ void add_unknown_symbol(decl_context_t decl_context, scope_entry_t* entry)
             entry);
 }
 
-void rm_unknown_symbol(decl_context_t decl_context, scope_entry_t* entry)
+void remove_unknown_symbol(decl_context_t decl_context, scope_entry_t* entry)
 {
     scope_entry_t* unknown_info = get_or_create_unknown_symbols_info(decl_context);
     
-    P_LIST_RM(unknown_info->entity_specs.related_symbols,
+    P_LIST_REMOVE(unknown_info->entity_specs.related_symbols,
             unknown_info->entity_specs.num_related_symbols,
             entry);
 
