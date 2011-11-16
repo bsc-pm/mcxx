@@ -113,6 +113,31 @@ do { \
     } \
 } while (0)
 
+#define P_LIST_RM(list, size, elem) \
+do { \
+    int _i, _index; \
+    _index = 0; \
+    char _found = 0; \
+    for (_i = 0; (_i < (size)); _i++, _index++) \
+    { \
+        if(!_found) \
+        { \
+            _found = ((list)[_i] == (elem)); \
+            _index--; \
+        } \
+            \
+        if((_found) && (_index >= 0)) \
+        { \
+            (list)[_index] = (list)[_i]; \
+        } \
+    } \
+    if(_found) \
+    {\
+        (size)--; \
+        (list) = realloc((list), sizeof(*(list))*(size)); \
+    }\
+} while (0)
+
 
 #ifdef __cplusplus
 }
