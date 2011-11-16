@@ -3134,7 +3134,7 @@ static char is_name_of_funtion_call(AST expr)
 static void check_symbol_of_called_name(AST sym, decl_context_t decl_context, nodecl_t* nodecl_output, char is_call_stmt)
 { 
     // Looking for the symbol, avoiding intrinsic functions 
-    scope_entry_t* entry = fortran_query_no_implicit_or_builtin_name_str(decl_context, ASTText(sym));
+    scope_entry_t* entry = fortran_query_name_str(decl_context, ASTText(sym));
     if (entry == NULL)
     {
         // Looking again for the symbol. The search doesn't avoid intrinsic functions
@@ -3246,7 +3246,7 @@ static void check_symbol_of_called_name(AST sym, decl_context_t decl_context, no
 static void check_symbol_of_argument(AST sym, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     // Looking for the symbol, avoiding intrinsic functions 
-    scope_entry_t* entry = fortran_query_no_implicit_or_builtin_name_str(decl_context, ASTText(sym));
+    scope_entry_t* entry = fortran_query_name_str(decl_context, ASTText(sym));
     if (entry == NULL)
     {
         // Looking again for the symbol. The search doesn't avoid intrinsic functions

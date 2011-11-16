@@ -288,16 +288,6 @@ scope_entry_t* fortran_query_name_str(decl_context_t decl_context, const char* u
     return result;
 }
 
-scope_entry_t* fortran_query_no_implicit_or_builtin_name_str(decl_context_t decl_context, const char* name)
-{
-    scope_entry_t* result = fortran_query_name_str(decl_context, strtolower(name));
-    if (result != NULL && result->entity_specs.is_builtin) 
-    {
-        result = NULL;
-    }
-    return result;
-}
-
 scope_entry_t* fortran_query_implicit_name_str(decl_context_t decl_context, const char* unqualified_name)
 {
     decl_context_t global_context = decl_context;

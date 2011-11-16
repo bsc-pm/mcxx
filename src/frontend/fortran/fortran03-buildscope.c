@@ -791,7 +791,7 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
 {
     scope_entry_t* entry = NULL;
 
-    entry = fortran_query_no_implicit_or_builtin_name_str(decl_context, ASTText(name));
+    entry = fortran_query_name_str(decl_context, ASTText(name));
 
     if (entry != NULL)
     {
@@ -1751,7 +1751,7 @@ static type_t* get_derived_type_name(AST a, decl_context_t decl_context)
 
     type_t* result = NULL;
 
-    scope_entry_t* entry = fortran_query_no_implicit_or_builtin_name_str(decl_context, strtolower(ASTText(name)));
+    scope_entry_t* entry = fortran_query_name_str(decl_context, strtolower(ASTText(name)));
     if (entry != NULL
             && entry->kind == SK_CLASS)
     {
@@ -2773,7 +2773,7 @@ static const char* get_common_name_str(const char* common_name)
 
 static scope_entry_t* query_common_name(decl_context_t decl_context, const char* common_name)
 {
-    scope_entry_t* result = fortran_query_no_implicit_or_builtin_name_str(decl_context, 
+    scope_entry_t* result = fortran_query_name_str(decl_context, 
             get_common_name_str(common_name));
 
     return result;
@@ -2995,7 +2995,7 @@ static void build_scope_common_stmt(AST a,
             common_name_str = ASTText(common_name);
         }
         
-        scope_entry_t* common_sym = fortran_query_no_implicit_or_builtin_name_str(decl_context, get_common_name_str(common_name_str));
+        scope_entry_t* common_sym = fortran_query_name_str(decl_context, get_common_name_str(common_name_str));
         if (common_sym == NULL)
         {
             common_sym = new_common(decl_context, common_name_str);
@@ -4444,7 +4444,7 @@ static void build_scope_interface_block(AST a, decl_context_t decl_context,
     {
         const char* name = get_name_of_generic_spec(generic_spec);
         
-        scope_entry_t* generic_spec_sym = fortran_query_no_implicit_or_builtin_name_str(decl_context, name);
+        scope_entry_t* generic_spec_sym = fortran_query_name_str(decl_context, name);
 
         if (generic_spec_sym == NULL)
         {
@@ -6578,7 +6578,7 @@ static void opt_nextrec_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, dec
 static void opt_nml_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
-    scope_entry_t* entry = fortran_query_no_implicit_or_builtin_name_str(decl_context, ASTText(value));
+    scope_entry_t* entry = fortran_query_name_str(decl_context, ASTText(value));
     if (entry == NULL
             || entry->kind != SK_NAMELIST)
     {
@@ -6899,7 +6899,7 @@ static void opt_ambiguous_io_spec_handler(AST io_stmt, AST opt_value_ambig, decl
                 AST nml_io_spec = ast_get_ambiguity(opt_value_ambig, namelist_option);
                 AST value = ASTSon0(nml_io_spec);
 
-                scope_entry_t* entry = fortran_query_no_implicit_or_builtin_name_str(decl_context, ASTText(value));
+                scope_entry_t* entry = fortran_query_name_str(decl_context, ASTText(value));
 
                 if (entry == NULL
                         || entry->kind != SK_NAMELIST)
