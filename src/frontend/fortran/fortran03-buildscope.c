@@ -4504,7 +4504,7 @@ static void build_scope_intrinsic_stmt(AST a, decl_context_t decl_context UNUSED
         decl_context_t global_context = decl_context;
         global_context.current_scope = decl_context.global_scope;
 
-        scope_entry_t* entry = fortran_query_name_str(global_context, ASTText(name));
+        scope_entry_t* entry = fortran_query_implicit_name_str(global_context, ASTText(name));
         if (entry == NULL
                 || !entry->entity_specs.is_builtin)
         {

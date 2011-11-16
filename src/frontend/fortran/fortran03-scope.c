@@ -275,7 +275,7 @@ scope_entry_t* fortran_query_name_str(decl_context_t decl_context, const char* u
             && current_scope != decl_context.global_scope)
     {
         current_decl_context.current_scope = current_scope;
-        scope_entry_list_t* result_list = query_in_scope_str(current_decl_context, unqualified_name);    
+        scope_entry_list_t* result_list = query_in_scope_str(current_decl_context, strtolower(unqualified_name));    
         if (result_list != NULL)
         {
             result = entry_list_head(result_list);
@@ -290,7 +290,7 @@ scope_entry_t* fortran_query_name_str(decl_context_t decl_context, const char* u
 
 scope_entry_t* fortran_query_no_implicit_or_builtin_name_str(decl_context_t decl_context, const char* name)
 {
-    scope_entry_t* result = fortran_query_name_str(decl_context, name);
+    scope_entry_t* result = fortran_query_name_str(decl_context, strtolower(name));
     if (result != NULL && result->entity_specs.is_builtin) 
     {
         result = NULL;
@@ -304,7 +304,7 @@ scope_entry_t* fortran_query_implicit_name_str(decl_context_t decl_context, cons
     global_context.current_scope = decl_context.global_scope;
     
     scope_entry_t* result = NULL;
-    scope_entry_list_t* result_list = query_in_scope_str(global_context, unqualified_name);
+    scope_entry_list_t* result_list = query_in_scope_str(global_context, strtolower(unqualified_name));
     if (result_list != NULL) 
     {
         result = entry_list_head(result_list);

@@ -47,7 +47,7 @@
 
 static void fortran_check_expression_impl_(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
 
-static void check_symbol_of_called_name(AST sym, decl_context_t decl_context, nodecl_t* nodecl_output);
+static void check_symbol_of_called_name(AST sym, decl_context_t decl_context, nodecl_t* nodecl_output, char is_call_stmt);
 
 static void check_symbol_of_argument(AST sym, decl_context_t decl_context, nodecl_t* nodecl_output);
 
@@ -2088,25 +2088,6 @@ static void check_called_symbol(
         scope_entry_t** called_symbol,
         nodecl_t* nodecl_simplify)
 {
-    if (symbol != NULL
-            && symbol->kind == SK_VARIABLE
-            && symbol->entity_specs.is_implicit_basic_type
-            // The symbol did not have an explicit type but because of a previous usage
-            // it cannot be a function name (e.g the name appears in a DATA or COMMON)
-            && !symbol->entity_specs.is_implicit_but_not_function
-            )
-    {
-        // Upgrade the symbol to a function with unknown arguments
-        symbol->kind = SK_FUNCTION;
-
-        type_t* return_type = symbol->type_information;
-        if (is_call_stmt)
-            return_type = NULL;
-
-        symbol->type_information = get_nonproto_function_type(return_type, 0);
-        symbol->entity_specs.is_implicit_basic_type = 0;
-    }
-
     if (symbol == NULL
             || symbol->kind != SK_FUNCTION)
     {
@@ -2512,43 +2493,7 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
     AST actual_arg_spec_list = ASTSon1(expr);
 
     nodecl_t nodecl_proc_designator = nodecl_null();
-    if (ASTType(procedure_designator) == AST_SYMBOL
-            && is_call_stmt)
-    {
-        scope_entry_t* call_sym 
-            = fortran_query_name_with_locus(decl_context, procedure_designator, ASTText(procedure_designator));
-        if (call_sym == NULL
-                || (call_sym->entity_specs.is_builtin
-                    && !call_sym->entity_specs.is_builtin_subroutine))
-        {
-            // This should be regarded as an error, but it is not for some
-            // obscure reasons
-            decl_context_t program_unit_context =
-                decl_context.current_scope->related_entry->related_decl_context;
-            call_sym = new_fortran_symbol(program_unit_context, ASTText(procedure_designator));
-            call_sym->kind = SK_FUNCTION;
-            call_sym->type_information = get_nonproto_function_type(NULL, 0);
-            call_sym->entity_specs.is_extern = 1;
-        }
-        else 
-        {
-            // We know this function because of an EXTERNAL
-            if (call_sym->entity_specs.is_implicit_basic_type)
-            {
-                call_sym->kind = SK_FUNCTION;
-                call_sym->type_information = get_nonproto_function_type(NULL, 0);
-                call_sym->entity_specs.is_implicit_basic_type = 0;
-                call_sym->entity_specs.is_extern = 1;
-            }
-        }
-
-        nodecl_proc_designator = nodecl_make_symbol(call_sym, 
-                ASTFileName(procedure_designator), ASTLine(procedure_designator));
-    }
-    else
-    {
-        check_symbol_of_called_name(procedure_designator, decl_context, &nodecl_proc_designator);
-    }
+    check_symbol_of_called_name(procedure_designator, decl_context, &nodecl_proc_designator, is_call_stmt);
 
     int num_actual_arguments = 0;
 
@@ -3186,7 +3131,7 @@ static char is_name_of_funtion_call(AST expr)
         && ASTType(ASTParent(expr)) == AST_FUNCTION_CALL;
 }
 
-static void check_symbol_of_called_name(AST sym, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_symbol_of_called_name(AST sym, decl_context_t decl_context, nodecl_t* nodecl_output, char is_call_stmt)
 { 
     // Looking for the symbol, avoiding intrinsic functions 
     scope_entry_t* entry = fortran_query_no_implicit_or_builtin_name_str(decl_context, ASTText(sym));
@@ -3196,23 +3141,91 @@ static void check_symbol_of_called_name(AST sym, decl_context_t decl_context, no
         entry = fortran_query_implicit_name_str(decl_context, ASTText(sym));
         if (entry != NULL)
         {
+            if (is_call_stmt
+                    && !entry->entity_specs.is_builtin_subroutine)
+            {
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: intrinsic '%s' is not a subroutine name\n", ast_location(sym), ASTText(sym));
+                }
+                *nodecl_output = nodecl_make_err_expr(ASTFileName(sym), ASTLine(sym));
+                return;
+            }
+            else if (!is_call_stmt
+                    && entry->entity_specs.is_builtin_subroutine)
+            {
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: intrinsic '%s' is not a function name\n", ast_location(sym), ASTText(sym));
+                }
+                *nodecl_output = nodecl_make_err_expr(ASTFileName(sym), ASTLine(sym));
+                return;
+            }
+
             insert_alias(decl_context.current_scope, entry, strtolower(ASTText(sym)));
         }
         else 
         {
-            if (!checking_ambiguity())
+            if (!is_call_stmt)
             {
-                error_printf("%s: error: '%s' is not a function name\n", ast_location(sym), ASTText(sym));
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: '%s' is not a function name\n", ast_location(sym), ASTText(sym));
+                }
+                *nodecl_output = nodecl_make_err_expr(ASTFileName(sym), ASTLine(sym));
+                return;
             }
-            *nodecl_output = nodecl_make_err_expr(ASTFileName(sym), ASTLine(sym));
-            return;
+            else
+            {
+                decl_context_t program_unit_context =
+                    decl_context.current_scope->related_entry->related_decl_context;
+
+                entry = new_fortran_symbol(program_unit_context, strtolower(ASTText(sym)));
+                entry->kind = SK_FUNCTION;
+                entry->type_information = get_nonproto_function_type(NULL, 0);
+                entry->entity_specs.is_extern = 1;
+                entry->entity_specs.is_implicit_basic_type = 0;
+            }
         }
     }
     else
     {
-        if (entry->kind == SK_UNDEFINED)
+        if (entry->kind == SK_UNDEFINED
+                || (entry->kind == SK_FUNCTION
+                    && entry->entity_specs.is_implicit_basic_type))
         {
             entry->kind = SK_FUNCTION;
+
+            // We have to fix the type here
+
+            type_t* return_type = entry->type_information;
+
+            if (is_call_stmt)
+            {
+                // If it has a non implicit type it means there was a type
+                // declaration of this symbol
+                if (return_type != NULL
+                        // This is only for the case when entry->kind was initially SK_UNDEFINED
+                        && !entry->entity_specs.is_implicit_basic_type)
+                {
+                    // ERROR
+                    if (!checking_ambiguity())
+                    {
+                        error_printf("%s: error: symbol '%s' is not a subroutine name\n",
+                                ast_location(sym),
+                                ASTText(sym));
+                    }
+                    *nodecl_output = nodecl_make_err_expr(ASTFileName(sym), ASTLine(sym));
+                    return;
+                }
+                else
+                {
+                    return_type = NULL;
+                }
+            }
+
+            entry->type_information = get_nonproto_function_type(return_type, 0);
+            entry->entity_specs.is_implicit_basic_type = 0;
         }
 
         if (entry->kind != SK_FUNCTION)
@@ -3392,7 +3405,12 @@ static void check_symbol_variable(AST expr, decl_context_t decl_context, nodecl_
             (entry->kind != SK_VARIABLE &&
              entry->kind != SK_UNDEFINED))
     {
-        error_printf("%s: error: code unreachable\n", ast_location(expr));
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: error: code unreachable\n", ast_location(expr));
+        }
+        *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
+        return;
     }
 
 
