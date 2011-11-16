@@ -361,6 +361,7 @@ exec-environment : NODECL_PARALLEL*CONDITION([condition]expression)
                  | NODECL_PARALLEL*COPY_IN([input_deps]expression-seq)
                  | NODECL_PARALLEL*COPY_OUT([output_deps]expression-seq)
                  | NODECL_PARALLEL*COPY_INOUT([inout_deps]expression-seq)
+                 | NODECL_PARALLEL*SCHEDULE([schedule]expression)
 # Not yet decided
                  | NODECL_PARALLEL*TARGET() 
 

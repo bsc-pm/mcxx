@@ -433,6 +433,7 @@ namespace Nodecl {
             }
 
             static List make(const TL::ObjectList<NodeclBase>& list);
+            static List make(const NodeclBase& list);
     };
 }
 

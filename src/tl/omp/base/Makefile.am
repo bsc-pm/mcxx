@@ -28,16 +28,31 @@ include ../../Makefile.phases
 
 phases_LTLIBRARIES = libtlomp-base.la
 
-libtlomp_base_la_CFLAGS = $(tl_cflags) -I $(srcdir)/../core
-libtlomp_base_la_CXXFLAGS = $(tl_cflags) -I $(srcdir)/../core
+libtlomp_base_la_CFLAGS = $(tl_cflags)
+libtlomp_base_la_CXXFLAGS = $(tl_cflags) 
 
 libtlomp_base_la_LDFLAGS = $(tl_ldflags)
 libtlomp_base_la_LIBADD = $(tl_libadd) 
 
 END=
 
+EXTRA_DIST =
+
+EXTRA_DIST += tl-omp-constructs.def
+
 libtlomp_base_la_SOURCES = \
    tl-omp-base.hpp \
    tl-omp-base.cpp \
+   tl-omp.hpp \
+   tl-omp.cpp \
+   tl-omp-deps.hpp \
+   tl-omp-deps.cpp \
+   tl-omp-tasks.hpp \
+   tl-omp-tasks.cpp \
+   tl-omp-target.hpp \
+   tl-omp-target.cpp \
+   tl-omp-collapse.cpp \
+   tl-omp-reduction.cpp \
+   tl-omp-udr_2.hpp \
+   tl-omp-udr_2.cpp \
    $(END)
-
