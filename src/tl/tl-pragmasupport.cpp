@@ -104,7 +104,7 @@ namespace TL
         return str.substr(first, last - first + 1);
     }
 
-// Initialize here the warnings to the dispatcher
+    // Initialize here the warnings to the dispatcher
     PragmaCustomCompilerPhase::PragmaCustomCompilerPhase(const std::string& pragma_handled)
         : _pragma_handled(pragma_handled)
     {
@@ -117,7 +117,10 @@ namespace TL
 
     void PragmaCustomCompilerPhase::run(DTO& data_flow)
     {
-        // Do nothing
+        PragmaVisitor visitor("omp", _pragma_map_dispatcher);
+
+        Nodecl::NodeclBase node = data_flow["nodecl"];
+        visitor.walk(node);
     }
 
     void PragmaCustomCompilerPhase::register_directive(const std::string& str)

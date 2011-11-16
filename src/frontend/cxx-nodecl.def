@@ -374,7 +374,7 @@ distribute-range : NODECL_PARALLEL*DISTRIBUTE_RANGE([lower]expression, [upper]ex
 
 atomic-execution : NODECL_PARALLEL*ATOMIC([name]name-opt, [statements]statement-seq-opt)
 
-composited-execution : NODECL_PARALLEL*COMPOSITE([environment]exec-environment-seq-opt, [regions]parallel-execution-seq)
+composited-execution : NODECL_PARALLEL*COMPOSITE([environment]exec-environment-seq-opt, [regions]async-execution-seq)
 
 synchronization : NODECL_PARALLEL*WAIT_ASYNCS_DEPENDENCES([expressions] expression-seq-opt)
 # First level

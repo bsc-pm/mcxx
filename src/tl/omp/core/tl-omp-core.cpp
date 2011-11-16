@@ -125,6 +125,11 @@ namespace TL
             PragmaCustomCompilerPhase::run(dto);
         }
 
+        RefPtr<OpenMP::Info> Core::get_openmp_info()
+        {
+            return _openmp_info;
+        }
+
         static void register_directive(const std::string& str)
         {
             register_new_directive("omp", str.c_str(), 0, 0);
@@ -736,12 +741,12 @@ namespace TL
 
         void Core::task_handler_pre(TL::PragmaCustomStatement construct)
         {
-            // task_inline_handler_pre(construct);
+            task_inline_handler_pre(construct);
         }
 
         void Core::task_handler_pre(TL::PragmaCustomDeclaration construct)
         {
-            // task_function_handler_pre(construct);
+            task_function_handler_pre(construct);
         }
 
         void Core::task_handler_post(TL::PragmaCustomStatement construct)
@@ -847,5 +852,6 @@ namespace TL
         }
     }
 }
+
 
 EXPORT_PHASE(TL::OpenMP::Core)
