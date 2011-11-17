@@ -3138,6 +3138,7 @@ static void check_symbol_of_called_name(AST sym, decl_context_t decl_context, no
     if (entry == NULL)
     {
         char entry_is_an_intrinsic = 0;
+        
         // Looking again for the symbol. The search doesn't avoid intrinsic functions
         entry = fortran_query_implicit_name_str(decl_context, ASTText(sym));
         if (entry != NULL)
@@ -3154,10 +3155,11 @@ static void check_symbol_of_called_name(AST sym, decl_context_t decl_context, no
                 insert_alias(decl_context.current_scope, entry, strtolower(ASTText(sym)));
             }
         }
-        
+
+        //We need to add a new symbol 
         if(!entry_is_an_intrinsic) 
         {
-            if (!is_call_stmt)
+            if (!is_call_stmt && is_implicit_none(decl_context))
             {
                 if (!checking_ambiguity())
                 {
@@ -3166,16 +3168,30 @@ static void check_symbol_of_called_name(AST sym, decl_context_t decl_context, no
                 *nodecl_output = nodecl_make_err_expr(ASTFileName(sym), ASTLine(sym));
                 return;
             }
+            else if (!is_implicit_none(decl_context))
+            {
+                entry = new_fortran_implicit_symbol(decl_context, sym, strtolower(ASTText(sym)));
+                entry->kind = SK_FUNCTION;
+            }
+            else // is_implicit_none(decl_context)
+            {
+                entry = new_fortran_symbol(decl_context, ASTText(sym));
+                entry->kind = SK_FUNCTION;
+                entry->file = ASTFileName(sym);
+                entry->line = ASTLine(sym);
+            }
+
+            entry->entity_specs.is_extern = 1;
+            entry->entity_specs.is_implicit_basic_type = 0;
+
+            if(!is_call_stmt)
+            {
+                entry->type_information = 
+                    get_nonproto_function_type(get_implicit_type_for_symbol(decl_context, entry->symbol_name), 0);
+            }
             else
             {
-                decl_context_t program_unit_context =
-                    decl_context.current_scope->related_entry->related_decl_context;
-
-                entry = new_fortran_symbol(program_unit_context, strtolower(ASTText(sym)));
-                entry->kind = SK_FUNCTION;
                 entry->type_information = get_nonproto_function_type(NULL, 0);
-                entry->entity_specs.is_extern = 1;
-                entry->entity_specs.is_implicit_basic_type = 0;
             }
         }
     }
