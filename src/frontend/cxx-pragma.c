@@ -3,6 +3,7 @@
 #include "cxx-ast.h"
 #include "cxx-tltype.h"
 #include "cxx-scope.h"
+#include "string_utils.h"
 #include <stdio.h>
         
 
@@ -23,7 +24,7 @@ static void common_build_scope_pragma_custom_clause(AST a, decl_context_t decl_c
         nodecl_argument = nodecl_make_list_1(nodecl_argument);
     }
 
-    *nodecl_output = nodecl_make_pragma_custom_clause(nodecl_argument, ASTText(a), ASTFileName(a), ASTLine(a));
+    *nodecl_output = nodecl_make_pragma_custom_clause(nodecl_argument, strtolower(ASTText(a)), ASTFileName(a), ASTLine(a));
 }
 
 void common_build_scope_pragma_custom_line(
@@ -81,7 +82,9 @@ void common_build_scope_pragma_custom_line(
         }
     }
 
-    *nodecl_output = nodecl_make_pragma_custom_line(nodecl_parameter, nodecl_clauses, nodecl_end_clauses, ASTText(start_clauses), ASTFileName(start_clauses), ASTLine(start_clauses));
+    *nodecl_output = nodecl_make_pragma_custom_line(nodecl_parameter, nodecl_clauses, nodecl_end_clauses, 
+            strtolower(ASTText(start_clauses)), 
+            ASTFileName(start_clauses), ASTLine(start_clauses));
 }
 
 void common_build_scope_pragma_custom_declaration(AST a, 
@@ -107,7 +110,7 @@ void common_build_scope_pragma_custom_statement(AST a,
     nodecl_t nodecl_child = nodecl_null();
     function_for_child(ASTSon1(a), new_block_context(decl_context), &nodecl_child, info);
 
-    *nodecl_output = nodecl_make_pragma_custom_statement(*nodecl_pragma_line, nodecl_child, ASTText(a), ASTFileName(a), ASTLine(a));
+    *nodecl_output = nodecl_make_pragma_custom_statement(*nodecl_pragma_line, nodecl_child, strtolower(ASTText(a)), ASTFileName(a), ASTLine(a));
 }
 
 void common_build_scope_pragma_custom_directive(AST a, 
@@ -118,5 +121,5 @@ void common_build_scope_pragma_custom_directive(AST a,
     common_build_scope_pragma_custom_line(ASTSon0(a), /* end clauses */ NULL, decl_context, &nodecl_pragma_line);
 
 
-    *nodecl_output = nodecl_make_pragma_custom_directive(nodecl_pragma_line, ASTText(a), ASTFileName(a), ASTLine(a));
+    *nodecl_output = nodecl_make_pragma_custom_directive(nodecl_pragma_line, strtolower(ASTText(a)), ASTFileName(a), ASTLine(a));
 }
