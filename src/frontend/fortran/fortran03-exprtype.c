@@ -3212,7 +3212,6 @@ static void check_symbol_of_called_name(AST sym, decl_context_t decl_context, no
             entry->kind = SK_FUNCTION;
 
             // We have to fix the type here
-
             type_t* return_type = entry->type_information;
 
             if (is_call_stmt)
@@ -3238,6 +3237,11 @@ static void check_symbol_of_called_name(AST sym, decl_context_t decl_context, no
                     return_type = NULL;
                 }
             }
+            else if(is_function_type(return_type))
+            {
+               return_type = function_type_get_return_type(return_type);
+            }
+            
 
             entry->type_information = get_nonproto_function_type(return_type, 0);
             entry->entity_specs.is_implicit_basic_type = 0;
