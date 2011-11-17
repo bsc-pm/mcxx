@@ -940,6 +940,8 @@ int parse_arguments(int argc, const char* argv[],
 #ifdef FORTRAN_SUPPORT
                         P_LIST_ADD(CURRENT_CONFIGURATION->module_dirs, CURRENT_CONFIGURATION->num_module_dirs,
                                 uniquestr(parameter_info.argument));
+                        P_LIST_ADD(CURRENT_CONFIGURATION->include_dirs, CURRENT_CONFIGURATION->num_include_dirs,
+                                uniquestr(parameter_info.argument));
 #endif
                         break;
                     }
