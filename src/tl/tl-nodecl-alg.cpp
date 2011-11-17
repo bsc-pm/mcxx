@@ -48,7 +48,7 @@ namespace Nodecl
             {
                 // If its scope is contained in the base node one, then it is
                 // "local"
-                return sym.get_scope().is_contained_in(_sc);
+                return sym.get_scope().scope_is_enclosed_by(_sc);
             }
     };
 
@@ -106,7 +106,7 @@ namespace Nodecl
             {
                 // If its scope is contained in the base node one, then it is
                 // "local"
-                return n.get_symbol().get_scope().is_contained_in(_sc);
+                return n.get_symbol().get_scope().scope_is_enclosed_by(_sc);
             }
     };
 

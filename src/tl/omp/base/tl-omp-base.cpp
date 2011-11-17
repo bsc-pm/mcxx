@@ -286,9 +286,60 @@ namespace TL { namespace OpenMP {
     {
     }
 
-    Nodecl::List Base::make_execution_environment(OpenMP::DataSharingEnvironment, PragmaCustomLine)
+    struct SymbolBuilder : TL::Functor<Nodecl::NodeclBase, Symbol>
     {
-        return Nodecl::List();
+        private:
+            std::string _filename;
+            int _line;
+
+        public:
+            SymbolBuilder(const std::string& filename, int line)
+                : _filename(filename), _line(line)
+            {
+            }
+
+            virtual Nodecl::NodeclBase do_(ArgType arg) const
+            {
+                return Nodecl::Symbol::make(arg, _filename, _line);
+            }
+    };
+
+    template <typename T>
+    static void make_data_sharing_list(
+            OpenMP::DataSharingEnvironment &data_sharing_env,
+            OpenMP::DataSharingAttribute data_attr,
+            const std::string& filename, int line,
+            ObjectList<Nodecl::NodeclBase>& result_list)
+    {
+        TL::ObjectList<Symbol> symbols;
+        data_sharing_env.get_all_symbols(data_attr, symbols);
+
+        if (!symbols.empty())
+        {
+            TL::ObjectList<Nodecl::NodeclBase> nodecl_symbols = symbols.map(SymbolBuilder(filename, line));
+
+            result_list.append(T::make(Nodecl::List::make(nodecl_symbols), filename, line));
+        }
+    }
+
+    Nodecl::List Base::make_execution_environment(OpenMP::DataSharingEnvironment data_sharing_env, PragmaCustomLine pragma_line)
+    {
+        TL::ObjectList<Nodecl::NodeclBase> result_list;
+
+        make_data_sharing_list<Nodecl::Parallel::Shared>(
+                data_sharing_env, OpenMP::DS_SHARED, 
+                pragma_line.get_filename(), pragma_line.get_line(),
+                result_list);
+        make_data_sharing_list<Nodecl::Parallel::Private>(
+                data_sharing_env, OpenMP::DS_PRIVATE, 
+                pragma_line.get_filename(), pragma_line.get_line(),
+                result_list);
+        make_data_sharing_list<Nodecl::Parallel::Capture>(
+                data_sharing_env, OpenMP::DS_FIRSTPRIVATE, 
+                pragma_line.get_filename(), pragma_line.get_line(),
+                result_list);
+        
+        return Nodecl::List::make(result_list);
     }
 } }
 
