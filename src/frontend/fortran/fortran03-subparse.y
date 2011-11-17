@@ -19,7 +19,7 @@ subparsing : SUBPARSE_STATEMENT block
 {
     $$ = $2;
 }
-| SUBPARSE_EXPRESSION expr
+| SUBPARSE_EXPRESSION expr EOS
 {
     $$ = $2;
 }
