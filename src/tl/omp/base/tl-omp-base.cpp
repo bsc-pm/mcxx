@@ -106,6 +106,25 @@ namespace TL { namespace OpenMP {
     void Base::taskwait_handler_pre(TL::PragmaCustomDirective) { }
     void Base::taskwait_handler_post(TL::PragmaCustomDirective directive)
     {
+        PragmaCustomLine pragma_line = directive.get_pragma_line();
+
+        PragmaCustomClause on_clause = pragma_line.get_clause("on");
+
+        if (on_clause.is_defined())
+        {
+            directive.replace(
+                    Nodecl::Parallel::WaitAsyncsDependences::make(
+                        Nodecl::List::make(on_clause.get_arguments_as_expressions()),
+                        directive.get_filename(), directive.get_line())
+                    );
+        }
+        else
+        {
+            directive.replace(
+                    Nodecl::Parallel::WaitAsyncsShallow::make(
+                        directive.get_filename(), directive.get_line())
+                    );
+        }
     }
 
     // Inline tasks

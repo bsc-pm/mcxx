@@ -118,10 +118,28 @@ static void reverse_codegen_comma_separated_list(nodecl_codegen_visitor_t *visit
 }
 
 // Codegen
-static void not_implemented_yet(nodecl_external_visitor_t* visitor UNUSED_PARAMETER, nodecl_t node)
+static void not_implemented_yet(nodecl_external_visitor_t* v, nodecl_t node)
 {
-    internal_error("Error -> Uninmplemented node! '%s' at %s\n", ast_print_node_type(ASTType(nodecl_get_ast(node))), 
-            nodecl_get_locus(node));
+    nodecl_codegen_visitor_t* visitor = (nodecl_codegen_visitor_t*)v;
+
+    indent(visitor);
+    fprintf(visitor->file, "! >>> %s >>>\n", ast_print_node_type(nodecl_get_kind(node)));
+
+    visitor->indent_level++;
+
+    int i;
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+    {
+        indent(visitor);
+        fprintf(visitor->file, "! Children %d\n", i);
+
+        codegen_walk(visitor, nodecl_get_child(node, i));
+    }
+
+    visitor->indent_level--;
+
+    indent(visitor);
+    fprintf(visitor->file, "! <<< %s <<<\n", ast_print_node_type(nodecl_get_kind(node)));
 }
 
 static void codegen_use_statement(nodecl_codegen_visitor_t* visitor, scope_entry_t* entry)

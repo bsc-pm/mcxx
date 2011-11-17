@@ -22,6 +22,8 @@ namespace Codegen
             std::string codegen_to_str(const Nodecl::NodeclBase& n);
 
             void codegen_top_level(const Nodecl::NodeclBase& n, FILE* f);
+
+            virtual Ret unhandled_node(const Nodecl::NodeclBase & n);
     };
 }
 

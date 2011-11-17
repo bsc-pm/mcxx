@@ -4417,6 +4417,32 @@ std::string CxxBase::template_arguments_to_str(TL::Symbol symbol)
     return ::get_template_arguments_str(symbol.get_internal_symbol(), symbol.get_scope().get_decl_context());
 }
 
+CxxBase::Ret CxxBase::unhandled_node(const Nodecl::NodeclBase & n)
+{
+    indent();
+    file << "/* >>> " << ast_print_node_type(n.get_kind()) << " >>> */\n";
+
+    inc_indent();
+
+    TL::ObjectList<Nodecl::NodeclBase> children = n.children();
+
+    int i = 0;
+    for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+            it != children.end();
+            it++, i++)
+    {
+        indent();
+        file << "/* Children " << i << " */\n";
+
+        walk(*it);
+    }
+
+    dec_indent();
+
+    indent();
+    file << "/* <<< " << ast_print_node_type(n.get_kind()) << " <<< */\n";
+}
+
 } // Codegen
 
 EXPORT_PHASE(Codegen::CxxBase)
