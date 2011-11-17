@@ -986,6 +986,7 @@ static void fortran_init_specific_names(decl_context_t decl_context)
     REGISTER_SPECIFIC_INTRINSIC_2("dmod", "mod", get_double_type(), get_double_type());
     REGISTER_SPECIFIC_INTRINSIC_2("dnint", "anint", get_double_type(), NULL);
     REGISTER_SPECIFIC_INTRINSIC_2("dprod", "dprod", get_float_type(), get_float_type());
+    REGISTER_SPECIFIC_INTRINSIC_2("dreal", "real", get_complex_type(get_double_type()), NULL);
     REGISTER_SPECIFIC_INTRINSIC_2("dsign", "sign", get_double_type(), get_double_type());
     REGISTER_SPECIFIC_INTRINSIC_1("dsin", "sin", get_double_type());
     REGISTER_SPECIFIC_INTRINSIC_1("dsinh", "sinh", get_double_type());
