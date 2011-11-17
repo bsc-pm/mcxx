@@ -3137,60 +3137,25 @@ static void check_symbol_of_called_name(AST sym, decl_context_t decl_context, no
     scope_entry_t* entry = fortran_query_name_str(decl_context, ASTText(sym));
     if (entry == NULL)
     {
+        char entry_is_an_intrinsic = 0;
         // Looking again for the symbol. The search doesn't avoid intrinsic functions
         entry = fortran_query_implicit_name_str(decl_context, ASTText(sym));
         if (entry != NULL)
         {
-            char entry_is_not_an_intrinsic = 0;
-            if (is_call_stmt
-                    && !entry->entity_specs.is_builtin_subroutine)
+            entry_is_an_intrinsic = 1; 
+            if ((is_call_stmt && !entry->entity_specs.is_builtin_subroutine)
+                    || (!is_call_stmt && entry->entity_specs.is_builtin_subroutine))
             {
-                entry_is_not_an_intrinsic = 1;
-                if (is_implicit_none(decl_context))
-                {
-                    // We're calling a intrinsic function (It's not a subroutine)
-                    if (!checking_ambiguity())
-                    {
-                        error_printf("%s: error: intrinsic '%s' is not a subroutine name\n", ast_location(sym), ASTText(sym));
-                    }
-                    *nodecl_output = nodecl_make_err_expr(ASTFileName(sym), ASTLine(sym));
-                    return;
-                }
-            }
-            else if (!is_call_stmt
-                    && entry->entity_specs.is_builtin_subroutine)
-            {
-                entry_is_not_an_intrinsic = 1;
-                if (is_implicit_none(decl_context))
-                {
-                    // We're using a subroutine like a function
-                    if (!checking_ambiguity())
-                    {
-                        error_printf("%s: error: intrinsic '%s' is not a function name\n", ast_location(sym), ASTText(sym));
-                    }
-                    *nodecl_output = nodecl_make_err_expr(ASTFileName(sym), ASTLine(sym));
-                    return;
-                }
+                entry_is_an_intrinsic = 0;
             }
 
-            if (!entry_is_not_an_intrinsic) 
+            if (entry_is_an_intrinsic) 
             {
                 insert_alias(decl_context.current_scope, entry, strtolower(ASTText(sym)));
             }
-            else
-            {
-                // The entry may be an implicit subroutine with a builtin name 
-                decl_context_t program_unit_context =
-                    decl_context.current_scope->related_entry->related_decl_context;
-
-                entry = new_fortran_symbol(program_unit_context, strtolower(ASTText(sym)));
-                entry->kind = SK_FUNCTION;
-                entry->type_information = get_nonproto_function_type(NULL, 0);
-                entry->entity_specs.is_extern = 1;
-                entry->entity_specs.is_implicit_basic_type = 0;
-            }
         }
-        else 
+        
+        if(!entry_is_an_intrinsic) 
         {
             if (!is_call_stmt)
             {
