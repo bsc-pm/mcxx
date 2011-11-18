@@ -212,14 +212,14 @@ static void append_statement_to_block(AST block, AST stmt)
 %type<ast> data_component_def_stmt
 %type<ast> component_decl
 %type<ast> main_program
-%type<ast> top_level_program_unit_stmts_seq
-%type<ast> non_top_level_program_unit_stmts_seq
-%type<ast> top_level_program_unit_stmts
-%type<ast> non_top_level_program_unit_stmts
+%type<ast> top_level_program_unit_stmt_seq
+%type<ast> non_top_level_program_unit_stmt_seq
+%type<ast> top_level_program_unit_stmt
+%type<ast> non_top_level_program_unit_stmt
 %type<ast> program_body
 %type<ast> interface_program_body
 %type<ast> subscript_triplet
-%type<ast> forall_assignment_stmts
+%type<ast> forall_assignment_stmt
 %type<ast> end_enum_stmt
 %type<ast> if_construct
 %type<ast> elseif_seq
@@ -341,7 +341,7 @@ static void append_statement_to_block(AST block, AST stmt)
 %type<ast> derived_type_stmt
 %type<ast> octal_constant
 %type<ast> type_guard_part
-%type<ast> component_def_stmts
+%type<ast> component_def_stmt
 %type<ast> subroutine_stmt
 %type<ast> allocatable_decl
 %type<ast> access_id
@@ -366,7 +366,7 @@ static void append_statement_to_block(AST block, AST stmt)
 %type<ast> connect_spec
 %type<ast> masked_elsewhere_stmt
 %type<ast> rewind_stmt
-%type<ast> action_stmts
+%type<ast> action_stmt
 %type<ast> end_program_stmt
 %type<ast> lower_bound
 %type<ast> associate_stmt
@@ -549,7 +549,7 @@ static void append_statement_to_block(AST block, AST stmt)
 %type<ast> type_param_def_stmt_seq
 %type<ast> program_unit_seq
 %type<ast> type_guard_part_seq
-%type<ast> component_def_stmts_seq
+%type<ast> component_def_stmt_seq
 %type<ast> module_subprogram_seq
 %type<ast> interface_specification_seq
 %type<ast> internal_subprogram_seq
@@ -1393,9 +1393,9 @@ type_param_attr_spec : TOK_KIND
     $$ = ASTLeaf(AST_SYMBOL, $1.token_file, $1.token_line, strtoupper($1.token_text));
 }
 ;
-component_part : component_def_stmts_seq
+component_part : component_def_stmt_seq
 ;
-component_def_stmts : data_component_def_stmt
+component_def_stmt : data_component_def_stmt
 | proc_component_def_stmt
 ;
 data_component_def_stmt : labeldef declaration_type_spec ',' component_attr_spec_list ':' ':' component_decl_list eos
@@ -2780,13 +2780,13 @@ forall_limit : int_expr
 ;
 forall_step : int_expr
 ;
-forall_body_construct : forall_assignment_stmts
+forall_body_construct : forall_assignment_stmt
 | where_stmt
 | where_construct
 | forall_construct
 | forall_stmt
 ;
-forall_assignment_stmts : assignment_stmt
+forall_assignment_stmt : assignment_stmt
 | pointer_assignment_stmt
 ;
 end_forall_stmt : labeldef TOK_END TOK_FORALL name eos
@@ -2798,12 +2798,12 @@ end_forall_stmt : labeldef TOK_END TOK_FORALL name eos
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $3.token_text);
 }
 ;
-forall_stmt : labeldef TOK_FORALL forall_header forall_assignment_stmts 
+forall_stmt : labeldef TOK_FORALL forall_header forall_assignment_stmt 
 {
     $$ = ASTMake3Label(AST_FORALL_STATEMENT, $1, $3, $4, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
-top_level_block : top_level_program_unit_stmts_seq
+top_level_block : top_level_program_unit_stmt_seq
 {
     $$ = ASTMake1(AST_COMPOUND_STATEMENT, $1, ASTFileName($1), ASTLine($1), NULL);
 }
@@ -2813,7 +2813,7 @@ top_level_block : top_level_program_unit_stmts_seq
     $$ = ASTMake1(AST_COMPOUND_STATEMENT, empty, ASTFileName(empty), ASTLine(empty), NULL);
 }
 ;
-block : non_top_level_program_unit_stmts_seq
+block : non_top_level_program_unit_stmt_seq
 {
     $$ = ASTMake1(AST_COMPOUND_STATEMENT, $1, ASTFileName($1), ASTLine($1), NULL);
 }
@@ -2823,7 +2823,7 @@ block : non_top_level_program_unit_stmts_seq
     $$ = ASTMake1(AST_COMPOUND_STATEMENT, empty, ASTFileName(empty), ASTLine(empty), NULL);
 }
 ;
-opt_statement_seq : non_top_level_program_unit_stmts_seq
+opt_statement_seq : non_top_level_program_unit_stmt_seq
 | /* empty */
 {
     $$ = NULL;
@@ -2955,7 +2955,7 @@ action_term_do_construct : label_do_stmt block do_term_action_stmt
 ;
 // This token is introduced artificially by the lexer to help the parser grasp
 // the structure, it does not exist anywhere else
-do_term_action_stmt : TOK_END_NONBLOCK_DO non_top_level_program_unit_stmts
+do_term_action_stmt : TOK_END_NONBLOCK_DO non_top_level_program_unit_stmt
 {
     $$ = $2;
 }
@@ -3224,7 +3224,7 @@ end_if_stmt : labeldef TOK_END TOK_IF name eos
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
-if_stmt : labeldef TOK_IF '(' logical_expr ')' action_stmts 
+if_stmt : labeldef TOK_IF '(' logical_expr ')' action_stmt 
 {
     AST result = ASTMake4(AST_IF_ELSE_STATEMENT, $4, $6, NULL, NULL, $2.token_file, $2.token_line, NULL);
     if ($1 != NULL)
@@ -4204,30 +4204,30 @@ main_program : program_stmt program_body end_program_stmt
     $$ = ASTMake3(AST_MAIN_PROGRAM_UNIT, NULL, $1, $2, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
-non_top_level_program_unit_stmts_seq : non_top_level_program_unit_stmts
+non_top_level_program_unit_stmt_seq : non_top_level_program_unit_stmt
 {
     $$ = ASTListLeaf($1);
 }
-| non_top_level_program_unit_stmts_seq non_top_level_program_unit_stmts
+| non_top_level_program_unit_stmt_seq non_top_level_program_unit_stmt
 {
     $$ = ASTList($1, $2);
 }
 ;
-top_level_program_unit_stmts_seq : top_level_program_unit_stmts
+top_level_program_unit_stmt_seq : top_level_program_unit_stmt
 {
     $$ = ASTListLeaf($1);
 }
-| top_level_program_unit_stmts_seq top_level_program_unit_stmts
+| top_level_program_unit_stmt_seq top_level_program_unit_stmt
 {
     $$ = ASTList($1, $2);
 }
 ;
 // All Fortran statements meant to appear inside a program unit (of any kind) should be here
-action_stmts : non_top_level_program_unit_stmts;
-top_level_program_unit_stmts : non_top_level_program_unit_stmts %merge<ambig_assignment_statement_function>
+action_stmt : non_top_level_program_unit_stmt;
+top_level_program_unit_stmt : non_top_level_program_unit_stmt %merge<ambig_assignment_statement_function>
 | stmt_function_stmt %merge<ambig_assignment_statement_function>
 ;
-non_top_level_program_unit_stmts : access_stmt
+non_top_level_program_unit_stmt : access_stmt
 | assignment_stmt 
 | allocatable_stmt
 | allocate_stmt
@@ -4546,7 +4546,7 @@ end_submodule_stmt : labeldef TOK_END TOK_SUBMODULE name eos
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
-block_data : block_data_stmt non_top_level_program_unit_stmts_seq end_block_data_stmt
+block_data : block_data_stmt non_top_level_program_unit_stmt_seq end_block_data_stmt
 {
     $$ = ASTMake3(AST_BLOCK_DATA_PROGRAM_UNIT, $1, $2, $3, ASTFileName($1), ASTLine($1), NULL);
 }
@@ -5128,11 +5128,11 @@ type_guard_part_seq : type_guard_part
   $$ = ASTList($1, $2);
 }
 ;
-component_def_stmts_seq : component_def_stmts
+component_def_stmt_seq : component_def_stmt
 {
   $$ = ASTListLeaf($1);
 }
-| component_def_stmts_seq component_def_stmts
+| component_def_stmt_seq component_def_stmt
 {
   $$ = ASTList($1, $2);
 }
