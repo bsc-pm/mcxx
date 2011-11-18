@@ -3207,7 +3207,8 @@ static void check_symbol_of_called_name(AST sym, decl_context_t decl_context, no
         
         if (entry->kind == SK_UNDEFINED
                 || (entry->kind == SK_FUNCTION
-                    && entry->entity_specs.is_implicit_basic_type))
+                    && entry->entity_specs.is_implicit_basic_type
+                    && !entry->entity_specs.is_stmt_function))
         {
             entry->kind = SK_FUNCTION;
 

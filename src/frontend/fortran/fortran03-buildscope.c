@@ -4453,7 +4453,6 @@ static void build_scope_interface_block(AST a, decl_context_t decl_context,
     if (generic_spec != NULL)
     {
         const char* name = get_name_of_generic_spec(generic_spec);
-        
         scope_entry_t* generic_spec_sym = fortran_query_name_str(decl_context, name);
 
         if (generic_spec_sym == NULL)
@@ -4474,9 +4473,12 @@ static void build_scope_interface_block(AST a, decl_context_t decl_context,
                     name);
             return;
         }
-
+        // The symbol won't be unknown anymore
+        remove_unknown_symbol(decl_context, generic_spec_sym);
+        
         generic_spec_sym->kind = SK_FUNCTION;
         generic_spec_sym->entity_specs.is_generic_spec = 1;
+        generic_spec_sym->entity_specs.is_implicit_basic_type = 0;
 
         int i;
         for (i = 0; i < num_related_symbols; i++)
