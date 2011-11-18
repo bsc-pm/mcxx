@@ -330,6 +330,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 
 /*!define GRAMMAR_PROLOGUE*/
 /*!include cxx-subparse.y*/
+/*!include cxx-nodecl.y*/
 /*!include cxx-extensions.y*/
 /*!include cxx-placeholders.y*/
 /*!include cxx-pragma.y*/
@@ -2505,6 +2506,7 @@ string_literal : STRING_LITERAL
 
 /*!define GRAMMAR_RULES*/
 /*!include cxx-subparse.y*/
+/*!include cxx-nodecl.y*/
 /*!include cxx-extensions.y*/
 /*!include cxx-placeholders.y*/
 /*!include cxx-pragma.y*/

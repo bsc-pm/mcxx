@@ -849,6 +849,16 @@ schar       ([^\\"\n\r]|{c_escape_seq}|(\\["]))
 
 }
 
+@NODECL-LITERAL-EXPR@ {
+    parse_token_text();
+    RETURN_TOKEN(NODECL_LITERAL_EXPR);
+}
+
+@NODECL-LITERAL-STMT@ {
+    parse_token_text();
+    RETURN_TOKEN(NODECL_LITERAL_STMT);
+}
+
 @PROGRAM-UNIT@ {		
 	parse_token_text();
 	RETURN_TOKEN(SUBPARSE_PROGRAM_UNIT);

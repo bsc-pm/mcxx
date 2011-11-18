@@ -891,6 +891,7 @@ static void append_statement_to_block(AST block, AST stmt)
 
 /*!define GRAMMAR_PROLOGUE*/
 /*!include fortran03-subparse.y*/
+/*!include cxx-nodecl.y*/
 /*!include cxx-pragma.y*/
 /*!undefine GRAMMAR_PROLOGUE*/
 
@@ -5991,6 +5992,7 @@ labeldef : label
 
 /*!define GRAMMAR_RULES*/
 /*!include fortran03-subparse.y*/
+/*!include cxx-nodecl.y*/
 /*!include cxx-pragma.y*/
 /*!undefine GRAMMAR_RULES*/
 
