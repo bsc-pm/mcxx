@@ -108,6 +108,13 @@ void nodecl_exchange(nodecl_t old_nod, nodecl_t new_node);
 // Hash table
 size_t nodecl_hash_table(nodecl_t key);
 
+// Sourceify
+const char* nodecl_stmt_to_source(nodecl_t n);
+const char* nodecl_expr_to_source(nodecl_t n);
+
+// Build from AST_NODECL_LITERAL
+nodecl_t nodecl_make_from_ast_nodecl_literal(AST);
+
 MCXX_END_DECLS
 
 #endif // CXX_NODECL_H
