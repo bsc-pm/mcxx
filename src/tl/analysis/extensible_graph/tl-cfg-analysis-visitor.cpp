@@ -506,24 +506,29 @@ namespace Analysis
     
     void CfgIPAVisitor::compute_usage_rec(Node* node)
     {
-        Node_type ntype = node->get_type();
-        if (ntype == GRAPH_NODE)
+        if (!node->is_visited())
         {
-            compute_usage_rec(node->get_graph_entry_node());
-        }
-        else if (node->has_key(_NODE_STMTS))
-        {
-            ObjectList<Nodecl::NodeclBase> stmts = node->get_statements();
-            for (ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin(); it != stmts.end(); ++it)
+            node->set_visited(true);
+            
+            Node_type ntype = node->get_type();
+            if (ntype == GRAPH_NODE)
             {
-                walk(*it);
+                compute_usage_rec(node->get_graph_entry_node());
             }
-        }
-        
-        ObjectList<Node*> children = node->get_children();
-        for (ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
-        {
-            compute_usage_rec(*it);
+            else if (node->has_key(_NODE_STMTS))
+            {
+                ObjectList<Nodecl::NodeclBase> stmts = node->get_statements();
+                for (ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin(); it != stmts.end(); ++it)
+                {
+                    walk(*it);
+                }
+            }
+            
+            ObjectList<Node*> children = node->get_children();
+            for (ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
+            {
+                compute_usage_rec(*it);
+            }
         }
     }
 

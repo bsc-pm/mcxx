@@ -668,6 +668,7 @@ _induction_vars.equal_range(loop_node->get_id());
         {
             if (!node->is_visited())
             {
+                std::cerr << "compute_ranges_for_variables_in_loop  -->  " << node->get_id() << std::endl;
                 node->set_visited(true);
                 
                 Node_type ntype = node->get_data<Node_type>(_NODE_TYPE);
@@ -676,6 +677,7 @@ _induction_vars.equal_range(loop_node->get_id());
                     if (ntype == GRAPH_NODE)
                     {
                         compute_ranges_for_variables_in_loop(node->get_data<Node*>(_ENTRY_NODE), node);
+                        node->set_graph_node_use_def();
                     }
                     else if (ntype == BASIC_NORMAL_NODE || ntype == BASIC_LABELED_NODE || ntype == BASIC_FUNCTION_CALL_NODE)
                     {   // Check for arrays in that are used in some way within the BB statements
@@ -701,6 +703,7 @@ _induction_vars.equal_range(loop_node->get_id());
         {
             if (!node->is_visited())
             {
+                std::cerr << "compute_ranges_for_variables  -->  " << node->get_id() << std::endl;
                 node->set_visited(true);
                 
                 Node_type ntype = node->get_data<Node_type>(_NODE_TYPE);
@@ -710,7 +713,7 @@ _induction_vars.equal_range(loop_node->get_id());
                     {
                         Node* entry = node->get_data<Node*>(_ENTRY_NODE);
                         if (node->get_data<Graph_type>(_GRAPH_TYPE) == LOOP)
-                        {              
+                        {    
                             compute_ranges_for_variables_in_loop(entry, node);
                         }
                         else

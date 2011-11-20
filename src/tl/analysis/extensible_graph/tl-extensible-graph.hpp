@@ -38,26 +38,7 @@ Cambridge, MA 02139, USA.
 namespace TL
 {
     namespace Analysis
-    {
-        struct func_call_graph_t {
-            Symbol _root;
-            ObjectList<struct func_call_graph_t*> _calls;
-            
-            func_call_graph_t(Symbol s)
-                : _root(s), _calls()
-            {}
-
-            Symbol get_symbol()
-            {
-                return _root;
-            }
-
-            void set_symbol(Symbol s)
-            {
-                _root = s;
-            }
-        };
-        
+    {        
         class LIBTL_CLASS ExtensibleGraph
         {
             protected:
@@ -202,7 +183,7 @@ namespace TL
                 
                 void erase_break_nodes(Node* node);
                 
-                bool function_is_in_function_call_nest_rec(Symbol s, struct func_call_graph_t* actual_nest_s);
+                struct func_call_graph_t* func_in_function_call_nest_rec(Symbol s, struct func_call_graph_t* actual_nest_s);
                 
             public:
                 // *** Constructors *** //
@@ -408,7 +389,7 @@ namespace TL
                 // *** Consultants *** //
                 static Node* is_for_loop_increment(Node* node);
                 
-                bool function_is_in_function_call_nest(Symbol s);
+                struct func_call_graph_t* func_in_function_call_nest(Symbol s);
 
                 
                 // *** Printing methods *** //

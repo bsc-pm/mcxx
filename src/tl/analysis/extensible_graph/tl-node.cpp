@@ -972,6 +972,7 @@ namespace TL
                         ue_vars.insert(*it);
                     }
                 }
+                
                 // Compute killed variables in actual node
                 killed_vars.insert(get_killed_vars());
                 
@@ -1443,6 +1444,7 @@ namespace TL
             
             ext_sym_set killed_vars = get_data<ext_sym_set>(_KILLED);
             std::cerr << "        --> KILLED VARS: " << std::endl;
+     
             for(ext_sym_set::iterator it = killed_vars.begin(); it != killed_vars.end(); ++it)
             {
                 std::cerr << "             - " << it->get_nodecl().prettyprint() << std::endl;

@@ -1152,46 +1152,6 @@ namespace TL
             return NULL;
         }
 
-    //     void CfgVisitor::compute_parameters_usage(ExtensibleGraph* graph, ObjectList<Symbol> params)
-    //     {
-    //         ObjectList<struct var_usage_t*> params_usage;
-    //         Node* graph_node = graph->get_graph();
-    //         ext_sym_set ue_vars = graph_node->get_ue_vars();
-    //         for (ext_sym_set::iterator it = ue_vars.begin(); it != ue_vars.end(); ++it)
-    //         {
-    //             Symbol s(it->get_symbol());
-    //             if (params.contains(s))
-    //             {
-    //                 Nodecl::Symbol nodecl = Nodecl::Symbol::make(s);
-    //                 var_usage_t* new_usage = new var_usage_t(nodecl, '1');
-    //                 params_usage.append(new_usage);
-    //             }
-    //         }
-    //         
-    //         ext_sym_set killed_vars = graph_node->get_killed_vars();
-    //         for (ext_sym_set::iterator it = killed_vars.begin(); it != killed_vars.end(); ++it)
-    //         {
-    //             Symbol s = it->get_symbol();
-    //             if (params.contains(s))
-    //             {
-    //                 Nodecl::Symbol nodecl = Nodecl::Symbol::make(s);
-    //                 if (CfgRecursiveAnalysisVisitor::usage_list_contains_sym(nodecl, params_usage))
-    //                 {
-    //                     struct var_usage_t* var = CfgRecursiveAnalysisVisitor::get_var_in_list(nodecl, params_usage);
-    //                     var->set_usage('2');
-    //                 }
-    //                 else
-    //                 {
-    //                     var_usage_t* new_usage = new var_usage_t(nodecl, '0');
-    //                     params_usage.append(new_usage);
-    //                 }
-    //             }
-    //         }
-    //         
-    //         ext_sym_set undef_vars = graph_node->get_undefined_behaviour_vars();
-    //         // FIXME
-    //     }
-
         void CfgVisitor::set_live_initial_information(Node* node)
         {
             if (node->get_type() == BASIC_FUNCTION_CALL_NODE)
@@ -1201,8 +1161,11 @@ namespace TL
                 {
                     Symbol function_sym = called_func_graph->get_function_symbol();
                     
-                    if (_actual_cfg->function_is_in_function_call_nest(function_sym))
+                    struct func_call_graph_t* func_call_p;
+                    if ( ( func_call_p = _actual_cfg->func_in_function_call_nest(function_sym)) != NULL )
                     {   // Recursive analysis: we are only interested in global variables and pointed parameters
+                        _last_func_call->_calls.insert(func_call_p);
+                        
                         ObjectList<var_usage_t*> glob_vars = called_func_graph->get_global_variables();
                         ObjectList<Symbol> params = called_func_graph->get_function_parameters();
                         ObjectList<Symbol> reference_params;
@@ -1266,14 +1229,12 @@ namespace TL
                             }
                             
                             _last_func_call->_calls.insert(_actual_cfg->get_function_call_nest());
-                            ExtensibleGraph::print_function_call_nest(_last_func_call);
                             _actual_cfg = actual_cfg;
                             _last_func_call = actual_last_func_call;
                         }
                         else
                         {
                             _last_func_call->_calls.insert(called_func_graph->get_function_call_nest());
-                            ExtensibleGraph::print_function_call_nest(_last_func_call);
                         }
                         
                         // Filter map maintaining those arguments that are constants for "constant propagation" in USE-DEF info
@@ -1404,6 +1365,8 @@ namespace TL
 
             gather_live_initial_information(node);
             ExtensibleGraph::clear_visits(node);
+            std::cerr << "* Function call nest of graph *" << _actual_cfg->get_name() << std::endl;
+            ExtensibleGraph::print_function_call_nest(_actual_cfg->get_function_call_nest());
         }
         
         void CfgVisitor::analyse_loops(Node* node)

@@ -41,6 +41,21 @@ namespace TL
             void set_usage(char usage);
         };
         
+        struct func_call_graph_t {
+            Symbol _root;
+            ObjectList<struct func_call_graph_t*> _calls;
+            bool _visited;
+            
+            func_call_graph_t(Symbol s);
+
+            Symbol get_symbol();
+            void set_symbol(Symbol s);
+            
+            bool is_visited();
+            void set_visited();
+            void clear_visits();
+        };
+        
         bool usage_list_contains_sym(Nodecl::Symbol n, ObjectList<struct var_usage_t*> list);
     }
 }

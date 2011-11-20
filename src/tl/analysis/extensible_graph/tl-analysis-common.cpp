@@ -28,6 +28,8 @@ namespace TL
 {
     namespace Analysis
     {
+        // *** Structure storing symbols and the kind of use (used, defined or unknown) in a given function *** //
+        
         var_usage_t::var_usage_t(Nodecl::Symbol s, char usage)
             : _sym(s), _usage(usage)
         {}
@@ -46,6 +48,48 @@ namespace TL
         {
             _usage = usage;
         }
+    
+    
+        // *** Structure storing the call graph of a given function *** //
+        
+        func_call_graph_t::func_call_graph_t(Symbol s)
+            : _root(s), _calls(), _visited(false)
+        {}
+
+        Symbol func_call_graph_t::get_symbol()
+        {
+            return _root;
+        }
+
+        void func_call_graph_t::set_symbol(Symbol s)
+        {
+            _root = s;
+        }
+        
+        bool func_call_graph_t::is_visited()
+        {
+            return _visited;
+        }
+        
+        void func_call_graph_t::set_visited()
+        {
+            _visited = true;
+        }
+        
+        void func_call_graph_t::clear_visits()
+        {
+            if (_visited)
+            {
+                _visited = false;
+                
+                for(ObjectList<struct func_call_graph_t*>::iterator it = _calls.begin(); it != _calls.end(); ++it)
+                {
+                    (*it)->clear_visits();
+                }
+            }
+        }
+        
+        // *** Common functions *** //
         
         bool usage_list_contains_sym(Nodecl::Symbol n, ObjectList<struct var_usage_t*> list)
         {

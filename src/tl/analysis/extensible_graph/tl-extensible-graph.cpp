@@ -37,6 +37,7 @@ namespace TL
             _last_nodes(), _outer_node(), 
             _task_nodes_l(), _use_def_computed(false), _func_calls_nest()
         {
+            
             _graph = create_graph_node(NULL, Nodecl::NodeclBase::null(), EXTENSIBLE_GRAPH);
             _last_nodes.append(_graph->get_graph_entry_node());
         }
@@ -984,7 +985,7 @@ namespace TL
         {
             if (node->is_visited())
             {
-    //             std::cerr << "           clear visits --> " << node->get_id() << std::endl;
+//                 std::cerr << "           clear visits --> " << node->get_id() << std::endl;
                 node->set_visited(false);
                 
                 Node_type ntype = node->get_type();
@@ -1112,31 +1113,37 @@ namespace TL
             return _func_calls_nest;
         }
         
-        bool ExtensibleGraph::function_is_in_function_call_nest_rec(Symbol s, struct func_call_graph_t* actual_nest_s)
+        struct func_call_graph_t* ExtensibleGraph::func_in_function_call_nest_rec(Symbol s, struct func_call_graph_t* actual_nest_s)
         {
-            if (s == actual_nest_s->get_symbol())
+            struct func_call_graph_t* res = NULL;
+            
+            if (!actual_nest_s->is_visited())
             {
-                return true;
-            }
-            else
-            {
-                bool res;
-                for (ObjectList<struct func_call_graph_t*>::iterator it = actual_nest_s->_calls.begin();
-                    it != actual_nest_s->_calls.end(); ++it)
+                actual_nest_s->set_visited();
+                if (s == actual_nest_s->get_symbol())
                 {
-                    res = function_is_in_function_call_nest_rec(s, *it);
-                    if (res)
+                    res = actual_nest_s;
+                }
+                else
+                {
+                    for (ObjectList<struct func_call_graph_t*>::iterator it = actual_nest_s->_calls.begin();
+                        it != actual_nest_s->_calls.end(); ++it)
                     {
-                        return true;
+                        if ( (res = func_in_function_call_nest_rec(s, *it)) != NULL)
+                        {
+                            break;
+                        }
                     }
                 }
-                return false;
             }
+            
+            actual_nest_s->clear_visits();
+            return res;
         }
         
-        bool ExtensibleGraph::function_is_in_function_call_nest(Symbol s)
+        struct func_call_graph_t* ExtensibleGraph::func_in_function_call_nest(Symbol s)
         {
-            return function_is_in_function_call_nest_rec(s, _func_calls_nest);
+            return func_in_function_call_nest_rec(s, _func_calls_nest);
         }
         
         //! This method returns the most outer node of a node before finding a loop node
@@ -1184,10 +1191,16 @@ namespace TL
         
         void ExtensibleGraph::print_function_call_nest(func_call_graph_t* nest, std::string indent)
         {
-            indent += "  -> ";
-            for (ObjectList<func_call_graph_t*>::iterator it = nest->_calls.begin(); it != nest->_calls.end(); ++it)
-            {
-                print_function_call_nest(*it, indent);
+            if (nest!=NULL && !nest->is_visited())
+            {   // (nest == NULL) for codes with no function call inside. E.g: task graphs with no function calls
+                nest->set_visited();
+                std::cerr << indent << " -> " << nest->_root.get_name() << std::endl;
+                indent += "   ";
+                for (ObjectList<func_call_graph_t*>::iterator it = nest->_calls.begin(); it != nest->_calls.end(); ++it)
+                {
+                    print_function_call_nest(*it, indent);
+                }
+                nest->clear_visits();
             }
         }
     }

@@ -87,28 +87,28 @@ namespace TL
             }
         
             // *** Loops Analysis *** //
-//             std::cerr << std::endl << "=== LOOP ANALYSIS COMPUTATION ===" << std::endl;
-//             for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
-//             {
-//                 std::cerr << std::endl << "   ==> Graph '" << (*it)->get_name() << "'" << std::endl;
-//                 cfg_visitor.analyse_loops((*it)->get_graph());
-//             }
-//         
-//             // *** Live Variable Analysis *** //
-//             std::cerr << std::endl << "=== LIVE VARIABLES AND TASKS ANALYSIS  ===" << std::endl;
-//             for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
-//             {
-//     //                 DEBUG_CODE()
-//                 {
-//                     std::cerr << std::endl << " ==> Graph '" << (*it)->get_name() << "'" << std::endl;
-//                 }
-//                     
-//                 // Non-task nodes
-//                 StaticAnalysis::live_variable_analysis((*it)->get_graph());
-//                 
-//                 // Task nodes
-//                 StaticAnalysis::analyse_tasks((*it)->get_tasks_list());
-//             }
+            std::cerr << std::endl << "=== LOOP ANALYSIS COMPUTATION ===" << std::endl;
+            for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
+            {
+                std::cerr << std::endl << "   ==> Graph '" << (*it)->get_name() << "'" << std::endl;
+                cfg_visitor.analyse_loops((*it)->get_graph());
+            }
+        
+            // *** Live Variable Analysis *** //
+            std::cerr << std::endl << "=== LIVE VARIABLES AND TASKS ANALYSIS  ===" << std::endl;
+            for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
+            {
+    //                 DEBUG_CODE()
+                {
+                    std::cerr << std::endl << " ==> Graph '" << (*it)->get_name() << "'" << std::endl;
+                }
+                    
+                // Non-task nodes
+                StaticAnalysis::live_variable_analysis((*it)->get_graph());
+                
+                // Task nodes
+                StaticAnalysis::analyse_tasks((*it)->get_tasks_list());
+            }
             
             // Print graphs into dot files
             for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)

@@ -391,6 +391,20 @@ namespace Nodecl
         return TL::ObjectList<const_value_t*>();
     }
 
+    Calculator::Ret Calculator::visit(const Nodecl::ClassMemberAccess& n)
+    {
+        TL::ObjectList<const_value_t*> member = walk(n.get_member());
+        
+        if (member.empty())
+        {
+            return TL::ObjectList<const_value_t*>();
+        }
+        else
+        {
+            return TL::ObjectList<const_value_t*>(1, member[0]);
+        }
+    }
+
     Calculator::Ret Calculator::visit(const Nodecl::Cast& n)
     {
         return walk(n.get_rhs());
