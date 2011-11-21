@@ -2,6 +2,7 @@
 #include "tl-objectlist.hpp"
 #include "tl-type.hpp"
 #include "cxx-cexpr.h"
+#include "string_utils.h"
 
 #include <iomanip>
 
@@ -658,24 +659,21 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FloatingLiteral& node)
     // FIXME - We are relying on a (really handy) GNU extension
     if (const_value_is_float(value))
     {
-        char* floating = NULL;
-        asprintf(&floating, "%.*ef", precision, const_value_cast_to_float(value));
+        const char* floating = NULL;
+        uniquestr_sprintf(&floating, "%.*ef", precision, const_value_cast_to_float(value));
         file << floating;
-        free(floating);
     }
     else if (const_value_is_double(value))
     {
-        char* floating = NULL;
-        asprintf(&floating, "%.*e", precision, const_value_cast_to_double(value));
+        const char* floating = NULL;
+        uniquestr_sprintf(&floating, "%.*e", precision, const_value_cast_to_double(value));
         file << floating;
-        free(floating);
     }
     else if (const_value_is_long_double(value))
     {
-        char* floating = NULL;
-        asprintf(&floating, "%.*LeL", precision, const_value_cast_to_long_double(value));
+        const char* floating = NULL;
+        uniquestr_sprintf(&floating, "%.*LeL", precision, const_value_cast_to_long_double(value));
         file << floating;
-        free(floating);
     }
 #ifdef HAVE_QUADMATH_H
     else if (const_value_is_float128(value))
