@@ -6,6 +6,9 @@ namespace TL { namespace OpenMP {
     Base::Base()
         : PragmaCustomCompilerPhase("omp"), _core()
     {
+        set_phase_name("OpenMP directive to parallel IR");
+        set_phase_description("This phase lowers the semantics of OpenMP into the parallel IR of Mercurium");
+
 #define OMP_DIRECTIVE(_directive, _name) \
                 { \
                     dispatcher().directive.pre[_directive].connect(functor(&Base::_name##_handler_pre, *this)); \

@@ -30,9 +30,9 @@
 #ifndef TL_REGION_HPP
 #define TL_REGION_HPP
 
-#include "tl-langconstruct.hpp"
+// #include "tl-langconstruct.hpp"
 #include "tl-object.hpp"
-#include "tl-scopelink.hpp"
+// #include "tl-scopelink.hpp"
 
 
 namespace TL {

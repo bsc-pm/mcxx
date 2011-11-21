@@ -24,17 +24,20 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-SUBDIRS = core base @TL_OMP_EXTENSIONS@
+include ../../Makefile.phases
+
+phases_LTLIBRARIES = libtlnanox-lowering.la
+
+
+libtlnanox_lowering_la_CFLAGS = $(tl_cflags)
+libtlnanox_lowering_la_CXXFLAGS = $(tl_cflags) 
+
+libtlnanox_lowering_la_LDFLAGS = $(tl_ldflags)
+libtlnanox_lowering_la_LIBADD = $(tl_libadd) 
 
 END=
 
-DIST_SUBDIRS=base \
-             core \
-             fun-tasks \
-             nanos-common \
-             nanos4 \
-             nanox \
-             nanox-nodecl \
-             ss2omp \
-             profile \
-             $(END)
+libtlnanox_lowering_la_SOURCES = \
+								 tl-nanox-nodecl.hpp \
+								 tl-nanox-nodecl.cpp \
+								 $(END)

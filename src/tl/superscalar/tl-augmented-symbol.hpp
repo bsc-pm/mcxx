@@ -34,8 +34,8 @@
 #include <string>
 
 #include "tl-symbol.hpp"
-#include "tl-ast.hpp"
-#include "tl-langconstruct.hpp"
+// #include "tl-ast.hpp"
+// #include "tl-langconstruct.hpp"
 #include "tl-object.hpp"
 #include "tl-objectlist.hpp"
 #include "tl-type.hpp"

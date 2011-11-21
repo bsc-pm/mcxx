@@ -294,7 +294,8 @@ then
    NANOX_INCLUDES="${nanox_include}"
    NANOX_LIBS="${nanox_lib}"
 
-   TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} nanos-common fun-tasks nanox"
+   # TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} nanos-common fun-tasks nanox"
+   TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} nanox-nodecl"
 # mcxx always gets installed
    COMPILER_NAMES="${COMPILER_NAMES} mcc"
 
@@ -968,9 +969,10 @@ dnl ----------------------- Superscalar and Nanox allow SS2 --------------------
 if test x$is_enabled_tl_superscalar = xyes -a x$is_enabled_tl_omp_nanox = xyes -a \
       "(" x$use_tl_superscalar_version = x4 -o x$use_tl_superscalar_version = x5 ")" ;
 then
-   TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} ss2omp"
-   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 10.config.sscc-common 50.config.sscc 50.config.sscxx"
-   COMPILER_NAMES="${COMPILER_NAMES} sscc sscxx"
+    :
+   # TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} ss2omp"
+   # INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 10.config.sscc-common 50.config.sscc 50.config.sscxx"
+   # COMPILER_NAMES="${COMPILER_NAMES} sscc sscxx"
 fi
 dnl ----------------------- End of Superscalar and Nanox --------------------------------------
 
@@ -1433,6 +1435,7 @@ AC_CONFIG_FILES([Makefile
            src/tl/omp/profile/Makefile 
            src/tl/omp/ss2omp/Makefile 
            src/tl/omp/nanos-common/Makefile 
+           src/tl/omp/nanox-nodecl/Makefile 
            src/tl/omp/nanox/Makefile 
            src/tl/omp/nanox/devices/Makefile 
            src/tl/omp/nanox/devices/common/Makefile    
