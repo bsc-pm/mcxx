@@ -38,6 +38,10 @@ libtlnanox_lowering_la_LIBADD = $(tl_libadd)
 END=
 
 libtlnanox_lowering_la_SOURCES = \
-								 tl-nanox-nodecl.hpp \
 								 tl-nanox-nodecl.cpp \
+								 tl-nanox-nodecl.hpp \
+								 tl-lower-async.cpp \
+								 tl-lowering-visitor.cpp \
+								 tl-lowering-visitor.hpp \
+								 tl-lower-wait-async.cpp \
 								 $(END)

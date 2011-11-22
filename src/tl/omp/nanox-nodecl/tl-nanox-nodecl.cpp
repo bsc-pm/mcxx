@@ -1,4 +1,5 @@
 #include "tl-nanox-nodecl.hpp"
+#include "tl-lowering-visitor.hpp"
 
 namespace TL { namespace Nanox {
 
@@ -11,6 +12,11 @@ namespace TL { namespace Nanox {
     void Lowering::run(DTO& dto)
     {
         std::cerr << "Nanos++ phase" << std::endl;
+
+        Nodecl::NodeclBase n = dto["nodecl"];
+
+        LoweringVisitor lowering_visitor;
+        lowering_visitor.walk(n);
     }
 
 } }
