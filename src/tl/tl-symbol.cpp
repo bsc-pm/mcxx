@@ -619,4 +619,9 @@ namespace TL
         return Nodecl::List(_attr.expression_list);
     }
 
+    Nodecl::Symbol Symbol::make_nodecl(const std::string& filename, int line) const
+    {
+        return Nodecl::Symbol::make(*this, filename, line);
+    }
+
 }

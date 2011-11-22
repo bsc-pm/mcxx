@@ -125,7 +125,6 @@ namespace TL
 
     typedef RefPtr<ObjectList<SourceChunkRef> > chunk_list_ref_t;
 
-
     struct SourceLanguage
     {
         enum L
@@ -449,6 +448,9 @@ namespace TL
     }
 
     LIBTL_EXTERN std::string to_string(const ObjectList<std::string>& t, const std::string& separator = "");
+
+    LIBTL_EXTERN std::string as_expression(const Nodecl::NodeclBase& nodecl);
+    LIBTL_EXTERN std::string as_statement(const Nodecl::NodeclBase& nodecl);
 }
 
 #endif // TL_SOURCE_T_HPP

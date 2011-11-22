@@ -40,8 +40,9 @@ END=
 libtlnanox_lowering_la_SOURCES = \
 								 tl-nanox-nodecl.cpp \
 								 tl-nanox-nodecl.hpp \
-								 tl-lower-async.cpp \
 								 tl-lowering-visitor.cpp \
 								 tl-lowering-visitor.hpp \
+								 tl-lower-arguments.cpp \
+								 tl-lower-async.cpp \
 								 tl-lower-wait-async.cpp \
 								 $(END)

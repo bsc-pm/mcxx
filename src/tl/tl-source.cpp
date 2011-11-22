@@ -649,4 +649,13 @@ namespace TL
         return result;
     }
 
+    std::string as_expression(const Nodecl::NodeclBase& n)
+    {
+        return nodecl_expr_to_source(n.get_internal_nodecl());
+    }
+
+    std::string as_statement(const Nodecl::NodeclBase& n)
+    {
+        return nodecl_stmt_to_source(n.get_internal_nodecl());
+    }
 }

@@ -440,6 +440,8 @@ namespace TL
              * The tree related to the __asm__ specifier. This is a GCC extension
              */
             Nodecl::NodeclBase get_asm_specification() const;
+
+            Nodecl::Symbol make_nodecl(const std::string& filename = "", int line = 0) const;
         private:
             scope_entry_t* _symbol;
     };
