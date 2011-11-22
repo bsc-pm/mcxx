@@ -48,6 +48,10 @@ namespace Nodecl {
                 return nodecl_copy(this->_n);
             }
             bool is_constant() const { return ::nodecl_is_constant(_n); }
+            Nodecl::NodeclBase get_parent() const
+            {
+                return nodecl_get_parent(this->_n);
+            }
 
             // Prettyprint
             std::string prettyprint();
@@ -79,11 +83,11 @@ namespace Nodecl {
 
         public:
             typedef Nodecl::NodeclBase value_type;
-            typedef Nodecl::NodeclBase reference_type;
-            typedef Nodecl::NodeclBase const_reference_type;
 
-            struct iterator
+            struct iterator : std::iterator<std::bidirectional_iterator_tag, Nodecl::NodeclBase>
             {
+                public:
+
                 private:
                     nodecl_t _top;
                     nodecl_t _current;
@@ -283,6 +287,7 @@ namespace Nodecl {
             {
                 return iterator(this->get_internal_nodecl(), iterator::Begin());
             }
+
             const_iterator begin() const
             {
                 return const_iterator(this->get_internal_nodecl(), const_iterator::Begin());
