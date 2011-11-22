@@ -227,13 +227,15 @@ namespace TL
             typedef int (*prepare_lexer_fun_t)(const char*);
             typedef int (*parse_fun_t)(AST*);
             typedef void (*compute_nodecl_fun_t)(AST, decl_context_t, nodecl_t*);
+            typedef decl_context_t (*decl_context_map_fun_t)(decl_context_t);
 
             Nodecl::NodeclBase parse_generic(ReferenceScope ref_scope,
                     ParseFlags parse_flags,
                     const std::string& substring_prefix,
                     prepare_lexer_fun_t prepare_lexer,
                     parse_fun_t parse,
-                    compute_nodecl_fun_t compute_nodecl);
+                    compute_nodecl_fun_t compute_nodecl,
+                    decl_context_map_fun_t decl_context_map_fun);
 
         public:
             //! Constructor
