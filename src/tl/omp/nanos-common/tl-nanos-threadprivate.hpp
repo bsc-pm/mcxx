@@ -27,10 +27,12 @@
 
 
 #include "tl-objectlist.hpp"
-#include "tl-langconstruct.hpp"
+#include "tl-symbol.hpp"
 
 namespace TL { namespace Nanos {
 
-void add_thread_to_declarations(const ObjectList<Symbol> &symbol_list, ScopeLink sl);
+#if 0
+void add_thread_to_declarations(const ObjectList<TL::Symbol> &symbol_list);
+#endif
 
 } }

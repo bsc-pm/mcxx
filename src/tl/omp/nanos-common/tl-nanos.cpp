@@ -29,7 +29,6 @@
 #include "cxx-utils.h"
 
 #include "tl-nanos.hpp"
-#include "tl-ast.hpp"
 #include "tl-source.hpp"
 #include "tl-lexer.hpp"
 
@@ -118,16 +117,16 @@ namespace TL
             set_phase_description("This phase enables support for '#pragma nanos', the interface for versioning runtime and compiler for Nanos");
 
             register_directive("interface");
-            on_directive_pre["interface"].connect(functor(&Interface::interface_preorder, *this));
-            on_directive_post["interface"].connect(functor(&Interface::interface_postorder, *this));
+            dispatcher().directive.pre["interface"].connect(functor(&Interface::interface_preorder, *this));
+            dispatcher().directive.post["interface"].connect(functor(&Interface::interface_postorder, *this));
 
             register_directive("instrument|declare");
-            on_directive_pre["instrument|declare"].connect(functor(&Interface::instrument_declare_pre, *this));
-            on_directive_post["instrument|declare"].connect(functor(&Interface::instrument_declare_post, *this));
+            dispatcher().directive.pre["instrument|declare"].connect(functor(&Interface::instrument_declare_pre, *this));
+            dispatcher().directive.post["instrument|declare"].connect(functor(&Interface::instrument_declare_post, *this));
 
             register_directive("instrument|emit");
-            on_directive_pre["instrument|emit"].connect(functor(&Interface::instrument_emit_pre, *this));
-            on_directive_post["instrument|emit"].connect(functor(&Interface::instrument_emit_post, *this));
+            dispatcher().directive.pre["instrument|emit"].connect(functor(&Interface::instrument_emit_pre, *this));
+            dispatcher().directive.post["instrument|emit"].connect(functor(&Interface::instrument_emit_post, *this));
         }
 
         void Interface::run(TL::DTO& dto)
@@ -176,12 +175,11 @@ namespace TL
                     ;
             }
 
-            AST_t translation_unit ( dto["translation_unit"] );
-            ScopeLink scope_link = dto["scope_link"];
+            Nodecl::NodeclBase nodecl =  dto["nodecl"];
 
-            AST_t versioning_symbols_tree = versioning_symbols.parse_global(translation_unit,
-                    scope_link);
+            Nodecl::NodeclBase versioning_symbols_tree = versioning_symbols.parse_global(nodecl);
                     
+#if 0
             // Get the translation_unit tree
             // and prepend these declarations
             translation_unit.prepend_to_translation_unit(versioning_symbols_tree);
@@ -214,37 +212,8 @@ namespace TL
 
                 translation_unit.append_to_translation_unit(tree);
             }
-        }
-
-#if 0
-            // instrumentation interface
-nanos_err_t nanos_instrument_register_key ( nanos_event_key_t *event_key, const char *key, const char *description, bool abort_when_registered );
-nanos_err_t nanos_instrument_register_value ( nanos_event_value_t *event_value, const char *key, const char *value, const char *description, bool abort_when_registered );
-
-nanos_err_t nanos_instrument_register_value_with_val ( nanos_event_value_t val, const char *key, const char *value, const char *description, bool abort_when_registered );
-
-nanos_err_t nanos_instrument_get_key (const char *key, nanos_event_key_t *event_key);
-nanos_err_t nanos_instrument_get_value (const char *key, const char *value, nanos_event_value_t *event_value);
-
-
-nanos_err_t nanos_instrument_events ( unsigned int num_events, nanos_event_t events[] );
-nanos_err_t nanos_instrument_enter_state ( nanos_event_state_value_t state );
-nanos_err_t nanos_instrument_leave_state ( void );
-nanos_err_t nanos_instrument_enter_burst( nanos_event_key_t key, nanos_event_value_t value );
-nanos_err_t nanos_instrument_leave_burst( nanos_event_key_t key );
-nanos_err_t nanos_instrument_point_event ( unsigned int nkvs, nanos_event_key_t *keys, nanos_event_value_t *values );
-nanos_err_t nanos_instrument_ptp_start ( nanos_event_domain_t domain, nanos_event_id_t id,
-                                         unsigned int nkvs, nanos_event_key_t *keys, nanos_event_value_t *values );
-nanos_err_t nanos_instrument_ptp_end ( nanos_event_domain_t domain, nanos_event_id_t id,
-                                         unsigned int nkvs, nanos_event_key_t *keys, nanos_event_value_t *values );
-
-nanos_err_t nanos_instrument_disable_state_events ( nanos_event_state_value_t state );
-nanos_err_t nanos_instrument_enable_state_events ( void );
-
-nanos_err_t nanos_instrument_close_user_fun_event();
-
 #endif
-
+        }
 
         void Interface::phase_cleanup(DTO& dto)
         {
@@ -257,32 +226,33 @@ nanos_err_t nanos_instrument_close_user_fun_event();
             Version::_interfaces[Version::DEFAULT_FAMILY] = Version::DEFAULT_VERSION;
         }
 
-        void Interface::interface_preorder(PragmaCustomConstruct ctr)
+        void Interface::interface_preorder(TL::PragmaCustomDirective ctr)
         {
-            PragmaCustomClause version_clause = ctr.get_clause("version");
-            PragmaCustomClause family_clause = ctr.get_clause("family");
+            PragmaCustomLine pragma_line = ctr.get_pragma_line();
+            PragmaCustomClause version_clause = pragma_line.get_clause("version");
+            PragmaCustomClause family_clause = pragma_line.get_clause("family");
             
             // The runtime must provide always a pair of Family/Version, never only one of them
             if (family_clause.is_defined()
-                && !family_clause.get_arguments(ExpressionTokenizer()).empty()
+                && !family_clause.get_tokenized_arguments(ExpressionTokenizer()).empty()
                 && version_clause.is_defined()
-                && !version_clause.get_arguments(ExpressionTokenizer()).empty())
+                && !version_clause.get_tokenized_arguments(ExpressionTokenizer()).empty())
             {
-                std::string new_family = family_clause.get_arguments(ExpressionTokenizer())[0];
+                std::string new_family = family_clause.get_tokenized_arguments(ExpressionTokenizer())[0];
                 if (Version::_interfaces.find(new_family) != Version::_interfaces.end()
                     && (new_family != Version::DEFAULT_FAMILY
                     || Version::_interfaces[new_family] != Version::DEFAULT_VERSION))
                 {
                     std::stringstream ss;
-                    ss << Version::_interfaces[family_clause.get_arguments(ExpressionTokenizer())[0]];
+                    ss << Version::_interfaces[family_clause.get_tokenized_arguments(ExpressionTokenizer())[0]];
                     running_error("error: Nanos family %s previously defined with version %s\n",
-                                  family_clause.get_arguments(ExpressionTokenizer())[0].c_str(), 
+                                  family_clause.get_tokenized_arguments(ExpressionTokenizer())[0].c_str(), 
                                   ss.str().c_str());
                 }
                 else
                 {
-                    Version::_interfaces[family_clause.get_arguments(ExpressionTokenizer())[0]] 
-                            = atoi(version_clause.get_arguments(ExpressionTokenizer())[0].c_str());                
+                    Version::_interfaces[family_clause.get_tokenized_arguments(ExpressionTokenizer())[0]] 
+                            = atoi(version_clause.get_tokenized_arguments(ExpressionTokenizer())[0].c_str());                
                 }
             }
             else
@@ -291,28 +261,29 @@ nanos_err_t nanos_instrument_close_user_fun_event();
             }
         }
 
-        void Interface::interface_postorder(PragmaCustomConstruct ctr)
+        void Interface::interface_postorder(TL::PragmaCustomDirective ctr)
         {
-            ctr.get_ast().remove_in_list();
+            // FIXME
+            // ctr.get_ast().remove_in_list();
         }
         
-        static void invalid_instrument_pragma(PragmaCustomConstruct ctr, const std::string& pragma)
+        static void invalid_instrument_pragma(TL::PragmaCustomDirective ctr, const std::string& pragma)
         {
-            std::cerr << ctr.get_ast().get_locus() << ": warning: ignoring invalid '" << ctr.prettyprint() << "'" << std::endl;
-            std::cerr << ctr.get_ast().get_locus() << ": info: its syntax is '#pragma nanos " << pragma << "(identifier, string-literal)'" << std::endl;
+            std::cerr << ctr.get_locus() << ": warning: ignoring invalid '" << ctr.prettyprint() << "'" << std::endl;
+            std::cerr << ctr.get_locus() << ": info: its syntax is '#pragma nanos " << pragma << "(identifier, string-literal)'" << std::endl;
         }
 
-        static void invalid_instrument_declare(PragmaCustomConstruct ctr)
+        static void invalid_instrument_declare(TL::PragmaCustomDirective ctr)
         {
             invalid_instrument_pragma(ctr, "instrument declare");
         }
 
-        void Interface::instrument_declare_pre(PragmaCustomConstruct ctr)
+        void Interface::instrument_declare_pre(TL::PragmaCustomDirective ctr)
         {
+            PragmaCustomLine pragma_line = ctr.get_pragma_line();
             ObjectList<std::string> arguments;
 
-            if (!ctr.is_parameterized()
-                    || (arguments = ctr.get_parameter_arguments(ExpressionTokenizerTrim())).size() != 2)
+            if ((arguments = pragma_line.get_parameter().get_tokenized_arguments(ExpressionTokenizerTrim())).size() != 2)
             {
                 invalid_instrument_declare(ctr);
                 return;
@@ -324,7 +295,7 @@ nanos_err_t nanos_instrument_close_user_fun_event();
                     || (IS_C_LANGUAGE && (tokens_key[0].first != TokensC::IDENTIFIER))
                     || (IS_CXX_LANGUAGE && (tokens_key[0].first != TokensCXX::IDENTIFIER)))
             {
-                std::cerr << ctr.get_ast().get_locus() << ": warning: first argument must be an identifier" << std::endl;
+                std::cerr << ctr.get_locus() << ": warning: first argument must be an identifier" << std::endl;
                 invalid_instrument_declare(ctr);
                 return;
             }
@@ -334,7 +305,7 @@ nanos_err_t nanos_instrument_close_user_fun_event();
                     || (IS_C_LANGUAGE && (tokens_descr[0].first != TokensC::STRING_LITERAL))
                     || (IS_CXX_LANGUAGE && (tokens_descr[0].first != TokensCXX::STRING_LITERAL)))
             {
-                std::cerr << ctr.get_ast().get_locus() << ": warning: second argument must be a string-literal" << std::endl;
+                std::cerr << ctr.get_locus() << ": warning: second argument must be a string-literal" << std::endl;
                 invalid_instrument_declare(ctr);
                 return;
             }
@@ -342,28 +313,30 @@ nanos_err_t nanos_instrument_close_user_fun_event();
             _map_events[arguments[0]] = arguments[1];
         }
 
-        void Interface::instrument_declare_post(PragmaCustomConstruct ctr)
+        void Interface::instrument_declare_post(TL::PragmaCustomDirective ctr)
         {
-            ctr.get_ast().remove_in_list();
+            // FIXME - Implement this
+            // ctr.get_ast().remove_in_list();
         }
 
-        static void invalid_instrument_emit(PragmaCustomConstruct ctr)
+        static void invalid_instrument_emit(TL::PragmaCustomDirective ctr)
         {
             invalid_instrument_pragma(ctr, "instrument emit");
         }
 
-        void Interface::instrument_emit_pre(PragmaCustomConstruct ctr)
+        void Interface::instrument_emit_pre(TL::PragmaCustomDirective ctr)
         {
         }
 
-        void Interface::instrument_emit_post(PragmaCustomConstruct ctr)
+        void Interface::instrument_emit_post(TL::PragmaCustomDirective ctr)
         {
+            PragmaCustomLine pragma_line = ctr.get_pragma_line();
             ObjectList<std::string> arguments;
-            if (!ctr.is_parameterized()
-                    || (arguments = ctr.get_parameter_arguments(ExpressionTokenizerTrim())).size() != 2)
+            if ((arguments = pragma_line.get_parameter().get_tokenized_arguments(ExpressionTokenizerTrim())).size() != 2)
             {
                 invalid_instrument_emit(ctr);
-                ctr.get_ast().remove_in_list();
+                // FIXME
+                // ctr.get_ast().remove_in_list();
                 return;
             }
 
@@ -375,30 +348,37 @@ nanos_err_t nanos_instrument_close_user_fun_event();
                     || tokens_descr.size() != 1)
             {
                 invalid_instrument_emit(ctr);
+                // FIXME
+                // ctr.remove_in_list();
                 return;
             }
 
             if ((IS_C_LANGUAGE && (tokens_key[0].first != TokensC::IDENTIFIER))
                     || (IS_CXX_LANGUAGE && (tokens_key[0].first != TokensCXX::IDENTIFIER)))
             {
-                std::cerr << ctr.get_ast().get_locus() << ": warning: first argument must be an identifier" << std::endl;
+                std::cerr << ctr.get_locus() << ": warning: first argument must be an identifier" << std::endl;
                 invalid_instrument_emit(ctr);
+                // FIXME
+                // ctr.remove_in_list();
                 return;
             }
 
             if ((IS_C_LANGUAGE && (tokens_descr[0].first != TokensC::STRING_LITERAL))
                     || (IS_CXX_LANGUAGE && (tokens_descr[0].first != TokensCXX::STRING_LITERAL)))
             {
-                std::cerr << ctr.get_ast().get_locus() << ": warning: second argument must be a string-literal" << std::endl;
+                std::cerr << ctr.get_locus() << ": warning: second argument must be a string-literal" << std::endl;
                 invalid_instrument_emit(ctr);
+                // FIXME
+                // ctr.remove_in_list();
                 return;
             }
 
             if (_map_events.find(arguments[0]) == _map_events.end())
             {
-                std::cerr << ctr.get_ast().get_locus() << ": warning: event key '" << arguments[0] << "' has not been previously declared" << std::endl;
+                std::cerr << ctr.get_locus() << ": warning: event key '" << arguments[0] << "' has not been previously declared" << std::endl;
                 invalid_instrument_emit(ctr);
-                ctr.get_ast().remove_in_list();
+                // FIXME
+                // ctr.remove_in_list();
                 return;
             }
 
@@ -415,7 +395,7 @@ nanos_err_t nanos_instrument_close_user_fun_event();
                 <<    "err = nanos_instrument_register_value (&nanos_instr_name_value, "
                 <<             "\"" << arguments[0] << "\", " 
                 <<             arguments[1] << ", "
-                <<             "\"" << ctr.get_ast().get_locus() << "\"," 
+                <<             "\"" << ctr.get_locus() << "\"," 
                 <<             "/* abort_if_registered */ 0);"
                 <<    "if (err != NANOS_OK) nanos_handle_error(err);"
                 <<    "nanos_funct_id_init = 1;"
@@ -429,8 +409,8 @@ nanos_err_t nanos_instrument_close_user_fun_event();
                 << "}"
                 ;
 
-            AST_t tree = src.parse_statement(ctr.get_ast(), ctr.get_scope_link());
-            ctr.get_ast().replace(tree);
+            Nodecl::NodeclBase new_nodecl = src.parse_statement(ctr);
+            ctr.replace(new_nodecl);
         }
     }
 }

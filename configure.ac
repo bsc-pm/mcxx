@@ -295,7 +295,7 @@ then
    NANOX_LIBS="${nanox_lib}"
 
    # TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} nanos-common fun-tasks nanox"
-   TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} nanox-nodecl"
+   TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} nanos-common nanox-nodecl"
 # mcxx always gets installed
    COMPILER_NAMES="${COMPILER_NAMES} mcc"
 

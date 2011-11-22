@@ -27,12 +27,12 @@
 
 
 #include "tl-pragmasupport.hpp"
-#include "tl-langconstruct.hpp"
 
 #include "cxx-utils.h"
 
 namespace TL { namespace Nanos {
 
+#if 0
     static AST_t inefficient_atomic(PragmaCustomConstruct atomic_construct)
     {
         running_error("%s: error '#pragma atomic' cannot be currently implemented for '%s'\n",
@@ -372,5 +372,6 @@ namespace TL { namespace Nanos {
 
         atomic_construct.get_ast().replace(atomic_tree);
     }
+#endif
 
 } }

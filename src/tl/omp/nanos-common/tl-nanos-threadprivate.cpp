@@ -32,6 +32,7 @@
 namespace TL
 {
 
+#if 0
 static void add_thread_to_declarations_in_tree(const ObjectList<Symbol> &symbol_list, const Declaration &decl)
 {
     bool decl_is_in_class_scope = decl.get_scope().is_class_scope();
@@ -104,5 +105,6 @@ void Nanos::add_thread_to_declarations(const ObjectList<Symbol> &symbol_list, Sc
         }
     }
 }
+#endif
 
 }
