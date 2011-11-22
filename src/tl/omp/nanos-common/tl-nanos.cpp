@@ -31,6 +31,7 @@
 #include "tl-nanos.hpp"
 #include "tl-source.hpp"
 #include "tl-lexer.hpp"
+#include "tl-nodecl-alg.hpp"
 
 #include <sstream>
 
@@ -263,8 +264,7 @@ namespace TL
 
         void Interface::interface_postorder(TL::PragmaCustomDirective ctr)
         {
-            // FIXME
-            // ctr.get_ast().remove_in_list();
+            Nodecl::Utils::remove_from_enclosing_list(ctr);
         }
         
         static void invalid_instrument_pragma(TL::PragmaCustomDirective ctr, const std::string& pragma)
@@ -315,8 +315,7 @@ namespace TL
 
         void Interface::instrument_declare_post(TL::PragmaCustomDirective ctr)
         {
-            // FIXME - Implement this
-            // ctr.get_ast().remove_in_list();
+            Nodecl::Utils::remove_from_enclosing_list(ctr);
         }
 
         static void invalid_instrument_emit(TL::PragmaCustomDirective ctr)
@@ -335,8 +334,7 @@ namespace TL
             if ((arguments = pragma_line.get_parameter().get_tokenized_arguments(ExpressionTokenizerTrim())).size() != 2)
             {
                 invalid_instrument_emit(ctr);
-                // FIXME
-                // ctr.get_ast().remove_in_list();
+                Nodecl::Utils::remove_from_enclosing_list(ctr);
                 return;
             }
 
@@ -348,8 +346,7 @@ namespace TL
                     || tokens_descr.size() != 1)
             {
                 invalid_instrument_emit(ctr);
-                // FIXME
-                // ctr.remove_in_list();
+                Nodecl::Utils::remove_from_enclosing_list(ctr);
                 return;
             }
 
@@ -358,8 +355,7 @@ namespace TL
             {
                 std::cerr << ctr.get_locus() << ": warning: first argument must be an identifier" << std::endl;
                 invalid_instrument_emit(ctr);
-                // FIXME
-                // ctr.remove_in_list();
+                Nodecl::Utils::remove_from_enclosing_list(ctr);
                 return;
             }
 
@@ -368,8 +364,7 @@ namespace TL
             {
                 std::cerr << ctr.get_locus() << ": warning: second argument must be a string-literal" << std::endl;
                 invalid_instrument_emit(ctr);
-                // FIXME
-                // ctr.remove_in_list();
+                Nodecl::Utils::remove_from_enclosing_list(ctr);
                 return;
             }
 
@@ -377,8 +372,7 @@ namespace TL
             {
                 std::cerr << ctr.get_locus() << ": warning: event key '" << arguments[0] << "' has not been previously declared" << std::endl;
                 invalid_instrument_emit(ctr);
-                // FIXME
-                // ctr.remove_in_list();
+                Nodecl::Utils::remove_from_enclosing_list(ctr);
                 return;
             }
 
