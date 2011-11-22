@@ -28,6 +28,10 @@ namespace Nodecl
         struct Nodecl_comp {
             bool operator() (const Nodecl::NodeclBase& n1, const Nodecl::NodeclBase& n2) const;
         };
+
+        Nodecl::List get_all_list_from_list_node(Nodecl::List);
+
+        void remove_from_enclosing_list(Nodecl::NodeclBase n);
     }
 }
 

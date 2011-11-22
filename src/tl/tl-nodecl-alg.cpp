@@ -1,6 +1,7 @@
 #include "tl-nodecl-alg.hpp"
 #include "tl-predicateutils.hpp"
 #include "cxx-utils.h"
+#include <algorithm>
 
 namespace Nodecl
 {
@@ -214,6 +215,33 @@ namespace Nodecl
     {
         return equal_nodecls(n1, n2);
     }    
+
+    Nodecl::List Utils::get_all_list_from_list_node(Nodecl::List n)
+    {
+        while (n.get_parent().is<Nodecl::List>())
+        {
+            n = n.get_parent().as<Nodecl::List>();
+        }
+
+        return n;
+    }
+
+    void Utils::remove_from_enclosing_list(Nodecl::NodeclBase n)
+    {
+        Nodecl::NodeclBase parent = n.get_parent();
+
+        if (!parent.is<Nodecl::List>())
+            return;
+
+        Nodecl::List l = Utils::get_all_list_from_list_node(parent.as<Nodecl::List>());
+
+        Nodecl::List::iterator it = std::find(l.begin(), l.end(), n);
+
+        if (it != l.end())
+        {
+            l.erase(it);
+        }
+    }
 }
 
 namespace TL
