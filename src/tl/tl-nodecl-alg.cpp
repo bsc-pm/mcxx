@@ -242,6 +242,25 @@ namespace Nodecl
             l.erase(it);
         }
     }
+
+    TL::Symbol Utils::get_enclosing_function(Nodecl::NodeclBase n)
+    {
+        TL::Symbol result;
+        TL::Scope sc = n.retrieve_context();
+
+        decl_context_t decl_context = sc.get_decl_context();
+
+        if (decl_context.block_scope != NULL)
+        {
+            result = decl_context.block_scope->related_entry;
+        }
+        else if (decl_context.function_scope != NULL)
+        {
+            result = decl_context.function_scope->related_entry;
+        }
+
+        return result;
+    }
 }
 
 namespace TL

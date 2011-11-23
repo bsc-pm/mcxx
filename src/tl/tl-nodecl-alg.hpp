@@ -32,6 +32,8 @@ namespace Nodecl
         Nodecl::List get_all_list_from_list_node(Nodecl::List);
 
         void remove_from_enclosing_list(Nodecl::NodeclBase n);
+
+        TL::Symbol get_enclosing_function(Nodecl::NodeclBase n);
     }
 }
 
