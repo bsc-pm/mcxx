@@ -1496,6 +1496,12 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Sizeof& node)
     file << "sizeof(" << t.get_declaration(state.current_scope, "") << ")";
 }
 
+CxxBase::Ret CxxBase::visit(const Nodecl::Alignof& node)
+{
+    TL::Type t = node.get_align_type().get_type();
+
+    file << "__alignof__(" << t.get_declaration(state.current_scope, "") << ")";
+}
 
 CxxBase::Ret CxxBase::visit(const Nodecl::StringLiteral& node)
 {
