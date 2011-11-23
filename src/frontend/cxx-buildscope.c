@@ -10772,16 +10772,6 @@ static void build_scope_compound_statement(AST a,
 {
     decl_context_t block_context = new_block_context(decl_context);
 
-    // Note that we set the scope link to the list node and not to the compound
-    // statement node because we want to have the scope just before the
-    // compound and after the compound
-    //
-    //   the scope of the compound -> *  {
-    //                                      * <-- the list scope
-    //                                   }
-    //
-    // This adds a bit of burden when enlarging an empty compound
-
     nodecl_t nodecl_output_list = nodecl_null();
 
     AST list = ASTSon0(a);
