@@ -633,7 +633,7 @@ def generate_nodecl_classes_specs(rule_map):
            factory_arguments.append("type.get_internal_type()");
        if nodecl_class.needs_text:
            factory_parameters.append("const std::string& text");
-           factory_arguments.append("text.c_str()");
+           factory_arguments.append("::uniquestr(text.c_str())");
        if nodecl_class.needs_cval:
            factory_parameters.append("const_value_t* cval");
            factory_arguments.append("cval");
@@ -645,7 +645,7 @@ def generate_nodecl_classes_specs(rule_map):
            factory_arguments.append("scope.get_decl_context()");
 
        factory_parameters.append("const std::string &filename")
-       factory_arguments.append("filename.c_str()");
+       factory_arguments.append("::uniquestr(filename.c_str())");
 
        factory_parameters.append("int line")
        factory_arguments.append("line");
