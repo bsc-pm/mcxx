@@ -71,7 +71,11 @@ namespace Nodecl {
             NodeclBase(TL::RefPtr<TL::Object>);
 
             // Basic replacement
+            // Do not use this one except if really needed. Use NodeclBase::integrate
             void replace(Nodecl::NodeclBase new_node) const;
+
+            // Works like replace but handles lists. 
+            void integrate(Nodecl::NodeclBase new_node) const;
     };
 
     // This class mimicks a std::list<T> but everything works by value
