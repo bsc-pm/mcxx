@@ -11,6 +11,11 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
 
     private:
         std::string declare_argument_structure(const Nodecl::NodeclBase &environment);
+
+        void emit_outline(Nodecl::NodeclBase environment, 
+                Nodecl::NodeclBase body,
+                const std::string& outline_name,
+                const std::string& structure_name);
 };
 
 } }

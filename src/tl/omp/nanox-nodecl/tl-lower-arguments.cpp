@@ -24,6 +24,18 @@ namespace TL { namespace Nanox {
         return t;
     }
 
+    static std::string handle_name_for_entity(const std::string& str)
+    {
+        if (str == "this")
+        {
+            return "this_";
+        }
+        else
+        {
+            return str;
+        }
+    }
+
     static Type handle_type_for_captured_entity(Type t, ObjectList<Symbol>& /* additional_symbols */)
     {
         return t;
@@ -53,7 +65,8 @@ namespace TL { namespace Nanox {
                     ObjectList<TL::Symbol> ancillary_symbols;
                     TL::Type t = handle_type_for_shared_entity(sym.get_type(), ancillary_symbols);
 
-                    _src << t.get_declaration(sym.get_scope(), sym.get_name()) << ";"
+                    _src << t.get_declaration(sym.get_scope(), 
+                            handle_name_for_entity(sym.get_name())) << ";"
                         ;
                 }
             }
@@ -71,7 +84,8 @@ namespace TL { namespace Nanox {
                     ObjectList<TL::Symbol> ancillary_symbols;
                     TL::Type t = handle_type_for_captured_entity(sym.get_type(), ancillary_symbols);
 
-                    _src << t.get_declaration(sym.get_scope(), sym.get_name()) << ";"
+                    _src << t.get_declaration(sym.get_scope(), 
+                            handle_name_for_entity(sym.get_name())) << ";"
                         ;
                 }
             }
@@ -140,7 +154,15 @@ namespace TL { namespace Nanox {
 
                     if (t.is_array())
                     {
-                        _src << _var_expr << "." << sym.get_name() << " = " << as_expression(sym.make_nodecl()) << ";";
+                        _src << _var_expr
+                            << "." << handle_name_for_entity(sym.get_name()) 
+                            << " = " << as_expression(sym.make_nodecl()) << ";";
+                    }
+                    else
+                    {
+                        _src << _var_expr 
+                            << "." << handle_name_for_entity(sym.get_name()) 
+                            << " = &" << as_expression(sym.make_nodecl()) << ";";
                     }
                 }
             }
@@ -155,6 +177,17 @@ namespace TL { namespace Nanox {
                     Nodecl::Symbol node = it->as<Nodecl::Symbol>();
                     TL::Symbol sym = node.get_symbol();
                     TL::Type t = sym.get_type();
+
+                    if (t.is_array())
+                    {
+                        internal_error("Array assignment not implemented yet", 0);
+                    }
+                    else
+                    {
+                        _src << _var_expr
+                            << "." << handle_name_for_entity(sym.get_name()) 
+                            << " = " << as_expression(sym.make_nodecl()) << ";";
+                    }
                 }
             }
 

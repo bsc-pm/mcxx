@@ -1,6 +1,7 @@
 #include "tl-lowering-visitor.hpp"
 #include "tl-source.hpp"
 #include "tl-counters.hpp"
+#include "tl-nodecl-alg.hpp"
 
 using TL::Source;
 
@@ -9,6 +10,9 @@ namespace TL { namespace Nanox {
 void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
 {
     Nodecl::NodeclBase environment = construct.get_environment();
+    Nodecl::NodeclBase statements = construct.get_statements();
+
+    Symbol function_symbol = Nodecl::Utils::get_enclosing_function(construct);
 
     Source spawn_code;
 
@@ -43,16 +47,12 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
     // Name of the outline
     std::string outline_name;
     {
-        Counter& task_counter = CounterManager::get_counter("nanos++-task");
+        Counter& task_counter = CounterManager::get_counter("nanos++-outline");
         std::stringstream ss;
-        ss << "ol_task_" << (int)task_counter;
+        ss << "ol_" << function_symbol.get_name() << "_" << (int)task_counter;
         outline_name = ss.str();
     }
     
-    // Argument structure
-    std::string structure_name = declare_argument_structure(environment);
-    struct_arg_type_name << structure_name;
-
     // Devices stuff
     Source device_descriptor, 
            device_description, 
@@ -67,20 +67,49 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         << device_description_line
         << "};"
         ;
+    
+    // Declare argument structure
+    std::string structure_name = declare_argument_structure(environment);
+    struct_arg_type_name << structure_name;
 
     // FIXME - No devices yet, let's mimick the structure of one SMP
     {
+        num_devices << "1";
         ancillary_device_description
             << comment("SMP device descriptor")
             << "nanos_smp_args_t " << outline_name << "_smp_args = { (void(*)(void*))" << outline_name << "};"
             ;
 
-        device_descriptor
+        device_description_line
             << "{ nanos_smp_factory, nanos_smp_dd_size, &" << outline_name << "_smp_args },"
             ;
     }
 
+    // Outline
+    emit_outline(environment, statements, outline_name, structure_name);
+
+    // Fill argument structure
     bool immediate_is_alloca = false;
+    if (!immediate_is_alloca)
+    {
+        immediate_decl
+            << struct_arg_type_name << " imm_args;"
+            ;
+    }
+    else
+    {
+        internal_error("Not yet implemented", 0);
+    }
+
+    struct_size << "sizeof(" << struct_arg_type_name << ")";
+    alignment << "__alignof__(" << struct_arg_type_name << "), ";
+    num_copies << "0";
+    copy_data << "(void*)0";
+    copy_imm_data << "(void*)0";
+    translation_fun_arg_name << ", (void*)0";
+    num_dependences << "0";
+    dependency_struct << "void";
+    dependency_array << "0";
 
     // Spawn code
     spawn_code
@@ -117,24 +146,38 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         <<        "if (err != NANOS_OK) nanos_handle_error (err);"
         <<     "}"
         <<     "else"
-        <<   "{"
-        <<        immediate_decl
-        <<        fill_immediate_arguments
-        <<        fill_dependences_immediate
-        <<        copy_immediate_setup
-        <<        "err = nanos_create_wd_and_run(" 
-        <<                num_devices << ", " << device_descriptor << ", "
-        <<                struct_size << ", " 
-        <<                alignment
-        <<                (immediate_is_alloca ? "imm_args" : "&imm_args") << ","
-        <<                num_dependences << ", (" << dependency_struct << "*)" << dependency_array << ", &props,"
-        <<                num_copies << "," << copy_imm_data 
-        <<                translation_fun_arg_name << ");"
-        <<        "if (err != NANOS_OK) nanos_handle_error (err);"
+        <<     "{"
+        <<          immediate_decl
+        <<          fill_immediate_arguments
+        <<          fill_dependences_immediate
+        <<          copy_immediate_setup
+        <<          "err = nanos_create_wd_and_run(" 
+        <<                  num_devices << ", " << device_descriptor << ", "
+        <<                  struct_size << ", " 
+        <<                  alignment
+        <<                  (immediate_is_alloca ? "imm_args" : "&imm_args") << ","
+        <<                  num_dependences << ", (" << dependency_struct << "*)" << dependency_array << ", &props,"
+        <<                  num_copies << "," << copy_imm_data 
+        <<                  translation_fun_arg_name << ");"
+        <<          "if (err != NANOS_OK) nanos_handle_error (err);"
         <<     "}"
         << "}"
         ;
 
+    FORTRAN_LANGUAGE()
+    {
+        // Parse in C
+        Source::source_language = SourceLanguage::C;
+    }
+
+    Nodecl::NodeclBase n = spawn_code.parse_statement(construct);
+
+    FORTRAN_LANGUAGE()
+    {
+        Source::source_language = SourceLanguage::Current;
+    }
+
+    construct.integrate(n);
 }
 
 } }
