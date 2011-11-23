@@ -245,7 +245,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
     {
         immediate_is_alloca = true;
     }
-    if(function_symbol.is_member() && !function_symbol.is_static()) 
+    if (function_symbol.is_member() && !function_symbol.is_static()) 
     {
             fill_outline_arguments << "ol_args->_this = this;";
             fill_immediate_arguments  << "imm_args" << (immediate_is_alloca ? "->" : ".") << "_this = this;";

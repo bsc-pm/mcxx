@@ -125,7 +125,8 @@ namespace TL { namespace OpenMP {
         {
             directive.replace(
                     Nodecl::Parallel::WaitAsyncsShallow::make(
-                        directive.get_filename(), directive.get_line())
+                        directive.get_filename(), 
+                        directive.get_line())
                     );
         }
     }
