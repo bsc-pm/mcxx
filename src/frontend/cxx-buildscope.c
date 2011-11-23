@@ -10799,6 +10799,29 @@ static void build_scope_compound_statement(AST a,
                 block_context, ASTFileName(a), ASTLine(a)));
 }
 
+static void build_scope_implicit_compound_statement(AST list, 
+        decl_context_t decl_context, 
+        nodecl_t* nodecl_output)
+{
+    nodecl_t nodecl_output_list = nodecl_null();
+
+    if (list != NULL)
+    {
+
+        nodecl_t current_nodecl_output = nodecl_null();
+        build_scope_statement_seq(list, decl_context, &current_nodecl_output);
+
+        nodecl_output_list = nodecl_concat_lists(nodecl_output_list, current_nodecl_output);
+    }
+
+    *nodecl_output = nodecl_make_list_1(
+            nodecl_make_context(
+                nodecl_make_list_1(
+                    nodecl_make_compound_statement(nodecl_output_list, nodecl_null(), ASTFileName(list), ASTLine(list))
+                    ),
+                decl_context, ASTFileName(list), ASTLine(list)));
+}
+
 static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
 
@@ -11846,6 +11869,8 @@ static stmt_scope_handler_map_t stmt_scope_handlers[] =
     STMT_HANDLER(AST_UPC_BARRIER, build_scope_upc_synch_statement),
     STMT_HANDLER(AST_UPC_FENCE, build_scope_upc_synch_statement),
     STMT_HANDLER(AST_UPC_FORALL, build_scope_upc_forall_statement),
+    // Special node that comes only from TL::Source
+    STMT_HANDLER(AST_NODE_LIST, build_scope_implicit_compound_statement),
 };
 
 static void build_scope_statement_seq(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
