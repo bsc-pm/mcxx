@@ -535,7 +535,7 @@ namespace TL
                 return parse_generic(ref_scope, parse_flags, "@STATEMENT@", 
                         mc99_prepare_string_for_scanning,
                         mc99parse,
-                        build_scope_declaration_sequence,
+                        build_scope_statement,
                         decl_context_identity);
                 break;
             }
@@ -544,7 +544,7 @@ namespace TL
                 return parse_generic(ref_scope, parse_flags, "@STATEMENT@", 
                         mcxx_prepare_string_for_scanning,
                         mcxxparse,
-                        build_scope_declaration_sequence,
+                        build_scope_statement,
                         decl_context_identity);
                 break;
             }
