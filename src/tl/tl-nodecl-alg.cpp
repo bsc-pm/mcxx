@@ -261,6 +261,26 @@ namespace Nodecl
 
         return result;
     }
+
+    void Utils::append_to_top_level_nodecl(Nodecl::NodeclBase n)
+    {
+        if (n.is<Nodecl::List>())
+        {
+            Nodecl::List l = n.as<Nodecl::List>();
+            for (Nodecl::List::iterator it = l.begin();
+                    it != l.end();
+                    it++)
+            {
+                append_to_top_level_nodecl(*it);
+            }
+        }
+        else
+        {
+            Nodecl::TopLevel top_level = Nodecl::NodeclBase(CURRENT_COMPILED_FILE->nodecl).as<Nodecl::TopLevel>();
+            Nodecl::List list = top_level.get_top_level().as<Nodecl::List>();
+            list.push_back(n);
+        }
+    }
 }
 
 namespace TL

@@ -34,6 +34,8 @@ namespace Nodecl
         void remove_from_enclosing_list(Nodecl::NodeclBase n);
 
         TL::Symbol get_enclosing_function(Nodecl::NodeclBase n);
+
+        void append_to_top_level_nodecl(Nodecl::NodeclBase n);
     }
 }
 
