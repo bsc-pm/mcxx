@@ -71,7 +71,7 @@ namespace Nodecl {
             NodeclBase(TL::RefPtr<TL::Object>);
 
             // Basic replacement
-            void replace(Nodecl::NodeclBase new_node);
+            void replace(Nodecl::NodeclBase new_node) const;
     };
 
     // This class mimicks a std::list<T> but everything works by value

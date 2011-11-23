@@ -39,7 +39,7 @@ namespace Nodecl
         }
     }
 
-    void NodeclBase::replace(Nodecl::NodeclBase new_node)
+    void NodeclBase::replace(Nodecl::NodeclBase new_node) const
     {
         nodecl_exchange(this->_n, new_node._n);
     }
