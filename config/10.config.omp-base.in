@@ -11,8 +11,8 @@ compiler_options =
 linker_name = gcc
 linker_options = -Xlinker --add-needed
 {openmp} compiler_phase = libtlomp-base.so
-# {openmp} pragma_prefix = nanos
-# {openmp} compiler_phase = libtlnanos-version.so
+{openmp} pragma_prefix = nanos
+{openmp} compiler_phase = libtlnanos-version.so
 # nanos++
 {openmp,(nanox|openmpt|ompss|simd)} preprocessor_options = -I@NANOX_INCLUDES@ -D_OPENMP=200805 -include nanos.h -include nanos_omp.h
 {acml} preprocessor_options = -include math.h -include smmintrin.h -include acml_mv_m128.h
