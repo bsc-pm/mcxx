@@ -29,8 +29,18 @@ include ../../../Makefile.phases
 
 phases_LTLIBRARIES = libcodegen-fortran.la
 
-libcodegen_fortran_la_CFLAGS = $(tl_cflags) -I$(srcdir)/../../common
-libcodegen_fortran_la_CXXFLAGS = $(tl_cflags) -I$(srcdir)/../../common
+libcodegen_fortran_la_CFLAGS = $(tl_cflags) \
+							   -I$(top_srcdir)/src/frontend \
+							   -I$(top_srcdir)/src/frontend/fortran \
+							   -I$(top_builddir)/src/frontend \
+							   -I$(top_builddir)/src/frontend/fortran \
+							   -I$(srcdir)/../../common
+libcodegen_fortran_la_CXXFLAGS = $(tl_cflags) \
+							   -I$(top_srcdir)/src/frontend \
+							   -I$(top_srcdir)/src/frontend/fortran \
+							   -I$(top_builddir)/src/frontend \
+							   -I$(top_builddir)/src/frontend/fortran \
+						       -I$(srcdir)/../../common
 
 libcodegen_fortran_la_LDFLAGS = $(tl_ldflags)
 libcodegen_fortran_la_LIBADD = ../../common/libcodegen-common.la \

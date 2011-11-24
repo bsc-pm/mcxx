@@ -2,119 +2,13 @@
 #include "tl-source.hpp"
 #include "tl-counters.hpp"
 #include "tl-nodecl-alg.hpp"
+#include "tl-outline-info.hpp"
 
 using TL::Source;
 
 namespace TL { namespace Nanox {
 
-    class OutlineVisitor : public Nodecl::ExhaustiveVisitor<void>
-    {
-        private:
-            Source* _unpacked_arguments;
-            Source* _unpacked_parameters;
-            Source* _private_declarations;
-            Source* _auxiliar_code;
-        public:
-            void visit(const Nodecl::Parallel::Shared& shared)
-            {
-                Nodecl::List l = shared.get_shared_symbols().as<Nodecl::List>();
-                for (Nodecl::List::iterator it = l.begin();
-                        it != l.end();
-                        it++)
-                {
-                    TL::Symbol sym = it->as<Nodecl::Symbol>().get_symbol();
-                    TL::Type t = sym.get_type();
-
-                    if (t.is_array())
-                    {
-                        t = t.array_element().get_pointer_to();
-                    }
-                    else
-                    {
-                        t = t.get_pointer_to();
-                    }
-
-                    Source param;
-                    param << t.get_declaration(sym.get_scope(), sym.get_name());
-
-                    (*_unpacked_parameters).append_with_separator(param, ",");
-
-                    Source arg;
-                    arg << "args->" << sym.get_name();
-
-                    (*_unpacked_arguments).append_with_separator(arg, ",");
-                }
-            }
-
-            void visit(const Nodecl::Parallel::Capture& captured)
-            {
-                Nodecl::List l = captured.get_captured_symbols().as<Nodecl::List>();
-                for (Nodecl::List::iterator it = l.begin();
-                        it != l.end();
-                        it++)
-                {
-                    TL::Symbol sym = it->as<Nodecl::Symbol>().get_symbol();
-                    TL::Type t = sym.get_type();
-
-                    Source param;
-                    param << t.get_declaration(sym.get_scope(), sym.get_name());
-
-                    (*_unpacked_parameters).append_with_separator(param, ",");
-
-                    Source arg;
-                    arg << "args->" << sym.get_name();
-
-                    (*_unpacked_arguments).append_with_separator(arg, ",");
-                }
-            }
-
-            void visit(const Nodecl::Parallel::Private& private_)
-            {
-                Nodecl::List l = private_.get_private_symbols().as<Nodecl::List>();
-                for (Nodecl::List::iterator it = l.begin();
-                        it != l.end();
-                        it++)
-                {
-                    TL::Symbol sym = it->as<Nodecl::Symbol>().get_symbol();
-                    TL::Type t = sym.get_type();
-
-                    (*_private_declarations)
-                        << t.get_declaration(sym.get_scope(), sym.get_name()) << ";"
-                        ;
-                }
-            }
-
-            void visit(const Nodecl::Parallel::Reduction& reduction)
-            {
-                internal_error("Not yet implemented", 0);
-            }
-
-            OutlineVisitor& write_unpacked_arguments(Source &unpacked_arguments)
-            {
-                this->_unpacked_arguments = &unpacked_arguments;
-                return *this;
-            }
-
-            OutlineVisitor& write_unpacked_parameters(Source &unpacked_parameters)
-            {
-                this->_unpacked_parameters = &unpacked_parameters;
-                return *this;
-            }
-
-            OutlineVisitor& write_private_declarations(Source &private_declarations)
-            {
-                this->_private_declarations = &private_declarations;
-                return *this;
-            }
-
-            OutlineVisitor& write_auxiliar_code(Source &auxiliar_code)
-            {
-                this->_auxiliar_code = &auxiliar_code;
-                return *this;
-            }
-    };
-
-    void LoweringVisitor::emit_outline(Nodecl::NodeclBase environment, 
+    void LoweringVisitor::emit_outline(OutlineInfo& outline_info,
             Nodecl::NodeclBase body,
             const std::string& outline_name,
             const std::string& structure_name)
@@ -140,14 +34,25 @@ namespace TL { namespace Nanox {
             << "}"
             ;
 
-        OutlineVisitor outline_visitor;
-        outline_visitor
-            .write_unpacked_arguments(unpacked_arguments)
-            .write_unpacked_parameters(unpacked_parameters)
-            .write_auxiliar_code(auxiliar_code)
-            .write_private_declarations(private_entities);
-
-        outline_visitor.walk(environment);
+        TL::ObjectList<OutlineDataItem> data_items = outline_info.get_data_items();
+        for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
+                it != data_items.end();
+                it++)
+        {
+            if (it->get_sharing() == OutlineDataItem::SHARING_PRIVATE)
+            {
+                private_entities 
+                    << it->get_field_type().get_declaration(it->get_symbol().get_scope(), it->get_field_name());
+            }
+            else if (it->get_sharing() == OutlineDataItem::SHARING_SHARED
+                    || it->get_sharing() == OutlineDataItem::SHARING_CAPTURE)
+            {
+                unpacked_parameters 
+                    << it->get_field_type().get_declaration(it->get_symbol().get_scope(), it->get_field_name());
+                unpacked_arguments 
+                    << "args->" << it->get_field_name();
+            }
+        }
 
         replaced_body << body.prettyprint();
 

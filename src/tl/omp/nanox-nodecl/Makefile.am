@@ -46,4 +46,6 @@ libtlnanox_lowering_la_SOURCES = \
 								 tl-lower-async.cpp \
 								 tl-lower-wait-async.cpp \
 								 tl-emit-outline.cpp \
+								 tl-outline-info.hpp \
+								 tl-outline-info.cpp \
 								 $(END)

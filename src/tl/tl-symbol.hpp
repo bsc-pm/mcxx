@@ -161,6 +161,10 @@ namespace TL
             bool is_anonymous_union() const;
             //! States that this symbol is the injected class name
             bool is_injected_class_name() const;
+
+            //! States that this symbol is the PROGRAM program unit
+            /*! \note This only applies to Fortran */
+            bool is_fortran_main_program() const;
             
             //! States whether this symbol is a parameter of a function
             bool is_parameter() const;

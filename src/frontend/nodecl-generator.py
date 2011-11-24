@@ -465,7 +465,7 @@ def generate_visitor_class_header(rule_map):
     print "class ExhaustiveVisitor : public NodeclVisitor<_Ret>"
     print "{"
     print "public:"
-    print "     typedef typename BaseNodeclVisitor<_Ret>::Ret Ret;"
+    print "     typedef typename NodeclVisitor<_Ret>::Ret Ret;"
     classes_and_children = get_all_class_names_and_children_names_namespaces(rule_map)
     for ((namespaces, class_name), children_name, tree_kind, nodecl_class) in classes_and_children:
          qualified_name = get_qualified_name(namespaces, class_name)
@@ -482,6 +482,21 @@ def generate_visitor_class_header(rule_map):
          print "     }"
     print "};"
     print ""
+    print "template <typename _Ret>"
+    print "class ProxyVisitor : public NodeclVisitor<_Ret>"
+    print "{"
+    print "public:"
+    print "     ProxyVisitor() : _proxy(NULL) { }"
+    print "     typedef typename NodeclVisitor<_Ret>::Ret Ret;"
+    for ((namespaces, class_name), children_name, tree_kind, nodecl_class) in classes_and_children:
+         qualified_name = get_qualified_name(namespaces, class_name)
+         print "     virtual Ret visit(const Nodecl::%s & n)" % (qualified_name)
+         print "     {"
+         print "        return _proxy->visit(n);"
+         print "     }"
+    print "protected:"
+    print "   BaseNodeclVisitor<_Ret> *_proxy;"
+    print "};"
 
     print "template <typename _Ret>"
     print "typename BaseNodeclVisitor<_Ret>::Ret BaseNodeclVisitor<_Ret>::walk(const NodeclBase& n)"

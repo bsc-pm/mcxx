@@ -1,103 +1,11 @@
 #include "tl-lowering-visitor.hpp"
+#include "tl-outline-info.hpp"
 #include "tl-source.hpp"
 #include "tl-counters.hpp"
 
 namespace TL { namespace Nanox {
 
-    static Type handle_type_for_shared_entity(Type t, ObjectList<Symbol>& /* additional_symbols */)
-    {
-        if (t.is_reference())
-        {
-            t = t.references_to();
-        }
-
-        // FIXME - runtime sized types
-        if (t.is_array())
-        {
-            t = t.array_element().get_pointer_to();
-        }
-        else
-        {
-            t = t.get_pointer_to();
-        }
-
-        return t;
-    }
-
-    static std::string handle_name_for_entity(const std::string& str)
-    {
-        if (str == "this")
-        {
-            return "this_";
-        }
-        else
-        {
-            return str;
-        }
-    }
-
-    static Type handle_type_for_captured_entity(Type t, ObjectList<Symbol>& /* additional_symbols */)
-    {
-        return t;
-    }
-
-    class StructureGenerator : public Nodecl::ExhaustiveVisitor<void>
-    {
-        private:
-            TL::Source _src;
-        public:
-            StructureGenerator(Source &src)
-                : _src(src)
-            {
-            }
-
-            void visit(const Nodecl::Parallel::Shared& shared)
-            {
-                Nodecl::List l = shared.get_shared_symbols().as<Nodecl::List>();
-                for (Nodecl::List::iterator it = l.begin();
-                        it != l.end();
-                        it++)
-                {
-                    Nodecl::Symbol node = it->as<Nodecl::Symbol>();
-                    TL::Symbol sym = node.get_symbol();
-
-                    // Not used
-                    ObjectList<TL::Symbol> ancillary_symbols;
-                    TL::Type t = handle_type_for_shared_entity(sym.get_type(), ancillary_symbols);
-
-                    _src << t.get_declaration(sym.get_scope(), 
-                            handle_name_for_entity(sym.get_name())) << ";"
-                        ;
-                }
-            }
-
-            void visit(const Nodecl::Parallel::Capture& shared)
-            {
-                Nodecl::List l = shared.get_captured_symbols().as<Nodecl::List>();
-                for (Nodecl::List::iterator it = l.begin();
-                        it != l.end();
-                        it++)
-                {
-                    Nodecl::Symbol node = it->as<Nodecl::Symbol>();
-                    TL::Symbol sym = node.get_symbol();
-
-                    ObjectList<TL::Symbol> ancillary_symbols;
-                    TL::Type t = handle_type_for_captured_entity(sym.get_type(), ancillary_symbols);
-
-                    _src << t.get_declaration(sym.get_scope(), 
-                            handle_name_for_entity(sym.get_name())) << ";"
-                        ;
-                }
-            }
-
-            void visit(const Nodecl::Parallel::Reduction& shared)
-            {
-                internal_error("Not yet implemented", 0);
-            }
-    };
-
-    std::string LoweringVisitor::declare_argument_structure(
-            const Nodecl::NodeclBase &environment)
+    std::string LoweringVisitor::declare_argument_structure(OutlineInfo& outline_info, Nodecl::NodeclBase construct)
     {
         // Come up with a unique name
         Counter& counter = CounterManager::get_counter("nanos++-struct");
@@ -112,23 +20,35 @@ namespace TL { namespace Nanox {
         Source src;
         src << "typedef struct {";
 
-        StructureGenerator generator(src);
-        generator.walk(environment);
+        TL::ObjectList<OutlineDataItem> data_items = outline_info.get_data_items();
+        for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
+                it != data_items.end();
+                it++)
+        {
+            src << it->get_field_type().get_declaration(it->get_symbol().get_scope(), it->get_field_name()) << ";";
+        }
 
         src << "} " << structure_name << ";"
             ;
 
-        // We don't care about the result
         SourceLanguage old = Source::source_language;
-        Source::source_language = SourceLanguage::C;
+        FORTRAN_LANGUAGE()
+        {
+            Source::source_language = SourceLanguage::C;
+        }
 
-        src.parse_declaration(environment);
+        // FIXME - Should we define this at top level?
+        src.parse_declaration(construct);
 
-        Source::source_language = old;
+        FORTRAN_LANGUAGE()
+        {
+            Source::source_language = old;
+        }
 
         return structure_name;
     }
 
+#if 0
     class StructureFiller : public Nodecl::ExhaustiveVisitor<void>
     {
         private:
@@ -196,10 +116,6 @@ namespace TL { namespace Nanox {
                 internal_error("Not yet implemented", 0);
             }
     };
-
-    void fill_outline_arguments(Source &src,
-            std::string &variable_expr)
-    {
-    }
+#endif
 
 } }

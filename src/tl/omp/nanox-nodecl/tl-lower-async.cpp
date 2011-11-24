@@ -12,6 +12,8 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
     Nodecl::NodeclBase environment = construct.get_environment();
     Nodecl::NodeclBase statements = construct.get_statements();
 
+    OutlineInfo outline_info(environment);
+
     Symbol function_symbol = Nodecl::Utils::get_enclosing_function(construct);
 
     Source spawn_code;
@@ -69,7 +71,7 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         ;
     
     // Declare argument structure
-    std::string structure_name = declare_argument_structure(environment);
+    std::string structure_name = declare_argument_structure(outline_info, construct);
     struct_arg_type_name << structure_name;
 
     // FIXME - No devices yet, let's mimick the structure of one SMP
@@ -86,7 +88,7 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
     }
 
     // Outline
-    emit_outline(environment, statements, outline_name, structure_name);
+    emit_outline(outline_info, statements, outline_name, structure_name);
 
     // Fill argument structure
     bool immediate_is_alloca = false;

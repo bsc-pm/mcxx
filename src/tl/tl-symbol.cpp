@@ -204,6 +204,11 @@ namespace TL
         return this->_symbol->entity_specs.is_injected_class_name;
     }
 
+    bool Symbol::is_fortran_main_program() const
+    {
+        return (this->_symbol->kind == SK_PROGRAM);
+    }
+
     bool Symbol::is_typedef() const
     {
         return (this->_symbol->kind == SK_TYPEDEF);
