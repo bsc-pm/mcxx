@@ -209,6 +209,16 @@ namespace TL
         return (this->_symbol->kind == SK_PROGRAM);
     }
 
+    bool Symbol::is_fortran_module() const
+    {
+        return (this->_symbol->kind == SK_MODULE);
+    }
+
+    bool Symbol::is_fortran_blockdata() const
+    {
+        return (this->_symbol->kind == SK_BLOCKDATA);
+    }
+
     bool Symbol::is_typedef() const
     {
         return (this->_symbol->kind == SK_TYPEDEF);

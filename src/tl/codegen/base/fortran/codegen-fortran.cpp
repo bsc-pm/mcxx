@@ -1,5 +1,7 @@
 #include "codegen-fortran.hpp"
 #include "fortran03-buildscope.h"
+#include "fortran03-typeutils.h"
+#include "cxx-cexpr.h"
 
 namespace Codegen
 {
@@ -156,90 +158,165 @@ namespace Codegen
 
     void FortranBase::visit(const Nodecl::Context& node)
     {
+        walk(node.get_in_context());
     }
 
     void FortranBase::visit(const Nodecl::CompoundStatement& node)
     {
+        // Fortran 2008 blocks
+        walk(node.get_statements());
     }
 
     void FortranBase::visit(const Nodecl::ExpressionStatement& node)
     {
+        indent();
+        walk(node.get_nest());
     }
 
     void FortranBase::visit(const Nodecl::ObjectInit& node)
     {
+        TL::Symbol entry = node.get_symbol();
+
+        if (entry.is_fortran_module())
+        {
+            ERROR_CONDITION(state.current_module.is_valid(), "We are already printing a module!\n", 0);
+
+            // This is needed when a module (which had no functions) is
+            // extended with new functions, the tree is scanned first for
+            // functions, but this node is left untouched, so just do
+            // nothing if found after the whole module was already printed
+            if (get_codegen_status(entry) == CODEGEN_STATUS_DEFINED)
+                return;
+
+            set_codegen_status(entry, CODEGEN_STATUS_DEFINED);
+
+
+            TL::Symbol old_module = state.current_module;
+
+            state.current_module = entry;
+            codegen_module_header(entry);
+            codegen_module_footer(entry);
+            state.current_module = old_module;
+        }
+        else if (entry.is_fortran_blockdata())
+        {
+            set_codegen_status(entry, CODEGEN_STATUS_DEFINED);
+
+            TL::Symbol old_sym = state.current_symbol;
+
+            state.current_symbol = entry;
+            codegen_blockdata_header(entry);
+            codegen_blockdata_footer(entry);
+            state.current_symbol = old_sym;
+        }
+        else
+        {
+            internal_error("Unexpected symbol %s\n", symbol_kind_name(entry.get_internal_symbol()));
+        }
     }
 
-    void FortranBase::visit(const Nodecl::Plus& node)
-    {
-    }
+#define OPERATOR_TABLE \
+    PREFIX_UNARY_EXPRESSION(Plus, " +") \
+    PREFIX_UNARY_EXPRESSION(Neg, " -") \
+    PREFIX_UNARY_EXPRESSION(LogicalNot, " .NOT.") \
+    BINARY_EXPRESSION(Mul, " * ") \
+    BINARY_EXPRESSION(Div, " / ") \
+    BINARY_EXPRESSION(Add, " + ") \
+    BINARY_EXPRESSION(Minus, " - ") \
+    BINARY_EXPRESSION(LowerThan, " < ") \
+    BINARY_EXPRESSION(LowerOrEqualThan, " <= ") \
+    BINARY_EXPRESSION(GreaterThan, " > ") \
+    BINARY_EXPRESSION(GreaterOrEqualThan, " >= ") \
+    BINARY_EXPRESSION(LogicalAnd, " .AND. ") \
+    BINARY_EXPRESSION(LogicalOr, " .OR. ") \
+    BINARY_EXPRESSION(Power, " ** ") \
+    BINARY_EXPRESSION(Concat, " // ") \
 
-    void FortranBase::visit(const Nodecl::Neg& node)
-    {
+#define PREFIX_UNARY_EXPRESSION(_name, _operand) \
+    void FortranBase::visit(const Nodecl::_name &node) \
+    { \
+        Nodecl::NodeclBase rhs = node.get_rhs(); \
+        file << _operand; \
+        walk(rhs); \
     }
-
-    void FortranBase::visit(const Nodecl::LogicalNot& node)
-    {
+#define BINARY_EXPRESSION(_name, _operand) \
+    void FortranBase::visit(const Nodecl::_name &node) \
+    { \
+        Nodecl::NodeclBase lhs = node.get_lhs(); \
+        Nodecl::NodeclBase rhs = node.get_rhs(); \
+        walk(lhs); \
+        file << _operand; \
+        walk(rhs); \
     }
+OPERATOR_TABLE
+#undef PREFIX_UNARY_EXPRESSION
+#undef BINARY_EXPRESSION
 
-    void FortranBase::visit(const Nodecl::Mul& node)
-    {
-    }
-
-    void FortranBase::visit(const Nodecl::Div& node)
-    {
-    }
-
-    void FortranBase::visit(const Nodecl::Add& node)
-    {
-    }
-
-    void FortranBase::visit(const Nodecl::Minus& node)
-    {
-    }
-
-    void FortranBase::visit(const Nodecl::LowerThan& node)
-    {
-    }
-
-    void FortranBase::visit(const Nodecl::LowerOrEqualThan& node)
-    {
-    }
-
-    void FortranBase::visit(const Nodecl::GreaterThan& node)
-    {
-    }
-
-    void FortranBase::visit(const Nodecl::GreaterOrEqualThan& node)
-    {
-    }
-
-    void FortranBase::visit(const Nodecl::LogicalAnd& node)
-    {
-    }
-
-    void FortranBase::visit(const Nodecl::LogicalOr& node)
-    {
-    }
-
-    void FortranBase::visit(const Nodecl::Power& node)
-    {
-    }
-
-    void FortranBase::visit(const Nodecl::Concat& node)
-    {
-    }
-
-    void FortranBase::visit(const Nodecl::ClassMemberAccess& node)
-    {
+    void FortranBase::visit(const Nodecl::ClassMemberAccess &node) 
+    { 
+        Nodecl::NodeclBase lhs = node.get_lhs(); 
+        Nodecl::NodeclBase member = node.get_member(); 
+        walk(lhs); 
+        file << " % "; 
+        walk(member);
     }
 
     void FortranBase::visit(const Nodecl::Range& node)
     {
+        Nodecl::NodeclBase lower = node.get_lower();
+        Nodecl::NodeclBase upper = node.get_upper();
+        Nodecl::NodeclBase stride = node.get_stride();
+
+        if (!lower.is_null())
+            walk(lower);
+
+        file << ":";
+
+        if (!upper.is_null())
+            walk(upper);
+
+        // If the stride is not 1, do not print
+        if (!(stride.is_constant() 
+                    && const_value_is_integer(nodecl_get_constant(stride.get_internal_nodecl()))
+                    && const_value_is_nonzero(
+                        const_value_eq(nodecl_get_constant(stride.get_internal_nodecl()),
+                            const_value_get_one(/* num_bytes */ fortran_get_default_integer_type_kind(), /* signed */ 1)))))
+        {
+            file << ":";
+            walk(stride);
+        }
     }
 
     void FortranBase::visit(const Nodecl::StringLiteral& node)
     {
+        const_value_t* v = nodecl_get_constant(node.get_internal_nodecl());
+
+        int length = 0;
+        int *bytes = NULL;
+        const_value_string_unpack(v, &bytes, &length);
+
+        file << "\"";
+
+        int i;
+
+        for (i = 0; i < length; i++)
+        {
+            int current = bytes[i];
+
+            if (current == '\"')
+            {
+                file << "\"\"";
+            }
+            else
+            {
+                file << (char)current;
+            }
+        }
+
+        file << "\"";
+
+        free(bytes);
+
     }
 
     void FortranBase::visit(const Nodecl::Text& node)

@@ -165,6 +165,14 @@ namespace TL
             //! States that this symbol is the PROGRAM program unit
             /*! \note This only applies to Fortran */
             bool is_fortran_main_program() const;
+
+            //! States that this symbol is a MODULE program unit
+            /*! \note This only applies to Fortran */
+            bool is_fortran_module() const;
+            
+            //! States that this symbol is a BLOCK DATA program unit
+            /*! \note This only applies to Fortran */
+            bool is_fortran_blockdata() const;
             
             //! States whether this symbol is a parameter of a function
             bool is_parameter() const;
