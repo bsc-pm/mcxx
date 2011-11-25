@@ -1887,32 +1887,32 @@ static void codegen_reference(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 
 static void codegen_assignment(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
-        nodecl_t lhs = nodecl_get_child(node, 0); 
-        nodecl_t rhs = nodecl_get_child(node, 1); 
+    nodecl_t lhs = nodecl_get_child(node, 0); 
+    nodecl_t rhs = nodecl_get_child(node, 1); 
 
-        scope_entry_t* symbol = nodecl_get_symbol(lhs);
-        ERROR_CONDITION(symbol == NULL, "This should not be NULL", 0);
+    scope_entry_t* symbol = nodecl_get_symbol(lhs);
+    ERROR_CONDITION(symbol == NULL, "This should not be NULL", 0);
 
-        codegen_walk(visitor, lhs);
+    codegen_walk(visitor, lhs);
 
-        const char* operator = " = ";
+    const char* operator = " = ";
 
-        // Is this a pointer assignment?
-        char is_ptr_assignment = 0;
-        if (is_pointer_type(no_ref(symbol->type_information))
-                && (nodecl_get_kind(lhs) != NODECL_DERREFERENCE))
-        {
-            is_ptr_assignment = 1;
-        }
+    // Is this a pointer assignment?
+    char is_ptr_assignment = 0;
+    if (is_pointer_type(no_ref(symbol->type_information))
+            && (nodecl_get_kind(lhs) != NODECL_DERREFERENCE))
+    {
+        is_ptr_assignment = 1;
+    }
 
-        if (is_ptr_assignment)
-        {
-            operator = " => ";
-        }
+    if (is_ptr_assignment)
+    {
+        operator = " => ";
+    }
 
-        fprintf(visitor->file, "%s", operator);
+    fprintf(visitor->file, "%s", operator);
 
-        codegen_walk(visitor, rhs);
+    codegen_walk(visitor, rhs);
 }
 
 static void codegen_symbol(nodecl_codegen_visitor_t* visitor, nodecl_t node)

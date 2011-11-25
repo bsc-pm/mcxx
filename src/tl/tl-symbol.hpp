@@ -143,6 +143,11 @@ namespace TL
 
             //! States whether this symbol is a variable
             bool is_variable() const;
+            //! States whether this symbol is the result variable
+            /*! \note Only meaningful in Fortran */
+            bool is_result_variable() const;
+            //! States whether this symbol is a label
+            bool is_label() const;
             //! States whether this symbol is a typedef
             bool is_typedef() const;
             //! States whether this symbol is a class
@@ -155,6 +160,9 @@ namespace TL
             bool is_template() const;
             //! States whether this symbol is a function
             bool is_function() const;
+            //! States whether this symbol is a statement function statmeent symbol
+            /*! \note This is only meaningful in Fortran */
+            bool is_statement_function_statement() const;
             //! States whether this symbol is a template function
             bool is_template_function_name() const;
             //! States whether this symbol is an anonymous union
@@ -169,6 +177,14 @@ namespace TL
             //! States that this symbol is a MODULE program unit
             /*! \note This only applies to Fortran */
             bool is_fortran_module() const;
+            
+            //! States that this symbol is a component of a MODULE program unit
+            /*! \note This only applies to Fortran */
+            bool is_in_module() const;
+
+            //! Returns the MODULE symbol where this symbol belongs
+            /*! \note This only makes sense if is_in_module returned true */
+            Symbol in_module() const;
             
             //! States that this symbol is a BLOCK DATA program unit
             /*! \note This only applies to Fortran */
@@ -200,6 +216,10 @@ namespace TL
 
             //! Returns the access specifier of a member or base class
             access_specifier_t get_access_specifier();
+
+            //! Returns the INTENT specifier for a dummy argument
+            /*! \note Fortran only */
+            intent_kind_t get_intent_kind() const;
 
             //! States whether this symbol has been initialized
             bool has_initialization() const;
@@ -349,7 +369,7 @@ namespace TL
 
               This function is only meaningful in Fortran. In C/C++ it always returns false
               */
-            bool is_common() const;
+            bool is_fortran_common() const;
 
             //! This symbol is ALLOCATABLE
             /*! 
@@ -366,6 +386,20 @@ namespace TL
               This function is only meaningful in Fortran. In C/C++ it always returns false
               */
             bool is_in_common() const;
+
+            //! Returns the COMMON symbol in which this entity belongs
+            /*! Only meaningful if is_in_common returned true */
+            Symbol in_common() const;
+
+            //! States if this entity is a CRAY pointee
+            bool is_cray_pointee() const;
+
+            //! Returns the CRAY pointer of a CRAY pointee
+            Symbol get_cray_pointer() const;
+
+            //! This symbol is a NAMELIST
+            /*! \note Only meaningful in Fortran */
+            bool is_fortran_namelist() const;
 
             //! This symbol is in a namelist
             /*! 

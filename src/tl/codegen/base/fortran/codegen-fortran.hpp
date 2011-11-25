@@ -110,10 +110,15 @@ namespace Codegen
                 TL::Symbol current_symbol;
                 TL::Symbol current_module;
 
+                bool in_forall;
+                bool in_interface;
+
                 State()
                     : _indent_level(0),
                     current_symbol(NULL),
-                    current_module(NULL)
+                    current_module(NULL),
+                    in_forall(false),
+                    in_interface(false)
                 {
                 }
             } state;
@@ -131,17 +136,52 @@ namespace Codegen
 
             void codegen_procedure(TL::Symbol entry, Nodecl::List statement_seq, Nodecl::List internal_subprograms);
 
+            void codegen_procedure_declaration_header(TL::Symbol entry);
+            void codegen_procedure_declaration_footer(TL::Symbol entry);
+
             void codegen_module_header(TL::Symbol);
             void codegen_module_footer(TL::Symbol);
 
             void codegen_blockdata_header(TL::Symbol);
             void codegen_blockdata_footer(TL::Symbol);
 
+            void codegen_comma_separated_list(Nodecl::NodeclBase);
+            void codegen_reverse_comma_separated_list(Nodecl::NodeclBase);
+
             void declare_symbol(TL::Symbol);
             void declare_everything_needed(Nodecl::NodeclBase statement_seq);
 
             void declare_use_statements(Nodecl::NodeclBase statement_seq);
             void emit_use_statement_if_symbol_comes_from_module(TL::Symbol entry);
+
+            void codegen_write_or_read_statement(
+                    const std::string& keyword,
+                    Nodecl::NodeclBase io_spec_list,
+                    Nodecl::NodeclBase io_item_list);
+
+            void codegen_open_close_statement(const std::string& keyword, 
+                    Nodecl::NodeclBase io_spec);
+
+            void codegen_allocation_statement(const std::string& keyword,
+                    Nodecl::NodeclBase allocation_items,
+                    Nodecl::NodeclBase io_spec);
+
+            void codegen_comparison(
+                    Nodecl::NodeclBase lhs, 
+                    Nodecl::NodeclBase rhs, 
+                    const std::string& operator_arith, 
+                    const std::string& operator_bool);
+
+            void codegen_type(TL::Type t, 
+                    std::string& type_specifier, 
+                    std::string& array_specifier,
+                    bool is_dummy);
+
+            void codegen_use_statement(TL::Symbol entry);
+
+            void declare_symbols_from_modules_rec(Nodecl::NodeclBase node);
+
+            void declare_symbols_rec(Nodecl::NodeclBase node);
 
             virtual Ret unhandled_node(const Nodecl::NodeclBase & n);
     };

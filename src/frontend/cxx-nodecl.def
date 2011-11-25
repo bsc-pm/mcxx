@@ -157,7 +157,7 @@ initializer-item: NODECL_FIELD_DESIGNATOR([field]name, [next]initializer-item)
           | expression
           | fortran-implied-do
 
-fortran-implied-do: NODECL_FORTRAN_IMPLIED_DO([symbol]name, [range]expression, [items]initializer-item-seq)
+fortran-implied-do: NODECL_FORTRAN_IMPLIED_DO([name]name, [range]expression, [items]initializer-item-seq)
 
 argument : named-pair
          | expression
