@@ -56,8 +56,11 @@ LIBUTILS_EXTERN const char* has_prefix(const char* prefix, const char* str);
 // Returns 1 if the string contains a prefix with one or more numbers. Otherwise, returns 0.
 LIBUTILS_EXTERN unsigned char contain_prefix_number(const char*);
 
-//Merge sort algorithm 
+// Merge sort algorithm 
 LIBUTILS_EXTERN void  merge_sort_list_str(const char** list, int size,unsigned char ascending_order);
+
+// Like asprintf but returning a uniquestr
+LIBUTILS_EXTERN int uniquestr_sprintf(const char** out_str, const char* format, ...);
 
 // Routine to ease adding pointers to a pointer list
 //   list is a T**

@@ -18,6 +18,7 @@ namespace Codegen
 
             Ret visit(const Nodecl::Add &);
             Ret visit(const Nodecl::AddAssignment &);
+            Ret visit(const Nodecl::Alignof &);
             Ret visit(const Nodecl::ArraySubscript &);
             Ret visit(const Nodecl::Assignment &);
             Ret visit(const Nodecl::BitwiseAnd &);

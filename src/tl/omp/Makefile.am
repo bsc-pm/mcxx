@@ -24,8 +24,7 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-# SUBDIRS = core @TL_OMP_EXTENSIONS@
-SUBDIRS = core base
+SUBDIRS = core base @TL_OMP_EXTENSIONS@
 
 END=
 
@@ -35,6 +34,7 @@ DIST_SUBDIRS=base \
              nanos-common \
              nanos4 \
              nanox \
+             nanox-nodecl \
              ss2omp \
              profile \
              $(END)

@@ -2,6 +2,7 @@
 #include "tl-nodecl-calc.hpp"
 #include "tl-predicateutils.hpp"
 #include "cxx-utils.h"
+#include <algorithm>
 
 namespace Nodecl
 {
@@ -319,7 +320,7 @@ namespace Nodecl
         }
         
         return simplified_expr;
-    }    
+    }
     
     /*!
      * This method must be called in pre-order form the bottom of a tree expression
@@ -552,6 +553,72 @@ namespace Nodecl
         }
         
         return result;
+    }
+
+    Nodecl::List Utils::get_all_list_from_list_node(Nodecl::List n)
+    {
+        while (n.get_parent().is<Nodecl::List>())
+        {
+            n = n.get_parent().as<Nodecl::List>();
+        }
+
+        return n;
+    }
+
+    void Utils::remove_from_enclosing_list(Nodecl::NodeclBase n)
+    {
+        Nodecl::NodeclBase parent = n.get_parent();
+
+        if (!parent.is<Nodecl::List>())
+            return;
+
+        Nodecl::List l = Utils::get_all_list_from_list_node(parent.as<Nodecl::List>());
+
+        Nodecl::List::iterator it = std::find(l.begin(), l.end(), n);
+
+        if (it != l.end())
+        {
+            l.erase(it);
+        }
+    }
+
+    TL::Symbol Utils::get_enclosing_function(Nodecl::NodeclBase n)
+    {
+        TL::Symbol result;
+        TL::Scope sc = n.retrieve_context();
+
+        decl_context_t decl_context = sc.get_decl_context();
+
+        if (decl_context.block_scope != NULL)
+        {
+            result = decl_context.block_scope->related_entry;
+        }
+        else if (decl_context.function_scope != NULL)
+        {
+            result = decl_context.function_scope->related_entry;
+        }
+
+        return result;
+    }
+
+    void Utils::append_to_top_level_nodecl(Nodecl::NodeclBase n)
+    {
+        if (n.is<Nodecl::List>())
+        {
+            Nodecl::List l = n.as<Nodecl::List>();
+            for (Nodecl::List::iterator it = l.begin();
+                    it != l.end();
+                    it++)
+            {
+                append_to_top_level_nodecl(*it);
+            }
+        }
+        else
+        {
+            Nodecl::TopLevel top_level = Nodecl::NodeclBase(CURRENT_COMPILED_FILE->nodecl).as<Nodecl::TopLevel>();
+            Nodecl::List list = top_level.get_top_level().as<Nodecl::List>();
+            list.push_back(n);
+        }
     }
 }
 

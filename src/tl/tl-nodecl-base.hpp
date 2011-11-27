@@ -48,6 +48,10 @@ namespace Nodecl {
                 return nodecl_copy(this->_n);
             }
             bool is_constant() const { return ::nodecl_is_constant(_n); }
+            Nodecl::NodeclBase get_parent() const
+            {
+                return nodecl_get_parent(this->_n);
+            }
 
             const_value_t* get_constant() const 
             {
@@ -79,7 +83,11 @@ namespace Nodecl {
             NodeclBase(TL::RefPtr<TL::Object>);
 
             // Basic replacement
-            void replace(Nodecl::NodeclBase new_node);
+            // Do not use this one except if really needed. Use NodeclBase::integrate
+            void replace(Nodecl::NodeclBase new_node) const;
+
+            // Works like replace but handles lists. 
+            void integrate(Nodecl::NodeclBase new_node) const;
     };
 
     // This class mimicks a std::list<T> but everything works by value
@@ -91,11 +99,11 @@ namespace Nodecl {
 
         public:
             typedef Nodecl::NodeclBase value_type;
-            typedef Nodecl::NodeclBase reference_type;
-            typedef Nodecl::NodeclBase const_reference_type;
 
-            struct iterator
+            struct iterator : std::iterator<std::bidirectional_iterator_tag, Nodecl::NodeclBase>
             {
+                public:
+
                 private:
                     nodecl_t _top;
                     nodecl_t _current;
@@ -295,6 +303,7 @@ namespace Nodecl {
             {
                 return iterator(this->get_internal_nodecl(), iterator::Begin());
             }
+
             const_iterator begin() const
             {
                 return const_iterator(this->get_internal_nodecl(), const_iterator::Begin());

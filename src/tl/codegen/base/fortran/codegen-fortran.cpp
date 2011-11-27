@@ -1,5 +1,2225 @@
 #include "codegen-fortran.hpp"
+#include "fortran03-buildscope.h"
+#include "fortran03-scope.h"
+#include "fortran03-typeutils.h"
+#include "cxx-cexpr.h"
 
 namespace Codegen
 {
+    std::string FortranBase::codegen(const Nodecl::NodeclBase &n) 
+    {
+        if (n.is_null())
+            return "";
+
+        // Keep the state and reset it
+        State old_state = state;
+        state = State();
+
+        std::string old_file = file.str();
+
+        file.clear();
+        file.str("");
+
+        walk(n);
+
+        std::string result = file.str();
+
+        // Restore previous state
+        state = old_state;
+        file.str(old_file);
+        file.seekp(0, std::ios_base::end);
+
+        return result;
+    }
+
+    void FortranBase::visit(const Nodecl::TopLevel& node)
+    {
+        Nodecl::List list = node.get_top_level().as<Nodecl::List>();
+
+#if 0
+        nodecl_codegen_pre_visitor_t pre_visitor;
+        memset(&pre_visitor, 0, sizeof(pre_visitor));
+
+        nodecl_init_walker((nodecl_external_visitor_t*)&pre_visitor, NULL);
+
+        NODECL_VISITOR(&pre_visitor)->visit_function_code = pre_visit_function_code;
+        NODECL_VISITOR(&pre_visitor)->visit_object_init = pre_visit_object_init;
+        nodecl_walk((nodecl_external_visitor_t*)&pre_visitor, list);
+
+        int i;
+        for (i = 0; i < pre_visitor.num_modules; i++)
+        {
+            scope_entry_t* old_module = visitor->current_module;
+
+            scope_entry_t* current_module = pre_visitor.modules[i]->module;
+
+            current_module->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
+
+            visitor->current_module = current_module;
+
+            codegen_module_header(visitor, current_module);
+
+            int j;
+            for (j = 0; j < pre_visitor.modules[i]->num_nodes; j++)
+            {
+                nodecl_t node = pre_visitor.modules[i]->nodes[j];
+
+                walk(node);
+            }
+
+            codegen_module_footer(visitor, current_module);
+
+            visitor->current_module = old_module;
+        }
+#endif
+
+        walk(list);
+    }
+
+    // FIXME - Replace with a C++ version
+    static const char* get_generic_specifier_str(const char *c)
+    {
+        const char* const op_prefix = ".operator.";
+        if (strlen(c) > strlen(op_prefix))
+        {
+            if (strncmp(c, op_prefix, strlen(op_prefix)) == 0)
+            {
+                c += strlen(op_prefix);
+
+                // .operator.=
+                if (*c == '='
+                        && *(c + 1) == '\0')
+                {
+                    return uniquestr("ASSIGNMENT(=)");
+                }
+                // .operator.XXX
+                else
+                {
+                    char t[256];
+                    snprintf(t, 255, "OPERATOR(%s)", c);
+                    t[255] = '\0';
+
+                    return uniquestr(t);
+                }
+            }
+        }
+        return c;
+    }
+    
+    void FortranBase::codegen_procedure(TL::Symbol entry, Nodecl::List statement_seq, Nodecl::List internal_subprograms)
+    {
+        inc_indent();
+
+        declare_use_statements(statement_seq);
+
+        // Check every related entries lest they required stuff coming from other modules
+        TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
+
+        for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
+                it != related_symbols.end();
+                it++)
+        {
+            emit_use_statement_if_symbol_comes_from_module(*it);
+        }
+
+        indent();
+        file << "IMPLICIT NONE\n";
+
+        if (entry.is_function())
+        {
+            for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
+                    it != related_symbols.end();
+                    it++)
+            {
+                declare_symbol(*it);
+            }
+        }
+
+        declare_everything_needed(statement_seq);
+
+        // Could we improve the name of this function?
+        TL::Symbol data_symbol = ::get_data_symbol_info(entry.get_scope().get_decl_context());
+        if (data_symbol.is_valid())
+        {
+            walk(data_symbol.get_initialization());
+        }
+        
+        // Could we improve the name of this function?
+        TL::Symbol equivalence_symbol = get_equivalence_symbol_info(entry.get_scope().get_decl_context());
+        if (equivalence_symbol.is_valid())
+        {
+            walk(equivalence_symbol.get_initialization());
+        }
+
+        walk(statement_seq);
+        dec_indent();
+
+        if (!internal_subprograms.is_null())
+        {
+            indent();
+            file << "CONTAINS\n";
+
+            inc_indent();
+            walk(internal_subprograms);
+            dec_indent();
+        }
+    }
+
+    void FortranBase::visit(const Nodecl::FunctionCode& node)
+    {
+        TL::Symbol entry = node.get_symbol();
+        Nodecl::Context context = node.get_statements().as<Nodecl::Context>();
+        Nodecl::List statement_seq = context.get_in_context().as<Nodecl::List>();
+        Nodecl::List internal_subprograms = node.get_internal_functions().as<Nodecl::List>();
+
+        // Module procedures are only printed if we are in the current module
+        if (state.current_module != TL::Symbol(entry.get_internal_symbol()->entity_specs.in_module))
+            return;
+
+        TL::Symbol old_sym = state.current_symbol;
+        state.current_symbol = entry;
+
+        if (get_codegen_status(entry) == CODEGEN_STATUS_DEFINED)
+            return;
+        set_codegen_status(entry, CODEGEN_STATUS_DEFINED);
+
+        if (entry.is_fortran_main_program())
+        {
+            // // If it is __MAIN__ do not print the name
+            std::string program_name = entry.get_name();
+
+            if (program_name[0] == '_')
+                program_name = "MAIN__";
+
+            file << "PROGRAM " << program_name;
+            inc_indent();
+
+            codegen_procedure(entry, statement_seq, internal_subprograms);
+
+            dec_indent();
+            file << "END PROGRAM " << program_name;
+        }
+        else if (entry.is_function())
+        {
+            // codegen_procedure_declaration_header(visitor, entry);
+            // codegen_procedure(visitor, entry, statement_seq, internal_subprograms);
+            // codegen_procedure_declaration_footer(visitor, entry);
+        }
+        else
+        {
+            internal_error("Unexpected symbol kind %s", symbol_kind_name(entry.get_internal_symbol()));
+        }
+
+        state.current_symbol = old_sym;
+    }
+
+    void FortranBase::visit(const Nodecl::Context& node)
+    {
+        walk(node.get_in_context());
+    }
+
+    void FortranBase::visit(const Nodecl::CompoundStatement& node)
+    {
+        // Fortran 2008 blocks
+        walk(node.get_statements());
+    }
+
+    void FortranBase::visit(const Nodecl::ExpressionStatement& node)
+    {
+        indent();
+        walk(node.get_nest());
+    }
+
+    void FortranBase::visit(const Nodecl::ObjectInit& node)
+    {
+        TL::Symbol entry = node.get_symbol();
+
+        if (entry.is_fortran_module())
+        {
+            ERROR_CONDITION(state.current_module.is_valid(), "We are already printing a module!\n", 0);
+
+            // This is needed when a module (which had no functions) is
+            // extended with new functions, the tree is scanned first for
+            // functions, but this node is left untouched, so just do
+            // nothing if found after the whole module was already printed
+            if (get_codegen_status(entry) == CODEGEN_STATUS_DEFINED)
+                return;
+
+            set_codegen_status(entry, CODEGEN_STATUS_DEFINED);
+
+
+            TL::Symbol old_module = state.current_module;
+
+            state.current_module = entry;
+            codegen_module_header(entry);
+            codegen_module_footer(entry);
+            state.current_module = old_module;
+        }
+        else if (entry.is_fortran_blockdata())
+        {
+            set_codegen_status(entry, CODEGEN_STATUS_DEFINED);
+
+            TL::Symbol old_sym = state.current_symbol;
+
+            state.current_symbol = entry;
+            codegen_blockdata_header(entry);
+            codegen_blockdata_footer(entry);
+            state.current_symbol = old_sym;
+        }
+        else
+        {
+            internal_error("Unexpected symbol %s\n", symbol_kind_name(entry.get_internal_symbol()));
+        }
+    }
+
+#define OPERATOR_TABLE \
+    PREFIX_UNARY_EXPRESSION(Plus, " +") \
+    PREFIX_UNARY_EXPRESSION(Neg, " -") \
+    PREFIX_UNARY_EXPRESSION(LogicalNot, " .NOT.") \
+    BINARY_EXPRESSION(Mul, " * ") \
+    BINARY_EXPRESSION(Div, " / ") \
+    BINARY_EXPRESSION(Add, " + ") \
+    BINARY_EXPRESSION(Minus, " - ") \
+    BINARY_EXPRESSION(LowerThan, " < ") \
+    BINARY_EXPRESSION(LowerOrEqualThan, " <= ") \
+    BINARY_EXPRESSION(GreaterThan, " > ") \
+    BINARY_EXPRESSION(GreaterOrEqualThan, " >= ") \
+    BINARY_EXPRESSION(LogicalAnd, " .AND. ") \
+    BINARY_EXPRESSION(LogicalOr, " .OR. ") \
+    BINARY_EXPRESSION(Power, " ** ") \
+    BINARY_EXPRESSION(Concat, " // ") \
+
+#define PREFIX_UNARY_EXPRESSION(_name, _operand) \
+    void FortranBase::visit(const Nodecl::_name &node) \
+    { \
+        Nodecl::NodeclBase rhs = node.get_rhs(); \
+        file << _operand; \
+        walk(rhs); \
+    }
+#define BINARY_EXPRESSION(_name, _operand) \
+    void FortranBase::visit(const Nodecl::_name &node) \
+    { \
+        Nodecl::NodeclBase lhs = node.get_lhs(); \
+        Nodecl::NodeclBase rhs = node.get_rhs(); \
+        walk(lhs); \
+        file << _operand; \
+        walk(rhs); \
+    }
+OPERATOR_TABLE
+#undef PREFIX_UNARY_EXPRESSION
+#undef BINARY_EXPRESSION
+
+    void FortranBase::visit(const Nodecl::ClassMemberAccess &node) 
+    { 
+        Nodecl::NodeclBase lhs = node.get_lhs(); 
+        Nodecl::NodeclBase member = node.get_member(); 
+        walk(lhs); 
+        file << " % "; 
+        walk(member);
+    }
+
+    void FortranBase::visit(const Nodecl::Range& node)
+    {
+        Nodecl::NodeclBase lower = node.get_lower();
+        Nodecl::NodeclBase upper = node.get_upper();
+        Nodecl::NodeclBase stride = node.get_stride();
+
+        if (!lower.is_null())
+            walk(lower);
+
+        file << ":";
+
+        if (!upper.is_null())
+            walk(upper);
+
+        // If the stride is not 1, do not print
+        if (!(stride.is_constant() 
+                    && const_value_is_integer(nodecl_get_constant(stride.get_internal_nodecl()))
+                    && const_value_is_nonzero(
+                        const_value_eq(nodecl_get_constant(stride.get_internal_nodecl()),
+                            const_value_get_one(/* num_bytes */ fortran_get_default_integer_type_kind(), /* signed */ 1)))))
+        {
+            file << ":";
+            walk(stride);
+        }
+    }
+
+    void FortranBase::visit(const Nodecl::StringLiteral& node)
+    {
+        const_value_t* v = nodecl_get_constant(node.get_internal_nodecl());
+
+        int length = 0;
+        int *bytes = NULL;
+        const_value_string_unpack(v, &bytes, &length);
+
+        file << "\"";
+
+        int i;
+
+        for (i = 0; i < length; i++)
+        {
+            int current = bytes[i];
+
+            if (current == '\"')
+            {
+                file << "\"\"";
+            }
+            else
+            {
+                file << (char)current;
+            }
+        }
+
+        file << "\"";
+
+        free(bytes);
+    }
+
+    void FortranBase::visit(const Nodecl::Text& node)
+    {
+        file << node.get_text();
+    }
+
+    void FortranBase::visit(const Nodecl::StructuredValue& node)
+    {
+        TL::Type type = node.get_type();
+        if (type.is_array())
+        {
+            file << "(/ ";
+            codegen_comma_separated_list(node.get_items());
+            file << " /)";
+        }
+        else if (type.is_named_class())
+        {
+            file << type.get_symbol().get_name() << "(";
+            codegen_comma_separated_list(node.get_items());
+            file << ")";
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
+        }
+    }
+
+    void FortranBase::visit(const Nodecl::BooleanLiteral& node)
+    {
+        const_value_t* val = nodecl_get_constant(node.get_internal_nodecl());
+
+        if (const_value_is_zero(val))
+        {
+            file << ".FALSE.";
+        }
+        else
+        {
+            file << ".TRUE.";
+        }
+    }
+
+    void FortranBase::visit(const Nodecl::IntegerLiteral& node)
+    {
+        const_value_t* value = nodecl_get_constant(node.get_internal_nodecl());
+
+        file << (long long int)const_value_cast_to_8(value);
+
+        int num_bytes = const_value_get_bytes(value);
+
+        if (num_bytes != fortran_get_default_integer_type_kind())
+        {
+            file << "_" << num_bytes;
+        }
+    }
+
+    void FortranBase::visit(const Nodecl::ComplexLiteral& node)
+    {
+        file << "(";
+        walk(node.get_real());
+        file << ", ";
+        walk(node.get_imag());
+        file << ")";
+    }
+
+    void FortranBase::visit(const Nodecl::FloatingLiteral& node)
+    {
+        TL::Type t = node.get_type();
+
+        int kind = floating_type_get_info(t.get_internal_type())->bits / 8;
+        int precision = floating_type_get_info(t.get_internal_type())->p + 1;
+
+        const_value_t* value = nodecl_get_constant(node.get_internal_nodecl());
+        if (const_value_is_float(value))
+        {
+            const char* result = NULL;
+            uniquestr_sprintf(&result, "%.*E_%d", precision, const_value_cast_to_float(value), kind);
+            file << result;
+        }
+        else if (const_value_is_double(value))
+        {
+            const char* result = NULL;
+            uniquestr_sprintf(&result, "%.*E_%d", precision, const_value_cast_to_double(value), kind);
+            file << result;
+        }
+        else if (const_value_is_long_double(value))
+        {
+            const char* result = NULL;
+            uniquestr_sprintf(&result, "%.*LE_%d", precision, const_value_cast_to_long_double(value), kind);
+        }
+#ifdef HAVE_QUADMATH_H
+        else if (const_value_is_float128(value))
+        {
+            __float128 f128 = const_value_cast_to_float128(value);
+            int n = quadmath_snprintf (NULL, 0, "%.*Qe", precision, f128);
+            char c[n+1];
+            quadmath_snprintf (c, n, "%.*Qe", precision, f128);
+            c[n] = '\0';
+            file << c << "_" << kind;
+        }
+#endif
+    }
+
+    void FortranBase::visit(const Nodecl::Symbol& node)
+    {
+        TL::Symbol symbol = node.get_symbol();
+        file << symbol.get_name();
+    }
+
+    void FortranBase::visit(const Nodecl::Assignment& node)
+    {
+        Nodecl::NodeclBase lhs = node.get_lhs();
+        Nodecl::NodeclBase rhs = node.get_rhs();
+
+        TL::Symbol symbol = lhs.get_symbol();
+        ERROR_CONDITION(symbol == NULL, "This should not be NULL", 0);
+
+        walk(lhs);
+
+        std::string operator_ = " = ";
+
+        // Is this a pointer assignment?
+        char is_ptr_assignment = 0;
+
+        TL::Type sym_type = symbol.get_type();
+        if (sym_type.is_reference())
+            sym_type = sym_type.references_to();
+
+        if (sym_type.is_pointer()
+                && !lhs.is<Nodecl::Derreference>())
+        {
+            is_ptr_assignment = 1;
+        }
+
+        if (is_ptr_assignment)
+        {
+            operator_ = " => ";
+        }
+
+        file << operator_;
+
+        walk(rhs);
+    }
+
+    void FortranBase::codegen_comparison(
+            Nodecl::NodeclBase lhs, 
+            Nodecl::NodeclBase rhs, 
+            const std::string& operator_arith, 
+            const std::string& operator_bool)
+    {
+        TL::Type lhs_type = lhs.get_type().basic_type();
+        TL::Type rhs_type = rhs.get_type().basic_type();
+
+        walk(lhs);
+
+        if (lhs_type.is_bool() 
+                && rhs_type.is_bool())
+        {
+            file << operator_bool;
+        }
+        else
+        {
+            file << operator_arith;
+        }
+
+        walk(rhs);
+    }
+
+    void FortranBase::visit(const Nodecl::Equal& node)
+    {
+        codegen_comparison(node.get_lhs(), node.get_rhs(), " == ", " .EQV. ");
+    }
+
+    void FortranBase::visit(const Nodecl::Different& node)
+    {
+        codegen_comparison(node.get_lhs(), node.get_rhs(), " /= ", " .NEQV. ");
+    }
+
+    void FortranBase::visit(const Nodecl::Derreference& node)
+    {
+        // No explicit dereference happens in Fortran
+        walk(node.get_rhs());
+    }
+
+    void FortranBase::visit(const Nodecl::Reference& node)
+    {
+        // FIXME - LOC?
+        // No explicit reference happens in Fortran
+        walk(node.get_rhs());
+    }
+
+    void FortranBase::visit(const Nodecl::ParenthesizedExpression& node)
+    {
+        file << "(";
+        walk(node.get_nest());
+        file << ")";
+    }
+
+    void FortranBase::visit(const Nodecl::ArraySubscript& node)
+    {
+        Nodecl::NodeclBase subscripted = node.get_subscripted();
+        Nodecl::NodeclBase subscripts = node.get_subscripts();
+
+        walk(subscripted);
+        file << "(";
+        codegen_reverse_comma_separated_list(subscripts);
+        file << ")";
+    }
+
+    void FortranBase::visit(const Nodecl::FunctionCall& node)
+    {
+        Nodecl::NodeclBase called = node.get_called();
+        Nodecl::NodeclBase arguments = node.get_arguments();
+
+        TL::Symbol entry = called.get_symbol();
+        ERROR_CONDITION(!entry.is_valid(), "Invalid symbol in call", 0);
+
+        bool is_call = (!entry.get_type().returns().is_valid());
+
+        if (is_call)
+        {
+            file << "CALL ";
+        }
+
+        walk(called);
+
+        file << "(";
+        codegen_comma_separated_list(arguments);
+        file << ")";
+    }
+
+    void FortranBase::visit(const Nodecl::FortranNamedPairSpec& node)
+    {
+        Nodecl::NodeclBase name = node.get_name();
+        Nodecl::NodeclBase argument = node.get_argument();
+
+        if (!name.is_null())
+        {
+            file << name.get_symbol().get_name() << " = ";
+        }
+
+        walk(argument);
+    }
+
+    void FortranBase::visit(const Nodecl::EmptyStatement& node)
+    {
+        indent();
+        file << "CONTINUE\n";
+    }
+
+    void FortranBase::visit(const Nodecl::IfElseStatement& node)
+    {
+        Nodecl::NodeclBase condition = node.get_condition();
+        Nodecl::NodeclBase then = node.get_then();
+        Nodecl::NodeclBase else_ = node.get_else();
+
+        indent();
+        file << "IF (";
+        walk(condition);
+        file << ") THEN\n";
+
+        inc_indent();
+        walk(then);
+        dec_indent();
+
+        if (!else_.is_null())
+        {
+            indent();
+            file << "ELSE\n";
+
+            inc_indent();
+            walk(else_);
+            dec_indent();
+        }
+
+        indent();
+        file << "END IF\n";
+    }
+
+    void FortranBase::visit(const Nodecl::ReturnStatement& node)
+    {
+        // Note that for functions (not subroutines) we actually 'return F'
+        // however what it must be printed is just 'RETURN'
+        indent();
+        file << "RETURN\n";
+    }
+
+    void FortranBase::visit(const Nodecl::LabeledStatement& node)
+    {
+        TL::Symbol label_sym = node.get_symbol();
+
+        indent();
+        file << label_sym.get_name() << " ";
+
+        int old_indent_level = get_indent_level();
+        set_indent_level(0);
+        Nodecl::NodeclBase statement = node.get_statement();
+
+        walk(statement);
+
+        set_indent_level(old_indent_level);
+    }
+
+    void FortranBase::visit(const Nodecl::GotoStatement& node)
+    {
+        TL::Symbol label = node.get_symbol();
+        indent();
+        file << "GOTO " << label.get_name() << "\n";
+    }
+
+    void FortranBase::visit(const Nodecl::ForStatement& node)
+    {
+        indent();
+        file << "DO";
+        walk(node.get_loop_header());
+        file<< "\n";
+        inc_indent();
+        walk(node.get_statement());
+        dec_indent();
+        indent();
+        file << "END DO\n";
+    }
+
+    void FortranBase::visit(const Nodecl::WhileStatement& node)
+    {
+        indent();
+        file << "DO WHILE(";
+        walk(node.get_condition());
+        file << ")\n";
+        inc_indent();
+        walk(node.get_statement());
+        dec_indent();
+        indent();
+        file << "END DO\n";
+    }
+
+    void FortranBase::visit(const Nodecl::LoopControl& node)
+    {
+        Nodecl::NodeclBase init = node.get_init();
+        Nodecl::NodeclBase cond = node.get_cond();
+        Nodecl::NodeclBase next = node.get_next();
+
+        std::string separator = ", ";
+
+        // Use a colon for ':' in FORALL
+        if (state.in_forall)
+        {
+            separator = ":";
+        }
+
+        if (!init.is_null())
+        {
+            // Needed for DO but not for FORALL which uses a (
+            if (!state.in_forall)
+            {
+                file << " ";
+            }
+
+            walk(init);
+
+            if (!cond.is_null())
+            {
+                file << separator;
+                walk(cond);
+            }
+            if (!next.is_null())
+            {
+                file << separator;
+                walk(next);
+            }
+            else
+            {
+                file << separator << "1";
+            }
+        }
+    }
+
+    void FortranBase::visit(const Nodecl::SwitchStatement& node)
+    {
+        indent();
+        file << "SELECT CASE (";
+        walk(node.get_switch());
+        file << ")";
+        inc_indent(2);
+        walk(node.get_statement());
+        dec_indent(2);
+        indent();
+        file << "END SELECT\n";
+    }
+
+    void FortranBase::visit(const Nodecl::CaseStatement& node)
+    {
+        dec_indent(1);
+        indent();
+        file << "CASE (";
+        walk(node.get_case());
+        file << ")\n";
+        inc_indent(1);
+        walk(node.get_statement());
+    }
+
+    void FortranBase::visit(const Nodecl::DefaultStatement& node)
+    {
+        dec_indent();
+        indent();
+        file << "CASE DEFAULT\n";
+        inc_indent();
+        walk(node.get_statement());
+    }
+
+    void FortranBase::visit(const Nodecl::BreakStatement& node)
+    {
+        indent();
+        file << "EXIT\n";
+    }
+
+    void FortranBase::visit(const Nodecl::ContinueStatement& node)
+    {
+        indent();
+        file << "CYCLE\n";
+    }
+
+    void FortranBase::visit(const Nodecl::FortranIoSpec& node)
+    {
+        file << node.get_text() << " = ";
+
+        walk(node.get_value());
+    }
+
+    void FortranBase::visit(const Nodecl::FortranPrintStatement& node)
+    {
+        indent();
+        file << "PRINT ";
+
+        Nodecl::NodeclBase format = node.get_format();
+        Nodecl::NodeclBase io_items = node.get_io_items();
+
+        walk(format);
+
+        if (!io_items.is_null())
+        {
+            file << ", ";
+            codegen_comma_separated_list(io_items);
+        }
+
+        file << "\n";
+    }
+
+    void FortranBase::codegen_write_or_read_statement(
+            const std::string& keyword,
+            Nodecl::NodeclBase io_spec_list,
+            Nodecl::NodeclBase io_item_list)
+    {
+        indent();
+
+        file << keyword << " (";
+        codegen_comma_separated_list(io_spec_list);
+        file << ") ";
+
+        codegen_comma_separated_list(io_item_list);
+
+        file << "\n";
+    }
+
+    void FortranBase::visit(const Nodecl::FortranWriteStatement& node)
+    {
+        codegen_write_or_read_statement("WRITE", node.get_io_spec_list(), node.get_io_items());
+    }
+
+    void FortranBase::visit(const Nodecl::FortranReadStatement& node)
+    {
+        codegen_write_or_read_statement("READ", node.get_io_spec_list(), node.get_io_items());
+    }
+
+    void FortranBase::visit(const Nodecl::FortranStopStatement& node)
+    {
+        indent();
+        file << "STOP";
+
+        Nodecl::NodeclBase stop_code = node.get_stop_code();
+
+        if (!stop_code.is_null())
+        {
+            file << " ";
+            walk(stop_code);
+        }
+        file << "\n";
+    }
+
+    void FortranBase::visit(const Nodecl::FortranPauseStatement& node)
+    {
+        indent();
+        file << "PAUSE";
+
+        Nodecl::NodeclBase pause_code = node.get_pause_code();
+
+        if (!pause_code.is_null())
+        {
+            file << " ";
+            walk(pause_code);
+        }
+        file << "\n";
+    }
+
+    void FortranBase::visit(const Nodecl::FortranComputedGotoStatement& node)
+    {
+        indent();
+        file << "GOTO (";
+        codegen_comma_separated_list(node.get_label_seq());
+        file << ") ";
+        walk(node.get_index());
+        file << "\n";
+    }
+
+    void FortranBase::visit(const Nodecl::FortranIoStatement& node)
+    {
+        indent();
+        file << node.get_text() << " ";
+
+        Nodecl::NodeclBase io_spec_list = node.get_io_spec_list();
+        if (!io_spec_list.is_null())
+        {
+            file << "(";
+            codegen_comma_separated_list(io_spec_list);
+            file<< ")";
+        }
+
+        Nodecl::NodeclBase io_items = node.get_io_items();
+        if (!io_items.is_null())
+        {
+            if (!io_spec_list.is_null())
+            {
+                file << " ";
+            }
+            codegen_comma_separated_list(io_items);
+        }
+        file << "\n";
+    }
+
+    void FortranBase::codegen_open_close_statement(const std::string& keyword, Nodecl::NodeclBase io_spec)
+    {
+        indent();
+        file << keyword << " (";
+        if (!io_spec.is_null())
+        {
+            codegen_comma_separated_list(io_spec);
+        }
+        file << ")\n";
+    }
+
+    void FortranBase::visit(const Nodecl::FortranOpenStatement& node)
+    {
+        codegen_open_close_statement("OPEN", node.get_io_items());
+    }
+
+    void FortranBase::visit(const Nodecl::FortranCloseStatement& node)
+    {
+        codegen_open_close_statement("CLOSE", node.get_io_items());
+    }
+
+    void FortranBase::codegen_allocation_statement(const std::string& keyword,
+            Nodecl::NodeclBase allocation_items,
+            Nodecl::NodeclBase io_spec)
+    {
+        indent();
+        file << keyword << " (";
+
+        codegen_comma_separated_list(allocation_items);
+
+        if (!io_spec.is_null())
+        {
+            file << ", ";
+            codegen_comma_separated_list(io_spec);
+        }
+
+        file << ")\n";
+    }
+
+    void FortranBase::visit(const Nodecl::FortranAllocateStatement& node)
+    {
+        codegen_allocation_statement("ALLOCATE", node.get_items(), node.get_options());
+    }
+
+    void FortranBase::visit(const Nodecl::FortranDeallocateStatement& node)
+    {
+        codegen_allocation_statement("DEALLOCATE", node.get_items(), node.get_options());
+    }
+
+    void FortranBase::visit(const Nodecl::FortranNullifyStatement& node)
+    {
+        indent();
+        file << "NULLIFY (";
+        codegen_comma_separated_list(node.get_items());
+        file << ")\n";
+    }
+
+    void FortranBase::visit(const Nodecl::FortranArithmeticIfStatement& node)
+    {
+        indent();
+        file << "IF (";
+        walk(node.get_expr());
+        file << ") ";
+        walk(node.get_lower());
+        file << ", ";
+        walk(node.get_equal());
+        file << ", ";
+        walk(node.get_upper());
+        file << "\n";
+    }
+
+    void FortranBase::visit(const Nodecl::FortranLabelAssignStatement& node)
+    {
+        indent();
+        file << "ASSIGN ";
+        walk(node.get_value());
+        file << " TO ";
+        walk(node.get_label_var());
+        file << "\n";
+    }
+
+    void FortranBase::visit(const Nodecl::FortranAssignedGotoStatement& node)
+    {
+        indent();
+        file << "GOTO ";
+        walk(node.get_index());
+        file << " (";
+        codegen_comma_separated_list(node.get_label_seq());
+        file << ")\n";
+    }
+
+    void FortranBase::visit(const Nodecl::FortranImpliedDo& node)
+    {
+        Nodecl::NodeclBase symbol = node.get_name();
+        Nodecl::Range range = node.get_range().as<Nodecl::Range>();
+        Nodecl::NodeclBase expressions = node.get_items();
+
+        file << "(";
+        codegen_comma_separated_list(expressions);
+
+        file << ", ";
+        walk(symbol);
+
+        file << " = ";
+
+        Nodecl::NodeclBase lower = range.get_lower();
+        Nodecl::NodeclBase upper = range.get_upper();
+        Nodecl::NodeclBase stride = range.get_stride();
+
+        walk(lower);
+        file << ", ";
+        walk(upper);
+
+        if (!stride.is_null())
+        {
+            file << ", ";
+            walk(stride);
+        }
+
+        file << ")";
+    }
+
+    void FortranBase::visit(const Nodecl::FortranData& node)
+    {
+        declare_symbols_rec(node.get_objects());
+        declare_symbols_rec(node.get_values());
+
+        indent();
+        file << "DATA ";
+        codegen_comma_separated_list(node.get_objects());
+        file << " / ";
+        codegen_comma_separated_list(node.get_values());
+        file << " /\n";
+    }
+
+    void FortranBase::visit(const Nodecl::FortranEquivalence& node)
+    {
+        declare_symbols_rec(node.get_first());
+        declare_symbols_rec(node.get_second());
+
+        indent();
+        file << "EQUIVALENCE (";
+        walk(node.get_first());
+        file << ", ";
+        codegen_comma_separated_list(node.get_second());
+        file << ")\n";
+    }
+
+    void FortranBase::visit(const Nodecl::FortranAlternateReturnArgument& node)
+    {
+        TL::Symbol entry = node.get_symbol();
+        file << "*" << entry.get_name();
+    }
+
+    void FortranBase::visit(const Nodecl::FortranAlternateReturnStatement& node)
+    {
+        indent();
+        file << "RETURN ";
+        walk(node.get_index());
+        file << "\n";
+    }
+
+    void FortranBase::visit(const Nodecl::FortranForall& node)
+    {
+        Nodecl::NodeclBase loop_control_seq = node.get_loop_control();
+        Nodecl::NodeclBase mask = node.get_mask();
+        Nodecl::NodeclBase statement_seq = node.get_statement();
+
+        indent();
+        file << "FORALL (";
+
+        bool old_value = state.in_forall;
+        state.in_forall = 1;
+        codegen_comma_separated_list(loop_control_seq);
+        state.in_forall = old_value;
+
+        if (!mask.is_null())
+        {
+            file << ", ";
+            walk(mask);
+        }
+
+        file << ")\n";
+
+        inc_indent();
+        walk(statement_seq);
+        dec_indent();
+
+        indent();
+        file << "END FORALL\n";
+    }
+
+    void FortranBase::visit(const Nodecl::FortranWhere& node)
+    {
+        Nodecl::List where_set = node.get_where_set().as<Nodecl::List>();
+
+        for (Nodecl::List::iterator it = where_set.begin();
+                it != where_set.end();
+                it++)
+        {
+            std::string keyword = "ELSEWHERE";
+            if (it == where_set.begin())
+                keyword = "WHERE";
+
+            indent();
+            file << keyword;
+
+            Nodecl::FortranWherePair where_pair = it->as<Nodecl::FortranWherePair>();
+
+            Nodecl::NodeclBase mask = where_pair.get_mask();
+            Nodecl::NodeclBase statement = where_pair.get_statement();
+
+            if (!mask.is_null())
+            {
+                file << " (";
+                walk(mask);
+                file << ")";
+            }
+            file << "\n";
+
+            inc_indent();
+            walk(statement);
+            dec_indent();
+        }
+    }
+
+    void FortranBase::visit(const Nodecl::FortranBozLiteral& node)
+    {
+        file << node.get_text();
+    }
+
+    void FortranBase::visit(const Nodecl::FieldDesignator& node)
+    {
+        // Nodecl::NodeclBase name = node.get_name();
+        Nodecl::NodeclBase initializer = node.get_next();
+        // This is Fortran 2003
+        // walk(name);
+        walk(initializer);
+    }
+
+    void FortranBase::visit(const Nodecl::Conversion& node)
+    {
+        walk(node.get_nest());
+    }
+
+    void FortranBase::visit(const Nodecl::UnknownPragma& node)
+    {
+        file << node.get_text() << "\n";
+    }
+
+    void FortranBase::visit(const Nodecl::PragmaCustomClause& node)
+    {
+        file << strtoupper(node.get_text().c_str());
+
+        Nodecl::NodeclBase arguments = node.get_arguments();
+        if (!arguments.is_null())
+        {
+            file << "(";
+            codegen_comma_separated_list(arguments);
+            file << ")";
+        }
+        file << " ";
+    }
+
+    void FortranBase::visit(const Nodecl::PragmaCustomLine& node)
+    {
+        file << strtoupper(node.get_text().c_str());
+
+        Nodecl::NodeclBase parameters = node.get_parameters();
+        if (!parameters.is_null())
+        {
+            file << "(";
+            walk(parameters);
+            file << ")";
+        }
+        file << " ";
+        walk(node.get_clauses());
+    }
+
+    void FortranBase::visit(const Nodecl::PragmaCustomStatement& node)
+    {
+        // Code generation of the pragma
+        file << "!$" << strtoupper(node.get_text().c_str()) << " ";
+        Nodecl::PragmaCustomLine pragma_custom_line = node.get_pragma_line().as<Nodecl::PragmaCustomLine>();
+        walk(pragma_custom_line);
+        file << "\n";
+
+        // Code generation of the statement
+        walk(node.get_statements());
+
+        file << "!$" 
+            << strtoupper(node.get_text().c_str())
+            << " END "
+            << strtoupper(pragma_custom_line.get_text().c_str());
+
+        // Code generation of the pragma end clauses
+        Nodecl::NodeclBase end_clauses = pragma_custom_line.get_end_clauses();
+        if (!end_clauses.is_null())
+        {
+            walk(end_clauses);
+        }
+        file << "\n";
+    }
+
+    void FortranBase::visit(const Nodecl::PragmaCustomDirective& node)
+    {
+        file << "!$" << strtoupper(node.get_text().c_str()) << " ";
+        walk(node.get_pragma_line());
+        file << "\n";
+    }
+
+    void FortranBase::visit(const Nodecl::PragmaClauseArg& node)
+    {
+        file << node.get_text();
+    }
+
+    void FortranBase::set_codegen_status(TL::Symbol sym, codegen_status_t status)
+    {
+        _codegen_status[sym] = status;
+    }
+
+    codegen_status_t FortranBase::get_codegen_status(TL::Symbol sym)
+    {
+        std::map<TL::Symbol, codegen_status_t>::iterator it = _codegen_status.find(sym);
+
+        if (it == _codegen_status.end())
+        {
+            return CODEGEN_STATUS_NONE;
+        }
+        else
+        {
+            return it->second;
+        }
+    }
+
+    void FortranBase::indent()
+    {
+        for (int i = 0; i < state._indent_level; i++)
+        {
+            file << "  ";
+        }
+    }
+
+    void FortranBase::inc_indent(int n)
+    {
+        state._indent_level += n;
+    }
+
+    void FortranBase::dec_indent(int n)
+    {
+        state._indent_level -= n;
+    }
+
+    int FortranBase::get_indent_level()
+    {
+        return state._indent_level;
+    }
+
+    void FortranBase::set_indent_level(int n)
+    {
+        state._indent_level = n;
+    }
+
+    void FortranBase::declare_symbols_rec(Nodecl::NodeclBase node)
+    {
+        if (node.is_null())
+            return;
+
+        TL::ObjectList<Nodecl::NodeclBase> children = node.children();
+        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+                it != children.end();
+                it++)
+        {
+            declare_symbols_rec(*it);
+        }
+
+        TL::Symbol entry = node.get_symbol();
+        if (entry.is_valid()
+                && (entry.get_internal_symbol()->entity_specs.from_module == NULL))
+        {
+            declare_symbol(entry);
+        }
+    }
+
+    void FortranBase::declare_symbol(TL::Symbol entry)
+    {
+        ERROR_CONDITION(!entry.is_valid(), "Invalid symbol to declare", 0);
+
+        if (get_codegen_status(entry) == CODEGEN_STATUS_DEFINED)
+            return;
+
+        // Do not declare stuff not in our context
+        if (state.current_symbol != TL::Symbol(entry.get_scope().get_decl_context().current_scope->related_entry)
+                && !entry.is_intrinsic())
+            return;
+
+        set_codegen_status(entry, CODEGEN_STATUS_DEFINED);
+
+        if (entry.is_variable())
+        {
+            std::string type_spec;
+            std::string array_specifier;
+            std::string initializer;
+
+            codegen_type(entry.get_type(), type_spec, array_specifier,
+                    /* is_dummy */ entry.is_parameter());
+
+            std::string attribute_list = "";
+
+            if (entry.is_allocatable())
+                attribute_list += ", ALLOCATABLE";
+            if (entry.is_target())
+                attribute_list += ", TARGET";
+            if (entry.is_value())
+                attribute_list += ", VALUE";
+            if (entry.is_optional())
+                attribute_list += ", OPTIONAL";
+            if (entry.is_static())
+                attribute_list += ", SAVE";
+            if (entry.get_type().is_volatile())
+                attribute_list += ", VOLATILE";
+            if (entry.get_type().is_const())
+            {
+                attribute_list += ", PARAMETER";
+            }
+            if (entry.is_parameter())
+            {
+                switch (entry.get_intent_kind())
+                {
+                    case INTENT_IN:
+                        {
+                            attribute_list += ", INTENT(IN)";
+                            break;
+                        }
+                    case INTENT_OUT:
+                        {
+                            attribute_list += ", INTENT(OUT)";
+                            break;
+                        }
+                    case INTENT_INOUT:
+                        {
+                            attribute_list += ", INTENT(INOUT)";
+                            break;
+                        }
+                    default:
+                        {
+                        }
+                }
+            }
+
+            switch (entry.get_access_specifier())
+            {
+                case AS_PUBLIC:
+                    {
+                        attribute_list += ", PUBLIC";
+                        break;
+                    }
+                case AS_PRIVATE:
+                    {
+                        attribute_list += ", PRIVATE";
+                        break;
+                    }
+                default:
+                    {
+                    }
+            }
+
+            if (!entry.get_initialization().is_null())
+            {
+                declare_symbols_rec(entry.get_initialization());
+
+                TL::Type t = entry.get_type();
+                if (t.is_reference())
+                    t = t.references_to();
+
+                if (t.is_pointer())
+                {
+                    initializer = " => " + codegen(entry.get_initialization());
+                }
+                else
+                {
+                    initializer = " = " + codegen(entry.get_initialization());
+                }
+            }
+
+            indent();
+
+            file << type_spec << attribute_list << " :: " << entry.get_name() << array_specifier << initializer;
+
+            if (entry.is_in_common())
+            {
+                declare_symbol(entry.in_common());
+            }
+
+            if (entry.is_cray_pointee())
+            {
+                declare_symbol(entry.get_cray_pointer());
+                indent();
+                file << "POINTER (" 
+                    << entry.get_cray_pointer().get_name() << ", "
+                    << entry.get_name() << ")\n"
+                    ;
+            }
+        }
+        else if (entry.is_fortran_namelist()
+                || entry.is_fortran_common())
+        {
+            TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
+            for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
+                    it != related_symbols.end();
+                    it++)
+            {
+                TL::Symbol &sym(*it);
+                declare_symbol(sym);
+            }
+
+            std::string keyword;
+            std::string symbol_name;
+            if (entry.is_fortran_namelist())
+            {
+                keyword = "NAMELIST";
+                symbol_name = entry.get_name();
+            }
+            else // COMMON
+            {
+                keyword = "COMMON";
+                // Ignore ".common."
+                symbol_name = entry.get_name().substr(strlen(".common."));
+
+                // Unnamed common
+                if (symbol_name == "_unnamed")
+                    symbol_name = "";
+            }
+
+            indent();
+            file << keyword << " / " << symbol_name << " / ";
+            for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
+                    it != related_symbols.end();
+                    it++)
+            {
+                TL::Symbol &member(*it);
+                if (it != related_symbols.begin())
+                    file << ", ";
+
+                file << it->get_name();
+            }
+            file << "\n";
+
+            if (entry.is_fortran_common()
+                    && entry.is_static())
+            {
+                indent();
+                file << "SAVE / " << entry.get_name() << " /\n";
+            }
+        }
+        else if (entry.is_function())
+        {
+            if (entry.is_intrinsic())
+            {
+                // Improve this
+                scope_entry_t* generic_entry = ::fortran_query_implicit_name_str(entry.get_scope().get_decl_context(), entry.get_name().c_str());
+
+                if (TL::Symbol(generic_entry) == entry)
+                {
+                    indent();
+                    file << "INTRINSIC :: " << entry.get_name() << "\n";
+                }
+                else
+                {
+                    declare_symbol(generic_entry);
+                }
+            }
+            else if (entry.is_generic_specifier())
+            {
+                indent();
+                file << "INTERFACE " 
+                    // Improve this
+                    << get_generic_specifier_str(entry.get_name().c_str()) 
+                    << "\n";
+                inc_indent();
+
+                TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
+                for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
+                        it != related_symbols.end();
+                        it++)
+                {
+                    TL::Symbol &iface(*it);
+
+                    if (state.current_module.is_valid()
+                            && (iface.in_module() == state.current_module))
+                    {
+                        indent();
+                        file << "MODULE PROCEDURE " << iface.get_name() << "\n";
+                    }
+                    else
+                    {
+                        bool old_in_interface = state.in_interface;
+                        state.in_interface = true;
+                        declare_symbol(iface);
+                        state.in_interface = old_in_interface;
+                    }
+                }
+                dec_indent();
+
+                indent();
+                file << "END INTERFACE " << get_generic_specifier_str(entry.get_name().c_str()) << "\n";
+            }
+            else if (entry.get_type().lacks_prototype())
+            {
+                indent();
+
+                if (entry.get_type().returns().is_valid())
+                {
+                    std::string type_spec;
+                    std::string array_specifier;
+                    codegen_type(entry.get_type().returns(), 
+                            type_spec, array_specifier, /* is_dummy */ 0);
+                    file << type_spec << ", EXTERNAL :: " << entry.get_name() << "\n";
+                }
+                else
+                {
+                    file << "EXTERNAL :: " << entry.get_name() << "\n";
+                }
+            }
+            // Statement functions
+            else if (entry.is_statement_function_statement())
+            {
+                TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
+                for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
+                        it != related_symbols.end();
+                        it++)
+                {
+                    TL::Symbol &sym(*it);
+                    declare_symbol(sym);
+                }
+
+                declare_symbols_rec(entry.get_initialization());
+
+                indent();
+                file << entry.get_name() << "(";
+                for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
+                        it != related_symbols.end();
+                        it++)
+                {
+                    TL::Symbol &dummy(*it);
+                    if (dummy.is_result_variable())
+                        continue;
+
+                    if (it != related_symbols.begin())
+                        file << ", ";
+                    file << dummy.get_name();
+                }
+
+                file << ") = ";
+                walk(entry.get_initialization());
+                file << "\n";
+            }
+            else
+            {
+                if (!state.in_interface)
+                {
+                    indent();
+                    file << "INTERFACE\n";
+                    inc_indent();
+                }
+                codegen_procedure_declaration_header(entry);
+
+                TL::Symbol old_sym = state.current_symbol;
+                state.current_symbol = entry;
+
+                inc_indent();
+
+                indent();
+                file << "IMPLICIT NONE\n";
+
+                TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
+                for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
+                        it != related_symbols.end();
+                        it++)
+                {
+                    declare_symbol(*it);
+                }
+                dec_indent();
+                state.current_symbol = old_sym;
+
+                codegen_procedure_declaration_footer(entry);
+
+                if (!state.in_interface)
+                {
+                    dec_indent();
+                    indent();
+                    file << "END INTERFACE\n";
+                }
+            }
+        }
+        else if (entry.is_class())
+        {
+            TL::ObjectList<TL::Symbol> members = entry.get_type().get_nonstatic_data_members();
+
+            // First pass to declare everything that might be needed by the initializers
+            for (TL::ObjectList<TL::Symbol>::iterator it = members.begin();
+                    it != members.end();
+                    it++)
+            {
+                TL::Symbol &component(*it);
+                declare_symbols_rec(component.get_initialization());
+            }
+
+            indent();
+            file << "TYPE :: " << entry.get_name() << "\n";
+
+            TL::Symbol old_sym = state.current_symbol;
+            state.current_symbol = entry;
+
+            inc_indent();
+            // Second pass to declare components
+            for (TL::ObjectList<TL::Symbol>::iterator it = members.begin();
+                    it != members.end();
+                    it++)
+            {
+                declare_symbol(*it);
+            }
+
+            dec_indent();
+            state.current_symbol = old_sym;
+
+            indent();
+            file << "END TYPE " << entry.get_name() << "\n";
+        }
+        else if (entry.is_label())
+        {
+            // This is basically for FORMAT labels
+            if (!entry.get_initialization().is_null())
+            {
+                indent();
+                file << entry.get_name() << " FORMAT";
+
+                int old_indent_level = get_indent_level();
+                set_indent_level(0);
+                walk(entry.get_initialization());
+                set_indent_level(old_indent_level);
+
+                file << "\n";
+            }
+        }
+        else
+        {
+            internal_error("Unexpected symbol '%s'\n", symbol_kind_name(entry.get_internal_symbol()));
+        }
+    }
+
+    void FortranBase::codegen_module_header(TL::Symbol entry)
+    {
+        file << "MODULE " << entry.get_name() << "\n";
+
+        inc_indent(2);
+
+        TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
+
+        // Check every related entries lest they required stuff coming from other modules
+        for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
+                it != related_symbols.end();
+                it++)
+        {
+            TL::Symbol &sym(*it);
+            emit_use_statement_if_symbol_comes_from_module(sym);
+        }
+
+        indent();
+        file << "IMPLICIT NONE\n";
+
+        TL::Symbol previous_sym = state.current_symbol;
+
+        state.current_symbol = entry;
+        for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
+                it != related_symbols.end();
+                it++)
+        {
+            TL::Symbol &sym(*it);
+
+            if (!sym.is_function()
+                    || sym.is_generic_specifier()
+                    || sym.in_module() != state.current_module)
+            {
+                declare_symbol(sym);
+            }
+            else
+            {
+                if (sym.get_access_specifier() == AS_PRIVATE)
+                {
+                    // If it has a private access specifier, state so
+                    indent();
+                    file << "PRIVATE :: " << sym.get_name() << "\n";
+                }
+            }
+        }
+        state.current_symbol = previous_sym;
+        dec_indent();
+
+        indent();
+        file << "CONTAINS\n";
+
+        inc_indent();
+    }
+
+    void FortranBase::codegen_module_footer(TL::Symbol entry)
+    {
+        dec_indent(2);
+        file << "END MODULE " << entry.get_name() << "\n";
+    }
+
+    void FortranBase::declare_symbols_from_modules_rec(Nodecl::NodeclBase node)
+    {
+        if (node.is_null())
+            return;
+
+        TL::ObjectList<Nodecl::NodeclBase> children = node.children();
+        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin(); 
+                it != children.end();
+                it++)
+        {
+            declare_symbols_from_modules_rec(*it);
+        }
+
+        TL::Symbol entry = node.get_symbol();
+        if (entry.is_valid())
+        {
+            emit_use_statement_if_symbol_comes_from_module(entry);
+
+            if (entry.is_statement_function_statement())
+            {
+                declare_symbols_from_modules_rec(entry.get_initialization());
+            }
+        }
+    }
+
+    void FortranBase::declare_use_statements(Nodecl::NodeclBase node)
+    {
+        declare_symbols_from_modules_rec(node);
+    }
+
+    void FortranBase::codegen_blockdata_header(TL::Symbol entry)
+    {
+        std::string real_name = entry.get_name();
+        if (real_name[0] == '_')
+            real_name = "";
+
+        file << "BLOCK DATA " << real_name << "\n";
+
+        inc_indent();
+
+        indent();
+        file << "IMPLICIT NONE\n";
+
+        TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
+
+        for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
+                it != related_symbols.end();
+                it++)
+        {
+            TL::Symbol &sym(*it);
+            declare_symbol(sym);
+        }
+    }
+
+    void FortranBase::codegen_blockdata_footer(TL::Symbol entry)
+    {
+        dec_indent();
+
+        std::string real_name = entry.get_name();
+
+        if (real_name[0] == '_')
+            real_name = "";
+
+        indent();
+        file << "END BLOCK DATA " << real_name << "\n";
+    }
+
+    void FortranBase::declare_everything_needed(Nodecl::NodeclBase node)
+    {
+        declare_symbols_rec(node);
+    }
+
+    void FortranBase::codegen_comma_separated_list(Nodecl::NodeclBase node)
+    {
+        if (node.is_null())
+            return;
+
+        ERROR_CONDITION(!node.is<Nodecl::List>(), "Invalid node kind", 0);
+
+        Nodecl::List list = node.as<Nodecl::List>();
+
+        for (Nodecl::List::iterator it = list.begin();
+                it != list.end();
+                it++)
+        {
+            // If we are not the first
+            if (it != list.begin())
+            {
+                file << ", ";
+            }
+
+            walk(*it);
+        }
+    }
+
+    void FortranBase::codegen_reverse_comma_separated_list(Nodecl::NodeclBase node)
+    {
+        if (node.is_null())
+            return;
+
+        ERROR_CONDITION(!node.is<Nodecl::List>(), "Invalid node kind", 0);
+
+        Nodecl::List list = node.as<Nodecl::List>();
+
+        internal_error("Not yet implemented", 0);
+
+#if 0
+        for (Nodecl::List::reverse_iterator it = list.rbegin();
+                it != list.rend();
+                it++)
+        {
+            // If we are not the first
+            if (it != list.rbegin())
+            {
+                file << ", ";
+            }
+
+            walk(*it);
+        }
+#endif
+    }
+
+    void FortranBase::emit_use_statement_if_symbol_comes_from_module(TL::Symbol entry)
+    {
+        if (entry.is_class()
+                && entry.get_internal_symbol()->entity_specs.from_module == NULL)
+        {
+            // Check every component recursively
+            TL::ObjectList<TL::Symbol> nonstatic_members = entry.get_type().get_nonstatic_data_members();
+
+            for (TL::ObjectList<TL::Symbol>::iterator it = nonstatic_members.begin();
+                    it != nonstatic_members.end();
+                    it++)
+            {
+                TL::Symbol &member(*it);
+
+                emit_use_statement_if_symbol_comes_from_module(member);
+
+                declare_symbols_from_modules_rec(member.get_initialization());
+            }
+        }
+        else if (entry.is_variable()
+                && entry.get_internal_symbol()->entity_specs.from_module == NULL)
+        {
+            TL::Type entry_type = entry.get_type();
+            if (entry_type.is_reference())
+                entry_type = entry_type.references_to();
+
+            if (entry_type.is_pointer())
+            {
+                entry_type = entry_type.points_to();
+            }
+
+            while (entry_type.is_array())
+            {
+                Nodecl::NodeclBase lower;
+                Nodecl::NodeclBase upper;
+                entry_type.array_get_bounds(lower, upper);
+                if (!lower.is_null())
+                {
+                    declare_symbols_from_modules_rec(lower);
+                }
+
+                if (!upper.is_null())
+                {
+                    declare_symbols_from_modules_rec(upper);
+                }
+
+                entry_type = entry_type.array_element();
+            }
+        }
+
+        if (entry.get_internal_symbol()->entity_specs.from_module == NULL
+                && entry.get_type().is_named_class())
+        {
+            TL::Symbol class_entry = entry.get_type().get_symbol();
+            if (class_entry.get_internal_symbol()->entity_specs.from_module != NULL)
+            {
+                codegen_use_statement(class_entry);
+            }
+        }
+        if (entry.get_internal_symbol()->entity_specs.from_module != NULL)
+        {
+            codegen_use_statement(entry);
+        }
+    }
+
+    void FortranBase::codegen_use_statement(TL::Symbol entry)
+    {
+        ERROR_CONDITION(entry.get_internal_symbol()->entity_specs.from_module == NULL, 
+                "Symbol '%s' must be from module\n", entry.get_name().c_str());
+
+        if (get_codegen_status(entry) == CODEGEN_STATUS_DEFINED)
+            return;
+        set_codegen_status(entry, CODEGEN_STATUS_DEFINED);
+
+        indent();
+        if (!entry.get_internal_symbol()->entity_specs.is_renamed)
+        {
+            file << "USE " 
+                << entry.get_internal_symbol()->entity_specs.from_module->symbol_name
+                << ", ONLY: " 
+                << entry.get_name() 
+                << "\n";
+        }
+        else
+        {
+            file << "USE " 
+                << entry.get_internal_symbol()->entity_specs.from_module->symbol_name
+                << ", ONLY: " 
+                << entry.get_name() 
+                << " => "
+                << entry.get_internal_symbol()->entity_specs.alias_to->symbol_name
+                << "\n";
+        }
+
+    }
+
+    void FortranBase::codegen_type(TL::Type t, std::string& type_specifier, std::string& array_specifier, bool /* is_dummy */)
+    {
+        type_specifier = "";
+
+        if (t.is_reference())
+            t = t.references_to();
+
+        bool is_pointer = false;
+        if (t.is_pointer())
+        {
+            is_pointer = true;
+            t = t.points_to();
+        }
+
+        struct array_spec_tag {
+            Nodecl::NodeclBase lower;
+            Nodecl::NodeclBase upper;
+            bool is_undefined;
+            bool with_descriptor;
+        } array_spec_list[MCXX_MAX_ARRAY_SPECIFIER] = { { nodecl_null(), nodecl_null(), false, false }  };
+
+        int array_spec_idx;
+        for (array_spec_idx = MCXX_MAX_ARRAY_SPECIFIER - 1; 
+                is_fortran_array_type(t.get_internal_type());
+                array_spec_idx--)
+        {
+            if (array_spec_idx < 0)
+            {
+                internal_error("too many array dimensions %d\n", MCXX_MAX_ARRAY_SPECIFIER);
+            }
+
+            array_spec_list[array_spec_idx].lower = array_type_get_array_lower_bound(t.get_internal_type());
+            if (array_spec_list[array_spec_idx].lower.is_constant())
+            {
+                array_spec_list[array_spec_idx].lower = 
+                    const_value_to_nodecl(nodecl_get_constant(array_spec_list[array_spec_idx].lower.get_internal_nodecl()));
+            }
+            else
+            {
+                declare_symbols_rec(array_spec_list[array_spec_idx].lower);
+            }
+
+            if (!array_type_is_unknown_size(t.get_internal_type()))
+            {
+                array_spec_list[array_spec_idx].upper = array_type_get_array_upper_bound(t.get_internal_type());
+
+                if (array_spec_list[array_spec_idx].upper.is_constant())
+                {
+                    array_spec_list[array_spec_idx].upper = 
+                        const_value_to_nodecl(nodecl_get_constant(array_spec_list[array_spec_idx].upper.get_internal_nodecl()));
+                }
+                else
+                {
+                    declare_symbols_rec(array_spec_list[array_spec_idx].upper);
+                }
+            }
+            else
+            {
+                array_spec_list[array_spec_idx].is_undefined = true;
+            }
+
+            array_spec_list[array_spec_idx].with_descriptor = array_type_with_descriptor(t.get_internal_type());
+
+            t = t.array_element();
+        }
+
+        char is_array = (array_spec_idx != (MCXX_MAX_ARRAY_SPECIFIER - 1));
+
+        if (t.is_bool()
+                || t.is_integral_type()
+                || t.is_floating_type()
+                || t.is_complex())
+        {
+            std::string type_name;
+
+            if (t.is_bool())
+            {
+                type_name = "LOGICAL";
+            }
+            else if (t.is_integral_type())
+            {
+                type_name = "INTEGER";
+            }
+            else if (t.is_floating_type())
+            {
+                type_name = "REAL";
+            }
+            else if (t.is_complex())
+            {
+                type_name = "COMPLEX";
+            }
+            else
+            {
+                internal_error("unreachable code", 0);
+            }
+
+            size_t size = t.get_size();
+            if (t.is_floating_type())
+            {
+                // KIND of floats is their size in byes (using the bits as in IEEE754) 
+                size = (floating_type_get_info(t.get_internal_type())->bits) / 8;
+            }
+            else if (t.is_complex())
+            {
+                // KIND of a complex is the KIND of its component type
+                type_t* f = complex_type_get_base_type(t.get_internal_type());
+                size = (floating_type_get_info(f)->bits) / 8;
+            }
+
+            std::stringstream ss;
+            ss << type_name << "(" << size << ")";
+            type_name = ss.str();
+        }
+        else if (t.is_class())
+        {
+            TL::Symbol entry = t.get_symbol();
+
+            declare_symbol(entry);
+
+            type_specifier = "TYPE(" + entry.get_name() + ")";
+        }
+        else if (is_fortran_character_type(t.get_internal_type()))
+        {
+            std::stringstream ss;
+            if (!array_type_is_unknown_size(t.get_internal_type()))
+            {
+                Nodecl::NodeclBase upper_bound = array_type_get_array_upper_bound(t.get_internal_type());
+                if (upper_bound.is_constant())
+                {
+                    upper_bound = const_value_to_nodecl(nodecl_get_constant(upper_bound.get_internal_nodecl()));
+                }
+                else
+                {
+                    declare_symbols_rec(upper_bound);
+                }
+
+                ss << "CHARACTER(LEN=" 
+                    << (array_type_is_unknown_size(t.get_internal_type()) ? "*" : this->codegen(upper_bound))
+                    << ")";
+            }
+            else
+            {
+                ss << "CHARACTER(LEN=*)";
+            }
+
+            type_specifier = ss.str();
+        }
+        else 
+        {
+            internal_error("Not a FORTRAN printable type '%s'\n", print_declarator(t.get_internal_type()));
+        }
+
+        if (is_pointer)
+        {
+            type_specifier += ", POINTER";
+        }
+
+        if (is_array)
+        {
+            array_spec_idx++;
+            array_specifier = "(";
+
+            while (array_spec_idx <= (MCXX_MAX_ARRAY_SPECIFIER - 1))
+            {
+                if (!array_spec_list[array_spec_idx].is_undefined)
+                {
+                    array_specifier += this->codegen(array_spec_list[array_spec_idx].lower);
+                    array_specifier += ":";
+                    array_specifier += this->codegen(array_spec_list[array_spec_idx].upper);
+                }
+                else
+                {
+                    if (!array_spec_list[array_spec_idx].lower.is_null())
+                    {
+                        array_specifier += this->codegen(array_spec_list[array_spec_idx].lower);
+                        array_specifier += ":";
+                        if (!array_spec_list[array_spec_idx].with_descriptor)
+                        {
+                            array_specifier += "*";
+                        }
+                    }
+                    else
+                    {
+                        if (array_spec_list[array_spec_idx].with_descriptor)
+                        {
+                            array_specifier += ":";
+                        }
+                        else
+                        {
+                            array_specifier += "*";
+                        }
+                    }
+                }
+                if ((array_spec_idx + 1) <= (MCXX_MAX_ARRAY_SPECIFIER - 1))
+                {
+                    array_specifier += ", ";
+                }
+                array_spec_idx++;
+            }
+
+            array_specifier += ")";
+        }
+    }
+
+    void FortranBase::codegen_procedure_declaration_header(TL::Symbol entry)
+    {
+        bool is_function = entry.get_type().returns().is_valid();
+
+        indent();
+
+        if (entry.is_recursive())
+        {
+            file << "RECURSIVE ";
+        }
+        if (entry.is_pure())
+        {
+            file << "PURE ";
+        }
+        if (entry.is_elemental())
+        {
+            file << "ELEMENTAL ";
+        }
+
+        file << (is_function ? "FUNCTION" : "SUBROUTINE")
+            << " "
+            << entry.get_name()
+            << "(";
+
+        TL::Symbol result_var;
+
+        TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
+        for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
+                it != related_symbols.end();
+                it++)
+        {
+            if (it->is_result_variable())
+            {
+                result_var = *it;
+                continue;
+            }
+            if (it != related_symbols.begin())
+                file << ", ";
+
+            TL::Symbol &sym(*it);
+
+            if (sym.is_label())
+            {
+                // This is an alternate return
+                ERROR_CONDITION(is_function, "Alternate return in a FUNCTION", 0);
+                file << "*";
+            }
+            else
+            {
+                file << sym.get_name();
+            }
+        }
+        file << ")";
+
+        if (is_function)
+        {
+            ERROR_CONDITION(!result_var.is_valid(), "No result symbol!", 0);
+
+            if (result_var.get_name() != entry.get_name())
+            {
+                file << " RESULT(" << result_var.get_name() << ")";
+            }
+        }
+
+        file << "\n";
+    }
+    
+    void FortranBase::codegen_procedure_declaration_footer(TL::Symbol entry)
+    {
+        bool is_function = entry.get_type().returns().is_valid();
+
+        indent();
+        file << "END "
+            << (is_function ? "FUNCTION" : "SUBROUTINE")
+            << " "
+            << entry.get_name();
+    }
 }

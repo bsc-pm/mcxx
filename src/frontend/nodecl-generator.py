@@ -465,7 +465,7 @@ def generate_visitor_class_header(rule_map):
     print "class ExhaustiveVisitor : public NodeclVisitor<_Ret>"
     print "{"
     print "public:"
-    print "     typedef typename BaseNodeclVisitor<_Ret>::Ret Ret;"
+    print "     typedef typename NodeclVisitor<_Ret>::Ret Ret;"
     classes_and_children = get_all_class_names_and_children_names_namespaces(rule_map)
     for ((namespaces, class_name), children_name, tree_kind, nodecl_class) in classes_and_children:
          qualified_name = get_qualified_name(namespaces, class_name)
@@ -482,6 +482,21 @@ def generate_visitor_class_header(rule_map):
          print "     }"
     print "};"
     print ""
+    print "template <typename _Ret>"
+    print "class ProxyVisitor : public NodeclVisitor<_Ret>"
+    print "{"
+    print "public:"
+    print "     ProxyVisitor() : _proxy(NULL) { }"
+    print "     typedef typename NodeclVisitor<_Ret>::Ret Ret;"
+    for ((namespaces, class_name), children_name, tree_kind, nodecl_class) in classes_and_children:
+         qualified_name = get_qualified_name(namespaces, class_name)
+         print "     virtual Ret visit(const Nodecl::%s & n)" % (qualified_name)
+         print "     {"
+         print "        return _proxy->visit(n);"
+         print "     }"
+    print "protected:"
+    print "   BaseNodeclVisitor<_Ret> *_proxy;"
+    print "};"
 
     print "template <typename _Ret>"
     print "typename BaseNodeclVisitor<_Ret>::Ret BaseNodeclVisitor<_Ret>::walk(const NodeclBase& n)"
@@ -633,7 +648,7 @@ def generate_nodecl_classes_specs(rule_map):
            factory_arguments.append("type.get_internal_type()");
        if nodecl_class.needs_text:
            factory_parameters.append("const std::string& text");
-           factory_arguments.append("text.c_str()");
+           factory_arguments.append("::uniquestr(text.c_str())");
        if nodecl_class.needs_cval:
            factory_parameters.append("const_value_t* cval");
            factory_arguments.append("cval");
@@ -645,7 +660,7 @@ def generate_nodecl_classes_specs(rule_map):
            factory_arguments.append("scope.get_decl_context()");
 
        factory_parameters.append("const std::string &filename")
-       factory_arguments.append("filename.c_str()");
+       factory_arguments.append("::uniquestr(filename.c_str())");
 
        factory_parameters.append("int line")
        factory_arguments.append("line");

@@ -24,32 +24,28 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
+include ../../Makefile.phases
 
-include ../../../Makefile.phases
+phases_LTLIBRARIES = libtlnanox-lowering.la
 
-phases_LTLIBRARIES = libcodegen-fortran.la
 
-libcodegen_fortran_la_CFLAGS = $(tl_cflags) \
-							   -I$(top_srcdir)/src/frontend \
-							   -I$(top_srcdir)/src/frontend/fortran \
-							   -I$(top_builddir)/src/frontend \
-							   -I$(top_builddir)/src/frontend/fortran \
-							   -I$(srcdir)/../../common
-libcodegen_fortran_la_CXXFLAGS = $(tl_cflags) \
-							   -I$(top_srcdir)/src/frontend \
-							   -I$(top_srcdir)/src/frontend/fortran \
-							   -I$(top_builddir)/src/frontend \
-							   -I$(top_builddir)/src/frontend/fortran \
-						       -I$(srcdir)/../../common
+libtlnanox_lowering_la_CFLAGS = $(tl_cflags)
+libtlnanox_lowering_la_CXXFLAGS = $(tl_cflags) 
 
-libcodegen_fortran_la_LDFLAGS = $(tl_ldflags)
-libcodegen_fortran_la_LIBADD = ../../common/libcodegen-common.la \
-						   $(tl_libadd) \
-						   $(END)
+libtlnanox_lowering_la_LDFLAGS = $(tl_ldflags)
+libtlnanox_lowering_la_LIBADD = $(tl_libadd) 
 
 END=
 
-libcodegen_fortran_la_SOURCES = \
-	 codegen-fortran.hpp \
-	 codegen-fortran.cpp \
-  	 $(END)
+libtlnanox_lowering_la_SOURCES = \
+								 tl-nanox-nodecl.cpp \
+								 tl-nanox-nodecl.hpp \
+								 tl-lowering-visitor.cpp \
+								 tl-lowering-visitor.hpp \
+								 tl-lower-arguments.cpp \
+								 tl-lower-async.cpp \
+								 tl-lower-wait-async.cpp \
+								 tl-emit-outline.cpp \
+								 tl-outline-info.hpp \
+								 tl-outline-info.cpp \
+								 $(END)

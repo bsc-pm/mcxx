@@ -12590,21 +12590,27 @@ static void check_gcc_alignof_expr(AST expression,
         decl_context_t decl_context, 
         nodecl_t* nodecl_output)
 {
+    AST alignof_expr = ASTSon0(expression);
     nodecl_t nodecl_expr = nodecl_null();
-    check_expression_non_executable(expression, decl_context, &nodecl_expr);
+    check_expression_non_executable(
+            alignof_expr,
+            decl_context, &nodecl_expr);
 
     if (nodecl_is_err_expr(nodecl_expr))
     {
         *nodecl_output = nodecl_make_err_expr(ASTFileName(expression), ASTLine(expression));
+        return;
     }
 
     check_nodecl_gcc_alignof_expr(nodecl_expr, decl_context, ASTFileName(expression), ASTLine(expression), nodecl_output);
 }
 
-static void check_gcc_alignof_typeid(AST type_id, 
+static void check_gcc_alignof_typeid(AST expression, 
         decl_context_t decl_context, 
         nodecl_t* nodecl_output)
 {
+    AST type_id = ASTSon0(expression);
+
     type_t* t = compute_type_for_type_id_tree(type_id, decl_context);
 
     if (is_error_type(t))

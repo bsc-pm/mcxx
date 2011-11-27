@@ -68,14 +68,14 @@ namespace TL
                 
             public:
                 Interface();
-                void interface_preorder(PragmaCustomConstruct);
-                void interface_postorder(PragmaCustomConstruct);
+                void interface_preorder(TL::PragmaCustomDirective);
+                void interface_postorder(TL::PragmaCustomDirective);
 
-                void instrument_declare_pre(PragmaCustomConstruct);
-                void instrument_declare_post(PragmaCustomConstruct);
+                void instrument_declare_pre(TL::PragmaCustomDirective);
+                void instrument_declare_post(TL::PragmaCustomDirective);
 
-                void instrument_emit_pre(PragmaCustomConstruct);
-                void instrument_emit_post(PragmaCustomConstruct);
+                void instrument_emit_pre(TL::PragmaCustomDirective);
+                void instrument_emit_post(TL::PragmaCustomDirective);
 
                 virtual void run(TL::DTO& dto);
                 virtual void phase_cleanup(DTO& dto);

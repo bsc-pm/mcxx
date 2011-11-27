@@ -380,12 +380,42 @@ namespace TL
         return ss.str();
     }
 
+    static decl_context_t decl_context_identity(decl_context_t d)
+    {
+        return d;
+    }
+
+    static decl_context_t decl_context_namespace(decl_context_t d)
+    {
+        d.current_scope = d.namespace_scope;
+        d.function_scope = NULL;
+        d.block_scope = NULL;
+
+        return d;
+    }
+
+    static decl_context_t decl_context_global(decl_context_t d)
+    {
+        d.current_scope = d.global_scope;
+        d.namespace_scope = d.global_scope;
+        d.function_scope = NULL;
+        d.block_scope = NULL;
+
+        return d;
+    }
+
+    static decl_context_t decl_context_program_unit(decl_context_t d)
+    {
+        return d.current_scope->related_entry->decl_context;
+    }
+
     Nodecl::NodeclBase Source::parse_generic(ReferenceScope ref_scope,
             ParseFlags parse_flags,
             const std::string& subparsing_prefix,
             prepare_lexer_fun_t prepare_lexer,
             parse_fun_t parse,
-            compute_nodecl_fun_t compute_nodecl)
+            compute_nodecl_fun_t compute_nodecl,
+            decl_context_map_fun_t decl_context_map_fun)
     {
         std::string mangled_text = subparsing_prefix + " " + this->get_source(true);
 
@@ -402,12 +432,55 @@ namespace TL
                     format_source(this->get_source(true)).c_str());
         }
 
-        decl_context_t decl_context = ref_scope.get_scope().get_decl_context();
+        decl_context_t decl_context = decl_context_map_fun(ref_scope.get_scope().get_decl_context());
 
         nodecl_t nodecl_output = nodecl_null();
         compute_nodecl(a, decl_context, &nodecl_output);
 
         return nodecl_output;
+    }
+
+    Nodecl::NodeclBase Source::parse_global(ReferenceScope ref_scope, ParseFlags parse_flags)
+    {
+        switch ((int)this->source_language.get_language())
+        {
+            case SourceLanguage::C :
+            {
+                return parse_generic(ref_scope, parse_flags, "@DECLARATION@", 
+                        mc99_prepare_string_for_scanning,
+                        mc99parse,
+                        build_scope_declaration_sequence,
+                        decl_context_global);
+                break;
+            }
+            case SourceLanguage::CPlusPlus :
+            {
+                return parse_generic(ref_scope, parse_flags, "@DECLARATION@", 
+                        mcxx_prepare_string_for_scanning,
+                        mcxxparse,
+                        build_scope_declaration_sequence,
+                        decl_context_global);
+                break;
+            }
+#ifdef FORTRAN_SUPPORT
+            case SourceLanguage::Fortran :
+            {
+                return parse_generic(ref_scope, parse_flags, "@PROGRAM-UNIT@", 
+                        mf03_prepare_string_for_scanning,
+                        mf03parse,
+                        build_scope_program_unit,
+                        decl_context_program_unit
+                        );
+                break;
+            }
+#endif
+            default:
+            {
+                internal_error("Code unreachable", 0);
+            }
+        }
+
+        return Nodecl::NodeclBase::null();
     }
 
     Nodecl::NodeclBase Source::parse_declaration(ReferenceScope ref_scope, ParseFlags parse_flags)
@@ -419,7 +492,8 @@ namespace TL
                 return parse_generic(ref_scope, parse_flags, "@DECLARATION@", 
                         mc99_prepare_string_for_scanning,
                         mc99parse,
-                        build_scope_declaration_sequence);
+                        build_scope_declaration_sequence,
+                        decl_context_namespace);
                 break;
             }
             case SourceLanguage::CPlusPlus :
@@ -427,7 +501,8 @@ namespace TL
                 return parse_generic(ref_scope, parse_flags, "@DECLARATION@", 
                         mcxx_prepare_string_for_scanning,
                         mcxxparse,
-                        build_scope_declaration_sequence);
+                        build_scope_declaration_sequence,
+                        decl_context_namespace);
                 break;
             }
 #ifdef FORTRAN_SUPPORT
@@ -436,7 +511,8 @@ namespace TL
                 return parse_generic(ref_scope, parse_flags, "@PROGRAM-UNIT@", 
                         mf03_prepare_string_for_scanning,
                         mf03parse,
-                        build_scope_program_unit
+                        build_scope_program_unit,
+                        decl_context_program_unit
                         );
                 break;
             }
@@ -459,7 +535,8 @@ namespace TL
                 return parse_generic(ref_scope, parse_flags, "@STATEMENT@", 
                         mc99_prepare_string_for_scanning,
                         mc99parse,
-                        build_scope_declaration_sequence);
+                        build_scope_statement,
+                        decl_context_identity);
                 break;
             }
             case SourceLanguage::CPlusPlus :
@@ -467,7 +544,8 @@ namespace TL
                 return parse_generic(ref_scope, parse_flags, "@STATEMENT@", 
                         mcxx_prepare_string_for_scanning,
                         mcxxparse,
-                        build_scope_declaration_sequence);
+                        build_scope_statement,
+                        decl_context_identity);
                 break;
             }
 #ifdef FORTRAN_SUPPORT
@@ -476,8 +554,8 @@ namespace TL
                 return parse_generic(ref_scope, parse_flags, "@STATEMENT@", 
                         mf03_prepare_string_for_scanning,
                         mf03parse,
-                        fortran_build_scope_statement
-                        );
+                        fortran_build_scope_statement,
+                        decl_context_identity);
                 break;
             }
 #endif
@@ -511,7 +589,8 @@ namespace TL
                 return parse_generic(ref_scope, parse_flags, "@EXPRESSION@", 
                         mc99_prepare_string_for_scanning,
                         mc99parse,
-                        c_cxx_check_expression_adaptor_);
+                        c_cxx_check_expression_adaptor_,
+                        decl_context_identity);
                 break;
             }
             case SourceLanguage::CPlusPlus :
@@ -519,7 +598,8 @@ namespace TL
                 return parse_generic(ref_scope, parse_flags, "@EXPRESSION@", 
                         mcxx_prepare_string_for_scanning,
                         mcxxparse,
-                        c_cxx_check_expression_adaptor_);
+                        c_cxx_check_expression_adaptor_,
+                        decl_context_identity);
                 break;
             }
 #ifdef FORTRAN_SUPPORT
@@ -528,7 +608,8 @@ namespace TL
                 return parse_generic(ref_scope, parse_flags, "@EXPRESSION@", 
                         mf03_prepare_string_for_scanning,
                         mf03parse,
-                        fortran_check_expression_adaptor_);
+                        fortran_check_expression_adaptor_,
+                        decl_context_identity);
                 break;
             }
 #endif
@@ -568,4 +649,13 @@ namespace TL
         return result;
     }
 
+    std::string as_expression(const Nodecl::NodeclBase& n)
+    {
+        return nodecl_expr_to_source(n.get_internal_nodecl());
+    }
+
+    std::string as_statement(const Nodecl::NodeclBase& n)
+    {
+        return nodecl_stmt_to_source(n.get_internal_nodecl());
+    }
 }

@@ -177,15 +177,31 @@ namespace TL
         return !is_invalid();
     }
 
-    // This should be subclassed since it is C/C++ specific
     bool Symbol::is_variable() const
     {
         return (this->_symbol->kind == SK_VARIABLE);
     }
 
+    bool Symbol::is_result_variable() const
+    {
+        return (this->_symbol->kind == SK_VARIABLE
+                && this->_symbol->entity_specs.is_result);
+    }
+
+    bool Symbol::is_label() const
+    {
+        return (this->_symbol->kind == SK_LABEL);
+    }
+
     bool Symbol::is_function() const
     {
         return (this->_symbol->kind == SK_FUNCTION);
+    }
+
+    bool Symbol::is_statement_function_statement() const
+    {
+        return (this->_symbol->kind == SK_FUNCTION
+                && this->_symbol->entity_specs.is_stmt_function);
     }
 
     bool Symbol::is_template_function_name() const
@@ -202,6 +218,51 @@ namespace TL
     bool Symbol::is_injected_class_name() const
     {
         return this->_symbol->entity_specs.is_injected_class_name;
+    }
+
+    bool Symbol::is_fortran_main_program() const
+    {
+#ifdef FORTRAN_SUPPORT
+        return (this->_symbol->kind == SK_PROGRAM);
+#else
+        return false;
+#endif
+    }
+
+    bool Symbol::is_fortran_module() const
+    {
+#ifdef FORTRAN_SUPPORT
+        return (this->_symbol->kind == SK_MODULE);
+#else
+        return false;
+#endif
+    }
+
+    bool Symbol::is_in_module() const
+    {
+#ifdef FORTRAN_SUPPORT
+        return (this->_symbol->entity_specs.in_module != NULL);
+#else
+        return false;
+#endif
+    }
+
+    Symbol Symbol::in_module() const
+    {
+#ifdef FORTRAN_SUPPORT
+        return this->_symbol->entity_specs.in_module;
+#else
+        return Symbol(NULL);
+#endif
+    }
+
+    bool Symbol::is_fortran_blockdata() const
+    {
+#ifdef FORTRAN_SUPPORT
+        return (this->_symbol->kind == SK_BLOCKDATA);
+#else
+        return false;
+#endif
     }
 
     bool Symbol::is_typedef() const
@@ -478,10 +539,19 @@ namespace TL
     }
 
 
-    bool Symbol::is_common() const
+    bool Symbol::is_fortran_common() const
     {
 #ifdef FORTRAN_SUPPORT
         return _symbol->kind == SK_COMMON;
+#else
+        return false;
+#endif
+    }
+
+    bool Symbol::is_fortran_namelist() const
+    {
+#ifdef FORTRAN_SUPPORT
+        return _symbol->kind == SK_NAMELIST;
 #else
         return false;
 #endif
@@ -502,6 +572,15 @@ namespace TL
         return _symbol->entity_specs.is_in_common;
 #else
         return false;
+#endif
+    }
+
+    Symbol Symbol::in_common() const
+    {
+#ifdef FORTRAN_SUPPORT
+        return _symbol->entity_specs.in_common;
+#else
+        return Symbol(NULL);
 #endif
     }
 
@@ -617,6 +696,21 @@ namespace TL
     Nodecl::List GCCAttribute::get_expression_list() const
     {
         return Nodecl::List(_attr.expression_list);
+    }
+
+    Nodecl::Symbol Symbol::make_nodecl(const std::string& filename, int line) const
+    {
+        return Nodecl::Symbol::make(*this, filename, line);
+    }
+
+    intent_kind_t Symbol::get_intent_kind() const
+    {
+        return _symbol->entity_specs.intent_kind;
+    }
+    
+    bool Symbol::is_cray_pointee() const
+    {
+        return _symbol->entity_specs.is_cray_pointee;
     }
 
 }

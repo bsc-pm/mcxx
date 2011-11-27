@@ -29,6 +29,7 @@
 #include "uniquestr.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <string.h>
 #include <ctype.h>
 
@@ -261,4 +262,43 @@ void private_merge_sort_str(const char** list, int ind_lower, int ind_upper, uns
 void  merge_sort_list_str(const char** list, int size,unsigned char ascending_order) 
 {
    private_merge_sort_str(list, 0, size-1, ascending_order);
+}
+
+static int uniquestr_vsprintf(const char** out_str, const char* format, va_list args)
+{
+    int result;
+    int size = 512;
+    char* c = calloc(size, sizeof(char));
+    va_list va;
+
+    va_copy(va, args);
+    result = vsnprintf(c, size, format, va);
+    va_end(va);
+
+    while (result < 0 || result >= size)
+    {
+        va_copy(va, args);
+        size *= 2;
+        free(c);
+        c = calloc(size, sizeof(char));
+        result = vsnprintf(c, size, format, va);
+        va_end(va);
+    }
+
+    *out_str = uniquestr(c); 
+
+    free(c);
+    return result;
+}
+
+int uniquestr_sprintf(const char** out_str, const char* format, ...)
+{
+    int result = 0;
+    va_list args;
+
+    va_start(args, format);
+    result = uniquestr_vsprintf(out_str, format, args);
+    va_end(args);
+
+    return result;
 }
