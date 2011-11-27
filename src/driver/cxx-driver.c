@@ -2554,7 +2554,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
 #ifdef FORTRAN_SUPPORT
                     else if (IS_FORTRAN_LANGUAGE)
                     {
-                        compiler_special_phase_set_codegen(CURRENT_CONFIGURATION, "libcodegen-legacy_fortran.so");
+                        compiler_special_phase_set_codegen(CURRENT_CONFIGURATION, "libcodegen-fortran.so");
                     }
 #endif
                     else
