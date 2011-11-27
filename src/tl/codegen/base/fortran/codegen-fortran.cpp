@@ -32,46 +32,111 @@ namespace Codegen
         return result;
     }
 
+    class PreCodegenVisitor : public Nodecl::NodeclVisitor<void>
+    {
+        public:
+            struct ModuleInfo
+            {
+                TL::Symbol module;
+                TL::ObjectList<Nodecl::NodeclBase> nodes;
+
+                ModuleInfo(TL::Symbol module_)
+                    : module(module_) { }
+            };
+            TL::ObjectList<ModuleInfo> seen_modules;
+
+            void visit(const Nodecl::FunctionCode& node)
+            {
+                TL::Symbol entry = node.get_symbol();
+
+                if (entry.in_module().is_valid())
+                {
+                    add_module_node(entry.in_module(), node);
+                }
+            }
+
+            void visit(const Nodecl::ObjectInit& node)
+            {
+                TL::Symbol sym = node.get_symbol();
+
+                if (sym.is_fortran_module())
+                {
+                    add_module_node(sym, nodecl_null());
+                }
+            }
+
+            void visit(const Nodecl::TopLevel& node)
+            {
+                walk(node.get_top_level());
+            }
+
+        private:
+            void add_module_node(TL::Symbol module, Nodecl::NodeclBase node)
+            {
+                bool found = false;
+
+                for (TL::ObjectList<PreCodegenVisitor::ModuleInfo>::iterator it = this->seen_modules.begin();
+                        it != this->seen_modules.end() && !found;
+                        it++)
+                {
+                    if (it->module == module)
+                    {
+                        if (!node.is_null())
+                        {
+                            it->nodes.append(node);
+                        }
+                        found = true;
+                    }
+                }
+
+                if (!found)
+                {
+                    ModuleInfo module_info(module);
+
+                    if (!node.is_null())
+                    {
+                        module_info.nodes.append(node);
+                    }
+
+                    seen_modules.append(module_info);
+                }
+
+            }
+    };
+
     void FortranBase::visit(const Nodecl::TopLevel& node)
     {
         Nodecl::List list = node.get_top_level().as<Nodecl::List>();
 
-#if 0
-        nodecl_codegen_pre_visitor_t pre_visitor;
-        memset(&pre_visitor, 0, sizeof(pre_visitor));
+        PreCodegenVisitor pre_visitor;
+        pre_visitor.walk(list);
 
-        nodecl_init_walker((nodecl_external_visitor_t*)&pre_visitor, NULL);
-
-        NODECL_VISITOR(&pre_visitor)->visit_function_code = pre_visit_function_code;
-        NODECL_VISITOR(&pre_visitor)->visit_object_init = pre_visit_object_init;
-        nodecl_walk((nodecl_external_visitor_t*)&pre_visitor, list);
-
-        int i;
-        for (i = 0; i < pre_visitor.num_modules; i++)
+        for (TL::ObjectList<PreCodegenVisitor::ModuleInfo>::iterator it = pre_visitor.seen_modules.begin();
+                it != pre_visitor.seen_modules.end();
+                it++)
         {
-            scope_entry_t* old_module = visitor->current_module;
+            TL::Symbol old_module = state.current_module;
+            TL::Symbol& current_module(it->module);
 
-            scope_entry_t* current_module = pre_visitor.modules[i]->module;
+            set_codegen_status(current_module, CODEGEN_STATUS_DEFINED);
 
-            current_module->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
+            state.current_module = current_module;
 
-            visitor->current_module = current_module;
+            codegen_module_header(current_module);
 
-            codegen_module_header(visitor, current_module);
-
-            int j;
-            for (j = 0; j < pre_visitor.modules[i]->num_nodes; j++)
+            for (TL::ObjectList<Nodecl::NodeclBase>::iterator it2 = it->nodes.begin();
+                    it2 != it->nodes.end();
+                    it2++)
             {
-                nodecl_t node = pre_visitor.modules[i]->nodes[j];
+                Nodecl::NodeclBase& node(*it2);
 
                 walk(node);
             }
 
-            codegen_module_footer(visitor, current_module);
+            codegen_module_footer(current_module);
 
-            visitor->current_module = old_module;
+            state.current_module = old_module;
         }
-#endif
 
         walk(list);
     }
@@ -191,19 +256,19 @@ namespace Codegen
             if (program_name[0] == '_')
                 program_name = "MAIN__";
 
-            file << "PROGRAM " << program_name;
+            file << "PROGRAM " << program_name << "\n";
             inc_indent();
 
             codegen_procedure(entry, statement_seq, internal_subprograms);
 
             dec_indent();
-            file << "END PROGRAM " << program_name;
+            file << "END PROGRAM " << program_name << "\n";
         }
         else if (entry.is_function())
         {
-            // codegen_procedure_declaration_header(visitor, entry);
-            // codegen_procedure(visitor, entry, statement_seq, internal_subprograms);
-            // codegen_procedure_declaration_footer(visitor, entry);
+            codegen_procedure_declaration_header(entry);
+            codegen_procedure(entry, statement_seq, internal_subprograms);
+            codegen_procedure_declaration_footer(entry);
         }
         else
         {
@@ -228,6 +293,7 @@ namespace Codegen
     {
         indent();
         walk(node.get_nest());
+        file << "\n";
     }
 
     void FortranBase::visit(const Nodecl::ObjectInit& node)
@@ -755,7 +821,7 @@ OPERATOR_TABLE
         indent();
         file << "SELECT CASE (";
         walk(node.get_switch());
-        file << ")";
+        file << ")\n";
         inc_indent(2);
         walk(node.get_statement());
         dec_indent(2);
@@ -1399,7 +1465,7 @@ OPERATOR_TABLE
 
             indent();
 
-            file << type_spec << attribute_list << " :: " << entry.get_name() << array_specifier << initializer;
+            file << type_spec << attribute_list << " :: " << entry.get_name() << array_specifier << initializer << "\n";
 
             if (entry.is_in_common())
             {
@@ -1464,7 +1530,8 @@ OPERATOR_TABLE
                     && entry.is_static())
             {
                 indent();
-                file << "SAVE / " << entry.get_name() << " /\n";
+                symbol_name = entry.get_name().substr(strlen(".common."));
+                file << "SAVE / " << symbol_name << " /\n";
             }
         }
         else if (entry.is_function())
@@ -1827,22 +1894,24 @@ OPERATOR_TABLE
 
         Nodecl::List list = node.as<Nodecl::List>();
 
-        internal_error("Not yet implemented", 0);
+        if (list.empty())
+            return;
 
-#if 0
-        for (Nodecl::List::reverse_iterator it = list.rbegin();
-                it != list.rend();
-                it++)
+        // Nodecl::List is still lacking reverse iterators, this will do
+        for (Nodecl::List::iterator it = list.last();
+                it != list.begin();
+                it--)
         {
-            // If we are not the first
-            if (it != list.rbegin())
-            {
+            if (it != list.last())
                 file << ", ";
-            }
 
             walk(*it);
         }
-#endif
+        
+        // Do not forget the first one
+        if (list.begin() != list.last())
+            file << ", ";
+        walk(*(list.begin()));
     }
 
     void FortranBase::emit_use_statement_if_symbol_comes_from_module(TL::Symbol entry)
@@ -2052,7 +2121,7 @@ OPERATOR_TABLE
 
             std::stringstream ss;
             ss << type_name << "(" << size << ")";
-            type_name = ss.str();
+            type_specifier = ss.str();
         }
         else if (t.is_class())
         {
@@ -2220,6 +2289,34 @@ OPERATOR_TABLE
         file << "END "
             << (is_function ? "FUNCTION" : "SUBROUTINE")
             << " "
-            << entry.get_name();
+            << entry.get_name()
+            << "\n";
+    }
+
+    void FortranBase::unhandled_node(const Nodecl::NodeclBase& n)
+    {
+        indent();
+        file << "! >>> " << ast_print_node_type(n.get_kind()) << " >>>\n";
+
+        inc_indent();
+
+        TL::ObjectList<Nodecl::NodeclBase> children = n.children();
+        int i = 0;
+        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+                it != children.end();
+                it++, i++)
+        {
+            indent();
+            file << "! Children " << i << "\n";
+
+            walk(*it);
+        }
+
+        dec_indent();
+
+        indent();
+        file << "! <<< " << ast_print_node_type(n.get_kind()) << " <<<\n";
     }
 }
+
+EXPORT_PHASE(Codegen::FortranBase)
