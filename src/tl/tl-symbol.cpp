@@ -496,6 +496,11 @@ namespace TL
         return _symbol->entity_specs.is_builtin;
     }
 
+    bool Symbol::is_intrinsic() const
+    {
+        return this->is_builtin();
+    }
+
     Nodecl::NodeclBase Symbol::get_definition_tree() const
     {
         return Nodecl::NodeclBase::null();
@@ -713,4 +718,8 @@ namespace TL
         return _symbol->entity_specs.is_cray_pointee;
     }
 
+    Symbol Symbol::get_cray_pointer() const
+    {
+        return _symbol->entity_specs.cray_pointer;
+    }
 }
