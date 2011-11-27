@@ -5423,7 +5423,6 @@ nodecl_t array_type_get_array_lower_bound(type_t* t)
 nodecl_t array_type_get_array_upper_bound(type_t* t)
 {
     ERROR_CONDITION(!is_array_type(t), "This is not an array type", 0);
-    ERROR_CONDITION(array_type_is_unknown_size(t), "Array of unknown size does not have upper bound", 0);
     t = advance_over_typedefs(t);
 
     return t->array->upper_bound;
