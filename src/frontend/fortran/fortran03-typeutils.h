@@ -4,6 +4,8 @@
 #include "libmf03-common.h"
 #include "cxx-typeutils.h"
 
+MCXX_BEGIN_DECLS
+
 LIBMF03_EXTERN const char* fortran_print_type_str(type_t*);
 
 LIBMF03_EXTERN char is_fortran_intrinsic_type(type_t* t);
@@ -48,5 +50,7 @@ int fortran_get_default_integer_type_kind(void);
 int fortran_get_default_real_type_kind(void);
 int fortran_get_default_logical_type_kind(void);
 int fortran_get_default_character_type_kind(void);
+
+MCXX_END_DECLS
 
 #endif // FORTRAN03_TYPEUTILS_H
