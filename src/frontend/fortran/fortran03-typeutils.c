@@ -189,10 +189,10 @@ int get_rank_of_type(type_t* t)
     t = no_ref(t);
 
     if (!is_fortran_array_type(t)
-            && !is_pointer_to_array_type(t))
+            && !is_pointer_to_fortran_array_type(t))
         return 0;
 
-    if (is_pointer_to_array_type(t))
+    if (is_pointer_to_fortran_array_type(t))
     {
         t = pointer_type_get_pointee_type(t);
     }
@@ -225,6 +225,13 @@ char is_fortran_character_type(type_t* t)
 
     return (is_array_type(t)
             && is_character_type(array_type_get_element_type(t)));
+}
+
+char is_fortran_character_type_or_pointer_to(type_t* t)
+{
+    t = no_ref(t);
+    return is_pointer_to_fortran_character_type(t)
+        || is_fortran_character_type(t);
 }
 
 char is_pointer_to_fortran_character_type(type_t* t)
@@ -261,7 +268,7 @@ type_t* replace_return_type_of_function_type(type_t* function_type, type_t* new_
     }
 }
 
-char equivalent_tkr_types(type_t* t1, type_t* t2)
+char equivalent_tk_types(type_t* t1, type_t* t2)
 {
     type_t* r1 = get_rank0_type(t1);
     type_t* r2 = get_rank0_type(t2);
@@ -277,7 +284,12 @@ char equivalent_tkr_types(type_t* t1, type_t* t2)
         r2 = get_unqualified_type(array_type_get_element_type(r2));
     }
 
-    if (!equivalent_types(get_unqualified_type(r1), get_unqualified_type(r2)))
+    return equivalent_types(get_unqualified_type(r1), get_unqualified_type(r2));
+}
+
+char equivalent_tkr_types(type_t* t1, type_t* t2)
+{
+    if (!equivalent_tk_types(t1, t2))
         return 0;
 
     int rank1 = get_rank_of_type(t1);
@@ -297,7 +309,7 @@ type_t* update_basic_type_with_type(type_t* type_info, type_t* basic_type)
                 update_basic_type_with_type(pointer_type_get_pointee_type(type_info), basic_type)
                 );
     }
-    else if (is_array_type(type_info))
+    else if (is_fortran_array_type(type_info))
     {
         return get_array_type_bounds(
                 update_basic_type_with_type(array_type_get_element_type(type_info), basic_type),
@@ -365,6 +377,12 @@ char is_pointer_to_fortran_array_type(type_t* t)
 
     return is_pointer_type(t)
         && is_fortran_array_type(pointer_type_get_pointee_type(t));
+}
+
+char is_fortran_array_type_or_pointer_to(type_t* t)
+{
+    return is_fortran_array_type(t)
+        || is_pointer_to_fortran_array_type(t);
 }
 
 type_t* rebuild_array_type(type_t* rank0_type, type_t* array_type)

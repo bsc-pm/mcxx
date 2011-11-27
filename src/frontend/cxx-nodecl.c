@@ -438,7 +438,7 @@ void nodecl_set_decl_context(nodecl_t n, decl_context_t decl_context)
     }
 }
 
-static nodecl_t nodecl_get_parent(nodecl_t n)
+nodecl_t nodecl_get_parent(nodecl_t n)
 {
     ERROR_CONDITION(nodecl_is_null(n), "Invalid node", 0);
 
@@ -477,7 +477,7 @@ static void nodecl_set_parent(nodecl_t node, nodecl_t parent)
 void nodecl_exchange(nodecl_t old_node, nodecl_t new_node)
 {
     ERROR_CONDITION(nodecl_is_null(old_node), "Old node cannot be null", 0);
-    ERROR_CONDITION(nodecl_is_null(new_node), "Old node cannot be null", 0);
+    ERROR_CONDITION(nodecl_is_null(new_node), "New node cannot be null", 0);
 
     nodecl_t parent_of_old = nodecl_get_parent(old_node);
 
@@ -497,7 +497,7 @@ void nodecl_exchange(nodecl_t old_node, nodecl_t new_node)
     internal_error("Old node was not properly chained to its parent", 0);
 }
 
-size_t hash_string(const char* str)
+static size_t hash_string(const char* str)
 {
     size_t str_hash = 0;
     int c;
@@ -511,7 +511,7 @@ size_t hash_string(const char* str)
     return str_hash;
 }
 
-size_t hash_table(nodecl_t key)
+size_t nodecl_hash_table(nodecl_t key)
 {
     size_t hash = 0;
     
@@ -534,10 +534,127 @@ size_t hash_table(nodecl_t key)
         size_t child_hash;
         for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
         {
-            child_hash = hash_table(nodecl_get_child(key, i));
+            child_hash = nodecl_hash_table(nodecl_get_child(key, i));
             hash += child_hash << (i * 2);
         }    
     }
     
     return hash;
+}
+
+// Sourceify
+static const char* nodecl_to_source(nodecl_t n);
+
+const char* nodecl_stmt_to_source(nodecl_t n)
+{
+#define PRE "@NODECL-LITERAL-STMT@("
+#define POST ")"
+
+    const char* c = nodecl_to_source(n);
+    int ITEMS = strlen(c) + strlen(PRE) + strlen(POST);
+    char result[1 + ITEMS];
+
+    snprintf(result, ITEMS, "%s%s%s", PRE, c, POST);
+
+#undef PRE
+#undef POST
+
+    return uniquestr(c);
+}
+
+const char* nodecl_expr_to_source(nodecl_t n)
+{
+#define PRE "@NODECL-LITERAL-EXPR@("
+#define POST ")"
+
+    const char* c = nodecl_to_source(n);
+    int ITEMS = strlen(c) + strlen(PRE) + strlen(POST);
+    char result[1 + ITEMS];
+
+    snprintf(result, ITEMS, "%s%s%s", PRE, c, POST);
+
+#undef PRE
+#undef POST
+
+    return uniquestr(c);
+}
+
+static const char* nodecl_to_source(nodecl_t n)
+{
+    char *buff = NULL;
+    size_t size = 0;
+    FILE* string_stream = open_memstream(&buff, &size);
+
+    if (!nodecl_is_null(n))
+    {
+        fprintf(string_stream, "(\"ast=%p\")", nodecl_get_ast(n));
+    }
+
+    fclose(string_stream);
+
+    const char* result = uniquestr(buff);
+    free(buff);
+
+    return result;
+}
+
+// Build from AST_NODECL_LITERAL
+nodecl_t nodecl_make_from_ast_nodecl_literal(AST a)
+{
+    if (a == NULL)
+    {
+        return nodecl_null();
+    }
+
+    ERROR_CONDITION(ASTType(a) != AST_NODECL_LITERAL, "Invalid node", 0);
+
+    AST string_literal_list = ASTSon0(a);
+    AST it;
+
+    nodecl_t result = nodecl_null();
+
+    for_each_element(string_literal_list, it)
+    {
+        AST current_string_literal = ASTSon1(it);
+        char* literal = strdup(ASTText(current_string_literal));
+        ERROR_CONDITION(literal == NULL, "Text cannot be null", 0);
+
+        // Ignore "
+        literal += 1;
+
+        char* delim = strchr(literal, ':');
+
+        ERROR_CONDITION(delim == NULL || delim == literal, "Malformed string literal", 0);
+
+        char attr_name[delim - literal + 1];
+        memset(attr_name, 0, sizeof(attr_name));
+
+        strncpy(attr_name, literal, delim - literal);
+
+        // These two 1 cancel each other, but this way is clearer what we mean
+        char value[strlen(literal) - (delim - literal + 1) + 1];
+        memset(value, 0, sizeof(value));
+        strncpy(value, delim + 1, strlen(literal) - (delim - literal + 1));
+
+        // Erase trailing "
+        delim = strchr(value, '"');
+        ERROR_CONDITION(delim == NULL, "Malformed string literal", 0);
+        *delim = '\0';
+
+        if (strcmp(attr_name, "ast") == 0)
+        {
+            void *p = NULL;
+            sscanf(value, "%p", &p);
+
+            result = _nodecl_wrap((AST)p);
+        }
+        else
+        {
+            internal_error("Malformed nodecl literal. Unknown property '%s'\n", attr_name);
+        }
+
+        free(literal);
+    }
+
+    return result;
 }

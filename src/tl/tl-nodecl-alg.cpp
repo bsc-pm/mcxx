@@ -49,7 +49,7 @@ namespace Nodecl
             {
                 // If its scope is contained in the base node one, then it is
                 // "local"
-                return sym.get_scope().is_contained_in(_sc);
+                return sym.get_scope().scope_is_enclosed_by(_sc);
             }
     };
 
@@ -107,7 +107,7 @@ namespace Nodecl
             {
                 // If its scope is contained in the base node one, then it is
                 // "local"
-                return n.get_symbol().get_scope().is_contained_in(_sc);
+                return n.get_symbol().get_scope().scope_is_enclosed_by(_sc);
             }
     };
 
@@ -208,7 +208,7 @@ namespace Nodecl
     
     size_t Utils::Nodecl_hash::operator() (const Nodecl::NodeclBase& n) const
     {
-        return hash_table(n.get_internal_nodecl());
+        return nodecl_hash_table(n.get_internal_nodecl());
     }
     
     bool Utils::Nodecl_comp::operator() (const Nodecl::NodeclBase& n1, const Nodecl::NodeclBase& n2) const

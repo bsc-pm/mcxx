@@ -1078,6 +1078,8 @@ type {
 @OMP_UDR_DECLARE_2@ { parse_token_text(); return SUBPARSE_OMP_UDR_DECLARE_2; }
 @OMP_UDR_IDENTITY@ { parse_token_text(); return SUBPARSE_OMP_UDR_IDENTITY; }
 @OMP_UDR_CONSTRUCTOR@ { parse_token_text(); return OMP_UDR_CONSTRUCTOR; }
+@NODECL-LITERAL-EXPR@ { parse_token_text(); return NODECL_LITERAL_EXPR; }
+@NODECL-LITERAL-STMT@ { parse_token_text(); return NODECL_LITERAL_STMT; }
  /*!if CPLUSPLUS*/
 @MEMBER@ { parse_token_text(); return SUBPARSE_MEMBER; }
  /*!endif*/

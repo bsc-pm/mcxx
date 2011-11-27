@@ -83,14 +83,6 @@ namespace TL
 
         void Core::run(TL::DTO& dto)
         {
-#ifdef FORTRAN_SUPPORT
-            FORTRAN_LANGUAGE()
-            {
-                // Not yet implemented
-                return;
-            }
-#endif
-
             // "openmp_info" should exist
             if (!dto.get_keys().contains("openmp_info"))
             {
@@ -123,6 +115,11 @@ namespace TL
 //             initialize_builtin_udr_reductions_2(translation_unit);
 
             PragmaCustomCompilerPhase::run(dto);
+        }
+
+        RefPtr<OpenMP::Info> Core::get_openmp_info()
+        {
+            return _openmp_info;
         }
 
         static void register_directive(const std::string& str)
@@ -384,7 +381,7 @@ namespace TL
                 DataSharingAttribute default_data_attr, 
                 DataSharingEnvironment& data_sharing)
         {
-            Nodecl::NodeclBase statement = construct.get_statement();
+            Nodecl::NodeclBase statement = construct.get_statements();
 
             ObjectList<Nodecl::Symbol> nonlocal_symbols = Nodecl::Utils::get_nonlocal_symbols_first_occurrence(statement);
             ObjectList<Symbol> already_nagged;
@@ -456,7 +453,7 @@ namespace TL
 
         void Core::common_sections_handler(TL::PragmaCustomStatement construct, const std::string& pragma_name)
         {
-            Nodecl::NodeclBase stmt = construct.get_statement();
+            Nodecl::NodeclBase stmt = construct.get_statements();
             if (!stmt.is<Nodecl::CompoundStatement>())
             {
                 running_error("%s: error: '#pragma omp %s' must be followed by a compound statement\n",
@@ -482,7 +479,7 @@ namespace TL
 
         void Core::fix_first_section(TL::PragmaCustomStatement construct)
         {
-            Nodecl::NodeclBase stmt = construct.get_statement();
+            Nodecl::NodeclBase stmt = construct.get_statements();
             ERROR_CONDITION(!stmt.is<Nodecl::CompoundStatement>(), "It must be a compound statement", 0);
 
             Nodecl::CompoundStatement cmp_stmt = stmt.as<Nodecl::CompoundStatement>();
@@ -505,7 +502,7 @@ namespace TL
 
         void Core::common_for_handler(TL::PragmaCustomStatement construct, DataSharingEnvironment& data_sharing)
         {
-            Nodecl::NodeclBase stmt = construct.get_statement();
+            Nodecl::NodeclBase stmt = construct.get_statements();
 
             if (!stmt.is<Nodecl::ForStatement>())
             {
@@ -548,7 +545,7 @@ namespace TL
                 DataSharingEnvironment& data_sharing,
                 DataSharingAttribute default_data_attr)
         {
-            Nodecl::NodeclBase statement = construct.get_statement();
+            Nodecl::NodeclBase statement = construct.get_statements();
 
             ObjectList<Nodecl::Symbol> nonlocal_symbols = Nodecl::Utils::get_nonlocal_symbols_first_occurrence(statement);
 
@@ -736,12 +733,12 @@ namespace TL
 
         void Core::task_handler_pre(TL::PragmaCustomStatement construct)
         {
-            // task_inline_handler_pre(construct);
+            task_inline_handler_pre(construct);
         }
 
         void Core::task_handler_pre(TL::PragmaCustomDeclaration construct)
         {
-            // task_function_handler_pre(construct);
+            task_function_handler_pre(construct);
         }
 
         void Core::task_handler_post(TL::PragmaCustomStatement construct)
@@ -847,5 +844,6 @@ namespace TL
         }
     }
 }
+
 
 EXPORT_PHASE(TL::OpenMP::Core)

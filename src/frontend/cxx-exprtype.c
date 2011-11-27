@@ -8381,7 +8381,7 @@ static void check_nodecl_cast_expr(nodecl_t nodecl_casted_expr,
             && (strcmp(cast_kind, "C") == 0
                 || strcmp(cast_kind, "static_cast") == 0))
     {
-        // FIXME - For AST_CAST we need to check the following cases (in this order!)
+        // FIXME - For a C cast we need to check the following cases (in this order!)
         //
         //   const_cast
         //   static_cast
@@ -8389,7 +8389,7 @@ static void check_nodecl_cast_expr(nodecl_t nodecl_casted_expr,
         //   reinterpret_cast
         //   reinterpret_cast + const_cast
         // 
-        // We may be missing conversions in a AST_CAST if a const_cast is required after a static_cast
+        // We may be missing conversions in a C cast if a const_cast is required after a static_cast
 
         // Shut up the compiler if things go wrong
         enter_test_expression();
@@ -8407,15 +8407,15 @@ static void check_nodecl_cast_expr(nodecl_t nodecl_casted_expr,
                 &nodecl_cast_output);
         leave_test_expression();
 
+        // T(e) becomes (T){e}, so we get 'e' so the result is (T)e and not (T)(T){e}
+        if (nodecl_get_kind(nodecl_cast_output) == NODECL_STRUCTURED_VALUE)
+        {
+            nodecl_cast_output = nodecl_list_head(nodecl_get_child(nodecl_cast_output, 0));
+        }
+
         if (!nodecl_is_err_expr(nodecl_cast_output))
         {
             nodecl_casted_expr = nodecl_cast_output;
-
-            // T(e) becomes (T){e}, so we get 'e' so the result is (T)e and not (T)(T){e}
-            if (nodecl_get_kind(nodecl_casted_expr) == NODECL_STRUCTURED_VALUE)
-            {
-                nodecl_casted_expr = nodecl_list_head(nodecl_get_child(nodecl_casted_expr, 0));
-            }
         }
     }
 

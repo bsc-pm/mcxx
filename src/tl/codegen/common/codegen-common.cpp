@@ -35,4 +35,10 @@ void CodegenVisitor::codegen_top_level(const Nodecl::NodeclBase& n, FILE* f)
     this->_is_file_output = old_is_file_output;
 }
 
+CodegenVisitor::Ret CodegenVisitor::unhandled_node(const Nodecl::NodeclBase & n)
+{ 
+    internal_error("Unhandled node %s\n", ast_print_node_type(n.get_kind()));
+    return Ret(); 
+}
+
 }

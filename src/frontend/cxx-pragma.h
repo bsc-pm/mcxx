@@ -23,7 +23,8 @@ void common_build_scope_pragma_custom_directive(AST a,
         decl_context_t decl_context, 
         nodecl_t* nodecl_output);
 
-void common_build_scope_pragma_custom_line(AST a, 
+void common_build_scope_pragma_custom_line(AST a,
+        AST end_clauses,
         decl_context_t decl_context, 
         nodecl_t* nodecl_output);
 

@@ -216,7 +216,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ArraySubscript& node)
 
     // We keep a list instead of a single dimension for multidimensional arrays
     // alla Fortran
-    for(TL::ObjectList<Nodecl::NodeclBase>::iterator it = subscript.begin(); 
+    for(Nodecl::List::iterator it = subscript.begin(); 
            it != subscript.end();
            it++)
     {
@@ -611,7 +611,15 @@ CxxBase::Ret CxxBase::visit(const Nodecl::EmptyStatement& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::ErrExpr& node)
 {
-    file << "<<error expression>>";
+    if (!this->is_file_output())
+    {
+        file << "<<error expression>>";
+    }
+    else
+    {
+        internal_error("%s: error: error expression found when the output is a file", 
+                node.get_locus().c_str());
+    }
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::ExpressionStatement& node)
@@ -949,9 +957,13 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
         file << "template<>\n";
     }
 
+    bool requires_extern_linkage = false;
     CXX_LANGUAGE()
     {
-        if (symbol.has_nondefault_linkage())
+        requires_extern_linkage = (!symbol.is_member() 
+                && symbol.has_nondefault_linkage());
+
+        if (requires_extern_linkage)
         {
             file << "extern " + symbol.get_linkage() + "\n";
             indent();
@@ -961,8 +973,17 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
         }
     }
 
+    if (!symbol.is_member()
+            && asm_specification != "")
+    {
+        // gcc does not like asm specifications appear in the
+        // function-definition so emit a declaration before the definition
+        indent();
+        file << decl_spec_seq << gcc_attributes << declarator << exception_spec << asm_specification << ";\n";
+    }
+
     indent();
-    file << decl_spec_seq << gcc_attributes << declarator << exception_spec << asm_specification << "\n";
+    file << decl_spec_seq << gcc_attributes << declarator << exception_spec << "\n";
 
     set_codegen_status(symbol, CODEGEN_STATUS_DEFINED);
 
@@ -984,7 +1005,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 
     CXX_LANGUAGE()
     {
-        if (symbol.has_nondefault_linkage())
+        if (requires_extern_linkage)
         {
             dec_indent();
             indent();
@@ -1298,7 +1319,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Offsetof& node)
     // Except for the first, the remaining must be printed as usual
     Nodecl::List designator = node.get_designator().as<Nodecl::List>();
 
-    for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = designator.begin();
+    for (Nodecl::List::iterator it = designator.begin();
             it != designator.end();
             it++)
     {
@@ -1398,7 +1419,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::PragmaCustomLine& node)
 CxxBase::Ret CxxBase::visit(const Nodecl::PragmaCustomStatement& node)
 {
     Nodecl::NodeclBase pragma_line = node.get_pragma_line();
-    Nodecl::NodeclBase statement = node.get_statement();
+    Nodecl::NodeclBase statement = node.get_statements();
 
     indent();
     // FIXME  parallel|for must be printed as parallel for
@@ -1457,7 +1478,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Shaping& node)
     Nodecl::NodeclBase postfix = node.get_postfix();
     Nodecl::List seq_exp = node.get_shape().as<Nodecl::List>();
    
-    for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = seq_exp.begin();
+    for (Nodecl::List::iterator it = seq_exp.begin();
             it != seq_exp.end();
             it++)
     {
@@ -2793,9 +2814,13 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
             std::string declarator;
             std::string bit_field;
 
+            bool requires_extern_linkage = false;
             CXX_LANGUAGE()
             {
-                if (symbol.has_nondefault_linkage())
+                requires_extern_linkage = (!symbol.is_member() 
+                        && symbol.has_nondefault_linkage());
+
+                if (requires_extern_linkage)
                 {
                     file << "extern " + symbol.get_linkage() + "\n";
                     indent();
@@ -3038,7 +3063,7 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
 
             CXX_LANGUAGE()
             {
-                if (symbol.has_nondefault_linkage())
+                if (requires_extern_linkage)
                 {
                     dec_indent();
                     indent();
@@ -3197,11 +3222,15 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
                     &CxxBase::define_nonlocal_entities_in_trees);
 
             char is_primary_template = 0;
+            bool requires_extern_linkage = false;
             CXX_LANGUAGE()
             {
                 move_to_namespace_of_symbol(symbol);
 
-                if (symbol.has_nondefault_linkage())
+                requires_extern_linkage = (!symbol.is_member() 
+                        && symbol.has_nondefault_linkage());
+
+                if (requires_extern_linkage)
                 {
                     file << "extern " + symbol.get_linkage() + "\n";
                     indent();
@@ -3291,7 +3320,7 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
 
             CXX_LANGUAGE()
             {
-                if (symbol.has_nondefault_linkage())
+                if (requires_extern_linkage)
                 {
                     dec_indent();
                     indent();
@@ -4386,6 +4415,32 @@ std::string CxxBase::exception_specifier_to_str(TL::Symbol symbol)
 std::string CxxBase::template_arguments_to_str(TL::Symbol symbol)
 {
     return ::get_template_arguments_str(symbol.get_internal_symbol(), symbol.get_scope().get_decl_context());
+}
+
+CxxBase::Ret CxxBase::unhandled_node(const Nodecl::NodeclBase & n)
+{
+    indent();
+    file << "/* >>> " << ast_print_node_type(n.get_kind()) << " >>> */\n";
+
+    inc_indent();
+
+    TL::ObjectList<Nodecl::NodeclBase> children = n.children();
+
+    int i = 0;
+    for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+            it != children.end();
+            it++, i++)
+    {
+        indent();
+        file << "/* Children " << i << " */\n";
+
+        walk(*it);
+    }
+
+    dec_indent();
+
+    indent();
+    file << "/* <<< " << ast_print_node_type(n.get_kind()) << " <<< */\n";
 }
 
 } // Codegen

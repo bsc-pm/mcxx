@@ -28,10 +28,6 @@
 static void unsupported_construct(AST a, const char* name);
 static void unsupported_statement(AST a, const char* name);
 
-static scope_entry_t* query_label(AST label, 
-        decl_context_t decl_context, 
-        char is_definition);
-
 static void null_dtor(const void* p UNUSED_PARAMETER) { }
 
 void fortran_initialize_translation_unit_scope(translation_unit_t* translation_unit)
@@ -67,7 +63,6 @@ void build_scope_fortran_translation_unit(translation_unit_t* translation_unit)
 
 static void build_scope_program_unit_internal(AST program_unit, 
         decl_context_t decl_context,
-        decl_context_t (*new_context)(decl_context_t),
         scope_entry_t** program_unit_symbol,
         nodecl_t* nodecl_output);
 
@@ -77,7 +72,6 @@ void build_scope_program_unit(AST program_unit,
 {
     build_scope_program_unit_internal(program_unit,
             decl_context, 
-            new_program_unit_context,
             /* program_unit symbol */ NULL, 
             nodecl_output);
 }
@@ -92,7 +86,6 @@ static void build_scope_program_unit_seq(AST program_unit_seq,
         nodecl_t nodecl_top_level_items = nodecl_null();
         build_scope_program_unit_internal(ASTSon1(it), 
                 decl_context, 
-                new_program_unit_context,
                 NULL, &nodecl_top_level_items);
         *nodecl_output = nodecl_concat_lists(*nodecl_output,
                 nodecl_top_level_items);
@@ -165,13 +158,23 @@ static scope_entry_t* get_or_create_equivalence_symbol_info(decl_context_t decl_
     return get_or_create_special_symbol(decl_context, ".equivalence");
 }
 
-static void add_unknown_symbol(decl_context_t decl_context, scope_entry_t* entry)
+void add_unknown_symbol(decl_context_t decl_context, scope_entry_t* entry)
 {
     scope_entry_t* unknown_info = get_or_create_unknown_symbols_info(decl_context);
 
     P_LIST_ADD(unknown_info->entity_specs.related_symbols,
             unknown_info->entity_specs.num_related_symbols,
             entry);
+}
+
+void remove_unknown_symbol(decl_context_t decl_context, scope_entry_t* entry)
+{
+    scope_entry_t* unknown_info = get_or_create_unknown_symbols_info(decl_context);
+    
+    P_LIST_REMOVE(unknown_info->entity_specs.related_symbols,
+            unknown_info->entity_specs.num_related_symbols,
+            entry);
+
 }
 
 static void clear_unknown_symbols(decl_context_t decl_context)
@@ -187,9 +190,9 @@ static void clear_unknown_symbols(decl_context_t decl_context)
     {
         scope_entry_t* entry = unknown_info->entity_specs.related_symbols[i];
 
-        if ((entry->type_information == NULL
-                    || basic_type_is_void(entry->type_information))
-                    && !entry->entity_specs.is_builtin)
+        if (((entry->type_information == NULL || basic_type_is_void(entry->type_information))
+                    && !entry->entity_specs.is_builtin) 
+                || (entry->kind == SK_FUNCTION && entry->entity_specs.is_builtin))
         {
             if (unresolved_implicits)
             {
@@ -251,8 +254,8 @@ static void update_unknown_symbols(decl_context_t decl_context)
 // This function queries a symbol. If not found it uses implicit info to create
 // one adding it to the set of unknown symbols of this context
 //
-// The difference of this function to query_name_with_locus is that
-// query_name_with_locus always creates a SK_VARIABLE
+// The difference of this function to fortran_query_name_with_locus is that
+// fortran_query_name_with_locus always creates a SK_VARIABLE
 static scope_entry_t* get_symbol_for_name_(decl_context_t decl_context, 
         AST locus, const char* name,
         char no_implicit)
@@ -280,7 +283,8 @@ static scope_entry_t* get_symbol_for_name_(decl_context_t decl_context,
         result->line = ASTLine(locus);
 
         if (decl_context.current_scope->related_entry != NULL
-                && decl_context.current_scope->related_entry->kind == SK_MODULE)
+                && (decl_context.current_scope->related_entry->kind == SK_MODULE
+                    || decl_context.current_scope->related_entry->kind == SK_BLOCKDATA))
         {
             scope_entry_t* module = decl_context.current_scope->related_entry;
 
@@ -329,11 +333,10 @@ static void handle_opt_value_list(AST io_stmt, AST opt_value_list,
 
 static void build_scope_program_unit_internal(AST program_unit, 
         decl_context_t decl_context,
-        decl_context_t (*new_context)(decl_context_t),
         scope_entry_t** program_unit_symbol,
         nodecl_t* nodecl_output)
 {
-    decl_context_t program_unit_context = new_context(decl_context);
+    decl_context_t program_unit_context = new_program_unit_context(decl_context);
 
     scope_entry_t* _program_unit_symbol = NULL;
 
@@ -379,22 +382,20 @@ static void build_scope_program_unit_internal(AST program_unit,
 static scope_entry_t* new_procedure_symbol(decl_context_t decl_context, 
         AST name, AST prefix, AST suffix, AST dummy_arg_name_list,
         char is_function);
-static void build_scope_program_body(AST program_body, 
-        decl_context_t decl_context,
-        char (*allowed_statement)(AST a, decl_context_t),
-        nodecl_t* nodecl_output,
-        nodecl_t* nodecl_internal_subprograms);
-static void build_scope_program_body_module(AST program_body, 
-        decl_context_t decl_context,
-        char (*allowed_statement)(AST a, decl_context_t),
-        nodecl_t* nodecl_output,
-        nodecl_t* nodecl_internal_subprograms);
 
 static char allow_all_statements(AST a UNUSED_PARAMETER, 
         decl_context_t decl_context UNUSED_PARAMETER)
 {
     return 1;
 }
+
+static void build_scope_program_unit_body(
+        AST program_unit_stmts,
+        AST internal_subprograms,
+        decl_context_t decl_context,
+        char (*allowed_statement)(AST, decl_context_t),
+        nodecl_t* nodecl_output,
+        nodecl_t* nodecl_internal_subprograms);
 
 static void build_scope_main_program_unit(AST program_unit, 
         decl_context_t program_unit_context, 
@@ -433,8 +434,13 @@ static void build_scope_main_program_unit(AST program_unit,
     nodecl_t nodecl_internal_subprograms = nodecl_null();
     if (program_body != NULL)
     {
-        build_scope_program_body(program_body, program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
+        AST top_level = ASTSon0(program_body);
+        AST statement_seq = ASTSon0(top_level);
+        AST internal_subprograms = ASTSon1(program_body);
 
+        build_scope_program_unit_body(
+                statement_seq, internal_subprograms,
+                program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
     }
 
     if (nodecl_is_null(nodecl_body))
@@ -456,16 +462,9 @@ static void build_scope_main_program_unit(AST program_unit,
                 ASTFileName(program_unit), ASTLine(program_unit)));
 }
 
-static void build_scope_function_program_unit(AST program_unit, 
-        decl_context_t program_unit_context, 
-        scope_entry_t** program_unit_symbol,
-        nodecl_t* nodecl_output)
+static scope_entry_t* register_function(AST program_unit, 
+        decl_context_t program_unit_context)
 {
-    ERROR_CONDITION(program_unit_symbol == NULL, "Invalid parameter", 0)
-    DEBUG_CODE()
-    {
-        fprintf(stderr, "==== [%s] Program unit: FUNCTION ===\n", ast_location(program_unit));
-    }
     AST function_stmt = ASTSon0(program_unit);
 
     AST prefix = ASTSon0(function_stmt);
@@ -478,6 +477,24 @@ static void build_scope_function_program_unit(AST program_unit,
     scope_entry_t *new_entry = new_procedure_symbol(program_unit_context,
             name, prefix, suffix, 
             dummy_arg_name_list, /* is_function */ 1);
+
+    return new_entry;
+}
+
+
+static void build_scope_function_program_unit(AST program_unit, 
+        decl_context_t program_unit_context, 
+        scope_entry_t** program_unit_symbol,
+        nodecl_t* nodecl_output)
+{
+    ERROR_CONDITION(program_unit_symbol == NULL, "Invalid parameter", 0)
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "==== [%s] Program unit: FUNCTION ===\n", ast_location(program_unit));
+    }
+
+    scope_entry_t* new_entry = register_function(program_unit, program_unit_context);
+
     if (new_entry == NULL)
         return;
 
@@ -486,21 +503,23 @@ static void build_scope_function_program_unit(AST program_unit,
 
     *program_unit_symbol = new_entry;
 
-    new_entry->related_decl_context = program_unit_context;
-
     nodecl_t nodecl_body = nodecl_null();
     nodecl_t nodecl_internal_subprograms = nodecl_null();
     AST program_body = ASTSon1(program_unit);
     if (program_body != NULL)
     {
-        build_scope_program_body(program_body, program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
+        AST top_level = ASTSon0(program_body);
+        AST statement_seq = ASTSon0(top_level);
+        AST internal_subprograms = ASTSon1(program_body);
 
+        build_scope_program_unit_body(
+                statement_seq, internal_subprograms,
+                program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
     }
 
     if (nodecl_is_null(nodecl_body))
     {
         nodecl_body = nodecl_make_list_1(nodecl_make_empty_statement(ASTFileName(program_unit), ASTLine(program_unit)));
-
     }
 
     int i, num_params = new_entry->entity_specs.num_related_symbols;
@@ -528,17 +547,9 @@ static void build_scope_function_program_unit(AST program_unit,
                 ASTFileName(program_unit), ASTLine(program_unit)));
 }
 
-static void build_scope_subroutine_program_unit(AST program_unit, 
-        decl_context_t program_unit_context, 
-        scope_entry_t** program_unit_symbol,
-        nodecl_t* nodecl_output)
+static scope_entry_t* register_subroutine(AST program_unit,
+        decl_context_t program_unit_context)
 {
-    ERROR_CONDITION(program_unit_symbol == NULL, "Invalid parameter", 0)
-    DEBUG_CODE()
-    {
-        fprintf(stderr, "==== [%s] Program unit: SUBROUTINE ===\n", ast_location(program_unit));
-    }
-
     AST subroutine_stmt = ASTSon0(program_unit);
 
     AST prefix = ASTSon0(subroutine_stmt);
@@ -558,8 +569,28 @@ static void build_scope_subroutine_program_unit(AST program_unit,
     scope_entry_t *new_entry = new_procedure_symbol(program_unit_context,
             name, prefix, suffix, 
             dummy_arg_name_list, /* is_function */ 0);
-    if (new_entry == NULL)
-        return;
+
+    return new_entry;
+}
+
+static void build_scope_subroutine_program_unit(AST program_unit, 
+        decl_context_t program_unit_context, 
+        scope_entry_t** program_unit_symbol,
+        nodecl_t* nodecl_output)
+{
+    ERROR_CONDITION(program_unit_symbol == NULL, "Invalid parameter", 0)
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "==== [%s] Program unit: SUBROUTINE ===\n", ast_location(program_unit));
+    }
+
+    scope_entry_t *new_entry = register_subroutine(program_unit, program_unit_context);
+
+    *program_unit_symbol = new_entry;
+
+    insert_alias(program_unit_context.current_scope->contained_in, new_entry,
+            strappend("._", new_entry->symbol_name));
+
 
     // It is void but it is not implicit
     new_entry->entity_specs.is_implicit_basic_type = 0;
@@ -569,21 +600,23 @@ static void build_scope_subroutine_program_unit(AST program_unit,
     insert_alias(program_unit_context.current_scope->contained_in, new_entry,
             strappend("._", new_entry->symbol_name));
 
-    new_entry->related_decl_context = program_unit_context;
-
     nodecl_t nodecl_body = nodecl_null();
     nodecl_t nodecl_internal_subprograms = nodecl_null();
     AST program_body = ASTSon1(program_unit);
     if (program_body != NULL)
     {
-        build_scope_program_body(program_body, program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
+        AST top_level = ASTSon0(program_body);
+        AST statement_seq = ASTSon0(top_level);
+        AST internal_subprograms = ASTSon1(program_body);
 
+        build_scope_program_unit_body(
+                statement_seq, internal_subprograms,
+                program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
     }
 
     if (nodecl_is_null(nodecl_body))
     {
         nodecl_body = nodecl_make_list_1(nodecl_make_empty_statement(ASTFileName(program_unit), ASTLine(program_unit)));
-
     }
 
     int i, num_params = new_entry->entity_specs.num_related_symbols;
@@ -634,8 +667,6 @@ static void build_scope_module_program_unit(AST program_unit,
     program_unit_context.current_scope->related_entry = new_entry;
 
     AST module_body = ASTSon1(program_unit);
-    if (module_body == NULL)
-        return;
 
     insert_alias(program_unit_context.current_scope->contained_in, new_entry,
             strappend("._", new_entry->symbol_name));
@@ -644,7 +675,16 @@ static void build_scope_module_program_unit(AST program_unit,
 
     nodecl_t nodecl_body = nodecl_null();
     nodecl_t nodecl_internal_subprograms = nodecl_null();
-    build_scope_program_body_module(module_body, program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
+
+    if (module_body != NULL)
+    {
+        AST statement_seq = ASTSon0(module_body);
+        AST internal_subprograms = ASTSon1(module_body);
+
+        build_scope_program_unit_body(
+                statement_seq, internal_subprograms,
+                program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
+    }
 
     // This deserves an explanation: if a module does not contain any procedure
     // we need to remember it appeared (use a NODECL_OBJECT_INIT) otherwise use
@@ -659,6 +699,7 @@ static void build_scope_module_program_unit(AST program_unit,
         *nodecl_output = nodecl_internal_subprograms;
     }
 
+    // Now adjust attributes of symbols
     int i, num_symbols = new_entry->entity_specs.num_related_symbols;
     for (i = 0; i < num_symbols; i++)
     {
@@ -668,6 +709,15 @@ static void build_scope_module_program_unit(AST program_unit,
         if (new_entry->entity_specs.related_symbols[i]->kind == SK_UNDEFINED)
         {
             new_entry->entity_specs.related_symbols[i]->kind = SK_VARIABLE;
+        }
+
+        // Fix their access
+        if (new_entry->entity_specs.related_symbols[i]->entity_specs.access == AS_UNKNOWN)
+        {
+            if (new_entry->entity_specs.access == AS_PRIVATE)
+                new_entry->entity_specs.related_symbols[i]->entity_specs.access = AS_PRIVATE;
+            else
+                new_entry->entity_specs.related_symbols[i]->entity_specs.access = AS_PUBLIC;
         }
     }
 
@@ -683,9 +733,9 @@ static void build_scope_module_program_unit(AST program_unit,
 }
 
 static void build_scope_block_data_program_unit(AST program_unit,
-        decl_context_t program_unit_context UNUSED_PARAMETER,
-        scope_entry_t** program_unit_symbol UNUSED_PARAMETER,
-        nodecl_t* nodecl_output UNUSED_PARAMETER)
+        decl_context_t program_unit_context,
+        scope_entry_t** program_unit_symbol,
+        nodecl_t* nodecl_output)
 {
     // FIXME
     // Do nothing with these
@@ -694,8 +744,47 @@ static void build_scope_block_data_program_unit(AST program_unit,
         fprintf(stderr, "=== [%s] Program unit: BLOCK DATA ===\n", ast_location(program_unit));
     }
 
+    ERROR_CONDITION(program_unit_symbol == NULL, "Invalid parameter", 0)
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "==== [%s] Program unit: PROGRAM ===\n", ast_location(program_unit));
+    }
 
-    internal_error("BLOCK DATA not yet implemented", 0);
+    AST program_stmt = ASTSon0(program_unit);
+    const char * program_name = "__BLOCK_DATA_UNNAMED__";
+    AST name = ASTSon0(program_stmt);
+    if (name != NULL)
+        program_name = ASTText(name);
+
+    scope_entry_t* program_sym = new_fortran_symbol(program_unit_context, program_name);
+    program_sym->kind = SK_BLOCKDATA;
+    program_sym->file = ASTFileName(program_unit);
+    program_sym->line = ASTLine(program_unit);
+
+    insert_alias(program_unit_context.current_scope->contained_in, program_sym,
+            strappend("._", program_sym->symbol_name));
+
+    program_sym->related_decl_context = program_unit_context;
+    program_unit_context.current_scope->related_entry = program_sym;
+
+    *program_unit_symbol = program_sym;
+
+    AST program_body = ASTSon1(program_unit);
+
+    nodecl_t nodecl_body = nodecl_null();
+    nodecl_t nodecl_internal_subprograms = nodecl_null();
+    if (program_body != NULL)
+    {
+        AST statement_seq = program_body;
+        AST internal_subprograms = NULL;
+
+        build_scope_program_unit_body(
+                statement_seq, internal_subprograms,
+                program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
+    }
+
+    *nodecl_output = nodecl_make_list_1(
+            nodecl_make_object_init(program_sym, ASTFileName(program_unit), ASTLine(program_unit)));
 }
 
 static type_t* gather_type_from_declaration_type_spec_(AST a, 
@@ -712,13 +801,20 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
 {
     scope_entry_t* entry = NULL;
 
-    entry = query_name_no_implicit_or_builtin(decl_context, ASTText(name));
+    entry = fortran_query_name_str(decl_context, ASTText(name));
 
     if (entry != NULL)
     {
+        // We do not allow redeclaration if the symbol has already been defined
         if (entry->defined
+                // If not defined it can only be a parameter of the current procedure
+                // being given an interface
                 || (!entry->entity_specs.is_parameter
-                    && !entry->entity_specs.is_module_procedure))
+                    // Or an advanced declaration of a module procedure found in an INTERFACE at module level
+                    && !entry->entity_specs.is_module_procedure
+                    // Or a symbol we said something about it in the specification part of a module
+                    && !(entry->kind == SK_UNDEFINED
+                        && entry->entity_specs.in_module != NULL)))
         {
             error_printf("%s: error: redeclaration of entity '%s'\n", 
                     ast_location(name), 
@@ -816,27 +912,50 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
     int num_dummy_arguments = 0;
     if (dummy_arg_name_list != NULL)
     {
+        int num_alternate_returns = 0;
         AST it;
         for_each_element(dummy_arg_name_list, it)
         {
             AST dummy_arg_name = ASTSon1(it);
 
+            scope_entry_t* dummy_arg = NULL;
+
             if (strcmp(ASTText(dummy_arg_name), "*") == 0)
             {
-                warn_printf("%s: warning: deprecated alternate return in procedure declaration\n",
-                        ast_location(dummy_arg_name));
-                continue;
+                if (is_function)
+                {
+                    error_printf("%s: error: alternate return is not allowed in a FUNCTION specification\n",
+                            ast_location(dummy_arg_name));
+                    continue;
+                }
+
+                char alternate_return_name[64];
+                snprintf(alternate_return_name, 64, ".alternate-return-%d", num_alternate_returns);
+                alternate_return_name[63] = '\0';
+
+                dummy_arg = calloc(1, sizeof(*dummy_arg));
+
+                dummy_arg->symbol_name = uniquestr(alternate_return_name);
+                // This is actually a label parameter
+                dummy_arg->kind = SK_LABEL;
+                dummy_arg->type_information = get_void_type();
+                dummy_arg->decl_context = decl_context;
+                
+                num_alternate_returns++;
+            }
+            else
+            {
+                dummy_arg = get_symbol_for_name(decl_context, dummy_arg_name, ASTText(dummy_arg_name));
+
+                // Note that we do not set the exact kind of the dummy argument as
+                // it might be a function. If left SK_UNDEFINED, we later fix them
+                // to SK_VARIABLE
+                // Get a reference to its type (it will be properly updated later)
+                dummy_arg->type_information = get_lvalue_reference_type(dummy_arg->type_information);
             }
 
-            scope_entry_t* dummy_arg = get_symbol_for_name(decl_context, dummy_arg_name, ASTText(dummy_arg_name));
-
-            // Note that we do not set the exact kind of the dummy argument as
-            // it might be a function. If left SK_UNDEFINED, we later fix them
-            // to SK_VARIABLE
             dummy_arg->file = ASTFileName(dummy_arg_name);
             dummy_arg->line = ASTLine(dummy_arg_name);
-            // Get a reference to its type (it will be properly updated later)
-            dummy_arg->type_information = get_lvalue_reference_type(dummy_arg->type_information);
             dummy_arg->entity_specs.is_parameter = 1;
             dummy_arg->entity_specs.parameter_position = num_dummy_arguments;
 
@@ -883,12 +1002,9 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
     }
     else if (is_function)
     {
-        // Invent a symbol and make it a variable, so when the function name is
-        // used as a variable we'll use this symbol instead. This eases lots of
-        // things
-        result_sym = calloc(1, sizeof(*result_sym));
-        result_sym->symbol_name = entry->symbol_name;
-        result_sym->decl_context = decl_context;
+        //Since this function does not have an explicit result variable we will insert an alias
+        //that will hide the function name
+        result_sym = new_symbol(decl_context, decl_context.current_scope, entry->symbol_name);
         result_sym->kind = SK_VARIABLE;
         result_sym->file = entry->file;
         result_sym->line = entry->line;
@@ -921,106 +1037,21 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
     type_t* function_type = get_new_function_type(return_type, parameter_info, num_dummy_arguments);
     entry->type_information = function_type;
 
+    entry->entity_specs.is_implicit_basic_type = 0;
+    entry->related_decl_context = decl_context;
+
     return entry;
-}
-
-static void build_scope_internal_subprograms(AST internal_subprograms, 
-        decl_context_t decl_context,
-        nodecl_t* nodecl_output)
-{
-    if (internal_subprograms == NULL)
-        return;
-
-    AST it;
-    for_each_element(internal_subprograms, it)
-    {
-        AST internal_subprogram = ASTSon1(it);
-        scope_entry_t* subprogram_sym = NULL;
-        nodecl_t nodecl_internal_program = nodecl_null();
-        build_scope_program_unit_internal(internal_subprogram, 
-                decl_context, 
-                new_internal_program_unit_context,
-                &subprogram_sym,
-                &nodecl_internal_program);
-
-        *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_internal_program);
-
-        // Add the symbol to the current scope
-        scope_t* current_scope = decl_context.current_scope;
-        insert_entry(current_scope, subprogram_sym);
-
-        if (decl_context.current_scope->related_entry != NULL
-                && decl_context.current_scope->related_entry->kind == SK_MODULE)
-        {
-            scope_entry_t* module = decl_context.current_scope->related_entry;
-
-            P_LIST_ADD_ONCE(module->entity_specs.related_symbols,
-                    module->entity_specs.num_related_symbols,
-                    subprogram_sym);
-
-            subprogram_sym->entity_specs.in_module = module;
-        }
-    }
 }
 
 static char statement_is_executable(AST statement);
 static void build_scope_ambiguity_statement(AST ambig_stmt, decl_context_t decl_context);
 
-static void build_scope_program_body_module(AST program_body, decl_context_t decl_context,
+static void build_scope_program_unit_body_declarations(
         char (*allowed_statement)(AST, decl_context_t),
-        nodecl_t* nodecl_output,
-        nodecl_t* nodecl_internal_subprograms)
+        AST program_unit_stmts,
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output)
 {
-    AST program_unit_stmts = ASTSon0(program_body);
-    AST internal_subprograms = ASTSon1(program_body);
-
-    if (program_unit_stmts != NULL)
-    {
-        AST it;
-        for_each_element(program_unit_stmts, it)
-        {
-            AST stmt = ASTSon1(it);
-
-            // Exceptionally we run this one first otherwise it is not possible to
-            // tell whether this is an executable or non-executable statement
-            if (ASTType(stmt) == AST_AMBIGUITY)
-            {
-                build_scope_ambiguity_statement(stmt, decl_context);
-            }
-
-            if (!allowed_statement(stmt, decl_context))
-            {
-                error_printf("%s: error: this statement cannot be used in this context\n",
-                        ast_location(stmt));
-            }
-
-            nodecl_t nodecl_statement = nodecl_null();
-            fortran_build_scope_statement(stmt, decl_context, &nodecl_statement);
-
-            *nodecl_output = nodecl_concat_lists(*nodecl_output,
-                    nodecl_statement);
-        }
-    }
-
-    build_scope_internal_subprograms(internal_subprograms, decl_context, nodecl_internal_subprograms);
-
-    clear_unknown_symbols(decl_context);
-
-}
-
-static void build_scope_program_body(AST program_body, decl_context_t decl_context,
-        char (*allowed_statement)(AST, decl_context_t),
-        nodecl_t* nodecl_output,
-        nodecl_t* nodecl_internal_subprograms)
-{
-    AST program_part = ASTSon0(program_body);
-    AST program_unit_stmts = ASTSon0(program_part);
-
-    AST internal_subprograms = ASTSon1(program_body);
-
-    char seen_internal_subprograms = 0;
-    char seen_executables = 0;
-
     if (program_unit_stmts != NULL)
     {
         AST it;
@@ -1040,16 +1071,51 @@ static void build_scope_program_body(AST program_body, decl_context_t decl_conte
                 error_printf("%s: warning: this statement cannot be used in this context\n",
                         ast_location(stmt));
             }
+            
+            // We stop at the first executable statement seen
+            if (statement_is_executable(stmt))
+                break;
 
-            if (!seen_executables 
-                    && statement_is_executable(stmt))
+            nodecl_t nodecl_statement = nodecl_null();
+            fortran_build_scope_statement(stmt, decl_context, &nodecl_statement);
+
+            *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_statement);
+        }
+    }
+}
+
+static void build_scope_program_unit_body_executable(
+        char (*allowed_statement)(AST, decl_context_t),
+        AST program_unit_stmts,
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output)
+{
+    char seen_an_executable = 0;
+    if (program_unit_stmts != NULL)
+    {
+        AST it;
+        for_each_element(program_unit_stmts, it)
+        {
+            AST stmt = ASTSon1(it);
+
+            // Exceptionally we run this one first otherwise it is not possible to
+            // tell whether this is an executable or non-executable statement
+            if (ASTType(stmt) == AST_AMBIGUITY)
             {
-                // Make sure all symbols seen so far have basic type
-                clear_unknown_symbols(decl_context);
+                build_scope_ambiguity_statement(stmt, decl_context);
+            }
 
-                build_scope_internal_subprograms(internal_subprograms, decl_context, nodecl_internal_subprograms);
-                seen_executables = 1;
-                seen_internal_subprograms = 1;
+            if (!allowed_statement(stmt, decl_context))
+            {
+                error_printf("%s: warning: this statement cannot be used in this context\n",
+                        ast_location(stmt));
+            }
+            
+            if (!seen_an_executable)
+            {
+                if (!statement_is_executable(stmt))
+                    continue;
+                seen_an_executable = 1;
             }
 
             nodecl_t nodecl_statement = nodecl_null();
@@ -1059,16 +1125,267 @@ static void build_scope_program_body(AST program_body, decl_context_t decl_conte
         }
     }
 
-    if (!seen_executables)
-    {
-        clear_unknown_symbols(decl_context);
-    }
-    if (!seen_internal_subprograms)
-    {
-        build_scope_internal_subprograms(internal_subprograms, decl_context, nodecl_internal_subprograms);
-        seen_internal_subprograms = 1;
-    }
+    clear_unknown_symbols(decl_context);
+}
 
+typedef
+struct internal_subprograms_info_tag
+{
+    scope_entry_t* symbol;
+    decl_context_t decl_context;
+    nodecl_t nodecl_output;
+    AST program_unit_stmts;
+    AST internal_subprograms;
+    const char* filename;
+    int line;
+} internal_subprograms_info_t;
+
+static int count_internal_subprograms(AST internal_subprograms)
+{
+    int num_internal_program_units = 0;
+    if (internal_subprograms != NULL)
+    {
+        AST it;
+        for_each_element(internal_subprograms, it)
+        {
+            num_internal_program_units++;
+        }
+    }
+    return num_internal_program_units;
+}
+
+static void build_scope_program_unit_body_internal_subprograms_declarations(
+        AST internal_subprograms, 
+        int num_internal_program_units,
+        internal_subprograms_info_t *internal_subprograms_info,
+        decl_context_t decl_context)
+{
+    if (internal_subprograms == NULL)
+        return;
+
+    int i = 0;
+    AST it;
+    for_each_element(internal_subprograms, it)
+    {
+        ERROR_CONDITION(i >= num_internal_program_units, "Too many internal subprograms", 0);
+
+        decl_context_t subprogram_unit_context = new_internal_program_unit_context(decl_context);
+
+        AST subprogram = ASTSon1(it);
+
+        scope_entry_t* new_entry = NULL;
+        switch (ASTType(subprogram))
+        {
+            case AST_SUBROUTINE_PROGRAM_UNIT:
+                {
+                    new_entry = register_subroutine(subprogram, subprogram_unit_context);
+                    break;
+                }
+            case AST_FUNCTION_PROGRAM_UNIT:
+                {
+                    new_entry = register_function(subprogram, subprogram_unit_context);
+                    break;
+                }
+            default:
+                {
+                    internal_error("Unexpected node of kind %s\n", ast_print_node_type(ASTType(subprogram)));
+                }
+        }
+
+        if (new_entry != NULL)
+        {
+            AST program_body = ASTSon1(subprogram);
+
+            AST program_part = ASTSon0(program_body);
+            AST program_unit_stmts = ASTSon0(program_part);
+            AST n_internal_subprograms = ASTSon1(program_body);
+
+            internal_subprograms_info[i].symbol = new_entry;
+            internal_subprograms_info[i].decl_context = subprogram_unit_context;
+            internal_subprograms_info[i].program_unit_stmts = program_unit_stmts;
+            internal_subprograms_info[i].internal_subprograms = n_internal_subprograms;
+            internal_subprograms_info[i].filename = ASTFileName(program_body);
+            internal_subprograms_info[i].line = ASTLine(program_body);
+
+            build_scope_program_unit_body_declarations(
+                    allow_all_statements,
+                    internal_subprograms_info[i].program_unit_stmts, 
+                    internal_subprograms_info[i].decl_context,
+                    &(internal_subprograms_info[i].nodecl_output));
+        }
+        i++;
+    }
+}
+
+static void build_scope_program_unit_body_internal_subprograms_executable(
+        AST internal_subprograms, 
+        int num_internal_program_units,
+        internal_subprograms_info_t *internal_subprograms_info,
+        decl_context_t decl_context UNUSED_PARAMETER)
+{
+    if (internal_subprograms == NULL)
+        return;
+
+    int i = 0;
+    AST it;
+    for_each_element(internal_subprograms, it)
+    {
+        ERROR_CONDITION(i >= num_internal_program_units, "Too many internal program units", 0);
+
+        if (internal_subprograms_info[i].symbol != NULL)
+        {
+            AST n_internal_subprograms = internal_subprograms_info[i].internal_subprograms;
+
+            int n_num_internal_program_units = count_internal_subprograms(n_internal_subprograms);
+            // Count how many internal subprograms are there
+            internal_subprograms_info_t n_internal_subprograms_info[n_num_internal_program_units + 1];
+            memset(n_internal_subprograms_info, 0, sizeof(n_internal_subprograms_info));
+            
+            build_scope_program_unit_body_internal_subprograms_declarations(
+                    n_internal_subprograms, 
+                    n_num_internal_program_units,
+                    n_internal_subprograms_info,
+                    internal_subprograms_info[i].decl_context);
+            
+            // Insert the internal program unit names into the enclosing scope
+            int j;
+            for (j = 0; j < n_num_internal_program_units; j++)
+            {
+                insert_entry(internal_subprograms_info[j].decl_context.current_scope, 
+                       n_internal_subprograms_info[j].symbol);
+            }
+
+            build_scope_program_unit_body_executable(
+                    allow_all_statements,
+                    internal_subprograms_info[i].program_unit_stmts,
+                    internal_subprograms_info[i].decl_context,
+                    &(internal_subprograms_info[i].nodecl_output));
+
+            build_scope_program_unit_body_internal_subprograms_executable(
+                    n_internal_subprograms, 
+                    n_num_internal_program_units,
+                    n_internal_subprograms_info,
+                    internal_subprograms_info[i].decl_context);
+
+            // 4.1) Remember the internal subprogram nodecls
+            // FIXME
+            nodecl_t nodecl_internal_subprograms = nodecl_null();
+            for (j = 0; j < n_num_internal_program_units; j++)
+            {
+                nodecl_internal_subprograms =
+                    nodecl_append_to_list(nodecl_internal_subprograms, 
+                            n_internal_subprograms_info[j].nodecl_output);
+            }
+
+
+            scope_entry_t* function_symbol = internal_subprograms_info[i].symbol;
+            int num_params = function_symbol->entity_specs.num_related_symbols;
+            for (j = 0; j < num_params; j++)
+            {
+                // This happens because nobody uses these dummies (or
+                // result) symbols and their undefined state remains
+                // Fix them to be plain variables
+                if (function_symbol->entity_specs.related_symbols[j]->kind == SK_UNDEFINED)
+                {
+                    function_symbol->entity_specs.related_symbols[j]->kind = SK_VARIABLE;
+                }
+            }
+
+            nodecl_t nodecl_statements = internal_subprograms_info[i].nodecl_output;
+            if (nodecl_is_null(nodecl_statements))
+            {
+                nodecl_statements = nodecl_make_list_1(
+                        nodecl_make_empty_statement(
+                            internal_subprograms_info[i].filename,
+                            internal_subprograms_info[i].line));
+            }
+
+            internal_subprograms_info[i].nodecl_output = 
+                nodecl_make_function_code(
+                        nodecl_make_context(
+                            nodecl_statements,
+                            internal_subprograms_info[i].decl_context,
+                            internal_subprograms_info[i].filename,
+                            internal_subprograms_info[i].line),
+                        /* initializers */ nodecl_null(),
+                        nodecl_internal_subprograms,
+                        internal_subprograms_info[i].symbol,
+                        internal_subprograms_info[i].filename,
+                        internal_subprograms_info[i].line);
+        }
+        i++;
+    }
+}
+
+static void build_scope_program_unit_body(
+        AST program_unit_stmts,
+        AST internal_subprograms,
+        decl_context_t decl_context,
+        char (*allowed_statement)(AST, decl_context_t),
+        nodecl_t* nodecl_output,
+        nodecl_t* nodecl_internal_subprograms)
+{
+    // 1) Program unit declaration only
+    build_scope_program_unit_body_declarations(
+            allowed_statement,
+            program_unit_stmts, 
+            decl_context, 
+            nodecl_output);
+
+    int num_internal_program_units = count_internal_subprograms(internal_subprograms);
+    // Count how many internal subprograms are there
+    internal_subprograms_info_t internal_program_units_info[num_internal_program_units + 1];
+    memset(internal_program_units_info, 0, sizeof(internal_program_units_info));
+
+    // 2) Internal program units, declaration statements only
+    build_scope_program_unit_body_internal_subprograms_declarations(
+            internal_subprograms, 
+            num_internal_program_units,
+            internal_program_units_info,
+            decl_context);
+
+    // 2.1) Insert the internal program unit names into the enclosing scope
+    int i;
+    for (i = 0; i < num_internal_program_units; i++)
+    {
+        insert_entry(decl_context.current_scope, internal_program_units_info[i].symbol);
+
+        if (decl_context.current_scope->related_entry != NULL
+                && (decl_context.current_scope->related_entry->kind == SK_MODULE))
+        {
+            scope_entry_t* module = decl_context.current_scope->related_entry;
+
+            scope_entry_t* current_symbol = internal_program_units_info[i].symbol;
+
+            P_LIST_ADD_ONCE(module->entity_specs.related_symbols, 
+                    module->entity_specs.num_related_symbols, 
+                    current_symbol);
+
+            current_symbol->entity_specs.in_module = module;
+        }
+    }
+    
+    // 3) Program unit remaining statements
+    build_scope_program_unit_body_executable(
+            allowed_statement,
+            program_unit_stmts, 
+            decl_context,
+            nodecl_output);
+    
+    // 4) Internal program units remaining statements
+    build_scope_program_unit_body_internal_subprograms_executable(
+            internal_subprograms, 
+            num_internal_program_units,
+            internal_program_units_info,
+            decl_context);
+
+    // 4.1) Remember the internal subprogram nodecls
+    for (i = 0; i < num_internal_program_units; i++)
+    {
+        *nodecl_internal_subprograms =
+            nodecl_append_to_list(*nodecl_internal_subprograms, 
+                    internal_program_units_info[i].nodecl_output);
+    }
 }
 
 typedef void (*build_scope_statement_function_t)(AST statement, decl_context_t, nodecl_t* nodecl_output);
@@ -1170,7 +1487,7 @@ typedef struct build_scope_statement_handler_tag
  STATEMENT_HANDLER(AST_TARGET_STATEMENT,             build_scope_target_stmt,           kind_nonexecutable_0 ) \
  STATEMENT_HANDLER(AST_DECLARATION_STATEMENT,        build_scope_type_declaration_stmt, kind_nonexecutable_0 ) \
  STATEMENT_HANDLER(AST_UNLOCK_STATEMENT,             build_scope_unlock_stmt,           kind_executable_0    ) \
- STATEMENT_HANDLER(AST_USE_STATEMENT,                build_scope_use_stmt,              kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_USE_STATEMENT,                build_scope_use_stmt,              kind_nonexecutable_0    ) \
  STATEMENT_HANDLER(AST_USE_ONLY_STATEMENT,           build_scope_use_stmt,              kind_executable_0    ) \
  STATEMENT_HANDLER(AST_VALUE_STATEMENT,              build_scope_value_stmt,            kind_nonexecutable_0 ) \
  STATEMENT_HANDLER(AST_VOLATILE_STATEMENT,           build_scope_volatile_stmt,         kind_nonexecutable_0 ) \
@@ -1444,7 +1761,7 @@ static type_t* get_derived_type_name(AST a, decl_context_t decl_context)
 
     type_t* result = NULL;
 
-    scope_entry_t* entry = query_name_no_implicit_or_builtin(decl_context, strtolower(ASTText(name)));
+    scope_entry_t* entry = fortran_query_name_str(decl_context, strtolower(ASTText(name)));
     if (entry != NULL
             && entry->kind == SK_CLASS)
     {
@@ -1882,7 +2199,7 @@ static void attr_spec_private_handler(AST a UNUSED_PARAMETER,
         decl_context_t decl_context UNUSED_PARAMETER,
         attr_spec_t* attr_spec)
 {
-    attr_spec->is_public = 1;
+    attr_spec->is_private = 1;
 }
 
 static void attr_spec_bind_handler(AST a, 
@@ -2145,7 +2462,7 @@ static void build_scope_access_stmt(AST a, decl_context_t decl_context, nodecl_t
                 }
                 else
                 {
-                    internal_error("code unreachable", 0);
+                    internal_error("Code unreachable", 0);
                 }
             }
         }
@@ -2162,16 +2479,23 @@ static void build_scope_access_stmt(AST a, decl_context_t decl_context, nodecl_t
         }
         else
         {
-            if (current_sym->kind == SK_MODULE)
+            if (current_sym->entity_specs.access != AS_UNKNOWN)
             {
-                if (attr_spec.is_public)
-                {
-                    current_sym->entity_specs.access = AS_PUBLIC;
-                }
-                else
-                {
-                    current_sym->entity_specs.access = AS_PRIVATE;
-                }
+                error_printf("%s: error: module '%s' already given a default access\n", 
+                        ast_location(a),
+                        current_sym->symbol_name);
+            }
+            if (attr_spec.is_public)
+            {
+                current_sym->entity_specs.access = AS_PUBLIC;
+            }
+            else if (attr_spec.is_private)
+            {
+                current_sym->entity_specs.access = AS_PRIVATE;
+            }
+            else
+            {
+                internal_error("Code unreachable", 0);
             }
         }
     }
@@ -2188,7 +2512,7 @@ static void build_dimension_decl(AST a, decl_context_t decl_context)
 
     AST name = ASTSon0(a);
     AST array_spec = ASTSon1(a);
-    AST coarray_spec = ASTSon1(a);
+    AST coarray_spec = ASTSon2(a);
 
     if (coarray_spec != NULL)
     {
@@ -2198,6 +2522,11 @@ static void build_dimension_decl(AST a, decl_context_t decl_context)
     scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
 
     char was_ref = is_lvalue_reference_type(entry->type_information);
+    
+    if(entry->kind == SK_UNDEFINED)
+    {
+        entry->kind = SK_VARIABLE;
+    }
 
     if (entry->kind != SK_VARIABLE)
     {
@@ -2363,14 +2692,14 @@ static void build_scope_arithmetic_if_stmt(AST a, decl_context_t decl_context, n
     AST equal = ASTSon1(label_set);
     AST upper = ASTSon2(label_set);
 
-    warn_printf("%s: warning: deprecated arithmetic-if statement\n", 
-            ast_location(a));
+    // warn_printf("%s: warning: deprecated arithmetic-if statement\n", 
+    //         ast_location(a));
     nodecl_t nodecl_numeric_expr = nodecl_null();
     fortran_check_expression(numeric_expr, decl_context, &nodecl_numeric_expr);
 
-    scope_entry_t* lower_label = query_label(lower, decl_context, /* is_definition */ 0);
-    scope_entry_t* equal_label = query_label(equal, decl_context, /* is_definition */ 0);
-    scope_entry_t* upper_label = query_label(upper, decl_context, /* is_definition */ 0);
+    scope_entry_t* lower_label = fortran_query_label(lower, decl_context, /* is_definition */ 0);
+    scope_entry_t* equal_label = fortran_query_label(equal, decl_context, /* is_definition */ 0);
+    scope_entry_t* upper_label = fortran_query_label(upper, decl_context, /* is_definition */ 0);
 
     *nodecl_output = nodecl_make_fortran_arithmetic_if_statement(
                 nodecl_numeric_expr,
@@ -2444,7 +2773,7 @@ static void build_io_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_o
 
 static const char* get_common_name_str(const char* common_name)
 {
-    const char *common_name_str = ".common.unnamed";
+    const char *common_name_str = ".common._unnamed";
     if (common_name != NULL)
     {
         common_name_str = strappend(".common.", strtolower(common_name));
@@ -2454,7 +2783,7 @@ static const char* get_common_name_str(const char* common_name)
 
 static scope_entry_t* query_common_name(decl_context_t decl_context, const char* common_name)
 {
-    scope_entry_t* result = query_name_no_implicit_or_builtin(decl_context, 
+    scope_entry_t* result = fortran_query_name_str(decl_context, 
             get_common_name_str(common_name));
 
     return result;
@@ -2666,12 +2995,17 @@ static void build_scope_common_stmt(AST a,
     {
         AST common_block_item = ASTSon1(it);
 
-        AST common_name = ASTSon0(common_block_item);
         AST common_block_object_list = ASTSon1(common_block_item);
 
-        const char* common_name_str = ASTText(common_name);
+        const char* common_name_str = NULL;
+        AST common_name = ASTSon0(common_block_item);
+        if(common_name != NULL)
+        {
+            //It is a named common statement
+            common_name_str = ASTText(common_name);
+        }
         
-        scope_entry_t* common_sym = query_name_no_implicit_or_builtin(decl_context, get_common_name_str(ASTText(common_name)));
+        scope_entry_t* common_sym = fortran_query_name_str(decl_context, get_common_name_str(common_name_str));
         if (common_sym == NULL)
         {
             common_sym = new_common(decl_context, common_name_str);
@@ -2716,6 +3050,10 @@ static void build_scope_common_stmt(AST a,
             sym->entity_specs.is_in_common = 1;
             sym->entity_specs.in_common = common_sym;
 
+            // This name cannot be used as a function name anymore
+            if (sym->entity_specs.is_implicit_basic_type)
+                sym->entity_specs.is_implicit_but_not_function = 1;
+
             if (array_spec != NULL)
             {
                 if (is_fortran_array_type(no_ref(sym->type_information))
@@ -2749,8 +3087,8 @@ static void build_scope_common_stmt(AST a,
 
 static void build_scope_computed_goto_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    warn_printf("%s: warning: deprecated computed-goto statement\n", 
-            ast_location(a));
+    // warn_printf("%s: warning: deprecated computed-goto statement\n", 
+    //         ast_location(a));
     AST label_list = ASTSon0(a);
     nodecl_t nodecl_label_list = nodecl_null();
     AST it;
@@ -2758,7 +3096,7 @@ static void build_scope_computed_goto_stmt(AST a, decl_context_t decl_context, n
     {
         AST label = ASTSon1(it);
 
-        scope_entry_t* label_sym = query_label(label, decl_context, /* is_definition */ 0);
+        scope_entry_t* label_sym = fortran_query_label(label, decl_context, /* is_definition */ 0);
 
         nodecl_label_list = nodecl_append_to_list(nodecl_label_list, 
                 nodecl_make_symbol(label_sym, ASTFileName(label), ASTLine(label)));
@@ -2776,10 +3114,10 @@ static void build_scope_computed_goto_stmt(AST a, decl_context_t decl_context, n
 
 static void build_scope_assigned_goto_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
-    warn_printf("%s: warning: deprecated assigned-goto statement\n", 
-            ast_location(a));
+    // warn_printf("%s: warning: deprecated assigned-goto statement\n", 
+    //         ast_location(a));
 
-    scope_entry_t* label_var = query_name_with_locus(decl_context, ASTSon0(a), ASTText(ASTSon0(a)));
+    scope_entry_t* label_var = fortran_query_name_with_locus(decl_context, ASTSon0(a), ASTText(ASTSon0(a)));
 
     AST label_list = ASTSon1(a);
     nodecl_t nodecl_label_list = nodecl_null();
@@ -2788,7 +3126,7 @@ static void build_scope_assigned_goto_stmt(AST a UNUSED_PARAMETER, decl_context_
     {
         AST label = ASTSon1(it);
 
-        scope_entry_t* label_sym = query_label(label, decl_context, /* is_definition */ 0);
+        scope_entry_t* label_sym = fortran_query_label(label, decl_context, /* is_definition */ 0);
 
         nodecl_label_list = nodecl_append_to_list(nodecl_label_list, 
                 nodecl_make_symbol(label_sym, ASTFileName(label), ASTLine(label)));
@@ -2803,8 +3141,8 @@ static void build_scope_assigned_goto_stmt(AST a UNUSED_PARAMETER, decl_context_
 
 static void build_scope_label_assign_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
-    warn_printf("%s: warning: deprecated label-assignment statement\n", 
-            ast_location(a));
+    // warn_printf("%s: warning: deprecated label-assignment statement\n", 
+    //         ast_location(a));
 
     AST literal_const = ASTSon0(a);
 
@@ -2813,16 +3151,23 @@ static void build_scope_label_assign_stmt(AST a UNUSED_PARAMETER, decl_context_t
 
     AST label_name = ASTSon1(a);
 
-    scope_entry_t* label_var = query_name_with_locus(decl_context, ASTSon0(a), ASTText(ASTSon0(a)));
+    scope_entry_t* label_var = fortran_query_name_with_locus(decl_context, label_name, ASTText(label_name));
+
+    if (label_var == NULL)
+    {
+        error_printf("%s: error: symbol '%s' is unknown\n", ast_location(label_name), ASTText(label_name));
+        return;
+    }
+    ERROR_CONDITION(label_var == NULL, "Invalid symbol", 0);
 
     *nodecl_output = nodecl_make_fortran_label_assign_statement(
-            nodecl_make_symbol(label_var, ASTFileName(label_name), ASTLine(label_name)),
             nodecl_literal,
+            nodecl_make_symbol(label_var, ASTFileName(label_name), ASTLine(label_name)),
             ASTFileName(a),
             ASTLine(a));
 }
 
-static scope_entry_t* query_label(AST label, 
+scope_entry_t* fortran_query_label(AST label, 
         decl_context_t decl_context, 
         char is_definition)
 {
@@ -2873,7 +3218,7 @@ static void build_scope_labeled_stmt(AST a, decl_context_t decl_context, nodecl_
     AST statement = ASTSon1(a);
 
     // Sign in the label
-    scope_entry_t* label_sym = query_label(label, decl_context, /* is_definition */ 1);
+    scope_entry_t* label_sym = fortran_query_label(label, decl_context, /* is_definition */ 1);
 
     nodecl_t nodecl_statement = nodecl_null();
     fortran_build_scope_statement(statement, decl_context, &nodecl_statement);
@@ -2936,7 +3281,7 @@ static void generic_implied_do_handler(AST a, decl_context_t decl_context,
         nodecl_stride = const_value_to_nodecl(const_value_get_one(/* bytes */ fortran_get_default_integer_type_kind(), /* signed */ 1));
     }
 
-    scope_entry_t* do_variable = query_name_with_locus(decl_context, io_do_variable, ASTText(io_do_variable));
+    scope_entry_t* do_variable = fortran_query_name_with_locus(decl_context, io_do_variable, ASTText(io_do_variable));
 
     if (do_variable == NULL)
     {
@@ -3021,34 +3366,72 @@ static void build_scope_data_stmt(AST a, decl_context_t decl_context, nodecl_t* 
         AST it2;
         for_each_element(data_stmt_value_list, it2)
         {
-            nodecl_t nodecl_data = nodecl_null();
-
             AST data_stmt_value = ASTSon1(it2);
             if (ASTType(data_stmt_value) == AST_MUL)
             {
-                // Do not try to check at the same time because the mult does
-                // not have to be valid
-                nodecl_t nodecl1;
-                fortran_check_expression(ASTSon0(data_stmt_value), decl_context, &nodecl1);
-                nodecl_t nodecl2;
-                fortran_check_expression(ASTSon1(data_stmt_value), decl_context, &nodecl2);
+                nodecl_t nodecl_repeat;
+                fortran_check_expression(ASTSon0(data_stmt_value), decl_context, &nodecl_repeat);
 
-                nodecl_data = nodecl_make_mul(
-                        nodecl1, nodecl2,
-                        get_void_type(),
-                        ASTFileName(data_stmt_value),
-                        ASTLine(data_stmt_value));
+                if (!nodecl_is_constant(nodecl_repeat))
+                {
+                    error_printf("%s: error: data-stmt-repeat '%s' is not a constant expression\n",
+                            nodecl_get_locus(nodecl_repeat),
+                            codegen_to_str(nodecl_repeat));
+                }
+
+                nodecl_t nodecl_value;
+                fortran_check_expression(ASTSon1(data_stmt_value), decl_context, &nodecl_value);
+
+                if (!nodecl_is_constant(nodecl_value))
+                {
+                    error_printf("%s: error: data-stmt-value '%s' is not a constant expression\n",
+                            nodecl_get_locus(nodecl_value),
+                            codegen_to_str(nodecl_value));
+                }
+
+                if (!nodecl_is_constant(nodecl_repeat)
+                        || !nodecl_is_constant(nodecl_value))
+                    continue;
+
+                if (const_value_is_nonzero
+                        (const_value_lt(nodecl_get_constant(nodecl_repeat), 
+                                        const_value_get_zero(fortran_get_default_integer_type_kind(), 1))))
+                {
+                    error_printf("%s: error: data-stmt-repeat is negative\n", nodecl_get_locus(nodecl_repeat));
+                    continue;
+                }
+
+                uint64_t repeat = const_value_cast_to_8(nodecl_get_constant(nodecl_repeat));
+                uint64_t i;
+                for (i = 0; i < repeat; i++)
+                {
+                    nodecl_data_set = nodecl_append_to_list(nodecl_data_set, nodecl_copy(nodecl_value));
+                }
             }
             else
             {
-                fortran_check_expression(data_stmt_value, decl_context, &nodecl_data);
-            }
+                nodecl_t nodecl_value = nodecl_null();
 
-            nodecl_data_set = nodecl_append_to_list(nodecl_data_set, nodecl_data);
+                fortran_check_expression(data_stmt_value, decl_context, &nodecl_value);
+
+                if (!nodecl_is_constant(nodecl_value))
+                {
+                    error_printf("%s: error: data-stmt-value '%s' is not a constant expression\n",
+                            nodecl_get_locus(nodecl_value),
+                            codegen_to_str(nodecl_value));
+                    continue;
+                }
+
+                nodecl_data_set = nodecl_append_to_list(nodecl_data_set, nodecl_value);
+            }
         }
 
         entry->value = nodecl_append_to_list(entry->value, 
                 nodecl_make_fortran_data(nodecl_item_set, nodecl_data_set, ASTFileName(data_stmt_set), ASTLine(data_stmt_set)));
+        
+        // This name cannot be used as a function name anymore
+        if (entry->entity_specs.is_implicit_basic_type)
+            entry->entity_specs.is_implicit_but_not_function = 1;
     }
 
 }
@@ -3444,7 +3827,6 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
 
         class_name->entity_specs.in_module = module;
     }
-
 }
 
 static void build_scope_dimension_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output UNUSED_PARAMETER)
@@ -3485,6 +3867,10 @@ static void build_scope_dimension_stmt(AST a, decl_context_t decl_context, nodec
 
         if (entry->kind == SK_UNDEFINED)
             entry->kind = SK_VARIABLE;
+        
+        // This name cannot be used as a function name anymore
+        if (entry->entity_specs.is_implicit_basic_type)
+            entry->entity_specs.is_implicit_but_not_function = 1;
 
         entry->type_information = array_type;
 
@@ -3768,14 +4154,14 @@ static void build_scope_format_stmt(AST a,
     AST format = ASTSon1(a);
 
     // Keep the format in the label
-    scope_entry_t* label_sym = query_label(label, decl_context, /* is_definition */ 0);
+    scope_entry_t* label_sym = fortran_query_label(label, decl_context, /* is_definition */ 0);
     label_sym->value = nodecl_make_text(ASTText(format), ASTFileName(format), ASTLine(format));
 }
 
 static void build_scope_goto_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     // Do nothing for GOTO at the moment
-    scope_entry_t* label_symbol = query_label(ASTSon0(a), decl_context, /* is_definition */ 0);
+    scope_entry_t* label_symbol = fortran_query_label(ASTSon0(a), decl_context, /* is_definition */ 0);
     *nodecl_output = nodecl_make_goto_statement(label_symbol, ASTFileName(a), ASTLine(a));
 }
 
@@ -4042,7 +4428,6 @@ static void build_scope_interface_block(AST a, decl_context_t decl_context,
                 scope_entry_t* procedure_sym = NULL;
                 build_scope_program_unit_internal(interface_specification, 
                         decl_context, 
-                        new_program_unit_context, 
                         &procedure_sym,
                         &nodecl_program_unit);
 
@@ -4068,8 +4453,7 @@ static void build_scope_interface_block(AST a, decl_context_t decl_context,
     if (generic_spec != NULL)
     {
         const char* name = get_name_of_generic_spec(generic_spec);
-        
-        scope_entry_t* generic_spec_sym = query_name_no_implicit_or_builtin(decl_context, name);
+        scope_entry_t* generic_spec_sym = fortran_query_name_str(decl_context, name);
 
         if (generic_spec_sym == NULL)
         {
@@ -4089,9 +4473,12 @@ static void build_scope_interface_block(AST a, decl_context_t decl_context,
                     name);
             return;
         }
-
+        // The symbol won't be unknown anymore
+        remove_unknown_symbol(decl_context, generic_spec_sym);
+        
         generic_spec_sym->kind = SK_FUNCTION;
         generic_spec_sym->entity_specs.is_generic_spec = 1;
+        generic_spec_sym->entity_specs.is_implicit_basic_type = 0;
 
         int i;
         for (i = 0; i < num_related_symbols; i++)
@@ -4113,7 +4500,6 @@ static void build_scope_interface_block(AST a, decl_context_t decl_context,
             generic_spec_sym->entity_specs.in_module = module;
         }
     }
-
 }
 
 static void build_scope_intrinsic_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER, 
@@ -4130,7 +4516,7 @@ static void build_scope_intrinsic_stmt(AST a, decl_context_t decl_context UNUSED
         decl_context_t global_context = decl_context;
         global_context.current_scope = decl_context.global_scope;
 
-        scope_entry_t* entry = query_name_no_implicit(global_context, ASTText(name));
+        scope_entry_t* entry = fortran_query_implicit_name_str(global_context, ASTText(name));
         if (entry == NULL
                 || !entry->entity_specs.is_builtin)
         {
@@ -4140,7 +4526,7 @@ static void build_scope_intrinsic_stmt(AST a, decl_context_t decl_context UNUSED
         }
         else
         {
-            insert_alias(decl_context.current_scope, entry, entry->symbol_name);
+            insert_alias(decl_context.current_scope, entry, strtolower(ASTText(name)));
         }
     }
 }
@@ -4514,30 +4900,49 @@ static void build_scope_read_stmt(AST a, decl_context_t decl_context, nodecl_t* 
 
 static void build_scope_return_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    AST int_expr = ASTSon1(a);
-    if (int_expr != NULL)
+    if (decl_context.current_scope->related_entry == NULL
+            || decl_context.current_scope->related_entry->kind != SK_FUNCTION)
     {
-        error_printf("%s: sorry: deprecated RETURN with alternate return is not supported\n",
-                ast_location(a));
-        nodecl_t nodecl_dummy = nodecl_null();
-        fortran_check_expression(a, decl_context, &nodecl_dummy);
+        error_printf("%s: error: RETURN statement not valid in this context", ast_location(a));
         return;
     }
 
-    ERROR_CONDITION(decl_context.current_scope->related_entry == NULL
-            || decl_context.current_scope->related_entry->kind != SK_FUNCTION, "Wrong context for a RETURN statement", 0);
     scope_entry_t* current_function = decl_context.current_scope->related_entry;
-    if (function_type_get_return_type(current_function->type_information) == NULL)
+
+    AST int_expr = ASTSon1(a);
+    if (int_expr != NULL)
     {
-        // SUBROUTINE
-        *nodecl_output = nodecl_make_return_statement(nodecl_null(), ASTFileName(a), ASTLine(a));
+        nodecl_t nodecl_return = nodecl_null();
+        fortran_check_expression(ASTSon1(a), decl_context, &nodecl_return);
+
+        if (nodecl_is_err_expr(nodecl_return))
+        {
+            *nodecl_output = nodecl_return;
+        }
+
+        if (function_type_get_return_type(current_function->type_information) != NULL)
+        {
+            error_printf("%s: error: RETURN with alternate return is only valid in a SUBROUTINE program unit\n", 
+                    ast_location(a));
+            return;
+        }
+
+        *nodecl_output = nodecl_make_fortran_alternate_return_statement(nodecl_return, ASTFileName(a), ASTLine(a));
     }
     else
     {
-        // FUNCTION
-        *nodecl_output = nodecl_make_return_statement(
-                nodecl_make_symbol(function_get_result_symbol(current_function), ASTFileName(a), ASTLine(a)), 
-                ASTFileName(a), ASTLine(a));
+        if (function_type_get_return_type(current_function->type_information) == NULL)
+        {
+            // SUBROUTINE
+            *nodecl_output = nodecl_make_return_statement(nodecl_null(), ASTFileName(a), ASTLine(a));
+        }
+        else
+        {
+            // FUNCTION
+            *nodecl_output = nodecl_make_return_statement(
+                    nodecl_make_symbol(function_get_result_symbol(current_function), ASTFileName(a), ASTLine(a)), 
+                    ASTFileName(a), ASTLine(a));
+        }
     }
 }
 
@@ -4565,7 +4970,7 @@ static void build_scope_save_stmt(AST a, decl_context_t decl_context UNUSED_PARA
 
             if (entry == NULL)
             {
-                error_printf("%s: error: unknown common '%s' in SAVE statement", 
+                error_printf("%s: error: unknown common '%s' in SAVE statement\n", 
                         ast_location(a),
                         fortran_prettyprint_in_buffer(saved_entity));
                 continue;
@@ -4619,6 +5024,9 @@ static void build_scope_stmt_function_stmt(AST a, decl_context_t decl_context,
                         fortran_prettyprint_in_buffer(dummy_arg_item));
                 return;
             }
+
+            if (dummy_arg->kind == SK_UNDEFINED)
+                dummy_arg->kind = SK_VARIABLE;
 
             // This can be used latter if trying to give a nonzero rank to this
             // entity
@@ -4680,9 +5088,13 @@ static void build_scope_pause_stmt(AST a UNUSED_PARAMETER,
         decl_context_t decl_context UNUSED_PARAMETER, 
         nodecl_t* nodecl_output UNUSED_PARAMETER)
 {
-    // TODO - Remove this from the grammar as well
-    // It is ludicrous to support this. It was deleted in Fortran 95, let's forget about it
-    unsupported_statement(a, "PAUSE");
+    nodecl_t nodecl_pause_code = nodecl_null();
+    AST pause_code = ASTSon0(a);
+    if (pause_code != NULL)
+    {
+        fortran_check_expression(pause_code, decl_context, &nodecl_pause_code);
+    }
+    *nodecl_output = nodecl_make_fortran_pause_statement(nodecl_pause_code, ASTFileName(a), ASTLine(a));
 }
 
 static void build_scope_sync_all_stmt(AST a UNUSED_PARAMETER, 
@@ -4803,7 +5215,7 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
         AST entity_decl_specs = ASTSon1(declaration);
 
         scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
-        
+
         if (!entry->entity_specs.is_implicit_basic_type)
         {
             error_printf("%s: error: entity '%s' already has a basic type\n",
@@ -4829,6 +5241,7 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
 
         entry->type_information = update_basic_type_with_type(entry->type_information, basic_type);
         entry->entity_specs.is_implicit_basic_type = 0;
+        entry->entity_specs.is_implicit_but_not_function = 0;
         entry->defined = 1;
         entry->file = ASTFileName(declaration);
         entry->line = ASTLine(declaration);
@@ -4847,6 +5260,7 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
                 {
                     sym->type_information = update_basic_type_with_type(sym->type_information, basic_type);
                     sym->entity_specs.is_implicit_basic_type = 0;
+                    sym->entity_specs.is_implicit_but_not_function = 0;
                     sym->defined = 1;
                 }
             }
@@ -4987,7 +5401,7 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
             decl_context_t global_context = decl_context;
             global_context.current_scope = decl_context.global_scope;
 
-            scope_entry_t* intrinsic_name = query_name_no_implicit(global_context, intrinsic_name->symbol_name);
+            scope_entry_t* intrinsic_name = fortran_query_name_str(global_context, intrinsic_name->symbol_name);
             if (intrinsic_name == NULL
                     || !intrinsic_name->entity_specs.is_builtin)
             {
@@ -5089,12 +5503,30 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
             error_printf("%s: error: PARAMETER is missing an initializer\n", ast_location(declaration));
         }
 
+        if (current_attr_spec.is_public
+                || current_attr_spec.is_private)
+        {
+            if (entry->entity_specs.access != AS_UNKNOWN)
+            {
+                error_printf("%s: access specifier already given for entity '%s'\n",
+                        ast_location(declaration),
+                        entry->symbol_name);
+            }
+            if (current_attr_spec.is_public)
+            {
+                entry->entity_specs.access = AS_PUBLIC;
+            }
+            else if (current_attr_spec.is_private)
+            {
+                entry->entity_specs.access = AS_PRIVATE;
+            }
+        }
+
         DEBUG_CODE()
         {
             fprintf(stderr, "BUILDSCOPE: Type of symbol '%s' is '%s'\n", entry->symbol_name, print_declarator(entry->type_information));
         }
     }
-
 }
 
 static void build_scope_unlock_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output UNUSED_PARAMETER)
@@ -5110,7 +5542,9 @@ static scope_entry_t* query_module_for_symbol_name(scope_entry_t* module_symbol,
     {
         scope_entry_t* sym = module_symbol->entity_specs.related_symbols[i];
 
-        if (strcasecmp(sym->symbol_name, name) == 0)
+        if (strcasecmp(sym->symbol_name, name) == 0
+                // Filter private symbols
+                && sym->entity_specs.access != AS_PRIVATE)
         {
             sym_in_module = sym;
             break;
@@ -5120,12 +5554,55 @@ static scope_entry_t* query_module_for_symbol_name(scope_entry_t* module_symbol,
     return sym_in_module;
 }
 
+static char come_from_the_same_module(scope_entry_t* new_symbol_used,
+        scope_entry_t* existing_symbol)
+{
+    // Jump all indirections through modules
+    if (new_symbol_used->entity_specs.from_module != NULL)
+    {
+        ERROR_CONDITION(new_symbol_used->entity_specs.alias_to == NULL, "Invalid symbol", 0);
+        return come_from_the_same_module(new_symbol_used->entity_specs.alias_to, 
+                existing_symbol);
+    }
+    if (existing_symbol->entity_specs.from_module != NULL)
+    {
+        ERROR_CONDITION(existing_symbol->entity_specs.alias_to == NULL, "Invalid symbol", 0);
+        return come_from_the_same_module(new_symbol_used, 
+                existing_symbol->entity_specs.alias_to);
+    }
+
+    ERROR_CONDITION(new_symbol_used->entity_specs.in_module == NULL, "This should not happen to a symbol coming from a MODULE\n", 0);
+
+    if (existing_symbol->entity_specs.in_module != NULL)
+    {
+        return (strcasecmp(new_symbol_used->entity_specs.in_module->symbol_name, 
+                existing_symbol->entity_specs.in_module->symbol_name) == 0);
+    }
+
+    return 0;
+}
+
 static scope_entry_t* insert_symbol_from_module(scope_entry_t* entry, 
         decl_context_t decl_context, 
         const char* aliased_name, 
-        scope_entry_t* module_symbol)
+        scope_entry_t* module_symbol,
+        const char* filename,
+        int line)
 {
     ERROR_CONDITION(aliased_name == NULL, "Invalid alias name", 0);
+
+    scope_entry_list_t* check_repeated_name = query_name_str(decl_context, aliased_name);
+
+    if (check_repeated_name != NULL)
+    {
+        scope_entry_t* existing_name = entry_list_head(check_repeated_name);
+        if (come_from_the_same_module(entry, existing_name))
+        {
+            return existing_name;
+        }
+        // We allow the symbol be repeated, using it should be wrong (but this is not checked!)
+    }
+    entry_list_free(check_repeated_name);
 
     // Why do we duplicate instead of insert_entry or insert_alias?
     //
@@ -5134,16 +5611,28 @@ static scope_entry_t* insert_symbol_from_module(scope_entry_t* entry,
     scope_entry_t* current_symbol = NULL;
     current_symbol = new_fortran_symbol(decl_context, aliased_name);
 
+    if (decl_context.current_scope->related_entry != NULL
+            && decl_context.current_scope->related_entry->kind == SK_MODULE)
+    {
+        scope_entry_t* module = decl_context.current_scope->related_entry;
+
+        P_LIST_ADD_ONCE(module->entity_specs.related_symbols,
+                module->entity_specs.num_related_symbols,
+                current_symbol);
+
+        current_symbol->entity_specs.in_module = module;
+    }
+
     // Copy everything and restore the name
     *current_symbol = *entry;
     current_symbol->symbol_name = aliased_name;
 
     current_symbol->entity_specs.from_module = module_symbol;
+    current_symbol->entity_specs.alias_to = entry;
 
     if (strcmp(aliased_name, entry->symbol_name) != 0)
     {
         current_symbol->entity_specs.is_renamed = 1;
-        current_symbol->entity_specs.alias_to = entry;
     }
 
     if (entry->entity_specs.is_generic_spec)
@@ -5159,7 +5648,8 @@ static scope_entry_t* insert_symbol_from_module(scope_entry_t* entry,
                     entry->entity_specs.related_symbols[i],
                     decl_context,
                     entry->entity_specs.related_symbols[i]->symbol_name,
-                    module_symbol);
+                    module_symbol,
+                    filename, line);
 
             P_LIST_ADD(current_symbol->entity_specs.related_symbols,
                     current_symbol->entity_specs.num_related_symbols,
@@ -5273,7 +5763,12 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
                             module_symbol->symbol_name);
                 }
 
-                insert_symbol_from_module(sym_in_module, decl_context, get_name_of_generic_spec(local_name), module_symbol);
+                insert_symbol_from_module(sym_in_module, 
+                        decl_context, 
+                        get_name_of_generic_spec(local_name), 
+                        module_symbol, 
+                        ASTFileName(local_name), 
+                        ASTLine(local_name));
 
                 // "USE M, C => A, D => A" is valid so we avoid adding twice
                 // 'A' in the list (it would be harmless, though)
@@ -5297,6 +5792,10 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
         for (i = 0; i < module_symbol->entity_specs.num_related_symbols; i++)
         {
             scope_entry_t* sym_in_module = module_symbol->entity_specs.related_symbols[i];
+
+            if (sym_in_module->entity_specs.access == AS_PRIVATE)
+                continue;
+
             char found = 0;
             int j;
             for (j = 0; j < num_renamed_symbols && !found; j++)
@@ -5305,7 +5804,12 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
             }
             if (!found)
             {
-                insert_symbol_from_module(sym_in_module, decl_context, sym_in_module->symbol_name, module_symbol);
+                insert_symbol_from_module(sym_in_module, 
+                        decl_context, 
+                        sym_in_module->symbol_name, 
+                        module_symbol,
+                        ASTFileName(a), 
+                        ASTLine(a));
             }
         }
     }
@@ -5335,7 +5839,12 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
                                     module_symbol->symbol_name);
                         }
 
-                        insert_symbol_from_module(sym_in_module, decl_context, get_name_of_generic_spec(local_name), module_symbol);
+                        insert_symbol_from_module(sym_in_module, 
+                                decl_context, 
+                                get_name_of_generic_spec(local_name), 
+                                module_symbol, 
+                                ASTFileName(local_name), 
+                                ASTLine(local_name));
                         break;
                     }
                 default:
@@ -5355,7 +5864,12 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
                                     module_symbol->symbol_name);
                         }
 
-                        insert_symbol_from_module(sym_in_module, decl_context, sym_in_module->symbol_name, module_symbol);
+                        insert_symbol_from_module(sym_in_module, 
+                                decl_context, 
+                                sym_in_module->symbol_name, 
+                                module_symbol,
+                                ASTFileName(sym_in_module_name), 
+                                ASTLine(sym_in_module_name));
                         break;
                     }
             }
@@ -5619,6 +6133,7 @@ typedef struct opt_value_map_tag
   OPT_VALUE(blank) \
   OPT_VALUE(decimal) \
   OPT_VALUE(delim) \
+  OPT_VALUE(direct) \
   OPT_VALUE(encoding) \
   OPT_VALUE(eor) \
   OPT_VALUE(err) \
@@ -5871,6 +6386,14 @@ static void opt_delim_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_
     *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "DELIM", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
+static void opt_direct_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
+{
+    AST value = ASTSon0(opt_value);
+    nodecl_t nodecl_value = nodecl_null();
+    opt_common_character_expr(value, decl_context, "DIRECT", &nodecl_value);
+    *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "DIRECT", ASTFileName(opt_value), ASTLine(opt_value));
+}
+
 static void opt_encoding_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
@@ -5885,7 +6408,7 @@ static void opt_eor_handler(AST io_stmt UNUSED_PARAMETER,
         nodecl_t* nodecl_output)
 {
     AST label = ASTSon0(opt_value);
-    scope_entry_t* entry = query_label(label, decl_context, /* is_definition */ 0);
+    scope_entry_t* entry = fortran_query_label(label, decl_context, /* is_definition */ 0);
     *nodecl_output = nodecl_make_fortran_io_spec(
             nodecl_make_symbol(entry, ASTFileName(label), ASTLine(label)), 
             "EOR", ASTFileName(opt_value), ASTLine(opt_value));
@@ -5897,7 +6420,7 @@ static void opt_err_handler(AST io_stmt UNUSED_PARAMETER,
         nodecl_t* nodecl_output)
 {
     AST label = ASTSon0(opt_value);
-    scope_entry_t* entry = query_label(label, decl_context, /* is_definition */ 0);
+    scope_entry_t* entry = fortran_query_label(label, decl_context, /* is_definition */ 0);
     *nodecl_output = nodecl_make_fortran_io_spec(
             nodecl_make_symbol(entry, ASTFileName(label), ASTLine(label)), 
             "ERR", ASTFileName(opt_value), ASTLine(opt_value));
@@ -5909,7 +6432,7 @@ static void opt_end_handler(AST io_stmt UNUSED_PARAMETER,
         nodecl_t* nodecl_output)
 {
     AST label = ASTSon0(opt_value);
-    scope_entry_t* entry = query_label(label, decl_context, /* is_definition */ 0);
+    scope_entry_t* entry = fortran_query_label(label, decl_context, /* is_definition */ 0);
     *nodecl_output = nodecl_make_fortran_io_spec(
             nodecl_make_symbol(entry, ASTFileName(label), ASTLine(label)), 
             "END", ASTFileName(opt_value), ASTLine(opt_value));
@@ -5960,7 +6483,7 @@ static void opt_fmt_value(AST value, decl_context_t decl_context, nodecl_t* node
         }
         else
         {
-            scope_entry_t* entry = query_label(value, decl_context, /* is_definition */ 0);
+            scope_entry_t* entry = fortran_query_label(value, decl_context, /* is_definition */ 0);
             if (entry == NULL)
             {
                 valid = 0;
@@ -6067,7 +6590,7 @@ static void opt_nextrec_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, dec
 static void opt_nml_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
-    scope_entry_t* entry = query_name_no_implicit_or_builtin(decl_context, ASTText(value));
+    scope_entry_t* entry = fortran_query_name_str(decl_context, ASTText(value));
     if (entry == NULL
             || entry->kind != SK_NAMELIST)
     {
@@ -6244,8 +6767,8 @@ static void opt_unit_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_c
 
         type_t* t = nodecl_get_type(nodecl_value);
         if (!(is_integer_type(no_ref(t))
-                    || ((nodecl_get_symbol(nodecl_value) != NULL)
-                        && is_fortran_character_type(no_ref(nodecl_get_symbol(nodecl_value)->type_information)))))
+                    || (nodecl_get_symbol(nodecl_value) != NULL
+                        && is_fortran_character_type_or_pointer_to(no_ref(t)))))
         {
             error_printf("%s: error: specifier UNIT requires a character variable or a scalar integer expression\n",
                     ast_location(value));
@@ -6314,6 +6837,7 @@ static void opt_ambiguous_io_spec_handler(AST io_stmt, AST opt_value_ambig, decl
         AST option = ast_get_ambiguity(opt_value_ambig, i);
         const char* t = ASTText(option);
         ERROR_CONDITION((t == NULL), "io-spec is missing text", 0);
+
 
         int *p = NULL;
         if (strcasecmp(t, "unit") == 0)
@@ -6387,7 +6911,7 @@ static void opt_ambiguous_io_spec_handler(AST io_stmt, AST opt_value_ambig, decl
                 AST nml_io_spec = ast_get_ambiguity(opt_value_ambig, namelist_option);
                 AST value = ASTSon0(nml_io_spec);
 
-                scope_entry_t* entry = query_name_no_implicit_or_builtin(decl_context, ASTText(value));
+                scope_entry_t* entry = fortran_query_name_str(decl_context, ASTText(value));
 
                 if (entry == NULL
                         || entry->kind != SK_NAMELIST)
@@ -6480,6 +7004,9 @@ static void build_scope_ambiguity_statement(AST ambig_stmt, decl_context_t decl_
     {
         AST stmt = ast_get_ambiguity(ambig_stmt, i);
 
+        if (ASTType(stmt) == AST_LABELED_STATEMENT)
+            stmt = ASTSon1(stmt);
+
         char ok = 0;
         switch (ASTType(stmt))
         {
@@ -6500,7 +7027,7 @@ static void build_scope_ambiguity_statement(AST ambig_stmt, decl_context_t decl_
                 }
             default:
                 {
-                    internal_error("Invalid node '%s'\n", ast_print_node_type(ASTType(ambig_stmt)));
+                    internal_error("Invalid node '%s' at %s\n", ast_print_node_type(ASTType(ambig_stmt)), ast_location(ambig_stmt));
                 }
         }
 

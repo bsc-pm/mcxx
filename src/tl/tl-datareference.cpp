@@ -35,16 +35,14 @@ namespace TL
       is eligible as a data reference.
       */
     DataReference::DataReference(Nodecl::NodeclBase expr)
-        : _type(NULL)
+        : Nodecl::NodeclBase(expr), _type(NULL)
     {
-        internal_error("Not implemented yet", 0);
     }
 
     //! Copy constructor
     DataReference::DataReference(const DataReference& data_ref)
-        : _type(data_ref._type)
+        : Nodecl::NodeclBase(data_ref), _type(data_ref._type)
     {
-        internal_error("Not implemented yet", 0);
     }
 
     //! Copy assignment operator
@@ -60,7 +58,7 @@ namespace TL
       */
     bool DataReference::is_valid() const
     {
-        internal_error("Not implemented yet", 0);
+        return this->get_symbol().is_valid();
     }
 
     //! States whether this expression is a data reference
@@ -70,7 +68,12 @@ namespace TL
       */
     bool DataReference::is_valid(std::string& reason) const
     {
-        internal_error("Not implemented yet", 0);
+        if (!this->get_symbol().is_valid())
+        {
+            reason = "expression does not denote an object";
+            return false;
+        }
+        return true;
     }
 
     //! Returns the warning log
@@ -92,7 +95,7 @@ namespace TL
       */
     Symbol DataReference::get_base_symbol() const
     {
-        internal_error("Not implemented yet", 0);
+        return this->get_symbol();
     }
 
     //! Returns a way to obtain an address of the data reference

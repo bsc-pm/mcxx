@@ -137,6 +137,8 @@ namespace TL
                 virtual void pre_run(TL::DTO& dto);
 
                 virtual ~Core() { }
+
+                RefPtr<OpenMP::Info> get_openmp_info();
         };
 
         // OpenMP core is a one shot phase, so even if it is in the compiler

@@ -25,11 +25,12 @@
 ##########################################################################
 
 # SUBDIRS = core @TL_OMP_EXTENSIONS@
-SUBDIRS = core 
+SUBDIRS = core base
 
 END=
 
-DIST_SUBDIRS=core \
+DIST_SUBDIRS=base \
+             core \
              fun-tasks \
              nanos-common \
              nanos4 \

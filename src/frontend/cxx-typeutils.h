@@ -401,6 +401,8 @@ LIBMCXX_EXTERN nodecl_t array_type_get_array_upper_bound(type_t* t);
 
 LIBMCXX_EXTERN char array_type_is_vla(type_t* t);
 
+LIBMCXX_EXTERN char array_type_with_descriptor(type_t* t);
+
 LIBMCXX_EXTERN char array_type_has_region(type_t* t);
 LIBMCXX_EXTERN decl_context_t array_type_get_region_size_expr_context(type_t* t);
 LIBMCXX_EXTERN nodecl_t array_type_get_region_size_expr(type_t* t);

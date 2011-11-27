@@ -251,7 +251,7 @@ def get_load_code(_type, name):
         result.append("int i;");
         result.append("if (query_contains_field(ncols, names, \"" + name + "\", &i))");
         result.append("{")
-        result.append("   sym->entity_specs." + name + " = safe_atoll(values[i]);")
+        result.append("   sym->entity_specs." + name + " = safe_atoull(values[i]);")
         result.append("}")
     elif (_type == "string"):
         result.append("int i;");
@@ -263,25 +263,25 @@ def get_load_code(_type, name):
         result.append("int i;");
         result.append("if (query_contains_field(ncols, names, \"" + name + "\", &i))");
         result.append("{")
-        result.append("   sym->entity_specs." + name + " = load_ast(handle, safe_atoll(values[i]));")
+        result.append("   sym->entity_specs." + name + " = load_ast(handle, safe_atoull(values[i]));")
         result.append("}")
     elif (_type == "nodecl"):
         result.append("int i;");
         result.append("if (query_contains_field(ncols, names, \"" + name + "\", &i))");
         result.append("{")
-        result.append("   sym->entity_specs." + name + " = load_nodecl(handle, safe_atoll(values[i]));")
+        result.append("   sym->entity_specs." + name + " = load_nodecl(handle, safe_atoull(values[i]));")
         result.append("}")
     elif (_type == "type"):
         result.append("int i;");
         result.append("if (query_contains_field(ncols, names, \"" + name + "\", &i))");
         result.append("{")
-        result.append("   sym->entity_specs." + name + " = load_type(handle, safe_atoll(values[i]));")
+        result.append("   sym->entity_specs." + name + " = load_type(handle, safe_atoull(values[i]));")
         result.append("}")
     elif (_type == "symbol"):
         result.append("int i;");
         result.append("if (query_contains_field(ncols, names, \"" + name + "\", &i))");
         result.append("{")
-        result.append("   sym->entity_specs." + name + " = load_symbol(handle, safe_atoll(values[i]));")
+        result.append("   sym->entity_specs." + name + " = load_symbol(handle, safe_atoull(values[i]));")
         result.append("}")
     elif (_type.startswith("array") or _type.startswith("static_array")):
         if _type.startswith("array"):
@@ -305,7 +305,7 @@ def get_load_code(_type, name):
             result.append("int i;");
             result.append("if (query_contains_field(ncols, names, \"" + name + "\", &i))");
             result.append("{")
-            result.append("   sym->entity_specs." + name + " = safe_atoll(values[i]);")
+            result.append("   sym->entity_specs." + name + " = safe_atoull(values[i]);")
             result.append("}")
         else:
             sys.stderr.write("%s: info: not handling typeof '%s'\n" % (sys.argv[0], type_name))
@@ -322,6 +322,7 @@ def get_load_code(_type, name):
 
 def print_fortran_modules_functions(lines):
     attr_names = []
+    sprintf_arguments = []
     _format = []
     _insert_code = [];
     for l in lines:
@@ -332,32 +333,45 @@ def print_fortran_modules_functions(lines):
       if (_type == "bool"):
           attr_names.append(name)
           _format.append("%d")
+          sprintf_arguments.append("(int)(sym->entity_specs.%s)" % (name))
       elif (_type == "integer"):
           attr_names.append(name)
           _format.append("%d")
+          sprintf_arguments.append("sym->entity_specs.%s" % (name))
       elif (_type == "AST"):
           attr_names.append(name)
-          _format.append("%lld")
+          _format.append("%llu")
           _insert_code.append("    insert_ast(handle, sym->entity_specs." + name + ");");
+          sprintf_arguments.append("P2ULL(sym->entity_specs.%s)" % (name))
       elif (_type == "nodecl"):
           attr_names.append(name)
-          _format.append("%lld")
+          _format.append("%llu")
           _insert_code.append("    insert_nodecl(handle, sym->entity_specs." + name + ");");
+          sprintf_arguments.append("P2ULL(nodecl_get_ast(sym->entity_specs.%s))" % (name))
       elif (_type == "type"):
           attr_names.append(name)
-          _format.append("%lld")
+          _format.append("%llu")
           _insert_code.append("    insert_type(handle, sym->entity_specs." + name + ");");
+          sprintf_arguments.append("P2ULL(sym->entity_specs.%s)" % (name))
+      elif (_type == "symbol"):
+          attr_names.append(name)
+          _format.append("%llu")
+          _insert_code.append("    insert_symbol(handle, sym->entity_specs." + name + ");");
+          sprintf_arguments.append("P2ULL(sym->entity_specs.%s)" % (name))
       elif (_type == "string"):
           attr_names.append(name)
           _format.append("%Q")
+          sprintf_arguments.append("sym->entity_specs.%s" % (name))
       elif (_type.startswith("typeof")):
             type_name = get_up_to_matching_paren(_type[len("typeof"):])
             if type_name == "intent_kind_t" or type_name == "access_specifier_t":
                 attr_names.append(name)
                 _format.append("%d")
+                sprintf_arguments.append("(int)(sym->entity_specs.%s)" % (name))
             elif type_name == "_size_t":
                 attr_names.append(name)
-                _format.append("%lld")
+                _format.append("%llu")
+                sprintf_arguments.append("(unsigned long long)(sym->entity_specs.%s)" % (name))
             else:
                 sys.stderr.write("%s: info: not handling typeof '%s'\n" % (sys.argv[0], type_name))
       else:
@@ -372,7 +386,7 @@ def print_fortran_modules_functions(lines):
     print ""
     print string.join(_insert_code, "\n");
     print ""
-    print "    char * result = sqlite3_mprintf(format, " + string.join(map(lambda x : "sym->entity_specs." + x, attr_names), ", ") + ");"
+    print "    char * result = sqlite3_mprintf(format, " + string.join(sprintf_arguments, ", ") + ");"
     print "    return result;"
     print "}"
     _extra_attr_code = []
@@ -390,7 +404,7 @@ def print_fortran_modules_functions(lines):
     print string.join(_extra_attr_code, "\n");
     print "}"
     print ""
-    print "static void get_extra_attributes(sqlite3* handle, int ncols, char **values, char **names, sqlite3_int64 sym_oid, scope_entry_t* sym)"
+    print "static void get_extra_attributes(sqlite3* handle, int ncols, char **values, char **names, sqlite3_uint64 sym_oid, scope_entry_t* sym)"
     print "{"
     for l in lines:
       fields = l.split("|");

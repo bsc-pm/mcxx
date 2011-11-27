@@ -56,15 +56,8 @@ static char check_is_mercurium_wrap_module(const char* filename)
     return result;
 }
 
-static const char *get_path_of_mercurium_wrap_module(const char* module_name)
+static const char *get_path_of_file_in_module_dirs(const char* filename, const char* module_name)
 {
-    DEBUG_CODE()
-    {
-        fprintf(stderr, "DRIVER-FORTRAN: Getting path of mercurium wrap module for module name '%s'\n",
-                module_name);
-    }
-    const char* filename = strappend(module_name, ".mod");
-
     const char * result = NULL;
 
     int i;
@@ -106,6 +99,27 @@ static const char *get_path_of_mercurium_wrap_module(const char* module_name)
             result = path;
         }
     }
+
+    return result;
+}
+
+static const char *get_path_of_mercurium_nonwrapped_module(const char* module_name)
+{
+    const char* filename = strappend(module_name, ".mf03");
+
+    return get_path_of_file_in_module_dirs(filename, module_name);
+}
+
+static const char *get_path_of_mercurium_wrap_module(const char* module_name)
+{
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "DRIVER-FORTRAN: Getting path of mercurium wrap module for module name '%s'\n",
+                module_name);
+    }
+    const char* filename = strappend(module_name, ".mod");
+
+    const char * result = get_path_of_file_in_module_dirs(filename, module_name);
 
     if (result != NULL)
     {
@@ -329,7 +343,17 @@ void driver_fortran_retrieve_module(const char* module_name, const char **mf03_f
     }
     *mf03_filename = NULL;
 
-    const char* wrap_module = get_path_of_mercurium_wrap_module(module_name);
+    const char* wrap_module = NULL;
+
+    if (CURRENT_CONFIGURATION->debug_options.disable_module_cache)
+    {
+        *mf03_filename = get_path_of_mercurium_nonwrapped_module(module_name);
+        return;
+    }
+    else
+    {
+        wrap_module = get_path_of_mercurium_wrap_module(module_name);
+    }
 
     if (wrap_module != NULL)
     {

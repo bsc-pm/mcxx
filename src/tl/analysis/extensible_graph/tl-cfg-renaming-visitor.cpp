@@ -459,7 +459,7 @@ namespace TL
             if (subscripts.is<Nodecl::List>())
             {
                 Nodecl::List subscripts_l = subscripts.as<Nodecl::List>();
-                for(std::vector<Nodecl::NodeclBase>::iterator it = subscripts_l.begin(); it != subscripts_l.end(); ++it)
+                for(Nodecl::List::iterator it = subscripts_l.begin(); it != subscripts_l.end(); ++it)
                 {
                     ObjectList<Nodecl::NodeclBase> aux = walk(*it);
                     if (aux.empty())

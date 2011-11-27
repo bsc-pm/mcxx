@@ -164,7 +164,7 @@ namespace TL
     
         void Node::fill_use_def_sets(Nodecl::List n_l, bool defined)
         {
-            for(std::vector<Nodecl::NodeclBase>::iterator it = n_l.begin(); it != n_l.end(); ++it)
+            for(Nodecl::List::iterator it = n_l.begin(); it != n_l.end(); ++it)
             {
                 fill_use_def_sets(*it, defined);
             }
@@ -308,7 +308,7 @@ namespace TL
             {
                 bool result = false;
                 Nodecl::List aux = nodecl.as<Nodecl::List>();
-                for(std::vector<Nodecl::NodeclBase>::iterator it = aux.begin(); it != aux.end(); ++it)
+                for(Nodecl::List::iterator it = aux.begin(); it != aux.end(); ++it)
                 {
                     result = result || is_range(*it);
                 }
@@ -494,7 +494,7 @@ namespace TL
                 }
             }
         }
-        
+       
         Nodecl::NodeclBase StaticAnalysis::rename_nodecl(Nodecl::NodeclBase nodecl, std::map<Symbol, Nodecl::NodeclBase> rename_map)
         {
             CfgRenamingVisitor renaming_v(rename_map, nodecl.get_filename().c_str(), nodecl.get_line());
@@ -1094,11 +1094,11 @@ namespace TL
         * \param matching_symbol  Symbol in the parameter list which matches 
         */
         static Nodecl::NodeclBase match_nodecl_in_symbol_l(Nodecl::NodeclBase n, ObjectList<Symbol> s_l, 
-                                                        std::vector<Nodecl::NodeclBase> s_map_l,
-                                                        Symbol& matching_symbol)
+                                                           Nodecl::List s_map_l,
+                                                           Symbol& matching_symbol)
         {
             ObjectList<Symbol>::iterator it_s = s_l.begin();
-            std::vector<Nodecl::NodeclBase>::iterator it_s_map = s_map_l.begin();
+            Nodecl::List::iterator it_s_map = s_map_l.begin();
             Nodecl::NodeclBase actual_nodecl;
             for (; (it_s != s_l.end()) && (it_s_map != s_map_l.end()); ++it_s, ++it_s_map)
             {
@@ -1191,7 +1191,7 @@ namespace TL
                         // For info abut variables which are not parameters, look at the context:
                         //       - if they are in the called function context, do nothing
                         //       - otherwise, their info must be also propagated to the actual node
-                        std::vector<Nodecl::NodeclBase> args;
+                        Nodecl::List args;
                         Nodecl::NodeclBase func_nodecl = node->get_statements()[0];
                         if (func_nodecl.is<Nodecl::FunctionCall>())
                         {
@@ -1206,10 +1206,12 @@ namespace TL
                         std::map<Symbol, Nodecl::NodeclBase> params_to_args;
                         int i = 0;
                         std::cerr << "       Parameters to args:" << std::endl;
-                        for(ObjectList<Symbol>::iterator it = params.begin(); it != params.end() && i < args.size(); ++it, ++i)
+                        ObjectList<Symbol>::iterator itp = params.begin();
+                        Nodecl::List::iterator ita = args.begin();
+                        for(; itp != params.end() && ita != args.end(); ++itp, ++ita)
                         {
-                            std::cerr << "             - " << it->get_name() << "  -->  " << args[i].prettyprint() << std::endl;
-                            params_to_args[*it] = args[i];
+                            std::cerr << "             - " << itp->get_name() << "  -->  " << ita->prettyprint() << std::endl;
+                            params_to_args[*itp] = *ita;
                         }
                         
                         if (!called_func_graph->has_use_def_computed())

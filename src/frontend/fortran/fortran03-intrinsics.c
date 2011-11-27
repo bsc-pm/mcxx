@@ -195,6 +195,7 @@ FORTRAN_GENERIC_INTRINSIC(random_number, "HARVEST", S, NULL) \
 FORTRAN_GENERIC_INTRINSIC(random_seed, "SIZE,PUT,GET", S, NULL) \
 FORTRAN_GENERIC_INTRINSIC(range, "X", I, simplify_range) \
 FORTRAN_GENERIC_INTRINSIC(real, "A,?KIND", E, simplify_real) \
+FORTRAN_GENERIC_INTRINSIC(float, "A", E, simplify_float) \
 FORTRAN_GENERIC_INTRINSIC(repeat, "STRING,NCOPIES", T, NULL) \
 FORTRAN_GENERIC_INTRINSIC(reshape, "SOURCE,SHAPE,?PAD,?ORDER", T, NULL) \
 FORTRAN_GENERIC_INTRINSIC(rrspacing, "X", E, NULL) \
@@ -213,7 +214,7 @@ FORTRAN_GENERIC_INTRINSIC(sign, "A,B", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(sin, "X", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(sinh, "X", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(size, "ARRAY,?DIM,?KIND", I, simplify_size) \
-FORTRAN_GENERIC_INTRINSIC(sizeof, "X", I, NULL) \
+FORTRAN_GENERIC_INTRINSIC(sizeof, NULL, I, NULL) \
 FORTRAN_GENERIC_INTRINSIC(spacing, "X", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(spread, "SOURCE,DIM,NCOPIES", T, NULL) \
 FORTRAN_GENERIC_INTRINSIC(sqrt, "X", E, NULL) \
@@ -821,7 +822,7 @@ static scope_entry_t* register_specific_intrinsic_name(
         int num_args,
         type_t* t0, type_t* t1, type_t* t2, type_t* t3, type_t* t4, type_t* t5, type_t* t6)
 {
-    scope_entry_t* generic_entry = query_name_no_implicit(decl_context, generic_name);
+    scope_entry_t* generic_entry = fortran_query_implicit_name_str(decl_context, generic_name);
     ERROR_CONDITION(generic_entry == NULL
             || !generic_entry->entity_specs.is_builtin, "Invalid symbol when registering specific intrinsic name\n", 0);
 
@@ -852,6 +853,7 @@ static scope_entry_t* register_specific_intrinsic_name(
     // Insert alias only if they are different names
     if (strcasecmp(generic_name, specific_name) != 0)
     {
+        specific_entry->symbol_name = specific_name;
         insert_alias(generic_entry->decl_context.current_scope, specific_entry, specific_name);
     }
     else
@@ -984,6 +986,7 @@ static void fortran_init_specific_names(decl_context_t decl_context)
     REGISTER_SPECIFIC_INTRINSIC_2("dmod", "mod", get_double_type(), get_double_type());
     REGISTER_SPECIFIC_INTRINSIC_2("dnint", "anint", get_double_type(), NULL);
     REGISTER_SPECIFIC_INTRINSIC_2("dprod", "dprod", get_float_type(), get_float_type());
+    REGISTER_SPECIFIC_INTRINSIC_2("dreal", "real", get_complex_type(get_double_type()), NULL);
     REGISTER_SPECIFIC_INTRINSIC_2("dsign", "sign", get_double_type(), get_double_type());
     REGISTER_SPECIFIC_INTRINSIC_1("dsin", "sin", get_double_type());
     REGISTER_SPECIFIC_INTRINSIC_1("dsinh", "sinh", get_double_type());
@@ -991,7 +994,6 @@ static void fortran_init_specific_names(decl_context_t decl_context)
     REGISTER_SPECIFIC_INTRINSIC_1("dtan", "tan", get_double_type());
     REGISTER_SPECIFIC_INTRINSIC_1("dtanh", "tanh", get_double_type());
     REGISTER_SPECIFIC_INTRINSIC_1("exp", "exp", get_float_type());
-    REGISTER_SPECIFIC_INTRINSIC_2("float", "real", get_signed_int_type(), NULL);
     REGISTER_SPECIFIC_INTRINSIC_1("iabs", "abs", get_signed_int_type());
     REGISTER_SPECIFIC_INTRINSIC_2("ichar", "ichar", default_char, NULL);
     REGISTER_SPECIFIC_INTRINSIC_2("idim", "dim", get_signed_int_type(), get_signed_int_type());
@@ -3103,7 +3105,7 @@ scope_entry_t* compute_intrinsic_matmul(scope_entry_t* symbol UNUSED_PARAMETER,
     {
         type_t* result_type = common_type_of_binary_operation(get_rank0_type(t0), get_rank0_type(t1));
 
-        if (is_rank2_0 && is_rank2_0)
+        if (is_rank2_0 && is_rank2_1)
         {
             return GET_INTRINSIC_TRANSFORMATIONAL("matmul", 
                     get_n_ranked_type(result_type, 2, symbol->decl_context),
@@ -4033,6 +4035,23 @@ scope_entry_t* compute_intrinsic_real(scope_entry_t* symbol UNUSED_PARAMETER,
                 choose_float_type_from_kind(argument_expressions[1], dr),
                 t0,
                 get_signed_int_type());
+    }
+    return NULL;
+}
+
+scope_entry_t* compute_intrinsic_float(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = get_rank0_type(argument_types[0]);
+
+    if (is_integer_type(t0))
+    {
+        return GET_INTRINSIC_ELEMENTAL("float", 
+                get_float_type(),
+                t0);
     }
     return NULL;
 }

@@ -722,7 +722,7 @@ static nodecl_t simplify_real(int num_arguments UNUSED_PARAMETER, nodecl_t* argu
         }
         else
         {
-            kind = fortran_get_default_real_type_kind();;
+            kind = fortran_get_default_real_type_kind();
         }
 
         type_t* float_type = choose_float_type_from_kind(arg_kind, kind);
@@ -746,6 +746,13 @@ static nodecl_t simplify_real(int num_arguments UNUSED_PARAMETER, nodecl_t* argu
     }
 
     return nodecl_null();
+}
+
+static nodecl_t simplify_float(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+{
+    nodecl_t argument_list[2] = { arguments[0], 
+        const_value_to_nodecl(const_value_get_signed_int(fortran_get_default_real_type_kind())) }; 
+    return simplify_real(2, argument_list);
 }
 
 #endif

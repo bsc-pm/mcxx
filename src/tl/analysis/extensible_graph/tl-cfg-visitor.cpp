@@ -733,9 +733,9 @@ namespace TL
                 
                 walk(n.get_pragma_line());  // This visit computes information associated to the Task node, 
                                             // but do not create any additional node        
-            
+           
                 Nodecl::PragmaCustomStatement n_stmt = n.template as<Nodecl::PragmaCustomStatement>();
-                walk(n_stmt.get_statement());
+                walk(n_stmt.get_statements());
                 
                 Node* graph_exit = task_graph_node->get_graph_exit_node();
                 graph_exit->set_id(++_actual_cfg->_nid);
@@ -746,7 +746,7 @@ namespace TL
                 _actual_cfg->_last_nodes = previous_nodes;
             }
 
-            return ObjectList<Node*>(1, task_graph_node);        
+            return ObjectList<Node*>(1, task_graph_node);       
         }
         
         template<typename T>
@@ -822,7 +822,7 @@ namespace TL
                         // In a sections pragma custom construct, the first statement may not have a sections pragma
                         // In this case, we should wrap the statement within a Sections Pragma
                         Nodecl::PragmaCustomStatement n_stmt = n.template as<Nodecl::PragmaCustomStatement>();
-                        Nodecl::List sections_stmt_list = n_stmt.get_statement().template as<Nodecl::List>(); // This list contains always one
+                        Nodecl::List sections_stmt_list = n_stmt.get_statements().template as<Nodecl::List>(); // This list contains always one
                         Nodecl::CompoundStatement sections_compound_stmt = sections_stmt_list[0].as<Nodecl::CompoundStatement>();
                         Nodecl::List sections_stmts = sections_compound_stmt.get_statements().as<Nodecl::List>();
                         if (!sections_stmts.empty() && !sections_stmts[0].is<Nodecl::PragmaCustomStatement>())
@@ -832,8 +832,9 @@ namespace TL
                             int line = n.get_line();
                             Nodecl::List empty_nodecl_list(nodecl_null());              
                             nodecl_t pragma_line = nodecl_make_pragma_custom_line(/* clause args */ empty_nodecl_list.get_internal_nodecl(), 
-                                                                                    /* clauses */ empty_nodecl_list.get_internal_nodecl(),
-                                                                                text, filename, line);
+                                                                                  /* clauses */ empty_nodecl_list.get_internal_nodecl(),
+                                                                                  /* end clauses */ empty_nodecl_list.get_internal_nodecl(),
+                                                                                  text, filename, line);
                             Nodecl::CompoundStatement first_section = sections_stmts[0].as<Nodecl::CompoundStatement>();
                             Nodecl::List stmt_seq(first_section.get_statements().get_internal_nodecl());
                             nodecl_t new_pragma_sections = nodecl_make_pragma_custom_statement(pragma_line,
@@ -843,9 +844,7 @@ namespace TL
                             walk(new_pragma_sections);
                             
                             // Walk the rest of nodes
-                            for(std::vector<Nodecl::NodeclBase>::iterator it = sections_stmts.begin()+1;
-                                it != sections_stmts.end();
-                                ++it)
+                            for(Nodecl::List::iterator it = sections_stmts.begin()+1; it != sections_stmts.end(); ++it)
                             {
                                 walk(*it);
                             }
@@ -853,7 +852,7 @@ namespace TL
                         else
                         {
                             Nodecl::PragmaCustomStatement n_stmt = n.template as<Nodecl::PragmaCustomStatement>();
-                            walk(n_stmt.get_statement());    // We will not use the list result of this walk
+                            walk(n_stmt.get_statements());    // We will not use the list result of this walk
                         }
                     }                
                 }
@@ -875,10 +874,10 @@ namespace TL
                     else
                     {   // PragmaCustomStatement
                         Nodecl::PragmaCustomStatement n_stmt = n.template as<Nodecl::PragmaCustomStatement>();
-                        walk(n_stmt.get_statement());
+                        walk(n_stmt.get_statements());
                     }
                 }
-                
+
                 if (pragma == "section")
                 {
                     _omp_sections_info.top().sections_exits.append(pragma_graph_node);

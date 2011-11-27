@@ -295,6 +295,7 @@ namespace Codegen
             std::string gcc_attributes_to_str(TL::Symbol);
             std::string gcc_asm_specifier_to_str(TL::Symbol);
 
+            virtual Ret unhandled_node(const Nodecl::NodeclBase & n);
     };
 }
 

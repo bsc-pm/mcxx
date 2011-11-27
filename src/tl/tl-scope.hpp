@@ -144,8 +144,10 @@ namespace TL
                 return _decl_context.current_scope->kind == NAMESPACE_SCOPE;
             }
 
-            //! States if the current scope is lexically contained in \a sc
-            bool is_contained_in(Scope sc) const;
+            //! States if the current scope is strictly enclosed into a potential encloser scope
+            /*! When both scopes are the same, the method returns false
+             */
+            bool scope_is_enclosed_by(Scope potential_encloser) const;
 
             //! States if the current scope is prototype scope
             /*!
@@ -249,11 +251,6 @@ namespace TL
              */
             void insert_symbol(Symbol sym);
 
-            //! States if the current scope is enclosed into a potential encloser scope
-            /*! When both scopes are the same, the method returns false
-             */
-            bool scope_is_enclosed_by(Scope potential_encloser) const;
-            
             //! Creates an artificial symbol
             /*!
               This function is used to create an artificial symbol. Artificial
