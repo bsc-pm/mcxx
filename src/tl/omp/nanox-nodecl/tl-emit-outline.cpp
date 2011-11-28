@@ -3,6 +3,7 @@
 #include "tl-counters.hpp"
 #include "tl-nodecl-alg.hpp"
 #include "tl-outline-info.hpp"
+#include "tl-replace.hpp"
 
 using TL::Source;
 
@@ -34,6 +35,8 @@ namespace TL { namespace Nanox {
             << "}"
             ;
 
+        TL::ReplaceSymbols replace_symbols;
+
         TL::ObjectList<OutlineDataItem> data_items = outline_info.get_data_items();
         for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
                 it != data_items.end();
@@ -43,18 +46,28 @@ namespace TL { namespace Nanox {
             {
                 private_entities 
                     << it->get_field_type().get_declaration(it->get_symbol().get_scope(), it->get_field_name());
+
+                // No replacement needed
             }
             else if (it->get_sharing() == OutlineDataItem::SHARING_SHARED
                     || it->get_sharing() == OutlineDataItem::SHARING_CAPTURE)
             {
-                unpacked_parameters 
-                    << it->get_field_type().get_declaration(it->get_symbol().get_scope(), it->get_field_name());
-                unpacked_arguments 
-                    << "args->" << it->get_field_name();
+                Source parameter;
+                parameter << it->get_field_type().get_declaration(it->get_symbol().get_scope(), it->get_field_name());
+                unpacked_parameters.append_with_separator(parameter, ", ");
+
+                if (it->get_sharing() == OutlineDataItem::SHARING_SHARED)
+                {
+                    replace_symbols.add_replacement(it->get_symbol(), "*(" + it->get_field_name() + ")");
+                }
+
+                Source argument;
+                argument << "args->" << it->get_field_name();
+                unpacked_arguments.append_with_separator(argument, ", ");
             }
         }
 
-        replaced_body << body.prettyprint();
+        replaced_body << replace_symbols.replace(body);
 
         Nodecl::NodeclBase node = outline.parse_global(body);
         Nodecl::Utils::append_to_top_level_nodecl(node);
