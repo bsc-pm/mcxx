@@ -4,6 +4,7 @@
 #include "tl-nodecl-visitor.hpp"
 #include <string>
 #include <cstdio>
+#include <sstream>
 #include <fstream>
 
 namespace Codegen
@@ -13,6 +14,7 @@ namespace Codegen
         private:
             bool _is_file_output;
         protected:
+            std::stringstream file;
             virtual std::string codegen(const Nodecl::NodeclBase&) = 0;
         public:
             CodegenVisitor();

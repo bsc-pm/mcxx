@@ -146,8 +146,6 @@ namespace Codegen
 
         private:
 
-            std::stringstream file;
-
             // State
             struct State
             {

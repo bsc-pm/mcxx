@@ -100,8 +100,6 @@ namespace Codegen
             void visit(const Nodecl::PragmaClauseArg& node);
 
         private:
-            std::stringstream file;
-
             // State
             struct State
             {
