@@ -4159,6 +4159,20 @@ static void load_compiler_phases(compilation_configuration_t* config)
     timing_t loading_phases;
     timing_start(&loading_phases);
 
+    // Force loading codegen phases first
+    {
+        compilation_configuration_t dummy;
+        memset(&dummy, 0, sizeof(dummy));
+        compiler_special_phase_set_codegen(&dummy, "libcodegen-cxx.so");
+    }
+#ifdef FORTRAN_SUPPORT
+    {
+        compilation_configuration_t dummy;
+        memset(&dummy, 0, sizeof(dummy));
+        compiler_special_phase_set_codegen(&dummy, "libcodegen-fortran.so");
+    }
+#endif 
+
     // This invokes a C++ routine that will dlopen all libraries, get the proper symbol
     // and fill an array of compiler phases
     load_compiler_phases_cxx(config);
