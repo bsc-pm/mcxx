@@ -32,6 +32,7 @@
 #include "cxx-driver-decls.h"
 #include "cxx-macros.h"
 #include <stdlib.h>
+#include <signal.h>
 
 #ifdef WIN32_BUILD
   #ifdef LIBMCXXPROCESS_DLL_EXPORT

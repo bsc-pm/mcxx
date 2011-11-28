@@ -59,6 +59,7 @@
 #include "cxx-diagnostic.h"
 #include "cxx-pragma.h"
 #include "cxx-codegen.h"
+#include "cxx-placeholders.h"
 
 /*
  * This file builds symbol table. If ambiguous nodes are found disambiguating
@@ -11879,8 +11880,9 @@ static stmt_scope_handler_map_t stmt_scope_handlers[] =
     STMT_HANDLER(AST_UPC_BARRIER, build_scope_upc_synch_statement),
     STMT_HANDLER(AST_UPC_FENCE, build_scope_upc_synch_statement),
     STMT_HANDLER(AST_UPC_FORALL, build_scope_upc_forall_statement),
-    // Special node that comes only from TL::Source
+    // Special nodes that come only from TL::Source
     STMT_HANDLER(AST_NODE_LIST, build_scope_implicit_compound_statement),
+    STMT_HANDLER(AST_STATEMENT_PLACEHOLDER, check_statement_placeholder),
 };
 
 static void build_scope_statement_seq(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)

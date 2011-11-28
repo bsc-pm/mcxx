@@ -166,6 +166,8 @@ libmcxx_la_SOURCES = \
   cxx-codegen.h \
   cxx-diagnostic.c \
   cxx-diagnostic.h \
+  cxx-placeholders.c \
+  cxx-placeholders.h \
   libmcxx-common.h \
   $(END)
 

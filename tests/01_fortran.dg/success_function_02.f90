@@ -30,14 +30,14 @@
 ! </testinfo>
 
 PROGRAM P
-REAL*8 :: X
+REAL*4 :: X
 X = 1.0
-X = REF(2.0_8)
+X = REF(2.0_4)
 END PROGRAM P
 
 FUNCTION REF(A) RESULT(B)
 IMPLICIT NONE
-REAL*8 :: A,B
+REAL*4 :: A,B
 B = A + A
 return 
 END FUNCTION REF
