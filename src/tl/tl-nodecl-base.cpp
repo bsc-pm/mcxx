@@ -99,6 +99,11 @@ namespace Nodecl
         nodecl_exchange(this->_n, new_node._n);
     }
 
+    void* NodeclBase::get_internal_tree_address()
+    {
+        return & (this->_n.tree);
+    }
+
     static nodecl_t make_list_helper(const TL::ObjectList<NodeclBase>::const_iterator& first, 
             const TL::ObjectList<NodeclBase>::const_iterator& last)
     {

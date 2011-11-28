@@ -893,6 +893,7 @@ static void append_statement_to_block(AST block, AST stmt)
 /*!include fortran03-subparse.y*/
 /*!include cxx-nodecl.y*/
 /*!include cxx-pragma.y*/
+/*!include cxx-placeholders.y*/
 /*!undefine GRAMMAR_PROLOGUE*/
 
 %token<token_atrib> UNKNOWN_PRAGMA
@@ -5994,6 +5995,7 @@ labeldef : label
 /*!include fortran03-subparse.y*/
 /*!include cxx-nodecl.y*/
 /*!include cxx-pragma.y*/
+/*!include cxx-placeholders.y*/
 /*!undefine GRAMMAR_RULES*/
 
 %%

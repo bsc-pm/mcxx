@@ -658,4 +658,11 @@ namespace TL
     {
         return nodecl_stmt_to_source(n.get_internal_nodecl());
     }
+
+    std::string statement_placeholder(Nodecl::NodeclBase& placeholder)
+    {
+        std::stringstream ss;
+        ss << "@STATEMENT-PH::" << placeholder.get_internal_tree_address() << "@";
+        return ss.str();
+    }
 }

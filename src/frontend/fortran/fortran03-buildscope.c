@@ -20,6 +20,7 @@
 #include "cxx-nodecl-output.h"
 #include "cxx-pragma.h"
 #include "cxx-diagnostic.h"
+#include "cxx-placeholders.h"
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
@@ -1499,6 +1500,7 @@ typedef struct build_scope_statement_handler_tag
  STATEMENT_HANDLER(AST_PRAGMA_CUSTOM_CONSTRUCT,      build_scope_pragma_custom_ctr,     kind_executable_0  ) \
  STATEMENT_HANDLER(AST_PRAGMA_CUSTOM_DIRECTIVE,      build_scope_pragma_custom_dir,     kind_nonexecutable_0 ) \
  STATEMENT_HANDLER(AST_UNKNOWN_PRAGMA,               build_scope_unknown_pragma,        kind_nonexecutable_0  ) \
+ STATEMENT_HANDLER(AST_STATEMENT_PLACEHOLDER,        build_scope_statement_placeholder, kind_nonexecutable_0  ) \
 
 // Prototypes
 #define STATEMENT_HANDLER(_kind, _handler, _) \
@@ -6114,6 +6116,11 @@ static void build_scope_unknown_pragma(AST a, decl_context_t decl_context UNUSED
 {
     *nodecl_output = 
         nodecl_make_unknown_pragma(ASTText(a), ASTFileName(a), ASTLine(a));
+}
+
+static void build_scope_statement_placeholder(AST a, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
+{
+    check_statement_placeholder(a, decl_context, nodecl_output);
 }
 
 typedef void opt_value_fun_handler_t(AST io_stmt, AST opt_value, decl_context_t, nodecl_t*);
