@@ -200,12 +200,22 @@ static void clear_unknown_symbols(decl_context_t decl_context)
             }
 
             char c[256] = { 0 };
-            snprintf(c, 255, "%s:%d: error: symbol '%s' has no IMPLICIT type\n",
-                    entry->file,
-                    entry->line,
-                    entry->symbol_name);
+            if(entry->kind == SK_COMMON)
+            {
+                snprintf(c, 255, "%s:%d: error: COMMON '%s' does not exist\n",
+                        entry->file,
+                        entry->line,
+                        entry->symbol_name);
+            }
+            else 
+            { 
+                snprintf(c, 255, "%s:%d: error: symbol '%s' has no IMPLICIT type\n",
+                        entry->file,
+                        entry->line,
+                        entry->symbol_name);
+            } 
+            
             c[255] = '\0';
-
             message = strappend(message, c);
             unresolved_implicits = 1;
         }
@@ -3012,7 +3022,10 @@ static void build_scope_common_stmt(AST a,
             common_sym->file = ASTFileName(a);
             common_sym->line = ASTLine(a);
         }
-
+        else
+        {
+            remove_unknown_symbol(decl_context, common_sym);
+        }
         AST it2;
         for_each_element(common_block_object_list, it2)
         {
@@ -4970,10 +4983,10 @@ static void build_scope_save_stmt(AST a, decl_context_t decl_context UNUSED_PARA
 
             if (entry == NULL)
             {
-                error_printf("%s: error: unknown common '%s' in SAVE statement\n", 
-                        ast_location(a),
-                        fortran_prettyprint_in_buffer(saved_entity));
-                continue;
+                entry = new_common(decl_context,ASTText(ASTSon0(saved_entity)));
+                entry->file = ASTFileName(a);
+                entry->line = ASTLine(a);
+                add_unknown_symbol(decl_context, entry);
             }
         }
         else
