@@ -2029,8 +2029,9 @@ OPERATOR_TABLE
             Nodecl::NodeclBase upper;
             bool is_undefined;
             bool with_descriptor;
-        } array_spec_list[MCXX_MAX_ARRAY_SPECIFIER] = { { nodecl_null(), nodecl_null(), false, false }  };
-
+           array_spec_tag() : lower(nodecl_null()), upper(nodecl_null()), is_undefined(false), with_descriptor(false) { }
+        } array_spec_list[MCXX_MAX_ARRAY_SPECIFIER];
+        
         int array_spec_idx;
         for (array_spec_idx = MCXX_MAX_ARRAY_SPECIFIER - 1; 
                 is_fortran_array_type(t.get_internal_type());
