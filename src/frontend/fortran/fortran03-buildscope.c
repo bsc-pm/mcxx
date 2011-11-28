@@ -201,12 +201,22 @@ static void clear_unknown_symbols(decl_context_t decl_context)
             }
 
             char c[256] = { 0 };
-            snprintf(c, 255, "%s:%d: error: symbol '%s' has no IMPLICIT type\n",
-                    entry->file,
-                    entry->line,
-                    entry->symbol_name);
+            if(entry->kind == SK_COMMON)
+            {
+                snprintf(c, 255, "%s:%d: error: COMMON '%s' does not exist\n",
+                        entry->file,
+                        entry->line,
+                        entry->symbol_name);
+            }
+            else 
+            { 
+                snprintf(c, 255, "%s:%d: error: symbol '%s' has no IMPLICIT type\n",
+                        entry->file,
+                        entry->line,
+                        entry->symbol_name);
+            } 
+            
             c[255] = '\0';
-
             message = strappend(message, c);
             unresolved_implicits = 1;
         }
@@ -3006,15 +3016,22 @@ static void build_scope_common_stmt(AST a,
             //It is a named common statement
             common_name_str = ASTText(common_name);
         }
-        
+       
+        // Looking the symbol in all scopes except program unit global scope 
         scope_entry_t* common_sym = fortran_query_name_str(decl_context, get_common_name_str(common_name_str));
         if (common_sym == NULL)
         {
+            // If the symbol is not found, we should create a new one
             common_sym = new_common(decl_context, common_name_str);
             common_sym->file = ASTFileName(a);
             common_sym->line = ASTLine(a);
         }
-
+        else
+        {
+            // Otherwise, we remove it from the list of unknown symbols
+            remove_unknown_symbol(decl_context, common_sym);
+        }
+        
         AST it2;
         for_each_element(common_block_object_list, it2)
         {
@@ -3037,7 +3054,7 @@ static void build_scope_common_stmt(AST a,
             }
 
             scope_entry_t* sym = get_symbol_for_name(decl_context, name, ASTText(name));
-
+            
             if (sym->entity_specs.is_in_common)
             {
                 error_printf("%s: error: entity '%s' is already in a COMMON\n", 
@@ -3049,6 +3066,8 @@ static void build_scope_common_stmt(AST a,
             if (sym->kind == SK_UNDEFINED)
                 sym->kind = SK_VARIABLE;
 
+            // We mark the symbol as non static and is in a common
+            sym->entity_specs.is_static = 0;
             sym->entity_specs.is_in_common = 1;
             sym->entity_specs.in_common = common_sym;
 
@@ -3339,7 +3358,8 @@ static void build_scope_data_stmt_object_list(AST data_stmt_object_list, decl_co
 
             // Set the SAVE attribute
             scope_entry_t* entry = nodecl_get_symbol(nodecl_data_stmt_object);
-            if (entry != NULL)
+            // If the symbol appears in a common, the symbol will never be static
+            if (entry != NULL && !entry->entity_specs.is_in_common)
             {
                 entry->entity_specs.is_static = 1;
             }
@@ -3352,7 +3372,7 @@ static void build_scope_data_stmt(AST a, decl_context_t decl_context, nodecl_t* 
     AST data_stmt_set_list = ASTSon0(a);
 
     scope_entry_t* entry = get_or_create_data_symbol_info(decl_context);
-
+    
     AST it;
     for_each_element(data_stmt_set_list, it)
     {
@@ -4972,10 +4992,10 @@ static void build_scope_save_stmt(AST a, decl_context_t decl_context UNUSED_PARA
 
             if (entry == NULL)
             {
-                error_printf("%s: error: unknown common '%s' in SAVE statement\n", 
-                        ast_location(a),
-                        fortran_prettyprint_in_buffer(saved_entity));
-                continue;
+                entry = new_common(decl_context,ASTText(ASTSon0(saved_entity)));
+                entry->file = ASTFileName(a);
+                entry->line = ASTLine(a);
+                add_unknown_symbol(decl_context, entry);
             }
         }
         else
