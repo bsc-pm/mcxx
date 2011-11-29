@@ -716,7 +716,7 @@ static void codegen_type(nodecl_codegen_visitor_t* visitor,
 
 static void codegen_procedure_declaration_header(nodecl_codegen_visitor_t* visitor, scope_entry_t* entry)
 {
-    char is_function = (function_type_get_return_type(entry->type_information) != NULL);
+    char is_function = !is_void_type(function_type_get_return_type(entry->type_information));
     indent(visitor);
     if (entry->entity_specs.is_recursive)
     {
@@ -773,7 +773,7 @@ static void codegen_procedure_declaration_header(nodecl_codegen_visitor_t* visit
 
 static void codegen_procedure_declaration_footer(nodecl_codegen_visitor_t* visitor, scope_entry_t* entry)
 {
-    char is_function = (function_type_get_return_type(entry->type_information) != NULL);
+    char is_function = !is_void_type(function_type_get_return_type(entry->type_information));
 
     indent(visitor);
     fprintf(visitor->file, "END %s %s\n", (is_function ? "FUNCTION" : "SUBROUTINE"), entry->symbol_name);

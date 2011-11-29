@@ -611,6 +611,8 @@ static scope_entry_t* get_intrinsic_symbol_(const char* name,
         char is_transformational UNUSED_PARAMETER,
         char is_inquiry UNUSED_PARAMETER)
 {
+    ERROR_CONDITION(result_type == NULL, "This should be void", 0);
+
     intrinsic_descr_t descr;
     descr.name = name;
     descr.result_type = result_type;
@@ -663,7 +665,7 @@ static scope_entry_t* get_intrinsic_symbol_(const char* name,
         new_entry->entity_specs.is_pure = (is_pure || is_elemental);
 
         new_entry->entity_specs.is_builtin = 1;
-        new_entry->entity_specs.is_builtin_subroutine = (result_type == NULL);
+        new_entry->entity_specs.is_builtin_subroutine = is_void_type(result_type);
 
         rb_tree_insert(intrinsic_map, p, new_entry);
 
@@ -1026,7 +1028,7 @@ static void fortran_init_specific_names(decl_context_t decl_context)
     REGISTER_SPECIFIC_INTRINSIC_1("dimag", "aimag", get_complex_type(get_double_type()));
 
     REGISTER_CUSTOM_INTRINSIC_1("dfloat", get_double_type(), get_signed_int_type());
-    REGISTER_CUSTOM_INTRINSIC_2("getenv", NULL, fortran_get_default_character_type(), 
+    REGISTER_CUSTOM_INTRINSIC_2("getenv", get_void_type(), fortran_get_default_character_type(), 
             fortran_get_default_character_type());
 }
 
@@ -1815,8 +1817,8 @@ scope_entry_t* compute_intrinsic_cpu_time(scope_entry_t* symbol UNUSED_PARAMETER
 
     if (is_floating_type(t0))
     {
-        // NULL because this is a subroutine
-        return GET_INTRINSIC_IMPURE("cpu_time", NULL, t0);
+        // void because this is a subroutine
+        return GET_INTRINSIC_IMPURE("cpu_time", get_void_type(), t0);
     }
     return NULL;
 }
@@ -1862,7 +1864,7 @@ scope_entry_t* compute_intrinsic_date_and_time(scope_entry_t* symbol UNUSED_PARA
     {
         type_t* char_type = get_array_type(get_char_type(), nodecl_null(), symbol->decl_context);
         type_t* int_array = get_n_ranked_type(get_signed_int_type(), 1, symbol->decl_context);
-        return GET_INTRINSIC_IMPURE("date_and_time", NULL, char_type, char_type, char_type, int_array);
+        return GET_INTRINSIC_IMPURE("date_and_time", get_void_type(), char_type, char_type, char_type, int_array);
     }
 
     return NULL;
@@ -2120,7 +2122,7 @@ scope_entry_t* compute_intrinsic_execute_command_line(scope_entry_t* symbol UNUS
             && (t4 == NULL || is_fortran_character_type(t4)))
     {
         return GET_INTRINSIC_IMPURE("execute_command_line", 
-                NULL, // It is a subroutine
+                get_void_type(), // It is a subroutine
                 t1, 
                 t2 == NULL ? get_signed_int_type() : t2,
                 t3 == NULL ? get_signed_int_type() : t3,
@@ -2297,7 +2299,7 @@ scope_entry_t* compute_intrinsic_get_command(scope_entry_t* symbol UNUSED_PARAME
             && (t2 == NULL || is_integer_type(t2)))
     {
         return GET_INTRINSIC_IMPURE("get_command",
-                NULL, // Is a subroutine
+                get_void_type(), // Is a subroutine
                 t0 == NULL ? get_n_ranked_type(get_char_type(), 1, symbol->decl_context) : t0,
                 t1 == NULL ? get_signed_int_type() : t1,
                 t2 == NULL ? get_signed_int_type() : t2);
@@ -2322,7 +2324,7 @@ scope_entry_t* compute_intrinsic_get_command_argument(scope_entry_t* symbol UNUS
             && (t3 == NULL || is_integer_type(t3)))
     {
         return GET_INTRINSIC_IMPURE("get_command_argument",
-                NULL, // Is a subroutine
+                get_void_type(), // Is a subroutine
                 t0,
                 t1 == NULL ? get_n_ranked_type(get_char_type(), 1, symbol->decl_context) : t1,
                 t2 == NULL ? get_signed_int_type() : t2,
@@ -2351,7 +2353,7 @@ scope_entry_t* compute_intrinsic_get_environment_variable(scope_entry_t* symbol 
             && (t4 == NULL || is_bool_type(t4)))
     {
         return GET_INTRINSIC_IMPURE("get_environment_variable", 
-                NULL, // is a subroutine
+                get_void_type(), // is a subroutine
                 t0,
                 t1 == NULL ? get_n_ranked_type(get_char_type(), 1, symbol->decl_context) : t1,
                 t2 == NULL ? get_signed_int_type() : t2,
@@ -4813,7 +4815,7 @@ scope_entry_t* compute_intrinsic_etime(scope_entry_t* symbol UNUSED_PARAMETER,
             && is_floating_type(t1))
     {
         return GET_INTRINSIC_INQUIRY("etime",
-                NULL, // subroutine 
+                get_void_type(), // subroutine 
                 t0, t1);
     }
     else if (num_arguments == 1

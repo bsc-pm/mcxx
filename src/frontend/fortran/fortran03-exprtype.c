@@ -2443,7 +2443,7 @@ static void check_called_symbol(
         return_type = function_type_get_return_type(symbol->type_information);
 
         if (symbol->entity_specs.is_elemental
-                && return_type != NULL)
+                && !is_void_type(return_type))
         {
             if (common_rank > 0)
             {
@@ -2452,7 +2452,7 @@ static void check_called_symbol(
         }
     }
 
-    if (return_type == NULL)
+    if (is_void_type(return_type))
     {
         if (!is_call_stmt)
         {
@@ -2464,7 +2464,6 @@ static void check_called_symbol(
             *result_type = get_error_type();
             return;
         }
-        return_type = get_void_type();
     }
     else
     {
@@ -3219,7 +3218,7 @@ static void check_symbol_of_called_name(AST sym, decl_context_t decl_context, no
             {
                 // If it has a non implicit type it means there was a type
                 // declaration of this symbol
-                if (return_type != NULL
+                if (!is_void_type(return_type)
                         // This is only for the case when entry->kind was initially SK_UNDEFINED
                         && !entry->entity_specs.is_implicit_basic_type)
                 {
@@ -3235,10 +3234,10 @@ static void check_symbol_of_called_name(AST sym, decl_context_t decl_context, no
                 }
                 else
                 {
-                    return_type = NULL;
+                    return_type = get_void_type();
                 }
             }
-            else if(is_function_type(return_type))
+            else if (is_function_type(return_type))
             {
                return_type = function_type_get_return_type(return_type);
             }

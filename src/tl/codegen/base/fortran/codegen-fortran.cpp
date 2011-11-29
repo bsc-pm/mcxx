@@ -656,7 +656,7 @@ OPERATOR_TABLE
         TL::Symbol entry = called.get_symbol();
         ERROR_CONDITION(!entry.is_valid(), "Invalid symbol in call", 0);
 
-        bool is_call = (!entry.get_type().returns().is_valid());
+        bool is_call = (entry.get_type().returns().is_void());
 
         if (is_call)
         {
@@ -1591,7 +1591,7 @@ OPERATOR_TABLE
             {
                 indent();
 
-                if (entry.get_type().returns().is_valid())
+                if (!entry.get_type().returns().is_void())
                 {
                     std::string type_spec;
                     std::string array_specifier;
@@ -2218,7 +2218,7 @@ OPERATOR_TABLE
 
     void FortranBase::codegen_procedure_declaration_header(TL::Symbol entry)
     {
-        bool is_function = entry.get_type().returns().is_valid();
+        bool is_function = !entry.get_type().returns().is_void();
 
         indent();
 
@@ -2285,7 +2285,7 @@ OPERATOR_TABLE
     
     void FortranBase::codegen_procedure_declaration_footer(TL::Symbol entry)
     {
-        bool is_function = entry.get_type().returns().is_valid();
+        bool is_function = !entry.get_type().returns().is_void();
 
         indent();
         file << "END "
