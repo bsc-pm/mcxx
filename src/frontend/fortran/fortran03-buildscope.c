@@ -163,7 +163,7 @@ void add_unknown_symbol(decl_context_t decl_context, scope_entry_t* entry)
 {
     scope_entry_t* unknown_info = get_or_create_unknown_symbols_info(decl_context);
 
-    P_LIST_ADD(unknown_info->entity_specs.related_symbols,
+    P_LIST_ADD_ONCE(unknown_info->entity_specs.related_symbols,
             unknown_info->entity_specs.num_related_symbols,
             entry);
 }
@@ -171,11 +171,10 @@ void add_unknown_symbol(decl_context_t decl_context, scope_entry_t* entry)
 void remove_unknown_symbol(decl_context_t decl_context, scope_entry_t* entry)
 {
     scope_entry_t* unknown_info = get_or_create_unknown_symbols_info(decl_context);
-    
+
     P_LIST_REMOVE(unknown_info->entity_specs.related_symbols,
             unknown_info->entity_specs.num_related_symbols,
             entry);
-
 }
 
 static void clear_unknown_symbols(decl_context_t decl_context)
@@ -191,9 +190,13 @@ static void clear_unknown_symbols(decl_context_t decl_context)
     {
         scope_entry_t* entry = unknown_info->entity_specs.related_symbols[i];
 
-        if (((entry->type_information == NULL || basic_type_is_void(entry->type_information))
+#if 0
+        if (((entry->type_information == NULL 
+                        || basic_type_is_void(entry->type_information))
                     && !entry->entity_specs.is_builtin) 
-                || (entry->kind == SK_FUNCTION && entry->entity_specs.is_builtin))
+                || (entry->kind == SK_FUNCTION 
+                    && entry->entity_specs.is_builtin))
+#endif
         {
             if (unresolved_implicits)
             {
@@ -203,14 +206,16 @@ static void clear_unknown_symbols(decl_context_t decl_context)
             char c[256] = { 0 };
             if(entry->kind == SK_COMMON)
             {
-                snprintf(c, 255, "%s:%d: error: COMMON '%s' does not exist\n",
+                // Do not add \n in this message, we are adding them elsewhere
+                snprintf(c, 255, "%s:%d: error: COMMON '%s' does not exist",
                         entry->file,
                         entry->line,
                         entry->symbol_name);
             }
             else 
             { 
-                snprintf(c, 255, "%s:%d: error: symbol '%s' has no IMPLICIT type\n",
+                // Do not add \n in this message, we are adding them elsewhere
+                snprintf(c, 255, "%s:%d: error: symbol '%s' has no IMPLICIT type",
                         entry->file,
                         entry->line,
                         entry->symbol_name);
@@ -224,7 +229,7 @@ static void clear_unknown_symbols(decl_context_t decl_context)
 
     if (unresolved_implicits)
     {
-        error_printf("%s", message);
+        error_printf("%s\n", message);
     }
 
     free(unknown_info->entity_specs.related_symbols);
@@ -849,7 +854,7 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
     entry->entity_specs.is_implicit_basic_type = 1;
     entry->defined = 1;
 
-    type_t* return_type = NULL;
+    type_t* return_type = get_void_type();
     if (is_function)
     {
         return_type = get_implicit_type_for_symbol(decl_context, entry->symbol_name);
@@ -1024,9 +1029,12 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
         result_sym->type_information = get_lvalue_reference_type(return_type);
         result_sym->entity_specs.is_implicit_basic_type = !function_has_type_spec;
 
-        // Add it as an explicit unknown symbol because we want it to be
-        // updated with a later IMPLICIT
-        add_unknown_symbol(decl_context, result_sym);
+        if (!function_has_type_spec)
+        {
+            // Add it as an explicit unknown symbol because we want it to be
+            // updated with a later IMPLICIT
+            add_unknown_symbol(decl_context, result_sym);
+        }
 
         return_type = get_indirect_type(result_sym);
 
@@ -4066,8 +4074,10 @@ static void build_scope_external_stmt(AST a, decl_context_t decl_context, nodecl
 
         if (is_void_type(no_ref(entry->type_information)))
         {
-            // We do not know it, set a type like one of a PROCEDURE
-            entry->type_information = get_nonproto_function_type(NULL, 0);
+            // We do not know it, set a type like one of a SUBROUTINE
+            entry->type_information = get_nonproto_function_type(get_void_type(), 0);
+            
+            remove_unknown_symbol(decl_context, entry);
         }
         else
         {
@@ -4475,6 +4485,8 @@ static void build_scope_interface_block(AST a, decl_context_t decl_context,
                 insert_entry(decl_context.current_scope, procedure_sym);
                 // And update its context to be the enclosing one
                 procedure_sym->decl_context = decl_context;
+
+                remove_unknown_symbol(decl_context, procedure_sym);
             }
             else
             {
@@ -4506,6 +4518,7 @@ static void build_scope_interface_block(AST a, decl_context_t decl_context,
                     name);
             return;
         }
+
         // The symbol won't be unknown anymore
         remove_unknown_symbol(decl_context, generic_spec_sym);
         
@@ -4997,7 +5010,7 @@ static void build_scope_return_stmt(AST a, decl_context_t decl_context, nodecl_t
             *nodecl_output = nodecl_return;
         }
 
-        if (function_type_get_return_type(current_function->type_information) != NULL)
+        if (!is_void_type(function_type_get_return_type(current_function->type_information)))
         {
             error_printf("%s: error: RETURN with alternate return is only valid in a SUBROUTINE program unit\n", 
                     ast_location(a));
@@ -5008,7 +5021,7 @@ static void build_scope_return_stmt(AST a, decl_context_t decl_context, nodecl_t
     }
     else
     {
-        if (function_type_get_return_type(current_function->type_information) == NULL)
+        if (is_void_type(function_type_get_return_type(current_function->type_information)))
         {
             // SUBROUTINE
             *nodecl_output = nodecl_make_return_statement(nodecl_null(), ASTFileName(a), ASTLine(a));
@@ -5324,6 +5337,8 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
                     entry->line);
             continue;
         }
+
+        remove_unknown_symbol(decl_context, entry);
 
         entry->type_information = update_basic_type_with_type(entry->type_information, basic_type);
         entry->entity_specs.is_implicit_basic_type = 0;
