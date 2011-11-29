@@ -302,7 +302,7 @@ then
    if test x$is_enabled_fortran = xyes;
    then
       INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.fortran"
-      COMPILER_NAMES="${COMPILER_NAMES} mf95"
+      COMPILER_NAMES="${COMPILER_NAMES} mf95 mfc"
    fi
    
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.cuda 50.config.ocl 50.config.gpu"

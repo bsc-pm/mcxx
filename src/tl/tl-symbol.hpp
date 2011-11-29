@@ -426,14 +426,6 @@ namespace TL
               */
             bool is_target() const;
 
-            //! This symbol is VALUE
-            /*! 
-              States whether this dummy argument has the VALUE attribute
-
-              This function is only meaningful in Fortran. In C/C++ it always returns false
-              */
-            bool is_value() const;
-
             //! This symbol is ELEMENTAL
             /*! 
               States whether this dummy argument has the ELEMENTAL attribute

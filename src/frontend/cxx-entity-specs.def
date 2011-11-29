@@ -67,7 +67,6 @@ bool|fortran|is_in_common|This entity appears in a COMMON construct
 bool|fortran|is_in_namelist|This entity appears in a NAMELIST 
 bool|fortran|is_optional|This dummy argument has the OPTIONAL attribute 
 bool|fortran|is_target|This entity has the TARGET attribute
-bool|fortran|is_value|This dummy argument has the VALUE attribute
 bool|fortran|is_elemental|This is an ELEMENTAL function
 bool|fortran|is_recursive|This is a RECURSIVE function
 bool|fortran|is_result|This symbol is the RESULT variable of the function
