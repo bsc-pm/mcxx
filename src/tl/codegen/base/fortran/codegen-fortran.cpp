@@ -1391,7 +1391,8 @@ OPERATOR_TABLE
                 attribute_list += ", ALLOCATABLE";
             if (entry.is_target())
                 attribute_list += ", TARGET";
-            if (entry.is_value())
+            if (entry.is_parameter() 
+                    && !entry.get_type().is_reference())
                 attribute_list += ", VALUE";
             if (entry.is_optional())
                 attribute_list += ", OPTIONAL";

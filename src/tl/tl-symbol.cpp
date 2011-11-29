@@ -616,15 +616,6 @@ namespace TL
 #endif
     }
 
-    bool Symbol::is_value() const
-    {
-#ifdef FORTRAN_SUPPORT
-        return _symbol->entity_specs.is_value;
-#else
-        return false;
-#endif
-    }
-
     bool Symbol::is_elemental() const
     {
 #ifdef FORTRAN_SUPPORT

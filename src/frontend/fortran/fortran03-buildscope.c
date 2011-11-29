@@ -5381,6 +5381,19 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
                         ast_location(declaration));
                 continue;
             }
+            else
+            {
+                char was_ref = is_lvalue_reference_type(entry->type_information);
+                if (!was_ref)
+                {
+                    error_printf("%s: error: VALUE attribute already set\n",
+                            ast_location(declaration));
+                }
+                else
+                {
+                    entry->type_information = reference_type_get_referenced_type(entry->type_information);
+                }
+            }
         }
 
         if (current_attr_spec.is_intent)
@@ -5921,7 +5934,16 @@ static void build_scope_value_stmt(AST a, decl_context_t decl_context, nodecl_t*
         if (entry->kind == SK_UNDEFINED)
             entry->kind = SK_VARIABLE;
 
-        entry->entity_specs.is_value = 1;
+        if (is_lvalue_reference_type(entry->type_information))
+        {
+            entry->type_information = reference_type_get_referenced_type(entry->type_information);
+        }
+        else
+        {
+            error_printf("%s: error: entity '%s' already had VALUE attribute\n",
+                    ast_location(name),
+                    entry->symbol_name);
+        }
     }
 
 }

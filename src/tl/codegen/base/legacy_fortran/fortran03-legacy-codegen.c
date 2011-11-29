@@ -839,7 +839,8 @@ static void declare_symbol(nodecl_codegen_visitor_t* visitor, scope_entry_t* ent
                     attribute_list = strappend(attribute_list, ", ALLOCATABLE");
                 if (entry->entity_specs.is_target)
                     attribute_list = strappend(attribute_list, ", TARGET");
-                if (entry->entity_specs.is_value)
+                if (entry->entity_specs.is_parameter
+                        && is_lvalue_reference_type(entry->type_information))
                     attribute_list = strappend(attribute_list, ", VALUE");
                 if (entry->entity_specs.is_optional)
                     attribute_list = strappend(attribute_list, ", OPTIONAL");
