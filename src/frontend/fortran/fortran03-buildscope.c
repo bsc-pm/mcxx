@@ -4038,31 +4038,42 @@ static void build_scope_external_stmt(AST a, decl_context_t decl_context, nodecl
         AST name = ASTSon1(it);
 
         scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
-        entry->kind = SK_FUNCTION;
 
-        if (!entry->entity_specs.is_extern)
+        //If entry already has kind SK_FUNCTION then we must show an error
+        if (entry->kind == SK_FUNCTION) 
         {
-            if (is_void_type(no_ref(entry->type_information)))
+            // We have seen an INTRINSIC statement before for the same symbol 
+            if (entry->entity_specs.is_builtin)
             {
-                // We do not know it, set a type like one of a PROCEDURE
-                entry->type_information = get_nonproto_function_type(NULL, 0);
+                error_printf("%s: error: entity '%s' already has INTRINSIC attribute and INTRINSIC attribute conflicts with EXTERNAL attribute\n",
+                        ast_location(name),
+                        entry->symbol_name);
+                continue;
             }
-            else
+            // We have seen an EXTERNAL statement before for the same symbol
+            else 
             {
-                entry->type_information = get_nonproto_function_type(entry->type_information, 0);
+                error_printf("%s: error: entity '%s' already has EXTERNAL attribute\n",
+                        ast_location(name),
+                        entry->symbol_name);
+                continue;
             }
-            // States it is extern
-            entry->entity_specs.is_extern = 1;
+        }
+        
+        // We mark the symbol as a external function
+        entry->kind = SK_FUNCTION;
+        entry->entity_specs.is_extern = 1;
+
+        if (is_void_type(no_ref(entry->type_information)))
+        {
+            // We do not know it, set a type like one of a PROCEDURE
+            entry->type_information = get_nonproto_function_type(NULL, 0);
         }
         else
         {
-            error_printf("%s: error: entity '%s' already has EXTERNAL attribute\n",
-                    ast_location(name),
-                    entry->symbol_name);
-            continue;
+            entry->type_information = get_nonproto_function_type(entry->type_information, 0);
         }
     }
-
 }
 
 static void build_scope_forall_header(AST a, decl_context_t decl_context, 
@@ -4538,17 +4549,61 @@ static void build_scope_intrinsic_stmt(AST a, decl_context_t decl_context UNUSED
         decl_context_t global_context = decl_context;
         global_context.current_scope = decl_context.global_scope;
 
-        scope_entry_t* entry = fortran_query_intrinsic_name_str(global_context, ASTText(name));
-        if (entry == NULL
-                || !entry->entity_specs.is_builtin)
+       
+        scope_entry_t* entry = fortran_query_name_str(decl_context, ASTText(name));
+        scope_entry_t* entry_intrinsic = fortran_query_intrinsic_name_str(global_context, ASTText(name));
+        
+        // The symbol exists in the current scope 
+        if (entry != NULL)
         {
-            error_printf("%s: error: name '%s' is not known as an intrinsic\n", 
-                    ast_location(name),
-                    ASTText(name));
+            //If entry already has kind SK_FUNCTION then we must show an error
+            if (entry->kind == SK_FUNCTION) 
+            {
+                // We have seen an INTRINSIC statement before for the same symbol 
+                if (entry->entity_specs.is_builtin)
+                {
+                    error_printf("%s: error: entity '%s' already has INTRINSIC attribute\n",
+                            ast_location(name),
+                            entry->symbol_name);
+                    continue;
+                }
+                // We have seen an EXTERNAL statement before for the same symbol
+                else 
+                {
+                    error_printf("%s: error: entity '%s' already has EXTERNAL attribute and EXTERNAL attribute conflicts with EXTERNAL attribute\n",
+                            ast_location(name),
+                            entry->symbol_name);
+
+                    continue;
+                }
+            }
+            // This symbol will be the intrinsic
+            else
+            { 
+                if (entry_intrinsic == NULL || !entry_intrinsic->entity_specs.is_builtin)
+                {
+                    error_printf("%s: error: name '%s' is not known as an intrinsic\n", 
+                            ast_location(name),
+                            ASTText(name));
+                    continue;
+                }
+
+                entry->kind = SK_FUNCTION;
+                entry->entity_specs = entry_intrinsic->entity_specs;
+                entry->type_information = entry_intrinsic->type_information;
+            }
         }
+        // The symbol does not exist, we add an alias to the intrinsic symbol in the current scope
         else
         {
-            insert_alias(decl_context.current_scope, entry, strtolower(ASTText(name)));
+            if (entry_intrinsic == NULL || !entry_intrinsic->entity_specs.is_builtin)
+            {
+                error_printf("%s: error: name '%s' is not known as an intrinsic\n", 
+                        ast_location(name),
+                        ASTText(name));
+                continue;
+            }
+            insert_alias(decl_context.current_scope, entry_intrinsic, strtolower(ASTText(name)));
         }
     }
 }
@@ -5236,7 +5291,16 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
         AST name = ASTSon0(declaration);
         AST entity_decl_specs = ASTSon1(declaration);
 
+        // Create a new symbol if it does not exist in the current scope
         scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
+
+        // If entry has the same name as an intrinsic, we must change things
+        scope_entry_t* entry_intrinsic = fortran_query_intrinsic_name_str(decl_context, ASTText(name));
+        char can_be_an_intrinsic = (entry_intrinsic != NULL);
+        if (can_be_an_intrinsic)
+        {
+            entry->type_information = basic_type; 
+        }
         
         if (!entry->entity_specs.is_implicit_basic_type)
         {
