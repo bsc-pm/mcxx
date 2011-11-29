@@ -982,7 +982,7 @@ static void declare_symbol(nodecl_codegen_visitor_t* visitor, scope_entry_t* ent
             {
                 if (entry->entity_specs.is_builtin) 
                 {
-                    scope_entry_t* generic_entry = fortran_query_implicit_name_str(entry->decl_context, entry->symbol_name);
+                    scope_entry_t* generic_entry = fortran_query_intrinsic_name_str(entry->decl_context, entry->symbol_name);
 
                     if (generic_entry == entry)
                     {

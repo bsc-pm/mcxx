@@ -265,8 +265,8 @@ static void update_unknown_symbols(decl_context_t decl_context)
 // This function queries a symbol. If not found it uses implicit info to create
 // one adding it to the set of unknown symbols of this context
 //
-// The difference of this function to fortran_query_name_with_locus is that
-// fortran_query_name_with_locus always creates a SK_VARIABLE
+// The difference of this function to fortran_get_variable_with_locus is that
+// fortran_get_variable_with_locus always creates a SK_VARIABLE
 static scope_entry_t* get_symbol_for_name_(decl_context_t decl_context, 
         AST locus, const char* name,
         char no_implicit)
@@ -3138,7 +3138,7 @@ static void build_scope_assigned_goto_stmt(AST a UNUSED_PARAMETER, decl_context_
     // warn_printf("%s: warning: deprecated assigned-goto statement\n", 
     //         ast_location(a));
 
-    scope_entry_t* label_var = fortran_query_name_with_locus(decl_context, ASTSon0(a), ASTText(ASTSon0(a)));
+    scope_entry_t* label_var = fortran_get_variable_with_locus(decl_context, ASTSon0(a), ASTText(ASTSon0(a)));
 
     AST label_list = ASTSon1(a);
     nodecl_t nodecl_label_list = nodecl_null();
@@ -3172,7 +3172,7 @@ static void build_scope_label_assign_stmt(AST a UNUSED_PARAMETER, decl_context_t
 
     AST label_name = ASTSon1(a);
 
-    scope_entry_t* label_var = fortran_query_name_with_locus(decl_context, label_name, ASTText(label_name));
+    scope_entry_t* label_var = fortran_get_variable_with_locus(decl_context, label_name, ASTText(label_name));
 
     if (label_var == NULL)
     {
@@ -3302,7 +3302,7 @@ static void generic_implied_do_handler(AST a, decl_context_t decl_context,
         nodecl_stride = const_value_to_nodecl(const_value_get_one(/* bytes */ fortran_get_default_integer_type_kind(), /* signed */ 1));
     }
 
-    scope_entry_t* do_variable = fortran_query_name_with_locus(decl_context, io_do_variable, ASTText(io_do_variable));
+    scope_entry_t* do_variable = fortran_get_variable_with_locus(decl_context, io_do_variable, ASTText(io_do_variable));
 
     if (do_variable == NULL)
     {
@@ -4538,7 +4538,7 @@ static void build_scope_intrinsic_stmt(AST a, decl_context_t decl_context UNUSED
         decl_context_t global_context = decl_context;
         global_context.current_scope = decl_context.global_scope;
 
-        scope_entry_t* entry = fortran_query_implicit_name_str(global_context, ASTText(name));
+        scope_entry_t* entry = fortran_query_intrinsic_name_str(global_context, ASTText(name));
         if (entry == NULL
                 || !entry->entity_specs.is_builtin)
         {
@@ -5237,7 +5237,7 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
         AST entity_decl_specs = ASTSon1(declaration);
 
         scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
-
+        
         if (!entry->entity_specs.is_implicit_basic_type)
         {
             error_printf("%s: error: entity '%s' already has a basic type\n",
