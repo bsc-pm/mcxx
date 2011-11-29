@@ -3124,138 +3124,159 @@ static void check_user_defined_binary_op(AST expr, decl_context_t decl_context, 
             ASTLine(expr));
 }
 
+#if 0
 static char is_name_of_funtion_call(AST expr)
 {
     return ASTParent(expr) != NULL
         && ASTType(ASTParent(expr)) == AST_FUNCTION_CALL;
 }
+#endif
 
 static void check_symbol_of_called_name(AST sym, decl_context_t decl_context, nodecl_t* nodecl_output, char is_call_stmt)
 { 
-    // Looking for the symbol, avoiding intrinsic functions 
+    // Look the symbol up. This will ignore INTRINSIC names
     scope_entry_t* entry = fortran_query_name_str(decl_context, ASTText(sym));
     if (entry == NULL)
     {
         char entry_is_an_intrinsic = 0;
         
-        // Looking again for the symbol. The search doesn't avoid intrinsic functions
+        // We did not find anything.
+        //
+        // Does this name match the name of an INTRINSIC?
         entry = fortran_query_intrinsic_name_str(decl_context, ASTText(sym));
         if (entry != NULL)
         {
+            // It names an intrinsic
             entry_is_an_intrinsic = 1; 
-            if ((is_call_stmt && !entry->entity_specs.is_builtin_subroutine)
-                    || (!is_call_stmt && entry->entity_specs.is_builtin_subroutine))
+
+            // A call is only valid for builtin subroutines
+            if (!!is_call_stmt != !!entry->entity_specs.is_builtin_subroutine)
             {
                 entry_is_an_intrinsic = 0;
             }
 
             if (entry_is_an_intrinsic) 
             {
+                // Inserting the intrinsic as an alias is okay here since there
+                // is no doubt about the name being the INTRINSIC symbol
                 insert_alias(decl_context.current_scope, entry, strtolower(ASTText(sym)));
             }
         }
 
-        //We need to add a new symbol 
-        if(!entry_is_an_intrinsic) 
+        if (!entry_is_an_intrinsic) 
         {
-            if (!is_call_stmt && is_implicit_none(decl_context))
+            // Well, it does not name an intrinsic either (_or_ it does name
+            // one but it does match its usage) (i.e. CALLing an INTRINSIC
+            // FUNCTION)
+            if (is_call_stmt)
             {
-                if (!checking_ambiguity())
-                {
-                    error_printf("%s: error: '%s' is not a function name\n", ast_location(sym), ASTText(sym));
-                }
-                *nodecl_output = nodecl_make_err_expr(ASTFileName(sym), ASTLine(sym));
-                return;
-            }
-            else if (!is_implicit_none(decl_context))
-            {
-                entry = new_fortran_implicit_symbol(decl_context, sym, strtolower(ASTText(sym)));
-                entry->kind = SK_FUNCTION;
-            }
-            else // is_implicit_none(decl_context)
-            {
+                // We did not find the symbol. But this is okay since this is a CALL.
+                // CALL does not need a type, thus IMPLICIT plays no role here
+                // Just sign in the symbol and give it an unprototyped type (= implicit interface)
                 entry = new_fortran_symbol(decl_context, ASTText(sym));
                 entry->kind = SK_FUNCTION;
                 entry->file = ASTFileName(sym);
                 entry->line = ASTLine(sym);
-            }
 
-            entry->entity_specs.is_extern = 1;
-            entry->entity_specs.is_implicit_basic_type = 0;
-
-            if(!is_call_stmt)
-            {
-                entry->type_information = 
-                    get_nonproto_function_type(get_implicit_type_for_symbol(decl_context, entry->symbol_name), 0);
+                entry->type_information = get_nonproto_function_type(get_void_type(), 0);
             }
             else
             {
-                entry->type_information = get_nonproto_function_type(NULL, 0);
-            }
-        }
-    }
-    else
-    {
-        // If entry has kind == SK_FUNCTION and is an intrinsic, we must delete
-        // this symbol from the unknow_symbol_list
-        if (entry->kind == SK_FUNCTION &&
-                entry->entity_specs.is_builtin)
-        {
-            remove_unknown_symbol(decl_context, entry); 
-        }
-        
-        if (entry->kind == SK_UNDEFINED
-                || (entry->kind == SK_FUNCTION
-                    && entry->entity_specs.is_implicit_basic_type
-                    && !entry->entity_specs.is_stmt_function))
-        {
-            entry->kind = SK_FUNCTION;
-
-            // We have to fix the type here
-            type_t* return_type = entry->type_information;
-
-            if (is_call_stmt)
-            {
-                // If it has a non implicit type it means there was a type
-                // declaration of this symbol
-                if (!is_void_type(return_type)
-                        // This is only for the case when entry->kind was initially SK_UNDEFINED
-                        && !entry->entity_specs.is_implicit_basic_type)
+                if (is_implicit_none(decl_context))
                 {
-                    // ERROR
+                    // This is not a CALL and we are under IMPLICIT NONE. Something is amiss
                     if (!checking_ambiguity())
                     {
-                        error_printf("%s: error: symbol '%s' is not a subroutine name\n",
-                                ast_location(sym),
-                                ASTText(sym));
+                        error_printf("%s: error: '%s' is not a function name\n", ast_location(sym), ASTText(sym));
                     }
                     *nodecl_output = nodecl_make_err_expr(ASTFileName(sym), ASTLine(sym));
                     return;
                 }
-                else
+                else if (!is_implicit_none(decl_context))
                 {
-                    return_type = get_void_type();
+                    // This a new function brought to you by IMPLICIT after a function reference
+                    entry = new_fortran_implicit_symbol(decl_context, sym, strtolower(ASTText(sym)));
+                    entry->kind = SK_FUNCTION;
+
+                    entry->type_information = 
+                        get_nonproto_function_type(get_implicit_type_for_symbol(decl_context, entry->symbol_name), 0);
                 }
             }
-            else if (is_function_type(return_type))
-            {
-               return_type = function_type_get_return_type(return_type);
-            }
-            
 
-            entry->type_information = get_nonproto_function_type(return_type, 0);
+            // Do not allow its type be redefined anymore
             entry->entity_specs.is_implicit_basic_type = 0;
+        }
+    }
+    else
+    {
+        if (entry->kind == SK_UNDEFINED)
+        {
+            // Make it a function
+            entry->kind = SK_FUNCTION;
+            // and update its type
+            if (entry->entity_specs.alias_to != NULL
+                    && entry->entity_specs.alias_to->entity_specs.is_builtin)
+            {
+                /*
+                 * Heads up here!
+                 *
+                 * PROGRAM P
+                 *   IMPLICIT NONE
+                 *
+                 *   CALL F1(SQRT)      !!! (1)
+                 *   CALL F2(SQRT(1.2)) !!! (2)
+                 * END PROGRAM P
+                 *
+                 * Initially in (1) we created an SK_UNDEFINED with an alias to the intrinsic SQRT because
+                 * we were not 100% sure if this was going to be a variable or the called intrinsic. Then in (2)
+                 * our suspicions get confirmed: SQRT was indeed an INTRINSIC, but we created a fake symbol
+                 * which now we want it to behave like the intrinsic.
+                 *
+                 * Note 1. If (2) were removed, then SQRT usage is wrong. 
+                 *
+                 * Note 2. Nothing of this happens if SQRT is stated as an
+                 * intrinsic using an INTRINSIC :: SQRT statement.
+                 */
+
+                remove_untyped_symbol(decl_context, entry);
+
+                // This is a bit crude but will do since intrinsics are not meant to be changed elsewhere
+                scope_entry_t* intrinsic_symbol = entry->entity_specs.alias_to;
+                *entry = *intrinsic_symbol;
+            }
+            else
+            {
+                // This is the usual case, when instead of SQRT the user wrote
+                // SRTQ (and we are not in IMPLICIT NONE)
+                entry->type_information = get_nonproto_function_type(entry->type_information, 0);
+            }
         }
 
         if (entry->kind != SK_FUNCTION)
         {
             if (!checking_ambiguity())
             {
-                error_printf("%s: error: '%s' is not a function name\n", ast_location(sym), entry->symbol_name);
+                error_printf("%s: error: '%s' is not a %s name\n", ast_location(sym), entry->symbol_name,
+                        is_call_stmt ? "subroutine" : "function");
             }
             *nodecl_output = nodecl_make_err_expr(ASTFileName(sym), ASTLine(sym));
             return;
         }
+
+        // Generic specifiers are not to be handled here
+        if (!is_computed_function_type(entry->type_information))
+        {
+            if (is_call_stmt
+                    && entry->entity_specs.is_implicit_basic_type)
+            {
+                entry->type_information = get_nonproto_function_type(get_void_type(), 0);
+            }
+        }
+
+        // This symbol is not untyped anymore
+        remove_untyped_symbol(decl_context, entry);
+        // nor its type can be redefined (this would never happen in real Fortran because of statement ordering)
+        entry->entity_specs.is_implicit_basic_type = 0;
     }
     
     *nodecl_output = nodecl_make_symbol(entry, ASTFileName(sym), ASTLine(sym));
@@ -3264,34 +3285,59 @@ static void check_symbol_of_called_name(AST sym, decl_context_t decl_context, no
 
 static void check_symbol_of_argument(AST sym, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    // Looking for the symbol, avoiding intrinsic functions 
+    // Look the symbol up. This will ignore INTRINSIC names
     scope_entry_t* entry = fortran_query_name_str(decl_context, ASTText(sym));
     if (entry == NULL)
     {
-        // Looking again for the symbol. The search doesn't avoid intrinsic functions
+        // We did not find anything.
+        //
+        // Does this name match the name of an INTRINSIC?
         entry = fortran_query_intrinsic_name_str(decl_context, ASTText(sym));
 
-        // In this context, if entry != NULL the symbol name matches with a intrinsic function name
         if (entry != NULL)
         {
+            scope_entry_t* original_intrinsic = entry;
+            // It names an intrinsic
             if (!is_implicit_none(decl_context))
             {
+                // If we are _not_ in an IMPLICIT NONE we just create a new
+                // symbol. Later it might be promoted to a SK_VARIABLE or
+                // SK_FUNCTION
                 entry = new_fortran_implicit_symbol(decl_context, sym, ASTText(sym));
             }
             else
             {
-                add_unknown_symbol(decl_context, entry); 
-                insert_alias(decl_context.current_scope, entry, strtolower(ASTText(sym)));
+                // Under IMPLICIT NONE we are just unsure about this,
+                // so just remember the intrinsic
+                //
+                // See a long comment in check_symbol_of_called_name
+                // explaining this case
+                entry = new_fortran_symbol(decl_context, ASTText(sym));
+                entry->file = ASTFileName(sym);
+                entry->line = ASTLine(sym);
+                entry->type_information = get_implicit_none_type();
+
+                // This is actually an implicit none, so it is actually
+                // something untyped!
+                add_untyped_symbol(decl_context, entry);
             }
+
+            // Remember the intrinsic we named
+            entry->entity_specs.alias_to = original_intrinsic;
         }
         else
         {   
+            // It is not an intrinsic
             if (!is_implicit_none(decl_context))
             {
+                // If we are _not_ in IMPLICIT NONE then just create a
+                // SK_UNDEFINED symbol. Later it might be promoted to a
+                // SK_VARIABLE or SK_FUNCTION 
                 entry = new_fortran_implicit_symbol(decl_context, sym, ASTText(sym));
             }
             else
             {
+                // Under IMPLICIT NONE this means something is amiss
                 if (!checking_ambiguity())
                 {
                     error_printf("%s: error: Symbol '%s' has not IMPLICIT type\n", ast_location(sym),
@@ -3311,57 +3357,19 @@ static void check_symbol_of_argument(AST sym, decl_context_t decl_context, nodec
 
         if (!checking_ambiguity())
         {
-            error_printf("%s: error: '%s' can not be an argument\n", ast_location(sym), entry->symbol_name);
+            error_printf("%s: error: '%s' cannot be an argument\n", ast_location(sym), entry->symbol_name);
         }
         *nodecl_output = nodecl_make_err_expr(ASTFileName(sym), ASTLine(sym));
         return;
     }
     
-    // When NO implicit none, a name can be in this undefined state meaning we
-    // do not exactly know what it is
-    if (entry->kind == SK_UNDEFINED)
-    {
-        if (is_name_of_funtion_call(sym))
-        {
-            // Could it be an intrinsic?
-            decl_context_t global_namespace = decl_context;
-            global_namespace.current_scope = decl_context.global_scope;
-
-            scope_entry_t* intrinsic_name = fortran_query_name_str(global_namespace, ASTText(sym));
-
-            if (intrinsic_name != NULL)
-            {
-                // Replace this entry with the intrinsic one
-                remove_entry(entry->decl_context.current_scope, entry);
-                insert_alias(entry->decl_context.current_scope, intrinsic_name, entry->symbol_name);
-                entry = intrinsic_name;
-            }
-            else
-            {
-                // Does not look like an intrinsic
-                entry->kind = SK_FUNCTION;
-                entry->type_information = get_nonproto_function_type(entry->type_information, 0);
-            }
-        }
-        else
-        {
-            // Otherwise we are a variable
-            entry->kind = SK_VARIABLE;
-        }
-    }
-
     if (entry->kind == SK_VARIABLE)
     {
         // It might happen that dummy arguments/result do not have any implicit
         // type here (because the input code is wrong)
         if (is_error_type(entry->type_information))
         {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: entity '%s' does not have any IMPLICIT type\n",
-                        ast_location(sym),
-                        fortran_prettyprint_in_buffer(sym));
-            }
+            // This error should have already been signaled elsewhere
             *nodecl_output = nodecl_make_err_expr(ASTFileName(sym), ASTLine(sym));
             return;
         }
@@ -3431,7 +3439,6 @@ static void check_symbol_variable(AST expr, decl_context_t decl_context, nodecl_
         *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
         return;
     }
-
 
     entry->kind = SK_VARIABLE;
 

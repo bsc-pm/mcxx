@@ -1299,10 +1299,10 @@ scope_entry_t* compute_intrinsic_associated(scope_entry_t* symbol UNUSED_PARAMET
     scope_entry_t* sym = NULL;
     if (!nodecl_is_null(argument_expressions[0])
             && ((sym = nodecl_get_symbol(argument_expressions[0])) != NULL)
-            && sym->kind == SK_VARIABLE
+            && (sym->kind == SK_VARIABLE || sym->kind == SK_UNDEFINED)
             && is_pointer_type((t0 = no_ref(sym->type_information))))
     {
-        ERROR_CONDITION(nodecl_get_kind(argument_expressions[0]) != NODECL_DERREFERENCE, "Invalid access to pointer", 0);
+        sym->kind = SK_VARIABLE;
 
         if (nodecl_is_null(argument_expressions[1]))
         {
@@ -1311,10 +1311,10 @@ scope_entry_t* compute_intrinsic_associated(scope_entry_t* symbol UNUSED_PARAMET
         else
         {
             if (((sym = nodecl_get_symbol(argument_expressions[1])) != NULL)
-                    && sym->kind == SK_VARIABLE
+                    && (sym->kind == SK_VARIABLE || sym->kind == SK_UNDEFINED)
                     && is_pointer_type((t1 = no_ref(sym->type_information))))
             {
-                ERROR_CONDITION(nodecl_get_kind(argument_expressions[1]) != NODECL_DERREFERENCE, "Invalid access to pointer", 0);
+                sym->kind = SK_VARIABLE;
 
                 if (equivalent_tkr_types(pointer_type_get_pointee_type(t0), pointer_type_get_pointee_type(t1)))
                 {
@@ -3631,7 +3631,7 @@ scope_entry_t* compute_intrinsic_move_alloc(scope_entry_t* symbol UNUSED_PARAMET
                 get_unqualified_type(get_rank0_type(t1)))
             && (get_rank_of_type(t0) == get_rank_of_type(t1)))
     {
-        return GET_INTRINSIC_PURE("move_alloc", /* subroutine */ NULL, t0, t1);
+        return GET_INTRINSIC_PURE("move_alloc", /* subroutine */ get_void_type(), t0, t1);
     }
     return NULL;
 }
@@ -3654,7 +3654,7 @@ scope_entry_t* compute_intrinsic_mvbits(scope_entry_t* symbol UNUSED_PARAMETER,
             && is_integer_type(t3)
             && is_integer_type(t4))
     {
-        return GET_INTRINSIC_ELEMENTAL("mvbits", /* subroutine */ NULL, t0, t1, t2, t3, t4);
+        return GET_INTRINSIC_ELEMENTAL("mvbits", /* subroutine */ get_void_type(), t0, t1, t2, t3, t4);
     }
 
     return NULL;
@@ -3968,7 +3968,7 @@ scope_entry_t* compute_intrinsic_random_number(scope_entry_t* symbol UNUSED_PARA
 
     if (is_floating_type(get_rank0_type(t0)))
     {
-        return GET_INTRINSIC_IMPURE("random_number", /* subroutine */ NULL, t0);
+        return GET_INTRINSIC_IMPURE("random_number", /* subroutine */ get_void_type(), t0);
     }
 
     return NULL;
@@ -3992,7 +3992,7 @@ scope_entry_t* compute_intrinsic_random_seed(scope_entry_t* symbol UNUSED_PARAME
             && (t2 == NULL || (is_integer_type(get_rank0_type(t2)) && (get_rank_of_type(t2) == 1))))
     {
         return GET_INTRINSIC_IMPURE("random_seed", 
-                /* subroutine */ NULL,
+                /* subroutine */ get_void_type(),
                 get_signed_int_type(),
                 get_n_ranked_type(get_signed_int_type(), 1, symbol->decl_context),
                 get_n_ranked_type(get_signed_int_type(), 1, symbol->decl_context));
@@ -4532,7 +4532,7 @@ scope_entry_t* compute_intrinsic_system_clock(scope_entry_t* symbol UNUSED_PARAM
             && (t1 == NULL || is_integer_type(t0) || is_floating_type(t0))
             && (t2 == NULL || is_integer_type(t2)))
     {
-        return GET_INTRINSIC_IMPURE("system_clock", /*subroutine*/ NULL, 
+        return GET_INTRINSIC_IMPURE("system_clock", /*subroutine*/ get_void_type(), 
                 t0 == NULL ? get_signed_int_type() : t0, 
                 t1 == NULL ? get_signed_int_type() : t1, 
                 t2 == NULL ? get_signed_int_type() : t2);

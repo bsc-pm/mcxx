@@ -129,14 +129,14 @@ static scope_entry_t* get_or_create_special_symbol(decl_context_t decl_context, 
     return unknown_info;
 }
 
-static scope_entry_t* get_unknown_symbols_info(decl_context_t decl_context)
+static scope_entry_t* get_untyped_symbols_info(decl_context_t decl_context)
 {
-    return get_special_symbol(decl_context, ".unknown_symbols");
+    return get_special_symbol(decl_context, ".untyped_symbols");
 }
 
-static scope_entry_t* get_or_create_unknown_symbols_info(decl_context_t decl_context)
+static scope_entry_t* get_or_create_untyped_symbols_info(decl_context_t decl_context)
 {
-    return get_or_create_special_symbol(decl_context, ".unknown_symbols");
+    return get_or_create_special_symbol(decl_context, ".untyped_symbols");
 }
 
 scope_entry_t* get_data_symbol_info(decl_context_t decl_context)
@@ -159,77 +159,53 @@ static scope_entry_t* get_or_create_equivalence_symbol_info(decl_context_t decl_
     return get_or_create_special_symbol(decl_context, ".equivalence");
 }
 
-void add_unknown_symbol(decl_context_t decl_context, scope_entry_t* entry)
+void add_untyped_symbol(decl_context_t decl_context, scope_entry_t* entry)
 {
-    scope_entry_t* unknown_info = get_or_create_unknown_symbols_info(decl_context);
+    scope_entry_t* unknown_info = get_or_create_untyped_symbols_info(decl_context);
 
     P_LIST_ADD_ONCE(unknown_info->entity_specs.related_symbols,
             unknown_info->entity_specs.num_related_symbols,
             entry);
 }
 
-void remove_unknown_symbol(decl_context_t decl_context, scope_entry_t* entry)
+void remove_untyped_symbol(decl_context_t decl_context, scope_entry_t* entry)
 {
-    scope_entry_t* unknown_info = get_or_create_unknown_symbols_info(decl_context);
+    scope_entry_t* unknown_info = get_untyped_symbols_info(decl_context);
+    if (unknown_info == NULL)
+        return;
 
     P_LIST_REMOVE(unknown_info->entity_specs.related_symbols,
             unknown_info->entity_specs.num_related_symbols,
             entry);
 }
 
-static void clear_unknown_symbols(decl_context_t decl_context)
+static void check_untyped_symbols(decl_context_t decl_context)
 {
-    scope_entry_t* unknown_info = get_unknown_symbols_info(decl_context);
+    scope_entry_t* unknown_info = get_untyped_symbols_info(decl_context);
     if (unknown_info == NULL)
         return;
 
-    const char* message = "";
-    char unresolved_implicits = 0;
     int i;
     for (i = 0; i < unknown_info->entity_specs.num_related_symbols; i++)
     {
         scope_entry_t* entry = unknown_info->entity_specs.related_symbols[i];
+        ERROR_CONDITION(entry->type_information == NULL, "A symbol here should have a void type, not NULL", 0);
 
-#if 0
-        if (((entry->type_information == NULL 
-                        || basic_type_is_void(entry->type_information))
-                    && !entry->entity_specs.is_builtin) 
-                || (entry->kind == SK_FUNCTION 
-                    && entry->entity_specs.is_builtin))
-#endif
+        if (!basic_type_is_implicit_none(entry->type_information))
         {
-            if (unresolved_implicits)
+            if (entry->kind == SK_UNDEFINED)
             {
-                message = strappend(message, "\n");
+                // The user did nothing with that name to let us discover the
+                // exact nature of this symbol so lets assume is a variable
+                entry->kind = SK_VARIABLE;
             }
-
-            char c[256] = { 0 };
-            if(entry->kind == SK_COMMON)
-            {
-                // Do not add \n in this message, we are adding them elsewhere
-                snprintf(c, 255, "%s:%d: error: COMMON '%s' does not exist",
-                        entry->file,
-                        entry->line,
-                        entry->symbol_name);
-            }
-            else 
-            { 
-                // Do not add \n in this message, we are adding them elsewhere
-                snprintf(c, 255, "%s:%d: error: symbol '%s' has no IMPLICIT type",
-                        entry->file,
-                        entry->line,
-                        entry->symbol_name);
-            } 
-            
-            c[255] = '\0';
-            message = strappend(message, c);
-            unresolved_implicits = 1;
+            continue;
         }
-    }
 
-    if (unresolved_implicits)
-    {
-        error_printf("%s\n", message);
+        error_printf("%s:%d: error: symbol '%s' has no IMPLICIT type\n",
+                entry->file,
+                entry->line,
+                entry->symbol_name);
     }
 
     free(unknown_info->entity_specs.related_symbols);
@@ -237,11 +213,17 @@ static void clear_unknown_symbols(decl_context_t decl_context)
     unknown_info->entity_specs.num_related_symbols = 0;
 }
 
-static void update_unknown_symbols(decl_context_t decl_context)
+static void update_untyped_symbols(decl_context_t decl_context)
 {
-    scope_entry_t* unknown_info = get_unknown_symbols_info(decl_context);
+    scope_entry_t* unknown_info = get_untyped_symbols_info(decl_context);
     if (unknown_info == NULL)
         return;
+
+    scope_entry_t* not_untyped_anymore[1 + unknown_info->entity_specs.num_related_symbols];
+    int num_not_untyped_anymore = 0;
+
+    scope_entry_t* new_untyped[1 + unknown_info->entity_specs.num_related_symbols];
+    int num_new_untyped = 0;
 
     int i;
     for (i = 0; i < unknown_info->entity_specs.num_related_symbols; i++)
@@ -250,11 +232,16 @@ static void update_unknown_symbols(decl_context_t decl_context)
 
         ERROR_CONDITION(entry->type_information == NULL, "Invalid type for unknown entity '%s'\n", entry->symbol_name);
 
-        if (entry->entity_specs.is_implicit_basic_type
-                || basic_type_is_void(entry->type_information))
+        ERROR_CONDITION(!entry->entity_specs.is_implicit_basic_type, 
+                "Only those symbols without an explicit type declaration can appear here", 0);
+
+        type_t* implicit_type = get_implicit_type_for_symbol(decl_context, entry->symbol_name);
+
+        entry->type_information = update_basic_type_with_type(entry->type_information,
+                implicit_type);
+
+        if (!is_implicit_none_type(implicit_type))
         {
-            entry->type_information = update_basic_type_with_type(entry->type_information,
-                    get_implicit_type_for_symbol(decl_context, entry->symbol_name));
             DEBUG_CODE()
             {
                 fprintf(stderr, "BUILDSCOPE: Type of symbol '%s' at '%s:%d' updated to %s\n", 
@@ -263,6 +250,84 @@ static void update_unknown_symbols(decl_context_t decl_context)
                         entry->line,
                         entry->type_information == NULL ? "<<NULL>>" : print_declarator(entry->type_information));
             }
+
+            // We will remove it from the untyped set later
+            not_untyped_anymore[num_not_untyped_anymore] = entry;
+            num_not_untyped_anymore++;
+        }
+        else
+        {
+            // We will add them into the untyped set later
+            new_untyped[num_new_untyped] = entry;
+            num_new_untyped++;
+        }
+    }
+
+    // Add the newly defined untyped here
+    for (i = 0; i < num_new_untyped; i++)
+    {
+        add_untyped_symbol(decl_context, new_untyped[i]);
+    }
+
+    // Remove the now typed here
+    for (i = 0; i < num_not_untyped_anymore; i++)
+    {
+        remove_untyped_symbol(decl_context, not_untyped_anymore[i]);
+    }
+}
+
+static void add_not_fully_defined_symbol(decl_context_t decl_context, scope_entry_t* entry)
+{
+    scope_entry_t * not_fully_defined = get_or_create_special_symbol(decl_context, ".not_fully_defined");
+
+    P_LIST_ADD_ONCE(not_fully_defined->entity_specs.related_symbols,
+            not_fully_defined->entity_specs.num_related_symbols,
+            entry);
+}
+
+static void remove_not_fully_defined_symbol(decl_context_t decl_context, scope_entry_t* entry)
+{
+    scope_entry_t * not_fully_defined = get_special_symbol(decl_context, ".not_fully_defined");
+
+    if (not_fully_defined == NULL)
+        return;
+
+    P_LIST_REMOVE(not_fully_defined->entity_specs.related_symbols,
+            not_fully_defined->entity_specs.num_related_symbols,
+            entry);
+}
+
+static void check_not_fully_defined_symbols(decl_context_t decl_context)
+{
+    scope_entry_t* not_fully_defined = get_special_symbol(decl_context, ".not_fully_defined");
+    if (not_fully_defined == NULL)
+        return;
+
+    int i;
+    for (i = 0; i < not_fully_defined->entity_specs.num_related_symbols; i++)
+    {
+        scope_entry_t* entry = not_fully_defined->entity_specs.related_symbols[i];
+
+        if (entry->kind == SK_COMMON)
+        {
+            error_printf("%s:%d: error: COMMON '%s' does not exist\n",
+                    entry->file,
+                    entry->line,
+                    entry->symbol_name + strlen(".common."));
+        }
+        else if (entry->kind == SK_FUNCTION
+                && entry->entity_specs.is_module_procedure)
+        {
+            error_printf("%s:%d: error: MODULE PROCEDURE '%s' does not exist\n",
+                    entry->file,
+                    entry->line,
+                    entry->symbol_name);
+        }
+        else
+        {
+            internal_error("Unexpected symbol in not fully defined symbol set %s '%s'",
+                    symbol_kind_name(entry),
+                    entry->symbol_name);
         }
     }
 }
@@ -294,6 +359,9 @@ static scope_entry_t* get_symbol_for_name_(decl_context_t decl_context,
         {
             result->type_information = get_void_type();
         }
+
+        add_untyped_symbol(decl_context, result);
+
         result->entity_specs.is_implicit_basic_type = 1;
         result->file = ASTFileName(locus);
         result->line = ASTLine(locus);
@@ -310,8 +378,6 @@ static scope_entry_t* get_symbol_for_name_(decl_context_t decl_context,
 
             result->entity_specs.in_module = module;
         }
-
-        add_unknown_symbol(decl_context, result);
     }
 
     return result;
@@ -838,7 +904,11 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
             return NULL;
         }
         // It can't be redefined anymore
-        entry->entity_specs.is_module_procedure = 0;
+        if (entry->entity_specs.is_module_procedure)
+        {
+            entry->entity_specs.is_module_procedure = 0;
+            remove_not_fully_defined_symbol(entry->decl_context, entry);
+        }
     }
 
     if (entry == NULL)
@@ -968,6 +1038,8 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
                 // to SK_VARIABLE
                 // Get a reference to its type (it will be properly updated later)
                 dummy_arg->type_information = get_lvalue_reference_type(dummy_arg->type_information);
+
+                add_untyped_symbol(decl_context, dummy_arg);
             }
 
             dummy_arg->file = ASTFileName(dummy_arg_name);
@@ -1033,7 +1105,7 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
         {
             // Add it as an explicit unknown symbol because we want it to be
             // updated with a later IMPLICIT
-            add_unknown_symbol(decl_context, result_sym);
+            add_untyped_symbol(decl_context, result_sym);
         }
 
         return_type = get_indirect_type(result_sym);
@@ -1144,7 +1216,8 @@ static void build_scope_program_unit_body_executable(
         }
     }
 
-    clear_unknown_symbols(decl_context);
+    check_untyped_symbols(decl_context);
+    check_not_fully_defined_symbols(decl_context);
 }
 
 typedef
@@ -3036,8 +3109,7 @@ static void build_scope_common_stmt(AST a,
         }
         else
         {
-            // Otherwise, we remove it from the list of unknown symbols
-            remove_unknown_symbol(decl_context, common_sym);
+            remove_not_fully_defined_symbol(decl_context, common_sym);
         }
         
         AST it2;
@@ -4070,19 +4142,17 @@ static void build_scope_external_stmt(AST a, decl_context_t decl_context, nodecl
         
         // We mark the symbol as a external function
         entry->kind = SK_FUNCTION;
-        entry->entity_specs.is_extern = 1;
 
         if (is_void_type(no_ref(entry->type_information)))
         {
             // We do not know it, set a type like one of a SUBROUTINE
             entry->type_information = get_nonproto_function_type(get_void_type(), 0);
-            
-            remove_unknown_symbol(decl_context, entry);
         }
         else
         {
             entry->type_information = get_nonproto_function_type(entry->type_information, 0);
         }
+        remove_untyped_symbol(decl_context, entry);
     }
 }
 
@@ -4333,8 +4403,7 @@ static void build_scope_implicit_stmt(AST a, decl_context_t decl_context, nodecl
             }
         }
     }
-    update_unknown_symbols(decl_context);
-
+    update_untyped_symbols(decl_context);
 }
 
 static void build_scope_import_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER, 
@@ -4425,6 +4494,8 @@ static void build_scope_interface_block(AST a, decl_context_t decl_context,
                         entry->kind = SK_FUNCTION;
                         entry->entity_specs.is_module_procedure = 1;
 
+                        add_not_fully_defined_symbol(decl_context, entry);
+
                         if (generic_spec != NULL)
                         {
                             P_LIST_ADD(related_symbols,
@@ -4486,7 +4557,7 @@ static void build_scope_interface_block(AST a, decl_context_t decl_context,
                 // And update its context to be the enclosing one
                 procedure_sym->decl_context = decl_context;
 
-                remove_unknown_symbol(decl_context, procedure_sym);
+                remove_untyped_symbol(decl_context, procedure_sym);
             }
             else
             {
@@ -4520,7 +4591,7 @@ static void build_scope_interface_block(AST a, decl_context_t decl_context,
         }
 
         // The symbol won't be unknown anymore
-        remove_unknown_symbol(decl_context, generic_spec_sym);
+        remove_untyped_symbol(decl_context, generic_spec_sym);
         
         generic_spec_sym->kind = SK_FUNCTION;
         generic_spec_sym->entity_specs.is_generic_spec = 1;
@@ -5063,7 +5134,8 @@ static void build_scope_save_stmt(AST a, decl_context_t decl_context UNUSED_PARA
                 entry = new_common(decl_context,ASTText(ASTSon0(saved_entity)));
                 entry->file = ASTFileName(a);
                 entry->line = ASTLine(a);
-                add_unknown_symbol(decl_context, entry);
+
+                add_not_fully_defined_symbol(decl_context, entry);
             }
         }
         else
@@ -5338,7 +5410,7 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
             continue;
         }
 
-        remove_unknown_symbol(decl_context, entry);
+        remove_untyped_symbol(decl_context, entry);
 
         entry->type_information = update_basic_type_with_type(entry->type_information, basic_type);
         entry->entity_specs.is_implicit_basic_type = 0;
