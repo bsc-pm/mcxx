@@ -288,7 +288,7 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context,
                 nodecl_stride = const_value_to_nodecl(const_value_get_one(/* bytes */ fortran_get_default_integer_type_kind(), /* signed */ 1));
             }
 
-            scope_entry_t* do_variable = fortran_query_name_with_locus(decl_context, ac_do_variable, ASTText(ac_do_variable));
+            scope_entry_t* do_variable = fortran_get_variable_with_locus(decl_context, ac_do_variable, ASTText(ac_do_variable));
 
             if (do_variable == NULL)
             {
@@ -1361,7 +1361,7 @@ static int compute_kind_from_literal(const char* p, AST expr, decl_context_t dec
     }
     else
     {
-        scope_entry_t* sym = fortran_query_name_with_locus(decl_context, expr, p);
+        scope_entry_t* sym = fortran_get_variable_with_locus(decl_context, expr, p);
         if (sym == NULL
                 || sym->kind != SK_VARIABLE
                 || !is_const_qualified_type(no_ref(sym->type_information)))
@@ -1445,7 +1445,7 @@ static void check_derived_type_constructor(AST expr, decl_context_t decl_context
     }
 
     AST derived_name = ASTSon0(derived_type_spec);
-    scope_entry_t* entry = fortran_query_name_with_locus(decl_context, derived_name, ASTText(derived_name));
+    scope_entry_t* entry = fortran_get_variable_with_locus(decl_context, derived_name, ASTText(derived_name));
 
     if (entry == NULL
             || entry->kind != SK_CLASS)
@@ -3065,7 +3065,7 @@ static void check_user_defined_binary_op(AST expr, decl_context_t decl_context, 
 
     AST operator = ASTSon0(expr);
     const char* operator_name = strtolower(strappend(".operator.", ASTText(operator)));
-    scope_entry_t* call_sym = fortran_query_name_with_locus(decl_context, operator, operator_name);
+    scope_entry_t* call_sym = fortran_get_variable_with_locus(decl_context, operator, operator_name);
 
     if (call_sym == NULL)
     {
@@ -3140,7 +3140,7 @@ static void check_symbol_of_called_name(AST sym, decl_context_t decl_context, no
         char entry_is_an_intrinsic = 0;
         
         // Looking again for the symbol. The search doesn't avoid intrinsic functions
-        entry = fortran_query_implicit_name_str(decl_context, ASTText(sym));
+        entry = fortran_query_intrinsic_name_str(decl_context, ASTText(sym));
         if (entry != NULL)
         {
             entry_is_an_intrinsic = 1; 
@@ -3270,7 +3270,7 @@ static void check_symbol_of_argument(AST sym, decl_context_t decl_context, nodec
     if (entry == NULL)
     {
         // Looking again for the symbol. The search doesn't avoid intrinsic functions
-        entry = fortran_query_implicit_name_str(decl_context, ASTText(sym));
+        entry = fortran_query_intrinsic_name_str(decl_context, ASTText(sym));
 
         // In this context, if entry != NULL the symbol name matches with a intrinsic function name
         if (entry != NULL)
@@ -3406,7 +3406,7 @@ static void check_symbol_of_argument(AST sym, decl_context_t decl_context, nodec
 static void check_symbol_variable(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     // Entry will never be an intrinsic function
-    scope_entry_t* entry = fortran_query_name_with_locus(decl_context, expr, ASTText(expr));
+    scope_entry_t* entry = fortran_get_variable_with_locus(decl_context, expr, ASTText(expr));
 
     // When IMPLICIT NONE fortran_query_name_no_builtin_with_locus can return NULL
     if (entry == NULL)
@@ -4207,7 +4207,7 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
     {
         result = get_error_type();
         // Now try with a user defined operator
-        scope_entry_t* call_sym = fortran_query_name_with_locus(decl_context, expr, value->op_symbol_name);
+        scope_entry_t* call_sym = fortran_get_variable_with_locus(decl_context, expr, value->op_symbol_name);
 
         // Perform a resolution by means of a call check
         if (call_sym != NULL)

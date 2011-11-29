@@ -1539,7 +1539,7 @@ OPERATOR_TABLE
             if (entry.is_intrinsic())
             {
                 // Improve this
-                scope_entry_t* generic_entry = ::fortran_query_implicit_name_str(entry.get_scope().get_decl_context(), entry.get_name().c_str());
+                scope_entry_t* generic_entry = ::fortran_query_intrinsic_name_str(entry.get_scope().get_decl_context(), entry.get_name().c_str());
 
                 if (TL::Symbol(generic_entry) == entry)
                 {

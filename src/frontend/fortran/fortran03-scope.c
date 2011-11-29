@@ -196,7 +196,7 @@ type_t* get_implicit_type_for_symbol(decl_context_t decl_context, const char* na
     return implicit_type;
 }
 
-scope_entry_t* fortran_query_name_with_locus(decl_context_t decl_context, AST locus, const char* name)
+scope_entry_t* fortran_get_variable_with_locus(decl_context_t decl_context, AST locus, const char* name)
 {
     scope_entry_t* result = fortran_query_name_str(decl_context, name);
 
@@ -288,7 +288,7 @@ scope_entry_t* fortran_query_name_str(decl_context_t decl_context, const char* u
     return result;
 }
 
-scope_entry_t* fortran_query_implicit_name_str(decl_context_t decl_context, const char* unqualified_name)
+scope_entry_t* fortran_query_intrinsic_name_str(decl_context_t decl_context, const char* unqualified_name)
 {
     decl_context_t global_context = decl_context;
     global_context.current_scope = decl_context.global_scope;
