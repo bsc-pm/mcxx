@@ -3322,31 +3322,27 @@ static void check_symbol_of_argument(AST sym, decl_context_t decl_context, nodec
     // do not exactly know what it is
     if (entry->kind == SK_UNDEFINED)
     {
+        // Could it be an intrinsic?
+        scope_entry_t* intrinsic_name = fortran_query_intrinsic_name_str(decl_context, ASTText(sym));
         if (is_name_of_funtion_call(sym))
         {
-            // Could it be an intrinsic?
-            decl_context_t global_namespace = decl_context;
-            global_namespace.current_scope = decl_context.global_scope;
-
-            scope_entry_t* intrinsic_name = fortran_query_name_str(global_namespace, ASTText(sym));
-
+            entry->kind = SK_FUNCTION;
             if (intrinsic_name != NULL)
             {
                 // Replace this entry with the intrinsic one
-                remove_entry(entry->decl_context.current_scope, entry);
-                insert_alias(entry->decl_context.current_scope, intrinsic_name, entry->symbol_name);
-                entry = intrinsic_name;
+                //remove_entry(entry->decl_context.current_scope, entry);
+                //insert_alias(entry->decl_context.current_scope, intrinsic_name, entry->symbol_name);
+                entry->type_information = intrinsic_name->type_information;
+                entry->entity_specs = intrinsic_name->entity_specs;
             }
             else
             {
                 // Does not look like an intrinsic
-                entry->kind = SK_FUNCTION;
                 entry->type_information = get_nonproto_function_type(entry->type_information, 0);
             }
         }
-        else
+        else if (intrinsic_name == NULL)
         {
-            // Otherwise we are a variable
             entry->kind = SK_VARIABLE;
         }
     }
