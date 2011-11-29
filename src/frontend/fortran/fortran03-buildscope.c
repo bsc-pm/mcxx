@@ -4071,13 +4071,12 @@ static void build_scope_external_stmt(AST a, decl_context_t decl_context, nodecl
         // We mark the symbol as a external function
         entry->kind = SK_FUNCTION;
         entry->entity_specs.is_extern = 1;
+        remove_unknown_symbol(decl_context, entry);
 
         if (is_void_type(no_ref(entry->type_information)))
         {
             // We do not know it, set a type like one of a SUBROUTINE
             entry->type_information = get_nonproto_function_type(get_void_type(), 0);
-            
-            remove_unknown_symbol(decl_context, entry);
         }
         else
         {
@@ -4604,6 +4603,7 @@ static void build_scope_intrinsic_stmt(AST a, decl_context_t decl_context UNUSED
                 entry->kind = SK_FUNCTION;
                 entry->entity_specs = entry_intrinsic->entity_specs;
                 entry->type_information = entry_intrinsic->type_information;
+                remove_unknown_symbol(decl_context,entry);
             }
         }
         // The symbol does not exist, we add an alias to the intrinsic symbol in the current scope
@@ -4617,6 +4617,7 @@ static void build_scope_intrinsic_stmt(AST a, decl_context_t decl_context UNUSED
                 continue;
             }
             insert_alias(decl_context.current_scope, entry_intrinsic, strtolower(ASTText(name)));
+            remove_unknown_symbol(decl_context,entry);
         }
     }
 }

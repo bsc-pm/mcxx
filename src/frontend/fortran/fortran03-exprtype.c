@@ -3190,7 +3190,7 @@ static void check_symbol_of_called_name(AST sym, decl_context_t decl_context, no
             }
             else
             {
-                entry->type_information = get_nonproto_function_type(NULL, 0);
+                entry->type_information = get_nonproto_function_type(get_void_type(), 0);
             }
         }
     }
@@ -3210,6 +3210,7 @@ static void check_symbol_of_called_name(AST sym, decl_context_t decl_context, no
                     && !entry->entity_specs.is_stmt_function))
         {
             entry->kind = SK_FUNCTION;
+            remove_unknown_symbol(decl_context, entry); 
 
             // We have to fix the type here
             type_t* return_type = entry->type_information;
@@ -3280,9 +3281,9 @@ static void check_symbol_of_argument(AST sym, decl_context_t decl_context, nodec
             }
             else
             {
-                add_unknown_symbol(decl_context, entry); 
                 insert_alias(decl_context.current_scope, entry, strtolower(ASTText(sym)));
             }
+            add_unknown_symbol(decl_context, entry); 
         }
         else
         {   
