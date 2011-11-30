@@ -289,7 +289,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Cast& node)
     if (IS_C_LANGUAGE
             || cast_kind == "C")
     {
-        file << "(" << t.get_declaration(state.current_scope, "") << ")";
+        file << "(" << this->get_declaration(t, state.current_scope,  "") << ")";
         char needs_parentheses = operand_has_lower_priority(node, nest);
         if (needs_parentheses)
         {
@@ -303,7 +303,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Cast& node)
     }
     else
     {
-        file << cast_kind << "<" << t.get_declaration(state.current_scope, "") << ">(";
+        file << cast_kind << "<" << this->get_declaration(t, state.current_scope,  "") << ">(";
         walk(nest);
         file << ")";
     }
@@ -321,7 +321,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CatchHandler& node)
     if (name.is_null())
     {
         // FIXME: Is this always safe?
-        file << type.get_declaration(state.current_scope, "");
+        file << this->get_declaration(type, state.current_scope,  "");
     }
     else
     {
@@ -530,7 +530,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepGlobalNameNested& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepNameConversion& node)
 {
-    file << "operator " << node.get_type().get_declaration(state.current_scope, "");
+    file << "operator " << this->get_declaration(node.get_type(), state.current_scope, "");
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepNameNested& node)
@@ -561,7 +561,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxExplicitTypeCast& node)
 {
     TL::Type t = node.get_type();
 
-    file << t.get_declaration(state.current_scope, "");
+    file << this->get_declaration(t, state.current_scope,  "");
 
     walk(node.get_init_list());
 }
@@ -942,7 +942,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
     }
 
     std::string declarator;
-    declarator = real_type.get_declaration_with_parameters(symbol.get_scope(), qualified_name, parameter_names);
+    declarator = this->get_declaration_with_parameters(real_type, symbol.get_scope(), qualified_name, parameter_names);
 
     std::string exception_spec = exception_specifier_to_str(symbol);
 
@@ -1229,7 +1229,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::MemberInit& node)
 
     if (!this->is_file_output())
     {
-        file << entry.get_type().get_declaration(entry.get_scope(), entry.get_qualified_name());
+        file << this->get_declaration(entry.get_type(), entry.get_scope(), entry.get_qualified_name());
 
         if (!init_expr.is_null())
         {
@@ -1281,7 +1281,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::New& node)
     else
     {
         // new[] cannot have an initializer, so just print the type
-        file << t.get_declaration(state.current_scope, "");
+        file << this->get_declaration(t, state.current_scope,  "");
     }
 }
 
@@ -1291,7 +1291,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ObjectInit& node)
 
     if (!this->is_file_output())
     {
-        file << sym.get_type().get_declaration(sym.get_scope(), sym.get_qualified_name());
+        file << this->get_declaration(sym.get_type(), sym.get_scope(), sym.get_qualified_name());
     }
     else 
     {
@@ -1493,14 +1493,14 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Sizeof& node)
 {
     TL::Type t = node.get_size_type().get_type();
 
-    file << "sizeof(" << t.get_declaration(state.current_scope, "") << ")";
+    file << "sizeof(" << this->get_declaration(t, state.current_scope,  "") << ")";
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::Alignof& node)
 {
     TL::Type t = node.get_align_type().get_type();
 
-    file << "__alignof__(" << t.get_declaration(state.current_scope, "") << ")";
+    file << "__alignof__(" << this->get_declaration(t, state.current_scope,  "") << ")";
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::StringLiteral& node)
@@ -1590,7 +1590,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
             {
                 if (!state.inside_structured_value)
                 {
-                    file << "(" << type.get_declaration(state.current_scope, "") << ")";
+                    file << "(" << this->get_declaration(type, state.current_scope,  "") << ")";
                 }
 
                 char inside_structured_value = state.inside_structured_value;
@@ -1606,7 +1606,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
             // T(expr-list)
         case CXX03_EXPLICIT:
             {
-                file << type.get_declaration(state.current_scope, "");
+                file << this->get_declaration(type, state.current_scope,  "");
 
                 if (items.empty())
                 {
@@ -1631,7 +1631,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
             // T{expr-list}
         case CXX1X_EXPLICIT:
             {
-                file << type.get_declaration(state.current_scope, "");
+                file << this->get_declaration(type, state.current_scope,  "");
 
                 char inside_structured_value = state.inside_structured_value;
                 state.inside_structured_value = 1;
@@ -1702,7 +1702,20 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Symbol& node)
 
     C_LANGUAGE()
     {
+        bool must_derref = (entry.get_type().is_reference()
+                && !entry.get_type().references_to().is_array());
+
+        if (must_derref)
+        {
+            file << "(*";
+        }
+
         file << entry.get_name();
+
+        if (must_derref)
+        {
+            file << ")";
+        }
     }
 }
 
@@ -1752,7 +1765,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TryBlock& node)
 CxxBase::Ret CxxBase::visit(const Nodecl::Type& node)
 {
     TL::Type type = node.get_type();
-    file << type.get_declaration(state.current_scope, "");
+    file << this->get_declaration(type, state.current_scope,  "");
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::Typeid& node)
@@ -2553,7 +2566,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
             }
 
             std::string declarator = 
-                real_type.get_declaration(_friend.get_scope(), 
+                this->get_declaration(real_type, _friend.get_scope(), 
                         _friend.get_qualified_name());
 
             file << declarator << ";\n";
@@ -2694,7 +2707,8 @@ void CxxBase::define_symbol(TL::Symbol symbol)
             move_to_namespace_of_symbol(symbol);
             indent();
             file << "typedef " 
-                << symbol.get_type().get_declaration(symbol.get_scope(), 
+                << this->get_declaration(symbol.get_type(), 
+                        symbol.get_scope(), 
                         symbol.get_name()) 
                 << ";\n";
         }
@@ -2875,7 +2889,7 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
                 bit_field = ss.str();
             }
 
-            declarator = symbol.get_type().get_declaration(
+            declarator = this->get_declaration(symbol.get_type(),
                     symbol.get_scope(),
                     unmangle_symbol_name(symbol));
 
@@ -3312,7 +3326,8 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
                 function_name += template_arguments_to_str(symbol);
             }
 
-            std::string declarator = real_type.get_declaration(
+            std::string declarator = this->get_declaration(
+                    real_type,
                     symbol.get_scope(),
                     function_name);
 
@@ -4302,7 +4317,7 @@ void CxxBase::codegen_template_parameters(TL::TemplateParameters template_parame
                 }
             case TPK_NONTYPE:
                 {
-                    std::string declaration = symbol.get_type().get_declaration(
+                    std::string declaration = this->get_declaration(symbol.get_type(),
                             symbol.get_scope(),
                             symbol.get_name());
                     if (declaration[0] == ':'
@@ -4407,7 +4422,7 @@ std::string CxxBase::exception_specifier_to_str(TL::Symbol symbol)
                 {
                     exception_spec += ", ";
                 }
-                exception_spec += it->get_declaration(symbol.get_scope(), "");
+                exception_spec += this->get_declaration(*it, symbol.get_scope(), "");
             }
 
             exception_spec += ")";
@@ -4445,6 +4460,77 @@ CxxBase::Ret CxxBase::unhandled_node(const Nodecl::NodeclBase & n)
 
     indent();
     file << "/* <<< " << ast_print_node_type(n.get_kind()) << " <<< */\n";
+}
+
+std::string CxxBase::get_declaration(TL::Type t, TL::Scope scope, const std::string& name)
+{
+    C_LANGUAGE()
+    {
+        t = fix_references(t);
+    }
+
+    return t.get_declaration(scope,  name);
+}
+
+std::string CxxBase::get_declaration_with_parameters(TL::Type t, TL::Scope scope, const std::string& name, TL::ObjectList<std::string>& names)
+{
+    C_LANGUAGE()
+    {
+        t = fix_references(t);
+    }
+
+    return t.get_declaration_with_parameters(scope, name, names);
+}
+
+TL::Type CxxBase::fix_references(TL::Type t)
+{
+    if (t.is_reference())
+    {
+        TL::Type ref = t.references_to();
+        if (ref.is_array())
+        {
+            // T (&a)[10] -> T * const 
+            // T (&a)[10][20] -> T (* const)[20]
+            ref = ref.array_element();
+        }
+        
+        // T &a -> T * const a
+        TL::Type ptr = ref.get_pointer_to();
+        ptr = ptr.get_const_type();
+        return ptr;
+    }
+    else if (t.is_array())
+    {
+        // Arrays should not have references as elements
+        return t;
+    }
+    else if (t.is_pointer())
+    {
+        // Pointers cannot point to references
+        return t;
+    }
+    else if (t.is_function())
+    {
+        TL::Type fixed_result = fix_references(t.returns());
+        bool has_ellipsis = 0;
+        TL::ObjectList<TL::Type> fixed_parameters = t.parameters(has_ellipsis);
+
+        for (TL::ObjectList<TL::Type>::iterator it = fixed_parameters.begin();
+                it != fixed_parameters.end();
+                it++)
+        {
+            *it = fix_references(*it);
+        }
+
+        TL::Type fixed_function = fixed_result.get_function_returning(fixed_parameters, has_ellipsis);
+        return fixed_function;
+    }
+    // Note: we are not fixing classes, so make sure your classes do not have references :)
+    else
+    {
+        // Anything else must be left untouched
+        return t;
+    }
 }
 
 } // Codegen
