@@ -1423,7 +1423,24 @@ OPERATOR_TABLE
                 attribute_list += ", TARGET";
             if (entry.is_parameter() 
                     && !entry.get_type().is_reference())
+            {
+                if (entry.get_type().is_pointer())
+                {
+                    internal_error("Error: pointers cannot be passed by value in Fortran\n", 
+                            entry.get_name().c_str());
+                }
+                else if (entry.get_type().is_array())
+                {
+                    internal_error("Error: arrays cannot be passed by value in Fortran\n", 
+                            entry.get_name().c_str());
+                }
+                else if (entry.get_type().is_class())
+                {
+                    internal_error("Error: struct/class types cannot be passed by value in Fortran\n", 
+                            entry.get_name().c_str());
+                }
                 attribute_list += ", VALUE";
+            }
             if (entry.is_optional())
                 attribute_list += ", OPTIONAL";
             if (entry.is_static())
