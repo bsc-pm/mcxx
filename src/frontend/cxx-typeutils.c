@@ -2084,11 +2084,6 @@ static rb_red_blk_tree *_rvalue_reference_types = NULL;
 
 static type_t* get_internal_reference_type(type_t* t, char is_rvalue_ref)
 {
-    C_LANGUAGE()
-    {
-        internal_error("No referenced types should be created in C", 0);
-    }
-
     ERROR_CONDITION(t == NULL, "Invalid reference type", 0);
 
     if (is_lvalue_reference_type(t)
@@ -5679,12 +5674,9 @@ type_t* no_ref(type_t* t)
 
 type_t* lvalue_ref(type_t* t)
 {
-    CXX_LANGUAGE()
-    {
-        if (!is_lvalue_reference_type(t)
-                && !is_rvalue_reference_type(t))
-            return get_lvalue_reference_type(t);
-    }
+    if (!is_lvalue_reference_type(t)
+            && !is_rvalue_reference_type(t))
+        return get_lvalue_reference_type(t);
     return t;
 }
 
