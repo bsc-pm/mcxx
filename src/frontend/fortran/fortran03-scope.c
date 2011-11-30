@@ -3,6 +3,7 @@
 #include "cxx-typeutils.h"
 #include "cxx-scope.h"
 #include "cxx-entrylist.h"
+#include "fortran03-buildscope.h"
 #include <string.h>
 #include <ctype.h>
 
