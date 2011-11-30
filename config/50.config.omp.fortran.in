@@ -10,6 +10,6 @@ linker_name = gfortran
 linker_options =
 {openmp} compiler_phase = libtlomp-base.so
 {openmp} compiler_phase = libtlnanos-version.so
-{openmp,(ompss|simd)} compiler_phase = libtlnanox-lowering.so
+{openmp} compiler_phase = libtlnanox-lowering.so
 
 [mf95 : mfc]
