@@ -1093,6 +1093,13 @@ type {
 @SUPERSCALAR_DECLARATOR_LIST@ { parse_token_text(); return SUBPARSE_SUPERSCALAR_DECLARATOR_LIST; }
 @SUPERSCALAR_EXPRESSION@ { parse_token_text(); return SUBPARSE_SUPERSCALAR_EXPRESSION; }
 
+ /*!if C99*/
+@ref@ { parse_token_text(); return MCC_REFERENCE; }
+ /*!endif*/
+ /*!if CPLUSPLUS*/
+@ref@ { parse_token_text(); return '&'; }
+ /*!endif*/
+
  /* A plain identifier */
 {identifier} {parse_token_text(); return IDENTIFIER; }
 

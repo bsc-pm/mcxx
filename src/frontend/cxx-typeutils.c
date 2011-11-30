@@ -6619,7 +6619,14 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                 }
                 if (type_info->kind == TK_LVALUE_REFERENCE)
                 {
-                    (*left) = strappend((*left), "&");
+                    if (IS_CXX_LANGUAGE)
+                    {
+                        (*left) = strappend((*left), "&");
+                    }
+                    else
+                    {
+                        (*left) = strappend((*left), "@ref@");
+                    }
                 }
                 else
                 {
