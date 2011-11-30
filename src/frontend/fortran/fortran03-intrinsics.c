@@ -1303,7 +1303,7 @@ scope_entry_t* compute_intrinsic_associated(scope_entry_t* symbol UNUSED_PARAMET
             && is_pointer_type((t0 = no_ref(sym->type_information))))
     {
         sym->kind = SK_VARIABLE;
-
+        remove_unknown_kind_symbol(sym->decl_context, sym);
         if (nodecl_is_null(argument_expressions[1]))
         {
             return GET_INTRINSIC_INQUIRY("associated", fortran_get_default_logical_type(), t0, t0);

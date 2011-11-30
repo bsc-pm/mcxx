@@ -298,6 +298,7 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context,
             if (do_variable->kind == SK_UNDEFINED)
             {
                 do_variable->kind = SK_VARIABLE;
+                remove_unknown_kind_symbol(decl_context, do_variable);
             }
             else if (do_variable->kind != SK_VARIABLE)
             {
@@ -3177,8 +3178,9 @@ static void check_symbol_of_called_name(AST sym, decl_context_t decl_context, no
                 entry->kind = SK_FUNCTION;
                 entry->file = ASTFileName(sym);
                 entry->line = ASTLine(sym);
-
                 entry->type_information = get_nonproto_function_type(get_void_type(), 0);
+                
+                remove_unknown_kind_symbol(decl_context, entry);
             }
             else
             {
@@ -3197,9 +3199,10 @@ static void check_symbol_of_called_name(AST sym, decl_context_t decl_context, no
                     // This a new function brought to you by IMPLICIT after a function reference
                     entry = new_fortran_implicit_symbol(decl_context, sym, strtolower(ASTText(sym)));
                     entry->kind = SK_FUNCTION;
-
                     entry->type_information = 
                         get_nonproto_function_type(get_implicit_type_for_symbol(decl_context, entry->symbol_name), 0);
+                    
+                    remove_unknown_kind_symbol(decl_context, entry);
                 }
             }
 
@@ -3213,6 +3216,8 @@ static void check_symbol_of_called_name(AST sym, decl_context_t decl_context, no
         {
             // Make it a function
             entry->kind = SK_FUNCTION;
+            remove_unknown_kind_symbol(decl_context, entry);
+            
             // and update its type
             if (entry->entity_specs.alias_to != NULL
                     && entry->entity_specs.alias_to->entity_specs.is_builtin)
@@ -3440,6 +3445,7 @@ static void check_symbol_variable(AST expr, decl_context_t decl_context, nodecl_
     }
 
     entry->kind = SK_VARIABLE;
+    remove_unknown_kind_symbol(decl_context, entry);
 
     // It might happen that dummy arguments/result do not have any implicit
     // type here (because the input code is wrong)

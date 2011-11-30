@@ -63,6 +63,9 @@ LIBMF03_EXTERN scope_entry_t* fortran_query_label(AST label,
 LIBMF03_EXTERN void add_untyped_symbol(decl_context_t decl_context, scope_entry_t* entry);
 LIBMF03_EXTERN void remove_untyped_symbol(decl_context_t decl_context, scope_entry_t* entry);
 
+LIBMF03_EXTERN void add_unknown_kind_symbol(decl_context_t decl_context, scope_entry_t* entry);
+LIBMF03_EXTERN void remove_unknown_kind_symbol(decl_context_t decl_context, scope_entry_t* entry);
+
 MCXX_END_DECLS
 
 #endif // FORTRAN03_BUILDSCOPE_H

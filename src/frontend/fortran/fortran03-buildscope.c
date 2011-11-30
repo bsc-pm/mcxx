@@ -159,6 +159,26 @@ static scope_entry_t* get_or_create_equivalence_symbol_info(decl_context_t decl_
     return get_or_create_special_symbol(decl_context, ".equivalence");
 }
 
+static scope_entry_t* get_or_create_not_fully_defined_symbol_info(decl_context_t decl_context)
+{
+    return get_or_create_special_symbol(decl_context, ".not_fully_defined");
+}
+
+static scope_entry_t* get_not_fully_defined_symbol_info(decl_context_t decl_context)
+{
+    return get_special_symbol(decl_context, ".not_fully_defined");
+}
+
+static scope_entry_t* get_or_create_unknown_kind_symbol_info(decl_context_t decl_context)
+{
+    return get_or_create_special_symbol(decl_context, ".unknown_kind");
+}
+
+static scope_entry_t* get_unknown_kind_symbol_info(decl_context_t decl_context)
+{
+    return get_special_symbol(decl_context, ".unknown_kind");
+}
+
 void add_untyped_symbol(decl_context_t decl_context, scope_entry_t* entry)
 {
     scope_entry_t* unknown_info = get_or_create_untyped_symbols_info(decl_context);
@@ -198,6 +218,7 @@ static void check_untyped_symbols(decl_context_t decl_context)
                 // The user did nothing with that name to let us discover the
                 // exact nature of this symbol so lets assume is a variable
                 entry->kind = SK_VARIABLE;
+                remove_unknown_kind_symbol(decl_context, entry);
             }
             continue;
         }
@@ -278,8 +299,7 @@ static void update_untyped_symbols(decl_context_t decl_context)
 
 static void add_not_fully_defined_symbol(decl_context_t decl_context, scope_entry_t* entry)
 {
-    scope_entry_t * not_fully_defined = get_or_create_special_symbol(decl_context, ".not_fully_defined");
-
+    scope_entry_t * not_fully_defined = get_or_create_not_fully_defined_symbol_info(decl_context);
     P_LIST_ADD_ONCE(not_fully_defined->entity_specs.related_symbols,
             not_fully_defined->entity_specs.num_related_symbols,
             entry);
@@ -287,8 +307,7 @@ static void add_not_fully_defined_symbol(decl_context_t decl_context, scope_entr
 
 static void remove_not_fully_defined_symbol(decl_context_t decl_context, scope_entry_t* entry)
 {
-    scope_entry_t * not_fully_defined = get_special_symbol(decl_context, ".not_fully_defined");
-
+    scope_entry_t * not_fully_defined = get_not_fully_defined_symbol_info(decl_context);
     if (not_fully_defined == NULL)
         return;
 
@@ -299,7 +318,7 @@ static void remove_not_fully_defined_symbol(decl_context_t decl_context, scope_e
 
 static void check_not_fully_defined_symbols(decl_context_t decl_context)
 {
-    scope_entry_t* not_fully_defined = get_special_symbol(decl_context, ".not_fully_defined");
+    scope_entry_t * not_fully_defined = get_not_fully_defined_symbol_info(decl_context);
     if (not_fully_defined == NULL)
         return;
 
@@ -330,6 +349,52 @@ static void check_not_fully_defined_symbols(decl_context_t decl_context)
                     entry->symbol_name);
         }
     }
+}
+
+void add_unknown_kind_symbol(decl_context_t decl_context, scope_entry_t* entry)
+{
+    scope_entry_t * unknown_kind = get_or_create_unknown_kind_symbol_info(decl_context);
+    P_LIST_ADD_ONCE(unknown_kind->entity_specs.related_symbols,
+            unknown_kind->entity_specs.num_related_symbols,
+            entry);
+}
+
+void remove_unknown_kind_symbol(decl_context_t decl_context, scope_entry_t* entry)
+{
+    scope_entry_t * unknown_kind = get_unknown_kind_symbol_info(decl_context);
+    if (unknown_kind == NULL)
+        return;
+    
+    P_LIST_REMOVE(unknown_kind->entity_specs.related_symbols,
+            unknown_kind->entity_specs.num_related_symbols,
+            entry);
+}
+
+void review_unknown_kind_symbol(decl_context_t decl_context)
+{
+    scope_entry_t * unknown_kind = get_unknown_kind_symbol_info(decl_context);
+    if (unknown_kind == NULL)
+        return;
+    
+    int i;
+    for (i = 0; i < unknown_kind->entity_specs.num_related_symbols; i++)
+    {
+        scope_entry_t* entry = unknown_kind->entity_specs.related_symbols[i];
+        if (entry->kind == SK_UNDEFINED)
+        {
+            entry->kind = SK_VARIABLE;
+        }
+        else 
+        {
+            internal_error("Unexpected symbol in unknown kind symbol set %s '%s'",
+                    symbol_kind_name(entry),
+                    entry->symbol_name);
+        }
+    }
+
+    free(unknown_kind->entity_specs.related_symbols);
+    unknown_kind->entity_specs.related_symbols = NULL;
+    unknown_kind->entity_specs.num_related_symbols = 0;
 }
 
 // This function queries a symbol. If not found it uses implicit info to create
@@ -501,6 +566,8 @@ static void build_scope_main_program_unit(AST program_unit,
     program_sym->kind = SK_PROGRAM;
     program_sym->file = ASTFileName(program_unit);
     program_sym->line = ASTLine(program_unit);
+    
+    remove_unknown_kind_symbol(program_unit_context, program_sym);
 
     insert_alias(program_unit_context.current_scope->contained_in, program_sym,
             strappend("._", program_sym->symbol_name));
@@ -613,6 +680,7 @@ static void build_scope_function_program_unit(AST program_unit,
         if (new_entry->entity_specs.related_symbols[i]->kind == SK_UNDEFINED)
         {
             new_entry->entity_specs.related_symbols[i]->kind = SK_VARIABLE;
+            remove_unknown_kind_symbol(program_unit_context, new_entry);
         }
     }
 
@@ -710,6 +778,7 @@ static void build_scope_subroutine_program_unit(AST program_unit,
         if (new_entry->entity_specs.related_symbols[i]->kind == SK_UNDEFINED)
         {
             new_entry->entity_specs.related_symbols[i]->kind = SK_VARIABLE;
+            remove_unknown_kind_symbol(program_unit_context, new_entry);
         }
     }
 
@@ -742,6 +811,8 @@ static void build_scope_module_program_unit(AST program_unit,
 
     scope_entry_t* new_entry = new_fortran_symbol(program_unit_context, ASTText(module_name));
     new_entry->kind = SK_MODULE;
+    
+    remove_unknown_kind_symbol(program_unit_context, new_entry);
 
     new_entry->related_decl_context = program_unit_context;
     new_entry->file = ASTFileName(module_stmt);
@@ -791,6 +862,7 @@ static void build_scope_module_program_unit(AST program_unit,
         if (new_entry->entity_specs.related_symbols[i]->kind == SK_UNDEFINED)
         {
             new_entry->entity_specs.related_symbols[i]->kind = SK_VARIABLE;
+            remove_unknown_kind_symbol(program_unit_context, new_entry);
         }
 
         // Fix their access
@@ -842,7 +914,9 @@ static void build_scope_block_data_program_unit(AST program_unit,
     program_sym->kind = SK_BLOCKDATA;
     program_sym->file = ASTFileName(program_unit);
     program_sym->line = ASTLine(program_unit);
-
+    
+    remove_unknown_kind_symbol(program_unit_context, program_sym);
+    
     insert_alias(program_unit_context.current_scope->contained_in, program_sym,
             strappend("._", program_sym->symbol_name));
 
@@ -923,6 +997,8 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
     entry->line = ASTLine(name);
     entry->entity_specs.is_implicit_basic_type = 1;
     entry->defined = 1;
+    
+    remove_unknown_kind_symbol(decl_context, entry);
 
     type_t* return_type = get_void_type();
     if (is_function)
@@ -1078,6 +1154,8 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
             result_sym->file = ASTFileName(result);
             result_sym->line = ASTLine(result);
             result_sym->entity_specs.is_result = 1;
+            
+            remove_unknown_kind_symbol(decl_context, result_sym);
 
             result_sym->type_information = get_lvalue_reference_type(return_type);
 
@@ -1215,9 +1293,10 @@ static void build_scope_program_unit_body_executable(
             *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_statement);
         }
     }
-
+    
     check_untyped_symbols(decl_context);
     check_not_fully_defined_symbols(decl_context);
+    review_unknown_kind_symbol(decl_context);
 }
 
 typedef
@@ -1380,6 +1459,7 @@ static void build_scope_program_unit_body_internal_subprograms_executable(
                 if (function_symbol->entity_specs.related_symbols[j]->kind == SK_UNDEFINED)
                 {
                     function_symbol->entity_specs.related_symbols[j]->kind = SK_VARIABLE;
+                    remove_unknown_kind_symbol(decl_context, function_symbol);
                 }
             }
 
@@ -2619,6 +2699,7 @@ static void build_dimension_decl(AST a, decl_context_t decl_context)
     if(entry->kind == SK_UNDEFINED)
     {
         entry->kind = SK_VARIABLE;
+        remove_unknown_kind_symbol(decl_context, entry);
     }
 
     if (entry->kind != SK_VARIABLE)
@@ -3074,6 +3155,7 @@ static scope_entry_t* new_common(decl_context_t decl_context, const char* common
 {
     scope_entry_t* common_sym = new_fortran_symbol(decl_context, get_common_name_str(common_name));
     common_sym->kind = SK_COMMON;
+    remove_unknown_kind_symbol(decl_context, common_sym);
     return common_sym;
 }
 
@@ -3144,8 +3226,10 @@ static void build_scope_common_stmt(AST a,
             }
 
             if (sym->kind == SK_UNDEFINED)
+            {
                 sym->kind = SK_VARIABLE;
-
+                remove_unknown_kind_symbol(decl_context, sym);
+            }
             // We mark the symbol as non static and is in a common
             sym->entity_specs.is_static = 0;
             sym->entity_specs.is_in_common = 1;
@@ -3394,6 +3478,7 @@ static void generic_implied_do_handler(AST a, decl_context_t decl_context,
     if (do_variable->kind == SK_UNDEFINED)
     {
         do_variable->kind = SK_VARIABLE;
+        remove_unknown_kind_symbol(decl_context, do_variable);
     }
     else if (do_variable->kind != SK_VARIABLE)
     {
@@ -3645,9 +3730,9 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
     class_name->file = ASTFileName(name);
     class_name->line = ASTLine(name);
     class_name->type_information = get_new_class_type(decl_context, CK_STRUCT);
-
     class_name->entity_specs.bind_c = bind_c;
-
+    
+    remove_unknown_kind_symbol(decl_context, class_name);
     if (attr_spec.is_public)
     {
         class_name->entity_specs.access = AS_PUBLIC;
@@ -3757,6 +3842,7 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
 
                 entry->file = ASTFileName(declaration);
                 entry->line = ASTLine(declaration);
+                remove_unknown_kind_symbol(inner_decl_context, entry);
 
                 entry->type_information = basic_type;
                 entry->entity_specs.is_implicit_basic_type = 0;
@@ -3968,8 +4054,10 @@ static void build_scope_dimension_stmt(AST a, decl_context_t decl_context, nodec
                 /* array_spec_kind */ NULL);
 
         if (entry->kind == SK_UNDEFINED)
+        {
             entry->kind = SK_VARIABLE;
-        
+            remove_unknown_kind_symbol(decl_context, entry);
+        }
         // This name cannot be used as a function name anymore
         if (entry->entity_specs.is_implicit_basic_type)
             entry->entity_specs.is_implicit_but_not_function = 1;
@@ -4143,6 +4231,7 @@ static void build_scope_external_stmt(AST a, decl_context_t decl_context, nodecl
         // We mark the symbol as a external function
         entry->kind = SK_FUNCTION;
         entry->entity_specs.is_extern = 1;
+        remove_unknown_kind_symbol(decl_context, entry);
 
         if (is_void_type(no_ref(entry->type_information)))
         {
@@ -4494,7 +4583,8 @@ static void build_scope_interface_block(AST a, decl_context_t decl_context,
 
                         entry->kind = SK_FUNCTION;
                         entry->entity_specs.is_module_procedure = 1;
-
+                        
+                        remove_unknown_kind_symbol(decl_context, entry);
                         add_not_fully_defined_symbol(decl_context, entry);
 
                         if (generic_spec != NULL)
@@ -4559,6 +4649,7 @@ static void build_scope_interface_block(AST a, decl_context_t decl_context,
                 procedure_sym->decl_context = decl_context;
 
                 remove_untyped_symbol(decl_context, procedure_sym);
+                remove_unknown_kind_symbol(decl_context, procedure_sym);
             }
             else
             {
@@ -4597,6 +4688,7 @@ static void build_scope_interface_block(AST a, decl_context_t decl_context,
         generic_spec_sym->kind = SK_FUNCTION;
         generic_spec_sym->entity_specs.is_generic_spec = 1;
         generic_spec_sym->entity_specs.is_implicit_basic_type = 0;
+        remove_unknown_kind_symbol(decl_context, generic_spec_sym);
 
         int i;
         for (i = 0; i < num_related_symbols; i++)
@@ -4673,9 +4765,10 @@ static void build_scope_intrinsic_stmt(AST a, decl_context_t decl_context UNUSED
                     continue;
                 }
 
-                entry->kind = SK_FUNCTION;
+                entry->kind = SK_FUNCTION;  
                 entry->entity_specs = entry_intrinsic->entity_specs;
                 entry->type_information = entry_intrinsic->type_information;
+                remove_unknown_kind_symbol(decl_context, entry);
             }
         }
         // The symbol does not exist, we add an alias to the intrinsic symbol in the current scope
@@ -4720,6 +4813,8 @@ static void build_scope_namelist_stmt(AST a, decl_context_t decl_context,
         new_namelist->kind = SK_NAMELIST;
         new_namelist->file = ASTFileName(a);
         new_namelist->line = ASTLine(a);
+        
+        remove_unknown_kind_symbol(decl_context, new_namelist);
 
         AST it2;
         for_each_element(namelist_group_object_list, it2)
@@ -4834,7 +4929,10 @@ static void build_scope_parameter_stmt(AST a, decl_context_t decl_context, nodec
         }
 
         if (entry->kind == SK_UNDEFINED)
+        {
             entry->kind = SK_VARIABLE;
+            remove_unknown_kind_symbol(decl_context, entry);
+        }
 
         entry->type_information = get_const_qualified_type(entry->type_information);
         entry->value = nodecl_constant;
@@ -4859,6 +4957,7 @@ static void build_scope_cray_pointer_stmt(AST a, decl_context_t decl_context, no
         if (pointer_entry->kind == SK_UNDEFINED)
         {
             pointer_entry->kind = SK_VARIABLE;
+            remove_unknown_kind_symbol(decl_context, pointer_entry);
 
             // This nodecl is needed only for choose_int_type_from_kind
             nodecl_t nodecl_sym = nodecl_make_symbol(pointer_entry, ASTFileName(a), ASTLine(a));
@@ -4917,6 +5016,7 @@ static void build_scope_cray_pointer_stmt(AST a, decl_context_t decl_context, no
             pointee_entry->type_information = array_type;
 
             pointee_entry->kind = SK_VARIABLE;
+            remove_unknown_kind_symbol(decl_context, pointer_entry);
         }
 
         // We would change it into a SK_VARIABLE but it could be a function, so leave it undefined
@@ -4980,7 +5080,10 @@ static void build_scope_pointer_stmt(AST a, decl_context_t decl_context, nodecl_
         }
 
         if (entry->kind == SK_UNDEFINED)
+        {
             entry->kind = SK_VARIABLE;
+            remove_unknown_kind_symbol(decl_context, entry);
+        }
 
         entry->type_information = get_pointer_type(no_ref(entry->type_information));
 
@@ -5145,8 +5248,10 @@ static void build_scope_save_stmt(AST a, decl_context_t decl_context UNUSED_PARA
         }
 
         if (entry->kind == SK_UNDEFINED)
+        {
             entry->kind = SK_VARIABLE;
-
+            remove_unknown_kind_symbol(decl_context, entry);
+        }
         entry->entity_specs.is_static = 1;
     }
 
@@ -5170,6 +5275,7 @@ static void build_scope_stmt_function_stmt(AST a, decl_context_t decl_context,
 
     entry->kind = SK_FUNCTION;
     entry->entity_specs.is_stmt_function = 1;
+    remove_unknown_kind_symbol(decl_context, entry);
 
     int num_dummy_arguments = 0;
     if (dummy_arg_name_list != NULL)
@@ -5189,8 +5295,10 @@ static void build_scope_stmt_function_stmt(AST a, decl_context_t decl_context,
             }
 
             if (dummy_arg->kind == SK_UNDEFINED)
+            {
                 dummy_arg->kind = SK_VARIABLE;
-
+                remove_unknown_kind_symbol(decl_context, dummy_arg);
+            }
             // This can be used latter if trying to give a nonzero rank to this
             // entity
             dummy_arg->entity_specs.is_dummy_arg_stmt_function = 1;
@@ -5341,8 +5449,10 @@ static void build_scope_target_stmt(AST a, decl_context_t decl_context, nodecl_t
         }
 
         if (entry->kind == SK_UNDEFINED)
+        {
             entry->kind = SK_VARIABLE;
-
+            remove_unknown_kind_symbol(decl_context, entry);
+        }
         entry->entity_specs.is_target = 1;
     }
 
@@ -5514,6 +5624,9 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
                     decl_context,
                     /* array_spec_kind */ NULL);
             entry->kind = SK_VARIABLE;
+            remove_unknown_kind_symbol(decl_context, entry);
+            
+           
             entry->type_information = array_type;
 
             entry->type_information = get_cv_qualified_type(entry->type_information, cv_qualif);
@@ -5580,6 +5693,7 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
             }
             entry->entity_specs.is_allocatable = 1;
             entry->kind = SK_VARIABLE;
+            remove_unknown_kind_symbol(decl_context, entry);
         }
 
         if (current_attr_spec.is_intrinsic)
@@ -5609,6 +5723,7 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
         {
             entry->kind = SK_FUNCTION;
             entry->type_information = get_nonproto_function_type(entry->type_information, 0);
+            remove_unknown_kind_symbol(decl_context, entry);
         }
 
         if (current_attr_spec.is_external)
@@ -5636,6 +5751,7 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
         if (initialization != NULL)
         {
             entry->kind = SK_VARIABLE;
+            remove_unknown_kind_symbol(decl_context, entry);
             nodecl_t nodecl_init = nodecl_null();
 
             if (ASTType(initialization) == AST_POINTER_INITIALIZATION
@@ -5812,6 +5928,11 @@ static scope_entry_t* insert_symbol_from_module(scope_entry_t* entry,
 
     // Copy everything and restore the name
     *current_symbol = *entry;
+    if (current_symbol->kind != SK_UNDEFINED)
+    {
+        remove_unknown_kind_symbol(decl_context, current_symbol);
+    }
+
     current_symbol->symbol_name = aliased_name;
 
     current_symbol->entity_specs.from_module = module_symbol;
@@ -6084,8 +6205,10 @@ static void build_scope_value_stmt(AST a, decl_context_t decl_context, nodecl_t*
         }
 
         if (entry->kind == SK_UNDEFINED)
+        {
             entry->kind = SK_VARIABLE;
-
+            remove_unknown_kind_symbol(decl_context, entry);
+        }
         if (is_lvalue_reference_type(entry->type_information))
         {
             entry->type_information = reference_type_get_referenced_type(entry->type_information);
@@ -6112,8 +6235,10 @@ static void build_scope_volatile_stmt(AST a, decl_context_t decl_context, nodecl
         scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
 
         if (entry->kind == SK_UNDEFINED)
+        {
             entry->kind = SK_VARIABLE;
-
+            remove_unknown_kind_symbol(decl_context, entry);
+        }
         char is_ref = is_lvalue_reference_type(entry->type_information);
 
         if (!is_volatile_qualified_type(no_ref(entry->type_information)))
