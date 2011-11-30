@@ -3251,9 +3251,18 @@ static void check_symbol_of_called_name(AST sym, decl_context_t decl_context, no
             }
             else
             {
-                // This is the usual case, when instead of SQRT the user wrote
-                // SRTQ (and we are not in IMPLICIT NONE)
-                entry->type_information = get_nonproto_function_type(entry->type_information, 0);
+                scope_entry_t * intrinsic_sym = fortran_query_intrinsic_name_str(decl_context, entry->symbol_name);
+                if (intrinsic_sym == NULL || entry->entity_specs.is_parameter)
+                {
+                    // This is the usual case, when instead of SQRT the user wrote
+                    // SRTQ (and we are not in IMPLICIT NONE)
+                    entry->type_information = get_nonproto_function_type(entry->type_information, 0);
+                }
+                else 
+                {
+                    // From now, the symbol is an intrinsic
+                    *entry = *intrinsic_sym;
+                }
             }
         }
 
