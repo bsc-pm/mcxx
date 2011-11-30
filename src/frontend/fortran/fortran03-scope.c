@@ -237,8 +237,9 @@ decl_context_t fortran_new_block_context(decl_context_t decl_context)
 
 scope_entry_t* new_fortran_implicit_symbol(decl_context_t decl_context, AST locus, const char* name)
 {
-    scope_entry_t* sym = new_implicit_symbol(decl_context, locus, name);
-    return sym;
+    scope_entry_t* new_entry = new_implicit_symbol(decl_context, locus, name);
+    add_unknown_kind_symbol(decl_context, new_entry);
+    return new_entry;
 }
 
 scope_entry_t* new_fortran_symbol(decl_context_t decl_context, const char* name)
@@ -249,7 +250,10 @@ scope_entry_t* new_fortran_symbol(decl_context_t decl_context, const char* name)
                 strtolower(name),
                 decl_context.current_scope);
     }
-    return new_symbol(decl_context, decl_context.current_scope, strtolower(name));
+
+    scope_entry_t * new_entry = new_symbol(decl_context, decl_context.current_scope, strtolower(name));
+    add_unknown_kind_symbol(decl_context, new_entry);
+    return new_entry;
 }
 
 scope_entry_t* query_name_in_class(decl_context_t class_context, const char* name)

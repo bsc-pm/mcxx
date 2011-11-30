@@ -159,6 +159,26 @@ static scope_entry_t* get_or_create_equivalence_symbol_info(decl_context_t decl_
     return get_or_create_special_symbol(decl_context, ".equivalence");
 }
 
+static scope_entry_t* get_or_create_not_fully_defined_symbol_info(decl_context_t decl_context)
+{
+    return get_or_create_special_symbol(decl_context, ".not_fully_defined");
+}
+
+static scope_entry_t* get_not_fully_defined_symbol_info(decl_context_t decl_context)
+{
+    return get_special_symbol(decl_context, ".not_fully_defined");
+}
+
+static scope_entry_t* get_or_create_unknown_kind_symbol_info(decl_context_t decl_context)
+{
+    return get_or_create_special_symbol(decl_context, ".unknown_kind");
+}
+
+static scope_entry_t* get_unknown_kind_symbol_info(decl_context_t decl_context)
+{
+    return get_special_symbol(decl_context, ".unknown_kind");
+}
+
 void add_untyped_symbol(decl_context_t decl_context, scope_entry_t* entry)
 {
     scope_entry_t* unknown_info = get_or_create_untyped_symbols_info(decl_context);
@@ -278,8 +298,7 @@ static void update_untyped_symbols(decl_context_t decl_context)
 
 static void add_not_fully_defined_symbol(decl_context_t decl_context, scope_entry_t* entry)
 {
-    scope_entry_t * not_fully_defined = get_or_create_special_symbol(decl_context, ".not_fully_defined");
-
+    scope_entry_t * not_fully_defined = get_or_create_not_fully_defined_symbol_info(decl_context);
     P_LIST_ADD_ONCE(not_fully_defined->entity_specs.related_symbols,
             not_fully_defined->entity_specs.num_related_symbols,
             entry);
@@ -287,8 +306,7 @@ static void add_not_fully_defined_symbol(decl_context_t decl_context, scope_entr
 
 static void remove_not_fully_defined_symbol(decl_context_t decl_context, scope_entry_t* entry)
 {
-    scope_entry_t * not_fully_defined = get_special_symbol(decl_context, ".not_fully_defined");
-
+    scope_entry_t * not_fully_defined = get_not_fully_defined_symbol_info(decl_context);
     if (not_fully_defined == NULL)
         return;
 
@@ -299,7 +317,7 @@ static void remove_not_fully_defined_symbol(decl_context_t decl_context, scope_e
 
 static void check_not_fully_defined_symbols(decl_context_t decl_context)
 {
-    scope_entry_t* not_fully_defined = get_special_symbol(decl_context, ".not_fully_defined");
+    scope_entry_t * not_fully_defined = get_not_fully_defined_symbol_info(decl_context);
     if (not_fully_defined == NULL)
         return;
 
@@ -330,6 +348,46 @@ static void check_not_fully_defined_symbols(decl_context_t decl_context)
                     entry->symbol_name);
         }
     }
+}
+
+void add_unknown_kind_symbol(decl_context_t decl_context, scope_entry_t* entry)
+{
+    scope_entry_t * unknown_kind = get_or_create_unknown_kind_symbol_info(decl_context);
+    P_LIST_ADD_ONCE(unknown_kind->entity_specs.related_symbols,
+            unknown_kind->entity_specs.num_related_symbols,
+            entry);
+}
+
+void remove_unknown_kind_symbol(decl_context_t decl_context, scope_entry_t* entry)
+{
+    scope_entry_t * unknown_kind = get_unknown_kind_symbol_info(decl_context);
+    if (unknown_kind == NULL)
+        return;
+    
+    P_LIST_REMOVE(unknown_kind->entity_specs.related_symbols,
+            unknown_kind->entity_specs.num_related_symbols,
+            entry);
+}
+
+void review_unknown_kind_symbol(decl_context_t decl_context)
+{
+    scope_entry_t * unknown_kind = get_unknown_kind_symbol_info(decl_context);
+    if (unknown_kind == NULL)
+        return;
+    
+    int i;
+    for (i = 0; i < unknown_kind->entity_specs.num_related_symbols; i++)
+    {
+        scope_entry_t* entry = unknown_kind->entity_specs.related_symbols[i];
+        if (entry->kind == SK_UNDEFINED)
+        {
+            entry->kind = SK_VARIABLE;
+        }
+    }
+
+    free(unknown_kind->entity_specs.related_symbols);
+    unknown_kind->entity_specs.related_symbols = NULL;
+    unknown_kind->entity_specs.num_related_symbols = 0;
 }
 
 // This function queries a symbol. If not found it uses implicit info to create
@@ -1215,9 +1273,10 @@ static void build_scope_program_unit_body_executable(
             *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_statement);
         }
     }
-
+    
     check_untyped_symbols(decl_context);
     check_not_fully_defined_symbols(decl_context);
+    review_unknown_kind_symbol(decl_context);
 }
 
 typedef
