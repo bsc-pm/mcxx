@@ -5939,15 +5939,7 @@ static const char* get_cv_qualifier_string(type_t* type_info)
 
     if (BITMAP_TEST(type_info->cv_qualifier, CV_RESTRICT))
     {
-        // Be conservative for now 
-        // C_LANGUAGE()
-        // {
-        //     result = strappend(result, "restrict ");
-        // }
-        // CXX_LANGUAGE()
-        {
-            result = strappend(result, "__restrict ");
-        }
+        result = strappend(result, "__restrict ");
     }
 
     return result;
