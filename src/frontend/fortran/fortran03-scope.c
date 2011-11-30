@@ -215,6 +215,8 @@ scope_entry_t* fortran_get_variable_with_locus(decl_context_t decl_context, AST 
             if(result != NULL)
             {
                 result->kind = SK_VARIABLE;
+                remove_unknown_kind_symbol(decl_context, result);
+
             }
         }
         DEBUG_CODE()
