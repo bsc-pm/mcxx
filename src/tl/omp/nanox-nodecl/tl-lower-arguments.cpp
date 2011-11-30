@@ -18,7 +18,7 @@ namespace TL { namespace Nanox {
 
         // FIll source name
         Source src;
-        src << "typedef struct {";
+        src << "struct " << structure_name << "{";
 
         TL::ObjectList<OutlineDataItem> data_items = outline_info.get_data_items();
         for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
@@ -28,7 +28,7 @@ namespace TL { namespace Nanox {
             src << it->get_field_type().get_declaration(it->get_symbol().get_scope(), it->get_field_name()) << ";";
         }
 
-        src << "} " << structure_name << ";"
+        src << "};"
             ;
 
         SourceLanguage old = Source::source_language;
@@ -45,7 +45,7 @@ namespace TL { namespace Nanox {
             Source::source_language = old;
         }
 
-        return structure_name;
+        return "struct " + structure_name;
     }
 
 #if 0

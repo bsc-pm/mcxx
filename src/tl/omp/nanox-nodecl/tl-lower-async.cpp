@@ -172,14 +172,14 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         Source::source_language = SourceLanguage::C;
     }
 
-    Nodecl::NodeclBase n = spawn_code.parse_statement(construct);
+    // Nodecl::NodeclBase n = spawn_code.parse_statement(construct);
 
-    FORTRAN_LANGUAGE()
-    {
-        Source::source_language = SourceLanguage::Current;
-    }
+    // FORTRAN_LANGUAGE()
+    // {
+    //     Source::source_language = SourceLanguage::Current;
+    // }
 
-    construct.integrate(n);
+    // construct.integrate(n);
 }
 
 } }
