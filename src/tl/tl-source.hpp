@@ -342,8 +342,9 @@ namespace TL
 
             //! Parsing at global level
             /*
-             * In C/C++ this means parsing at file-scope/global namespace scope
-             * In Fortran this means parsing a program unit
+             * This means parsing at file-scope/global namespace scope. Note
+             * that some languages (mainly Fortran) restrict what can be declared
+             * here.
              */
             Nodecl::NodeclBase parse_global(ReferenceScope sc, ParseFlags flags = DEFAULT);
 

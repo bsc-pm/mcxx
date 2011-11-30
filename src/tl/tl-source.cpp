@@ -509,7 +509,7 @@ namespace TL
                         mf03_prepare_string_for_scanning,
                         mf03parse,
                         build_scope_program_unit,
-                        decl_context_program_unit
+                        decl_context_global
                         );
                 break;
             }
