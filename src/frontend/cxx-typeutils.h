@@ -138,6 +138,8 @@ LIBMCXX_EXTERN type_t* get_literal_string_type(int length, char is_wchar);
 
 LIBMCXX_EXTERN type_t* get_throw_expr_type(void);
 
+LIBMCXX_EXTERN type_t* get_implicit_none_type(void);
+
 /* Type constructors: cv-qualification */
 // The given cv_qualifier is strictly the one will have the returning type
 LIBMCXX_EXTERN type_t* get_cv_qualified_type(type_t* t, cv_qualifier_t cv_qualifier);
@@ -329,6 +331,8 @@ LIBMCXX_EXTERN char is_zero_type(type_t* t);
 LIBMCXX_EXTERN char is_error_type(type_t* t);
 
 LIBMCXX_EXTERN char is_throw_expr_type(type_t* t);
+
+LIBMCXX_EXTERN char is_implicit_none_type(type_t *t);
 
 LIBMCXX_EXTERN char is_pseudo_destructor_call_type(type_t *t);
 

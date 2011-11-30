@@ -190,8 +190,9 @@ type_t* get_implicit_type_for_symbol(decl_context_t decl_context, const char* na
             (*(decl_context.implicit_info->data->implicit_letter_set))[tolower(name[0]) - 'a'];
     }
 
+    // This is a special void that can be distinguished from plain void
     if (implicit_type == NULL)
-        implicit_type = get_void_type();
+        implicit_type = get_implicit_none_type();
 
     return implicit_type;
 }

@@ -1376,7 +1376,9 @@ OPERATOR_TABLE
 
         set_codegen_status(entry, CODEGEN_STATUS_DEFINED);
 
-        if (entry.is_variable())
+        if (entry.is_variable()
+#warning REMOVE THIS. Make everything become a SK_VARIABLE in the frontend
+                || entry.get_internal_symbol()->kind == SK_UNDEFINED)
         {
             std::string type_spec;
             std::string array_specifier;
@@ -1759,7 +1761,6 @@ OPERATOR_TABLE
                 it++)
         {
             TL::Symbol &sym(*it);
-
             if (!sym.is_function()
                     || sym.is_generic_specifier()
                     || sym.in_module() != state.current_module)

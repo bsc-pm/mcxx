@@ -9648,3 +9648,24 @@ type_t* get_foundation_type(type_t* t)
     internal_error("Cannot get foundation type of type '%s'", print_declarator(t));
 }
 
+
+// This is only for Fortran
+static type_t* _implicit_none_type = NULL;
+
+type_t* get_implicit_none_type(void)
+{
+    if (_implicit_none_type == NULL)
+    {
+        _implicit_none_type = get_simple_type();
+        _implicit_none_type->type->kind = STK_BUILTIN_TYPE;
+        _implicit_none_type->type->builtin_type = BT_VOID;
+        _implicit_none_type->info->is_incomplete = 1;
+    }
+
+    return _implicit_none_type;
+}
+
+char is_implicit_none_type(type_t* t)
+{
+    return t == _implicit_none_type;
+}

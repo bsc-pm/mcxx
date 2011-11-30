@@ -646,7 +646,7 @@ namespace TL
     bool Symbol::is_generic_specifier() const
     {
 #ifdef FORTRAN_SUPPORT
-        return _symbol->entity_specs.is_builtin_subroutine;
+        return _symbol->entity_specs.is_generic_spec;
 #else
         return false;
 #endif

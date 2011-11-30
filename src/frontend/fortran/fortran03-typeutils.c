@@ -333,31 +333,31 @@ type_t* update_basic_type_with_type(type_t* type_info, type_t* basic_type)
     }
 }
 
-char basic_type_is_void(type_t* t)
+char basic_type_is_implicit_none(type_t* t)
 {
     if (t == NULL)
     {
         return 0;
     }
-    else if (is_void_type(t))
+    else if (is_implicit_none_type(t))
     {
         return 1;
     }
     else if (is_array_type(t))
     {
-        return basic_type_is_void(array_type_get_element_type(t));
+        return basic_type_is_implicit_none(array_type_get_element_type(t));
     }
     else if (is_function_type(t))
     {
-        return basic_type_is_void(function_type_get_return_type(t));
+        return basic_type_is_implicit_none(function_type_get_return_type(t));
     }
     else if (is_lvalue_reference_type(t))
     {
-        return basic_type_is_void(reference_type_get_referenced_type(t));
+        return basic_type_is_implicit_none(reference_type_get_referenced_type(t));
     }
     else if (is_pointer_type(t))
     {
-        return basic_type_is_void(pointer_type_get_pointee_type(t));
+        return basic_type_is_implicit_none(pointer_type_get_pointee_type(t));
     }
     else
         return 0;
