@@ -111,20 +111,18 @@ namespace Codegen
                 bool in_forall;
                 bool in_interface;
 
-                TL::ObjectList<TL::Symbol> global_symbols;
-
                 State()
                     : _indent_level(0),
                     current_symbol(NULL),
                     current_module(NULL),
                     in_forall(false),
-                    in_interface(false),
-                    global_symbols()
+                    in_interface(false)
                 {
                 }
             } state;
 
-            std::map<TL::Symbol, codegen_status_t> _codegen_status;
+            typedef std::map<TL::Symbol, codegen_status_t> codegen_status_map_t;
+            codegen_status_map_t _codegen_status;
             void set_codegen_status(TL::Symbol sym, codegen_status_t status);
             codegen_status_t get_codegen_status(TL::Symbol sym);
 
@@ -186,7 +184,7 @@ namespace Codegen
 
             virtual Ret unhandled_node(const Nodecl::NodeclBase & n);
 
-            void clear_global_symbols();
+            void clear_codegen_status();
     };
 }
 

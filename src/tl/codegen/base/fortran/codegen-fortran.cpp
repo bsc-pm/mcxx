@@ -225,8 +225,18 @@ namespace Codegen
             file << "CONTAINS\n";
 
             inc_indent();
-            walk(internal_subprograms);
+            for (Nodecl::List::iterator it = internal_subprograms.begin();
+                    it != internal_subprograms.end();
+                    it++)
+            {
+                // Keep the codegen map
+                codegen_status_map_t keep = _codegen_status;
+                walk(*it);
+                // And restore it after the internal function has been emitted
+                _codegen_status = keep;
+            }
             dec_indent();
+
         }
     }
 
@@ -275,7 +285,7 @@ namespace Codegen
             internal_error("Unexpected symbol kind %s", symbol_kind_name(entry.get_internal_symbol()));
         }
 
-        clear_global_symbols();
+        clear_codegen_status();
 
         state.current_symbol = old_sym;
     }
@@ -323,7 +333,7 @@ namespace Codegen
             codegen_module_footer(entry);
             state.current_module = old_module;
 
-            clear_global_symbols();
+            clear_codegen_status();
         }
         else if (entry.is_fortran_blockdata())
         {
@@ -336,7 +346,7 @@ namespace Codegen
             codegen_blockdata_footer(entry);
             state.current_symbol = old_sym;
 
-            clear_global_symbols();
+            clear_codegen_status();
         }
         else
         {
@@ -1400,8 +1410,6 @@ OPERATOR_TABLE
                 internal_error("Error: global variable '%s' cannot be emitted in Fortran\n",
                         entry.get_name().c_str());
             }
-
-            state.global_symbols.insert(entry);
         }
 
         set_codegen_status(entry, CODEGEN_STATUS_DEFINED);
@@ -1422,7 +1430,8 @@ OPERATOR_TABLE
             if (entry.is_target())
                 attribute_list += ", TARGET";
             if (entry.is_parameter() 
-                    && !entry.get_type().is_reference())
+                    && !entry.get_type().is_reference()
+                    && !is_fortran_character_type(entry.get_type().get_internal_type()))
             {
                 if (entry.get_type().is_pointer())
                 {
@@ -1431,7 +1440,7 @@ OPERATOR_TABLE
                 }
                 else if (entry.get_type().is_array())
                 {
-                    internal_error("Error: arrays cannot be passed by value in Fortran\n", 
+                    internal_error("Error: non-character arrays cannot be passed by value in Fortran\n", 
                             entry.get_name().c_str());
                 }
                 else if (entry.get_type().is_class())
@@ -1476,21 +1485,24 @@ OPERATOR_TABLE
                 }
             }
 
-            switch (entry.get_access_specifier())
+            if (entry.in_module().is_valid())
             {
-                case AS_PUBLIC:
-                    {
-                        attribute_list += ", PUBLIC";
-                        break;
-                    }
-                case AS_PRIVATE:
-                    {
-                        attribute_list += ", PRIVATE";
-                        break;
-                    }
-                default:
-                    {
-                    }
+                switch (entry.get_access_specifier())
+                {
+                    case AS_PUBLIC:
+                        {
+                            attribute_list += ", PUBLIC";
+                            break;
+                        }
+                    case AS_PRIVATE:
+                        {
+                            attribute_list += ", PRIVATE";
+                            break;
+                        }
+                    default:
+                        {
+                        }
+                }
             }
 
             if (!entry.get_initialization().is_null())
@@ -1735,8 +1747,28 @@ OPERATOR_TABLE
                 declare_symbols_rec(component.get_initialization());
             }
 
+            if (entry.get_type().class_type_get_class_kind() == CK_UNION)
+            {
+                internal_error("Unions cannot be emitted in Fortran", 0);
+            }
+
+            // Remove prefixes that might come from C
+            std::string struct_prefix = "struct ";
+            // Unions cannot be expressed in fortran!
+            std::string class_prefix =  "class ";
+            std::string real_name = entry.get_name();
+
+            if (real_name.substr(0, struct_prefix.size()) == struct_prefix)
+            {
+                real_name = real_name.substr(struct_prefix.size());
+            }
+            else if (real_name.substr(0, class_prefix.size()) == class_prefix)
+            {
+                real_name = real_name.substr(class_prefix.size());
+            }
+
             indent();
-            file << "TYPE :: " << entry.get_name() << "\n";
+            file << "TYPE :: " << real_name << "\n";
 
             TL::Symbol old_sym = state.current_symbol;
             state.current_symbol = entry;
@@ -1754,7 +1786,7 @@ OPERATOR_TABLE
             state.current_symbol = old_sym;
 
             indent();
-            file << "END TYPE " << entry.get_name() << "\n";
+            file << "END TYPE " << real_name << "\n";
         }
         else if (entry.is_label())
         {
@@ -2177,7 +2209,21 @@ OPERATOR_TABLE
 
             declare_symbol(entry);
 
-            type_specifier = "TYPE(" + entry.get_name() + ")";
+            std::string struct_prefix = "struct ";
+            // Unions cannot be expressed in fortran!
+            std::string class_prefix =  "class ";
+            std::string real_name = entry.get_name();
+
+            if (real_name.substr(0, struct_prefix.size()) == struct_prefix)
+            {
+                real_name = real_name.substr(struct_prefix.size());
+            }
+            else if (real_name.substr(0, class_prefix.size()) == class_prefix)
+            {
+                real_name = real_name.substr(class_prefix.size());
+            }
+
+            type_specifier = "TYPE(" + real_name + ")";
         }
         else if (is_fortran_character_type(t.get_internal_type()))
         {
@@ -2366,18 +2412,17 @@ OPERATOR_TABLE
         file << "! <<< " << ast_print_node_type(n.get_kind()) << " <<<\n";
     }
 
-    void FortranBase::clear_global_symbols()
+    void FortranBase::clear_codegen_status()
     {
-        // This function sets the codegen status of symbols to NONE so we can redeclare them
-        // in every program unit
-        for (TL::ObjectList<TL::Symbol>::iterator it = state.global_symbols.begin();
-                it != state.global_symbols.end();
+        for (codegen_status_map_t::iterator it = _codegen_status.begin();
+                it != _codegen_status.end();
                 it++)
         {
-            set_codegen_status(*it, CODEGEN_STATUS_NONE);
+            if (!it->first.is_fortran_module())
+            {
+                it->second = CODEGEN_STATUS_NONE;
+            }
         }
-
-        state.global_symbols.clear();
     }
 }
 
