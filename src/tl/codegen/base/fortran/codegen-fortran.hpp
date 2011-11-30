@@ -111,12 +111,15 @@ namespace Codegen
                 bool in_forall;
                 bool in_interface;
 
+                TL::ObjectList<TL::Symbol> global_symbols;
+
                 State()
                     : _indent_level(0),
                     current_symbol(NULL),
                     current_module(NULL),
                     in_forall(false),
-                    in_interface(false)
+                    in_interface(false),
+                    global_symbols()
                 {
                 }
             } state;
@@ -182,6 +185,8 @@ namespace Codegen
             void declare_symbols_rec(Nodecl::NodeclBase node);
 
             virtual Ret unhandled_node(const Nodecl::NodeclBase & n);
+
+            void clear_global_symbols();
     };
 }
 

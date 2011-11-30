@@ -275,6 +275,8 @@ namespace Codegen
             internal_error("Unexpected symbol kind %s", symbol_kind_name(entry.get_internal_symbol()));
         }
 
+        clear_global_symbols();
+
         state.current_symbol = old_sym;
     }
 
@@ -320,6 +322,8 @@ namespace Codegen
             codegen_module_header(entry);
             codegen_module_footer(entry);
             state.current_module = old_module;
+
+            clear_global_symbols();
         }
         else if (entry.is_fortran_blockdata())
         {
@@ -331,6 +335,8 @@ namespace Codegen
             codegen_blockdata_header(entry);
             codegen_blockdata_footer(entry);
             state.current_symbol = old_sym;
+
+            clear_global_symbols();
         }
         else
         {
@@ -1369,10 +1375,34 @@ OPERATOR_TABLE
         if (get_codegen_status(entry) == CODEGEN_STATUS_DEFINED)
             return;
 
-        // Do not declare stuff not in our context
-        if (state.current_symbol != TL::Symbol(entry.get_scope().get_decl_context().current_scope->related_entry)
+        bool is_global = false;
+
+        decl_context_t entry_context = entry.get_scope().get_decl_context();
+        // We do not declare anything not in our context 
+        if (state.current_symbol != TL::Symbol(entry_context.current_scope->related_entry)
+                // unless 
+                //    a) it is in the global scope
+                && (is_global = (entry_context.current_scope != entry_context.global_scope))
+                //    b) it is an intrinsic
                 && !entry.is_intrinsic())
+        {
+            // Note that we do not set it as defined because we have not
+            // actually declared at all
             return;
+        }
+
+        // Let's protect ourselves with stuff that cannot be emitted in Fortran coming from
+        // the global scope
+        if (is_global)
+        {
+            if (entry.is_variable())
+            {
+                internal_error("Error: global variable '%s' cannot be emitted in Fortran\n",
+                        entry.get_name().c_str());
+            }
+
+            state.global_symbols.insert(entry);
+        }
 
         set_codegen_status(entry, CODEGEN_STATUS_DEFINED);
 
@@ -2319,6 +2349,20 @@ OPERATOR_TABLE
 
         indent();
         file << "! <<< " << ast_print_node_type(n.get_kind()) << " <<<\n";
+    }
+
+    void FortranBase::clear_global_symbols()
+    {
+        // This function sets the codegen status of symbols to NONE so we can redeclare them
+        // in every program unit
+        for (TL::ObjectList<TL::Symbol>::iterator it = state.global_symbols.begin();
+                it != state.global_symbols.end();
+                it++)
+        {
+            set_codegen_status(*it, CODEGEN_STATUS_NONE);
+        }
+
+        state.global_symbols.clear();
     }
 }
 

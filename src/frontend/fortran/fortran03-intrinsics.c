@@ -657,7 +657,7 @@ static scope_entry_t* get_intrinsic_symbol_(const char* name,
         // We do not want it be signed in the scope
         scope_entry_t* new_entry = calloc(1, sizeof(*new_entry));
         new_entry->symbol_name = name;
-        new_entry->decl_context = decl_context;
+        new_entry->decl_context = new_program_unit_context(decl_context);
         new_entry->kind = SK_FUNCTION;
         new_entry->do_not_print = 1;
         new_entry->type_information = function_type;
@@ -673,7 +673,7 @@ static scope_entry_t* get_intrinsic_symbol_(const char* name,
         {
             fprintf(stderr, "INTRINSICS: Creating new intrinsic '%s' of type '%s'\n",
                     name,
-                    print_type_str(function_type, decl_context));
+                    print_type_str(function_type, new_entry->decl_context));
         }
 
         return new_entry;
