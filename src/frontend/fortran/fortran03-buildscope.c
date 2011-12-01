@@ -474,6 +474,8 @@ static void build_scope_block_data_program_unit(AST program_unit,
         decl_context_t program_unit_context, scope_entry_t** program_unit_symbol, 
         nodecl_t* nodecl_output);
 
+static void build_global_program_unit(AST program_unit);
+
 static void handle_opt_value_list(AST io_stmt, AST opt_value_list,
         decl_context_t decl_context,
         nodecl_t* nodecl_output);
@@ -483,35 +485,51 @@ static void build_scope_program_unit_internal(AST program_unit,
         scope_entry_t** program_unit_symbol,
         nodecl_t* nodecl_output)
 {
-    decl_context_t program_unit_context = new_program_unit_context(decl_context);
-
     scope_entry_t* _program_unit_symbol = NULL;
 
     switch (ASTType(program_unit))
     {
         case AST_MAIN_PROGRAM_UNIT:
             {
+                decl_context_t program_unit_context = new_program_unit_context(decl_context);
+
                 build_scope_main_program_unit(program_unit, program_unit_context, &_program_unit_symbol, nodecl_output);
                 break;
             }
         case AST_SUBROUTINE_PROGRAM_UNIT:
             {
+                decl_context_t program_unit_context = new_program_unit_context(decl_context);
+
                 build_scope_subroutine_program_unit(program_unit, program_unit_context, &_program_unit_symbol, nodecl_output);
                 break;
             }
         case AST_FUNCTION_PROGRAM_UNIT:
             {
+                decl_context_t program_unit_context = new_program_unit_context(decl_context);
+
                 build_scope_function_program_unit(program_unit, program_unit_context, &_program_unit_symbol, nodecl_output);
                 break;
             }
         case AST_MODULE_PROGRAM_UNIT :
             {
+                decl_context_t program_unit_context = new_program_unit_context(decl_context);
+
                 build_scope_module_program_unit(program_unit, program_unit_context, &_program_unit_symbol, nodecl_output);
                 break;
             }
         case AST_BLOCK_DATA_PROGRAM_UNIT:
             {
+                decl_context_t program_unit_context = new_program_unit_context(decl_context);
+
                 build_scope_block_data_program_unit(program_unit, program_unit_context, &_program_unit_symbol, nodecl_output);
+                break;
+            }
+        case AST_GLOBAL_PROGRAM_UNIT:
+            {
+                //  This is a Mercurium extension. 
+                //  It does not generate any sort of nodecl (and if it does it is merrily ignored)
+                //  Everything is signed in a global scope
+                build_global_program_unit(program_unit);
                 break;
             }
         default:
@@ -941,6 +959,26 @@ static void build_scope_block_data_program_unit(AST program_unit,
 
     *nodecl_output = nodecl_make_list_1(
             nodecl_make_object_init(program_sym, ASTFileName(program_unit), ASTLine(program_unit)));
+}
+
+static void build_global_program_unit(AST program_unit)
+{
+    decl_context_t program_unit_context = CURRENT_COMPILED_FILE->global_decl_context;
+    program_unit_context.function_scope = program_unit_context.current_scope;
+
+    AST program_body = ASTSon0(program_unit);
+
+    AST statement_seq = ASTSon0(program_body);
+
+    nodecl_t nodecl_body = nodecl_null();
+    nodecl_t nodecl_internal_subprograms = nodecl_null();
+
+    build_scope_program_unit_body(
+            statement_seq, NULL,
+            program_unit_context, 
+            allow_all_statements, 
+            &nodecl_body, 
+            &nodecl_internal_subprograms);
 }
 
 static type_t* gather_type_from_declaration_type_spec_(AST a, 

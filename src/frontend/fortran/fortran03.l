@@ -874,6 +874,16 @@ schar       ([^\\"\n\r]|{c_escape_seq}|(\\["]))
 	RETURN_TOKEN(SUBPARSE_STATEMENT);
 }
 
+@GLOBAL@ {
+    parse_token_text();
+    RETURN_TOKEN(GLOBAL);
+}
+
+@END[ ]+GLOBAL@ {
+    parse_token_text();
+    RETURN_TOKEN(END_GLOBAL);
+}
+
  /* Special tokens for placeholders */
 @STATEMENT-PH::0[xX]{hexdigit}+@ { parse_token_text(); RETURN_TOKEN(STATEMENT_PLACEHOLDER); }
 

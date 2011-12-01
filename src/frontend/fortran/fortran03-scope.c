@@ -279,8 +279,7 @@ scope_entry_t* fortran_query_name_str(decl_context_t decl_context, const char* u
     scope_t* current_scope = decl_context.current_scope;
 
     while (result == NULL 
-            && current_scope != NULL 
-            && current_scope != decl_context.global_scope)
+            && current_scope != NULL)
     {
         current_decl_context.current_scope = current_scope;
         scope_entry_list_t* result_list = query_in_scope_str(current_decl_context, strtolower(unqualified_name));    
