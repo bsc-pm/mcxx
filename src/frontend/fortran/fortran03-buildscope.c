@@ -2116,8 +2116,8 @@ type_t* choose_float_type_from_kind(nodecl_t expr, int kind_size)
         int i;
         for (i = 0; i < CURRENT_CONFIGURATION->type_environment->num_float_types; i++)
         {
-        float_types[CURRENT_CONFIGURATION->type_environment->all_floats[i]->bits / 8] 
-            = get_floating_type_from_descriptor(CURRENT_CONFIGURATION->type_environment->all_floats[i]);
+            float_types[CURRENT_CONFIGURATION->type_environment->all_floats[i]->bits / 8] 
+                = get_floating_type_from_descriptor(CURRENT_CONFIGURATION->type_environment->all_floats[i]);
         }
         float_types_init = 1;
     }
@@ -6765,6 +6765,7 @@ typedef struct opt_value_map_tag
   OPT_VALUE(id) \
   OPT_VALUE(iomsg) \
   OPT_VALUE(iostat) \
+  OPT_VALUE(iolength) \
   OPT_VALUE(mold) \
   OPT_VALUE(named) \
   OPT_VALUE(newunit) \
