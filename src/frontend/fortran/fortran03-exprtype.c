@@ -3442,8 +3442,8 @@ static void check_symbol_variable(AST expr, decl_context_t decl_context, nodecl_
     }
 
     if (entry == NULL || 
-            (entry->kind != SK_VARIABLE &&
-             entry->kind != SK_UNDEFINED))
+            (entry->kind != SK_VARIABLE 
+             && entry->kind != SK_UNDEFINED))
     {
         if (!checking_ambiguity())
         {

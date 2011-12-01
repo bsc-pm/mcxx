@@ -4983,7 +4983,6 @@ static void build_scope_intrinsic_stmt(AST a, decl_context_t decl_context UNUSED
         decl_context_t global_context = decl_context;
         global_context.current_scope = decl_context.global_scope;
 
-       
         scope_entry_t* entry = fortran_query_name_str(decl_context, ASTText(name));
         scope_entry_t* entry_intrinsic = fortran_query_intrinsic_name_str(global_context, ASTText(name));
         
@@ -5031,7 +5030,8 @@ static void build_scope_intrinsic_stmt(AST a, decl_context_t decl_context UNUSED
         // The symbol does not exist, we add an alias to the intrinsic symbol in the current scope
         else
         {
-            if (entry_intrinsic == NULL || !entry_intrinsic->entity_specs.is_builtin)
+            if (entry_intrinsic == NULL 
+                    || !entry_intrinsic->entity_specs.is_builtin)
             {
                 error_printf("%s: error: name '%s' is not known as an intrinsic\n", 
                         ast_location(name),

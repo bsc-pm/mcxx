@@ -64,10 +64,7 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
     device_descriptor << outline_name << "_devices";
     device_description
         << ancillary_device_description
-        << "nanos_device_t " << device_descriptor << "[] ="
-        << "{"
-        << device_description_line
-        << "};"
+        << "nanos_device_t " << device_descriptor << "[1];"
         ;
     
     // Declare argument structure
@@ -79,12 +76,15 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         num_devices << "1";
         ancillary_device_description
             << comment("SMP device descriptor")
-            << "nanos_smp_args_t " << outline_name << "_smp_args = { (void(*)(void*))" << outline_name << "};"
+            << "nanos_smp_args_t " << outline_name << "_smp_args;" 
+            << outline_name << "_smp_args.outline = &" << outline_name << ";"
             ;
 
         device_description_line
-            << "{ nanos_smp_factory, nanos_smp_dd_size, &" << outline_name << "_smp_args },"
-            ;
+            << device_descriptor << "[0].factory = &nanos_smp_factory;"
+            // FIXME - Figure a way to get the true size
+            << device_descriptor << "[0].size = 16;"
+            << device_descriptor << "[0].arg = &" << outline_name << "_smp_args;";
     }
 
     // Outline
@@ -172,12 +172,12 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         Source::source_language = SourceLanguage::C;
     }
 
-    // Nodecl::NodeclBase n = spawn_code.parse_statement(construct);
+    Nodecl::NodeclBase n = spawn_code.parse_statement(construct);
 
-    // FORTRAN_LANGUAGE()
-    // {
-    //     Source::source_language = SourceLanguage::Current;
-    // }
+    FORTRAN_LANGUAGE()
+    {
+        Source::source_language = SourceLanguage::Current;
+    }
 
     // construct.integrate(n);
 }

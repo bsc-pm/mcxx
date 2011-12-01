@@ -2910,11 +2910,11 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
         char c[256];
         C_LANGUAGE()
         {
-            snprintf(c, 255, "enum __mcc_enum_anon_%d", anonymous_enums);
+            snprintf(c, 255, "enum mcc_enum_anon_%d", anonymous_enums);
         }
         CXX_LANGUAGE()
         {
-            snprintf(c, 255, "__mcc_enum_anon_%d", anonymous_enums);
+            snprintf(c, 255, "mcc_enum_anon_%d", anonymous_enums);
         }
         c[255] = '\0';
         anonymous_enums++;
@@ -5258,11 +5258,11 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
         char c[256];
         C_LANGUAGE()
         {
-            snprintf(c, 255, "%s __mcc_%s_anon_%d", class_kind_name, class_kind_name, anonymous_classes);
+            snprintf(c, 255, "%s mcc_%s_anon_%d", class_kind_name, class_kind_name, anonymous_classes);
         }
         CXX_LANGUAGE()
         {
-            snprintf(c, 255, "__mcc_%s_anon_%d", class_kind_name, anonymous_classes);
+            snprintf(c, 255, "mcc_%s_anon_%d", class_kind_name, anonymous_classes);
         }
         c[255] = '\0';
         anonymous_classes++;

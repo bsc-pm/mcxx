@@ -1832,6 +1832,15 @@ OPERATOR_TABLE
                 file << "\n";
             }
         }
+        else if (entry.is_typedef())
+        {
+            TL::Type aliased_type = entry.get_type();
+            ERROR_CONDITION(!aliased_type.is_named_class(),
+                    "Typedefs in Fortran can only be aliases of named classes",
+                    0);
+
+            declare_symbol(aliased_type.get_symbol());
+        }
         else
         {
             internal_error("Unexpected symbol '%s'\n", symbol_kind_name(entry.get_internal_symbol()));
@@ -2185,6 +2194,8 @@ OPERATOR_TABLE
         }
 
         char is_array = (array_spec_idx != (MCXX_MAX_ARRAY_SPECIFIER - 1));
+
+        t = t.advance_over_typedefs();
 
         if (t.is_bool()
                 || t.is_integral_type()
