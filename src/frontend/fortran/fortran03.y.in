@@ -512,6 +512,7 @@ static void append_statement_to_block(AST block, AST stmt)
 %type<ast> enum_def_stmt
 %type<ast> input_output_item
 %type<ast> type_declaration_stmt
+%type<ast> typedef_declaration_stmt
 %type<ast> stat_variable
 %type<ast> type_param_decl
 %type<ast> codimension_stmt
@@ -895,6 +896,7 @@ static void append_statement_to_block(AST block, AST stmt)
 
 %token<token_atrib> GLOBAL "<global-program-unit>"
 %token<token_atrib> END_GLOBAL "<end-global-program-unit>"
+%token<token_atrib> TYPEDEF "<typedef>"
 
 /*!define GRAMMAR_PROLOGUE*/
 /*!include fortran03-subparse.y*/
@@ -1708,6 +1710,19 @@ type_declaration_stmt : labeldef declaration_type_spec ',' attr_spec_list ':' ':
 | labeldef declaration_type_spec ':' ':' entity_decl_list eos
 {
     $$ = ASTMake4Label(AST_DECLARATION_STATEMENT, $1, $2, NULL, $5, ASTFileName($2), ASTLine($2), NULL);
+}
+;
+typedef_declaration_stmt : labeldef TYPEDEF declaration_type_spec ',' attr_spec_list ':' ':' entity_decl_list eos
+{
+    $$ = ASTMake4Label(AST_TYPEDEF_DECLARATION_STATEMENT, $1, $3, $5, $8, ASTFileName($3), ASTLine($3), NULL);
+}
+| labeldef TYPEDEF declaration_type_spec entity_decl_list eos
+{
+    $$ = ASTMake4Label(AST_TYPEDEF_DECLARATION_STATEMENT, $1, $3, NULL, $4, ASTFileName($3), ASTLine($3), NULL);
+}
+| labeldef TYPEDEF declaration_type_spec ':' ':' entity_decl_list eos
+{
+    $$ = ASTMake4Label(AST_TYPEDEF_DECLARATION_STATEMENT, $1, $3, NULL, $6, ASTFileName($3), ASTLine($3), NULL);
 }
 ;
 attr_spec : access_spec
@@ -4223,9 +4238,9 @@ global_program_unit: global_stmt global_body end_global_stmt
     $$ = ASTMake1(AST_GLOBAL_PROGRAM_UNIT, NULL, $1.token_file, $1.token_line, NULL);
 }
 ;
-global_stmt: GLOBAL EOS
+global_stmt: GLOBAL eos
 ;
-end_global_stmt : END_GLOBAL EOS
+end_global_stmt : END_GLOBAL eos
 ;
 global_body : non_top_level_program_unit_stmt_seq
 {
@@ -4325,6 +4340,7 @@ non_top_level_program_unit_stmt : access_stmt
 | sync_memory_stmt
 | target_stmt
 | type_declaration_stmt
+| typedef_declaration_stmt
 | unlock_stmt
 | use_stmt
 | value_stmt

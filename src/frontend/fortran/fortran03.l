@@ -884,6 +884,11 @@ schar       ([^\\"\n\r]|{c_escape_seq}|(\\["]))
     RETURN_TOKEN(END_GLOBAL);
 }
 
+@TYPEDEF@ {
+    parse_token_text();
+    RETURN_TOKEN(TYPEDEF);
+}
+
  /* Special tokens for placeholders */
 @STATEMENT-PH::0[xX]{hexdigit}+@ { parse_token_text(); RETURN_TOKEN(STATEMENT_PLACEHOLDER); }
 

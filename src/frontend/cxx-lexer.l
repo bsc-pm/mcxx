@@ -1084,8 +1084,32 @@ type {
 @MEMBER@ { parse_token_text(); return SUBPARSE_MEMBER; }
  /*!endif*/
  /* Special tokens for prettyprinted comments and preprocessor elements */
-@-C-@[^@]*@-CC-@ { parse_token_text(); return PP_COMMENT; }
-@-P-@[^@]*@-PP-@ { parse_token_text(); return PP_TOKEN; }
+@-C-@[^@]*@-CC-@ { 
+
+    char* t = strdup(yytext);
+    t[strlen(t) - strlen("@-CC-@")] = '\0';
+
+    char *p = t;
+    p += strlen("@-C-@");
+
+    parse_token_text_str(p); 
+    free(t);
+
+    return PP_COMMENT; 
+}
+@-P-@[^@]*@-PP-@ { 
+
+    char* t = strdup(yytext);
+    t[strlen(t) - strlen("@-PP-@")] = '\0';
+
+    char *p = t;
+    p += strlen("@-P-@");
+
+    parse_token_text_str(p); 
+    free(t);
+
+    return PP_TOKEN; 
+}
  /* Special tokens for placeholders */
 @STATEMENT-PH::0[xX]{hexdigit}+@ { parse_token_text(); return STATEMENT_PLACEHOLDER; }
  /* Special tokens for parsing superscalar related things */

@@ -348,6 +348,17 @@ namespace Codegen
 
             clear_codegen_status();
         }
+        else if (entry.is_variable())
+        {
+            if (!entry.get_type().is_const())
+            {
+                // Fake an assignment statement
+                indent();
+                file << entry.get_name() << " = ";
+                walk(entry.get_initialization());
+                file << "\n";
+            }
+        }
         else
         {
             internal_error("Unexpected symbol %s\n", symbol_kind_name(entry.get_internal_symbol()));
@@ -569,9 +580,6 @@ OPERATOR_TABLE
         Nodecl::NodeclBase lhs = node.get_lhs();
         Nodecl::NodeclBase rhs = node.get_rhs();
 
-        TL::Symbol symbol = lhs.get_symbol();
-        ERROR_CONDITION(symbol == NULL, "This should not be NULL", 0);
-
         walk(lhs);
 
         std::string operator_ = " = ";
@@ -579,11 +587,11 @@ OPERATOR_TABLE
         // Is this a pointer assignment?
         char is_ptr_assignment = 0;
 
-        TL::Type sym_type = symbol.get_type();
-        if (sym_type.is_reference())
-            sym_type = sym_type.references_to();
+        TL::Type lhs_type = node.get_type();
+        if (lhs_type.is_reference())
+            lhs_type = lhs_type.references_to();
 
-        if (sym_type.is_pointer()
+        if (lhs_type.is_pointer()
                 && !lhs.is<Nodecl::Derreference>())
         {
             is_ptr_assignment = 1;
@@ -641,9 +649,10 @@ OPERATOR_TABLE
 
     void FortranBase::visit(const Nodecl::Reference& node)
     {
-        // FIXME - LOC?
-        // No explicit reference happens in Fortran
+        // Use nonstandard LOC
+        file << "LOC(";
         walk(node.get_rhs());
+        file << ")";
     }
 
     void FortranBase::visit(const Nodecl::ParenthesizedExpression& node)
@@ -1336,6 +1345,27 @@ OPERATOR_TABLE
         file << node.get_text();
     }
 
+    void FortranBase::visit(const Nodecl::SourceComment& node)
+    {
+        indent();
+        file << "! " << node.get_text() << "\n";
+    }
+
+    void FortranBase::visit(const Nodecl::Cast& node)
+    {
+        walk(node.get_rhs());
+    }
+
+    void FortranBase::visit(const Nodecl::Sizeof& node)
+    {
+        file << node.get_type().get_size();
+    }
+
+    void FortranBase::visit(const Nodecl::Alignof& node)
+    {
+        file << node.get_type().get_alignment_of();
+    }
+
     void FortranBase::set_codegen_status(TL::Symbol sym, codegen_status_t status)
     {
         _codegen_status[sym] = status;
@@ -1531,7 +1561,10 @@ OPERATOR_TABLE
                 }
             }
 
-            if (!entry.get_initialization().is_null())
+            if (!entry.get_initialization().is_null()
+                    // Only SAVE or PARAMETER are initialized in Fortran
+                    && (entry.is_static()
+                        || entry.get_type().is_const()))
             {
                 declare_symbols_rec(entry.get_initialization());
 
@@ -1663,10 +1696,16 @@ OPERATOR_TABLE
                     }
                     else
                     {
+                        // Keep the codegen map
+                        codegen_status_map_t keep = _codegen_status;
+
                         bool old_in_interface = state.in_interface;
                         state.in_interface = true;
                         declare_symbol(iface);
                         state.in_interface = old_in_interface;
+                        
+                        // And restore it after the interface has been emitted
+                        _codegen_status = keep;
                     }
                 }
                 dec_indent();
@@ -1747,7 +1786,13 @@ OPERATOR_TABLE
                         it != related_symbols.end();
                         it++)
                 {
+                    // Keep the codegen map
+                    codegen_status_map_t keep = _codegen_status;
+
                     declare_symbol(*it);
+                    
+                    // And restore it after the interface has been emitted
+                    _codegen_status = keep;
                 }
                 dec_indent();
                 state.current_symbol = old_sym;
@@ -2463,6 +2508,7 @@ OPERATOR_TABLE
             }
         }
     }
+
 }
 
 EXPORT_PHASE(Codegen::FortranBase)

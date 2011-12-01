@@ -1832,88 +1832,89 @@ typedef struct build_scope_statement_handler_tag
 } build_scope_statement_handler_t;
 
 #define STATEMENT_HANDLER_TABLE \
- STATEMENT_HANDLER(AST_ACCESS_STATEMENT,             build_scope_access_stmt,           kind_nonexecutable_0 ) \
- STATEMENT_HANDLER(AST_ALLOCATABLE_STATEMENT,        build_scope_allocatable_stmt,      kind_nonexecutable_0 ) \
- STATEMENT_HANDLER(AST_ALLOCATE_STATEMENT,           build_scope_allocate_stmt,         kind_executable_0    ) \
- STATEMENT_HANDLER(AST_ALL_STOP_STATEMENT,           build_scope_allstop_stmt,          kind_executable_0    ) \
- STATEMENT_HANDLER(AST_ARITHMETIC_IF_STATEMENT,      build_scope_arithmetic_if_stmt,    kind_executable_0    ) \
- STATEMENT_HANDLER(AST_EXPRESSION_STATEMENT,         build_scope_expression_stmt,       kind_executable_0    ) \
- STATEMENT_HANDLER(AST_ASSOCIATE_CONSTRUCT,          build_scope_associate_construct,   kind_executable_0    ) \
- STATEMENT_HANDLER(AST_ASYNCHRONOUS_STATEMENT,       build_scope_asynchronous_stmt,     kind_executable_0    ) \
- STATEMENT_HANDLER(AST_IO_STATEMENT,                 build_io_stmt,                     kind_executable_0    ) \
- STATEMENT_HANDLER(AST_BIND_STATEMENT,               build_scope_bind_stmt,             kind_nonexecutable_0 ) \
- STATEMENT_HANDLER(AST_BLOCK_CONSTRUCT,              build_scope_block_construct,       kind_executable_0    ) \
- STATEMENT_HANDLER(AST_SWITCH_STATEMENT,             build_scope_case_construct,        kind_executable_0    ) \
- STATEMENT_HANDLER(AST_CASE_STATEMENT,               build_scope_case_statement,        kind_executable_0    ) \
- STATEMENT_HANDLER(AST_DEFAULT_STATEMENT,            build_scope_default_statement,     kind_executable_0    ) \
- STATEMENT_HANDLER(AST_CLOSE_STATEMENT,              build_scope_close_stmt,            kind_executable_0    ) \
- STATEMENT_HANDLER(AST_CODIMENSION_STATEMENT,        build_scope_codimension_stmt,      kind_nonexecutable_0 ) \
- STATEMENT_HANDLER(AST_COMMON_STATEMENT,             build_scope_common_stmt,           kind_nonexecutable_0 ) \
- STATEMENT_HANDLER(AST_COMPOUND_STATEMENT,           build_scope_compound_statement,    kind_executable_0    ) \
- STATEMENT_HANDLER(AST_COMPUTED_GOTO_STATEMENT,      build_scope_computed_goto_stmt,    kind_executable_0    ) \
- STATEMENT_HANDLER(AST_ASSIGNED_GOTO_STATEMENT,      build_scope_assigned_goto_stmt,    kind_executable_0    ) \
- STATEMENT_HANDLER(AST_LABEL_ASSIGN_STATEMENT,       build_scope_label_assign_stmt,     kind_executable_0    ) \
- STATEMENT_HANDLER(AST_LABELED_STATEMENT,            build_scope_labeled_stmt,          kind_of_son_1        ) \
- STATEMENT_HANDLER(AST_EMPTY_STATEMENT,              build_scope_continue_stmt,         kind_executable_0    ) \
- STATEMENT_HANDLER(AST_CRITICAL_CONSTRUCT,           build_scope_critical_construct,    kind_executable_0    ) \
- STATEMENT_HANDLER(AST_CONTINUE_STATEMENT,           build_scope_cycle_stmt,            kind_executable_0    ) \
- STATEMENT_HANDLER(AST_DATA_STATEMENT,               build_scope_data_stmt,             kind_nonexecutable_0 ) \
- STATEMENT_HANDLER(AST_DEALLOCATE_STATEMENT,         build_scope_deallocate_stmt,       kind_executable_0    ) \
- STATEMENT_HANDLER(AST_DERIVED_TYPE_DEF,             build_scope_derived_type_def,      kind_nonexecutable_0 ) \
- STATEMENT_HANDLER(AST_DIMENSION_STATEMENT,          build_scope_dimension_stmt,        kind_nonexecutable_0 ) \
- STATEMENT_HANDLER(AST_FOR_STATEMENT,                build_scope_do_construct,          kind_executable_0    ) \
- STATEMENT_HANDLER(AST_ENUM_DEF,                     build_scope_enum_def,              kind_nonexecutable_0 ) \
- STATEMENT_HANDLER(AST_EQUIVALENCE_STATEMENT,        build_scope_equivalence_stmt,      kind_nonexecutable_0 ) \
- STATEMENT_HANDLER(AST_BREAK_STATEMENT,              build_scope_exit_stmt,             kind_executable_0    ) \
- STATEMENT_HANDLER(AST_EXTERNAL_STATEMENT,           build_scope_external_stmt,         kind_nonexecutable_0 ) \
- STATEMENT_HANDLER(AST_FORALL_CONSTRUCT,             build_scope_forall_construct,      kind_executable_0    ) \
- STATEMENT_HANDLER(AST_FORALL_STATEMENT,             build_scope_forall_stmt,           kind_executable_0    ) \
- STATEMENT_HANDLER(AST_FORMAT_STATEMENT,             build_scope_format_stmt,           kind_nonexecutable_0 ) \
- STATEMENT_HANDLER(AST_GOTO_STATEMENT,               build_scope_goto_stmt,             kind_executable_0    ) \
- STATEMENT_HANDLER(AST_IF_ELSE_STATEMENT,            build_scope_if_construct,          kind_executable_0    ) \
- STATEMENT_HANDLER(AST_IMPLICIT_STATEMENT,           build_scope_implicit_stmt,         kind_nonexecutable_0 ) \
- STATEMENT_HANDLER(AST_IMPORT_STATEMENT,             build_scope_import_stmt,           kind_nonexecutable_0 ) \
- STATEMENT_HANDLER(AST_INTENT_STATEMENT,             build_scope_intent_stmt,           kind_nonexecutable_0 ) \
- STATEMENT_HANDLER(AST_INTERFACE_BLOCK,              build_scope_interface_block,       kind_nonexecutable_0 ) \
- STATEMENT_HANDLER(AST_INTRINSIC_STATEMENT,          build_scope_intrinsic_stmt,        kind_nonexecutable_0 ) \
- STATEMENT_HANDLER(AST_LOCK_STATEMENT,               build_scope_lock_stmt,             kind_executable_0    ) \
- STATEMENT_HANDLER(AST_NAMELIST_STATEMENT,           build_scope_namelist_stmt,         kind_nonexecutable_0 ) \
- STATEMENT_HANDLER(AST_NULLIFY_STATEMENT,            build_scope_nullify_stmt,          kind_executable_0    ) \
- STATEMENT_HANDLER(AST_OPEN_STATEMENT,               build_scope_open_stmt,             kind_executable_0    ) \
- STATEMENT_HANDLER(AST_OPTIONAL_STATEMENT,           build_scope_optional_stmt,         kind_nonexecutable_0 ) \
- STATEMENT_HANDLER(AST_PARAMETER_STATEMENT,          build_scope_parameter_stmt,        kind_nonexecutable_0 ) \
- STATEMENT_HANDLER(AST_CRAY_POINTER_STATEMENT,       build_scope_cray_pointer_stmt,     kind_nonexecutable_0 ) \
- STATEMENT_HANDLER(AST_POINTER_STATEMENT,            build_scope_pointer_stmt,          kind_nonexecutable_0 ) \
- STATEMENT_HANDLER(AST_PRINT_STATEMENT,              build_scope_print_stmt,            kind_executable_0    ) \
- STATEMENT_HANDLER(AST_PROCEDURE_DECL_STATEMENT,     build_scope_procedure_decl_stmt,   kind_nonexecutable_0 ) \
- STATEMENT_HANDLER(AST_PROTECTED_STATEMENT,          build_scope_protected_stmt,        kind_nonexecutable_0 ) \
- STATEMENT_HANDLER(AST_READ_STATEMENT,               build_scope_read_stmt,             kind_executable_0    ) \
- STATEMENT_HANDLER(AST_RETURN_STATEMENT,             build_scope_return_stmt,           kind_executable_0    ) \
- STATEMENT_HANDLER(AST_SAVE_STATEMENT,               build_scope_save_stmt,             kind_nonexecutable_0 ) \
- STATEMENT_HANDLER(AST_SELECT_TYPE_CONSTRUCT,        build_scope_select_type_construct, kind_executable_0    ) \
- STATEMENT_HANDLER(AST_STATEMENT_FUNCTION_STATEMENT, build_scope_stmt_function_stmt,    kind_nonexecutable_0 ) \
- STATEMENT_HANDLER(AST_STOP_STATEMENT,               build_scope_stop_stmt,             kind_executable_0    ) \
- STATEMENT_HANDLER(AST_PAUSE_STATEMENT,              build_scope_pause_stmt,            kind_executable_0    ) \
- STATEMENT_HANDLER(AST_SYNC_ALL_STATEMENT,           build_scope_sync_all_stmt,         kind_executable_0    ) \
- STATEMENT_HANDLER(AST_SYNC_IMAGES_STATEMENT,        build_scope_sync_images_stmt,      kind_executable_0    ) \
- STATEMENT_HANDLER(AST_SYNC_MEMORY_STATEMENT,        build_scope_sync_memory_stmt,      kind_executable_0    ) \
- STATEMENT_HANDLER(AST_TARGET_STATEMENT,             build_scope_target_stmt,           kind_nonexecutable_0 ) \
- STATEMENT_HANDLER(AST_DECLARATION_STATEMENT,        build_scope_type_declaration_stmt, kind_nonexecutable_0 ) \
- STATEMENT_HANDLER(AST_UNLOCK_STATEMENT,             build_scope_unlock_stmt,           kind_executable_0    ) \
- STATEMENT_HANDLER(AST_USE_STATEMENT,                build_scope_use_stmt,              kind_nonexecutable_0    ) \
- STATEMENT_HANDLER(AST_USE_ONLY_STATEMENT,           build_scope_use_stmt,              kind_executable_0    ) \
- STATEMENT_HANDLER(AST_VALUE_STATEMENT,              build_scope_value_stmt,            kind_nonexecutable_0 ) \
- STATEMENT_HANDLER(AST_VOLATILE_STATEMENT,           build_scope_volatile_stmt,         kind_nonexecutable_0 ) \
- STATEMENT_HANDLER(AST_WAIT_STATEMENT,               build_scope_wait_stmt,             kind_executable_0    ) \
- STATEMENT_HANDLER(AST_WHERE_CONSTRUCT,              build_scope_where_construct,       kind_executable_0    ) \
- STATEMENT_HANDLER(AST_WHERE_STATEMENT,              build_scope_where_stmt,            kind_executable_0    ) \
- STATEMENT_HANDLER(AST_WHILE_STATEMENT,              build_scope_while_stmt,            kind_executable_0    ) \
- STATEMENT_HANDLER(AST_WRITE_STATEMENT,              build_scope_write_stmt,            kind_executable_0    ) \
- STATEMENT_HANDLER(AST_PRAGMA_CUSTOM_CONSTRUCT,      build_scope_pragma_custom_ctr,     kind_executable_0  ) \
- STATEMENT_HANDLER(AST_PRAGMA_CUSTOM_DIRECTIVE,      build_scope_pragma_custom_dir,     kind_nonexecutable_0 ) \
- STATEMENT_HANDLER(AST_UNKNOWN_PRAGMA,               build_scope_unknown_pragma,        kind_nonexecutable_0  ) \
- STATEMENT_HANDLER(AST_STATEMENT_PLACEHOLDER,        build_scope_statement_placeholder, kind_nonexecutable_0  ) \
- STATEMENT_HANDLER(AST_ENTRY_STATEMENT,              build_scope_entry_stmt,            kind_executable_0 ) \
+ STATEMENT_HANDLER(AST_ACCESS_STATEMENT,              build_scope_access_stmt,           kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_ALLOCATABLE_STATEMENT,         build_scope_allocatable_stmt,      kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_ALLOCATE_STATEMENT,            build_scope_allocate_stmt,         kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_ALL_STOP_STATEMENT,            build_scope_allstop_stmt,          kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_ARITHMETIC_IF_STATEMENT,       build_scope_arithmetic_if_stmt,    kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_EXPRESSION_STATEMENT,          build_scope_expression_stmt,       kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_ASSOCIATE_CONSTRUCT,           build_scope_associate_construct,   kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_ASYNCHRONOUS_STATEMENT,        build_scope_asynchronous_stmt,     kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_IO_STATEMENT,                  build_io_stmt,                     kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_BIND_STATEMENT,                build_scope_bind_stmt,             kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_BLOCK_CONSTRUCT,               build_scope_block_construct,       kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_SWITCH_STATEMENT,              build_scope_case_construct,        kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_CASE_STATEMENT,                build_scope_case_statement,        kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_DEFAULT_STATEMENT,             build_scope_default_statement,     kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_CLOSE_STATEMENT,               build_scope_close_stmt,            kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_CODIMENSION_STATEMENT,         build_scope_codimension_stmt,      kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_COMMON_STATEMENT,              build_scope_common_stmt,           kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_COMPOUND_STATEMENT,            build_scope_compound_statement,    kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_COMPUTED_GOTO_STATEMENT,       build_scope_computed_goto_stmt,    kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_ASSIGNED_GOTO_STATEMENT,       build_scope_assigned_goto_stmt,    kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_LABEL_ASSIGN_STATEMENT,        build_scope_label_assign_stmt,     kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_LABELED_STATEMENT,             build_scope_labeled_stmt,          kind_of_son_1        ) \
+ STATEMENT_HANDLER(AST_EMPTY_STATEMENT,               build_scope_continue_stmt,         kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_CRITICAL_CONSTRUCT,            build_scope_critical_construct,    kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_CONTINUE_STATEMENT,            build_scope_cycle_stmt,            kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_DATA_STATEMENT,                build_scope_data_stmt,             kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_DEALLOCATE_STATEMENT,          build_scope_deallocate_stmt,       kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_DERIVED_TYPE_DEF,              build_scope_derived_type_def,      kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_DIMENSION_STATEMENT,           build_scope_dimension_stmt,        kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_FOR_STATEMENT,                 build_scope_do_construct,          kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_ENUM_DEF,                      build_scope_enum_def,              kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_EQUIVALENCE_STATEMENT,         build_scope_equivalence_stmt,      kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_BREAK_STATEMENT,               build_scope_exit_stmt,             kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_EXTERNAL_STATEMENT,            build_scope_external_stmt,         kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_FORALL_CONSTRUCT,              build_scope_forall_construct,      kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_FORALL_STATEMENT,              build_scope_forall_stmt,           kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_FORMAT_STATEMENT,              build_scope_format_stmt,           kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_GOTO_STATEMENT,                build_scope_goto_stmt,             kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_IF_ELSE_STATEMENT,             build_scope_if_construct,          kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_IMPLICIT_STATEMENT,            build_scope_implicit_stmt,         kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_IMPORT_STATEMENT,              build_scope_import_stmt,           kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_INTENT_STATEMENT,              build_scope_intent_stmt,           kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_INTERFACE_BLOCK,               build_scope_interface_block,       kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_INTRINSIC_STATEMENT,           build_scope_intrinsic_stmt,        kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_LOCK_STATEMENT,                build_scope_lock_stmt,             kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_NAMELIST_STATEMENT,            build_scope_namelist_stmt,         kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_NULLIFY_STATEMENT,             build_scope_nullify_stmt,          kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_OPEN_STATEMENT,                build_scope_open_stmt,             kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_OPTIONAL_STATEMENT,            build_scope_optional_stmt,         kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_PARAMETER_STATEMENT,           build_scope_parameter_stmt,        kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_CRAY_POINTER_STATEMENT,        build_scope_cray_pointer_stmt,     kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_POINTER_STATEMENT,             build_scope_pointer_stmt,          kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_PRINT_STATEMENT,               build_scope_print_stmt,            kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_PROCEDURE_DECL_STATEMENT,      build_scope_procedure_decl_stmt,   kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_PROTECTED_STATEMENT,           build_scope_protected_stmt,        kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_READ_STATEMENT,                build_scope_read_stmt,             kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_RETURN_STATEMENT,              build_scope_return_stmt,           kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_SAVE_STATEMENT,                build_scope_save_stmt,             kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_SELECT_TYPE_CONSTRUCT,         build_scope_select_type_construct, kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_STATEMENT_FUNCTION_STATEMENT,  build_scope_stmt_function_stmt,    kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_STOP_STATEMENT,                build_scope_stop_stmt,             kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_PAUSE_STATEMENT,               build_scope_pause_stmt,            kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_SYNC_ALL_STATEMENT,            build_scope_sync_all_stmt,         kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_SYNC_IMAGES_STATEMENT,         build_scope_sync_images_stmt,      kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_SYNC_MEMORY_STATEMENT,         build_scope_sync_memory_stmt,      kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_TARGET_STATEMENT,              build_scope_target_stmt,           kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_DECLARATION_STATEMENT,         build_scope_declaration_stmt,      kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_UNLOCK_STATEMENT,              build_scope_unlock_stmt,           kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_USE_STATEMENT,                 build_scope_use_stmt,              kind_nonexecutable_0    ) \
+ STATEMENT_HANDLER(AST_USE_ONLY_STATEMENT,            build_scope_use_stmt,              kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_VALUE_STATEMENT,               build_scope_value_stmt,            kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_VOLATILE_STATEMENT,            build_scope_volatile_stmt,         kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_WAIT_STATEMENT,                build_scope_wait_stmt,             kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_WHERE_CONSTRUCT,               build_scope_where_construct,       kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_WHERE_STATEMENT,               build_scope_where_stmt,            kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_WHILE_STATEMENT,               build_scope_while_stmt,            kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_WRITE_STATEMENT,               build_scope_write_stmt,            kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_PRAGMA_CUSTOM_CONSTRUCT,       build_scope_pragma_custom_ctr,     kind_executable_0  ) \
+ STATEMENT_HANDLER(AST_PRAGMA_CUSTOM_DIRECTIVE,       build_scope_pragma_custom_dir,     kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_UNKNOWN_PRAGMA,                build_scope_unknown_pragma,        kind_nonexecutable_0  ) \
+ STATEMENT_HANDLER(AST_STATEMENT_PLACEHOLDER,         build_scope_statement_placeholder, kind_nonexecutable_0  ) \
+ STATEMENT_HANDLER(AST_ENTRY_STATEMENT,               build_scope_entry_stmt,            kind_executable_0 ) \
+ STATEMENT_HANDLER(AST_TYPEDEF_DECLARATION_STATEMENT, build_scope_typedef_stmt,          kind_nonexecutable_0 ) \
 
 // Prototypes
 #define STATEMENT_HANDLER(_kind, _handler, _) \
@@ -4245,6 +4246,7 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
         }
     }
 
+    set_is_complete_type(class_name->type_information, 1);
 
     if (decl_context.current_scope->related_entry != NULL
             && decl_context.current_scope->related_entry->kind == SK_MODULE)
@@ -5715,7 +5717,9 @@ static void build_scope_target_stmt(AST a, decl_context_t decl_context, nodecl_t
 
 }
 
-static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output UNUSED_PARAMETER)
+static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_context, 
+        char is_typedef,
+        nodecl_t* nodecl_output UNUSED_PARAMETER)
 {
     DEBUG_CODE()
     {
@@ -5776,6 +5780,17 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
                     entry->file,
                     entry->line);
             continue;
+        }
+
+        if (is_typedef)
+        {
+            if (entry->kind != SK_UNDEFINED)
+            {
+                running_error("%s: error: TYPEDEF would overwrite a non undefined entity\n", 
+                        ast_location(declaration));
+            }
+            entry->kind = SK_TYPEDEF;
+            remove_unknown_kind_symbol(decl_context, entry);
         }
 
         remove_untyped_symbol(decl_context, entry);
@@ -5880,9 +5895,13 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
                     current_attr_spec.array_spec,
                     decl_context,
                     /* array_spec_kind */ NULL);
-            entry->kind = SK_VARIABLE;
-            remove_unknown_kind_symbol(decl_context, entry);
-            
+
+            if (!is_typedef)
+            {
+                // From now this entity is only a variable
+                entry->kind = SK_VARIABLE;
+                remove_unknown_kind_symbol(decl_context, entry);
+            }
            
             entry->type_information = array_type;
 
@@ -6087,6 +6106,22 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
             fprintf(stderr, "BUILDSCOPE: Type of symbol '%s' is '%s'\n", entry->symbol_name, print_declarator(entry->type_information));
         }
     }
+}
+
+static void build_scope_declaration_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
+{
+    build_scope_declaration_common_stmt(a, decl_context, 
+            /* is_typedef */ 0,
+            nodecl_output);
+}
+
+// This is an internal Mercurium extension
+static void build_scope_typedef_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
+{
+    build_scope_declaration_common_stmt(a, 
+            decl_context, 
+            /* is_typedef */ 1,
+            nodecl_output);
 }
 
 static void build_scope_unlock_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output UNUSED_PARAMETER)

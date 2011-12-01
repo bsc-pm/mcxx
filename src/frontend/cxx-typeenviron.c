@@ -406,6 +406,13 @@ static void system_v_generic_sizeof(type_t* t)
     {
         c_or_cxx_enum_sizeof(t);
     }
+    else if (is_lvalue_reference_type(t))
+    {
+        // In C this are handled like pointers
+        type_set_size(t, CURRENT_CONFIGURATION->type_environment->sizeof_pointer);
+        type_set_alignment(t, CURRENT_CONFIGURATION->type_environment->alignof_pointer);
+        type_set_valid_size(t, 1);
+    }
     else
     {
         internal_error("Unhandled type size '%s'", print_declarator(t));

@@ -122,7 +122,7 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         <<     struct_runtime_size
         <<     "nanos_wd_t wd = (nanos_wd_t)0;"
         <<     "nanos_wd_props_t props;"
-        <<     "__builtin_memset(&props, 0, sizeof(props));"
+        // <<     "__builtin_memset(&props, 0, sizeof(props));"
         <<     creation
         <<     priority
         <<     tiedness
@@ -135,7 +135,7 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         <<                 alignment
         <<                 "(void**)&ol_args, nanos_current_wd(),"
         <<                 "&props, " << num_copies << ", " << copy_data << ");"
-        <<     "if (err != NANOS_OK) nanos_handle_error (err);"
+        <<     "if (err != nanos_ok) nanos_handle_error (err);"
         <<     if_expr_cond_end
         <<     "if (wd != (nanos_wd_t)0)"
         <<     "{"
@@ -145,7 +145,7 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         <<        set_translation_fun
         <<        "err = nanos_submit(wd, " << num_dependences << ", (" << dependency_struct << "*)" 
         << dependency_array << ", (nanos_team_t)0);"
-        <<        "if (err != NANOS_OK) nanos_handle_error (err);"
+        <<        "if (err != nanos_ok) nanos_handle_error (err);"
         <<     "}"
         <<     "else"
         <<     "{"
@@ -161,7 +161,7 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         <<                  num_dependences << ", (" << dependency_struct << "*)" << dependency_array << ", &props,"
         <<                  num_copies << "," << copy_imm_data 
         <<                  translation_fun_arg_name << ");"
-        <<          "if (err != NANOS_OK) nanos_handle_error (err);"
+        <<          "if (err != nanos_ok) nanos_handle_error (err);"
         <<     "}"
         << "}"
         ;
@@ -179,7 +179,7 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         Source::source_language = SourceLanguage::Current;
     }
 
-    // construct.integrate(n);
+    construct.integrate(n);
 }
 
 } }

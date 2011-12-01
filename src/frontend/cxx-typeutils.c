@@ -7678,6 +7678,27 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         (*result) = identity_scs(t_orig, t_dest);
         return 1;
     }
+
+    // C only
+    // T -> T @ref@
+    if (IS_C_LANGUAGE
+            && is_lvalue_reference_type(dest))
+    {
+        type_t* ref_dest = reference_type_get_referenced_type(dest);
+
+        type_t* unqualif_orig = get_unqualified_type(orig);
+        type_t* unqualif_ref_dest = get_unqualified_type(ref_dest);
+
+        if (equivalent_types(unqualif_orig, unqualif_ref_dest))
+        {
+            (*result) = identity_scs(t_orig, t_dest);
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: Mercurium Extension for C: binding a type to a reference type\n");
+            }
+            return 1;
+        }
+    }
     // cv1 T1& -> cv2 T2&
     if (is_lvalue_reference_type(orig)
             && is_lvalue_reference_type(dest))
