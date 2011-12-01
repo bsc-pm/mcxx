@@ -4,6 +4,8 @@
 #include "fortran03-typeutils.h"
 #include "cxx-cexpr.h"
 
+#include <ctype.h>
+
 namespace Codegen
 {
     std::string FortranBase::codegen(const Nodecl::NodeclBase &n) 
@@ -445,7 +447,11 @@ OPERATOR_TABLE
         int *bytes = NULL;
         const_value_string_unpack(v, &bytes, &length);
 
-        file << "\"";
+        if (length == 0
+                || (::isprint(bytes[0])))
+        {
+            file << "\"";
+        }
 
         int i;
 
@@ -453,17 +459,40 @@ OPERATOR_TABLE
         {
             int current = bytes[i];
 
-            if (current == '\"')
+            if (::isprint(current))
             {
-                file << "\"\"";
+                if (current == '\"')
+                {
+                    file << "\"\"";
+                }
+                else
+                {
+                    file << (char)current;
+                }
             }
             else
             {
-                file << (char)current;
+                if (i > 0)
+                {
+                    file << "\" // ";
+                }
+                file << "char(" << current << ")";
+                if ((i+1) < length)
+                {
+                    file << " // ";
+                    if (::isprint(bytes[i+1]))
+                    {
+                        file << "\"";
+                    }
+                }
             }
         }
 
-        file << "\"";
+        if (length == 0
+                || (::isprint(bytes[length - 1])))
+        {
+            file << "\"";
+        }
 
         free(bytes);
     }
