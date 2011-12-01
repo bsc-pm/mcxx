@@ -212,6 +212,10 @@ static void append_statement_to_block(AST block, AST stmt)
 %type<ast> data_component_def_stmt
 %type<ast> component_decl
 %type<ast> main_program
+%type<ast> global_program_unit
+%type<ast> global_body
+%type<token_atrib> global_stmt
+%type<token_atrib> end_global_stmt
 %type<ast> top_level_program_unit_stmt_seq
 %type<ast> non_top_level_program_unit_stmt_seq
 %type<ast> top_level_program_unit_stmt
@@ -889,6 +893,9 @@ static void append_statement_to_block(AST block, AST stmt)
 %token<token_atrib> TOK_END_NONBLOCK_DO "end-of-nonblock-do"
 %token<token_atrib> TOK_SHARED_LABEL "shared-do-label"
 
+%token<token_atrib> GLOBAL "<global-program-unit>"
+%token<token_atrib> END_GLOBAL "<end-global-program-unit>"
+
 /*!define GRAMMAR_PROLOGUE*/
 /*!include fortran03-subparse.y*/
 /*!include cxx-nodecl.y*/
@@ -912,6 +919,7 @@ program_unit : main_program
 | module
 | submodule
 | block_data
+| global_program_unit
 ;
 external_subprogram : function_subprogram
 | subroutine_subprogram
@@ -4204,6 +4212,24 @@ main_program : program_stmt program_body end_program_stmt
 | program_body end_program_stmt
 {
     $$ = ASTMake3(AST_MAIN_PROGRAM_UNIT, NULL, $1, $2, ASTFileName($1), ASTLine($1), NULL);
+}
+;
+global_program_unit: global_stmt global_body end_global_stmt
+{
+    $$ = ASTMake1(AST_GLOBAL_PROGRAM_UNIT, $2, $1.token_file, $1.token_line, NULL);
+}
+| global_stmt end_global_stmt
+{
+    $$ = ASTMake1(AST_GLOBAL_PROGRAM_UNIT, NULL, $1.token_file, $1.token_line, NULL);
+}
+;
+global_stmt: GLOBAL EOS
+;
+end_global_stmt : END_GLOBAL EOS
+;
+global_body : non_top_level_program_unit_stmt_seq
+{
+    $$ = ASTMake2(AST_BODY_PROGRAM_UNIT, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 non_top_level_program_unit_stmt_seq : non_top_level_program_unit_stmt
