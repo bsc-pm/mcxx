@@ -859,7 +859,7 @@ OPERATOR_TABLE
         dec_indent(1);
         indent();
         file << "CASE (";
-        walk(node.get_case());
+        codegen_comma_separated_list(node.get_case());
         file << ")\n";
         inc_indent(1);
         walk(node.get_statement());
