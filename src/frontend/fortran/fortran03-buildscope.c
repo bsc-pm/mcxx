@@ -7173,6 +7173,14 @@ static void opt_iostat_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl
     *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "IOSTAT", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
+static void opt_iolength_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
+{
+    AST value = ASTSon0(opt_value);
+    nodecl_t nodecl_value = nodecl_null();
+    opt_common_int_variable(value, decl_context, "IOLENGTH", &nodecl_value);
+    *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "IOLENGTH", ASTFileName(opt_value), ASTLine(opt_value));
+}
+
 static void opt_mold_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
