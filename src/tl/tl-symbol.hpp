@@ -290,6 +290,9 @@ namespace TL
              * created it because it appeared in a friend declaration
              */
             bool is_friend_declared() const;
+            
+            //! States whether this symbol is an ENTRY
+            bool is_entry() const;
 
             //! States whether this function was defined with no exception-specifier
             bool function_throws_any_exception() const;

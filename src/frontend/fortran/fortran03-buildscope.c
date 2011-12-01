@@ -1251,7 +1251,7 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
         entry = new_fortran_symbol(decl_context, ASTText(name));
     }
 
-    decl_context.current_scope->related_entry = entry;
+    //decl_context.current_scope->related_entry = entry;
 
     entry->kind = SK_FUNCTION;
     entry->file = ASTFileName(name);
@@ -1824,7 +1824,6 @@ typedef struct build_scope_statement_handler_tag
  STATEMENT_HANDLER(AST_DERIVED_TYPE_DEF,             build_scope_derived_type_def,      kind_nonexecutable_0 ) \
  STATEMENT_HANDLER(AST_DIMENSION_STATEMENT,          build_scope_dimension_stmt,        kind_nonexecutable_0 ) \
  STATEMENT_HANDLER(AST_FOR_STATEMENT,                build_scope_do_construct,          kind_executable_0    ) \
- STATEMENT_HANDLER(AST_ENTRY_STATEMENT,              build_scope_entry_stmt,            kind_nonexecutable_0 ) \
  STATEMENT_HANDLER(AST_ENUM_DEF,                     build_scope_enum_def,              kind_nonexecutable_0 ) \
  STATEMENT_HANDLER(AST_EQUIVALENCE_STATEMENT,        build_scope_equivalence_stmt,      kind_nonexecutable_0 ) \
  STATEMENT_HANDLER(AST_BREAK_STATEMENT,              build_scope_exit_stmt,             kind_executable_0    ) \
@@ -4356,7 +4355,6 @@ static void build_scope_entry_stmt(AST a, decl_context_t decl_context, nodecl_t*
 
     char is_function = is_function_type(related_sym->type_information); 
     scope_entry_t* entry = new_entry_symbol(decl_context, name, suffix, dummy_arg_list, is_function);
-    
     *nodecl_output = nodecl_make_fortran_entry_statement(entry, ASTFileName(a), ASTLine(a));
 }
 
