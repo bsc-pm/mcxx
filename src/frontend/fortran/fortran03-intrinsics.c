@@ -90,7 +90,7 @@ FORTRAN_GENERIC_INTRINSIC(blt, "I,J", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(bit_size, "I", I, simplify_bit_size) \
 FORTRAN_GENERIC_INTRINSIC(btest, "I,POS", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(ceiling, "A,?KIND", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(char, "I,?KIND", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(char, "I,?KIND", E, simplify_char) \
 FORTRAN_GENERIC_INTRINSIC(cmplx, "X,?Y,?KIND", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(dcmplx, "X,?Y", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(command_argument_count, "", T, NULL) \
@@ -946,7 +946,7 @@ done;
 
 static void fortran_init_specific_names(decl_context_t decl_context)
 {
-    type_t* default_char = get_array_type(get_char_type(), nodecl_null(), decl_context);
+    type_t* default_char = get_array_type(get_signed_char_type(), nodecl_null(), decl_context);
 
     REGISTER_SPECIFIC_INTRINSIC_1("abs", "abs", get_float_type());
     REGISTER_SPECIFIC_INTRINSIC_1("acos", "acos", get_float_type());
@@ -1082,7 +1082,7 @@ scope_entry_t* compute_intrinsic_achar(scope_entry_t* symbol UNUSED_PARAMETER,
     {
         // We ignore the character kind here
         return GET_INTRINSIC_ELEMENTAL("achar", 
-                get_array_type(get_char_type(), nodecl_null(), symbol->decl_context), 
+                get_array_type(get_signed_char_type(), nodecl_null(), symbol->decl_context), 
                 t0,
                 get_signed_int_type());
     }
@@ -1663,7 +1663,10 @@ scope_entry_t* compute_intrinsic_char(scope_entry_t* symbol UNUSED_PARAMETER,
             && opt_valid_kind_expr(argument_expressions[1], &di))
     {
         return GET_INTRINSIC_ELEMENTAL("char", 
-                get_array_type(get_char_type(), nodecl_null(), symbol->decl_context), 
+                get_array_type(get_signed_char_type(), 
+                    const_value_to_nodecl(
+                        const_value_get_one(fortran_get_default_integer_type_kind(), /* signed */ 1)),
+                    symbol->decl_context), 
                 t0,
                 get_signed_int_type());
     }
@@ -1862,7 +1865,7 @@ scope_entry_t* compute_intrinsic_date_and_time(scope_entry_t* symbol UNUSED_PARA
                 (is_integer_type(get_rank0_type(t3)) &&
                  get_rank_of_type(t3) == 1)))
     {
-        type_t* char_type = get_array_type(get_char_type(), nodecl_null(), symbol->decl_context);
+        type_t* char_type = get_array_type(get_signed_char_type(), nodecl_null(), symbol->decl_context);
         type_t* int_array = get_n_ranked_type(get_signed_int_type(), 1, symbol->decl_context);
         return GET_INTRINSIC_IMPURE("date_and_time", get_void_type(), char_type, char_type, char_type, int_array);
     }
@@ -2126,7 +2129,7 @@ scope_entry_t* compute_intrinsic_execute_command_line(scope_entry_t* symbol UNUS
                 t1, 
                 t2 == NULL ? get_signed_int_type() : t2,
                 t3 == NULL ? get_signed_int_type() : t3,
-                t4 == NULL ? get_n_ranked_type(get_char_type(), 1, symbol->decl_context) : t3);
+                t4 == NULL ? get_n_ranked_type(get_signed_char_type(), 1, symbol->decl_context) : t3);
 
     }
 
@@ -2300,7 +2303,7 @@ scope_entry_t* compute_intrinsic_get_command(scope_entry_t* symbol UNUSED_PARAME
     {
         return GET_INTRINSIC_IMPURE("get_command",
                 get_void_type(), // Is a subroutine
-                t0 == NULL ? get_n_ranked_type(get_char_type(), 1, symbol->decl_context) : t0,
+                t0 == NULL ? get_n_ranked_type(get_signed_char_type(), 1, symbol->decl_context) : t0,
                 t1 == NULL ? get_signed_int_type() : t1,
                 t2 == NULL ? get_signed_int_type() : t2);
     }
@@ -2326,7 +2329,7 @@ scope_entry_t* compute_intrinsic_get_command_argument(scope_entry_t* symbol UNUS
         return GET_INTRINSIC_IMPURE("get_command_argument",
                 get_void_type(), // Is a subroutine
                 t0,
-                t1 == NULL ? get_n_ranked_type(get_char_type(), 1, symbol->decl_context) : t1,
+                t1 == NULL ? get_n_ranked_type(get_signed_char_type(), 1, symbol->decl_context) : t1,
                 t2 == NULL ? get_signed_int_type() : t2,
                 t3 == NULL ? get_signed_int_type() : t3);
     }
@@ -2355,7 +2358,7 @@ scope_entry_t* compute_intrinsic_get_environment_variable(scope_entry_t* symbol 
         return GET_INTRINSIC_IMPURE("get_environment_variable", 
                 get_void_type(), // is a subroutine
                 t0,
-                t1 == NULL ? get_n_ranked_type(get_char_type(), 1, symbol->decl_context) : t1,
+                t1 == NULL ? get_n_ranked_type(get_signed_char_type(), 1, symbol->decl_context) : t1,
                 t2 == NULL ? get_signed_int_type() : t2,
                 t3 == NULL ? get_signed_int_type() : t3,
                 t3 == NULL ? fortran_get_default_logical_type() : t4);
