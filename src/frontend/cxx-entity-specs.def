@@ -75,6 +75,7 @@ bool|fortran|is_dummy_arg_stmt_function|This symbol is a dummy argument of a sta
 bool|fortran|is_generic_spec|This symbol is a generic specifier name
 bool|fortran|is_builtin_subroutine|This symbol is a builtin subroutine (or function)
 bool|fortran|is_module_procedure|This function has been named in an interface construct as a MODULE PROCEDURE
+bool|fortran|is_entry|This symbol is an ENTRY  
 bool|fortran|is_renamed|States that this symbol has been USEd with a rename
 bool|fortran|bind_c|This symbol has a BIND(C) attribute
 bool|fortran|is_cray_pointee|This symbol is a Cray pointee

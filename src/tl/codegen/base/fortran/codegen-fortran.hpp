@@ -82,6 +82,7 @@ namespace Codegen
             void visit(const Nodecl::FortranArithmeticIfStatement& node);
             void visit(const Nodecl::FortranLabelAssignStatement& node);
             void visit(const Nodecl::FortranAssignedGotoStatement& node);
+            void visit(const Nodecl::FortranEntryStatement& node);
             void visit(const Nodecl::FortranImpliedDo& node);
             void visit(const Nodecl::FortranData& node);
             void visit(const Nodecl::FortranEquivalence& node);

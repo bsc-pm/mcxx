@@ -1084,6 +1084,32 @@ OPERATOR_TABLE
         codegen_comma_separated_list(node.get_label_seq());
         file << ")\n";
     }
+    
+    void FortranBase::visit(const Nodecl::FortranEntryStatement& node)
+    {
+        indent();
+        TL::Symbol entry = node.get_symbol();
+
+        file << "ENTRY " 
+             << entry.get_name() 
+             << "(";
+        
+        TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
+        for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
+                it != related_symbols.end();
+                it++)
+        {
+            TL::Symbol &dummy(*it);
+            if (dummy.is_result_variable())
+                continue;
+
+            if (it != related_symbols.begin())
+                file << ", ";
+            file << dummy.get_name();
+        }
+        file << ")\n";
+    }
+
 
     void FortranBase::visit(const Nodecl::FortranImpliedDo& node)
     {
@@ -1596,6 +1622,8 @@ OPERATOR_TABLE
         }
         else if (entry.is_function())
         {
+            if(entry.is_entry())
+                return;
             if (entry.is_intrinsic())
             {
                 // Improve this

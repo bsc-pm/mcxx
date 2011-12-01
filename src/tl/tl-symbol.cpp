@@ -424,6 +424,11 @@ namespace TL
         return (_symbol->entity_specs.is_friend_declared);
     }
     
+    bool Symbol::is_entry() const
+    {
+        return (_symbol->entity_specs.is_entry);
+    }
+    
     bool Symbol::function_throws_any_exception() const
     {
         return (_symbol->entity_specs.any_exception);

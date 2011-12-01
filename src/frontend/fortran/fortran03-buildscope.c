@@ -1250,6 +1250,210 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
     return entry;
 }
 
+static scope_entry_t* new_entry_symbol(decl_context_t decl_context, 
+        AST name, AST suffix, AST dummy_arg_name_list,
+        char is_function)
+{
+    scope_entry_t* entry = NULL;
+
+    entry = fortran_query_name_str(decl_context, ASTText(name));
+
+    if (entry != NULL)
+    {
+        // We do not allow redeclaration if the symbol has already been defined
+        if (entry->defined
+                // If not defined it can only be a parameter of the current procedure
+                // being given an interface
+                || (!entry->entity_specs.is_parameter
+                    // Or an advanced declaration of a module procedure found in an INTERFACE at module level
+                    && !entry->entity_specs.is_module_procedure
+                    // Or a symbol we said something about it in the specification part of a module
+                    && !(entry->kind == SK_UNDEFINED
+                        && entry->entity_specs.in_module != NULL)))
+        {
+            error_printf("%s: error: redeclaration of entity '%s'\n", 
+                    ast_location(name), 
+                    ASTText(name));
+            return NULL;
+        }
+        // It can't be redefined anymore
+        if (entry->entity_specs.is_module_procedure)
+        {
+            entry->entity_specs.is_module_procedure = 0;
+            remove_not_fully_defined_symbol(entry->decl_context, entry);
+        }
+    }
+
+    if (entry == NULL)
+    {
+        entry = new_fortran_symbol(decl_context, ASTText(name));
+    }
+
+    //decl_context.current_scope->related_entry = entry;
+
+    entry->kind = SK_FUNCTION;
+    entry->file = ASTFileName(name);
+    entry->line = ASTLine(name);
+    entry->entity_specs.is_implicit_basic_type = 1;
+    entry->entity_specs.is_entry = 1;
+    entry->defined = 1;
+    
+    remove_unknown_kind_symbol(decl_context, entry);
+
+    type_t* return_type = get_void_type();
+    if (is_function)
+    {
+        return_type = get_implicit_type_for_symbol(decl_context, entry->symbol_name);
+    }
+    else
+    {
+        // Not an implicit basic type anymore
+        entry->entity_specs.is_implicit_basic_type = 0;
+    }
+
+    int num_dummy_arguments = 0;
+    if (dummy_arg_name_list != NULL)
+    {
+        int num_alternate_returns = 0;
+        AST it;
+        for_each_element(dummy_arg_name_list, it)
+        {
+            AST dummy_arg_name = ASTSon1(it);
+
+            scope_entry_t* dummy_arg = NULL;
+
+            if (strcmp(ASTText(dummy_arg_name), "*") == 0)
+            {
+                if (is_function)
+                {
+                    error_printf("%s: error: alternate return is not allowed in a FUNCTION specification\n",
+                            ast_location(dummy_arg_name));
+                    continue;
+                }
+
+                char alternate_return_name[64];
+                snprintf(alternate_return_name, 64, ".alternate-return-%d", num_alternate_returns);
+                alternate_return_name[63] = '\0';
+
+                dummy_arg = calloc(1, sizeof(*dummy_arg));
+
+                dummy_arg->symbol_name = uniquestr(alternate_return_name);
+                // This is actually a label parameter
+                dummy_arg->kind = SK_LABEL;
+                dummy_arg->type_information = get_void_type();
+                dummy_arg->decl_context = decl_context;
+                
+                num_alternate_returns++;
+            }
+            else
+            {
+                dummy_arg = get_symbol_for_name(decl_context, dummy_arg_name, ASTText(dummy_arg_name));
+
+                // Note that we do not set the exact kind of the dummy argument as
+                // it might be a function. If left SK_UNDEFINED, we later fix them
+                // to SK_VARIABLE
+                // Get a reference to its type (it will be properly updated later)
+                if (!is_lvalue_reference_type(dummy_arg->type_information)) 
+                {
+                    dummy_arg->type_information = get_lvalue_reference_type(dummy_arg->type_information);
+                    add_untyped_symbol(decl_context, dummy_arg);
+                }
+            }
+
+            dummy_arg->file = ASTFileName(dummy_arg_name);
+            dummy_arg->line = ASTLine(dummy_arg_name);
+            dummy_arg->entity_specs.is_parameter = 1;
+            dummy_arg->entity_specs.parameter_position = num_dummy_arguments;
+
+            P_LIST_ADD(entry->entity_specs.related_symbols,
+                    entry->entity_specs.num_related_symbols,
+                    dummy_arg);
+
+            num_dummy_arguments++;
+        }
+    }
+
+    AST result = NULL;
+    if (suffix != NULL)
+    {
+        // AST binding_spec = ASTSon0(suffix);
+        result = ASTSon1(suffix);
+    }
+
+    scope_entry_t* result_sym = NULL;
+    if (result != NULL)
+    {
+        if (!is_function)
+        {
+            error_printf("%s: error: RESULT is only valid for FUNCTION statement\n",
+                    ast_location(result));
+        }
+        else
+        {
+            result_sym = get_symbol_for_name(decl_context, result, ASTText(result));
+
+            result_sym->kind = SK_VARIABLE;
+            result_sym->file = ASTFileName(result);
+            result_sym->line = ASTLine(result);
+            result_sym->entity_specs.is_result = 1;
+            
+            remove_unknown_kind_symbol(decl_context, result_sym);
+
+            result_sym->type_information = get_lvalue_reference_type(return_type);
+
+            return_type = get_indirect_type(result_sym);
+
+            P_LIST_ADD(entry->entity_specs.related_symbols,
+                    entry->entity_specs.num_related_symbols,
+                    result_sym);
+        }
+    }
+    else if (is_function)
+    {
+        //Since this function does not have an explicit result variable we will insert an alias
+        //that will hide the function name
+        result_sym = new_symbol(decl_context, decl_context.current_scope, entry->symbol_name);
+        result_sym->kind = SK_VARIABLE;
+        result_sym->file = entry->file;
+        result_sym->line = entry->line;
+        result_sym->entity_specs.is_result = 1;
+
+        char function_has_type_spec = 0;
+        result_sym->type_information = get_lvalue_reference_type(return_type);
+        result_sym->entity_specs.is_implicit_basic_type = !function_has_type_spec;
+
+        if (!function_has_type_spec)
+        {
+            // Add it as an explicit unknown symbol because we want it to be
+            // updated with a later IMPLICIT
+            add_untyped_symbol(decl_context, result_sym);
+        }
+
+        return_type = get_indirect_type(result_sym);
+
+        P_LIST_ADD(entry->entity_specs.related_symbols,
+                entry->entity_specs.num_related_symbols,
+                result_sym);
+    }
+
+    // Try to come up with a sensible type for this entity
+    parameter_info_t parameter_info[num_dummy_arguments + 1];
+    memset(parameter_info, 0, sizeof(parameter_info));
+
+    int i;
+    for (i = 0; i < num_dummy_arguments; i++)
+    {
+        parameter_info[i].type_info = get_indirect_type(entry->entity_specs.related_symbols[i]);
+    }
+
+    type_t* function_type = get_new_function_type(return_type, parameter_info, num_dummy_arguments);
+    entry->type_information = function_type;
+
+    entry->entity_specs.is_implicit_basic_type = 0;
+    entry->related_decl_context = decl_context;
+
+    return entry;
+}
 static char statement_is_executable(AST statement);
 static void build_scope_ambiguity_statement(AST ambig_stmt, decl_context_t decl_context);
 
@@ -1658,7 +1862,6 @@ typedef struct build_scope_statement_handler_tag
  STATEMENT_HANDLER(AST_DERIVED_TYPE_DEF,             build_scope_derived_type_def,      kind_nonexecutable_0 ) \
  STATEMENT_HANDLER(AST_DIMENSION_STATEMENT,          build_scope_dimension_stmt,        kind_nonexecutable_0 ) \
  STATEMENT_HANDLER(AST_FOR_STATEMENT,                build_scope_do_construct,          kind_executable_0    ) \
- STATEMENT_HANDLER(AST_ENTRY_STATEMENT,              build_scope_entry_stmt,            kind_nonexecutable_0 ) \
  STATEMENT_HANDLER(AST_ENUM_DEF,                     build_scope_enum_def,              kind_nonexecutable_0 ) \
  STATEMENT_HANDLER(AST_EQUIVALENCE_STATEMENT,        build_scope_equivalence_stmt,      kind_nonexecutable_0 ) \
  STATEMENT_HANDLER(AST_BREAK_STATEMENT,              build_scope_exit_stmt,             kind_executable_0    ) \
@@ -1710,6 +1913,7 @@ typedef struct build_scope_statement_handler_tag
  STATEMENT_HANDLER(AST_PRAGMA_CUSTOM_DIRECTIVE,      build_scope_pragma_custom_dir,     kind_nonexecutable_0 ) \
  STATEMENT_HANDLER(AST_UNKNOWN_PRAGMA,               build_scope_unknown_pragma,        kind_nonexecutable_0  ) \
  STATEMENT_HANDLER(AST_STATEMENT_PLACEHOLDER,        build_scope_statement_placeholder, kind_nonexecutable_0  ) \
+ STATEMENT_HANDLER(AST_ENTRY_STATEMENT,              build_scope_entry_stmt,            kind_executable_0 ) \
 
 // Prototypes
 #define STATEMENT_HANDLER(_kind, _handler, _) \
@@ -4167,14 +4371,29 @@ static void build_scope_do_construct(AST a, decl_context_t decl_context, nodecl_
             ASTFileName(a), ASTLine(a));
 }
 
-static void build_scope_entry_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output UNUSED_PARAMETER)
+static void build_scope_entry_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    // AST name = ASTSon0(a);
-    // AST dummy_arg_list = ASTSon1(a);
-    // AST suffix = ASTSon2(a);
+    AST name = ASTSon0(a);
+    AST dummy_arg_list = ASTSon1(a);
+    AST suffix = ASTSon2(a);
+     
+    // An entry statement must be used in a subroutine or a function
+    scope_entry_t* related_sym = decl_context.current_scope->related_entry; 
+    if (related_sym == NULL)
+    {
+        internal_error("%s: error: code unreachable\n", 
+                ast_location(a));
+    }
+    else if (related_sym->kind == SK_PROGRAM) 
+    {
+        error_printf("%s: error: entry statement '%s' cannot appear within a program\n",
+                ast_location(a),
+                ASTText(name));
+    }
 
-    // scope_entry_t* entry = ASTText(name);
-    unsupported_statement(a, "ENTRY");
+    char is_function = is_function_type(related_sym->type_information); 
+    scope_entry_t* entry = new_entry_symbol(decl_context, name, suffix, dummy_arg_list, is_function);
+    *nodecl_output = nodecl_make_fortran_entry_statement(entry, ASTFileName(a), ASTLine(a));
 }
 
 static void build_scope_enum_def(AST a, 
