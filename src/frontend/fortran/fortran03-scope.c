@@ -287,6 +287,11 @@ scope_entry_t* fortran_query_name_str(decl_context_t decl_context, const char* u
         {
             result = entry_list_head(result_list);
             entry_list_free(result_list);
+
+            if (result->entity_specs.is_builtin)
+            {
+                result = NULL;
+            }
         }
 
         current_scope = current_scope->contained_in;
@@ -306,6 +311,10 @@ scope_entry_t* fortran_query_intrinsic_name_str(decl_context_t decl_context, con
     {
         result = entry_list_head(result_list);
         entry_list_free(result_list);
+        if (!result->entity_specs.is_builtin)
+        {
+            result = NULL;
+        }
     }
     
     return result;
