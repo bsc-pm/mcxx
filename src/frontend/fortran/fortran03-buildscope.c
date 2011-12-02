@@ -1247,6 +1247,29 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
     entry->entity_specs.is_implicit_basic_type = 0;
     entry->related_decl_context = decl_context;
 
+    if (decl_context.current_scope->contained_in != NULL)
+    {
+        scope_entry_t* enclosing_symbol = decl_context.current_scope->contained_in->related_entry;
+
+        if (enclosing_symbol != NULL)
+        {
+            if (entry->kind == SK_FUNCTION
+                    || entry->kind == SK_MODULE)
+            {
+                insert_entry(enclosing_symbol->decl_context.current_scope, entry);
+            }
+            if (enclosing_symbol->kind == SK_MODULE)
+            {
+                // If we are enclosed by a module, we are a module procedure
+                entry->entity_specs.in_module = enclosing_symbol;
+
+                P_LIST_ADD(enclosing_symbol->entity_specs.related_symbols,
+                        enclosing_symbol->entity_specs.num_related_symbols,
+                        entry);
+            }
+        }
+    }
+
     return entry;
 }
 
@@ -1260,7 +1283,7 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
     if (exist_entry)
     {
         // We do not allow redeclaration if the symbol has already been defined
-        if ( entry->kind != SK_UNDEFINED
+        if ( entry->defined
                 // If not defined it can only be a parameter of the current procedure
                 // being given an interface
                 || (!entry->entity_specs.is_parameter
@@ -1459,9 +1482,23 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
 
     entry->entity_specs.is_implicit_basic_type = 0;
     entry->related_decl_context = decl_context;
+   
+
+    scope_entry_t* related_entry = decl_context.current_scope->related_entry;
+    if (related_entry != NULL 
+            && related_entry->entity_specs.in_module != NULL)
+    {
+        scope_entry_t * sym_module = related_entry->entity_specs.in_module;
+        
+        entry->entity_specs.in_module = sym_module;
+        P_LIST_ADD(sym_module->entity_specs.related_symbols,
+                sym_module->entity_specs.num_related_symbols,
+                entry);
+    }
 
     return entry;
 }
+
 static char statement_is_executable(AST statement);
 static void build_scope_ambiguity_statement(AST ambig_stmt, decl_context_t decl_context);
 
@@ -1469,7 +1506,7 @@ static void build_scope_program_unit_body_declarations(
         char (*allowed_statement)(AST, decl_context_t),
         AST program_unit_stmts,
         decl_context_t decl_context,
-        nodecl_t* nodecl_output)
+        nodecl_t* nodecl_output UNUSED_PARAMETER)
 {
     if (program_unit_stmts != NULL)
     {
@@ -1491,14 +1528,15 @@ static void build_scope_program_unit_body_declarations(
                         ast_location(stmt));
             }
             
-            // We stop at the first executable statement seen
-            if (statement_is_executable(stmt))
-                break;
+            // We only handle nonexecutable statements here and ENTRY statement
+            // (which is an oddly defined "executable" statement)
+            if (ASTType(stmt) != AST_ENTRY_STATEMENT
+                    && statement_is_executable(stmt))
+                continue;
 
-            nodecl_t nodecl_statement = nodecl_null();
-            fortran_build_scope_statement(stmt, decl_context, &nodecl_statement);
-
-            *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_statement);
+            // Nonexecutable statements should not generate nodecls
+            // If we pass a NULL we will detect such an attempt 
+            fortran_build_scope_statement(stmt, decl_context, NULL);
         }
     }
 }
@@ -1509,7 +1547,6 @@ static void build_scope_program_unit_body_executable(
         decl_context_t decl_context,
         nodecl_t* nodecl_output)
 {
-    char seen_an_executable = 0;
     if (program_unit_stmts != NULL)
     {
         AST it;
@@ -1530,12 +1567,9 @@ static void build_scope_program_unit_body_executable(
                         ast_location(stmt));
             }
             
-            if (!seen_an_executable)
-            {
-                if (!statement_is_executable(stmt))
-                    continue;
-                seen_an_executable = 1;
-            }
+            // We only handle executable statements here
+            if (!statement_is_executable(stmt))
+                continue;
 
             nodecl_t nodecl_statement = nodecl_null();
             fortran_build_scope_statement(stmt, decl_context, &nodecl_statement);
@@ -1543,10 +1577,6 @@ static void build_scope_program_unit_body_executable(
             *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_statement);
         }
     }
-    
-    check_untyped_symbols(decl_context);
-    check_not_fully_defined_symbols(decl_context);
-    review_unknown_kind_symbol(decl_context);
 }
 
 typedef
@@ -1653,6 +1683,9 @@ static void build_scope_program_unit_body_internal_subprograms_executable(
     {
         ERROR_CONDITION(i >= num_internal_program_units, "Too many internal program units", 0);
 
+        // Some error happened during
+        // build_scope_program_unit_body_internal_subprograms_declarations and
+        // we could not get any symbol for this one. Skip it
         if (internal_subprograms_info[i].symbol != NULL)
         {
             AST n_internal_subprograms = internal_subprograms_info[i].internal_subprograms;
@@ -1661,19 +1694,19 @@ static void build_scope_program_unit_body_internal_subprograms_executable(
             // Count how many internal subprograms are there
             internal_subprograms_info_t n_internal_subprograms_info[n_num_internal_program_units + 1];
             memset(n_internal_subprograms_info, 0, sizeof(n_internal_subprograms_info));
-            
+
             build_scope_program_unit_body_internal_subprograms_declarations(
                     n_internal_subprograms, 
                     n_num_internal_program_units,
                     n_internal_subprograms_info,
                     internal_subprograms_info[i].decl_context);
-            
+
             // Insert the internal program unit names into the enclosing scope
             int j;
             for (j = 0; j < n_num_internal_program_units; j++)
             {
                 insert_entry(internal_subprograms_info[j].decl_context.current_scope, 
-                       n_internal_subprograms_info[j].symbol);
+                        n_internal_subprograms_info[j].symbol);
             }
 
             build_scope_program_unit_body_executable(
@@ -1688,8 +1721,12 @@ static void build_scope_program_unit_body_internal_subprograms_executable(
                     n_internal_subprograms_info,
                     internal_subprograms_info[i].decl_context);
 
-            // 4.1) Remember the internal subprogram nodecls
-            // FIXME
+            // Check all the symbols of this program unit
+            check_untyped_symbols(internal_subprograms_info[i].decl_context);
+            check_not_fully_defined_symbols(internal_subprograms_info[i].decl_context);
+            review_unknown_kind_symbol(internal_subprograms_info[i].decl_context);
+
+            // 6) Remember the internal subprogram nodecls
             nodecl_t nodecl_internal_subprograms = nodecl_null();
             for (j = 0; j < n_num_internal_program_units; j++)
             {
@@ -1739,6 +1776,7 @@ static void build_scope_program_unit_body_internal_subprograms_executable(
     }
 }
 
+// This function is only used for top level program units
 static void build_scope_program_unit_body(
         AST program_unit_stmts,
         AST internal_subprograms,
@@ -1765,27 +1803,6 @@ static void build_scope_program_unit_body(
             num_internal_program_units,
             internal_program_units_info,
             decl_context);
-
-    // 2.1) Insert the internal program unit names into the enclosing scope
-    int i;
-    for (i = 0; i < num_internal_program_units; i++)
-    {
-        insert_entry(decl_context.current_scope, internal_program_units_info[i].symbol);
-
-        if (decl_context.current_scope->related_entry != NULL
-                && (decl_context.current_scope->related_entry->kind == SK_MODULE))
-        {
-            scope_entry_t* module = decl_context.current_scope->related_entry;
-
-            scope_entry_t* current_symbol = internal_program_units_info[i].symbol;
-
-            P_LIST_ADD_ONCE(module->entity_specs.related_symbols, 
-                    module->entity_specs.num_related_symbols, 
-                    current_symbol);
-
-            current_symbol->entity_specs.in_module = module;
-        }
-    }
     
     // 3) Program unit remaining statements
     build_scope_program_unit_body_executable(
@@ -1800,8 +1817,14 @@ static void build_scope_program_unit_body(
             num_internal_program_units,
             internal_program_units_info,
             decl_context);
+    
+    // 5) Check all symbols of this program unit
+    check_untyped_symbols(decl_context);
+    check_not_fully_defined_symbols(decl_context);
+    review_unknown_kind_symbol(decl_context);
 
-    // 4.1) Remember the internal subprogram nodecls
+    // 6) Remember the internal subprogram nodecls
+    int i;
     for (i = 0; i < num_internal_program_units; i++)
     {
         *nodecl_internal_subprograms =
@@ -4383,6 +4406,12 @@ static void build_scope_do_construct(AST a, decl_context_t decl_context, nodecl_
 
 static void build_scope_entry_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
+    // if (nodecl_output == NULL)
+    // {
+    //     fprintf(stderr, "IGNORING ENTRY at %s!\n", ast_location(a));
+    //     return;
+    // }
+
     AST name = ASTSon0(a);
     AST dummy_arg_list = ASTSon1(a);
     AST suffix = ASTSon2(a);
@@ -4401,9 +4430,29 @@ static void build_scope_entry_stmt(AST a, decl_context_t decl_context, nodecl_t*
                 ASTText(name));
     }
 
-    char is_function = is_function_type(related_sym->type_information); 
-    scope_entry_t* entry = new_entry_symbol(decl_context, name, suffix, dummy_arg_list, is_function);
-    *nodecl_output = nodecl_make_fortran_entry_statement(entry, ASTFileName(a), ASTLine(a));
+    if (nodecl_output == NULL)
+    {
+        // We are analyzing this ENTRY statement as if it were a declaration, no nodecls are created
+        char is_function = !is_void_type(function_type_get_return_type(related_sym->type_information)); 
+        scope_entry_t* entry = new_entry_symbol(decl_context, name, suffix, dummy_arg_list, is_function);
+
+        if (related_sym->entity_specs.in_module != NULL)
+        {
+            // Our principal procedure is a module procedure, this symbol will live as a sibling
+            insert_entry(related_sym->entity_specs.in_module->decl_context.current_scope, entry);
+        }
+
+        // And we piggyback the entry in the node so we avoid a query later 
+        nodecl_set_symbol(_nodecl_wrap(a), entry);
+    }
+    else
+    {
+        // Recover the symbol we piggybacked 
+        scope_entry_t* entry = nodecl_get_symbol(_nodecl_wrap(a));
+
+        // Create the entry statement so we remember the entry point
+        *nodecl_output = nodecl_make_fortran_entry_statement(entry, ASTFileName(a), ASTLine(a));
+    }
 }
 
 static void build_scope_enum_def(AST a, 
@@ -5774,11 +5823,11 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
                     entry->symbol_name);
             continue;
         }
-        else
-        {
-            // It was not so much defined actually...
-            entry->defined = 0;
-        }
+        // else
+        // {
+        //     // It was not so much defined actually...
+        //     entry->defined = 0;
+        // }
 
         if (entry->defined)
         {
@@ -5806,7 +5855,7 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
         entry->type_information = update_basic_type_with_type(entry->type_information, basic_type);
         entry->entity_specs.is_implicit_basic_type = 0;
         entry->entity_specs.is_implicit_but_not_function = 0;
-        entry->defined = 1;
+        // entry->defined = 1;
         entry->file = ASTFileName(declaration);
         entry->line = ASTLine(declaration);
 
@@ -5825,7 +5874,7 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
                     sym->type_information = update_basic_type_with_type(sym->type_information, basic_type);
                     sym->entity_specs.is_implicit_basic_type = 0;
                     sym->entity_specs.is_implicit_but_not_function = 0;
-                    sym->defined = 1;
+                    // sym->defined = 1;
                 }
             }
         }
