@@ -261,6 +261,11 @@ static nodecl_t simplify_kind(int num_arguments UNUSED_PARAMETER, nodecl_t* argu
     type_t* t = no_ref(nodecl_get_type(x));
     t = get_rank0_type(t);
 
+    if (is_complex_type(t))
+    {
+        t = complex_type_get_base_type(t);
+    }
+
     return nodecl_make_int_literal(type_get_size(t));
 }
 
