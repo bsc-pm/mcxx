@@ -1685,7 +1685,16 @@ OPERATOR_TABLE
         else if (entry.is_function())
         {
             if(entry.is_entry())
+            {
+                TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
+                for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
+                        it != related_symbols.end();
+                        it++)
+                {
+                    declare_symbol(*it);
+                }
                 return;
+            }
             if (entry.is_intrinsic())
             {
                 // Improve this

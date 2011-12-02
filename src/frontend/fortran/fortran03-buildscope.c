@@ -1255,13 +1255,12 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
         char is_function)
 {
     scope_entry_t* entry = NULL;
-
     entry = fortran_query_name_str(decl_context, ASTText(name));
-
-    if (entry != NULL)
+    char exist_entry = (entry != NULL);
+    if (exist_entry)
     {
         // We do not allow redeclaration if the symbol has already been defined
-        if (entry->defined
+        if ( entry->kind != SK_UNDEFINED
                 // If not defined it can only be a parameter of the current procedure
                 // being given an interface
                 || (!entry->entity_specs.is_parameter
@@ -1269,7 +1268,10 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
                     && !entry->entity_specs.is_module_procedure
                     // Or a symbol we said something about it in the specification part of a module
                     && !(entry->kind == SK_UNDEFINED
-                        && entry->entity_specs.in_module != NULL)))
+                        && entry->entity_specs.in_module != NULL)
+                    // Or an advanced declaration of the function return type
+                    && !(entry->kind == SK_UNDEFINED 
+                            && is_function)))
         {
             error_printf("%s: error: redeclaration of entity '%s'\n", 
                     ast_location(name), 
@@ -1283,27 +1285,35 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
             remove_not_fully_defined_symbol(entry->decl_context, entry);
         }
     }
-
-    if (entry == NULL)
+    else
     {
         entry = new_fortran_symbol(decl_context, ASTText(name));
     }
 
-    //decl_context.current_scope->related_entry = entry;
-
     entry->kind = SK_FUNCTION;
     entry->file = ASTFileName(name);
     entry->line = ASTLine(name);
-    entry->entity_specs.is_implicit_basic_type = 1;
     entry->entity_specs.is_entry = 1;
+    entry->entity_specs.is_implicit_basic_type = 1;
     entry->defined = 1;
-    
     remove_unknown_kind_symbol(decl_context, entry);
+    
 
     type_t* return_type = get_void_type();
     if (is_function)
     {
-        return_type = get_implicit_type_for_symbol(decl_context, entry->symbol_name);
+        // The return type has been specified
+        if(exist_entry)
+        {
+            entry->entity_specs.is_implicit_basic_type = 0;
+            return_type = 
+                entry->type_information;
+        }
+        else
+        {
+            return_type = 
+                get_implicit_type_for_symbol(decl_context, entry->symbol_name);
+        }
     }
     else
     {
@@ -1321,7 +1331,6 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
             AST dummy_arg_name = ASTSon1(it);
 
             scope_entry_t* dummy_arg = NULL;
-
             if (strcmp(ASTText(dummy_arg_name), "*") == 0)
             {
                 if (is_function)
@@ -1359,7 +1368,6 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
                     add_untyped_symbol(decl_context, dummy_arg);
                 }
             }
-
             dummy_arg->file = ASTFileName(dummy_arg_name);
             dummy_arg->line = ASTLine(dummy_arg_name);
             dummy_arg->entity_specs.is_parameter = 1;
@@ -1368,7 +1376,7 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
             P_LIST_ADD(entry->entity_specs.related_symbols,
                     entry->entity_specs.num_related_symbols,
                     dummy_arg);
-
+            
             num_dummy_arguments++;
         }
     }
