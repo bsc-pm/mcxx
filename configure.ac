@@ -1103,8 +1103,14 @@ then
     flex_ver=`$FLEX --version | head -n 1 | $SED -e 's/@<:@^0-9@:>@*\(@<:@0-9@:>@*@<:@0-9.@:>@*\).*$/\1/'`
     case x${flex_ver} in
       x2.5.4 | x2.5.3? )
-       AC_MSG_RESULT([${flex_ver}, ok])
-       flex_good=yes
+       AC_MSG_RESULT([${flex_ver}])
+       if test x${flex_ver} = x2.5.31;
+       then
+         AC_MSG_ERROR(${flex_ver}[, warning this version is not known to work])
+          flex_good=no
+       else
+          flex_good=yes
+       fi
        ;;
       x)
          if test x$force_flex = xyes;
@@ -1153,8 +1159,14 @@ then
     bison_ver=`$BISON --version | head -n 1 | $SED -e 's/@<:@^0-9@:>@*\(@<:@0-9@:>@*@<:@0-9.@:>@*.*\?\).*$/\1/'`
     case x${bison_ver} in
        x2.@<:@34@:>@*)
-          AC_MSG_RESULT([${bison_ver}, ok])
-          bison_good=yes
+          AC_MSG_RESULT([${bison_ver}])
+          if test x${bison_ver} = x2.4;
+          then
+            AC_MSG_ERROR(${bison_ver}[, warning this version is not known to work])
+             bison_good=no
+          else
+             bison_good=yes
+          fi
           ;;
        x)
           if test x$force_bison = xyes;
@@ -1202,7 +1214,7 @@ then
     gperf_ver=`$GPERF --version | head -n 1 | $SED -e 's/@<:@^0-9@:>@*\(@<:@0-9@:>@*@<:@0-9.@:>@*\).*$/\1/'`
     case x${gperf_ver} in
        x3.0.*)
-       AC_MSG_RESULT(${gperf_ver}[, ok])
+       AC_MSG_RESULT(${gperf_ver})
        gperf_good=yes
        ;;
     x)
