@@ -765,15 +765,7 @@ static nodecl_t simplify_char(int num_arguments UNUSED_PARAMETER, nodecl_t* argu
     if (nodecl_is_constant(arguments[0]))
     {
         char c = const_value_cast_to_1(nodecl_get_constant(arguments[0]));
-        return nodecl_make_string_literal(
-                get_array_type_bounds(
-                    get_signed_char_type(),
-                    nodecl_make_integer_literal(get_signed_int_type(), 
-                        const_value_get_one(fortran_get_default_integer_type_kind(), 1), NULL, 0),
-                    nodecl_make_integer_literal(get_signed_int_type(), 
-                        const_value_get_one(fortran_get_default_integer_type_kind(), 1), NULL, 0),
-                    CURRENT_COMPILED_FILE->global_decl_context),
-                const_value_make_string(&c, 1), NULL, 0);
+        return const_value_to_nodecl(const_value_make_string(&c, 1));
     }
 
     return nodecl_null();
