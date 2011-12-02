@@ -478,7 +478,7 @@ type_t* fortran_get_default_logical_type(void)
 
 type_t* fortran_get_default_character_type(void)
 {
-    return get_signed_char_type();
+    return get_char_type();
 }
 
 int fortran_get_default_integer_type_kind(void)

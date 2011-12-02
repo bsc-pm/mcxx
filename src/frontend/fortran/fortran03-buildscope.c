@@ -2158,7 +2158,7 @@ type_t* choose_character_type_from_kind(nodecl_t expr, int kind_size)
 {
     if (!character_types_init)
     {
-        character_types[type_get_size(get_signed_char_type())] = get_signed_char_type();
+        character_types[type_get_size(get_char_type())] = get_char_type();
         character_types_init = 1;
     }
     return choose_type_from_kind_table(expr, character_types, MAX_CHARACTER_KIND, kind_size);
