@@ -1101,9 +1101,9 @@ then
     case x${flex_ver} in
       x2.5.4 | x2.5.3? )
        AC_MSG_RESULT([${flex_ver}])
-       if test x${flex_ver} = x2.5.31;
+       if test x${flex_ver} = x2.5.31 -o x${flex_ver} = x2.5.34;
        then
-         AC_MSG_ERROR(${flex_ver}[, warning this version is not known to work])
+         AC_MSG_ERROR(${flex_ver}[, this version is known to fail])
           flex_good=no
        else
           flex_good=yes
@@ -1159,7 +1159,7 @@ then
           AC_MSG_RESULT([${bison_ver}])
           if test x${bison_ver} = x2.4;
           then
-            AC_MSG_ERROR(${bison_ver}[, warning this version is not known to work])
+            AC_MSG_ERROR(${bison_ver}[, this version is known to fail])
              bison_good=no
           else
              bison_good=yes
