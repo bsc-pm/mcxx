@@ -106,7 +106,7 @@ namespace TL
                 {
                     std::stringstream ssgid; ssgid << subgraph_id;
                     std::stringstream ssnode; ssnode << actual_node->get_id();
-                    std::string subgraph_label = ssnode.str();
+                    std::string subgraph_label = ""/*ssnode.str()*/;
                     Nodecl::NodeclBase actual_label(actual_node->get_graph_label());
                     if (!actual_label.is_null())
                     {
@@ -144,7 +144,7 @@ namespace TL
                     std::vector<Node*> new_outer_nodes;
                     get_dot_subgraph(actual_node, dot_graph, new_outer_edges, new_outer_nodes, indent, subgraph_id);              
                     std::stringstream ss; ss << actual_node->get_id();
-                    dot_graph += indent + "\t-" + ss.str() + "[label=\"" + subgr_liveness + task_deps + " \", shape=box]\n";
+//                     dot_graph += indent + "\t-" + ss.str() + "[label=\"" + subgr_liveness + task_deps + " \", shape=box]\n";
                     dot_graph += indent + "}\n";
                     
                     for(std::vector<Node*>::iterator it = new_outer_nodes.begin();
@@ -223,10 +223,11 @@ namespace TL
                             }
                             
                             std::string extra_edge_attrs = "";
-                            if ((*it)->get_data<Edge_type>(_EDGE_TYPE) == TASK_EDGE)
+                            if ((*it)->is_task_edge())
                             {
                                 extra_edge_attrs = ", style=dotted";
-                            }                 
+                            }
+
                             if (belongs_to_the_same_graph(*it))
                             {
                                 dot_graph += indent + sss.str() + " -> " + sst.str() +
@@ -272,34 +273,34 @@ namespace TL
             switch(actual_node->get_type())
             {
                 case BASIC_ENTRY_NODE: 
-                    dot_graph += indent + ss.str() + "[label=\"{" + ss.str() + " # ENTRY \\n" 
-                            + "REACH DEFS: " + prettyprint_reaching_definitions(actual_node->get_reaching_definitions())
-                            + "}\", shape=box, fillcolor=lightgray, style=filled];\n";
+                    dot_graph += indent + ss.str() + "[label=\"ENTRY \\n" 
+//                             + "REACH DEFS: " + prettyprint_reaching_definitions(actual_node->get_reaching_definitions())
+                            + "\", shape=box, fillcolor=lightgray, style=filled];\n";
                     break;
                 case BASIC_EXIT_NODE:
-                    dot_graph += indent + ss.str() + "[label=\"{" + ss.str() + " # EXIT}\", shape=box, fillcolor=lightgray, style=filled];\n";
+                    dot_graph += indent + ss.str() + "[label=\"EXIT\", shape=box, fillcolor=lightgray, style=filled];\n";
                     break;
                 case UNCLASSIFIED_NODE:
-                    dot_graph += indent + ss.str() + "[label=\"{" + ss.str() + " # UNCLASSIFIED_NODE}\"]\n";
+                    dot_graph += indent + ss.str() + "[label=\"UNCLASSIFIED_NODE\"]\n";
                     break;
                 case BARRIER_NODE:
-                    dot_graph += indent + ss.str() + "[label=\"" + ss.str() + " # BARRIER\", shape=diamond]\n";
+                    dot_graph += indent + ss.str() + "[label=\"BARRIER\", shape=diamond]\n";
                     break;
                 case FLUSH_NODE:
-                    dot_graph += indent + ss.str() + "[label=\"" + ss.str() + " # FLUSH\", shape=ellipse]\n";
+                    dot_graph += indent + ss.str() + "[label=\"FLUSH\", shape=ellipse]\n";
                     break;
                 case TASKWAIT_NODE:
-                    dot_graph += indent + ss.str() + "[label=\"" + ss.str() + " # TASKWAIT\", shape=ellipse]\n";
+                    dot_graph += indent + ss.str() + "[label=\"TASKWAIT\", shape=ellipse]\n";
                     break;
                 case BASIC_PRAGMA_DIRECTIVE_NODE:
                     internal_error("'%s' found while printing graph. We must think what to do with this kind of node", 
                                 actual_node->get_type_as_string().c_str());
                     break;
                 case BASIC_BREAK_NODE:
-                    dot_graph += indent + ss.str() + "[label=\"" + ss.str() + " # BREAK\", shape=diamond]\n";
+                    dot_graph += indent + ss.str() + "[label=\"BREAK\", shape=diamond]\n";
                     break;
                 case BASIC_CONTINUE_NODE:
-                    dot_graph += indent + ss.str() + "[label=\"" + ss.str() + " # CONTINUE\", shape=diamond]\n";
+                    dot_graph += indent + ss.str() + "[label=\"CONTINUE\", shape=diamond]\n";
                     break;
                 case BASIC_GOTO_NODE:
                 case BASIC_NORMAL_NODE:
@@ -331,7 +332,7 @@ namespace TL
                                             " | REACH DEFS: "   + reach_defs;
                         
                         
-                    dot_graph += indent + ss.str() + "[label=\"{" + ss.str() + " # " + basic_block + live_info + "}\", shape=record];\n";
+                    dot_graph += indent + ss.str() + "[label=\"{" + basic_block + /*live_info + */"}\", shape=record];\n";
         
                     break;
                 }

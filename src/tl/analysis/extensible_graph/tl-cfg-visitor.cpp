@@ -659,9 +659,9 @@ namespace TL
 
         static bool pragma_is_worksharing(std::string pragma)
         {
-            return (pragma == "parallel" || pragma == "for" || pragma == "parallel|for"
-                    || pragma == "workshare" || pragma == "parallel|workshare"
-                    || pragma == "sections" || pragma == "parallel|sections"
+            return (pragma == "parallel" || pragma == "for" || pragma == "parallel for"
+                    || pragma == "workshare" || pragma == "parallel workshare"
+                    || pragma == "sections" || pragma == "parallel sections"
                     || pragma == "single");
         }
 
@@ -690,7 +690,7 @@ namespace TL
                     task_graph_node->set_task_function(next_sym);
                     int n_connects = _actual_cfg->_last_nodes.size();
                     _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, task_graph_node, 
-                                            ObjectList<Edge_type>(n_connects, TASK_EDGE), ObjectList<std::string>(n_connects, ""));
+                                           ObjectList<Edge_type>(n_connects, ALWAYS_EDGE), ObjectList<std::string>(n_connects, ""), /*is task*/ true);
                     _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(task_graph_node->get_graph_entry_node());
                     
                     walk(n.get_pragma_line());  // This visit computes information associated to the Task node, 
@@ -728,7 +728,7 @@ namespace TL
                                                                 _context_s.top());
                 int n_connects = _actual_cfg->_last_nodes.size();
                 _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, task_graph_node, 
-                                        ObjectList<Edge_type>(n_connects, TASK_EDGE), ObjectList<std::string>(n_connects, ""));
+                                        ObjectList<Edge_type>(n_connects, ALWAYS_EDGE), ObjectList<std::string>(n_connects, ""), /*is task*/ true);
                 _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(task_graph_node->get_graph_entry_node());
                 
                 walk(n.get_pragma_line());  // This visit computes information associated to the Task node, 
@@ -780,8 +780,8 @@ namespace TL
                 walk(n.get_pragma_line());  // This visit computes information associated to the Pragma node, 
                                             // but do not create any additional node
                 
-                if (pragma == "parallel" || pragma == "parallel|for" 
-                    || pragma == "parallel|workshare" || pragma == "parallel|sections"
+                if (pragma == "parallel" || pragma == "parallel for" 
+                    || pragma == "parallel workshare" || pragma == "parallel sections"
                     || pragma == "critical" || pragma == "atomic" || pragma == "ordered"
                     || pragma == "task")
                 {
@@ -799,7 +799,7 @@ namespace TL
                     internal_error("Unexpected omp pragma construct '%s' while building the CFG", pragma.c_str());
                 }
         
-                if (pragma == "sections" || pragma == "parallel|sections")
+                if (pragma == "sections" || pragma == "parallel sections")
                 {   // push a new struct in the stack to store info about entries and exits
                     struct omp_pragma_sections_t actual_sections_info(_actual_cfg->_last_nodes);
                     _omp_sections_info.push(actual_sections_info);
@@ -819,41 +819,9 @@ namespace TL
                     }
                     else
                     {   // PragmaCustomStatement
-                        // In a sections pragma custom construct, the first statement may not have a sections pragma
-                        // In this case, we should wrap the statement within a Sections Pragma
+
                         Nodecl::PragmaCustomStatement n_stmt = n.template as<Nodecl::PragmaCustomStatement>();
-                        Nodecl::List sections_stmt_list = n_stmt.get_statements().template as<Nodecl::List>(); // This list contains always one
-                        Nodecl::CompoundStatement sections_compound_stmt = sections_stmt_list[0].as<Nodecl::CompoundStatement>();
-                        Nodecl::List sections_stmts = sections_compound_stmt.get_statements().as<Nodecl::List>();
-                        if (!sections_stmts.empty() && !sections_stmts[0].is<Nodecl::PragmaCustomStatement>())
-                        {   // FIXME When core phase works, this will not be necessary. The phase will perform this transformation
-                            const char* text = "section";
-                            const char* filename =  n.get_filename().c_str();
-                            int line = n.get_line();
-                            Nodecl::List empty_nodecl_list(nodecl_null());              
-                            nodecl_t pragma_line = nodecl_make_pragma_custom_line(/* clause args */ empty_nodecl_list.get_internal_nodecl(), 
-                                                                                  /* clauses */ empty_nodecl_list.get_internal_nodecl(),
-                                                                                  /* end clauses */ empty_nodecl_list.get_internal_nodecl(),
-                                                                                  text, filename, line);
-                            Nodecl::CompoundStatement first_section = sections_stmts[0].as<Nodecl::CompoundStatement>();
-                            Nodecl::List stmt_seq(first_section.get_statements().get_internal_nodecl());
-                            nodecl_t new_pragma_sections = nodecl_make_pragma_custom_statement(pragma_line,
-                                                                                            stmt_seq.get_internal_nodecl(), 
-                                                                                            text, filename, line);
-                            // Walk the first wrapped node
-                            walk(new_pragma_sections);
-                            
-                            // Walk the rest of nodes
-                            for(Nodecl::List::iterator it = sections_stmts.begin()+1; it != sections_stmts.end(); ++it)
-                            {
-                                walk(*it);
-                            }
-                        }
-                        else
-                        {
-                            Nodecl::PragmaCustomStatement n_stmt = n.template as<Nodecl::PragmaCustomStatement>();
-                            walk(n_stmt.get_statements());    // We will not use the list result of this walk
-                        }
+                        walk(n_stmt.get_statements());    // We will not use the list result of this walk
                     }                
                 }
                 else
@@ -882,23 +850,19 @@ namespace TL
                 {
                     _omp_sections_info.top().sections_exits.append(pragma_graph_node);
                 }
-                else if (pragma == "sections" || pragma == "parallel|sections")
+                else if (pragma == "sections" || pragma == "parallel sections")
                 {
                     _actual_cfg->_last_nodes = _omp_sections_info.top().sections_exits;
                     _omp_sections_info.pop();
                 }
                 
-                if (pragma_is_worksharing(pragma))
+                if (pragma_is_worksharing(pragma) && !_pragma_info_s.top().has_clause("nowait"))
                 {   // We include here a Barrier node after the pragma statement
-                    if (!_pragma_info_s.top().has_clause("nowait"))
-                    {
                         _actual_cfg->create_barrier_node(pragma_graph_node);
-                    }
                 }
-                
-                if (pragma == "parallel" || pragma == "for" || pragma == "parallel|for"
-                    || pragma == "workshare" || pragma == "parallel|workshare"
-                    || pragma == "sections" || pragma == "parallel|sections"
+                else if (pragma == "parallel" || pragma == "for" || pragma == "parallel for"
+                    || pragma == "workshare" || pragma == "parallel workshare"
+                    || pragma == "sections" || pragma == "parallel sections"
                     || pragma == "critical" || pragma == "atomic" || pragma == "ordered" || pragma == "single")
                 {   // This constructs add a Flush at the end of the construct
                     // FIXME Atomic construct implies a list of variables to be flushed
@@ -942,9 +906,7 @@ namespace TL
             
             // Get the rest of clauses
             walk(n.get_clauses());  // This method fills _pragma_info_s with the clauses of the actual pragma
-            
-            
-            
+
             return Ret();
         }
 

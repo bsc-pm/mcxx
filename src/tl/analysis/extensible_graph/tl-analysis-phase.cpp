@@ -51,64 +51,64 @@ namespace TL
             cfg_visitor.build_cfg(nodecl, std::string(""));
             
             ObjectList<ExtensibleGraph*> cfgs = cfg_visitor.get_cfgs();
-    //         DEBUG_CODE()
-            {
-                std::cerr << std::endl << "=== GLOBAL VARIABLES USED WITHIN GRAPHS ===" << std::endl;
-            }            
-            for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
-            {
-                std::cerr << "    ==> Graph  " << (*it)->get_name() << std::endl;
-                ObjectList<var_usage_t*> glob_vars = (*it)->get_global_variables();
-                for(ObjectList<var_usage_t*>::iterator it = glob_vars.begin(); it != glob_vars.end(); ++it)
-                {
-//                     std::cerr << "       - " << (*it)->get_nodecl().prettyprint() << std::endl;
-                }
-            }
-            
-            
-            // *** Use-def chains + IPA *** //
-            std::cerr << std::endl << "=== USE-DEF CHAINS COMPUTATION ===" << std::endl;
-            for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
-            {
-                if (!(*it)->has_use_def_computed())
-                {
-                    (*it)->init_function_call_nest();
-                    cfg_visitor.set_last_func_call((*it)->get_function_call_nest());
-                    cfg_visitor.set_actual_cfg(*it);
-                    Node* graph_node = (*it)->get_graph();
-                    cfg_visitor.compute_use_def_chains(graph_node);
-                    (*it)->set_use_def_computed();
-                    
-    //                 DEBUG_CODE()
-                    {
-                        graph_node->print_use_def_chains();
-                    }
-                }
-            }
-        
-            // *** Loops Analysis *** //
-            std::cerr << std::endl << "=== LOOP ANALYSIS COMPUTATION ===" << std::endl;
-            for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
-            {
-                std::cerr << std::endl << "   ==> Graph '" << (*it)->get_name() << "'" << std::endl;
-                cfg_visitor.analyse_loops((*it)->get_graph());
-            }
-        
-            // *** Live Variable Analysis *** //
-            std::cerr << std::endl << "=== LIVE VARIABLES AND TASKS ANALYSIS  ===" << std::endl;
-            for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
-            {
-    //                 DEBUG_CODE()
-                {
-                    std::cerr << std::endl << " ==> Graph '" << (*it)->get_name() << "'" << std::endl;
-                }
-                    
-                // Non-task nodes
-                StaticAnalysis::live_variable_analysis((*it)->get_graph());
-                
-                // Task nodes
-                StaticAnalysis::analyse_tasks((*it)->get_tasks_list());
-            }
+//     //         DEBUG_CODE()
+//             {
+//                 std::cerr << std::endl << "=== GLOBAL VARIABLES USED WITHIN GRAPHS ===" << std::endl;
+//             }            
+//             for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
+//             {
+//                 std::cerr << "    ==> Graph  " << (*it)->get_name() << std::endl;
+//                 ObjectList<var_usage_t*> glob_vars = (*it)->get_global_variables();
+//                 for(ObjectList<var_usage_t*>::iterator it = glob_vars.begin(); it != glob_vars.end(); ++it)
+//                 {
+// //                     std::cerr << "       - " << (*it)->get_nodecl().prettyprint() << std::endl;
+//                 }
+//             }
+//             
+//             
+//             // *** Use-def chains + IPA *** //
+//             std::cerr << std::endl << "=== USE-DEF CHAINS COMPUTATION ===" << std::endl;
+//             for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
+//             {
+//                 if (!(*it)->has_use_def_computed())
+//                 {
+//                     (*it)->init_function_call_nest();
+//                     cfg_visitor.set_last_func_call((*it)->get_function_call_nest());
+//                     cfg_visitor.set_actual_cfg(*it);
+//                     Node* graph_node = (*it)->get_graph();
+//                     cfg_visitor.compute_use_def_chains(graph_node);
+//                     (*it)->set_use_def_computed();
+//                     
+//     //                 DEBUG_CODE()
+//                     {
+//                         graph_node->print_use_def_chains();
+//                     }
+//                 }
+//             }
+//         
+//             // *** Loops Analysis *** //
+//             std::cerr << std::endl << "=== LOOP ANALYSIS COMPUTATION ===" << std::endl;
+//             for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
+//             {
+//                 std::cerr << std::endl << "   ==> Graph '" << (*it)->get_name() << "'" << std::endl;
+//                 cfg_visitor.analyse_loops((*it)->get_graph());
+//             }
+//         
+//             // *** Live Variable Analysis *** //
+//             std::cerr << std::endl << "=== LIVE VARIABLES AND TASKS ANALYSIS  ===" << std::endl;
+//             for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
+//             {
+//     //                 DEBUG_CODE()
+//                 {
+//                     std::cerr << std::endl << " ==> Graph '" << (*it)->get_name() << "'" << std::endl;
+//                 }
+//                     
+//                 // Non-task nodes
+//                 StaticAnalysis::live_variable_analysis((*it)->get_graph());
+//                 
+//                 // Task nodes
+//                 StaticAnalysis::analyse_tasks((*it)->get_tasks_list());
+//             }
             
             // Print graphs into dot files
             for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)

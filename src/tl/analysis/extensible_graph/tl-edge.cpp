@@ -28,12 +28,13 @@ namespace TL
 {
     namespace Analysis
     {
-        Edge::Edge(Node *source, Node *target, bool is_back_edge, Edge_type type, std::string label)
+        Edge::Edge(Node *source, Node *target, bool is_back_edge, bool is_task_edge, Edge_type type, std::string label)
             : _source(source), _target(target)
         {
             set_data(_EDGE_TYPE, type);
             set_data(_EDGE_LABEL, label);
             set_data(_IS_BACK_EDGE, is_back_edge);
+            set_data(_IS_TASK_EDGE, is_task_edge);
         }
 
         Node* Edge::get_source() const
@@ -80,8 +81,6 @@ namespace TL
                     break;
                     case GOTO_EDGE:     result = "GOTO_EDGE";
                     break;
-                    case TASK_EDGE:     result = "TASK_EDGE";
-                    break;
                     case UNCLASSIFIED_EDGE: result = "UNCLASSIFIED_EDGE";
                     break;
                     default:            std::cerr << " ** Edge.cpp :: get_label() ** "
@@ -101,7 +100,21 @@ namespace TL
             }
             else
             {    
-                return false;
+                internal_error("Edge between '%d' and '%d 'without attribute _IS_BACK_EDGE. This attribute is mandatory for all edges", 
+                               _source->get_id(), _target->get_id());
+            }
+        }
+
+        bool Edge::is_task_edge()
+        {
+            if (has_key(_IS_TASK_EDGE))
+            {    
+                return get_data<bool>(_IS_TASK_EDGE);
+            }
+            else
+            {    
+                internal_error("Edge between '%d' and '%d 'without attribute _IS_TASK_EDGE. This attribute is mandatory for all edges", 
+                               _source->get_id(), _target->get_id());
             }
         }
 
@@ -119,7 +132,6 @@ namespace TL
                     break;
                     case FALSE_EDGE:    label = "False";
                     break;
-                    case TASK_EDGE:
                     case ALWAYS_EDGE:   label = "";
                     break;
                     case CASE_EDGE:     {

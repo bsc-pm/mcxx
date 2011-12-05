@@ -222,7 +222,8 @@ namespace TL
                             Node* new_source = nodes_m[(*it)->get_source()];
                             Node* new_target = nodes_m[old_node];
                             new_parents.append(new_source);
-                            new_entry_edges.append(new Edge(new_source, new_target, (*it)->is_back_edge(), (*it)->get_type(), (*it)->get_label()));
+                            new_entry_edges.append(new Edge(new_source, new_target, (*it)->is_back_edge(), (*it)->is_task_edge(), 
+                                                            (*it)->get_type(), (*it)->get_label()));
                         }
                         connect_nodes(new_parents, nodes_m[old_node], new_entry_edges);
                         
@@ -235,7 +236,8 @@ namespace TL
                             Node* new_source = nodes_m[old_node];
                             Node* new_target = nodes_m[(*it)->get_target()];
                             new_children.append(new_target);
-                            new_exit_edges.append(new Edge(new_source, new_target, (*it)->is_back_edge(), (*it)->get_type(), (*it)->get_label()));   
+                            new_exit_edges.append(new Edge(new_source, new_target, (*it)->is_back_edge(), (*it)->is_back_edge(), 
+                                                           (*it)->get_type(), (*it)->get_label()));   
                         }
                         connect_nodes(nodes_m[old_node], new_children, new_exit_edges);
                         
@@ -298,14 +300,14 @@ namespace TL
             return append_new_node_to_parent(parents, ObjectList<Nodecl::NodeclBase>(1, nodecl), ntype, etype);
         }
 
-        Edge* ExtensibleGraph::connect_nodes(Node* parent, Node* child, Edge_type etype, std::string label, bool is_back_edge)
+        Edge* ExtensibleGraph::connect_nodes(Node* parent, Node* child, Edge_type etype, std::string label, bool is_back_edge, bool is_task_edge)
         {
             if (parent != NULL && child != NULL)
             {
                 if (!parent->has_child(child))
                 {
     //                 std::cerr << "Connecting " << parent->get_id() << " with " << child->get_id() << std::endl;
-                    Edge* new_edge = new Edge(parent, child, is_back_edge, etype, label);
+                    Edge* new_edge = new Edge(parent, child, is_back_edge, is_task_edge, etype, label);
                     parent->set_exit_edge(new_edge);
                     child->set_entry_edge(new_edge);
                     return new_edge;
@@ -363,7 +365,7 @@ namespace TL
         }
 
         void ExtensibleGraph::connect_nodes(ObjectList<Node*> parents, Node* child, 
-                                ObjectList<Edge_type> etypes, ObjectList<std::string> labels)
+                                ObjectList<Edge_type> etypes, ObjectList<std::string> labels, bool is_task_edge)
         {
             ObjectList<Edge_type>::iterator itt = etypes.begin();
             ObjectList<std::string>::iterator itl = labels.begin();
@@ -372,7 +374,7 @@ namespace TL
                 it != parents.end(), itt != etypes.end(), itl != labels.end();
                 ++it, ++itt, ++itl)
             {
-                connect_nodes(*it, child, *itt, *itl);
+                connect_nodes(*it, child, *itt, *itl, /*is_back_edge*/ false, is_task_edge);
             }
             
             if (it != parents.end() || itt != etypes.end() || itl != labels.end())

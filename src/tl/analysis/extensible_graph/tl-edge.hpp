@@ -52,12 +52,13 @@ namespace TL
                 * This method does not modify the information of source and target nodes.
                 * \param source Pointer to the source node of the new edge
                 * \param target Pointer to the target node of the new edge
+                * \param is_back_edge Boolean indicating whether the edge is to a back node (loop)       
+                * \param is_task Boolean indicating whether the edge target is a Task
                 * \param type Type of the new edge, belonging to the enum Edge_type
                 * \param label Additional argument, when the edge will not be always taken in the graph
-                *              flow. It indicates the condition of the edge.
-                * \param is_back_edge Boolean indicating whether the edge is to a back node (loop)             
+                *              flow. It indicates the condition of the edge.      
                 */
-                Edge(Node *source, Node *target, bool is_back_edge, Edge_type type, std::string label="");
+                Edge(Node *source, Node *target, bool is_back_edge, bool is_task_edge, Edge_type type, std::string label="");
                 
                 
                 // *** Getters and Setters *** //
@@ -76,6 +77,9 @@ namespace TL
                 
                 //! Returns the boolean indicating whether the edge is a back edge
                 bool is_back_edge();
+                
+                //! Returns the boolean indicating whether the target of the edge is a Task
+                bool is_task_edge();                
                 
                 //! Returns the label of the edge. 
                 /*!

@@ -75,8 +75,7 @@ namespace TL
             ALWAYS_EDGE,            //! Always taken edge
             CASE_EDGE,              //! Edge within a Switch statement representing a case/default stmt
             CATCH_EDGE,             //! Handler edge for a Try/Catch statement
-            GOTO_EDGE,              //! Edge between a GotoNode and a LabeledNode containing the label
-            TASK_EDGE               //! Control edge defining the point of definition of a task
+            GOTO_EDGE               //! Edge between a GotoNode and a LabeledNode containing the label
         };
         
         //! Definitions of the different node attributes
@@ -246,6 +245,12 @@ namespace TL
         * Available and mandatory in all edges.
         */
         #define _IS_BACK_EDGE     "is_back_edge"
+        
+        /*! \def _IS_TASK_EDGE
+        * Boolean indicating whether an edge connects a target being a Task
+        * Available and mandatory in all edges.
+        */
+        #define _IS_TASK_EDGE     "is_task_edge"
     }
 }
 

@@ -239,7 +239,7 @@ namespace TL
                 * \return The new edge created between the two nodes             
                 */
                 Edge* connect_nodes(Node* parent, Node* child, 
-                                Edge_type etype = ALWAYS_EDGE, std::string label = "", bool is_back_edge = false);        
+                                Edge_type etype = ALWAYS_EDGE, std::string label = "", bool is_back_edge = false, bool is_task_edge = false);        
             
                 //! Wrapper method for #connect_nodes when a set of parents must be connected to a
                 //! set of children and each connection may be different from the others. 
@@ -257,7 +257,7 @@ namespace TL
                 //! Wrapper method for #connect_nodes when a set of parents must be connected to an
                 //! only child and the nature of the connection is the same for all of them.
                 void connect_nodes(ObjectList<Node*> parents, Node* child, 
-                                ObjectList<Edge_type> etypes, ObjectList<std::string> labels);
+                                ObjectList<Edge_type> etypes, ObjectList<std::string> labels, bool is_task_edge = false);
                 
                 //! Wrapper method for #connect_nodes when a set of parents must be connected to an
                 //! only child and the nature of the connection is the same for all of them.
