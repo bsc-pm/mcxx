@@ -317,8 +317,8 @@ verbatim: NODECL_VERBATIM() text
 
 gcc-asm-spec : NODECL_GCC_ASM_SPEC() text
 
-gcc-asm-definition : NODECL_GCC_ASM_DEFINITION([operands0]gcc-asm-operand-seq-opt, [operands1]gcc-asm-operand-seq-opt, [operands2]gcc-asm-operand-seq-opt) text
-gcc-asm-operand : NODECL_GCC_ASM_OPERAND( [identifier]text-opt, [constraint]text, [expr]expression)
+gcc-asm-definition : NODECL_GCC_ASM_DEFINITION([operands0]gcc-asm-operand-seq-opt, [operands1]gcc-asm-operand-seq-opt, [operands2]gcc-asm-operand-seq-opt, [specs]text-seq-opt) text
+gcc-asm-operand : NODECL_GCC_ASM_OPERAND( [identifier]text-opt, [constraint]text, [expr]expression-opt)
 
 upc-sync-statement : NODECL_UPC_SYNC_STATEMENT([expr]expression) text
 

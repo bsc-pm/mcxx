@@ -737,7 +737,8 @@ static void build_scope_gcc_asm_definition(AST a, decl_context_t decl_context, n
                     AST constraint = ASTSon1(asm_operand);
                     AST expression = ASTSon2(asm_operand);
                     nodecl_t nodecl_expr = nodecl_null();
-                    if (!check_expression(expression, decl_context, &nodecl_expr))
+                    if (expression != NULL 
+                            && !check_expression(expression, decl_context, &nodecl_expr))
                     {
                         if (!checking_ambiguity())
                         {
@@ -777,11 +778,21 @@ static void build_scope_gcc_asm_definition(AST a, decl_context_t decl_context, n
         }
     }
 
+    AST specs = ASTSon0(a);
+
+    nodecl_t nodecl_specs = nodecl_null();
+    if (specs != NULL)
+    {
+        nodecl_specs = nodecl_make_list_1(
+                nodecl_make_text(ASTText(specs), ASTFileName(specs), ASTLine(specs)));
+    }
+
     nodecl_t nodecl_gcc_asm = 
         nodecl_make_gcc_asm_definition(
                 nodecl_asm_params[0],
                 nodecl_asm_params[1],
                 nodecl_asm_params[2],
+                nodecl_specs,
                 ASTText(ASTSon0(asm_parms)),
                 ASTFileName(a), ASTLine(a));
 

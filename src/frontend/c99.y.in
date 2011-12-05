@@ -578,7 +578,7 @@ asm_operand : string_literal '(' expression ')'
 }
 | string_literal
 {
-	$$ = $1;
+	$$ = ASTMake3(AST_GCC_ASM_OPERAND, NULL, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 /* End of GNU extensions */

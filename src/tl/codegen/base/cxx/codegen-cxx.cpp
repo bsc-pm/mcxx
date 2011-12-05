@@ -1843,8 +1843,12 @@ CxxBase::Ret CxxBase::visit(const Nodecl::GccAsmDefinition& node)
     Nodecl::NodeclBase op1 = node.get_operands1();
     Nodecl::NodeclBase op2 = node.get_operands2();
 
-    // FIXME - We are missing the volatile keyword!
-    file << "__asm__ (";
+    Nodecl::NodeclBase specs = node.get_specs();
+
+    indent();
+    file << "__asm__ ";
+    walk_list(specs.as<Nodecl::List>(), ", ");
+    file << "(";
     file << node.get_text();
     file << " : ";
     walk_list(op0.as<Nodecl::List>(), ", ");
@@ -1852,7 +1856,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::GccAsmDefinition& node)
     walk_list(op1.as<Nodecl::List>(), ", ");
     file << " : ";
     walk_list(op2.as<Nodecl::List>(), ", ");
-    file << ");";
+    file << ");\n";
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::GccAsmOperand& node)
@@ -1867,9 +1871,13 @@ CxxBase::Ret CxxBase::visit(const Nodecl::GccAsmOperand& node)
     }
 
     walk(constraint);
-    file << "(";
-    walk(expr);
-    file << ")";
+
+    if (!expr.is_null())
+    {
+        file << "(";
+        walk(expr);
+        file << ")";
+    }
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::GccAsmSpec& node)
