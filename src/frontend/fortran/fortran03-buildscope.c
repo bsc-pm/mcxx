@@ -2281,7 +2281,6 @@ static type_t* gather_type_from_declaration_type_spec_(AST a,
                 }
 
                 char is_undefined = 0;
-                // Well, we cannot default to a kind of 4 because it'd be weird, so we simply ignore the kind
                 if (kind != NULL)
                 {
                     result = choose_type_from_kind(kind, decl_context, 
