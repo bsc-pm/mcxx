@@ -6263,18 +6263,6 @@ static scope_entry_t* insert_symbol_from_module(scope_entry_t* entry,
     scope_entry_t* current_symbol = NULL;
     current_symbol = new_fortran_symbol(decl_context, aliased_name);
 
-    if (decl_context.current_scope->related_entry != NULL
-            && decl_context.current_scope->related_entry->kind == SK_MODULE)
-    {
-        scope_entry_t* module = decl_context.current_scope->related_entry;
-
-        P_LIST_ADD_ONCE(module->entity_specs.related_symbols,
-                module->entity_specs.num_related_symbols,
-                current_symbol);
-
-        current_symbol->entity_specs.in_module = module;
-    }
-
     // Copy everything and restore the name
     *current_symbol = *entry;
     if (current_symbol->kind != SK_UNDEFINED)
@@ -6290,6 +6278,19 @@ static scope_entry_t* insert_symbol_from_module(scope_entry_t* entry,
     if (strcmp(aliased_name, entry->symbol_name) != 0)
     {
         current_symbol->entity_specs.is_renamed = 1;
+    }
+
+    // Make it a member of this module
+    if (decl_context.current_scope->related_entry != NULL
+            && decl_context.current_scope->related_entry->kind == SK_MODULE)
+    {
+        scope_entry_t* module = decl_context.current_scope->related_entry;
+
+        P_LIST_ADD_ONCE(module->entity_specs.related_symbols,
+                module->entity_specs.num_related_symbols,
+                current_symbol);
+
+        current_symbol->entity_specs.in_module = module;
     }
 
     if (entry->entity_specs.is_generic_spec)
