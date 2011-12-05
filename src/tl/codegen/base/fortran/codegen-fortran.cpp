@@ -1282,6 +1282,9 @@ OPERATOR_TABLE
             walk(statement);
             dec_indent();
         }
+
+        indent();
+        file << "END WHERE\n";
     }
 
     void FortranBase::visit(const Nodecl::FortranBozLiteral& node)
