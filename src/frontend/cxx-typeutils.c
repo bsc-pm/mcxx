@@ -5674,9 +5674,12 @@ type_t* no_ref(type_t* t)
 
 type_t* lvalue_ref(type_t* t)
 {
-    if (!is_lvalue_reference_type(t)
-            && !is_rvalue_reference_type(t))
-        return get_lvalue_reference_type(t);
+    if (!IS_C_LANGUAGE)
+    {
+        if (!is_lvalue_reference_type(t)
+                && !is_rvalue_reference_type(t))
+            return get_lvalue_reference_type(t);
+    }
     return t;
 }
 
