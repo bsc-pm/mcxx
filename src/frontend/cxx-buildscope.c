@@ -8895,8 +8895,19 @@ static void set_parameters_as_related_symbols(scope_entry_t* entry,
     }
     else
     {
-        ERROR_CONDITION(entry->entity_specs.num_related_symbols != gather_info->num_parameters, 
-                "Inconsistency detected in the related symbols of the function", 0);
+        // No need to overwrite them anymore
+        if (!is_definition)
+            return;
+
+        if (entry->entity_specs.num_related_symbols != gather_info->num_parameters)
+        {
+            free(entry->entity_specs.related_symbols);
+
+            entry->entity_specs.num_related_symbols = gather_info->num_parameters;
+            entry->entity_specs.related_symbols = counted_calloc(gather_info->num_parameters, 
+                    sizeof(*entry->entity_specs.related_symbols), 
+                    &_bytes_used_buildscope);
+        }
     }
 
     int i;
