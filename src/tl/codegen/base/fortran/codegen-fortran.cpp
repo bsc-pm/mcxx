@@ -1767,7 +1767,10 @@ OPERATOR_TABLE
             {
                 indent();
 
-                if (!entry.get_type().returns().is_void())
+                if (!entry.get_type().returns().is_void()
+                        // If nobody said anything about this function, we cannot assume
+                        // it is a function
+                        && !entry.get_internal_symbol()->entity_specs.is_implicit_basic_type)
                 {
                     std::string type_spec;
                     std::string array_specifier;
