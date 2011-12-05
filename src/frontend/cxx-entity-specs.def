@@ -92,7 +92,7 @@ integer|all|template_parameter_nesting|Nesting in the template parameter scoping
 integer|all|template_parameter_position|Position in the template parameter scoping hierarchy. See is_template_parameter
 integer|all|parameter_position|States the position of this parameter. See is_parameter
 type|all|class_type|The class type where a member belongs. See is_member
-symbol|fortran|from_module|If not NULL, it states that this symbol comes from this module
+symbol|fortran|from_module|If not NULL, it means the symbol comes because the module was USEd
 symbol|fortran|in_module|If not NULL it means that this symbol is a component of the module
 symbol|fortran|cray_pointer|If this symbol is_cray_pointee then this is its Cray pointer
 string|all|linkage_spec|The linkage specifier (C, C++)
