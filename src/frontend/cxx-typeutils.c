@@ -2406,7 +2406,7 @@ static type_t* _get_array_type(type_t* element_type,
     // } 
     //
     //
-    // First try to fold as many trees as possible to free them
+    // First try to fold as many trees as possible
     if (!nodecl_is_null(whole_size))
     {
         struct {
@@ -2430,6 +2430,9 @@ static type_t* _get_array_type(type_t* element_type,
             {
                 *(data[i].pred) = 1;
                 *(data[i].value) = const_value_cast_to_8(
+                        nodecl_get_constant(*(data[i].nodecl)));
+                // Simplify the tree now
+                *(data[i].nodecl) = const_value_to_nodecl(
                         nodecl_get_constant(*(data[i].nodecl)));
             }
         }
