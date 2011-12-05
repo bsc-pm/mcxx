@@ -3135,6 +3135,16 @@ static char is_name_of_funtion_call(AST expr)
 
 static void check_symbol_of_called_name(AST sym, decl_context_t decl_context, nodecl_t* nodecl_output, char is_call_stmt)
 { 
+    if (ASTType(sym) != AST_SYMBOL)
+    {
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: error: expression is not a valid procedure designator\n", ast_location(sym));
+        }
+        *nodecl_output = nodecl_make_err_expr(ASTFileName(sym), ASTLine(sym));
+        return;
+    }
+
     // Look the symbol up. This will ignore INTRINSIC names
     scope_entry_t* entry = fortran_query_name_str(decl_context, ASTText(sym));
     if (entry == NULL)
