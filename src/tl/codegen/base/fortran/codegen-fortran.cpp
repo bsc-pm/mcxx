@@ -1143,7 +1143,16 @@ OPERATOR_TABLE
 
             if (it != related_symbols.begin())
                 file << ", ";
-            file << dummy.get_name();
+
+            // Alternate return
+            if (dummy.is_label())
+            {
+                file << "*";
+            }
+            else
+            {
+                file << dummy.get_name();
+            }
         }
         file << ")\n";
     }
