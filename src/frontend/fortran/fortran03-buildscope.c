@@ -1021,6 +1021,7 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
             entry->entity_specs.is_module_procedure = 0;
             remove_not_fully_defined_symbol(entry->decl_context, entry);
         }
+        remove_unknown_kind_symbol(entry->decl_context, entry);
     }
 
     if (entry == NULL)
