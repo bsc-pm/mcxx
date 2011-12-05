@@ -1254,19 +1254,21 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
 
         if (enclosing_symbol != NULL)
         {
-            if (entry->kind == SK_FUNCTION
-                    || entry->kind == SK_MODULE)
+            if (enclosing_symbol->kind == SK_FUNCTION
+                    || enclosing_symbol->kind == SK_PROGRAM
+                    || enclosing_symbol->kind == SK_MODULE)
             {
                 insert_entry(enclosing_symbol->decl_context.current_scope, entry);
-            }
-            if (enclosing_symbol->kind == SK_MODULE)
-            {
-                // If we are enclosed by a module, we are a module procedure
-                entry->entity_specs.in_module = enclosing_symbol;
 
-                P_LIST_ADD(enclosing_symbol->entity_specs.related_symbols,
-                        enclosing_symbol->entity_specs.num_related_symbols,
-                        entry);
+                if (enclosing_symbol->kind == SK_MODULE)
+                {
+                    // If we are enclosed by a module, we are a module procedure
+                    entry->entity_specs.in_module = enclosing_symbol;
+
+                    P_LIST_ADD(enclosing_symbol->entity_specs.related_symbols,
+                            enclosing_symbol->entity_specs.num_related_symbols,
+                            entry);
+                }
             }
         }
     }
