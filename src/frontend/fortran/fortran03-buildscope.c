@@ -5918,11 +5918,13 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
 
         if (char_length != NULL)
         {
+            char was_ref = is_lvalue_reference_type(entry->type_information);
             if (ASTType(char_length) != AST_SYMBOL
                     || strcmp(ASTText(char_length), "*") != 0)
             {
                 nodecl_t nodecl_char_length = nodecl_null();
                 fortran_check_expression(char_length, decl_context, &nodecl_char_length);
+
 
                 nodecl_t lower_bound = nodecl_make_integer_literal(
                         get_signed_int_type(),
@@ -5931,12 +5933,18 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
                 entry->type_information = get_array_type_bounds(
                         array_type_get_element_type(no_ref(entry->type_information)), 
                         lower_bound, nodecl_char_length, decl_context);
+
             }
             else
             {
                 entry->type_information = get_array_type(
-                        array_type_get_element_type(entry->type_information), 
+                        array_type_get_element_type(no_ref(entry->type_information)),
                         nodecl_null(), decl_context);
+            }
+
+            if (was_ref)
+            {
+                entry->type_information = get_lvalue_reference_type(entry->type_information);
             }
         }
 
