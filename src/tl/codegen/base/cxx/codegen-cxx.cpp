@@ -3326,10 +3326,47 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
                 function_name += template_arguments_to_str(symbol);
             }
 
-            std::string declarator = this->get_declaration(
-                    real_type,
-                    symbol.get_scope(),
-                    function_name);
+            std::string declarator = "";
+            if (!real_type.lacks_prototype())
+            {
+                declarator = this->get_declaration(
+                        real_type,
+                        symbol.get_scope(),
+                        function_name);
+            }
+            else
+            {
+                declarator = this->get_declaration(
+                        real_type.returns(),
+                        symbol.get_scope(),
+                        function_name);
+                declarator += "(";
+                TL::ObjectList<TL::Symbol> args = symbol.get_related_symbols();
+                for (TL::ObjectList<TL::Symbol>::iterator it = args.begin();
+                        it != args.end();
+                        it++)
+                {
+                    if (it != args.begin())
+                        declarator += ", ";
+
+                    declarator += it->get_name();
+                }
+
+                bool has_ellipsis = false;
+                real_type.parameters(has_ellipsis);
+
+                if (has_ellipsis)
+                {
+                    if (!args.empty())
+                    {
+                        declarator += ", ";
+                    }
+
+                    declarator += "...";
+                }
+                
+                declarator += ")";
+            }
 
             std::string exception_spec = exception_specifier_to_str(symbol);
 
