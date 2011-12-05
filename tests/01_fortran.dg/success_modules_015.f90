@@ -28,9 +28,6 @@
 ! <testinfo>
 ! test_generator=config/mercurium-fortran
 ! </testinfo>
-
-
-
 MODULE M
 IMPLICIT NONE
 PUBLIC :: X
