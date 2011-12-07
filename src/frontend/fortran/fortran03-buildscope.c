@@ -5810,9 +5810,16 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
         // Create a new symbol if it does not exist in the current scope
         scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
 
-        // If entry has the same name as an intrinsic, we must change things
         scope_entry_t* entry_intrinsic = fortran_query_intrinsic_name_str(decl_context, ASTText(name));
-        char can_be_an_intrinsic = (entry_intrinsic != NULL);
+        char can_be_an_intrinsic = 
+            (entry_intrinsic != NULL 
+             // Filter dummy arguments
+             && !entry->entity_specs.is_parameter
+             // Filter the program unit itself
+             && entry != decl_context.current_scope->related_entry);
+        
+        // If the entry could be the name of an intrinsic
+        // fix its type
         if (can_be_an_intrinsic)
         {
             entry->type_information = basic_type; 
