@@ -271,7 +271,7 @@ static void load_storage(sqlite3** handle, const char* filename)
     }
 
     {
-        const char * create_temp_mapping = "CREATE TEMP TABLE oid_ptr_map(oid, ptr, PRIMARY KEY(oid, ptr));";
+        const char * create_temp_mapping = "CREATE TEMP TABLE oid_ptr_map(oid, ptr, PRIMARY KEY(oid), UNIQUE(ptr));";
         run_query(*handle, create_temp_mapping);
     }
 }
@@ -318,12 +318,16 @@ void load_module_info(const char* module_name, scope_entry_t** module)
 
     load_storage(&handle, filename);
 
+    start_transaction(handle);
+
     module_info_t minfo;
     memset(&minfo, 0, sizeof(minfo));
 
     get_module_info(handle, &minfo);
 
     *module = load_symbol(handle, minfo.module_oid);
+
+    end_transaction(handle);
 
     dispose_storage(handle);
 
