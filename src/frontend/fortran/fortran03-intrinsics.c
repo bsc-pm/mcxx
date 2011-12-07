@@ -1170,6 +1170,7 @@ scope_entry_t* compute_intrinsic_aint(scope_entry_t* symbol UNUSED_PARAMETER,
     type_t* t0 = get_rank0_type(argument_types[0]);
     int dr = fortran_get_default_real_type_kind();
     if (is_floating_type(t0)
+            && (dr = type_get_size(t0))
             && opt_valid_kind_expr(argument_expressions[1], &dr))
     {
         return GET_INTRINSIC_ELEMENTAL("aint", 
@@ -1228,6 +1229,7 @@ scope_entry_t* compute_intrinsic_anint(scope_entry_t* symbol UNUSED_PARAMETER,
     type_t* t0 = get_rank0_type(argument_types[0]);
     int dr = fortran_get_default_real_type_kind();
     if (is_floating_type(t0)
+            && (dr = type_get_size(t0))
             && opt_valid_kind_expr(argument_expressions[1], &dr))
     {
         return GET_INTRINSIC_ELEMENTAL("anint", 
