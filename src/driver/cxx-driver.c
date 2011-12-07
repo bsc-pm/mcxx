@@ -1503,13 +1503,29 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
         case 'f':
         case 'm':
             {
-                add_parameter_all_toolchain(argument, dry_run);
+                char hide_parameter = 0;
                 if (!dry_run)
                 {
                     if (strcmp(argument, "-fshort-enums") == 0)
                     {
                         CURRENT_CONFIGURATION->code_shape.short_enums = 1;
                     }
+#ifdef FORTRAN_SUPPORT
+                    if (strcmp(argument, "-ffree-form") == 0)
+                    {
+                        CURRENT_CONFIGURATION->force_source_kind |= SOURCE_KIND_FREE_FORM;
+                        hide_parameter = 1;
+                    }
+                    if (strcmp(argument, "-ffixed-form") == 0)
+                    {
+                        CURRENT_CONFIGURATION->force_source_kind |= SOURCE_KIND_FIXED_FORM;
+                        hide_parameter = 1;
+                    }
+#endif
+                }
+                if (!hide_parameter)
+                {
+                    add_parameter_all_toolchain(argument, dry_run);
                 }
                 (*should_advance)++;
                 break;
