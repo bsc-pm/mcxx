@@ -718,6 +718,8 @@ static nodecl_t simplify_real(int num_arguments UNUSED_PARAMETER, nodecl_t* argu
 
     if (nodecl_is_constant(arg))
     {
+        const_value_t* value = nodecl_get_constant(arg);
+
         int kind = 0;
         if (!nodecl_is_null(arg_kind))
         {
@@ -732,17 +734,22 @@ static nodecl_t simplify_real(int num_arguments UNUSED_PARAMETER, nodecl_t* argu
 
         type_t* float_type = choose_float_type_from_kind(arg_kind, kind);
 
+        if (const_value_is_complex(value))
+        {
+            value = const_value_complex_get_real_part(value);
+        }
+
         if (is_float_type(float_type))
         {
-            return const_value_to_nodecl(const_value_cast_to_float_value(nodecl_get_constant(arg)));
+            return const_value_to_nodecl(const_value_cast_to_float_value(value));
         }
         else if (is_double_type(float_type))
         {
-            return const_value_to_nodecl(const_value_cast_to_double_value(nodecl_get_constant(arg)));
+            return const_value_to_nodecl(const_value_cast_to_double_value(value));
         }
         else if (is_long_double_type(float_type))
         {
-            return const_value_to_nodecl(const_value_cast_to_long_double_value(nodecl_get_constant(arg)));
+            return const_value_to_nodecl(const_value_cast_to_long_double_value(value));
         }
         else
         {
