@@ -5,6 +5,7 @@
 #include "cxx-typeutils.h"
 #include "fortran03-typeutils.h"
 #include "cxx-exprtype.h"
+#include "cxx-driver-utils.h"
 #include "cxx-driver-fortran.h"
 #include "cxx-entrylist.h"
 
@@ -213,6 +214,14 @@ void dump_module_info(scope_entry_t* module)
         fprintf(stderr, "FORTRAN-MODULES: Dumping module '%s'\n", module->symbol_name);
     }
 
+    if (CURRENT_CONFIGURATION->verbose)
+    {
+        fprintf(stderr, "Writing module '%s'\n", module->symbol_name);
+    }
+
+    timing_t timing_dump_module;
+    timing_start(&timing_dump_module);
+
     sqlite3* handle = NULL;
     create_storage(&handle, module->symbol_name);
 
@@ -227,6 +236,14 @@ void dump_module_info(scope_entry_t* module)
     end_transaction(handle);
 
     dispose_storage(handle);
+
+    timing_end(&timing_dump_module);
+
+    if (CURRENT_CONFIGURATION->verbose)
+    {
+        fprintf(stderr, "Module '%s' written in %.2f seconds\n", module->symbol_name,
+                timing_elapsed(&timing_dump_module));
+    }
 
     DEBUG_CODE()
     {
@@ -289,6 +306,14 @@ void load_module_info(const char* module_name, scope_entry_t** module)
                 module_name);
     }
 
+    if (CURRENT_CONFIGURATION->verbose)
+    {
+        fprintf(stderr, "Loading module '%s'\n", module_name);
+    }
+
+    timing_t timing_load_module;
+    timing_start(&timing_load_module);
+
     sqlite3* handle = NULL;
 
     load_storage(&handle, filename);
@@ -301,6 +326,15 @@ void load_module_info(const char* module_name, scope_entry_t** module)
     *module = load_symbol(handle, minfo.module_oid);
 
     dispose_storage(handle);
+
+    timing_end(&timing_load_module);
+
+    if (CURRENT_CONFIGURATION->verbose)
+    {
+        fprintf(stderr, "Module '%s' loaded in %.2f seconds\n", 
+                module_name,
+                timing_elapsed(&timing_load_module));
+    }
 }
 
 static void create_storage(sqlite3** handle, const char* module_name)

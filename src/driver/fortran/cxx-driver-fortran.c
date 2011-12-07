@@ -184,9 +184,25 @@ static const char* unwrap_module(const char* wrap_module, const char* module_nam
         NULL
     };
 
+    timing_t timing_unwrap;
+    timing_start(&timing_unwrap);
+
+    if (CURRENT_CONFIGURATION->verbose)
+    {
+        fprintf(stderr, "Unwrapping module file '%s'\n", wrap_module);
+    }
+    timing_end(&timing_unwrap);
+
     if (execute_program("tar", arguments) != 0)
     {
         running_error("Error when unwrapping module. tar failed", 0);
+    }
+
+    if (CURRENT_CONFIGURATION->verbose)
+    {
+        fprintf(stderr, "Unwrapped module file '%s' in %.2f seconds\n",
+                wrap_module,
+                timing_elapsed(&timing_unwrap));
     }
 
     const char* mf03_filename = strappend(module_name, ".mf03");

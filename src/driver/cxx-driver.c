@@ -2941,7 +2941,7 @@ static void semantic_analysis(translation_unit_t* translation_unit, const char* 
     if (CURRENT_CONFIGURATION->verbose)
     {
         fprintf(stderr, "Tree consistency verified in %.2f seconds\n",
-                timing_elapsed(&timing_semantic));
+                timing_elapsed(&timing_check_tree));
     }
 }
 
