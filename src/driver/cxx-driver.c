@@ -2516,8 +2516,12 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
 
 #ifdef FORTRAN_SUPPORT
         if (current_extension->source_language == SOURCE_LANGUAGE_FORTRAN
+                // We prescan from fixed to free if 
+                //  - the file is fixed form OR we are forced to be fixed for (--fixed)
+                //  - AND we were NOT told to be free form (--free)
                 && (BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_FIXED_FORM)
                     || BITMAP_TEST(CURRENT_CONFIGURATION->force_source_kind, SOURCE_KIND_FIXED_FORM))
+                && !BITMAP_TEST(CURRENT_CONFIGURATION->force_source_kind, SOURCE_KIND_FREE_FORM)
                 && !CURRENT_CONFIGURATION->pass_through)
         {
             timing_t timing_prescanning;
