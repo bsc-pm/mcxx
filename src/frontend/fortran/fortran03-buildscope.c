@@ -4694,6 +4694,7 @@ static void build_scope_if_construct(AST a, decl_context_t decl_context, nodecl_
     AST logical_expr = ASTSon0(a);
     AST then_statement = ASTSon1(a);
     AST else_statement = ASTSon2(a);
+    AST endif_statement = ASTSon3(a);
 
     nodecl_t nodecl_logical_expr = nodecl_null();
     fortran_check_expression(logical_expr, decl_context, &nodecl_logical_expr);
@@ -4707,7 +4708,6 @@ static void build_scope_if_construct(AST a, decl_context_t decl_context, nodecl_
         fortran_build_scope_statement(else_statement, decl_context, &nodecl_else);
     }
 
-
     if (!nodecl_is_list(nodecl_then))
     {
         nodecl_then = nodecl_make_list_1(nodecl_then);
@@ -4716,6 +4716,36 @@ static void build_scope_if_construct(AST a, decl_context_t decl_context, nodecl_
     if (!nodecl_is_list(nodecl_else))
     {
         nodecl_else = nodecl_make_list_1(nodecl_else);
+    }
+
+    // Handle a label to the END IF
+    // We append a labeled CONTINUE statement to the block that lies just
+    // before the END IF
+    if (endif_statement != NULL
+            && ASTType(endif_statement) == AST_LABELED_STATEMENT)
+    {
+        AST label = ASTSon0(endif_statement);
+
+        // Sign in the label
+        scope_entry_t* label_sym = fortran_query_label(label, decl_context, /* is_definition */ 1);
+
+        nodecl_t nodecl_labeled_empty_statement = 
+            nodecl_make_labeled_statement(
+                    nodecl_make_list_1(
+                        nodecl_make_empty_statement(ASTFileName(endif_statement), ASTLine(endif_statement))
+                        ),
+                    label_sym,
+                    ASTFileName(endif_statement), 
+                    ASTLine(endif_statement));
+
+        if (else_statement == NULL)
+        {
+            nodecl_then = nodecl_append_to_list(nodecl_then, nodecl_labeled_empty_statement);
+        }
+        else
+        {
+            nodecl_else = nodecl_append_to_list(nodecl_else, nodecl_labeled_empty_statement);
+        }
     }
 
     *nodecl_output = nodecl_make_if_else_statement(
