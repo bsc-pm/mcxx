@@ -5927,34 +5927,45 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
 
         if (char_length != NULL)
         {
-            char was_ref = is_lvalue_reference_type(entry->type_information);
+            type_t* new_basic_type = NULL;
+
+            type_t* rank0 = get_rank0_type(basic_type);
+
+            if (!is_fortran_character_type(rank0))
+            {
+                error_printf("%s: error: char-length specified but type is not CHARACTER\n", ast_location(declaration));
+                continue;
+            }
+
+            rank0 = array_type_get_element_type(rank0);
+
             if (ASTType(char_length) != AST_SYMBOL
                     || strcmp(ASTText(char_length), "*") != 0)
             {
                 nodecl_t nodecl_char_length = nodecl_null();
                 fortran_check_expression(char_length, decl_context, &nodecl_char_length);
-
+                
+                if (nodecl_is_err_expr(nodecl_char_length))
+                    continue;
 
                 nodecl_t lower_bound = nodecl_make_integer_literal(
                         get_signed_int_type(),
                         const_value_get_one(type_get_size(get_signed_int_type()), 1),
                         ASTFileName(char_length), ASTLine(char_length));
-                entry->type_information = get_array_type_bounds(
-                        array_type_get_element_type(no_ref(entry->type_information)), 
+
+                new_basic_type = get_array_type_bounds(
+                        rank0,
                         lower_bound, nodecl_char_length, decl_context);
 
             }
             else
             {
-                entry->type_information = get_array_type(
-                        array_type_get_element_type(no_ref(entry->type_information)),
+                new_basic_type = get_array_type(
+                        rank0,
                         nodecl_null(), decl_context);
             }
 
-            if (was_ref)
-            {
-                entry->type_information = get_lvalue_reference_type(entry->type_information);
-            }
+            entry->type_information = update_basic_type_with_type(entry->type_information, new_basic_type);
         }
 
 
