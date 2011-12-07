@@ -4361,6 +4361,7 @@ static void build_scope_do_construct(AST a, decl_context_t decl_context, nodecl_
 {
     AST loop_control = ASTSon0(a);
     AST block = ASTSon1(a);
+    AST end_do_statement = ASTSon2(a);
 
     AST assig = ASTSon0(loop_control);
     AST upper = ASTSon1(loop_control);
@@ -4399,6 +4400,26 @@ static void build_scope_do_construct(AST a, decl_context_t decl_context, nodecl_
     nodecl_t nodecl_statement = nodecl_null();
     fortran_build_scope_statement(block, decl_context, &nodecl_statement);
 
+    // Convert a labeled END DO into a labeled CONTINUE at the end of the block
+    if (end_do_statement != NULL
+            && ASTType(end_do_statement) == AST_LABELED_STATEMENT)
+    {
+        AST label = ASTSon0(end_do_statement);
+
+        // Sign in the label
+        scope_entry_t* label_sym = fortran_query_label(label, decl_context, /* is_definition */ 1);
+
+        nodecl_t nodecl_labeled_empty_statement = 
+            nodecl_make_labeled_statement(
+                    nodecl_make_list_1(
+                        nodecl_make_empty_statement(ASTFileName(end_do_statement), ASTLine(end_do_statement))
+                        ),
+                    label_sym,
+                    ASTFileName(end_do_statement), 
+                    ASTLine(end_do_statement));
+
+        nodecl_statement = nodecl_append_to_list(nodecl_statement, nodecl_labeled_empty_statement);
+    }
 
     *nodecl_output = nodecl_make_for_statement(
             nodecl_make_loop_control(nodecl_lower, 
@@ -6788,6 +6809,7 @@ static void build_scope_while_stmt(AST a, decl_context_t decl_context, nodecl_t*
 {
     AST expr = ASTSon0(a);
     AST block = ASTSon1(a);
+    AST end_do_statement = ASTSon2(a);
 
     nodecl_t nodecl_expr = nodecl_null();
     fortran_check_expression(expr, decl_context, &nodecl_expr);
@@ -6801,6 +6823,26 @@ static void build_scope_while_stmt(AST a, decl_context_t decl_context, nodecl_t*
     nodecl_t nodecl_statement = nodecl_null();
     fortran_build_scope_statement(block, decl_context, &nodecl_statement);
 
+    // Convert a labeled END DO into a labeled CONTINUE at the end of the block
+    if (end_do_statement != NULL
+            && ASTType(end_do_statement) == AST_LABELED_STATEMENT)
+    {
+        AST label = ASTSon0(end_do_statement);
+
+        // Sign in the label
+        scope_entry_t* label_sym = fortran_query_label(label, decl_context, /* is_definition */ 1);
+
+        nodecl_t nodecl_labeled_empty_statement = 
+            nodecl_make_labeled_statement(
+                    nodecl_make_list_1(
+                        nodecl_make_empty_statement(ASTFileName(end_do_statement), ASTLine(end_do_statement))
+                        ),
+                    label_sym,
+                    ASTFileName(end_do_statement), 
+                    ASTLine(end_do_statement));
+
+        nodecl_statement = nodecl_append_to_list(nodecl_statement, nodecl_labeled_empty_statement);
+    }
 
     *nodecl_output = nodecl_make_while_statement(nodecl_expr,
             nodecl_statement, 
