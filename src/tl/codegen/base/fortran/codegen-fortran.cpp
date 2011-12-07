@@ -2056,6 +2056,19 @@ OPERATOR_TABLE
             TL::Symbol &sym(*it);
             declare_symbol(sym);
         }
+        
+        // Could we improve the name of this function?
+        TL::Symbol data_symbol = ::get_data_symbol_info(entry.get_scope().get_decl_context());
+        if (data_symbol.is_valid())
+        {
+            walk(data_symbol.get_initialization());
+        }
+
+        TL::Symbol equivalence_symbol = get_equivalence_symbol_info(entry.get_scope().get_decl_context());
+        if (equivalence_symbol.is_valid())
+        {
+            walk(equivalence_symbol.get_initialization());
+        }
     }
 
     void FortranBase::codegen_blockdata_footer(TL::Symbol entry)
