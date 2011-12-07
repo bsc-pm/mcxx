@@ -1265,7 +1265,7 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
                     // If we are enclosed by a module, we are a module procedure
                     entry->entity_specs.in_module = enclosing_symbol;
 
-                    P_LIST_ADD(enclosing_symbol->entity_specs.related_symbols,
+                    P_LIST_ADD_ONCE(enclosing_symbol->entity_specs.related_symbols,
                             enclosing_symbol->entity_specs.num_related_symbols,
                             entry);
                 }
@@ -1494,7 +1494,7 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
         scope_entry_t * sym_module = related_entry->entity_specs.in_module;
         
         entry->entity_specs.in_module = sym_module;
-        P_LIST_ADD(sym_module->entity_specs.related_symbols,
+        P_LIST_ADD_ONCE(sym_module->entity_specs.related_symbols,
                 sym_module->entity_specs.num_related_symbols,
                 entry);
     }
