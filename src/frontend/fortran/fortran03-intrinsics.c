@@ -2862,7 +2862,7 @@ scope_entry_t* compute_intrinsic_len(scope_entry_t* symbol UNUSED_PARAMETER,
     type_t* t0 = argument_types[0];
 
     int di = fortran_get_default_integer_type_kind();
-    if (is_fortran_character_type(t0)
+    if (is_fortran_character_type(get_rank0_type(t0))
             && opt_valid_kind_expr(argument_expressions[1], &di))
     {
         return GET_INTRINSIC_INQUIRY("len",

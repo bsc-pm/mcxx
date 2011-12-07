@@ -246,7 +246,7 @@ static nodecl_t simplify_len(int num_arguments UNUSED_PARAMETER, nodecl_t* argum
 {
     nodecl_t str = arguments[0];
 
-    type_t* t = no_ref(nodecl_get_type(str));
+    type_t* t = get_rank0_type(no_ref(nodecl_get_type(str)));
 
     if (array_type_is_unknown_size(t))
         return nodecl_null();
