@@ -7171,14 +7171,7 @@ static void opt_fmt_value(AST value, decl_context_t decl_context, nodecl_t* node
         type_t* t = nodecl_get_type(nodecl_value);
 
         char valid = 1;
-        if (ASTType(value) != AST_DECIMAL_LITERAL)
-        {
-            if (!is_fortran_character_type(no_ref(t)))
-            {
-                valid = 0;
-            }
-        }
-        else
+        if (ASTType(value) == AST_DECIMAL_LITERAL)
         {
             scope_entry_t* entry = fortran_query_label(value, decl_context, /* is_definition */ 0);
             if (entry == NULL)
@@ -7190,10 +7183,28 @@ static void opt_fmt_value(AST value, decl_context_t decl_context, nodecl_t* node
                 nodecl_value = nodecl_make_symbol(entry, ASTFileName(value), ASTLine(value));
             }
         }
+        else 
+        {
+            scope_entry_t* entry = nodecl_get_symbol(nodecl_value);
+            if (is_fortran_character_type(no_ref(t)))
+            {
+                // Character type is OK
+            }
+            else if (entry != NULL
+                    && entry->kind == SK_VARIABLE
+                    && equivalent_types(entry->type_information, fortran_get_default_integer_type()))
+            {
+                // ASSIGNed variable
+            }
+            else
+            {
+                valid = 0;
+            }
+        }
 
         if (!valid)
         {
-            error_printf("%s: error: specifier FMT requires a character expression or a label of a FORMAT statement\n",
+            error_printf("%s: error: specifier FMT requires a character expression, a label of a FORMAT statement or an ASSIGNED variable\n",
                     ast_location(value));
         }
         *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "FMT", ASTFileName(value), ASTLine(value));
