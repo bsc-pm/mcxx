@@ -3607,8 +3607,11 @@ static void build_scope_label_assign_stmt(AST a UNUSED_PARAMETER, decl_context_t
 
     AST literal_const = ASTSon0(a);
 
-    nodecl_t nodecl_literal = nodecl_null();
-    fortran_check_expression(literal_const, decl_context, &nodecl_literal);
+    scope_entry_t* entry = fortran_query_label(literal_const,
+            decl_context,
+            /* is_definition */ 0);
+
+    nodecl_t nodecl_label = nodecl_make_symbol(entry, ASTFileName(literal_const), ASTLine(literal_const));
 
     AST label_name = ASTSon1(a);
 
@@ -3622,7 +3625,7 @@ static void build_scope_label_assign_stmt(AST a UNUSED_PARAMETER, decl_context_t
     ERROR_CONDITION(label_var == NULL, "Invalid symbol", 0);
 
     *nodecl_output = nodecl_make_fortran_label_assign_statement(
-            nodecl_literal,
+            nodecl_label,
             nodecl_make_symbol(label_var, ASTFileName(label_name), ASTLine(label_name)),
             ASTFileName(a),
             ASTLine(a));
