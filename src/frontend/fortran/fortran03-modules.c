@@ -363,14 +363,6 @@ static void create_storage(sqlite3** handle, const char* module_name)
     load_storage(handle, filename);
 }
 
-static void dispose_storage(sqlite3* handle)
-{
-    if (sqlite3_close(handle) != SQLITE_OK)
-    {
-        running_error("Error while closing database (%s)\n", sqlite3_errmsg(handle));
-    }
-}
-
 static int run_select_query(sqlite3* handle, const char* query, 
         int (*fun)(void*, int, char**, char**), 
         void * data,
@@ -416,6 +408,10 @@ static void init_storage(sqlite3* handle)
     {
         const char * create_attributes = "CREATE TABLE attributes(name, symbol, value);";
         run_query(handle, create_attributes);
+
+        // This index is crucial for fast loading of attributes of symbols
+        const char * create_attr_index = "CREATE INDEX attributes_index ON attributes (symbol, name);";
+        run_query(handle, create_attr_index);
     }
 
     {
@@ -1312,7 +1308,9 @@ static int get_symbol(void *datum,
     return 0;
 }
 
-static scope_entry_t* load_symbol(sqlite3* handle, sqlite3_uint64 oid)
+#if 0
+// Old implementation, known to be 100% correct but pretty slow
+static scope_entry_t* load_symbol_1(sqlite3* handle, sqlite3_uint64 oid)
 {
     if (oid == 0)
         return NULL;
@@ -1337,6 +1335,121 @@ static scope_entry_t* load_symbol(sqlite3* handle, sqlite3_uint64 oid)
     }
 
     return result.symbol;
+}
+#endif
+
+static char* safe_strdup(const char* c)
+{
+    if (c == NULL)
+        return NULL;
+    return strdup(c);
+}
+
+static sqlite3_stmt* _load_symbol_stmt = NULL;
+static scope_entry_t* load_symbol(sqlite3* handle, sqlite3_uint64 oid)
+{
+    if (oid == 0)
+        return NULL;
+
+    {
+        scope_entry_t* ptr = (scope_entry_t*)get_ptr_of_oid(handle, oid);
+        if (ptr != NULL)
+        {
+            return ptr;
+        }
+    }
+
+    if (_load_symbol_stmt == NULL)
+    {
+        const char* query = "SELECT oid, * FROM symbol WHERE oid = $OID;";
+        const char* unused_str = NULL;
+        int result_prepare = sqlite3_prepare_v2(
+                handle,
+                query,
+                strlen(query),
+                &_load_symbol_stmt,
+                &unused_str);
+
+        if (result_prepare != SQLITE_OK)
+        {
+            internal_error("An error happened while preparing statement '%s' %s\n",
+                    query,
+                    sqlite3_errmsg(handle));
+        }
+    }
+
+    // Bind the oid parameter
+    sqlite3_bind_int64(_load_symbol_stmt, 1, oid);
+
+    int result_query = sqlite3_step(_load_symbol_stmt);
+    switch (result_query)
+    {
+        case SQLITE_ROW:
+            {
+                // OK
+                break;
+            }
+        case SQLITE_DONE:
+            {
+                internal_error("Symbol with oid %llu not found\n", oid);
+                break;
+            }
+        default:
+            {
+                internal_error("Unexpected error %d when running query '%s'", 
+                        result_query,
+                        sqlite3_errmsg(handle));
+            }
+    }
+
+    int ncols = sqlite3_column_count(_load_symbol_stmt);
+    char* values[ncols+1];
+    char* names[ncols+1];
+
+    int i;
+    for (i = 0; i < ncols; i++)
+    {
+        values[i] = safe_strdup((const char*)sqlite3_column_text(_load_symbol_stmt, i));
+        names[i] = safe_strdup((const char*)sqlite3_column_name(_load_symbol_stmt, i));
+    }
+
+    result_query = sqlite3_step(_load_symbol_stmt);
+    switch (result_query)
+    {
+        case SQLITE_DONE:
+            {
+                // OK
+                break;
+            }
+        case SQLITE_ROW:
+            {
+                // Too many!
+                internal_error("Too many results from query of symbol oid %llu\n", oid);
+                break;
+            }
+        default:
+            {
+                internal_error("Unexpected error when running query '%s'", 
+                        sqlite3_errmsg(handle));
+            }
+    }
+
+    // Release this prepared statement, from now we are reentrant
+    sqlite3_reset(_load_symbol_stmt);
+
+    symbol_handle_t symbol_handle;
+    memset(&symbol_handle, 0, sizeof(symbol_handle));
+    symbol_handle.handle = handle;
+
+    get_symbol(&symbol_handle, ncols, (char**)values, (char**)names);
+
+    for (i = 0; i < ncols; i++)
+    {
+        free(values[i]);
+        free(names[i]);
+    }
+
+    return symbol_handle.symbol;
 }
 
 
@@ -2030,6 +2143,18 @@ static const_value_t* load_const_value(sqlite3* handle, sqlite3_uint64 oid)
 
     return result.v;
 }
+
+static void dispose_storage(sqlite3* handle)
+{
+    sqlite3_finalize(_load_symbol_stmt);
+    _load_symbol_stmt = NULL;
+
+    if (sqlite3_close(handle) != SQLITE_OK)
+    {
+        running_error("Error while closing database (%s)\n", sqlite3_errmsg(handle));
+    }
+}
+
 
 #ifdef DEBUG_SQLITE3_MPRINTF
  #error Disable DEBUG_SQLITE3_MPRINTF macro once no warnings for sqlite3_mprintf calls are signaled by gcc
