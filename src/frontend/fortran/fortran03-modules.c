@@ -271,7 +271,7 @@ static void load_storage(sqlite3** handle, const char* filename)
     }
 
     {
-        const char * create_temp_mapping = "CREATE TEMP TABLE oid_ptr_map(oid, ptr, PRIMARY KEY(oid), UNIQUE(ptr));";
+        const char * create_temp_mapping = "CREATE TEMP TABLE oid_ptr_map(oid, ptr, PRIMARY KEY(oid));";
         run_query(*handle, create_temp_mapping);
     }
 }
