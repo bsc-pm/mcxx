@@ -1503,6 +1503,7 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
 }
 
 static char statement_is_executable(AST statement);
+static char statement_is_nonexecutable(AST statement);
 static void build_scope_ambiguity_statement(AST ambig_stmt, decl_context_t decl_context);
 
 static void build_scope_program_unit_body_declarations(
@@ -1531,15 +1532,13 @@ static void build_scope_program_unit_body_declarations(
                         ast_location(stmt));
             }
             
-            // We only handle nonexecutable statements here and ENTRY statement
-            // (which is an oddly defined "executable" statement)
-            if (ASTType(stmt) != AST_ENTRY_STATEMENT
-                    && statement_is_executable(stmt))
-                continue;
-
-            // Nonexecutable statements should not generate nodecls
-            // If we pass a NULL we will detect such an attempt 
-            fortran_build_scope_statement(stmt, decl_context, NULL);
+            // We only handle nonexecutable statements here 
+            if (statement_is_nonexecutable(stmt))
+            {
+                // Nonexecutable statements should not generate nodecls
+                // If we pass a NULL we will detect such an attempt 
+                fortran_build_scope_statement(stmt, decl_context, NULL);
+            }
         }
     }
 }
@@ -1844,6 +1843,7 @@ enum statement_kind_tag
     STMT_KIND_UNKNOWN = 0,
     STMT_KIND_EXECUTABLE = 1,
     STMT_KIND_NONEXECUTABLE = 2,
+    STMT_KIND_BOTH = 3,
 } statement_kind_t;
 
 static statement_kind_t kind_nonexecutable_0(AST a UNUSED_PARAMETER)
@@ -1854,6 +1854,11 @@ static statement_kind_t kind_nonexecutable_0(AST a UNUSED_PARAMETER)
 static statement_kind_t kind_executable_0(AST a UNUSED_PARAMETER)
 {
     return STMT_KIND_EXECUTABLE;
+}
+
+static statement_kind_t kind_any_0(AST a UNUSED_PARAMETER)
+{
+    return STMT_KIND_BOTH;
 }
 
 static statement_kind_t kind_of_son_1(AST a);
@@ -1944,10 +1949,10 @@ typedef struct build_scope_statement_handler_tag
  STATEMENT_HANDLER(AST_WHILE_STATEMENT,               build_scope_while_stmt,            kind_executable_0    ) \
  STATEMENT_HANDLER(AST_WRITE_STATEMENT,               build_scope_write_stmt,            kind_executable_0    ) \
  STATEMENT_HANDLER(AST_PRAGMA_CUSTOM_CONSTRUCT,       build_scope_pragma_custom_ctr,     kind_executable_0  ) \
- STATEMENT_HANDLER(AST_PRAGMA_CUSTOM_DIRECTIVE,       build_scope_pragma_custom_dir,     kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_PRAGMA_CUSTOM_DIRECTIVE,       build_scope_pragma_custom_dir,     kind_executable_0 ) \
  STATEMENT_HANDLER(AST_UNKNOWN_PRAGMA,                build_scope_unknown_pragma,        kind_nonexecutable_0  ) \
  STATEMENT_HANDLER(AST_STATEMENT_PLACEHOLDER,         build_scope_statement_placeholder, kind_nonexecutable_0  ) \
- STATEMENT_HANDLER(AST_ENTRY_STATEMENT,               build_scope_entry_stmt,            kind_executable_0 ) \
+ STATEMENT_HANDLER(AST_ENTRY_STATEMENT,               build_scope_entry_stmt,            kind_any_0 ) \
  STATEMENT_HANDLER(AST_TYPEDEF_DECLARATION_STATEMENT, build_scope_typedef_stmt,          kind_nonexecutable_0 ) \
 
 // Prototypes
@@ -2021,15 +2026,15 @@ static statement_kind_t kind_of_son_1(AST a)
 
 static char statement_is_executable(AST statement)
 {
-    return statement_get_kind(statement) == STMT_KIND_EXECUTABLE;
+    statement_kind_t k = statement_get_kind(statement);
+    return (k == STMT_KIND_EXECUTABLE || k == STMT_KIND_BOTH);
 }
 
-#if 0
 static char statement_is_nonexecutable(AST statement)
 {
-    return statement_get_kind(statement) == STMT_KIND_NONEXECUTABLE;
+    statement_kind_t k = statement_get_kind(statement);
+    return (k == STMT_KIND_NONEXECUTABLE || k == STMT_KIND_BOTH);
 }
-#endif
 
 void fortran_build_scope_statement(AST statement, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
