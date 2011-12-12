@@ -218,6 +218,12 @@ namespace Codegen
             walk(equivalence_symbol.get_initialization());
         }
 
+        // Separate executable statements
+        if (!statement_seq.is_null())
+        {
+            file << "\n";
+        }
+
         walk(statement_seq);
         dec_indent();
 
@@ -274,13 +280,17 @@ namespace Codegen
             codegen_procedure(entry, statement_seq, internal_subprograms);
 
             dec_indent();
-            file << "END PROGRAM " << program_name << "\n";
+            file << "END PROGRAM " << program_name << "\n\n";
         }
         else if (entry.is_function())
         {
             codegen_procedure_declaration_header(entry);
             codegen_procedure(entry, statement_seq, internal_subprograms);
             codegen_procedure_declaration_footer(entry);
+            // Add a separating new line between program units
+            // We do not do this in codegen_procedure_declaration_footer because we do not want
+            // that extra new line in INTERFACEs
+            file << "\n";
         }
         else
         {
@@ -2001,7 +2011,7 @@ OPERATOR_TABLE
     void FortranBase::codegen_module_footer(TL::Symbol entry)
     {
         dec_indent(2);
-        file << "END MODULE " << entry.get_name() << "\n";
+        file << "END MODULE " << entry.get_name() << "\n\n";
     }
 
     void FortranBase::declare_symbols_from_modules_rec(Nodecl::NodeclBase node)
@@ -2081,7 +2091,7 @@ OPERATOR_TABLE
             real_name = "";
 
         indent();
-        file << "END BLOCK DATA " << real_name << "\n";
+        file << "END BLOCK DATA " << real_name << "\n\n";
     }
 
     void FortranBase::declare_everything_needed(Nodecl::NodeclBase node)
