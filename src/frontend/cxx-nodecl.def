@@ -80,7 +80,7 @@ case-expression : expression
 
 loop-control: NODECL_LOOP_CONTROL([init]expression-opt, [cond]expression-opt, [next]expression-opt)
 
-pragma-directive: NODECL_PRAGMA_CUSTOM_DIRECTIVE([pragma_line]pragma-line) text
+pragma-directive: NODECL_PRAGMA_CUSTOM_DIRECTIVE([pragma_line]pragma-line, [context_of_decl]pragma-context) text
                 | pragma-declaration
 
 pragma-declaration: NODECL_PRAGMA_CUSTOM_DECLARATION([pragma_line]pragma-line, [nested_pragma]pragma-declaration-opt, [context_of_decl]pragma-context, [context_of_parameters]pragma-context-opt) text symbol

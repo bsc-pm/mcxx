@@ -58,7 +58,6 @@ void build_scope_fortran_translation_unit(translation_unit_t* translation_unit)
     {
         build_scope_program_unit_seq(list, decl_context, &nodecl_program_units);
     }
-
     translation_unit->nodecl = nodecl_make_top_level(nodecl_program_units, ASTFileName(a), ASTLine(a));
 }
 
@@ -869,6 +868,11 @@ static void build_scope_module_program_unit(AST program_unit,
     {
         *nodecl_output = nodecl_internal_subprograms;
     }
+    
+    // Add the body of the module to the list 
+    
+    *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_body);
+    //*nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_body);
 
     // Now adjust attributes of symbols
     int i, num_symbols = new_entry->entity_specs.num_related_symbols;
@@ -1570,13 +1574,13 @@ static void build_scope_program_unit_body_executable(
             }
             
             // We only handle executable statements here
-            if (!statement_is_executable(stmt))
-                continue;
+            if (statement_is_executable(stmt))
+            {
+                nodecl_t nodecl_statement = nodecl_null();
+                fortran_build_scope_statement(stmt, decl_context, &nodecl_statement);
 
-            nodecl_t nodecl_statement = nodecl_null();
-            fortran_build_scope_statement(stmt, decl_context, &nodecl_statement);
-
-            *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_statement);
+                *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_statement);
+            }
         }
     }
 }
