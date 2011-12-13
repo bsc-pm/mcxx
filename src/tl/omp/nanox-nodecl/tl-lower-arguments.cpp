@@ -16,106 +16,54 @@ namespace TL { namespace Nanox {
         counter++;
         structure_name = ss.str();
 
-        // FIll source name
-        Source src;
-        src << "typedef struct {";
-
         TL::ObjectList<OutlineDataItem> data_items = outline_info.get_data_items();
+        
+        // FIXME - Wrap lots of things
+        TL::Scope sc(CURRENT_COMPILED_FILE->global_decl_context);
+        TL::Symbol sym = sc.new_symbol(structure_name);
+        sym.get_internal_symbol()->kind = SK_CLASS;
+
+        type_t* new_class_type = get_new_class_type(sc.get_decl_context(), CK_STRUCT);
+        decl_context_t class_context = new_class_context(sc.get_decl_context(), sym.get_internal_symbol());
+        TL::Scope class_scope(class_context);
+
+        class_type_set_inner_context(new_class_type, class_context);
+
+        sym.get_internal_symbol()->type_information = new_class_type;
+        
         for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
                 it != data_items.end();
                 it++)
         {
-            src << it->get_field_type().get_declaration(it->get_symbol().get_scope(), it->get_field_name()) << ";";
+            TL::Symbol field = class_scope.new_symbol(it->get_field_name());
+            field.get_internal_symbol()->kind = SK_VARIABLE;
+
+            TL::Type field_type = it->get_field_type();
+            if (field_type.is_reference())
+            {
+                field_type = field_type.references_to().get_pointer_to();
+            }
+
+            field.get_internal_symbol()->type_information = field_type.get_internal_type();
+            field.get_internal_symbol()->entity_specs.is_member = 1;
+            field.get_internal_symbol()->entity_specs.class_type = new_class_type;
+
+            class_type_add_member(new_class_type, field.get_internal_symbol());
+
+            // Language specific parts
+            if (IS_FORTRAN_LANGUAGE)
+            {
+                // TODO
+            }
+            else if (IS_C_LANGUAGE
+                    || IS_CXX_LANGUAGE)
+            {
+                // TODO
+            }
         }
 
-        src << "}" << structure_name << ";"
-            ;
-
-        SourceLanguage old = Source::source_language;
-        FORTRAN_LANGUAGE()
-        {
-            Source::source_language = SourceLanguage::C;
-        }
-
-        // FIXME - Should we define this at top level?
-        src.parse_declaration(construct);
-
-        FORTRAN_LANGUAGE()
-        {
-            Source::source_language = old;
-        }
+        set_is_complete_type(new_class_type, 1);
 
         return structure_name;
     }
-
-#if 0
-    class StructureFiller : public Nodecl::ExhaustiveVisitor<void>
-    {
-        private:
-            TL::Source _src;
-            std::string _var_expr;
-        public:
-            StructureFiller(Source &src, const std::string &var_expr)
-                : _src(src), _var_expr(var_expr)
-            {
-            }
-
-            void visit(const Nodecl::Parallel::Shared& shared)
-            {
-                Nodecl::List l = shared.get_shared_symbols().as<Nodecl::List>();
-                for (Nodecl::List::iterator it = l.begin();
-                        it != l.end();
-                        it++)
-                {
-                    Nodecl::Symbol node = it->as<Nodecl::Symbol>();
-                    TL::Symbol sym = node.get_symbol();
-                    TL::Type t = sym.get_type();
-
-
-                    if (t.is_array())
-                    {
-                        _src << _var_expr
-                            << "." << handle_name_for_entity(sym.get_name()) 
-                            << " = " << as_expression(sym.make_nodecl()) << ";";
-                    }
-                    else
-                    {
-                        _src << _var_expr 
-                            << "." << handle_name_for_entity(sym.get_name()) 
-                            << " = &" << as_expression(sym.make_nodecl()) << ";";
-                    }
-                }
-            }
-
-            void visit(const Nodecl::Parallel::Capture& shared)
-            {
-                Nodecl::List l = shared.get_captured_symbols().as<Nodecl::List>();
-                for (Nodecl::List::iterator it = l.begin();
-                        it != l.end();
-                        it++)
-                {
-                    Nodecl::Symbol node = it->as<Nodecl::Symbol>();
-                    TL::Symbol sym = node.get_symbol();
-                    TL::Type t = sym.get_type();
-
-                    if (t.is_array())
-                    {
-                        internal_error("Array assignment not implemented yet", 0);
-                    }
-                    else
-                    {
-                        _src << _var_expr
-                            << "." << handle_name_for_entity(sym.get_name()) 
-                            << " = " << as_expression(sym.make_nodecl()) << ";";
-                    }
-                }
-            }
-
-            void visit(const Nodecl::Parallel::Reduction& shared)
-            {
-                internal_error("Not yet implemented", 0);
-            }
-    };
-#endif
-
 } }

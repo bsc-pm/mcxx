@@ -19,14 +19,15 @@ namespace TL { namespace Nanox {
             unpacked_parameters, 
             unpack_code, 
             private_entities, 
-            auxiliar_code, 
-            replaced_body;
+            auxiliar_code;
+
+        Nodecl::NodeclBase placeholder_body;
 
         outline
             << "void " << outline_name << "_unpacked(" << unpacked_parameters << ")"
             << "{"
             <<      private_entities
-            // <<      replaced_body
+            <<      statement_placeholder(placeholder_body)
             << "}"
             << "void " << outline_name << "(" << structure_name << " @ref@ args)"
             << "{"
@@ -55,12 +56,17 @@ namespace TL { namespace Nanox {
                 unpacked_parameters.append_with_separator(parameter, ", ");
 
                 Source argument;
-                argument << "args." << it->get_field_name();
+                if (it->get_sharing() == OutlineDataItem::SHARING_SHARED)
+                {
+                    argument << "*(args." << it->get_field_name() << ")";
+                }
+                else
+                {
+                    argument << "args." << it->get_field_name();
+                }
                 unpacked_arguments.append_with_separator(argument, ", ");
             }
         }
-
-        replaced_body << replace_symbols.replace(body);
 
         FORTRAN_LANGUAGE()
         {
@@ -74,6 +80,13 @@ namespace TL { namespace Nanox {
         {
             Source::source_language = SourceLanguage::Current;
         }
+
+        // Now replace the body
+        Source replaced_body_src;
+        replaced_body_src << replace_symbols.replace(body);
+
+        Nodecl::NodeclBase new_body = replaced_body_src.parse_statement(placeholder_body);
+        placeholder_body.replace(new_body);
     }
 
 } }

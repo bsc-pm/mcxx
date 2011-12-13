@@ -118,7 +118,9 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         << "{"
         // Devices related to this task
         <<     device_description
-        <<     struct_arg_type_name << "* ol_args = (" << struct_arg_type_name << "*)0;"
+        // We use an extra struct because of Fortran
+        <<     "struct { " << struct_arg_type_name << "* args; } ol_args;"
+        <<     "ol_args.args = (void*) 0;"
         <<     struct_runtime_size
         <<     "nanos_wd_t wd = (nanos_wd_t)0;"
         <<     "nanos_wd_props_t props;"
@@ -144,7 +146,7 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         <<        copy_setup
         <<        set_translation_fun
         <<        "err = nanos_submit(wd, " << num_dependences << ", (" << dependency_struct << "*)" 
-        << dependency_array << ", (nanos_team_t)0);"
+        <<         dependency_array << ", (nanos_team_t)0);"
         <<        "if (err != nanos_ok) nanos_handle_error (err);"
         <<     "}"
         <<     "else"
@@ -165,6 +167,20 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         <<     "}"
         << "}"
         ;
+
+    TL::ObjectList<OutlineDataItem> data_items = outline_info.get_data_items();
+
+    for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
+            it != data_items.end();
+            it++)
+    {
+        fill_outline_arguments << 
+            "ol_args.args->" << it->get_field_name() << " = " << it->get_symbol().get_name() << ";"
+            ;
+        fill_immediate_arguments << 
+            "imm_args." << it->get_field_name() << " = " << it->get_symbol().get_name() << ";"
+            ;
+    }
 
     FORTRAN_LANGUAGE()
     {
