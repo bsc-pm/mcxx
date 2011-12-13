@@ -98,7 +98,7 @@ char nodecl_is_err_expr(nodecl_t);
 // context if not context is found)
 decl_context_t nodecl_retrieve_context(nodecl_t);
 
-// These only work on NODECL_CONTEXT
+// These only work on NODECL_CONTEXT or NODECL_PRAGMA_CONTEXT
 decl_context_t nodecl_get_decl_context(nodecl_t n);
 void nodecl_set_decl_context(nodecl_t, decl_context_t);
 

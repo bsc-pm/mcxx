@@ -703,8 +703,16 @@ namespace TL
         void Core::threadprivate_handler_pre(TL::PragmaCustomDirective construct)
         {
             DataSharingEnvironment& data_sharing = _openmp_info->get_current_data_sharing();
+            
+            // Extract from the PragmaCustomDirective the context of declaration
+            Source::ReferenceScope context_of_decl = construct.get_context_of_declaration();
 
-            ObjectList<Nodecl::NodeclBase> expr_list = construct.get_pragma_line().get_parameter().get_arguments_as_expressions();
+            // Extract from the PragmaCustomDirective the pragma line
+            PragmaCustomLine pragma_line = construct.get_pragma_line();
+            PragmaCustomParameter param = pragma_line.get_parameter(); 
+            
+            // The expressions are parsed in the right context of declaration 
+            ObjectList<Nodecl::NodeclBase> expr_list = param.get_arguments_as_expressions(context_of_decl);
 
             for (ObjectList<Nodecl::NodeclBase>::iterator it = expr_list.begin();
                     it != expr_list.end();
@@ -729,6 +737,7 @@ namespace TL
                 }
             }
         }
+        
         void Core::threadprivate_handler_post(TL::PragmaCustomDirective construct) { }
 
         void Core::task_handler_pre(TL::PragmaCustomStatement construct)

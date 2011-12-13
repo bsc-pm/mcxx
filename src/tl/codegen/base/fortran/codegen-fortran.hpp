@@ -143,7 +143,8 @@ namespace Codegen
             void codegen_procedure_declaration_header(TL::Symbol entry);
             void codegen_procedure_declaration_footer(TL::Symbol entry);
 
-            void codegen_module_header(TL::Symbol);
+            void codegen_module_header(TL::Symbol, TL::ObjectList<Nodecl::NodeclBase>);
+
             void codegen_module_footer(TL::Symbol);
 
             void codegen_blockdata_header(TL::Symbol);

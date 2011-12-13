@@ -252,6 +252,8 @@ namespace TL
         }
 
         PragmaCustomLine get_pragma_line() const;
+
+        Source::ReferenceScope get_context_of_declaration() const; 
     };
 
     class LIBTL_CLASS PragmaCustomStatement : public Nodecl::PragmaCustomStatement
