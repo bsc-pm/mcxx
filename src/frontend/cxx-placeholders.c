@@ -35,5 +35,5 @@ void check_statement_placeholder(AST placeholder, decl_context_t decl_context UN
 
     *p = nodecl_get_ast(empty_stmt);
 
-    *nodecl_output = _nodecl_wrap(*p);
+    *nodecl_output = nodecl_make_list_1(_nodecl_wrap(*p));
 }
