@@ -1881,6 +1881,11 @@ OPERATOR_TABLE
             {
                 TL::Symbol &component(*it);
                 declare_symbols_rec(component.get_initialization());
+
+                if (component.get_type().basic_type().is_class())
+                {
+                    declare_symbol(component.get_type().basic_type().get_symbol());
+                }
             }
 
             if (entry.get_type().class_type_get_class_kind() == CK_UNION)
