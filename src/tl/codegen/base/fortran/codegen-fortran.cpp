@@ -3,7 +3,6 @@
 #include "fortran03-scope.h"
 #include "fortran03-typeutils.h"
 #include "cxx-cexpr.h"
-
 #include <ctype.h>
 
 namespace Codegen
@@ -40,11 +39,13 @@ namespace Codegen
             struct ModuleInfo
             {
                 TL::Symbol module;
-                TL::ObjectList<Nodecl::NodeclBase> nodes;
+                TL::ObjectList<Nodecl::NodeclBase> nodes_before_contains;
+                TL::ObjectList<Nodecl::NodeclBase> nodes_after_contains;
 
                 ModuleInfo(TL::Symbol module_)
                     : module(module_) { }
             };
+            // TODO - Can this be a map?
             TL::ObjectList<ModuleInfo> seen_modules;
 
             void visit(const Nodecl::FunctionCode& node)
@@ -53,7 +54,7 @@ namespace Codegen
 
                 if (entry.in_module().is_valid())
                 {
-                    add_module_node(entry.in_module(), node);
+                    add_module_node_after(entry.in_module(), node);
                 }
             }
 
@@ -63,7 +64,7 @@ namespace Codegen
 
                 if (sym.is_fortran_module())
                 {
-                    add_module_node(sym, nodecl_null());
+                    add_module_node_after(sym, nodecl_null());
                 }
             }
 
@@ -71,9 +72,26 @@ namespace Codegen
             {
                 walk(node.get_top_level());
             }
-
+            
+            void visit(const Nodecl::PragmaCustomDirective& node)
+            {
+                Nodecl::NodeclBase context = node.get_context_of_decl();
+                decl_context_t decl_context = nodecl_get_decl_context(context.get_internal_nodecl());
+                    
+                if (decl_context.current_scope->related_entry != NULL)
+                {
+                    scope_entry_t * related_entry = decl_context.current_scope->related_entry;  
+                    if (related_entry->kind == SK_MODULE)
+                    {
+                        TL::Symbol modul_sym = TL::Symbol(related_entry);
+                        add_module_node_before(modul_sym, node);
+                    }
+                }
+            }
+            
         private:
-            void add_module_node(TL::Symbol module, Nodecl::NodeclBase node)
+            
+            void add_module_node_before(TL::Symbol module, Nodecl::NodeclBase node)
             {
                 bool found = false;
 
@@ -85,7 +103,7 @@ namespace Codegen
                     {
                         if (!node.is_null())
                         {
-                            it->nodes.append(node);
+                            it->nodes_before_contains.append(node);
                         }
                         found = true;
                     }
@@ -97,7 +115,38 @@ namespace Codegen
 
                     if (!node.is_null())
                     {
-                        module_info.nodes.append(node);
+                        module_info.nodes_before_contains.append(node);
+                    }
+
+                    seen_modules.append(module_info);
+                }
+            }
+            
+            void add_module_node_after(TL::Symbol module, Nodecl::NodeclBase node)
+            {
+                bool found = false;
+
+                for (TL::ObjectList<PreCodegenVisitor::ModuleInfo>::iterator it = this->seen_modules.begin();
+                        it != this->seen_modules.end() && !found;
+                        it++)
+                {
+                    if (it->module == module)
+                    {
+                        if (!node.is_null())
+                        {
+                            it->nodes_after_contains.append(node);
+                        }
+                        found = true;
+                    }
+                }
+
+                if (!found)
+                {
+                    ModuleInfo module_info(module);
+
+                    if (!node.is_null())
+                    {
+                        module_info.nodes_after_contains.append(node);
                     }
 
                     seen_modules.append(module_info);
@@ -124,10 +173,12 @@ namespace Codegen
 
             state.current_module = current_module;
 
-            codegen_module_header(current_module);
+            TL::ObjectList<Nodecl::NodeclBase> nodes_before_contains = it->nodes_before_contains;
+           
+            codegen_module_header(current_module, nodes_before_contains);
 
-            for (TL::ObjectList<Nodecl::NodeclBase>::iterator it2 = it->nodes.begin();
-                    it2 != it->nodes.end();
+            for (TL::ObjectList<Nodecl::NodeclBase>::iterator it2 = it->nodes_after_contains.begin();
+                    it2 != it->nodes_after_contains.end();
                     it2++)
             {
                 Nodecl::NodeclBase& node(*it2);
@@ -331,7 +382,8 @@ namespace Codegen
             TL::Symbol old_module = state.current_module;
 
             state.current_module = entry;
-            codegen_module_header(entry);
+            TL::ObjectList<Nodecl::NodeclBase> empty_set_of_nodes_before_contains;
+            codegen_module_header(entry, empty_set_of_nodes_before_contains);
             codegen_module_footer(entry);
             state.current_module = old_module;
 
@@ -1376,9 +1428,32 @@ OPERATOR_TABLE
 
     void FortranBase::visit(const Nodecl::PragmaCustomDirective& node)
     {
-        file << "!$" << strtoupper(node.get_text().c_str()) << " ";
-        walk(node.get_pragma_line());
-        file << "\n";
+        bool print = true;
+       
+        // If the pragma is inside a module and the symbol of this module does not correspond with the
+        // 'state.current_module' then we don't print anything
+        Nodecl::NodeclBase context = node.get_context_of_decl();
+        decl_context_t decl_context = nodecl_get_decl_context(context.get_internal_nodecl());
+        if (decl_context.current_scope->related_entry != NULL)
+        {
+            scope_entry_t * related_entry = decl_context.current_scope->related_entry;  
+            if (related_entry->kind == SK_MODULE)
+            {
+                TL::Symbol modul_sym = TL::Symbol(related_entry);
+                if(state.current_module.is_invalid()
+                    || state.current_module != modul_sym)
+                {
+                    print = false;
+                }
+            }
+        }
+
+        if (print)
+        {
+            file << "!$" << strtoupper(node.get_text().c_str()) << " ";
+            walk(node.get_pragma_line());
+            file << "\n";
+        }
     }
 
     void FortranBase::visit(const Nodecl::PragmaClauseArg& node)
@@ -1945,7 +2020,7 @@ OPERATOR_TABLE
         }
     }
 
-    void FortranBase::codegen_module_header(TL::Symbol entry)
+    void FortranBase::codegen_module_header(TL::Symbol entry, TL::ObjectList<Nodecl::NodeclBase> nodes_before_contains)
     {
         file << "MODULE " << entry.get_name() << "\n";
 
@@ -1989,6 +2064,15 @@ OPERATOR_TABLE
                 }
             }
         }
+        
+        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = nodes_before_contains.begin();
+                it != nodes_before_contains.end();
+                it++)
+        {
+            Nodecl::NodeclBase& node(*it);
+            walk(node);
+        }
+
         state.current_symbol = previous_sym;
         dec_indent();
 
