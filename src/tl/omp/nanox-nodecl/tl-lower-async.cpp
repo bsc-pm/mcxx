@@ -132,7 +132,7 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         <<     copy_decl
         <<     "nanos_err_t err;"
         <<     if_expr_cond_start
-        <<     "err = nanos_create_wd(&wd, " << num_devices << "," << device_descriptor << ","
+        <<     "err = nanos_create_wd(&wd, " << "(long long)" << num_devices << "," << device_descriptor << ","
         <<                 struct_size << ","
         <<                 alignment
         <<                 "(void**)&ol_args, nanos_current_wd(),"
@@ -174,12 +174,24 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
             it != data_items.end();
             it++)
     {
-        fill_outline_arguments << 
-            "ol_args.args->" << it->get_field_name() << " = " << it->get_symbol().get_name() << ";"
-            ;
-        fill_immediate_arguments << 
-            "imm_args." << it->get_field_name() << " = " << it->get_symbol().get_name() << ";"
-            ;
+        if (it->get_sharing() == OutlineDataItem::SHARING_CAPTURE)
+        {
+            fill_outline_arguments << 
+                "ol_args.args->" << it->get_field_name() << " = " << it->get_symbol().get_name() << ";"
+                ;
+            fill_immediate_arguments << 
+                "imm_args." << it->get_field_name() << " = " << it->get_symbol().get_name() << ";"
+                ;
+        }
+        else if (it->get_sharing() == OutlineDataItem::SHARING_SHARED)
+        {
+            fill_outline_arguments << 
+                "ol_args.args->" << it->get_field_name() << " = &" << it->get_symbol().get_name() << ";"
+                ;
+            fill_immediate_arguments << 
+                "imm_args." << it->get_field_name() << " = &" << it->get_symbol().get_name() << ";"
+                ;
+        }
     }
 
     FORTRAN_LANGUAGE()

@@ -8432,7 +8432,8 @@ static void check_nodecl_cast_expr(nodecl_t nodecl_casted_expr,
             filename, line);
 
     if (nodecl_is_constant(nodecl_casted_expr)
-            && is_integral_type(declarator_type))
+            && (is_integral_type(declarator_type)
+               || is_pointer_type(declarator_type)))
     {
         nodecl_set_constant(*nodecl_output,
                 const_value_cast_to_bytes(

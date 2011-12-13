@@ -643,7 +643,16 @@ OPERATOR_TABLE
 
         file << operator_;
 
-        walk(rhs);
+        if (is_ptr_assignment 
+                && rhs.is_constant()
+                && const_value_is_zero(nodecl_get_constant(rhs.get_internal_nodecl())))
+        {
+            file << "NULL()";
+        }
+        else
+        {
+            walk(rhs);
+        }
     }
 
     void FortranBase::codegen_comparison(
@@ -1881,6 +1890,11 @@ OPERATOR_TABLE
             {
                 TL::Symbol &component(*it);
                 declare_symbols_rec(component.get_initialization());
+
+                if (component.get_type().basic_type().is_class())
+                {
+                    declare_symbol(component.get_type().basic_type().get_symbol());
+                }
             }
 
             if (entry.get_type().class_type_get_class_kind() == CK_UNION)
