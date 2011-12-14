@@ -7717,7 +7717,7 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
         type_t* return_type = function_type_get_return_type(called_type);
 
         // Everything else seems fine
-        *nodecl_output = nodecl_make_function_call(
+        *nodecl_output = cxx_nodecl_make_function_call(
                 nodecl_called,
                 nodecl_argument_list_output,
                 return_type,
