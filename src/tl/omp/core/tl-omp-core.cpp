@@ -711,14 +711,26 @@ namespace TL
             PragmaCustomLine pragma_line = construct.get_pragma_line();
             PragmaCustomParameter param = pragma_line.get_parameter(); 
             
-            // The expressions are parsed in the right context of declaration 
-            ObjectList<Nodecl::NodeclBase> expr_list = param.get_arguments_as_expressions(context_of_decl);
-
-            for (ObjectList<Nodecl::NodeclBase>::iterator it = expr_list.begin();
-                    it != expr_list.end();
-                    it++)
+            // We can't parse all the strings at once (get_arguments_as_expressions)
+            // because common names is not supported yet.
+            ObjectList<std::string> arguments_list = param.get_tokenized_arguments();
+            for (ObjectList<std::string>::iterator it = arguments_list.begin();
+                    it != arguments_list.end();
+                    ++it)
             {
-                Nodecl::NodeclBase& expr(*it);
+                std::string curr_arg = *it;
+                
+                // The common names start and end with a '/'
+                if (curr_arg[0] == '/' && curr_arg[strlen(curr_arg.c_str())-1] == '/')
+                {
+                     std::cerr << "common name in threadprivate not handled yet" << std::endl;
+                    continue;
+                }
+
+                Source src = curr_arg;
+                // Parsing the arguments in the right context of declaration
+                Nodecl::NodeclBase expr = src.parse_expression(context_of_decl);
+                
                 if (!expr.has_symbol())
                 {
                     std::cerr << expr.get_locus() << ": warning: '" << expr.prettyprint() << "' is not an id-expression, skipping" << std::endl;
@@ -731,6 +743,7 @@ namespace TL
                             && !sym.is_static())
                     {
                         std::cerr << expr.get_locus() << ": warning: '" << expr.prettyprint() << "' is a nonstatic-member, skipping" << std::endl;
+                        continue;
                     }
 
                     data_sharing.set_data_sharing(sym, DS_THREADPRIVATE);
