@@ -749,10 +749,9 @@ OPERATOR_TABLE
 
     void FortranBase::visit(const Nodecl::Reference& node)
     {
-        // Use nonstandard LOC
-        file << "LOC(";
+        // No explicit references happens in Fortran
+        // LOC will appear as a conversion from T* or T[] to int
         walk(node.get_rhs());
-        file << ")";
     }
 
     void FortranBase::visit(const Nodecl::ParenthesizedExpression& node)
@@ -1383,7 +1382,10 @@ OPERATOR_TABLE
 
     void FortranBase::visit(const Nodecl::Conversion& node)
     {
-        walk(node.get_nest());
+        codegen_casting(
+                /* dest_type */ node.get_type(),
+                /* source_type */ node.get_nest().get_type(),
+                node.get_nest());
     }
 
     void FortranBase::visit(const Nodecl::UnknownPragma& node)
@@ -1486,9 +1488,85 @@ OPERATOR_TABLE
         file << "! " << node.get_text() << "\n";
     }
 
+    void FortranBase::codegen_casting(
+            TL::Type dest_type, 
+            TL::Type source_type, 
+            Nodecl::NodeclBase nest)
+    {
+        if (dest_type.is_reference())
+            dest_type = dest_type.references_to();
+
+        if (source_type.is_reference())
+            source_type = source_type.references_to();
+
+        if (dest_type.is_integral_type()
+                && !dest_type.is_bool())
+        {
+            file << "INT(";
+            if (!source_type.is_pointer()
+                    && !source_type.is_array())
+            {
+                walk(nest);
+            }
+            else 
+            {
+                // An implicit conversion from T* T[] to int
+
+                // The zero pointer is handled specially
+                if (nest.is_constant()
+                        && const_value_is_zero(nodecl_get_constant(nest.get_internal_nodecl())))
+                {
+                    file << "0";
+                }
+                else
+                {
+                    file << "LOC("; 
+                    walk(nest); 
+                    file << ")";
+                }
+            }
+            file << ", KIND=" << dest_type.get_size() << ")";
+        }
+        else if (dest_type.is_floating_type())
+        {
+            file << "REAL(";
+            walk(nest);
+            file << ", KIND=" << dest_type.get_size() << ")";
+        }
+        else if (dest_type.is_bool())
+        {
+            file << "LOGICAL(";
+            if (nest.is_constant())
+            {
+                // Merrily assuming C semantics
+                if (const_value_is_zero(nodecl_get_constant(nest.get_internal_nodecl())))
+                {
+                    file << ".FALSE.";
+                }
+                else
+                {
+                    file << ".TRUE.";
+                }
+            }
+            else
+            {
+                walk(nest);
+            }
+            file << ", KIND=" << dest_type.get_size() << ")";
+        }
+        else
+        {
+            // Best effort: Not a known conversion, ignore it
+            walk(nest);
+        }
+    }
+
     void FortranBase::visit(const Nodecl::Cast& node)
     {
-        walk(node.get_rhs());
+        codegen_casting(
+                /* dest_type */ node.get_type(),
+                /* source_type */ node.get_rhs().get_type(),
+                node.get_rhs());
     }
 
     void FortranBase::visit(const Nodecl::Sizeof& node)

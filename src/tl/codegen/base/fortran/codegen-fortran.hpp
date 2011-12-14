@@ -182,6 +182,11 @@ namespace Codegen
                     std::string& array_specifier,
                     bool is_dummy);
 
+            void codegen_casting(
+                    TL::Type dest_type, 
+                    TL::Type source_type, 
+                    Nodecl::NodeclBase nest);
+
             void codegen_use_statement(TL::Symbol entry);
 
             void declare_symbols_from_modules_rec(Nodecl::NodeclBase node);
