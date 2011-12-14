@@ -3642,7 +3642,7 @@ static void check_assignment(AST expr, decl_context_t decl_context, nodecl_t* no
                     lvalue_type,
                     nodecl_get_filename(nodecl_rvalue), nodecl_get_line(nodecl_rvalue));
         }
-        *nodecl_output = nodecl_make_assignment(nodecl_lvalue, nodecl_rvalue, get_void_type(), ASTFileName(expr), ASTLine(expr));
+        *nodecl_output = nodecl_make_assignment(nodecl_lvalue, nodecl_rvalue, lvalue_type, ASTFileName(expr), ASTLine(expr));
     }
     else
     {
@@ -3838,7 +3838,7 @@ static void check_ptr_assignment(AST expr, decl_context_t decl_context, nodecl_t
     *nodecl_output = nodecl_make_assignment(
             nodecl_lvalue,
             nodecl_rvalue,
-            get_void_type(),
+            no_ref(lvalue_sym->type_information),
             ASTFileName(expr),
             ASTLine(expr));
 }
