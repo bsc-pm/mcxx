@@ -12120,10 +12120,14 @@ void build_ternary_builtin_operators(type_t* t1,
     }
 }
 
-static void check_sizeof_type(type_t* t, decl_context_t decl_context, const char* filename, int line, nodecl_t* nodecl_output)
+static void check_sizeof_type(type_t* t, 
+        nodecl_t nodecl_expr,
+        decl_context_t decl_context, 
+        const char* filename, int line, nodecl_t* nodecl_output)
 {
     *nodecl_output = nodecl_make_sizeof(
             nodecl_make_type(t, filename, line),
+            nodecl_expr,
             get_size_t_type(),
             filename, line);
     
@@ -12199,7 +12203,7 @@ static void check_sizeof_expr(AST expr, decl_context_t decl_context, nodecl_t* n
     }
     type_t* t = nodecl_get_type(nodecl_expr);
 
-    check_sizeof_type(t, decl_context, filename, line, nodecl_output);
+    check_sizeof_type(t, nodecl_expr, decl_context, filename, line, nodecl_output);
 }
 
 static void check_sizeof_typeid(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -12214,7 +12218,7 @@ static void check_sizeof_typeid(AST expr, decl_context_t decl_context, nodecl_t*
         *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
-    check_sizeof_type(declarator_type, decl_context, filename, line, nodecl_output);
+    check_sizeof_type(declarator_type, /* nodecl_expr */ nodecl_null(), decl_context, filename, line, nodecl_output);
 }
 
 
@@ -14104,7 +14108,9 @@ static void instantiate_dep_sizeof_expr(nodecl_instantiate_expr_visitor_t* v, no
     {
         type_t* t = nodecl_get_type(expr);
 
-        check_sizeof_type(t, v->decl_context, 
+        check_sizeof_type(t, 
+                expr,
+                v->decl_context, 
                 nodecl_get_filename(node), 
                 nodecl_get_line(node), 
                 &result);
@@ -14126,7 +14132,9 @@ static void instantiate_nondep_sizeof(nodecl_instantiate_expr_visitor_t* v, node
 
     nodecl_t result = nodecl_null();
 
-    check_sizeof_type(t, v->decl_context, 
+    check_sizeof_type(t, 
+            nodecl_null(),
+            v->decl_context, 
             nodecl_get_filename(node),
             nodecl_get_line(node),
             &result);
