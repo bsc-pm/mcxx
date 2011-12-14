@@ -1,5 +1,5 @@
 # Fortran EXPERIMENTAL support
-[mfc]
+[mfc : omp-base]
 language = Fortran
 options =
 preprocessor_name = gfortran
@@ -7,9 +7,6 @@ preprocessor_options = -cpp -E
 compiler_name = gfortran
 compiler_options =
 linker_name = gfortran
-linker_options =
-{openmp} compiler_phase = libtlomp-base.so
-{openmp} compiler_phase = libtlnanos-version.so
-{openmp} compiler_phase = libtlnanox-lowering.so
+linker_options = -lnanox-fortran
 
 [mf95 : mfc]
