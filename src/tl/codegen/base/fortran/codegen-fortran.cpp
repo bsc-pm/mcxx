@@ -676,16 +676,16 @@ OPERATOR_TABLE
         std::string operator_ = " = ";
 
         // Is this a pointer assignment?
-        char is_ptr_assignment = 0;
+        bool is_ptr_assignment = false;
 
-        TL::Type lhs_type = node.get_type();
+        TL::Type lhs_type = lhs.get_type();
         if (lhs_type.is_reference())
             lhs_type = lhs_type.references_to();
 
         if (lhs_type.is_pointer()
                 && !lhs.is<Nodecl::Derreference>())
         {
-            is_ptr_assignment = 1;
+            is_ptr_assignment = true;
         }
 
         if (is_ptr_assignment)
@@ -695,11 +695,21 @@ OPERATOR_TABLE
 
         file << operator_;
 
-        if (is_ptr_assignment 
-                && rhs.is_constant()
-                && const_value_is_zero(nodecl_get_constant(rhs.get_internal_nodecl())))
+        if (is_ptr_assignment)
         {
-            file << "NULL()";
+            if (rhs.is_constant()
+                    && const_value_is_zero(nodecl_get_constant(rhs.get_internal_nodecl())))
+            {
+                file << "NULL()";
+            }
+            else
+            {
+                if (rhs.is<Nodecl::Reference>())
+                {
+                    rhs = rhs.as<Nodecl::Reference>().get_rhs();
+                } 
+                walk(rhs);
+            }
         }
         else
         {
