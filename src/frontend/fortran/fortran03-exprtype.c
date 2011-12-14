@@ -3184,7 +3184,8 @@ static void check_symbol_of_called_name(AST sym, decl_context_t decl_context, no
                 // We did not find the symbol. But this is okay since this is a CALL.
                 // CALL does not need a type, thus IMPLICIT plays no role here
                 // Just sign in the symbol and give it an unprototyped type (= implicit interface)
-                entry = new_fortran_symbol(decl_context, ASTText(sym));
+                decl_context_t program_unit_context = decl_context.current_scope->related_entry->related_decl_context;
+                entry = new_fortran_symbol(program_unit_context, ASTText(sym));
                 entry->kind = SK_FUNCTION;
                 entry->file = ASTFileName(sym);
                 entry->line = ASTLine(sym);
