@@ -1571,7 +1571,17 @@ OPERATOR_TABLE
 
     void FortranBase::visit(const Nodecl::Sizeof& node)
     {
-        file << node.get_type().get_size();
+        if (node.get_expr().is_null())
+        {
+            file << node.get_type().get_size();
+        }
+        else
+        {
+            // Let's assume the compiler has a SIZEOF
+            file << "SIZEOF(";
+            walk(node.get_expr());
+            file << ")";
+        }
     }
 
     void FortranBase::visit(const Nodecl::Alignof& node)
