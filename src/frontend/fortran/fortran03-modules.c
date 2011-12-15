@@ -510,12 +510,106 @@ static void* get_ptr_of_oid(sqlite3* handle, sqlite3_uint64 oid)
     return result;
 }
 
+static sqlite3_stmt* _check_repeat_oid_ptr = NULL;
+static sqlite3_stmt* _insert_oid_ptr = NULL;
+
 static void insert_map_ptr(sqlite3* handle, sqlite3_uint64 oid, void *ptr)
 {
-    char* insert_oid_map = sqlite3_mprintf("INSERT INTO oid_ptr_map(oid, ptr) VALUES(%llu, %llu);",
-            P2ULL(oid), P2ULL(ptr));
-    run_query(handle, insert_oid_map);
-    sqlite3_free(insert_oid_map);
+    // Prepare SQL statements
+    if (_check_repeat_oid_ptr == NULL)
+    {
+        const char* query = "SELECT oid, ptr FROM oid_ptr_map WHERE oid = $OID AND ptr = $PTR;";
+        const char* unused_str = NULL;
+        int result_prepare = sqlite3_prepare_v2(
+                handle,
+                query,
+                strlen(query),
+                &_check_repeat_oid_ptr,
+                &unused_str);
+
+        if (result_prepare != SQLITE_OK)
+        {
+            internal_error("An error happened while preparing statement '%s' %s\n",
+                    query,
+                    sqlite3_errmsg(handle));
+        }
+    }
+
+    if (_insert_oid_ptr == NULL)
+    {
+        const char* query = "INSERT INTO oid_ptr_map(oid, ptr) VALUES ($OID, $PTR);";
+        const char* unused_str = NULL;
+        int result_prepare = sqlite3_prepare_v2(
+                handle,
+                query,
+                strlen(query),
+                &_insert_oid_ptr,
+                &unused_str);
+
+        if (result_prepare != SQLITE_OK)
+        {
+            internal_error("An error happened while preparing statement '%s' %s\n",
+                    query,
+                    sqlite3_errmsg(handle));
+        }
+    }
+
+    // Check if the oid, ptr are already in the map, if they are do nothing
+    // This is an anticipation of a primary key violation
+    sqlite3_bind_int64(_check_repeat_oid_ptr, 1, oid);
+    sqlite3_bind_int64(_check_repeat_oid_ptr, 2, (sqlite3_uint64)ptr);
+
+    int result_query = sqlite3_step(_check_repeat_oid_ptr);
+    char found = 0;
+    switch (result_query)
+    {
+        case SQLITE_ROW:
+            {
+                found = 1;
+                break;
+            }
+        case SQLITE_DONE:
+            {
+                // Not found
+                break;
+            }
+        default:
+            {
+                internal_error("Unexpected error %d when running query '%s'", 
+                        result_query,
+                        sqlite3_errmsg(handle));
+            }
+    }
+
+    sqlite3_reset(_check_repeat_oid_ptr);
+
+    // If an exact row with the same oif and ptr was found, we don't need insert anything
+    // because the tuple (oid, ptr) already exists.
+    if (found)
+        return;
+
+    // If a row with the same oid but different ptr existed, next INSERT will fail
+    // (primary key violation)
+    sqlite3_bind_int64(_insert_oid_ptr, 1, oid);
+    sqlite3_bind_int64(_insert_oid_ptr, 2, (sqlite3_uint64)ptr);
+
+    result_query = sqlite3_step(_insert_oid_ptr);
+    switch (result_query)
+    {
+        case SQLITE_DONE:
+            {
+                // OK
+                break;
+            }
+        default:
+            {
+                internal_error("Unexpected error %d when running query '%s'", 
+                        result_query,
+                        sqlite3_errmsg(handle));
+            }
+    }
+
+    sqlite3_reset(_insert_oid_ptr);
 }
 
 static int count_rows(void* datum, 
@@ -1804,7 +1898,7 @@ static int get_type(void *datum,
 
         *pt = get_user_defined_type(symbol);
         *pt = get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name);
-        // Do not insert this type in the pointer map
+        insert_map_ptr(handle, current_oid, *pt);
     }
     else
     {
@@ -2148,6 +2242,12 @@ static void dispose_storage(sqlite3* handle)
 {
     sqlite3_finalize(_load_symbol_stmt);
     _load_symbol_stmt = NULL;
+
+    sqlite3_finalize(_check_repeat_oid_ptr);
+    _check_repeat_oid_ptr = NULL;
+
+    sqlite3_finalize(_insert_oid_ptr);
+    _insert_oid_ptr = NULL;
 
     if (sqlite3_close(handle) != SQLITE_OK)
     {
