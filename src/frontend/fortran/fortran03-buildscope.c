@@ -6937,6 +6937,7 @@ typedef struct opt_value_map_tag
   OPT_VALUE(iostat) \
   OPT_VALUE(iolength) \
   OPT_VALUE(mold) \
+  OPT_VALUE(name) \
   OPT_VALUE(named) \
   OPT_VALUE(newunit) \
   OPT_VALUE(nextrec) \
@@ -7370,6 +7371,15 @@ static void opt_mold_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_c
     fortran_check_expression(value, decl_context, &nodecl_value);
     *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "MOLD", ASTFileName(opt_value), ASTLine(opt_value));
 }
+
+static void opt_name_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
+{
+    AST value = ASTSon0(opt_value);
+    nodecl_t nodecl_value = nodecl_null();
+    opt_common_character_expr(value, decl_context, "NAME", &nodecl_value);
+    *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "NAME", ASTFileName(opt_value), ASTLine(opt_value));
+}
+
 
 static void opt_named_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
