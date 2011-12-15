@@ -7262,7 +7262,7 @@ static void opt_fmt_value(AST value, decl_context_t decl_context, nodecl_t* node
         fortran_check_expression(value, decl_context, &nodecl_value);
 
         type_t* t = nodecl_get_type(nodecl_value);
-
+        
         char valid = 1;
         if (ASTType(value) == AST_DECIMAL_LITERAL)
         {
@@ -7279,7 +7279,9 @@ static void opt_fmt_value(AST value, decl_context_t decl_context, nodecl_t* node
         else 
         {
             scope_entry_t* entry = nodecl_get_symbol(nodecl_value);
-            if (is_fortran_character_type(no_ref(t)))
+            if (is_fortran_character_type(no_ref(t)) 
+                    || (is_fortran_array_type(no_ref(t)) && 
+                        is_fortran_character_type(no_ref(get_unqualified_type(get_rank0_type(t))))))
             {
                 // Character type is OK
             }
