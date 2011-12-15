@@ -1292,6 +1292,12 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ObjectInit& node)
     if (!this->is_file_output())
     {
         file << sym.get_type().get_declaration(sym.get_scope(), sym.get_qualified_name());
+        
+        if (sym.has_initialization())
+        {
+            Nodecl::NodeclBase init_expr = sym.get_initialization();
+            file << " = " << codegen_to_str(init_expr);
+        }
     }
     else 
     {
