@@ -13258,7 +13258,8 @@ static char check_default_initialization_(scope_entry_t* entry,
         t = get_user_defined_type(entry);
     }
 
-    if (is_lvalue_reference_type(t))
+    if (is_lvalue_reference_type(t)
+            && !is_rebindable_reference_type(t))
     {
         // References cannot be default initialized
         if (!checking_ambiguity())
