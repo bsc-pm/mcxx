@@ -144,6 +144,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %token<token_atrib> PP_TOKEN "<preprocessor-token>"
 
 %token<token_atrib> MCC_REFERENCE "<C-reference-specifier>"
+%token<token_atrib> MCC_REBINDABLE_REFERENCE "<rebindable-reference-specifier>"
 
 // Lexical symbols
 %token<token_atrib> '!'
@@ -1051,6 +1052,10 @@ ptr_operator : '*'
 | MCC_REFERENCE
 {
 	$$ = ASTLeaf(AST_REFERENCE_SPEC, $1.token_file, $1.token_line, NULL);
+}
+| MCC_REBINDABLE_REFERENCE
+{
+	$$ = ASTLeaf(AST_REBINDABLE_REFERENCE_SPEC, $1.token_file, $1.token_line, NULL);
 }
 ;
 

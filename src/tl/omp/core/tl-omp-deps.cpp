@@ -56,7 +56,7 @@ namespace TL { namespace OpenMP {
             Type data_type = expr.get_data_type();
 
             // Arguable if we have T (&)[10] (a reference to array)
-            if (data_type.is_reference())
+            if (data_type.is_any_reference())
             {
                 data_type = data_type.references_to();
             }
@@ -68,7 +68,7 @@ namespace TL { namespace OpenMP {
             else
             {
                 Type sym_type = sym.get_type();
-                if (sym_type.is_reference())
+                if (sym_type.is_any_reference())
                 {
                     sym_type = sym_type.references_to();
                 }

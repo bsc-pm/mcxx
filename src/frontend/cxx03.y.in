@@ -171,6 +171,8 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %token<token_atrib> PP_COMMENT "<preprocessor-comment>"
 %token<token_atrib> PP_TOKEN "<preprocessor-token>"
 
+%token<token_atrib> MCC_REBINDABLE_REFERENCE "<rebindable-reference-specifier>"
+
 // g++ type traits
 %token<token_atrib> GXX_HAS_NOTHROW_ASSIGN "__has_nothrow_assign"
 %token<token_atrib> GXX_HAS_NOTHROW_CONSTRUCTOR "__has_nothrow_constructor"
@@ -1732,6 +1734,11 @@ nonglobal_ptr_operator : '*'
 {
     $$ = ASTLeaf(AST_RVALUE_REFERENCE_SPEC, $1.token_file, $1.token_line, NULL);
 }
+// Mercurium extension
+| MCC_REBINDABLE_REFERENCE
+{
+	$$ = ASTLeaf(AST_REBINDABLE_REFERENCE_SPEC, $1.token_file, $1.token_line, NULL);
+}
 // GNU Extensions
 | '&' cv_qualifier_seq
 {
@@ -1763,6 +1770,11 @@ ptr_operator : '*'
 | ANDAND
 {
     $$ = ASTLeaf(AST_RVALUE_REFERENCE_SPEC, $1.token_file, $1.token_line, NULL);
+}
+// Mercurium extension
+| MCC_REBINDABLE_REFERENCE
+{
+	$$ = ASTLeaf(AST_REBINDABLE_REFERENCE_SPEC, $1.token_file, $1.token_line, NULL);
 }
 // GNU Extensions
 | '&' cv_qualifier_seq

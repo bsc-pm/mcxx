@@ -259,8 +259,14 @@ namespace TL
              */
             Type get_array_to(Nodecl::NodeclBase lower_bound, Nodecl::NodeclBase upper_bound, Scope scope);
 
-            //! Gets a reference (C++) to the current type
-            Type get_reference_to();
+            //! Gets a lvalue reference (C++) to the current type
+            Type get_lvalue_reference_to();
+            
+            //! Gets a rvalue reference (C++2011) to the current type
+            Type get_rvalue_reference_to();
+            
+            //! Gets a rebindable reference (Mercurium extension) to the current type
+            Type get_rebindable_reference_to();
 
             //! Returns a function to the current list of parameter types 
             /*! 
@@ -570,13 +576,15 @@ namespace TL
             class_kind_t class_type_get_class_kind() const;
 
             //! States whether the type is a lvalue or rvalue reference type
-            bool is_reference() const;
+            bool is_any_reference() const;
 
-            bool is_rvalue_reference() const;
             bool is_lvalue_reference() const;
+            bool is_rvalue_reference() const;
+            bool is_rebindable_reference() const;
 
-            //! States whether the type is a reference to a class type
-            bool is_reference_to_class() const;
+            //! States whether the type is a lvalue reference to a class type
+            bool is_any_reference_to_class() const;
+
             //! Returns the referenced type
             Type references_to() const;
 

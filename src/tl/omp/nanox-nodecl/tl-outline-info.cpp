@@ -91,7 +91,7 @@ namespace TL { namespace Nanox {
                     OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym);
 
                     outline_info.set_sharing(OutlineDataItem::SHARING_SHARED);
-                    outline_info.set_field_type(sym.get_type().get_reference_to());
+                    outline_info.set_field_type(sym.get_type().get_lvalue_reference_to());
                 }
             }
 

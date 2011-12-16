@@ -171,6 +171,9 @@ namespace Codegen
 
                 // Used in define_required_before_class and define_symbol_if_nonnested
                 std::set<TL::Symbol> pending_nested_types_to_define;
+                
+                // This means that we are doing &X and X is a rebindable reference
+                bool referenced_rebindable_reference;
 
                 // Not meant to be used directly, use functions 
                 // get_indent_level, set_indent_level
@@ -189,6 +192,7 @@ namespace Codegen
                     walked_types(),
                     being_checked_for_required(),
                     pending_nested_types_to_define(),
+                    referenced_rebindable_reference(false),
                     _indent_level(0) { }
             } state;
             // End of State

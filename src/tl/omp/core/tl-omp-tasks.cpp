@@ -333,7 +333,7 @@ namespace TL
             {
                 Symbol sym = expr.get_symbol();
                 if (sym.is_parameter()
-                        && !sym.get_type().is_reference())
+                        && !sym.get_type().is_any_reference())
                 {
                     return true;
                 }
@@ -358,7 +358,7 @@ namespace TL
                 {
                     Symbol sym = expr.get_symbol();
                     if (sym.is_parameter()
-                            && !sym.get_type().is_reference())
+                            && !sym.get_type().is_any_reference())
                     {
                         // Copy semantics of values in C/C++ lead to this fact
                         // If the dependence is output (or inout) this should

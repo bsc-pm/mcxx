@@ -5780,10 +5780,6 @@ static void set_pointer_type(type_t** declarator_type, AST pointer_tree,
                     /* 
                      * FIXME: It is unclear what happens with qualifiers here
                      */
-                    /* 
-                     * Something that was a reference (either lvalue or rvalue)
-                     * and is lvalue-referenced turns into rvalue referenced
-                     */
                     *declarator_type = get_lvalue_reference_type(
                             reference_type_get_referenced_type(pointee_type)
                             );
@@ -5803,6 +5799,19 @@ static void set_pointer_type(type_t** declarator_type, AST pointer_tree,
                      * FIXME: It is unclear what happens with qualifiers here
                      */
                     *declarator_type = pointee_type;
+                }
+                break;
+            }
+        case AST_REBINDABLE_REFERENCE_SPEC:
+            {
+                if (!is_lvalue_reference_type(pointee_type)
+                        && !is_rvalue_reference_type(pointee_type))
+                {
+                    *declarator_type = get_rebindable_reference_type(pointee_type);
+                }
+                else
+                {
+                    internal_error("Rebindable references to existing reference types should not be created", 0);
                 }
                 break;
             }

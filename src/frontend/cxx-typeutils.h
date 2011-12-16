@@ -156,6 +156,7 @@ LIBMCXX_EXTERN type_t* get_pointer_to_member_type(type_t*, scope_entry_t* class_
 
 LIBMCXX_EXTERN type_t* get_lvalue_reference_type(type_t* t);
 LIBMCXX_EXTERN type_t* get_rvalue_reference_type(type_t* t);
+LIBMCXX_EXTERN type_t* get_rebindable_reference_type(type_t* t);
 
 LIBMCXX_EXTERN type_t* get_array_type(type_t* element_type, 
         nodecl_t size_of_array, 
@@ -294,6 +295,7 @@ LIBMCXX_EXTERN char is_function_type(type_t* t);
 
 LIBMCXX_EXTERN char is_lvalue_reference_type(type_t* t1);
 LIBMCXX_EXTERN char is_rvalue_reference_type(type_t* t1);
+LIBMCXX_EXTERN char is_rebindable_reference_type(type_t* t1);
 
 LIBMCXX_EXTERN char is_vector_type(type_t* t);
 
@@ -549,7 +551,8 @@ LIBMCXX_EXTERN char is_pointer_to_member_type(type_t* t);
 LIBMCXX_EXTERN char is_pointer_to_class_type(type_t* t1);
 LIBMCXX_EXTERN char is_lvalue_reference_to_class_type(type_t* t1);
 LIBMCXX_EXTERN char is_rvalue_reference_to_class_type(type_t* t1);
-LIBMCXX_EXTERN char is_reference_to_class_type(type_t* t1);
+LIBMCXX_EXTERN char is_rebindable_reference_to_class_type(type_t* t1);
+LIBMCXX_EXTERN char is_any_reference_to_class_type(type_t* t1);
 
 LIBMCXX_EXTERN char class_type_is_incomplete_dependent(type_t* t);
 LIBMCXX_EXTERN char class_type_is_complete_dependent(type_t* t);

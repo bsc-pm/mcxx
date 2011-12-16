@@ -690,7 +690,7 @@ namespace TL
                 {   // KILLED variable is a parameter or a part of a parameter
                     decl_context_t param_context = function_sym.get_internal_symbol()->entity_specs.related_symbols[0]->decl_context;
                     if (!params_to_args[s].is<Nodecl::Derreference>()   // Argument is not an address
-                        && ( s.get_type().is_reference()                // Parameter is passed by reference
+                        && ( s.get_type().is_any_reference()            // Parameter is passed by reference
                             || s.get_type().is_pointer() )              // Parameter is a pointer
                         /*&& (s.get_scope() != Scope(param_context))*/)     // FIXME The argument is not a temporal value
                     {
