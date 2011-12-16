@@ -4579,6 +4579,7 @@ TL::Type CxxBase::fix_references(TL::Type t)
     }
     else if (t.is_function())
     {
+        cv_qualifier_t cv_qualif = get_cv_qualifier(t.get_internal_type());
         TL::Type fixed_result = fix_references(t.returns());
         bool has_ellipsis = 0;
         TL::ObjectList<TL::Type> fixed_parameters = t.parameters(has_ellipsis);
@@ -4591,9 +4592,12 @@ TL::Type CxxBase::fix_references(TL::Type t)
         }
 
         TL::Type fixed_function = fixed_result.get_function_returning(fixed_parameters, has_ellipsis);
+
+        fixed_function = TL::Type(get_cv_qualified_type(fixed_function.get_internal_type(), cv_qualif));
+
         return fixed_function;
     }
-    // Note: we are not fixing classes, so make sure your classes do not have references :)
+    // Note: we are not fixing classes
     else
     {
         // Anything else must be left untouched
