@@ -4777,8 +4777,29 @@ static char operator_unary_reference_pred(type_t* t)
 
 static type_t* operator_unary_reference_result(type_t** op_type)
 {
-    // T* operator&(T&)
-    return get_pointer_type(no_ref(*op_type));
+    // T x, y;
+    //
+    // &x -> T*
+    // &y -> T*
+    if (is_lvalue_reference_type(*op_type))
+    {
+        return get_pointer_type(no_ref(*op_type));
+    }
+    // Mercurium extension
+    //
+    // T  @reb-ref@ z;
+    //
+    // &z -> T *&     [a lvalue reference to a pointer type]
+    else if (is_rebindable_reference_type(*op_type))
+    {
+        return get_lvalue_reference_type(
+                get_pointer_type(no_ref(*op_type))
+                );
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
 }
 
 static type_t* compute_type_no_overload_reference(nodecl_t *op, char *is_lvalue)
@@ -4787,9 +4808,16 @@ static type_t* compute_type_no_overload_reference(nodecl_t *op, char *is_lvalue)
 
     if (nodecl_expr_is_lvalue(*op))
     {
-        type_t* t = no_ref(nodecl_get_type(*op));
+        type_t* t = nodecl_get_type(*op);
 
-        return get_pointer_type(t);
+        if (is_rebindable_reference_type(t))
+        {
+            // Mercurium extension
+            // Rebindable references are lvalues
+            *is_lvalue = 1;
+        }
+
+        return get_pointer_type(no_ref(t));
     }
 
     return get_error_type();
