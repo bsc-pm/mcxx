@@ -57,7 +57,6 @@ std::string CxxBase::codegen(const Nodecl::NodeclBase &n)
     PREFIX_UNARY_EXPRESSION(LogicalNot, "!") \
     PREFIX_UNARY_EXPRESSION(BitwiseNot, "~") \
     PREFIX_UNARY_EXPRESSION(Derreference, "*") \
-    PREFIX_UNARY_EXPRESSION(Reference, "&") \
     PREFIX_UNARY_EXPRESSION(Preincrement, "++") \
     PREFIX_UNARY_EXPRESSION(Predecrement, "--") \
     PREFIX_UNARY_EXPRESSION(Delete, "delete ") \
@@ -114,6 +113,35 @@ std::string CxxBase::codegen(const Nodecl::NodeclBase &n)
             file << ")"; \
         } \
     }
+
+void CxxBase::visit(const Nodecl::Reference &node) 
+{ 
+    Nodecl::NodeclBase rhs = node.children()[0]; 
+    char needs_parentheses = operand_has_lower_priority(node, rhs); 
+
+    bool old_referenced_rebindable_ref = state.referenced_rebindable_reference;
+
+    if (!rhs.get_type().is_rebindable_reference())
+    {
+        file << "&"; 
+    }
+    else
+    {
+        state.referenced_rebindable_reference = 1;
+    }
+
+    if (needs_parentheses) 
+    { 
+        file << "("; 
+    } 
+    walk(rhs); 
+    if (needs_parentheses) 
+    { 
+        file << ")"; 
+    } 
+
+    state.referenced_rebindable_reference = old_referenced_rebindable_ref;
+}
 
 #define POSTFIX_UNARY_EXPRESSION(_name, _operand) \
     void CxxBase::visit(const Nodecl::_name& node) \
@@ -1687,35 +1715,30 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Symbol& node)
         define_symbol(entry.get_class_type().get_symbol());
     }
 
-    CXX_LANGUAGE()
+    bool must_derref = (((IS_C_LANGUAGE && entry.get_type().is_any_reference())
+                || (IS_CXX_LANGUAGE && entry.get_type().is_rebindable_reference()))
+            && !entry.get_type().references_to().is_array()
+            && !state.referenced_rebindable_reference);
+
+    if (must_derref)
     {
-        if (!entry.is_template_parameter()
-                && !entry.is_builtin())
-        {
-            file << entry.get_qualified_name(entry.get_scope());
-        }
-        else
-        {
-            file << entry.get_name();
-        }
+        file << "(*";
     }
 
-    C_LANGUAGE()
+    if (IS_CXX_LANGUAGE
+            && !entry.is_template_parameter()
+            && !entry.is_builtin())
     {
-        bool must_derref = (entry.get_type().is_any_reference()
-                && !entry.get_type().references_to().is_array());
-
-        if (must_derref)
-        {
-            file << "(*";
-        }
-
+        file << entry.get_qualified_name(entry.get_scope());
+    }
+    else
+    {
         file << entry.get_name();
+    }
 
-        if (must_derref)
-        {
-            file << ")";
-        }
+    if (must_derref)
+    {
+        file << ")";
     }
 }
 
@@ -4509,27 +4532,24 @@ CxxBase::Ret CxxBase::unhandled_node(const Nodecl::NodeclBase & n)
 
 std::string CxxBase::get_declaration(TL::Type t, TL::Scope scope, const std::string& name)
 {
-    C_LANGUAGE()
-    {
-        t = fix_references(t);
-    }
+    t = fix_references(t);
 
     return t.get_declaration(scope,  name);
 }
 
 std::string CxxBase::get_declaration_with_parameters(TL::Type t, TL::Scope scope, const std::string& name, TL::ObjectList<std::string>& names)
 {
-    C_LANGUAGE()
-    {
-        t = fix_references(t);
-    }
+    t = fix_references(t);
 
     return t.get_declaration_with_parameters(scope, name, names);
 }
 
 TL::Type CxxBase::fix_references(TL::Type t)
 {
-    if (t.is_any_reference())
+    if ((IS_C_LANGUAGE 
+                && t.is_any_reference())
+            || (IS_CXX_LANGUAGE 
+                && t.is_rebindable_reference()))
     {
         TL::Type ref = t.references_to();
         if (ref.is_array())
@@ -4541,7 +4561,10 @@ TL::Type CxxBase::fix_references(TL::Type t)
         
         // T &a -> T * const a
         TL::Type ptr = ref.get_pointer_to();
-        ptr = ptr.get_const_type();
+        if (!t.is_rebindable_reference())
+        {
+            ptr = ptr.get_const_type();
+        }
         return ptr;
     }
     else if (t.is_array())
