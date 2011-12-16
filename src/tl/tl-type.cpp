@@ -92,7 +92,7 @@ namespace TL
     {
         type_t* work_type = this->_type_info;
 
-        if (is_reference())
+        if (is_any_reference())
         {
             // We cannot get a pointer to a reference, get the referenced
             // type and make it pointer
@@ -244,10 +244,11 @@ namespace TL
         return vector_type_get_element_type(_type_info);
     }
 
-    bool Type::is_reference() const
+    bool Type::is_any_reference() const
     {
         return (is_lvalue_reference_type(_type_info)
-                || is_rvalue_reference_type(_type_info));
+                || is_rvalue_reference_type(_type_info)
+                || is_rebindable_reference());
     }
 
     bool Type::is_lvalue_reference() const
@@ -258,6 +259,11 @@ namespace TL
     bool Type::is_rvalue_reference() const
     {
         return (is_rvalue_reference_type(_type_info));
+    }
+
+    bool Type::is_rebindable_reference() const
+    {
+        return (is_rebindable_reference_type(_type_info));
     }
 
     bool Type::is_function() const
@@ -646,9 +652,19 @@ namespace TL
         return is_complex_type(_type_info);
     }
 
-    Type Type::get_reference_to()
+    Type Type::get_lvalue_reference_to()
     {
         return get_lvalue_reference_type(this->_type_info);
+    }
+
+    Type Type::get_rvalue_reference_to()
+    {
+        return get_rvalue_reference_type(this->_type_info);
+    }
+
+    Type Type::get_rebindable_reference_to()
+    {
+        return get_rebindable_reference_type(this->_type_info);
     }
 
     Type Type::get_unqualified_type()
@@ -840,7 +856,7 @@ namespace TL
         {
             return this->returns().basic_type();
         }
-        else if (this->is_reference())
+        else if (this->is_any_reference())
         {
             return this->references_to().basic_type();
         }
@@ -999,9 +1015,9 @@ namespace TL
         return ::is_pointer_to_class_type(_type_info);
     }
 
-    bool Type::is_reference_to_class() const
+    bool Type::is_any_reference_to_class() const
     {
-        return ::is_reference_to_class_type(_type_info);
+        return ::is_any_reference_to_class_type(_type_info);
     }
 
     bool Type::is_base_class(Type t) const

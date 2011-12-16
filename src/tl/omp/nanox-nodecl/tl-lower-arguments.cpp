@@ -39,7 +39,7 @@ namespace TL { namespace Nanox {
             field.get_internal_symbol()->kind = SK_VARIABLE;
 
             TL::Type field_type = it->get_field_type();
-            if (field_type.is_reference())
+            if (field_type.is_any_reference())
             {
                 field_type = field_type.references_to().get_pointer_to();
             }

@@ -1702,7 +1702,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Symbol& node)
 
     C_LANGUAGE()
     {
-        bool must_derref = (entry.get_type().is_reference()
+        bool must_derref = (entry.get_type().is_any_reference()
                 && !entry.get_type().references_to().is_array());
 
         if (must_derref)
@@ -3483,8 +3483,8 @@ void CxxBase::define_generic_entities(Nodecl::NodeclBase node,
         TL::Type dest_type = node.get_type();
         TL::Type source_type = node.as<Nodecl::Conversion>().get_nest().get_type();
 
-        if ((dest_type.is_reference_to_class()
-                    && source_type.is_reference_to_class()
+        if ((dest_type.is_any_reference_to_class()
+                    && source_type.is_any_reference_to_class()
                     && dest_type.no_ref().is_base_class(source_type.no_ref()))
                 || (dest_type.no_ref().is_pointer_to_class()
                     && source_type.no_ref().is_pointer_to_class()
@@ -3499,8 +3499,8 @@ void CxxBase::define_generic_entities(Nodecl::NodeclBase node,
             TL::Type base_class(NULL);
             TL::Type derived_class(NULL);
 
-            if (dest_type.is_reference_to_class()
-                        && source_type.is_reference_to_class())
+            if (dest_type.is_any_reference_to_class()
+                        && source_type.is_any_reference_to_class())
             {
                 base_class = dest_type.no_ref();
                 derived_class = source_type.no_ref();
@@ -4529,7 +4529,7 @@ std::string CxxBase::get_declaration_with_parameters(TL::Type t, TL::Scope scope
 
 TL::Type CxxBase::fix_references(TL::Type t)
 {
-    if (t.is_reference())
+    if (t.is_any_reference())
     {
         TL::Type ref = t.references_to();
         if (ref.is_array())

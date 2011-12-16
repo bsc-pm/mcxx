@@ -1124,6 +1124,8 @@ type {
 @ref@ { parse_token_text(); return '&'; }
  /*!endif*/
 
+@reb-ref@ { parse_token_text(); return MCC_REBINDABLE_REFERENCE; }
+
  /* A plain identifier */
 {identifier} {parse_token_text(); return IDENTIFIER; }
 

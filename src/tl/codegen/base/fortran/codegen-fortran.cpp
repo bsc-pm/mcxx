@@ -679,7 +679,7 @@ OPERATOR_TABLE
         bool is_ptr_assignment = false;
 
         TL::Type lhs_type = lhs.get_type();
-        if (lhs_type.is_reference())
+        if (lhs_type.is_any_reference())
             lhs_type = lhs_type.references_to();
 
         if (lhs_type.is_pointer()
@@ -1503,10 +1503,10 @@ OPERATOR_TABLE
             TL::Type source_type, 
             Nodecl::NodeclBase nest)
     {
-        if (dest_type.is_reference())
+        if (dest_type.is_any_reference())
             dest_type = dest_type.references_to();
 
-        if (source_type.is_reference())
+        if (source_type.is_any_reference())
             source_type = source_type.references_to();
 
         if (dest_type.is_integral_type()
@@ -1719,7 +1719,7 @@ OPERATOR_TABLE
             if (entry.is_target())
                 attribute_list += ", TARGET";
             if (entry.is_parameter() 
-                    && !entry.get_type().is_reference()
+                    && !entry.get_type().is_any_reference()
                     && !is_fortran_character_type(entry.get_type().get_internal_type()))
             {
                 if (entry.get_type().is_pointer())
@@ -1802,7 +1802,7 @@ OPERATOR_TABLE
                 declare_symbols_rec(entry.get_initialization());
 
                 TL::Type t = entry.get_type();
-                if (t.is_reference())
+                if (t.is_any_reference())
                     t = t.references_to();
 
                 if (t.is_pointer())
@@ -2370,7 +2370,7 @@ OPERATOR_TABLE
                 && entry.get_internal_symbol()->entity_specs.from_module == NULL)
         {
             TL::Type entry_type = entry.get_type();
-            if (entry_type.is_reference())
+            if (entry_type.is_any_reference())
                 entry_type = entry_type.references_to();
 
             if (entry_type.is_pointer())
@@ -2447,7 +2447,7 @@ OPERATOR_TABLE
     {
         type_specifier = "";
 
-        if (t.is_reference())
+        if (t.is_any_reference())
             t = t.references_to();
 
         bool is_pointer = false;

@@ -60,19 +60,20 @@ typedef struct {
 enum type_kind
 {
     TK_UNKNOWN = 0,
-    TK_DIRECT,             // 1
-    TK_POINTER,            // 2
-    TK_LVALUE_REFERENCE,   // 3
-    TK_RVALUE_REFERENCE,   // 4
-    TK_POINTER_TO_MEMBER,  // 5
-    TK_ARRAY,              // 6
-    TK_FUNCTION,           // 7
-    TK_OVERLOAD,           // 8
-    TK_VECTOR,             // 9
-    TK_ELLIPSIS,           // 10
-    TK_COMPUTED,           // 11
-    TK_BRACED_LIST,        // 12
-    TK_ERROR,
+    TK_DIRECT,
+    TK_POINTER,
+    TK_LVALUE_REFERENCE,
+    TK_RVALUE_REFERENCE,
+    TK_REBINDABLE_REFERENCE,
+    TK_POINTER_TO_MEMBER,
+    TK_ARRAY,
+    TK_FUNCTION,
+    TK_OVERLOAD,
+    TK_VECTOR,
+    TK_ELLIPSIS,
+    TK_COMPUTED,
+    TK_BRACED_LIST,
+    TK_ERROR
 };
 
 // For simple_type_t
@@ -2081,8 +2082,9 @@ type_t* get_pointer_type(type_t* t)
 
 static rb_red_blk_tree *_lvalue_reference_types = NULL;
 static rb_red_blk_tree *_rvalue_reference_types = NULL;
+static rb_red_blk_tree *_rebindable_reference_types = NULL;
 
-static type_t* get_internal_reference_type(type_t* t, char is_rvalue_ref)
+static type_t* get_internal_reference_type(type_t* t, enum type_kind reference_kind)
 {
     ERROR_CONDITION(t == NULL, "Invalid reference type", 0);
 
@@ -2096,13 +2098,27 @@ static type_t* get_internal_reference_type(type_t* t, char is_rvalue_ref)
             "Trying to create a reference of a null type", 0);
 
     rb_red_blk_tree **reference_types = NULL;
-    if (is_rvalue_ref)
+    switch (reference_kind)
     {
-        reference_types = &_lvalue_reference_types;
-    }
-    else
-    {
-        reference_types = &_rvalue_reference_types;
+        case TK_LVALUE_REFERENCE:
+            {
+                reference_types = &_lvalue_reference_types;
+                break;
+            }
+        case TK_RVALUE_REFERENCE:
+            {
+                reference_types = &_rvalue_reference_types;
+                break;
+            }
+        case TK_REBINDABLE_REFERENCE:
+            {
+                reference_types = &_rebindable_reference_types;
+                break;
+            }
+        default:
+            {
+                internal_error("Invalid reference kind %d\n", reference_kind);
+            }
     }
 
     if ((*reference_types) == NULL)
@@ -2116,14 +2132,7 @@ static type_t* get_internal_reference_type(type_t* t, char is_rvalue_ref)
     {
         _reference_type_counter++;
         referenced_type = new_empty_type();
-        if (!is_rvalue_ref)
-        {
-            referenced_type->kind = TK_LVALUE_REFERENCE;
-        }
-        else
-        {
-            referenced_type->kind = TK_RVALUE_REFERENCE;
-        }
+        referenced_type->kind = reference_kind;
         referenced_type->unqualified_type = referenced_type;
         referenced_type->pointer = counted_calloc(1, sizeof(*referenced_type->pointer), &_bytes_due_to_type_system);
         referenced_type->pointer->pointee = t;
@@ -2138,12 +2147,17 @@ static type_t* get_internal_reference_type(type_t* t, char is_rvalue_ref)
 
 type_t* get_lvalue_reference_type(type_t* t)
 {
-    return get_internal_reference_type(t, /* is_rvalue_ref */ 0);
+    return get_internal_reference_type(t, TK_LVALUE_REFERENCE);
 }
 
 type_t* get_rvalue_reference_type(type_t* t)
 {
-    return get_internal_reference_type(t, /* is_rvalue_ref */ 1);
+    return get_internal_reference_type(t, TK_RVALUE_REFERENCE);
+}
+
+type_t* get_rebindable_reference_type(type_t* t)
+{
+    return get_internal_reference_type(t, TK_REBINDABLE_REFERENCE);
 }
 
 type_t* get_pointer_to_member_type(type_t* t, scope_entry_t* class_entry)
@@ -4050,9 +4064,8 @@ char equivalent_types(type_t* t1, type_t* t2)
             result = equivalent_pointer_type(t1->pointer, t2->pointer);
             break;
         case TK_LVALUE_REFERENCE :
-            result = equivalent_pointer_type(t1->pointer, t2->pointer);
-            break;
         case TK_RVALUE_REFERENCE :
+        case TK_REBINDABLE_REFERENCE :
             result = equivalent_pointer_type(t1->pointer, t2->pointer);
             break;
         case TK_POINTER_TO_MEMBER :
@@ -5531,10 +5544,17 @@ char is_rvalue_reference_to_class_type(type_t* t1)
             && is_class_type(reference_type_get_referenced_type(t1)));
 }
 
-char is_reference_to_class_type(type_t* t1)
+char is_rebindable_reference_to_class_type(type_t* t1)
+{
+    return (is_rebindable_reference_type(t1) 
+            && is_class_type(reference_type_get_referenced_type(t1)));
+}
+
+char is_any_reference_to_class_type(type_t* t1)
 {
     return is_lvalue_reference_to_class_type(t1)
-        || is_rvalue_reference_to_class_type(t1);
+        || is_rvalue_reference_to_class_type(t1)
+        || is_rebindable_reference_to_class_type(t1);
 }
 
 char is_void_pointer_type(type_t* t)
@@ -5691,7 +5711,9 @@ char is_lvalue_reference_type(type_t* t1)
     t1 = advance_over_typedefs(t1);
 
     return (t1 != NULL
-            && t1->kind == TK_LVALUE_REFERENCE);
+            && (t1->kind == TK_LVALUE_REFERENCE
+                // Rebindable references are considered as lvalue references
+                || t1->kind == TK_REBINDABLE_REFERENCE));
 }
 
 char is_rvalue_reference_type(type_t* t1)
@@ -5700,6 +5722,14 @@ char is_rvalue_reference_type(type_t* t1)
 
     return (t1 != NULL
             && t1->kind == TK_RVALUE_REFERENCE);
+}
+
+char is_rebindable_reference_type(type_t* t1)
+{
+    t1 = advance_over_typedefs(t1);
+
+    return (t1 != NULL
+            && t1->kind == TK_REBINDABLE_REFERENCE);
 }
 
 decl_context_t enum_type_get_context(type_t* t)
@@ -7251,6 +7281,10 @@ const char* print_declarator(type_t* printed_declarator)
                 tmp_result = strappend(tmp_result, "rvalue reference to ");
                 printed_declarator = printed_declarator->pointer->pointee;
                 break;
+            case TK_REBINDABLE_REFERENCE :
+                tmp_result = strappend(tmp_result, "rebindable reference to ");
+                printed_declarator = printed_declarator->pointer->pointee;
+                break;
             case TK_POINTER_TO_MEMBER :
                 tmp_result = strappend(tmp_result, "pointer to member of ");
                 if (printed_declarator->pointer->pointee_class != NULL)
@@ -8659,8 +8693,8 @@ static char covariant_return(type_t* overrided_type, type_t* virtual_type)
 
     if ((is_pointer_to_class_type(overrided_type)
             && is_pointer_to_class_type(virtual_type))
-            || (is_reference_to_class_type(overrided_type)
-                && is_reference_to_class_type(virtual_type)))
+            || (is_any_reference_to_class_type(overrided_type)
+                && is_any_reference_to_class_type(virtual_type)))
     {
         if (is_pointer_to_class_type(overrided_type)
                 && is_pointer_to_class_type(virtual_type))
