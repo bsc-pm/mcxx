@@ -1298,7 +1298,8 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
             if (entry->kind == SK_VARIABLE)
             {
                 if (entry->defined
-                        && !BITMAP_TEST(decl_context.decl_flags, DF_ALLOW_REDEFINITION))
+                        && !BITMAP_TEST(decl_context.decl_flags, DF_ALLOW_REDEFINITION)
+                        && !current_gather_info.is_extern)
                 {
                     if (!checking_ambiguity())
                     {
@@ -1354,6 +1355,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                         }
                     }
                 }
+                
                 if (!current_gather_info.is_extern
                         || current_gather_info.emit_always)
                 {
@@ -1386,7 +1388,8 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                             // entities that are non-extern since they are
                             // definitions (global definitions are here)
                             && ((!entry->entity_specs.is_member 
-                                    && !entry->entity_specs.is_extern)
+                                    && !entry->entity_specs.is_extern
+                                    && !current_gather_info.is_extern)
                                 // - static member definitions (at
                                 // namespace-scope these are definitions too)
                                 || (entry->entity_specs.is_member 
@@ -6972,7 +6975,10 @@ static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* decl
 
             // Update extern attribute
             // Maybe other attributes must be updated too
-            entry->entity_specs.is_extern = gather_info->is_extern;
+            if (entry->entity_specs.is_extern)
+            {
+                entry->entity_specs.is_extern = gather_info->is_extern;
+            }
             return entry;
         }
 
