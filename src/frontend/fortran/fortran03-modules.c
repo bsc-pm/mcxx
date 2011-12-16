@@ -557,7 +557,7 @@ static void insert_map_ptr(sqlite3* handle, sqlite3_uint64 oid, void *ptr)
     // Check if the oid, ptr are already in the map, if they are do nothing
     // This is an anticipation of a primary key violation
     sqlite3_bind_int64(_check_repeat_oid_ptr, 1, oid);
-    sqlite3_bind_int64(_check_repeat_oid_ptr, 2, (sqlite3_uint64)ptr);
+    sqlite3_bind_int64(_check_repeat_oid_ptr, 2, P2ULL(ptr));
 
     int result_query = sqlite3_step(_check_repeat_oid_ptr);
     char found = 0;
@@ -591,7 +591,7 @@ static void insert_map_ptr(sqlite3* handle, sqlite3_uint64 oid, void *ptr)
     // If a row with the same oid but different ptr existed, next INSERT will fail
     // (primary key violation)
     sqlite3_bind_int64(_insert_oid_ptr, 1, oid);
-    sqlite3_bind_int64(_insert_oid_ptr, 2, (sqlite3_uint64)ptr);
+    sqlite3_bind_int64(_insert_oid_ptr, 2, P2ULL(ptr));
 
     result_query = sqlite3_step(_insert_oid_ptr);
     switch (result_query)
