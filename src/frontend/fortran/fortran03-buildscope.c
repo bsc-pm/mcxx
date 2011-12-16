@@ -6126,7 +6126,7 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
             decl_context_t global_context = decl_context;
             global_context.current_scope = decl_context.global_scope;
 
-            scope_entry_t* intrinsic_name = fortran_query_name_str(global_context, intrinsic_name->symbol_name);
+            scope_entry_t* intrinsic_name = fortran_query_name_str(global_context, entry->symbol_name);
             if (intrinsic_name == NULL
                     || !intrinsic_name->entity_specs.is_builtin)
             {

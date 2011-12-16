@@ -7194,7 +7194,7 @@ void check_function_arguments(AST arguments, decl_context_t decl_context,
 {
     *nodecl_output = nodecl_null();
 
-    int i;
+    int i = 0;
     if (arguments != NULL)
     {
         if (ASTType(arguments) == AST_AMBIGUITY)

@@ -362,7 +362,7 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
             return;
 
         scope_entry_list_iterator_t* it = NULL;
-        int i;
+        int i = 0;
         for (it = entry_list_iterator_begin(nonstatic_data_members);
                 !entry_list_iterator_end(it);
                 entry_list_iterator_next(it))
