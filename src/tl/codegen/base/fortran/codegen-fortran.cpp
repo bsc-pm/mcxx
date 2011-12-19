@@ -227,7 +227,6 @@ namespace Codegen
     void FortranBase::codegen_procedure(TL::Symbol entry, Nodecl::List statement_seq, Nodecl::List internal_subprograms)
     {
         inc_indent();
-
         declare_use_statements(statement_seq);
 
         // Check every related entries lest they required stuff coming from other modules
@@ -2410,6 +2409,17 @@ OPERATOR_TABLE
         {
             codegen_use_statement(entry);
         }
+        
+        if (entry.is_fortran_namelist())
+        {
+            TL::ObjectList<TL::Symbol> symbols_in_namelist = entry.get_related_symbols();
+            int num_symbols = symbols_in_namelist.size();
+            for (int i = 0; i < num_symbols; ++i)
+            {
+                emit_use_statement_if_symbol_comes_from_module(symbols_in_namelist[i]);
+            }
+        }
+
     }
 
     void FortranBase::codegen_use_statement(TL::Symbol entry)
