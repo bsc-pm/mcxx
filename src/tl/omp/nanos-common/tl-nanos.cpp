@@ -185,6 +185,29 @@ namespace TL
             // Get the translation_unit tree
             // and prepend these declarations
             translation_unit.prepend_to_translation_unit(versioning_symbols_tree);
+            
+
+            // We need to obtain the name of the file without the path
+            std::string filename = translation_unit.get_file();
+            const char* filename_aux = filename.c_str();
+
+            const char* ptr_end_name = strrchr(filename_aux, '.');
+            const char* ptr_begin_name = strrchr(filename_aux, '/');
+
+            if (ptr_begin_name == NULL) 
+            {
+                ptr_begin_name = filename_aux;
+            }
+
+            // If The filename have not extension then error 
+            if (ptr_end_name == NULL)
+            {
+                internal_error("code unreachable.", 0);
+            }
+
+            int end_pos = (int) (ptr_end_name - ptr_begin_name) - 1;
+            int init_pos = (int) ((ptr_begin_name - filename_aux) + 1);
+            std::string name = filename.substr(init_pos, end_pos);
 
             if (!_map_events.empty())
             {
@@ -196,7 +219,9 @@ namespace TL
                     <<    "nanos_event_key_t nanos_instr_name_key = 0;"
                     <<    register_events
                     << "}"
-                    << "__attribute__((section(\"nanos_post_init\"))) nanos_init_desc_t __register_events_list = { __register_events, (void*)0 };"
+                    << "__attribute__((section(\"nanos_post_init\"))) nanos_init_desc_t "
+                    << name
+                    << "__register_events_list = { __register_events, (void*)0 };"
                     ;
 
                 // Register events
