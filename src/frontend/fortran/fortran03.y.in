@@ -3038,7 +3038,7 @@ nonlabel_do_stmt : labeldef name_colon_opt TOK_DO loop_control eos
 {
     $$ = ASTMake4Label(AST_WHILE_STATEMENT, $1, $4, NULL, NULL, $3.token_file, $3.token_line, NULL);
 }
-| labeldef name_colon_opt TOK_DO label concurrent_loop_control eos
+| labeldef name_colon_opt TOK_DO concurrent_loop_control eos
 {
     running_error("%s:%d: sorry: DO CONCURRENT not supported\n", $3.token_file, $3.token_line);
 }
