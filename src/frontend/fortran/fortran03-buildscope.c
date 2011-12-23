@@ -360,6 +360,32 @@ void add_unknown_kind_symbol(decl_context_t decl_context, scope_entry_t* entry)
 
 void remove_unknown_kind_symbol(decl_context_t decl_context, scope_entry_t* entry)
 {
+    // Sometimes, we should remove the unknown symbol from more than one scopes
+    // Example:
+    // 
+    // MODULE F
+    //      IMPLICIT NONE
+    //      CHARACTER(LEN=10) :: var
+    //      CONTAINS
+    //      SUBROUTINE F()
+    //           IMPLICIT NONE
+    //           WRITE(var, foo)
+    //      END SUBROUTINE F
+    // END MODULE F
+    //
+    // The variable var is contained in two unknown kind sets
+    // This variable is defined in the subroutine body, and must be
+    // removed from the two scopes
+
+    if (decl_context.current_scope != entry->decl_context.current_scope)
+    {
+        if (decl_context.current_scope->contained_in != NULL &&
+                decl_context.current_scope->contained_in->related_entry != NULL)
+        {
+            remove_unknown_kind_symbol(decl_context.current_scope->contained_in->related_entry->decl_context, entry);
+        }
+    }
+    
     scope_entry_t * unknown_kind = get_unknown_kind_symbol_info(decl_context);
     if (unknown_kind == NULL)
         return;
