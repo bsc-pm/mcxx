@@ -1451,11 +1451,6 @@ namespace TL
         // ************* Binary operations ************* //
         CfgVisitor::Ret CfgVisitor::visit(const Nodecl::Add& n)
         {
-            std::cerr << "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$" << std::endl;
-            std::cerr << "Left: " << n.get_lhs().prettyprint() << std::endl;
-            std::cerr << "Right: " << n.get_rhs().prettyprint() << std::endl;
-            std::cerr << std::endl;
-            
             Node* left = walk(n.get_lhs())[0];
             Node* right = walk(n.get_rhs())[0];
             return ObjectList<Node*>(1, merge_nodes(n, left, right));
@@ -2017,7 +2012,10 @@ namespace TL
                     Node* graph_exit = result->get_graph_exit_node();
                     graph_exit->set_id(++_actual_cfg->_nid);
                     _actual_cfg->connect_nodes(merged_node, graph_exit);
-                    _actual_cfg->_outer_node.pop();       
+                    _actual_cfg->_outer_node.pop();
+                    
+                    _actual_cfg->_last_nodes.clear();
+                    _actual_cfg->_last_nodes.append(result);
                 }
                 else
                 {

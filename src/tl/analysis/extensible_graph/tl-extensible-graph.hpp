@@ -188,7 +188,8 @@ namespace TL
                 
                 void erase_break_nodes(Node* node);
                 
-                struct func_call_graph_t* func_in_function_call_nest_rec(Symbol s, struct func_call_graph_t* actual_nest_s);
+                struct func_call_graph_t* func_in_function_call_nest_rec(Symbol reached_func, Symbol actual_func, 
+                                                                         struct func_call_graph_t* actual_nest_s);
                 
             public:
                 // *** Constructors *** //
@@ -394,7 +395,7 @@ namespace TL
                 // *** Consultants *** //
                 static Node* is_for_loop_increment(Node* node);
                 
-                struct func_call_graph_t* func_in_function_call_nest(Symbol s);
+                struct func_call_graph_t* func_in_function_call_nest(Symbol reached_func, Symbol actual_func);
 
                 
                 // *** Printing methods *** //

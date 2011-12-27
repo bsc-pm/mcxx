@@ -1158,14 +1158,16 @@ namespace TL
         {
             if (node->get_type() == BASIC_FUNCTION_CALL_NODE)
             {
+                std::cerr << "Getting Use-Def form node " << node->get_statements()[0].prettyprint() << std::endl;
                 ExtensibleGraph* called_func_graph = find_function_for_ipa(node->get_function_node_symbol());
                 if (called_func_graph != NULL)
                 {
                     Symbol function_sym = called_func_graph->get_function_symbol();
                     
                     struct func_call_graph_t* func_call_p;
-                    if ( ( func_call_p = _actual_cfg->func_in_function_call_nest(function_sym)) != NULL )
+                    if ( ( func_call_p = _actual_cfg->func_in_function_call_nest(function_sym, _last_func_call->get_symbol())) != NULL )
                     {   // Recursive analysis: we are only interested in global variables and pointed parameters
+                        std::cerr << "Function is in call nest" << std::endl;
                         _last_func_call->_calls.insert(func_call_p);
                         
                         ObjectList<var_usage_t*> glob_vars = called_func_graph->get_global_variables();

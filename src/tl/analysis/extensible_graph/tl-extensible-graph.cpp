@@ -1113,25 +1113,33 @@ namespace TL
             return _func_calls_nest;
         }
         
-        struct func_call_graph_t* ExtensibleGraph::func_in_function_call_nest_rec(Symbol s, struct func_call_graph_t* actual_nest_s)
+        struct func_call_graph_t* ExtensibleGraph::func_in_function_call_nest_rec(Symbol reached_func, Symbol actual_func, 
+                                                                                  struct func_call_graph_t* actual_nest_s)
         {
             struct func_call_graph_t* res = NULL;
             
             if (!actual_nest_s->is_visited())
             {
                 actual_nest_s->set_visited();
-                if (s == actual_nest_s->get_symbol())
+                if (reached_func == actual_nest_s->get_symbol())
                 {
+                    std::cerr << "  1  " << std::endl;
                     res = actual_nest_s;
                 }
                 else
                 {
-                    for (ObjectList<struct func_call_graph_t*>::iterator it = actual_nest_s->_calls.begin();
+                    if (actual_nest_s->get_symbol() != actual_func)
+                    {   // This check is done because it is not the same:
+                        // A()  ->   B()        and      A()  ->  B()  ->   B()
+                        //      ->   B()
+                        std::cerr << "  2  " << std::endl;
+                        for (ObjectList<struct func_call_graph_t*>::iterator it = actual_nest_s->_calls.begin();
                         it != actual_nest_s->_calls.end(); ++it)
-                    {
-                        if ( (res = func_in_function_call_nest_rec(s, *it)) != NULL)
                         {
-                            break;
+                            if ( (res = func_in_function_call_nest_rec(reached_func, actual_func, *it)) != NULL)
+                            {
+                                break;
+                            }
                         }
                     }
                 }
@@ -1141,9 +1149,10 @@ namespace TL
             return res;
         }
         
-        struct func_call_graph_t* ExtensibleGraph::func_in_function_call_nest(Symbol s)
+        struct func_call_graph_t* ExtensibleGraph::func_in_function_call_nest(Symbol reached_func, Symbol actual_func)
         {
-            return func_in_function_call_nest_rec(s, _func_calls_nest);
+            std::cerr << "REACHED FUNC is " << reached_func.get_name() << "   and ACTUAL FUNC is " << actual_func.get_name() << std::endl;
+            return func_in_function_call_nest_rec(reached_func, actual_func, _func_calls_nest);
         }
         
         //! This method returns the most outer node of a node before finding a loop node
