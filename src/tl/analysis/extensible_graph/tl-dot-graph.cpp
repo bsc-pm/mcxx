@@ -39,7 +39,7 @@ namespace TL
         static std::string prettyprint_ext_sym_set(ext_sym_set s);
     //     static std::string prettyprint_sym_list(ObjectList<Symbol> s);
     
-        void ExtensibleGraph::print_graph_to_dot(Node* node, std::string name)
+        void ExtensibleGraph::print_graph_to_dot()
         {
             std::ofstream dot_cfg;
             
@@ -58,7 +58,7 @@ namespace TL
                     internal_error("An error occurred while creating the dot files directory in '%s'", directory_name.c_str());
                 }
             }
-            std::string dot_file_name = directory_name + name /*+ ss.str()*/ + ".dot";
+            std::string dot_file_name = directory_name + _name /*+ ss.str()*/ + ".dot";
             dot_cfg.open(dot_file_name.c_str());
             
             // Create the dog graphs
@@ -74,11 +74,11 @@ namespace TL
                     std::string graph_data = "";
                     std::vector<std::string> outer_edges;
                     std::vector<Node*> outer_nodes;
-                    get_nodes_dot_data(node, graph_data, outer_edges, outer_nodes, "\t", subgraph_id);
+                    get_nodes_dot_data(_graph, graph_data, outer_edges, outer_nodes, "\t", subgraph_id);
                     dot_cfg << graph_data;
                 dot_cfg << "}";
                 
-                clear_visits(node);
+                clear_visits(_graph);
                 
                 dot_cfg.close();
                 
@@ -144,7 +144,10 @@ namespace TL
                     std::vector<Node*> new_outer_nodes;
                     get_dot_subgraph(actual_node, dot_graph, new_outer_edges, new_outer_nodes, indent, subgraph_id);              
                     std::stringstream ss; ss << actual_node->get_id();
-//                     dot_graph += indent + "\t-" + ss.str() + "[label=\"" + subgr_liveness + task_deps + " \", shape=box]\n";
+                    if (_use_def_computed && actual_node->has_deps_computed())
+                        dot_graph += indent + "\t-" + ss.str() + "[label=\"" + subgr_liveness + task_deps + " \", shape=box]\n";
+                    else if (_use_def_computed)
+                        dot_graph += indent + "\t-" + ss.str() + "[label=\"" + subgr_liveness + " \", shape=box]\n";
                     dot_graph += indent + "}\n";
                     
                     for(std::vector<Node*>::iterator it = new_outer_nodes.begin();
@@ -272,7 +275,7 @@ namespace TL
             
             switch(actual_node->get_type())
             {
-                case BASIC_ENTRY_NODE: 
+                case BASIC_ENTRY_NODE:
                     dot_graph += indent + ss.str() + "[label=\"ENTRY \\n" 
 //                             + "REACH DEFS: " + prettyprint_reaching_definitions(actual_node->get_reaching_definitions())
                             + "\", shape=box, fillcolor=lightgray, style=filled];\n";
@@ -325,14 +328,16 @@ namespace TL
                     std::string ue = prettyprint_ext_sym_set(actual_node->get_ue_vars());
                     std::string killed = prettyprint_ext_sym_set(actual_node->get_killed_vars());
                     std::string reach_defs = prettyprint_reaching_definitions(actual_node->get_reaching_definitions());
-                    std::string live_info = " | LI: "           + live_in + 
-                                            " | KILL: "         + killed +
-                                            " | UE: "           + ue +
-                                            " | LO: "           + live_out +
-                                            " | REACH DEFS: "   + reach_defs;
+                    std::string live_info;
+                    if (_use_def_computed)
+                        live_info = " | LI: "           + live_in + 
+                                    " | KILL: "         + killed +
+                                    " | UE: "           + ue +
+                                    " | LO: "           + live_out +
+                                    " | REACH DEFS: "   + reach_defs;
                         
                         
-                    dot_graph += indent + ss.str() + "[label=\"{" + basic_block + /*live_info + */"}\", shape=record];\n";
+                    dot_graph += indent + ss.str() + "[label=\"{" + basic_block + live_info + "}\", shape=record];\n";
         
                     break;
                 }

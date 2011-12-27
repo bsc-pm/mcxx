@@ -21,7 +21,6 @@ not, write to the Free Software Foundation, Inc., 675 Mass Ave,
 Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#include "cxx-prettyprint.h"
 #include "cxx-process.h"
 
 #include "tl-cfg-analysis-visitor.hpp"
@@ -317,7 +316,7 @@ namespace TL
             else
             {
                 internal_error("Parsing the expression '%s' 0 nodes has been returned, and they must be one or more\n", 
-                            codegen_to_str(n.get_internal_nodecl()));
+                               codegen_to_str(n.get_internal_nodecl()));
             }
             return expression_nodes;
         }
@@ -534,25 +533,7 @@ namespace TL
         
             _actual_cfg->_outer_node.pop();
             _actual_cfg->_last_nodes.clear();
-            
-            // When the called function aborts the execution we must not insert the function node in the _last_nodes list
-            Nodecl::NodeclBase called = n.get_called();
-            bool abort_execution = false;
-            if (IS_CXX_LANGUAGE || IS_C_LANGUAGE)
-            {
-                std::string func_name = called.get_symbol().get_name();
-                if ( (func_name == "abort" && args.empty())
-                    || (func_name == "exit" && args.size() == 1 /*In this case we should ensure that the paramenter is an integer*/))
-                {
-                    abort_execution = true;
-                    _return_nodes.append(func_graph_node);
-                }
-            }
-            
-            if (!abort_execution)
-            {
-                _actual_cfg->_last_nodes.append(func_graph_node);
-            }
+            _actual_cfg->_last_nodes.append(func_graph_node);
             
             return ObjectList<Node*>(1, func_graph_node);
         }
@@ -1224,8 +1205,16 @@ namespace TL
                     }
                     else
                     {
-                        internal_error("Unexpected type of Nodecl '%s' found in Case Default visit.",
-                                    codegen_to_str(n.get_internal_nodecl()));
+                        if (n.template is<Nodecl::CaseStatement>())
+                        {
+                            Nodecl::CaseStatement stmt = n.template as<Nodecl::CaseStatement>();
+                            internal_error("Unexpected type of Nodecl '%s' found in Case Default visit.", stmt.prettyprint().c_str());
+                        }
+                        else
+                        {
+                            Nodecl::DefaultStatement stmt = n.template as<Nodecl::DefaultStatement>();
+                            internal_error("Unexpected type of Nodecl '%s' found in Case Default visit.", stmt.prettyprint().c_str());
+                        }
                     }
                     e->set_data(_EDGE_LABEL, label);
                 
@@ -1265,7 +1254,7 @@ namespace TL
                     else
                     {
                         internal_error("Unexpected type of Nodecl '%s' found in Case Default visit.",
-                                    codegen_to_str(n.get_internal_nodecl()));
+                                       ast_print_node_type(n.get_kind()));
                     }
                     ee->set_data(_EDGE_LABEL, label);
                 }
@@ -1462,6 +1451,11 @@ namespace TL
         // ************* Binary operations ************* //
         CfgVisitor::Ret CfgVisitor::visit(const Nodecl::Add& n)
         {
+            std::cerr << "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$" << std::endl;
+            std::cerr << "Left: " << n.get_lhs().prettyprint() << std::endl;
+            std::cerr << "Right: " << n.get_rhs().prettyprint() << std::endl;
+            std::cerr << std::endl;
+            
             Node* left = walk(n.get_lhs())[0];
             Node* right = walk(n.get_rhs())[0];
             return ObjectList<Node*>(1, merge_nodes(n, left, right));

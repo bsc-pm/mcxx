@@ -765,7 +765,7 @@ namespace TL
             return result;
         }
         
-        // FIXME For the moment we assume the user has used the 'auto-deps' clause  
+        // FIXME For the moment we assume the user has used the 'auto-deps' clause
         void StaticAnalysis::analyse_task(Node* task_node)
         {
             Node* entry = task_node->get_graph_entry_node();
@@ -872,9 +872,11 @@ namespace TL
                 }
             }
             
-            task_node->set_data(_IN_DEPS, input_deps);
-            task_node->set_data(_OUT_DEPS, output_deps);
-            task_node->set_data(_INOUT_DEPS, inout_deps);
+            task_node->set_input_deps(input_deps);
+            task_node->set_output_deps(output_deps);
+            task_node->set_inout_deps(inout_deps);
+            
+            task_node->set_deps_computed();
             
     //         DEBUG_CODE
             {

@@ -34,13 +34,13 @@ namespace TL
     namespace Analysis
     {
         Node::Node()
-            : _id(-1), _entry_edges(), _exit_edges(), _visited(false)
+            : _id(-1), _entry_edges(), _exit_edges(), _visited(false), _has_deps_computed(false)
         {
             set_data(_NODE_TYPE, UNCLASSIFIED_NODE);
         }
         
         Node::Node(int& id, Node_type ntype, Node* outer_node)
-            : _id(++id), _entry_edges(), _exit_edges(), _visited(false)
+            : _id(++id), _entry_edges(), _exit_edges(), _visited(false), _has_deps_computed(false)
         {
             set_data(_NODE_TYPE, ntype);
             
@@ -57,7 +57,7 @@ namespace TL
         }
         
         Node::Node(int& id, Node_type type, Node* outer_node, ObjectList<Nodecl::NodeclBase> nodecls)
-            : _id(++id), _entry_edges(), _exit_edges(), _visited(false)
+            : _id(++id), _entry_edges(), _exit_edges(), _visited(false), _has_deps_computed(false)
         {        
             set_data(_NODE_TYPE, type);
             
@@ -70,7 +70,7 @@ namespace TL
         }
         
         Node::Node(int& id, Node_type type, Node* outer_node, Nodecl::NodeclBase nodecl)
-            : _id(++id), _entry_edges(), _exit_edges(), _visited(false)
+            : _id(++id), _entry_edges(), _exit_edges(), _visited(false), _has_deps_computed(false)
         {      
             set_data(_NODE_TYPE, type);
             
@@ -150,6 +150,16 @@ namespace TL
         void Node::set_visited(bool visited)
         {
             _visited = visited;
+        }
+        
+        bool Node::has_deps_computed()
+        {
+            return _has_deps_computed;
+        }
+        
+        void Node::set_deps_computed()
+        {
+            _has_deps_computed = true;
         }
         
         bool Node::is_empty_node()
@@ -1227,6 +1237,19 @@ namespace TL
             set_data(_UPPER_EXPOSED, ue_vars);
         }
         
+        void Node::set_ue_var(ext_sym_set new_ue_vars)
+        {
+            ext_sym_set ue_vars;
+        
+            if (this->has_key(_UPPER_EXPOSED))
+            {   
+                ue_vars = get_data<ext_sym_set>(_UPPER_EXPOSED);
+            }
+            ue_vars.insert(new_ue_vars);
+            
+            set_data(_UPPER_EXPOSED, ue_vars);
+        }
+        
         void Node::unset_ue_var(ExtensibleSymbol old_ue_var)
         {
             ext_sym_set ue_vars;
@@ -1264,7 +1287,20 @@ namespace TL
             
             set_data(_KILLED, killed_vars);
         }
-
+        
+        void Node::set_killed_var(ext_sym_set new_killed_vars)
+        {
+            ext_sym_set killed_vars;
+            
+            if (has_key(_KILLED))
+            {
+                killed_vars = get_data<ext_sym_set>(_KILLED);
+            }
+            killed_vars.insert(new_killed_vars);
+            
+            set_data(_KILLED, killed_vars);
+        }
+        
         void Node::unset_killed_var(ExtensibleSymbol old_killed_var)
         {
             ext_sym_set killed_vars;
@@ -1315,6 +1351,19 @@ namespace TL
             return input_deps;
         }    
 
+        void Node::set_input_deps(ext_sym_set new_input_deps)
+        {
+            ext_sym_set input_deps;
+            
+            if (has_key(_IN_DEPS))
+            {
+                input_deps = get_data<ext_sym_set>(_IN_DEPS);
+            }
+            
+            input_deps.insert(new_input_deps);
+            set_data(_IN_DEPS, input_deps);;
+        }
+
         ext_sym_set Node::get_output_deps()
         {
             ext_sym_set output_deps;
@@ -1326,6 +1375,19 @@ namespace TL
             
             return output_deps;
         }  
+       
+        void Node::set_output_deps(ext_sym_set new_output_deps)
+        {
+            ext_sym_set output_deps;
+            
+            if (has_key(_OUT_DEPS))
+            {
+                output_deps = get_data<ext_sym_set>(_OUT_DEPS);
+            }
+            
+            output_deps.insert(new_output_deps);
+            set_data(_OUT_DEPS, output_deps);
+        }
         
         ext_sym_set Node::get_inout_deps()
         {
@@ -1337,6 +1399,19 @@ namespace TL
             }
             
             return inout_deps;
+        }
+                
+        void Node::set_inout_deps(ext_sym_set new_inout_deps)
+        {
+            ext_sym_set inout_deps;
+            
+            if (has_key(_INOUT_DEPS))
+            {
+                inout_deps = get_data<ext_sym_set>(_INOUT_DEPS);
+            }
+            
+            inout_deps.insert(new_inout_deps);
+            set_data(_INOUT_DEPS, inout_deps);
         }
         
         nodecl_map Node::get_reaching_definitions()
@@ -1435,19 +1510,22 @@ namespace TL
         
         void Node::print_use_def_chains()
         {
-            ext_sym_set ue_vars = get_data<ext_sym_set>(_UPPER_EXPOSED);
-            std::cerr << "        --> UE VARS: " << std::endl;
-            for(ext_sym_set::iterator it = ue_vars.begin(); it != ue_vars.end(); ++it)
+            if (CURRENT_CONFIGURATION->debug_options.analysis_verbose)
             {
-                std::cerr << "             - " << it->get_nodecl().prettyprint() << std::endl;
-            }
-            
-            ext_sym_set killed_vars = get_data<ext_sym_set>(_KILLED);
-            std::cerr << "        --> KILLED VARS: " << std::endl;
-     
-            for(ext_sym_set::iterator it = killed_vars.begin(); it != killed_vars.end(); ++it)
-            {
-                std::cerr << "             - " << it->get_nodecl().prettyprint() << std::endl;
+                ext_sym_set ue_vars = get_data<ext_sym_set>(_UPPER_EXPOSED);
+                std::cerr << "        --> UE VARS: " << std::endl;
+                for(ext_sym_set::iterator it = ue_vars.begin(); it != ue_vars.end(); ++it)
+                {
+                    std::cerr << "             - " << it->get_nodecl().prettyprint() << std::endl;
+                }
+                
+                ext_sym_set killed_vars = get_data<ext_sym_set>(_KILLED);
+                std::cerr << "        --> KILLED VARS: " << std::endl;
+        
+                for(ext_sym_set::iterator it = killed_vars.begin(); it != killed_vars.end(); ++it)
+                {
+                    std::cerr << "             - " << it->get_nodecl().prettyprint() << std::endl;
+                }
             }
         }
     }

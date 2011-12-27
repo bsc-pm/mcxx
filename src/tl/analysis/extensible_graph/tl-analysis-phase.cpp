@@ -67,25 +67,25 @@ namespace TL
 //             
 //             
 //             // *** Use-def chains + IPA *** //
-//             std::cerr << std::endl << "=== USE-DEF CHAINS COMPUTATION ===" << std::endl;
-//             for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
-//             {
-//                 if (!(*it)->has_use_def_computed())
-//                 {
-//                     (*it)->init_function_call_nest();
-//                     cfg_visitor.set_last_func_call((*it)->get_function_call_nest());
-//                     cfg_visitor.set_actual_cfg(*it);
-//                     Node* graph_node = (*it)->get_graph();
-//                     cfg_visitor.compute_use_def_chains(graph_node);
-//                     (*it)->set_use_def_computed();
-//                     
-//     //                 DEBUG_CODE()
-//                     {
-//                         graph_node->print_use_def_chains();
-//                     }
-//                 }
-//             }
-//         
+            std::cerr << std::endl << "=== USE-DEF CHAINS COMPUTATION ===" << std::endl;
+            for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
+            {
+                if (!(*it)->has_use_def_computed())
+                {
+                    (*it)->init_function_call_nest();
+                    cfg_visitor.set_last_func_call((*it)->get_function_call_nest());
+                    cfg_visitor.set_actual_cfg(*it);
+                    Node* graph_node = (*it)->get_graph();
+                    cfg_visitor.compute_use_def_chains(graph_node);
+                    (*it)->set_use_def_computed();
+                    
+    //                 DEBUG_CODE()
+                    {
+                        graph_node->print_use_def_chains();
+                    }
+                }
+            }
+        
 //             // *** Loops Analysis *** //
 //             std::cerr << std::endl << "=== LOOP ANALYSIS COMPUTATION ===" << std::endl;
 //             for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
@@ -111,9 +111,12 @@ namespace TL
 //             }
             
             // Print graphs into dot files
-            for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
+            if (CURRENT_CONFIGURATION->debug_options.print_cfg_graphviz)
             {
-                ExtensibleGraph::print_graph_to_dot((*it)->get_graph(), (*it)->get_name());
+                for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
+                {
+                    (*it)->print_graph_to_dot();
+                }
             }
         }
     }

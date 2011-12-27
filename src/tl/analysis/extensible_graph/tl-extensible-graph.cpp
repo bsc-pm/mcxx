@@ -29,8 +29,7 @@ namespace TL
     namespace Analysis
     {    
         ExtensibleGraph::ExtensibleGraph(std::string name, Scope sc)
-            : _graph(NULL), _name(name), _nid(-1), _sc(sc), 
-            _global_vars(), _parameters(),
+            : _graph(NULL), _name(name), _nid(-1), _sc(sc), _global_vars(),
             _function_sym(NULL), nodes_m(),
             _continue_stack(), _break_stack(),
             _labeled_node_l(), _goto_node_l(),
@@ -50,7 +49,6 @@ namespace TL
             new_ext_graph->_nid = this->_nid;
             new_ext_graph->_sc = this->_sc;
             new_ext_graph->_global_vars = this->_global_vars;
-            new_ext_graph->_parameters = this->_parameters;
             new_ext_graph->_function_sym = this->_function_sym;
             new_ext_graph->_continue_stack = this->_continue_stack;
             new_ext_graph->_break_stack = this->_break_stack;
@@ -527,7 +525,7 @@ namespace TL
         void ExtensibleGraph::dress_up_graph()
         {
             clear_unnecessary_nodes();
-    //         concat_sequential_nodes();
+            concat_sequential_nodes();
         }
         
         void ExtensibleGraph::concat_sequential_nodes()
@@ -1193,16 +1191,19 @@ namespace TL
         
         void ExtensibleGraph::print_function_call_nest(func_call_graph_t* nest, std::string indent)
         {
-            if (nest!=NULL && !nest->is_visited())
-            {   // (nest == NULL) for codes with no function call inside. E.g: task graphs with no function calls
-                nest->set_visited();
-                std::cerr << indent << " -> " << nest->_root.get_name() << std::endl;
-                indent += "   ";
-                for (ObjectList<func_call_graph_t*>::iterator it = nest->_calls.begin(); it != nest->_calls.end(); ++it)
-                {
-                    print_function_call_nest(*it, indent);
+            if (CURRENT_CONFIGURATION->debug_options.analysis_verbose)
+            {
+                if (nest!=NULL && !nest->is_visited())
+                {   // (nest == NULL) for codes with no function call inside. E.g: task graphs with no function calls
+                    nest->set_visited();
+                    std::cerr << indent << " -> " << nest->_root.get_name() << std::endl;
+                    indent += "   ";
+                    for (ObjectList<func_call_graph_t*>::iterator it = nest->_calls.begin(); it != nest->_calls.end(); ++it)
+                    {
+                        print_function_call_nest(*it, indent);
+                    }
+                    nest->clear_visits();
                 }
-                nest->clear_visits();
             }
         }
     }

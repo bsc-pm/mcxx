@@ -480,11 +480,35 @@ namespace Analysis
         unary_visit(n);
     } 
     
+    static void get_use_def_variables(Node* actual, int id_target_node, ext_sym_set &ue_vars, ext_sym_set &killed_vars)
+    {
+        ObjectList<Node*> children = actual->get_children();
+        for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
+        {
+            if ((*it)->get_id() != id_target_node)
+            {
+                ue_vars.append((*it)->get_ue_vars());
+                killed_vars.append((*it)->get_killed_vars());
+                get_use_def_variables(*it, id_target_node, ue_vars, killed_vars);
+            }
+        }
+    }
+   
+    /*!
+     * We reach this point when a function call is founded inside another expression such as "b + f(a)" or "return g(b, c)".
+     * The Use-Def for the node FUNCTION_CALL_NODE has been already computed in > tl-static-analysis > set_live_initial_information.
+     * FIXME May be we want to move the computation of the FUNCTION_CALL_NODE to this class.
+     * 
+     * This method only propagates the previously computed usage information of the function to the actual "split-node".
+     */
     template <typename T>
     void CfgAnalysisVisitor::function_visit(const T& n)
-    {   // The function has its Use-def computed from a previous node.
-        // We arrive here if a function call is inside other expression like "b + f(a)", "return g(b, c)", etc.
-        
+    {
+        Node* outer_node = _node->get_outer_node();
+        ext_sym_set ue_vars, killed_vars;
+        get_use_def_variables(outer_node->get_graph_entry_node(), _node->get_id(), ue_vars, killed_vars);
+        _node->set_ue_var(ue_vars);
+        _node->set_killed_var(killed_vars);
     }
     
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::FunctionCall& n)
@@ -563,10 +587,10 @@ namespace Analysis
     CfgIPAVisitor::Ret CfgIPAVisitor::visit(const Nodecl::Symbol& n)
     {
         if (_ref_params.contains(n.get_symbol()) || TL::Analysis::usage_list_contains_sym(n, _global_vars))
-            if (usage_list_contains_sym(n, _global_vars))
-            {
-                struct var_usage_t* global_var = get_var_in_list(n, _global_vars);
-                char usage = global_var->get_usage();
+            if (usage_list_contains_sym(n, _usage))
+            {   // The variable was already inserted in the result
+                struct var_usage_t* ipa_var = get_var_in_list(n, _usage);
+                char usage = ipa_var->get_usage();
                 if (usage == '0' || usage == '2')
                 {   // nothing to do: It doesn't matters what happens with an already Killed variable
                 }
@@ -574,19 +598,19 @@ namespace Analysis
                 {
                     if (_defining)
                     {   // Set to 2 the usage value
-                        global_var->set_usage('2');
+                        ipa_var->set_usage('2');
                     }
                     else {} // nothing to do, the variable was already used
                 }
             }
             else
-            {
+            {   // Is the first usage of this variable. We insert it in the result
                 char usage;
                 if (_defining) usage = '0';
                 else usage = '1';
                 
-                struct var_usage_t* new_global_var_usage = new var_usage_t(n, usage);
-                _global_vars.insert(new_global_var_usage);
+                struct var_usage_t* new_ipa_var = new var_usage_t(n, usage);
+                _usage.insert(new_ipa_var);
             }
     }
     
@@ -690,7 +714,7 @@ namespace Analysis
     template <typename T>
     void CfgIPAVisitor::function_visit(const T& n)
     {
-        // 
+        internal_error("Hem trobat una crida a funcio mentre estem fent IPA. WTF tenemos que hacer aqui??", 0);
     }
     
     CfgIPAVisitor::Ret CfgIPAVisitor::visit(const Nodecl::FunctionCall& n)

@@ -52,6 +52,8 @@ namespace TL
                 ObjectList<Edge*> _exit_edges;
                 bool _visited;
             
+                bool _has_deps_computed;    // This boolean only makes sense for Task nodes
+                                            // It is true when the auto-dependencies for the node has been computed
                 
                 // *** Not allowed construction methods *** //
                 Node(const Node& n);
@@ -169,8 +171,14 @@ namespace TL
                 */
                 bool is_visited() const;
                 
-                //! Sets node member #visited.
+                //! Sets the node as visited.
                 void set_visited(bool visited);
+                
+                //! Returns true when the node is a task node and its dependencies have already been calculated
+                bool has_deps_computed();
+                
+                //! Sets node dependencies computation to true
+                void set_deps_computed();
                 
                 //! Returns a boolean indicating whether the node is empty or not
                 /*!
@@ -373,6 +381,9 @@ namespace TL
                 //! Adds a new upper exposed variable to the node
                 void set_ue_var(ExtensibleSymbol new_ue_var);
                 
+                //! Adds a new set of upper exposed variable to the node
+                void set_ue_var(ext_sym_set new_ue_vars);
+                
                 //! Deletes an old upper exposed variable from the node
                 void unset_ue_var(ExtensibleSymbol old_ue_var);
                 
@@ -381,6 +392,9 @@ namespace TL
                 
                 //! Adds a new killed variable to the node
                 void set_killed_var(ExtensibleSymbol new_killed_var);
+
+                //! Adds a new set of killed variables to the node
+                void set_killed_var(ext_sym_set new_killed_vars);
                 
                 //! Deletes an old killed variable form the node
                 void unset_killed_var(ExtensibleSymbol old_killed_var);            
@@ -394,11 +408,20 @@ namespace TL
                 //! Returns the list of input dependences of a task node
                 ext_sym_set get_input_deps();
                 
+                //! Insert a list of input dependencies to the node
+                void set_input_deps(ext_sym_set new_input_deps);
+                
                 //! Returns the list of output dependences of a task node
                 ext_sym_set get_output_deps();
+                               
+                //! Insert a list of output dependencies to the node
+                void set_output_deps(ext_sym_set new_output_deps);
                 
                 //! Returns the list of inout dependences of a task node
                 ext_sym_set get_inout_deps();
+                               
+                //! Insert a list of inout dependencies to the node
+                void set_inout_deps(ext_sym_set new_inout_deps);
                 
                 //! Return the map containing, for each symbol defined until this moment, its correspondent expression
                 nodecl_map get_reaching_definitions();

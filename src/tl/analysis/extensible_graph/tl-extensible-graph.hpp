@@ -46,9 +46,14 @@ namespace TL
                 Node* _graph;    // Node with type GRAPH_NODE which contains the whole graph
                 std::string _name;
                 int _nid;
+                
+                /*!
+                 * Graph scope (This variable is used when the variables are tagged as global)
+                 * If the graph contains a function code, the scope is the function's scope.
+                 * If the graph contains a block of code, the scope is the scope of the function containing the code.
+                 */
                 Scope _sc;
                 ObjectList<struct var_usage_t*> _global_vars;
-                ObjectList<struct var_usage_t*> _parameters;
                 
                 bool _global_vars_computed;
                 
@@ -127,10 +132,10 @@ namespace TL
                 \param indent Indentation for the actual node when it is printed.
                 \param subgraph_id Identifier for the actual cluster.
                 */
-                static void get_nodes_dot_data(Node* actual_node, std::string& dot_graph, 
-                                            std::vector<std::string>& outer_edges, 
-                                            std::vector<Node*>& outer_nodes,
-                                            std::string indent, int& subgraph_id);
+                void get_nodes_dot_data(Node* actual_node, std::string& dot_graph, 
+                                        std::vector<std::string>& outer_edges, 
+                                        std::vector<Node*>& outer_nodes,
+                                        std::string indent, int& subgraph_id);
                                         
                 //! Prints both nodes and edges within a cfg subgraph
                             //! Prints nodes and relations between them in a string in a recursive way.
@@ -142,13 +147,13 @@ namespace TL
                 \param indent Indentation for the actual node when it is printed.
                 \param subgraph_id Identifier for the actual cluster.
                 */
-                static void get_dot_subgraph(Node* actual_node, std::string& graph_data, 
-                                    std::vector<std::string>& outer_edges,
-                                    std::vector<Node*>& outer_nodes, 
-                                    std::string indent, int& subgraph_id);
+                void get_dot_subgraph(Node* actual_node, std::string& graph_data, 
+                                      std::vector<std::string>& outer_edges,
+                                      std::vector<Node*>& outer_nodes, 
+                                      std::string indent, int& subgraph_id);
                                     
                 //! Prints the data of an only node.                                    
-                static void get_node_dot_data(Node* node, std::string& graph_data, std::string indent);
+                void get_node_dot_data(Node* node, std::string& graph_data, std::string indent);
             
                 
                 //! Returns whether the source and the target of an edge belongs to the same outer node.
@@ -350,7 +355,7 @@ namespace TL
                 // *** DOT Graph *** //
                 
                 //! Build a DOT file that represents the CFG
-                static void print_graph_to_dot(Node* node, std::string name);
+                void print_graph_to_dot();
                 
                 
     
