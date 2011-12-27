@@ -143,6 +143,9 @@ typedef struct debug_options_tag
     char do_not_run_gdb;
     char binary_check;
     char disable_module_cache;
+    // Analysis flags. Those are not handled by the driver, but by the analysis phase.
+    char analysis_verbose;
+    char print_cfg_graphviz;
 } debug_options_t;
 
 typedef struct external_var_tag {
