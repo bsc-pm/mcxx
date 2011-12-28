@@ -9000,7 +9000,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     {
         CXX_LANGUAGE()
         {
-            if (is_constructor_declarator(ASTSon1(function_header)))
+            if (is_constructor_declarator(function_declarator))
             {
                 is_constructor = 1;
             }
@@ -9055,9 +9055,9 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     else
     {
         // block-context will be updated for qualified-id to reflect the exact context
-        build_scope_declarator_with_parameter_context(ASTSon1(function_header), &gather_info, type_info, &declarator_type,
+        build_scope_declarator_with_parameter_context(function_declarator, &gather_info, type_info, &declarator_type,
                 new_decl_context, &block_context, nodecl_output);
-        entry = build_scope_declarator_name(ASTSon1(function_header), declarator_type, &gather_info, new_decl_context, nodecl_output);
+        entry = build_scope_declarator_name(function_declarator, declarator_type, &gather_info, new_decl_context, nodecl_output);
     }
     
     if (entry == NULL)
@@ -9067,7 +9067,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
             error_printf("%s: error: function '%s' was not found in the current scope\n", 
                     ast_location(function_header), 
                     print_decl_type_str(declarator_type, new_decl_context, 
-                        prettyprint_in_buffer(get_declarator_name(ASTSon1(function_header), new_decl_context))));
+                        prettyprint_in_buffer(get_declarator_name(function_declarator, new_decl_context))));
         }
         return NULL;
     }
