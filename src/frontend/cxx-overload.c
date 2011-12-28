@@ -2022,6 +2022,7 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
                                 0, // semicolon
                                 0, // num_parameter_names
                                 NULL, // parameter_names
+                                NULL, // parameter_attributes
                                 0 // is_parameter
                                 ));
                 }
@@ -2046,6 +2047,7 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
                         0, // semicolon
                         0, // num_parameter_names
                         NULL, // parameter_names
+                        NULL, // parameter_attributes
                         0 // is_parameter
                         ));
             fprintf(stderr, "OVERLOAD: There is no best function\n");
@@ -2067,6 +2069,7 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
                             0, // semicolon
                             0, // num_parameter_names
                             NULL, // parameter_names
+                            NULL, // parameter_attributes
                             0 // is_parameter
                             ));
                 fprintf(stderr, "OVERLOAD: There is no best function because ambiguous conversion\n");

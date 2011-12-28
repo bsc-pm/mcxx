@@ -913,6 +913,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 
     TL::ObjectList<TL::Symbol> related_symbols = symbol.get_related_symbols();
     TL::ObjectList<std::string> parameter_names(related_symbols.size());
+    TL::ObjectList<std::string> parameter_attributes(related_symbols.size());
     int i = 0;
     for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
             it != related_symbols.end();
@@ -921,14 +922,11 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
         TL::Symbol current_param = *it;
         if (current_param.is_valid())
         {
+            parameter_names[i] = current_param.get_name();
             set_codegen_status(current_param, CODEGEN_STATUS_DEFINED);
             if (current_param.has_gcc_attributes())
             {
-                parameter_names[i] = current_param.get_name() + " " + gcc_attributes_to_str(current_param); 
-            }
-            else
-            {
-                parameter_names[i] = current_param.get_name();
+                parameter_attributes[i] = gcc_attributes_to_str(current_param); 
             }
         }
     }
@@ -978,7 +976,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
     }
 
     std::string declarator;
-    declarator = this->get_declaration_with_parameters(real_type, symbol.get_scope(), qualified_name, parameter_names);
+    declarator = this->get_declaration_with_parameters(real_type, symbol.get_scope(), qualified_name, parameter_names, parameter_attributes);
 
     std::string exception_spec = exception_specifier_to_str(symbol);
 
@@ -4545,11 +4543,12 @@ std::string CxxBase::get_declaration(TL::Type t, TL::Scope scope, const std::str
     return t.get_declaration(scope,  name);
 }
 
-std::string CxxBase::get_declaration_with_parameters(TL::Type t, TL::Scope scope, const std::string& name, TL::ObjectList<std::string>& names)
+std::string CxxBase::get_declaration_with_parameters(TL::Type t, TL::Scope scope,
+        const std::string& name, TL::ObjectList<std::string>& names, TL::ObjectList<std::string>& parameter_attributes)
 {
     t = fix_references(t);
 
-    return t.get_declaration_with_parameters(scope, name, names);
+    return t.get_declaration_with_parameters(scope, name, names, parameter_attributes);
 }
 
 TL::Type CxxBase::fix_references(TL::Type t)

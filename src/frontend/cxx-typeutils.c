@@ -6374,6 +6374,7 @@ const char* get_declaration_string_internal(type_t* type_info,
         char semicolon,
         int num_parameter_names,
         const char** parameter_names,
+        const char** parameter_attributes,
         char is_parameter)
 {
     ERROR_CONDITION(type_info == NULL, "This cannot be null", 0);
@@ -6734,14 +6735,14 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                             // Abstract declarator
                             prototype = strappend(prototype,
                                     get_declaration_string_internal(type_info->function->parameter_list[i]->type_info, decl_context, 
-                                        "", "", 0, 0, NULL, 1));
+                                        "", "", 0, 0, NULL, NULL, 1));
                         }
                         else if (parameter_names != NULL
                                 && parameter_names[i] != NULL)
                         {
                             prototype = strappend(prototype,
                                     get_declaration_string_internal(type_info->function->parameter_list[i]->type_info, decl_context, 
-                                        parameter_names[i], "", 0, 0, NULL, 1));
+                                        parameter_names[i], "", 0, 0, NULL, NULL, 1));
                         }
                         else // parameter_names != NULL && parameter_names[i] == NULL
                         {
@@ -6754,7 +6755,7 @@ static void get_type_name_str_internal(decl_context_t decl_context,
 
                             prototype = strappend(prototype,
                                     get_declaration_string_internal(type_info->function->parameter_list[i]->type_info, decl_context, 
-                                        parameter_name, "", 0, 0, NULL, 1));
+                                        parameter_name, "", 0, 0, NULL, NULL, 1));
                         }
                     }
                 }
@@ -9592,6 +9593,7 @@ const char* print_type_str(type_t* t, decl_context_t decl_context)
                 /* semicolon */ 0,
                 /* num_parameter_names */ 0,
                 /* parameter_names */ NULL,
+                /* parameter_attributes */ NULL,
                 /* is_parameter */ 0);
     }
 }
@@ -9633,6 +9635,7 @@ const char* print_decl_type_str(type_t* t, decl_context_t decl_context, const ch
                 /* semicolon */ 0,
                 /* num_parameter_names */ 0,
                 /* parameter_names */ NULL,
+                /* parameter_attributes */ NULL,
                 /* is_parameter */ 0);
     }
 }

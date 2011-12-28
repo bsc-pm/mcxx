@@ -301,7 +301,8 @@ namespace Codegen
             virtual Ret unhandled_node(const Nodecl::NodeclBase & n);
 
             std::string get_declaration(TL::Type t, TL::Scope scope, const std::string& name);
-            std::string get_declaration_with_parameters(TL::Type, TL::Scope, const std::string& name, TL::ObjectList<std::string>& names);
+            std::string get_declaration_with_parameters(TL::Type, TL::Scope, const std::string& name,
+                    TL::ObjectList<std::string>& names, TL::ObjectList<std::string> & parameter_attributes);
             TL::Type fix_references(TL::Type t);
     };
 }

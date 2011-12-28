@@ -197,9 +197,8 @@ namespace TL
                     TypeDeclFlags flags = NORMAL_DECLARATION) const;
 
             //! Returns a string with a function declaration and parameter names
-            std::string get_declaration_with_parameters(Scope sc,
-                    const std::string& symbol_name, ObjectList<std::string>& parameters,
-                    TypeDeclFlags flags = NORMAL_DECLARATION) const;
+            std::string get_declaration_with_parameters(Scope sc, const std::string& symbol_name,
+                    ObjectList<std::string>& parameters, ObjectList<std::string>& parameter_attributes, TypeDeclFlags flags = NORMAL_DECLARATION) const;
 
             //! Basic type
             /*! Returns the basic type on which this type is built 

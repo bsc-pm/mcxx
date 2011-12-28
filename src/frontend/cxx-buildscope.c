@@ -9106,7 +9106,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
 
             funct_name = get_declaration_string_internal(entry->type_information,
                     decl_context,
-                    qualified_name, "", 0, 0, NULL, 0);
+                    qualified_name, "", 0, 0, NULL, NULL, 0);
         }
         if (!checking_ambiguity())
         {
