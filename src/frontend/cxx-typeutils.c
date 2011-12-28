@@ -6363,6 +6363,7 @@ static const char* get_type_name_string(decl_context_t decl_context,
         const char* symbol_name,
         int num_parameter_names,
         const char** parameter_names,
+        const char** parameter_attributes,
         char is_parameter);
 
 // Returns a declaration string given a type, a symbol name, an optional initializer
@@ -6382,7 +6383,7 @@ const char* get_declaration_string_internal(type_t* type_info,
     type_t* base_type = get_foundation_type(type_info);
     const char* base_type_name = get_simple_type_name_string(decl_context, base_type);
     const char* declarator_name = get_type_name_string(decl_context, type_info, symbol_name, 
-            num_parameter_names, parameter_names, is_parameter);
+            num_parameter_names, parameter_names, parameter_attributes, is_parameter);
 
     const char* result;
 
@@ -6416,6 +6417,7 @@ static void get_type_name_str_internal(decl_context_t decl_context,
         const char** right,
         int num_parameter_names,
         const char** parameter_names,
+        const char** parameter_attributes,
         char is_parameter);
 
 static const char* get_type_name_string(decl_context_t decl_context,
@@ -6423,6 +6425,7 @@ static const char* get_type_name_string(decl_context_t decl_context,
         const char* symbol_name,
         int num_parameter_names,
         const char** parameter_names,
+        const char** parameter_attributes,
         char is_parameter)
 {
     ERROR_CONDITION(type_info == NULL, "This cannot be null", 0);
@@ -6430,7 +6433,7 @@ static const char* get_type_name_string(decl_context_t decl_context,
     const char* left = "";
     const char* right = "";
     get_type_name_str_internal(decl_context, type_info, &left, &right, 
-            num_parameter_names, parameter_names, is_parameter);
+            num_parameter_names, parameter_names,parameter_attributes, is_parameter);
 
     const char* result = strappend(left, symbol_name);
     result = strappend(result, right);
@@ -6579,6 +6582,7 @@ static void get_type_name_str_internal(decl_context_t decl_context,
         const char** right,
         int num_parameter_names,
         const char** parameter_names,
+        const char** parameter_attributes,
         char is_parameter)
 {
     ERROR_CONDITION(type_info == NULL, "This cannot be null", 0);
@@ -6597,6 +6601,7 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                             right,
                             num_parameter_names,
                             parameter_names,
+                            parameter_attributes,
                             is_parameter);
                 }
                 break;
@@ -6604,7 +6609,7 @@ static void get_type_name_str_internal(decl_context_t decl_context,
         case TK_POINTER :
             {
                 get_type_name_str_internal(decl_context, type_info->pointer->pointee, left, right, 
-                        num_parameter_names, parameter_names, is_parameter);
+                        num_parameter_names, parameter_names, parameter_attributes, is_parameter);
 
                 if (declarator_needs_parentheses(type_info))
                 {
@@ -6624,7 +6629,7 @@ static void get_type_name_str_internal(decl_context_t decl_context,
         case TK_POINTER_TO_MEMBER :
             {
                 get_type_name_str_internal(decl_context, type_info->pointer->pointee, left, right, 
-                        num_parameter_names, parameter_names, is_parameter);
+                        num_parameter_names, parameter_names, parameter_attributes, is_parameter);
 
                 if (declarator_needs_parentheses(type_info))
                 {
@@ -6648,7 +6653,7 @@ static void get_type_name_str_internal(decl_context_t decl_context,
         case TK_LVALUE_REFERENCE :
             {
                 get_type_name_str_internal(decl_context, type_info->pointer->pointee, left, right, 
-                        num_parameter_names, parameter_names, is_parameter);
+                        num_parameter_names, parameter_names, parameter_attributes, is_parameter);
 
                 if (declarator_needs_parentheses(type_info))
                 {
@@ -6680,7 +6685,7 @@ static void get_type_name_str_internal(decl_context_t decl_context,
         case TK_ARRAY :
             {
                 get_type_name_str_internal(decl_context, type_info->array->element_type, left, right, 
-                        num_parameter_names, parameter_names, is_parameter);
+                        num_parameter_names, parameter_names, parameter_attributes, is_parameter);
 
                 const char* whole_size = NULL;
                 if (is_parameter
@@ -6709,7 +6714,7 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                 if (type_info->function->return_type != NULL)
                 {
                     get_type_name_str_internal(decl_context, type_info->function->return_type, left, right, 
-                            0, NULL, 0);
+                            0, NULL, NULL, 0);
                 }
 
                 const char* prototype = "";
@@ -6758,6 +6763,13 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                                         parameter_name, "", 0, 0, NULL, NULL, 1));
                         }
                     }
+
+                    //Adding the parameter attributes
+                    if (parameter_attributes != NULL && parameter_attributes[i] != NULL)
+                    {
+                        prototype = strappend(prototype, " ");
+                        prototype = strappend(prototype, parameter_attributes[i]);
+                    }
                 }
                 // For C we might need to explicitly add 'void'
                 C_LANGUAGE()
@@ -6783,7 +6795,7 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                 char c[256];
 
                 get_type_name_str_internal(decl_context, type_info->vector->element_type, left, right, 
-                        num_parameter_names, parameter_names, is_parameter);
+                        num_parameter_names, parameter_names, parameter_attributes, is_parameter);
 
                 //generic_vector
                 if (type_info->vector->vector_size == 0)
