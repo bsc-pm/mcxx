@@ -918,10 +918,18 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
             it != related_symbols.end();
             it++, i++)
     {
-        if (it->is_valid())
+        TL::Symbol current_param = *it;
+        if (current_param.is_valid())
         {
-            parameter_names[i] = it->get_name();
-            set_codegen_status(*it, CODEGEN_STATUS_DEFINED);
+            set_codegen_status(current_param, CODEGEN_STATUS_DEFINED);
+            if (current_param.has_gcc_attributes())
+            {
+                parameter_names[i] = current_param.get_name() + " " + gcc_attributes_to_str(current_param); 
+            }
+            else
+            {
+                parameter_names[i] = current_param.get_name();
+            }
         }
     }
 

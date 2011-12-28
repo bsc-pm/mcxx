@@ -329,6 +329,9 @@ namespace TL
              */
             bool has_prototype_scope() const;
 
+            //! States whether this symbol has gcc attributes
+            bool has_gcc_attributes() const;
+
             //! Special symbol for using A::x inside classes
             bool is_using_symbol() const;
 
