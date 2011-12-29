@@ -2958,6 +2958,11 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
                 }
             }
 
+            if (symbol.has_gcc_attributes())
+            {
+                gcc_attributes = gcc_attributes_to_str(symbol);
+            }
+
             move_to_namespace_of_symbol(symbol);
             indent();
             file << decl_specifiers << gcc_attributes << " " << declarator << bit_field;
