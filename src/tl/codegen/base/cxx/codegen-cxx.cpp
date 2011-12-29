@@ -1011,11 +1011,11 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
         // gcc does not like asm specifications appear in the
         // function-definition so emit a declaration before the definition
         indent();
-        file << decl_spec_seq << gcc_attributes << declarator << exception_spec << asm_specification << ";\n";
+        file << decl_spec_seq << gcc_attributes << " " << declarator << exception_spec << asm_specification << ";\n";
     }
 
     indent();
-    file << decl_spec_seq << gcc_attributes << declarator << exception_spec << "\n";
+    file << decl_spec_seq << gcc_attributes << " " << declarator << exception_spec << "\n";
 
     set_codegen_status(symbol, CODEGEN_STATUS_DEFINED);
 
@@ -2960,7 +2960,7 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
 
             move_to_namespace_of_symbol(symbol);
             indent();
-            file << decl_specifiers << gcc_attributes << declarator << bit_field;
+            file << decl_specifiers << gcc_attributes << " " << declarator << bit_field;
 
             // Initializer
             if (emit_initializer)
@@ -4423,14 +4423,17 @@ std::string CxxBase::gcc_attributes_to_str(TL::Symbol symbol)
 {
     std::string result;
     TL::ObjectList<TL::GCCAttribute> gcc_attr_list = symbol.get_gcc_attributes();
-
+    int i = 0;
     for (TL::ObjectList<TL::GCCAttribute>::iterator it = gcc_attr_list.begin();
             it != gcc_attr_list.end();
-            it++)
+            it++, i++)
     {
+        if (i > 0) 
+            result += " ";
+
         if (it->get_expression_list().is_null())
         {
-            result += "__attribute__((" + it->get_attribute_name() + ")) ";
+            result += "__attribute__((" + it->get_attribute_name() + "))";
         }
         else
         {
@@ -4450,7 +4453,7 @@ std::string CxxBase::gcc_attributes_to_str(TL::Symbol symbol)
             // Go to the end of the stream...
             file.seekp(0, std::ios_base::end);
 
-            result += "))) ";
+            result += ")))";
         }
     }
 
