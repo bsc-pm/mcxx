@@ -35,7 +35,7 @@ namespace TL
         CfgVisitor::CfgVisitor()
             : _cfgs(), _actual_cfg(NULL),
             _context_s(), _return_nodes(), _loop_info_s(), _actual_try_info(), 
-            _pragma_info_s(), _omp_sections_info(), _switch_cond_s(), _last_func_call()
+            _pragma_info_s(), _omp_sections_info(), _switch_cond_s()
         {}
         
         ObjectList<ExtensibleGraph*> CfgVisitor::get_cfgs() const
@@ -104,7 +104,9 @@ namespace TL
             std::string nom = s.get_name();
         
             // Create a new graph for the current function
-            ExtensibleGraph* actual_cfg = new ExtensibleGraph(s.get_name(), n.retrieve_context());
+//             std::cerr << "  Retrived context: " << std::endl;
+//             n.retrieve_context().printscope();
+            ExtensibleGraph* actual_cfg = new ExtensibleGraph(s.get_name(), n.get_symbol().get_scope());
             _actual_cfg = actual_cfg;
             
             _actual_cfg->_function_sym = s;
@@ -250,7 +252,10 @@ namespace TL
         CfgVisitor::Ret CfgVisitor::visit(const Nodecl::Symbol& n)
         {
             // Tag the symbol if it is a global variable
-            Scope s_sc = n.retrieve_context();
+            Scope s_sc = n.get_symbol().get_scope();
+            Nodecl::NodeclBase n2 = n;
+//             std::cerr << "Symbol " << n2.prettyprint() << " scope:  " << std::endl;
+//             s_sc.printscope();
             if (!s_sc.scope_is_enclosed_by(_actual_cfg->_sc))
             {
                 struct var_usage_t* glob_var_usage = new var_usage_t(n, /*UNDEFINED USAGE*/ '3');
@@ -502,7 +507,9 @@ namespace TL
         template <typename T>
         CfgVisitor::Ret CfgVisitor::function_call_visit(const T& n)
         {
-            Nodecl::NodeclBase node = n;
+            // Add the current Function Call to the list of called functions
+            _actual_cfg->add_func_call_symbol(n.get_called().get_symbol());
+            
             // Create the new Function Call node and built it
             Node* func_graph_node = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), Nodecl::NodeclBase::null(), FUNC_CALL);
             if (!_actual_cfg->_last_nodes.empty())
@@ -2078,11 +2085,6 @@ namespace TL
                 
                 
             }
-        }
-        
-        void CfgVisitor::set_last_func_call(struct func_call_graph_t* last_func_call)
-        {
-            _last_func_call = last_func_call;
         }
     }
 }
