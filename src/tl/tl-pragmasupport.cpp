@@ -359,6 +359,11 @@ namespace TL
         return TL::PragmaCustomLine(this->Nodecl::PragmaCustomDirective::get_pragma_line().as<Nodecl::PragmaCustomLine>());
     }
 
+    Source::ReferenceScope TL::PragmaCustomDirective::get_context_of_declaration() const
+    {
+        return Source::ReferenceScope(this->Nodecl::PragmaCustomDirective::get_context_of_decl().as<Source::ReferenceScope>());
+    }
+    
     bool PragmaUtils::is_pragma_construct(const std::string& prefix, 
             const std::string& pragma_name,
             Nodecl::NodeclBase n)

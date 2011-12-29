@@ -60,19 +60,20 @@ typedef struct {
 enum type_kind
 {
     TK_UNKNOWN = 0,
-    TK_DIRECT,             // 1
-    TK_POINTER,            // 2
-    TK_LVALUE_REFERENCE,   // 3
-    TK_RVALUE_REFERENCE,   // 4
-    TK_POINTER_TO_MEMBER,  // 5
-    TK_ARRAY,              // 6
-    TK_FUNCTION,           // 7
-    TK_OVERLOAD,           // 8
-    TK_VECTOR,             // 9
-    TK_ELLIPSIS,           // 10
-    TK_COMPUTED,           // 11
-    TK_BRACED_LIST,        // 12
-    TK_ERROR,
+    TK_DIRECT,
+    TK_POINTER,
+    TK_LVALUE_REFERENCE,
+    TK_RVALUE_REFERENCE,
+    TK_REBINDABLE_REFERENCE,
+    TK_POINTER_TO_MEMBER,
+    TK_ARRAY,
+    TK_FUNCTION,
+    TK_OVERLOAD,
+    TK_VECTOR,
+    TK_ELLIPSIS,
+    TK_COMPUTED,
+    TK_BRACED_LIST,
+    TK_ERROR
 };
 
 // For simple_type_t
@@ -2081,14 +2082,10 @@ type_t* get_pointer_type(type_t* t)
 
 static rb_red_blk_tree *_lvalue_reference_types = NULL;
 static rb_red_blk_tree *_rvalue_reference_types = NULL;
+static rb_red_blk_tree *_rebindable_reference_types = NULL;
 
-static type_t* get_internal_reference_type(type_t* t, char is_rvalue_ref)
+static type_t* get_internal_reference_type(type_t* t, enum type_kind reference_kind)
 {
-    C_LANGUAGE()
-    {
-        internal_error("No referenced types should be created in C", 0);
-    }
-
     ERROR_CONDITION(t == NULL, "Invalid reference type", 0);
 
     if (is_lvalue_reference_type(t)
@@ -2101,13 +2098,27 @@ static type_t* get_internal_reference_type(type_t* t, char is_rvalue_ref)
             "Trying to create a reference of a null type", 0);
 
     rb_red_blk_tree **reference_types = NULL;
-    if (is_rvalue_ref)
+    switch (reference_kind)
     {
-        reference_types = &_lvalue_reference_types;
-    }
-    else
-    {
-        reference_types = &_rvalue_reference_types;
+        case TK_LVALUE_REFERENCE:
+            {
+                reference_types = &_lvalue_reference_types;
+                break;
+            }
+        case TK_RVALUE_REFERENCE:
+            {
+                reference_types = &_rvalue_reference_types;
+                break;
+            }
+        case TK_REBINDABLE_REFERENCE:
+            {
+                reference_types = &_rebindable_reference_types;
+                break;
+            }
+        default:
+            {
+                internal_error("Invalid reference kind %d\n", reference_kind);
+            }
     }
 
     if ((*reference_types) == NULL)
@@ -2121,14 +2132,7 @@ static type_t* get_internal_reference_type(type_t* t, char is_rvalue_ref)
     {
         _reference_type_counter++;
         referenced_type = new_empty_type();
-        if (!is_rvalue_ref)
-        {
-            referenced_type->kind = TK_LVALUE_REFERENCE;
-        }
-        else
-        {
-            referenced_type->kind = TK_RVALUE_REFERENCE;
-        }
+        referenced_type->kind = reference_kind;
         referenced_type->unqualified_type = referenced_type;
         referenced_type->pointer = counted_calloc(1, sizeof(*referenced_type->pointer), &_bytes_due_to_type_system);
         referenced_type->pointer->pointee = t;
@@ -2143,12 +2147,17 @@ static type_t* get_internal_reference_type(type_t* t, char is_rvalue_ref)
 
 type_t* get_lvalue_reference_type(type_t* t)
 {
-    return get_internal_reference_type(t, /* is_rvalue_ref */ 0);
+    return get_internal_reference_type(t, TK_LVALUE_REFERENCE);
 }
 
 type_t* get_rvalue_reference_type(type_t* t)
 {
-    return get_internal_reference_type(t, /* is_rvalue_ref */ 1);
+    return get_internal_reference_type(t, TK_RVALUE_REFERENCE);
+}
+
+type_t* get_rebindable_reference_type(type_t* t)
+{
+    return get_internal_reference_type(t, TK_REBINDABLE_REFERENCE);
 }
 
 type_t* get_pointer_to_member_type(type_t* t, scope_entry_t* class_entry)
@@ -2411,7 +2420,7 @@ static type_t* _get_array_type(type_t* element_type,
     // } 
     //
     //
-    // First try to fold as many trees as possible to free them
+    // First try to fold as many trees as possible
     if (!nodecl_is_null(whole_size))
     {
         struct {
@@ -2435,6 +2444,9 @@ static type_t* _get_array_type(type_t* element_type,
             {
                 *(data[i].pred) = 1;
                 *(data[i].value) = const_value_cast_to_8(
+                        nodecl_get_constant(*(data[i].nodecl)));
+                // Simplify the tree now
+                *(data[i].nodecl) = const_value_to_nodecl(
                         nodecl_get_constant(*(data[i].nodecl)));
             }
         }
@@ -4052,9 +4064,8 @@ char equivalent_types(type_t* t1, type_t* t2)
             result = equivalent_pointer_type(t1->pointer, t2->pointer);
             break;
         case TK_LVALUE_REFERENCE :
-            result = equivalent_pointer_type(t1->pointer, t2->pointer);
-            break;
         case TK_RVALUE_REFERENCE :
+        case TK_REBINDABLE_REFERENCE :
             result = equivalent_pointer_type(t1->pointer, t2->pointer);
             break;
         case TK_POINTER_TO_MEMBER :
@@ -5423,7 +5434,6 @@ nodecl_t array_type_get_array_lower_bound(type_t* t)
 nodecl_t array_type_get_array_upper_bound(type_t* t)
 {
     ERROR_CONDITION(!is_array_type(t), "This is not an array type", 0);
-    ERROR_CONDITION(array_type_is_unknown_size(t), "Array of unknown size does not have upper bound", 0);
     t = advance_over_typedefs(t);
 
     return t->array->upper_bound;
@@ -5534,10 +5544,17 @@ char is_rvalue_reference_to_class_type(type_t* t1)
             && is_class_type(reference_type_get_referenced_type(t1)));
 }
 
-char is_reference_to_class_type(type_t* t1)
+char is_rebindable_reference_to_class_type(type_t* t1)
+{
+    return (is_rebindable_reference_type(t1) 
+            && is_class_type(reference_type_get_referenced_type(t1)));
+}
+
+char is_any_reference_to_class_type(type_t* t1)
 {
     return is_lvalue_reference_to_class_type(t1)
-        || is_rvalue_reference_to_class_type(t1);
+        || is_rvalue_reference_to_class_type(t1)
+        || is_rebindable_reference_to_class_type(t1);
 }
 
 char is_void_pointer_type(type_t* t)
@@ -5680,7 +5697,7 @@ type_t* no_ref(type_t* t)
 
 type_t* lvalue_ref(type_t* t)
 {
-    CXX_LANGUAGE()
+    if (!IS_C_LANGUAGE)
     {
         if (!is_lvalue_reference_type(t)
                 && !is_rvalue_reference_type(t))
@@ -5694,7 +5711,9 @@ char is_lvalue_reference_type(type_t* t1)
     t1 = advance_over_typedefs(t1);
 
     return (t1 != NULL
-            && t1->kind == TK_LVALUE_REFERENCE);
+            && (t1->kind == TK_LVALUE_REFERENCE
+                // Rebindable references are considered as lvalue references
+                || t1->kind == TK_REBINDABLE_REFERENCE));
 }
 
 char is_rvalue_reference_type(type_t* t1)
@@ -5703,6 +5722,14 @@ char is_rvalue_reference_type(type_t* t1)
 
     return (t1 != NULL
             && t1->kind == TK_RVALUE_REFERENCE);
+}
+
+char is_rebindable_reference_type(type_t* t1)
+{
+    t1 = advance_over_typedefs(t1);
+
+    return (t1 != NULL
+            && t1->kind == TK_REBINDABLE_REFERENCE);
 }
 
 decl_context_t enum_type_get_context(type_t* t)
@@ -5948,15 +5975,7 @@ static const char* get_cv_qualifier_string(type_t* type_info)
 
     if (BITMAP_TEST(type_info->cv_qualifier, CV_RESTRICT))
     {
-        // Be conservative for now 
-        // C_LANGUAGE()
-        // {
-        //     result = strappend(result, "restrict ");
-        // }
-        // CXX_LANGUAGE()
-        {
-            result = strappend(result, "__restrict ");
-        }
+        result = strappend(result, "__restrict ");
     }
 
     return result;
@@ -6344,6 +6363,7 @@ static const char* get_type_name_string(decl_context_t decl_context,
         const char* symbol_name,
         int num_parameter_names,
         const char** parameter_names,
+        const char** parameter_attributes,
         char is_parameter);
 
 // Returns a declaration string given a type, a symbol name, an optional initializer
@@ -6355,6 +6375,7 @@ const char* get_declaration_string_internal(type_t* type_info,
         char semicolon,
         int num_parameter_names,
         const char** parameter_names,
+        const char** parameter_attributes,
         char is_parameter)
 {
     ERROR_CONDITION(type_info == NULL, "This cannot be null", 0);
@@ -6362,7 +6383,7 @@ const char* get_declaration_string_internal(type_t* type_info,
     type_t* base_type = get_foundation_type(type_info);
     const char* base_type_name = get_simple_type_name_string(decl_context, base_type);
     const char* declarator_name = get_type_name_string(decl_context, type_info, symbol_name, 
-            num_parameter_names, parameter_names, is_parameter);
+            num_parameter_names, parameter_names, parameter_attributes, is_parameter);
 
     const char* result;
 
@@ -6396,6 +6417,7 @@ static void get_type_name_str_internal(decl_context_t decl_context,
         const char** right,
         int num_parameter_names,
         const char** parameter_names,
+        const char** parameter_attributes,
         char is_parameter);
 
 static const char* get_type_name_string(decl_context_t decl_context,
@@ -6403,6 +6425,7 @@ static const char* get_type_name_string(decl_context_t decl_context,
         const char* symbol_name,
         int num_parameter_names,
         const char** parameter_names,
+        const char** parameter_attributes,
         char is_parameter)
 {
     ERROR_CONDITION(type_info == NULL, "This cannot be null", 0);
@@ -6410,7 +6433,7 @@ static const char* get_type_name_string(decl_context_t decl_context,
     const char* left = "";
     const char* right = "";
     get_type_name_str_internal(decl_context, type_info, &left, &right, 
-            num_parameter_names, parameter_names, is_parameter);
+            num_parameter_names, parameter_names,parameter_attributes, is_parameter);
 
     const char* result = strappend(left, symbol_name);
     result = strappend(result, right);
@@ -6559,6 +6582,7 @@ static void get_type_name_str_internal(decl_context_t decl_context,
         const char** right,
         int num_parameter_names,
         const char** parameter_names,
+        const char** parameter_attributes,
         char is_parameter)
 {
     ERROR_CONDITION(type_info == NULL, "This cannot be null", 0);
@@ -6577,6 +6601,7 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                             right,
                             num_parameter_names,
                             parameter_names,
+                            parameter_attributes,
                             is_parameter);
                 }
                 break;
@@ -6584,7 +6609,7 @@ static void get_type_name_str_internal(decl_context_t decl_context,
         case TK_POINTER :
             {
                 get_type_name_str_internal(decl_context, type_info->pointer->pointee, left, right, 
-                        num_parameter_names, parameter_names, is_parameter);
+                        num_parameter_names, parameter_names, parameter_attributes, is_parameter);
 
                 if (declarator_needs_parentheses(type_info))
                 {
@@ -6604,7 +6629,7 @@ static void get_type_name_str_internal(decl_context_t decl_context,
         case TK_POINTER_TO_MEMBER :
             {
                 get_type_name_str_internal(decl_context, type_info->pointer->pointee, left, right, 
-                        num_parameter_names, parameter_names, is_parameter);
+                        num_parameter_names, parameter_names, parameter_attributes, is_parameter);
 
                 if (declarator_needs_parentheses(type_info))
                 {
@@ -6628,7 +6653,7 @@ static void get_type_name_str_internal(decl_context_t decl_context,
         case TK_LVALUE_REFERENCE :
             {
                 get_type_name_str_internal(decl_context, type_info->pointer->pointee, left, right, 
-                        num_parameter_names, parameter_names, is_parameter);
+                        num_parameter_names, parameter_names, parameter_attributes, is_parameter);
 
                 if (declarator_needs_parentheses(type_info))
                 {
@@ -6636,7 +6661,14 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                 }
                 if (type_info->kind == TK_LVALUE_REFERENCE)
                 {
-                    (*left) = strappend((*left), "&");
+                    if (IS_CXX_LANGUAGE)
+                    {
+                        (*left) = strappend((*left), "&");
+                    }
+                    else
+                    {
+                        (*left) = strappend((*left), "@ref@");
+                    }
                 }
                 else
                 {
@@ -6653,7 +6685,7 @@ static void get_type_name_str_internal(decl_context_t decl_context,
         case TK_ARRAY :
             {
                 get_type_name_str_internal(decl_context, type_info->array->element_type, left, right, 
-                        num_parameter_names, parameter_names, is_parameter);
+                        num_parameter_names, parameter_names, parameter_attributes, is_parameter);
 
                 const char* whole_size = NULL;
                 if (is_parameter
@@ -6682,7 +6714,7 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                 if (type_info->function->return_type != NULL)
                 {
                     get_type_name_str_internal(decl_context, type_info->function->return_type, left, right, 
-                            0, NULL, 0);
+                            0, NULL, NULL, 0);
                 }
 
                 const char* prototype = "";
@@ -6708,14 +6740,14 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                             // Abstract declarator
                             prototype = strappend(prototype,
                                     get_declaration_string_internal(type_info->function->parameter_list[i]->type_info, decl_context, 
-                                        "", "", 0, 0, NULL, 1));
+                                        "", "", 0, 0, NULL, NULL, 1));
                         }
                         else if (parameter_names != NULL
                                 && parameter_names[i] != NULL)
                         {
                             prototype = strappend(prototype,
                                     get_declaration_string_internal(type_info->function->parameter_list[i]->type_info, decl_context, 
-                                        parameter_names[i], "", 0, 0, NULL, 1));
+                                        parameter_names[i], "", 0, 0, NULL, NULL, 1));
                         }
                         else // parameter_names != NULL && parameter_names[i] == NULL
                         {
@@ -6728,8 +6760,15 @@ static void get_type_name_str_internal(decl_context_t decl_context,
 
                             prototype = strappend(prototype,
                                     get_declaration_string_internal(type_info->function->parameter_list[i]->type_info, decl_context, 
-                                        parameter_name, "", 0, 0, NULL, 1));
+                                        parameter_name, "", 0, 0, NULL, NULL, 1));
                         }
+                    }
+
+                    //Adding the parameter attributes
+                    if (parameter_attributes != NULL && parameter_attributes[i] != NULL)
+                    {
+                        prototype = strappend(prototype, " ");
+                        prototype = strappend(prototype, parameter_attributes[i]);
                     }
                 }
                 // For C we might need to explicitly add 'void'
@@ -6753,24 +6792,25 @@ static void get_type_name_str_internal(decl_context_t decl_context,
             }
         case TK_VECTOR :
             {
-                char c[256];
+
 
                 get_type_name_str_internal(decl_context, type_info->vector->element_type, left, right, 
-                        num_parameter_names, parameter_names, is_parameter);
+                        num_parameter_names, parameter_names, parameter_attributes, is_parameter);
 
-                //generic_vector
-                if (type_info->vector->vector_size == 0)
-                {
-                    snprintf(c, 255, "__attribute__((generic_vector)) ");
-                }
-                else
-                {
-                    snprintf(c, 255, "__attribute__((vector_size(%d))) ", 
-                             type_info->vector->vector_size);
-                }
-                c[255] = '\0';
+               // //generic_vector
+               // char c[256];
+               // if (type_info->vector->vector_size == 0)
+               // {
+               //     snprintf(c, 255, "__attribute__((generic_vector)) ");
+               // }
+               // else
+               // {
+               //     snprintf(c, 255, "__attribute__((vector_size(%d))) ", 
+               //              type_info->vector->vector_size);
+               // }
+               // c[255] = '\0';
 
-                (*left) = strappend((*left), c);
+               // (*left) = strappend((*left), c);
                 break;
             }
         case TK_OVERLOAD:
@@ -7255,6 +7295,10 @@ const char* print_declarator(type_t* printed_declarator)
                 tmp_result = strappend(tmp_result, "rvalue reference to ");
                 printed_declarator = printed_declarator->pointer->pointee;
                 break;
+            case TK_REBINDABLE_REFERENCE :
+                tmp_result = strappend(tmp_result, "rebindable reference to ");
+                printed_declarator = printed_declarator->pointer->pointee;
+                break;
             case TK_POINTER_TO_MEMBER :
                 tmp_result = strappend(tmp_result, "pointer to member of ");
                 if (printed_declarator->pointer->pointee_class != NULL)
@@ -7687,6 +7731,27 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         }
         (*result) = identity_scs(t_orig, t_dest);
         return 1;
+    }
+
+    // C only
+    // T -> T @ref@
+    if (IS_C_LANGUAGE
+            && is_lvalue_reference_type(dest))
+    {
+        type_t* ref_dest = reference_type_get_referenced_type(dest);
+
+        type_t* unqualif_orig = get_unqualified_type(orig);
+        type_t* unqualif_ref_dest = get_unqualified_type(ref_dest);
+
+        if (equivalent_types(unqualif_orig, unqualif_ref_dest))
+        {
+            (*result) = identity_scs(t_orig, t_dest);
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: Mercurium Extension for C: binding a type to a reference type\n");
+            }
+            return 1;
+        }
     }
     // cv1 T1& -> cv2 T2&
     if (is_lvalue_reference_type(orig)
@@ -8642,8 +8707,8 @@ static char covariant_return(type_t* overrided_type, type_t* virtual_type)
 
     if ((is_pointer_to_class_type(overrided_type)
             && is_pointer_to_class_type(virtual_type))
-            || (is_reference_to_class_type(overrided_type)
-                && is_reference_to_class_type(virtual_type)))
+            || (is_any_reference_to_class_type(overrided_type)
+                && is_any_reference_to_class_type(virtual_type)))
     {
         if (is_pointer_to_class_type(overrided_type)
                 && is_pointer_to_class_type(virtual_type))
@@ -9541,6 +9606,7 @@ const char* print_type_str(type_t* t, decl_context_t decl_context)
                 /* semicolon */ 0,
                 /* num_parameter_names */ 0,
                 /* parameter_names */ NULL,
+                /* parameter_attributes */ NULL,
                 /* is_parameter */ 0);
     }
 }
@@ -9582,6 +9648,7 @@ const char* print_decl_type_str(type_t* t, decl_context_t decl_context, const ch
                 /* semicolon */ 0,
                 /* num_parameter_names */ 0,
                 /* parameter_names */ NULL,
+                /* parameter_attributes */ NULL,
                 /* is_parameter */ 0);
     }
 }
@@ -9649,3 +9716,24 @@ type_t* get_foundation_type(type_t* t)
     internal_error("Cannot get foundation type of type '%s'", print_declarator(t));
 }
 
+
+// This is only for Fortran
+static type_t* _implicit_none_type = NULL;
+
+type_t* get_implicit_none_type(void)
+{
+    if (_implicit_none_type == NULL)
+    {
+        _implicit_none_type = get_simple_type();
+        _implicit_none_type->type->kind = STK_BUILTIN_TYPE;
+        _implicit_none_type->type->builtin_type = BT_VOID;
+        _implicit_none_type->info->is_incomplete = 1;
+    }
+
+    return _implicit_none_type;
+}
+
+char is_implicit_none_type(type_t* t)
+{
+    return t == _implicit_none_type;
+}

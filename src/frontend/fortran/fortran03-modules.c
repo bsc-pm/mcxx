@@ -5,6 +5,7 @@
 #include "cxx-typeutils.h"
 #include "fortran03-typeutils.h"
 #include "cxx-exprtype.h"
+#include "cxx-driver-utils.h"
 #include "cxx-driver-fortran.h"
 #include "cxx-entrylist.h"
 
@@ -213,6 +214,14 @@ void dump_module_info(scope_entry_t* module)
         fprintf(stderr, "FORTRAN-MODULES: Dumping module '%s'\n", module->symbol_name);
     }
 
+    if (CURRENT_CONFIGURATION->verbose)
+    {
+        fprintf(stderr, "Writing module '%s'\n", module->symbol_name);
+    }
+
+    timing_t timing_dump_module;
+    timing_start(&timing_dump_module);
+
     sqlite3* handle = NULL;
     create_storage(&handle, module->symbol_name);
 
@@ -227,6 +236,14 @@ void dump_module_info(scope_entry_t* module)
     end_transaction(handle);
 
     dispose_storage(handle);
+
+    timing_end(&timing_dump_module);
+
+    if (CURRENT_CONFIGURATION->verbose)
+    {
+        fprintf(stderr, "Module '%s' written in %.2f seconds\n", module->symbol_name,
+                timing_elapsed(&timing_dump_module));
+    }
 
     DEBUG_CODE()
     {
@@ -254,7 +271,7 @@ static void load_storage(sqlite3** handle, const char* filename)
     }
 
     {
-        const char * create_temp_mapping = "CREATE TEMP TABLE oid_ptr_map(oid, ptr, PRIMARY KEY(oid, ptr));";
+        const char * create_temp_mapping = "CREATE TEMP TABLE oid_ptr_map(oid, ptr, PRIMARY KEY(oid));";
         run_query(*handle, create_temp_mapping);
     }
 }
@@ -289,9 +306,19 @@ void load_module_info(const char* module_name, scope_entry_t** module)
                 module_name);
     }
 
+    if (CURRENT_CONFIGURATION->verbose)
+    {
+        fprintf(stderr, "Loading module '%s'\n", module_name);
+    }
+
+    timing_t timing_load_module;
+    timing_start(&timing_load_module);
+
     sqlite3* handle = NULL;
 
     load_storage(&handle, filename);
+
+    start_transaction(handle);
 
     module_info_t minfo;
     memset(&minfo, 0, sizeof(minfo));
@@ -300,7 +327,18 @@ void load_module_info(const char* module_name, scope_entry_t** module)
 
     *module = load_symbol(handle, minfo.module_oid);
 
+    end_transaction(handle);
+
     dispose_storage(handle);
+
+    timing_end(&timing_load_module);
+
+    if (CURRENT_CONFIGURATION->verbose)
+    {
+        fprintf(stderr, "Module '%s' loaded in %.2f seconds\n", 
+                module_name,
+                timing_elapsed(&timing_load_module));
+    }
 }
 
 static void create_storage(sqlite3** handle, const char* module_name)
@@ -323,14 +361,6 @@ static void create_storage(sqlite3** handle, const char* module_name)
     }
 
     load_storage(handle, filename);
-}
-
-static void dispose_storage(sqlite3* handle)
-{
-    if (sqlite3_close(handle) != SQLITE_OK)
-    {
-        running_error("Error while closing database (%s)\n", sqlite3_errmsg(handle));
-    }
 }
 
 static int run_select_query(sqlite3* handle, const char* query, 
@@ -378,6 +408,10 @@ static void init_storage(sqlite3* handle)
     {
         const char * create_attributes = "CREATE TABLE attributes(name, symbol, value);";
         run_query(handle, create_attributes);
+
+        // This index is crucial for fast loading of attributes of symbols
+        const char * create_attr_index = "CREATE INDEX attributes_index ON attributes (symbol, name);";
+        run_query(handle, create_attr_index);
     }
 
     {
@@ -476,12 +510,106 @@ static void* get_ptr_of_oid(sqlite3* handle, sqlite3_uint64 oid)
     return result;
 }
 
+static sqlite3_stmt* _check_repeat_oid_ptr = NULL;
+static sqlite3_stmt* _insert_oid_ptr = NULL;
+
 static void insert_map_ptr(sqlite3* handle, sqlite3_uint64 oid, void *ptr)
 {
-    char* insert_oid_map = sqlite3_mprintf("INSERT INTO oid_ptr_map(oid, ptr) VALUES(%llu, %llu);",
-            P2ULL(oid), P2ULL(ptr));
-    run_query(handle, insert_oid_map);
-    sqlite3_free(insert_oid_map);
+    // Prepare SQL statements
+    if (_check_repeat_oid_ptr == NULL)
+    {
+        const char* query = "SELECT oid, ptr FROM oid_ptr_map WHERE oid = $OID AND ptr = $PTR;";
+        const char* unused_str = NULL;
+        int result_prepare = sqlite3_prepare_v2(
+                handle,
+                query,
+                strlen(query),
+                &_check_repeat_oid_ptr,
+                &unused_str);
+
+        if (result_prepare != SQLITE_OK)
+        {
+            internal_error("An error happened while preparing statement '%s' %s\n",
+                    query,
+                    sqlite3_errmsg(handle));
+        }
+    }
+
+    if (_insert_oid_ptr == NULL)
+    {
+        const char* query = "INSERT INTO oid_ptr_map(oid, ptr) VALUES ($OID, $PTR);";
+        const char* unused_str = NULL;
+        int result_prepare = sqlite3_prepare_v2(
+                handle,
+                query,
+                strlen(query),
+                &_insert_oid_ptr,
+                &unused_str);
+
+        if (result_prepare != SQLITE_OK)
+        {
+            internal_error("An error happened while preparing statement '%s' %s\n",
+                    query,
+                    sqlite3_errmsg(handle));
+        }
+    }
+
+    // Check if the oid, ptr are already in the map, if they are do nothing
+    // This is an anticipation of a primary key violation
+    sqlite3_bind_int64(_check_repeat_oid_ptr, 1, oid);
+    sqlite3_bind_int64(_check_repeat_oid_ptr, 2, P2ULL(ptr));
+
+    int result_query = sqlite3_step(_check_repeat_oid_ptr);
+    char found = 0;
+    switch (result_query)
+    {
+        case SQLITE_ROW:
+            {
+                found = 1;
+                break;
+            }
+        case SQLITE_DONE:
+            {
+                // Not found
+                break;
+            }
+        default:
+            {
+                internal_error("Unexpected error %d when running query '%s'", 
+                        result_query,
+                        sqlite3_errmsg(handle));
+            }
+    }
+
+    sqlite3_reset(_check_repeat_oid_ptr);
+
+    // If an exact row with the same oif and ptr was found, we don't need insert anything
+    // because the tuple (oid, ptr) already exists.
+    if (found)
+        return;
+
+    // If a row with the same oid but different ptr existed, next INSERT will fail
+    // (primary key violation)
+    sqlite3_bind_int64(_insert_oid_ptr, 1, oid);
+    sqlite3_bind_int64(_insert_oid_ptr, 2, P2ULL(ptr));
+
+    result_query = sqlite3_step(_insert_oid_ptr);
+    switch (result_query)
+    {
+        case SQLITE_DONE:
+            {
+                // OK
+                break;
+            }
+        default:
+            {
+                internal_error("Unexpected error %d when running query '%s'", 
+                        result_query,
+                        sqlite3_errmsg(handle));
+            }
+    }
+
+    sqlite3_reset(_insert_oid_ptr);
 }
 
 static int count_rows(void* datum, 
@@ -1274,7 +1402,9 @@ static int get_symbol(void *datum,
     return 0;
 }
 
-static scope_entry_t* load_symbol(sqlite3* handle, sqlite3_uint64 oid)
+#if 0
+// Old implementation, known to be 100% correct but pretty slow
+static scope_entry_t* load_symbol_1(sqlite3* handle, sqlite3_uint64 oid)
 {
     if (oid == 0)
         return NULL;
@@ -1299,6 +1429,121 @@ static scope_entry_t* load_symbol(sqlite3* handle, sqlite3_uint64 oid)
     }
 
     return result.symbol;
+}
+#endif
+
+static char* safe_strdup(const char* c)
+{
+    if (c == NULL)
+        return NULL;
+    return strdup(c);
+}
+
+static sqlite3_stmt* _load_symbol_stmt = NULL;
+static scope_entry_t* load_symbol(sqlite3* handle, sqlite3_uint64 oid)
+{
+    if (oid == 0)
+        return NULL;
+
+    {
+        scope_entry_t* ptr = (scope_entry_t*)get_ptr_of_oid(handle, oid);
+        if (ptr != NULL)
+        {
+            return ptr;
+        }
+    }
+
+    if (_load_symbol_stmt == NULL)
+    {
+        const char* query = "SELECT oid, * FROM symbol WHERE oid = $OID;";
+        const char* unused_str = NULL;
+        int result_prepare = sqlite3_prepare_v2(
+                handle,
+                query,
+                strlen(query),
+                &_load_symbol_stmt,
+                &unused_str);
+
+        if (result_prepare != SQLITE_OK)
+        {
+            internal_error("An error happened while preparing statement '%s' %s\n",
+                    query,
+                    sqlite3_errmsg(handle));
+        }
+    }
+
+    // Bind the oid parameter
+    sqlite3_bind_int64(_load_symbol_stmt, 1, oid);
+
+    int result_query = sqlite3_step(_load_symbol_stmt);
+    switch (result_query)
+    {
+        case SQLITE_ROW:
+            {
+                // OK
+                break;
+            }
+        case SQLITE_DONE:
+            {
+                internal_error("Symbol with oid %llu not found\n", oid);
+                break;
+            }
+        default:
+            {
+                internal_error("Unexpected error %d when running query '%s'", 
+                        result_query,
+                        sqlite3_errmsg(handle));
+            }
+    }
+
+    int ncols = sqlite3_column_count(_load_symbol_stmt);
+    char* values[ncols+1];
+    char* names[ncols+1];
+
+    int i;
+    for (i = 0; i < ncols; i++)
+    {
+        values[i] = safe_strdup((const char*)sqlite3_column_text(_load_symbol_stmt, i));
+        names[i] = safe_strdup((const char*)sqlite3_column_name(_load_symbol_stmt, i));
+    }
+
+    result_query = sqlite3_step(_load_symbol_stmt);
+    switch (result_query)
+    {
+        case SQLITE_DONE:
+            {
+                // OK
+                break;
+            }
+        case SQLITE_ROW:
+            {
+                // Too many!
+                internal_error("Too many results from query of symbol oid %llu\n", oid);
+                break;
+            }
+        default:
+            {
+                internal_error("Unexpected error when running query '%s'", 
+                        sqlite3_errmsg(handle));
+            }
+    }
+
+    // Release this prepared statement, from now we are reentrant
+    sqlite3_reset(_load_symbol_stmt);
+
+    symbol_handle_t symbol_handle;
+    memset(&symbol_handle, 0, sizeof(symbol_handle));
+    symbol_handle.handle = handle;
+
+    get_symbol(&symbol_handle, ncols, (char**)values, (char**)names);
+
+    for (i = 0; i < ncols; i++)
+    {
+        free(values[i]);
+        free(names[i]);
+    }
+
+    return symbol_handle.symbol;
 }
 
 
@@ -1653,7 +1898,7 @@ static int get_type(void *datum,
 
         *pt = get_user_defined_type(symbol);
         *pt = get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name);
-        // Do not insert this type in the pointer map
+        insert_map_ptr(handle, current_oid, *pt);
     }
     else
     {
@@ -1992,6 +2237,24 @@ static const_value_t* load_const_value(sqlite3* handle, sqlite3_uint64 oid)
 
     return result.v;
 }
+
+static void dispose_storage(sqlite3* handle)
+{
+    sqlite3_finalize(_load_symbol_stmt);
+    _load_symbol_stmt = NULL;
+
+    sqlite3_finalize(_check_repeat_oid_ptr);
+    _check_repeat_oid_ptr = NULL;
+
+    sqlite3_finalize(_insert_oid_ptr);
+    _insert_oid_ptr = NULL;
+
+    if (sqlite3_close(handle) != SQLITE_OK)
+    {
+        running_error("Error while closing database (%s)\n", sqlite3_errmsg(handle));
+    }
+}
+
 
 #ifdef DEBUG_SQLITE3_MPRINTF
  #error Disable DEBUG_SQLITE3_MPRINTF macro once no warnings for sqlite3_mprintf calls are signaled by gcc

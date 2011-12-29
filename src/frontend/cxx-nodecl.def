@@ -80,7 +80,7 @@ case-expression : expression
 
 loop-control: NODECL_LOOP_CONTROL([init]expression-opt, [cond]expression-opt, [next]expression-opt)
 
-pragma-directive: NODECL_PRAGMA_CUSTOM_DIRECTIVE([pragma_line]pragma-line) text
+pragma-directive: NODECL_PRAGMA_CUSTOM_DIRECTIVE([pragma_line]pragma-line, [context_of_decl]pragma-context) text
                 | pragma-declaration
 
 pragma-declaration: NODECL_PRAGMA_CUSTOM_DECLARATION([pragma_line]pragma-line, [nested_pragma]pragma-declaration-opt, [context_of_decl]pragma-context, [context_of_parameters]pragma-context-opt) text symbol
@@ -186,7 +186,7 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | NODECL_POSTINCREMENT([rhs]expression) type
                   | NODECL_PREDECREMENT([rhs]expression) type
                   | NODECL_POSTDECREMENT([rhs]expression) type
-                  | NODECL_SIZEOF([size_type]type) type
+                  | NODECL_SIZEOF([size_type]type, [expr]expression-opt) type
                   | NODECL_ALIGNOF([align_type]type) type
                   | NODECL_OFFSET([base]expression, [offset]expression) type
                   | NODECL_TYPEID([arg]type-or-expr) type
@@ -270,6 +270,7 @@ fortran-only-statements : NODECL_FORTRAN_ALLOCATE_STATEMENT([items]expression-se
                         | NODECL_FORTRAN_WRITE_STATEMENT([io_spec_list]fortran-io-spec-seq-opt, [io_items]fortran-io-item-seq-opt)
                         | NODECL_FORTRAN_STOP_STATEMENT([stop_code]expression-opt)
                         | NODECL_FORTRAN_PAUSE_STATEMENT([pause_code]expression-opt)
+                        | NODECL_FORTRAN_ENTRY_STATEMENT() symbol
                         | NODECL_FORTRAN_WHERE([where_set] where-pair-seq)
                         | NODECL_FORTRAN_FORALL([loop_control] loop-control-seq, [mask] expression-opt, [statement] statement-seq)
 
@@ -316,8 +317,8 @@ verbatim: NODECL_VERBATIM() text
 
 gcc-asm-spec : NODECL_GCC_ASM_SPEC() text
 
-gcc-asm-definition : NODECL_GCC_ASM_DEFINITION([operands0]gcc-asm-operand-seq-opt, [operands1]gcc-asm-operand-seq-opt, [operands2]gcc-asm-operand-seq-opt) text
-gcc-asm-operand : NODECL_GCC_ASM_OPERAND( [identifier]text-opt, [constraint]text, [expr]expression)
+gcc-asm-definition : NODECL_GCC_ASM_DEFINITION([operands0]gcc-asm-operand-seq-opt, [operands1]gcc-asm-operand-seq-opt, [operands2]gcc-asm-operand-seq-opt, [specs]text-seq-opt) text
+gcc-asm-operand : NODECL_GCC_ASM_OPERAND( [identifier]text-opt, [constraint]text, [expr]expression-opt)
 
 upc-sync-statement : NODECL_UPC_SYNC_STATEMENT([expr]expression) text
 

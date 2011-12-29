@@ -1,52 +1,30 @@
 /*!if GRAMMAR_PROLOGUE*/
 
+%type<ast> statement_placeholder
 %token<token_atrib> STATEMENT_PLACEHOLDER "<statement-placeholder>"
-
-%{
-    static AST* decode_placeholder(const char *);
-%}
 
 /*!endif*/
 /*!if GRAMMAR_RULES*/
 
-statement : STATEMENT_PLACEHOLDER
+/*!if FORTRAN2003*/
+non_top_level_program_unit_stmt : statement_placeholder
+;
+/*!endif*/
+/*!ifnot FORTRAN2003*/
+statement : statement_placeholder
 {
-    // The lexer ensures this has the following form
-    // @STATEMENT-PH::0x1234abcd@, where the pointer coded
-    // is an 'AST*'
-    AST *tree = decode_placeholder($1.token_text);
+$$ = $1;
+}
+;
+/*!endif*/
 
+statement_placeholder : STATEMENT_PLACEHOLDER
+{
     // This is an empty statement
-    $$ = *tree = ASTMake1(AST_DECLARATION_STATEMENT,
-            ASTLeaf(AST_EMPTY_DECL, $1.token_file, $1.token_line, $1.token_text), 
-            $1.token_file, $1.token_line, NULL);
+    $$ = ASTLeaf(AST_STATEMENT_PLACEHOLDER, $1.token_file, $1.token_line, $1.token_text);
 };
 
 /*!endif*/
 
 // This is code
 
-/*!if GRAMMAR_CODE*/
-#define TOK_SEPARATOR "::"
-static AST* decode_placeholder(const char *c)
-{
-    const char * colons = strstr(c, TOK_SEPARATOR);
-
-    if (colons == NULL)
-    {
-        internal_error("Invalid placeholder token", 0);
-    }
-
-    colons += strlen(TOK_SEPARATOR);
-
-    AST *tree = NULL;
-    sscanf(colons, "%p", &tree);
-
-    if (tree == NULL)
-    {
-        internal_error("Invalid AST* reference", 0);
-    }
-
-    return tree;
-}
-/*!endif*/

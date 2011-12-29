@@ -290,6 +290,9 @@ namespace TL
              * created it because it appeared in a friend declaration
              */
             bool is_friend_declared() const;
+            
+            //! States whether this symbol is an ENTRY
+            bool is_entry() const;
 
             //! States whether this function was defined with no exception-specifier
             bool function_throws_any_exception() const;
@@ -325,6 +328,9 @@ namespace TL
              * definition.
              */
             bool has_prototype_scope() const;
+
+            //! States whether this symbol has gcc attributes
+            bool has_gcc_attributes() const;
 
             //! Special symbol for using A::x inside classes
             bool is_using_symbol() const;
@@ -425,14 +431,6 @@ namespace TL
               This function is only meaningful in Fortran. In C/C++ it always returns false
               */
             bool is_target() const;
-
-            //! This symbol is VALUE
-            /*! 
-              States whether this dummy argument has the VALUE attribute
-
-              This function is only meaningful in Fortran. In C/C++ it always returns false
-              */
-            bool is_value() const;
 
             //! This symbol is ELEMENTAL
             /*! 

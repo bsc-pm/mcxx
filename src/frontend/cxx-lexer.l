@@ -1084,14 +1084,47 @@ type {
 @MEMBER@ { parse_token_text(); return SUBPARSE_MEMBER; }
  /*!endif*/
  /* Special tokens for prettyprinted comments and preprocessor elements */
-@-C-@[^@]*@-CC-@ { parse_token_text(); return PP_COMMENT; }
-@-P-@[^@]*@-PP-@ { parse_token_text(); return PP_TOKEN; }
+@-C-@[^@]*@-CC-@ { 
+
+    char* t = strdup(yytext);
+    t[strlen(t) - strlen("@-CC-@")] = '\0';
+
+    char *p = t;
+    p += strlen("@-C-@");
+
+    parse_token_text_str(p); 
+    free(t);
+
+    return PP_COMMENT; 
+}
+@-P-@[^@]*@-PP-@ { 
+
+    char* t = strdup(yytext);
+    t[strlen(t) - strlen("@-PP-@")] = '\0';
+
+    char *p = t;
+    p += strlen("@-P-@");
+
+    parse_token_text_str(p); 
+    free(t);
+
+    return PP_TOKEN; 
+}
  /* Special tokens for placeholders */
 @STATEMENT-PH::0[xX]{hexdigit}+@ { parse_token_text(); return STATEMENT_PLACEHOLDER; }
  /* Special tokens for parsing superscalar related things */
 @SUPERSCALAR_DECLARATOR@ { parse_token_text(); return SUBPARSE_SUPERSCALAR_DECLARATOR; }
 @SUPERSCALAR_DECLARATOR_LIST@ { parse_token_text(); return SUBPARSE_SUPERSCALAR_DECLARATOR_LIST; }
 @SUPERSCALAR_EXPRESSION@ { parse_token_text(); return SUBPARSE_SUPERSCALAR_EXPRESSION; }
+
+ /*!if C99*/
+@ref@ { parse_token_text(); return MCC_REFERENCE; }
+ /*!endif*/
+ /*!if CPLUSPLUS*/
+@ref@ { parse_token_text(); return '&'; }
+ /*!endif*/
+
+@reb-ref@ { parse_token_text(); return MCC_REBINDABLE_REFERENCE; }
 
  /* A plain identifier */
 {identifier} {parse_token_text(); return IDENTIFIER; }
@@ -1569,17 +1602,25 @@ static const char* return_pragma_prefix_longest_match_inner(pragma_directive_set
 {
     const char* longest_match_so_far = NULL;
     int length_match = 0;
+    char exact_match = 0;
+    int size_lexed_directive = strlen(lexed_directive);
 
     int j;
-    for (j = 0; j < pragma_directive_set->num_directives; j++)
+    for (j = 0; j < pragma_directive_set->num_directives && !exact_match; j++)
     {
         const char * current_discard_source = NULL;
 
         int current_match = compute_length_match(lexed_directive, pragma_directive_set->directive_names[j], 
                 &current_discard_source);
 
-        if (current_match > length_match)
+        if (current_match >= length_match && current_match != 0)
         {
+            int size_directive = strlen(pragma_directive_set->directive_names[j]);
+            if (current_match == size_lexed_directive && size_lexed_directive == size_directive)
+            {
+               exact_match = 1;    
+            }
+
             length_match = current_match;
             longest_match_so_far = pragma_directive_set->directive_names[j];
             *discard_source = current_discard_source;

@@ -138,6 +138,8 @@ LIBMCXX_EXTERN type_t* get_literal_string_type(int length, char is_wchar);
 
 LIBMCXX_EXTERN type_t* get_throw_expr_type(void);
 
+LIBMCXX_EXTERN type_t* get_implicit_none_type(void);
+
 /* Type constructors: cv-qualification */
 // The given cv_qualifier is strictly the one will have the returning type
 LIBMCXX_EXTERN type_t* get_cv_qualified_type(type_t* t, cv_qualifier_t cv_qualifier);
@@ -154,6 +156,7 @@ LIBMCXX_EXTERN type_t* get_pointer_to_member_type(type_t*, scope_entry_t* class_
 
 LIBMCXX_EXTERN type_t* get_lvalue_reference_type(type_t* t);
 LIBMCXX_EXTERN type_t* get_rvalue_reference_type(type_t* t);
+LIBMCXX_EXTERN type_t* get_rebindable_reference_type(type_t* t);
 
 LIBMCXX_EXTERN type_t* get_array_type(type_t* element_type, 
         nodecl_t size_of_array, 
@@ -292,6 +295,7 @@ LIBMCXX_EXTERN char is_function_type(type_t* t);
 
 LIBMCXX_EXTERN char is_lvalue_reference_type(type_t* t1);
 LIBMCXX_EXTERN char is_rvalue_reference_type(type_t* t1);
+LIBMCXX_EXTERN char is_rebindable_reference_type(type_t* t1);
 
 LIBMCXX_EXTERN char is_vector_type(type_t* t);
 
@@ -329,6 +333,8 @@ LIBMCXX_EXTERN char is_zero_type(type_t* t);
 LIBMCXX_EXTERN char is_error_type(type_t* t);
 
 LIBMCXX_EXTERN char is_throw_expr_type(type_t* t);
+
+LIBMCXX_EXTERN char is_implicit_none_type(type_t *t);
 
 LIBMCXX_EXTERN char is_pseudo_destructor_call_type(type_t *t);
 
@@ -545,7 +551,8 @@ LIBMCXX_EXTERN char is_pointer_to_member_type(type_t* t);
 LIBMCXX_EXTERN char is_pointer_to_class_type(type_t* t1);
 LIBMCXX_EXTERN char is_lvalue_reference_to_class_type(type_t* t1);
 LIBMCXX_EXTERN char is_rvalue_reference_to_class_type(type_t* t1);
-LIBMCXX_EXTERN char is_reference_to_class_type(type_t* t1);
+LIBMCXX_EXTERN char is_rebindable_reference_to_class_type(type_t* t1);
+LIBMCXX_EXTERN char is_any_reference_to_class_type(type_t* t1);
 
 LIBMCXX_EXTERN char class_type_is_incomplete_dependent(type_t* t);
 LIBMCXX_EXTERN char class_type_is_complete_dependent(type_t* t);
@@ -567,7 +574,8 @@ LIBMCXX_EXTERN const char* get_declaration_string_internal(type_t* type_info,
         const char* initializer, 
         char semicolon,
         int num_parameter_names,
-        const char **parameter_names,
+        const char** parameter_names,
+        const char** parameter_attributes,
         char is_parameter);
 LIBMCXX_EXTERN const char* get_simple_type_name_string(decl_context_t decl_context, type_t* type_info);
 LIBMCXX_EXTERN const char* get_named_type_name(scope_entry_t* entry);

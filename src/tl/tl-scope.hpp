@@ -268,6 +268,8 @@ namespace TL
               */
             Symbol new_artificial_symbol(const std::string& artificial_name, bool reuse_symbol=false);
 
+            Symbol new_symbol(const std::string& name);
+
             //! Convenience function
             static void convert_to_vector(scope_entry_list_t* entry_list, ObjectList<Symbol>& out);
 

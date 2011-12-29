@@ -178,7 +178,10 @@ namespace TL
 
             Nodecl::NodeclBase nodecl =  dto["nodecl"];
 
-            Nodecl::NodeclBase versioning_symbols_tree = versioning_symbols.parse_global(nodecl);
+            if (!IS_FORTRAN_LANGUAGE)
+            {
+                Nodecl::NodeclBase versioning_symbols_tree = versioning_symbols.parse_global(nodecl);
+            }
                     
 #if 0
             // Get the translation_unit tree

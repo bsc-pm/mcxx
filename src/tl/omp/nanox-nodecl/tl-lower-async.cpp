@@ -64,10 +64,8 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
     device_descriptor << outline_name << "_devices";
     device_description
         << ancillary_device_description
-        << "nanos_device_t " << device_descriptor << "[] ="
-        << "{"
+        << "nanos_device_t " << device_descriptor << "[1];"
         << device_description_line
-        << "};"
         ;
     
     // Declare argument structure
@@ -79,12 +77,15 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         num_devices << "1";
         ancillary_device_description
             << comment("SMP device descriptor")
-            << "nanos_smp_args_t " << outline_name << "_smp_args = { (void(*)(void*))" << outline_name << "};"
+            << "nanos_smp_args_t " << outline_name << "_smp_args;" 
+            << outline_name << "_smp_args.outline = &" << outline_name << ";"
             ;
 
         device_description_line
-            << "{ nanos_smp_factory, nanos_smp_dd_size, &" << outline_name << "_smp_args },"
-            ;
+            << device_descriptor << "[0].factory = &nanos_smp_factory;"
+            // FIXME - Figure a way to get the true size
+            << device_descriptor << "[0].size = nanos_smp_dd_size();"
+            << device_descriptor << "[0].args = &" << outline_name << "_smp_args;";
     }
 
     // Outline
@@ -103,7 +104,12 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         internal_error("Not yet implemented", 0);
     }
 
-    struct_size << "sizeof(" << struct_arg_type_name << ")";
+    Source err_name;
+    Counter& err_counter = CounterManager::get_counter("nanos++-err");
+    err_name << "err_" << (int)err_counter;
+    err_counter++;
+
+    struct_size << "sizeof(imm_args)";
     alignment << "__alignof__(" << struct_arg_type_name << "), ";
     num_copies << "0";
     copy_data << "(void*)0";
@@ -118,24 +124,27 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         << "{"
         // Devices related to this task
         <<     device_description
-        <<     struct_arg_type_name << "* ol_args = (" << struct_arg_type_name << "*)0;"
+        // We use an extra struct because of Fortran
+        <<     "struct { " << struct_arg_type_name << "* args; } ol_args;"
+        <<     "ol_args.args = (void*) 0;"
+        <<     immediate_decl
         <<     struct_runtime_size
         <<     "nanos_wd_t wd = (nanos_wd_t)0;"
         <<     "nanos_wd_props_t props;"
-        <<     "__builtin_memset(&props, 0, sizeof(props));"
+        // <<     "__builtin_memset(&props, 0, sizeof(props));"
         <<     creation
         <<     priority
         <<     tiedness
         <<     fill_real_time_info
         <<     copy_decl
-        <<     "nanos_err_t err;"
+        <<     "nanos_err_t " << err_name <<";"
         <<     if_expr_cond_start
-        <<     "err = nanos_create_wd(&wd, " << num_devices << "," << device_descriptor << ","
+        <<     err_name << " = nanos_create_wd(&wd, " << num_devices << "," << device_descriptor << ","
         <<                 struct_size << ","
         <<                 alignment
         <<                 "(void**)&ol_args, nanos_current_wd(),"
         <<                 "&props, " << num_copies << ", " << copy_data << ");"
-        <<     "if (err != NANOS_OK) nanos_handle_error (err);"
+        <<     "if (" << err_name << " != nanos_ok) nanos_handle_error (" << err_name << ");"
         <<     if_expr_cond_end
         <<     "if (wd != (nanos_wd_t)0)"
         <<     "{"
@@ -143,17 +152,16 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         <<        fill_dependences_outline
         <<        copy_setup
         <<        set_translation_fun
-        <<        "err = nanos_submit(wd, " << num_dependences << ", (" << dependency_struct << "*)" 
-        << dependency_array << ", (nanos_team_t)0);"
-        <<        "if (err != NANOS_OK) nanos_handle_error (err);"
+        <<        err_name << " = nanos_submit(wd, " << num_dependences << ", (" << dependency_struct << "*)" 
+        <<         dependency_array << ", (nanos_team_t)0);"
+        <<        "if (" << err_name << " != nanos_ok) nanos_handle_error (" << err_name << ");"
         <<     "}"
         <<     "else"
         <<     "{"
-        <<          immediate_decl
         <<          fill_immediate_arguments
         <<          fill_dependences_immediate
         <<          copy_immediate_setup
-        <<          "err = nanos_create_wd_and_run(" 
+        <<          err_name << " = nanos_create_wd_and_run(" 
         <<                  num_devices << ", " << device_descriptor << ", "
         <<                  struct_size << ", " 
         <<                  alignment
@@ -161,10 +169,39 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         <<                  num_dependences << ", (" << dependency_struct << "*)" << dependency_array << ", &props,"
         <<                  num_copies << "," << copy_imm_data 
         <<                  translation_fun_arg_name << ");"
-        <<          "if (err != NANOS_OK) nanos_handle_error (err);"
+        <<          "if (" << err_name << " != nanos_ok) nanos_handle_error (" << err_name << ");"
         <<     "}"
         << "}"
         ;
+
+    TL::ObjectList<OutlineDataItem> data_items = outline_info.get_data_items();
+
+    for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
+            it != data_items.end();
+            it++)
+    {
+        if (it->get_sharing() == OutlineDataItem::SHARING_CAPTURE)
+        {
+            fill_outline_arguments << 
+                "ol_args.args->" << it->get_field_name() << " = " << it->get_symbol().get_name() << ";"
+                ;
+            fill_immediate_arguments << 
+                "imm_args." << it->get_field_name() << " = " << it->get_symbol().get_name() << ";"
+                ;
+        }
+        else if (it->get_sharing() == OutlineDataItem::SHARING_SHARED)
+        {
+            fill_outline_arguments << 
+                "ol_args.args->" << it->get_field_name() << " = &" << it->get_symbol().get_name() << ";"
+                ;
+            fill_immediate_arguments << 
+                "imm_args." << it->get_field_name() << " = &" << it->get_symbol().get_name() << ";"
+                ;
+
+            // Make it TARGET. Required by Fortran
+            it->get_symbol().get_internal_symbol()->entity_specs.is_target = 1;
+        }
+    }
 
     FORTRAN_LANGUAGE()
     {

@@ -4,6 +4,8 @@
 #include "libmf03-common.h"
 #include "cxx-typeutils.h"
 
+MCXX_BEGIN_DECLS
+
 LIBMF03_EXTERN const char* fortran_print_type_str(type_t*);
 
 LIBMF03_EXTERN char is_fortran_intrinsic_type(type_t* t);
@@ -33,7 +35,7 @@ LIBMF03_EXTERN type_t* replace_return_type_of_function_type(type_t* function_typ
 
 LIBMF03_EXTERN type_t* update_basic_type_with_type(type_t* type_info, type_t* basic_type);
 
-LIBMF03_EXTERN char basic_type_is_void(type_t* t);
+LIBMF03_EXTERN char basic_type_is_implicit_none(type_t* t);
 
 LIBMF03_EXTERN type_t* rebuild_array_type(type_t* rank0_type, type_t* array_type);
 
@@ -48,5 +50,7 @@ int fortran_get_default_integer_type_kind(void);
 int fortran_get_default_real_type_kind(void);
 int fortran_get_default_logical_type_kind(void);
 int fortran_get_default_character_type_kind(void);
+
+MCXX_END_DECLS
 
 #endif // FORTRAN03_TYPEUTILS_H

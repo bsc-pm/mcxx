@@ -190,6 +190,12 @@ namespace TL
         return Symbol(sym_res);
     }
 
+    Symbol Scope::new_symbol(const std::string& name)
+    {
+        scope_entry_t* sym_res = ::new_symbol(_decl_context, _decl_context.current_scope, uniquestr(name.c_str()));
+        return Symbol(sym_res);
+    }
+
     void Scope::insert_symbol(Symbol sym)
     {
         insert_entry(_decl_context.current_scope, sym.get_internal_symbol());

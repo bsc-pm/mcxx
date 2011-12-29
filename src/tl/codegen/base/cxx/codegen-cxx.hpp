@@ -146,8 +146,6 @@ namespace Codegen
 
         private:
 
-            std::stringstream file;
-
             // State
             struct State
             {
@@ -173,6 +171,9 @@ namespace Codegen
 
                 // Used in define_required_before_class and define_symbol_if_nonnested
                 std::set<TL::Symbol> pending_nested_types_to_define;
+                
+                // This means that we are doing &X and X is a rebindable reference
+                bool referenced_rebindable_reference;
 
                 // Not meant to be used directly, use functions 
                 // get_indent_level, set_indent_level
@@ -191,6 +192,7 @@ namespace Codegen
                     walked_types(),
                     being_checked_for_required(),
                     pending_nested_types_to_define(),
+                    referenced_rebindable_reference(false),
                     _indent_level(0) { }
             } state;
             // End of State
@@ -297,6 +299,11 @@ namespace Codegen
             std::string gcc_asm_specifier_to_str(TL::Symbol);
 
             virtual Ret unhandled_node(const Nodecl::NodeclBase & n);
+
+            std::string get_declaration(TL::Type t, TL::Scope scope, const std::string& name);
+            std::string get_declaration_with_parameters(TL::Type, TL::Scope, const std::string& name,
+                    TL::ObjectList<std::string>& names, TL::ObjectList<std::string> & parameter_attributes);
+            TL::Type fix_references(TL::Type t);
     };
 }
 

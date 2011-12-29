@@ -59,7 +59,7 @@ void common_build_scope_pragma_custom_line(
 
         if (parameter != NULL)
         {
-            common_build_scope_pragma_custom_clause_argument(ASTSon1(start_clauses), decl_context, &nodecl_parameter);
+            common_build_scope_pragma_custom_clause_argument(parameter, decl_context, &nodecl_parameter);
             nodecl_parameter = nodecl_make_list_1(nodecl_parameter);
         }
     }
@@ -120,6 +120,6 @@ void common_build_scope_pragma_custom_directive(AST a,
     nodecl_t nodecl_pragma_line = nodecl_null();
     common_build_scope_pragma_custom_line(ASTSon0(a), /* end clauses */ NULL, decl_context, &nodecl_pragma_line);
 
-
-    *nodecl_output = nodecl_make_pragma_custom_directive(nodecl_pragma_line, strtolower(ASTText(a)), ASTFileName(a), ASTLine(a));
+    nodecl_t nodecl_pragma_context = nodecl_make_pragma_context(decl_context, ASTFileName(a), ASTLine(a));
+    *nodecl_output = nodecl_make_pragma_custom_directive(nodecl_pragma_line, nodecl_pragma_context, strtolower(ASTText(a)), ASTFileName(a), ASTLine(a));
 }

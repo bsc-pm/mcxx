@@ -703,14 +703,34 @@ namespace TL
         void Core::threadprivate_handler_pre(TL::PragmaCustomDirective construct)
         {
             DataSharingEnvironment& data_sharing = _openmp_info->get_current_data_sharing();
+            
+            // Extract from the PragmaCustomDirective the context of declaration
+            Source::ReferenceScope context_of_decl = construct.get_context_of_declaration();
 
-            ObjectList<Nodecl::NodeclBase> expr_list = construct.get_pragma_line().get_parameter().get_arguments_as_expressions();
-
-            for (ObjectList<Nodecl::NodeclBase>::iterator it = expr_list.begin();
-                    it != expr_list.end();
-                    it++)
+            // Extract from the PragmaCustomDirective the pragma line
+            PragmaCustomLine pragma_line = construct.get_pragma_line();
+            PragmaCustomParameter param = pragma_line.get_parameter(); 
+            
+            // We can't parse all the strings at once (get_arguments_as_expressions)
+            // because common names is not supported yet.
+            ObjectList<std::string> arguments_list = param.get_tokenized_arguments();
+            for (ObjectList<std::string>::iterator it = arguments_list.begin();
+                    it != arguments_list.end();
+                    ++it)
             {
-                Nodecl::NodeclBase& expr(*it);
+                std::string curr_arg = *it;
+                
+                // The common names start and end with a '/'
+                if (curr_arg[0] == '/' && curr_arg[strlen(curr_arg.c_str())-1] == '/')
+                {
+                     std::cerr << "common name in threadprivate not handled yet" << std::endl;
+                    continue;
+                }
+
+                Source src = curr_arg;
+                // Parsing the arguments in the right context of declaration
+                Nodecl::NodeclBase expr = src.parse_expression(context_of_decl);
+                
                 if (!expr.has_symbol())
                 {
                     std::cerr << expr.get_locus() << ": warning: '" << expr.prettyprint() << "' is not an id-expression, skipping" << std::endl;
@@ -723,12 +743,14 @@ namespace TL
                             && !sym.is_static())
                     {
                         std::cerr << expr.get_locus() << ": warning: '" << expr.prettyprint() << "' is a nonstatic-member, skipping" << std::endl;
+                        continue;
                     }
 
                     data_sharing.set_data_sharing(sym, DS_THREADPRIVATE);
                 }
             }
         }
+        
         void Core::threadprivate_handler_post(TL::PragmaCustomDirective construct) { }
 
         void Core::task_handler_pre(TL::PragmaCustomStatement construct)

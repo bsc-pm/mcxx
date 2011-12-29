@@ -874,6 +874,24 @@ schar       ([^\\"\n\r]|{c_escape_seq}|(\\["]))
 	RETURN_TOKEN(SUBPARSE_STATEMENT);
 }
 
+@GLOBAL@ {
+    parse_token_text();
+    RETURN_TOKEN(GLOBAL);
+}
+
+@END[ ]+GLOBAL@ {
+    parse_token_text();
+    RETURN_TOKEN(END_GLOBAL);
+}
+
+@TYPEDEF@ {
+    parse_token_text();
+    RETURN_TOKEN(TYPEDEF);
+}
+
+ /* Special tokens for placeholders */
+@STATEMENT-PH::0[xX]{hexdigit}+@ { parse_token_text(); RETURN_TOKEN(STATEMENT_PLACEHOLDER); }
+
 <COMMENT>. {
 	// Eat everything in the comment
 }
@@ -2954,15 +2972,22 @@ static const char* return_pragma_prefix_longest_match_inner(pragma_directive_set
     int length_match = 0;
 
     int j;
-    for (j = 0; j < pragma_directive_set->num_directives; j++)
+    char exact_match = 0;
+    int size_lexed_directive = strlen(lexed_directive);
+    for (j = 0; j < pragma_directive_set->num_directives && !exact_match; j++)
     {
         const char * current_discard_source = NULL;
 
         int current_match = compute_length_match(lexed_directive, pragma_directive_set->directive_names[j], 
                 &current_discard_source);
-
-        if (current_match > length_match)
+        
+        if (current_match >= length_match && current_match != 0)
         {
+            int size_directive = strlen(pragma_directive_set->directive_names[j]);
+            if (current_match == size_lexed_directive && size_lexed_directive == size_directive)
+            {
+               exact_match = 1;    
+            }
             length_match = current_match;
             longest_match_so_far = pragma_directive_set->directive_names[j];
             *discard_source = current_discard_source;

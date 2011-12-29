@@ -409,6 +409,40 @@ namespace TL
         return d.current_scope->related_entry->decl_context;
     }
 
+    void Source::switch_language(source_language_t& lang)
+    {
+        lang = CURRENT_CONFIGURATION->source_language;
+        switch ((int)Source::source_language.get_language())
+        {
+            case SourceLanguage::C :
+            {
+                CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_C;
+                break;
+            }
+            case SourceLanguage::CPlusPlus :
+            {
+                CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_CXX;
+                break;
+            }
+#ifdef FORTRAN_SUPPORT
+            case SourceLanguage::Fortran :
+            {
+                CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_FORTRAN;
+                break;
+            }
+#endif
+            default:
+            {
+                // Do nothing
+            }
+        }
+    }
+
+    void Source::restore_language(source_language_t lang)
+    {
+        CURRENT_CONFIGURATION->source_language = lang;
+    }
+
     Nodecl::NodeclBase Source::parse_generic(ReferenceScope ref_scope,
             ParseFlags parse_flags,
             const std::string& subparsing_prefix,
@@ -417,6 +451,10 @@ namespace TL
             compute_nodecl_fun_t compute_nodecl,
             decl_context_map_fun_t decl_context_map_fun)
     {
+
+        source_language_t kept_language;
+        switch_language(kept_language);
+
         std::string mangled_text = subparsing_prefix + " " + this->get_source(true);
 
         prepare_lexer(mangled_text.c_str());
@@ -436,6 +474,8 @@ namespace TL
 
         nodecl_t nodecl_output = nodecl_null();
         compute_nodecl(a, decl_context, &nodecl_output);
+
+        restore_language(kept_language);
 
         return nodecl_output;
     }
@@ -469,7 +509,7 @@ namespace TL
                         mf03_prepare_string_for_scanning,
                         mf03parse,
                         build_scope_program_unit,
-                        decl_context_program_unit
+                        decl_context_global
                         );
                 break;
             }
@@ -657,5 +697,12 @@ namespace TL
     std::string as_statement(const Nodecl::NodeclBase& n)
     {
         return nodecl_stmt_to_source(n.get_internal_nodecl());
+    }
+
+    std::string statement_placeholder(Nodecl::NodeclBase& placeholder)
+    {
+        std::stringstream ss;
+        ss << "@STATEMENT-PH::" << placeholder.get_internal_tree_address() << "@";
+        return ss.str();
     }
 }

@@ -716,7 +716,7 @@ static void codegen_type(nodecl_codegen_visitor_t* visitor,
 
 static void codegen_procedure_declaration_header(nodecl_codegen_visitor_t* visitor, scope_entry_t* entry)
 {
-    char is_function = (function_type_get_return_type(entry->type_information) != NULL);
+    char is_function = !is_void_type(function_type_get_return_type(entry->type_information));
     indent(visitor);
     if (entry->entity_specs.is_recursive)
     {
@@ -773,7 +773,7 @@ static void codegen_procedure_declaration_header(nodecl_codegen_visitor_t* visit
 
 static void codegen_procedure_declaration_footer(nodecl_codegen_visitor_t* visitor, scope_entry_t* entry)
 {
-    char is_function = (function_type_get_return_type(entry->type_information) != NULL);
+    char is_function = !is_void_type(function_type_get_return_type(entry->type_information));
 
     indent(visitor);
     fprintf(visitor->file, "END %s %s\n", (is_function ? "FUNCTION" : "SUBROUTINE"), entry->symbol_name);
@@ -839,7 +839,8 @@ static void declare_symbol(nodecl_codegen_visitor_t* visitor, scope_entry_t* ent
                     attribute_list = strappend(attribute_list, ", ALLOCATABLE");
                 if (entry->entity_specs.is_target)
                     attribute_list = strappend(attribute_list, ", TARGET");
-                if (entry->entity_specs.is_value)
+                if (entry->entity_specs.is_parameter
+                        && is_lvalue_reference_type(entry->type_information))
                     attribute_list = strappend(attribute_list, ", VALUE");
                 if (entry->entity_specs.is_optional)
                     attribute_list = strappend(attribute_list, ", OPTIONAL");
@@ -981,7 +982,7 @@ static void declare_symbol(nodecl_codegen_visitor_t* visitor, scope_entry_t* ent
             {
                 if (entry->entity_specs.is_builtin) 
                 {
-                    scope_entry_t* generic_entry = fortran_query_implicit_name_str(entry->decl_context, entry->symbol_name);
+                    scope_entry_t* generic_entry = fortran_query_intrinsic_name_str(entry->decl_context, entry->symbol_name);
 
                     if (generic_entry == entry)
                     {

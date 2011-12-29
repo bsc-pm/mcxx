@@ -362,7 +362,7 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
             return;
 
         scope_entry_list_iterator_t* it = NULL;
-        int i;
+        int i = 0;
         for (it = entry_list_iterator_begin(nonstatic_data_members);
                 !entry_list_iterator_end(it);
                 entry_list_iterator_next(it))
@@ -2022,6 +2022,7 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
                                 0, // semicolon
                                 0, // num_parameter_names
                                 NULL, // parameter_names
+                                NULL, // parameter_attributes
                                 0 // is_parameter
                                 ));
                 }
@@ -2046,6 +2047,7 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
                         0, // semicolon
                         0, // num_parameter_names
                         NULL, // parameter_names
+                        NULL, // parameter_attributes
                         0 // is_parameter
                         ));
             fprintf(stderr, "OVERLOAD: There is no best function\n");
@@ -2067,6 +2069,7 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
                             0, // semicolon
                             0, // num_parameter_names
                             NULL, // parameter_names
+                            NULL, // parameter_attributes
                             0 // is_parameter
                             ));
                 fprintf(stderr, "OVERLOAD: There is no best function because ambiguous conversion\n");

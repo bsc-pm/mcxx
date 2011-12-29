@@ -424,6 +424,11 @@ namespace TL
         return (_symbol->entity_specs.is_friend_declared);
     }
     
+    bool Symbol::is_entry() const
+    {
+        return (_symbol->entity_specs.is_entry);
+    }
+    
     bool Symbol::function_throws_any_exception() const
     {
         return (_symbol->entity_specs.any_exception);
@@ -494,6 +499,11 @@ namespace TL
     {
         // Despite the name this applies to variables too
         return _symbol->entity_specs.is_builtin;
+    }
+
+    bool Symbol::is_intrinsic() const
+    {
+        return this->is_builtin();
     }
 
     Nodecl::NodeclBase Symbol::get_definition_tree() const
@@ -611,15 +621,6 @@ namespace TL
 #endif
     }
 
-    bool Symbol::is_value() const
-    {
-#ifdef FORTRAN_SUPPORT
-        return _symbol->entity_specs.is_value;
-#else
-        return false;
-#endif
-    }
-
     bool Symbol::is_elemental() const
     {
 #ifdef FORTRAN_SUPPORT
@@ -650,7 +651,7 @@ namespace TL
     bool Symbol::is_generic_specifier() const
     {
 #ifdef FORTRAN_SUPPORT
-        return _symbol->entity_specs.is_builtin_subroutine;
+        return _symbol->entity_specs.is_generic_spec;
 #else
         return false;
 #endif
@@ -676,6 +677,11 @@ namespace TL
             result.append(_symbol->entity_specs.related_symbols[i]);
         }
         return result;
+    }
+
+    bool Symbol::has_gcc_attributes() const
+    {
+        return (_symbol->entity_specs.num_gcc_attributes > 0);
     }
 
     ObjectList<GCCAttribute> Symbol::get_gcc_attributes() const
@@ -713,4 +719,8 @@ namespace TL
         return _symbol->entity_specs.is_cray_pointee;
     }
 
+    Symbol Symbol::get_cray_pointer() const
+    {
+        return _symbol->entity_specs.cray_pointer;
+    }
 }

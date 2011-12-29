@@ -143,6 +143,9 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %token<token_atrib> PP_COMMENT "<preprocessor-comment>"
 %token<token_atrib> PP_TOKEN "<preprocessor-token>"
 
+%token<token_atrib> MCC_REFERENCE "<C-reference-specifier>"
+%token<token_atrib> MCC_REBINDABLE_REFERENCE "<rebindable-reference-specifier>"
+
 // Lexical symbols
 %token<token_atrib> '!'
 %token<token_atrib> '%'
@@ -576,7 +579,7 @@ asm_operand : string_literal '(' expression ')'
 }
 | string_literal
 {
-	$$ = $1;
+	$$ = ASTMake3(AST_GCC_ASM_OPERAND, NULL, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 /* End of GNU extensions */
@@ -1045,6 +1048,14 @@ ptr_operator : '*'
 | '*' cv_qualifier_seq
 {
 	$$ = ASTMake2(AST_POINTER_SPEC, NULL, $2, $1.token_file, $1.token_line, NULL);
+}
+| MCC_REFERENCE
+{
+	$$ = ASTLeaf(AST_REFERENCE_SPEC, $1.token_file, $1.token_line, NULL);
+}
+| MCC_REBINDABLE_REFERENCE
+{
+	$$ = ASTLeaf(AST_REBINDABLE_REFERENCE_SPEC, $1.token_file, $1.token_line, NULL);
 }
 ;
 

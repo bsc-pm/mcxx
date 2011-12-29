@@ -58,11 +58,17 @@ CLEANFILES =
 CLEANFILES += tl-lexer-tokens.hpp
 
 COMMON_CFLAGS= -DLIBTL_DLL_EXPORT -Wall \
+    -I $(top_srcdir)/src/tl/codegen/common \
+    -I $(top_srcdir)/src/tl/codegen/base/cxx \
+    -I $(top_srcdir)/src/tl/codegen/base/fortran \
     -I $(top_srcdir)/src/frontend \
     -I $(top_srcdir)/src/frontend/fortran \
     -I $(top_srcdir)/src/driver \
     -I $(top_srcdir)/src/mcxx_tl \
     -I $(top_srcdir)/lib \
+    -I $(top_builddir)/src/tl/codegen/common \
+    -I $(top_builddir)/src/tl/codegen/base/cxx \
+    -I $(top_builddir)/src/tl/codegen/base/fortran \
     -I $(top_builddir)/src/frontend \
     -I $(top_builddir)/src/frontend/fortran \
     -I $(top_builddir)/src/driver \
@@ -147,6 +153,8 @@ libtl_la_SOURCES = \
 	tl-pragmasupport.cpp \
 	tl-datareference.hpp \
 	tl-datareference.cpp \
+	tl-replace.hpp \
+	tl-replace.cpp \
     $(END)
 
 if WINDOWS_BUILD

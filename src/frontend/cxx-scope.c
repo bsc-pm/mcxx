@@ -2869,7 +2869,7 @@ const char* template_arguments_to_str(
                     const char* abstract_declaration;
 
                     abstract_declaration = 
-                        get_declaration_string_internal(argument->type, decl_context, "", "", 0, 0, NULL, 0);
+                        get_declaration_string_internal(argument->type, decl_context, "", "", 0, 0, NULL, NULL, 0);
 
                     argument_str = abstract_declaration;
                     break;

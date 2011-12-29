@@ -43,7 +43,7 @@ LIBMF03_EXTERN decl_context_t fortran_new_block_context(decl_context_t);
 // The first function avoids implicit symbols. The second query
 // only shows implicit symbols.
 LIBMF03_EXTERN scope_entry_t* fortran_query_name_str(decl_context_t decl_context, const char* unqualified_name);
-LIBMF03_EXTERN scope_entry_t* fortran_query_implicit_name_str(decl_context_t decl_context, const char* unqualified_name);
+LIBMF03_EXTERN scope_entry_t* fortran_query_intrinsic_name_str(decl_context_t decl_context, const char* unqualified_name);
 
 // Creates a new fortran symbol. Use this function instead of new_symbol as
 // this one takes care of case. It always uses current_scope.
@@ -53,7 +53,7 @@ LIBMF03_EXTERN scope_entry_t* new_fortran_implicit_symbol(decl_context_t decl_co
 // Use this one for typechecking of expressions only. This function uses
 // IMPLIICT info and creates SK_VARIABLEs as needed using the locus
 // information. locus may be NULL
-LIBMF03_EXTERN scope_entry_t* fortran_query_name_with_locus(decl_context_t, AST locus, const char* name);
+LIBMF03_EXTERN scope_entry_t* fortran_get_variable_with_locus(decl_context_t, AST locus, const char* name);
 
 // Query of derived type. 
 // class_context should have a current_scope->kind ==  CLASS_SCOPE

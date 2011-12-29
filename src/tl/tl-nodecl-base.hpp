@@ -88,6 +88,9 @@ namespace Nodecl {
 
             // Works like replace but handles lists. 
             void integrate(Nodecl::NodeclBase new_node) const;
+
+            // Internal use only
+            void* get_internal_tree_address();
     };
 
     // This class mimicks a std::list<T> but everything works by value

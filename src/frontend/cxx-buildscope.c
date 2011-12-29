@@ -59,6 +59,7 @@
 #include "cxx-diagnostic.h"
 #include "cxx-pragma.h"
 #include "cxx-codegen.h"
+#include "cxx-placeholders.h"
 
 /*
  * This file builds symbol table. If ambiguous nodes are found disambiguating
@@ -736,7 +737,8 @@ static void build_scope_gcc_asm_definition(AST a, decl_context_t decl_context, n
                     AST constraint = ASTSon1(asm_operand);
                     AST expression = ASTSon2(asm_operand);
                     nodecl_t nodecl_expr = nodecl_null();
-                    if (!check_expression(expression, decl_context, &nodecl_expr))
+                    if (expression != NULL 
+                            && !check_expression(expression, decl_context, &nodecl_expr))
                     {
                         if (!checking_ambiguity())
                         {
@@ -776,11 +778,21 @@ static void build_scope_gcc_asm_definition(AST a, decl_context_t decl_context, n
         }
     }
 
+    AST specs = ASTSon0(a);
+
+    nodecl_t nodecl_specs = nodecl_null();
+    if (specs != NULL)
+    {
+        nodecl_specs = nodecl_make_list_1(
+                nodecl_make_text(ASTText(specs), ASTFileName(specs), ASTLine(specs)));
+    }
+
     nodecl_t nodecl_gcc_asm = 
         nodecl_make_gcc_asm_definition(
                 nodecl_asm_params[0],
                 nodecl_asm_params[1],
                 nodecl_asm_params[2],
+                nodecl_specs,
                 ASTText(ASTSon0(asm_parms)),
                 ASTFileName(a), ASTLine(a));
 
@@ -1286,7 +1298,8 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
             if (entry->kind == SK_VARIABLE)
             {
                 if (entry->defined
-                        && !BITMAP_TEST(decl_context.decl_flags, DF_ALLOW_REDEFINITION))
+                        && !BITMAP_TEST(decl_context.decl_flags, DF_ALLOW_REDEFINITION)
+                        && !current_gather_info.is_extern)
                 {
                     if (!checking_ambiguity())
                     {
@@ -1342,6 +1355,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                         }
                     }
                 }
+                
                 if (!current_gather_info.is_extern
                         || current_gather_info.emit_always)
                 {
@@ -1374,7 +1388,8 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                             // entities that are non-extern since they are
                             // definitions (global definitions are here)
                             && ((!entry->entity_specs.is_member 
-                                    && !entry->entity_specs.is_extern)
+                                    && !entry->entity_specs.is_extern
+                                    && !current_gather_info.is_extern)
                                 // - static member definitions (at
                                 // namespace-scope these are definitions too)
                                 || (entry->entity_specs.is_member 
@@ -2909,11 +2924,11 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
         char c[256];
         C_LANGUAGE()
         {
-            snprintf(c, 255, "enum __mcc_enum_anon_%d", anonymous_enums);
+            snprintf(c, 255, "enum mcc_enum_anon_%d", anonymous_enums);
         }
         CXX_LANGUAGE()
         {
-            snprintf(c, 255, "__mcc_enum_anon_%d", anonymous_enums);
+            snprintf(c, 255, "mcc_enum_anon_%d", anonymous_enums);
         }
         c[255] = '\0';
         anonymous_enums++;
@@ -5257,11 +5272,11 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
         char c[256];
         C_LANGUAGE()
         {
-            snprintf(c, 255, "%s __mcc_%s_anon_%d", class_kind_name, class_kind_name, anonymous_classes);
+            snprintf(c, 255, "%s mcc_%s_anon_%d", class_kind_name, class_kind_name, anonymous_classes);
         }
         CXX_LANGUAGE()
         {
-            snprintf(c, 255, "__mcc_%s_anon_%d", class_kind_name, anonymous_classes);
+            snprintf(c, 255, "mcc_%s_anon_%d", class_kind_name, anonymous_classes);
         }
         c[255] = '\0';
         anonymous_classes++;
@@ -5422,6 +5437,14 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
         // State this symbol has been created by the code and not by the type system
         class_entry->entity_specs.is_user_declared = 1;
     }
+
+    class_entry->entity_specs.num_gcc_attributes = gather_info->num_gcc_attributes;
+    
+    class_entry->entity_specs.gcc_attributes = counted_calloc(class_entry->entity_specs.num_gcc_attributes,
+            sizeof(*class_entry->entity_specs.gcc_attributes), &_bytes_used_buildscope);
+    memcpy(class_entry->entity_specs.gcc_attributes, gather_info->gcc_attributes, 
+                class_entry->entity_specs.num_gcc_attributes * sizeof(*class_entry->entity_specs.gcc_attributes));
+
 
     ERROR_CONDITION(class_entry != NULL
             && class_type != class_entry->type_information,
@@ -5765,10 +5788,6 @@ static void set_pointer_type(type_t** declarator_type, AST pointer_tree,
                     /* 
                      * FIXME: It is unclear what happens with qualifiers here
                      */
-                    /* 
-                     * Something that was a reference (either lvalue or rvalue)
-                     * and is lvalue-referenced turns into rvalue referenced
-                     */
                     *declarator_type = get_lvalue_reference_type(
                             reference_type_get_referenced_type(pointee_type)
                             );
@@ -5788,6 +5807,19 @@ static void set_pointer_type(type_t** declarator_type, AST pointer_tree,
                      * FIXME: It is unclear what happens with qualifiers here
                      */
                     *declarator_type = pointee_type;
+                }
+                break;
+            }
+        case AST_REBINDABLE_REFERENCE_SPEC:
+            {
+                if (!is_lvalue_reference_type(pointee_type)
+                        && !is_rvalue_reference_type(pointee_type))
+                {
+                    *declarator_type = get_rebindable_reference_type(pointee_type);
+                }
+                else
+                {
+                    internal_error("Rebindable references to existing reference types should not be created", 0);
                 }
                 break;
             }
@@ -5886,212 +5918,251 @@ static void set_function_parameter_clause(type_t** function_type,
     // a function declaration, otherwise this should already be 
     // a block scope
 
-    // Link the scope of the parameters
-
-    C_LANGUAGE()
+    // Nothing to do here with K&R parameters
+    if (ASTType(parameters) == AST_KR_PARAMETER_LIST)
     {
-        // Nothing to do here with K&R parameters
-        if (ASTType(parameters) == AST_KR_PARAMETER_LIST)
-        {
-            // The list is inside this wrapping tree
-            list = ASTSon0(parameters);
+        list = ASTSon0(parameters);
 
-            // Count them and create a function lacking prototype
-            num_parameters = 0;
+        if (list != NULL)
+        {
             for_each_element(list, iter)
             {
+                if (num_parameters > MCXX_MAX_FUNCTION_PARAMETERS)
+                {
+                    if (!checking_ambiguity())
+                    {
+                        error_printf("%s: error: too many parameters (more than %d) in function declaration", 
+                                ast_location(parameters),
+                                num_parameters);
+                    }
+                }
+
+                // Clear this parameter_info 
+                memset(&(parameter_info[num_parameters]), 0, sizeof(parameter_info[num_parameters]));
+                AST kr_id = ASTSon1(iter);
+
+                decl_context_t param_decl_context = decl_context;
+                scope_entry_t* new_parameter = new_symbol(param_decl_context, 
+                        param_decl_context.current_scope,
+                        ASTText(kr_id));
+
+                new_parameter->kind = SK_VARIABLE;
+                new_parameter->type_information = get_signed_int_type();
+                new_parameter->file = ASTFileName(kr_id);
+                new_parameter->line = ASTLine(kr_id);
+                new_parameter->entity_specs.is_parameter = 1;
+                new_parameter->entity_specs.parameter_position = num_parameters;
+
+                parameter_info[num_parameters].is_ellipsis = 0;
+                parameter_info[num_parameters].type_info = get_signed_int_type();
+                parameter_info[num_parameters].nonadjusted_type_info = get_signed_int_type();
+
+                gather_info->arguments_info[num_parameters].entry = new_parameter;
+                gather_info->arguments_info[num_parameters].argument = nodecl_null();
+                gather_info->arguments_info[num_parameters].context = decl_context;
+
                 num_parameters++;
             }
-
-            *function_type = get_nonproto_function_type(*function_type, num_parameters);
-
-            // Nothing else to do
-            return;
         }
+
+        if (parameter_info[num_parameters-1].is_ellipsis)
+        {
+            gather_info->num_parameters = num_parameters - 1;
+        }
+        else
+        {
+            gather_info->num_parameters = num_parameters;
+        }
+
+        *function_type = get_nonproto_function_type(*function_type, num_parameters);
+        return;
     }
-
-    for_each_element(list, iter)
+    else
     {
-        if (num_parameters > MCXX_MAX_FUNCTION_PARAMETERS)
+        for_each_element(list, iter)
         {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: too many parameters (more than %d) in function declaration", 
-                        ast_location(parameters),
-                        num_parameters);
-            }
-        }
-
-        // Clear this parameter_info 
-        memset(&(parameter_info[num_parameters]), 0, sizeof(parameter_info[num_parameters]));
-
-        AST parameter_declaration = ASTSon1(iter);
-
-        if (ASTType(parameter_declaration) == AST_AMBIGUITY)
-        {
-            solve_ambiguous_parameter_decl(parameter_declaration, decl_context);
-            ERROR_CONDITION((ASTType(parameter_declaration) == AST_AMBIGUITY), "Ambiguity not solved %s", 
-                    ast_location(parameter_declaration));
-        }
-
-        if (ASTType(parameter_declaration) == AST_VARIADIC_ARG)
-        {
-            // Nothing more to do
-            parameter_info[num_parameters].is_ellipsis = 1;
-            num_parameters++;
-            continue;
-        }
-
-        ERROR_CONDITION(ASTType(parameter_declaration) != AST_PARAMETER_DECL
-                && ASTType(parameter_declaration) != AST_GCC_PARAMETER_DECL, 
-                "Invalid node", 0);
-
-
-
-        // This is never null
-        AST parameter_decl_spec_seq = ASTSon0(parameter_declaration);
-        // Declarator can be null
-        AST parameter_declarator = ASTSon1(parameter_declaration);
-        // Default value can be null
-        // The scope of this parameter declaration should be "st" and not parameters_scope
-        AST default_argument = ASTSon2(parameter_declaration);
-        nodecl_t nodecl_default_argument = nodecl_null();
-
-        // Check the default argument
-        if (default_argument != NULL)
-        {
-            if (!check_expression(default_argument, decl_context, &nodecl_default_argument))
+            if (num_parameters > MCXX_MAX_FUNCTION_PARAMETERS)
             {
                 if (!checking_ambiguity())
                 {
-                    error_printf("%s: error: could not check default argument expression '%s'\n",
-                            ast_location(default_argument),
-                            prettyprint_in_buffer(default_argument));
+                    error_printf("%s: error: too many parameters (more than %d) in function declaration", 
+                            ast_location(parameters),
+                            num_parameters);
+                }
+            }
+
+            // Clear this parameter_info 
+            memset(&(parameter_info[num_parameters]), 0, sizeof(parameter_info[num_parameters]));
+
+            AST parameter_declaration = ASTSon1(iter);
+
+            if (ASTType(parameter_declaration) == AST_AMBIGUITY)
+            {
+                solve_ambiguous_parameter_decl(parameter_declaration, decl_context);
+                ERROR_CONDITION((ASTType(parameter_declaration) == AST_AMBIGUITY), "Ambiguity not solved %s", 
+                        ast_location(parameter_declaration));
+            }
+
+            if (ASTType(parameter_declaration) == AST_VARIADIC_ARG)
+            {
+                // Nothing more to do
+                parameter_info[num_parameters].is_ellipsis = 1;
+                num_parameters++;
+                continue;
+            }
+
+            ERROR_CONDITION(ASTType(parameter_declaration) != AST_PARAMETER_DECL
+                    && ASTType(parameter_declaration) != AST_GCC_PARAMETER_DECL, 
+                    "Invalid node", 0);
+
+
+
+            // This is never null
+            AST parameter_decl_spec_seq = ASTSon0(parameter_declaration);
+            // Declarator can be null
+            AST parameter_declarator = ASTSon1(parameter_declaration);
+            // Default value can be null
+            // The scope of this parameter declaration should be "st" and not parameters_scope
+            AST default_argument = ASTSon2(parameter_declaration);
+            nodecl_t nodecl_default_argument = nodecl_null();
+
+            // Check the default argument
+            if (default_argument != NULL)
+            {
+                if (!check_expression(default_argument, decl_context, &nodecl_default_argument))
+                {
+                    if (!checking_ambiguity())
+                    {
+                        error_printf("%s: error: could not check default argument expression '%s'\n",
+                                ast_location(default_argument),
+                                prettyprint_in_buffer(default_argument));
+                    }
+
+                    *function_type = get_error_type();
+                    return;
+                }
+            }
+
+            gather_decl_spec_t param_decl_gather_info;
+            memset(&param_decl_gather_info, 0, sizeof(param_decl_gather_info));
+
+            type_t* simple_type_info;
+
+            decl_context_t param_decl_context = decl_context;
+            param_decl_gather_info.parameter_declaration = 1;
+
+            build_scope_decl_specifier_seq(parameter_decl_spec_seq, 
+                    &param_decl_gather_info, &simple_type_info,
+                    param_decl_context, nodecl_output);
+
+            if (is_error_type(simple_type_info))
+            {
+                *function_type = get_error_type();
+                return;
+            }
+
+            if (ASTType(parameter_declaration) == AST_GCC_PARAMETER_DECL)
+            {
+                AST attribute_list = ASTSon3(parameter_declaration);
+                gather_gcc_attribute_list(attribute_list, &param_decl_gather_info, param_decl_context);
+            }
+
+            if (param_decl_gather_info.is_extern)
+            {
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: parameter declared as 'extern'\n", 
+                            ast_location(parameter_decl_spec_seq));
                 }
 
                 *function_type = get_error_type();
                 return;
             }
-        }
-
-        gather_decl_spec_t param_decl_gather_info;
-        memset(&param_decl_gather_info, 0, sizeof(param_decl_gather_info));
-
-        type_t* simple_type_info;
-
-        decl_context_t param_decl_context = decl_context;
-        param_decl_gather_info.parameter_declaration = 1;
-
-        build_scope_decl_specifier_seq(parameter_decl_spec_seq, &param_decl_gather_info, &simple_type_info,
-                param_decl_context, nodecl_output);
-
-        if (is_error_type(simple_type_info))
-        {
-            *function_type = get_error_type();
-            return;
-        }
-
-        if (ASTType(parameter_declaration) == AST_GCC_PARAMETER_DECL)
-        {
-            AST attribute_list = ASTSon3(parameter_declaration);
-            gather_gcc_attribute_list(attribute_list, &param_decl_gather_info, param_decl_context);
-        }
-
-        if (param_decl_gather_info.is_extern)
-        {
-            if (!checking_ambiguity())
+            if (param_decl_gather_info.is_static)
             {
-                error_printf("%s: error: parameter declared as 'extern'\n", 
-                        ast_location(parameter_decl_spec_seq));
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: parameter declared as 'static'\n", 
+                            ast_location(parameter_decl_spec_seq));
+                }
+                *function_type = get_error_type();
+                return;
             }
 
-            *function_type = get_error_type();
-            return;
-        }
-        if (param_decl_gather_info.is_static)
-        {
-            if (!checking_ambiguity())
+            // It is valid in a function declaration not having a declarator at all
+            // (note this is different from having an abstract declarator).
+            //
+            // int f(int, int*);
+            //
+            // The first "int" does not contain any declarator while the second has
+            // an abstract one
+
+            scope_entry_t* entry = NULL;
+            type_t* type_info = NULL;
+
+            compute_declarator_type(parameter_declarator, 
+                    &param_decl_gather_info, simple_type_info, &type_info, param_decl_context, nodecl_output);
+            if (is_error_type(type_info))
             {
-                error_printf("%s: error: parameter declared as 'static'\n", 
-                        ast_location(parameter_decl_spec_seq));
+                *function_type = get_error_type();
+                return;
             }
-            *function_type = get_error_type();
-            return;
-        }
 
-        // It is valid in a function declaration not having a declarator at all
-        // (note this is different from having an abstract declarator).
-        //
-        // int f(int, int*);
-        //
-        // The first "int" does not contain any declarator while the second has
-        // an abstract one
-
-        scope_entry_t* entry = NULL;
-        type_t* type_info = NULL;
-
-        compute_declarator_type(parameter_declarator, 
-                &param_decl_gather_info, simple_type_info, &type_info, param_decl_context, nodecl_output);
-        if (is_error_type(type_info))
-        {
-            *function_type = get_error_type();
-            return;
-        }
-
-        if (parameter_declarator != NULL)
-        {
-            entry = build_scope_declarator_name(parameter_declarator, type_info, &param_decl_gather_info, param_decl_context, nodecl_output);
-
-            AST declarator_name = get_declarator_name(parameter_declarator, param_decl_context);
-            if (declarator_name != NULL)
+            if (parameter_declarator != NULL)
             {
+                entry = build_scope_declarator_name(parameter_declarator, type_info, &param_decl_gather_info, param_decl_context, nodecl_output);
+
+                AST declarator_name = get_declarator_name(parameter_declarator, param_decl_context);
+                if (declarator_name != NULL)
+                {
+                }
             }
+
+            // Now normalize the types
+
+            // First save the original type for the entry itself (but not for the function prototype)
+            type_t* original_type = type_info;
+            // If the original type is a typedef then we want to ignore
+            // all the indirections
+            type_info = advance_over_typedefs(type_info);
+
+            // function to pointer-to-function standard conversion
+            if (is_function_type(type_info))
+            {
+                type_info = get_pointer_type(type_info);
+            }
+            // Array to pointer standard conversion
+            else if (is_array_type(type_info))
+            {
+                type_info = array_type_get_element_type(type_info);
+                type_info = get_pointer_type(type_info);
+            }
+
+            if (entry != NULL)
+            {
+                // A parameter is always a variable entity
+                entry->kind = SK_VARIABLE;
+                entry->entity_specs.is_parameter = 1;
+                entry->entity_specs.parameter_position = num_parameters;
+
+                // Update the type info
+                entry->type_information = type_info;
+                entry->defined = 1;
+            }
+
+            parameter_info[num_parameters].is_ellipsis = 0;
+            parameter_info[num_parameters].type_info = get_unqualified_type(type_info);
+            parameter_info[num_parameters].nonadjusted_type_info = original_type;
+
+            ERROR_CONDITION(num_parameters == MCXX_MAX_FUNCTION_PARAMETERS, 
+                    "Too many function parameters %d\n", MCXX_MAX_FUNCTION_PARAMETERS);
+
+            gather_info->arguments_info[num_parameters].entry = entry;
+            gather_info->arguments_info[num_parameters].argument = nodecl_default_argument;
+            gather_info->arguments_info[num_parameters].context = decl_context;
+
+            num_parameters++;
         }
-
-        // Now normalize the types
-
-        // First save the original type for the entry itself (but not for the function prototype)
-        type_t* original_type = type_info;
-        // If the original type is a typedef then we want to ignore
-        // all the indirections
-        type_info = advance_over_typedefs(type_info);
-
-        // function to pointer-to-function standard conversion
-        if (is_function_type(type_info))
-        {
-            type_info = get_pointer_type(type_info);
-        }
-        // Array to pointer standard conversion
-        else if (is_array_type(type_info))
-        {
-            type_info = array_type_get_element_type(type_info);
-            type_info = get_pointer_type(type_info);
-        }
-
-        if (entry != NULL)
-        {
-            // A parameter is always a variable entity
-            entry->kind = SK_VARIABLE;
-            entry->entity_specs.is_parameter = 1;
-            entry->entity_specs.parameter_position = num_parameters;
-
-            // Update the type info
-            entry->type_information = type_info;
-            entry->defined = 1;
-        }
-
-        parameter_info[num_parameters].is_ellipsis = 0;
-        parameter_info[num_parameters].type_info = get_unqualified_type(type_info);
-        parameter_info[num_parameters].nonadjusted_type_info = original_type;
-
-        ERROR_CONDITION(num_parameters == MCXX_MAX_FUNCTION_PARAMETERS, 
-                "Too many function parameters %d\n", MCXX_MAX_FUNCTION_PARAMETERS);
-
-        gather_info->arguments_info[num_parameters].entry = entry;
-        gather_info->arguments_info[num_parameters].argument = nodecl_default_argument;
-        gather_info->arguments_info[num_parameters].context = decl_context;
-
-        num_parameters++;
     }
 
     if (parameter_info[num_parameters-1].is_ellipsis)
@@ -6921,7 +6992,10 @@ static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* decl
 
             // Update extern attribute
             // Maybe other attributes must be updated too
-            entry->entity_specs.is_extern = gather_info->is_extern;
+            if (entry->entity_specs.is_extern)
+            {
+                entry->entity_specs.is_extern = gather_info->is_extern;
+            }
             return entry;
         }
 
@@ -8583,17 +8657,37 @@ static void build_scope_namespace_definition(AST a,
 // This function is only intended for C99
 void build_scope_kr_parameter_declaration(scope_entry_t* function_entry UNUSED_PARAMETER,
         AST kr_parameter_declaration, 
-        AST kr_parameters,
+        AST kr_parameters UNUSED_PARAMETER,
         decl_context_t decl_context,
-        nodecl_t* nodecl_output)
+        nodecl_t* nodecl_output UNUSED_PARAMETER)
 {
     CXX_LANGUAGE()
     {
         internal_error("This function is intended only for C99", 0);
     }
 
+    int real_num_parameters = function_type_get_num_parameters(function_entry->type_information);
+    int num_parameters = real_num_parameters;
+    if (function_type_get_has_ellipsis(function_entry->type_information))
+        num_parameters--;
 
-    // This can be empty, but undefined parameters must be signed up
+    parameter_info_t parameter_info[1 + num_parameters];
+    memset(parameter_info, 0, sizeof(parameter_info));
+
+    int i;
+    for (i = 0; i < num_parameters; i++)
+    {
+        parameter_info[i].is_ellipsis = 0;
+        parameter_info[i].type_info = 
+            function_type_get_parameter_type_num(function_entry->type_information, i);
+        parameter_info[i].nonadjusted_type_info = parameter_info[i].type_info;
+    }
+
+    if (function_type_get_has_ellipsis(function_entry->type_information))
+    {
+        parameter_info[real_num_parameters - 1].is_ellipsis = 1;
+    }
+
     if (kr_parameter_declaration != NULL)
     {
         AST iter;
@@ -8601,65 +8695,92 @@ void build_scope_kr_parameter_declaration(scope_entry_t* function_entry UNUSED_P
         {
             AST simple_decl = ASTSon1(iter);
 
-            build_scope_simple_declaration(simple_decl, decl_context, 
-                    /* is_template */ 0, /* is_explicit_instantiation */ 0,
-                    nodecl_output, /* declared_symbols */ NULL);
+            AST decl_spec_seq = ASTSon0(simple_decl);
+            AST init_declarator_list = ASTSon1(simple_decl);
+
+            gather_decl_spec_t gather_info;
+            memset(&gather_info, 0, sizeof(gather_info));
+
+            type_t* simple_type_info = NULL;
+            nodecl_t nodecl_decl_spec = nodecl_null();
+
+            build_scope_decl_specifier_seq(decl_spec_seq, 
+                    &gather_info, &simple_type_info,
+                    decl_context, &nodecl_decl_spec);
+
+            AST init_declarator_it = NULL;
+
+            i = 0;
+            for_each_element (init_declarator_list, init_declarator_it)
+            {
+                gather_decl_spec_t current_gather_info = gather_info;
+
+                AST init_declarator = ASTSon1(init_declarator_it);
+
+                AST declarator = ASTSon0(init_declarator);
+                AST initializer = ASTSon1(init_declarator);
+
+                nodecl_t nodecl_declarator = nodecl_null();
+
+                type_t* declarator_type = NULL;
+                compute_declarator_type(declarator, &current_gather_info, 
+                        simple_type_info, &declarator_type, decl_context, &nodecl_declarator);
+                nodecl_t nodecl_declarator_name = nodecl_null();
+
+                scope_entry_t *entry = build_scope_declarator_name(declarator, declarator_type, 
+                        &current_gather_info, decl_context, &nodecl_declarator_name);
+
+                if (!entry->entity_specs.is_parameter)
+                {
+                    error_printf("%s: error: '%s' is not a parameter\n",
+                            ast_location(init_declarator),
+                            entry->symbol_name);
+                    continue;
+                }
+
+                if (initializer != NULL)
+                {
+                    error_printf("%s: error: initializer given to a parameter\n",
+                            ast_location(initializer));
+                }
+
+                if (current_gather_info.is_static)
+                {
+                    error_printf("%s: error: parameter '%s' defined to be static\n",
+                            ast_location(init_declarator),
+                            entry->symbol_name);
+                }
+
+                if (current_gather_info.is_extern)
+                {
+                    error_printf("%s: error: parameter '%s' defined to be extern\n",
+                            ast_location(init_declarator),
+                            entry->symbol_name);
+                }
+
+                entry->type_information = declarator_type;
+
+                parameter_info[entry->entity_specs.parameter_position].type_info = 
+                    entry->type_information;
+                parameter_info[entry->entity_specs.parameter_position].nonadjusted_type_info = 
+                    entry->type_information;
+
+                i++;
+            }
+
+            if (i == 0)
+            {
+                error_printf("%s: error: declaration does not declare anything\n",
+                        ast_location(simple_decl));
+            }
         }
     }
 
-    // Perform some adjustments. FIXME - YUse
-    if (kr_parameters != NULL)
-    {
-        AST kr_parameter_list = ASTSon0(kr_parameters);
-        int i = 0;
-        AST iter;
-        for_each_element(kr_parameter_list, iter)
-        {
-            AST kr_param = ASTSon1(iter);
-
-            scope_entry_list_t* entry_list = query_in_scope(decl_context, kr_param);
-            scope_entry_t* entry = NULL;
-            if (entry_list == NULL)
-            {
-                // Sign in an integer
-                entry = new_symbol(decl_context, decl_context.current_scope, ASTText(kr_param));
-                entry->kind = SK_VARIABLE;
-                entry->type_information = get_signed_int_type();
-                entry->line = ASTLine(kr_param);
-                entry->file = ASTFileName(kr_param);
-            }
-            else
-            {
-                entry = entry_list_head(entry_list);
-            }
-            entry_list_free(entry_list);
-
-            entry->entity_specs.is_parameter = 1;
-            entry->entity_specs.parameter_position = i;
-            entry->defined = 1;
-
-            if (entry->entity_specs.is_extern)
-            {
-                if (!checking_ambiguity())
-                {
-                    error_printf("%s: error: parameter declared as 'extern'\n", 
-                            ast_location(kr_param));
-                }
-                continue;
-            }
-            if (entry->entity_specs.is_static)
-            {
-                if (!checking_ambiguity())
-                {
-                    error_printf("%s: error: parameter declared as 'static'\n", 
-                            ast_location(kr_param));
-                }
-                continue;
-            }
-
-            i++;
-        }
-    }
+    // Update the type
+    function_entry->type_information = get_new_function_type(
+            function_type_get_return_type(function_entry->type_information),
+            parameter_info,
+            real_num_parameters);
 }
 
 static void common_defaulted_or_deleted(AST a, decl_context_t decl_context, 
@@ -8787,11 +8908,6 @@ static void set_parameters_as_related_symbols(scope_entry_t* entry,
         const char* filename,
         int line)
 {
-    // Do not keep anything for nonprototype function types
-    if (entry->kind == SK_FUNCTION
-            && function_type_get_lacking_prototype(entry->type_information))
-        return;
-
     // Keep parameter names
     if (entry->entity_specs.related_symbols == NULL)
     {
@@ -8802,8 +8918,19 @@ static void set_parameters_as_related_symbols(scope_entry_t* entry,
     }
     else
     {
-        ERROR_CONDITION(entry->entity_specs.num_related_symbols != gather_info->num_parameters, 
-                "Inconsistency detected in the related symbols of the function", 0);
+        // No need to overwrite them anymore
+        if (!is_definition)
+            return;
+
+        if (entry->entity_specs.num_related_symbols != gather_info->num_parameters)
+        {
+            free(entry->entity_specs.related_symbols);
+
+            entry->entity_specs.num_related_symbols = gather_info->num_parameters;
+            entry->entity_specs.related_symbols = counted_calloc(gather_info->num_parameters, 
+                    sizeof(*entry->entity_specs.related_symbols), 
+                    &_bytes_used_buildscope);
+        }
     }
 
     int i;
@@ -8881,7 +9008,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     {
         CXX_LANGUAGE()
         {
-            if (is_constructor_declarator(ASTSon1(function_header)))
+            if (is_constructor_declarator(function_declarator))
             {
                 is_constructor = 1;
             }
@@ -8936,9 +9063,9 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     else
     {
         // block-context will be updated for qualified-id to reflect the exact context
-        build_scope_declarator_with_parameter_context(ASTSon1(function_header), &gather_info, type_info, &declarator_type,
+        build_scope_declarator_with_parameter_context(function_declarator, &gather_info, type_info, &declarator_type,
                 new_decl_context, &block_context, nodecl_output);
-        entry = build_scope_declarator_name(ASTSon1(function_header), declarator_type, &gather_info, new_decl_context, nodecl_output);
+        entry = build_scope_declarator_name(function_declarator, declarator_type, &gather_info, new_decl_context, nodecl_output);
     }
     
     if (entry == NULL)
@@ -8948,7 +9075,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
             error_printf("%s: error: function '%s' was not found in the current scope\n", 
                     ast_location(function_header), 
                     print_decl_type_str(declarator_type, new_decl_context, 
-                        prettyprint_in_buffer(get_declarator_name(ASTSon1(function_header), new_decl_context))));
+                        prettyprint_in_buffer(get_declarator_name(function_declarator, new_decl_context))));
         }
         return NULL;
     }
@@ -8987,7 +9114,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
 
             funct_name = get_declaration_string_internal(entry->type_information,
                     decl_context,
-                    qualified_name, "", 0, 0, NULL, 0);
+                    qualified_name, "", 0, 0, NULL, NULL, 0);
         }
         if (!checking_ambiguity())
         {
@@ -11879,8 +12006,9 @@ static stmt_scope_handler_map_t stmt_scope_handlers[] =
     STMT_HANDLER(AST_UPC_BARRIER, build_scope_upc_synch_statement),
     STMT_HANDLER(AST_UPC_FENCE, build_scope_upc_synch_statement),
     STMT_HANDLER(AST_UPC_FORALL, build_scope_upc_forall_statement),
-    // Special node that comes only from TL::Source
+    // Special nodes that come only from TL::Source
     STMT_HANDLER(AST_NODE_LIST, build_scope_implicit_compound_statement),
+    STMT_HANDLER(AST_STATEMENT_PLACEHOLDER, check_statement_placeholder),
 };
 
 static void build_scope_statement_seq(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)

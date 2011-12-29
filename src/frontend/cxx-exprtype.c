@@ -4777,8 +4777,29 @@ static char operator_unary_reference_pred(type_t* t)
 
 static type_t* operator_unary_reference_result(type_t** op_type)
 {
-    // T* operator&(T&)
-    return get_pointer_type(no_ref(*op_type));
+    // T x, y;
+    //
+    // &x -> T*
+    // &y -> T*
+    if (is_lvalue_reference_type(*op_type))
+    {
+        return get_pointer_type(no_ref(*op_type));
+    }
+    // Mercurium extension
+    //
+    // T  @reb-ref@ z;
+    //
+    // &z -> T *&     [a lvalue reference to a pointer type]
+    else if (is_rebindable_reference_type(*op_type))
+    {
+        return get_lvalue_reference_type(
+                get_pointer_type(no_ref(*op_type))
+                );
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
 }
 
 static type_t* compute_type_no_overload_reference(nodecl_t *op, char *is_lvalue)
@@ -4787,9 +4808,16 @@ static type_t* compute_type_no_overload_reference(nodecl_t *op, char *is_lvalue)
 
     if (nodecl_expr_is_lvalue(*op))
     {
-        type_t* t = no_ref(nodecl_get_type(*op));
+        type_t* t = nodecl_get_type(*op);
 
-        return get_pointer_type(t);
+        if (is_rebindable_reference_type(t))
+        {
+            // Mercurium extension
+            // Rebindable references are lvalues
+            *is_lvalue = 1;
+        }
+
+        return get_pointer_type(no_ref(t));
     }
 
     return get_error_type();
@@ -7166,7 +7194,7 @@ void check_function_arguments(AST arguments, decl_context_t decl_context,
 {
     *nodecl_output = nodecl_null();
 
-    int i;
+    int i = 0;
     if (arguments != NULL)
     {
         if (ASTType(arguments) == AST_AMBIGUITY)
@@ -7717,7 +7745,7 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
         type_t* return_type = function_type_get_return_type(called_type);
 
         // Everything else seems fine
-        *nodecl_output = nodecl_make_function_call(
+        *nodecl_output = cxx_nodecl_make_function_call(
                 nodecl_called,
                 nodecl_argument_list_output,
                 return_type,
@@ -8432,7 +8460,8 @@ static void check_nodecl_cast_expr(nodecl_t nodecl_casted_expr,
             filename, line);
 
     if (nodecl_is_constant(nodecl_casted_expr)
-            && is_integral_type(declarator_type))
+            && (is_integral_type(declarator_type)
+               || is_pointer_type(declarator_type)))
     {
         nodecl_set_constant(*nodecl_output,
                 const_value_cast_to_bytes(
@@ -12119,10 +12148,14 @@ void build_ternary_builtin_operators(type_t* t1,
     }
 }
 
-static void check_sizeof_type(type_t* t, decl_context_t decl_context, const char* filename, int line, nodecl_t* nodecl_output)
+static void check_sizeof_type(type_t* t, 
+        nodecl_t nodecl_expr,
+        decl_context_t decl_context, 
+        const char* filename, int line, nodecl_t* nodecl_output)
 {
     *nodecl_output = nodecl_make_sizeof(
             nodecl_make_type(t, filename, line),
+            nodecl_expr,
             get_size_t_type(),
             filename, line);
     
@@ -12198,7 +12231,7 @@ static void check_sizeof_expr(AST expr, decl_context_t decl_context, nodecl_t* n
     }
     type_t* t = nodecl_get_type(nodecl_expr);
 
-    check_sizeof_type(t, decl_context, filename, line, nodecl_output);
+    check_sizeof_type(t, nodecl_expr, decl_context, filename, line, nodecl_output);
 }
 
 static void check_sizeof_typeid(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -12213,7 +12246,7 @@ static void check_sizeof_typeid(AST expr, decl_context_t decl_context, nodecl_t*
         *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
-    check_sizeof_type(declarator_type, decl_context, filename, line, nodecl_output);
+    check_sizeof_type(declarator_type, /* nodecl_expr */ nodecl_null(), decl_context, filename, line, nodecl_output);
 }
 
 
@@ -13225,7 +13258,8 @@ static char check_default_initialization_(scope_entry_t* entry,
         t = get_user_defined_type(entry);
     }
 
-    if (is_lvalue_reference_type(t))
+    if (is_lvalue_reference_type(t)
+            && !is_rebindable_reference_type(t))
     {
         // References cannot be default initialized
         if (!checking_ambiguity())
@@ -14103,7 +14137,9 @@ static void instantiate_dep_sizeof_expr(nodecl_instantiate_expr_visitor_t* v, no
     {
         type_t* t = nodecl_get_type(expr);
 
-        check_sizeof_type(t, v->decl_context, 
+        check_sizeof_type(t, 
+                expr,
+                v->decl_context, 
                 nodecl_get_filename(node), 
                 nodecl_get_line(node), 
                 &result);
@@ -14125,7 +14161,9 @@ static void instantiate_nondep_sizeof(nodecl_instantiate_expr_visitor_t* v, node
 
     nodecl_t result = nodecl_null();
 
-    check_sizeof_type(t, v->decl_context, 
+    check_sizeof_type(t, 
+            nodecl_null(),
+            v->decl_context, 
             nodecl_get_filename(node),
             nodecl_get_line(node),
             &result);

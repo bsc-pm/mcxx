@@ -236,6 +236,9 @@ namespace TL
                     compute_nodecl_fun_t compute_nodecl,
                     decl_context_map_fun_t decl_context_map_fun);
 
+            static void switch_language(source_language_t& n);
+            static void restore_language(source_language_t n);
+
         public:
             //! Constructor
             /*!
@@ -339,8 +342,9 @@ namespace TL
 
             //! Parsing at global level
             /*
-             * In C/C++ this means parsing at file-scope/global namespace scope
-             * In Fortran this means parsing a program unit
+             * This means parsing at file-scope/global namespace scope. Note
+             * that some languages (mainly Fortran) restrict what can be declared
+             * here.
              */
             Nodecl::NodeclBase parse_global(ReferenceScope sc, ParseFlags flags = DEFAULT);
 

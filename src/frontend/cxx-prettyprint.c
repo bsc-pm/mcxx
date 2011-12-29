@@ -2100,84 +2100,32 @@ static void unknown_pragma_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx
 
 static void pp_prepro_token_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
-    char* text = strdup(ASTText(a));
+    const char* text = ASTText(a);
 
     if (pt_ctx->internal_output)
     {
         // Do nothing special
-        token_fprintf(f, a, pt_ctx, "%s", text);
+        token_fprintf(f, a, pt_ctx, "@-P-@%s@-PP-@", text);
     }
     else
     {
-        char* start = text + strlen("@-P-@");
-        char* end = text + strlen(text) - strlen("@-PP-@");
-
-        // Save the end and make it the end of the string
-        char temp = *end;
-        *end = '\0';
-
-        // Print the preprocessing item
-        token_fprintf(f, a, pt_ctx, "%s\n", start);
-
-        // And restore it back to the original character
-        *end = temp;
+        token_fprintf(f, a, pt_ctx, "%s", text);
     }
-
-    free(text);
 }
 
 static void pp_comment_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
-    char* text = strdup(ASTText(a));
+    const char* text = ASTText(a);
 
     if (pt_ctx->internal_output)
     {
         // Do nothing special
-        token_fprintf(f, a, pt_ctx, "%s", text);
+        token_fprintf(f, a, pt_ctx, "@-CC-@%s@-C-@", text);
     }
     else
     {
-        // Convert it back into a normal comment
-        char* end = text + strlen(text) - strlen("@-CC-@");
-
-        // The whole text
-        char* current_start = text + strlen("@-C-@");
-        char* current_end;
-
-        do
-        {
-            // Look for the first '\n'
-            current_end = strchr(current_start, '\n');
-
-            // If not found use the NULL character
-            if (current_end == NULL)
-            {
-                current_end = end;
-            }
-
-            // Now replace the end with an ending character
-            char temp = *current_end;
-            *current_end = '\0';
-
-            indent_at_level(f, a, pt_ctx);
-            C_LANGUAGE()
-            {
-                token_fprintf(f, a, pt_ctx, "/* %s */\n", current_start);
-            }
-            CXX_LANGUAGE()
-            {
-                token_fprintf(f, a, pt_ctx, "// %s\n", current_start);
-            }
-
-            // And restore the modified character
-            *current_end = temp;
-            // The next string starts after the current end
-            current_start = current_end + 1;
-        }
-        while (current_end != end);
+        token_fprintf(f, a, pt_ctx, "/* %s */\n", text);
     }
-
-    free(text);
 }
 
 static void verbatim_construct_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)

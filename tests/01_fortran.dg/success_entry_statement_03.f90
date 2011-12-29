@@ -27,10 +27,13 @@
 
 ! <testinfo>
 ! test_generator=config/mercurium-fortran
-! test_compile_faulty=yes
-! test_compile_fail=yes
 ! </testinfo>
-PROGRAM P
-CALL F(SQRT) 
-CALL F(SQRT(2.3))
-END PROGRAM P
+
+FUNCTION S(B)
+INTEGER B
+REAL :: FOO
+ENTRY FOO(A)
+foo = 1.2
+END FUNCTION S
+
+

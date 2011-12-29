@@ -1176,7 +1176,7 @@ namespace TL
                         for(ObjectList<Symbol>::iterator it = params.begin(); it != params.end(); ++it)
                         {
                             Type t = it->get_type();
-                            if (t.is_reference() || t.is_pointer())
+                            if (t.is_any_reference() || t.is_pointer())
                             {
                                 reference_params.append(*it);
                             }
@@ -1288,7 +1288,7 @@ namespace TL
                             {   // KILLED variable is a parameter or a part of a parameter
                                 decl_context_t param_context = function_sym.get_internal_symbol()->entity_specs.related_symbols[0]->decl_context;
                                 if (!params_to_args[s].is<Nodecl::Derreference>()   // Argument is not an address
-                                    && ( s.get_type().is_reference()                // Parameter is passed by reference
+                                    && ( s.get_type().is_any_reference()                // Parameter is passed by reference
                                         || s.get_type().is_pointer() )              // Parameter is a pointer
                                     /*&& (s.get_scope() != Scope(param_context))*/)     // FIXME The argument is not a temporal value
                                 {

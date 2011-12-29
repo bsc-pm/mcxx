@@ -82,6 +82,7 @@ namespace Codegen
             void visit(const Nodecl::FortranArithmeticIfStatement& node);
             void visit(const Nodecl::FortranLabelAssignStatement& node);
             void visit(const Nodecl::FortranAssignedGotoStatement& node);
+            void visit(const Nodecl::FortranEntryStatement& node);
             void visit(const Nodecl::FortranImpliedDo& node);
             void visit(const Nodecl::FortranData& node);
             void visit(const Nodecl::FortranEquivalence& node);
@@ -98,10 +99,12 @@ namespace Codegen
             void visit(const Nodecl::PragmaCustomStatement& node);
             void visit(const Nodecl::PragmaCustomDirective& node);
             void visit(const Nodecl::PragmaClauseArg& node);
+            void visit(const Nodecl::SourceComment& node);
+            void visit(const Nodecl::Cast& node);
+            void visit(const Nodecl::Sizeof& node);
+            void visit(const Nodecl::Alignof& node);
 
         private:
-            std::stringstream file;
-
             // State
             struct State
             {
@@ -123,7 +126,8 @@ namespace Codegen
                 }
             } state;
 
-            std::map<TL::Symbol, codegen_status_t> _codegen_status;
+            typedef std::map<TL::Symbol, codegen_status_t> codegen_status_map_t;
+            codegen_status_map_t _codegen_status;
             void set_codegen_status(TL::Symbol sym, codegen_status_t status);
             codegen_status_t get_codegen_status(TL::Symbol sym);
 
@@ -139,7 +143,8 @@ namespace Codegen
             void codegen_procedure_declaration_header(TL::Symbol entry);
             void codegen_procedure_declaration_footer(TL::Symbol entry);
 
-            void codegen_module_header(TL::Symbol);
+            void codegen_module_header(TL::Symbol, TL::ObjectList<Nodecl::NodeclBase>);
+
             void codegen_module_footer(TL::Symbol);
 
             void codegen_blockdata_header(TL::Symbol);
@@ -177,6 +182,11 @@ namespace Codegen
                     std::string& array_specifier,
                     bool is_dummy);
 
+            void codegen_casting(
+                    TL::Type dest_type, 
+                    TL::Type source_type, 
+                    Nodecl::NodeclBase nest);
+
             void codegen_use_statement(TL::Symbol entry);
 
             void declare_symbols_from_modules_rec(Nodecl::NodeclBase node);
@@ -184,6 +194,8 @@ namespace Codegen
             void declare_symbols_rec(Nodecl::NodeclBase node);
 
             virtual Ret unhandled_node(const Nodecl::NodeclBase & n);
+
+            void clear_codegen_status();
     };
 }
 

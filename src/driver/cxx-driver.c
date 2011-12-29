@@ -1503,13 +1503,29 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
         case 'f':
         case 'm':
             {
-                add_parameter_all_toolchain(argument, dry_run);
+                char hide_parameter = 0;
                 if (!dry_run)
                 {
                     if (strcmp(argument, "-fshort-enums") == 0)
                     {
                         CURRENT_CONFIGURATION->code_shape.short_enums = 1;
                     }
+#ifdef FORTRAN_SUPPORT
+                    if (strcmp(argument, "-ffree-form") == 0)
+                    {
+                        CURRENT_CONFIGURATION->force_source_kind |= SOURCE_KIND_FREE_FORM;
+                        hide_parameter = 1;
+                    }
+                    if (strcmp(argument, "-ffixed-form") == 0)
+                    {
+                        CURRENT_CONFIGURATION->force_source_kind |= SOURCE_KIND_FIXED_FORM;
+                        hide_parameter = 1;
+                    }
+#endif
+                }
+                if (!hide_parameter)
+                {
+                    add_parameter_all_toolchain(argument, dry_run);
                 }
                 (*should_advance)++;
                 break;
@@ -2500,8 +2516,12 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
 
 #ifdef FORTRAN_SUPPORT
         if (current_extension->source_language == SOURCE_LANGUAGE_FORTRAN
+                // We prescan from fixed to free if 
+                //  - the file is fixed form OR we are forced to be fixed for (--fixed)
+                //  - AND we were NOT told to be free form (--free)
                 && (BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_FIXED_FORM)
                     || BITMAP_TEST(CURRENT_CONFIGURATION->force_source_kind, SOURCE_KIND_FIXED_FORM))
+                && !BITMAP_TEST(CURRENT_CONFIGURATION->force_source_kind, SOURCE_KIND_FREE_FORM)
                 && !CURRENT_CONFIGURATION->pass_through)
         {
             timing_t timing_prescanning;
@@ -2554,7 +2574,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
 #ifdef FORTRAN_SUPPORT
                     else if (IS_FORTRAN_LANGUAGE)
                     {
-                        compiler_special_phase_set_codegen(CURRENT_CONFIGURATION, "libcodegen-legacy_fortran.so");
+                        compiler_special_phase_set_codegen(CURRENT_CONFIGURATION, "libcodegen-fortran.so");
                     }
 #endif
                     else
@@ -2921,7 +2941,7 @@ static void semantic_analysis(translation_unit_t* translation_unit, const char* 
     if (CURRENT_CONFIGURATION->verbose)
     {
         fprintf(stderr, "Tree consistency verified in %.2f seconds\n",
-                timing_elapsed(&timing_semantic));
+                timing_elapsed(&timing_check_tree));
     }
 }
 
@@ -4158,6 +4178,20 @@ static void load_compiler_phases(compilation_configuration_t* config)
 
     timing_t loading_phases;
     timing_start(&loading_phases);
+
+    // Force loading codegen phases first
+    {
+        compilation_configuration_t dummy;
+        memset(&dummy, 0, sizeof(dummy));
+        compiler_special_phase_set_codegen(&dummy, "libcodegen-cxx.so");
+    }
+#ifdef FORTRAN_SUPPORT
+    {
+        compilation_configuration_t dummy;
+        memset(&dummy, 0, sizeof(dummy));
+        compiler_special_phase_set_codegen(&dummy, "libcodegen-fortran.so");
+    }
+#endif 
 
     // This invokes a C++ routine that will dlopen all libraries, get the proper symbol
     // and fill an array of compiler phases

@@ -3,6 +3,7 @@
 #include "cxx-typeutils.h"
 #include "cxx-scope.h"
 #include "cxx-entrylist.h"
+#include "fortran03-buildscope.h"
 #include <string.h>
 #include <ctype.h>
 
@@ -184,19 +185,22 @@ type_t* get_implicit_type_for_symbol(decl_context_t decl_context, const char* na
 {
     type_t* implicit_type = NULL;
 
-    if (decl_context.implicit_info->data->implicit_letter_set != NULL)
+    if (decl_context.implicit_info != NULL
+            && decl_context.implicit_info->data != NULL
+            && decl_context.implicit_info->data->implicit_letter_set != NULL)
     {
         implicit_type = 
             (*(decl_context.implicit_info->data->implicit_letter_set))[tolower(name[0]) - 'a'];
     }
 
+    // This is a special void that can be distinguished from plain void
     if (implicit_type == NULL)
-        implicit_type = get_void_type();
+        implicit_type = get_implicit_none_type();
 
     return implicit_type;
 }
 
-scope_entry_t* fortran_query_name_with_locus(decl_context_t decl_context, AST locus, const char* name)
+scope_entry_t* fortran_get_variable_with_locus(decl_context_t decl_context, AST locus, const char* name)
 {
     scope_entry_t* result = fortran_query_name_str(decl_context, name);
 
@@ -214,6 +218,8 @@ scope_entry_t* fortran_query_name_with_locus(decl_context_t decl_context, AST lo
             if(result != NULL)
             {
                 result->kind = SK_VARIABLE;
+                remove_unknown_kind_symbol(decl_context, result);
+
             }
         }
         DEBUG_CODE()
@@ -236,8 +242,9 @@ decl_context_t fortran_new_block_context(decl_context_t decl_context)
 
 scope_entry_t* new_fortran_implicit_symbol(decl_context_t decl_context, AST locus, const char* name)
 {
-    scope_entry_t* sym = new_implicit_symbol(decl_context, locus, name);
-    return sym;
+    scope_entry_t* new_entry = new_implicit_symbol(decl_context, locus, name);
+    add_unknown_kind_symbol(decl_context, new_entry);
+    return new_entry;
 }
 
 scope_entry_t* new_fortran_symbol(decl_context_t decl_context, const char* name)
@@ -248,7 +255,10 @@ scope_entry_t* new_fortran_symbol(decl_context_t decl_context, const char* name)
                 strtolower(name),
                 decl_context.current_scope);
     }
-    return new_symbol(decl_context, decl_context.current_scope, strtolower(name));
+
+    scope_entry_t * new_entry = new_symbol(decl_context, decl_context.current_scope, strtolower(name));
+    add_unknown_kind_symbol(decl_context, new_entry);
+    return new_entry;
 }
 
 scope_entry_t* query_name_in_class(decl_context_t class_context, const char* name)
@@ -271,8 +281,7 @@ scope_entry_t* fortran_query_name_str(decl_context_t decl_context, const char* u
     scope_t* current_scope = decl_context.current_scope;
 
     while (result == NULL 
-            && current_scope != NULL 
-            && current_scope != decl_context.global_scope)
+            && current_scope != NULL)
     {
         current_decl_context.current_scope = current_scope;
         scope_entry_list_t* result_list = query_in_scope_str(current_decl_context, strtolower(unqualified_name));    
@@ -280,6 +289,13 @@ scope_entry_t* fortran_query_name_str(decl_context_t decl_context, const char* u
         {
             result = entry_list_head(result_list);
             entry_list_free(result_list);
+
+            // An intrinsic found in global scope is ignored
+            if (result->entity_specs.is_builtin
+                    && current_scope == decl_context.global_scope)
+            {
+                result = NULL;
+            }
         }
 
         current_scope = current_scope->contained_in;
@@ -288,7 +304,7 @@ scope_entry_t* fortran_query_name_str(decl_context_t decl_context, const char* u
     return result;
 }
 
-scope_entry_t* fortran_query_implicit_name_str(decl_context_t decl_context, const char* unqualified_name)
+scope_entry_t* fortran_query_intrinsic_name_str(decl_context_t decl_context, const char* unqualified_name)
 {
     decl_context_t global_context = decl_context;
     global_context.current_scope = decl_context.global_scope;
@@ -299,6 +315,12 @@ scope_entry_t* fortran_query_implicit_name_str(decl_context_t decl_context, cons
     {
         result = entry_list_head(result_list);
         entry_list_free(result_list);
+
+        // It must be an intrinsic found in global scope
+        if (!result->entity_specs.is_builtin)
+        {
+            result = NULL;
+        }
     }
     
     return result;

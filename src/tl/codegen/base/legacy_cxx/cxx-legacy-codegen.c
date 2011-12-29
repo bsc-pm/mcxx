@@ -4358,6 +4358,7 @@ static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t no
             /* semicolon */ 0,
             /* num_parameter_names */ symbol->entity_specs.num_related_symbols,
             /* parameter_names */ argument_names,
+            /* param_attributes */ NULL,
             /* is_parameter */ 0);
 
     const char* exception_spec = "";

@@ -246,7 +246,7 @@ static nodecl_t simplify_len(int num_arguments UNUSED_PARAMETER, nodecl_t* argum
 {
     nodecl_t str = arguments[0];
 
-    type_t* t = no_ref(nodecl_get_type(str));
+    type_t* t = get_rank0_type(no_ref(nodecl_get_type(str)));
 
     if (array_type_is_unknown_size(t))
         return nodecl_null();
@@ -260,6 +260,11 @@ static nodecl_t simplify_kind(int num_arguments UNUSED_PARAMETER, nodecl_t* argu
      
     type_t* t = no_ref(nodecl_get_type(x));
     t = get_rank0_type(t);
+
+    if (is_complex_type(t))
+    {
+        t = complex_type_get_base_type(t);
+    }
 
     return nodecl_make_int_literal(type_get_size(t));
 }
@@ -713,6 +718,8 @@ static nodecl_t simplify_real(int num_arguments UNUSED_PARAMETER, nodecl_t* argu
 
     if (nodecl_is_constant(arg))
     {
+        const_value_t* value = nodecl_get_constant(arg);
+
         int kind = 0;
         if (!nodecl_is_null(arg_kind))
         {
@@ -727,17 +734,22 @@ static nodecl_t simplify_real(int num_arguments UNUSED_PARAMETER, nodecl_t* argu
 
         type_t* float_type = choose_float_type_from_kind(arg_kind, kind);
 
+        if (const_value_is_complex(value))
+        {
+            value = const_value_complex_get_real_part(value);
+        }
+
         if (is_float_type(float_type))
         {
-            return const_value_to_nodecl(const_value_cast_to_float_value(nodecl_get_constant(arg)));
+            return const_value_to_nodecl(const_value_cast_to_float_value(value));
         }
         else if (is_double_type(float_type))
         {
-            return const_value_to_nodecl(const_value_cast_to_double_value(nodecl_get_constant(arg)));
+            return const_value_to_nodecl(const_value_cast_to_double_value(value));
         }
         else if (is_long_double_type(float_type))
         {
-            return const_value_to_nodecl(const_value_cast_to_long_double_value(nodecl_get_constant(arg)));
+            return const_value_to_nodecl(const_value_cast_to_long_double_value(value));
         }
         else
         {
@@ -753,6 +765,17 @@ static nodecl_t simplify_float(int num_arguments UNUSED_PARAMETER, nodecl_t* arg
     nodecl_t argument_list[2] = { arguments[0], 
         const_value_to_nodecl(const_value_get_signed_int(fortran_get_default_real_type_kind())) }; 
     return simplify_real(2, argument_list);
+}
+
+static nodecl_t simplify_char(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+{
+    if (nodecl_is_constant(arguments[0]))
+    {
+        char c = const_value_cast_to_1(nodecl_get_constant(arguments[0]));
+        return const_value_to_nodecl(const_value_make_string(&c, 1));
+    }
+
+    return nodecl_null();
 }
 
 #endif

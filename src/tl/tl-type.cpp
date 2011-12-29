@@ -41,25 +41,26 @@ namespace TL
             const std::string& initializer, TypeDeclFlags flags) const
     {
         return get_declaration_string_internal(_type_info, sc._decl_context, symbol_name.c_str(), 
-                initializer.c_str(), 0, 0, NULL, flags == PARAMETER_DECLARATION);
+                initializer.c_str(), 0, 0, NULL, NULL, flags == PARAMETER_DECLARATION);
     }
 
-    std::string Type::get_declaration_with_parameters(Scope sc,
-            const std::string& symbol_name, ObjectList<std::string>& parameters,
-            TypeDeclFlags flags) const
+    std::string Type::get_declaration_with_parameters(Scope sc, const std::string& symbol_name,
+            ObjectList<std::string>& parameters, ObjectList<std::string>& parameter_attributes, TypeDeclFlags flags) const
     {
         int num_parameters = this->parameters().size();
-        const char** parameter_names = new const char*[num_parameters + 1];
+        
+        const char** parameter_names  = new const char*[num_parameters + 1];
+        const char** param_attributes = new const char*[num_parameters + 1];
 
         int orig_size = parameters.size();
         for (int i = 0; i < orig_size; i++)
         {
-            if (i < orig_size)
-                parameter_names[i] = uniquestr(parameters[i].c_str());
+            parameter_names[i] = uniquestr(parameters[i].c_str());
+            param_attributes[i] = uniquestr(parameter_attributes[i].c_str());
         }
 
         const char* result = get_declaration_string_internal(_type_info, sc._decl_context, symbol_name.c_str(), 
-                "", 0, num_parameters, parameter_names, flags == PARAMETER_DECLARATION);
+                "", 0, num_parameters, parameter_names, param_attributes, flags == PARAMETER_DECLARATION);
 
         for (int i = 0; i < num_parameters; i++)
         {
@@ -78,21 +79,21 @@ namespace TL
             symbol_name, TypeDeclFlags flags) const
     {
         return get_declaration_string_internal(_type_info, sc._decl_context,
-                symbol_name.c_str(), "", 0, 0, NULL, flags == PARAMETER_DECLARATION);
+                symbol_name.c_str(), "", 0, 0, NULL, NULL, flags == PARAMETER_DECLARATION);
     }
 
     std::string Type::get_declaration(Scope sc, const std::string& symbol_name,
             TypeDeclFlags flags) const
     {
         return get_declaration_string_internal(_type_info, sc._decl_context,
-                symbol_name.c_str(), "", 0, 0, NULL, flags == PARAMETER_DECLARATION);
+                symbol_name.c_str(), "", 0, 0, NULL, NULL, flags == PARAMETER_DECLARATION);
     }
 
     Type Type::get_pointer_to()
     {
         type_t* work_type = this->_type_info;
 
-        if (is_reference())
+        if (is_any_reference())
         {
             // We cannot get a pointer to a reference, get the referenced
             // type and make it pointer
@@ -244,10 +245,11 @@ namespace TL
         return vector_type_get_element_type(_type_info);
     }
 
-    bool Type::is_reference() const
+    bool Type::is_any_reference() const
     {
         return (is_lvalue_reference_type(_type_info)
-                || is_rvalue_reference_type(_type_info));
+                || is_rvalue_reference_type(_type_info)
+                || is_rebindable_reference());
     }
 
     bool Type::is_lvalue_reference() const
@@ -258,6 +260,11 @@ namespace TL
     bool Type::is_rvalue_reference() const
     {
         return (is_rvalue_reference_type(_type_info));
+    }
+
+    bool Type::is_rebindable_reference() const
+    {
+        return (is_rebindable_reference_type(_type_info));
     }
 
     bool Type::is_function() const
@@ -646,9 +653,19 @@ namespace TL
         return is_complex_type(_type_info);
     }
 
-    Type Type::get_reference_to()
+    Type Type::get_lvalue_reference_to()
     {
         return get_lvalue_reference_type(this->_type_info);
+    }
+
+    Type Type::get_rvalue_reference_to()
+    {
+        return get_rvalue_reference_type(this->_type_info);
+    }
+
+    Type Type::get_rebindable_reference_to()
+    {
+        return get_rebindable_reference_type(this->_type_info);
     }
 
     Type Type::get_unqualified_type()
@@ -840,7 +857,7 @@ namespace TL
         {
             return this->returns().basic_type();
         }
-        else if (this->is_reference())
+        else if (this->is_any_reference())
         {
             return this->references_to().basic_type();
         }
@@ -999,9 +1016,9 @@ namespace TL
         return ::is_pointer_to_class_type(_type_info);
     }
 
-    bool Type::is_reference_to_class() const
+    bool Type::is_any_reference_to_class() const
     {
-        return ::is_reference_to_class_type(_type_info);
+        return ::is_any_reference_to_class_type(_type_info);
     }
 
     bool Type::is_base_class(Type t) const
