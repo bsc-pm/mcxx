@@ -2617,7 +2617,15 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
     }
 
     indent();
-    file << "};\n";
+
+    if (symbol.has_gcc_attributes())
+    {
+        file << "} " << gcc_attributes_to_str(symbol) << ";\n";
+    }
+    else
+    {
+        file << "};\n";
+    }
 }
 
 void CxxBase::define_class_symbol(TL::Symbol symbol)

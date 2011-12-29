@@ -5438,6 +5438,14 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
         class_entry->entity_specs.is_user_declared = 1;
     }
 
+    class_entry->entity_specs.num_gcc_attributes = gather_info->num_gcc_attributes;
+    
+    class_entry->entity_specs.gcc_attributes = counted_calloc(class_entry->entity_specs.num_gcc_attributes,
+            sizeof(*class_entry->entity_specs.gcc_attributes), &_bytes_used_buildscope);
+    memcpy(class_entry->entity_specs.gcc_attributes, gather_info->gcc_attributes, 
+                class_entry->entity_specs.num_gcc_attributes * sizeof(*class_entry->entity_specs.gcc_attributes));
+
+
     ERROR_CONDITION(class_entry != NULL
             && class_type != class_entry->type_information,
             "Inconsistency between class_entry and class_type", 0);

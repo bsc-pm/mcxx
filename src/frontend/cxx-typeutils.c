@@ -6792,24 +6792,25 @@ static void get_type_name_str_internal(decl_context_t decl_context,
             }
         case TK_VECTOR :
             {
-                char c[256];
+
 
                 get_type_name_str_internal(decl_context, type_info->vector->element_type, left, right, 
                         num_parameter_names, parameter_names, parameter_attributes, is_parameter);
 
-                //generic_vector
-                if (type_info->vector->vector_size == 0)
-                {
-                    snprintf(c, 255, "__attribute__((generic_vector)) ");
-                }
-                else
-                {
-                    snprintf(c, 255, "__attribute__((vector_size(%d))) ", 
-                             type_info->vector->vector_size);
-                }
-                c[255] = '\0';
+               // //generic_vector
+               // char c[256];
+               // if (type_info->vector->vector_size == 0)
+               // {
+               //     snprintf(c, 255, "__attribute__((generic_vector)) ");
+               // }
+               // else
+               // {
+               //     snprintf(c, 255, "__attribute__((vector_size(%d))) ", 
+               //              type_info->vector->vector_size);
+               // }
+               // c[255] = '\0';
 
-                (*left) = strappend((*left), c);
+               // (*left) = strappend((*left), c);
                 break;
             }
         case TK_OVERLOAD:
