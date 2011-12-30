@@ -1326,7 +1326,7 @@ namespace TL
             return undef_vars;
         }
         
-        void Node::set_undefined_behaviour_var(ExtensibleSymbol new_undefined_behaviour_var)
+        void Node::set_undefined_behaviour_var(ExtensibleSymbol new_undef_var)
         {
             ext_sym_set undef_vars;
             
@@ -1334,9 +1334,22 @@ namespace TL
             {
                 undef_vars = get_data<ext_sym_set>(_UNDEF);
             }
-            undef_vars.insert(new_undefined_behaviour_var);
+            undef_vars.insert(new_undef_var);
             
             set_data(_UNDEF, undef_vars);
+        }
+
+        void Node::set_undefined_behaviour_var(ext_sym_set new_undef_vars)
+        {
+            ext_sym_set undef_vars;
+            
+            if (has_key(_UNDEF))
+            {
+                undef_vars = get_data<ext_sym_set>(_UNDEF);
+            }
+            undef_vars.insert(new_undef_vars);
+            
+            set_data(_UNDEF, undef_vars);            
         }
 
         ext_sym_set Node::get_input_deps()
@@ -1513,19 +1526,21 @@ namespace TL
             if (CURRENT_CONFIGURATION->debug_options.analysis_verbose)
             {
                 ext_sym_set ue_vars = get_data<ext_sym_set>(_UPPER_EXPOSED);
-                std::cerr << "        --> UE VARS: " << std::endl;
+                std::cerr << "      - UE VARS: ";
                 for(ext_sym_set::iterator it = ue_vars.begin(); it != ue_vars.end(); ++it)
                 {
-                    std::cerr << "             - " << it->get_nodecl().prettyprint() << std::endl;
+                    std::cerr << it->get_nodecl().prettyprint() << ", ";
                 }
+                std::cerr << std::endl;
                 
                 ext_sym_set killed_vars = get_data<ext_sym_set>(_KILLED);
-                std::cerr << "        --> KILLED VARS: " << std::endl;
+                std::cerr << "      - KILLED VARS: ";
         
                 for(ext_sym_set::iterator it = killed_vars.begin(); it != killed_vars.end(); ++it)
                 {
-                    std::cerr << "             - " << it->get_nodecl().prettyprint() << std::endl;
+                    std::cerr << it->get_nodecl().prettyprint() << ", ";
                 }
+                std::cerr << std::endl;
             }
         }
     }

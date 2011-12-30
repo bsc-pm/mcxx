@@ -104,8 +104,6 @@ namespace TL
             std::string nom = s.get_name();
         
             // Create a new graph for the current function
-//             std::cerr << "  Retrived context: " << std::endl;
-//             n.retrieve_context().printscope();
             ExtensibleGraph* actual_cfg = new ExtensibleGraph(s.get_name(), n.get_symbol().get_scope());
             _actual_cfg = actual_cfg;
             
@@ -254,8 +252,6 @@ namespace TL
             // Tag the symbol if it is a global variable
             Scope s_sc = n.get_symbol().get_scope();
             Nodecl::NodeclBase n2 = n;
-//             std::cerr << "Symbol " << n2.prettyprint() << " scope:  " << std::endl;
-//             s_sc.printscope();
             if (!s_sc.scope_is_enclosed_by(_actual_cfg->_sc))
             {
                 struct var_usage_t* glob_var_usage = new var_usage_t(n, /*UNDEFINED USAGE*/ '3');

@@ -53,6 +53,12 @@ namespace TL
                  * If the graph contains a block of code, the scope is the scope of the function containing the code.
                  */
                 Scope _sc;
+                
+                /*!
+                 * While building the CFG, this list keeps information about which variables appear in the graph
+                 * But no information about their usage is stored
+                 * When IPA is performed, then the proper information about the usage is stored
+                 */
                 ObjectList<struct var_usage_t*> _global_vars;
                 
                 bool _global_vars_computed;
@@ -92,7 +98,7 @@ namespace TL
                 ObjectList<Node*> _task_nodes_l;
                 
                 //! Boolean indicating whether the use-def chains are already computed for the graph
-                bool _use_def_computed;
+                char _use_def_computed;
                 
                 /*!
                 * This structure stores the graph of calls performed from 'f'.
@@ -103,7 +109,9 @@ namespace TL
                 * Ex.:    f -> g -> h
                 *           -> i
                 */
-                struct func_call_graph_t* _func_calls_nest;            
+//                 struct func_call_graph_t* _func_calls_nest;
+                
+                ObjectList<Symbol> _func_calls;
             
         private:
                 //! We don't want to allow this kind of constructions
@@ -187,9 +195,7 @@ namespace TL
                 void erase_unclassified_nodes(Node* actual);            
                 
                 void erase_break_nodes(Node* node);
-                
-                struct func_call_graph_t* func_in_function_call_nest_rec(Symbol reached_func, Symbol actual_func, 
-                                                                         struct func_call_graph_t* actual_nest_s);
+
                 
             public:
                 // *** Constructors *** //
@@ -369,7 +375,7 @@ namespace TL
                 Scope get_scope() const;
                 
                 ObjectList<struct var_usage_t*> get_global_variables();
-               
+                
                 //! Returns the symbol of the function contained in the graph
                 //! It is null when the graph do not corresponds to a function code
                 Symbol get_function_symbol() const;
@@ -381,27 +387,23 @@ namespace TL
                 ObjectList<Node*> get_tasks_list() const;
                 
                 //! Returns 1 when the graph has use-def info already computed; otherwise returns 0
-                bool has_use_def_computed() const;
+                char has_use_def_computed() const;
                 
                 //! Sets to 1 the variable containing whether the graph has the use-def info computed
-                void set_use_def_computed();
+                void set_use_def_computed(char state);
             
-                ObjectList<Symbol> get_function_parameters();
+                ObjectList<Symbol> get_function_parameters() const;
                 
-                void init_function_call_nest();
-                
-                struct func_call_graph_t* get_function_call_nest() const;
+                void add_func_call_symbol(Symbol s);
+               
+                ObjectList<Symbol> get_function_calls() const;
                 
                 // *** Consultants *** //
                 static Node* is_for_loop_increment(Node* node);
-                
-                struct func_call_graph_t* func_in_function_call_nest(Symbol reached_func, Symbol actual_func);
 
                 
                 // *** Printing methods *** //
-                void print_global_vars();
-                
-                static void print_function_call_nest(func_call_graph_t* nest, std::string indent = "");
+                void print_global_vars() const;
                 
                 
             friend class CfgVisitor;

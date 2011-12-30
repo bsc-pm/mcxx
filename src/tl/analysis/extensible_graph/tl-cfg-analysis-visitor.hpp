@@ -152,11 +152,17 @@ namespace TL
         {
         private:
             ExtensibleGraph* _cfg;
-            ObjectList<struct var_usage_t*> _global_vars;   // Global variables appearing in the code we are analysing
-            ObjectList<Symbol> _ref_params;                 // Reference parameters, if exist, of the code we are analysing
-            ObjectList<struct var_usage_t*> _usage;         // Variable where the usage computation is stored
-            char _defining;                                 // Temporary value used during the visit
+            ObjectList<ExtensibleGraph*> _cfgs;
+            ObjectList<struct var_usage_t*> _global_vars;           // Global variables appearing in the code we are analysing
+            ObjectList<Symbol> _ref_params;                         // Reference parameters, if exist, of the code we are analysing
+            ObjectList<struct var_usage_t*> _usage;                 // Variable where the usage computation is stored
+            char _defining;                                         // Temporary value used during the visit
+            std::map<Symbol, Nodecl::NodeclBase> _params_to_args;    // Mapping between the parameters of a function and 
+                                                                    // the arguments of an specific function call
+                                                                    // This value is needed when we have more than one level of IPA
             
+            ObjectList<Symbol> _visited_functions;                  // List containing the functions' symbols of all visited functions
+                                                                    // This list avoids repeat the same computation over and over
             
             template <typename T>
             void op_assignment_visit(const T& n);
@@ -167,19 +173,42 @@ namespace TL
             template <typename T>
             void function_visit(const T& n);
             
+            /*!
+             * Computes the usage of #n depending on the previous uses of this nodecl
+             */
+            void set_up_symbol_usage(Nodecl::Symbol n);
+            /*!
+             * Special usage computation when we are dealing with arguments of a function call
+             */
+            void set_up_argument_usage(Nodecl::Symbol arg);
+            
+            /*!
+             * Once IPA is performed over a graph, the information computed in #_usage is propagated to the proper attributes of the graph
+             * This is necessary in the case of recursive calls with reference parameters between them.
+             */
+            void fill_graph_usage_info();
+            
+            /*!
+             * Maps a mapping between parameters and arguments in the current mapping (nested IPA analysis)
+             */
+            std::map<Symbol, Nodecl::NodeclBase> compute_nested_param_args(Nodecl::NodeclBase n, ExtensibleGraph* called_func_graph);
+            
             void compute_usage_rec(Node* node);
             
         public:
             
             // *** Constructors *** //
-            CfgIPAVisitor(ExtensibleGraph* cfg, ObjectList<var_usage_t*> glob_vars, ObjectList<Symbol> reference_params);
-        
+            CfgIPAVisitor(ExtensibleGraph* cfg, ObjectList<ExtensibleGraph*> cfgs, 
+                          ObjectList<var_usage_t*> glob_vars, ObjectList<Symbol> reference_params,
+                          std::map<Symbol, Nodecl::NodeclBase> params_to_args);
+            
+            // *** Modifiers *** //
             void compute_usage();
             
             // *** Getters and setters *** //
             ObjectList<struct var_usage_t*> get_usage() const;
-            
             static struct var_usage_t* get_var_in_list(Nodecl::Symbol n, ObjectList<struct var_usage_t*> list);
+            static struct var_usage_t* get_var_in_list(Symbol n, ObjectList<struct var_usage_t*> list);
             
             // *** Visitors *** //
             Ret visit(const Nodecl::Symbol& n);

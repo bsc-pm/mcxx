@@ -48,48 +48,47 @@ namespace TL
         {
             _usage = usage;
         }
-    
-    
-        // *** Structure storing the call graph of a given function *** //
-        
-        func_call_graph_t::func_call_graph_t(Symbol s)
-            : _root(s), _calls(), _visited(false)
-        {}
 
-        Symbol func_call_graph_t::get_symbol()
-        {
-            return _root;
-        }
-
-        void func_call_graph_t::set_symbol(Symbol s)
-        {
-            _root = s;
-        }
-        
-        bool func_call_graph_t::is_visited()
-        {
-            return _visited;
-        }
-        
-        void func_call_graph_t::set_visited()
-        {
-            _visited = true;
-        }
-        
-        void func_call_graph_t::clear_visits()
-        {
-            if (_visited)
-            {
-                _visited = false;
-                
-                for(ObjectList<struct func_call_graph_t*>::iterator it = _calls.begin(); it != _calls.end(); ++it)
-                {
-                    (*it)->clear_visits();
-                }
-            }
-        }
         
         // *** Common functions *** //
+        
+        std::map<Symbol, Nodecl::NodeclBase> map_params_to_args(Nodecl::NodeclBase func_call, ExtensibleGraph* called_func_graph,
+                                                                ObjectList<Symbol> &params, Nodecl::List &args)
+        {
+            params = called_func_graph->get_function_parameters();
+            if (func_call.is<Nodecl::FunctionCall>())
+            {
+                Nodecl::FunctionCall aux = func_call.as<Nodecl::FunctionCall>();
+                args = aux.get_arguments().as<Nodecl::List>();
+            }
+            else
+            {   // is VirtualFunctionCall
+                Nodecl::VirtualFunctionCall aux = func_call.as<Nodecl::VirtualFunctionCall>();
+                args = aux.get_arguments().as<Nodecl::List>();
+            }
+            std::map<Symbol, Nodecl::NodeclBase> params_to_args;
+            int i = 0;
+            ObjectList<Symbol>::iterator itp = params.begin();
+            Nodecl::List::iterator ita = args.begin();
+            for(; itp != params.end() && ita != args.end(); ++itp, ++ita)
+            {
+                params_to_args[*itp] = *ita;
+            }
+            
+            return params_to_args;
+        }
+        
+        ExtensibleGraph* find_function_for_ipa(Symbol s, ObjectList<ExtensibleGraph*> cfgs)
+        {
+            for(ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
+            {
+                if (s.is_valid() && (s == (*it)->get_function_symbol()))
+                {
+                    return *it;
+                }
+            }
+            return NULL;
+        }
         
         bool usage_list_contains_sym(Nodecl::Symbol n, ObjectList<struct var_usage_t*> list)
         {
@@ -101,6 +100,22 @@ namespace TL
                 }
             }
             return false;
+        }
+        
+        bool usage_list_contains_sym(Symbol n, ObjectList<struct var_usage_t*> list)
+        {
+            for (ObjectList<struct var_usage_t*>::iterator it = list.begin(); it != list.end(); ++it)
+            {
+                if ((*it)->get_nodecl().get_symbol() == n)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+        
+        void print_function_call_nest(ExtensibleGraph *graph)
+        {   // TODO Create a dot graph with the Call graph hanging from 'graph'
         }
     }
 }

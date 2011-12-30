@@ -43,45 +43,44 @@ namespace TL
             
             // *** Build the graphs for every method in the translation unit *** //
             // *** Tags the global variables used within each graph *** //
-    //         DEBUG_CODE()
-            {
+            if (CURRENT_CONFIGURATION->debug_options.analysis_verbose ||
+                CURRENT_CONFIGURATION->debug_options.enable_debug_code)
                 std::cerr << std::endl << "=== CFG Construction ===" << std::endl;
-            }        
             CfgVisitor cfg_visitor;
             cfg_visitor.build_cfg(nodecl, std::string(""));
             
             ObjectList<ExtensibleGraph*> cfgs = cfg_visitor.get_cfgs();
-//     //         DEBUG_CODE()
-//             {
-//                 std::cerr << std::endl << "=== GLOBAL VARIABLES USED WITHIN GRAPHS ===" << std::endl;
-//             }            
-//             for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
-//             {
-//                 std::cerr << "    ==> Graph  " << (*it)->get_name() << std::endl;
-//                 ObjectList<var_usage_t*> glob_vars = (*it)->get_global_variables();
-//                 for(ObjectList<var_usage_t*>::iterator it = glob_vars.begin(); it != glob_vars.end(); ++it)
-//                 {
-// //                     std::cerr << "       - " << (*it)->get_nodecl().prettyprint() << std::endl;
-//                 }
-//             }
-//             
-//             
-//             // *** Use-def chains + IPA *** //
-            std::cerr << std::endl << "=== USE-DEF CHAINS COMPUTATION ===" << std::endl;
+           
+            if (CURRENT_CONFIGURATION->debug_options.analysis_verbose ||
+                CURRENT_CONFIGURATION->debug_options.enable_debug_code)
+            {
+                std::cerr << std::endl << "=== GLOBAL VARIABLES USED WITHIN GRAPHS ===" << std::endl;
+                for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
+                {
+                    std::cerr << "  ==> Graph '" << (*it)->get_name() << "'" << std::endl;
+                    ObjectList<var_usage_t*> glob_vars = (*it)->get_global_variables();
+                    for(ObjectList<var_usage_t*>::iterator it = glob_vars.begin(); it != glob_vars.end(); ++it)
+                    {
+                        std::cerr << "       - " << (*it)->get_nodecl().prettyprint() << std::endl;
+                    }
+                }
+            }
+            
+            // *** Use-def chains + IPA *** //
+            if (CURRENT_CONFIGURATION->debug_options.analysis_verbose ||
+                CURRENT_CONFIGURATION->debug_options.enable_debug_code)
+                std::cerr << std::endl << "=== USE-DEF CHAINS COMPUTATION ===" << std::endl;
             for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
             {
-                if (!(*it)->has_use_def_computed())
+                if ((*it)->has_use_def_computed() == '0')
                 {
-                    (*it)->init_function_call_nest();
-                    cfg_visitor.set_last_func_call((*it)->get_function_call_nest());
                     cfg_visitor.set_actual_cfg(*it);
                     Node* graph_node = (*it)->get_graph();
                     cfg_visitor.compute_use_def_chains(graph_node);
-                    (*it)->set_use_def_computed();
-                    
-    //                 DEBUG_CODE()
-                    {
-                        graph_node->print_use_def_chains();
+                    if ((*it)->has_use_def_computed() == '0')
+                    {   // If the cfg contains some function call that has undefined behaviour, the this variables is already set to '3'
+                        // Otherwise, we have entirely complete the analysis, and we set this value to '1'
+                        (*it)->set_use_def_computed('1');
                     }
                 }
             }

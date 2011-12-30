@@ -43,10 +43,10 @@ libextensible_graph_la_SOURCES = \
    tl-cfg-renaming-visitor.cpp \
    tl-extensible-symbol.hpp \
    tl-extensible-symbol.cpp \
-   tl-analysis-common.hpp \
-   tl-analysis-common.cpp \
    tl-extensible-graph.cpp \
    tl-extensible-graph.hpp \
+   tl-analysis-common.hpp \
+   tl-analysis-common.cpp \
    tl-dot-graph.cpp \
    tl-loop-analysis.hpp \
    tl-loop-analysis.cpp \

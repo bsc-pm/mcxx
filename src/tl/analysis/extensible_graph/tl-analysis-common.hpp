@@ -24,12 +24,16 @@ Cambridge, MA 02139, USA.
 #ifndef TL_ANALYSIS_COMMON_HPP
 #define TL_ANALYSIS_COMMON_HPP
 
+#include "tl-node.hpp"
+#include "tl-extensible-graph.hpp"
 #include "tl-nodecl.hpp"
 
 namespace TL
 {
     namespace Analysis
     {
+        class ExtensibleGraph;
+        
         struct var_usage_t {
             Nodecl::Symbol _sym;
             char _usage;     // 0 => KILLED, 1 => UE, 2 => UE + KILLED, 3 => UNDEF
@@ -40,23 +44,15 @@ namespace TL
             char get_usage() const;
             void set_usage(char usage);
         };
-        
-        struct func_call_graph_t {
-            Symbol _root;
-            ObjectList<struct func_call_graph_t*> _calls;
-            bool _visited;
-            
-            func_call_graph_t(Symbol s);
 
-            Symbol get_symbol();
-            void set_symbol(Symbol s);
-            
-            bool is_visited();
-            void set_visited();
-            void clear_visits();
-        };
-        
         bool usage_list_contains_sym(Nodecl::Symbol n, ObjectList<struct var_usage_t*> list);
+        bool usage_list_contains_sym(Symbol n, ObjectList<struct var_usage_t*> list);
+        
+        std::map<Symbol, Nodecl::NodeclBase> map_params_to_args(Nodecl::NodeclBase func_call, ExtensibleGraph* called_func_graph,
+                                                                ObjectList<Symbol> &params, Nodecl::List &args);
+        ExtensibleGraph* find_function_for_ipa(Symbol s, ObjectList<ExtensibleGraph*> cfgs);
+        
+        void print_function_call_nest(ExtensibleGraph *graph);
     }
 }
 

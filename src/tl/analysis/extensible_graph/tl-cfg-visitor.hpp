@@ -173,10 +173,6 @@ namespace TL
             
             std::stack<Node*> _switch_cond_s;
             
-            //! Pointer to the function in #_func_calls_nest we are analysing right now
-            //! Needed only during the construction of #_func_calls_nest
-            struct func_call_graph_t* _last_func_call;
-        
             
             //! This method creates a list with the nodes in an specific subgraph
             /*!
@@ -267,6 +263,8 @@ namespace TL
             void set_live_initial_information(Node* node);
                 
             bool propagate_use_rec(Node* actual);
+            
+            bool func_has_cyclic_calls_rec(Symbol reach_func, Symbol stop_func, ExtensibleGraph * graph);
 
             
             
@@ -304,8 +302,6 @@ namespace TL
 
             
             // *** IPA *** //
-            ExtensibleGraph* find_function_for_ipa(Symbol s);
-            
             //! Computes the define-use chain of a node
             void compute_use_def_chains(Node* node);
             
@@ -316,7 +312,7 @@ namespace TL
             //! Once the use-def chains are calculated for every graph, we are able to recalculate the use-def of every function call
             bool propagate_use_def_ipa(Node* node);        
             
-            void set_last_func_call(struct func_call_graph_t* last_func_call);
+            bool func_has_cyclic_calls(Symbol actual_func, ExtensibleGraph* graph);
             
             // *** Visiting methods *** //
             

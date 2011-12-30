@@ -34,7 +34,7 @@ namespace TL
             _continue_stack(), _break_stack(),
             _labeled_node_l(), _goto_node_l(),
             _last_nodes(), _outer_node(), 
-            _task_nodes_l(), _use_def_computed(false), _func_calls_nest()
+            _task_nodes_l(), _use_def_computed('0'), _func_calls()
         {
             
             _graph = create_graph_node(NULL, Nodecl::NodeclBase::null(), EXTENSIBLE_GRAPH);
@@ -58,7 +58,8 @@ namespace TL
             new_ext_graph->_outer_node = this->_outer_node;
             new_ext_graph->_task_nodes_l = this->_task_nodes_l;
             new_ext_graph->_use_def_computed = this->_use_def_computed;
-            new_ext_graph->_func_calls_nest = this->_func_calls_nest;
+            new_ext_graph->_func_calls = this->_func_calls;
+//             new_ext_graph->_func_calls_nest = this->_func_calls_nest;
             
             // First, just copy the nodes and create a map connecting the old nodes with the new nodes
             new_ext_graph->copy_and_map_nodes(_graph);
@@ -620,7 +621,10 @@ namespace TL
             }
             else
             {
-                std::cerr << "warning: trying to concatenate an empty list of nodes" << std::endl;
+                DEBUG_CODE()
+                {
+                    std::cerr << "warning: trying to concatenate an empty list of nodes" << std::endl;
+                }
             }
         }
 
@@ -1067,17 +1071,17 @@ namespace TL
             return _task_nodes_l;
         }
         
-        bool ExtensibleGraph::has_use_def_computed() const
+        char ExtensibleGraph::has_use_def_computed() const
         {
             return _use_def_computed;
         }
         
-        void ExtensibleGraph::set_use_def_computed()
+        void ExtensibleGraph::set_use_def_computed(char state)
         {
-            _use_def_computed = true;
+            _use_def_computed = state;
         }
         
-        ObjectList<Symbol> ExtensibleGraph::get_function_parameters()
+        ObjectList<Symbol> ExtensibleGraph::get_function_parameters() const
         {
             if (_function_sym.is_valid())
             {
@@ -1100,59 +1104,14 @@ namespace TL
             }
         }
         
-        void ExtensibleGraph::init_function_call_nest()
+        void ExtensibleGraph::add_func_call_symbol(Symbol s)
         {
-            if (_function_sym != NULL)
-            {
-                _func_calls_nest = new func_call_graph_t(_function_sym);
-            }
+            _func_calls.insert(s);
         }
         
-        struct func_call_graph_t* ExtensibleGraph::get_function_call_nest() const
+        ObjectList<Symbol> ExtensibleGraph::get_function_calls() const
         {
-            return _func_calls_nest;
-        }
-        
-        struct func_call_graph_t* ExtensibleGraph::func_in_function_call_nest_rec(Symbol reached_func, Symbol actual_func, 
-                                                                                  struct func_call_graph_t* actual_nest_s)
-        {
-            struct func_call_graph_t* res = NULL;
-            
-            if (!actual_nest_s->is_visited())
-            {
-                actual_nest_s->set_visited();
-                if (reached_func == actual_nest_s->get_symbol())
-                {
-                    std::cerr << "  1  " << std::endl;
-                    res = actual_nest_s;
-                }
-                else
-                {
-                    if (actual_nest_s->get_symbol() != actual_func)
-                    {   // This check is done because it is not the same:
-                        // A()  ->   B()        and      A()  ->  B()  ->   B()
-                        //      ->   B()
-                        std::cerr << "  2  " << std::endl;
-                        for (ObjectList<struct func_call_graph_t*>::iterator it = actual_nest_s->_calls.begin();
-                        it != actual_nest_s->_calls.end(); ++it)
-                        {
-                            if ( (res = func_in_function_call_nest_rec(reached_func, actual_func, *it)) != NULL)
-                            {
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-            
-            actual_nest_s->clear_visits();
-            return res;
-        }
-        
-        struct func_call_graph_t* ExtensibleGraph::func_in_function_call_nest(Symbol reached_func, Symbol actual_func)
-        {
-            std::cerr << "REACHED FUNC is " << reached_func.get_name() << "   and ACTUAL FUNC is " << actual_func.get_name() << std::endl;
-            return func_in_function_call_nest_rec(reached_func, actual_func, _func_calls_nest);
+            return _func_calls;
         }
         
         //! This method returns the most outer node of a node before finding a loop node
@@ -1190,29 +1149,11 @@ namespace TL
             return NULL;
         }
         
-        void ExtensibleGraph::print_global_vars()
+        void ExtensibleGraph::print_global_vars() const
         {
-            for (ObjectList<struct var_usage_t*>::iterator it = _global_vars.begin(); it != _global_vars.end(); ++it)
+            for (ObjectList<struct var_usage_t*>::const_iterator it = _global_vars.begin(); it != _global_vars.end(); ++it)
             {
                 std::cerr << "        - " << (*it)->get_nodecl().prettyprint() << std::endl;
-            }
-        }
-        
-        void ExtensibleGraph::print_function_call_nest(func_call_graph_t* nest, std::string indent)
-        {
-            if (CURRENT_CONFIGURATION->debug_options.analysis_verbose)
-            {
-                if (nest!=NULL && !nest->is_visited())
-                {   // (nest == NULL) for codes with no function call inside. E.g: task graphs with no function calls
-                    nest->set_visited();
-                    std::cerr << indent << " -> " << nest->_root.get_name() << std::endl;
-                    indent += "   ";
-                    for (ObjectList<func_call_graph_t*>::iterator it = nest->_calls.begin(); it != nest->_calls.end(); ++it)
-                    {
-                        print_function_call_nest(*it, indent);
-                    }
-                    nest->clear_visits();
-                }
             }
         }
     }

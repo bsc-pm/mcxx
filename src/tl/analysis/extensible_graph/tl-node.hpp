@@ -403,7 +403,10 @@ namespace TL
                 ext_sym_set get_undefined_behaviour_vars();
                 
                 //! Adds a new undefined behaviour variable to the node
-                void set_undefined_behaviour_var(ExtensibleSymbol new_killed_var);            
+                void set_undefined_behaviour_var(ExtensibleSymbol new_undef_var);            
+
+                //! Adds a set of undefined behaviour variables to the node
+                void set_undefined_behaviour_var(ext_sym_set new_undef_vars);
                 
                 //! Returns the list of input dependences of a task node
                 ext_sym_set get_input_deps();
