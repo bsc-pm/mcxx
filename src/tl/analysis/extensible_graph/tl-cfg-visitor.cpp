@@ -950,9 +950,28 @@ namespace TL
             
             // Compute the true edge from the loop condition
             Edge_type aux_etype = ALWAYS_EDGE;
-            if (!_loop_info_s.top().cond->get_exit_edges().empty())
+            ObjectList<Edge*> exit_edges = _loop_info_s.top().cond->get_exit_edges();
+            if (!exit_edges.empty())
             {
-                _loop_info_s.top().cond->get_exit_edges()[0]->set_data(_EDGE_TYPE, TRUE_EDGE);
+                // The first edge and, and, if the first is a task, all the following edges being tasks and the first not being a task are TRUE_EDGE
+                // If all exit exit edges are tasks, then the "Next node" of the loop is linked with a true edge as well
+                bool all_tasks = true;
+                ObjectList<Edge*>::iterator it = exit_edges.begin();
+                while(all_tasks && it != exit_edges.end())
+                {
+                    if (!(*it)->is_task_edge())
+                    {
+                        all_tasks = false;
+                        (*it)->set_data(_EDGE_TYPE, TRUE_EDGE);
+                    }
+                    else
+                    {
+                        (*it)->set_data(_EDGE_TYPE, TRUE_EDGE);
+                    }
+                    ++it;
+                }
+                if (all_tasks)
+                    aux_etype = TRUE_EDGE;
             }
             else
             {   // It will be empty when the loop's body is empty.
@@ -1040,13 +1059,40 @@ namespace TL
             walk(n.get_statement());    // This list of nodes returned here will never be used
             _actual_cfg->_continue_stack.pop();
             _actual_cfg->_break_stack.pop();
-            cond_node->get_exit_edges()[0]->set_data(_EDGE_TYPE, TRUE_EDGE);
+
+            ObjectList<Edge*> cond_exits = cond_node->get_exit_edges();
+            Edge_type aux_etype = ALWAYS_EDGE;
+            if (!cond_exits.empty())
+            {
+                // The first edge and, and, if the first is a task, all the following edges being tasks and the first not being a task are TRUE_EDGE
+                // If all exit exit edges are tasks, then the "Next node" of the loop is linked with a true edge as well
+                ObjectList<Edge*>::iterator it = cond_exits.begin();
+                while(it != cond_exits.end())
+                {
+                    if (!(*it)->is_task_edge())
+                    {
+                        (*it)->set_data(_EDGE_TYPE, TRUE_EDGE);
+                    }
+                    else
+                    {
+                        (*it)->set_data(_EDGE_TYPE, TRUE_EDGE);
+                    }
+                    ++it;
+                }            
+            }
+            else
+            {
+                aux_etype = TRUE_EDGE;
+            }
             _actual_cfg->connect_nodes(cond_node, exit_node, FALSE_EDGE);
             
             // Build the exit node
             exit_node->set_id(++_actual_cfg->_nid);
             exit_node->set_outer_node(_actual_cfg->_outer_node.top());
-            _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, cond_node);
+            int n_connects = _actual_cfg->_last_nodes.size();
+            
+            _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, cond_node, 
+                                       ObjectList<Edge_type>(n_connects, aux_etype), ObjectList<std::string>(n_connects, ""));
             
             _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(exit_node);
             
@@ -1055,6 +1101,23 @@ namespace TL
 
         CfgVisitor::Ret CfgVisitor::visit(const Nodecl::DoStatement& n)
         {
+            // FIXME This is not correct:
+//             do
+//             {
+//             #pragma omp task private(fX) firstprivate(i)
+//             {
+//                     fX = f(fH * ((double)i + 0.5));
+//                 #pragma omp critical
+//                     fSum += fX;
+//             }
+//             #pragma omp task
+//             {
+//                 int a = 0;
+//                 a++;
+//             }
+//             i += 1;
+//             }while(i < n);
+
             ObjectList<Node*> do_parents = _actual_cfg->_last_nodes;
             
             Node* exit_node = new Node();
@@ -1113,28 +1176,48 @@ namespace TL
             Nodecl::NodeclBase then = n.get_then();
             if (!cond_node_l[0]->get_exit_edges().empty())
             {
-                cond_node_l[0]->get_exit_edges()[0]->set_data(_EDGE_TYPE, TRUE_EDGE);
+                ObjectList<Edge*> exit_edges = cond_node_l[0]->get_exit_edges();
+                bool all_tasks_then = true;
+                for (ObjectList<Edge*>::iterator it = exit_edges.begin(); it != exit_edges.end(); ++it)
+                {   // More than one exit edge means that some tasks are created within 'then' statement
+                    (*it)->set_data(_EDGE_TYPE, TRUE_EDGE);
+                    if (!(*it)->is_task_edge())
+                        all_tasks_then = false;
+                }
             
                 _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, exit_node);
             
                 // Compose the else node, if it exists
+                ObjectList<Node*> last_nodes_after_then = _actual_cfg->_last_nodes;
                 _actual_cfg->_last_nodes.clear();
                 _actual_cfg->_last_nodes.append(cond_node_l[0]);
                 ObjectList<Node*> else_node_l = walk(n.get_else());
                 
-                exit_node->set_id(++_actual_cfg->_nid);
-                exit_node->set_outer_node(_actual_cfg->_outer_node.top());     
-                if (!else_node_l.empty())
-                {   // There exists an else statement
-                    _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, exit_node);
+                // Link the If condition with the FALSE statement (else or empty node)
+                int false_edge_it = exit_edges.size();
+                exit_edges = cond_node_l[0]->get_exit_edges();
+                bool all_tasks_else = true;
+                for (; false_edge_it < cond_node_l[0]->get_exit_edges().size(); ++false_edge_it)
+                {
+                    exit_edges[false_edge_it]->set_data(_EDGE_TYPE, FALSE_EDGE);
+                    if (!exit_edges[false_edge_it]->is_task_edge())
+                        all_tasks_else = false;
                 }
-                else
+                
+                exit_node->set_id(++_actual_cfg->_nid);
+                exit_node->set_outer_node(_actual_cfg->_outer_node.top());
+                
+                if (all_tasks_then && all_tasks_else)
                 {
                     _actual_cfg->connect_nodes(cond_node_l[0], exit_node);
                 }
-
-                // Link the If condition with the FALSE statement (else or empty node)
-                cond_node_l[0]->get_exit_edges()[1]->set_data(_EDGE_TYPE, FALSE_EDGE);
+                else
+                {
+                    if (all_tasks_then)
+                        _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, exit_node);
+                    else
+                        _actual_cfg->connect_nodes(last_nodes_after_then, exit_node);
+                }
             }
             else
             {
