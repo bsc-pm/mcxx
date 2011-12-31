@@ -48,7 +48,7 @@ namespace TL
         {
             _usage = usage;
         }
-
+        
         
         // *** Common functions *** //
         

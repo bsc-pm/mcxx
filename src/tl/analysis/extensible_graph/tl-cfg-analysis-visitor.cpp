@@ -571,7 +571,6 @@ namespace Analysis
 
     void CfgIPAVisitor::fill_graph_usage_info()
     {
-        ObjectList<struct var_usage_t*> cfg_global_vars = _cfg->get_global_variables();
         ObjectList<struct var_usage_t*> cfg_ref_params;
         for(ObjectList<struct var_usage_t*>::iterator it = _usage.begin(); it != _usage.end(); ++it)
         {
@@ -582,7 +581,7 @@ namespace Analysis
                 if (usage_list_contains_sym(s, _global_vars))
                 {
                     struct var_usage_t* ipa_var = get_var_in_list(s, _usage);
-                    struct var_usage_t* global_var = get_var_in_list(s, cfg_global_vars);
+                    struct var_usage_t* global_var = get_var_in_list(s, _global_vars);
                     global_var->set_usage(ipa_var->get_usage());
                 }
                 else if (_ref_params.contains(s.get_symbol()))
@@ -592,8 +591,10 @@ namespace Analysis
                 }
                 else
                 {
-                    internal_error("Computed IPA for the variable '%s' which is not in the global variables list "\
-                                   "nor in the reference parameters list", var.prettyprint().c_str());
+                    // It can be a global var used in a called function within the current graph
+                    
+                    internal_error("Computed IPA in graph '%s' for the variable '%s' which is not in the global variables list "\
+                                   "nor in the reference parameters list", _cfg->get_name().c_str(), var.prettyprint().c_str());
                 }
             }
             else
@@ -624,7 +625,7 @@ namespace Analysis
             }
         }
         
-        internal_error("No symbol '%s' founded in global variable list", n.get_symbol().get_name().c_str());
+        internal_error("No symbol '%s' founded in usage list", n.get_symbol().get_name().c_str());
     }
     
     struct var_usage_t* CfgIPAVisitor::get_var_in_list(Symbol n, ObjectList<struct var_usage_t*> list)
@@ -637,7 +638,7 @@ namespace Analysis
             }
         }
         
-        internal_error("No symbol '%s' founded in global variable list", n.get_name().c_str());
+        internal_error("No symbol '%s' founded in usage list", n.get_name().c_str());
     }
     
     ObjectList<struct var_usage_t*> CfgIPAVisitor::get_usage() const
@@ -826,9 +827,9 @@ namespace Analysis
                 }
             }
             else
-            {
-                internal_error ("Nested IPA with arguments which are not symbols is not yet implemented", 0);
-            }
+            {}  // We don't care. If the argument is not a symbol, it cannot be a parameter by reference.
+                // If argument expression contains a global variable, we take care of the usage in the called function analysis
+                // Any other case does not matter for the analysis we are performing here
         }
         
         return nested_params_to_args;
@@ -849,7 +850,15 @@ namespace Analysis
                 if (!_visited_functions.contains(s))
                 {
                     _visited_functions.append(s);
-                    
+                    ObjectList<struct var_usage_t*> nested_global_vars = called_func_graph->get_global_variables();
+                    for (ObjectList<struct var_usage_t*>::iterator it = nested_global_vars.begin(); it != nested_global_vars.end(); ++it)
+                    {
+                        if (!usage_list_contains_sym((*it)->get_nodecl(), _global_vars))
+                        {
+                            _global_vars.insert(*it);
+                        }
+                    }
+                        
                     ObjectList<var_usage_t*> glob_vars = called_func_graph->get_global_variables();
                     ObjectList<Symbol> params = called_func_graph->get_function_parameters();
                     ObjectList<Symbol> reference_params;

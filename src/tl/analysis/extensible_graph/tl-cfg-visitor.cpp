@@ -66,7 +66,7 @@ namespace TL
                 _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, graph_exit);
                 _actual_cfg->connect_nodes(_return_nodes, graph_exit);
                 
-                _actual_cfg->dress_up_graph();
+//                 _actual_cfg->dress_up_graph();
         
                 _cfgs.append(_actual_cfg);
             }
@@ -119,7 +119,7 @@ namespace TL
             _actual_cfg->connect_nodes(_return_nodes, graph_exit);
             _return_nodes.clear();
             
-            _actual_cfg->dress_up_graph();
+//             _actual_cfg->dress_up_graph();
         
             _cfgs.append(_actual_cfg);
             _actual_cfg = NULL;
@@ -255,7 +255,8 @@ namespace TL
             if (!s_sc.scope_is_enclosed_by(_actual_cfg->_sc))
             {
                 struct var_usage_t* glob_var_usage = new var_usage_t(n, /*UNDEFINED USAGE*/ '3');
-                _actual_cfg->_global_vars.append(glob_var_usage);
+                if (!usage_list_contains_sym(glob_var_usage->get_nodecl(), _actual_cfg->_global_vars))
+                    _actual_cfg->_global_vars.insert(glob_var_usage);
             }
             
             // Create the node
@@ -613,7 +614,7 @@ namespace TL
             ObjectList<Node*> return_last_nodes = _actual_cfg->_last_nodes;
             ObjectList<Node*> returned_value = walk(n.get_value());
             Node* return_node = merge_nodes(n, returned_value);
-            _actual_cfg->connect_nodes(_actual_cfg->_last_nodes[0], return_node);
+            _actual_cfg->connect_nodes(/*_actual_cfg->_last_nodes[0]*/return_last_nodes, return_node);
             _actual_cfg->_last_nodes.clear();
             _return_nodes.append(return_node);
             return ObjectList<Node*>();
@@ -694,7 +695,7 @@ namespace TL
                     
                     _actual_cfg->connect_nodes(graph_entry, graph_exit);
                     
-                    _actual_cfg->dress_up_graph();
+//                     _actual_cfg->dress_up_graph();
             
                     _cfgs.append(_actual_cfg);
                     
@@ -1185,8 +1186,6 @@ namespace TL
                         all_tasks_then = false;
                 }
             
-                _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, exit_node);
-            
                 // Compose the else node, if it exists
                 ObjectList<Node*> last_nodes_after_then = _actual_cfg->_last_nodes;
                 _actual_cfg->_last_nodes.clear();
@@ -1194,9 +1193,9 @@ namespace TL
                 ObjectList<Node*> else_node_l = walk(n.get_else());
                 
                 // Link the If condition with the FALSE statement (else or empty node)
+                bool all_tasks_else = true;
                 int false_edge_it = exit_edges.size();
                 exit_edges = cond_node_l[0]->get_exit_edges();
-                bool all_tasks_else = true;
                 for (; false_edge_it < cond_node_l[0]->get_exit_edges().size(); ++false_edge_it)
                 {
                     exit_edges[false_edge_it]->set_data(_EDGE_TYPE, FALSE_EDGE);
@@ -1207,16 +1206,21 @@ namespace TL
                 exit_node->set_id(++_actual_cfg->_nid);
                 exit_node->set_outer_node(_actual_cfg->_outer_node.top());
                 
-                if (all_tasks_then && all_tasks_else)
+                if ((all_tasks_then && all_tasks_else) || (then_node_l.empty() && else_node_l.empty()))
                 {
                     _actual_cfg->connect_nodes(cond_node_l[0], exit_node);
                 }
                 else
                 {
-                    if (all_tasks_then)
-                        _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, exit_node);
-                    else
-                        _actual_cfg->connect_nodes(last_nodes_after_then, exit_node);
+                    if (then_node_l.empty())
+                        _actual_cfg->connect_nodes(cond_node_l[0], exit_node, TRUE_EDGE);
+                    else if (else_node_l.empty())
+                        _actual_cfg->connect_nodes(cond_node_l[0], exit_node, FALSE_EDGE);
+                    
+                    if (all_tasks_else || else_node_l.empty())
+                        _actual_cfg->_last_nodes = last_nodes_after_then;
+                    
+                    _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, exit_node);
                 }
             }
             else

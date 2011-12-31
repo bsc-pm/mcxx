@@ -305,7 +305,7 @@ namespace TL
             {
                 if (!parent->has_child(child))
                 {
-    //                 std::cerr << "Connecting " << parent->get_id() << " with " << child->get_id() << std::endl;
+//                     std::cerr << "Connecting " << parent->get_id() << " with " << child->get_id() << std::endl;
                     Edge* new_edge = new Edge(parent, child, is_back_edge, is_task_edge, etype, label);
                     parent->set_exit_edge(new_edge);
                     child->set_entry_edge(new_edge);

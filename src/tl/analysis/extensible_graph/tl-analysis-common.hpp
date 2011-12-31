@@ -24,6 +24,7 @@ Cambridge, MA 02139, USA.
 #ifndef TL_ANALYSIS_COMMON_HPP
 #define TL_ANALYSIS_COMMON_HPP
 
+#include "tl-functor.hpp"
 #include "tl-node.hpp"
 #include "tl-extensible-graph.hpp"
 #include "tl-nodecl.hpp"

@@ -668,7 +668,7 @@ _induction_vars.equal_range(loop_node->get_id());
         {
             if (!node->is_visited())
             {
-                std::cerr << "compute_ranges_for_variables_in_loop  -->  " << node->get_id() << std::endl;
+//                 std::cerr << "compute_ranges_for_variables_in_loop  -->  " << node->get_id() << std::endl;
                 node->set_visited(true);
                 
                 Node_type ntype = node->get_data<Node_type>(_NODE_TYPE);
@@ -703,7 +703,7 @@ _induction_vars.equal_range(loop_node->get_id());
         {
             if (!node->is_visited())
             {
-                std::cerr << "compute_ranges_for_variables  -->  " << node->get_id() << std::endl;
+//                 std::cerr << "compute_ranges_for_variables  -->  " << node->get_id() << std::endl;
                 node->set_visited(true);
                 
                 Node_type ntype = node->get_data<Node_type>(_NODE_TYPE);

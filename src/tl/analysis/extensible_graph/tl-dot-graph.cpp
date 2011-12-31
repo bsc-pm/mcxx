@@ -137,7 +137,7 @@ namespace TL
                     dot_graph += indent + "subgraph cluster" + ssgid.str() + "{\n";
                     
                     makeup_dot_block(subgraph_label);
-                    dot_graph += indent + "\tlabel=\"" + subgraph_label + "\";\n";
+                    dot_graph += indent + "\tlabel=\"" + ssnode.str() + subgraph_label + "\";\n";
                     subgraph_id++;
                     
                     std::vector<std::string> new_outer_edges;
@@ -276,15 +276,15 @@ namespace TL
             switch(actual_node->get_type())
             {
                 case BASIC_ENTRY_NODE:
-                    dot_graph += indent + ss.str() + "[label=\"ENTRY \\n" 
+                    dot_graph += indent + ss.str() + "[label=\"" + ss.str() + " ENTRY \\n" 
 //                             + "REACH DEFS: " + prettyprint_reaching_definitions(actual_node->get_reaching_definitions())
                             + "\", shape=box, fillcolor=lightgray, style=filled];\n";
                     break;
                 case BASIC_EXIT_NODE:
-                    dot_graph += indent + ss.str() + "[label=\"EXIT\", shape=box, fillcolor=lightgray, style=filled];\n";
+                    dot_graph += indent + ss.str() + "[label=\"" + ss.str() + " EXIT\", shape=box, fillcolor=lightgray, style=filled];\n";
                     break;
                 case UNCLASSIFIED_NODE:
-                    dot_graph += indent + ss.str() + "[label=\"UNCLASSIFIED_NODE\"]\n";
+                    dot_graph += indent + ss.str() + "[label=\"" + ss.str() + " UNCLASSIFIED_NODE\"]\n";
                     break;
                 case BARRIER_NODE:
                     dot_graph += indent + ss.str() + "[label=\"BARRIER\", shape=diamond]\n";
@@ -337,7 +337,7 @@ namespace TL
                                     " | REACH DEFS: "   + reach_defs;
                         
                         
-                    dot_graph += indent + ss.str() + "[label=\"{" + basic_block + live_info + "}\", shape=record];\n";
+                    dot_graph += indent + ss.str() + "[label=\"{" + ss.str() + basic_block + live_info + "}\", shape=record];\n";
         
                     break;
                 }
