@@ -66,6 +66,9 @@ namespace TL
                 }
             }
             
+            // FIXME We should do here loops analysis and know the ranges of the induction variables
+            // At that point, use-def analysis may be incorrect because we don't know if two array accesses go to the same position
+            
             // *** Use-def chains + IPA *** //
             if (CURRENT_CONFIGURATION->debug_options.analysis_verbose ||
                 CURRENT_CONFIGURATION->debug_options.enable_debug_code)
@@ -98,21 +101,21 @@ namespace TL
             }
         
             // *** Live Variable Analysis *** //
-            if (CURRENT_CONFIGURATION->debug_options.analysis_verbose ||
-                CURRENT_CONFIGURATION->debug_options.enable_debug_code)
-                std::cerr << std::endl << "=== LIVE VARIABLES AND TASKS ANALYSIS  ===" << std::endl;
-            for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
-            {
-                if (CURRENT_CONFIGURATION->debug_options.analysis_verbose ||
-                    CURRENT_CONFIGURATION->debug_options.enable_debug_code)
-                    std::cerr << std::endl << " ==> Graph '" << (*it)->get_name() << "'" << std::endl;
-                    
-                // Non-task nodes
-                StaticAnalysis::live_variable_analysis((*it)->get_graph());
-                
-                // Task nodes
-                StaticAnalysis::analyse_tasks((*it)->get_tasks_list());
-            }
+//             if (CURRENT_CONFIGURATION->debug_options.analysis_verbose ||
+//                 CURRENT_CONFIGURATION->debug_options.enable_debug_code)
+//                 std::cerr << std::endl << "=== LIVE VARIABLES AND TASKS ANALYSIS  ===" << std::endl;
+//             for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
+//             {
+//                 if (CURRENT_CONFIGURATION->debug_options.analysis_verbose ||
+//                     CURRENT_CONFIGURATION->debug_options.enable_debug_code)
+//                     std::cerr << std::endl << " ==> Graph '" << (*it)->get_name() << "'" << std::endl;
+//                     
+//                 // Non-task nodes
+//                 StaticAnalysis::live_variable_analysis((*it)->get_graph());
+//                 
+//                 // Task nodes
+//                 StaticAnalysis::analyse_tasks((*it)->get_tasks_list());
+//             }
             
             // Print graphs into dot files
             if (CURRENT_CONFIGURATION->debug_options.print_cfg_graphviz)

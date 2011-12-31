@@ -44,6 +44,8 @@ namespace Nodecl
         Ret visit(const Nodecl::ArraySubscript& n);
         Ret visit(const Nodecl::ClassMemberAccess& n);
         Ret visit(const Nodecl::Cast& n);
+        Ret visit(const Nodecl::FunctionCall& n);
+        Ret visit(const Nodecl::VirtualFunctionCall& n);
         
     public:
         // *** Constructors *** //

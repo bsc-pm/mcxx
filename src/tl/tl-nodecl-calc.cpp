@@ -409,4 +409,14 @@ namespace Nodecl
     {
         return walk(n.get_rhs());
     }
+    
+    Calculator::Ret Calculator::visit(const Nodecl::FunctionCall& n)
+    {
+        return TL::ObjectList<const_value_t*>();
+    }
+    
+    Calculator::Ret Calculator::visit(const Nodecl::VirtualFunctionCall& n)
+    {
+        return TL::ObjectList<const_value_t*>();
+    }
 }

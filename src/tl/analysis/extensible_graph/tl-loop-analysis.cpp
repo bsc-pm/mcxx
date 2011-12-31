@@ -435,51 +435,48 @@ namespace TL
         
         void LoopAnalysis::prettyprint_induction_var_info(InductionVarInfo* var_info)
         {
-            std::cerr << "    Symbol: " << var_info->get_symbol().get_name()
-                    << "    LB = '" << var_info->get_lb().prettyprint() << "'"
-                    << "    UB = '" << var_info->get_ub().prettyprint() << "'"
-                    << "    STEP = '" << var_info->get_stride().prettyprint() << "'" << std::endl;
-        }    
-        
-        void LoopAnalysis::print_induction_vars_in_loop_info(Node* loop_node)
-        {
-            Nodecl::NodeclBase loop_control = loop_node->get_graph_label();
-            std::cerr << " **** NODE '" << loop_node->get_id() << "', LOOP '" << loop_control.prettyprint() << "' ****" << std::endl;
-            std::pair<induc_vars_map::iterator, induc_vars_map::iterator> actual_ind_vars = _induction_vars.equal_range(loop_node->get_id());
-            for(induc_vars_map::iterator it = actual_ind_vars.first; it != actual_ind_vars.second; ++it)
-            {
-                prettyprint_induction_var_info(it->second);
-            }
-            std::cerr << " **** ************************************************** ****" << std::endl;
+            std::cerr << "sym '" << var_info->get_symbol().get_name() << "'"
+                    << ", LB = '" << var_info->get_lb().prettyprint() << "'"
+                    << ", UB = '" << var_info->get_ub().prettyprint() << "'"
+                    << ", STEP = '" << var_info->get_stride().prettyprint() << "'" << std::endl;
         }
         
         void LoopAnalysis::print_induction_vars_info()
         {
-            for(induc_vars_map::iterator it = _induction_vars.begin(); it != _induction_vars.end(); ++it)
-            {
-                std::cerr << " LOOP NODE '" << it->first << std::endl;
-                prettyprint_induction_var_info(it->second);
-            }
+            if (CURRENT_CONFIGURATION->debug_options.analysis_verbose ||
+                CURRENT_CONFIGURATION->debug_options.enable_debug_code)
+                for(induc_vars_map::iterator it = _induction_vars.begin(); it != _induction_vars.end(); ++it)
+                {
+                    std::cerr << " Loop '" << it->first << "': ";
+                    prettyprint_induction_var_info(it->second);
+                }
         }
         
         void LoopAnalysis::compute_loop_induction_vars(Node* loop_node)
         {
+            std::cerr << "Loop node  (" << loop_node->get_id() << ")" << loop_node->get_graph_label().prettyprint() << std::endl;
             // Propagate induction variables of the outer loop to the actual loop
             Node* outer_node = loop_node->get_outer_node();
+            induc_vars_map new_induction_vars;
             while (outer_node != NULL)
             {
                 if (outer_node->get_graph_type() == LOOP)
                 {
                     std::pair<induc_vars_map::const_iterator, induc_vars_map::const_iterator> outer_ind_vars =
                             _induction_vars.equal_range(outer_node->get_id());
-                
-                    for (induc_vars_map::const_iterator it = outer_ind_vars.first; it != outer_ind_vars.second; ++it)
+                           
+                    for (induc_vars_map::const_iterator it = outer_ind_vars.first; 
+                         it != outer_ind_vars.second/* && it != _induction_vars.end()*/; ++it)
                     {
-                        _induction_vars.insert(induc_vars_map::value_type(loop_node->get_id(), it->second));
+                        new_induction_vars.insert(induc_vars_map::value_type(loop_node->get_id(), it->second));
                     }
                     break;  // If there are more outer loops analysed, their info has been already propagated to the nearest outer node
                 }
                 outer_node = outer_node->get_outer_node();
+            }
+            for (induc_vars_map::const_iterator it = new_induction_vars.begin(); it != new_induction_vars.end(); ++it)
+            {
+                _induction_vars.insert(induc_vars_map::value_type(it->first, it->second));
             }
             
             // Compute actual loop control info
@@ -576,7 +573,7 @@ _induction_vars.equal_range(loop_node->get_id());
             {
                 if (renamed.size() == 1)
                 {
-                    std::cerr << "Renaming performed: " << nodecl.prettyprint() << " --> " << renamed[0].prettyprint() << std::endl;
+//                     std::cerr << "Renaming performed: " << nodecl.prettyprint() << " --> " << renamed[0].prettyprint() << std::endl;
                     if (use_type == '0')
                     { 
                         node->unset_ue_var(ExtensibleSymbol(nodecl));
