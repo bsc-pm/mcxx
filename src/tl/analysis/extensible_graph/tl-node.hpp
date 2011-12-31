@@ -396,7 +396,7 @@ namespace TL
                 //! Adds a new set of killed variables to the node
                 void set_killed_var(ext_sym_set new_killed_vars);
                 
-                //! Deletes an old killed variable form the node
+                //! Deletes an old killed variable from the node
                 void unset_killed_var(ExtensibleSymbol old_killed_var);            
                 
                 //! Returns the list of undefined behaviour variables of the node
@@ -407,6 +407,9 @@ namespace TL
 
                 //! Adds a set of undefined behaviour variables to the node
                 void set_undefined_behaviour_var(ext_sym_set new_undef_vars);
+
+                //! Deletes an old undefined behaviour variable from the node
+                void unset_undefined_behaviour_var(ExtensibleSymbol old_undef_var);
                 
                 //! Returns the list of input dependences of a task node
                 ext_sym_set get_input_deps();

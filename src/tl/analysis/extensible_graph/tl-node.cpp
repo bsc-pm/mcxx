@@ -1339,6 +1339,19 @@ namespace TL
             set_data(_UNDEF, undef_vars);
         }
 
+        void Node::unset_undefined_behaviour_var(ExtensibleSymbol old_undef_var)
+        {
+            ext_sym_set undef_vars;
+            
+            if (has_key(_UNDEF))
+            {
+                undef_vars = get_data<ext_sym_set>(_UNDEF);
+                undef_vars = undef_vars.not_find(old_undef_var);
+            }
+            
+            set_data(_UNDEF, undef_vars);   
+        }
+
         void Node::set_undefined_behaviour_var(ext_sym_set new_undef_vars)
         {
             ext_sym_set undef_vars;

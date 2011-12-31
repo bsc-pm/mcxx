@@ -293,9 +293,7 @@ namespace TL
                 internal_error("Analysis of loops with EQUAL condition expression not yet implemented", 0);
             }
             else
-            {
-                internal_error("Node kind '%s' while analysing the induction variables in loop cond expression not yet implemented",
-                    ast_print_node_type(cond.get_kind()));
+            {   // TODO Complex expression in the condition node may contain an UB or LB of the induction variable
             }
         }
         
@@ -454,7 +452,6 @@ namespace TL
         
         void LoopAnalysis::compute_loop_induction_vars(Node* loop_node)
         {
-            std::cerr << "Loop node  (" << loop_node->get_id() << ")" << loop_node->get_graph_label().prettyprint() << std::endl;
             // Propagate induction variables of the outer loop to the actual loop
             Node* outer_node = loop_node->get_outer_node();
             induc_vars_map new_induction_vars;
@@ -563,8 +560,6 @@ _induction_vars.equal_range(loop_node->get_id());
                                                         std::map<Symbol, Nodecl::NodeclBase> ind_var_map,
                                                         Nodecl::NodeclBase reach_def_var)
         {
-//             std::cerr << "Setting access range in '" << node->get_id() << " (loop " << loop_node->get_id()
-//                     << ") ' for : " << nodecl.prettyprint() << std::endl;
             Nodecl::NodeclBase renamed_nodecl;
             CfgRenamingVisitor renaming_v(ind_var_map, nodecl.get_filename().c_str(), nodecl.get_line());
             ObjectList<Nodecl::NodeclBase> renamed = renaming_v.walk(nodecl);
@@ -618,7 +613,13 @@ _induction_vars.equal_range(loop_node->get_id());
                                 renamed_nodecl = nodecl;
                             }
                         }
-                    }                
+                    }
+                    else if (use_type == '4')
+                    {
+                        node->unset_undefined_behaviour_var(ExtensibleSymbol(nodecl));
+                        node->set_undefined_behaviour_var(ExtensibleSymbol(renamed[0]));
+                        renamed_nodecl = renamed[0];
+                    }
                     else
                     {
                         internal_error("Unexpected type of variable use '%s' in node '%d'", use_type, node->get_id());
@@ -665,7 +666,6 @@ _induction_vars.equal_range(loop_node->get_id());
         {
             if (!node->is_visited())
             {
-//                 std::cerr << "compute_ranges_for_variables_in_loop  -->  " << node->get_id() << std::endl;
                 node->set_visited(true);
                 
                 Node_type ntype = node->get_data<Node_type>(_NODE_TYPE);
@@ -680,6 +680,7 @@ _induction_vars.equal_range(loop_node->get_id());
                     {   // Check for arrays in that are used in some way within the BB statements
                         set_access_range_in_ext_sym_set(node, loop_node, node->get_ue_vars(), /* use type */ '0');
                         set_access_range_in_ext_sym_set(node, loop_node, node->get_killed_vars(), /* use type */ '1');
+                        set_access_range_in_ext_sym_set(node, loop_node, node->get_undefined_behaviour_vars(), /* use type */ '4');
                         set_access_range_in_nodecl_map(node, loop_node, node->get_reaching_definitions());
                     }
                     
@@ -700,7 +701,6 @@ _induction_vars.equal_range(loop_node->get_id());
         {
             if (!node->is_visited())
             {
-//                 std::cerr << "compute_ranges_for_variables  -->  " << node->get_id() << std::endl;
                 node->set_visited(true);
                 
                 Node_type ntype = node->get_data<Node_type>(_NODE_TYPE);

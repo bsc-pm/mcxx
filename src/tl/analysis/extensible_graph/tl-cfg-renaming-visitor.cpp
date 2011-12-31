@@ -419,9 +419,9 @@ namespace TL
             
             // Compute constant values for LB and UB if possible
             Nodecl::NodeclBase reduced_lb = Nodecl::Utils::reduce_expression(lb);
-            std::cerr << "Reducing LB: " << lb.prettyprint() << "  --> " << reduced_lb.prettyprint() << std::endl;
+//             std::cerr << "Reducing LB: " << lb.prettyprint() << "  --> " << reduced_lb.prettyprint() << std::endl;
             Nodecl::NodeclBase reduced_ub = Nodecl::Utils::reduce_expression(ub);
-            std::cerr << "Reducing UB: " << ub.prettyprint() << "  --> " << reduced_ub.prettyprint() << std::endl;
+//             std::cerr << "Reducing UB: " << ub.prettyprint() << "  --> " << reduced_ub.prettyprint() << std::endl;
             
             renamed = Nodecl::Range::make(reduced_lb, reduced_ub, stride, n.get_type(), _filename, _line);
             
@@ -431,9 +431,7 @@ namespace TL
         CfgRenamingVisitor::Ret CfgRenamingVisitor::unhandled_node(const Nodecl::NodeclBase& n)
         {
             Nodecl::NodeclBase unhandled_n = n;
-            std::cerr << "Unhandled node while Renaming '" << unhandled_n.prettyprint()
-                    << "' of type '" << ast_print_node_type(n.get_kind()) << "'" << std::endl;
-            return Ret();
+            internal_error("Unhandled node while Renaming '%s' of type '%s'", unhandled_n.prettyprint().c_str(), ast_print_node_type(n.get_kind()));
         }    
         
         CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::Symbol& n)

@@ -95,8 +95,8 @@ namespace TL
             * substitutes its scalar access by the corresponding ranged access computed from the loop boundaries
             * \param node Node of the graph we are analysing right now
             * \param nodecl_l list containing the potential nodecls where we want to substitute an scalar by a range
-            * \param use_type kind of the list we are analysing; it can be a UpperExposed list, a Killed list or a 
-            *                 ReachingDefintions list
+            * \param use_type kind of the list we are analysing; it can be a UpperExposed list, a Killed list, a Undefined_behaviour list 
+            *                 or a ReachingDefintions list
             */
             void set_access_range_in_ext_sym_set(Node* node, Node* loop_node, ext_sym_set nodecl_l, const char use_type);
             /*!
