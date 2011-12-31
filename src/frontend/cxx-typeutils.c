@@ -2469,7 +2469,14 @@ static type_t* _get_array_type(type_t* element_type,
                 && nodecl_is_null(upper_bound))
         {
             undefined_array_type = rb_tree_query_type(_undefined_array_types[!!with_descriptor], element_type);
-        }
+            
+             if (undefined_array_type != NULL &&
+                     (!nodecl_is_null(undefined_array_type->array->lower_bound) || 
+                      !nodecl_is_null(undefined_array_type->array->upper_bound)))
+             {
+                 undefined_array_type = NULL;
+             }
+        }         
         if (undefined_array_type == NULL)
         {
             _array_type_counter++;
