@@ -154,7 +154,7 @@ namespace TL
             ExtensibleGraph* _cfg;
             ObjectList<ExtensibleGraph*> _cfgs;
             ObjectList<struct var_usage_t*> _global_vars;           // Global variables appearing in the code we are analysing
-            ObjectList<Symbol> _ref_params;                         // Reference parameters, if exist, of the code we are analysing
+            ObjectList<Symbol> _params;                             // Parameters of the function we are analysing
             ObjectList<struct var_usage_t*> _usage;                 // Variable where the usage computation is stored
             char _defining;                                         // Temporary value used during the visit
             std::map<Symbol, Nodecl::NodeclBase> _params_to_args;    // Mapping between the parameters of a function and 
@@ -184,7 +184,7 @@ namespace TL
             
             /*!
              * Once IPA is performed over a graph, the information computed in #_usage is propagated to the proper attributes of the graph
-             * This is necessary in the case of recursive calls with reference parameters between them.
+             * This is necessary in the case of recursive calls with parameters between them.
              */
             void fill_graph_usage_info();
             
@@ -199,7 +199,7 @@ namespace TL
             
             // *** Constructors *** //
             CfgIPAVisitor(ExtensibleGraph* cfg, ObjectList<ExtensibleGraph*> cfgs, 
-                          ObjectList<var_usage_t*> glob_vars, ObjectList<Symbol> reference_params,
+                          ObjectList<var_usage_t*> glob_vars, ObjectList<Symbol> parameters,
                           std::map<Symbol, Nodecl::NodeclBase> params_to_args);
             
             // *** Modifiers *** //
@@ -232,6 +232,23 @@ namespace TL
             
             friend class CfgVisitor;
         };       
+        
+        class LIBTL_CLASS SymbolVisitor : public Nodecl::ExhaustiveVisitor<void>
+        {
+            // FIXME Incomplete: think about pointers, references and function calls
+            //       We store a list of symbols because it is used to compute the usage and at that moment
+            //       only valid nodecl symbols can be stored in the usage list
+            //       We should change that!
+        private:
+            ObjectList<Nodecl::Symbol> _symbols;
+            
+        public:
+            SymbolVisitor();
+            
+            Ret visit(const Nodecl::Symbol& n);
+            
+            ObjectList<Nodecl::Symbol> get_symbols();
+        };
     }
 }
     
