@@ -32,7 +32,7 @@
 #include "tl-ast.hpp"
 #include "tl-source.hpp"
 #include "tl-lexer.hpp"
-
+#include "filename.h"
 #include <sstream>
 
 namespace TL
@@ -186,29 +186,18 @@ namespace TL
             // and prepend these declarations
             translation_unit.prepend_to_translation_unit(versioning_symbols_tree);
             
-
             // We need to obtain the name of the file without the path
-            std::string filename = translation_unit.get_file();
-            const char* filename_aux = filename.c_str();
-
-            const char* ptr_end_name = strrchr(filename_aux, '.');
-            const char* ptr_begin_name = strrchr(filename_aux, '/');
-
-            if (ptr_begin_name == NULL) 
-            {
-                ptr_begin_name = filename_aux;
-            }
+            const char* filename = give_basename(translation_unit.get_file().c_str());
+            const char* ptr_extension = strrchr(filename, '.');
 
             // If The filename have not extension then error 
-            if (ptr_end_name == NULL)
+            if (ptr_extension == NULL)
             {
                 internal_error("code unreachable.", 0);
             }
-
-            int end_pos = (int) (ptr_end_name - ptr_begin_name) - 1;
-            int init_pos = (int) ((ptr_begin_name - filename_aux) + 1);
-            std::string name = filename.substr(init_pos, end_pos);
-
+            
+            std::string name (filename, (ptr_extension - filename));
+            
             if (!_map_events.empty())
             {
                 Source declare_events, register_events;
