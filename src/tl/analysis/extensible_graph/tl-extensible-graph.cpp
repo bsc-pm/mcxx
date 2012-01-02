@@ -480,7 +480,7 @@ namespace TL
             return result;
         }
         
-        void ExtensibleGraph::create_barrier_node(Node* outer_node)
+        Node* ExtensibleGraph::create_barrier_node(Node* outer_node)
         {
             Node* flush_node = new Node(_nid, FLUSH_NODE, outer_node);
             connect_nodes(_last_nodes, flush_node);
@@ -489,6 +489,7 @@ namespace TL
             flush_node = new Node(_nid, FLUSH_NODE, outer_node);
             connect_nodes(barrier_node, flush_node);
             _last_nodes.clear(); _last_nodes.append(flush_node);
+            return barrier_node;
         }
         
         Node* ExtensibleGraph::create_unconnected_node(Nodecl::NodeclBase nodecl)

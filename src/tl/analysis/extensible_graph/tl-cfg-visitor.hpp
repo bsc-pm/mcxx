@@ -173,6 +173,9 @@ namespace TL
             
             std::stack<Node*> _switch_cond_s;
             
+            ObjectList<ObjectList<Node*> > _task_s;
+            int _task_level;
+            
             
             //! This method creates a list with the nodes in an specific subgraph
             /*!

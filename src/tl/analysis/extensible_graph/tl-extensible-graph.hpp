@@ -313,8 +313,9 @@ namespace TL
                 * The method modifies the attribute #_last_nodes to the last Flush node created.
                 * \param outer_node Node to which the new nodes will belong to.
                 *                   It must be a Graph node.
+                * \return The BARRIER node
                 */
-                void create_barrier_node(Node* outer_node);
+                Node* create_barrier_node(Node* outer_node);
                 
                 //! Builds a basic normal node (BASIC_NORMAL_NODE)
                 /*!

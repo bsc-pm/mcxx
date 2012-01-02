@@ -30,12 +30,12 @@ namespace TL
 {
     namespace Analysis
     {
-        static bool pragma_is_worksharing(std::string pragma);
+        static bool pragma_is_worksharing_or_parallel(std::string pragma);
         
         CfgVisitor::CfgVisitor()
             : _cfgs(), _actual_cfg(NULL),
             _context_s(), _return_nodes(), _loop_info_s(), _actual_try_info(), 
-            _pragma_info_s(), _omp_sections_info(), _switch_cond_s()
+            _pragma_info_s(), _omp_sections_info(), _switch_cond_s(), _task_s(), _task_level(0)
         {}
         
         ObjectList<ExtensibleGraph*> CfgVisitor::get_cfgs() const
@@ -66,7 +66,7 @@ namespace TL
                 _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, graph_exit);
                 _actual_cfg->connect_nodes(_return_nodes, graph_exit);
                 
-//                 _actual_cfg->dress_up_graph();
+                _actual_cfg->dress_up_graph();
         
                 _cfgs.append(_actual_cfg);
             }
@@ -119,7 +119,7 @@ namespace TL
             _actual_cfg->connect_nodes(_return_nodes, graph_exit);
             _return_nodes.clear();
             
-//             _actual_cfg->dress_up_graph();
+            _actual_cfg->dress_up_graph();
         
             _cfgs.append(_actual_cfg);
             _actual_cfg = NULL;
@@ -627,22 +627,31 @@ namespace TL
             std::string pragma_line = n.get_pragma_line().get_text();
             if (pragma_line == "barrier")
             {
-                _actual_cfg->create_barrier_node(_actual_cfg->_outer_node.top());
+                Node* barrier = _actual_cfg->create_barrier_node(_actual_cfg->_outer_node.top());
+                int n_tasks_in_level = _task_s[_task_level].size();
+                _actual_cfg->connect_nodes(_task_s[_task_level], barrier, 
+                                           ObjectList<Edge_type>(n_tasks_in_level, ALWAYS_EDGE), ObjectList<std::string>(n_tasks_in_level, ""),
+                                           /*is task*/ true);
             }
             else if (pragma_line == "taskwait")
             {
                 Node* taskwait_node = new Node(_actual_cfg->_nid, TASKWAIT_NODE, _actual_cfg->_outer_node.top());
                 _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, taskwait_node);
                 _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(taskwait_node);
+                int n_tasks_in_level = _task_s[_task_level].size();
+                _actual_cfg->connect_nodes(_task_s[_task_level], taskwait_node, 
+                                           ObjectList<Edge_type>(n_tasks_in_level, ALWAYS_EDGE), ObjectList<std::string>(n_tasks_in_level, ""),
+                                           /*is task*/ true);
             }
             else
             {    
                 internal_error("Unexpected directive '%s' found while building the CFG.", pragma_line.c_str());
             }
+
             return Ret();
         }
 
-        static bool pragma_is_worksharing(std::string pragma)
+        static bool pragma_is_worksharing_or_parallel(std::string pragma)
         {
             return (pragma == "parallel" || pragma == "for" || pragma == "parallel for"
                     || pragma == "workshare" || pragma == "parallel workshare"
@@ -695,7 +704,7 @@ namespace TL
                     
                     _actual_cfg->connect_nodes(graph_entry, graph_exit);
                     
-//                     _actual_cfg->dress_up_graph();
+                    _actual_cfg->dress_up_graph();
             
                     _cfgs.append(_actual_cfg);
                     
@@ -711,6 +720,15 @@ namespace TL
                 previous_nodes = _actual_cfg->_last_nodes;
                 task_graph_node = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), n.get_pragma_line(), TASK, 
                                                                 _context_s.top());
+                if (_task_level >= _task_s.size())
+                {   // First task in the current level
+                    _task_s.append(ObjectList<Node*>(1, task_graph_node));
+                }
+                else
+                {
+                    _task_s[_task_level].append(task_graph_node);
+                }
+                _task_level++;
                 int n_connects = _actual_cfg->_last_nodes.size();
                 _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, task_graph_node, 
                                         ObjectList<Edge_type>(n_connects, ALWAYS_EDGE), ObjectList<std::string>(n_connects, ""), /*is task*/ true);
@@ -727,7 +745,8 @@ namespace TL
                 _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, graph_exit);
                 _actual_cfg->_outer_node.pop();
                 _actual_cfg->_task_nodes_l.append(task_graph_node);
-                
+               
+                _task_level--;
                 _actual_cfg->_last_nodes = previous_nodes;
             }
 
@@ -745,6 +764,9 @@ namespace TL
             
             if (pragma == "task")
             {
+                Node* flush_node = new Node(_actual_cfg->_nid, FLUSH_NODE, _actual_cfg->_outer_node.top());
+                _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, flush_node);
+                _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(flush_node);
                 return create_task_graph(n);
             }
             else
@@ -767,8 +789,7 @@ namespace TL
                 
                 if (pragma == "parallel" || pragma == "parallel for" 
                     || pragma == "parallel workshare" || pragma == "parallel sections"
-                    || pragma == "critical" || pragma == "atomic" || pragma == "ordered"
-                    || pragma == "task")
+                    || pragma == "critical" || pragma == "atomic" || pragma == "ordered")
                 {
                     // We include here a Flush node before the pragma statements
                     Node* flush_node = new Node(_actual_cfg->_nid, FLUSH_NODE, pragma_graph_node);
@@ -841,19 +862,23 @@ namespace TL
                     _omp_sections_info.pop();
                 }
                 
-                if (pragma_is_worksharing(pragma) && !_pragma_info_s.top().has_clause("nowait"))
+                if (pragma_is_worksharing_or_parallel(pragma) && !_pragma_info_s.top().has_clause("nowait"))
                 {   // We include here a Barrier node after the pragma statement
-                        _actual_cfg->create_barrier_node(pragma_graph_node);
+                    Node* barrier = _actual_cfg->create_barrier_node(pragma_graph_node);
+                    if (_task_level >= 0)
+                    {
+                        int n_tasks_in_level = _task_s[_task_level].size();
+                        _actual_cfg->connect_nodes(_task_s[_task_level], barrier, 
+                                                   ObjectList<Edge_type>(n_tasks_in_level, ALWAYS_EDGE), 
+                                                   ObjectList<std::string>(n_tasks_in_level, ""), /*is task*/ true);
+                    }
                 }
-                else if (pragma == "parallel" || pragma == "for" || pragma == "parallel for"
-                    || pragma == "workshare" || pragma == "parallel workshare"
-                    || pragma == "sections" || pragma == "parallel sections"
-                    || pragma == "critical" || pragma == "atomic" || pragma == "ordered" || pragma == "single")
+                else if (pragma == "critical" || pragma == "ordered")
                 {   // This constructs add a Flush at the end of the construct
                     // FIXME Atomic construct implies a list of variables to be flushed
                     Node* flush_node = new Node(_actual_cfg->_nid, FLUSH_NODE, pragma_graph_node);
                     _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, flush_node);
-                    _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(flush_node);    
+                    _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(flush_node);
                 }       
                 
                 Node* graph_exit = pragma_graph_node->get_graph_exit_node();
