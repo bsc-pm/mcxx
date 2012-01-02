@@ -954,7 +954,12 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
         }
     }
 
-    std::string gcc_attributes = gcc_attributes_to_str(symbol);
+    std::string gcc_attributes = "";
+    
+    if (symbol.has_gcc_attributes())
+    {
+        gcc_attributes = gcc_attributes_to_str(symbol) + " ";
+    }
 
     std::string asm_specification = gcc_asm_specifier_to_str(symbol);
 
@@ -1011,11 +1016,11 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
         // gcc does not like asm specifications appear in the
         // function-definition so emit a declaration before the definition
         indent();
-        file << decl_spec_seq << gcc_attributes << " " << declarator << exception_spec << asm_specification << ";\n";
+        file << decl_spec_seq << gcc_attributes << declarator << exception_spec << asm_specification << ";\n";
     }
 
     indent();
-    file << decl_spec_seq << gcc_attributes << " " << declarator << exception_spec << "\n";
+    file << decl_spec_seq << gcc_attributes << declarator << exception_spec << "\n";
 
     set_codegen_status(symbol, CODEGEN_STATUS_DEFINED);
 
@@ -2968,12 +2973,12 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
 
             if (symbol.has_gcc_attributes())
             {
-                gcc_attributes = gcc_attributes_to_str(symbol);
+                gcc_attributes = gcc_attributes_to_str(symbol) + " ";
             }
 
             move_to_namespace_of_symbol(symbol);
             indent();
-            file << decl_specifiers << gcc_attributes << " " << declarator << bit_field;
+            file << decl_specifiers << gcc_attributes << declarator << bit_field;
 
             // Initializer
             if (emit_initializer)
