@@ -24,7 +24,6 @@
 !   Cambridge, MA 02139, USA.
 ! --------------------------------------------------------------------
 
-
 ! <testinfo>
 ! test_generator=config/mercurium-fortran
 ! compile_versions="cache nocache"
@@ -33,17 +32,11 @@
 ! </testinfo>
 
 
-
-MODULE GLOBALS
-IMPLICIT NONE
-INTEGER :: A,B
-END MODULE GLOBALS
-
-PROGRAM P
-IMPLICIT NONE
-USE GLOBALS, ONLY: A
-USE GLOBALS, ONLY: B
-NAMELIST /list_name/ A
-B = 2
-READ (UNIT = 23, NML = list_name)
-END PROGRAM P
+MODULE M
+CONTAINS 
+    SUBROUTINE G
+    CONTAINS
+        FUNCTION F()
+        END FUNCTION F
+    END SUBROUTINE G
+END MODULE M

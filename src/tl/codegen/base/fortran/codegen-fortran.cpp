@@ -307,7 +307,40 @@ namespace Codegen
 
         // Module procedures are only printed if we are in the current module
         if (state.current_module != TL::Symbol(entry.get_internal_symbol()->entity_specs.in_module))
-            return;
+        {
+
+           // The function can be contained in an other function, and this other function
+           // can be contained in the current_module. In this case, the current function must be printed.
+           //
+           // Example:
+           //
+           //  MODULE M
+           //      CONTAINS
+           //          SUBROUTINE G
+           //              CONTAINS
+           //                  FUNCTION F()
+           //                  END FUNCTION F
+           //           END SUBROUTINE G
+           //  END MODULE M
+
+            char should_be_printed = 0;
+
+            scope_entry_t* sym = entry.get_internal_symbol();
+            while (!should_be_printed &&
+                    sym->related_decl_context.current_scope->contained_in != NULL)
+            {
+                sym = sym->related_decl_context.current_scope->contained_in->related_entry;
+                if (state.current_module == TL::Symbol(sym))
+                {
+                    should_be_printed = 1;
+                }
+            }
+
+
+            if (!should_be_printed) 
+                return;
+        }
+
 
         TL::Symbol old_sym = state.current_symbol;
         state.current_symbol = entry;
