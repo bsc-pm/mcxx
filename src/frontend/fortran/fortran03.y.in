@@ -407,9 +407,7 @@ static void append_statement_to_block(AST block, AST stmt)
 %type<ast> type_spec
 %type<ast> boz_literal_constant
 %type<ast> do_construct
-%type<ast> block_do_construct
 %type<ast> nonblock_do_construct
-%type<ast> do_stmt
 %type<ast> action_term_do_construct
 %type<ast> outer_shared_do_construct
 %type<ast> outer_shared_do_construct_2
@@ -2948,12 +2946,7 @@ end_critical_stmt : labeldef TOK_END TOK_CRITICAL name eos
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
-
-do_construct : block_do_construct
-| nonblock_do_construct
-;
-
-block_do_construct : do_stmt block end_do_stmt
+do_construct : nonlabel_do_stmt block end_do_stmt
 {
     AST do_statement = $1;
     if (ASTType(do_statement) == AST_LABELED_STATEMENT)
@@ -2966,11 +2959,8 @@ block_do_construct : do_stmt block end_do_stmt
 
     $$ = $1;
 }
-
-do_stmt : nonlabel_do_stmt
-| label_do_stmt
+| nonblock_do_construct
 ;
-
 nonblock_do_construct : action_term_do_construct
 | outer_shared_do_construct
 ;
@@ -2993,6 +2983,19 @@ action_term_do_construct : label_do_stmt block do_term_action_stmt
 do_term_action_stmt : TOK_END_NONBLOCK_DO non_top_level_program_unit_stmt
 {
     $$ = $2;
+}
+// exceptionally we must allow an end do statement behave like a do_term_action_stmt
+| TOK_END_NONBLOCK_DO end_do_stmt
+{
+    // But an end do statement is not any action tecnhically, thus nobody would be expecting
+    // a end-statement, just fake a CONTINUE here
+    AST end_do_stmt = $2;
+    ERROR_CONDITION(ASTType(end_do_stmt) != AST_LABELED_STATEMENT, "We expect a labeled statement here", 0);
+
+    $$ = ASTMake2(AST_LABELED_STATEMENT,
+            ASTSon0(end_do_stmt), 
+            ASTLeaf(AST_EMPTY_STATEMENT, ASTFileName(end_do_stmt), ASTLine(end_do_stmt), NULL),
+            ASTFileName(end_do_stmt), ASTLine(end_do_stmt), NULL);
 }
 ;
 outer_shared_do_construct : label_do_stmt block shared_term_do_construct
