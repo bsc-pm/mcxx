@@ -66,6 +66,8 @@ LIBMF03_EXTERN void remove_untyped_symbol(decl_context_t decl_context, scope_ent
 LIBMF03_EXTERN void add_unknown_kind_symbol(decl_context_t decl_context, scope_entry_t* entry);
 LIBMF03_EXTERN void remove_unknown_kind_symbol(decl_context_t decl_context, scope_entry_t* entry);
 
+LIBMF03_EXTERN scope_entry_t* query_common_name(decl_context_t decl_context, const char* common_name);
+
 MCXX_END_DECLS
 
 #endif // FORTRAN03_BUILDSCOPE_H

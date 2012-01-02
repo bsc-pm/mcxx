@@ -59,7 +59,7 @@ void common_build_scope_pragma_custom_line(
 
         if (parameter != NULL)
         {
-            common_build_scope_pragma_custom_clause_argument(ASTSon1(start_clauses), decl_context, &nodecl_parameter);
+            common_build_scope_pragma_custom_clause_argument(parameter, decl_context, &nodecl_parameter);
             nodecl_parameter = nodecl_make_list_1(nodecl_parameter);
         }
     }

@@ -616,7 +616,23 @@ namespace TL
 #ifdef FORTRAN_SUPPORT
     static void fortran_check_expression_adaptor_(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
     {
-        ::fortran_check_expression(a, decl_context, nodecl_output);
+        if (ASTType(a) == AST_COMMON_NAME)
+        {
+            // We allow common names in expressions
+            scope_entry_t* entry = ::query_common_name(decl_context, ASTText(ASTSon0(a)));
+            if (entry != NULL)
+            {
+                *nodecl_output = ::nodecl_make_symbol(entry, ASTFileName(a), ASTLine(a));
+            }
+            else
+            {
+                *nodecl_output = ::nodecl_make_err_expr(ASTFileName(a), ASTLine(a));
+            }
+        }
+        else
+        {
+            ::fortran_check_expression(a, decl_context, nodecl_output);
+        }
     }
 #endif
 
