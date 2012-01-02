@@ -4036,6 +4036,19 @@ static operand_types_t arithmetic_binary[] =
     { is_complex_type, is_complex_type, common_kind, DO_CONVERT_TO_RESULT },
 };
 
+static operand_types_t arithmetic_binary_power[] =
+{
+    { is_integer_type, is_integer_type, common_kind, DO_NOT_CONVERT_TO_RESULT },
+    { is_integer_type, is_floating_type,  second_type, DO_NOT_CONVERT_TO_RESULT },
+    { is_integer_type, is_complex_type, second_type, DO_NOT_CONVERT_TO_RESULT },
+    { is_floating_type, is_integer_type, first_type, DO_NOT_CONVERT_TO_RESULT },
+    { is_floating_type, is_floating_type, common_kind, DO_NOT_CONVERT_TO_RESULT },
+    { is_floating_type, is_complex_type, second_type, DO_NOT_CONVERT_TO_RESULT },
+    { is_complex_type, is_integer_type, first_type, DO_NOT_CONVERT_TO_RESULT },
+    { is_complex_type, is_floating_type, first_type, DO_NOT_CONVERT_TO_RESULT },
+    { is_complex_type, is_complex_type, common_kind, DO_NOT_CONVERT_TO_RESULT },
+};
+
 
 static operand_types_t concat_op[] = 
 {
@@ -4131,7 +4144,7 @@ static operand_map_t operand_map[] =
     HANDLER_MAP(AST_MINUS, arithmetic_binary, const_bin_sub, ".operator.-", nodecl_make_minus),
     HANDLER_MAP(AST_MUL, arithmetic_binary, const_bin_mult, ".operator.*", nodecl_make_mul),
     HANDLER_MAP(AST_DIV, arithmetic_binary, const_bin_div, ".operator./", nodecl_make_div),
-    HANDLER_MAP(AST_POWER, arithmetic_binary, const_bin_power, ".operator.**", nodecl_make_power),
+    HANDLER_MAP(AST_POWER, arithmetic_binary_power, const_bin_power, ".operator.**", nodecl_make_power),
     // String concat
     HANDLER_MAP(AST_CONCAT, concat_op, const_bin_concat, ".operator.//", nodecl_make_concat),
     // Relational strong
