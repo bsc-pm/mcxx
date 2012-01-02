@@ -2984,6 +2984,19 @@ do_term_action_stmt : TOK_END_NONBLOCK_DO non_top_level_program_unit_stmt
 {
     $$ = $2;
 }
+// exceptionally we must allow an end do statement behave like a do_term_action_stmt
+| TOK_END_NONBLOCK_DO end_do_stmt
+{
+    // But an end do statement is not any action tecnhically, thus nobody would be expecting
+    // a end-statement, just fake a CONTINUE here
+    AST end_do_stmt = $2;
+    ERROR_CONDITION(ASTType(end_do_stmt) != AST_LABELED_STATEMENT, "We expect a labeled statement here", 0);
+
+    $$ = ASTMake2(AST_LABELED_STATEMENT,
+            ASTSon0(end_do_stmt), 
+            ASTLeaf(AST_EMPTY_STATEMENT, ASTFileName(end_do_stmt), ASTLine(end_do_stmt), NULL),
+            ASTFileName(end_do_stmt), ASTLine(end_do_stmt), NULL);
+}
 ;
 outer_shared_do_construct : label_do_stmt block shared_term_do_construct
 {
