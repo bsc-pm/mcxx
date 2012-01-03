@@ -617,7 +617,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
     }
     
     Source fill_real_time_info;
-    if(Nanos::Version::interface_is_at_least("realtime",1000)) 
+    if(true || Nanos::Version::interface_is_at_least("realtime",1000)) 
     {
         Source release_after, deadline, onerror;
         fill_real_time_info 

@@ -122,6 +122,7 @@ namespace TL
             _parameters(parameter_info),
             _implementation_table(),
             _target_info(target_info),
+            _real_time_info(),
             _if_clause_cond_expr(NULL)
         {
         }
@@ -137,7 +138,9 @@ namespace TL
         FunctionTaskInfo::FunctionTaskInfo(const FunctionTaskInfo & ft_copy) :
             _sym(ft_copy._sym), _parameters(ft_copy._parameters), 
             _implementation_table(ft_copy._implementation_table), 
-            _target_info(ft_copy._target_info), _if_clause_cond_expr(NULL)
+            _target_info(ft_copy._target_info), 
+            _real_time_info(ft_copy._real_time_info),
+            _if_clause_cond_expr(NULL)
         {
             if(ft_copy.has_if_clause()) 
             {
@@ -156,7 +159,7 @@ namespace TL
                 _parameters = ft_copy.get_parameter_info();
                 _target_info = ft_copy.get_target_info();
                 _implementation_table = ft_copy.get_implementation_table();
-
+                _real_time_info = ft_copy.get_real_time_info();
                 _if_clause_cond_expr = NULL;
                 if(ft_copy.has_if_clause()) 
                 {
@@ -247,7 +250,7 @@ namespace TL
             _real_time_info = rt_info;
         }
 
-        RealTimeInfo FunctionTaskInfo::get_real_time_info()
+        RealTimeInfo FunctionTaskInfo::get_real_time_info() const
         {
             return _real_time_info;
         }
