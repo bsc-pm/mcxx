@@ -3266,7 +3266,7 @@ static const char* get_common_name_str(const char* common_name)
     return common_name_str;
 }
 
-static scope_entry_t* query_common_name(decl_context_t decl_context, const char* common_name)
+scope_entry_t* query_common_name(decl_context_t decl_context, const char* common_name)
 {
     scope_entry_t* result = fortran_query_name_str(decl_context, 
             get_common_name_str(common_name));

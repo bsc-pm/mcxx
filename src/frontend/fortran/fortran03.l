@@ -2106,7 +2106,7 @@ goto {
 }
 
 
-[/]/[^/=] {
+"/" {
 	parse_token_text();
 	RETURN_TOKEN('/');
 }
