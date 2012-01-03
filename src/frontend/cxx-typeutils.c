@@ -6440,7 +6440,7 @@ static const char* get_type_name_string(decl_context_t decl_context,
     const char* left = "";
     const char* right = "";
     get_type_name_str_internal(decl_context, type_info, &left, &right, 
-            num_parameter_names, parameter_names,parameter_attributes, is_parameter);
+            num_parameter_names, parameter_names, parameter_attributes, is_parameter);
 
     const char* result = strappend(left, symbol_name);
     result = strappend(result, right);
@@ -6771,8 +6771,10 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                         }
                     }
 
-                    //Adding the parameter attributes
-                    if (parameter_attributes != NULL && parameter_attributes[i] != NULL)
+                    // Add the parameter attributes
+                    if (parameter_attributes != NULL 
+                            && parameter_attributes[i] != NULL
+                            && (strlen(parameter_attributes[i]) > 0))
                     {
                         prototype = strappend(prototype, " ");
                         prototype = strappend(prototype, parameter_attributes[i]);
