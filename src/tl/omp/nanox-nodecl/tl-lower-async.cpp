@@ -84,8 +84,8 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         device_description_line
             << device_descriptor << "[0].factory = &nanos_smp_factory;"
             // FIXME - Figure a way to get the true size
-            << device_descriptor << "[0].size = nanos_smp_dd_size();"
-            << device_descriptor << "[0].args = &" << outline_name << "_smp_args;";
+            << device_descriptor << "[0].dd_size = nanos_smp_dd_size;"
+            << device_descriptor << "[0].arg = &" << outline_name << "_smp_args;";
     }
 
     // Outline
@@ -144,7 +144,7 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         <<                 alignment
         <<                 "(void**)&ol_args, nanos_current_wd(),"
         <<                 "&props, " << num_copies << ", " << copy_data << ");"
-        <<     "if (" << err_name << " != nanos_ok) nanos_handle_error (" << err_name << ");"
+        <<     "if (" << err_name << " != NANOS_OK) nanos_handle_error (" << err_name << ");"
         <<     if_expr_cond_end
         <<     "if (wd != (nanos_wd_t)0)"
         <<     "{"
@@ -154,7 +154,7 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         <<        set_translation_fun
         <<        err_name << " = nanos_submit(wd, " << num_dependences << ", (" << dependency_struct << "*)" 
         <<         dependency_array << ", (nanos_team_t)0);"
-        <<        "if (" << err_name << " != nanos_ok) nanos_handle_error (" << err_name << ");"
+        <<        "if (" << err_name << " != NANOS_OK) nanos_handle_error (" << err_name << ");"
         <<     "}"
         <<     "else"
         <<     "{"
@@ -169,7 +169,7 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         <<                  num_dependences << ", (" << dependency_struct << "*)" << dependency_array << ", &props,"
         <<                  num_copies << "," << copy_imm_data 
         <<                  translation_fun_arg_name << ");"
-        <<          "if (" << err_name << " != nanos_ok) nanos_handle_error (" << err_name << ");"
+        <<          "if (" << err_name << " != NANOS_OK) nanos_handle_error (" << err_name << ");"
         <<     "}"
         << "}"
         ;

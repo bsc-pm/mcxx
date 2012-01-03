@@ -104,6 +104,7 @@ namespace Codegen
             void visit(const Nodecl::Sizeof& node);
             void visit(const Nodecl::Alignof& node);
 
+            void visit(const Nodecl::CxxDepNameSimple& node);
         private:
             // State
             struct State
@@ -138,9 +139,9 @@ namespace Codegen
             int get_indent_level();
             void set_indent_level(int);
 
-            void codegen_procedure(TL::Symbol entry, Nodecl::List statement_seq, Nodecl::List internal_subprograms);
+            void codegen_procedure(TL::Symbol entry, Nodecl::List statement_seq, Nodecl::List internal_subprograms, bool lacks_result);
 
-            void codegen_procedure_declaration_header(TL::Symbol entry);
+            void codegen_procedure_declaration_header(TL::Symbol entry, bool& lacks_result);
             void codegen_procedure_declaration_footer(TL::Symbol entry);
 
             void codegen_module_header(TL::Symbol, TL::ObjectList<Nodecl::NodeclBase>);
@@ -176,6 +177,8 @@ namespace Codegen
                     Nodecl::NodeclBase rhs, 
                     const std::string& operator_arith, 
                     const std::string& operator_bool);
+
+            bool is_fortran_representable_pointer(TL::Type t);
 
             void codegen_type(TL::Type t, 
                     std::string& type_specifier, 
