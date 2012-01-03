@@ -34,6 +34,8 @@ static void null_dtor(const void* p UNUSED_PARAMETER) { }
 void fortran_initialize_translation_unit_scope(translation_unit_t* translation_unit)
 {
     decl_context_t decl_context;
+
+    // Declared in cxx-buildscope.c
     initialize_translation_unit_scope(translation_unit, &decl_context);
 
     translation_unit->module_cache = rb_tree_create((int (*)(const void*, const void*))strcasecmp, null_dtor, null_dtor);
@@ -45,7 +47,7 @@ static void build_scope_program_unit_seq(AST program_unit_seq,
         decl_context_t decl_context,
         nodecl_t* nodecl_output);
 
-void build_scope_fortran_translation_unit(translation_unit_t* translation_unit)
+nodecl_t build_scope_fortran_translation_unit(translation_unit_t* translation_unit)
 {
     AST a = translation_unit->parsed_tree;
     // Technically Fortran does not have a global scope but it is convenient to have one
@@ -58,7 +60,8 @@ void build_scope_fortran_translation_unit(translation_unit_t* translation_unit)
     {
         build_scope_program_unit_seq(list, decl_context, &nodecl_program_units);
     }
-    translation_unit->nodecl = nodecl_make_top_level(nodecl_program_units, ASTFileName(a), ASTLine(a));
+
+    return nodecl_program_units;
 }
 
 static void build_scope_program_unit_internal(AST program_unit, 

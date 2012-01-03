@@ -297,7 +297,7 @@ void c_initialize_translation_unit_scope(translation_unit_t* translation_unit)
 }
 
 // Builds scope for the translation unit
-void build_scope_translation_unit(translation_unit_t* translation_unit)
+nodecl_t build_scope_translation_unit(translation_unit_t* translation_unit)
 {
     AST a = translation_unit->parsed_tree;
     decl_context_t decl_context = translation_unit->global_decl_context;
@@ -321,7 +321,7 @@ void build_scope_translation_unit(translation_unit_t* translation_unit)
         nodecl = nodecl_concat_lists(nodecl, instantiated_units);
     }
 
-    translation_unit->nodecl = nodecl_make_top_level(nodecl, ASTFileName(a), ASTLine(a));
+    return nodecl;
 }
 
 static default_argument_info_t** empty_default_argument_info(int num_parameters)
