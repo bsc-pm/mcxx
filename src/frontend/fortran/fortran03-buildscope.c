@@ -38,9 +38,12 @@ void fortran_initialize_translation_unit_scope(translation_unit_t* translation_u
     // Declared in cxx-buildscope.c
     initialize_translation_unit_scope(translation_unit, &decl_context);
 
-    translation_unit->module_cache = rb_tree_create((int (*)(const void*, const void*))strcasecmp, null_dtor, null_dtor);
+    // Declared in cxx-buildscope.c
+    c_initialize_builtin_symbols(decl_context);
 
     fortran_init_intrinsics(decl_context);
+
+    translation_unit->module_cache = rb_tree_create((int (*)(const void*, const void*))strcasecmp, null_dtor, null_dtor);
 }
 
 static void build_scope_program_unit_seq(AST program_unit_seq, 

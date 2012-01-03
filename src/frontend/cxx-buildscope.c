@@ -268,9 +268,6 @@ static void call_destructors_of_classes(decl_context_t block_context,
 // Current linkage: NULL means the default linkage (if any) of the symbol
 static const char* current_linkage = NULL;
 
-static void initialize_builtin_symbols(decl_context_t decl_context);
-
-
 static void gather_decl_spec_information(AST a, 
         gather_decl_spec_t* gather_info, decl_context_t decl_context);
 
@@ -293,7 +290,7 @@ void c_initialize_translation_unit_scope(translation_unit_t* translation_unit)
 {
     decl_context_t decl_context;
     initialize_translation_unit_scope(translation_unit, &decl_context);
-    initialize_builtin_symbols(decl_context);
+    c_initialize_builtin_symbols(decl_context);
 }
 
 // Builds scope for the translation unit
@@ -331,7 +328,7 @@ static default_argument_info_t** empty_default_argument_info(int num_parameters)
 
 // This function initialize global symbols that exist in every translation unit
 // prior to its translation
-static void initialize_builtin_symbols(decl_context_t decl_context)
+void c_initialize_builtin_symbols(decl_context_t decl_context)
 {
     // __builtin_va_list is a very special type in GCC
     scope_entry_t* builtin_va_list;
@@ -8944,12 +8941,27 @@ static void set_parameters_as_related_symbols(scope_entry_t* entry,
             {
                 if (!checking_ambiguity())
                 {
-                    error_printf("%s:%d: error: parameter '%d' does not have name\n", 
-                            filename, line, i);
+                    error_printf("%s:%d: error: parameter %d does not have name\n", 
+                            filename, line, i + 1);
                 }
             }
         }
         entry->entity_specs.related_symbols[i] = gather_info->arguments_info[i].entry;
+
+        // Make sure this prototype scope knows what function it refers
+        scope_entry_t* current_param = entry->entity_specs.related_symbols[i];
+        if (current_param != NULL)
+        {
+            if (current_param->decl_context.current_scope->related_entry == NULL)
+            {
+                // A block scope should will be given its related entry later
+                // Do this only for prototype scopes
+                if (current_param->decl_context.current_scope->kind == PROTOTYPE_SCOPE)
+                {
+                    current_param->decl_context.current_scope->related_entry = entry;
+                }
+            }
+        }
     }
 }
 
