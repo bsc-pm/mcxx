@@ -3217,27 +3217,27 @@ elseif_toks : TOK_ELSE TOK_IF
 }
 | TOK_ELSEIF
 ;
-elseif_seq : labeldef elseif_toks '(' logical_expr ')' name_opt eos block elseif_seq
+elseif_seq : labeldef elseif_toks '(' logical_expr ')' TOK_THEN name_opt eos block elseif_seq
 {
-    AST result = ASTMake4(AST_IF_ELSE_STATEMENT, $4, $8, $9, NULL, $2.token_file, $2.token_line, NULL);
+    AST result = ASTMake4(AST_IF_ELSE_STATEMENT, $4, $9, $10, NULL, $2.token_file, $2.token_line, NULL);
     if ($1 != NULL)
     {
         result = ASTMake2(AST_LABELED_STATEMENT, $1, result, ASTFileName($1), ASTLine($1), NULL);
     }
     $$ = result;
 }
-| labeldef elseif_toks '(' logical_expr ')' name_opt eos block labeldef TOK_ELSE name_opt eos block end_if_stmt
+| labeldef elseif_toks '(' logical_expr ')' TOK_THEN name_opt eos block labeldef TOK_ELSE name_opt eos block end_if_stmt
 {
-    AST result = ASTMake4(AST_IF_ELSE_STATEMENT, $4, $8, $13, $14, $2.token_file, $2.token_line, NULL);
+    AST result = ASTMake4(AST_IF_ELSE_STATEMENT, $4, $9, $14, $15, $2.token_file, $2.token_line, NULL);
     if ($1 != NULL)
     {
         result = ASTMake2(AST_LABELED_STATEMENT, $1, result, ASTFileName($1), ASTLine($1), NULL);
     }
     $$ = result;
 }
-| labeldef elseif_toks '(' logical_expr ')' name_opt eos block end_if_stmt
+| labeldef elseif_toks '(' logical_expr ')' TOK_THEN name_opt eos block end_if_stmt
 {
-    AST result = ASTMake4(AST_IF_ELSE_STATEMENT, $4, $8, NULL, $9, $2.token_file, $2.token_line, NULL);
+    AST result = ASTMake4(AST_IF_ELSE_STATEMENT, $4, $9, NULL, $10, $2.token_file, $2.token_line, NULL);
     if ($1 != NULL)
     {
         result = ASTMake2(AST_LABELED_STATEMENT, $1, result, ASTFileName($1), ASTLine($1), NULL);
