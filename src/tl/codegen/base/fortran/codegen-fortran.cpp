@@ -565,7 +565,6 @@ OPERATOR_TABLE
         for (i = 0; i < length; i++)
         {
             int current = bytes[i];
-
             if (::isprint(current))
             {
                 if (current == '\"')
@@ -579,11 +578,14 @@ OPERATOR_TABLE
             }
             else
             {
-                if (i > 0)
+                
+                if (i > 0 && ::isprint(bytes[i-1]))
                 {
                     file << "\" // ";
                 }
-                file << "char(" << current << ")";
+                unsigned char current_char = current;
+                
+                file << "char(" << (unsigned int) current_char << ")";
                 if ((i+1) < length)
                 {
                     file << " // ";
