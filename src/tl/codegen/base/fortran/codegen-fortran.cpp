@@ -2553,6 +2553,7 @@ OPERATOR_TABLE
                 || t.is_complex()
                 || t.is_class()
                 || t.is_enum()
+                || t.is_array()
                 || (is_fortran_character_type(t.get_internal_type())));
     }
 
