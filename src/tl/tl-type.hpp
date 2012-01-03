@@ -374,6 +374,8 @@ namespace TL
             bool is_unnamed_enum() const;
             //! States that this type is a named enum-type
             bool is_named_enum() const;
+            //! Returns the underlying integer of this enum type
+            Type enum_get_underlying_type() const;
 
             //! Returns the related symbol of this named type
             Symbol get_symbol() const;

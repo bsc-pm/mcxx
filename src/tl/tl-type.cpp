@@ -406,6 +406,11 @@ namespace TL
                 && is_named_type(_type_info));
     }
 
+    Type Type::enum_get_underlying_type() const
+    {
+        return ::enum_type_get_underlying_type(_type_info);
+    }
+
     bool Type::is_named() const
     {
         return is_named_type(_type_info);
