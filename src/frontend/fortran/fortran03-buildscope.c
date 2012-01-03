@@ -422,6 +422,41 @@ void review_unknown_kind_symbol(decl_context_t decl_context)
     unknown_kind->entity_specs.num_related_symbols = 0;
 }
 
+static scope_entry_t* create_fortran_symbol_for_name_(decl_context_t decl_context, 
+        AST locus, const char* name,
+        char no_implicit)
+{ 
+    scope_entry_t* result = new_fortran_symbol(decl_context, name);
+    if (!no_implicit)
+    {
+        result->type_information = get_implicit_type_for_symbol(decl_context, result->symbol_name);
+    }
+    else
+    {
+        result->type_information = get_void_type();
+    }
+
+    add_untyped_symbol(decl_context, result);
+
+    result->entity_specs.is_implicit_basic_type = 1;
+    result->file = ASTFileName(locus);
+    result->line = ASTLine(locus);
+
+    if (decl_context.current_scope->related_entry != NULL
+            && (decl_context.current_scope->related_entry->kind == SK_MODULE
+                || decl_context.current_scope->related_entry->kind == SK_BLOCKDATA))
+    {
+        scope_entry_t* module = decl_context.current_scope->related_entry;
+
+        P_LIST_ADD_ONCE(module->entity_specs.related_symbols,
+                module->entity_specs.num_related_symbols,
+                result);
+
+        result->entity_specs.in_module = module;
+    }
+    return result;
+}
+
 // This function queries a symbol. If not found it uses implicit info to create
 // one adding it to the set of unknown symbols of this context
 //
@@ -440,34 +475,7 @@ static scope_entry_t* get_symbol_for_name_(decl_context_t decl_context,
     }
     if (result == NULL)
     {
-        result = new_fortran_symbol(decl_context, name);
-        if (!no_implicit)
-        {
-            result->type_information = get_implicit_type_for_symbol(decl_context, result->symbol_name);
-        }
-        else
-        {
-            result->type_information = get_void_type();
-        }
-
-        add_untyped_symbol(decl_context, result);
-
-        result->entity_specs.is_implicit_basic_type = 1;
-        result->file = ASTFileName(locus);
-        result->line = ASTLine(locus);
-
-        if (decl_context.current_scope->related_entry != NULL
-                && (decl_context.current_scope->related_entry->kind == SK_MODULE
-                    || decl_context.current_scope->related_entry->kind == SK_BLOCKDATA))
-        {
-            scope_entry_t* module = decl_context.current_scope->related_entry;
-
-            P_LIST_ADD_ONCE(module->entity_specs.related_symbols,
-                    module->entity_specs.num_related_symbols,
-                    result);
-
-            result->entity_specs.in_module = module;
-        }
+        result = create_fortran_symbol_for_name_(decl_context, locus, name, no_implicit); 
     }
 
     return result;
@@ -7807,7 +7815,15 @@ static char check_statement_function_statement(AST stmt, decl_context_t decl_con
     AST dummy_arg_name_list = ASTSon1(stmt);
     AST expr = ASTSon2(stmt);
 
-    scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
+    scope_entry_t* entry = fortran_query_name_str(decl_context, ASTText(name));
+    if (entry == NULL)
+    {
+        entry = 
+            create_fortran_symbol_for_name_(decl_context, name, ASTText(name), /* no implicit */ 0);
+    }
+    
+    if (entry->entity_specs.from_module != NULL)
+        return 0;
 
     if (!is_scalar_type(no_ref(entry->type_information)))
         return 0;
