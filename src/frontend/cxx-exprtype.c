@@ -8463,11 +8463,22 @@ static void check_nodecl_cast_expr(nodecl_t nodecl_casted_expr,
             && (is_integral_type(declarator_type)
                || is_pointer_type(declarator_type)))
     {
-        nodecl_set_constant(*nodecl_output,
-                const_value_cast_to_bytes(
-                    nodecl_get_constant(nodecl_casted_expr),
-                    type_get_size(declarator_type), 
-                    /* sign */ is_signed_integral_type(declarator_type)));
+        const_value_t * const_casted_expr = nodecl_get_constant(nodecl_casted_expr);
+        
+        // The const_casted_expr variable can be a string literal. 
+        // Example:
+        // (const void *)"ABC";
+        // 
+        // Something similar appears in strcmp function
+        if (const_value_is_integer(const_casted_expr)
+                || const_value_is_floating(const_casted_expr))
+        {
+            nodecl_set_constant(*nodecl_output,
+                    const_value_cast_to_bytes(
+                        const_casted_expr,
+                        type_get_size(declarator_type), 
+                        /* sign */ is_signed_integral_type(declarator_type)));
+        }
     }
 
     if (is_dependent_type(declarator_type))
