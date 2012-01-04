@@ -2481,6 +2481,17 @@ OPERATOR_TABLE
 
                 entry_type = entry_type.array_element();
             }
+            
+            // The 'entry_type' is the rank0 type of the array
+            // This type may be a derived type and may be defined in a module
+            if (entry_type.is_named_class())
+            {
+                TL::Symbol class_entry = entry_type.get_symbol();
+                if (class_entry.get_internal_symbol()->entity_specs.from_module != NULL)
+                {
+                    codegen_use_statement(class_entry);
+                }
+            }
         }
 
         if (entry.get_internal_symbol()->entity_specs.from_module == NULL
