@@ -164,6 +164,7 @@ namespace Codegen
 
                 TL::ObjectList<TL::Symbol> classes_being_defined;
 
+
                 std::set<TL::Type> walked_types;
 
                 // This one is to be used only in define_required_before_class
@@ -172,6 +173,9 @@ namespace Codegen
                 // Used in define_required_before_class and define_symbol_if_nonnested
                 std::set<TL::Symbol> pending_nested_types_to_define;
                 
+                // Used in define_generic_entities  
+                std::set<TL::Symbol> walked_symbols;
+
                 // This means that we are doing &X and X is a rebindable reference
                 bool referenced_rebindable_reference;
 
@@ -192,6 +196,7 @@ namespace Codegen
                     walked_types(),
                     being_checked_for_required(),
                     pending_nested_types_to_define(),
+                    walked_symbols(),
                     referenced_rebindable_reference(false),
                     _indent_level(0) { }
             } state;

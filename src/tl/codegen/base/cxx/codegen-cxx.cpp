@@ -3497,13 +3497,20 @@ void CxxBase::define_generic_entities(Nodecl::NodeclBase node,
                 );
 
         (this->*define_entry_fun)(node, entry, def_sym_fun);
-
-        define_generic_entities(entry.get_initialization(),
-                decl_sym_fun,
-                def_sym_fun,
-                define_entities_fun,
-                define_entry_fun
-                );
+        
+        if (state.walked_symbols.find(entry) == state.walked_symbols.end())
+        {
+            state.walked_symbols.insert(entry);
+            
+            define_generic_entities(entry.get_initialization(),
+                    decl_sym_fun,
+                    def_sym_fun,
+                    define_entities_fun,
+                    define_entry_fun
+                    );
+            
+            state.walked_symbols.erase(entry);
+        }
     }
 
     TL::Type type = node.get_type();

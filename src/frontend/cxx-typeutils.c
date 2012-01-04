@@ -6772,7 +6772,8 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                     }
 
                     // Add the parameter attributes
-                    if (parameter_attributes != NULL 
+                    if (parameter_attributes != NULL
+                            && i < num_parameter_names
                             && parameter_attributes[i] != NULL
                             && (strlen(parameter_attributes[i]) > 0))
                     {
