@@ -2,7 +2,6 @@
 #include "tl-objectlist.hpp"
 #include "tl-type.hpp"
 #include "cxx-cexpr.h"
-#include "cxx-graphviz.h"
 #include "string_utils.h"
 
 #include <iomanip>
