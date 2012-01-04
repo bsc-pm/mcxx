@@ -390,6 +390,19 @@ static void print_scope_entry(const char* key, scope_entry_t* entry, int global_
     {
         PRINT_INDENTED_LINE(stderr, global_indent+1, "Is member of '%s'\n",
                 print_declarator(entry->entity_specs.class_type));
+        if (entry->kind == SK_VARIABLE
+                && !entry->entity_specs.is_static)
+        {
+            PRINT_INDENTED_LINE(stderr, global_indent+1, "Offset of nonstatic member (at byte boundary): %zd\n",
+                    entry->entity_specs.field_offset);
+            if (entry->entity_specs.is_bitfield)
+            {
+                PRINT_INDENTED_LINE(stderr, global_indent+1, "First bit: %d\n",
+                        entry->entity_specs.bitfield_first);
+                PRINT_INDENTED_LINE(stderr, global_indent+1, "Last bit: %d\n",
+                        entry->entity_specs.bitfield_last);
+            }
+        }
     }
 
     if (entry->entity_specs.is_static)
