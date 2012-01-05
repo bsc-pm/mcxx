@@ -445,7 +445,6 @@ static nodecl_t simplify_size(int num_arguments UNUSED_PARAMETER, nodecl_t* argu
     if (nodecl_is_null(dim))
     {
         type_t* t = no_ref(nodecl_get_type(array));
-        int i, rank = get_rank_of_type(t);
         int value = array_type_get_total_number_of_elements(t);
         if (value == -1)
         {
