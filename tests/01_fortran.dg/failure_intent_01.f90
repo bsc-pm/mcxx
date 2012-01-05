@@ -27,14 +27,13 @@
 
 ! <testinfo>
 ! test_generator=config/mercurium-fortran
+! test_compile_fail=yes
 ! </testinfo>
 
 
-PURE FUNCTION ENCONTRA(S, F, PRIMUS, ULTUS) RESULT (DIMIDIO)
-   IMPLICIT NONE
-   INTEGER, INTENT(IN), OPTIONAL :: PRIMUS, ULTUS
-   INTEGER, INTENT(IN) :: S
-   INTEGER, DIMENSION(:), INTENT(IN) :: F
-   INTEGER :: DIMIDIO
-   CONTINUE
-END FUNCTION
+SUBROUTINE P(B)
+INTENT(IN) ::  A, B
+INTENT(IN) :: C
+ENTRY F(A,B)
+
+END SUBROUTINE P

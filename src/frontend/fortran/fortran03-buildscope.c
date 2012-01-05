@@ -184,6 +184,17 @@ static scope_entry_t* get_unknown_kind_symbol_info(decl_context_t decl_context)
     return get_special_symbol(decl_context, ".unknown_kind");
 }
 
+static scope_entry_t* get_or_create_intent_declared_symbol_info(decl_context_t decl_context)
+{
+    return get_or_create_special_symbol(decl_context, ".intent_declared");
+}
+
+static scope_entry_t* get_intent_declared_symbol_info(decl_context_t decl_context)
+{
+    return get_special_symbol(decl_context, ".intent_declared");
+}
+
+
 void add_untyped_symbol(decl_context_t decl_context, scope_entry_t* entry)
 {
     scope_entry_t* unknown_info = get_or_create_untyped_symbols_info(decl_context);
@@ -428,6 +439,51 @@ void review_unknown_kind_symbol(decl_context_t decl_context)
     unknown_kind->entity_specs.num_related_symbols = 0;
 }
 
+static void add_intent_declared_symbol(decl_context_t decl_context, scope_entry_t* entry)
+{
+    scope_entry_t * intent_declared = get_or_create_intent_declared_symbol_info(decl_context);
+    P_LIST_ADD_ONCE(intent_declared->entity_specs.related_symbols,
+            intent_declared->entity_specs.num_related_symbols,
+            entry);
+}
+
+static void remove_intent_declared_symbol(decl_context_t decl_context, scope_entry_t* entry)
+{
+    scope_entry_t * intent_declared = get_intent_declared_symbol_info(decl_context);
+    if (intent_declared == NULL)
+        return;
+
+    P_LIST_REMOVE(intent_declared->entity_specs.related_symbols,
+            intent_declared->entity_specs.num_related_symbols,
+            entry);
+
+}
+static void check_intent_declared_symbols(decl_context_t decl_context)
+{
+    scope_entry_t * intent_declared = get_intent_declared_symbol_info(decl_context);
+    if (intent_declared == NULL)
+        return;
+
+    int i;
+    for (i = 0; i < intent_declared->entity_specs.num_related_symbols; i++)
+    {
+        scope_entry_t* entry = intent_declared->entity_specs.related_symbols[i];
+         if (!entry->entity_specs.is_parameter)
+         {
+             error_printf("%s:%d: error: entity '%s' is not a dummy arguments\n",
+                    entry->file,
+                    entry->line,
+                    entry->symbol_name);
+         }
+         else
+         {
+             // The symbol 'entry' is a parameter. Did we forget to remove it from this set?
+             internal_error("Unexpected symbol in intent declared symbol set %s '%s'",
+                     symbol_kind_name(entry),
+                     entry->symbol_name);
+         }
+    }
+}
 static scope_entry_t* create_fortran_symbol_for_name_(decl_context_t decl_context, 
         AST locus, const char* name,
         char no_implicit)
@@ -1427,7 +1483,7 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
             else
             {
                 dummy_arg = get_symbol_for_name(decl_context, dummy_arg_name, ASTText(dummy_arg_name));
-
+               
                 // Note that we do not set the exact kind of the dummy argument as
                 // it might be a function. If left SK_UNDEFINED, we later fix them
                 // to SK_VARIABLE
@@ -1437,7 +1493,10 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
                     dummy_arg->type_information = get_lvalue_reference_type(dummy_arg->type_information);
                     add_untyped_symbol(decl_context, dummy_arg);
                 }
+
+                remove_intent_declared_symbol(decl_context, dummy_arg);
             }
+            
             dummy_arg->file = ASTFileName(dummy_arg_name);
             dummy_arg->line = ASTLine(dummy_arg_name);
             dummy_arg->entity_specs.is_parameter = 1;
@@ -1770,6 +1829,7 @@ static void build_scope_program_unit_body_internal_subprograms_executable(
             // Check all the symbols of this program unit
             check_untyped_symbols(internal_subprograms_info[i].decl_context);
             check_not_fully_defined_symbols(internal_subprograms_info[i].decl_context);
+            check_intent_declared_symbols(internal_subprograms_info[i].decl_context);
             review_unknown_kind_symbol(internal_subprograms_info[i].decl_context);
 
             // 6) Remember the internal subprogram nodecls
@@ -1867,6 +1927,7 @@ static void build_scope_program_unit_body(
     // 5) Check all symbols of this program unit
     check_untyped_symbols(decl_context);
     check_not_fully_defined_symbols(decl_context);
+    check_intent_declared_symbols(decl_context);
     review_unknown_kind_symbol(decl_context);
 
     // 6) Remember the internal subprogram nodecls
@@ -4935,13 +4996,10 @@ static void build_scope_intent_stmt(AST a, decl_context_t decl_context,
         AST dummy_arg = ASTSon1(it);
 
         scope_entry_t* entry = get_symbol_for_name(decl_context, dummy_arg, ASTText(dummy_arg));
-
+        
         if (!entry->entity_specs.is_parameter)
         {
-            error_printf("%s: error: entity '%s' is not a dummy argument\n",
-                    ast_location(dummy_arg),
-                    fortran_prettyprint_in_buffer(dummy_arg));
-            continue;
+            add_intent_declared_symbol(decl_context, entry);
         }
 
         if (entry->entity_specs.intent_kind != INTENT_INVALID)
@@ -6126,13 +6184,12 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
         }
 
         if (current_attr_spec.is_intent)
-        {
+        {   
             if (!entry->entity_specs.is_parameter)
             {
-                error_printf("%s: error: INTENT attribute is only for dummy arguments\n",
-                        ast_location(declaration));
-                continue;
+                add_intent_declared_symbol(decl_context, entry);
             }
+
             entry->entity_specs.intent_kind = current_attr_spec.intent_kind;
         }
 
