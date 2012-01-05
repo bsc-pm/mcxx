@@ -446,29 +446,18 @@ static nodecl_t simplify_size(int num_arguments UNUSED_PARAMETER, nodecl_t* argu
     {
         type_t* t = no_ref(nodecl_get_type(array));
         int i, rank = get_rank_of_type(t);
-        int value = 1;
-        for (i = 0; i < rank; i++)
+        int value = array_type_get_total_number_of_elements(t);
+        if (value == -1)
         {
-            if (array_type_is_unknown_size(t))
-            {
-                return nodecl_null();
-            }
-
-            nodecl_t size = array_type_get_array_size_expr(t);
-
-            // We could do a bit more here
-            if (!nodecl_is_constant(size))
-                return nodecl_null();
-
-            value = value * const_value_cast_to_4(nodecl_get_constant(size));
-
-            t = array_type_get_element_type(t);
+            return nodecl_null();
         }
-
-        return nodecl_make_integer_literal(
-                choose_int_type_from_kind(kind, kind_),
-                const_value_get_signed_int(value),
-                NULL, 0);
+        else
+        {
+            return nodecl_make_integer_literal(
+                    choose_int_type_from_kind(kind, kind_),
+                    const_value_get_signed_int(value),
+                    NULL, 0);
+        }
     }
     else
     {
