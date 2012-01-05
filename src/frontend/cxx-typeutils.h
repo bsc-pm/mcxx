@@ -405,6 +405,10 @@ LIBMCXX_EXTERN char array_type_is_unknown_size(type_t* t);
 LIBMCXX_EXTERN nodecl_t array_type_get_array_lower_bound(type_t* t);
 LIBMCXX_EXTERN nodecl_t array_type_get_array_upper_bound(type_t* t);
 
+// This function returns the total number of elements of an array if
+// all dimensions of this array are constant. Otherwise returns -1.
+LIBMCXX_EXTERN int  array_type_get_total_number_of_elements(type_t* t);
+
 LIBMCXX_EXTERN char array_type_is_vla(type_t* t);
 
 LIBMCXX_EXTERN char array_type_with_descriptor(type_t* t);
