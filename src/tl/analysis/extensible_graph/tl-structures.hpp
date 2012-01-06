@@ -181,6 +181,30 @@ namespace TL
         */ 
         #define _UNDEF          "undefined_behaviour_vars"
 
+        /*! \def _SHARED
+        * Set of symbols with shared auto-scoping in a task
+        * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once Auto-scoping is performed).
+        */ 
+        #define _SHARED         "shared"
+
+        /*! \def _PRIVATE
+        * Set of symbols with private auto-scoping in a task
+        * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once Auto-scoping is performed).
+        */ 
+        #define _PRIVATE        "private"
+        
+        /*! \def _LASTPRIVATE
+        * Set of symbols with lastprivate auto-scoping in a task
+        * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once Auto-scoping is performed).
+        */ 
+        #define _LASTPRIVATE    "lastprivate"
+        
+        /*! \def _UNDEF_SC
+        * Set of symbols with non-computable auto-scoping in a task
+        * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once Auto-scoping is performed).
+        */ 
+        #define _UNDEF_SC       "undef_scope"
+        
         /*! \def _IN_DEPS
         * Set of symbols with input dependence in a task
         * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once the Liveness analysis is performed).
@@ -198,6 +222,12 @@ namespace TL
         * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once the Liveness analysis is performed).
         */ 
         #define _INOUT_DEPS     "inout_deps"   
+
+        /*! \def _INDUCTION_VARS
+        * Map containing the induction variables associated with a Loop Node
+        * Available only in Loop (Graph) nodes (Mandatory once the Loop analysis is performed).
+        */ 
+        #define _INDUCTION_VARS "induction_vars"
 
         /*! \def _REACH_DEFS
         * Map containing the reaching definitions in a given point

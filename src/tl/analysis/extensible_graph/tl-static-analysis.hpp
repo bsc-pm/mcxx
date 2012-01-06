@@ -35,6 +35,35 @@ namespace TL
 {
     namespace Analysis
     {
+        struct auto_scope_tag {
+        private:
+            Node* _task;
+            ext_sym_set _live_after_task_sched;
+            
+            ext_sym_set _private_vars;
+            ext_sym_set _firstprivate_vars;
+            ext_sym_set _shared_vars;
+            ext_sym_set _undef_sc_vars;
+            
+        public:
+            // Constructor
+            auto_scope_tag(Node* task, ext_sym_set live_after_task_sched);
+            
+            // Getters and Setters
+            Node* get_task();
+            ext_sym_set get_private_vars();
+            void set_private_var(ExtensibleSymbol s);
+            ext_sym_set get_firstprivate_vars();
+            void set_firstprivate_var(ExtensibleSymbol s);
+            ext_sym_set get_shared_vars();
+            void set_shared_var(ExtensibleSymbol s);
+            ext_sym_set get_undef_sc_vars();
+            void set_undef_sc_var(ExtensibleSymbol s);
+            
+            // Consultants
+            bool is_live_after_task_sched(ExtensibleSymbol s);
+        };
+        
         class LIBTL_CLASS StaticAnalysis {    
             
         private:
@@ -68,6 +97,8 @@ namespace TL
             static Nodecl::NodeclBase rename_nodecl(Nodecl::NodeclBase nodecl, std::map<Symbol, Nodecl::NodeclBase> rename_map);
         
             static nodecl_map compute_parents_reach_defs(Node* node);
+            
+            static void compute_auto_scoping_rec(auto_scope_tag * auto_scope_t);
         
         public:
             
@@ -76,6 +107,9 @@ namespace TL
             //! Computes the liveness analysis of a node
             //! The method needs the use-def chains to be calculated before
             static void live_variable_analysis(Node* node);            
+            
+            //! Computes auto-scoping for variables appearing in a task inside #current
+            static void compute_auto_scoping(Node* current);
             
             //! Computes dependences for all task node in the Extensible Graph
             static void analyse_tasks(ObjectList<Node*> tasks);

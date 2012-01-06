@@ -577,7 +577,6 @@ _induction_vars.equal_range(loop_node->get_id());
                     }
                     else if (use_type == '1')
                     {
-                        
                         node->unset_killed_var(ExtensibleSymbol(nodecl));
                         node->set_killed_var(ExtensibleSymbol(renamed[0]));
                         renamed_nodecl = renamed[0];

@@ -90,6 +90,82 @@ namespace TL
             return NULL;
         }
         
+        // *** Operation over containers with non simple values *** //
+        
+        bool ext_sym_set_contains_sym(ExtensibleSymbol s, ext_sym_set sym_set)
+        {
+            if (sym_set.find(s).empty())
+            {
+                return false;
+            }
+            return true;
+        }
+        
+        ext_sym_set sets_union(ext_sym_set set1, ext_sym_set set2)
+        {
+            ext_sym_set result = set1;
+            for (ext_sym_set::iterator it = set2.begin(); it != set2.end(); ++it)
+            {
+                if (!ext_sym_set_contains_sym(*it, set1))
+                    result.insert(*it);
+            }
+            return result;
+            
+//         std::vector<ExtensibleSymbol> v_result(set1.size() + set2.size());
+//         std::vector<ExtensibleSymbol>::iterator it;
+//         ext_sym_set result;
+//         it = set_union(set1.begin(), set1.end(), set2.begin(), set2.end(), v_result.begin());
+//         for(int i=0; i<int(it-v_result.begin()); i++)
+//         {    
+//             result.insert(v_result.at(i));
+//         }
+//         return result;
+
+        }
+    
+        ext_sym_set sets_difference(ext_sym_set set1, ext_sym_set set2)
+        {
+            ext_sym_set result;
+            for (ext_sym_set::iterator it = set1.begin(); it != set1.end(); ++it)
+            {
+                if (!ext_sym_set_contains_sym(*it, set2))
+                    result.insert(*it);
+            }
+            return result;
+
+//         std::vector<ExtensibleSymbol> v_result(set1.size());
+//         std::vector<ExtensibleSymbol>::iterator it;
+//         ext_sym_set result;
+//         it = set_difference(set1.begin(), set1.end(), set2.begin(), set2.end(), v_result.begin());
+//         for(int i=0; i<int(it-v_result.begin()); i++)
+//         {    
+//             result.insert(v_result.at(i));
+//         }
+//         return result;
+        }
+
+        bool sets_equals(ext_sym_set set1, ext_sym_set set2)
+        {
+            bool res = false;
+            if (set1.size() == set2.size())
+            {
+                res = true;
+                for(ext_sym_set::iterator it = set1.begin(); it != set1.end(); ++it)
+                {
+                    if (!ext_sym_set_contains_sym(*it, set2))
+                    {    
+                        res = false;
+                        break;
+                    }
+                }
+//             std::vector<ExtensibleSymbol>::iterator it;
+//             std::vector<ExtensibleSymbol> v_result(set1.size());
+//             it = set_intersection(set1.begin(), set1.end(), set2.begin(), set2.end(), v_result.begin());
+//             return (int(it-v_result.begin()) == set1.size());
+            }
+            return res;
+        } 
+        
         bool usage_list_contains_sym(Nodecl::Symbol n, ObjectList<struct var_usage_t*> list)
         {
             for (ObjectList<struct var_usage_t*>::iterator it = list.begin(); it != list.end(); ++it)

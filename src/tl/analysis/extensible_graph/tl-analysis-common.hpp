@@ -46,6 +46,11 @@ namespace TL
             void set_usage(char usage);
         };
 
+        bool ext_sym_set_contains_sym(ExtensibleSymbol s, ext_sym_set sym_set);
+        ext_sym_set sets_union(ext_sym_set set1, ext_sym_set set2);
+        ext_sym_set sets_difference(ext_sym_set set1, ext_sym_set set2);
+        bool sets_equals(ext_sym_set set1, ext_sym_set set2);
+        
         bool usage_list_contains_sym(Nodecl::Symbol n, ObjectList<struct var_usage_t*> list);
         bool usage_list_contains_sym(Symbol n, ObjectList<struct var_usage_t*> list);
         

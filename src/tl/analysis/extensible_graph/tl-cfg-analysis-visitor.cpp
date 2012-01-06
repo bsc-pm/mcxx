@@ -530,6 +530,19 @@ namespace Analysis
         : _cfg(cfg), _cfgs(cfgs), _global_vars(glob_vars), _params(parameters), _usage(), _defining(false), 
           _params_to_args(params_to_args), _visited_functions()
     {
+        std::cerr << "IPA for " << cfg->get_name() << std::endl;
+        std::cerr << "    glob_vars: ";
+        for (ObjectList<var_usage_t*>::iterator it = glob_vars.begin(); it != glob_vars.end(); ++it)
+        {
+            std::cerr << (*it)->get_nodecl().prettyprint() << ", ";
+        }
+        std::cerr << std::endl << "    parameters: ";
+        for (ObjectList<Symbol>::iterator it = parameters.begin(); it != parameters.end(); ++it)
+        {
+            std::cerr << it->get_name() << ", ";
+        }
+        std::cerr << std::endl;
+        
         Symbol s = cfg->get_function_symbol();
         if (s.is_valid())
         {
@@ -592,7 +605,16 @@ namespace Analysis
                 else
                 {
                     // It can be a global var used in a called function within the current graph
-                    
+                      if (it->get_name() == "last_print")
+                      {
+                        Symbol sss = *it;
+                        std::cerr << "Comparing usage of: " << sss.get_internal_symbol()->symbol_name 
+                        << "(" << sss.get_internal_symbol()->file << ":" << sss.get_internal_symbol()->line <<")" << "  WITH ";
+                        sss = s.get_symbol();
+                        std::cerr << sss.get_internal_symbol()->symbol_name 
+                        << "(" << sss.get_internal_symbol()->file << ":" << sss.get_internal_symbol()->line <<")"<< std::endl;
+                      }
+        
                     internal_error("Computed IPA in graph '%s' for the variable '%s' which is not in the global variables list "\
                                    "nor in the parameters list", _cfg->get_name().c_str(), var.prettyprint().c_str());
                 }
@@ -671,6 +693,9 @@ namespace Analysis
             if (_defining) usage = '0';
             else usage = '1';
             struct var_usage_t* new_ipa_var = new var_usage_t(s, usage);
+            Symbol sss = s.get_symbol();
+            std::cerr << "Inserting new ipa sym: " << sss.get_internal_symbol()->symbol_name 
+            << "(" << sss.get_internal_symbol()->file << ":" << sss.get_internal_symbol()->line <<")" << std::endl;
             _usage.insert(new_ipa_var);
         }
     }
@@ -892,18 +917,12 @@ namespace Analysis
                         
                     ObjectList<var_usage_t*> glob_vars = called_func_graph->get_global_variables();
                     ObjectList<Symbol> params = called_func_graph->get_function_parameters();
-                    ObjectList<Symbol> reference_params;
-                    for(ObjectList<Symbol>::iterator it = params.begin(); it != params.end(); ++it)
-                    {
-                        Type t = it->get_type();
-                        reference_params.append(*it);
-                    }
-                    if (!glob_vars.empty() || !reference_params.empty())
+                    if (!glob_vars.empty() || !params.empty())
                     {   // Compute liveness for global variables and reference parameters
                         std::map<Symbol, Nodecl::NodeclBase> nested_params_to_args = compute_nested_param_args(n, called_func_graph);
                             
                         // Reconvert those parameters form the original call
-                        CfgIPAVisitor ipa_visitor(called_func_graph, _cfgs, glob_vars, reference_params, nested_params_to_args);
+                        CfgIPAVisitor ipa_visitor(called_func_graph, _cfgs, glob_vars, params, nested_params_to_args);
                         ipa_visitor.compute_usage();
                         
                         // Propagate this information to the current graph analysis

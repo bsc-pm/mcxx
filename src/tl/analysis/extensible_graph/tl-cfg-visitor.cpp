@@ -670,8 +670,11 @@ namespace TL
             Node* task_graph_node;
             if (n.template is<Nodecl::PragmaCustomDeclaration>())
             {   // We must build here a new Extensible Graph
-                ExtensibleGraph* last_actual_cfg = _actual_cfg;
+//                 ExtensibleGraph* last_actual_cfg = _actual_cfg;
                 _actual_cfg = new ExtensibleGraph("pragma_" + n.get_symbol().get_name(), n.retrieve_context());
+                Node* flush_node = new Node(_actual_cfg->_nid, FLUSH_NODE, _actual_cfg->_outer_node.top());
+                _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, flush_node);
+                _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(flush_node);
                 
                 Symbol next_sym = n.get_symbol();
                 if (next_sym.is_function())
@@ -708,7 +711,7 @@ namespace TL
             
                     _cfgs.append(_actual_cfg);
                     
-                    _actual_cfg = last_actual_cfg;
+//                     _actual_cfg = last_actual_cfg;
                 }
                 else
                 {   // Nothing to do. Variable declarations do not create any graph
@@ -764,9 +767,6 @@ namespace TL
             
             if (pragma == "task")
             {
-                Node* flush_node = new Node(_actual_cfg->_nid, FLUSH_NODE, _actual_cfg->_outer_node.top());
-                _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, flush_node);
-                _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(flush_node);
                 return create_task_graph(n);
             }
             else

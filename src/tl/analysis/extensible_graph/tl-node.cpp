@@ -388,7 +388,8 @@ namespace TL
                     node_l.insert(this);
                 }
                 else if ((ntype == BASIC_GOTO_NODE) || (ntype == BASIC_BREAK_NODE) 
-                        || (ntype == FLUSH_NODE) || (ntype == BARRIER_NODE) || (ntype == BASIC_PRAGMA_DIRECTIVE_NODE))
+                        || (ntype == FLUSH_NODE) || (ntype == BARRIER_NODE) 
+                        || (ntype == BASIC_PRAGMA_DIRECTIVE_NODE) || (ntype == TASKWAIT_NODE))
                 {   // do nothing
                 }
                 else
@@ -469,6 +470,8 @@ namespace TL
                     case FLUSH_NODE:                    type = "FLUSH_NODE";
                     break;
                     case BARRIER_NODE:                  type = "BARRIER_NODE";
+                    break;
+                    case TASKWAIT_NODE:                 type = "TASKWAIT_NODE";
                     break;
                     case GRAPH_NODE:                    type = "GRAPH_NODE";
                     break;

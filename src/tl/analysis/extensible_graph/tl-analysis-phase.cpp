@@ -89,33 +89,33 @@ namespace TL
             }
         
             // *** Loops Analysis *** //
-            if (CURRENT_CONFIGURATION->debug_options.analysis_verbose ||
-                CURRENT_CONFIGURATION->debug_options.enable_debug_code)
-            std::cerr << std::endl << "=== LOOP ANALYSIS COMPUTATION ===" << std::endl;
-            for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
-            {
-                if (CURRENT_CONFIGURATION->debug_options.analysis_verbose ||
-                    CURRENT_CONFIGURATION->debug_options.enable_debug_code)
-                    std::cerr << std::endl << "   ==> Graph '" << (*it)->get_name() << "'" << std::endl;
-                cfg_visitor.analyse_loops((*it)->get_graph());
-            }
+//             if (CURRENT_CONFIGURATION->debug_options.analysis_verbose ||
+//                 CURRENT_CONFIGURATION->debug_options.enable_debug_code)
+//             std::cerr << std::endl << "=== LOOP ANALYSIS COMPUTATION ===" << std::endl;
+//             for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
+//             {
+//                 if (CURRENT_CONFIGURATION->debug_options.analysis_verbose ||
+//                     CURRENT_CONFIGURATION->debug_options.enable_debug_code)
+//                     std::cerr << std::endl << "   ==> Graph '" << (*it)->get_name() << "'" << std::endl;
+//                 cfg_visitor.analyse_loops((*it)->get_graph());
+//             }
         
             // *** Live Variable Analysis *** //
-            if (CURRENT_CONFIGURATION->debug_options.analysis_verbose ||
-                CURRENT_CONFIGURATION->debug_options.enable_debug_code)
-                std::cerr << std::endl << "=== LIVE VARIABLES AND TASKS ANALYSIS  ===" << std::endl;
-            for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
-            {
-                if (CURRENT_CONFIGURATION->debug_options.analysis_verbose ||
-                    CURRENT_CONFIGURATION->debug_options.enable_debug_code)
-                    std::cerr << std::endl << " ==> Graph '" << (*it)->get_name() << "'" << std::endl;
-                    
-                // Non-task nodes
-                StaticAnalysis::live_variable_analysis((*it)->get_graph());
-                
-                // Task nodes
-                StaticAnalysis::analyse_tasks((*it)->get_tasks_list());
-            }
+//             if (CURRENT_CONFIGURATION->debug_options.analysis_verbose ||
+//                 CURRENT_CONFIGURATION->debug_options.enable_debug_code)
+//                 std::cerr << std::endl << "=== LIVE VARIABLES AND TASKS ANALYSIS  ===" << std::endl;
+//             for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
+//             {
+//                 if (CURRENT_CONFIGURATION->debug_options.analysis_verbose ||
+//                     CURRENT_CONFIGURATION->debug_options.enable_debug_code)
+//                     std::cerr << std::endl << " ==> Graph '" << (*it)->get_name() << "'" << std::endl;
+//                     
+//                 // Non-task nodes
+//                 StaticAnalysis::live_variable_analysis((*it)->get_graph());
+//                 
+//                 // Task nodes
+//                 StaticAnalysis::analyse_tasks((*it)->get_tasks_list());
+//             }
             
             // Print graphs into dot files
             if (CURRENT_CONFIGURATION->debug_options.print_cfg_graphviz)
