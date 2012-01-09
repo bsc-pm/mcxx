@@ -1963,7 +1963,11 @@ char function_has_been_deleted(decl_context_t decl_context, scope_entry_t* entry
     return c;
 }
 
-static void error_message_overload_failed(candidate_t* candidates, const char* filename, int line);
+static void error_message_overload_failed(candidate_t* candidates, 
+        const char* name,
+        decl_context_t decl_context,
+        int num_arguments, type_t** arguments,
+        const char* filename, int line);
 
 static type_t* compute_user_defined_bin_operator_type(AST operator_name, 
         nodecl_t *lhs, nodecl_t *rhs, 
@@ -2170,7 +2174,11 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
     {
         if (!checking_ambiguity())
         {
-            error_message_overload_failed(candidate_set, filename, line);
+            error_message_overload_failed(candidate_set, 
+                    prettyprint_in_buffer(operator_name),
+                    decl_context,
+                    num_arguments, argument_types,
+                    filename, line);
         }
         overloaded_type = get_error_type();
     }
@@ -2330,7 +2338,11 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
     {
         if (!checking_ambiguity())
         {
-            error_message_overload_failed(candidate_set, filename, line);
+            error_message_overload_failed(candidate_set, 
+                    prettyprint_in_buffer(operator_name),
+                    decl_context,
+                    num_arguments, argument_types,
+                    filename, line);
         }
         overloaded_type = get_error_type();
     }
@@ -5678,7 +5690,11 @@ static void check_nodecl_array_subscript_expression(
         {
             if (!checking_ambiguity())
             {
-                error_message_overload_failed(candidate_set, filename, line);
+                error_message_overload_failed(candidate_set, 
+                        "operator[]",
+                        decl_context,
+                        num_arguments, argument_types,
+                        filename, line);
             }
             *nodecl_output = nodecl_make_err_expr(filename, line);
             return;
@@ -6277,7 +6293,12 @@ static void check_conditional_expression_impl_nodecl_aux(nodecl_t first_op,
             {
                 if (!checking_ambiguity())
                 {
-                    error_message_overload_failed(candidate_set, filename, line);
+                    error_message_overload_failed(candidate_set, 
+                            "operator ?",
+                            decl_context,
+                            num_arguments,
+                            argument_types,
+                            filename, line);
                 }
                 *nodecl_output = nodecl_make_err_expr(filename, line);
                 return;
@@ -8105,7 +8126,12 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
         // Overload failed
         if (!checking_ambiguity())
         {
-            error_message_overload_failed(candidate_set, filename, line);
+            error_message_overload_failed(candidate_set, 
+                    codegen_to_str(nodecl_called),
+                    decl_context,
+                    num_arguments,
+                    argument_types,
+                    filename, line);
         }
         *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
@@ -8996,7 +9022,12 @@ static void check_nodecl_member_access(
         {
             if (!checking_ambiguity())
             {
-                error_message_overload_failed(candidate_set, nodecl_get_filename(nodecl_accessed), nodecl_get_line(nodecl_accessed));
+                error_message_overload_failed(candidate_set, 
+                        "operator->",
+                        decl_context,
+                        /* num_arguments */ 1, 
+                        argument_types,
+                        nodecl_get_filename(nodecl_accessed), nodecl_get_line(nodecl_accessed));
             }
             *nodecl_output = nodecl_make_err_expr(filename, line);
             return;
@@ -9265,7 +9296,11 @@ static void check_postoperator_user_defined(
     {
         if (!checking_ambiguity())
         {
-            error_message_overload_failed(candidate_set, nodecl_get_filename(postoperated_expr), nodecl_get_line(postoperated_expr));
+            error_message_overload_failed(candidate_set, 
+                    get_operator_function_name(operator),
+                    decl_context,
+                    num_arguments, argument_types,
+                    nodecl_get_filename(postoperated_expr), nodecl_get_line(postoperated_expr));
         }
         *nodecl_output = nodecl_make_err_expr(nodecl_get_filename(postoperated_expr), nodecl_get_line(postoperated_expr));
         return;
@@ -9395,7 +9430,11 @@ static void check_preoperator_user_defined(AST operator,
     {
         if (!checking_ambiguity())
         {
-            error_message_overload_failed(candidate_set, nodecl_get_filename(preoperated_expr), nodecl_get_line(preoperated_expr));
+            error_message_overload_failed(candidate_set, 
+                    get_operator_function_name(operator),
+                    decl_context,
+                    num_arguments, argument_types,
+                    nodecl_get_filename(preoperated_expr), nodecl_get_line(preoperated_expr));
         }
         *nodecl_output = nodecl_make_err_expr(nodecl_get_filename(preoperated_expr), nodecl_get_line(preoperated_expr));
         return;
@@ -11719,14 +11758,18 @@ char check_initialization(AST initializer, decl_context_t decl_context, type_t* 
             if (nodecl_is_constant(*nodecl_output))
             {
                 const_value_t* v = nodecl_get_constant(*nodecl_output);
-                fprintf(stderr, " with a constant value of ");
-                if (const_value_is_signed(v))
+                fprintf(stderr, " with a constant value ");
+                if (const_value_is_integer(v)
+                        || const_value_is_floating(v))
                 {
-                    fprintf(stderr, " '%lld'", (long long int)const_value_cast_to_8(v));
-                }
-                else
-                {
-                    fprintf(stderr, " '%llu'", (unsigned long long int)const_value_cast_to_8(v));
+                    if (const_value_is_signed(v))
+                    {
+                        fprintf(stderr, " '%lld'", (long long int)const_value_cast_to_8(v));
+                    }
+                    else
+                    {
+                        fprintf(stderr, " '%llu'", (unsigned long long int)const_value_cast_to_8(v));
+                    }
                 }
             }
             fprintf(stderr, "\n");
@@ -13492,11 +13535,14 @@ char check_copy_assignment_operator(scope_entry_t* entry,
         {
             if (!checking_ambiguity())
             {
-                error_message_overload_failed(candidate_set, filename, line);
+                const char*  c = NULL;;
+                uniquestr_sprintf(&c, "copy assignment operator of class %s", entry->symbol_name);
+                error_message_overload_failed(candidate_set, 
+                        c,
+                        decl_context,
+                        num_arguments, arguments,
+                        filename, line);
                 entry_list_free(operator_overload_set);
-                error_printf("%s:%d: error: no copy assignment operator for type '%s'\n",
-                        filename, line,
-                        print_type_str(t, decl_context));
             }
             return 0;
         }
@@ -13577,10 +13623,32 @@ void diagnostic_candidates(scope_entry_list_t* candidates, const char* filename,
     entry_list_iterator_free(it);
 }
 
-static void error_message_overload_failed(candidate_t* candidates, const char* filename, int line)
+static void error_message_overload_failed(candidate_t* candidates, 
+        const char* name,
+        decl_context_t decl_context,
+        int num_arguments,
+        type_t** arguments,
+        const char* filename, int line)
 {
-    error_printf("%s:%d: error: overload call failed\n",
-            filename, line);
+    const char* argument_types = "(";
+
+    int i, j = 0;
+    for (i = 0; i < num_arguments; i++)
+    {
+        if (arguments[i] == NULL)
+            continue;
+
+        if (j > 0)
+            argument_types = strappend(argument_types, ", ");
+
+        argument_types = strappend(argument_types, print_type_str(arguments[i], decl_context));
+        j++;
+    }
+
+    argument_types = strappend(argument_types, ")");
+
+    error_printf("%s:%d: error: failed overload call to %s%s\n",
+            filename, line, name, argument_types);
 
     if (candidates != NULL)
     {
