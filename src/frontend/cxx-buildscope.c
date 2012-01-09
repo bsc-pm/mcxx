@@ -1372,10 +1372,12 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                         // (some cases only for C++)
                         // (some cases only for C99)
                         || (IS_C_LANGUAGE
-                            // - variably modified types must be declared here
+                            // - variably modified types in block scopes must be declared here
+                            && decl_context.current_scope->kind == BLOCK_SCOPE
                             && is_variably_modified_type(entry->type_information))
                         || (IS_CXX_LANGUAGE
-                            // - class variables
+                            // - class variables in block scope
+                            && decl_context.current_scope->kind == BLOCK_SCOPE
                             && (is_class_type(entry->type_information)
                                 // - array of class type variables
                                 || (is_array_type(entry->type_information) 
@@ -1392,7 +1394,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                                 || (entry->entity_specs.is_member 
                                     && entry->entity_specs.is_static)))
                         // - __attribute__((used)) 
-                        // (maybe we should elaborate this a bit more)
+                        // (maybe we should elaborate this one a bit more)
                         || current_gather_info.emit_always)
                         {
                             *nodecl_output = nodecl_concat_lists(
