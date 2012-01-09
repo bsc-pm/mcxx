@@ -400,11 +400,30 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context,
             }
             else if (*current_type == NULL)
             {
-                *current_type = nodecl_get_type(nodecl_expr);
+                *current_type = get_rank0_type(nodecl_get_type(nodecl_expr));
             }
 
             if ((*num_items) >= 0)
-                (*num_items)++;
+            {
+                type_t* expr_type = nodecl_get_type(nodecl_expr);
+
+                if (!is_array_type(expr_type))
+                {
+                    (*num_items)++;
+                }
+                else
+                {
+                    int num_elements = array_type_get_total_number_of_elements(expr_type);
+                    if (num_elements >= 0)
+                    {
+                        *num_items += num_elements;
+                    }
+                    else
+                    {
+                        *num_items = -1;
+                    }
+                }
+            }
 
             *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_expr);
         }

@@ -29,12 +29,15 @@
 ! test_generator=config/mercurium-fortran
 ! </testinfo>
 
+PROGRAM P
+REAL :: A(20)
+REAL :: B(10,2)
+REAL :: C(5,2,2)
+REAL :: D(2,5,2)
+REAL :: E(1,1,1,1,1,1,20)
 
-PURE FUNCTION ENCONTRA(S, F, PRIMUS, ULTUS) RESULT (DIMIDIO)
-   IMPLICIT NONE
-   INTEGER, INTENT(IN), OPTIONAL :: PRIMUS, ULTUS
-   INTEGER, INTENT(IN) :: S
-   INTEGER, DIMENSION(:), INTENT(IN) :: F
-   INTEGER :: DIMIDIO
-   CONTINUE
-END FUNCTION
+A = (/B/)
+A = (/C/)
+A = (/D/)
+A = (/E/)
+END PROGRAM P
