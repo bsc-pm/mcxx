@@ -119,7 +119,7 @@ void CxxBase::visit(const Nodecl::Reference &node)
     Nodecl::NodeclBase rhs = node.children()[0]; 
     char needs_parentheses = operand_has_lower_priority(node, rhs); 
 
-    bool old_referenced_rebindable_ref = state.referenced_rebindable_reference;
+    bool old_do_not_derref_rebindable_ref = state.do_not_derref_rebindable_reference;
 
     if (!rhs.get_type().is_rebindable_reference())
     {
@@ -127,7 +127,7 @@ void CxxBase::visit(const Nodecl::Reference &node)
     }
     else
     {
-        state.referenced_rebindable_reference = 1;
+        state.do_not_derref_rebindable_reference = true;
     }
 
     if (needs_parentheses) 
@@ -140,7 +140,7 @@ void CxxBase::visit(const Nodecl::Reference &node)
         file << ")"; 
     } 
 
-    state.referenced_rebindable_reference = old_referenced_rebindable_ref;
+    state.do_not_derref_rebindable_reference = old_do_not_derref_rebindable_ref;
 }
 
 #define POSTFIX_UNARY_EXPRESSION(_name, _operand) \
@@ -384,31 +384,60 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ClassMemberAccess& node)
         && sym.get_type().is_named_class()
         && sym.get_type().get_symbol().is_anonymous_union();
 
-    char needs_parentheses = operand_has_lower_priority(node, lhs); 
-    if (needs_parentheses) 
+    bool must_derref_all = (sym.is_valid()
+            && ((IS_C_LANGUAGE && sym.get_type().is_any_reference())
+                || (IS_CXX_LANGUAGE && sym.get_type().is_rebindable_reference()))
+            && !sym.get_type().references_to().is_array()
+            && !state.do_not_derref_rebindable_reference);
+
+    bool old_do_not_derref_rebindable_ref = state.do_not_derref_rebindable_reference;
+
+    if (must_derref_all)
+    {
+        file << "(*";
+    }
+
+    char needs_parentheses = operand_has_lower_priority(node, lhs);
+    if (needs_parentheses)
     { 
         file << "(";
     } 
+    // Left hand side does not care about the top level reference status
+    state.do_not_derref_rebindable_reference = false;
     walk(lhs);
-    if (needs_parentheses) 
+    if (needs_parentheses)
     { 
         file << ")";
     } 
     // Do not print anonymous symbols
     if (!is_anonymous)
     {
+        if (must_derref_all)
+        {
+            // Right part can be a reference but we do not want to derref it
+            state.do_not_derref_rebindable_reference = true;
+        }
+
         file << ".";
         needs_parentheses = operand_has_lower_priority(node, rhs); 
         if (needs_parentheses) 
         { 
             file << "(";
         } 
+
         walk(rhs);
+
         if (needs_parentheses) 
         { 
             file << ")";
         } 
     }
+
+    if (must_derref_all)
+    {
+        file << ")";
+    }
+    state.do_not_derref_rebindable_reference = old_do_not_derref_rebindable_ref;
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::ComplexLiteral& node)
@@ -732,6 +761,68 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ForStatement& node)
     dec_indent();
 }
 
+template <typename Iterator>
+CxxBase::Ret CxxBase::codegen_function_call_arguments(Iterator begin, Iterator end, TL::Type function_type, int ignore_n_first)
+{
+    bool has_ellipsis = 0;
+    TL::ObjectList<TL::Type> arguments_type = function_type.parameters(has_ellipsis);
+    TL::ObjectList<TL::Type>::iterator type_it = arguments_type.begin();
+    TL::ObjectList<TL::Type>::iterator type_end = arguments_type.end();
+
+
+    Iterator arg_it = begin;
+    while (arg_it != end 
+            && ignore_n_first > 0)
+    {
+        arg_it++;
+        if (type_it != type_end)
+            type_it++;
+
+        ignore_n_first--;
+    }
+
+    // Update begin if we have ignored any argument
+    begin = arg_it;
+    while (arg_it != end)
+    {
+        if (arg_it != begin)
+        {
+            file << ", ";
+        }
+
+        bool old_do_not_derref_rebindable_ref = state.do_not_derref_rebindable_reference;
+        state.do_not_derref_rebindable_reference = false;
+
+        if (type_it != type_end
+                && type_it->is_valid())
+        {
+            if ((IS_C_LANGUAGE && type_it->is_any_reference())
+                    || (IS_CXX_LANGUAGE && type_it->is_rebindable_reference()))
+            {
+                state.do_not_derref_rebindable_reference = true;
+            }
+        }
+
+        if (state.do_not_derref_rebindable_reference
+                && arg_it->template is<Nodecl::Derreference>())
+        {
+            // Ignore top level derreference
+            walk(arg_it->template as<Nodecl::Derreference>().get_rhs());
+        }
+        else
+        {
+            walk(*arg_it);
+        }
+
+        if (type_it != type_end)
+            type_it++;
+
+        arg_it++;
+
+        state.do_not_derref_rebindable_reference = old_do_not_derref_rebindable_ref;
+    }
+}
+
 template <typename Node>
 CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call)
 {
@@ -768,6 +859,25 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
         }
     }
 
+    TL::Type function_type(NULL);
+
+    if (called_entity.is<Nodecl::Symbol>())
+    {
+        function_type = called_entity.as<Nodecl::Symbol>().get_symbol().get_type();
+    }
+    else
+    {
+        function_type = called_entity.get_type();
+    }
+
+    if (function_type.is_any_reference())
+        function_type = function_type.references_to();
+
+    if (function_type.is_pointer())
+        function_type = function_type.points_to();
+
+    ERROR_CONDITION(!function_type.is_function(), "Expecting a function type", 0);
+
     switch (kind)
     {
         case ORDINARY_CALL:
@@ -784,7 +894,9 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
                     file << ")";
                 }
                 file << "(";
-                walk_expression_list(arguments);
+
+                codegen_function_call_arguments(arguments.begin(), arguments.end(), function_type, /* ignore_n_first */ 0);
+
                 file << ")";
                 break;
             }
@@ -818,7 +930,7 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
 
                 file << "(";
 
-                walk_expression_unpacked_list(arguments.begin() + 1, arguments.end());
+                codegen_function_call_arguments(arguments.begin(), arguments.end(), function_type, /* ignore_n_first */ 1);
 
                 file << ")";
                 break;
@@ -829,7 +941,7 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
                 file << class_symbol.get_qualified_name();
                 file << "(";
 
-                walk_expression_list(arguments);
+                codegen_function_call_arguments(arguments.begin(), arguments.end(), function_type, /* ignore_n_first */ 0);
 
                 file << ")";
                 break;
@@ -1729,7 +1841,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Symbol& node)
     bool must_derref = (((IS_C_LANGUAGE && entry.get_type().is_any_reference())
                 || (IS_CXX_LANGUAGE && entry.get_type().is_rebindable_reference()))
             && !entry.get_type().references_to().is_array()
-            && !state.referenced_rebindable_reference);
+            && !state.do_not_derref_rebindable_reference);
 
     if (must_derref)
     {
@@ -1928,6 +2040,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::UpcSyncStatement& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::SourceComment& node)
 {
+    indent();
     file << "/* " << node.get_text() << " */\n";
 }
 
@@ -4581,10 +4694,8 @@ std::string CxxBase::get_declaration_with_parameters(TL::Type t, TL::Scope scope
 
 TL::Type CxxBase::fix_references(TL::Type t)
 {
-    if ((IS_C_LANGUAGE 
-                && t.is_any_reference())
-            || (IS_CXX_LANGUAGE 
-                && t.is_rebindable_reference()))
+    if ((IS_C_LANGUAGE && t.is_any_reference())
+            || (IS_CXX_LANGUAGE && t.is_rebindable_reference()))
     {
         TL::Type ref = t.references_to();
         if (ref.is_array())

@@ -177,7 +177,7 @@ namespace Codegen
                 std::set<TL::Symbol> walked_symbols;
 
                 // This means that we are doing &X and X is a rebindable reference
-                bool referenced_rebindable_reference;
+                bool do_not_derref_rebindable_reference;
 
                 // Not meant to be used directly, use functions 
                 // get_indent_level, set_indent_level
@@ -197,7 +197,7 @@ namespace Codegen
                     being_checked_for_required(),
                     pending_nested_types_to_define(),
                     walked_symbols(),
-                    referenced_rebindable_reference(false),
+                    do_not_derref_rebindable_reference(false),
                     _indent_level(0) { }
             } state;
             // End of State
@@ -277,6 +277,9 @@ namespace Codegen
             void walk_expression_list(const Nodecl::List&);
             template <typename Iterator>
             void walk_expression_unpacked_list(Iterator begin, Iterator end);
+
+            template <typename Iterator>
+                void codegen_function_call_arguments(Iterator begin, Iterator end, TL::Type function_type, int ignore_n_first);
 
             template <typename Node>
                 CxxBase::Ret visit_function_call(const Node&, bool is_virtual_call);
