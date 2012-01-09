@@ -234,6 +234,7 @@ static void system_v_field_layout(scope_entry_t* field,
         // which may be shared with another (possibly bitfield)field
         _size_t bitfield_offset = compute_bitfield_offset((*offset), field_align);
         field->entity_specs.field_offset = bitfield_offset;
+        field->entity_specs.bitfield_offset = (*offset);
 
         if (CURRENT_CONFIGURATION->type_environment->endianness == ENV_LITTLE_ENDIAN)
         {
@@ -1020,6 +1021,7 @@ static void cxx_abi_lay_bitfield(type_t* t UNUSED_PARAMETER,
         // Keep the storage unit boundary offset of this bitfield
         _size_t bitfield_offset = compute_bitfield_offset(offset, member_align);
         member->entity_specs.field_offset = bitfield_offset;
+        member->entity_specs.bitfield_offset = offset;
 
         if (CURRENT_CONFIGURATION->type_environment->endianness == ENV_LITTLE_ENDIAN)
         {
@@ -1584,7 +1586,14 @@ void generic_system_v_sizeof(type_t* t)
         return;
     }
 
-    internal_error("Unreachable code", 0);
+    FORTRAN_LANGUAGE()
+    {
+        // For Fortran we don't do fancy things
+        system_v_generic_sizeof(t);
+        return;
+    }
+
+    internal_error("Language not supported", 0);
 }
 
 struct floating_type_info_tag binary_float_16 =
