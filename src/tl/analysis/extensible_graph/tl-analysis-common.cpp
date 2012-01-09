@@ -30,13 +30,18 @@ namespace TL
     {
         // *** Structure storing symbols and the kind of use (used, defined or unknown) in a given function *** //
         
-        var_usage_t::var_usage_t(Nodecl::Symbol s, char usage)
-            : _sym(s), _usage(usage)
+        var_usage_t::var_usage_t(ExtensibleSymbol es, char usage)
+            : _es(es), _usage(usage)
         {}
         
-        Nodecl::Symbol var_usage_t::get_nodecl() const
+        ExtensibleSymbol var_usage_t::get_extensible_symbol() const
         {
-            return _sym;
+            return _es;
+        }
+        
+        Nodecl::NodeclBase var_usage_t::get_nodecl() const
+        {
+            return _es.get_nodecl();
         }
         
         char var_usage_t::get_usage() const
@@ -166,7 +171,7 @@ namespace TL
             return res;
         } 
         
-        bool usage_list_contains_sym(Nodecl::Symbol n, ObjectList<struct var_usage_t*> list)
+        bool usage_list_contains_nodecl(Nodecl::NodeclBase n, ObjectList<struct var_usage_t*> list)
         {
             for (ObjectList<struct var_usage_t*>::iterator it = list.begin(); it != list.end(); ++it)
             {
@@ -182,14 +187,49 @@ namespace TL
         {
             for (ObjectList<struct var_usage_t*>::iterator it = list.begin(); it != list.end(); ++it)
             {
-                if ((*it)->get_nodecl().get_symbol() == n)
+                Nodecl::NodeclBase current_n = (*it)->get_nodecl();
+                if (current_n.is<Nodecl::Symbol>())
                 {
-                    return true;
+                    if (current_n.get_symbol() == n)
+                    {
+                        return true;
+                    }
                 }
             }
             return false;
         }
+
+  
+        struct var_usage_t* get_var_in_list(Nodecl::NodeclBase n, ObjectList<struct var_usage_t*> list)
+        {
+            for (ObjectList<struct var_usage_t*>::iterator it = list.begin(); it != list.end(); ++it)
+            {
+                if (Nodecl::Utils::equal_nodecls((*it)->get_nodecl(), n))
+                {
+                    return *it;
+                }
+            }
+            
+            internal_error("No nodecl '%s' founded in usage list", n.prettyprint().c_str());
+        }
         
+        struct var_usage_t* get_var_in_list(Symbol n, ObjectList<struct var_usage_t*> list)
+        {
+            for (ObjectList<struct var_usage_t*>::iterator it = list.begin(); it != list.end(); ++it)
+            {
+                Nodecl::NodeclBase current_n = (*it)->get_nodecl();
+                if (current_n.is<Nodecl::Symbol>())
+                {
+                    if (current_n.get_symbol() == n)
+                    {
+                        return *it;
+                    }
+                }
+            }
+            
+            internal_error("No symbol '%s' founded in usage list", n.get_name().c_str());
+        }
+
         void print_function_call_nest(ExtensibleGraph *graph)
         {   // TODO Create a dot graph with the Call graph hanging from 'graph'
         }

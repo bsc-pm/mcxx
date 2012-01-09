@@ -154,9 +154,9 @@ namespace TL
         protected:
             ObjectList<ExtensibleGraph*> _cfgs;
             
-            // *** All these variables are used while building of the graphs *** //
-            
         private:
+            // *** The following variables are used while building of the graphs *** //
+            
             ExtensibleGraph* _actual_cfg;
             
             std::stack<Nodecl::NodeclBase> _context_s;
@@ -176,6 +176,9 @@ namespace TL
             ObjectList<ObjectList<Node*> > _task_s;
             int _task_level;
             
+            // *** All these variables are used while analysing the graphs *** //
+            
+            ObjectList<Symbol> _visited_functions;
             
             //! This method creates a list with the nodes in an specific subgraph
             /*!

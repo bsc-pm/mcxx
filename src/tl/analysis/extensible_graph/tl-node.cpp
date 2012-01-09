@@ -1230,7 +1230,10 @@ namespace TL
         void Node::set_ue_var(ExtensibleSymbol new_ue_var)
         {
             ext_sym_set ue_vars;
-        
+            
+            if (new_ue_var.get_nodecl().is<Nodecl::Div>() || new_ue_var.get_nodecl().is<Nodecl::Minus>())
+                std::cerr << "No hauriem d'estar introdutint " << new_ue_var.get_nodecl().prettyprint() << std::endl;
+            
             if (this->has_key(_UPPER_EXPOSED))
             {   
                 ue_vars = get_data<ext_sym_set>(_UPPER_EXPOSED);
@@ -1243,7 +1246,13 @@ namespace TL
         void Node::set_ue_var(ext_sym_set new_ue_vars)
         {
             ext_sym_set ue_vars;
-        
+       
+            for (ext_sym_set::iterator it = new_ue_vars.begin(); it != new_ue_vars.end(); ++it)
+                if (it->get_nodecl().is<Nodecl::Div>() || it->get_nodecl().is<Nodecl::Minus>())
+                {    
+                    std::cerr << "Hola que tal" << std::endl;
+                    std::cerr << "No hauriem d'estar introdutint " << it->get_nodecl().prettyprint() << " (llista)!" << std::endl;
+                }
             if (this->has_key(_UPPER_EXPOSED))
             {   
                 ue_vars = get_data<ext_sym_set>(_UPPER_EXPOSED);
@@ -1279,7 +1288,7 @@ namespace TL
         }
         
         void Node::set_killed_var(ExtensibleSymbol new_killed_var)
-        {
+        {           
             ext_sym_set killed_vars;
             
             if (has_key(_KILLED))
@@ -1294,7 +1303,7 @@ namespace TL
         void Node::set_killed_var(ext_sym_set new_killed_vars)
         {
             ext_sym_set killed_vars;
-            
+
             if (has_key(_KILLED))
             {
                 killed_vars = get_data<ext_sym_set>(_KILLED);

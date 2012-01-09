@@ -157,12 +157,14 @@ namespace TL
             ObjectList<Symbol> _params;                             // Parameters of the function we are analysing
             ObjectList<struct var_usage_t*> _usage;                 // Variable where the usage computation is stored
             char _defining;                                         // Temporary value used during the visit
-            std::map<Symbol, Nodecl::NodeclBase> _params_to_args;    // Mapping between the parameters of a function and 
+            Nodecl::NodeclBase _last_nodecl;                        // Temporary value to keep usage of complex expressions (refs and derrefs)
+            std::map<Symbol, Nodecl::NodeclBase> _params_to_args;   // Mapping between the parameters of a function and 
                                                                     // the arguments of an specific function call
                                                                     // This value is needed when we have more than one level of IPA
             
             ObjectList<Symbol> _visited_functions;                  // List containing the functions' symbols of all visited functions
                                                                     // This list avoids repeat the same computation over and over
+           
             
             template <typename T>
             void op_assignment_visit(const T& n);
@@ -176,17 +178,17 @@ namespace TL
             /*!
              * Computes the usage of #n depending on the previous uses of this nodecl
              */
-            void set_up_symbol_usage(Nodecl::Symbol n);
+            void set_up_usage(Nodecl::NodeclBase n);
             /*!
-             * Special usage computation when we are dealing with arguments of a function call
+             * Special usage computation when we are dealing with function calls that we cannot analyse
              */
-            void set_up_argument_usage(Nodecl::Symbol arg);
+            void set_up_undefined_usage(Nodecl::NodeclBase arg);
             
             /*!
              * Once IPA is performed over a graph, the information computed in #_usage is propagated to the proper attributes of the graph
              * This is necessary in the case of recursive calls with parameters between them.
              */
-            void fill_graph_usage_info();
+//             void fill_graph_usage_info();
             
             /*!
              * Maps a mapping between parameters and arguments in the current mapping (nested IPA analysis)
@@ -207,8 +209,6 @@ namespace TL
             
             // *** Getters and setters *** //
             ObjectList<struct var_usage_t*> get_usage() const;
-            static struct var_usage_t* get_var_in_list(Nodecl::Symbol n, ObjectList<struct var_usage_t*> list);
-            static struct var_usage_t* get_var_in_list(Symbol n, ObjectList<struct var_usage_t*> list);
             
             // *** Visitors *** //
             Ret visit(const Nodecl::Symbol& n);
@@ -227,6 +227,8 @@ namespace TL
             Ret visit(const Nodecl::Postdecrement& n);
             Ret visit(const Nodecl::Preincrement& n);
             Ret visit(const Nodecl::Postincrement& n);
+            Ret visit(const Nodecl::Reference& n);
+            Ret visit(const Nodecl::Derreference& n);
             Ret visit(const Nodecl::FunctionCall& n);
             Ret visit(const Nodecl::VirtualFunctionCall& n);
             

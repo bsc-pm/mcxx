@@ -36,12 +36,13 @@ namespace TL
         class ExtensibleGraph;
         
         struct var_usage_t {
-            Nodecl::Symbol _sym;
+            ExtensibleSymbol _es;
             char _usage;     // 0 => KILLED, 1 => UE, 2 => UE + KILLED, 3 => UNDEF
             
-            var_usage_t(Nodecl::Symbol s, char usage);
+            var_usage_t(ExtensibleSymbol es, char usage);
             
-            Nodecl::Symbol get_nodecl() const;
+            ExtensibleSymbol get_extensible_symbol() const;
+            Nodecl::NodeclBase get_nodecl() const;
             char get_usage() const;
             void set_usage(char usage);
         };
@@ -51,8 +52,10 @@ namespace TL
         ext_sym_set sets_difference(ext_sym_set set1, ext_sym_set set2);
         bool sets_equals(ext_sym_set set1, ext_sym_set set2);
         
-        bool usage_list_contains_sym(Nodecl::Symbol n, ObjectList<struct var_usage_t*> list);
+        bool usage_list_contains_nodecl(Nodecl::NodeclBase n, ObjectList<struct var_usage_t*> list);
         bool usage_list_contains_sym(Symbol n, ObjectList<struct var_usage_t*> list);
+        struct var_usage_t* get_var_in_list(Nodecl::NodeclBase n, ObjectList<struct var_usage_t*> list);
+        struct var_usage_t* get_var_in_list(Symbol n, ObjectList<struct var_usage_t*> list);
         
         std::map<Symbol, Nodecl::NodeclBase> map_params_to_args(Nodecl::NodeclBase func_call, ExtensibleGraph* called_func_graph,
                                                                 ObjectList<Symbol> &params, Nodecl::List &args);

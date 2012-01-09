@@ -167,16 +167,17 @@ namespace TL
                 // Set some other properties of the node
                 if (old_node->has_key(_LIVE_IN))
                 {   // Liveness analysis has been performed, so we copy this information too
-                    new_node->set_data(_LIVE_IN, old_node->get_data<ext_sym_set>(_LIVE_IN));
-                    new_node->set_data(_LIVE_OUT, old_node->get_data<ext_sym_set>(_LIVE_OUT));
-                    new_node->set_data(_UPPER_EXPOSED, old_node->get_data<ext_sym_set>(_UPPER_EXPOSED));
-                    new_node->set_data(_KILLED, old_node->get_data<ext_sym_set>(_KILLED));
+                    new_node->set_live_in(old_node->get_live_in_vars());
+                    new_node->set_live_out(old_node->get_live_out_vars());
+                    new_node->set_ue_var(old_node->get_ue_vars());
+                    new_node->set_killed_var(old_node->get_killed_vars());
+                    new_node->set_undefined_behaviour_var(old_node->get_undefined_behaviour_vars());
                 }
                 if (old_node->has_key(_IN_DEPS))
                 {   // Auto-deps analysis has been performed
-                    new_node->set_data(_IN_DEPS, old_node->get_data<ext_sym_set>(_IN_DEPS));
-                    new_node->set_data(_OUT_DEPS, old_node->get_data<ext_sym_set>(_OUT_DEPS));
-                    new_node->set_data(_INOUT_DEPS, old_node->get_data<ext_sym_set>(_INOUT_DEPS));                    
+                    new_node->set_input_deps(old_node->get_input_deps());
+                    new_node->set_output_deps(old_node->get_output_deps());
+                    new_node->set_inout_deps(old_node->get_inout_deps());                  
                 }
                 
                 // Append the new node to the mapping structure

@@ -723,22 +723,27 @@ namespace TL
             {   // Scalar analysis
                 // TODO: mirar tots els accessos que es fan entre 1 i 2 i decidir el valor a retornar
                 
-                    char state;
-                    switch(state)
-                    {
-                        case '0': auto_scope_t->set_firstprivate_var(s);
-                                  break;
-                        case '1': auto_scope_t->set_shared_var(s);
-                                  break;
-                        case '2': auto_scope_t->set_undef_sc_var(s);
-                                  break;
-                        default:  internal_error("Unexpected result '%s' when computing usage between the scheduling point of a task "\
-                                                 "and the next synchronization point", 0);
-                    }
+//                     char state;
+//                     switch(state)
+//                     {
+//                         case '0': auto_scope_t->set_firstprivate_var(s);
+//                                   break;
+//                         case '1': auto_scope_t->set_shared_var(s);
+//                                   break;
+//                         case '2': auto_scope_t->set_undef_sc_var(s);
+//                                   break;
+//                         default:  internal_error("Unexpected result '%s' when computing usage between the scheduling point of a task "\
+//                                                  "and the next synchronization point", 0);
+//                     }
+            }
+            else if (s.is<Nodecl::Reference>() || s.is<Nodecl::Derreference>() || s.is<Nodecl::ArraySubscript>())
+            {
+                
             }
             else
             {   // This values can be a pointer, a reference or an array access
-                internal_error("Auto-scoping for pointers, references and arrays is not yet implemented", 0);
+//                 internal_error("Auto-scoping for '%s' as '%s' is not yet implemented", ast_print_node_type(s.get_kind()),
+//                                s.prettyprint().c_str());
             }
         }
         
@@ -837,7 +842,7 @@ namespace TL
         {
             Node* entry = task_node->get_graph_entry_node();
         
-            compute_auto_scoping(task_node);
+//             compute_auto_scoping(task_node);
             
             ObjectList<Node*> node_l = task_node->get_inner_nodes_in_level();
             
@@ -845,80 +850,80 @@ namespace TL
             ObjectList<ExtensibleSymbol> in_symbols;
             ObjectList<ExtensibleSymbol> out_symbols;
             ext_sym_set li_vars = task_node->get_live_in_vars();
-            for(ObjectList<Node*>::iterator it = node_l.begin(); it != node_l.end(); ++it)
+            
+            
+            ext_sym_set ue_vars = task_node->get_ue_vars();
+            for(ext_sym_set::iterator it_ue = ue_vars.begin(); it_ue != ue_vars.end(); ++it_ue)
             {
-                ext_sym_set ue_vars = (*it)->get_ue_vars();
-                for(ext_sym_set::iterator it_ue = ue_vars.begin(); it_ue != ue_vars.end(); ++it_ue)
+                if (!it_ue->get_symbol().get_scope().scope_is_enclosed_by(
+                    task_node->get_task_context().retrieve_context())
+                    && !in_symbols.contains(*it_ue))
                 {
-                    if (!it_ue->get_symbol().get_scope().scope_is_enclosed_by(
-                        task_node->get_task_context().retrieve_context())
-                        && !in_symbols.contains(*it_ue))
-                    {
-                        if (task_node->has_key(_TASK_FUNCTION))
-                        {   // Only if the symbol is not a parameter, we include it
-                            Symbol function_sym = task_node->get_task_function();
-                            scope_entry_t* function_header = function_sym.get_internal_symbol();
-                            int num_params = function_header->entity_specs.num_related_symbols;
-                            scope_entry_t** related_symbols = function_header->entity_specs.related_symbols;
-                            bool sym_is_param = false;
-                            for (int i=0; i<num_params; ++i)
+                    if (task_node->has_key(_TASK_FUNCTION))
+                    {   // Only if the symbol is a parameter, we include it
+                        Symbol function_sym = task_node->get_task_function();
+                        scope_entry_t* function_header = function_sym.get_internal_symbol();
+                        int num_params = function_header->entity_specs.num_related_symbols;
+                        scope_entry_t** related_symbols = function_header->entity_specs.related_symbols;
+                        bool sym_is_param = false;
+                        for (int i=0; i<num_params; ++i)
+                        {
+                            Symbol s(related_symbols[i]);
+                            if (s == it_ue->get_symbol())
                             {
-                                Symbol s(related_symbols[i]);
-                                if (s == it_ue->get_symbol())
-                                {
-                                    sym_is_param = true;
-                                    break;
-                                }
+                                sym_is_param = true;
+                                break;
                             }
-                            if (sym_is_param)
-                            {
-                                in_symbols.insert(*it_ue);
-                            }
-                            else
-                            {}
                         }
-                        else
+                        if (sym_is_param)
                         {
                             in_symbols.insert(*it_ue);
                         }
+                        else
+                        {}
+                    }
+                    else
+                    {
+                        in_symbols.insert(*it_ue);
                     }
                 }
-                    
-                ext_sym_set kill_vars = (*it)->get_killed_vars();
-                for(ext_sym_set::iterator it_kill = kill_vars.begin(); it_kill != kill_vars.end(); ++it_kill)
+            }
+            
+            ext_sym_set kill_vars = task_node->get_killed_vars();
+            for(ext_sym_set::iterator it_kill = kill_vars.begin(); it_kill != kill_vars.end(); ++it_kill)
+            {
+                if (!it_kill->get_symbol().get_scope().scope_is_enclosed_by(
+                    task_node->get_task_context().retrieve_context())
+                    && !out_symbols.contains(*it_kill))
                 {
-                    if (!it_kill->get_symbol().get_scope().scope_is_enclosed_by(
-                        task_node->get_task_context().retrieve_context())
-                        && !out_symbols.contains(*it_kill))
-                    {
-                        if (task_node->has_key(_TASK_FUNCTION))
-                        {   // Only if the symbol is not a parameter, we include it
-                            Symbol function_sym = task_node->get_task_function();
-                            scope_entry_t* function_header = function_sym.get_internal_symbol();
-                            int num_params = function_header->entity_specs.num_related_symbols;
-                            scope_entry_t** related_symbols = function_header->entity_specs.related_symbols;
-                            bool sym_is_param = false;
-                            for (int i=0; i<num_params; ++i)
+                    if (task_node->has_key(_TASK_FUNCTION))
+                    {   // Only if the symbol is a parameter, we include it
+                        Symbol function_sym = task_node->get_task_function();
+                        scope_entry_t* function_header = function_sym.get_internal_symbol();
+                        int num_params = function_header->entity_specs.num_related_symbols;
+                        scope_entry_t** related_symbols = function_header->entity_specs.related_symbols;
+                        bool sym_is_param = false;
+                        for (int i=0; i<num_params; ++i)
+                        {
+                            Symbol s(related_symbols[i]);
+                            if (s == it_kill->get_symbol())
                             {
-                                Symbol s(related_symbols[i]);
-                                if (s == it_kill->get_symbol())
-                                {
-                                    sym_is_param = true;
-                                    break;
-                                }
-                            }
-                            if (sym_is_param)
-                            {
-                                out_symbols.insert(*it_kill);
+                                sym_is_param = true;
+                                break;
                             }
                         }
-                        else
+                        if (sym_is_param)
                         {
                             out_symbols.insert(*it_kill);
                         }
                     }
-                }          
+                    else
+                    {
+                        out_symbols.insert(*it_kill);
+                    }
+                }
             }
+           
     //         Compute auto-deps
             ext_sym_set input_deps, output_deps, inout_deps;
             for (ObjectList<ExtensibleSymbol>::iterator it = in_symbols.begin(); it != in_symbols.end(); ++it)
@@ -1145,6 +1150,42 @@ namespace TL
                         return Nodecl::Minus::make(lhs, rhs, s_map.get_type(), s_map.get_filename().c_str(), s_map.get_line());
                     }                
                 }
+                else if (n.is<Nodecl::Preincrement>())
+                {
+                    Nodecl::Preincrement aux = n.as<Nodecl::Preincrement>();
+                    Nodecl::NodeclBase rhs = match_nodecl_with_symbol(aux.get_rhs(), s, s_map);
+                    if (!rhs.is_null())
+                    {
+                        return Nodecl::Preincrement::make(rhs, s_map.get_type(), s_map.get_filename().c_str(), s_map.get_line());
+                    }
+                }
+                else if (n.is<Nodecl::Postincrement>())
+                {
+                    Nodecl::Postincrement aux = n.as<Nodecl::Postincrement>();
+                    Nodecl::NodeclBase rhs = match_nodecl_with_symbol(aux.get_rhs(), s, s_map);
+                    if (!rhs.is_null())
+                    {
+                        return Nodecl::Postincrement::make(rhs, s_map.get_type(), s_map.get_filename().c_str(), s_map.get_line());
+                    }
+                }
+                else if (n.is<Nodecl::Predecrement>())
+                {
+                    Nodecl::Predecrement aux = n.as<Nodecl::Predecrement>();
+                    Nodecl::NodeclBase rhs = match_nodecl_with_symbol(aux.get_rhs(), s, s_map);
+                    if (!rhs.is_null())
+                    {
+                        return Nodecl::Predecrement::make(rhs, s_map.get_type(), s_map.get_filename().c_str(), s_map.get_line());
+                    }
+                }
+                else if (n.is<Nodecl::Postdecrement>())
+                {
+                    Nodecl::Postdecrement aux = n.as<Nodecl::Postdecrement>();
+                    Nodecl::NodeclBase rhs = match_nodecl_with_symbol(aux.get_rhs(), s, s_map);
+                    if (!rhs.is_null())
+                    {
+                        return Nodecl::Postdecrement::make(rhs, s_map.get_type(), s_map.get_filename().c_str(), s_map.get_line());
+                    }
+                }
                 else
                 {
                     internal_error("Node type '%s' in node '%s' not yet implemented while parsing an Extensible symbol matching",
@@ -1301,82 +1342,117 @@ namespace TL
                     }
                     else
                     {
-                        char has_use_def_computed = called_func_graph->has_use_def_computed();
-                        if (has_use_def_computed == '0')
+                        if (!_visited_functions.contains(called_func_graph->get_function_symbol()))
                         {
-                            _actual_cfg = called_func_graph;
-                            Node* graph_node = called_func_graph->get_graph();
-                            compute_use_def_chains(graph_node);
-                            called_func_graph->set_use_def_computed('1');
-                        }
-                        else if (has_use_def_computed == '1')
-                        {
-                            // Filter map maintaining those arguments that are constants for "constant propagation" in USE-DEF info
-                            std::map<Symbol, Nodecl::NodeclBase> const_args;
-                            for(std::map<Symbol, Nodecl::NodeclBase>::iterator it = params_to_args.begin(); it != params_to_args.end(); ++it)
-                            {
-                                if (it->second.is_constant())
-                                {
-                                    const_args[it->first] = it->second;
-                                }
-                            }
+                            _visited_functions.insert(called_func_graph->get_function_symbol());
                             
-                            // compute use-def chains for the function call
-                            ext_sym_set called_func_ue_vars = called_func_graph->get_graph()->get_ue_vars();
-                            ext_sym_set node_ue_vars;
-                            ext_sym_set::iterator it = called_func_ue_vars.begin();
-                            for(; it != called_func_ue_vars.end(); ++it)
+                            char has_use_def_computed = called_func_graph->has_use_def_computed();
+                            if (has_use_def_computed == '0')
                             {
-                                Symbol s(NULL);
-                                Nodecl::NodeclBase new_ue = match_nodecl_in_symbol_l(it->get_nodecl(), params, args, s);
-                                if ( !new_ue.is_null() )
-                                {   // UE variable is a parameter or a part of a parameter
-                                    ExtensibleSymbol ei(new_ue);
-                                    ei.propagate_constant_values(const_args);
-                                    node_ue_vars.insert(ei);
+                                _actual_cfg = called_func_graph;
+                                Node* graph_node = called_func_graph->get_graph();
+                                compute_use_def_chains(graph_node);
+                                if (called_func_graph->has_use_def_computed() == '2')
+                                {
+                                    has_use_def_computed = '2';
                                 }
-                                else if ( !it->get_symbol().get_scope().scope_is_enclosed_by(function_sym.get_scope()) 
-                                        && it->get_symbol().get_scope() != function_sym.get_scope() )
-                                {   // UE variable is global
-                                    node_ue_vars.insert(*it);
+                                else
+                                {
+                                    called_func_graph->set_use_def_computed('1');
+                                    has_use_def_computed = '1';
                                 }
                             }
-                            node->set_ue_var(node_ue_vars);
-                        
-                            ext_sym_set called_func_killed_vars = called_func_graph->get_graph()->get_killed_vars();
-                            ext_sym_set node_killed_vars;
-                            for(ext_sym_set::iterator it = called_func_killed_vars.begin(); it != called_func_killed_vars.end(); ++it)
+                            if (has_use_def_computed == '1')
                             {
-                                Symbol s(NULL);
-                                Nodecl::NodeclBase new_killed = match_nodecl_in_symbol_l(it->get_nodecl(), params, args, s);
-                                if ( !new_killed.is_null() )
-                                {   // KILLED variable is a parameter or a part of a parameter
-                                    decl_context_t param_context = function_sym.get_internal_symbol()->entity_specs.related_symbols[0]->decl_context;
-                                    if (!params_to_args[s].is<Nodecl::Derreference>()   // Argument is not an address
-                                        && ( s.get_type().is_any_reference()                // Parameter is passed by reference
-                                            || s.get_type().is_pointer() )              // Parameter is a pointer
-                                        /*&& (s.get_scope() != Scope(param_context))*/)     // FIXME The argument is not a temporal value
+                                // Filter map maintaining those arguments that are constants for "constant propagation" in USE-DEF info
+                                std::map<Symbol, Nodecl::NodeclBase> const_args;
+                                for(std::map<Symbol, Nodecl::NodeclBase>::iterator it = params_to_args.begin(); it != params_to_args.end(); ++it)
+                                {
+                                    if (it->second.is_constant())
                                     {
-                                        ExtensibleSymbol ei(new_killed);
-                                        ei.propagate_constant_values(const_args);
-                                        node_killed_vars.insert(ei);
+                                        const_args[it->first] = it->second;
                                     }
                                 }
-                                else if ( !it->get_symbol().get_scope().scope_is_enclosed_by(function_sym.get_scope()) 
-                                        && it->get_symbol().get_scope() != function_sym.get_scope() )
-                                {   // KILLED variable is global
-                                    node_killed_vars.insert(it->get_nodecl());
+                                
+                                // compute use-def chains for the function call
+                                ext_sym_set called_func_ue_vars = called_func_graph->get_graph()->get_ue_vars();                                
+                                ext_sym_set node_ue_vars;
+                                for(ext_sym_set::iterator it = called_func_ue_vars.begin(); it != called_func_ue_vars.end(); ++it)
+                                {
+                                    Symbol s(NULL);
+                                    Nodecl::NodeclBase new_ue = match_nodecl_in_symbol_l(it->get_nodecl(), params, args, s);
+                                    if ( !new_ue.is_null() )
+                                    {   // UE variable is a parameter or a part of a parameter
+                                        if (new_ue.is<Nodecl::Symbol>() 
+                                            || new_ue.is<Nodecl::Reference>() || new_ue.is<Nodecl::Derreference>() 
+                                            || new_ue.is<Nodecl::ArraySubscript>() || new_ue.is<Nodecl::Cast>())
+                                        {
+                                            ExtensibleSymbol ei(new_ue);
+                                            ei.propagate_constant_values(const_args);
+                                            node_ue_vars.insert(ei);
+                                        }
+                                        else if (new_ue.is<Nodecl::FunctionCall>() || new_ue.is<Nodecl::VirtualFunctionCall>())
+                                        {}  // Nothing to do, we don't need to propagate the usage of a temporal value
+                                        else
+                                        {
+                                            SymbolVisitor sv;
+                                            sv.walk(new_ue);
+                                            ObjectList<Nodecl::Symbol> nodecl_symbols = sv.get_symbols();
+                                            for (ObjectList<Nodecl::Symbol>::iterator its = nodecl_symbols.begin(); 
+                                                 its != nodecl_symbols.end(); ++its)
+                                            {
+                                                ExtensibleSymbol ei(*its);
+                                                ei.propagate_constant_values(const_args);
+                                                node_ue_vars.insert(ei);
+                                            }
+                                        }
+                                    }
+                                    else if ( !it->get_symbol().get_scope().scope_is_enclosed_by(function_sym.get_scope()) 
+                                            && it->get_symbol().get_scope() != function_sym.get_scope() )
+                                    {   // UE variable is global
+                                        node_ue_vars.insert(*it);
+                                    }
                                 }
-                            }
-                            node->set_killed_var(node_killed_vars);
+                                node->set_ue_var(node_ue_vars);
                             
-                            ext_sym_set called_func_undef_vars = called_func_graph->get_graph()->get_undefined_behaviour_vars();
-                            node->set_undefined_behaviour_var(called_func_undef_vars);
+                                ext_sym_set called_func_killed_vars = called_func_graph->get_graph()->get_killed_vars();
+                                ext_sym_set node_killed_vars;
+                                for(ext_sym_set::iterator it = called_func_killed_vars.begin(); it != called_func_killed_vars.end(); ++it)
+                                {
+                                    Symbol s(NULL);
+                                    Nodecl::NodeclBase new_killed = match_nodecl_in_symbol_l(it->get_nodecl(), params, args, s);
+                                    if ( !new_killed.is_null() )
+                                    {   // KILLED variable is a parameter or a part of a parameter
+                                        decl_context_t param_context =
+                                                function_sym.get_internal_symbol()->entity_specs.related_symbols[0]->decl_context;
+    //                                     if (!params_to_args[s].is<Nodecl::Derreference>()   // Argument is not an address
+    //                                         && ( s.get_type().is_any_reference()                // Parameter is passed by reference
+    //                                             || s.get_type().is_pointer() )              // Parameter is a pointer
+    //                                         )     // FIXME The argument is not a temporal value /*&& (s.get_scope() != Scope(param_context))*/
+    //                                     {
+                                            ExtensibleSymbol ei(new_killed);
+                                            ei.propagate_constant_values(const_args);
+                                            node_killed_vars.insert(ei);
+    //                                     }
+                                    }
+                                    else if ( !it->get_symbol().get_scope().scope_is_enclosed_by(function_sym.get_scope()) 
+                                            && it->get_symbol().get_scope() != function_sym.get_scope() )
+                                    {   // KILLED variable is global
+                                        node_killed_vars.insert(it->get_nodecl());
+                                    }
+                                }
+                                node->set_killed_var(node_killed_vars);
+                                
+                                ext_sym_set called_func_undef_vars = called_func_graph->get_graph()->get_undefined_behaviour_vars();
+                                node->set_undefined_behaviour_var(called_func_undef_vars);
+                            }
+                            else if (has_use_def_computed == '2')
+                            {
+                                _actual_cfg->set_use_def_computed('2');
+                            }
                         }
-                        else if (has_use_def_computed == '2')
-                        {
-                            _actual_cfg->set_use_def_computed('2');
-                        }
+                        else
+                        {}  // We already have analysed this function
                     }
                 }
                 else
@@ -1434,14 +1510,17 @@ namespace TL
         
         void CfgVisitor::compute_use_def_chains(Node* node)
         {
+            if (CURRENT_CONFIGURATION->debug_options.analysis_verbose)
+                std::cerr << "  ==> Graph '" << _actual_cfg->get_name() << "'" << std::endl;
             gather_live_initial_information(node);
             ExtensibleGraph::clear_visits(node);
             if (CURRENT_CONFIGURATION->debug_options.analysis_verbose)
             {    
-                std::cerr << "  ==> Graph '" << _actual_cfg->get_name() << "'" << std::endl;
+//                 std::cerr << "  ==> Graph '" << _actual_cfg->get_name() << "'" << std::endl;
                 node->print_use_def_chains();
+                std::cerr << "  ==> End graph '" << _actual_cfg->get_name() << "'" << std::endl;
             }
-//             print_function_call_nest(_actual_cfg);
+            _visited_functions.clear();
         }
         
         void CfgVisitor::analyse_loops(Node* node)
@@ -1455,9 +1534,9 @@ namespace TL
                 loop_analysis.print_induction_vars_info();
             }
             
-//             StaticAnalysis static_analysis(&loop_analysis);
-//             static_analysis.extend_reaching_definitions_info(node);
-//             ExtensibleGraph::clear_visits(node);
+            StaticAnalysis static_analysis(&loop_analysis);
+            static_analysis.extend_reaching_definitions_info(node);
+            ExtensibleGraph::clear_visits(node);
         }
     }
 }

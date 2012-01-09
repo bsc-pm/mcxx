@@ -102,6 +102,33 @@ namespace TL
                 Nodecl::Cast aux = n.as<Nodecl::Cast>();
                 return get_nodecl_symbol(aux.get_rhs());
             }
+            /*!
+             * We can have (pre- post-) in- de-crements.
+             * Example:
+             * T *curr_high = ...;
+             * *curr_high-- = l;
+             * "*curr_high--" is a _KILLED_VAR
+             */
+            else if (n.is<Nodecl::Predecrement>())
+            {   
+                Nodecl::Predecrement aux = n.as<Nodecl::Predecrement>();
+                return get_nodecl_symbol(aux.get_rhs());                
+            }
+            else if (n.is<Nodecl::Postdecrement>())
+            {   
+                Nodecl::Postdecrement aux = n.as<Nodecl::Postdecrement>();
+                return get_nodecl_symbol(aux.get_rhs());                
+            }
+            else if (n.is<Nodecl::Preincrement>())
+            {   
+                Nodecl::Preincrement aux = n.as<Nodecl::Preincrement>();
+                return get_nodecl_symbol(aux.get_rhs());                
+            }
+            else if (n.is<Nodecl::Postincrement>())
+            {   
+                Nodecl::Postincrement aux = n.as<Nodecl::Postincrement>();
+                return get_nodecl_symbol(aux.get_rhs());                
+            }
             else
             {
                 internal_error("Unexpected type of nodecl '%s' contained in an ExtendedSymbol '%s'", 

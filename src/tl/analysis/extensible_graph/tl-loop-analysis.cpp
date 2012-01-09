@@ -176,6 +176,7 @@ namespace TL
             return NULL;
         }
         
+        // FIXME LHS of comparisons can be not symbols, e.g.: (b = p[0]) > a
         void LoopAnalysis::traverse_loop_cond(Node* loop_node, Nodecl::NodeclBase cond)
         {
             Nodecl::LoopControl loop_control = loop_node->get_graph_label().as<Nodecl::LoopControl>();
@@ -221,10 +222,9 @@ namespace TL
                 }
                 else
                 {
-                    internal_error("Analysis of loops without an init expression not yet implemented", 0);
-                    // Look for the lb of the value!!!
-    //                 loop_info_var = new LoopAnalysis(def_var, );
-    //                 result[def_var] = def_expr;
+                    loop_info_var = new InductionVarInfo(def_var, def_expr);
+                    loop_info_var->set_ub(ub);
+                    _induction_vars.insert(induc_vars_map::value_type(loop_node->get_id(), loop_info_var));
                 }
             }
             else if (cond.is<Nodecl::LowerOrEqualThan>())
@@ -240,7 +240,9 @@ namespace TL
                 }
                 else
                 {
-                    internal_error("Analysis of loops without an init expression not yet implemented", 0);
+                    loop_info_var = new InductionVarInfo(def_var, def_expr);
+                    loop_info_var->set_ub(def_expr);
+                    _induction_vars.insert(induc_vars_map::value_type(loop_node->get_id(), loop_info_var));
                 }
                 
             }
@@ -264,7 +266,9 @@ namespace TL
                 }
                 else
                 {
-                    internal_error("Analysis of loops without an init expression not yet implemented", 0);
+                    loop_info_var = new InductionVarInfo(def_var, def_expr);
+                    loop_info_var->set_lb(lb);
+                    _induction_vars.insert(induc_vars_map::value_type(loop_node->get_id(), loop_info_var));
                 }
             }
             else if (cond.is<Nodecl::GreaterOrEqualThan>())
@@ -281,7 +285,9 @@ namespace TL
                 }
                 else
                 {
-                    internal_error("Analysis of loops without an init expression not yet implemented", 0);
+                    loop_info_var = new InductionVarInfo(def_var, def_expr);
+                    loop_info_var->set_lb(def_expr);
+                    _induction_vars.insert(induc_vars_map::value_type(loop_node->get_id(), loop_info_var));
                 }
             }
             else if (cond.is<Nodecl::Different>())
@@ -501,8 +507,16 @@ _induction_vars.equal_range(loop_node->get_id());
     //                       << "[" << ivar->get_lb().prettyprint() << ":" << ivar->get_ub().prettyprint() << ":" 
     //                       << ivar->get_stride().prettyprint() << "]" << std::endl;
                 Symbol s(ivar->get_symbol());
-                result[s] = Nodecl::Range::make(ivar->get_lb(), ivar->get_ub(), ivar->get_stride(), ivar->get_type(), 
-                                                s.get_filename(), s.get_line());
+                if (ivar->get_lb().is_null() || ivar->get_ub().is_null() || ivar->get_stride().is_null())
+                {
+                    std::cerr << "warning: induction variable '" << s.get_name() << "' has incomplete information (either bounds or stride)."
+                              << " Check this result manually, it can be wrong" << std::endl;
+                }
+                else
+                {
+                    result[s] = Nodecl::Range::make(ivar->get_lb(), ivar->get_ub(), ivar->get_stride(), ivar->get_type(), 
+                                                    s.get_filename(), s.get_line());
+                }
             }
             
             return result;
@@ -673,6 +687,8 @@ _induction_vars.equal_range(loop_node->get_id());
                     if (ntype == GRAPH_NODE)
                     {
                         compute_ranges_for_variables_in_loop(node->get_data<Node*>(_ENTRY_NODE), node);
+                        ExtensibleGraph::clear_visits_in_level(node->get_data<Node*>(_ENTRY_NODE), node);
+                        node->set_visited(false);
                         node->set_graph_node_use_def();
                     }
                     else if (ntype == BASIC_NORMAL_NODE || ntype == BASIC_LABELED_NODE || ntype == BASIC_FUNCTION_CALL_NODE)

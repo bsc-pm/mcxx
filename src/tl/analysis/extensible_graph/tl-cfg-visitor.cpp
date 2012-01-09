@@ -35,7 +35,8 @@ namespace TL
         CfgVisitor::CfgVisitor()
             : _cfgs(), _actual_cfg(NULL),
             _context_s(), _return_nodes(), _loop_info_s(), _actual_try_info(), 
-            _pragma_info_s(), _omp_sections_info(), _switch_cond_s(), _task_s(), _task_level(0)
+            _pragma_info_s(), _omp_sections_info(), _switch_cond_s(), _task_s(), _task_level(0),
+            _visited_functions()
         {}
         
         ObjectList<ExtensibleGraph*> CfgVisitor::get_cfgs() const
@@ -66,7 +67,7 @@ namespace TL
                 _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, graph_exit);
                 _actual_cfg->connect_nodes(_return_nodes, graph_exit);
                 
-                _actual_cfg->dress_up_graph();
+//                 _actual_cfg->dress_up_graph();
         
                 _cfgs.append(_actual_cfg);
             }
@@ -119,7 +120,7 @@ namespace TL
             _actual_cfg->connect_nodes(_return_nodes, graph_exit);
             _return_nodes.clear();
             
-            _actual_cfg->dress_up_graph();
+//             _actual_cfg->dress_up_graph();
         
             _cfgs.append(_actual_cfg);
             _actual_cfg = NULL;
@@ -251,11 +252,10 @@ namespace TL
         {
             // Tag the symbol if it is a global variable
             Scope s_sc = n.get_symbol().get_scope();
-            Nodecl::NodeclBase n2 = n;
             if (!s_sc.scope_is_enclosed_by(_actual_cfg->_sc))
             {
-                struct var_usage_t* glob_var_usage = new var_usage_t(n, /*UNDEFINED USAGE*/ '3');
-                if (!usage_list_contains_sym(glob_var_usage->get_nodecl(), _actual_cfg->_global_vars))
+                struct var_usage_t* glob_var_usage = new var_usage_t(n, /*EMPTY USAGE*/ ' ');
+                if (!usage_list_contains_sym(n.get_symbol(), _actual_cfg->_global_vars))
                     _actual_cfg->_global_vars.insert(glob_var_usage);
             }
             
@@ -286,6 +286,7 @@ namespace TL
                 if (!last_node->is_empty_node())
                 {
                     // Connect the partial node created recursively with the piece of Graph build until this moment
+                    Nodecl::NodeclBase nodecl = n;
                     ObjectList<Node*> expr_first_nodes = get_first_nodes(last_node);
                     for (ObjectList<Node*>::iterator it = expr_first_nodes.begin();
                         it != expr_first_nodes.end();
@@ -508,12 +509,13 @@ namespace TL
             _actual_cfg->add_func_call_symbol(n.get_called().get_symbol());
             
             // Create the new Function Call node and built it
+            // This node is not connected with the _last_nodes because a FunctionCall is a ExpressionStatement and it will be connected there.
             Node* func_graph_node = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), Nodecl::NodeclBase::null(), FUNC_CALL);
-            if (!_actual_cfg->_last_nodes.empty())
-            {   // If there is any node in 'last_nodes' list, then we have to connect the new graph node
-                _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, func_graph_node);
+//             if (!_actual_cfg->_last_nodes.empty())
+//             {   // If there is any node in 'last_nodes' list, then we have to connect the new graph node
+//                 _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, func_graph_node);
                 _actual_cfg->_last_nodes.clear();
-            }
+//             }
             _actual_cfg->_last_nodes.append(func_graph_node->get_graph_entry_node());
             
             // Create the nodes for the arguments
@@ -707,7 +709,7 @@ namespace TL
                     
                     _actual_cfg->connect_nodes(graph_entry, graph_exit);
                     
-                    _actual_cfg->dress_up_graph();
+//                     _actual_cfg->dress_up_graph();
             
                     _cfgs.append(_actual_cfg);
                     
@@ -1104,7 +1106,7 @@ namespace TL
                         (*it)->set_data(_EDGE_TYPE, TRUE_EDGE);
                     }
                     ++it;
-                }            
+                }
             }
             else
             {
@@ -1121,7 +1123,7 @@ namespace TL
                                        ObjectList<Edge_type>(n_connects, aux_etype), ObjectList<std::string>(n_connects, ""));
             
             _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(exit_node);
-            
+           
             return cond_node_l;
         }     
 
@@ -1200,61 +1202,55 @@ namespace TL
             // Compose the then node
             ObjectList<Node*> then_node_l = walk(n.get_then());
             Nodecl::NodeclBase then = n.get_then();
-            if (!cond_node_l[0]->get_exit_edges().empty())
-            {
-                ObjectList<Edge*> exit_edges = cond_node_l[0]->get_exit_edges();
-                bool all_tasks_then = true;
-                for (ObjectList<Edge*>::iterator it = exit_edges.begin(); it != exit_edges.end(); ++it)
-                {   // More than one exit edge means that some tasks are created within 'then' statement
-                    (*it)->set_data(_EDGE_TYPE, TRUE_EDGE);
-                    if (!(*it)->is_task_edge())
-                        all_tasks_then = false;
-                }
+            ObjectList<Edge*> exit_edges = cond_node_l[0]->get_exit_edges();
+            bool all_tasks_then = true;
+            for (ObjectList<Edge*>::iterator it = exit_edges.begin(); it != exit_edges.end(); ++it)
+            {   // More than one exit edge means that some tasks are created within 'then' statement
+                (*it)->set_data(_EDGE_TYPE, TRUE_EDGE);
+                if (!(*it)->is_task_edge())
+                    all_tasks_then = false;
+            }
             
-                // Compose the else node, if it exists
-                ObjectList<Node*> last_nodes_after_then = _actual_cfg->_last_nodes;
-                _actual_cfg->_last_nodes.clear();
-                _actual_cfg->_last_nodes.append(cond_node_l[0]);
-                ObjectList<Node*> else_node_l = walk(n.get_else());
-                
-                // Link the If condition with the FALSE statement (else or empty node)
-                bool all_tasks_else = true;
-                int false_edge_it = exit_edges.size();
-                exit_edges = cond_node_l[0]->get_exit_edges();
-                for (; false_edge_it < cond_node_l[0]->get_exit_edges().size(); ++false_edge_it)
-                {
-                    exit_edges[false_edge_it]->set_data(_EDGE_TYPE, FALSE_EDGE);
-                    if (!exit_edges[false_edge_it]->is_task_edge())
-                        all_tasks_else = false;
-                }
-                
-                exit_node->set_id(++_actual_cfg->_nid);
-                exit_node->set_outer_node(_actual_cfg->_outer_node.top());
-                
-                if ((all_tasks_then && all_tasks_else) || (then_node_l.empty() && else_node_l.empty()))
-                {
-                    _actual_cfg->connect_nodes(cond_node_l[0], exit_node);
-                }
-                else
-                {
-                    if (then_node_l.empty())
-                        _actual_cfg->connect_nodes(cond_node_l[0], exit_node, TRUE_EDGE);
-                    else if (else_node_l.empty())
-                        _actual_cfg->connect_nodes(cond_node_l[0], exit_node, FALSE_EDGE);
-                    
-                    if (all_tasks_else || else_node_l.empty())
-                        _actual_cfg->_last_nodes = last_nodes_after_then;
-                    
-                    _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, exit_node);
-                }
+            // Compose the else node, if it exists
+            ObjectList<Node*> then_first_nodes = cond_node_l[0]->get_children();
+            ObjectList<Node*> last_nodes_after_then = _actual_cfg->_last_nodes;
+            _actual_cfg->_last_nodes.clear();
+            _actual_cfg->_last_nodes.append(cond_node_l[0]);
+            ObjectList<Node*> else_node_l = walk(n.get_else());
+            
+            // Link the If condition with the FALSE statement
+            bool all_tasks_else = true;
+            int false_edge_it = exit_edges.size();
+            exit_edges = cond_node_l[0]->get_exit_edges();
+            ObjectList<Node*> else_first_nodes;
+            for (; false_edge_it < exit_edges.size(); ++false_edge_it)
+            {
+                else_first_nodes.append(exit_edges[false_edge_it]->get_target());
+                exit_edges[false_edge_it]->set_data(_EDGE_TYPE, FALSE_EDGE);
+                if (!exit_edges[false_edge_it]->is_task_edge())
+                    all_tasks_else = false;
+            }
+            
+            exit_node->set_id(++_actual_cfg->_nid);
+            exit_node->set_outer_node(_actual_cfg->_outer_node.top());
+            
+            if ((all_tasks_then && all_tasks_else) || (then_first_nodes.empty() && else_first_nodes.empty()))
+            {
+                _actual_cfg->connect_nodes(cond_node_l[0], exit_node);
             }
             else
             {
-                // Both for true and false evaluation for the if condition, we go to the exit node
-                exit_node->set_id(++_actual_cfg->_nid);
-                exit_node->set_outer_node(_actual_cfg->_outer_node.top());     
-                _actual_cfg->connect_nodes(cond_node_l[0], exit_node, TRUE_EDGE);
-                _actual_cfg->connect_nodes(cond_node_l[0], exit_node, FALSE_EDGE);
+                if (then_first_nodes.empty()){
+                    _actual_cfg->connect_nodes(cond_node_l[0], exit_node, TRUE_EDGE);
+                } else if (else_first_nodes.empty()){
+                    _actual_cfg->connect_nodes(cond_node_l[0], exit_node, FALSE_EDGE);
+                }
+                if (all_tasks_else || _actual_cfg->_last_nodes.empty())
+                    _actual_cfg->_last_nodes = last_nodes_after_then;
+                else if (!then_first_nodes.empty())
+                    _actual_cfg->_last_nodes.append(last_nodes_after_then);
+                
+                _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, exit_node);
             }
             
             _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(exit_node);
@@ -1304,78 +1300,73 @@ namespace TL
         
             ObjectList<Nodecl::NodeclBase> label;
             // Set the edge between the Case and the Switch condition
-            if (!case_stmt_l.empty())
-            {
-                Edge* e = _actual_cfg->connect_nodes(_switch_cond_s.top(), case_stmt_l[0], CASE_EDGE);
-                if (e != NULL)
-                {   // The edge between the nodes did not exist previously
-                    if (n.template is<Nodecl::CaseStatement>())
-                    {   // We are visiting a Case Statement
-                        Nodecl::CaseStatement case_stmt = n.template as<Nodecl::CaseStatement>();
-                        label.append(case_stmt.get_case());
-                    }
-                    else if (n.template is<Nodecl::DefaultStatement>())
-                    {   // We are visiting a Default Statement
-                        label.append(Nodecl::NodeclBase::null());
-                    }
-                    else
-                    {
-                        if (n.template is<Nodecl::CaseStatement>())
-                        {
-                            Nodecl::CaseStatement stmt = n.template as<Nodecl::CaseStatement>();
-                            internal_error("Unexpected type of Nodecl '%s' found in Case Default visit.", stmt.prettyprint().c_str());
-                        }
-                        else
-                        {
-                            Nodecl::DefaultStatement stmt = n.template as<Nodecl::DefaultStatement>();
-                            internal_error("Unexpected type of Nodecl '%s' found in Case Default visit.", stmt.prettyprint().c_str());
-                        }
-                    }
-                    e->set_data(_EDGE_LABEL, label);
-                
-                    if (case_stmt_l.back()->get_type() != BASIC_BREAK_NODE)
-                    {
-                        _actual_cfg->_last_nodes = ObjectList<Node*>(1, case_stmt_l.back());
-                    }
+            // If the case statement is empty, it will return a node with the empty statement
+            Edge* e = _actual_cfg->connect_nodes(_switch_cond_s.top(), case_stmt_l[0], CASE_EDGE);
+            if (e != NULL)
+            {   // The edge between the nodes did not exist previously
+                if (n.template is<Nodecl::CaseStatement>())
+                {   // We are visiting a Case Statement
+                    Nodecl::CaseStatement case_stmt = n.template as<Nodecl::CaseStatement>();
+                    label.append(case_stmt.get_case());
+                }
+                else if (n.template is<Nodecl::DefaultStatement>())
+                {   // We are visiting a Default Statement
+                    label.append(Nodecl::NodeclBase::null());
                 }
                 else
-                {   // if the nodes where already connected, the nodes where already connected, then the edge should hace two labels
-                    Edge* ee = NULL;
-                    ObjectList<Edge*> case_entry_edges = case_stmt_l[0]->get_entry_edges();
-                    for (ObjectList<Edge*>::iterator it = case_entry_edges.begin();
-                        it != case_entry_edges.end();
-                        ++it)
-                    {
-                        if ((*it)->get_source()->get_id() == _switch_cond_s.top()->get_id())
-                        {
-                            ee = *it;
-                            break;
-                        }
-                    }
-                    if (ee == NULL)
-                        internal_error("No edge found while searching existent edge between '%d' and '%d'", 
-                                    _switch_cond_s.top()->get_id(), case_stmt_l[0]->get_id());
-                        
-                    label.append(ee->get_data<nodecl_t>(_EDGE_LABEL));
+                {
                     if (n.template is<Nodecl::CaseStatement>())
-                    {   // We are visiting a Case Statement
-                        Nodecl::CaseStatement case_stmt = n.template as<Nodecl::CaseStatement>();
-                        label.append(case_stmt.get_case());
-                    }
-                    else if (n.template is<Nodecl::DefaultStatement>())
-                    {   // We are visiting a Default Statement
-                        label.append(Nodecl::NodeclBase::null());
+                    {
+                        Nodecl::CaseStatement stmt = n.template as<Nodecl::CaseStatement>();
+                        internal_error("Unexpected type of Nodecl '%s' found in Case Default visit.", stmt.prettyprint().c_str());
                     }
                     else
                     {
-                        internal_error("Unexpected type of Nodecl '%s' found in Case Default visit.",
-                                       ast_print_node_type(n.get_kind()));
+                        Nodecl::DefaultStatement stmt = n.template as<Nodecl::DefaultStatement>();
+                        internal_error("Unexpected type of Nodecl '%s' found in Case Default visit.", stmt.prettyprint().c_str());
                     }
-                    ee->set_data(_EDGE_LABEL, label);
+                }
+                e->set_data(_EDGE_LABEL, label);
+            
+                if (case_stmt_l.back()->get_type() != BASIC_BREAK_NODE)
+                {
+                    _actual_cfg->_last_nodes = ObjectList<Node*>(1, case_stmt_l.back());
                 }
             }
             else
-            {   // The case is empty. Nothing to do
+            {   // if the nodes where already connected, the nodes where already connected, then the edge should hace two labels
+                Edge* ee = NULL;
+                ObjectList<Edge*> case_entry_edges = case_stmt_l[0]->get_entry_edges();
+                for (ObjectList<Edge*>::iterator it = case_entry_edges.begin();
+                    it != case_entry_edges.end();
+                    ++it)
+                {
+                    if ((*it)->get_source()->get_id() == _switch_cond_s.top()->get_id())
+                    {
+                        ee = *it;
+                        break;
+                    }
+                }
+                if (ee == NULL)
+                    internal_error("No edge found while searching existent edge between '%d' and '%d'", 
+                                _switch_cond_s.top()->get_id(), case_stmt_l[0]->get_id());
+                    
+                label.append(ee->get_data<nodecl_t>(_EDGE_LABEL));
+                if (n.template is<Nodecl::CaseStatement>())
+                {   // We are visiting a Case Statement
+                    Nodecl::CaseStatement case_stmt = n.template as<Nodecl::CaseStatement>();
+                    label.append(case_stmt.get_case());
+                }
+                else if (n.template is<Nodecl::DefaultStatement>())
+                {   // We are visiting a Default Statement
+                    label.append(Nodecl::NodeclBase::null());
+                }
+                else
+                {
+                    internal_error("Unexpected type of Nodecl '%s' found in Case Default visit.",
+                                    ast_print_node_type(n.get_kind()));
+                }
+                ee->set_data(_EDGE_LABEL, label);
             }
 
             return case_stmt_l;
@@ -1959,6 +1950,7 @@ namespace TL
         
         ObjectList<Node*> CfgVisitor::get_first_nodes(Node* actual_node)
         {
+//             std::cerr << "Get first nodes of node: " << actual_node->get_id() << std::endl;
             ObjectList<Edge*> actual_entries = actual_node->get_entry_edges();
             ObjectList<Node*> actual_parents;
             

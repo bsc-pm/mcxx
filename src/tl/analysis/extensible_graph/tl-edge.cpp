@@ -139,7 +139,13 @@ namespace TL
                                             if (labels[0].is_null())
                                                 label = "default";
                                             else
-                                                label = labels[0].get_symbol().get_name();
+                                            {    
+                                                Nodecl::NodeclBase case_label = labels[0];
+                                                if (case_label.get_symbol().is_valid())
+                                                    label = labels[0].get_symbol().get_name();
+                                                else
+                                                    label = case_label.prettyprint();   // The label is a literal
+                                            }
                                             int i = 1;
                                             while (i<labels.size())
                                             {
