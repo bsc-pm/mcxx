@@ -355,6 +355,11 @@ namespace TL
         return _symbol->entity_specs.bitfield_size;
     }
 
+    int Symbol::get_bitfield_offset() const
+    {
+        return _symbol->entity_specs.bitfield_offset;
+    }
+
     bool Symbol::is_user_declared() const
     {
         return _symbol->entity_specs.is_user_declared;
@@ -722,5 +727,20 @@ namespace TL
     Symbol Symbol::get_cray_pointer() const
     {
         return _symbol->entity_specs.cray_pointer;
+    }
+
+    int Symbol::get_offset() const
+    {
+        return _symbol->entity_specs.field_offset;
+    }
+
+    int Symbol::get_bitfield_first() const
+    {
+        return _symbol->entity_specs.bitfield_first;
+    }
+
+    int Symbol::get_bitfield_last() const
+    {
+        return _symbol->entity_specs.bitfield_last;
     }
 }
