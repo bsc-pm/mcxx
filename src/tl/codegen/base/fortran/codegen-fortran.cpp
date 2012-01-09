@@ -1563,13 +1563,17 @@ OPERATOR_TABLE
         if (source_type.is_any_reference())
             source_type = source_type.references_to();
         
-        // To integer or to an integer coming from a nonrepresentable pointer
-        if (dest_type.is_integral_type()
-                && !dest_type.is_bool()
-                || (dest_type.is_pointer()
-                    && !is_fortran_representable_pointer(dest_type)
-                    && !source_type.is_pointer()
-                    && !source_type.is_array()))
+        // C-style casts from/to int
+        // or integers of different size
+        if ((dest_type.is_integral_type()
+                    && !dest_type.is_bool()
+                    && (source_type.is_pointer() 
+                        || (source_type.is_integral_type()
+                            && !source_type.is_bool())))
+                // T* <- int
+                || (dest_type.is_pointer() 
+                    && source_type.is_integral_type()
+                    && !source_type.is_bool()))
         {
             file << "INT(";
             walk(nest);
