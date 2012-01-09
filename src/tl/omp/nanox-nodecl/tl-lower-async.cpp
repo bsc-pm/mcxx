@@ -78,7 +78,7 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         ancillary_device_description
             << comment("SMP device descriptor")
             << "nanos_smp_args_t " << outline_name << "_smp_args;" 
-            << outline_name << "_smp_args.outline = &" << outline_name << ";"
+            << outline_name << "_smp_args.outline = (void(*)(void*))&" << outline_name << ";"
             ;
 
         device_description_line
@@ -112,11 +112,11 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
     struct_size << "sizeof(imm_args)";
     alignment << "__alignof__(" << struct_arg_type_name << "), ";
     num_copies << "0";
-    copy_data << "(void*)0";
-    copy_imm_data << "(void*)0";
-    translation_fun_arg_name << ", (void*)0";
+    copy_data << "(nanos_copy_data_t**)0";
+    copy_imm_data << "(nanos_copy_data_t*)0";
+    translation_fun_arg_name << ", (void (*)(void*, void*))0";
     num_dependences << "0";
-    dependency_struct << "void";
+    dependency_struct << "nanos_dependence_t";
     dependency_array << "0";
 
     // Spawn code
@@ -126,12 +126,15 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         <<     device_description
         // We use an extra struct because of Fortran
         <<     "struct { " << struct_arg_type_name << "* args; } ol_args;"
-        <<     "ol_args.args = (void*) 0;"
+        <<     "ol_args.args = (" << struct_arg_type_name << "*) 0;"
         <<     immediate_decl
         <<     struct_runtime_size
         <<     "nanos_wd_t wd = (nanos_wd_t)0;"
         <<     "nanos_wd_props_t props;"
-        // <<     "__builtin_memset(&props, 0, sizeof(props));"
+        <<     "props.mandatory_creation = 0;"
+        <<     "props.tied = 0;"
+        <<     "props.tie_to = (nanos_thread_t)0;"
+        <<     "props.priority = 0;"
         <<     creation
         <<     priority
         <<     tiedness
