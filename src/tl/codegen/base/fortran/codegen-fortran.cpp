@@ -718,6 +718,13 @@ OPERATOR_TABLE
         Nodecl::NodeclBase lhs = node.get_lhs();
         Nodecl::NodeclBase rhs = node.get_rhs();
 
+        if (is_bitfield_access(lhs))
+        {
+            emit_bitfield_store(node);
+            // Do nothing else
+            return;
+        }
+
         walk(lhs);
 
         std::string operator_ = " = ";
@@ -2162,13 +2169,84 @@ OPERATOR_TABLE
             TL::Symbol old_sym = state.current_symbol;
             state.current_symbol = entry;
 
+
+            // We do this because we want the type fully laid out if there is any bitfield
+            for (TL::ObjectList<TL::Symbol>::iterator it = members.begin();
+                    it != members.end();
+                    it++)
+            {
+                if (it->is_bitfield())
+                {
+                    entry.get_type().get_size();
+                    break;
+                }
+            }
+
+            bool previous_was_bitfield = false;
+            int first_bitfield_offset = 0;
+
             inc_indent();
             // Second pass to declare components
             for (TL::ObjectList<TL::Symbol>::iterator it = members.begin();
                     it != members.end();
                     it++)
             {
-                declare_symbol(*it);
+                if (it->is_bitfield())
+                {
+                    // Do not declare anything but remember byte offsets
+                    if (!previous_was_bitfield)
+                    {
+                        first_bitfield_offset = it->get_bitfield_offset();
+                    }
+
+                    previous_was_bitfield = true;
+                }
+                else
+                {
+                    if (previous_was_bitfield)
+                    {
+                        // Get current offset and compute the number of bytes
+                        int current_offset = it->get_offset();
+                        int num_bytes = current_offset - first_bitfield_offset;
+
+                        ERROR_CONDITION(num_bytes <= 0, "Offset is wrong", 0);
+
+                        int i, current_byte = first_bitfield_offset;
+                        for (i = 0; i < num_bytes; i++, current_byte++)
+                        {
+                            std::stringstream ss;
+                            ss << "INTEGER(KIND=1) :: bitfield_pad_" << current_byte << "\n";
+
+                            indent();
+                            file << ss.str();
+                        }
+                    }
+
+                    declare_symbol(*it);
+
+                    previous_was_bitfield = false;
+                }
+            }
+
+            // Add final bitfield padding
+            if (previous_was_bitfield)
+            {
+                TL::Symbol last = members.back();
+                // Only up to the size of the bitfield now
+                
+                int num_bytes = const_value_cast_to_8(
+                        nodecl_get_constant(last.get_bitfield_size().get_internal_nodecl()
+                            )) / 8;
+
+                int i, current_byte = first_bitfield_offset;
+                for (i = 0; i < num_bytes; i++, current_byte++)
+                {
+                    std::stringstream ss;
+                    ss << "INTEGER(KIND=1) :: bitfield_pad_" << current_byte << "\n";
+
+                    indent();
+                    file << ss.str();
+                }
             }
 
             dec_indent();
@@ -2922,6 +3000,78 @@ OPERATOR_TABLE
             {
                 it->second = CODEGEN_STATUS_NONE;
             }
+        }
+    }
+
+    bool FortranBase::is_bitfield_access(const Nodecl::NodeclBase& lhs)
+    {
+        // A % B
+        if (!lhs.is<Nodecl::ClassMemberAccess>())
+            return false;
+
+        Nodecl::NodeclBase member = lhs.as<Nodecl::ClassMemberAccess>().get_member();
+
+        if (!member.is<Nodecl::Symbol>())
+            return false;
+
+        TL::Symbol sym = member.get_symbol();
+        if (!sym.is_bitfield())
+            return false;
+
+        return true;
+    }
+
+    void FortranBase::emit_bitfield_store(const Nodecl::Assignment &node)
+    {
+        Nodecl::NodeclBase lhs = node.get_lhs();
+        Nodecl::NodeclBase rhs = node.get_rhs();
+
+        if (!lhs.is<Nodecl::ClassMemberAccess>())
+        {
+            running_error("%s: error: bitfield not accessed through a field-name", 
+                    node.get_locus().c_str());
+        }
+
+        TL::Symbol symbol = lhs.as<Nodecl::ClassMemberAccess>().get_member().get_symbol();
+
+        ERROR_CONDITION(!symbol.is_valid() || !symbol.is_bitfield(), "Symbol '%s' must be a bitfield!\n", symbol.get_name().c_str());
+
+        lhs = lhs.as<Nodecl::ClassMemberAccess>().get_lhs();
+
+        std::stringstream bitfield_accessor;
+        bitfield_accessor << codegen(lhs) << " % bitfield_pad_" << symbol.get_offset();
+
+        file << bitfield_accessor.str() << " = ";
+
+        int bitfield_size = 
+            const_value_cast_to_4(
+            nodecl_get_constant(symbol.get_bitfield_size().get_internal_nodecl())
+            );
+
+        if (bitfield_size != 1)
+        {
+            running_error("%s: error: codegen of stores in bitfields larger than one bit is not implemented", 
+                    node.get_locus().c_str());
+        }
+
+        if (rhs.is_constant())
+        {
+            const_value_t* const_val = nodecl_get_constant(rhs.get_internal_nodecl());
+            if (const_value_is_nonzero(const_val))
+            {
+                file << "IBSET";
+            }
+            else
+            {
+                file << "IBCLR";
+            }
+
+            file << "(" << bitfield_accessor.str() << ", " << symbol.get_bitfield_first() << ")";
+        }
+        else
+        {
+            running_error("%s: error: non constants stores of bitfields is not implemented", 
+                    node.get_locus().c_str());
         }
     }
 }

@@ -199,6 +199,9 @@ namespace Codegen
             virtual Ret unhandled_node(const Nodecl::NodeclBase & n);
 
             void clear_codegen_status();
+
+            bool is_bitfield_access(const Nodecl::NodeclBase &node);
+            void emit_bitfield_store(const Nodecl::Assignment &node);
     };
 }
 
