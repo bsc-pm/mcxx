@@ -14,7 +14,16 @@ namespace TL { namespace Nanox {
         std::stringstream ss;
         ss << "nanos_args_" << (int)counter << "_t";
         counter++;
-        structure_name = ss.str();
+
+        if (IS_C_LANGUAGE)
+        {
+            // We need an extra 'struct '
+            structure_name = "struct " + ss.str();
+        }
+        else
+        {
+            structure_name = ss.str();
+        }
 
         TL::ObjectList<OutlineDataItem> data_items = outline_info.get_data_items();
         
@@ -41,12 +50,18 @@ namespace TL { namespace Nanox {
             TL::Type field_type = it->get_field_type();
             if (field_type.is_any_reference())
             {
+                // Note that we do not use rebindable references as in the
+                // structure because they would not be initializable
                 field_type = field_type.references_to().get_pointer_to();
             }
 
             field.get_internal_symbol()->type_information = field_type.get_internal_type();
             field.get_internal_symbol()->entity_specs.is_member = 1;
-            field.get_internal_symbol()->entity_specs.class_type = new_class_type;
+            field.get_internal_symbol()->entity_specs.class_type = ::get_user_defined_type(sym.get_internal_symbol());
+            field.get_internal_symbol()->entity_specs.access = AS_PUBLIC;
+
+            field.get_internal_symbol()->file = uniquestr(construct.get_filename().c_str());
+            field.get_internal_symbol()->line = construct.get_line();
 
             class_type_add_member(new_class_type, field.get_internal_symbol());
 
@@ -63,6 +78,19 @@ namespace TL { namespace Nanox {
         }
 
         set_is_complete_type(new_class_type, 1);
+
+        nodecl_t nodecl_output = nodecl_null();
+        finish_class_type(new_class_type, 
+                ::get_user_defined_type(sym.get_internal_symbol()),
+                sc.get_decl_context(), 
+                construct.get_filename().c_str(),
+                construct.get_line(),
+                &nodecl_output);
+
+        if (!nodecl_is_null(nodecl_output))
+        {
+            std::cerr << "FIXME: finished class issues nonempty nodecl" << std::endl; 
+        }
 
         return structure_name;
     }
