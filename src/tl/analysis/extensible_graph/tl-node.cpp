@@ -618,7 +618,7 @@ namespace TL
         {
             Node_type ntype = get_data<Node_type>(_NODE_TYPE);
             if (ntype == BASIC_NORMAL_NODE || ntype == BASIC_FUNCTION_CALL_NODE || ntype == BASIC_LABELED_NODE
-                || ntype == BASIC_BREAK_NODE || ntype == BASIC_CONTINUE_NODE)
+                || ntype == BASIC_BREAK_NODE || ntype == BASIC_CONTINUE_NODE || ntype == BASIC_GOTO_NODE)
             {
                 set_data(_NODE_STMTS, stmts);
             }

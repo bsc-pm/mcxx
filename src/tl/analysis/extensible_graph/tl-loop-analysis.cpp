@@ -156,6 +156,8 @@ namespace TL
                 InductionVarInfo* ind = new InductionVarInfo(def_var, def_expr);
                 _induction_vars.insert(induc_vars_map::value_type(loop_node->get_id(), ind));
             }
+            else if (init.is_null())
+            {}  // Nothing to do, no init expression
             else
             {
                 internal_error("Node kind '%s' while analysing the induction variables in loop init expression not yet implemented",
@@ -298,6 +300,8 @@ namespace TL
             {
                 internal_error("Analysis of loops with EQUAL condition expression not yet implemented", 0);
             }
+            else if (cond.is_null())
+            {}  // Nothing to do, no init expression
             else
             {   // TODO Complex expression in the condition node may contain an UB or LB of the induction variable
             }
@@ -376,6 +380,8 @@ namespace TL
                                 " This is not yet supported", loop_node->get_graph_label().prettyprint().c_str());
                 }
             }
+            else if (stride.is_null())
+            {}  // Nothing to do, no init expression
             else
             {
                 internal_error("Node kind '%s' while analysing the induction variables in loop stride expression not yet implemented",

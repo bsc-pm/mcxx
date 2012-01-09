@@ -1402,7 +1402,6 @@ namespace TL
         {
             Node* goto_node = _actual_cfg->append_new_node_to_parent(_actual_cfg->_last_nodes, n, BASIC_GOTO_NODE);
             goto_node->set_label(n.get_symbol());
-            _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, goto_node);
             
             for (ObjectList<Node*>::iterator it = _actual_cfg->_labeled_node_l.begin();
                 it != _actual_cfg->_labeled_node_l.end();
