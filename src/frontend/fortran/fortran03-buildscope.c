@@ -586,37 +586,27 @@ static void build_scope_program_unit_internal(AST program_unit,
     {
         case AST_MAIN_PROGRAM_UNIT:
             {
-                decl_context_t program_unit_context = new_program_unit_context(decl_context);
-
-                build_scope_main_program_unit(program_unit, program_unit_context, &_program_unit_symbol, nodecl_output);
+                build_scope_main_program_unit(program_unit, decl_context, &_program_unit_symbol, nodecl_output);
                 break;
             }
         case AST_SUBROUTINE_PROGRAM_UNIT:
             {
-                decl_context_t program_unit_context = new_program_unit_context(decl_context);
-
-                build_scope_subroutine_program_unit(program_unit, program_unit_context, &_program_unit_symbol, nodecl_output);
+                build_scope_subroutine_program_unit(program_unit, decl_context, &_program_unit_symbol, nodecl_output);
                 break;
             }
         case AST_FUNCTION_PROGRAM_UNIT:
             {
-                decl_context_t program_unit_context = new_program_unit_context(decl_context);
-
-                build_scope_function_program_unit(program_unit, program_unit_context, &_program_unit_symbol, nodecl_output);
+                build_scope_function_program_unit(program_unit, decl_context, &_program_unit_symbol, nodecl_output);
                 break;
             }
         case AST_MODULE_PROGRAM_UNIT :
             {
-                decl_context_t program_unit_context = new_program_unit_context(decl_context);
-
-                build_scope_module_program_unit(program_unit, program_unit_context, &_program_unit_symbol, nodecl_output);
+                build_scope_module_program_unit(program_unit, decl_context, &_program_unit_symbol, nodecl_output);
                 break;
             }
         case AST_BLOCK_DATA_PROGRAM_UNIT:
             {
-                decl_context_t program_unit_context = new_program_unit_context(decl_context);
-
-                build_scope_block_data_program_unit(program_unit, program_unit_context, &_program_unit_symbol, nodecl_output);
+                build_scope_block_data_program_unit(program_unit, decl_context, &_program_unit_symbol, nodecl_output);
                 break;
             }
         case AST_GLOBAL_PROGRAM_UNIT:
@@ -639,7 +629,9 @@ static void build_scope_program_unit_internal(AST program_unit,
     }
 }
 
-static scope_entry_t* new_procedure_symbol(decl_context_t decl_context, 
+static scope_entry_t* new_procedure_symbol(
+        decl_context_t decl_context, 
+        decl_context_t program_unit_context,
         AST name, AST prefix, AST suffix, AST dummy_arg_name_list,
         char is_function);
 
@@ -658,10 +650,12 @@ static void build_scope_program_unit_body(
         nodecl_t* nodecl_internal_subprograms);
 
 static void build_scope_main_program_unit(AST program_unit, 
-        decl_context_t program_unit_context, 
+        decl_context_t decl_context, 
         scope_entry_t** program_unit_symbol,
         nodecl_t* nodecl_output)
 {
+    decl_context_t program_unit_context = new_program_unit_context(decl_context);
+    
     ERROR_CONDITION(program_unit_symbol == NULL, "Invalid parameter", 0)
     DEBUG_CODE()
     {
@@ -675,15 +669,12 @@ static void build_scope_main_program_unit(AST program_unit,
         AST name = ASTSon0(program_stmt);
         program_name = ASTText(name);
     }
-    scope_entry_t* program_sym = new_fortran_symbol(program_unit_context, program_name);
+    scope_entry_t* program_sym = new_fortran_symbol_not_unknown(decl_context, program_name);
     program_sym->kind = SK_PROGRAM;
     program_sym->file = ASTFileName(program_unit);
     program_sym->line = ASTLine(program_unit);
     
-    remove_unknown_kind_symbol(program_unit_context, program_sym);
-
-    insert_alias(program_unit_context.current_scope->contained_in, program_sym,
-            strappend("._", program_sym->symbol_name));
+    remove_unknown_kind_symbol(decl_context, program_sym);
 
     program_sym->related_decl_context = program_unit_context;
     program_unit_context.current_scope->related_entry = program_sym;
@@ -725,6 +716,7 @@ static void build_scope_main_program_unit(AST program_unit,
 }
 
 static scope_entry_t* register_function(AST program_unit, 
+        decl_context_t decl_context,
         decl_context_t program_unit_context)
 {
     AST function_stmt = ASTSon0(program_unit);
@@ -736,7 +728,9 @@ static scope_entry_t* register_function(AST program_unit,
     AST dummy_arg_name_list = ASTSon0(function_prototype);
     AST suffix = ASTSon1(function_prototype);
 
-    scope_entry_t *new_entry = new_procedure_symbol(program_unit_context,
+    scope_entry_t *new_entry = new_procedure_symbol(
+            decl_context,
+            program_unit_context,
             name, prefix, suffix, 
             dummy_arg_name_list, /* is_function */ 1);
 
@@ -745,23 +739,22 @@ static scope_entry_t* register_function(AST program_unit,
 
 
 static void build_scope_function_program_unit(AST program_unit, 
-        decl_context_t program_unit_context, 
+        decl_context_t decl_context, 
         scope_entry_t** program_unit_symbol,
         nodecl_t* nodecl_output)
 {
+    decl_context_t program_unit_context = new_program_unit_context(decl_context);
+
     ERROR_CONDITION(program_unit_symbol == NULL, "Invalid parameter", 0)
     DEBUG_CODE()
     {
         fprintf(stderr, "==== [%s] Program unit: FUNCTION ===\n", ast_location(program_unit));
     }
 
-    scope_entry_t* new_entry = register_function(program_unit, program_unit_context);
+    scope_entry_t* new_entry = register_function(program_unit, decl_context, program_unit_context);
 
     if (new_entry == NULL)
         return;
-
-    insert_alias(program_unit_context.current_scope->contained_in, new_entry,
-            strappend("._", new_entry->symbol_name));
 
     *program_unit_symbol = new_entry;
 
@@ -811,6 +804,7 @@ static void build_scope_function_program_unit(AST program_unit,
 }
 
 static scope_entry_t* register_subroutine(AST program_unit,
+        decl_context_t decl_context,
         decl_context_t program_unit_context)
 {
     AST subroutine_stmt = ASTSon0(program_unit);
@@ -829,7 +823,9 @@ static scope_entry_t* register_subroutine(AST program_unit,
         suffix = ASTSon1(function_prototype);
     }
 
-    scope_entry_t *new_entry = new_procedure_symbol(program_unit_context,
+    scope_entry_t *new_entry = new_procedure_symbol(
+            decl_context,
+            program_unit_context,
             name, prefix, suffix, 
             dummy_arg_name_list, /* is_function */ 0);
 
@@ -837,31 +833,26 @@ static scope_entry_t* register_subroutine(AST program_unit,
 }
 
 static void build_scope_subroutine_program_unit(AST program_unit, 
-        decl_context_t program_unit_context, 
+        decl_context_t decl_context, 
         scope_entry_t** program_unit_symbol,
         nodecl_t* nodecl_output)
 {
+    decl_context_t program_unit_context = new_program_unit_context(decl_context);
+
     ERROR_CONDITION(program_unit_symbol == NULL, "Invalid parameter", 0)
     DEBUG_CODE()
     {
         fprintf(stderr, "==== [%s] Program unit: SUBROUTINE ===\n", ast_location(program_unit));
     }
 
-    scope_entry_t *new_entry = register_subroutine(program_unit, program_unit_context);
+    scope_entry_t *new_entry = register_subroutine(program_unit, decl_context, program_unit_context);
 
     *program_unit_symbol = new_entry;
-
-    insert_alias(program_unit_context.current_scope->contained_in, new_entry,
-            strappend("._", new_entry->symbol_name));
-
 
     // It is void but it is not implicit
     new_entry->entity_specs.is_implicit_basic_type = 0;
 
     *program_unit_symbol = new_entry;
-
-    insert_alias(program_unit_context.current_scope->contained_in, new_entry,
-            strappend("._", new_entry->symbol_name));
 
     nodecl_t nodecl_body = nodecl_null();
     nodecl_t nodecl_internal_subprograms = nodecl_null();
@@ -909,10 +900,12 @@ static void build_scope_subroutine_program_unit(AST program_unit,
 }
 
 static void build_scope_module_program_unit(AST program_unit, 
-        decl_context_t program_unit_context,
+        decl_context_t decl_context,
         scope_entry_t** program_unit_symbol,
         nodecl_t* nodecl_output)
 {
+    decl_context_t program_unit_context = new_program_unit_context(decl_context);
+
     ERROR_CONDITION(program_unit_symbol == NULL, "Invalid parameter", 0)
     DEBUG_CODE()
     {
@@ -922,10 +915,10 @@ static void build_scope_module_program_unit(AST program_unit,
     AST module_stmt = ASTSon0(program_unit);
     AST module_name = ASTSon0(module_stmt);
 
-    scope_entry_t* new_entry = new_fortran_symbol(program_unit_context, ASTText(module_name));
+    scope_entry_t* new_entry = new_fortran_symbol_not_unknown(decl_context, ASTText(module_name));
     new_entry->kind = SK_MODULE;
     
-    remove_unknown_kind_symbol(program_unit_context, new_entry);
+    remove_unknown_kind_symbol(decl_context, new_entry);
 
     new_entry->related_decl_context = program_unit_context;
     new_entry->file = ASTFileName(module_stmt);
@@ -933,9 +926,6 @@ static void build_scope_module_program_unit(AST program_unit,
     program_unit_context.current_scope->related_entry = new_entry;
 
     AST module_body = ASTSon1(program_unit);
-
-    insert_alias(program_unit_context.current_scope->contained_in, new_entry,
-            strappend("._", new_entry->symbol_name));
 
     *program_unit_symbol = new_entry;
 
@@ -1005,12 +995,12 @@ static void build_scope_module_program_unit(AST program_unit,
 }
 
 static void build_scope_block_data_program_unit(AST program_unit,
-        decl_context_t program_unit_context,
+        decl_context_t decl_context,
         scope_entry_t** program_unit_symbol,
         nodecl_t* nodecl_output)
 {
-    // FIXME
-    // Do nothing with these
+    decl_context_t program_unit_context = new_program_unit_context(decl_context);
+
     DEBUG_CODE()
     {
         fprintf(stderr, "=== [%s] Program unit: BLOCK DATA ===\n", ast_location(program_unit));
@@ -1028,16 +1018,13 @@ static void build_scope_block_data_program_unit(AST program_unit,
     if (name != NULL)
         program_name = ASTText(name);
 
-    scope_entry_t* program_sym = new_fortran_symbol(program_unit_context, program_name);
+    scope_entry_t* program_sym = new_fortran_symbol_not_unknown(decl_context, program_name);
     program_sym->kind = SK_BLOCKDATA;
     program_sym->file = ASTFileName(program_unit);
     program_sym->line = ASTLine(program_unit);
     
-    remove_unknown_kind_symbol(program_unit_context, program_sym);
+    remove_unknown_kind_symbol(decl_context, program_sym);
     
-    insert_alias(program_unit_context.current_scope->contained_in, program_sym,
-            strappend("._", program_sym->symbol_name));
-
     program_sym->related_decl_context = program_unit_context;
     program_unit_context.current_scope->related_entry = program_sym;
 
@@ -1089,7 +1076,9 @@ static type_t* gather_type_from_declaration_type_spec(AST a, decl_context_t decl
     return gather_type_from_declaration_type_spec_(a, decl_context);
 }
 
-static scope_entry_t* new_procedure_symbol(decl_context_t decl_context, 
+static scope_entry_t* new_procedure_symbol(
+        decl_context_t decl_context, 
+        decl_context_t program_unit_context,
         AST name, AST prefix, AST suffix, AST dummy_arg_name_list,
         char is_function)
 {
@@ -1126,10 +1115,10 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
 
     if (entry == NULL)
     {
-        entry = new_fortran_symbol(decl_context, ASTText(name));
+        entry = new_fortran_symbol_not_unknown(decl_context, ASTText(name));
     }
 
-    decl_context.current_scope->related_entry = entry;
+    program_unit_context.current_scope->related_entry = entry;
 
     entry->kind = SK_FUNCTION;
     entry->file = ASTFileName(name);
@@ -1142,7 +1131,7 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
     type_t* return_type = get_void_type();
     if (is_function)
     {
-        return_type = get_implicit_type_for_symbol(decl_context, entry->symbol_name);
+        return_type = get_implicit_type_for_symbol(program_unit_context, entry->symbol_name);
     }
     else
     {
@@ -1171,7 +1160,7 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
                 else
                 {
                     AST declaration_type_spec = ASTSon0(prefix_spec);
-                    return_type = gather_type_from_declaration_type_spec(declaration_type_spec, decl_context);
+                    return_type = gather_type_from_declaration_type_spec(declaration_type_spec, program_unit_context);
 
                     if (return_type != NULL)
                     {
@@ -1240,13 +1229,13 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
                 // This is actually a label parameter
                 dummy_arg->kind = SK_LABEL;
                 dummy_arg->type_information = get_void_type();
-                dummy_arg->decl_context = decl_context;
+                dummy_arg->decl_context = program_unit_context;
                 
                 num_alternate_returns++;
             }
             else
             {
-                dummy_arg = get_symbol_for_name(decl_context, dummy_arg_name, ASTText(dummy_arg_name));
+                dummy_arg = get_symbol_for_name(program_unit_context, dummy_arg_name, ASTText(dummy_arg_name));
 
                 // Note that we do not set the exact kind of the dummy argument as
                 // it might be a function. If left SK_UNDEFINED, we later fix them
@@ -1254,7 +1243,7 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
                 // Get a reference to its type (it will be properly updated later)
                 dummy_arg->type_information = get_lvalue_reference_type(dummy_arg->type_information);
 
-                add_untyped_symbol(decl_context, dummy_arg);
+                add_untyped_symbol(program_unit_context, dummy_arg);
             }
 
             dummy_arg->file = ASTFileName(dummy_arg_name);
@@ -1286,14 +1275,14 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
         }
         else
         {
-            result_sym = get_symbol_for_name(decl_context, result, ASTText(result));
+            result_sym = get_symbol_for_name(program_unit_context, result, ASTText(result));
 
             result_sym->kind = SK_VARIABLE;
             result_sym->file = ASTFileName(result);
             result_sym->line = ASTLine(result);
             result_sym->entity_specs.is_result = 1;
             
-            remove_unknown_kind_symbol(decl_context, result_sym);
+            remove_unknown_kind_symbol(program_unit_context, result_sym);
 
             result_sym->type_information = get_lvalue_reference_type(return_type);
 
@@ -1306,9 +1295,9 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
     }
     else if (is_function)
     {
-        //Since this function does not have an explicit result variable we will insert an alias
-        //that will hide the function name
-        result_sym = new_symbol(decl_context, decl_context.current_scope, entry->symbol_name);
+        // Since this function does not have an explicit result variable we will insert a result-name
+        // with the same name as the function
+        result_sym = new_symbol(program_unit_context, program_unit_context.current_scope, entry->symbol_name);
         result_sym->kind = SK_VARIABLE;
         result_sym->file = entry->file;
         result_sym->line = entry->line;
@@ -1321,7 +1310,7 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
         {
             // Add it as an explicit unknown symbol because we want it to be
             // updated with a later IMPLICIT
-            add_untyped_symbol(decl_context, result_sym);
+            add_untyped_symbol(program_unit_context, result_sym);
         }
 
         return_type = get_indirect_type(result_sym);
@@ -1345,11 +1334,11 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
     entry->type_information = function_type;
 
     entry->entity_specs.is_implicit_basic_type = 0;
-    entry->related_decl_context = decl_context;
+    entry->related_decl_context = program_unit_context;
 
-    if (decl_context.current_scope->contained_in != NULL)
+    if (program_unit_context.current_scope->contained_in != NULL)
     {
-        scope_entry_t* enclosing_symbol = decl_context.current_scope->contained_in->related_entry;
+        scope_entry_t* enclosing_symbol = program_unit_context.current_scope->contained_in->related_entry;
 
         if (enclosing_symbol != NULL)
         {
@@ -1732,12 +1721,12 @@ static void build_scope_program_unit_body_internal_subprograms_declarations(
         {
             case AST_SUBROUTINE_PROGRAM_UNIT:
                 {
-                    new_entry = register_subroutine(subprogram, subprogram_unit_context);
+                    new_entry = register_subroutine(subprogram, decl_context, subprogram_unit_context);
                     break;
                 }
             case AST_FUNCTION_PROGRAM_UNIT:
                 {
-                    new_entry = register_function(subprogram, subprogram_unit_context);
+                    new_entry = register_function(subprogram, decl_context, subprogram_unit_context);
                     break;
                 }
             default:
@@ -4576,12 +4565,12 @@ static void build_scope_entry_stmt(AST a, decl_context_t decl_context, nodecl_t*
             insert_entry(related_sym->entity_specs.in_module->decl_context.current_scope, entry);
         }
 
-        // And we piggyback the entry in the node so we avoid a query later 
+        // (1) And we piggyback the entry in the node so we avoid a query later
         nodecl_set_symbol(_nodecl_wrap(a), entry);
     }
     else
     {
-        // Recover the symbol we piggybacked 
+        // Recover the symbol we piggybacked in (1) above
         scope_entry_t* entry = nodecl_get_symbol(_nodecl_wrap(a));
 
         // Create the entry statement so we remember the entry point
@@ -5119,11 +5108,6 @@ static void build_scope_interface_block(AST a, decl_context_t decl_context,
                             num_related_symbols,
                             procedure_sym);
                 }
-
-                // Insert this symbol to the enclosing context
-                insert_entry(decl_context.current_scope, procedure_sym);
-                // And update its context to be the enclosing one
-                procedure_sym->decl_context = decl_context;
 
                 remove_untyped_symbol(decl_context, procedure_sym);
                 remove_unknown_kind_symbol(decl_context, procedure_sym);

@@ -247,7 +247,7 @@ scope_entry_t* new_fortran_implicit_symbol(decl_context_t decl_context, AST locu
     return new_entry;
 }
 
-scope_entry_t* new_fortran_symbol(decl_context_t decl_context, const char* name)
+scope_entry_t* new_fortran_symbol_not_unknown(decl_context_t decl_context, const char* name)
 {
     DEBUG_CODE()
     {
@@ -257,6 +257,13 @@ scope_entry_t* new_fortran_symbol(decl_context_t decl_context, const char* name)
     }
 
     scope_entry_t * new_entry = new_symbol(decl_context, decl_context.current_scope, strtolower(name));
+    return new_entry;
+}
+
+scope_entry_t* new_fortran_symbol(decl_context_t decl_context, const char* name)
+{
+    scope_entry_t* new_entry = new_fortran_symbol_not_unknown(decl_context, name);
+
     add_unknown_kind_symbol(decl_context, new_entry);
     return new_entry;
 }
