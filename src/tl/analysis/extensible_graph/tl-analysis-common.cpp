@@ -57,10 +57,9 @@ namespace TL
         
         // *** Common functions *** //
         
-        std::map<Symbol, Nodecl::NodeclBase> map_params_to_args(Nodecl::NodeclBase func_call, ExtensibleGraph* called_func_graph,
-                                                                ObjectList<Symbol> &params, Nodecl::List &args)
+        Nodecl::List get_func_call_args(Nodecl::NodeclBase func_call)
         {
-            params = called_func_graph->get_function_parameters();
+          Nodecl::List args;
             if (func_call.is<Nodecl::FunctionCall>())
             {
                 Nodecl::FunctionCall aux = func_call.as<Nodecl::FunctionCall>();
@@ -71,6 +70,14 @@ namespace TL
                 Nodecl::VirtualFunctionCall aux = func_call.as<Nodecl::VirtualFunctionCall>();
                 args = aux.get_arguments().as<Nodecl::List>();
             }
+            return args;
+        }
+        
+        std::map<Symbol, Nodecl::NodeclBase> map_params_to_args(Nodecl::NodeclBase func_call, ExtensibleGraph* called_func_graph,
+                                                                ObjectList<Symbol> &params, Nodecl::List &args)
+        {
+            params = called_func_graph->get_function_parameters();
+            args = get_func_call_args(func_call);
             std::map<Symbol, Nodecl::NodeclBase> params_to_args;
             int i = 0;
             ObjectList<Symbol>::iterator itp = params.begin();

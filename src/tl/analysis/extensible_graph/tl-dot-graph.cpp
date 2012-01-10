@@ -64,10 +64,9 @@ namespace TL
             // Create the dog graphs
             if (dot_cfg.good())
             {
-    //             DEBUG_CODE()
-                {
-                    std::cerr << "=== Printing CFG to file [" << dot_file_name << "]===" << std::endl;
-                }
+                if (CURRENT_CONFIGURATION->debug_options.analysis_verbose ||
+                    CURRENT_CONFIGURATION->debug_options.enable_debug_code)
+                    std::cerr << "   ==> File '" << dot_file_name << "'" << std::endl;
             
                 int subgraph_id = 0;
                 dot_cfg << "digraph CFG {\n";
@@ -118,12 +117,14 @@ namespace TL
                     std::string live_out = prettyprint_ext_sym_set(actual_node->get_live_out_vars());
                     std::string ue = prettyprint_ext_sym_set(actual_node->get_ue_vars());
                     std::string killed = prettyprint_ext_sym_set(actual_node->get_killed_vars());
+                    std::string undef = prettyprint_ext_sym_set(actual_node->get_undefined_behaviour_vars());
                     std::string reach_defs = prettyprint_reaching_definitions(actual_node->get_reaching_definitions());
-                    std::string subgr_liveness = "LI: "   + live_in + "\\n" +
-                                                "KILL: " + killed + "\\n" +
-                                                "UE: "   + ue + "\\n" +
-                                                "LO: "   + live_out + "\\n" +
-                                                "REACH DEFS: " + reach_defs;
+                    std::string subgr_liveness = "LI: "         + live_in  + "\\n" +
+                                                 "KILL: "       + killed   + "\\n" +
+                                                 "UE: "         + ue       + "\\n" +
+                                                 "UNDEEF: "     + undef    + "\\n" +
+                                                 "LO: "         + live_out + "\\n" +
+                                                 "REACH DEFS: " + reach_defs;
                                                 
                     std::string task_deps = "";
                     if (actual_node->get_graph_type() == TASK)
@@ -293,7 +294,7 @@ namespace TL
                     dot_graph += indent + ss.str() + "[label=\"FLUSH\", shape=ellipse]\n";
                     break;
                 case TASKWAIT_NODE:
-                    dot_graph += indent + ss.str() + "[label=\"TASKWAIT\", shape=ellipse]\n";
+                    dot_graph += indent + ss.str() + "[label=\"" + ss.str() + " TASKWAIT\", shape=ellipse]\n";
                     break;
                 case BASIC_PRAGMA_DIRECTIVE_NODE:
                     internal_error("'%s' found while printing graph. We must think what to do with this kind of node", 
@@ -322,10 +323,11 @@ namespace TL
                         basic_block += aux_str + "\\n";
                     }
                     basic_block = basic_block.substr(0, basic_block.size()-2);   // Remove the last back space
-
+                    
                     std::string live_in = prettyprint_ext_sym_set(actual_node->get_live_in_vars());
                     std::string live_out = prettyprint_ext_sym_set(actual_node->get_live_out_vars());
                     std::string ue = prettyprint_ext_sym_set(actual_node->get_ue_vars());
+                    std::string undef = prettyprint_ext_sym_set(actual_node->get_undefined_behaviour_vars());
                     std::string killed = prettyprint_ext_sym_set(actual_node->get_killed_vars());
                     std::string reach_defs = prettyprint_reaching_definitions(actual_node->get_reaching_definitions());
                     std::string live_info;
@@ -333,6 +335,7 @@ namespace TL
                         live_info = " | LI: "           + live_in + 
                                     " | KILL: "         + killed +
                                     " | UE: "           + ue +
+                                    " | UNDEF: "        + undef +
                                     " | LO: "           + live_out +
                                     " | REACH DEFS: "   + reach_defs;
                         

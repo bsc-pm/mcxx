@@ -92,10 +92,16 @@ namespace TL
         */
         #define _OUTER_NODE    "outer_node"
         
+        /*! \def _SCOPE
+         * Scope where the block code contained in the node is created 
+         * Only graph nodes that contain a block of code (all but SPLIT_STMT)
+         */
+        #define _SCOPE         "scope"
+        
         /*! \def _NODE_LABEL
         * String containing the label of a node.
         * It may have different meanings depending on the node type:
-        *   - Composite: is the Statement that defines the composition.
+        *   - Graph: is the Statement that defines the composition.
         *   - Goto / Label: label that identifies the source or target of the Statement contained.
         * Mandatory and only available in 'Composite', 'Labeled' or 'Goto' nodes.
         */    

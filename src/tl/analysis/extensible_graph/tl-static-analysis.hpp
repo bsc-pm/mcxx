@@ -98,6 +98,8 @@ namespace TL
         
             static nodecl_map compute_parents_reach_defs(Node* node);
             
+            static void analyse_tasks_rec(Node* current);
+            
             static void compute_auto_scoping_rec(auto_scope_tag * auto_scope_t);
         
         public:
@@ -112,7 +114,7 @@ namespace TL
             static void compute_auto_scoping(Node* current);
             
             //! Computes dependences for all task node in the Extensible Graph
-            static void analyse_tasks(ObjectList<Node*> tasks);
+            static void analyse_tasks(Node* graph_node);
             
             //! Computes dependences for a node containing a task code
             static void analyse_task(Node* task_node);

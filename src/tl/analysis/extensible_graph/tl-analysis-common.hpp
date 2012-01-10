@@ -37,7 +37,7 @@ namespace TL
         
         struct var_usage_t {
             ExtensibleSymbol _es;
-            char _usage;     // 0 => KILLED, 1 => UE, 2 => UE + KILLED, 3 => UNDEF
+            char _usage;     // 0 => KILLED, 1 => UE, 2 => UE + KILLED, 3 => UNDEF, 4 => NOT_COMPUTED
             
             var_usage_t(ExtensibleSymbol es, char usage);
             
@@ -57,6 +57,7 @@ namespace TL
         struct var_usage_t* get_var_in_list(Nodecl::NodeclBase n, ObjectList<struct var_usage_t*> list);
         struct var_usage_t* get_var_in_list(Symbol n, ObjectList<struct var_usage_t*> list);
         
+        Nodecl::List get_func_call_args(Nodecl::NodeclBase func_call);
         std::map<Symbol, Nodecl::NodeclBase> map_params_to_args(Nodecl::NodeclBase func_call, ExtensibleGraph* called_func_graph,
                                                                 ObjectList<Symbol> &params, Nodecl::List &args);
         ExtensibleGraph* find_function_for_ipa(Symbol s, ObjectList<ExtensibleGraph*> cfgs);

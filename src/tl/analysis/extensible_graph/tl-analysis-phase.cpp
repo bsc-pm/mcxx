@@ -110,20 +110,35 @@ namespace TL
                     CURRENT_CONFIGURATION->debug_options.enable_debug_code)
                     std::cerr << std::endl << " ==> Graph '" << (*it)->get_name() << "'" << std::endl;
                     
-                // Non-task nodes
                 StaticAnalysis::live_variable_analysis((*it)->get_graph());
                 
-                // Task nodes
-                StaticAnalysis::analyse_tasks((*it)->get_tasks_list());
+                if (CURRENT_CONFIGURATION->debug_options.analysis_verbose ||
+                    CURRENT_CONFIGURATION->debug_options.enable_debug_code)
+                {
+                    (*it)->get_graph()->print_use_def_chains();
+                    (*it)->get_graph()->print_liveness();
+                }
+                
+            }
+            
+            // *** Auto-dependencies *** //
+            if (CURRENT_CONFIGURATION->debug_options.analysis_verbose ||
+                CURRENT_CONFIGURATION->debug_options.enable_debug_code)
+                std::cerr << std::endl << "=== AUTO-DEPENDENCIES ===" << std::endl;
+            for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
+            {
+                if (CURRENT_CONFIGURATION->debug_options.analysis_verbose ||
+                    CURRENT_CONFIGURATION->debug_options.enable_debug_code)
+                    std::cerr << std::endl << "   ==> Graph '" << (*it)->get_name() << "'" << std::endl;
+                    StaticAnalysis::analyse_tasks((*it)->get_graph());
             }
             
             // Print graphs into dot files
             if (CURRENT_CONFIGURATION->debug_options.print_cfg_graphviz)
             {
+                std::cerr << std::endl << "=== PRINT DOT GRAPHS ===" << std::endl;
                 for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
-                {
                     (*it)->print_graph_to_dot();
-                }
             }
         }
     }

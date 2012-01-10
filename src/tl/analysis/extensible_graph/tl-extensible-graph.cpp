@@ -34,10 +34,9 @@ namespace TL
             _continue_stack(), _break_stack(),
             _labeled_node_l(), _goto_node_l(),
             _last_nodes(), _outer_node(), 
-            _task_nodes_l(), _use_def_computed('0'), _func_calls()
+            _use_def_computed('0'), _func_calls()
         {
-            
-            _graph = create_graph_node(NULL, Nodecl::NodeclBase::null(), EXTENSIBLE_GRAPH);
+            _graph = create_graph_node(NULL, Nodecl::NodeclBase::null(), Scope(), EXTENSIBLE_GRAPH);
             _last_nodes.append(_graph->get_graph_entry_node());
         }
 
@@ -56,7 +55,6 @@ namespace TL
             new_ext_graph->_goto_node_l = this->_goto_node_l;
             new_ext_graph->_last_nodes = this->_last_nodes;
             new_ext_graph->_outer_node = this->_outer_node;
-            new_ext_graph->_task_nodes_l = this->_task_nodes_l;
             new_ext_graph->_use_def_computed = this->_use_def_computed;
             new_ext_graph->_func_calls = this->_func_calls;
 //             new_ext_graph->_func_calls_nest = this->_func_calls_nest;
@@ -459,8 +457,8 @@ namespace TL
             child->erase_entry_edge(parent);
         }
 
-        Node* ExtensibleGraph::create_graph_node(Node* outer_node, Nodecl::NodeclBase label, 
-                                                Graph_type graph_type, Nodecl::NodeclBase context)
+        Node* ExtensibleGraph::create_graph_node(Node* outer_node, Nodecl::NodeclBase label, Scope sc,
+                                                 Graph_type graph_type, Nodecl::NodeclBase context)
         {
             Node* result = new Node(_nid, GRAPH_NODE, outer_node);
             
@@ -472,9 +470,9 @@ namespace TL
             result->set_graph_label(label);
             result->set_graph_type(graph_type);
             if (graph_type == TASK)
-            {    
                 result->set_task_context(context);
-            }
+            if (sc.is_valid())
+              result->set_scope(sc);
             
             _outer_node.push(result);
             
@@ -849,7 +847,7 @@ namespace TL
                         if (non_always_entries && non_always_exits)
                         {
                             internal_error("For an UNCLASSIFIED_NODE, or some entry is not an ALWAYS_EDGE or" \
-                                        " some exit is not an ALWAYS_EDGE, but both is not correct", 0);
+                                           " some exit is not an ALWAYS_EDGE, but both is not correct", 0);
                         }
 
                         ObjectList<Node*> parents = actual->get_parents();
@@ -1066,11 +1064,6 @@ namespace TL
         Node* ExtensibleGraph::get_graph() const
         {
             return _graph;
-        }
-        
-        ObjectList<Node*> ExtensibleGraph::get_tasks_list() const
-        {
-            return _task_nodes_l;
         }
         
         char ExtensibleGraph::has_use_def_computed() const

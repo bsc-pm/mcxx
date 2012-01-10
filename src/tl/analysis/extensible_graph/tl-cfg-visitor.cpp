@@ -506,16 +506,14 @@ namespace TL
         CfgVisitor::Ret CfgVisitor::function_call_visit(const T& n)
         {
             // Add the current Function Call to the list of called functions
-            _actual_cfg->add_func_call_symbol(n.get_called().get_symbol());
+            Symbol func_sym = n.get_called().get_symbol();
+            _actual_cfg->add_func_call_symbol(func_sym);
             
             // Create the new Function Call node and built it
             // This node is not connected with the _last_nodes because a FunctionCall is a ExpressionStatement and it will be connected there.
-            Node* func_graph_node = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), Nodecl::NodeclBase::null(), FUNC_CALL);
-//             if (!_actual_cfg->_last_nodes.empty())
-//             {   // If there is any node in 'last_nodes' list, then we have to connect the new graph node
-//                 _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, func_graph_node);
-                _actual_cfg->_last_nodes.clear();
-//             }
+            Node* func_graph_node = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), Nodecl::NodeclBase::null(), 
+                                                                   n.retrieve_context(), FUNC_CALL);
+            _actual_cfg->_last_nodes.clear();
             _actual_cfg->_last_nodes.append(func_graph_node->get_graph_entry_node());
             
             // Create the nodes for the arguments
@@ -629,9 +627,10 @@ namespace TL
             std::string pragma_line = n.get_pragma_line().get_text();
             if (pragma_line == "barrier")
             {
-                Node* barrier = _actual_cfg->create_barrier_node(_actual_cfg->_outer_node.top());
+                Node* barrier_node = _actual_cfg->create_barrier_node(_actual_cfg->_outer_node.top());
+                _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, barrier_node);
                 int n_tasks_in_level = _task_s[_task_level].size();
-                _actual_cfg->connect_nodes(_task_s[_task_level], barrier, 
+                _actual_cfg->connect_nodes(_task_s[_task_level], barrier_node, 
                                            ObjectList<Edge_type>(n_tasks_in_level, ALWAYS_EDGE), ObjectList<std::string>(n_tasks_in_level, ""),
                                            /*is task*/ true);
             }
@@ -672,7 +671,6 @@ namespace TL
             Node* task_graph_node;
             if (n.template is<Nodecl::PragmaCustomDeclaration>())
             {   // We must build here a new Extensible Graph
-//                 ExtensibleGraph* last_actual_cfg = _actual_cfg;
                 _actual_cfg = new ExtensibleGraph("pragma_" + n.get_symbol().get_name(), n.retrieve_context());
                 Node* flush_node = new Node(_actual_cfg->_nid, FLUSH_NODE, _actual_cfg->_outer_node.top());
                 _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, flush_node);
@@ -685,7 +683,8 @@ namespace TL
                     Nodecl::FunctionCode func(next_sym_->entity_specs.function_code);
                     Nodecl::Context ctx = func.get_statements().as<Nodecl::Context>();
                     
-                    task_graph_node = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), n.get_pragma_line(), TASK, ctx);
+                    task_graph_node = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), n.get_pragma_line(), 
+                                                                     n.retrieve_context(), TASK, ctx);
                     task_graph_node->set_task_function(next_sym);
                     int n_connects = _actual_cfg->_last_nodes.size();
                     _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, task_graph_node, 
@@ -701,7 +700,6 @@ namespace TL
                     task_graph_exit->set_id(++_actual_cfg->_nid);
                     _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, task_graph_exit);
                     _actual_cfg->_outer_node.pop();
-                    _actual_cfg->_task_nodes_l.append(task_graph_node);
                     
                     Node* graph_entry = _actual_cfg->_graph->get_graph_entry_node();
                     Node* graph_exit = _actual_cfg->_graph->get_graph_exit_node();
@@ -712,8 +710,6 @@ namespace TL
 //                     _actual_cfg->dress_up_graph();
             
                     _cfgs.append(_actual_cfg);
-                    
-//                     _actual_cfg = last_actual_cfg;
                 }
                 else
                 {   // Nothing to do. Variable declarations do not create any graph
@@ -723,16 +719,21 @@ namespace TL
             else
             {   // PragmaCustomStatement
                 previous_nodes = _actual_cfg->_last_nodes;
-                task_graph_node = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), n.get_pragma_line(), TASK, 
-                                                                _context_s.top());
-                if (_task_level >= _task_s.size())
+                task_graph_node = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), n.get_pragma_line(), 
+                                                                 n.retrieve_context(), TASK, _context_s.top());
+                if (_task_level == _task_s.size())
                 {   // First task in the current level
                     _task_s.append(ObjectList<Node*>(1, task_graph_node));
                 }
-                else
+                else if (_task_level < _task_s.size())
                 {
                     _task_s[_task_level].append(task_graph_node);
                 }
+                else
+                {
+                    internal_error("Incorrect value of _task_leve which is bigger than the number of elements in the stack of lists of tasks", 0);
+                }
+                
                 _task_level++;
                 int n_connects = _actual_cfg->_last_nodes.size();
                 _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, task_graph_node, 
@@ -741,7 +742,7 @@ namespace TL
                 
                 walk(n.get_pragma_line());  // This visit computes information associated to the Task node, 
                                             // but do not create any additional node        
-           
+          
                 Nodecl::PragmaCustomStatement n_stmt = n.template as<Nodecl::PragmaCustomStatement>();
                 walk(n_stmt.get_statements());
                 
@@ -749,8 +750,8 @@ namespace TL
                 graph_exit->set_id(++_actual_cfg->_nid);
                 _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, graph_exit);
                 _actual_cfg->_outer_node.pop();
-                _actual_cfg->_task_nodes_l.append(task_graph_node);
                
+                _task_s[_task_level].clear();   // The tasks at this nest level has been already synchronized
                 _task_level--;
                 _actual_cfg->_last_nodes = previous_nodes;
             }
@@ -778,7 +779,8 @@ namespace TL
                     _actual_cfg->_last_nodes = _omp_sections_info.top().section_parents;
                 } 
                 
-                Node* pragma_graph_node = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), n.get_pragma_line(), OMP_PRAGMA);
+                Node* pragma_graph_node = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), n.get_pragma_line(), 
+                                                                         n.retrieve_context(), OMP_PRAGMA);
                 if (!_actual_cfg->_last_nodes.empty())
                 {   // If there is any node in 'last_nodes' list, then we have to connect the new graph node
                     _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, pragma_graph_node);
@@ -867,13 +869,13 @@ namespace TL
                 if (pragma_is_worksharing_or_parallel(pragma) && !_pragma_info_s.top().has_clause("nowait"))
                 {   // We include here a Barrier node after the pragma statement
                     Node* barrier = _actual_cfg->create_barrier_node(pragma_graph_node);
-                    if (_task_level >= 0)
-                    {
-                        int n_tasks_in_level = _task_s[_task_level].size();
-                        _actual_cfg->connect_nodes(_task_s[_task_level], barrier, 
-                                                   ObjectList<Edge_type>(n_tasks_in_level, ALWAYS_EDGE), 
-                                                   ObjectList<std::string>(n_tasks_in_level, ""), /*is task*/ true);
-                    }
+//                     if (_task_level >= 0)
+//                     {
+//                         int n_tasks_in_level = _task_s[_task_level].size();
+//                         _actual_cfg->connect_nodes(_task_s[_task_level], barrier, 
+//                                                    ObjectList<Edge_type>(n_tasks_in_level, ALWAYS_EDGE), 
+//                                                    ObjectList<std::string>(n_tasks_in_level, ""), /*is task*/ true);
+//                     }
                 }
                 else if (pragma == "critical" || pragma == "ordered")
                 {   // This constructs add a Flush at the end of the construct
@@ -954,7 +956,7 @@ namespace TL
             }
             
             // Create the natural loop graph node
-            Node* for_graph_node = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), n.get_loop_header(), 
+            Node* for_graph_node = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), n.get_loop_header(), n.retrieve_context(),
                                                                 LOOP, Nodecl::NodeclBase::null());
             for_graph_node->set_loop_node_type(FOR);
             int n_connects = _actual_cfg->_last_nodes.size();
@@ -1424,6 +1426,7 @@ namespace TL
             Node* labeled_node = walk(n.get_statement())[0];
             labeled_node->set_data(_NODE_TYPE, BASIC_LABELED_NODE);
             labeled_node->set_label(n.get_symbol());
+            _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, labeled_node);
             
             for (ObjectList<Node*>::iterator it = _actual_cfg->_goto_node_l.begin();
                 it != _actual_cfg->_goto_node_l.end();
@@ -1445,8 +1448,8 @@ namespace TL
         CfgVisitor::Ret CfgVisitor::visit(const Nodecl::ConditionalExpression& n)
         {
             Nodecl::NodeclBase cond_expr = n;
-            Node* cond_expr_node = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), 
-                                                                Nodecl::NodeclBase::null(), COND_EXPR);
+            Node* cond_expr_node = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), Nodecl::NodeclBase::null(), 
+                                                                  Scope(), COND_EXPR);
             Node* entry_node = cond_expr_node->get_graph_entry_node();
             
             // Build condition node
@@ -2025,7 +2028,7 @@ namespace TL
                     bool found;
                     
                     // Build the new graph
-                    result = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), Nodecl::NodeclBase::null(), SPLIT_STMT);
+                    result = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), Nodecl::NodeclBase::null(), Scope(), SPLIT_STMT);
                     Node* entry = result->get_graph_entry_node();
                     
                     // Get parents of the new graph node and delete the old connections

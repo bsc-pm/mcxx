@@ -496,17 +496,19 @@ namespace TL
                 Graph_type ntype = get_data<Graph_type>(_GRAPH_TYPE);
                 switch(ntype)
                 {
-                    case SPLIT_STMT:    graph_type = "SPLIT_STMT";
+                    case SPLIT_STMT:        graph_type = "SPLIT_STMT";
                     break;
-                    case FUNC_CALL:     graph_type = "FUNC_CALL";
+                    case FUNC_CALL:         graph_type = "FUNC_CALL";
                     break;
-                    case COND_EXPR:     graph_type = "COND_EXPR";
+                    case COND_EXPR:         graph_type = "COND_EXPR";
                     break;
-                    case LOOP:          graph_type = "LOOP";
+                    case LOOP:              graph_type = "LOOP";
                     break;
-                    case OMP_PRAGMA:    graph_type = "OMP_PRAGMA";
+                    case OMP_PRAGMA:        graph_type = "OMP_PRAGMA";
                     break;
-                    case TASK:          graph_type = "TASK";
+                    case TASK:              graph_type = "TASK";
+                    break;
+                    case EXTENSIBLE_GRAPH:  graph_type = "EXTENSIBLE_GRAPH";
                     break;
                     default: internal_error("Unexpected type of node '%s'", ntype);
                 };
@@ -604,6 +606,39 @@ namespace TL
             }
         }
 
+        Scope Node::get_scope()
+        {
+            if (get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
+            {
+                if (has_key(_SCOPE))
+                {
+                    return get_data<Scope>(_SCOPE);
+                }
+                else
+                {
+                    return Scope();
+                }
+            }
+            else
+            {
+                internal_error("Unexpected node type '%s' while getting the scope of the graph node '%s'. GRAPH_NODE expected.",
+                            get_type_as_string().c_str(), _id);
+            } 
+        }
+        
+        void Node::set_scope(Scope sc)
+        {
+            if (get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
+            {
+                set_data(_SCOPE, sc);
+            }
+            else
+            {
+                internal_error("Unexpected node type '%s' while getting the scope of the graph node '%s'. GRAPH_NODE expected.",
+                            get_type_as_string().c_str(), _id);
+            } 
+        }
+        
         ObjectList<Nodecl::NodeclBase> Node::get_statements()
         {
             ObjectList<Nodecl::NodeclBase> stmts;
@@ -717,17 +752,17 @@ namespace TL
                 }
                 else
                 {
-                    internal_error("Unexpected node type '%s' while getting the loop type of the graph node '%s'. LOOP expected.",
+                    internal_error("Unexpected node type '%s' while setting the loop type of the graph node '%s'. LOOP expected.",
                                 get_type_as_string().c_str(), _id);
                 }
             }
             else
             {
-                internal_error("Unexpected node type '%s' while getting the loop type of the graph node '%s'. GRAPH_NODE expected.",
+                internal_error("Unexpected node type '%s' while setting the loop type of the graph node '%s'. GRAPH_NODE expected.",
                             get_type_as_string().c_str(), _id);
             }        
         }
-
+        
         Symbol Node::get_label()
         {
             Node_type ntype = get_data<Node_type>(_NODE_TYPE);
@@ -968,12 +1003,8 @@ namespace TL
             
             if (!_visited)          
             {
-                ext_sym_set ue_vars, killed_vars, ue_aux, killed_aux;
-            
-    //             if (get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
-    //             {
-    //                 set_graph_node_use_def();
-    //             }
+                ext_sym_set ue_vars, killed_vars, undef_vars, ue_aux, killed_aux, undef_aux;
+           
                 _visited = true;
                 
                 // Compute upper exposed variables in actual node
@@ -988,6 +1019,16 @@ namespace TL
                 
                 // Compute killed variables in actual node
                 killed_vars.insert(get_killed_vars());
+                
+                // Compute undefined behaviour variables in actual node
+                undef_aux = get_undefined_behaviour_vars();
+                for(ext_sym_set::iterator it = undef_aux.begin(); it != undef_aux.end(); ++it)
+                {
+                    if (!killed_vars.contains(*it))
+                    {
+                        undef_vars.insert(*it);
+                    }
+                }
                 
                 // Complete the use-def info for every children of the node
                 ObjectList<Node*> children = get_children();
@@ -1008,10 +1049,19 @@ namespace TL
                         }
                         // Compute killed variables
                         killed_vars.insert(use_def_aux[1]);
+                        // Compute undefined behaviour variables
+                        undef_aux = use_def_aux[2];
+                        for(ext_sym_set::iterator it = undef_aux.begin(); it != undef_aux.end(); ++it)
+                        {
+                            if (!killed_vars.contains(*it))
+                            {
+                                undef_vars.insert(*it);
+                            }
+                        }
                     }
                 }
                 
-                use_def.append(ue_vars); use_def.append(killed_vars);
+                use_def.append(ue_vars); use_def.append(killed_vars); use_def.append(undef_vars);
             }
             
             return use_def;
@@ -1029,9 +1079,46 @@ namespace TL
                 
                     // Get upper_exposed and killed variables
                     ObjectList<ext_sym_set> use_def = entry_node->get_use_def_over_nodes();
-                    
-                    set_data(_UPPER_EXPOSED, use_def[0]);
-                    set_data(_KILLED, use_def[1]);
+                    Scope graph_sc = get_scope();
+                    if (graph_sc.is_valid())
+                    {
+                        // Delete those variables which are local to the Graph Node
+                        ext_sym_set non_local_ue;
+                        ext_sym_set ue_vars = use_def[0];
+                        for (ext_sym_set::iterator it = ue_vars.begin(); it != ue_vars.end(); ++it)
+                        {
+                            Symbol s(it->get_symbol());
+                            if (!s.get_scope().scope_is_enclosed_by(graph_sc) || s.get_scope() == graph_sc)
+                                non_local_ue.insert(*it);
+                        }
+                        set_data(_UPPER_EXPOSED, non_local_ue);
+                      
+                        ext_sym_set non_local_killed;
+                        ext_sym_set killed_vars = use_def[1];
+                        for (ext_sym_set::iterator it = killed_vars.begin(); it != killed_vars.end(); ++it)
+                        {
+                            Symbol s(it->get_symbol());
+                            if (!s.get_scope().scope_is_enclosed_by(graph_sc) || s.get_scope() == graph_sc)
+                                non_local_killed.insert(*it);
+                        }
+                        set_data(_KILLED, non_local_killed);
+                        
+                        ext_sym_set non_local_undef;
+                        ext_sym_set undef_vars = use_def[2];
+                        for (ext_sym_set::iterator it = undef_vars.begin(); it != undef_vars.end(); ++it)
+                        {
+                            Symbol s(it->get_symbol());
+                            if (!s.get_scope().scope_is_enclosed_by(graph_sc) || s.get_scope() == graph_sc)
+                                non_local_undef.insert(*it);
+                        }
+                        set_data(_UNDEF, non_local_undef);
+                    }
+                    else
+                    {
+                        set_data(_UPPER_EXPOSED, use_def[0]);
+                        set_data(_KILLED, use_def[1]);
+                        set_data(_UNDEF, use_def[2]);
+                    }
                 }
             }
             else
@@ -1560,12 +1647,78 @@ namespace TL
                 
                 ext_sym_set killed_vars = get_data<ext_sym_set>(_KILLED);
                 std::cerr << "      - KILLED VARS: ";
-        
                 for(ext_sym_set::iterator it = killed_vars.begin(); it != killed_vars.end(); ++it)
                 {
                     std::cerr << it->get_nodecl().prettyprint() << ", ";
                 }
                 std::cerr << std::endl;
+                
+                ext_sym_set undef_vars = get_data<ext_sym_set>(_UNDEF);
+                std::cerr << "      - UNDEF VARS: ";
+                for(ext_sym_set::iterator it = undef_vars.begin(); it != undef_vars.end(); ++it)
+                {
+                  std::cerr << it->get_nodecl().prettyprint() << ", ";
+                }
+                std::cerr << std::endl;
+            }
+        }
+        
+        void Node::print_liveness()
+        {
+            if (CURRENT_CONFIGURATION->debug_options.analysis_verbose)
+            {
+                ext_sym_set live_in_vars = get_data<ext_sym_set>(_LIVE_IN);
+                std::cerr << "      - LIVE IN VARS: ";
+                for(ext_sym_set::iterator it = live_in_vars.begin(); it != live_in_vars.end(); ++it)
+                {
+                    std::cerr << it->get_nodecl().prettyprint() << ", ";
+                }
+                std::cerr << std::endl;
+            
+                ext_sym_set live_out_vars = get_data<ext_sym_set>(_LIVE_OUT);
+                std::cerr << "      - LIVE OUT VARS: ";
+                for(ext_sym_set::iterator it = live_out_vars.begin(); it != live_out_vars.end(); ++it)
+                {
+                    std::cerr << it->get_nodecl().prettyprint() << ", ";
+                }
+                std::cerr << std::endl;
+            }
+        }
+        
+        void Node::print_task_dependencies()
+        {
+            if (CURRENT_CONFIGURATION->debug_options.analysis_verbose ||
+                CURRENT_CONFIGURATION->debug_options.enable_debug_code)
+            {
+                ext_sym_set input_deps = get_input_deps();
+                std::cerr << "  Input(";
+                for(ext_sym_set::iterator it = input_deps.begin(); it != input_deps.end(); ++it)
+                {
+                    std::cerr << it->get_nodecl().prettyprint();
+                    if (it != input_deps.end()-1)
+                        std::cerr << ", ";
+                }
+                std::cerr << ")";
+                    
+                ext_sym_set output_deps = get_output_deps();
+                std::cerr << "  Output(";
+                for(ext_sym_set::iterator it = output_deps.begin(); it != output_deps.end(); ++it)
+                {
+                    std::cerr << it->get_nodecl().prettyprint();
+                    if (it != output_deps.end()-1)
+                       std::cerr << ", ";
+                }
+                std::cerr << ")";
+                    
+                ext_sym_set inout_deps = get_inout_deps();
+                std::cerr << "  Inout(";
+                for(ext_sym_set::iterator it = inout_deps.begin(); it != inout_deps.end(); ++it)
+                {
+                    std::cerr << it->get_nodecl().prettyprint();
+                    if (it != inout_deps.end()-1)
+                        std::cerr << ", ";
+                }
+                std::cerr << ")" << std::endl;
             }
         }
     }

@@ -94,23 +94,10 @@ namespace TL
                 
                 // *** Values used during the analysis *** //
                 
-                //! List of nodes containing task's code
-                ObjectList<Node*> _task_nodes_l;
-                
                 //! Boolean indicating whether the use-def chains are already computed for the graph
                 char _use_def_computed;
                 
-                /*!
-                * This structure stores the graph of calls performed from 'f'.
-                * While computing use-def we store the functions calls in order to determine patterns as recursion or cycles.
-                * When a function call 'g' is founded, we include 'g' in the list, and continue analysing 'g'.
-                * All function call 'h' from 'g' are appended to 'g' symbol.
-                * After that if 'f' calls another function 'i' its symbols is appended to 'f'.
-                * Ex.:    f -> g -> h
-                *           -> i
-                */
-//                 struct func_call_graph_t* _func_calls_nest;
-                
+                //! List of symbols of the functions called in the current graph
                 ObjectList<Symbol> _func_calls;
             
         private:
@@ -296,6 +283,7 @@ namespace TL
                 *                   It must be a Graph node.
                 * \param label Nodecl containing the Statement represented with the new node. It will be
                 *              the label of the node.
+                * \param sc Scope created by the graph node
                 * \param graph_type Type of the composite node. 
                 *                   It must be some of these values: 'split_stmt',
                 *                   'function_call', 'conditional_expression', 'omp_pragma'.
@@ -303,7 +291,7 @@ namespace TL
                 *                It is only not null for graph nodes containing tasks
                 * \return The new composite node.
                 */
-                Node* create_graph_node(Node* outer_node, Nodecl::NodeclBase label, 
+                Node* create_graph_node(Node* outer_node, Nodecl::NodeclBase label, Scope sc, 
                                         Graph_type graph_type, Nodecl::NodeclBase context = Nodecl::NodeclBase::null());
                 
                 //! Builds a Barrier node with its corresponding Flush nodes and connects it with the existent graph
@@ -383,9 +371,6 @@ namespace TL
                 
                 //! Returns the node containing the graph
                 Node* get_graph() const;
-                
-                //! Returns the list of nodes containing a task which are created within this graph
-                ObjectList<Node*> get_tasks_list() const;
                 
                 //! Returns 1 when the graph has use-def info already computed; otherwise returns 0
                 char has_use_def_computed() const;
