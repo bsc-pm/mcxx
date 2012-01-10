@@ -36,12 +36,10 @@
 #include "cxx-utils.h"
 #include "cxx-parser.h"
 #include "c99-parser.h"
-#ifdef FORTRAN_SUPPORT
 #include "fortran03-lexer.h"
 #include "fortran03-parser.h"
 #include "fortran03-buildscope.h"
 #include "fortran03-exprtype.h"
-#endif
 
 #include <iostream>
 #include <sstream>
@@ -424,13 +422,11 @@ namespace TL
                 CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_CXX;
                 break;
             }
-#ifdef FORTRAN_SUPPORT
             case SourceLanguage::Fortran :
             {
                 CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_FORTRAN;
                 break;
             }
-#endif
             default:
             {
                 // Do nothing
@@ -502,7 +498,6 @@ namespace TL
                         decl_context_global);
                 break;
             }
-#ifdef FORTRAN_SUPPORT
             case SourceLanguage::Fortran :
             {
                 return parse_generic(ref_scope, parse_flags, "@PROGRAM-UNIT@", 
@@ -513,7 +508,6 @@ namespace TL
                         );
                 break;
             }
-#endif
             default:
             {
                 internal_error("Code unreachable", 0);
@@ -545,7 +539,6 @@ namespace TL
                         decl_context_namespace);
                 break;
             }
-#ifdef FORTRAN_SUPPORT
             case SourceLanguage::Fortran :
             {
                 return parse_generic(ref_scope, parse_flags, "@PROGRAM-UNIT@", 
@@ -556,7 +549,6 @@ namespace TL
                         );
                 break;
             }
-#endif
             default:
             {
                 internal_error("Code unreachable", 0);
@@ -588,7 +580,6 @@ namespace TL
                         decl_context_identity);
                 break;
             }
-#ifdef FORTRAN_SUPPORT
             case SourceLanguage::Fortran :
             {
                 return parse_generic(ref_scope, parse_flags, "@STATEMENT@", 
@@ -598,7 +589,6 @@ namespace TL
                         decl_context_identity);
                 break;
             }
-#endif
             default:
             {
                 internal_error("Code unreachable", 0);
@@ -613,7 +603,6 @@ namespace TL
         ::check_expression(a, decl_context, nodecl_output);
     }
 
-#ifdef FORTRAN_SUPPORT
     static void fortran_check_expression_adaptor_(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
     {
         if (ASTType(a) == AST_COMMON_NAME)
@@ -634,7 +623,6 @@ namespace TL
             ::fortran_check_expression(a, decl_context, nodecl_output);
         }
     }
-#endif
 
     Nodecl::NodeclBase Source::parse_expression(ReferenceScope ref_scope, ParseFlags parse_flags)
     {
@@ -658,7 +646,6 @@ namespace TL
                         decl_context_identity);
                 break;
             }
-#ifdef FORTRAN_SUPPORT
             case SourceLanguage::Fortran :
             {
                 return parse_generic(ref_scope, parse_flags, "@EXPRESSION@", 
@@ -668,7 +655,6 @@ namespace TL
                         decl_context_identity);
                 break;
             }
-#endif
             default:
             {
                 internal_error("Code unreachable", 0);

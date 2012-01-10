@@ -98,7 +98,6 @@ typedef struct translation_unit_tag
     int num_top_level_includes;
     top_level_include_t **top_level_include_list;
 
-#ifdef FORTRAN_SUPPORT
     rb_red_blk_tree *module_cache;
 
     int num_modules_to_wrap;
@@ -106,7 +105,6 @@ typedef struct translation_unit_tag
 
     int num_module_files_to_hide;
     const char** module_files_to_hide;
-#endif // FORTRAN_SUPPORT
 
     // Opaque pointer used when running compiler phases
     void *dto;
@@ -332,7 +330,6 @@ typedef struct compilation_configuration_tag
     const char** preprocessor_options;
     char preprocessor_uses_stdout;
 
-#ifdef FORTRAN_SUPPORT
     // Fortran prescanner
     const char* prescanner_name;
     const char** prescanner_options;
@@ -349,7 +346,7 @@ typedef struct compilation_configuration_tag
 
     // Directory where we unwrap the native modules
     const char* module_native_dir;
-#endif
+
     source_kind_t force_source_kind;
 
     const char* native_compiler_name;
@@ -429,10 +426,8 @@ typedef struct compilation_configuration_tag
     int num_target_option_maps;
     target_options_map_t** target_options_maps;
 
-#ifdef FORTRAN_SUPPORT
     // Fortran lexing
     char disable_empty_sentinels;
-#endif
 } compilation_configuration_t;
 
 struct compiler_phase_loader_tag

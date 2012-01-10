@@ -165,9 +165,7 @@ endif
 
 PARSER_INFO_C=$(builddir)/../frontend/c99-parser-internal.h
 PARSER_INFO_CXX=$(builddir)/../frontend/cxx-parser-internal.h
-if FORTRAN_SUPPORT
 PARSER_INFO_FORTRAN=$(builddir)/../frontend/fortran/fortran03-parser-internal.h
-endif
 
 # Flex makes things very difficult
 tl-lexer-tokens.hpp : $(PARSER_INFO_C) $(PARSER_INFO_CXX) $(PARSER_INFO_FORTRAN)
@@ -216,6 +214,4 @@ libtl_la_LIBADD = \
 	$(top_builddir)/src/frontend/libmcxx.la \
 	$(END)
 
-if FORTRAN_SUPPORT
 libtl_la_LIBADD += $(top_builddir)/src/frontend/fortran/libmf03.la
-endif

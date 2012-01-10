@@ -840,10 +840,8 @@ namespace TL
         EMPTY_HANDLERS_CONSTRUCT(critical)
         EMPTY_HANDLERS_DIRECTIVE(flush)
         EMPTY_HANDLERS_CONSTRUCT(ordered)
-#ifdef FORTRAN_SUPPORT
         EMPTY_HANDLERS_CONSTRUCT(parallel_do)
         EMPTY_HANDLERS_CONSTRUCT(do)
-#endif
 
         void openmp_core_run_next_time(DTO& dto)
         {

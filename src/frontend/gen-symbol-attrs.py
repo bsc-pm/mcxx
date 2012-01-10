@@ -117,12 +117,6 @@ typedef struct entity_specifiers_tag\n{"""
 
       language = language.strip(" \n")
       if (language != current_language) :
-          if (current_language == "all" and language == "fortran"):
-              print "#ifdef FORTRAN_SUPPORT"
-          elif (current_language == "fortran" and language == "all"):
-              print "#endif // FORTRAN_SUPPORT"
-          else: 
-              raise Exception("Invalid sequence of languages from %s -> %s" % (current_language, language))
           current_language = language
       descr = description.strip(" \n")
       if (descr):

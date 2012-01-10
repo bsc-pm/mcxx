@@ -47,9 +47,7 @@
 #include "cxx-prettyprint-internal.h"
 #include "cxx-diagnostic.h"
 
-#ifdef FORTRAN_SUPPORT
 #include "fortran/fortran03-prettyprint.h"
-#endif
 
 HANDLER_PROTOTYPE(ambiguity_handler);
 HANDLER_PROTOTYPE(sequence_handler);
@@ -331,9 +329,7 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_DIV, binary_operator_handler, "/"),
     NODE_HANDLER(AST_MOD, binary_operator_handler, "%"),
     NODE_HANDLER(AST_MUL, binary_operator_handler, "*"),
-#ifdef FORTRAN_SUPPORT
     NODE_HANDLER(AST_POWER, binary_operator_handler, "^^"),
-#endif
     NODE_HANDLER(AST_POINTER_TO_MEMBER, infix_parameter_handler, ".*"),
     NODE_HANDLER(AST_POINTER_TO_POINTER_MEMBER, infix_parameter_handler, "->*"),
     NODE_HANDLER(AST_CAST, cast_expression_handler, NULL),
@@ -609,12 +605,9 @@ void cxx_prettyprint(FILE* f, AST a)
 
 void prettyprint(FILE* f, AST a)
 {
-#ifdef FORTRAN_SUPPORT
     if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
     {
-#endif
-    cxx_prettyprint(f, a);
-#ifdef FORTRAN_SUPPORT
+        cxx_prettyprint(f, a);
     }
     else if (IS_FORTRAN_LANGUAGE)
     {
@@ -624,7 +617,6 @@ void prettyprint(FILE* f, AST a)
     {
         internal_error("Code unreachable", 0);
     }
-#endif
 }
 
 const char* cxx_prettyprint_in_buffer(AST a)
@@ -637,12 +629,9 @@ const char* cxx_prettyprint_in_buffer(AST a)
 
 const char* prettyprint_in_buffer(AST a)
 {
-#ifdef FORTRAN_SUPPORT
     if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
     {
-#endif
-    return cxx_prettyprint_in_buffer(a);
-#ifdef FORTRAN_SUPPORT
+        return cxx_prettyprint_in_buffer(a);
     }
     else if (IS_FORTRAN_LANGUAGE)
     {
@@ -652,7 +641,6 @@ const char* prettyprint_in_buffer(AST a)
     {
         internal_error("Code unreachable", 0);
     }
-#endif
 }
 
 const char* cxx_prettyprint_in_buffer_callback(AST a, prettyprint_callback_t callback, void *data)
@@ -668,12 +656,9 @@ const char* cxx_prettyprint_in_buffer_callback(AST a, prettyprint_callback_t cal
 
 const char* prettyprint_in_buffer_callback(AST a, prettyprint_callback_t callback, void *data)
 {
-#ifdef FORTRAN_SUPPORT
     if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
     {
-#endif
-    return cxx_prettyprint_in_buffer_callback(a, callback, data);
-#ifdef FORTRAN_SUPPORT
+        return cxx_prettyprint_in_buffer_callback(a, callback, data);
     }
     else if (IS_FORTRAN_LANGUAGE)
     {
@@ -683,7 +668,6 @@ const char* prettyprint_in_buffer_callback(AST a, prettyprint_callback_t callbac
     {
         internal_error("Code unreachable", 0);
     }
-#endif
 }
 
 const char* cxx_list_handler_in_buffer(AST a)
@@ -696,12 +680,9 @@ const char* cxx_list_handler_in_buffer(AST a)
 
 const char* list_handler_in_buffer(AST a)
 {
-#ifdef FORTRAN_SUPPORT
     if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
     {
-#endif
-    return cxx_list_handler_in_buffer(a);
-#ifdef FORTRAN_SUPPORT
+        return cxx_list_handler_in_buffer(a);
     }
     else if (IS_FORTRAN_LANGUAGE)
     {
@@ -711,7 +692,6 @@ const char* list_handler_in_buffer(AST a)
     {
         internal_error("Code unreachable", 0);
     }
-#endif
 }
 
 static void increase_level(prettyprint_context_t *pt_ctx)

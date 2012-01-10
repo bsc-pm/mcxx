@@ -444,7 +444,6 @@ static void print_scope_entry(const char* key, scope_entry_t* entry, int global_
              entry_list_iterator_free(it);
          }
     }
-#ifdef FORTRAN_SUPPORT
     if (entry->kind == SK_PROGRAM
             || entry->kind == SK_FUNCTION
             || entry->kind == SK_MODULE)
@@ -477,5 +476,4 @@ static void print_scope_entry(const char* key, scope_entry_t* entry, int global_
     {
         PRINT_INDENTED_LINE(stderr, global_indent+1, "No related symbols\n");
     }
-#endif
 }

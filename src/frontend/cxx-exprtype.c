@@ -50,10 +50,7 @@
 #include <ctype.h>
 #include <string.h>
 
-#ifdef FORTRAN_SUPPORT
 #include "fortran/fortran03-exprtype.h"
-#endif
-
 
 static const char builtin_prefix[] = "__builtin_";
 
@@ -390,12 +387,9 @@ static char c_check_expression(AST expression, decl_context_t decl_context, node
 
 char check_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-#ifdef FORTRAN_SUPPORT
     if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
     {
-#endif
-    return c_check_expression(expression, decl_context, nodecl_output);
-#ifdef FORTRAN_SUPPORT
+        return c_check_expression(expression, decl_context, nodecl_output);
     }
     else if (IS_FORTRAN_LANGUAGE)
     {
@@ -405,7 +399,6 @@ char check_expression(AST expression, decl_context_t decl_context, nodecl_t* nod
     {
         internal_error("Code unreachable", 0);
     }
-#endif
 }
 
 char check_expression_non_executable(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -741,9 +734,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
         case AST_BITWISE_OR :
         case AST_LOGICAL_AND :
         case AST_LOGICAL_OR :
-#ifdef FORTRAN_SUPPORT
         case AST_POWER:
-#endif
             {
                 check_binary_expression(expression, decl_context, nodecl_output);
                 break;
@@ -2761,7 +2752,6 @@ void compute_bin_operator_mul_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t 
             nodecl_output);
 }
 
-#ifdef FORTRAN_SUPPORT
 static
 void compute_bin_operator_pow_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t decl_context, 
         const char* filename, int line, nodecl_t* nodecl_output)
@@ -2776,7 +2766,6 @@ void compute_bin_operator_pow_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t 
             filename, line,
             nodecl_output);
 }
-#endif
 
 static
 void compute_bin_operator_div_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t decl_context, 
@@ -5021,9 +5010,7 @@ static struct bin_operator_funct_type_t binary_expression_fun[] =
     [AST_BITWISE_OR]            = OPERATOR_FUNCT_INIT(compute_bin_operator_bitwise_or_type),
     [AST_LOGICAL_AND]           = OPERATOR_FUNCT_INIT(compute_bin_operator_logical_and_type),
     [AST_LOGICAL_OR]            = OPERATOR_FUNCT_INIT(compute_bin_operator_logical_or_type),
-#ifdef FORTRAN_SUPPORT
     [AST_POWER]              = OPERATOR_FUNCT_INIT(compute_bin_operator_pow_type),
-#endif
     [AST_ASSIGNMENT]            = OPERATOR_FUNCT_INIT(compute_bin_operator_assig_type),
     [AST_MUL_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_mul_assig_type),
     [AST_DIV_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_div_assig_type),
@@ -5055,9 +5042,7 @@ static struct bin_operator_funct_type_t binary_expression_fun[] =
     [NODECL_BITWISE_OR]            = OPERATOR_FUNCT_INIT(compute_bin_operator_bitwise_or_type),
     [NODECL_LOGICAL_AND]           = OPERATOR_FUNCT_INIT(compute_bin_operator_logical_and_type),
     [NODECL_LOGICAL_OR]            = OPERATOR_FUNCT_INIT(compute_bin_operator_logical_or_type),
-#ifdef FORTRAN_SUPPORT
     [NODECL_POWER]              = OPERATOR_FUNCT_INIT(compute_bin_operator_pow_type),
-#endif
     [NODECL_ASSIGNMENT]            = OPERATOR_FUNCT_INIT(compute_bin_operator_assig_type),
     [NODECL_MUL_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_mul_assig_type),
     [NODECL_DIV_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_div_assig_type),
@@ -14511,9 +14496,7 @@ static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, 
     NODECL_VISITOR(v)->visit_bitwise_or = instantiate_expr_visitor_fun(instantiate_binary_op);
     NODECL_VISITOR(v)->visit_logical_and = instantiate_expr_visitor_fun(instantiate_binary_op);
     NODECL_VISITOR(v)->visit_logical_or = instantiate_expr_visitor_fun(instantiate_binary_op);
-#ifdef FORTRAN_SUPPORT
     NODECL_VISITOR(v)->visit_power = instantiate_expr_visitor_fun(instantiate_binary_op);
-#endif
     NODECL_VISITOR(v)->visit_assignment = instantiate_expr_visitor_fun(instantiate_binary_op);
     NODECL_VISITOR(v)->visit_mul_assignment = instantiate_expr_visitor_fun(instantiate_binary_op);
     NODECL_VISITOR(v)->visit_div_assignment = instantiate_expr_visitor_fun(instantiate_binary_op);

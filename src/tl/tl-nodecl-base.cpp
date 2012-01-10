@@ -2,9 +2,7 @@
 #include "tl-nodecl-alg.hpp"
 #include "cxx-utils.h"
 #include "cxx-codegen.h"
-#ifdef FORTRAN_SUPPORT
 #include "fortran03-codegen.h"
-#endif
 #include <algorithm>
 
 namespace Nodecl
