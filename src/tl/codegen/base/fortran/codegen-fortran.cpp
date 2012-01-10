@@ -1881,7 +1881,7 @@ OPERATOR_TABLE
                 indent();
                 file << "COMMON /" << common_name << "/ " << entry.get_name() << "\n";
                 indent();
-                file << "BIND(C, NAME=\"" << entry.get_name() << "\") :: / " << common_name << " / \n";
+                file << "BIND(C, NAME=\"" << entry.get_name() << "\") :: /" << common_name << "/ \n";
             }
 
             if (entry.is_in_common())
