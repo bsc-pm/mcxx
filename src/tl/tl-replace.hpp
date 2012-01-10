@@ -35,7 +35,6 @@ namespace TL
             }
     };
 
-#ifdef FORTRAN_SUPPORT
     class ReplaceFortranSymbolBase : public Codegen::FortranBase, public ReplaceSymbolBase
     {
         public:
@@ -51,48 +50,37 @@ namespace TL
                 }
             }
     };
-#endif
 
     class ReplaceSymbols : public Nodecl::ProxyVisitor<void>
     {
         private:
             ReplaceCxxSymbolBase* _codegen_cxx;
-#ifdef FORTRAN_SUPPORT
             ReplaceFortranSymbolBase* _codegen_fortran;
-#endif
 
             ReplaceSymbols(const ReplaceSymbols&);
             ReplaceSymbols& operator=(const ReplaceSymbols&);
         public:
             ReplaceSymbols()
                 : _codegen_cxx(new ReplaceCxxSymbolBase())
-#ifdef FORTRAN_SUPPORT
                 , _codegen_fortran(new ReplaceFortranSymbolBase())
-#endif
             {
                 _proxy = _codegen_cxx;
-#ifdef FORTRAN_SUPPORT
                 FORTRAN_LANGUAGE()
                 {
                     _proxy = _codegen_fortran;
                 }
-#endif
             }
 
             ~ReplaceSymbols()
             {
                 delete _codegen_cxx;
-#ifdef FORTRAN_SUPPORT
                 delete _codegen_fortran;
-#endif
             }
 
             void add_replacement(TL::Symbol sym, const std::string& str)
             {
                 _codegen_cxx->add_replacement(sym, str);
-#ifdef FORTRAN_SUPPORT
                 _codegen_fortran->add_replacement(sym, str);
-#endif
             }
 
             void add_cxx_replacement(TL::Symbol sym, const std::string& str)
@@ -100,12 +88,10 @@ namespace TL
                 _codegen_cxx->add_replacement(sym, str);
             }
 
-#ifdef FORTRAN_SUPPORT
             void add_fortran_replacement(TL::Symbol sym, const std::string& str)
             {
                 _codegen_fortran->add_replacement(sym, str);
             }
-#endif
 
             std::string replace(Nodecl::NodeclBase n)
             {

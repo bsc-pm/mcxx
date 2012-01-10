@@ -27,8 +27,6 @@
 
 #include "tl-fortran.hpp"
 
-#ifdef FORTRAN_SUPPORT
-
 namespace TL { namespace Fortran {
 
     const PredicateAttr ProgramUnit::predicate(LANG_IS_FORTRAN_PROGRAM_UNIT);
@@ -95,4 +93,3 @@ namespace TL { namespace Fortran {
     }
 } }
 
-#endif

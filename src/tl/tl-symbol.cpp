@@ -222,47 +222,27 @@ namespace TL
 
     bool Symbol::is_fortran_main_program() const
     {
-#ifdef FORTRAN_SUPPORT
         return (this->_symbol->kind == SK_PROGRAM);
-#else
-        return false;
-#endif
     }
 
     bool Symbol::is_fortran_module() const
     {
-#ifdef FORTRAN_SUPPORT
         return (this->_symbol->kind == SK_MODULE);
-#else
-        return false;
-#endif
     }
 
     bool Symbol::is_in_module() const
     {
-#ifdef FORTRAN_SUPPORT
         return (this->_symbol->entity_specs.in_module != NULL);
-#else
-        return false;
-#endif
     }
 
     Symbol Symbol::in_module() const
     {
-#ifdef FORTRAN_SUPPORT
         return this->_symbol->entity_specs.in_module;
-#else
-        return Symbol(NULL);
-#endif
     }
 
     bool Symbol::is_fortran_blockdata() const
     {
-#ifdef FORTRAN_SUPPORT
         return (this->_symbol->kind == SK_BLOCKDATA);
-#else
-        return false;
-#endif
     }
 
     bool Symbol::is_typedef() const
@@ -551,110 +531,62 @@ namespace TL
 
     bool Symbol::is_fortran_common() const
     {
-#ifdef FORTRAN_SUPPORT
         return _symbol->kind == SK_COMMON;
-#else
-        return false;
-#endif
     }
 
     bool Symbol::is_fortran_namelist() const
     {
-#ifdef FORTRAN_SUPPORT
         return _symbol->kind == SK_NAMELIST;
-#else
-        return false;
-#endif
     }
 
     bool Symbol::is_allocatable() const
     {
-#ifdef FORTRAN_SUPPORT
         return _symbol->entity_specs.is_allocatable;
-#else
-        return false;
-#endif
     }
 
     bool Symbol::is_in_common() const
     {
-#ifdef FORTRAN_SUPPORT
         return _symbol->entity_specs.is_in_common;
-#else
-        return false;
-#endif
     }
 
     Symbol Symbol::in_common() const
     {
-#ifdef FORTRAN_SUPPORT
         return _symbol->entity_specs.in_common;
-#else
-        return Symbol(NULL);
-#endif
     }
 
     bool Symbol::is_in_namelist() const
     {
-#ifdef FORTRAN_SUPPORT
         return _symbol->entity_specs.is_in_namelist;
-#else
-        return false;
-#endif
     }
 
     bool Symbol::is_optional() const
     {
-#ifdef FORTRAN_SUPPORT
         return _symbol->entity_specs.is_optional;
-#else
-        return false;
-#endif
     }
 
     bool Symbol::is_target() const
     {
-#ifdef FORTRAN_SUPPORT
         return _symbol->entity_specs.is_target;
-#else
-        return false;
-#endif
     }
 
     bool Symbol::is_elemental() const
     {
-#ifdef FORTRAN_SUPPORT
         return _symbol->entity_specs.is_elemental;
-#else
-        return false;
-#endif
     }
 
     bool Symbol::is_recursive() const
     {
-#ifdef FORTRAN_SUPPORT
         return _symbol->entity_specs.is_recursive;
-#else
-        return false;
-#endif
     }
 
     bool Symbol::is_result() const
     {
-#ifdef FORTRAN_SUPPORT
         return _symbol->entity_specs.is_result;
-#else
-        return false;
-#endif
     }
 
     bool Symbol::is_generic_specifier() const
     {
-#ifdef FORTRAN_SUPPORT
         return _symbol->entity_specs.is_generic_spec;
-#else
-        return false;
-#endif
     }
 
     bool Symbol::has_nondefault_linkage() const
