@@ -210,8 +210,7 @@ static void print_scope_entry(const char* key, scope_entry_t* entry, int global_
     }
     if (entry->kind == SK_VARIABLE && entry->entity_specs.is_parameter)
     {
-        PRINT_INDENTED_LINE(stderr, global_indent+1, "Is parameter %d of the function\n",
-                entry->entity_specs.parameter_position);
+        PRINT_INDENTED_LINE(stderr, global_indent+1, "Is parameter the function\n");
     }
 
     if (entry->kind == SK_TEMPLATE)

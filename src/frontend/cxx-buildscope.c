@@ -5950,7 +5950,6 @@ static void set_function_parameter_clause(type_t** function_type,
                 new_parameter->file = ASTFileName(kr_id);
                 new_parameter->line = ASTLine(kr_id);
                 new_parameter->entity_specs.is_parameter = 1;
-                new_parameter->entity_specs.parameter_position = num_parameters;
 
                 parameter_info[num_parameters].is_ellipsis = 0;
                 parameter_info[num_parameters].type_info = get_signed_int_type();
@@ -6142,7 +6141,6 @@ static void set_function_parameter_clause(type_t** function_type,
                 // A parameter is always a variable entity
                 entry->kind = SK_VARIABLE;
                 entry->entity_specs.is_parameter = 1;
-                entry->entity_specs.parameter_position = num_parameters;
 
                 // Update the type info
                 entry->type_information = type_info;
@@ -8654,7 +8652,7 @@ static void build_scope_namespace_definition(AST a,
 
 
 // This function is only intended for C99
-void build_scope_kr_parameter_declaration(scope_entry_t* function_entry UNUSED_PARAMETER,
+void build_scope_kr_parameter_declaration(scope_entry_t* function_entry,
         AST kr_parameter_declaration, 
         AST kr_parameters UNUSED_PARAMETER,
         decl_context_t decl_context,
@@ -8759,9 +8757,22 @@ void build_scope_kr_parameter_declaration(scope_entry_t* function_entry UNUSED_P
 
                 entry->type_information = declarator_type;
 
-                parameter_info[entry->entity_specs.parameter_position].type_info = 
+                int parameter_position = -1;
+
+                int j;
+                for (j = 0; j < function_entry->entity_specs.num_related_symbols && parameter_position == -1; j++)
+                {
+                    if (function_entry->entity_specs.related_symbols[j] == entry)
+                    {
+                        parameter_position = j;
+                    }
+                }
+
+                ERROR_CONDITION(parameter_position < 0, "Parameter not found", 0);
+
+                parameter_info[parameter_position].type_info = 
                     entry->type_information;
-                parameter_info[entry->entity_specs.parameter_position].nonadjusted_type_info = 
+                parameter_info[parameter_position].nonadjusted_type_info = 
                     entry->type_information;
 
                 i++;

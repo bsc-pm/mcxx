@@ -325,11 +325,6 @@ namespace TL
         return (_symbol->entity_specs.is_parameter);
     }
 
-    int Symbol::get_parameter_position() const
-    {
-        return (_symbol->entity_specs.parameter_position);
-    }
-
     bool Symbol::is_static() const
     {
         return (_symbol->entity_specs.is_static);

@@ -1260,7 +1260,6 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
             dummy_arg->file = ASTFileName(dummy_arg_name);
             dummy_arg->line = ASTLine(dummy_arg_name);
             dummy_arg->entity_specs.is_parameter = 1;
-            dummy_arg->entity_specs.parameter_position = num_dummy_arguments;
 
             P_LIST_ADD(entry->entity_specs.related_symbols,
                     entry->entity_specs.num_related_symbols,
@@ -1500,7 +1499,6 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
             dummy_arg->file = ASTFileName(dummy_arg_name);
             dummy_arg->line = ASTLine(dummy_arg_name);
             dummy_arg->entity_specs.is_parameter = 1;
-            dummy_arg->entity_specs.parameter_position = num_dummy_arguments;
 
             P_LIST_ADD(entry->entity_specs.related_symbols,
                     entry->entity_specs.num_related_symbols,

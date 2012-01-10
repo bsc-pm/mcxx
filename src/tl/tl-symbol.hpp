@@ -192,8 +192,6 @@ namespace TL
             
             //! States whether this symbol is a parameter of a function
             bool is_parameter() const;
-            //! Returns the position of this parameter
-            int get_parameter_position() const;
 
             //! States whether this symbol is a template parameter
             bool is_template_parameter() const;

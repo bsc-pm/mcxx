@@ -1956,7 +1956,7 @@ static scope_entry_t* get_specific_interface(scope_entry_t* symbol,
 
                     if (strcasecmp(related_sym->symbol_name, keyword_names[i]) == 0)
                     {
-                        position = related_sym->entity_specs.parameter_position;
+                        position = j;
                     }
                 }
                 if (position < 0)
@@ -1982,12 +1982,12 @@ static scope_entry_t* get_specific_interface(scope_entry_t* symbol,
 
                 if (related_sym->entity_specs.is_parameter)
                 {
-                    if (argument_types[related_sym->entity_specs.parameter_position].type == NULL)
+                    if (argument_types[i].type == NULL)
                     {
                         if (related_sym->entity_specs.is_optional)
                         {
-                            argument_types[related_sym->entity_specs.parameter_position].type = related_sym->type_information;
-                            argument_types[related_sym->entity_specs.parameter_position].not_present = 1;
+                            argument_types[i].type = related_sym->type_information;
+                            argument_types[i].not_present = 1;
                             num_arguments++;
                         }
                         else 
@@ -2290,7 +2290,7 @@ static void check_called_symbol(
 
                     if (strcasecmp(related_sym->symbol_name, actual_arguments_keywords[i]) == 0)
                     {
-                        position = related_sym->entity_specs.parameter_position;
+                        position = j;
                     }
                 }
                 if (position < 0)
@@ -2330,12 +2330,12 @@ static void check_called_symbol(
 
             if (related_sym->entity_specs.is_parameter)
             {
-                if (argument_info_items[related_sym->entity_specs.parameter_position].type == NULL)
+                if (argument_info_items[i].type == NULL)
                 {
                     if (related_sym->entity_specs.is_optional)
                     {
-                        argument_info_items[related_sym->entity_specs.parameter_position].type = related_sym->type_information;
-                        argument_info_items[related_sym->entity_specs.parameter_position].not_present = 1;
+                        argument_info_items[i].type = related_sym->type_information;
+                        argument_info_items[i].not_present = 1;
                         num_completed_arguments++;
                     }
                     else 
