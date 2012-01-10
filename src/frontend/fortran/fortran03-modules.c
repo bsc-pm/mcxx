@@ -517,13 +517,13 @@ static void prepare_statements(sqlite3* handle)
     DO_PREPARE_STATEMENT(_insert_type_simple_stmt, 
             "INSERT INTO type(oid, kind, cv_qualifier, kind_size) VALUES($OID, $TYPEKIND, $CVNAME, $KINDSIZE);");
     DO_PREPARE_STATEMENT(_insert_type_ref_to_stmt, 
-            "INSERT INTO type(oid, kind, ref_type) VALUES($OID, $NAME, $REFTYPE);");
+            "INSERT INTO type(oid, kind, cv_qualifier, ref_type) VALUES($OID, $NAME, $CVNAME, $REFTYPE);");
     DO_PREPARE_STATEMENT(_insert_type_ref_to_list_types_stmt,
-            "INSERT INTO type(oid, kind, ref_type, types) VALUES($OID, $KIND, $REFTYPE, $TYPES);");
+            "INSERT INTO type(oid, kind, cv_qualifier, ref_type, types) VALUES($OID, $KIND, $CVNAME, $REFTYPE, $TYPES);");
     DO_PREPARE_STATEMENT(_insert_type_ref_to_list_symbols_stmt,
-            "INSERT INTO type(oid, kind, ref_type, symbols) VALUES($OID, $KIND, $REFTYPE, $SYMBOLS);");
+            "INSERT INTO type(oid, kind, cv_qualifier, ref_type, symbols) VALUES($OID, $KIND, $CVNAME, $REFTYPE, $SYMBOLS);");
     DO_PREPARE_STATEMENT(_insert_type_ref_to_ast_stmt, 
-            "INSERT INTO type(oid, kind, ref_type, ast0, ast1) VALUES ($OID, $KIND, $REF, $ASTZERO, $ASTONE);");
+            "INSERT INTO type(oid, kind, cv_qualifier, ref_type, ast0, ast1) VALUES ($OID, $KIND, $CVNAME, $REFTYPE, $ASTZERO, $ASTONE);");
 
     // Insert AST
     DO_PREPARE_STATEMENT(_insert_ast_stmt, 
@@ -796,8 +796,8 @@ static sqlite3_uint64 insert_type_simple(sqlite3* handle, type_t* t,
     const char* qualifier_name = get_qualifier_name_of_type(t);
 
     sqlite3_bind_int64(_insert_type_simple_stmt, 1, P2ULL(t));
-    sqlite3_bind_text (_insert_type_simple_stmt,  2, type_kind_name, -1, SQLITE_STATIC);
-    sqlite3_bind_text (_insert_type_simple_stmt,  3, qualifier_name, -1, SQLITE_STATIC);
+    sqlite3_bind_text (_insert_type_simple_stmt, 2, type_kind_name, -1, SQLITE_STATIC);
+    sqlite3_bind_text (_insert_type_simple_stmt, 3, qualifier_name, -1, SQLITE_STATIC);
     sqlite3_bind_int64(_insert_type_simple_stmt, 4, kind_size);
 
     int result_query = sqlite3_step(_insert_type_simple_stmt);
@@ -820,9 +820,12 @@ static sqlite3_uint64 insert_type_ref_to(sqlite3* handle, type_t* t, const char*
     if (oid_already_inserted_type(handle, t))
         return (sqlite3_uint64)(uintptr_t)t;
 
+    const char* qualifier_name = get_qualifier_name_of_type(t);
+    
     sqlite3_bind_int64(_insert_type_ref_to_stmt, 1, P2ULL(t));
     sqlite3_bind_text (_insert_type_ref_to_stmt, 2, name, -1, SQLITE_STATIC);
-    sqlite3_bind_int64(_insert_type_ref_to_stmt, 3, ref_type);
+    sqlite3_bind_text (_insert_type_ref_to_stmt, 3, qualifier_name, -1, SQLITE_STATIC);
+    sqlite3_bind_int64(_insert_type_ref_to_stmt, 4, ref_type);
 
     int result_query = sqlite3_step(_insert_type_ref_to_stmt);
     if (result_query != SQLITE_DONE)
@@ -849,6 +852,8 @@ static sqlite3_uint64 insert_type_ref_to_list_types(sqlite3* handle,
     if (oid_already_inserted_type(handle, t))
         return (sqlite3_uint64)(uintptr_t)t;
 
+    const char* qualifier_name = get_qualifier_name_of_type(t);
+    
     char *list = sqlite3_mprintf("%s", "");
     unsigned int i;
     for (i = 0; i < num_parameters; i++)
@@ -867,8 +872,9 @@ static sqlite3_uint64 insert_type_ref_to_list_types(sqlite3* handle,
 
     sqlite3_bind_int64(_insert_type_ref_to_list_types_stmt, 1, P2ULL(t));
     sqlite3_bind_text (_insert_type_ref_to_list_types_stmt, 2, name, -1, SQLITE_STATIC);
-    sqlite3_bind_int64(_insert_type_ref_to_list_types_stmt, 3, ref_type);
-    sqlite3_bind_text (_insert_type_ref_to_list_types_stmt, 4, list, -1, SQLITE_STATIC);
+    sqlite3_bind_text (_insert_type_ref_to_list_types_stmt, 3, qualifier_name, -1, SQLITE_STATIC);
+    sqlite3_bind_int64(_insert_type_ref_to_list_types_stmt, 4, ref_type);
+    sqlite3_bind_text (_insert_type_ref_to_list_types_stmt, 5, list, -1, SQLITE_STATIC);
 
     int result_query = sqlite3_step(_insert_type_ref_to_list_types_stmt);
     if (result_query != SQLITE_DONE)
@@ -912,10 +918,13 @@ static sqlite3_uint64 insert_type_ref_to_list_symbols(sqlite3* handle,
         }
     }
 
+    const char* qualifier_name = get_qualifier_name_of_type(t);
+    
     sqlite3_bind_int64(_insert_type_ref_to_list_symbols_stmt, 1, P2ULL(t));
     sqlite3_bind_text (_insert_type_ref_to_list_symbols_stmt, 2, name, -1, SQLITE_STATIC);
-    sqlite3_bind_int64(_insert_type_ref_to_list_symbols_stmt, 3, ref_type);
-    sqlite3_bind_text (_insert_type_ref_to_list_symbols_stmt, 4, list, -1, SQLITE_STATIC);
+    sqlite3_bind_text (_insert_type_ref_to_list_symbols_stmt, 3, qualifier_name, -1, SQLITE_STATIC);
+    sqlite3_bind_int64(_insert_type_ref_to_list_symbols_stmt, 4, ref_type);
+    sqlite3_bind_text (_insert_type_ref_to_list_symbols_stmt, 5, list, -1, SQLITE_STATIC);
 
     int result_query = sqlite3_step(_insert_type_ref_to_list_symbols_stmt);
     if (result_query != SQLITE_DONE)
@@ -951,11 +960,14 @@ static sqlite3_uint64 insert_type_ref_to_ast(sqlite3* handle,
     if (oid_already_inserted_type(handle, t))
         return (sqlite3_uint64)(uintptr_t)t;
 
+    const char* qualifier_name = get_qualifier_name_of_type(t);
+    
     sqlite3_bind_int64(_insert_type_ref_to_ast_stmt, 1, P2ULL(t));
     sqlite3_bind_text (_insert_type_ref_to_ast_stmt, 2, name, -1, SQLITE_STATIC);
-    sqlite3_bind_int64(_insert_type_ref_to_ast_stmt, 3, ref_type);
-    sqlite3_bind_int64(_insert_type_ref_to_ast_stmt, 4, ast0);
-    sqlite3_bind_int64(_insert_type_ref_to_ast_stmt, 5, ast1);
+    sqlite3_bind_text (_insert_type_ref_to_ast_stmt, 3, qualifier_name, -1, SQLITE_STATIC);
+    sqlite3_bind_int64(_insert_type_ref_to_ast_stmt, 4, ref_type);
+    sqlite3_bind_int64(_insert_type_ref_to_ast_stmt, 5, ast0);
+    sqlite3_bind_int64(_insert_type_ref_to_ast_stmt, 6, ast1);
 
     int result_query = sqlite3_step(_insert_type_ref_to_ast_stmt);
     if (result_query != SQLITE_DONE)
