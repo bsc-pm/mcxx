@@ -297,9 +297,8 @@ scope_entry_t* fortran_query_name_str(decl_context_t decl_context, const char* u
             result = entry_list_head(result_list);
             entry_list_free(result_list);
 
-            // An intrinsic found in global scope is ignored
-            if (result->entity_specs.is_builtin
-                    && current_scope == decl_context.global_scope)
+            // Stuff in the global scope is ignored
+            if (current_scope == decl_context.global_scope)
             {
                 result = NULL;
             }
