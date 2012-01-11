@@ -1793,14 +1793,6 @@ static void build_scope_program_unit_body_internal_subprograms_executable(
                     n_internal_subprograms_info,
                     internal_subprograms_info[i].decl_context);
 
-            // Insert the internal program unit names into the enclosing scope
-            int j;
-            for (j = 0; j < n_num_internal_program_units; j++)
-            {
-                insert_entry(internal_subprograms_info[j].decl_context.current_scope, 
-                        n_internal_subprograms_info[j].symbol);
-            }
-
             build_scope_program_unit_body_executable(
                     allow_all_statements,
                     internal_subprograms_info[i].program_unit_stmts,
@@ -1821,6 +1813,7 @@ static void build_scope_program_unit_body_internal_subprograms_executable(
 
             // 6) Remember the internal subprogram nodecls
             nodecl_t nodecl_internal_subprograms = nodecl_null();
+            int j;
             for (j = 0; j < n_num_internal_program_units; j++)
             {
                 nodecl_internal_subprograms =
