@@ -47,7 +47,7 @@ def get_up_to_matching_paren(s):
 def print_type_and_name(_type, name):
     _type = _type.strip(" \n")
     if (_type == "bool"):  
-        return [("char", name, ":1")]
+        return [("bool", name, ":1")]
     elif (_type == "integer"):
         return [("int", name, "")]
     elif (_type == "AST"):
@@ -103,6 +103,8 @@ def print_entity_specifiers(lines):
     print """
 #ifndef CXX_ENTITY_SPECIFIERS_H
 #define CXX_ENTITY_SPECIFIERS_H
+
+#include <stdbool.h>
 
 // Include this file only from cxx-scope-decls.h and not from anywhere else
 

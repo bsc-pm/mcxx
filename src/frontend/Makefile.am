@@ -193,6 +193,7 @@ libmcxx_la_CFLAGS = -DLIBMCXX_DLL_EXPORT \
                     -Wall \
 					-Wshadow \
 					-Wextra \
+					-std=gnu99 \
 				    -I$(top_srcdir)/lib \
 				    -I$(top_srcdir)/src/driver \
 					-I$(top_srcdir)/src/mcxx_tl \
