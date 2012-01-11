@@ -4562,7 +4562,7 @@ static void build_scope_entry_stmt(AST a, decl_context_t decl_context, nodecl_t*
         if (related_sym->entity_specs.in_module != NULL)
         {
             // Our principal procedure is a module procedure, this symbol will live as a sibling
-            insert_entry(related_sym->entity_specs.in_module->decl_context.current_scope, entry);
+            insert_entry(related_sym->entity_specs.in_module->related_decl_context.current_scope, entry);
         }
 
         // (1) And we piggyback the entry in the node so we avoid a query later
