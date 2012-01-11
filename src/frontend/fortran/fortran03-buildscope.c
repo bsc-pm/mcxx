@@ -377,7 +377,7 @@ void add_unknown_kind_symbol(decl_context_t decl_context, scope_entry_t* entry)
 
 void remove_unknown_kind_symbol(decl_context_t decl_context, scope_entry_t* entry)
 {
-    // Sometimes, we should remove the unknown symbol from more than one scopes
+    // Sometimes, we should remove the unknown symbol from more than one scope
     // Example:
     // 
     // MODULE F
@@ -6217,7 +6217,7 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
             {
                 remove_entry(entry->decl_context.current_scope, entry);
                 insert_alias(entry->decl_context.current_scope, intrinsic_name, intrinsic_name->symbol_name);
-                // Do nothing else otherwise we may be overwriting intrinsics
+                // Do nothing else otherwise we will be overwriting intrinsics
                 continue;
             }
         }
