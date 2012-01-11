@@ -6302,7 +6302,6 @@ char is_more_or_equal_cv_qualified_type(type_t* t1, type_t* t2)
     return !is_less_cv_qualified_type(t1, t2);
 }
 
-
 // Constructs a proper declarator
 static void get_type_name_str_internal(decl_context_t decl_context,
         type_t* type_info, 
@@ -6314,16 +6313,22 @@ static void get_type_name_str_internal(decl_context_t decl_context,
 {
     ERROR_CONDITION(type_info == NULL, "This cannot be null", 0);
 
-    {
-        cv_qualifier_t cv = CV_NONE;
-        type_info = advance_over_typedefs_with_cv_qualif(type_info, &cv);
-        type_info = get_cv_qualified_type(type_info, cv);
-    }
-
     switch (type_info->kind)
     {
         case TK_DIRECT :
             {
+                if (is_named_type(type_info)
+                        && named_type_get_symbol(type_info)->kind == SK_TYPEDEF
+                        && named_type_get_symbol(type_info)->entity_specs.is_template_parameter)
+                {
+                    get_type_name_str_internal(decl_context,
+                            named_type_get_symbol(type_info)->type_information,
+                            left,
+                            right,
+                            num_parameter_names,
+                            parameter_names,
+                            is_parameter);
+                }
                 break;
             }
         case TK_POINTER :
@@ -6331,7 +6336,6 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                 get_type_name_str_internal(decl_context, type_info->pointer->pointee, left, right, 
                         num_parameter_names, parameter_names, is_parameter);
 
-                // Should this change, change the case for TK_ARRAY and "is_parameter == 1"
                 if (declarator_needs_parentheses(type_info))
                 {
                     (*left) = strappend((*left), "(");
@@ -6344,13 +6348,13 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                 {
                     (*right) = strappend(")", (*right));
                 }
+
                 break;
             }
         case TK_POINTER_TO_MEMBER :
             {
                 get_type_name_str_internal(decl_context, type_info->pointer->pointee, left, right, 
-                        num_parameter_names,
-                        parameter_names, is_parameter);
+                        num_parameter_names, parameter_names, is_parameter);
 
                 if (declarator_needs_parentheses(type_info))
                 {
@@ -6363,11 +6367,11 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                 (*left) = strappend((*left), "*");
                 (*left) = strappend((*left), get_cv_qualifier_string(type_info));
 
-
                 if (declarator_needs_parentheses(type_info))
                 {
                     (*right) = strappend(")", (*right));
                 }
+
                 break;
             }
         case TK_RVALUE_REFERENCE :
@@ -6380,10 +6384,16 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                 {
                     (*left) = strappend((*left), "(");
                 }
-
                 if (type_info->kind == TK_LVALUE_REFERENCE)
                 {
-                    (*left) = strappend((*left), "&");
+                    if (IS_CXX_LANGUAGE)
+                    {
+                        (*left) = strappend((*left), "&");
+                    }
+                    else
+                    {
+                        (*left) = strappend((*left), "@ref@");
+                    }
                 }
                 else
                 {
@@ -6394,10 +6404,15 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                 {
                     (*right) = strappend(")", (*right));
                 }
+
                 break;
             }
         case TK_ARRAY :
             {
+                get_type_name_str_internal(decl_context, type_info->array->element_type, left, right, 
+                        num_parameter_names, parameter_names, is_parameter);
+
+                const char* whole_size = NULL;
                 if (is_parameter
                         && (type_info->array->whole_size == NULL))
                 {
@@ -6405,23 +6420,18 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                     // in parameters
                     //
                     // This is not valid, but works most of the time...
-                    const char* whole_size = uniquestr("[0]");
+                    whole_size = uniquestr("[0]");
 
-                    (*right) = strappend((*right), whole_size);
-
-                    get_type_name_str_internal(decl_context, type_info->array->element_type, left, right, 
-                            num_parameter_names, parameter_names, is_parameter);
                 }
                 else
                 {
-                    const char* whole_size = strappend("[", prettyprint_in_buffer(type_info->array->whole_size));
+                    const char* whole_size_str = prettyprint_in_buffer(type_info->array->whole_size);
+
+                    whole_size = strappend("[", whole_size_str);
                     whole_size = strappend(whole_size, "]");
-
-                    (*right) = strappend((*right), whole_size);
-
-                    get_type_name_str_internal(decl_context, type_info->array->element_type, left, right, 
-                            num_parameter_names, parameter_names, is_parameter);
                 }
+
+                (*right) = strappend(whole_size, (*right));
                 break;
             }
         case TK_FUNCTION :
@@ -6486,7 +6496,7 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                     prototype = strappend(prototype, get_cv_qualifier_string(type_info));
                 }
 
-                (*right) = strappend((*right), prototype);
+                (*right) = strappend(prototype, (*right));
                 break;
             }
         case TK_VECTOR :
