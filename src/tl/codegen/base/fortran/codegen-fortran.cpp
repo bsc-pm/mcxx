@@ -1738,6 +1738,14 @@ OPERATOR_TABLE
             return;
         }
 
+        // There are some things in our context that do not have to be declared either
+        // Internal subprograms do not have to be emitted here
+        if (entry.is_function() 
+                && entry.is_nested_function())
+        {
+            return;
+        }
+
         bool is_global = (entry_context.current_scope == entry_context.global_scope);
 
         bool is_global_variable = false;

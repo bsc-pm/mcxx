@@ -1743,6 +1743,8 @@ static void build_scope_program_unit_body_internal_subprograms_declarations(
             AST program_unit_stmts = ASTSon0(program_part);
             AST n_internal_subprograms = ASTSon1(program_body);
 
+            new_entry->entity_specs.is_nested_function = 1;
+
             internal_subprograms_info[i].symbol = new_entry;
             internal_subprograms_info[i].decl_context = subprogram_unit_context;
             internal_subprograms_info[i].program_unit_stmts = program_unit_stmts;

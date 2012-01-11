@@ -160,6 +160,8 @@ namespace TL
             bool is_template() const;
             //! States whether this symbol is a function
             bool is_function() const;
+            //! States whether this function is nested
+            bool is_nested_function() const;
             //! States whether this symbol is a statement function statmeent symbol
             /*! \note This is only meaningful in Fortran */
             bool is_statement_function_statement() const;

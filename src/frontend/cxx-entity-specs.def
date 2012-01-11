@@ -60,6 +60,7 @@ bool|all|is_injected_class_name|This symbol is the injected class name
 bool|all|is_unnamed|This is an unnamed struct or enum
 bool|all|is_defined_inside_class_specifier|This symbol has been defined inside the class specifier
 bool|all|is_non_emitted|States that this function symbol has not been emitted yet because it is a non-template member function of an instantiated template class
+bool|all|is_nested_function|States that this function is nested inside another one
 bool|fortran|is_implicit_basic_type|This entity has got an implicit basic type
 bool|fortran|is_implicit_but_not_function|This entity has got an implicit basic type but we know it cannot be a function name because of a previous usage
 bool|fortran|is_allocatable|This entity has the ALLOCATABLE attribute

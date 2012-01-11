@@ -198,6 +198,11 @@ namespace TL
         return (this->_symbol->kind == SK_FUNCTION);
     }
 
+    bool Symbol::is_nested_function() const
+    {
+        return (this->_symbol->entity_specs.is_nested_function);
+    }
+
     bool Symbol::is_statement_function_statement() const
     {
         return (this->_symbol->kind == SK_FUNCTION
