@@ -109,7 +109,7 @@ TL_EXTENSIONS=""
 TL_OMP_EXTENSIONS=""
 INSTALL_CONFIG_FILES="00.config.plain"
 
-COMPILER_NAMES="plaincxx plaincc"
+COMPILER_NAMES="plaincxx plaincc plainfc plainf95"
 
 dnl ----- SQLITE - Required only for fortran ---
 

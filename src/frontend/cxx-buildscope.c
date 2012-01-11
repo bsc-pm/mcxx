@@ -9330,10 +9330,6 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     }
 
 
-    {
-        // AST non_nested_declarator = advance_over_declarator_nests(ASTSon1(a), decl_context);
-    }
-
     // Create nodecl (only if not dependent)
     nodecl_t nodecl_function_def = nodecl_make_function_code(
             nodecl_make_context(
