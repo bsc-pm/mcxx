@@ -436,6 +436,12 @@ namespace TL
                 //! Insert a list of inout dependencies to the node
                 void set_inout_deps(ext_sym_set new_inout_deps);
                 
+                //! Returns the list of undefined dependences of a task node
+                ext_sym_set get_undef_deps();
+                               
+                //! Insert a list of undefined dependencies to the node
+                void set_undef_deps(ext_sym_set new_undef_deps);
+                
                 //! Return the map containing, for each symbol defined until this moment, its correspondent expression
                 nodecl_map get_reaching_definitions();
 

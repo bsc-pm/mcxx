@@ -640,6 +640,7 @@ namespace TL
                             ext_sym_set old_live_out = actual->get_live_out_vars();
                             ext_sym_set live_out, live_in, aux_live_in, aux;
                             
+                            // Computing Live out
                             for(ObjectList<Node*>::iterator it = children.begin();it != children.end();++it)
                             {
                                 Node_type nt = (*it)->get_type();
@@ -650,7 +651,15 @@ namespace TL
                                         itic != inner_children.end();
                                         ++itic)
                                     {
-                                        aux_live_in.insert((*itic)->get_live_in_vars());
+                                        ext_sym_set current_live_in = (*itic)->get_live_in_vars();
+                                        for (ext_sym_set::iterator itli = current_live_in.begin(); itli != current_live_in.end(); ++itli)
+                                        {
+                                            if ((*it)->get_scope().is_valid())
+                                                if (!itli->get_symbol().get_scope().scope_is_enclosed_by((*it)->get_scope()))
+                                                    aux_live_in.insert(*itli);
+                                            else
+                                                aux_live_in.insert(*itli);
+                                        }
                                     }
                                 }
                                 else if (nt == BASIC_EXIT_NODE)
@@ -660,7 +669,11 @@ namespace TL
                                         itoc != outer_children.end();
                                         ++itoc)
                                     {
-                                        aux_live_in.insert((*itoc)->get_live_in_vars());
+                                        ext_sym_set outer_live_in = (*itoc)->get_live_in_vars();
+                                        for (ext_sym_set::iterator itli = outer_live_in.begin(); itli != outer_live_in.end(); ++itli)
+                                        {
+                                            aux_live_in.insert(*itli);
+                                        }
                                     }
                                 }
                                 else
@@ -670,9 +683,10 @@ namespace TL
                                 live_out.insert(aux_live_in);
                             }
                            
+                            // Computing Live In
                             aux = sets_difference(live_out, actual->get_killed_vars());
                             live_in = sets_union(actual->get_ue_vars(), aux);
-                        
+                       
                             if (!sets_equals(old_live_in, live_in) || 
                                 !sets_equals(old_live_out, live_out))
                             {
@@ -694,6 +708,11 @@ namespace TL
         }
         
         // FIXME For the moment we assume the user has used the 'auto-deps' clause
+        /*!
+         * Input values al those which are Live in and are not Live out
+         * Output values al those which are Live out and are not Live in
+         * Inout values al those which are Live in and Live out
+         */
         void StaticAnalysis::analyse_task(Node* task_node)
         {
             Node* entry = task_node->get_graph_entry_node();
@@ -705,15 +724,17 @@ namespace TL
             // Compute the actions performed over the symbols in all nodes
             ObjectList<ExtensibleSymbol> in_symbols;
             ObjectList<ExtensibleSymbol> out_symbols;
-            ext_sym_set li_vars = task_node->get_live_in_vars();
-            
             
             ext_sym_set ue_vars = task_node->get_ue_vars();
-            for(ext_sym_set::iterator it_ue = ue_vars.begin(); it_ue != ue_vars.end(); ++it_ue)
+            ext_sym_set killed_vars = task_node->get_killed_vars();
+            
+            ext_sym_set in_vars = task_node->get_live_in_vars();
+            for(ext_sym_set::iterator it_in = in_vars.begin(); it_in != in_vars.end(); ++it_in)
             {
-                if (!it_ue->get_symbol().get_scope().scope_is_enclosed_by(
+                if (!it_in->get_symbol().get_scope().scope_is_enclosed_by(
                     task_node->get_task_context().retrieve_context())
-                    && !in_symbols.contains(*it_ue))
+                    && /*not yet included*/ !in_symbols.contains(*it_in) 
+                    && /*used within the task*/(ue_vars.contains(*it_in)))
                 {
                     if (task_node->has_key(_TASK_FUNCTION))
                     {   // Only if the symbol is a parameter, we include it
@@ -721,36 +742,30 @@ namespace TL
                         scope_entry_t* function_header = function_sym.get_internal_symbol();
                         int num_params = function_header->entity_specs.num_related_symbols;
                         scope_entry_t** related_symbols = function_header->entity_specs.related_symbols;
-                        bool sym_is_param = false;
                         for (int i=0; i<num_params; ++i)
                         {
                             Symbol s(related_symbols[i]);
-                            if (s == it_ue->get_symbol())
+                            if (s == it_in->get_symbol())
                             {
-                                sym_is_param = true;
+                                in_symbols.insert(*it_in);
                                 break;
                             }
                         }
-                        if (sym_is_param)
-                        {
-                            in_symbols.insert(*it_ue);
-                        }
-                        else
-                        {}
                     }
                     else
                     {
-                        in_symbols.insert(*it_ue);
+                        in_symbols.insert(*it_in);
                     }
                 }
             }
             
-            ext_sym_set kill_vars = task_node->get_killed_vars();
-            for(ext_sym_set::iterator it_kill = kill_vars.begin(); it_kill != kill_vars.end(); ++it_kill)
+            ext_sym_set out_vars = task_node->get_live_out_vars();
+            for(ext_sym_set::iterator it_out = out_vars.begin(); it_out != out_vars.end(); ++it_out)
             {
-                if (!it_kill->get_symbol().get_scope().scope_is_enclosed_by(
+                if (!it_out->get_symbol().get_scope().scope_is_enclosed_by(
                     task_node->get_task_context().retrieve_context())
-                    && !out_symbols.contains(*it_kill))
+                    && /*not yet included*/ !out_symbols.contains(*it_out)
+                    && /*used within the task*/ (ue_vars.contains(*it_out) || killed_vars.contains(*it_out)))
                 {
                     if (task_node->has_key(_TASK_FUNCTION))
                     {   // Only if the symbol is a parameter, we include it
@@ -758,44 +773,38 @@ namespace TL
                         scope_entry_t* function_header = function_sym.get_internal_symbol();
                         int num_params = function_header->entity_specs.num_related_symbols;
                         scope_entry_t** related_symbols = function_header->entity_specs.related_symbols;
-                        bool sym_is_param = false;
                         for (int i=0; i<num_params; ++i)
                         {
                             Symbol s(related_symbols[i]);
-                            if (s == it_kill->get_symbol())
+                            if (s == it_out->get_symbol())
                             {
-                                sym_is_param = true;
+                                out_symbols.insert(*it_out);
                                 break;
                             }
-                        }
-                        if (sym_is_param)
-                        {
-                            out_symbols.insert(*it_kill);
                         }
                     }
                     else
                     {
-                        out_symbols.insert(*it_kill);
+                        out_symbols.insert(*it_out);
                     }
                 }
             }
-           
-    //         Compute auto-deps
-            ext_sym_set input_deps, output_deps, inout_deps;
+            
+            // Compute auto-deps
+            ext_sym_set input_deps, output_deps, inout_deps, undef_deps = task_node->get_undefined_behaviour_vars();
             for (ObjectList<ExtensibleSymbol>::iterator it = in_symbols.begin(); it != in_symbols.end(); ++it)
             {
-                if (out_symbols.contains(*it))
+                if (!ext_sym_set_contains_nodecl(it->get_nodecl(), undef_deps))
                 {
-                    inout_deps.insert(*it);
-                }
-                else
-                {
-                    input_deps.insert(*it);
+                    if (out_symbols.contains(*it))
+                        inout_deps.insert(*it);
+                    else
+                        input_deps.insert(*it);
                 }
             }
             for (ObjectList<ExtensibleSymbol>::iterator it = out_symbols.begin(); it != out_symbols.end(); ++it)
             {
-                if (!in_symbols.contains(*it))
+                if (!in_symbols.contains(*it) && !ext_sym_set_contains_nodecl(it->get_nodecl(), undef_deps))
                 {
                     output_deps.insert(*it);
                 }
@@ -804,6 +813,7 @@ namespace TL
             task_node->set_input_deps(input_deps);
             task_node->set_output_deps(output_deps);
             task_node->set_inout_deps(inout_deps);
+            task_node->set_undef_deps(undef_deps);
             
             task_node->set_deps_computed();
         }
@@ -1471,16 +1481,17 @@ namespace TL
                         else if (it->is<Nodecl::FunctionCall>() || it->is<Nodecl::VirtualFunctionCall>())
                         {}  // Nothing to do, we don't need to propagate the usage of a temporal value
                         else
-                        {
-                            SymbolVisitor sv;
-                            sv.walk(*it);
-                            ObjectList<Nodecl::Symbol> nodecl_symbols = sv.get_symbols();
-                            for (ObjectList<Nodecl::Symbol>::iterator its = nodecl_symbols.begin(); 
-                                    its != nodecl_symbols.end(); ++its)
-                            {
-                                ExtensibleSymbol ei(*its);
-                                undef_behaviour_vars.insert(ei);
-                            }
+                        {   // Nothing to do, this arguments are not addresses and if they are passed by refernce, a temporary value will be changed
+                            // FIXME We can define a variable here!!
+//                             SymbolVisitor sv;
+//                             sv.walk(*it);
+//                             ObjectList<Nodecl::Symbol> nodecl_symbols = sv.get_symbols();
+//                             for (ObjectList<Nodecl::Symbol>::iterator its = nodecl_symbols.begin(); 
+//                                     its != nodecl_symbols.end(); ++its)
+//                             {
+//                                 ExtensibleSymbol ei(*its);
+//                                 undef_behaviour_vars.insert(ei);
+//                             }
                         }
                     }
                     node->set_undefined_behaviour_var(undef_behaviour_vars);

@@ -48,6 +48,8 @@ namespace TL
         };
 
         bool ext_sym_set_contains_sym(ExtensibleSymbol s, ext_sym_set sym_set);
+        bool ext_sym_set_contains_sym(Nodecl::NodeclBase nodecl, ext_sym_set sym_set);
+        bool ext_sym_set_contains_nodecl(ExtensibleSymbol ei, ext_sym_set sym_set);
         ext_sym_set sets_union(ext_sym_set set1, ext_sym_set set2);
         ext_sym_set sets_difference(ext_sym_set set1, ext_sym_set set2);
         bool sets_equals(ext_sym_set set1, ext_sym_set set2);

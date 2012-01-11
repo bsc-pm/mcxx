@@ -227,8 +227,14 @@ namespace TL
         * Set of symbols with inout dependence in a task
         * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once the Liveness analysis is performed).
         */ 
-        #define _INOUT_DEPS     "inout_deps"   
+        #define _INOUT_DEPS     "inout_deps"
 
+        /*! \def _UNDEF_DEPS
+         * Set of symbols with which we are unable to compute the proper dependencies in a task
+         * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once the Liveness analysis is performed).
+         */ 
+        #define _UNDEF_DEPS     "undef_deps"
+        
         /*! \def _INDUCTION_VARS
         * Map containing the induction variables associated with a Loop Node
         * Available only in Loop (Graph) nodes (Mandatory once the Loop analysis is performed).

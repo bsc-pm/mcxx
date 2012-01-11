@@ -1214,11 +1214,33 @@ namespace TL
             {
                 // Get live in variables from entry node children
                 Node* entry_node = get_data<Node*>(_ENTRY_NODE);
-                set_data(_LIVE_IN, entry_node->get_live_in_over_nodes());
+                ext_sym_set inner_live_in = entry_node->get_live_in_over_nodes();
+                ext_sym_set outer_live_in;
+                if (get_scope().is_valid())
+                {   // Delete those variables who are local to the graph
+                    for(ext_sym_set::iterator it = inner_live_in.begin(); it != inner_live_in.end(); ++it)
+                        if (!it->get_symbol().get_scope().scope_is_enclosed_by(get_scope()) 
+                            && it->get_symbol().get_scope() != get_scope())
+                            outer_live_in.append(*it);
+                }
+                else
+                    outer_live_in = inner_live_in;
+                set_data(_LIVE_IN, outer_live_in);
                 
                 // Get live out variables from exit node parents
                 Node* exit_node = get_data<Node*>(_EXIT_NODE);
-                set_data(_LIVE_OUT, exit_node->get_live_out_over_nodes());
+                ext_sym_set inner_live_out = exit_node->get_live_out_over_nodes();
+                ext_sym_set outer_live_out;
+                if (get_scope().is_valid())
+                {   // Delete those variables who are local to the graph
+                    for(ext_sym_set::iterator it = inner_live_out.begin(); it != inner_live_out.end(); ++it)
+                        if (!it->get_symbol().get_scope().scope_is_enclosed_by(get_scope())
+                            && it->get_symbol().get_scope() != get_scope() )
+                            outer_live_out.append(*it);
+                }
+                else
+                    outer_live_out = inner_live_out;
+                set_data(_LIVE_OUT, outer_live_out);
             }
             else
             {
@@ -1539,6 +1561,31 @@ namespace TL
             set_data(_INOUT_DEPS, inout_deps);
         }
         
+        ext_sym_set Node::get_undef_deps()
+        {
+            ext_sym_set undef_deps;
+              
+            if (has_key(_UNDEF_DEPS))
+            {
+              undef_deps = get_data<ext_sym_set>(_UNDEF_DEPS);
+            }
+              
+            return undef_deps;
+        }
+                
+        void Node::set_undef_deps(ext_sym_set new_undef_deps)
+        {
+            ext_sym_set undef_deps;
+              
+            if (has_key(_UNDEF_DEPS))
+            {
+               undef_deps = get_data<ext_sym_set>(_UNDEF_DEPS);
+            }
+              
+            undef_deps.insert(new_undef_deps);
+            set_data(_UNDEF_DEPS, undef_deps);
+        }
+        
         nodecl_map Node::get_reaching_definitions()
         {
             nodecl_map reaching_defs;
@@ -1716,6 +1763,16 @@ namespace TL
                 {
                     std::cerr << it->get_nodecl().prettyprint();
                     if (it != inout_deps.end()-1)
+                        std::cerr << ", ";
+                }
+                std::cerr << ")";
+                
+                ext_sym_set undef_deps = get_undef_deps();
+                std::cerr << "  Undef(";
+                for(ext_sym_set::iterator it = undef_deps.begin(); it != undef_deps.end(); ++it)
+                {
+                    std::cerr << it->get_nodecl().prettyprint();
+                    if (it != undef_deps.end()-1)
                         std::cerr << ", ";
                 }
                 std::cerr << ")" << std::endl;

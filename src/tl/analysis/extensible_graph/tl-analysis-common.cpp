@@ -107,10 +107,37 @@ namespace TL
         bool ext_sym_set_contains_sym(ExtensibleSymbol s, ext_sym_set sym_set)
         {
             if (sym_set.find(s).empty())
-            {
                 return false;
-            }
             return true;
+        }
+        
+        bool ext_sym_set_contains_sym(Nodecl::NodeclBase nodecl, ext_sym_set sym_set)
+        {
+            for (ext_sym_set::iterator it = sym_set.begin(); it != sym_set.end(); ++it)
+            {
+                if (Nodecl::Utils::equal_nodecls(it->get_nodecl(), nodecl))
+                    return true;
+            }
+            return false;
+        }
+        
+        bool ext_sym_set_contains_nodecl(ExtensibleSymbol ei, ext_sym_set sym_set)
+        {
+            Nodecl::NodeclBase nodecl = ei.get_nodecl();
+            if (nodecl.is<Nodecl::ArraySubscript>())
+            {
+                Nodecl::ArraySubscript arr = nodecl.as<Nodecl::ArraySubscript>();
+                return (ext_sym_set_contains_sym(ei, sym_set) || ext_sym_set_contains_sym(arr.get_subscripted(), sym_set));
+            }
+            else if (nodecl.is<Nodecl::ClassMemberAccess>())
+            {
+                Nodecl::ClassMemberAccess memb_access = nodecl.as<Nodecl::ClassMemberAccess>();
+                return (ext_sym_set_contains_sym(ei, sym_set) || ext_sym_set_contains_sym(memb_access.get_lhs(), sym_set));
+            }
+            else
+            {
+                return ext_sym_set_contains_sym(ei, sym_set);
+            }
         }
         
         ext_sym_set sets_union(ext_sym_set set1, ext_sym_set set2)
