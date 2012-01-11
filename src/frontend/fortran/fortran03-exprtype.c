@@ -3814,23 +3814,45 @@ static void check_ptr_assignment(AST expr, decl_context_t decl_context, nodecl_t
         return;
     }
 
+    char is_target_named_type_var = 0;
     scope_entry_t* rvalue_sym = NULL;
     if (nodecl_get_symbol(nodecl_rvalue) != NULL)
     {
         rvalue_sym = nodecl_get_symbol(nodecl_rvalue);
+        nodecl_t auxiliar = nodecl_rvalue;
+        
+        // If a named type variable is declared target, all his fields are target too.
+        if (nodecl_get_kind(auxiliar) == NODECL_CLASS_MEMBER_ACCESS)
+        {
+            // We don't want the accessed fields, we want the variable
+            while (nodecl_get_kind(auxiliar) == NODECL_CLASS_MEMBER_ACCESS)
+            {
+                auxiliar = nodecl_get_child(auxiliar, 0);
+            }
+
+            scope_entry_t* sym = nodecl_get_symbol(auxiliar);
+            if (sym != NULL && sym->entity_specs.is_target)
+            {
+                is_target_named_type_var = 1;
+            }
+        }
     }
+
     if (rvalue_sym == NULL
             || rvalue_sym->kind != SK_VARIABLE
             || (!is_pointer_type(no_ref(rvalue_sym->type_information)) &&
                 !rvalue_sym->entity_specs.is_target))
     {
-        if (!checking_ambiguity())
+        if (!is_target_named_type_var)
         {
-            error_printf("%s: error: right hand of pointer assignment is not a POINTER or TARGET data-reference\n",
-                    ast_location(expr));
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: right hand of pointer assignment is not a POINTER or TARGET data-reference\n",
+                        ast_location(expr));
+            }
+            *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
+            return;
         }
-        *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
-        return;
     }
 
     if (is_pointer_type(no_ref(rvalue_sym->type_information)))
