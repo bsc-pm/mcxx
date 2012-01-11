@@ -1264,6 +1264,10 @@ static scope_entry_t* new_procedure_symbol(
         // AST binding_spec = ASTSon0(suffix);
         result = ASTSon1(suffix);
     }
+    
+    // Insert the name of the procedure, so it is found not only in
+    // the global scope (which is not visible in Fortran)
+    insert_entry(program_unit_context.current_scope, entry);
 
     scope_entry_t* result_sym = NULL;
     if (result != NULL)
@@ -1291,6 +1295,12 @@ static scope_entry_t* new_procedure_symbol(
             P_LIST_ADD(entry->entity_specs.related_symbols,
                     entry->entity_specs.num_related_symbols,
                     result_sym);
+
+            if (strcasecmp(ASTText(result), entry->symbol_name) == 0)
+            {
+                error_printf("%s: error: RESULT name is the same as FUNCTION name\n",
+                        ast_location(result));
+            }
         }
     }
     else if (is_function)
