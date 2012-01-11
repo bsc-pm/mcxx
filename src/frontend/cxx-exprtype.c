@@ -8378,9 +8378,16 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t 
             {
                 entry = entry_list_head(result);
             }
-
-            nodecl_called = nodecl_make_symbol(entry, ASTFileName(called_expression), ASTLine(called_expression));
-            nodecl_set_type(nodecl_called, entry->type_information);
+            
+            if (entry->kind != SK_FUNCTION && entry->kind != SK_VARIABLE)
+            {
+                nodecl_called = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
+            }
+            else 
+            {
+                nodecl_called = nodecl_make_symbol(entry, ASTFileName(called_expression), ASTLine(called_expression));
+                nodecl_set_type(nodecl_called, entry->type_information);
+            }
             entry_list_free(result);
         }
         else
