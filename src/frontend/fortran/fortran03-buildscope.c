@@ -399,7 +399,7 @@ void remove_unknown_kind_symbol(decl_context_t decl_context, scope_entry_t* entr
         if (decl_context.current_scope->contained_in != NULL &&
                 decl_context.current_scope->contained_in->related_entry != NULL)
         {
-            remove_unknown_kind_symbol(decl_context.current_scope->contained_in->related_entry->decl_context, entry);
+            remove_unknown_kind_symbol(decl_context.current_scope->contained_in->related_entry->related_decl_context, entry);
         }
     }
     
@@ -6559,6 +6559,7 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
         rb_tree_insert(CURRENT_COMPILED_FILE->module_cache, module_name_str, module_symbol);
     }
 
+    // Insert the module name (is this needed?)
     insert_entry(decl_context.current_scope, module_symbol);
 
     if (!is_only)
