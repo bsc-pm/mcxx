@@ -177,6 +177,8 @@ namespace Codegen
            
             codegen_module_header(current_module, nodes_before_contains);
 
+            clear_renames();
+
             for (TL::ObjectList<Nodecl::NodeclBase>::iterator it2 = it->nodes_after_contains.begin();
                     it2 != it->nodes_after_contains.end();
                     it2++)
@@ -300,10 +302,15 @@ namespace Codegen
                     it++)
             {
                 // Keep the codegen map
-                codegen_status_map_t keep = _codegen_status;
+                codegen_status_map_t old_codegen_status = _codegen_status;
+                name_set_t old_name_set = _name_set;
+                rename_map_t old_rename_map = _rename_map;
+
                 walk(*it);
                 // And restore it after the internal function has been emitted
-                _codegen_status = keep;
+                _codegen_status = old_codegen_status;
+                _name_set = old_name_set;
+                _rename_map = old_rename_map;
             }
             dec_indent();
 
@@ -394,6 +401,7 @@ namespace Codegen
         }
 
         clear_codegen_status();
+        clear_renames();
 
         state.current_symbol = old_sym;
     }
@@ -443,6 +451,7 @@ namespace Codegen
             state.current_module = old_module;
 
             clear_codegen_status();
+            clear_renames();
         }
         else if (entry.is_fortran_blockdata())
         {
@@ -456,6 +465,7 @@ namespace Codegen
             state.current_symbol = old_sym;
 
             clear_codegen_status();
+            clear_renames();
         }
         else if (entry.is_variable())
         {
@@ -463,7 +473,7 @@ namespace Codegen
             {
                 // Fake an assignment statement
                 indent();
-                file << entry.get_name() << " = ";
+                file << rename(entry) << " = ";
                 walk(entry.get_initialization());
                 file << "\n";
             }
@@ -622,7 +632,7 @@ OPERATOR_TABLE
         }
         else if (type.is_named_class())
         {
-            file << type.get_symbol().get_name() << "(";
+            file << rename(type.get_symbol()) << "(";
             codegen_comma_separated_list(node.get_items());
             file << ")";
         }
@@ -710,7 +720,7 @@ OPERATOR_TABLE
     void FortranBase::visit(const Nodecl::Symbol& node)
     {
         TL::Symbol symbol = node.get_symbol();
-        file << symbol.get_name();
+        file << rename(symbol);
     }
 
     void FortranBase::visit(const Nodecl::Assignment& node)
@@ -1668,6 +1678,50 @@ OPERATOR_TABLE
         }
     }
 
+    bool FortranBase::name_has_already_been_used(std::string str)
+    {
+        return (_name_set.find(str) != _name_set.end());
+    }
+
+    bool FortranBase::name_has_already_been_used(TL::Symbol sym)
+    {
+        return name_has_already_been_used(sym.get_name());
+    }
+
+    std::string FortranBase::rename(TL::Symbol sym)
+    {
+        static int prefix = 0;
+
+        rename_map_t::iterator it = _rename_map.find(sym);
+
+        if (it == _rename_map.end())
+        {
+            std::stringstream ss;
+
+            if (!name_has_already_been_used(sym)
+                    // There are several cases where we do not allow renaming
+                    || sym.is_intrinsic()
+                    || sym.is_member()
+                    || (sym.get_internal_symbol()->entity_specs.from_module != NULL))
+            {
+                ss << sym.get_name();
+                _name_set.insert(sym.get_name());
+            }
+            else
+            {
+                ss << sym.get_name() << "_" << prefix;
+                prefix++;
+            }
+            _rename_map[sym] = ss.str();
+
+            return ss.str();
+        }
+        else
+        {
+            return it->second;
+        }
+    }
+
     void FortranBase::indent()
     {
         for (int i = 0; i < state._indent_level; i++)
@@ -1881,13 +1935,13 @@ OPERATOR_TABLE
 
             indent();
 
-            file << type_spec << attribute_list << " :: " << entry.get_name() << array_specifier << initializer << "\n";
+            file << type_spec << attribute_list << " :: " << rename(entry) << array_specifier << initializer << "\n";
 
             if (is_global_variable)
             {
-                std::string common_name = entry.get_name() + "_c";
+                std::string common_name = rename(entry) + "_c";
                 indent();
-                file << "COMMON /" << common_name << "/ " << entry.get_name() << "\n";
+                file << "COMMON /" << common_name << "/ " << rename(entry) << "\n";
                 indent();
                 file << "BIND(C, NAME=\"" << entry.get_name() << "\") :: /" << common_name << "/ \n";
             }
@@ -1902,8 +1956,8 @@ OPERATOR_TABLE
                 declare_symbol(entry.get_cray_pointer());
                 indent();
                 file << "POINTER (" 
-                    << entry.get_cray_pointer().get_name() << ", "
-                    << entry.get_name() << ")\n"
+                    << rename(entry.get_cray_pointer()) << ", "
+                    << rename(entry) << ")\n"
                     ;
             }
         }
@@ -2012,7 +2066,9 @@ OPERATOR_TABLE
                     else
                     {
                         // Keep the codegen map
-                        codegen_status_map_t keep = _codegen_status;
+                        codegen_status_map_t old_codegen_status = _codegen_status;
+                        name_set_t old_name_set = _name_set;
+                        rename_map_t old_rename_map = _rename_map;
 
                         bool old_in_interface = state.in_interface;
                         state.in_interface = true;
@@ -2020,7 +2076,9 @@ OPERATOR_TABLE
                         state.in_interface = old_in_interface;
                         
                         // And restore it after the interface has been emitted
-                        _codegen_status = keep;
+                        _codegen_status = old_codegen_status;
+                        _name_set = old_name_set;
+                        _rename_map = old_rename_map;
                     }
                 }
                 dec_indent();
@@ -2057,8 +2115,25 @@ OPERATOR_TABLE
                         it++)
                 {
                     TL::Symbol &sym(*it);
+
+                    // Do not declare this one otherwise the name for the
+                    // function statement will be renamed
+                    if (sym.is_result_variable())
+                        continue;
+
                     declare_symbol(sym);
                 }
+
+                std::string type_spec;
+                std::string array_specifier;
+                codegen_type(entry.get_type().returns(), 
+                        type_spec, array_specifier,
+                        /* is_dummy */ false);
+
+                // Declare the scalar representing this statement function statement
+                indent();
+                file << type_spec << " :: " << entry.get_name() << std::endl;
+
 
                 declare_symbols_rec(entry.get_initialization());
 
@@ -2117,12 +2192,16 @@ OPERATOR_TABLE
                         it++)
                 {
                     // Keep the codegen map
-                    codegen_status_map_t keep = _codegen_status;
+                    codegen_status_map_t old_codegen_status = _codegen_status;
+                    name_set_t old_name_set = _name_set;
+                    rename_map_t old_rename_map = _rename_map;
 
                     declare_symbol(*it);
                     
                     // And restore it after the interface has been emitted
-                    _codegen_status = keep;
+                    _codegen_status = old_codegen_status;
+                    _name_set = old_name_set;
+                    _rename_map = old_rename_map;
                 }
                 dec_indent();
                 state.current_symbol = old_sym;
@@ -2164,7 +2243,7 @@ OPERATOR_TABLE
             std::string struct_prefix = "struct ";
             // Unions cannot be expressed in fortran!
             std::string class_prefix =  "class ";
-            std::string real_name = entry.get_name();
+            std::string real_name = rename(entry);
 
             if (real_name.substr(0, struct_prefix.size()) == struct_prefix)
             {
@@ -2180,7 +2259,6 @@ OPERATOR_TABLE
 
             TL::Symbol old_sym = state.current_symbol;
             state.current_symbol = entry;
-
 
             // We do this because we want the type fully laid out if there is any bitfield
             for (TL::ObjectList<TL::Symbol>::iterator it = members.begin();
@@ -2305,7 +2383,7 @@ OPERATOR_TABLE
 
             // Emit it as a parameter
             indent();
-            file << type_spec << ", PARAMETER :: " << entry.get_name() << initializer << "\n";
+            file << type_spec << ", PARAMETER :: " << rename(entry) << initializer << "\n";
         }
         else
         {
@@ -2788,7 +2866,7 @@ OPERATOR_TABLE
             std::string struct_prefix = "struct ";
             // Unions cannot be expressed in fortran!
             std::string class_prefix =  "class ";
-            std::string real_name = entry.get_name();
+            std::string real_name = rename(entry);
 
             if (real_name.substr(0, struct_prefix.size()) == struct_prefix)
             {
@@ -3013,6 +3091,12 @@ OPERATOR_TABLE
                 it->second = CODEGEN_STATUS_NONE;
             }
         }
+    }
+
+    void FortranBase::clear_renames()
+    {
+        _name_set.clear();
+        _rename_map.clear();
     }
 
     bool FortranBase::is_bitfield_access(const Nodecl::NodeclBase& lhs)

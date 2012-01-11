@@ -3,6 +3,8 @@
 
 #include "codegen-phase.hpp"
 
+#include <set>
+
 namespace Codegen
 {
     class FortranBase : public CodegenPhase
@@ -129,6 +131,13 @@ namespace Codegen
 
             typedef std::map<TL::Symbol, codegen_status_t> codegen_status_map_t;
             codegen_status_map_t _codegen_status;
+
+            typedef std::set<std::string> name_set_t;
+            name_set_t _name_set;
+
+            typedef std::map<TL::Symbol, std::string> rename_map_t;
+            rename_map_t _rename_map;
+
             void set_codegen_status(TL::Symbol sym, codegen_status_t status);
             codegen_status_t get_codegen_status(TL::Symbol sym);
 
@@ -202,6 +211,11 @@ namespace Codegen
 
             bool is_bitfield_access(const Nodecl::NodeclBase &node);
             void emit_bitfield_store(const Nodecl::Assignment &node);
+
+            bool name_has_already_been_used(std::string str);
+            bool name_has_already_been_used(TL::Symbol sym);
+            std::string rename(TL::Symbol sym);
+            void clear_renames();
     };
 }
 
