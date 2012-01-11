@@ -1015,7 +1015,7 @@ static void fortran_init_specific_names(decl_context_t decl_context)
     REGISTER_SPECIFIC_INTRINSIC_2("real", "real", get_signed_int_type(), NULL);
     REGISTER_SPECIFIC_INTRINSIC_2("sign", "sign", get_float_type(), get_float_type());
     REGISTER_SPECIFIC_INTRINSIC_1("sin", "sin", get_float_type());
-    REGISTER_SPECIFIC_INTRINSIC_2("sngl", "real", get_double_type(), NULL);
+    //REGISTER_SPECIFIC_INTRINSIC_2("sngl", "real", get_double_type(), NULL);
     REGISTER_SPECIFIC_INTRINSIC_1("sqrt", "sqrt", get_float_type());
     REGISTER_SPECIFIC_INTRINSIC_1("tan", "tan", get_float_type());
     REGISTER_SPECIFIC_INTRINSIC_1("tanh", "tanh", get_float_type());
@@ -1030,6 +1030,7 @@ static void fortran_init_specific_names(decl_context_t decl_context)
     REGISTER_CUSTOM_INTRINSIC_1("dfloat", get_double_type(), get_signed_int_type());
     REGISTER_CUSTOM_INTRINSIC_2("getenv", get_void_type(), fortran_get_default_character_type(), 
             fortran_get_default_character_type());
+    REGISTER_CUSTOM_INTRINSIC_1("sngl", get_float_type(), get_double_type());
 }
 
 scope_entry_t* compute_intrinsic_abs(scope_entry_t* symbol UNUSED_PARAMETER,
