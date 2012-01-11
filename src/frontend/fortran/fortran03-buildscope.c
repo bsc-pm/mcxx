@@ -958,7 +958,6 @@ static void build_scope_module_program_unit(AST program_unit,
     // Add the body of the module to the list 
     
     *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_body);
-    //*nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_body);
 
     // Now adjust attributes of symbols
     int i, num_symbols = new_entry->entity_specs.num_related_symbols;
