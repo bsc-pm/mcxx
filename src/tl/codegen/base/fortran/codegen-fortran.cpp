@@ -306,6 +306,8 @@ namespace Codegen
                 name_set_t old_name_set = _name_set;
                 rename_map_t old_rename_map = _rename_map;
 
+                clear_renames();
+
                 walk(*it);
                 // And restore it after the internal function has been emitted
                 _codegen_status = old_codegen_status;
