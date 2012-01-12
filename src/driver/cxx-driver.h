@@ -61,6 +61,8 @@ type_environment_t* get_environment(const char* env_id);
 target_options_map_t* get_target_options(compilation_configuration_t* configuration, 
         const char* configuration_name);
 
+const char* preprocess_file(const char* input_filename);
+
 MCXX_END_DECLS
 
 #endif // CXX_DRIVER_H

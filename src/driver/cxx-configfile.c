@@ -146,6 +146,22 @@ int config_set_preprocessor_options(struct compilation_configuration_tag* config
     return 0;
 }
 
+int config_set_fortran_preprocessor_name(struct compilation_configuration_tag* config, const char* index, const char* value)
+{
+    config->fortran_preprocessor_name = uniquestr(value);
+    return 0;
+}
+
+int config_set_fortran_preprocessor_options(struct compilation_configuration_tag* config, const char* index, const char* value)
+{
+    int num;
+    const char** blank_separated_options = blank_separate_values(value, &num);
+
+    add_to_parameter_list(&config->fortran_preprocessor_options, blank_separated_options, num);
+
+    return 0;
+}
+
 int config_set_preprocessor_uses_stdout(struct compilation_configuration_tag * config, const char* index, const char *value)
 {
     int bool_value = -1;

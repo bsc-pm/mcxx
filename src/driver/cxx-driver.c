@@ -389,7 +389,7 @@ static void compiler_phases_pre_execution(
         compilation_configuration_t* config,
         translation_unit_t* translation_unit,
         const char* parsed_filename);
-static const char* preprocess_file(translation_unit_t* translation_unit, const char* input_filename);
+static const char* preprocess_translation_unit(translation_unit_t* translation_unit, const char* input_filename);
 static void parse_translation_unit(translation_unit_t* translation_unit, const char* parsed_filename);
 static void initialize_semantic_analysis(translation_unit_t* translation_unit, const char* parsed_filename);
 static void semantic_analysis(translation_unit_t* translation_unit, const char* parsed_filename);
@@ -2442,9 +2442,24 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
         {
             timing_t timing_preprocessing;
 
+            const char* old_preprocessor_name = CURRENT_CONFIGURATION->preprocessor_name;
+            const char** old_preprocessor_options = CURRENT_CONFIGURATION->preprocessor_options;
+
+            FORTRAN_LANGUAGE()
+            {
+                CURRENT_CONFIGURATION->preprocessor_name = CURRENT_CONFIGURATION->fortran_preprocessor_name;
+                CURRENT_CONFIGURATION->preprocessor_options = CURRENT_CONFIGURATION->fortran_preprocessor_options;
+            }
+
             timing_start(&timing_preprocessing);
-            parsed_filename = preprocess_file(translation_unit, translation_unit->input_filename);
+            parsed_filename = preprocess_translation_unit(translation_unit, translation_unit->input_filename);
             timing_end(&timing_preprocessing);
+
+            FORTRAN_LANGUAGE()
+            {
+                CURRENT_CONFIGURATION->preprocessor_name = old_preprocessor_name;
+                CURRENT_CONFIGURATION->preprocessor_options = old_preprocessor_options;
+            }
 
             if (parsed_filename != NULL
                     && CURRENT_CONFIGURATION->verbose)
@@ -3166,24 +3181,8 @@ static void warn_preprocessor_flags(
     }
 }
 
-static const char* preprocess_file(translation_unit_t* translation_unit,
-        const char* input_filename)
+static const char* preprocess_single_file(const char* input_filename, const char* output_filename)
 {
-    // Add guarding macros
-    C_LANGUAGE()
-    {
-        add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, "-D_MCC");
-    }
-    CXX_LANGUAGE()
-    {
-        add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, "-D_MCXX");
-    }
-    FORTRAN_LANGUAGE()
-    {
-        add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, "-D_MF03");
-    }
-    add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, "-D_MERCURIUM");
-
     int num_arguments = count_null_ended_array((void**)CURRENT_CONFIGURATION->preprocessor_options);
 
     char uses_stdout = CURRENT_CONFIGURATION->preprocessor_uses_stdout;
@@ -3201,6 +3200,9 @@ static const char* preprocess_file(translation_unit_t* translation_unit,
         num_parameters += 1;
     }
 
+    // Guarding macros -D_MCC/-D_MCXX/-D_MF03 and -D_MERCURIUM
+    num_parameters += 2;
+
     // NULL
     num_parameters += 1;
 
@@ -3215,6 +3217,26 @@ static const char* preprocess_file(translation_unit_t* translation_unit,
 
     // This started as being something small, and now has grown to a full fledged check
     warn_preprocessor_flags(input_filename, num_arguments);
+    
+    // Add guarding macros
+    C_LANGUAGE()
+    {
+        preprocessor_options[i] = "-D_MCC";
+        i++;
+    }
+    CXX_LANGUAGE()
+    {
+        preprocessor_options[i] = "-D_MCXX";
+        i++;
+    }
+    FORTRAN_LANGUAGE()
+    {
+        preprocessor_options[i] = "-D_MF03";
+        i++;
+    }
+
+    preprocessor_options[i] = "-D_MERCURIUM";
+    i++;
 
     const char *preprocessed_filename = NULL;
 
@@ -3226,7 +3248,7 @@ static const char* preprocess_file(translation_unit_t* translation_unit,
     else
     {
         // If we are not going to parse use the original output filename
-        if (translation_unit->output_filename == NULL)
+        if (output_filename == NULL)
         {
             // Send it to stdout
             preprocessed_filename = uniquestr("-");
@@ -3234,7 +3256,7 @@ static const char* preprocess_file(translation_unit_t* translation_unit,
         else
         {
             // Or to the specified output
-            preprocessed_filename = translation_unit->output_filename;
+            preprocessed_filename = output_filename;
         }
     }
 
@@ -3256,7 +3278,7 @@ static const char* preprocess_file(translation_unit_t* translation_unit,
         preprocessor_options[i] = input_filename;
         i++;
     }
-
+    
     if (CURRENT_CONFIGURATION->pass_through)
     {
         return preprocessed_filename;
@@ -3275,6 +3297,18 @@ static const char* preprocess_file(translation_unit_t* translation_unit,
                 result_preprocess);
         return NULL;
     }
+}
+
+static const char* preprocess_translation_unit(translation_unit_t* translation_unit,
+        const char* input_filename)
+{
+    return preprocess_single_file(input_filename, translation_unit->output_filename);
+}
+
+// This one is meant to be used outside the driver. Some phases may need it
+const char* preprocess_file(const char* input_filename)
+{
+    return preprocess_single_file(input_filename, NULL);
 }
 
 static const char* fortran_prescan_file(translation_unit_t* translation_unit, const char *parsed_filename)
