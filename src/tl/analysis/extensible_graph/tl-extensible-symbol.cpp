@@ -131,10 +131,8 @@ namespace TL
             }
             else
             {
-                std::cerr << "Unexpected type of nodecl '" << ast_print_node_type(n.get_kind()) 
-                          << "' contained in an ExtendedSymbol '" /*<< n.prettyprint()*/ << "'" << std::endl;
-//                 internal_error("Unexpected type of nodecl '%s' contained in an ExtendedSymbol '%s'", 
-//                             ast_print_node_type(n.get_kind()), n.prettyprint().c_str());
+                internal_error("Unexpected type of nodecl '%s' contained in an ExtendedSymbol '%s'", 
+                            ast_print_node_type(n.get_kind()), n.prettyprint().c_str());
             }
         }
     

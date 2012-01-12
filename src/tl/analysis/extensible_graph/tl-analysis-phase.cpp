@@ -118,7 +118,6 @@ namespace TL
                     (*it)->get_graph()->print_use_def_chains();
                     (*it)->get_graph()->print_liveness();
                 }
-                
             }
             
             // *** Auto-dependencies *** //

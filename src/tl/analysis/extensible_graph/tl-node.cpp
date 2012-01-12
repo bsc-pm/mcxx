@@ -24,7 +24,7 @@ Cambridge, MA 02139, USA.
 
 #include "cxx-codegen.h"
 #include "cxx-process.h"
-
+#include "tl-analysis-common.hpp"
 #include "tl-cfg-renaming-visitor.hpp"
 #include "tl-node.hpp"
 
@@ -996,6 +996,78 @@ namespace TL
             return result;
         }
     
+        /*!
+         * Try to insert a new variable in a list
+         * If an englobing variable of the current variable already exists, then we don't include the variable
+         * If any variable englobed by the current variable exists, then we delete the variable
+         * If the variable is an array en we can form a range with the to access, we do that deleting the existing element of the list and
+         * including the new ranged access
+         */
+        static ext_sym_set insert_var_in_list(Nodecl::NodeclBase var, ext_sym_set list)
+        {
+            ext_sym_set new_list;
+            if (!ext_sym_set_contains_englobing_nodecl(var, list))
+            {
+                // Create a new list with the elements of 'list' that are not englobed by 'var'
+                ext_sym_set aux_list; aux_list.append(ExtensibleSymbol(var));
+                for(ext_sym_set::iterator it = list.begin(); it != list.end(); ++it)
+                {
+                    if (!ext_sym_set_contains_englobing_nodecl(it->get_nodecl(), aux_list))
+                    {
+                        new_list.append(*it);
+                    }
+                }
+                
+                // Insert the new variable
+                new_list.append(var);
+            }
+            else
+            {   // No need to insert the variable, its englobing symbol is already there
+                // FIXME We can create ranges for array accesses here
+                new_list = list;
+            }
+            return new_list;
+        }
+    
+        /*!
+         * Inserts the elements in 'l' to the list 'in_l' when they are not in the list 'avoid_l_1' nor in 'avoid_l_2'
+         * When avoiding lists, it take cares of elements englobing the current variable and of elements englobed by the current variable
+         */
+        static ext_sym_set compute_use_def_with_children(ext_sym_set l, ext_sym_set in_l, ext_sym_set avoid_l_1, ext_sym_set avoid_l_2)
+        {
+            ext_sym_set new_l = in_l;
+            for (ext_sym_set::iterator it = l.begin(); it != l.end(); ++it)
+            {
+                Nodecl::NodeclBase var = it->get_nodecl();
+                if (!ext_sym_set_contains_englobing_nodecl(var, avoid_l_1))
+                {   // No englobing variable in the avoiding list 1
+                    // Look for variables in avoiding list 1 englobed by 'var'
+                    ext_sym_set aux_set; aux_set.insert(var);
+                    for (ext_sym_set::iterator ita = avoid_l_2.begin(); ita != avoid_l_2.end(); ++ita)
+                    {
+                        if (ext_sym_set_contains_englobing_nodecl(ita->get_nodecl(), aux_set))
+                        {   // Delete from 'var' the englobed part of (*ita) and put the result in 'var'
+                            // TODO
+                        }
+                    }                   
+                    
+                    if (!ext_sym_set_contains_englobing_nodecl(var, avoid_l_2))
+                    {   // No englobing variable in the avoiding list 2
+                        // Look for variables in avoiding list 2 englobed by 'var'
+                        ext_sym_set aux_set; aux_set.insert(*it);
+                        for (ext_sym_set::iterator ita = avoid_l_2.begin(); ita != avoid_l_2.end(); ++ita)
+                        {
+                            if (ext_sym_set_contains_englobing_nodecl(ita->get_nodecl(), aux_set))
+                            {   // Delete from var the englobed part of (*ita) and put the result in 'var'
+                                // TODO
+                            }
+                        }
+                        new_l = insert_var_in_list(var, new_l);
+                    }
+                }
+            }
+            return new_l;
+        }
     
         ObjectList<ext_sym_set> Node::get_use_def_over_nodes()
         {
@@ -1003,63 +1075,32 @@ namespace TL
             
             if (!_visited)          
             {
-                ext_sym_set ue_vars, killed_vars, undef_vars, ue_aux, killed_aux, undef_aux;
-           
                 _visited = true;
+               
+                // Use-Def in current node
+                ext_sym_set ue_vars = get_ue_vars();
+                ext_sym_set killed_vars = get_killed_vars();
+                ext_sym_set undef_vars = get_undefined_behaviour_vars();
                 
-                // Compute upper exposed variables in actual node
-                ue_aux = get_ue_vars();
-                for(ext_sym_set::iterator it = ue_aux.begin(); it != ue_aux.end(); ++it)
-                {
-                    if (!killed_vars.contains(*it))
-                    {
-                        ue_vars.insert(*it);
-                    }
-                }
-                
-                // Compute killed variables in actual node
-                killed_vars.insert(get_killed_vars());
-                
-                // Compute undefined behaviour variables in actual node
-                undef_aux = get_undefined_behaviour_vars();
-                for(ext_sym_set::iterator it = undef_aux.begin(); it != undef_aux.end(); ++it)
-                {
-                    if (!killed_vars.contains(*it))
-                    {
-                        undef_vars.insert(*it);
-                    }
-                }
-                
-                // Complete the use-def info for every children of the node
+                // Concatenate info from children nodes
                 ObjectList<Node*> children = get_children();
+                ext_sym_set ue_children, killed_children, undef_children;
                 for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
                 {
                     use_def_aux = (*it)->get_use_def_over_nodes();
-                    
                     if (!use_def_aux.empty())
                     {
-                        // Compute upper exposed variables
-                        ue_aux = use_def_aux[0];
-                        for(ext_sym_set::iterator it_ue = ue_aux.begin(); it_ue != ue_aux.end(); ++it_ue)
-                        {
-                            if (!killed_vars.contains(*it_ue))
-                            {
-                                ue_vars.insert(*it_ue);
-                            }
-                        }
-                        // Compute killed variables
-                        killed_vars.insert(use_def_aux[1]);
-                        // Compute undefined behaviour variables
-                        undef_aux = use_def_aux[2];
-                        for(ext_sym_set::iterator it = undef_aux.begin(); it != undef_aux.end(); ++it)
-                        {
-                            if (!killed_vars.contains(*it))
-                            {
-                                undef_vars.insert(*it);
-                            }
-                        }
+                        ue_children.insert(use_def_aux[0]);
+                        killed_children.insert(use_def_aux[1]);
+                        undef_children.insert(use_def_aux[2]);
                     }
                 }
+                
+                // Append to current node info from children
+                ue_vars = compute_use_def_with_children(ue_children, ue_vars, killed_vars, undef_children);
+                killed_vars = compute_use_def_with_children(killed_children, killed_vars, killed_vars, undef_children);
+                ext_sym_set null_list;
+                undef_vars = compute_use_def_with_children(undef_children, undef_vars, killed_vars, null_list);
                 
                 use_def.append(ue_vars); use_def.append(killed_vars); use_def.append(undef_vars);
             }
@@ -1077,48 +1118,11 @@ namespace TL
                     
                     Node* entry_node = get_data<Node*>(_ENTRY_NODE);
                 
-                    // Get upper_exposed and killed variables
+                    // Get upper_exposed, killed and undefined variables
                     ObjectList<ext_sym_set> use_def = entry_node->get_use_def_over_nodes();
-                    Scope graph_sc = get_scope();
-                    if (graph_sc.is_valid())
-                    {
-                        // Delete those variables which are local to the Graph Node
-                        ext_sym_set non_local_ue;
-                        ext_sym_set ue_vars = use_def[0];
-                        for (ext_sym_set::iterator it = ue_vars.begin(); it != ue_vars.end(); ++it)
-                        {
-                            Symbol s(it->get_symbol());
-                            if (!s.get_scope().scope_is_enclosed_by(graph_sc) || s.get_scope() == graph_sc)
-                                non_local_ue.insert(*it);
-                        }
-                        set_data(_UPPER_EXPOSED, non_local_ue);
-                      
-                        ext_sym_set non_local_killed;
-                        ext_sym_set killed_vars = use_def[1];
-                        for (ext_sym_set::iterator it = killed_vars.begin(); it != killed_vars.end(); ++it)
-                        {
-                            Symbol s(it->get_symbol());
-                            if (!s.get_scope().scope_is_enclosed_by(graph_sc) || s.get_scope() == graph_sc)
-                                non_local_killed.insert(*it);
-                        }
-                        set_data(_KILLED, non_local_killed);
-                        
-                        ext_sym_set non_local_undef;
-                        ext_sym_set undef_vars = use_def[2];
-                        for (ext_sym_set::iterator it = undef_vars.begin(); it != undef_vars.end(); ++it)
-                        {
-                            Symbol s(it->get_symbol());
-                            if (!s.get_scope().scope_is_enclosed_by(graph_sc) || s.get_scope() == graph_sc)
-                                non_local_undef.insert(*it);
-                        }
-                        set_data(_UNDEF, non_local_undef);
-                    }
-                    else
-                    {
-                        set_data(_UPPER_EXPOSED, use_def[0]);
-                        set_data(_KILLED, use_def[1]);
-                        set_data(_UNDEF, use_def[2]);
-                    }
+                    set_data(_UPPER_EXPOSED, use_def[0]);
+                    set_data(_KILLED, use_def[1]);
+                    set_data(_UNDEF, use_def[2]);
                 }
             }
             else
@@ -1586,6 +1590,119 @@ namespace TL
             set_data(_UNDEF_DEPS, undef_deps);
         }
         
+        ext_sym_set Node::get_shared_vars()
+        {
+            ext_sym_set shared_vars;
+              
+            if (has_key(_SHARED))
+            {
+                shared_vars = get_data<ext_sym_set>(_SHARED);
+            }
+              
+            return shared_vars;
+        }
+                
+        void Node::set_shared_var(ExtensibleSymbol ei)
+        {
+            ext_sym_set shared_vars;
+  
+            if (has_key(_SHARED))
+            {
+                shared_vars = get_data<ext_sym_set>(_SHARED);
+            }
+            
+            shared_vars.insert(ei);
+            set_data(_SHARED, shared_vars);
+        }
+
+        ext_sym_set Node::get_private_vars()
+        {
+            ext_sym_set private_vars;
+              
+            if (has_key(_PRIVATE))
+            {
+                private_vars = get_data<ext_sym_set>(_PRIVATE);
+            }
+              
+            return private_vars;
+        }
+        
+        void Node::set_private_var(ExtensibleSymbol ei)
+        {
+            ext_sym_set private_vars;
+              
+            if (has_key(_PRIVATE))
+            {
+                private_vars = get_data<ext_sym_set>(_PRIVATE);
+            }
+              
+            private_vars.insert(ei);
+            set_data(_PRIVATE, private_vars);
+        }
+        
+        ext_sym_set Node::get_firstprivate_vars()
+        {
+            ext_sym_set firstprivate_vars;
+              
+            if (has_key(_FIRSTPRIVATE))
+            {
+                firstprivate_vars = get_data<ext_sym_set>(_FIRSTPRIVATE);
+            }
+              
+            return firstprivate_vars;
+        }
+        
+        void Node::set_firstprivate_var(ExtensibleSymbol ei)
+        {
+            ext_sym_set firstprivate_vars;
+              
+            if (has_key(_FIRSTPRIVATE))
+            {
+                firstprivate_vars = get_data<ext_sym_set>(_FIRSTPRIVATE);
+            }
+              
+            firstprivate_vars.insert(ei);
+            set_data(_FIRSTPRIVATE, firstprivate_vars);
+        }
+        
+        ext_sym_set Node::get_undef_sc_vars()
+        {
+            ext_sym_set undef_sc_vars;
+              
+            if (has_key(_UNDEF_SC))
+            {
+                undef_sc_vars = get_data<ext_sym_set>(_UNDEF_SC);
+            }
+              
+            return undef_sc_vars;
+        }
+        
+        void Node::set_undef_sc_var(ExtensibleSymbol ei)
+        {
+            ext_sym_set undef_sc_vars;
+              
+            if (has_key(_UNDEF_SC))
+            {
+                undef_sc_vars = get_data<ext_sym_set>(_UNDEF_SC);
+            }
+              
+            undef_sc_vars.insert(ei);
+            set_data(_UNDEF_SC, undef_sc_vars);
+        }
+        
+        void Node::set_undef_sc_var(ext_sym_set new_undef_sc_vars)
+        {
+            ext_sym_set undef_sc_vars;
+              
+            if (has_key(_UNDEF_SC))
+            {
+                undef_sc_vars = get_data<ext_sym_set>(_UNDEF_SC);
+            }
+              
+            undef_sc_vars.insert(new_undef_sc_vars);
+            set_data(_UNDEF_SC, undef_sc_vars);
+        }
+        
         nodecl_map Node::get_reaching_definitions()
         {
             nodecl_map reaching_defs;
@@ -1685,7 +1802,7 @@ namespace TL
             if (CURRENT_CONFIGURATION->debug_options.analysis_verbose)
             {
                 ext_sym_set ue_vars = get_data<ext_sym_set>(_UPPER_EXPOSED);
-                std::cerr << "      - UE VARS: ";
+                std::cerr << std::endl << "      - UE VARS: ";
                 for(ext_sym_set::iterator it = ue_vars.begin(); it != ue_vars.end(); ++it)
                 {
                     std::cerr << it->get_nodecl().prettyprint() << ", ";
@@ -1715,7 +1832,7 @@ namespace TL
             if (CURRENT_CONFIGURATION->debug_options.analysis_verbose)
             {
                 ext_sym_set live_in_vars = get_data<ext_sym_set>(_LIVE_IN);
-                std::cerr << "      - LIVE IN VARS: ";
+                std::cerr << std::endl << "      - LIVE IN VARS: ";
                 for(ext_sym_set::iterator it = live_in_vars.begin(); it != live_in_vars.end(); ++it)
                 {
                     std::cerr << it->get_nodecl().prettyprint() << ", ";
@@ -1737,38 +1854,58 @@ namespace TL
             if (CURRENT_CONFIGURATION->debug_options.analysis_verbose ||
                 CURRENT_CONFIGURATION->debug_options.enable_debug_code)
             {
+                ext_sym_set private_deps = get_private_vars();
+                std::cerr << std::endl << "     - Private(";
+                for(ext_sym_set::iterator it = private_deps.begin(); it != private_deps.end(); ++it)
+                {
+                    std::cerr << it->get_nodecl().prettyprint();
+                    if (it != private_deps.end()-1)
+                        std::cerr << ", ";
+                }
+                std::cerr << ")" << std::endl;
+
+                ext_sym_set firstprivate_deps = get_firstprivate_vars();
+                std::cerr << "     - Firstprivate(";
+                for(ext_sym_set::iterator it = firstprivate_deps.begin(); it != firstprivate_deps.end(); ++it)
+                {
+                    std::cerr << it->get_nodecl().prettyprint();
+                    if (it != firstprivate_deps.end()-1)
+                        std::cerr << ", ";
+                }
+                std::cerr << ")" << std::endl;
+                
                 ext_sym_set input_deps = get_input_deps();
-                std::cerr << "  Input(";
+                std::cerr << "     - Input(";
                 for(ext_sym_set::iterator it = input_deps.begin(); it != input_deps.end(); ++it)
                 {
                     std::cerr << it->get_nodecl().prettyprint();
                     if (it != input_deps.end()-1)
                         std::cerr << ", ";
                 }
-                std::cerr << ")";
+                std::cerr << ")" << std::endl;
                     
                 ext_sym_set output_deps = get_output_deps();
-                std::cerr << "  Output(";
+                std::cerr << "     - Output(";
                 for(ext_sym_set::iterator it = output_deps.begin(); it != output_deps.end(); ++it)
                 {
                     std::cerr << it->get_nodecl().prettyprint();
                     if (it != output_deps.end()-1)
                        std::cerr << ", ";
                 }
-                std::cerr << ")";
+                std::cerr << ")" << std::endl;
                     
                 ext_sym_set inout_deps = get_inout_deps();
-                std::cerr << "  Inout(";
+                std::cerr << "     - Inout(";
                 for(ext_sym_set::iterator it = inout_deps.begin(); it != inout_deps.end(); ++it)
                 {
                     std::cerr << it->get_nodecl().prettyprint();
                     if (it != inout_deps.end()-1)
                         std::cerr << ", ";
                 }
-                std::cerr << ")";
+                std::cerr << ")" << std::endl;
                 
                 ext_sym_set undef_deps = get_undef_deps();
-                std::cerr << "  Undef(";
+                std::cerr << "     - Undef(";
                 for(ext_sym_set::iterator it = undef_deps.begin(); it != undef_deps.end(); ++it)
                 {
                     std::cerr << it->get_nodecl().prettyprint();

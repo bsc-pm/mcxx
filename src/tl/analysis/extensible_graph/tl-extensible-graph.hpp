@@ -189,8 +189,10 @@ namespace TL
                 
                 //! Constructor used by the different phases to build a new ExtensibleGraph.
                 /*!
-                \param name Name which will identify the graph.
-                */
+                 * \param name Name which will identify the graph.
+                 * \param sc Scope where the code in the graph is embedded
+                 * \param context Scope created by the code of the graph. That makes sense for graphs containing function codes or block codes
+                 */
                 ExtensibleGraph(std::string name, Scope sc);
                 
                 //! Creates a new graph with the same characteristics of the actual graph

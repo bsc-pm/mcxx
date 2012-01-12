@@ -480,7 +480,7 @@ namespace Analysis
         unary_visit(n);
     } 
     
-    static void get_use_def_variables(Node* actual, int id_target_node, ext_sym_set &ue_vars, ext_sym_set &killed_vars)
+    static void get_use_def_variables(Node* actual, int id_target_node, ext_sym_set &ue_vars, ext_sym_set &killed_vars, ext_sym_set &undef_vars)
     {
         ObjectList<Node*> children = actual->get_children();
         for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
@@ -489,7 +489,9 @@ namespace Analysis
             {
                 ue_vars.append((*it)->get_ue_vars());
                 killed_vars.append((*it)->get_killed_vars());
-                get_use_def_variables(*it, id_target_node, ue_vars, killed_vars);
+                undef_vars.append((*it)->get_undefined_behaviour_vars());
+                
+                get_use_def_variables(*it, id_target_node, ue_vars, killed_vars, undef_vars);
             }
         }
     }
@@ -505,10 +507,11 @@ namespace Analysis
     void CfgAnalysisVisitor::function_visit(const T& n)
     {
         Node* outer_node = _node->get_outer_node();
-        ext_sym_set ue_vars, killed_vars;
-        get_use_def_variables(outer_node->get_graph_entry_node(), _node->get_id(), ue_vars, killed_vars);
+        ext_sym_set ue_vars, killed_vars, undef_vars;
+        get_use_def_variables(outer_node->get_graph_entry_node(), _node->get_id(), ue_vars, killed_vars, undef_vars);
         _node->set_ue_var(ue_vars);
         _node->set_killed_var(killed_vars);
+        _node->set_undefined_behaviour_var(undef_vars);
     }
     
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::FunctionCall& n)
@@ -833,8 +836,7 @@ namespace Analysis
                     if (!nested_global_vars.empty() || !nested_params.empty())
                     {
                         // Compute liveness for global variables and parameters
-                        ObjectList<Symbol> params; Nodecl::List args;
-                        std::map<Symbol, Nodecl::NodeclBase> nested_params_to_args = map_params_to_args(n, called_func_graph, params, args);
+                        std::map<Symbol, Nodecl::NodeclBase> nested_params_to_args = map_reference_params_to_args(n, called_func_graph);
                         CfgIPAVisitor ipa_visitor(called_func_graph, _cfgs, nested_global_vars, nested_params, nested_params_to_args);
                         ipa_visitor.compute_usage();
                         
@@ -890,18 +892,34 @@ namespace Analysis
                 Nodecl::VirtualFunctionCall func_call_nodecl = n.template as<Nodecl::VirtualFunctionCall>();
                 args = func_call_nodecl.get_arguments().as<Nodecl::List>();
             }
-            
+           
             for(Nodecl::List::iterator it = args.begin(); it != args.end(); ++it)
             {
-                SymbolVisitor sv;
-                sv.walk(*it);
-                ObjectList<Nodecl::Symbol> syms_in_arg = sv.get_symbols();
-                for (ObjectList<Nodecl::Symbol>::iterator it = syms_in_arg.begin(); it != syms_in_arg.end(); ++it)
+                if (it->is<Nodecl::Symbol>() || it->is<Nodecl::ClassMemberAccess>() || it->is<Nodecl::ArraySubscript>()
+                    || it->is<Nodecl::Reference>() || it->is<Nodecl::Derreference>()
+                    || it->is<Nodecl::Conversion>() || it->is<Nodecl::Cast>())
                 {
-                    if (_params.contains(it->get_symbol()))
-                    {   // It was a parameter of the current cfg
+                    ExtensibleSymbol ei(*it);
+                    if (ei.get_symbol().get_type().is_pointer())
+                    {// FIXME We must add to this case those Parameters passed by reference
                         set_up_undefined_usage(*it);
                     }
+                    else
+                    {   // The variable is used
+                        set_up_usage(*it);
+                    }
+                }
+                else if (it->is<Nodecl::FunctionCall>() || it->is<Nodecl::VirtualFunctionCall>())
+                {}  // Nothing to do, we don't need to propagate the usage of a temporal value
+                else
+                {   // FIXME We can define a variable here passing as argument "(n = 3)"
+                    SymbolVisitor sv;
+                    sv.walk(*it);
+                    ObjectList<Nodecl::Symbol> syms_in_arg = sv.get_symbols();
+                    for (ObjectList<Nodecl::Symbol>::iterator it = syms_in_arg.begin(); it != syms_in_arg.end(); ++it)
+                    {   // The variable is used
+                        set_up_usage(*it);
+                    }   
                 }
             }
         }

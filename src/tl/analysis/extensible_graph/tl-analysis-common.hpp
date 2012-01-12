@@ -48,8 +48,8 @@ namespace TL
         };
 
         bool ext_sym_set_contains_sym(ExtensibleSymbol s, ext_sym_set sym_set);
-        bool ext_sym_set_contains_sym(Nodecl::NodeclBase nodecl, ext_sym_set sym_set);
-        bool ext_sym_set_contains_nodecl(ExtensibleSymbol ei, ext_sym_set sym_set);
+        bool ext_sym_set_contains_nodecl(Nodecl::NodeclBase nodecl, ext_sym_set sym_set);
+        bool ext_sym_set_contains_englobing_nodecl(ExtensibleSymbol ei, ext_sym_set sym_set);
         ext_sym_set sets_union(ext_sym_set set1, ext_sym_set set2);
         ext_sym_set sets_difference(ext_sym_set set1, ext_sym_set set2);
         bool sets_equals(ext_sym_set set1, ext_sym_set set2);
@@ -60,8 +60,11 @@ namespace TL
         struct var_usage_t* get_var_in_list(Symbol n, ObjectList<struct var_usage_t*> list);
         
         Nodecl::List get_func_call_args(Nodecl::NodeclBase func_call);
-        std::map<Symbol, Nodecl::NodeclBase> map_params_to_args(Nodecl::NodeclBase func_call, ExtensibleGraph* called_func_graph,
-                                                                ObjectList<Symbol> &params, Nodecl::List &args);
+        std::map<Symbol, Nodecl::NodeclBase> map_reference_params_to_args(Nodecl::NodeclBase func_call, ExtensibleGraph* called_func_graph);
+        ObjectList<Symbol> get_reference_params(ExtensibleGraph* called_func_graph);
+        ObjectList<Nodecl::NodeclBase> get_reference_params_and_args(Nodecl::NodeclBase func_call, ExtensibleGraph* called_func_graph, 
+                                                                     ObjectList<Symbol>& ref_params);
+        ObjectList<Nodecl::NodeclBase> get_non_reference_args(Nodecl::NodeclBase func_call, ExtensibleGraph* called_func_graph);
         ExtensibleGraph* find_function_for_ipa(Symbol s, ObjectList<ExtensibleGraph*> cfgs);
         
         void print_function_call_nest(ExtensibleGraph *graph);

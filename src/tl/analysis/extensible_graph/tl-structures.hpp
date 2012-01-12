@@ -199,11 +199,11 @@ namespace TL
         */ 
         #define _PRIVATE        "private"
         
-        /*! \def _LASTPRIVATE
+        /*! \def _FIRSTPRIVATE
         * Set of symbols with lastprivate auto-scoping in a task
         * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once Auto-scoping is performed).
         */ 
-        #define _LASTPRIVATE    "lastprivate"
+        #define _FIRSTPRIVATE    "firstprivate"
         
         /*! \def _UNDEF_SC
         * Set of symbols with non-computable auto-scoping in a task

@@ -442,6 +442,24 @@ namespace TL
                 //! Insert a list of undefined dependencies to the node
                 void set_undef_deps(ext_sym_set new_undef_deps);
                 
+                ext_sym_set get_shared_vars();
+                
+                void set_shared_var(ExtensibleSymbol ei);
+
+                ext_sym_set get_private_vars();
+                
+                void set_private_var(ExtensibleSymbol ei);
+                
+                ext_sym_set get_firstprivate_vars();
+                
+                void set_firstprivate_var(ExtensibleSymbol ei);
+                
+                ext_sym_set get_undef_sc_vars();
+                
+                void set_undef_sc_var(ExtensibleSymbol ei);
+                
+                void set_undef_sc_var(ext_sym_set new_undef_sc_vars);
+                
                 //! Return the map containing, for each symbol defined until this moment, its correspondent expression
                 nodecl_map get_reaching_definitions();
 

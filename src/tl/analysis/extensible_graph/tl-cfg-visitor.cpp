@@ -105,11 +105,12 @@ namespace TL
             std::string nom = s.get_name();
         
             // Create a new graph for the current function
-            ExtensibleGraph* actual_cfg = new ExtensibleGraph(s.get_name(), n.get_symbol().get_scope());
+            ExtensibleGraph* actual_cfg = new ExtensibleGraph(s.get_name(), n.retrieve_context());
             _actual_cfg = actual_cfg;
             
             _actual_cfg->_function_sym = s;
-            ObjectList<Node*> func_stmts = walk(n.get_statements());
+            Nodecl::NodeclBase stmts = n.get_statements();
+            ObjectList<Node*> func_stmts = walk(stmts);
             
             // Complete the exit node
             Node* graph_exit = _actual_cfg->_graph->get_graph_exit_node();
@@ -1416,6 +1417,7 @@ namespace TL
                 }
             }
             
+            _actual_cfg->_goto_node_l.append(goto_node);
             _actual_cfg->_last_nodes.clear();
         
             return ObjectList<Node*>(1, goto_node);

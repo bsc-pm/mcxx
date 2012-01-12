@@ -73,21 +73,89 @@ namespace TL
             return args;
         }
         
-        std::map<Symbol, Nodecl::NodeclBase> map_params_to_args(Nodecl::NodeclBase func_call, ExtensibleGraph* called_func_graph,
-                                                                ObjectList<Symbol> &params, Nodecl::List &args)
+        std::map<Symbol, Nodecl::NodeclBase> map_reference_params_to_args(Nodecl::NodeclBase func_call, ExtensibleGraph* called_func_graph)
         {
-            params = called_func_graph->get_function_parameters();
-            args = get_func_call_args(func_call);
-            std::map<Symbol, Nodecl::NodeclBase> params_to_args;
-            int i = 0;
+            ObjectList<Symbol> params = called_func_graph->get_function_parameters();
+            Nodecl::List args = get_func_call_args(func_call);
+            ObjectList<Symbol> ref_params;
+            ObjectList<Nodecl::NodeclBase> ref_args;
+            
+            // Keep only references and pointers
             ObjectList<Symbol>::iterator itp = params.begin();
             Nodecl::List::iterator ita = args.begin();
-            for(; itp != params.end() && ita != args.end(); ++itp, ++ita)
+            for (; itp != params.end(); ++itp)
             {
-                params_to_args[*itp] = *ita;
+                Type param_type = itp->get_type();
+                if (param_type.is_any_reference() || param_type.is_pointer())
+                {
+                    ref_params.append(*itp);
+                    ref_args.append(*ita);
+                }
             }
             
-            return params_to_args;
+            // Map parameters with arguments
+            std::map<Symbol, Nodecl::NodeclBase> ref_params_to_args;
+            itp = params.begin();
+            ita = args.begin();
+            for(; itp != params.end() && ita != args.end(); ++itp, ++ita)
+            {
+                ref_params_to_args[*itp] = *ita;
+            }
+            
+            return ref_params_to_args;
+        }
+
+        ObjectList<Symbol> get_reference_params(ExtensibleGraph* called_func_graph)
+        {
+            ObjectList<Symbol> ref_params;
+            ObjectList<Symbol> params = called_func_graph->get_function_parameters();
+            for(ObjectList<Symbol>::iterator it = params.begin(); it != params.end(); ++it)
+            {
+                Type param_type = it->get_type();
+                if (param_type.is_any_reference() || param_type.is_pointer())
+                {
+                    ref_params.append(*it);
+                }
+            }
+            return ref_params;
+        }
+        
+        ObjectList<Nodecl::NodeclBase> get_reference_params_and_args(Nodecl::NodeclBase func_call, ExtensibleGraph* called_func_graph, 
+                                                                     ObjectList<Symbol>& ref_params)
+        {
+            ObjectList<Symbol> params = called_func_graph->get_function_parameters();
+            Nodecl::List args = get_func_call_args(func_call);
+            ObjectList<Nodecl::NodeclBase> ref_args;
+            ObjectList<Symbol>::iterator itp = params.begin();
+            Nodecl::List::iterator ita = args.begin();
+            for (; itp != params.end(); ++itp, ++ita)
+            {
+                Type param_type = itp->get_type();
+                if (param_type.is_any_reference() || param_type.is_pointer())
+                {
+                    ref_params.append(*itp);
+                    ref_args.append(*ita);
+                }
+            }
+            return ref_args;
+        }
+        
+        ObjectList<Nodecl::NodeclBase> get_non_reference_args(Nodecl::NodeclBase func_call, ExtensibleGraph* called_func_graph)
+        {
+            ObjectList<Symbol> params = called_func_graph->get_function_parameters();
+            Nodecl::List args = get_func_call_args(func_call);
+            ObjectList<Nodecl::NodeclBase> non_ref_args;
+            ObjectList<Symbol>::iterator itp = params.begin();
+            Nodecl::List::iterator ita = args.begin();
+            for (; itp != params.end(); ++itp, ++ita)
+            {
+                Type param_type = itp->get_type();
+                if (!param_type.is_any_reference() && !param_type.is_pointer())
+                {
+                    non_ref_args.append(*ita);
+                }
+            }
+            return non_ref_args;
         }
         
         ExtensibleGraph* find_function_for_ipa(Symbol s, ObjectList<ExtensibleGraph*> cfgs)
@@ -106,37 +174,59 @@ namespace TL
         
         bool ext_sym_set_contains_sym(ExtensibleSymbol s, ext_sym_set sym_set)
         {
-            if (sym_set.find(s).empty())
-                return false;
-            return true;
-        }
-        
-        bool ext_sym_set_contains_sym(Nodecl::NodeclBase nodecl, ext_sym_set sym_set)
-        {
             for (ext_sym_set::iterator it = sym_set.begin(); it != sym_set.end(); ++it)
             {
-                if (Nodecl::Utils::equal_nodecls(it->get_nodecl(), nodecl))
+                if (it->get_symbol() == s.get_symbol())
                     return true;
             }
+            
             return false;
         }
         
-        bool ext_sym_set_contains_nodecl(ExtensibleSymbol ei, ext_sym_set sym_set)
+        bool ext_sym_set_contains_nodecl(Nodecl::NodeclBase nodecl, ext_sym_set sym_set)
+        {
+            for (ext_sym_set::iterator it = sym_set.begin(); it != sym_set.end(); ++it)
+            {
+                Nodecl::NodeclBase current = it->get_nodecl();
+                if (current.is<Nodecl::Conversion>())
+                {
+                    Nodecl::Conversion aux = current.as<Nodecl::Conversion>();
+                    current = aux.get_nest();
+                }
+                    
+                if (Nodecl::Utils::equal_nodecls(nodecl, current))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+        
+        bool ext_sym_set_contains_englobing_nodecl(ExtensibleSymbol ei, ext_sym_set sym_set)
         {
             Nodecl::NodeclBase nodecl = ei.get_nodecl();
             if (nodecl.is<Nodecl::ArraySubscript>())
             {
                 Nodecl::ArraySubscript arr = nodecl.as<Nodecl::ArraySubscript>();
-                return (ext_sym_set_contains_sym(ei, sym_set) || ext_sym_set_contains_sym(arr.get_subscripted(), sym_set));
+                bool res = ext_sym_set_contains_nodecl(nodecl, sym_set);
+                res = res || ext_sym_set_contains_englobing_nodecl(arr.get_subscripted(), sym_set);
+                return res;
             }
             else if (nodecl.is<Nodecl::ClassMemberAccess>())
             {
                 Nodecl::ClassMemberAccess memb_access = nodecl.as<Nodecl::ClassMemberAccess>();
-                return (ext_sym_set_contains_sym(ei, sym_set) || ext_sym_set_contains_sym(memb_access.get_lhs(), sym_set));
+                return (ext_sym_set_contains_nodecl(nodecl, sym_set) 
+                        || ext_sym_set_contains_englobing_nodecl(memb_access.get_lhs(), sym_set));
             }
+            else if (nodecl.is<Nodecl::Conversion>())
+            {    
+                Nodecl::Conversion conv = nodecl.as<Nodecl::Conversion>();
+                return ext_sym_set_contains_englobing_nodecl(conv.get_nest(), sym_set);
+            }    
             else
             {
-                return ext_sym_set_contains_sym(ei, sym_set);
+                return ext_sym_set_contains_nodecl(nodecl, sym_set);
             }
         }
         
@@ -145,8 +235,8 @@ namespace TL
             ext_sym_set result = set1;
             for (ext_sym_set::iterator it = set2.begin(); it != set2.end(); ++it)
             {
-                if (!ext_sym_set_contains_sym(*it, set1))
-                    result.insert(*it);
+                if (set1.find(*it).empty())
+                    result.append(*it);
             }
             return result;
             
@@ -167,7 +257,7 @@ namespace TL
             ext_sym_set result;
             for (ext_sym_set::iterator it = set1.begin(); it != set1.end(); ++it)
             {
-                if (!ext_sym_set_contains_sym(*it, set2))
+                if (set2.find(*it).empty())
                     result.insert(*it);
             }
             return result;
@@ -191,7 +281,7 @@ namespace TL
                 res = true;
                 for(ext_sym_set::iterator it = set1.begin(); it != set1.end(); ++it)
                 {
-                    if (!ext_sym_set_contains_sym(*it, set2))
+                    if (set1.find(*it).empty())
                     {    
                         res = false;
                         break;

@@ -35,35 +35,6 @@ namespace TL
 {
     namespace Analysis
     {
-        struct auto_scope_tag {
-        private:
-            Node* _task;
-            ext_sym_set _live_after_task_sched;
-            
-            ext_sym_set _private_vars;
-            ext_sym_set _firstprivate_vars;
-            ext_sym_set _shared_vars;
-            ext_sym_set _undef_sc_vars;
-            
-        public:
-            // Constructor
-            auto_scope_tag(Node* task, ext_sym_set live_after_task_sched);
-            
-            // Getters and Setters
-            Node* get_task();
-            ext_sym_set get_private_vars();
-            void set_private_var(ExtensibleSymbol s);
-            ext_sym_set get_firstprivate_vars();
-            void set_firstprivate_var(ExtensibleSymbol s);
-            ext_sym_set get_shared_vars();
-            void set_shared_var(ExtensibleSymbol s);
-            ext_sym_set get_undef_sc_vars();
-            void set_undef_sc_var(ExtensibleSymbol s);
-            
-            // Consultants
-            bool is_live_after_task_sched(ExtensibleSymbol s);
-        };
-        
         class LIBTL_CLASS StaticAnalysis {    
             
         private:
@@ -100,7 +71,37 @@ namespace TL
             
             static void analyse_tasks_rec(Node* current);
             
-            static void compute_auto_scoping_rec(auto_scope_tag * auto_scope_t);
+            /*!
+             * Scope all the variables appearing in the task by traversing recursively the graph starting from #current
+             * \param task Node containing the task to be auto-scoped 
+             * \param current Node we are analysing right now
+             * \param scoped_vars List of variables that has already been auto-scoped
+             */
+            static void compute_auto_scoping_rec(Node* task, Node* current, ext_sym_set& scoped_vars);
+            
+            /*!
+             * The method scopes a variable of a task node
+             * \param task node where the variable has to be scoped
+             * \param ei variable to be scoped
+             * \param scoped_vars list of variables that has already been scoped for #task
+             */
+            static void scope_variable(Node* task, ExtensibleSymbol ei, ext_sym_set& scoped_vars);
+            
+            /*!
+             * Determines whether a variable is used out of a task between the point where the task is scheduled and 
+             * the point where the task is synchronized
+             * \param task Node containing the task to be analysed
+             * \param ei Variable we are looking for
+             * \return character containing the usage of the variable: '0' => not used, '1' => only read, '2' => write
+             */
+            static char var_is_used_out_task(Node* task, ExtensibleSymbol ei);
+            
+            /*!
+             * This method determines whether it can exist a race condition for a symbol in a given task node
+             * \param task Node containing the task we are analysing
+             * \param ei Extensible Symbol we want to check race conditions on
+             */
+            static bool race_condition(Node* task, ExtensibleSymbol ei);
         
         public:
             
@@ -111,7 +112,7 @@ namespace TL
             static void live_variable_analysis(Node* node);            
             
             //! Computes auto-scoping for variables appearing in a task inside #current
-            static void compute_auto_scoping(Node* current);
+            static void compute_auto_scoping(Node* task);
             
             //! Computes dependences for all task node in the Extensible Graph
             static void analyse_tasks(Node* graph_node);
