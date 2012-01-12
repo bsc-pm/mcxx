@@ -6,6 +6,6 @@ fortran_preprocessor_options = -cpp -E
 compiler_name = gfortran
 compiler_options =
 linker_name = gfortran
-linker_options = -lnanox-fortran
+linker_options = 
 
 [mf95 : mfc]
