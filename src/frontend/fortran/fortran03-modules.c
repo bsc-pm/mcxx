@@ -609,7 +609,7 @@ static void* get_ptr_of_oid(sqlite3* handle, sqlite3_uint64 oid)
     {
         case SQLITE_ROW:
             {
-                result = (void*)sqlite3_column_int64(_get_ptr_of_oid_stmt, 0);
+                result = (void*)(intptr_t)sqlite3_column_int64(_get_ptr_of_oid_stmt, 0);
                 break;
             }
         case SQLITE_DONE:

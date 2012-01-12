@@ -90,6 +90,7 @@ libmf03_la_CFLAGS = -DLIBMF03_DLL_EXPORT \
 				    -I$(top_srcdir)/src/driver \
 				    -I$(top_srcdir)/src/driver/fortran \
                     -fexceptions \
+					-std=gnu99 \
 				    -DPKGDATADIR=\"$(pkgdatadir)\" \
                     $(sqlite3_CFLAGS) \
                     $(END)

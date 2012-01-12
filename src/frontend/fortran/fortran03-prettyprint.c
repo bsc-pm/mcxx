@@ -28,8 +28,6 @@
   #define FORTRAN_PRETTYPRINT_C
 #endif
 
-#include "fortran03-prettyprint.h"
-
 #ifdef HAVE_CONFIG_H
   #include "config.h"
 #endif
@@ -37,6 +35,8 @@
   // Needed, otherwise open_memstream is not declared
   #define _GNU_SOURCE
 #endif
+
+#include "fortran03-prettyprint.h"
 
 
 #include <stdio.h>
