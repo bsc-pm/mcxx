@@ -53,6 +53,8 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         std::stringstream ss;
         ss << "ol_" << function_symbol.get_name() << "_" << (int)task_counter;
         outline_name = ss.str();
+
+        task_counter++;
     }
     
     // Devices stuff
@@ -105,9 +107,7 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
     }
 
     Source err_name;
-    Counter& err_counter = CounterManager::get_counter("nanos++-err");
-    err_name << "err_" << (int)err_counter;
-    err_counter++;
+    err_name << "err";
 
     struct_size << "sizeof(imm_args)";
     alignment << "__alignof__(" << struct_arg_type_name << "), ";
