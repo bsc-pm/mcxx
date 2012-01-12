@@ -1702,10 +1702,7 @@ OPERATOR_TABLE
                     // There are several cases where we do not allow renaming
                     || sym.is_intrinsic()
                     || sym.is_member()
-                    || sym.get_internal_symbol()->entity_specs.is_parameter
-                    || (sym.get_internal_symbol()->entity_specs.from_module != NULL)
-
-                    )
+                    || (sym.get_internal_symbol()->entity_specs.from_module != NULL))
             {
                 ss << sym.get_name();
                 _name_set.insert(sym.get_name());
