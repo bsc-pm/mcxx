@@ -136,7 +136,8 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         <<     "props.tie_to = (nanos_thread_t)0;"
         <<     "props.priority = 0;"
         <<     "props.reserved0 = 1;"
-        <<     "props.reserved3 = 0;"
+        <<     "props.reserved2 = 0;"
+        <<     "props.reserved3 = 1;"
         <<     "props.reserved5 = 1;"
         <<     creation
         <<     priority
