@@ -1705,13 +1705,13 @@ OPERATOR_TABLE
                     || (sym.get_internal_symbol()->entity_specs.from_module != NULL))
             {
                 ss << sym.get_name();
-                _name_set.insert(sym.get_name());
             }
             else
             {
                 ss << sym.get_name() << "_" << prefix;
                 prefix++;
             }
+            _name_set.insert(ss.str());
             _rename_map[sym] = ss.str();
 
             return ss.str();
