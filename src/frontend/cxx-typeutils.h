@@ -97,10 +97,6 @@ LIBMCXX_EXTERN type_t* get_gcc_builtin_va_list_type(void);
 LIBMCXX_EXTERN type_t* get_user_defined_type(scope_entry_t* entry);
 LIBMCXX_EXTERN type_t* get_indirect_type(scope_entry_t* entry);
 
-LIBMCXX_EXTERN type_t* get_dependent_typename_type(scope_entry_t* dependent_entity, 
-        decl_context_t decl_context,
-        AST nested_name, AST unqualified_part);
-
 LIBMCXX_EXTERN type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entity, 
         nodecl_t dependent_parts);
 

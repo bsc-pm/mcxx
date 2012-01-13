@@ -1195,17 +1195,6 @@ type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entry,
     return result;
 }
 
-type_t* get_dependent_typename_type(scope_entry_t* dependent_entity, 
-        decl_context_t decl_context,
-        AST nested_name, 
-        AST unqualified_part)
-{
-    nodecl_t nodecl_dependent_parts = nodecl_null();
-    compute_nodecl_name_from_nested_name(nested_name, unqualified_part, decl_context, &nodecl_dependent_parts);
-
-    return get_dependent_typename_type_from_parts(dependent_entity, nodecl_dependent_parts);
-}
-
 void dependent_typename_get_components(type_t* t, 
         scope_entry_t** dependent_entry, 
         nodecl_t* dependent_parts)
