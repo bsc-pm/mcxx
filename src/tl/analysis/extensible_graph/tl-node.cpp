@@ -1048,8 +1048,9 @@ namespace TL
                         if (ext_sym_set_contains_englobing_nodecl(ita->get_nodecl(), aux_set))
                         {   // Delete from 'var' the englobed part of (*ita) and put the result in 'var'
                             // TODO
+                            std::cerr << "warning: Part of nodecl founded in the current var that must be avoided " << std::endl; 
                         }
-                    }                   
+                    }
                     
                     if (!ext_sym_set_contains_englobing_nodecl(var, avoid_l_2))
                     {   // No englobing variable in the avoiding list 2
@@ -1060,6 +1061,7 @@ namespace TL
                             if (ext_sym_set_contains_englobing_nodecl(ita->get_nodecl(), aux_set))
                             {   // Delete from var the englobed part of (*ita) and put the result in 'var'
                                 // TODO
+                                std::cerr << "warning: Part of nodecl founded in the current var that must be avoided " << std::endl;
                             }
                         }
                         new_l = insert_var_in_list(var, new_l);
@@ -1362,8 +1364,7 @@ namespace TL
        
             for (ext_sym_set::iterator it = new_ue_vars.begin(); it != new_ue_vars.end(); ++it)
                 if (it->get_nodecl().is<Nodecl::Div>() || it->get_nodecl().is<Nodecl::Minus>())
-                {    
-                    std::cerr << "Hola que tal" << std::endl;
+                {   
                     std::cerr << "No hauriem d'estar introdutint " << it->get_nodecl().prettyprint() << " (llista)!" << std::endl;
                 }
             if (this->has_key(_UPPER_EXPOSED))

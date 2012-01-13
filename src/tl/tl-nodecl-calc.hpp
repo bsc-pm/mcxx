@@ -46,6 +46,13 @@ namespace Nodecl
         Ret visit(const Nodecl::Cast& n);
         Ret visit(const Nodecl::FunctionCall& n);
         Ret visit(const Nodecl::VirtualFunctionCall& n);
+        Ret visit(const Nodecl::Equal& n);
+        Ret visit(const Nodecl::Different& n);
+        Ret visit(const Nodecl::LowerThan& n);
+        Ret visit(const Nodecl::LowerOrEqualThan& n);
+        Ret visit(const Nodecl::GreaterThan& n);
+        Ret visit(const Nodecl::GreaterOrEqualThan& n);
+        Ret visit(const Nodecl::ConditionalExpression& n);
         
     public:
         // *** Constructors *** //

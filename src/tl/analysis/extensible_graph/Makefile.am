@@ -50,6 +50,7 @@ libextensible_graph_la_SOURCES = \
    tl-dot-graph.cpp \
    tl-loop-analysis.hpp \
    tl-loop-analysis.cpp \
+   tl-reaching-definitions.cpp \
    tl-static-analysis.hpp \
    tl-static-analysis.cpp \
    tl-cfg-visitor.hpp \

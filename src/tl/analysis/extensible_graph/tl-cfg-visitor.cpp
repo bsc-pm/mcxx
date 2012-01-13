@@ -629,7 +629,6 @@ namespace TL
             if (pragma_line == "barrier")
             {
                 Node* barrier_node = _actual_cfg->create_barrier_node(_actual_cfg->_outer_node.top());
-                _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, barrier_node);
                 int n_tasks_in_level = _task_s[_task_level].size();
                 _actual_cfg->connect_nodes(_task_s[_task_level], barrier_node, 
                                            ObjectList<Edge_type>(n_tasks_in_level, ALWAYS_EDGE), ObjectList<std::string>(n_tasks_in_level, ""),
@@ -757,6 +756,8 @@ namespace TL
                 _actual_cfg->_last_nodes = previous_nodes;
             }
 
+            _pragma_info_s.pop();
+
             return ObjectList<Node*>(1, task_graph_node);       
         }
         
@@ -764,8 +765,6 @@ namespace TL
         CfgVisitor::Ret CfgVisitor::visit_pragma_construct(const T& n)
         {
             // Built a new object in the pragma stack to store its relative info
-            struct pragma_t actual_pragma;
-            _pragma_info_s.push(actual_pragma);
         
             std::string pragma = n.get_pragma_line().get_text();
             
@@ -775,6 +774,9 @@ namespace TL
             }
             else
             {
+                struct pragma_t actual_pragma;
+                _pragma_info_s.push(actual_pragma);
+            
                 if (pragma == "section")
                 {
                     _actual_cfg->_last_nodes = _omp_sections_info.top().section_parents;
@@ -866,17 +868,10 @@ namespace TL
                     _actual_cfg->_last_nodes = _omp_sections_info.top().sections_exits;
                     _omp_sections_info.pop();
                 }
-                
+               
                 if (pragma_is_worksharing_or_parallel(pragma) && !_pragma_info_s.top().has_clause("nowait"))
                 {   // We include here a Barrier node after the pragma statement
-                    Node* barrier = _actual_cfg->create_barrier_node(pragma_graph_node);
-//                     if (_task_level >= 0)
-//                     {
-//                         int n_tasks_in_level = _task_s[_task_level].size();
-//                         _actual_cfg->connect_nodes(_task_s[_task_level], barrier, 
-//                                                    ObjectList<Edge_type>(n_tasks_in_level, ALWAYS_EDGE), 
-//                                                    ObjectList<std::string>(n_tasks_in_level, ""), /*is task*/ true);
-//                     }
+                    Node* barrier_node = _actual_cfg->create_barrier_node(pragma_graph_node);
                 }
                 else if (pragma == "critical" || pragma == "ordered")
                 {   // This constructs add a Flush at the end of the construct
@@ -892,9 +887,11 @@ namespace TL
                 _actual_cfg->_outer_node.pop();
                 _actual_cfg->_last_nodes.clear();
                 _actual_cfg->_last_nodes.append(pragma_graph_node);
-            
+                
+                _pragma_info_s.pop();
+                
                 return ObjectList<Node*>(1, pragma_graph_node);
-            }        
+            }
         }
         
         CfgVisitor::Ret CfgVisitor::visit(const Nodecl::PragmaCustomStatement& n)
@@ -921,7 +918,7 @@ namespace TL
             
             // Get the rest of clauses
             walk(n.get_clauses());  // This method fills _pragma_info_s with the clauses of the actual pragma
-
+            
             return Ret();
         }
 

@@ -45,13 +45,6 @@ namespace TL
                 : init(NULL), cond(NULL), next(NULL)
             {}
             
-            loop_control_nodes_t(const loop_control_nodes_t& loop_control)
-            {
-                init = loop_control.init;
-                cond = loop_control.cond;
-                next = loop_control.next;
-            }
-            
             void clear()
             {
                 init = NULL;
@@ -74,12 +67,6 @@ namespace TL
                 : handler_parents(), handler_exits(), nhandlers(-1)
             {}
             
-            try_block_nodes_t(const try_block_nodes_t& try_block)
-            {
-                handler_parents = try_block.handler_parents;
-                handler_exits = try_block.handler_exits;
-            }
-            
             void clear()
             {
                 handler_parents.clear();
@@ -99,12 +86,6 @@ namespace TL
             clause_t(std::string s)
                 : clause(s), args()
             {}
-            
-            clause_t(const clause_t& c)
-            {
-                clause = c.clause;
-                args = c.args;
-            }
         };    
         
         struct pragma_t {
@@ -114,12 +95,6 @@ namespace TL
             pragma_t()
                 : params(), clauses()
             {}
-            
-            pragma_t(const pragma_t& p)
-            {
-                params = p.params;
-                clauses = p.clauses;
-            }
             
             bool has_clause(std::string s)
             {

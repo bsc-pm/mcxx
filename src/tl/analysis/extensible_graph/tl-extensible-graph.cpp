@@ -481,13 +481,13 @@ namespace TL
         
         Node* ExtensibleGraph::create_barrier_node(Node* outer_node)
         {
-            Node* flush_node = new Node(_nid, FLUSH_NODE, outer_node);
-            connect_nodes(_last_nodes, flush_node);
+            Node* flush_node1 = new Node(_nid, FLUSH_NODE, outer_node);
+            connect_nodes(_last_nodes, flush_node1);
             Node* barrier_node = new Node(_nid, BARRIER_NODE, outer_node);
-            connect_nodes(flush_node, barrier_node);
-            flush_node = new Node(_nid, FLUSH_NODE, outer_node);
-            connect_nodes(barrier_node, flush_node);
-            _last_nodes.clear(); _last_nodes.append(flush_node);
+            connect_nodes(flush_node1, barrier_node);
+            Node* flush_node2 = new Node(_nid, FLUSH_NODE, outer_node);
+            connect_nodes(barrier_node, flush_node2);
+            _last_nodes.clear(); _last_nodes.append(flush_node2);
             return barrier_node;
         }
         

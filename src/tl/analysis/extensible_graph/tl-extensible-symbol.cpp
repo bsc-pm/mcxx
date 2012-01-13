@@ -43,7 +43,12 @@ namespace TL
         
         ExtensibleSymbol::ExtensibleSymbol(Nodecl::NodeclBase n)
             : _n(n)
-        {}
+        {
+            if(n.is<Nodecl::IntegerLiteral>())
+            {
+                std::cerr << "wat de foo" << std::endl;
+            }
+        }
         
         void ExtensibleSymbol::propagate_constant_values(std::map<Symbol, Nodecl::NodeclBase> values_map)
         {
@@ -131,6 +136,7 @@ namespace TL
             }
             else
             {
+                std::cerr << "Necesito una linea más" << std::endl;
                 internal_error("Unexpected type of nodecl '%s' contained in an ExtendedSymbol '%s'", 
                             ast_print_node_type(n.get_kind()), n.prettyprint().c_str());
             }

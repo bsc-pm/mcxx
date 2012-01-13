@@ -65,7 +65,8 @@ namespace TL
             if (dot_cfg.good())
             {
                 if (CURRENT_CONFIGURATION->debug_options.analysis_verbose ||
-                    CURRENT_CONFIGURATION->debug_options.enable_debug_code)
+                    CURRENT_CONFIGURATION->debug_options.enable_debug_code ||
+                    CURRENT_CONFIGURATION->debug_options.print_cfg_graphviz)
                     std::cerr << "   ==> File '" << dot_file_name << "'" << std::endl;
             
                 int subgraph_id = 0;
@@ -119,12 +120,14 @@ namespace TL
                     std::string killed = prettyprint_ext_sym_set(actual_node->get_killed_vars());
                     std::string undef = prettyprint_ext_sym_set(actual_node->get_undefined_behaviour_vars());
                     std::string reach_defs = prettyprint_reaching_definitions(actual_node->get_reaching_definitions());
-                    std::string subgr_liveness = "LI: "         + live_in  + "\\n" +
-                                                 "KILL: "       + killed   + "\\n" +
-                                                 "UE: "         + ue       + "\\n" +
-                                                 "UNDEEF: "     + undef    + "\\n" +
-                                                 "LO: "         + live_out + "\\n" +
-                                                 "REACH DEFS: " + reach_defs;
+                    std::string subgr_liveness;
+                    if (_use_def_computed != '0')
+                        subgr_liveness = "LI: "         + live_in  + "\\n" +
+                                         "KILL: "       + killed   + "\\n" +
+                                         "UE: "         + ue       + "\\n" +
+                                         "UNDEEF: "     + undef    + "\\n" +
+                                         "LO: "         + live_out + "\\n" +
+                                         "REACH DEFS: " + reach_defs;
                                                 
                     std::string task_deps = "";
                     if (actual_node->get_graph_type() == TASK)
@@ -138,16 +141,16 @@ namespace TL
                     dot_graph += indent + "subgraph cluster" + ssgid.str() + "{\n";
                     
                     makeup_dot_block(subgraph_label);
-                    dot_graph += indent + "\tlabel=\"" + ssnode.str() + subgraph_label + "\";\n";
+                    dot_graph += indent + "\tlabel=\"" + /*ssnode.str() +*/ subgraph_label + "\";\n";
                     subgraph_id++;
                     
                     std::vector<std::string> new_outer_edges;
                     std::vector<Node*> new_outer_nodes;
                     get_dot_subgraph(actual_node, dot_graph, new_outer_edges, new_outer_nodes, indent, subgraph_id);              
                     std::stringstream ss; ss << actual_node->get_id();
-                    if (_use_def_computed && actual_node->has_deps_computed())
+                    if (_use_def_computed != '0' && actual_node->has_deps_computed())
                         dot_graph += indent + "\t-" + ss.str() + "[label=\"" + subgr_liveness + task_deps + " \", shape=box]\n";
-                    else if (_use_def_computed)
+                    else if (_use_def_computed != '0')
                         dot_graph += indent + "\t-" + ss.str() + "[label=\"" + subgr_liveness + " \", shape=box]\n";
                     dot_graph += indent + "}\n";
                     
@@ -274,18 +277,23 @@ namespace TL
                 ss2 << actual_node->get_outer_node()->get_id();
             else ss2 << "0";
             
+            std::string basic_attrs = "margin=\"0.1,0.1, height=0.1, width=0.1\"";
+            
             switch(actual_node->get_type())
             {
                 case BASIC_ENTRY_NODE:
-                    dot_graph += indent + ss.str() + "[label=\"" + ss.str() + " ENTRY \\n" 
+//                     dot_graph += indent + ss.str() + "[label=\"" + ss.str() + " ENTRY \\n" 
 //                             + "REACH DEFS: " + prettyprint_reaching_definitions(actual_node->get_reaching_definitions())
-                            + "\", shape=box, fillcolor=lightgray, style=filled];\n";
+//                             + "\", shape=box, fillcolor=lightgray, style=filled];\n";
+                    dot_graph += indent + ss.str() + "[label=\" ENTRY\", shape=box, fillcolor=lightgray, style=filled, " + basic_attrs + "];\n";
                     break;
                 case BASIC_EXIT_NODE:
-                    dot_graph += indent + ss.str() + "[label=\"" + ss.str() + " EXIT\", shape=box, fillcolor=lightgray, style=filled];\n";
+//                     dot_graph += indent + ss.str() + "[label=\"" + ss.str() + " EXIT\", shape=box, fillcolor=lightgray, style=filled];\n";
+                    dot_graph += indent + ss.str() + "[label=\"EXIT\", shape=box, fillcolor=lightgray, style=filled, " + basic_attrs + "];\n";
                     break;
                 case UNCLASSIFIED_NODE:
-                    dot_graph += indent + ss.str() + "[label=\"" + ss.str() + " UNCLASSIFIED_NODE\"]\n";
+//                     dot_graph += indent + ss.str() + "[label=\"" + ss.str() + " UNCLASSIFIED_NODE\"]\n";
+                    dot_graph += indent + ss.str() + "[label=\"UNCLASSIFIED_NODE\"]\n";
                     break;
                 case BARRIER_NODE:
                     dot_graph += indent + ss.str() + "[label=\"BARRIER\", shape=diamond]\n";
@@ -294,7 +302,7 @@ namespace TL
                     dot_graph += indent + ss.str() + "[label=\"FLUSH\", shape=ellipse]\n";
                     break;
                 case TASKWAIT_NODE:
-                    dot_graph += indent + ss.str() + "[label=\"" + ss.str() + " TASKWAIT\", shape=ellipse]\n";
+                    dot_graph += indent + ss.str() + "[label=\"TASKWAIT\", shape=ellipse]\n";
                     break;
                 case BASIC_PRAGMA_DIRECTIVE_NODE:
                     internal_error("'%s' found while printing graph. We must think what to do with this kind of node", 
@@ -331,7 +339,7 @@ namespace TL
                     std::string killed = prettyprint_ext_sym_set(actual_node->get_killed_vars());
                     std::string reach_defs = prettyprint_reaching_definitions(actual_node->get_reaching_definitions());
                     std::string live_info;
-                    if (_use_def_computed)
+                    if (_use_def_computed != '0')
                         live_info = " | LI: "           + live_in + 
                                     " | KILL: "         + killed +
                                     " | UE: "           + ue +
@@ -340,7 +348,8 @@ namespace TL
                                     " | REACH DEFS: "   + reach_defs;
                         
                         
-                    dot_graph += indent + ss.str() + "[label=\"{" + ss.str() + basic_block + live_info + "}\", shape=record];\n";
+                    dot_graph += indent + ss.str() + "[label=\"{" + /*ss.str() + */basic_block + live_info + "}\", shape=record, " 
+                               + basic_attrs + "];\n";
         
                     break;
                 }

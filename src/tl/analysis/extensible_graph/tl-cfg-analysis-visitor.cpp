@@ -898,21 +898,14 @@ namespace Analysis
                 if (it->is<Nodecl::Symbol>() || it->is<Nodecl::ClassMemberAccess>() || it->is<Nodecl::ArraySubscript>()
                     || it->is<Nodecl::Reference>() || it->is<Nodecl::Derreference>()
                     || it->is<Nodecl::Conversion>() || it->is<Nodecl::Cast>())
-                {
-                    ExtensibleSymbol ei(*it);
-                    if (ei.get_symbol().get_type().is_pointer())
-                    {// FIXME We must add to this case those Parameters passed by reference
-                        set_up_undefined_usage(*it);
-                    }
-                    else
-                    {   // The variable is used
-                        set_up_usage(*it);
-                    }
+                {   // Since they can be passed by reference, they can be modified
+                    set_up_undefined_usage(*it);
                 }
                 else if (it->is<Nodecl::FunctionCall>() || it->is<Nodecl::VirtualFunctionCall>())
                 {}  // Nothing to do, we don't need to propagate the usage of a temporal value
                 else
-                {   // FIXME We can define a variable here passing as argument "(n = 3)"
+                {   // Expressions cannot be passed by reference, so this arguments are only used
+                    // FIXME We can define a variable here passing as argument "(n = 3)"
                     SymbolVisitor sv;
                     sv.walk(*it);
                     ObjectList<Nodecl::Symbol> syms_in_arg = sv.get_symbols();
