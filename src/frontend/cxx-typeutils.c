@@ -6059,8 +6059,9 @@ static char is_function_or_template_function_name(scope_entry_t* entry, void* p 
 }
 
 // Gives a string with the name of this simple type
-static const char* get_simple_type_name_string_internal(decl_context_t decl_context, simple_type_t* simple_type)
+static const char* get_simple_type_name_string_internal(decl_context_t decl_context, type_t* t)
 {
+    simple_type_t* simple_type = t->type;
     ERROR_CONDITION(simple_type == NULL, "This cannot be null", 0);
 
     const char* result = "";
@@ -6270,7 +6271,34 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
 
                 if (is_dependent && !nodecl_is_null(nodecl_parts))
                 {
-                    result = strappend("typename ", result);
+                    enum class_kind_t kind = get_dependent_entry_kind(t);
+                    switch(kind)
+                    {
+                        case CK_INVALID:
+                            {
+                                result = strappend("typename ", result);
+                                break;
+                            }
+                        case CK_STRUCT:
+                            {
+                                result = strappend("struct ", result);
+                                break;
+                            }
+                        case CK_CLASS:
+                            {
+                                result = strappend("class ", result);
+                                break;
+                            }
+                        case CK_UNION:
+                            {
+                                result = strappend("union ", result);
+                                break;
+                            }
+                        default:
+                            {
+                                internal_error("code unreachable.", 0);
+                            }
+                    }
                 }
 
                 if (!nodecl_is_null(nodecl_parts))
@@ -6393,7 +6421,7 @@ const char* get_simple_type_name_string(decl_context_t decl_context, type_t* typ
     else
     {
         result = get_cv_qualifier_string(type_info);
-        result = strappend(result, get_simple_type_name_string_internal(decl_context, type_info->type));
+        result = strappend(result, get_simple_type_name_string_internal(decl_context, type_info));
     }
 
     return result;
