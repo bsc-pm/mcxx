@@ -271,6 +271,7 @@ struct simple_type_tag {
     // Template dependent types (STK_TEMPLATE_DEPENDENT_TYPE)
     scope_entry_t* dependent_entry;
     nodecl_t dependent_parts;
+    enum class_kind_t dependent_entry_kind;  // CK_INVALID will be use as "typename"
 
     // Complex types, base type of the complex type
     type_t* complex_element;
@@ -1193,6 +1194,24 @@ type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entry,
     result->info->is_dependent = 1;
 
     return result;
+}
+
+enum class_kind_t get_dependent_entry_kind(type_t* t)
+{
+    if (t == NULL || t->type == NULL)
+    {
+        return CK_INVALID;
+    }
+    return t->type->dependent_entry_kind;
+}
+
+void set_dependent_entry_kind(type_t* t, enum class_kind_t kind)
+{
+    if (t == NULL || t->type == NULL)
+    {
+        internal_error("code unreachable.", 0);
+    }
+    t->type->dependent_entry_kind = kind;
 }
 
 void dependent_typename_get_components(type_t* t, 
