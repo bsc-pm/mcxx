@@ -2200,12 +2200,17 @@ static template_argument_list_t* update_template_argument_list_in_dependent_type
             fprintf(stderr, "SCOPE: Updating template argument %d of %d\n",
                     num_argument, template_arguments->num_arguments);
         }
-        template_arguments->argument_list[num_argument] = update_template_argument(
+        template_argument_t* template_arg = update_template_argument(
                 template_arguments->argument_list[num_argument],
                 updated_decl_context, 
                 filename, 
                 line, 
                 overwrite_context);
+
+        if (template_arg == NULL)
+            return NULL;
+
+        template_arguments->argument_list[num_argument] = template_arg;
 
         sign_in_template_name(template_arguments->argument_list[num_argument], updated_decl_context);
     }
@@ -2235,6 +2240,9 @@ static template_argument_list_t* update_template_argument_list_in_dependent_type
                     updated_decl_context, 
                     filename, line,
                     /* overwrite_context */ 0);
+
+            if (current_template_argument == NULL)
+                return NULL;
 
             sign_in_template_name(current_template_argument, updated_decl_context);
 
@@ -2730,6 +2738,9 @@ static type_t* update_type_aux_(type_t* orig_type,
                         decl_context, filename, line,
                         /* overwrite_context */ instantiation_update);
 
+                if (updated_argument == NULL)
+                    return NULL;
+
                 P_LIST_ADD(updated_template_arguments->argument_list, updated_template_arguments->num_arguments, updated_argument);
             }
             
@@ -3121,27 +3132,26 @@ static template_argument_t* update_template_argument(
     switch (current_template_arg->kind)
     {
         case TAK_TYPE:
-            {
-                result->type = update_type(current_template_arg->type, 
-                        decl_context, filename, line);
-
-                ERROR_CONDITION ((result->type == NULL), 
-                        "type template argument could not be updated", 0);
-                break;
-            }
         case TAK_TEMPLATE:
             {
-                result->type = update_type(current_template_arg->type, 
+                type_t* updated_type = update_type(current_template_arg->type, 
                         decl_context, filename, line);
 
-                ERROR_CONDITION ((result->type == NULL), 
-                        "template template argument could not be updated", 0);
+                if (updated_type == NULL)
+                    return NULL;
+
+                result->type = updated_type;
                 break;
             }
         case TAK_NONTYPE:
             {
-                result->type = update_type(current_template_arg->type, 
+                type_t* updated_type = update_type(current_template_arg->type, 
                         decl_context, filename, line);
+
+                if (updated_type == NULL)
+                    return NULL;
+
+                result->type = updated_type;
 
                 // We really need to copy this tree because it comes from another tree
                 // whose type was already computed in another context, and we do not
@@ -3163,8 +3173,7 @@ static template_argument_t* update_template_argument(
                 // Update type information 
                 if(!check_for_expression(result->expression, result->expression_context))
                 {
-                    internal_error("Updated nontype template parameter has an invalid expression '%s'", 
-                            prettyprint_in_buffer(result->expression));
+                    return NULL;
                 }
 
                 // Fold the argument if possible
@@ -3178,10 +3187,6 @@ static template_argument_t* update_template_argument(
                 // FIXME - We should check that a standard conversion
                 // (involving no user-defined conversions) is possible
                 expression_set_type(result->expression, result->type);
-
-                ERROR_CONDITION ((result->type == NULL), 
-                        "nontype/template template could not be updated", 0);
-
                 break;
             }
         default:
@@ -3471,6 +3476,9 @@ static template_argument_list_t* complete_arguments_of_template_id(
                     updated_decl_context, 
                     filename, line,
                     /* overwrite_context */ 0);
+
+            if (current_template_argument == NULL)
+                return NULL;
 
             sign_in_template_name(current_template_argument, updated_decl_context);
 
