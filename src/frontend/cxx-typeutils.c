@@ -2544,7 +2544,7 @@ static type_t* _get_array_type(type_t* element_type,
                 result->array->with_descriptor = with_descriptor;
 
                 // If the element_type is array propagate the 'is_vla' value
-                if(element_type->array != NULL)
+                if (element_type->array != NULL)
                 {
                     result->array->is_vla = element_type->array->is_vla;
                 }
