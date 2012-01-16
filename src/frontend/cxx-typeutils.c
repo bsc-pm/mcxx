@@ -2399,7 +2399,6 @@ static type_t* _get_array_type(type_t* element_type,
             && (nodecl_is_null(lower_bound) || nodecl_is_null(upper_bound)),
             "Invalid definition of boundaries for array", 0);
 
-    char expression_sizes_ok = 1;
     char whole_size_is_constant = 0;
     _size_t whole_size_k = 0;
 
@@ -2579,21 +2578,22 @@ static type_t* _get_array_type(type_t* element_type,
 
             result->array->with_descriptor = with_descriptor;
 
-            C_LANGUAGE()
+            // In C This is a VLA
+            if (IS_C_LANGUAGE)
             {
-                if (expression_sizes_ok)
-                {
-                    // This is a VLA
-                    // In C++ there are no VLA's but this path can be followed by
-                    // dependent arrays
-                    result->array->is_vla = 1;
-                }
+                result->array->is_vla = 1;
+            }
+            // In Fortran, non constant arrays are considered VLAs unless they
+            // require a descriptor
+            if (IS_FORTRAN_LANGUAGE
+                    && !with_descriptor)
+            {
+                result->array->is_vla = 1;
             }
 
             result->info->is_dependent = is_dependent_type(element_type);
 
-            if (expression_sizes_ok
-                    && !result->info->is_dependent
+            if (!result->info->is_dependent
                     && nodecl_expr_is_value_dependent(whole_size))
             {
                 result->info->is_dependent = 1;
