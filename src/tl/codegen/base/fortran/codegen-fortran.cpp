@@ -2067,7 +2067,7 @@ OPERATOR_TABLE
                     }
                     else
                     {
-                        // Keep the codegen map
+                        // Keep the state
                         codegen_status_map_t old_codegen_status = _codegen_status;
                         name_set_t old_name_set = _name_set;
                         rename_map_t old_rename_map = _rename_map;
@@ -2169,6 +2169,13 @@ OPERATOR_TABLE
                     inc_indent();
                 }
                 bool lacks_result = false;
+
+                // Keep the state
+                codegen_status_map_t old_codegen_status = _codegen_status;
+                name_set_t old_name_set = _name_set;
+                rename_map_t old_rename_map = _rename_map;
+                clear_renames();
+
                 codegen_procedure_declaration_header(entry, lacks_result);
 
                 TL::Symbol old_sym = state.current_symbol;
@@ -2189,30 +2196,25 @@ OPERATOR_TABLE
                     indent();
                     file << type_specifier << " :: " << entry.get_name() << "\n";
                 }
-
+                
                 TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
                 for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
                         it != related_symbols.end();
                         it++)
                 {
-                    // Keep the codegen map
-                    codegen_status_map_t old_codegen_status = _codegen_status;
-                    name_set_t old_name_set = _name_set;
-                    rename_map_t old_rename_map = _rename_map;
-
-                    clear_renames();
 
                     declare_symbol(*it);
                     
-                    // And restore it after the interface has been emitted
-                    _codegen_status = old_codegen_status;
-                    _name_set = old_name_set;
-                    _rename_map = old_rename_map;
                 }
                 dec_indent();
                 state.current_symbol = old_sym;
 
                 codegen_procedure_declaration_footer(entry);
+                
+                // And restore the state after the interface has been emitted
+                _codegen_status = old_codegen_status;
+                _name_set = old_name_set;
+                _rename_map = old_rename_map;
 
                 if (!state.in_interface)
                 {
