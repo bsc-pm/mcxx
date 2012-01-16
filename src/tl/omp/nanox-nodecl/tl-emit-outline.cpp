@@ -20,7 +20,7 @@ namespace TL { namespace Nanox {
             unpacked_parameter_declarations, // Fortran only
             unpack_code, 
             private_entities, 
-            auxiliar_code;
+            cleanup_code;
 
         Nodecl::NodeclBase placeholder_body;
 
@@ -37,6 +37,7 @@ namespace TL { namespace Nanox {
                 << "{"
                 <<      unpack_code
                 <<      outline_name << "_unpacked(" << unpacked_arguments << ");"
+                <<      cleanup_code
                 << "}"
                 ;
         }
@@ -53,8 +54,15 @@ namespace TL { namespace Nanox {
                 << "SUBROUTINE " << outline_name << "(args)\n"
                 <<      "IMPLICIT NONE\n"
                 <<      "TYPE(" << structure_name << ") :: args\n"
+                <<      "INTERFACE\n"
+                <<           "SUBROUTINE " << outline_name << "_unpacked(" << unpacked_parameters << ")\n"
+                <<                "IMPLICIT NONE\n"
+                <<                unpacked_parameter_declarations << "\n"
+                <<           "END SUBROUTINE\n"
+                <<      "END INTERFACE\n"
                 <<      unpack_code << "\n"
                 <<      "CALL " << outline_name << "_unpacked(" << unpacked_arguments << ")\n"
+                <<      cleanup_code
                 << "END SUBROUTINE " << outline_name << "\n"
                 ;
         }
@@ -112,6 +120,17 @@ namespace TL { namespace Nanox {
                 else if (IS_FORTRAN_LANGUAGE)
                 {
                     argument << "args % " << it->get_field_name();
+
+                    if (it->get_field_type().is_array()
+                            && (it->get_field_type().array_is_vla()
+                                || it->get_field_type().array_requires_descriptor()))
+                    {
+                        // In these cases we have created an ALLOCATABLE entity which will require
+                        // DEALLOCATE
+                        cleanup_code
+                            << "DEALLOCATE(args % " << it->get_field_name() << ")\n"
+                            ;
+                    }
                 }
                 else
                 {
