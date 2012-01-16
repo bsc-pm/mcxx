@@ -46,9 +46,6 @@ void fortran_initialize_translation_unit_scope(translation_unit_t* translation_u
     translation_unit->module_cache = rb_tree_create((int (*)(const void*, const void*))strcasecmp, null_dtor, null_dtor);
 }
 
-static void build_scope_program_unit_seq(AST program_unit_seq, 
-        decl_context_t decl_context,
-        nodecl_t* nodecl_output);
 
 nodecl_t build_scope_fortran_translation_unit(translation_unit_t* translation_unit)
 {
@@ -72,17 +69,7 @@ static void build_scope_program_unit_internal(AST program_unit,
         scope_entry_t** program_unit_symbol,
         nodecl_t* nodecl_output);
 
-void build_scope_program_unit(AST program_unit, 
-        decl_context_t decl_context,
-        nodecl_t* nodecl_output)
-{
-    build_scope_program_unit_internal(program_unit,
-            decl_context, 
-            /* program_unit symbol */ NULL, 
-            nodecl_output);
-}
-
-static void build_scope_program_unit_seq(AST program_unit_seq, 
+void build_scope_program_unit_seq(AST program_unit_seq, 
         decl_context_t decl_context,
         nodecl_t* nodecl_output)
 {
@@ -2040,7 +2027,7 @@ typedef struct build_scope_statement_handler_tag
  STATEMENT_HANDLER(AST_PRAGMA_CUSTOM_CONSTRUCT,       build_scope_pragma_custom_ctr,     kind_executable_0  ) \
  STATEMENT_HANDLER(AST_PRAGMA_CUSTOM_DIRECTIVE,       build_scope_pragma_custom_dir,     kind_executable_0 ) \
  STATEMENT_HANDLER(AST_UNKNOWN_PRAGMA,                build_scope_unknown_pragma,        kind_executable_0  ) \
- STATEMENT_HANDLER(AST_STATEMENT_PLACEHOLDER,         build_scope_statement_placeholder, kind_nonexecutable_0  ) \
+ STATEMENT_HANDLER(AST_STATEMENT_PLACEHOLDER,         build_scope_statement_placeholder, kind_executable_0  ) \
  STATEMENT_HANDLER(AST_ENTRY_STATEMENT,               build_scope_entry_stmt,            kind_any_0 ) \
  STATEMENT_HANDLER(AST_TYPEDEF_DECLARATION_STATEMENT, build_scope_typedef_stmt,          kind_nonexecutable_0 ) \
 

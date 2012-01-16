@@ -1319,7 +1319,9 @@ int PREPARE_STRING_FOR_SCANNING(const char* str)
     static int num_string = 0;
 	DEBUG_CODE()
 	{
-		fprintf(stderr, "Going to parse string '%s'\n", str);
+		fprintf(stderr, "* Going to parse string in C/C++\n");
+        fprintf(stderr, "%s\n", str);
+		fprintf(stderr, "* End of parsed string\n");
 	}
 	memset(&scanning_now, 0, sizeof(scanning_now));
 	scanning_now.line_number = 1;
