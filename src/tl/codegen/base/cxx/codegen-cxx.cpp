@@ -681,7 +681,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ErrExpr& node)
     }
     else
     {
-        internal_error("%s: error: error expression found when the output is a file", 
+        internal_error("%s: error: <<error expression>> found when the output is a file", 
                 node.get_locus().c_str());
     }
 }
@@ -2193,7 +2193,8 @@ TL::ObjectList<TL::Symbol> CxxBase::define_required_before_class(TL::Symbol symb
     }
     else if (symbol.is_enum()
             || symbol.is_enumerator()
-            || symbol.is_typedef())
+            || symbol.is_typedef()
+            || symbol.is_variable())
     {
         walk_type_for_symbols(
                 symbol.get_type(), /* needs_def */ 0, 
