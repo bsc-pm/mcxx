@@ -35,6 +35,8 @@
 #include "cxx-scope.h"
 #include "cxx-exprtype.h"
 
+#include "codegen-fortran.hpp"
+
 namespace TL
 {
     std::string Type::get_declaration_with_initializer(Scope sc, const std::string& symbol_name,
@@ -87,6 +89,25 @@ namespace TL
     {
         return get_declaration_string_internal(_type_info, sc._decl_context,
                 symbol_name.c_str(), "", 0, 0, NULL, NULL, flags == PARAMETER_DECLARATION);
+    }
+
+    std::string Type::get_fortran_declaration(Scope sc, const std::string& symbol_name,
+            TypeDeclFlags flags)
+    {
+        if (!IS_FORTRAN_LANGUAGE)
+        {
+            running_error("This function cannot be called if we are not in Fortran", 0);
+        }
+
+        // FIXME - All this architecture must be largely improved
+        ERROR_CONDITION(CURRENT_CONFIGURATION->codegen_phase == NULL,
+                "Codegen phase has not been loaded yet for this configuration", 0);
+        Codegen::FortranBase* codegen_phase = reinterpret_cast<Codegen::FortranBase*>(CURRENT_CONFIGURATION->codegen_phase);
+
+        std::string type_specifier, array_specifier;
+        codegen_phase->codegen_type(*this, type_specifier, array_specifier, /* is_dummy */ flags == PARAMETER_DECLARATION);
+
+        return type_specifier + " :: " + symbol_name + array_specifier;
     }
 
     Type Type::get_pointer_to()

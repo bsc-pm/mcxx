@@ -184,21 +184,24 @@ namespace TL
             {
             }
 
-            //! Returns a string with a declaration
+            //! Returns a string with a C/C++ declaration
             std::string get_simple_declaration(Scope sc, const std::string& symbol_name, 
                     TypeDeclFlags flags = NORMAL_DECLARATION) const;
-            //! Returns a string with a declaration
+            //! Returns a string with a C/C++ declaration
             std::string get_declaration(Scope sc, const std::string& symbol_name,
                     TypeDeclFlags flags = NORMAL_DECLARATION) const;
 
-            //! Returns a string with a declaration and suitable initializer
+            //! Returns a string with a C/C++ declaration and suitable initializer
             std::string get_declaration_with_initializer(Scope sc, 
                     const std::string& symbol_name, const std::string& initializer,
                     TypeDeclFlags flags = NORMAL_DECLARATION) const;
 
-            //! Returns a string with a function declaration and parameter names
+            //! Returns a string with a C/C++ function declaration and parameter names
             std::string get_declaration_with_parameters(Scope sc, const std::string& symbol_name,
                     ObjectList<std::string>& parameters, ObjectList<std::string>& parameter_attributes, TypeDeclFlags flags = NORMAL_DECLARATION) const;
+
+            // Returns a string with a Fortran declaration
+            std::string get_fortran_declaration(Scope sc, const std::string& symbol_name, TypeDeclFlags flags = NORMAL_DECLARATION);
 
             //! Basic type
             /*! Returns the basic type on which this type is built 
