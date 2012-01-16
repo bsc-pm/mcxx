@@ -1257,7 +1257,7 @@ void instantiation_add_symbol_to_instantiate(scope_entry_t* entry,
 
 static void instantiate_template_function(scope_entry_t* entry, const char* filename, int line)
 {
-    // DEBUG_CODE()
+    DEBUG_CODE()
     {
         fprintf(stderr, "INSTANTIATION: Instantiating function '%s' with type '%s' at '%s:%d\n",
                 entry->symbol_name,
@@ -1280,9 +1280,9 @@ static void instantiate_template_function(scope_entry_t* entry, const char* file
     scope_entry_t* primary_specialization_function = named_type_get_symbol(primary_specialization_type);
     // type_t* primary_specialization_function_type = primary_specialization_function->type_information;
 
-    nodecl_t orig_function_definition = primary_specialization_function->entity_specs.function_code;
+    // nodecl_t orig_function_definition = primary_specialization_function->entity_specs.function_code;
 
-    ast_dump_graphviz(nodecl_get_ast(orig_function_definition), stderr);
+    // ast_dump_graphviz(nodecl_get_ast(orig_function_definition), stderr);
 
     // 
     // // Remove dependent types
