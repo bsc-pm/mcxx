@@ -1401,7 +1401,11 @@ CxxBase::Ret CxxBase::visit(const Nodecl::MemberInit& node)
         if (nodecl_calls_to_constructor(init_expr, entry.get_type()))
         {
             // Ignore top level constructor
-            walk_expression_list(init_expr.children()[1].as<Nodecl::List>());
+            walk_expression_list(init_expr.as<Nodecl::FunctionCall>().get_arguments().as<Nodecl::List>());
+        }
+        else if (init_expr.is<Nodecl::StructuredValue>())
+        {
+            walk_expression_list(init_expr.as<Nodecl::StructuredValue>().get_items().as<Nodecl::List>());
         }
         else
         {
