@@ -169,6 +169,20 @@ namespace TL
         return Type(array_to);
     }
 
+    Type Type::get_array_to_with_descriptor(Nodecl::NodeclBase lower_bound, Nodecl::NodeclBase upper_bound, Scope sc)
+    {
+        type_t* result_type = this->_type_info;
+
+        decl_context_t decl_context = sc.get_decl_context();
+
+        type_t* array_to = get_array_type_bounds_with_descriptor(result_type, 
+                lower_bound.get_internal_nodecl(), 
+                upper_bound.get_internal_nodecl(), 
+                decl_context);
+
+        return Type(array_to);
+    }
+
     Type Type::get_array_to()
     {
         type_t* result_type = this->_type_info;
@@ -474,6 +488,16 @@ namespace TL
         if (is_array())
         {
             return (!array_type_is_unknown_size(_type_info));
+        }
+
+        return false;
+    }
+
+    bool Type::array_requires_descriptor() const
+    {
+        if (is_array())
+        {
+            return (array_type_with_descriptor(_type_info));
         }
 
         return false;

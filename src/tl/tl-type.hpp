@@ -261,6 +261,14 @@ namespace TL
              */
             Type get_array_to(Nodecl::NodeclBase lower_bound, Nodecl::NodeclBase upper_bound, Scope scope);
 
+            //! Returns a ranged array to the current type with descriptor
+            /*! 
+             * \param lower_bound The lower bound expression of the array. 
+             * \param upper_bound The upper bound expression of the array. 
+             * \param scope Scope of \a lower_bound and \a upper_bound
+             */
+            Type get_array_to_with_descriptor(Nodecl::NodeclBase lower_bound, Nodecl::NodeclBase upper_bound, Scope scope);
+
             //! Gets a lvalue reference (C++) to the current type
             Type get_lvalue_reference_to();
             
@@ -485,6 +493,12 @@ namespace TL
             //! Returns the expression of the array dimension
             Nodecl::NodeclBase array_get_size() const; 
 
+            //! States whether the frontend flagged this array as requiring an in-memory descriptor
+            /*!
+             * This only happens in Fortran for some array kinds
+             */
+            bool array_requires_descriptor() const;
+
             //! Return the number of dimensions for an array type or 0 for the rest of types
             int get_num_dimensions() const;
 
@@ -510,7 +524,13 @@ namespace TL
             //! This returns the expression of the array region size 
             Nodecl::NodeclBase array_get_region_size() const;
             
-            //! [C only] States whether current array is a VLA
+            //! [C and Fortran] States whether current array is a VLA
+            /*!
+             * There are no VLAs in Fortran but this attribute will be true for
+             * those arrays not requiring descriptors the size of which is non
+             * constant (like explicit shape arrays with bounds depending on
+             * dummy arguments)
+             */
             bool array_is_vla() const;
 
             //! States whether current type is a vector-type
