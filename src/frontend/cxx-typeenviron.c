@@ -123,9 +123,11 @@ static void system_v_field_layout(scope_entry_t* field,
     if (is_array_type(field_type)
             && nodecl_is_null(array_type_get_array_size_expr(field_type)))
     {
-        if (!is_last_field)
+        if (!is_last_field 
+                // Fortran stuff
+                && !array_type_with_descriptor(field_type))
         {
-            running_error("Invalid unbounded array found when computing type of struct\n", 0);
+            internal_error("Invalid unbounded array found when computing type of struct\n", 0);
         }
         else
         {

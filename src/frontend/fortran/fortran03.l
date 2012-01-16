@@ -2683,6 +2683,13 @@ compilation_configuration_t* string_scanning_configuration = 0;
 int mf03_prepare_string_for_scanning(const char* str)
 {
 	static int num_string = 0;
+
+	DEBUG_CODE()
+    {
+        fprintf(stderr, "* Going to parse string in Fortran\n");
+        fprintf(stderr, "%s\n", str);
+        fprintf(stderr, "* End of parsed string\n");
+    }
 	include_stack_size = 0;
 	fortran_scanning_now = &include_stack[include_stack_size];
 	fortran_scanning_now->line_number = 1;

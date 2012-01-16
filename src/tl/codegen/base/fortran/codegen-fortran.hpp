@@ -107,6 +107,11 @@ namespace Codegen
             void visit(const Nodecl::Alignof& node);
 
             void visit(const Nodecl::CxxDepNameSimple& node);
+
+            void codegen_type(TL::Type t, 
+                    std::string& type_specifier, 
+                    std::string& array_specifier,
+                    bool is_dummy);
         private:
             // State
             struct State
@@ -188,11 +193,6 @@ namespace Codegen
                     const std::string& operator_bool);
 
             bool is_fortran_representable_pointer(TL::Type t);
-
-            void codegen_type(TL::Type t, 
-                    std::string& type_specifier, 
-                    std::string& array_specifier,
-                    bool is_dummy);
 
             void codegen_casting(
                     TL::Type dest_type, 

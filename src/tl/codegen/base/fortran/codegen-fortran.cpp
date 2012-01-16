@@ -2779,37 +2779,46 @@ OPERATOR_TABLE
                 internal_error("too many array dimensions %d\n", MCXX_MAX_ARRAY_SPECIFIER);
             }
 
-            array_spec_list[array_spec_idx].lower = array_type_get_array_lower_bound(t.get_internal_type());
-            if (array_spec_list[array_spec_idx].lower.is_constant())
+            if (!is_fortran_pointer)
             {
-                array_spec_list[array_spec_idx].lower = 
-                    const_value_to_nodecl(nodecl_get_constant(array_spec_list[array_spec_idx].lower.get_internal_nodecl()));
-            }
-            else
-            {
-                declare_symbols_rec(array_spec_list[array_spec_idx].lower);
-            }
-
-            if (!array_type_is_unknown_size(t.get_internal_type()))
-            {
-                array_spec_list[array_spec_idx].upper = array_type_get_array_upper_bound(t.get_internal_type());
-
-                if (array_spec_list[array_spec_idx].upper.is_constant())
+                array_spec_list[array_spec_idx].lower = array_type_get_array_lower_bound(t.get_internal_type());
+                if (array_spec_list[array_spec_idx].lower.is_constant())
                 {
-                    array_spec_list[array_spec_idx].upper = 
-                        const_value_to_nodecl(nodecl_get_constant(array_spec_list[array_spec_idx].upper.get_internal_nodecl()));
+                    array_spec_list[array_spec_idx].lower = 
+                        const_value_to_nodecl(nodecl_get_constant(array_spec_list[array_spec_idx].lower.get_internal_nodecl()));
                 }
                 else
                 {
-                    declare_symbols_rec(array_spec_list[array_spec_idx].upper);
+                    declare_symbols_rec(array_spec_list[array_spec_idx].lower);
                 }
+
+                if (!array_type_is_unknown_size(t.get_internal_type()))
+                {
+                    array_spec_list[array_spec_idx].upper = array_type_get_array_upper_bound(t.get_internal_type());
+
+                    if (array_spec_list[array_spec_idx].upper.is_constant())
+                    {
+                        array_spec_list[array_spec_idx].upper = 
+                            const_value_to_nodecl(nodecl_get_constant(array_spec_list[array_spec_idx].upper.get_internal_nodecl()));
+                    }
+                    else
+                    {
+                        declare_symbols_rec(array_spec_list[array_spec_idx].upper);
+                    }
+                }
+                else
+                {
+                    array_spec_list[array_spec_idx].is_undefined = true;
+                }
+
+                array_spec_list[array_spec_idx].with_descriptor = array_type_with_descriptor(t.get_internal_type());
             }
             else
             {
                 array_spec_list[array_spec_idx].is_undefined = true;
+                array_spec_list[array_spec_idx].with_descriptor = true;
             }
 
-            array_spec_list[array_spec_idx].with_descriptor = array_type_with_descriptor(t.get_internal_type());
 
             t = t.array_element();
         }

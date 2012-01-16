@@ -50,8 +50,8 @@ namespace TL { namespace Nanox {
             TL::Type field_type = it->get_field_type();
             if (field_type.is_any_reference())
             {
-                // Note that we do not use rebindable references as in the
-                // structure because they would not be initializable
+                // Note that we do not use rebindable references because they
+                // would not be initializable
                 field_type = field_type.references_to().get_pointer_to();
             }
 
@@ -68,7 +68,31 @@ namespace TL { namespace Nanox {
             // Language specific parts
             if (IS_FORTRAN_LANGUAGE)
             {
-                // TODO
+                // Fix the type for Fortran arrays
+                if (field_type.is_array()
+                        && (field_type.array_requires_descriptor()
+                            || field_type.array_is_vla()))
+                {
+                    field.get_internal_symbol()->entity_specs.is_allocatable = 1;
+
+                    // Rebuild the array type as an unbounded array type
+                    int k = 0;
+                    while (field_type.is_array())
+                    {
+                        field_type = field_type.array_element();
+                        k++;
+                    }
+
+                    while (k > 0)
+                    {
+                        field_type = field_type.get_array_to_with_descriptor(Nodecl::NodeclBase::null(), 
+                                Nodecl::NodeclBase::null(),
+                                construct.retrieve_context());
+                        k--;
+                    }
+
+                    field.get_internal_symbol()->type_information = field_type.get_internal_type();
+                }
             }
             else if (IS_C_LANGUAGE
                     || IS_CXX_LANGUAGE)

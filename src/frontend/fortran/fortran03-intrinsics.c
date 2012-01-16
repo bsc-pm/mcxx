@@ -664,6 +664,7 @@ static scope_entry_t* get_intrinsic_symbol_(const char* name,
         new_entry->entity_specs.is_elemental = is_elemental;
         new_entry->entity_specs.is_pure = (is_pure || is_elemental);
 
+        new_entry->entity_specs.is_global_hidden = 1;
         new_entry->entity_specs.is_builtin = 1;
         new_entry->entity_specs.is_builtin_subroutine = is_void_type(result_type);
 
@@ -789,6 +790,7 @@ void fortran_init_intrinsics(decl_context_t decl_context)
         new_intrinsic->kind = SK_FUNCTION; \
         new_intrinsic->do_not_print = 1; \
         new_intrinsic->type_information = get_computed_function_type(compute_intrinsic_##name##_aux); \
+        new_intrinsic->entity_specs.is_global_hidden = 1; \
         new_intrinsic->entity_specs.is_builtin = 1; \
         if (kind0 == ES || kind0 == PS || kind0 == S) \
         new_intrinsic->entity_specs.is_builtin_subroutine = 1; \
@@ -802,6 +804,7 @@ void fortran_init_intrinsics(decl_context_t decl_context)
         new_intrinsic->kind = SK_FUNCTION; \
         new_intrinsic->do_not_print = 1; \
         new_intrinsic->type_information = get_computed_function_type(compute_intrinsic_##name##_aux); \
+        new_intrinsic->entity_specs.is_global_hidden = 1; \
         new_intrinsic->entity_specs.is_builtin = 1; \
         if (kind0 == ES || kind0 == PS || kind0 == S) \
         new_intrinsic->entity_specs.is_builtin_subroutine = 1; \

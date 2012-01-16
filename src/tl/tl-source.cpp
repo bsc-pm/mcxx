@@ -503,7 +503,7 @@ namespace TL
                 return parse_generic(ref_scope, parse_flags, "@PROGRAM-UNIT@", 
                         mf03_prepare_string_for_scanning,
                         mf03parse,
-                        build_scope_program_unit,
+                        build_scope_program_unit_seq,
                         decl_context_global
                         );
                 break;
@@ -544,7 +544,7 @@ namespace TL
                 return parse_generic(ref_scope, parse_flags, "@PROGRAM-UNIT@", 
                         mf03_prepare_string_for_scanning,
                         mf03parse,
-                        build_scope_program_unit,
+                        build_scope_program_unit_seq,
                         decl_context_program_unit
                         );
                 break;
