@@ -50,8 +50,8 @@ namespace TL { namespace Nanox {
             TL::Type field_type = it->get_field_type();
             if (field_type.is_any_reference())
             {
-                // Note that we do not use rebindable references as in the
-                // structure because they would not be initializable
+                // Note that we do not use rebindable references because they
+                // would not be initializable
                 field_type = field_type.references_to().get_pointer_to();
             }
 
