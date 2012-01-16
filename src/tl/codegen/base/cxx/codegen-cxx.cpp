@@ -331,7 +331,13 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Cast& node)
     }
     else
     {
-        file << cast_kind << "<" << this->get_declaration(t, state.current_scope,  "") << ">(";
+        std::string decl = this->get_declaration(t, state.current_scope,  "");
+        if (decl[0] == ':')
+        {
+            decl = " " + decl;
+        }
+
+        file << cast_kind << "<" << decl << ">(";
         walk(nest);
         file << ")";
     }

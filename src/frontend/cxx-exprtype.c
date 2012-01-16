@@ -7084,30 +7084,148 @@ static void check_delete_expression(AST expression, decl_context_t decl_context,
             nodecl_output);
 }
 
+static void check_nodecl_cast_expr(nodecl_t nodecl_casted_expr, 
+        decl_context_t decl_context, 
+        type_t* declarator_type,
+        const char* cast_kind,
+        const char* filename, int line,
+        nodecl_t* nodecl_output)
+{
+    if (is_dependent_type(declarator_type))
+    {
+        *nodecl_output = nodecl_make_cast(
+                nodecl_casted_expr,
+                declarator_type,
+                cast_kind,
+                filename, line);
+        nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+        return;
+    }
+
+    if (IS_CXX_LANGUAGE
+            && (strcmp(cast_kind, "C") == 0
+                || strcmp(cast_kind, "static_cast") == 0))
+    {
+        // FIXME - For a C cast we need to check the following cases (in this order!)
+        //
+        //   const_cast
+        //   static_cast
+        //   static_cast + const_cast
+        //   reinterpret_cast
+        //   reinterpret_cast + const_cast
+        // 
+        // We may be missing conversions in a C cast if a const_cast is required after a static_cast
+
+        // Shut up the compiler if things go wrong
+        enter_test_expression();
+        // Check if an initialization is possible
+        // If possible this will set a proper conversion call
+        nodecl_t nodecl_cast_output = nodecl_null();
+        nodecl_t nodecl_parenthesized_init = nodecl_make_cxx_parenthesized_initializer(
+                nodecl_make_list_1(nodecl_copy(nodecl_casted_expr)),
+                nodecl_get_filename(nodecl_casted_expr),
+                nodecl_get_line(nodecl_casted_expr));
+        // This actually checks T(e)
+        check_nodecl_parenthesized_initializer(nodecl_parenthesized_init, 
+                decl_context, 
+                declarator_type, 
+                &nodecl_cast_output);
+        leave_test_expression();
+
+        // T(e) becomes (T){e}, so we get 'e' so the result is (T)e and not (T)(T){e}
+        if (nodecl_get_kind(nodecl_cast_output) == NODECL_STRUCTURED_VALUE)
+        {
+            nodecl_cast_output = nodecl_list_head(nodecl_get_child(nodecl_cast_output, 0));
+        }
+
+        if (!nodecl_is_err_expr(nodecl_cast_output))
+        {
+            nodecl_casted_expr = nodecl_cast_output;
+        }
+    }
+
+    char is_lvalue = 0;
+    if (is_lvalue_reference_type(declarator_type))
+    {
+        is_lvalue = 1;
+    }
+
+    *nodecl_output = nodecl_make_cast(
+            nodecl_casted_expr,
+            declarator_type,
+            cast_kind,
+            filename, line);
+
+    if (nodecl_is_constant(nodecl_casted_expr)
+            && (is_integral_type(declarator_type)
+               || is_pointer_type(declarator_type)))
+    {
+        const_value_t * const_casted_expr = nodecl_get_constant(nodecl_casted_expr);
+        
+        // The const_casted_expr variable can be a string literal. 
+        // Example:
+        // (const void *)"ABC";
+        // 
+        // Something similar appears in strcmp function
+        if (const_value_is_integer(const_casted_expr)
+                || const_value_is_floating(const_casted_expr))
+        {
+            nodecl_set_constant(*nodecl_output,
+                    const_value_cast_to_bytes(
+                        const_casted_expr,
+                        type_get_size(declarator_type), 
+                        /* sign */ is_signed_integral_type(declarator_type)));
+        }
+    }
+
+    if (is_dependent_type(declarator_type))
+    {
+        nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+    }
+    if (is_dependent_type(declarator_type)
+            || nodecl_expr_is_value_dependent(nodecl_casted_expr))
+    {
+        nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
+    }
+
+    nodecl_expr_set_is_lvalue(*nodecl_output, is_lvalue);
+}
+
 static void check_nodecl_explicit_type_conversion(type_t* type_info,
-        nodecl_t parenthesized_init, decl_context_t decl_context,
+        nodecl_t nodecl_expr_list, decl_context_t decl_context,
         nodecl_t* nodecl_output,
         const char* filename,
         int line)
 {
-    check_nodecl_parenthesized_initializer(parenthesized_init, decl_context, type_info, nodecl_output);
-
-    if (nodecl_is_err_expr(*nodecl_output))
+    if (nodecl_list_length(nodecl_expr_list) == 1)
     {
-        *nodecl_output = nodecl_make_err_expr(filename, line);
-        return;
+        // Use the same code as the (T)e syntax
+        check_nodecl_cast_expr(nodecl_list_head(nodecl_expr_list), decl_context, type_info, "C", filename, line, nodecl_output);
     }
+    else
+    {
+        // Otherwise try a parenthesized initializer (which should do)
+        nodecl_t parenthesized_init = nodecl_make_cxx_parenthesized_initializer(nodecl_expr_list, filename, line);
 
-    if (is_dependent_type(type_info))
-    {
-        *nodecl_output = 
-            nodecl_make_cxx_explicit_type_cast(*nodecl_output, type_info, filename, line);
-        nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
-    }
-    if (is_dependent_type(type_info)
-            || nodecl_expr_is_value_dependent(*nodecl_output))
-    {
-        nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
+        check_nodecl_parenthesized_initializer(parenthesized_init, decl_context, type_info, nodecl_output);
+
+        if (nodecl_is_err_expr(*nodecl_output))
+        {
+            *nodecl_output = nodecl_make_err_expr(filename, line);
+            return;
+        }
+
+        if (is_dependent_type(type_info))
+        {
+            *nodecl_output = 
+                nodecl_make_cxx_explicit_type_cast(*nodecl_output, type_info, filename, line);
+            nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+        }
+        if (is_dependent_type(type_info)
+                || nodecl_expr_is_value_dependent(*nodecl_output))
+        {
+            nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
+        }
     }
 }
 
@@ -7125,8 +7243,6 @@ static void check_explicit_type_conversion_common(type_t* type_info,
         *nodecl_output = nodecl_make_err_expr(ASTFileName(expression_list), ASTLine(expression_list));
         return;
     }
-
-    nodecl_expr_list = nodecl_make_cxx_parenthesized_initializer(nodecl_expr_list, ASTFileName(expr), ASTLine(expr));
 
     check_nodecl_explicit_type_conversion(type_info, nodecl_expr_list, decl_context,
             nodecl_output, ASTFileName(expr), ASTLine(expr));
@@ -8405,112 +8521,6 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t 
     check_nodecl_function_call(nodecl_called, nodecl_argument_list, decl_context, nodecl_output);
 }
 
-static void check_nodecl_cast_expr(nodecl_t nodecl_casted_expr, 
-        decl_context_t decl_context, 
-        type_t* declarator_type,
-        const char* cast_kind,
-        const char* filename, int line,
-        nodecl_t* nodecl_output)
-{
-    if (is_dependent_type(declarator_type))
-    {
-        *nodecl_output = nodecl_make_cast(
-                nodecl_casted_expr,
-                declarator_type,
-                cast_kind,
-                filename, line);
-        nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
-        return;
-    }
-
-    if (IS_CXX_LANGUAGE
-            && (strcmp(cast_kind, "C") == 0
-                || strcmp(cast_kind, "static_cast") == 0))
-    {
-        // FIXME - For a C cast we need to check the following cases (in this order!)
-        //
-        //   const_cast
-        //   static_cast
-        //   static_cast + const_cast
-        //   reinterpret_cast
-        //   reinterpret_cast + const_cast
-        // 
-        // We may be missing conversions in a C cast if a const_cast is required after a static_cast
-
-        // Shut up the compiler if things go wrong
-        enter_test_expression();
-        // Check if an initialization is possible
-        // If possible this will set a proper conversion call
-        nodecl_t nodecl_cast_output = nodecl_null();
-        nodecl_t nodecl_parenthesized_init = nodecl_make_cxx_parenthesized_initializer(
-                nodecl_make_list_1(nodecl_copy(nodecl_casted_expr)),
-                nodecl_get_filename(nodecl_casted_expr),
-                nodecl_get_line(nodecl_casted_expr));
-        // This actually checks T(e)
-        check_nodecl_parenthesized_initializer(nodecl_parenthesized_init, 
-                decl_context, 
-                declarator_type, 
-                &nodecl_cast_output);
-        leave_test_expression();
-
-        // T(e) becomes (T){e}, so we get 'e' so the result is (T)e and not (T)(T){e}
-        if (nodecl_get_kind(nodecl_cast_output) == NODECL_STRUCTURED_VALUE)
-        {
-            nodecl_cast_output = nodecl_list_head(nodecl_get_child(nodecl_cast_output, 0));
-        }
-
-        if (!nodecl_is_err_expr(nodecl_cast_output))
-        {
-            nodecl_casted_expr = nodecl_cast_output;
-        }
-    }
-
-    char is_lvalue = 0;
-    if (is_lvalue_reference_type(declarator_type))
-    {
-        is_lvalue = 1;
-    }
-
-    *nodecl_output = nodecl_make_cast(
-            nodecl_casted_expr,
-            declarator_type,
-            cast_kind,
-            filename, line);
-
-    if (nodecl_is_constant(nodecl_casted_expr)
-            && (is_integral_type(declarator_type)
-               || is_pointer_type(declarator_type)))
-    {
-        const_value_t * const_casted_expr = nodecl_get_constant(nodecl_casted_expr);
-        
-        // The const_casted_expr variable can be a string literal. 
-        // Example:
-        // (const void *)"ABC";
-        // 
-        // Something similar appears in strcmp function
-        if (const_value_is_integer(const_casted_expr)
-                || const_value_is_floating(const_casted_expr))
-        {
-            nodecl_set_constant(*nodecl_output,
-                    const_value_cast_to_bytes(
-                        const_casted_expr,
-                        type_get_size(declarator_type), 
-                        /* sign */ is_signed_integral_type(declarator_type)));
-        }
-    }
-
-    if (is_dependent_type(declarator_type))
-    {
-        nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
-    }
-    if (is_dependent_type(declarator_type)
-            || nodecl_expr_is_value_dependent(nodecl_casted_expr))
-    {
-        nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
-    }
-
-    nodecl_expr_set_is_lvalue(*nodecl_output, is_lvalue);
-}
 
 static void check_cast_expr(AST expr, AST type_id, AST casted_expression_list, decl_context_t decl_context,
         const char* cast_kind,
@@ -14275,12 +14285,8 @@ static void instantiate_explicit_type_cast(nodecl_instantiate_expr_visitor_t* v,
         free(list);
     }
 
-    nodecl_t new_parenthesized_init = nodecl_make_cxx_parenthesized_initializer(nodecl_new_list, 
-            nodecl_get_filename(node),
-            nodecl_get_line(node));
-
     check_nodecl_explicit_type_conversion(t, 
-            new_parenthesized_init, 
+            nodecl_new_list,
             v->decl_context, 
             &v->nodecl_result,
             nodecl_get_filename(node),
