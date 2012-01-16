@@ -131,14 +131,10 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         <<     struct_runtime_size
         <<     "nanos_wd_t wd = (nanos_wd_t)0;"
         <<     "nanos_wd_props_t props;"
-        <<     "props.mandatory_creation = 1;"
+        <<     "props.mandatory_creation = 0;"
         <<     "props.tied = 0;"
         <<     "props.tie_to = (nanos_thread_t)0;"
         <<     "props.priority = 0;"
-        <<     "props.reserved0 = 1;"
-        <<     "props.reserved2 = 0;"
-        <<     "props.reserved3 = 1;"
-        <<     "props.reserved5 = 1;"
         <<     creation
         <<     priority
         <<     tiedness
