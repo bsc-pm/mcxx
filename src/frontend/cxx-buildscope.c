@@ -2149,7 +2149,8 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
     {
         if (gather_info->no_declarators
                 && !gather_info->parameter_declaration
-                && !gather_info->is_friend)
+                && !gather_info->is_friend
+                && ASTType(id_expression) != AST_TEMPLATE_ID)
         {
             if (is_unqualified_id_expression(id_expression))
             {
@@ -2394,12 +2395,43 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
     }
     else
     {
+        if (entry->kind == SK_DEPENDENT_ENTITY)
+        {
+            if (gather_info->no_declarators)
+            {
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: declaration '%s' does not declare anything\n",
+                            ast_location(id_expression),
+                            prettyprint_in_buffer(id_expression));
+                }
+                *type_info = get_error_type();
+                return;
+            }
+            *type_info = entry->type_information;
+            return;
+        }
+
         DEBUG_CODE()
         {
             fprintf(stderr, "BUILDSCOPE: Class type found already declared in %s:%d, using it\n", entry->file, entry->line);
         }
 
         ERROR_CONDITION(entry->kind != SK_CLASS, "This must be a class", 0);
+
+        if (gather_info->no_declarators
+                && ASTType(id_expression) == AST_TEMPLATE_ID
+                && decl_context.current_scope->kind != NAMESPACE_SCOPE)
+        {
+            if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: declaration '%s' does not declare anything\n",
+                            ast_location(id_expression),
+                            prettyprint_in_buffer(id_expression));
+                }
+                *type_info = get_error_type();
+                return;
+        }
 
         class_entry = entry;
         class_type = class_entry->type_information;
