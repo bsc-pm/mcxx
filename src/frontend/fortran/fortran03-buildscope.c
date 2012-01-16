@@ -660,6 +660,8 @@ static void build_scope_main_program_unit(AST program_unit,
     program_sym->kind = SK_PROGRAM;
     program_sym->file = ASTFileName(program_unit);
     program_sym->line = ASTLine(program_unit);
+
+    program_sym->entity_specs.is_global_hidden = 1;
     
     remove_unknown_kind_symbol(decl_context, program_sym);
 
@@ -904,6 +906,9 @@ static void build_scope_module_program_unit(AST program_unit,
 
     scope_entry_t* new_entry = new_fortran_symbol_not_unknown(decl_context, ASTText(module_name));
     new_entry->kind = SK_MODULE;
+
+    if (new_entry->decl_context.current_scope = decl_context.global_scope)
+        new_entry->entity_specs.is_global_hidden = 1;
     
     remove_unknown_kind_symbol(decl_context, new_entry);
 
@@ -1008,6 +1013,9 @@ static void build_scope_block_data_program_unit(AST program_unit,
     program_sym->kind = SK_BLOCKDATA;
     program_sym->file = ASTFileName(program_unit);
     program_sym->line = ASTLine(program_unit);
+
+    if (program_sym->decl_context.current_scope = decl_context.global_scope)
+        program_sym->entity_specs.is_global_hidden = 1;
     
     remove_unknown_kind_symbol(decl_context, program_sym);
     
@@ -1111,6 +1119,9 @@ static scope_entry_t* new_procedure_symbol(
     entry->line = ASTLine(name);
     entry->entity_specs.is_implicit_basic_type = 1;
     entry->defined = 1;
+
+    if (entry->decl_context.current_scope = decl_context.global_scope)
+        entry->entity_specs.is_global_hidden = 1;
     
     remove_unknown_kind_symbol(decl_context, entry);
 
