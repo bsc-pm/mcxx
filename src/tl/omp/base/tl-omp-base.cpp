@@ -138,11 +138,34 @@ namespace TL { namespace OpenMP {
 
         Nodecl::List execution_environment = this->make_execution_environment(ds, pragma_line);
 
-        directive.replace(
-                Nodecl::Parallel::Async::make(execution_environment, 
-                    directive.get_statements().copy(),
-                    directive.get_filename(),
-                    directive.get_line()));
+        PragmaCustomClause if_clause = pragma_line.get_clause("if");
+
+        Nodecl::NodeclBase async_code = 
+                    Nodecl::Parallel::Async::make(execution_environment, 
+                        directive.get_statements().copy(),
+                        directive.get_filename(),
+                        directive.get_line());
+
+        // Honour if-clause
+        if (if_clause.is_defined())
+        {
+            TL::ObjectList<Nodecl::NodeclBase> expr_list = if_clause.get_arguments_as_expressions(directive);
+            if (expr_list.size() != 1)
+            {
+                warn_printf("%s: warning: ignoring invalid 'if' clause in 'task' construct\n",
+                        directive.get_locus().c_str());
+            }
+            else
+            {
+                async_code = Nodecl::IfElseStatement::make(
+                        expr_list[0],
+                        Nodecl::List::make(async_code),
+                        Nodecl::NodeclBase::null(),
+                        directive.get_filename(),
+                        directive.get_line());
+            }
+        }
+        directive.replace(async_code);
     }
 
     void Base::parallel_handler_pre(TL::PragmaCustomStatement) { }
