@@ -2364,6 +2364,14 @@ OPERATOR_TABLE
                 }
             }
 
+            // If it was empty add a dummy empty component
+            if (members.empty())
+            {
+                indent();
+                file << "INTEGER :: dummy_empty_\n";
+            }
+
+
             dec_indent();
             state.current_symbol = old_sym;
 
