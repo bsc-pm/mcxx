@@ -2158,13 +2158,13 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
             }
             else
             {
-                result_list = query_id_expression_flags(decl_context, 
+                result_list = query_id_expression_flags(decl_context,
                         id_expression, decl_flags | DF_DEPENDENT_TYPENAME);
             }
         }
         else
         {
-            result_list = query_id_expression_flags(decl_context, 
+            result_list = query_id_expression_flags(decl_context,
                     id_expression, decl_flags | DF_DEPENDENT_TYPENAME);
         }
     }
@@ -2178,14 +2178,14 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
     }
 
     // Now look for a type
-    enum cxx_symbol_kind filter_classes[] = 
+    enum cxx_symbol_kind filter_classes[] =
     {
         SK_CLASS,
         SK_DEPENDENT_ENTITY,
         SK_TEMPLATE, // For the primary template
     };
 
-    scope_entry_list_t* entry_list = filter_symbol_kind_set(result_list, 
+    scope_entry_list_t* entry_list = filter_symbol_kind_set(result_list,
             STATIC_ARRAY_LENGTH(filter_classes), filter_classes);
 
     entry_list_free(result_list);
@@ -2228,7 +2228,17 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         scope_entry_t* class_symbol = decl_context.current_scope->related_entry;
         ERROR_CONDITION(class_symbol->kind != SK_CLASS, "Invalid symbol", 0);
         class_type_add_friend_symbol(class_symbol->type_information, entry);
-       // ???
+
+        if (entry->kind == SK_DEPENDENT_ENTITY)
+        {
+            entry->kind = SK_DEPENDENT_FRIEND_CLASS;
+
+            //create a new nodecl
+            nodecl_t nodecl_name = nodecl_null();
+            compute_nodecl_name_from_id_expression(id_expression, decl_context, &nodecl_name);
+            entry->value = nodecl_name;
+        }
+
         *type_info = get_void_type();
         return;
     }
