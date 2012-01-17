@@ -336,6 +336,7 @@ namespace TL
                 
                 void set_stride_node(Node* stride);
                 
+                bool is_stride_node();
                 
                 // *** Consultants *** //
                 //! Returns true if the node has the same identifier and the same entries and exits

@@ -156,10 +156,6 @@ namespace TL
                 If both the source and the target do not have an outer node, then true is returned.
                 */
                 static bool belongs_to_the_same_graph(Edge* edge);
-                
-                //! Recompute the identifiers of the nodes graph hanging from actual_node from the value of _nid
-                //! This method is used when a node s replaced by another, because the identifiers may be repeated
-                void recompute_identifiers(Node* actual_node);
 
                 //! Method used during the copy method when the edges must be copied before connecting the nodes
                 void connect_nodes(ObjectList<Node*> parents, Node* child, ObjectList<Edge*> edges);
@@ -171,11 +167,6 @@ namespace TL
                 void copy_and_map_nodes(Node* old_node);
                 
                 void connect_copied_nodes(Node* old_node);
-                
-                //! Set of methods that removes those nodes that can never be reached.                 
-                void clear_orphaned_nodes(Node* actual_node);
-                void clear_orphaned_nodes_in_subgraph(Node* actual_node);
-                void clear_orphaned_cascade(Node* actual_node);
             
                 //! Removes those nodes that has UNCLASSIFIED_NODE type and reconects parents and
                 //! children nodes properly.
@@ -340,9 +331,6 @@ namespace TL
                 * The new node will contain the statements of all the nodes of the list.
                 */
                 void concat_nodes(ObjectList<Node*> node_l);
-                
-                //!
-                void replace_node(Node* old_node, Node* new_node);
 
                 //! This function clears the attribute #visited from nodes bellow @actual node.
                 //! It works properly if there isn't any unreachable node in the graph bellow @actual.

@@ -70,6 +70,36 @@ namespace TL
             return nodecl_l;
         }        
         
+        static Nodecl::NodeclBase non_constant_min(Nodecl::Symbol a, Nodecl::NodeclBase b)
+        {
+            Nodecl::NodeclBase result;
+            
+            if (b.is<Nodecl::Add>())
+            {    
+                Nodecl::Add add = b.as<Nodecl::Add>();
+                Nodecl::NodeclBase lhs = add.get_lhs();
+                Nodecl::NodeclBase rhs = add.get_rhs();
+                if (lhs.is_constant())
+                {
+                    if (Nodecl::Utils::equal_nodecls(a, rhs))
+                    {
+                        const_value_t* lhs_const_val = lhs.get_constant();
+                        const_value_t* zero = const_value_get_zero(/* bytes */ 4, /* signed*/ 0);
+                        if(lhs_const_val < zero)
+                            result = b;
+                        else
+                            result = a;   
+                    }
+                }
+            }
+            else
+            {
+                result = Nodecl::NodeclBase::null();
+            }
+            
+            return result;
+        }
+        
         // FIXME We should evaluate the type of both nodes, not just node 'a'
         static Nodecl::NodeclBase min(Nodecl::NodeclBase a, Nodecl::NodeclBase b)
         {
@@ -93,13 +123,54 @@ namespace TL
                 {
                     internal_error("Unexpected node type '%s' while computing initial value in a constant expression", 
                                 ast_print_node_type(a.get_kind()));
-                }             
-                return result;
+                }
+            }
+            else if (a.is<Nodecl::Symbol>() && b.is<Nodecl::Add>())
+            {
+                result = non_constant_min(a.as<Nodecl::Symbol>(), b);
+            }
+            else if (a.is<Nodecl::Add>() && b.is<Nodecl::Symbol>())
+            {
+                result = non_constant_min(b.as<Nodecl::Symbol>(), a);
             }
             else
             {
-                return Nodecl::NodeclBase::null();
-            }        
+                result = Nodecl::NodeclBase::null();
+            } 
+            
+            return result;
+        }
+        
+        static Nodecl::NodeclBase non_constant_max(Nodecl::NodeclBase a, Nodecl::NodeclBase b)
+        {
+            Nodecl::NodeclBase result;
+           
+            if (b.is<Nodecl::Add>())
+            {    
+                Nodecl::Add add = b.as<Nodecl::Add>();
+                Nodecl::NodeclBase lhs = add.get_lhs();
+                Nodecl::NodeclBase rhs = add.get_rhs();
+                if (lhs.is_constant())
+                {
+                    if (Nodecl::Utils::equal_nodecls(a, rhs))
+                    {
+                        const_value_t* lhs_const_val = lhs.get_constant();
+                        const_value_t* zero = const_value_get_zero(/* bytes */ 4, /* signed*/ 1);
+                        if(lhs_const_val < zero)
+                        {
+                            result = a;
+                        }
+                        else
+                            result = b;    
+                    }
+                }
+            }
+            else
+            {
+                result = Nodecl::NodeclBase::null();
+            }
+            
+            return result;
         }
         
         static Nodecl::NodeclBase max(Nodecl::NodeclBase a, Nodecl::NodeclBase b)
@@ -124,13 +195,23 @@ namespace TL
                 {
                     internal_error("Unexpected node type '%s' while computing initial value in a constant expression", 
                                 ast_print_node_type(a.get_kind()));
-                }             
-                return result;
+                }
+            }
+            else if (a.is<Nodecl::Symbol>() && b.is<Nodecl::Add>())
+            {
+                
+                result = non_constant_max(a, b);
+            }
+            else if (a.is<Nodecl::Add>() && b.is<Nodecl::Symbol>())
+            {
+                result = non_constant_max(b, a);
             }
             else
             {
-                return Nodecl::NodeclBase::null();
-            }         
+                result = Nodecl::NodeclBase::null();
+            }   
+            
+            return result;
         }
         
         Nodecl::NodeclBase CfgRenamingVisitor::combine_variable_values(Nodecl::NodeclBase node1, Nodecl::NodeclBase node2)
@@ -186,6 +267,25 @@ namespace TL
                 if (Nodecl::Utils::equal_nodecls(node1, node2))
                 {
                     return node1;
+                }
+                else if (node1.is_constant() && node2.is_constant())
+                {
+                    int n1 = const_value_cast_to_4(node1.get_constant());
+                    int n2 = const_value_cast_to_4(node2.get_constant());
+                    if (n1 - n2 == 1)
+                    {   // Values are contiguous. Create a new range
+                        Nodecl::NodeclBase stride = const_value_to_nodecl(const_value_get_one(/* bytes */ 4, /* signed*/ 1));
+                        return Nodecl::Range::make(node2, node1, stride, node1.get_type(), node1.get_filename(), node1.get_line());
+                    }
+                    else if (n2 - n1 == 1)
+                    {
+                        Nodecl::NodeclBase stride = const_value_to_nodecl(const_value_get_one(/* bytes */ 4, /* signed*/ 1));
+                        return Nodecl::Range::make(node1, node2, stride, node1.get_type(), node1.get_filename(), node1.get_line()); 
+                    }
+                    else
+                    {
+                        return Nodecl::NodeclBase::null();
+                    }
                 }
                 else
                 {
@@ -249,6 +349,18 @@ namespace TL
                 }
                 else
                 {
+                    std::cerr << "l = " << l.prettyprint() << ", lb = " << lb.prettyprint() << ", ub = " << ub.prettyprint() << std::endl;
+                    Nodecl::NodeclBase new_min = min(l, lb);
+                    Nodecl::NodeclBase new_max = max(l, ub);
+                    if (!new_min.is_null())
+                    {
+                        return Nodecl::Range::make(new_min, ub, stride, node1.get_type(), node1.get_filename(), node1.get_line());
+                    }
+                    else if (!new_max.is_null())
+                    {
+                        return Nodecl::Range::make(lb, new_max, stride, node1.get_type(), node1.get_filename(), node1.get_line());
+                    }
+                    
                     return Nodecl::NodeclBase::null();
                 }
             }

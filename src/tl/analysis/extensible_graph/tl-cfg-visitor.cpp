@@ -67,7 +67,7 @@ namespace TL
                 _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, graph_exit);
                 _actual_cfg->connect_nodes(_return_nodes, graph_exit);
                 
-//                 _actual_cfg->dress_up_graph();
+                _actual_cfg->dress_up_graph();
         
                 _cfgs.append(_actual_cfg);
             }
@@ -121,7 +121,7 @@ namespace TL
             _actual_cfg->connect_nodes(_return_nodes, graph_exit);
             _return_nodes.clear();
             
-//             _actual_cfg->dress_up_graph();
+            _actual_cfg->dress_up_graph();
         
             _cfgs.append(_actual_cfg);
             _actual_cfg = NULL;
@@ -707,7 +707,7 @@ namespace TL
                     
                     _actual_cfg->connect_nodes(graph_entry, graph_exit);
                     
-//                     _actual_cfg->dress_up_graph();
+                    _actual_cfg->dress_up_graph();
             
                     _cfgs.append(_actual_cfg);
                 }

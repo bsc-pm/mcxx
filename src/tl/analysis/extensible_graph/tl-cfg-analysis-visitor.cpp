@@ -136,7 +136,7 @@ namespace Analysis
         
         if (!_init_expression.is_null())
         {
-//             _node->set_reaching_definition(defined_var, _init_expression);
+            _node->set_reaching_definition(defined_var, _init_expression);
             _init_expression = Nodecl::NodeclBase::null();
         }
     }
@@ -152,7 +152,7 @@ namespace Analysis
         
         if (!init.is_null())
         {
-//             _node->set_reaching_definition(sym_node, init);
+            _node->set_reaching_definition(sym_node, init);
             walk(init);
         }
     }

@@ -505,7 +505,7 @@ namespace TL
         {
             std::map<Symbol, Nodecl::NodeclBase> result;
             std::pair<induc_vars_map::const_iterator, induc_vars_map::const_iterator> actual_ind_vars =
-_induction_vars.equal_range(loop_node->get_id());
+                    _induction_vars.equal_range(loop_node->get_id());
             for(induc_vars_map::const_iterator it = actual_ind_vars.first; it != actual_ind_vars.second; ++it)
             {
                 InductionVarInfo* ivar = it->second;
@@ -753,74 +753,7 @@ _induction_vars.equal_range(loop_node->get_id());
                     return;
                 }
             }        
-        }
-    
-        void LoopAnalysis::propagate_reach_defs_in_for_loop_special_nodes(Node* loop_node)
-        {   // Ranges for the Condition and Increment node are different that ranges for the code within the For Statement
-            
-            // Propagate reach defs to entry node
-            Node* entry = loop_node->get_graph_entry_node();
-            nodecl_map combined_parents_reach_defs = StaticAnalysis::compute_parents_reach_defs(loop_node);
-            nodecl_map actual_reach_defs = entry->get_reaching_definitions();
-            for(nodecl_map::iterator it = combined_parents_reach_defs.begin(); it != combined_parents_reach_defs.end(); ++it)
-            {
-                if (actual_reach_defs.find(it->first) == actual_reach_defs.end())
-                {   // Only if the definition is not performed within the node, we store the parents values
-                    entry->set_reaching_definition(it->first, it->second);
-                }
-            }
-            
-            // Propagate reach defs to conditional node
-            Node* cond = entry->get_children()[0];
-            combined_parents_reach_defs = StaticAnalysis::compute_parents_reach_defs(cond);
-            actual_reach_defs = cond->get_reaching_definitions();
-            for(nodecl_map::iterator it = combined_parents_reach_defs.begin(); it != combined_parents_reach_defs.end(); ++it)
-            {
-                if (actual_reach_defs.find(it->first) == actual_reach_defs.end())
-                {   // Only if the definition is not performed within the node, we store the parents values
-                    cond->set_reaching_definition(it->first, it->second);
-                }
-            }        
-        
-            ObjectList<Edge*> cond_exit_edges = cond->get_exit_edges();
-            ObjectList<Edge*>::iterator ite = cond_exit_edges.begin();
-            
-            // Nodes through the True edge has a smaller range for the induction variable
-            Node* true_node;
-            if ((*ite)->get_type() == TRUE_EDGE)
-            {
-                true_node = (*ite)->get_target();
-            }
-            else
-            {
-                true_node = (*(ite+1))->get_target();
-            }
-            if (true_node->get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
-            {
-                true_node = true_node->get_data<Node*>(_ENTRY_NODE);
-            }
-            combined_parents_reach_defs = StaticAnalysis::compute_parents_reach_defs(true_node);
-            actual_reach_defs = true_node->get_reaching_definitions();
-            std::map<Symbol, Nodecl::NodeclBase> induction_vars_m = get_induction_vars_mapping(loop_node);
-            for(nodecl_map::iterator it = combined_parents_reach_defs.begin(); it != combined_parents_reach_defs.end(); ++it)
-            {
-                if (actual_reach_defs.find(it->first) == actual_reach_defs.end())
-                {   // Only if the definition is not performed within the node, we store the parents values
-                    // If the variable is an induction var, we get here the range of the var within the loop
-                    if (it->first.is<Nodecl::Symbol>()
-                        && induction_vars_m.find(it->first.get_symbol()) != induction_vars_m.end())
-                    {
-                        Nodecl::NodeclBase first = it->first, second = induction_vars_m[it->first.get_symbol()];
-                        true_node->set_reaching_definition(it->first, induction_vars_m[it->first.get_symbol()]);
-                    }
-                    else
-                    {
-                        Nodecl::NodeclBase first = it->first, second = it->second;
-                        true_node->set_reaching_definition(it->first, it->second);
-                    }
-                }
-            }
-        }    
+        }  
 
         void LoopAnalysis::analyse_loops(Node* node)
         {

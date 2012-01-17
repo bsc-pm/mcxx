@@ -60,6 +60,14 @@ namespace TL
 
             void propagate_reaching_definitions_to_graph_node(Node* node, std::map<Symbol, Nodecl::NodeclBase> induct_vars,
                                                             const char* filename, int line);
+           
+            /*!
+             * Computes values of reaching definitions for entry, condition and true_node of the for loop node.
+             * We perform this propagation apart because the range of the inductions variables is not the same for increment and condition node
+             * that for the other ones.
+             * After this computation, we can apply the common propagation method of the static analysis
+             */
+            void propagate_reach_defs_in_for_loop_special_nodes(Node* loop_node);   
             
             void propagate_reach_defs_among_nodes(Node* node, bool& changes);
         
@@ -102,6 +110,7 @@ namespace TL
              * \param ei Extensible Symbol we want to check race conditions on
              */
             static bool race_condition(Node* task, ExtensibleSymbol ei);
+            
         
         public:
             

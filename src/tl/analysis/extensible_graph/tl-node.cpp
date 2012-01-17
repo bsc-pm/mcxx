@@ -925,6 +925,23 @@ namespace TL
             }
         }
 
+        bool Node::is_stride_node()
+        {
+            bool res = false;
+            Node* outer_node = get_outer_node();
+            while (outer_node != NULL && outer_node->get_graph_type() != LOOP)
+            {
+                outer_node = outer_node->get_outer_node();
+            }
+            
+            if (outer_node != NULL)
+            {
+                Node* stride = outer_node->get_stride_node();
+                res = (stride->_id == _id);
+            }
+            return res;
+        }
+
         Node* Node::advance_over_non_statement_nodes()
         {
             ObjectList<Node*> children = get_children();
