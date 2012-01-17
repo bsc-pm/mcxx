@@ -228,12 +228,10 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
     }
     else if (IS_FORTRAN_LANGUAGE)
     {
-
         for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
                 it != data_items.end();
                 it++)
         {
-
             if (it->get_sharing() == OutlineDataItem::SHARING_CAPTURE)
             {
                 fill_outline_arguments << 
@@ -257,11 +255,17 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         }
     }
 
-    Nodecl::NodeclBase new_tree = fill_outline_arguments.parse_statement(fill_outline_arguments_tree);
-    fill_outline_arguments_tree.integrate(new_tree);
+    if (!fill_outline_arguments.empty())
+    {
+        Nodecl::NodeclBase new_tree = fill_outline_arguments.parse_statement(fill_outline_arguments_tree);
+        fill_outline_arguments_tree.integrate(new_tree);
+    }
 
-    new_tree = fill_immediate_arguments.parse_statement(fill_immediate_arguments_tree);
-    fill_immediate_arguments_tree.integrate(new_tree);
+    if (!fill_immediate_arguments.empty())
+    {
+        Nodecl::NodeclBase new_tree = fill_immediate_arguments.parse_statement(fill_immediate_arguments_tree);
+        fill_immediate_arguments_tree.integrate(new_tree);
+    }
 
     construct.integrate(spawn_code_tree);
 }
