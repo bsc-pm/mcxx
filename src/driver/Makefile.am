@@ -113,6 +113,7 @@ if WINDOWS_BUILD
 else
 # '$$ORIGIN' is a relocatable hint to GNU ld
 mcxx_LDFLAGS = \
+	-Wl,--no-as-needed \
     -Wl,-E \
     -Wl,@RPATH_PARAMETER@,'$$ORIGIN'/../lib \
     -Wl,@RPATH_PARAMETER@,'$$ORIGIN'/../lib/mcxx \
