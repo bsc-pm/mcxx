@@ -26,6 +26,7 @@
 
 #include "tl-outline-info.hpp"
 #include "tl-nodecl-visitor.hpp"
+#include "cxx-diagnostic.h"
 
 namespace TL { namespace Nanox {
 
@@ -80,6 +81,22 @@ namespace TL { namespace Nanox {
             {
             }
 
+            void add_shared(Symbol sym)
+            {
+                OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym);
+
+                outline_info.set_sharing(OutlineDataItem::SHARING_SHARED);
+
+                Type t = sym.get_type();
+                if (t.is_any_reference())
+                {
+                    t = t.references_to();
+                }
+
+                t = t.get_lvalue_reference_to();
+                outline_info.set_field_type(t);
+            }
+
             void visit(const Nodecl::Parallel::Shared& shared)
             {
                 Nodecl::List l = shared.get_shared_symbols().as<Nodecl::List>();
@@ -88,19 +105,40 @@ namespace TL { namespace Nanox {
                         it++)
                 {
                     TL::Symbol sym = it->as<Nodecl::Symbol>().get_symbol();
-                    OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym);
 
-                    outline_info.set_sharing(OutlineDataItem::SHARING_SHARED);
-
-                    Type t = sym.get_type();
-                    if (t.is_any_reference())
+                    FORTRAN_LANGUAGE()
                     {
-                        t = t.references_to();
-                    }
+                        TL::Type type = sym.get_type();
+                        if (type.is_pointer()
+                                || (type.is_any_reference() 
+                                    && type.references_to().is_pointer()))
+                        {
+                            warn_printf("%s: sorry: shared POINTER variable '%s' is not supported in Fortran yet, making it firstprivate\n",
+                                    it->get_locus().c_str(),
+                                    sym.get_name().c_str());
 
-                    t = t.get_lvalue_reference_to();
-                    outline_info.set_field_type(t);
+                            // Do not add as a shared, add it as a captured pointer
+                            add_capture(sym);
+                            continue;
+                        }
+                    }
+                    add_shared(sym);
                 }
+            }
+
+            void add_capture(Symbol sym)
+            {
+                OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym);
+
+                outline_info.set_sharing(OutlineDataItem::SHARING_CAPTURE);
+
+                Type t = sym.get_type();
+                if (t.is_any_reference())
+                {
+                    t = t.references_to();
+                }
+
+                outline_info.set_field_type(t);
             }
 
             void visit(const Nodecl::Parallel::Capture& shared)
@@ -111,17 +149,7 @@ namespace TL { namespace Nanox {
                         it++)
                 {
                     TL::Symbol sym = it->as<Nodecl::Symbol>().get_symbol();
-                    OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym);
-
-                    outline_info.set_sharing(OutlineDataItem::SHARING_CAPTURE);
-
-                    Type t = sym.get_type();
-                    if (t.is_any_reference())
-                    {
-                        t = t.references_to();
-                    }
-
-                    outline_info.set_field_type(t);
+                    add_capture(sym);
                 }
             }
 
