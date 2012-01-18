@@ -2082,26 +2082,26 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
 
     AST class_key = ASTSon0(a);
 
-    enum class_kind_t class_kind = CK_INVALID;
+    enum type_tag_t class_kind = TT_INVALID;
     const char *class_kind_name = NULL;
 
     switch (ASTType(class_key))
     {
         case AST_CLASS_KEY_CLASS:
             {
-                class_kind = CK_CLASS;
+                class_kind = TT_CLASS;
                 class_kind_name = "class";
                 break;
             }
         case AST_CLASS_KEY_STRUCT:
             {
-                class_kind = CK_STRUCT;
+                class_kind = TT_STRUCT;
                 class_kind_name = "struct";
                 break;
             }
         case AST_CLASS_KEY_UNION:
             {
-                class_kind = CK_UNION;
+                class_kind = TT_UNION;
                 class_kind_name = "union";
                 break;
             }
@@ -2120,31 +2120,9 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         decl_flags |= DF_ELABORATED_NAME;
     }
 
-    char is_friend_class_declaration = 
+    char is_friend_class_declaration =
         (gather_info->no_declarators && gather_info->is_friend);
-    
-   // if(is_friend_class_declaration 
-   //      && is_dependent_class_scope(decl_context)) 
-   //  {
-   //     // create a new entry
-   //     scope_entry_t* new_entry = counted_calloc(1, sizeof(*new_entry), &_bytes_used_buildscope);
-   //     new_entry->kind = SK_DEPENDENT_FRIEND_CLASS;
 
-   //     //create a new nodecl 
-   //     nodecl_t nodecl_name = nodecl_null();
-   //     compute_nodecl_name_from_id_expression(id_expression, decl_context, &nodecl_name);
-   //     new_entry->value = nodecl_name;
-
-   //     scope_entry_t* class_symbol = decl_context.current_scope->related_entry;
-   //     ERROR_CONDITION(class_symbol->kind != SK_CLASS, "Invalid symbol", 0);
-
-   //     class_type_add_friend_symbol(class_symbol->type_information, new_entry);
-   //     
-   //     // ???
-   //     *type_info = get_void_type();
-   //     return;
-   //  }
-    
     CXX_LANGUAGE()
     {
         if (gather_info->no_declarators
@@ -2229,14 +2207,10 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         ERROR_CONDITION(class_symbol->kind != SK_CLASS, "Invalid symbol", 0);
         class_type_add_friend_symbol(class_symbol->type_information, entry);
 
+        //Promote a SK_DEPENDENT_ENTITY to SK_DEPENDENT_FRIEND_CLASS
         if (entry->kind == SK_DEPENDENT_ENTITY)
         {
             entry->kind = SK_DEPENDENT_FRIEND_CLASS;
-
-            //create a new nodecl
-            nodecl_t nodecl_name = nodecl_null();
-            compute_nodecl_name_from_id_expression(id_expression, decl_context, &nodecl_name);
-            entry->value = nodecl_name;
         }
 
         *type_info = get_void_type();
@@ -3224,17 +3198,17 @@ void build_scope_base_clause(AST base_clause, type_t* class_type, decl_context_t
         access_specifier_t access_specifier = AS_UNKNOWN;
         switch (class_type_get_class_kind(class_type))
         {
-            case CK_CLASS :
+            case TT_CLASS :
                 {
                     access_specifier = AS_PRIVATE;
                     break;
                 }
-            case CK_STRUCT :
+            case TT_STRUCT :
                 {
                     access_specifier = AS_PUBLIC;
                     break;
                 }
-            case CK_UNION:
+            case TT_UNION:
                 {
                     // FIXME - Instead of running_error we should be able to return erroneously
                     running_error("%s: a union cannot have bases\n", ast_location(base_clause));
@@ -4944,26 +4918,26 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     AST class_id_expression = ASTSon1(class_head);
     AST base_clause = ASTSon2(class_head);
 
-    enum class_kind_t class_kind = CK_INVALID;
+    enum type_tag_t class_kind = TT_INVALID;
     const char *class_kind_name = NULL;
 
     switch (ASTType(class_key))
     {
         case AST_CLASS_KEY_CLASS:
             {
-                class_kind = CK_CLASS;
+                class_kind = TT_CLASS;
                 class_kind_name = "class";
                 break;
             }
         case AST_CLASS_KEY_STRUCT:
             {
-                class_kind = CK_STRUCT;
+                class_kind = TT_STRUCT;
                 class_kind_name = "struct";
                 break;
             }
         case AST_CLASS_KEY_UNION:
             {
-                class_kind = CK_UNION;
+                class_kind = TT_UNION;
                 class_kind_name = "union";
 
                 break;
@@ -5346,7 +5320,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
         }
         CXX_LANGUAGE()
         {
-            class_entry->entity_specs.is_anonymous_union = (class_kind == CK_UNION
+            class_entry->entity_specs.is_anonymous_union = (class_kind == TT_UNION
                     && gather_info->no_declarators);
         }
     }
@@ -8223,7 +8197,7 @@ static void build_scope_template_template_parameter(AST a,
     new_entry->entity_specs.template_parameter_position = template_parameters->num_parameters;
 
     // This is a faked class type
-    type_t* primary_type = get_new_class_type(template_context, CK_CLASS);
+    type_t* primary_type = get_new_class_type(template_context, TT_CLASS);
 
     new_entry->type_information = get_new_template_type(template_params_context.template_parameters, 
             /* primary_type = */ primary_type, template_parameter_name, template_context,

@@ -2252,7 +2252,7 @@ OPERATOR_TABLE
                 }
             }
 
-            if (entry.get_type().class_type_get_class_kind() == CK_UNION)
+            if (entry.get_type().class_type_get_class_kind() == TT_UNION)
             {
                 internal_error("Unions cannot be emitted in Fortran", 0);
             }

@@ -970,7 +970,7 @@ namespace TL
         return ::class_type_is_incomplete_dependent(_type_info);
     }
 
-    class_kind_t Type::class_type_get_class_kind() const
+    type_tag_t Type::class_type_get_class_kind() const
     {
         return ::class_type_get_class_kind(_type_info);
     }

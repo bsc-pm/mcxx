@@ -4100,7 +4100,7 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
     class_name->kind = SK_CLASS;
     class_name->file = ASTFileName(name);
     class_name->line = ASTLine(name);
-    class_name->type_information = get_new_class_type(decl_context, CK_STRUCT);
+    class_name->type_information = get_new_class_type(decl_context, TT_STRUCT);
     class_name->entity_specs.bind_c = bind_c;
     
     remove_unknown_kind_symbol(decl_context, class_name);

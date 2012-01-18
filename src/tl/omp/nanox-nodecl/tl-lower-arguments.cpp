@@ -32,7 +32,7 @@ namespace TL { namespace Nanox {
         TL::Symbol sym = sc.new_symbol(structure_name);
         sym.get_internal_symbol()->kind = SK_CLASS;
 
-        type_t* new_class_type = get_new_class_type(sc.get_decl_context(), CK_STRUCT);
+        type_t* new_class_type = get_new_class_type(sc.get_decl_context(), TT_STRUCT);
         decl_context_t class_context = new_class_context(sc.get_decl_context(), sym.get_internal_symbol());
         TL::Scope class_scope(class_context);
 
