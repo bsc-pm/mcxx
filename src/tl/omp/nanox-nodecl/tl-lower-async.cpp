@@ -7,10 +7,36 @@ using TL::Source;
 
 namespace TL { namespace Nanox {
 
+struct TaskEnvironmentVisitor : public Nodecl::ExhaustiveVisitor<void>
+{
+    public:
+        bool is_untied;
+        Nodecl::NodeclBase priority;
+
+        TaskEnvironmentVisitor()
+            : is_untied(false),
+            priority()
+        {
+        }
+
+        void visit(const Nodecl::Parallel::Priority& priority)
+        {
+            this->priority = priority.get_priority();
+        }
+
+        void visit(const Nodecl::Parallel::Untied& untied)
+        {
+            this->is_untied = true;
+        }
+};
+
 void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
 {
     Nodecl::NodeclBase environment = construct.get_environment();
     Nodecl::NodeclBase statements = construct.get_statements();
+
+    TaskEnvironmentVisitor task_environment;
+    task_environment.walk(environment);
 
     OutlineInfo outline_info(environment);
 
@@ -22,9 +48,6 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
            struct_runtime_size,
            struct_size,
            alignment,
-           creation,
-           priority,
-           tiedness,
            fill_real_time_info,
            copy_decl,
            num_copies,
@@ -126,6 +149,36 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
     dependency_struct << "nanos_dependence_t";
     dependency_array << "0";
 
+    Source mandatory_creation,
+           tiedness,
+           priority;
+
+    mandatory_creation 
+        << "props.mandatory_creation = 0;"
+        ;
+
+    if (task_environment.is_untied)
+    {
+        tiedness << "props.tied = 0;"
+            ;
+    }
+    else
+    {
+        tiedness << "props.tied = 1;"
+            ;
+    }
+
+    if (task_environment.priority.is_null())
+    {
+        priority << "props.priority = 0;"
+            ;
+    }
+    else
+    {
+        priority << "props.priority = " << as_expression(task_environment.priority) << ";"
+            ;
+    }
+
     // Spawn code
     spawn_code
         << "{"
@@ -138,13 +191,10 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         <<     struct_runtime_size
         <<     "nanos_wd_t wd = (nanos_wd_t)0;"
         <<     "nanos_wd_props_t props;"
-        <<     "props.mandatory_creation = 0;"
-        <<     "props.tied = 0;"
         <<     "props.tie_to = (nanos_thread_t)0;"
-        <<     "props.priority = 0;"
-        <<     creation
-        <<     priority
+        <<     mandatory_creation
         <<     tiedness
+        <<     priority
         <<     fill_real_time_info
         <<     copy_decl
         <<     "nanos_err_t " << err_name <<";"
