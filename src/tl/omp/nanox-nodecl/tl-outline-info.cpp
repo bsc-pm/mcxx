@@ -113,13 +113,9 @@ namespace TL { namespace Nanox {
                                 || (type.is_any_reference() 
                                     && type.references_to().is_pointer()))
                         {
-                            warn_printf("%s: sorry: shared POINTER variable '%s' is not supported in Fortran yet, making it firstprivate\n",
+                            running_error("%s: sorry: shared POINTER variable '%s' is not supported in Fortran yet\n",
                                     it->get_locus().c_str(),
                                     sym.get_name().c_str());
-
-                            // Do not add as a shared, add it as a captured pointer
-                            add_capture(sym);
-                            continue;
                         }
                     }
                     add_shared(sym);
