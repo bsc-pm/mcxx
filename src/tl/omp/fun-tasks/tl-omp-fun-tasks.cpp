@@ -144,14 +144,90 @@ namespace OpenMP
                         Symbol sym = callee.get_symbol();
 
                         if (sym.is_valid()
-                                && sym.is_function()
-                                && _function_task_set->is_function_task(sym))
+                                && sym.is_function())
                         {
-                            result = true;
+                            if (_function_task_set->is_function_task(sym))
+                            {
+                                result = true;
+                            }
+                            scope_entry_t* entry = sym.get_internal_symbol();
+                            // If this is a specialized template type the template of which is a task
+                            // allow this case after "instantiation"
+                            scope_entry_t* primary_template = NULL;
+                            if (::is_template_specialized_type(entry->type_information)
+                                    && _function_task_set->is_function_task(
+                                        (primary_template = named_type_get_symbol(
+                                            template_type_get_primary_type(
+                                                template_specialized_type_get_related_template_type(
+                                                    entry->type_information))))))
+                            {
+                                instantiate_function_task_info(primary_template, sym);
+                                result = true;
+                            }
                         }
                     }
                 }
                 return result;
+            }
+
+            void instantiate_function_task_info(TL::Symbol primary_template, TL::Symbol specialization) const
+            {
+                ObjectList<FunctionTaskDependency> instantiated_parameter_info;
+
+                FunctionTaskInfo& primary_info = _function_task_set->get_function_task(primary_template);
+                ObjectList<FunctionTaskDependency> primary_deps = primary_info.get_parameter_info();
+
+
+                TL::ObjectList<TL::Symbol> all_symbols_seen;
+                for (ObjectList<FunctionTaskDependency>::iterator it = primary_deps.begin();
+                        it != primary_deps.end();
+                        it++)
+                {
+                    all_symbols_seen.insert(
+                            it->get_data_reference().all_symbol_occurrences().map(functor(&IdExpression::get_symbol))
+                            );
+                }
+
+                decl_context_t prototype_scope = new_prototype_context(specialization.get_internal_symbol()->decl_context);
+                for (ObjectList<Symbol>::iterator it = all_symbols_seen.begin();
+                        it != all_symbols_seen.end();
+                        it++)
+                {
+                    Symbol &sym(*it);
+
+                    if (!sym.is_parameter())
+                    {
+                        running_error("%s:%d: error: only parameters can be involved in dependences of a template task function\n", 
+                                specialization.get_filename().c_str(), 
+                                specialization.get_line());
+                    }
+
+                     scope_entry_t* entry = new_symbol(prototype_scope, prototype_scope.current_scope, sym.get_name().c_str());
+                     entry->kind = SK_VARIABLE;
+                     entry->type_information = 
+                         function_type_get_parameter_type_num(specialization.get_type().get_internal_type(), 
+                                 sym.get_parameter_position());
+                }
+
+                for (ObjectList<FunctionTaskDependency>::iterator it = primary_deps.begin();
+                        it != primary_deps.end();
+                        it++)
+                {
+                    Source src;
+                    src << it->get_data_reference().prettyprint();
+
+                    AST_t new_tree = src.parse_expression(Scope(prototype_scope), it->get_data_reference().get_scope_link());
+                    DataReference new_data_ref(new_tree, it->get_data_reference().get_scope_link());
+
+                    FunctionTaskDependency function_task_dep(new_data_ref, it->get_direction());
+                    instantiated_parameter_info.append(function_task_dep);
+                }
+
+                FunctionTaskInfo function_task_info(specialization,
+                        instantiated_parameter_info,
+                        primary_info.get_target_info());
+
+                _function_task_set->add_function_task(specialization, function_task_info);
             }
         };
 
