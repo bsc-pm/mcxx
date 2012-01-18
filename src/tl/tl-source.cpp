@@ -224,7 +224,8 @@ namespace TL
     }
 
     template <typename T>
-    T Source::parse_generic(AST_t ref_tree, 
+    T Source::parse_generic_scope(
+            decl_context_t decl_context,
             TL::ScopeLink scope_link, 
             ParseFlags parse_flags,
             const std::string& subparsing_prefix,
@@ -247,13 +248,35 @@ namespace TL
                     format_source(this->get_source(true)).c_str());
         }
 
-        decl_context_t decl_context = scope_link_get_decl_context(scope_link._scope_link, ref_tree._ast);
-
         return finish_parse(parse_flags, 
                 decl_context,
                 scope_link._scope_link,
                 a);
     }
+
+    template <typename T>
+    T Source::parse_generic(AST_t ref_tree, 
+            TL::ScopeLink scope_link, 
+            ParseFlags parse_flags,
+            const std::string& subparsing_prefix,
+            prepare_lexer_fun_t prepare_lexer,
+            parse_fun_t parse_function,
+            typename FinishParseFun<T>::Type finish_parse
+            )
+    {
+        decl_context_t decl_context = scope_link_get_decl_context(scope_link._scope_link, ref_tree._ast);
+
+        return parse_generic_scope<T>(
+                decl_context,
+                scope_link,
+                parse_flags,
+                subparsing_prefix,
+                prepare_lexer,
+                parse_function,
+                finish_parse
+                );
+    }
+
 
     template <typename T>
     T Source::parse_generic_lang(AST_t ref_tree, 
@@ -284,6 +307,39 @@ namespace TL
 #endif
 
         return parse_generic<T>(ref_tree, scope_link, parse_flags, 
+                subparsing_prefix, prepare_lexer, parse_function, finish_parse);
+    }
+
+    template <typename T>
+    T Source::parse_generic_lang_scope(
+            decl_context_t decl_context,
+            TL::ScopeLink sl,
+            ParseFlags parse_flags,
+            const std::string& subparsing_prefix,
+            typename FinishParseFun<T>::Type finish_parse
+            )
+    {
+        prepare_lexer_fun_t prepare_lexer = NULL;
+        parse_fun_t parse_function = NULL;
+        C_LANGUAGE()
+        {
+            prepare_lexer = mc99_prepare_string_for_scanning;
+            parse_function = mc99parse;
+        }
+        CXX_LANGUAGE()
+        {
+            prepare_lexer = mcxx_prepare_string_for_scanning;
+            parse_function = mcxxparse;
+        }
+#ifdef FORTRAN_SUPPORT
+        FORTRAN_LANGUAGE()
+        {
+            prepare_lexer = mf03_prepare_string_for_scanning;
+            parse_function = mf03parse;
+        }
+#endif
+
+        return parse_generic_scope<T>(decl_context, sl, parse_flags, 
                 subparsing_prefix, prepare_lexer, parse_function, finish_parse);
     }
 
@@ -360,6 +416,28 @@ namespace TL
 #endif
 
         return parse_generic_lang<AST_t>(ref_tree, scope_link, parse_flags, 
+                "@STATEMENT@", finish_parse);
+    }
+
+    AST_t Source::parse_statement(TL::Scope sc, TL::ScopeLink sl, ParseFlags parse_flags)
+    {
+        FinishParseFun<AST_t>::Type finish_parse = NULL;
+        C_LANGUAGE()
+        {
+            finish_parse = finish_parse_statement_c_cxx;
+        }
+        CXX_LANGUAGE()
+        {
+            finish_parse = finish_parse_statement_c_cxx;
+        }
+#ifdef FORTRAN_SUPPORT
+        FORTRAN_LANGUAGE()
+        {
+            finish_parse = finish_parse_block_fortran;
+        }
+#endif
+
+        return parse_generic_lang_scope<AST_t>(sc.get_decl_context(), sl, parse_flags, 
                 "@STATEMENT@", finish_parse);
     }
 
@@ -442,6 +520,28 @@ namespace TL
 #endif
 
         return parse_generic_lang<AST_t>(ref_tree, scope_link, parse_flags, 
+                "@EXPRESSION@", finish_parse);
+    }
+
+    AST_t Source::parse_expression(Scope scope, TL::ScopeLink sl, ParseFlags parse_flags)
+    {
+        FinishParseFun<AST_t>::Type finish_parse = NULL;
+        C_LANGUAGE()
+        {
+            finish_parse = finish_parse_expression_c_cxx;
+        }
+        CXX_LANGUAGE()
+        {
+            finish_parse = finish_parse_expression_c_cxx;
+        }
+#ifdef FORTRAN_SUPPORT
+        FORTRAN_LANGUAGE()
+        {
+            finish_parse = finish_parse_expression_fortran;
+        }
+#endif
+
+        return parse_generic_lang_scope<AST_t>(scope.get_decl_context(), sl, parse_flags, 
                 "@EXPRESSION@", finish_parse);
     }
 
