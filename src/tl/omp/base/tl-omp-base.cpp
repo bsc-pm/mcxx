@@ -160,7 +160,7 @@ namespace TL { namespace OpenMP {
                 async_code = Nodecl::IfElseStatement::make(
                         expr_list[0],
                         Nodecl::List::make(async_code),
-                        Nodecl::NodeclBase::null(),
+                        directive.get_statements().copy(),
                         directive.get_filename(),
                         directive.get_line());
             }
