@@ -725,89 +725,112 @@ static void instantiate_dependent_friend(type_t* selected_template UNUSED_PARAME
         int line)
 {
     if (friend->kind == SK_DEPENDENT_FRIEND_CLASS)
-    {
-        nodecl_t name = instantiate_expression(friend->value, context_of_being_instantiated);
-
-        // Search the name of the friend class
-        scope_entry_list_t* result_list = query_nodecl_name(context_of_being_instantiated, name);
-
-        // Now look for a type
-        enum cxx_symbol_kind filter_classes[] =
+    {   
+        scope_entry_t* new_friend = friend;
+        if (is_dependent_type(friend->type_information))
         {
-            SK_CLASS,
-            SK_DEPENDENT_ENTITY,
-            SK_TEMPLATE, // For the primary template
-        };
+            type_t* new_type = update_type_for_instantiation(friend->type_information,
+                    context_of_being_instantiated,
+                    filename,
+                    line);
+            new_friend = named_type_get_symbol(new_type);
 
-        // We only want the filter_classes entries of the result_list
-        scope_entry_list_t* filter_list = filter_symbol_kind_set(result_list,
-                STATIC_ARRAY_LENGTH(filter_classes), filter_classes);
-
-        scope_entry_t* entry = NULL;
-        if (filter_list != NULL)
-        {
-            entry = entry_list_head(filter_list);
-
-            if (entry->kind == SK_DEPENDENT_ENTITY)
+            // If the new type is not dependent, we change the kind of 
+            // the new_friend symbol to SK_CLASS
+            if (!is_dependent_type(new_friend->type_information))
             {
-                // The symbol still being a dependent entity. For this reason,
-                // we cannot use this symbol and we need a new one
-
-                scope_entry_t* new_entry = new_symbol(context_of_being_instantiated,
-                        context_of_being_instantiated.namespace_scope,
-                        codegen_to_str(name));
-
-                new_entry->value = name;
-                new_entry->line = line;
-                new_entry->file = filename;
-                new_entry->entity_specs = entry->entity_specs;
-                new_entry->related_decl_context = entry->related_decl_context; 
-
-                entry = new_entry;
+                new_friend->kind = SK_CLASS;
             }
         }
         else
         {
-            // The symbol does not exist. We should create a new one.
-            //  Example:
-            //
-            //  template<typename T>
-            //      struct A
-            //      {
-            //          friend struct C;
-            //      };
-            //  A<int> foo;
-
-            char is_qualified = (nodecl_get_kind(friend->value) == NODECL_CXX_DEP_GLOBAL_NAME_NESTED
-                    ||  nodecl_get_kind(friend->value) == NODECL_CXX_DEP_NAME_NESTED);
-
-            if (is_qualified)
-            {
-                error_printf("%s:%d: error: in friend declaration, class '%s' does not exist\n",
-                        filename, line, codegen_to_str(name));
-                return;
-            }
-
-            scope_entry_t* new_class = NULL;
-
-            new_class = new_symbol(context_of_being_instantiated,
-                    context_of_being_instantiated.namespace_scope,
-                    codegen_to_str(friend->value));
-
-            new_class->line = line;
-            new_class->file = filename;
-            new_class->kind = SK_CLASS;
-            new_class->entity_specs.is_friend_declared = 1;
-            new_class->type_information = get_new_class_type(context_of_being_instantiated, SK_CLASS);
-
-            entry = new_class;
+           internal_error("Code unreachable.",0);
         }
 
-        class_type_add_friend_symbol(being_instantiated, entry);
+        class_type_add_friend_symbol(get_actual_class_type(being_instantiated), new_friend);
 
-        // Deallocating dynamic memory
-        entry_list_free(filter_list);
-        entry_list_free(result_list);
+        // nodecl_t name = instantiate_expression(friend->value, context_of_being_instantiated);
+
+        // // Search the name of the friend class
+        // scope_entry_list_t* result_list = query_nodecl_name(context_of_being_instantiated, name);
+
+        // // Now look for a type
+        // enum cxx_symbol_kind filter_classes[] =
+        // {
+        //     SK_CLASS,
+        //     SK_DEPENDENT_ENTITY,
+        //     SK_TEMPLATE, // For the primary template
+        // };
+
+        // // We only want the filter_classes entries of the result_list
+        // scope_entry_list_t* filter_list = filter_symbol_kind_set(result_list,
+        //         STATIC_ARRAY_LENGTH(filter_classes), filter_classes);
+
+        // scope_entry_t* entry = NULL;
+        // if (filter_list != NULL)
+        // {
+        //     entry = entry_list_head(filter_list);
+
+        //     if (entry->kind == SK_DEPENDENT_ENTITY)
+        //     {
+        //         // The symbol still being a dependent entity. For this reason,
+        //         // we cannot use this symbol and we need a new one
+
+        //         scope_entry_t* new_entry = new_symbol(context_of_being_instantiated,
+        //                 context_of_being_instantiated.namespace_scope,
+        //                 codegen_to_str(name));
+
+        //         new_entry->value = name;
+        //         new_entry->line = line;
+        //         new_entry->file = filename;
+        //         new_entry->entity_specs = entry->entity_specs;
+        //         new_entry->related_decl_context = entry->related_decl_context; 
+
+        //         entry = new_entry;
+        //     }
+        // }
+        // else
+        // {
+        //     // The symbol does not exist. We should create a new one.
+        //     //  Example:
+        //     //
+        //     //  template<typename T>
+        //     //      struct A
+        //     //      {
+        //     //          friend struct C;
+        //     //      };
+        //     //  A<int> foo;
+
+        //     char is_qualified = (nodecl_get_kind(friend->value) == NODECL_CXX_DEP_GLOBAL_NAME_NESTED
+        //             ||  nodecl_get_kind(friend->value) == NODECL_CXX_DEP_NAME_NESTED);
+
+        //     if (is_qualified)
+        //     {
+        //         error_printf("%s:%d: error: in friend declaration, class '%s' does not exist\n",
+        //                 filename, line, codegen_to_str(name));
+        //         return;
+        //     }
+
+        //     scope_entry_t* new_class = NULL;
+
+        //     new_class = new_symbol(context_of_being_instantiated,
+        //             context_of_being_instantiated.namespace_scope,
+        //             codegen_to_str(friend->value));
+
+        //     new_class->line = line;
+        //     new_class->file = filename;
+        //     new_class->kind = SK_CLASS;
+        //     new_class->entity_specs.is_friend_declared = 1;
+        //     new_class->type_information = get_new_class_type(context_of_being_instantiated, SK_CLASS);
+
+        //     entry = new_class;
+        // }
+
+        // class_type_add_friend_symbol(being_instantiated, entry);
+
+        // // Deallocating dynamic memory
+        // entry_list_free(filter_list);
+        // entry_list_free(result_list);
     }
     else if (friend->kind == SK_DEPENDENT_FRIEND_FUNCTION)
     {
@@ -977,9 +1000,9 @@ static void instantiate_specialized_template_class(type_t* selected_template,
     {
         scope_entry_t* member = entry_list_iterator_current(it);
 
-        instantiate_member(selected_template, 
-                being_instantiated, 
-                member, 
+        instantiate_member(selected_template,
+                being_instantiated,
+                member,
                 inner_decl_context,
                 filename, line,
                 &template_map, &num_items_template_map,
@@ -998,18 +1021,51 @@ static void instantiate_specialized_template_class(type_t* selected_template,
         if (friend->kind == SK_DEPENDENT_FRIEND_FUNCTION
                 || friend->kind == SK_DEPENDENT_FRIEND_CLASS)
         {
-            instantiate_dependent_friend(selected_template, 
-                    being_instantiated, 
+            instantiate_dependent_friend(selected_template,
+                    being_instantiated,
                     friend,
                     inner_decl_context,
                     translation_function,
                     &translation_info,
                     filename, line);
         }
-        else if (friend->kind == SK_FUNCTION
-                || friend->kind == SK_CLASS)
+        else if (friend->kind == SK_CLASS)
         {
-            class_type_add_friend_symbol(get_actual_class_type(being_instantiated), friend);
+
+            // The symbol 'friend' may has a dependent type. Example:
+            //
+            //
+            //    template < typename T1>
+            //        struct B {};
+            //
+            //    template < typename T2>
+            //        struct A
+            //        {
+            //            friend struct B<T2>; (1)
+            //        };
+            //
+            //    A<int> foo; (2)
+            //
+            //
+            // The symbol 'B<T2>' created in (1) has kind 'SK_CLASS' but his type is dependent
+            // In the instantiation (2) we should modify his type
+            
+            scope_entry_t* new_friend = friend;
+            if (is_dependent_type(friend->type_information))
+            {
+                type_t* new_type = update_type_for_instantiation(get_user_defined_type(friend),
+                        inner_decl_context,
+                        filename,
+                        line);
+                new_friend = named_type_get_symbol(new_type);
+            }
+
+            class_type_add_friend_symbol(get_actual_class_type(being_instantiated), new_friend);
+        }
+        else if (friend->kind == SK_FUNCTION)
+        {
+            // Friend functions are not supported yet 
+            internal_error("Code unreachable", 0);
         }
         else
         {

@@ -2120,31 +2120,9 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         decl_flags |= DF_ELABORATED_NAME;
     }
 
-    char is_friend_class_declaration = 
+    char is_friend_class_declaration =
         (gather_info->no_declarators && gather_info->is_friend);
-    
-   // if(is_friend_class_declaration 
-   //      && is_dependent_class_scope(decl_context)) 
-   //  {
-   //     // create a new entry
-   //     scope_entry_t* new_entry = counted_calloc(1, sizeof(*new_entry), &_bytes_used_buildscope);
-   //     new_entry->kind = SK_DEPENDENT_FRIEND_CLASS;
 
-   //     //create a new nodecl 
-   //     nodecl_t nodecl_name = nodecl_null();
-   //     compute_nodecl_name_from_id_expression(id_expression, decl_context, &nodecl_name);
-   //     new_entry->value = nodecl_name;
-
-   //     scope_entry_t* class_symbol = decl_context.current_scope->related_entry;
-   //     ERROR_CONDITION(class_symbol->kind != SK_CLASS, "Invalid symbol", 0);
-
-   //     class_type_add_friend_symbol(class_symbol->type_information, new_entry);
-   //     
-   //     // ???
-   //     *type_info = get_void_type();
-   //     return;
-   //  }
-    
     CXX_LANGUAGE()
     {
         if (gather_info->no_declarators
@@ -2229,14 +2207,10 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         ERROR_CONDITION(class_symbol->kind != SK_CLASS, "Invalid symbol", 0);
         class_type_add_friend_symbol(class_symbol->type_information, entry);
 
+        //Promote a SK_DEPENDENT_ENTITY to SK_DEPENDENT_FRIEND_CLASS
         if (entry->kind == SK_DEPENDENT_ENTITY)
         {
             entry->kind = SK_DEPENDENT_FRIEND_CLASS;
-
-            //create a new nodecl
-            nodecl_t nodecl_name = nodecl_null();
-            compute_nodecl_name_from_id_expression(id_expression, decl_context, &nodecl_name);
-            entry->value = nodecl_name;
         }
 
         *type_info = get_void_type();
