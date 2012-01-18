@@ -2737,6 +2737,9 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
 
             file << declarator << ";\n";
         }
+        //else if (_friend.get_type().is_dependent_typename())
+        //{
+        //}
         else
         {
             internal_error("Invalid friend symbol kind '%s'\n", symbol_kind_name(_friend.get_internal_symbol()));
@@ -3577,6 +3580,9 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
 
         declare_symbol(entry);
     }
+    //else if(symbol.get_type().is_dependent_typename())
+    //{
+    //}
     else
     {
         internal_error("Do not know how to declare a %s\n", symbol_kind_name(symbol.get_internal_symbol()));
