@@ -99,11 +99,11 @@ LIBMCXX_EXTERN type_t* get_indirect_type(scope_entry_t* entry);
 
 LIBMCXX_EXTERN type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entity, 
         nodecl_t dependent_parts);
-LIBMCXX_EXTERN enum class_kind_t get_dependent_entry_kind(type_t* t);
-LIBMCXX_EXTERN void set_dependent_entry_kind(type_t* t, enum class_kind_t kind);
+LIBMCXX_EXTERN enum type_tag_t get_dependent_entry_kind(type_t* t);
+LIBMCXX_EXTERN void set_dependent_entry_kind(type_t* t, enum type_tag_t kind);
 
 LIBMCXX_EXTERN type_t* get_new_enum_type(decl_context_t decl_context);
-LIBMCXX_EXTERN type_t* get_new_class_type(decl_context_t decl_context, enum class_kind_t class_kind);
+LIBMCXX_EXTERN type_t* get_new_class_type(decl_context_t decl_context, enum type_tag_t class_kind);
 
 LIBMCXX_EXTERN type_t* get_new_template_type(template_parameter_list_t* template_parameter_list, type_t* primary_type,
         const char* template_name, decl_context_t decl_context, int line, const char* filename);
@@ -422,7 +422,7 @@ LIBMCXX_EXTERN int enum_type_get_num_enumerators(type_t* t);
 LIBMCXX_EXTERN scope_entry_t* enum_type_get_enumerator_num(type_t* t, int n);
 LIBMCXX_EXTERN type_t* enum_type_get_underlying_type(type_t* t);
 
-LIBMCXX_EXTERN enum class_kind_t class_type_get_class_kind(type_t* t);
+LIBMCXX_EXTERN enum type_tag_t class_type_get_class_kind(type_t* t);
 LIBMCXX_EXTERN int class_type_get_num_bases(type_t* class_type);
 LIBMCXX_EXTERN scope_entry_t* class_type_get_base_num(type_t* class_type, int num, 
         char *is_virtual, 

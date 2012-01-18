@@ -154,7 +154,7 @@ struct virtual_base_class_info_tag
 typedef 
 struct class_info_tag {
     // Kind of class {struct, class}
-    enum class_kind_t class_kind:4;
+    enum type_tag_t class_kind:4;
 
     // Currently unused
     unsigned char is_local_class:1;
@@ -271,7 +271,7 @@ struct simple_type_tag {
     // Template dependent types (STK_TEMPLATE_DEPENDENT_TYPE)
     scope_entry_t* dependent_entry;
     nodecl_t dependent_parts;
-    enum class_kind_t dependent_entry_kind;  // CK_INVALID will be use as "typename"
+    enum type_tag_t dependent_entry_kind;  
 
     // Complex types, base type of the complex type
     type_t* complex_element;
@@ -1196,21 +1196,17 @@ type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entry,
     return result;
 }
 
-enum class_kind_t get_dependent_entry_kind(type_t* t)
+enum type_tag_t get_dependent_entry_kind(type_t* t)
 {
-    if (t == NULL || t->type == NULL)
-    {
-        return CK_INVALID;
-    }
+    ERROR_CONDITION(!is_dependent_typename_type(t),
+            "This is not a dependent typename type", 0);
     return t->type->dependent_entry_kind;
 }
 
-void set_dependent_entry_kind(type_t* t, enum class_kind_t kind)
+void set_dependent_entry_kind(type_t* t, enum type_tag_t kind)
 {
-    if (t == NULL || t->type == NULL)
-    {
-        internal_error("code unreachable.", 0);
-    }
+    ERROR_CONDITION(!is_dependent_typename_type(t),
+            "This is not a dependent typename type", 0);
     t->type->dependent_entry_kind = kind;
 }
 
@@ -1241,7 +1237,7 @@ type_t* get_new_enum_type(decl_context_t decl_context)
     return type_info;
 }
 
-type_t* get_new_class_type(decl_context_t decl_context, enum class_kind_t class_kind)
+type_t* get_new_class_type(decl_context_t decl_context, enum type_tag_t class_kind)
 {
     _class_type_counter++;
 
@@ -1260,7 +1256,7 @@ type_t* get_new_class_type(decl_context_t decl_context, enum class_kind_t class_
     return type_info;
 }
 
-enum class_kind_t class_type_get_class_kind(type_t* t)
+enum type_tag_t class_type_get_class_kind(type_t* t)
 {
     ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
 
@@ -5839,7 +5835,7 @@ char is_union_type(type_t* possible_union)
 
     type_t* actual_class = get_actual_class_type(possible_union);
 
-    return (actual_class->type->class_info->class_kind == CK_UNION);
+    return (actual_class->type->class_info->class_kind == TT_UNION);
 }
 
 char is_unnamed_class_type(type_t* possible_class)
@@ -6101,11 +6097,11 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
                         {
                             switch (class_type_get_class_kind(entry->type_information))
                             {
-                                case CK_UNION:
+                                case TT_UNION:
                                     result = strappend("union ", result); break;
-                                case CK_STRUCT:
+                                case TT_STRUCT:
                                     result = strappend("struct ", result); break;
-                                case CK_CLASS:
+                                case TT_CLASS:
                                     result = strappend("class ", result); break;
                                 default:
                                     internal_error("Code unreachable", 0);
@@ -6271,27 +6267,32 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
 
                 if (is_dependent && !nodecl_is_null(nodecl_parts))
                 {
-                    enum class_kind_t kind = get_dependent_entry_kind(t);
+                    enum type_tag_t kind = get_dependent_entry_kind(t);
                     switch(kind)
                     {
-                        case CK_INVALID:
+                        case TT_TYPENAME:
                             {
                                 result = strappend("typename ", result);
                                 break;
                             }
-                        case CK_STRUCT:
+                        case TT_STRUCT:
                             {
                                 result = strappend("struct ", result);
                                 break;
                             }
-                        case CK_CLASS:
+                        case TT_CLASS:
                             {
                                 result = strappend("class ", result);
                                 break;
                             }
-                        case CK_UNION:
+                        case TT_UNION:
                             {
                                 result = strappend("union ", result);
+                                break;
+                            }
+                        case TT_ENUM:
+                            {
+                                result = strappend("enum ", result);
                                 break;
                             }
                         default:

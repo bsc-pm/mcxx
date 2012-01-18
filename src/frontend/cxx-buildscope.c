@@ -2082,26 +2082,26 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
 
     AST class_key = ASTSon0(a);
 
-    enum class_kind_t class_kind = CK_INVALID;
+    enum type_tag_t class_kind = TT_INVALID;
     const char *class_kind_name = NULL;
 
     switch (ASTType(class_key))
     {
         case AST_CLASS_KEY_CLASS:
             {
-                class_kind = CK_CLASS;
+                class_kind = TT_CLASS;
                 class_kind_name = "class";
                 break;
             }
         case AST_CLASS_KEY_STRUCT:
             {
-                class_kind = CK_STRUCT;
+                class_kind = TT_STRUCT;
                 class_kind_name = "struct";
                 break;
             }
         case AST_CLASS_KEY_UNION:
             {
-                class_kind = CK_UNION;
+                class_kind = TT_UNION;
                 class_kind_name = "union";
                 break;
             }
@@ -3198,17 +3198,17 @@ void build_scope_base_clause(AST base_clause, type_t* class_type, decl_context_t
         access_specifier_t access_specifier = AS_UNKNOWN;
         switch (class_type_get_class_kind(class_type))
         {
-            case CK_CLASS :
+            case TT_CLASS :
                 {
                     access_specifier = AS_PRIVATE;
                     break;
                 }
-            case CK_STRUCT :
+            case TT_STRUCT :
                 {
                     access_specifier = AS_PUBLIC;
                     break;
                 }
-            case CK_UNION:
+            case TT_UNION:
                 {
                     // FIXME - Instead of running_error we should be able to return erroneously
                     running_error("%s: a union cannot have bases\n", ast_location(base_clause));
@@ -4918,26 +4918,26 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     AST class_id_expression = ASTSon1(class_head);
     AST base_clause = ASTSon2(class_head);
 
-    enum class_kind_t class_kind = CK_INVALID;
+    enum type_tag_t class_kind = TT_INVALID;
     const char *class_kind_name = NULL;
 
     switch (ASTType(class_key))
     {
         case AST_CLASS_KEY_CLASS:
             {
-                class_kind = CK_CLASS;
+                class_kind = TT_CLASS;
                 class_kind_name = "class";
                 break;
             }
         case AST_CLASS_KEY_STRUCT:
             {
-                class_kind = CK_STRUCT;
+                class_kind = TT_STRUCT;
                 class_kind_name = "struct";
                 break;
             }
         case AST_CLASS_KEY_UNION:
             {
-                class_kind = CK_UNION;
+                class_kind = TT_UNION;
                 class_kind_name = "union";
 
                 break;
@@ -5320,7 +5320,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
         }
         CXX_LANGUAGE()
         {
-            class_entry->entity_specs.is_anonymous_union = (class_kind == CK_UNION
+            class_entry->entity_specs.is_anonymous_union = (class_kind == TT_UNION
                     && gather_info->no_declarators);
         }
     }
@@ -8197,7 +8197,7 @@ static void build_scope_template_template_parameter(AST a,
     new_entry->entity_specs.template_parameter_position = template_parameters->num_parameters;
 
     // This is a faked class type
-    type_t* primary_type = get_new_class_type(template_context, CK_CLASS);
+    type_t* primary_type = get_new_class_type(template_context, TT_CLASS);
 
     new_entry->type_information = get_new_template_type(template_params_context.template_parameters, 
             /* primary_type = */ primary_type, template_parameter_name, template_context,

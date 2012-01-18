@@ -49,7 +49,7 @@ static type_t* cuda_get_dim3_type(void)
             new_class_sym = new_symbol(global_decl_context, global_decl_context.current_scope, "dim3");
         }
         new_class_sym->kind = SK_CLASS;
-        new_class_sym->type_information = get_new_class_type(global_decl_context, CK_STRUCT);
+        new_class_sym->type_information = get_new_class_type(global_decl_context, TT_STRUCT);
         decl_context_t class_context = new_class_context(global_decl_context, new_class_sym);
 
         class_type_set_inner_context(new_class_sym->type_information, class_context);
@@ -102,7 +102,7 @@ static type_t* cuda_get_uint3_type(void)
         }
 
         new_class_sym->kind = SK_CLASS;
-        new_class_sym->type_information = get_new_class_type(global_decl_context, CK_STRUCT);
+        new_class_sym->type_information = get_new_class_type(global_decl_context, TT_STRUCT);
         decl_context_t class_context = new_class_context(global_decl_context, new_class_sym);
 
         class_type_set_inner_context(new_class_sym->type_information, class_context);
@@ -142,7 +142,7 @@ static type_t* cuda_get_cudaStream_t_type(void)
         // typedef struct CUstream_st *cudaStream_t;
         scope_entry_t* new_class_sym = new_symbol(global_decl_context, global_decl_context.current_scope, "struct CUstream_st");
         new_class_sym->kind = SK_CLASS;
-        new_class_sym->type_information = get_new_class_type(global_decl_context, CK_STRUCT);
+        new_class_sym->type_information = get_new_class_type(global_decl_context, TT_STRUCT);
 
         scope_entry_t* new_typedef_sym = new_symbol(global_decl_context, global_decl_context.current_scope, "cudaStream_t");
         new_typedef_sym->kind = SK_TYPEDEF;

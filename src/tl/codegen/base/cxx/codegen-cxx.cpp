@@ -2265,15 +2265,15 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
     std::string class_key;
     switch (symbol.get_type().class_type_get_class_kind())
     {
-        case CK_CLASS:
+        case TT_CLASS:
             class_key = "class";
             default_access_spec = AS_PRIVATE;
             break;
-        case CK_STRUCT:
+        case TT_STRUCT:
             class_key = "struct";
             default_access_spec = AS_PUBLIC;
             break;
-        case CK_UNION:
+        case TT_UNION:
             class_key = "union";
             default_access_spec = AS_PUBLIC;
             break;
@@ -2701,13 +2701,13 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
             std::string friend_class_key;
             switch (_friend.get_type().class_type_get_class_kind())
             {
-                case CK_CLASS:
+                case TT_CLASS:
                     friend_class_key = "class";
                     break;
-                case CK_STRUCT:
+                case TT_STRUCT:
                     friend_class_key = "struct";
                     break;
-                case CK_UNION:
+                case TT_UNION:
                     friend_class_key = "union";
                     break;
                 default:
@@ -3342,13 +3342,13 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
             std::string class_key;
             switch (symbol.get_type().class_type_get_class_kind())
             {
-                case CK_CLASS:
+                case TT_CLASS:
                     class_key = "class";
                     break;
-                case CK_STRUCT:
+                case TT_STRUCT:
                     class_key = "struct";
                     break;
-                case CK_UNION:
+                case TT_UNION:
                     class_key = "union";
                     break;
                 default:

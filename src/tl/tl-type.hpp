@@ -597,7 +597,7 @@ namespace TL
             bool class_type_is_incomplete_independent() const;
             bool class_type_is_incomplete_dependent() const;
 
-            class_kind_t class_type_get_class_kind() const;
+            type_tag_t class_type_get_class_kind() const;
 
             //! States whether the type is a lvalue or rvalue reference type
             bool is_any_reference() const;

@@ -1970,7 +1970,7 @@ static int get_type(void *datum,
     {
         char *copy = strdup(symbols);
 
-        *pt = get_new_class_type(CURRENT_COMPILED_FILE->global_decl_context, CK_STRUCT);
+        *pt = get_new_class_type(CURRENT_COMPILED_FILE->global_decl_context, TT_STRUCT);
 
         *pt = get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name);
         insert_map_ptr(handle, current_oid, *pt);
