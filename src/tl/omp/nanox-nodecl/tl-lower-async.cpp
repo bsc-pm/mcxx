@@ -27,8 +27,6 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
            tiedness,
            fill_real_time_info,
            copy_decl,
-           if_expr_cond_start,
-           if_expr_cond_end,
            num_copies,
            copy_data,
            set_translation_fun,
@@ -150,14 +148,12 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         <<     fill_real_time_info
         <<     copy_decl
         <<     "nanos_err_t " << err_name <<";"
-        <<     if_expr_cond_start
         <<     err_name << " = nanos_create_wd(&wd, " << num_devices << "," << device_descriptor << ","
         <<                 struct_size << ","
         <<                 alignment
         <<                 "(void**)&ol_args, nanos_current_wd(),"
         <<                 "&props, " << num_copies << ", " << copy_data << ");"
         <<     "if (" << err_name << " != NANOS_OK) nanos_handle_error (" << err_name << ");"
-        <<     if_expr_cond_end
         <<     "if (wd != (nanos_wd_t)0)"
         <<     "{"
         <<        statement_placeholder(fill_outline_arguments_tree)
@@ -232,12 +228,10 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
     }
     else if (IS_FORTRAN_LANGUAGE)
     {
-
         for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
                 it != data_items.end();
                 it++)
         {
-
             if (it->get_sharing() == OutlineDataItem::SHARING_CAPTURE)
             {
                 fill_outline_arguments << 
@@ -261,11 +255,17 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         }
     }
 
-    Nodecl::NodeclBase new_tree = fill_outline_arguments.parse_statement(fill_outline_arguments_tree);
-    fill_outline_arguments_tree.integrate(new_tree);
+    if (!fill_outline_arguments.empty())
+    {
+        Nodecl::NodeclBase new_tree = fill_outline_arguments.parse_statement(fill_outline_arguments_tree);
+        fill_outline_arguments_tree.integrate(new_tree);
+    }
 
-    new_tree = fill_immediate_arguments.parse_statement(fill_immediate_arguments_tree);
-    fill_immediate_arguments_tree.integrate(new_tree);
+    if (!fill_immediate_arguments.empty())
+    {
+        Nodecl::NodeclBase new_tree = fill_immediate_arguments.parse_statement(fill_immediate_arguments_tree);
+        fill_immediate_arguments_tree.integrate(new_tree);
+    }
 
     construct.integrate(spawn_code_tree);
 }

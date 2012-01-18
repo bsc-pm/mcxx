@@ -80,8 +80,22 @@ namespace TL { namespace Nanox {
         {
             if (it->get_sharing() == OutlineDataItem::SHARING_PRIVATE)
             {
-                private_entities 
-                    << it->get_field_type().get_declaration(it->get_symbol().get_scope(), it->get_field_name());
+                if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+                {
+                    private_entities 
+                        << it->get_field_type().get_declaration(it->get_symbol().get_scope(), it->get_field_name())
+                        << ";"
+                        ;
+                }
+                else if (IS_FORTRAN_LANGUAGE)
+                {
+                    private_entities 
+                        << it->get_field_type().get_fortran_declaration(
+                                it->get_symbol().get_scope(), 
+                                it->get_field_name()) 
+                        << "\n"
+                        ;
+                }
             }
             else if (it->get_sharing() == OutlineDataItem::SHARING_SHARED
                     || it->get_sharing() == OutlineDataItem::SHARING_CAPTURE)
@@ -96,7 +110,11 @@ namespace TL { namespace Nanox {
                     parameter << it->get_symbol().get_name();
 
                     unpacked_parameter_declarations 
-                        << it->get_field_type().get_fortran_declaration(it->get_symbol().get_scope(), it->get_field_name(), Type::PARAMETER_DECLARATION) << "\n"
+                        << it->get_field_type().get_fortran_declaration(
+                                it->get_symbol().get_scope(), 
+                                it->get_field_name(), 
+                                Type::PARAMETER_DECLARATION) 
+                        << "\n"
                         ;
                 }
                 else

@@ -1696,32 +1696,42 @@ OPERATOR_TABLE
 
         rename_map_t::iterator it = _rename_map.find(sym);
 
-        if (it == _rename_map.end())
+        std::string result;
+
+        // There are several cases where we do not allow renaming at all
+        if ( sym.is_intrinsic()
+                || sym.is_member()
+                || (sym.get_internal_symbol()->entity_specs.from_module != NULL))
         {
-            std::stringstream ss;
-
-            if (!name_has_already_been_used(sym)
-                    // There are several cases where we do not allow renaming
-                    || sym.is_intrinsic()
-                    || sym.is_member()
-                    || (sym.get_internal_symbol()->entity_specs.from_module != NULL))
-            {
-                ss << sym.get_name();
-            }
-            else
-            {
-                ss << sym.get_name() << "_" << prefix;
-                prefix++;
-            }
-            _name_set.insert(ss.str());
-            _rename_map[sym] = ss.str();
-
-            return ss.str();
+            result = sym.get_name();
         }
         else
         {
-            return it->second;
+            if (it == _rename_map.end())
+            {
+                std::stringstream ss;
+
+                if (!name_has_already_been_used(sym))
+                {
+                    ss << sym.get_name();
+                }
+                else
+                {
+                    ss << sym.get_name() << "_" << prefix;
+                    prefix++;
+                }
+                _name_set.insert(ss.str());
+                _rename_map[sym] = ss.str();
+
+                result = ss.str();
+            }
+            else
+            {
+                result = it->second;
+            }
         }
+
+        return result;
     }
 
     void FortranBase::indent()
@@ -2262,8 +2272,6 @@ OPERATOR_TABLE
                 real_name = real_name.substr(class_prefix.size());
             }
 
-            indent();
-            file << "TYPE :: " << real_name << "\n";
 
             TL::Symbol old_sym = state.current_symbol;
             state.current_symbol = entry;
@@ -2279,6 +2287,15 @@ OPERATOR_TABLE
                     break;
                 }
             }
+            
+            // Keep the rename info
+            name_set_t old_name_set = _name_set;
+            rename_map_t old_rename_map = _rename_map;
+
+            clear_renames();
+
+            indent();
+            file << "TYPE :: " << real_name << "\n";
 
             bool previous_was_bitfield = false;
             int first_bitfield_offset = 0;
@@ -2347,11 +2364,23 @@ OPERATOR_TABLE
                 }
             }
 
+            // If it was empty add a dummy empty component
+            if (members.empty())
+            {
+                indent();
+                file << "INTEGER :: dummy_empty_\n";
+            }
+
+
             dec_indent();
             state.current_symbol = old_sym;
 
             indent();
             file << "END TYPE " << real_name << "\n";
+            
+            // And restore it after the internal function has been emitted
+            _name_set = old_name_set;
+            _rename_map = old_rename_map;
         }
         else if (entry.is_label())
         {

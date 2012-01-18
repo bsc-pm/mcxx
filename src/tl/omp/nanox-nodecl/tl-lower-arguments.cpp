@@ -97,7 +97,7 @@ namespace TL { namespace Nanox {
             else if (IS_C_LANGUAGE
                     || IS_CXX_LANGUAGE)
             {
-                // TODO
+                // TODO VLAs
             }
         }
 

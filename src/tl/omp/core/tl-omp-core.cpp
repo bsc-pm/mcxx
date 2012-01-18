@@ -362,7 +362,7 @@ namespace TL
 
                 for (unsigned int i = 0; pairs[i].name != NULL; i++)
                 {
-                    if (std::string(pairs[i].name) == args[0])
+                    if (std::string(pairs[i].name) == strtolower(args[0].c_str()))
                     {
                         return pairs[i].data_attr;
                     }
@@ -377,11 +377,73 @@ namespace TL
             }
         }
 
+        // Fortran only
+        class SequentialLoopsVariables : public Nodecl::ExhaustiveVisitor<void>
+        {
+            public:
+                TL::ObjectList<TL::Symbol> symbols;
+
+                virtual void visit(const Nodecl::ForStatement& for_stmt)
+                {
+                    Nodecl::LoopControl loop_control = for_stmt.get_loop_header().as<Nodecl::LoopControl>();
+
+                    Nodecl::NodeclBase init = loop_control.get_init();
+
+                    if (init.is<Nodecl::Assignment>())
+                    {
+                        Nodecl::Assignment assign = init.as<Nodecl::Assignment>();
+                        if (assign.get_lhs().is<Nodecl::Symbol>())
+                        {
+                            symbols.insert(assign.get_lhs().get_symbol());
+                        }
+                    }
+                }
+
+                virtual void visit(const Nodecl::PragmaCustomStatement& construct)
+                {
+                    if (TL::PragmaUtils::is_pragma_construct("omp", "task", construct)
+                            || TL::PragmaUtils::is_pragma_construct("omp", "parallel", construct))
+                    {
+                        // Stop the visit here
+                    }
+                    else
+                    {
+                        ExhaustiveVisitor<void>::visit(construct);
+                    }
+                }
+        };
+
         void Core::get_data_implicit_attributes(TL::PragmaCustomStatement construct, 
                 DataSharingAttribute default_data_attr, 
                 DataSharingEnvironment& data_sharing)
         {
             Nodecl::NodeclBase statement = construct.get_statements();
+
+            FORTRAN_LANGUAGE()
+            {
+                // A loop iteration variable for a sequential loop in a parallel or task construct 
+                // is private in the innermost such construct that encloses the loop
+                if (TL::PragmaUtils::is_pragma_construct("omp", "parallel", construct))
+                {
+                    SequentialLoopsVariables sequential_loops;
+                    sequential_loops.walk(statement);
+
+                    for (ObjectList<TL::Symbol>::iterator it = sequential_loops.symbols.begin();
+                            it != sequential_loops.symbols.end();
+                            it++)
+                    {
+                        TL::Symbol &sym(*it);
+                        DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym);
+
+                        data_attr = data_sharing.get_data_sharing(sym, /* check_enclosing */ false);
+
+                        if (data_attr == DS_UNDEFINED)
+                        {
+                            data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_PRIVATE | DS_IMPLICIT));
+                        }
+                    }
+                }
+            }
 
             ObjectList<Nodecl::Symbol> nonlocal_symbols = Nodecl::Utils::get_nonlocal_symbols_first_occurrence(statement);
             ObjectList<Symbol> already_nagged;
@@ -546,6 +608,29 @@ namespace TL
                 DataSharingAttribute default_data_attr)
         {
             Nodecl::NodeclBase statement = construct.get_statements();
+
+            FORTRAN_LANGUAGE()
+            {
+                // A loop iteration variable for a sequential loop in a parallel or task construct 
+                // is private in the innermost such construct that encloses the loop
+                SequentialLoopsVariables sequential_loops;
+                sequential_loops.walk(statement);
+
+                for (ObjectList<TL::Symbol>::iterator it = sequential_loops.symbols.begin();
+                        it != sequential_loops.symbols.end();
+                        it++)
+                {
+                    TL::Symbol &sym(*it);
+                    DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym);
+
+                    data_attr = data_sharing.get_data_sharing(sym, /* check_enclosing */ false);
+
+                    if (data_attr == DS_UNDEFINED)
+                    {
+                        data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_PRIVATE | DS_IMPLICIT));
+                    }
+                }
+            }
 
             ObjectList<Nodecl::Symbol> nonlocal_symbols = Nodecl::Utils::get_nonlocal_symbols_first_occurrence(statement);
 
