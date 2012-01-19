@@ -365,6 +365,8 @@ exec-environment : NODECL_PARALLEL*CONDITION([condition]expression)
                  | NODECL_PARALLEL*SCHEDULE([schedule]expression)
 # Not yet decided
                  | NODECL_PARALLEL*TARGET() 
+                 | NODECL_PARALLEL*PRIORITY([priority]expression) 
+                 | NODECL_PARALLEL*UNTIED()
 
 async-reduction : NODECL_PARALLEL*REDUCTION_ITEM([reductor]name, [reduced_symbols]name-seq)
 

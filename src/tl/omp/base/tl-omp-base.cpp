@@ -138,6 +138,35 @@ namespace TL { namespace OpenMP {
 
         Nodecl::List execution_environment = this->make_execution_environment(ds, pragma_line);
 
+        PragmaCustomClause untied = pragma_line.get_clause("untied");
+        if (untied.is_defined())
+        {
+            execution_environment.push_back(
+                    Nodecl::Parallel::Untied::make(
+                        directive.get_filename(),
+                        directive.get_line()));
+        }
+
+        PragmaCustomClause priority = pragma_line.get_clause("priority");
+        if (priority.is_defined())
+        {
+            TL::ObjectList<Nodecl::NodeclBase> expr_list = priority.get_arguments_as_expressions(directive);
+
+            if (expr_list.size() != 1)
+            {
+                warn_printf("%s: warning: ignoring invalid 'priority' clause in 'task' construct\n",
+                        directive.get_locus().c_str());
+            }
+            else
+            {
+                execution_environment.push_back(
+                        Nodecl::Parallel::Priority::make(
+                            expr_list[0],
+                            directive.get_filename(),
+                            directive.get_line()));
+            }
+        }
+
         PragmaCustomClause if_clause = pragma_line.get_clause("if");
 
         Nodecl::NodeclBase async_code = 
@@ -160,7 +189,7 @@ namespace TL { namespace OpenMP {
                 async_code = Nodecl::IfElseStatement::make(
                         expr_list[0],
                         Nodecl::List::make(async_code),
-                        Nodecl::NodeclBase::null(),
+                        directive.get_statements().copy(),
                         directive.get_filename(),
                         directive.get_line());
             }
