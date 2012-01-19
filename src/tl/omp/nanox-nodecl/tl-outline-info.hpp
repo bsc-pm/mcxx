@@ -44,6 +44,22 @@ namespace TL
         class OutlineDataItem
         {
             public:
+                enum ItemKind
+                {
+                    // Means item keeps either a value or an
+                    // address to a program entity. It is the only
+                    // item needed to describe the program entity
+                    ITEM_KIND_NORMAL = 0,
+                    // Means this items keeps an address to a program entity
+                    // but this item alone is not enough to describe that
+                    // entity because of additional outline items describing it
+                    // (i.e. ITEM_KIND_DATA_DIMENSION)
+                    ITEM_KIND_DATA_ADDRESS,
+                    // Means this items keeps a value representing a dimension
+                    // of a runtime data. This is for VLAs
+                    ITEM_KIND_DATA_DIMENSION
+                };
+
                 enum Sharing
                 {
                     SHARING_UNDEFINED = 0,
@@ -87,12 +103,9 @@ namespace TL
                     ALLOCATION_POLICY_TASK_MUST_DEALLOCATE = 1 << 3,
                 };
 
-                enum ValueKind
-                {
-                    VALUE_KIND_NORMAL = 0,
-                    VALUE_KIND_CAST_IN_TASK
-                };
             private:
+                ItemKind _item_kind;
+
                 // Original symbol
                 TL::Symbol _sym;
 
@@ -108,10 +121,6 @@ namespace TL
                 // Reductions
 
                 // -- FIXME ---
-                // Nested data items (VLA and other crazy stuff)
-                // ObjectList<OutlineDataItem> _nested_data;
-                
-                // -- FIXME ---
                 // Dependences
                 Directionality _directionality;
                 
@@ -121,19 +130,28 @@ namespace TL
 
                 AllocationPolicyFlags _allocation_policy_flags;
                 
-                ValueKind _value_kind;
             public:
                 OutlineDataItem(TL::Symbol symbol, const std::string& field_name)
-                    : _sym(symbol), 
+                    : _item_kind(ITEM_KIND_NORMAL),
+                    _sym(symbol), 
                     _field_name(field_name), 
                     _field_type(_sym.get_type()),
                     _in_outline_type(NULL),
                     _sharing(),
                     _directionality(),
                     _transfer(),
-                    _allocation_policy_flags(),
-                    _value_kind()
+                    _allocation_policy_flags()
                 {
+                }
+
+                ItemKind get_item_kind() const
+                {
+                    return _item_kind;
+                }
+
+                void set_item_kind(ItemKind item_kind)
+                {
+                    _item_kind = item_kind;
                 }
 
                 //! Returns the symbol of this item
@@ -210,16 +228,6 @@ namespace TL
                 AllocationPolicyFlags get_allocation_policy() const
                 {
                     return _allocation_policy_flags;
-                }
-
-                ValueKind get_value_kind() const
-                {
-                    return _value_kind;
-                }
-
-                void set_value_kind(ValueKind value_kind)
-                {
-                    _value_kind = value_kind;
                 }
         };
 

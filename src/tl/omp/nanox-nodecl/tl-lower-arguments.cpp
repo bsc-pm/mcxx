@@ -32,6 +32,7 @@ namespace TL { namespace Nanox {
 
     TL::Type LoweringVisitor::handle_vla_type_rec(
             OutlineDataItem& outline_data_item,
+            OutlineInfo& outline_info,
             TL::Type type, 
             TL::Scope class_scope, 
             TL::Symbol new_class_symbol,
@@ -43,6 +44,7 @@ namespace TL { namespace Nanox {
         {
             TL::Type synthesized_type = handle_vla_type_rec(
                     outline_data_item,
+                    outline_info,
                     type.array_element(), 
                     class_scope, 
                     new_class_symbol, new_class_type,
@@ -71,6 +73,9 @@ namespace TL { namespace Nanox {
 
                 class_type_add_member(new_class_type.get_internal_type(), vla_field.get_internal_symbol());
 
+                OutlineDataItem& new_outline_data_item = outline_info.get_entity_for_symbol(vla_field);
+                new_outline_data_item.set_item_kind(OutlineDataItem::ITEM_KIND_DATA_DIMENSION);
+
                 Nodecl::NodeclBase vla_sym = Nodecl::Symbol::make(vla_field, filename, line);
                 return synthesized_type.get_array_to(vla_sym, vla_field.get_scope());
             }
@@ -85,6 +90,7 @@ namespace TL { namespace Nanox {
         {
             TL::Type synthesized_type = handle_vla_type_rec(
                     outline_data_item,
+                    outline_info,
                     type.points_to(), 
                     class_scope, new_class_symbol, 
                     new_class_type,
@@ -99,6 +105,7 @@ namespace TL { namespace Nanox {
 
     void LoweringVisitor::handle_vla_type(
             OutlineDataItem& outline_data_item,
+            OutlineInfo& outline_info,
             TL::Scope class_scope, 
             TL::Symbol new_class_symbol,
             TL::Type new_class_type,
@@ -107,6 +114,7 @@ namespace TL { namespace Nanox {
     {
         TL::Type synthesized_type = handle_vla_type_rec(
                 outline_data_item,
+                outline_info,
                 outline_data_item.get_symbol().get_type(),
                 class_scope,
                 new_class_symbol, 
@@ -116,7 +124,7 @@ namespace TL { namespace Nanox {
         outline_data_item.set_in_outline_type(synthesized_type);
         outline_data_item.set_field_type(Type::get_void_type().get_pointer_to());
 
-        outline_data_item.set_value_kind(OutlineDataItem::VALUE_KIND_CAST_IN_TASK);
+        outline_data_item.set_item_kind(OutlineDataItem::ITEM_KIND_DATA_ADDRESS);
 
         if (outline_data_item.get_symbol().get_type().is_array()
                 && outline_data_item.get_sharing() == OutlineDataItem::SHARING_CAPTURE)
@@ -224,6 +232,7 @@ namespace TL { namespace Nanox {
                 if (requires_vla_handling(*it))
                 {
                     handle_vla_type(*it, 
+                            outline_info,
                             class_scope,
                             new_class_symbol, 
                             new_class_type,

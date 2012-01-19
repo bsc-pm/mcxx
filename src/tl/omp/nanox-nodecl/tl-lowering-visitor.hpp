@@ -22,6 +22,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
 
         TL::Type handle_vla_type_rec(
                 OutlineDataItem& outline_data_item,
+                OutlineInfo& outline_info,
                 TL::Type type, 
                 TL::Scope class_scope, 
                 TL::Symbol new_class_symbol,
@@ -30,6 +31,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 int line);
         void handle_vla_type(
                 OutlineDataItem& outline_data_item,
+                OutlineInfo& outline_info,
                 TL::Scope class_scope, 
                 TL::Symbol new_class_symbol,
                 TL::Type new_class_type,
