@@ -122,6 +122,8 @@ namespace TL
 
             //! Gets the scope where this symbol is defined
             Scope get_scope() const;
+    
+            Scope get_related_scope() const;
 
             //! Returns the location of the symbol
             std::string get_locus() const;

@@ -145,6 +145,13 @@ namespace TL
 
         return result;
     }
+    
+    Scope Symbol::get_related_scope() const
+    {
+        Scope result(_symbol->related_decl_context);
+
+        return result;
+    }
 
     Symbol& Symbol::operator=(Symbol s)
     {
