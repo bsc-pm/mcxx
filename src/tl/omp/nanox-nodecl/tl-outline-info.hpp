@@ -78,6 +78,20 @@ namespace TL
                     COPY_OUT,
                     COPY_INOUT
                 };
+
+                enum AllocationPolicyFlags
+                {
+                    ALLOCATION_POLICY_NONE = 0,
+                    ALLOCATION_POLICY_OVERALLOCATED        = 1 << 1,
+                    ALLOCATION_POLICY_TASK_MUST_DESTROY    = 1 << 2,
+                    ALLOCATION_POLICY_TASK_MUST_DEALLOCATE = 1 << 3,
+                };
+
+                enum ValueKind
+                {
+                    VALUE_KIND_NORMAL = 0,
+                    VALUE_KIND_CAST_IN_TASK
+                };
             private:
                 // Original symbol
                 TL::Symbol _sym;
@@ -85,6 +99,8 @@ namespace TL
                 // Name of the field
                 std::string _field_name;
                 TL::Type _field_type;
+
+                TL::Type _in_outline_type;
 
                 Sharing _sharing;
 
@@ -102,18 +118,21 @@ namespace TL
                 // -- FIXME ---
                 // Copies
                 Transfer _transfer;
-            public:
-                // OutlineDataItem() 
-                //     : _sym(NULL), 
-                //     _field_name(""), 
-                //     _field_type(NULL),
-                //     _is_capture(false)
-                // { }
 
+                AllocationPolicyFlags _allocation_policy_flags;
+                
+                ValueKind _value_kind;
+            public:
                 OutlineDataItem(TL::Symbol symbol, const std::string& field_name)
                     : _sym(symbol), 
                     _field_name(field_name), 
-                    _field_type(_sym.get_type())
+                    _field_type(_sym.get_type()),
+                    _in_outline_type(NULL),
+                    _sharing(),
+                    _directionality(),
+                    _transfer(),
+                    _allocation_policy_flags(),
+                    _value_kind()
                 {
                 }
 
@@ -123,24 +142,36 @@ namespace TL
                     return _sym;
                 }
 
-                //! Returns the original type of this item
-                Type get_original_type() const
-                {
-                    return _sym.get_type();
-                }
-
                 //! Returns the field name of this item
                 std::string get_field_name() const
                 {
                     return _field_name;
                 }
 
-                //! Returns the field type
+                // Returns the type used in the outline code
+                // or the field type if not defined
+                Type get_in_outline_type() const
+                {
+                    if (_in_outline_type.is_valid())
+                        return _in_outline_type;
+                    else
+                        return _field_type;
+                }
+
+                // Sets a type to be used in the outline
+                // It may be a different type to the field one
+                void set_in_outline_type(Type t) 
+                {
+                    _in_outline_type = t;
+                }
+
+                // Returns the type used in the structure
                 Type get_field_type() const
                 {
                     return _field_type;
                 }
 
+                // Sets the type used in the structure
                 void set_field_type(Type t)
                 {
                     _field_type = t;
@@ -170,6 +201,26 @@ namespace TL
                 {
                     return _sharing;
                 }
+
+                void set_allocation_policy(AllocationPolicyFlags allocation_policy_flags)
+                {
+                    _allocation_policy_flags = allocation_policy_flags;
+                }
+
+                AllocationPolicyFlags get_allocation_policy() const
+                {
+                    return _allocation_policy_flags;
+                }
+
+                ValueKind get_value_kind() const
+                {
+                    return _value_kind;
+                }
+
+                void set_value_kind(ValueKind value_kind)
+                {
+                    _value_kind = value_kind;
+                }
         };
 
         class OutlineInfo
@@ -184,7 +235,12 @@ namespace TL
             public:
                 OutlineDataItem& get_entity_for_symbol(TL::Symbol sym);
 
-                ObjectList<OutlineDataItem> get_data_items() const
+                ObjectList<OutlineDataItem>& get_data_items()
+                {
+                    return _data_env_items;
+                }
+
+                const ObjectList<OutlineDataItem>& get_data_items() const
                 {
                     return _data_env_items;
                 }

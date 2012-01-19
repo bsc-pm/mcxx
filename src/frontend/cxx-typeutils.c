@@ -2497,9 +2497,14 @@ static type_t* _get_array_type(type_t* element_type,
             result->array->with_descriptor = with_descriptor;
 
             // If the element_type is array propagate the 'is_vla' value
-            if(element_type->array != NULL) 
+            if (is_array_type(element_type))
             {
+                // If the element_type is array propagate the 'is_vla' value
                 result->array->is_vla = element_type->array->is_vla;
+
+                // Check that the descriptor attribute is consistent
+                ERROR_CONDITION((with_descriptor != result->array->with_descriptor),
+                        "Multidimensional array created with inconsistent descriptor flag", 0);
             }
 
             result->array->array_expr_decl_context = decl_context;
@@ -2538,10 +2543,14 @@ static type_t* _get_array_type(type_t* element_type,
                 
                 result->array->with_descriptor = with_descriptor;
 
-                // If the element_type is array propagate the 'is_vla' value
-                if (element_type->array != NULL)
+                if (is_array_type(element_type))
                 {
+                    // If the element_type is array propagate the 'is_vla' value
                     result->array->is_vla = element_type->array->is_vla;
+
+                    // Check that the descriptor attribute is consistent
+                    ERROR_CONDITION((with_descriptor != result->array->with_descriptor),
+                            "Multidimensional array created with inconsistent descriptor flag", 0);
                 }
 
                 result->array->whole_size = whole_size;

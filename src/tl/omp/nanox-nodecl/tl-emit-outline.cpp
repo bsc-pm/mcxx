@@ -134,17 +134,19 @@ namespace TL { namespace Nanox {
                     {
                         argument << "args." << it->get_field_name();
                     }
+
+                    if (IS_CXX_LANGUAGE
+                            && it->get_allocation_policy() != OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DESTROY)
+                    {
+                        internal_error("Not yet implemented: call the destructor", 0);
+                    }
                 }
                 else if (IS_FORTRAN_LANGUAGE)
                 {
                     argument << "args % " << it->get_field_name();
 
-                    if (it->get_field_type().is_array()
-                            && (it->get_field_type().array_is_vla()
-                                || it->get_field_type().array_requires_descriptor()))
+                    if (it->get_allocation_policy() == OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE)
                     {
-                        // In these cases we have created an ALLOCATABLE entity which will require
-                        // DEALLOCATE
                         cleanup_code
                             << "DEALLOCATE(args % " << it->get_field_name() << ")\n"
                             ;
