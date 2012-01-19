@@ -232,4 +232,9 @@ namespace TL
     {
         return _decl_context.current_scope->related_entry;
     }
+    
+    template_parameter_list_t* Scope::get_template_parameters() const
+    {
+       return _decl_context.template_parameters;
+    }
 }

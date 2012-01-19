@@ -46,8 +46,6 @@
 
 namespace TL
 {
-    class TemplateParameter;
-    
     //! \addtogroup Wrap 
     //! @{
 
@@ -212,7 +210,7 @@ namespace TL
             Scope temporal_scope() const;
 
             //! Returns the template parameters related to this scope
-            ObjectList<TemplateParameter> get_template_parameters() const;
+            template_parameter_list_t* get_template_parameters() const;
 
             //! Returns all symbols signed in in this scope
             /*! 
