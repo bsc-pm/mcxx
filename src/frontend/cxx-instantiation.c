@@ -739,15 +739,26 @@ static void instantiate_dependent_friend(type_t* selected_template UNUSED_PARAME
             }
             else
             {
-                new_friend = new_symbol(context_of_being_instantiated,
-                        context_of_being_instantiated.namespace_scope, friend->symbol_name);
+                new_friend = calloc(1, sizeof(*new_friend));
 
+                new_friend->symbol_name = friend->symbol_name;
                 new_friend->kind = SK_DEPENDENT_FRIEND_CLASS;
                 new_friend->type_information = new_type;
                 new_friend->line = line;
                 new_friend->file = filename;
                 new_friend->entity_specs = friend->entity_specs;
-                new_friend->related_decl_context = friend->related_decl_context;
+
+                new_friend->decl_context = context_of_being_instantiated;
+
+                // We need the context of the friend declaration because in the code generation
+                // phase we must print the template arguments
+                new_friend->related_decl_context = friend->decl_context;
+
+                // Link the template parameters properly
+                template_parameter_list_t *new_temp_param_list =
+                    duplicate_template_argument_list(friend->decl_context.template_parameters);
+                new_temp_param_list->enclosing = context_of_being_instantiated.template_parameters;
+                new_friend->decl_context.template_parameters = new_temp_param_list;
             }
 
             // If the new type is not dependent, we change the kind of

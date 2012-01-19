@@ -3,7 +3,6 @@
 #include "tl-type.hpp"
 #include "cxx-cexpr.h"
 #include "string_utils.h"
-
 #include <iomanip>
 
 #ifdef HAVE_QUADMATH_H
@@ -2692,6 +2691,25 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                 is_primary_template = 1;
             }
         }
+        else if (_friend.get_type().is_dependent_typename())
+        {
+            indent();
+            file << "template <";
+            TL::TemplateParameters template_parameters = _friend.get_related_scope().get_template_parameters();
+            codegen_template_parameters(template_parameters);
+            file << ">\n";
+
+            inc_indent();
+            indent();
+            file << "friend "
+                 << print_type_str(_friend.get_type().get_internal_type(),_friend.get_scope().get_decl_context())
+                 << ";\n";
+
+            dec_indent();
+            dec_indent();
+            continue;
+        }
+
 
         indent();
         file << "friend ";
@@ -2716,11 +2734,11 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
 
             if (!is_primary_template)
             {
-                file << friend_class_key << " " << _friend.get_qualified_name(_friend.get_scope()) << ";\n";
+                file << friend_class_key << " " << _friend.get_qualified_name(_friend.get_scope());
             }
             else
             {
-                file << friend_class_key << template_symbol.get_qualified_name(_friend.get_scope()) << ";\n";
+                file << friend_class_key << template_symbol.get_qualified_name(_friend.get_scope());
             }
         }
         else if (_friend.is_function())
@@ -2731,20 +2749,18 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                 real_type = get_new_function_type(NULL, NULL, 0);
             }
 
-            std::string declarator = 
-                this->get_declaration(real_type, _friend.get_scope(), 
+            std::string declarator =
+                this->get_declaration(real_type, _friend.get_scope(),
                         _friend.get_qualified_name());
 
-            file << declarator << ";\n";
+            file << declarator;
         }
-        //else if (_friend.get_type().is_dependent_typename())
-        //{
-        //}
         else
         {
             internal_error("Invalid friend symbol kind '%s'\n", symbol_kind_name(_friend.get_internal_symbol()));
         }
 
+        file << ";\n";
         dec_indent();
     }
 
@@ -3580,9 +3596,10 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
 
         declare_symbol(entry);
     }
-    //else if(symbol.get_type().is_dependent_typename())
-    //{
-    //}
+    else if(symbol.get_type().is_dependent_typename())
+    {
+        // Do nothing
+    }
     else
     {
         internal_error("Do not know how to declare a %s\n", symbol_kind_name(symbol.get_internal_symbol()));
