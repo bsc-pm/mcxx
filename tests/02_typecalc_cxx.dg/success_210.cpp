@@ -31,13 +31,15 @@ test_generator=config/mercurium
 </testinfo>
 */
 
-struct A
-{
-    friend int foo1(int, float);
-    friend void foo2(int, float);
-};
 
-int  foo1(int, float); 
-void foo2(int, float); 
+template<typename T>
+    int foo1(T);
 
-A a;
+
+template<typename T>
+    struct A
+    {
+        friend int foo1(T);
+    };
+
+A<int> a;

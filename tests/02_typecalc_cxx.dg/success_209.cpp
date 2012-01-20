@@ -1,4 +1,3 @@
-
 /*--------------------------------------------------------------------
   (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
@@ -31,6 +30,7 @@
 test_generator=config/mercurium
 </testinfo>
 */
+
 template<typename T>
     struct A
     {
