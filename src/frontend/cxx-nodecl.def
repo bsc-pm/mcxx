@@ -149,8 +149,8 @@ expression : literal
            | NODECL_ERR_EXPR()
 # This one is intended to represent implicit conversions allowed by the base language
            | NODECL_CONVERSION([nest] expression) type
-# This one represents an expression the value of which must be somehow saved
-           | NODECL_SAVED_EXPR([expression]expression) type
+# This one represents an expression the value of which is already saved in another symbol
+           | NODECL_SAVED_EXPR([expression]expression) type symbol
 
 structured-value: NODECL_STRUCTURED_VALUE([items]initializer-item-seq-opt) type
 

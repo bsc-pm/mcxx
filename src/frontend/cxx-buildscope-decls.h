@@ -97,6 +97,10 @@ struct gather_decl_spec_tag {
         nodecl_t argument;
         decl_context_t context;
     } arguments_info[MCXX_MAX_FUNCTION_PARAMETERS];
+    
+    // VLA info
+    int num_vla_dimension_symbols;
+    scope_entry_t** vla_dimension_symbols;
 
     // Attribute info
     int num_gcc_attributes;

@@ -1294,6 +1294,25 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
 
             if (entry->kind == SK_VARIABLE)
             {
+                if (decl_context.current_scope->kind == BLOCK_SCOPE)
+                {
+                    int i;
+                    for (i = 0; i < current_gather_info.num_vla_dimension_symbols; i++)
+                    {
+                        scope_entry_t* vla_dim = current_gather_info.vla_dimension_symbols[i];
+
+                        *nodecl_output = nodecl_concat_lists(
+                                *nodecl_output,
+                                nodecl_make_list_1(nodecl_make_object_init(
+                                        vla_dim, 
+                                        ASTFileName(init_declarator), ASTLine(init_declarator)))); 
+                    }
+
+                    current_gather_info.num_vla_dimension_symbols = 0;
+                    free(current_gather_info.vla_dimension_symbols);
+                    current_gather_info.vla_dimension_symbols = NULL;
+                }
+
                 if (entry->defined
                         && !BITMAP_TEST(decl_context.decl_flags, DF_ALLOW_REDEFINITION)
                         && !current_gather_info.is_extern)
@@ -1335,9 +1354,6 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                     }
 
                     entry->value = nodecl_initializer;
-
-                    {
-                    }
                 }
                 // If it does not have initializer and it is not an extern entity
                 // check a zero args constructor
@@ -5859,6 +5875,7 @@ static void set_pointer_type(type_t** declarator_type, AST pointer_tree,
 static void set_array_type(type_t** declarator_type, 
         AST constant_expr, AST static_qualifier UNUSED_PARAMETER, 
         AST cv_qualifier_seq UNUSED_PARAMETER,
+        gather_decl_spec_t* gather_info, 
         decl_context_t decl_context)
 {
     type_t* element_type = *declarator_type;
@@ -5893,6 +5910,34 @@ static void set_array_type(type_t** declarator_type,
                 *declarator_type = get_error_type();
                 return;
             }
+            // // Maybe we should check for decl_context.block_scope != NULL
+            // else if (decl_context.current_scope->kind == BLOCK_SCOPE)
+            // {
+            //     static int vla_counter = 0;
+
+            //     const char* vla_name = NULL; 
+            //     uniquestr_sprintf(&vla_name, "__vla_%d", vla_counter);
+
+            //     scope_entry_t* new_vla_dim = new_symbol(decl_context, decl_context.current_scope, vla_name);
+
+            //     new_vla_dim->kind = SK_VARIABLE;
+            //     new_vla_dim->file = ASTFileName(constant_expr);
+            //     new_vla_dim->line = ASTLine(constant_expr);
+            //     new_vla_dim->value = nodecl_expr;
+            //     new_vla_dim->type_information = nodecl_get_type(nodecl_expr);
+
+            //     P_LIST_ADD(gather_info->vla_dimension_symbols,
+            //             gather_info->num_vla_dimension_symbols,
+            //             new_vla_dim);
+
+            //     vla_counter++;
+
+            //     nodecl_expr = nodecl_make_saved_expr(nodecl_expr, 
+            //             new_vla_dim, 
+            //             nodecl_get_type(nodecl_expr),
+            //             nodecl_get_filename(nodecl_expr),
+            //             nodecl_get_line(nodecl_expr));
+            // }
         }
     }
 
@@ -6127,11 +6172,6 @@ static void set_function_parameter_clause(type_t** function_type,
             if (parameter_declarator != NULL)
             {
                 entry = build_scope_declarator_name(parameter_declarator, type_info, &param_decl_gather_info, param_decl_context, nodecl_output);
-
-                AST declarator_name = get_declarator_name(parameter_declarator, param_decl_context);
-                if (declarator_name != NULL)
-                {
-                }
             }
 
             // Now normalize the types
@@ -6375,6 +6415,7 @@ static void build_scope_declarator_rec(
                         /* expr */ASTSon1(a), 
                         /* (C99)static_qualif */ ASTSon3(a),
                         /* (C99)cv_qualifier_seq */ ASTSon2(a),
+                        gather_info,
                         entity_context);
                 if (is_error_type(*declarator_type))
                 {
@@ -6542,15 +6583,6 @@ static scope_entry_t* build_scope_declarator_name(AST declarator, type_t* declar
 
     scope_entry_t* entry = build_scope_declarator_id_expr(declarator_id_expr, declarator_type, gather_info, 
             decl_context, nodecl_output);
-
-    if (entry != NULL)
-    {
-        AST declarator_name = get_declarator_name(declarator, decl_context);
-
-        if (declarator_name != NULL)
-        {
-        }
-    }
 
     return entry;
 }
@@ -9115,7 +9147,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
                 new_decl_context, &block_context, nodecl_output);
         entry = build_scope_declarator_name(function_declarator, declarator_type, &gather_info, new_decl_context, nodecl_output);
     }
-    
+
     if (entry == NULL)
     {
         if (!checking_ambiguity())
@@ -10369,9 +10401,6 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
 
                         AST declarator_name = get_declarator_name(declarator, decl_context);
                         AST initializer = ASTSon1(declarator);
-
-                        {
-                        }
 
                         // Change name of constructors
                         if (type_specifier == NULL)
