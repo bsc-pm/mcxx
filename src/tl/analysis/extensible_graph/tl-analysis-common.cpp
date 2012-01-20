@@ -209,15 +209,14 @@ namespace TL
             if (nodecl.is<Nodecl::ArraySubscript>())
             {
                 Nodecl::ArraySubscript arr = nodecl.as<Nodecl::ArraySubscript>();
-                bool res = ext_sym_set_contains_nodecl(nodecl, sym_set);
-                res = res || ext_sym_set_contains_englobing_nodecl(arr.get_subscripted(), sym_set);
-                return res;
+                return ( ext_sym_set_contains_nodecl(nodecl, sym_set) 
+                        || ext_sym_set_contains_englobing_nodecl(arr.get_subscripted(), sym_set) );
             }
             else if (nodecl.is<Nodecl::ClassMemberAccess>())
             {
                 Nodecl::ClassMemberAccess memb_access = nodecl.as<Nodecl::ClassMemberAccess>();
-                return (ext_sym_set_contains_nodecl(nodecl, sym_set) 
-                        || ext_sym_set_contains_englobing_nodecl(memb_access.get_lhs(), sym_set));
+                return ( ext_sym_set_contains_nodecl(nodecl, sym_set) 
+                        || ext_sym_set_contains_englobing_nodecl(memb_access.get_lhs(), sym_set) );
             }
             else if (nodecl.is<Nodecl::Conversion>())
             {    
@@ -228,6 +227,17 @@ namespace TL
             {
                 return ext_sym_set_contains_nodecl(nodecl, sym_set);
             }
+        }
+        
+        bool ext_sym_set_contains_englobed_nodecl(ExtensibleSymbol ei, ext_sym_set sym_set)
+        {
+            ext_sym_set fake_list(1, ei);
+            for (ext_sym_set::iterator it = sym_set.begin(); it != sym_set.end(); ++it)
+            {
+                if (ext_sym_set_contains_englobing_nodecl(*it, fake_list))
+                    return true;
+            }
+            return false;
         }
         
         ext_sym_set sets_union(ext_sym_set set1, ext_sym_set set2)

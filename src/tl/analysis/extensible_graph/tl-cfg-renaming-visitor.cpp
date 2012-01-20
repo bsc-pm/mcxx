@@ -349,7 +349,6 @@ namespace TL
                 }
                 else
                 {
-                    std::cerr << "l = " << l.prettyprint() << ", lb = " << lb.prettyprint() << ", ub = " << ub.prettyprint() << std::endl;
                     Nodecl::NodeclBase new_min = min(l, lb);
                     Nodecl::NodeclBase new_max = max(l, ub);
                     if (!new_min.is_null())

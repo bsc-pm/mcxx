@@ -36,6 +36,9 @@ namespace TL
 {
     namespace Analysis
     {
+        static void compute_params_usage_in_unknown_func_call(Nodecl::NodeclBase n, ext_sym_set undef_behaviour_vars, ext_sym_set ue_vars);
+        static ObjectList<Node*> uses_from_node_to_node(Node* current, Node* end, ExtensibleSymbol ei);
+        
         // *** NODE *** //
         
         void Node::fill_use_def_sets(Nodecl::NodeclBase n, bool defined)
@@ -64,7 +67,8 @@ namespace TL
         }
         
         StaticAnalysis::StaticAnalysis(LoopAnalysis* loop_analysis)
-            :_loop_analysis(loop_analysis)
+            :_loop_analysis(loop_analysis), _next_sync(NULL), _simultaneous_tasks(),
+            _firstprivate_vars(), _private_vars(), _shared_vars()
         {}
         
         void StaticAnalysis::live_variable_analysis(Node* node)
@@ -145,25 +149,7 @@ namespace TL
                             for(ObjectList<Node*>::iterator it = children.begin();it != children.end();++it)
                             {
                                 Node_type nt = (*it)->get_type();
-                                /*if (nt == GRAPH_NODE)
-                                {
-                                    ObjectList<Node*> inner_children = (*it)->get_graph_entry_node()->get_children();
-                                    for(ObjectList<Node*>::iterator itic = inner_children.begin();
-                                        itic != inner_children.end();
-                                        ++itic)
-                                    {
-                                        ext_sym_set current_live_in = (*itic)->get_live_in_vars();
-                                        for (ext_sym_set::iterator itli = current_live_in.begin(); itli != current_live_in.end(); ++itli)
-                                        {
-                                            if ((*it)->get_scope().is_valid())
-                                                if (!itli->get_symbol().get_scope().scope_is_enclosed_by((*it)->get_scope()))
-                                                    aux_live_in.insert(*itli);
-                                            else
-                                                aux_live_in.insert(*itli);
-                                        }
-                                    }
-                                }
-                                else */if (nt == BASIC_EXIT_NODE)
+                                if (nt == BASIC_EXIT_NODE)
                                 {
                                     ObjectList<Node*> outer_children = (*it)->get_outer_node()->get_children();
                                     for(ObjectList<Node*>::iterator itoc = outer_children.begin();
@@ -214,50 +200,83 @@ namespace TL
          * Output values al those which are Live out and are not Live in
          * Inout values al those which are Live in and Live out
          */
-        void StaticAnalysis::analyse_task(Node* task_node)
+        char StaticAnalysis::analyse_task(Node* task_node)
         {            
             // Scope variables as Private, Firstprivate, Shared or UndefinedScope
-            compute_auto_scoping(task_node);
+            char computed = compute_auto_scoping(task_node);
             
-            // Specify Shared Variables into Input, Output and Inout
-            ext_sym_set in_vars = task_node->get_live_in_vars();
-            ext_sym_set out_vars = task_node->get_live_out_vars();
-            ext_sym_set input_deps, output_deps, inout_deps;
-            ext_sym_set shared_vars = task_node->get_shared_vars();
-            for (ext_sym_set::iterator it = shared_vars.begin(); it != shared_vars.end(); ++it)
+            if (computed == '1')
             {
-                if (ext_sym_set_contains_englobing_nodecl(*it, in_vars))
+                // Specify Shared Variables into Input, Output and Inout
+                ext_sym_set in_vars = task_node->get_live_in_vars();
+                ext_sym_set out_vars = task_node->get_live_out_vars();
+                ext_sym_set input_deps, output_deps, inout_deps;
+                ext_sym_set shared_vars = task_node->get_shared_vars();
+                for (ext_sym_set::iterator it = shared_vars.begin(); it != shared_vars.end(); ++it)
                 {
-                    if (ext_sym_set_contains_englobing_nodecl(*it, out_vars))
+                    if (ext_sym_set_contains_englobing_nodecl(*it, in_vars))
                     {
-                        inout_deps.insert(*it);
+                        if (ext_sym_set_contains_englobing_nodecl(*it, out_vars))
+                        {
+                            inout_deps.insert(*it);
+                        }
+                        else
+                        {
+                            input_deps.insert(*it);
+                        }
+                    }
+                    else if (ext_sym_set_contains_englobing_nodecl(*it, out_vars))
+                    {
+                        output_deps.insert(*it);
                     }
                     else
                     {
-                        input_deps.insert(*it);
+                        std::cerr << "warning: variable " << it->get_nodecl().prettyprint() 
+                                << " computed as shared but it is not LiveIn nor LiveOut" << std::endl;
                     }
                 }
-                else if (ext_sym_set_contains_englobing_nodecl(*it, out_vars))
-                {
-                    output_deps.insert(*it);
-                }
-                else
-                {
-                    std::cerr << "warning: variable " << it->get_nodecl().prettyprint() 
-                              << " computed as shared but it is not LiveIn nor LiveOut" << std::endl;
-                }
+                
+                task_node->set_input_deps(input_deps);
+                task_node->set_output_deps(output_deps);
+                task_node->set_inout_deps(inout_deps);
+                task_node->set_undef_deps(task_node->get_undef_sc_vars());
+                
+                task_node->set_deps_computed();
+            }
+            else
+            {
+                std::cerr << "Task \"" << task_node->get_graph_label().prettyprint() << "\" auto-scoping cannot be computed "
+                          << "because there is no synchronization point defined at the end of the task" << std::endl;
             }
             
-            task_node->set_input_deps(input_deps);
-            task_node->set_output_deps(output_deps);
-            task_node->set_inout_deps(inout_deps);
-            task_node->set_undef_deps(task_node->get_undef_sc_vars());
-            
-            task_node->set_deps_computed();
+            return computed;
         }
         
-        void StaticAnalysis::analyse_tasks_rec(Node* current)
+        void StaticAnalysis::analyse_tasks_rec(Node* task)
         {
+            if (CURRENT_CONFIGURATION->debug_options.analysis_verbose ||
+                CURRENT_CONFIGURATION->debug_options.enable_debug_code)
+                std::cerr << std::endl << "   ==> Task '" << task->get_graph_label().prettyprint() << "'" << std::endl;
+                    
+            char state = analyse_task(task);
+
+            if ( (CURRENT_CONFIGURATION->debug_options.analysis_verbose 
+                    || CURRENT_CONFIGURATION->debug_options.enable_debug_code) 
+                && state == '1') 
+            {
+                task->print_use_def_chains();
+                task->print_liveness();
+                task->print_task_dependencies();
+            }
+            
+            // Clear temporary values for task analysis
+            _next_sync = NULL;
+            _simultaneous_tasks.clear();
+        }
+        
+        static ObjectList<Node*> get_graph_tasks(Node* current)
+        {
+            ObjectList<Node*> tasks;
             if (!current->is_visited())
             {
                 current->set_visited(true);
@@ -265,169 +284,323 @@ namespace TL
                 {
                     if (current->get_graph_type() == TASK)
                     {
-                        if (CURRENT_CONFIGURATION->debug_options.analysis_verbose ||
-                            CURRENT_CONFIGURATION->debug_options.enable_debug_code)
-                            std::cerr << std::endl << "   ==> Task '" << current->get_graph_label().prettyprint() << "'" << std::endl;
-                                
-                        StaticAnalysis::analyse_task(current);
-
-                        if (CURRENT_CONFIGURATION->debug_options.analysis_verbose ||
-                            CURRENT_CONFIGURATION->debug_options.enable_debug_code)
-                        {
-                            current->print_use_def_chains();
-                            current->print_liveness();
-                            current->print_task_dependencies();
-                        }
+                        tasks.append(current);
                     }
                     else
                     {
-                        analyse_tasks_rec(current->get_graph_entry_node());
+                        tasks.append(get_graph_tasks(current->get_graph_entry_node()));
                     }
                 }
                     
                 ObjectList<Node*> children = current->get_children();
                 for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
-                    analyse_tasks_rec(*it);
+                {    
+                    tasks.append(get_graph_tasks(*it));
+                }
             }
+            return tasks;
         }
         
         void StaticAnalysis::analyse_tasks(Node* graph_node)
         {
-            analyse_tasks_rec(graph_node);
+            ObjectList<Node*> tasks = get_graph_tasks(graph_node);
             ExtensibleGraph::clear_visits(graph_node);
+            
+            for(ObjectList<Node*>::iterator it = tasks.begin(); it != tasks.end(); ++it)
+            {
+                analyse_tasks_rec(*it);
+                ExtensibleGraph::clear_visits(*it);
+            }
         }
-        
+
         /*!
-         * Algorithm:
-         * 1.- Determine task scheduling point (1) and next synchronization points (2, 3, ..., n)
-         *    - '1' is the node/s parent/s from the task  ->  init_point
-         *    - '2' is first taskwait or barrier founded after '1'  ->  end_point
-         * 2.- For each scalar variable 'v' appearing within the task:
-         *    - if 'v' is dead after '1':
-         *        - if the first action performed in 'v' is a write  =>  PRIVATE
-         *        - if the first action performed in 'v' is a read  =>  FIRSTPRIVATE
-         *    - if 'v' is live between '1' and 'n':
-         *        - if 'v' is only read between '1' and 'n' and within the task  =>  FIRSTPRIVATE
-         *        - if 'v' is written in some point between '1' and 'n' and/or within the task:
-         *              - if there exist race condition  =>  UNDEFINED SCOPING
-         *              - if there is no race condition  =>  SHARED
-         * 3.- For each array variable appearing within the task defined the scoping for the whole array as follows:
-         *    - Apply the algorithm above for every use of the array within the task
-         *          - if the whole array or the used regions of the array have the same scope  =>  propagate scope
-         *          - if there are different scoping for different regions of the array:
-         *              - if some part has an UNDEFINED SCOPING  =>  UNDEFINED SCOPING
-         *              - if at least one part is FIRSTPRIVATE and the rest is PRIVATE  =>  FIRSTPRIVATE
-         *              - if at least one part is SHARED and the rest is PRIVATE/FIRSTPRIVATE  =>  SHARED???  (sequential consistency rules)
-         * NOTE: There exist race condition when more than one thread can access to the same variable at the same time 
-         * and at least one of the accesses is a write. 
-         * NOTE: 'atomic' and 'critical' constructs affect in race condition determining. 
-         * NOTE: 'ordered' construct affects in determining variables as 'private' or 'firstprivate'
-         */
-        void StaticAnalysis::compute_auto_scoping(Node* task)
+        * 1. Determine the different regions that interfere in the analysis of t:
+        *   − One region is the one defined by the code in the encountered thread that can potentially be executed 
+        *     in parallel with the task. This region is defined by two points:
+        *      · Scheduling: is the point where the task is scheduled. Any previous access to v by the encountering 
+        *                    thread is irrelevant when analysing the task because it is already executed.
+        *      · Next_sync: is the point where the task is synchronized with the rest of the threads in execution. 
+        *                   This point can only be a barrier or a taskwait. Here we take into account that taskwait 
+        *                   constructs only enforces the synchronization of these tasks which are child of the current 
+        *                   task region.
+        *   − Other regions are the ones enclosed in tasks that can be executed in parallel with t. We will call these 
+        *     tasks ti; i2[0::T ] and the region of code where we can find tasks in this condition is defined by:
+        *      · Last_sync: is the immediately previous point to the scheduling point where a synchronization enforces 
+        *                   all previous executions to be synchronized. We can only assure this point with a barrier and
+        *                   in specific cases with a taskwait. We only can trust the taskwait if we know all the code 
+        *                   executed previously and we can assure that the current task region has not generated 
+        *                   grandchild tasks.
+        *      · Next_sync: is the same point as explained for the analysis of the encountered thread. In order to 
+        *                   simplify the reading of the algorithm bellow, from now on we will talk about the region 
+        *                   defined between the scheduling point and the next_sync point and the different regions defined 
+        *                   by the tasks ti; i2[0::T ] as one unique region defined by the points:
+        *                   − init, referencing both scheduling and any entry point to the tasks ti; i2[0::T ].
+        *                   − end, referencing both next_sync and any exit point to the tasks ti; i2[0::T ].
+        * 2. For each v scalar variable appearing within the task t:
+        *      (a) If we cannot determine the type of access (read or write) performed over v either within the task 
+        *          or between init and end because the variable appears as a parameter in a function call that we do not
+        *          have access to, then v is scoped as UNDEFINED.
+        *      (b) If v is not used between init and end, then:
+        *              i. If v is live after end, then v is scoped as SHARED.
+        *              ii. If v is dead after end, then:
+        *                  A. If the first action performed in v is a write, then v is scoped as PRIVATE.
+        *                  B. If the first action performed in v is a read, then v is scoped as FIRSTPRIVATE.
+        *      (c) If v is used between init and end, then:
+        *              i. If v is only read in both between init and end and within the task, then the v is scoped as FIRSTPRIVATE.
+        *              ii. If v is written in either between init and end or within the task, then we look for data race 
+        *                  conditions, thus:
+        *                  A. If it can occur a data race condition, then v has to be privatized. Sic:
+        *                      − If the first action performed in v within the task is a write, then v is scoped as PRIVATE.
+        *                      − If the first action performed in v within the task is a read, then v is scoped as FIRSTPRIVATE.
+        *                  B. If we can assure that no data race can occur, then v is scoped as SHARED.
+        * 3. For each use ai; i2[0::N] (where N is the number of uses) of an array variable a appearing within the task t.
+        *      (a) We apply the methodology used for the scalars.
+        *      (b) Since OpenMP does not allow different scopes for the subparts of a variable, then we have to mix all the 
+        *          results we have get in the previous step. In order to do that we will follow the rules bellow:
+        *          i. If the whole array a or all the parts ai have the same scope sc, then a is scoped as sc.
+        *          ii. If there are different regions of the array with different scopes, then:
+        *              A. If some ai has been scoped as UNDEFINED then a is scoped as UNDEFINED.
+        *              B. If at least one ai is FIRSTPRIVATE and all aj; j2[0::N] where j! = i are PRIVATE, then a is scoped as FIRSTPRIVATE.
+        *              C. If at least one ai is SHARED and all aj; j2[0::N] where j! = i are PRIVATE or FIRSTPRIVATE, then, 
+        *                 fulfilling the sequential consistency rules, a is scoped as SHARED.
+        * 4. NOTE: If we cannot determine the init point, then we cannot analyze the task because we do not know which regions 
+        *          of code can be executed in parallel with t.
+        * 5. NOTE: If we cannot determine the end point, then we can only scope those variables that are local to the function containing t.
+        * 
+        * Data race conditions can appear when two threads can access to the same memory unit in the same time and at least one 
+        * of these accesses is a write. In order to analyze data race conditions in the process of auto-scoping the variables
+        * of a task we have to analyze the code appearing in all regions defined between the init and end points described in 
+        * the previous section. Any variable v appearing in two different regions where at least one of the accesses is a write and 
+        * no one of the two accesses is blocked by either and atomic construct, a critical construct or a lock routine 
+        * (omp_init_lock / omp_destroy_lock, omp_set_lock / omp_unset_lock), can trigger a data race situation.
+        */
+        char StaticAnalysis::compute_auto_scoping(Node* task)
         {
             ObjectList<Node*> end_point = task->get_children();
-            if (end_point.size() != 1)
+            if (end_point.empty())
+            {
+                std::cerr << "Task \"" << task->get_graph_label().prettyprint() << "\" auto-scoping cannot be computed "
+                          << "because there is no synchronization point defined at the end of the task" << std::endl;
+                return '0';
+            }
+            else if (end_point.size() > 1)
             {    
                 internal_error("The end point of a task should be one unique node representing a 'taskwait', a 'barrier' or the 'exit' of a graph. "\
                                "But task '%s' has more than one exit", task->get_graph_label().prettyprint().c_str());
-            }    
+            }
+            
             if (end_point[0]->get_type() == BASIC_EXIT_NODE)
             {   // If it is an 'exit' we don't know anything (FIXME: we can know things)
-                
+                //FIXME: Can this happen???
             }
             else
             {
+                // All variables with an undefined behaviour cannot be scoped
                 task->set_undef_sc_var(task->get_undefined_behaviour_vars());
+                
+                // Compute the regions of code that can be simultaneous with the current tasks
+                _next_sync = end_point[0];
+                compute_simultaneous_tasks(task);
+                ExtensibleGraph::clear_visits_backwards(task);
+                
+                // Scope non-undefined behaviour variables
                 ext_sym_set scoped_vars;
                 compute_auto_scoping_rec(task, task->get_graph_entry_node(), scoped_vars);
+                ExtensibleGraph::clear_visits(task->get_graph_entry_node());
             }
+            
+            return '1';
         }
     
+        Node* StaticAnalysis::compute_simultaneous_tasks(Node* current)
+        {
+            if (!current->is_visited())
+            {
+                current->set_visited(true);
+                
+                Node_type ntype = current->get_type();
+                if (ntype == BASIC_ENTRY_NODE)
+                {
+                    return NULL;
+                }
+                else if (ntype == BARRIER_NODE)
+                {
+                    return current;
+                }
+                else if (ntype == TASKWAIT_NODE)
+                {   // Here we have to look for nested tasks in tasks which are above this node
+                    
+                }
+                else
+                {
+                    Node* last_sync;
+                    
+                    if (ntype == GRAPH_NODE)
+                    {
+                        Graph_type gtype = current->get_graph_type();
+                        if (gtype == TASK)
+                        {   // Possible inner tasks inside 'current' are added with the addition of this node
+                            _simultaneous_tasks.append(current);
+                        }
+                        else
+                        {   // Analyse recursively the inner nodes of the graph
+                            last_sync = compute_simultaneous_tasks(current->get_graph_exit_node());
+                            if (last_sync != NULL)
+                                return last_sync;
+                        }
+                    }
+
+                    // Look for more tasks in the parents
+                    ObjectList<Node*> parents = current->get_parents();
+                    for (ObjectList<Node*>::iterator it = parents.begin(); it != parents.end(); ++it)
+                    {
+                        // Since a barrier directive may not be used in place of the statement following an if, while, do, switch, or label, then
+                        // If one of the parents reach a barrier, the rest will reach the same barrier
+                        last_sync = compute_simultaneous_tasks(current);
+                    }
+                    return last_sync;
+                }
+            }
+            
+            return NULL;
+        }
     
         void StaticAnalysis::compute_auto_scoping_rec(Node* task, Node* current, ext_sym_set& scoped_vars)
         {
-            Node_type ntype = current->get_type();
-            if (ntype == GRAPH_NODE)
+            if (!current->is_visited())
             {
-                compute_auto_scoping_rec(task, current->get_graph_entry_node(), scoped_vars);
-            }
-            else if (current->has_key(_NODE_STMTS))
-            {
-                ext_sym_set undef = task->get_undefined_behaviour_vars();
+                current->set_visited(true);
                 
-                ext_sym_set ue = current->get_ue_vars();
-                for (ext_sym_set::iterator it = ue.begin(); it != ue.end(); ++it)
-                    if (!ext_sym_set_contains_englobing_nodecl(*it, undef))
-                        scope_variable(task, *it, scoped_vars);
+                Node_type ntype = current->get_type();
+                if (ntype == GRAPH_NODE)
+                {
+                    compute_auto_scoping_rec(task, current->get_graph_entry_node(), scoped_vars);
+                }
+                else if (current->has_key(_NODE_STMTS))
+                {
+                    ext_sym_set undef = task->get_undefined_behaviour_vars();
+                    
+                    ext_sym_set ue = current->get_ue_vars();
+                    for (ext_sym_set::iterator it = ue.begin(); it != ue.end(); ++it)
+                        if (!ext_sym_set_contains_englobing_nodecl(*it, undef))
+                            scope_variable(task, *it, scoped_vars);
+                    
+                    ext_sym_set killed = current->get_killed_vars();
+                    for (ext_sym_set::iterator it = killed.begin(); it != killed.end(); ++it)
+                        if (!ext_sym_set_contains_englobing_nodecl(*it, undef))
+                            scope_variable(task, *it, scoped_vars);
+                }
                 
-                ext_sym_set killed = current->get_killed_vars();
-                for (ext_sym_set::iterator it = killed.begin(); it != killed.end(); ++it)
-                    if (!ext_sym_set_contains_englobing_nodecl(*it, undef))
-                        scope_variable(task, *it, scoped_vars);
+                ObjectList<Node*> children = current->get_children();
+                for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
+                {
+                    compute_auto_scoping_rec(task, *it, scoped_vars);
+                }
             }
-            
-            ObjectList<Node*> children = current->get_children();
-            for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
-            {
-                compute_auto_scoping_rec(task, *it, scoped_vars);
-            }
-
         }
 
         void StaticAnalysis::scope_variable(Node* task, ExtensibleSymbol ei, ext_sym_set& scoped_vars)
         {
             if (!ext_sym_set_contains_englobing_nodecl(ei, scoped_vars) 
                 && !ei.get_symbol().get_scope().scope_is_enclosed_by(task->get_scope()))
-            {
+            {   // The expression is not a symbol local from the task
                 scoped_vars.insert(ei);
                 
-                char usage;
-                if ((usage = var_is_used_out_task(task, ei)) != '0')
-                {   // The variable is used out of the task
-                    if (usage == '1')
-                    {   // The variable is only read
-                        task->set_firstprivate_var(ei);
+                ObjectList<Node*> uses_out = var_uses_out_task(task, ei);
+                ObjectList<Node*> uses_in = var_uses_in_task(task, ei);
+                
+                if (uses_out.empty())
+                {
+                    ext_sym_set task_live_out = task->get_live_out_vars();
+                    if ( ext_sym_set_contains_englobing_nodecl(ei, task_live_out)
+                        || ext_sym_set_contains_englobed_nodecl(ei, task_live_out) )
+                    {
+                        _shared_vars.append(ei);
                     }
                     else
-                    {   // The variable is written (it can also be read)
-                        if (race_condition(task, ei))
+                    {
+                        ext_sym_set task_live_in = task->get_live_in_vars();
+                        if ( ext_sym_set_contains_englobing_nodecl(ei, task_live_in)
+                            || ext_sym_set_contains_englobed_nodecl(ei, task_live_out) )
                         {
-                            task->set_undef_sc_var(ei);
+                            _firstprivate_vars.append(ei);
                         }
                         else
                         {
-                            task->set_shared_var(ei);
+                            _private_vars.append(ei);
                         }
                     }
                 }
                 else
-                {   // The variable is not used out of the task
-                    if (ext_sym_set_contains_englobing_nodecl(ei, task->get_children()[0]->get_live_in_vars()))
-                    {   // The variable is used out after the task
-                        task->set_shared_var(ei);
-                    }
-                    else
-                    {   // The variable is not used after the task
-                        if (ext_sym_set_contains_englobing_nodecl(ei, task->get_ue_vars()))
-                        {   // It is first read
-                            task->set_firstprivate_var(ei);
-                        }
-                        else
-                        {   // It is first written 
-                            task->set_private_var(ei);
-                        }
-                    }
+                {
+                    
                 }
             }
         }
 
-        char StaticAnalysis::var_is_used_out_task(Node* task, ExtensibleSymbol ei)
+        ObjectList<Node*> StaticAnalysis::var_uses_out_task(Node* task, ExtensibleSymbol ei)
         {
-            char res = '0';
+            ObjectList<Node*> uses;
+            
+            // Get the uses in the simultaneous tasks
+            for (ObjectList<Node*>::iterator it = _simultaneous_tasks.begin(); it != _simultaneous_tasks.end(); ++it)
+            {
+                uses.append(var_uses_in_task(*it, ei));
+            }
+            
+            // Get the uses in the encountering thread from the task scheduling point till the task synchronization point
+            ObjectList<Node*> parents = task->get_parents();
+            // NOTE: We do not fusion these loops because parents will converge in some point and
+            // keeping them separated we do not analyse the same part of the graph two times
+            for (ObjectList<Node*>::iterator it = parents.begin(); it != parents.end(); ++it)
+            {    
+                uses.append(uses_from_node_to_node(*it, _next_sync, ei));
+            }
+            for (ObjectList<Node*>::iterator it = parents.begin(); it != parents.end(); ++it)
+            {    
+                ExtensibleGraph::clear_visits(*it);
+            }            
+            
+            return uses;
+        }
+        
+        static ObjectList<Node*> uses_from_node_to_node(Node* current, Node* end, ExtensibleSymbol ei)
+        {
+            ObjectList<Node*> uses;
+            if (!current->is_visited())
+            {
+                current->set_visited(true);
+                if (current->get_id() != end->get_id())
+                {
+                    ext_sym_set ue_vars = current->get_ue_vars();
+                    ext_sym_set killed_vars = current->get_killed_vars();
+                    ext_sym_set undef_vars = current->get_undefined_behaviour_vars();
+                    
+                    if ( ( ext_sym_set_contains_englobing_nodecl(ei, ue_vars) || ext_sym_set_contains_englobed_nodecl(ei, ue_vars) 
+                        || ext_sym_set_contains_englobing_nodecl(ei, killed_vars) || ext_sym_set_contains_englobed_nodecl(ei, killed_vars) )
+                        && ( !ext_sym_set_contains_englobing_nodecl(ei, undef_vars) && ext_sym_set_contains_englobed_nodecl(ei, undef_vars) ) )
+                    {
+                        uses.append(current);
+                    }
+                    
+                    ObjectList<Node*> children = current->get_children();
+                    for (ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
+                    {
+                        uses.append(uses_from_node_to_node(*it, end, ei));
+                    }
+                }
+            }
+            
+            return uses;
+        }
+        
+        ObjectList<Node*> StaticAnalysis::var_uses_in_task(Node* task, ExtensibleSymbol ei)
+        {
+            ObjectList<Node*> uses;
             
             // TODO
             
-            return res;
+            return uses;            
         }
 
         bool StaticAnalysis::race_condition(Node* task, ExtensibleSymbol ei)
@@ -961,23 +1134,7 @@ namespace TL
                    
                     for(Nodecl::List::iterator it = args.begin(); it != args.end(); ++it)
                     {
-                        if (it->is<Nodecl::Symbol>() || it->is<Nodecl::ClassMemberAccess>() || it->is<Nodecl::ArraySubscript>()
-                            || it->is<Nodecl::Reference>() || it->is<Nodecl::Derreference>()
-                            || it->is<Nodecl::Conversion>() || it->is<Nodecl::Cast>())
-                        {
-                            ExtensibleSymbol ei(*it);
-                            undef_behaviour_vars.insert(ei);
-                        }
-                        else if (it->is<Nodecl::FunctionCall>() || it->is<Nodecl::VirtualFunctionCall>())
-                        {}  // Nothing to do, we don't need to propagate the usage of a temporal value
-                        else
-                        {   // FIXME We can define a variable here passing as argument "(n = 3)"
-                            SymbolVisitor sv;
-                            sv.walk(*it);
-                            ObjectList<Nodecl::Symbol> syms_in_arg = sv.get_symbols();
-                            for (ObjectList<Nodecl::Symbol>::iterator it = syms_in_arg.begin(); it != syms_in_arg.end(); ++it)
-                                ue_vars.insert(ExtensibleSymbol(*it));
-                        }
+                        compute_params_usage_in_unknown_func_call(*it, undef_behaviour_vars, ue_vars);
                     }
                     
                     node->set_ue_var(ue_vars);
@@ -1005,6 +1162,34 @@ namespace TL
                     CfgAnalysisVisitor cfg_analysis_visitor(node);
                     cfg_analysis_visitor.walk(*it);
                 }
+            }
+        }
+        
+        static void compute_params_usage_in_unknown_func_call(Nodecl::NodeclBase n, ext_sym_set undef_behaviour_vars, ext_sym_set ue_vars)
+        {
+            if (n.is<Nodecl::Symbol>() || n.is<Nodecl::ClassMemberAccess>() || n.is<Nodecl::ArraySubscript>()
+                || n.is<Nodecl::Reference>() || n.is<Nodecl::Derreference>() || n.is<Nodecl::Cast>())
+            {
+                ExtensibleSymbol ei(n);
+                undef_behaviour_vars.insert(ei);
+            }
+            else if (n.is<Nodecl::Conversion>())
+            {
+                Nodecl::Conversion aux = n.as<Nodecl::Conversion>();
+                compute_params_usage_in_unknown_func_call(aux.get_nest(), undef_behaviour_vars, ue_vars);
+            }
+            else if (n.is<Nodecl::FunctionCall>() || n.is<Nodecl::VirtualFunctionCall>())
+            {}  // Nothing to do, we don't need to propagate the usage of a temporal value
+            else if (n.is<Nodecl::StringLiteral>() || n.is<Nodecl::BooleanLiteral>()
+                || n.is<Nodecl::IntegerLiteral>() || n.is<Nodecl::FloatingLiteral>() || n.is<Nodecl::ComplexLiteral>() )
+            {}  // Nothing to do, these are not variables
+            else
+            {   // FIXME We can define a variable here passing as argument "(n = 3)"
+                SymbolVisitor sv;
+                sv.walk(n);
+                ObjectList<Nodecl::Symbol> syms_in_arg = sv.get_symbols();
+                for (ObjectList<Nodecl::Symbol>::iterator it = syms_in_arg.begin(); it != syms_in_arg.end(); ++it)
+                    ue_vars.insert(ExtensibleSymbol(*it));
             }
         }
         

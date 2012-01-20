@@ -48,6 +48,10 @@ namespace TL
             {
                 std::cerr << "wat de foo" << std::endl;
             }
+            else if (n.is<Nodecl::StringLiteral>())
+            {
+                std::cerr << "wat de bar" << std::endl;
+            }
         }
         
         void ExtensibleSymbol::propagate_constant_values(std::map<Symbol, Nodecl::NodeclBase> values_map)

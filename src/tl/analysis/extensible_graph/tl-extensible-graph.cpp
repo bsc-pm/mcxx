@@ -778,14 +778,34 @@ namespace TL
                 }
                 
                 ObjectList<Node*> children = node->get_children();
-                for(ObjectList<Node*>::iterator it = children.begin();
-                        it != children.end();
-                        ++it)
+                for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
                 {
-                    if ((*it)->is_visited())
-                    {
-                        clear_visits(*it);
-                    }
+                    clear_visits(*it);
+                }
+            }
+        }
+        
+        void ExtensibleGraph::clear_visits_backwards(Node* node)
+        {
+            if (node->is_visited())
+            {
+//                 std::cerr << "           clear visits backwards --> " << node->get_id() << std::endl;
+                node->set_visited(false);
+                
+                Node_type ntype = node->get_type();
+                if (ntype == BASIC_ENTRY_NODE)
+                {
+                    return;
+                }
+                else if (ntype == GRAPH_NODE)
+                {
+                    clear_visits_backwards(node->get_graph_exit_node());
+                }
+                
+                ObjectList<Node*> parents = node->get_parents();
+                for(ObjectList<Node*>::iterator it = parents.begin(); it != parents.end(); ++it)
+                {
+                    clear_visits_backwards(*it);
                 }
             }
         }

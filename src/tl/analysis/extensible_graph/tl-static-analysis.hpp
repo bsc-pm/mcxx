@@ -40,6 +40,13 @@ namespace TL
         private:
             LoopAnalysis* _loop_analysis;
             
+            // *** Variables used while computing auto-scoping *** //
+            Node* _next_sync;
+            ObjectList<Node*> _simultaneous_tasks;
+            ext_sym_set _firstprivate_vars;
+            ext_sym_set _private_vars;
+            ext_sym_set _shared_vars;
+            
             //! Computes the data-flow equation for each node in a iterative way 
             //! until the information stops changing.
             /*!
@@ -77,7 +84,7 @@ namespace TL
         
             static nodecl_map compute_parents_reach_defs(Node* node);
             
-            static void analyse_tasks_rec(Node* current);
+            void analyse_tasks_rec(Node* current);
             
             /*!
              * Scope all the variables appearing in the task by traversing recursively the graph starting from #current
@@ -85,7 +92,7 @@ namespace TL
              * \param current Node we are analysing right now
              * \param scoped_vars List of variables that has already been auto-scoped
              */
-            static void compute_auto_scoping_rec(Node* task, Node* current, ext_sym_set& scoped_vars);
+            void compute_auto_scoping_rec(Node* task, Node* current, ext_sym_set& scoped_vars);
             
             /*!
              * The method scopes a variable of a task node
@@ -93,16 +100,20 @@ namespace TL
              * \param ei variable to be scoped
              * \param scoped_vars list of variables that has already been scoped for #task
              */
-            static void scope_variable(Node* task, ExtensibleSymbol ei, ext_sym_set& scoped_vars);
+            void scope_variable(Node* task, ExtensibleSymbol ei, ext_sym_set& scoped_vars);
+            
+            Node* compute_simultaneous_tasks(Node* current);
             
             /*!
              * Determines whether a variable is used out of a task between the point where the task is scheduled and 
              * the point where the task is synchronized
              * \param task Node containing the task to be analysed
              * \param ei Variable we are looking for
-             * \return character containing the usage of the variable: '0' => not used, '1' => only read, '2' => write
+             * \return list of nodes using the expression
              */
-            static char var_is_used_out_task(Node* task, ExtensibleSymbol ei);
+            ObjectList<Node*> var_uses_out_task(Node* task, ExtensibleSymbol ei);
+            
+            ObjectList<Node*> var_uses_in_task(Node* task, ExtensibleSymbol ei);
             
             /*!
              * This method determines whether it can exist a race condition for a symbol in a given task node
@@ -110,7 +121,7 @@ namespace TL
              * \param ei Extensible Symbol we want to check race conditions on
              */
             static bool race_condition(Node* task, ExtensibleSymbol ei);
-            
+           
         
         public:
             
@@ -121,13 +132,16 @@ namespace TL
             static void live_variable_analysis(Node* node);            
             
             //! Computes auto-scoping for variables appearing in a task inside #current
-            static void compute_auto_scoping(Node* task);
+            /*!
+             * Returns the state of the computation: '0' if auto-scoping cannot be computed and '1' otherwise.
+             */
+            char compute_auto_scoping(Node* task);
             
             //! Computes dependences for all task node in the Extensible Graph
-            static void analyse_tasks(Node* graph_node);
+            void analyse_tasks(Node* graph_node);
             
             //! Computes dependences for a node containing a task code
-            static void analyse_task(Node* task_node);
+            char analyse_task(Node* task_node);
             
             friend class CfgVisitor;    // Needed for IPA Analysis
             friend class LoopAnalysis;

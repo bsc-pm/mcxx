@@ -129,7 +129,8 @@ namespace TL
                 if (CURRENT_CONFIGURATION->debug_options.analysis_verbose ||
                     CURRENT_CONFIGURATION->debug_options.enable_debug_code)
                     std::cerr << std::endl << "   ==> Graph '" << (*it)->get_name() << "'" << std::endl;
-                    StaticAnalysis::analyse_tasks((*it)->get_graph());
+                StaticAnalysis sa(/*Loop analysis is not necessary in this step*/ NULL);
+                sa.analyse_tasks((*it)->get_graph());
             }
             
             // Print graphs into dot files
