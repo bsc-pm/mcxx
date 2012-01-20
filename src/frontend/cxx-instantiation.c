@@ -761,6 +761,12 @@ static void instantiate_dependent_friend(type_t* selected_template UNUSED_PARAME
                 new_friend->decl_context.template_parameters = new_temp_param_list;
             }
 
+            // Copy the type tag of the 'friend' symbol to 'new_friend' symbol
+            // This type_tag will be used in codegen
+            type_tag_t friend_kind;
+            friend_kind = get_dependent_entry_kind(friend->type_information);
+            set_dependent_entry_kind(new_friend->type_information, friend_kind);
+
             // If the new type is not dependent, we change the kind of
             // the new_friend symbol to SK_CLASS
             if (!is_dependent_type(new_friend->type_information))

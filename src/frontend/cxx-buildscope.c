@@ -2211,6 +2211,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         if (entry->kind == SK_DEPENDENT_ENTITY)
         {
             entry->kind = SK_DEPENDENT_FRIEND_CLASS;
+            set_dependent_entry_kind(entry->type_information, class_kind);
         }
 
         *type_info = get_void_type();
