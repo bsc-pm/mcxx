@@ -27,8 +27,10 @@ namespace Nodecl {
             virtual ~NodeclBase() { }
             TL::Type get_type() const { return TL::Type(::nodecl_get_type(_n)); }
             bool has_type() const { return ::nodecl_get_type(_n) != NULL; }
+            void set_type(TL::Type t) { ::nodecl_set_type(_n, t.get_internal_type()); }
             TL::Symbol get_symbol() const { return TL::Symbol(::nodecl_get_symbol(_n)); }
             bool has_symbol() const { return ::nodecl_get_symbol(_n) != NULL; }
+            void set_symbol(TL::Symbol sym) { ::nodecl_set_symbol(_n, sym.get_internal_symbol()); }
             TL::Scope retrieve_context() const { return nodecl_retrieve_context(_n); }
             std::string get_text() const { const char* c = ::nodecl_get_text(_n); if (c == NULL) c = ""; return c; }
             std::string get_filename() const { const char* c = nodecl_get_filename(_n); if (c == NULL) c = "(null)"; return c; }

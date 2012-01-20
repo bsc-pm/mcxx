@@ -46,7 +46,7 @@ namespace TL
             public:
                 enum ItemKind
                 {
-                    // Means item keeps either a value or an
+                    // Means this item keeps either a value or an
                     // address to a program entity. It is the only
                     // item needed to describe the program entity
                     ITEM_KIND_NORMAL = 0,
@@ -82,8 +82,8 @@ namespace TL
                 enum Directionality
                 {
                     DIRECTIONALITY_NONE = 0,
-                    DIRECTIONALITY_INPUT,
-                    DIRECTIONALITY_OUTPUT,
+                    DIRECTIONALITY_IN,
+                    DIRECTIONALITY_OUT,
                     DIRECTIONALITY_INOUT
                 };
 
@@ -97,9 +97,13 @@ namespace TL
 
                 enum AllocationPolicyFlags
                 {
+                    // Allocation is automatic in the language constructs
                     ALLOCATION_POLICY_NONE = 0,
+                    // Allocate after the static structure (C)
                     ALLOCATION_POLICY_OVERALLOCATED        = 1 << 1,
+                    // Call the destructor (C++)
                     ALLOCATION_POLICY_TASK_MUST_DESTROY    = 1 << 2,
+                    // Deallocate entity (Fortran)
                     ALLOCATION_POLICY_TASK_MUST_DEALLOCATE = 1 << 3,
                 };
 

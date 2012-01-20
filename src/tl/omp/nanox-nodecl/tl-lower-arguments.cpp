@@ -32,11 +32,11 @@ namespace TL { namespace Nanox {
 
     TL::Type LoweringVisitor::handle_vla_type_rec(
             OutlineDataItem& outline_data_item,
-            OutlineInfo& outline_info,
             TL::Type type, 
             TL::Scope class_scope, 
             TL::Symbol new_class_symbol,
             TL::Type new_class_type,
+            TL::ObjectList<TL::Symbol>& new_symbols,
             const std::string& filename, 
             int line)
     {
@@ -44,10 +44,11 @@ namespace TL { namespace Nanox {
         {
             TL::Type synthesized_type = handle_vla_type_rec(
                     outline_data_item,
-                    outline_info,
                     type.array_element(), 
                     class_scope, 
-                    new_class_symbol, new_class_type,
+                    new_class_symbol, 
+                    new_class_type,
+                    new_symbols,
                     filename, line);
 
             Nodecl::NodeclBase array_size = type.array_get_size();
@@ -59,6 +60,7 @@ namespace TL { namespace Nanox {
 
                 std::stringstream vla_field_name;
                 vla_field_name << outline_data_item.get_field_name() << "_" << (int)vla_fields;
+                vla_fields++;
 
                 TL::Symbol vla_field = class_scope.new_symbol(vla_field_name.str());
                 vla_field.get_internal_symbol()->kind = SK_VARIABLE;
@@ -73,10 +75,11 @@ namespace TL { namespace Nanox {
 
                 class_type_add_member(new_class_type.get_internal_type(), vla_field.get_internal_symbol());
 
-                OutlineDataItem& new_outline_data_item = outline_info.get_entity_for_symbol(vla_field);
-                new_outline_data_item.set_item_kind(OutlineDataItem::ITEM_KIND_DATA_DIMENSION);
+                new_symbols.append(vla_field);
 
                 Nodecl::NodeclBase vla_sym = Nodecl::Symbol::make(vla_field, filename, line);
+                vla_sym.set_type(vla_field.get_type());
+
                 return synthesized_type.get_array_to(vla_sym, vla_field.get_scope());
             }
             else
@@ -90,10 +93,10 @@ namespace TL { namespace Nanox {
         {
             TL::Type synthesized_type = handle_vla_type_rec(
                     outline_data_item,
-                    outline_info,
                     type.points_to(), 
                     class_scope, new_class_symbol, 
                     new_class_type,
+                    new_symbols,
                     filename, line);
             return synthesized_type.get_pointer_to();
         }
@@ -105,21 +108,26 @@ namespace TL { namespace Nanox {
 
     void LoweringVisitor::handle_vla_type(
             OutlineDataItem& outline_data_item,
-            OutlineInfo& outline_info,
             TL::Scope class_scope, 
             TL::Symbol new_class_symbol,
             TL::Type new_class_type,
+            TL::ObjectList<TL::Symbol>& new_symbols,
             const std::string& filename, 
             int line)
     {
         TL::Type synthesized_type = handle_vla_type_rec(
                 outline_data_item,
-                outline_info,
                 outline_data_item.get_symbol().get_type(),
                 class_scope,
                 new_class_symbol, 
                 new_class_type,
+                new_symbols,
                 filename, line);
+
+        if (synthesized_type.is_array())
+        {
+            synthesized_type = synthesized_type.array_element().get_pointer_to();
+        }
 
         outline_data_item.set_in_outline_type(synthesized_type);
         outline_data_item.set_field_type(Type::get_void_type().get_pointer_to());
@@ -170,6 +178,8 @@ namespace TL { namespace Nanox {
 
         new_class_symbol.get_internal_symbol()->type_information = new_class_type;
 
+        TL::ObjectList<TL::Symbol> extra_symbols;
+
         for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
                 it != data_items.end();
                 it++)
@@ -185,15 +195,12 @@ namespace TL { namespace Nanox {
                 field_type = field_type.references_to().get_pointer_to();
             }
 
-            field.get_internal_symbol()->type_information = field_type.get_internal_type();
             field.get_internal_symbol()->entity_specs.is_member = 1;
             field.get_internal_symbol()->entity_specs.class_type = ::get_user_defined_type(new_class_symbol.get_internal_symbol());
             field.get_internal_symbol()->entity_specs.access = AS_PUBLIC;
 
             field.get_internal_symbol()->file = uniquestr(construct.get_filename().c_str());
             field.get_internal_symbol()->line = construct.get_line();
-
-            class_type_add_member(new_class_type, field.get_internal_symbol());
 
             // Language specific parts
             if (IS_FORTRAN_LANGUAGE)
@@ -220,8 +227,6 @@ namespace TL { namespace Nanox {
                                 construct.retrieve_context());
                         k--;
                     }
-
-                    field.get_internal_symbol()->type_information = field_type.get_internal_type();
                 }
 
                 it->set_allocation_policy(OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE);
@@ -232,14 +237,30 @@ namespace TL { namespace Nanox {
                 if (requires_vla_handling(*it))
                 {
                     handle_vla_type(*it, 
-                            outline_info,
                             class_scope,
                             new_class_symbol, 
                             new_class_type,
+                            extra_symbols,
                             construct.get_filename(),
                             construct.get_line());
+
+                    // Fix the type for VLAs
+                    field_type = it->get_field_type();
                 }
             }
+
+            field.get_internal_symbol()->type_information = field_type.get_internal_type();
+            class_type_add_member(new_class_type, field.get_internal_symbol());
+        }
+
+        for (TL::ObjectList<TL::Symbol>::iterator it = extra_symbols.begin();
+                it != extra_symbols.end();
+                it++)
+        {
+            OutlineDataItem &data_item = outline_info.get_entity_for_symbol(*it);
+            data_item.set_item_kind(OutlineDataItem::ITEM_KIND_DATA_DIMENSION);
+            data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE);
+            data_item.set_field_type(it->get_type());
         }
 
         set_is_complete_type(new_class_type, 1);

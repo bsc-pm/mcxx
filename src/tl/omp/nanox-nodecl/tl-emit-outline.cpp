@@ -103,7 +103,33 @@ namespace TL { namespace Nanox {
                 Source parameter;
                 if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
                 {
-                    parameter << it->get_field_type().get_declaration(it->get_symbol().get_scope(), it->get_field_name());
+                    switch (it->get_item_kind())
+                    {
+                        case OutlineDataItem::ITEM_KIND_NORMAL:
+                        case OutlineDataItem::ITEM_KIND_DATA_DIMENSION:
+                            {
+                                parameter << it->get_field_type().get_declaration(it->get_symbol().get_scope(), it->get_field_name());
+                                break;
+                            }
+                        case OutlineDataItem::ITEM_KIND_DATA_ADDRESS:
+                            {
+                                parameter 
+                                    << it->get_field_type().get_declaration(it->get_symbol().get_scope(), "ptr_" + it->get_field_name());
+
+                                private_entities
+                                    << it->get_in_outline_type().get_declaration(it->get_symbol().get_scope(), it->get_field_name())
+                                    << " = "
+                                    << "(" << it->get_in_outline_type().get_declaration(it->get_symbol().get_scope(), "") << ")"
+                                    << "ptr_" << it->get_field_name()
+                                    << ";"
+                                    ;
+                                break;
+                            }
+                        default:
+                            {
+                                internal_error("Code unreachable", 0);
+                            }
+                    }
                 }
                 else if (IS_FORTRAN_LANGUAGE)
                 {
@@ -126,10 +152,14 @@ namespace TL { namespace Nanox {
                 Source argument;
                 if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
                 {
-                    if (it->get_sharing() == OutlineDataItem::SHARING_SHARED)
+                    // Normal shared items are passed by reference from a pointer,
+                    // derreference here
+                    if (it->get_sharing() == OutlineDataItem::SHARING_SHARED
+                            && it->get_item_kind() == OutlineDataItem::ITEM_KIND_NORMAL)
                     {
                         argument << "*(args." << it->get_field_name() << ")";
                     }
+                    // Any other thing is passed by value
                     else
                     {
                         argument << "args." << it->get_field_name();
