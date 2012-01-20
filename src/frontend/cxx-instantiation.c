@@ -763,7 +763,7 @@ static void instantiate_dependent_friend(type_t* selected_template UNUSED_PARAME
 
             // Copy the type tag of the 'friend' symbol to 'new_friend' symbol
             // This type_tag will be used in codegen
-            type_tag_t friend_kind;
+            enum type_tag_t friend_kind;
             friend_kind = get_dependent_entry_kind(friend->type_information);
             set_dependent_entry_kind(new_friend->type_information, friend_kind);
 
