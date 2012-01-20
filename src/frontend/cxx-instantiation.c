@@ -785,7 +785,41 @@ static void instantiate_dependent_friend(type_t* selected_template UNUSED_PARAME
     }
     else if (friend->kind == SK_DEPENDENT_FRIEND_FUNCTION)
     {
-        internal_error("instantiate dependent function friend is not implemented yet.\n",0);
+        if (!is_dependent_type(friend->type_information))
+        {
+            type_t* new_type = update_type_for_instantiation(friend->type_information,
+                    context_of_being_instantiated,
+                    filename,
+                    line);
+            
+            scope_entry_t* new_friend = calloc(1, sizeof(*new_friend));
+
+            new_friend->symbol_name = friend->symbol_name;
+            new_friend->kind = SK_DEPENDENT_FRIEND_FUNCTION;
+            new_friend->type_information = new_type;
+            new_friend->line = line;
+            new_friend->file = filename;
+            new_friend->entity_specs = friend->entity_specs;
+
+            new_friend->decl_context = context_of_being_instantiated;
+
+
+            // If the new type is not dependent, we change the kind of
+            // the new_friend symbol to SK_FUNCTION
+            if (!is_dependent_type(new_friend->type_information))
+            {
+                new_friend->kind = SK_FUNCTION;
+            }
+
+            class_type_add_friend_symbol(get_actual_class_type(being_instantiated), new_friend);
+
+        }
+        else
+        {
+            // The kind of the symbol is SK_DEPENDENT_FRIEND_FUNCTION but
+            // his type is not dependent -> ERROR, this shouldn't never happen
+            internal_error("Code unreachable.",0);
+        }
     }
     else
     {
