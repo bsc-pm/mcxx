@@ -2211,6 +2211,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         if (entry->kind == SK_DEPENDENT_ENTITY)
         {
             entry->kind = SK_DEPENDENT_FRIEND_CLASS;
+            set_dependent_entry_kind(entry->type_information, class_kind);
         }
 
         *type_info = get_void_type();
@@ -7407,11 +7408,13 @@ static char find_function_declaration(AST declarator_id,
         result->kind = SK_DEPENDENT_FRIEND_FUNCTION;
         result->file = ASTFileName(declarator_id);
         result->line = ASTLine(declarator_id);
+        result->symbol_name = ASTText(declarator_id);
+        //nodecl_t nodecl_name = nodecl_null();
+        //compute_nodecl_name_from_id_expression(declarator_id, decl_context, &nodecl_name);
 
-        nodecl_t nodecl_name = nodecl_null();
-        compute_nodecl_name_from_id_expression(declarator_id, decl_context, &nodecl_name);
+        //result->value = nodecl_name;
 
-        result->value = nodecl_name;
+        result->entity_specs.any_exception = gather_info->any_exception;
         result->type_information = declarator_type;
 
         *result_entry = result;
@@ -7607,11 +7610,14 @@ static char find_function_declaration(AST declarator_id,
         result->kind = SK_DEPENDENT_FRIEND_FUNCTION;
         result->file = ASTFileName(declarator_id);
         result->line = ASTLine(declarator_id);
+        result->symbol_name = ASTText(declarator_id);
 
-        nodecl_t nodecl_name = nodecl_null();
-        compute_nodecl_name_from_id_expression(declarator_id, decl_context, &nodecl_name);
+        //nodecl_t nodecl_name = nodecl_null();
+        //compute_nodecl_name_from_id_expression(declarator_id, decl_context, &nodecl_name);
 
-        result->value = nodecl_name;
+        //result->value = nodecl_name;
+
+        result->entity_specs.any_exception = gather_info->any_exception;
         result->type_information = declarator_type;
 
         *result_entry = result;

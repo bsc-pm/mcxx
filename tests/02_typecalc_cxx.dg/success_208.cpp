@@ -31,17 +31,13 @@ test_generator=config/mercurium
 </testinfo>
 */
 
-template <typename T2>
- struct M
- {
-     struct B;
- };
-
-template<typename T>
 struct A
 {
-    template <typename S2> 
-        friend class M<S2>;  //SK_CLASS
+    friend int foo1(int, float);
+    friend void foo2(int, float);
 };
 
-A<int> a;
+int  foo1(int, float); 
+void foo2(int, float); 
+
+A a;

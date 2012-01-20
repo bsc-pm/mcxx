@@ -759,6 +759,12 @@ static void instantiate_dependent_friend(type_t* selected_template UNUSED_PARAME
                     duplicate_template_argument_list(friend->decl_context.template_parameters);
                 new_temp_param_list->enclosing = context_of_being_instantiated.template_parameters;
                 new_friend->decl_context.template_parameters = new_temp_param_list;
+            
+                // Copy the type tag of the 'friend' symbol to 'new_friend' symbol
+                // This type_tag will be used in codegen
+                enum type_tag_t friend_kind;
+                friend_kind = get_dependent_entry_kind(friend->type_information);
+                set_dependent_entry_kind(new_friend->type_information, friend_kind);
             }
 
             // If the new type is not dependent, we change the kind of
@@ -779,7 +785,27 @@ static void instantiate_dependent_friend(type_t* selected_template UNUSED_PARAME
     }
     else if (friend->kind == SK_DEPENDENT_FRIEND_FUNCTION)
     {
-        internal_error("instantiate dependent function friend is not implemented yet.\n",0);
+        type_t* new_type = update_type_for_instantiation(friend->type_information,
+                context_of_being_instantiated, filename, line);
+
+        scope_entry_t* new_friend = calloc(1, sizeof(*new_friend));
+
+        new_friend->symbol_name = friend->symbol_name;
+        new_friend->kind = SK_DEPENDENT_FRIEND_FUNCTION;
+        new_friend->type_information = new_type;
+        new_friend->line = line;
+        new_friend->file = filename;
+        new_friend->entity_specs = friend->entity_specs;
+
+        new_friend->decl_context = context_of_being_instantiated;
+
+        // Try to promote the symbol to SK_FUNCTION
+        if (!is_dependent_type(new_friend->type_information))
+        {
+            new_friend->kind = SK_FUNCTION;
+        }
+
+        class_type_add_friend_symbol(get_actual_class_type(being_instantiated), new_friend);
     }
     else
     {
