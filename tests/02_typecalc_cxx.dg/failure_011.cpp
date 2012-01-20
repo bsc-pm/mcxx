@@ -28,20 +28,22 @@
 /*
 <testinfo>
 test_generator=config/mercurium
+test_compile_fail=yes
+test_compile_faulty=yes
 </testinfo>
 */
 
-template <typename T1, typename T2>
- struct B
+template <typename T2>
+ struct M
  {
-     struct Foo;
+     struct B;
  };
 
-
-template <typename T>
-struct A {
-    template <typename S>
-        friend struct B<T, S>::Foo;
+template<typename T>
+struct A
+{
+    template <typename S2> 
+        friend class M<S2>;  //SK_CLASS
 };
 
 A<int> a;
