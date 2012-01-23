@@ -2715,6 +2715,29 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
             dec_indent();
             continue;
         }
+        else if (_friend.get_internal_symbol()->kind == SK_DEPENDENT_FRIEND_FUNCTION)
+        {
+            indent();
+            file << "template <";
+            TL::TemplateParameters template_parameters = _friend.get_related_scope().get_template_parameters();
+            codegen_template_parameters(template_parameters);
+            file << ">\n";
+
+            inc_indent();
+            indent();
+            TL::Type type = _friend.get_type(); 
+            std::string declarator = this->get_declaration(type, _friend.get_scope(), _friend.get_qualified_name());
+
+            file << "friend "
+                 << declarator 
+                 << ";\n";
+
+            dec_indent();
+            dec_indent();
+            continue;
+
+            continue;
+        }
 
 
         indent();
@@ -3602,7 +3625,7 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
 
         declare_symbol(entry);
     }
-    else if(symbol.get_type().is_dependent_typename())
+    else if(symbol.get_type().is_dependent_typename() || symbol.get_internal_symbol()->kind == SK_DEPENDENT_FRIEND_FUNCTION)
     {
         // Do nothing
     }

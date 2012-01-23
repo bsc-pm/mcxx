@@ -5875,7 +5875,7 @@ static void set_pointer_type(type_t** declarator_type, AST pointer_tree,
 static void set_array_type(type_t** declarator_type, 
         AST constant_expr, AST static_qualifier UNUSED_PARAMETER, 
         AST cv_qualifier_seq UNUSED_PARAMETER,
-        gather_decl_spec_t* gather_info, 
+        gather_decl_spec_t* gather_info UNUSED_PARAMETER, 
         decl_context_t decl_context)
 {
     type_t* element_type = *declarator_type;
@@ -7437,17 +7437,16 @@ static char find_function_declaration(AST declarator_id,
             && is_dependent_class_scope(decl_context))
     {   
         scope_entry_t* result = counted_calloc(1, sizeof(*result), &_bytes_used_buildscope);
+        
         result->kind = SK_DEPENDENT_FRIEND_FUNCTION;
         result->file = ASTFileName(declarator_id);
         result->line = ASTLine(declarator_id);
         result->symbol_name = ASTText(declarator_id);
-        //nodecl_t nodecl_name = nodecl_null();
-        //compute_nodecl_name_from_id_expression(declarator_id, decl_context, &nodecl_name);
-
-        //result->value = nodecl_name;
 
         result->entity_specs.any_exception = gather_info->any_exception;
         result->type_information = declarator_type;
+
+        result->decl_context = decl_context;
 
         *result_entry = result;
         return 1;
@@ -7644,13 +7643,10 @@ static char find_function_declaration(AST declarator_id,
         result->line = ASTLine(declarator_id);
         result->symbol_name = ASTText(declarator_id);
 
-        //nodecl_t nodecl_name = nodecl_null();
-        //compute_nodecl_name_from_id_expression(declarator_id, decl_context, &nodecl_name);
-
-        //result->value = nodecl_name;
-
         result->entity_specs.any_exception = gather_info->any_exception;
         result->type_information = declarator_type;
+        
+        result->decl_context = decl_context;
 
         *result_entry = result;
         return 1;

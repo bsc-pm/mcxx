@@ -803,7 +803,18 @@ static void instantiate_dependent_friend(type_t* selected_template UNUSED_PARAME
         if (!is_dependent_type(new_friend->type_information))
         {
             new_friend->kind = SK_FUNCTION;
-        }
+        } 
+        
+        // We need the context of the friend declaration because in the code generation
+        // phase we must print the template arguments
+        new_friend->related_decl_context = friend->decl_context;
+
+        // Link the template parameters properly
+        template_parameter_list_t *new_temp_param_list =
+            duplicate_template_argument_list(friend->decl_context.template_parameters);
+        new_temp_param_list->enclosing = context_of_being_instantiated.template_parameters;
+        new_friend->decl_context.template_parameters = new_temp_param_list;
+
 
         class_type_add_friend_symbol(get_actual_class_type(being_instantiated), new_friend);
     }
