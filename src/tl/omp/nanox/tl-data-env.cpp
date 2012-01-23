@@ -683,6 +683,7 @@ namespace TL
                         << Source(base_offset) << ";"
                         ;
 
+                    // Update base offset
                     base_offset = Source() << arg_var_accessor << field_name 
                         << "+ (sizeof(" << sym.get_type().basic_type().get_declaration(sym.get_scope(), "") << ") ";
 

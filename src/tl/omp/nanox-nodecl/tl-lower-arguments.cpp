@@ -56,15 +56,14 @@ namespace TL { namespace Nanox {
             if (!array_size.is_null()
                     && !array_size.is_constant())
             {
-                TL::Counter& vla_fields = TL::CounterManager::get_counter("nanos_vla");
+                ERROR_CONDITION(!array_size.is<Nodecl::SavedExpr>(), "This must be a saved expression", 0);
 
-                std::stringstream vla_field_name;
-                vla_field_name << outline_data_item.get_field_name() << "_" << (int)vla_fields;
-                vla_fields++;
+                TL::Symbol saved_symbol = array_size.as<Nodecl::SavedExpr>().get_symbol();
+                new_symbols.append(saved_symbol);
 
-                TL::Symbol vla_field = class_scope.new_symbol(vla_field_name.str());
+                TL::Symbol vla_field = class_scope.new_symbol(saved_symbol.get_name());
                 vla_field.get_internal_symbol()->kind = SK_VARIABLE;
-                vla_field.get_internal_symbol()->type_information = get_signed_int_type();
+                vla_field.get_internal_symbol()->type_information = saved_symbol.get_type().get_internal_type();
 
                 vla_field.get_internal_symbol()->entity_specs.class_type = ::get_user_defined_type(new_class_symbol.get_internal_symbol());
 
@@ -75,9 +74,7 @@ namespace TL { namespace Nanox {
 
                 class_type_add_member(new_class_type.get_internal_type(), vla_field.get_internal_symbol());
 
-                new_symbols.append(vla_field);
-
-                Nodecl::NodeclBase vla_sym = Nodecl::Symbol::make(vla_field, filename, line);
+                Nodecl::NodeclBase vla_sym = Nodecl::Symbol::make(saved_symbol, filename, line);
                 vla_sym.set_type(vla_field.get_type());
 
                 return synthesized_type.get_array_to(vla_sym, vla_field.get_scope());

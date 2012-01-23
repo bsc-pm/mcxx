@@ -1014,7 +1014,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
             /* needs_def */ true,
             &CxxBase::declare_symbol,
             &CxxBase::define_symbol,
-            &CxxBase::define_all_entities_in_trees);
+            &CxxBase::define_nonlocal_entities_in_trees);
 
     state.current_symbol = symbol;
 
@@ -1029,7 +1029,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
         walk_type_for_symbols(*it, /* needs_def */ 1, 
                 &CxxBase::declare_symbol,
                 &CxxBase::define_symbol,
-                &CxxBase::define_all_entities_in_trees);
+                &CxxBase::define_nonlocal_entities_in_trees);
     }
 
     define_nonlocal_entities_in_trees(statement);

@@ -5875,7 +5875,7 @@ static void set_pointer_type(type_t** declarator_type, AST pointer_tree,
 static void set_array_type(type_t** declarator_type, 
         AST constant_expr, AST static_qualifier UNUSED_PARAMETER, 
         AST cv_qualifier_seq UNUSED_PARAMETER,
-        gather_decl_spec_t* gather_info UNUSED_PARAMETER, 
+        gather_decl_spec_t* gather_info, 
         decl_context_t decl_context)
 {
     type_t* element_type = *declarator_type;
@@ -5911,33 +5911,33 @@ static void set_array_type(type_t** declarator_type,
                 return;
             }
             // // Maybe we should check for decl_context.block_scope != NULL
-            // else if (decl_context.current_scope->kind == BLOCK_SCOPE)
-            // {
-            //     static int vla_counter = 0;
+            else if (decl_context.current_scope->kind == BLOCK_SCOPE)
+            {
+                static int vla_counter = 0;
 
-            //     const char* vla_name = NULL; 
-            //     uniquestr_sprintf(&vla_name, "__vla_%d", vla_counter);
+                const char* vla_name = NULL; 
+                uniquestr_sprintf(&vla_name, "__vla_%d", vla_counter);
 
-            //     scope_entry_t* new_vla_dim = new_symbol(decl_context, decl_context.current_scope, vla_name);
+                scope_entry_t* new_vla_dim = new_symbol(decl_context, decl_context.current_scope, vla_name);
 
-            //     new_vla_dim->kind = SK_VARIABLE;
-            //     new_vla_dim->file = ASTFileName(constant_expr);
-            //     new_vla_dim->line = ASTLine(constant_expr);
-            //     new_vla_dim->value = nodecl_expr;
-            //     new_vla_dim->type_information = nodecl_get_type(nodecl_expr);
+                new_vla_dim->kind = SK_VARIABLE;
+                new_vla_dim->file = ASTFileName(constant_expr);
+                new_vla_dim->line = ASTLine(constant_expr);
+                new_vla_dim->value = nodecl_expr;
+                new_vla_dim->type_information = nodecl_get_type(nodecl_expr);
 
-            //     P_LIST_ADD(gather_info->vla_dimension_symbols,
-            //             gather_info->num_vla_dimension_symbols,
-            //             new_vla_dim);
+                P_LIST_ADD(gather_info->vla_dimension_symbols,
+                        gather_info->num_vla_dimension_symbols,
+                        new_vla_dim);
 
-            //     vla_counter++;
+                vla_counter++;
 
-            //     nodecl_expr = nodecl_make_saved_expr(nodecl_expr, 
-            //             new_vla_dim, 
-            //             nodecl_get_type(nodecl_expr),
-            //             nodecl_get_filename(nodecl_expr),
-            //             nodecl_get_line(nodecl_expr));
-            // }
+                nodecl_expr = nodecl_make_saved_expr(nodecl_expr, 
+                        new_vla_dim, 
+                        nodecl_get_type(nodecl_expr),
+                        nodecl_get_filename(nodecl_expr),
+                        nodecl_get_line(nodecl_expr));
+            }
         }
     }
 

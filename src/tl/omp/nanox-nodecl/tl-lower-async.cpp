@@ -139,7 +139,7 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
     Source err_name;
     err_name << "err";
 
-    struct_size << "sizeof(imm_args)";
+    struct_size << "sizeof(imm_args)" << dynamic_size;
     alignment << "__alignof__(" << struct_arg_type_name << "), ";
     num_copies << "0";
     copy_data << "(nanos_copy_data_t**)0";
@@ -251,6 +251,9 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
     if (IS_C_LANGUAGE
             || IS_CXX_LANGUAGE)
     {
+        Source overallocation_base_offset = "(char*)(ol_args.args + 1)";
+        Source imm_overallocation_base_offset = "(char*)(&imm_args + 1)";
+
         for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
                 it != data_items.end();
                 it++)
@@ -258,12 +261,33 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
 
             if (it->get_sharing() == OutlineDataItem::SHARING_CAPTURE)
             {
-                fill_outline_arguments << 
-                    "ol_args.args->" << it->get_field_name() << " = " << it->get_symbol().get_name() << ";"
-                    ;
-                fill_immediate_arguments << 
-                    "imm_args." << it->get_field_name() << " = " << it->get_symbol().get_name() << ";"
-                    ;
+                if ((it->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED)
+                        == OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED)
+                {
+                    // Overallocated
+                    fill_outline_arguments << 
+                        "ol_args.args->" << it->get_field_name() << " = " << overallocation_base_offset << ";"
+                        ;
+                    overallocation_base_offset << "(char*)(ol_args.args->" << 
+                        it->get_field_name() << ") + sizeof(" << it->get_symbol().get_name() << ")"
+                        ;
+                    fill_immediate_arguments << 
+                        "imm_args." << it->get_field_name() << " = " << imm_overallocation_base_offset;
+                        ;
+                    imm_overallocation_base_offset << "(char*)(imm_args." << 
+                        it->get_field_name() << ") + sizeof(" << it->get_symbol().get_name() << ")"
+                        ;
+                }
+                else
+                {
+                    // Not overallocated
+                    fill_outline_arguments << 
+                        "ol_args.args->" << it->get_field_name() << " = " << it->get_symbol().get_name() << ";"
+                        ;
+                    fill_immediate_arguments << 
+                        "imm_args." << it->get_field_name() << " = " << it->get_symbol().get_name() << ";"
+                        ;
+                }
             }
             else if (it->get_sharing() == OutlineDataItem::SHARING_SHARED)
             {
