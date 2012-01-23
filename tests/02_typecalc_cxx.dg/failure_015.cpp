@@ -28,31 +28,28 @@
 /*
 <testinfo>
 test_generator=config/mercurium
+test_compile_fail=yes
 </testinfo>
 */
-
-#include<assert.h>
-
 template<typename T>
-    struct A;
+    class A;
 
 template<typename T>
     int foo1(T)
     {
-        return A<T>::x;
+        return A<T>::x; // Error!
     }
 
 template<typename T>
-    struct A
+    class A
     {
         const static int x = 2;
-        friend int foo1(T);
+        friend int foo1(T); 
     };
 
 A<int> a;
 
 int main() 
 {
-   int b;
-   assert(foo1(b) == 2);
+    foo1<int>(0);
 }

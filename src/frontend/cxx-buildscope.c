@@ -7441,8 +7441,16 @@ static char find_function_declaration(AST declarator_id,
         result->kind = SK_DEPENDENT_FRIEND_FUNCTION;
         result->file = ASTFileName(declarator_id);
         result->line = ASTLine(declarator_id);
-        result->symbol_name = ASTText(declarator_id);
-
+        
+        if (ASTType(declarator_id) == AST_TEMPLATE_ID)
+        {
+            result->symbol_name = ASTText(ASTSon0(declarator_id));
+        }
+        else
+        {
+            result->symbol_name = ASTText(declarator_id);
+        }
+        
         result->entity_specs.any_exception = gather_info->any_exception;
         result->type_information = declarator_type;
 
@@ -7641,7 +7649,15 @@ static char find_function_declaration(AST declarator_id,
         result->kind = SK_DEPENDENT_FRIEND_FUNCTION;
         result->file = ASTFileName(declarator_id);
         result->line = ASTLine(declarator_id);
-        result->symbol_name = ASTText(declarator_id);
+        
+        if (ASTType(declarator_id) == AST_TEMPLATE_ID)
+        {
+            result->symbol_name = ASTText(ASTSon0(declarator_id));
+        }
+        else
+        {
+            result->symbol_name = ASTText(declarator_id);
+        }
 
         result->entity_specs.any_exception = gather_info->any_exception;
         result->type_information = declarator_type;
