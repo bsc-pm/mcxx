@@ -306,11 +306,11 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         tiedness << "props.tied = 1;";
     }
 
-    PragmaCustomClause priority_clause = ctr.get_clause("__priority");
+    PragmaCustomClause priority_clause = ctr.get_clause("priority");
     if (priority_clause.is_defined())
     {
         priority
-            << "props.tied = " << priority_clause.get_arguments()[0] << ";"
+            << "props.priority = " << priority_clause.get_arguments()[0] << ";"
             ;
     }
 

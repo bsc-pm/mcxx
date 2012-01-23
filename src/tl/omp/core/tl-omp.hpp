@@ -463,7 +463,7 @@ namespace TL
                 
                 void set_real_time_info(const RealTimeInfo & rt_info);
 
-                RealTimeInfo get_real_time_info();
+                RealTimeInfo get_real_time_info() const;
                 
                 bool has_if_clause() const;
 

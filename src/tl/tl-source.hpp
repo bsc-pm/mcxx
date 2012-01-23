@@ -180,6 +180,27 @@ namespace TL
                     const std::string& subparsing_prefix,
                     typename FinishParseFun<T>::Type finish_parse
                     );
+
+
+            template <typename T>
+                T parse_generic_lang_scope(
+                        decl_context_t decl_context,
+                        TL::ScopeLink sl,
+                        ParseFlags parse_flags,
+                        const std::string& subparsing_prefix,
+                        typename FinishParseFun<T>::Type finish_parse
+                        );
+
+            template <typename T>
+                T parse_generic_scope(
+                        decl_context_t decl_context,
+                        TL::ScopeLink scope_link, 
+                        ParseFlags parse_flags,
+                        const std::string& subparsing_prefix,
+                        prepare_lexer_fun_t prepare_lexer,
+                        parse_fun_t parse_function,
+                        typename FinishParseFun<T>::Type finish_parse
+                        );
         public:
             //! Constructor
             /*!
@@ -299,6 +320,7 @@ namespace TL
              * \param scope_link Scope link used to get the scope of \a ref_tree
              * \param parse_flags Parsing flags
              */
+            AST_t parse_statement(Scope sc, TL::ScopeLink sl, ParseFlags parse_flags = DEFAULT);
             AST_t parse_statement(AST_t ref_tree, TL::ScopeLink scope_link, ParseFlags parse_flags = DEFAULT);
             //! Parses an expression
             /*!
@@ -308,6 +330,7 @@ namespace TL
              *
              * This function can be used in C/C++ and Fortran
              */
+            AST_t parse_expression(Scope sc, TL::ScopeLink sl, ParseFlags parse_flags = DEFAULT);
             AST_t parse_expression(AST_t ref_tree, TL::ScopeLink scope_link, ParseFlags parse_flags = DEFAULT);
             //! Parses an expression list
             /*!

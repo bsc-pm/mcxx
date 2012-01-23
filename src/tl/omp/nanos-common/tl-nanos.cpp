@@ -32,7 +32,7 @@
 #include "tl-ast.hpp"
 #include "tl-source.hpp"
 #include "tl-lexer.hpp"
-
+#include "filename.h"
 #include <sstream>
 
 namespace TL
@@ -185,7 +185,19 @@ namespace TL
             // Get the translation_unit tree
             // and prepend these declarations
             translation_unit.prepend_to_translation_unit(versioning_symbols_tree);
+            
+            // We need to obtain the name of the file without the path
+            const char* filename = give_basename(translation_unit.get_file().c_str());
+            const char* ptr_extension = strrchr(filename, '.');
 
+            // If The filename have not extension then error 
+            if (ptr_extension == NULL)
+            {
+                internal_error("code unreachable.", 0);
+            }
+            
+            std::string name (filename, (ptr_extension - filename));
+            
             if (!_map_events.empty())
             {
                 Source declare_events, register_events;
@@ -196,7 +208,9 @@ namespace TL
                     <<    "nanos_event_key_t nanos_instr_name_key = 0;"
                     <<    register_events
                     << "}"
-                    << "static __attribute__((section(\"nanos_post_init\"))) nanos_init_desc_t __register_events_list = { __register_events, (void*)0 };"
+                    << "__attribute__((section(\"nanos_post_init\"))) nanos_init_desc_t "
+                    << name
+                    << "__register_events_list = { __register_events, (void*)0 };"
                     ;
 
                 // Register events
