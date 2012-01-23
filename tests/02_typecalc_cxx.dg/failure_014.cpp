@@ -28,10 +28,9 @@
 /*
 <testinfo>
 test_generator=config/mercurium
+test_compile_fail=yes
 </testinfo>
 */
-
-#include<assert.h>
 
 template<typename T>
     class A;
@@ -47,18 +46,13 @@ template<typename T>
     class A
     {
         const static int x = 2;
-        friend int foo1(T);
+        friend int foo1<>(T); //specialization of function template 'foo1' 
     };
 
 int foo1(int x)
 {
-    return A<int>::x;
+    return A<int>::x; //Error
 }
 
 A<int> a;
 
-int main() 
-{
-   int b;
-   assert(foo1(b) == 2);
-}

@@ -34,7 +34,7 @@ test_generator=config/mercurium
 #include<assert.h>
 
 template<typename T>
-    struct A;
+    class A;
 
 template<typename T>
     int foo1(T)
@@ -43,7 +43,7 @@ template<typename T>
     }
 
 template<typename T>
-    struct A
+    class A
     {
         const static int x = 2;
         friend int foo1(T);
