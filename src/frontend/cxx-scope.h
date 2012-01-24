@@ -185,7 +185,6 @@ LIBMCXX_EXTERN template_parameter_value_t* update_template_parameter_value(
 
 // Friend support
 LIBMCXX_EXTERN char is_friend_declared(scope_entry_t* entry);
-LIBMCXX_EXTERN scope_entry_list_t* filter_friend_declared(scope_entry_list_t* entry_list);
 
 // Iteration in scopes
 LIBMCXX_EXTERN void scope_for_each_entity(scope_t* sc, void *data, void (fun)(scope_entry_list_t*, void*));
