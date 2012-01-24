@@ -7487,9 +7487,13 @@ static char find_function_declaration(AST declarator_id,
     {
         // Restrict the lookup to the innermost enclosing namespace
         // if the declarator_id is unqualified and we are not naming a template
+        // C++ Standard 7.3.1.2 Namespace member definitions
         lookup_context.current_scope = lookup_context.namespace_scope;
-
-        if (!gather_info->is_template)
+        
+        // The class or function is not a template class or template function
+        if (!gather_info->is_template 
+                // The 'declarator_id' is not a template-id
+                && ASTType(declarator_id) != AST_TEMPLATE_ID)
         {
             switch (ASTType(declarator_id))
             {
