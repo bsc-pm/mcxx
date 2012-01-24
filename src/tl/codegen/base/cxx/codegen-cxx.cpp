@@ -4359,16 +4359,17 @@ bool CxxBase::operand_has_lower_priority(Nodecl::NodeclBase current_operator, No
     node_t current_kind = current_operator.get_kind();
     node_t operand_kind = operand.get_kind();
 
-    // For the sake of clarity
-    // For the sake of clarity and to avoid warnings
+    // For the sake of clarity and to avoid warnings emitted by gcc
     if (0 
-            // a | b & c  -> a | (b & c)
             // a || b && c  -> a || (b && c)
-            || ((is_logical_bin_operator(current_kind) || is_bitwise_bin_operator(current_kind))
-                && (is_logical_bin_operator(operand_kind) || is_bitwise_bin_operator(operand_kind)))
+            || (is_logical_bin_operator(current_kind) && is_logical_bin_operator(operand_kind))
+            // a | b & c  -> a | (b & c)
+            || (is_bitwise_bin_operator(current_kind) && is_bitwise_bin_operator(operand_kind))
             // a << b - c   -> a << (b - c)
-            || (is_shift_bin_operator(current_kind) 
-                && is_additive_bin_operator(operand_kind)))
+            || (is_shift_bin_operator(current_kind) && is_additive_bin_operator(operand_kind))
+            // a + b & c -> (a + b) & c
+            || (is_bitwise_bin_operator(current_kind) && is_additive_bin_operator(operand_kind))
+            )
     {
         return 1;
     }
