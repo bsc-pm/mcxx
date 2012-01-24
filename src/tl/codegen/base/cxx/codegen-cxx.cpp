@@ -2840,6 +2840,12 @@ bool CxxBase::is_local_symbol(TL::Symbol entry)
                 || (entry.is_member() && is_local_symbol(entry.get_class_type().get_symbol())));
 }
 
+bool CxxBase::is_prototype_symbol(TL::Symbol entry)
+{
+    return entry.is_valid()
+        && entry.get_scope().is_prototype_scope();
+}
+
 void CxxBase::define_symbol_if_local(TL::Symbol symbol)
 {
     if (is_local_symbol(symbol))
@@ -2864,9 +2870,43 @@ void CxxBase::define_symbol_if_nonlocal(TL::Symbol symbol)
     }
 }
 
+void CxxBase::define_symbol_if_nonlocal_nonprototype(TL::Symbol symbol)
+{
+    if (!is_local_symbol(symbol)
+            && !is_prototype_symbol(symbol))
+    {
+        define_symbol(symbol);
+    }
+}
+
+void CxxBase::define_symbol_if_nonprototype(TL::Symbol symbol)
+{
+    if (!is_prototype_symbol(symbol))
+    {
+        define_symbol(symbol);
+    }
+}
+
 void CxxBase::declare_symbol_if_nonlocal(TL::Symbol symbol)
 {
     if (!is_local_symbol(symbol))
+    {
+        declare_symbol(symbol);
+    }
+}
+
+void CxxBase::declare_symbol_if_nonlocal_nonprototype(TL::Symbol symbol)
+{
+    if (!is_local_symbol(symbol)
+            && !is_prototype_symbol(symbol))
+    {
+        declare_symbol(symbol);
+    }
+}
+
+void CxxBase::declare_symbol_if_nonprototype(TL::Symbol symbol)
+{
+    if (!is_prototype_symbol(symbol))
     {
         declare_symbol(symbol);
     }
@@ -3475,7 +3515,7 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
                     /* needs_def */ false,
                     &CxxBase::declare_symbol_if_nonlocal,
                     &CxxBase::define_symbol_if_nonlocal,
-                    &CxxBase::define_nonlocal_entities_in_trees);
+                    &CxxBase::define_nonprototype_entities_in_trees);
 
             char is_primary_template = 0;
             bool requires_extern_linkage = false;
@@ -3824,6 +3864,24 @@ void CxxBase::define_nonlocal_entities_in_trees(const Nodecl::NodeclBase& node)
             &CxxBase::entry_just_define);
 }
 
+void CxxBase::define_nonprototype_entities_in_trees(const Nodecl::NodeclBase& node)
+{
+    define_generic_entities(node, 
+            &CxxBase::declare_symbol_if_nonprototype,
+            &CxxBase::define_symbol_if_nonprototype,
+            &CxxBase::define_nonprototype_entities_in_trees,
+            &CxxBase::entry_just_define);
+}
+
+void CxxBase::define_nonlocal_nonprototype_entities_in_trees(const Nodecl::NodeclBase& node)
+{
+    define_generic_entities(node, 
+            &CxxBase::declare_symbol_if_nonlocal_nonprototype,
+            &CxxBase::define_symbol_if_nonlocal_nonprototype,
+            &CxxBase::define_nonlocal_nonprototype_entities_in_trees,
+            &CxxBase::entry_just_define);
+}
+
 void CxxBase::define_local_entities_in_trees(const Nodecl::NodeclBase& node)
 {
     define_generic_entities(node, 
@@ -3901,7 +3959,10 @@ void CxxBase::walk_type_for_symbols(TL::Type t,
                 it++)
         {
             walk_type_for_symbols(*it,
-                    /* needs_def */ 0, symbol_to_declare, symbol_to_define, define_entities_in_tree);
+                    /* needs_def */ 0, 
+                    symbol_to_declare,
+                    symbol_to_define,
+                    &CxxBase::define_nonprototype_entities_in_trees);
         }
     }
     else if (t.is_vector())
