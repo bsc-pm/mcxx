@@ -3455,6 +3455,10 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
     }
     else if (symbol.is_function())
     {
+        // The user did not declare it, ignore it
+        if (symbol.is_friend_declared())
+            return;
+
         // If this function was not user declared, do not print
         if (!(symbol.is_member()
                     && !symbol.is_user_declared()))
