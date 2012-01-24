@@ -73,6 +73,7 @@ namespace TL
         }
 
         delete[] parameter_names;
+        delete[] param_attributes;
 
         return result;
     }
