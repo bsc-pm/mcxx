@@ -94,9 +94,6 @@ enum decl_flags_tag
     DF_DEPENDENT_TYPENAME = BITMAP(8),
     // Enables weird lookup for 'struct X'/'union X'/'enum X'
     DF_ELABORATED_NAME = BITMAP(9),
-    // Relaxed typechecking, ambiguity decl-expr is solved always to expr if it
-    // cannot be disambiguated
-    DF_AMBIGUITY_FALLBACK_TO_EXPR = BITMAP(12),
 } decl_flags_t;
 
 #undef BITMAP
