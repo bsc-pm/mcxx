@@ -172,6 +172,10 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
     bool there_are_overallocated = false;
     bool immediate_is_alloca = false;
 
+    // We overallocate with an alignment of 8
+    const int overallocation_alignment = 8;
+    const int overallocation_mask = overallocation_alignment - 1;
+
     TL::ObjectList<OutlineDataItem> data_items = outline_info.get_data_items();
     if (IS_C_LANGUAGE
             || IS_CXX_LANGUAGE)
@@ -183,7 +187,7 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
             if ((it->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED) 
                     == OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED)
             {
-                dynamic_size << "+ sizeof(" << it->get_symbol().get_name() << ")";
+                dynamic_size << "+ " << overallocation_alignment << " + sizeof(" << it->get_symbol().get_name() << ")";
                 there_are_overallocated = true;
             }
         }
@@ -280,15 +284,24 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         Source::source_language = SourceLanguage::Current;
     }
 
+    Source intptr_type;
+    intptr_type << Type(::get_size_t_type()).get_declaration(construct.retrieve_context(), "")
+        ;
+
     // Now fill the arguments information (this part is language dependent)
     if (IS_C_LANGUAGE
             || IS_CXX_LANGUAGE)
     {
         Source overallocation_base_offset; 
-        overallocation_base_offset << "(char*)(ol_args.args + 1)";
+        // We round up to the alignment
+        overallocation_base_offset << "(void*)(((" 
+            << intptr_type << ")(char*)(ol_args.args + 1) + " 
+            << overallocation_mask << ") & (~" << overallocation_mask << "))";
 
         Source imm_overallocation_base_offset;
-        imm_overallocation_base_offset << "(char*)(&imm_args + 1)";
+        imm_overallocation_base_offset << "(void*)(((" 
+            << intptr_type << ")(char*)(&imm_args + 1) + " 
+            << overallocation_mask << ") & (~" << overallocation_mask << "))";
 
         for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
                 it != data_items.end();
@@ -312,15 +325,19 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
                         ;
                     
                     // Overwrite source
-                    overallocation_base_offset = Source() << "(char*)(ol_args.args->" << 
-                        it->get_field_name() << ") + sizeof(" << it->get_symbol().get_name() << ")"
+                    overallocation_base_offset = Source() << "(void*)((" 
+                        << intptr_type << ")((char*)(ol_args.args->" << 
+                        it->get_field_name() << ") + sizeof(" << it->get_symbol().get_name() << ") + " 
+                        << overallocation_mask << ") & (~" << overallocation_mask << "))"
                         ;
                     fill_immediate_arguments << 
                         "imm_args." << it->get_field_name() << " = " << Source(imm_overallocation_base_offset) << ";";
                         ;
                     // Overwrite source
-                    imm_overallocation_base_offset = Source() << "(char*)(imm_args." << 
-                        it->get_field_name() << ") + sizeof(" << it->get_symbol().get_name() << ")"
+                    imm_overallocation_base_offset = Source() << "(void*)((" 
+                        << intptr_type << ")((char*)(imm_args." << 
+                        it->get_field_name() << ") + sizeof(" << it->get_symbol().get_name() << ") + "
+                        << overallocation_mask << ") & (~" << overallocation_mask << "))"
                         ;
 
                     fill_outline_arguments
