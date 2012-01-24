@@ -30,6 +30,8 @@ std::string CxxBase::codegen(const Nodecl::NodeclBase &n)
     state.global_namespace = decl_context.global_scope->related_entry;
     state.opened_namespace = decl_context.namespace_scope->related_entry;
 
+    state.emit_declarations = this->is_file_output();
+
     std::string old_file = file.str();
 
     file.clear();
@@ -472,6 +474,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CompoundExpression& node)
     file << "{\n";
     inc_indent();
 
+    bool emit_declarations = state.emit_declarations;
+    state.emit_declarations = true;
+
     bool in_condition = state.in_condition;
     state.in_condition = 0;
 
@@ -484,6 +489,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CompoundExpression& node)
     walk(statement_seq);
 
     state.in_condition = in_condition;
+    state.emit_declarations = emit_declarations;
     dec_indent();
 
     indent();
@@ -500,11 +506,16 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CompoundStatement& node)
     file << "{\n";
     inc_indent();
 
+    bool emit_declarations = state.emit_declarations;
+    state.emit_declarations = true;
+
     Nodecl::NodeclBase statement_seq = node.get_statements();
 
     define_local_entities_in_trees(statement_seq);
 
     walk(statement_seq);
+
+    state.emit_declarations = emit_declarations;
 
     dec_indent();
     indent();
@@ -680,7 +691,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::EmptyStatement& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::ErrExpr& node)
 {
-    if (!this->is_file_output())
+    if (!state.emit_declarations)
     {
         file << "<<error expression>>";
     }
@@ -1389,7 +1400,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::MemberInit& node)
     TL::Symbol entry = node.get_symbol();
     Nodecl::NodeclBase init_expr = node.get_init_expr();
 
-    if (!this->is_file_output())
+    if (!state.emit_declarations)
     {
         file << this->get_declaration(entry.get_type(), entry.get_scope(), entry.get_qualified_name());
 
@@ -1455,7 +1466,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ObjectInit& node)
 {
     TL::Symbol sym = node.get_symbol();
 
-    if (!this->is_file_output())
+    if (!state.emit_declarations)
     {
         file << this->get_declaration(sym.get_type(), sym.get_scope(), sym.get_qualified_name());
     }
@@ -2895,7 +2906,7 @@ void CxxBase::define_nonnested_entities_in_trees(Nodecl::NodeclBase const& node)
 
 void CxxBase::define_symbol(TL::Symbol symbol)
 {
-    if (!this->is_file_output())
+    if (!state.emit_declarations)
         return;
 
     if (symbol.not_to_be_printed())
@@ -3017,7 +3028,7 @@ void CxxBase::define_symbol(TL::Symbol symbol)
 
 void CxxBase::declare_symbol(TL::Symbol symbol)
 {
-    if (!this->is_file_output())
+    if (!state.emit_declarations)
         return;
 
     if (symbol.is_injected_class_name())
