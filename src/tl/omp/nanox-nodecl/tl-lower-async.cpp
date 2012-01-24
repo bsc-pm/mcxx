@@ -139,6 +139,8 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
     Source err_name;
     err_name << "err";
 
+    Source dynamic_size;
+
     struct_size << "sizeof(imm_args)" << dynamic_size;
     alignment << "__alignof__(" << struct_arg_type_name << "), ";
     num_copies << "0";
@@ -251,8 +253,11 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
     if (IS_C_LANGUAGE
             || IS_CXX_LANGUAGE)
     {
-        Source overallocation_base_offset = "(char*)(ol_args.args + 1)";
-        Source imm_overallocation_base_offset = "(char*)(&imm_args + 1)";
+        Source overallocation_base_offset; 
+        overallocation_base_offset << "(char*)(ol_args.args + 1)";
+
+        Source imm_overallocation_base_offset;
+        imm_overallocation_base_offset << "(char*)(&imm_args + 1)";
 
         for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
                 it != data_items.end();
