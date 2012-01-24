@@ -5302,8 +5302,6 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
         }
     }
 
-    entry_list = filter_friend_declared(entry_list);
-
     if (entry_list == NULL)
     {
         if (!checking_ambiguity())
@@ -5516,7 +5514,7 @@ static void cxx_common_name_check(AST expr, decl_context_t decl_context, nodecl_
         return;
     }
 
-    scope_entry_list_t* result_list = query_nodecl_name_flags(decl_context, nodecl_name, DF_DEPENDENT_TYPENAME);
+    scope_entry_list_t* result_list = query_nodecl_name_flags(decl_context, nodecl_name, DF_DEPENDENT_TYPENAME | DF_IGNORE_FRIEND_DECL);
 
     cxx_compute_name_from_entry_list(nodecl_name, result_list, decl_context, nodecl_output);
 }
@@ -7361,8 +7359,8 @@ static scope_entry_list_t* do_koenig_lookup(nodecl_t nodecl_simple_name,
         decl_context_t decl_context)
 {
     // First try to do a normal lookup
-    scope_entry_list_t* entry_list = query_name_str(decl_context, 
-            nodecl_get_text(nodecl_simple_name));
+    scope_entry_list_t* entry_list = query_name_str_flags(decl_context, 
+            nodecl_get_text(nodecl_simple_name), DF_IGNORE_FRIEND_DECL);
 
     enum cxx_symbol_kind filter_function_names[] = 
     {
@@ -7519,11 +7517,6 @@ static scope_entry_list_t* do_koenig_lookup(nodecl_t nodecl_simple_name,
     old_entry_list = entry_list;
     entry_list = filter_symbol_kind_set(old_entry_list,
             STATIC_ARRAY_LENGTH(filter_function_names), filter_function_names);
-    entry_list_free(old_entry_list);
-
-    // Remove friend declared
-    old_entry_list = entry_list;
-    entry_list = filter_friend_declared(entry_list);
     entry_list_free(old_entry_list);
 
     // Filter the list again
@@ -7888,7 +7881,7 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
         if (candidates == NULL)
         {
             // Try a plain lookup
-            candidates = query_nodecl_name_flags(decl_context, nodecl_called, DF_DEPENDENT_TYPENAME);
+            candidates = query_nodecl_name_flags(decl_context, nodecl_called, DF_DEPENDENT_TYPENAME | DF_IGNORE_FRIEND_DECL);
         }
 
         if (candidates == NULL)

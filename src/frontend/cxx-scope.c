@@ -622,7 +622,7 @@ static char is_not_friend_declared(scope_entry_t* entry, void* p UNUSED_PARAMETE
     return !is_friend_declared(entry);
 }
 
-scope_entry_list_t* filter_friend_declared(scope_entry_list_t* entry_list)
+static scope_entry_list_t* filter_friend_declared(scope_entry_list_t* entry_list)
 {
     return filter_symbol_using_predicate(entry_list, is_not_friend_declared, NULL);
 }
@@ -1645,6 +1645,12 @@ static scope_entry_list_t* name_lookup(decl_context_t decl_context,
         else // BLOCK_SCOPE || PROTOTYPE_SCOPE || FUNCTION_SCOPE (although its contains should be NULL)
         {
             result = query_name_in_scope(current_scope, name);
+        }
+
+
+        if (BITMAP_TEST(decl_flags, DF_IGNORE_FRIEND_DECL))
+        {
+            result = filter_friend_declared(result);
         }
 
         if (BITMAP_TEST(decl_flags, DF_ELABORATED_NAME))

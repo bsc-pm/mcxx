@@ -2716,13 +2716,9 @@ void gather_type_spec_from_simple_type_specifier(AST a, type_t** type_info,
 {
     AST id_expression = ASTSon0(a);
 
-    decl_flags_t flags = DF_NONE;
+    decl_flags_t flags = DF_IGNORE_FRIEND_DECL;
     scope_entry_list_t* entry_list = query_id_expression_flags(decl_context, 
             id_expression, flags);
-
-    scope_entry_list_t* old_entry_list = entry_list;
-    entry_list = filter_friend_declared(old_entry_list);
-    entry_list_free(old_entry_list);
 
     if (entry_list == NULL)
     {
@@ -7426,16 +7422,16 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
     return entry;
 }
 
-static char find_function_declaration(AST declarator_id, 
-        type_t* declarator_type, 
+static char find_function_declaration(AST declarator_id,
+        type_t* declarator_type,
         gather_decl_spec_t* gather_info,
         decl_context_t decl_context,
         scope_entry_t** result_entry)
 {
     *result_entry = NULL;
-    if (gather_info->is_friend 
+    if (gather_info->is_friend
             && is_dependent_class_scope(decl_context))
-    {   
+    {
         scope_entry_t* result = counted_calloc(1, sizeof(*result), &_bytes_used_buildscope);
         
         result->kind = SK_DEPENDENT_FRIEND_FUNCTION;
@@ -7489,7 +7485,45 @@ static char find_function_declaration(AST declarator_id,
     }
     else
     {
+        // Restrict the lookup to the innermost enclosing namespace
+        // if the declarator_id is unqualified and we are not naming a template
         lookup_context.current_scope = lookup_context.namespace_scope;
+
+        if (!gather_info->is_template)
+        {
+            switch (ASTType(declarator_id))
+            {
+                case AST_SYMBOL :
+                case AST_TEMPLATE_ID :
+                case AST_DESTRUCTOR_ID :
+                case AST_DESTRUCTOR_TEMPLATE_ID :
+                case AST_CONVERSION_FUNCTION_ID :
+                case AST_OPERATOR_FUNCTION_ID :
+                case AST_OPERATOR_FUNCTION_ID_TEMPLATE :
+                    decl_flags |= DF_ONLY_CURRENT_SCOPE;
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+
+     char declarator_is_template_id = 0;
+     AST considered_tree = declarator_id;
+     if (ASTType(declarator_id) == AST_QUALIFIED_ID
+             || ASTType(declarator_id) == AST_QUALIFIED_TEMPLATE)
+     {
+         considered_tree = ASTSon2(declarator_id);
+     }
+
+     declarator_is_template_id = (ASTType(considered_tree) == AST_TEMPLATE_ID 
+             || ASTType(considered_tree) == AST_OPERATOR_FUNCTION_ID_TEMPLATE);
+
+
+    if (declarator_is_template_id 
+       || gather_info->is_explicit_instantiation)
+    {
+        decl_flags |= DF_IGNORE_FRIEND_DECL;
     }
 
     scope_entry_list_t* entry_list 
@@ -7620,25 +7654,12 @@ static char find_function_declaration(AST declarator_id,
 
     // Preparation for the second attempt
     template_parameter_list_t *explicit_template_parameters = NULL;
-    char declarator_is_template_id = 0;
+    if (declarator_is_template_id)
     {
-        AST considered_tree = declarator_id;
-        if (ASTType(declarator_id) == AST_QUALIFIED_ID
-                || ASTType(declarator_id) == AST_QUALIFIED_TEMPLATE)
-        {
-            considered_tree = ASTSon2(declarator_id);
-        }
-
-        declarator_is_template_id = (ASTType(considered_tree) == AST_TEMPLATE_ID 
-                || ASTType(considered_tree) == AST_OPERATOR_FUNCTION_ID_TEMPLATE);
-
-        if (declarator_is_template_id)
-        {
-            explicit_template_parameters = 
-                get_template_parameters_from_syntax(ASTSon1(considered_tree), decl_context);
-        }
+        explicit_template_parameters =
+            get_template_parameters_from_syntax(ASTSon1(considered_tree), decl_context);
     }
-    
+
     // Dependent friends are handled first
     if (templates_available
             && !gather_info->is_template
@@ -7673,11 +7694,6 @@ static char find_function_declaration(AST declarator_id,
             && (gather_info->is_explicit_instantiation
                 || declarator_is_template_id))
     {
-        // Under explicit instantiation we do not allow friends
-        scope_entry_list_t* old_entry_list = entry_list;
-        entry_list = filter_friend_declared(entry_list);
-        entry_list_free(old_entry_list);
-
         scope_entry_t* result = solve_template_function(
                 entry_list,
                 explicit_template_parameters,
