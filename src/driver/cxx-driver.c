@@ -971,6 +971,7 @@ int parse_arguments(int argc, const char* argv[],
                         char temp[256] = { 0 };
                         snprintf(temp, 255, "-D%s", parameter_info.argument);
                         add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, temp);
+                        add_to_parameter_list_str(&CURRENT_CONFIGURATION->fortran_preprocessor_options, temp);
                         break;
                     }
                 case 'U' :
@@ -978,6 +979,7 @@ int parse_arguments(int argc, const char* argv[],
                         char temp[256] = { 0 };
                         snprintf(temp, 255, "-U%s", parameter_info.argument);
                         add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, temp);
+                        add_to_parameter_list_str(&CURRENT_CONFIGURATION->fortran_preprocessor_options, temp);
                         break;
                     }
                 case 'g' :
@@ -1992,9 +1994,14 @@ static void parse_subcommand_arguments(const char* arguments)
     const char** parameters = comma_separate_values(p, &num_parameters);
 
     if (prepro_flag)
+    {
         add_to_parameter_list(
                 &configuration->preprocessor_options,
                 parameters, num_parameters);
+        add_to_parameter_list(
+                &configuration->fortran_preprocessor_options,
+                parameters, num_parameters);
+    }
     if (native_flag)
         add_to_parameter_list(
                 &configuration->native_compiler_options,
