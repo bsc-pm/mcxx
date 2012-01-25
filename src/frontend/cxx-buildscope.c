@@ -5972,11 +5972,7 @@ static void set_function_parameter_clause(type_t** function_type,
     AST iter = NULL;
     AST list = parameters;
 
-    // Do not contaminate the current symbol table if we are in
-    // a function declaration, otherwise this should already be 
-    // a block scope
-
-    // Nothing to do here with K&R parameters
+    // K&R parameters
     if (ASTType(parameters) == AST_KR_PARAMETER_LIST)
     {
         list = ASTSon0(parameters);
@@ -6071,8 +6067,6 @@ static void set_function_parameter_clause(type_t** function_type,
             ERROR_CONDITION(ASTType(parameter_declaration) != AST_PARAMETER_DECL
                     && ASTType(parameter_declaration) != AST_GCC_PARAMETER_DECL, 
                     "Invalid node", 0);
-
-
 
             // This is never null
             AST parameter_decl_spec_seq = ASTSon0(parameter_declaration);
@@ -6211,6 +6205,17 @@ static void set_function_parameter_clause(type_t** function_type,
             gather_info->arguments_info[num_parameters].entry = entry;
             gather_info->arguments_info[num_parameters].argument = nodecl_default_argument;
             gather_info->arguments_info[num_parameters].context = decl_context;
+
+            // Pass the VLA symbols of this parameter
+            int i;
+            for (i = 0 ; i < param_decl_gather_info.num_vla_dimension_symbols; i++)
+            {
+                P_LIST_ADD(gather_info->vla_dimension_symbols, 
+                        gather_info->num_vla_dimension_symbols,
+                        param_decl_gather_info.vla_dimension_symbols[i]);
+            }
+
+            free(param_decl_gather_info.vla_dimension_symbols);
 
             num_parameters++;
         }
@@ -9397,7 +9402,33 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
 
             build_scope_statement_seq(list, block_context, &body_nodecl);
         }
+        
+        // C99 VLA object-inits
+        C_LANGUAGE()
+        {
+            nodecl_t nodecl_vla_init = nodecl_null();
+            int i;
+            for (i = 0; i < gather_info.num_vla_dimension_symbols; i++)
+            {
+                scope_entry_t* vla_dim = gather_info.vla_dimension_symbols[i];
 
+                nodecl_vla_init = nodecl_append_to_list(
+                        nodecl_vla_init,
+                        nodecl_make_object_init(
+                            vla_dim, 
+                            ASTFileName(statement), 
+                            ASTLine(statement))); 
+            }
+
+            gather_info.num_vla_dimension_symbols = 0;
+            free(gather_info.vla_dimension_symbols);
+            gather_info.vla_dimension_symbols = NULL;
+
+            // Note that we are prepending an object init list for VLAs
+            body_nodecl = nodecl_concat_lists(nodecl_vla_init, body_nodecl);
+        }
+        
+        // C++ destructors
         nodecl_t nodecl_destructors = nodecl_null();
         CXX_LANGUAGE()
         {
@@ -9418,7 +9449,6 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     {
         internal_error("Unreachable code", 0);
     }
-
 
     // Create nodecl (only if not dependent)
     nodecl_t nodecl_function_def = nodecl_make_function_code(
