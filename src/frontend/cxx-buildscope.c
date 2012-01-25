@@ -9270,9 +9270,9 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
         {
             const char* qualified_name = get_qualified_symbol_name(entry, decl_context);
 
-            funct_name = get_declaration_string_internal(entry->type_information,
+            funct_name = print_decl_type_str(entry->type_information,
                     decl_context,
-                    qualified_name, "", 0, 0, NULL, NULL, 0);
+                    qualified_name);
         }
         if (!checking_ambiguity())
         {

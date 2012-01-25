@@ -579,6 +579,7 @@ LIBMCXX_EXTERN const char* get_declaration_string_internal(type_t* type_info,
         const char** parameter_names,
         const char** parameter_attributes,
         char is_parameter);
+
 LIBMCXX_EXTERN const char* get_simple_type_name_string(decl_context_t decl_context, type_t* type_info);
 LIBMCXX_EXTERN const char* get_named_type_name(scope_entry_t* entry);
 
