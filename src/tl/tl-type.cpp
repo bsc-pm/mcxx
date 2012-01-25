@@ -54,6 +54,12 @@ namespace TL
         const char** parameter_names  = new const char*[num_parameters + 1];
         const char** param_attributes = new const char*[num_parameters + 1];
 
+        for (int i = 0; i < num_parameters; i++)
+        {
+            parameter_names[i] = NULL;
+            param_attributes[i] = NULL;
+        }
+
         int orig_size = parameters.size();
         for (int i = 0; i < orig_size; i++)
         {
@@ -67,9 +73,16 @@ namespace TL
         for (int i = 0; i < num_parameters; i++)
         {
             if (i < orig_size)
+            {
                 parameters[i] = parameter_names[i];
-            else
-                parameters[i].append(parameter_names[i]);
+            }
+            else 
+            {
+                if (parameter_names[i] != NULL)
+                    parameters.append(parameter_names[i]);
+                else
+                    parameters.append("");
+            }
         }
 
         delete[] parameter_names;
