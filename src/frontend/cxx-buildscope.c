@@ -9387,8 +9387,11 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
 
     // Fix inherited template context
     template_parameter_list_t* enclosing_template_parameters = block_context.template_parameters;
-    block_context.template_parameters = counted_calloc(1, sizeof(*block_context.template_parameters), &_bytes_used_buildscope);
-    block_context.template_parameters->enclosing = enclosing_template_parameters;
+    if (enclosing_template_parameters != NULL)
+    {
+        block_context.template_parameters = counted_calloc(1, sizeof(*block_context.template_parameters), &_bytes_used_buildscope);
+        block_context.template_parameters->enclosing = enclosing_template_parameters;
+    }
 
     // Sign in __func__ (C99) and GCC's __FUNCTION__ and __PRETTY_FUNCTION__
     {
