@@ -345,6 +345,13 @@ static void check_not_fully_defined_symbols(decl_context_t decl_context)
                     entry->line,
                     entry->symbol_name);
         }
+        else if (entry->kind == SK_CLASS)
+        {
+            error_printf("%s:%d: error: derived type name 'TYPE(%s)' has not been defined\n",
+                    entry->file,
+                    entry->line,
+                    entry->symbol_name);
+        }
         else
         {
             internal_error("Unexpected symbol in not fully defined symbol set %s '%s'",
@@ -1068,6 +1075,43 @@ static type_t* gather_type_from_declaration_type_spec_(AST a,
 static type_t* gather_type_from_declaration_type_spec(AST a, decl_context_t decl_context)
 {
     return gather_type_from_declaration_type_spec_(a, decl_context);
+}
+
+static type_t* get_derived_type_name(AST a, decl_context_t decl_context);
+
+static type_t* gather_type_from_declaration_type_spec_of_component(AST a, decl_context_t decl_context,
+        char is_pointer_component)
+{
+    type_t* result = NULL;
+
+    if (is_pointer_component
+            && ASTType(a) == AST_TYPE_NAME)
+    {
+        result = get_derived_type_name(ASTSon0(a), decl_context);
+
+        if (result == NULL)
+        {
+            // It is valid to mention a derived type name not yet defined
+            AST derived_type_name = ASTSon0(a);
+            AST name = ASTSon0(derived_type_name);
+
+            scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
+            entry->kind = SK_CLASS;
+
+            remove_untyped_symbol(decl_context, entry);
+            remove_unknown_kind_symbol(decl_context, entry);
+
+            add_not_fully_defined_symbol(decl_context, entry);
+
+            result = get_user_defined_type(entry);
+        }
+    }
+    else
+    {
+        result = gather_type_from_declaration_type_spec_(a, decl_context);
+    }
+
+    return result;
 }
 
 static scope_entry_t* new_procedure_symbol(
@@ -4096,14 +4140,43 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
         }
     }
 
-    scope_entry_t* class_name = new_fortran_symbol(decl_context, ASTText(name));
+    scope_entry_t* class_name = fortran_query_name_str(decl_context, ASTText(name));
+
+    if (class_name != NULL)
+    {
+        if (class_name->kind != SK_CLASS)
+        {
+            error_printf("%s: error: name '%s' is not a type name\n", 
+                    ast_location(name),
+                    ASTText(name));
+            // Give up
+            return;
+        }
+        else if (class_name->defined)
+        {
+            error_printf("%s: error: derived type 'TYPE(%s)' already defined\n", 
+                    ast_location(name),
+                    ASTText(name));
+            // Give up
+            return;
+        }
+    }
+
+    if (class_name == NULL)
+    {
+        class_name = new_fortran_symbol(decl_context, ASTText(name));
+    }
+
     class_name->kind = SK_CLASS;
     class_name->file = ASTFileName(name);
     class_name->line = ASTLine(name);
     class_name->type_information = get_new_class_type(decl_context, TT_STRUCT);
     class_name->entity_specs.bind_c = bind_c;
+    class_name->defined = 1;
     
+    remove_not_fully_defined_symbol(decl_context, class_name);
     remove_unknown_kind_symbol(decl_context, class_name);
+
     if (attr_spec.is_public)
     {
         class_name->entity_specs.access = AS_PUBLIC;
@@ -4188,14 +4261,15 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
             AST component_attr_spec_list = ASTSon1(component_def_stmt);
             AST component_decl_list = ASTSon2(component_def_stmt);
 
-            type_t* basic_type = gather_type_from_declaration_type_spec(declaration_type_spec, decl_context);
-
             memset(&attr_spec, 0, sizeof(attr_spec));
 
             if (component_attr_spec_list != NULL)
             {
                 gather_attr_spec_list(component_attr_spec_list, decl_context, &attr_spec);
             }
+
+            type_t* basic_type = gather_type_from_declaration_type_spec_of_component(declaration_type_spec, 
+                    decl_context, attr_spec.is_pointer);
 
             AST it2;
             for_each_element(component_decl_list, it2)
