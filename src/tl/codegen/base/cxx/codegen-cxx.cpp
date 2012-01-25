@@ -3564,6 +3564,24 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
                 }
             }
 
+            TL::ObjectList<TL::Symbol> related_symbols = symbol.get_related_symbols();
+            TL::ObjectList<std::string> parameter_names(related_symbols.size());
+            TL::ObjectList<std::string> parameter_attributes(related_symbols.size());
+            int i = 0;
+            for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
+                    it != related_symbols.end();
+                    it++, i++)
+            {
+                TL::Symbol current_param = *it;
+                if (current_param.is_valid())
+                {
+                    parameter_names[i] = current_param.get_name();
+                    if (current_param.has_gcc_attributes())
+                    {
+                        parameter_attributes[i] = gcc_attributes_to_str(current_param); 
+                    }
+                }
+            }
 
             std::string decl_spec_seq;
             if (symbol.is_static())
@@ -3611,10 +3629,14 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
             std::string declarator = "";
             if (!real_type.lacks_prototype())
             {
-                declarator = this->get_declaration(
-                        real_type,
-                        symbol.get_scope(),
-                        function_name);
+                // declarator = this->get_declaration(
+                //         real_type,
+                //         symbol.get_scope(),
+                //         function_name);
+                declarator = this->get_declaration_with_parameters(real_type, symbol.get_scope(), 
+                        function_name, 
+                        parameter_names, 
+                        parameter_attributes);
             }
             else
             {
