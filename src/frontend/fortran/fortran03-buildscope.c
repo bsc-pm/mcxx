@@ -4154,11 +4154,21 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
         }
         else if (class_name->defined)
         {
-            error_printf("%s: error: derived type 'TYPE(%s)' already defined\n", 
-                    ast_location(name),
-                    ASTText(name));
-            // Give up
-            return;
+            // If it is declared in the same scope or it comes from a module, then this is wrong
+            if (decl_context.current_scope == class_name->decl_context.current_scope
+                    || class_name->entity_specs.from_module != NULL)
+            {
+                error_printf("%s: error: derived type 'TYPE(%s)' already defined\n", 
+                        ast_location(name),
+                        ASTText(name));
+                // Give up
+                return;
+            }
+            else
+            {
+                // This is an entirely new type
+                class_name = NULL;
+            }
         }
     }
 
