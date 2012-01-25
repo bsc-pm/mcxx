@@ -1522,7 +1522,7 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                 type_t *type_info = NULL;
 
                 gather_decl_spec_t typeof_gather_info;
-                memset(&gather_info, 0, sizeof(gather_info));
+                memset(&typeof_gather_info, 0, sizeof(typeof_gather_info));
 
                 build_scope_decl_specifier_seq(type_specifier_seq, &typeof_gather_info, &type_info, decl_context);
 
