@@ -7549,7 +7549,7 @@ static char find_function_declaration(AST declarator_id,
             entry_list_iterator_next(it))
     {
         scope_entry_t* entry = entry_list_iterator_current(it);
-        
+
         // Ignore this case unless we are in a friend declaration
         if (entry->kind == SK_DEPENDENT_ENTITY)
         {
@@ -7566,6 +7566,8 @@ static char find_function_declaration(AST declarator_id,
                 || entry->kind == SK_ENUM)
             continue;
 
+        char is_using = (entry->kind == SK_USING) ? 1:0;
+
         entry = entry_advance_aliases(entry);
 
         if (entry->kind != SK_FUNCTION
@@ -7581,7 +7583,8 @@ static char find_function_declaration(AST declarator_id,
             return 0;
         }
 
-        if (entry->entity_specs.is_member
+        if (is_using
+                && entry->entity_specs.is_member
                 && decl_context.current_scope->kind == CLASS_SCOPE
                 && !equivalent_types(get_actual_class_type(entry->entity_specs.class_type), 
                     get_actual_class_type(decl_context.current_scope->related_entry->type_information)))
