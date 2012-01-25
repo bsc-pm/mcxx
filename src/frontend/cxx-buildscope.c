@@ -2135,6 +2135,39 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
     {
         decl_flags |= DF_ELABORATED_NAME;
     }
+    
+    // decl_context_query is a new decl_context_t created  for the queries
+    decl_context_t decl_context_query = decl_context;
+
+    // If a friend declaration appears in a local class and the specified name is not qualified,
+    // we only look up in the innermost enclosing non-class scope
+    //
+    //  class X {}; 
+    //  class Y {}; 
+    //  void foo() 
+    //  {
+    //       class Y {};
+    //       class A
+    //       {
+    //           friend class X; // X is not found in ::Foo()
+    //           friend class Y; // Y is found  ::Foo()::Y
+    //       };
+    //  
+    //       X x; // ::X;
+    //       Y y; // ::Foo()::Y
+    //  }
+    char is_local_class_friend_decl = 0;
+    if (gather_info->is_friend
+            && is_unqualified_id_expression(id_expression)
+            && decl_context.current_scope->kind == CLASS_SCOPE 
+            && decl_context.current_scope->contained_in != NULL
+            && decl_context.current_scope->contained_in->kind == BLOCK_SCOPE)
+
+    {
+        is_local_class_friend_decl = 1;
+        decl_flags |= DF_ONLY_CURRENT_SCOPE;
+        decl_context_query.current_scope = decl_context.current_scope->contained_in;
+    }
 
     char is_friend_class_declaration =
         (gather_info->no_declarators && gather_info->is_friend);
@@ -2148,17 +2181,17 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         {
             if (is_unqualified_id_expression(id_expression))
             {
-                result_list = query_in_scope_flags(decl_context, id_expression, decl_flags);
+                result_list = query_in_scope_flags(decl_context_query, id_expression, decl_flags);
             }
             else
             {
-                result_list = query_id_expression_flags(decl_context,
+                result_list = query_id_expression_flags(decl_context_query,
                         id_expression, decl_flags | DF_DEPENDENT_TYPENAME);
             }
         }
         else
         {
-            result_list = query_id_expression_flags(decl_context,
+            result_list = query_id_expression_flags(decl_context_query,
                     id_expression, decl_flags | DF_DEPENDENT_TYPENAME);
         }
     }
@@ -2168,7 +2201,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         const char* class_name = ASTText(id_expression);
         class_name = strappend(class_kind_name, strappend(" ", class_name));
 
-        result_list = query_name_str(decl_context, class_name);
+        result_list = query_name_str(decl_context_query, class_name);
     }
 
     // Now look for a type
@@ -2240,7 +2273,12 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         // We will have to create a symbol (if unqualified, otherwise this is an error)
         if (is_unqualified_id_expression(id_expression))
         {
-            if (is_friend_class_declaration)
+            if (is_local_class_friend_decl)
+            {
+                // The new symbol will be created in a BLOCK_SCOPE
+                decl_context.current_scope = decl_context.current_scope->contained_in;
+            }
+            else if (is_friend_class_declaration)
             {
                 decl_context.current_scope = decl_context.namespace_scope;
             }
