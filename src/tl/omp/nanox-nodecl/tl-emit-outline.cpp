@@ -116,6 +116,9 @@ namespace TL { namespace Nanox {
                                 parameter 
                                     << it->get_field_type().get_declaration(it->get_symbol().get_scope(), "ptr_" + it->get_field_name());
 
+                                // Note the type being emitted here is using as names those of the fields 
+                                // FIXME: This will not work in C++ (where members will appear as A::b)
+                                // We need to update the type again... with the real members but this requires parsing the function first
                                 private_entities
                                     << it->get_in_outline_type().get_declaration(it->get_symbol().get_scope(), it->get_field_name())
                                     << " = "

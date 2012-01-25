@@ -123,19 +123,6 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
     // Outline
     emit_outline(outline_info, statements, outline_name, structure_name);
 
-    // Fill argument structure
-    bool immediate_is_alloca = false;
-    if (!immediate_is_alloca)
-    {
-        immediate_decl
-            << struct_arg_type_name << " imm_args;"
-            ;
-    }
-    else
-    {
-        internal_error("Not yet implemented", 0);
-    }
-
     Source err_name;
     err_name << "err";
 
@@ -180,6 +167,54 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         priority << "props.priority = " << as_expression(task_environment.priority) << ";"
             ;
     }
+
+    // Account for the extra size due to overallocated items
+    bool there_are_overallocated = false;
+    bool immediate_is_alloca = false;
+
+    // We overallocate with an alignment of 8
+    const int overallocation_alignment = 8;
+    const int overallocation_mask = overallocation_alignment - 1;
+
+    TL::ObjectList<OutlineDataItem> data_items = outline_info.get_data_items();
+    if (IS_C_LANGUAGE
+            || IS_CXX_LANGUAGE)
+    {
+        for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
+                it != data_items.end();
+                it++)
+        {
+            if ((it->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED) 
+                    == OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED)
+            {
+                dynamic_size << "+ " << overallocation_alignment << " + sizeof(" << it->get_symbol().get_name() << ")";
+                there_are_overallocated = true;
+            }
+        }
+    }
+
+    if (there_are_overallocated)
+    {
+        immediate_is_alloca = true;
+    }
+    
+    // Fill argument structure
+    if (!immediate_is_alloca)
+    {
+        immediate_decl
+            << struct_arg_type_name << " imm_args;"
+            ;
+    }
+    else
+    {
+        immediate_decl
+            // Create a rebindable reference
+            << struct_arg_type_name << "@reb-ref@ imm_args;"
+            // Note that in rebindable referencex "&x" is a "T* lvalue" (not a "T* rvalue" as usual)
+            << "&imm_args = (" << struct_arg_type_name << " *) __builtin_alloca(" << struct_size << ");"
+            ;
+    }
+
 
     // Spawn code
     spawn_code
@@ -226,7 +261,8 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         <<                  num_devices << ", " << device_descriptor << ", "
         <<                  struct_size << ", " 
         <<                  alignment
-        <<                  (immediate_is_alloca ? "imm_args" : "&imm_args") << ","
+        <<                  "&imm_args,"
+        // <<                  (immediate_is_alloca ? "imm_args" : "&imm_args") << ","
         <<                  num_dependences << ", (" << dependency_struct << "*)" << dependency_array << ", &props,"
         <<                  num_copies << "," << copy_imm_data 
         <<                  translation_fun_arg_name << ");"
@@ -235,12 +271,12 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         << "}"
         ;
 
+
     FORTRAN_LANGUAGE()
     {
         // Parse in C
         Source::source_language = SourceLanguage::C;
     }
-
     Nodecl::NodeclBase spawn_code_tree = spawn_code.parse_statement(construct);
 
     FORTRAN_LANGUAGE()
@@ -248,16 +284,24 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         Source::source_language = SourceLanguage::Current;
     }
 
+    Source intptr_type;
+    intptr_type << Type(::get_size_t_type()).get_declaration(construct.retrieve_context(), "")
+        ;
+
     // Now fill the arguments information (this part is language dependent)
-    TL::ObjectList<OutlineDataItem> data_items = outline_info.get_data_items();
     if (IS_C_LANGUAGE
             || IS_CXX_LANGUAGE)
     {
         Source overallocation_base_offset; 
-        overallocation_base_offset << "(char*)(ol_args.args + 1)";
+        // We round up to the alignment
+        overallocation_base_offset << "(void*)(((" 
+            << intptr_type << ")(char*)(ol_args.args + 1) + " 
+            << overallocation_mask << ") & (~" << overallocation_mask << "))";
 
         Source imm_overallocation_base_offset;
-        imm_overallocation_base_offset << "(char*)(&imm_args + 1)";
+        imm_overallocation_base_offset << "(void*)(((" 
+            << intptr_type << ")(char*)(&imm_args + 1) + " 
+            << overallocation_mask << ") & (~" << overallocation_mask << "))";
 
         for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
                 it != data_items.end();
@@ -269,29 +313,74 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
                 if ((it->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED)
                         == OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED)
                 {
+                    TL::Type sym_type = it->get_symbol().get_type();
+                    if (sym_type.is_any_reference())
+                        sym_type = sym_type.references_to();
+
+                    ERROR_CONDITION(!sym_type.is_array(), "Only arrays can be overallocated", 0);
+
                     // Overallocated
                     fill_outline_arguments << 
-                        "ol_args.args->" << it->get_field_name() << " = " << overallocation_base_offset << ";"
+                        "ol_args.args->" << it->get_field_name() << " = " << Source(overallocation_base_offset) << ";"
                         ;
-                    overallocation_base_offset << "(char*)(ol_args.args->" << 
-                        it->get_field_name() << ") + sizeof(" << it->get_symbol().get_name() << ")"
+                    
+                    // Overwrite source
+                    overallocation_base_offset = Source() << "(void*)((" 
+                        << intptr_type << ")((char*)(ol_args.args->" << 
+                        it->get_field_name() << ") + sizeof(" << it->get_symbol().get_name() << ") + " 
+                        << overallocation_mask << ") & (~" << overallocation_mask << "))"
                         ;
                     fill_immediate_arguments << 
-                        "imm_args." << it->get_field_name() << " = " << imm_overallocation_base_offset;
+                        "imm_args." << it->get_field_name() << " = " << Source(imm_overallocation_base_offset) << ";";
                         ;
-                    imm_overallocation_base_offset << "(char*)(imm_args." << 
-                        it->get_field_name() << ") + sizeof(" << it->get_symbol().get_name() << ")"
+                    // Overwrite source
+                    imm_overallocation_base_offset = Source() << "(void*)((" 
+                        << intptr_type << ")((char*)(imm_args." << 
+                        it->get_field_name() << ") + sizeof(" << it->get_symbol().get_name() << ") + "
+                        << overallocation_mask << ") & (~" << overallocation_mask << "))"
+                        ;
+
+                    fill_outline_arguments
+                        << "__builtin_memcpy(&ol_args.args->" << it->get_field_name() 
+                        << ", &" << it->get_symbol().get_name() 
+                        << ", sizeof(" << it->get_symbol().get_name() << "));"
+                        ;
+                    fill_immediate_arguments
+                        << "__builtin_memcpy(&imm_args." << it->get_field_name() 
+                        << ", &" << it->get_symbol().get_name() 
+                        << ", sizeof(" << it->get_symbol().get_name() << "));"
                         ;
                 }
                 else
                 {
                     // Not overallocated
-                    fill_outline_arguments << 
-                        "ol_args.args->" << it->get_field_name() << " = " << it->get_symbol().get_name() << ";"
-                        ;
-                    fill_immediate_arguments << 
-                        "imm_args." << it->get_field_name() << " = " << it->get_symbol().get_name() << ";"
-                        ;
+                    TL::Type sym_type = it->get_symbol().get_type();
+                    if (sym_type.is_any_reference())
+                        sym_type = sym_type.references_to();
+
+                    if (sym_type.is_array())
+                    {
+                        fill_outline_arguments
+                            << "__builtin_memcpy(&ol_args.args->" << it->get_field_name() 
+                            << ", &" << it->get_symbol().get_name() 
+                            << ", sizeof(" << it->get_symbol().get_name() << "));"
+                            ;
+                        fill_immediate_arguments
+                            << "__builtin_memcpy(&imm_args." << it->get_field_name() 
+                            << ", &" << it->get_symbol().get_name() 
+                            << ", sizeof(" << it->get_symbol().get_name() << "));"
+                            ;
+                    }
+                    else
+                    {
+                        // Plain assignment is enough
+                        fill_outline_arguments << 
+                            "ol_args.args->" << it->get_field_name() << " = " << it->get_symbol().get_name() << ";"
+                            ;
+                        fill_immediate_arguments << 
+                            "imm_args." << it->get_field_name() << " = " << it->get_symbol().get_name() << ";"
+                            ;
+                    }
                 }
             }
             else if (it->get_sharing() == OutlineDataItem::SHARING_SHARED)

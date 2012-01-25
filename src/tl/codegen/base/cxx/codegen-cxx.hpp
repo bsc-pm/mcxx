@@ -156,6 +156,8 @@ namespace Codegen
                 TL::Symbol global_namespace;
                 TL::Symbol opened_namespace;
 
+                bool emit_declarations;
+
                 bool in_condition;
                 Nodecl::NodeclBase condition_top;
 
@@ -189,6 +191,7 @@ namespace Codegen
                     : current_scope(),
                     global_namespace(),
                     opened_namespace(),
+                    emit_declarations(false),
                     in_condition(false),
                     condition_top(Nodecl::NodeclBase::null()),
                     in_member_declaration(false),
@@ -225,14 +228,23 @@ namespace Codegen
                     );
 
             bool is_local_symbol(TL::Symbol entry);
+            bool is_prototype_symbol(TL::Symbol entry);
 
             void define_all_entities_in_trees(const Nodecl::NodeclBase&);
             void define_nonlocal_entities_in_trees(const Nodecl::NodeclBase&);
+            void define_nonlocal_nonprototype_entities_in_trees(const Nodecl::NodeclBase& node);
+            void define_nonprototype_entities_in_trees(const Nodecl::NodeclBase& node);
             void define_nonnested_entities_in_trees(const Nodecl::NodeclBase&);
             void define_local_entities_in_trees(const Nodecl::NodeclBase&);
 
             void declare_symbol_if_nonlocal(TL::Symbol);
             void define_symbol_if_nonlocal(TL::Symbol);
+
+            void declare_symbol_if_nonlocal_nonprototype(TL::Symbol);
+            void define_symbol_if_nonlocal_nonprototype(TL::Symbol);
+
+            void declare_symbol_if_nonprototype(TL::Symbol);
+            void define_symbol_if_nonprototype(TL::Symbol);
 
             void declare_symbol_if_local(TL::Symbol);
             void define_symbol_if_local(TL::Symbol);

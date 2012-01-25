@@ -30,6 +30,8 @@ std::string CxxBase::codegen(const Nodecl::NodeclBase &n)
     state.global_namespace = decl_context.global_scope->related_entry;
     state.opened_namespace = decl_context.namespace_scope->related_entry;
 
+    state.emit_declarations = this->is_file_output();
+
     std::string old_file = file.str();
 
     file.clear();
@@ -472,6 +474,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CompoundExpression& node)
     file << "{\n";
     inc_indent();
 
+    bool emit_declarations = state.emit_declarations;
+    state.emit_declarations = true;
+
     bool in_condition = state.in_condition;
     state.in_condition = 0;
 
@@ -484,6 +489,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CompoundExpression& node)
     walk(statement_seq);
 
     state.in_condition = in_condition;
+    state.emit_declarations = emit_declarations;
     dec_indent();
 
     indent();
@@ -500,11 +506,16 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CompoundStatement& node)
     file << "{\n";
     inc_indent();
 
+    bool emit_declarations = state.emit_declarations;
+    state.emit_declarations = true;
+
     Nodecl::NodeclBase statement_seq = node.get_statements();
 
     define_local_entities_in_trees(statement_seq);
 
     walk(statement_seq);
+
+    state.emit_declarations = emit_declarations;
 
     dec_indent();
     indent();
@@ -680,7 +691,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::EmptyStatement& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::ErrExpr& node)
 {
-    if (!this->is_file_output())
+    if (!state.emit_declarations)
     {
         file << "<<error expression>>";
     }
@@ -1389,7 +1400,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::MemberInit& node)
     TL::Symbol entry = node.get_symbol();
     Nodecl::NodeclBase init_expr = node.get_init_expr();
 
-    if (!this->is_file_output())
+    if (!state.emit_declarations)
     {
         file << this->get_declaration(entry.get_type(), entry.get_scope(), entry.get_qualified_name());
 
@@ -1455,7 +1466,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ObjectInit& node)
 {
     TL::Symbol sym = node.get_symbol();
 
-    if (!this->is_file_output())
+    if (!state.emit_declarations)
     {
         file << this->get_declaration(sym.get_type(), sym.get_scope(), sym.get_qualified_name());
     }
@@ -2829,6 +2840,12 @@ bool CxxBase::is_local_symbol(TL::Symbol entry)
                 || (entry.is_member() && is_local_symbol(entry.get_class_type().get_symbol())));
 }
 
+bool CxxBase::is_prototype_symbol(TL::Symbol entry)
+{
+    return entry.is_valid()
+        && entry.get_scope().is_prototype_scope();
+}
+
 void CxxBase::define_symbol_if_local(TL::Symbol symbol)
 {
     if (is_local_symbol(symbol))
@@ -2853,9 +2870,43 @@ void CxxBase::define_symbol_if_nonlocal(TL::Symbol symbol)
     }
 }
 
+void CxxBase::define_symbol_if_nonlocal_nonprototype(TL::Symbol symbol)
+{
+    if (!is_local_symbol(symbol)
+            && !is_prototype_symbol(symbol))
+    {
+        define_symbol(symbol);
+    }
+}
+
+void CxxBase::define_symbol_if_nonprototype(TL::Symbol symbol)
+{
+    if (!is_prototype_symbol(symbol))
+    {
+        define_symbol(symbol);
+    }
+}
+
 void CxxBase::declare_symbol_if_nonlocal(TL::Symbol symbol)
 {
     if (!is_local_symbol(symbol))
+    {
+        declare_symbol(symbol);
+    }
+}
+
+void CxxBase::declare_symbol_if_nonlocal_nonprototype(TL::Symbol symbol)
+{
+    if (!is_local_symbol(symbol)
+            && !is_prototype_symbol(symbol))
+    {
+        declare_symbol(symbol);
+    }
+}
+
+void CxxBase::declare_symbol_if_nonprototype(TL::Symbol symbol)
+{
+    if (!is_prototype_symbol(symbol))
     {
         declare_symbol(symbol);
     }
@@ -2895,7 +2946,7 @@ void CxxBase::define_nonnested_entities_in_trees(Nodecl::NodeclBase const& node)
 
 void CxxBase::define_symbol(TL::Symbol symbol)
 {
-    if (!this->is_file_output())
+    if (!state.emit_declarations)
         return;
 
     if (symbol.not_to_be_printed())
@@ -3017,7 +3068,7 @@ void CxxBase::define_symbol(TL::Symbol symbol)
 
 void CxxBase::declare_symbol(TL::Symbol symbol)
 {
-    if (!this->is_file_output())
+    if (!state.emit_declarations)
         return;
 
     if (symbol.is_injected_class_name())
@@ -3468,7 +3519,7 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
                     /* needs_def */ false,
                     &CxxBase::declare_symbol_if_nonlocal,
                     &CxxBase::define_symbol_if_nonlocal,
-                    &CxxBase::define_nonlocal_entities_in_trees);
+                    &CxxBase::define_nonprototype_entities_in_trees);
 
             char is_primary_template = 0;
             bool requires_extern_linkage = false;
@@ -3817,6 +3868,24 @@ void CxxBase::define_nonlocal_entities_in_trees(const Nodecl::NodeclBase& node)
             &CxxBase::entry_just_define);
 }
 
+void CxxBase::define_nonprototype_entities_in_trees(const Nodecl::NodeclBase& node)
+{
+    define_generic_entities(node, 
+            &CxxBase::declare_symbol_if_nonprototype,
+            &CxxBase::define_symbol_if_nonprototype,
+            &CxxBase::define_nonprototype_entities_in_trees,
+            &CxxBase::entry_just_define);
+}
+
+void CxxBase::define_nonlocal_nonprototype_entities_in_trees(const Nodecl::NodeclBase& node)
+{
+    define_generic_entities(node, 
+            &CxxBase::declare_symbol_if_nonlocal_nonprototype,
+            &CxxBase::define_symbol_if_nonlocal_nonprototype,
+            &CxxBase::define_nonlocal_nonprototype_entities_in_trees,
+            &CxxBase::entry_just_define);
+}
+
 void CxxBase::define_local_entities_in_trees(const Nodecl::NodeclBase& node)
 {
     define_generic_entities(node, 
@@ -3894,7 +3963,10 @@ void CxxBase::walk_type_for_symbols(TL::Type t,
                 it++)
         {
             walk_type_for_symbols(*it,
-                    /* needs_def */ 0, symbol_to_declare, symbol_to_define, define_entities_in_tree);
+                    /* needs_def */ 0, 
+                    symbol_to_declare,
+                    symbol_to_define,
+                    &CxxBase::define_nonprototype_entities_in_trees);
         }
     }
     else if (t.is_vector())
@@ -4352,16 +4424,17 @@ bool CxxBase::operand_has_lower_priority(Nodecl::NodeclBase current_operator, No
     node_t current_kind = current_operator.get_kind();
     node_t operand_kind = operand.get_kind();
 
-    // For the sake of clarity
-    // For the sake of clarity and to avoid warnings
+    // For the sake of clarity and to avoid warnings emitted by gcc
     if (0 
-            // a | b & c  -> a | (b & c)
             // a || b && c  -> a || (b && c)
-            || ((is_logical_bin_operator(current_kind) || is_bitwise_bin_operator(current_kind))
-                && (is_logical_bin_operator(operand_kind) || is_bitwise_bin_operator(operand_kind)))
+            || (is_logical_bin_operator(current_kind) && is_logical_bin_operator(operand_kind))
+            // a | b & c  -> a | (b & c)
+            || (is_bitwise_bin_operator(current_kind) && is_bitwise_bin_operator(operand_kind))
             // a << b - c   -> a << (b - c)
-            || (is_shift_bin_operator(current_kind) 
-                && is_additive_bin_operator(operand_kind)))
+            || (is_shift_bin_operator(current_kind) && is_additive_bin_operator(operand_kind))
+            // a + b & c -> (a + b) & c
+            || (is_bitwise_bin_operator(current_kind) && is_additive_bin_operator(operand_kind))
+            )
     {
         return 1;
     }
