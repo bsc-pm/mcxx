@@ -1103,18 +1103,20 @@ static void check_boolean_literal(AST expr, decl_context_t decl_context UNUSED_P
     const_value_t* const_value = NULL;
     if (strcasecmp(ASTText(expr), ".true.") == 0)
     {
-        const_value = const_value_get_one(1, 1);
+        const_value = const_value_get_one(fortran_get_default_logical_type_kind(), 1);
     }
     else if (strcasecmp(ASTText(expr), ".false.") == 0)
     {
-        const_value = const_value_get_zero(1, 1);
+        const_value = const_value_get_zero(fortran_get_default_logical_type_kind(), 1);
     }
     else
     {
         internal_error("Invalid boolean literal", 0);
     }
 
-    *nodecl_output = nodecl_make_boolean_literal(fortran_get_default_logical_type(), const_value, 
+    *nodecl_output = nodecl_make_boolean_literal(
+            fortran_get_default_logical_type(), 
+            const_value, 
             ASTFileName(expr), ASTLine(expr));
 }
 
