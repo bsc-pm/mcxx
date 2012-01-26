@@ -13,6 +13,7 @@ void f1(int &a, int &b, int &c, int &d)
         b++;
         d++;
     }
+#pragma omp taskwait
 }
 
 int main(int argc, char* argv[])
