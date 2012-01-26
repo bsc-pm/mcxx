@@ -10091,6 +10091,13 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
 
         // This function might be hiding using declarations, remove those
         hide_using_declarations(class_info, entry);
+
+        // If it is a friend function definition 
+        // then we add entry symbol as a friend of the class
+        if (gather_info.is_friend) 
+        {
+            class_type_add_friend_symbol(get_actual_class_type(class_type), entry);
+        }
     }
     build_scope_delayed_add_delayed_function_def(a, entry, decl_context, is_template, is_explicit_instantiation);
 
