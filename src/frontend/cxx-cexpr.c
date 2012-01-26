@@ -89,6 +89,7 @@ struct const_value_tag
     {
         // CVK_INTEGER
         uint64_t i;
+        int64_t si;
         // CVK_FLOAT
         float f;
         // CVK_DOUBLE
@@ -423,7 +424,7 @@ char const_value_is_positive(const_value_t* v)
             if (!v->sign)
                 return 1;
             else
-                return (*(int64_t*)&v->value.i) > 0;
+                return v->value.si > 0;
         case CVK_FLOAT:
             return v->value.f > 0.0f;
         case CVK_DOUBLE:
@@ -770,7 +771,7 @@ float const_value_cast_to_float(const_value_t* v)
     {
         if (v->sign)
         {
-            return (float)*(int64_t*)(&v->value.i);
+            return (float)v->value.si;
         }
         else
         {
@@ -797,7 +798,7 @@ double const_value_cast_to_double(const_value_t* v)
     {
         if (v->sign)
         {
-            return (double)*(int64_t*)(&v->value.i);
+            return (double)(v->value.si);
         }
         else
         {
@@ -824,7 +825,7 @@ long double const_value_cast_to_long_double(const_value_t* v)
     {
         if (v->sign)
         {
-            return (long double)*(int64_t*)(&v->value.i);
+            return (long double)(v->value.si);
         }
         else
         {
@@ -852,7 +853,7 @@ __float128 const_value_cast_to_float128(const_value_t* v)
     {
         if (v->sign)
         {
-            return (__float128)*(int64_t*)(&v->value.i);
+            return (__float128)v->value.si;
         }
         else
         {
@@ -1195,7 +1196,7 @@ const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2) \
        uint64_t value = 0; \
        if (sign) \
        { \
-           (*((int64_t*)&value)) = (*((int64_t*)&(v1->value.i))) _binop (*((int64_t*)&(v2->value.i))); \
+           (*((int64_t*)&value)) = v1->value.si _binop v2->value.si; \
        } \
        else \
        { \
@@ -1493,7 +1494,7 @@ const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2) \
        uint64_t value = 0; \
        if (sign) \
        { \
-           (*((int64_t*)&value)) = (*((int64_t*)&(v1->value.i))) _binop (*((int64_t*)&(v2->value.i))); \
+           (*((int64_t*)&value)) = v1->value.si _binop v2->value.si; \
        } \
        else \
        { \
@@ -1564,7 +1565,7 @@ const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2) \
        uint64_t value = 0; \
        if (sign) \
        { \
-           *(int64_t*)&value = _func ## s ( *(int64_t*)&(v1->value.i), *(int64_t*)&(v2->value.i) ); \
+           *(int64_t*)&value = _func ## s ( v1->value.si, v2->value.si); \
        } \
        else \
        { \
@@ -1729,7 +1730,7 @@ const_value_t* const_value_##_opname(const_value_t* v1) \
         uint64_t value = 0; \
         if (v1->sign) \
         { \
-            value = _unop (int64_t)v1->value.i; \
+            value = _unop v1->value.si; \
         } \
         else \
         { \
@@ -1761,7 +1762,7 @@ const_value_t* const_value_##_opname(const_value_t* v1) \
         uint64_t value = 0; \
         if (v1->sign) \
         { \
-            value = _unop (int64_t)v1->value.i; \
+            value = _unop v1->value.si; \
         } \
         else \
         { \
