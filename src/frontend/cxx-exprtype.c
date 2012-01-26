@@ -7874,6 +7874,7 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
     scope_entry_list_t* candidates = NULL;
     template_parameter_list_t* explicit_template_arguments = NULL;
     type_t* called_type = NULL;
+    char success_koenig_lookup = 1;
     if (nodecl_get_kind(nodecl_called) == NODECL_CXX_DEP_NAME_SIMPLE)
     {
         candidates = do_koenig_lookup(nodecl_called, nodecl_argument_list, decl_context);
@@ -7881,6 +7882,7 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
         if (candidates == NULL)
         {
             // Try a plain lookup
+            success_koenig_lookup = 0;
             candidates = query_nodecl_name_flags(decl_context, nodecl_called, DF_DEPENDENT_TYPENAME | DF_IGNORE_FRIEND_DECL);
         }
 
@@ -7899,6 +7901,28 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
         {
             cxx_compute_name_from_entry_list(nodecl_copy(nodecl_called), candidates, decl_context, &nodecl_called);
         }
+    }
+
+    // A koenig lookup may find a friend function declaration symbol and this symbol has not been defined by the user
+    //
+    // Example:
+    // namespace N
+    // {
+    //     class A
+    //     {
+    //         friend void f(int, const A&);
+    //     };
+    //     void g()
+    //     {
+    //         A a;
+    //         f(3,a); // Koenig
+    //     }
+    // }
+    if (success_koenig_lookup)
+    {
+        scope_entry_t* called_symbol = nodecl_get_symbol(nodecl_called);
+        // We want to declare it
+        called_symbol->entity_specs.is_friend_declared = 0;
     }
 
     if (nodecl_expr_is_type_dependent(nodecl_called)
