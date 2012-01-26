@@ -1514,7 +1514,11 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
                 {
                     AST last_statement = ASTSon1(statement_seq);
 
-                    if (!expression_is_error(last_statement))
+                    if (expression_get_type(last_statement) == NULL)
+                    {
+                        expression_set_type(expression, get_void_type());
+                    }
+                    else if (!expression_is_error(last_statement))
                     {
                         expression_set_type(expression, expression_get_type(last_statement));
                         expression_set_is_lvalue(expression, expression_is_lvalue(last_statement));

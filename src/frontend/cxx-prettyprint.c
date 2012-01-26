@@ -346,8 +346,8 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_PREINCREMENT, prefix_with_parameter_then_son_handler, "++"),
     NODE_HANDLER(AST_DERREFERENCE, prefix_with_parameter_then_son_handler, "*"),
     NODE_HANDLER(AST_REFERENCE, prefix_with_parameter_then_son_handler, "&"),
-    NODE_HANDLER(AST_PLUS, prefix_with_parameter_then_son_handler, "+"),
-    NODE_HANDLER(AST_NEG, prefix_with_parameter_then_son_handler, "-"),
+    NODE_HANDLER(AST_PLUS, prefix_with_parameter_then_son_handler, "+ "),
+    NODE_HANDLER(AST_NEG, prefix_with_parameter_then_son_handler, "- "),
     NODE_HANDLER(AST_NOT, prefix_with_parameter_then_son_handler, "!"),
     NODE_HANDLER(AST_COMPLEMENT, prefix_with_parameter_then_son_handler, "~"),
     NODE_HANDLER(AST_SIZEOF, prefix_with_parameter_then_son_handler, "sizeof "),
@@ -2407,7 +2407,7 @@ static void gcc_typeof_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
     token_fprintf(f, a, pt_ctx, ASTText(a));
     token_fprintf(f, a, pt_ctx, " (");
-    prettyprint_level(f, ASTSon1(a), pt_ctx);
+    prettyprint_level(f, ASTSon0(a), pt_ctx);
     token_fprintf(f, a, pt_ctx, ")");
 }
 
