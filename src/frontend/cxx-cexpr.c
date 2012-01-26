@@ -1212,25 +1212,37 @@ const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2) \
 #define CAST_TO_FLOAT_FIRST_IS_FLOAT128(a, b, _binop) \
    else if (a->kind == CVK_FLOAT128) \
    { \
+       if (!b->sign) \
         return const_value_get_float128(a->value.f128 _binop (__float128) b->value.i); \
+       else \
+        return const_value_get_float128(a->value.f128 _binop (__float128) b->value.si); \
    } 
 
 #define CAST_TO_FLOAT_FIRST_IS_FLOAT128_FUN(a, b, _func) \
     else if (a->kind == CVK_FLOAT128) \
     { \
+       if (!b->sign) \
         return const_value_get_float128(_func ## q(a->value.f128, (__float128) b->value.i)); \
+       else \
+        return const_value_get_float128(_func ## q(a->value.f128, (__float128) b->value.si)); \
     } 
 
 #define CAST_TO_FLOAT_SECOND_IS_FLOAT128(a, b, _binop) \
    else if (b->kind == CVK_FLOAT128) \
    { \
-       return const_value_get_float128((__float128) a->value.i _binop b->value.f128); \
+       if (!a->sign) \
+           return const_value_get_float128((__float128) a->value.i _binop b->value.f128); \
+       else \
+           return const_value_get_float128((__float128) a->value.si _binop b->value.f128); \
    } 
 
 #define CAST_TO_FLOAT_SECOND_IS_FLOAT128_FUN(a, b, _func) \
    else if (b->kind == CVK_FLOAT128) \
    { \
-       return const_value_get_float128( _func ## q( (__float128) a->value.i, b->value.f128)); \
+       if (!a->sign) \
+           return const_value_get_float128( _func ## q( (__float128) a->value.i, b->value.f128)); \
+       else \
+           return const_value_get_float128( _func ## q( (__float128) a->value.si, b->value.f128)); \
    } 
 
 #define BOTH_ARE_SAME_FLOAT128(a, b, _binop) \
@@ -1333,60 +1345,96 @@ const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2) \
 #define CAST_TO_FLOAT_FIRST_IS_FLOAT(a, b, _binop) \
     if (a->kind == CVK_FLOAT) \
     { \
-        return const_value_get_float(a->value.f _binop (float) b->value.i); \
+        if (!b->sign) \
+            return const_value_get_float(a->value.f _binop (float) b->value.i); \
+        else \
+            return const_value_get_float(a->value.f _binop (float) b->value.si); \
     } \
     else if (a->kind == CVK_DOUBLE) \
     { \
-        return const_value_get_double(a->value.d _binop (double) b->value.i); \
+        if (!b->sign) \
+            return const_value_get_double(a->value.d _binop (double) b->value.i); \
+        else \
+            return const_value_get_double(a->value.d _binop (double) b->value.si); \
     } \
     else if (a->kind == CVK_LONG_DOUBLE) \
     { \
-        return const_value_get_long_double(a->value.ld _binop (long double) b->value.i); \
+        if (!b->sign) \
+            return const_value_get_long_double(a->value.ld _binop (long double) b->value.i); \
+        else \
+            return const_value_get_long_double(a->value.ld _binop (long double) b->value.si); \
     }  \
     CAST_TO_FLOAT_FIRST_IS_FLOAT128(a, b, _binop)
 
 #define CAST_TO_FLOAT_FIRST_IS_FLOAT_FUN(a, b, _func) \
     if (a->kind == CVK_FLOAT) \
     { \
-        return const_value_get_float(_func ## f(a->value.f, (float) b->value.i)); \
+        if (!b->sign) \
+            return const_value_get_float(_func ## f(a->value.f, (float) b->value.i)); \
+        else \
+            return const_value_get_float(_func ## f(a->value.f, (float) b->value.si)); \
     } \
     else if (a->kind == CVK_DOUBLE) \
     { \
-        return const_value_get_double(_func ## d (a->value.d, (double) b->value.i)); \
+        if (!b->sign) \
+            return const_value_get_double(_func ## d(a->value.d, (double) b->value.i)); \
+        else \
+            return const_value_get_double(_func ## d(a->value.d, (double) b->value.si)); \
     } \
     else if (a->kind == CVK_LONG_DOUBLE) \
     { \
-        return const_value_get_long_double(_func ## ld (a->value.ld, (long double) b->value.i)); \
+        if (!b->sign) \
+            return const_value_get_long_double(_func ## ld(a->value.ld, (long double) b->value.i)); \
+        else \
+            return const_value_get_long_double(_func ## ld(a->value.ld, (long double) b->value.si)); \
     }  \
     CAST_TO_FLOAT_FIRST_IS_FLOAT128_FUN(a, b, _func)
 
 #define CAST_TO_FLOAT_SECOND_IS_FLOAT(a, b, _binop) \
     if (b->kind == CVK_FLOAT) \
     { \
-        return const_value_get_float((float) a->value.i _binop b->value.f); \
+        if (!a->sign)\
+            return const_value_get_float((float) a->value.i _binop b->value.f); \
+        else \
+            return const_value_get_float((float) a->value.si _binop b->value.f); \
     } \
     else if (b->kind == CVK_DOUBLE) \
     { \
-        return const_value_get_double((double) a->value.i _binop b->value.d); \
+        if (!a->sign)\
+            return const_value_get_double((double) a->value.i _binop b->value.d); \
+        else \
+            return const_value_get_double((double) a->value.si _binop b->value.d); \
     } \
     else if (b->kind == CVK_LONG_DOUBLE) \
     { \
-        return const_value_get_long_double((long double) a->value.i _binop b->value.ld); \
+        if (!a->sign)\
+            return const_value_get_long_double((long double) a->value.i _binop b->value.ld); \
+        else \
+            return const_value_get_long_double((long double) a->value.si _binop b->value.ld); \
     }  \
     CAST_TO_FLOAT_SECOND_IS_FLOAT128(a, b, _binop)
 
 #define CAST_TO_FLOAT_SECOND_IS_FLOAT_FUN(a, b, _func) \
     if (b->kind == CVK_FLOAT) \
     { \
-        return const_value_get_float(_func##f((float) a->value.i, b->value.f)); \
+        if (!a->sign) \
+            return const_value_get_float(_func##f((float) a->value.i, b->value.f)); \
+        else \
+            return const_value_get_float(_func##f((float) a->value.si, b->value.f)); \
     } \
     else if (b->kind == CVK_DOUBLE) \
     { \
-        return const_value_get_double(_func ## d( (double) a->value.i, b->value.d)); \
+        if (!a->sign) \
+            return const_value_get_double(_func##d((double) a->value.i, b->value.d)); \
+        else \
+            return const_value_get_double(_func##d((double) a->value.si, b->value.d)); \
     } \
     else if (b->kind == CVK_LONG_DOUBLE) \
     { \
-        return const_value_get_long_double( _func ## ld( (long double) a->value.i, b->value.ld)); \
+        if (!a->sign) \
+            return const_value_get_long_double(_func##ld((long double) a->value.i, b->value.ld)); \
+        else \
+            return const_value_get_long_double(_func##ld((long double) a->value.si, b->value.ld)); \
     } \
     CAST_TO_FLOAT_SECOND_IS_FLOAT128_FUN(a, b, _func)
 
