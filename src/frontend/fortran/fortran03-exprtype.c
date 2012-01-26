@@ -4466,6 +4466,17 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
         }
 
         *nodecl_output = value->compute_nodecl(nodecl_lhs, nodecl_rhs, result, ASTFileName(expr), ASTLine(expr));
+
+        if (val != NULL)
+        {
+            nodecl_t nodecl_const_val = const_value_to_nodecl(val);
+            if (!nodecl_is_null(nodecl_const_val))
+            {
+                *nodecl_output = nodecl_const_val;
+                nodecl_set_type(*nodecl_output, result);
+            }
+        }
+
         nodecl_set_constant(*nodecl_output, val);
     }
 
