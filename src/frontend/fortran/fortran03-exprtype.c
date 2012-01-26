@@ -3683,7 +3683,9 @@ static void check_assignment(AST expr, decl_context_t decl_context, nodecl_t* no
 
     if (!is_defined_assig)
     {
-        if (!equivalent_types(no_ref(lvalue_type), no_ref(rvalue_type)))
+        if (!equivalent_types(
+                    get_unqualified_type(no_ref(lvalue_type)), 
+                    get_unqualified_type(no_ref(rvalue_type))))
         {
             nodecl_rvalue = nodecl_make_conversion(nodecl_rvalue, 
                     lvalue_type,
@@ -4439,12 +4441,16 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
         if (convert_to_common)
         {
             if (lhs_type != NULL
-                    && !equivalent_types(no_ref(result), no_ref(lhs_type)))
+                    && !equivalent_types(
+                        get_unqualified_type(no_ref(result)), 
+                        get_unqualified_type(no_ref(lhs_type))))
             {
                 nodecl_lhs = nodecl_make_conversion(nodecl_lhs, result, 
                         nodecl_get_filename(nodecl_lhs), nodecl_get_line(nodecl_lhs));
             }
-            if (!equivalent_types(no_ref(result), no_ref(rhs_type)))
+            if (!equivalent_types(
+                        get_unqualified_type(no_ref(result)), 
+                        get_unqualified_type(no_ref(rhs_type))))
             {
                 nodecl_rhs = nodecl_make_conversion(nodecl_rhs, result, 
                         nodecl_get_filename(nodecl_rhs), nodecl_get_line(nodecl_rhs));
