@@ -7922,7 +7922,10 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
     {
         scope_entry_t* called_symbol = nodecl_get_symbol(nodecl_called);
         // We want to declare it
-        called_symbol->entity_specs.is_friend_declared = 0;
+        if (called_symbol != NULL)
+        {
+            called_symbol->entity_specs.is_friend_declared = 0;
+        }
     }
 
     if (nodecl_expr_is_type_dependent(nodecl_called)
