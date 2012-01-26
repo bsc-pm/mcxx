@@ -6512,7 +6512,10 @@ static const char* get_type_name_string(decl_context_t decl_context,
     const char* left = "";
     const char* right = "";
     get_type_name_str_internal(decl_context, type_info, &left, &right, 
-            num_parameter_names, parameter_names, parameter_attributes, is_parameter);
+            num_parameter_names, 
+            parameter_names, 
+            parameter_attributes, 
+            is_parameter);
 
     const char* result = strappend(left, symbol_name);
     result = strappend(result, right);
@@ -6715,7 +6718,8 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                     (*left) = strappend((*left), "(");
                 }
 
-                (*left) = strappend((*left), type_info->pointer->pointee_class->symbol_name);
+                (*left) = strappend((*left), 
+                        get_qualified_symbol_name(type_info->pointer->pointee_class, type_info->pointer->pointee_class->decl_context));
 
                 (*left) = strappend((*left), "::");
                 (*left) = strappend((*left), "*");
@@ -6767,22 +6771,44 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                         num_parameter_names, parameter_names, parameter_attributes, is_parameter);
 
                 const char* whole_size = NULL;
-                if (is_parameter
-                        && (nodecl_is_null(type_info->array->whole_size)))
+                if (is_parameter)
                 {
                     // Get rid of those annoying unbounded arrays
                     // in parameters
                     //
                     // This is not valid, but works most of the time...
-                    whole_size = uniquestr("[0]");
+                    if (nodecl_is_null(type_info->array->whole_size))
+                    {
+                        whole_size = uniquestr("[0]");
+                    }
+                    else
+                    {
+                        const char* whole_size_str = uniquestr(codegen_to_str(type_info->array->whole_size));
 
+                        whole_size = strappend("[", whole_size_str);
+                        whole_size = strappend(whole_size, "]");
+                    }
                 }
                 else
                 {
-                    const char* whole_size_str = uniquestr(codegen_to_str(type_info->array->whole_size));
+                    if (nodecl_is_null(type_info->array->whole_size))
+                    {
+                        whole_size = uniquestr("[]");
+                    }
+                    // If this is a saved expression and it is not a parameter we use its saved expression instead
+                    else if (nodecl_get_kind(type_info->array->whole_size) == NODECL_SAVED_EXPR)
+                    {
+                        scope_entry_t* saved_sym = nodecl_get_symbol(type_info->array->whole_size);
+                        whole_size = strappend("[", get_qualified_symbol_name(saved_sym, saved_sym->decl_context));
+                        whole_size = strappend(whole_size, "]");
+                    }
+                    else
+                    {
+                        const char* whole_size_str = uniquestr(codegen_to_str(type_info->array->whole_size));
 
-                    whole_size = strappend("[", whole_size_str);
-                    whole_size = strappend(whole_size, "]");
+                        whole_size = strappend("[", whole_size_str);
+                        whole_size = strappend(whole_size, "]");
+                    }
                 }
 
                 (*right) = strappend(whole_size, (*right));

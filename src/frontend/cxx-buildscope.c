@@ -2034,7 +2034,7 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                 type_t *type_info = NULL;
 
                 gather_decl_spec_t typeof_gather_info;
-                memset(&gather_info, 0, sizeof(gather_info));
+                memset(&typeof_gather_info, 0, sizeof(typeof_gather_info));
 
                 build_scope_decl_specifier_seq(type_specifier_seq, &typeof_gather_info, &type_info, decl_context, nodecl_output);
 
@@ -9270,9 +9270,9 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
         {
             const char* qualified_name = get_qualified_symbol_name(entry, decl_context);
 
-            funct_name = get_declaration_string_internal(entry->type_information,
+            funct_name = print_decl_type_str(entry->type_information,
                     decl_context,
-                    qualified_name, "", 0, 0, NULL, NULL, 0);
+                    qualified_name);
         }
         if (!checking_ambiguity())
         {

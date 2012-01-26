@@ -53,8 +53,8 @@ std::string CxxBase::codegen(const Nodecl::NodeclBase &n)
 }
 
 #define OPERATOR_TABLE \
-    PREFIX_UNARY_EXPRESSION(Plus, "+") \
-    PREFIX_UNARY_EXPRESSION(Neg, "-") \
+    PREFIX_UNARY_EXPRESSION(Plus, " +") \
+    PREFIX_UNARY_EXPRESSION(Neg, " -") \
     PREFIX_UNARY_EXPRESSION(LogicalNot, "!") \
     PREFIX_UNARY_EXPRESSION(BitwiseNot, "~") \
     PREFIX_UNARY_EXPRESSION(Derreference, "*") \
