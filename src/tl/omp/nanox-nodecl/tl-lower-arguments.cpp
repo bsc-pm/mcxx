@@ -224,9 +224,9 @@ namespace TL { namespace Nanox {
                                 construct.retrieve_context());
                         k--;
                     }
-                }
 
-                it->set_allocation_policy(OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE);
+                    it->set_allocation_policy(OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE);
+                }
             }
             else if (IS_C_LANGUAGE
                     || IS_CXX_LANGUAGE)
