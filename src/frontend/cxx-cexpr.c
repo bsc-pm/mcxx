@@ -654,40 +654,43 @@ type_t* const_value_get_minimal_integer_type(const_value_t* val)
 
 nodecl_t const_value_to_nodecl(const_value_t* v)
 {
-    if (v->kind == CVK_INTEGER 
-            && v->value.i == 0)
+    switch (v->kind)
     {
-        // Zero is special
-        return nodecl_make_integer_literal(get_zero_type(), v, NULL, 0);
-    }
-    else
-    {
-        if (v->kind == CVK_INTEGER)
-        {
-            type_t* t = get_minimal_integer_for_value(v->sign, v->value.i);
-            return nodecl_make_integer_literal(t, v, NULL, 0);
-        }
-        else if (v->kind == CVK_FLOAT
-                || v->kind == CVK_DOUBLE
-                || v->kind == CVK_LONG_DOUBLE)
-        {
-            type_t* t = get_minimal_floating_type(v);
-            return nodecl_make_floating_literal(t, v, NULL, 0);
-        }
-        else if (v->kind == CVK_STRING)
-        {
-            return nodecl_make_string_literal(
-                    get_array_type_bounds(
-                        get_char_type(),
-                        nodecl_make_integer_literal(get_signed_int_type(), const_value_get_one(4, 1), NULL, 0),
-                        nodecl_make_integer_literal(get_signed_int_type(), const_value_get_signed_int(v->value.m->num_elements), NULL, 0),
-                        CURRENT_COMPILED_FILE->global_decl_context),
-                    v, NULL, 0);
-        }
-        else
-        {
-            return nodecl_null();
-        }
+        case CVK_INTEGER:
+            {
+                // Zero is special
+                if (v->value.i == 0)
+                    return nodecl_make_integer_literal(get_zero_type(), v, NULL, 0);
+
+                type_t* t = get_minimal_integer_for_value(v->sign, v->value.i);
+                return nodecl_make_integer_literal(t, v, NULL, 0);
+                break;
+            }
+        case CVK_FLOAT:
+        case CVK_DOUBLE:
+        case CVK_LONG_DOUBLE:
+            {
+                type_t* t = get_minimal_floating_type(v);
+                return nodecl_make_floating_literal(t, v, NULL, 0);
+                break;
+            }
+        case CVK_STRING:
+            {
+                return nodecl_make_string_literal(
+                        get_array_type_bounds(
+                            get_char_type(),
+                            nodecl_make_integer_literal(get_signed_int_type(), const_value_get_one(4, 1), NULL, 0),
+                            nodecl_make_integer_literal(get_signed_int_type(), const_value_get_signed_int(v->value.m->num_elements), NULL, 0),
+                            CURRENT_COMPILED_FILE->global_decl_context),
+                        v, NULL, 0);
+                break;
+            }
+        default:
+            {
+                // The caller should check this case
+                return nodecl_null();
+                break;
+            }
     }
 }
 
