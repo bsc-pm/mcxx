@@ -661,14 +661,31 @@ OPERATOR_TABLE
     void FortranBase::visit(const Nodecl::IntegerLiteral& node)
     {
         const_value_t* value = nodecl_get_constant(node.get_internal_nodecl());
-
-        file << (long long int)const_value_cast_to_8(value);
-
         int num_bytes = const_value_get_bytes(value);
 
-        if (num_bytes != fortran_get_default_integer_type_kind())
+        if (node.get_type().is_bool())
         {
-            file << "_" << num_bytes;
+            if((long long int)const_value_cast_to_8(value) == 0ll)
+            {
+                file << ".FALSE.";
+            }
+            else
+            {
+                file << ".TRUE.";
+            }
+
+            if (num_bytes != fortran_get_default_logical_type_kind())
+            {
+                file << "_" << num_bytes;
+            }
+        }
+        else
+        {
+            file << (long long int)const_value_cast_to_8(value);
+            if (num_bytes != fortran_get_default_integer_type_kind())
+            {
+                file << "_" << num_bytes;
+            }
         }
     }
 
