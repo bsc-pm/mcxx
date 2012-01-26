@@ -46,6 +46,7 @@ mem-init: NODECL_MEMBER_INIT([init_expr]expression) symbol
 statement : statement-but-object-init
           | object-init
           | context
+          | function-code
 
 context : NODECL_CONTEXT([in_context] in_context) context
 

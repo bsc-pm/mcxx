@@ -9392,11 +9392,8 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
 
     // Fix inherited template context
     template_parameter_list_t* enclosing_template_parameters = block_context.template_parameters;
-    if (enclosing_template_parameters != NULL)
-    {
-        block_context.template_parameters = counted_calloc(1, sizeof(*block_context.template_parameters), &_bytes_used_buildscope);
-        block_context.template_parameters->enclosing = enclosing_template_parameters;
-    }
+    block_context.template_parameters = counted_calloc(1, sizeof(*block_context.template_parameters), &_bytes_used_buildscope);
+    block_context.template_parameters->enclosing = enclosing_template_parameters;
 
     // Sign in __func__ (C99) and GCC's __FUNCTION__ and __PRETTY_FUNCTION__
     {
@@ -10094,6 +10091,13 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
 
         // This function might be hiding using declarations, remove those
         hide_using_declarations(class_info, entry);
+
+        // If it is a friend function definition 
+        // then we add entry symbol as a friend of the class
+        if (gather_info.is_friend) 
+        {
+            class_type_add_friend_symbol(get_actual_class_type(class_type), entry);
+        }
     }
     build_scope_delayed_add_delayed_function_def(a, entry, decl_context, is_template, is_explicit_instantiation);
 
