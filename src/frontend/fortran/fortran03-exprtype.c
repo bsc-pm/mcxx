@@ -3443,6 +3443,14 @@ static void check_symbol_of_argument(AST sym, decl_context_t decl_context, nodec
                 && !nodecl_is_null(entry->value)
                 && nodecl_is_constant(entry->value))
         {
+            // Use the constant value instead
+            nodecl_t nodecl_const_val = const_value_to_nodecl(nodecl_get_constant(entry->value));
+            if (!nodecl_is_null(nodecl_const_val))
+            {
+                type_t* orig_type = nodecl_get_type(*nodecl_output);
+                *nodecl_output = nodecl_const_val;
+                nodecl_set_type(*nodecl_output, orig_type);
+            }
             nodecl_set_constant(*nodecl_output, nodecl_get_constant(entry->value));
         }
 
