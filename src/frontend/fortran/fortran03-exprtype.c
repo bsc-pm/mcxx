@@ -329,7 +329,7 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context,
                 nodecl_t original_value = do_variable->value;
 
                 // Set it as a PARAMETER of kind INTEGER (so we will effectively use its value)
-                do_variable->type_information = get_const_qualified_type(fortran_get_default_integer_type());
+                do_variable->type_information = get_const_qualified_type(original_type);
 
                 int i;
                 if (val_stride > 0)
@@ -582,6 +582,8 @@ static void check_substring(AST expr, decl_context_t decl_context, nodecl_t node
                 nodecl_get_line(*nodecl_output));
         nodecl_set_symbol(*nodecl_output, nodecl_get_symbol(nodecl_subscripted));
     }
+
+    // FIXME - We should compute a constant
 }
 
 
@@ -962,6 +964,14 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
                 array_type,
                 nodecl_indexes,
                 num_subscripts);
+
+        nodecl_t nodecl_const_val = const_value_to_nodecl(subconstant);
+        if (!nodecl_is_null(nodecl_const_val))
+        {
+            *nodecl_output = nodecl_const_val;
+            nodecl_set_type(*nodecl_output, synthesized_type);
+        }
+
         nodecl_set_constant(*nodecl_output, subconstant);
     }
 }
@@ -1354,6 +1364,13 @@ static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t*
         ERROR_CONDITION((i == entry_list_size(components)), "This should not happen", 0);
 
         const_value_t* const_value_member = const_value_get_element_num(const_value, i);
+        nodecl_t nodecl_const_val = const_value_to_nodecl(const_value_member);
+        if (!nodecl_is_null(nodecl_const_val))
+        {
+            type_t* orig_type = nodecl_get_type(*nodecl_output);
+            *nodecl_output = nodecl_const_val;
+            nodecl_set_type(*nodecl_output, orig_type);
+        }
 
         nodecl_set_constant(*nodecl_output, const_value_member);
     }
@@ -3509,6 +3526,14 @@ static void check_symbol_variable(AST expr, decl_context_t decl_context, nodecl_
             && !nodecl_is_null(entry->value)
             && nodecl_is_constant(entry->value))
     {
+        // Use the constant value instead
+        nodecl_t nodecl_const_val = const_value_to_nodecl(nodecl_get_constant(entry->value));
+        if (!nodecl_is_null(nodecl_const_val))
+        {
+            type_t* orig_type = nodecl_get_type(*nodecl_output);
+            *nodecl_output = nodecl_const_val;
+            nodecl_set_type(*nodecl_output, orig_type);
+        }
         nodecl_set_constant(*nodecl_output, nodecl_get_constant(entry->value));
     }
 
