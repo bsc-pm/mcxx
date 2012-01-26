@@ -81,8 +81,10 @@ scope_entry_list_t* koenig_lookup(
 
     scope_entry_list_t *result = NULL;
 
-    // First do normal lookup
-    result = query_nodecl_name(normal_decl_context, nodecl_simple_name);
+    // First do normal lookup, filtering non-visible function friend declaration
+    result = query_name_str_flags(normal_decl_context, 
+            nodecl_get_text(nodecl_simple_name), 
+            DF_IGNORE_FRIEND_DECL);
 
     // For every associated scope
     int i;
