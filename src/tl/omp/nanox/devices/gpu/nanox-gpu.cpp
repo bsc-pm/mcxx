@@ -825,18 +825,16 @@ void DeviceGPU::create_outline(
             ;
     }
 
+    if (outline_flags.parallel)
+    {
+	running_error("%s: error: parallel not supported in OpenCL devices", reference_tree.get_locus().c_str() );
+    }
+
     // final_code
     if (outline_flags.barrier_at_end)
     {
         final_code
             << "nanos_team_barrier();"
-            ;
-    }
-
-    if (outline_flags.leave_team)
-    {
-        final_code
-            << "nanos_leave_team();"
             ;
     }
 
