@@ -1325,6 +1325,124 @@ const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2) \
         else { internal_error("Code unreachable", 0) }; \
     } 
 
+// Relational
+
+#define CAST_TO_FLOAT_FIRST_IS_FLOAT128_REL(a, b, _binop) \
+   else if (a->kind == CVK_FLOAT128) \
+   { \
+       if (!b->sign) \
+        return const_value_get_signed_int(a->value.f128 _binop (__float128) b->value.i); \
+       else \
+        return const_value_get_signed_int(a->value.f128 _binop (__float128) b->value.si); \
+   } 
+
+#define CAST_TO_FLOAT_FIRST_IS_FLOAT128_FUN_REL(a, b, _func) \
+    else if (a->kind == CVK_FLOAT128) \
+    { \
+       if (!b->sign) \
+        return const_value_get_signed_int(_func ## q(a->value.f128, (__float128) b->value.i)); \
+       else \
+        return const_value_get_signed_int(_func ## q(a->value.f128, (__float128) b->value.si)); \
+    } 
+
+#define CAST_TO_FLOAT_SECOND_IS_FLOAT128_REL(a, b, _binop) \
+   else if (b->kind == CVK_FLOAT128) \
+   { \
+       if (!a->sign) \
+           return const_value_get_signed_int((__float128) a->value.i _binop b->value.f128); \
+       else \
+           return const_value_get_signed_int((__float128) a->value.si _binop b->value.f128); \
+   } 
+
+#define CAST_TO_FLOAT_SECOND_IS_FLOAT128_FUN_REL(a, b, _func) \
+   else if (b->kind == CVK_FLOAT128) \
+   { \
+       if (!a->sign) \
+           return const_value_get_signed_int( _func ## q( (__float128) a->value.i, b->value.f128)); \
+       else \
+           return const_value_get_signed_int( _func ## q( (__float128) a->value.si, b->value.f128)); \
+   } 
+
+#define BOTH_ARE_SAME_FLOAT128_REL(a, b, _binop) \
+    else if (a->kind == CVK_FLOAT128) \
+        return const_value_get_signed_int(a->value.f128 _binop b->value.f128); 
+
+#define BOTH_ARE_SAME_FLOAT128_FUN_REL(a, b, _func) \
+    else if (a->kind == CVK_FLOAT128) \
+        return const_value_get_signed_int(_func ## q(a->value.f128, b->value.f128)); \
+
+#define BOTH_ARE_FLOAT_FIRST_FLOAT128_REL(a, b, _binop) \
+    else if (a->kind == CVK_FLOAT128) \
+    { \
+        if (b->kind == CVK_FLOAT) \
+        { \
+            return const_value_get_signed_int(a->value.f128 _binop (__float128) b->value.f); \
+        } \
+        else if (b->kind == CVK_DOUBLE) \
+        { \
+            return const_value_get_signed_int(a->value.f128 _binop (__float128) b->value.d); \
+        } \
+        else if (b->kind == CVK_LONG_DOUBLE) \
+        { \
+            return const_value_get_signed_int(a->value.f128 _binop (__float128) b->value.ld); \
+        } \
+        else { internal_error("Code unreachable", 0) }; \
+    } 
+
+#define BOTH_ARE_FLOAT_FIRST_FLOAT128_FUN_REL(a, b, _func) \
+    else if (a->kind == CVK_LONG_DOUBLE) \
+    { \
+        if (b->kind == CVK_FLOAT) \
+        { \
+            return const_value_get_signed_int(_func ## q (a->value.f128, (__float128) b->value.f)); \
+        } \
+        else if (b->kind == CVK_DOUBLE) \
+        { \
+            return const_value_get_signed_int(_func ## q(a->value.f128, (__float128) b->value.d)); \
+        } \
+        else if (b->kind == CVK_LONG_DOUBLE) \
+        { \
+            return const_value_get_signed_int(_func ## q(a->value.f128, (__float128) b->value.ld)); \
+        } \
+        else { internal_error("Code unreachable", 0) }; \
+    } 
+
+#define BOTH_ARE_FLOAT_SECOND_FLOAT128_REL(a, b, _binop) \
+    else if (b->kind == CVK_FLOAT128) \
+    { \
+        if (a->kind == CVK_FLOAT) \
+        { \
+            return const_value_get_signed_int((__float128) a->value.f _binop b->value.f128); \
+        } \
+        else if (a->kind == CVK_DOUBLE) \
+        { \
+            return const_value_get_signed_int((__float128) a->value.d _binop b->value.f128); \
+        } \
+        else if (a->kind == CVK_LONG_DOUBLE) \
+        { \
+            return const_value_get_signed_int((__float128) a->value.ld _binop b->value.f128); \
+        } \
+        else { internal_error("Code unreachable", 0) }; \
+    } 
+
+#define BOTH_ARE_FLOAT_SECOND_FLOAT128_FUN_REL(a, b, _func) \
+    else if (b->kind == CVK_FLOAT128) \
+    { \
+        if (a->kind == CVK_FLOAT) \
+        { \
+            return const_value_get_signed_int(_func ## q((__float128) a->value.f, b->value.f128)); \
+        } \
+        else if (a->kind == CVK_DOUBLE) \
+        { \
+            return const_value_get_signed_int(_func ## q ((__float128) a->value.d, b->value.f128)); \
+        } \
+        else if (a->kind == CVK_LONG_DOUBLE) \
+        { \
+            return const_value_get_signed_int(_func ## q ((__float128) a->value.ld, b->value.f128)); \
+        } \
+        else { internal_error("Code unreachable", 0) }; \
+    } 
+
 #else
    #define CAST_TO_FLOAT_FIRST_IS_FLOAT128(a, b, _binop)
    #define CAST_TO_FLOAT_FIRST_IS_FLOAT128_FUN(a, b, _func)
@@ -1340,6 +1458,21 @@ const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2) \
 
    #define BOTH_ARE_FLOAT_FIRST_FLOAT128_FUN(a, b, _func) 
    #define BOTH_ARE_FLOAT_SECOND_FLOAT128_FUN(a, b, _func) 
+
+   #define CAST_TO_FLOAT_FIRST_IS_FLOAT128_REL(a, b, _binop)
+   #define CAST_TO_FLOAT_FIRST_IS_FLOAT128_FUN_REL(a, b, _func)
+
+   #define CAST_TO_FLOAT_SECOND_IS_FLOAT128_REL(a, b, _binop)
+   #define CAST_TO_FLOAT_SECOND_IS_FLOAT128_FUN_REL(a, b, _func)
+
+   #define BOTH_ARE_SAME_FLOAT128_REL(a, b, _binop)
+   #define BOTH_ARE_SAME_FLOAT128_FUN_REL(a, b, _func)
+
+   #define BOTH_ARE_FLOAT_FIRST_FLOAT128_REL(a, b, _binop)
+   #define BOTH_ARE_FLOAT_SECOND_FLOAT128_REL(a, b, _binop)
+
+   #define BOTH_ARE_FLOAT_FIRST_FLOAT128_FUN_REL(a, b, _func) 
+   #define BOTH_ARE_FLOAT_SECOND_FLOAT128_FUN_REL(a, b, _func) 
 #endif
 
 #define CAST_TO_FLOAT_FIRST_IS_FLOAT(a, b, _binop) \
@@ -1672,6 +1805,338 @@ const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2) \
  return NULL; \
 }
 
+// Relational
+
+#define CAST_TO_FLOAT_FIRST_IS_FLOAT_REL(a, b, _binop) \
+    if (a->kind == CVK_FLOAT) \
+    { \
+        if (!b->sign) \
+            return const_value_get_signed_int(a->value.f _binop (float) b->value.i); \
+        else \
+            return const_value_get_signed_int(a->value.f _binop (float) b->value.si); \
+    } \
+    else if (a->kind == CVK_DOUBLE) \
+    { \
+        if (!b->sign) \
+            return const_value_get_signed_int(a->value.d _binop (double) b->value.i); \
+        else \
+            return const_value_get_signed_int(a->value.d _binop (double) b->value.si); \
+    } \
+    else if (a->kind == CVK_LONG_DOUBLE) \
+    { \
+        if (!b->sign) \
+            return const_value_get_signed_int(a->value.ld _binop (long double) b->value.i); \
+        else \
+            return const_value_get_signed_int(a->value.ld _binop (long double) b->value.si); \
+    }  \
+    CAST_TO_FLOAT_FIRST_IS_FLOAT128_REL(a, b, _binop)
+
+#define CAST_TO_FLOAT_FIRST_IS_FLOAT_FUN_REL(a, b, _func) \
+    if (a->kind == CVK_FLOAT) \
+    { \
+        if (!b->sign) \
+            return const_value_get_signed_int(_func ## f(a->value.f, (float) b->value.i)); \
+        else \
+            return const_value_get_signed_int(_func ## f(a->value.f, (float) b->value.si)); \
+    } \
+    else if (a->kind == CVK_DOUBLE) \
+    { \
+        if (!b->sign) \
+            return const_value_get_signed_int(_func ## d(a->value.d, (double) b->value.i)); \
+        else \
+            return const_value_get_signed_int(_func ## d(a->value.d, (double) b->value.si)); \
+    } \
+    else if (a->kind == CVK_LONG_DOUBLE) \
+    { \
+        if (!b->sign) \
+            return const_value_get_signed_int(_func ## ld(a->value.ld, (long double) b->value.i)); \
+        else \
+            return const_value_get_signed_int(_func ## ld(a->value.ld, (long double) b->value.si)); \
+    }  \
+    CAST_TO_FLOAT_FIRST_IS_FLOAT128_FUN_REL(a, b, _func)
+
+#define CAST_TO_FLOAT_SECOND_IS_FLOAT_REL(a, b, _binop) \
+    if (b->kind == CVK_FLOAT) \
+    { \
+        if (!a->sign)\
+            return const_value_get_signed_int((float) a->value.i _binop b->value.f); \
+        else \
+            return const_value_get_signed_int((float) a->value.si _binop b->value.f); \
+    } \
+    else if (b->kind == CVK_DOUBLE) \
+    { \
+        if (!a->sign)\
+            return const_value_get_signed_int((double) a->value.i _binop b->value.d); \
+        else \
+            return const_value_get_signed_int((double) a->value.si _binop b->value.d); \
+    } \
+    else if (b->kind == CVK_LONG_DOUBLE) \
+    { \
+        if (!a->sign)\
+            return const_value_get_signed_int((long double) a->value.i _binop b->value.ld); \
+        else \
+            return const_value_get_signed_int((long double) a->value.si _binop b->value.ld); \
+    }  \
+    CAST_TO_FLOAT_SECOND_IS_FLOAT128_REL(a, b, _binop)
+
+#define CAST_TO_FLOAT_SECOND_IS_FLOAT_FUN_REL(a, b, _func) \
+    if (b->kind == CVK_FLOAT) \
+    { \
+        if (!a->sign) \
+            return const_value_get_signed_int(_func##f((float) a->value.i, b->value.f)); \
+        else \
+            return const_value_get_signed_int(_func##f((float) a->value.si, b->value.f)); \
+    } \
+    else if (b->kind == CVK_DOUBLE) \
+    { \
+        if (!a->sign) \
+            return const_value_get_signed_int(_func##d((double) a->value.i, b->value.d)); \
+        else \
+            return const_value_get_signed_int(_func##d((double) a->value.si, b->value.d)); \
+    } \
+    else if (b->kind == CVK_LONG_DOUBLE) \
+    { \
+        if (!a->sign) \
+            return const_value_get_signed_int(_func##ld((long double) a->value.i, b->value.ld)); \
+        else \
+            return const_value_get_signed_int(_func##ld((long double) a->value.si, b->value.ld)); \
+    } \
+    CAST_TO_FLOAT_SECOND_IS_FLOAT128_FUN_REL(a, b, _func)
+
+#define BOTH_ARE_SAME_FLOAT_REL(a, b, _binop) \
+    if (a->kind == CVK_FLOAT) \
+        return const_value_get_signed_int(a->value.f _binop b->value.f); \
+    else if (a->kind == CVK_DOUBLE) \
+        return const_value_get_signed_int(a->value.d _binop b->value.d); \
+    else if (a->kind == CVK_LONG_DOUBLE) \
+        return const_value_get_signed_int(a->value.ld _binop b->value.ld); \
+    BOTH_ARE_SAME_FLOAT128(a, b, _binop)
+
+#define BOTH_ARE_SAME_FLOAT_FUN_REL(a, b, _func) \
+    if (a->kind == CVK_FLOAT) \
+        return const_value_get_signed_int(_func ## f ( a->value.f, b->value.f)); \
+    else if (a->kind == CVK_DOUBLE) \
+        return const_value_get_signed_int(_func ## d(a->value.d, b->value.d)); \
+    else if (a->kind == CVK_LONG_DOUBLE) \
+        return const_value_get_signed_int(_func ## ld(a->value.ld, b->value.ld)); \
+    BOTH_ARE_SAME_FLOAT128_FUN(a, b, _func)
+
+#define BOTH_ARE_FLOAT_FIRST_LARGER_REL(a, b, _binop) \
+    if (a->kind == CVK_DOUBLE) \
+    { \
+        return const_value_get_signed_int(a->value.d _binop (double) b->value.f); \
+    } \
+    else if (a->kind == CVK_LONG_DOUBLE) \
+    { \
+        if (b->kind == CVK_FLOAT) \
+        { \
+            return const_value_get_signed_int(a->value.ld _binop (long double) b->value.f); \
+        } \
+        else if (b->kind == CVK_DOUBLE) \
+        { \
+            return const_value_get_signed_int(a->value.ld _binop (long double) b->value.d); \
+        } \
+    } \
+    BOTH_ARE_FLOAT_FIRST_FLOAT128(a, b, _binop)
+
+#define BOTH_ARE_FLOAT_FIRST_LARGER_FUN_REL(a, b, _func) \
+    if (a->kind == CVK_DOUBLE) \
+    { \
+        return const_value_get_signed_int(_func ## d(a->value.d, (double) b->value.f)); \
+    } \
+    else if (a->kind == CVK_LONG_DOUBLE) \
+    { \
+        if (b->kind == CVK_FLOAT) \
+        { \
+            return const_value_get_signed_int(_func ## ld (a->value.ld, (long double) b->value.f)); \
+        } \
+        else if (b->kind == CVK_DOUBLE) \
+        { \
+            return const_value_get_signed_int(_func ## ld(a->value.ld, (long double) b->value.d)); \
+        } \
+    } \
+    BOTH_ARE_FLOAT_FIRST_FLOAT128_FUN(a, b, _func)
+
+#define BOTH_ARE_FLOAT_SECOND_LARGER_REL(a, b, _binop) \
+    if (b->kind == CVK_DOUBLE) \
+    { \
+        return const_value_get_signed_int((double)a->value.f _binop b->value.d); \
+    } \
+    else if (b->kind == CVK_LONG_DOUBLE) \
+    { \
+        if (a->kind == CVK_FLOAT) \
+        { \
+            return const_value_get_signed_int((long double) a->value.f _binop b->value.ld); \
+        } \
+        else if (a->kind == CVK_DOUBLE) \
+        { \
+            return const_value_get_signed_int((long double) a->value.d _binop b->value.ld); \
+        } \
+        else { internal_error("Code unreachable", 0) }; \
+    } \
+    BOTH_ARE_FLOAT_SECOND_FLOAT128(a, b, _binop)
+
+#define BOTH_ARE_FLOAT_SECOND_LARGER_FUN_REL(a, b, _func) \
+    if (b->kind == CVK_DOUBLE) \
+    { \
+        return const_value_get_signed_int(_func ## d ((double)a->value.f, b->value.d)); \
+    } \
+    else if (b->kind == CVK_LONG_DOUBLE) \
+    { \
+        if (a->kind == CVK_FLOAT) \
+        { \
+            return const_value_get_signed_int(_func ## ld((long double) a->value.f, b->value.ld)); \
+        } \
+        else if (a->kind == CVK_DOUBLE) \
+        { \
+            return const_value_get_signed_int(_func ## ld ((long double) a->value.d, b->value.ld)); \
+        } \
+        else { internal_error("Code unreachable", 0) }; \
+    } \
+    BOTH_ARE_FLOAT_SECOND_FLOAT128_FUN(a, b, _func)
+
+#define BINOP_FUN_REL(_opname, _binop) \
+const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2) \
+{ \
+    ERROR_CONDITION(v1 == NULL || v2 == NULL, "Either of the parameters is NULL", 0); \
+    if ((v1->kind == CVK_INTEGER) \
+            && (v2->kind == CVK_INTEGER)) \
+    { \
+       int bytes = 0; char sign = 0; \
+       common_bytes(v1, v2, &bytes, &sign); \
+       uint64_t value = 0; \
+       if (sign) \
+       { \
+           (*((int64_t*)&value)) = v1->value.si _binop v2->value.si; \
+       } \
+       else \
+       { \
+           value = v1->value.i _binop v2->value.i; \
+       } \
+       return const_value_get_signed_int(value); \
+    } \
+    else if (IS_FLOAT(v1->kind) \
+            && (v2->kind == CVK_INTEGER)) \
+    { \
+        CAST_TO_FLOAT_FIRST_IS_FLOAT_REL(v1, v2, _binop) \
+    } \
+    else if (v1->kind == CVK_INTEGER \
+            && IS_FLOAT(v2->kind)) \
+    { \
+        CAST_TO_FLOAT_SECOND_IS_FLOAT_REL(v1, v2, _binop) \
+    } \
+    else if (IS_FLOAT(v1->kind) && IS_FLOAT(v2->kind)) \
+    { \
+        if (v1->kind == v2->kind) \
+        { \
+            BOTH_ARE_SAME_FLOAT_REL(v1, v2, _binop) \
+            else { internal_error("Code unreachable", 0) }; \
+        } \
+        else if (v1->kind > v2->kind) \
+        { \
+            BOTH_ARE_FLOAT_FIRST_LARGER_REL(v1, v2, _binop) \
+            else { internal_error("Code unreachable", 0) }; \
+        } \
+        else if (v1->kind < v2->kind) \
+        { \
+            BOTH_ARE_FLOAT_SECOND_LARGER_REL(v1, v2, _binop) \
+            else { internal_error("Code unreachable", 0) }; \
+        } \
+        else { internal_error("Code unreachable", 0) }; \
+    } \
+    else if (v1->kind == CVK_COMPLEX && v2->kind == CVK_COMPLEX) \
+    { \
+        return complex_##_opname (v1, v2); \
+    } \
+    else if (v1->kind == CVK_COMPLEX && v2->kind != CVK_COMPLEX) \
+    { \
+        return const_value_##_opname ( v1, const_value_real_to_complex(v2) ); \
+    } \
+    else if (v1->kind != CVK_COMPLEX && v2->kind == CVK_COMPLEX) \
+    { \
+        return const_value_##_opname ( const_value_real_to_complex(v1), v2 ); \
+    } \
+    else if (IS_STRUCTURED(v1->kind) \
+            && IS_STRUCTURED(v2->kind) \
+            && (multival_get_num_elements(v1) == multival_get_num_elements(v2))) \
+    { \
+        return map_binary_to_structured_value( const_value_##_opname, v1, v2); \
+    } \
+ \
+    internal_error("Code unreachable", 0); \
+}
+
+#define BINOP_FUN_CALL_REL(_opname, _func) \
+const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2) \
+{ \
+    ERROR_CONDITION(v1 == NULL || v2 == NULL, "Either of the parameters is NULL", 0); \
+    if (v1->kind == CVK_INTEGER \
+            && v2->kind == CVK_INTEGER) \
+    { \
+       int bytes = 0; char sign = 0; \
+       common_bytes(v1, v2, &bytes, &sign); \
+       uint64_t value = 0; \
+       if (sign) \
+       { \
+           *(int64_t*)&value = _func ## s ( v1->value.si, v2->value.si); \
+       } \
+       else \
+       { \
+        \
+           value = _func ## u( v1->value.i, v2->value.i ); \
+       } \
+       return const_value_get_signed_int(value); \
+    } \
+    else if (v2->kind == CVK_INTEGER \
+            && IS_FLOAT(v1->kind)) \
+    { \
+        CAST_TO_FLOAT_FIRST_IS_FLOAT_FUN_REL(v1, v2, _func) \
+    } \
+    else if (v1->kind == CVK_INTEGER \
+            && IS_FLOAT(v2->kind)) \
+    { \
+        CAST_TO_FLOAT_SECOND_IS_FLOAT_FUN_REL(v1, v2, _func) \
+    } \
+    else if (IS_FLOAT(v1->kind) && IS_FLOAT(v2->kind)) \
+    { \
+        if (v1->kind == v2->kind) \
+        { \
+            BOTH_ARE_SAME_FLOAT_FUN(v1, v2, _func) \
+            else { internal_error("Code unreachable", 0) }; \
+        } \
+        else if (v1->kind > v2->kind) \
+        { \
+            BOTH_ARE_FLOAT_FIRST_LARGER_FUN_REL(v1, v2, _func) \
+            else { internal_error("Code unreachable", 0) }; \
+        } \
+        else if (v1->kind < v2->kind) \
+        { \
+            BOTH_ARE_FLOAT_SECOND_LARGER_FUN_REL(v1, v2, _func) \
+            else { internal_error("Code unreachable", 0) }; \
+        } \
+        else { internal_error("Code unreachable", 0) }; \
+    } \
+    else if (v1->kind == CVK_COMPLEX && v2->kind == CVK_COMPLEX) \
+    { \
+        return _func ## z (v1, v2); \
+    } \
+    else if (v1->kind == CVK_COMPLEX && v2->kind != CVK_COMPLEX) \
+    { \
+        return const_value_##_opname ( v1, const_value_real_to_complex(v2) ); \
+    } \
+    else if (v1->kind != CVK_COMPLEX && v2->kind == CVK_COMPLEX) \
+    { \
+        return const_value_##_opname ( const_value_real_to_complex(v1), v2 ); \
+    } \
+    else if (IS_STRUCTURED(v1->kind) \
+            && IS_STRUCTURED(v2->kind) \
+            && (multival_get_num_elements(v1) == multival_get_num_elements(v2))) \
+    { \
+        return map_binary_to_structured_value( const_value_##_opname, v1, v2); \
+    } \
+ return NULL; \
+}
+
 static const_value_t* complex_add(const_value_t*, const_value_t*);
 static const_value_t* complex_sub(const_value_t*, const_value_t*);
 static const_value_t* complex_mul(const_value_t*, const_value_t*);
@@ -1698,12 +2163,12 @@ BINOP_FUN_I(bitor, |)
 BINOP_FUN_I(bitxor, ^)
 BINOP_FUN(and, &&)
 BINOP_FUN(or, ||)
-BINOP_FUN(lt, <)
-BINOP_FUN(lte, <=)
-BINOP_FUN(gt, >)
-BINOP_FUN(gte, >=)
-BINOP_FUN(eq, ==)
-BINOP_FUN(neq, !=)
+BINOP_FUN_REL(lt, <)
+BINOP_FUN_REL(lte, <=)
+BINOP_FUN_REL(gt, >)
+BINOP_FUN_REL(gte, >=)
+BINOP_FUN_REL(eq, ==)
+BINOP_FUN_REL(neq, !=)
 
 static uint64_t arith_powu(uint64_t a, uint64_t b)
 {
