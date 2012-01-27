@@ -46,6 +46,7 @@ test_exec_faulty_nanox_instrument_4thread=yes
 </testinfo>
 */
 
+#include <stdlib.h>
 #include "omp.h"
 
 typedef struct {
@@ -68,6 +69,8 @@ int main (int argc, char* argv[])
 
    #pragma omp parallel reduction (maxarea : pt)
    pt;
+
+   abort();
 
    return 0;
 }

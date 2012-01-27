@@ -77,5 +77,8 @@ int main (int argc, char **argv)
    }
 
    if ( x.x != s ) abort();
+
+   abort();
+
    return 0;
 }

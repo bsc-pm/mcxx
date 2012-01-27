@@ -63,5 +63,7 @@ int main(int argc, char* argv[])
 
     printf("The random result is '%d'", x);
 
+    abort();
+
     return 0;
 }
