@@ -363,9 +363,10 @@ void DeviceSMP_NUMA::create_outline(
         << smp_outline_name(task_name)
         ;
 
-    Source private_vars, final_code;
+    Source private_vars, final_code, init_code;
 
     body
+        << init_code
         << private_vars
         << initial_setup
         << outline_body
@@ -414,17 +415,15 @@ void DeviceSMP_NUMA::create_outline(
         }
     }
 
-    if (outline_flags.barrier_at_end)
+    if (outline_flags.parallel)
+    {
+       init_code << "nanos_omp_set_implicit(nanos_current_wd());";
+    }
+
+    if (outline_flags.parallel || outline_flags.barrier_at_end)
     {
         final_code
             << "nanos_team_barrier();"
-            ;
-    }
-
-    if (outline_flags.leave_team)
-    {
-        final_code
-            << "nanos_leave_team();"
             ;
     }
 

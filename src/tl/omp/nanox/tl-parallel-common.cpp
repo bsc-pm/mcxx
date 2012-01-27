@@ -35,14 +35,15 @@ using namespace TL::Nanox;
 
 static void fill_dimensions(int n_dims, int actual_dim, std::string* dim_sizes, Type dep_type, Source& dims_description, Scope sc);
 
-Source TL::Nanox::common_parallel_code(const std::string& outline_name, 
+Source TL::Nanox::common_parallel_code(
+        PragmaCustomConstruct &ctr,
+        const std::string& outline_name,
         const std::string& struct_arg_type_name,
-        Source num_threads,
-        ScopeLink sl,
         DataEnvironInfo& data_environ_info,
         AST_t parallel_code,
         const ObjectList<std::string>& current_targets)
 {
+    ScopeLink sl = ctr.get_scope_link();
     Source result;
 
     Source fill_outline_arguments, fill_immediate_arguments;
@@ -98,8 +99,7 @@ Source TL::Nanox::common_parallel_code(const std::string& outline_name,
 
         OutlineFlags outline_flags;
 
-        outline_flags.leave_team = true;
-        outline_flags.barrier_at_end = true;
+        outline_flags.parallel = true;
 
         Source initial_setup, replaced_body;
 
@@ -196,9 +196,40 @@ Source TL::Nanox::common_parallel_code(const std::string& outline_name,
         }
     }
 
+    Source num_threads;
+
+    PragmaCustomClause num_threads_clause = ctr.get_clause("num_threads");
+    if (num_threads_clause.is_defined())
+    {
+        num_threads << num_threads_clause.get_expression_list()[0];
+    }
+    else
+    {
+        num_threads << "nanos_omp_get_max_threads()";
+    }
+  
+    Source if_code;
+    PragmaCustomClause if_clause = ctr.get_clause("if");
+    if (if_clause.is_defined())
+    {
+        ObjectList<Expression> expr_list = if_clause.get_expression_list();
+        if (expr_list.size() != 1)
+        {
+            running_error("%s: error: clause 'if' requires just one argument\n",
+                    ctr.get_ast().get_locus().c_str());
+        }
+
+        Expression &expr = expr_list[0];
+
+        if_code
+        << comment("A false 'if' clause evaluation means using current thread")
+        << "_nanos_num_threads = (" << expr.prettyprint() << ") ? _nanos_num_threads : 1;";
+    }
+
     result
         << "{"
         <<   "unsigned int _nanos_num_threads = " << num_threads << ";"
+        <<   if_code
         <<   "nanos_team_t _nanos_team = (nanos_team_t)0;"
         <<   "nanos_thread_t _nanos_threads[_nanos_num_threads];"
         <<   "nanos_err_t err;"
@@ -210,10 +241,9 @@ Source TL::Nanox::common_parallel_code(const std::string& outline_name,
 
         <<   struct_runtime_size
 
-        <<   "nanos_wd_props_t props;"
-        <<   "__builtin_memset(&props, 0, sizeof(props));"
+        <<   "nanos_wd_props_t props = {0};"
         <<   "props.mandatory_creation = 1;"
-        <<   "int _i;"
+        <<   "unsigned _i;"
         <<   "for (_i = 1; _i < _nanos_num_threads; _i++)"
         <<   "{"
         //   We have to create a wd tied to a thread
@@ -232,7 +262,7 @@ Source TL::Nanox::common_parallel_code(const std::string& outline_name,
         <<      "err = nanos_submit(wd, 0, (nanos_dependence_t*)0, 0);"
         <<      "if (err != NANOS_OK) nanos_handle_error(err);"
         <<   "}"
-        <<   "props.tie_to = &_nanos_threads[0];"
+        <<   "props.tie_to = _nanos_threads[0];"
         <<   immediate_decl
         <<   fill_immediate_arguments
         <<   "err = nanos_create_wd_and_run(" << num_devices << ", "
