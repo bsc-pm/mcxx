@@ -7465,6 +7465,128 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
     return entry;
 }
 
+static char find_dependent_friend_function_declaration(AST declarator_id,
+        type_t* declarator_type,
+        gather_decl_spec_t* gather_info,
+        decl_context_t decl_context,
+        scope_entry_t** result_entry)
+{
+    ERROR_CONDITION(!(gather_info->is_friend
+                        && is_dependent_class_scope(decl_context)),
+                            "This is not a depedent friend function", 0);
+
+    char is_qualified = !is_unqualified_id_expression(declarator_id);
+    char is_template_function = gather_info->is_template;
+    char is_template_id = ASTType(declarator_id) == AST_TEMPLATE_ID;
+
+    decl_flags_t decl_flags = DF_NONE;
+    decl_context_t lookup_context = decl_context;
+    if (!is_qualified)
+    {
+        decl_flags |= DF_ONLY_CURRENT_SCOPE;
+    }
+
+    // A friend function declaration that is not a template function and the name
+    // is an unqualified template-id shall refers to a specialization of a function
+    // template declared in the nearest enclosing namespace
+    // C++ Standard 14.5.3 Friends (section 2)
+    if (!is_template_function
+            && !is_qualified
+            && is_template_id)
+    {
+        lookup_context.current_scope = lookup_context.namespace_scope;
+    }
+
+    scope_entry_list_t* entry_list
+        = query_id_expression_flags(lookup_context, declarator_id, decl_flags);
+
+    // Summary:
+    //  1. The declaration is not a template function
+    //      1.1 It's a qualified or unqualified template-id -> refers to a specialization of a function template
+    //      1.2 It's a qualified name -> refers to:
+    //          *   A nontemplate function, otherwise
+    //          *   A matching specialization of a template function
+    //      1.3 It's an unqualied name -> declares an nontemplate function
+    //
+    scope_entry_list_t* filtered_entry_list = NULL;
+     enum cxx_symbol_kind filter_only_templates[] = { SK_TEMPLATE };
+     enum cxx_symbol_kind filter_only_functions[] = { SK_FUNCTION };
+
+    if (!is_template_function)
+    {
+        if (is_template_id) //1.1
+        {
+            filtered_entry_list =
+                filter_symbol_kind_set(entry_list, STATIC_ARRAY_LENGTH(filter_only_templates), filter_only_templates);
+
+            scope_entry_t* entry = NULL;
+            if (filtered_entry_list != NULL)
+            {
+                entry = entry_list_head(filtered_entry_list);
+                entry = named_type_get_symbol(template_type_get_primary_type(entry->type_information));
+            }
+
+            if (filtered_entry_list == NULL || entry->kind != SK_FUNCTION)
+            {
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: template-id '%s' does not refer to a specialization of a function template\n",
+                            ast_location(declarator_id), prettyprint_in_buffer(declarator_id));
+                }
+                return 0;
+            }
+        }
+        else
+        {
+            if(is_qualified) //1.2
+            {
+                filtered_entry_list =
+                    filter_symbol_kind_set(entry_list, STATIC_ARRAY_LENGTH(filter_only_functions), filter_only_functions);
+
+                if (filtered_entry_list == NULL)
+                {
+                    filtered_entry_list =
+                        filter_symbol_kind_set(entry_list, STATIC_ARRAY_LENGTH(filter_only_templates), filter_only_templates);
+
+                    scope_entry_t* entry = NULL;
+                    if (filtered_entry_list != NULL)
+                    {
+                        entry = entry_list_head(filtered_entry_list);
+                        entry = named_type_get_symbol(template_type_get_primary_type(entry->type_information));
+                    }
+
+                    if (filtered_entry_list == NULL || entry->kind != SK_FUNCTION)
+                    {
+                        if (!checking_ambiguity())
+                        {
+                            error_printf("%s: name '%s' does not match with any nontemplate function or specialization of a function template\n",
+                                    ast_location(declarator_id), prettyprint_in_buffer(declarator_id));
+                        }
+                        return 0;
+                    }
+                }
+            }
+            else // 1.3
+            {
+                filtered_entry_list =
+                    filter_symbol_kind_set(entry_list, STATIC_ARRAY_LENGTH(filter_only_functions), filter_only_functions);
+                if (filtered_entry_list != NULL)
+                {
+                }
+                else
+                {
+                }
+            }
+        }
+    }
+
+    entry_list_free(filtered_entry_list);
+    entry_list_free(entry_list);
+    return 1;
+}
+
+
+
 static char find_function_declaration(AST declarator_id,
         type_t* declarator_type,
         gather_decl_spec_t* gather_info,
@@ -7475,28 +7597,30 @@ static char find_function_declaration(AST declarator_id,
     if (gather_info->is_friend
             && is_dependent_class_scope(decl_context))
     {
-        scope_entry_t* result = counted_calloc(1, sizeof(*result), &_bytes_used_buildscope);
-        
-        result->kind = SK_DEPENDENT_FRIEND_FUNCTION;
-        result->file = ASTFileName(declarator_id);
-        result->line = ASTLine(declarator_id);
-        
-        if (ASTType(declarator_id) == AST_TEMPLATE_ID)
-        {
-            result->symbol_name = ASTText(ASTSon0(declarator_id));
-        }
-        else
-        {
-            result->symbol_name = ASTText(declarator_id);
-        }
-        
-        result->entity_specs.any_exception = gather_info->any_exception;
-        result->type_information = declarator_type;
+        return find_dependent_friend_function_declaration(declarator_id,
+                declarator_type, gather_info, decl_context, result_entry);
+        //scope_entry_t* result = counted_calloc(1, sizeof(*result), &_bytes_used_buildscope);
+        //
+        //result->kind = SK_DEPENDENT_FRIEND_FUNCTION;
+        //result->file = ASTFileName(declarator_id);
+        //result->line = ASTLine(declarator_id);
+        //
+        //if (ASTType(declarator_id) == AST_TEMPLATE_ID)
+        //{
+        //    result->symbol_name = ASTText(ASTSon0(declarator_id));
+        //}
+        //else
+        //{
+        //    result->symbol_name = ASTText(declarator_id);
+        //}
+        //
+        //result->entity_specs.any_exception = gather_info->any_exception;
+        //result->type_information = declarator_type;
 
-        result->decl_context = decl_context;
+        //result->decl_context = decl_context;
 
-        *result_entry = result;
-        return 1;
+        //*result_entry = result;
+        //return 1;
     }
 
     decl_flags_t decl_flags = DF_NONE;
@@ -7532,9 +7656,9 @@ static char find_function_declaration(AST declarator_id,
         // if the declarator_id is unqualified and we are not naming a template
         // C++ Standard 7.3.1.2 Namespace member definitions
         lookup_context.current_scope = lookup_context.namespace_scope;
-        
+
         // The class or function is not a template class or template function
-        if (!gather_info->is_template 
+        if (!gather_info->is_template
                 // The 'declarator_id' is not a template-id
                 && ASTType(declarator_id) != AST_TEMPLATE_ID)
         {
@@ -7563,17 +7687,17 @@ static char find_function_declaration(AST declarator_id,
          considered_tree = ASTSon2(declarator_id);
      }
 
-     declarator_is_template_id = (ASTType(considered_tree) == AST_TEMPLATE_ID 
+     declarator_is_template_id = (ASTType(considered_tree) == AST_TEMPLATE_ID
              || ASTType(considered_tree) == AST_OPERATOR_FUNCTION_ID_TEMPLATE);
 
 
-    if (declarator_is_template_id 
+    if (declarator_is_template_id
        || gather_info->is_explicit_instantiation)
     {
         decl_flags |= DF_IGNORE_FRIEND_DECL;
     }
 
-    scope_entry_list_t* entry_list 
+    scope_entry_list_t* entry_list
         = query_id_expression_flags(lookup_context, declarator_id, decl_flags);
 
     type_t* function_type_being_declared = declarator_type;
