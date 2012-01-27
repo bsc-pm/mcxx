@@ -40,6 +40,7 @@ test_compile_faulty_nanox_instrument=yes
 
 #include <iostream>
 #include <stdlib.h>
+#include "omp.h"
 
 #define N 100
 

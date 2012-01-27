@@ -65,7 +65,7 @@ int A::c;
 
 void A::f(void)
 {
-#pragma omp parallel
+#pragma omp task
     {
         g();
         this->b = 2;
@@ -73,6 +73,7 @@ void A::f(void)
         b+=2;
         c = 5;
     }
+#pragma omp taskwait
 }
 
 int main(int argc, char *argv[])

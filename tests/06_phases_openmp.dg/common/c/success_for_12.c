@@ -28,11 +28,6 @@
 /*
 <testinfo>
 test_generator=config/mercurium-omp
-
-test_compile_fail_nanox_plain=yes
-test_compile_faulty_nanox_plain=yes
-test_compile_fail_nanox_instrument=yes
-test_compile_faulty_nanox_instrument=yes
 </testinfo>
 */
 
@@ -46,11 +41,7 @@ int main(int argc, char* argv[])
     int i;
     int s = 0;
 
-#ifdef NANOX
-    #pragma omp shared(s)
-#else
     #pragma omp parallel shared(s)
-#endif
     {
 #pragma omp for reduction(+:s)
         for (i = 0; i < NUM_ELEMS; i++)

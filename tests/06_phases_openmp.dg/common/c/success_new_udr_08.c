@@ -67,11 +67,7 @@ void f(my_complex_t x, my_complex_t y)
 {
     int i;
 
-#ifdef NANOX
-    #pragma omp for reduction(complex_add:x) reduction(complex_mul:y)
-#else
     #pragma omp parallel for reduction(complex_add:x) reduction(complex_mul:y)
-#endif
     for ( i = 0; i < N ; i++ ) 
     {
         x = complex_add(x,vector[i]);
