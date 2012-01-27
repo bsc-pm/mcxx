@@ -4887,6 +4887,10 @@ TL::Type CxxBase::fix_references(TL::Type t)
     }
     else if (t.is_function())
     {
+        // Do not fix unprototyped functions
+        if (t.lacks_prototype())
+            return t;
+
         cv_qualifier_t cv_qualif = get_cv_qualifier(t.get_internal_type());
         TL::Type fixed_result = fix_references(t.returns());
         bool has_ellipsis = 0;
