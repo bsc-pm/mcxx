@@ -269,14 +269,14 @@ namespace Codegen
         declare_everything_needed(statement_seq);
 
         // Could we improve the name of this function?
-        TL::Symbol data_symbol = ::get_data_symbol_info(entry.get_scope().get_decl_context());
+        TL::Symbol data_symbol = ::get_data_symbol_info(entry.get_related_scope().get_decl_context());
         if (data_symbol.is_valid())
         {
             walk(data_symbol.get_initialization());
         }
         
         // Could we improve the name of this function?
-        TL::Symbol equivalence_symbol = get_equivalence_symbol_info(entry.get_scope().get_decl_context());
+        TL::Symbol equivalence_symbol = get_equivalence_symbol_info(entry.get_related_scope().get_decl_context());
         if (equivalence_symbol.is_valid())
         {
             walk(equivalence_symbol.get_initialization());
@@ -1535,6 +1535,7 @@ OPERATOR_TABLE
         Nodecl::NodeclBase end_clauses = pragma_custom_line.get_end_clauses();
         if (!end_clauses.is_null())
         {
+            file << " ";
             walk(end_clauses);
         }
         file << "\n";
