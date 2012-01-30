@@ -142,6 +142,8 @@ void OMPTransform::sections_postorder(PragmaCustomConstruct ctr)
 
     Source compound_wd_src;
     compound_wd_src
+        << get_single_guard("single_guard")
+        << "if (single_guard)"
         << "{"
         <<    "nanos_wd_props_t props;"
         <<    "__builtin_memset(&props, 0, sizeof(props));"
