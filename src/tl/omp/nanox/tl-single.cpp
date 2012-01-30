@@ -78,7 +78,7 @@ namespace TL { namespace Nanox {
         }
 
         single_guard
-            << bool_type << " single_guard;"
+            << bool_type << " " << str << ";"
             ;
 
         if (Nanos::Version::interface_is_at_least("openmp", 1))
