@@ -7472,8 +7472,8 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
         scope_entry_t** result_entry)
 {
     ERROR_CONDITION(!(gather_info->is_friend
-                        && is_dependent_class_scope(decl_context)),
-                            "This is not a depedent friend function", 0);
+                && is_dependent_class_scope(decl_context)),
+            "This is not a depedent friend function", 0);
 
     char is_qualified = !is_unqualified_id_expression(declarator_id);
     char is_template_function = gather_info->is_template;
@@ -7486,13 +7486,17 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
         decl_flags |= DF_ONLY_CURRENT_SCOPE;
     }
 
-    // A friend function declaration that is not a template function and the name
-    // is an unqualified template-id shall refers to a specialization of a function
-    // template declared in the nearest enclosing namespace
-    // C++ Standard 14.5.3 Friends (section 2)
-    if (!is_template_function
-            && !is_qualified
-            && is_template_id)
+    char is_local_class_friend_decl = 0;
+    if (!is_qualified
+            && decl_context.current_scope->kind == CLASS_SCOPE
+            && decl_context.current_scope->contained_in != NULL
+            && decl_context.current_scope->contained_in->kind == BLOCK_SCOPE)
+
+    {
+        is_local_class_friend_decl = 1;
+        lookup_context.current_scope = decl_context.current_scope->contained_in;
+    }
+    else
     {
         lookup_context.current_scope = lookup_context.namespace_scope;
     }
@@ -7509,9 +7513,10 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
     //      1.3 It's an unqualied name -> declares an nontemplate function
     //
     scope_entry_list_t* filtered_entry_list = NULL;
-     enum cxx_symbol_kind filter_only_templates[] = { SK_TEMPLATE };
-     enum cxx_symbol_kind filter_only_functions[] = { SK_FUNCTION };
+    enum cxx_symbol_kind filter_only_templates[] = { SK_TEMPLATE };
+    enum cxx_symbol_kind filter_only_functions[] = { SK_FUNCTION };
 
+    // Here we only do error detection
     if (!is_template_function)
     {
         if (is_template_id) //1.1
@@ -7519,14 +7524,21 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
             filtered_entry_list =
                 filter_symbol_kind_set(entry_list, STATIC_ARRAY_LENGTH(filter_only_templates), filter_only_templates);
 
-            scope_entry_t* entry = NULL;
-            if (filtered_entry_list != NULL)
+            char found_spec_funct_templ = 0;
+            scope_entry_list_iterator_t* it = NULL;
+            for (it = entry_list_iterator_begin(filtered_entry_list);
+                    !entry_list_iterator_end(it) && !found_spec_funct_templ;
+                    entry_list_iterator_next(it))
             {
-                entry = entry_list_head(filtered_entry_list);
-                entry = named_type_get_symbol(template_type_get_primary_type(entry->type_information));
+                scope_entry_t* current_sym = entry_list_iterator_current(it);
+                current_sym = named_type_get_symbol(template_type_get_primary_type(current_sym->type_information));
+                if (current_sym->kind == SK_FUNCTION)
+                {
+                    found_spec_funct_templ = 1;
+                }
             }
 
-            if (filtered_entry_list == NULL || entry->kind != SK_FUNCTION)
+            if (!found_spec_funct_templ)
             {
                 if (!checking_ambiguity())
                 {
@@ -7542,20 +7554,26 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
             {
                 filtered_entry_list =
                     filter_symbol_kind_set(entry_list, STATIC_ARRAY_LENGTH(filter_only_functions), filter_only_functions);
-
                 if (filtered_entry_list == NULL)
                 {
                     filtered_entry_list =
                         filter_symbol_kind_set(entry_list, STATIC_ARRAY_LENGTH(filter_only_templates), filter_only_templates);
 
-                    scope_entry_t* entry = NULL;
-                    if (filtered_entry_list != NULL)
+                    char found_spec_funct_templ = 0;
+                    scope_entry_list_iterator_t* it = NULL;
+                    for (it = entry_list_iterator_begin(filtered_entry_list);
+                            !entry_list_iterator_end(it) && !found_spec_funct_templ;
+                            entry_list_iterator_next(it))
                     {
-                        entry = entry_list_head(filtered_entry_list);
-                        entry = named_type_get_symbol(template_type_get_primary_type(entry->type_information));
+                        scope_entry_t* current_sym = entry_list_iterator_current(it);
+                        current_sym = named_type_get_symbol(template_type_get_primary_type(current_sym->type_information));
+                        if (current_sym->kind == SK_FUNCTION)
+                        {
+                            found_spec_funct_templ = 1;
+                        }
                     }
 
-                    if (filtered_entry_list == NULL || entry->kind != SK_FUNCTION)
+                    if (!found_spec_funct_templ)
                     {
                         if (!checking_ambiguity())
                         {
@@ -7566,25 +7584,31 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
                     }
                 }
             }
-            else // 1.3
-            {
-                filtered_entry_list =
-                    filter_symbol_kind_set(entry_list, STATIC_ARRAY_LENGTH(filter_only_functions), filter_only_functions);
-                if (filtered_entry_list != NULL)
-                {
-                }
-                else
-                {
-                }
-            }
         }
     }
 
+    //We create a new symbol always
+    scope_entry_t* entry = counted_calloc(1, sizeof(*entry), &_bytes_used_buildscope);
+
+    entry->kind = SK_DEPENDENT_FRIEND_FUNCTION;
+    entry->file = ASTFileName(declarator_id);
+    entry->line = ASTLine(declarator_id);
+
+    nodecl_t nodecl_name = nodecl_null();
+    compute_nodecl_name_from_id_expression(declarator_id, decl_context, &nodecl_name);
+    entry->symbol_name = codegen_to_str(nodecl_name);
+
+    entry->value = nodecl_name;
+    entry->decl_context = decl_context;
+    entry->type_information = declarator_type;
+
+    entry->entity_specs.any_exception = gather_info->any_exception;
+
+    *result_entry = entry;
     entry_list_free(filtered_entry_list);
     entry_list_free(entry_list);
     return 1;
 }
-
 
 
 static char find_function_declaration(AST declarator_id,
@@ -7599,28 +7623,6 @@ static char find_function_declaration(AST declarator_id,
     {
         return find_dependent_friend_function_declaration(declarator_id,
                 declarator_type, gather_info, decl_context, result_entry);
-        //scope_entry_t* result = counted_calloc(1, sizeof(*result), &_bytes_used_buildscope);
-        //
-        //result->kind = SK_DEPENDENT_FRIEND_FUNCTION;
-        //result->file = ASTFileName(declarator_id);
-        //result->line = ASTLine(declarator_id);
-        //
-        //if (ASTType(declarator_id) == AST_TEMPLATE_ID)
-        //{
-        //    result->symbol_name = ASTText(ASTSon0(declarator_id));
-        //}
-        //else
-        //{
-        //    result->symbol_name = ASTText(declarator_id);
-        //}
-        //
-        //result->entity_specs.any_exception = gather_info->any_exception;
-        //result->type_information = declarator_type;
-
-        //result->decl_context = decl_context;
-
-        //*result_entry = result;
-        //return 1;
     }
 
     decl_flags_t decl_flags = DF_NONE;
