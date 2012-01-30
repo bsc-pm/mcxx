@@ -142,8 +142,6 @@ void OMPTransform::sections_postorder(PragmaCustomConstruct ctr)
 
     Source compound_wd_src;
     compound_wd_src
-        << get_single_guard("single_guard")
-        << "if (single_guard)"
         << "{"
         <<    "nanos_wd_props_t props;"
         <<    "__builtin_memset(&props, 0, sizeof(props));"
@@ -181,8 +179,20 @@ void OMPTransform::sections_postorder(PragmaCustomConstruct ctr)
 
     last.append(Statement(compound_wd_tree, ctr.get_scope_link()));
 
+    // Once we have done everything, wrap it inside a single guard
+    Source single_guarded_src;
+    single_guarded_src
+        << "{"
+        << get_single_guard("single_guard")
+        << "if (single_guard)"
+        << ctr.get_statement().prettyprint()
+        << "}"
+        ;
+
+    AST_t single_guarded_tree = single_guarded_src.parse_statement(ctr.get_ast(), ctr.get_scope_link());
+
     // Remove the pragma
-    ctr.get_ast().replace(compound_statement.get_ast());
+    ctr.get_ast().replace(single_guarded_tree);
 
     _section_info.pop_back();
 }
