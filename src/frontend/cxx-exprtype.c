@@ -12077,7 +12077,6 @@ static void check_for_array_section_expression(AST expression, decl_context_t de
 
 static void check_for_shaping_expression(AST expression, decl_context_t decl_context)
 {
-    char result = 1;
     AST shaped_expr = ASTSon1(expression);
     AST shape_list = ASTSon0(expression);
 
@@ -12085,12 +12084,14 @@ static void check_for_shaping_expression(AST expression, decl_context_t decl_con
 
     if (expression_is_error(shaped_expr))
     {
-        result = 0;
+        expression_set_error(expression);
+        return;
     }
 
     if (!check_for_expression_list(shape_list, decl_context))
     {
-        result = 0;
+        expression_set_error(expression);
+        return;
     }
 
     AST it;
@@ -12108,7 +12109,8 @@ static void check_for_shaping_expression(AST expression, decl_context_t decl_con
                         ast_location(current_expr),
                         prettyprint_in_buffer(current_expr));
             }
-            result = 0;
+            expression_set_error(expression);
+            return;
         }
     }
 
@@ -12129,7 +12131,8 @@ static void check_for_shaping_expression(AST expression, decl_context_t decl_con
                     ast_location(shaped_expr),
                     prettyprint_in_buffer(shaped_expr));
         }
-        result = 0;
+        expression_set_error(expression);
+        return;
     }
 
     if (is_void_pointer_type(no_ref(shaped_expr_type)))
@@ -12140,30 +12143,24 @@ static void check_for_shaping_expression(AST expression, decl_context_t decl_con
                     ast_location(shaped_expr),
                     prettyprint_in_buffer(shaped_expr));
         }
-        result = 0;
-    }
-
-    if (result)
-    {
-        // Synthesize a new type based on what we got
-        type_t* result_type = pointer_type_get_pointee_type(no_ref(shaped_expr_type));
-
-        it = shape_list;
-        // Traverse the list backwards
-        while (it != NULL)
-        {
-            AST current_expr = ASTSon1(it);
-            result_type = get_array_type(result_type, current_expr, decl_context);
-            it = ASTSon0(it);
-        }
-
-        expression_set_type(expression, result_type);
-        expression_set_is_lvalue(expression, 1);
-    }
-    else
-    {
         expression_set_error(expression);
+        return;
     }
+
+    // Synthesize a new type based on what we got
+    type_t* result_type = pointer_type_get_pointee_type(no_ref(shaped_expr_type));
+
+    it = shape_list;
+    // Traverse the list backwards
+    while (it != NULL)
+    {
+        AST current_expr = ASTSon1(it);
+        result_type = get_array_type(result_type, current_expr, decl_context);
+        it = ASTSon0(it);
+    }
+
+    expression_set_type(expression, result_type);
+    expression_set_is_lvalue(expression, 1);
 }
 
 
