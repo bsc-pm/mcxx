@@ -487,9 +487,9 @@ namespace Analysis
         {
             if ((*it)->get_id() != id_target_node)
             {
-                ue_vars.append((*it)->get_ue_vars());
-                killed_vars.append((*it)->get_killed_vars());
-                undef_vars.append((*it)->get_undefined_behaviour_vars());
+                ue_vars.insert((*it)->get_ue_vars());
+                killed_vars.insert((*it)->get_killed_vars());
+                undef_vars.insert((*it)->get_undefined_behaviour_vars());
                 
                 get_use_def_variables(*it, id_target_node, ue_vars, killed_vars, undef_vars);
             }
@@ -537,7 +537,7 @@ namespace Analysis
         Symbol s = cfg->get_function_symbol();
         if (s.is_valid())
         {
-            _visited_functions.append(s);
+            _visited_functions.insert(s);
         }
         else
         {
@@ -613,10 +613,20 @@ namespace Analysis
         }
         else
         {   // Is the first time we use this nodecl
-            char usage = '1';
-            if (_defining) usage = '0';
-            struct var_usage_t* new_ipa_var = new var_usage_t(ExtensibleSymbol(n), usage);
-            _usage.insert(new_ipa_var);
+            if (!usage_list_contains_englobing_nodecl(n, _usage))
+            {
+                if (usage_list_contains_englobed_nodecl(n, _usage))
+                {   // delete the englobed part
+                    delete_englobed_var_in_usage_list(n, _usage);
+                    std::cerr << "Deleting: " << n.prettyprint() << std::endl;
+                }
+                char usage = '1';
+                if (_defining) usage = '0';
+                struct var_usage_t* new_ipa_var = new var_usage_t(ExtensibleSymbol(n), usage);
+                std::cerr << "  set_up ..... " << n.prettyprint() << "(" << _usage.size() << ")" << std::endl;
+                _usage.insert(new_ipa_var);
+                std::cerr << "(" << _usage.size() << ")" << std::endl;
+            }
         }
     }
     
@@ -677,7 +687,7 @@ namespace Analysis
             }
             else
             {
-                if (s.get_type().is_any_reference() || arg.is<Nodecl::Symbol>())
+                if (arg.is<Nodecl::Symbol>())
                 {   // Set the usage into the list
                     set_up_usage(arg);
                 }
@@ -685,10 +695,10 @@ namespace Analysis
                 {   // The symbols in the argument can only be used
                     if (!_defining)
                     {
-                        SymbolVisitor sv;
+                        ExtensibleSymbolVisitor sv;
                         sv.walk(arg);
-                        ObjectList<Nodecl::Symbol> arg_syms = sv.get_symbols();
-                        for (ObjectList<Nodecl::Symbol>::iterator it = arg_syms.begin(); it != arg_syms.end(); ++it)
+                        ObjectList<Nodecl::NodeclBase> arg_syms = sv.get_extensible_symbols();
+                        for (ObjectList<Nodecl::NodeclBase>::iterator it = arg_syms.begin(); it != arg_syms.end(); ++it)
                             set_up_usage(*it);
                     }
                 }
@@ -696,6 +706,8 @@ namespace Analysis
         }
         else
         {}  // The symbol is a local variable
+
+        _last_nodecl = Nodecl::NodeclBase::null();
     }
     
     template <typename T>
@@ -830,7 +842,7 @@ namespace Analysis
             {
                 if (!_visited_functions.contains(s))
                 {
-                    _visited_functions.append(s);
+                    _visited_functions.insert(s);
                     ObjectList<struct var_usage_t*> nested_global_vars = called_func_graph->get_global_variables();
                     ObjectList<Symbol> nested_params = called_func_graph->get_function_parameters();
                     if (!nested_global_vars.empty() || !nested_params.empty())
@@ -859,7 +871,9 @@ namespace Analysis
                             else
                             {   // Is the first use of the variable in the current graph
                                 struct var_usage_t* new_ipa_var = *it;
+                                std::cerr << "  nested ipa ..... " << current_var.prettyprint() << "(" << _usage.size() << ")" << std::endl;
                                 _usage.insert(new_ipa_var);
+                                std::cerr << "(" << _usage.size() << ")" << std::endl;
                             }
                         }
                     }
@@ -895,9 +909,8 @@ namespace Analysis
            
             for(Nodecl::List::iterator it = args.begin(); it != args.end(); ++it)
             {
-                if (it->is<Nodecl::Symbol>() || it->is<Nodecl::ClassMemberAccess>() || it->is<Nodecl::ArraySubscript>()
-                    || it->is<Nodecl::Reference>() || it->is<Nodecl::Derreference>()
-                    || it->is<Nodecl::Conversion>() || it->is<Nodecl::Cast>())
+                if ( (it->is<Nodecl::Symbol>() || it->is<Nodecl::ClassMemberAccess>() || it->is<Nodecl::ArraySubscript>()
+                    || it->is<Nodecl::Reference>() || it->is<Nodecl::Derreference>() ) && !it->is_constant())
                 {   // Since they can be passed by reference, they can be modified
                     set_up_undefined_usage(*it);
                 }
@@ -906,10 +919,10 @@ namespace Analysis
                 else
                 {   // Expressions cannot be passed by reference, so this arguments are only used
                     // FIXME We can define a variable here passing as argument "(n = 3)"
-                    SymbolVisitor sv;
+                    ExtensibleSymbolVisitor sv;
                     sv.walk(*it);
-                    ObjectList<Nodecl::Symbol> syms_in_arg = sv.get_symbols();
-                    for (ObjectList<Nodecl::Symbol>::iterator it = syms_in_arg.begin(); it != syms_in_arg.end(); ++it)
+                    ObjectList<Nodecl::NodeclBase> syms_in_arg = sv.get_extensible_symbols();
+                    for (ObjectList<Nodecl::NodeclBase>::iterator it = syms_in_arg.begin(); it != syms_in_arg.end(); ++it)
                     {   // The variable is used
                         set_up_usage(*it);
                     }   
@@ -930,16 +943,28 @@ namespace Analysis
     
     // *** Symbols Visitor *** //
     
-    SymbolVisitor::SymbolVisitor()
+    ExtensibleSymbolVisitor::ExtensibleSymbolVisitor()
         : _symbols()
     {}
             
-    SymbolVisitor::Ret SymbolVisitor::visit(const Nodecl::Symbol& n)
+    ExtensibleSymbolVisitor::Ret ExtensibleSymbolVisitor::visit(const Nodecl::Symbol& n)
     {
-        _symbols.append(n);
+        _symbols.insert(n);
     }
-            
-    ObjectList<Nodecl::Symbol> SymbolVisitor::get_symbols()
+    
+    ExtensibleSymbolVisitor::Ret ExtensibleSymbolVisitor::visit(const Nodecl::Reference& n)
+    {
+        // FIXME We should see here if we have some symbol inside the expression
+        _symbols.insert(n);
+    }
+    
+    ExtensibleSymbolVisitor::Ret ExtensibleSymbolVisitor::visit(const Nodecl::Derreference& n)
+    {
+        // FIXME We should see here if we have some symbol inside the expression
+        _symbols.insert(n);
+    }
+    
+    ObjectList<Nodecl::NodeclBase> ExtensibleSymbolVisitor::get_extensible_symbols()
     {
         return _symbols;
     }

@@ -46,6 +46,7 @@ namespace TL
             ext_sym_set _firstprivate_vars;
             ext_sym_set _private_vars;
             ext_sym_set _shared_vars;
+            ext_sym_set _undefined_vars;
             
             //! Computes the data-flow equation for each node in a iterative way 
             //! until the information stops changing.
@@ -62,6 +63,8 @@ namespace TL
                             ( Live out (X) - Killed (X) )
                 */
             static void solve_live_equations_recursive(Node* actual, bool& changed);
+            
+            static void solve_specific_live_in_tasks(Node* node);
             
             static void substitute_reaching_definition_known_values(Node* node);
 
@@ -86,21 +89,35 @@ namespace TL
             
             void analyse_tasks_rec(Node* current);
             
+            void mix_array_computations(Node* task_node);
+            
             /*!
              * Scope all the variables appearing in the task by traversing recursively the graph starting from #current
              * \param task Node containing the task to be auto-scoped 
              * \param current Node we are analysing right now
              * \param scoped_vars List of variables that has already been auto-scoped
              */
-            void compute_auto_scoping_rec(Node* task, Node* current, ext_sym_set& scoped_vars);
+            void compute_auto_scoping_rec(Node* task, Node* current, bool is_in_loop, ext_sym_set& scoped_vars);
             
             /*!
              * The method scopes a variable of a task node
              * \param task node where the variable has to be scoped
+             * \param ei_node node where the expression has appeared in the task for the first time
+             * \param usage indicates whether the use inside the task is killed '0' or a ue '1'
              * \param ei variable to be scoped
+             * \param is_in_loop indicated that the task we are analysing is inside a loop. 
+             *                   That means we have to compare the usage with the task itself
              * \param scoped_vars list of variables that has already been scoped for #task
              */
-            void scope_variable(Node* task, ExtensibleSymbol ei, ext_sym_set& scoped_vars);
+            void scope_variable(Node* task, Node* ei_node, char usage, ExtensibleSymbol ei, bool is_in_loop, ext_sym_set& scoped_vars);
+            
+            bool scope_ie_in_iterated_task(Node* task, Node* current, Node* ei_node, char usage, ExtensibleSymbol ei);
+            
+            static bool task_is_in_loop(Node* current);
+            
+            bool task_and_simultaneous_only_read(Node* task, ExtensibleSymbol ei);
+            bool task_reads_and_writes(Node* task, ExtensibleSymbol ei);
+            void task_reads_and_writes_rec(Node* task, Node* current, ExtensibleSymbol ei, bool& read, bool& write);
             
             Node* compute_simultaneous_tasks(Node* current);
             

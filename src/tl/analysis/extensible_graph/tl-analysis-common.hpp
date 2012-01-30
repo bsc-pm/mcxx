@@ -51,14 +51,20 @@ namespace TL
         bool ext_sym_set_contains_nodecl(Nodecl::NodeclBase nodecl, ext_sym_set sym_set);
         bool ext_sym_set_contains_englobing_nodecl(ExtensibleSymbol ei, ext_sym_set sym_set);
         bool ext_sym_set_contains_englobed_nodecl(ExtensibleSymbol ei, ext_sym_set sym_set);
+        void delete_englobing_var_from_list(ExtensibleSymbol ei, ext_sym_set sym_set);
+        void delete_englobed_var_from_list(ExtensibleSymbol ei, ext_sym_set sym_set);
         ext_sym_set sets_union(ext_sym_set set1, ext_sym_set set2);
         ext_sym_set sets_difference(ext_sym_set set1, ext_sym_set set2);
         bool sets_equals(ext_sym_set set1, ext_sym_set set2);
         
         bool usage_list_contains_nodecl(Nodecl::NodeclBase n, ObjectList<struct var_usage_t*> list);
         bool usage_list_contains_sym(Symbol n, ObjectList<struct var_usage_t*> list);
+        bool usage_list_contains_englobing_nodecl(Nodecl::NodeclBase n, ObjectList<struct var_usage_t*> list);
+        bool usage_list_contains_englobed_nodecl(Nodecl::NodeclBase n, ObjectList<struct var_usage_t*> list);
         struct var_usage_t* get_var_in_list(Nodecl::NodeclBase n, ObjectList<struct var_usage_t*> list);
         struct var_usage_t* get_var_in_list(Symbol n, ObjectList<struct var_usage_t*> list);
+        void delete_englobing_var_in_usage_list(Nodecl::NodeclBase n, ObjectList<struct var_usage_t*> list);
+        void delete_englobed_var_in_usage_list(Nodecl::NodeclBase n, ObjectList<struct var_usage_t*> list);
         
         Nodecl::List get_func_call_args(Nodecl::NodeclBase func_call);
         std::map<Symbol, Nodecl::NodeclBase> map_reference_params_to_args(Nodecl::NodeclBase func_call, ExtensibleGraph* called_func_graph);

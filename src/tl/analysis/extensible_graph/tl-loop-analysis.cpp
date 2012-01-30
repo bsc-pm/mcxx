@@ -152,7 +152,7 @@ namespace TL
                 Nodecl::Assignment init_ = init.as<Nodecl::Assignment>();
                 Symbol def_var = init_.get_lhs().get_symbol();
                 Nodecl::NodeclBase def_expr = init_.get_rhs();
-                
+
                 InductionVarInfo* ind = new InductionVarInfo(def_var, def_expr);
                 _induction_vars.insert(induc_vars_map::value_type(loop_node->get_id(), ind));
             }
@@ -322,7 +322,7 @@ namespace TL
                     Nodecl::Postincrement stride_ = stride.as<Nodecl::Postincrement>();
                     rhs = stride_.get_rhs();
                 }
-            
+
                 InductionVarInfo* loop_info_var;
                 if ( (loop_info_var = induction_vars_l_contains_symbol(loop_node, rhs.get_symbol())) != NULL )
                 {
@@ -434,10 +434,13 @@ namespace TL
                         }                       
                     }
                     
-                    ObjectList<Node*> children = node->get_children();
-                    for (ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
+                    if ((ntype != GRAPH_NODE) || (ntype == GRAPH_NODE && node->get_graph_type() != TASK) )
                     {
-                        delete_false_induction_vars(*it, loop_node);
+                        ObjectList<Node*> children = node->get_children();
+                        for (ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
+                        {
+                            delete_false_induction_vars(*it, loop_node);
+                        }
                     }
                 }
             }
@@ -474,8 +477,7 @@ namespace TL
                     std::pair<induc_vars_map::const_iterator, induc_vars_map::const_iterator> outer_ind_vars =
                             _induction_vars.equal_range(outer_node->get_id());
                            
-                    for (induc_vars_map::const_iterator it = outer_ind_vars.first; 
-                         it != outer_ind_vars.second/* && it != _induction_vars.end()*/; ++it)
+                    for (induc_vars_map::const_iterator it = outer_ind_vars.first; it != outer_ind_vars.second; ++it)
                     {
                         new_induction_vars.insert(induc_vars_map::value_type(loop_node->get_id(), it->second));
                     }
@@ -495,7 +497,7 @@ namespace TL
             traverse_loop_stride(loop_node, loop_control.get_next());
             
             // Check whether the statements within the loop modify the induction variables founded in the loop control
-            Node* entry = loop_node->get_data<Node*>(_ENTRY_NODE);
+            Node* entry = loop_node->get_graph_entry_node();
             delete_false_induction_vars(entry, loop_node);
             
             ExtensibleGraph::clear_visits(entry);
@@ -567,10 +569,6 @@ _induction_vars.equal_range(loop_node->get_id());
                     {
                         compute_induction_variables_info(*it);
                     }
-                }
-                else
-                {
-                    return;
                 }
             }
         }
@@ -687,12 +685,15 @@ _induction_vars.equal_range(loop_node->get_id());
             {
                 node->set_visited(true);
                 
-                Node_type ntype = node->get_data<Node_type>(_NODE_TYPE);
+                Node_type ntype = node->get_type();
                 if (ntype != BASIC_EXIT_NODE)
                 {
                     if (ntype == GRAPH_NODE)
                     {
-                        compute_ranges_for_variables_in_loop(node->get_data<Node*>(_ENTRY_NODE), node);
+                        Node* next_loop = loop_node;
+                        if (node->get_graph_type() == LOOP)
+                            next_loop = node;
+                        compute_ranges_for_variables_in_loop(node->get_data<Node*>(_ENTRY_NODE), next_loop);
                         ExtensibleGraph::clear_visits_in_level(node->get_data<Node*>(_ENTRY_NODE), node);
                         node->set_visited(false);
                         node->set_graph_node_use_def();
@@ -711,10 +712,6 @@ _induction_vars.equal_range(loop_node->get_id());
                         compute_ranges_for_variables_in_loop(*it, loop_node);
                     }
                 }
-                else
-                {
-                    return;
-                }
             }
         }
         
@@ -731,7 +728,7 @@ _induction_vars.equal_range(loop_node->get_id());
                     {
                         Node* entry = node->get_data<Node*>(_ENTRY_NODE);
                         if (node->get_data<Graph_type>(_GRAPH_TYPE) == LOOP)
-                        {    
+                        {   
                             compute_ranges_for_variables_in_loop(entry, node);
                         }
                         else

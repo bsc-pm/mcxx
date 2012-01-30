@@ -546,11 +546,11 @@ namespace TL
                 actual_node->set_visited(true);
                 
                 Node_type ntype = actual_node->get_type();
-                
+                ObjectList<Node*> parents = actual_node->get_parents();
                 if (ntype != BASIC_ENTRY_NODE)
                 {
                     if (ntype != BASIC_NORMAL_NODE || actual_node->is_stride_node()
-                        || actual_node->get_exit_edges().size() > 1 || actual_node->get_entry_edges().size() > 1)
+                        || actual_node->get_exit_edges().size() > 1 || parents.size() > 1)
                     {
                         concat_nodes(last_seq_nodes);                    
                         last_seq_nodes.clear();
@@ -563,18 +563,16 @@ namespace TL
                         {
                             return;
                         }
-                        
                     }
                     else if (ntype != BASIC_ENTRY_NODE)
                     {
-                        last_seq_nodes.append(actual_node);
+                        if (parents.size() == 1 && parents[0]->get_exit_edges().size() == 1)
+                            last_seq_nodes.append(actual_node);
                     }
                 }
                 
-                ObjectList<Node*> actual_exits = actual_node->get_children();
-                for(ObjectList<Node*>::iterator it = actual_exits.begin();
-                    it != actual_exits.end();
-                    ++it)
+                ObjectList<Node*> children = actual_node->get_children();
+                for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
                 {
                     concat_sequential_nodes_recursive(*it, last_seq_nodes);
                 }
@@ -785,11 +783,34 @@ namespace TL
             }
         }
         
+        void ExtensibleGraph::clear_visits_aux(Node* node)
+        {
+            if (node->is_visited_aux())
+            {
+                node->set_visited_aux(false);
+                
+                Node_type ntype = node->get_type();
+                if (ntype == BASIC_EXIT_NODE)
+                {
+                    return;
+                }
+                else if (ntype == GRAPH_NODE)
+                {
+                    clear_visits_aux(node->get_graph_entry_node());
+                }
+                
+                ObjectList<Node*> children = node->get_children();
+                for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
+                {
+                    clear_visits_aux(*it);
+                }
+            }
+        }
+        
         void ExtensibleGraph::clear_visits_backwards(Node* node)
         {
             if (node->is_visited())
             {
-//                 std::cerr << "           clear visits backwards --> " << node->get_id() << std::endl;
                 node->set_visited(false);
                 
                 Node_type ntype = node->get_type();
@@ -832,6 +853,31 @@ namespace TL
                     {
                         clear_visits_in_level(*it, outer_node);
                     }
+                }
+            }
+        }
+    
+        void ExtensibleGraph::clear_visits_avoiding_branch(Node* current, Node* avoid_node)
+        {
+            if (current->get_id() != avoid_node->get_id() && current->is_visited())
+            {
+//                 std::cerr << "           clear visits avoiding branch  --> " << current->get_id() << std::endl;
+                current->set_visited(false);
+                
+                Node_type ntype = current->get_type();
+                if (ntype == BASIC_EXIT_NODE)
+                {
+                    return;
+                }
+                else if (ntype == GRAPH_NODE)
+                {
+                    clear_visits(current->get_graph_entry_node());
+                }
+                
+                ObjectList<Node*> children = current->get_children();
+                for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
+                {
+                    clear_visits(*it);
                 }
             }
         }

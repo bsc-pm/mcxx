@@ -80,6 +80,8 @@ namespace TL
                 //! Returns the nodecl associated with the wrapped symbol.
                 Nodecl::NodeclBase get_nodecl() const;           
 
+                static Nodecl::NodeclBase get_nodecl_base(Nodecl::NodeclBase n);
+                
                 //! Returns true when the extensible symbol contains a symbols which do not represents
                 //! neither an array access nor a member access, but a symbol.
                 bool is_simple_symbol() const;

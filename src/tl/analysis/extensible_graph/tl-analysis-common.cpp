@@ -193,7 +193,7 @@ namespace TL
                     Nodecl::Conversion aux = current.as<Nodecl::Conversion>();
                     current = aux.get_nest();
                 }
-                    
+
                 if (Nodecl::Utils::equal_nodecls(nodecl, current))
                 {
                     return true;
@@ -240,6 +240,30 @@ namespace TL
             return false;
         }
         
+        void delete_englobing_var_from_list(ExtensibleSymbol ei, ext_sym_set sym_set)
+        {
+            for (ext_sym_set::iterator it = sym_set.begin(); it != sym_set.end(); ++it)
+            {
+                if (ext_sym_set_contains_englobing_nodecl(*it, sym_set))
+                {    
+                    sym_set.erase(it);
+                    return;
+                }
+            }
+        }
+
+        void delete_englobed_var_from_list(ExtensibleSymbol ei, ext_sym_set sym_set)
+        {
+            for (ext_sym_set::iterator it = sym_set.begin(); it != sym_set.end(); ++it)
+            {
+                if (ext_sym_set_contains_englobed_nodecl(*it, sym_set))
+                {    
+                    sym_set.erase(it);
+                    return;
+                }
+            }
+        }
+
         ext_sym_set sets_union(ext_sym_set set1, ext_sym_set set2)
         {
             ext_sym_set result = set1;
@@ -305,6 +329,49 @@ namespace TL
             return res;
         } 
         
+        bool usage_list_contains_englobing_nodecl(Nodecl::NodeclBase n, ObjectList<struct var_usage_t*> list)
+        {
+            for (ObjectList<struct var_usage_t*>::iterator it = list.begin(); it != list.end(); ++it)
+            {
+                Nodecl::NodeclBase nodecl = (*it)->get_nodecl();
+                
+                if ( Nodecl::Utils::equal_nodecls(nodecl, n) )
+                {
+                    return true;
+                }
+                
+                if (n.is<Nodecl::ArraySubscript>())
+                {
+                    Nodecl::ArraySubscript arr = n.as<Nodecl::ArraySubscript>();
+                    return ( usage_list_contains_englobing_nodecl(arr.get_subscripted(), list) );
+                }
+                else if (n.is<Nodecl::ClassMemberAccess>())
+                {
+                    Nodecl::ClassMemberAccess memb_access = n.as<Nodecl::ClassMemberAccess>();
+                    return ( usage_list_contains_englobing_nodecl(memb_access.get_member(), list) );
+                }
+                else if (n.is<Nodecl::Conversion>())
+                {    
+                    Nodecl::Conversion conv = n.as<Nodecl::Conversion>();
+                    return usage_list_contains_englobing_nodecl(conv.get_nest(), list);
+                }
+            }
+            return false;
+        }
+        
+        bool usage_list_contains_englobed_nodecl(Nodecl::NodeclBase n, ObjectList<struct var_usage_t*> list)
+        {
+            struct var_usage_t* fake_usage = new struct var_usage_t(n, '4');
+            ObjectList<struct var_usage_t*> fake_list(1, fake_usage);
+            for (ObjectList<struct var_usage_t*>::iterator it = list.begin(); it != list.end(); ++it)
+            {
+                std::cerr << "comparing " <<(*it)->get_nodecl().prettyprint() << " and " << n.prettyprint() << std::endl;
+                if (usage_list_contains_englobing_nodecl((*it)->get_nodecl(), fake_list))
+                    return true;
+            }
+            return false;
+        }
+        
         bool usage_list_contains_nodecl(Nodecl::NodeclBase n, ObjectList<struct var_usage_t*> list)
         {
             for (ObjectList<struct var_usage_t*>::iterator it = list.begin(); it != list.end(); ++it)
@@ -332,7 +399,6 @@ namespace TL
             }
             return false;
         }
-
   
         struct var_usage_t* get_var_in_list(Nodecl::NodeclBase n, ObjectList<struct var_usage_t*> list)
         {
@@ -362,6 +428,62 @@ namespace TL
             }
             
             internal_error("No symbol '%s' founded in usage list", n.get_name().c_str());
+        }
+
+        void delete_englobing_var_in_usage_list(Nodecl::NodeclBase n, ObjectList<struct var_usage_t*> list)
+        {
+            for (ObjectList<struct var_usage_t*>::iterator it = list.begin(); it != list.end(); ++it)
+            {
+                Nodecl::NodeclBase nodecl = (*it)->get_nodecl();
+                
+                if (Nodecl::Utils::equal_nodecls(nodecl, n))
+                {
+                    list.erase(it);
+                    break;
+                }
+                
+                if (n.is<Nodecl::ArraySubscript>())
+                {
+                    Nodecl::ArraySubscript arr = n.as<Nodecl::ArraySubscript>();
+                    if ( usage_list_contains_englobing_nodecl(arr.get_subscripted(), list) )
+                    {
+                        list.erase(it);
+                        break;
+                    }
+                }
+                else if (n.is<Nodecl::ClassMemberAccess>())
+                {
+                    Nodecl::ClassMemberAccess memb_access = n.as<Nodecl::ClassMemberAccess>();
+                    if ( usage_list_contains_englobing_nodecl(memb_access.get_member(), list) )
+                    {
+                        list.erase(it);
+                        break;                        
+                    }
+                }
+                else if (n.is<Nodecl::Conversion>())
+                {    
+                    Nodecl::Conversion conv = n.as<Nodecl::Conversion>();
+                    if (usage_list_contains_englobing_nodecl(conv.get_nest(), list))
+                    {
+                        list.erase(it);
+                        break;
+                    }
+                }
+            }
+        }
+
+        void delete_englobed_var_in_usage_list(Nodecl::NodeclBase n, ObjectList<struct var_usage_t*> list)
+        {
+            struct var_usage_t* fake_usage = new struct var_usage_t(n, '4');
+            ObjectList<struct var_usage_t*> fake_list(1, fake_usage);
+            for (ObjectList<struct var_usage_t*>::iterator it = list.begin(); it != list.end(); ++it)
+            {
+                if (usage_list_contains_englobing_nodecl((*it)->get_nodecl(), fake_list))
+                {    
+                    list.erase(it);
+                    break;
+                }
+            }
         }
 
         void print_function_call_nest(ExtensibleGraph *graph)

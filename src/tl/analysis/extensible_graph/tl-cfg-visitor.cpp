@@ -35,7 +35,8 @@ namespace TL
         CfgVisitor::CfgVisitor()
             : _cfgs(), _actual_cfg(NULL),
             _context_s(), _return_nodes(), _loop_info_s(), _actual_try_info(), 
-            _pragma_info_s(), _omp_sections_info(), _switch_cond_s(), _task_s(), _task_level(0),
+            _pragma_info_s(), _omp_sections_info(), _switch_cond_s(), 
+            _task_s(), _task_level(0), _unsync_tasks(),
             _visited_functions()
         {}
         
@@ -289,6 +290,7 @@ namespace TL
                     // Connect the partial node created recursively with the piece of Graph build until this moment
                     Nodecl::NodeclBase nodecl = n;
                     ObjectList<Node*> expr_first_nodes = get_first_nodes(last_node);
+                    ExtensibleGraph::clear_visits_aux(last_node);
                     for (ObjectList<Node*>::iterator it = expr_first_nodes.begin();
                         it != expr_first_nodes.end();
                         ++it)
@@ -511,11 +513,13 @@ namespace TL
             _actual_cfg->add_func_call_symbol(func_sym);
             
             // Create the new Function Call node and built it
-            // This node is not connected with the _last_nodes because a FunctionCall is a ExpressionStatement and it will be connected there.
             Node* func_graph_node = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), Nodecl::NodeclBase::null(), 
                                                                    n.retrieve_context(), FUNC_CALL);
+            // FIXME This node may not be connected with the _last_nodes because 
+            // a FunctionCall is sometimes an ExpressionStatement and it will be connected there.
+            _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, func_graph_node);
             _actual_cfg->_last_nodes.clear();
-            _actual_cfg->_last_nodes.append(func_graph_node->get_graph_entry_node());
+            Node* entry = func_graph_node->get_graph_entry_node();
             
             // Create the nodes for the arguments
             Node* func_node;
@@ -530,7 +534,7 @@ namespace TL
             {
                 func_node = new Node(_actual_cfg->_nid, BASIC_FUNCTION_CALL_NODE, func_graph_node, n);
             }
-            _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, func_node);
+            _actual_cfg->connect_nodes(entry, func_node);
             
             Node* graph_exit = func_graph_node->get_graph_exit_node();
             graph_exit->set_id(++_actual_cfg->_nid);
@@ -629,10 +633,18 @@ namespace TL
             if (pragma_line == "barrier")
             {
                 Node* barrier_node = _actual_cfg->create_barrier_node(_actual_cfg->_outer_node.top());
+                // Synchronize tasks in the last level
                 int n_tasks_in_level = _task_s[_task_level].size();
                 _actual_cfg->connect_nodes(_task_s[_task_level], barrier_node, 
                                            ObjectList<Edge_type>(n_tasks_in_level, ALWAYS_EDGE), ObjectList<std::string>(n_tasks_in_level, ""),
                                            /*is task*/ true);
+                _task_s[_task_level].clear();   // The tasks at this nest level has been already synchronized
+                // Synchronize previous unsynchronized tasks
+                int n_unsync_tasks = _unsync_tasks.size();
+                _actual_cfg->connect_nodes(_unsync_tasks, barrier_node,
+                                           ObjectList<Edge_type>(n_unsync_tasks, ALWAYS_EDGE), ObjectList<std::string>(n_unsync_tasks, ""),
+                                           /*is task*/ true);
+                _unsync_tasks.clear();
             }
             else if (pragma_line == "taskwait")
             {
@@ -643,6 +655,7 @@ namespace TL
                 _actual_cfg->connect_nodes(_task_s[_task_level], taskwait_node, 
                                            ObjectList<Edge_type>(n_tasks_in_level, ALWAYS_EDGE), ObjectList<std::string>(n_tasks_in_level, ""),
                                            /*is task*/ true);
+                _task_s[_task_level].clear();   // The tasks at this nest level has been already synchronized
             }
             else
             {    
@@ -663,8 +676,6 @@ namespace TL
         template <typename T>
         CfgVisitor::Ret CfgVisitor::create_task_graph(const T& n)
         {
-            ObjectList<Node*> previous_nodes;
-            
             struct pragma_t actual_pragma;
             _pragma_info_s.push(actual_pragma);
 
@@ -718,7 +729,12 @@ namespace TL
             }
             else
             {   // PragmaCustomStatement
-                previous_nodes = _actual_cfg->_last_nodes;
+                Node* flush_node = new Node(_actual_cfg->_nid, FLUSH_NODE, _actual_cfg->_outer_node.top());
+                _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, flush_node);
+                ObjectList<Node*> previous_nodes(1, flush_node);
+                _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(flush_node);
+                
+                
                 task_graph_node = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), n.get_pragma_line(), 
                                                                  n.retrieve_context(), TASK, _context_s.top());
                 if (_task_level == _task_s.size())
@@ -735,9 +751,8 @@ namespace TL
                 }
                 
                 _task_level++;
-                int n_connects = _actual_cfg->_last_nodes.size();
                 _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, task_graph_node, 
-                                        ObjectList<Edge_type>(n_connects, ALWAYS_EDGE), ObjectList<std::string>(n_connects, ""), /*is task*/ true);
+                                        ObjectList<Edge_type>(1, ALWAYS_EDGE), ObjectList<std::string>(1, ""), /*is task*/ true);
                 _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(task_graph_node->get_graph_entry_node());
                 
                 walk(n.get_pragma_line());  // This visit computes information associated to the Task node, 
@@ -750,8 +765,14 @@ namespace TL
                 graph_exit->set_id(++_actual_cfg->_nid);
                 _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, graph_exit);
                 _actual_cfg->_outer_node.pop();
-               
-                _task_s[_task_level].clear();   // The tasks at this nest level has been already synchronized
+            
+                // Tasks in nested in the actual task has already been synchronized or they are added to the list of non-synchronized tasks
+                if (_task_level < _task_s.size())
+                {
+                    _unsync_tasks.append(_task_s[_task_level]);
+                    _task_s[_task_level].clear();
+                }
+                
                 _task_level--;
                 _actual_cfg->_last_nodes = previous_nodes;
             }
@@ -872,6 +893,18 @@ namespace TL
                 if (pragma_is_worksharing_or_parallel(pragma) && !_pragma_info_s.top().has_clause("nowait"))
                 {   // We include here a Barrier node after the pragma statement
                     Node* barrier_node = _actual_cfg->create_barrier_node(pragma_graph_node);
+                    // Synchronize last nest level of tasks
+                    int n_tasks_in_level = _task_s[_task_level].size();
+                    _actual_cfg->connect_nodes(_task_s[_task_level], barrier_node, 
+                                               ObjectList<Edge_type>(n_tasks_in_level, ALWAYS_EDGE), ObjectList<std::string>(n_tasks_in_level, ""),
+                                               /*is task*/ true);
+                    _task_s[_task_level].clear();
+                    // Synchronize unsynchronized tasks
+                    int n_unsync_tasks = _unsync_tasks.size();
+                    _actual_cfg->connect_nodes(_unsync_tasks, barrier_node,
+                                               ObjectList<Edge_type>(n_unsync_tasks, ALWAYS_EDGE), ObjectList<std::string>(n_unsync_tasks, ""),
+                                               /*is task*/ true);
+                    _unsync_tasks.clear();
                 }
                 else if (pragma == "critical" || pragma == "ordered")
                 {   // This constructs add a Flush at the end of the construct
@@ -950,7 +983,10 @@ namespace TL
                 int n_connects = _actual_cfg->_last_nodes.size();
                 _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, _loop_info_s.top().init,
                             ObjectList<Edge_type>(n_connects, ALWAYS_EDGE), ObjectList<std::string>(n_connects, ""));
-                _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(_loop_info_s.top().init);
+                Node* last_in_init = _loop_info_s.top().init;
+                while (!last_in_init->get_children().empty())
+                    last_in_init = last_in_init->get_children()[0];
+                _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(last_in_init);
             }
             
             // Create the natural loop graph node
@@ -1037,6 +1073,11 @@ namespace TL
             }
             else
             {
+                // In more than one node returned, connect them consecutively
+                for (ObjectList<Node*>::iterator it = init_node_l.begin()+1; it != init_node_l.end(); ++it)
+                {
+                    _actual_cfg->connect_nodes(*(it-1), *it);
+                }
                 actual_loop_info.init = init_node_l[0];
             }
             
@@ -1117,10 +1158,10 @@ namespace TL
             // Build the exit node
             exit_node->set_id(++_actual_cfg->_nid);
             exit_node->set_outer_node(_actual_cfg->_outer_node.top());
-            int n_connects = _actual_cfg->_last_nodes.size();
             
-            _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, cond_node, 
-                                       ObjectList<Edge_type>(n_connects, aux_etype), ObjectList<std::string>(n_connects, ""));
+            if (_actual_cfg->_last_nodes.size() > 1)
+                internal_error("More than 1 last nodes inside a While Statement. It cannot happen", 0);
+            _actual_cfg->connect_nodes(_actual_cfg->_last_nodes[0], cond_node, aux_etype, "", /* back edge */ true);
             
             _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(exit_node);
            
@@ -1172,7 +1213,7 @@ namespace TL
             _actual_cfg->connect_nodes(stmts.back(), condition_node);
             if (!stmts.empty())
             {    
-                _actual_cfg->connect_nodes(condition_node, stmts[0], TRUE_EDGE);
+                _actual_cfg->connect_nodes(condition_node, stmts[0], TRUE_EDGE, "", /*is back edge*/ true);
             }
             
             // Connect the False condition side to a provisional node
@@ -1951,32 +1992,37 @@ namespace TL
         
         ObjectList<Node*> CfgVisitor::get_first_nodes(Node* actual_node)
         {
-//             std::cerr << "Get first nodes of node: " << actual_node->get_id() << std::endl;
-            ObjectList<Edge*> actual_entries = actual_node->get_entry_edges();
             ObjectList<Node*> actual_parents;
             
-            if (actual_entries.empty())
+            if (!actual_node->is_visited_aux())
             {
-                if (actual_node->get_type() == BASIC_ENTRY_NODE)
-                {   // 'actual_node' parent path is already connected with the graph Entry Node
-                    return ObjectList<Node*>();
+                actual_node->set_visited_aux(true);
+                
+                ObjectList<Edge*> actual_entries = actual_node->get_entry_edges();
+            
+                if (actual_entries.empty())
+                {
+                    if (actual_node->get_type() == BASIC_ENTRY_NODE)
+                    {   // 'actual_node' parent path is already connected with the graph Entry Node
+                        return ObjectList<Node*>();
+                    }
+                    else
+                    {
+                        return ObjectList<Node*>(1, actual_node);
+                    }
                 }
                 else
                 {
-                    return ObjectList<Node*>(1, actual_node);
+                    for (ObjectList<Edge*>::iterator it = actual_entries.begin();
+                        it != actual_entries.end();
+                        ++it)
+                    {
+                        ObjectList<Node*> parents = get_first_nodes((*it)->get_source());
+                        actual_parents.insert(parents);
+                    }
                 }
             }
-            else
-            {
-                for (ObjectList<Edge*>::iterator it = actual_entries.begin();
-                    it != actual_entries.end();
-                    ++it)
-                {
-                    ObjectList<Node*> parents = get_first_nodes((*it)->get_source());
-                    actual_parents.insert(parents);
-                }
-            }
-            
+                       
             return actual_parents;
         }
 

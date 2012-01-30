@@ -53,6 +53,7 @@ namespace Nodecl
         Ret visit(const Nodecl::GreaterThan& n);
         Ret visit(const Nodecl::GreaterOrEqualThan& n);
         Ret visit(const Nodecl::ConditionalExpression& n);
+        Ret visit(const Nodecl::Assignment& n);
         
     public:
         // *** Constructors *** //

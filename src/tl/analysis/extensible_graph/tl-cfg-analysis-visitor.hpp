@@ -235,21 +235,23 @@ namespace TL
             friend class CfgVisitor;
         };       
         
-        class LIBTL_CLASS SymbolVisitor : public Nodecl::ExhaustiveVisitor<void>
+        class LIBTL_CLASS ExtensibleSymbolVisitor : public Nodecl::ExhaustiveVisitor<void>
         {
             // FIXME Incomplete: think about pointers, references and function calls
             //       We store a list of symbols because it is used to compute the usage and at that moment
             //       only valid nodecl symbols can be stored in the usage list
             //       We should change that!
         private:
-            ObjectList<Nodecl::Symbol> _symbols;
+            ObjectList<Nodecl::NodeclBase> _symbols;
             
         public:
-            SymbolVisitor();
+            ExtensibleSymbolVisitor();
             
             Ret visit(const Nodecl::Symbol& n);
+            Ret visit(const Nodecl::Reference& n);
+            Ret visit(const Nodecl::Derreference& n);
             
-            ObjectList<Nodecl::Symbol> get_symbols();
+            ObjectList<Nodecl::NodeclBase> get_extensible_symbols();
         };
     }
 }

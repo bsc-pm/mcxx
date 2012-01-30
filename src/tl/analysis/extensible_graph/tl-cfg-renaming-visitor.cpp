@@ -111,18 +111,19 @@ namespace TL
             if (a_const_val != NULL && b_const_val != NULL)
             {
                 const_value_t* const_val = (a_const_val < b_const_val) ? a_const_val : b_const_val;
-                if (a.is<Nodecl::IntegerLiteral>())
+                if (const_value_is_integer(a_const_val))
                 {
                     result = Nodecl::IntegerLiteral::make(a.get_type(), const_val, a.get_filename(), a.get_line());
                 }
-                else if (a.is<Nodecl::FloatingLiteral>())
+                else if (const_value_is_floating(a_const_val))
                 {
                     result = Nodecl::FloatingLiteral::make(a.get_type(), const_val, a.get_filename(), a.get_line());
                 }
                 else
                 {
-                    internal_error("Unexpected node type '%s' while computing initial value in a constant expression", 
-                                ast_print_node_type(a.get_kind()));
+                    Nodecl::NodeclBase base(const_value_to_nodecl(a_const_val));
+                    internal_error("Unexpected constant value '%s' while computing initial value in a constant expression", 
+                                   base.prettyprint().c_str());
                 }
             }
             else if (a.is<Nodecl::Symbol>() && b.is<Nodecl::Add>())
@@ -547,6 +548,7 @@ namespace TL
         
         CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::Symbol& n)
         {
+            Nodecl::Symbol s = n.as<Nodecl::Symbol>();
             if (_rename_map.find(n.get_symbol()) != _rename_map.end())
             {
                 Nodecl::NodeclBase mapped_value = _rename_map[n.get_symbol()];
@@ -558,11 +560,10 @@ namespace TL
         }
 
         CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::ArraySubscript& n)
-        {
-            Nodecl::NodeclBase array = n;
+        {            
             Nodecl::NodeclBase subscripted = n.get_subscripted();
             Nodecl::NodeclBase subscripts = n.get_subscripts();
-            
+           
             ObjectList<Nodecl::NodeclBase> renamed_subscripted = walk(subscripted);
             ObjectList<Nodecl::NodeclBase> renamed_subscripts, aux_subscripts;
             if (subscripts.is<Nodecl::List>())
@@ -570,6 +571,7 @@ namespace TL
                 Nodecl::List subscripts_l = subscripts.as<Nodecl::List>();
                 for(Nodecl::List::iterator it = subscripts_l.begin(); it != subscripts_l.end(); ++it)
                 {
+                    Nodecl::NodeclBase s = *it;
                     ObjectList<Nodecl::NodeclBase> aux = walk(*it);
                     if (aux.empty())
                     {

@@ -600,4 +600,10 @@ namespace Nodecl
             }
         }
     }
+    
+    Calculator::Ret Calculator::visit(const Nodecl::Assignment& n)
+    {
+        TL::ObjectList<const_value_t*> rhs = walk(n.get_rhs());
+        return rhs;
+    }
 }

@@ -106,7 +106,7 @@ namespace TL
                 {
                     std::stringstream ssgid; ssgid << subgraph_id;
                     std::stringstream ssnode; ssnode << actual_node->get_id();
-                    std::string subgraph_label = ""/*ssnode.str()*/;
+                    std::string subgraph_label = /*ssnode.str() +*/ " ";
                     Nodecl::NodeclBase actual_label(actual_node->get_graph_label());
                     if (!actual_label.is_null())
                     {
@@ -141,7 +141,7 @@ namespace TL
                     dot_graph += indent + "subgraph cluster" + ssgid.str() + "{\n";
                     
                     makeup_dot_block(subgraph_label);
-                    dot_graph += indent + "\tlabel=\"" + /*ssnode.str() +*/ subgraph_label + "\";\n";
+                    dot_graph += indent + "\tlabel=\"" + subgraph_label + "\";\n";
                     subgraph_id++;
                     
                     std::vector<std::string> new_outer_edges;
@@ -279,17 +279,33 @@ namespace TL
             
             std::string basic_attrs = "margin=\"0.1,0.1, height=0.1, width=0.1\"";
             
+            std::string live_in = prettyprint_ext_sym_set(actual_node->get_live_in_vars());
+            std::string live_out = prettyprint_ext_sym_set(actual_node->get_live_out_vars());
+            std::string ue = prettyprint_ext_sym_set(actual_node->get_ue_vars());
+            std::string undef = prettyprint_ext_sym_set(actual_node->get_undefined_behaviour_vars());
+            std::string killed = prettyprint_ext_sym_set(actual_node->get_killed_vars());
+            std::string reach_defs = prettyprint_reaching_definitions(actual_node->get_reaching_definitions());
+            std::string live_info;
+            if (_use_def_computed != '0')
+                live_info = " | LI: "           + live_in + 
+                            " | KILL: "         + killed +
+                            " | UE: "           + ue +
+                            " | UNDEF: "        + undef +
+                            " | LO: "           + live_out +
+                            " | REACH DEFS: "   + reach_defs;
+            
             switch(actual_node->get_type())
             {
                 case BASIC_ENTRY_NODE:
-//                     dot_graph += indent + ss.str() + "[label=\"" + ss.str() + " ENTRY \\n" 
+                    dot_graph += indent + ss.str() + "[label=\"" /*+ ss.str()*/ + " ENTRY \\n" 
 //                             + "REACH DEFS: " + prettyprint_reaching_definitions(actual_node->get_reaching_definitions())
-//                             + "\", shape=box, fillcolor=lightgray, style=filled];\n";
-                    dot_graph += indent + ss.str() + "[label=\" ENTRY\", shape=box, fillcolor=lightgray, style=filled, " + basic_attrs + "];\n";
+                            + "\", shape=box, fillcolor=lightgray, style=filled];\n";
+//                     dot_graph += indent + ss.str() + "[label=\" ENTRY\", shape=box, fillcolor=lightgray, style=filled, " + basic_attrs + "];\n";
+
                     break;
                 case BASIC_EXIT_NODE:
-//                     dot_graph += indent + ss.str() + "[label=\"" + ss.str() + " EXIT\", shape=box, fillcolor=lightgray, style=filled];\n";
-                    dot_graph += indent + ss.str() + "[label=\"EXIT\", shape=box, fillcolor=lightgray, style=filled, " + basic_attrs + "];\n";
+                    dot_graph += indent + ss.str() + "[label=\"" /*+ ss.str()*/ + " EXIT\", shape=box, fillcolor=lightgray, style=filled];\n";
+//                     dot_graph += indent + ss.str() + "[label=\"EXIT\", shape=box, fillcolor=lightgray, style=filled, " + basic_attrs + "];\n";
                     break;
                 case UNCLASSIFIED_NODE:
 //                     dot_graph += indent + ss.str() + "[label=\"" + ss.str() + " UNCLASSIFIED_NODE\"]\n";
@@ -331,24 +347,8 @@ namespace TL
                         basic_block += aux_str + "\\n";
                     }
                     basic_block = basic_block.substr(0, basic_block.size()-2);   // Remove the last back space
-                    
-                    std::string live_in = prettyprint_ext_sym_set(actual_node->get_live_in_vars());
-                    std::string live_out = prettyprint_ext_sym_set(actual_node->get_live_out_vars());
-                    std::string ue = prettyprint_ext_sym_set(actual_node->get_ue_vars());
-                    std::string undef = prettyprint_ext_sym_set(actual_node->get_undefined_behaviour_vars());
-                    std::string killed = prettyprint_ext_sym_set(actual_node->get_killed_vars());
-                    std::string reach_defs = prettyprint_reaching_definitions(actual_node->get_reaching_definitions());
-                    std::string live_info;
-                    if (_use_def_computed != '0')
-                        live_info = " | LI: "           + live_in + 
-                                    " | KILL: "         + killed +
-                                    " | UE: "           + ue +
-                                    " | UNDEF: "        + undef +
-                                    " | LO: "           + live_out +
-                                    " | REACH DEFS: "   + reach_defs;
-                        
-                        
-                    dot_graph += indent + ss.str() + "[label=\"{" + /*ss.str() + */basic_block + live_info + "}\", shape=record, " 
+
+                    dot_graph += indent + ss.str() + "[label=\"{" /*+ ss.str()*/ + basic_block + live_info + "}\", shape=record, " 
                                + basic_attrs + "];\n";
         
                     break;

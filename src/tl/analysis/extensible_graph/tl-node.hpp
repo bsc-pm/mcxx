@@ -51,6 +51,7 @@ namespace TL
                 ObjectList<Edge*> _entry_edges;
                 ObjectList<Edge*> _exit_edges;
                 bool _visited;
+                bool _visited_aux;
             
                 bool _has_deps_computed;    // This boolean only makes sense for Task nodes
                                             // It is true when the auto-dependencies for the node has been computed
@@ -170,9 +171,11 @@ namespace TL
                 * set_visited method.
                 */
                 bool is_visited() const;
+                bool is_visited_aux() const;
                 
                 //! Sets the node as visited.
                 void set_visited(bool visited);
+                void set_visited_aux(bool visited);
                 
                 //! Returns true when the node is a task node and its dependencies have already been calculated
                 bool has_deps_computed();
@@ -347,14 +350,6 @@ namespace TL
                 
                 void set_graph_node_use_def();
                 
-                //! Applies liveness analysis in a composite node.
-                /*!
-                The method extends the liveness information precomputed in the inner nodes of a
-                composite node to the outer node.
-                The method fails when it is tried to apply it in a basic node.
-                */
-                void set_graph_node_liveness();
-                
                 //! This method computes the reaching definitions of a graph node from the reaching definitions in the nodes within it
                 void set_graph_node_reaching_definitions();
             
@@ -367,8 +362,8 @@ namespace TL
                 
                 //! Sets the list of live in variables.
                 /*!
-                If there was any other data in the list, it is removed.
-                */
+                 * If there was any other data in the list, it is removed.
+                 */
                 void set_live_in(ext_sym_set new_live_in_set);
                 
                 //! Returns the set of variables that are alive at the exit of the node.
@@ -446,14 +441,20 @@ namespace TL
                 ext_sym_set get_shared_vars();
                 
                 void set_shared_var(ExtensibleSymbol ei);
+                
+                void set_shared_var(ext_sym_set new_shared_vars);
 
                 ext_sym_set get_private_vars();
                 
                 void set_private_var(ExtensibleSymbol ei);
                 
+                void set_private_var(ext_sym_set new_private_vars);
+                
                 ext_sym_set get_firstprivate_vars();
                 
                 void set_firstprivate_var(ExtensibleSymbol ei);
+                
+                void set_firstprivate_var(ext_sym_set new_firstprivate_vars);
                 
                 ext_sym_set get_undef_sc_vars();
                 

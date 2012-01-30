@@ -34,13 +34,13 @@ namespace TL
     namespace Analysis
     {
         Node::Node()
-            : _id(-1), _entry_edges(), _exit_edges(), _visited(false), _has_deps_computed(false)
+            : _id(-1), _entry_edges(), _exit_edges(), _visited(false), _visited_aux(false), _has_deps_computed(false)
         {
             set_data(_NODE_TYPE, UNCLASSIFIED_NODE);
         }
         
         Node::Node(int& id, Node_type ntype, Node* outer_node)
-            : _id(++id), _entry_edges(), _exit_edges(), _visited(false), _has_deps_computed(false)
+            : _id(++id), _entry_edges(), _exit_edges(), _visited(false), _visited_aux(false), _has_deps_computed(false)
         {
             set_data(_NODE_TYPE, ntype);
             
@@ -57,7 +57,7 @@ namespace TL
         }
         
         Node::Node(int& id, Node_type type, Node* outer_node, ObjectList<Nodecl::NodeclBase> nodecls)
-            : _id(++id), _entry_edges(), _exit_edges(), _visited(false), _has_deps_computed(false)
+            : _id(++id), _entry_edges(), _exit_edges(), _visited(false), _visited_aux(false), _has_deps_computed(false)
         {        
             set_data(_NODE_TYPE, type);
             
@@ -70,7 +70,7 @@ namespace TL
         }
         
         Node::Node(int& id, Node_type type, Node* outer_node, Nodecl::NodeclBase nodecl)
-            : _id(++id), _entry_edges(), _exit_edges(), _visited(false), _has_deps_computed(false)
+            : _id(++id), _entry_edges(), _exit_edges(), _visited(false), _visited_aux(false), _has_deps_computed(false)
         {      
             set_data(_NODE_TYPE, type);
             
@@ -146,10 +146,20 @@ namespace TL
         {
             return _visited;
         }
-        
+
+        bool Node::is_visited_aux() const
+        {
+            return _visited_aux;
+        }
+
         void Node::set_visited(bool visited)
         {
             _visited = visited;
+        }
+
+        void Node::set_visited_aux(bool visited)
+        {
+            _visited_aux = visited;
         }
         
         bool Node::has_deps_computed()
@@ -185,7 +195,7 @@ namespace TL
                     it != _entry_edges.end();
                     ++it)
             {
-                result.append((*it)->get_data<Edge_type>(_EDGE_TYPE));
+                    result.append((*it)->get_type());
             }
             
             return result;
@@ -237,7 +247,7 @@ namespace TL
                     it != _exit_edges.end();
                     ++it)
             {
-                result.append((*it)->get_data<Edge_type>(_EDGE_TYPE));
+                result.append((*it)->get_type());
             }
             
             return result;
@@ -1026,17 +1036,17 @@ namespace TL
             if (!ext_sym_set_contains_englobing_nodecl(var, list))
             {
                 // Create a new list with the elements of 'list' that are not englobed by 'var'
-                ext_sym_set aux_list; aux_list.append(ExtensibleSymbol(var));
+                ext_sym_set aux_list(1, ExtensibleSymbol(var));
                 for(ext_sym_set::iterator it = list.begin(); it != list.end(); ++it)
                 {
                     if (!ext_sym_set_contains_englobing_nodecl(it->get_nodecl(), aux_list))
                     {
-                        new_list.append(*it);
+                        new_list.insert(*it);
                     }
                 }
                 
                 // Insert the new variable
-                new_list.append(var);
+                new_list.insert(var);
             }
             else
             {   // No need to insert the variable, its englobing symbol is already there
@@ -1047,41 +1057,61 @@ namespace TL
         }
     
         /*!
-         * Inserts the elements in 'l' to the list 'in_l' when they are not in the list 'avoid_l_1' nor in 'avoid_l_2'
+         * Inserts the elements in 'l' to the list 'in_l' when they are not in the list 'killed' nor in 'undef'
          * When avoiding lists, it take cares of elements englobing the current variable and of elements englobed by the current variable
          */
-        static ext_sym_set compute_use_def_with_children(ext_sym_set l, ext_sym_set in_l, ext_sym_set avoid_l_1, ext_sym_set avoid_l_2)
+        static ext_sym_set compute_use_def_with_children(ext_sym_set l, ext_sym_set in_l, ext_sym_set& killed, ext_sym_set& undef, char compute_undef)
         {
             ext_sym_set new_l = in_l;
             for (ext_sym_set::iterator it = l.begin(); it != l.end(); ++it)
             {
                 Nodecl::NodeclBase var = it->get_nodecl();
-                if (!ext_sym_set_contains_englobing_nodecl(var, avoid_l_1))
+                if (!ext_sym_set_contains_englobing_nodecl(var, killed))
                 {   // No englobing variable in the avoiding list 1
                     // Look for variables in avoiding list 1 englobed by 'var'
-                    ext_sym_set aux_set; aux_set.insert(var);
-                    for (ext_sym_set::iterator ita = avoid_l_2.begin(); ita != avoid_l_2.end(); ++ita)
+                    ext_sym_set aux_set(1, var);
+                    ext_sym_set::iterator itk = killed.begin();
+                    for (; itk != killed.end(); ++itk)
                     {
-                        if (ext_sym_set_contains_englobing_nodecl(ita->get_nodecl(), aux_set))
-                        {   // Delete from 'var' the englobed part of (*ita) and put the result in 'var'
+                        if (ext_sym_set_contains_englobing_nodecl(itk->get_nodecl(), aux_set))
+                        {   // Delete from 'var' the englobed part of (*itk) and put the result in 'var'
                             // TODO
-                            std::cerr << "warning: Part of nodecl founded in the current var that must be avoided " << std::endl; 
+                            std::cerr << "warning: Part of nodecl " << itk->get_nodecl().prettyprint() << " founded in the current var "
+                                      << var.prettyprint() << " must be avoided. A subpart is killed." << std::endl;
+//                             var = nodecl_subtract(var, ita->get_nodecl());
+                            killed.erase(itk);
+                            if (compute_undef == '1')
+                                new_l = insert_var_in_list(var, new_l);
+                            else
+                                undef.insert(var);
+                            break;
                         }
                     }
-                    
-                    if (!ext_sym_set_contains_englobing_nodecl(var, avoid_l_2))
+                        
+                    if (!ext_sym_set_contains_englobing_nodecl(var, undef))
                     {   // No englobing variable in the avoiding list 2
                         // Look for variables in avoiding list 2 englobed by 'var'
                         ext_sym_set aux_set; aux_set.insert(*it);
-                        for (ext_sym_set::iterator ita = avoid_l_2.begin(); ita != avoid_l_2.end(); ++ita)
+                        ext_sym_set::iterator itu = undef.begin();
+                        for (; itu != undef.end(); ++itu)
                         {
-                            if (ext_sym_set_contains_englobing_nodecl(ita->get_nodecl(), aux_set))
-                            {   // Delete from var the englobed part of (*ita) and put the result in 'var'
+                            if (ext_sym_set_contains_englobing_nodecl(itu->get_nodecl(), aux_set))
+                            {   // Delete from var the englobed part of (*itu) and put the result in 'var'
                                 // TODO
-                                std::cerr << "warning: Part of nodecl founded in the current var that must be avoided " << std::endl;
+                            std::cerr << "warning: Part of nodecl " << itu->get_nodecl().prettyprint() << " founded in the current var "
+                                      << var.prettyprint() << " must be avoided. A subpart is undefined." << std::endl;
+                                undef.erase(itu);
+                                if (compute_undef == '1')
+                                    new_l = insert_var_in_list(var, new_l);
+                                else
+                                    undef.insert(var);
+                                break;
                             }
                         }
-                        new_l = insert_var_in_list(var, new_l);
+                        if (itk == killed.end() && itu == undef.end())
+                        {
+                            new_l = insert_var_in_list(var, new_l);
+                        }
                     }
                 }
             }
@@ -1095,7 +1125,7 @@ namespace TL
             if (!_visited)          
             {
                 _visited = true;
-               
+              
                 // Use-Def in current node
                 ext_sym_set ue_vars = get_ue_vars();
                 ext_sym_set killed_vars = get_killed_vars();
@@ -1115,11 +1145,11 @@ namespace TL
                     }
                 }
                 
-                // Append to current node info from children
-                ue_vars = compute_use_def_with_children(ue_children, ue_vars, killed_vars, undef_children);
-                killed_vars = compute_use_def_with_children(killed_children, killed_vars, killed_vars, undef_children);
+                // Append to current node info from children+
                 ext_sym_set null_list;
-                undef_vars = compute_use_def_with_children(undef_children, undef_vars, killed_vars, null_list);
+                undef_vars = compute_use_def_with_children(undef_children, undef_vars, killed_vars, undef_vars, /*compute_undef*/'1');
+                ue_vars = compute_use_def_with_children(ue_children, ue_vars, killed_vars, undef_vars, /*compute_undef*/'0');
+                killed_vars = compute_use_def_with_children(killed_children, killed_vars, killed_vars, undef_vars, /*compute_undef*/'0');
                 
                 use_def.append(ue_vars); use_def.append(killed_vars); use_def.append(undef_vars);
             }
@@ -1147,127 +1177,6 @@ namespace TL
             else
             {
                 internal_error("Getting inner use-def information from node '%d' with type '%s' while "
-                                "here it is mandatory a Graph node.\n",
-                            _id, get_type_as_string().c_str());
-            }
-        }
-
-        ext_sym_set Node::get_live_in_over_nodes()
-        {
-            ext_sym_set live_in_vars;
-            
-            // Advance over non-statements nodes while the path is unique
-            Node* actual = advance_over_non_statement_nodes();
-            
-            // Get the live_in variables
-            if (actual->has_key(_NODE_STMTS))
-            {
-                live_in_vars = actual->get_live_in_vars();
-            }
-            else
-            {   // Node has more than one child
-                ObjectList<Node*> actual_children = actual->get_children();
-                ext_sym_set live_in_aux;
-                Node_type ntype;
-                
-                for(ObjectList<Node*>::iterator it = actual_children.begin();
-                    it != actual_children.end();
-                    ++it)
-                {
-                    // Advance over non-statements nodes while the path is unique
-                    ntype = (*it)->get_data<Node_type>(_NODE_TYPE);
-                    if (ntype == GRAPH_NODE)
-                    {
-                        actual = (*it)->get_data<Node*>(_ENTRY_NODE);
-                    }
-                    else
-                    {    
-                        actual = (*it);
-                    }
-                    actual = actual->advance_over_non_statement_nodes();
-                
-                    live_in_vars.insert(actual->get_live_in_vars());
-                }
-            }
-            
-            return live_in_vars;
-        }
-        
-        ext_sym_set Node::get_live_out_over_nodes()
-        {
-            ext_sym_set live_out_vars;
-
-            // Back over non-statements nodes while the path is unique
-            Node* actual = back_over_non_statement_nodes();
-            
-            // Get the live_out variables
-            if (actual->has_key(_NODE_STMTS))
-            {
-                live_out_vars = actual->get_live_out_vars();
-            }
-            else
-            {   // Node has more than one parent
-                ObjectList<Node*> actual_parents = actual->get_parents();
-            
-                for(ObjectList<Node*>::iterator it = actual_parents.begin();
-                    it != actual_parents.end();
-                    ++it)
-                {
-                    Node_type ntype = (*it)->get_data<Node_type>(_NODE_TYPE);
-                    if (ntype == GRAPH_NODE)
-                    {
-                        actual = (*it)->get_data<Node*>(_EXIT_NODE);
-                    }
-                    else
-                    {    
-                        actual = (*it);
-                    }
-                    actual = actual->back_over_non_statement_nodes();
-                
-                    live_out_vars.insert(actual->get_live_out_vars());
-                }
-            }
-            
-            return live_out_vars;
-        }
-        
-        void Node::set_graph_node_liveness()
-        {
-            if (get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
-            {
-                // Get live in variables from entry node children
-                Node* entry_node = get_data<Node*>(_ENTRY_NODE);
-                ext_sym_set inner_live_in = entry_node->get_live_in_over_nodes();
-                ext_sym_set outer_live_in;
-                if (get_scope().is_valid())
-                {   // Delete those variables who are local to the graph
-                    for(ext_sym_set::iterator it = inner_live_in.begin(); it != inner_live_in.end(); ++it)
-                        if (!it->get_symbol().get_scope().scope_is_enclosed_by(get_scope()) 
-                            && it->get_symbol().get_scope() != get_scope())
-                            outer_live_in.append(*it);
-                }
-                else
-                    outer_live_in = inner_live_in;
-                set_data(_LIVE_IN, outer_live_in);
-                
-                // Get live out variables from exit node parents
-                Node* exit_node = get_data<Node*>(_EXIT_NODE);
-                ext_sym_set inner_live_out = exit_node->get_live_out_over_nodes();
-                ext_sym_set outer_live_out;
-                if (get_scope().is_valid())
-                {   // Delete those variables who are local to the graph
-                    for(ext_sym_set::iterator it = inner_live_out.begin(); it != inner_live_out.end(); ++it)
-                        if (!it->get_symbol().get_scope().scope_is_enclosed_by(get_scope())
-                            && it->get_symbol().get_scope() != get_scope() )
-                            outer_live_out.append(*it);
-                }
-                else
-                    outer_live_out = inner_live_out;
-                set_data(_LIVE_OUT, outer_live_out);
-            }
-            else
-            {
-                internal_error("Getting inner liveness analysis from node '%d' with type '%s' while "
                                 "here it is mandatory a Graph node.\n",
                             _id, get_type_as_string().c_str());
             }
@@ -1362,35 +1271,41 @@ namespace TL
         void Node::set_ue_var(ExtensibleSymbol new_ue_var)
         {
             ext_sym_set ue_vars;
-            
-            if (new_ue_var.get_nodecl().is<Nodecl::Div>() || new_ue_var.get_nodecl().is<Nodecl::Minus>())
-                std::cerr << "No hauriem d'estar introdutint " << new_ue_var.get_nodecl().prettyprint() << std::endl;
-            
+
             if (this->has_key(_UPPER_EXPOSED))
             {   
                 ue_vars = get_data<ext_sym_set>(_UPPER_EXPOSED);
             }
-            ue_vars.insert(new_ue_var);
-            
-            set_data(_UPPER_EXPOSED, ue_vars);
+            if (!ext_sym_set_contains_englobing_nodecl(new_ue_var, ue_vars))
+            {
+                ue_vars.insert(new_ue_var);
+                set_data(_UPPER_EXPOSED, ue_vars);
+            }
         }
         
         void Node::set_ue_var(ext_sym_set new_ue_vars)
         {
             ext_sym_set ue_vars;
-       
-            for (ext_sym_set::iterator it = new_ue_vars.begin(); it != new_ue_vars.end(); ++it)
-                if (it->get_nodecl().is<Nodecl::Div>() || it->get_nodecl().is<Nodecl::Minus>())
-                {   
-                    std::cerr << "No hauriem d'estar introdutint " << it->get_nodecl().prettyprint() << " (llista)!" << std::endl;
-                }
+
             if (this->has_key(_UPPER_EXPOSED))
             {   
                 ue_vars = get_data<ext_sym_set>(_UPPER_EXPOSED);
             }
-            ue_vars.insert(new_ue_vars);
             
-            set_data(_UPPER_EXPOSED, ue_vars);
+            ext_sym_set purged_ue_vars;
+            ext_sym_set::iterator it = new_ue_vars.begin();
+            for (; it != new_ue_vars.end(); ++it)
+            {
+                if (!ext_sym_set_contains_englobing_nodecl(*it, ue_vars))
+                {
+                    purged_ue_vars.insert(*it);
+                }
+            }
+            if (it == new_ue_vars.end())
+            {
+                ue_vars.insert(purged_ue_vars);
+                set_data(_UPPER_EXPOSED, ue_vars);
+            }
         }
         
         void Node::unset_ue_var(ExtensibleSymbol old_ue_var)
@@ -1421,14 +1336,17 @@ namespace TL
         void Node::set_killed_var(ExtensibleSymbol new_killed_var)
         {           
             ext_sym_set killed_vars;
-            
+
             if (has_key(_KILLED))
             {
                 killed_vars = get_data<ext_sym_set>(_KILLED);
             }
-            killed_vars.insert(new_killed_var);
             
-            set_data(_KILLED, killed_vars);
+            if (!ext_sym_set_contains_englobing_nodecl(new_killed_var, killed_vars))
+            {
+                killed_vars.insert(new_killed_var);
+                set_data(_KILLED, killed_vars);
+            }
         }
         
         void Node::set_killed_var(ext_sym_set new_killed_vars)
@@ -1439,9 +1357,21 @@ namespace TL
             {
                 killed_vars = get_data<ext_sym_set>(_KILLED);
             }
-            killed_vars.insert(new_killed_vars);
             
-            set_data(_KILLED, killed_vars);
+            ext_sym_set purged_killed_vars;
+            ext_sym_set::iterator it = new_killed_vars.begin();
+            for (; it != new_killed_vars.end(); ++it)
+            {
+                if (!ext_sym_set_contains_englobing_nodecl(*it, killed_vars))
+                {
+                    purged_killed_vars.insert(*it);
+                }
+            }
+            if (it == new_killed_vars.end())
+            {
+                killed_vars.insert(purged_killed_vars);
+                set_data(_KILLED, killed_vars);
+            }
         }
         
         void Node::unset_killed_var(ExtensibleSymbol old_killed_var)
@@ -1477,9 +1407,12 @@ namespace TL
             {
                 undef_vars = get_data<ext_sym_set>(_UNDEF);
             }
-            undef_vars.insert(new_undef_var);
             
-            set_data(_UNDEF, undef_vars);
+            if (!ext_sym_set_contains_englobing_nodecl(new_undef_var, undef_vars))
+            {
+                undef_vars.insert(new_undef_var);
+                set_data(_UNDEF, undef_vars);
+            }
         }
 
         void Node::unset_undefined_behaviour_var(ExtensibleSymbol old_undef_var)
@@ -1503,9 +1436,22 @@ namespace TL
             {
                 undef_vars = get_data<ext_sym_set>(_UNDEF);
             }
-            undef_vars.insert(new_undef_vars);
             
-            set_data(_UNDEF, undef_vars);            
+            
+            ext_sym_set purged_undef_vars;
+            ext_sym_set::iterator it = new_undef_vars.begin();
+            for (; it != new_undef_vars.end(); ++it)
+            {
+                if (!ext_sym_set_contains_englobing_nodecl(*it, undef_vars))
+                {
+                    purged_undef_vars.insert(*it);
+                }
+            }
+            if (it == new_undef_vars.end())
+            {
+                undef_vars.insert(purged_undef_vars);
+                set_data(_UNDEF, undef_vars);
+            }         
         }
 
         ext_sym_set Node::get_input_deps()
@@ -1633,6 +1579,19 @@ namespace TL
             set_data(_SHARED, shared_vars);
         }
 
+        void Node::set_shared_var(ext_sym_set new_shared_vars)
+        {
+            ext_sym_set shared_vars;
+  
+            if (has_key(_SHARED))
+            {
+                shared_vars = get_data<ext_sym_set>(_SHARED);
+            }
+            
+            shared_vars.insert(new_shared_vars);
+            set_data(_SHARED, shared_vars);
+        }
+
         ext_sym_set Node::get_private_vars()
         {
             ext_sym_set private_vars;
@@ -1657,7 +1616,20 @@ namespace TL
             private_vars.insert(ei);
             set_data(_PRIVATE, private_vars);
         }
-        
+
+        void Node::set_private_var(ext_sym_set new_private_vars)
+        {
+            ext_sym_set private_vars;
+              
+            if (has_key(_PRIVATE))
+            {
+                private_vars = get_data<ext_sym_set>(_PRIVATE);
+            }
+              
+            private_vars.insert(new_private_vars);
+            set_data(_PRIVATE, private_vars);
+        }
+
         ext_sym_set Node::get_firstprivate_vars()
         {
             ext_sym_set firstprivate_vars;
@@ -1680,6 +1652,19 @@ namespace TL
             }
               
             firstprivate_vars.insert(ei);
+            set_data(_FIRSTPRIVATE, firstprivate_vars);
+        }
+        
+        void Node::set_firstprivate_var(ext_sym_set new_firstprivate_vars)
+        {
+            ext_sym_set firstprivate_vars;
+              
+            if (has_key(_FIRSTPRIVATE))
+            {
+                firstprivate_vars = get_data<ext_sym_set>(_FIRSTPRIVATE);
+            }
+              
+            firstprivate_vars.insert(new_firstprivate_vars);
             set_data(_FIRSTPRIVATE, firstprivate_vars);
         }
         

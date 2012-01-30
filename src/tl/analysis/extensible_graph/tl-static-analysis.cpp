@@ -37,7 +37,7 @@ namespace TL
     namespace Analysis
     {
         static void compute_params_usage_in_unknown_func_call(Nodecl::NodeclBase n, ext_sym_set undef_behaviour_vars, ext_sym_set ue_vars);
-        static ObjectList<Node*> uses_from_node_to_node(Node* current, Node* end, ExtensibleSymbol ei);
+        static ObjectList<Node*> uses_from_node_to_node(Node* current, Node* end, ExtensibleSymbol ei, Node* task);
         
         // *** NODE *** //
         
@@ -73,7 +73,12 @@ namespace TL
         
         void StaticAnalysis::live_variable_analysis(Node* node)
         {
+            // Common Liveness analysis
             solve_live_equations(node);
+            ExtensibleGraph::clear_visits(node);
+            
+            // Iterated tasks treatment
+            solve_specific_live_in_tasks(node);
             ExtensibleGraph::clear_visits(node);
         }
         
@@ -85,6 +90,45 @@ namespace TL
                 changed = false;
                 solve_live_equations_recursive(node, changed);
                 ExtensibleGraph::clear_visits(node);
+            }
+        }
+
+        void StaticAnalysis::solve_specific_live_in_tasks(Node* node)
+        {
+            if (!node->is_visited())
+            {
+                node->set_visited(true);
+                if (node->get_type() == GRAPH_NODE)
+                {
+                    if (node->get_graph_type() == TASK)
+                    {
+                        if (task_is_in_loop(node))
+                        {
+                            ext_sym_set task_li = node->get_live_in_vars();
+                            ext_sym_set task_lo = node->get_live_out_vars();
+                            for (ext_sym_set::iterator it = task_li.begin(); it != task_li.end(); ++it)
+                            {
+                                if (ext_sym_set_contains_englobed_nodecl(*it, task_lo))
+                                {
+                                    delete_englobed_var_from_list(*it, task_lo);
+                                    node->set_live_out(*it);
+                                }
+                                else if (!ext_sym_set_contains_englobing_nodecl(*it, task_lo))
+                                {
+                                    node->set_live_out(*it);
+                                }
+                            }
+                        }
+                    }
+                    
+                    solve_specific_live_in_tasks(node->get_graph_entry_node());
+                }
+                
+                ObjectList<Node*> children = node->get_children();
+                for (ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
+                {
+                    solve_specific_live_in_tasks(*it);
+                }
             }
         }
 
@@ -112,7 +156,7 @@ namespace TL
 
         void StaticAnalysis::solve_live_equations_recursive(Node* actual, bool& changed)
         {
-            while (!actual->is_visited())
+            if (!actual->is_visited())
             {
                 actual->set_visited(true);
                 
@@ -123,64 +167,59 @@ namespace TL
                     
                     if (ntype == GRAPH_NODE)
                     {
-                        if (!actual->has_key(_NODE_LABEL))
-                        {
-                            internal_error("Graph node '%d' with no specified label."
-                                        "Expecting a Pragma, Function_call, Conditional Espression "
-                                        "or Splitted instruction as a Graph node here",
-                                        actual->get_id());
-                        }
-                        Node* entry_node = actual->get_graph_entry_node();
-                        solve_live_equations_recursive(entry_node, changed);
-                        
-                        // spread the liveness inside the node to the Graph node
-                        actual->set_graph_node_liveness();
+                        solve_live_equations_recursive(actual->get_graph_entry_node(), changed);
                     }
-                    else
+
+                    if (ntype != BASIC_ENTRY_NODE)
                     {
+                        ext_sym_set old_live_in = actual->get_live_in_vars();
+                        ext_sym_set old_live_out = actual->get_live_out_vars();
+                        ext_sym_set live_out, live_in, aux_live_in, aux;
                         
-                        if (ntype != BASIC_ENTRY_NODE)
+                        // Computing Live out
+                        for(ObjectList<Node*>::iterator it = children.begin();it != children.end();++it)
                         {
-                            ext_sym_set old_live_in = actual->get_live_in_vars();
-                            ext_sym_set old_live_out = actual->get_live_out_vars();
-                            ext_sym_set live_out, live_in, aux_live_in, aux;
-                            
-                            // Computing Live out
-                            for(ObjectList<Node*>::iterator it = children.begin();it != children.end();++it)
+                            Node_type nt = (*it)->get_type();
+                            if (nt == BASIC_EXIT_NODE)
                             {
-                                Node_type nt = (*it)->get_type();
-                                if (nt == BASIC_EXIT_NODE)
+                                ObjectList<Node*> outer_children = (*it)->get_outer_node()->get_children();
+                                for(ObjectList<Node*>::iterator itoc = outer_children.begin(); itoc != outer_children.end(); ++itoc)
                                 {
-                                    ObjectList<Node*> outer_children = (*it)->get_outer_node()->get_children();
-                                    for(ObjectList<Node*>::iterator itoc = outer_children.begin();
-                                        itoc != outer_children.end();
-                                        ++itoc)
+                                    ext_sym_set outer_live_in = (*itoc)->get_live_in_vars();
+                                    for (ext_sym_set::iterator itli = outer_live_in.begin(); itli != outer_live_in.end(); ++itli)
                                     {
-                                        ext_sym_set outer_live_in = (*itoc)->get_live_in_vars();
-                                        for (ext_sym_set::iterator itli = outer_live_in.begin(); itli != outer_live_in.end(); ++itli)
-                                        {
-                                            aux_live_in.insert(*itli);
-                                        }
+                                        aux_live_in.insert(*itli);
                                     }
                                 }
-                                else
-                                {
-                                    aux_live_in = (*it)->get_live_in_vars();
-                                }
-                                live_out.insert(aux_live_in);
                             }
-                           
-                            // Computing Live In
-                            aux = sets_difference(live_out, actual->get_killed_vars());
-                            live_in = sets_union(actual->get_ue_vars(), aux);
-                       
-                            if (!sets_equals(old_live_in, live_in) || 
-                                !sets_equals(old_live_out, live_out))
+                            else
                             {
-                                actual->set_live_in(live_in);
-                                actual->set_live_out(live_out);
-                                changed = true;
+                                aux_live_in = (*it)->get_live_in_vars();
                             }
+                            live_out.insert(aux_live_in);
+                        }
+                        
+                        // Computing Live In
+                        aux = sets_difference(live_out, actual->get_killed_vars());
+                        live_in = sets_union(actual->get_ue_vars(), aux);
+                        if (ntype == GRAPH_NODE)
+                        {
+                            Scope sc(actual->get_scope());
+                            if (sc.is_valid())
+                            {   // Delete those variables who are local to the graph
+                                ext_sym_set inner_live_in = live_in;
+                                live_in.clear();
+                                for(ext_sym_set::iterator it = inner_live_in.begin(); it != inner_live_in.end(); ++it)
+                                    if ( !it->get_symbol().get_scope().scope_is_enclosed_by(sc) && it->get_symbol().get_scope() != sc )
+                                        live_in.append(*it);
+                            }
+                        }
+                        
+                        if (!sets_equals(old_live_in, live_in) || !sets_equals(old_live_out, live_out))
+                        {
+                            actual->set_live_in(live_in);
+                            actual->set_live_out(live_out);
+                            changed = true;
                         }
                     }
                     
@@ -188,10 +227,79 @@ namespace TL
                     {
                         solve_live_equations_recursive(*it, changed);
                     }
-                    continue;
                 }
-                return;
             }
+        }
+        
+        static void purge_set_of_auto_scoped_array(ExtensibleSymbol ei, ext_sym_set list)
+        {
+            if (ext_sym_set_contains_englobed_nodecl(ei, list))
+            {
+                ext_sym_set fake_list(1, ei);
+                for(ext_sym_set::iterator it2 = list.begin(); it2 != list.end(); ++it2)
+                {
+                    if (ext_sym_set_contains_englobing_nodecl(*it2, fake_list))
+                    {
+                        list.erase(it2);
+                        it2--;
+                    }
+                }
+            }
+        }
+        
+        /*!
+         * 4. For each use ai; i2[0::N] (where N is the number of uses) of an array variable a appearing within the task t.
+         *      (a) We apply the methodology used for the scalars.
+         *      (b) Since OpenMP does not allow different scopes for the subparts of a variable, then we have to mix all the results 
+         *          we have get in the previous step. In order to do that we will follow the rules bellow:
+         *          i. If the whole array a or all the parts ai have the same scope sc, then a is scoped as sc.
+         *          ii. If there are different regions of the array with different scopes, then:
+         *              A. If some ai has been scoped as UNDEFINED then a is scoped as UNDEFINED.
+         *              B. If at least one ai is FIRSTPRIVATE and all aj; j2[0::N] where j! = i are PRIVATE, then a is scoped as FIRSTPRIVATE.
+         *              C. If at least one ai is SHARED and all aj; j2[0::N] where j! = i are PRIVATE or FIRSTPRIVATE, then, 
+         *                  fulfilling the sequential consistency rules, a is scoped as SHARED.
+         */
+        void StaticAnalysis::mix_array_computations(Node* task_node)
+        {
+            ext_sym_set new_private, new_firstprivate, new_shared, new_undef;
+            
+            for(ext_sym_set::iterator it = _undefined_vars.begin(); it != _undefined_vars.end(); ++it)
+            {
+                // Add the whole array to the new set
+                new_undef.insert(ExtensibleSymbol(ExtensibleSymbol::get_nodecl_base(it->get_nodecl())));
+                if (it->is_array())
+                {
+                    // Delete it from the other groups
+                    purge_set_of_auto_scoped_array(*it, _firstprivate_vars);
+                    purge_set_of_auto_scoped_array(*it, _private_vars);
+                    purge_set_of_auto_scoped_array(*it, _shared_vars);
+                }
+            }
+            task_node->set_undef_sc_var(new_undef); _undefined_vars.clear();
+            
+            for(ext_sym_set::iterator it = _shared_vars.begin(); it != _shared_vars.end(); ++it)
+            {
+                // Add the whole array to the new set
+                new_shared.insert(ExtensibleSymbol(ExtensibleSymbol::get_nodecl_base(it->get_nodecl())));
+                // Delete it from the other groups
+                if (it->is_array())
+                {    
+                    purge_set_of_auto_scoped_array(*it, _firstprivate_vars);
+                    purge_set_of_auto_scoped_array(*it, _private_vars);
+                }
+            }
+            task_node->set_shared_var(new_shared); _shared_vars.clear();
+            
+            for(ext_sym_set::iterator it = _firstprivate_vars.begin(); it != _firstprivate_vars.end(); ++it)
+            {
+                // Add the whole array to the new set
+                new_firstprivate.insert(ExtensibleSymbol(ExtensibleSymbol::get_nodecl_base(it->get_nodecl())));
+                // Delete it from the other groups
+                
+                purge_set_of_auto_scoped_array(*it, _private_vars);
+            }
+            task_node->set_firstprivate_var(new_firstprivate); _firstprivate_vars.clear();
+            task_node->set_private_var(_private_vars); _private_vars.clear();
         }
         
         // FIXME For the moment we assume the user has used the 'auto-deps' clause
@@ -204,6 +312,7 @@ namespace TL
         {            
             // Scope variables as Private, Firstprivate, Shared or UndefinedScope
             char computed = compute_auto_scoping(task_node);
+            mix_array_computations(task_node);
             
             if (computed == '1')
             {
@@ -286,10 +395,8 @@ namespace TL
                     {
                         tasks.append(current);
                     }
-                    else
-                    {
-                        tasks.append(get_graph_tasks(current->get_graph_entry_node()));
-                    }
+                    
+                    tasks.append(get_graph_tasks(current->get_graph_entry_node()));
                 }
                     
                 ObjectList<Node*> children = current->get_children();
@@ -305,7 +412,7 @@ namespace TL
         {
             ObjectList<Node*> tasks = get_graph_tasks(graph_node);
             ExtensibleGraph::clear_visits(graph_node);
-            
+           
             for(ObjectList<Node*>::iterator it = tasks.begin(); it != tasks.end(); ++it)
             {
                 analyse_tasks_rec(*it);
@@ -341,6 +448,12 @@ namespace TL
         *          or between init and end because the variable appears as a parameter in a function call that we do not
         *          have access to, then v is scoped as UNDEFINED.
         *      (b) If v is not used between init and end, then:
+        *              i. If v is only read within the task, then v is scoped as FIRSTPRIVATE.
+        *             ii. If v is write within the task, then:
+        *                   A. If v is live after end, then v is scoped as SHARED.
+        *                   B. If v is dead after end, then:
+        *                       − If the first action performed in v is a write, then v is scoped as PRIVATE.
+        *                       − If the first action performed in v is a read, then v is scoped as FIRSTPRIVATE.
         *              i. If v is live after end, then v is scoped as SHARED.
         *              ii. If v is dead after end, then:
         *                  A. If the first action performed in v is a write, then v is scoped as PRIVATE.
@@ -396,20 +509,56 @@ namespace TL
             else
             {
                 // All variables with an undefined behaviour cannot be scoped
-                task->set_undef_sc_var(task->get_undefined_behaviour_vars());
+                ext_sym_set undef_beh = task->get_undefined_behaviour_vars();
+                for (ext_sym_set::iterator it = undef_beh.begin(); it != undef_beh.end(); ++it)
+                {
+                    Scope sc(task->get_scope());
+                    if ( !it->get_symbol().get_scope().scope_is_enclosed_by(sc) && it->get_symbol().get_scope() != sc )
+                        _undefined_vars.insert(*it);
+                }
                 
                 // Compute the regions of code that can be simultaneous with the current tasks
                 _next_sync = end_point[0];
-                compute_simultaneous_tasks(task);
-                ExtensibleGraph::clear_visits_backwards(task);
-                
+                ObjectList<Node*> task_parents = task->get_parents();
+                for (ObjectList<Node*>::iterator it = task_parents.begin(); it != task_parents.end(); ++it)
+                    compute_simultaneous_tasks(*it);
+                for (ObjectList<Node*>::iterator it = task_parents.begin(); it != task_parents.end(); ++it)
+                    ExtensibleGraph::clear_visits_backwards(*it);
+                // If the current task is created in a loop, the it is simultaneous with itself
+                bool is_in_loop = task_is_in_loop(task);
+                    
                 // Scope non-undefined behaviour variables
                 ext_sym_set scoped_vars;
-                compute_auto_scoping_rec(task, task->get_graph_entry_node(), scoped_vars);
+                compute_auto_scoping_rec(task, task->get_graph_entry_node(), is_in_loop, scoped_vars);
                 ExtensibleGraph::clear_visits(task->get_graph_entry_node());
             }
             
+//             task->set_private_var(_private_vars);
+//             task->set_firstprivate_var(_firstprivate_vars);
+//             task->set_shared_var(_shared_vars);
+//             task->set_undef_sc_var(_undefined_vars);
+            
             return '1';
+        }
+        
+        bool StaticAnalysis::task_is_in_loop(Node* current)
+        {
+            bool res = false;
+            
+            ObjectList<Edge*> entries = current->get_entry_edges();
+            for(ObjectList<Edge*>::iterator it = entries.begin(); it != entries.end(); ++it)
+            {
+                if ((*it)->is_back_edge())
+                    return true;
+            }
+            
+            ObjectList<Node*> parents = current->get_parents();
+            for(ObjectList<Node*>::iterator it = parents.begin(); it != parents.end(); ++it)
+            {
+                res = res || task_is_in_loop(*it);
+            }
+            
+            return res;
         }
     
         Node* StaticAnalysis::compute_simultaneous_tasks(Node* current)
@@ -429,7 +578,7 @@ namespace TL
                 }
                 else if (ntype == TASKWAIT_NODE)
                 {   // Here we have to look for nested tasks in tasks which are above this node
-                    
+                    // TODO
                 }
                 else
                 {
@@ -456,7 +605,7 @@ namespace TL
                     {
                         // Since a barrier directive may not be used in place of the statement following an if, while, do, switch, or label, then
                         // If one of the parents reach a barrier, the rest will reach the same barrier
-                        last_sync = compute_simultaneous_tasks(current);
+                        last_sync = compute_simultaneous_tasks(*it);
                     }
                     return last_sync;
                 }
@@ -465,7 +614,7 @@ namespace TL
             return NULL;
         }
     
-        void StaticAnalysis::compute_auto_scoping_rec(Node* task, Node* current, ext_sym_set& scoped_vars)
+        void StaticAnalysis::compute_auto_scoping_rec(Node* task, Node* current, bool is_in_loop, ext_sym_set& scoped_vars)
         {
             if (!current->is_visited())
             {
@@ -474,78 +623,246 @@ namespace TL
                 Node_type ntype = current->get_type();
                 if (ntype == GRAPH_NODE)
                 {
-                    compute_auto_scoping_rec(task, current->get_graph_entry_node(), scoped_vars);
+                    compute_auto_scoping_rec(task, current->get_graph_entry_node(), is_in_loop, scoped_vars);
                 }
                 else if (current->has_key(_NODE_STMTS))
                 {
                     ext_sym_set undef = task->get_undefined_behaviour_vars();
+                    Scope sc(task->get_scope());
                     
                     ext_sym_set ue = current->get_ue_vars();
                     for (ext_sym_set::iterator it = ue.begin(); it != ue.end(); ++it)
-                        if (!ext_sym_set_contains_englobing_nodecl(*it, undef))
-                            scope_variable(task, *it, scoped_vars);
+                    {  
+                        if (!it->get_symbol().get_scope().scope_is_enclosed_by(sc)/* && it->get_symbol().get_scope() != sc*/
+                            && !ext_sym_set_contains_englobing_nodecl(*it, undef))
+                            scope_variable(task, current, '1', *it, is_in_loop, scoped_vars);
+                    }
                     
                     ext_sym_set killed = current->get_killed_vars();
                     for (ext_sym_set::iterator it = killed.begin(); it != killed.end(); ++it)
-                        if (!ext_sym_set_contains_englobing_nodecl(*it, undef))
-                            scope_variable(task, *it, scoped_vars);
+                    {  
+                        if (!it->get_symbol().get_scope().scope_is_enclosed_by(sc)/* && it->get_symbol().get_scope() != sc*/
+                            && !ext_sym_set_contains_englobing_nodecl(*it, undef))
+                            scope_variable(task, current, '0', *it, is_in_loop, scoped_vars);
+                    }    
                 }
                 
                 ObjectList<Node*> children = current->get_children();
                 for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
                 {
-                    compute_auto_scoping_rec(task, *it, scoped_vars);
+                    compute_auto_scoping_rec(task, *it, is_in_loop, scoped_vars);
                 }
             }
         }
 
-        void StaticAnalysis::scope_variable(Node* task, ExtensibleSymbol ei, ext_sym_set& scoped_vars)
+        void StaticAnalysis::scope_variable(Node* task, Node* ei_node, char usage, ExtensibleSymbol ei, bool is_in_loop, ext_sym_set& scoped_vars)
         {
-            if (!ext_sym_set_contains_englobing_nodecl(ei, scoped_vars) 
-                && !ei.get_symbol().get_scope().scope_is_enclosed_by(task->get_scope()))
+            if (!ext_sym_set_contains_englobing_nodecl(ei, scoped_vars))
             {   // The expression is not a symbol local from the task
                 scoped_vars.insert(ei);
-                
                 ObjectList<Node*> uses_out = var_uses_out_task(task, ei);
-                ObjectList<Node*> uses_in = var_uses_in_task(task, ei);
-                
+//                 ObjectList<Node*> uses_in = var_uses_in_task(task, ei);
+//                 ExtensibleGraph::clear_visits_aux(task);
+               
                 if (uses_out.empty())
                 {
-                    ext_sym_set task_live_out = task->get_live_out_vars();
-                    if ( ext_sym_set_contains_englobing_nodecl(ei, task_live_out)
-                        || ext_sym_set_contains_englobed_nodecl(ei, task_live_out) )
+                    bool scoped = false;
+                    if (is_in_loop)
                     {
-                        _shared_vars.append(ei);
+                        scoped = scope_ie_in_iterated_task(task, ei_node, ei_node, usage, ei);
+                        ExtensibleGraph::clear_visits_aux(ei_node);
                     }
-                    else
-                    {
-                        ext_sym_set task_live_in = task->get_live_in_vars();
-                        if ( ext_sym_set_contains_englobing_nodecl(ei, task_live_in)
-                            || ext_sym_set_contains_englobed_nodecl(ei, task_live_out) )
+                    
+                    if (!scoped)
+                    {   // No need to privatize the variable because of a race condition with the same task
+                        ext_sym_set task_killed = task->get_killed_vars();
+                        if ( !ext_sym_set_contains_englobing_nodecl(ei, task_killed)
+                            && !ext_sym_set_contains_englobed_nodecl(ei, task_killed) )
                         {
                             _firstprivate_vars.append(ei);
                         }
                         else
                         {
-                            _private_vars.append(ei);
+                            ext_sym_set task_live_out = task->get_live_out_vars();
+                            if ( ext_sym_set_contains_englobing_nodecl(ei, task_live_out)
+                                || ext_sym_set_contains_englobed_nodecl(ei, task_live_out) 
+                                || (is_in_loop && task_reads_and_writes(task, ei)) )
+                            {
+                                _shared_vars.append(ei);
+                            }
+                            else
+                            {
+                                ext_sym_set task_live_in = task->get_live_in_vars();
+                                if ( ext_sym_set_contains_englobing_nodecl(ei, task_live_in)
+                                    || ext_sym_set_contains_englobed_nodecl(ei, task_live_out) )
+                                {
+                                    _firstprivate_vars.append(ei);
+                                }
+                                else
+                                {
+                                    _private_vars.append(ei);
+                                }
+                            }
                         }
                     }
                 }
                 else
                 {
-                    
+                    if (task_and_simultaneous_only_read(task, ei))
+                    {
+                        _firstprivate_vars.append(ei);
+                    }
+                    else
+                    {   // look for data race  conditions:
+                        //   A. If it can occur a data race condition, then v has to be privatized. Sic:
+                        //      − If the first action performed in v within the task is a write, then v is scoped as PRIVATE.
+                        //      − If the first action performed in v within the task is a read, then v is scoped as FIRSTPRIVATE.
+                        //   B. If we can assure that no data race can occur, then v is scoped as SHARED.
+                        std::cerr << "Variable within task is written, we should look for data race conditions here!!" << std::endl;
+                    }
                 }
             }
+        }
+
+        bool StaticAnalysis::task_and_simultaneous_only_read(Node* task, ExtensibleSymbol ei)
+        {
+            ext_sym_set task_killed = task->get_killed_vars();
+            if (ext_sym_set_contains_englobing_nodecl(ei, task_killed) || ext_sym_set_contains_englobed_nodecl(ei, task_killed))
+            {   // Variable is defined within the task
+                return false;
+            }
+            else
+            {
+                // Look simultaneous tasks
+                for (ObjectList<Node*>::iterator it = _simultaneous_tasks.begin(); it != _simultaneous_tasks.end(); ++it)
+                {
+                    task_killed = (*it)->get_killed_vars();
+                    if (ext_sym_set_contains_englobing_nodecl(ei, task_killed) || ext_sym_set_contains_englobed_nodecl(ei, task_killed))
+                    {   // Variable is defined within the task
+                        return false;
+                    }
+                }
+                
+                // look simultaneous code in encountering thread
+                
+                
+            }
+            return true;
+        }
+
+        static bool is_blocked(Node* current)
+        {
+            if (current != NULL)
+            {    
+                if (current->get_graph_type() == OMP_PRAGMA)
+                {
+                    std::string label = current->get_graph_label().get_text();
+                    if (label == "atomic" || label == "critical")
+                        return true;
+                }
+                return is_blocked(current->get_outer_node());
+            }
+
+            return false;
+        }
+
+        bool StaticAnalysis::task_reads_and_writes(Node* task, ExtensibleSymbol ei)
+        {
+            bool read = false, write = false;
+            
+            Node* entry = task->get_graph_entry_node();
+            task_reads_and_writes_rec(task, entry, ei, read, write);
+            ExtensibleGraph::clear_visits_aux(entry);
+            
+            return read && write;
+        }
+
+        void StaticAnalysis::task_reads_and_writes_rec(Node* task, Node* current, ExtensibleSymbol ei, bool& read, bool& write)
+        {
+            if (!current->is_visited_aux())
+            {
+                current->set_visited_aux(true);
+                
+                if (current->get_id() != task->get_graph_exit_node()->get_id())
+                {
+                    if (ext_sym_set_contains_englobing_nodecl(ei, current->get_ue_vars()))
+                        read = true;
+                    if (ext_sym_set_contains_englobing_nodecl(ei, current->get_killed_vars()))
+                        write = true;
+                }
+                if (!read || !write)
+                {
+                    ObjectList<Node*> children = current->get_children();
+                    for (ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
+                    {
+                        task_reads_and_writes_rec(task, *it, ei, read, write);
+                    }
+                }
+            }
+        }
+
+        bool StaticAnalysis::scope_ie_in_iterated_task(Node* task, Node* current, Node* ei_node, char usage, ExtensibleSymbol ei)
+        {
+            if (!current->is_visited_aux())
+            {
+                current->set_visited_aux(true);
+                
+                if (current->get_id() != task->get_graph_exit_node()->get_id())
+                {
+                    Node_type ntype = current->get_type();
+                    if (ntype == GRAPH_NODE)
+                    {
+                        scope_ie_in_iterated_task(task, current->get_graph_entry_node(), ei_node, usage, ei);
+                    }
+                    else if (current->has_key(_NODE_STMTS))
+                    {
+                        ext_sym_set undef = task->get_undefined_behaviour_vars();
+                        
+                        if (usage == '0')
+                        {
+                            ext_sym_set ue = current->get_ue_vars();
+                            ext_sym_set killed = current->get_killed_vars();
+                            if (ext_sym_set_contains_englobing_nodecl(ei, ue) || ext_sym_set_contains_englobing_nodecl(ei, killed))
+                            {
+                                if (!is_blocked(ei_node->get_outer_node()) && !is_blocked(current->get_outer_node()))
+                                {   // We privatize the variable to avoid a race condition
+                                    _private_vars.append(ei);
+                                    return true;
+                                }
+                            } 
+                        }
+                        else
+                        {   // usage == '1'
+                            ext_sym_set killed = current->get_killed_vars();
+                            for (ext_sym_set::iterator it = killed.begin(); it != killed.end(); ++it)
+                                if (!is_blocked(ei_node->get_outer_node()) && !is_blocked(current->get_outer_node()))
+                                {   // We privatize the variable to avoid a race condition
+                                    _firstprivate_vars.append(ei);
+                                    return true;
+                                }
+                        }
+                    }
+                   
+                    ObjectList<Node*> children = current->get_children();
+                    for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
+                    {
+                        scope_ie_in_iterated_task(task, *it, ei_node, usage, ei);
+                    }
+                }
+            }
+           
+            return false;
         }
 
         ObjectList<Node*> StaticAnalysis::var_uses_out_task(Node* task, ExtensibleSymbol ei)
         {
             ObjectList<Node*> uses;
-            
+           
             // Get the uses in the simultaneous tasks
             for (ObjectList<Node*>::iterator it = _simultaneous_tasks.begin(); it != _simultaneous_tasks.end(); ++it)
             {
                 uses.append(var_uses_in_task(*it, ei));
+                ExtensibleGraph::clear_visits_aux(*it);
             }
             
             // Get the uses in the encountering thread from the task scheduling point till the task synchronization point
@@ -554,20 +871,24 @@ namespace TL
             // keeping them separated we do not analyse the same part of the graph two times
             for (ObjectList<Node*>::iterator it = parents.begin(); it != parents.end(); ++it)
             {    
-                uses.append(uses_from_node_to_node(*it, _next_sync, ei));
+                ObjectList<Node*> it_children = (*it)->get_children();
+                for (ObjectList<Node*>::iterator itc = it_children.begin(); itc != it_children.end(); ++itc)
+                {
+                    uses.append(uses_from_node_to_node(*itc, _next_sync, ei, task));
+                }
             }
             for (ObjectList<Node*>::iterator it = parents.begin(); it != parents.end(); ++it)
             {    
-                ExtensibleGraph::clear_visits(*it);
+                ExtensibleGraph::clear_visits_avoiding_branch(*it, task);
             }            
             
             return uses;
         }
         
-        static ObjectList<Node*> uses_from_node_to_node(Node* current, Node* end, ExtensibleSymbol ei)
+        static ObjectList<Node*> uses_from_node_to_node(Node* current, Node* end, ExtensibleSymbol ei, Node* task)
         {
             ObjectList<Node*> uses;
-            if (!current->is_visited())
+            if ( (current->get_id()) != task->get_id() && (!current->is_visited()) )
             {
                 current->set_visited(true);
                 if (current->get_id() != end->get_id())
@@ -578,7 +899,7 @@ namespace TL
                     
                     if ( ( ext_sym_set_contains_englobing_nodecl(ei, ue_vars) || ext_sym_set_contains_englobed_nodecl(ei, ue_vars) 
                         || ext_sym_set_contains_englobing_nodecl(ei, killed_vars) || ext_sym_set_contains_englobed_nodecl(ei, killed_vars) )
-                        && ( !ext_sym_set_contains_englobing_nodecl(ei, undef_vars) && ext_sym_set_contains_englobed_nodecl(ei, undef_vars) ) )
+                        && ( !ext_sym_set_contains_englobing_nodecl(ei, undef_vars) && !ext_sym_set_contains_englobed_nodecl(ei, undef_vars) ) )
                     {
                         uses.append(current);
                     }
@@ -586,19 +907,39 @@ namespace TL
                     ObjectList<Node*> children = current->get_children();
                     for (ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
                     {
-                        uses.append(uses_from_node_to_node(*it, end, ei));
+                        uses.append(uses_from_node_to_node(*it, end, ei, task));
                     }
                 }
             }
-            
+
             return uses;
         }
         
-        ObjectList<Node*> StaticAnalysis::var_uses_in_task(Node* task, ExtensibleSymbol ei)
+        ObjectList<Node*> StaticAnalysis::var_uses_in_task(Node* current, ExtensibleSymbol ei)
         {
             ObjectList<Node*> uses;
             
-            // TODO
+            if (!current->is_visited_aux())
+            {
+                current->set_visited_aux(true);
+                
+                ext_sym_set ue_vars = current->get_ue_vars();
+                ext_sym_set killed_vars = current->get_killed_vars();
+                ext_sym_set undef_vars = current->get_undefined_behaviour_vars();
+                
+                if ( ( ext_sym_set_contains_englobing_nodecl(ei, ue_vars) || ext_sym_set_contains_englobed_nodecl(ei, ue_vars) 
+                    || ext_sym_set_contains_englobing_nodecl(ei, killed_vars) || ext_sym_set_contains_englobed_nodecl(ei, killed_vars) )
+                    && ( !ext_sym_set_contains_englobing_nodecl(ei, undef_vars) && !ext_sym_set_contains_englobed_nodecl(ei, undef_vars) ) )
+                {
+                    uses.append(current);
+                }
+                
+                ObjectList<Node*> children = current->get_children();
+                for (ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
+                {
+                    uses.append(var_uses_in_task(*it, ei));
+                }
+            }
             
             return uses;            
         }
@@ -932,11 +1273,13 @@ namespace TL
                 {
                     // Create a map between the parameters of the called function and the current arguments of the call
                     std::map<Symbol, Nodecl::NodeclBase> ref_params_to_args = map_reference_params_to_args(func_call, called_func_graph);
-                        
+                    
                     Symbol function_sym = called_func_graph->get_function_symbol();
                     if (func_has_cyclic_calls(function_sym, called_func_graph))
                     {   // Recursive analysis
-                        ext_sym_set ue_vars, killed_vars, undef_vars;
+                        ext_sym_set ue_vars = node->get_ue_vars();
+                        ext_sym_set killed_vars = node->get_killed_vars();
+                        ext_sym_set undef_vars = node->get_undefined_behaviour_vars();
                         
                         // Analyse reference parameters and global variables
                         ObjectList<var_usage_t*> glob_vars = called_func_graph->get_global_variables();
@@ -951,6 +1294,7 @@ namespace TL
                             ObjectList<struct var_usage_t*> ipa_usage = ipa_visitor.get_usage();
                             for (ObjectList<struct var_usage_t*>::iterator it = ipa_usage.begin(); it != ipa_usage.end(); ++it)
                             {
+                                std::cerr << "IPA  ::  " << (*it)->get_nodecl().prettyprint() << std::endl;
                                 char usage = (*it)->get_usage();
                                 Nodecl::NodeclBase s = (*it)->get_nodecl();
                                 if (usage == '0')
@@ -968,11 +1312,69 @@ namespace TL
                                 }
                                 else if (usage == '3')
                                 {
+                                    std::cerr << "********* UNDEF VAR 1:" << s.prettyprint() << std::endl;
                                     undef_vars.insert(ExtensibleSymbol(s));
                                 }
                                 else
                                 {
                                     internal_error("Undefined usage %s for symbol %s\n", usage, s.prettyprint().c_str())
+                                }
+                            }
+                          
+                            for (std::map<Symbol, Nodecl::NodeclBase>::iterator it = ref_params_to_args.begin(); it != ref_params_to_args.end(); ++it)
+                            {
+                                Nodecl::NodeclBase s = it->second;
+                                
+                                if (!s.is<Nodecl::FunctionCall>() && !s.is<Nodecl::VirtualFunctionCall>())
+                                {
+                                    ObjectList<Nodecl::NodeclBase> arg_ei;
+                                    if (s.is<Nodecl::Symbol>() || s.is<Nodecl::Cast>() || s.is<Nodecl::ClassMemberAccess>()
+                                        || s.is<Nodecl::Reference>() || s.is<Nodecl::Derreference>() 
+                                        || s.is<Nodecl::ArraySubscript>()) 
+                                    {
+                                        arg_ei.append(s);
+                                    }
+                                    else
+                                    {
+                                        ExtensibleSymbolVisitor sv;
+                                        sv.walk(s);
+                                        ObjectList<Nodecl::NodeclBase> arg = sv.get_extensible_symbols();
+                                        for (ObjectList<Nodecl::NodeclBase>::iterator its = arg.begin(); its != arg.end(); ++its)
+                                        {
+                                            arg_ei.insert(*its);
+                                        }
+                                    }
+                                    
+                                    for (ObjectList<Nodecl::NodeclBase>::iterator its = arg_ei.begin(); its != arg_ei.end(); ++its)
+                                    {
+                                        std::cerr << "ARG  ::  " << its->prettyprint() << std::endl;
+                                        if( !usage_list_contains_englobing_nodecl(*its, ipa_usage) 
+                                            && !usage_list_contains_englobed_nodecl(*its, ipa_usage) )
+                                        {   // All arguments that are not already in the list, have to be set as UE
+                                            ue_vars.insert(ExtensibleSymbol(*its));
+                                        }
+                                        else
+                                        {   // If some list contains a part of the argument, then the argument have an undefined 
+                                            if (ext_sym_set_contains_englobing_nodecl(*its, killed_vars) 
+                                                && ext_sym_set_contains_nodecl(*its, killed_vars))
+                                            {
+                                                delete_englobing_var_from_list(*its, killed_vars);
+                                                undef_vars.insert(ExtensibleSymbol(*its));
+                                            }
+                                            else if (ext_sym_set_contains_englobed_nodecl(*its, killed_vars) 
+                                                && ext_sym_set_contains_nodecl(*its, killed_vars))
+                                            {
+                                                delete_englobed_var_from_list(*its, killed_vars);
+                                                undef_vars.insert(ExtensibleSymbol(*its));                                        
+                                            }
+                                            else if (ext_sym_set_contains_englobing_nodecl(*its, undef_vars) 
+                                                && ext_sym_set_contains_nodecl(*its, undef_vars))
+                                            {
+                                                delete_englobing_var_from_list(*its, undef_vars);
+                                                undef_vars.insert(ExtensibleSymbol(*its));
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -981,11 +1383,25 @@ namespace TL
                         ObjectList<Nodecl::NodeclBase> non_ref_args = get_non_reference_args(func_call, called_func_graph);
                         for (ObjectList<Nodecl::NodeclBase>::iterator it = non_ref_args.begin(); it != non_ref_args.end(); ++it)
                         {
-                            SymbolVisitor sv;
-                            sv.walk(*it);
-                            ObjectList<Nodecl::Symbol> arg_syms = sv.get_symbols();
-                            for (ObjectList<Nodecl::Symbol>::iterator its = arg_syms.begin(); its != arg_syms.end(); ++its)
-                                ue_vars.insert(ExtensibleSymbol(*its));
+                            std::cerr << "NON_REF  ::  " << it->prettyprint() << std::endl;
+                            if (it->is<Nodecl::Symbol>() || it->is<Nodecl::Cast>() || it->is<Nodecl::ClassMemberAccess>()
+                                || it->is<Nodecl::Reference>() || it->is<Nodecl::Derreference>() 
+                                || it->is<Nodecl::ArraySubscript>()) 
+                            {
+                                ue_vars.insert(ExtensibleSymbol(*it));
+                            }
+                            else if (it->is<Nodecl::FunctionCall>() || it->is<Nodecl::VirtualFunctionCall>())
+                            {
+                                // FIXME Arguments are also used!
+                            }
+                            else
+                            {
+                                ExtensibleSymbolVisitor sv;
+                                sv.walk(*it);
+                                ObjectList<Nodecl::NodeclBase> arg_syms = sv.get_extensible_symbols();
+                                for (ObjectList<Nodecl::NodeclBase>::iterator its = arg_syms.begin(); its != arg_syms.end(); ++its)
+                                    ue_vars.insert(ExtensibleSymbol(*its));
+                            }
                         }
                         
                         node->set_ue_var(ue_vars);
@@ -1047,10 +1463,10 @@ namespace TL
                                     {}  // Nothing to do, we don't need to propagate the usage of a temporal value
                                     else
                                     {
-                                        SymbolVisitor sv;
+                                        ExtensibleSymbolVisitor sv;
                                         sv.walk(ue_arg);
-                                        ObjectList<Nodecl::Symbol> nodecl_symbols = sv.get_symbols();
-                                        for (ObjectList<Nodecl::Symbol>::iterator its = nodecl_symbols.begin(); 
+                                        ObjectList<Nodecl::NodeclBase> nodecl_symbols = sv.get_extensible_symbols();
+                                        for (ObjectList<Nodecl::NodeclBase>::iterator its = nodecl_symbols.begin(); 
                                                 its != nodecl_symbols.end(); ++its)
                                         {
                                             ExtensibleSymbol ei(*its);
@@ -1061,15 +1477,10 @@ namespace TL
                                 }
                                 else
                                 {
-                                    /*Nodecl::NodeclBase ue = it->get_nodecl();
-                                    if (ue.is<Nodecl::BooleanLiteral>() || ue.is<Nodecl::StringLiteral>() 
-                                        || ue.is<Nodecl::IntegerLiteral>() || ue.is<Nodecl::FloatingLiteral>() || ue.is<Nodecl::ComplexLiteral>() )
-                                    { }     // Nothing to do with a constant argument
-                                    
-                                    else */if ( !it->get_symbol().get_scope().scope_is_enclosed_by(function_sym.get_scope()) 
+                                    if ( !it->get_symbol().get_scope().scope_is_enclosed_by(function_sym.get_scope()) 
                                              && it->get_symbol().get_scope() != function_sym.get_scope() )
                                     {   // UE variable is global
-                                    node_ue_vars.insert(*it);
+                                        node_ue_vars.insert(*it);
                                     }
                                 }
                             }
@@ -1077,9 +1488,25 @@ namespace TL
                             ObjectList<Nodecl::NodeclBase> non_ref_args = get_non_reference_args(func_call, called_func_graph);
                             for (ObjectList<Nodecl::NodeclBase>::iterator it = non_ref_args.begin(); it != non_ref_args.end(); ++it)
                             {
-                                if (!it->is<Nodecl::BooleanLiteral>() && !it->is<Nodecl::StringLiteral>() 
-                                    && !it->is<Nodecl::IntegerLiteral>() && !it->is<Nodecl::FloatingLiteral>() && !it->is<Nodecl::ComplexLiteral>())
+                                if (it->is<Nodecl::Symbol>() || it->is<Nodecl::Cast>() || it->is<Nodecl::ClassMemberAccess>()
+                                    || it->is<Nodecl::Reference>() || it->is<Nodecl::Derreference>() 
+                                    || it->is<Nodecl::ArraySubscript>()) 
+                                {
                                     node_ue_vars.insert(ExtensibleSymbol(*it));
+                                }
+                                else if (it->is<Nodecl::FunctionCall>() || it->is<Nodecl::VirtualFunctionCall>())
+                                {}  // Nothing to do, we don't need to propagate the usage of a temporal value
+                                else
+                                {
+                                    ExtensibleSymbolVisitor sv;
+                                    sv.walk(*it);
+                                    ObjectList<Nodecl::NodeclBase> nodecl_symbols = sv.get_extensible_symbols();
+                                    for (ObjectList<Nodecl::NodeclBase>::iterator its = nodecl_symbols.begin(); 
+                                            its != nodecl_symbols.end(); ++its)
+                                    {
+                                        node_ue_vars.insert(ExtensibleSymbol(*its));
+                                    }
+                                }
                             }
                         
                             ext_sym_set called_func_killed_vars = called_func_graph->get_graph()->get_killed_vars();
@@ -1180,15 +1607,12 @@ namespace TL
             }
             else if (n.is<Nodecl::FunctionCall>() || n.is<Nodecl::VirtualFunctionCall>())
             {}  // Nothing to do, we don't need to propagate the usage of a temporal value
-            else if (n.is<Nodecl::StringLiteral>() || n.is<Nodecl::BooleanLiteral>()
-                || n.is<Nodecl::IntegerLiteral>() || n.is<Nodecl::FloatingLiteral>() || n.is<Nodecl::ComplexLiteral>() )
-            {}  // Nothing to do, these are not variables
             else
             {   // FIXME We can define a variable here passing as argument "(n = 3)"
-                SymbolVisitor sv;
+                ExtensibleSymbolVisitor sv;
                 sv.walk(n);
-                ObjectList<Nodecl::Symbol> syms_in_arg = sv.get_symbols();
-                for (ObjectList<Nodecl::Symbol>::iterator it = syms_in_arg.begin(); it != syms_in_arg.end(); ++it)
+                ObjectList<Nodecl::NodeclBase> syms_in_arg = sv.get_extensible_symbols();
+                for (ObjectList<Nodecl::NodeclBase>::iterator it = syms_in_arg.begin(); it != syms_in_arg.end(); ++it)
                     ue_vars.insert(ExtensibleSymbol(*it));
             }
         }

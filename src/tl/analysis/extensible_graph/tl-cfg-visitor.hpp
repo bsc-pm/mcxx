@@ -150,6 +150,7 @@ namespace TL
             
             ObjectList<ObjectList<Node*> > _task_s;
             int _task_level;
+            ObjectList<Node*> _unsync_tasks;
             
             // *** All these variables are used while analysing the graphs *** //
             
