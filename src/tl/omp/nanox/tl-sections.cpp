@@ -171,7 +171,6 @@ void OMPTransform::sections_postorder(PragmaCustomConstruct ctr)
         <<    "__builtin_memcpy(list_of_wds->lwd, _wd_section_list, sizeof(_wd_section_list));"
         <<    "err = nanos_submit(cwd, 0, (nanos_dependence_t*)0, 0);"
         <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-        <<    final_barrier
         << "}"
         ;
 
@@ -185,7 +184,8 @@ void OMPTransform::sections_postorder(PragmaCustomConstruct ctr)
         << "{"
         << get_single_guard("single_guard")
         << "if (single_guard)"
-        << ctr.get_statement().prettyprint()
+        <<    ctr.get_statement().prettyprint()
+        << final_barrier
         << "}"
         ;
 
