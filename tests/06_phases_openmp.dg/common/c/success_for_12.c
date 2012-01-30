@@ -54,7 +54,9 @@ int main(int argc, char* argv[])
     int s = 0;
 
     // Remove me when reductions are working again
+    do not compile);
     abort();
+    // End of Remove me
 
     #pragma omp parallel shared(s)
     {
