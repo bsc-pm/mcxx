@@ -1046,7 +1046,9 @@ static void instantiate_specialized_template_class(type_t* selected_template,
         }
         else if (friend->kind == SK_FUNCTION)
         {
-            // Friend functions are not supported yet 
+            // This code is unreachable because all the dependent friend functions 
+            // of a template class always will be a SK_DEPENDENT_FRIEND_FUNCTION.
+            // (See function 'find_dependent_friend_function_declaration' in buildscope)
             internal_error("Code unreachable", 0);
         }
         else
