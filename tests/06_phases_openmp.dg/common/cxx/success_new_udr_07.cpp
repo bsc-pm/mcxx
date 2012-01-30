@@ -34,6 +34,7 @@ test_compile_faulty_nanox_plain=yes
 
 test_compile_fail_nanox_instrument=yes
 test_compile_faulty_nanox_instrument=yes
+
 </testinfo>
 */
 
@@ -61,6 +62,10 @@ struct myInt {
 
 int main (int argc, char **argv)
 {
+   // syntax error: FIXME
+
+   forcing compiler error );
+
    int i,s=0;
    int a[N];
    A::myInt x = {0};
