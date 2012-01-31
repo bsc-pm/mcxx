@@ -555,7 +555,7 @@ static void check_substring(AST expr, decl_context_t decl_context, nodecl_t node
 
     nodecl_t nodecl_stride = const_value_to_nodecl(const_value_get_one(/* bytes */ fortran_get_default_integer_type_kind(), /* signed */ 1));
     
-    char is_derref_subscripted = nodecl_get_kind(nodecl_subscripted) == NODECL_DERREFERENCE;
+    char is_derref_subscripted = (nodecl_get_kind(nodecl_subscripted) == NODECL_DERREFERENCE);
 
     type_t* data_type = synthesized_type;
     if (is_derref_subscripted)
@@ -930,7 +930,7 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
         nodecl_list = nodecl_append_to_list(nodecl_list, nodecl_indexes[i]);
     }
 
-    char is_derref_subscripted = nodecl_get_kind(nodecl_subscripted) == NODECL_DERREFERENCE;
+    char is_derref_subscripted = (nodecl_get_kind(nodecl_subscripted) == NODECL_DERREFERENCE);
 
     type_t* data_type = synthesized_type;
     if (is_derref_subscripted)
@@ -2436,14 +2436,16 @@ static void check_called_symbol(
                 if (is_pointer_type(formal_type)
                         && !fixed_argument_info_items[i].not_present)
                 {
-                    scope_entry_t* sym = nodecl_get_symbol(fixed_argument_info_items[i].argument);
-                    if (sym != NULL 
-                            && sym->kind == SK_VARIABLE
-                            && is_pointer_type(no_ref(sym->type_information)))
+                    // If the actual argument is a pointer type and the dummy argument is a derreference,
+                    // get the pointer type being derreferenced
+                    if (nodecl_get_kind(fixed_argument_info_items[i].argument) == NODECL_DERREFERENCE)
                     {
-                        ERROR_CONDITION(nodecl_get_kind(fixed_argument_info_items[i].argument) != NODECL_DERREFERENCE,
-                                "Invalid pointer acess", 0);
-                        real_type = no_ref(sym->type_information);
+                        real_type = no_ref(
+                                nodecl_get_type(
+                                    nodecl_get_child(
+                                        fixed_argument_info_items[i].argument, 0)));
+
+                        ERROR_CONDITION(!is_pointer_type(real_type), "This should be a pointer type!", 0);
                     }
                 }
 
@@ -2459,15 +2461,6 @@ static void check_called_symbol(
                             /* argument_num */ i,
                             ASTFileName(location), ASTLine(location)))
                 {
-                    // if (!checking_ambiguity())
-                    // {
-                    //     error_printf("%s: error: type mismatch in argument %d between the "
-                    //             "real argument %s and the dummy argument %s\n",
-                    //             ast_location(location),
-                    //             i + 1,
-                    //             fortran_print_type_str(real_type),
-                    //             fortran_print_type_str(formal_type));
-                    // }
                     argument_type_mismatch = 1;
                 }
             }
@@ -2750,6 +2743,13 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
                 nodecl_argument_list,
                 result_type,
                 ASTFileName(expr), ASTLine(expr));
+
+        if (is_pointer_type(no_ref(result_type)))
+        {
+            *nodecl_output = nodecl_make_derreference(*nodecl_output, 
+                    pointer_type_get_pointee_type(no_ref(result_type)),
+                    ASTFileName(expr), ASTLine(expr));
+        }
     }
     else
     {
@@ -3070,6 +3070,13 @@ static void check_user_defined_unary_op(AST expr, decl_context_t decl_context, n
             result_type,
             ASTFileName(expr),
             ASTLine(expr));
+
+    if (is_pointer_type(no_ref(result_type)))
+    {
+        *nodecl_output = nodecl_make_derreference(*nodecl_output, 
+                pointer_type_get_pointee_type(no_ref(result_type)),
+                ASTFileName(expr), ASTLine(expr));
+    }
 }
 
 static void check_user_defined_binary_op(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -3160,6 +3167,13 @@ static void check_user_defined_binary_op(AST expr, decl_context_t decl_context, 
             result_type,
             ASTFileName(expr),
             ASTLine(expr));
+
+    if (is_pointer_type(no_ref(result_type)))
+    {
+        *nodecl_output = nodecl_make_derreference(*nodecl_output, 
+                pointer_type_get_pointee_type(no_ref(result_type)),
+                ASTFileName(expr), ASTLine(expr));
+    }
 }
 
 #if 0
@@ -3855,21 +3869,21 @@ static void check_ptr_assignment(AST expr, decl_context_t decl_context, nodecl_t
     {
         if (!checking_ambiguity())
         {
-            error_printf("%s: error: left hand of pointer assignment is not a pointer data-reference\n",
+            error_printf("%s: error: left hand of pointer assignment is not a POINTER variable\n",
                     ast_location(expr));
         }
         *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
         return;
     }
 
-    char is_target_named_type_var = 0;
+    char is_target_of_subobject = 0;
     scope_entry_t* rvalue_sym = NULL;
     if (nodecl_get_symbol(nodecl_rvalue) != NULL)
     {
         rvalue_sym = nodecl_get_symbol(nodecl_rvalue);
         nodecl_t auxiliar = nodecl_rvalue;
         
-        // If a named type variable is declared target, all his fields are target too.
+        // If a named type variable is declared target, all its fields are target too.
         if (nodecl_get_kind(auxiliar) == NODECL_CLASS_MEMBER_ACCESS)
         {
             // We don't want the accessed fields, we want the variable
@@ -3881,42 +3895,60 @@ static void check_ptr_assignment(AST expr, decl_context_t decl_context, nodecl_t
             scope_entry_t* sym = nodecl_get_symbol(auxiliar);
             if (sym != NULL && sym->entity_specs.is_target)
             {
-                is_target_named_type_var = 1;
+                is_target_of_subobject = 1;
             }
         }
     }
 
-    if (rvalue_sym == NULL
-            || rvalue_sym->kind != SK_VARIABLE
-            || (!is_pointer_type(no_ref(rvalue_sym->type_information)) &&
-                !rvalue_sym->entity_specs.is_target))
+    if (rvalue_sym != NULL
+            && rvalue_sym->kind == SK_VARIABLE)
     {
-        if (!is_target_named_type_var)
+        if (!(is_pointer_type(no_ref(rvalue_sym->type_information))
+                || rvalue_sym->entity_specs.is_target
+                || is_target_of_subobject))
         {
+            // If the variable is not a POINTER, not a TARGET or not a subobject of a TARGET, error
             if (!checking_ambiguity())
             {
-                error_printf("%s: error: right hand of pointer assignment is not a POINTER or TARGET data-reference\n",
+                error_printf("%s: error: symbol name in right hand of pointer assignment is not a POINTER or TARGET data-reference\n",
                         ast_location(expr));
             }
             *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
             return;
         }
     }
-
-    if (is_pointer_type(no_ref(rvalue_sym->type_information)))
+    // If the right part is not a symbol name, but an expression of type
+    // POINTER (currently only possible if we call a FUNCTION returning
+    // POINTER), then it must be have been derreferenced
+    else if (nodecl_get_kind(nodecl_rvalue) != NODECL_DERREFERENCE)
     {
-        ERROR_CONDITION(nodecl_get_kind(nodecl_rvalue) != NODECL_DERREFERENCE,
-                "References to pointers must be derreferenced!", 0);
-        // Get the inner part of the derreference
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: error: right hand of pointer assignment does not yield a POINTER data-reference\n",
+                    ast_location(expr));
+        }
+        *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
+        return;
+    }
+
+    if (nodecl_get_kind(nodecl_rvalue) == NODECL_DERREFERENCE)
+    {
         nodecl_rvalue = nodecl_get_child(nodecl_rvalue, 0);
     }
-    else
+    // This will be a NODECL_SYMBOL or a NODECL_CLASS_MEMBER_ACCESS Arrays
+    // cannot have POINTER as elements (only pointers to arrays are possible)
+    else if (nodecl_get_kind(nodecl_rvalue) == NODECL_SYMBOL
+            || nodecl_get_kind(nodecl_rvalue) == NODECL_CLASS_MEMBER_ACCESS)
     {
         // Build a reference here
         nodecl_rvalue = nodecl_make_reference(nodecl_rvalue,
                 get_pointer_type(no_ref(rvalue_sym->type_information)),
                 nodecl_get_filename(nodecl_rvalue),
                 nodecl_get_line(nodecl_rvalue));
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
     }
 
     ERROR_CONDITION(nodecl_get_kind(nodecl_lvalue) != NODECL_DERREFERENCE, 
@@ -4401,7 +4433,14 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
                         result,
                         ASTFileName(expr), ASTLine(expr));
 
-                if (nodecl_is_null(nodecl_simplify)
+                if (is_pointer_type(no_ref(result)))
+                {
+                    *nodecl_output = nodecl_make_derreference(*nodecl_output, 
+                            pointer_type_get_pointee_type(no_ref(result)),
+                            ASTFileName(expr), ASTLine(expr));
+                }
+
+                if (!nodecl_is_null(nodecl_simplify)
                         && nodecl_is_constant(nodecl_simplify))
                 {
                     nodecl_set_constant(*nodecl_output, nodecl_get_constant(nodecl_simplify));
