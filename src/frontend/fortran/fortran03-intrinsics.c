@@ -1300,31 +1300,26 @@ scope_entry_t* compute_intrinsic_associated(scope_entry_t* symbol UNUSED_PARAMET
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
-    type_t* t0 = NULL;
-    type_t* t1 = NULL;
-    scope_entry_t* sym = NULL;
+    type_t* ptr_type = NULL;
     if (!nodecl_is_null(argument_expressions[0])
-            && ((sym = nodecl_get_symbol(argument_expressions[0])) != NULL)
-            && (sym->kind == SK_VARIABLE || sym->kind == SK_UNDEFINED)
-            && is_pointer_type((t0 = no_ref(sym->type_information))))
+            && nodecl_get_kind(argument_expressions[0]) == NODECL_DERREFERENCE
+            && is_pointer_type(ptr_type = no_ref(nodecl_get_type(
+                        nodecl_get_child(argument_expressions[0], 0)))))
     {
-        sym->kind = SK_VARIABLE;
-        remove_unknown_kind_symbol(sym->decl_context, sym);
         if (nodecl_is_null(argument_expressions[1]))
         {
-            return GET_INTRINSIC_INQUIRY("associated", fortran_get_default_logical_type(), t0, t0);
+            return GET_INTRINSIC_INQUIRY("associated", fortran_get_default_logical_type(), ptr_type, ptr_type);
         }
         else
         {
-            if (((sym = nodecl_get_symbol(argument_expressions[1])) != NULL)
-                    && (sym->kind == SK_VARIABLE || sym->kind == SK_UNDEFINED)
-                    && is_pointer_type((t1 = no_ref(sym->type_information))))
+            type_t* target_type = NULL;
+            if (nodecl_get_kind(argument_expressions[1]) == NODECL_DERREFERENCE
+                    && (target_type = no_ref(nodecl_get_type(
+                                nodecl_get_child(argument_expressions[1], 0)))))
             {
-                sym->kind = SK_VARIABLE;
-
-                if (equivalent_tkr_types(pointer_type_get_pointee_type(t0), pointer_type_get_pointee_type(t1)))
+                if (equivalent_tkr_types(pointer_type_get_pointee_type(ptr_type), pointer_type_get_pointee_type(target_type)))
                 {
-                    return GET_INTRINSIC_INQUIRY("associated", fortran_get_default_logical_type(), t0, t1);
+                    return GET_INTRINSIC_INQUIRY("associated", fortran_get_default_logical_type(), ptr_type, target_type);
                 }
             }
         }
