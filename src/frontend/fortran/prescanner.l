@@ -66,6 +66,7 @@ SUBROUTINE subroutine
 FUNCTION function
 PROCEDURE procedure
 MODULE module
+BLOCK block
 BLOCKDATA blockdata
 USE use
 IMPLICIT implicit
@@ -102,6 +103,7 @@ PURE pure
 RECURSIVE recursive
 ELEMENTAL elemental
 ASSIGN assign
+CONTAINS contains
 
 SUBPROGRAM_SPEC ({PURE}|{RECURSIVE}|{ELEMENTAL})+
 
@@ -129,6 +131,7 @@ END end
 SELECT select
 CLOSE close
 THEN then
+
 
 %x PREFIX_SPEC
 %x END_APPENDINGS
@@ -241,6 +244,10 @@ THEN then
 ^{INTERFACE} {
 	inside_interface = 1;
 	return (ST_INTERFACE);
+}
+
+^{BLOCK} {
+	return (ST_BLOCK);
 }
 
 ^{BLOCKDATA} {
@@ -438,6 +445,10 @@ THEN then
 
 ^{CONTINUE} {
 	return (ST_CONTINUE);
+}
+
+^{CONTAINS} {
+	return (ST_CONTAINS);
 }
 
 ^{DEALLOCATE} {
