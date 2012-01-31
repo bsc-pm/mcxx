@@ -6124,11 +6124,7 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
 
         if (array_spec != NULL)
         {
-            if (current_attr_spec.is_dimension)
-            {
-                error_printf("%s: error: DIMENSION attribute specified twice\n", ast_location(declaration));
-                continue;
-            }
+            // Override the DIMENSION attribute
             current_attr_spec.is_dimension = 1;
             current_attr_spec.array_spec = array_spec;
         }
