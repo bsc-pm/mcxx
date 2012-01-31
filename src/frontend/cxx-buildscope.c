@@ -7609,20 +7609,8 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
     entry->entity_specs.any_exception = gather_info->any_exception;
 
     // This new symbol contains the results of the query
-    int size = entry_list_size(filtered_entry_list);
-
-    entry->entity_specs.num_related_symbols = size;
-    entry->entity_specs.related_symbols = counted_calloc(size,
-            sizeof(*entry->entity_specs.related_symbols), &_bytes_used_buildscope);
-
-    int ind = 0;
-    scope_entry_list_iterator_t* it = NULL;
-    for (it = entry_list_iterator_begin(filtered_entry_list);
-            !entry_list_iterator_end(it);
-            entry_list_iterator_next(it), ++ind)
-    {
-        entry->entity_specs.related_symbols[ind] = entry_list_iterator_current(it);
-    }
+    entry_list_to_symbol_array(filtered_entry_list,
+            &entry->entity_specs.related_symbols, &entry->entity_specs.num_related_symbols);
 
     *result_entry = entry;
     entry_list_free(filtered_entry_list);
