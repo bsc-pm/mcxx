@@ -4444,7 +4444,7 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
                 }
 
                 *nodecl_output = nodecl_make_function_call(
-                        nodecl_make_symbol(call_sym, ast_get_filename(expr), ast_get_line(expr)),
+                        nodecl_make_symbol(called_symbol, ast_get_filename(expr), ast_get_line(expr)),
                         nodecl_argument_list,
                         result,
                         ASTFileName(expr), ASTLine(expr));
