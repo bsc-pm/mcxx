@@ -76,6 +76,9 @@ LIBMCXX_EXTERN scope_entry_list_t* entry_list_merge(const scope_entry_list_t* li
 LIBMCXX_EXTERN char entry_list_contains(const scope_entry_list_t* l, 
         scope_entry_t* entry);
 
+LIBMCXX_EXTERN void entry_list_to_symbol_array(scope_entry_list_t*, scope_entry_t*** array, int* num_items);
+
+LIBMCXX_EXTERN scope_entry_list_t* entry_list_from_symbol_array(int num_items, scope_entry_t**);
 
 MCXX_END_DECLS
 
