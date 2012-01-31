@@ -3777,16 +3777,32 @@ void fortran_check_initialization(
 
     if (is_pointer_initialization)
     {
+        char wrong_ptr_init = 0;
+
         // Just check that is => NULL()
-        scope_entry_t* function_called = NULL;
-        if (nodecl_get_kind(*nodecl_output) != NODECL_FUNCTION_CALL
-                || ((function_called = nodecl_get_symbol(nodecl_get_child(*nodecl_output, 0))) == NULL)
-                || strcasecmp(function_called->symbol_name, "null") != 0
-                || !function_called->entity_specs.is_builtin)
+        if (nodecl_get_kind(*nodecl_output) == NODECL_DERREFERENCE)
+        {
+            *nodecl_output = nodecl_get_child(*nodecl_output, 0);
+
+            scope_entry_t* function_called = NULL;
+            if (nodecl_get_kind(*nodecl_output) != NODECL_FUNCTION_CALL
+                    || ((function_called = nodecl_get_symbol(nodecl_get_child(*nodecl_output, 0))) == NULL)
+                    || strcasecmp(function_called->symbol_name, "null") != 0
+                    || !function_called->entity_specs.is_builtin)
+            {
+                wrong_ptr_init = 1;
+            }
+        }
+        else
+        {
+            wrong_ptr_init = 1;
+        }
+
+        if (wrong_ptr_init)
         {
             if (!checking_ambiguity())
             {
-                error_printf("%s: error: pointer initializer of '%s' is not '=> NULL()'",
+                error_printf("%s: error: pointer initializer of '%s' is not '=> NULL()'\n",
                         ast_location(expr),
                         entry->symbol_name);
             }
