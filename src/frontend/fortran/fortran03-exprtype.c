@@ -3499,8 +3499,11 @@ static void check_symbol_of_argument(AST sym, decl_context_t decl_context, nodec
 
             check_symbol_name_as_a_variable(sym, entry, nodecl_output);
         }
-        *nodecl_output = nodecl_make_symbol(entry, ASTFileName(sym), ASTLine(sym));
-        nodecl_set_type(*nodecl_output, entry->type_information);
+        else
+        {
+            *nodecl_output = nodecl_make_symbol(entry, ASTFileName(sym), ASTLine(sym));
+            nodecl_set_type(*nodecl_output, entry->type_information);
+        }
     }
     else if (entry->kind == SK_FUNCTION)
     {
