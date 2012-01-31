@@ -156,7 +156,14 @@ namespace Codegen
                 TL::Symbol global_namespace;
                 TL::Symbol opened_namespace;
 
-                bool emit_declarations;
+                enum EmitDeclarations
+                {
+                    EMIT_ALL_DECLARATIONS,
+                    EMIT_CURRENT_SCOPE_DECLARATIONS,
+                    EMIT_NO_DECLARATIONS,
+                };
+
+                EmitDeclarations emit_declarations;
 
                 bool in_condition;
                 Nodecl::NodeclBase condition_top;
@@ -191,7 +198,7 @@ namespace Codegen
                     : current_scope(),
                     global_namespace(),
                     opened_namespace(),
-                    emit_declarations(false),
+                    emit_declarations(EMIT_NO_DECLARATIONS),
                     in_condition(false),
                     condition_top(Nodecl::NodeclBase::null()),
                     in_member_declaration(false),

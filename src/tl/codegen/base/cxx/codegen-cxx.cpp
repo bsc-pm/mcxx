@@ -30,7 +30,7 @@ std::string CxxBase::codegen(const Nodecl::NodeclBase &n)
     state.global_namespace = decl_context.global_scope->related_entry;
     state.opened_namespace = decl_context.namespace_scope->related_entry;
 
-    state.emit_declarations = this->is_file_output();
+    state.emit_declarations = this->is_file_output() ? State::EMIT_ALL_DECLARATIONS : State::EMIT_NO_DECLARATIONS;
 
     std::string old_file = file.str();
 
@@ -474,8 +474,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CompoundExpression& node)
     file << "{\n";
     inc_indent();
 
-    bool emit_declarations = state.emit_declarations;
-    state.emit_declarations = true;
+    State::EmitDeclarations emit_declarations = state.emit_declarations;
+    if (state.emit_declarations == State::EMIT_NO_DECLARATIONS)
+        state.emit_declarations = State::EMIT_CURRENT_SCOPE_DECLARATIONS;
 
     bool in_condition = state.in_condition;
     state.in_condition = 0;
@@ -506,8 +507,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CompoundStatement& node)
     file << "{\n";
     inc_indent();
 
-    bool emit_declarations = state.emit_declarations;
-    state.emit_declarations = true;
+    State::EmitDeclarations emit_declarations = state.emit_declarations;
+    if (state.emit_declarations == State::EMIT_NO_DECLARATIONS)
+        state.emit_declarations = State::EMIT_CURRENT_SCOPE_DECLARATIONS;
 
     Nodecl::NodeclBase statement_seq = node.get_statements();
 
@@ -691,7 +693,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::EmptyStatement& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::ErrExpr& node)
 {
-    if (!state.emit_declarations)
+    if (!this->is_file_output())
     {
         file << "<<error expression>>";
     }
@@ -1400,36 +1402,23 @@ CxxBase::Ret CxxBase::visit(const Nodecl::MemberInit& node)
     TL::Symbol entry = node.get_symbol();
     Nodecl::NodeclBase init_expr = node.get_init_expr();
 
-    if (!state.emit_declarations)
+    file << entry.get_name() << "(";
+
+    if (nodecl_calls_to_constructor(init_expr, entry.get_type()))
     {
-        file << this->get_declaration(entry.get_type(), entry.get_scope(), entry.get_qualified_name());
-
-        if (!init_expr.is_null())
-        {
-            file << " = ";
-            walk(init_expr);
-        }
+        // Ignore top level constructor
+        walk_expression_list(init_expr.as<Nodecl::FunctionCall>().get_arguments().as<Nodecl::List>());
     }
-    else // !do_not_emit_declarations
+    else if (init_expr.is<Nodecl::StructuredValue>())
     {
-        file << entry.get_name() << "(";
-
-        if (nodecl_calls_to_constructor(init_expr, entry.get_type()))
-        {
-            // Ignore top level constructor
-            walk_expression_list(init_expr.as<Nodecl::FunctionCall>().get_arguments().as<Nodecl::List>());
-        }
-        else if (init_expr.is<Nodecl::StructuredValue>())
-        {
-            walk_expression_list(init_expr.as<Nodecl::StructuredValue>().get_items().as<Nodecl::List>());
-        }
-        else
-        {
-            walk(init_expr);
-        }
-
-        file << ")";
+        walk_expression_list(init_expr.as<Nodecl::StructuredValue>().get_items().as<Nodecl::List>());
     }
+    else
+    {
+        walk(init_expr);
+    }
+
+    file << ")";
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::New& node)
@@ -1466,21 +1455,14 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ObjectInit& node)
 {
     TL::Symbol sym = node.get_symbol();
 
-    if (!state.emit_declarations)
-    {
-        file << this->get_declaration(sym.get_type(), sym.get_scope(), sym.get_qualified_name());
-    }
-    else 
-    {
-        walk_type_for_symbols(sym.get_type(),
-                /* needs def */ 1,
-                &CxxBase::declare_symbol,
-                &CxxBase::define_symbol,
-                &CxxBase::define_all_entities_in_trees);
+    walk_type_for_symbols(sym.get_type(),
+            /* needs def */ 1,
+            &CxxBase::declare_symbol,
+            &CxxBase::define_symbol,
+            &CxxBase::define_all_entities_in_trees);
 
-        set_codegen_status(sym, CODEGEN_STATUS_NONE);
-        define_symbol(sym);
-    }
+    set_codegen_status(sym, CODEGEN_STATUS_NONE);
+    define_symbol(sym);
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::Offsetof& node)
@@ -2946,8 +2928,14 @@ void CxxBase::define_nonnested_entities_in_trees(Nodecl::NodeclBase const& node)
 
 void CxxBase::define_symbol(TL::Symbol symbol)
 {
-    if (!state.emit_declarations)
+    if (state.emit_declarations == State::EMIT_NO_DECLARATIONS)
         return;
+
+    if (state.emit_declarations == State::EMIT_CURRENT_SCOPE_DECLARATIONS)
+    {
+        if (state.current_scope.get_decl_context().current_scope != symbol.get_scope().get_decl_context().current_scope)
+            return;
+    }
 
     if (symbol.not_to_be_printed())
         return;
@@ -3068,8 +3056,14 @@ void CxxBase::define_symbol(TL::Symbol symbol)
 
 void CxxBase::declare_symbol(TL::Symbol symbol)
 {
-    if (!state.emit_declarations)
+    if (state.emit_declarations == State::EMIT_NO_DECLARATIONS)
         return;
+
+    if (state.emit_declarations == State::EMIT_CURRENT_SCOPE_DECLARATIONS)
+    {
+        if (state.current_scope.get_decl_context().current_scope != symbol.get_scope().get_decl_context().current_scope)
+            return;
+    }
 
     if (symbol.is_injected_class_name())
         symbol = symbol.get_class_type().get_symbol();

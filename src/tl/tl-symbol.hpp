@@ -123,6 +123,10 @@ namespace TL
             //! Gets the scope where this symbol is defined
             Scope get_scope() const;
     
+            //! Gets the scope related to this symbol
+            /*
+             * The scoping unit introduced by namespaces [C++] and program units [Fortran] and functions [C]
+             */
             Scope get_related_scope() const;
 
             //! Returns the location of the symbol
