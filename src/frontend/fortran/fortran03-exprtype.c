@@ -2580,7 +2580,6 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
                     fortran_check_expression_impl_(actual_arg, decl_context, &nodecl_argument);
                 }
 
-
                 if (nodecl_is_err_expr(nodecl_argument))
                 {
                     wrong_arg_spec_list = 1;
@@ -3346,6 +3345,54 @@ static void check_symbol_of_called_name(AST sym, decl_context_t decl_context, no
     nodecl_set_type(*nodecl_output, entry->type_information);
 }
 
+// Common function when we finally understand that a
+static void check_symbol_name_as_a_variable(
+        AST sym,
+        scope_entry_t* entry,
+        nodecl_t* nodecl_output)
+{
+    ERROR_CONDITION(entry->kind != SK_VARIABLE, 
+            "Symbol must be a SK_VARIABLE but it is a %s", 
+            symbol_kind_name(entry));
+
+    // It might happen that dummy arguments/result do not have any implicit
+    // type here (because the input code is wrong)
+    if (is_error_type(entry->type_information))
+    {
+        // This error should have already been signaled elsewhere
+        *nodecl_output = nodecl_make_err_expr(ASTFileName(sym), ASTLine(sym));
+        return;
+    }
+
+    *nodecl_output = nodecl_make_symbol(entry, ASTFileName(sym), ASTLine(sym));
+    nodecl_set_type(*nodecl_output, entry->type_information);
+
+    if (is_const_qualified_type(no_ref(entry->type_information))
+            && !nodecl_is_null(entry->value)
+            && nodecl_is_constant(entry->value))
+    {
+        // Use the constant value instead
+        nodecl_t nodecl_const_val = const_value_to_nodecl(nodecl_get_constant(entry->value));
+        if (!nodecl_is_null(nodecl_const_val))
+        {
+            type_t* orig_type = nodecl_get_type(*nodecl_output);
+            *nodecl_output = nodecl_const_val;
+            nodecl_set_type(*nodecl_output, orig_type);
+        }
+        nodecl_set_constant(*nodecl_output, nodecl_get_constant(entry->value));
+    }
+
+    if (is_pointer_type(no_ref(entry->type_information)))
+    {
+        *nodecl_output = 
+            nodecl_make_derreference(
+                    *nodecl_output,
+                    pointer_type_get_pointee_type(no_ref(entry->type_information)),
+                    ASTFileName(sym), ASTLine(sym));
+        nodecl_set_symbol(*nodecl_output, entry);
+    }
+}
+
 static void check_symbol_of_argument(AST sym, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     // Look the symbol up. This will ignore INTRINSIC names
@@ -3427,45 +3474,31 @@ static void check_symbol_of_argument(AST sym, decl_context_t decl_context, nodec
     }
     if (entry->kind == SK_VARIABLE)
     {
-        // It might happen that dummy arguments/result do not have any implicit
-        // type here (because the input code is wrong)
-        if (is_error_type(entry->type_information))
-        {
-            // This error should have already been signaled elsewhere
-            *nodecl_output = nodecl_make_err_expr(ASTFileName(sym), ASTLine(sym));
-            return;
-        }
-
-        *nodecl_output = nodecl_make_symbol(entry, ASTFileName(sym), ASTLine(sym));
-        nodecl_set_type(*nodecl_output, entry->type_information);
-
-        if (is_const_qualified_type(no_ref(entry->type_information))
-                && !nodecl_is_null(entry->value)
-                && nodecl_is_constant(entry->value))
-        {
-            // Use the constant value instead
-            nodecl_t nodecl_const_val = const_value_to_nodecl(nodecl_get_constant(entry->value));
-            if (!nodecl_is_null(nodecl_const_val))
-            {
-                type_t* orig_type = nodecl_get_type(*nodecl_output);
-                *nodecl_output = nodecl_const_val;
-                nodecl_set_type(*nodecl_output, orig_type);
-            }
-            nodecl_set_constant(*nodecl_output, nodecl_get_constant(entry->value));
-        }
-
-        if (is_pointer_type(no_ref(entry->type_information)))
-        {
-            *nodecl_output = 
-                nodecl_make_derreference(
-                        *nodecl_output,
-                        pointer_type_get_pointee_type(no_ref(entry->type_information)),
-                        ASTFileName(sym), ASTLine(sym));
-            nodecl_set_symbol(*nodecl_output, entry);
-        }
+        check_symbol_name_as_a_variable(sym, entry, nodecl_output);
     }
     else if (entry->kind == SK_UNDEFINED)
     {
+        if (is_pointer_type(no_ref(entry->type_information)))
+        {
+            // Used this way this must become a variable
+            //
+            // PROGRAM P
+            //    INTEGER, POINTER :: X    ! X is SK_UNDEFINED
+            //    INTEGER, POINTER :: Y    ! Y is SK_UNDEFINED
+            //    EXTERNAL :: Y            ! This will make Y a SK_FUNCTION
+            //
+            //    CALL S1(X) ! X must be a variable now
+            //    CALL S2(Y)
+            // END PROGRAM P
+            //
+            // Note that we cannot make it a variable in the declaration
+            // because later an EXTERNAL might have turned it into a SK_FUNCTION 
+            // (this is the case of 'Y' shown above)
+            entry->kind = SK_VARIABLE;
+            remove_unknown_kind_symbol(decl_context, entry);
+
+            check_symbol_name_as_a_variable(sym, entry, nodecl_output);
+        }
         *nodecl_output = nodecl_make_symbol(entry, ASTFileName(sym), ASTLine(sym));
         nodecl_set_type(*nodecl_output, entry->type_information);
     }
@@ -3479,6 +3512,7 @@ static void check_symbol_of_argument(AST sym, decl_context_t decl_context, nodec
         *nodecl_output = nodecl_make_err_expr(ASTFileName(sym), ASTLine(sym));
     }
 }
+
 
 static void check_symbol_variable(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
@@ -3527,33 +3561,7 @@ static void check_symbol_variable(AST expr, decl_context_t decl_context, nodecl_
         return;
     }
 
-    *nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
-    nodecl_set_type(*nodecl_output, entry->type_information);
-
-    if (is_const_qualified_type(no_ref(entry->type_information))
-            && !nodecl_is_null(entry->value)
-            && nodecl_is_constant(entry->value))
-    {
-        // Use the constant value instead
-        nodecl_t nodecl_const_val = const_value_to_nodecl(nodecl_get_constant(entry->value));
-        if (!nodecl_is_null(nodecl_const_val))
-        {
-            type_t* orig_type = nodecl_get_type(*nodecl_output);
-            *nodecl_output = nodecl_const_val;
-            nodecl_set_type(*nodecl_output, orig_type);
-        }
-        nodecl_set_constant(*nodecl_output, nodecl_get_constant(entry->value));
-    }
-
-    if (is_pointer_type(no_ref(entry->type_information)))
-    {
-        *nodecl_output = 
-            nodecl_make_derreference(
-                    *nodecl_output,
-                    pointer_type_get_pointee_type(no_ref(entry->type_information)),
-                    ASTFileName(expr), ASTLine(expr));
-        nodecl_set_symbol(*nodecl_output, entry);
-    }
+    check_symbol_name_as_a_variable(expr, entry, nodecl_output);
 }
 
 static void conform_types_in_assignment(type_t* lhs_type, type_t* rhs_type, type_t** conf_lhs_type, type_t** conf_rhs_type);
