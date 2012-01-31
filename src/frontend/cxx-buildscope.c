@@ -7515,14 +7515,16 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
     scope_entry_list_t* filtered_entry_list = NULL;
     enum cxx_symbol_kind filter_only_templates[] = { SK_TEMPLATE };
     enum cxx_symbol_kind filter_only_functions[] = { SK_FUNCTION };
+    enum cxx_symbol_kind filter_only_templates_and_functions[] = { SK_FUNCTION, SK_TEMPLATE };
 
     // Here we only do error detection
     if (!is_template_function)
     {
         if (is_template_id) //1.1
         {
-            filtered_entry_list =
-                filter_symbol_kind_set(entry_list, STATIC_ARRAY_LENGTH(filter_only_templates), filter_only_templates);
+            filtered_entry_list = filter_symbol_kind_set(entry_list,
+                    STATIC_ARRAY_LENGTH(filter_only_templates),
+                    filter_only_templates);
 
             char found_spec_funct_templ = 0;
             scope_entry_list_iterator_t* it = NULL;
@@ -7548,41 +7550,46 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
                 return 0;
             }
         }
-        else
+        else  
         {
-            if(is_qualified) //1.2
+            if (is_qualified) // 1.2
             {
-                filtered_entry_list =
-                    filter_symbol_kind_set(entry_list, STATIC_ARRAY_LENGTH(filter_only_functions), filter_only_functions);
-                if (filtered_entry_list == NULL)
+                filtered_entry_list = filter_symbol_kind_set(entry_list,
+                        STATIC_ARRAY_LENGTH(filter_only_templates_and_functions),
+                        filter_only_templates_and_functions);
+                char found_candidate = 0;
+                scope_entry_list_iterator_t* it = NULL;
+                for (it = entry_list_iterator_begin(filtered_entry_list);
+                        !entry_list_iterator_end(it) && !found_candidate;
+                        entry_list_iterator_next(it))
                 {
-                    filtered_entry_list =
-                        filter_symbol_kind_set(entry_list, STATIC_ARRAY_LENGTH(filter_only_templates), filter_only_templates);
-
-                    char found_spec_funct_templ = 0;
-                    scope_entry_list_iterator_t* it = NULL;
-                    for (it = entry_list_iterator_begin(filtered_entry_list);
-                            !entry_list_iterator_end(it) && !found_spec_funct_templ;
-                            entry_list_iterator_next(it))
+                    scope_entry_t* current_sym = entry_list_iterator_current(it);
+                    if (current_sym->kind == SK_TEMPLATE)
                     {
-                        scope_entry_t* current_sym = entry_list_iterator_current(it);
                         current_sym = named_type_get_symbol(template_type_get_primary_type(current_sym->type_information));
-                        if (current_sym->kind == SK_FUNCTION)
-                        {
-                            found_spec_funct_templ = 1;
-                        }
                     }
 
-                    if (!found_spec_funct_templ)
+                    if (current_sym->kind == SK_FUNCTION)
                     {
-                        if (!checking_ambiguity())
-                        {
-                            error_printf("%s: name '%s' does not match with any nontemplate function or specialization of a function template\n",
-                                    ast_location(declarator_id), prettyprint_in_buffer(declarator_id));
-                        }
-                        return 0;
+                        found_candidate = 1;
                     }
                 }
+
+                if (!found_candidate)
+                {
+                    if (!checking_ambiguity())
+                    {
+                        error_printf("%s: name '%s' does not match with any nontemplate function or specialization of a function template\n",
+                                ast_location(declarator_id), prettyprint_in_buffer(declarator_id));
+                    }
+                    return 0;
+                }
+            }
+            else // 1.3
+            {
+                filtered_entry_list = filter_symbol_kind_set(entry_list,
+                        STATIC_ARRAY_LENGTH(filter_only_functions),
+                        filter_only_functions);
             }
         }
     }
@@ -7603,6 +7610,22 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
     entry->type_information = declarator_type;
 
     entry->entity_specs.any_exception = gather_info->any_exception;
+
+    // This new symbol contains the results of the query
+    int size = entry_list_size(filtered_entry_list);
+
+    entry->entity_specs.num_related_symbols = size;
+    entry->entity_specs.related_symbols = counted_calloc(size,
+            sizeof(*entry->entity_specs.related_symbols), &_bytes_used_buildscope);
+
+    int ind = 0;
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(filtered_entry_list);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it), ++ind)
+    {
+        entry->entity_specs.related_symbols[ind] = entry_list_iterator_current(it);
+    }
 
     *result_entry = entry;
     entry_list_free(filtered_entry_list);
