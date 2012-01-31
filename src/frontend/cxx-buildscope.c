@@ -7550,47 +7550,44 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
                 return 0;
             }
         }
-        else  
+        else if (is_qualified) // 1.2
         {
-            if (is_qualified) // 1.2
+            filtered_entry_list = filter_symbol_kind_set(entry_list,
+                    STATIC_ARRAY_LENGTH(filter_only_templates_and_functions),
+                    filter_only_templates_and_functions);
+            char found_candidate = 0;
+            scope_entry_list_iterator_t* it = NULL;
+            for (it = entry_list_iterator_begin(filtered_entry_list);
+                    !entry_list_iterator_end(it) && !found_candidate;
+                    entry_list_iterator_next(it))
             {
-                filtered_entry_list = filter_symbol_kind_set(entry_list,
-                        STATIC_ARRAY_LENGTH(filter_only_templates_and_functions),
-                        filter_only_templates_and_functions);
-                char found_candidate = 0;
-                scope_entry_list_iterator_t* it = NULL;
-                for (it = entry_list_iterator_begin(filtered_entry_list);
-                        !entry_list_iterator_end(it) && !found_candidate;
-                        entry_list_iterator_next(it))
+                scope_entry_t* current_sym = entry_list_iterator_current(it);
+                if (current_sym->kind == SK_TEMPLATE)
                 {
-                    scope_entry_t* current_sym = entry_list_iterator_current(it);
-                    if (current_sym->kind == SK_TEMPLATE)
-                    {
-                        current_sym = named_type_get_symbol(template_type_get_primary_type(current_sym->type_information));
-                    }
-
-                    if (current_sym->kind == SK_FUNCTION)
-                    {
-                        found_candidate = 1;
-                    }
+                    current_sym = named_type_get_symbol(template_type_get_primary_type(current_sym->type_information));
                 }
 
-                if (!found_candidate)
+                if (current_sym->kind == SK_FUNCTION)
                 {
-                    if (!checking_ambiguity())
-                    {
-                        error_printf("%s: name '%s' does not match with any nontemplate function or specialization of a function template\n",
-                                ast_location(declarator_id), prettyprint_in_buffer(declarator_id));
-                    }
-                    return 0;
+                    found_candidate = 1;
                 }
             }
-            else // 1.3
+
+            if (!found_candidate)
             {
-                filtered_entry_list = filter_symbol_kind_set(entry_list,
-                        STATIC_ARRAY_LENGTH(filter_only_functions),
-                        filter_only_functions);
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: name '%s' does not match with any nontemplate function or specialization of a function template\n",
+                            ast_location(declarator_id), prettyprint_in_buffer(declarator_id));
+                }
+                return 0;
             }
+        }
+        else // 1.3
+        {
+            filtered_entry_list = filter_symbol_kind_set(entry_list,
+                    STATIC_ARRAY_LENGTH(filter_only_functions),
+                    filter_only_functions);
         }
     }
 
