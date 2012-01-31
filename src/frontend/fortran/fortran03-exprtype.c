@@ -2439,7 +2439,7 @@ static void check_called_symbol(
                     scope_entry_t* sym = nodecl_get_symbol(fixed_argument_info_items[i].argument);
                     if (sym != NULL 
                             && sym->kind == SK_VARIABLE
-                            && is_pointer_type(sym->type_information))
+                            && is_pointer_type(no_ref(sym->type_information)))
                     {
                         ERROR_CONDITION(nodecl_get_kind(fixed_argument_info_items[i].argument) != NODECL_DERREFERENCE,
                                 "Invalid pointer acess", 0);
