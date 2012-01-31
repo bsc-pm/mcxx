@@ -1,3 +1,6 @@
+! <testinfo>
+! test_generator=config/mercurium-fortran
+! </testinfo>
 PROGRAM P
     IMPLICIT NONE
     INTEGER, POINTER :: X
