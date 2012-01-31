@@ -2136,6 +2136,16 @@ goto {
  	RETURN_TOKEN(']');
 }
 
+"(/" { 
+    parse_token_text();
+    RETURN_TOKEN(TOK_LPARENT_SLASH); 
+}
+
+"/)" { 
+    parse_token_text();
+    RETURN_TOKEN(TOK_SLASH_RPARENT); 
+}
+
 "==" {
 	parse_token_text();
 	RETURN_TOKEN(TOK_EQUAL);
