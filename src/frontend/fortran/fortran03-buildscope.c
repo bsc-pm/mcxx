@@ -1329,7 +1329,7 @@ static scope_entry_t* new_procedure_symbol(
             
             remove_unknown_kind_symbol(program_unit_context, result_sym);
 
-            result_sym->type_information = get_lvalue_reference_type(return_type);
+            result_sym->type_information = return_type;
 
             return_type = get_indirect_type(result_sym);
 
@@ -1354,7 +1354,7 @@ static scope_entry_t* new_procedure_symbol(
         result_sym->line = entry->line;
         result_sym->entity_specs.is_result = 1;
 
-        result_sym->type_information = get_lvalue_reference_type(return_type);
+        result_sym->type_information = return_type;
         result_sym->entity_specs.is_implicit_basic_type = !function_has_type_spec;
 
         if (!function_has_type_spec)
