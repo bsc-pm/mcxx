@@ -420,8 +420,8 @@ schar       ([^\\"\n\r]|{c_escape_seq}|(\\["]))
 	}
 }
 
-^(([^\n\r!'"])|{FORTRAN_STRING})+&[[:blank:]]*(![^\n\r]*)?{newline}[[:blank:]]*&[^\n\r]+{newline} |
-^(([^\n\r!'"])|{FORTRAN_STRING})*{UNENDED_STRING}&[[:blank:]]*{newline}[[:blank:]]*&[^\n\r]+{newline} {
+^(([^\n\r!'"])|{FORTRAN_STRING})+&([[:blank:]]*(![^\n\r]*)?{newline})+[[:blank:]]*&[^\n\r]+{newline} |
+^(([^\n\r!'"])|{FORTRAN_STRING})*{UNENDED_STRING}&([[:blank:]]*{newline})+[[:blank:]]*&[^\n\r]+{newline} {
 	// The first regex allows comments because all strings are closed
     // The second one does not allows them because the last string is opened
     // This recognizes double continued lines
@@ -437,7 +437,7 @@ schar       ([^\\"\n\r]|{c_escape_seq}|(\\["]))
 	fortran_scanning_now->line_number++;
 }
 
-^[[:blank:]]*{sentinel}[[:blank:]]+(([^\n\r!'"])|{FORTRAN_STRING})+&[[:blank:]]*(![^\n\r]*)?{newline}[[:blank:]]*{sentinel}[[:blank:]]+[^&][^\n\r]*{newline} {
+^[[:blank:]]*{sentinel}[[:blank:]]+(([^\n\r!'"])|{FORTRAN_STRING})+&([[:blank:]]*(![^\n\r]*)?{newline})+[[:blank:]]*{sentinel}[[:blank:]]+[^&][^\n\r]*{newline} {
 	// !$SENTINEL INTEGER &
 	// !$SENTINEL :: A=3
 
@@ -456,8 +456,8 @@ schar       ([^\\"\n\r]|{c_escape_seq}|(\\["]))
 	}
 }
 
-^(([^\n\r!'"])|{FORTRAN_STRING})+&[[:blank:]]*(![^\n\r]*)?{newline}[[:blank:]]*[^&][^\n\r]*{newline} |
-^(([^\n\r!'"])|{FORTRAN_STRING})*{UNENDED_STRING}&[[:blank:]]*{newline}[[:blank:]]*[^&][^\n\r]*{newline} {
+^(([^\n\r!'"])|{FORTRAN_STRING})+&([[:blank:]]*(![^\n\r]*)?{newline})+[[:blank:]]*[^&][^\n\r]*{newline} |
+^(([^\n\r!'"])|{FORTRAN_STRING})*{UNENDED_STRING}&([[:blank:]]*{newline})+[[:blank:]]*[^&][^\n\r]*{newline} {
 	// The first regex allows comments because all strings are closed
     // The second one does not allows them because the last string is opened
     // This recognizes continued lines with continuation mark at the end
@@ -2136,6 +2136,16 @@ goto {
  	RETURN_TOKEN(']');
 }
 
+"(/" { 
+    parse_token_text();
+    RETURN_TOKEN(TOK_LPARENT_SLASH); 
+}
+
+"/)" { 
+    parse_token_text();
+    RETURN_TOKEN(TOK_SLASH_RPARENT); 
+}
+
 "==" {
 	parse_token_text();
 	RETURN_TOKEN(TOK_EQUAL);
@@ -2374,7 +2384,7 @@ static void reintroduce_continued_line(char* continued_line, char double_continu
 
     // Copy all the string springing over &\n&
 
-    // Find the newline, there is only one, regex enforces this
+    // Find the first newline
     char* newline = strchr(temporal, '\n');
 
     ERROR_CONDITION(newline == NULL, "There must be a new-line\n", 0);
@@ -2382,6 +2392,8 @@ static void reintroduce_continued_line(char* continued_line, char double_continu
     char* limit_first_line = NULL; 
     char* limit_second_line = NULL;
     char second_line_is_comment = 0;
+    char second_line_is_blank = 0;
+        
     // We will look for the rightmost & and the leftmost &
     // so we cut here
     *newline = '\0';
@@ -2407,6 +2419,19 @@ static void reintroduce_continued_line(char* continued_line, char double_continu
         while (*limit_second_line == ' ' || *limit_first_line == '\t') 
         {
             limit_second_line++;
+        }
+
+        if (*limit_second_line == '\r'  // DOS CR-NL
+                && *(limit_second_line + 1) == '\n')
+        {
+            // Ignore '\r'
+            limit_second_line++;
+        }
+
+        // I think this only happens in malformed input
+        if (*limit_second_line == '\n')
+        {
+            second_line_is_blank = 1;
         }
 
         // This is a comment !
@@ -2443,6 +2468,11 @@ static void reintroduce_continued_line(char* continued_line, char double_continu
                     unput(*last_character);
                     last_character--;
                 }
+            }
+
+            if (second_line_is_blank)
+            {
+                unput ('&');
             }
         }
         else

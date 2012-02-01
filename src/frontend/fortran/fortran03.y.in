@@ -879,6 +879,8 @@ static void append_statement_to_block(AST block, AST stmt)
 %token<token_atrib> '/'
 %token<token_atrib> TOK_DOUBLE_SLASH "//"
 %token<token_atrib> '+'
+%token<token_atrib> TOK_LPARENT_SLASH "(/"
+%token<token_atrib> TOK_SLASH_RPARENT "/)"
 %token<token_atrib> TOK_TRUE ".TRUE."
 %token<token_atrib> TOK_FALSE ".FALSE."
 %token<token_atrib> DECIMAL_LITERAL "decimal literal"
@@ -1662,9 +1664,9 @@ hex_constant : HEX_LITERAL
     $$ = ASTLeaf(AST_HEXADECIMAL_LITERAL, $1.token_file, $1.token_line, $1.token_text);
 }
 ;
-array_constructor : '(' '/' ac_spec '/' ')'
+array_constructor : TOK_LPARENT_SLASH ac_spec TOK_SLASH_RPARENT
 {
-    $$ = ASTMake1(AST_ARRAY_CONSTRUCTOR, $3, $1.token_file, $1.token_line, $1.token_text);
+    $$ = ASTMake1(AST_ARRAY_CONSTRUCTOR, $2, $1.token_file, $1.token_line, $1.token_text);
 }
 | '[' ac_spec ']'
 {
