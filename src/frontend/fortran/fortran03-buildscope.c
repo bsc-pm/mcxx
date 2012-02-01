@@ -6533,6 +6533,11 @@ static scope_entry_t* insert_symbol_from_module(scope_entry_t* entry,
 
         current_symbol->entity_specs.in_module = module;
     }
+    else
+    {
+        // Not in a module
+        current_symbol->entity_specs.in_module = NULL;
+    }
 
     if (entry->entity_specs.is_generic_spec)
     {

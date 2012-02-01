@@ -2657,8 +2657,16 @@ OPERATOR_TABLE
 
     void FortranBase::emit_use_statement_if_symbol_comes_from_module(TL::Symbol entry)
     {
-        if (entry.is_class()
-                && entry.get_internal_symbol()->entity_specs.from_module == NULL)
+        if (entry.get_internal_symbol()->entity_specs.from_module != NULL)
+        {
+            codegen_use_statement(entry);
+            // Do not emit anything else otherwise we might be emitting wrong USE statements
+            return;
+        }
+
+        // From here we now that entry is not coming from any module
+        // but its components/parts/subobjects might
+        if (entry.is_class())
         {
             // Check every component recursively
             TL::ObjectList<TL::Symbol> nonstatic_members = entry.get_type().get_nonstatic_data_members();
@@ -2674,17 +2682,14 @@ OPERATOR_TABLE
                 declare_symbols_from_modules_rec(member.get_initialization());
             }
         }
-        else if (entry.is_variable()
-                && entry.get_internal_symbol()->entity_specs.from_module == NULL)
+        else if (entry.is_variable())
         {
             TL::Type entry_type = entry.get_type();
             if (entry_type.is_any_reference())
                 entry_type = entry_type.references_to();
 
             if (entry_type.is_pointer())
-            {
                 entry_type = entry_type.points_to();
-            }
 
             while (entry_type.is_array())
             {
@@ -2709,27 +2714,10 @@ OPERATOR_TABLE
             if (entry_type.is_named_class())
             {
                 TL::Symbol class_entry = entry_type.get_symbol();
-                if (class_entry.get_internal_symbol()->entity_specs.from_module != NULL)
-                {
-                    codegen_use_statement(class_entry);
-                }
+                emit_use_statement_if_symbol_comes_from_module(class_entry);
             }
         }
 
-        if (entry.get_internal_symbol()->entity_specs.from_module == NULL
-                && entry.get_type().is_named_class())
-        {
-            TL::Symbol class_entry = entry.get_type().get_symbol();
-            if (class_entry.get_internal_symbol()->entity_specs.from_module != NULL)
-            {
-                codegen_use_statement(class_entry);
-            }
-        }
-        if (entry.get_internal_symbol()->entity_specs.from_module != NULL)
-        {
-            codegen_use_statement(entry);
-        }
-        
         if (entry.is_fortran_namelist())
         {
             TL::ObjectList<TL::Symbol> symbols_in_namelist = entry.get_related_symbols();
@@ -2739,7 +2727,6 @@ OPERATOR_TABLE
                 emit_use_statement_if_symbol_comes_from_module(symbols_in_namelist[i]);
             }
         }
-
     }
 
     void FortranBase::codegen_use_statement(TL::Symbol entry)
