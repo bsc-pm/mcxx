@@ -307,6 +307,9 @@ LIBMCXX_EXTERN char is_union_type(type_t* possible_union);
 
 LIBMCXX_EXTERN char is_named_type(type_t* t);
 
+// All indirect types are named types (the converse is not always true)
+LIBMCXX_EXTERN char is_indirect_type(type_t* t);
+
 LIBMCXX_EXTERN char is_void_type(type_t* t);
 LIBMCXX_EXTERN char is_void_pointer_type(type_t* t1);
 

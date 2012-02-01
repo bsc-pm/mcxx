@@ -5640,6 +5640,15 @@ char is_named_type(type_t* t)
             && t->type->user_defined_type != NULL);
 }
 
+char is_indirect_type(type_t* t)
+{
+    return (t != NULL
+            && t->kind == TK_DIRECT
+            && t->type->kind == STK_INDIRECT
+            && t->type->is_indirect
+            && t->type->user_defined_type != NULL);
+}
+
 scope_entry_t* named_type_get_symbol(type_t* t)
 {
     if (is_named_type(t))
