@@ -37,21 +37,6 @@ using namespace TL::Nanox;
 
 void OMPTransform::parallel_postorder(PragmaCustomConstruct ctr)
 {
-#ifdef OMPSS
-    std::cerr << ctr.get_ast().get_locus() << ": warning: '#pragma omp parallel' is not fully implemented" << std::endl;
-
-    Source code;
-
-    code 
-        << "{"
-        <<    ctr.get_statement()
-        <<    get_barrier_code(ctr.get_ast())
-        << "}"
-        ;
-
-    AST_t parallel_code = code.parse_statement(ctr.get_ast(), ctr.get_scope_link());
-    ctr.get_ast().replace(parallel_code);
-#endif
     OpenMP::DataSharingEnvironment& data_sharing = openmp_info->get_data_sharing(ctr.get_ast());
 
     DataEnvironInfo data_environ_info;
