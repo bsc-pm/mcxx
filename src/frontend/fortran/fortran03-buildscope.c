@@ -1131,7 +1131,6 @@ static scope_entry_t* new_procedure_symbol(
                 // If not defined it can only be a parameter of the current procedure
                 // being given an interface
                 || (!entry->entity_specs.is_parameter
-                    // Or an advanced declaration of a module procedure found in an INTERFACE at module level
                     && !entry->entity_specs.is_module_procedure
                     // Or a symbol we said something about it in the specification part of a module
                     && !(entry->kind == SK_UNDEFINED
@@ -1141,12 +1140,6 @@ static scope_entry_t* new_procedure_symbol(
                     ast_location(name), 
                     ASTText(name));
             return NULL;
-        }
-        // It can't be redefined anymore
-        if (entry->entity_specs.is_module_procedure)
-        {
-            entry->entity_specs.is_module_procedure = 0;
-            remove_not_fully_defined_symbol(entry->decl_context, entry);
         }
         remove_unknown_kind_symbol(entry->decl_context, entry);
     }
@@ -1439,7 +1432,6 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
         // It can't be redefined anymore
         if (entry->entity_specs.is_module_procedure)
         {
-            entry->entity_specs.is_module_procedure = 0;
             remove_not_fully_defined_symbol(entry->decl_context, entry);
         }
     }
@@ -1795,6 +1787,16 @@ static void build_scope_program_unit_body_internal_subprograms_declarations(
             internal_subprograms_info[i].internal_subprograms = n_internal_subprograms;
             internal_subprograms_info[i].filename = ASTFileName(program_body);
             internal_subprograms_info[i].line = ASTLine(program_body);
+
+            scope_entry_t* enclosing_sym = decl_context.current_scope->related_entry;
+
+            // This is a module procedure
+            if (enclosing_sym != NULL
+                    && enclosing_sym->kind == SK_MODULE)
+            {
+                new_entry->entity_specs.is_module_procedure = 1;
+                remove_not_fully_defined_symbol(decl_context, new_entry);
+            }
 
             build_scope_program_unit_body_declarations(
                     allow_all_statements,
@@ -4608,12 +4610,6 @@ static void build_scope_do_construct(AST a, decl_context_t decl_context, nodecl_
 
 static void build_scope_entry_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    // if (nodecl_output == NULL)
-    // {
-    //     fprintf(stderr, "IGNORING ENTRY at %s!\n", ast_location(a));
-    //     return;
-    // }
-
     AST name = ASTSon0(a);
     AST dummy_arg_list = ASTSon1(a);
     AST suffix = ASTSon2(a);
@@ -4638,7 +4634,7 @@ static void build_scope_entry_stmt(AST a, decl_context_t decl_context, nodecl_t*
         char is_function = !is_void_type(function_type_get_return_type(related_sym->type_information)); 
         scope_entry_t* entry = new_entry_symbol(decl_context, name, suffix, dummy_arg_list, is_function);
 
-        if (related_sym->entity_specs.in_module != NULL)
+        if (related_sym->entity_specs.is_module_procedure)
         {
             // Our principal procedure is a module procedure, this symbol will live as a sibling
             insert_entry(related_sym->entity_specs.in_module->related_decl_context.current_scope, entry);
@@ -5150,10 +5146,10 @@ static void build_scope_interface_block(AST a, decl_context_t decl_context,
                                 ASTText(procedure_name));
 
                         if (entry == NULL
-                                || entry->entity_specs.from_module == NULL
-                                || entry->kind != SK_FUNCTION)
+                                || entry->kind != SK_FUNCTION
+                                || !entry->entity_specs.is_module_procedure)
                         {
-                            error_printf("%s: error: name '%s' is not a module procedure\n", 
+                            error_printf("%s: error: name '%s' is not a MODULE PROCEDURE\n", 
                                     ast_location(procedure_name),
                                     prettyprint_in_buffer(procedure_name));
                         }

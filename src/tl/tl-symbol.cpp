@@ -205,6 +205,11 @@ namespace TL
         return (this->_symbol->kind == SK_FUNCTION);
     }
 
+    bool Symbol::is_module_procedure() const
+    {
+        return (this->_symbol->entity_specs.is_module_procedure);
+    }
+
     bool Symbol::is_nested_function() const
     {
         return (this->_symbol->entity_specs.is_nested_function);
