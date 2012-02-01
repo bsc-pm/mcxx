@@ -207,9 +207,12 @@ int get_rank_of_type(type_t* t)
     return result;
 }
 
-type_t* get_rank0_type(type_t* t)
+type_t* get_rank0_type_internal(type_t* t, char ignore_pointer)
 {
     t = no_ref(t);
+
+    if (ignore_pointer && is_pointer_type(t))
+        t = pointer_type_get_pointee_type(t);
 
     while (is_fortran_array_type(t))
     {
@@ -218,6 +221,10 @@ type_t* get_rank0_type(type_t* t)
     return t;
 }
 
+type_t* get_rank0_type(type_t* t)
+{
+    return get_rank0_type_internal(t, /* ignore_pointer */ 0);
+}
 
 char is_fortran_character_type(type_t* t)
 {
@@ -270,17 +277,16 @@ type_t* replace_return_type_of_function_type(type_t* function_type, type_t* new_
 
 char equivalent_tk_types(type_t* t1, type_t* t2)
 {
-    type_t* r1 = get_rank0_type(t1);
-    type_t* r2 = get_rank0_type(t2);
+    type_t* r1 = get_rank0_type_internal(t1, /* ignore pointer */ 1);
+    type_t* r2 = get_rank0_type_internal(t2, /* ignore pointer */ 1);
 
+    // Preprocess for character types
     if (is_fortran_character_type(r1))
     {
-        // We want the character type
         r1 = get_unqualified_type(array_type_get_element_type(r1));
     }
     if (is_fortran_character_type(r2))
     {
-        // We want the character type
         r2 = get_unqualified_type(array_type_get_element_type(r2));
     }
 
