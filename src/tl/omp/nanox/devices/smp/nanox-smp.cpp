@@ -2493,10 +2493,11 @@ void DeviceSMP::create_outline(
         << get_reduction_update(data_environ.get_reduction_symbols(), sl);
     ;
     
-    if (outline_flags.parallel || outline_flags.barrier_at_end)
+    if (outline_flags.parallel 
+            || outline_flags.barrier_at_end)
     {
         final_code
-            << "nanos_team_barrier();"
+            << OMPTransform::get_barrier_code(reference_tree)
             ;
     }
 
