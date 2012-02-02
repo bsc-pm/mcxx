@@ -106,6 +106,8 @@ namespace Codegen
             void visit(const Nodecl::Sizeof& node);
             void visit(const Nodecl::Alignof& node);
 
+            void visit(const Nodecl::SavedExpr& node);
+
             void visit(const Nodecl::CxxDepNameSimple& node);
 
             void codegen_type(TL::Type t, 
