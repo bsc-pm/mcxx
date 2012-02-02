@@ -5958,7 +5958,7 @@ static void set_array_type(type_t** declarator_type,
                 new_vla_dim->file = ASTFileName(constant_expr);
                 new_vla_dim->line = ASTLine(constant_expr);
                 new_vla_dim->value = nodecl_expr;
-                new_vla_dim->type_information = nodecl_get_type(nodecl_expr);
+                new_vla_dim->type_information = get_const_qualified_type(nodecl_get_type(nodecl_expr));
 
                 P_LIST_ADD(gather_info->vla_dimension_symbols,
                         gather_info->num_vla_dimension_symbols,
