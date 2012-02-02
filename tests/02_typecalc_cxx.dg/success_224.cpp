@@ -28,28 +28,35 @@
 /*
 <testinfo>
 test_generator=config/mercurium
-test_compile_faulty=yes
 </testinfo>
 */
-template<typename T>
-    class A;
 
-template<typename T>
-    int foo1(T)
-    {
-        return A<T>::x; // Error!
-    }
+//GCC cannot compile this code
+template <typename _T>
+struct A;
 
-template<typename T>
-    class A
-    {
-        const static int x = 2;
-        friend int foo1(T); 
-    };
-
-A<int> a;
-
-int main() 
+struct B
 {
-    foo1<int>(0);
+    template <typename S>
+        void f(S s)
+        {
+        }
+};
+
+template <typename _T>
+struct A
+{
+    private:
+    static int c;
+
+    public:
+    friend void _T::template f<>(_T);
+};
+
+
+void g()
+{
+    B b;
+    A<B> a;
 }
+

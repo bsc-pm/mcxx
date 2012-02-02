@@ -409,3 +409,34 @@ scope_entry_list_t* entry_list_remove(scope_entry_list_t* entry_list, scope_entr
 
     return entry_list;
 }
+
+
+void entry_list_to_symbol_array(scope_entry_list_t* list, scope_entry_t*** array, int* num_items)
+{
+    int size = entry_list_size(list);
+    *array = counted_calloc(size, sizeof(scope_entry_t*), &_bytes_entry_lists);
+
+    *num_items = 0;
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(list); !entry_list_iterator_end(it); entry_list_iterator_next(it))
+    {
+        (*array)[*num_items] = entry_list_iterator_current(it);
+        (*num_items)++;
+    }
+}
+
+scope_entry_list_t* entry_list_from_symbol_array(int num_items, scope_entry_t** list)
+{
+    if(num_items <= 0)
+    {
+        return NULL;
+    }
+
+    scope_entry_list_t* result = entry_list_allocate();
+    int ind;
+    for (ind = 0; ind < num_items; ++ind)
+    {
+        entry_list_add(result, list[ind]);
+    }
+    return result;
+}

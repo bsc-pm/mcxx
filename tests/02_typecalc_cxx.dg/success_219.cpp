@@ -28,28 +28,15 @@
 /*
 <testinfo>
 test_generator=config/mercurium
-test_compile_faulty=yes
 </testinfo>
 */
-template<typename T>
-    class A;
+
+int foo(int);
 
 template<typename T>
-    int foo1(T)
-    {
-        return A<T>::x; // Error!
-    }
-
-template<typename T>
-    class A
-    {
-        const static int x = 2;
-        friend int foo1(T); 
-    };
+class A
+{
+    friend int foo(int);
+};
 
 A<int> a;
-
-int main() 
-{
-    foo1<int>(0);
-}

@@ -28,28 +28,18 @@
 /*
 <testinfo>
 test_generator=config/mercurium
-test_compile_faulty=yes
+test_compile_fail=yes
 </testinfo>
 */
-template<typename T>
-    class A;
 
-template<typename T>
-    int foo1(T)
-    {
-        return A<T>::x; // Error!
-    }
-
-template<typename T>
-    class A
-    {
-        const static int x = 2;
-        friend int foo1(T); 
-    };
-
-A<int> a;
-
-int main() 
+namespace N 
 {
-    foo1<int>(0);
+    int foo;
 }
+
+template<typename T>
+class A
+{
+    //Error: N::foo does not exist (in declaration time)
+    friend int N::foo();
+};
