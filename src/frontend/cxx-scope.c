@@ -1143,7 +1143,7 @@ char nodecl_name_ends_in_template_id(nodecl_t nodecl_name)
     return (nodecl_get_kind(nodecl_name_get_last_part(nodecl_name)) == NODECL_CXX_DEP_TEMPLATE_ID);
 }
 
-template_parameter_list_t* nodecl_name_name_last_template_arguments(nodecl_t nodecl_name)
+template_parameter_list_t* nodecl_name_get_last_template_arguments(nodecl_t nodecl_name)
 {
     if (nodecl_name_ends_in_template_id(nodecl_name))
     {

@@ -221,7 +221,7 @@ LIBMCXX_EXTERN scope_entry_list_t* class_context_lookup(decl_context_t decl_cont
 // C++ names
 LIBMCXX_EXTERN nodecl_t nodecl_name_get_last_part(nodecl_t nodecl_name);
 LIBMCXX_EXTERN char nodecl_name_ends_in_template_id(nodecl_t nodecl_name);
-LIBMCXX_EXTERN template_parameter_list_t* nodecl_name_name_last_template_arguments(nodecl_t nodecl_name);
+LIBMCXX_EXTERN template_parameter_list_t* nodecl_name_get_last_template_arguments(nodecl_t nodecl_name);
 
 LIBMCXX_EXTERN type_t* build_dependent_typename_for_entry(
         scope_entry_t* class_symbol,

@@ -4929,7 +4929,7 @@ static void compute_operator_reference_type(nodecl_t* op,
             template_parameter_list_t* last_template_args = NULL;
             if (nodecl_name_ends_in_template_id(*op))
             {
-                last_template_args = nodecl_name_name_last_template_arguments(*op);
+                last_template_args = nodecl_name_get_last_template_arguments(*op);
             }
 
             type_t* t = get_unresolved_overloaded_type(entry_list, last_template_args);
@@ -5328,7 +5328,7 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
     template_parameter_list_t* last_template_args = NULL;
     if (nodecl_name_ends_in_template_id(nodecl_name))
     {
-        last_template_args = nodecl_name_name_last_template_arguments(nodecl_name);
+        last_template_args = nodecl_name_get_last_template_arguments(nodecl_name);
     }
 
     if (entry->kind == SK_VARIABLE)
@@ -9186,7 +9186,7 @@ static void check_nodecl_member_access(
             template_parameter_list_t* last_template_args = NULL;
             if (nodecl_name_ends_in_template_id(nodecl_member))
             {
-                last_template_args = nodecl_name_name_last_template_arguments(nodecl_member);
+                last_template_args = nodecl_name_get_last_template_arguments(nodecl_member);
             }
 
             type_t* t = get_unresolved_overloaded_type(entry_list, last_template_args);

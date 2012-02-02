@@ -7483,7 +7483,7 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
         (ASTType(declarator_id) == AST_TEMPLATE_ID) ||
         (ASTType(declarator_id) == AST_QUALIFIED_TEMPLATE);
 
-    decl_flags_t decl_flags = DF_NONE;
+    decl_flags_t decl_flags = DF_DEPENDENT_TYPENAME;
     decl_context_t lookup_context = decl_context;
     if (!is_qualified)
     {
