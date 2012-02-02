@@ -166,6 +166,29 @@ namespace TL
             bool is_template() const;
             //! States whether this symbol is a function
             bool is_function() const;
+
+            //! States whether this symbol is a MODULE PROCEDURE
+            /*!
+             * A module procedure is a procedure (function or subroutine)
+             * defined inside a module. Note that a module procedure returns
+             * true for Symbol::is_in_module and Symbol::is_function. The
+             * converse is not always true, a Symbol::is_function might be
+             * Symbol::is_in_module but not be a module procedure.
+             *
+             * In the example below, QUUX is a module procedure while FOO is not
+             *
+             * MODULE M
+             *   INTERFACE
+             *     SUBROUTINE FOO
+             *     END SUBROUTINE FOO
+             *   END INTERFACE
+             *  CONTAINS
+             *   SUBROUTINE QUUX
+             *   END SUBROUTINE QUUX
+             * END MODULE M
+             */
+            bool is_module_procedure() const;
+
             //! States whether this function is nested
             bool is_nested_function() const;
             //! States whether this symbol is a statement function statmeent symbol
@@ -193,7 +216,7 @@ namespace TL
             //! Returns the MODULE symbol where this symbol belongs
             /*! \note This only makes sense if is_in_module returned true */
             Symbol in_module() const;
-            
+
             //! States that this symbol is a BLOCK DATA program unit
             /*! \note This only applies to Fortran */
             bool is_fortran_blockdata() const;

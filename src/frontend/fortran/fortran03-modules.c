@@ -1179,7 +1179,14 @@ static sqlite3_uint64 insert_type(sqlite3* handle, type_t* t)
     {
         sqlite3_uint64 sym_oid = insert_symbol(handle, named_type_get_symbol(t));
 
-        result = insert_type_ref_to_symbol(handle, t, "NAMED", 0, sym_oid);
+        if (is_indirect_type(t))
+        {
+            result = insert_type_ref_to_symbol(handle, t, "INDIRECT", 0, sym_oid);
+        }
+        else
+        {
+            result = insert_type_ref_to_symbol(handle, t, "NAMED", 0, sym_oid);
+        }
     }
     else
     {
@@ -2028,6 +2035,16 @@ static int get_type(void *datum,
         scope_entry_t* symbol = load_symbol(handle, symbol_oid);
 
         *pt = get_user_defined_type(symbol);
+        *pt = get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name);
+        insert_map_ptr(handle, current_oid, *pt);
+    }
+    else if (strcmp(kind, "INDIRECT") == 0)
+    {
+        sqlite3_uint64 symbol_oid = safe_atoull(symbols);
+
+        scope_entry_t* symbol = load_symbol(handle, symbol_oid);
+
+        *pt = get_indirect_type(symbol);
         *pt = get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name);
         insert_map_ptr(handle, current_oid, *pt);
     }

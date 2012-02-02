@@ -2474,9 +2474,8 @@ OPERATOR_TABLE
                 it++)
         {
             TL::Symbol &sym(*it);
-            if (!sym.is_function()
-                    || sym.is_generic_specifier()
-                    || sym.in_module() != state.current_module)
+            // We emit everything but module procedures
+            if (!sym.is_module_procedure())
             {
                 declare_symbol(sym);
             }
