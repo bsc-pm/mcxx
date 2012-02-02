@@ -29,13 +29,25 @@
 <testinfo>
 test_generator=config/mercurium-omp
 
-# test_compile_fail_nanox_plain=yes
-# test_compile_faulty_nanox_plain=yes
-# 
-# test_compile_fail_nanox_instrument=yes
-# test_compile_faulty_nanox_instrument=yes
+test_exec_fail_nanox_plain_1thread=yes
+test_exec_faulty_nanox_plain_1thread=yes
+test_exec_fail_nanox_plain_2thread=yes
+test_exec_faulty_nanox_plain_2thread=yes
+test_exec_fail_nanox_plain_4thread=yes
+test_exec_faulty_nanox_plain_4thread=yes
+
+test_exec_fail_nanox_instrument_1thread=yes
+test_exec_faulty_nanox_instrument_1thread=yes
+test_exec_fail_nanox_instrument_2thread=yes
+test_exec_faulty_nanox_instrument_2thread=yes
+test_exec_fail_nanox_instrument_4thread=yes
+test_exec_faulty_nanox_instrument_4thread=yes
+
 </testinfo>
 */
+
+#include <stdlib.h>
+#include "omp.h"
 
 #pragma omp declare reduction (add: int: _out=_in+_out)
 
@@ -45,5 +57,6 @@ int main (int argc, char* argv[])
   #pragma omp parallel firstprivate(a) reduction (add: a)
   a = a + 5;
   printf("reduction done");
+  abort();
   return 0;
 }

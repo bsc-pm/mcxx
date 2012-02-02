@@ -908,13 +908,13 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context)
         AST list, iter;
         list = ASTSon1(a);
 
-        // Copy because of attributes that might modify this info
-        gather_decl_spec_t current_gather_info = gather_info;
-
         // For every declarator create its full type based on the type
         // specified in the decl_specifier_seq
         for_each_element(list, iter)
         {
+            // Copy because of attributes that might modify this info
+            gather_decl_spec_t current_gather_info = gather_info;
+
             AST init_declarator = ASTSon1(iter);
 
             if (ASTType(init_declarator) == AST_AMBIGUITY)

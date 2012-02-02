@@ -49,10 +49,10 @@ namespace Nanox
         bool barrier_at_end;
 
         /*! 
-          If this flag is true, the outline should tell the runtime that it is leaving
-          a team, using the proper device dependent interface.
+          If this flag is true, the generated outline has to be created for the implicit tasks of a
+          parallel region.
           */
-        bool leave_team;
+        bool parallel;
 
         /*!
           If this flag is true, the device provider should not try to create a name
@@ -68,7 +68,7 @@ namespace Nanox
 
         OutlineFlags()
             : barrier_at_end(false),
-            leave_team(false),
+            parallel(false),
             implemented_outline(false),
             task_symbol(NULL)
         {

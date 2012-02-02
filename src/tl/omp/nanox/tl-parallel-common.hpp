@@ -36,10 +36,10 @@ namespace TL
 {
     namespace Nanox
     {
-        Source common_parallel_code(const std::string& outline_name, 
+        Source common_parallel_code(
+                PragmaCustomConstruct &ctr,
+                const std::string& outline_name, 
                 const std::string& struct_arg_type_name,
-                Source num_threads,
-                ScopeLink sl,
                 DataEnvironInfo& data_environ_info,
                 AST_t parallel_code,
                 const ObjectList<std::string>& current_targets);

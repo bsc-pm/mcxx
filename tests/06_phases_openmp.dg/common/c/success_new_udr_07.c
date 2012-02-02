@@ -62,11 +62,7 @@ int main (int argc, char **argv)
        s += i;
    }
 
-#ifdef NANOX
-   #pragma omp for reduction(+:x)
-#else
    #pragma omp parallel for reduction(+:x)
-#endif
    for ( i = 0; i < N ; i++ )
    {
         x.x += a[i];

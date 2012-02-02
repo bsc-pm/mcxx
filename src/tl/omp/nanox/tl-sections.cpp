@@ -171,7 +171,6 @@ void OMPTransform::sections_postorder(PragmaCustomConstruct ctr)
         <<    "__builtin_memcpy(list_of_wds->lwd, _wd_section_list, sizeof(_wd_section_list));"
         <<    "err = nanos_submit(cwd, 0, (nanos_dependence_t*)0, 0);"
         <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-        <<    final_barrier
         << "}"
         ;
 
@@ -179,8 +178,21 @@ void OMPTransform::sections_postorder(PragmaCustomConstruct ctr)
 
     last.append(Statement(compound_wd_tree, ctr.get_scope_link()));
 
+    // Once we have done everything, wrap it inside a single guard
+    Source single_guarded_src;
+    single_guarded_src
+        << "{"
+        << get_single_guard("single_guard")
+        << "if (single_guard)"
+        <<    ctr.get_statement().prettyprint()
+        << final_barrier
+        << "}"
+        ;
+
+    AST_t single_guarded_tree = single_guarded_src.parse_statement(ctr.get_ast(), ctr.get_scope_link());
+
     // Remove the pragma
-    ctr.get_ast().replace(compound_statement.get_ast());
+    ctr.get_ast().replace(single_guarded_tree);
 
     _section_info.pop_back();
 }

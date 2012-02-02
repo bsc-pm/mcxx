@@ -6313,6 +6313,12 @@ static void get_type_name_str_internal(decl_context_t decl_context,
 {
     ERROR_CONDITION(type_info == NULL, "This cannot be null", 0);
 
+    {
+        cv_qualifier_t cv = CV_NONE;
+        type_info = advance_over_typedefs_with_cv_qualif(type_info, &cv);
+        type_info = get_cv_qualified_type(type_info, cv);
+    }
+
     switch (type_info->kind)
     {
         case TK_DIRECT :

@@ -2328,10 +2328,10 @@ void DeviceSMP::create_outline(
             uf_name_descr
                 << "\"Task '" << outline_flags.task_symbol.get_name() << "'\""
                 ;
-			uf_location_descr
-				<< "\"It was invoked from function '" << function_symbol.get_qualified_name() << "'"
-				<< " in construct at '" << reference_tree.get_locus() << "'\""
-				;
+                        uf_location_descr
+                                << "\"It was invoked from function '" << function_symbol.get_qualified_name() << "'"
+                                << " in construct at '" << reference_tree.get_locus() << "'\""
+                                ;
          }
          else
          {
@@ -2344,7 +2344,7 @@ void DeviceSMP::create_outline(
 
             uf_name_descr
                 << uf_location_descr
-            	;
+                ;
             uf_location_descr
                 << "\"Outline from '"
                 << reference_tree.get_locus()
@@ -2365,9 +2365,10 @@ void DeviceSMP::create_outline(
         << outline_name
         ;
 
-    Source private_vars, final_code;
+    Source private_vars, final_code, init_code;
 
     body
+        << init_code
         << local_copies
         << private_vars
         << initial_setup
@@ -2475,21 +2476,28 @@ void DeviceSMP::create_outline(
         }
     }
 
+    if (outline_flags.parallel)
+    {
+       // This is a temporal workaround until runtime will fix enter team mechamism
+       init_code 
+          << "nanos_team_barrier();"
+          ;
+
+       // This task is an implicit one created after a parallel execution
+       init_code 
+          << "nanos_omp_set_implicit(nanos_current_wd());"
+          ;
+    }
+
     final_code
         << get_reduction_update(data_environ.get_reduction_symbols(), sl);
     ;
     
-    if (outline_flags.barrier_at_end)
+    if (outline_flags.parallel 
+            || outline_flags.barrier_at_end)
     {
         final_code
-            << "nanos_team_barrier();"
-            ;
-    }
-
-    if (outline_flags.leave_team)
-    {
-        final_code
-            << "nanos_leave_team();"
+            << OMPTransform::get_barrier_code(reference_tree)
             ;
     }
 

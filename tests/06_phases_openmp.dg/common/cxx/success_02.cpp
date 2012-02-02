@@ -28,20 +28,6 @@
 /*
 <testinfo>
 test_generator=config/mercurium-omp
-
-# test_exec_fail_nanox_plain_1thread=yes
-# test_exec_faulty_nanox_plain_1thread=yes
-# test_exec_fail_nanox_plain_2thread=yes
-# test_exec_faulty_nanox_plain_2thread=yes
-# test_exec_fail_nanox_plain_4thread=yes
-# test_exec_faulty_nanox_plain_4thread=yes
-
-# test_exec_fail_nanox_instrument_1thread=yes
-# test_exec_faulty_nanox_instrument_1thread=yes
-# test_exec_fail_nanox_instrument_2thread=yes
-# test_exec_faulty_nanox_instrument_2thread=yes
-# test_exec_fail_nanox_instrument_4thread=yes
-# test_exec_faulty_nanox_instrument_4thread=yes
 </testinfo>
 */
 
@@ -65,7 +51,7 @@ int A::c;
 
 void A::f(void)
 {
-#pragma omp parallel
+#pragma omp task
     {
         g();
         this->b = 2;
@@ -73,6 +59,7 @@ void A::f(void)
         b+=2;
         c = 5;
     }
+#pragma omp taskwait
 }
 
 int main(int argc, char *argv[])
