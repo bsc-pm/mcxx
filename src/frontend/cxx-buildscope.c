@@ -7476,8 +7476,12 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
             "This is not a depedent friend function", 0);
 
     char is_qualified = !is_unqualified_id_expression(declarator_id);
+
     char is_template_function = gather_info->is_template;
-    char is_template_id = ASTType(declarator_id) == AST_TEMPLATE_ID;
+
+    char is_template_id =
+        (ASTType(declarator_id) == AST_TEMPLATE_ID) ||
+        (ASTType(declarator_id) == AST_QUALIFIED_TEMPLATE);
 
     decl_flags_t decl_flags = DF_NONE;
     decl_context_t lookup_context = decl_context;
@@ -7486,20 +7490,7 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
         decl_flags |= DF_ONLY_CURRENT_SCOPE;
     }
 
-    char is_local_class_friend_decl = 0;
-    if (!is_qualified
-            && decl_context.current_scope->kind == CLASS_SCOPE
-            && decl_context.current_scope->contained_in != NULL
-            && decl_context.current_scope->contained_in->kind == BLOCK_SCOPE)
-
-    {
-        is_local_class_friend_decl = 1;
-        lookup_context.current_scope = decl_context.current_scope->contained_in;
-    }
-    else
-    {
-        lookup_context.current_scope = lookup_context.namespace_scope;
-    }
+    lookup_context.current_scope = lookup_context.namespace_scope;
 
     scope_entry_list_t* entry_list
         = query_id_expression_flags(lookup_context, declarator_id, decl_flags);
@@ -7513,9 +7504,9 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
     //      1.3 It's an unqualied name -> declares an nontemplate function
     //
     scope_entry_list_t* filtered_entry_list = NULL;
-    enum cxx_symbol_kind filter_only_templates[] = { SK_TEMPLATE };
+    enum cxx_symbol_kind filter_only_templates[] = { SK_TEMPLATE, SK_DEPENDENT_ENTITY };
     enum cxx_symbol_kind filter_only_functions[] = { SK_FUNCTION };
-    enum cxx_symbol_kind filter_only_templates_and_functions[] = { SK_FUNCTION, SK_TEMPLATE };
+    enum cxx_symbol_kind filter_only_templates_and_functions[] = { SK_FUNCTION, SK_TEMPLATE, SK_DEPENDENT_ENTITY};
 
     // Here we only do error detection
     if (!is_template_function)
@@ -7533,8 +7524,12 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
                     entry_list_iterator_next(it))
             {
                 scope_entry_t* current_sym = entry_list_iterator_current(it);
-                current_sym = named_type_get_symbol(template_type_get_primary_type(current_sym->type_information));
-                if (current_sym->kind == SK_FUNCTION)
+                if (current_sym->kind == SK_TEMPLATE)
+                {
+                    current_sym =
+                        named_type_get_symbol(template_type_get_primary_type(current_sym->type_information));
+                }
+                if (current_sym->kind == SK_FUNCTION || current_sym->kind == SK_DEPENDENT_ENTITY)
                 {
                     found_spec_funct_templ = 1;
                 }
@@ -7567,7 +7562,7 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
                     current_sym = named_type_get_symbol(template_type_get_primary_type(current_sym->type_information));
                 }
 
-                if (current_sym->kind == SK_FUNCTION)
+                if (current_sym->kind == SK_FUNCTION || current_sym->kind == SK_DEPENDENT_ENTITY)
                 {
                     found_candidate = 1;
                 }
@@ -7607,6 +7602,22 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
     entry->type_information = declarator_type;
 
     entry->entity_specs.any_exception = gather_info->any_exception;
+    entry->entity_specs.is_friend_declared = 1;
+    entry->entity_specs.num_parameters = gather_info->num_parameters;
+
+    entry->entity_specs.default_argument_info =
+        counted_calloc(entry->entity_specs.num_parameters, sizeof(*(entry->entity_specs.default_argument_info)), &_bytes_used_buildscope);
+    int i;
+    for (i = 0; i < gather_info->num_parameters; i++)
+    {
+        if (!nodecl_is_null(gather_info->arguments_info[i].argument))
+        {
+            entry->entity_specs.default_argument_info[i] =
+                (default_argument_info_t*)counted_calloc(1, sizeof(default_argument_info_t), &_bytes_used_buildscope);
+            entry->entity_specs.default_argument_info[i]->argument = gather_info->arguments_info[i].argument;
+            entry->entity_specs.default_argument_info[i]->context = gather_info->arguments_info[i].context;
+        }
+    }
 
     // This new symbol contains the results of the query
     entry_list_to_symbol_array(filtered_entry_list,
