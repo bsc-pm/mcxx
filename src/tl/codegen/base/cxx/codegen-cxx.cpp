@@ -2039,6 +2039,15 @@ CxxBase::Ret CxxBase::visit(const Nodecl::GccAsmSpec& node)
     file << " __asm(" << node.get_text() << ")";
 }
 
+CxxBase::Ret CxxBase::visit(const Nodecl::GccBuiltinVaArg& node)
+{
+    file << "__builtin_va_arg(";
+    walk(node.get_expr());
+    file << ", ";
+    walk(node.get_va_type());
+    file << ")";
+}
+
 CxxBase::Ret CxxBase::visit(const Nodecl::UpcSyncStatement& node)
 {
     file << node.get_text() << "(";

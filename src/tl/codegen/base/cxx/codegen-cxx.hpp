@@ -141,6 +141,7 @@ namespace Codegen
             Ret visit(const Nodecl::GccAsmDefinition& node);
             Ret visit(const Nodecl::GccAsmOperand& node);
             Ret visit(const Nodecl::GccAsmSpec& node);
+            Ret visit(const Nodecl::GccBuiltinVaArg& node);
             Ret visit(const Nodecl::UpcSyncStatement& node);
             Ret visit(const Nodecl::SourceComment& node);
             Ret visit(const Nodecl::PreprocessorLine& node);
