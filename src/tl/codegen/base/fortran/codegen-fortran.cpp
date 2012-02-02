@@ -239,7 +239,7 @@ namespace Codegen
                 it != related_symbols.end();
                 it++)
         {
-            emit_use_statement_if_symbol_comes_from_module(*it);
+            emit_use_statement_if_symbol_comes_from_module(*it, entry.get_related_scope());
         }
 
         indent();
@@ -276,7 +276,7 @@ namespace Codegen
         }
         
         // Could we improve the name of this function?
-        TL::Symbol equivalence_symbol = get_equivalence_symbol_info(entry.get_related_scope().get_decl_context());
+        TL::Symbol equivalence_symbol = ::get_equivalence_symbol_info(entry.get_related_scope().get_decl_context());
         if (equivalence_symbol.is_valid())
         {
             walk(equivalence_symbol.get_initialization());
@@ -2460,7 +2460,7 @@ OPERATOR_TABLE
                 it++)
         {
             TL::Symbol &sym(*it);
-            emit_use_statement_if_symbol_comes_from_module(sym);
+            emit_use_statement_if_symbol_comes_from_module(sym, entry.get_related_scope());
         }
 
         indent();
@@ -2513,7 +2513,7 @@ OPERATOR_TABLE
         file << "END MODULE " << entry.get_name() << "\n\n";
     }
 
-    void FortranBase::declare_symbols_from_modules_rec(Nodecl::NodeclBase node)
+    void FortranBase::declare_symbols_from_modules_rec(Nodecl::NodeclBase node, const TL::Scope &sc)
     {
         if (node.is_null())
             return;
@@ -2523,24 +2523,24 @@ OPERATOR_TABLE
                 it != children.end();
                 it++)
         {
-            declare_symbols_from_modules_rec(*it);
+            declare_symbols_from_modules_rec(*it, sc);
         }
 
         TL::Symbol entry = node.get_symbol();
         if (entry.is_valid())
         {
-            emit_use_statement_if_symbol_comes_from_module(entry);
+            emit_use_statement_if_symbol_comes_from_module(entry, sc);
 
             if (entry.is_statement_function_statement())
             {
-                declare_symbols_from_modules_rec(entry.get_initialization());
+                declare_symbols_from_modules_rec(entry.get_initialization(), sc);
             }
         }
     }
 
     void FortranBase::declare_use_statements(Nodecl::NodeclBase node)
     {
-        declare_symbols_from_modules_rec(node);
+        declare_symbols_from_modules_rec(node, node.retrieve_context());
     }
 
     void FortranBase::codegen_blockdata_header(TL::Symbol entry)
@@ -2655,101 +2655,110 @@ OPERATOR_TABLE
         walk(*(list.begin()));
     }
 
-    void FortranBase::emit_use_statement_if_symbol_comes_from_module(TL::Symbol entry)
+    void FortranBase::emit_use_statement_if_symbol_comes_from_module(TL::Symbol entry, const TL::Scope &sc)
     {
-        if (entry.is_class()
-                && entry.get_internal_symbol()->entity_specs.from_module == NULL)
-        {
-            // Check every component recursively
-            TL::ObjectList<TL::Symbol> nonstatic_members = entry.get_type().get_nonstatic_data_members();
+        static std::set<TL::Symbol> being_checked;
 
-            for (TL::ObjectList<TL::Symbol>::iterator it = nonstatic_members.begin();
-                    it != nonstatic_members.end();
-                    it++)
-            {
-                TL::Symbol &member(*it);
+        // Avoid infinite recursion
+        if (being_checked.find(entry) != being_checked.end())
+            return;
 
-                emit_use_statement_if_symbol_comes_from_module(member);
+        being_checked.insert(entry);
 
-                declare_symbols_from_modules_rec(member.get_initialization());
-            }
-        }
-        else if (entry.is_variable()
-                && entry.get_internal_symbol()->entity_specs.from_module == NULL)
-        {
-            TL::Type entry_type = entry.get_type();
-            if (entry_type.is_any_reference())
-                entry_type = entry_type.references_to();
-
-            if (entry_type.is_pointer())
-            {
-                entry_type = entry_type.points_to();
-            }
-
-            while (entry_type.is_array())
-            {
-                Nodecl::NodeclBase lower;
-                Nodecl::NodeclBase upper;
-                entry_type.array_get_bounds(lower, upper);
-                if (!lower.is_null())
-                {
-                    declare_symbols_from_modules_rec(lower);
-                }
-
-                if (!upper.is_null())
-                {
-                    declare_symbols_from_modules_rec(upper);
-                }
-
-                entry_type = entry_type.array_element();
-            }
-            
-            // The 'entry_type' is the rank0 type of the array
-            // This type may be a derived type and may be defined in a module
-            if (entry_type.is_named_class())
-            {
-                TL::Symbol class_entry = entry_type.get_symbol();
-                if (class_entry.get_internal_symbol()->entity_specs.from_module != NULL)
-                {
-                    codegen_use_statement(class_entry);
-                }
-            }
-        }
-
-        if (entry.get_internal_symbol()->entity_specs.from_module == NULL
-                && entry.get_type().is_named_class())
-        {
-            TL::Symbol class_entry = entry.get_type().get_symbol();
-            if (class_entry.get_internal_symbol()->entity_specs.from_module != NULL)
-            {
-                codegen_use_statement(class_entry);
-            }
-        }
         if (entry.get_internal_symbol()->entity_specs.from_module != NULL)
         {
-            codegen_use_statement(entry);
+            codegen_use_statement(entry, sc);
         }
-        
-        if (entry.is_fortran_namelist())
+        else
         {
-            TL::ObjectList<TL::Symbol> symbols_in_namelist = entry.get_related_symbols();
-            int num_symbols = symbols_in_namelist.size();
-            for (int i = 0; i < num_symbols; ++i)
+            // From here we now that entry is not coming from any module
+            // but its components/parts/subobjects might
+            if (entry.is_class())
             {
-                emit_use_statement_if_symbol_comes_from_module(symbols_in_namelist[i]);
+                // Check every component recursively
+                TL::ObjectList<TL::Symbol> nonstatic_members = entry.get_type().get_nonstatic_data_members();
+
+                for (TL::ObjectList<TL::Symbol>::iterator it = nonstatic_members.begin();
+                        it != nonstatic_members.end();
+                        it++)
+                {
+                    TL::Symbol &member(*it);
+
+                    emit_use_statement_if_symbol_comes_from_module(member, sc);
+
+                    declare_symbols_from_modules_rec(member.get_initialization(), sc);
+                }
+            }
+            else if (entry.is_variable())
+            {
+                TL::Type entry_type = entry.get_type();
+                if (entry_type.is_any_reference())
+                    entry_type = entry_type.references_to();
+
+                if (entry_type.is_pointer())
+                    entry_type = entry_type.points_to();
+
+                while (entry_type.is_array())
+                {
+                    Nodecl::NodeclBase lower;
+                    Nodecl::NodeclBase upper;
+                    entry_type.array_get_bounds(lower, upper);
+                    if (!lower.is_null())
+                    {
+                        declare_symbols_from_modules_rec(lower, sc);
+                    }
+
+                    if (!upper.is_null())
+                    {
+                        declare_symbols_from_modules_rec(upper, sc);
+                    }
+
+                    entry_type = entry_type.array_element();
+                }
+
+                // The 'entry_type' is the rank0 type of the array
+                // This type may be a derived type and may be defined in a module
+                if (entry_type.is_named_class())
+                {
+                    TL::Symbol class_entry = entry_type.get_symbol();
+                    emit_use_statement_if_symbol_comes_from_module(class_entry, sc);
+                }
+            }
+            else if (entry.is_fortran_namelist())
+            {
+                TL::ObjectList<TL::Symbol> symbols_in_namelist = entry.get_related_symbols();
+                int num_symbols = symbols_in_namelist.size();
+                for (int i = 0; i < num_symbols; ++i)
+                {
+                    emit_use_statement_if_symbol_comes_from_module(symbols_in_namelist[i], sc);
+                }
             }
         }
 
+        being_checked.erase(entry);
     }
 
-    void FortranBase::codegen_use_statement(TL::Symbol entry)
+    void FortranBase::codegen_use_statement(TL::Symbol entry, const TL::Scope &sc)
     {
         ERROR_CONDITION(entry.get_internal_symbol()->entity_specs.from_module == NULL, 
                 "Symbol '%s' must be from module\n", entry.get_name().c_str());
 
+        TL::Symbol module = entry.get_internal_symbol()->entity_specs.from_module;
+
         if (get_codegen_status(entry) == CODEGEN_STATUS_DEFINED)
             return;
         set_codegen_status(entry, CODEGEN_STATUS_DEFINED);
+
+        TL::Symbol used_modules = ::get_used_modules_symbol_info(sc.get_decl_context());
+
+        if (!used_modules.is_valid())
+            return;
+
+        TL::ObjectList<TL::Symbol> used_modules_list = used_modules.get_related_symbols();
+        bool found = used_modules_list.contains(module);
+        // This module was not explicitly used
+        if (!found)
+            return;
 
         indent();
         if (!entry.get_internal_symbol()->entity_specs.is_renamed)

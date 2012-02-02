@@ -3951,10 +3951,9 @@ static void check_ptr_assignment(AST expr, decl_context_t decl_context, nodecl_t
     {
         nodecl_rvalue = nodecl_get_child(nodecl_rvalue, 0);
     }
-    // This will be a NODECL_SYMBOL or a NODECL_CLASS_MEMBER_ACCESS Arrays
-    // cannot have POINTER as elements (only pointers to arrays are possible)
     else if (nodecl_get_kind(nodecl_rvalue) == NODECL_SYMBOL
-            || nodecl_get_kind(nodecl_rvalue) == NODECL_CLASS_MEMBER_ACCESS)
+            || nodecl_get_kind(nodecl_rvalue) == NODECL_CLASS_MEMBER_ACCESS
+            || nodecl_get_kind(nodecl_rvalue) == NODECL_ARRAY_SUBSCRIPT)
     {
         // Build a reference here
         nodecl_rvalue = nodecl_make_reference(nodecl_rvalue,

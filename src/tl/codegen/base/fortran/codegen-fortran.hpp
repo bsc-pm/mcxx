@@ -172,7 +172,7 @@ namespace Codegen
             void declare_everything_needed(Nodecl::NodeclBase statement_seq);
 
             void declare_use_statements(Nodecl::NodeclBase statement_seq);
-            void emit_use_statement_if_symbol_comes_from_module(TL::Symbol entry);
+            void emit_use_statement_if_symbol_comes_from_module(TL::Symbol entry, const TL::Scope &sc);
 
             void codegen_write_or_read_statement(
                     const std::string& keyword,
@@ -199,9 +199,9 @@ namespace Codegen
                     TL::Type source_type, 
                     Nodecl::NodeclBase nest);
 
-            void codegen_use_statement(TL::Symbol entry);
+            void codegen_use_statement(TL::Symbol entry, const TL::Scope &sc);
 
-            void declare_symbols_from_modules_rec(Nodecl::NodeclBase node);
+            void declare_symbols_from_modules_rec(Nodecl::NodeclBase node, const TL::Scope &sc);
 
             void declare_symbols_rec(Nodecl::NodeclBase node);
 

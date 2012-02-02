@@ -41,5 +41,5 @@ PROGRAM P
 
     TYPE(Y) :: M
 
-    M = M
+    M % PX => NULL()
 END PROGRAM P

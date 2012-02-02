@@ -103,7 +103,6 @@ static scope_entry_t* get_special_symbol(decl_context_t decl_context, const char
     return unknown_info;
 }
 
-
 static scope_entry_t* get_or_create_special_symbol(decl_context_t decl_context, const char* name)
 {
     scope_entry_t* unknown_info = get_special_symbol(decl_context, name);
@@ -144,6 +143,16 @@ static scope_entry_t* get_or_create_data_symbol_info(decl_context_t decl_context
 scope_entry_t* get_equivalence_symbol_info(decl_context_t decl_context)
 {
     return get_special_symbol(decl_context, ".equivalence");
+}
+
+scope_entry_t* get_used_modules_symbol_info(decl_context_t decl_context)
+{
+    return get_special_symbol(decl_context, ".used_modules");
+}
+
+scope_entry_t* get_or_create_used_modules_symbol_info(decl_context_t decl_context)
+{
+    return get_or_create_special_symbol(decl_context, ".used_modules");
 }
 
 static scope_entry_t* get_or_create_equivalence_symbol_info(decl_context_t decl_context)
@@ -6533,6 +6542,11 @@ static scope_entry_t* insert_symbol_from_module(scope_entry_t* entry,
 
         current_symbol->entity_specs.in_module = module;
     }
+    else
+    {
+        // Not in a module
+        current_symbol->entity_specs.in_module = NULL;
+    }
 
     if (entry->entity_specs.is_generic_spec)
     {
@@ -6633,8 +6647,10 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
         rb_tree_insert(CURRENT_COMPILED_FILE->module_cache, module_name_str, module_symbol);
     }
 
-    // Insert the module name (is this needed?)
-    insert_entry(decl_context.current_scope, module_symbol);
+    scope_entry_t* used_modules = get_or_create_used_modules_symbol_info(decl_context);
+    P_LIST_ADD_ONCE(used_modules->entity_specs.related_symbols,
+            used_modules->entity_specs.num_related_symbols,
+            module_symbol);
 
     if (!is_only)
     {
