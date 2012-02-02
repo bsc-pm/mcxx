@@ -5951,6 +5951,7 @@ static void set_array_type(type_t** declarator_type,
 
                 const char* vla_name = NULL; 
                 uniquestr_sprintf(&vla_name, "__vla_%d", vla_counter);
+                vla_counter++;
 
                 scope_entry_t* new_vla_dim = new_symbol(decl_context, decl_context.current_scope, vla_name);
 
@@ -5958,13 +5959,11 @@ static void set_array_type(type_t** declarator_type,
                 new_vla_dim->file = ASTFileName(constant_expr);
                 new_vla_dim->line = ASTLine(constant_expr);
                 new_vla_dim->value = nodecl_expr;
-                new_vla_dim->type_information = nodecl_get_type(nodecl_expr);
+                new_vla_dim->type_information = get_const_qualified_type(nodecl_get_type(nodecl_expr));
 
                 P_LIST_ADD(gather_info->vla_dimension_symbols,
                         gather_info->num_vla_dimension_symbols,
                         new_vla_dim);
-
-                vla_counter++;
 
                 nodecl_expr = nodecl_make_saved_expr(nodecl_expr, 
                         new_vla_dim, 
