@@ -79,7 +79,7 @@ namespace TL
             }
 
             //! Do not use this one unless directed to do so
-            decl_context_t get_decl_context()
+            decl_context_t get_decl_context() const
             {
                 return _decl_context;
             }
