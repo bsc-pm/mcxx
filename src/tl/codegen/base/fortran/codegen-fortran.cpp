@@ -3007,20 +3007,21 @@ OPERATOR_TABLE
             array_spec_idx++;
             array_specifier = "(";
 
-            // Get the real expression of this saved expression
-            if (!array_spec_list[array_spec_idx].lower.is_null()
-                    && array_spec_list[array_spec_idx].lower.is<Nodecl::SavedExpr>())
-            {
-                    array_spec_list[array_spec_idx].lower = array_spec_list[array_spec_idx].lower.as<Nodecl::SavedExpr>().get_expression();
-            }
-            if (!array_spec_list[array_spec_idx].upper.is_null()
-                    && array_spec_list[array_spec_idx].upper.is<Nodecl::SavedExpr>())
-            {
-                    array_spec_list[array_spec_idx].upper = array_spec_list[array_spec_idx].upper.as<Nodecl::SavedExpr>().get_expression();
-            }
-
             while (array_spec_idx <= (MCXX_MAX_ARRAY_SPECIFIER - 1))
             {
+
+                // Get the real expression of this saved expression
+                if (!array_spec_list[array_spec_idx].lower.is_null()
+                        && array_spec_list[array_spec_idx].lower.is<Nodecl::SavedExpr>())
+                {
+                    array_spec_list[array_spec_idx].lower = array_spec_list[array_spec_idx].lower.as<Nodecl::SavedExpr>().get_expression();
+                }
+                if (!array_spec_list[array_spec_idx].upper.is_null()
+                        && array_spec_list[array_spec_idx].upper.is<Nodecl::SavedExpr>())
+                {
+                    array_spec_list[array_spec_idx].upper = array_spec_list[array_spec_idx].upper.as<Nodecl::SavedExpr>().get_expression();
+                }
+
                 if (!array_spec_list[array_spec_idx].is_undefined)
                 {
                     array_specifier += this->codegen(array_spec_list[array_spec_idx].lower);
