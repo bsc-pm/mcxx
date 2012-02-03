@@ -46,17 +46,30 @@ static nodecl_t simplify_huge(int num_arguments UNUSED_PARAMETER, nodecl_t* argu
     type_t* t = nodecl_get_type(x);
     t = get_rank0_type(t);
 
-    if (is_float_type(t))
+    if (is_floating_type(t))
     {
-        return nodecl_make_floating_literal(t, const_value_get_float(FLT_MAX), NULL, 0);
-    }
-    else if (is_double_type(t))
-    {
-        return nodecl_make_floating_literal(t, const_value_get_double(DBL_MAX), NULL, 0);
-    }
-    else if (is_long_double_type(t))
-    {
-        return nodecl_make_floating_literal(t, const_value_get_long_double(LDBL_MAX), NULL, 0);
+        if (is_float_type(t))
+        {
+            return nodecl_make_floating_literal(t, const_value_get_float(FLT_MAX), NULL, 0);
+        }
+        else if (is_double_type(t))
+        {
+            return nodecl_make_floating_literal(t, const_value_get_double(DBL_MAX), NULL, 0);
+        }
+        else if (is_long_double_type(t))
+        {
+            return nodecl_make_floating_literal(t, const_value_get_long_double(LDBL_MAX), NULL, 0);
+        }
+        else 
+        {
+            const floating_type_info_t* floating_info = floating_type_get_info(t);
+#ifdef HAVE_QUADMATH_H
+            if (floating_info->bits == 128)
+            {
+                return nodecl_make_floating_literal(t, const_value_get_float128(FLT128_MAX), NULL, 0);
+            }
+#endif
+        }
     }
     else if (is_integer_type(t))
     {
@@ -73,17 +86,30 @@ static nodecl_t simplify_tiny(int num_arguments UNUSED_PARAMETER, nodecl_t* argu
     type_t* t = nodecl_get_type(x);
     t = get_rank0_type(t);
 
-    if (is_float_type(t))
+    if (is_floating_type(t))
     {
-        return nodecl_make_floating_literal(t, const_value_get_float(FLT_MIN), NULL, 0);
-    }
-    else if (is_double_type(t))
-    {
-        return nodecl_make_floating_literal(t, const_value_get_double(DBL_MIN), NULL, 0);
-    }
-    else if (is_long_double_type(t))
-    {
-        return nodecl_make_floating_literal(t, const_value_get_long_double(LDBL_MIN), NULL, 0);
+        if (is_float_type(t))
+        {
+            return nodecl_make_floating_literal(t, const_value_get_float(FLT_MIN), NULL, 0);
+        }
+        else if (is_double_type(t))
+        {
+            return nodecl_make_floating_literal(t, const_value_get_double(DBL_MIN), NULL, 0);
+        }
+        else if (is_long_double_type(t))
+        {
+            return nodecl_make_floating_literal(t, const_value_get_long_double(LDBL_MIN), NULL, 0);
+        }
+        else 
+        {
+            const floating_type_info_t* floating_info = floating_type_get_info(t);
+#ifdef HAVE_QUADMATH_H
+            if (floating_info->bits == 128)
+            {
+                return nodecl_make_floating_literal(t, const_value_get_float128(FLT128_MIN), NULL, 0);
+            }
+#endif
+        }
     }
     else if (is_integer_type(t))
     {
@@ -149,19 +175,20 @@ static nodecl_t simplify_selected_real_kind(int num_arguments UNUSED_PARAMETER, 
             || !nodecl_is_constant(radix))
         return nodecl_null();
 
-    // Get our three reals: float, double, long double
-    type_t* real_types[] = { get_float_type(), get_double_type(), get_long_double_type() };
-
-    int num_reals = sizeof(real_types) / sizeof(real_types[0]);
 
     uint64_t p_ = const_value_cast_to_8(nodecl_get_constant(p));
     uint64_t r_ = const_value_cast_to_8(nodecl_get_constant(r));
     uint64_t radix_ = const_value_cast_to_8(nodecl_get_constant(radix));
 
+    int num_reals = CURRENT_CONFIGURATION->type_environment->num_float_types;
+
     int i;
     for (i = 0; i < num_reals; i++)
     {
-        nodecl_t nodecl_type = nodecl_make_type(real_types[i], NULL, 0);
+        type_t* real_type = get_floating_type_from_descriptor(CURRENT_CONFIGURATION->type_environment->all_floats[i]);
+
+        // Reuse other simplification routines. We build a convenience node here
+        nodecl_t nodecl_type = nodecl_make_type(real_type, NULL, 0);
 
         nodecl_t precision = simplify_precision(1, &nodecl_type);
         nodecl_t range = simplify_range(1, &nodecl_type);
@@ -171,11 +198,13 @@ static nodecl_t simplify_selected_real_kind(int num_arguments UNUSED_PARAMETER, 
         uint64_t range_ = const_value_cast_to_8(nodecl_get_constant(range));
         uint64_t current_radix_ = const_value_cast_to_8(nodecl_get_constant(current_radix));
 
+        nodecl_free(nodecl_type);
+
         if (p_ <= precision_
                 && r_ <= range_
                 && (radix_ == 0 || radix_ == current_radix_))
         {
-            return nodecl_make_int_literal(type_get_size(real_types[i]));
+            return nodecl_make_int_literal(type_get_size(real_type));
         }
     }
 
