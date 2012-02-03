@@ -2633,22 +2633,41 @@ type_t* get_array_type(type_t* element_type, nodecl_t whole_size, decl_context_t
     {
         lower_bound = get_zero_tree(nodecl_get_filename(whole_size), nodecl_get_line(whole_size));
 
-        nodecl_t t = nodecl_copy(whole_size);
-
-        upper_bound = nodecl_make_minus(
-                nodecl_make_parenthesized_expression(t, nodecl_get_type(whole_size), 
-                    nodecl_get_filename(whole_size), nodecl_get_line(whole_size)),
-                get_one_tree(nodecl_get_filename(whole_size), nodecl_get_line(whole_size)),
-                get_signed_int_type(),
-                nodecl_get_filename(whole_size), nodecl_get_line(whole_size));
-
         if (nodecl_is_constant(whole_size))
         {
             // Compute the constant
             const_value_t* c = const_value_sub(
                     nodecl_get_constant(whole_size),
                     const_value_get_one(/* bytes */ 4, /* signed */ 1));
-            nodecl_set_constant(upper_bound, c);
+
+            upper_bound = const_value_to_nodecl(c);
+        }
+        else
+        {
+            nodecl_t temp = nodecl_null();
+
+            if (nodecl_get_kind(whole_size) == NODECL_SAVED_EXPR)
+            {
+                scope_entry_t* saved_sym = nodecl_get_symbol(whole_size);
+                temp = nodecl_make_symbol(
+                        saved_sym,
+                        nodecl_get_filename(whole_size),
+                        nodecl_get_line(whole_size));
+                nodecl_set_type(temp, saved_sym->type_information);
+            }
+            else
+            {
+                temp = nodecl_copy(whole_size);
+            }
+
+            upper_bound = nodecl_make_minus(
+                    nodecl_make_parenthesized_expression(temp, 
+                        nodecl_get_type(temp), 
+                        nodecl_get_filename(whole_size), 
+                        nodecl_get_line(whole_size)),
+                    get_one_tree(nodecl_get_filename(whole_size), nodecl_get_line(whole_size)),
+                    get_signed_int_type(),
+                    nodecl_get_filename(whole_size), nodecl_get_line(whole_size));
         }
 
         nodecl_expr_set_is_value_dependent(upper_bound,
@@ -2659,6 +2678,75 @@ type_t* get_array_type(type_t* element_type, nodecl_t whole_size, decl_context_t
             /* array_region */ NULL, /* with_descriptor */ 0);
 }
 
+static nodecl_t compute_whole_size_given_bounds(
+        nodecl_t lower_bound, 
+        nodecl_t upper_bound)
+{
+    ERROR_CONDITION(nodecl_is_null(lower_bound) || nodecl_is_null(upper_bound),
+            "No bound can be null here", 0);
+
+    nodecl_t whole_size = nodecl_null();
+    if (nodecl_is_constant(lower_bound)
+            && nodecl_is_constant(upper_bound))
+    {
+        whole_size = const_value_to_nodecl(
+                const_value_add(
+                    const_value_sub(
+                        nodecl_get_constant(upper_bound),
+                        nodecl_get_constant(lower_bound)),
+                    const_value_get_one(4, 1)));
+    }
+    else
+    {
+        nodecl_t one_tree = get_one_tree(nodecl_get_filename(lower_bound), nodecl_get_line(lower_bound));
+
+        if (nodecl_get_kind(lower_bound) == NODECL_SAVED_EXPR)
+        {
+            scope_entry_t* saved_sym = nodecl_get_symbol(lower_bound);
+            lower_bound = nodecl_make_symbol(saved_sym,
+                    nodecl_get_filename(lower_bound),
+                    nodecl_get_line(lower_bound));
+            nodecl_set_type(lower_bound, saved_sym->type_information);
+        }
+        else
+        {
+            lower_bound = nodecl_copy(lower_bound);
+        }
+
+        if (nodecl_get_kind(upper_bound) == NODECL_SAVED_EXPR)
+        {
+            scope_entry_t* saved_sym = nodecl_get_symbol(upper_bound);
+            upper_bound = nodecl_make_symbol(saved_sym,
+                    nodecl_get_filename(upper_bound),
+                    nodecl_get_line(upper_bound));
+            nodecl_set_type(upper_bound, saved_sym->type_information);
+        }
+        else
+        {
+            upper_bound = nodecl_copy(upper_bound);
+        }
+
+        whole_size = 
+            nodecl_make_add(
+                    nodecl_make_parenthesized_expression(
+                        nodecl_make_minus(
+                            upper_bound,
+                            lower_bound,
+                            get_signed_int_type(),
+                            nodecl_get_filename(lower_bound), 
+                            nodecl_get_line(lower_bound)),
+                        get_signed_int_type(),
+                        nodecl_get_filename(lower_bound), 
+                        nodecl_get_line(lower_bound)),
+                    one_tree,
+                    get_signed_int_type(),
+                    nodecl_get_filename(lower_bound), 
+                    nodecl_get_line(lower_bound));
+    }
+
+    return whole_size;
+}
+
 static type_t* get_array_type_bounds_common(type_t* element_type,
         nodecl_t lower_bound,
         nodecl_t upper_bound,
@@ -2666,38 +2754,11 @@ static type_t* get_array_type_bounds_common(type_t* element_type,
         char with_descriptor)
 {
     nodecl_t whole_size = nodecl_null();
-    lower_bound = nodecl_copy(lower_bound);
-    upper_bound = nodecl_copy(upper_bound);
 
     if (!nodecl_is_null(lower_bound)
             && !nodecl_is_null(upper_bound))
     {
-        if (nodecl_is_constant(lower_bound)
-                && nodecl_is_constant(upper_bound))
-        {
-            whole_size = const_value_to_nodecl(const_value_add(
-                        const_value_sub(nodecl_get_constant(upper_bound),
-                            nodecl_get_constant(lower_bound)),
-                        const_value_get_one(4, 1)));
-        }
-        else
-        {
-            nodecl_t one_tree = get_one_tree(nodecl_get_filename(lower_bound), nodecl_get_line(lower_bound));
-
-            whole_size = 
-                nodecl_make_add(
-                        nodecl_make_parenthesized_expression(
-                            nodecl_make_minus(
-                                upper_bound,
-                                lower_bound,
-                                get_signed_int_type(),
-                                nodecl_get_filename(lower_bound), nodecl_get_line(lower_bound)),
-                            get_signed_int_type(),
-                            nodecl_get_filename(lower_bound), nodecl_get_line(lower_bound)),
-                        one_tree,
-                        get_signed_int_type(),
-                        nodecl_get_filename(lower_bound), nodecl_get_line(lower_bound));
-        }
+        whole_size = compute_whole_size_given_bounds(lower_bound, upper_bound);
     }
 
     return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context, 
@@ -2734,58 +2795,14 @@ type_t* get_array_type_bounds_with_regions(type_t* element_type,
     if (!nodecl_is_null(lower_bound)
             && !nodecl_is_null(upper_bound))
     {
-        nodecl_t one_tree = get_one_tree(nodecl_get_filename(lower_bound), nodecl_get_line(lower_bound));
-
-        whole_size = nodecl_make_add(
-                nodecl_make_parenthesized_expression(
-                    nodecl_make_minus(
-                        nodecl_make_parenthesized_expression(upper_bound, 
-                            nodecl_get_type(upper_bound), 
-                            nodecl_get_filename(upper_bound),
-                            nodecl_get_line(upper_bound)),
-                        nodecl_make_parenthesized_expression(lower_bound, 
-                            nodecl_get_type(lower_bound), 
-                            nodecl_get_filename(lower_bound),
-                            nodecl_get_line(lower_bound)), 
-                        nodecl_get_type(lower_bound),
-                        nodecl_get_filename(lower_bound), 
-                        nodecl_get_line(lower_bound)),
-                    nodecl_get_type(lower_bound),
-                    nodecl_get_filename(lower_bound), 
-                    nodecl_get_line(lower_bound)),
-                one_tree,
-                nodecl_get_type(lower_bound),
-                nodecl_get_filename(lower_bound), 
-                nodecl_get_line(lower_bound));
+        whole_size = compute_whole_size_given_bounds(lower_bound, upper_bound);
     }
-
-    nodecl_t one_tree = get_one_tree(nodecl_get_filename(lower_bound), nodecl_get_line(lower_bound));
 
     nodecl_t region_lower_bound = nodecl_get_child(region, 0);
     nodecl_t region_upper_bound = nodecl_get_child(region, 1);
     nodecl_t region_stride = nodecl_get_child(region, 2);
     
-    nodecl_t region_whole_size = nodecl_make_add(
-            nodecl_make_parenthesized_expression(
-                nodecl_make_minus(
-                    nodecl_make_parenthesized_expression(region_upper_bound, 
-                        nodecl_get_type(region_upper_bound), 
-                        nodecl_get_filename(region_upper_bound),
-                        nodecl_get_line(region_upper_bound)),
-                    nodecl_make_parenthesized_expression(region_lower_bound, 
-                        nodecl_get_type(region_lower_bound), 
-                        nodecl_get_filename(region_lower_bound),
-                        nodecl_get_line(region_lower_bound)), 
-                    nodecl_get_type(region_lower_bound),
-                    nodecl_get_filename(region_lower_bound), 
-                    nodecl_get_line(region_lower_bound)),
-                nodecl_get_type(region_lower_bound),
-                nodecl_get_filename(region_lower_bound), 
-                nodecl_get_line(region_lower_bound)),
-            one_tree,
-            nodecl_get_type(region_lower_bound),
-            nodecl_get_filename(region_lower_bound), 
-            nodecl_get_line(region_lower_bound));
+    nodecl_t region_whole_size = compute_whole_size_given_bounds(region_lower_bound, region_upper_bound);
 
     array_region_t* array_region = counted_calloc(1, sizeof(*array_region), &_bytes_due_to_type_system);
     array_region->lower_bound = region_lower_bound;
