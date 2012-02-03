@@ -139,7 +139,7 @@ namespace TL { namespace Nanox {
                     parameter << it->get_symbol().get_name();
 
                     unpacked_parameter_declarations 
-                        << it->get_field_type().get_fortran_declaration(
+                        << it->get_in_outline_type().get_fortran_declaration(
                                 it->get_symbol().get_scope(), 
                                 it->get_field_name(), 
                                 Type::PARAMETER_DECLARATION) 

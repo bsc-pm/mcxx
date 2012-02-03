@@ -5,16 +5,16 @@
 
 namespace TL { namespace Nanox {
 
-    bool LoweringVisitor::type_needs_vla_handling(TL::Type t)
+    bool LoweringVisitor::c_type_needs_vla_handling(TL::Type t)
     {
         if (t.is_array())
         {
             return t.array_is_vla()
-                || type_needs_vla_handling(t.array_element());
+                || c_type_needs_vla_handling(t.array_element());
         }
         else if (t.is_pointer())
         {
-            return type_needs_vla_handling(t.points_to());
+            return c_type_needs_vla_handling(t.points_to());
         }
         //  FIXME - Local classes in C can be "VLA"
         else
@@ -23,14 +23,14 @@ namespace TL { namespace Nanox {
         }
     }
 
-    bool LoweringVisitor::requires_vla_handling(OutlineDataItem& outline_data_item)
+    bool LoweringVisitor::c_requires_vla_handling(OutlineDataItem& outline_data_item)
     {
         TL::Type t = outline_data_item.get_symbol().get_type();
 
-        return type_needs_vla_handling(t);
+        return c_type_needs_vla_handling(t);
     }
 
-    TL::Type LoweringVisitor::handle_vla_type_rec(
+    TL::Type LoweringVisitor::c_handle_vla_type_rec(
             OutlineDataItem& outline_data_item,
             TL::Type type, 
             TL::Scope class_scope, 
@@ -42,7 +42,7 @@ namespace TL { namespace Nanox {
     {
         if (type.is_array())
         {
-            TL::Type synthesized_type = handle_vla_type_rec(
+            TL::Type synthesized_type = c_handle_vla_type_rec(
                     outline_data_item,
                     type.array_element(), 
                     class_scope, 
@@ -88,7 +88,7 @@ namespace TL { namespace Nanox {
         }
         else if (type.is_pointer())
         {
-            TL::Type synthesized_type = handle_vla_type_rec(
+            TL::Type synthesized_type = c_handle_vla_type_rec(
                     outline_data_item,
                     type.points_to(), 
                     class_scope, new_class_symbol, 
@@ -103,7 +103,7 @@ namespace TL { namespace Nanox {
         }
     }
 
-    void LoweringVisitor::handle_vla_type(
+    void LoweringVisitor::c_handle_vla_type(
             OutlineDataItem& outline_data_item,
             TL::Scope class_scope, 
             TL::Symbol new_class_symbol,
@@ -112,7 +112,7 @@ namespace TL { namespace Nanox {
             const std::string& filename, 
             int line)
     {
-        TL::Type synthesized_type = handle_vla_type_rec(
+        TL::Type synthesized_type = c_handle_vla_type_rec(
                 outline_data_item,
                 outline_data_item.get_symbol().get_type(),
                 class_scope,
@@ -138,6 +138,112 @@ namespace TL { namespace Nanox {
                     OutlineDataItem::AllocationPolicyFlags(
                         (outline_data_item.get_allocation_policy() | OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED)));
         }
+    }
+
+    void LoweringVisitor::fortran_handle_vla_type(
+            OutlineDataItem& outline_data_item,
+            TL::Type field_type,
+            TL::Symbol field_symbol,
+            TL::Scope class_scope, 
+            TL::Symbol new_class_symbol,
+            TL::Type new_class_type,
+            TL::ObjectList<TL::Symbol>& new_symbols,
+            const std::string& filename, 
+            int line)
+    {
+        if (field_type.is_any_reference())
+            field_type = field_type.references_to();
+
+        bool is_pointer = false;
+
+        if (field_type.is_pointer())
+        {
+            is_pointer = true;
+            field_type = field_type.points_to();
+        }
+
+        TL::Type t = field_type;
+        if (t.array_is_vla())
+        {
+            while (t.is_array())
+            {
+                Nodecl::NodeclBase lower, upper;
+                t.array_get_bounds(lower, upper);
+
+                if (!lower.is_null()
+                        && lower.is<Nodecl::SavedExpr>())
+                {
+                    TL::Symbol saved_symbol = lower.as<Nodecl::SavedExpr>().get_symbol();
+                    new_symbols.append(saved_symbol);
+
+                    TL::Symbol vla_field = class_scope.new_symbol(saved_symbol.get_name());
+                    vla_field.get_internal_symbol()->kind = SK_VARIABLE;
+                    vla_field.get_internal_symbol()->type_information = saved_symbol.get_type().get_internal_type();
+
+                    vla_field.get_internal_symbol()->entity_specs.class_type = ::get_user_defined_type(new_class_symbol.get_internal_symbol());
+
+                    vla_field.get_internal_symbol()->entity_specs.access = AS_PUBLIC;
+
+                    vla_field.get_internal_symbol()->file = uniquestr(filename.c_str());
+                    vla_field.get_internal_symbol()->line = line;
+
+                    class_type_add_member(new_class_type.get_internal_type(), vla_field.get_internal_symbol());
+                }
+
+                if (!upper.is_null()
+                        && upper.is<Nodecl::SavedExpr>())
+                {
+                    TL::Symbol saved_symbol = upper.as<Nodecl::SavedExpr>().get_symbol();
+                    new_symbols.append(saved_symbol);
+
+                    TL::Symbol vla_field = class_scope.new_symbol(saved_symbol.get_name());
+                    vla_field.get_internal_symbol()->kind = SK_VARIABLE;
+                    vla_field.get_internal_symbol()->type_information = saved_symbol.get_type().get_internal_type();
+
+                    vla_field.get_internal_symbol()->entity_specs.class_type = ::get_user_defined_type(new_class_symbol.get_internal_symbol());
+
+                    vla_field.get_internal_symbol()->entity_specs.access = AS_PUBLIC;
+
+                    vla_field.get_internal_symbol()->file = uniquestr(filename.c_str());
+                    vla_field.get_internal_symbol()->line = line;
+
+                    class_type_add_member(new_class_type.get_internal_type(), vla_field.get_internal_symbol());
+                }
+
+                t = t.array_element();
+            }
+        }
+
+        // Rebuild the array type as an unbounded array type
+        int k = 0;
+        while (field_type.is_array())
+        {
+            field_type = field_type.array_element();
+            k++;
+        }
+
+        while (k > 0)
+        {
+            field_type = field_type.get_array_to_with_descriptor(
+                    Nodecl::NodeclBase::null(), 
+                    Nodecl::NodeclBase::null(),
+                    // This scope does not matter very much
+                    class_scope);
+            k--;
+        }
+
+        if (is_pointer)
+        {
+            field_type = field_type.get_pointer_to();
+        }
+        else
+        {
+            // Make the field an ALLOCATABLE
+            field_symbol.get_internal_symbol()->entity_specs.is_allocatable = 1;
+        }
+
+        outline_data_item.set_allocation_policy(OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE);
+        outline_data_item.set_field_type(field_type);
     }
 
     std::string LoweringVisitor::declare_argument_structure(OutlineInfo& outline_info, Nodecl::NodeclBase construct)
@@ -202,38 +308,36 @@ namespace TL { namespace Nanox {
             // Language specific parts
             if (IS_FORTRAN_LANGUAGE)
             {
+                Type field_type_no_ptr = field_type;
+
+                if (field_type_no_ptr.is_pointer())
+                    field_type_no_ptr = field_type_no_ptr.points_to();
+
                 // Fix the type for Fortran arrays
-                if (field_type.is_array()
-                        && (field_type.array_requires_descriptor()
-                            || field_type.array_is_vla()))
+                if (field_type_no_ptr.is_array()
+                        && (field_type_no_ptr.array_requires_descriptor()
+                            || field_type_no_ptr.array_is_vla()))
                 {
-                    field.get_internal_symbol()->entity_specs.is_allocatable = 1;
+                    fortran_handle_vla_type(*it, 
+                            field_type,
+                            field,
+                            class_scope,
+                            new_class_symbol, 
+                            new_class_type,
+                            extra_symbols,
+                            construct.get_filename(),
+                            construct.get_line());
 
-                    // Rebuild the array type as an unbounded array type
-                    int k = 0;
-                    while (field_type.is_array())
-                    {
-                        field_type = field_type.array_element();
-                        k++;
-                    }
-
-                    while (k > 0)
-                    {
-                        field_type = field_type.get_array_to_with_descriptor(Nodecl::NodeclBase::null(), 
-                                Nodecl::NodeclBase::null(),
-                                construct.retrieve_context());
-                        k--;
-                    }
-
-                    it->set_allocation_policy(OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE);
+                    // Fix the type for VLAs
+                    field_type = it->get_field_type();
                 }
             }
             else if (IS_C_LANGUAGE
                     || IS_CXX_LANGUAGE)
             {
-                if (requires_vla_handling(*it))
+                if (c_requires_vla_handling(*it))
                 {
-                    handle_vla_type(*it, 
+                    c_handle_vla_type(*it, 
                             class_scope,
                             new_class_symbol, 
                             new_class_type,
