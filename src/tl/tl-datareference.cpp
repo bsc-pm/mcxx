@@ -104,12 +104,14 @@ namespace TL
     };
 
     DataReference::DataReference(Nodecl::NodeclBase expr)
-        : _is_valid(true), 
+        : Nodecl::NodeclBase(expr),
+        _is_valid(true), 
         _base_symbol(NULL), 
         _data_type(NULL), 
         _error_log("")
     {
-        if (expr.get_type().is_error_type())
+        if (expr.is_null()
+                || expr.get_type().is_error_type())
         {
             _is_valid = false;
             return;
