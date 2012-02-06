@@ -133,7 +133,7 @@ namespace TL { namespace OpenMP {
     void Base::task_handler_pre(TL::PragmaCustomStatement) { }
     void Base::task_handler_post(TL::PragmaCustomStatement directive)
     {
-        OpenMP::DataSharingEnvironment ds = _core.get_openmp_info()->get_data_sharing(directive);
+        OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
 
         Nodecl::List execution_environment = this->make_execution_environment(ds, pragma_line);
@@ -200,7 +200,7 @@ namespace TL { namespace OpenMP {
     void Base::parallel_handler_pre(TL::PragmaCustomStatement) { }
     void Base::parallel_handler_post(TL::PragmaCustomStatement directive)
     {
-        OpenMP::DataSharingEnvironment ds = _core.get_openmp_info()->get_data_sharing(directive);
+        OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
 
         Nodecl::List execution_environment = this->make_execution_environment(ds, pragma_line);
@@ -272,7 +272,7 @@ namespace TL { namespace OpenMP {
     void Base::sections_handler_pre(TL::PragmaCustomStatement) { }
     void Base::sections_handler_post(TL::PragmaCustomStatement directive)
     {
-        OpenMP::DataSharingEnvironment ds = _core.get_openmp_info()->get_data_sharing(directive);
+        OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
 
         Nodecl::List execution_environment = this->make_execution_environment(ds, pragma_line);
@@ -377,7 +377,8 @@ namespace TL { namespace OpenMP {
     }
 
     template <typename T>
-    static void make_dependency_list(TL::ObjectList<OpenMP::DependencyItem>& dependences,
+    static void make_dependency_list(
+            TL::ObjectList<OpenMP::DependencyItem>& dependences,
             DependencyDirection kind,
             const std::string& filename, int line,
             ObjectList<Nodecl::NodeclBase>& result_list)
@@ -393,7 +394,10 @@ namespace TL { namespace OpenMP {
             data_ref_list.append(it->get_dependency_expression());
         }
 
-        result_list.append(T::make(Nodecl::List::make(data_ref_list), filename, line));
+        if (!data_ref_list.empty())
+        {
+            result_list.append(T::make(Nodecl::List::make(data_ref_list), filename, line));
+        }
     }
 
     Nodecl::List Base::make_execution_environment(OpenMP::DataSharingEnvironment &data_sharing_env, PragmaCustomLine pragma_line)
@@ -417,12 +421,14 @@ namespace TL { namespace OpenMP {
         data_sharing_env.get_all_dependences(dependences);
 
         make_dependency_list<Nodecl::Parallel::DepIn>(
-                dependences, OpenMP::DEP_DIR_IN,
+                dependences, 
+                OpenMP::DEP_DIR_IN,
                 pragma_line.get_filename(), pragma_line.get_line(),
                 result_list);
 
         make_dependency_list<Nodecl::Parallel::DepOut>(
-                dependences, OpenMP::DEP_DIR_OUT,
+                dependences, 
+                OpenMP::DEP_DIR_OUT,
                 pragma_line.get_filename(), pragma_line.get_line(),
                 result_list);
 

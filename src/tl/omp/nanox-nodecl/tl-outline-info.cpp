@@ -26,6 +26,7 @@
 
 #include "tl-outline-info.hpp"
 #include "tl-nodecl-visitor.hpp"
+#include "tl-datareference.hpp"
 #include "cxx-diagnostic.h"
 
 namespace TL { namespace Nanox {
@@ -120,6 +121,35 @@ namespace TL { namespace Nanox {
                     }
                     add_shared(sym);
                 }
+            }
+
+            void add_dependences_as_shared(Nodecl::List list)
+            {
+                for (Nodecl::List::iterator it = list.begin();
+                        it != list.end();
+                        it++)
+                {
+                    TL::DataReference data_ref(*it);
+                    if (data_ref.is_valid())
+                    {
+                        add_shared(data_ref.get_base_symbol());
+                    }
+                }
+            }
+
+            void visit(const Nodecl::Parallel::DepIn& dep_in)
+            {
+                add_dependences_as_shared(dep_in.get_in_deps().as<Nodecl::List>());
+            }
+
+            void visit(const Nodecl::Parallel::DepOut& dep_out)
+            {
+                add_dependences_as_shared(dep_out.get_out_deps().as<Nodecl::List>());
+            }
+
+            void visit(const Nodecl::Parallel::DepInout& dep_inout)
+            {
+                add_dependences_as_shared(dep_inout.get_inout_deps().as<Nodecl::List>());
             }
 
             void add_capture(Symbol sym)

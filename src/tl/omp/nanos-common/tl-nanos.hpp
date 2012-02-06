@@ -65,6 +65,8 @@ namespace TL
                 map_events _map_events;
 
                 void reset_version_info();
+
+                static bool _already_registered;
                 
             public:
                 Interface();
@@ -79,6 +81,8 @@ namespace TL
 
                 virtual void run(TL::DTO& dto);
                 virtual void phase_cleanup(DTO& dto);
+
+                void walk(Nodecl::NodeclBase top_level);
                 
                 ~Interface() { }
         };
