@@ -376,7 +376,27 @@ namespace TL { namespace OpenMP {
         }
     }
 
-    Nodecl::List Base::make_execution_environment(OpenMP::DataSharingEnvironment data_sharing_env, PragmaCustomLine pragma_line)
+    template <typename T>
+    static void make_dependency_list(TL::ObjectList<OpenMP::DependencyItem>& dependences,
+            DependencyDirection kind,
+            const std::string& filename, int line,
+            ObjectList<Nodecl::NodeclBase>& result_list)
+    {
+        TL::ObjectList<Nodecl::NodeclBase> data_ref_list;
+        for (TL::ObjectList<OpenMP::DependencyItem>::iterator it = dependences.begin();
+                it != dependences.end();
+                it++)
+        {
+            if (it->get_kind() != kind)
+                continue;
+
+            data_ref_list.append(it->get_dependency_expression());
+        }
+
+        result_list.append(T::make(Nodecl::List::make(data_ref_list), filename, line));
+    }
+
+    Nodecl::List Base::make_execution_environment(OpenMP::DataSharingEnvironment &data_sharing_env, PragmaCustomLine pragma_line)
     {
         TL::ObjectList<Nodecl::NodeclBase> result_list;
 
@@ -392,9 +412,27 @@ namespace TL { namespace OpenMP {
                 data_sharing_env, OpenMP::DS_FIRSTPRIVATE, 
                 pragma_line.get_filename(), pragma_line.get_line(),
                 result_list);
-        
+
+        TL::ObjectList<OpenMP::DependencyItem> dependences;
+        data_sharing_env.get_all_dependences(dependences);
+
+        make_dependency_list<Nodecl::Parallel::DepIn>(
+                dependences, OpenMP::DEP_DIR_IN,
+                pragma_line.get_filename(), pragma_line.get_line(),
+                result_list);
+
+        make_dependency_list<Nodecl::Parallel::DepOut>(
+                dependences, OpenMP::DEP_DIR_OUT,
+                pragma_line.get_filename(), pragma_line.get_line(),
+                result_list);
+
+        make_dependency_list<Nodecl::Parallel::DepInout>(
+                dependences, OpenMP::DEP_DIR_INOUT,
+                pragma_line.get_filename(), pragma_line.get_line(),
+                result_list);
+
         return Nodecl::List::make(result_list);
     }
-} }
+    } }
 
 EXPORT_PHASE(TL::OpenMP::Base)

@@ -187,10 +187,10 @@ namespace TL
                     DataReference data_ref(*it);
 
                     std::string warning;
-                    if (!data_ref.is_valid(warning)
+                    if (!data_ref.is_valid()
                             || (!allow_extended_references && !it->has_symbol()))
                     {
-                        std::cerr << warning;
+                        std::cerr << data_ref.get_error_log();
                         std::cerr << data_ref.get_locus() << ": warning: '" << data_ref.prettyprint()
                             << "' is not a valid name for data sharing" << std::endl;
                     }
@@ -850,7 +850,7 @@ namespace TL
             DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct);
             _openmp_info->push_current_data_sharing(data_sharing);
 
-            get_dependences_info_clause(construct.get_pragma_line().get_clause("on"), data_sharing, DEP_DIR_INPUT);
+            get_dependences_info_clause(construct.get_pragma_line().get_clause("on"), data_sharing, DEP_DIR_IN);
         }
 
         void Core::taskwait_handler_post(TL::PragmaCustomDirective construct)

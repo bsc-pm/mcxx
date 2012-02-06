@@ -233,11 +233,11 @@ namespace TL
                 DataReference expr(*it);
 
                 std::string warning;
-                if (!expr.is_valid(warning))
+                if (!expr.is_valid())
                 {
-                    std::cerr << warning;
+                    std::cerr << expr.get_error_log();
                     std::cerr << construct.get_locus() 
-                        << ": warning: '" << expr.prettyprint() << "' is not a valid copy data-reference, skipping" 
+                        << ": error: '" << expr.prettyprint() << "' is not a valid copy data-reference, skipping" 
                         << std::endl;
                     continue;
                 }
@@ -338,11 +338,11 @@ namespace TL
                 {
                     ObjectList<Nodecl::NodeclBase>* p = NULL;
                     DependencyDirection dir = DependencyDirection(it->get_kind() & DEP_DIR_INOUT);
-                    if (dir == DEP_DIR_INPUT)
+                    if (dir == DEP_DIR_IN)
                     {
                         p = &dep_list_in;
                     }
-                    else if (dir == DEP_DIR_OUTPUT)
+                    else if (dir == DEP_DIR_OUT)
                     {
                         p = &dep_list_out;
                     }
