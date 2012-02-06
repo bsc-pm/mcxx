@@ -455,10 +455,12 @@ namespace TL
 
             //! Entry point of the phase
             /*!
-             * This function registers traverse functors to perform
-             * a traversal on all the constructs and directives.
+             * This function calls PragmaCustomCompilerPhase::walk
              */
             virtual void run(DTO& data_flow);
+
+            //! Walk the tree as if called from run
+            void walk(Nodecl::NodeclBase& node);
 
             //! Function to register a directive
             /*!

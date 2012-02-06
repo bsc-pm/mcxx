@@ -118,9 +118,14 @@ namespace TL
 
     void PragmaCustomCompilerPhase::run(DTO& data_flow)
     {
-        PragmaVisitor visitor(_pragma_handled, _pragma_map_dispatcher);
-
         Nodecl::NodeclBase node = data_flow["nodecl"];
+
+        this->walk(node);
+    }
+
+    void PragmaCustomCompilerPhase::walk(Nodecl::NodeclBase& node)
+    {
+        PragmaVisitor visitor(_pragma_handled, _pragma_map_dispatcher);
         visitor.walk(node);
     }
 
