@@ -760,14 +760,41 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
     int i;
     for (i = 0; i < num_subscripts; i++)
     {
-        nodecl_lower_dim[(num_subscripts - 1) - i] = nodecl_null();
-        nodecl_upper_dim[(num_subscripts - 1) - i] = nodecl_null();
+        int current_idx = (num_subscripts - 1) - i;
+
+        nodecl_lower_dim[current_idx] = nodecl_null();
+        nodecl_upper_dim[current_idx] = nodecl_null();
         if (is_array_type(dimension_type))
         {
-            nodecl_lower_dim[(num_subscripts - 1) - i] = array_type_get_array_lower_bound(dimension_type);
+            nodecl_lower_dim[current_idx] = array_type_get_array_lower_bound(dimension_type);
 
-            if (!array_type_is_unknown_size(dimension_type))
-                nodecl_upper_dim[(num_subscripts - 1) - i] = array_type_get_array_upper_bound(dimension_type);
+            // If this is a saved expressions we want the saved symbol
+            if (!nodecl_is_null(nodecl_lower_dim[current_idx])
+                    && nodecl_get_kind(nodecl_lower_dim[current_idx]) == NODECL_SAVED_EXPR)
+            {
+                scope_entry_t* saved_symbol = nodecl_get_symbol(nodecl_lower_dim[current_idx]);
+
+                nodecl_lower_dim[current_idx] = nodecl_make_symbol(
+                        saved_symbol,
+                        ASTFileName(expr),
+                        ASTLine(expr));
+                nodecl_set_type(nodecl_lower_dim[current_idx], saved_symbol->type_information);
+            }
+
+            nodecl_upper_dim[current_idx] = array_type_get_array_upper_bound(dimension_type);
+
+            // If this is a saved expressions we want the saved symbol
+            if (!nodecl_is_null(nodecl_upper_dim[current_idx])
+                        && nodecl_get_kind(nodecl_upper_dim[current_idx]) == NODECL_SAVED_EXPR)
+            {
+                scope_entry_t* saved_symbol = nodecl_get_symbol(nodecl_upper_dim[current_idx]);
+
+                nodecl_upper_dim[current_idx] = nodecl_make_symbol(
+                        saved_symbol,
+                        ASTFileName(expr),
+                        ASTLine(expr));
+                nodecl_set_type(nodecl_upper_dim[current_idx], saved_symbol->type_information);
+            }
 
             dimension_type = array_type_get_element_type(dimension_type);
         }

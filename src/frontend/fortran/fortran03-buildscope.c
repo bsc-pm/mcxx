@@ -2883,6 +2883,14 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
                     || (strcmp(ASTText(lower_bound_tree), "*") != 0) ))
         {
             fortran_check_expression(lower_bound_tree, decl_context, &lower_bound);
+
+            if (!nodecl_is_err_expr(lower_bound)
+                    && !is_integer_type(no_ref(nodecl_get_type(lower_bound))))
+            {
+                error_printf("%s: error: expression '%s' must be of integer type\n",
+                        nodecl_get_locus(lower_bound),
+                        codegen_to_str(lower_bound));
+            }
         }
 
         if (upper_bound_tree != NULL
@@ -2890,6 +2898,14 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
                     || (strcmp(ASTText(upper_bound_tree), "*") != 0) ))
         {
             fortran_check_expression(upper_bound_tree, decl_context, &upper_bound);
+
+            if (!nodecl_is_err_expr(upper_bound)
+                    && !is_integer_type(no_ref(nodecl_get_type(upper_bound))))
+            {
+                error_printf("%s: error: expression '%s' must be of integer type\n",
+                        nodecl_get_locus(upper_bound),
+                        codegen_to_str(upper_bound));
+            }
         }
 
         if (lower_bound_tree == NULL
@@ -2996,7 +3012,7 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
                 new_vla_dim->file = nodecl_get_filename(lower_bound);
                 new_vla_dim->line = nodecl_get_line(lower_bound);
                 new_vla_dim->value = lower_bound;
-                new_vla_dim->type_information = nodecl_get_type(lower_bound);
+                new_vla_dim->type_information = no_ref(nodecl_get_type(lower_bound));
 
                 lower_bound = nodecl_make_saved_expr(lower_bound,
                         new_vla_dim,
@@ -3032,7 +3048,7 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
                 new_vla_dim->file = nodecl_get_filename(upper_bound);
                 new_vla_dim->line = nodecl_get_line(upper_bound);
                 new_vla_dim->value = upper_bound;
-                new_vla_dim->type_information = nodecl_get_type(upper_bound);
+                new_vla_dim->type_information = no_ref(nodecl_get_type(upper_bound));
 
                 upper_bound = nodecl_make_saved_expr(upper_bound,
                         new_vla_dim,
@@ -3659,7 +3675,7 @@ static void build_scope_compound_statement(AST a, decl_context_t decl_context, n
 
         nodecl_t nodecl_statement = nodecl_null();
         fortran_build_scope_statement(statement, decl_context, &nodecl_statement);
-        nodecl_list = nodecl_append_to_list(nodecl_list, nodecl_statement);
+        nodecl_list = nodecl_concat_lists(nodecl_list, nodecl_statement);
     }
 
     // Do not return a list here, it is already a list!
