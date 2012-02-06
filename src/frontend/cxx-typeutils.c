@@ -2469,16 +2469,10 @@ static type_t* _get_array_type(type_t* element_type,
 
         type_t* undefined_array_type = NULL;
         if (nodecl_is_null(lower_bound)
-                && nodecl_is_null(upper_bound))
+                && nodecl_is_null(upper_bound)
+                && array_region == NULL)
         {
             undefined_array_type = rb_tree_query_type(_undefined_array_types[!!with_descriptor], element_type);
-            
-             if (undefined_array_type != NULL &&
-                     (!nodecl_is_null(undefined_array_type->array->lower_bound) || 
-                      !nodecl_is_null(undefined_array_type->array->upper_bound)))
-             {
-                 undefined_array_type = NULL;
-             }
         }         
         if (undefined_array_type == NULL)
         {
@@ -2495,6 +2489,8 @@ static type_t* _get_array_type(type_t* element_type,
             result->array->upper_bound = upper_bound;
             
             result->array->with_descriptor = with_descriptor;
+
+            result->array->region = array_region;
 
             // If the element_type is array propagate the 'is_vla' value
             if (is_array_type(element_type))
@@ -2513,7 +2509,12 @@ static type_t* _get_array_type(type_t* element_type,
 
             result->info->is_dependent = is_dependent_type(element_type);
 
-            rb_tree_insert(_undefined_array_types[!!with_descriptor], element_type, result);
+            if (nodecl_is_null(lower_bound)
+                    && nodecl_is_null(upper_bound)
+                    && array_region == NULL)
+            {
+                rb_tree_insert(_undefined_array_types[!!with_descriptor], element_type, result);
+            }
         }
         else
         {
@@ -7442,10 +7443,10 @@ const char* print_declarator(type_t* printed_declarator)
                 tmp_result = strappend(tmp_result, codegen_to_str(printed_declarator->array->lower_bound));
                 tmp_result = strappend(tmp_result, ":");
                 tmp_result = strappend(tmp_result, codegen_to_str(printed_declarator->array->upper_bound));
-                tmp_result = strappend(tmp_result, "] of ");
+                tmp_result = strappend(tmp_result, "]");
                 if (printed_declarator->array->region != NULL)
                 {
-                    tmp_result = strappend(tmp_result, "{");
+                    tmp_result = strappend(tmp_result, " with region {");
                     tmp_result = strappend(tmp_result, codegen_to_str(printed_declarator->array->region->lower_bound));
                     tmp_result = strappend(tmp_result, " ; ");
                     tmp_result = strappend(tmp_result, codegen_to_str(printed_declarator->array->region->upper_bound));
