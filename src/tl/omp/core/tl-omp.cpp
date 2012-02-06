@@ -73,7 +73,10 @@ namespace TL
             _map(ds._map),
             _map_data_ref(ds._map_data_ref),
             _enclosing(ds._enclosing),
-            _reduction_symbols(ds._reduction_symbols)
+            _reduction_symbols(ds._reduction_symbols),
+            _dependency_items(ds._dependency_items),
+            _copy_items(ds._copy_items),
+            _device_list(ds._device_list)
         {
             (*_num_refs)++;
             if (_enclosing != NULL)
