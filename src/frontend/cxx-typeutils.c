@@ -2682,8 +2682,9 @@ static nodecl_t compute_whole_size_given_bounds(
         nodecl_t lower_bound, 
         nodecl_t upper_bound)
 {
-    ERROR_CONDITION(nodecl_is_null(lower_bound) || nodecl_is_null(upper_bound),
-            "No bound can be null here", 0);
+    if(nodecl_is_null(lower_bound) 
+            || nodecl_is_null(upper_bound))
+        return nodecl_null();
 
     nodecl_t whole_size = nodecl_null();
     if (nodecl_is_constant(lower_bound)
@@ -2753,13 +2754,7 @@ static type_t* get_array_type_bounds_common(type_t* element_type,
         decl_context_t decl_context,
         char with_descriptor)
 {
-    nodecl_t whole_size = nodecl_null();
-
-    if (!nodecl_is_null(lower_bound)
-            && !nodecl_is_null(upper_bound))
-    {
-        whole_size = compute_whole_size_given_bounds(lower_bound, upper_bound);
-    }
+    nodecl_t whole_size = compute_whole_size_given_bounds(lower_bound, upper_bound);
 
     return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context, 
             /* array_region */ NULL, with_descriptor);
@@ -2788,15 +2783,10 @@ type_t* get_array_type_bounds_with_regions(type_t* element_type,
         nodecl_t region,
         decl_context_t region_decl_context)
 {
-    nodecl_t whole_size = nodecl_null();
     lower_bound = nodecl_copy(lower_bound);
     upper_bound = nodecl_copy(upper_bound);
 
-    if (!nodecl_is_null(lower_bound)
-            && !nodecl_is_null(upper_bound))
-    {
-        whole_size = compute_whole_size_given_bounds(lower_bound, upper_bound);
-    }
+    nodecl_t whole_size = compute_whole_size_given_bounds(lower_bound, upper_bound);
 
     nodecl_t region_lower_bound = nodecl_get_child(region, 0);
     nodecl_t region_upper_bound = nodecl_get_child(region, 1);
