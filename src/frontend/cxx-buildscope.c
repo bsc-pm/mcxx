@@ -7507,7 +7507,7 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
     enum cxx_symbol_kind filter_only_functions[] = { SK_FUNCTION };
     enum cxx_symbol_kind filter_only_templates_and_functions[] = { SK_FUNCTION, SK_TEMPLATE, SK_DEPENDENT_ENTITY};
 
-    // Here we only do error detection
+    // This code filters the query properly and does error detection
     if (!is_template_function)
     {
         if (is_template_id) //1.1
@@ -7584,6 +7584,28 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
                     filter_only_functions);
         }
     }
+    else
+    {
+        // It is a friend function template declaration and we should create a new SK_TEMPLATE
+        scope_entry_t* new_template = new_symbol(decl_context, decl_context.current_scope, ASTText(declarator_id));
+
+        new_template->kind = SK_TEMPLATE;
+        new_template->line = ASTLine(declarator_id);
+        new_template->file = ASTFileName(declarator_id);
+        new_template->entity_specs.is_friend_declared = 1;
+
+        new_template->type_information =
+            get_new_template_type(decl_context.template_parameters, declarator_type,
+                    ASTText(declarator_id), decl_context, ASTLine(declarator_id), ASTFileName(declarator_id));
+
+        // This type also will be stored in the entry symbol
+        declarator_type = new_template->type_information;
+
+        template_type_set_related_symbol(new_template->type_information, new_template);
+
+        // Create a new entry list which contains this new symbol
+        filtered_entry_list = entry_list_add(filtered_entry_list, new_template);
+    }
 
     //We create a new symbol always
     scope_entry_t* entry = counted_calloc(1, sizeof(*entry), &_bytes_used_buildscope);
@@ -7600,8 +7622,8 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
     entry->decl_context = decl_context;
     entry->type_information = declarator_type;
 
-    entry->entity_specs.any_exception = gather_info->any_exception;
     entry->entity_specs.is_friend_declared = 1;
+    entry->entity_specs.any_exception = gather_info->any_exception;
     entry->entity_specs.num_parameters = gather_info->num_parameters;
 
     entry->entity_specs.default_argument_info =
