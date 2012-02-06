@@ -123,7 +123,7 @@ namespace TL { namespace Nanox {
                 }
             }
 
-            void add_dependences_as_shared(Nodecl::List list)
+            void add_dependences_as_shared(Nodecl::List list, OutlineDataItem::Directionality directionality)
             {
                 for (Nodecl::List::iterator it = list.begin();
                         it != list.end();
@@ -132,24 +132,32 @@ namespace TL { namespace Nanox {
                     TL::DataReference data_ref(*it);
                     if (data_ref.is_valid())
                     {
-                        add_shared(data_ref.get_base_symbol());
+                        TL::Symbol sym = data_ref.get_base_symbol();
+                        add_shared(sym);
+
+                        OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym);
+                        outline_info.set_directionality(
+                                OutlineDataItem::Directionality(directionality | outline_info.get_directionality())
+                                );
+
+                        outline_info.get_dependences().append(data_ref);
                     }
                 }
             }
 
             void visit(const Nodecl::Parallel::DepIn& dep_in)
             {
-                add_dependences_as_shared(dep_in.get_in_deps().as<Nodecl::List>());
+                add_dependences_as_shared(dep_in.get_in_deps().as<Nodecl::List>(), OutlineDataItem::DIRECTIONALITY_IN);
             }
 
             void visit(const Nodecl::Parallel::DepOut& dep_out)
             {
-                add_dependences_as_shared(dep_out.get_out_deps().as<Nodecl::List>());
+                add_dependences_as_shared(dep_out.get_out_deps().as<Nodecl::List>(), OutlineDataItem::DIRECTIONALITY_OUT);
             }
 
             void visit(const Nodecl::Parallel::DepInout& dep_inout)
             {
-                add_dependences_as_shared(dep_inout.get_inout_deps().as<Nodecl::List>());
+                add_dependences_as_shared(dep_inout.get_inout_deps().as<Nodecl::List>(), OutlineDataItem::DIRECTIONALITY_INOUT);
             }
 
             void add_capture(Symbol sym)
