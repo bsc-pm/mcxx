@@ -2680,15 +2680,14 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
 
         inc_indent();
         // Since friends are a tad bit special we will handle them here
-        if (_friend.get_type().is_template_specialized_type()
-                && _friend.get_type().template_specialized_type_get_template_arguments().get_num_parameters() != 0)
+        if (_friend.get_type().is_template_specialized_type())
         {
             TL::Type template_type = _friend.get_type().get_related_template_type();
             template_symbol = template_type.get_related_template_symbol();
             TL::Type primary_template = template_type.get_primary_template();
             TL::Symbol primary_symbol = primary_template.get_symbol();
 
-            if (primary_symbol == symbol)
+            if (_friend == primary_symbol)
             {
                 indent();
                 file << "template <";
@@ -2699,6 +2698,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                 is_primary_template = 1;
             }
         }
+        // the friend symbol can be a SK_DEPENDENT_FRIEND_CLASS
         else if (_friend.get_type().is_dependent_typename())
         {
             indent();
@@ -2707,40 +2707,14 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
             codegen_template_parameters(template_parameters);
             file << ">\n";
 
-            inc_indent();
             indent();
             file << "friend "
-                 << print_type_str(_friend.get_type().get_internal_type(),_friend.get_scope().get_decl_context())
-                 << ";\n";
+                << print_type_str(_friend.get_type().get_internal_type(),_friend.get_scope().get_decl_context())
+                << ";\n";
 
-            dec_indent();
             dec_indent();
             continue;
         }
-        else if (_friend.get_internal_symbol()->kind == SK_DEPENDENT_FRIEND_FUNCTION)
-        {
-            indent();
-            file << "template <";
-            TL::TemplateParameters template_parameters = _friend.get_related_scope().get_template_parameters();
-            codegen_template_parameters(template_parameters);
-            file << ">\n";
-
-            inc_indent();
-            indent();
-            TL::Type type = _friend.get_type(); 
-            std::string declarator = this->get_declaration(type, _friend.get_scope(), _friend.get_qualified_name());
-
-            file << "friend "
-                 << declarator 
-                 << ";\n";
-
-            dec_indent();
-            dec_indent();
-            continue;
-
-            continue;
-        }
-
 
         indent();
         file << "friend ";
@@ -2780,9 +2754,11 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                 real_type = get_new_function_type(NULL, NULL, 0);
             }
 
+            std::string function_name = (is_primary_template) ?
+                unmangle_symbol_name(_friend) : _friend.get_qualified_name();
+
             std::string declarator =
-                this->get_declaration(real_type, _friend.get_scope(),
-                        _friend.get_qualified_name());
+                this->get_declaration(real_type, _friend.get_scope(), function_name);
 
             file << declarator;
         }
