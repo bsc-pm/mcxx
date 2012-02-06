@@ -225,6 +225,9 @@ namespace TL
             //! Returns a clause by name
             TL::PragmaCustomClause get_clause(const std::string &name) const;
 
+            //! Returns a clause by name or a deprecated name
+            TL::PragmaCustomClause get_clause(const std::string &name, const std::string& deprecated_name) const;
+
             //! Returns a clause by a set of alias names
             TL::PragmaCustomClause get_clause(const ObjectList<std::string>& aliased_names) const;
 
