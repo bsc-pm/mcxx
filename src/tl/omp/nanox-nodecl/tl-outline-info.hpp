@@ -82,9 +82,9 @@ namespace TL
                 enum Directionality
                 {
                     DIRECTIONALITY_NONE = 0,
-                    DIRECTIONALITY_IN,
-                    DIRECTIONALITY_OUT,
-                    DIRECTIONALITY_INOUT
+                    DIRECTIONALITY_IN =   1 << 0,
+                    DIRECTIONALITY_OUT =  1 << 1,
+                    DIRECTIONALITY_INOUT = DIRECTIONALITY_IN | DIRECTIONALITY_OUT
                 };
 
                 enum Transfer
@@ -127,6 +127,7 @@ namespace TL
                 // -- FIXME ---
                 // Dependences
                 Directionality _directionality;
+                TL::ObjectList<Nodecl::NodeclBase> _dependences;
                 
                 // -- FIXME ---
                 // Copies
@@ -232,6 +233,21 @@ namespace TL
                 AllocationPolicyFlags get_allocation_policy() const
                 {
                     return _allocation_policy_flags;
+                }
+
+                void set_directionality(Directionality directionality)
+                {
+                    _directionality = directionality;
+                }
+
+                Directionality get_directionality() const
+                {
+                    return _directionality;
+                }
+
+                TL::ObjectList<Nodecl::NodeclBase>& get_dependences()
+                {
+                    return _dependences;
                 }
         };
 

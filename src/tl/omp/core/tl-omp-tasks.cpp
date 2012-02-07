@@ -363,7 +363,7 @@ namespace TL
                         // Copy semantics of values in C/C++ lead to this fact
                         // If the dependence is output (or inout) this should
                         // be regarded as an error
-                        if ((direction & DEP_DIR_OUTPUT) == DEP_DIR_OUTPUT)
+                        if ((direction & DEP_DIR_OUT) == DEP_DIR_OUT)
                         {
                             running_error("%s: error: output dependence '%s' "
                                     "only names a parameter. The value of a parameter is never copied out of a function "
@@ -453,16 +453,16 @@ namespace TL
             ObjectList<FunctionTaskDependency> dependence_list;
             FunctionTaskTargetInfo target_info;
 
-             dependence_list.append(input_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_INPUT,
+             dependence_list.append(input_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_IN,
                              param_ref_tree)));
 
-             dependence_list.append(output_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_OUTPUT,
+             dependence_list.append(output_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_OUT,
                              param_ref_tree)));
 
              dependence_list.append(inout_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_INOUT,
                              param_ref_tree)));
 
-             dependence_list.append(reduction_arguments.map(FunctionTaskDependencyGenerator(DEP_REDUCTION,
+             dependence_list.append(reduction_arguments.map(FunctionTaskDependencyGenerator(DEP_CONCURRENT,
                              param_ref_tree)));
 
              dependence_list_check(dependence_list);

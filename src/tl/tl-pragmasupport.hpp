@@ -225,6 +225,9 @@ namespace TL
             //! Returns a clause by name
             TL::PragmaCustomClause get_clause(const std::string &name) const;
 
+            //! Returns a clause by name or a deprecated name
+            TL::PragmaCustomClause get_clause(const std::string &name, const std::string& deprecated_name) const;
+
             //! Returns a clause by a set of alias names
             TL::PragmaCustomClause get_clause(const ObjectList<std::string>& aliased_names) const;
 
@@ -452,10 +455,12 @@ namespace TL
 
             //! Entry point of the phase
             /*!
-             * This function registers traverse functors to perform
-             * a traversal on all the constructs and directives.
+             * This function calls PragmaCustomCompilerPhase::walk
              */
             virtual void run(DTO& data_flow);
+
+            //! Walk the tree as if called from run
+            void walk(Nodecl::NodeclBase& node);
 
             //! Function to register a directive
             /*!

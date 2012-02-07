@@ -38,7 +38,7 @@ namespace TL
 #undef OMP_CONSTRUCT_NOEND
 #undef OMP_DIRECTIVE
 
-                Nodecl::List make_execution_environment(OpenMP::DataSharingEnvironment, PragmaCustomLine);
+                Nodecl::List make_execution_environment(OpenMP::DataSharingEnvironment&, PragmaCustomLine);
         };
     }
 }

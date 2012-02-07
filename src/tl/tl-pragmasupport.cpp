@@ -118,9 +118,14 @@ namespace TL
 
     void PragmaCustomCompilerPhase::run(DTO& data_flow)
     {
-        PragmaVisitor visitor(_pragma_handled, _pragma_map_dispatcher);
-
         Nodecl::NodeclBase node = data_flow["nodecl"];
+
+        this->walk(node);
+    }
+
+    void PragmaCustomCompilerPhase::walk(Nodecl::NodeclBase& node)
+    {
+        PragmaVisitor visitor(_pragma_handled, _pragma_map_dispatcher);
         visitor.walk(node);
     }
 
@@ -324,6 +329,14 @@ namespace TL
         return get_clause(set, deprecated_names);
     }
     
+    TL::PragmaCustomClause PragmaCustomLine::get_clause(const std::string &name, const std::string& deprecated_name) const
+    {
+        ObjectList<std::string> deprecated_names;
+        deprecated_names.append(deprecated_name);
+
+        return get_clause(name, deprecated_names);
+    }
+
     TL::PragmaCustomClause PragmaCustomLine::get_clause(const std::string &name) const
     {
         return get_clause(name, ObjectList<std::string>());

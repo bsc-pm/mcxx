@@ -39,13 +39,13 @@ enum DependencyDirection
 {
     DEP_DIR_UNDEFINED = 0,
     // Input dependence
-    DEP_DIR_INPUT = BITMAP(1),
+    DEP_DIR_IN = BITMAP(1),
     // Output dependence
-    DEP_DIR_OUTPUT = BITMAP(2),
+    DEP_DIR_OUT = BITMAP(2),
     // Inout dependence
-    DEP_DIR_INOUT = DEP_DIR_INPUT | DEP_DIR_OUTPUT,
-    // Reduction dependences
-    DEP_REDUCTION = BITMAP(3),
+    DEP_DIR_INOUT = DEP_DIR_IN | DEP_DIR_OUT,
+    // Concurrent dependences
+    DEP_CONCURRENT = BITMAP(3),
 };
 
 } }

@@ -44,6 +44,8 @@ namespace TL
         const char* Version::DEFAULT_FAMILY = "trunk";
         std::map<std::string, int> Version::_interfaces;
 
+        bool Interface::_already_registered = false;
+
         bool Version::interface_has_family(const std::string &fam)
         {
             if (Version::_interfaces.find(fam) != Version::_interfaces.end())
@@ -117,24 +119,35 @@ namespace TL
             set_phase_name("Nanos Runtime Source-Compiler Versioning Interface");
             set_phase_description("This phase enables support for '#pragma nanos', the interface for versioning runtime and compiler for Nanos");
 
-            register_directive("interface");
-            dispatcher().directive.pre["interface"].connect(functor(&Interface::interface_preorder, *this));
-            dispatcher().directive.post["interface"].connect(functor(&Interface::interface_postorder, *this));
+            if (!_already_registered)
+            {
+                register_directive("interface");
+                dispatcher().directive.pre["interface"].connect(functor(&Interface::interface_preorder, *this));
+                dispatcher().directive.post["interface"].connect(functor(&Interface::interface_postorder, *this));
 
-            register_directive("instrument|declare");
-            dispatcher().directive.pre["instrument|declare"].connect(functor(&Interface::instrument_declare_pre, *this));
-            dispatcher().directive.post["instrument|declare"].connect(functor(&Interface::instrument_declare_post, *this));
+                register_directive("instrument|declare");
+                dispatcher().directive.pre["instrument|declare"].connect(functor(&Interface::instrument_declare_pre, *this));
+                dispatcher().directive.post["instrument|declare"].connect(functor(&Interface::instrument_declare_post, *this));
 
-            register_directive("instrument|emit");
-            dispatcher().directive.pre["instrument|emit"].connect(functor(&Interface::instrument_emit_pre, *this));
-            dispatcher().directive.post["instrument|emit"].connect(functor(&Interface::instrument_emit_post, *this));
+                register_directive("instrument|emit");
+                dispatcher().directive.pre["instrument|emit"].connect(functor(&Interface::instrument_emit_pre, *this));
+                dispatcher().directive.post["instrument|emit"].connect(functor(&Interface::instrument_emit_post, *this));
+                _already_registered = true;
+            }
         }
 
         void Interface::run(TL::DTO& dto)
         {
-            reset_version_info();
             // Run looking up for every "#pragma nanos"
-            PragmaCustomCompilerPhase::run(dto);
+            Nodecl::NodeclBase top_level = dto["nodecl"];
+            this->walk(top_level);
+        }
+
+        void Interface::walk(Nodecl::NodeclBase top_level)
+        {
+            reset_version_info();
+
+            PragmaCustomCompilerPhase::walk(top_level);
             
             // Create versioning symbols
             Source versioning_symbols;
@@ -176,11 +189,9 @@ namespace TL
                     ;
             }
 
-            Nodecl::NodeclBase nodecl =  dto["nodecl"];
-
             if (!IS_FORTRAN_LANGUAGE)
             {
-                Nodecl::NodeclBase versioning_symbols_tree = versioning_symbols.parse_global(nodecl);
+                Nodecl::NodeclBase versioning_symbols_tree = versioning_symbols.parse_global(top_level);
             }
                     
 #if 0

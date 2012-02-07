@@ -815,6 +815,7 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
             nodecl_t nodecl_lower = nodecl_null();
             nodecl_t nodecl_upper = nodecl_null();
             nodecl_t nodecl_stride = nodecl_null();
+
             if (lower != NULL)
             {
                 fortran_check_expression_impl_(lower, decl_context, &nodecl_lower);
@@ -823,6 +824,7 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
             {
                 nodecl_lower = nodecl_copy(nodecl_lower_dim[num_subscripts]);
             }
+
             if (upper != NULL)
             {
                 fortran_check_expression_impl_(upper, decl_context, &nodecl_upper);
@@ -831,6 +833,7 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
             {
                 nodecl_upper = nodecl_copy(nodecl_upper_dim[num_subscripts]);
             }
+
             if (stride != NULL)
             {
                 fortran_check_expression_impl_(stride, decl_context, &nodecl_stride);
@@ -860,12 +863,6 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
                 return;
             }
 
-            if (!symbol_is_invalid)
-            {
-                // FIXME - Stride may imply an array with smaller size (rank is unaffected)
-                synthesized_type = get_array_type_bounds(synthesized_type, nodecl_lower, nodecl_upper, decl_context);
-            }
-
             nodecl_indexes[num_subscripts] = nodecl_make_range(
                     nodecl_lower,
                     nodecl_upper,
@@ -873,6 +870,18 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
                     fortran_get_default_integer_type(),
                     ASTFileName(subscript),
                     ASTLine(subscript));
+
+            if (!symbol_is_invalid)
+            {
+                synthesized_type = get_array_type_bounds_with_regions(synthesized_type, 
+                        // Original array
+                        nodecl_lower_dim[num_subscripts], 
+                        nodecl_upper_dim[num_subscripts],
+                        decl_context,
+                        // Range
+                        nodecl_indexes[num_subscripts], 
+                        decl_context);
+            }
 
             if (!nodecl_is_null(nodecl_lower)
                     && !nodecl_is_null(nodecl_upper)

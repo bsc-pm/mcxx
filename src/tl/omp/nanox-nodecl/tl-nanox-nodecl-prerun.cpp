@@ -1,6 +1,9 @@
 #include "tl-nanox-nodecl.hpp"
 #include "tl-source.hpp"
 #include "tl-nodecl.hpp"
+
+#include "tl-nanos.hpp"
+
 #include "cxx-driver-utils.h"
 #include "cxx-utils.h"
 
@@ -74,6 +77,11 @@ void Lowering::pre_run(DTO& dto)
     Source::source_language = SourceLanguage::C;
 
     Nodecl::NodeclBase new_tree = src.parse_global(top_level);
+
+    // Run Nanos::Interface on this header to get
+    // the pragma information
+    Nanos::Interface interface;
+    interface.walk(top_level);
 
     Source::source_language = SourceLanguage::Current;
 }
