@@ -868,6 +868,11 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
                 break;
             }
             // Special nodes
+        case AST_NODECL_LITERAL:
+            {
+                *nodecl_output = nodecl_make_from_ast_nodecl_literal(expression);
+                break;
+            }
         case AST_DIMENSION_STR:
             {
                 internal_error("Not supported", 0);

@@ -111,6 +111,7 @@ typedef struct check_expression_handler_tag
  STATEMENT_HANDLER(AST_PTR_ASSIGNMENT, check_ptr_assignment) \
  STATEMENT_HANDLER(AST_AMBIGUITY, disambiguate_expression) \
  STATEMENT_HANDLER(AST_USER_DEFINED_BINARY_OP, check_user_defined_binary_op) \
+ STATEMENT_HANDLER(AST_NODECL_LITERAL, check_nodecl_literal) \
 
 // Enable this if you really need extremely verbose typechecking
 // #define VERBOSE_DEBUG_EXPR 1
@@ -3210,6 +3211,11 @@ static void check_user_defined_binary_op(AST expr, decl_context_t decl_context, 
                 pointer_type_get_pointee_type(no_ref(result_type)),
                 ASTFileName(expr), ASTLine(expr));
     }
+}
+
+static void check_nodecl_literal(AST expr, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
+{
+    *nodecl_output = nodecl_make_from_ast_nodecl_literal(expr);
 }
 
 #if 0
