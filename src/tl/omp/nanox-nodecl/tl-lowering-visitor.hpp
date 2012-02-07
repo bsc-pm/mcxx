@@ -48,6 +48,21 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 TL::ObjectList<TL::Symbol>& new_symbols,
                 const std::string& filename, 
                 int line);
+
+        void fill_arguments(
+                Nodecl::NodeclBase ctr,
+                OutlineInfo& outline_info,
+                Source& fill_outline_arguments,
+                Source& fill_immediate_arguments
+                );
+
+        void fill_dependences(
+                Nodecl::NodeclBase ctr,
+                OutlineInfo& outline_info,
+                Source arguments_accessor,
+                // out
+                Source& result_src
+                );
 };
 
 } }

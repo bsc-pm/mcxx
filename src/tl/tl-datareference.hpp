@@ -98,8 +98,15 @@ namespace TL
              */
             Type get_data_type() const;
 
+            //! Returns the base address of the DataReference
+            Nodecl::NodeclBase get_base_address() const;
+
+            //! Returns an expression that designates the size of the DataReference
+            Nodecl::NodeclBase get_sizeof() const;
+
             friend struct DataReferenceVisitor;
 
+            ~DataReference();
         private:
             bool _is_valid;
 
@@ -108,6 +115,9 @@ namespace TL
 
             // Error log
             std::string _error_log;
+
+            Nodecl::NodeclBase _base_address;
+            Nodecl::NodeclBase _sizeof;
     };
 }
 

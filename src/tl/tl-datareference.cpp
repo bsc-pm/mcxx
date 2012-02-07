@@ -14,6 +14,26 @@ namespace TL
         private:
             DataReference& _data_ref;
 
+
+            Nodecl::NodeclBase make_sizeof(TL::Type t, Nodecl::NodeclBase ctr)
+            {
+                if (t.is_array())
+                {
+                    internal_error("Not yet implemented", 0);
+                }
+                else
+                {
+                    return Nodecl::Sizeof::make(
+                            Nodecl::Type::make(t, 
+                                ctr.get_filename(),
+                                ctr.get_line()),
+                            Nodecl::NodeclBase::null(),
+                            Type(::get_size_t_type()),
+                            ctr.get_filename(),
+                            ctr.get_line());
+                }
+            }
+
             virtual void unhandled_node(const Nodecl::NodeclBase & tree) 
             { 
                 _data_ref._is_valid = false;
@@ -31,6 +51,12 @@ namespace TL
                     t = t.references_to();
 
                 _data_ref._data_type = t;
+                _data_ref._base_address = Nodecl::Reference::make(
+                        sym.copy(),
+                        t.get_pointer_to(),
+                        sym.get_filename(),
+                        sym.get_line());
+                _data_ref._sizeof = make_sizeof(t, sym);
             }
 
 #if 0
@@ -85,7 +111,37 @@ namespace TL
                 if (t.is_any_reference())
                     t = t.references_to();
 
+                Nodecl::List subscripts = array.get_subscripts().as<Nodecl::List>();
+                Nodecl::List low_subscripts;
+
+                for (Nodecl::List::iterator it = subscripts.begin();
+                        it != subscripts.end();
+                        it++)
+                {
+                    if (it->is<Nodecl::Range>())
+                    {
+                        low_subscripts.push_back(it->as<Nodecl::Range>().get_lower().copy());
+                    }
+                    else
+                    {
+                        low_subscripts.push_back(it->copy());
+                    }
+                }
+
                 _data_ref._data_type = t;
+                _data_ref._base_address = 
+                    Nodecl::Reference::make(
+                            Nodecl::ArraySubscript::make(
+                                _data_ref._base_address.as<Nodecl::Reference>().get_rhs(),
+                                low_subscripts,
+                                t,
+                                array.get_filename(),
+                                array.get_line()
+                                ),
+                            t.get_pointer_to(),
+                            array.get_filename(),
+                            array.get_line());
+                _data_ref._sizeof = make_sizeof(t, array);
             }
 
             virtual void visit(const Nodecl::ClassMemberAccess& member)
@@ -100,6 +156,19 @@ namespace TL
                     t = t.references_to();
 
                 _data_ref._data_type = t;
+                _data_ref._base_address = 
+                    Nodecl::Reference::make(
+                            Nodecl::ClassMemberAccess::make(
+                                _data_ref._base_address.as<Nodecl::Reference>().get_rhs(),
+                                member.get_member().copy(),
+                                t,
+                                member.get_filename(),
+                                member.get_line()
+                                ),
+                            t.get_pointer_to(),
+                            member.get_filename(),
+                            member.get_line());
+                _data_ref._sizeof = make_sizeof(t, member);
             }
     };
 
@@ -164,5 +233,19 @@ namespace TL
     Type DataReference::get_data_type() const
     {
         return _data_type;
+    }
+
+    Nodecl::NodeclBase DataReference::get_base_address() const
+    {
+        return _base_address.copy();
+    }
+
+    Nodecl::NodeclBase DataReference::get_sizeof() const
+    {
+        return _sizeof.copy();
+    }
+
+    DataReference::~DataReference()
+    {
     }
 }

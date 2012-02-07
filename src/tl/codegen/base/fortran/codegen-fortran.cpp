@@ -1652,7 +1652,8 @@ OPERATOR_TABLE
             file << ", KIND=" << dest_type.get_size() << ")";
         }
         else if (dest_type.is_pointer()
-                && source_type.is_array())
+                && (source_type.is_array() || source_type.is_pointer())
+                && !nest.is<Nodecl::Reference>())
         {
             // We need a LOC here
             file << "LOC(";
@@ -2382,9 +2383,12 @@ OPERATOR_TABLE
                 TL::Symbol last = members.back();
                 // Only up to the size of the bitfield now
                 
-                int num_bytes = const_value_cast_to_8(
-                        nodecl_get_constant(last.get_bitfield_size().get_internal_nodecl()
-                            )) / 8;
+                int num_bytes = 
+                    // At least one byte
+                    std::max((uint64_t)1,
+                            const_value_cast_to_8(
+                                nodecl_get_constant(last.get_bitfield_size().get_internal_nodecl()
+                                    )) / 8);
 
                 int i, current_byte = first_bitfield_offset;
                 for (i = 0; i < num_bytes; i++, current_byte++)

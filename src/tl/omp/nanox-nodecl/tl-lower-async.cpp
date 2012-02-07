@@ -1,7 +1,9 @@
 #include "tl-lowering-visitor.hpp"
+#include "tl-nanos.hpp"
 #include "tl-source.hpp"
 #include "tl-counters.hpp"
 #include "tl-nodecl-alg.hpp"
+#include "tl-datareference.hpp"
 
 using TL::Source;
 
@@ -262,7 +264,6 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         <<                  struct_size << ", " 
         <<                  alignment
         <<                  "&imm_args,"
-        // <<                  (immediate_is_alloca ? "imm_args" : "&imm_args") << ","
         <<                  num_dependences << ", (" << dependency_struct << "*)" << dependency_array << ", &props,"
         <<                  num_copies << "," << copy_imm_data 
         <<                  translation_fun_arg_name << ");"
@@ -284,10 +285,80 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         Source::source_language = SourceLanguage::Current;
     }
 
+    fill_arguments(construct, outline_info, fill_outline_arguments, fill_immediate_arguments);
+
+    if (!fill_outline_arguments.empty())
+    {
+        Nodecl::NodeclBase new_tree = fill_outline_arguments.parse_statement(fill_outline_arguments_tree);
+        fill_outline_arguments_tree.integrate(new_tree);
+    }
+
+    if (!fill_immediate_arguments.empty())
+    {
+        Nodecl::NodeclBase new_tree = fill_immediate_arguments.parse_statement(fill_immediate_arguments_tree);
+        fill_immediate_arguments_tree.integrate(new_tree);
+    }
+
+    // Fill dependences for outline
+    fill_dependences(construct, 
+            outline_info, 
+            /* accessor */ Source("ol_args.args->"),
+            fill_dependences_outline);
+    fill_dependences(construct, 
+            outline_info, 
+            /* accessor */ Source("imm_args."),
+            fill_dependences_immediate);
+
+    if (!fill_dependences_outline.empty())
+    {
+        FORTRAN_LANGUAGE()
+        {
+            // Parse in C
+            Source::source_language = SourceLanguage::C;
+        }
+        Nodecl::NodeclBase new_tree = fill_dependences_outline.parse_statement(fill_dependences_outline_tree);
+        fill_dependences_outline_tree.integrate(new_tree);
+        FORTRAN_LANGUAGE()
+        {
+            Source::source_language = SourceLanguage::Current;
+        }
+    }
+
+    if (!fill_dependences_immediate.empty())
+    {
+        FORTRAN_LANGUAGE()
+        {
+            // Parse in C
+            Source::source_language = SourceLanguage::C;
+        }
+        Nodecl::NodeclBase new_tree = fill_dependences_immediate.parse_statement(fill_dependences_immediate_tree);
+        fill_dependences_immediate_tree.integrate(new_tree);
+        FORTRAN_LANGUAGE()
+        {
+            Source::source_language = SourceLanguage::Current;
+        }
+    }
+
+    construct.integrate(spawn_code_tree);
+}
+
+
+void LoweringVisitor::fill_arguments(
+        Nodecl::NodeclBase ctr,
+        OutlineInfo& outline_info,
+        // out
+        Source& fill_outline_arguments,
+        Source& fill_immediate_arguments
+        )
+{
+    // We overallocate with an alignment of 8
+    const int overallocation_alignment = 8;
+    const int overallocation_mask = overallocation_alignment - 1;
     Source intptr_type;
-    intptr_type << Type(::get_size_t_type()).get_declaration(construct.retrieve_context(), "")
+    intptr_type << Type(::get_size_t_type()).get_declaration(ctr.retrieve_context(), "")
         ;
 
+    TL::ObjectList<OutlineDataItem> data_items = outline_info.get_data_items();
     // Now fill the arguments information (this part is language dependent)
     if (IS_C_LANGUAGE
             || IS_CXX_LANGUAGE)
@@ -323,7 +394,7 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
                     fill_outline_arguments << 
                         "ol_args.args->" << it->get_field_name() << " = " << Source(overallocation_base_offset) << ";"
                         ;
-                    
+
                     // Overwrite source
                     overallocation_base_offset = Source() << "(void*)((" 
                         << intptr_type << ")((char*)(ol_args.args->" << 
@@ -332,7 +403,7 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
                         ;
                     fill_immediate_arguments << 
                         "imm_args." << it->get_field_name() << " = " << Source(imm_overallocation_base_offset) << ";";
-                        ;
+                    ;
                     // Overwrite source
                     imm_overallocation_base_offset = Source() << "(void*)((" 
                         << intptr_type << ")((char*)(imm_args." << 
@@ -422,20 +493,164 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
             }
         }
     }
+}
 
-    if (!fill_outline_arguments.empty())
+void LoweringVisitor::fill_dependences(
+        Nodecl::NodeclBase ctr,
+        OutlineInfo& outline_info,
+        Source arguments_accessor,
+        // out
+        Source& result_src
+        )
+{
+    Source dependency_init;
+
+    int num_deps = 0;
+
+    TL::ObjectList<OutlineDataItem> data_items = outline_info.get_data_items();
+    for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
+            it != data_items.end();
+            it++)
     {
-        Nodecl::NodeclBase new_tree = fill_outline_arguments.parse_statement(fill_outline_arguments_tree);
-        fill_outline_arguments_tree.integrate(new_tree);
+        if (it->get_directionality() == OutlineDataItem::DIRECTIONALITY_NONE)
+            continue;
+
+        num_deps += it->get_dependences().size();
     }
 
-    if (!fill_immediate_arguments.empty())
-    {
-        Nodecl::NodeclBase new_tree = fill_immediate_arguments.parse_statement(fill_immediate_arguments_tree);
-        fill_immediate_arguments_tree.integrate(new_tree);
-    }
+    if (num_deps == 0)
+        return;
 
-    construct.integrate(spawn_code_tree);
+    if (Nanos::Version::interface_is_at_least("master", 6001))
+    {
+        internal_error("NANOS++ API 6001 not yet implemented", 0);
+        // result_src
+        //     << "nanos_data_access_t _data_accesses[" << num_deps << "] = {"
+        //     << dependency_init
+        //     << "};";
+    }
+    else
+    {
+        // Note that we leave the 
+        result_src
+            << "nanos_dependence_t dependences[" << num_deps << "]";
+
+        // We only initialize in C/C++, in Fortran we will make a set of assignments
+        if (IS_C_LANGUAGE
+                || IS_CXX_LANGUAGE)
+        {
+            result_src << "= {"
+            << dependency_init
+            << "}";
+        }
+
+        result_src << ";"
+            ;
+
+        int current_dep_num = 0;
+        for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
+                it != data_items.end();
+                it++)
+        {
+            OutlineDataItem::Directionality dir = it->get_directionality();
+            if (dir == OutlineDataItem::DIRECTIONALITY_NONE)
+                continue;
+
+            TL::ObjectList<Nodecl::NodeclBase> deps = it->get_dependences();
+            for (ObjectList<Nodecl::NodeclBase>::iterator dep_it = deps.begin();
+                    dep_it != deps.end();
+                    dep_it++, current_dep_num++)
+            {
+                TL::DataReference dep_expr(*dep_it);
+
+                Source current_dependency_init,
+                       dependency_offset,
+                       dependency_flags,
+                       dependency_flags_in,
+                       dependency_flags_out,
+                       dependency_flags_concurrent,
+                       dependency_size;
+
+//                 typedef struct {
+//                     void **address;
+//                     ptrdiff_t offset;
+//                     struct {
+//                         bool  input: 1;
+//                         bool  output: 1;
+//                         bool  can_rename:1;
+//                         bool  commutative: 1;
+//                     } flags;
+//                     size_t  size;
+//                 } nanos_dependence_internal_t;
+
+                if (IS_C_LANGUAGE
+                        || IS_CXX_LANGUAGE)
+                {
+                    current_dependency_init
+                        << "{"
+                        << "(void**)&(" << arguments_accessor << it->get_field_name() << "),"
+                        << dependency_offset << ","
+                        << dependency_flags << ","
+                        << dependency_size
+                        << "}"
+                        ;
+                }
+                else if (IS_FORTRAN_LANGUAGE)
+                {
+                    // We use plain assignments in Fortran
+                    result_src
+                        << "dependences[" << current_dep_num << "].address = " << "(void**)&(" << arguments_accessor << it->get_field_name() << ");"
+                        << "dependences[" << current_dep_num << "].offset = " << dependency_offset << ";"
+                        << "dependences[" << current_dep_num << "].size = " << dependency_size << ";"
+                        << "dependences[" << current_dep_num << "].flags.input = " << dependency_flags_in << ";"
+                        << "dependences[" << current_dep_num << "].flags.output = " << dependency_flags_out << ";"
+                        << "dependences[" << current_dep_num << "].flags.can_rename = 0;"
+                        ;
+                    
+                    if (Nanos::Version::interface_is_at_least("master", 5001))
+                    {
+                        result_src
+                            << "dependences[" << current_dep_num << "].flags.commutative = " << dependency_flags_concurrent << ";"
+                            ;
+                    }
+                }
+
+                Source dep_expr_addr;
+                dep_expr_addr << as_expression(dep_expr.get_base_address());
+                dependency_size << as_expression(dep_expr.get_sizeof());
+
+                if (IS_C_LANGUAGE
+                        || IS_CXX_LANGUAGE)
+                {
+                    dependency_offset
+                        << "((char*)(" << dep_expr_addr << ") - " << "(char*)" << arguments_accessor << it->get_field_name() << ")"
+                        ;
+                }
+                else
+                {
+                }
+
+                dependency_flags 
+                    << "{" << dependency_flags_in << "," << dependency_flags_out << /* renaming has never been implemented */ ", 0" << "}"
+                    ;
+
+                if (Nanos::Version::interface_is_at_least("master", 5001))
+                {
+                    dependency_flags
+                        << ", " << dependency_flags_concurrent
+                        ;
+                }
+
+                int concurrent = ((dir & OutlineDataItem::DIRECTIONALITY_CONCURRENT) == OutlineDataItem::DIRECTIONALITY_CONCURRENT);
+
+                dependency_flags_in << (((dir & OutlineDataItem::DIRECTIONALITY_IN) == OutlineDataItem::DIRECTIONALITY_IN) || concurrent);
+                dependency_flags_out << (((dir & OutlineDataItem::DIRECTIONALITY_OUT) == OutlineDataItem::DIRECTIONALITY_OUT) || concurrent);
+                dependency_flags_concurrent << concurrent;
+
+                dependency_init.append_with_separator(current_dependency_init, ",");
+            }
+        }
+    }
 }
 
 } }
