@@ -1711,6 +1711,27 @@ type_t* template_type_get_specialized_type_after_type(type_t* t,
     specialized_symbol->entity_specs.num_related_symbols = 0;
     specialized_symbol->entity_specs.related_symbols = NULL;
 
+    // Copy exception stuff
+    if (specialized_symbol->kind == SK_FUNCTION)
+    {
+        specialized_symbol->entity_specs.any_exception = primary_symbol->entity_specs.any_exception;
+
+        // Update exception specifications
+        decl_context_t updated_context = primary_symbol->decl_context;
+        updated_context.template_parameters = template_arguments;
+
+        int i;
+        for (i = 0; i < primary_symbol->entity_specs.num_exceptions; i++)
+        {
+           type_t* exception_type = primary_symbol->entity_specs.exceptions[i];
+           type_t* updated_exception_type = update_type(exception_type, updated_context, filename, line);
+
+           P_LIST_ADD(specialized_symbol->entity_specs.exceptions, 
+                   specialized_symbol->entity_specs.num_exceptions,
+                   updated_exception_type);
+        }
+    }
+
     // Remove the extra template-scope we got from the primary one
     // specialized_symbol->decl_context.template_scope = 
     //     specialized_symbol->decl_context.template_scope->contained_in;

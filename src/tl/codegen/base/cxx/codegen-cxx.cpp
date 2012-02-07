@@ -2762,6 +2762,10 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
 
             file << declarator;
         }
+        else if (_friend.is_template())
+        {
+
+        }
         else
         {
             internal_error("Invalid friend symbol kind '%s'\n", symbol_kind_name(_friend.get_internal_symbol()));

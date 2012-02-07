@@ -7805,6 +7805,11 @@ static char find_function_declaration(AST declarator_id,
             type_t* primary_named_type = template_type_get_primary_type(entry->type_information);
             considered_symbol = named_type_get_symbol(primary_named_type);
             templates_available |= 1;
+            if (!gather_info->is_friend) 
+            {
+                entry->entity_specs.is_friend_declared = 0;
+                considered_symbol->entity_specs.is_friend_declared = 0;
+            }
         }
         else if (entry->kind == SK_FUNCTION)
         {
