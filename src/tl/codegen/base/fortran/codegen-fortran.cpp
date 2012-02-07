@@ -634,7 +634,22 @@ OPERATOR_TABLE
         }
         else if (type.is_named_class())
         {
-            file << rename(type.get_symbol()) << "(";
+            // Remove prefixes that might come from C
+            std::string struct_prefix = "struct ";
+            // Unions cannot be expressed in fortran!
+            std::string class_prefix =  "class ";
+            std::string real_name = rename(type.get_symbol());
+
+            if (real_name.substr(0, struct_prefix.size()) == struct_prefix)
+            {
+                real_name = real_name.substr(struct_prefix.size());
+            }
+            else if (real_name.substr(0, class_prefix.size()) == class_prefix)
+            {
+                real_name = real_name.substr(class_prefix.size());
+            }
+
+            file << real_name << "(";
             codegen_comma_separated_list(node.get_items());
             file << ")";
         }
