@@ -84,7 +84,8 @@ namespace TL
                     DIRECTIONALITY_NONE = 0,
                     DIRECTIONALITY_IN =   1 << 0,
                     DIRECTIONALITY_OUT =  1 << 1,
-                    DIRECTIONALITY_INOUT = DIRECTIONALITY_IN | DIRECTIONALITY_OUT
+                    DIRECTIONALITY_INOUT = DIRECTIONALITY_IN | DIRECTIONALITY_OUT,
+                    DIRECTIONALITY_CONCURRENT = 1 << 2
                 };
 
                 enum Transfer
