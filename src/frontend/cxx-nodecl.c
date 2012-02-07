@@ -560,14 +560,14 @@ const char* nodecl_stmt_to_source(nodecl_t n)
 
     const char* c = nodecl_to_source(n);
     int ITEMS = strlen(c) + strlen(PRE) + strlen(POST);
-    char result[1 + ITEMS];
+    char result[2 + ITEMS];
 
-    snprintf(result, ITEMS, "%s%s%s", PRE, c, POST);
+    snprintf(result, ITEMS + 1, "%s%s%s", PRE, c, POST);
 
 #undef PRE
 #undef POST
 
-    return uniquestr(c);
+    return uniquestr(result);
 }
 
 const char* nodecl_expr_to_source(nodecl_t n)
@@ -577,14 +577,14 @@ const char* nodecl_expr_to_source(nodecl_t n)
 
     const char* c = nodecl_to_source(n);
     int ITEMS = strlen(c) + strlen(PRE) + strlen(POST);
-    char result[1 + ITEMS];
+    char result[2 + ITEMS];
 
-    snprintf(result, ITEMS, "%s%s%s", PRE, c, POST);
+    snprintf(result, ITEMS + 1, "%s%s%s", PRE, c, POST);
 
 #undef PRE
 #undef POST
 
-    return uniquestr(c);
+    return uniquestr(result);
 }
 
 static const char* nodecl_to_source(nodecl_t n)
@@ -595,7 +595,7 @@ static const char* nodecl_to_source(nodecl_t n)
 
     if (!nodecl_is_null(n))
     {
-        fprintf(string_stream, "(\"ast=%p\")", nodecl_get_ast(n));
+        fprintf(string_stream, "\"ast=%p\"", nodecl_get_ast(n));
     }
 
     fclose(string_stream);
