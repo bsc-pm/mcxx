@@ -624,25 +624,22 @@ nodecl_t nodecl_make_from_ast_nodecl_literal(AST a)
     for_each_element(string_literal_list, it)
     {
         AST current_string_literal = ASTSon1(it);
-        char* literal = strdup(ASTText(current_string_literal));
+        char* temp = strdup(ASTText(current_string_literal));
+        char* literal = temp;
         ERROR_CONDITION(literal == NULL, "Text cannot be null", 0);
+
+        ERROR_CONDITION(*literal != '"', "Malformed string literal", 0);
 
         // Ignore "
         literal += 1;
 
-        char* delim = strchr(literal, ':');
+        char* delim = strchr(literal, '=');
 
         ERROR_CONDITION(delim == NULL || delim == literal, "Malformed string literal", 0);
 
-        char attr_name[delim - literal + 1];
-        memset(attr_name, 0, sizeof(attr_name));
-
-        strncpy(attr_name, literal, delim - literal);
-
-        // These two 1 cancel each other, but this way is clearer what we mean
-        char value[strlen(literal) - (delim - literal + 1) + 1];
-        memset(value, 0, sizeof(value));
-        strncpy(value, delim + 1, strlen(literal) - (delim - literal + 1));
+        *delim = '\0';
+        char* value = delim + 1;
+        char* attr_name = literal;
 
         // Erase trailing "
         delim = strchr(value, '"');
@@ -661,7 +658,7 @@ nodecl_t nodecl_make_from_ast_nodecl_literal(AST a)
             internal_error("Malformed nodecl literal. Unknown property '%s'\n", attr_name);
         }
 
-        free(literal);
+        free(temp);
     }
 
     return result;
