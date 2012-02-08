@@ -7598,7 +7598,12 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
             get_new_template_type(decl_context.template_parameters, declarator_type,
                     ASTText(declarator_id), decl_context, ASTLine(declarator_id), ASTFileName(declarator_id));
 
-        // This type also will be stored in the entry symbol
+        // Perhaps we may need to update some entity specs of the primary symbol
+        type_t* primary_type = template_type_get_primary_type(new_template->type_information);
+        scope_entry_t* primary_symbol = named_type_get_symbol(primary_type);
+        primary_symbol->entity_specs.any_exception = gather_info->any_exception;
+
+        // This type (SK_TEMPLATE) also will be stored in the entry symbol
         declarator_type = new_template->type_information;
 
         template_type_set_related_symbol(new_template->type_information, new_template);

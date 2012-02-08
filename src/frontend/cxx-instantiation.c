@@ -939,8 +939,8 @@ static void instantiate_dependent_friend(type_t* selected_template UNUSED_PARAME
             // A friend function template declaration inside a class template definition
             type_t* template_type = friend->type_information;
             ERROR_CONDITION(!is_template_type(template_type), "Must be a template type", 0);
-            
-            // We create a new SK_TEMPLATE symbol 
+
+            // We create a new SK_TEMPLATE symbol
             scope_entry_t* new_template = new_symbol(context_of_being_instantiated,
                     context_of_being_instantiated.current_scope, friend->symbol_name);
 
@@ -949,19 +949,24 @@ static void instantiate_dependent_friend(type_t* selected_template UNUSED_PARAME
             new_template->file = filename;
             new_template->entity_specs.is_friend_declared = 0;
 
-            //We should update the primary symbol
+            //We should update the type of the primary symbol
            scope_entry_t* primary_symbol = named_type_get_symbol(template_type_get_primary_type(template_type));
             type_t* primary_type = primary_symbol->type_information;
-
             type_t* updated_primary_type =
                 update_type_for_instantiation(primary_type, context_of_being_instantiated, filename, line);
 
+            // We create the new_type of the new template symbol
             template_parameter_list_t* temp_params = template_type_get_template_parameters(template_type);
             new_template->type_information = get_new_template_type(temp_params,
                     updated_primary_type, new_template->symbol_name, context_of_being_instantiated, line, filename);
-            
+
+            // Perhaps we may need to update some entity specs of the new primary symbol
+            type_t* new_primary_type = template_type_get_primary_type(new_template->type_information);
+            scope_entry_t* new_primary_symbol = named_type_get_symbol(new_primary_type);
+            new_primary_symbol->entity_specs.any_exception = primary_symbol->entity_specs.any_exception;
+
             // We never add the template symbol, always the primary
-            new_friend = named_type_get_symbol(template_type_get_primary_type(new_template->type_information));
+            new_friend = new_primary_symbol;
         }
         class_type_add_friend_symbol(get_actual_class_type(being_instantiated), new_friend);
     }
