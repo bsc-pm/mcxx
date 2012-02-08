@@ -755,11 +755,11 @@ void DeviceCUDA::create_outline(
         }
 
 	// final_code
-	if (outline_flags.barrier_at_end)
+    if (outline_flags.parallel || outline_flags.barrier_at_end)
 	{
-		final_code
-			<< "nanos_team_barrier();"
-			;
+        final_code
+            << OMPTransform::get_barrier_code(reference_tree)
+            ;
 	}
 
 	// Parse it in a sibling function context

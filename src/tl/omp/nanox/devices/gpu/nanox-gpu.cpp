@@ -32,6 +32,7 @@
 #include "cxx-driver-utils.h"
 #include "tl-simd.hpp"
 #include "nanox-find_common.hpp"
+#include "tl-omp-nanox.hpp"
 
 #include <iostream>
 #include <fstream>
@@ -47,14 +48,14 @@ static std::string gpu_outline_name(const std::string &task_name)
     return "_gpu_" + task_name;
 }
 
-static Type compute_replacement_type_for_vla(Type type, 
+static Type compute_replacement_type_for_vla_(Type type, 
         ObjectList<Source>::iterator dim_names_begin,
         ObjectList<Source>::iterator dim_names_end)
 {
     Type new_type(NULL);
     if (type.is_array())
     {
-        new_type = compute_replacement_type_for_vla(type.array_element(), dim_names_begin + 1, dim_names_end);
+        new_type = compute_replacement_type_for_vla_(type.array_element(), dim_names_begin + 1, dim_names_end);
 
         if (dim_names_begin == dim_names_end)
         {
@@ -65,7 +66,7 @@ static Type compute_replacement_type_for_vla(Type type,
     }
     else if (type.is_pointer())
     {
-        new_type = compute_replacement_type_for_vla(type.points_to(), dim_names_begin, dim_names_end);
+        new_type = compute_replacement_type_for_vla_(type.points_to(), dim_names_begin, dim_names_end);
         new_type = new_type.get_pointer_to();
     }
     else
@@ -251,7 +252,7 @@ static void do_gpu_outline_replacements(
 
             // Now compute a replacement type which we will use to declare the proper type
             Type repl_type = 
-                compute_replacement_type_for_vla(data_env_item.get_symbol().get_type(),
+                compute_replacement_type_for_vla_(data_env_item.get_symbol().get_type(),
                         arg_vla_dims.begin(), arg_vla_dims.end());
 
             // Adjust the type if it is an array
@@ -831,10 +832,10 @@ void DeviceGPU::create_outline(
     }
 
     // final_code
-    if (outline_flags.barrier_at_end)
+    if (outline_flags.parallel || outline_flags.barrier_at_end)
     {
         final_code
-            << "nanos_team_barrier();"
+            << OMPTransform::get_barrier_code(reference_tree)
             ;
     }
 
