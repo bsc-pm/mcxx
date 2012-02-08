@@ -757,14 +757,14 @@ type {
         }
     }
 
-    if (system_header_file)
-    {
-        char path[256];
-        strncpy(path, filename, 255);
+    // if (system_header_file)
+    // {
+    //     char path[256];
+    //     strncpy(path, filename, 255);
 
-        char *name_without_path = basename(path);
-        strncpy(filename, name_without_path, 255);
-    }
+    //     char *name_without_path = basename(path);
+    //     strncpy(filename, name_without_path, 255);
+    // }
 
     if (start_of_new_file 
             || system_header_file)

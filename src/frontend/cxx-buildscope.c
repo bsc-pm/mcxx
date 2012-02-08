@@ -2539,17 +2539,14 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                     print_declarator(underlying_type));
         }
 
-        CXX_LANGUAGE()
-        {
-            // Now set the type of all the enumerators to be of the enumerator
-            // type
-            int i;
-            for (i = 0; i < enum_type_get_num_enumerators(enum_type); i++)
-            {
-                scope_entry_t* enumerator = enum_type_get_enumerator_num(enum_type, i);
-                enumerator->type_information = *type_info;
-            }
-        }
+	// Now set the type of all the enumerators to be of the enumerator
+	// type
+	int i;
+	for (i = 0; i < enum_type_get_num_enumerators(enum_type); i++)
+	{
+		scope_entry_t* enumerator = enum_type_get_enumerator_num(enum_type, i);
+		enumerator->type_information = *type_info;
+	}
     }
 
     set_is_complete_type(enum_type, /* is_complete */ 1);
