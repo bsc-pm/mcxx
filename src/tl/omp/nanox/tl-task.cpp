@@ -241,7 +241,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
            fill_dependences_outline,
            fill_dependences_immediate;
 
-    Source dependency_array, num_dependences, dependency_struct, dependency_regions;
+    Source dependency_array, num_dependences, dependency_struct;
 
     bool immediate_is_alloca = false;
     bool env_is_runtime_sized = data_environ_info.environment_is_runtime_sized();
@@ -269,7 +269,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             fill_immediate_arguments);
 
     // Fill dependences, if any    
-    regions_spawn(dependency_struct, dependency_array, dependency_regions, num_dependences, 
+    regions_spawn(dependency_struct, dependency_array, num_dependences, 
                   fill_dependences_outline, fill_dependences_immediate, dependences, data_environ_info, 
                   immediate_is_alloca, ctr, /*is task*/ true);
     

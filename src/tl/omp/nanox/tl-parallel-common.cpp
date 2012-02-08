@@ -283,13 +283,22 @@ Source TL::Nanox::common_parallel_code(
 }
 
 
-void TL::Nanox::regions_spawn(Source& dependency_struct, Source& dependency_array, Source& dependency_regions, Source& num_dependences,
-                              Source& fill_dependences_outline, Source& fill_dependences_immediate,
-                              ObjectList<OpenMP::DependencyItem> dependences, DataEnvironInfo data_environ_info,
-                              bool immediate_is_alloca, PragmaCustomConstruct ctr, bool is_task)
+void TL::Nanox::regions_spawn(
+        Source& dependency_struct, 
+        Source& dependency_array, 
+        Source& num_dependences,
+        Source& fill_dependences_outline, 
+        Source& fill_dependences_immediate,
+        ObjectList<OpenMP::DependencyItem> dependences, 
+        DataEnvironInfo data_environ_info,
+        bool immediate_is_alloca, 
+        PragmaCustomConstruct ctr, 
+        bool is_task)
 {
     if (Nanos::Version::interface_is_at_least("master", 6001))
     {
+        Source dependency_regions;
+        Source immediate_dependency_regions;
         dependency_struct << "nanos_data_access_t";
         
         if (!dependences.empty())
@@ -307,7 +316,7 @@ void TL::Nanox::regions_spawn(Source& dependency_struct, Source& dependency_arra
             if (is_task)
             {    
                 fill_dependences_immediate
-                    << dependency_regions
+                    << immediate_dependency_regions
                     << "nanos_data_access_t _data_accesses[" << num_dependences << "] = {"
                     << dependency_defs_immediate
                     << "};"
@@ -415,7 +424,7 @@ void TL::Nanox::regions_spawn(Source& dependency_struct, Source& dependency_arra
                 }
 
                 DataReference dependency_expression = it->get_dependency_expression();
-                Source dims_description;
+                Source dims_description, imm_dims_description;
 
                 Type dependency_type = dependency_expression.get_type();
                 int num_dimensions = dependency_type.get_num_dimensions();
@@ -432,17 +441,47 @@ void TL::Nanox::regions_spawn(Source& dependency_struct, Source& dependency_arra
                 
                 
                 // Generate the spawn
-                dependency_regions << "nanos_region_dimension_t dimensions" << num_dep << "[" << std::max(num_dimensions,1) << "] = {"
-                                   << dims_description << "};";
+                dependency_regions 
+                    << "nanos_region_dimension_t dimensions" << num_dep << "[" << std::max(num_dimensions,1) << "] = {"
+                    << dims_description << "};";
+
+                immediate_dependency_regions 
+                    << "nanos_region_dimension_t dimensions" << num_dep << "[" << std::max(num_dimensions,1) << "] = {"
+                    << imm_dims_description << "};";
                
                 if (num_dimensions == 0) 
                 {
+                    // A scalar
+                    Source dependency_offset, imm_dependency_offset;
                     dims_description << "{" 
                                      << "sizeof(" << base_type_name << "), " 
-                                     << "0, "
+                                     << dependency_offset << ", "
                                      << "sizeof(" << base_type_name << ")" 
                                      << "}"
                                      ;
+                    imm_dims_description << "{" 
+                                     << "sizeof(" << base_type_name << "), " 
+                                     << imm_dependency_offset << ", "
+                                     << "sizeof(" << base_type_name << ")" 
+                                     << "}"
+                                     ;
+
+                    dependency_offset
+                        << "((char*)(" << dependency_expression.get_address() << ") - " << "(char*)ol_args->" << dependency_field_name << ")"
+                        ;
+
+                    if (!immediate_is_alloca)
+                    {
+                        imm_dependency_offset
+                            << "((char*)(" << dependency_expression.get_address() << ") - " << "(char*)imm_args." << dependency_field_name << ")"
+                            ;
+                    }
+                    else
+                    {
+                        imm_dependency_offset
+                            << "((char*)(" << dependency_expression.get_address() << ") - " << "(char*)imm_args->" << dependency_field_name << ")"
+                            ;
+                    }
                 }
                 else
                 {
@@ -489,7 +528,7 @@ void TL::Nanox::regions_spawn(Source& dependency_struct, Source& dependency_arra
                     // The rest of dimensions, if there are, are computed in terms of number of elements
                     if (num_dimensions > 1)
                     {    
-                        fill_dimensions(num_dimensions, 0, dimension_sizes, dependency_type, 
+                        fill_dimensions(num_dimensions, 1, dimension_sizes, dependency_type, 
                                         dims_description, dependency_expression.get_scope());
                     }
                 }
@@ -774,41 +813,41 @@ void TL::Nanox::regions_spawn(Source& dependency_struct, Source& dependency_arra
 
 static void fill_dimensions(int n_dims, int actual_dim, std::string* dim_sizes, Type dep_type, Source& dims_description, Scope sc)
 {
-    if (actual_dim > 1)
+    if (actual_dim < n_dims)
     {
         fill_dimensions(n_dims, actual_dim+1, dim_sizes, dep_type.array_element(), dims_description, sc);
-    }
-    
-    if (dep_type.array_is_region())
-    {
-        AST_t lb, ub, size;
-        dep_type.array_get_region_bounds(lb, ub);
-        size = dep_type.array_get_region_size();
-       
-        dims_description << ", {" 
-            << "(" << dim_sizes[actual_dim] << "), " 
-            << "(" << lb.prettyprint() << "), "
-            << "(" << size.prettyprint() << ")"
-            << "}"
-            ;
-    }
-    else
-    {
-        std::string lb;
-        if (IS_C_LANGUAGE)
+
+        if (dep_type.array_is_region())
         {
-            lb = "0";
+            AST_t lb, ub, size;
+            dep_type.array_get_region_bounds(lb, ub);
+            size = dep_type.array_get_region_size();
+
+            dims_description << ", {" 
+                << "(" << dim_sizes[actual_dim] << "), " 
+                << "(" << lb.prettyprint() << "), "
+                << "(" << size.prettyprint() << ")"
+                << "}"
+                ;
         }
-        else if (IS_FORTRAN_LANGUAGE)
+        else
         {
-            lb = "1";
+            std::string lb;
+            if (IS_C_LANGUAGE)
+            {
+                lb = "0";
+            }
+            else if (IS_FORTRAN_LANGUAGE)
+            {
+                lb = "1";
+            }
+
+            dims_description << ", {" 
+                << "(" << dep_type.array_get_size().prettyprint() << "), " 
+                << "(" << lb << "), "
+                << "(" << dim_sizes[actual_dim] << ")"
+                << "}"
+                ;
         }
-      
-        dims_description << ", {" 
-            << "(" << dep_type.array_get_size().prettyprint() << "), " 
-            << "(" << lb << "), "
-            << "(" << dim_sizes[actual_dim] << ")"
-            << "}"
-            ;
     }
 }
