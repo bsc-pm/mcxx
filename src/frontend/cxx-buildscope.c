@@ -7614,9 +7614,6 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
         declarator_type = new_template->type_information;
 
         template_type_set_related_symbol(new_template->type_information, new_template);
-
-        // Create a new entry list which contains this new symbol
-        filtered_entry_list = entry_list_add(filtered_entry_list, new_template);
     }
 
     //We create a new symbol always
