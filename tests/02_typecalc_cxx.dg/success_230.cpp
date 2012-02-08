@@ -31,19 +31,11 @@ test_generator=config/mercurium
 </testinfo>
 */
 
-template<typename S>
-    int func(S);
-
 template<typename T1>
 struct A
 {
-    friend int func<>(T1); //refers to 'func' template-id
+    template <typename T2>
+        friend void f(T1, T2);
 };
 
-void g() 
-{
-    A<int> a1;
-    func((int)1);
-    func((float)1.0);
-    A<float> a2;
-}
+A<int> a;

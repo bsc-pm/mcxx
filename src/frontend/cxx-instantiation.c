@@ -936,6 +936,13 @@ static void instantiate_dependent_friend(type_t* selected_template UNUSED_PARAME
         }
         else
         {
+            if (is_qualified)
+            {
+                error_printf("%s:%d: A qualified template friend function '%s' cannot be declared in a template class\n",
+                            filename, line, friend->symbol_name);
+                    return;
+            }
+
             // A friend function template declaration inside a class template definition
             type_t* template_type = friend->type_information;
             ERROR_CONDITION(!is_template_type(template_type), "Must be a template type", 0);

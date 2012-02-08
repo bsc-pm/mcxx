@@ -7474,6 +7474,13 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
                 && is_dependent_class_scope(decl_context)),
             "This is not a depedent friend function", 0);
 
+    const char* name = ASTText(declarator_id);
+    if (ASTType(declarator_id) == AST_QUALIFIED_ID
+            || ASTType(declarator_id) == AST_QUALIFIED_TEMPLATE)
+    {
+        name = ASTText(ASTSon2(declarator_id));
+    }
+
     char is_qualified = !is_unqualified_id_expression(declarator_id);
 
     char is_template_function = gather_info->is_template;
@@ -7587,7 +7594,7 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
     else
     {
         // It is a friend function template declaration and we should create a new SK_TEMPLATE
-        scope_entry_t* new_template = new_symbol(decl_context, decl_context.current_scope, ASTText(declarator_id));
+        scope_entry_t* new_template = new_symbol(decl_context, decl_context.current_scope, name);
 
         new_template->kind = SK_TEMPLATE;
         new_template->line = ASTLine(declarator_id);

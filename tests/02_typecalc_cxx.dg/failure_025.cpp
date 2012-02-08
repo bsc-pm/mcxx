@@ -28,22 +28,21 @@
 /*
 <testinfo>
 test_generator=config/mercurium
+test_compile_fail=yes
 </testinfo>
 */
-
-template<typename S>
-    int func(S);
-
-template<typename T1>
-struct A
+namespace N
 {
-    friend int func<>(T1); //refers to 'func' template-id
+    template<typename T1>
+        void foo();
+
+}
+
+template<typename T>
+class A
+{
+    template<typename T1>
+        friend int N::foo();
 };
 
-void g() 
-{
-    A<int> a1;
-    func((int)1);
-    func((float)1.0);
-    A<float> a2;
-}
+A<int> a;
