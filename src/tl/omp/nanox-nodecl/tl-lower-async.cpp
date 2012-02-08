@@ -495,6 +495,13 @@ void LoweringVisitor::fill_arguments(
     }
 }
 
+static void fill_dimensions(int n_dims, int actual_dim, int current_dep_num,
+        Nodecl::NodeclBase * dim_sizes, 
+        Type dep_type, 
+        Source& dims_description, 
+        Source& dependency_regions_code, 
+        Scope sc);
+
 void LoweringVisitor::fill_dependences(
         Nodecl::NodeclBase ctr,
         OutlineInfo& outline_info,
@@ -523,15 +530,257 @@ void LoweringVisitor::fill_dependences(
 
     if (Nanos::Version::interface_is_at_least("master", 6001))
     {
-        internal_error("NANOS++ API 6001 not yet implemented", 0);
-        // result_src
-        //     << "nanos_data_access_t _data_accesses[" << num_deps << "] = {"
-        //     << dependency_init
-        //     << "};";
+        Source dependency_regions;
+
+        result_src
+            << dependency_regions
+            << "nanos_data_access_t data_accesses[" << num_deps << "]"
+            ; 
+        
+        if (IS_C_LANGUAGE
+                || IS_CXX_LANGUAGE)
+        {
+            result_src << " = {"
+                << dependency_init
+                << "};"
+                ;
+        }
+        result_src << ";"
+            ;
+
+        int current_dep_num = 0;
+        for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
+                it != data_items.end();
+                it++)
+        {
+            OutlineDataItem::Directionality dir = it->get_directionality();
+            if (dir == OutlineDataItem::DIRECTIONALITY_NONE)
+                continue;
+
+            TL::ObjectList<Nodecl::NodeclBase> deps = it->get_dependences();
+            for (ObjectList<Nodecl::NodeclBase>::iterator dep_it = deps.begin();
+                    dep_it != deps.end();
+                    dep_it++, current_dep_num++)
+            {
+                TL::DataReference dep_expr(*dep_it);
+
+                Source dependency_offset,
+                       dependency_flags,
+                       dependency_flags_in,
+                       dependency_flags_out,
+                       dependency_flags_concurrent,
+                       dependency_size;
+
+                Source dep_expr_addr;
+                dep_expr_addr << as_expression(dep_expr.get_base_address());
+                dependency_size << as_expression(dep_expr.get_sizeof());
+
+                dependency_flags 
+                    << "{" 
+                    << dependency_flags_in << "," 
+                    << dependency_flags_out << ", "
+                    << /* renaming has not yet been implemented */ "0, " 
+                    << dependency_flags_concurrent
+                    << "}"
+                    ;
+
+                ///////// #ifdef __cplusplus
+                ///////// extern "C"
+                ///////// #endif
+                ///////// typedef struct {
+                /////////    /* NOTE: The first dimension is represented in terms of bytes. */
+                ///////// 
+                /////////    /* Size of the dimension in terms of the size of the previous dimension. */
+                /////////    size_t size;
+                ///////// 
+                /////////    /* Lower bound in terms of the size of the previous dimension. */
+                /////////    size_t lower_bound;
+                ///////// 
+                /////////    /* Accessed length in terms of the size of the previous dimension. */
+                /////////    size_t accessed_length;
+                ///////// } nanos_region_dimension_t;
+                ///////// 
+                ///////// 
+                ///////// #ifdef __cplusplus
+                ///////// extern "C"
+                ///////// #endif
+                ///////// typedef struct {
+                /////////    bool  input: 1;
+                /////////    bool  output: 1;
+                /////////    bool  can_rename:1;
+                /////////    bool  commutative: 1;
+                ///////// } nanos_access_type_t;
+                ///////// 
+                ///////// 
+                ///////// /* This structure is initialized in dependency.hpp. Any change in
+                /////////  * its contents has to be reflected in DataAccess constructor
+                /////////  */
+                ///////// #ifdef __cplusplus
+                ///////// extern "C"
+                ///////// #endif
+                ///////// typedef struct {
+                /////////    /* Base address of the accessed range */
+                /////////    void *address;
+                /////////    
+                /////////    nanos_access_type_internal_t flags;
+                /////////    
+                /////////    /* Number of dimensions */
+                /////////    short dimension_count;
+                /////////    
+                /////////    nanos_region_dimension_internal_t const *dimensions;
+                ///////// } nanos_data_access_t;
+
+                Type dependency_type = dep_expr.get_data_type();
+
+                int num_dimensions = dependency_type.get_num_dimensions();
+
+                int concurrent = ((dir & OutlineDataItem::DIRECTIONALITY_CONCURRENT) == OutlineDataItem::DIRECTIONALITY_CONCURRENT);
+
+                dependency_flags_in << (((dir & OutlineDataItem::DIRECTIONALITY_IN) == OutlineDataItem::DIRECTIONALITY_IN) || concurrent);
+                dependency_flags_out << (((dir & OutlineDataItem::DIRECTIONALITY_OUT) == OutlineDataItem::DIRECTIONALITY_OUT) || concurrent);
+                dependency_flags_concurrent << concurrent;
+                //
+                // Compute the base type of the dependency and the array containing the size of each dimension
+                Type dependency_base_type = dependency_type;
+
+                Nodecl::NodeclBase dimension_sizes[num_dimensions];
+                for (int dim = 0; dim < num_dimensions; dim++)
+                {
+                    dimension_sizes[dim] = dependency_base_type.array_get_size();
+                    dependency_base_type = dependency_base_type.array_element();
+                }
+
+                std::string base_type_name = dependency_base_type.get_declaration(dep_expr.retrieve_context(), "");
+
+                dependency_regions << "nanos_region_dimension_t dimensions_" << current_dep_num << "[" << std::max(num_dimensions, 1) << "]"
+                    ;
+
+                Source dims_description;
+
+                if (IS_C_LANGUAGE
+                        || IS_CXX_LANGUAGE)
+                {
+                    dependency_regions << "=  { " << dims_description << "}";
+                }
+
+                dependency_regions << ";"
+                    ;
+
+                if (num_dimensions == 0)
+                {
+                    Source dimension_size, dimension_lower_bound, dimension_accessed_length;
+
+                    dimension_size << as_expression(dimension_sizes[num_dimensions - 1].copy()) << "* sizeof(" << base_type_name << ")";
+                    dimension_lower_bound << "0";
+                    dimension_accessed_length << dimension_size;
+
+                    if (IS_C_LANGUAGE
+                            || IS_CXX_LANGUAGE)
+                    {
+                        Source dims_description;
+                        dims_description
+                            << "{"
+                            << dimension_size << ","
+                            << dimension_lower_bound << ","
+                            << dimension_accessed_length
+                            << "}"
+                            ;
+                    }
+                    else
+                    {
+                        dependency_regions
+                            << "dimensions_" << current_dep_num << "[0].size = " << dimension_size << ";"
+                            << "dimensions_" << current_dep_num << "[0].lower_bound = " << dimension_lower_bound << ";"
+                            << "dimensions_" << current_dep_num << "[0].accessed_length = " << dimension_accessed_length << ";"
+                            ;
+                    }
+                }
+                else
+                {
+                    Source dimension_size, dimension_lower_bound, dimension_accessed_length;
+
+                    Nodecl::NodeclBase lb, ub, size;
+                    if (dependency_base_type.array_is_region())
+                    {
+                        dependency_base_type.array_get_region_bounds(lb, ub);
+                        size = dependency_base_type.array_get_region_size();
+                    }
+                    else
+                    {
+                        dependency_base_type.array_get_bounds(lb, ub);
+                        size = dependency_base_type.array_get_size();
+                    }
+
+                    dimension_size << "sizeof(" << base_type_name << ") * " << as_expression(dimension_sizes[num_dimensions - 1].copy());
+                    dimension_lower_bound << "sizeof(" << base_type_name << ") * " << as_expression(lb.copy());
+                    dimension_accessed_length << "sizeof(" << base_type_name << ") * " << as_expression(size.copy());
+
+                    if (IS_C_LANGUAGE
+                            || IS_CXX_LANGUAGE)
+                    {
+                        Source dims_description;
+                        dims_description
+                            << "{"
+                            << dimension_size << ","
+                            << dimension_lower_bound << ","
+                            << dimension_accessed_length
+                            << "}"
+                            ;
+                    }
+                    else
+                    {
+                        dependency_regions
+                            << "dimensions_" << current_dep_num << "[0].size = " << dimension_size << ";"
+                            << "dimensions_" << current_dep_num << "[0].lower_bound = " << dimension_lower_bound << ";"
+                            << "dimensions_" << current_dep_num << "[0].accessed_length = " << dimension_accessed_length << ";"
+                            ;
+                    }
+                    
+                    // The rest of dimensions, if there are, are computed in terms of number of elements
+                    if (num_dimensions > 1)
+                    {    
+                        fill_dimensions(num_dimensions, 
+                                /* actual_dim */ 1,  // 0 has already been handled
+                                current_dep_num,
+                                dimension_sizes, 
+                                dependency_type, 
+                                dims_description,
+                                dependency_regions,
+                                dep_expr.retrieve_context());
+                    }
+                }
+
+                if (num_dimensions == 0) 
+                    num_dimensions++;
+
+                if (IS_C_LANGUAGE
+                        || IS_CXX_LANGUAGE)
+                {
+                    dependency_init
+                        << "{"
+                        << "(void*)" << arguments_accessor << it->get_field_name() << ","
+                        << dependency_flags << ", "
+                        << num_dimensions << ", "
+                        << "dimensions_" << current_dep_num
+                        << "}";
+                }
+                else if (IS_FORTRAN_LANGUAGE)
+                {
+                    result_src
+                        << "data_accesses[" << current_dep_num << "].address = (void*)" << arguments_accessor << it->get_field_name() << ";"
+                        << "data_accesses[" << current_dep_num << "].flags.input = " << dependency_flags_in << ";"
+                        << "data_accesses[" << current_dep_num << "].flags.output" << dependency_flags_out << ";"
+                        << "data_accesses[" << current_dep_num << "].flags.can_rename = 0;"
+                        << "data_accesses[" << current_dep_num << "].flags.commutative = " << dependency_flags_concurrent << ";"
+                        << "data_accesses[" << current_dep_num << "].dimension_count = " << num_dimensions << ";"
+                        << "data_accesses[" << current_dep_num << "].dimensions = dimensions_" << current_dep_num << ";"
+                        ;
+                }
+            }
+        }
     }
     else
     {
-        // Note that we leave the 
         result_src
             << "nanos_dependence_t dependences[" << num_deps << "]";
 
@@ -571,18 +820,6 @@ void LoweringVisitor::fill_dependences(
                        dependency_flags_concurrent,
                        dependency_size;
 
-//                 typedef struct {
-//                     void **address;
-//                     ptrdiff_t offset;
-//                     struct {
-//                         bool  input: 1;
-//                         bool  output: 1;
-//                         bool  can_rename:1;
-//                         bool  commutative: 1;
-//                     } flags;
-//                     size_t  size;
-//                 } nanos_dependence_internal_t;
-
                 if (IS_C_LANGUAGE
                         || IS_CXX_LANGUAGE)
                 {
@@ -619,25 +856,29 @@ void LoweringVisitor::fill_dependences(
                 dep_expr_addr << as_expression(dep_expr.get_base_address());
                 dependency_size << as_expression(dep_expr.get_sizeof());
 
-                if (IS_C_LANGUAGE
-                        || IS_CXX_LANGUAGE)
-                {
-                    dependency_offset
-                        << "((char*)(" << dep_expr_addr << ") - " << "(char*)" << arguments_accessor << it->get_field_name() << ")"
-                        ;
-                }
-                else
-                {
-                }
-
-                dependency_flags 
-                    << "{" << dependency_flags_in << "," << dependency_flags_out << /* renaming has never been implemented */ ", 0" << "}"
+                dependency_offset
+                    << "((char*)(" << dep_expr_addr << ") - " << "(char*)" << arguments_accessor << it->get_field_name() << ")"
                     ;
 
                 if (Nanos::Version::interface_is_at_least("master", 5001))
                 {
-                    dependency_flags
-                        << ", " << dependency_flags_concurrent
+                    dependency_flags 
+                        << "{" 
+                        << dependency_flags_in << "," 
+                        << dependency_flags_out << ", "
+                        << /* renaming has not yet been implemented */ "0, " 
+                        << dependency_flags_concurrent
+                        << "}"
+                        ;
+                }
+                else
+                {
+                    dependency_flags 
+                        << "{" 
+                        << dependency_flags_in << "," 
+                        << dependency_flags_out << ", "
+                        << /* renaming has not yet been implemented */ "0, " 
+                        << "}"
                         ;
                 }
 
@@ -649,6 +890,56 @@ void LoweringVisitor::fill_dependences(
 
                 dependency_init.append_with_separator(current_dependency_init, ",");
             }
+        }
+    }
+}
+
+static void fill_dimensions(int n_dims, int actual_dim, int current_dep_num,
+        Nodecl::NodeclBase * dim_sizes, 
+        Type dep_type, 
+        Source& dims_description, 
+        Source& dependency_regions_code, 
+        Scope sc)
+{
+    if (actual_dim < n_dims)
+    {
+        fill_dimensions(n_dims, actual_dim+1, current_dep_num, dim_sizes, dep_type.array_element(), dims_description, dependency_regions_code, sc);
+
+        Source dimension_size, dimension_lower_bound, dimension_accessed_length;
+        Nodecl::NodeclBase lb, ub, size;
+
+        if (dep_type.array_is_region())
+        {
+            dep_type.array_get_region_bounds(lb, ub);
+            size = dep_type.array_get_region_size();
+        }
+        else
+        {
+            dep_type.array_get_bounds(lb, ub);
+            size = dep_type.array_get_size();
+        }
+
+        dimension_size << as_expression(dim_sizes[n_dims - actual_dim - 1].copy());
+        dimension_lower_bound << as_expression(lb.copy());
+        dimension_accessed_length << as_expression(size.copy());
+
+        if (IS_C_LANGUAGE
+                || IS_CXX_LANGUAGE)
+        {
+            dims_description << ", {" 
+                << dimension_size << ", " 
+                << dimension_lower_bound << ", "
+                << dimension_accessed_length 
+                << "}"
+                ;
+        }
+        else if (IS_FORTRAN_LANGUAGE)
+        {
+            dependency_regions_code
+                << "dimensions_" << current_dep_num << "[" << actual_dim << "].size = " << dimension_size << ";"
+                << "dimensions_" << current_dep_num << "[" << actual_dim << "].lower_bound = " << dimension_lower_bound << ";"
+                << "dimensions_" << current_dep_num << "[" << actual_dim << "].accessed_length = " << dimension_accessed_length << ";"
+                ;
         }
     }
 }
