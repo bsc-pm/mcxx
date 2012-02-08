@@ -72,6 +72,7 @@ namespace Codegen
             Ret visit(const Nodecl::ForStatement &);
             Ret visit(const Nodecl::FunctionCall &);
             Ret visit(const Nodecl::FunctionCode &);
+            Ret visit(const Nodecl::TemplateFunctionCode &);
             Ret visit(const Nodecl::GotoStatement &);
             Ret visit(const Nodecl::GreaterOrEqualThan &);
             Ret visit(const Nodecl::GreaterThan &);

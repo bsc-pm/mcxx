@@ -9690,9 +9690,13 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     {
         internal_error("Unreachable code", 0);
     }
+    nodecl_t (*ptr_nodecl_make_func_code)(nodecl_t, nodecl_t, nodecl_t, scope_entry_t*,const char*, int) = NULL;
 
-    // Create nodecl (only if not dependent)
-    nodecl_t nodecl_function_def = nodecl_make_function_code(
+    ptr_nodecl_make_func_code = (!is_dependent_type(entry->type_information))
+                ? &nodecl_make_function_code : &nodecl_make_template_function_code;
+
+    // Create nodecl
+    nodecl_t nodecl_function_def = ptr_nodecl_make_func_code(
             nodecl_make_context(
                 nodecl_make_list_1(body_nodecl),
                 block_context,
@@ -9702,12 +9706,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
             entry,
             ASTFileName(a), ASTLine(a));
 
-    if (!is_dependent_type(entry->type_information)
-            && !(entry->entity_specs.is_member
-                && is_dependent_type(entry->entity_specs.class_type)))
-    {
-        *nodecl_output = nodecl_make_list_1(nodecl_function_def);
-    }
+    *nodecl_output = nodecl_make_list_1(nodecl_function_def);
 
     entry->entity_specs.function_code = nodecl_function_def;
 
