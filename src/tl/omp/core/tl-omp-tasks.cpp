@@ -492,7 +492,7 @@ namespace TL
                 inout_arguments = inout_clause.get_arguments(ExpressionTokenizer());
             }
 
-            PragmaCustomClause reduction_clause = construct.get_clause("__shared_reduction");
+            PragmaCustomClause reduction_clause = construct.get_clause("concurrent");
             ObjectList<std::string> reduction_arguments;
             if (reduction_clause.is_defined())
             {

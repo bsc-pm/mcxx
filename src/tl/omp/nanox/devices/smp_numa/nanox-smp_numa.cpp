@@ -28,6 +28,7 @@
 #include "tl-nanos.hpp"
 #include "tl-devices.hpp"
 #include "nanox-smp_numa.hpp"
+#include "tl-omp-nanox.hpp"
 
 using namespace TL;
 using namespace TL::Nanox;
@@ -420,10 +421,11 @@ void DeviceSMP_NUMA::create_outline(
        init_code << "nanos_omp_set_implicit(nanos_current_wd());";
     }
 
+	// final_code
     if (outline_flags.parallel || outline_flags.barrier_at_end)
     {
         final_code
-            << "nanos_team_barrier();"
+            << OMPTransform::get_barrier_code(reference_tree)
             ;
     }
 

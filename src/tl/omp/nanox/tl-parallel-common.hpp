@@ -49,9 +49,9 @@ namespace TL
          * This code is shared for "for" and "task" dependences.
          * @param is_task states whether the code must be generated for a "task" or for a "for".
          */
-        void regions_spawn(Source& dependency_struct, 
+        void regions_spawn(
+                Source& dependency_struct, 
                 Source& dependency_array, 
-                Source& dependency_regions, 
                 Source& num_dependences,
                 Source& fill_dependences_outline, 
                 Source& fill_dependences_immediate,
