@@ -223,9 +223,8 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         << "{"
         // Devices related to this task
         <<     device_description
-        // We use an extra struct because of Fortran
-        <<     "struct { " << struct_arg_type_name << "* args; } ol_args;"
-        <<     "ol_args.args = (" << struct_arg_type_name << "*) 0;"
+        <<     struct_arg_type_name << "* ol_args;"
+        <<     "ol_args = (" << struct_arg_type_name << "*) 0;"
         <<     immediate_decl
         <<     struct_runtime_size
         <<     "nanos_wd_t wd = (nanos_wd_t)0;"
@@ -302,7 +301,7 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
     // Fill dependences for outline
     fill_dependences(construct, 
             outline_info, 
-            /* accessor */ Source("ol_args.args->"),
+            /* accessor */ Source("ol_args->"),
             fill_dependences_outline);
     fill_dependences(construct, 
             outline_info, 
@@ -366,7 +365,7 @@ void LoweringVisitor::fill_arguments(
         Source overallocation_base_offset; 
         // We round up to the alignment
         overallocation_base_offset << "(void*)(((" 
-            << intptr_type << ")(char*)(ol_args.args + 1) + " 
+            << intptr_type << ")(char*)(ol_args + 1) + " 
             << overallocation_mask << ") & (~" << overallocation_mask << "))";
 
         Source imm_overallocation_base_offset;
@@ -392,12 +391,12 @@ void LoweringVisitor::fill_arguments(
 
                     // Overallocated
                     fill_outline_arguments << 
-                        "ol_args.args->" << it->get_field_name() << " = " << Source(overallocation_base_offset) << ";"
+                        "ol_args->" << it->get_field_name() << " = " << Source(overallocation_base_offset) << ";"
                         ;
 
                     // Overwrite source
                     overallocation_base_offset = Source() << "(void*)((" 
-                        << intptr_type << ")((char*)(ol_args.args->" << 
+                        << intptr_type << ")((char*)(ol_args->" << 
                         it->get_field_name() << ") + sizeof(" << it->get_symbol().get_name() << ") + " 
                         << overallocation_mask << ") & (~" << overallocation_mask << "))"
                         ;
@@ -412,7 +411,7 @@ void LoweringVisitor::fill_arguments(
                         ;
 
                     fill_outline_arguments
-                        << "__builtin_memcpy(&ol_args.args->" << it->get_field_name() 
+                        << "__builtin_memcpy(&ol_args->" << it->get_field_name() 
                         << ", &" << it->get_symbol().get_name() 
                         << ", sizeof(" << it->get_symbol().get_name() << "));"
                         ;
@@ -432,7 +431,7 @@ void LoweringVisitor::fill_arguments(
                     if (sym_type.is_array())
                     {
                         fill_outline_arguments
-                            << "__builtin_memcpy(&ol_args.args->" << it->get_field_name() 
+                            << "__builtin_memcpy(&ol_args->" << it->get_field_name() 
                             << ", &" << it->get_symbol().get_name() 
                             << ", sizeof(" << it->get_symbol().get_name() << "));"
                             ;
@@ -446,7 +445,7 @@ void LoweringVisitor::fill_arguments(
                     {
                         // Plain assignment is enough
                         fill_outline_arguments << 
-                            "ol_args.args->" << it->get_field_name() << " = " << it->get_symbol().get_name() << ";"
+                            "ol_args->" << it->get_field_name() << " = " << it->get_symbol().get_name() << ";"
                             ;
                         fill_immediate_arguments << 
                             "imm_args." << it->get_field_name() << " = " << it->get_symbol().get_name() << ";"
@@ -457,7 +456,7 @@ void LoweringVisitor::fill_arguments(
             else if (it->get_sharing() == OutlineDataItem::SHARING_SHARED)
             {
                 fill_outline_arguments << 
-                    "ol_args.args->" << it->get_field_name() << " = &" << it->get_symbol().get_name() << ";"
+                    "ol_args->" << it->get_field_name() << " = &" << it->get_symbol().get_name() << ";"
                     ;
                 fill_immediate_arguments << 
                     "imm_args." << it->get_field_name() << " = &" << it->get_symbol().get_name() << ";"
@@ -474,7 +473,7 @@ void LoweringVisitor::fill_arguments(
             if (it->get_sharing() == OutlineDataItem::SHARING_CAPTURE)
             {
                 fill_outline_arguments << 
-                    "ol_args % args % " << it->get_field_name() << " = " << it->get_symbol().get_name() << "\n"
+                    "ol_args % " << it->get_field_name() << " = " << it->get_symbol().get_name() << "\n"
                     ;
                 fill_immediate_arguments << 
                     "imm_args % " << it->get_field_name() << " = " << it->get_symbol().get_name() << "\n"
@@ -483,7 +482,7 @@ void LoweringVisitor::fill_arguments(
             else if (it->get_sharing() == OutlineDataItem::SHARING_SHARED)
             {
                 fill_outline_arguments << 
-                    "ol_args % args %" << it->get_field_name() << " => " << it->get_symbol().get_name() << "\n"
+                    "ol_args %" << it->get_field_name() << " => " << it->get_symbol().get_name() << "\n"
                     ;
                 fill_immediate_arguments << 
                     "imm_args % " << it->get_field_name() << " => " << it->get_symbol().get_name() << "\n"
@@ -495,7 +494,9 @@ void LoweringVisitor::fill_arguments(
     }
 }
 
-static void fill_dimensions(int n_dims, int actual_dim, int current_dep_num,
+static void fill_dimensions(int n_dims, 
+        int actual_dim, 
+        int current_dep_num,
         Nodecl::NodeclBase * dim_sizes, 
         Type dep_type, 
         Source& dims_description, 
@@ -584,52 +585,6 @@ void LoweringVisitor::fill_dependences(
                     << "}"
                     ;
 
-                ///////// #ifdef __cplusplus
-                ///////// extern "C"
-                ///////// #endif
-                ///////// typedef struct {
-                /////////    /* NOTE: The first dimension is represented in terms of bytes. */
-                ///////// 
-                /////////    /* Size of the dimension in terms of the size of the previous dimension. */
-                /////////    size_t size;
-                ///////// 
-                /////////    /* Lower bound in terms of the size of the previous dimension. */
-                /////////    size_t lower_bound;
-                ///////// 
-                /////////    /* Accessed length in terms of the size of the previous dimension. */
-                /////////    size_t accessed_length;
-                ///////// } nanos_region_dimension_t;
-                ///////// 
-                ///////// 
-                ///////// #ifdef __cplusplus
-                ///////// extern "C"
-                ///////// #endif
-                ///////// typedef struct {
-                /////////    bool  input: 1;
-                /////////    bool  output: 1;
-                /////////    bool  can_rename:1;
-                /////////    bool  commutative: 1;
-                ///////// } nanos_access_type_t;
-                ///////// 
-                ///////// 
-                ///////// /* This structure is initialized in dependency.hpp. Any change in
-                /////////  * its contents has to be reflected in DataAccess constructor
-                /////////  */
-                ///////// #ifdef __cplusplus
-                ///////// extern "C"
-                ///////// #endif
-                ///////// typedef struct {
-                /////////    /* Base address of the accessed range */
-                /////////    void *address;
-                /////////    
-                /////////    nanos_access_type_internal_t flags;
-                /////////    
-                /////////    /* Number of dimensions */
-                /////////    short dimension_count;
-                /////////    
-                /////////    nanos_region_dimension_internal_t const *dimensions;
-                ///////// } nanos_data_access_t;
-
                 Type dependency_type = dep_expr.get_data_type();
 
                 int num_dimensions = dependency_type.get_num_dimensions();
@@ -699,16 +654,23 @@ void LoweringVisitor::fill_dependences(
                 {
                     Source dimension_size, dimension_lower_bound, dimension_accessed_length;
 
-                    Nodecl::NodeclBase lb, ub, size;
-                    if (dependency_base_type.array_is_region())
+                    // Compute the contiguous array type
+                    Type contiguous_array_type = dependency_type;
+                    while (contiguous_array_type.array_element().is_array())
                     {
-                        dependency_base_type.array_get_region_bounds(lb, ub);
-                        size = dependency_base_type.array_get_region_size();
+                        contiguous_array_type = contiguous_array_type.array_element();
+                    }
+
+                    Nodecl::NodeclBase lb, ub, size;
+                    if (contiguous_array_type.array_is_region())
+                    {
+                        contiguous_array_type.array_get_region_bounds(lb, ub);
+                        size = contiguous_array_type.array_get_region_size();
                     }
                     else
                     {
-                        dependency_base_type.array_get_bounds(lb, ub);
-                        size = dependency_base_type.array_get_size();
+                        contiguous_array_type.array_get_bounds(lb, ub);
+                        size = contiguous_array_type.array_get_size();
                     }
 
                     dimension_size << "sizeof(" << base_type_name << ") * " << as_expression(dimension_sizes[num_dimensions - 1].copy());
@@ -736,18 +698,15 @@ void LoweringVisitor::fill_dependences(
                             ;
                     }
                     
-                    // The rest of dimensions, if there are, are computed in terms of number of elements
-                    if (num_dimensions > 1)
-                    {    
-                        fill_dimensions(num_dimensions, 
-                                /* actual_dim */ 1,  // 0 has already been handled
-                                current_dep_num,
-                                dimension_sizes, 
-                                dependency_type, 
-                                dims_description,
-                                dependency_regions,
-                                dep_expr.retrieve_context());
-                    }
+                    // All but 0 (contiguous) are handled here
+                    fill_dimensions(num_dimensions, 
+                            num_dimensions,
+                            current_dep_num,
+                            dimension_sizes, 
+                            dependency_type, 
+                            dims_description,
+                            dependency_regions,
+                            dep_expr.retrieve_context());
                 }
 
                 if (num_dimensions == 0) 
@@ -901,9 +860,10 @@ static void fill_dimensions(int n_dims, int actual_dim, int current_dep_num,
         Source& dependency_regions_code, 
         Scope sc)
 {
-    if (actual_dim < n_dims)
+    // We do not handle the contiguous dimension here
+    if (actual_dim > 0)
     {
-        fill_dimensions(n_dims, actual_dim+1, current_dep_num, dim_sizes, dep_type.array_element(), dims_description, dependency_regions_code, sc);
+        fill_dimensions(n_dims, actual_dim - 1, current_dep_num, dim_sizes, dep_type.array_element(), dims_description, dependency_regions_code, sc);
 
         Source dimension_size, dimension_lower_bound, dimension_accessed_length;
         Nodecl::NodeclBase lb, ub, size;
