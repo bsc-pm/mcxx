@@ -7601,28 +7601,7 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
     {
         // It is a friend template function declaration inside a template class definition
         scope_entry_t* func_templ = NULL;
-        if(!is_qualified)
-        {
-            // We should create a new SK_TEMPLATE
-            func_templ = new_symbol(decl_context, decl_context.current_scope, name);
-
-            func_templ->kind = SK_TEMPLATE;
-            func_templ->line = ASTLine(declarator_id);
-            func_templ->file = ASTFileName(declarator_id);
-            func_templ->entity_specs.is_friend_declared = 1;
-
-            func_templ->type_information =
-                get_new_template_type(decl_context.template_parameters, declarator_type,
-                        ASTText(declarator_id), decl_context, ASTLine(declarator_id), ASTFileName(declarator_id));
-
-            // Perhaps we may need to update some entity specs of the primary symbol
-            type_t* primary_type = template_type_get_primary_type(func_templ->type_information);
-            scope_entry_t* primary_symbol = named_type_get_symbol(primary_type);
-            primary_symbol->entity_specs.any_exception = gather_info->any_exception;
-
-            template_type_set_related_symbol(func_templ->type_information, func_templ);
-        }
-        else  //2.1
+        if (is_qualified) //2.1
         {
             if (!found_candidate)
             {
@@ -7633,8 +7612,26 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
                 }
                 return 0;
             }
-            func_templ = entry_list_head(filtered_entry_list);
         }
+
+        // We should create a new SK_TEMPLATE
+        func_templ = new_symbol(decl_context, decl_context.current_scope, name);
+
+        func_templ->kind = SK_TEMPLATE;
+        func_templ->line = ASTLine(declarator_id);
+        func_templ->file = ASTFileName(declarator_id);
+        func_templ->entity_specs.is_friend_declared = 1;
+
+        func_templ->type_information =
+            get_new_template_type(decl_context.template_parameters, declarator_type,
+                    ASTText(declarator_id), decl_context, ASTLine(declarator_id), ASTFileName(declarator_id));
+
+        // Perhaps we may need to update some entity specs of the primary symbol
+        type_t* primary_type = template_type_get_primary_type(func_templ->type_information);
+        scope_entry_t* primary_symbol = named_type_get_symbol(primary_type);
+        primary_symbol->entity_specs.any_exception = gather_info->any_exception;
+
+        template_type_set_related_symbol(func_templ->type_information, func_templ);
 
         // The type of 'func_templ' symbol also will be stored in 'entry' symbol
         // The reason: we use the type of 'entry' symbol for distinguish between
