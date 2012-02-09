@@ -162,7 +162,6 @@ libmcxx_la_SOURCES = \
   cxx-overload.c \
   cxx-overload-decls.h \
   cxx-overload.h \
-  cxx-codegen.c \
   cxx-codegen.h \
   cxx-diagnostic.c \
   cxx-diagnostic.h \
