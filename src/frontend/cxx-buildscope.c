@@ -7508,40 +7508,46 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
     //          *   A nontemplate function, otherwise
     //          *   A matching specialization of a template function
     //      1.3 It's an unqualied name -> declares an nontemplate function
-    //
+    //  2. Otherwise,
+    //      2.1 It's a qualified name -> refers to a template function
+
+    char found_candidate = 0;
     scope_entry_list_t* filtered_entry_list = NULL;
     enum cxx_symbol_kind filter_only_templates[] = { SK_TEMPLATE, SK_DEPENDENT_ENTITY };
     enum cxx_symbol_kind filter_only_functions[] = { SK_FUNCTION };
     enum cxx_symbol_kind filter_only_templates_and_functions[] = { SK_FUNCTION, SK_TEMPLATE, SK_DEPENDENT_ENTITY};
 
     // This code filters the query properly and does error detection
+    if ((!is_template_function && is_template_id) //1.1
+            || (is_template_function && is_qualified)) //2.1
+    {
+        filtered_entry_list = filter_symbol_kind_set(entry_list,
+                STATIC_ARRAY_LENGTH(filter_only_templates),
+                filter_only_templates);
+
+        scope_entry_list_iterator_t* it = NULL;
+        for (it = entry_list_iterator_begin(filtered_entry_list);
+                !entry_list_iterator_end(it) && !found_candidate;
+                entry_list_iterator_next(it))
+        {
+            scope_entry_t* current_sym = entry_list_iterator_current(it);
+            if (current_sym->kind == SK_TEMPLATE)
+            {
+                current_sym =
+                    named_type_get_symbol(template_type_get_primary_type(current_sym->type_information));
+            }
+            if (current_sym->kind == SK_FUNCTION || current_sym->kind == SK_DEPENDENT_ENTITY)
+            {
+                found_candidate = 1;
+            }
+        }
+    }
+
     if (!is_template_function)
     {
         if (is_template_id) //1.1
         {
-            filtered_entry_list = filter_symbol_kind_set(entry_list,
-                    STATIC_ARRAY_LENGTH(filter_only_templates),
-                    filter_only_templates);
-
-            char found_spec_funct_templ = 0;
-            scope_entry_list_iterator_t* it = NULL;
-            for (it = entry_list_iterator_begin(filtered_entry_list);
-                    !entry_list_iterator_end(it) && !found_spec_funct_templ;
-                    entry_list_iterator_next(it))
-            {
-                scope_entry_t* current_sym = entry_list_iterator_current(it);
-                if (current_sym->kind == SK_TEMPLATE)
-                {
-                    current_sym =
-                        named_type_get_symbol(template_type_get_primary_type(current_sym->type_information));
-                }
-                if (current_sym->kind == SK_FUNCTION || current_sym->kind == SK_DEPENDENT_ENTITY)
-                {
-                    found_spec_funct_templ = 1;
-                }
-            }
-
-            if (!found_spec_funct_templ)
+            if (!found_candidate)
             {
                 if (!checking_ambiguity())
                 {
@@ -7556,7 +7562,7 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
             filtered_entry_list = filter_symbol_kind_set(entry_list,
                     STATIC_ARRAY_LENGTH(filter_only_templates_and_functions),
                     filter_only_templates_and_functions);
-            char found_candidate = 0;
+
             scope_entry_list_iterator_t* it = NULL;
             for (it = entry_list_iterator_begin(filtered_entry_list);
                     !entry_list_iterator_end(it) && !found_candidate;
@@ -7593,30 +7599,44 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
     }
     else
     {
-        // It is a friend function template declaration and we should create a new SK_TEMPLATE
-        scope_entry_t* new_template = new_symbol(decl_context, decl_context.current_scope, name);
+        // It is a friend template function declaration inside a template class definition
+        scope_entry_t* func_templ = NULL;
+        if (is_qualified) //2.1
+        {
+            if (!found_candidate)
+            {
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: Qualified id '%s' name not found\n",
+                            ast_location(declarator_id), prettyprint_in_buffer(declarator_id));
+                }
+                return 0;
+            }
+        }
 
-        new_template->kind = SK_TEMPLATE;
-        new_template->line = ASTLine(declarator_id);
-        new_template->file = ASTFileName(declarator_id);
-        new_template->entity_specs.is_friend_declared = 1;
+        // We should create a new SK_TEMPLATE
+        func_templ = new_symbol(decl_context, decl_context.current_scope, name);
 
-        new_template->type_information =
+        func_templ->kind = SK_TEMPLATE;
+        func_templ->line = ASTLine(declarator_id);
+        func_templ->file = ASTFileName(declarator_id);
+        func_templ->entity_specs.is_friend_declared = 1;
+
+        func_templ->type_information =
             get_new_template_type(decl_context.template_parameters, declarator_type,
                     ASTText(declarator_id), decl_context, ASTLine(declarator_id), ASTFileName(declarator_id));
 
         // Perhaps we may need to update some entity specs of the primary symbol
-        type_t* primary_type = template_type_get_primary_type(new_template->type_information);
+        type_t* primary_type = template_type_get_primary_type(func_templ->type_information);
         scope_entry_t* primary_symbol = named_type_get_symbol(primary_type);
         primary_symbol->entity_specs.any_exception = gather_info->any_exception;
 
-        // This type (SK_TEMPLATE) also will be stored in the entry symbol
-        declarator_type = new_template->type_information;
+        template_type_set_related_symbol(func_templ->type_information, func_templ);
 
-        template_type_set_related_symbol(new_template->type_information, new_template);
-
-        // Create a new entry list which contains this new symbol
-        filtered_entry_list = entry_list_add(filtered_entry_list, new_template);
+        // The type of 'func_templ' symbol also will be stored in 'entry' symbol
+        // The reason: we use the type of 'entry' symbol for distinguish between
+        // a function declaration or a template function declaration
+        declarator_type = func_templ->type_information;
     }
 
     //We create a new symbol always
