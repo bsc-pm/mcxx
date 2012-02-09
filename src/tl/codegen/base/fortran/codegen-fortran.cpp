@@ -1369,8 +1369,8 @@ OPERATOR_TABLE
 
     void FortranBase::visit(const Nodecl::FortranData& node)
     {
-        declare_symbols_rec(node.get_objects());
-        declare_symbols_rec(node.get_values());
+        declare_everything_needed(node.get_objects());
+        declare_everything_needed(node.get_values());
 
         indent();
         file << "DATA ";
@@ -1382,8 +1382,8 @@ OPERATOR_TABLE
 
     void FortranBase::visit(const Nodecl::FortranEquivalence& node)
     {
-        declare_symbols_rec(node.get_first());
-        declare_symbols_rec(node.get_second());
+        declare_everything_needed(node.get_first());
+        declare_everything_needed(node.get_second());
 
         indent();
         file << "EQUIVALENCE (";
@@ -1960,7 +1960,7 @@ OPERATOR_TABLE
                     && (entry.is_static()
                         || entry.get_type().is_const()))
             {
-                declare_symbols_rec(entry.get_initialization());
+                declare_everything_needed(entry.get_initialization());
 
                 TL::Type t = entry.get_type();
                 if (t.is_any_reference())
@@ -2183,7 +2183,7 @@ OPERATOR_TABLE
                 file << type_spec << " :: " << entry.get_name() << std::endl;
 
 
-                declare_symbols_rec(entry.get_initialization());
+                declare_everything_needed(entry.get_initialization());
 
                 indent();
                 file << entry.get_name() << "(";
@@ -2278,7 +2278,7 @@ OPERATOR_TABLE
                     it++)
             {
                 TL::Symbol &component(*it);
-                declare_symbols_rec(component.get_initialization());
+                declare_everything_needed(component.get_initialization());
 
                 if (component.get_type().basic_type().is_class())
                 {
@@ -2871,7 +2871,7 @@ OPERATOR_TABLE
                 }
                 else
                 {
-                    declare_symbols_rec(array_spec_list[array_spec_idx].lower);
+                    declare_everything_needed(array_spec_list[array_spec_idx].lower);
                 }
 
                 if (!array_type_is_unknown_size(t.get_internal_type()))
@@ -2885,7 +2885,7 @@ OPERATOR_TABLE
                     }
                     else
                     {
-                        declare_symbols_rec(array_spec_list[array_spec_idx].upper);
+                        declare_everything_needed(array_spec_list[array_spec_idx].upper);
                     }
                 }
                 else
@@ -2988,7 +2988,7 @@ OPERATOR_TABLE
                 }
                 else
                 {
-                    declare_symbols_rec(upper_bound);
+                    declare_everything_needed(upper_bound);
                 }
 
                 ss << "CHARACTER(LEN=" 
