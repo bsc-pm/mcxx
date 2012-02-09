@@ -397,70 +397,74 @@ void DeviceCUDA::create_outline(
 {
 	/***************** Write the CUDA file *****************/
 
-	// Get all the needed symbols and CUDA included files
-	Source forward_declaration;
-	AST_t function_tree;
-
-
 	// Check if the task is a function, or it is inlined
+	// Outline tasks need more work to do
+	bool is_outline_task = (outline_flags.task_symbol != NULL);
+
 	ObjectList<IdExpression> extern_occurrences;
 	//DeclarationClosure decl_closure (sl);
 	std::set<Symbol> extern_symbols;
 
-	if (outline_flags.task_symbol != NULL)
+	// Get all the needed symbols and CUDA included files
+	Source forward_declaration;
+	AST_t function_tree = (is_outline_task ?
+			outline_flags.task_symbol.get_point_of_declaration() :
+			reference_tree);
+
+	// Get the definition of non local symbols
+	LangConstruct construct (function_tree, sl);
+	extern_occurrences = construct.non_local_symbol_occurrences();
+
+	for (ObjectList<IdExpression>::iterator it = extern_occurrences.begin();
+			it != extern_occurrences.end();
+			it++)
 	{
-		// Get the definition of non local symbols
-		function_tree = outline_flags.task_symbol.get_point_of_declaration();
-		LangConstruct construct (function_tree, sl);
-		extern_occurrences = construct.non_local_symbol_occurrences();
+		Symbol s = it->get_symbol();
 
-		for (ObjectList<IdExpression>::iterator it = extern_occurrences.begin();
-				it != extern_occurrences.end();
-				it++)
+		// If this symbol does not come from the input file, do not consider it
+		if (s.get_filename() != CompilationProcess::get_current_file().get_filename(/* fullpath */ true))
+			continue;
+
+		if (s.get_internal_symbol()->kind == SK_ENUMERATOR)
 		{
-			Symbol s = it->get_symbol();
-
-			// If this symbol does not come from the input file, do not consider it
-			if (s.get_filename() != CompilationProcess::get_current_file().get_filename(/* fullpath */ true))
-				continue;
-
-			if (s.get_internal_symbol()->kind == SK_ENUMERATOR)
-			{
-				s = s.get_type().get_symbol();
-			}
-			while (s.is_member())
-			{
-				s = s.get_class_type().get_symbol();
-			}
-
-			// Check we have not already added the symbol
-			if (_fwdSymbols.count(s) == 0)
-			{
-
-				_fwdSymbols.insert(s);
-				//decl_closure.add(s);
-
-				// TODO: check the symbol is not a global variable
-
-				extern_symbols.insert(s);
-			}
+			s = s.get_type().get_symbol();
+		}
+		while (s.is_member())
+		{
+			s = s.get_class_type().get_symbol();
 		}
 
-		// Maybe it is not needed --> user-defined structs must be included in GPU kernel's file
-		// Plus, 'closure()' method is not working anyway...
-		//forward_declaration << decl_closure.closure() << "\n";
-
-		for (std::set<Symbol>::iterator it = extern_symbols.begin();
-				it != extern_symbols.end(); it++)
+		// Check we have not already added the symbol
+		if (_fwdSymbols.count(s) == 0)
 		{
-			// Check the symbol is not a function definition before adding it to forward declaration (see #529)
-			AST_t a = it->get_point_of_declaration();
-			if (!FunctionDefinition::predicate(a))
-			{
-				forward_declaration << a.prettyprint_external() << "\n";
-			}
-		}
 
+			_fwdSymbols.insert(s);
+			//decl_closure.add(s);
+
+			// TODO: check the symbol is not a global variable
+
+			extern_symbols.insert(s);
+		}
+	}
+
+	// Maybe it is not needed --> user-defined structs must be included in GPU kernel's file
+	// Plus, 'closure()' method is not working anyway...
+	//forward_declaration << decl_closure.closure() << "\n";
+
+	for (std::set<Symbol>::iterator it = extern_symbols.begin();
+			it != extern_symbols.end(); it++)
+	{
+		// Check the symbol is not a function definition before adding it to forward declaration (see #529)
+		AST_t a = it->get_point_of_declaration();
+		if (!FunctionDefinition::predicate(a))
+		{
+			forward_declaration << a.prettyprint_external() << "\n";
+		}
+	}
+
+	// If it is an outlined task, do some more work
+	if (is_outline_task)
+	{
 		// Check if the task symbol is actually a function definition or a declaration
 		if (FunctionDefinition::predicate(function_tree))
 		{
@@ -526,51 +530,6 @@ void DeviceCUDA::create_outline(
 			{
 				// We have already removed it and printed it in the CUDA file, do nothing
 			}
-		}
-	}
-	else
-	{
-		// Inline task
-		LangConstruct construct (reference_tree, sl);
-		extern_occurrences = construct.non_local_symbol_occurrences();
-
-		for (ObjectList<IdExpression>::iterator it = extern_occurrences.begin();
-				it != extern_occurrences.end();
-				it++)
-		{
-			Symbol s = it->get_symbol();
-			if (!s.is_function())
-				continue;
-
-			// If this symbol does not come from the input file, do not consider it
-			if (s.get_filename() != CompilationProcess::get_current_file().get_filename(/* fullpath */ true))
-				continue;
-
-			if (s.get_internal_symbol()->kind == SK_ENUMERATOR)
-			{
-				s = s.get_type().get_symbol();
-			}
-			while (s.is_member())
-			{
-				s = s.get_class_type().get_symbol();
-			}
-
-			// Check we have not already added the symbol
-			if (_fwdSymbols.count(s) == 0)
-			{
-				_fwdSymbols.insert(s);
-				//decl_closure.add(s);
-
-				// TODO: check the symbol is not a global variable
-				extern_symbols.insert(s);
-			}
-		}
-
-		for (std::set<Symbol>::iterator it = extern_symbols.begin();
-				it != extern_symbols.end(); it++)
-		{
-			AST_t a = it->get_point_of_declaration();
-			forward_declaration << a.prettyprint_external() << "\n";
 		}
 	}
 
