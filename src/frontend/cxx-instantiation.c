@@ -940,12 +940,18 @@ static void instantiate_dependent_friend_function(type_t* selected_template UNUS
     }
     else
     {
+        // A friend function template declaration inside a class template definition
+        type_t* template_type = friend->type_information;
+        ERROR_CONDITION(!is_template_type(template_type), "Must be a template type", 0);
+        
+        //We should update the type of the primary symbol
+        scope_entry_t* primary_symbol = named_type_get_symbol(template_type_get_primary_type(template_type));
+        type_t* primary_type = primary_symbol->type_information;
+        type_t* updated_primary_type =
+            update_type_for_instantiation(primary_type, context_of_being_instantiated, filename, line);
+        
         if (!is_qualified)
         {
-            // A friend function template declaration inside a class template definition
-            type_t* template_type = friend->type_information;
-            ERROR_CONDITION(!is_template_type(template_type), "Must be a template type", 0);
-
             // We create a new SK_TEMPLATE symbol
             scope_entry_t* new_template = new_symbol(context_of_being_instantiated,
                     context_of_being_instantiated.current_scope, friend->symbol_name);
@@ -954,12 +960,6 @@ static void instantiate_dependent_friend_function(type_t* selected_template UNUS
             new_template->line = line;
             new_template->file = filename;
             new_template->entity_specs.is_friend_declared = 0;
-
-            //We should update the type of the primary symbol
-            scope_entry_t* primary_symbol = named_type_get_symbol(template_type_get_primary_type(template_type));
-            type_t* primary_type = primary_symbol->type_information;
-            type_t* updated_primary_type =
-                update_type_for_instantiation(primary_type, context_of_being_instantiated, filename, line);
 
             // We create the new_type of the new template symbol
             template_parameter_list_t* temp_params = template_type_get_template_parameters(template_type);
@@ -976,12 +976,6 @@ static void instantiate_dependent_friend_function(type_t* selected_template UNUS
         }
         else
         {
-            type_t* template_type = friend->type_information;
-            scope_entry_t* primary_symbol = named_type_get_symbol(template_type_get_primary_type(template_type));
-            type_t* primary_type = primary_symbol->type_information;
-            type_t* updated_primary_type =
-                update_type_for_instantiation(primary_type, context_of_being_instantiated, filename, line);
-
             nodecl_t new_name = instantiate_expression(friend->value, context_of_being_instantiated);
 
             // We may need to update the explicit template argument list
