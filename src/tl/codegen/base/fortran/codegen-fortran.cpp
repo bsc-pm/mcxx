@@ -2385,6 +2385,27 @@ OPERATOR_TABLE
 
                 inc_indent();
 
+                TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
+                for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
+                        it != related_symbols.end();
+                        it++)
+                {
+                    if (it->get_type().basic_type().is_class())
+                    {
+                        TL::Symbol class_type  = it->get_type().basic_type().get_symbol();
+                        decl_context_t class_context = class_type.get_scope().get_decl_context();
+
+                        if ((TL::Symbol(class_context.current_scope->related_entry) != entry)
+                                // Global stuff cannot be IMPORTed
+                                && (class_context.current_scope != entry_context.global_scope))
+                        {
+                            // We will need an IMPORT as this type comes from an enclosing scope
+                            indent();
+                            file << "IMPORT :: " << class_type.get_name() << "\n";
+                        }
+                    }
+                }
+
                 indent();
                 file << "IMPLICIT NONE\n";
 
@@ -2399,14 +2420,11 @@ OPERATOR_TABLE
                     file << type_specifier << " :: " << entry.get_name() << "\n";
                 }
 
-                TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
                 for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
                         it != related_symbols.end();
                         it++)
                 {
-
                     declare_symbol(*it);
-
                 }
                 dec_indent();
                 state.current_symbol = old_sym;
