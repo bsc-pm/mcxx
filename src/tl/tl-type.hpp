@@ -570,6 +570,8 @@ namespace TL
              * \endcode
              */
             bool is_dependent_typename() const;
+            
+            bool is_dependent() const;
 
             //! Decomposes the dependent typename into its entry symbol and its syntactic part
             void dependent_typename_get_components(Symbol& entry_symbol, Nodecl::NodeclBase& parts);

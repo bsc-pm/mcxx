@@ -326,6 +326,11 @@ namespace TL
         return ::is_dependent_typename_type(_type_info);
     }
 
+    bool Type::is_dependent() const
+    {
+        return is_dependent_type(_type_info);
+    }
+    
     void Type::dependent_typename_get_components(Symbol& entry_symbol, Nodecl::NodeclBase& parts)
     {
         scope_entry_t* entry = NULL;
