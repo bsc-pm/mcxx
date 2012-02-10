@@ -899,7 +899,14 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
 
     if (function_type.is_pointer())
         function_type = function_type.points_to();
-
+    
+    if (function_type.is_dependent_typename() && state.in_dependent_template_function_code)
+    {
+        file << "(";
+        walk(called_entity);
+        file << ")";
+        return;
+    }
     ERROR_CONDITION(!function_type.is_function(), "Expecting a function type", 0);
 
     switch (kind)
@@ -1005,8 +1012,10 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
     Nodecl::NodeclBase statement = statement_seq[0];
 
     TL::Symbol symbol = node.get_symbol();
+
     TL::Type symbol_type = symbol.get_type();
 
+    
     ERROR_CONDITION(!symbol.is_function(), "Invalid symbol", 0);
 
     if (symbol.is_member())
@@ -1104,11 +1113,11 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
 
     std::string qualified_name = symbol.get_class_qualification(symbol.get_scope(), /* without_template */ true);
 
-    if (symbol_type.is_template_specialized_type()
-            && !symbol.is_conversion_function())
-    {
-        qualified_name += template_arguments_to_str(symbol);
-    }
+    //if (symbol_type.is_template_specialized_type()
+    //        && !symbol.is_conversion_function())
+    //{
+    //    qualified_name += template_arguments_to_str(symbol);
+    //}
 
     TL::Type real_type = symbol_type.advance_over_typedefs();
 
@@ -1126,13 +1135,11 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
 
     move_to_namespace_of_symbol(symbol);
 
-    if (symbol_type.is_template_specialized_type()
-            && symbol_type.template_specialized_type_get_template_arguments().get_num_parameters() != 0)
-    {
-        indent();
-        file << "template<>\n";
-    }
-
+    TL::TemplateParameters template_parameters = symbol.get_scope().get_template_parameters();
+    file<<"template<";
+    codegen_template_parameters(template_parameters);
+    file<<">\n";
+    
     bool requires_extern_linkage = false;
     CXX_LANGUAGE()
     {
@@ -2606,16 +2613,16 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
             file << class_key;
         }
 
-        // From here we assume it is already defined
-        set_codegen_status(symbol, CODEGEN_STATUS_DEFINED);
+       // // From here we assume it is already defined
+       // set_codegen_status(symbol, CODEGEN_STATUS_DEFINED);
 
-        if (level == 0
-                && is_primary_template)
-        {
-            // We do not define primary templates on the outermost level
-            file << ";\n";
-            return;
-        }
+       // if (level == 0
+       //         && is_primary_template)
+       // {
+       //     // We do not define primary templates on the outermost level
+       //     file << ";\n";
+       //     return;
+       // }
 
         TL::ObjectList<TL::Type::BaseInfo> bases = symbol.get_type().get_bases();
         if (!bases.empty())
@@ -2882,7 +2889,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
         // The user did not declare it, ignore it
         if (_friend.is_friend_declared())
             continue;
-
+        
         char is_primary_template = 0;
         TL::Symbol template_symbol(NULL);
 
