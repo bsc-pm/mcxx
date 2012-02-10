@@ -2390,14 +2390,29 @@ OPERATOR_TABLE
                         it != related_symbols.end();
                         it++)
                 {
-                    if (it->get_type().basic_type().is_class())
+                    TL::Type dummy_type = it->get_type();
+
+                    // This is not a regular Fortran parameter, give up
+                    if (!dummy_type.is_any_reference())
+                        continue;
+
+                    dummy_type = dummy_type.references_to();
+
+                    if (dummy_type.is_pointer()
+                            && !is_fortran_representable_pointer(dummy_type))
+                        // We are not going to emit a real TYPE for it, so skip it
+                        continue;
+
+                    if (dummy_type.basic_type().is_class())
                     {
-                        TL::Symbol class_type  = it->get_type().basic_type().get_symbol();
+                        TL::Symbol class_type  = dummy_type.basic_type().get_symbol();
                         decl_context_t class_context = class_type.get_scope().get_decl_context();
 
                         if ((TL::Symbol(class_context.current_scope->related_entry) != entry)
-                                // Global stuff cannot be IMPORTed
-                                && (class_context.current_scope != entry_context.global_scope))
+                                // Global names must not be IMPORTed
+                                && (class_context.current_scope != entry_context.global_scope
+                                    // Unless at this point they have already been defined
+                                    || get_codegen_status(class_type) == CODEGEN_STATUS_DEFINED))
                         {
                             // We will need an IMPORT as this type comes from an enclosing scope
                             indent();
