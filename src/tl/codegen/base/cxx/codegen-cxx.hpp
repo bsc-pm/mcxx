@@ -172,6 +172,8 @@ namespace Codegen
 
                 bool in_member_declaration;
 
+                bool in_dependent_template_function_code;
+
                 bool inside_structured_value;
 
                 TL::ObjectList<TL::Symbol> classes_being_defined;
@@ -204,6 +206,7 @@ namespace Codegen
                     in_condition(false),
                     condition_top(Nodecl::NodeclBase::null()),
                     in_member_declaration(false),
+                    in_dependent_template_function_code(false),
                     inside_structured_value(),
                     classes_being_defined(),
                     walked_types(),

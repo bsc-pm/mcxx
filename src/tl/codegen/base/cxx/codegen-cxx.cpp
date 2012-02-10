@@ -984,6 +984,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCall& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
 {
+    // We are going to generate dependent code
+    state.in_dependent_template_function_code = true;
+
     Nodecl::Context context = node.get_statements().as<Nodecl::Context>();
     Nodecl::List statement_seq = context.get_in_context().as<Nodecl::List>();
     Nodecl::NodeclBase initializers = node.get_initializers();
