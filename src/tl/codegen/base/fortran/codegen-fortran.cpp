@@ -278,6 +278,28 @@ namespace Codegen
 
         declare_everything_needed(statement_seq);
 
+        if (!internal_subprograms.is_null())
+        {
+            // Early pass to declare everything that might be needed by the
+            // dummy arguments of the internal subprograms
+            for (Nodecl::List::iterator it = internal_subprograms.begin();
+                    it != internal_subprograms.end();
+                    it++)
+            {
+                TL::Symbol internal_procedure = it->get_symbol();
+                TL::ObjectList<TL::Symbol> related_symbols = internal_procedure.get_related_symbols();
+                for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
+                        it != related_symbols.end();
+                        it++)
+                {
+                    if (it->get_type().basic_type().is_class())
+                    {
+                        declare_symbol(it->get_type().basic_type().get_symbol());
+                    }
+                }
+            }
+        }
+
         // Could we improve the name of this function?
         TL::Symbol data_symbol = ::get_data_symbol_info(entry.get_related_scope().get_decl_context());
         if (data_symbol.is_valid())
@@ -2185,7 +2207,19 @@ OPERATOR_TABLE
         }
         else if (entry.is_function())
         {
-            if(entry.is_entry())
+            // First pass to declare everything that might be needed by the dummy arguments
+            TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
+            for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
+                    it != related_symbols.end();
+                    it++)
+            {
+                if (it->get_type().basic_type().is_class())
+                {
+                    declare_symbol(it->get_type().basic_type().get_symbol());
+                }
+            }
+
+            if (entry.is_entry())
             {
                 TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
                 for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
@@ -2246,7 +2280,7 @@ OPERATOR_TABLE
                         state.in_interface = true;
                         declare_symbol(iface);
                         state.in_interface = old_in_interface;
-                        
+
                         // And restore it after the interface has been emitted
                         _codegen_status = old_codegen_status;
                         _name_set = old_name_set;
@@ -2364,7 +2398,7 @@ OPERATOR_TABLE
                     indent();
                     file << type_specifier << " :: " << entry.get_name() << "\n";
                 }
-                
+
                 TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
                 for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
                         it != related_symbols.end();
@@ -2372,13 +2406,13 @@ OPERATOR_TABLE
                 {
 
                     declare_symbol(*it);
-                    
+
                 }
                 dec_indent();
                 state.current_symbol = old_sym;
 
                 codegen_procedure_declaration_footer(entry);
-                
+
                 // And restore the state after the interface has been emitted
                 _codegen_status = old_codegen_status;
                 _name_set = old_name_set;
