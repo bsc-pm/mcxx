@@ -71,8 +71,6 @@ namespace TL { namespace Nanox {
             internal_error("Code unreachable", 0);
         }
 
-        TL::ReplaceSymbols replace_symbols;
-
         TL::ObjectList<OutlineDataItem> data_items = outline_info.get_data_items();
         for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
                 it != data_items.end();
@@ -198,7 +196,7 @@ namespace TL { namespace Nanox {
 
         // Now replace the body
         Source replaced_body_src;
-        replaced_body_src << replace_symbols.replace(body);
+        replaced_body_src << as_statement(body.copy());
 
         Nodecl::NodeclBase new_body = replaced_body_src.parse_statement(placeholder_body);
         placeholder_body.replace(new_body);
