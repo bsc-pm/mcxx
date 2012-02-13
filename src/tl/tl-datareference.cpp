@@ -15,23 +15,17 @@ namespace TL
             DataReference& _data_ref;
 
 
-            Nodecl::NodeclBase make_sizeof(TL::Type t, Nodecl::NodeclBase ctr)
+            Nodecl::NodeclBase make_sizeof(Nodecl::NodeclBase ctr)
             {
-                if (t.is_array())
-                {
-                    internal_error("Not yet implemented", 0);
-                }
-                else
-                {
-                    return Nodecl::Sizeof::make(
-                            Nodecl::Type::make(t, 
-                                ctr.get_filename(),
-                                ctr.get_line()),
-                            Nodecl::NodeclBase::null(),
-                            Type(::get_size_t_type()),
+                return Nodecl::Sizeof::make(
+                        Nodecl::Type::make(
+                            ctr.get_type(), 
                             ctr.get_filename(),
-                            ctr.get_line());
-                }
+                            ctr.get_line()),
+                        ctr.copy(),
+                        Type(::get_size_t_type()),
+                        ctr.get_filename(),
+                        ctr.get_line());
             }
 
             virtual void unhandled_node(const Nodecl::NodeclBase & tree) 
@@ -56,7 +50,7 @@ namespace TL
                         t.get_pointer_to(),
                         sym.get_filename(),
                         sym.get_line());
-                _data_ref._sizeof = make_sizeof(t, sym);
+                _data_ref._sizeof = make_sizeof(sym);
             }
 
 #if 0
@@ -141,7 +135,7 @@ namespace TL
                             t.get_pointer_to(),
                             array.get_filename(),
                             array.get_line());
-                _data_ref._sizeof = make_sizeof(t, array);
+                _data_ref._sizeof = make_sizeof(array);
             }
 
             virtual void visit(const Nodecl::ClassMemberAccess& member)
@@ -168,7 +162,7 @@ namespace TL
                             t.get_pointer_to(),
                             member.get_filename(),
                             member.get_line());
-                _data_ref._sizeof = make_sizeof(t, member);
+                _data_ref._sizeof = make_sizeof(member);
             }
     };
 
