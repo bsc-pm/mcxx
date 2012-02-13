@@ -4,6 +4,7 @@
 #include "fortran03-typeutils.h"
 #include "tl-compilerpipeline.hpp"
 #include "cxx-cexpr.h"
+#include "cxx-driver-utils.h"
 #include "string_utils.h"
 #include <ctype.h>
 
@@ -3504,6 +3505,8 @@ OPERATOR_TABLE
         new_file.close();
 
         TL::CompilationProcess::add_file(file_name, "auxcc");
+
+        ::mark_file_for_cleanup(file_name.c_str());
     }
 }
 

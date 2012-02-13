@@ -54,10 +54,6 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
            copy_decl,
            num_copies,
            copy_data,
-           set_translation_fun,
-           num_dependences,
-           dependency_struct,
-           dependency_array,
            immediate_decl,
            copy_imm_data,
            translation_fun_arg_name;
@@ -71,12 +67,6 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         fill_dependences_immediate_tree;
     Source fill_immediate_arguments,
            fill_dependences_immediate;
-
-    Nodecl::NodeclBase copy_outline_setup_tree;
-    Source copy_outline_setup;
-
-    Nodecl::NodeclBase copy_immediate_setup_tree;
-    Source copy_immediate_setup;
 
     // Name of the outline
     std::string outline_name;
@@ -136,9 +126,6 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
     copy_data << "(nanos_copy_data_t**)0";
     copy_imm_data << "(nanos_copy_data_t*)0";
     translation_fun_arg_name << ", (void (*)(void*, void*))0";
-    num_dependences << "0";
-    dependency_struct << "nanos_dependence_t";
-    dependency_array << "0";
 
     Source mandatory_creation,
            tiedness,
@@ -217,6 +204,7 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
             ;
     }
 
+    Source num_dependences;
 
     // Spawn code
     spawn_code
@@ -245,25 +233,20 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         <<     "if (wd != (nanos_wd_t)0)"
         <<     "{"
         <<        statement_placeholder(fill_outline_arguments_tree)
-        <<        statement_placeholder(fill_dependences_outline_tree)
-        <<        statement_placeholder(copy_outline_setup_tree)
-        <<        copy_outline_setup
-        <<        set_translation_fun
-        <<        err_name << " = nanos_submit(wd, " << num_dependences << ", (" << dependency_struct << "*)" 
-        <<         dependency_array << ", (nanos_team_t)0);"
+        <<        fill_dependences_outline
+        <<        err_name << " = nanos_submit(wd, " << num_dependences << ", dependences, (nanos_team_t)0);"
         <<        "if (" << err_name << " != NANOS_OK) nanos_handle_error (" << err_name << ");"
         <<     "}"
         <<     "else"
         <<     "{"
         <<          statement_placeholder(fill_immediate_arguments_tree)
-        <<          statement_placeholder(fill_dependences_immediate_tree)
-        <<          statement_placeholder(copy_immediate_setup_tree)
+        <<          fill_dependences_immediate
         <<          err_name << " = nanos_create_wd_and_run(" 
         <<                  num_devices << ", " << device_descriptor << ", "
         <<                  struct_size << ", " 
         <<                  alignment
         <<                  "&imm_args,"
-        <<                  num_dependences << ", (" << dependency_struct << "*)" << dependency_array << ", &props,"
+        <<                  num_dependences << ", dependences, &props,"
         <<                  num_copies << "," << copy_imm_data 
         <<                  translation_fun_arg_name << ");"
         <<          "if (" << err_name << " != NANOS_OK) nanos_handle_error (" << err_name << ");"
@@ -271,6 +254,20 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         << "}"
         ;
 
+    // Fill arguments
+    fill_arguments(construct, outline_info, fill_outline_arguments, fill_immediate_arguments);
+    
+    // Fill dependences for outline
+    num_dependences << count_dependences(outline_info);
+
+    fill_dependences(construct, 
+            outline_info, 
+            /* accessor */ Source("ol_args->"),
+            fill_dependences_outline);
+    fill_dependences(construct, 
+            outline_info, 
+            /* accessor */ Source("imm_args."),
+            fill_dependences_immediate);
 
     FORTRAN_LANGUAGE()
     {
@@ -284,8 +281,6 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         Source::source_language = SourceLanguage::Current;
     }
 
-    fill_arguments(construct, outline_info, fill_outline_arguments, fill_immediate_arguments);
-
     if (!fill_outline_arguments.empty())
     {
         Nodecl::NodeclBase new_tree = fill_outline_arguments.parse_statement(fill_outline_arguments_tree);
@@ -298,45 +293,35 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         fill_immediate_arguments_tree.integrate(new_tree);
     }
 
-    // Fill dependences for outline
-    fill_dependences(construct, 
-            outline_info, 
-            /* accessor */ Source("ol_args->"),
-            fill_dependences_outline);
-    fill_dependences(construct, 
-            outline_info, 
-            /* accessor */ Source("imm_args."),
-            fill_dependences_immediate);
+    // if (!fill_dependences_outline.empty())
+    // {
+    //     FORTRAN_LANGUAGE()
+    //     {
+    //         // Parse in C
+    //         Source::source_language = SourceLanguage::C;
+    //     }
+    //     Nodecl::NodeclBase new_tree = fill_dependences_outline.parse_statement(fill_dependences_outline_tree);
+    //     fill_dependences_outline_tree.integrate(new_tree);
+    //     FORTRAN_LANGUAGE()
+    //     {
+    //         Source::source_language = SourceLanguage::Current;
+    //     }
+    // }
 
-    if (!fill_dependences_outline.empty())
-    {
-        FORTRAN_LANGUAGE()
-        {
-            // Parse in C
-            Source::source_language = SourceLanguage::C;
-        }
-        Nodecl::NodeclBase new_tree = fill_dependences_outline.parse_statement(fill_dependences_outline_tree);
-        fill_dependences_outline_tree.integrate(new_tree);
-        FORTRAN_LANGUAGE()
-        {
-            Source::source_language = SourceLanguage::Current;
-        }
-    }
-
-    if (!fill_dependences_immediate.empty())
-    {
-        FORTRAN_LANGUAGE()
-        {
-            // Parse in C
-            Source::source_language = SourceLanguage::C;
-        }
-        Nodecl::NodeclBase new_tree = fill_dependences_immediate.parse_statement(fill_dependences_immediate_tree);
-        fill_dependences_immediate_tree.integrate(new_tree);
-        FORTRAN_LANGUAGE()
-        {
-            Source::source_language = SourceLanguage::Current;
-        }
-    }
+    // if (!fill_dependences_immediate.empty())
+    // {
+    //     FORTRAN_LANGUAGE()
+    //     {
+    //         // Parse in C
+    //         Source::source_language = SourceLanguage::C;
+    //     }
+    //     Nodecl::NodeclBase new_tree = fill_dependences_immediate.parse_statement(fill_dependences_immediate_tree);
+    //     fill_dependences_immediate_tree.integrate(new_tree);
+    //     FORTRAN_LANGUAGE()
+    //     {
+    //         Source::source_language = SourceLanguage::Current;
+    //     }
+    // }
 
     construct.integrate(spawn_code_tree);
 }
@@ -494,6 +479,24 @@ void LoweringVisitor::fill_arguments(
     }
 }
 
+int LoweringVisitor::count_dependences(OutlineInfo& outline_info)
+{
+    int num_deps = 0;
+
+    TL::ObjectList<OutlineDataItem> data_items = outline_info.get_data_items();
+    for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
+            it != data_items.end();
+            it++)
+    {
+        if (it->get_directionality() == OutlineDataItem::DIRECTIONALITY_NONE)
+            continue;
+
+        num_deps += it->get_dependences().size();
+    }
+
+    return num_deps;
+}
+
 static void fill_dimensions(int n_dims, 
         int actual_dim, 
         int current_dep_num,
@@ -513,21 +516,25 @@ void LoweringVisitor::fill_dependences(
 {
     Source dependency_init;
 
-    int num_deps = 0;
+    int num_deps = count_dependences(outline_info);
 
     TL::ObjectList<OutlineDataItem> data_items = outline_info.get_data_items();
-    for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
-            it != data_items.end();
-            it++)
-    {
-        if (it->get_directionality() == OutlineDataItem::DIRECTIONALITY_NONE)
-            continue;
-
-        num_deps += it->get_dependences().size();
-    }
 
     if (num_deps == 0)
+    {
+        if (Nanos::Version::interface_is_at_least("master", 6001))
+        {
+            result_src << "nanos_data_access_t *dependences = (nanos_data_access_t*)0;"
+                ;
+        }
+        else
+        {
+            result_src << "nanos_dependence_t *dependences = (nanos_dependence_t*)0;"
+                ;
+        }
+
         return;
+    }
 
     if (Nanos::Version::interface_is_at_least("master", 6001))
     {
@@ -535,7 +542,7 @@ void LoweringVisitor::fill_dependences(
 
         result_src
             << dependency_regions
-            << "nanos_data_access_t data_accesses[" << num_deps << "]"
+            << "nanos_data_access_t dependences[" << num_deps << "]"
             ; 
         
         if (IS_C_LANGUAGE
@@ -726,13 +733,13 @@ void LoweringVisitor::fill_dependences(
                 else if (IS_FORTRAN_LANGUAGE)
                 {
                     result_src
-                        << "data_accesses[" << current_dep_num << "].address = (void*)" << arguments_accessor << it->get_field_name() << ";"
-                        << "data_accesses[" << current_dep_num << "].flags.input = " << dependency_flags_in << ";"
-                        << "data_accesses[" << current_dep_num << "].flags.output" << dependency_flags_out << ";"
-                        << "data_accesses[" << current_dep_num << "].flags.can_rename = 0;"
-                        << "data_accesses[" << current_dep_num << "].flags.commutative = " << dependency_flags_concurrent << ";"
-                        << "data_accesses[" << current_dep_num << "].dimension_count = " << num_dimensions << ";"
-                        << "data_accesses[" << current_dep_num << "].dimensions = dimensions_" << current_dep_num << ";"
+                        << "dependences[" << current_dep_num << "].address = (void*)" << arguments_accessor << it->get_field_name() << ";"
+                        << "dependences[" << current_dep_num << "].flags.input = " << dependency_flags_in << ";"
+                        << "dependences[" << current_dep_num << "].flags.output" << dependency_flags_out << ";"
+                        << "dependences[" << current_dep_num << "].flags.can_rename = 0;"
+                        << "dependences[" << current_dep_num << "].flags.commutative = " << dependency_flags_concurrent << ";"
+                        << "dependences[" << current_dep_num << "].dimension_count = " << num_dimensions << ";"
+                        << "dependences[" << current_dep_num << "].dimensions = dimensions_" << current_dep_num << ";"
                         ;
                 }
             }
@@ -803,7 +810,7 @@ void LoweringVisitor::fill_dependences(
                         << "dependences[" << current_dep_num << "].flags.can_rename = 0;"
                         ;
                     
-                    if (Nanos::Version::interface_is_at_least("master", 5001))
+                    // if (Nanos::Version::interface_is_at_least("master", 5001))
                     {
                         result_src
                             << "dependences[" << current_dep_num << "].flags.commutative = " << dependency_flags_concurrent << ";"

@@ -78,10 +78,13 @@ void Lowering::pre_run(DTO& dto)
 
     Nodecl::NodeclBase new_tree = src.parse_global(top_level);
 
+    // This is actually a top level tree!
+    new_tree = Nodecl::TopLevel::make(new_tree);
+
     // Run Nanos::Interface on this header to get
     // the pragma information
     Nanos::Interface interface;
-    interface.walk(top_level);
+    interface.walk(new_tree);
 
     Source::source_language = SourceLanguage::Current;
 }

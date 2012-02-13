@@ -56,6 +56,8 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Source& fill_immediate_arguments
                 );
 
+        int count_dependences(OutlineInfo& outline_info);
+
         void fill_dependences(
                 Nodecl::NodeclBase ctr,
                 OutlineInfo& outline_info,
