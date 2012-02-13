@@ -46,6 +46,7 @@ namespace Codegen
             Ret visit(const Nodecl::ContinueStatement &);
             Ret visit(const Nodecl::SavedExpr &);
             Ret visit(const Nodecl::Conversion &);
+            Ret visit(const Nodecl::CxxArrow &);
             Ret visit(const Nodecl::CxxBracedInitializer &);
             Ret visit(const Nodecl::CxxDepGlobalNameNested &);
             Ret visit(const Nodecl::CxxDepNameConversion &);

@@ -593,6 +593,13 @@ CxxBase::Ret CxxBase::visit(const Nodecl::SavedExpr& node)
     walk(node.get_expression());
 }
 
+CxxBase::Ret CxxBase::visit(const Nodecl::CxxArrow& node)
+{
+    walk(node.get_lhs());
+    file << "->";
+    walk(node.get_member());
+}
+
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxBracedInitializer& node)
 {
     file << "{";
