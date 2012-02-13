@@ -62,6 +62,8 @@ LIBUTILS_EXTERN void  merge_sort_list_str(const char** list, int size,unsigned c
 // Like asprintf but returning a uniquestr
 LIBUTILS_EXTERN int uniquestr_sprintf(const char** out_str, const char* format, ...);
 
+LIBUTILS_EXTERN unsigned int simple_hash_str(const char *str);
+
 // Routine to ease adding pointers to a pointer list
 //   list is a T**
 //   size is an int

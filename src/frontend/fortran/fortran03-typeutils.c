@@ -9,6 +9,11 @@ const char* fortran_print_type_str(type_t* t)
 {
     t = no_ref(t);
 
+    if (is_error_type(t))
+    {
+        return "<error-type>";
+    }
+
     const char* result = "";
     char is_pointer = 0;
     if (is_pointer_type(t))

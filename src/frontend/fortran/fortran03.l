@@ -638,7 +638,20 @@ schar       ([^\\"\n\r]|{c_escape_seq}|(\\["]))
     {
         case PDK_DIRECTIVE : 
             {
-                token = PRAGMA_CUSTOM_DIRECTIVE;
+                if (!is_end_directive)
+                {
+                    token = PRAGMA_CUSTOM_DIRECTIVE;
+                }
+                else
+                {
+                    running_error("%s:%d: error: '!$%s %s' directive cannot be '!$%s END %s'\n", 
+                            fortran_scanning_now->current_filename,
+                            fortran_scanning_now->line_number,
+                            strtoupper(current_pragma_prefix),
+                            strtoupper(longest_match),
+                            strtoupper(current_pragma_prefix),
+                            strtoupper(longest_match));
+                }
                 break;
             }
         case PDK_CONSTRUCT_NOEND :

@@ -742,6 +742,17 @@ static scope_entry_t* register_function(AST program_unit,
     return new_entry;
 }
 
+static char inside_interface(AST a)
+{
+    if (a == NULL)
+        return 0;
+
+    if (ASTType(a) == AST_INTERFACE_BLOCK)
+        return 1;
+    else
+        return inside_interface(ASTParent(a));
+}
+
 
 static void build_scope_function_program_unit(AST program_unit, 
         decl_context_t decl_context, 
@@ -760,6 +771,12 @@ static void build_scope_function_program_unit(AST program_unit,
 
     if (new_entry == NULL)
         return;
+
+    if (inside_interface(program_unit))
+    {
+        // By default there is no host association with the enclosing program unit
+        program_unit_context.current_scope->contained_in = NULL;
+    }
 
     *program_unit_symbol = new_entry;
 
@@ -851,6 +868,15 @@ static void build_scope_subroutine_program_unit(AST program_unit,
     }
 
     scope_entry_t *new_entry = register_subroutine(program_unit, decl_context, program_unit_context);
+
+    if (new_entry == NULL)
+        return;
+
+    if (inside_interface(program_unit))
+    {
+        // By default there is no host association with the enclosing program unit
+        program_unit_context.current_scope->contained_in = NULL;
+    }
 
     *program_unit_symbol = new_entry;
 
@@ -2891,6 +2917,10 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
                         nodecl_get_locus(lower_bound),
                         codegen_to_str(lower_bound));
             }
+            else if (nodecl_is_err_expr(lower_bound))
+            {
+                kind = ARRAY_SPEC_KIND_ERROR;
+            }
         }
 
         if (upper_bound_tree != NULL
@@ -2905,6 +2935,10 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
                 error_printf("%s: error: expression '%s' must be of integer type\n",
                         nodecl_get_locus(upper_bound),
                         codegen_to_str(upper_bound));
+            }
+            else if (nodecl_is_err_expr(upper_bound))
+            {
+                kind = ARRAY_SPEC_KIND_ERROR;
             }
         }
 
@@ -5210,10 +5244,45 @@ static void build_scope_implicit_stmt(AST a, decl_context_t decl_context, nodecl
     update_untyped_symbols(decl_context);
 }
 
-static void build_scope_import_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER, 
+static void build_scope_import_stmt(AST a, 
+        decl_context_t decl_context, 
         nodecl_t* nodecl_output UNUSED_PARAMETER)
 {
-    unsupported_statement(a, "IMPORT");
+    if (!inside_interface(a))
+    {
+        error_printf("%s: error: IMPORT statement is only valid inside an INTERFACE block\n",
+                ast_location(a));
+        return;
+    }
+
+    AST import_name_list = ASTSon0(a);
+    if (import_name_list == NULL)
+    {
+        // Restore the scope chain we broke in an INTERFACE block
+        scope_entry_t* current_procedure = decl_context.current_scope->related_entry;
+        decl_context.current_scope->contained_in = current_procedure->decl_context.current_scope;
+    }
+    else
+    {
+        decl_context_t enclosing_context = decl_context.current_scope->related_entry->decl_context;
+
+        AST it;
+        for_each_element(import_name_list, it)
+        {
+            AST name = ASTSon1(it);
+
+            scope_entry_t* entry = fortran_query_name_str(enclosing_context, ASTText(name));
+            if (entry == NULL)
+            {
+                error_printf("%s: error: name '%s' in IMPORT statement not found in host associated scope\n",
+                        ast_location(name),
+                        ASTText(name));
+                continue;
+            }
+
+            insert_entry(decl_context.current_scope, entry);
+        }
+    }
 }
 
 static void build_scope_intent_stmt(AST a, decl_context_t decl_context, 

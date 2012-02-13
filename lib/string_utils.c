@@ -302,3 +302,18 @@ int uniquestr_sprintf(const char** out_str, const char* format, ...)
 
     return result;
 }
+
+unsigned int simple_hash_str(const char *str)
+{
+    const int MULTIPLIER = 33;
+    unsigned int h;
+    unsigned const char *p;
+
+    h = 0;
+    for (p = (unsigned const char*)str; *p != '\0'; p++)
+        h = MULTIPLIER * h + *p;
+
+    h += (h >> 5);
+
+    return h; // or, h % ARRAY_SIZE;
+}

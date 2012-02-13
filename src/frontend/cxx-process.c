@@ -31,6 +31,7 @@
 #include "uniquestr.h"
 #include "filename.h"
 
+#include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
 
@@ -61,6 +62,14 @@ translation_unit_t* add_new_file_to_compilation_process(
             && output_file != NULL)
     {
         translation_unit->output_filename = uniquestr(output_file);
+    }
+
+    // Give a fallback value
+    if (configuration->do_not_link
+            && configuration->do_not_compile
+            && translation_unit->output_filename == NULL)
+    {
+        translation_unit->output_filename = "-";
     }
 
     if (current_file_process == NULL)

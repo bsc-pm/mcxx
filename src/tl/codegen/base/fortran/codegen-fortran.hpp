@@ -145,6 +145,14 @@ namespace Codegen
             typedef std::map<TL::Symbol, std::string> rename_map_t;
             rename_map_t _rename_map;
 
+            typedef std::map<TL::Type, std::string> ptr_loc_map_t;
+            ptr_loc_map_t _ptr_loc_map;
+
+            typedef std::set<std::string> external_symbol_set_t;
+            external_symbol_set_t _external_symbols;
+
+            std::string define_ptr_loc(TL::Type t, const std::string& function_name);
+
             void set_codegen_status(TL::Symbol sym, codegen_status_t status);
             codegen_status_t get_codegen_status(TL::Symbol sym);
 
@@ -206,6 +214,7 @@ namespace Codegen
             void declare_symbols_from_modules_rec(Nodecl::NodeclBase node, const TL::Scope &sc);
 
             void declare_symbols_rec(Nodecl::NodeclBase node);
+            void address_of_pointer(Nodecl::NodeclBase node);
 
             virtual Ret unhandled_node(const Nodecl::NodeclBase & n);
 
@@ -218,6 +227,8 @@ namespace Codegen
             bool name_has_already_been_used(TL::Symbol sym);
             std::string rename(TL::Symbol sym);
             void clear_renames();
+
+            void emit_ptr_loc_C();
     };
 }
 
