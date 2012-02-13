@@ -40,8 +40,6 @@ namespace TL
     namespace Nanos
     {
         // Definition of static members
-        const int Version::DEFAULT_VERSION = 399;
-        const char* Version::DEFAULT_FAMILY = "trunk";
         std::map<std::string, int> Version::_interfaces;
 
         bool Interface::_already_registered = false;
@@ -142,7 +140,7 @@ namespace TL
         {
             // Run looking up for every "#pragma nanos"
             Nodecl::NodeclBase top_level = dto["nodecl"];
-            this->walk(top_level);
+            this->Interface::walk(top_level);
         }
 
         void Interface::walk(Nodecl::NodeclBase top_level)
@@ -170,12 +168,6 @@ namespace TL
                     ;
             }
 
-            // Code to maintain the Nanos4 version
-            versioning_symbols
-                << "const char* __nanos_family __attribute__((weak)) = \"" << Version::_interfaces.begin()->first << "\";"
-                << "int __nanos_version __attribute__((weak)) = " << Version::_interfaces.begin()->second << ";"
-            ;
-            
             // Code for Nanox version
             for(std::map<std::string, int>::iterator it = Version::_interfaces.begin();
                     it != Version::_interfaces.end();
@@ -240,13 +232,10 @@ namespace TL
         void Interface::reset_version_info()
         {
             Version::_interfaces.clear();
-            Version::_interfaces[Version::DEFAULT_FAMILY] = Version::DEFAULT_VERSION;
         }
 
         void Interface::interface_preorder(TL::PragmaCustomDirective ctr)
         {
-            std::cerr << "Seen nanos++ interface" << std::endl;
-
             PragmaCustomLine pragma_line = ctr.get_pragma_line();
             PragmaCustomClause version_clause = pragma_line.get_clause("version");
             PragmaCustomClause family_clause = pragma_line.get_clause("family");
@@ -258,9 +247,8 @@ namespace TL
                 && !version_clause.get_tokenized_arguments(ExpressionTokenizer()).empty())
             {
                 std::string new_family = family_clause.get_tokenized_arguments(ExpressionTokenizer())[0];
-                if (Version::_interfaces.find(new_family) != Version::_interfaces.end()
-                    && (new_family != Version::DEFAULT_FAMILY
-                    || Version::_interfaces[new_family] != Version::DEFAULT_VERSION))
+
+                if (Version::_interfaces.find(new_family) != Version::_interfaces.end())
                 {
                     std::stringstream ss;
                     ss << Version::_interfaces[family_clause.get_tokenized_arguments(ExpressionTokenizer())[0]];
