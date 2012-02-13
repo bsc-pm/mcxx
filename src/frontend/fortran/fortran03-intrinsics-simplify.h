@@ -798,4 +798,9 @@ static nodecl_t simplify_char(int num_arguments UNUSED_PARAMETER, nodecl_t* argu
     return nodecl_null();
 }
 
+static nodecl_t simplify_achar(int num_arguments, nodecl_t* arguments)
+{
+    return simplify_char(num_arguments, arguments);
+}
+
 #endif
