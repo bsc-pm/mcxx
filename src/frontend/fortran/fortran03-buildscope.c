@@ -1819,7 +1819,6 @@ static void build_scope_program_unit_body_internal_subprograms_declarations(
             AST program_unit_stmts = ASTSon0(program_part);
             AST n_internal_subprograms = ASTSon1(program_body);
 
-            new_entry->entity_specs.is_nested_function = 1;
 
             internal_subprograms_info[i].symbol = new_entry;
             internal_subprograms_info[i].decl_context = subprogram_unit_context;
@@ -1836,6 +1835,10 @@ static void build_scope_program_unit_body_internal_subprograms_declarations(
             {
                 new_entry->entity_specs.is_module_procedure = 1;
                 remove_not_fully_defined_symbol(decl_context, new_entry);
+            }
+            else
+            {
+                new_entry->entity_specs.is_nested_function = 1;
             }
 
             build_scope_program_unit_body_declarations(
@@ -4827,6 +4830,7 @@ static void build_scope_entry_stmt(AST a, decl_context_t decl_context, nodecl_t*
         // We are analyzing this ENTRY statement as if it were a declaration, no nodecls are created
         char is_function = !is_void_type(function_type_get_return_type(related_sym->type_information)); 
         scope_entry_t* entry = new_entry_symbol(decl_context, name, suffix, dummy_arg_list, is_function);
+        entry->kind = SK_FUNCTION;
 
         if (related_sym->entity_specs.is_module_procedure)
         {
