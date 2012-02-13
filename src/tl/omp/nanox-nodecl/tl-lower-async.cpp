@@ -524,12 +524,12 @@ void LoweringVisitor::fill_dependences(
     {
         if (Nanos::Version::interface_is_at_least("master", 6001))
         {
-            result_src << "nanos_data_access_t *dependences = (nanos_data_access_t*)0;"
+            result_src << "nanos_data_access_t dependences[1];"
                 ;
         }
         else
         {
-            result_src << "nanos_dependence_t *dependences = (nanos_dependence_t*)0;"
+            result_src << "nanos_dependence_t dependences[1];"
                 ;
         }
 
