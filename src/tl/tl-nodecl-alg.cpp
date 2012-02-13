@@ -37,10 +37,6 @@ namespace Nodecl
 
     static bool is_parameter_of_another_function(TL::Symbol symbol, TL::Scope sc)
     {
-        std::cerr << "Symbol -> " << symbol.get_name() << std::endl;
-        std::cerr << "Is parameter -> " << symbol.is_parameter() << std::endl;
-        std::cerr << "\n";
-
         return (symbol.is_parameter()
                 && (symbol.get_scope().get_decl_context().current_scope->related_entry 
                     != sc.get_decl_context().current_scope->related_entry));
