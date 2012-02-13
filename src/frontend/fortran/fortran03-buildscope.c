@@ -2127,6 +2127,7 @@ typedef struct build_scope_statement_handler_tag
  STATEMENT_HANDLER(AST_STATEMENT_PLACEHOLDER,         build_scope_statement_placeholder, kind_executable_0  ) \
  STATEMENT_HANDLER(AST_ENTRY_STATEMENT,               build_scope_entry_stmt,            kind_any_0 ) \
  STATEMENT_HANDLER(AST_TYPEDEF_DECLARATION_STATEMENT, build_scope_typedef_stmt,          kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_NODECL_LITERAL,                build_scope_nodecl_literal,        kind_executable_0 ) \
 
 // Prototypes
 #define STATEMENT_HANDLER(_kind, _handler, _) \
@@ -6697,6 +6698,11 @@ static void build_scope_typedef_stmt(AST a, decl_context_t decl_context, nodecl_
             decl_context, 
             /* is_typedef */ 1,
             nodecl_output);
+}
+
+static void build_scope_nodecl_literal(AST a, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
+{
+    *nodecl_output = nodecl_make_from_ast_nodecl_literal(a);
 }
 
 static void build_scope_unlock_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output UNUSED_PARAMETER)
