@@ -1989,7 +1989,9 @@ OPERATOR_TABLE
         // Internal subprograms do not have to be emitted here
         if (entry.is_function() 
                 && (entry.is_nested_function()
-                    || entry.is_module_procedure()))
+                    || entry.is_module_procedure())
+                // Alternate ENTRY's must be emitted
+                && !entry.is_entry())
         {
             return;
         }
@@ -2223,7 +2225,6 @@ OPERATOR_TABLE
 
             if (entry.is_entry())
             {
-                TL::Symbol current_entry = state.current_symbol;
                 TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
                 for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
                         it != related_symbols.end();

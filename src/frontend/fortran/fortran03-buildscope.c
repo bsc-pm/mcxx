@@ -1653,6 +1653,8 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
             && related_entry->entity_specs.in_module != NULL)
     {
         scope_entry_t * sym_module = related_entry->entity_specs.in_module;
+
+        entry->entity_specs.is_module_procedure = 1;
         
         entry->entity_specs.in_module = sym_module;
         P_LIST_ADD_ONCE(sym_module->entity_specs.related_symbols,
