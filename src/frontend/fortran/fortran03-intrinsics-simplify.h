@@ -62,8 +62,8 @@ static nodecl_t simplify_huge(int num_arguments UNUSED_PARAMETER, nodecl_t* argu
         }
         else 
         {
-            const floating_type_info_t* floating_info = floating_type_get_info(t);
 #ifdef HAVE_QUADMATH_H
+            const floating_type_info_t* floating_info = floating_type_get_info(t);
             if (floating_info->bits == 128)
             {
                 return nodecl_make_floating_literal(t, const_value_get_float128(FLT128_MAX), NULL, 0);
@@ -102,8 +102,8 @@ static nodecl_t simplify_tiny(int num_arguments UNUSED_PARAMETER, nodecl_t* argu
         }
         else 
         {
-            const floating_type_info_t* floating_info = floating_type_get_info(t);
 #ifdef HAVE_QUADMATH_H
+            const floating_type_info_t* floating_info = floating_type_get_info(t);
             if (floating_info->bits == 128)
             {
                 return nodecl_make_floating_literal(t, const_value_get_float128(FLT128_MIN), NULL, 0);
@@ -208,7 +208,7 @@ static nodecl_t simplify_selected_real_kind(int num_arguments UNUSED_PARAMETER, 
         }
     }
 
-    return nodecl_null();
+    return nodecl_make_int_literal(-1);
 }
 
 static nodecl_t simplify_selected_int_kind(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
@@ -249,8 +249,11 @@ static nodecl_t simplify_selected_char_kind(int num_arguments UNUSED_PARAMETER, 
     {
         const char* t = nodecl_get_text(name);
 
-        if (strcmp(t, "\"ASCII\"") == 0
-                || strcmp(t, "'ASCII'") == 0)
+        if ((strcmp(t, "\"ASCII\"") == 0)
+                || (strcmp(t, "'ASCII'") == 0)
+                // gfortran
+                || (strcmp(t, "\"DEFAULT\"") == 0)
+                || (strcmp(t, "'DEFAULT'") == 0))
         {
             return nodecl_make_int_literal(1);
         }
