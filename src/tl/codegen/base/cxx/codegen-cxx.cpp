@@ -1011,6 +1011,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
     Nodecl::NodeclBase initializers = node.get_initializers();
     Nodecl::NodeclBase internal_functions = node.get_internal_functions();
 
+    TL::Scope scope = context.retrieve_context();
+    
     if (!internal_functions.is_null())
     {
         internal_error("C/C++ does not have internal functions", 0);
@@ -1123,7 +1125,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
 
     std::string asm_specification = gcc_asm_specifier_to_str(symbol);
 
-    std::string qualified_name = symbol.get_class_qualification(symbol.get_scope(), /* without_template */ true);
+    std::string qualified_name = symbol.get_class_qualification(scope, /* without_template */ true);
 
     //if (symbol_type.is_template_specialized_type()
     //        && !symbol.is_conversion_function())
@@ -1141,13 +1143,13 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
     }
 
     std::string declarator;
-    declarator = this->get_declaration_with_parameters(real_type, symbol.get_scope(), qualified_name, parameter_names, parameter_attributes);
+    declarator = this->get_declaration_with_parameters(real_type, scope, qualified_name, parameter_names, parameter_attributes);
 
     std::string exception_spec = exception_specifier_to_str(symbol);
 
     move_to_namespace_of_symbol(symbol);
 
-    TL::TemplateParameters template_parameters = symbol.get_scope().get_template_parameters();
+    TL::TemplateParameters template_parameters = scope.get_template_parameters();
     file<<"template<";
     codegen_template_parameters(template_parameters);
     file<<">\n";
