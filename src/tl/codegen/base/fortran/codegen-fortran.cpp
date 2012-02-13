@@ -1978,7 +1978,7 @@ OPERATOR_TABLE
                 //    a) it is in the global scope
                 && (entry_context.current_scope != entry_context.global_scope)
                 //    b) it is an intrinsic
-                && !entry.is_intrinsic())
+                && !entry.is_function())
         {
             // Note that we do not set it as defined because we have not
             // actually declared at all
@@ -1988,7 +1988,8 @@ OPERATOR_TABLE
         // There are some things in our context that do not have to be declared either
         // Internal subprograms do not have to be emitted here
         if (entry.is_function() 
-                && entry.is_nested_function())
+                && (entry.is_nested_function()
+                    || entry.is_module_procedure()))
         {
             return;
         }
@@ -2222,6 +2223,7 @@ OPERATOR_TABLE
 
             if (entry.is_entry())
             {
+                TL::Symbol current_entry = state.current_symbol;
                 TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
                 for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
                         it != related_symbols.end();
