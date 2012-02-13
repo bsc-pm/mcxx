@@ -907,13 +907,18 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
     if (function_type.is_pointer())
         function_type = function_type.points_to();
     
-    if (function_type.is_dependent_typename() && state.in_dependent_template_function_code)
+    
+    // There are a lot of cases!
+    if (!function_type.is_function())
     {
-        file << "(";
         walk(called_entity);
+        file << "(";
+        walk_expression_list(arguments);
         file << ")";
         return;
     }
+    
+    // Currently, this never happens
     ERROR_CONDITION(!function_type.is_function(), "Expecting a function type", 0);
 
     switch (kind)
@@ -1352,6 +1357,21 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
         file << "template<>\n";
     }
 
+    // This function may be defined in a dependent context, like:
+    //   template<typename T> class A
+    //   {
+    //       void g() {}
+    //   };
+    //
+    TL::TemplateParameters template_parameters = symbol.get_scope().get_template_parameters();
+    if (template_parameters.is_valid() && template_parameters.get_num_parameters() > 0)
+    {
+        indent();
+        file << "template <";
+        codegen_template_parameters(template_parameters);
+        file << ">\n";
+    }
+    
     bool requires_extern_linkage = false;
     CXX_LANGUAGE()
     {
@@ -2593,6 +2613,18 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                 file << ">\n";
             }
         }
+        else
+        {
+            // A special case: a class declaration or definition is inside an other template class
+            TL::TemplateParameters template_parameters = symbol.get_scope().get_template_parameters();
+            if (template_parameters.is_valid() && template_parameters.get_num_parameters() > 0)
+            {
+                indent();
+                file << "template <";
+                codegen_template_parameters(template_parameters);
+                file << ">\n";
+            }
+        }
 
         indent();
         std::string qualified_name;
@@ -2893,10 +2925,12 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
     {
         TL::Symbol &_friend(*it);
 
-        // The user did not declare it, ignore it
-        if (_friend.is_friend_declared())
+         //The user did not declare it, ignore it
+        if (_friend.is_friend_declared() &&
+                  !(_friend.get_internal_symbol()->kind == SK_DEPENDENT_FRIEND_CLASS ||
+                  _friend.get_internal_symbol()->kind == SK_DEPENDENT_FRIEND_FUNCTION))
             continue;
-        
+
         char is_primary_template = 0;
         TL::Symbol template_symbol(NULL);
 
@@ -2934,6 +2968,28 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                 << print_type_str(_friend.get_type().get_internal_type(),_friend.get_scope().get_decl_context())
                 << ";\n";
 
+            dec_indent();
+            continue;
+        }
+        else if (_friend.get_internal_symbol()->kind == SK_DEPENDENT_FRIEND_FUNCTION)
+        {
+            TL::Type dep_funct_type = _friend.get_type();
+            if (dep_funct_type.is_template_specialized_type())
+            {
+                indent();
+                file << "template <";
+                TL::TemplateParameters template_parameters = _friend.get_scope().get_template_parameters();
+                codegen_template_parameters(template_parameters);
+                file << ">\n";
+            }
+
+            indent();
+
+            std::string function_name = (is_primary_template) ?
+                unmangle_symbol_name(_friend) : _friend.get_qualified_name();
+
+            std::string declarator = this->get_declaration(dep_funct_type, _friend.get_scope(), function_name);
+            file << "friend " << declarator << ";\n";
             dec_indent();
             continue;
         }
