@@ -106,7 +106,9 @@ namespace TL
                     t = t.references_to();
 
                 Nodecl::List subscripts = array.get_subscripts().as<Nodecl::List>();
-                Nodecl::List low_subscripts;
+                Nodecl::List low_subscripts_list;
+
+                TL::ObjectList<Nodecl::NodeclBase> low_subscripts;
 
                 for (Nodecl::List::iterator it = subscripts.begin();
                         it != subscripts.end();
@@ -127,7 +129,7 @@ namespace TL
                     Nodecl::Reference::make(
                             Nodecl::ArraySubscript::make(
                                 _data_ref._base_address.as<Nodecl::Reference>().get_rhs(),
-                                low_subscripts,
+                                Nodecl::List::make(low_subscripts),
                                 t,
                                 array.get_filename(),
                                 array.get_line()
