@@ -1175,7 +1175,12 @@ namespace TL
     {
         return _tpl_param_value->is_default;
     }
-    
+
+    bool TemplateParameters::is_valid() const
+    {
+        return _tpl_params != NULL;
+    }
+
     int TemplateParameters::get_num_parameters() const
     {
         return _tpl_params->num_parameters;

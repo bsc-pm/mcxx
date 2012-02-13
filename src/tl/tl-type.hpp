@@ -75,9 +75,11 @@ namespace TL
         public:
             TemplateParameters(template_parameter_list_t* tpl_params) : _tpl_params(tpl_params) { }
 
+            bool is_valid() const;
+
             //! Returns the number of parameters in the current parameter level
             int get_num_parameters() const;
-
+            
             typedef enum template_parameter_kind TemplateParameterKind;
 
             //! Returns the n-th template parameter as a pair of the symbol and its kind
