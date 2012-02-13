@@ -1910,7 +1910,7 @@ OPERATOR_TABLE
         codegen_type(t, type_spec, array_spec, /* is_dummy */ true);
 
         indent();
-        file << type_spec << " :: X\n";
+        file << type_spec << " :: X" << array_spec << "\n";
 
         dec_indent();
         indent();
