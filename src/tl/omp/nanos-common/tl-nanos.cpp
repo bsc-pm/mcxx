@@ -122,18 +122,20 @@ namespace TL
             if (!_already_registered)
             {
                 register_directive("interface");
-                dispatcher().directive.pre["interface"].connect(functor(&Interface::interface_preorder, *this));
-                dispatcher().directive.post["interface"].connect(functor(&Interface::interface_postorder, *this));
-
                 register_directive("instrument|declare");
-                dispatcher().directive.pre["instrument|declare"].connect(functor(&Interface::instrument_declare_pre, *this));
-                dispatcher().directive.post["instrument|declare"].connect(functor(&Interface::instrument_declare_post, *this));
-
                 register_directive("instrument|emit");
-                dispatcher().directive.pre["instrument|emit"].connect(functor(&Interface::instrument_emit_pre, *this));
-                dispatcher().directive.post["instrument|emit"].connect(functor(&Interface::instrument_emit_post, *this));
+
                 _already_registered = true;
             }
+
+            dispatcher().directive.pre["interface"].connect(functor(&Interface::interface_preorder, *this));
+            dispatcher().directive.post["interface"].connect(functor(&Interface::interface_postorder, *this));
+
+            dispatcher().directive.pre["instrument|declare"].connect(functor(&Interface::instrument_declare_pre, *this));
+            dispatcher().directive.post["instrument|declare"].connect(functor(&Interface::instrument_declare_post, *this));
+
+            dispatcher().directive.pre["instrument|emit"].connect(functor(&Interface::instrument_emit_pre, *this));
+            dispatcher().directive.post["instrument|emit"].connect(functor(&Interface::instrument_emit_post, *this));
         }
 
         void Interface::run(TL::DTO& dto)
@@ -243,6 +245,8 @@ namespace TL
 
         void Interface::interface_preorder(TL::PragmaCustomDirective ctr)
         {
+            std::cerr << "Seen nanos++ interface" << std::endl;
+
             PragmaCustomLine pragma_line = ctr.get_pragma_line();
             PragmaCustomClause version_clause = pragma_line.get_clause("version");
             PragmaCustomClause family_clause = pragma_line.get_clause("family");
