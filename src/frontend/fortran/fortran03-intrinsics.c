@@ -4081,24 +4081,66 @@ scope_entry_t* compute_intrinsic_reshape(scope_entry_t* symbol UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
-    // type_t* t0 = argument_types[0];
-    // type_t* t1 = argument_types[1];
-    // type_t* t2 = argument_types[2];
-    // type_t* t3 = argument_types[3];
+    type_t* t0 = argument_types[0];
+    type_t* t1 = argument_types[1];
+    type_t* t2 = argument_types[2];
+    type_t* t3 = argument_types[3];
 
-    // if (is_fortran_array_type(t0)
-    //         && is_fortran_array_type(t1)
-    //         && (get_rank_of_type(t1) == 1)
-    //         && (t2 == NULL || 
-    //             (is_fortran_array_type(t2) && equivalent_types(get_unqualified_type(get_rank0_type(t0)), 
-    //                                    get_unqualified_type(get_rank0_type(t2)))))
-    //         && (t3 == NULL || is_fortran_character_type(t3)))
-    // {
-    // }
+    // SOURCE
+    // t0 may be of any type. It shall not be scalar
+    if (get_rank_of_type(t0) == 0)
+        return NULL;
 
-    // FIXME - Needs a constant expression of type array
-    // Not supported...
-    return NULL;
+    // SHAPE
+    // t1 shall be of type integer rank one 
+    if (get_rank_of_type(t1) != 1)
+        return NULL;
+
+    // t1 shall be of constant size
+    nodecl_t arr_shape_size = array_type_get_array_size_expr(t1);
+    if (nodecl_is_null(arr_shape_size) 
+            || !nodecl_is_constant(arr_shape_size))
+        return NULL;
+
+    const_value_t* shape_size_cval = nodecl_get_constant(arr_shape_size);
+
+    int shape_size = const_value_cast_to_signed_int(shape_size_cval);
+
+    if (shape_size > 8)
+        return NULL;
+
+    // PAD
+    if (t2 != NULL)
+    {
+        // Shall be of the same type of SOURCE
+        if (!equivalent_types(
+                    get_rank0_type(t0), 
+                    get_rank0_type(t1)))
+            return NULL;
+
+        if (get_rank_of_type(t2) == 0)
+            return NULL;
+    }
+    else
+    {
+        t2 = get_n_ranked_type(get_rank0_type(t1), 1, symbol->decl_context);
+    }
+
+    // ORDER
+    if (t3 != NULL)
+    {
+        nodecl_t order_size = array_type_get_array_size_expr(t3);
+        if (!nodecl_is_constant(order_size))
+            return NULL;
+    }
+    else
+    {
+        t3 = t1;
+    }
+
+    type_t* r = get_n_ranked_type(get_rank0_type(t1), shape_size, symbol->decl_context);
+
+    return GET_INTRINSIC_TRANSFORMATIONAL("reshape", r, t0, t1, t2, t3);
 }
 
 scope_entry_t* compute_intrinsic_rrspacing(scope_entry_t* symbol UNUSED_PARAMETER,
@@ -4256,9 +4298,13 @@ scope_entry_t* compute_intrinsic_shape(scope_entry_t* symbol UNUSED_PARAMETER,
     int di = fortran_get_default_integer_type_kind();
     if (opt_valid_kind_expr(argument_expressions[1], &di))
     {
-        return GET_INTRINSIC_INQUIRY("shape", 
-                get_n_ranked_type(choose_int_type_from_kind(argument_expressions[1], di), 1, symbol->decl_context),
-                t0, fortran_get_default_integer_type());
+        type_t* result_array_type = 
+            get_array_type_bounds(
+                    choose_int_type_from_kind(argument_expressions[1], di),
+                    nodecl_make_one(),
+                    nodecl_make_int_literal(get_rank_of_type(t0)),
+                    symbol->decl_context);
+        return GET_INTRINSIC_INQUIRY("shape", result_array_type, t0, fortran_get_default_integer_type());
     }
 
     return NULL;
