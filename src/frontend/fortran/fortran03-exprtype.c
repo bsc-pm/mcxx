@@ -333,6 +333,7 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context,
                 do_variable->type_information = get_const_qualified_type(original_type);
 
                 int i;
+                int trip_count = 0;
                 if (val_stride > 0)
                 {
                     for (i = val_lower;
@@ -343,6 +344,8 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context,
                         do_variable->value = const_value_to_nodecl(const_value_get_signed_int(i));
 
                         check_ac_value_list(implied_do_ac_value, decl_context, nodecl_output, current_type, num_items);
+
+                        trip_count++;
                     }
                 }
                 else if (val_stride < 0)
@@ -355,6 +358,8 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context,
                         do_variable->value = const_value_to_nodecl(const_value_get_signed_int(i));
 
                         check_ac_value_list(implied_do_ac_value, decl_context, nodecl_output, current_type, num_items);
+
+                        trip_count++;
                     }
                 }
                 else
@@ -365,6 +370,16 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context,
                 // Restore the variable used for the expansion
                 do_variable->type_information = original_type;
                 do_variable->value = original_value;
+
+                // The loop was empty!
+                // Nevertheless we have to check the expression
+                if (trip_count == 0)
+                {
+                    int current_num_items = 0;
+                    nodecl_t nodecl_ac_value = nodecl_null();
+                    check_ac_value_list(implied_do_ac_value, decl_context, &nodecl_ac_value, current_type, &current_num_items);
+                    // We ignore anything from that expression, though
+                }
             }
             else
             {
