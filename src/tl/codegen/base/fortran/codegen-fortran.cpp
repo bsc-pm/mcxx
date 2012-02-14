@@ -1971,6 +1971,10 @@ OPERATOR_TABLE
         if (get_codegen_status(entry) == CODEGEN_STATUS_DEFINED)
             return;
 
+        // If we are told not to declare it, ignore it
+        if (do_not_declare.contains(entry))
+            return;
+
         decl_context_t entry_context = entry.get_scope().get_decl_context();
         // We do not declare anything not in our context 
         if (state.current_symbol != TL::Symbol(entry_context.current_scope->related_entry)
@@ -2884,6 +2888,10 @@ OPERATOR_TABLE
         if (being_checked.find(entry) != being_checked.end())
             return;
 
+        // Do not declare if we are told not to declare it
+        if (do_not_declare.contains(entry))
+            return;
+
         being_checked.insert(entry);
 
         if (entry.get_internal_symbol()->entity_specs.from_module != NULL)
@@ -3510,6 +3518,34 @@ OPERATOR_TABLE
         TL::CompilationProcess::add_file(file_name, "auxcc");
 
         ::mark_file_for_cleanup(file_name.c_str());
+    }
+
+    std::string FortranBase::emit_declaration_part(Nodecl::NodeclBase node, const TL::ObjectList<TL::Symbol>& do_not_declare)
+    {
+        TL::Scope sc = node.retrieve_context();
+
+        state = State();
+        state.current_symbol = TL::Symbol(sc.get_decl_context().current_scope->related_entry);
+
+        file.clear();
+        file.str("");
+
+        state = State();
+
+        this->do_not_declare = do_not_declare;
+
+        declare_use_statements(node);
+        file << "IMPLICIT NONE" << "\n";
+        declare_everything_needed(node);
+
+        std::string result = file.str();
+
+        file.clear();
+        file.str("");
+
+        this->do_not_declare.clear();
+
+        return result;
     }
 }
 
