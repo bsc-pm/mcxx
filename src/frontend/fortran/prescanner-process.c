@@ -494,6 +494,9 @@ static void print_lines(prescanner_t* prescanner)
         }
 		iter = iter->next;
 	}
+
+    // End always with a newline
+    fprintf(prescanner->output_file, "\n");
 }
 
 static void cut_lines(prescanner_t* prescanner)
@@ -577,28 +580,38 @@ static void read_lines(prescanner_t* prescanner)
 		// Remove '\n'
 		if (!was_eof) line_buffer[length_read-1] = '\0';
 
-		line_t* new_line = (line_t*) calloc(1, sizeof(line_t));
+        if (is_blank_string(line_buffer))
+        {
+            // Merrily ignore this line
+            free(line_buffer);
+        }
+        else
+        {
 
-        DEBUG_CODE()
-		{
-			fprintf(stderr, "DEBUG: We have read @%s|\n", line_buffer);
-		}
+            line_t* new_line = (line_t*) calloc(1, sizeof(line_t));
 
-		new_line->line = line_buffer;
-		new_line->line_number = line_number;
-		new_line->next = NULL;
-		new_line->joined_lines = 0;
-		
-		if (file_lines == NULL)
-		{
-			file_lines = new_line;
-			last_line = new_line;
-		}
-		else
-		{
-			last_line->next = new_line;
-			last_line = new_line;
-		}
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "DEBUG: We have read @%s|\n", line_buffer);
+            }
+
+            new_line->line = line_buffer;
+            new_line->line_number = line_number;
+            new_line->next = NULL;
+            new_line->joined_lines = 0;
+
+            if (file_lines == NULL)
+            {
+                file_lines = new_line;
+                last_line = new_line;
+            }
+            else
+            {
+                last_line->next = new_line;
+                last_line = new_line;
+            }
+
+        }
 
         line_number++;
 	}
