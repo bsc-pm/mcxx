@@ -560,9 +560,10 @@ static nodecl_t simplify_shape(int num_arguments UNUSED_PARAMETER, nodecl_t* arg
     {
         return nodecl_make_structured_value(
                 nodecl_list,
-                get_array_type_bounds(choose_int_type_from_kind(kind, kind_),
+                get_array_type_bounds(
+                    choose_int_type_from_kind(kind, kind_),
                     nodecl_make_one(),
-                    nodecl_make_int_literal(kind_),
+                    nodecl_make_int_literal(rank),
                     CURRENT_COMPILED_FILE->global_decl_context),
                 NULL, 0);
     }
@@ -570,7 +571,8 @@ static nodecl_t simplify_shape(int num_arguments UNUSED_PARAMETER, nodecl_t* arg
     {
         return nodecl_make_structured_value(
                 nodecl_null(),
-                get_array_type_bounds(choose_int_type_from_kind(kind, kind_),
+                get_array_type_bounds(
+                    choose_int_type_from_kind(kind, kind_),
                     nodecl_make_one(),
                     nodecl_make_zero(), 
                     CURRENT_COMPILED_FILE->global_decl_context),
