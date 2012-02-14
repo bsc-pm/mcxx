@@ -528,26 +528,22 @@ char const_value_is_signed(const_value_t* val)
     return val->sign;
 }
 
-static type_t* get_minimal_integer_for_value(char is_signed, uint64_t value)
+struct type_mask_tag
+{
+    type_t* type;
+    uint64_t mask;
+};
+
+static type_t* get_minimal_integer_for_value_(
+        char is_signed, 
+        uint64_t value,
+        struct type_mask_tag* unsigned_type_mask,
+        struct type_mask_tag* signed_positive_type_mask,
+        struct type_mask_tag* signed_negative_type_mask)
 {
     if (!is_signed)
     {
-        uint64_t bitmask = ~(uint64_t)0;
-
-        struct type_mask_tag
-        {
-            type_t* type;
-            uint64_t mask;
-        } type_mask[] =
-        {
-            // { get_unsigned_char_type(),          bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_unsigned_char_type())         ) },
-            // { get_unsigned_short_int_type(),     bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_unsigned_short_int_type())    ) },
-            { get_unsigned_int_type(),           bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_unsigned_int_type())          ) },
-            { get_unsigned_long_int_type(),      bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_unsigned_long_int_type())     ) },
-            { get_unsigned_long_long_int_type(), 0 },
-            // Sentinel
-            { NULL, 0 },
-        };
+        struct type_mask_tag* type_mask = unsigned_type_mask;
 
         int i;
         for (i = 0; type_mask[i].type != NULL; i++)
@@ -565,23 +561,7 @@ static type_t* get_minimal_integer_for_value(char is_signed, uint64_t value)
 
         if (!is_negative)
         {
-            uint64_t bitmask = ~(uint64_t)0;
-
-            struct type_mask_tag
-            {
-                type_t* type;
-                uint64_t mask;
-            } type_mask[] =
-            {
-                // Like above but one bit less now
-                // { get_signed_char_type(),          bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_signed_char_type())          - 1) },
-                // { get_signed_short_int_type(),     bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_signed_short_int_type())     - 1) },
-                { get_signed_int_type(),           bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_signed_int_type())           - 1) },
-                { get_signed_long_int_type(),      bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_signed_long_int_type())      - 1) },
-                { get_signed_long_long_int_type(), bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_signed_long_long_int_type()) - 1) },
-                // Sentinel
-                { NULL, 0 },
-            };
+            struct type_mask_tag* type_mask = signed_positive_type_mask;
 
             int i;
             for (i = 0; type_mask[i].type != NULL; i++)
@@ -595,28 +575,11 @@ static type_t* get_minimal_integer_for_value(char is_signed, uint64_t value)
         }
         else
         {
-            uint64_t bitmask = ~(uint64_t)0;
-            uint64_t remove_sign = (~(uint64_t)0) >> 1;
-
-            struct type_mask_tag
-            {
-                type_t* type;
-                uint64_t mask;
-            } type_mask[] =
-            {
-                // { get_signed_char_type(),          remove_sign & (bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_signed_char_type())     )) },
-                // { get_signed_short_int_type(),     remove_sign & (bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_signed_short_int_type()))) },
-                { get_signed_int_type(),           remove_sign & (bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_signed_int_type())      )) },
-                { get_signed_long_int_type(),      remove_sign & (bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_signed_long_int_type()) )) },
-                { get_signed_long_long_int_type(), 0 },
-                // Sentinel
-                { NULL, 0 },
-            };
+            struct type_mask_tag *type_mask= signed_negative_type_mask;
 
             int i;
             for (i = 0; type_mask[i].type != NULL; i++)
             {
-                // Like above but we check for the existence of a 0 instead of 1
                 if (((~value) & type_mask[i].mask) == 0)
                 {
                     return type_mask[i].type;
@@ -628,6 +591,92 @@ static type_t* get_minimal_integer_for_value(char is_signed, uint64_t value)
 
     internal_error("Code unreachable", 0);
     return NULL;
+}
+
+static type_t* get_minimal_integer_for_value_at_least_signed_int(char is_signed, uint64_t value)
+{
+    uint64_t bitmask = ~(uint64_t)0;
+
+    struct type_mask_tag unsigned_type_mask[] =
+    {
+        { get_unsigned_int_type(),           bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_unsigned_int_type())          ) },
+        { get_unsigned_long_int_type(),      bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_unsigned_long_int_type())     ) },
+        { get_unsigned_long_long_int_type(), 0 },
+        // Sentinel
+        { NULL, 0 },
+    };
+
+    struct type_mask_tag signed_positive_type_mask[] =
+    {
+        // Like above but one bit less now
+        { get_signed_int_type(),           bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_signed_int_type())           - 1) },
+        { get_signed_long_int_type(),      bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_signed_long_int_type())      - 1) },
+        { get_signed_long_long_int_type(), bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_signed_long_long_int_type()) - 1) },
+        // Sentinel
+        { NULL, 0 },
+    };
+
+    uint64_t remove_sign = (~(uint64_t)0) >> 1;
+    struct type_mask_tag signed_negative_type_mask[] =
+    {
+        { get_signed_int_type(),           remove_sign & (bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_signed_int_type())      )) },
+        { get_signed_long_int_type(),      remove_sign & (bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_signed_long_int_type()) )) },
+        { get_signed_long_long_int_type(), 0 },
+        // Sentinel
+        { NULL, 0 },
+    };
+
+    return get_minimal_integer_for_value_(
+            is_signed, value,
+            unsigned_type_mask,
+            signed_positive_type_mask,
+            signed_negative_type_mask);
+}
+
+static type_t* get_minimal_integer_for_value(char is_signed, uint64_t value)
+{
+    uint64_t bitmask = ~(uint64_t)0;
+
+    struct type_mask_tag unsigned_type_mask[] =
+    {
+        { get_unsigned_char_type(),          bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_unsigned_char_type())         ) },
+        { get_unsigned_short_int_type(),     bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_unsigned_short_int_type())    ) },
+        { get_unsigned_int_type(),           bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_unsigned_int_type())          ) },
+        { get_unsigned_long_int_type(),      bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_unsigned_long_int_type())     ) },
+        { get_unsigned_long_long_int_type(), 0 },
+        // Sentinel
+        { NULL, 0 },
+    };
+
+    struct type_mask_tag signed_positive_type_mask[] =
+    {
+        // Like above but one bit less now
+        { get_signed_char_type(),          bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_signed_char_type())          - 1) },
+        { get_signed_short_int_type(),     bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_signed_short_int_type())     - 1) },
+        { get_signed_int_type(),           bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_signed_int_type())           - 1) },
+        { get_signed_long_int_type(),      bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_signed_long_int_type())      - 1) },
+        { get_signed_long_long_int_type(), bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_signed_long_long_int_type()) - 1) },
+        // Sentinel
+        { NULL, 0 },
+    };
+
+    uint64_t remove_sign = (~(uint64_t)0) >> 1;
+    struct type_mask_tag signed_negative_type_mask[] =
+    {
+        { get_signed_char_type(),          remove_sign & (bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_signed_char_type())     )) },
+        { get_signed_short_int_type(),     remove_sign & (bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_signed_short_int_type()))) },
+        { get_signed_int_type(),           remove_sign & (bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_signed_int_type())      )) },
+        { get_signed_long_int_type(),      remove_sign & (bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_signed_long_int_type()) )) },
+        { get_signed_long_long_int_type(), 0 },
+        // Sentinel
+        { NULL, 0 },
+    };
+
+    return get_minimal_integer_for_value_(
+            is_signed, value,
+            unsigned_type_mask,
+            signed_positive_type_mask,
+            signed_negative_type_mask);
 }
 
 static type_t* get_minimal_floating_type(const_value_t* val)
@@ -652,6 +701,10 @@ type_t* const_value_get_minimal_integer_type(const_value_t* val)
     return get_minimal_integer_for_value(val->sign, val->value.i);
 }
 
+type_t* const_value_get_minimal_integer_for_value_at_least_signed_int(const_value_t* val)
+{
+    return get_minimal_integer_for_value_at_least_signed_int(val->sign, val->value.i);
+}
 
 nodecl_t const_value_to_nodecl(const_value_t* v)
 {
@@ -663,7 +716,7 @@ nodecl_t const_value_to_nodecl(const_value_t* v)
                 if (v->value.i == 0)
                     return nodecl_make_integer_literal(get_zero_type(), v, NULL, 0);
 
-                type_t* t = get_minimal_integer_for_value(v->sign, v->value.i);
+                type_t* t = get_minimal_integer_for_value_at_least_signed_int(v->sign, v->value.i);
                 return nodecl_make_integer_literal(t, v, NULL, 0);
                 break;
             }

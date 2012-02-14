@@ -91,6 +91,7 @@ LIBMCXX_EXTERN const_value_t* const_value_cast_to_signed_int_value(const_value_t
 LIBMCXX_EXTERN nodecl_t const_value_to_nodecl(const_value_t* v);
 
 LIBMCXX_EXTERN type_t* const_value_get_minimal_integer_type(const_value_t* val);
+LIBMCXX_EXTERN type_t* const_value_get_minimal_integer_for_value_at_least_signed_int(const_value_t* val);
 
 LIBMCXX_EXTERN const_value_t* integer_type_get_maximum(type_t* t);
 LIBMCXX_EXTERN const_value_t* integer_type_get_minimum(type_t* t);
