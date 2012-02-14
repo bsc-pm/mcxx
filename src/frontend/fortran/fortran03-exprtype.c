@@ -2216,26 +2216,29 @@ static void check_called_symbol(
 
         if (entry == NULL)
         {
-            const char* actual_arguments_str = "(";
 
-            int i;
-            for (i = 0; i < num_actual_arguments; i++)
-            {
-                char c[256];
-                snprintf(c, 255, "%s%s", i != 0 ? ", " : "", 
-                        fortran_print_type_str(nodecl_get_type(nodecl_actual_arguments[i])));
-                c[255] = '\0';
-
-                actual_arguments_str = strappend(actual_arguments_str, c);
-            }
-            actual_arguments_str = strappend(actual_arguments_str, ")");
-            
             if (!checking_ambiguity())
             {
-                error_printf("%s: error: call to intrinsic %s%s failed\n", 
+                error_printf("%s: error: call to intrinsic %s failed\n", 
                         ast_location(location),
-                        strtoupper(symbol->symbol_name),
-                        actual_arguments_str);
+                        strtoupper(symbol->symbol_name));
+                if (num_actual_arguments > 0)
+                {
+                    info_printf("%s: info: actual arguments and their types follow\n",
+                            ast_location(location));
+                    int i;
+                    for (i = 0; i < num_actual_arguments; i++)
+                    {
+                        info_printf("%s: info:    '%s' of type %s\n", 
+                                ast_location(location),
+                                codegen_to_str(nodecl_actual_arguments[i]),
+                                fortran_print_type_str(nodecl_get_type(nodecl_actual_arguments[i])));
+                    }
+                }
+                else
+                {
+                    info_printf("%s: info:    no arguments passed\n", ast_location(location));
+                }
             }
             *result_type = get_error_type();
             return;
