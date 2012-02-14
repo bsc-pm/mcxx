@@ -10,6 +10,8 @@ namespace Codegen
     {
         virtual void run(TL::DTO& dto);
     };
+
+    CodegenPhase& get_current();
 }
 
 #endif // CODEGEN_PHASE_HPP

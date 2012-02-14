@@ -100,6 +100,7 @@ mcxx_LDADD = \
    $(top_builddir)/src/frontend/libmcxx-process.la \
    $(top_builddir)/src/frontend/libmcxx.la \
    $(top_builddir)/src/tl/libtl.la \
+   $(top_builddir)/src/tl/codegen/common/libcodegen-common.la \
    $(top_builddir)/src/tl/codegen/base/cxx/libcodegen-cxx.la \
    $(top_builddir)/src/tl/codegen/base/fortran/libcodegen-fortran.la \
    $(top_builddir)/src/mcxx_tl/libmcxxtl.la \

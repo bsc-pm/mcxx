@@ -12,4 +12,12 @@ namespace Codegen
 
         this->codegen_top_level(n, f);
     }
+
+}
+
+Codegen::CodegenPhase& Codegen::get_current()
+{
+    CodegenPhase* result = reinterpret_cast<CodegenPhase*>(CURRENT_CONFIGURATION->codegen_phase);
+
+    return *result;
 }

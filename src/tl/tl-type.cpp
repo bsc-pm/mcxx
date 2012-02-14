@@ -35,6 +35,7 @@
 #include "cxx-scope.h"
 #include "cxx-exprtype.h"
 
+#include "codegen-phase.hpp"
 #include "codegen-fortran.hpp"
 
 namespace TL
@@ -113,13 +114,10 @@ namespace TL
             running_error("This function cannot be called if we are not in Fortran", 0);
         }
 
-        // FIXME - All this architecture must be largely improved
-        ERROR_CONDITION(CURRENT_CONFIGURATION->codegen_phase == NULL,
-                "Codegen phase has not been loaded yet for this configuration", 0);
-        Codegen::FortranBase* codegen_phase = reinterpret_cast<Codegen::FortranBase*>(CURRENT_CONFIGURATION->codegen_phase);
+        Codegen::FortranBase &codegen_phase = static_cast<Codegen::FortranBase&>(Codegen::get_current());
 
         std::string type_specifier, array_specifier;
-        codegen_phase->codegen_type(*this, type_specifier, array_specifier, /* is_dummy */ flags == PARAMETER_DECLARATION);
+        codegen_phase.codegen_type(*this, type_specifier, array_specifier, /* is_dummy */ flags == PARAMETER_DECLARATION);
 
         return type_specifier + " :: " + symbol_name + array_specifier;
     }
