@@ -5,6 +5,9 @@
 #include "tl-outline-info.hpp"
 #include "tl-replace.hpp"
 
+#include "codegen-phase.hpp"
+#include "codegen-fortran.hpp"
+
 using TL::Source;
 
 namespace TL { namespace Nanox {
@@ -21,6 +24,11 @@ namespace TL { namespace Nanox {
             unpack_code, 
             private_entities, 
             cleanup_code;
+
+        // Fortran extras
+        Source declaration_part,
+               // Not filled at the moment
+               internal_subprograms;
 
         Nodecl::NodeclBase placeholder_body;
 
@@ -45,10 +53,11 @@ namespace TL { namespace Nanox {
         {
             outline
                 << "SUBROUTINE " << outline_name << "_unpacked(" << unpacked_parameters << ")\n"
-                <<      "IMPLICIT NONE\n"
+                <<      declaration_part
                 <<      unpacked_parameter_declarations << "\n"
                 <<      private_entities << "\n"
                 <<      statement_placeholder(placeholder_body) << "\n"
+                <<      internal_subprograms
                 << "END SUBROUTINE " << outline_name << "_unpacked\n"
 
                 << "SUBROUTINE " << outline_name << "(args)\n"
@@ -71,11 +80,15 @@ namespace TL { namespace Nanox {
             internal_error("Code unreachable", 0);
         }
 
+        TL::ObjectList<Symbol> do_not_declare;
         TL::ObjectList<OutlineDataItem> data_items = outline_info.get_data_items();
         for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
                 it != data_items.end();
                 it++)
         {
+            // We are manually declaring this symbol, do not declare it at all
+            do_not_declare.insert(it->get_symbol());
+
             if (it->get_sharing() == OutlineDataItem::SHARING_PRIVATE)
             {
                 if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
@@ -189,6 +202,14 @@ namespace TL { namespace Nanox {
                 }
                 unpacked_arguments.append_with_separator(argument, ", ");
             }
+        }
+
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            // Complete all what fortran needs
+            Codegen::FortranBase& codegen = static_cast<Codegen::FortranBase&>(Codegen::get_current());
+
+            declaration_part << codegen.emit_declaration_part(body, do_not_declare);
         }
 
         Nodecl::NodeclBase node = outline.parse_global(body);
