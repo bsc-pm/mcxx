@@ -121,7 +121,7 @@ char is_blank_string(const char* c)
 {
     char result = 1;
 
-    while (result && (c != '\0'))
+    while (result && (*c != '\0'))
     {
         result &= is_blank(*c);
         c++;
