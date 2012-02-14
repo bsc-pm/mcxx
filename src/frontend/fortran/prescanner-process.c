@@ -202,7 +202,7 @@ static void convert_whole_line_comments(void)
 	int code;
 
 	// D in the first column is a common extension in many compilers, we will accept it
-	if ((code = regcomp(&match_starting_comment, "^([dc*])|(([ ]{0,4}|[ ]{6,})[!]))", REG_EXTENDED | REG_NOSUB | REG_ICASE)) != 0)
+	if ((code = regcomp(&match_starting_comment, "^(([dc*])|(([ ]{0,4}|[ ]{6,})[!]))", REG_EXTENDED | REG_NOSUB | REG_ICASE)) != 0)
 	{
 		char error_message[120];
 		regerror(code, &match_starting_comment, error_message, 120);
