@@ -1428,7 +1428,22 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                 {
                     // Do not remove the reference here, we will do this later
                     // if mandated
-                    type_t* computed_type = expression_get_type(expression);
+                    type_t* computed_type = NULL;
+
+                    //If the expression is a symbol, try to use its type
+                    if (ASTType(expression) == AST_SYMBOL)
+                    {
+                        scope_entry_t* symbol = expression_get_symbol(expression);
+                        if (symbol != NULL)
+                        {
+                           computed_type = symbol->type_information;
+                        }
+                    }
+
+                    if (computed_type == NULL)
+                    {
+                        computed_type = expression_get_type(expression);
+                    }
 
                     if (is_unresolved_overloaded_type(computed_type))
                     {
