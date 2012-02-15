@@ -3522,6 +3522,9 @@ OPERATOR_TABLE
 
     std::string FortranBase::emit_declaration_part(Nodecl::NodeclBase node, const TL::ObjectList<TL::Symbol>& do_not_declare)
     {
+        clear_codegen_status();
+        clear_renames();
+
         TL::Scope sc = node.retrieve_context();
 
         state = State();
@@ -3544,6 +3547,9 @@ OPERATOR_TABLE
         file.str("");
 
         this->do_not_declare.clear();
+
+        clear_codegen_status();
+        clear_renames();
 
         return result;
     }
