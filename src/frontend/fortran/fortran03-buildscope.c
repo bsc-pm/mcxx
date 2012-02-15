@@ -3549,7 +3549,7 @@ static void build_scope_stmt_function_stmt(AST a, decl_context_t decl_context)
             AST dummy_arg_item = ASTSon1(it);
             scope_entry_t* dummy_arg = get_symbol_for_name(decl_context, dummy_arg_item, ASTText(dummy_arg_item));
 
-            if (!is_scalar_type(dummy_arg->type_information))
+            if (!fortran_is_scalar_type(dummy_arg->type_information))
             {
                 running_error("%s: error: dummy argument '%s' of statement function statement\n",
                         ast_location(dummy_arg_item),
@@ -5064,7 +5064,7 @@ static char check_statement_function_statement(AST stmt, decl_context_t decl_con
 
     scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
 
-    if (!is_scalar_type(entry->type_information))
+    if (!fortran_is_scalar_type(entry->type_information))
         return 0;
 
     if (dummy_arg_name_list != NULL)
@@ -5075,7 +5075,7 @@ static char check_statement_function_statement(AST stmt, decl_context_t decl_con
             AST dummy_name = ASTSon1(it);
             scope_entry_t* dummy_arg = get_symbol_for_name(decl_context, dummy_name, ASTText(dummy_name));
 
-            if (!is_scalar_type(dummy_arg->type_information))
+            if (!fortran_is_scalar_type(dummy_arg->type_information))
                 return 0;
         }
     }

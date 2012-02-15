@@ -188,6 +188,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %token<token_atrib> GXX_IS_ENUM "__is_enum"
 %token<token_atrib> GXX_IS_POD "__is_pod"
 %token<token_atrib> GXX_IS_POLYMORPHIC "__is_polymorphic"
+%token<token_atrib> GXX_IS_TRIVIAL "__is_trivial"
 %token<token_atrib> GXX_IS_UNION "__is_union"
 
 // Lexical symbols
@@ -3427,6 +3428,7 @@ primary_expression : literal
      __is_enum ( type-id )
      __is_pod ( type-id )
      __is_polymorphic ( type-id )
+     __is_trivial ( type-id )
      __is_union ( type-id )
 */
 gnu_type_traits : GXX_HAS_NOTHROW_ASSIGN '(' type_id ')'
@@ -3490,6 +3492,10 @@ gnu_type_traits : GXX_HAS_NOTHROW_ASSIGN '(' type_id ')'
     $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, $1.token_file, $1.token_line, $1.token_text);
 }
 | GXX_IS_POLYMORPHIC '(' type_id ')'
+{
+    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, $1.token_file, $1.token_line, $1.token_text);
+}
+| GXX_IS_TRIVIAL '(' type_id ')'
 {
     $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, $1.token_file, $1.token_line, $1.token_text);
 }

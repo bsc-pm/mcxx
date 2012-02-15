@@ -83,6 +83,7 @@ static lexer_keyword_t gxx_43_keywords[] =
     { "__is_enum", GXX_IS_ENUM },
     { "__is_pod", GXX_IS_POD },
     { "__is_polymorphic", GXX_IS_POLYMORPHIC },
+    { "__is_trivial", GXX_IS_TRIVIAL },
     { "__is_union", GXX_IS_UNION },
     // Sentinel
     { NULL, 0 },
@@ -1015,6 +1016,7 @@ type {
 "__is_enum" |
 "__is_pod" |
 "__is_polymorphic" |
+"__is_trivial" |
 "__is_union" {
     return lookup_keyword_in_table(gxx_43_keywords, yytext, !CURRENT_CONFIGURATION->disable_gxx_type_traits);
 }
