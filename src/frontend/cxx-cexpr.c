@@ -539,17 +539,14 @@ static uint64_t safe_compute_bitmask(
         size_t size_in_bytes)
 {
     uint64_t bitmask = 0;
+    size_t shift = 8 * size_in_bytes;
 
-    if (size_in_bytes < sizeof(uint64_t))
+    if (is_signed)
+        shift--;
+
+    if (shift < (sizeof(uint64_t) * 8))
     {
-        bitmask = ~(uint64_t)0;
-
-        int shift = ((uint64_t)8 * (uint64_t)size_in_bytes);
-
-        if (is_signed)
-            shift--;
-
-        bitmask = (bitmask << shift);
+        bitmask = (~(uint64_t)0) << shift;
     }
 
     return bitmask;
