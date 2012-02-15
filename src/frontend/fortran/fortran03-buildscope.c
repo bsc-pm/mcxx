@@ -6805,6 +6805,9 @@ static scope_entry_t* insert_symbol_from_module(scope_entry_t* entry,
     current_symbol->entity_specs.from_module = module_symbol;
     current_symbol->entity_specs.alias_to = entry;
 
+    // Also set the access to be the default
+    current_symbol->entity_specs.access = AS_UNKNOWN;
+
     if (strcmp(aliased_name, entry->symbol_name) != 0)
     {
         current_symbol->entity_specs.is_renamed = 1;

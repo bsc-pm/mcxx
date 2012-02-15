@@ -2037,8 +2037,6 @@ OPERATOR_TABLE
             {
                 if (entry.get_type().is_pointer())
                 {
-                    // internal_error("Error: pointers cannot be passed by value in Fortran\n", 
-                    //         entry.get_name().c_str());
                     declared_type = TL::Type(get_size_t_type());
                 }
                 else if (entry.get_type().is_array())
@@ -2683,6 +2681,21 @@ OPERATOR_TABLE
 
         indent();
         file << "IMPLICIT NONE\n";
+
+        // Now emit additional access-statements that might be needed for these
+        // USEd symbols
+        for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
+                it != related_symbols.end();
+                it++)
+        {
+            if (it->get_internal_symbol()->entity_specs.from_module != NULL
+                    && it->get_access_specifier() == AS_PRIVATE)
+            {
+                // If it has a private access specifier, state so
+                indent();
+                file << "PRIVATE :: " << it->get_name() << "\n";
+            }
+        }
 
         TL::Symbol previous_sym = state.current_symbol;
 
