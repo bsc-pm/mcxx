@@ -941,9 +941,17 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
 
             t = no_ref(t);
 
-            if (is_fortran_array_type(t))
+            if (!symbol_is_invalid)
             {
-                synthesized_type = rebuild_array_type(synthesized_type, t);
+                if (is_fortran_array_type(t))
+                {
+                    // We do not really know the range here
+                    synthesized_type = get_array_type_bounds(
+                            synthesized_type,
+                            nodecl_null(),
+                            nodecl_null(),
+                            array_type_get_array_size_expr_context(t));
+                }
             }
         }
         num_subscripts++;
