@@ -5212,6 +5212,7 @@ char is_integral_type(type_t* t)
 char is_signed_integral_type(type_t* t)
 {
     return is_signed_char_type(t)
+        || is_signed_byte_type(t)
         || is_signed_short_int_type(t)
         || is_signed_int_type(t)
         || is_signed_long_int_type(t)
