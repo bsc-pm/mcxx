@@ -730,11 +730,29 @@ OPERATOR_TABLE
         }
         else
         {
-            file << (long long int)const_value_cast_to_8(value);
+            long long int v = (long long int)const_value_cast_to_8(value);
+
+            long long tiniest_of_its_type = (~0LL);
+            tiniest_of_its_type <<= (sizeof(tiniest_of_its_type) * num_bytes - 1);
+
+            std::string suffix;
             if (num_bytes != fortran_get_default_integer_type_kind())
             {
-                file << "_" << num_bytes;
+                std::stringstream ss;
+                ss << "_" << num_bytes;
+                suffix = ss.str();
             }
+
+            // The tiniest integer cannot be printed as a constant
+            if (v == tiniest_of_its_type)
+            {
+                file << (v  + 1) << suffix <<  "-1" << suffix;
+            }
+            else
+            {
+                file << v << suffix;
+            }
+
         }
     }
 
