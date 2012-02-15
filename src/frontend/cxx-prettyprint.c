@@ -2111,7 +2111,7 @@ static void decltype_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx UNUSE
 {
     // If the language is c++0x It will be used '__decltype' function
     // Otherwise It will be used 'decltype' gnu function
-    if (IS_CXX1X_LANGUAGE)
+    if (!IS_CXX1X_LANGUAGE)
     {
         token_fprintf(f, a, pt_ctx, "__");
     }
