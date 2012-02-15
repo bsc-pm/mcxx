@@ -2300,8 +2300,8 @@ static void disambiguate_expression(AST expr, decl_context_t decl_context)
 
 static type_t* common_kind(type_t* t1, type_t* t2)
 {
-    ERROR_CONDITION(!is_scalar_type(t1)
-            || !is_scalar_type(t2), "One of the types is not scalar", 0);
+    ERROR_CONDITION(!fortran_is_scalar_type(t1)
+            || !fortran_is_scalar_type(t2), "One of the types is not scalar", 0);
 
     _size_t s1 = type_get_size(t1);
     _size_t s2 = type_get_size(t2);

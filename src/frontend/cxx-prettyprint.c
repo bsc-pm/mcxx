@@ -2109,6 +2109,12 @@ static void field_designator_handler(FILE* f, AST a, prettyprint_context_t* pt_c
 
 static void decltype_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx UNUSED_PARAMETER)
 {
+    // If the language is c++0x It will be used '__decltype' function
+    // Otherwise It will be used 'decltype' gnu function
+    if (!IS_CXX1X_LANGUAGE)
+    {
+        token_fprintf(f, a, pt_ctx, "__");
+    }
     token_fprintf(f, a, pt_ctx, "decltype(");
     prettyprint_level(f, ASTSon0(a), pt_ctx);
     token_fprintf(f, a, pt_ctx, ")");

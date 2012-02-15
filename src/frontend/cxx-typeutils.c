@@ -7453,7 +7453,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
     //Vector types
     //scalar -->__attribute_((vector_size(X)))  
     if(is_vector_type(no_ref(dest)) 
-            && is_scalar_type(no_ref(orig)))
+            && is_arithmetic_type(no_ref(orig)))
     {
         DEBUG_CODE()
         {
@@ -8244,17 +8244,37 @@ computed_function_type_t computed_function_type_get_computing_function(type_t* t
     return t->compute_type_function;
 }
 
-char is_scalar_type(type_t* t)
+
+// A trivial type may be:
+//  1. scalar type
+//  2. trivial class type
+//  3. arrays of such types
+//  4. cv-qualified versions of these types
+//
+char is_trivial_type(type_t* t)
 {
-    return (!is_pointer_type(t)
-            && !is_pointer_to_member_type(t)
-            && !is_array_type(t)
-            && !is_lvalue_reference_type(t)
-            && !is_rvalue_reference_type(t)
-            && !is_function_type(t)
-            && !is_vector_type(t));
+    t = get_unqualified_type(t);
+    return (is_scalar_type(t) ||
+           (is_class_type(t) && class_type_is_trivial(t)) ||
+           (is_array_type(t) && is_trivial_type(array_type_get_element_type(t))));
 }
 
+// A scalar type may be:
+//  1. arithmetic type
+//  2. enumeration type
+//  3. pointer type
+//  4. pointer to member type
+//  5. std::nullptr_-t  FIXME: THIS IS NOT SUPPORTED YET
+//  6. cv-qualified versions of these types
+//
+char is_scalar_type(type_t* t)
+{
+    t = get_unqualified_type(t);
+    return (is_arithmetic_type(t) ||
+            is_enum_type(t) ||
+            is_pointer_type(t) ||
+            is_pointer_to_member_type(t));
+}
 
 char is_incomplete_type(type_t* t)
 {
