@@ -186,6 +186,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %token<token_atrib> GXX_IS_CONVERTIBLE_TO "__is_convertible_to"
 %token<token_atrib> GXX_IS_EMPTY "__is_empty"
 %token<token_atrib> GXX_IS_ENUM "__is_enum"
+%token<token_atrib> GXX_IS_LITERAL_TYPE "__is_literal_type"
 %token<token_atrib> GXX_IS_POD "__is_pod"
 %token<token_atrib> GXX_IS_POLYMORPHIC "__is_polymorphic"
 %token<token_atrib> GXX_IS_TRIVIAL "__is_trivial"
@@ -3426,6 +3427,7 @@ primary_expression : literal
      __is_convertible_to ( type-id , type-id )     
      __is_empty ( type-id )
      __is_enum ( type-id )
+     __is_literal_type ( type-id )
      __is_pod ( type-id )
      __is_polymorphic ( type-id )
      __is_trivial ( type-id )
@@ -3484,6 +3486,10 @@ gnu_type_traits : GXX_HAS_NOTHROW_ASSIGN '(' type_id ')'
     $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, $1.token_file, $1.token_line, $1.token_text);
 }
 | GXX_IS_ENUM '(' type_id ')'
+{
+    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, $1.token_file, $1.token_line, $1.token_text);
+}
+| GXX_IS_LITERAL_TYPE '(' type_id ')'
 {
     $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, $1.token_file, $1.token_line, $1.token_text);
 }
