@@ -560,7 +560,8 @@ void TL::Nanox::regions_spawn(
                     std::string access_operator = (!immediate_is_alloca) ? "." : "->";
 
                     imm_dependency_offset
-                        << "((char*)(" << dep_expr_addr << ") - " << "(char*)imm_args." << dependency_field_name << ")"
+                        << "((char*)(" << dep_expr_addr << ") - " 
+                        << "(char*)imm_args" << access_operator << dependency_field_name << ")"
                         ;
 
                     dependency_defs_immediate
