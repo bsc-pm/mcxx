@@ -415,7 +415,7 @@ namespace TL
                 inout_arguments = inout_clause.get_arguments_as_expressions(param_ref_tree);
             }
 
-            PragmaCustomClause reduction_clause = pragma_line.get_clause("__shared_reduction");
+            PragmaCustomClause reduction_clause = pragma_line.get_clause("concurrent");
             ObjectList<Nodecl::NodeclBase> reduction_arguments;
             if (reduction_clause.is_defined())
             {
