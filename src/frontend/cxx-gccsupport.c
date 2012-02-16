@@ -939,6 +939,21 @@ static char eval_type_trait__is_polymorphic(type_t* first_type,
 }
 
 /*
+    __is_standard_layout (type)
+
+    If type is a standard-layout type ([basic.types]) the trait is true, else it is false.
+    Requires: type shall be a complete type, (possibly cv-qualified) void,
+    or an array of unknown bound.
+
+*/
+static char eval_type_trait__is_standard_layout(type_t* first_type,
+        type_t* second_type UNUSED_PARAMETER,
+        decl_context_t decl_context UNUSED_PARAMETER)
+{
+    return is_standard_layout_type(first_type);
+}
+
+/*
     __is_trivial (type)
 
     if type is a trivial type ([basic.types]) the trait is true, else it is false.
@@ -992,6 +1007,7 @@ gxx_type_traits_fun_type_t type_traits_fun_list[] =
     { "__is_literal_type", eval_type_trait__is_literal_type },
     { "__is_pod", eval_type_trait__is_pod },
     { "__is_polymorphic", eval_type_trait__is_polymorphic },
+    { "__is_standard_layout", eval_type_trait__is_standard_layout },
     { "__is_trivial", eval_type_trait__is_trivial },
     { "__is_union", eval_type_trait__is_union },
     // Sentinel

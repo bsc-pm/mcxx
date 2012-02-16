@@ -84,6 +84,7 @@ static lexer_keyword_t gxx_43_keywords[] =
     { "__is_literal_type", GXX_IS_LITERAL_TYPE },
     { "__is_pod", GXX_IS_POD },
     { "__is_polymorphic", GXX_IS_POLYMORPHIC },
+    { "__is_standard_layout", GXX_IS_STANDARD_LAYOUT },
     { "__is_trivial", GXX_IS_TRIVIAL },
     { "__is_union", GXX_IS_UNION },
     // Sentinel
@@ -1018,6 +1019,7 @@ type {
 "__is_literal_type" |
 "__is_pod" |
 "__is_polymorphic" |
+"__is_standard_layout" |
 "__is_trivial" |
 "__is_union" {
     return lookup_keyword_in_table(gxx_43_keywords, yytext, !CURRENT_CONFIGURATION->disable_gxx_type_traits);
