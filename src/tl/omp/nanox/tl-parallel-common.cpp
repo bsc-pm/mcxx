@@ -535,54 +535,43 @@ void TL::Nanox::regions_spawn(
      
                 Source dependency_offset, imm_dependency_offset;
 
-                if (num_dimensions == 0) num_dimensions++;
+                if (num_dimensions == 0)
+                {
+                    num_dimensions++;
+                }
+                
+                Source dep_expr_addr = data_ref.get_address();
+                dependency_offset
+                    << "((char*)(" << dep_expr_addr << ") - " << "(char*)ol_args->" << dependency_field_name << ")"
+                    ;
+
                 dependency_defs_outline
                     << "{"
                     << "(void*)ol_args->" << dependency_field_name << ","
                     << dependency_flags << ","
                     << num_dimensions << ","
-                    << "dimensions" << num_dep
+                    << "dimensions" << num_dep <<","
+                    << dependency_offset  
                     << "}"
-                    ;
-
-                Source dep_expr_addr = data_ref.get_address();
-
-                dependency_offset
-                    << "((char*)(" << dep_expr_addr << ") - " << "(char*)ol_args->" << dependency_field_name << ")"
                     ;
 
                 if (is_task)
                 {
-                    if (!immediate_is_alloca)
-                    {
-                        dependency_defs_immediate
-                            << "{"
-                            << "(void*)imm_args." << dependency_field_name << ","
-                            << dependency_flags << ","
-                            << num_dimensions << ","
-                            << "dimensions" << num_dep
-                            << "}"
-                            ;
+                    std::string access_operator = (!immediate_is_alloca) ? "." : "->";
 
-                        imm_dependency_offset
-                            << "((char*)(" << dep_expr_addr << ") - " << "(char*)imm_args." << dependency_field_name << ")"
-                            ;
-                    }
-                    else
-                    {
-                        dependency_defs_immediate
-                            << "{"
-                            << "(void*)imm_args->" << dependency_field_name << ","
-                            << dependency_flags << ","
-                            << num_dimensions << ","
-                            << "dimensions" << num_dep
-                            << "}"
-                            ;
+                    imm_dependency_offset
+                        << "((char*)(" << dep_expr_addr << ") - " << "(char*)imm_args." << dependency_field_name << ")"
+                        ;
 
-                        imm_dependency_offset
-                            << "((char*)(" << dep_expr_addr << ") - " << "(char*)imm_args->" << dependency_field_name << ")"
-                            ;
-                    }
+                    dependency_defs_immediate
+                        << "{"
+                        << "(void*)imm_args"<< access_operator << dependency_field_name << ","
+                        << dependency_flags << ","
+                        << num_dimensions << ","
+                        << "dimensions" << num_dep << ","
+                        << imm_dependency_offset 
+                        << "}"
+                        ;
                 }
 
                 if ((it + 1) != dependences.end())
