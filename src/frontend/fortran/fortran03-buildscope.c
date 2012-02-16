@@ -6014,16 +6014,23 @@ static void build_scope_return_stmt(AST a, decl_context_t decl_context, nodecl_t
     *nodecl_output = nodecl_make_list_1(*nodecl_output);
 }
 
-static void build_scope_save_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output UNUSED_PARAMETER)
+static void build_scope_save_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output UNUSED_PARAMETER)
 {
     AST saved_entity_list = ASTSon0(a);
 
     AST it;
 
+    scope_entry_t* program_unit = decl_context.current_scope->related_entry;
+
+    if (program_unit->entity_specs.is_saved_program_unit)
+    {
+        error_printf("%s: error: SAVE statement specified more than once\n",
+                ast_location(a));
+    }
+
     if (saved_entity_list == NULL)
     {
-        warn_printf("%s: warning: SAVE statement without saved-entity-list is not properly supported at the moment\n",
-                ast_location(a));
+        program_unit->entity_specs.is_saved_program_unit = 1;
         return;
     }
 

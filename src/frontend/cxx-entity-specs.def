@@ -81,6 +81,7 @@ bool|fortran|is_entry|This symbol is an ENTRY
 bool|fortran|is_renamed|States that this symbol has been USEd with a rename
 bool|fortran|bind_c|This symbol has a BIND(C) attribute
 bool|fortran|is_cray_pointee|This symbol is a Cray pointee
+bool|fortran|is_saved_program_unit|States that all non-automatic entities are SAVEd in that program unit
 symbol|all|alias_to|If this symbol is_renamed (Fortran) or is a SK_USING (in C/C++)
 symbol|all|emission_template|If this symbol is_non_emitted then this is the original template used to emit it
 nodecl|all|anonymous_accessor|Is this symbol is_member_of_anonymous it must be accessed using this nodecl

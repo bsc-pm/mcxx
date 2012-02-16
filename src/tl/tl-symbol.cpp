@@ -581,6 +581,11 @@ namespace TL
         return _symbol->entity_specs.is_optional;
     }
 
+    bool Symbol::is_saved_program_unit() const
+    {
+        return _symbol->entity_specs.is_saved_program_unit;
+    }
+
     bool Symbol::is_target() const
     {
         return _symbol->entity_specs.is_target;

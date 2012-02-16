@@ -315,6 +315,12 @@ namespace Codegen
             walk(equivalence_symbol.get_initialization());
         }
 
+        if (entry.is_saved_program_unit())
+        {
+            indent();
+            file << "SAVE\n";
+        }
+
         // Separate executable statements
         if (!statement_seq.is_null())
         {
@@ -2715,6 +2721,12 @@ OPERATOR_TABLE
             }
         }
 
+        if (entry.is_saved_program_unit())
+        {
+            indent();
+            file << "SAVE\n";
+        }
+
         TL::Symbol previous_sym = state.current_symbol;
 
         state.current_symbol = entry;
@@ -2804,6 +2816,12 @@ OPERATOR_TABLE
 
         indent();
         file << "IMPLICIT NONE\n";
+
+        if (entry.is_saved_program_unit())
+        {
+            indent();
+            file << "SAVE\n";
+        }
 
         TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
 
