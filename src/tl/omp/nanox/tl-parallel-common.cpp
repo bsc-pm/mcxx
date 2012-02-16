@@ -528,7 +528,7 @@ void TL::Nanox::regions_spawn(
                     // The rest of dimensions, if there are, are computed in terms of number of elements
                     if (num_dimensions > 1)
                     {    
-                        fill_dimensions(num_dimensions, 1, dimension_sizes, dependency_type, 
+                        fill_dimensions(num_dimensions, 0, dimension_sizes, dependency_type, 
                                         dims_description, dependency_expression.get_scope());
                     }
                 }
@@ -813,7 +813,7 @@ void TL::Nanox::regions_spawn(
 
 static void fill_dimensions(int n_dims, int actual_dim, std::string* dim_sizes, Type dep_type, Source& dims_description, Scope sc)
 {
-    if (actual_dim < n_dims)
+    if (actual_dim < (n_dims-1))
     {
         fill_dimensions(n_dims, actual_dim+1, dim_sizes, dep_type.array_element(), dims_description, sc);
 
@@ -823,8 +823,8 @@ static void fill_dimensions(int n_dims, int actual_dim, std::string* dim_sizes, 
             dep_type.array_get_region_bounds(lb, ub);
             size = dep_type.array_get_region_size();
 
-            dims_description << ", {" 
-                << "(" << dim_sizes[actual_dim] << "), " 
+            dims_description << ", {"
+                << "(" << dim_sizes[actual_dim] << "), "
                 << "(" << lb.prettyprint() << "), "
                 << "(" << size.prettyprint() << ")"
                 << "}"
@@ -842,8 +842,8 @@ static void fill_dimensions(int n_dims, int actual_dim, std::string* dim_sizes, 
                 lb = "1";
             }
 
-            dims_description << ", {" 
-                << "(" << dep_type.array_get_size().prettyprint() << "), " 
+            dims_description << ", {"
+                << "(" << dep_type.array_get_size().prettyprint() << "), "
                 << "(" << lb << "), "
                 << "(" << dim_sizes[actual_dim] << ")"
                 << "}"
