@@ -1819,7 +1819,7 @@ static scope_entry_t* build_scope_internal_subprogram(
                                 nodecl_make_pragma_context(context_in_scope, ASTFileName(subprogram), ASTLine(subprogram)),
                                 nodecl_make_pragma_context(context_in_scope, ASTFileName(subprogram), ASTLine(subprogram)),
                                 new_entry,
-                                ASTText(subprogram),
+                                strtolower(ASTText(subprogram)),
                                 ASTFileName(subprogram),
                                 ASTLine(subprogram));
 
@@ -5500,7 +5500,7 @@ static scope_entry_t* build_scope_single_interface_specification(
                     nodecl_make_pragma_context(decl_context, ASTFileName(interface_specification), ASTLine(interface_specification)),
                     nodecl_make_pragma_context(decl_context, ASTFileName(interface_specification), ASTLine(interface_specification)),
                     entry,
-                    ASTText(interface_specification),
+                    strtolower(ASTText(interface_specification)),
                     ASTFileName(interface_specification), ASTLine(interface_specification));
     }
     else
