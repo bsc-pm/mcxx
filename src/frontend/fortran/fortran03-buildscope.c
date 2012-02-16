@@ -1755,6 +1755,7 @@ struct internal_subprograms_info_tag
     scope_entry_t* symbol;
     decl_context_t decl_context;
     nodecl_t nodecl_output;
+    nodecl_t nodecl_pragma;
     AST program_unit_stmts;
     AST internal_subprograms;
     const char* filename;
@@ -1775,6 +1776,104 @@ static int count_internal_subprograms(AST internal_subprograms)
     return num_internal_program_units;
 }
 
+static scope_entry_t* build_scope_internal_subprogram(
+        AST subprogram,
+        decl_context_t decl_context,
+        internal_subprograms_info_t* internal_subprograms_info)
+{
+    decl_context_t subprogram_unit_context = new_internal_program_unit_context(decl_context);
+
+    scope_entry_t* new_entry = NULL;
+    switch (ASTType(subprogram))
+    {
+        case AST_SUBROUTINE_PROGRAM_UNIT:
+            {
+                new_entry = register_subroutine(subprogram, decl_context, subprogram_unit_context);
+                break;
+            }
+        case AST_FUNCTION_PROGRAM_UNIT:
+            {
+                new_entry = register_function(subprogram, decl_context, subprogram_unit_context);
+                break;
+            }
+        case AST_PRAGMA_CUSTOM_CONSTRUCT:
+            {
+                AST pragma_line = ASTSon0(subprogram);
+                AST internal_subprogram = ASTSon1(subprogram);
+
+                new_entry = build_scope_internal_subprogram(
+                        internal_subprogram, 
+                        decl_context,
+                        internal_subprograms_info);
+
+                if (new_entry != NULL)
+                {
+                    decl_context_t context_in_scope = new_entry->related_decl_context;
+
+                    nodecl_t nodecl_pragma_line = nodecl_null();
+                    common_build_scope_pragma_custom_line(pragma_line, /* end_clauses */ NULL, context_in_scope, &nodecl_pragma_line);
+
+                    nodecl_t nodecl_pragma_declaration = 
+                        nodecl_make_pragma_custom_declaration(nodecl_pragma_line, 
+                                internal_subprograms_info->nodecl_pragma,
+                                nodecl_make_pragma_context(context_in_scope, ASTFileName(subprogram), ASTLine(subprogram)),
+                                nodecl_make_pragma_context(context_in_scope, ASTFileName(subprogram), ASTLine(subprogram)),
+                                new_entry,
+                                ASTText(subprogram),
+                                ASTFileName(subprogram),
+                                ASTLine(subprogram));
+
+                    internal_subprograms_info->nodecl_pragma = nodecl_pragma_declaration;
+                }
+                break;
+            }
+        default:
+            {
+                internal_error("Unexpected node of kind %s\n", ast_print_node_type(ASTType(subprogram)));
+            }
+    }
+
+    if ((ASTType(subprogram) == AST_SUBROUTINE_PROGRAM_UNIT
+                || ASTType(subprogram) == AST_FUNCTION_PROGRAM_UNIT)
+            && (new_entry != NULL))
+    {
+        AST program_body = ASTSon1(subprogram);
+
+        AST program_part = ASTSon0(program_body);
+        AST program_unit_stmts = ASTSon0(program_part);
+        AST n_internal_subprograms = ASTSon1(program_body);
+
+        internal_subprograms_info->symbol = new_entry;
+        internal_subprograms_info->decl_context = subprogram_unit_context;
+        internal_subprograms_info->program_unit_stmts = program_unit_stmts;
+        internal_subprograms_info->internal_subprograms = n_internal_subprograms;
+        internal_subprograms_info->filename = ASTFileName(program_body);
+        internal_subprograms_info->line = ASTLine(program_body);
+
+        scope_entry_t* enclosing_sym = decl_context.current_scope->related_entry;
+
+        // This is a module procedure
+        if (enclosing_sym != NULL
+                && enclosing_sym->kind == SK_MODULE)
+        {
+            new_entry->entity_specs.is_module_procedure = 1;
+            remove_not_fully_defined_symbol(decl_context, new_entry);
+        }
+        else
+        {
+            new_entry->entity_specs.is_nested_function = 1;
+        }
+
+        build_scope_program_unit_body_declarations(
+                allow_all_statements,
+                internal_subprograms_info->program_unit_stmts, 
+                internal_subprograms_info->decl_context,
+                &(internal_subprograms_info->nodecl_output));
+    }
+
+    return new_entry;
+}
+
 static void build_scope_program_unit_body_internal_subprograms_declarations(
         AST internal_subprograms, 
         int num_internal_program_units,
@@ -1790,65 +1889,11 @@ static void build_scope_program_unit_body_internal_subprograms_declarations(
     {
         ERROR_CONDITION(i >= num_internal_program_units, "Too many internal subprograms", 0);
 
-        decl_context_t subprogram_unit_context = new_internal_program_unit_context(decl_context);
-
         AST subprogram = ASTSon1(it);
 
-        scope_entry_t* new_entry = NULL;
-        switch (ASTType(subprogram))
-        {
-            case AST_SUBROUTINE_PROGRAM_UNIT:
-                {
-                    new_entry = register_subroutine(subprogram, decl_context, subprogram_unit_context);
-                    break;
-                }
-            case AST_FUNCTION_PROGRAM_UNIT:
-                {
-                    new_entry = register_function(subprogram, decl_context, subprogram_unit_context);
-                    break;
-                }
-            default:
-                {
-                    internal_error("Unexpected node of kind %s\n", ast_print_node_type(ASTType(subprogram)));
-                }
-        }
-
-        if (new_entry != NULL)
-        {
-            AST program_body = ASTSon1(subprogram);
-
-            AST program_part = ASTSon0(program_body);
-            AST program_unit_stmts = ASTSon0(program_part);
-            AST n_internal_subprograms = ASTSon1(program_body);
-
-
-            internal_subprograms_info[i].symbol = new_entry;
-            internal_subprograms_info[i].decl_context = subprogram_unit_context;
-            internal_subprograms_info[i].program_unit_stmts = program_unit_stmts;
-            internal_subprograms_info[i].internal_subprograms = n_internal_subprograms;
-            internal_subprograms_info[i].filename = ASTFileName(program_body);
-            internal_subprograms_info[i].line = ASTLine(program_body);
-
-            scope_entry_t* enclosing_sym = decl_context.current_scope->related_entry;
-
-            // This is a module procedure
-            if (enclosing_sym != NULL
-                    && enclosing_sym->kind == SK_MODULE)
-            {
-                new_entry->entity_specs.is_module_procedure = 1;
-                remove_not_fully_defined_symbol(decl_context, new_entry);
-            }
-            else
-            {
-                new_entry->entity_specs.is_nested_function = 1;
-            }
-
-            build_scope_program_unit_body_declarations(
-                    allow_all_statements,
-                    internal_subprograms_info[i].program_unit_stmts, 
-                    internal_subprograms_info[i].decl_context,
-                    &(internal_subprograms_info[i].nodecl_output));
-        }
+        build_scope_internal_subprogram(subprogram,
+                decl_context, 
+                &internal_subprograms_info[i]);
         i++;
     }
 }
@@ -1912,6 +1957,13 @@ static void build_scope_program_unit_body_internal_subprograms_executable(
                 nodecl_internal_subprograms =
                     nodecl_append_to_list(nodecl_internal_subprograms, 
                             n_internal_subprograms_info[j].nodecl_output);
+
+                if (!nodecl_is_null(n_internal_subprograms_info[j].nodecl_pragma))
+                {
+                    nodecl_internal_subprograms =
+                        nodecl_append_to_list(nodecl_internal_subprograms, 
+                                n_internal_subprograms_info[j].nodecl_pragma);
+                }
             }
 
 
@@ -2010,6 +2062,13 @@ static void build_scope_program_unit_body(
         *nodecl_internal_subprograms =
             nodecl_append_to_list(*nodecl_internal_subprograms, 
                     internal_program_units_info[i].nodecl_output);
+
+        if (!nodecl_is_null(internal_program_units_info[i].nodecl_pragma))
+        {
+            *nodecl_internal_subprograms =
+                nodecl_append_to_list(*nodecl_internal_subprograms, 
+                        internal_program_units_info[i].nodecl_pragma);
+        }
     }
 }
 
@@ -5327,8 +5386,134 @@ static void build_scope_intent_stmt(AST a, decl_context_t decl_context,
     }
 }
 
-static void build_scope_interface_block(AST a, decl_context_t decl_context, 
-        nodecl_t* nodecl_output UNUSED_PARAMETER)
+static scope_entry_t* build_scope_single_interface_specification(
+        AST interface_specification,
+        AST generic_spec,
+        decl_context_t decl_context,
+        int *num_related_symbols,
+        scope_entry_t*** related_symbols,
+        nodecl_t* nodecl_pragma)
+{
+    scope_entry_t* entry = NULL;
+    if (ASTType(interface_specification) == AST_PROCEDURE)
+    {
+        unsupported_statement(interface_specification, "PROCEDURE");
+    }
+    else if (ASTType(interface_specification) == AST_MODULE_PROCEDURE)
+    {
+        AST procedure_name_list = ASTSon0(interface_specification);
+        AST it2;
+        if (decl_context.current_scope->related_entry->kind == SK_MODULE)
+        {
+            for_each_element(procedure_name_list, it2)
+            {
+                AST procedure_name = ASTSon1(it2);
+
+                entry = get_symbol_for_name_untyped(decl_context, procedure_name,
+                        ASTText(procedure_name));
+
+                entry->kind = SK_FUNCTION;
+                entry->entity_specs.is_module_procedure = 1;
+
+                remove_unknown_kind_symbol(decl_context, entry);
+                add_not_fully_defined_symbol(decl_context, entry);
+
+                if (generic_spec != NULL)
+                {
+                    P_LIST_ADD((*related_symbols),
+                            (*num_related_symbols),
+                            entry);
+                }
+            }
+        }
+        else
+        {
+            for_each_element(procedure_name_list, it2)
+            {
+                AST procedure_name = ASTSon1(it2);
+
+                entry = get_symbol_for_name(decl_context, procedure_name,
+                        ASTText(procedure_name));
+
+                if (entry == NULL
+                        || entry->kind != SK_FUNCTION
+                        || !entry->entity_specs.is_module_procedure)
+                {
+                    error_printf("%s: error: name '%s' is not a MODULE PROCEDURE\n", 
+                            ast_location(procedure_name),
+                            prettyprint_in_buffer(procedure_name));
+                }
+                else
+                {
+                    if (generic_spec != NULL)
+                    {
+                        P_LIST_ADD((*related_symbols),
+                                (*num_related_symbols),
+                                entry);
+                    }
+                    // We do not insert the symbol since it is already
+                    // available in this scope
+                }
+            }
+        }
+    }
+    else if (ASTType(interface_specification) == AST_SUBROUTINE_PROGRAM_UNIT
+            || ASTType(interface_specification) == AST_FUNCTION_PROGRAM_UNIT)
+    {
+        nodecl_t nodecl_program_unit = nodecl_null();
+        build_scope_program_unit_internal(interface_specification, 
+                decl_context, 
+                &entry,
+                &nodecl_program_unit);
+
+        if (generic_spec != NULL)
+        {
+            P_LIST_ADD((*related_symbols),
+                    (*num_related_symbols),
+                    entry);
+        }
+
+        remove_untyped_symbol(decl_context, entry);
+        remove_unknown_kind_symbol(decl_context, entry);
+    }
+    else if (ASTType(interface_specification) == AST_PRAGMA_CUSTOM_CONSTRUCT)
+    {
+        AST pragma_line = ASTSon0(interface_specification);
+        AST declaration = ASTSon1(interface_specification);
+
+        nodecl_t nodecl_inner_pragma = nodecl_null();
+
+        entry = build_scope_single_interface_specification(declaration,
+                generic_spec,
+                decl_context,
+                num_related_symbols,
+                related_symbols,
+                &nodecl_inner_pragma);
+
+        nodecl_t nodecl_pragma_line = nodecl_null();
+        common_build_scope_pragma_custom_line(pragma_line, /* end_clauses */ NULL, decl_context, &nodecl_pragma_line);
+
+        *nodecl_pragma = 
+            nodecl_make_pragma_custom_declaration(
+                    nodecl_pragma_line,
+                    nodecl_inner_pragma,
+                    nodecl_make_pragma_context(decl_context, ASTFileName(interface_specification), ASTLine(interface_specification)),
+                    nodecl_make_pragma_context(decl_context, ASTFileName(interface_specification), ASTLine(interface_specification)),
+                    entry,
+                    ASTText(interface_specification),
+                    ASTFileName(interface_specification), ASTLine(interface_specification));
+    }
+    else
+    {
+        internal_error("Invalid tree '%s'\n", ast_print_node_type(ASTType(interface_specification)));
+    }
+
+    return entry;
+}
+
+static void build_scope_interface_block(AST a, 
+        decl_context_t decl_context, 
+        nodecl_t* nodecl_output)
 {
     AST interface_stmt = ASTSon0(a);
     AST interface_specification_seq = ASTSon1(a);
@@ -5351,91 +5536,20 @@ static void build_scope_interface_block(AST a, decl_context_t decl_context,
         {
             AST interface_specification = ASTSon1(it);
 
-            if (ASTType(interface_specification) == AST_PROCEDURE)
+            nodecl_t nodecl_pragma = nodecl_null();
+
+            build_scope_single_interface_specification(
+                    interface_specification,
+                    generic_spec,
+                    decl_context,
+                    &num_related_symbols,
+                    &related_symbols,
+                    &nodecl_pragma);
+
+            if (!nodecl_is_null(nodecl_pragma))
             {
-                unsupported_statement(interface_specification, "PROCEDURE");
-            }
-            else if (ASTType(interface_specification) == AST_MODULE_PROCEDURE)
-            {
-                AST procedure_name_list = ASTSon0(interface_specification);
-                AST it2;
-                if (decl_context.current_scope->related_entry->kind == SK_MODULE)
-                {
-                    for_each_element(procedure_name_list, it2)
-                    {
-                        AST procedure_name = ASTSon1(it2);
-
-                        scope_entry_t* entry = get_symbol_for_name_untyped(decl_context, procedure_name,
-                                ASTText(procedure_name));
-
-                        entry->kind = SK_FUNCTION;
-                        entry->entity_specs.is_module_procedure = 1;
-                        
-                        remove_unknown_kind_symbol(decl_context, entry);
-                        add_not_fully_defined_symbol(decl_context, entry);
-
-                        if (generic_spec != NULL)
-                        {
-                            P_LIST_ADD(related_symbols,
-                                    num_related_symbols,
-                                    entry);
-                        }
-                    }
-                }
-                else
-                {
-                    for_each_element(procedure_name_list, it2)
-                    {
-                        AST procedure_name = ASTSon1(it2);
-
-                        scope_entry_t* entry = get_symbol_for_name(decl_context, procedure_name,
-                                ASTText(procedure_name));
-
-                        if (entry == NULL
-                                || entry->kind != SK_FUNCTION
-                                || !entry->entity_specs.is_module_procedure)
-                        {
-                            error_printf("%s: error: name '%s' is not a MODULE PROCEDURE\n", 
-                                    ast_location(procedure_name),
-                                    prettyprint_in_buffer(procedure_name));
-                        }
-                        else
-                        {
-                            if (generic_spec != NULL)
-                            {
-                                P_LIST_ADD(related_symbols,
-                                        num_related_symbols,
-                                        entry);
-                            }
-                            // We do not insert the symbol since it is already
-                            // available in this scope
-                        }
-                    }
-                }
-            }
-            else if (ASTType(interface_specification) == AST_SUBROUTINE_PROGRAM_UNIT
-                    || ASTType(interface_specification) == AST_FUNCTION_PROGRAM_UNIT)
-            {
-                nodecl_t nodecl_program_unit = nodecl_null();
-                scope_entry_t* procedure_sym = NULL;
-                build_scope_program_unit_internal(interface_specification, 
-                        decl_context, 
-                        &procedure_sym,
-                        &nodecl_program_unit);
-
-                if (generic_spec != NULL)
-                {
-                    P_LIST_ADD(related_symbols,
-                            num_related_symbols,
-                            procedure_sym);
-                }
-
-                remove_untyped_symbol(decl_context, procedure_sym);
-                remove_unknown_kind_symbol(decl_context, procedure_sym);
-            }
-            else
-            {
-                internal_error("Invalid tree '%s'\n", ast_print_node_type(ASTType(interface_specification)));
+                *nodecl_output = nodecl_append_to_list(*nodecl_output, 
+                        nodecl_pragma);
             }
         }
     }
