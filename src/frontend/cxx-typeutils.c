@@ -8244,6 +8244,90 @@ computed_function_type_t computed_function_type_get_computing_function(type_t* t
     return t->compute_type_function;
 }
 
+// A literal type may be:
+//  1. scalar type
+//  2. a class type with:
+//      2.1 a trivial copy constructor,
+//      2.2 no non-trivial move constructor,
+//      2.3 a trivial destructor,
+//      2.4 a trivial default constructor or at least one constexpr constructor
+//          other than the copy or move constructor  FIXME: THIS IS NOT SUPPORTED YET
+//      2.5 all non-static data members and base classes of literal types
+//  3. an array of literal type
+//
+char is_literal_type(type_t* t)
+{
+    if (is_scalar_type(t))
+    {
+        return 1;
+    }
+    if (is_class_type(t))
+    {
+        int i;
+        for (i = 0; i < class_type_get_num_copy_constructors(t); i++)
+        {
+            scope_entry_t* entry = class_type_get_copy_constructor_num(t, i);
+            if (entry->entity_specs.is_trivial)
+            {
+                return 1;
+            }
+        }
+        
+        char found_bad_case = 0;
+        for (i = 0; i < class_type_get_num_move_constructors(t) && !found_bad_case; i++)
+        {
+            scope_entry_t* entry = class_type_get_move_constructor_num(t, i);
+            if (!entry->entity_specs.is_trivial)
+            {
+                found_bad_case = 1;
+            }
+        }
+        if (!found_bad_case)
+        {
+            return 1;
+        }
+
+        scope_entry_t* destructor = class_type_get_destructor(t);
+        if (destructor != NULL && destructor->entity_specs.is_trivial)
+        {
+            return 1;
+        }
+
+        found_bad_case = 0;
+        for (i = 0; i < class_type_get_num_nonstatic_data_members(t) && !found_bad_case; i++)
+        {
+            scope_entry_t* data_member = class_type_get_nonstatic_data_member_num(t, i);
+            if (!is_literal_type(data_member->type_information))
+            {
+                found_bad_case = 1;
+            }
+        }
+
+        if (!found_bad_case)
+        {
+            for (i = 0 ; i < class_type_get_num_bases(t) && !found_bad_case; i++)
+            {
+                char is_virtual = 0;
+                char is_dependent = 0;
+                scope_entry_t* base = class_type_get_base_num(t, i, &is_virtual, &is_dependent);
+                if (!is_literal_type(base->type_information))
+                {
+                    found_bad_case = 1;
+                }
+            }
+            if (!found_bad_case)
+            {
+                return 1;
+            }
+        }
+    }
+
+    if (is_array_type(t) && is_literal_type(array_type_get_element_type(t)))
+    {
+        return 1;
+    }
+    return 0;
+}
 
 // A trivial type may be:
 //  1. scalar type
