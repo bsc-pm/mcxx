@@ -1428,22 +1428,22 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                 {
                     // Do not remove the reference here, we will do this later
                     // if mandated
-                    type_t* computed_type = NULL;
+                    type_t* computed_type = expression_get_type(expression);
 
-                    //If the expression is a symbol, try to use its type
-                    if (ASTType(expression) == AST_SYMBOL)
-                    {
-                        scope_entry_t* symbol = expression_get_symbol(expression);
-                        if (symbol != NULL)
-                        {
-                           computed_type = symbol->type_information;
-                        }
-                    }
+                   // //If the expression is a symbol, try to use its type
+                   // if (ASTType(expression) == AST_SYMBOL)
+                   // {
+                   //     scope_entry_t* symbol = expression_get_symbol(expression);
+                   //     if (symbol != NULL)
+                   //     {
+                   //        computed_type = symbol->type_information;
+                   //     }
+                   // }
 
-                    if (computed_type == NULL)
-                    {
-                        computed_type = expression_get_type(expression);
-                    }
+                   // if (computed_type == NULL)
+                   // {
+                   //     computed_type = expression_get_type(expression);
+                   // }
 
                     if (is_unresolved_overloaded_type(computed_type))
                     {
@@ -1477,6 +1477,7 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                     {
                         // The expression type is dependent, wrap it in a typeof
                         computed_type = get_gcc_typeof_expr_type(expression, decl_context);
+                        set_is_dependent_type(computed_type, 1);
                     }
 
                     switch (ASTType(expression))
