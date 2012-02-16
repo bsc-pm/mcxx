@@ -22,6 +22,8 @@ namespace TL
             private:
                 OpenMP::Core _core;
 
+                RefPtr<OpenMP::FunctionTaskSet> _function_task_set;
+
                 // Handler functions
 #define OMP_DIRECTIVE(_directive, _name) \
                 void _name##_handler_pre(TL::PragmaCustomDirective); \

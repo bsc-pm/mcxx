@@ -66,12 +66,12 @@ namespace TL
 
             if (!dto.get_keys().contains("openmp_task_info"))
             {
-                // _function_task_set = RefPtr<OpenMP::FunctionTaskSet>(new OpenMP::FunctionTaskSet());
-                // dto.set_object("openmp_task_info", _function_task_set);
+                _function_task_set = RefPtr<OpenMP::FunctionTaskSet>(new OpenMP::FunctionTaskSet());
+                dto.set_object("openmp_task_info", _function_task_set);
             }
             else
             {
-                // _function_task_set = RefPtr<FunctionTaskSet>::cast_static(dto["openmp_task_info"]);
+                _function_task_set = RefPtr<FunctionTaskSet>::cast_static(dto["openmp_task_info"]);
             }
 
             if (!dto.get_keys().contains("openmp_core_should_run"))
@@ -825,19 +825,20 @@ namespace TL
         
         void Core::threadprivate_handler_post(TL::PragmaCustomDirective construct) { }
 
+        // Inline tasks
         void Core::task_handler_pre(TL::PragmaCustomStatement construct)
         {
             task_inline_handler_pre(construct);
         }
-
-        void Core::task_handler_pre(TL::PragmaCustomDeclaration construct)
-        {
-            task_function_handler_pre(construct);
-        }
-
         void Core::task_handler_post(TL::PragmaCustomStatement construct)
         {
             _openmp_info->pop_current_data_sharing();
+        }
+
+        // Function tasks
+        void Core::task_handler_pre(TL::PragmaCustomDeclaration construct)
+        {
+            task_function_handler_pre(construct);
         }
 
         void Core::task_handler_post(TL::PragmaCustomDeclaration construct)

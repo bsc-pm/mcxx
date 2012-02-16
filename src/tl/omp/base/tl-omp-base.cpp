@@ -3,6 +3,96 @@
 
 namespace TL { namespace OpenMP {
 
+    template <typename T,
+             typename List>
+    static void make_dependency_list(
+            List& dependences,
+            DependencyDirection kind,
+            const std::string& filename, int line,
+            ObjectList<Nodecl::NodeclBase>& result_list)
+    {
+        TL::ObjectList<Nodecl::NodeclBase> data_ref_list;
+        for (typename List::iterator it = dependences.begin();
+                it != dependences.end();
+                it++)
+        {
+            if (it->get_kind() != kind)
+                continue;
+
+            data_ref_list.append(it->get_dependency_expression());
+        }
+
+        if (!data_ref_list.empty())
+        {
+            result_list.append(T::make(Nodecl::List::make(data_ref_list), filename, line));
+        }
+    }
+
+    class FunctionCallVisitor : public Nodecl::ExhaustiveVisitor<void>
+    {
+        private:
+            RefPtr<FunctionTaskSet> _function_task_set;
+        public:
+            FunctionCallVisitor(RefPtr<FunctionTaskSet> function_task_set)
+                : _function_task_set(function_task_set)
+            {
+            }
+
+            virtual void visit(const Nodecl::FunctionCall& call)
+            {
+                Nodecl::NodeclBase called = call.get_called();
+
+                if (called.is<Nodecl::Symbol>() 
+                        && _function_task_set->is_function_task(called.as<Nodecl::Symbol>().get_symbol()))
+                {
+                    // Nodecl::NodeclBase exec_env = compute_
+                    FunctionTaskInfo& task_info = _function_task_set->get_function_task(called.as<Nodecl::Symbol>().get_symbol());
+
+                    Nodecl::NodeclBase exec_env = this->make_exec_environment(call, task_info);
+
+                    Nodecl::Parallel::AsyncCall async_call = Nodecl::Parallel::AsyncCall::make(
+                            exec_env,
+                            // Do we need to copy this?
+                            call.copy(),
+                            call.get_filename(),
+                            call.get_line());
+
+                    call.replace(async_call);
+                }
+            }
+
+        private:
+            Nodecl::NodeclBase make_exec_environment(const Nodecl::FunctionCall &call, FunctionTaskInfo& function_task_info)
+            {
+                TL::ObjectList<Nodecl::NodeclBase> result_list;
+
+                TL::ObjectList<FunctionTaskDependency> task_dependences = function_task_info.get_parameter_info();
+
+                make_dependency_list<Nodecl::Parallel::DepIn>(
+                        task_dependences, 
+                        OpenMP::DEP_DIR_IN,
+                        call.get_filename(), 
+                        call.get_line(),
+                        result_list);
+
+                make_dependency_list<Nodecl::Parallel::DepOut>(
+                        task_dependences, 
+                        OpenMP::DEP_DIR_OUT,
+                        call.get_filename(), 
+                        call.get_line(),
+                        result_list);
+
+                make_dependency_list<Nodecl::Parallel::DepInout>(
+                        task_dependences, 
+                        OpenMP::DEP_DIR_INOUT,
+                        call.get_filename(), 
+                        call.get_line(),
+                        result_list);
+
+                return Nodecl::List::make(result_list);
+            }
+    };
+
     Base::Base()
         : PragmaCustomCompilerPhase("omp"), _core()
     {
@@ -40,6 +130,13 @@ namespace TL { namespace OpenMP {
     {
         _core.run(dto);
         this->PragmaCustomCompilerPhase::run(dto);
+
+        RefPtr<FunctionTaskSet> function_task_set = RefPtr<FunctionTaskSet>::cast_static(dto["openmp_task_info"]);
+
+        Nodecl::NodeclBase translation_unit = dto["nodecl"];
+
+        FunctionCallVisitor function_call_visitor(function_task_set);
+        function_call_visitor.walk(translation_unit);
     }
 
 #define INVALID_STATEMENT_HANDLER(_name) \
@@ -258,9 +355,10 @@ namespace TL { namespace OpenMP {
 
     // Function tasks
     void Base::task_handler_pre(TL::PragmaCustomDeclaration declaration) { }
-    void Base::task_handler_post(TL::PragmaCustomDeclaration)
+    void Base::task_handler_post(TL::PragmaCustomDeclaration decl)
     {
-        internal_error("Not yet implemented", 0);
+        std::cerr << decl.get_locus() << ": debug: remove pragma custom declaration" << std::endl;
+        // internal_error("Not yet implemented", 0);
     }
 
     void Base::target_handler_pre(TL::PragmaCustomStatement) { }
@@ -373,30 +471,6 @@ namespace TL { namespace OpenMP {
             TL::ObjectList<Nodecl::NodeclBase> nodecl_symbols = symbols.map(SymbolBuilder(filename, line));
 
             result_list.append(T::make(Nodecl::List::make(nodecl_symbols), filename, line));
-        }
-    }
-
-    template <typename T>
-    static void make_dependency_list(
-            TL::ObjectList<OpenMP::DependencyItem>& dependences,
-            DependencyDirection kind,
-            const std::string& filename, int line,
-            ObjectList<Nodecl::NodeclBase>& result_list)
-    {
-        TL::ObjectList<Nodecl::NodeclBase> data_ref_list;
-        for (TL::ObjectList<OpenMP::DependencyItem>::iterator it = dependences.begin();
-                it != dependences.end();
-                it++)
-        {
-            if (it->get_kind() != kind)
-                continue;
-
-            data_ref_list.append(it->get_dependency_expression());
-        }
-
-        if (!data_ref_list.empty())
-        {
-            result_list.append(T::make(Nodecl::List::make(data_ref_list), filename, line));
         }
     }
 

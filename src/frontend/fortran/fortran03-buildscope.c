@@ -5490,18 +5490,28 @@ static scope_entry_t* build_scope_single_interface_specification(
                 related_symbols,
                 &nodecl_inner_pragma);
 
-        nodecl_t nodecl_pragma_line = nodecl_null();
-        common_build_scope_pragma_custom_line(pragma_line, /* end_clauses */ NULL, decl_context, &nodecl_pragma_line);
+        if (entry->entity_specs.is_module_procedure)
+        {
+            error_printf("%s: error: a directive cannot appear before a MODULE PROCEDURE statement\n", 
+                    ast_location(interface_specification));
+            return NULL;
+        }
 
-        *nodecl_pragma = 
-            nodecl_make_pragma_custom_declaration(
-                    nodecl_pragma_line,
-                    nodecl_inner_pragma,
-                    nodecl_make_pragma_context(decl_context, ASTFileName(interface_specification), ASTLine(interface_specification)),
-                    nodecl_make_pragma_context(decl_context, ASTFileName(interface_specification), ASTLine(interface_specification)),
-                    entry,
-                    strtolower(ASTText(interface_specification)),
-                    ASTFileName(interface_specification), ASTLine(interface_specification));
+        if (entry != NULL)
+        {
+            nodecl_t nodecl_pragma_line = nodecl_null();
+            common_build_scope_pragma_custom_line(pragma_line, /* end_clauses */ NULL, decl_context, &nodecl_pragma_line);
+
+            *nodecl_pragma = 
+                nodecl_make_pragma_custom_declaration(
+                        nodecl_pragma_line,
+                        nodecl_inner_pragma,
+                        nodecl_make_pragma_context(entry->related_decl_context, ASTFileName(interface_specification), ASTLine(interface_specification)),
+                        nodecl_make_pragma_context(entry->related_decl_context, ASTFileName(interface_specification), ASTLine(interface_specification)),
+                        entry,
+                        strtolower(ASTText(interface_specification)),
+                        ASTFileName(interface_specification), ASTLine(interface_specification));
+        }
     }
     else
     {
