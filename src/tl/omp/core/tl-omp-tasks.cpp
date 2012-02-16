@@ -100,7 +100,6 @@ namespace TL
             return _device_list;
         }
 
-
         FunctionTaskInfo::FunctionTaskInfo(Symbol sym,
                 ObjectList<FunctionTaskDependency> parameter_info,
                 FunctionTaskTargetInfo target_info)
@@ -311,7 +310,6 @@ namespace TL
 
         static bool is_useless_dependence(const FunctionTaskDependency& function_dep)
         {
-            internal_error("Not yet implemented", 0);
             Nodecl::NodeclBase expr(function_dep.get_data_reference());
 
             if (expr.is<Nodecl::Symbol>())
