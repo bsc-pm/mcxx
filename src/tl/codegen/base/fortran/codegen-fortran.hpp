@@ -96,6 +96,7 @@ namespace Codegen
             void visit(const Nodecl::FieldDesignator& node);
             void visit(const Nodecl::Conversion& node);
             void visit(const Nodecl::UnknownPragma& node);
+            void visit(const Nodecl::PragmaCustomDeclaration& node);
             void visit(const Nodecl::PragmaCustomClause& node);
             void visit(const Nodecl::PragmaCustomLine& node);
             void visit(const Nodecl::PragmaCustomStatement& node);

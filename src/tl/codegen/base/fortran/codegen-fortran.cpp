@@ -1663,6 +1663,14 @@ OPERATOR_TABLE
         }
     }
 
+    void FortranBase::visit(const Nodecl::PragmaCustomDeclaration& node)
+    {
+        file << "!! decl: ";
+        walk(node.get_pragma_line());
+        file << "\n";
+        walk(node.get_nested_pragma());
+    }
+
     void FortranBase::visit(const Nodecl::PragmaClauseArg& node)
     {
         file << node.get_text();
