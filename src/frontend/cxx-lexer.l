@@ -81,7 +81,7 @@ static lexer_keyword_t gxx_43_keywords[] =
     { "__is_convertible_to", GXX_IS_CONVERTIBLE_TO },
     { "__is_empty", GXX_IS_EMPTY },
     { "__is_enum", GXX_IS_ENUM },
-    { "__is_literal_type", GXX_IS_LITERAL_TYPE }
+    { "__is_literal_type", GXX_IS_LITERAL_TYPE },
     { "__is_pod", GXX_IS_POD },
     { "__is_polymorphic", GXX_IS_POLYMORPHIC },
     { "__is_trivial", GXX_IS_TRIVIAL },
