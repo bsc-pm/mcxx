@@ -100,21 +100,6 @@ namespace TL
             return _device_list;
         }
 
-        FunctionTaskDependency::FunctionTaskDependency(DataReference expr,
-                DependencyDirection direction)
-            : _direction(direction), _expr(expr)
-        {
-        }
-
-        DataReference FunctionTaskDependency::get_data_reference() const
-        {
-            return _expr;
-        }
-
-        DependencyDirection FunctionTaskDependency::get_direction() const
-        {
-            return _direction;
-        }
 
         FunctionTaskInfo::FunctionTaskInfo(Symbol sym,
                 ObjectList<FunctionTaskDependency> parameter_info,
