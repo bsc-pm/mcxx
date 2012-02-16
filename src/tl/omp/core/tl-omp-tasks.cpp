@@ -379,14 +379,16 @@ namespace TL
 
             RealTimeInfo rt_info = task_real_time_handler_pre(pragma_line);
 
-            PragmaCustomClause input_clause = pragma_line.get_clause("input");
+            PragmaCustomClause input_clause = pragma_line.get_clause("in", 
+                    /* deprecated name */ "input");
             ObjectList<Nodecl::NodeclBase> input_arguments;
             if (input_clause.is_defined())
             {
                 input_arguments = input_clause.get_arguments_as_expressions(param_ref_tree);
             }
 
-            PragmaCustomClause output_clause = pragma_line.get_clause("output");
+            PragmaCustomClause output_clause = pragma_line.get_clause("out", 
+                    /* deprecated name */ "output");
             ObjectList<Nodecl::NodeclBase> output_arguments;
             if (output_clause.is_defined())
             {
