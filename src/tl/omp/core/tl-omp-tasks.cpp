@@ -100,22 +100,6 @@ namespace TL
             return _device_list;
         }
 
-        FunctionTaskDependency::FunctionTaskDependency(DataReference expr,
-                DependencyDirection direction)
-            : _direction(direction), _expr(expr)
-        {
-        }
-
-        DataReference FunctionTaskDependency::get_data_reference() const
-        {
-            return _expr;
-        }
-
-        DependencyDirection FunctionTaskDependency::get_direction() const
-        {
-            return _direction;
-        }
-
         FunctionTaskInfo::FunctionTaskInfo(Symbol sym,
                 ObjectList<FunctionTaskDependency> parameter_info,
                 FunctionTaskTargetInfo target_info)
@@ -326,7 +310,6 @@ namespace TL
 
         static bool is_useless_dependence(const FunctionTaskDependency& function_dep)
         {
-            internal_error("Not yet implemented", 0);
             Nodecl::NodeclBase expr(function_dep.get_data_reference());
 
             if (expr.is<Nodecl::Symbol>())
@@ -394,14 +377,16 @@ namespace TL
 
             RealTimeInfo rt_info = task_real_time_handler_pre(pragma_line);
 
-            PragmaCustomClause input_clause = pragma_line.get_clause("input");
+            PragmaCustomClause input_clause = pragma_line.get_clause("in", 
+                    /* deprecated name */ "input");
             ObjectList<Nodecl::NodeclBase> input_arguments;
             if (input_clause.is_defined())
             {
                 input_arguments = input_clause.get_arguments_as_expressions(param_ref_tree);
             }
 
-            PragmaCustomClause output_clause = pragma_line.get_clause("output");
+            PragmaCustomClause output_clause = pragma_line.get_clause("out", 
+                    /* deprecated name */ "output");
             ObjectList<Nodecl::NodeclBase> output_arguments;
             if (output_clause.is_defined())
             {
@@ -415,7 +400,7 @@ namespace TL
                 inout_arguments = inout_clause.get_arguments_as_expressions(param_ref_tree);
             }
 
-            PragmaCustomClause reduction_clause = pragma_line.get_clause("__shared_reduction");
+            PragmaCustomClause reduction_clause = pragma_line.get_clause("concurrent");
             ObjectList<Nodecl::NodeclBase> reduction_arguments;
             if (reduction_clause.is_defined())
             {

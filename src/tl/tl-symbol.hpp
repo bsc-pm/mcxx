@@ -497,6 +497,12 @@ namespace TL
               */
             bool is_optional() const;
 
+            //! This Fortran program unit has a global SAVE
+            /*!
+             * States whether this program unit has a SAVE specifier with an empty name-list
+             */
+            bool is_saved_program_unit() const;
+
             //! This symbol is TARGET
             /*! 
               States whether this symbol has the TARGET attribute

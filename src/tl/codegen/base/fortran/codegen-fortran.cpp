@@ -315,6 +315,12 @@ namespace Codegen
             walk(equivalence_symbol.get_initialization());
         }
 
+        if (entry.is_saved_program_unit())
+        {
+            indent();
+            file << "SAVE\n";
+        }
+
         // Separate executable statements
         if (!statement_seq.is_null())
         {
@@ -730,11 +736,29 @@ OPERATOR_TABLE
         }
         else
         {
-            file << (long long int)const_value_cast_to_8(value);
+            long long int v = (long long int)const_value_cast_to_8(value);
+
+            long long tiniest_of_its_type = (~0LL);
+            tiniest_of_its_type <<= (sizeof(tiniest_of_its_type) * num_bytes - 1);
+
+            std::string suffix;
             if (num_bytes != fortran_get_default_integer_type_kind())
             {
-                file << "_" << num_bytes;
+                std::stringstream ss;
+                ss << "_" << num_bytes;
+                suffix = ss.str();
             }
+
+            // The tiniest integer cannot be printed as a constant
+            if (v == tiniest_of_its_type)
+            {
+                file << (v  + 1) << suffix <<  "-1" << suffix;
+            }
+            else
+            {
+                file << v << suffix;
+            }
+
         }
     }
 
@@ -1639,6 +1663,14 @@ OPERATOR_TABLE
         }
     }
 
+    void FortranBase::visit(const Nodecl::PragmaCustomDeclaration& node)
+    {
+        file << "!! decl: ";
+        walk(node.get_pragma_line());
+        file << "\n";
+        walk(node.get_nested_pragma());
+    }
+
     void FortranBase::visit(const Nodecl::PragmaClauseArg& node)
     {
         file << node.get_text();
@@ -1971,6 +2003,10 @@ OPERATOR_TABLE
         if (get_codegen_status(entry) == CODEGEN_STATUS_DEFINED)
             return;
 
+        // If we are told not to declare it, ignore it
+        if (do_not_declare.contains(entry))
+            return;
+
         decl_context_t entry_context = entry.get_scope().get_decl_context();
         // We do not declare anything not in our context 
         if (state.current_symbol != TL::Symbol(entry_context.current_scope->related_entry)
@@ -2033,8 +2069,6 @@ OPERATOR_TABLE
             {
                 if (entry.get_type().is_pointer())
                 {
-                    // internal_error("Error: pointers cannot be passed by value in Fortran\n", 
-                    //         entry.get_name().c_str());
                     declared_type = TL::Type(get_size_t_type());
                 }
                 else if (entry.get_type().is_array())
@@ -2680,6 +2714,27 @@ OPERATOR_TABLE
         indent();
         file << "IMPLICIT NONE\n";
 
+        // Now emit additional access-statements that might be needed for these
+        // USEd symbols
+        for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
+                it != related_symbols.end();
+                it++)
+        {
+            if (it->get_internal_symbol()->entity_specs.from_module != NULL
+                    && it->get_access_specifier() == AS_PRIVATE)
+            {
+                // If it has a private access specifier, state so
+                indent();
+                file << "PRIVATE :: " << it->get_name() << "\n";
+            }
+        }
+
+        if (entry.is_saved_program_unit())
+        {
+            indent();
+            file << "SAVE\n";
+        }
+
         TL::Symbol previous_sym = state.current_symbol;
 
         state.current_symbol = entry;
@@ -2769,6 +2824,12 @@ OPERATOR_TABLE
 
         indent();
         file << "IMPLICIT NONE\n";
+
+        if (entry.is_saved_program_unit())
+        {
+            indent();
+            file << "SAVE\n";
+        }
 
         TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
 
@@ -2882,6 +2943,10 @@ OPERATOR_TABLE
 
         // Avoid infinite recursion
         if (being_checked.find(entry) != being_checked.end())
+            return;
+
+        // Do not declare if we are told not to declare it
+        if (do_not_declare.contains(entry))
             return;
 
         being_checked.insert(entry);
@@ -3510,6 +3575,40 @@ OPERATOR_TABLE
         TL::CompilationProcess::add_file(file_name, "auxcc");
 
         ::mark_file_for_cleanup(file_name.c_str());
+    }
+
+    std::string FortranBase::emit_declaration_part(Nodecl::NodeclBase node, const TL::ObjectList<TL::Symbol>& do_not_declare)
+    {
+        clear_codegen_status();
+        clear_renames();
+
+        TL::Scope sc = node.retrieve_context();
+
+        state = State();
+        state.current_symbol = TL::Symbol(sc.get_decl_context().current_scope->related_entry);
+
+        file.clear();
+        file.str("");
+
+        state = State();
+
+        this->do_not_declare = do_not_declare;
+
+        declare_use_statements(node);
+        file << "IMPLICIT NONE" << "\n";
+        declare_everything_needed(node);
+
+        std::string result = file.str();
+
+        file.clear();
+        file.str("");
+
+        this->do_not_declare.clear();
+
+        clear_codegen_status();
+        clear_renames();
+
+        return result;
     }
 }
 

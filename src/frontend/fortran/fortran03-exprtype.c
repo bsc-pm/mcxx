@@ -941,9 +941,17 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
 
             t = no_ref(t);
 
-            if (is_fortran_array_type(t))
+            if (!symbol_is_invalid)
             {
-                synthesized_type = rebuild_array_type(synthesized_type, t);
+                if (is_fortran_array_type(t))
+                {
+                    // We do not really know the range here
+                    synthesized_type = get_array_type_bounds(
+                            synthesized_type,
+                            nodecl_null(),
+                            nodecl_null(),
+                            array_type_get_array_size_expr_context(t));
+                }
             }
         }
         num_subscripts++;
@@ -1988,27 +1996,36 @@ static scope_entry_t* get_specific_interface(scope_entry_t* symbol,
         actual_argument_info_t argument_types[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
         memset(argument_types, 0, sizeof(argument_types));
 
+        int num_parameters = function_type_get_num_parameters(specific_symbol->type_information);
+
         DEBUG_CODE()
         {
             fprintf(stderr, "EXPRTYPE: Checking with specific interface %s:%d\n",
                     specific_symbol->file, 
                     specific_symbol->line);
             int i;
-            for (i = 0; (i < num_arguments) && ok; i++)
+            for (i = 0; (i < num_parameters) && ok; i++)
             {
                 type_t* formal_type = no_ref(function_type_get_parameter_type_num(specific_symbol->type_information, i));
 
-                fprintf(stderr, "EXPRTYPE:    Name: %s\n", 
-                       specific_symbol->entity_specs.related_symbols[i] != NULL ? 
-                       specific_symbol->entity_specs.related_symbols[i]->symbol_name : 
-                       "<<no-name>>");
+                fprintf(stderr, "EXPRTYPE:    %sName: %s\n", 
+                        specific_symbol->entity_specs.related_symbols[i]->entity_specs.is_optional ? "Optional " : "",
+                        specific_symbol->entity_specs.related_symbols[i] != NULL ? 
+                        specific_symbol->entity_specs.related_symbols[i]->symbol_name : 
+                        "<<no-name>>");
                 fprintf(stderr, "EXPRTYPE:    Parameter: %s\n", 
                         fortran_print_type_str(formal_type));
             }
         }
 
+        int current_num_arguments = num_arguments;
+
+        // This is not possible with generic specifiers
+        if (current_num_arguments > num_parameters)
+            ok = 0;
+
         int i;
-        for (i = 0; (i < num_arguments) && ok; i++)
+        for (i = 0; (i < current_num_arguments) && ok; i++)
         {
             int position = -1;
             if (keyword_names[i] == NULL)
@@ -2059,7 +2076,7 @@ static scope_entry_t* get_specific_interface(scope_entry_t* symbol,
                         {
                             argument_types[i].type = related_sym->type_information;
                             argument_types[i].not_present = 1;
-                            num_arguments++;
+                            current_num_arguments++;
                         }
                         else 
                         {
@@ -2073,14 +2090,14 @@ static scope_entry_t* get_specific_interface(scope_entry_t* symbol,
 
         if (ok)
         {
-            if (num_arguments != function_type_get_num_parameters(specific_symbol->type_information))
+            if (current_num_arguments != function_type_get_num_parameters(specific_symbol->type_information))
                 ok = 0;
         }
 
         if (ok)
         {
             // Now check that every type matches, otherwise error
-            for (i = 0; (i < num_arguments) && ok; i++)
+            for (i = 0; (i < current_num_arguments) && ok; i++)
             {
                 type_t* formal_type = no_ref(function_type_get_parameter_type_num(specific_symbol->type_information, i));
                 type_t* real_type = no_ref(argument_types[i].type);

@@ -96,6 +96,7 @@ namespace Codegen
             void visit(const Nodecl::FieldDesignator& node);
             void visit(const Nodecl::Conversion& node);
             void visit(const Nodecl::UnknownPragma& node);
+            void visit(const Nodecl::PragmaCustomDeclaration& node);
             void visit(const Nodecl::PragmaCustomClause& node);
             void visit(const Nodecl::PragmaCustomLine& node);
             void visit(const Nodecl::PragmaCustomStatement& node);
@@ -114,16 +115,25 @@ namespace Codegen
                     std::string& type_specifier, 
                     std::string& array_specifier,
                     bool is_dummy);
+
+            std::string emit_declaration_part(Nodecl::NodeclBase node, const TL::ObjectList<TL::Symbol>& do_not_declare);
         private:
             // State
             struct State
             {
+                // Level of indentation
                 int _indent_level;
 
+                // Current program unit
                 TL::Symbol current_symbol;
+
+                // Current module (can be NULL if not currently emitting a module)
                 TL::Symbol current_module;
 
+                // Inside a FORALL construct
                 bool in_forall;
+
+                // An INTERFACE block (without generic-specifier) is open
                 bool in_interface;
 
                 State()
@@ -136,20 +146,40 @@ namespace Codegen
                 }
             } state;
 
+            // Status of the declaration of a given symbol inside a program unit
+            // in Fortran only CODEGEN_STATUS_DEFINED or CODEGEN_STATUS_NONE
+            //
+            // If a symbol is in CODEGEN_STATUS_DEFINED we do not define it again
             typedef std::map<TL::Symbol, codegen_status_t> codegen_status_map_t;
             codegen_status_map_t _codegen_status;
 
+            // Set of names actively used in the current scoping unit
+            // This is used for renames (see later)
             typedef std::set<std::string> name_set_t;
             name_set_t _name_set;
 
+            // Given a symbol, its rename, if any. When _name_set detects
+            // that a name has already been used in this scoping unit
+            // a rename for it is computed, and then kep here
             typedef std::map<TL::Symbol, std::string> rename_map_t;
             rename_map_t _rename_map;
 
+            // Map of types for PTR_LOC
+            // When (due to code coming from C-parsed code) we need
+            // the address of a pointer variable (not the address of what
+            // is pointing which can actually be obtained using LOC)
+            // we emit a PTR_LOC_xxx call which must be later emitted in C
             typedef std::map<TL::Type, std::string> ptr_loc_map_t;
             ptr_loc_map_t _ptr_loc_map;
 
+            // This is a set stating if a given PTR_LOC_xxx names has been
+            // emitted already or not in the current scoping unit
             typedef std::set<std::string> external_symbol_set_t;
             external_symbol_set_t _external_symbols;
+
+            // This is a set used for emit_declaration_part which states that a
+            // given symbol does not have to be declared at all
+            TL::ObjectList<TL::Symbol> do_not_declare;
 
             std::string define_ptr_loc(TL::Type t, const std::string& function_name);
 

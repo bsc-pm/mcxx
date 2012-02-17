@@ -421,17 +421,11 @@ type_t* rebuild_array_type(type_t* rank0_type, type_t* array_type)
     else
     {
         type_t* t = rebuild_array_type(rank0_type, array_type_get_element_type(array_type));
-        if (!array_type_is_unknown_size(array_type))
-        {
-            return get_array_type_bounds(t, 
-                    array_type_get_array_lower_bound(array_type),
-                    array_type_get_array_upper_bound(array_type),
-                    array_type_get_array_size_expr_context(array_type));
-        }
-        else
-        {
-            return get_array_type(t, nodecl_null(), array_type_get_array_size_expr_context(array_type));
-        }
+
+        return get_array_type_bounds(t, 
+                array_type_get_array_lower_bound(array_type),
+                array_type_get_array_upper_bound(array_type),
+                array_type_get_array_size_expr_context(array_type));
     }
 }
 

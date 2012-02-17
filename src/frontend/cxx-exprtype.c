@@ -1001,54 +1001,158 @@ static void decimal_literal_type(AST expr, nodecl_t* nodecl_output)
         last--;
     }
 
-    type_t* result = NULL;
-    switch (is_long)
-    {
-        case 0 :
-            {
-                result = ((is_unsigned == 0 ) ? get_signed_int_type() : get_unsigned_int_type());
+    char is_decimal = (ASTType(expr) == AST_DECIMAL_LITERAL);
 
-                if (is_unsigned)
-                {
-                    result = get_unsigned_int_type();
-                    val = const_value_get_integer(strtoul(literal, NULL, 0), type_get_size(result), /*sign*/ 0);
-                }
-                else
-                {
-                    result = get_signed_int_type();
-                    val = const_value_get_integer(strtol(literal, NULL, 0), type_get_size(result), /* sign*/ 1);
-                }
-                break;
-            }
-        case 1 : 
-            {
-                if (is_unsigned)
-                {
-                    result = get_unsigned_long_int_type();
-                    val = const_value_get_integer(strtoul(literal, NULL, 0), type_get_size(result), 0);
-                }
-                else
-                {
-                    result = get_signed_long_int_type();
-                    val = const_value_get_integer(strtol(literal, NULL, 0), type_get_size(result), 1);
-                }
-                break;
-            }
-        default :
-            {
-                if (is_unsigned)
-                {
-                    result = get_unsigned_long_long_int_type();
-                    val = const_value_get_integer(strtoull(literal, NULL, 0), type_get_size(result), 0);
-                }
-                else
-                {
-                    result = get_signed_long_long_int_type();
-                    val = const_value_get_integer(strtoll(literal, NULL, 0), type_get_size(result), 1);
-                }
-                break;
-            }
+    type_t** eligible_types = NULL;
+    int num_eligible_types = 0;
+
+    // decimal no suffix -> int, long, long long
+    type_t* decimal_no_suffix[] = { 
+        get_signed_int_type(), 
+        get_signed_long_int_type(), 
+        get_signed_long_long_int_type() 
+    };
+
+    if (is_decimal
+            && !is_unsigned
+            && !is_long)
+    {
+        eligible_types = decimal_no_suffix;
+        num_eligible_types = STATIC_ARRAY_LENGTH(decimal_no_suffix);
     }
+
+    // oct/hex no suffix -> int, unsigned int, long, unsigned long, long long, unsigned long long
+    type_t* nondecimal_no_suffix[] = { 
+        get_signed_int_type(),
+        get_unsigned_int_type(),
+        get_signed_long_int_type(),
+        get_unsigned_long_int_type(),
+        get_signed_long_long_int_type(),
+        get_unsigned_long_long_int_type() 
+    };
+
+    if (!is_decimal
+            && !is_unsigned
+            && is_long == 0)
+    {
+        eligible_types = nondecimal_no_suffix;
+        num_eligible_types = STATIC_ARRAY_LENGTH(nondecimal_no_suffix);
+    }
+    
+    // U suffix  -> unsigned int, unsigned long, unsigned long long
+    type_t* U_suffix[] =  {
+        get_unsigned_int_type(),
+        get_unsigned_long_int_type(),
+        get_unsigned_long_long_int_type(),
+    };
+
+    if (is_unsigned
+            && is_long == 0)
+    {
+        eligible_types = U_suffix;
+        num_eligible_types = STATIC_ARRAY_LENGTH(U_suffix);
+    }
+
+    // decimal L suffix  -> long, long long
+    type_t* decimal_L_suffix[] = {
+        get_signed_long_int_type(),
+        get_signed_long_long_int_type(),
+    };
+
+    if (is_decimal
+            && !is_unsigned
+            && is_long == 1)
+    {
+        eligible_types = decimal_L_suffix;
+        num_eligible_types = STATIC_ARRAY_LENGTH(decimal_L_suffix);
+    }
+
+    // oct/hex L suffix -> long, unsigned long, long long, unsigned long long
+    type_t* nondecimal_L_suffix[] = {
+        get_signed_long_int_type(),
+        get_unsigned_long_int_type(),
+        get_signed_long_long_int_type(),
+        get_unsigned_long_long_int_type(),
+    };
+
+    if (!is_decimal
+            && !is_unsigned
+            && is_long == 1)
+    {
+        eligible_types = nondecimal_L_suffix;
+        num_eligible_types = STATIC_ARRAY_LENGTH(nondecimal_L_suffix);
+    }
+
+    // UL suffix -> unsigned long, unsigned long long
+    type_t* UL_suffix[] = { 
+        get_unsigned_long_int_type(),
+        get_unsigned_long_long_int_type(),
+    };
+
+    if (is_unsigned
+            && is_long == 1)
+    {
+        eligible_types = UL_suffix;
+        num_eligible_types = STATIC_ARRAY_LENGTH(UL_suffix);
+    }
+
+    // LL suffix -> long long, unsigned long logn
+    type_t* decimal_LL_suffix[] = {
+        get_signed_long_long_int_type(),
+    };
+
+    if (is_decimal
+            && !is_unsigned
+            && is_long == 2)
+    {
+        eligible_types = decimal_LL_suffix;
+        num_eligible_types = STATIC_ARRAY_LENGTH(decimal_LL_suffix);
+    }
+
+    type_t* nondecimal_LL_suffix[] = {
+        get_signed_long_long_int_type(),
+        get_unsigned_long_long_int_type(),
+    };
+
+    if (!is_decimal
+            && !is_unsigned
+            && is_long == 2)
+    {
+        eligible_types = nondecimal_LL_suffix;
+        num_eligible_types = STATIC_ARRAY_LENGTH(nondecimal_LL_suffix);
+    }
+
+    // ULL suffix -> unsigned long long
+    type_t* ULL_suffix[] = {
+        get_unsigned_long_long_int_type(),
+    };
+
+    if (is_unsigned
+            && is_long == 2)
+    {
+        eligible_types = ULL_suffix;
+        num_eligible_types = STATIC_ARRAY_LENGTH(ULL_suffix);
+    }
+
+    ERROR_CONDITION(eligible_types == NULL, "No set of eligible types has been computed", 0);
+
+    uint64_t parsed_value = (uint64_t)strtoull(literal, NULL, 0);
+
+    type_t* result =
+        const_value_get_minimal_integer_type_from_list_of_types(
+                parsed_value,
+                num_eligible_types,
+                eligible_types);
+
+    if (result == NULL)
+    {
+        error_printf("%s: error: there is not any appropiate integer type for constant '%s', assuming 'unsigned long long'\n",
+                ast_location(expr),
+                ASTText(expr));
+        result = get_unsigned_long_long_int_type();
+    }
+
+    val = const_value_get_integer(strtoul(literal, NULL, 0), type_get_size(result), /*sign*/ 0);
 
     // Zero is a null pointer constant requiring a distinguishable 'int' type
     if (ASTType(expr) == AST_OCTAL_LITERAL

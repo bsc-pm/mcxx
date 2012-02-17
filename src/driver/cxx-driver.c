@@ -933,6 +933,7 @@ int parse_arguments(int argc, const char* argv[],
                         char temp[256] = { 0 };
                         snprintf(temp, 255, "-I%s", parameter_info.argument);
                         add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, temp);
+                        add_to_parameter_list_str(&CURRENT_CONFIGURATION->fortran_preprocessor_options, temp);
                         P_LIST_ADD(CURRENT_CONFIGURATION->module_dirs, CURRENT_CONFIGURATION->num_module_dirs,
                                 uniquestr(parameter_info.argument));
                         P_LIST_ADD(CURRENT_CONFIGURATION->include_dirs, CURRENT_CONFIGURATION->num_include_dirs,

@@ -91,17 +91,6 @@ namespace TL
 
 #undef BITMAP
 
-        class LIBTL_CLASS DependencyItem : public TL::Object
-        {
-            private:
-                DataReference _dep_expr;
-                DependencyDirection _kind;
-            public:
-                DependencyItem(DataReference dep_expr, DependencyDirection kind);
-
-                DependencyDirection get_kind() const;
-                DataReference get_dependency_expression() const;
-        };
 
         enum CopyDirection
         {
@@ -230,6 +219,18 @@ namespace TL
                 void add_error_behavior(std::string action);
         };
 
+        class LIBTL_CLASS DependencyItem : public TL::Object
+        {
+            private:
+                DataReference _dep_expr;
+                DependencyDirection _kind;
+            public:
+                DependencyItem(DataReference dep_expr, DependencyDirection kind);
+
+                DependencyDirection get_kind() const;
+                DataReference get_dependency_expression() const;
+        };
+
         //! This class represents data sharing environment in a OpenMP construct
         class LIBTL_CLASS DataSharingEnvironment
         {
@@ -354,16 +355,6 @@ namespace TL
                 void reset();
         };
 
-        class LIBTL_CLASS FunctionTaskDependency
-        {
-            private:
-                DependencyDirection _direction;
-                DataReference _expr;
-            public:
-                FunctionTaskDependency(DataReference expr, DependencyDirection direction);
-                DependencyDirection get_direction() const; 
-                DataReference get_data_reference() const;
-        };
 
         class LIBTL_CLASS FunctionTaskTargetInfo
         {
@@ -394,6 +385,23 @@ namespace TL
                 void set_device_list(const ObjectList<std::string>& device_list);
 
                 ObjectList<std::string> get_device_list() const;
+        };
+
+        class LIBTL_CLASS FunctionTaskDependency : public DependencyItem
+        {
+            public:
+                FunctionTaskDependency(DataReference expr, DependencyDirection direction)
+                    : DependencyItem(expr, direction) { }
+
+                DependencyDirection get_direction() const
+                {
+                    return this->get_kind();
+                }
+
+                DataReference get_data_reference() const
+                {
+                    return this->get_dependency_expression();
+                }
         };
 
         class LIBTL_CLASS FunctionTaskInfo 

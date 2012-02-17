@@ -36,6 +36,7 @@
 %type<ast> pragma_custom_end_construct
 %type<ast> pragma_custom_end_construct_noend
 %type<ast> pragma_custom_construct_internal_program_unit
+%type<ast> pragma_custom_construct_module_subprogram_unit
 %type<ast> pragma_custom_construct_interface_body
 /*!endif*/
 %type<ast> pragma_custom_clause
@@ -181,6 +182,15 @@ pragma_custom_noend_line_construct : PRAGMA_CUSTOM_CONSTRUCT_NOEND pragma_custom
 | PRAGMA_CUSTOM_CONSTRUCT_NOEND '(' pragma_clause_arg_list ')' pragma_custom_clause_opt_seq PRAGMA_CUSTOM_NEWLINE
 {
 	$$ = ASTMake2(AST_PRAGMA_CUSTOM_LINE, $5, $3, $1.token_file, $1.token_line, $1.token_text);
+}
+;
+
+module_subprogram : pragma_custom_construct_module_subprogram_unit
+;
+
+pragma_custom_construct_module_subprogram_unit : PRAGMA_CUSTOM pragma_custom_line_construct module_subprogram
+{
+	$$ = ASTMake3(AST_PRAGMA_CUSTOM_CONSTRUCT, $2, $3, NULL, $1.token_file, $1.token_line, $1.token_text);
 }
 ;
 
