@@ -206,6 +206,8 @@ static int safe_atoi(const char *c)
 
 #include "fortran03-modules-bits.h"
 
+static scope_entry_t* module_being_emitted = NULL;
+
 void dump_module_info(scope_entry_t* module)
 {
     ERROR_CONDITION(module->kind != SK_MODULE, "Invalid symbol!", 0);
@@ -230,7 +232,9 @@ void dump_module_info(scope_entry_t* module)
 
     init_storage(handle);
 
+    module_being_emitted = module;
     sqlite3_uint64 module_oid = insert_symbol(handle, module);
+    module_being_emitted = NULL;
 
     finish_module_file(handle, module->symbol_name, module_oid);
 
@@ -403,7 +407,8 @@ static void define_schema(sqlite3* handle)
     }
 
     {
-        char * create_symbol = sqlite3_mprintf("CREATE TABLE symbol(name, kind, type, file, line, value, %s);", attr_field_names);
+        char * create_symbol = sqlite3_mprintf("CREATE TABLE symbol(decl_context, name, kind, type, file, line, "
+                "value, bit_entity_specs, %s);", attr_field_names);
         run_query(handle, create_symbol);
         sqlite3_free(create_symbol);
     }
@@ -431,6 +436,9 @@ static void define_schema(sqlite3* handle)
     {
         const char * create_context = "CREATE TABLE decl_context(" DECL_CONTEXT_FIELDS ");";
         run_query(handle, create_context);
+
+        const char * create_decl_context_index = "CREATE INDEX decl_context_index ON decl_context ( " DECL_CONTEXT_FIELDS " );";
+        run_query(handle, create_decl_context_index);
     }
 
     {
@@ -1003,17 +1011,8 @@ static sqlite3_uint64 insert_ast(sqlite3* handle, AST a)
         }
     }
 
-    // FIXME!
     type_t* type = nodecl_get_type(_nodecl_wrap(a));
-    if (type != NULL)
-    {
-        insert_type(handle, type);
-    }
     scope_entry_t* sym = nodecl_get_symbol(_nodecl_wrap(a));
-    if (sym != NULL)
-    {
-        insert_symbol(handle, sym);
-    }
 
     char is_lvalue = nodecl_expr_is_lvalue(_nodecl_wrap(a));
     char is_const_val = nodecl_is_constant(_nodecl_wrap(a));
@@ -1037,7 +1036,14 @@ static sqlite3_uint64 insert_ast(sqlite3* handle, AST a)
         sqlite3_bind_null(_insert_ast_stmt, 3);
     }
     sqlite3_bind_int  (_insert_ast_stmt, 4, ast_get_line(a));
-    sqlite3_bind_text (_insert_ast_stmt, 5, ast_get_filename(a), -1, SQLITE_STATIC);
+    if (ast_get_text(a) != NULL)
+    {
+        sqlite3_bind_text(_insert_ast_stmt, 5, ast_get_text(a), -1, SQLITE_STATIC);
+    }
+    else
+    {
+        sqlite3_bind_null(_insert_ast_stmt, 5);
+    }
     sqlite3_bind_int64(_insert_ast_stmt, 6, children[0]);
     sqlite3_bind_int64(_insert_ast_stmt, 7, children[1]);
     sqlite3_bind_int64(_insert_ast_stmt, 8, children[2]);
@@ -1061,6 +1067,20 @@ static sqlite3_uint64 insert_ast(sqlite3* handle, AST a)
     sqlite3_reset(_insert_ast_stmt);
 
     sqlite3_uint64 result = sqlite3_last_insert_rowid(handle);
+
+    if (type != NULL)
+    {
+        insert_type(handle, type);
+    }
+    if (sym != NULL)
+    {
+        insert_symbol(handle, sym);
+    }
+
+    // fprintf(stderr, "INSERTING AST %s WITH SYMBOL = %llu\n", 
+    //         ast_print_node_type(ast_get_type(a)),
+    //         P2ULL(sym));
+
     return result;
 }
 
@@ -1134,11 +1154,7 @@ static sqlite3_uint64 insert_type(sqlite3* handle, type_t* t)
         const char *name = "ARRAY";
 
         sqlite3_uint64 lower_tree = insert_nodecl(handle, array_type_get_array_lower_bound(t));
-        sqlite3_uint64 upper_tree = 0;
-        if (!array_type_is_unknown_size(t))
-        {
-            upper_tree = insert_nodecl(handle, array_type_get_array_upper_bound(t));
-        }
+        sqlite3_uint64 upper_tree = insert_nodecl(handle, array_type_get_array_upper_bound(t));
 
         sqlite3_uint64 element_type = insert_type(handle, array_type_get_element_type(t));
 
@@ -1453,11 +1469,55 @@ static sqlite3_uint64 insert_scope(sqlite3* handle, scope_t* scope)
     return oid;
 }
 
-static void insert_decl_context(sqlite3* handle, scope_entry_t* symbol, decl_context_t decl_context)
+static int get_decl_context_oid_(void *datum,
+        int ncols UNUSED_PARAMETER,
+        char **values, 
+        char **names UNUSED_PARAMETER)
 {
-    char *insert_decl_context_query = sqlite3_mprintf("INSERT INTO decl_context (oid, " DECL_CONTEXT_FIELDS ") "
-            "VALUES (%llu, %d, %llu, %llu, %llu, %llu, %llu, %llu, %llu);",
-            P2ULL(symbol),
+    sqlite3_uint64* oid = (sqlite3_uint64*)datum;
+
+    *oid = safe_atoull(values[0]);
+
+    return 0;
+}
+
+static sqlite3_uint64 insert_decl_context(sqlite3* handle, decl_context_t decl_context)
+{
+    char* check_decl_context_already_inserted = sqlite3_mprintf(
+            "SELECT oid FROM decl_context WHERE "
+            "flags = %d "
+            "AND namespace_scope = %llu "
+            "AND global_scope = %llu "
+            "AND block_scope = %llu "
+            "AND class_scope = %llu "
+            "AND function_scope = %llu "
+            "AND prototype_scope = %llu "
+            "AND current_scope = %llu ",
+            decl_context.decl_flags,
+            insert_scope(handle, decl_context.namespace_scope),
+            insert_scope(handle, decl_context.global_scope),
+            insert_scope(handle, decl_context.block_scope),
+            insert_scope(handle, decl_context.class_scope),
+            insert_scope(handle, decl_context.function_scope),
+            insert_scope(handle, decl_context.prototype_scope),
+            insert_scope(handle, decl_context.current_scope));
+
+    sqlite3_uint64 decl_context_oid = 0;
+
+    char * errmsg = NULL;
+    if (run_select_query(handle, check_decl_context_already_inserted, get_decl_context_oid_, &decl_context_oid, &errmsg) != SQLITE_OK)
+    {
+        running_error("Error while running query: %s\n", errmsg);
+    }
+    sqlite3_free(check_decl_context_already_inserted);
+
+    if (decl_context_oid != 0)
+    {
+        return decl_context_oid;
+    }
+
+    char *insert_decl_context_query = sqlite3_mprintf("INSERT INTO decl_context (" DECL_CONTEXT_FIELDS ") "
+            "VALUES (%d, %llu, %llu, %llu, %llu, %llu, %llu, %llu);",
             decl_context.decl_flags,
             insert_scope(handle, decl_context.namespace_scope),
             insert_scope(handle, decl_context.global_scope),
@@ -1467,7 +1527,53 @@ static void insert_decl_context(sqlite3* handle, scope_entry_t* symbol, decl_con
             insert_scope(handle, decl_context.prototype_scope),
             insert_scope(handle, decl_context.current_scope));
     run_query(handle, insert_decl_context_query);
+
+    sqlite3_uint64 oid = sqlite3_last_insert_rowid(handle);
+
     sqlite3_free(insert_decl_context_query);
+
+    return oid;
+}
+
+static const char* module_packed_bits_to_hexstr(module_packed_bits_t module_packed_bits)
+{
+    const char* c = "";
+    unsigned char* p = (unsigned char*)&module_packed_bits;
+
+    unsigned int i;
+    for (i = 0; i < sizeof(module_packed_bits); i++)
+    {
+        const char* t = NULL;
+        uniquestr_sprintf(&t, "%02x", p[i]);
+        c = strappend(c, t);
+    }
+
+    return c;
+}
+
+module_packed_bits_t module_packed_bits_from_hexstr(const char* c)
+{
+    module_packed_bits_t module_packed_bits;
+    unsigned char* p = (unsigned char*)&module_packed_bits;
+
+    ERROR_CONDITION(strlen(c) != sizeof(module_packed_bits) * 2, "Invalid string", 0);
+
+    unsigned int i;
+    for (i = 0; i < sizeof(module_packed_bits); i++)
+    {
+        char t[3];
+        t[0] = c[2*i];
+        t[1] = c[2*i+1];
+        t[2] = '\0';
+
+        unsigned int v = 0;
+
+        sscanf(t, "%x", &v);
+
+        p[i] = (unsigned char)v;
+    }
+
+    return module_packed_bits;
 }
 
 static sqlite3_uint64 insert_symbol(sqlite3* handle, scope_entry_t* symbol)
@@ -1478,39 +1584,72 @@ static sqlite3_uint64 insert_symbol(sqlite3* handle, scope_entry_t* symbol)
     if (oid_already_inserted_symbol(handle, symbol))
         return (sqlite3_uint64)(uintptr_t)symbol;
 
+    // fprintf(stderr, "INSERTING SYMBOL %s (%s) with OID %llu\n", 
+    //         symbol->symbol_name,
+    //         symbol_kind_name(symbol),
+    //         P2ULL(symbol));
+
     char * insert_symbol_query = sqlite3_mprintf("INSERT INTO symbol(oid) "
             "VALUES (%llu);",
             P2ULL(symbol));
-
     run_query(handle, insert_symbol_query);
     sqlite3_uint64 result = sqlite3_last_insert_rowid(handle);
 
-    char * attribute_values = symbol_get_attribute_values(handle, symbol);
     sqlite3_uint64 type_id = insert_type(handle, symbol->type_information);
-
     sqlite3_uint64 value_oid = insert_nodecl(handle, symbol->value);
+    sqlite3_uint64 decl_context_oid = insert_decl_context(handle, symbol->decl_context);
 
-    // We should be using UPDATE, but its syntax is so inconvenient here
-    char * update_symbol_query = sqlite3_mprintf("INSERT OR REPLACE INTO symbol(oid, name, kind, type, file, line, value, %s) "
-            "VALUES (%llu, " Q ", %d, %llu, " Q ", %d, %llu, %s);",
-            attr_field_names,
-            P2ULL(symbol), // oid
-            symbol->symbol_name, // name
-            symbol->kind, // kind
-            type_id, // type
-            symbol->file, // file
-            symbol->line, // line
-            value_oid,
-            attribute_values);
+    // module_packed_bits_t is declared in fortran03-modules-bits.h
+    module_packed_bits_t module_packed_bits = synthesize_packed_bits(symbol);
+    const char* bit_str = module_packed_bits_to_hexstr(module_packed_bits);
 
-    run_query(handle, update_symbol_query);
+    if (symbol->kind == SK_MODULE
+            && symbol != module_being_emitted)
+    {
+        // Do not add too much information for external modules to the current one
+        char * update_symbol_query = sqlite3_mprintf("INSERT OR REPLACE INTO symbol(oid, decl_context, name, kind, type, file, line, "
+                "bit_entity_specs) "
+                "VALUES (%llu, %llu, " Q ", %d, %llu, " Q ", %d, " Q ");",
+                P2ULL(symbol), // oid
+                decl_context_oid, // decl_context
+                symbol->symbol_name, // name
+                symbol->kind, // kind
+                type_id, // type
+                symbol->file, // file
+                symbol->line, // line
+                bit_str
+                );
 
-    insert_decl_context(handle, symbol, symbol->decl_context);
+        run_query(handle, update_symbol_query);
+    }
+    else
+    {
+        char * attribute_values = symbol_get_attribute_values(handle, symbol);
 
-    insert_extended_attributes(handle, symbol);
+        char * update_symbol_query = sqlite3_mprintf("INSERT OR REPLACE INTO symbol(oid, decl_context, name, kind, type, file, line, value, "
+                "bit_entity_specs, %s) "
+                "VALUES (%llu, %llu, " Q ", %d, %llu, " Q ", %d, %llu, " Q ", %s);",
+                attr_field_names,
+                P2ULL(symbol), // oid
+                decl_context_oid, // decl_context
+                symbol->symbol_name, // name
+                symbol->kind, // kind
+                type_id, // type
+                symbol->file, // file
+                symbol->line, // line
+                value_oid,
+                bit_str,
+                attribute_values);
 
+        run_query(handle, update_symbol_query);
+
+        insert_extended_attributes(handle, symbol);
+
+        sqlite3_free(attribute_values);
+    }
     sqlite3_free(insert_symbol_query);
-    sqlite3_free(attribute_values);
+
+    
 
     return result;
 }
@@ -1534,31 +1673,59 @@ static int get_symbol(void *datum,
     scope_entry_t** result = &(symbol_handle->symbol);
 
     sqlite3_uint64 oid = safe_atoull(values[0]);
-    const char* name = values[1];
-    int symbol_kind = safe_atoi(values[2]);
-    sqlite3_uint64 type_oid = safe_atoull(values[3]);
-    const char* filename = uniquestr(values[4]);
-    int line = safe_atoi(values[5]);
-    sqlite3_uint64 value_oid = safe_atoull(values[6]);
+    sqlite3_uint64 decl_context_oid = safe_atoull(values[1]);
+    const char* name = uniquestr(values[2]);
+    int symbol_kind = safe_atoi(values[3]);
+    sqlite3_uint64 type_oid = safe_atoull(values[4]);
+    const char* filename = uniquestr(values[5]);
+    int line = safe_atoi(values[6]);
+    sqlite3_uint64 value_oid = safe_atoull(values[7]);
+    const char* bitfield_pack_str = uniquestr(values[8]);
+
+    if (symbol_kind == SK_MODULE)
+    {
+        // Look if this symbol is in the cache
+        rb_red_blk_node* query = rb_tree_query(CURRENT_COMPILED_FILE->module_cache, strtolower(name));
+        if (query != NULL)
+        {
+            scope_entry_t* module_symbol = (scope_entry_t*)rb_node_get_info(query);
+            *result = module_symbol;
+            return 0;
+        }
+    }
 
     (*result) = calloc(1, sizeof(**result));
     insert_map_ptr(handle, oid, *result);
 
-    (*result)->symbol_name = uniquestr(name);
+    (*result)->symbol_name = name;
     (*result)->kind = symbol_kind;
     (*result)->file = filename;
     (*result)->line = line;
+
+    // {
+    //     static int level = 0;
+    //     scope_entry_t* sym = *result;
+    //     fprintf(stderr, "%d -> (OID=%llu) LOADING SYMBOL %s (%s) with PTR %llu\n", 
+    //             level++,
+    //             oid,
+    //             sym->symbol_name,
+    //             symbol_kind_name(sym),
+    //             P2ULL(sym));
+    // }
+
     (*result)->type_information = load_type(handle, type_oid);
 
-    (*result)->decl_context = load_decl_context(handle, oid);
-
-    (*result)->value = load_nodecl(handle, value_oid);
-
+    (*result)->decl_context = load_decl_context(handle, decl_context_oid);
     // Add it to its scope
     if ((*result)->symbol_name != NULL)
     {
         insert_entry((*result)->decl_context.current_scope, (*result));
     }
+
+    (*result)->value = load_nodecl(handle, value_oid);
+
+    module_packed_bits_t packed_bits = module_packed_bits_from_hexstr(bitfield_pack_str);
+    unpack_bits((*result), packed_bits);
 
     get_extra_attributes(handle, ncols, values, names, oid, *result);
 
@@ -1586,6 +1753,23 @@ static int get_symbol(void *datum,
         entry_list_iterator_free(it);
         entry_list_free(members);
     }
+
+    // This is a (top-level) module. Keep in the module cache
+    if ((*result)->kind == SK_MODULE
+            && !CURRENT_CONFIGURATION->debug_options.disable_module_cache) 
+    {
+        rb_tree_insert(CURRENT_COMPILED_FILE->module_cache, strtolower((*result)->symbol_name), (*result));
+    }
+
+    // {
+    //     scope_entry_t* sym = *result;
+    //     fprintf(stderr, "%d <- (OID=%llu) FINISHED LOADING SYMBOL %s (%s) with PTR %llu\n", 
+    //             --level,
+    //             oid,
+    //             sym->symbol_name,
+    //             symbol_kind_name(sym),
+    //             P2ULL(sym));
+    // }
 
     return 0;
 }
@@ -1733,6 +1917,7 @@ static scope_t* load_scope(sqlite3* handle, sqlite3_uint64 oid)
     {
         running_error("Error while running query: %s\n", errmsg);
     }
+    sqlite3_free(query);
 
     return info.scope;
 }
@@ -1765,20 +1950,17 @@ static int get_decl_context_(void *datum,
     return 0;
 }
 
-static decl_context_t load_decl_context(sqlite3* handle, sqlite3_uint64 sym_oid)
+static decl_context_t load_decl_context(sqlite3* handle, sqlite3_uint64 decl_context_oid)
 {
     decl_context_t decl_context;
     memset(&decl_context, 0, sizeof(decl_context));
-
-    if (sym_oid == 0)
-        return decl_context;
 
     decl_context_t_info_t decl_context_info;
     decl_context_info.p_decl_context = &decl_context;
     decl_context_info.handle = handle;
 
     char *errmsg = NULL;
-    char * query = sqlite3_mprintf("SELECT " DECL_CONTEXT_FIELDS " FROM decl_context WHERE oid = %llu;", sym_oid);
+    char * query = sqlite3_mprintf("SELECT " DECL_CONTEXT_FIELDS " FROM decl_context WHERE oid = %llu;", decl_context_oid);
     if (run_select_query(handle, query, get_decl_context_, &decl_context_info, &errmsg) != SQLITE_OK)
     {
         running_error("Error while running query: %s\n", errmsg);
@@ -1807,9 +1989,9 @@ static int get_ast(void *datum,
 
     sqlite3_uint64 oid = safe_atoull(values[0]);
     node_t node_kind = safe_atoull(values[1]);
-    const char *filename = values[2];
+    const char *filename = uniquestr(values[2]);
     int line = safe_atoull(values[3]);
-    const char* text = values[4];
+    const char* text = uniquestr(values[4]);
     // Children: 5  + 0 -> 5 + MCXX_MAX_AST_CHILDREN - 1
     sqlite3_uint64 type_oid = safe_atoull(values[5 + MCXX_MAX_AST_CHILDREN + 0]);
     sqlite3_uint64 sym_oid = safe_atoull(values[5 + MCXX_MAX_AST_CHILDREN + 1]);
@@ -1832,26 +2014,26 @@ static int get_ast(void *datum,
         ast_set_child(a, i, child_tree);
     }
 
-    // FIXME _nodecl_wrap
     if (type_oid != 0)
     {
         nodecl_set_type(_nodecl_wrap(a), load_type(handle, type_oid));
     }
 
+    scope_entry_t* entry = NULL;
     if (sym_oid != 0)
     {
-        nodecl_set_symbol(_nodecl_wrap(a), load_symbol(handle, sym_oid));
+        entry = load_symbol(handle, sym_oid);
+        ERROR_CONDITION(entry == NULL, "INVALID!", 0);
+
+        nodecl_set_symbol(_nodecl_wrap(a), entry);
     }
 
     nodecl_expr_set_is_lvalue(_nodecl_wrap(a), is_lvalue != 0);
     if (is_const_val)
     {
-        // Fortran is always signed
         const_value_t* v = load_const_value(handle, const_val);
         nodecl_set_constant(_nodecl_wrap(a), v);
     }
-
-    // expression_set_is_value_dependent(a, is_value_dependent != 0);
 
     return 0;
 }
@@ -1897,6 +2079,16 @@ struct {
     type_t* type;
 } type_handle_t;
 
+static type_t* type_t_oid(sqlite3* handle, uint64_t oid)
+{
+    type_t* ptr = (type_t*)get_ptr_of_oid(handle, oid);
+    if (ptr != NULL)
+    {
+        return ptr;
+    }
+    return NULL;
+}
+
 static int get_type(void *datum, 
         int ncols UNUSED_PARAMETER, 
         char **values, 
@@ -1916,6 +2108,11 @@ static int get_type(void *datum,
     const char* symbols = values[8];
 
     nodecl_t nodecl_fake = nodecl_make_text("", NULL, 0);
+
+    // static int level = 0;
+    // fprintf(stderr, "%d -> LOADING TYPE WITH OID = %llu\n", 
+    //         level++,
+    //         current_oid);
 
     if (strcmp(kind, "INTEGER") == 0)
     {
@@ -1963,6 +2160,15 @@ static int get_type(void *datum,
     {
         nodecl_t lower_bound = load_nodecl(handle, ast0);
         nodecl_t upper_bound = load_nodecl(handle, ast1);
+
+        // It might happen that after loading these trees, this type has
+        // already been loaded!
+        type_t* ptr = type_t_oid(handle, current_oid);
+        if (ptr != NULL)
+        {
+            *pt = ptr;
+            return 0;
+        }
 
         type_t* element_type = load_type(handle, ref);
 
@@ -2053,6 +2259,10 @@ static int get_type(void *datum,
         internal_error("Invalid type '%s'\n", kind);
     }
 
+    // fprintf(stderr, "%d <- LOADED TYPE WITH OID = %llu\n", 
+    //         --level,
+    //         current_oid);
+
     return 0;
 }
 
@@ -2062,7 +2272,7 @@ static type_t* load_type(sqlite3* handle, sqlite3_uint64 oid)
         return NULL;
 
     {
-        type_t* ptr = (type_t*)get_ptr_of_oid(handle, oid);
+        type_t* ptr = type_t_oid(handle, oid);
         if (ptr != NULL)
         {
             return ptr;
