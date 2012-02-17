@@ -8255,7 +8255,6 @@ static void opt_ambiguous_io_spec_handler(AST io_stmt, AST opt_value_ambig, decl
         const char* t = ASTText(option);
         ERROR_CONDITION((t == NULL), "io-spec is missing text", 0);
 
-
         int *p = NULL;
         if (strcasecmp(t, "unit") == 0)
         {
