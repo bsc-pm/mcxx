@@ -1007,17 +1007,8 @@ static sqlite3_uint64 insert_ast(sqlite3* handle, AST a)
         }
     }
 
-    // FIXME!
     type_t* type = nodecl_get_type(_nodecl_wrap(a));
-    if (type != NULL)
-    {
-        insert_type(handle, type);
-    }
     scope_entry_t* sym = nodecl_get_symbol(_nodecl_wrap(a));
-    if (sym != NULL)
-    {
-        insert_symbol(handle, sym);
-    }
 
     char is_lvalue = nodecl_expr_is_lvalue(_nodecl_wrap(a));
     char is_const_val = nodecl_is_constant(_nodecl_wrap(a));
@@ -1041,7 +1032,14 @@ static sqlite3_uint64 insert_ast(sqlite3* handle, AST a)
         sqlite3_bind_null(_insert_ast_stmt, 3);
     }
     sqlite3_bind_int  (_insert_ast_stmt, 4, ast_get_line(a));
-    sqlite3_bind_text (_insert_ast_stmt, 5, ast_get_filename(a), -1, SQLITE_STATIC);
+    if (ast_get_text(a) != NULL)
+    {
+        sqlite3_bind_text(_insert_ast_stmt, 5, ast_get_text(a), -1, SQLITE_STATIC);
+    }
+    else
+    {
+        sqlite3_bind_null(_insert_ast_stmt, 5);
+    }
     sqlite3_bind_int64(_insert_ast_stmt, 6, children[0]);
     sqlite3_bind_int64(_insert_ast_stmt, 7, children[1]);
     sqlite3_bind_int64(_insert_ast_stmt, 8, children[2]);
@@ -1065,6 +1063,16 @@ static sqlite3_uint64 insert_ast(sqlite3* handle, AST a)
     sqlite3_reset(_insert_ast_stmt);
 
     sqlite3_uint64 result = sqlite3_last_insert_rowid(handle);
+
+    if (type != NULL)
+    {
+        insert_type(handle, type);
+    }
+    if (sym != NULL)
+    {
+        insert_symbol(handle, sym);
+    }
+
     return result;
 }
 
@@ -1489,7 +1497,6 @@ static sqlite3_uint64 insert_symbol(sqlite3* handle, scope_entry_t* symbol)
     run_query(handle, insert_symbol_query);
     sqlite3_uint64 result = sqlite3_last_insert_rowid(handle);
 
-    char * attribute_values = symbol_get_attribute_values(handle, symbol);
     sqlite3_uint64 type_id = insert_type(handle, symbol->type_information);
 
     sqlite3_uint64 value_oid = insert_nodecl(handle, symbol->value);
@@ -1509,9 +1516,13 @@ static sqlite3_uint64 insert_symbol(sqlite3* handle, scope_entry_t* symbol)
                 );
 
         run_query(handle, update_symbol_query);
+
+        insert_decl_context(handle, symbol, symbol->decl_context);
     }
     else
     {
+        char * attribute_values = symbol_get_attribute_values(handle, symbol);
+
         char * update_symbol_query = sqlite3_mprintf("INSERT OR REPLACE INTO symbol(oid, name, kind, type, file, line, value, %s) "
                 "VALUES (%llu, " Q ", %d, %llu, " Q ", %d, %llu, %s);",
                 attr_field_names,
@@ -1530,9 +1541,9 @@ static sqlite3_uint64 insert_symbol(sqlite3* handle, scope_entry_t* symbol)
 
         insert_extended_attributes(handle, symbol);
 
-        sqlite3_free(insert_symbol_query);
         sqlite3_free(attribute_values);
     }
+    sqlite3_free(insert_symbol_query);
 
     return result;
 }
@@ -1556,7 +1567,7 @@ static int get_symbol(void *datum,
     scope_entry_t** result = &(symbol_handle->symbol);
 
     sqlite3_uint64 oid = safe_atoull(values[0]);
-    const char* name = values[1];
+    const char* name = uniquestr(values[1]);
     int symbol_kind = safe_atoi(values[2]);
     sqlite3_uint64 type_oid = safe_atoull(values[3]);
     const char* filename = uniquestr(values[4]);
@@ -1578,7 +1589,7 @@ static int get_symbol(void *datum,
     (*result) = calloc(1, sizeof(**result));
     insert_map_ptr(handle, oid, *result);
 
-    (*result)->symbol_name = uniquestr(name);
+    (*result)->symbol_name = name;
     (*result)->kind = symbol_kind;
     (*result)->file = filename;
     (*result)->line = line;
@@ -1848,9 +1859,9 @@ static int get_ast(void *datum,
 
     sqlite3_uint64 oid = safe_atoull(values[0]);
     node_t node_kind = safe_atoull(values[1]);
-    const char *filename = values[2];
+    const char *filename = uniquestr(values[2]);
     int line = safe_atoull(values[3]);
-    const char* text = values[4];
+    const char* text = uniquestr(values[4]);
     // Children: 5  + 0 -> 5 + MCXX_MAX_AST_CHILDREN - 1
     sqlite3_uint64 type_oid = safe_atoull(values[5 + MCXX_MAX_AST_CHILDREN + 0]);
     sqlite3_uint64 sym_oid = safe_atoull(values[5 + MCXX_MAX_AST_CHILDREN + 1]);
