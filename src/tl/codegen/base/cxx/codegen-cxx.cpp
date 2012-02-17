@@ -1011,8 +1011,6 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
     Nodecl::NodeclBase initializers = node.get_initializers();
     Nodecl::NodeclBase internal_functions = node.get_internal_functions();
 
-    TL::Scope scope = context.retrieve_context();
-    
     if (!internal_functions.is_null())
     {
         internal_error("C/C++ does not have internal functions", 0);
@@ -1026,9 +1024,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
     Nodecl::NodeclBase statement = statement_seq[0];
 
     TL::Symbol symbol = node.get_symbol();
-
     TL::Type symbol_type = symbol.get_type();
-
+    TL::Scope symbol_scope = symbol.get_scope();
     
     ERROR_CONDITION(!symbol.is_function(), "Invalid symbol", 0);
 
@@ -1125,7 +1122,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
 
     std::string asm_specification = gcc_asm_specifier_to_str(symbol);
 
-    std::string qualified_name = symbol.get_class_qualification(scope, /* without_template */ true);
+    std::string qualified_name = symbol.get_class_qualification(symbol_scope, /* without_template */ true);
 
     //if (symbol_type.is_template_specialized_type()
     //        && !symbol.is_conversion_function())
@@ -1143,13 +1140,13 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
     }
 
     std::string declarator;
-    declarator = this->get_declaration_with_parameters(real_type, scope, qualified_name, parameter_names, parameter_attributes);
+    declarator = this->get_declaration_with_parameters(real_type, symbol_scope, qualified_name, parameter_names, parameter_attributes);
 
     std::string exception_spec = exception_specifier_to_str(symbol);
 
     move_to_namespace_of_symbol(symbol);
 
-    TL::TemplateParameters template_parameters = scope.get_template_parameters();
+    TL::TemplateParameters template_parameters = symbol_scope.get_template_parameters();
     file<<"template<";
     codegen_template_parameters(template_parameters);
     file<<">\n";
@@ -1213,6 +1210,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 {
+    //Only independent code
     Nodecl::Context context = node.get_statements().as<Nodecl::Context>();
     Nodecl::List statement_seq = context.get_in_context().as<Nodecl::List>();
     Nodecl::NodeclBase initializers = node.get_initializers();
@@ -1232,6 +1230,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 
     TL::Symbol symbol = node.get_symbol();
     TL::Type symbol_type = symbol.get_type();
+    TL::Scope symbol_scope = symbol.get_scope();
 
     ERROR_CONDITION(!symbol.is_function(), "Invalid symbol", 0);
 
@@ -1328,7 +1327,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 
     std::string asm_specification = gcc_asm_specifier_to_str(symbol);
 
-    std::string qualified_name = symbol.get_class_qualification(symbol.get_scope(), /* without_template */ true);
+    std::string qualified_name = symbol.get_class_qualification(symbol_scope, /* without_template */ true);
 
     if (symbol_type.is_template_specialized_type()
             && !symbol.is_conversion_function())
@@ -1346,7 +1345,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
     }
 
     std::string declarator;
-    declarator = this->get_declaration_with_parameters(real_type, symbol.get_scope(), qualified_name, parameter_names, parameter_attributes);
+    declarator = this->get_declaration_with_parameters(real_type, symbol_scope, qualified_name, parameter_names, parameter_attributes);
 
     std::string exception_spec = exception_specifier_to_str(symbol);
 
@@ -1359,21 +1358,6 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
         file << "template<>\n";
     }
 
-    // This function may be defined in a dependent context, like:
-    //   template<typename T> class A
-    //   {
-    //       void g() {}
-    //   };
-    //
-    TL::TemplateParameters template_parameters = symbol.get_scope().get_template_parameters();
-    if (template_parameters.is_valid() && template_parameters.get_num_parameters() > 0)
-    {
-        indent();
-        file << "template <";
-        codegen_template_parameters(template_parameters);
-        file << ">\n";
-    }
-    
     bool requires_extern_linkage = false;
     CXX_LANGUAGE()
     {
@@ -2550,6 +2534,8 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
     }
 
     char is_dependent_class = 0;
+    TL::Type symbol_type = symbol.get_type();
+    
     CXX_LANGUAGE()
     {
         char is_template_specialized = 0;
@@ -2559,11 +2545,11 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
         TL::Type primary_template(NULL);
         TL::Symbol primary_symbol(NULL);
 
-        if (symbol.get_type().is_template_specialized_type()
-                && symbol.get_type().template_specialized_type_get_template_arguments().get_num_parameters() != 0)
+        if (symbol_type.is_template_specialized_type()
+                && symbol_type.template_specialized_type_get_template_arguments().get_num_parameters() != 0)
         {
             is_template_specialized = 1;
-            template_type = symbol.get_type().get_related_template_type();
+            template_type = symbol_type.get_related_template_type();
             primary_template = template_type.get_primary_template();
             primary_symbol = primary_template.get_symbol();
 
@@ -2572,20 +2558,9 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                 is_primary_template = 1;
             }
 
-            if (!symbol.get_type().class_type_is_complete_independent()
-                    && !symbol.get_type().class_type_is_incomplete_independent())
+            if (!symbol_type.class_type_is_complete_independent()
+                    && !symbol_type.class_type_is_incomplete_independent())
             {
-                // If this is dependent and it is not the primary template do
-                // not continue, declaring the primary should have been enough
-                //
-                // This may happen for template functions which implicitly name
-                // dependent specializations (such as those defined using
-                // default template arguments). It also may be caused by a bug
-                // in the frontend, though
-                if (!is_primary_template)
-                {
-                    return; 
-                }
                 is_dependent_class = 1;
             }
         }
@@ -2596,24 +2571,23 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
 
         if (is_template_specialized)
         {
-            if (symbol.get_type().class_type_is_complete_independent()
-                    || symbol.get_type().class_type_is_incomplete_independent())
+            indent();
+            file << "template <";
+            TL::TemplateParameters template_parameters(NULL); 
+            if (!(symbol_type.class_type_is_complete_independent()
+                        || symbol_type.class_type_is_incomplete_independent()))
             {
-                indent();
-                file << "template <>\n";
-            }
-            else
-            {
-                ERROR_CONDITION(!is_primary_template, "Only the primary template is allowed "
-                        "as a dependent template specialized type!\n", 0);
-
-                TL::TemplateParameters template_parameters = symbol.get_type().template_specialized_type_get_template_arguments();
-
-                indent();
-                file << "template <";
+                if (is_primary_template) 
+                {
+                    template_parameters = symbol_type.template_specialized_type_get_template_arguments();
+                }
+                else
+                {
+                    template_parameters = symbol.get_scope().get_template_parameters();
+                }
                 codegen_template_parameters(template_parameters);
-                file << ">\n";
             }
+            file << ">\n";
         }
         else
         {
@@ -2654,18 +2628,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
             file << class_key;
         }
 
-       // // From here we assume it is already defined
-       // set_codegen_status(symbol, CODEGEN_STATUS_DEFINED);
-
-       // if (level == 0
-       //         && is_primary_template)
-       // {
-       //     // We do not define primary templates on the outermost level
-       //     file << ";\n";
-       //     return;
-       // }
-
-        TL::ObjectList<TL::Type::BaseInfo> bases = symbol.get_type().get_bases();
+        TL::ObjectList<TL::Type::BaseInfo> bases = symbol_type.get_bases();
         if (!bases.empty())
         {
             file << " : " ;
@@ -2717,7 +2680,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
     }
 
     // 2. Now declare members
-    TL::ObjectList<TL::Symbol> members = symbol.get_type().get_all_members();
+    TL::ObjectList<TL::Symbol> members = symbol_type.get_all_members();
 
     access_specifier_t current_access_spec = default_access_spec;
 
@@ -2919,7 +2882,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
     }
 
     // 3. Declare friends
-    TL::ObjectList<TL::Symbol> friends = symbol.get_type().class_get_friends();
+    TL::ObjectList<TL::Symbol> friends = symbol_type.class_get_friends();
 
     for (TL::ObjectList<TL::Symbol>::iterator it = friends.begin();
             it != friends.end();
