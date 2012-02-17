@@ -125,6 +125,7 @@ uchar           (\\u{hexquad}|\\U{hexquad}{hexquad})
 nondigit        ([_a-zA-Z]|uchar)
 idnondigit  ({nondigit}|{uchar})
 identifier ([a-z]([a-z0-9_]*))
+kind (({digit}+)|({identifier}))
 
  /* Sentinels as much as 32 letters */
 sentinel [!][$][a-zA-Z0-9_]{0,32}
@@ -1001,7 +1002,7 @@ x["][0-9a-f]+["] {
 	RETURN_TOKEN(HEX_LITERAL);
 }
 
-[0-9]+[.][0-9]+([edq][+-]?[0-9]+)(_([a-z][a-z0-9]{0,30}|[0-9]+))? {
+[0-9]+[.][0-9]+([edq][+-]?[0-9]+)(_{kind})? {
 	// Reals with integer part, fraction, exponent and
 	// optionally kind_param
 	// 123.456e789
@@ -1010,7 +1011,7 @@ x["][0-9a-f]+["] {
 	RETURN_TOKEN(REAL_LITERAL);
 }
 
-[0-9]+[.][0-9]+(_([a-z][a-z0-9]{0,30}|[0-9]+))? {
+[0-9]+[.][0-9]+(_{kind})? {
 	// Reals with integer part, fraction
 	// and optionally kind_param
 	// 123.456
@@ -1019,7 +1020,7 @@ x["][0-9a-f]+["] {
 	RETURN_TOKEN(REAL_LITERAL);
 }
 
-[.][0-9]+([edq][+-]?[0-9]+)(_([a-z][a-z0-9]{0,30}|[0-9]+))? {
+[.][0-9]+([edq][+-]?[0-9]+)(_{kind})? {
 	// Reals with fraction, exponent
 	// and optionally kind_param
 	// .456e789
@@ -1028,7 +1029,7 @@ x["][0-9a-f]+["] {
 	RETURN_TOKEN(REAL_LITERAL);
 }
 
-[.][0-9]+(_([a-z][a-z0-9]{0,30}|[0-9]+))? {
+[.][0-9]+(_{kind})? {
 	// Reals with fraction and
 	// optionally kind_param
 	// .456
@@ -1037,7 +1038,7 @@ x["][0-9a-f]+["] {
 	RETURN_TOKEN(REAL_LITERAL);
 }
 
-[0-9]+[.]?([edq][+-]?[0-9]+)(_([a-z][a-z0-9]{0,30}|[0-9]+))? {
+[0-9]+[.]?([edq][+-]?[0-9]+)(_{kind})? {
 	// Reals with integer part, exponent
 	// and optionally kind_param
 	// 123.e456
@@ -1053,7 +1054,7 @@ x["][0-9a-f]+["] {
 	RETURN_TOKEN(DECIMAL_LITERAL);
 }
 
-[0-9]+[.](_([a-z][a-z0-9]{0,30}|[0-9]+))? {
+[0-9]+[.](_{kind})? {
 	// Real with only integer part
 	// and optionally kind_param
 	// 123.
@@ -1061,12 +1062,12 @@ x["][0-9a-f]+["] {
 	RETURN_TOKEN(REAL_LITERAL);
 }
 
-(([a-z][a-z0-9]{0,30}|[0-9]+)_)?["]([^"\n\r]|["]["])*["] {
+({kind}_)?["]([^"\n\r]|["]["])*["] {
 	parse_token_text();
 	RETURN_TOKEN(CHAR_LITERAL);
 }
 
-(([a-z][a-z0-9]{0,30}|[0-9]+)_)?[']([^'\n\r]|[']['])*['] {
+({kind}_)?[']([^'\n\r]|[']['])*['] {
 	parse_token_text();
 	RETURN_TOKEN(CHAR_LITERAL);
 }
@@ -1092,7 +1093,7 @@ x["][0-9a-f]+["] {
     RETURN_TOKEN(DECIMAL_LITERAL);
 }
 
-[0-9]+_([a-z][a-z0-9]{0,30}|[0-9]+) {
+[0-9]+_{kind} {
 	parse_token_text();
 	RETURN_TOKEN(DECIMAL_LITERAL);
 }
