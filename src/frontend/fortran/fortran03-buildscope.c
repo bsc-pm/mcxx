@@ -6929,6 +6929,13 @@ static scope_entry_t* insert_symbol_from_module(scope_entry_t* entry,
     current_symbol->entity_specs.from_module = module_symbol;
     current_symbol->entity_specs.alias_to = entry;
 
+    // Always alias to the ultimate symbol
+    if (entry->entity_specs.from_module != NULL
+            && entry->entity_specs.alias_to != NULL)
+    {
+        current_symbol->entity_specs.alias_to = entry->entity_specs.alias_to;
+    }
+
     // Also set the access to be the default
     current_symbol->entity_specs.access = AS_UNKNOWN;
 
