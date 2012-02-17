@@ -1948,6 +1948,10 @@ intent_spec : TOK_IN
 {
     $$ = ASTLeaf(AST_ATTR_SPEC, $1.token_file, $1.token_line, $1.token_text);
 }
+| TOK_IN TOK_OUT
+{
+    $$ = ASTLeaf(AST_ATTR_SPEC, $1.token_file, $1.token_line, "inout");
+}
 ;
 access_stmt : labeldef access_spec ':' ':' access_id_list eos
 {
