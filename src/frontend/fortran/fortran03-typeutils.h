@@ -26,9 +26,15 @@ LIBMF03_EXTERN char is_fortran_character_type_or_pointer_to(type_t* t);
 
 // States that this is an array of non-character type
 LIBMF03_EXTERN char is_fortran_array_type(type_t* t);
+
+// States that this is an scalar type
+LIBMF03_EXTERN char fortran_is_scalar_type(type_t* t);
+
 // A pointer to is_fortran_array_type
 LIBMF03_EXTERN char is_pointer_to_fortran_array_type(type_t* t);
 LIBMF03_EXTERN char is_fortran_array_type_or_pointer_to(type_t* t);
+
+
 
 LIBMF03_EXTERN type_t* replace_return_type_of_function_type(type_t* function_type, 
         type_t* new_return_type);
