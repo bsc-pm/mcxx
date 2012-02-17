@@ -3816,15 +3816,29 @@ read_stmt : labeldef TOK_READ '(' io_control_spec_list ')' input_output_item_lis
 }
 | labeldef TOK_READ format ',' input_output_item_list eos %dprec 1
 {
+    // This is like UNIT=*, FMT=format
+
+    AST star = ASTLeaf(AST_SYMBOL, $2.token_file, $2.token_line, "*");
+    AST unit = ASTMake1(AST_OPT_VALUE, star, $2.token_file, $2.token_line, "unit");
+
     AST format = ASTMake1(AST_OPT_VALUE, $3, ASTFileName($3), ASTLine($3), "fmt");
 
-    $$ = ASTMake3Label(AST_READ_STATEMENT, $1, ASTListLeaf(format), $5, $2.token_file, $2.token_line, $2.token_text);
+    AST io_control_spec_list = ASTList(ASTListLeaf(unit), format);
+
+    $$ = ASTMake3Label(AST_READ_STATEMENT, $1, io_control_spec_list, $5, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_READ format eos %dprec 1
 {
+    // This is like UNIT=*, FMT=format
+
+    AST star = ASTLeaf(AST_SYMBOL, $2.token_file, $2.token_line, "*");
+    AST unit = ASTMake1(AST_OPT_VALUE, star, $2.token_file, $2.token_line, "unit");
+
     AST format = ASTMake1(AST_OPT_VALUE, $3, ASTFileName($3), ASTLine($3), "fmt");
 
-    $$ = ASTMake3Label(AST_READ_STATEMENT, $1, ASTListLeaf(format), NULL, $2.token_file, $2.token_line, $2.token_text);
+    AST io_control_spec_list = ASTList(ASTListLeaf(unit), format);
+
+    $$ = ASTMake3Label(AST_READ_STATEMENT, $1, io_control_spec_list, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 write_stmt : labeldef TOK_WRITE '(' io_control_spec_list ')' input_output_item_list eos
