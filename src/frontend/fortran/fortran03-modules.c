@@ -1563,6 +1563,18 @@ static int get_symbol(void *datum,
     int line = safe_atoi(values[5]);
     sqlite3_uint64 value_oid = safe_atoull(values[6]);
 
+    if (symbol_kind == SK_MODULE)
+    {
+        // Look if this symbol is in the cache
+        rb_red_blk_node* query = rb_tree_query(CURRENT_COMPILED_FILE->module_cache, strtolower(name));
+        if (query != NULL)
+        {
+            scope_entry_t* module_symbol = (scope_entry_t*)rb_node_get_info(query);
+            *result = module_symbol;
+            return 0;
+        }
+    }
+
     (*result) = calloc(1, sizeof(**result));
     insert_map_ptr(handle, oid, *result);
 
@@ -1607,6 +1619,13 @@ static int get_symbol(void *datum,
         }
         entry_list_iterator_free(it);
         entry_list_free(members);
+    }
+
+    // This is a (top-level) module. Keep in the module cache
+    if ((*result)->kind == SK_MODULE
+            && !CURRENT_CONFIGURATION->debug_options.disable_module_cache) 
+    {
+        rb_tree_insert(CURRENT_COMPILED_FILE->module_cache, strtolower((*result)->symbol_name), (*result));
     }
 
     return 0;
