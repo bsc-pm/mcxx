@@ -6888,7 +6888,7 @@ static scope_entry_t* insert_symbol_from_module(scope_entry_t* entry,
         int line)
 {
     ERROR_CONDITION(aliased_name == NULL, "Invalid alias name", 0);
-
+    
     scope_entry_list_t* check_repeated_name = query_name_str(decl_context, aliased_name);
 
     if (check_repeated_name != NULL)
@@ -6901,6 +6901,14 @@ static scope_entry_t* insert_symbol_from_module(scope_entry_t* entry,
         // We allow the symbol be repeated, using it should be wrong (but this is not checked!)
     }
     entry_list_free(check_repeated_name);
+    
+    // Always insert the ultimate symbol
+    if (entry->entity_specs.from_module != NULL)
+    {
+        ERROR_CONDITION(entry->entity_specs.alias_to == NULL, 
+                "Bad symbol with from_module attribute but no alias set", 0);
+        entry = entry->entity_specs.alias_to;
+    }
 
     // Why do we duplicate instead of insert_entry or insert_alias?
     //
@@ -6920,13 +6928,6 @@ static scope_entry_t* insert_symbol_from_module(scope_entry_t* entry,
 
     current_symbol->entity_specs.from_module = module_symbol;
     current_symbol->entity_specs.alias_to = entry;
-
-    // Always alias to the ultimate symbol
-    if (entry->entity_specs.from_module != NULL
-            && entry->entity_specs.alias_to != NULL)
-    {
-        current_symbol->entity_specs.alias_to = entry->entity_specs.alias_to;
-    }
 
     // Also set the access to be the default
     current_symbol->entity_specs.access = AS_UNKNOWN;
