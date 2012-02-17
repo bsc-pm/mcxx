@@ -6870,27 +6870,12 @@ static scope_entry_t* query_module_for_symbol_name(scope_entry_t* module_symbol,
 static char come_from_the_same_module(scope_entry_t* new_symbol_used,
         scope_entry_t* existing_symbol)
 {
-    // Jump all indirections through modules
-    if (new_symbol_used->entity_specs.from_module != NULL)
-    {
-        ERROR_CONDITION(new_symbol_used->entity_specs.alias_to == NULL, "Invalid symbol", 0);
-        return come_from_the_same_module(new_symbol_used->entity_specs.alias_to, 
-                existing_symbol);
-    }
-    if (existing_symbol->entity_specs.from_module != NULL)
-    {
-        ERROR_CONDITION(existing_symbol->entity_specs.alias_to == NULL, "Invalid symbol", 0);
-        return come_from_the_same_module(new_symbol_used, 
-                existing_symbol->entity_specs.alias_to);
-    }
-
-    ERROR_CONDITION(new_symbol_used->entity_specs.in_module == NULL, "This should not happen to a symbol coming from a MODULE\n", 0);
-
-    if (existing_symbol->entity_specs.in_module != NULL)
-    {
-        return (strcasecmp(new_symbol_used->entity_specs.in_module->symbol_name, 
-                existing_symbol->entity_specs.in_module->symbol_name) == 0);
-    }
+    // If both symbols come from modules and they point to the same symbol,
+    // then they are the same
+    if (new_symbol_used->entity_specs.from_module
+            && existing_symbol->entity_specs.from_module
+            && new_symbol_used->entity_specs.alias_to == existing_symbol->entity_specs.alias_to)
+        return 1;
 
     return 0;
 }
