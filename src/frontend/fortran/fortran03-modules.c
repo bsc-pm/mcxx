@@ -437,7 +437,7 @@ static void define_schema(sqlite3* handle)
         const char * create_context = "CREATE TABLE decl_context(" DECL_CONTEXT_FIELDS ");";
         run_query(handle, create_context);
 
-        const char * create_decl_context_index = "CREATE INDEX decl_context_index ON decl_context_t ( " DECL_CONTEXT_FIELDS " );";
+        const char * create_decl_context_index = "CREATE INDEX decl_context_index ON decl_context ( " DECL_CONTEXT_FIELDS " );";
         run_query(handle, create_decl_context_index);
     }
 
