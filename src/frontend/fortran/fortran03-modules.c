@@ -206,6 +206,8 @@ static int safe_atoi(const char *c)
 
 #include "fortran03-modules-bits.h"
 
+static scope_entry_t* module_being_emitted = NULL;
+
 void dump_module_info(scope_entry_t* module)
 {
     ERROR_CONDITION(module->kind != SK_MODULE, "Invalid symbol!", 0);
@@ -230,7 +232,9 @@ void dump_module_info(scope_entry_t* module)
 
     init_storage(handle);
 
+    module_being_emitted = module;
     sqlite3_uint64 module_oid = insert_symbol(handle, module);
+    module_being_emitted = NULL;
 
     finish_module_file(handle, module->symbol_name, module_oid);
 
@@ -1490,27 +1494,45 @@ static sqlite3_uint64 insert_symbol(sqlite3* handle, scope_entry_t* symbol)
 
     sqlite3_uint64 value_oid = insert_nodecl(handle, symbol->value);
 
-    // We should be using UPDATE, but its syntax is so inconvenient here
-    char * update_symbol_query = sqlite3_mprintf("INSERT OR REPLACE INTO symbol(oid, name, kind, type, file, line, value, %s) "
-            "VALUES (%llu, " Q ", %d, %llu, " Q ", %d, %llu, %s);",
-            attr_field_names,
-            P2ULL(symbol), // oid
-            symbol->symbol_name, // name
-            symbol->kind, // kind
-            type_id, // type
-            symbol->file, // file
-            symbol->line, // line
-            value_oid,
-            attribute_values);
+    if (symbol->kind == SK_MODULE
+            && symbol != module_being_emitted)
+    {
+        // Do not add too much information for external modules to the current one
+        char * update_symbol_query = sqlite3_mprintf("INSERT OR REPLACE INTO symbol(oid, name, kind, type, file, line) "
+                "VALUES (%llu, " Q ", %d, %llu, " Q ", %d);",
+                P2ULL(symbol), // oid
+                symbol->symbol_name, // name
+                symbol->kind, // kind
+                type_id, // type
+                symbol->file, // file
+                symbol->line // line
+                );
 
-    run_query(handle, update_symbol_query);
+        run_query(handle, update_symbol_query);
+    }
+    else
+    {
+        char * update_symbol_query = sqlite3_mprintf("INSERT OR REPLACE INTO symbol(oid, name, kind, type, file, line, value, %s) "
+                "VALUES (%llu, " Q ", %d, %llu, " Q ", %d, %llu, %s);",
+                attr_field_names,
+                P2ULL(symbol), // oid
+                symbol->symbol_name, // name
+                symbol->kind, // kind
+                type_id, // type
+                symbol->file, // file
+                symbol->line, // line
+                value_oid,
+                attribute_values);
 
-    insert_decl_context(handle, symbol, symbol->decl_context);
+        run_query(handle, update_symbol_query);
 
-    insert_extended_attributes(handle, symbol);
+        insert_decl_context(handle, symbol, symbol->decl_context);
 
-    sqlite3_free(insert_symbol_query);
-    sqlite3_free(attribute_values);
+        insert_extended_attributes(handle, symbol);
+
+        sqlite3_free(insert_symbol_query);
+        sqlite3_free(attribute_values);
+    }
 
     return result;
 }
