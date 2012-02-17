@@ -1073,6 +1073,10 @@ static sqlite3_uint64 insert_ast(sqlite3* handle, AST a)
         insert_symbol(handle, sym);
     }
 
+    // fprintf(stderr, "INSERTING AST %s WITH SYMBOL = %llu\n", 
+    //         ast_print_node_type(ast_get_type(a)),
+    //         P2ULL(sym));
+
     return result;
 }
 
@@ -1146,11 +1150,7 @@ static sqlite3_uint64 insert_type(sqlite3* handle, type_t* t)
         const char *name = "ARRAY";
 
         sqlite3_uint64 lower_tree = insert_nodecl(handle, array_type_get_array_lower_bound(t));
-        sqlite3_uint64 upper_tree = 0;
-        if (!array_type_is_unknown_size(t))
-        {
-            upper_tree = insert_nodecl(handle, array_type_get_array_upper_bound(t));
-        }
+        sqlite3_uint64 upper_tree = insert_nodecl(handle, array_type_get_array_upper_bound(t));
 
         sqlite3_uint64 element_type = insert_type(handle, array_type_get_element_type(t));
 
@@ -1490,6 +1490,11 @@ static sqlite3_uint64 insert_symbol(sqlite3* handle, scope_entry_t* symbol)
     if (oid_already_inserted_symbol(handle, symbol))
         return (sqlite3_uint64)(uintptr_t)symbol;
 
+    // fprintf(stderr, "INSERTING SYMBOL %s (%s) with OID %llu\n", 
+    //         symbol->symbol_name,
+    //         symbol_kind_name(symbol),
+    //         P2ULL(symbol));
+
     char * insert_symbol_query = sqlite3_mprintf("INSERT INTO symbol(oid) "
             "VALUES (%llu);",
             P2ULL(symbol));
@@ -1593,17 +1598,28 @@ static int get_symbol(void *datum,
     (*result)->kind = symbol_kind;
     (*result)->file = filename;
     (*result)->line = line;
+
+    // {
+    //     static int level = 0;
+    //     scope_entry_t* sym = *result;
+    //     fprintf(stderr, "%d -> (OID=%llu) LOADING SYMBOL %s (%s) with PTR %llu\n", 
+    //             level++,
+    //             oid,
+    //             sym->symbol_name,
+    //             symbol_kind_name(sym),
+    //             P2ULL(sym));
+    // }
+
     (*result)->type_information = load_type(handle, type_oid);
 
     (*result)->decl_context = load_decl_context(handle, oid);
-
-    (*result)->value = load_nodecl(handle, value_oid);
-
     // Add it to its scope
     if ((*result)->symbol_name != NULL)
     {
         insert_entry((*result)->decl_context.current_scope, (*result));
     }
+
+    (*result)->value = load_nodecl(handle, value_oid);
 
     get_extra_attributes(handle, ncols, values, names, oid, *result);
 
@@ -1638,6 +1654,16 @@ static int get_symbol(void *datum,
     {
         rb_tree_insert(CURRENT_COMPILED_FILE->module_cache, strtolower((*result)->symbol_name), (*result));
     }
+
+    // {
+    //     scope_entry_t* sym = *result;
+    //     fprintf(stderr, "%d <- (OID=%llu) FINISHED LOADING SYMBOL %s (%s) with PTR %llu\n", 
+    //             --level,
+    //             oid,
+    //             sym->symbol_name,
+    //             symbol_kind_name(sym),
+    //             P2ULL(sym));
+    // }
 
     return 0;
 }
@@ -1884,26 +1910,26 @@ static int get_ast(void *datum,
         ast_set_child(a, i, child_tree);
     }
 
-    // FIXME _nodecl_wrap
     if (type_oid != 0)
     {
         nodecl_set_type(_nodecl_wrap(a), load_type(handle, type_oid));
     }
 
+    scope_entry_t* entry = NULL;
     if (sym_oid != 0)
     {
-        nodecl_set_symbol(_nodecl_wrap(a), load_symbol(handle, sym_oid));
+        entry = load_symbol(handle, sym_oid);
+        ERROR_CONDITION(entry == NULL, "INVALID!", 0);
+
+        nodecl_set_symbol(_nodecl_wrap(a), entry);
     }
 
     nodecl_expr_set_is_lvalue(_nodecl_wrap(a), is_lvalue != 0);
     if (is_const_val)
     {
-        // Fortran is always signed
         const_value_t* v = load_const_value(handle, const_val);
         nodecl_set_constant(_nodecl_wrap(a), v);
     }
-
-    // expression_set_is_value_dependent(a, is_value_dependent != 0);
 
     return 0;
 }
@@ -1949,6 +1975,16 @@ struct {
     type_t* type;
 } type_handle_t;
 
+static type_t* type_t_oid(sqlite3* handle, uint64_t oid)
+{
+    type_t* ptr = (type_t*)get_ptr_of_oid(handle, oid);
+    if (ptr != NULL)
+    {
+        return ptr;
+    }
+    return NULL;
+}
+
 static int get_type(void *datum, 
         int ncols UNUSED_PARAMETER, 
         char **values, 
@@ -1968,6 +2004,11 @@ static int get_type(void *datum,
     const char* symbols = values[8];
 
     nodecl_t nodecl_fake = nodecl_make_text("", NULL, 0);
+
+    // static int level = 0;
+    // fprintf(stderr, "%d -> LOADING TYPE WITH OID = %llu\n", 
+    //         level++,
+    //         current_oid);
 
     if (strcmp(kind, "INTEGER") == 0)
     {
@@ -2015,6 +2056,15 @@ static int get_type(void *datum,
     {
         nodecl_t lower_bound = load_nodecl(handle, ast0);
         nodecl_t upper_bound = load_nodecl(handle, ast1);
+
+        // It might happen that after loading these trees, this type has
+        // already been loaded!
+        type_t* ptr = type_t_oid(handle, current_oid);
+        if (ptr != NULL)
+        {
+            *pt = ptr;
+            return 0;
+        }
 
         type_t* element_type = load_type(handle, ref);
 
@@ -2105,6 +2155,10 @@ static int get_type(void *datum,
         internal_error("Invalid type '%s'\n", kind);
     }
 
+    // fprintf(stderr, "%d <- LOADED TYPE WITH OID = %llu\n", 
+    //         --level,
+    //         current_oid);
+
     return 0;
 }
 
@@ -2114,7 +2168,7 @@ static type_t* load_type(sqlite3* handle, sqlite3_uint64 oid)
         return NULL;
 
     {
-        type_t* ptr = (type_t*)get_ptr_of_oid(handle, oid);
+        type_t* ptr = type_t_oid(handle, oid);
         if (ptr != NULL)
         {
             return ptr;
