@@ -15,6 +15,7 @@ LIBMF03_EXTERN type_t* get_n_ranked_type(type_t* scalar_type, int rank, decl_con
 
 LIBMF03_EXTERN char equivalent_tkr_types(type_t* t1, type_t* t2);
 
+LIBMF03_EXTERN char fortran_is_scalar_type(type_t* t);
 LIBMF03_EXTERN char is_fortran_character_type(type_t*);
 LIBMF03_EXTERN char is_pointer_to_fortran_character_type(type_t* t);
 

@@ -327,7 +327,7 @@ char is_pointer_to_fortran_array_type(type_t* t)
         && is_fortran_array_type(pointer_type_get_pointee_type(t));
 }
 
-static char fortran_is_scalar_type(type_t* t)
+char fortran_is_scalar_type(type_t* t)
 {
     return (!is_pointer_type(t)
             && !is_pointer_to_member_type(t)
