@@ -2742,6 +2742,10 @@ OPERATOR_TABLE
                 it != related_symbols.end();
                 it++)
         {
+            // Here we do not consider symbols USEd from other modules
+            if (it->get_internal_symbol()->entity_specs.from_module != NULL)
+                continue;
+
             TL::Symbol &sym(*it);
             // We emit everything but module procedures
             if (!sym.is_module_procedure())
