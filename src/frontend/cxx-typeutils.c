@@ -9463,15 +9463,7 @@ char class_type_is_pod(type_t* t)
 
 static char closure_of_simple_properties(type_t* t, char (*class_prop)(type_t*))
 {
-    if (is_integral_type(t)
-            || is_enum_type(t)
-            || is_floating_type(t))
-        return 1;
-
-    if (is_pointer_type(t))
-        return 1;
-
-    if (is_pointer_to_member_type(t))
+    if (is_scalar_type(t))
         return 1;
 
     if (is_lvalue_reference_type(t)
