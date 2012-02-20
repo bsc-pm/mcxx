@@ -1032,6 +1032,7 @@ type {
 "__is_convertible_to" |
 "__is_empty" |
 "__is_enum" |
+"__is_literal_type" |
 "__is_pod" |
 "__is_polymorphic" |
 "__is_trivial" |

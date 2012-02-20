@@ -547,6 +547,7 @@ static char eval_type_trait__is_class(type_t*, type_t*, decl_context_t);
 static char eval_type_trait__is_convertible_to(type_t*, type_t*, decl_context_t);
 static char eval_type_trait__is_empty(type_t*, type_t*, decl_context_t);
 static char eval_type_trait__is_enum(type_t*, type_t*, decl_context_t);
+static char eval_type_trait__is_literal_type(type_t*, type_t*, decl_context_t);
 static char eval_type_trait__is_pod(type_t*, type_t*, decl_context_t);
 static char eval_type_trait__is_polymorphic(type_t*, type_t*, decl_context_t);
 static char eval_type_trait__is_trivial(type_t*, type_t*, decl_context_t);
@@ -949,6 +950,17 @@ static char eval_type_trait__is_enum(type_t* first_type, type_t* second_type UNU
 }
 
 /*
+     __is_literal_type (type)
+
+    If type is a literal type ([basic.types]) the trait is true, else it is false.
+    Requires: type shall be a complete type, (possibly cv-qualified) void, or an array of unknown bound. 
+*/
+static char eval_type_trait__is_literal_type(type_t* first_type, type_t* second_type UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+    return (is_literal_type(first_type));
+}
+
+/*
    __is_pod (type)
 
    If type is a cv POD type ([basic.types]) then the trait is true, else it is
@@ -1038,6 +1050,7 @@ gxx_type_traits_fun_type_t type_traits_fun_list[] =
     { "__is_convertible_to", eval_type_trait__is_convertible_to },
     { "__is_empty", eval_type_trait__is_empty },
     { "__is_enum", eval_type_trait__is_enum },
+    { "__is_literal_type", eval_type_trait__is_literal_type },
     { "__is_pod", eval_type_trait__is_pod },
     { "__is_polymorphic", eval_type_trait__is_polymorphic },
     { "__is_trivial", eval_type_trait__is_trivial },
