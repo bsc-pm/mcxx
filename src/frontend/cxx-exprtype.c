@@ -1745,14 +1745,14 @@ static char both_operands_are_vector_types(type_t* lhs_type, type_t* rhs_type)
 
 static char one_scalar_operand_and_one_vector_operand(type_t* lhs_type, type_t* rhs_type)
 {
-    return (is_vector_type(lhs_type) && is_scalar_type(rhs_type))
-           || (is_scalar_type(lhs_type) && is_vector_type(rhs_type));
+    return (is_vector_type(lhs_type) && is_arithmetic_type(rhs_type)) ||
+           (is_vector_type(rhs_type) && is_arithmetic_type(lhs_type));
 }
 
 static char left_operand_is_vector_and_right_operand_is_scalar(type_t* lhs_type, type_t* rhs_type)
 {
-    return (is_vector_type(lhs_type) && is_scalar_type(rhs_type));
-}    
+    return (is_vector_type(lhs_type) && is_arithmetic_type(rhs_type));
+}
 
 static char is_pointer_and_integral_type(type_t* lhs_type, type_t* rhs_type)
 {
