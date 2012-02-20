@@ -8733,6 +8733,20 @@ computed_function_type_t computed_function_type_get_computing_function(type_t* t
     return t->compute_type_function;
 }
 
+// A trivial type may be:
+//  1. scalar type
+//  2. trivial class type
+//  3. arrays of such types
+//  4. cv-qualified versions of these types
+//
+char is_trivial_type(type_t* t)
+{
+    t = get_unqualified_type(t);
+    return (is_scalar_type(t) ||
+           (is_class_type(t) && class_type_is_trivial(t)) ||
+           (is_array_type(t) && is_trivial_type(array_type_get_element_type(t))));
+}
+
 // A scalar type may be:
 //  1. arithmetic type
 //  2. enumeration type

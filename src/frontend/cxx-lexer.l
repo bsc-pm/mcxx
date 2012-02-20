@@ -1034,6 +1034,7 @@ type {
 "__is_enum" |
 "__is_pod" |
 "__is_polymorphic" |
+"__is_trivial" |
 "__is_union" {
     return lookup_keyword_in_table(gxx_43_keywords, yytext, !CURRENT_CONFIGURATION->disable_gxx_type_traits);
 }

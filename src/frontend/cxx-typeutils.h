@@ -343,6 +343,8 @@ LIBMCXX_EXTERN char is_literal_string_type(type_t* t);
 
 LIBMCXX_EXTERN char is_template_type(type_t* t);
 
+LIBMCXX_EXTERN char is_trivial_type(type_t* t);
+
 LIBMCXX_EXTERN char is_scalar_type(type_t* t);
 
 LIBMCXX_EXTERN char is_incomplete_type(type_t* t);

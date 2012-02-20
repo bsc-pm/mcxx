@@ -3478,6 +3478,7 @@ primary_expression : literal
      __is_enum ( type-id )
      __is_pod ( type-id )
      __is_polymorphic ( type-id )
+     __is_trivial ( type-id )
      __is_union ( type-id )
 */
 gnu_type_traits : GXX_HAS_NOTHROW_ASSIGN '(' type_id ')'
