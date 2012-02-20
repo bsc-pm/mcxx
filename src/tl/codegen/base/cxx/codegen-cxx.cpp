@@ -1152,9 +1152,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
     move_to_namespace_of_symbol(symbol);
 
     TL::TemplateParameters template_parameters = symbol_scope.get_template_parameters();
-    file<<"template<";
-    codegen_template_parameters(template_parameters);
-    file<<">\n";
+    codegen_template_parameters_all_levels(template_parameters);
     
     bool requires_extern_linkage = false;
     CXX_LANGUAGE()
@@ -2597,13 +2595,18 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
         else
         {
             // A special case: a class declaration or definition is inside an other template class
-            TL::TemplateParameters template_parameters = symbol.get_scope().get_template_parameters();
-            if (template_parameters.is_valid() && template_parameters.get_num_parameters() > 0)
+            TL::Symbol related_symbol = symbol.get_scope().get_related_symbol();
+            TL::Type type_related_symbol = related_symbol.get_type();
+            if (type_related_symbol.is_template_specialized_type())
             {
-                indent();
-                file << "template <";
-                codegen_template_parameters(template_parameters);
-                file << ">\n";
+                TL::TemplateParameters template_parameters = symbol.get_scope().get_template_parameters();
+                if (template_parameters.is_valid() && template_parameters.get_num_parameters() > 0)
+                {
+                    indent();
+                    file << "template <";
+                    codegen_template_parameters(template_parameters);
+                    file << ">\n";
+                }
             }
         }
 
@@ -4879,6 +4882,18 @@ void CxxBase::declare_all_in_template_arguments(TL::TemplateParameters template_
                 }
         }
     }
+}
+
+void CxxBase::codegen_template_parameters_all_levels(TL::TemplateParameters template_parameters)
+{
+    if (template_parameters.has_enclosing_parameters())
+    {
+        TL::TemplateParameters enclosing_template_parameters = template_parameters.get_enclosing_parameters();
+        codegen_template_parameters_all_levels(enclosing_template_parameters);
+    }
+    file << "template<";
+    codegen_template_parameters(template_parameters);
+    file << ">\n";
 }
 
 void CxxBase::codegen_template_parameters(TL::TemplateParameters template_parameters)
