@@ -4,7 +4,6 @@
 #include "cxx-cexpr.h"
 #include "string_utils.h"
 #include <iomanip>
-
 #ifdef HAVE_QUADMATH_H
 MCXX_BEGIN_DECLS
 #include <quadmath.h>
@@ -3708,6 +3707,14 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
                     codegen_template_parameters(template_parameters);
                     file << ">\n";
                 }
+            }
+            
+            // A union inside a class always must be defined
+            if (class_key == "union" &&
+                    symbol.get_scope().is_class_scope())
+            {
+                define_symbol(symbol);
+                return;
             }
 
             indent();
