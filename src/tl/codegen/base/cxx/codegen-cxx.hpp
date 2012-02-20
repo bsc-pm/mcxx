@@ -54,6 +54,7 @@ namespace Codegen
             Ret visit(const Nodecl::CxxDepNameSimple &);
             Ret visit(const Nodecl::CxxDepTemplateId &);
             Ret visit(const Nodecl::CxxEqualInitializer &);
+            Ret visit(const Nodecl::CxxMemberInit &);
             Ret visit(const Nodecl::CxxExplicitTypeCast &);
             Ret visit(const Nodecl::CxxParenthesizedInitializer &);
             Ret visit(const Nodecl::DefaultStatement &);

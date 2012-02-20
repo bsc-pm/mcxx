@@ -645,6 +645,12 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxEqualInitializer& node)
     walk(node.get_init());
 }
 
+CxxBase::Ret CxxBase::visit(const Nodecl::CxxMemberInit& node)
+{
+    walk(node.get_name());
+    walk(node.get_initializer());
+}
+
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxExplicitTypeCast& node)
 {
     TL::Type t = node.get_type();
