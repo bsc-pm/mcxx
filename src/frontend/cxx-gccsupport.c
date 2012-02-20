@@ -526,8 +526,11 @@ static char eval_type_trait__is_class(type_t*, type_t*, decl_context_t);
 static char eval_type_trait__is_convertible_to(type_t*, type_t*, decl_context_t);
 static char eval_type_trait__is_empty(type_t*, type_t*, decl_context_t);
 static char eval_type_trait__is_enum(type_t*, type_t*, decl_context_t);
+static char eval_type_trait__is_literal_type(type_t*, type_t*, decl_context_t);
 static char eval_type_trait__is_pod(type_t*, type_t*, decl_context_t);
 static char eval_type_trait__is_polymorphic(type_t*, type_t*, decl_context_t);
+static char eval_type_trait__is_standard_layoutc(type_t*, type_t*, decl_context_t);
+static char eval_type_trait__is_trivial(type_t*, type_t*, decl_context_t);
 static char eval_type_trait__is_union(type_t*, type_t*, decl_context_t);
 
 /*
