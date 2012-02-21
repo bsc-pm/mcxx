@@ -9,6 +9,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         LoweringVisitor();
         void visit(const Nodecl::Parallel::Async& construct);
         void visit(const Nodecl::Parallel::WaitAsyncsShallow& construct);
+        void visit(const Nodecl::Parallel::AsyncCall& construct);
 
     private:
         std::string declare_argument_structure(OutlineInfo& outline_info, Nodecl::NodeclBase construct);

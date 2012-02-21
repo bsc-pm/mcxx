@@ -250,6 +250,11 @@ namespace TL
                 {
                     return _dependences;
                 }
+
+                const TL::ObjectList<Nodecl::NodeclBase>& get_dependences() const
+                {
+                    return _dependences;
+                }
         };
 
         class OutlineInfo
@@ -275,6 +280,7 @@ namespace TL
                 }
 
                 OutlineInfo(Nodecl::NodeclBase environment);
+                OutlineInfo() : _data_env_items() { }
         };
     }
 }

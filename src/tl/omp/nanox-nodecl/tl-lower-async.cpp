@@ -911,4 +911,156 @@ static void fill_dimensions(int n_dims, int actual_dim, int current_dep_num,
     }
 }
 
+typedef std::map<TL::Symbol, Nodecl::NodeclBase> sym_to_argument_expr_t;
+
+static Nodecl::NodeclBase rewrite_single_dependency(Nodecl::NodeclBase node, const sym_to_argument_expr_t& map)
+{
+    if (node.is_null())
+        return node;
+
+    if (node.is<Nodecl::Symbol>())
+    {
+        sym_to_argument_expr_t::const_iterator it = map.find(node.get_symbol());
+
+        if (it != map.end())
+        {
+            return (it->second.copy());
+        }
+    }
+
+    TL::ObjectList<Nodecl::NodeclBase> children = node.children();
+    for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+            it != children.end();
+            it++)
+    { 
+        *it = rewrite_single_dependency(*it, map);
+    }
+    node.rechild(children);
+
+    return node;
+}
+
+static TL::ObjectList<Nodecl::NodeclBase> rewrite_dependences(
+        const TL::ObjectList<Nodecl::NodeclBase>& deps, 
+        const sym_to_argument_expr_t& param_to_arg_expr)
+{
+    TL::ObjectList<Nodecl::NodeclBase> result;
+    for (TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = deps.begin();
+            it != deps.end();
+            it++)
+    {
+        Nodecl::NodeclBase copy = it->copy();
+        result.append( rewrite_single_dependency(copy, param_to_arg_expr) );
+    }
+
+    return result;
+}
+
+static void fill_outline_data_item_from_parameter(
+        OutlineDataItem& to_fill, 
+        const sym_to_argument_expr_t& param_to_arg_expr,
+        const OutlineDataItem& parameter)
+{
+    to_fill.set_sharing(parameter.get_sharing());
+    to_fill.set_allocation_policy(parameter.get_allocation_policy());
+    to_fill.set_directionality(parameter.get_directionality());
+
+    // Update dependences to reflect arguments as well
+    to_fill.get_dependences() = rewrite_dependences(parameter.get_dependences(), param_to_arg_expr);
+}
+
+static void fill_map_parameters_to_arguments(
+        TL::Symbol function,
+        Nodecl::List arguments, 
+        sym_to_argument_expr_t& param_to_arg_expr)
+{
+    int i = 0;
+    for (Nodecl::List::iterator it = arguments.begin();
+            it != arguments.end();
+            it++, i++)
+    {
+        Nodecl::NodeclBase expression;
+        TL::Symbol parameter_sym;
+        if (it->is<Nodecl::FortranNamedPairSpec>())
+        {
+            // If this is a Fortran style argument use the symbol
+            Nodecl::FortranNamedPairSpec named_pair(it->as<Nodecl::FortranNamedPairSpec>());
+
+            param_to_arg_expr[named_pair.get_name().get_symbol()] = named_pair.get_argument();
+        }
+        else
+        {
+            // Get the i-th parameter of the function
+            ERROR_CONDITION((function.get_related_symbols().size() <= i), "Too many parameters", 0);
+            TL::Symbol parameter = function.get_related_symbols()[i];
+            param_to_arg_expr[parameter] = *it;
+        }
+    }
+}
+
+void LoweringVisitor::visit(const Nodecl::Parallel::AsyncCall& construct)
+{
+    std::cerr << "ASYNC CALL AT " << construct.get_locus() << std::endl;
+    
+    Nodecl::FunctionCall function_call = construct.get_call().as<Nodecl::FunctionCall>();
+    ERROR_CONDITION(!function_call.get_called().is<Nodecl::Symbol>(), "Invalid ASYNC CALL!", 0);
+
+    TL::Symbol called_sym = function_call.get_called().get_symbol();
+
+    // Get parameters outline info
+    Nodecl::NodeclBase parameters_environment = construct.get_environment();
+    OutlineInfo parameters_outline_info(parameters_environment);
+
+    // Fill arguments outline info using parameters
+    OutlineInfo arguments_outline_info;
+    Nodecl::List arguments = function_call.get_arguments().as<Nodecl::List>();
+
+    TL::ObjectList<OutlineDataItem>& data_items  = parameters_outline_info.get_data_items();
+
+    // This map associates every parameter symbol with its argument expression
+    sym_to_argument_expr_t param_to_arg_expr;
+    fill_map_parameters_to_arguments(called_sym, arguments, param_to_arg_expr);
+
+    for (sym_to_argument_expr_t::iterator it = param_to_arg_expr.begin();
+            it != param_to_arg_expr.end();
+            it++)
+    {
+        ObjectList<OutlineDataItem> found = data_items.find(functor(&OutlineDataItem::get_symbol), it->first);
+
+        if (found.empty())
+        {
+            running_error("%s: error: cannot find parameter '%s' in OutlineInfo, this may be caused by bug #922\n", 
+                    arguments.get_locus().c_str(),
+                    it->first.get_name().c_str());
+        }
+
+        OutlineDataItem& parameter_outline_data_item = parameters_outline_info.get_entity_for_symbol(it->first);
+
+        DataReference data_ref(it->second);
+        OutlineDataItem& argument_outline_data_item = arguments_outline_info.get_entity_for_symbol(data_ref.get_base_symbol());
+
+        // Copy what must be copied from the parameter info
+        fill_outline_data_item_from_parameter(argument_outline_data_item, param_to_arg_expr, parameter_outline_data_item);
+    }
+
+    Nodecl::NodeclBase statement = 
+        Nodecl::ExpressionStatement::make(
+                function_call.copy(),
+                function_call.get_filename(),
+                function_call.get_line());
+
+    std::string outline_name;
+    {
+        Counter& task_counter = CounterManager::get_counter("nanos++-outline");
+        std::stringstream ss;
+        ss << "ol_" << called_sym.get_name() << "_" << (int)task_counter;
+        outline_name = ss.str();
+
+        task_counter++;
+    }
+
+    std::string structure_name = declare_argument_structure(arguments_outline_info, construct);
+    emit_outline(arguments_outline_info, statement, outline_name, structure_name);
+}
+
 } }
