@@ -5585,7 +5585,7 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
         }
 
         type_t* t =  get_unresolved_overloaded_type(entry_list, last_template_args);
-        *nodecl_output = nodecl_make_symbol(entry, nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name));
+        *nodecl_output = nodecl_make_symbol(named_type, nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name));
         nodecl_set_type(*nodecl_output, t);
 
         if (last_template_args != NULL

@@ -1031,7 +1031,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
     TL::Symbol symbol = node.get_symbol();
     TL::Type symbol_type = symbol.get_type();
     TL::Scope symbol_scope = symbol.get_scope();
-    
+
     ERROR_CONDITION(!symbol.is_function(), "Invalid symbol", 0);
 
     if (symbol.is_member())
@@ -1051,7 +1051,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
         }
     }
 
-    walk_type_for_symbols(symbol_type.returns(), 
+    walk_type_for_symbols(symbol_type.returns(),
             /* needs_def */ true,
             &CxxBase::declare_symbol,
             &CxxBase::define_symbol,
@@ -1067,7 +1067,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
             it != parameter_list.end();
             it++)
     {
-        walk_type_for_symbols(*it, /* needs_def */ 1, 
+        walk_type_for_symbols(*it, /* needs_def */ 1,
                 &CxxBase::declare_symbol,
                 &CxxBase::define_symbol,
                 &CxxBase::define_nonlocal_entities_in_trees);
@@ -2580,14 +2580,14 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
             if (!(symbol_type.class_type_is_complete_independent()
                         || symbol_type.class_type_is_incomplete_independent()))
             {
-                if (is_primary_template) 
-                {
-                    template_parameters = symbol_type.template_specialized_type_get_template_arguments();
-                }
-                else
-                {
+               // if (is_primary_template) 
+               // {
+               //     template_parameters = symbol_type.template_specialized_type_get_template_arguments();
+               // }
+               // else
+                //{
                     template_parameters = symbol.get_scope().get_template_parameters();
-                }
+                //}
                 codegen_template_parameters(template_parameters);
             }
             file << ">\n";
@@ -3183,6 +3183,17 @@ void CxxBase::define_symbol(TL::Symbol symbol)
     if (symbol.is_injected_class_name())
         symbol = symbol.get_class_type().get_symbol();
 
+    if (symbol.get_type().is_template_specialized_type() 
+            && !symbol.is_user_declared()
+            && (symbol.is_class() || symbol.is_function()))
+    {
+        symbol = symbol
+            .get_type()
+            .get_related_template_type()
+            .get_primary_template()
+            .get_symbol();
+    }
+    
     if (symbol.is_member())
     {
         TL::Symbol class_entry = symbol.get_class_type().get_symbol();
@@ -3311,6 +3322,11 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
     if (symbol.not_to_be_printed())
         return;
 
+    if (symbol.get_type().is_template_specialized_type() 
+            && !symbol.is_user_declared()
+            && (symbol.is_class() || symbol.is_function()))
+        return;
+
     if (symbol.is_member())
     {
         TL::Symbol class_entry = symbol.get_class_type().get_symbol();
@@ -3319,7 +3335,7 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
             define_symbol_if_nonnested(class_entry);
         }
     }
-
+     
     // Do nothing if already defined or declared
     if (get_codegen_status(symbol) == CODEGEN_STATUS_DEFINED
             || get_codegen_status(symbol) == CODEGEN_STATUS_DECLARED)
@@ -3838,6 +3854,10 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
             {
                 decl_spec_seq += "extern ";
             }
+            if (symbol.is_virtual())
+            {
+                decl_spec_seq += "virtual ";
+            }
             if (symbol.is_inline())
             {
                 C_LANGUAGE()
@@ -3883,6 +3903,12 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
                         function_name, 
                         parameter_names, 
                         parameter_attributes);
+
+                if (symbol.is_virtual()
+                        && symbol.is_pure())
+                {
+                    declarator += " = 0";
+                }
             }
             else
             {

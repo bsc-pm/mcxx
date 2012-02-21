@@ -2523,12 +2523,8 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
     ERROR_CONDITION(class_entry == NULL,
             "Invalid class entry", 0);
 
-    if (is_template_specialized_type(class_type) 
-            && !class_entry->defined)
-    {
-        // State this symbol has been created by the code and not by the type system
-        class_entry->entity_specs.is_user_declared = 1;
-    }
+    // State this symbol has been created by the code and not by the type system
+    class_entry->entity_specs.is_user_declared = 1;
 
     *type_info = get_user_defined_type(class_entry);
 }
@@ -5500,11 +5496,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     //
 
     // Save the template parameters
-    if (is_template_specialized_type(class_type))
-    {
-        // State this symbol has been created by the code and not by the type system
-        class_entry->entity_specs.is_user_declared = 1;
-    }
+    class_entry->entity_specs.is_user_declared = 1;
 
     class_entry->entity_specs.num_gcc_attributes = gather_info->num_gcc_attributes;
     
@@ -10272,6 +10264,8 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
     {
         entry->entity_specs.access = current_access;
         entry->entity_specs.is_defined_inside_class_specifier = 1;
+
+        entry->entity_specs.is_inline = 1;
 
         update_member_function_info(declarator_name, is_constructor, entry, class_type);
 
