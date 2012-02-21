@@ -91,6 +91,16 @@ namespace Nodecl {
             // Works like replace but handles lists. 
             void integrate(Nodecl::NodeclBase new_node) const;
 
+            // This sets this Nodecls as childs of the current node 
+            void rechild(const TL::ObjectList<NodeclBase>& new_childs)
+            {
+                ERROR_CONDITION(new_childs.size() != ::MCXX_MAX_AST_CHILDREN, "Invalid list of children", 0);
+                for (int i = 0; i < ::MCXX_MAX_AST_CHILDREN; i++)
+                {
+                    nodecl_set_child(_n, i, new_childs[i].get_internal_nodecl());
+                }
+            }
+
             // Internal use only
             void* get_internal_tree_address();
     };
