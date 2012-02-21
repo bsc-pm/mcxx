@@ -3502,13 +3502,18 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
 
                 if (equal_is_needed)
                 {
-                    file << " = ";
+                    Nodecl::NodeclBase init = symbol.get_initialization();
+
+                    //The equal will be inserted in the CxxEqualInitializer visitor
+                    if (init.get_kind() != NODECL_CXX_EQUAL_INITIALIZER)
+                    {
+                        file << " = ";
+                    }
 
                     if (is_call_to_self_constructor)
                     {
                         // Ignore the top constructor call
-                        Nodecl::List nodecl_args = symbol
-                            .get_initialization()
+                        Nodecl::List nodecl_args = init
                             .as<Nodecl::FunctionCall>()
                             .get_arguments()
                             .as<Nodecl::List>();
@@ -3518,18 +3523,17 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
                             walk_expression_list(nodecl_args);
                         }
                     }
-                    else if (symbol.get_initialization().is<Nodecl::StructuredValue>())
+                    else if (init.is<Nodecl::StructuredValue>())
                     {
                         if (!symbol.get_type().is_aggregate()
-                                && symbol.get_initialization()
+                                && init
                                 .as<Nodecl::StructuredValue>()
                                 .get_items()
                                 .as<Nodecl::List>()
                                 .size() == 1)
                         {
                             // We can ignore '{' and '}'
-                            walk_expression_list(symbol
-                                    .get_initialization()
+                            walk_expression_list(init
                                     .as<Nodecl::StructuredValue>()
                                     .get_items()
                                     .as<Nodecl::List>());
@@ -3539,21 +3543,21 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
                             char old_inside_struct = state.inside_structured_value;
                             state.inside_structured_value = 1;
 
-                            walk(symbol.get_initialization());
+                            walk(init);
 
                             state.inside_structured_value = old_inside_struct;
                         }
                     }
                     else
                     {
-                        char top_is_comma = symbol.get_initialization().is<Nodecl::Comma>();
+                        char top_is_comma = init.is<Nodecl::Comma>();
 
                         if (top_is_comma)
                         {
                             file << "(";
                         }
 
-                        walk(symbol.get_initialization());
+                        walk(init);
 
                         if (top_is_comma)
                         {
