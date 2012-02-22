@@ -32,18 +32,15 @@ struct TaskEnvironmentVisitor : public Nodecl::ExhaustiveVisitor<void>
         }
 };
 
-void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
+void LoweringVisitor::emit_async_common(
+        Nodecl::NodeclBase construct,
+        TL::Symbol function_symbol, 
+        Nodecl::NodeclBase statements,
+        Nodecl::NodeclBase priority_expr,
+        bool is_untied,
+
+        OutlineInfo& outline_info)
 {
-    Nodecl::NodeclBase environment = construct.get_environment();
-    Nodecl::NodeclBase statements = construct.get_statements();
-
-    TaskEnvironmentVisitor task_environment;
-    task_environment.walk(environment);
-
-    OutlineInfo outline_info(environment);
-
-    Symbol function_symbol = Nodecl::Utils::get_enclosing_function(construct);
-
     Source spawn_code;
 
     Source struct_arg_type_name,
@@ -67,8 +64,7 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         fill_dependences_immediate_tree;
     Source fill_immediate_arguments,
            fill_dependences_immediate;
-
-    // Name of the outline
+    
     std::string outline_name;
     {
         Counter& task_counter = CounterManager::get_counter("nanos++-outline");
@@ -78,7 +74,8 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
 
         task_counter++;
     }
-    
+
+
     // Devices stuff
     Source device_descriptor, 
            device_description, 
@@ -135,7 +132,7 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         << "props.mandatory_creation = 0;"
         ;
 
-    if (task_environment.is_untied)
+    if (is_untied)
     {
         tiedness << "props.tied = 0;"
             ;
@@ -146,14 +143,14 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
             ;
     }
 
-    if (task_environment.priority.is_null())
+    if (priority_expr.is_null())
     {
         priority << "props.priority = 0;"
             ;
     }
     else
     {
-        priority << "props.priority = " << as_expression(task_environment.priority) << ";"
+        priority << "props.priority = " << as_expression(priority_expr) << ";"
             ;
     }
 
@@ -293,37 +290,29 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         fill_immediate_arguments_tree.integrate(new_tree);
     }
 
-    // if (!fill_dependences_outline.empty())
-    // {
-    //     FORTRAN_LANGUAGE()
-    //     {
-    //         // Parse in C
-    //         Source::source_language = SourceLanguage::C;
-    //     }
-    //     Nodecl::NodeclBase new_tree = fill_dependences_outline.parse_statement(fill_dependences_outline_tree);
-    //     fill_dependences_outline_tree.integrate(new_tree);
-    //     FORTRAN_LANGUAGE()
-    //     {
-    //         Source::source_language = SourceLanguage::Current;
-    //     }
-    // }
-
-    // if (!fill_dependences_immediate.empty())
-    // {
-    //     FORTRAN_LANGUAGE()
-    //     {
-    //         // Parse in C
-    //         Source::source_language = SourceLanguage::C;
-    //     }
-    //     Nodecl::NodeclBase new_tree = fill_dependences_immediate.parse_statement(fill_dependences_immediate_tree);
-    //     fill_dependences_immediate_tree.integrate(new_tree);
-    //     FORTRAN_LANGUAGE()
-    //     {
-    //         Source::source_language = SourceLanguage::Current;
-    //     }
-    // }
-
     construct.integrate(spawn_code_tree);
+}
+
+void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
+{
+    Nodecl::NodeclBase environment = construct.get_environment();
+    Nodecl::NodeclBase statements = construct.get_statements();
+
+    TaskEnvironmentVisitor task_environment;
+    task_environment.walk(environment);
+
+    OutlineInfo outline_info(environment);
+
+    Symbol function_symbol = Nodecl::Utils::get_enclosing_function(construct);
+
+    emit_async_common(
+            construct,
+            function_symbol, 
+            statements, 
+            task_environment.priority, 
+            task_environment.is_untied, 
+
+            outline_info);
 }
 
 
@@ -362,90 +351,113 @@ void LoweringVisitor::fill_arguments(
                 it != data_items.end();
                 it++)
         {
-
-            if (it->get_sharing() == OutlineDataItem::SHARING_CAPTURE)
+            switch (it->get_sharing())
             {
-                if ((it->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED)
-                        == OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED)
-                {
-                    TL::Type sym_type = it->get_symbol().get_type();
-                    if (sym_type.is_any_reference())
-                        sym_type = sym_type.references_to();
-
-                    ERROR_CONDITION(!sym_type.is_array(), "Only arrays can be overallocated", 0);
-
-                    // Overallocated
-                    fill_outline_arguments << 
-                        "ol_args->" << it->get_field_name() << " = " << Source(overallocation_base_offset) << ";"
-                        ;
-
-                    // Overwrite source
-                    overallocation_base_offset = Source() << "(void*)((" 
-                        << intptr_type << ")((char*)(ol_args->" << 
-                        it->get_field_name() << ") + sizeof(" << it->get_symbol().get_name() << ") + " 
-                        << overallocation_mask << ") & (~" << overallocation_mask << "))"
-                        ;
-                    fill_immediate_arguments << 
-                        "imm_args." << it->get_field_name() << " = " << Source(imm_overallocation_base_offset) << ";";
-                    ;
-                    // Overwrite source
-                    imm_overallocation_base_offset = Source() << "(void*)((" 
-                        << intptr_type << ")((char*)(imm_args." << 
-                        it->get_field_name() << ") + sizeof(" << it->get_symbol().get_name() << ") + "
-                        << overallocation_mask << ") & (~" << overallocation_mask << "))"
-                        ;
-
-                    fill_outline_arguments
-                        << "__builtin_memcpy(&ol_args->" << it->get_field_name() 
-                        << ", &" << it->get_symbol().get_name() 
-                        << ", sizeof(" << it->get_symbol().get_name() << "));"
-                        ;
-                    fill_immediate_arguments
-                        << "__builtin_memcpy(&imm_args." << it->get_field_name() 
-                        << ", &" << it->get_symbol().get_name() 
-                        << ", sizeof(" << it->get_symbol().get_name() << "));"
-                        ;
-                }
-                else
-                {
-                    // Not overallocated
-                    TL::Type sym_type = it->get_symbol().get_type();
-                    if (sym_type.is_any_reference())
-                        sym_type = sym_type.references_to();
-
-                    if (sym_type.is_array())
+                case OutlineDataItem::SHARING_CAPTURE:
                     {
-                        fill_outline_arguments
-                            << "__builtin_memcpy(&ol_args->" << it->get_field_name() 
-                            << ", &" << it->get_symbol().get_name() 
-                            << ", sizeof(" << it->get_symbol().get_name() << "));"
+                        if ((it->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED)
+                                == OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED)
+                        {
+                            TL::Type sym_type = it->get_symbol().get_type();
+                            if (sym_type.is_any_reference())
+                                sym_type = sym_type.references_to();
+
+                            ERROR_CONDITION(!sym_type.is_array(), "Only arrays can be overallocated", 0);
+
+                            // Overallocated
+                            fill_outline_arguments << 
+                                "ol_args->" << it->get_field_name() << " = " << Source(overallocation_base_offset) << ";"
+                                ;
+
+                            // Overwrite source
+                            overallocation_base_offset = Source() << "(void*)((" 
+                                << intptr_type << ")((char*)(ol_args->" << 
+                                it->get_field_name() << ") + sizeof(" << it->get_symbol().get_name() << ") + " 
+                                << overallocation_mask << ") & (~" << overallocation_mask << "))"
+                                ;
+                            fill_immediate_arguments << 
+                                "imm_args." << it->get_field_name() << " = " << Source(imm_overallocation_base_offset) << ";";
                             ;
-                        fill_immediate_arguments
-                            << "__builtin_memcpy(&imm_args." << it->get_field_name() 
-                            << ", &" << it->get_symbol().get_name() 
-                            << ", sizeof(" << it->get_symbol().get_name() << "));"
-                            ;
+                            // Overwrite source
+                            imm_overallocation_base_offset = Source() << "(void*)((" 
+                                << intptr_type << ")((char*)(imm_args." << 
+                                it->get_field_name() << ") + sizeof(" << it->get_symbol().get_name() << ") + "
+                                << overallocation_mask << ") & (~" << overallocation_mask << "))"
+                                ;
+
+                            fill_outline_arguments
+                                << "__builtin_memcpy(&ol_args->" << it->get_field_name() 
+                                << ", &" << it->get_symbol().get_name() 
+                                << ", sizeof(" << it->get_symbol().get_name() << "));"
+                                ;
+                            fill_immediate_arguments
+                                << "__builtin_memcpy(&imm_args." << it->get_field_name() 
+                                << ", &" << it->get_symbol().get_name() 
+                                << ", sizeof(" << it->get_symbol().get_name() << "));"
+                                ;
+                        }
+                        else
+                        {
+                            // Not overallocated
+                            TL::Type sym_type = it->get_symbol().get_type();
+                            if (sym_type.is_any_reference())
+                                sym_type = sym_type.references_to();
+
+                            if (sym_type.is_array())
+                            {
+                                fill_outline_arguments
+                                    << "__builtin_memcpy(&ol_args->" << it->get_field_name() 
+                                    << ", &" << it->get_symbol().get_name() 
+                                    << ", sizeof(" << it->get_symbol().get_name() << "));"
+                                    ;
+                                fill_immediate_arguments
+                                    << "__builtin_memcpy(&imm_args." << it->get_field_name() 
+                                    << ", &" << it->get_symbol().get_name() 
+                                    << ", sizeof(" << it->get_symbol().get_name() << "));"
+                                    ;
+                            }
+                            else
+                            {
+                                // Plain assignment is enough
+                                fill_outline_arguments << 
+                                    "ol_args->" << it->get_field_name() << " = " << it->get_symbol().get_name() << ";"
+                                    ;
+                                fill_immediate_arguments << 
+                                    "imm_args." << it->get_field_name() << " = " << it->get_symbol().get_name() << ";"
+                                    ;
+                            }
+                        }
+                        break;
                     }
-                    else
+                case  OutlineDataItem::SHARING_SHARED:
                     {
-                        // Plain assignment is enough
                         fill_outline_arguments << 
-                            "ol_args->" << it->get_field_name() << " = " << it->get_symbol().get_name() << ";"
+                            "ol_args->" << it->get_field_name() << " = &" << it->get_symbol().get_name() << ";"
                             ;
                         fill_immediate_arguments << 
-                            "imm_args." << it->get_field_name() << " = " << it->get_symbol().get_name() << ";"
+                            "imm_args." << it->get_field_name() << " = &" << it->get_symbol().get_name() << ";"
                             ;
+                        break;
                     }
-                }
-            }
-            else if (it->get_sharing() == OutlineDataItem::SHARING_SHARED)
-            {
-                fill_outline_arguments << 
-                    "ol_args->" << it->get_field_name() << " = &" << it->get_symbol().get_name() << ";"
-                    ;
-                fill_immediate_arguments << 
-                    "imm_args." << it->get_field_name() << " = &" << it->get_symbol().get_name() << ";"
-                    ;
+                case  OutlineDataItem::SHARING_SHARED_EXPRESSION:
+                    {
+                        fill_outline_arguments << 
+                            "ol_args->" << it->get_field_name() << " = &" << as_expression( it->get_shared_expression().copy() ) << ";"
+                            ;
+                        fill_immediate_arguments << 
+                            "imm_args." << it->get_field_name() << " = &" << as_expression( it->get_shared_expression().copy() ) << ";"
+                            ;
+                        break;
+                    }
+                case OutlineDataItem::SHARING_PRIVATE:
+                    {
+                        // Do nothing
+                        break;
+                    }
+                default:
+                    {
+                        internal_error("Unexpected sharing kind", 0);
+                    }
             }
         }
     }
@@ -455,25 +467,65 @@ void LoweringVisitor::fill_arguments(
                 it != data_items.end();
                 it++)
         {
-            if (it->get_sharing() == OutlineDataItem::SHARING_CAPTURE)
+            switch (it->get_sharing())
             {
-                fill_outline_arguments << 
-                    "ol_args % " << it->get_field_name() << " = " << it->get_symbol().get_name() << "\n"
-                    ;
-                fill_immediate_arguments << 
-                    "imm_args % " << it->get_field_name() << " = " << it->get_symbol().get_name() << "\n"
-                    ;
-            }
-            else if (it->get_sharing() == OutlineDataItem::SHARING_SHARED)
-            {
-                fill_outline_arguments << 
-                    "ol_args %" << it->get_field_name() << " => " << it->get_symbol().get_name() << "\n"
-                    ;
-                fill_immediate_arguments << 
-                    "imm_args % " << it->get_field_name() << " => " << it->get_symbol().get_name() << "\n"
-                    ;
-                // Make it TARGET as required by Fortran
-                it->get_symbol().get_internal_symbol()->entity_specs.is_target = 1;
+
+                case OutlineDataItem::SHARING_CAPTURE:
+                    {
+                        fill_outline_arguments << 
+                            "ol_args % " << it->get_field_name() << " = " << it->get_symbol().get_name() << "\n"
+                            ;
+                        fill_immediate_arguments << 
+                            "imm_args % " << it->get_field_name() << " = " << it->get_symbol().get_name() << "\n"
+                            ;
+                        break;
+                    }
+                case OutlineDataItem::SHARING_SHARED:
+                    {
+                        fill_outline_arguments << 
+                            "ol_args %" << it->get_field_name() << " => " << it->get_symbol().get_name() << "\n"
+                            ;
+                        fill_immediate_arguments << 
+                            "imm_args % " << it->get_field_name() << " => " << it->get_symbol().get_name() << "\n"
+                            ;
+                        // Make it TARGET as required by Fortran
+                        it->get_symbol().get_internal_symbol()->entity_specs.is_target = 1;
+                        break;
+                    }
+                case OutlineDataItem::SHARING_SHARED_EXPRESSION:
+                    {
+                        fill_outline_arguments << 
+                            "ol_args %" << it->get_field_name() << " => " << as_expression( it->get_shared_expression().copy()) << "\n"
+                            ;
+                        fill_immediate_arguments << 
+                            "imm_args % " << it->get_field_name() << " => " << as_expression( it->get_shared_expression().copy() ) << "\n"
+                            ;
+                        
+                        // Best effort, this may fail sometimes
+                        DataReference data_ref(it->get_shared_expression());
+                        if (data_ref.is_valid())
+                        {
+                            // Make it TARGET as required by Fortran
+                            data_ref.get_base_symbol().get_internal_symbol()->entity_specs.is_target = 1;
+                        }
+                        else
+                        {
+                            std::cerr 
+                                << it->get_shared_expression().get_locus() 
+                                << ": warning: an argument is not a valid data-reference, compilation is likely to fail" 
+                                << std::endl;
+                        }
+                        break;
+                    }
+                case OutlineDataItem::SHARING_PRIVATE:
+                    {
+                        // Do nothing
+                        break;
+                    }
+                default:
+                    {
+                        internal_error("Unexpected sharing kind", 0);
+                    }
             }
         }
     }
@@ -956,17 +1008,19 @@ static TL::ObjectList<Nodecl::NodeclBase> rewrite_dependences(
     return result;
 }
 
-static void fill_outline_data_item_from_parameter(
-        OutlineDataItem& to_fill, 
-        const sym_to_argument_expr_t& param_to_arg_expr,
-        const OutlineDataItem& parameter)
+static void copy_outline_data_item(
+        OutlineDataItem& dest_info, 
+        const OutlineDataItem& source_info,
+        const sym_to_argument_expr_t& param_to_arg_expr)
 {
-    to_fill.set_sharing(parameter.get_sharing());
-    to_fill.set_allocation_policy(parameter.get_allocation_policy());
-    to_fill.set_directionality(parameter.get_directionality());
+    dest_info.set_sharing(source_info.get_sharing());
+    dest_info.set_allocation_policy(source_info.get_allocation_policy());
+    dest_info.set_directionality(source_info.get_directionality());
+
+    dest_info.set_field_type(source_info.get_field_type());
 
     // Update dependences to reflect arguments as well
-    to_fill.get_dependences() = rewrite_dependences(parameter.get_dependences(), param_to_arg_expr);
+    dest_info.get_dependences() = rewrite_dependences(source_info.get_dependences(), param_to_arg_expr);
 }
 
 static void fill_map_parameters_to_arguments(
@@ -1021,6 +1075,8 @@ void LoweringVisitor::visit(const Nodecl::Parallel::AsyncCall& construct)
     sym_to_argument_expr_t param_to_arg_expr;
     fill_map_parameters_to_arguments(called_sym, arguments, param_to_arg_expr);
 
+    TL::ObjectList<TL::Symbol> new_arguments;
+    Scope sc = construct.retrieve_context();
     for (sym_to_argument_expr_t::iterator it = param_to_arg_expr.begin();
             it != param_to_arg_expr.end();
             it++)
@@ -1034,33 +1090,83 @@ void LoweringVisitor::visit(const Nodecl::Parallel::AsyncCall& construct)
                     it->first.get_name().c_str());
         }
 
+        Counter& arg_counter = CounterManager::get_counter("nanos++-outline-arguments");
+        std::stringstream ss;
+        ss << "mcc_arg_" << (int)arg_counter;
+        TL::Symbol new_symbol = sc.new_symbol(ss.str());
+        arg_counter++;
+
+        // FIXME - Wrap this sort of things
+        new_symbol.get_internal_symbol()->kind = SK_VARIABLE;
+        new_symbol.get_internal_symbol()->type_information = no_ref(it->first.get_internal_symbol()->type_information);
+
+        new_arguments.append(new_symbol);
+
         OutlineDataItem& parameter_outline_data_item = parameters_outline_info.get_entity_for_symbol(it->first);
 
-        DataReference data_ref(it->second);
-        OutlineDataItem& argument_outline_data_item = arguments_outline_info.get_entity_for_symbol(data_ref.get_base_symbol());
+        OutlineDataItem& argument_outline_data_item = arguments_outline_info.get_entity_for_symbol(new_symbol);
 
         // Copy what must be copied from the parameter info
-        fill_outline_data_item_from_parameter(argument_outline_data_item, param_to_arg_expr, parameter_outline_data_item);
+        copy_outline_data_item(argument_outline_data_item, parameter_outline_data_item, param_to_arg_expr);
+
+        // This is a special kind of shared
+        argument_outline_data_item.set_sharing(OutlineDataItem::SHARING_SHARED_EXPRESSION);
+        argument_outline_data_item.set_shared_expression(it->second);
     }
+
+    // Craft a new function call with the new mcc_arg_X symbols
+    TL::ObjectList<TL::Symbol>::iterator args_it = new_arguments.begin();
+    TL::ObjectList<Nodecl::NodeclBase> arg_list;
+    for (sym_to_argument_expr_t::iterator params_it = param_to_arg_expr.begin();
+            params_it != param_to_arg_expr.end();
+            params_it++, args_it++)
+    {
+        Nodecl::NodeclBase nodecl_arg = Nodecl::Symbol::make(*args_it, 
+                function_call.get_filename(), 
+                function_call.get_line());
+        nodecl_arg.set_type( args_it->get_type() );
+
+        // We must respect symbols in Fortran because of optional stuff
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            Nodecl::Symbol nodecl_param = Nodecl::Symbol::make(
+                    params_it->first,
+                    function_call.get_filename(), 
+                    function_call.get_line());
+
+            nodecl_arg = Nodecl::FortranNamedPairSpec::make(
+                    nodecl_param,
+                    nodecl_arg,
+                    function_call.get_filename(), 
+                    function_call.get_line());
+        }
+
+        arg_list.append(nodecl_arg);
+    }
+
+    Nodecl::List nodecl_arg_list = Nodecl::List::make(arg_list);
 
     Nodecl::NodeclBase statement = 
         Nodecl::ExpressionStatement::make(
-                function_call.copy(),
+                Nodecl::FunctionCall::make(
+                    function_call.get_called(),
+                    nodecl_arg_list,
+                    Type::get_void_type(),
+                    function_call.get_filename(),
+                    function_call.get_line()),
                 function_call.get_filename(),
                 function_call.get_line());
 
-    std::string outline_name;
-    {
-        Counter& task_counter = CounterManager::get_counter("nanos++-outline");
-        std::stringstream ss;
-        ss << "ol_" << called_sym.get_name() << "_" << (int)task_counter;
-        outline_name = ss.str();
+    Symbol function_symbol = Nodecl::Utils::get_enclosing_function(construct);
 
-        task_counter++;
-    }
+    emit_async_common(
+            construct,
+            function_symbol, 
+            statement,
+            /* priority */ Nodecl::NodeclBase::null(),
+            /* is_untied */ false,
 
-    std::string structure_name = declare_argument_structure(arguments_outline_info, construct);
-    emit_outline(arguments_outline_info, statement, outline_name, structure_name);
+            arguments_outline_info);
 }
 
 } }

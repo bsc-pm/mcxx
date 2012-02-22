@@ -88,121 +88,135 @@ namespace TL { namespace Nanox {
                 it != data_items.end();
                 it++)
         {
+            if (!it->get_symbol().is_valid())
+                continue;
+
             // We are manually declaring this symbol, do not declare it at all
             do_not_declare.insert(it->get_symbol());
 
-            if (it->get_sharing() == OutlineDataItem::SHARING_PRIVATE)
+            switch (it->get_sharing())
             {
-                if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-                {
-                    private_entities 
-                        << it->get_field_type().get_declaration(it->get_symbol().get_scope(), it->get_field_name())
-                        << ";"
-                        ;
-                }
-                else if (IS_FORTRAN_LANGUAGE)
-                {
-                    private_entities 
-                        << it->get_field_type().get_fortran_declaration(
-                                it->get_symbol().get_scope(), 
-                                it->get_field_name()) 
-                        << "\n"
-                        ;
-                }
-            }
-            else if (it->get_sharing() == OutlineDataItem::SHARING_SHARED
-                    || it->get_sharing() == OutlineDataItem::SHARING_CAPTURE)
-            {
-                Source parameter;
-                if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-                {
-                    switch (it->get_item_kind())
+                case OutlineDataItem::SHARING_PRIVATE:
                     {
-                        case OutlineDataItem::ITEM_KIND_NORMAL:
-                        case OutlineDataItem::ITEM_KIND_DATA_DIMENSION:
+                        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+                        {
+                            private_entities 
+                                << it->get_field_type().get_declaration(it->get_symbol().get_scope(), it->get_field_name())
+                                << ";"
+                                ;
+                        }
+                        else if (IS_FORTRAN_LANGUAGE)
+                        {
+                            private_entities 
+                                << it->get_field_type().get_fortran_declaration(
+                                        it->get_symbol().get_scope(), 
+                                        it->get_field_name()) 
+                                << "\n"
+                                ;
+                        }
+                        break;
+                    }
+                case OutlineDataItem::SHARING_SHARED:
+                case OutlineDataItem::SHARING_SHARED_EXPRESSION:
+                case OutlineDataItem::SHARING_CAPTURE:
+                    {
+                        Source parameter;
+                        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+                        {
+                            switch (it->get_item_kind())
                             {
-                                parameter << it->get_field_type().get_declaration(it->get_symbol().get_scope(), it->get_field_name());
-                                break;
-                            }
-                        case OutlineDataItem::ITEM_KIND_DATA_ADDRESS:
-                            {
-                                parameter 
-                                    << it->get_field_type().get_declaration(it->get_symbol().get_scope(), "ptr_" + it->get_field_name());
+                                case OutlineDataItem::ITEM_KIND_NORMAL:
+                                case OutlineDataItem::ITEM_KIND_DATA_DIMENSION:
+                                    {
+                                        parameter << it->get_field_type().get_declaration(it->get_symbol().get_scope(), it->get_field_name());
+                                        break;
+                                    }
+                                case OutlineDataItem::ITEM_KIND_DATA_ADDRESS:
+                                    {
+                                        parameter 
+                                            << it->get_field_type().get_declaration(it->get_symbol().get_scope(), "ptr_" + it->get_field_name());
 
-                                // Note the type being emitted here is using as names those of the fields 
-                                // FIXME: This will not work in C++ (where members will appear as A::b)
-                                // We need to update the type again... with the real members but this requires parsing the function first
-                                private_entities
-                                    << it->get_in_outline_type().get_declaration(it->get_symbol().get_scope(), it->get_field_name())
-                                    << " = "
-                                    << "(" << it->get_in_outline_type().get_declaration(it->get_symbol().get_scope(), "") << ")"
-                                    << "ptr_" << it->get_field_name()
-                                    << ";"
+                                        // Note the type being emitted here is using as names those of the fields 
+                                        // FIXME: This will not work in C++ (where members will appear as A::b)
+                                        // We need to update the type again... with the real members but this requires parsing the function first
+                                        private_entities
+                                            << it->get_in_outline_type().get_declaration(it->get_symbol().get_scope(), it->get_field_name())
+                                            << " = "
+                                            << "(" << it->get_in_outline_type().get_declaration(it->get_symbol().get_scope(), "") << ")"
+                                            << "ptr_" << it->get_field_name()
+                                            << ";"
+                                            ;
+                                        break;
+                                    }
+                                default:
+                                    {
+                                        internal_error("Code unreachable", 0);
+                                    }
+                            }
+                        }
+                        else if (IS_FORTRAN_LANGUAGE)
+                        {
+                            parameter << it->get_symbol().get_name();
+
+                            unpacked_parameter_declarations 
+                                << it->get_in_outline_type().get_fortran_declaration(
+                                        it->get_symbol().get_scope(), 
+                                        it->get_field_name(), 
+                                        Type::PARAMETER_DECLARATION) 
+                                << "\n"
+                                ;
+                        }
+                        else
+                        {
+                            internal_error("Code unreachable", 0);
+                        }
+                        unpacked_parameters.append_with_separator(parameter, ", ");
+
+                        Source argument;
+                        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+                        {
+                            // Normal shared items are passed by reference from a pointer,
+                            // derreference here
+                            if ((it->get_sharing() == OutlineDataItem::SHARING_SHARED
+                                        || it->get_sharing() == OutlineDataItem::SHARING_SHARED_EXPRESSION)
+                                    && it->get_item_kind() == OutlineDataItem::ITEM_KIND_NORMAL)
+                            {
+                                argument << "*(args." << it->get_field_name() << ")";
+                            }
+                            // Any other thing is passed by value
+                            else
+                            {
+                                argument << "args." << it->get_field_name();
+                            }
+
+                            if (IS_CXX_LANGUAGE
+                                    && it->get_allocation_policy() != OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DESTROY)
+                            {
+                                internal_error("Not yet implemented: call the destructor", 0);
+                            }
+                        }
+                        else if (IS_FORTRAN_LANGUAGE)
+                        {
+                            argument << "args % " << it->get_field_name();
+
+                            if (it->get_allocation_policy() == OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE)
+                            {
+                                cleanup_code
+                                    << "DEALLOCATE(args % " << it->get_field_name() << ")\n"
                                     ;
-                                break;
                             }
-                        default:
-                            {
-                                internal_error("Code unreachable", 0);
-                            }
+                        }
+                        else
+                        {
+                            internal_error("running error", 0);
+                        }
+                        unpacked_arguments.append_with_separator(argument, ", ");
+                        break;
                     }
-                }
-                else if (IS_FORTRAN_LANGUAGE)
-                {
-                    parameter << it->get_symbol().get_name();
-
-                    unpacked_parameter_declarations 
-                        << it->get_in_outline_type().get_fortran_declaration(
-                                it->get_symbol().get_scope(), 
-                                it->get_field_name(), 
-                                Type::PARAMETER_DECLARATION) 
-                        << "\n"
-                        ;
-                }
-                else
-                {
-                    internal_error("Code unreachable", 0);
-                }
-                unpacked_parameters.append_with_separator(parameter, ", ");
-
-                Source argument;
-                if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-                {
-                    // Normal shared items are passed by reference from a pointer,
-                    // derreference here
-                    if (it->get_sharing() == OutlineDataItem::SHARING_SHARED
-                            && it->get_item_kind() == OutlineDataItem::ITEM_KIND_NORMAL)
+                default:
                     {
-                        argument << "*(args." << it->get_field_name() << ")";
+                        internal_error("Unexpected data sharing kind", 0);
                     }
-                    // Any other thing is passed by value
-                    else
-                    {
-                        argument << "args." << it->get_field_name();
-                    }
-
-                    if (IS_CXX_LANGUAGE
-                            && it->get_allocation_policy() != OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DESTROY)
-                    {
-                        internal_error("Not yet implemented: call the destructor", 0);
-                    }
-                }
-                else if (IS_FORTRAN_LANGUAGE)
-                {
-                    argument << "args % " << it->get_field_name();
-
-                    if (it->get_allocation_policy() == OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE)
-                    {
-                        cleanup_code
-                            << "DEALLOCATE(args % " << it->get_field_name() << ")\n"
-                            ;
-                    }
-                }
-                else
-                {
-                    internal_error("running error", 0);
-                }
-                unpacked_arguments.append_with_separator(argument, ", ");
             }
         }
 
