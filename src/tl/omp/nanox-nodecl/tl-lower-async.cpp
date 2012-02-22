@@ -439,13 +439,15 @@ void LoweringVisitor::fill_arguments(
                             ;
                         break;
                     }
-                case  OutlineDataItem::SHARING_SHARED_EXPRESSION:
+                case  OutlineDataItem::SHARING_CAPTURE_ADDRESS:
                     {
-                        fill_outline_arguments << 
-                            "ol_args->" << it->get_field_name() << " = &" << as_expression( it->get_shared_expression().copy() ) << ";"
+                        Type t = it->get_shared_expression().get_type();
+
+                        fill_outline_arguments 
+                            << "ol_args->" << it->get_field_name() << " = " << as_expression( it->get_shared_expression().copy() ) << ";"
                             ;
-                        fill_immediate_arguments << 
-                            "imm_args." << it->get_field_name() << " = &" << as_expression( it->get_shared_expression().copy() ) << ";"
+                        fill_immediate_arguments 
+                            << "imm_args." << it->get_field_name() << " = " << as_expression( it->get_shared_expression().copy() ) << ";"
                             ;
                         break;
                     }
@@ -492,7 +494,7 @@ void LoweringVisitor::fill_arguments(
                         it->get_symbol().get_internal_symbol()->entity_specs.is_target = 1;
                         break;
                     }
-                case OutlineDataItem::SHARING_SHARED_EXPRESSION:
+                case OutlineDataItem::SHARING_CAPTURE_ADDRESS:
                     {
                         fill_outline_arguments << 
                             "ol_args %" << it->get_field_name() << " => " << as_expression( it->get_shared_expression().copy()) << "\n"
@@ -1019,6 +1021,12 @@ static void copy_outline_data_item(
 
     dest_info.set_field_type(source_info.get_field_type());
 
+    FORTRAN_LANGUAGE()
+    {
+        // We need an additional pointer due to pass by reference in Fortran
+        dest_info.set_field_type(dest_info.get_field_type().get_lvalue_reference_to());
+    }
+
     // Update dependences to reflect arguments as well
     dest_info.get_dependences() = rewrite_dependences(source_info.get_dependences(), param_to_arg_expr);
 }
@@ -1063,7 +1071,7 @@ void LoweringVisitor::visit(const Nodecl::Parallel::AsyncCall& construct)
 
     // Get parameters outline info
     Nodecl::NodeclBase parameters_environment = construct.get_environment();
-    OutlineInfo parameters_outline_info(parameters_environment);
+    OutlineInfo parameters_outline_info(parameters_environment, /* function_task */ true);
 
     // Fill arguments outline info using parameters
     OutlineInfo arguments_outline_info;
@@ -1110,7 +1118,7 @@ void LoweringVisitor::visit(const Nodecl::Parallel::AsyncCall& construct)
         copy_outline_data_item(argument_outline_data_item, parameter_outline_data_item, param_to_arg_expr);
 
         // This is a special kind of shared
-        argument_outline_data_item.set_sharing(OutlineDataItem::SHARING_SHARED_EXPRESSION);
+        argument_outline_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE_ADDRESS);
         argument_outline_data_item.set_shared_expression(it->second);
     }
 

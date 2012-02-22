@@ -117,8 +117,8 @@ namespace TL { namespace Nanox {
                         break;
                     }
                 case OutlineDataItem::SHARING_SHARED:
-                case OutlineDataItem::SHARING_SHARED_EXPRESSION:
                 case OutlineDataItem::SHARING_CAPTURE:
+                case OutlineDataItem::SHARING_CAPTURE_ADDRESS:
                     {
                         Source parameter;
                         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
@@ -177,8 +177,7 @@ namespace TL { namespace Nanox {
                         {
                             // Normal shared items are passed by reference from a pointer,
                             // derreference here
-                            if ((it->get_sharing() == OutlineDataItem::SHARING_SHARED
-                                        || it->get_sharing() == OutlineDataItem::SHARING_SHARED_EXPRESSION)
+                            if (it->get_sharing() == OutlineDataItem::SHARING_SHARED
                                     && it->get_item_kind() == OutlineDataItem::ITEM_KIND_NORMAL)
                             {
                                 argument << "*(args." << it->get_field_name() << ")";

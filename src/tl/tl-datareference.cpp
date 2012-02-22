@@ -53,7 +53,6 @@ namespace TL
                 _data_ref._sizeof = make_sizeof(sym);
             }
 
-#if 0
             virtual void visit(const Nodecl::Derreference& derref)
             {
                 if (derref.get_rhs().is<Nodecl::Reference>())
@@ -65,15 +64,16 @@ namespace TL
 
                 walk(derref.get_rhs());
 
-                if (!_data_ref.is_valid)
+                if (!_data_ref.is_valid())
                     return;
 
                 TL::Type t = derref.get_type();
                 if (t.is_any_reference())
                     t = t.references_to();
 
-                t = t.points_to();
                 _data_ref._data_type = t;
+                _data_ref._base_address = derref.get_rhs().copy();
+                _data_ref._sizeof = make_sizeof(derref);
             }
              
             virtual void visit(const Nodecl::Reference& ref)
@@ -85,14 +85,15 @@ namespace TL
                     return;
                 }
 
-                walk(derref.get_rhs());
-                if (!_data_ref.is_valid)
-                    return;
+                unhandled_node(ref);
+                // walk(ref.get_rhs());
+                // if (!_data_ref.is_valid())
+                //     return;
 
-                TL::Type t = ref.get_type();
-                _data_ref._data_type = t;
+                // TL::Type t = ref.get_type();
+                // _data_ref._data_type = t;
+                // _data_ref._sizeof = make_sizeof(ref);
             }
-#endif
 
             virtual void visit(const Nodecl::ArraySubscript& array)
             {

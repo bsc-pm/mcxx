@@ -27,6 +27,7 @@
 #include "tl-outline-info.hpp"
 #include "tl-nodecl-visitor.hpp"
 #include "tl-datareference.hpp"
+#include "codegen-phase.hpp"
 #include "cxx-diagnostic.h"
 
 namespace TL { namespace Nanox {
@@ -76,9 +77,10 @@ namespace TL { namespace Nanox {
     {
         private:
             OutlineInfo& _outline_info;
+            bool _is_function_task;
         public:
-            OutlineInfoSetupVisitor(OutlineInfo& outline_info)
-                : _outline_info(outline_info)
+            OutlineInfoSetupVisitor(OutlineInfo& outline_info, bool is_function_task)
+                : _outline_info(outline_info), _is_function_task(is_function_task)
             {
             }
 
@@ -123,7 +125,7 @@ namespace TL { namespace Nanox {
                 }
             }
 
-            void add_dependences_as_shared(Nodecl::List list, OutlineDataItem::Directionality directionality)
+            void add_dependence(Nodecl::List list, OutlineDataItem::Directionality directionality)
             {
                 for (Nodecl::List::iterator it = list.begin();
                         it != list.end();
@@ -133,7 +135,18 @@ namespace TL { namespace Nanox {
                     if (data_ref.is_valid())
                     {
                         TL::Symbol sym = data_ref.get_base_symbol();
-                        add_shared(sym);
+                        if (!_is_function_task)
+                        {
+                            // If we are in an inline task, dependences are
+                            // truly shared...
+                            add_shared(sym);
+                        }
+                        else
+                        {
+                            // ... but in function tasks, dependences have just
+                            // their addresses captured
+                            add_capture(sym);
+                        }
 
                         OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym);
                         outline_info.set_directionality(
@@ -142,22 +155,29 @@ namespace TL { namespace Nanox {
 
                         outline_info.get_dependences().append(data_ref);
                     }
+                    else
+                    {
+                        internal_error("%s: data reference '%s' must be valid at this point!\n", 
+                                it->get_locus().c_str(),
+                                Codegen::get_current().codegen_to_str(*it).c_str()
+                                );
+                    }
                 }
             }
 
             void visit(const Nodecl::Parallel::DepIn& dep_in)
             {
-                add_dependences_as_shared(dep_in.get_in_deps().as<Nodecl::List>(), OutlineDataItem::DIRECTIONALITY_IN);
+                add_dependence(dep_in.get_in_deps().as<Nodecl::List>(), OutlineDataItem::DIRECTIONALITY_IN);
             }
 
             void visit(const Nodecl::Parallel::DepOut& dep_out)
             {
-                add_dependences_as_shared(dep_out.get_out_deps().as<Nodecl::List>(), OutlineDataItem::DIRECTIONALITY_OUT);
+                add_dependence(dep_out.get_out_deps().as<Nodecl::List>(), OutlineDataItem::DIRECTIONALITY_OUT);
             }
 
             void visit(const Nodecl::Parallel::DepInout& dep_inout)
             {
-                add_dependences_as_shared(dep_inout.get_inout_deps().as<Nodecl::List>(), OutlineDataItem::DIRECTIONALITY_INOUT);
+                add_dependence(dep_inout.get_inout_deps().as<Nodecl::List>(), OutlineDataItem::DIRECTIONALITY_INOUT);
             }
 
             void add_capture(Symbol sym)
@@ -207,9 +227,9 @@ namespace TL { namespace Nanox {
             }
     };
 
-    OutlineInfo::OutlineInfo(Nodecl::NodeclBase environment)
+    OutlineInfo::OutlineInfo(Nodecl::NodeclBase environment, bool is_function_task)
     {
-        OutlineInfoSetupVisitor setup_visitor(*this);
+        OutlineInfoSetupVisitor setup_visitor(*this, is_function_task);
         setup_visitor.walk(environment);
     }
 

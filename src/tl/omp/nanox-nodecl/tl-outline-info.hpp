@@ -70,7 +70,7 @@ namespace TL
 
                     // Like SHARING_SHARED but we do not keep the address of
                     // the symbol but of the _shared_expression
-                    SHARING_SHARED_EXPRESSION,
+                    SHARING_CAPTURE_ADDRESS,
                 };
 
                 // -- FIXME -- Think this a bit more
@@ -286,7 +286,7 @@ namespace TL
                 {
                     ERROR_CONDITION(
                             (_shared_expression.is_null()
-                            && _sharing == SHARING_SHARED_EXPRESSION),
+                            && _sharing == SHARING_CAPTURE_ADDRESS),
                             "Shared expression is missing!", 0);
                     return _shared_expression;
                 }
@@ -319,7 +319,7 @@ namespace TL
                     return _data_env_items;
                 }
 
-                OutlineInfo(Nodecl::NodeclBase environment);
+                OutlineInfo(Nodecl::NodeclBase environment, bool is_function_task = false);
                 OutlineInfo() : _data_env_items() { }
         };
     }
