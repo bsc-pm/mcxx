@@ -2399,11 +2399,21 @@ TL::ObjectList<TL::Symbol> CxxBase::define_required_before_class(TL::Symbol symb
                 }
 
                 walk_type_for_symbols(
-                        member.get_type(), 
-                        /* needs_def */ 1, 
-                        &CxxBase::declare_symbol_if_nonnested, 
+                        member.get_type(),
+                        /* needs_def */ 1,
+                        &CxxBase::declare_symbol_if_nonnested,
                         &CxxBase::define_symbol_if_nonnested,
                         &CxxBase::define_nonnested_entities_in_trees);
+
+                if (member.is_function())
+                {
+                    walk_type_for_symbols(
+                            member.get_type().returns(),
+                            /* needs_def */ 1,
+                            &CxxBase::declare_symbol_if_nonnested,
+                            &CxxBase::define_symbol_if_nonnested,
+                            &CxxBase::define_nonnested_entities_in_trees);
+                }
             }
             else if (member.is_enum())
             {
