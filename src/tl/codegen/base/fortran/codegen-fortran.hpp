@@ -208,9 +208,16 @@ namespace Codegen
             void codegen_comma_separated_list(Nodecl::NodeclBase);
             void codegen_reverse_comma_separated_list(Nodecl::NodeclBase);
 
+            void do_declare_symbol(TL::Symbol entry, void*);
             void declare_symbol(TL::Symbol);
+
             void declare_everything_needed(Nodecl::NodeclBase statement_seq);
 
+            void traverse_looking_for_symbols(Nodecl::NodeclBase node,
+                    void (FortranBase::*do_declare)(TL::Symbol entry, void *data),
+                    void *data);
+
+            void do_declare_symbol_from_module(TL::Symbol entry, void *data);
             void declare_use_statements(Nodecl::NodeclBase statement_seq);
             void emit_use_statement_if_symbol_comes_from_module(TL::Symbol entry, const TL::Scope &sc);
 

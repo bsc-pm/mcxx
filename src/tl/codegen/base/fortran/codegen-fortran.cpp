@@ -207,34 +207,20 @@ namespace Codegen
         walk(list);
     }
 
-    // FIXME - Replace with a C++ version
-    static const char* get_generic_specifier_str(const char *c)
+    static std::string get_generic_specifier_str(const std::string& c)
     {
         const char* const op_prefix = ".operator.";
-        if (strlen(c) > strlen(op_prefix))
+
+        if (c == ".operator.=")
         {
-            if (strncmp(c, op_prefix, strlen(op_prefix)) == 0)
-            {
-                c += strlen(op_prefix);
-
-                // .operator.=
-                if (*c == '='
-                        && *(c + 1) == '\0')
-                {
-                    return uniquestr("ASSIGNMENT(=)");
-                }
-                // .operator.XXX
-                else
-                {
-                    char t[256];
-                    snprintf(t, 255, "OPERATOR(%s)", c);
-                    t[255] = '\0';
-
-                    return uniquestr(t);
-                }
-            }
+            return "ASSIGNMENT(=)";
         }
-        return c;
+        else if (c.substr(0, strlen(".operator.")) == ".operator.")
+        {
+            return "OPERATOR(" + c.substr(strlen(".operator."), std::string::npos) + ")";
+        }
+        else 
+            return c;
     }
     
     void FortranBase::codegen_procedure(TL::Symbol entry, Nodecl::List statement_seq, Nodecl::List internal_subprograms, 
@@ -963,29 +949,72 @@ OPERATOR_TABLE
         Nodecl::NodeclBase arguments = node.get_arguments();
         Nodecl::NodeclBase alternate_name = node.get_alternate_name();
 
-        TL::Symbol entry = called.get_symbol();
-        ERROR_CONDITION(!entry.is_valid(), "Invalid symbol in call", 0);
+        Nodecl::NodeclBase function_name_in_charge = called;
 
-        bool is_call = (entry.get_type().returns().is_void());
-
-        if (is_call)
-        {
-            file << "CALL ";
-        }
-
-        // If there is an alternate name, favor it instead of the real called entity
         if (!alternate_name.is_null())
         {
-            walk(alternate_name);
+            function_name_in_charge = alternate_name;
+        }
+
+        ERROR_CONDITION(!called.get_symbol().is_valid(), "Invalid symbol in call", 0);
+        bool is_call = (called.get_symbol().get_type().returns().is_void());
+
+        TL::Symbol entry = function_name_in_charge.get_symbol();
+        ERROR_CONDITION(!entry.is_valid(), "Invalid symbol in call", 0);
+
+        bool is_user_defined_assignment = 
+            entry.get_name() == ".operator.=";
+
+        bool is_user_defined_operator = 
+            entry.get_name().substr(0, strlen(".operator.")) == ".operator.";
+
+        bool infix_notation = is_user_defined_assignment
+            || is_user_defined_operator;
+
+        if (!infix_notation)
+        {
+            if (is_call)
+            {
+                file << "CALL ";
+            }
+
+
+            file << entry.get_name() << "(";
+            codegen_comma_separated_list(arguments);
+            file << ")";
         }
         else
         {
-            walk(called);
-        }
+            Nodecl::List arg_list = arguments.as<Nodecl::List>();
 
-        file << "(";
-        codegen_comma_separated_list(arguments);
-        file << ")";
+            if (is_user_defined_assignment)
+            {
+                ERROR_CONDITION(arg_list.size() != 2, "Invalid user defined assignment", 0);
+
+                walk(arg_list[0]);
+                file << " = ";
+                walk(arg_list[1]);
+            }
+            else
+            {
+                std::string op_name = entry.get_name().substr(strlen(".operator."), std::string::npos);
+                if (arg_list.size() == 1)
+                {
+                    file << op_name << " ";
+                    walk(arg_list[0]);
+                }
+                else if (arg_list.size() == 2)
+                {
+                    walk(arg_list[0]);
+                    file << " " << op_name << " ";
+                    walk(arg_list[1]);
+                }
+                else
+                {
+                    internal_error("Malformed user defined call", 0);
+                }
+            }
+        }
     }
 
     void FortranBase::visit(const Nodecl::FortranNamedPairSpec& node)
@@ -1890,25 +1919,61 @@ OPERATOR_TABLE
         state._indent_level = n;
     }
 
-    void FortranBase::declare_symbols_rec(Nodecl::NodeclBase node)
+    void FortranBase::traverse_looking_for_symbols(Nodecl::NodeclBase node,
+            void (FortranBase::*do_declare)(TL::Symbol entry, void *data),
+            void *data)
     {
         if (node.is_null())
             return;
 
-        TL::ObjectList<Nodecl::NodeclBase> children = node.children();
-        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
-                it != children.end();
-                it++)
+        if (node.is<Nodecl::FunctionCall>())
         {
-            declare_symbols_rec(*it);
+            // Special case for function calls
+            Nodecl::FunctionCall func_call = node.as<Nodecl::FunctionCall>();
+            Nodecl::NodeclBase alternate_name = func_call.get_alternate_name();
+
+            if (!alternate_name.is_null())
+            {
+                // Ignore the real name if there is an alternate name in this call
+                traverse_looking_for_symbols(alternate_name, do_declare, data);
+            }
+            else
+            {
+                traverse_looking_for_symbols(func_call.get_called(), do_declare, data);
+            }
+
+            traverse_looking_for_symbols(func_call.get_arguments(), do_declare, data);
+        }
+        else
+        {
+            // Generic case
+            TL::ObjectList<Nodecl::NodeclBase> children = node.children();
+            for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+                    it != children.end();
+                    it++)
+            {
+                traverse_looking_for_symbols(*it, do_declare, data);
+            }
         }
 
         TL::Symbol entry = node.get_symbol();
-        if (entry.is_valid()
-                && (entry.get_internal_symbol()->entity_specs.from_module == NULL))
+        if (entry.is_valid())
+        {
+            (this->*do_declare)(entry, data);
+        }
+    }
+
+    void FortranBase::do_declare_symbol(TL::Symbol entry, void*)
+    {
+        if ((entry.get_internal_symbol()->entity_specs.from_module == NULL))
         {
             declare_symbol(entry);
         }
+    }
+
+    void FortranBase::declare_symbols_rec(Nodecl::NodeclBase node)
+    {
+        traverse_looking_for_symbols(node, &FortranBase::do_declare_symbol, NULL);
     }
 
     std::string FortranBase::define_ptr_loc(TL::Type t, const std::string& function_name = "")
@@ -2297,7 +2362,7 @@ OPERATOR_TABLE
                 indent();
                 file << "INTERFACE " 
                     // Improve this
-                    << get_generic_specifier_str(entry.get_name().c_str()) 
+                    << get_generic_specifier_str(entry.get_name())
                     << "\n";
                 inc_indent();
 
@@ -2337,7 +2402,7 @@ OPERATOR_TABLE
                 dec_indent();
 
                 indent();
-                file << "END INTERFACE " << get_generic_specifier_str(entry.get_name().c_str()) << "\n";
+                file << "END INTERFACE " << get_generic_specifier_str(entry.get_name()) << "\n";
             }
             else if (entry.get_type().lacks_prototype())
             {
@@ -2795,29 +2860,21 @@ OPERATOR_TABLE
         file << "END MODULE " << entry.get_name() << "\n\n";
     }
 
+    void FortranBase::do_declare_symbol_from_module(TL::Symbol entry, void *data)
+    {
+        const TL::Scope* sc = (const TL::Scope*)(data);
+
+        emit_use_statement_if_symbol_comes_from_module(entry, *sc);
+
+        if (entry.is_statement_function_statement())
+        {
+            declare_symbols_from_modules_rec(entry.get_initialization(), *sc);
+        }
+    }
+
     void FortranBase::declare_symbols_from_modules_rec(Nodecl::NodeclBase node, const TL::Scope &sc)
     {
-        if (node.is_null())
-            return;
-
-        TL::ObjectList<Nodecl::NodeclBase> children = node.children();
-        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin(); 
-                it != children.end();
-                it++)
-        {
-            declare_symbols_from_modules_rec(*it, sc);
-        }
-
-        TL::Symbol entry = node.get_symbol();
-        if (entry.is_valid())
-        {
-            emit_use_statement_if_symbol_comes_from_module(entry, sc);
-
-            if (entry.is_statement_function_statement())
-            {
-                declare_symbols_from_modules_rec(entry.get_initialization(), sc);
-            }
-        }
+        traverse_looking_for_symbols(node, &FortranBase::do_declare_symbol_from_module, const_cast<void*>((const void*)&sc));
     }
 
     void FortranBase::declare_use_statements(Nodecl::NodeclBase node)
@@ -3065,7 +3122,7 @@ OPERATOR_TABLE
             file << "USE " 
                 << entry.get_internal_symbol()->entity_specs.from_module->symbol_name
                 << ", ONLY: " 
-                << entry.get_name() 
+                << get_generic_specifier_str(entry.get_name())
                 << "\n";
         }
         else
@@ -3075,7 +3132,7 @@ OPERATOR_TABLE
                 << ", ONLY: " 
                 << entry.get_name() 
                 << " => "
-                << entry.get_internal_symbol()->entity_specs.alias_to->symbol_name
+                << get_generic_specifier_str(entry.get_internal_symbol()->entity_specs.alias_to->symbol_name)
                 << "\n";
         }
 
