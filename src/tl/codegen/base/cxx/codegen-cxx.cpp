@@ -1360,6 +1360,14 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
         indent();
         file << "template<>\n";
     }
+    
+    TL::TemplateParameters temp_param = symbol_scope.get_template_parameters();
+    while (temp_param.is_valid()) 
+    {
+        indent();
+        file << "template<>\n";
+        temp_param  = temp_param.get_enclosing_parameters();
+    }
 
     bool requires_extern_linkage = false;
     CXX_LANGUAGE()
