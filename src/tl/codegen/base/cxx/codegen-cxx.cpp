@@ -2582,8 +2582,6 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
 
         if (is_template_specialized)
         {
-            indent();
-            file << "template <";
             TL::TemplateParameters template_parameters(NULL); 
             if (!(symbol_type.class_type_is_complete_independent()
                         || symbol_type.class_type_is_incomplete_independent()))
@@ -2596,9 +2594,9 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                 //{
                     template_parameters = symbol.get_scope().get_template_parameters();
                 //}
-                codegen_template_parameters(template_parameters);
+
             }
-            file << ">\n";
+            codegen_template_parameters(template_parameters);
         }
         else
         {
@@ -2610,10 +2608,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                 TL::TemplateParameters template_parameters = symbol.get_scope().get_template_parameters();
                 if (template_parameters.is_valid() && template_parameters.get_num_parameters() > 0)
                 {
-                    indent();
-                    file << "template <";
                     codegen_template_parameters(template_parameters);
-                    file << ">\n";
                 }
             }
         }
@@ -2926,11 +2921,8 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
 
             if (_friend == primary_symbol)
             {
-                indent();
-                file << "template <";
                 TL::TemplateParameters template_parameters = template_type.template_type_get_template_parameters();
                 codegen_template_parameters(template_parameters);
-                file << ">\n";
 
                 is_primary_template = 1;
             }
@@ -2938,11 +2930,8 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
         // the friend symbol can be a SK_DEPENDENT_FRIEND_CLASS
         else if (_friend.get_type().is_dependent_typename())
         {
-            indent();
-            file << "template <";
             TL::TemplateParameters template_parameters = _friend.get_related_scope().get_template_parameters();
             codegen_template_parameters(template_parameters);
-            file << ">\n";
 
             indent();
             file << "friend "
@@ -2957,18 +2946,14 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
             TL::Type dep_funct_type = _friend.get_type();
             if (dep_funct_type.is_template_specialized_type())
             {
-                indent();
-                file << "template <";
                 TL::TemplateParameters template_parameters = _friend.get_scope().get_template_parameters();
                 codegen_template_parameters(template_parameters);
-                file << ">\n";
             }
-
-            indent();
 
             std::string function_name = (is_primary_template) ?
                 unmangle_symbol_name(_friend) : _friend.get_qualified_name();
 
+            indent();
             std::string declarator = this->get_declaration(dep_funct_type, _friend.get_scope(), function_name);
             file << "friend " << declarator << ";\n";
             dec_indent();
@@ -3734,11 +3719,7 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
                             "as a dependent template specialized type!\n", 0);
 
                     TL::TemplateParameters template_parameters = symbol.get_type().template_specialized_type_get_template_arguments();
-
-                    indent();
-                    file << "template <";
                     codegen_template_parameters(template_parameters);
-                    file << ">\n";
                 }
             }
             
@@ -3826,11 +3807,8 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
                     }
                     else
                     {
-                        indent();
-                        file << "template <";
                         TL::TemplateParameters template_parameters = template_type.template_type_get_template_parameters();
                         codegen_template_parameters(template_parameters);
-                        file << ">\n";
                         is_primary_template = 1;
                     }
                 }
@@ -4931,18 +4909,25 @@ void CxxBase::codegen_template_parameters_all_levels(TL::TemplateParameters temp
         TL::TemplateParameters enclosing_template_parameters = template_parameters.get_enclosing_parameters();
         codegen_template_parameters_all_levels(enclosing_template_parameters);
     }
-    file << "template<";
     codegen_template_parameters(template_parameters);
-    file << ">\n";
 }
 
-void CxxBase::codegen_template_parameters(TL::TemplateParameters template_parameters)
+void CxxBase::codegen_template_parameters(TL::TemplateParameters template_parameters, bool endline)
 {
+    if (!template_parameters.is_valid())
+    {
+        file << "template <>";
+        if (endline)
+            file << "\n";
+        return;
+    }
+    
     // First traversal to ensure that everything is declared
     for (int i = 0; i < template_parameters.get_num_parameters(); i++)
     {
         std::pair<TL::Symbol, TL::TemplateParameters::TemplateParameterKind> tpl_param = template_parameters.get_parameter_num(i);
-
+        TL::Symbol symbol = tpl_param.first;
+        
         switch (tpl_param.second)
         {
             case TPK_NONTYPE:
@@ -4965,7 +4950,24 @@ void CxxBase::codegen_template_parameters(TL::TemplateParameters template_parame
                     internal_error("Invalid template parameter kind", 0);
                 }
         }
+        
+        if (template_parameters.has_argument(i))
+        {
+            TL::TemplateArgument temp_arg = template_parameters.get_argument_num(i);
+            if (temp_arg.is_default())
+            {
+                TL::Type temp_arg_type = temp_arg.get_type();
+                walk_type_for_symbols(
+                        temp_arg_type,
+                        /* needs_def */ 1,
+                        &CxxBase::declare_symbol_if_nonnested,
+                        &CxxBase::define_symbol_if_nonnested,
+                        &CxxBase::define_nonnested_entities_in_trees);
+            }
+        }
     }
+    
+    file << "template < ";
     for (int i = 0; i < template_parameters.get_num_parameters(); i++)
     {
         std::pair<TL::Symbol, TL::TemplateParameters::TemplateParameterKind> tpl_param = template_parameters.get_parameter_num(i);
@@ -5000,9 +5002,8 @@ void CxxBase::codegen_template_parameters(TL::TemplateParameters template_parame
             case TPK_TEMPLATE:
                 {
                     TL::Type template_type = symbol.get_type();
-                    file << "template <";
-                    codegen_template_parameters(symbol.get_type().template_type_get_template_parameters());
-                    file << "> class " << symbol.get_name();
+                    codegen_template_parameters(symbol.get_type().template_type_get_template_parameters(), /* endline */ false);
+                    file << " class " << symbol.get_name();
                     break;
                 }
             default:
@@ -5010,7 +5011,40 @@ void CxxBase::codegen_template_parameters(TL::TemplateParameters template_parame
                     internal_error("Invalid template parameter kind", 0);
                 }
         }
+        
+
+        // Has this template parameter a default value?
+        if (template_parameters.has_argument(i))
+        {
+            TL::TemplateArgument temp_arg = template_parameters.get_argument_num(i);
+            if (temp_arg.is_default())
+            {
+                file << " = ";
+                switch (tpl_param.second)
+                {
+                    case TPK_TYPE:
+                        {
+                            TL::Type temp_arg_type = temp_arg.get_type();
+                            file << print_type_str(temp_arg_type.get_internal_type(), symbol.get_scope().get_decl_context());
+                            break;
+                        }
+                    case TPK_NONTYPE:
+                    case TPK_TEMPLATE:
+                        {
+                            walk(temp_arg.get_value());
+                            break;
+                        }
+                    default:
+                        {
+                                internal_error("Invalid template parameter kind", 0);
+                        }
+                }
+            }
+        }
     }
+    file << " >";
+    if (endline) 
+        file << "\n";
 }
 
 std::string CxxBase::gcc_attributes_to_str(TL::Symbol symbol)
