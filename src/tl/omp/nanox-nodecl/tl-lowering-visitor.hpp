@@ -16,6 +16,15 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         bool c_type_needs_vla_handling(TL::Type t);
         bool c_requires_vla_handling(OutlineDataItem& outline_data_item);
 
+        void emit_async_common(
+                Nodecl::NodeclBase construct,
+                TL::Symbol function_symbol, 
+                Nodecl::NodeclBase statements,
+                Nodecl::NodeclBase priority,
+                bool is_untied,
+
+                OutlineInfo& outline_info);
+
         void emit_outline(OutlineInfo& outline_info,
                 Nodecl::NodeclBase body,
                 const std::string& outline_name,

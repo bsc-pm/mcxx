@@ -31,6 +31,7 @@
 
 #include "tl-symbol.hpp"
 #include "tl-type.hpp"
+#include "tl-nodecl.hpp"
 #include <string>
 #include <sstream>
 
@@ -66,6 +67,10 @@ namespace TL
                     SHARING_SHARED,
                     SHARING_CAPTURE,
                     SHARING_PRIVATE,
+
+                    // Like SHARING_SHARED but we do not keep the address of
+                    // the symbol but of the _shared_expression
+                    SHARING_SHARED_EXPRESSION,
                 };
 
                 // -- FIXME -- Think this a bit more
@@ -121,6 +126,7 @@ namespace TL
                 TL::Type _in_outline_type;
 
                 Sharing _sharing;
+                Nodecl::NodeclBase _shared_expression;
 
                 // -- FIXME --
                 // Reductions
@@ -144,6 +150,21 @@ namespace TL
                     _field_type(_sym.get_type()),
                     _in_outline_type(NULL),
                     _sharing(),
+                    _shared_expression(),
+                    _directionality(),
+                    _transfer(),
+                    _allocation_policy_flags()
+                {
+                }
+
+                OutlineDataItem(const std::string field_name)
+                    : _item_kind(ITEM_KIND_NORMAL),
+                    _sym(NULL), 
+                    _field_name(field_name), 
+                    _field_type(_sym.get_type()),
+                    _in_outline_type(NULL),
+                    _sharing(),
+                    _shared_expression(),
                     _directionality(),
                     _transfer(),
                     _allocation_policy_flags()
@@ -255,6 +276,20 @@ namespace TL
                 {
                     return _dependences;
                 }
+
+                void set_shared_expression(Nodecl::NodeclBase shared_expr)
+                {
+                    _shared_expression = shared_expr;
+                }
+
+                Nodecl::NodeclBase get_shared_expression() const
+                {
+                    ERROR_CONDITION(
+                            (_shared_expression.is_null()
+                            && _sharing == SHARING_SHARED_EXPRESSION),
+                            "Shared expression is missing!", 0);
+                    return _shared_expression;
+                }
         };
 
         class OutlineInfo
@@ -267,6 +302,11 @@ namespace TL
 
                 std::string get_field_name(std::string name);
             public:
+                //! Get new or retrieve existing OutlineDataItem for symbol
+                /*!
+                 * Note that this function retrieves an OutlineDataItem for
+                 * an existing symbol, otherwise it creates a new one
+                 */
                 OutlineDataItem& get_entity_for_symbol(TL::Symbol sym);
 
                 ObjectList<OutlineDataItem>& get_data_items()

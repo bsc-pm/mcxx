@@ -1,4 +1,5 @@
 #include "tl-omp-base.hpp"
+#include "tl-nodecl-alg.hpp"
 #include "cxx-diagnostic.h"
 
 namespace TL { namespace OpenMP {
@@ -357,8 +358,7 @@ namespace TL { namespace OpenMP {
     void Base::task_handler_pre(TL::PragmaCustomDeclaration declaration) { }
     void Base::task_handler_post(TL::PragmaCustomDeclaration decl)
     {
-        std::cerr << decl.get_locus() << ": debug: remove pragma custom declaration" << std::endl;
-        // internal_error("Not yet implemented", 0);
+        Nodecl::Utils::remove_from_enclosing_list(decl);
     }
 
     void Base::target_handler_pre(TL::PragmaCustomStatement) { }
