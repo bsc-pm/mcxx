@@ -119,7 +119,7 @@ string-literal: NODECL_STRING_LITERAL() type const_value
 expression : literal
            | name
            | context
-           | NODECL_FUNCTION_CALL([called] expression, [arguments] argument-seq-opt) type
+           | NODECL_FUNCTION_CALL([called] expression, [arguments] argument-seq-opt, [alternate_name]name-opt) type
            | NODECL_ARRAY_SUBSCRIPT([subscripted] expression, [subscripts]expression-seq) type
            | NODECL_RANGE([lower] expression-opt, [upper] expression-opt, [stride] expression) type
            | NODECL_CLASS_MEMBER_ACCESS([lhs]expression, [member]expression) type

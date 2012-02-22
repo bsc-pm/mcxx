@@ -1157,8 +1157,9 @@ void LoweringVisitor::visit(const Nodecl::Parallel::AsyncCall& construct)
     Nodecl::NodeclBase statement = 
         Nodecl::ExpressionStatement::make(
                 Nodecl::FunctionCall::make(
-                    function_call.get_called(),
+                    function_call.get_called().copy(),
                     nodecl_arg_list,
+                    function_call.get_alternate_name().copy(),
                     Type::get_void_type(),
                     function_call.get_filename(),
                     function_call.get_line()),

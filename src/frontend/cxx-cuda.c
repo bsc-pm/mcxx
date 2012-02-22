@@ -392,6 +392,7 @@ void check_cuda_kernel_call(AST expression, decl_context_t decl_context, nodecl_
                     nodecl_make_function_call(
                         nodecl_postfix,
                         nodecl_argument_list,
+                        /* alternate_name */ nodecl_null(),
                         get_unknown_dependent_type(),
                         filename, line),
                     get_unknown_dependent_type(),

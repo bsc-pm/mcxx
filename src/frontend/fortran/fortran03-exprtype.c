@@ -2192,8 +2192,9 @@ static void check_called_symbol(
         const char** actual_arguments_keywords,
         char is_call_stmt,
         // out
-        type_t** result_type,
-        scope_entry_t** called_symbol,
+        type_t** result_type, // Result type of this call
+        scope_entry_t** called_symbol, // This is set to the real function called
+        scope_entry_t** generic_specifier_symbol, // This will be non-NULL if the function call goes through a generic specifier name
         nodecl_t* nodecl_simplify)
 {
     if (symbol == NULL
@@ -2350,6 +2351,10 @@ static void check_called_symbol(
                 *result_type = get_error_type();
                 return;
             }
+
+            // Remember the generic specifier
+            *generic_specifier_symbol = symbol;
+            // but perform everything else using the specific one
             symbol = specific_symbol;
         }
 
@@ -2693,6 +2698,7 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
 
     type_t* result_type = NULL;
     scope_entry_t* called_symbol = NULL;
+    scope_entry_t* generic_specifier_symbol = NULL;
     nodecl_t nodecl_simplify = nodecl_null();
     check_called_symbol(symbol, 
             decl_context, 
@@ -2705,6 +2711,7 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
             // out
             &result_type,
             &called_symbol,
+            &generic_specifier_symbol,
             &nodecl_simplify
             );
 
@@ -2810,9 +2817,18 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
 
     if (nodecl_is_null(nodecl_simplify))
     {
+        nodecl_t nodecl_generic_spec = nodecl_null();
+
+        if (generic_specifier_symbol != NULL)
+        {
+            nodecl_generic_spec = nodecl_make_symbol(generic_specifier_symbol, 
+                    ASTFileName(procedure_designator), ASTLine(procedure_designator));
+        }
+
         *nodecl_output = nodecl_make_function_call(
                 nodecl_make_symbol(called_symbol, ASTFileName(procedure_designator), ASTLine(procedure_designator)),
                 nodecl_argument_list,
+                nodecl_generic_spec,
                 result_type,
                 ASTFileName(expr), ASTLine(expr));
 
@@ -3108,6 +3124,7 @@ static void check_user_defined_unary_op(AST expr, decl_context_t decl_context, n
 
     type_t* result_type = NULL;
     scope_entry_t* called_symbol = NULL;
+    scope_entry_t* generic_specifier_symbol = NULL;
     nodecl_t nodecl_simplify = nodecl_null();
     check_called_symbol(call_sym, 
             decl_context, 
@@ -3120,6 +3137,7 @@ static void check_user_defined_unary_op(AST expr, decl_context_t decl_context, n
             // out
             &result_type,
             &called_symbol,
+            &generic_specifier_symbol,
             &nodecl_simplify);
 
     ERROR_CONDITION(result_type == NULL, "Invalid type returned by check_called_symbol", 0);
@@ -3128,6 +3146,12 @@ static void check_user_defined_unary_op(AST expr, decl_context_t decl_context, n
     {
         *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
         return;
+    }
+
+    nodecl_t nodecl_generic_spec = nodecl_null();
+    if (generic_specifier_symbol != NULL)
+    {
+        nodecl_generic_spec = nodecl_make_symbol(generic_specifier_symbol, ASTFileName(expr), ASTLine(expr));
     }
 
     *nodecl_output = nodecl_make_function_call(
@@ -3139,6 +3163,7 @@ static void check_user_defined_unary_op(AST expr, decl_context_t decl_context, n
                         nodecl_expr),
                     ASTFileName(operand_expr),
                     ASTLine(operand_expr))),
+            nodecl_generic_spec,
             result_type,
             ASTFileName(expr),
             ASTLine(expr));
@@ -3199,6 +3224,7 @@ static void check_user_defined_binary_op(AST expr, decl_context_t decl_context, 
 
     type_t* result_type = NULL;
     scope_entry_t* called_symbol = NULL;
+    scope_entry_t* generic_specifier_symbol = NULL;
     nodecl_t nodecl_simplify = nodecl_null();
     check_called_symbol(call_sym, 
             decl_context, 
@@ -3211,6 +3237,7 @@ static void check_user_defined_binary_op(AST expr, decl_context_t decl_context, 
             // out
             &result_type,
             &called_symbol,
+            &generic_specifier_symbol,
             &nodecl_simplify);
 
     ERROR_CONDITION(result_type == NULL, "Invalid type returned by check_called_symbol", 0);
@@ -3219,6 +3246,12 @@ static void check_user_defined_binary_op(AST expr, decl_context_t decl_context, 
     {
         *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
         return;
+    }
+
+    nodecl_t nodecl_generic_spec = nodecl_null();
+    if (generic_specifier_symbol != NULL)
+    {
+        nodecl_generic_spec = nodecl_make_symbol(generic_specifier_symbol, ASTFileName(expr), ASTLine(expr));
     }
 
     *nodecl_output = nodecl_make_function_call(
@@ -3236,6 +3269,7 @@ static void check_user_defined_binary_op(AST expr, decl_context_t decl_context, 
                         nodecl_rhs),
                     ASTFileName(rhs_expr),
                     ASTLine(rhs_expr))),
+            nodecl_generic_spec,
             result_type,
             ASTFileName(expr),
             ASTLine(expr));
@@ -3713,7 +3747,9 @@ static char is_intrinsic_assignment(type_t* lvalue_type, type_t* rvalue_type)
 static char is_defined_assignment(AST expr, AST lvalue, 
         AST rvalue UNUSED_PARAMETER,
         nodecl_t nodecl_lvalue, nodecl_t nodecl_rvalue, 
-        decl_context_t decl_context, scope_entry_t** entry)
+        decl_context_t decl_context, 
+        scope_entry_t** entry,
+        scope_entry_t** generic_specifier_symbol)
 {
     const char* operator_name = ".operator.=";
     scope_entry_t* call_sym = fortran_query_name_str(decl_context, operator_name);
@@ -3742,6 +3778,7 @@ static char is_defined_assignment(AST expr, AST lvalue,
             // out
             &result_type,
             entry,
+            generic_specifier_symbol,
             &nodecl_simplify);
     leave_test_expression();
 
@@ -3774,7 +3811,9 @@ static void check_assignment(AST expr, decl_context_t decl_context, nodecl_t* no
     type_t* rvalue_type = nodecl_get_type(nodecl_rvalue);
     
     scope_entry_t* assignment_op = NULL;
-    char is_defined_assig = is_defined_assignment(expr, lvalue, rvalue, nodecl_lvalue, nodecl_rvalue, decl_context, &assignment_op);
+    scope_entry_t* generic_specifier_symbol = NULL;
+    char is_defined_assig = is_defined_assignment(expr, lvalue, rvalue, nodecl_lvalue, nodecl_rvalue, decl_context, 
+            &assignment_op, &generic_specifier_symbol);
 
     if (!is_defined_assig
             && !is_intrinsic_assignment(lvalue_type, rvalue_type))
@@ -3805,6 +3844,12 @@ static void check_assignment(AST expr, decl_context_t decl_context, nodecl_t* no
     }
     else
     {
+        nodecl_t nodecl_generic_spec = nodecl_null();
+        if (generic_specifier_symbol != NULL)
+        {
+            nodecl_generic_spec = nodecl_make_symbol(generic_specifier_symbol, ASTFileName(expr), ASTLine(expr));
+        }
+
         *nodecl_output = nodecl_make_function_call(
                 nodecl_make_symbol(assignment_op, ASTFileName(expr), ASTLine(expr)),
                 nodecl_make_list_2(
@@ -3816,6 +3861,7 @@ static void check_assignment(AST expr, decl_context_t decl_context, nodecl_t* no
                         nodecl_null(),
                         nodecl_rvalue,
                         ASTFileName(rvalue), ASTLine(rvalue))),
+                nodecl_generic_spec,
                 get_void_type(),
                 ASTFileName(expr), ASTLine(expr));
     }
@@ -4487,6 +4533,7 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
             AST operator_designation = ASTLeaf(AST_SYMBOL, ast_get_filename(expr), ast_get_line(expr), get_operator_for_expr(expr));
 
             scope_entry_t* called_symbol = NULL;
+            scope_entry_t* generic_specifier_symbol = NULL;
             nodecl_t nodecl_simplify = nodecl_null();
             check_called_symbol(call_sym, 
                     decl_context, 
@@ -4499,6 +4546,7 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
                     // out
                     &result,
                     &called_symbol,
+                    &generic_specifier_symbol,
                     &nodecl_simplify);
 
             ast_free(operator_designation);
@@ -4519,9 +4567,16 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
                     nodecl_argument_list = nodecl_make_list_2(nodecl_rhs, nodecl_lhs);
                 }
 
+                nodecl_t nodecl_generic_spec = nodecl_null();
+                if (generic_specifier_symbol != NULL)
+                {
+                    nodecl_generic_spec = nodecl_make_symbol(generic_specifier_symbol, ast_get_filename(expr), ast_get_line(expr));
+                }
+
                 *nodecl_output = nodecl_make_function_call(
                         nodecl_make_symbol(called_symbol, ast_get_filename(expr), ast_get_line(expr)),
                         nodecl_argument_list,
+                        nodecl_generic_spec,
                         result,
                         ASTFileName(expr), ASTLine(expr));
 

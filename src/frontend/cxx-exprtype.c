@@ -8044,6 +8044,7 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
     {
         *nodecl_output = nodecl_make_function_call(nodecl_called,
                 nodecl_argument_list,
+                /* alternate_name */ nodecl_null(),
                 get_unknown_dependent_type(),
                 filename, line);
         nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
@@ -8129,6 +8130,7 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
             *nodecl_output = nodecl_make_function_call(
                     nodecl_called,
                     nodecl_argument_list_output,
+                    /* alternate_name */ nodecl_null(),
                     return_type,
                     filename, line);
 
@@ -8582,6 +8584,7 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t 
             *nodecl_output = nodecl_make_function_call(
                     nodecl_called,
                     nodecl_argument_list,
+                    /* alternate_name */ nodecl_null(),
                     get_unknown_dependent_type(),
                     ASTFileName(expr), ASTLine(expr));
             nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
@@ -10903,6 +10906,7 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
                     nodecl_arg = nodecl_make_function_call(
                             nodecl_make_symbol(conversors[i], nodecl_get_filename(nodecl_arg), nodecl_get_line(nodecl_arg)),
                             nodecl_make_list_1(nodecl_arg),
+                            /* alternate_name */ nodecl_null(),
                             actual_type_of_conversor(conversors[i]), nodecl_get_filename(nodecl_arg), nodecl_get_line(nodecl_arg));
                 }
 
@@ -13924,12 +13928,12 @@ nodecl_t cxx_nodecl_make_function_call(nodecl_t called, nodecl_t arg_list, type_
         }
         else
         {
-            return nodecl_make_function_call(called, converted_arg_list, t, filename, line);
+            return nodecl_make_function_call(called, converted_arg_list, /* alternate_name */ nodecl_null(), t, filename, line);
         }
     }
     else
     {
-        return nodecl_make_function_call(called, converted_arg_list, t, filename, line);
+        return nodecl_make_function_call(called, converted_arg_list, /* alternate_name */ nodecl_null(), t, filename, line);
     }
 }
 

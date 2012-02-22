@@ -961,6 +961,7 @@ OPERATOR_TABLE
     {
         Nodecl::NodeclBase called = node.get_called();
         Nodecl::NodeclBase arguments = node.get_arguments();
+        Nodecl::NodeclBase alternate_name = node.get_alternate_name();
 
         TL::Symbol entry = called.get_symbol();
         ERROR_CONDITION(!entry.is_valid(), "Invalid symbol in call", 0);
@@ -972,7 +973,15 @@ OPERATOR_TABLE
             file << "CALL ";
         }
 
-        walk(called);
+        // If there is an alternate name, favor it instead of the real called entity
+        if (!alternate_name.is_null())
+        {
+            walk(alternate_name);
+        }
+        else
+        {
+            walk(called);
+        }
 
         file << "(";
         codegen_comma_separated_list(arguments);
