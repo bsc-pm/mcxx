@@ -1357,15 +1357,19 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
     if (symbol_type.is_template_specialized_type()
             && symbol_type.template_specialized_type_get_template_arguments().get_num_parameters() != 0)
     {
-        indent();
-        file << "template<>\n";
+        TL::TemplateParameters temp_param = symbol_scope.get_template_parameters();
+        while (temp_param.is_valid())
+        {
+            indent();
+            file << "template<>\n";
+            temp_param = temp_param.get_enclosing_parameters();
+        }
     }
-    
 
     bool requires_extern_linkage = false;
     CXX_LANGUAGE()
     {
-        requires_extern_linkage = (!symbol.is_member() 
+        requires_extern_linkage = (!symbol.is_member()
                 && symbol.has_nondefault_linkage());
 
         if (requires_extern_linkage)
