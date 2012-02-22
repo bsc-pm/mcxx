@@ -1773,7 +1773,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::PragmaCustomDeclaration& node)
     indent();
 
     // FIXME  parallel|for must be printed as parallel for
-    file << "/* decl: #pragma " << node.get_text();
+    file << "/* decl: #pragma " << node.get_text() << " ";
     walk(pragma_line);
     file << "'" << symbol.get_qualified_name() << "' */\n";
 }
