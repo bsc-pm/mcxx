@@ -2596,7 +2596,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                 //}
 
             }
-            codegen_template_parameters(template_parameters);
+            codegen_template_header(template_parameters);
         }
         else
         {
@@ -2608,7 +2608,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                 TL::TemplateParameters template_parameters = symbol.get_scope().get_template_parameters();
                 if (template_parameters.is_valid() && template_parameters.get_num_parameters() > 0)
                 {
-                    codegen_template_parameters(template_parameters);
+                    codegen_template_header(template_parameters);
                 }
             }
         }
@@ -2922,7 +2922,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
             if (_friend == primary_symbol)
             {
                 TL::TemplateParameters template_parameters = template_type.template_type_get_template_parameters();
-                codegen_template_parameters(template_parameters);
+                codegen_template_header(template_parameters);
 
                 is_primary_template = 1;
             }
@@ -2931,7 +2931,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
         else if (_friend.get_type().is_dependent_typename())
         {
             TL::TemplateParameters template_parameters = _friend.get_related_scope().get_template_parameters();
-            codegen_template_parameters(template_parameters);
+            codegen_template_header(template_parameters);
 
             indent();
             file << "friend "
@@ -2947,7 +2947,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
             if (dep_funct_type.is_template_specialized_type())
             {
                 TL::TemplateParameters template_parameters = _friend.get_scope().get_template_parameters();
-                codegen_template_parameters(template_parameters);
+                codegen_template_header(template_parameters);
             }
 
             std::string function_name = (is_primary_template) ?
@@ -3719,7 +3719,7 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
                             "as a dependent template specialized type!\n", 0);
 
                     TL::TemplateParameters template_parameters = symbol.get_type().template_specialized_type_get_template_arguments();
-                    codegen_template_parameters(template_parameters);
+                    codegen_template_header(template_parameters);
                 }
             }
             
@@ -3808,7 +3808,7 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
                     else
                     {
                         TL::TemplateParameters template_parameters = template_type.template_type_get_template_parameters();
-                        codegen_template_parameters(template_parameters);
+                        codegen_template_header(template_parameters);
                         is_primary_template = 1;
                     }
                 }
@@ -4909,10 +4909,10 @@ void CxxBase::codegen_template_parameters_all_levels(TL::TemplateParameters temp
         TL::TemplateParameters enclosing_template_parameters = template_parameters.get_enclosing_parameters();
         codegen_template_parameters_all_levels(enclosing_template_parameters);
     }
-    codegen_template_parameters(template_parameters);
+    codegen_template_header(template_parameters);
 }
 
-void CxxBase::codegen_template_parameters(TL::TemplateParameters template_parameters, bool endline)
+void CxxBase::codegen_template_header(TL::TemplateParameters template_parameters, bool endline)
 {
     if (!template_parameters.is_valid())
     {
@@ -5002,7 +5002,7 @@ void CxxBase::codegen_template_parameters(TL::TemplateParameters template_parame
             case TPK_TEMPLATE:
                 {
                     TL::Type template_type = symbol.get_type();
-                    codegen_template_parameters(symbol.get_type().template_type_get_template_parameters(), /* endline */ false);
+                    codegen_template_header(symbol.get_type().template_type_get_template_parameters(), /* endline */ false);
                     file << " class " << symbol.get_name();
                     break;
                 }

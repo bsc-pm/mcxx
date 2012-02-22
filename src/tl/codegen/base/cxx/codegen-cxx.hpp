@@ -326,7 +326,7 @@ namespace Codegen
 
             void codegen_template_parameters_all_levels(TL::TemplateParameters template_parameters);
 
-            void codegen_template_parameters(TL::TemplateParameters template_parameters, bool endline = true);
+            void codegen_template_header(TL::TemplateParameters template_parameters, bool endline = true);
 
             std::string template_arguments_to_str(TL::Symbol);
 
