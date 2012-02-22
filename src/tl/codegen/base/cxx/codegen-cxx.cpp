@@ -3193,6 +3193,7 @@ void CxxBase::define_symbol(TL::Symbol symbol)
 
     if (symbol.get_type().is_template_specialized_type() 
             && !symbol.is_user_declared()
+            && symbol.get_type().is_dependent()
             && (symbol.is_class() || symbol.is_function()))
     {
         symbol = symbol
@@ -3332,6 +3333,7 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
 
     if (symbol.get_type().is_template_specialized_type() 
             && !symbol.is_user_declared()
+            && symbol.get_type().is_dependent()
             && (symbol.is_class() || symbol.is_function()))
         return;
 
