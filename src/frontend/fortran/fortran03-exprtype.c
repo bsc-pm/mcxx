@@ -4607,6 +4607,7 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
                             fortran_print_type_str(rhs_type),
                             get_operator_for_expr(expr));
                 }
+                *nodecl_output = nodecl_make_err_expr(ast_get_filename(expr), ast_get_line(expr));
                 return get_error_type();
             }
             else
@@ -4618,6 +4619,7 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
                             fortran_print_type_str(rhs_type),
                             get_operator_for_expr(expr));
                 }
+                *nodecl_output = nodecl_make_err_expr(ast_get_filename(expr), ast_get_line(expr));
                 return get_error_type();
             }
         }
