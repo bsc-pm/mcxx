@@ -1054,12 +1054,12 @@ static void fill_map_parameters_to_arguments(
 
 void LoweringVisitor::visit(const Nodecl::Parallel::AsyncCall& construct)
 {
-    std::cerr << "ASYNC CALL AT " << construct.get_locus() << std::endl;
-    
     Nodecl::FunctionCall function_call = construct.get_call().as<Nodecl::FunctionCall>();
     ERROR_CONDITION(!function_call.get_called().is<Nodecl::Symbol>(), "Invalid ASYNC CALL!", 0);
 
     TL::Symbol called_sym = function_call.get_called().get_symbol();
+
+    std::cerr << construct.get_locus() << ": note: call to task function '" << called_sym.get_qualified_name() << "'" << std::endl;
 
     // Get parameters outline info
     Nodecl::NodeclBase parameters_environment = construct.get_environment();
