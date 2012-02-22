@@ -1152,7 +1152,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
     move_to_namespace_of_symbol(symbol);
 
     TL::TemplateParameters template_parameters = symbol_scope.get_template_parameters();
-    codegen_template_parameters_all_levels(template_parameters);
+    codegen_template_headers_all_levels(template_parameters);
     
     bool requires_extern_linkage = false;
     CXX_LANGUAGE()
@@ -1361,13 +1361,6 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
         file << "template<>\n";
     }
     
-    TL::TemplateParameters temp_param = symbol_scope.get_template_parameters();
-    while (temp_param.is_valid()) 
-    {
-        indent();
-        file << "template<>\n";
-        temp_param  = temp_param.get_enclosing_parameters();
-    }
 
     bool requires_extern_linkage = false;
     CXX_LANGUAGE()
@@ -2586,7 +2579,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
             if (!(symbol_type.class_type_is_complete_independent()
                         || symbol_type.class_type_is_incomplete_independent()))
             {
-
+                template_parameters = symbol.get_scope().get_template_parameters();
             }
             codegen_template_header(template_parameters);
         }
@@ -2597,10 +2590,12 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
             TL::Type type_related_symbol = related_symbol.get_type();
             if (type_related_symbol.is_template_specialized_type())
             {
-                TL::TemplateParameters template_parameters = symbol.get_scope().get_template_parameters();
-                if (template_parameters.is_valid() && template_parameters.get_num_parameters() > 0)
+                // If the symbol is an anonymous union then it must be defined in the enclosing class definition.
+                // Otherwise, this symbol must be defined in its namespace and we should generate all template headers.
+                if (!symbol.is_anonymous_union())
                 {
-                    codegen_template_header(template_parameters);
+                    TL::TemplateParameters template_parameters = symbol.get_scope().get_template_parameters();
+                    codegen_template_headers_all_levels(template_parameters);
                 }
             }
         }
@@ -4894,12 +4889,12 @@ void CxxBase::declare_all_in_template_arguments(TL::TemplateParameters template_
     }
 }
 
-void CxxBase::codegen_template_parameters_all_levels(TL::TemplateParameters template_parameters)
+void CxxBase::codegen_template_headers_all_levels(TL::TemplateParameters template_parameters)
 {
     if (template_parameters.has_enclosing_parameters())
     {
         TL::TemplateParameters enclosing_template_parameters = template_parameters.get_enclosing_parameters();
-        codegen_template_parameters_all_levels(enclosing_template_parameters);
+        codegen_template_headers_all_levels(enclosing_template_parameters);
     }
     codegen_template_header(template_parameters);
 }

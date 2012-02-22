@@ -324,7 +324,7 @@ namespace Codegen
 
             void declare_all_in_template_arguments(TL::TemplateParameters template_arguments);
 
-            void codegen_template_parameters_all_levels(TL::TemplateParameters template_parameters);
+            void codegen_template_headers_all_levels(TL::TemplateParameters template_parameters);
 
             void codegen_template_header(TL::TemplateParameters template_parameters, bool endline = true);
 
