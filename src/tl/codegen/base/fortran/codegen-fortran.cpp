@@ -2361,7 +2361,6 @@ OPERATOR_TABLE
             {
                 indent();
                 file << "INTERFACE " 
-                    // Improve this
                     << get_generic_specifier_str(entry.get_name())
                     << "\n";
                 inc_indent();
@@ -2373,8 +2372,7 @@ OPERATOR_TABLE
                 {
                     TL::Symbol &iface(*it);
 
-                    if (state.current_module.is_valid()
-                            && (iface.in_module() == state.current_module))
+                    if (iface.is_module_procedure())
                     {
                         indent();
                         file << "MODULE PROCEDURE " << iface.get_name() << "\n";
@@ -3084,9 +3082,22 @@ OPERATOR_TABLE
             {
                 TL::ObjectList<TL::Symbol> symbols_in_namelist = entry.get_related_symbols();
                 int num_symbols = symbols_in_namelist.size();
-                for (int i = 0; i < num_symbols; ++i)
+                for (TL::ObjectList<TL::Symbol>::iterator it = symbols_in_namelist.begin(); 
+                        it != symbols_in_namelist.end();
+                        it++)
                 {
-                    emit_use_statement_if_symbol_comes_from_module(symbols_in_namelist[i], sc);
+                    emit_use_statement_if_symbol_comes_from_module(*it, sc);
+                }
+            }
+            else if (entry.is_generic_specifier())
+            {
+                TL::ObjectList<TL::Symbol> specific_interfaces = entry.get_related_symbols();
+                int num_symbols = specific_interfaces.size();
+                for (TL::ObjectList<TL::Symbol>::iterator it = specific_interfaces.begin(); 
+                        it != specific_interfaces.end();
+                        it++)
+                {
+                    emit_use_statement_if_symbol_comes_from_module(*it, sc);
                 }
             }
         }
