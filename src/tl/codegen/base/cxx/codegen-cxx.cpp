@@ -2586,14 +2586,6 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
             if (!(symbol_type.class_type_is_complete_independent()
                         || symbol_type.class_type_is_incomplete_independent()))
             {
-               // if (is_primary_template) 
-               // {
-               //     template_parameters = symbol_type.template_specialized_type_get_template_arguments();
-               // }
-               // else
-                //{
-                    template_parameters = symbol.get_scope().get_template_parameters();
-                //}
 
             }
             codegen_template_header(template_parameters);
