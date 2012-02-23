@@ -136,6 +136,9 @@ namespace Codegen
                 // An INTERFACE block (without generic-specifier) is open
                 bool in_interface;
 
+                // We are in the top level of a data-value
+                bool in_data_value;
+
                 State()
                     : _indent_level(0),
                     current_symbol(NULL),

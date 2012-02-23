@@ -727,6 +727,10 @@ OPERATOR_TABLE
         {
             long long int v = (long long int)const_value_cast_to_8(value);
 
+            if (!state.in_data_value
+                    && v < 0)
+                file << "(";
+
             long long tiniest_of_its_type = (~0LL);
             tiniest_of_its_type <<= (sizeof(tiniest_of_its_type) * num_bytes - 1);
 
@@ -748,6 +752,9 @@ OPERATOR_TABLE
                 file << v << suffix;
             }
 
+            if (!state.in_data_value
+                    && v < 0)
+                file << ")";
         }
     }
 
@@ -771,19 +778,44 @@ OPERATOR_TABLE
         if (const_value_is_float(value))
         {
             const char* result = NULL;
-            uniquestr_sprintf(&result, "%.*E_%d", precision, const_value_cast_to_float(value), kind);
+            float f = const_value_cast_to_float(value);
+            uniquestr_sprintf(&result, "%.*E_%d", precision, f, kind);
+
+            if (!state.in_data_value
+                    && f < 0)
+                file << "(";
             file << result;
+            if (!state.in_data_value
+                    && f < 0)
+                file << ")";
         }
         else if (const_value_is_double(value))
         {
             const char* result = NULL;
-            uniquestr_sprintf(&result, "%.*E_%d", precision, const_value_cast_to_double(value), kind);
+            double d = const_value_cast_to_double(value);
+            uniquestr_sprintf(&result, "%.*E_%d", precision, d, kind);
+
+            if (!state.in_data_value
+                    && d < 0)
+                file << "(";
             file << result;
+            if (!state.in_data_value
+                    && d < 0)
+                file << ")";
         }
         else if (const_value_is_long_double(value))
         {
             const char* result = NULL;
-            uniquestr_sprintf(&result, "%.*LE_%d", precision, const_value_cast_to_long_double(value), kind);
+            long double ld = const_value_cast_to_long_double(value);
+            uniquestr_sprintf(&result, "%.*LE_%d", precision, ld, kind);
+
+            if (!state.in_data_value
+                    && ld < 0)
+                file << "(";
+            file << result;
+            if (!state.in_data_value
+                    && ld < 0)
+                file << ")";
         }
 #ifdef HAVE_QUADMATH_H
         else if (const_value_is_float128(value))
@@ -793,7 +825,14 @@ OPERATOR_TABLE
             char c[n+1];
             quadmath_snprintf (c, n, "%.*Qe", precision, f128);
             c[n] = '\0';
+
+            if (!state.in_data_value
+                    && f128 < 0)
+                file << "(";
             file << c << "_" << kind;
+            if (!state.in_data_value
+                    && f128 < 0)
+                file << ")";
         }
 #endif
     }
@@ -1494,7 +1533,9 @@ OPERATOR_TABLE
         file << "DATA ";
         codegen_comma_separated_list(node.get_objects());
         file << " / ";
+        state.in_data_value = true;
         codegen_comma_separated_list(node.get_values());
+        state.in_data_value = false;
         file << " /\n";
     }
 
