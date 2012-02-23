@@ -3963,6 +3963,64 @@ void fortran_check_initialization(
             *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
             return;
         }
+
+        // Now check the constant and the type do square, otherwise fix the
+        // constant value
+        const_value_t* val = nodecl_get_constant(*nodecl_output);
+
+        // The user is initializing an integer using a float. 
+        if (is_any_int_type(no_ref(entry->type_information))
+                && const_value_is_floating(val))
+        {
+            const_value_t* int_val = const_value_cast_to_bytes(
+                    val,
+                    type_get_size(no_ref(entry->type_information)),
+                    /* signed */ 1);
+
+            *nodecl_output = nodecl_make_integer_literal(
+                    no_ref(entry->type_information),
+                    int_val,
+                    nodecl_get_filename(*nodecl_output),
+                    nodecl_get_line(*nodecl_output));
+        }
+        // The user is initializing a real using an integer
+        else if (is_floating_type(no_ref(entry->type_information))
+                    & const_value_is_integer(val))
+        {
+            type_t* flt_type = no_ref(entry->type_information);
+
+            const_value_t* flt_val = NULL;
+
+            if (is_float_type(flt_type))
+            {
+                flt_val = const_value_cast_to_float_value(val);
+            }
+            else if (is_double_type(flt_type))
+            {
+                flt_val = const_value_cast_to_double_value(val);
+            }
+            else if (is_long_double_type(flt_type))
+            {
+                flt_val = const_value_cast_to_long_double_value(val);
+            }
+            else if (is_other_float_type(flt_type))
+            {
+#ifdef HAVE_QUADMATH_H
+                if (floating_type_get_info(flt_type)->size_of == 16)
+                {
+                    flt_val = const_value_cast_to_float128_value(val);
+                }
+#endif
+            }
+
+            ERROR_CONDITION(flt_val == NULL, "No conversion was possible", 0);
+
+            *nodecl_output = nodecl_make_floating_literal(
+                    flt_type,
+                    flt_val,
+                    nodecl_get_filename(*nodecl_output),
+                    nodecl_get_line(*nodecl_output));
+        }
     }
 }
 
