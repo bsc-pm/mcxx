@@ -288,6 +288,10 @@ namespace Codegen
                     it != internal_subprograms.end();
                     it++)
             {
+                // Here we declare everything in the context of the enclosing program unit
+                declare_everything_needed(*it);
+
+                // We explicitly check dummy arguments because they might not be used
                 TL::Symbol internal_procedure = it->get_symbol();
                 TL::ObjectList<TL::Symbol> related_symbols = internal_procedure.get_related_symbols();
                 for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
