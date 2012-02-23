@@ -6925,6 +6925,8 @@ static scope_entry_t* insert_symbol_from_module(scope_entry_t* entry,
     }
 
     current_symbol->symbol_name = aliased_name;
+    current_symbol->file = filename;
+    current_symbol->line = line;
 
     current_symbol->entity_specs.from_module = module_symbol;
     current_symbol->entity_specs.alias_to = entry;
@@ -6960,28 +6962,6 @@ static scope_entry_t* insert_symbol_from_module(scope_entry_t* entry,
     {
         // Not in a module
         current_symbol->entity_specs.in_module = NULL;
-    }
-
-    if (entry->entity_specs.is_generic_spec)
-    {
-        // Fix what cannot be shared
-        current_symbol->entity_specs.num_related_symbols = 0;
-        current_symbol->entity_specs.related_symbols = NULL;
-
-        int i;
-        for (i = 0; i < entry->entity_specs.num_related_symbols; i++)
-        {
-            scope_entry_t* new_sym = insert_symbol_from_module(
-                    entry->entity_specs.related_symbols[i],
-                    decl_context,
-                    entry->entity_specs.related_symbols[i]->symbol_name,
-                    module_symbol,
-                    filename, line);
-
-            P_LIST_ADD(current_symbol->entity_specs.related_symbols,
-                    current_symbol->entity_specs.num_related_symbols,
-                    new_sym);
-        }
     }
 
     return current_symbol;
