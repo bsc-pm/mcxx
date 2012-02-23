@@ -196,7 +196,19 @@ namespace Codegen
             {
                 Nodecl::NodeclBase& node(*it2);
 
+                // Keep the codegen map
+                codegen_status_map_t old_codegen_status = _codegen_status;
+                name_set_t old_name_set = _name_set;
+                rename_map_t old_rename_map = _rename_map;
+
+                clear_renames();
+
                 walk(node);
+                
+                // And restore it after the module procedure has been emitted
+                _codegen_status = old_codegen_status;
+                _name_set = old_name_set;
+                _rename_map = old_rename_map;
             }
 
             codegen_module_footer(current_module);
@@ -1900,9 +1912,9 @@ OPERATOR_TABLE
         std::string result;
 
         // There are several cases where we do not allow renaming at all
-        if ( sym.is_intrinsic()
+        if (sym.is_intrinsic()
                 || sym.is_member()
-                || (sym.get_internal_symbol()->entity_specs.from_module != NULL))
+                || sym.is_from_module())
         {
             result = sym.get_name();
         }
@@ -2009,7 +2021,7 @@ OPERATOR_TABLE
 
     void FortranBase::do_declare_symbol(TL::Symbol entry, void*)
     {
-        if ((entry.get_internal_symbol()->entity_specs.from_module == NULL))
+        if (!entry.is_from_module())
         {
             declare_symbol(entry);
         }
@@ -2204,7 +2216,15 @@ OPERATOR_TABLE
             if (entry.is_optional())
                 attribute_list += ", OPTIONAL";
             if (entry.is_static())
-                attribute_list += ", SAVE";
+            {
+                TL::Symbol sym = entry.get_scope().get_decl_context().current_scope->related_entry;
+                // Avoid redundant SAVEs due to a global SAVE
+                if (!sym.is_valid() 
+                        || !sym.is_saved_program_unit())
+                {
+                    attribute_list += ", SAVE";
+                }
+            }
             if (entry.get_type().is_volatile())
                 attribute_list += ", VOLATILE";
             if (entry.get_type().is_const()
@@ -2404,7 +2424,7 @@ OPERATOR_TABLE
             else if (entry.is_generic_specifier())
             {
                 indent();
-                file << "INTERFACE " 
+                file << "INTERFACE "
                     << get_generic_specifier_str(entry.get_name())
                     << "\n";
                 inc_indent();
@@ -2421,7 +2441,7 @@ OPERATOR_TABLE
                         indent();
                         file << "MODULE PROCEDURE " << iface.get_name() << "\n";
                     }
-                    else
+                    else if (!iface.is_module_procedure())
                     {
                         // Keep the state
                         codegen_status_map_t old_codegen_status = _codegen_status;
@@ -2836,7 +2856,7 @@ OPERATOR_TABLE
                 it != related_symbols.end();
                 it++)
         {
-            if (it->get_internal_symbol()->entity_specs.from_module != NULL
+            if (it->is_from_module()
                     && it->get_access_specifier() == AS_PRIVATE)
             {
                 // If it has a private access specifier, state so
@@ -2859,7 +2879,7 @@ OPERATOR_TABLE
                 it++)
         {
             // Here we do not consider symbols USEd from other modules
-            if (it->get_internal_symbol()->entity_specs.from_module != NULL)
+            if (it->is_from_module())
                 continue;
 
             TL::Symbol &sym(*it);
@@ -3068,7 +3088,7 @@ OPERATOR_TABLE
 
         being_checked.insert(entry);
 
-        if (entry.get_internal_symbol()->entity_specs.from_module != NULL)
+        if (entry.is_from_module())
         {
             codegen_use_statement(entry, sc);
         }
@@ -3156,10 +3176,10 @@ OPERATOR_TABLE
 
     void FortranBase::codegen_use_statement(TL::Symbol entry, const TL::Scope &sc)
     {
-        ERROR_CONDITION(entry.get_internal_symbol()->entity_specs.from_module == NULL, 
+        ERROR_CONDITION(!entry.is_from_module(),
                 "Symbol '%s' must be from module\n", entry.get_name().c_str());
 
-        TL::Symbol module = entry.get_internal_symbol()->entity_specs.from_module;
+        TL::Symbol module = entry.from_module();
 
         // // Is this a module actually used in this program unit?
         TL::Symbol used_modules = ::get_used_modules_symbol_info(sc.get_decl_context());
@@ -3181,7 +3201,7 @@ OPERATOR_TABLE
         if (!entry.get_internal_symbol()->entity_specs.is_renamed)
         {
             file << "USE " 
-                << entry.get_internal_symbol()->entity_specs.from_module->symbol_name
+                << module.get_name()
                 << ", ONLY: " 
                 << get_generic_specifier_str(entry.get_name())
                 << "\n";
@@ -3189,7 +3209,7 @@ OPERATOR_TABLE
         else
         {
             file << "USE " 
-                << entry.get_internal_symbol()->entity_specs.from_module->symbol_name
+                << module.get_name()
                 << ", ONLY: " 
                 << entry.get_name() 
                 << " => "
