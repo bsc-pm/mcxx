@@ -2407,6 +2407,23 @@ TL::ObjectList<TL::Symbol> CxxBase::define_required_before_class(TL::Symbol symb
 
                 if (member.is_function())
                 {
+                    // Define the types used by the function parameters
+                    TL::ObjectList<TL::Type> parameters = member.get_type().parameters();
+                    for (TL::ObjectList<TL::Type>::iterator it = parameters.begin();
+                            it != parameters.end();
+                            it++)
+                    {
+                        TL::Type current_parameter(*it);
+                        walk_type_for_symbols(
+                                current_parameter,
+                                /* needs_def */ 1,
+                                &CxxBase::declare_symbol_if_nonnested,
+                                &CxxBase::define_symbol_if_nonnested,
+                                &CxxBase::define_nonnested_entities_in_trees);
+
+                    }
+
+                    // Define the return type
                     walk_type_for_symbols(
                             member.get_type().returns(),
                             /* needs_def */ 1,
