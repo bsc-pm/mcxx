@@ -386,6 +386,10 @@ char const_value_is_nonzero(const_value_t* v)
             return v->value.d != 0.0;
         case CVK_LONG_DOUBLE:
             return v->value.ld != 0.0L;
+#ifdef HAVE_QUADMATH_H
+        case CVK_FLOAT128:
+            return v->value.f128 != 0.0Q;
+#endif
         OTHER_KIND;
     }
 
@@ -409,6 +413,10 @@ char const_value_is_one(const_value_t* v)
             return v->value.d == 1.0;
         case CVK_LONG_DOUBLE:
             return v->value.ld == 1.0L;
+#ifdef HAVE_QUADMATH_H
+        case CVK_FLOAT128:
+            return v->value.f128 == 1.0Q;
+#endif
         OTHER_KIND;
     }
 
@@ -431,10 +439,19 @@ char const_value_is_positive(const_value_t* v)
             return v->value.d > 0.0;
         case CVK_LONG_DOUBLE:
             return v->value.ld > 0.0L;
+#ifdef HAVE_QUADMATH_H
+        case CVK_FLOAT128:
+            return v->value.f128 > 0.0Q;
+#endif
         OTHER_KIND;        
     }
 
     return 0;    
+}
+
+char const_value_is_negative(const_value_t* v)
+{
+    return !const_value_is_positive(v);
 }
 
 uint64_t const_value_cast_to_8(const_value_t* val)
@@ -449,6 +466,10 @@ uint64_t const_value_cast_to_8(const_value_t* val)
             return val->value.d;
         case CVK_LONG_DOUBLE:
             return val->value.ld;
+#ifdef HAVE_QUADMATH_H
+        case CVK_FLOAT128:
+            return val->value.f128;
+#endif
         OTHER_KIND;
     }
 }
@@ -465,6 +486,10 @@ uint32_t const_value_cast_to_4(const_value_t* val)
             return val->value.d;
         case CVK_LONG_DOUBLE:
             return val->value.ld;
+#ifdef HAVE_QUADMATH_H
+        case CVK_FLOAT128:
+            return val->value.f128;
+#endif
         OTHER_KIND;
     }
 }
@@ -481,6 +506,10 @@ uint16_t const_value_cast_to_2(const_value_t* val)
             return val->value.d;
         case CVK_LONG_DOUBLE:
             return val->value.ld;
+#ifdef HAVE_QUADMATH_H
+        case CVK_FLOAT128:
+            return val->value.f128;
+#endif
         OTHER_KIND;
     }
 }
@@ -497,6 +526,10 @@ uint8_t const_value_cast_to_1(const_value_t* val)
             return val->value.d;
         case CVK_LONG_DOUBLE:
             return val->value.ld;
+#ifdef HAVE_QUADMATH_H
+        case CVK_FLOAT128:
+            return val->value.f128;
+#endif
         OTHER_KIND;
     }
 }
@@ -513,6 +546,10 @@ int const_value_cast_to_signed_int(const_value_t* val)
             return val->value.d;
         case CVK_LONG_DOUBLE:
             return val->value.ld;
+#ifdef HAVE_QUADMATH_H
+        case CVK_FLOAT128:
+            return val->value.f128;
+#endif
         OTHER_KIND;
     }
 }
