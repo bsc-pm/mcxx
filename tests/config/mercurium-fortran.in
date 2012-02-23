@@ -3,8 +3,24 @@
 # Basic mercurium generator with Fortran support
 source @abs_top_builddir@/tests/config/mercurium
 
+if [ "$1" != "run" ];
+then
+
+# DO NOT RUN
+
+cat <<EOF
+test_nolink=yes
+test_noexec=yes
+test_FFLAGS="--typecheck --fpc=@abs_top_builddir@/src/driver/fortran/.libs/mf03-prescanner ${test_FFLAGS}"
+EOF
+
+else
+
+# DO RUN
+
 cat <<EOF
 unset test_nolink
-test_noexec=yes
-test_FFLAGS="-c --typecheck --fpc=@abs_top_builddir@/src/driver/fortran/.libs/mf03-prescanner ${test_FFLAGS}"
+test_FFLAGS="--typecheck --fpc=@abs_top_builddir@/src/driver/fortran/.libs/mf03-prescanner ${test_FFLAGS}"
 EOF
+
+fi
