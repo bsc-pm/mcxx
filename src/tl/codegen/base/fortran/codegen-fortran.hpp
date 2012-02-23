@@ -219,6 +219,7 @@ namespace Codegen
 
             void do_declare_symbol_from_module(TL::Symbol entry, void *data);
             void declare_use_statements(Nodecl::NodeclBase statement_seq);
+            void declare_use_statements(Nodecl::NodeclBase node, TL::Scope sc);
             void emit_use_statement_if_symbol_comes_from_module(TL::Symbol entry, const TL::Scope &sc);
 
             void codegen_write_or_read_statement(

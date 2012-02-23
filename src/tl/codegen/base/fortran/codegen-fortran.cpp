@@ -228,6 +228,9 @@ namespace Codegen
     {
         inc_indent();
         declare_use_statements(statement_seq);
+        // Declare USEs that may affect internal subprograms but appear at the
+        // enclosing program unit
+        declare_use_statements(internal_subprograms, statement_seq.retrieve_context());
 
         // Check every related entries lest they required stuff coming from other modules
         TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
@@ -2880,6 +2883,11 @@ OPERATOR_TABLE
         declare_symbols_from_modules_rec(node, node.retrieve_context());
     }
 
+    void FortranBase::declare_use_statements(Nodecl::NodeclBase node, TL::Scope sc)
+    {
+        declare_symbols_from_modules_rec(node, sc);
+    }
+
     void FortranBase::codegen_blockdata_header(TL::Symbol entry)
     {
         std::string real_name = entry.get_name();
@@ -3112,14 +3120,15 @@ OPERATOR_TABLE
 
         TL::Symbol module = entry.get_internal_symbol()->entity_specs.from_module;
 
+        // // Is this a module actually used in this program unit?
+        TL::Symbol used_modules = ::get_used_modules_symbol_info(sc.get_decl_context());
+        if (!used_modules.is_valid())
+            return;
+
         if (get_codegen_status(entry) == CODEGEN_STATUS_DEFINED)
             return;
         set_codegen_status(entry, CODEGEN_STATUS_DEFINED);
 
-        TL::Symbol used_modules = ::get_used_modules_symbol_info(sc.get_decl_context());
-
-        if (!used_modules.is_valid())
-            return;
 
         TL::ObjectList<TL::Symbol> used_modules_list = used_modules.get_related_symbols();
         bool found = used_modules_list.contains(module);
