@@ -323,6 +323,8 @@ namespace Codegen
             static std::string unmangle_symbol_name(TL::Symbol);
 
             void declare_all_in_template_arguments(TL::TemplateParameters template_arguments);
+            
+            void declare_all_in_template_header(TL::TemplateParameters template_arguments);
 
             void codegen_template_headers_all_levels(TL::TemplateParameters template_parameters);
 

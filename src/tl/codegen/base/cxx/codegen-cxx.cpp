@@ -4920,32 +4920,15 @@ void CxxBase::declare_all_in_template_arguments(TL::TemplateParameters template_
     }
 }
 
-void CxxBase::codegen_template_headers_all_levels(TL::TemplateParameters template_parameters)
+void CxxBase::declare_all_in_template_header(TL::TemplateParameters template_parameters)
 {
-    if (template_parameters.has_enclosing_parameters())
-    {
-        TL::TemplateParameters enclosing_template_parameters = template_parameters.get_enclosing_parameters();
-        codegen_template_headers_all_levels(enclosing_template_parameters);
-    }
-    codegen_template_header(template_parameters);
-}
-
-void CxxBase::codegen_template_header(TL::TemplateParameters template_parameters, bool endline)
-{
-    if (!template_parameters.is_valid())
-    {
-        file << "template <>";
-        if (endline)
-            file << "\n";
-        return;
-    }
-    
-    // First traversal to ensure that everything is declared
     for (int i = 0; i < template_parameters.get_num_parameters(); i++)
     {
-        std::pair<TL::Symbol, TL::TemplateParameters::TemplateParameterKind> tpl_param = template_parameters.get_parameter_num(i);
+        std::pair<TL::Symbol,
+            TL::TemplateParameters::TemplateParameterKind>
+                tpl_param = template_parameters.get_parameter_num(i);
         TL::Symbol symbol = tpl_param.first;
-        
+
         switch (tpl_param.second)
         {
             case TPK_NONTYPE:
@@ -4968,33 +4951,79 @@ void CxxBase::codegen_template_header(TL::TemplateParameters template_parameters
                     internal_error("Invalid template parameter kind", 0);
                 }
         }
-        
+
         if (template_parameters.has_argument(i))
         {
-            TL::TemplateArgument temp_arg = template_parameters.get_argument_num(i);
+            TL::TemplateArgument temp_arg =
+                template_parameters.get_argument_num(i);
             if (temp_arg.is_default())
             {
-                TL::Type temp_arg_type = temp_arg.get_type();
-                walk_type_for_symbols(
-                        temp_arg_type,
-                        /* needs_def */ 1,
-                        &CxxBase::declare_symbol_if_nonnested,
-                        &CxxBase::define_symbol_if_nonnested,
-                        &CxxBase::define_nonnested_entities_in_trees);
+                switch (tpl_param.second)
+                {
+                    case TPK_TYPE:
+                        {
+                            TL::Type temp_arg_type = temp_arg.get_type();
+                            walk_type_for_symbols(
+                                    temp_arg_type,
+                                    /* needs_def */ 1,
+                                    &CxxBase::declare_symbol_if_nonnested,
+                                    &CxxBase::define_symbol_if_nonnested,
+                                    &CxxBase::define_nonnested_entities_in_trees);
+
+                            break;
+                        }
+                    case TPK_TEMPLATE:
+                    case TPK_NONTYPE:
+                        {
+                            Nodecl::NodeclBase nodecl_arg = temp_arg.get_value();
+                            define_all_entities_in_trees(nodecl_arg);
+                            break;
+                        }
+                    default:
+                        {
+                            internal_error("code unreachable", 0);
+                        }
+                }
             }
         }
     }
-    
+}
+
+void CxxBase::codegen_template_headers_all_levels(TL::TemplateParameters template_parameters)
+{
+    if (template_parameters.has_enclosing_parameters())
+    {
+        TL::TemplateParameters enclosing_template_parameters = template_parameters.get_enclosing_parameters();
+        codegen_template_headers_all_levels(enclosing_template_parameters);
+    }
+    codegen_template_header(template_parameters);
+}
+
+void CxxBase::codegen_template_header(TL::TemplateParameters template_parameters, bool endline)
+{
+    if (!template_parameters.is_valid())
+    {
+        file << "template <>";
+        if (endline)
+            file << "\n";
+        return;
+    }
+
+    // First traversal to ensure that everything is declared
+    declare_all_in_template_header(template_parameters);
+
     file << "template < ";
     for (int i = 0; i < template_parameters.get_num_parameters(); i++)
     {
-        std::pair<TL::Symbol, TL::TemplateParameters::TemplateParameterKind> tpl_param = template_parameters.get_parameter_num(i);
+        std::pair<TL::Symbol,
+                  TL::TemplateParameters::TemplateParameterKind>
+                      tpl_param = template_parameters.get_parameter_num(i);
+        TL::Symbol symbol = tpl_param.first;
 
         if (i != 0)
         {
             file << ", ";
         }
-        TL::Symbol symbol = tpl_param.first;
 
         switch (tpl_param.second)
         {
@@ -5029,7 +5058,6 @@ void CxxBase::codegen_template_header(TL::TemplateParameters template_parameters
                     internal_error("Invalid template parameter kind", 0);
                 }
         }
-        
 
         // Has this template parameter a default value?
         if (template_parameters.has_argument(i))
@@ -5054,14 +5082,15 @@ void CxxBase::codegen_template_header(TL::TemplateParameters template_parameters
                         }
                     default:
                         {
-                                internal_error("Invalid template parameter kind", 0);
+                            internal_error("code unreachable", 0);
                         }
                 }
             }
         }
     }
+
     file << " >";
-    if (endline) 
+    if (endline)
         file << "\n";
 }
 
