@@ -2142,29 +2142,39 @@ OPERATOR_TABLE
             return;
 
         decl_context_t entry_context = entry.get_scope().get_decl_context();
-        // We do not declare anything not in our context 
-        if (state.current_symbol != TL::Symbol(entry_context.current_scope->related_entry)
-                // unless 
-                //    a) it is in the global scope
-                && (entry_context.current_scope != entry_context.global_scope)
-                //    b) it is an intrinsic
-                && !entry.is_function())
+        
+        // We only declare entities in the current scope that are not internal subprograms or module procedures
+        bool ok_to_declare = (state.current_symbol == TL::Symbol(entry_context.current_scope->related_entry))
+            && !entry.is_nested_function()
+            && !entry.is_module_procedure();
+
+        // Unless
+        // a) the entity is in the global scope
+        if (!ok_to_declare
+                && (entry_context.current_scope == entry_context.global_scope))
         {
-            // Note that we do not set it as defined because we have not
-            // actually declared at all
-            return;
+            ok_to_declare = true;
         }
 
-        // There are some things in our context that do not have to be declared either
-        // Internal subprograms do not have to be emitted here
-        if (entry.is_function() 
-                && (entry.is_nested_function()
-                    || entry.is_module_procedure())
-                // Alternate ENTRY's must be emitted
-                && !entry.is_entry())
+        // b) the entity is an INTRINSIC function name
+        if (!ok_to_declare
+                && entry.is_function()
+                && entry.is_intrinsic())
         {
-            return;
+            ok_to_declare = true;
         }
+        
+        // c) the entity is an ENTRY alternate-name which is also a module procedure
+        if (!ok_to_declare
+                && entry.is_function()
+                && entry.is_module_procedure()
+                && entry.is_entry())
+        {
+            ok_to_declare = true;
+        }
+
+        if (!ok_to_declare)
+            return;
 
         bool is_global = (entry_context.current_scope == entry_context.global_scope);
 
