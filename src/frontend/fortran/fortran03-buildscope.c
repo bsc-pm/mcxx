@@ -5818,9 +5818,6 @@ static void build_scope_parameter_stmt(AST a, decl_context_t decl_context, nodec
         AST name = ASTSon0(named_constant_def);
         AST constant_expr = ASTSon1(named_constant_def);
 
-        nodecl_t nodecl_constant = nodecl_null();
-        fortran_check_expression(constant_expr, decl_context, &nodecl_constant);
-
         scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
 
         if (is_void_type(no_ref(entry->type_information)))
@@ -5844,10 +5841,13 @@ static void build_scope_parameter_stmt(AST a, decl_context_t decl_context, nodec
             remove_unknown_kind_symbol(decl_context, entry);
         }
 
+        nodecl_t nodecl_constant = nodecl_null();
+        fortran_check_initialization(entry, constant_expr, decl_context, /* is_pointer_init */ 0,
+                &nodecl_constant);
+
         entry->type_information = get_const_qualified_type(entry->type_information);
         entry->value = nodecl_constant;
     }
-
 }
 
 static void build_scope_cray_pointer_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
