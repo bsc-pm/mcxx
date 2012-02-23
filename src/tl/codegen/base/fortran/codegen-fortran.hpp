@@ -144,7 +144,8 @@ namespace Codegen
                     current_symbol(NULL),
                     current_module(NULL),
                     in_forall(false),
-                    in_interface(false)
+                    in_interface(false),
+                    in_data_value(false)
                 {
                 }
             } state;
