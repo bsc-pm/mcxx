@@ -3172,11 +3172,29 @@ void CxxBase::declare_symbol_if_nonnested(TL::Symbol symbol)
 
 void CxxBase::define_nonnested_entities_in_trees(Nodecl::NodeclBase const& node)
 {
-    define_generic_entities(node, 
+    define_generic_entities(node,
             &CxxBase::declare_symbol_if_nonnested,
             &CxxBase::define_symbol_if_nonnested,
             &CxxBase::define_nonnested_entities_in_trees,
             &CxxBase::entry_just_define);
+}
+
+void CxxBase::define_specializations_user_declared(TL::Symbol sym)
+{
+    ERROR_CONDITION(!sym.is_template(), "must be a template symbol", 0);
+
+    TL::ObjectList<TL::Type> specializations = sym.get_type().get_specializations();
+    for (TL::ObjectList<TL::Type>::iterator it = specializations.begin();
+            it != specializations.end();
+            ++it)
+    {
+        TL::Type type_spec = *it;
+        TL::Symbol sym_spec = type_spec.get_symbol();
+        if (sym_spec.is_user_declared())
+        {
+            define_symbol(sym_spec);
+        }
+    }
 }
 
 void CxxBase::define_symbol(TL::Symbol symbol)
@@ -3196,18 +3214,19 @@ void CxxBase::define_symbol(TL::Symbol symbol)
     if (symbol.is_injected_class_name())
         symbol = symbol.get_class_type().get_symbol();
 
-    if (symbol.get_type().is_template_specialized_type() 
-            && !symbol.is_user_declared()
-            && symbol.get_type().is_dependent()
-            && (symbol.is_class() || symbol.is_function()))
+    if (symbol.get_type().is_template_specialized_type()
+            && !symbol.is_user_declared())
     {
-        symbol = symbol
+        //We must define all user declared specializations
+        TL::Symbol template_symbol =
+            symbol
             .get_type()
             .get_related_template_type()
-            .get_primary_template()
-            .get_symbol();
+            .get_related_template_symbol();
+        define_specializations_user_declared(template_symbol);
+        return;
     }
-    
+
     if (symbol.is_member())
     {
         TL::Symbol class_entry = symbol.get_class_type().get_symbol();
@@ -3336,11 +3355,22 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
     if (symbol.not_to_be_printed())
         return;
 
-    if (symbol.get_type().is_template_specialized_type() 
-            && !symbol.is_user_declared()
-            && symbol.get_type().is_dependent()
-            && (symbol.is_class() || symbol.is_function()))
+    if (symbol.get_type().is_template_specialized_type()
+            && !symbol.is_user_declared())
+    {
+        if (symbol.get_type().is_dependent())
+            return;
+
+        //We must declare ONLY the primary template
+        TL::Symbol primary_symbol =
+            symbol
+            .get_type()
+            .get_related_template_type()
+            .get_primary_template()
+            .get_symbol();
+        declare_symbol(primary_symbol);
         return;
+    }
 
     if (symbol.is_member())
     {
@@ -3350,7 +3380,7 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
             define_symbol_if_nonnested(class_entry);
         }
     }
-     
+
     // Do nothing if already defined or declared
     if (get_codegen_status(symbol) == CODEGEN_STATUS_DEFINED
             || get_codegen_status(symbol) == CODEGEN_STATUS_DECLARED)

@@ -265,6 +265,8 @@ namespace Codegen
 
             void declare_symbol_if_nonnested(TL::Symbol);
             void define_symbol_if_nonnested(TL::Symbol);
+            
+            void define_specializations_user_declared(TL::Symbol);
 
             void walk_type_for_symbols(TL::Type, 
                     bool needs_def, 
