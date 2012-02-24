@@ -1014,6 +1014,15 @@ static sqlite3_uint64 insert_ast(sqlite3* handle, AST a)
     type_t* type = nodecl_get_type(_nodecl_wrap(a));
     scope_entry_t* sym = nodecl_get_symbol(_nodecl_wrap(a));
 
+    if (type != NULL)
+    {
+        insert_type(handle, type);
+    }
+    if (sym != NULL)
+    {
+        insert_symbol(handle, sym);
+    }
+
     char is_lvalue = nodecl_expr_is_lvalue(_nodecl_wrap(a));
     char is_const_val = nodecl_is_constant(_nodecl_wrap(a));
     sqlite3_uint64 const_val = 0;
@@ -1021,6 +1030,9 @@ static sqlite3_uint64 insert_ast(sqlite3* handle, AST a)
     {
         const_val = insert_const_value(handle, nodecl_get_constant(_nodecl_wrap(a)));
     }
+
+    if (oid_already_inserted_ast(handle, a))
+        return (sqlite3_uint64)(uintptr_t)a;
 
     char is_value_dependent = nodecl_expr_is_value_dependent(_nodecl_wrap(a));
 
@@ -1059,6 +1071,11 @@ static sqlite3_uint64 insert_ast(sqlite3* handle, AST a)
     int result_query = sqlite3_step(_insert_ast_stmt);
     if (result_query != SQLITE_DONE)
     {
+        if (result_query == SQLITE_CONSTRAINT)
+        {
+            internal_error("Cycle in the AST detected while generating the module. Location: %s\n", 
+                    ast_location(a));
+        }
         internal_error("Unexpected error %d when running query '%s'", 
                 result_query,
                 sqlite3_errmsg(handle));
@@ -1067,19 +1084,6 @@ static sqlite3_uint64 insert_ast(sqlite3* handle, AST a)
     sqlite3_reset(_insert_ast_stmt);
 
     sqlite3_uint64 result = sqlite3_last_insert_rowid(handle);
-
-    if (type != NULL)
-    {
-        insert_type(handle, type);
-    }
-    if (sym != NULL)
-    {
-        insert_symbol(handle, sym);
-    }
-
-    // fprintf(stderr, "INSERTING AST %s WITH SYMBOL = %llu\n", 
-    //         ast_print_node_type(ast_get_type(a)),
-    //         P2ULL(sym));
 
     return result;
 }
