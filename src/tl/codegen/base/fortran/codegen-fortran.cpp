@@ -196,7 +196,19 @@ namespace Codegen
             {
                 Nodecl::NodeclBase& node(*it2);
 
+                // Keep the codegen map
+                codegen_status_map_t old_codegen_status = _codegen_status;
+                name_set_t old_name_set = _name_set;
+                rename_map_t old_rename_map = _rename_map;
+
+                clear_renames();
+
                 walk(node);
+                
+                // And restore it after the module procedure has been emitted
+                _codegen_status = old_codegen_status;
+                _name_set = old_name_set;
+                _rename_map = old_rename_map;
             }
 
             codegen_module_footer(current_module);
@@ -228,6 +240,9 @@ namespace Codegen
     {
         inc_indent();
         declare_use_statements(statement_seq);
+        // Declare USEs that may affect internal subprograms but appear at the
+        // enclosing program unit
+        declare_use_statements(internal_subprograms, statement_seq.retrieve_context());
 
         // Check every related entries lest they required stuff coming from other modules
         TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
@@ -273,6 +288,10 @@ namespace Codegen
                     it != internal_subprograms.end();
                     it++)
             {
+                // Here we declare everything in the context of the enclosing program unit
+                declare_everything_needed(*it);
+
+                // We explicitly check dummy arguments because they might not be used
                 TL::Symbol internal_procedure = it->get_symbol();
                 TL::ObjectList<TL::Symbol> related_symbols = internal_procedure.get_related_symbols();
                 for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
@@ -724,6 +743,10 @@ OPERATOR_TABLE
         {
             long long int v = (long long int)const_value_cast_to_8(value);
 
+            if (!state.in_data_value
+                    && v < 0)
+                file << "(";
+
             long long tiniest_of_its_type = (~0LL);
             tiniest_of_its_type <<= (sizeof(tiniest_of_its_type) * num_bytes - 1);
 
@@ -745,6 +768,9 @@ OPERATOR_TABLE
                 file << v << suffix;
             }
 
+            if (!state.in_data_value
+                    && v < 0)
+                file << ")";
         }
     }
 
@@ -768,19 +794,44 @@ OPERATOR_TABLE
         if (const_value_is_float(value))
         {
             const char* result = NULL;
-            uniquestr_sprintf(&result, "%.*E_%d", precision, const_value_cast_to_float(value), kind);
+            float f = const_value_cast_to_float(value);
+            uniquestr_sprintf(&result, "%.*E_%d", precision, f, kind);
+
+            if (!state.in_data_value
+                    && f < 0)
+                file << "(";
             file << result;
+            if (!state.in_data_value
+                    && f < 0)
+                file << ")";
         }
         else if (const_value_is_double(value))
         {
             const char* result = NULL;
-            uniquestr_sprintf(&result, "%.*E_%d", precision, const_value_cast_to_double(value), kind);
+            double d = const_value_cast_to_double(value);
+            uniquestr_sprintf(&result, "%.*E_%d", precision, d, kind);
+
+            if (!state.in_data_value
+                    && d < 0)
+                file << "(";
             file << result;
+            if (!state.in_data_value
+                    && d < 0)
+                file << ")";
         }
         else if (const_value_is_long_double(value))
         {
             const char* result = NULL;
-            uniquestr_sprintf(&result, "%.*LE_%d", precision, const_value_cast_to_long_double(value), kind);
+            long double ld = const_value_cast_to_long_double(value);
+            uniquestr_sprintf(&result, "%.*LE_%d", precision, ld, kind);
+
+            if (!state.in_data_value
+                    && ld < 0)
+                file << "(";
+            file << result;
+            if (!state.in_data_value
+                    && ld < 0)
+                file << ")";
         }
 #ifdef HAVE_QUADMATH_H
         else if (const_value_is_float128(value))
@@ -790,7 +841,14 @@ OPERATOR_TABLE
             char c[n+1];
             quadmath_snprintf (c, n, "%.*Qe", precision, f128);
             c[n] = '\0';
+
+            if (!state.in_data_value
+                    && f128 < 0)
+                file << "(";
             file << c << "_" << kind;
+            if (!state.in_data_value
+                    && f128 < 0)
+                file << ")";
         }
 #endif
     }
@@ -1491,7 +1549,9 @@ OPERATOR_TABLE
         file << "DATA ";
         codegen_comma_separated_list(node.get_objects());
         file << " / ";
+        state.in_data_value = true;
         codegen_comma_separated_list(node.get_values());
+        state.in_data_value = false;
         file << " /\n";
     }
 
@@ -1856,9 +1916,9 @@ OPERATOR_TABLE
         std::string result;
 
         // There are several cases where we do not allow renaming at all
-        if ( sym.is_intrinsic()
+        if (sym.is_intrinsic()
                 || sym.is_member()
-                || (sym.get_internal_symbol()->entity_specs.from_module != NULL))
+                || sym.is_from_module())
         {
             result = sym.get_name();
         }
@@ -1965,7 +2025,7 @@ OPERATOR_TABLE
 
     void FortranBase::do_declare_symbol(TL::Symbol entry, void*)
     {
-        if ((entry.get_internal_symbol()->entity_specs.from_module == NULL))
+        if (!entry.is_from_module())
         {
             declare_symbol(entry);
         }
@@ -2082,29 +2142,39 @@ OPERATOR_TABLE
             return;
 
         decl_context_t entry_context = entry.get_scope().get_decl_context();
-        // We do not declare anything not in our context 
-        if (state.current_symbol != TL::Symbol(entry_context.current_scope->related_entry)
-                // unless 
-                //    a) it is in the global scope
-                && (entry_context.current_scope != entry_context.global_scope)
-                //    b) it is an intrinsic
-                && !entry.is_function())
+        
+        // We only declare entities in the current scope that are not internal subprograms or module procedures
+        bool ok_to_declare = (state.current_symbol == TL::Symbol(entry_context.current_scope->related_entry))
+            && !entry.is_nested_function()
+            && !entry.is_module_procedure();
+
+        // Unless
+        // a) the entity is in the global scope
+        if (!ok_to_declare
+                && (entry_context.current_scope == entry_context.global_scope))
         {
-            // Note that we do not set it as defined because we have not
-            // actually declared at all
-            return;
+            ok_to_declare = true;
         }
 
-        // There are some things in our context that do not have to be declared either
-        // Internal subprograms do not have to be emitted here
-        if (entry.is_function() 
-                && (entry.is_nested_function()
-                    || entry.is_module_procedure())
-                // Alternate ENTRY's must be emitted
-                && !entry.is_entry())
+        // b) the entity is an INTRINSIC function name
+        if (!ok_to_declare
+                && entry.is_function()
+                && entry.is_intrinsic())
         {
-            return;
+            ok_to_declare = true;
         }
+        
+        // c) the entity is an ENTRY alternate-name which is also a module procedure
+        if (!ok_to_declare
+                && entry.is_function()
+                && entry.is_module_procedure()
+                && entry.is_entry())
+        {
+            ok_to_declare = true;
+        }
+
+        if (!ok_to_declare)
+            return;
 
         bool is_global = (entry_context.current_scope == entry_context.global_scope);
 
@@ -2160,7 +2230,15 @@ OPERATOR_TABLE
             if (entry.is_optional())
                 attribute_list += ", OPTIONAL";
             if (entry.is_static())
-                attribute_list += ", SAVE";
+            {
+                TL::Symbol sym = entry.get_scope().get_decl_context().current_scope->related_entry;
+                // Avoid redundant SAVEs due to a global SAVE
+                if (!sym.is_valid() 
+                        || !sym.is_saved_program_unit())
+                {
+                    attribute_list += ", SAVE";
+                }
+            }
             if (entry.get_type().is_volatile())
                 attribute_list += ", VOLATILE";
             if (entry.get_type().is_const()
@@ -2360,7 +2438,7 @@ OPERATOR_TABLE
             else if (entry.is_generic_specifier())
             {
                 indent();
-                file << "INTERFACE " 
+                file << "INTERFACE "
                     << get_generic_specifier_str(entry.get_name())
                     << "\n";
                 inc_indent();
@@ -2377,7 +2455,7 @@ OPERATOR_TABLE
                         indent();
                         file << "MODULE PROCEDURE " << iface.get_name() << "\n";
                     }
-                    else
+                    else if (!iface.is_module_procedure())
                     {
                         // Keep the state
                         codegen_status_map_t old_codegen_status = _codegen_status;
@@ -2792,7 +2870,7 @@ OPERATOR_TABLE
                 it != related_symbols.end();
                 it++)
         {
-            if (it->get_internal_symbol()->entity_specs.from_module != NULL
+            if (it->is_from_module()
                     && it->get_access_specifier() == AS_PRIVATE)
             {
                 // If it has a private access specifier, state so
@@ -2815,7 +2893,7 @@ OPERATOR_TABLE
                 it++)
         {
             // Here we do not consider symbols USEd from other modules
-            if (it->get_internal_symbol()->entity_specs.from_module != NULL)
+            if (it->is_from_module())
                 continue;
 
             TL::Symbol &sym(*it);
@@ -2880,6 +2958,11 @@ OPERATOR_TABLE
         declare_symbols_from_modules_rec(node, node.retrieve_context());
     }
 
+    void FortranBase::declare_use_statements(Nodecl::NodeclBase node, TL::Scope sc)
+    {
+        declare_symbols_from_modules_rec(node, sc);
+    }
+
     void FortranBase::codegen_blockdata_header(TL::Symbol entry)
     {
         std::string real_name = entry.get_name();
@@ -2910,13 +2993,13 @@ OPERATOR_TABLE
         }
         
         // Could we improve the name of this function?
-        TL::Symbol data_symbol = ::get_data_symbol_info(entry.get_scope().get_decl_context());
+        TL::Symbol data_symbol = ::get_data_symbol_info(entry.get_related_scope().get_decl_context());
         if (data_symbol.is_valid())
         {
             walk(data_symbol.get_initialization());
         }
 
-        TL::Symbol equivalence_symbol = get_equivalence_symbol_info(entry.get_scope().get_decl_context());
+        TL::Symbol equivalence_symbol = get_equivalence_symbol_info(entry.get_related_scope().get_decl_context());
         if (equivalence_symbol.is_valid())
         {
             walk(equivalence_symbol.get_initialization());
@@ -3019,7 +3102,7 @@ OPERATOR_TABLE
 
         being_checked.insert(entry);
 
-        if (entry.get_internal_symbol()->entity_specs.from_module != NULL)
+        if (entry.is_from_module())
         {
             codegen_use_statement(entry, sc);
         }
@@ -3107,19 +3190,20 @@ OPERATOR_TABLE
 
     void FortranBase::codegen_use_statement(TL::Symbol entry, const TL::Scope &sc)
     {
-        ERROR_CONDITION(entry.get_internal_symbol()->entity_specs.from_module == NULL, 
+        ERROR_CONDITION(!entry.is_from_module(),
                 "Symbol '%s' must be from module\n", entry.get_name().c_str());
 
-        TL::Symbol module = entry.get_internal_symbol()->entity_specs.from_module;
+        TL::Symbol module = entry.from_module();
+
+        // // Is this a module actually used in this program unit?
+        TL::Symbol used_modules = ::get_used_modules_symbol_info(sc.get_decl_context());
+        if (!used_modules.is_valid())
+            return;
 
         if (get_codegen_status(entry) == CODEGEN_STATUS_DEFINED)
             return;
         set_codegen_status(entry, CODEGEN_STATUS_DEFINED);
 
-        TL::Symbol used_modules = ::get_used_modules_symbol_info(sc.get_decl_context());
-
-        if (!used_modules.is_valid())
-            return;
 
         TL::ObjectList<TL::Symbol> used_modules_list = used_modules.get_related_symbols();
         bool found = used_modules_list.contains(module);
@@ -3131,7 +3215,7 @@ OPERATOR_TABLE
         if (!entry.get_internal_symbol()->entity_specs.is_renamed)
         {
             file << "USE " 
-                << entry.get_internal_symbol()->entity_specs.from_module->symbol_name
+                << module.get_name()
                 << ", ONLY: " 
                 << get_generic_specifier_str(entry.get_name())
                 << "\n";
@@ -3139,7 +3223,7 @@ OPERATOR_TABLE
         else
         {
             file << "USE " 
-                << entry.get_internal_symbol()->entity_specs.from_module->symbol_name
+                << module.get_name()
                 << ", ONLY: " 
                 << entry.get_name() 
                 << " => "

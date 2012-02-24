@@ -136,12 +136,16 @@ namespace Codegen
                 // An INTERFACE block (without generic-specifier) is open
                 bool in_interface;
 
+                // We are in the top level of a data-value
+                bool in_data_value;
+
                 State()
                     : _indent_level(0),
                     current_symbol(NULL),
                     current_module(NULL),
                     in_forall(false),
-                    in_interface(false)
+                    in_interface(false),
+                    in_data_value(false)
                 {
                 }
             } state;
@@ -219,6 +223,7 @@ namespace Codegen
 
             void do_declare_symbol_from_module(TL::Symbol entry, void *data);
             void declare_use_statements(Nodecl::NodeclBase statement_seq);
+            void declare_use_statements(Nodecl::NodeclBase node, TL::Scope sc);
             void emit_use_statement_if_symbol_comes_from_module(TL::Symbol entry, const TL::Scope &sc);
 
             void codegen_write_or_read_statement(

@@ -257,6 +257,16 @@ namespace TL
         return this->_symbol->entity_specs.in_module;
     }
 
+    bool Symbol::is_from_module() const
+    {
+        return (this->_symbol->entity_specs.from_module != NULL);
+    }
+
+    Symbol Symbol::from_module() const
+    {
+        return this->_symbol->entity_specs.from_module;
+    }
+
     bool Symbol::is_fortran_blockdata() const
     {
         return (this->_symbol->kind == SK_BLOCKDATA);

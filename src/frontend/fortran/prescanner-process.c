@@ -704,7 +704,7 @@ static void handle_include_directives(prescanner_t* prescanner)
 			{
                 running_error("%s:%d: error: cannot open included file '%s' (%s)\n",
                         prescanner->input_filename,
-                        iter->line,
+                        iter->line_number,
                         included_filename,
                         strerror(errno));
 			}

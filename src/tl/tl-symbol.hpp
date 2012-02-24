@@ -217,6 +217,14 @@ namespace TL
             /*! \note This only makes sense if is_in_module returned true */
             Symbol in_module() const;
 
+            //! States that this symbol is available in this program unit because of a USE statement
+            /*! \note This only applies to Fortran */
+            bool is_from_module() const;
+            
+            //! States that this symbol is available in this program unit because of a USE statement
+            /*! \note This only makes sense if is_from_module returned true */
+            Symbol from_module() const;
+
             //! States that this symbol is a BLOCK DATA program unit
             /*! \note This only applies to Fortran */
             bool is_fortran_blockdata() const;

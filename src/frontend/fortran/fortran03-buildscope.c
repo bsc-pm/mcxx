@@ -5818,9 +5818,6 @@ static void build_scope_parameter_stmt(AST a, decl_context_t decl_context, nodec
         AST name = ASTSon0(named_constant_def);
         AST constant_expr = ASTSon1(named_constant_def);
 
-        nodecl_t nodecl_constant = nodecl_null();
-        fortran_check_expression(constant_expr, decl_context, &nodecl_constant);
-
         scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
 
         if (is_void_type(no_ref(entry->type_information)))
@@ -5844,10 +5841,13 @@ static void build_scope_parameter_stmt(AST a, decl_context_t decl_context, nodec
             remove_unknown_kind_symbol(decl_context, entry);
         }
 
+        nodecl_t nodecl_constant = nodecl_null();
+        fortran_check_initialization(entry, constant_expr, decl_context, /* is_pointer_init */ 0,
+                &nodecl_constant);
+
         entry->type_information = get_const_qualified_type(entry->type_information);
         entry->value = nodecl_constant;
     }
-
 }
 
 static void build_scope_cray_pointer_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -6925,6 +6925,8 @@ static scope_entry_t* insert_symbol_from_module(scope_entry_t* entry,
     }
 
     current_symbol->symbol_name = aliased_name;
+    current_symbol->file = filename;
+    current_symbol->line = line;
 
     current_symbol->entity_specs.from_module = module_symbol;
     current_symbol->entity_specs.alias_to = entry;
@@ -6960,28 +6962,6 @@ static scope_entry_t* insert_symbol_from_module(scope_entry_t* entry,
     {
         // Not in a module
         current_symbol->entity_specs.in_module = NULL;
-    }
-
-    if (entry->entity_specs.is_generic_spec)
-    {
-        // Fix what cannot be shared
-        current_symbol->entity_specs.num_related_symbols = 0;
-        current_symbol->entity_specs.related_symbols = NULL;
-
-        int i;
-        for (i = 0; i < entry->entity_specs.num_related_symbols; i++)
-        {
-            scope_entry_t* new_sym = insert_symbol_from_module(
-                    entry->entity_specs.related_symbols[i],
-                    decl_context,
-                    entry->entity_specs.related_symbols[i]->symbol_name,
-                    module_symbol,
-                    filename, line);
-
-            P_LIST_ADD(current_symbol->entity_specs.related_symbols,
-                    current_symbol->entity_specs.num_related_symbols,
-                    new_sym);
-        }
     }
 
     return current_symbol;
