@@ -2113,84 +2113,64 @@ static int get_type(void *datum,
 
     nodecl_t nodecl_fake = nodecl_make_text("", NULL, 0);
 
-    // static int level = 0;
-    // fprintf(stderr, "%d -> LOADING TYPE WITH OID = %llu\n", 
-    //         level++,
-    //         current_oid);
+    // We early register the type to avoid troublesome loops
+    *pt = _type_get_empty_type();
+    insert_map_ptr(handle, current_oid, *pt);
 
     if (strcmp(kind, "INTEGER") == 0)
     {
-        *pt = choose_int_type_from_kind(nodecl_fake, kind_size);
-        *pt = get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name);
-        insert_map_ptr(handle, current_oid, *pt);
+        _type_assign_to(*pt, choose_int_type_from_kind(nodecl_fake, kind_size));
+        _type_assign_to(*pt, get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name));
     }
     else if (strcmp(kind, "CHARACTER") == 0)
     {
-        *pt = choose_character_type_from_kind(nodecl_fake, kind_size);
-        *pt = get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name);
-        insert_map_ptr(handle, current_oid, *pt);
+        _type_assign_to(*pt, choose_character_type_from_kind(nodecl_fake, kind_size));
+        _type_assign_to(*pt, get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name));
     }
     else if (strcmp(kind, "REAL") == 0)
     {
-        *pt = choose_float_type_from_kind(nodecl_fake, kind_size);
-        *pt = get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name);
-        insert_map_ptr(handle, current_oid, *pt);
+        _type_assign_to(*pt, choose_float_type_from_kind(nodecl_fake, kind_size));
+        _type_assign_to(*pt, get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name));
     }
     else if (strcmp(kind, "LOGICAL") == 0)
     {
-        *pt = choose_logical_type_from_kind(nodecl_fake, kind_size);
-        *pt = get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name);
-        insert_map_ptr(handle, current_oid, *pt);
+        _type_assign_to(*pt, choose_logical_type_from_kind(nodecl_fake, kind_size));
+        _type_assign_to(*pt, get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name));
     }
     else if (strcmp(kind, "COMPLEX") == 0)
     {
-        *pt = get_complex_type(choose_float_type_from_kind(nodecl_fake, kind_size));
-        *pt = get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name);
-        insert_map_ptr(handle, current_oid, *pt);
+        _type_assign_to(*pt, get_complex_type(choose_float_type_from_kind(nodecl_fake, kind_size)));
+        _type_assign_to(*pt, get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name));
     }
     else if (strcmp(kind, "POINTER") == 0)
     {
-        *pt = get_pointer_type(load_type(handle, ref));
-        *pt = get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name);
-        insert_map_ptr(handle, current_oid, *pt);
+        _type_assign_to(*pt, get_pointer_type(load_type(handle, ref)));
+        _type_assign_to(*pt, get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name));
     }
     else if (strcmp(kind, "REFERENCE") == 0)
     {
-        *pt = get_lvalue_reference_type(load_type(handle, ref));
-        *pt = get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name);
-        insert_map_ptr(handle, current_oid, *pt);
+        _type_assign_to(*pt, get_lvalue_reference_type(load_type(handle, ref)));
+        _type_assign_to(*pt, get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name));
     }
     else if (strcmp(kind, "ARRAY") == 0)
     {
         nodecl_t lower_bound = load_nodecl(handle, ast0);
         nodecl_t upper_bound = load_nodecl(handle, ast1);
 
-        // It might happen that after loading these trees, this type has
-        // already been loaded!
-        type_t* ptr = type_t_oid(handle, current_oid);
-        if (ptr != NULL)
-        {
-            *pt = ptr;
-            return 0;
-        }
-
         type_t* element_type = load_type(handle, ref);
 
         // At the moment we do not store the decl_context
         // Hopefully this will be enough
         decl_context_t decl_context = CURRENT_COMPILED_FILE->global_decl_context;
-        *pt = get_array_type_bounds(element_type, lower_bound, upper_bound, decl_context);
-        *pt = get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name);
-        insert_map_ptr(handle, current_oid, *pt);
+        _type_assign_to(*pt, get_array_type_bounds(element_type, lower_bound, upper_bound, decl_context));
+        _type_assign_to(*pt, get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name));
     }
     else if (strcmp(kind, "CLASS") == 0)
     {
         char *copy = strdup(symbols);
 
-        *pt = get_new_class_type(CURRENT_COMPILED_FILE->global_decl_context, TT_STRUCT);
-
-        *pt = get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name);
-        insert_map_ptr(handle, current_oid, *pt);
+        _type_assign_to(*pt, get_new_class_type(CURRENT_COMPILED_FILE->global_decl_context, TT_STRUCT));
+        _type_assign_to(*pt, get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name));
 
         char *context = NULL;
         char *field = strtok_r(copy, ",", &context);
@@ -2228,15 +2208,13 @@ static int get_type(void *datum,
 
         type_t* result = load_type(handle, ref);
 
-        *pt = get_new_function_type(result, parameter_info, num_parameters);
-        *pt = get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name);
-        insert_map_ptr(handle, current_oid, *pt);
+        _type_assign_to(*pt, get_new_function_type(result, parameter_info, num_parameters));
+        _type_assign_to(*pt, get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name));
     }
     else if (strcmp(kind, "VOID") == 0)
     {
-        *pt = get_void_type();
-        *pt = get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name);
-        insert_map_ptr(handle, current_oid, *pt);
+        _type_assign_to(*pt, get_void_type());
+        _type_assign_to(*pt, get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name));
     }
     else if (strcmp(kind, "NAMED") == 0)
     {
@@ -2244,9 +2222,8 @@ static int get_type(void *datum,
 
         scope_entry_t* symbol = load_symbol(handle, symbol_oid);
 
-        *pt = get_user_defined_type(symbol);
-        *pt = get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name);
-        insert_map_ptr(handle, current_oid, *pt);
+        _type_assign_to(*pt, get_user_defined_type(symbol));
+        _type_assign_to(*pt, get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name));
     }
     else if (strcmp(kind, "INDIRECT") == 0)
     {
@@ -2254,18 +2231,13 @@ static int get_type(void *datum,
 
         scope_entry_t* symbol = load_symbol(handle, symbol_oid);
 
-        *pt = get_indirect_type(symbol);
-        *pt = get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name);
-        insert_map_ptr(handle, current_oid, *pt);
+        _type_assign_to(*pt, get_indirect_type(symbol));
+        _type_assign_to(*pt, get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name));
     }
     else
     {
         internal_error("Invalid type '%s'\n", kind);
     }
-
-    // fprintf(stderr, "%d <- LOADED TYPE WITH OID = %llu\n", 
-    //         --level,
-    //         current_oid);
 
     return 0;
 }

@@ -9991,3 +9991,15 @@ char is_implicit_none_type(type_t* t)
 {
     return t == _implicit_none_type;
 }
+
+type_t* _type_get_empty_type(void)
+{
+    type_t* result = get_simple_type();
+    return result;
+}
+
+void _type_assign_to(type_t* dest, type_t* src)
+{
+    // Bitwise copy will be enough
+    *dest = *src;
+}
