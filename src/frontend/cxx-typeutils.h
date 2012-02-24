@@ -648,6 +648,11 @@ LIBMCXX_EXTERN size_t get_type_t_size(void);
 LIBMCXX_EXTERN const char* print_decl_type_str(type_t* t, decl_context_t decl_context, const char* name);
 LIBMCXX_EXTERN const char* print_type_str(type_t* t, decl_context_t decl_context);
 
+// DO NOT USE THESE FUNCTIONS!
+// They are used solely for Fortran modules and type serialization
+LIBMCXX_EXTERN type_t* _type_get_empty_type(void);
+LIBMCXX_EXTERN void _type_assign_to(type_t*, type_t*);
+
 MCXX_END_DECLS
 
 #endif // CXX_TYPEUTILS_H
