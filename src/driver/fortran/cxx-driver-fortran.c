@@ -363,13 +363,13 @@ void driver_fortran_retrieve_module(const char* module_name, const char **mf03_f
 
     if (CURRENT_CONFIGURATION->debug_options.disable_module_cache)
     {
+        // Try first with a hypothetical unwrapped module
         *mf03_filename = get_path_of_mercurium_nonwrapped_module(module_name);
-        return;
+        if (*mf03_filename != NULL)
+            return;
     }
-    else
-    {
-        wrap_module = get_path_of_mercurium_wrap_module(module_name);
-    }
+
+    wrap_module = get_path_of_mercurium_wrap_module(module_name);
 
     if (wrap_module != NULL)
     {
