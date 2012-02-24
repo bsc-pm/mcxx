@@ -1234,9 +1234,10 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
     TL::Symbol symbol = node.get_symbol();
     TL::Type symbol_type = symbol.get_type();
     TL::Scope symbol_scope = symbol.get_scope();
-
+    
     ERROR_CONDITION(!symbol.is_function(), "Invalid symbol", 0);
-
+    
+    bool is_template_specialized = symbol_type.is_template_specialized_type();
     if (symbol.is_member())
     {
         TL::Symbol class_symbol = symbol.get_class_type().get_symbol();
@@ -1244,7 +1245,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
     }
     else
     {
-        if (symbol_type.is_template_specialized_type()
+        if (is_template_specialized
                 && symbol_type.template_specialized_type_get_template_arguments().get_num_parameters() != 0)
         {
             TL::Type template_type = symbol_type.get_related_template_type();
@@ -1332,7 +1333,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 
     std::string qualified_name = symbol.get_class_qualification(symbol_scope, /* without_template */ true);
 
-    if (symbol_type.is_template_specialized_type()
+    if (is_template_specialized
             && !symbol.is_conversion_function())
     {
         qualified_name += template_arguments_to_str(symbol);
@@ -1354,10 +1355,11 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 
     move_to_namespace_of_symbol(symbol);
 
-    if (symbol_type.is_template_specialized_type()
-            && symbol_type.template_specialized_type_get_template_arguments().get_num_parameters() != 0)
+    TL::TemplateParameters temp_param = symbol_scope.get_template_parameters();
+    if ((is_template_specialized && symbol_type.template_specialized_type_get_template_arguments().get_num_parameters() != 0)
+            // explicit specialization
+            || (temp_param.is_valid() && !is_template_specialized))
     {
-        TL::TemplateParameters temp_param = symbol_scope.get_template_parameters();
         while (temp_param.is_valid())
         {
             indent();
