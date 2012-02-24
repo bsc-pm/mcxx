@@ -2840,7 +2840,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                         }
                         else
                         {
-                            // Do not emit anything but mark the symbols 
+                            // Do not emit anything but mark the symbols
                             if (symbols_defined_inside_class.contains(member))
                             {
                                 set_codegen_status(member, CODEGEN_STATUS_DEFINED);
@@ -3217,6 +3217,11 @@ void CxxBase::define_symbol(TL::Symbol symbol)
     if (symbol.get_type().is_template_specialized_type()
             && !symbol.is_user_declared())
     {
+        //We may need to define or declare the template arguments
+        TL::TemplateParameters template_arguments =
+            symbol.get_type().template_specialized_type_get_template_arguments();
+        declare_all_in_template_arguments(template_arguments);
+        
         //We must define all user declared specializations
         TL::Symbol template_symbol =
             symbol
@@ -3251,10 +3256,10 @@ void CxxBase::define_symbol(TL::Symbol symbol)
         {
             move_to_namespace_of_symbol(symbol);
             indent();
-            file << "typedef " 
-                << this->get_declaration(symbol.get_type(), 
-                        symbol.get_scope(), 
-                        symbol.get_name()) 
+            file << "typedef "
+                << this->get_declaration(symbol.get_type(),
+                        symbol.get_scope(),
+                        symbol.get_name())
                 << ";\n";
         }
     }
