@@ -265,6 +265,8 @@ namespace Codegen
 
             void declare_symbol_if_nonnested(TL::Symbol);
             void define_symbol_if_nonnested(TL::Symbol);
+            
+            void define_specializations_user_declared(TL::Symbol);
 
             void walk_type_for_symbols(TL::Type, 
                     bool needs_def, 
@@ -323,6 +325,8 @@ namespace Codegen
             static std::string unmangle_symbol_name(TL::Symbol);
 
             void declare_all_in_template_arguments(TL::TemplateParameters template_arguments);
+            
+            void declare_all_in_template_header(TL::TemplateParameters template_arguments);
 
             void codegen_template_headers_all_levels(TL::TemplateParameters template_parameters);
 

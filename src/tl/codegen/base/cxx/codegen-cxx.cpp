@@ -1234,9 +1234,10 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
     TL::Symbol symbol = node.get_symbol();
     TL::Type symbol_type = symbol.get_type();
     TL::Scope symbol_scope = symbol.get_scope();
-
+    
     ERROR_CONDITION(!symbol.is_function(), "Invalid symbol", 0);
-
+    
+    bool is_template_specialized = symbol_type.is_template_specialized_type();
     if (symbol.is_member())
     {
         TL::Symbol class_symbol = symbol.get_class_type().get_symbol();
@@ -1244,7 +1245,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
     }
     else
     {
-        if (symbol_type.is_template_specialized_type()
+        if (is_template_specialized
                 && symbol_type.template_specialized_type_get_template_arguments().get_num_parameters() != 0)
         {
             TL::Type template_type = symbol_type.get_related_template_type();
@@ -1332,7 +1333,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 
     std::string qualified_name = symbol.get_class_qualification(symbol_scope, /* without_template */ true);
 
-    if (symbol_type.is_template_specialized_type()
+    if (is_template_specialized
             && !symbol.is_conversion_function())
     {
         qualified_name += template_arguments_to_str(symbol);
@@ -1354,10 +1355,11 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 
     move_to_namespace_of_symbol(symbol);
 
-    if (symbol_type.is_template_specialized_type()
-            && symbol_type.template_specialized_type_get_template_arguments().get_num_parameters() != 0)
+    TL::TemplateParameters temp_param = symbol_scope.get_template_parameters();
+    if ((is_template_specialized && symbol_type.template_specialized_type_get_template_arguments().get_num_parameters() != 0)
+            // explicit specialization
+            || (temp_param.is_valid() && !is_template_specialized))
     {
-        TL::TemplateParameters temp_param = symbol_scope.get_template_parameters();
         while (temp_param.is_valid())
         {
             indent();
@@ -2407,6 +2409,23 @@ TL::ObjectList<TL::Symbol> CxxBase::define_required_before_class(TL::Symbol symb
 
                 if (member.is_function())
                 {
+                    // Define the types used by the function parameters
+                    TL::ObjectList<TL::Type> parameters = member.get_type().parameters();
+                    for (TL::ObjectList<TL::Type>::iterator it = parameters.begin();
+                            it != parameters.end();
+                            it++)
+                    {
+                        TL::Type current_parameter(*it);
+                        walk_type_for_symbols(
+                                current_parameter,
+                                /* needs_def */ 1,
+                                &CxxBase::declare_symbol_if_nonnested,
+                                &CxxBase::define_symbol_if_nonnested,
+                                &CxxBase::define_nonnested_entities_in_trees);
+
+                    }
+
+                    // Define the return type
                     walk_type_for_symbols(
                             member.get_type().returns(),
                             /* needs_def */ 1,
@@ -3153,11 +3172,29 @@ void CxxBase::declare_symbol_if_nonnested(TL::Symbol symbol)
 
 void CxxBase::define_nonnested_entities_in_trees(Nodecl::NodeclBase const& node)
 {
-    define_generic_entities(node, 
+    define_generic_entities(node,
             &CxxBase::declare_symbol_if_nonnested,
             &CxxBase::define_symbol_if_nonnested,
             &CxxBase::define_nonnested_entities_in_trees,
             &CxxBase::entry_just_define);
+}
+
+void CxxBase::define_specializations_user_declared(TL::Symbol sym)
+{
+    ERROR_CONDITION(!sym.is_template(), "must be a template symbol", 0);
+
+    TL::ObjectList<TL::Type> specializations = sym.get_type().get_specializations();
+    for (TL::ObjectList<TL::Type>::iterator it = specializations.begin();
+            it != specializations.end();
+            ++it)
+    {
+        TL::Type type_spec = *it;
+        TL::Symbol sym_spec = type_spec.get_symbol();
+        if (sym_spec.is_user_declared())
+        {
+            define_symbol(sym_spec);
+        }
+    }
 }
 
 void CxxBase::define_symbol(TL::Symbol symbol)
@@ -3177,18 +3214,19 @@ void CxxBase::define_symbol(TL::Symbol symbol)
     if (symbol.is_injected_class_name())
         symbol = symbol.get_class_type().get_symbol();
 
-    if (symbol.get_type().is_template_specialized_type() 
-            && !symbol.is_user_declared()
-            && symbol.get_type().is_dependent()
-            && (symbol.is_class() || symbol.is_function()))
+    if (symbol.get_type().is_template_specialized_type()
+            && !symbol.is_user_declared())
     {
-        symbol = symbol
+        //We must define all user declared specializations
+        TL::Symbol template_symbol =
+            symbol
             .get_type()
             .get_related_template_type()
-            .get_primary_template()
-            .get_symbol();
+            .get_related_template_symbol();
+        define_specializations_user_declared(template_symbol);
+        return;
     }
-    
+
     if (symbol.is_member())
     {
         TL::Symbol class_entry = symbol.get_class_type().get_symbol();
@@ -3317,11 +3355,22 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
     if (symbol.not_to_be_printed())
         return;
 
-    if (symbol.get_type().is_template_specialized_type() 
-            && !symbol.is_user_declared()
-            && symbol.get_type().is_dependent()
-            && (symbol.is_class() || symbol.is_function()))
+    if (symbol.get_type().is_template_specialized_type()
+            && !symbol.is_user_declared())
+    {
+        if (symbol.get_type().is_dependent())
+            return;
+
+        //We must declare ONLY the primary template
+        TL::Symbol primary_symbol =
+            symbol
+            .get_type()
+            .get_related_template_type()
+            .get_primary_template()
+            .get_symbol();
+        declare_symbol(primary_symbol);
         return;
+    }
 
     if (symbol.is_member())
     {
@@ -3331,7 +3380,7 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
             define_symbol_if_nonnested(class_entry);
         }
     }
-     
+
     // Do nothing if already defined or declared
     if (get_codegen_status(symbol) == CODEGEN_STATUS_DEFINED
             || get_codegen_status(symbol) == CODEGEN_STATUS_DECLARED)
@@ -4903,32 +4952,15 @@ void CxxBase::declare_all_in_template_arguments(TL::TemplateParameters template_
     }
 }
 
-void CxxBase::codegen_template_headers_all_levels(TL::TemplateParameters template_parameters)
+void CxxBase::declare_all_in_template_header(TL::TemplateParameters template_parameters)
 {
-    if (template_parameters.has_enclosing_parameters())
-    {
-        TL::TemplateParameters enclosing_template_parameters = template_parameters.get_enclosing_parameters();
-        codegen_template_headers_all_levels(enclosing_template_parameters);
-    }
-    codegen_template_header(template_parameters);
-}
-
-void CxxBase::codegen_template_header(TL::TemplateParameters template_parameters, bool endline)
-{
-    if (!template_parameters.is_valid())
-    {
-        file << "template <>";
-        if (endline)
-            file << "\n";
-        return;
-    }
-    
-    // First traversal to ensure that everything is declared
     for (int i = 0; i < template_parameters.get_num_parameters(); i++)
     {
-        std::pair<TL::Symbol, TL::TemplateParameters::TemplateParameterKind> tpl_param = template_parameters.get_parameter_num(i);
+        std::pair<TL::Symbol,
+            TL::TemplateParameters::TemplateParameterKind>
+                tpl_param = template_parameters.get_parameter_num(i);
         TL::Symbol symbol = tpl_param.first;
-        
+
         switch (tpl_param.second)
         {
             case TPK_NONTYPE:
@@ -4951,33 +4983,79 @@ void CxxBase::codegen_template_header(TL::TemplateParameters template_parameters
                     internal_error("Invalid template parameter kind", 0);
                 }
         }
-        
+
         if (template_parameters.has_argument(i))
         {
-            TL::TemplateArgument temp_arg = template_parameters.get_argument_num(i);
+            TL::TemplateArgument temp_arg =
+                template_parameters.get_argument_num(i);
             if (temp_arg.is_default())
             {
-                TL::Type temp_arg_type = temp_arg.get_type();
-                walk_type_for_symbols(
-                        temp_arg_type,
-                        /* needs_def */ 1,
-                        &CxxBase::declare_symbol_if_nonnested,
-                        &CxxBase::define_symbol_if_nonnested,
-                        &CxxBase::define_nonnested_entities_in_trees);
+                switch (tpl_param.second)
+                {
+                    case TPK_TYPE:
+                        {
+                            TL::Type temp_arg_type = temp_arg.get_type();
+                            walk_type_for_symbols(
+                                    temp_arg_type,
+                                    /* needs_def */ 1,
+                                    &CxxBase::declare_symbol_if_nonnested,
+                                    &CxxBase::define_symbol_if_nonnested,
+                                    &CxxBase::define_nonnested_entities_in_trees);
+
+                            break;
+                        }
+                    case TPK_TEMPLATE:
+                    case TPK_NONTYPE:
+                        {
+                            Nodecl::NodeclBase nodecl_arg = temp_arg.get_value();
+                            define_all_entities_in_trees(nodecl_arg);
+                            break;
+                        }
+                    default:
+                        {
+                            internal_error("code unreachable", 0);
+                        }
+                }
             }
         }
     }
-    
+}
+
+void CxxBase::codegen_template_headers_all_levels(TL::TemplateParameters template_parameters)
+{
+    if (template_parameters.has_enclosing_parameters())
+    {
+        TL::TemplateParameters enclosing_template_parameters = template_parameters.get_enclosing_parameters();
+        codegen_template_headers_all_levels(enclosing_template_parameters);
+    }
+    codegen_template_header(template_parameters);
+}
+
+void CxxBase::codegen_template_header(TL::TemplateParameters template_parameters, bool endline)
+{
+    if (!template_parameters.is_valid())
+    {
+        file << "template <>";
+        if (endline)
+            file << "\n";
+        return;
+    }
+
+    // First traversal to ensure that everything is declared
+    declare_all_in_template_header(template_parameters);
+
     file << "template < ";
     for (int i = 0; i < template_parameters.get_num_parameters(); i++)
     {
-        std::pair<TL::Symbol, TL::TemplateParameters::TemplateParameterKind> tpl_param = template_parameters.get_parameter_num(i);
+        std::pair<TL::Symbol,
+                  TL::TemplateParameters::TemplateParameterKind>
+                      tpl_param = template_parameters.get_parameter_num(i);
+        TL::Symbol symbol = tpl_param.first;
 
         if (i != 0)
         {
             file << ", ";
         }
-        TL::Symbol symbol = tpl_param.first;
 
         switch (tpl_param.second)
         {
@@ -5012,7 +5090,6 @@ void CxxBase::codegen_template_header(TL::TemplateParameters template_parameters
                     internal_error("Invalid template parameter kind", 0);
                 }
         }
-        
 
         // Has this template parameter a default value?
         if (template_parameters.has_argument(i))
@@ -5037,14 +5114,15 @@ void CxxBase::codegen_template_header(TL::TemplateParameters template_parameters
                         }
                     default:
                         {
-                                internal_error("Invalid template parameter kind", 0);
+                            internal_error("code unreachable", 0);
                         }
                 }
             }
         }
     }
+
     file << " >";
-    if (endline) 
+    if (endline)
         file << "\n";
 }
 
