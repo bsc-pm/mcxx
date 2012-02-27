@@ -4396,7 +4396,19 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
 
     if (class_name != NULL)
     {
-        if (class_name->kind != SK_CLASS)
+        if (class_name->kind == SK_UNDEFINED
+                && class_name->entity_specs.is_implicit_basic_type)
+        {
+            // This happens in this case
+            //
+            // MODULE M
+            //   PUBLIC :: T
+            //   TYPE T
+            //      INTEGER :: X
+            //   END TYPE T
+            //   ...
+        }
+        else if (class_name->kind != SK_CLASS)
         {
             error_printf("%s: error: name '%s' is not a type name\n", 
                     ast_location(name),
@@ -6874,7 +6886,11 @@ static char come_from_the_same_module(scope_entry_t* new_symbol_used,
     // then they are the same
     if (new_symbol_used->entity_specs.from_module
             && existing_symbol->entity_specs.from_module
-            && new_symbol_used->entity_specs.alias_to == existing_symbol->entity_specs.alias_to)
+            && (new_symbol_used->entity_specs.alias_to == existing_symbol->entity_specs.alias_to
+                // || (strcmp(new_symbol_used->entity_specs.alias_to->entity_specs.in_module->symbol_name, 
+                //         existing_symbol->entity_specs.alias_to->entity_specs.in_module->symbol_name) == 0)
+               )
+       )
         return 1;
 
     return 0;
