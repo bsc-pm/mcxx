@@ -2271,25 +2271,25 @@ OPERATOR_TABLE
                 }
             }
 
-            if (entry.in_module().is_valid())
-            {
-                switch (entry.get_access_specifier())
-                {
-                    case AS_PUBLIC:
-                        {
-                            attribute_list += ", PUBLIC";
-                            break;
-                        }
-                    case AS_PRIVATE:
-                        {
-                            attribute_list += ", PRIVATE";
-                            break;
-                        }
-                    default:
-                        {
-                        }
-                }
-            }
+            // if (entry.in_module().is_valid())
+            // {
+            //     switch (entry.get_access_specifier())
+            //     {
+            //         case AS_PUBLIC:
+            //             {
+            //                 attribute_list += ", PUBLIC";
+            //                 break;
+            //             }
+            //         case AS_PRIVATE:
+            //             {
+            //                 attribute_list += ", PRIVATE";
+            //                 break;
+            //             }
+            //         default:
+            //             {
+            //             }
+            //     }
+            // }
 
             if (!entry.get_initialization().is_null()
                     // Only SAVE or PARAMETER are initialized in Fortran
@@ -2902,14 +2902,11 @@ OPERATOR_TABLE
             {
                 declare_symbol(sym);
             }
-            else
+            if (sym.get_access_specifier() == AS_PRIVATE)
             {
-                if (sym.get_access_specifier() == AS_PRIVATE)
-                {
-                    // If it has a private access specifier, state so
-                    indent();
-                    file << "PRIVATE :: " << sym.get_name() << "\n";
-                }
+                // If it has a private access specifier, state so
+                indent();
+                file << "PRIVATE :: " << sym.get_name() << "\n";
             }
         }
         
