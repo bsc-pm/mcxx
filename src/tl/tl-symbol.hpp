@@ -441,6 +441,9 @@ namespace TL
              */
             bool is_defined() const;
 
+            // States whether the symbol is defined inside a class specifier
+            bool is_defined_inside_class() const; 
+
             //! Do not use unless told to do so
             scope_entry_t* get_internal_symbol() const
             {

@@ -2577,6 +2577,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
     {
         char is_template_specialized = 0;
         char is_primary_template = 0;
+        char defined_inside_class = symbol.is_defined_inside_class();
 
         TL::Type template_type(NULL);
         TL::Type primary_template(NULL);
@@ -2608,7 +2609,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
 
         if (is_template_specialized)
         {
-            TL::TemplateParameters template_parameters(NULL); 
+            TL::TemplateParameters template_parameters(NULL);
             if (!(symbol_type.class_type_is_complete_independent()
                         || symbol_type.class_type_is_incomplete_independent()))
             {
@@ -2618,17 +2619,20 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
         }
         else
         {
-            // A special case: a class declaration or definition is inside an other template class
-            TL::Symbol related_symbol = symbol.get_scope().get_related_symbol();
-            TL::Type type_related_symbol = related_symbol.get_type();
-            if (type_related_symbol.is_template_specialized_type())
+            if (!defined_inside_class)
             {
-                // If the symbol is an anonymous union then it must be defined in the enclosing class definition.
-                // Otherwise, this symbol must be defined in its namespace and we should generate all template headers.
-                if (!symbol.is_anonymous_union())
+                // A special case: a class declaration or definition is inside an other template class
+                TL::Symbol related_symbol = symbol.get_scope().get_related_symbol();
+                TL::Type type_related_symbol = related_symbol.get_type();
+                if (type_related_symbol.is_template_specialized_type())
                 {
-                    TL::TemplateParameters template_parameters = symbol.get_scope().get_template_parameters();
-                    codegen_template_headers_all_levels(template_parameters);
+                    // If the symbol is an anonymous union then it must be defined in the enclosing class definition.
+                    // Otherwise, this symbol must be defined in its namespace and we should generate all template headers.
+                    if (!symbol.is_anonymous_union())
+                    {
+                        TL::TemplateParameters template_parameters = symbol.get_scope().get_template_parameters();
+                        codegen_template_headers_all_levels(template_parameters);
+                    }
                 }
             }
         }
@@ -2853,7 +2857,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                     }
                     else
                     {
-                        if (symbols_defined_inside_class.contains(member))
+                        if (member.is_defined_inside_class() || symbols_defined_inside_class.contains(member))
                         {
                             define_class_symbol_aux(member, symbols_defined_inside_class, level + 1);
                             set_codegen_status(member, CODEGEN_STATUS_DEFINED);

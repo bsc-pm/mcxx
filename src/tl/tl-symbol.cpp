@@ -528,6 +528,11 @@ namespace TL
         return _symbol->defined;
     }
 
+    bool Symbol::is_defined_inside_class() const
+    {
+        return _symbol->entity_specs.is_defined_inside_class_specifier;
+    }
+
     bool Symbol::not_to_be_printed() const
     {
         return _symbol->do_not_print;
