@@ -1154,17 +1154,28 @@ void LoweringVisitor::visit(const Nodecl::Parallel::AsyncCall& construct)
 
     Nodecl::List nodecl_arg_list = Nodecl::List::make(arg_list);
 
-    Nodecl::NodeclBase statement = 
-        Nodecl::ExpressionStatement::make(
-                Nodecl::FunctionCall::make(
-                    function_call.get_called().copy(),
-                    nodecl_arg_list,
-                    function_call.get_alternate_name().copy(),
-                    Type::get_void_type(),
+    Nodecl::NodeclBase expr_statement = 
+                Nodecl::ExpressionStatement::make(
+                    Nodecl::FunctionCall::make(
+                        function_call.get_called().copy(),
+                        nodecl_arg_list,
+                        function_call.get_alternate_name().copy(),
+                        Type::get_void_type(),
+                        function_call.get_filename(),
+                        function_call.get_line()),
                     function_call.get_filename(),
-                    function_call.get_line()),
+                    function_call.get_line());
+
+    TL::ObjectList<Nodecl::NodeclBase> list_stmt; 
+    list_stmt.append(expr_statement);
+
+    Nodecl::NodeclBase statement = 
+        Nodecl::Context::make(
+                Nodecl::List::make(list_stmt),
+                function_call.retrieve_context(),
                 function_call.get_filename(),
-                function_call.get_line());
+                function_call.get_line()
+                );
 
     Symbol function_symbol = Nodecl::Utils::get_enclosing_function(construct);
 
