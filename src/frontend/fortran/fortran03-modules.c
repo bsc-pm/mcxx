@@ -25,6 +25,7 @@
 --------------------------------------------------------------------*/
 
 #include "fortran03-modules.h"
+#include "fortran03-modules-data.h"
 #include "fortran03-buildscope.h"
 #include "cxx-limits.h"
 #include "cxx-utils.h"
@@ -76,6 +77,8 @@ static type_t* load_type(sqlite3* handle, sqlite3_uint64 oid);
 static scope_entry_t* load_symbol(sqlite3* handle, sqlite3_uint64 oid);
 static AST load_ast(sqlite3* handle, sqlite3_uint64 oid);
 static nodecl_t load_nodecl(sqlite3* handle, sqlite3_uint64 oid);
+
+static void load_extra_data_from_module(sqlite3* handle, scope_entry_t* module);
 
 typedef
 struct module_info_tag module_info_t;
@@ -360,6 +363,8 @@ void load_module_info(const char* module_name, scope_entry_t** module)
 
     *module = load_symbol(handle, minfo.module_oid);
 
+    load_extra_data_from_module(handle, *module);
+
     end_transaction(handle);
 
     dispose_storage(handle);
@@ -475,6 +480,14 @@ static void define_schema(sqlite3* handle)
     {
         const char* create_const_value = "CREATE TABLE const_value(kind, sign, bytes, literal_value, compound_values);";
         run_query(handle, create_const_value);
+    }
+    
+    {
+        const char* create_module_extra_name = "CREATE TABLE module_extra_name(name, PRIMARY KEY(name));";
+        run_query(handle, create_module_extra_name);
+
+        const char* create_module_extra_data = "CREATE TABLE module_extra_data(oid_name, order_, kind, value, PRIMARY KEY (oid_name, order_));";
+        run_query(handle, create_module_extra_data);
     }
 }
 
@@ -2594,6 +2607,146 @@ static void dispose_storage(sqlite3* handle)
     }
 }
 
+struct get_module_extra_data_tag
+{
+    sqlite3* handle;
+    tl_type_t* current_item;
+};
+
+static int get_module_extra_data(void *data, 
+        int num_columns UNUSED_PARAMETER, 
+        char **columns UNUSED_PARAMETER, 
+        char **values)
+{
+    struct get_module_extra_data_tag* p = (struct get_module_extra_data_tag*)data;
+
+    int kind = safe_atoi(values[0]);
+
+    switch (kind)
+    {
+        case TL_INTEGER : 
+            {
+                *(p->current_item) = tl_integer(safe_atoi(values[1]));
+                break;
+            }
+        case TL_BOOL : 
+            {
+                *(p->current_item) = tl_bool(safe_atoi(values[1]));
+                break;
+            }
+        case TL_STRING : 
+            {
+                *(p->current_item) = tl_string(uniquestr(values[1]));
+                break;
+            }
+        case TL_SYMBOL : 
+            {
+                scope_entry_t* loaded_symbol = load_symbol(p->handle, safe_atoull(values[1]));
+                *(p->current_item) = tl_symbol(loaded_symbol);
+                break;
+            }
+        case TL_TYPE : 
+            {
+                type_t* loaded_type = load_type(p->handle, safe_atoull(values[1]));
+                *(p->current_item) = tl_type(loaded_type);
+                break;
+            }
+        default:
+            {
+                internal_error("Invalid data type %d when loading extra module information", kind);
+            }
+    }
+
+    (p->current_item)++;
+
+    return 0;
+}
+
+struct get_module_extra_name_tag
+{
+    sqlite3* handle;
+    scope_entry_t* module;
+};
+
+static int count_module_extra_name(void *data, 
+        int num_columns UNUSED_PARAMETER, 
+        char **columns UNUSED_PARAMETER, 
+        char **values)
+{
+    uint64_t* value = (uint64_t*)data;
+    *value = safe_atoull(values[0]);
+    return 0;
+}
+
+static int get_module_extra_name(void *data, 
+        int num_columns UNUSED_PARAMETER, 
+        char **columns UNUSED_PARAMETER, 
+        char **values)
+{
+    struct get_module_extra_name_tag* p = (struct get_module_extra_name_tag*)data;
+
+    char* count_query = sqlite3_mprintf(
+            "SELECT COUNT(*) FROM module_extra_data WHERE oid_name = %llu;",
+            safe_atoull(values[0]));
+
+    char* errmsg = NULL;
+
+    uint64_t num_items = 0;
+    if (run_select_query(p->handle, count_query, count_module_extra_name, &num_items, &errmsg) != SQLITE_OK)
+    {
+        running_error("Error during query: %s\n", errmsg);
+    }
+    sqlite3_free(count_query);
+
+    if (num_items == 0)
+        return 0;
+
+    fortran_modules_data_t *module_data = calloc(1, sizeof(*module_data));
+    module_data->num_items = num_items;
+    module_data->items = calloc(num_items, sizeof(*(module_data->items)));
+
+    char* query = sqlite3_mprintf("SELECT kind, value FROM module_extra_data WHERE oid_name = %llu ORDER BY (order_);",
+            safe_atoull(values[0]));
+
+    struct get_module_extra_data_tag extra_data;
+
+    extra_data.handle = p->handle;
+    extra_data.current_item = module_data->items;
+
+    if (run_select_query(p->handle, query, get_module_extra_data, &extra_data, &errmsg) != SQLITE_OK)
+    {
+        running_error("Error during query: %s\n", errmsg);
+    }
+
+    sqlite3_free(query);
+
+    fortran_modules_data_set_t* extra_info_attr = (fortran_modules_data_set_t*)extensible_struct_get_field(p->module->extended_data, ".extra_info");
+    if (extra_info_attr == NULL)
+    {
+        extra_info_attr = calloc(1, sizeof(*extra_info_attr));
+        extra_info_attr->name = uniquestr(values[1]);
+        extensible_struct_set_field(p->module->extended_data, ".extra_info", extra_info_attr);
+    }
+
+    P_LIST_ADD(extra_info_attr->data, extra_info_attr->num_data, module_data);
+
+    return 0;
+}
+
+static void load_extra_data_from_module(sqlite3* handle, scope_entry_t* module)
+{
+
+    struct get_module_extra_name_tag module_extra_name;
+
+    module_extra_name.handle = handle;
+    module_extra_name.module = module;
+
+    char* errmsg = NULL;
+    if (run_select_query(handle, "SELECT oid, name FROM module_extra_name", get_module_extra_name, &module_extra_name, &errmsg) != SQLITE_OK)
+    {
+        running_error("Error during query: %s\n", errmsg);
+    }
+}
 
 #ifdef DEBUG_SQLITE3_MPRINTF
  #error Disable DEBUG_SQLITE3_MPRINTF macro once no warnings for sqlite3_mprintf calls are signaled by gcc
