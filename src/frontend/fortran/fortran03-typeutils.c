@@ -282,8 +282,19 @@ type_t* replace_return_type_of_function_type(type_t* function_type, type_t* new_
 
 char equivalent_tk_types(type_t* t1, type_t* t2)
 {
-    type_t* r1 = get_rank0_type_internal(t1, /* ignore pointer */ 1);
-    type_t* r2 = get_rank0_type_internal(t2, /* ignore pointer */ 1);
+    type_t* r1 = t1;
+    if (is_function_type(r1))
+    {
+        r1 = function_type_get_return_type(r1);
+    }
+    r1 = get_rank0_type_internal(r1, /* ignore pointer */ 1);
+
+    type_t* r2 = t2;
+    if (is_function_type(r2))
+    {
+        r2 = function_type_get_return_type(r2);
+    }
+    r2 = get_rank0_type_internal(r2, /* ignore pointer */ 1);
 
     // Preprocess for character types
     if (is_fortran_character_type(r1))
