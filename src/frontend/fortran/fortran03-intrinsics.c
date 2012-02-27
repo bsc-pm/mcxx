@@ -3345,11 +3345,23 @@ scope_entry_t* compute_intrinsic_maxval_0(scope_entry_t* symbol UNUSED_PARAMETER
             && (t1 == NULL || is_integer_type(t1))
             && (t2 == NULL || (is_bool_type(get_rank0_type(t2)) && are_conformable_types(t2, t0))))
     {
-        return GET_INTRINSIC_TRANSFORMATIONAL("maxval",
-                get_n_ranked_type(get_rank0_type(t0), get_rank_of_type(t0) - 1, symbol->decl_context),
-                t0,
-                t1 == NULL ? get_signed_int_type() : t1,
-                t2 == NULL ? fortran_get_default_logical_type() : t2);
+        if (t1 == NULL)
+        {
+            // If DIM is absent this is always a scalar
+            return GET_INTRINSIC_TRANSFORMATIONAL("maxval", 
+                    get_rank0_type(t0),
+                    t0,
+                    t1 == NULL ? get_signed_int_type() : t1,
+                    t2 == NULL ? fortran_get_default_logical_type() : t2);
+        }
+        else
+        {
+            return GET_INTRINSIC_TRANSFORMATIONAL("maxval",
+                    get_n_ranked_type(get_rank0_type(t0), get_rank_of_type(t0) - 1, symbol->decl_context),
+                    t0,
+                    t1 == NULL ? get_signed_int_type() : t1,
+                    t2 == NULL ? fortran_get_default_logical_type() : t2);
+        }
     }
 
     return NULL;
@@ -3563,11 +3575,23 @@ scope_entry_t* compute_intrinsic_minval_0(scope_entry_t* symbol UNUSED_PARAMETER
             && (t1 == NULL || is_integer_type(t1))
             && (t2 == NULL || (is_bool_type(get_rank0_type(t2)) && are_conformable_types(t2, t0))))
     {
-        return GET_INTRINSIC_TRANSFORMATIONAL("maxval",
-                get_n_ranked_type(get_rank0_type(t0), get_rank_of_type(t0) - 1, symbol->decl_context),
-                t0,
-                t1 == NULL ? get_signed_int_type() : t1,
-                t2 == NULL ? fortran_get_default_logical_type() : t2);
+        if (t1 == NULL)
+        {
+            // If DIM is absent this is always a scalar
+            return GET_INTRINSIC_TRANSFORMATIONAL("minval", 
+                    get_rank0_type(t0),
+                    t0,
+                    t1 == NULL ? get_signed_int_type() : t1,
+                    t2 == NULL ? fortran_get_default_logical_type() : t2);
+        }
+        else
+        {
+            return GET_INTRINSIC_TRANSFORMATIONAL("minval",
+                    get_n_ranked_type(get_rank0_type(t0), get_rank_of_type(t0) - 1, symbol->decl_context),
+                    t0,
+                    t1 == NULL ? get_signed_int_type() : t1,
+                    t2 == NULL ? fortran_get_default_logical_type() : t2);
+        }
     }
 
     return NULL;
