@@ -6615,6 +6615,8 @@ static scope_entry_t* build_scope_declarator_name(AST declarator, type_t* declar
     scope_entry_t* entry = build_scope_declarator_id_expr(declarator_id_expr, declarator_type, gather_info, 
             decl_context, nodecl_output);
 
+    entry->entity_specs.is_user_declared = 1;
+
     return entry;
 }
 
@@ -6951,6 +6953,7 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
 
     entry->line = ASTLine(declarator_id);
     entry->file = ASTFileName(declarator_id);
+    entry->entity_specs.is_user_declared = 1;
 
     // Dealing with typedefs against function types
     //
@@ -10765,6 +10768,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                         entry->entity_specs.is_member = 1;
                         entry->entity_specs.access = current_access;
                         entry->entity_specs.class_type = class_info;
+
                         class_type_add_member(get_actual_class_type(class_type), entry);
 
                         if (entry->kind == SK_FUNCTION)

@@ -3053,6 +3053,12 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
 
 void CxxBase::define_class_symbol(TL::Symbol symbol)
 {
+    if (symbol.is_anonymous_union() && !symbol.is_user_declared())
+    {
+        // This anonymous already union has been defined in a class scope
+        return;
+    }
+
     std::set<TL::Symbol> current_pending = state.pending_nested_types_to_define;
 
     state.classes_being_defined.push_back(symbol);
@@ -3221,7 +3227,7 @@ void CxxBase::define_symbol(TL::Symbol symbol)
         TL::TemplateParameters template_arguments =
             symbol.get_type().template_specialized_type_get_template_arguments();
         declare_all_in_template_arguments(template_arguments);
-        
+
         //We must define all user declared specializations
         TL::Symbol template_symbol =
             symbol
@@ -3252,7 +3258,7 @@ void CxxBase::define_symbol(TL::Symbol symbol)
     else if (symbol.is_typedef())
     {
         // Template parameters are not to be defined, ever
-        if (!symbol.is_template_parameter())
+        if (!symbol.is_template_parameter() && symbol.is_user_declared())
         {
             move_to_namespace_of_symbol(symbol);
             indent();
@@ -3333,7 +3339,7 @@ void CxxBase::define_symbol(TL::Symbol symbol)
 
         symbol.get_type().dependent_typename_get_components(entry, n);
 
-        declare_symbol(entry);
+        define_symbol(entry);
     }
     else
     {
@@ -3395,10 +3401,11 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
 
     if (symbol.is_variable())
     {
-        // Builtins or anonymous unions are not printed
+        // Builtins, anonymous unions and non-user declared varibles are not printed
         if (!(symbol.is_builtin()
                     || (symbol.get_type().is_named_class()
-                        && symbol.get_type().get_symbol().is_anonymous_union())))
+                        && symbol.get_type().get_symbol().is_anonymous_union())
+                    || !symbol.is_user_declared()))
         {
             std::string decl_specifiers;
             std::string gcc_attributes;

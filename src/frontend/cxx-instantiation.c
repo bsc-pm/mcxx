@@ -52,14 +52,15 @@ static scope_entry_t* add_duplicate_member_to_class(decl_context_t context_of_be
         type_t* being_instantiated,
         scope_entry_t* member_of_template)
 {
-    scope_entry_t* new_member = new_symbol(context_of_being_instantiated, 
+    scope_entry_t* new_member = new_symbol(context_of_being_instantiated,
             context_of_being_instantiated.current_scope,
             member_of_template->symbol_name);
 
     *new_member = *member_of_template;
 
-    new_member->decl_context = context_of_being_instantiated;
     new_member->entity_specs.is_member = 1;
+    new_member->entity_specs.is_user_declared = 0;
+    new_member->decl_context = context_of_being_instantiated;
     new_member->entity_specs.class_type = being_instantiated;
 
     class_type_add_member(get_actual_class_type(being_instantiated), new_member);
@@ -477,6 +478,12 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                         anon_member->entity_specs.is_member = 1;
                         anon_member->entity_specs.class_type = being_instantiated;
                         anon_member->entity_specs.access = new_member->entity_specs.access;
+
+                        // The anonymous union will be defined in the class scope
+                        new_member->entity_specs.is_user_declared = 0;
+                        anon_member->entity_specs.is_user_declared = 0;
+                        primary_template->entity_specs.is_user_declared = 0;
+
                         class_type_add_member(being_instantiated, anon_member);
                     }
                 }
