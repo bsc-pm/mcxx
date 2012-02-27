@@ -471,53 +471,65 @@ static line_information_t* get_information_from_line(prescanner_t* prescanner, c
  */
 static void remove_all_spaces(char** line)
 {
-	char* newline = calloc(strlen(*line) + 1, sizeof(char));
-	char in_string = 0, inlined_comment = 0, delim = 0;
-	char *p, *q;
+    int allocated_size = strlen(*line) + 5;
+    char* newline = calloc(allocated_size, sizeof(char));
 
-	q = newline;
-	p = *line;
+    char in_string = 0, inlined_comment = 0, delim = 0;
+    char *p, *q;
 
-	while (*p != '\0')
-	{
-		if (!in_string)
-		{
-			if (inlined_comment || (*p != ' ' && *p != '\t' && *p != '!'))
-			{
-				*q = *p;
-				q++;
-			}
+    q = newline;
+    p = *line;
 
-			if (!inlined_comment && (*p == '\'' || *p == '"'))
-			{
-				delim = *p;
-				in_string = 1;
-			}
-			else if (*p == '!')
-			{
-				// Add a space to make it more readable
-				*q = ' '; q++;
-				*q = *p; q++;
-				inlined_comment = 1;
-			}
-		}
-		else
-		{
-			*q = *p;
-			q++;
+    while (*p != '\0')
+    {
+        ERROR_CONDITION((q - newline) >= allocated_size, "Buffer overflow detected\n", 0);
 
-			if ((*p == delim) && (*(p+1) != delim))
-			{
-				in_string = 0;
-			}
-		}
-		p++;
-	}
+        if (!in_string)
+        {
+            if (!inlined_comment) 
+            {
+                if (*p != ' ' && *p != '\t' && *p != '!')
+                {
+                    *q = *p;
+                    q++;
+                }
+                else if (*p == '!')
+                {
+                    // Add a space to make it more readable
+                    *q = ' '; q++;
+                    *q = *p; q++;
+                    inlined_comment = 1;
+                }
 
-	*q = '\0';
+                if(*p == '\'' || *p == '"')
+                {
+                    delim = *p;
+                    in_string = 1;
+                }
+            }
+            else // !inlined_comment
+            {
+                *q = *p;
+                q++;
+            }
+        }
+        else
+        {
+            *q = *p;
+            q++;
 
-	free(*line);
-	*line = newline;
+            if ((*p == delim) && (*(p+1) != delim))
+            {
+                in_string = 0;
+            }
+        }
+        p++;
+    }
+
+    *q = '\0';
+
+    free(*line);
+    *line = newline;
 }
 
 /*

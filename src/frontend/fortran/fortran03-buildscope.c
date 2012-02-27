@@ -6887,8 +6887,8 @@ static char come_from_the_same_module(scope_entry_t* new_symbol_used,
     if (new_symbol_used->entity_specs.from_module
             && existing_symbol->entity_specs.from_module
             && (new_symbol_used->entity_specs.alias_to == existing_symbol->entity_specs.alias_to
-                // || (strcmp(new_symbol_used->entity_specs.alias_to->entity_specs.in_module->symbol_name, 
-                //         existing_symbol->entity_specs.alias_to->entity_specs.in_module->symbol_name) == 0)
+                || (strcmp(new_symbol_used->entity_specs.alias_to->entity_specs.in_module->symbol_name, 
+                        existing_symbol->entity_specs.alias_to->entity_specs.in_module->symbol_name) == 0)
                )
        )
         return 1;
