@@ -3752,8 +3752,6 @@ OPERATOR_TABLE
         file.clear();
         file.str("");
 
-        state = State();
-
         this->do_not_declare = do_not_declare;
 
         declare_use_statements(node);
