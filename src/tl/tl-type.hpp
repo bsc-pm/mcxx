@@ -126,6 +126,8 @@ namespace TL
                 PARAMETER_DECLARATION
             };
 
+            Type() : _type_info(NULL) { }
+
             Type(type_t* type_info)
                 : _type_info(type_info)
             {

@@ -48,6 +48,8 @@
 #include <stack>
 #include <utility>
 
+#include "tl-modules.hpp"
+
 namespace TL
 {
     //! All OpenMP related classes are defined in this namespace
@@ -107,6 +109,8 @@ namespace TL
                 DataReference _copy_expr;
                 CopyDirection _kind;
             public:
+                CopyItem() { }
+
                 CopyItem(DataReference data_reference, CopyDirection direction);
 
                 CopyDirection get_kind() const;
@@ -117,6 +121,9 @@ namespace TL
                 {
                     return _copy_expr.get_base_symbol() == c._copy_expr.get_base_symbol();
                 }
+
+                void module_write(ModuleWriter& mw);
+                void module_read(ModuleReader& mw);
         };
 
         //! Auxiliar class used in reduction clauses
@@ -218,6 +225,9 @@ namespace TL
                 void add_error_behavior(std::string event, std::string action);
                  
                 void add_error_behavior(std::string action);
+
+                void module_write(ModuleWriter& mw);
+                void module_read(ModuleReader& mw);
         };
 
         class LIBTL_CLASS DependencyItem : public TL::Object
@@ -226,10 +236,14 @@ namespace TL
                 DataReference _dep_expr;
                 DependencyDirection _kind;
             public:
+                DependencyItem() { }
                 DependencyItem(DataReference dep_expr, DependencyDirection kind);
 
                 DependencyDirection get_kind() const;
                 DataReference get_dependency_expression() const;
+
+                void module_write(ModuleWriter& mw);
+                void module_read(ModuleReader& mw);
         };
 
         //! This class represents data sharing environment in a OpenMP construct
@@ -368,7 +382,6 @@ namespace TL
 
                 bool _copy_deps;
             public:
-
                 FunctionTaskTargetInfo();
                 bool can_be_ommitted();
 
@@ -386,11 +399,16 @@ namespace TL
                 void set_device_list(const ObjectList<std::string>& device_list);
 
                 ObjectList<std::string> get_device_list() const;
+
+                void module_write(ModuleWriter& mw);
+                void module_read(ModuleReader& mr);
         };
 
         class LIBTL_CLASS FunctionTaskDependency : public DependencyItem
         {
             public:
+                FunctionTaskDependency() { }
+
                 FunctionTaskDependency(DataReference expr, DependencyDirection direction)
                     : DependencyItem(expr, direction) { }
 
@@ -403,16 +421,26 @@ namespace TL
                 {
                     return this->get_dependency_expression();
                 }
+
+                void module_write(ModuleWriter& mw)
+                {
+                    this->DependencyItem::module_write(mw);
+                }
+                void module_read(ModuleReader& mw)
+                {
+                    this->DependencyItem::module_read(mw);
+                }
         };
 
         class LIBTL_CLASS FunctionTaskInfo 
         {
+            public:
+                typedef std::map<std::string, Symbol> implementation_table_t;
             private:
                 Symbol _sym;
 
                 ObjectList<FunctionTaskDependency> _parameters;
 
-                typedef std::map<std::string, Symbol> implementation_table_t;
                 implementation_table_t _implementation_table;
 
                 FunctionTaskTargetInfo _target_info;
@@ -421,11 +449,11 @@ namespace TL
 
                 Nodecl::NodeclBase _if_clause_cond_expr;
 
-                Symbol get_symbol() const;
-
                 implementation_table_t get_implementation_table() const;
 
             public:
+                FunctionTaskInfo() { }
+
                 FunctionTaskInfo(Symbol sym,
                         ObjectList<FunctionTaskDependency> parameter_info,
                         FunctionTaskTargetInfo target_info);
@@ -455,12 +483,19 @@ namespace TL
                 bool has_if_clause() const;
                 void set_if_clause_conditional_expression(Nodecl::NodeclBase expr);
                 Nodecl::NodeclBase get_if_clause_conditional_expression() const;
+
+                Symbol get_symbol() const;
+
+                // 
+                void module_write(ModuleWriter& mw);
+                void module_read(ModuleReader& mr);
         };
 
         class LIBTL_CLASS FunctionTaskSet : public TL::Object
         {
             private:
-                std::map<Symbol, FunctionTaskInfo> _map;
+                typedef std::map<Symbol, FunctionTaskInfo> map_t;
+                map_t _map;
             public:
                 FunctionTaskSet();
 
@@ -473,6 +508,10 @@ namespace TL
                 bool empty() const;
 
                 bool is_function_task_or_implements(Symbol sym) const;
+
+                // Fortran
+                void emit_module_info();
+                void load_from_module(TL::Symbol module);
         };
 
 

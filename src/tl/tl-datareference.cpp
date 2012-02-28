@@ -271,4 +271,32 @@ namespace TL
     DataReference::~DataReference()
     {
     }
+
+    void DataReference::module_write(ModuleWriter& mw)
+    {
+        mw.write((Nodecl::NodeclBase&)*this);
+        mw.write(_is_valid);
+
+        mw.write(_base_symbol);
+        mw.write(_data_type);
+
+        mw.write(_error_log);
+
+        mw.write(_base_address);
+        mw.write(_sizeof);
+    }
+
+    void DataReference::module_read(ModuleReader& mr)
+    {
+        mr.read((Nodecl::NodeclBase&)*this);
+        mr.read(_is_valid);
+
+        mr.read(_base_symbol);
+        mr.read(_data_type);
+
+        mr.read(_error_log);
+
+        mr.read(_base_address);
+        mr.read(_sizeof);
+    }
 }

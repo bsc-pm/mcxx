@@ -37,6 +37,12 @@
 
 namespace TL
 {
+    template <>
+        struct ModuleWriterTrait<OpenMP::DependencyDirection> : EnumWriterTrait<OpenMP::DependencyDirection> { };
+
+    template <>
+        struct ModuleReaderTrait<OpenMP::DependencyDirection> : EnumReaderTrait<OpenMP::DependencyDirection> { };
+
     namespace OpenMP
     {
 
@@ -397,6 +403,18 @@ namespace TL
         DataReference DependencyItem::get_dependency_expression() const
         {
             return _dep_expr;
+        }
+
+        void DependencyItem::module_write(ModuleWriter& mw)
+        {
+            mw.write(_dep_expr);
+            mw.write(_kind);
+        }
+
+        void DependencyItem::module_read(ModuleReader& mr)
+        {
+            mr.read(_dep_expr);
+            mr.read(_kind);
         }
 
         CopyItem::CopyItem(DataReference copy_expr, CopyDirection direction)

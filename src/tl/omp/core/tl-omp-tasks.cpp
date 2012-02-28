@@ -26,12 +26,33 @@
 
 
 
-
 #include "tl-omp-core.hpp"
 #include "tl-nodecl-alg.hpp"
+#include "tl-modules.hpp"
 
 namespace TL
 {
+    template <>
+        struct ModuleWriterTrait<OpenMP::RealTimeInfo::omp_error_event_t>
+        : EnumWriterTrait<OpenMP::RealTimeInfo::omp_error_event_t> { };
+    template <>
+        struct ModuleReaderTrait<OpenMP::RealTimeInfo::omp_error_event_t>
+        : EnumReaderTrait<OpenMP::RealTimeInfo::omp_error_event_t> { };
+
+    template <>
+        struct ModuleWriterTrait<OpenMP::RealTimeInfo::omp_error_action_t>
+        : EnumWriterTrait<OpenMP::RealTimeInfo::omp_error_action_t> { };
+    template <>
+        struct ModuleReaderTrait<OpenMP::RealTimeInfo::omp_error_action_t>
+        : EnumReaderTrait<OpenMP::RealTimeInfo::omp_error_action_t> { };
+
+    template <>
+        struct ModuleWriterTrait<OpenMP::CopyDirection>
+        : EnumWriterTrait<OpenMP::CopyDirection> { };
+    template <>
+        struct ModuleReaderTrait<OpenMP::CopyDirection>
+        : EnumReaderTrait<OpenMP::CopyDirection> { };
+
     namespace OpenMP
     {
         FunctionTaskTargetInfo::FunctionTaskTargetInfo()
@@ -99,6 +120,24 @@ namespace TL
         ObjectList<std::string> FunctionTaskTargetInfo::get_device_list() const
         {
             return _device_list;
+        }
+
+        void FunctionTaskTargetInfo::module_write(ModuleWriter& mw)
+        {
+            mw.write(_copy_in);
+            mw.write(_copy_out);
+            mw.write(_copy_inout);
+            mw.write(_device_list);
+            mw.write(_copy_deps);
+        }
+
+        void FunctionTaskTargetInfo::module_read(ModuleReader& mr)
+        {
+            mr.read(_copy_in);
+            mr.read(_copy_out);
+            mr.read(_copy_inout);
+            mr.read(_device_list);
+            mr.read(_copy_deps);
         }
 
         FunctionTaskInfo::FunctionTaskInfo(Symbol sym,
@@ -251,6 +290,26 @@ namespace TL
             return _map.find(sym)->second;
         }
 
+        void FunctionTaskInfo::module_write(ModuleWriter& mw)
+        {
+            mw.write(_sym);
+            mw.write(_parameters);
+            mw.write(_implementation_table);
+            mw.write(_target_info);
+            mw.write(_real_time_info);
+            mw.write(_if_clause_cond_expr);
+        }
+        
+        void FunctionTaskInfo::module_read(ModuleReader& mr)
+        {
+            mr.read(_sym);
+            mr.read(_parameters);
+            mr.read(_implementation_table);
+            mr.read(_target_info);
+            mr.read(_real_time_info);
+            mr.read(_if_clause_cond_expr);
+        }
+
         void FunctionTaskSet::add_function_task(Symbol sym, const FunctionTaskInfo& function_info)
         {
             std::pair<Symbol, FunctionTaskInfo> pair(sym, function_info);
@@ -260,6 +319,72 @@ namespace TL
         bool FunctionTaskSet::empty() const
         {
             return _map.empty();
+        }
+
+        void FunctionTaskSet::emit_module_info()
+        {
+            // Fortran only
+            if (!IS_FORTRAN_LANGUAGE)
+                return;
+
+            typedef std::pair<Symbol, FunctionTaskInfo*> module_map_pair_t;
+            typedef TL::ObjectList<module_map_pair_t > module_map_list_pair_t;
+            typedef std::map<Symbol, module_map_list_pair_t> module_map_t;
+            module_map_t module_map;
+
+            // First group everyone by module
+            for (map_t::iterator it = _map.begin();
+                    it != _map.end();
+                    it++)
+            {
+                if (it->first.is_in_module()
+                        // Can we lift this restriction?
+                        && !it->first.is_from_module())
+                {
+                    module_map_list_pair_t &p( module_map[it->first.in_module()] );
+
+                    p.append( module_map_pair_t(it->first, &it->second) );
+                }
+            }
+
+            for (module_map_t::iterator it = module_map.begin();
+                    it != module_map.end(); 
+                    it++)
+            {
+                TL::Symbol module(it->first);
+                module_map_list_pair_t& m(it->second);
+
+                ModuleWriter module_writer(module, "omp_function_tasks");
+
+                module_writer.write((int)m.size());
+                for (module_map_list_pair_t::iterator it2 = m.begin();
+                        it2 != m.end(); it2++)
+                {
+                    FunctionTaskInfo* info = it2->second;
+                    module_writer.write(*info);
+                }
+
+                module_writer.commit();
+            }
+        }
+
+        void FunctionTaskSet::load_from_module(TL::Symbol module)
+        {
+            ModuleReader module_read(module, "omp_function_tasks");
+
+            if (!module_read.empty())
+            {
+                int n;
+                module_read.read(n);
+
+                for (int i = 0; i < n; i++)
+                {
+                    FunctionTaskInfo info;
+                    module_read.read(info);
+
+                    this->add_function_task(info.get_symbol(), info);
+                }
+            }
         }
 
         FunctionTaskTargetInfo FunctionTaskInfo::get_target_info() const
@@ -308,6 +433,18 @@ namespace TL
                     return CopyItem(data_ref, _copy_direction);
                 }
         };
+
+        void CopyItem::module_write(ModuleWriter& mw)
+        {
+            mw.write(_copy_expr);
+            mw.write(_kind);
+        }
+
+        void CopyItem::module_read(ModuleReader& mr)
+        {
+            mr.read(_copy_expr);
+            mr.read(_kind);
+        }
 
         static bool is_useless_dependence(const FunctionTaskDependency& function_dep)
         {
@@ -655,6 +792,40 @@ namespace TL
             }
 
             return rt_info;
+        }
+
+        void RealTimeInfo::module_write(ModuleWriter& mw)
+        {
+            mw.write((bool)(_time_deadline != NULL));
+            if (_time_deadline != NULL)
+                mw.write(*_time_deadline);
+
+            mw.write((bool)(_time_release != NULL));
+            if (_time_release != NULL)
+                mw.write(*_time_release);
+
+            mw.write(_map_error_behavior);
+        }
+
+        void RealTimeInfo::module_read(ModuleReader& mr)
+        {
+            bool b = false;
+
+            mr.read(b);
+            if (b)
+            {
+                _time_deadline = new Nodecl::NodeclBase();
+                mr.read(*_time_deadline);
+            }
+
+            mr.read(b);
+            if (b)
+            {
+                _time_release = new Nodecl::NodeclBase();
+                mr.read(*_time_release);
+            }
+
+            mr.read(_map_error_behavior);
         }
     }
 }

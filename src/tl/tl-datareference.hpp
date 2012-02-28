@@ -32,6 +32,7 @@
 #include "tl-nodecl.hpp"
 #include "tl-source.hpp"
 #include "tl-type.hpp"
+#include "tl-modules.hpp"
 #include <sstream>
 
 namespace TL
@@ -59,6 +60,8 @@ namespace TL
     class DataReference : public Nodecl::NodeclBase
     {
         public:
+            DataReference() : _is_valid(false) { }
+
             //! Constructors of a DataReference
             /*! 
               Use is_valid to know if the expression wrapped as a DataReference
@@ -108,6 +111,9 @@ namespace TL
             friend struct DataReferenceVisitor;
 
             ~DataReference();
+
+            void module_write(ModuleWriter& mw);
+            void module_read(ModuleReader& mw);
         private:
             bool _is_valid;
 

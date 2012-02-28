@@ -59,6 +59,9 @@ namespace TL { namespace OpenMP {
     {
         private:
             RefPtr<FunctionTaskSet> _function_task_set;
+
+            typedef std::set<Symbol> module_function_tasks_set_t;
+            module_function_tasks_set_t _module_function_tasks;
         public:
             FunctionCallVisitor(RefPtr<FunctionTaskSet> function_task_set)
                 : _function_task_set(function_task_set)
@@ -74,7 +77,21 @@ namespace TL { namespace OpenMP {
                     Symbol sym = called.as<Nodecl::Symbol>().get_symbol();
 
                     if (sym.is_from_module())
+                    {
+                        // This symbol comes from a module
+                        TL::Symbol module = sym.from_module();
                         sym = sym.aliased_from_module();
+
+                        // Check if we already saw this module
+                        module_function_tasks_set_t::iterator it = _module_function_tasks.find(module);
+                        if (it == _module_function_tasks.end())
+                        {
+                            // Not seen before, load
+                            _function_task_set->load_from_module(module);
+
+                            _module_function_tasks.insert(module);
+                        }
+                    }
 
                     if (_function_task_set->is_function_task(sym))
                     {

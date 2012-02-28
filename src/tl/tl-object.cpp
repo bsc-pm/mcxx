@@ -35,6 +35,8 @@
 #include <cstdlib>
 #include <cstring>
 
+#include "cxx-utils.h"
+
 namespace TL
 {
 
@@ -100,6 +102,11 @@ RefPtr<Object> Object::get_attribute(const std::string& name) const
             }
         case TL_UNDEFINED :
             {
+                break;
+            }
+        case TL_NODECL:
+            {
+                internal_error("Not implemented", 0);
                 break;
             }
     }

@@ -56,6 +56,7 @@ union tl_type_data_tag
     const char* _string;
     scope_entry_t* _entry;
     struct type_tag* _type;
+    nodecl_t _nodecl;
     void *_data;
 } tl_type_data_t;
 
@@ -68,6 +69,7 @@ enum tl_type_kind_tag
     TL_STRING, // char*
     TL_SYMBOL, // scope_entry_t*
     TL_TYPE,  // struct type_tag*
+    TL_NODECL, // AST_t
     TL_OTHER, // void* to arbitrary data
 } tl_type_kind_t;
 
@@ -84,6 +86,7 @@ LIBMCXX_EXTERN tl_type_t tl_string(const char* str);
 LIBMCXX_EXTERN tl_type_t tl_symbol(scope_entry_t* entry);
 LIBMCXX_EXTERN tl_type_t tl_type(struct type_tag* t);
 LIBMCXX_EXTERN tl_type_t tl_object(void *data);
+LIBMCXX_EXTERN tl_type_t tl_nodecl(nodecl_t n);
 
 MCXX_END_DECLS
 

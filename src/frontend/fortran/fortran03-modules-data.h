@@ -10,6 +10,7 @@ typedef struct fortran_modules_data_item_tag fortran_modules_data_item_t;
 typedef struct fortran_modules_data_tag fortran_modules_data_t;
 struct fortran_modules_data_tag
 {
+    const char* name;
     int num_items;
     tl_type_t* items;
 };
@@ -17,7 +18,6 @@ struct fortran_modules_data_tag
 typedef struct fortran_modules_data_set_tag fortran_modules_data_set_t;
 struct fortran_modules_data_set_tag
 {
-    const char* name;
     int num_data;
     fortran_modules_data_t **data;
 };

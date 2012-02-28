@@ -24,20 +24,19 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef FORTRAN03_MODULES_H
-#define FORTRAN03_MODULES_H
 
-#include "cxx-scope-decls.h"
-#include "cxx-tltype.h"
+#ifndef TL_MODULES_FWD_HPP
+#define TL_MODULES_FWD_HPP
 
-MCXX_BEGIN_DECLS
+namespace TL
+{
+    template <typename T>
+        struct ModuleWriterTrait;
+    class ModuleWriter;
 
-void dump_module_info(scope_entry_t* module);
-void load_module_info(const char* module_name, scope_entry_t** module);
+    template <typename T>
+        struct ModuleReaderTrait;
+    class ModuleReader;
+}
 
-// This is used in TL
-void extend_module_info(scope_entry_t* module, const char* domain, int num_items, tl_type_t* info);
-
-MCXX_END_DECLS
-
-#endif // FORTRAN03_MODULES_H
+#endif // TL_MODULES_FWD_HPP

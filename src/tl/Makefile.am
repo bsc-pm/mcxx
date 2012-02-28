@@ -155,6 +155,9 @@ libtl_la_SOURCES = \
 	tl-datareference.cpp \
 	tl-replace.hpp \
 	tl-replace.cpp \
+    tl-modules-fwd.hpp \
+    tl-modules.hpp \
+    tl-modules.cpp \
     $(END)
 
 if WINDOWS_BUILD

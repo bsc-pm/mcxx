@@ -1733,6 +1733,9 @@ static int get_symbol(void *datum,
     (*result)->file = filename;
     (*result)->line = line;
 
+    (*result)->extended_data = calloc(1, sizeof(*((*result)->extended_data)));
+    extensible_struct_init(&(*result)->extended_data);
+
     // {
     //     static int level = 0;
     //     scope_entry_t* sym = *result;
@@ -2615,8 +2618,8 @@ struct get_module_extra_data_tag
 
 static int get_module_extra_data(void *data, 
         int num_columns UNUSED_PARAMETER, 
-        char **columns UNUSED_PARAMETER, 
-        char **values)
+        char **values,
+        char **columns UNUSED_PARAMETER)
 {
     struct get_module_extra_data_tag* p = (struct get_module_extra_data_tag*)data;
 
@@ -2651,6 +2654,12 @@ static int get_module_extra_data(void *data,
                 *(p->current_item) = tl_type(loaded_type);
                 break;
             }
+        case TL_NODECL:
+            {
+                nodecl_t node = load_nodecl(p->handle, safe_atoull(values[1]));
+                *(p->current_item) = tl_nodecl(node);
+                break;
+            }
         default:
             {
                 internal_error("Invalid data type %d when loading extra module information", kind);
@@ -2670,8 +2679,8 @@ struct get_module_extra_name_tag
 
 static int count_module_extra_name(void *data, 
         int num_columns UNUSED_PARAMETER, 
-        char **columns UNUSED_PARAMETER, 
-        char **values)
+        char **values, 
+        char **names UNUSED_PARAMETER)
 {
     uint64_t* value = (uint64_t*)data;
     *value = safe_atoull(values[0]);
@@ -2680,8 +2689,8 @@ static int count_module_extra_name(void *data,
 
 static int get_module_extra_name(void *data, 
         int num_columns UNUSED_PARAMETER, 
-        char **columns UNUSED_PARAMETER, 
-        char **values)
+        char **values, 
+        char **names UNUSED_PARAMETER)
 {
     struct get_module_extra_name_tag* p = (struct get_module_extra_name_tag*)data;
 
@@ -2702,6 +2711,7 @@ static int get_module_extra_name(void *data,
         return 0;
 
     fortran_modules_data_t *module_data = calloc(1, sizeof(*module_data));
+    module_data->name = uniquestr(values[1]);
     module_data->num_items = num_items;
     module_data->items = calloc(num_items, sizeof(*(module_data->items)));
 
@@ -2720,12 +2730,11 @@ static int get_module_extra_name(void *data,
 
     sqlite3_free(query);
 
-    fortran_modules_data_set_t* extra_info_attr = (fortran_modules_data_set_t*)extensible_struct_get_field(p->module->extended_data, ".extra_info");
+    fortran_modules_data_set_t* extra_info_attr = (fortran_modules_data_set_t*)extensible_struct_get_field(p->module->extended_data, ".extra_module_info");
     if (extra_info_attr == NULL)
     {
         extra_info_attr = calloc(1, sizeof(*extra_info_attr));
-        extra_info_attr->name = uniquestr(values[1]);
-        extensible_struct_set_field(p->module->extended_data, ".extra_info", extra_info_attr);
+        extensible_struct_set_field(p->module->extended_data, ".extra_module_info", extra_info_attr);
     }
 
     P_LIST_ADD(extra_info_attr->data, extra_info_attr->num_data, module_data);
@@ -2746,6 +2755,98 @@ static void load_extra_data_from_module(sqlite3* handle, scope_entry_t* module)
     {
         running_error("Error during query: %s\n", errmsg);
     }
+}
+
+void extend_module_info(scope_entry_t* module, const char* domain, int num_items, tl_type_t* info)
+{
+    ERROR_CONDITION(module->kind != SK_MODULE, "This is not a module!\n", 0);
+
+    const char* module_name = strtolower(module->symbol_name);
+
+    sqlite3* handle = NULL;
+    const char* filename = NULL;
+
+    driver_fortran_register_module(module_name, &filename);
+    load_storage(&handle, filename);
+
+    prepare_statements(handle);
+
+    start_transaction(handle);
+
+    // Insert domain
+    char* insert_domain = sqlite3_mprintf("INSERT OR REPLACE INTO module_extra_name(name) VALUES (" Q ");",  domain);
+    run_query(handle, insert_domain);
+    sqlite3_uint64 domain_oid = sqlite3_last_insert_rowid(handle);
+    sqlite3_free(insert_domain);
+
+    int i;
+    for (i = 0; i < num_items; i++)
+    {
+        int kind = info[i].kind;
+        char* query = NULL;
+        switch (kind)
+        {
+            case TL_INTEGER : 
+                {
+                    query = sqlite3_mprintf("INSERT INTO module_extra_data(oid_name, order_, kind, value) "
+                            "VALUES (%llu, %d, %d, %d);", 
+                            domain_oid, i, kind, info[i].data._integer);
+                    break;
+                }
+            case TL_BOOL : 
+                {
+                    query = sqlite3_mprintf("INSERT INTO module_extra_data(oid_name, order_, kind, value) "
+                            "VALUES (%llu, %d, %d, %d);", 
+                            domain_oid, i, kind, (int)info[i].data._boolean);
+                    break;
+                }
+            case TL_STRING : 
+                {
+                    query = sqlite3_mprintf("INSERT INTO module_extra_data(oid_name, order_, kind, value) "
+                            "VALUES (%llu, %d, %d, " Q " );", 
+                            domain_oid, i, kind, info[i].data._string);
+                    break;
+                }
+            case TL_SYMBOL : 
+                {
+                    sqlite3_uint64 sym_oid = insert_symbol(handle, info[i].data._entry);
+
+                    query = sqlite3_mprintf("INSERT INTO module_extra_data(oid_name, order_, kind, value) "
+                            "VALUES (%llu, %d, %d, %llu);", 
+                            domain_oid, i, kind, sym_oid);
+                    break;
+                }
+            case TL_TYPE : 
+                {
+                    sqlite3_uint64 type_oid = insert_type(handle, info[i].data._type);
+
+                    query = sqlite3_mprintf("INSERT INTO module_extra_data(oid_name, order_, kind, value) "
+                            "VALUES (%llu, %d, %d, %llu);", 
+                            domain_oid, i, kind, type_oid);
+                    break;
+                }
+            case TL_NODECL:
+                {
+                    sqlite3_uint64 nodecl_oid = insert_nodecl(handle, info[i].data._nodecl);
+
+                    query = sqlite3_mprintf("INSERT INTO module_extra_data(oid_name, order_, kind, value) "
+                            "VALUES (%llu, %d, %d, %llu);", 
+                            domain_oid, i, kind, nodecl_oid);
+                    break;
+                }
+            default:
+                {
+                    internal_error("Invalid data type %d when storing extra module information", kind);
+                }
+        }
+
+        run_query(handle, query);
+        sqlite3_free(query);
+    }
+
+    end_transaction(handle);
+
+    dispose_storage(handle);
 }
 
 #ifdef DEBUG_SQLITE3_MPRINTF

@@ -90,3 +90,12 @@ tl_type_t tl_object(void *data)
 
     return result;
 }
+
+tl_type_t tl_nodecl(nodecl_t n)
+{
+    tl_type_t result;
+    result.kind = TL_NODECL;
+    result.data._nodecl = n;
+
+    return result;
+}

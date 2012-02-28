@@ -256,6 +256,12 @@ static const char* unwrap_module(const char* wrap_module, const char* module_nam
 
 static void register_module_for_later_wrap(const char* module_name, const char* mf03_filename)
 {
+    int i;
+    for (i = 0; i < CURRENT_COMPILED_FILE->num_modules_to_wrap; i++)
+    {
+        if (strcasecmp(CURRENT_COMPILED_FILE->modules_to_wrap[i]->module_name, module_name) == 0)
+            return;
+    }
     module_to_wrap_info_t *module_to_wrap = calloc(1, sizeof(*module_to_wrap));
 
     module_to_wrap->module_name = module_name;
