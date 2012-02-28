@@ -3439,6 +3439,11 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
         }
     }
 
+
+    // We only generate user declared code
+    if (!symbol.is_user_declared())
+        return;
+
     // Do nothing if already defined or declared
     if (get_codegen_status(symbol) == CODEGEN_STATUS_DEFINED
             || get_codegen_status(symbol) == CODEGEN_STATUS_DECLARED)
@@ -3451,8 +3456,7 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
         // Builtins, anonymous unions and non-user declared varibles are not printed
         if (!(symbol.is_builtin()
                     || (symbol.get_type().is_named_class()
-                        && symbol.get_type().get_symbol().is_anonymous_union())
-                    || !symbol.is_user_declared()))
+                        && symbol.get_type().get_symbol().is_anonymous_union())))
         {
             std::string decl_specifiers;
             std::string gcc_attributes;
@@ -3872,189 +3876,184 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
         if (symbol.is_friend_declared())
             return;
 
-        // If this function was not user declared, do not print
-        if (!(symbol.is_member()
-                    && !symbol.is_user_declared()))
+        walk_type_for_symbols(
+                symbol.get_type(),
+                /* needs_def */ false,
+                &CxxBase::declare_symbol_if_nonlocal,
+                &CxxBase::define_symbol_if_nonlocal,
+                &CxxBase::define_nonprototype_entities_in_trees);
+
+        char is_primary_template = 0;
+        bool requires_extern_linkage = false;
+        CXX_LANGUAGE()
         {
-            walk_type_for_symbols(
-                    symbol.get_type(),
-                    /* needs_def */ false,
-                    &CxxBase::declare_symbol_if_nonlocal,
-                    &CxxBase::define_symbol_if_nonlocal,
-                    &CxxBase::define_nonprototype_entities_in_trees);
+            move_to_namespace_of_symbol(symbol);
 
-            char is_primary_template = 0;
-            bool requires_extern_linkage = false;
-            CXX_LANGUAGE()
+            requires_extern_linkage = (!symbol.is_member() 
+                    && symbol.has_nondefault_linkage());
+
+            if (requires_extern_linkage)
             {
-                move_to_namespace_of_symbol(symbol);
+                file << "extern " + symbol.get_linkage() + "\n";
+                indent();
+                file << "{\n";
 
-                requires_extern_linkage = (!symbol.is_member() 
-                        && symbol.has_nondefault_linkage());
-
-                if (requires_extern_linkage)
-                {
-                    file << "extern " + symbol.get_linkage() + "\n";
-                    indent();
-                    file << "{\n";
-
-                    inc_indent();
-                }
-
-                if (symbol.get_type().is_template_specialized_type()
-                        && symbol.get_type().template_specialized_type_get_template_arguments().get_num_parameters() != 0)
-                {
-                    TL::Type template_type = symbol.get_type().get_related_template_type();
-                    TL::Type primary_template = template_type.get_primary_template();
-                    TL::Symbol primary_symbol = primary_template.get_symbol();
-                    declare_symbol(primary_symbol);
-
-                    if (primary_symbol != symbol)
-                    {
-                        indent();
-                        file << "template <>\n";
-                    }
-                    else
-                    {
-                        TL::TemplateParameters template_parameters = template_type.template_type_get_template_parameters();
-                        codegen_template_header(template_parameters);
-                        is_primary_template = 1;
-                    }
-                }
+                inc_indent();
             }
-
-            TL::ObjectList<TL::Symbol> related_symbols = symbol.get_related_symbols();
-            TL::ObjectList<std::string> parameter_names(related_symbols.size());
-            TL::ObjectList<std::string> parameter_attributes(related_symbols.size());
-            int i = 0;
-            for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
-                    it != related_symbols.end();
-                    it++, i++)
-            {
-                TL::Symbol current_param = *it;
-                if (current_param.is_valid())
-                {
-                    parameter_names[i] = current_param.get_name();
-                    if (current_param.has_gcc_attributes())
-                    {
-                        parameter_attributes[i] = gcc_attributes_to_str(current_param); 
-                    }
-                }
-            }
-
-            std::string decl_spec_seq;
-            if (symbol.is_static())
-            {
-                decl_spec_seq += "static ";
-            }
-            if (symbol.is_extern())
-            {
-                decl_spec_seq += "extern ";
-            }
-            if (symbol.is_virtual())
-            {
-                decl_spec_seq += "virtual ";
-            }
-            if (symbol.is_inline())
-            {
-                C_LANGUAGE()
-                {
-                    decl_spec_seq += "__inline ";
-                }
-                CXX_LANGUAGE()
-                {
-                    decl_spec_seq += "inline ";
-                }
-            }
-
-            std::string gcc_attributes = gcc_attributes_to_str(symbol);
-            std::string asm_specification = gcc_asm_specifier_to_str(symbol);
-
-
-            TL::Type real_type = symbol.get_type();
-            if (symbol.is_conversion_function()
-                    || symbol.is_destructor())
-            {
-                // FIXME
-                real_type = get_new_function_type(NULL, NULL, 0);
-            }
-
-            std::string function_name = unmangle_symbol_name(symbol);
 
             if (symbol.get_type().is_template_specialized_type()
-                    // Conversions do not allow templates
-                    && !is_primary_template
-                    && !symbol.is_conversion_function())
+                    && symbol.get_type().template_specialized_type_get_template_arguments().get_num_parameters() != 0)
             {
-                function_name += template_arguments_to_str(symbol);
-            }
+                TL::Type template_type = symbol.get_type().get_related_template_type();
+                TL::Type primary_template = template_type.get_primary_template();
+                TL::Symbol primary_symbol = primary_template.get_symbol();
+                declare_symbol(primary_symbol);
 
-            std::string declarator = "";
-            if (!real_type.lacks_prototype())
-            {
-                // declarator = this->get_declaration(
-                //         real_type,
-                //         symbol.get_scope(),
-                //         function_name);
-                declarator = this->get_declaration_with_parameters(real_type, symbol.get_scope(), 
-                        function_name, 
-                        parameter_names, 
-                        parameter_attributes);
-
-                if (symbol.is_virtual()
-                        && symbol.is_pure())
+                if (primary_symbol != symbol)
                 {
-                    declarator += " = 0";
+                    indent();
+                    file << "template <>\n";
+                }
+                else
+                {
+                    TL::TemplateParameters template_parameters = template_type.template_type_get_template_parameters();
+                    codegen_template_header(template_parameters);
+                    is_primary_template = 1;
                 }
             }
-            else
+        }
+
+        TL::ObjectList<TL::Symbol> related_symbols = symbol.get_related_symbols();
+        TL::ObjectList<std::string> parameter_names(related_symbols.size());
+        TL::ObjectList<std::string> parameter_attributes(related_symbols.size());
+        int i = 0;
+        for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
+                it != related_symbols.end();
+                it++, i++)
+        {
+            TL::Symbol current_param = *it;
+            if (current_param.is_valid())
             {
-                declarator = this->get_declaration(
-                        real_type.returns(),
-                        symbol.get_scope(),
-                        function_name);
-                declarator += "(";
-                TL::ObjectList<TL::Symbol> args = symbol.get_related_symbols();
-                for (TL::ObjectList<TL::Symbol>::iterator it = args.begin();
-                        it != args.end();
-                        it++)
+                parameter_names[i] = current_param.get_name();
+                if (current_param.has_gcc_attributes())
                 {
-                    if (it != args.begin())
-                        declarator += ", ";
-
-                    declarator += it->get_name();
+                    parameter_attributes[i] = gcc_attributes_to_str(current_param); 
                 }
-
-                bool has_ellipsis = false;
-                real_type.parameters(has_ellipsis);
-
-                if (has_ellipsis)
-                {
-                    if (!args.empty())
-                    {
-                        declarator += ", ";
-                    }
-
-                    declarator += "...";
-                }
-                
-                declarator += ")";
             }
+        }
 
-            std::string exception_spec = exception_specifier_to_str(symbol);
-
-
-            indent();
-            file << decl_spec_seq << declarator << exception_spec << asm_specification << gcc_attributes << ";\n";
-
+        std::string decl_spec_seq;
+        if (symbol.is_static())
+        {
+            decl_spec_seq += "static ";
+        }
+        if (symbol.is_extern())
+        {
+            decl_spec_seq += "extern ";
+        }
+        if (symbol.is_virtual())
+        {
+            decl_spec_seq += "virtual ";
+        }
+        if (symbol.is_inline())
+        {
+            C_LANGUAGE()
+            {
+                decl_spec_seq += "__inline ";
+            }
             CXX_LANGUAGE()
             {
-                if (requires_extern_linkage)
+                decl_spec_seq += "inline ";
+            }
+        }
+
+        std::string gcc_attributes = gcc_attributes_to_str(symbol);
+        std::string asm_specification = gcc_asm_specifier_to_str(symbol);
+
+
+        TL::Type real_type = symbol.get_type();
+        if (symbol.is_conversion_function()
+                || symbol.is_destructor())
+        {
+            // FIXME
+            real_type = get_new_function_type(NULL, NULL, 0);
+        }
+
+        std::string function_name = unmangle_symbol_name(symbol);
+
+        if (symbol.get_type().is_template_specialized_type()
+                // Conversions do not allow templates
+                && !is_primary_template
+                && !symbol.is_conversion_function())
+        {
+            function_name += template_arguments_to_str(symbol);
+        }
+
+        std::string declarator = "";
+        if (!real_type.lacks_prototype())
+        {
+            // declarator = this->get_declaration(
+            //         real_type,
+            //         symbol.get_scope(),
+            //         function_name);
+            declarator = this->get_declaration_with_parameters(real_type, symbol.get_scope(), 
+                    function_name, 
+                    parameter_names, 
+                    parameter_attributes);
+
+            if (symbol.is_virtual()
+                    && symbol.is_pure())
+            {
+                declarator += " = 0";
+            }
+        }
+        else
+        {
+            declarator = this->get_declaration(
+                    real_type.returns(),
+                    symbol.get_scope(),
+                    function_name);
+            declarator += "(";
+            TL::ObjectList<TL::Symbol> args = symbol.get_related_symbols();
+            for (TL::ObjectList<TL::Symbol>::iterator it = args.begin();
+                    it != args.end();
+                    it++)
+            {
+                if (it != args.begin())
+                    declarator += ", ";
+
+                declarator += it->get_name();
+            }
+
+            bool has_ellipsis = false;
+            real_type.parameters(has_ellipsis);
+
+            if (has_ellipsis)
+            {
+                if (!args.empty())
                 {
-                    dec_indent();
-                    indent();
-                    file << "}\n";
+                    declarator += ", ";
                 }
+
+                declarator += "...";
+            }
+
+            declarator += ")";
+        }
+
+        std::string exception_spec = exception_specifier_to_str(symbol);
+
+
+        indent();
+        file << decl_spec_seq << declarator << exception_spec << asm_specification << gcc_attributes << ";\n";
+
+        CXX_LANGUAGE()
+        {
+            if (requires_extern_linkage)
+            {
+                dec_indent();
+                indent();
+                file << "}\n";
             }
         }
     }
