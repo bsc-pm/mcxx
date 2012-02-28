@@ -226,6 +226,13 @@ namespace TL
             /*! \note This only makes sense if is_from_module returned true */
             Symbol from_module() const;
 
+            //! Returns the original symbol from the module
+            /*!
+             * Symbols where is_from_module returns true, have an alias to the real symbol
+             * of the module. Use this function to get it
+             */
+            Symbol aliased_from_module() const;
+
             //! States that this symbol is a BLOCK DATA program unit
             /*! \note This only applies to Fortran */
             bool is_fortran_blockdata() const;

@@ -69,22 +69,29 @@ namespace TL { namespace OpenMP {
             {
                 Nodecl::NodeclBase called = call.get_called();
 
-                if (called.is<Nodecl::Symbol>() 
-                        && _function_task_set->is_function_task(called.as<Nodecl::Symbol>().get_symbol()))
+                if (called.is<Nodecl::Symbol>())
                 {
-                    // Nodecl::NodeclBase exec_env = compute_
-                    FunctionTaskInfo& task_info = _function_task_set->get_function_task(called.as<Nodecl::Symbol>().get_symbol());
+                    Symbol sym = called.as<Nodecl::Symbol>().get_symbol();
 
-                    Nodecl::NodeclBase exec_env = this->make_exec_environment(call, task_info);
+                    if (sym.is_from_module())
+                        sym = sym.aliased_from_module();
 
-                    Nodecl::Parallel::AsyncCall async_call = Nodecl::Parallel::AsyncCall::make(
-                            exec_env,
-                            // Do we need to copy this?
-                            call.copy(),
-                            call.get_filename(),
-                            call.get_line());
+                    if (_function_task_set->is_function_task(sym))
+                    {
+                        // Nodecl::NodeclBase exec_env = compute_
+                        FunctionTaskInfo& task_info = _function_task_set->get_function_task(sym);
 
-                    call.replace(async_call);
+                        Nodecl::NodeclBase exec_env = this->make_exec_environment(call, task_info);
+
+                        Nodecl::Parallel::AsyncCall async_call = Nodecl::Parallel::AsyncCall::make(
+                                exec_env,
+                                // Do we need to copy this?
+                                call.copy(),
+                                call.get_filename(),
+                                call.get_line());
+
+                        call.replace(async_call);
+                    }
                 }
             }
 
