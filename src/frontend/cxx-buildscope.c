@@ -2978,6 +2978,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
             new_entry->file = ASTFileName(enum_name);
             new_entry->kind = SK_ENUM;
             new_entry->type_information = get_new_enum_type(decl_context);
+            new_entry->entity_specs.is_user_declared = 1;
         }
 
         gather_info->defined_type = new_entry;
@@ -3005,6 +3006,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
         new_entry->type_information = get_new_enum_type(decl_context);
 
         new_entry->entity_specs.is_unnamed = 1;
+        new_entry->entity_specs.is_user_declared = 1;
     }
 
     if (decl_context.current_scope->kind == CLASS_SCOPE

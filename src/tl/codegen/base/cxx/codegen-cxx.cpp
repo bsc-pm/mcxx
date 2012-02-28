@@ -3281,6 +3281,15 @@ void CxxBase::define_symbol(TL::Symbol symbol)
         return;
     }
 
+    if (symbol.is_dependent_entity())
+    {
+        TL::Symbol entry(NULL);
+        Nodecl::NodeclBase n = Nodecl::NodeclBase::null();
+        symbol.get_type().dependent_typename_get_components(entry, n);
+        define_symbol(entry);
+        return;
+    }
+
     if (symbol.is_member())
     {
         TL::Symbol class_entry = symbol.get_class_type().get_symbol();
@@ -3294,6 +3303,10 @@ void CxxBase::define_symbol(TL::Symbol symbol)
     if (get_codegen_status(symbol) == CODEGEN_STATUS_DEFINED)
         return;
 
+    // We only generate user declared code
+    if (!symbol.is_user_declared())
+        return;
+
     if (symbol.is_variable())
     {
         declare_symbol(symbol);
@@ -3301,7 +3314,7 @@ void CxxBase::define_symbol(TL::Symbol symbol)
     else if (symbol.is_typedef())
     {
         // Template parameters are not to be defined, ever
-        if (!symbol.is_template_parameter() && symbol.is_user_declared())
+        if (!symbol.is_template_parameter())
         {
             move_to_namespace_of_symbol(symbol);
             indent();
@@ -3364,10 +3377,7 @@ void CxxBase::define_symbol(TL::Symbol symbol)
     }
     else if (symbol.is_class())
     {
-        if (symbol.is_user_declared())
-        {
-            define_class_symbol(symbol);
-        }
+        define_class_symbol(symbol);
     }
     else if (symbol.is_function())
     {
@@ -3377,15 +3387,6 @@ void CxxBase::define_symbol(TL::Symbol symbol)
     else if (symbol.is_template_parameter())
     {
         // Do nothing
-    }
-    else if (symbol.is_dependent_entity())
-    {
-        TL::Symbol entry(NULL);
-        Nodecl::NodeclBase n = Nodecl::NodeclBase::null();
-
-        symbol.get_type().dependent_typename_get_components(entry, n);
-
-        define_symbol(entry);
     }
     else
     {
