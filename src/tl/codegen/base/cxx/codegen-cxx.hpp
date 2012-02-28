@@ -269,6 +269,7 @@ namespace Codegen
 
             bool is_local_symbol(TL::Symbol entry);
             bool is_prototype_symbol(TL::Symbol entry);
+            bool all_enclosing_classes_are_user_declared(TL::Symbol entry);
 
             void define_all_entities_in_trees(const Nodecl::NodeclBase&);
             void define_nonlocal_entities_in_trees(const Nodecl::NodeclBase&);
@@ -291,7 +292,7 @@ namespace Codegen
 
             void declare_symbol_if_nonnested(TL::Symbol);
             void define_symbol_if_nonnested(TL::Symbol);
-            
+
             void define_specializations_user_declared(TL::Symbol);
 
             void walk_type_for_symbols(TL::Type, 

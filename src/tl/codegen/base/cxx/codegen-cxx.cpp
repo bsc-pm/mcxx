@@ -3117,6 +3117,18 @@ bool CxxBase::is_prototype_symbol(TL::Symbol entry)
         && entry.get_scope().is_prototype_scope();
 }
 
+bool CxxBase::all_enclosing_classes_are_user_declared(TL::Symbol entry)
+{
+    bool result = true;
+    TL::Symbol class_entry = entry;
+    while (result && class_entry.is_member())
+    {
+        class_entry = class_entry.get_class_type().get_symbol();
+        result = class_entry.is_user_declared();
+    }
+    return result;
+}
+
 void CxxBase::define_symbol_if_local(TL::Symbol symbol)
 {
     if (is_local_symbol(symbol))
@@ -3251,7 +3263,8 @@ void CxxBase::define_symbol(TL::Symbol symbol)
         symbol = symbol.get_class_type().get_symbol();
 
     if (symbol.get_type().is_template_specialized_type()
-            && !symbol.is_user_declared())
+            && !symbol.is_user_declared()
+            && all_enclosing_classes_are_user_declared(symbol))
     {
         //We may need to define or declare the template arguments
         TL::TemplateParameters template_arguments =
@@ -3351,7 +3364,10 @@ void CxxBase::define_symbol(TL::Symbol symbol)
     }
     else if (symbol.is_class())
     {
-        define_class_symbol(symbol);
+        if (symbol.is_user_declared())
+        {
+            define_class_symbol(symbol);
+        }
     }
     else if (symbol.is_function())
     {
