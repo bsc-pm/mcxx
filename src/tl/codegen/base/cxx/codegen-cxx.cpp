@@ -3304,7 +3304,8 @@ void CxxBase::define_symbol(TL::Symbol symbol)
         return;
 
     // We only generate user declared code
-    if (!symbol.is_user_declared())
+    if (!symbol.is_user_declared() ||
+            (symbol.is_class() && !all_enclosing_classes_are_user_declared(symbol)))
         return;
 
     if (symbol.is_variable())
