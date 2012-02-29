@@ -1853,6 +1853,11 @@ static scope_entry_t* build_scope_internal_subprogram(
                 }
                 break;
             }
+        case AST_UNKNOWN_PRAGMA:
+            {
+                // Merrily ignore this tree
+                break;
+            }
         default:
             {
                 internal_error("Unexpected node of kind %s\n", ast_print_node_type(ASTType(subprogram)));

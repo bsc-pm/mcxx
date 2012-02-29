@@ -139,8 +139,6 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %token<token_atrib> WHILE "while"
 %token<token_atrib> XOR_ASSIGN "^="
 
-%token<token_atrib> UNKNOWN_PRAGMA "<unknown-pragma>"
-
 %token<token_atrib> PP_COMMENT "<preprocessor-comment>"
 %token<token_atrib> PP_TOKEN "<preprocessor-token>"
 
@@ -312,7 +310,6 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 // %type<ast> nontype_specifier_seq2
 // %type<ast> nontype_specifier2
 %type<ast> volatile_optional
-%type<ast> unknown_pragma
 %type<ast> designation
 %type<ast> designator_list
 %type<ast> designator
@@ -421,11 +418,6 @@ common_block_declaration : asm_definition
 | EXTENSION block_declaration
 {
 	$$ = ASTMake1(AST_GCC_EXTENSION, $2, $1.token_file, $1.token_line, $1.token_text);
-}
-/* Handling of unknown pragmae */
-| unknown_pragma
-{
-	$$ = $1;
 }
 // Prettyprinted comments
 | PP_COMMENT
@@ -1680,10 +1672,6 @@ member_declaration : decl_specifier_seq member_declarator_list ';'  %merge<ambig
 {
 	$$ = ASTMake2(AST_MEMBER_DECLARATION, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
-| unknown_pragma
-{
-	$$ = $1;
-}
 // This is a common tolerated error
 | ';' 
 {
@@ -2488,11 +2476,6 @@ literal : DECIMAL_LITERAL
 	$$ = $1;
 }
 ;
-
-unknown_pragma : UNKNOWN_PRAGMA
-{
-	$$ = ASTLeaf(AST_UNKNOWN_PRAGMA, $1.token_file, $1.token_line, $1.token_text);
-}
 
 // This eases parsing, though it should be viewed as a lexical issue
 string_literal : STRING_LITERAL

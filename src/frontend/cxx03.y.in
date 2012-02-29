@@ -167,8 +167,6 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 
 %token<token_atrib> STATIC_ASSERT "static_assert"
 
-%token<token_atrib> UNKNOWN_PRAGMA "<unknown-pragma>"
-
 %token<token_atrib> PP_COMMENT "<preprocessor-comment>"
 %token<token_atrib> PP_TOKEN "<preprocessor-token>"
 
@@ -464,7 +462,6 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> type_specifier_seq_0_may_end_with_attribute
 %type<ast> type_specifier_seq_ended_with_identifier
 %type<ast> unary_expression
-%type<ast> unknown_pragma
 %type<ast> unnamed_namespace_definition
 %type<ast> unqualified_id
 %type<ast> using_declaration
@@ -708,10 +705,6 @@ common_block_declaration : asm_definition
 | EXTENSION block_declaration
 {
 	$$ = ASTMake1(AST_GCC_EXTENSION, $2, $1.token_file, $1.token_line, $1.token_text);
-}
-| unknown_pragma
-{
-	$$ = $1;
 }
 // Prettyprinted comments
 | PP_COMMENT
@@ -2842,10 +2835,6 @@ member_declaration : decl_specifier_seq_0 member_declarator_list ';' %merge<ambi
 	$$ = $1;
 }
 | template_declaration %merge<ambiguityHandler>
-{
-	$$ = $1;
-}
-| unknown_pragma
 {
 	$$ = $1;
 }
@@ -5177,11 +5166,6 @@ throw_expression : THROW
 	$$ = ASTMake1(AST_THROW_EXPRESSION, $2, $1.token_file, $1.token_line, NULL);
 }
 ;
-
-unknown_pragma : UNKNOWN_PRAGMA
-{
-	$$ = ASTLeaf(AST_UNKNOWN_PRAGMA, $1.token_file, $1.token_line, $1.token_text);
-}
 
 // This eases parsing, though it should be viewed as a lexical issue
 string_literal : STRING_LITERAL
