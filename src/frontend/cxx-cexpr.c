@@ -827,6 +827,33 @@ nodecl_t const_value_to_nodecl(const_value_t* v)
                         v, NULL, 0);
                 break;
             }
+        case CVK_ARRAY:
+            {
+                nodecl_t list = nodecl_null();
+                int i;
+                for (i = 0; i < v->value.m->num_elements; i++)
+                {
+                    list = nodecl_append_to_list(list, const_value_to_nodecl(v->value.m->elements[i]));
+                }
+
+                type_t* t = get_void_type();
+                if (v->value.m->num_elements > 0)
+                {
+                    t = nodecl_get_type(nodecl_list_head(list));
+                }
+
+                // Fortran boundaries!
+                t = get_array_type_bounds(
+                        t,
+                        nodecl_make_integer_literal(get_signed_int_type(), const_value_get_one(4, 1), NULL, 0),
+                        nodecl_make_integer_literal(get_signed_int_type(), const_value_get_signed_int(v->value.m->num_elements), NULL, 0),
+                        CURRENT_COMPILED_FILE->global_decl_context);
+
+                return nodecl_make_structured_value(
+                        list, t,
+                        NULL, 0);
+                break;
+            }
         default:
             {
                 // The caller should check this case
