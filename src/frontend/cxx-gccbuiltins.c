@@ -1135,7 +1135,7 @@ static default_argument_info_t** empty_default_argument_info(int num_parameters)
 #define DEF_GOMP_BUILTIN(ENUM, NAME, TYPE, ATTRS) \
   DEF_BUILTIN (ENUM, "__builtin_" NAME, BUILT_IN_NORMAL, TYPE, TYPE,    \
                0, 1, 1, ATTRS, 0, \
-          !CURRENT_CONFIGURATION->disable_openmp)
+          CURRENT_CONFIGURATION->enable_openmp)
 	       // (flag_openmp || flag_tree_parallelize_loops))
 
 

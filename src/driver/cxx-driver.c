@@ -143,7 +143,8 @@
 "  --Wx:<profile>:<flags>,options\n" \
 "                           Like --W<flags>,<options> but for\n" \
 "                           a specific compiler profile\n" \
-"  --no-openmp              Disables all OpenMP support\n" \
+"  --openmp                 Enables OpenMP support\n" \
+"  --no-openmp              Disables OpenMP support (by default)\n" \
 "  --config-file=<file>     Uses <file> as config file.\n" \
 "                           Use --print-config-file to get the\n" \
 "                           default path\n" \
@@ -277,6 +278,7 @@ typedef enum
     OPTION_HELP_DEBUG_FLAGS,
     OPTION_HELP_TARGET_OPTIONS,
     OPTION_OUTPUT_DIRECTORY,
+    OPTION_OPENMP,
     OPTION_NO_OPENMP,
     OPTION_EXTERNAL_VAR,
     OPTION_CONFIG_FILE,
@@ -336,6 +338,7 @@ struct command_line_long_options command_line_long_options[] =
     {"debug-flags",  CLP_REQUIRED_ARGUMENT, OPTION_DEBUG_FLAG},
     {"help-debug-flags", CLP_NO_ARGUMENT, OPTION_HELP_DEBUG_FLAGS},
     {"help-target-options", CLP_NO_ARGUMENT, OPTION_HELP_TARGET_OPTIONS},
+    {"openmp", CLP_NO_ARGUMENT, OPTION_OPENMP},
     {"no-openmp", CLP_NO_ARGUMENT, OPTION_NO_OPENMP},
     {"variable", CLP_REQUIRED_ARGUMENT, OPTION_EXTERNAL_VAR},
     {"typecheck", CLP_NO_ARGUMENT, OPTION_TYPECHECK},
@@ -765,10 +768,11 @@ int parse_arguments(int argc, const char* argv[],
             char already_handled = 1;
             switch (parameter_info.value)
             {
+                case OPTION_OPENMP :
                 case OPTION_NO_OPENMP :
                     {
-                        CURRENT_CONFIGURATION->disable_openmp = 1;
-                        // If 'openmp' is in the parameter flags, set it to false, otherwise add it as false
+                        CURRENT_CONFIGURATION->enable_openmp = (parameter_info.value == OPTION_OPENMP);
+                        // If 'openmp' is in the parameter flags, set it to true
                         int i;
                         char found = 0;
                         for (i = 0; !found && (i < compilation_process.num_parameter_flags); i++)
@@ -776,7 +780,7 @@ int parse_arguments(int argc, const char* argv[],
                             if (strcmp(compilation_process.parameter_flags[i]->name, "openmp") == 0)
                             {
                                 found = 1;
-                                compilation_process.parameter_flags[i]->value = 0;
+                                compilation_process.parameter_flags[i]->value = CURRENT_CONFIGURATION->enable_openmp;
                             }
                         }
                         if (!found)
@@ -2070,11 +2074,10 @@ static void initialize_default_values(void)
 
     CURRENT_CONFIGURATION->column_width = 132;
 
-    // Add openmp as an implicit flag
+    // Add openmp as an implicit (disabled) flag
     struct parameter_flags_tag *new_parameter_flag = calloc(1, sizeof(*new_parameter_flag));
 
     new_parameter_flag->name = uniquestr("openmp");
-    new_parameter_flag->value = 1;
 
     P_LIST_ADD(compilation_process.parameter_flags, 
             compilation_process.num_parameter_flags,
@@ -2308,7 +2311,7 @@ static void enable_hlt_phase(void);
 static void finalize_committed_configuration(void)
 {
     // OpenMP support involves omp pragma
-    if (!CURRENT_CONFIGURATION->disable_openmp)
+    if (CURRENT_CONFIGURATION->enable_openmp)
     {
         config_add_preprocessor_prefix(CURRENT_CONFIGURATION, /* index */ NULL, "omp");
     }

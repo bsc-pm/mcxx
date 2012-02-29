@@ -1,5 +1,8 @@
 /*!if GRAMMAR_PROLOGUE*/
 
+%token<token_atrib> UNKNOWN_PRAGMA "<unknown-pragma>"
+%type<ast> unknown_pragma
+
 /*!ifnot FORTRAN2003*/
 %token<token_atrib> VERBATIM_PRAGMA "<verbatim pragma>"
 %token<token_atrib> VERBATIM_CONSTRUCT "<verbatim construct>"
@@ -55,7 +58,49 @@
 /*!endif*/
 /*!if GRAMMAR_RULES*/
 
-// Grammar entry point
+// ****************************
+//   Unknown pragma
+// ****************************
+
+/*!ifnot FORTRAN2003*/
+unknown_pragma : UNKNOWN_PRAGMA
+{
+	$$ = ASTLeaf(AST_UNKNOWN_PRAGMA, $1.token_file, $1.token_line, $1.token_text);
+}
+;
+
+common_block_declaration : unknown_pragma
+{
+    $$ = $1;
+}
+;
+
+member_declaration : unknown_pragma
+{
+    $$ = $1;
+}
+;
+/*!endif*/
+
+/*!if FORTRAN2003*/
+unknown_pragma : UNKNOWN_PRAGMA eos
+{
+	$$ = ASTLeaf(AST_UNKNOWN_PRAGMA, $1.token_file, $1.token_line, $1.token_text);
+}
+;
+
+non_top_level_program_unit_stmt: unknown_pragma
+;
+internal_subprogram : unknown_pragma
+;
+module_subprogram : unknown_pragma
+;
+/*!endif*/
+
+// ****************************
+//   Pragma rules
+// ****************************
+
 /*!ifnot FORTRAN2003*/
 no_if_statement : pragma_custom_construct_statement
 {
