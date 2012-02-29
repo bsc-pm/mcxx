@@ -36,6 +36,8 @@ MCXX_BEGIN_DECLS
 MCXX_END_DECLS
 #endif
 
+#include "cxx-printscope.h"
+
 namespace Codegen {
 
 std::string CxxBase::codegen(const Nodecl::NodeclBase &n) 
@@ -2124,7 +2126,14 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Symbol& node)
             && !entry.is_template_parameter()
             && !entry.is_builtin())
     {
-        file << entry.get_qualified_name(entry.get_scope());
+        if (entry.is_dependent_entity())
+        {
+            file << entry.get_qualified_name(node.retrieve_context());
+        }
+        else
+        {
+            file << entry.get_qualified_name(entry.get_scope());
+        }
     }
     else
     {
