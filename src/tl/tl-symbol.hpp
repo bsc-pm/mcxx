@@ -280,6 +280,9 @@ namespace TL
             //! Returns the initialization tree
             Nodecl::NodeclBase get_initialization() const;
 
+            //! Returns the nodecl stored in the field _value
+            Nodecl::NodeclBase get_value() const;
+            
             //! States whether this symbol is static
             bool is_static() const;
             //! States whether this symbol is register

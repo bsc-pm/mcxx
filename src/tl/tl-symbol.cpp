@@ -469,6 +469,11 @@ namespace TL
         return _symbol->value;
     }
 
+    Nodecl::NodeclBase Symbol::get_value() const
+    {
+        return _symbol->value;
+    }
+    
     bool Symbol::has_namespace_scope() const
     {
         return _symbol->decl_context.current_scope != NULL

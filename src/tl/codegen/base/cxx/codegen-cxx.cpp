@@ -3004,6 +3004,12 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
             std::string function_name = (is_primary_template) ?
                 unmangle_symbol_name(_friend) : _friend.get_qualified_name();
 
+            char is_template_id = nodecl_name_ends_in_template_id(_friend.get_value().get_internal_nodecl());
+            if (is_template_id)
+            {
+                function_name = function_name + "<>";
+            }
+
             indent();
             std::string declarator = this->get_declaration(dep_funct_type, _friend.get_scope(), function_name);
             file << "friend " << declarator << ";\n";
