@@ -3181,15 +3181,16 @@ scope_entry_t* compute_intrinsic_max_min_aux(
     type_t* ranked_0[num_arguments + 1];
     memset(ranked_0, 0, sizeof(ranked_0));
 
-    ranked_0[0] = input_type == NULL ? t0 : input_type;
+    ranked_0[0] = (input_type == NULL) ? t0 : input_type;
 
     int i;
     for (i = 1; i < num_arguments; i++)
     {
-        if (!equivalent_types(
-                    get_unqualified_type(get_rank0_type(argument_types[i])), 
-                    get_unqualified_type(t0)))
-            return NULL;
+        // -- Due to a GNU extension we do not check this
+        // if (!equivalent_types(
+        //             get_unqualified_type(get_rank0_type(argument_types[i])), 
+        //             get_unqualified_type(t0)))
+        //     return NULL;
 
         if (input_type == NULL)
         {
