@@ -2951,7 +2951,7 @@ static const char* get_fully_qualified_symbol_name_of_dependent_typename(
             &dependent_entry, &nodecl_parts);
 
     const char* result = get_fully_qualified_symbol_name(dependent_entry,
-            dependent_entry->decl_context,
+            decl_context,
             is_dependent, max_qualif_level);
 
     int num_parts = 0;
