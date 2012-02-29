@@ -5095,6 +5095,7 @@ void CxxBase::codegen_template_headers_all_levels(TL::TemplateParameters templat
 
 void CxxBase::codegen_template_header(TL::TemplateParameters template_parameters, bool endline)
 {
+    indent();
     if (!template_parameters.is_valid())
     {
         file << "template <>";
@@ -5105,7 +5106,6 @@ void CxxBase::codegen_template_header(TL::TemplateParameters template_parameters
 
     // First traversal to ensure that everything is declared
     declare_all_in_template_header(template_parameters);
-
     file << "template < ";
     for (int i = 0; i < template_parameters.get_num_parameters(); i++)
     {
