@@ -2813,7 +2813,7 @@ scope_entry_t* compute_intrinsic_kind(scope_entry_t* symbol UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
-    type_t* t0 = argument_types[0];
+    type_t* t0 = get_rank0_type(argument_types[0]);
 
     if (is_fortran_intrinsic_type(t0))
     {
