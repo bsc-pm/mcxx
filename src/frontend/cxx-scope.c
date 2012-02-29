@@ -1182,7 +1182,8 @@ static void build_dependent_parts_for_symbol_rec(
         nodecl_t nodecl_current = nodecl_make_cxx_dep_name_simple(entry->symbol_name, filename, line);
         if (template_arguments != NULL)
         {
-            nodecl_current = nodecl_make_cxx_dep_template_id(nodecl_current, template_arguments, filename, line);
+            // If our enclosing is dependent, we need a 'template '
+            nodecl_current = nodecl_make_cxx_dep_template_id(nodecl_current, "template ", template_arguments, filename, line);
         }
 
         if (nodecl_is_null(nodecl_prev))
@@ -1218,8 +1219,10 @@ type_t* build_dependent_typename_for_entry(
 
     nodecl_t nodecl_current = nodecl_null(); 
 
+    const char* template_tag = "";
     if (nodecl_get_kind(nodecl_last) == NODECL_CXX_DEP_TEMPLATE_ID)
     {
+        template_tag = nodecl_get_text(nodecl_last);
         template_arguments = nodecl_get_template_parameters(nodecl_name);
         nodecl_current = nodecl_copy(nodecl_get_child(nodecl_name, 0));
     }
@@ -1230,7 +1233,7 @@ type_t* build_dependent_typename_for_entry(
 
     if (template_arguments != NULL)
     {
-        nodecl_current = nodecl_make_cxx_dep_template_id(nodecl_current, template_arguments, filename, line);
+        nodecl_current = nodecl_make_cxx_dep_template_id(nodecl_current, template_tag, template_arguments, filename, line);
     }
 
     nodecl_t dependent_parts = nodecl_null();
@@ -4424,11 +4427,16 @@ static void compute_nodecl_name_from_unqualified_id(AST unqualified_id, decl_con
                     return;
                 }
 
+                const char* template_tag = "";
+                if (ast_get_text(unqualified_id) != NULL)
+                    template_tag = ast_get_text(unqualified_id);
+
                 *nodecl_output = nodecl_make_cxx_dep_template_id(
                         nodecl_make_cxx_dep_name_simple(
                             name,
                             ASTFileName(unqualified_id), 
                             ASTLine(unqualified_id)),
+                        template_tag,
                         template_parameters,
                         ASTFileName(unqualified_id), 
                         ASTLine(unqualified_id));
@@ -4466,6 +4474,7 @@ static void compute_nodecl_name_from_unqualified_id(AST unqualified_id, decl_con
                             name,
                             ASTFileName(unqualified_id), 
                             ASTLine(unqualified_id)),
+                        /* template_tag */ "",
                         template_parameters,
                         ASTFileName(unqualified_id), 
                         ASTLine(unqualified_id));
@@ -4612,7 +4621,6 @@ void compute_nodecl_name_from_id_expression(AST id_expression, decl_context_t de
     switch (ASTType(id_expression))
     {
         case AST_QUALIFIED_ID:
-        case AST_QUALIFIED_TEMPLATE:
             {
                 AST global_op = ASTSon0(id_expression);
                 AST nested_name_spec = ASTSon1(id_expression);

@@ -660,10 +660,12 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepNameSimple& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepTemplateId& node)
 {
+    file << node.get_text();
+
     walk(node.get_name());
 
     file << ::template_arguments_to_str(nodecl_get_template_parameters(node.get_internal_nodecl()), 
-            state.current_scope.get_decl_context());
+                state.current_scope.get_decl_context());
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxEqualInitializer& node)

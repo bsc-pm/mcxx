@@ -1918,7 +1918,6 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                         case AST_OPERATOR_FUNCTION_ID :
                         case AST_OPERATOR_FUNCTION_ID_TEMPLATE :
                         case AST_QUALIFIED_ID :
-                        case AST_QUALIFIED_TEMPLATE :
                             // class member accesses
                         case AST_CLASS_MEMBER_ACCESS :
                         case AST_CLASS_TEMPLATE_MEMBER_ACCESS :
@@ -2824,6 +2823,9 @@ void gather_type_spec_from_simple_type_specifier(AST a, type_t** type_info,
         {
             nodecl_name = nodecl_make_cxx_dep_template_id(
                     nodecl_name,
+                    // If our enclosing class is dependent
+                    // this template id will require a 'template '
+                    "template ",
                     template_specialized_type_get_template_arguments(entry->type_information),
                     ast_get_filename(a),
                     ast_get_line(a));
@@ -5673,8 +5675,7 @@ static void build_scope_declarator_with_parameter_context(AST a,
         // Adjust context if the name is qualified
         if (declarator_name != NULL)
         {
-            if (ASTType(declarator_name) == AST_QUALIFIED_ID
-                    || ASTType(declarator_name) == AST_QUALIFIED_TEMPLATE)
+            if (ASTType(declarator_name) == AST_QUALIFIED_ID)
             {
                 // If it is qualified it must be declared previously
                 // We are not interested in anything but the context of any of the symbols
@@ -6778,7 +6779,6 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
             }
             // Qualified ones
         case AST_QUALIFIED_ID :
-        case AST_QUALIFIED_TEMPLATE :
             {
                 // A qualified id "a::b::c"
                 if (!is_function_type(declarator_type))
@@ -7478,8 +7478,7 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
             "This is not a depedent friend function", 0);
 
     const char* name = ASTText(declarator_id);
-    if (ASTType(declarator_id) == AST_QUALIFIED_ID
-            || ASTType(declarator_id) == AST_QUALIFIED_TEMPLATE)
+    if (ASTType(declarator_id) == AST_QUALIFIED_ID)
     {
         name = ASTText(ASTSon2(declarator_id));
     }
@@ -7488,9 +7487,12 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
 
     char is_template_function = gather_info->is_template;
 
-    char is_template_id =
-        (ASTType(declarator_id) == AST_TEMPLATE_ID) ||
-        (ASTType(declarator_id) == AST_QUALIFIED_TEMPLATE);
+    char is_template_id = (ASTType(declarator_id) == AST_TEMPLATE_ID)
+        || ((ASTType(declarator_id) == AST_QUALIFIED_ID)
+                // friend A::f<>( ... )
+                // friend B<T>::template f<>( ... )
+                // friend T::template f<>( ... )
+                && (ASTType(ASTSon2(declarator_id)) == AST_TEMPLATE_ID));
 
     decl_flags_t decl_flags = DF_DEPENDENT_TYPENAME;
     decl_context_t lookup_context = decl_context;
@@ -7758,8 +7760,7 @@ static char find_function_declaration(AST declarator_id,
 
      char declarator_is_template_id = 0;
      AST considered_tree = declarator_id;
-     if (ASTType(declarator_id) == AST_QUALIFIED_ID
-             || ASTType(declarator_id) == AST_QUALIFIED_TEMPLATE)
+     if (ASTType(declarator_id) == AST_QUALIFIED_ID)
      {
          considered_tree = ASTSon2(declarator_id);
      }
@@ -10740,8 +10741,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
 
                         AST too_much_qualified_declarator_name = get_declarator_name(declarator, decl_context);
 
-                        if (ASTType(too_much_qualified_declarator_name) == AST_QUALIFIED_ID
-                                || ASTType(too_much_qualified_declarator_name) == AST_QUALIFIED_TEMPLATE)
+                        if (ASTType(too_much_qualified_declarator_name) == AST_QUALIFIED_ID)
                         {
                             if (!checking_ambiguity())
                             {

@@ -27,13 +27,13 @@
 
 
 /*
+// g++ cannot compile this code, it gets lost during the instantiation of A<B>
+// so we run it as if it were a Mercurium extension
+
 <testinfo>
-test_generator=config/mercurium
+test_generator=config/mercurium-extensions
 </testinfo>
 */
-
-// g++ cannot compile this code, it gets lost during
-// the instantiation of A<B>
 
 template <typename _T>
 struct A;

@@ -544,7 +544,6 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
                 break;
             }
         case AST_QUALIFIED_ID :
-        case AST_QUALIFIED_TEMPLATE :
             {
                 check_qualified_id(expression, decl_context, nodecl_output);
 
@@ -4942,8 +4941,7 @@ static void parse_reference(AST op,
     {
         // C++ from now
         // We need this function because this operator is so silly in C++
-        if (ASTType(op) == AST_QUALIFIED_ID
-                || ASTType(op) == AST_QUALIFIED_TEMPLATE)
+        if (ASTType(op) == AST_QUALIFIED_ID)
         {
             nodecl_t op_name = nodecl_null();
             compute_nodecl_name_from_id_expression(op, decl_context, &op_name);
@@ -14447,6 +14445,7 @@ static void instantiate_dep_template_id(nodecl_instantiate_expr_visitor_t* v, no
     nodecl_t nodecl_name = instantiate_expr_walk(v, nodecl_get_child(node, 0));
 
     v->nodecl_result = nodecl_make_cxx_dep_template_id(nodecl_name,
+            nodecl_get_text(node),
             update_template_args,
             nodecl_get_filename(node),
             nodecl_get_line(node));

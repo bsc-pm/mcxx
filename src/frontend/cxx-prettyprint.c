@@ -95,7 +95,6 @@ HANDLER_PROTOTYPE(son_handler_then_suffix_parameter);
 HANDLER_PROTOTYPE(templated_cast_handler);
 HANDLER_PROTOTYPE(qualified_id_handler);
 HANDLER_PROTOTYPE(member_declaration_qualif_handler);
-HANDLER_PROTOTYPE(qualified_template_handler);
 HANDLER_PROTOTYPE(conversion_type_id_handler);
 HANDLER_PROTOTYPE(constructor_initializer_handler);
 HANDLER_PROTOTYPE(mem_initializer_handler);
@@ -250,7 +249,6 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_DECLARATOR_ID_EXPR, unary_container_handler, NULL),
     NODE_HANDLER(AST_GLOBAL_SCOPE, double_colon_handler, NULL),
     NODE_HANDLER(AST_NESTED_NAME_SPECIFIER, nested_name_handler, NULL),
-    NODE_HANDLER(AST_NESTED_NAME_SPECIFIER_TEMPLATE, nested_name_handler, NULL),
     NODE_HANDLER(AST_SYMBOL, simple_text_handler, NULL),
     NODE_HANDLER(AST_TEMPLATE_ID, template_id_handler, NULL),
     NODE_HANDLER(AST_TEMPLATE_EXPRESSION_ARGUMENT, unary_container_handler, NULL),
@@ -369,7 +367,6 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_THIS_VARIABLE, simple_parameter_handler, "this"),
     NODE_HANDLER(AST_PARENTHESIZED_EXPRESSION, parenthesized_son_handler, NULL),
     NODE_HANDLER(AST_QUALIFIED_ID, qualified_id_handler, NULL),
-    NODE_HANDLER(AST_QUALIFIED_TEMPLATE, qualified_template_handler, NULL),
     NODE_HANDLER(AST_DESTRUCTOR_ID, unary_container_handler, NULL),
     NODE_HANDLER(AST_DESTRUCTOR_TEMPLATE_ID, prefix_with_parameter_then_son_handler, "~"),
     NODE_HANDLER(AST_CONVERSION_FUNCTION_ID, prefix_with_parameter_then_son_handler, "operator "),
@@ -876,11 +873,6 @@ static void list_parenthesized_son_handler(FILE* f, AST a, prettyprint_context_t
 
 static void nested_name_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
-    if (ASTType(a) == AST_NESTED_NAME_SPECIFIER_TEMPLATE)
-    {
-        token_fprintf(f, a, pt_ctx, "template ");
-    }
-
     prettyprint_level(f, ASTSon0(a), pt_ctx);
 
     double_colon_handler(f, a, pt_ctx);
@@ -1320,18 +1312,6 @@ static void qualified_id_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
         prettyprint_level(f, ASTSon1(a), pt_ctx);
     }
 
-    prettyprint_level(f, ASTSon2(a), pt_ctx);
-}
-
-static void qualified_template_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    if (ASTSon0(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon0(a), pt_ctx);
-    }
-
-    prettyprint_level(f, ASTSon1(a), pt_ctx);
-    token_fprintf(f, a, pt_ctx, "template ");
     prettyprint_level(f, ASTSon2(a), pt_ctx);
 }
 
