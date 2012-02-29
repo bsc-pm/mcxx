@@ -2557,6 +2557,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
         TL::ObjectList<TL::Symbol> symbols_defined_inside_class,
         int level)
 {
+    set_codegen_status(symbol, CODEGEN_STATUS_DEFINED);
 
     access_specifier_t default_access_spec = AS_UNKNOWN;
 
