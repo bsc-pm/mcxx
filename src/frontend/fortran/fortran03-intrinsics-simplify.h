@@ -631,13 +631,14 @@ static nodecl_t simplify_max_min(int num_arguments, nodecl_t* arguments,
             if (nodecl_is_constant(current_arg))
             {
                 const_value_t *current_val = nodecl_get_constant(result);
+
                 const_value_t *new_val = nodecl_get_constant(current_arg);
 
                 const_value_t* t = combine(new_val, current_val);
 
                 if (const_value_is_nonzero(t))
                 {
-                    result = current_arg;
+                    result = const_value_to_nodecl(const_value_cast_as_another( new_val, current_val ));
                 }
             }
             else

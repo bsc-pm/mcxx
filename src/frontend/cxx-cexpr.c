@@ -2577,3 +2577,37 @@ const_value_t* const_value_string_concat(const_value_t* v1, const_value_t* v2)
     return const_value_make_string(str, num_elements);
 }
 
+const_value_t* const_value_cast_as_another(const_value_t* val, const_value_t* mold)
+{
+    if (const_value_is_integer(mold))
+    {
+        return const_value_cast_to_bytes(val, const_value_get_bytes(mold), const_value_is_signed(mold));
+    }
+    else if (const_value_is_floating(mold))
+    {
+        if (const_value_is_float(mold))
+        {
+            return const_value_cast_to_float_value(val);
+        }
+        else if (const_value_is_double(mold))
+        {
+            return const_value_cast_to_double_value(val);
+        }
+        else if (const_value_is_long_double(mold))
+        {
+            return const_value_cast_to_long_double_value(val);
+        }
+#ifdef HAVE_QUADMATH_H
+        else if (const_value_is_float128(mold))
+        {
+            return const_value_cast_to_float128_value(val);
+        }
+#endif
+    }
+    else
+    {
+        internal_error("Mold is not valid for this cast", 0);
+    }
+    return NULL;
+}
+
