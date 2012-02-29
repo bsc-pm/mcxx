@@ -2981,9 +2981,8 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
         // the friend symbol can be a SK_DEPENDENT_FRIEND_CLASS
         else if (_friend.get_type().is_dependent_typename())
         {
-            TL::TemplateParameters template_parameters = _friend.get_related_scope().get_template_parameters();
+            TL::TemplateParameters template_parameters = _friend.get_scope().get_template_parameters();
             codegen_template_header(template_parameters);
-
             indent();
             file << "friend "
                 << print_type_str(_friend.get_type().get_internal_type(),_friend.get_scope().get_decl_context())
@@ -3424,9 +3423,6 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
     if (symbol.get_type().is_template_specialized_type()
             && !symbol.is_user_declared())
     {
-        if (symbol.get_type().is_dependent())
-            return;
-
         //We must declare ONLY the primary template
         TL::Symbol primary_symbol =
             symbol
