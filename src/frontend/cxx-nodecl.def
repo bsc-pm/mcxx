@@ -83,6 +83,7 @@ statement-but-object-init: NODECL_EMPTY_STATEMENT()
           | fortran-only-statements
           | parallel-statements
           | compatibility
+          | NODECL_ERR_STATEMENT()
 
 compound-statement : NODECL_COMPOUND_STATEMENT([statements]statement-seq-opt, [finally]statement-seq-opt) 
 

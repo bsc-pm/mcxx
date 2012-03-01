@@ -3466,6 +3466,8 @@ static void build_scope_allocate_stmt(AST a, decl_context_t decl_context, nodecl
 
     nodecl_t nodecl_allocate_list = nodecl_null();
 
+    char error = 0;
+
     AST it;
     for_each_element(allocation_list, it)
     {
@@ -3492,11 +3494,20 @@ static void build_scope_allocate_stmt(AST a, decl_context_t decl_context, nodecl
                 error_printf("%s: error: entity '%s' does not have ALLOCATABLE or POINTER attribute\n", 
                         ast_location(a),
                         entry->symbol_name);
+                error = 1;
                 continue;
             }
         }
 
         nodecl_allocate_list = nodecl_append_to_list(nodecl_allocate_list, nodecl_data_ref);
+    }
+
+    if (error)
+    {
+        *nodecl_output = nodecl_make_list_1(
+                nodecl_make_err_statement(ASTFileName(a), ASTLine(a))
+                );
+        return;
     }
 
     nodecl_t nodecl_opt_value = nodecl_null();
@@ -3545,6 +3556,17 @@ static void build_scope_arithmetic_if_stmt(AST a, decl_context_t decl_context, n
     scope_entry_t* equal_label = fortran_query_label(equal, decl_context, /* is_definition */ 0);
     scope_entry_t* upper_label = fortran_query_label(upper, decl_context, /* is_definition */ 0);
 
+    if (nodecl_is_err_expr(nodecl_numeric_expr)
+            || lower_label == NULL
+            || equal_label == NULL
+            || upper_label == NULL)
+    {
+        *nodecl_output = nodecl_make_list_1(
+                nodecl_make_err_statement(ASTFileName(a), ASTLine(a))
+                );
+        return;
+    }
+
     *nodecl_output = nodecl_make_list_1(
             nodecl_make_fortran_arithmetic_if_statement(
                 nodecl_numeric_expr,
@@ -3578,6 +3600,10 @@ static void build_scope_expression_stmt(AST a, decl_context_t decl_context, node
                 ASTFileName(expr),
                 ASTLine(expr));
         nodecl_expr_set_is_lvalue(*nodecl_output, nodecl_expr_is_lvalue(nodecl_expr));
+    }
+    else
+    {
+        *nodecl_output = nodecl_make_err_statement(ASTFileName(a), ASTLine(a));
     }
 
     *nodecl_output = nodecl_make_list_1(*nodecl_output);
@@ -3704,7 +3730,6 @@ static void build_scope_case_construct(AST a, decl_context_t decl_context, nodec
 
     nodecl_t nodecl_statement = nodecl_null();
     fortran_build_scope_statement(statement, decl_context, &nodecl_statement);
-
 
     *nodecl_output = 
         nodecl_make_list_1(
@@ -4026,6 +4051,9 @@ static void build_scope_label_assign_stmt(AST a UNUSED_PARAMETER, decl_context_t
     if (label_var == NULL)
     {
         error_printf("%s: error: symbol '%s' is unknown\n", ast_location(label_name), ASTText(label_name));
+        *nodecl_output = nodecl_make_list_1(
+                nodecl_make_err_statement(ASTFileName(a), ASTLine(a))
+                );
         return;
     }
     ERROR_CONDITION(label_var == NULL, "Invalid symbol", 0);
@@ -4326,6 +4354,8 @@ static void build_scope_deallocate_stmt(AST a,
     AST allocate_object_list = ASTSon0(a);
     AST dealloc_opt_list = ASTSon1(a);
 
+    char error = 0;
+
     nodecl_t nodecl_expr_list = nodecl_null();
     AST it;
     for_each_element(allocate_object_list, it)
@@ -4351,12 +4381,21 @@ static void build_scope_deallocate_stmt(AST a,
             {
                 error_printf("%s: error: only ALLOCATABLE or POINTER can be used in a DEALLOCATE statement\n", 
                         ast_location(a));
+                error = 1;
                 continue;
             }
         }
 
         nodecl_expr_list = nodecl_append_to_list(nodecl_expr_list, 
                 nodecl_data_ref);
+    }
+
+    if (error)
+    {
+        *nodecl_output = nodecl_make_list_1(
+                nodecl_make_err_statement(ASTFileName(a), ASTLine(a))
+                );
+        return;
     }
 
     nodecl_t nodecl_opt_value = nodecl_null();
@@ -4929,6 +4968,9 @@ static void build_scope_entry_stmt(AST a, decl_context_t decl_context, nodecl_t*
             error_printf("%s: error: entry statement '%s' cannot appear within a program\n",
                     ast_location(a),
                     ASTText(name));
+            // Keep it for the second invocation
+            nodecl_set_symbol(_nodecl_wrap(a), related_sym);
+            return;
         }
 
         // We are analyzing this ENTRY statement as if it were a declaration, no nodecls are created
@@ -4949,6 +4991,15 @@ static void build_scope_entry_stmt(AST a, decl_context_t decl_context, nodecl_t*
     {
         // Recover the symbol we piggybacked in (1) above
         scope_entry_t* entry = nodecl_get_symbol(_nodecl_wrap(a));
+
+        if (entry->kind == SK_PROGRAM)
+        {
+            // This is an error
+            *nodecl_output = nodecl_make_list_1(
+                    nodecl_make_err_statement(ASTFileName(a), ASTLine(a))
+                    );
+            return;
+        }
 
         // Create the entry statement so we remember the entry point
         *nodecl_output = 
@@ -5787,6 +5838,7 @@ static void build_scope_nullify_stmt(AST a, decl_context_t decl_context, nodecl_
 {
     AST pointer_object_list = ASTSon0(a);
 
+    char error = 0;
     nodecl_t nodecl_expr_list = nodecl_null();
     AST it;
     for_each_element(pointer_object_list, it)
@@ -5798,16 +5850,26 @@ static void build_scope_nullify_stmt(AST a, decl_context_t decl_context, nodecl_
 
         scope_entry_t* sym = nodecl_get_symbol(nodecl_pointer_obj);
 
-        if (!is_pointer_type(no_ref(sym->type_information)))
+        if (sym == NULL ||
+                !is_pointer_type(no_ref(sym->type_information)))
         {
             error_printf("%s: error: '%s' does not designate a POINTER\n",
                     ast_location(a),
                     fortran_prettyprint_in_buffer(pointer_object));
+            error = 1;
             continue;
         }
 
         nodecl_expr_list = nodecl_append_to_list(nodecl_expr_list, 
                 nodecl_pointer_obj);
+    }
+
+    if (error)
+    {
+        *nodecl_output = nodecl_make_list_1(
+                nodecl_make_err_statement(ASTFileName(a), ASTLine(a))
+                );
+        return;
     }
 
     // Could we disguise this as a "x = NULL" expression?
@@ -6137,6 +6199,9 @@ static void build_scope_return_stmt(AST a, decl_context_t decl_context, nodecl_t
             || decl_context.current_scope->related_entry->kind != SK_FUNCTION)
     {
         error_printf("%s: error: RETURN statement not valid in this context", ast_location(a));
+        *nodecl_output = nodecl_make_list_1(
+                nodecl_make_err_statement(ASTFileName(a), ASTLine(a))
+                );
         return;
     }
 
@@ -6157,6 +6222,9 @@ static void build_scope_return_stmt(AST a, decl_context_t decl_context, nodecl_t
         {
             error_printf("%s: error: RETURN with alternate return is only valid in a SUBROUTINE program unit\n", 
                     ast_location(a));
+            *nodecl_output = nodecl_make_list_1(
+                    nodecl_make_err_statement(ASTFileName(a), ASTLine(a))
+                    );
             return;
         }
 
