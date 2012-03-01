@@ -2606,9 +2606,18 @@ OPERATOR_TABLE
 
                 inc_indent();
 
-                std::set<TL::Symbol> already_imported;
-
                 TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
+                // Check every related entries lest they required stuff coming from other modules
+                for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
+                        it != related_symbols.end();
+                        it++)
+                {
+                    TL::Symbol &sym(*it);
+                    emit_use_statement_if_symbol_comes_from_module(sym, entry.get_related_scope());
+                }
+
+                // Import statements
+                std::set<TL::Symbol> already_imported;
                 for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
                         it != related_symbols.end();
                         it++)
@@ -3179,11 +3188,19 @@ OPERATOR_TABLE
                     if (!lower.is_null())
                     {
                         declare_symbols_from_modules_rec(lower, sc);
+                        if (lower.is<Nodecl::SavedExpr>())
+                        {
+                            declare_symbols_from_modules_rec(lower.as<Nodecl::SavedExpr>().get_expression(), sc);
+                        }
                     }
 
                     if (!upper.is_null())
                     {
                         declare_symbols_from_modules_rec(upper, sc);
+                        if (upper.is<Nodecl::SavedExpr>())
+                        {
+                            declare_symbols_from_modules_rec(upper.as<Nodecl::SavedExpr>().get_expression(), sc);
+                        }
                     }
 
                     entry_type = entry_type.array_element();

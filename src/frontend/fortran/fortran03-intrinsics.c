@@ -252,7 +252,7 @@ FORTRAN_GENERIC_INTRINSIC(tanh, "X", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC_2(this_image, "", T, NULL, "COARRAY,?DIM", T, NULL) \
 FORTRAN_GENERIC_INTRINSIC(tiny, "X", I, simplify_tiny) \
 FORTRAN_GENERIC_INTRINSIC(trailz, "I", T, NULL) \
-FORTRAN_GENERIC_INTRINSIC(transfer, "SOURCE,MOLD,SIZE", T, NULL) \
+FORTRAN_GENERIC_INTRINSIC(transfer, "SOURCE,MOLD,?SIZE", T, NULL) \
 FORTRAN_GENERIC_INTRINSIC(transpose, "MATRIX", T, NULL) \
 FORTRAN_GENERIC_INTRINSIC(trim, "STRING", T, NULL) \
 FORTRAN_GENERIC_INTRINSIC(ubound, "ARRAY,?DIM,?KIND", I, simplify_ubound) \
@@ -2842,7 +2842,8 @@ scope_entry_t* compute_intrinsic_lbound(scope_entry_t* symbol UNUSED_PARAMETER,
         {
             return GET_INTRINSIC_INQUIRY("lbound",
                     choose_int_type_from_kind(argument_expressions[2], di),
-                    t0, t1, fortran_get_default_integer_type());
+                    t0, t1, 
+                    fortran_get_default_integer_type());
         }
         else
         {
@@ -2850,7 +2851,8 @@ scope_entry_t* compute_intrinsic_lbound(scope_entry_t* symbol UNUSED_PARAMETER,
                     get_n_ranked_type(choose_int_type_from_kind(argument_expressions[2], di), 
                         get_rank_of_type(t0), 
                         symbol->decl_context),
-                    t0, fortran_get_default_integer_type());
+                    t0, fortran_get_default_integer_type(), 
+                    fortran_get_default_integer_type());
         }
     }
 
@@ -4745,7 +4747,7 @@ scope_entry_t* compute_intrinsic_transfer(scope_entry_t* symbol UNUSED_PARAMETER
         {
             return GET_INTRINSIC_TRANSFORMATIONAL("transfer", t1, t0, t1, get_signed_int_type());
         }
-        else if (is_fortran_array_type(t2)
+        else if (is_fortran_array_type(t1)
                 && t2 == NULL)
         {
             return GET_INTRINSIC_TRANSFORMATIONAL("transfer", 
@@ -4814,7 +4816,8 @@ scope_entry_t* compute_intrinsic_ubound(scope_entry_t* symbol UNUSED_PARAMETER,
         {
             return GET_INTRINSIC_INQUIRY("ubound",
                     choose_int_type_from_kind(argument_expressions[2], di),
-                    t0, t1, fortran_get_default_integer_type());
+                    t0, t1, 
+                    fortran_get_default_integer_type());
         }
         else
         {
@@ -4822,7 +4825,8 @@ scope_entry_t* compute_intrinsic_ubound(scope_entry_t* symbol UNUSED_PARAMETER,
                     get_n_ranked_type(choose_int_type_from_kind(argument_expressions[2], di), 
                         get_rank_of_type(t0), 
                         symbol->decl_context),
-                    t0, fortran_get_default_integer_type());
+                    t0, fortran_get_default_integer_type(),
+                    fortran_get_default_integer_type());
         }
     }
 

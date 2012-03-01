@@ -3887,6 +3887,131 @@ static void check_assignment(AST expr, decl_context_t decl_context, nodecl_t* no
     }
 }
 
+static void cast_initialization(
+        type_t* initialized_type,
+        const_value_t* init_constant, 
+
+        const_value_t** casted_const,
+        // This can be NULL but if it is not, it is updated
+        nodecl_t* nodecl_output)
+{
+    // Now check the constant and the type do square, otherwise fix the
+    // constant value
+    const_value_t* val = init_constant;
+
+    // The user is initializing an integer using a float. 
+    if (is_any_int_type(initialized_type)
+            && const_value_is_floating(val))
+    {
+        *casted_const = const_value_cast_to_bytes(
+                val,
+                type_get_size(initialized_type),
+                /* signed */ 1);
+
+        if (nodecl_output != NULL)
+        {
+            *nodecl_output = nodecl_make_integer_literal(
+                    initialized_type,
+                    *casted_const,
+                    nodecl_get_filename(*nodecl_output),
+                    nodecl_get_line(*nodecl_output));
+        }
+    }
+    // The user is initializing a real using an integer
+    else if (is_floating_type(initialized_type)
+            & const_value_is_integer(val))
+    {
+        type_t* flt_type = initialized_type;
+
+        const_value_t* flt_val = NULL;
+
+        if (is_float_type(flt_type))
+        {
+            flt_val = const_value_cast_to_float_value(val);
+        }
+        else if (is_double_type(flt_type))
+        {
+            flt_val = const_value_cast_to_double_value(val);
+        }
+        else if (is_long_double_type(flt_type))
+        {
+            flt_val = const_value_cast_to_long_double_value(val);
+        }
+        else if (is_other_float_type(flt_type))
+        {
+#ifdef HAVE_QUADMATH_H
+            if (floating_type_get_info(flt_type)->size_of == 16)
+            {
+                flt_val = const_value_cast_to_float128_value(val);
+            }
+#endif
+        }
+
+        ERROR_CONDITION(flt_val == NULL, "No conversion was possible", 0);
+
+        *casted_const = flt_val;
+
+        if (nodecl_output != NULL)
+        {
+            *nodecl_output = nodecl_make_floating_literal(
+                    initialized_type,
+                    *casted_const,
+                    nodecl_get_filename(*nodecl_output),
+                    nodecl_get_line(*nodecl_output));
+        }
+    }
+    else if (is_complex_type(initialized_type)
+            && (const_value_is_floating(val)
+                || const_value_is_integer(val)))
+    {
+        // Cast real part
+        const_value_t* real_part = NULL;
+        nodecl_t nodecl_real_part = nodecl_null();
+        if (nodecl_output != NULL)
+        {
+            nodecl_real_part = *nodecl_output;
+        }
+        cast_initialization(complex_type_get_base_type(initialized_type),
+                val, &real_part, 
+                /* nodecl_output */ nodecl_is_null(nodecl_real_part) ? NULL : &nodecl_real_part);
+
+        // Cast imag part (a 0 literal actually)
+        const_value_t* imag_part = NULL;
+        nodecl_t nodecl_imag_part = nodecl_null();
+        if (nodecl_output != NULL)
+        {
+            nodecl_imag_part = nodecl_make_integer_literal(
+                    fortran_get_default_integer_type(),
+                    const_value_get_zero(fortran_get_default_integer_type_kind(), 1),
+                    nodecl_get_filename(*nodecl_output),
+                    nodecl_get_line(*nodecl_output));
+        }
+        cast_initialization(complex_type_get_base_type(initialized_type),
+                const_value_get_zero(fortran_get_default_integer_type_kind(), 1),
+                &imag_part,
+                /* nodecl_output */ nodecl_is_null(nodecl_imag_part) ? NULL : &nodecl_imag_part);
+
+        // Build a complex const
+        *casted_const = const_value_make_complex(real_part, imag_part);
+
+        if (nodecl_output != NULL)
+        {
+            // Build a nodecl if needed
+            *nodecl_output = nodecl_make_complex_literal(
+                    nodecl_real_part,
+                    nodecl_imag_part,
+                    initialized_type,
+                    nodecl_get_filename(*nodecl_output),
+                    nodecl_get_line(*nodecl_output));
+        }
+    }
+    else
+    {
+        // No cast
+        *casted_const = val;
+    }
+}
+
 void fortran_check_initialization(
         scope_entry_t* entry,
         AST expr, 
@@ -3979,63 +4104,11 @@ void fortran_check_initialization(
             return;
         }
 
-        // Now check the constant and the type do square, otherwise fix the
-        // constant value
-        const_value_t* val = nodecl_get_constant(*nodecl_output);
-
-        // The user is initializing an integer using a float. 
-        if (is_any_int_type(no_ref(entry->type_information))
-                && const_value_is_floating(val))
-        {
-            const_value_t* int_val = const_value_cast_to_bytes(
-                    val,
-                    type_get_size(no_ref(entry->type_information)),
-                    /* signed */ 1);
-
-            *nodecl_output = nodecl_make_integer_literal(
-                    no_ref(entry->type_information),
-                    int_val,
-                    nodecl_get_filename(*nodecl_output),
-                    nodecl_get_line(*nodecl_output));
-        }
-        // The user is initializing a real using an integer
-        else if (is_floating_type(no_ref(entry->type_information))
-                    & const_value_is_integer(val))
-        {
-            type_t* flt_type = no_ref(entry->type_information);
-
-            const_value_t* flt_val = NULL;
-
-            if (is_float_type(flt_type))
-            {
-                flt_val = const_value_cast_to_float_value(val);
-            }
-            else if (is_double_type(flt_type))
-            {
-                flt_val = const_value_cast_to_double_value(val);
-            }
-            else if (is_long_double_type(flt_type))
-            {
-                flt_val = const_value_cast_to_long_double_value(val);
-            }
-            else if (is_other_float_type(flt_type))
-            {
-#ifdef HAVE_QUADMATH_H
-                if (floating_type_get_info(flt_type)->size_of == 16)
-                {
-                    flt_val = const_value_cast_to_float128_value(val);
-                }
-#endif
-            }
-
-            ERROR_CONDITION(flt_val == NULL, "No conversion was possible", 0);
-
-            *nodecl_output = nodecl_make_floating_literal(
-                    flt_type,
-                    flt_val,
-                    nodecl_get_filename(*nodecl_output),
-                    nodecl_get_line(*nodecl_output));
-        }
+        const_value_t* casted_const = NULL;
+        cast_initialization(no_ref(entry->type_information), 
+                nodecl_get_constant(*nodecl_output), 
+                &casted_const, 
+                nodecl_output);
     }
 }
 
