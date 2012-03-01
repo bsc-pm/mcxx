@@ -69,7 +69,8 @@ void fortran_initialize_translation_unit_scope(translation_unit_t* translation_u
 
     fortran_init_intrinsics(decl_context);
 
-    translation_unit->module_cache = rb_tree_create((int (*)(const void*, const void*))strcasecmp, null_dtor, null_dtor);
+    translation_unit->module_file_cache = rb_tree_create((int (*)(const void*, const void*))strcasecmp, null_dtor, null_dtor);
+    translation_unit->module_symbol_cache = rb_tree_create((int (*)(const void*, const void*))strcasecmp, null_dtor, null_dtor);
 }
 
 
@@ -215,7 +216,6 @@ static scope_entry_t* get_intent_declared_symbol_info(decl_context_t decl_contex
 {
     return get_special_symbol(decl_context, ".intent_declared");
 }
-
 
 void add_untyped_symbol(decl_context_t decl_context, scope_entry_t* entry)
 {
@@ -1046,7 +1046,7 @@ static void build_scope_module_program_unit(AST program_unit,
     // Keep the module in the file's module cache
     if (!CURRENT_CONFIGURATION->debug_options.disable_module_cache)
     {
-        rb_tree_insert(CURRENT_COMPILED_FILE->module_cache, strtolower(new_entry->symbol_name), new_entry);
+        rb_tree_insert(CURRENT_COMPILED_FILE->module_file_cache, strtolower(new_entry->symbol_name), new_entry);
     }
 
     // Store the module in a file
@@ -7124,7 +7124,7 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
         fprintf(stderr, "BUILDSCOPE: Loading module '%s'\n", module_name_str);
     }
 
-    rb_red_blk_node* query = rb_tree_query(CURRENT_COMPILED_FILE->module_cache, module_name_str);
+    rb_red_blk_node* query = rb_tree_query(CURRENT_COMPILED_FILE->module_file_cache, module_name_str);
     if (query != NULL)
     {
         module_symbol = (scope_entry_t*)rb_node_get_info(query);
@@ -7151,7 +7151,7 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
 
         // And add it to the cache of opened modules
         ERROR_CONDITION(module_symbol == NULL, "Invalid symbol", 0);
-        rb_tree_insert(CURRENT_COMPILED_FILE->module_cache, module_name_str, module_symbol);
+        rb_tree_insert(CURRENT_COMPILED_FILE->module_file_cache, module_name_str, module_symbol);
     }
 
     scope_entry_t* used_modules = get_or_create_used_modules_symbol_info(decl_context);

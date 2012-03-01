@@ -1725,8 +1725,25 @@ static int get_symbol(void *datum,
     sqlite3_uint64 value_oid = safe_atoull(values[7]);
     const char* bitfield_pack_str = uniquestr(values[8]);
 
-    (*result) = calloc(1, sizeof(**result));
-    insert_map_ptr(handle, oid, *result);
+    rb_red_blk_node* query = NULL;
+    if (symbol_kind == SK_MODULE)
+    {
+        // Check if this symbol is in the cache and reuse it 
+        query = rb_tree_query(CURRENT_COMPILED_FILE->module_symbol_cache, strtolower(name));
+    }
+    if (query != NULL)
+    {
+        fprintf(stderr, "HIT FOR '%s'\n", strtolower(name));
+        scope_entry_t* module_symbol = (scope_entry_t*)rb_node_get_info(query);
+        *result = module_symbol;
+        // Reuse it
+        memset(*result, 0, sizeof(*result));
+    }
+    else
+    {
+        (*result) = calloc(1, sizeof(**result));
+        insert_map_ptr(handle, oid, *result);
+    }
 
     (*result)->symbol_name = name;
     (*result)->kind = symbol_kind;
@@ -1777,15 +1794,21 @@ static int get_symbol(void *datum,
                 entry_list_iterator_next(it))
         {
             scope_entry_t* field = entry_list_iterator_current(it);
-            
+
             // Insert the component in the class context otherwise further lookups will fail
             insert_entry(class_context.current_scope, field);
-            
+
             // Update field context
             field->decl_context = class_context;
         }
         entry_list_iterator_free(it);
         entry_list_free(members);
+    }
+
+    // This is a (top-level) module. Keep in the module symbol cache
+    if ((*result)->kind == SK_MODULE)
+    {
+        rb_tree_insert(CURRENT_COMPILED_FILE->module_symbol_cache, strtolower((*result)->symbol_name), (*result));
     }
 
     // {
