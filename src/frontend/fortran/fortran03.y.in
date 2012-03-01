@@ -4550,6 +4550,11 @@ intrinsic_operator_name : TOK_OPERATOR '(' extended_intrinsic_op ')'
 {
     $$ = ASTLeaf(AST_OPERATOR_NAME, $1.token_file, $1.token_line, $3.token_text);
 }
+/* Dumb lexing of OPERATOR (/) because of '(/' */
+| TOK_OPERATOR TOK_LPARENT_SLASH ')'
+{
+    $$ = ASTLeaf(AST_OPERATOR_NAME, $1.token_file, $1.token_line, "/");
+}
 ;
 user_defined_operator_name : TOK_OPERATOR '(' local_defined_operator ')'
 {
