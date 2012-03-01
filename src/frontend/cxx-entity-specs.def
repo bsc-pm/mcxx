@@ -75,7 +75,8 @@ bool|fortran|is_result|This symbol is the RESULT variable of the function
 bool|fortran|is_stmt_function|This symbol has been declared after a statement function statement
 bool|fortran|is_dummy_arg_stmt_function|This symbol is a dummy argument of a statement function
 bool|fortran|is_generic_spec|This symbol is a generic specifier name
-bool|fortran|is_builtin_subroutine|This symbol is a builtin subroutine (or function)
+bool|fortran|is_intrinsic_subroutine|This symbol is an INTRINSIC SUBROUTINE
+bool|fortran|is_intrinsic_function|This symbol is an INTRINSIC FUNCTION
 bool|fortran|is_module_procedure|This function has been named in an interface construct as a MODULE PROCEDURE
 bool|fortran|is_entry|This symbol is an ENTRY  
 bool|fortran|is_renamed|States that this symbol has been USEd with a rename

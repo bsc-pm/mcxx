@@ -52,6 +52,8 @@ enum intrinsic_kind_tag
     INTRINSIC_KIND_PURE_SUBROUTINE,
     INTRINSIC_KIND_IMPURE_SUBROUTINE,
     INTRINSIC_KIND_TRANSFORMATIONAL_FUNCTION,
+
+    INTRINSIC_KIND_MIXED,
 } intrinsic_kind_t;
 
 #define A  INTRINSIC_KIND_ATOMIC_SUBROUTINE
@@ -61,6 +63,9 @@ enum intrinsic_kind_tag
 #define PS INTRINSIC_KIND_PURE_SUBROUTINE
 #define S  INTRINSIC_KIND_IMPURE_SUBROUTINE
 #define T  INTRINSIC_KIND_TRANSFORMATIONAL_FUNCTION
+
+// Mixed is for intrinsics that can be both subroutine or function
+#define M  INTRINSIC_KIND_MIXED
 
 /* 
  * Syntax
@@ -270,7 +275,8 @@ FORTRAN_GENERIC_INTRINSIC(amin1, NULL, E, simplify_amin1) \
 FORTRAN_GENERIC_INTRINSIC(dmax1, NULL, E, simplify_dmax1) \
 FORTRAN_GENERIC_INTRINSIC(dmin1, NULL, E, simplify_dmin1) \
 FORTRAN_GENERIC_INTRINSIC(loc, NULL, E, NULL)  \
-FORTRAN_GENERIC_INTRINSIC(etime, NULL, E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(etime, NULL, M, NULL) \
+
 
 #define MAX_KEYWORDS_INTRINSICS 10
 
@@ -692,7 +698,10 @@ static scope_entry_t* get_intrinsic_symbol_(const char* name,
 
         new_entry->entity_specs.is_global_hidden = 1;
         new_entry->entity_specs.is_builtin = 1;
-        new_entry->entity_specs.is_builtin_subroutine = is_void_type(result_type);
+
+        // A specific symbol can't have both bits enabled. Only the generic one
+        new_entry->entity_specs.is_intrinsic_subroutine = is_void_type(result_type);
+        new_entry->entity_specs.is_intrinsic_function = !is_void_type(result_type);
 
         rb_tree_insert(intrinsic_map, p, new_entry);
 
@@ -818,9 +827,17 @@ void fortran_init_intrinsics(decl_context_t decl_context)
         new_intrinsic->type_information = get_computed_function_type(compute_intrinsic_##name##_aux); \
         new_intrinsic->entity_specs.is_global_hidden = 1; \
         new_intrinsic->entity_specs.is_builtin = 1; \
+        new_intrinsic->entity_specs.is_intrinsic_function = 1; \
         if (kind0 == ES || kind0 == PS || kind0 == S) \
-        new_intrinsic->entity_specs.is_builtin_subroutine = 1; \
-        else \
+        { \
+            new_intrinsic->entity_specs.is_intrinsic_function = 0; \
+            new_intrinsic->entity_specs.is_intrinsic_subroutine = 1; \
+        } \
+        else if (kind0 == M) \
+        { \
+            new_intrinsic->entity_specs.is_intrinsic_function = 1; \
+            new_intrinsic->entity_specs.is_intrinsic_subroutine = 1; \
+        } \
         new_intrinsic->entity_specs.simplify_function = compute_code; \
     }
 
@@ -833,7 +850,16 @@ void fortran_init_intrinsics(decl_context_t decl_context)
         new_intrinsic->entity_specs.is_global_hidden = 1; \
         new_intrinsic->entity_specs.is_builtin = 1; \
         if (kind0 == ES || kind0 == PS || kind0 == S) \
-        new_intrinsic->entity_specs.is_builtin_subroutine = 1; \
+        { \
+            new_intrinsic->entity_specs.is_intrinsic_function = 0; \
+            new_intrinsic->entity_specs.is_intrinsic_subroutine = 1; \
+        } \
+        else if (kind0 == M) \
+        { \
+            new_intrinsic->entity_specs.is_intrinsic_function = 1; \
+            new_intrinsic->entity_specs.is_intrinsic_subroutine = 1; \
+        } \
+        new_intrinsic->entity_specs.simplify_function = compute_code0; \
     }
 
     FORTRAN_INTRINSIC_GENERIC_LIST

@@ -3342,8 +3342,9 @@ static void check_symbol_of_called_name(AST sym, decl_context_t decl_context, no
             // It names an intrinsic
             entry_is_an_intrinsic = 1; 
 
-            // A call is only valid for builtin subroutines
-            if (!!is_call_stmt != !!entry->entity_specs.is_builtin_subroutine)
+            // Make sure this intrinsic can be CALLed
+            if (is_call_stmt
+                    && !entry->entity_specs.is_intrinsic_subroutine)
             {
                 entry_is_an_intrinsic = 0;
             }
