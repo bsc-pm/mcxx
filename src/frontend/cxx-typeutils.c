@@ -4146,8 +4146,7 @@ char equivalent_types(type_t* t1, type_t* t2)
     return result;
 }
 
-static
-char equivalent_builtin_type(simple_type_t* t1, simple_type_t *t2);
+static char equivalent_builtin_type(type_t* t1, type_t *t2);
 
 static char equivalent_named_types(scope_entry_t* s1, scope_entry_t* s2)
 {
@@ -4186,7 +4185,7 @@ char equivalent_simple_types(type_t *p_t1, type_t *p_t2)
     switch (t1->kind)
     {
         case STK_BUILTIN_TYPE :
-            result = equivalent_builtin_type(t1, t2);
+            result = equivalent_builtin_type(p_t1, p_t2);
             break;
         case STK_TEMPLATE_TYPE :
             /* Fall-through */
@@ -4227,8 +4226,11 @@ char equivalent_simple_types(type_t *p_t1, type_t *p_t2)
     return result;
 }
 
-char equivalent_builtin_type(simple_type_t* t1, simple_type_t *t2)
+char equivalent_builtin_type(type_t* p_t1, type_t *p_t2)
 {
+    simple_type_t* t1 = p_t1->type;
+    simple_type_t* t2 = p_t2->type;
+
     if (t1->builtin_type != t2->builtin_type)
     {
         return 0;
@@ -4267,6 +4269,14 @@ char equivalent_builtin_type(simple_type_t* t1, simple_type_t *t2)
             || t1->builtin_type == BT_CHAR)
     {
         if (t1->is_signed != t2->is_signed)
+            return 0;
+    }
+
+    // bool may be different in their sizes
+    if (t1->builtin_type == BT_BOOL
+            && t2->builtin_type == BT_BOOL)
+    {
+        if (p_t1->info->size != p_t2->info->size)
             return 0;
     }
 
@@ -6269,6 +6279,7 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
                             {
                                 result = strappend(result, "_Bool");
                             }
+
                             break;
                         }
                     case BT_VOID :
@@ -7163,8 +7174,22 @@ static const char* get_builtin_type_name(type_t* type_info)
                         result = strappend(result, "int");
                         break;
                     case BT_BOOL :
-                        result = strappend(result, "bool");
-                        break;
+                        {
+
+                            // Mark booleans of nonregular size
+                            if (type_get_size(type_info) != type_get_size(get_bool_type()))
+                            {
+                                char c[256];
+                                snprintf(c, 255, "boolean of %zd bytes", (size_t)type_get_size(type_info));
+                                c[255] = '\0';
+                                result = strappend(result, c);
+                            }
+                            else
+                            {
+                                result = strappend(result, "bool");
+                            }
+                            break;
+                        }
                     case BT_FLOAT :
                         result = strappend(result, "float");
                         break;
