@@ -6608,7 +6608,7 @@ static char is_constructor_declarator(AST a)
 /*
  * This function fills the symbol table with the information of this declarator
  */
-static scope_entry_t* build_scope_declarator_name(AST declarator, type_t* declarator_type, 
+static scope_entry_t* build_scope_declarator_name(AST declarator, type_t* declarator_type,
         gather_decl_spec_t* gather_info, decl_context_t decl_context,
         nodecl_t* nodecl_output)
 {
@@ -6620,10 +6620,13 @@ static scope_entry_t* build_scope_declarator_name(AST declarator, type_t* declar
     ERROR_CONDITION(ASTType(declarator_id_expr) != AST_DECLARATOR_ID_EXPR,
             "Invalid node '%s'\n", ast_print_node_type(ASTType(declarator_id_expr)));
 
-    scope_entry_t* entry = build_scope_declarator_id_expr(declarator_id_expr, declarator_type, gather_info, 
+    scope_entry_t* entry = build_scope_declarator_id_expr(declarator_id_expr, declarator_type, gather_info,
             decl_context, nodecl_output);
 
-    entry->entity_specs.is_user_declared = 1;
+    if(entry != NULL)
+    {
+        entry->entity_specs.is_user_declared = 1;
+    }
 
     return entry;
 }
