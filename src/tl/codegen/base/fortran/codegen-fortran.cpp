@@ -802,11 +802,18 @@ OPERATOR_TABLE
 
     void FortranBase::visit(const Nodecl::ComplexLiteral& node)
     {
+        bool in_data = state.in_data_value;
+        
+        // This ommits parentheses in negative literals
+        state.in_data_value = 1;
+
         file << "(";
         walk(node.get_real());
         file << ", ";
         walk(node.get_imag());
         file << ")";
+
+        state.in_data_value = in_data;
     }
 
     void FortranBase::visit(const Nodecl::FloatingLiteral& node)
