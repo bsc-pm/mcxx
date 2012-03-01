@@ -1646,53 +1646,30 @@ static sqlite3_uint64 insert_symbol(sqlite3* handle, scope_entry_t* symbol)
     module_packed_bits_t module_packed_bits = synthesize_packed_bits(symbol);
     const char* bit_str = module_packed_bits_to_hexstr(module_packed_bits);
 
-    if (symbol->kind == SK_MODULE
-            && symbol != module_being_emitted)
-    {
-        // Do not add too much information for external modules to the current one
-        char * update_symbol_query = sqlite3_mprintf("INSERT OR REPLACE INTO symbol(oid, decl_context, name, kind, type, file, line, "
-                "bit_entity_specs) "
-                "VALUES (%llu, %llu, " Q ", %d, %llu, " Q ", %d, " Q ");",
-                P2ULL(symbol), // oid
-                decl_context_oid, // decl_context
-                symbol->symbol_name, // name
-                symbol->kind, // kind
-                type_id, // type
-                symbol->file, // file
-                symbol->line, // line
-                bit_str
-                );
+    char * attribute_values = symbol_get_attribute_values(handle, symbol);
 
-        run_query(handle, update_symbol_query);
-    }
-    else
-    {
-        char * attribute_values = symbol_get_attribute_values(handle, symbol);
+    char * update_symbol_query = sqlite3_mprintf("INSERT OR REPLACE INTO symbol(oid, decl_context, name, kind, type, file, line, value, "
+            "bit_entity_specs, %s) "
+            "VALUES (%llu, %llu, " Q ", %d, %llu, " Q ", %d, %llu, " Q ", %s);",
+            attr_field_names,
+            P2ULL(symbol), // oid
+            decl_context_oid, // decl_context
+            symbol->symbol_name, // name
+            symbol->kind, // kind
+            type_id, // type
+            symbol->file, // file
+            symbol->line, // line
+            value_oid,
+            bit_str,
+            attribute_values);
 
-        char * update_symbol_query = sqlite3_mprintf("INSERT OR REPLACE INTO symbol(oid, decl_context, name, kind, type, file, line, value, "
-                "bit_entity_specs, %s) "
-                "VALUES (%llu, %llu, " Q ", %d, %llu, " Q ", %d, %llu, " Q ", %s);",
-                attr_field_names,
-                P2ULL(symbol), // oid
-                decl_context_oid, // decl_context
-                symbol->symbol_name, // name
-                symbol->kind, // kind
-                type_id, // type
-                symbol->file, // file
-                symbol->line, // line
-                value_oid,
-                bit_str,
-                attribute_values);
+    run_query(handle, update_symbol_query);
 
-        run_query(handle, update_symbol_query);
+    insert_extended_attributes(handle, symbol);
 
-        insert_extended_attributes(handle, symbol);
+    sqlite3_free(attribute_values);
 
-        sqlite3_free(attribute_values);
-    }
     sqlite3_free(insert_symbol_query);
-
-    
 
     return result;
 }
@@ -1725,25 +1702,53 @@ static int get_symbol(void *datum,
     sqlite3_uint64 value_oid = safe_atoull(values[7]);
     const char* bitfield_pack_str = uniquestr(values[8]);
 
-    rb_red_blk_node* query = NULL;
+    (*result) = NULL;
+
+    // Early checks to use already loaded symbols
     if (symbol_kind == SK_MODULE)
     {
+        rb_red_blk_node* query = rb_tree_query(CURRENT_COMPILED_FILE->module_symbol_cache, strtolower(name));
         // Check if this symbol is in the cache and reuse it 
-        query = rb_tree_query(CURRENT_COMPILED_FILE->module_symbol_cache, strtolower(name));
+        if (query != NULL)
+        {
+            fprintf(stderr, "HIT FOR module '%s'\n", strtolower(name));
+            scope_entry_t* module_symbol = (scope_entry_t*)rb_node_get_info(query);
+            (*result) = module_symbol;
+        }
     }
-    if (query != NULL)
+
+    // Is this symbol in a module?
+    int i;
+    if (query_contains_field(ncols, names, "in_module", &i))
     {
-        fprintf(stderr, "HIT FOR '%s'\n", strtolower(name));
-        scope_entry_t* module_symbol = (scope_entry_t*)rb_node_get_info(query);
-        *result = module_symbol;
-        // Reuse it
-        memset(*result, 0, sizeof(*result));
+        // Load the module first
+        scope_entry_t* in_module = load_symbol(handle, safe_atoull(values[i]));
+
+        if (in_module != NULL)
+        {
+            // Now check if this name is aleady in the module
+            for (i = 0; i < in_module->entity_specs.num_related_symbols; i++)
+            {
+                // This symbol is already in this module
+                if (strcasecmp(in_module->entity_specs.related_symbols[i]->symbol_name, name) == 0)
+                {
+                    fprintf(stderr, "HIT FOR '%s.%s'\n", in_module->symbol_name, name);
+                    // Use the existing symbol instead which will be already loaded
+                    *result = in_module->entity_specs.related_symbols[i];
+                    insert_map_ptr(handle, oid, *result);
+                    return 0;
+                }
+            }
+            fprintf(stderr, "MISS FOR '%s.%s'\n", in_module->symbol_name, name);
+        }
     }
-    else
+
+    if (*result == NULL)
     {
         (*result) = calloc(1, sizeof(**result));
-        insert_map_ptr(handle, oid, *result);
     }
+
+    insert_map_ptr(handle, oid, *result);
 
     (*result)->symbol_name = name;
     (*result)->kind = symbol_kind;
