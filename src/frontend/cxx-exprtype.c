@@ -8577,9 +8577,16 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t 
             check_expression_impl_(called_expression, decl_context, &nodecl_called);
         }
 
-        if (any_arg_is_dependent 
+        if (any_arg_is_dependent
                 || nodecl_expr_is_type_dependent(nodecl_called))
         {
+            if (is_id_expression(called_expression))
+            {
+                // The code is dependent. For this reason we should ignore the nodecl constructed in
+                // the function 'check_expression_impl_' and compute a new nodecl using the original AST.
+                compute_nodecl_name_from_id_expression(called_expression, decl_context, &nodecl_called);
+            }
+            
             *nodecl_output = nodecl_make_function_call(
                     nodecl_called,
                     nodecl_argument_list,

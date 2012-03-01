@@ -3421,6 +3421,17 @@ char is_unqualified_id_expression(AST a)
                 || ASTType(a) == AST_OPERATOR_FUNCTION_ID_TEMPLATE);
 }
 
+char is_qualified_id_expression(AST a)
+{
+    return a != NULL
+        && (ASTType(a) == AST_QUALIFIED_ID);
+}
+
+char is_id_expression(AST a)
+{
+    return is_unqualified_id_expression(a) || is_qualified_id_expression(a);
+}
+
 static char is_inline_namespace_of_(scope_t* inner_namespace_scope, scope_t* outer_namespace_scope)
 {
     if (inner_namespace_scope == NULL)

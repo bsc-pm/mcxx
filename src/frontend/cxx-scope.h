@@ -159,6 +159,8 @@ LIBMCXX_EXTERN unsigned long long symbols_used_memory(void);
 LIBMCXX_EXTERN scope_entry_t* lookup_of_template_parameter(decl_context_t context, 
         int template_parameter_nesting, int template_parameter_position);
 
+LIBMCXX_EXTERN char is_id_expression(AST a);
+LIBMCXX_EXTERN char is_qualified_id_expression(AST a);
 LIBMCXX_EXTERN char is_unqualified_id_expression(AST a);
 
 LIBMCXX_EXTERN char is_inline_namespace_of(decl_context_t inner_namespace_ctx, 
