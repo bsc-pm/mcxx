@@ -7486,7 +7486,7 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
         name = ASTText(ASTSon2(declarator_id));
     }
 
-    char is_qualified = !is_unqualified_id_expression(declarator_id);
+    char is_qualified = is_qualified_id_expression(declarator_id);
 
     char is_template_function = gather_info->is_template;
 
