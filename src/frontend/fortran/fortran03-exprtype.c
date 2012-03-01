@@ -2943,6 +2943,11 @@ static void check_parenthesized_expression(AST expr, decl_context_t decl_context
     nodecl_t nodecl_expr = nodecl_null();
     fortran_check_expression_impl_(ASTSon0(expr), decl_context, &nodecl_expr);
 
+    if (nodecl_is_err_expr(nodecl_expr))
+    {
+        *nodecl_output = nodecl_expr;
+        return;
+    }
 
     *nodecl_output = nodecl_make_parenthesized_expression(
             nodecl_expr,
