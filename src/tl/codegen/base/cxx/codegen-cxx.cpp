@@ -1378,23 +1378,31 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
         real_type = ::get_new_function_type(NULL, NULL, 0);
     }
 
-    std::string declarator;
-    declarator = this->get_declaration_with_parameters(real_type, symbol_scope, qualified_name, parameter_names, parameter_attributes);
+    std::string declarator = this->get_declaration_with_parameters(
+            real_type, symbol_scope, qualified_name, parameter_names, parameter_attributes);
 
     std::string exception_spec = exception_specifier_to_str(symbol);
 
     move_to_namespace_of_symbol(symbol);
 
-    TL::TemplateParameters temp_param = symbol_scope.get_template_parameters();
-    if ((is_template_specialized && symbol_type.template_specialized_type_get_template_arguments().get_num_parameters() != 0)
-            // explicit specialization
-            || (temp_param.is_valid() && !is_template_specialized))
+    // We shall generate a empty template header if the function is template specialized
+    if (is_template_specialized)
     {
-        while (temp_param.is_valid())
+        indent();
+        file << "template<>\n";
+    }
+
+    // The context may contain instantions of a template class.
+    // We shall generate zero or more empty template headers if needed.
+    TL::Symbol class_entry = symbol;
+    while (class_entry.is_member())
+    {
+        class_entry = class_entry.get_class_type().get_symbol();
+        if (class_entry.get_type().is_template_specialized_type()
+                && !class_entry.is_user_declared())
         {
             indent();
             file << "template<>\n";
-            temp_param = temp_param.get_enclosing_parameters();
         }
     }
 
@@ -2981,12 +2989,20 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
             TL::Type primary_template = template_type.get_primary_template();
             TL::Symbol primary_symbol = primary_template.get_symbol();
 
-            if (_friend == primary_symbol)
-            {
-                TL::TemplateParameters template_parameters = template_type.template_type_get_template_parameters();
-                codegen_template_header(template_parameters);
 
-                is_primary_template = 1;
+            if (_friend.get_type().is_dependent())
+            {
+                TL::TemplateParameters template_parameters(NULL);
+                if (_friend == primary_symbol)
+                {
+                    template_parameters = template_type.template_type_get_template_parameters();
+                    is_primary_template = 1;
+                }
+                else 
+                {
+                    template_parameters = _friend.get_scope().get_template_parameters();
+                }
+                codegen_template_header(template_parameters);
             }
         }
         // the friend symbol can be a SK_DEPENDENT_FRIEND_CLASS

@@ -3297,23 +3297,28 @@ scope_entry_t* lookup_of_template_parameter(decl_context_t context,
 
     template_parameter_list_t *template_parameters = context.template_parameters;
 
-    int i = 0;
-    while (template_parameters != NULL)
+
+    int j = 0;
     {
-        if (template_parameters->parameters != NULL)
+        int i = 0;
+        while (template_parameters != NULL)
         {
-            ERROR_CONDITION(i == MCXX_MAX_TEMPLATE_NESTING_LEVELS, "Too many template nesting levels", 0);
-            levels[i] = template_parameters->parameters;
-            value_levels[i] = template_parameters->arguments;
-            num_items[i] = template_parameters->num_parameters;
+            if (template_parameters->parameters != NULL)
+            {
+                ERROR_CONDITION(j == MCXX_MAX_TEMPLATE_NESTING_LEVELS, "Too many template nesting levels", 0);
+                levels[j] = template_parameters->parameters;
+                value_levels[j] = template_parameters->arguments;
+                num_items[j] = template_parameters->num_parameters;
+                j++;
+            }
+
+            i++;
+            template_parameters = template_parameters->enclosing;
         }
-
-        i++;
-        template_parameters = template_parameters->enclosing;
     }
-
+    
     // Nesting is too deep
-    if (template_parameter_nesting > i)
+    if (template_parameter_nesting > j)
     {
         DEBUG_CODE()
         {
@@ -3322,9 +3327,9 @@ scope_entry_t* lookup_of_template_parameter(decl_context_t context,
         return NULL;
     }
 
-    template_parameter_t** current_nesting = levels[i - template_parameter_nesting];
-    template_parameter_value_t** current_values = value_levels[i - template_parameter_nesting];
-    int current_num_items = num_items[i - template_parameter_nesting];
+    template_parameter_t** current_nesting = levels[j - template_parameter_nesting];
+    template_parameter_value_t** current_values = value_levels[j - template_parameter_nesting];
+    int current_num_items = num_items[j - template_parameter_nesting];
     
     // This position does not exist
     if (current_num_items < (template_parameter_position + 1))
@@ -3416,6 +3421,17 @@ char is_unqualified_id_expression(AST a)
                 || ASTType(a) == AST_OPERATOR_FUNCTION_ID_TEMPLATE);
 }
 
+char is_qualified_id_expression(AST a)
+{
+    return a != NULL
+        && (ASTType(a) == AST_QUALIFIED_ID);
+}
+
+char is_id_expression(AST a)
+{
+    return is_unqualified_id_expression(a) || is_qualified_id_expression(a);
+}
+
 static char is_inline_namespace_of_(scope_t* inner_namespace_scope, scope_t* outer_namespace_scope)
 {
     if (inner_namespace_scope == NULL)
@@ -3501,7 +3517,11 @@ int get_template_nesting_of_template_parameters(template_parameter_list_t* templ
     int nesting = 0;
     while (template_parameters != NULL)
     {
-        nesting++;
+        if (template_parameters->parameters != NULL)
+        {
+            nesting++;
+        }
+        
         template_parameters = template_parameters->enclosing;
     }
 
