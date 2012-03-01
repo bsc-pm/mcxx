@@ -3973,8 +3973,13 @@ scope_entry_t* compute_intrinsic_product_0(scope_entry_t* symbol UNUSED_PARAMETE
             && (t1 == NULL || is_integer_type(t1))
             && (t2 == NULL || (is_bool_type(get_rank0_type(t2)) && are_conformable_types(t2, t0))))
     {
+        type_t* return_type = get_rank0_type(t0);
+        if (t1 != NULL)
+        {
+            return_type = get_n_ranked_type(get_rank0_type(t0), get_rank_of_type(t0) - 1, symbol->decl_context);
+        }
         return GET_INTRINSIC_TRANSFORMATIONAL("product",
-                get_n_ranked_type(get_rank0_type(t0), get_rank_of_type(t0) - 1, symbol->decl_context),
+                return_type,
                 t0, 
                 t1 == NULL ? get_signed_int_type() : t1,
                 t2 == NULL ? fortran_get_default_logical_type() : t2);
@@ -4596,8 +4601,13 @@ scope_entry_t* compute_intrinsic_sum_0(scope_entry_t* symbol UNUSED_PARAMETER,
             && (t1 == NULL || is_integer_type(t1))
             && (t2 == NULL || (is_bool_type(get_rank0_type(t2)) && are_conformable_types(t2, t0))))
     {
+        type_t* return_type = get_rank0_type(t0);
+        if (t1 != NULL)
+        {
+            return_type = get_n_ranked_type(get_rank0_type(t0), get_rank_of_type(t0) - 1, symbol->decl_context);
+        }
         return GET_INTRINSIC_TRANSFORMATIONAL("sum",
-                get_n_ranked_type(get_rank0_type(t0), get_rank_of_type(t0) - 1, symbol->decl_context),
+                return_type,
                 t0, 
                 t1 == NULL ? get_signed_int_type() : t1,
                 t2 == NULL ? fortran_get_default_logical_type() : t2);
