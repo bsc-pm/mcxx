@@ -3489,6 +3489,7 @@ static void check_symbol_of_called_name(AST sym, decl_context_t decl_context, no
 static void check_symbol_name_as_a_variable(
         AST sym,
         scope_entry_t* entry,
+        decl_context_t decl_context,
         nodecl_t* nodecl_output)
 {
     ERROR_CONDITION(entry->kind != SK_VARIABLE, 
@@ -3502,6 +3503,51 @@ static void check_symbol_name_as_a_variable(
         // This error should have already been signaled elsewhere
         *nodecl_output = nodecl_make_err_expr(ASTFileName(sym), ASTLine(sym));
         return;
+    }
+
+    if (is_void_type(no_ref(entry->type_information))
+            && entry->entity_specs.is_parameter
+            && is_implicit_none(decl_context))
+    {
+        // Special case for this (incorrect but tolerated) case
+        //
+        // SUBROUTINE S(A, N)
+        //    IMPLICIT NONE
+        //
+        //    INTEGER :: A(N+1)
+        //    INTEGER :: N
+        //    ...
+
+        // We currently do not have any mean to remember that the usage of this
+        // variable involves some information for it. What we can do, though
+        // is set it a type and mark it as implicitly defined (even though we are under
+        // IMPLICIT NONE)
+        entry->type_information = get_lvalue_reference_type(fortran_get_default_integer_type());
+        entry->entity_specs.is_implicit_basic_type = 1;
+
+        // Being unable to remember that this must be an integer hinders us to detect
+        // the following (100% wrong) case
+        //
+        // SUBROUTINE S(A, N)
+        //    IMPLICIT NONE
+        //
+        //    INTEGER :: A(N+1)
+        //    REAL :: N         ! Error: N is used in a way that cannot have this type
+        //                      ! We will not detect this case!
+        //
+        // Note that this extension is utterly broken since we could write this
+        //
+        // SUBROUTINE S(N)
+        //    IMPLICIT NONE
+        //
+        //    INTEGER :: A(KIND(N))   ! Aha...
+        //    INTEGER(KIND=8) :: N    ! What now?
+        //
+        // Every compiler will react on a different way. Some will assume a default kind for N (i.e. 4)
+        // some others will complain of KIND(N) (though they do not in the case of 'N + 1', etc)
+        //
+        // Any approach is not driven by the standard, so anything we do is
+        // both OK and wrong at the same time
     }
 
     *nodecl_output = nodecl_make_symbol(entry, ASTFileName(sym), ASTLine(sym));
@@ -3614,7 +3660,7 @@ static void check_symbol_of_argument(AST sym, decl_context_t decl_context, nodec
     }
     if (entry->kind == SK_VARIABLE)
     {
-        check_symbol_name_as_a_variable(sym, entry, nodecl_output);
+        check_symbol_name_as_a_variable(sym, entry, decl_context, nodecl_output);
     }
     else if (entry->kind == SK_UNDEFINED)
     {
@@ -3637,7 +3683,7 @@ static void check_symbol_of_argument(AST sym, decl_context_t decl_context, nodec
             entry->kind = SK_VARIABLE;
             remove_unknown_kind_symbol(decl_context, entry);
 
-            check_symbol_name_as_a_variable(sym, entry, nodecl_output);
+            check_symbol_name_as_a_variable(sym, entry, decl_context, nodecl_output);
         }
         else
         {
@@ -3704,7 +3750,7 @@ static void check_symbol_variable(AST expr, decl_context_t decl_context, nodecl_
         return;
     }
 
-    check_symbol_name_as_a_variable(expr, entry, nodecl_output);
+    check_symbol_name_as_a_variable(expr, entry, decl_context, nodecl_output);
 }
 
 static void conform_types_in_assignment(type_t* lhs_type, type_t* rhs_type, type_t** conf_lhs_type, type_t** conf_rhs_type);
