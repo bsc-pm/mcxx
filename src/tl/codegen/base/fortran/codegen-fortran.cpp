@@ -2599,6 +2599,8 @@ OPERATOR_TABLE
 
                 inc_indent();
 
+                std::set<TL::Symbol> already_imported;
+
                 TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
                 for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
                         it != related_symbols.end();
@@ -2628,9 +2630,13 @@ OPERATOR_TABLE
                                     // Unless at this point they have already been defined
                                     || get_codegen_status(class_type) == CODEGEN_STATUS_DEFINED))
                         {
-                            // We will need an IMPORT as this type comes from an enclosing scope
-                            indent();
-                            file << "IMPORT :: " << class_type.get_name() << "\n";
+                            if (already_imported.find(class_type) == already_imported.end())
+                            {
+                                // We will need an IMPORT as this type comes from an enclosing scope
+                                indent();
+                                file << "IMPORT :: " << class_type.get_name() << "\n";
+                                already_imported.insert(class_type);
+                            }
                         }
                     }
                 }
