@@ -898,6 +898,7 @@ static void compute_factors_of_array_indexing(
     }
 }
 
+#if 0
 static void determine_array_subscript_of_lineal_index(
         int N,
         int* factors,
@@ -917,6 +918,7 @@ static void determine_array_subscript_of_lineal_index(
 
     subscript[0] = val;
 }
+#endif
 
 static void permute_subscript(
         int N,

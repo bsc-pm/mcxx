@@ -170,6 +170,20 @@ static int check_expression_function_compare(const void *a, const void *b)
         return 0;
 }
 
+// Like const_value_to_nodecl but does not fold arrays or structures
+static nodecl_t fortran_const_value_to_nodecl(const_value_t* v)
+{
+    if (const_value_is_array(v) 
+            || const_value_is_structured(v))
+    {
+        return nodecl_null();
+    }
+    else
+    {
+        return const_value_to_nodecl(v);
+    }
+}
+
 static void fortran_check_expression_impl_(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     ERROR_CONDITION(expression == NULL, "Invalid tree for expression", 0);
@@ -1026,7 +1040,7 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
                 nodecl_indexes,
                 num_subscripts);
 
-        nodecl_t nodecl_const_val = const_value_to_nodecl(subconstant);
+        nodecl_t nodecl_const_val = fortran_const_value_to_nodecl(subconstant);
         if (!nodecl_is_null(nodecl_const_val))
         {
             *nodecl_output = nodecl_const_val;
@@ -1425,7 +1439,7 @@ static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t*
         ERROR_CONDITION((i == entry_list_size(components)), "This should not happen", 0);
 
         const_value_t* const_value_member = const_value_get_element_num(const_value, i);
-        nodecl_t nodecl_const_val = const_value_to_nodecl(const_value_member);
+        nodecl_t nodecl_const_val = fortran_const_value_to_nodecl(const_value_member);
         if (!nodecl_is_null(nodecl_const_val))
         {
             type_t* orig_type = nodecl_get_type(*nodecl_output);
@@ -2929,6 +2943,11 @@ static void check_parenthesized_expression(AST expr, decl_context_t decl_context
     nodecl_t nodecl_expr = nodecl_null();
     fortran_check_expression_impl_(ASTSon0(expr), decl_context, &nodecl_expr);
 
+    if (nodecl_is_err_expr(nodecl_expr))
+    {
+        *nodecl_output = nodecl_expr;
+        return;
+    }
 
     *nodecl_output = nodecl_make_parenthesized_expression(
             nodecl_expr,
@@ -3475,6 +3494,7 @@ static void check_symbol_of_called_name(AST sym, decl_context_t decl_context, no
 static void check_symbol_name_as_a_variable(
         AST sym,
         scope_entry_t* entry,
+        decl_context_t decl_context,
         nodecl_t* nodecl_output)
 {
     ERROR_CONDITION(entry->kind != SK_VARIABLE, 
@@ -3490,6 +3510,51 @@ static void check_symbol_name_as_a_variable(
         return;
     }
 
+    if (is_void_type(no_ref(entry->type_information))
+            && entry->entity_specs.is_parameter
+            && is_implicit_none(decl_context))
+    {
+        // Special case for this (incorrect but tolerated) case
+        //
+        // SUBROUTINE S(A, N)
+        //    IMPLICIT NONE
+        //
+        //    INTEGER :: A(N+1)
+        //    INTEGER :: N
+        //    ...
+
+        // We currently do not have any mean to remember that the usage of this
+        // variable involves some information for it. What we can do, though
+        // is set it a type and mark it as implicitly defined (even though we are under
+        // IMPLICIT NONE)
+        entry->type_information = get_lvalue_reference_type(fortran_get_default_integer_type());
+        entry->entity_specs.is_implicit_basic_type = 1;
+
+        // Being unable to remember that this must be an integer hinders us to detect
+        // the following (100% wrong) case
+        //
+        // SUBROUTINE S(A, N)
+        //    IMPLICIT NONE
+        //
+        //    INTEGER :: A(N+1)
+        //    REAL :: N         ! Error: N is used in a way that cannot have this type
+        //                      ! We will not detect this case!
+        //
+        // Note that this extension is utterly broken since we could write this
+        //
+        // SUBROUTINE S(N)
+        //    IMPLICIT NONE
+        //
+        //    INTEGER :: A(KIND(N))   ! Aha...
+        //    INTEGER(KIND=8) :: N    ! What now?
+        //
+        // Every compiler will react on a different way. Some will assume a default kind for N (i.e. 4)
+        // some others will complain of KIND(N) (though they do not in the case of 'N + 1', etc)
+        //
+        // Any approach is not driven by the standard, so anything we do is
+        // both OK and wrong at the same time
+    }
+
     *nodecl_output = nodecl_make_symbol(entry, ASTFileName(sym), ASTLine(sym));
     nodecl_set_type(*nodecl_output, entry->type_information);
 
@@ -3498,7 +3563,7 @@ static void check_symbol_name_as_a_variable(
             && nodecl_is_constant(entry->value))
     {
         // Use the constant value instead
-        nodecl_t nodecl_const_val = const_value_to_nodecl(nodecl_get_constant(entry->value));
+        nodecl_t nodecl_const_val = fortran_const_value_to_nodecl(nodecl_get_constant(entry->value));
         if (!nodecl_is_null(nodecl_const_val))
         {
             type_t* orig_type = nodecl_get_type(*nodecl_output);
@@ -3600,7 +3665,7 @@ static void check_symbol_of_argument(AST sym, decl_context_t decl_context, nodec
     }
     if (entry->kind == SK_VARIABLE)
     {
-        check_symbol_name_as_a_variable(sym, entry, nodecl_output);
+        check_symbol_name_as_a_variable(sym, entry, decl_context, nodecl_output);
     }
     else if (entry->kind == SK_UNDEFINED)
     {
@@ -3623,7 +3688,7 @@ static void check_symbol_of_argument(AST sym, decl_context_t decl_context, nodec
             entry->kind = SK_VARIABLE;
             remove_unknown_kind_symbol(decl_context, entry);
 
-            check_symbol_name_as_a_variable(sym, entry, nodecl_output);
+            check_symbol_name_as_a_variable(sym, entry, decl_context, nodecl_output);
         }
         else
         {
@@ -3690,7 +3755,7 @@ static void check_symbol_variable(AST expr, decl_context_t decl_context, nodecl_
         return;
     }
 
-    check_symbol_name_as_a_variable(expr, entry, nodecl_output);
+    check_symbol_name_as_a_variable(expr, entry, decl_context, nodecl_output);
 }
 
 static void conform_types_in_assignment(type_t* lhs_type, type_t* rhs_type, type_t** conf_lhs_type, type_t** conf_rhs_type);
@@ -3873,6 +3938,131 @@ static void check_assignment(AST expr, decl_context_t decl_context, nodecl_t* no
     }
 }
 
+static void cast_initialization(
+        type_t* initialized_type,
+        const_value_t* init_constant, 
+
+        const_value_t** casted_const,
+        // This can be NULL but if it is not, it is updated
+        nodecl_t* nodecl_output)
+{
+    // Now check the constant and the type do square, otherwise fix the
+    // constant value
+    const_value_t* val = init_constant;
+
+    // The user is initializing an integer using a float. 
+    if (is_any_int_type(initialized_type)
+            && const_value_is_floating(val))
+    {
+        *casted_const = const_value_cast_to_bytes(
+                val,
+                type_get_size(initialized_type),
+                /* signed */ 1);
+
+        if (nodecl_output != NULL)
+        {
+            *nodecl_output = nodecl_make_integer_literal(
+                    initialized_type,
+                    *casted_const,
+                    nodecl_get_filename(*nodecl_output),
+                    nodecl_get_line(*nodecl_output));
+        }
+    }
+    // The user is initializing a real using an integer
+    else if (is_floating_type(initialized_type)
+            & const_value_is_integer(val))
+    {
+        type_t* flt_type = initialized_type;
+
+        const_value_t* flt_val = NULL;
+
+        if (is_float_type(flt_type))
+        {
+            flt_val = const_value_cast_to_float_value(val);
+        }
+        else if (is_double_type(flt_type))
+        {
+            flt_val = const_value_cast_to_double_value(val);
+        }
+        else if (is_long_double_type(flt_type))
+        {
+            flt_val = const_value_cast_to_long_double_value(val);
+        }
+        else if (is_other_float_type(flt_type))
+        {
+#ifdef HAVE_QUADMATH_H
+            if (floating_type_get_info(flt_type)->size_of == 16)
+            {
+                flt_val = const_value_cast_to_float128_value(val);
+            }
+#endif
+        }
+
+        ERROR_CONDITION(flt_val == NULL, "No conversion was possible", 0);
+
+        *casted_const = flt_val;
+
+        if (nodecl_output != NULL)
+        {
+            *nodecl_output = nodecl_make_floating_literal(
+                    initialized_type,
+                    *casted_const,
+                    nodecl_get_filename(*nodecl_output),
+                    nodecl_get_line(*nodecl_output));
+        }
+    }
+    else if (is_complex_type(initialized_type)
+            && (const_value_is_floating(val)
+                || const_value_is_integer(val)))
+    {
+        // Cast real part
+        const_value_t* real_part = NULL;
+        nodecl_t nodecl_real_part = nodecl_null();
+        if (nodecl_output != NULL)
+        {
+            nodecl_real_part = *nodecl_output;
+        }
+        cast_initialization(complex_type_get_base_type(initialized_type),
+                val, &real_part, 
+                /* nodecl_output */ nodecl_is_null(nodecl_real_part) ? NULL : &nodecl_real_part);
+
+        // Cast imag part (a 0 literal actually)
+        const_value_t* imag_part = NULL;
+        nodecl_t nodecl_imag_part = nodecl_null();
+        if (nodecl_output != NULL)
+        {
+            nodecl_imag_part = nodecl_make_integer_literal(
+                    fortran_get_default_integer_type(),
+                    const_value_get_zero(fortran_get_default_integer_type_kind(), 1),
+                    nodecl_get_filename(*nodecl_output),
+                    nodecl_get_line(*nodecl_output));
+        }
+        cast_initialization(complex_type_get_base_type(initialized_type),
+                const_value_get_zero(fortran_get_default_integer_type_kind(), 1),
+                &imag_part,
+                /* nodecl_output */ nodecl_is_null(nodecl_imag_part) ? NULL : &nodecl_imag_part);
+
+        // Build a complex const
+        *casted_const = const_value_make_complex(real_part, imag_part);
+
+        if (nodecl_output != NULL)
+        {
+            // Build a nodecl if needed
+            *nodecl_output = nodecl_make_complex_literal(
+                    nodecl_real_part,
+                    nodecl_imag_part,
+                    initialized_type,
+                    nodecl_get_filename(*nodecl_output),
+                    nodecl_get_line(*nodecl_output));
+        }
+    }
+    else
+    {
+        // No cast
+        *casted_const = val;
+    }
+}
+
 void fortran_check_initialization(
         scope_entry_t* entry,
         AST expr, 
@@ -3965,63 +4155,11 @@ void fortran_check_initialization(
             return;
         }
 
-        // Now check the constant and the type do square, otherwise fix the
-        // constant value
-        const_value_t* val = nodecl_get_constant(*nodecl_output);
-
-        // The user is initializing an integer using a float. 
-        if (is_any_int_type(no_ref(entry->type_information))
-                && const_value_is_floating(val))
-        {
-            const_value_t* int_val = const_value_cast_to_bytes(
-                    val,
-                    type_get_size(no_ref(entry->type_information)),
-                    /* signed */ 1);
-
-            *nodecl_output = nodecl_make_integer_literal(
-                    no_ref(entry->type_information),
-                    int_val,
-                    nodecl_get_filename(*nodecl_output),
-                    nodecl_get_line(*nodecl_output));
-        }
-        // The user is initializing a real using an integer
-        else if (is_floating_type(no_ref(entry->type_information))
-                    & const_value_is_integer(val))
-        {
-            type_t* flt_type = no_ref(entry->type_information);
-
-            const_value_t* flt_val = NULL;
-
-            if (is_float_type(flt_type))
-            {
-                flt_val = const_value_cast_to_float_value(val);
-            }
-            else if (is_double_type(flt_type))
-            {
-                flt_val = const_value_cast_to_double_value(val);
-            }
-            else if (is_long_double_type(flt_type))
-            {
-                flt_val = const_value_cast_to_long_double_value(val);
-            }
-            else if (is_other_float_type(flt_type))
-            {
-#ifdef HAVE_QUADMATH_H
-                if (floating_type_get_info(flt_type)->size_of == 16)
-                {
-                    flt_val = const_value_cast_to_float128_value(val);
-                }
-#endif
-            }
-
-            ERROR_CONDITION(flt_val == NULL, "No conversion was possible", 0);
-
-            *nodecl_output = nodecl_make_floating_literal(
-                    flt_type,
-                    flt_val,
-                    nodecl_get_filename(*nodecl_output),
-                    nodecl_get_line(*nodecl_output));
-        }
+        const_value_t* casted_const = NULL;
+        cast_initialization(no_ref(entry->type_information), 
+                nodecl_get_constant(*nodecl_output), 
+                &casted_const, 
+                nodecl_output);
     }
 }
 
@@ -4448,6 +4586,127 @@ static nodecl_t binary_##x(nodecl_t nodecl_lhs UNUSED_PARAMETER, nodecl_t nodecl
     return x(nodecl_rhs, t, filename, line); \
 }
 
+static const_value_t* fortran_str_const_value_eq(const_value_t* v1, const_value_t* v2)
+{
+    if (const_value_get_num_elements(v1) != const_value_get_num_elements(v2))
+    {
+        return const_value_get_zero(fortran_get_default_integer_type_kind(), 1);
+    }
+
+    int i, N = const_value_get_num_elements(v1);
+    for (i = 0; i < N; i++)
+    {
+        const_value_t* equal = const_value_eq(
+                const_value_get_element_num(v1, i),
+                const_value_get_element_num(v2, i));
+
+        if (const_value_is_zero(equal))
+            return const_value_get_zero(fortran_get_default_integer_type_kind(), 1);
+    }
+
+    return const_value_get_one(fortran_get_default_integer_type_kind(), 1);
+}
+
+static const_value_t* fortran_str_const_value_neq(const_value_t* v1, const_value_t* v2)
+{
+    const_value_t* eq = fortran_str_const_value_eq(v1, v2);
+
+    if (const_value_is_zero(eq))
+        return const_value_get_one(fortran_get_default_integer_type_kind(), 1);
+    else
+        return const_value_get_zero(fortran_get_default_integer_type_kind(), 1);
+}
+
+static const_value_t* fortran_str_const_value_lt(const_value_t* v1, const_value_t* v2)
+{
+    int i, N1, N2;
+
+    N1 = const_value_get_num_elements(v1);
+    N2 = const_value_get_num_elements(v2);
+
+    int min = N1 < N2 ? N1 : N2;
+
+    for (i = 0; i < min; i++)
+    {
+        const_value_t* equal = const_value_eq(
+                const_value_get_element_num(v1, i),
+                const_value_get_element_num(v2, i));
+
+        if (const_value_is_zero(equal))
+        {
+            // It is not equal, is it lower?
+            const_value_t* lt = const_value_lt(
+                    const_value_get_element_num(v1, i),
+                    const_value_get_element_num(v2, i));
+
+            if (const_value_is_zero(lt))
+            {
+                return const_value_get_zero(fortran_get_default_integer_type_kind(), 1);
+            }
+            else
+            {
+                return const_value_get_one(fortran_get_default_integer_type_kind(), 1);
+            }
+        }
+    }
+
+    if (N1 == N2)
+        return const_value_get_zero(fortran_get_default_integer_type_kind(), 1);
+    else
+        return const_value_get_one(fortran_get_default_integer_type_kind(), 1);
+}
+
+static const_value_t* fortran_str_const_value_lte(const_value_t* v1, const_value_t* v2)
+{
+    const_value_t* result = fortran_str_const_value_lt(v1, v2);
+
+    // Not lower, might equal
+    if (const_value_is_zero(result))
+        result = fortran_str_const_value_eq(v1, v2);
+
+    return result;
+}
+
+static const_value_t* fortran_str_const_value_gt(const_value_t* v1, const_value_t* v2)
+{
+    const_value_t* lte = fortran_str_const_value_lte(v1, v2);
+
+    if (const_value_is_zero(lte))
+        return const_value_get_one(fortran_get_default_integer_type_kind(), 1);
+    else
+        return const_value_get_zero(fortran_get_default_integer_type_kind(), 1);
+}
+
+static const_value_t* fortran_str_const_value_gte(const_value_t* v1, const_value_t* v2)
+{
+    const_value_t* lte = fortran_str_const_value_lt(v1, v2);
+
+    if (const_value_is_zero(lte))
+        return const_value_get_one(fortran_get_default_integer_type_kind(), 1);
+    else
+        return const_value_get_zero(fortran_get_default_integer_type_kind(), 1);
+}
+
+#define NODECL_FORTRAN_RELATIONAL(name) \
+static const_value_t* fortran_##name(const_value_t* v1, const_value_t* v2) \
+{ \
+    if (const_value_is_string(v1) && const_value_is_string(v2)) \
+    { \
+        return fortran_str_##name(v1, v2); \
+    } \
+    else \
+    { \
+        return name(v1, v2); \
+    } \
+}
+
+NODECL_FORTRAN_RELATIONAL(const_value_eq)
+NODECL_FORTRAN_RELATIONAL(const_value_neq)
+NODECL_FORTRAN_RELATIONAL(const_value_lt)
+NODECL_FORTRAN_RELATIONAL(const_value_lte)
+NODECL_FORTRAN_RELATIONAL(const_value_gt)
+NODECL_FORTRAN_RELATIONAL(const_value_gte)
+
 NODECL_FUN_2BIN_DEF(nodecl_make_plus)
 NODECL_FUN_2BIN_DEF(nodecl_make_neg)
 NODECL_FUN_2BIN_DEF(nodecl_make_logical_not)
@@ -4727,7 +4986,7 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
 
         if (val != NULL)
         {
-            nodecl_t nodecl_const_val = const_value_to_nodecl(val);
+            nodecl_t nodecl_const_val = fortran_const_value_to_nodecl(val);
             if (!nodecl_is_null(nodecl_const_val))
             {
                 *nodecl_output = nodecl_const_val;
@@ -4908,32 +5167,32 @@ static const_value_t* const_bin_concat(nodecl_t nodecl_lhs, nodecl_t nodecl_rhs)
 
 static const_value_t* const_bin_equal(nodecl_t nodecl_lhs, nodecl_t nodecl_rhs)
 {
-    return const_bin_(nodecl_lhs, nodecl_rhs, const_value_eq);
+    return const_bin_(nodecl_lhs, nodecl_rhs, fortran_const_value_eq);
 }
 
 static const_value_t* const_bin_not_equal(nodecl_t nodecl_lhs, nodecl_t nodecl_rhs)
 {
-    return const_bin_(nodecl_lhs, nodecl_rhs, const_value_neq);
+    return const_bin_(nodecl_lhs, nodecl_rhs, fortran_const_value_neq);
 }
 
 static const_value_t* const_bin_lt(nodecl_t nodecl_lhs, nodecl_t nodecl_rhs)
 {
-    return const_bin_(nodecl_lhs, nodecl_rhs, const_value_lt);
+    return const_bin_(nodecl_lhs, nodecl_rhs, fortran_const_value_lt);
 }
 
 static const_value_t* const_bin_lte(nodecl_t nodecl_lhs, nodecl_t nodecl_rhs)
 {
-    return const_bin_(nodecl_lhs, nodecl_rhs, const_value_lte);
+    return const_bin_(nodecl_lhs, nodecl_rhs, fortran_const_value_lte);
 }
 
 static const_value_t* const_bin_gt(nodecl_t nodecl_lhs, nodecl_t nodecl_rhs)
 {
-    return const_bin_(nodecl_lhs, nodecl_rhs, const_value_gt);
+    return const_bin_(nodecl_lhs, nodecl_rhs, fortran_const_value_gt);
 }
 
 static const_value_t* const_bin_gte(nodecl_t nodecl_lhs, nodecl_t nodecl_rhs)
 {
-    return const_bin_(nodecl_lhs, nodecl_rhs, const_value_gte);
+    return const_bin_(nodecl_lhs, nodecl_rhs, fortran_const_value_gte);
 }
 
 static const_value_t* const_unary_not(nodecl_t nodecl_lhs UNUSED_PARAMETER, nodecl_t nodecl_rhs)
