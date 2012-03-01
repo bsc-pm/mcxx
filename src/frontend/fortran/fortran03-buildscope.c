@@ -4713,7 +4713,8 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
                     running_error("%s: sorry: coarrays are not supported\n", ast_location(declaration));
                 }
 
-                if (current_attr_spec.is_dimension)
+                if (current_attr_spec.is_dimension 
+                        && !is_error_type(entry->type_information))
                 {
                     type_t* array_type = compute_type_from_array_spec(entry->type_information, 
                             current_attr_spec.array_spec,
@@ -4744,7 +4745,8 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
                     entry->entity_specs.access = AS_PRIVATE;
                 }
 
-                if (current_attr_spec.is_pointer)
+                if (current_attr_spec.is_pointer
+                        && !is_error_type(entry->type_information))
                 {
                     entry->type_information = get_pointer_type(entry->type_information);
                 }
@@ -6706,7 +6708,8 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
             error_printf("%s: sorry: coarrays are not supported\n", ast_location(declaration));
         }
 
-        if (current_attr_spec.is_dimension)
+        if (current_attr_spec.is_dimension
+                && !is_error_type(no_ref(entry->type_information)))
         {
             char was_ref = is_lvalue_reference_type(entry->type_information);
             cv_qualifier_t cv_qualif = get_cv_qualifier(entry->type_information);
@@ -6836,7 +6839,8 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
             entry->entity_specs.is_static = 1;
         }
 
-        if (current_attr_spec.is_pointer)
+        if (current_attr_spec.is_pointer
+                && !is_error_type(entry->type_information))
         {
             char was_ref = is_lvalue_reference_type(entry->type_information);
             entry->type_information = get_pointer_type(no_ref(entry->type_information));
