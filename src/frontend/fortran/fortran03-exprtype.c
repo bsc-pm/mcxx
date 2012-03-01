@@ -170,6 +170,20 @@ static int check_expression_function_compare(const void *a, const void *b)
         return 0;
 }
 
+// Like const_value_to_nodecl but does not fold arrays or structures
+static nodecl_t fortran_const_value_to_nodecl(const_value_t* v)
+{
+    if (const_value_is_array(v) 
+            || const_value_is_structured(v))
+    {
+        return nodecl_null();
+    }
+    else
+    {
+        return const_value_to_nodecl(v);
+    }
+}
+
 static void fortran_check_expression_impl_(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     ERROR_CONDITION(expression == NULL, "Invalid tree for expression", 0);
@@ -1026,7 +1040,7 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
                 nodecl_indexes,
                 num_subscripts);
 
-        nodecl_t nodecl_const_val = const_value_to_nodecl(subconstant);
+        nodecl_t nodecl_const_val = fortran_const_value_to_nodecl(subconstant);
         if (!nodecl_is_null(nodecl_const_val))
         {
             *nodecl_output = nodecl_const_val;
@@ -1425,7 +1439,7 @@ static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t*
         ERROR_CONDITION((i == entry_list_size(components)), "This should not happen", 0);
 
         const_value_t* const_value_member = const_value_get_element_num(const_value, i);
-        nodecl_t nodecl_const_val = const_value_to_nodecl(const_value_member);
+        nodecl_t nodecl_const_val = fortran_const_value_to_nodecl(const_value_member);
         if (!nodecl_is_null(nodecl_const_val))
         {
             type_t* orig_type = nodecl_get_type(*nodecl_output);
@@ -3498,7 +3512,7 @@ static void check_symbol_name_as_a_variable(
             && nodecl_is_constant(entry->value))
     {
         // Use the constant value instead
-        nodecl_t nodecl_const_val = const_value_to_nodecl(nodecl_get_constant(entry->value));
+        nodecl_t nodecl_const_val = fortran_const_value_to_nodecl(nodecl_get_constant(entry->value));
         if (!nodecl_is_null(nodecl_const_val))
         {
             type_t* orig_type = nodecl_get_type(*nodecl_output);
@@ -4727,7 +4741,7 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
 
         if (val != NULL)
         {
-            nodecl_t nodecl_const_val = const_value_to_nodecl(val);
+            nodecl_t nodecl_const_val = fortran_const_value_to_nodecl(val);
             if (!nodecl_is_null(nodecl_const_val))
             {
                 *nodecl_output = nodecl_const_val;
