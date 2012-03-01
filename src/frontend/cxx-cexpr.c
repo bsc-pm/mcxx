@@ -1306,6 +1306,46 @@ const_value_t* const_value_real_to_complex(const_value_t* value)
     }
 }
 
+static const_value_t* extend_first_operand_to_structured_value(const_value_t* (*fun)(const_value_t*, const_value_t*),
+        const_value_t* m1,
+        const_value_t* m2)
+{
+    ERROR_CONDITION(!IS_STRUCTURED(m1->kind), "The first operand must be a multiple-value constant", 0);
+    ERROR_CONDITION(IS_STRUCTURED(m2->kind), "The second operand must not be a multiple-value constant", 0);
+
+    int i, num_elements = multival_get_num_elements(m1);
+    const_value_t* result_arr[num_elements];
+    for (i = 0; i < num_elements; i++)
+    {
+        result_arr[i] = fun(multival_get_element_num(m1, i), m2);
+    }
+
+    const_value_t* mval = make_multival(num_elements, result_arr);
+    mval->kind = m1->kind;
+
+    return mval;
+}
+
+static const_value_t* extend_second_operand_to_structured_value(const_value_t* (*fun)(const_value_t*, const_value_t*),
+        const_value_t* m1,
+        const_value_t* m2)
+{
+    ERROR_CONDITION(IS_STRUCTURED(m1->kind), "The first operand must not be a multiple-value constant", 0);
+    ERROR_CONDITION(!IS_STRUCTURED(m2->kind), "The second operand must be a multiple-value constant", 0);
+
+    int i, num_elements = multival_get_num_elements(m2);
+    const_value_t* result_arr[num_elements];
+    for (i = 0; i < num_elements; i++)
+    {
+        result_arr[i] = fun(m1, multival_get_element_num(m2, i));
+    }
+
+    const_value_t* mval = make_multival(num_elements, result_arr);
+    mval->kind = m2->kind;
+
+    return mval;
+}
+
 // Use this to apply a binary function to a couple of multivals
 static const_value_t* map_binary_to_structured_value(const_value_t* (*fun)(const_value_t*, const_value_t*),
         const_value_t* m1,
@@ -1898,7 +1938,14 @@ const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2) \
     { \
         return map_binary_to_structured_value( const_value_##_opname, v1, v2); \
     } \
- \
+    else if (IS_STRUCTURED(v1->kind)) \
+    { \
+        return extend_first_operand_to_structured_value( const_value_##_opname, v1, v2); \
+    } \
+    else if (IS_STRUCTURED(v2->kind)) \
+    { \
+        return extend_second_operand_to_structured_value( const_value_##_opname, v1, v2); \
+    } \
     internal_error("Code unreachable", 0); \
 }
 
@@ -1970,7 +2017,15 @@ const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2) \
     { \
         return map_binary_to_structured_value( const_value_##_opname, v1, v2); \
     } \
- return NULL; \
+    else if (IS_STRUCTURED(v1->kind)) \
+    { \
+        return extend_first_operand_to_structured_value( const_value_##_opname, v1, v2); \
+    } \
+    else if (IS_STRUCTURED(v2->kind)) \
+    { \
+        return extend_second_operand_to_structured_value( const_value_##_opname, v1, v2); \
+    } \
+    internal_error("Code unreachable", 0); \
 }
 
 // Relational
@@ -2230,7 +2285,14 @@ const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2) \
     { \
         return map_binary_to_structured_value( const_value_##_opname, v1, v2); \
     } \
- \
+    else if (IS_STRUCTURED(v1->kind)) \
+    { \
+        return extend_first_operand_to_structured_value( const_value_##_opname, v1, v2); \
+    } \
+    else if (IS_STRUCTURED(v2->kind)) \
+    { \
+        return extend_second_operand_to_structured_value( const_value_##_opname, v1, v2); \
+    } \
     internal_error("Code unreachable", 0); \
 }
 
@@ -2302,7 +2364,15 @@ const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2) \
     { \
         return map_binary_to_structured_value( const_value_##_opname, v1, v2); \
     } \
- return NULL; \
+    else if (IS_STRUCTURED(v1->kind)) \
+    { \
+        return extend_first_operand_to_structured_value( const_value_##_opname, v1, v2); \
+    } \
+    else if (IS_STRUCTURED(v2->kind)) \
+    { \
+        return extend_second_operand_to_structured_value( const_value_##_opname, v1, v2); \
+    } \
+    internal_error("Code unreachable", 0); \
 }
 
 static const_value_t* complex_add(const_value_t*, const_value_t*);
