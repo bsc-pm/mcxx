@@ -6572,11 +6572,6 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
                     entry->symbol_name);
             continue;
         }
-        // else
-        // {
-        //     // It was not so much defined actually...
-        //     entry->defined = 0;
-        // }
 
         if (entry->defined)
         {
@@ -6604,7 +6599,7 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
         entry->type_information = update_basic_type_with_type(entry->type_information, basic_type);
         entry->entity_specs.is_implicit_basic_type = 0;
         entry->entity_specs.is_implicit_but_not_function = 0;
-        // entry->defined = 1;
+
         entry->file = ASTFileName(declaration);
         entry->line = ASTLine(declaration);
 
@@ -6623,7 +6618,6 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
                     sym->type_information = update_basic_type_with_type(sym->type_information, basic_type);
                     sym->entity_specs.is_implicit_basic_type = 0;
                     sym->entity_specs.is_implicit_but_not_function = 0;
-                    // sym->defined = 1;
                 }
             }
         }
