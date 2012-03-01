@@ -4462,6 +4462,127 @@ static nodecl_t binary_##x(nodecl_t nodecl_lhs UNUSED_PARAMETER, nodecl_t nodecl
     return x(nodecl_rhs, t, filename, line); \
 }
 
+static const_value_t* fortran_str_const_value_eq(const_value_t* v1, const_value_t* v2)
+{
+    if (const_value_get_num_elements(v1) != const_value_get_num_elements(v2))
+    {
+        return const_value_get_zero(fortran_get_default_integer_type_kind(), 1);
+    }
+
+    int i, N = const_value_get_num_elements(v1);
+    for (i = 0; i < N; i++)
+    {
+        const_value_t* equal = const_value_eq(
+                const_value_get_element_num(v1, i),
+                const_value_get_element_num(v2, i));
+
+        if (const_value_is_zero(equal))
+            return const_value_get_zero(fortran_get_default_integer_type_kind(), 1);
+    }
+
+    return const_value_get_one(fortran_get_default_integer_type_kind(), 1);
+}
+
+static const_value_t* fortran_str_const_value_neq(const_value_t* v1, const_value_t* v2)
+{
+    const_value_t* eq = fortran_str_const_value_eq(v1, v2);
+
+    if (const_value_is_zero(eq))
+        return const_value_get_one(fortran_get_default_integer_type_kind(), 1);
+    else
+        return const_value_get_zero(fortran_get_default_integer_type_kind(), 1);
+}
+
+static const_value_t* fortran_str_const_value_lt(const_value_t* v1, const_value_t* v2)
+{
+    int i, N1, N2;
+
+    N1 = const_value_get_num_elements(v1);
+    N2 = const_value_get_num_elements(v2);
+
+    int min = N1 < N2 ? N1 : N2;
+
+    for (i = 0; i < min; i++)
+    {
+        const_value_t* equal = const_value_eq(
+                const_value_get_element_num(v1, i),
+                const_value_get_element_num(v2, i));
+
+        if (const_value_is_zero(equal))
+        {
+            // It is not equal, is it lower?
+            const_value_t* lt = const_value_lt(
+                    const_value_get_element_num(v1, i),
+                    const_value_get_element_num(v2, i));
+
+            if (const_value_is_zero(lt))
+            {
+                return const_value_get_zero(fortran_get_default_integer_type_kind(), 1);
+            }
+            else
+            {
+                return const_value_get_one(fortran_get_default_integer_type_kind(), 1);
+            }
+        }
+    }
+
+    if (N1 == N2)
+        return const_value_get_zero(fortran_get_default_integer_type_kind(), 1);
+    else
+        return const_value_get_one(fortran_get_default_integer_type_kind(), 1);
+}
+
+static const_value_t* fortran_str_const_value_lte(const_value_t* v1, const_value_t* v2)
+{
+    const_value_t* result = fortran_str_const_value_lt(v1, v2);
+
+    // Not lower, might equal
+    if (const_value_is_zero(result))
+        result = fortran_str_const_value_eq(v1, v2);
+
+    return result;
+}
+
+static const_value_t* fortran_str_const_value_gt(const_value_t* v1, const_value_t* v2)
+{
+    const_value_t* lte = fortran_str_const_value_lte(v1, v2);
+
+    if (const_value_is_zero(lte))
+        return const_value_get_one(fortran_get_default_integer_type_kind(), 1);
+    else
+        return const_value_get_zero(fortran_get_default_integer_type_kind(), 1);
+}
+
+static const_value_t* fortran_str_const_value_gte(const_value_t* v1, const_value_t* v2)
+{
+    const_value_t* lte = fortran_str_const_value_lt(v1, v2);
+
+    if (const_value_is_zero(lte))
+        return const_value_get_one(fortran_get_default_integer_type_kind(), 1);
+    else
+        return const_value_get_zero(fortran_get_default_integer_type_kind(), 1);
+}
+
+#define NODECL_FORTRAN_RELATIONAL(name) \
+static const_value_t* fortran_##name(const_value_t* v1, const_value_t* v2) \
+{ \
+    if (const_value_is_string(v1) && const_value_is_string(v2)) \
+    { \
+        return fortran_str_##name(v1, v2); \
+    } \
+    else \
+    { \
+        return name(v1, v2); \
+    } \
+}
+
+NODECL_FORTRAN_RELATIONAL(const_value_eq)
+NODECL_FORTRAN_RELATIONAL(const_value_neq)
+NODECL_FORTRAN_RELATIONAL(const_value_lt)
+NODECL_FORTRAN_RELATIONAL(const_value_lte)
+NODECL_FORTRAN_RELATIONAL(const_value_gt)
+NODECL_FORTRAN_RELATIONAL(const_value_gte)
+
 NODECL_FUN_2BIN_DEF(nodecl_make_plus)
 NODECL_FUN_2BIN_DEF(nodecl_make_neg)
 NODECL_FUN_2BIN_DEF(nodecl_make_logical_not)
@@ -4922,32 +5043,32 @@ static const_value_t* const_bin_concat(nodecl_t nodecl_lhs, nodecl_t nodecl_rhs)
 
 static const_value_t* const_bin_equal(nodecl_t nodecl_lhs, nodecl_t nodecl_rhs)
 {
-    return const_bin_(nodecl_lhs, nodecl_rhs, const_value_eq);
+    return const_bin_(nodecl_lhs, nodecl_rhs, fortran_const_value_eq);
 }
 
 static const_value_t* const_bin_not_equal(nodecl_t nodecl_lhs, nodecl_t nodecl_rhs)
 {
-    return const_bin_(nodecl_lhs, nodecl_rhs, const_value_neq);
+    return const_bin_(nodecl_lhs, nodecl_rhs, fortran_const_value_neq);
 }
 
 static const_value_t* const_bin_lt(nodecl_t nodecl_lhs, nodecl_t nodecl_rhs)
 {
-    return const_bin_(nodecl_lhs, nodecl_rhs, const_value_lt);
+    return const_bin_(nodecl_lhs, nodecl_rhs, fortran_const_value_lt);
 }
 
 static const_value_t* const_bin_lte(nodecl_t nodecl_lhs, nodecl_t nodecl_rhs)
 {
-    return const_bin_(nodecl_lhs, nodecl_rhs, const_value_lte);
+    return const_bin_(nodecl_lhs, nodecl_rhs, fortran_const_value_lte);
 }
 
 static const_value_t* const_bin_gt(nodecl_t nodecl_lhs, nodecl_t nodecl_rhs)
 {
-    return const_bin_(nodecl_lhs, nodecl_rhs, const_value_gt);
+    return const_bin_(nodecl_lhs, nodecl_rhs, fortran_const_value_gt);
 }
 
 static const_value_t* const_bin_gte(nodecl_t nodecl_lhs, nodecl_t nodecl_rhs)
 {
-    return const_bin_(nodecl_lhs, nodecl_rhs, const_value_gte);
+    return const_bin_(nodecl_lhs, nodecl_rhs, fortran_const_value_gte);
 }
 
 static const_value_t* const_unary_not(nodecl_t nodecl_lhs UNUSED_PARAMETER, nodecl_t nodecl_rhs)
