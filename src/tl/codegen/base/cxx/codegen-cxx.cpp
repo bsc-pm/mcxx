@@ -2989,12 +2989,20 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
             TL::Type primary_template = template_type.get_primary_template();
             TL::Symbol primary_symbol = primary_template.get_symbol();
 
-            if (_friend == primary_symbol)
-            {
-                TL::TemplateParameters template_parameters = template_type.template_type_get_template_parameters();
-                codegen_template_header(template_parameters);
 
-                is_primary_template = 1;
+            if (_friend.get_type().is_dependent())
+            {
+                TL::TemplateParameters template_parameters(NULL);
+                if (_friend == primary_symbol)
+                {
+                    template_parameters = template_type.template_type_get_template_parameters();
+                    is_primary_template = 1;
+                }
+                else 
+                {
+                    template_parameters = _friend.get_scope().get_template_parameters();
+                }
+                codegen_template_header(template_parameters);
             }
         }
         // the friend symbol can be a SK_DEPENDENT_FRIEND_CLASS
