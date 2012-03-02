@@ -2681,7 +2681,8 @@ OPERATOR_TABLE
                         TL::Symbol class_type  = dummy_type.basic_type().get_symbol();
                         decl_context_t class_context = class_type.get_scope().get_decl_context();
 
-                        if ((TL::Symbol(class_context.current_scope->related_entry) != entry)
+                        if (!class_type.is_from_module()
+                                && (TL::Symbol(class_context.current_scope->related_entry) != entry)
                                 // Global names must not be IMPORTed
                                 && (class_context.current_scope != entry_context.global_scope
                                     // Unless at this point they have already been defined
