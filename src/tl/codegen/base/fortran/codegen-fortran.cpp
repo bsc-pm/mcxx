@@ -2638,6 +2638,9 @@ OPERATOR_TABLE
                 codegen_status_map_t old_codegen_status = _codegen_status;
                 name_set_t old_name_set = _name_set;
                 rename_map_t old_rename_map = _rename_map;
+
+                // In an interface we have to forget everything...
+                clear_codegen_status();
                 clear_renames();
 
                 codegen_procedure_declaration_header(entry, lacks_result);
