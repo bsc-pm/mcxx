@@ -3384,18 +3384,20 @@ static void build_dimension_decl(AST a,
     if (decl_context.current_scope->related_entry->kind != SK_FUNCTION)
         nodecl_saved_dim = NULL;
 
-    type_t* array_type = compute_type_from_array_spec(no_ref(entry->type_information), 
-            array_spec,
-            decl_context,
-            /* array_spec_kind */ NULL,
-            nodecl_saved_dim);
-    entry->type_information = array_type;
-
-    if (was_ref)
+    if (!is_error_type(entry->type_information))
     {
-        entry->type_information = get_lvalue_reference_type(entry->type_information);
-    }
+        type_t* array_type = compute_type_from_array_spec(no_ref(entry->type_information), 
+                array_spec,
+                decl_context,
+                /* array_spec_kind */ NULL,
+                nodecl_saved_dim);
+        entry->type_information = array_type;
 
+        if (was_ref)
+        {
+            entry->type_information = get_lvalue_reference_type(entry->type_information);
+        }
+    }
 }
 
 static void build_scope_allocatable_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -3954,16 +3956,19 @@ static void build_scope_common_stmt(AST a,
 
                 char was_ref = is_lvalue_reference_type(sym->type_information);
 
-                type_t* array_type = compute_type_from_array_spec(no_ref(sym->type_information),
-                        array_spec,
-                        decl_context,
-                        /* array_spec_kind */ NULL,
-                        /* nodecl_output */ NULL);
-                sym->type_information = array_type;
-
-                if (was_ref)
+                if (!is_error_type(sym->type_information))
                 {
-                    sym->type_information = get_lvalue_reference_type(sym->type_information);
+                    type_t* array_type = compute_type_from_array_spec(no_ref(sym->type_information),
+                            array_spec,
+                            decl_context,
+                            /* array_spec_kind */ NULL,
+                            /* nodecl_output */ NULL);
+                    sym->type_information = array_type;
+
+                    if (was_ref)
+                    {
+                        sym->type_information = get_lvalue_reference_type(sym->type_information);
+                    }
                 }
             }
 
@@ -4859,16 +4864,19 @@ static void build_scope_dimension_stmt(AST a, decl_context_t decl_context, nodec
         if (entry->entity_specs.is_implicit_basic_type)
             entry->entity_specs.is_implicit_but_not_function = 1;
 
-        entry->type_information = array_type;
-
-        if (is_pointer)
+        if (!is_error_type(entry->type_information))
         {
-            entry->type_information = get_pointer_type(no_ref(entry->type_information));
-        }
+            entry->type_information = array_type;
 
-        if (was_ref)
-        {
-            entry->type_information = get_lvalue_reference_type(entry->type_information);
+            if (is_pointer)
+            {
+                entry->type_information = get_pointer_type(no_ref(entry->type_information));
+            }
+
+            if (was_ref)
+            {
+                entry->type_information = get_lvalue_reference_type(entry->type_information);
+            }
         }
     }
 
@@ -6113,11 +6121,14 @@ static void build_scope_pointer_stmt(AST a, decl_context_t decl_context, nodecl_
             remove_unknown_kind_symbol(decl_context, entry);
         }
 
-        entry->type_information = get_pointer_type(no_ref(entry->type_information));
-
-        if (was_ref)
+        if (!is_error_type(entry->type_information))
         {
-            entry->type_information = get_lvalue_reference_type(entry->type_information);
+            entry->type_information = get_pointer_type(no_ref(entry->type_information));
+
+            if (was_ref)
+            {
+                entry->type_information = get_lvalue_reference_type(entry->type_information);
+            }
         }
     }
 
@@ -6489,11 +6500,14 @@ static void build_scope_target_stmt(AST a, decl_context_t decl_context, nodecl_t
 
                 *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_saved_dim);
 
-                entry->type_information = array_type;
-
-                if (was_ref)
+                if (!is_error_type(entry->type_information))
                 {
-                    entry->type_information = get_lvalue_reference_type(entry->type_information);
+                    entry->type_information = array_type;
+
+                    if (was_ref)
+                    {
+                        entry->type_information = get_lvalue_reference_type(entry->type_information);
+                    }
                 }
             }
         }
@@ -6725,13 +6739,16 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
                 remove_unknown_kind_symbol(decl_context, entry);
             }
            
-            entry->type_information = array_type;
-
-            entry->type_information = get_cv_qualified_type(entry->type_information, cv_qualif);
-
-            if (was_ref)
+            if (!is_error_type(entry->type_information))
             {
-                entry->type_information = get_lvalue_reference_type(entry->type_information);
+                entry->type_information = array_type;
+
+                entry->type_information = get_cv_qualified_type(entry->type_information, cv_qualif);
+
+                if (was_ref)
+                {
+                    entry->type_information = get_lvalue_reference_type(entry->type_information);
+                }
             }
         }
 
@@ -7356,23 +7373,26 @@ static void build_scope_volatile_stmt(AST a, decl_context_t decl_context, nodecl
         }
         char is_ref = is_lvalue_reference_type(entry->type_information);
 
-        if (!is_volatile_qualified_type(no_ref(entry->type_information)))
+        if (!is_error_type(entry->type_information))
         {
-            if (!is_ref)
+            if (!is_volatile_qualified_type(no_ref(entry->type_information)))
             {
-                entry->type_information = get_volatile_qualified_type(entry->type_information);
+                if (!is_ref)
+                {
+                    entry->type_information = get_volatile_qualified_type(entry->type_information);
+                }
+                else
+                {
+                    entry->type_information = get_lvalue_reference_type(
+                            get_volatile_qualified_type(no_ref(entry->type_information)));
+                }
             }
             else
             {
-                entry->type_information = get_lvalue_reference_type(
-                        get_volatile_qualified_type(no_ref(entry->type_information)));
+                error_printf("%s: error: entity '%s' already has VOLATILE attribute\n",
+                        ast_location(a), entry->symbol_name);
+                continue;
             }
-        }
-        else
-        {
-            error_printf("%s: error: entity '%s' already has VOLATILE attribute\n",
-                    ast_location(a), entry->symbol_name);
-            continue;
         }
     }
 

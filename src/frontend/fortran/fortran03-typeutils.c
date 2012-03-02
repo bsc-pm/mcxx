@@ -351,6 +351,9 @@ char equivalent_tkr_types(type_t* t1, type_t* t2)
 
 type_t* update_basic_type_with_type(type_t* type_info, type_t* basic_type)
 {
+    if (is_error_type(basic_type))
+        return basic_type;
+
     if (is_pointer_type(type_info))
     {
         return get_pointer_type(
