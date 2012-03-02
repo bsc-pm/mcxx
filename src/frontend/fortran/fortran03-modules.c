@@ -1711,9 +1711,15 @@ static int get_symbol(void *datum,
         // Check if this symbol is in the cache and reuse it 
         if (query != NULL)
         {
-            fprintf(stderr, "HIT FOR module '%s'\n", strtolower(name));
+            // fprintf(stderr, "HIT FOR module '%s' (OID=%llu)\n", strtolower(name), oid);
             scope_entry_t* module_symbol = (scope_entry_t*)rb_node_get_info(query);
             (*result) = module_symbol;
+            insert_map_ptr(handle, oid, (*result));
+            return 0;
+        }
+        else
+        {
+            // fprintf(stderr, "MISS FOR module '%s' (OID=%llu)\n", strtolower(name), oid);
         }
     }
 
@@ -1732,14 +1738,13 @@ static int get_symbol(void *datum,
                 // This symbol is already in this module
                 if (strcasecmp(in_module->entity_specs.related_symbols[i]->symbol_name, name) == 0)
                 {
-                    fprintf(stderr, "HIT FOR '%s.%s'\n", in_module->symbol_name, name);
+                    // fprintf(stderr, "HIT FOR '%s.%s' (OID=%llu)\n", in_module->symbol_name, name, oid);
                     // Use the existing symbol instead which will be already loaded
                     *result = in_module->entity_specs.related_symbols[i];
-                    insert_map_ptr(handle, oid, *result);
                     return 0;
                 }
             }
-            fprintf(stderr, "MISS FOR '%s.%s'\n", in_module->symbol_name, name);
+            // fprintf(stderr, "MISS FOR '%s.%s' (OID=%llu)\n", in_module->symbol_name, name, oid);
         }
     }
 
