@@ -3089,10 +3089,6 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
 
             file << declarator;
         }
-        else if (_friend.is_template())
-        {
-
-        }
         else
         {
             internal_error("Invalid friend symbol kind '%s'\n", symbol_kind_name(_friend.get_internal_symbol()));
@@ -3264,6 +3260,8 @@ void CxxBase::define_specializations_user_declared(TL::Symbol sym)
 {
     ERROR_CONDITION(!sym.is_template(), "must be a template symbol", 0);
 
+    set_codegen_status(sym, CODEGEN_STATUS_DEFINED);
+
     TL::ObjectList<TL::Type> specializations = sym.get_type().get_specializations();
     for (TL::ObjectList<TL::Type>::iterator it = specializations.begin();
             it != specializations.end();
@@ -3296,22 +3294,24 @@ void CxxBase::define_symbol(TL::Symbol symbol)
         symbol = symbol.get_class_type().get_symbol();
 
     if (symbol.get_type().is_template_specialized_type()
-            && !symbol.is_user_declared()
             && all_enclosing_classes_are_user_declared(symbol))
     {
-        //We may need to define or declare the template arguments
-        TL::TemplateParameters template_arguments =
-            symbol.get_type().template_specialized_type_get_template_arguments();
-        declare_all_in_template_arguments(template_arguments);
-
-        //We must define all user declared specializations
         TL::Symbol template_symbol =
             symbol
             .get_type()
             .get_related_template_type()
             .get_related_template_symbol();
-        define_specializations_user_declared(template_symbol);
-        return;
+        if (get_codegen_status(template_symbol) != CODEGEN_STATUS_DEFINED)
+        {
+            //We may need to define or declare the template arguments
+            TL::TemplateParameters template_arguments =
+                symbol.get_type().template_specialized_type_get_template_arguments();
+            declare_all_in_template_arguments(template_arguments);
+
+            //We must define all user declared specializations
+            define_specializations_user_declared(template_symbol);
+            return;
+        }
     }
 
     if (symbol.is_dependent_entity())
@@ -3469,7 +3469,6 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
             define_symbol_if_nonnested(class_entry);
         }
     }
-
 
     // We only generate user declared code
     if (!symbol.is_user_declared())
