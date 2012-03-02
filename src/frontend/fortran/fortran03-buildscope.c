@@ -6996,18 +6996,13 @@ static scope_entry_t* query_module_for_symbol_name(scope_entry_t* module_symbol,
 static char come_from_the_same_module(scope_entry_t* new_symbol_used,
         scope_entry_t* existing_symbol)
 {
-    // If both symbols come from modules and they point to the same symbol,
-    // then they are the same
-    if (new_symbol_used->entity_specs.from_module
-            && existing_symbol->entity_specs.from_module
-            && (new_symbol_used->entity_specs.alias_to == existing_symbol->entity_specs.alias_to
-                || (strcmp(new_symbol_used->entity_specs.alias_to->entity_specs.in_module->symbol_name, 
-                        existing_symbol->entity_specs.alias_to->entity_specs.in_module->symbol_name) == 0)
-               )
-       )
-        return 1;
+    if (new_symbol_used->entity_specs.from_module)
+        new_symbol_used = new_symbol_used->entity_specs.alias_to;
 
-    return 0;
+    if (existing_symbol->entity_specs.from_module)
+        existing_symbol = existing_symbol->entity_specs.alias_to;
+
+    return new_symbol_used == existing_symbol;
 }
 
 static scope_entry_t* insert_symbol_from_module(scope_entry_t* entry, 
@@ -7023,12 +7018,20 @@ static scope_entry_t* insert_symbol_from_module(scope_entry_t* entry,
 
     if (check_repeated_name != NULL)
     {
-        scope_entry_t* existing_name = entry_list_head(check_repeated_name);
-        if (come_from_the_same_module(entry, existing_name))
+        scope_entry_list_iterator_t *it = NULL;
+        for (it = entry_list_iterator_begin(check_repeated_name);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
-            return existing_name;
+            scope_entry_t* existing_name = entry_list_iterator_current(it);
+            if (come_from_the_same_module(entry, existing_name))
+            {
+                entry_list_iterator_free(it);
+                return existing_name;
+            }
         }
-        // We allow the symbol be repeated, using it should be wrong (but this is not checked!)
+        entry_list_iterator_free(it);
+        // We allow the symbol be repeated, using it will be wrong 
     }
     entry_list_free(check_repeated_name);
     
