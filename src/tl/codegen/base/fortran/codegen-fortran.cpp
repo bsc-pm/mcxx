@@ -699,9 +699,50 @@ OPERATOR_TABLE
         TL::Type type = node.get_type();
         if (type.is_array())
         {
-            file << "(/ ";
-            codegen_comma_separated_list(node.get_items());
-            file << " /)";
+            int n = get_rank_of_type(type.get_internal_type());
+
+            if (n == 1
+                    || state.flatten_array_construct)
+            {
+                file << "(/ ";
+                codegen_comma_separated_list(node.get_items());
+                file << " /)";
+            }
+            else
+            {
+                // We need a RESHAPE
+                // First prepare shape
+                std::string shape;
+                TL::Type t = type;
+                int n = 0;
+                while (is_fortran_array_type(t.get_internal_type()))
+                {
+
+                    std::stringstream ss;
+
+                    const_value_t* v = nodecl_get_constant(t.array_get_size().get_internal_nodecl());
+                    ERROR_CONDITION((v == NULL), "There must be a constant here!", 0);
+
+                    ss << const_value_cast_to_signed_int(v);
+                    if (n != 0)
+                        ss << ", ";
+
+                    shape = ss.str() + shape;
+                    t = t.array_element();
+                    n++;
+                }
+               
+                file << "RESHAPE( SOURCE=";
+                file << "(/ ";
+
+                bool old_array_constructor = state.flatten_array_construct;
+                state.flatten_array_construct = true;
+                codegen_comma_separated_list(node.get_items());
+                state.flatten_array_construct = old_array_constructor;
+
+                file << " /), ";
+                file << "SHAPE = (/ " << shape << " /) )";
+            }
         }
         else if (type.is_named_class())
         {
