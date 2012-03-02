@@ -836,6 +836,7 @@ nodecl_t const_value_to_nodecl(const_value_t* v)
                     list = nodecl_append_to_list(list, const_value_to_nodecl(v->value.m->elements[i]));
                 }
 
+                // Get the type from the first element
                 type_t* t = get_void_type();
                 if (v->value.m->num_elements > 0)
                 {
@@ -849,9 +850,12 @@ nodecl_t const_value_to_nodecl(const_value_t* v)
                         nodecl_make_integer_literal(get_signed_int_type(), const_value_get_signed_int(v->value.m->num_elements), NULL, 0),
                         CURRENT_COMPILED_FILE->global_decl_context);
 
-                return nodecl_make_structured_value(
+                nodecl_t result = nodecl_make_structured_value(
                         list, t,
                         NULL, 0);
+
+                nodecl_set_constant(result, v);
+                return result;
                 break;
             }
         default:
