@@ -2875,7 +2875,7 @@ scope_entry_t* compute_intrinsic_lbound(scope_entry_t* symbol UNUSED_PARAMETER,
         {
             return GET_INTRINSIC_INQUIRY("lbound",
                     get_n_ranked_type(choose_int_type_from_kind(argument_expressions[2], di), 
-                        get_rank_of_type(t0), 
+                        1, 
                         symbol->decl_context),
                     t0, fortran_get_default_integer_type(), 
                     fortran_get_default_integer_type());
@@ -4849,7 +4849,7 @@ scope_entry_t* compute_intrinsic_ubound(scope_entry_t* symbol UNUSED_PARAMETER,
         {
             return GET_INTRINSIC_INQUIRY("ubound",
                     get_n_ranked_type(choose_int_type_from_kind(argument_expressions[2], di), 
-                        get_rank_of_type(t0), 
+                        1,
                         symbol->decl_context),
                     t0, fortran_get_default_integer_type(),
                     fortran_get_default_integer_type());
