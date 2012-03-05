@@ -2981,14 +2981,14 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
         TL::Symbol template_symbol(NULL);
 
         inc_indent();
-        // Since friends are a tad bit special we will handle them here
+
+        // A. Generate a template header if this friend declaration has one
         if (_friend.get_type().is_template_specialized_type())
         {
             TL::Type template_type = _friend.get_type().get_related_template_type();
             template_symbol = template_type.get_related_template_symbol();
             TL::Type primary_template = template_type.get_primary_template();
             TL::Symbol primary_symbol = primary_template.get_symbol();
-
 
             if (_friend.get_type().is_dependent())
             {
@@ -2998,55 +2998,26 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                     template_parameters = template_type.template_type_get_template_parameters();
                     is_primary_template = 1;
                 }
-                else 
+                else
                 {
                     template_parameters = _friend.get_scope().get_template_parameters();
                 }
                 codegen_template_header(template_parameters);
             }
         }
-        // the friend symbol can be a SK_DEPENDENT_FRIEND_CLASS
-        else if (_friend.get_type().is_dependent_typename())
+        else if (_friend.get_type().is_dependent_typename() ||
+                 _friend.get_internal_symbol()->kind == SK_DEPENDENT_FRIEND_CLASS)
         {
             TL::TemplateParameters template_parameters = _friend.get_scope().get_template_parameters();
-            codegen_template_header(template_parameters);
-            indent();
-            file << "friend "
-                << print_type_str(_friend.get_type().get_internal_type(),_friend.get_scope().get_decl_context())
-                << ";\n";
-
-            dec_indent();
-            continue;
-        }
-        else if (_friend.get_internal_symbol()->kind == SK_DEPENDENT_FRIEND_FUNCTION)
-        {
-            TL::Type dep_funct_type = _friend.get_type();
-            if (dep_funct_type.is_template_specialized_type())
-            {
-                TL::TemplateParameters template_parameters = _friend.get_scope().get_template_parameters();
-                codegen_template_header(template_parameters);
-            }
-
-            std::string function_name = (is_primary_template) ?
-                unmangle_symbol_name(_friend) : _friend.get_qualified_name();
-
-            char is_template_id = nodecl_name_ends_in_template_id(_friend.get_value().get_internal_nodecl());
-            if (is_template_id)
-            {
-                function_name = function_name + "<>";
-            }
-
-            indent();
-            std::string declarator = this->get_declaration(dep_funct_type, _friend.get_scope(), function_name);
-            file << "friend " << declarator << ";\n";
-            dec_indent();
-            continue;
+            codegen_template_headers_bounded(template_parameters, symbol.get_scope().get_template_parameters());
         }
 
+        // B. Generate the function or class declaration
         indent();
         file << "friend ";
 
-        if (_friend.is_class())
+        if (_friend.is_class() ||
+                _friend.get_internal_symbol()->kind == SK_DEPENDENT_FRIEND_CLASS)
         {
             std::string friend_class_key;
             switch (_friend.get_type().class_type_get_class_kind())
@@ -3073,7 +3044,8 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                 file << friend_class_key << template_symbol.get_qualified_name(_friend.get_scope());
             }
         }
-        else if (_friend.is_function())
+        else if (_friend.is_function() ||
+                 _friend.get_internal_symbol()->kind == SK_DEPENDENT_FRIEND_FUNCTION)
         {
             TL::Type real_type = _friend.get_type();
             if (symbol.is_conversion_function())
@@ -3084,14 +3056,19 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
             std::string function_name = (is_primary_template) ?
                 unmangle_symbol_name(_friend) : _friend.get_qualified_name();
 
+            if (!_friend.get_value().is_null())
+            {
+                char is_template_id = nodecl_name_ends_in_template_id(_friend.get_value().get_internal_nodecl());
+                if (is_template_id)
+                {
+                    function_name = function_name + "<>";
+                }
+            }
+
             std::string declarator =
                 this->get_declaration(real_type, _friend.get_scope(), function_name);
 
             file << declarator;
-        }
-        else if (_friend.is_template())
-        {
-
         }
         else
         {
@@ -3264,6 +3241,8 @@ void CxxBase::define_specializations_user_declared(TL::Symbol sym)
 {
     ERROR_CONDITION(!sym.is_template(), "must be a template symbol", 0);
 
+    set_codegen_status(sym, CODEGEN_STATUS_DEFINED);
+
     TL::ObjectList<TL::Type> specializations = sym.get_type().get_specializations();
     for (TL::ObjectList<TL::Type>::iterator it = specializations.begin();
             it != specializations.end();
@@ -3296,22 +3275,24 @@ void CxxBase::define_symbol(TL::Symbol symbol)
         symbol = symbol.get_class_type().get_symbol();
 
     if (symbol.get_type().is_template_specialized_type()
-            && !symbol.is_user_declared()
             && all_enclosing_classes_are_user_declared(symbol))
     {
-        //We may need to define or declare the template arguments
-        TL::TemplateParameters template_arguments =
-            symbol.get_type().template_specialized_type_get_template_arguments();
-        declare_all_in_template_arguments(template_arguments);
-
-        //We must define all user declared specializations
         TL::Symbol template_symbol =
             symbol
             .get_type()
             .get_related_template_type()
             .get_related_template_symbol();
-        define_specializations_user_declared(template_symbol);
-        return;
+        if (get_codegen_status(template_symbol) != CODEGEN_STATUS_DEFINED)
+        {
+            //We may need to define or declare the template arguments
+            TL::TemplateParameters template_arguments =
+                symbol.get_type().template_specialized_type_get_template_arguments();
+            declare_all_in_template_arguments(template_arguments);
+
+            //We must define all user declared specializations
+            define_specializations_user_declared(template_symbol);
+            return;
+        }
     }
 
     if (symbol.is_dependent_entity())
@@ -3469,7 +3450,6 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
             define_symbol_if_nonnested(class_entry);
         }
     }
-
 
     // We only generate user declared code
     if (!symbol.is_user_declared())
@@ -5108,6 +5088,20 @@ void CxxBase::declare_all_in_template_header(TL::TemplateParameters template_par
             }
         }
     }
+}
+
+
+void CxxBase::codegen_template_headers_bounded(TL::TemplateParameters template_parameters, TL::TemplateParameters lim)
+{
+    if (template_parameters.has_enclosing_parameters())
+    {
+        TL::TemplateParameters enclosing_template_parameters = template_parameters.get_enclosing_parameters();
+        if (enclosing_template_parameters != lim)
+        {
+            codegen_template_headers_all_levels(enclosing_template_parameters);
+        }
+    }
+    codegen_template_header(template_parameters);
 }
 
 void CxxBase::codegen_template_headers_all_levels(TL::TemplateParameters template_parameters)

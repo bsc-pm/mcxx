@@ -1175,6 +1175,16 @@ namespace TL
         return _tpl_param_value->is_default;
     }
 
+    bool TemplateParameters::operator==(TemplateParameters t) const
+    {
+        return this->_tpl_params == t._tpl_params;
+    }
+
+    bool TemplateParameters::operator!=(TemplateParameters t) const
+    {
+        return !(this->operator==(t));
+    }
+
     bool TemplateParameters::is_valid() const
     {
         return _tpl_params != NULL;

@@ -115,6 +115,8 @@ LIBMCXX_EXTERN type_t* get_unresolved_overloaded_type(const scope_entry_list_t* 
         template_parameter_list_t* explicit_template_parameters);
 LIBMCXX_EXTERN template_parameter_list_t* unresolved_overloaded_type_get_explicit_template_arguments(type_t* t);
 
+LIBMCXX_EXTERN template_parameter_list_t* compute_template_parameter_values_of_primary(template_parameter_list_t* template_parameter_list);
+
 LIBMCXX_EXTERN scope_entry_t* unresolved_overloaded_type_simplify(type_t* t, 
         decl_context_t decl_context, const char* filename, int line);
 
@@ -480,10 +482,16 @@ LIBMCXX_EXTERN type_t* template_type_get_primary_type(type_t* t);
 LIBMCXX_EXTERN type_t* template_type_get_matching_specialized_type(type_t* t,
         template_parameter_list_t* template_parameter_list,
         decl_context_t decl_context);
-LIBMCXX_EXTERN type_t* template_type_get_specialized_type(type_t* t, 
+
+LIBMCXX_EXTERN type_t* template_type_get_specialized_type(type_t* t,
         template_parameter_list_t * template_parameters,
-        decl_context_t decl_context, 
+        decl_context_t decl_context,
         const char* filename, int line);
+LIBMCXX_EXTERN type_t* template_type_get_specialized_type_noreuse(type_t* t,
+        template_parameter_list_t * template_parameters,
+        decl_context_t decl_context,
+        const char* filename, int line);
+
 LIBMCXX_EXTERN type_t* template_type_get_specialized_type_after_type(type_t* t, 
         template_parameter_list_t *template_parameters, 
         type_t* after_type,

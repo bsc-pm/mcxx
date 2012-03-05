@@ -2255,15 +2255,73 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
     {
         scope_entry_t* class_symbol = decl_context.current_scope->related_entry;
         ERROR_CONDITION(class_symbol->kind != SK_CLASS, "Invalid symbol", 0);
-        class_type_add_friend_symbol(class_symbol->type_information, entry);
 
-        //Promote a SK_DEPENDENT_ENTITY to SK_DEPENDENT_FRIEND_CLASS
-        if (entry->kind == SK_DEPENDENT_ENTITY)
+        scope_entry_t* friend_sym = entry;
+
+        //Is it a template friend class declaration?
+        if (gather_info->is_template)
         {
-            entry->kind = SK_DEPENDENT_FRIEND_CLASS;
-            set_dependent_entry_kind(entry->type_information, class_kind);
+            // Is the query result a template?
+            if (!is_template_specialized_type(entry->type_information))
+            {
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: '%s' is not a template\n",
+                            ast_location(a), prettyprint_in_buffer(a));
+                }
+                *type_info = get_error_type();
+                return;
+            }
+
+            type_t* template_type = template_specialized_type_get_related_template_type(entry->type_information);
+
+            friend_sym = counted_calloc(1, sizeof(*entry), &_bytes_used_buildscope);
+            friend_sym->kind = SK_DEPENDENT_FRIEND_CLASS;
+            friend_sym->file = ASTFileName(a);
+            friend_sym->line = ASTLine(a);
+
+            nodecl_t nodecl_name = nodecl_null();
+            compute_nodecl_name_from_id_expression(id_expression, decl_context, &nodecl_name);
+            friend_sym->symbol_name = codegen_to_str(nodecl_name);
+
+            friend_sym->value = nodecl_name;
+            friend_sym->decl_context = decl_context;
+            friend_sym->entity_specs.is_friend_declared = 1;
+
+            template_parameter_list_t* tpl = decl_context.template_parameters;
+            tpl = compute_template_parameter_values_of_primary(tpl);
+
+            // We need a fresh version every time for the friend declaration
+            // because we don't want to share it between classes
+            // Example:
+            //
+            // template <typename T2>
+            // struct M
+            // {
+            //     struct B;
+            // };
+            //
+            // template<typename T>
+            // struct A1
+            // {
+            //     template <typename S2>
+            //         friend class M;
+            // };
+            //
+            // template<typename T>
+            // struct A2
+            // {
+            //     template <typename S3>
+            //         friend class M;
+            // };
+            //
+            // ::A1<T>::M and ::A2<T>::M shall be different symbols because
+            // we need to remember the template arguments
+            friend_sym->type_information =
+                template_type_get_specialized_type_noreuse(template_type, tpl, decl_context, friend_sym->file, friend_sym->line);
         }
 
+        class_type_add_friend_symbol(class_symbol->type_information, friend_sym);
         *type_info = get_void_type();
         return;
     }

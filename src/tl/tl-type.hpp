@@ -76,6 +76,9 @@ namespace TL
         public:
             TemplateParameters(template_parameter_list_t* tpl_params) : _tpl_params(tpl_params) { }
 
+            bool operator==(TemplateParameters t) const;
+            bool operator!=(TemplateParameters t) const;
+            
             bool is_valid() const;
 
             //! Returns the number of parameters in the current parameter level
