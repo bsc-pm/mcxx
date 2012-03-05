@@ -1308,21 +1308,29 @@ static void check_complex_literal(AST expr, decl_context_t decl_context, nodecl_
 
 static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    nodecl_t nodecl_base = nodecl_null();
-    fortran_check_expression_impl_(ASTSon0(expr), decl_context, &nodecl_base);
+    // Left hand side first
 
-    if (nodecl_is_err_expr(nodecl_base))
+    nodecl_t nodecl_lhs = nodecl_null();
+    fortran_check_expression_impl_(ASTSon0(expr), decl_context, &nodecl_lhs);
+
+    if (nodecl_is_err_expr(nodecl_lhs))
     {
         *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
         return;
     }
 
-    type_t* t = no_ref(nodecl_get_type(nodecl_base));
+    // There are several types being defined below
+    //   orig_lhs_type is the type in the lhs node without references
+    //   lhs_type is the type in the lhs without any pointer but with all the rank
+    //   class_type is the class type ultimately referred in the type of lhs_type without any pointer
 
-    if (is_pointer_type(t))
-        t = pointer_type_get_pointee_type(t);
+    type_t* orig_lhs_type = no_ref(nodecl_get_type(nodecl_lhs));
+    type_t* lhs_type = orig_lhs_type;
 
-    type_t* class_type = get_rank0_type(t);
+    if (is_pointer_type(lhs_type))
+        lhs_type = pointer_type_get_pointee_type(lhs_type);
+
+    type_t* class_type = get_rank0_type(lhs_type);
 
     if (!is_pointer_to_class_type(class_type)
             && !is_class_type(class_type))
@@ -1339,15 +1347,38 @@ static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t*
 
     if (is_pointer_to_class_type(class_type))
     {
-        class_type = pointer_type_get_pointee_type(t);
+        class_type = pointer_type_get_pointee_type(class_type);
     }
 
     decl_context_t class_context = class_type_get_inner_context(get_actual_class_type(class_type));
 
-    const char* field = ASTText(ASTSon1(expr));
-    scope_entry_t* entry = query_name_in_class(class_context, field);
+    // Right hand side
 
-    if (entry == NULL)
+    AST rhs = ASTSon1(expr);
+    AST name = rhs;
+
+    switch (ASTType(name))
+    {
+        case AST_SYMBOL:
+            {
+                // Do nothing
+                break;
+            }
+        case AST_ARRAY_SUBSCRIPT:
+            {
+                name = ASTSon0(name);
+                break;
+            }
+        default:
+            {
+                internal_error("Unexpected tree '%s' at right hand side of '%%'\n", ast_print_node_type(ASTType(name)));
+            }
+    }
+
+    const char* field = ASTText(name);
+    scope_entry_t* component_symbol = query_name_in_class(class_context, field);
+
+    if (component_symbol == NULL)
     {
         if (!checking_ambiguity())
         {
@@ -1360,63 +1391,95 @@ static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t*
         return;
     }
 
-    if (get_rank_of_type(t) != 0
-            && get_rank_of_type(entry->type_information) != 0)
+    nodecl_t nodecl_rhs = nodecl_make_symbol(component_symbol, ASTFileName(name), ASTLine(name));
+
+    type_t* component_type = no_ref(component_symbol->type_information);
+    nodecl_set_type(nodecl_rhs, component_type);
+
+    if (is_pointer_type(component_type))
     {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: in data-reference '%s' both parts have nonzero rank\n",
-                    ast_location(expr),
-                    fortran_prettyprint_in_buffer(expr));
-        }
+        nodecl_rhs = nodecl_make_derreference(nodecl_rhs, 
+                pointer_type_get_pointee_type(component_type),
+                ASTFileName(name),
+                ASTLine(name));
+        nodecl_set_symbol(nodecl_rhs, component_symbol);
+    }
+
+    if (ASTType(rhs) == AST_ARRAY_SUBSCRIPT)
+    {
+        check_array_ref_(rhs, decl_context, nodecl_rhs, &nodecl_rhs);
+    }
+
+    if (nodecl_is_err_expr(nodecl_rhs))
+    {
         *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
         return;
     }
 
-    type_t* synthesized_type = entry->type_information;
+    type_t* orig_rhs_type = no_ref(nodecl_get_type(nodecl_rhs));
+    type_t* rhs_type = orig_rhs_type;
 
-    char is_pointer = 0;
-    if (is_pointer_type(no_ref(synthesized_type)))
+    if (is_pointer_type(rhs_type))
+        rhs_type = pointer_type_get_pointee_type(rhs_type);
+
+    if (get_rank_of_type(lhs_type) != 0
+            && get_rank_of_type(rhs_type) != 0)
     {
-        is_pointer = 1;
-        synthesized_type = pointer_type_get_pointee_type(no_ref(synthesized_type));
+        error_printf("%s: error: two or more nonzero ranks in part reference '%s'\n", 
+                ast_location(expr),
+                fortran_prettyprint_in_buffer(expr));
     }
-    
-    if (!is_fortran_array_type(synthesized_type)
-            && !is_pointer_to_fortran_array_type(synthesized_type))
+
+    // char lhs_is_pointer = is_pointer_type(orig_lhs_type);
+
+    type_t* synthesized_type = get_rank0_type(rhs_type);
+
+    if (is_fortran_array_type(lhs_type))
     {
-        synthesized_type = rebuild_array_type(synthesized_type, t);
+        synthesized_type = rebuild_array_type(synthesized_type, lhs_type);
+    }
+    else if (is_fortran_array_type(rhs_type))
+    {
+        synthesized_type = rhs_type;
     }
 
-    if (is_pointer)
-    {
-        // We do this in two steps since we want the symbol in the class member access as well
-        *nodecl_output = nodecl_make_class_member_access(nodecl_base, 
-                nodecl_make_symbol(entry, ASTFileName(ASTSon1(expr)), ASTLine(ASTSon1(expr))),
-                get_pointer_type(synthesized_type),
-                ASTFileName(expr), ASTLine(expr)),
-        nodecl_set_symbol(*nodecl_output, entry);
+    nodecl_t nodecl_rhs_adjusted = nodecl_rhs;
 
+    char rhs_is_pointer = 0;
+    if (nodecl_get_kind(nodecl_rhs_adjusted) == NODECL_DERREFERENCE)
+    {
+        rhs_is_pointer = 1;
+        nodecl_rhs_adjusted = nodecl_get_child(nodecl_rhs_adjusted, 0);
+    }
+
+    if (rhs_is_pointer)
+        synthesized_type = get_pointer_type(synthesized_type);
+
+    *nodecl_output =
+        nodecl_make_class_member_access(
+                nodecl_lhs,
+                nodecl_rhs_adjusted,
+                synthesized_type,
+                ASTFileName(expr),
+                ASTLine(expr));
+    nodecl_set_symbol(*nodecl_output, component_symbol);
+
+    if (rhs_is_pointer)
+    {
+        // Move the derreference outside of the class access
         *nodecl_output = 
             nodecl_make_derreference(
                     *nodecl_output,
-                    synthesized_type,
-                    ASTFileName(expr), ASTLine(expr));
-    }
-    else
-    {
-        *nodecl_output = nodecl_make_class_member_access(nodecl_base, 
-                nodecl_make_symbol(entry, ASTFileName(ASTSon1(expr)), ASTLine(ASTSon1(expr))),
-                synthesized_type,
-                ASTFileName(expr), ASTLine(expr));
+                    pointer_type_get_pointee_type(synthesized_type),
+                    ASTFileName(expr),
+                    ASTLine(expr));
+        nodecl_set_symbol(*nodecl_output, component_symbol);
     }
 
-    nodecl_set_symbol(*nodecl_output, entry);
-
-    if (nodecl_is_constant(nodecl_base))
+    if (nodecl_is_constant(nodecl_lhs))
     {
         // The base is const, thus this component reference is const as well
-        const_value_t* const_value = nodecl_get_constant(nodecl_base);
+        const_value_t* const_value = nodecl_get_constant(nodecl_lhs);
         ERROR_CONDITION(!const_value_is_structured(const_value), "Invalid constant value for data-reference of part", 0);
 
         // First figure the index inside the const value
@@ -1429,7 +1492,7 @@ static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t*
                 entry_list_iterator_next(iter), i++)
         {
             scope_entry_t* current_member = entry_list_iterator_current(iter);
-            if (current_member == entry)
+            if (current_member == component_symbol)
             {
                 break;
             }
@@ -3731,10 +3794,6 @@ static void check_symbol_variable(AST expr, decl_context_t decl_context, nodecl_
             (entry->kind != SK_VARIABLE 
              && entry->kind != SK_UNDEFINED))
     {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: code unreachable\n", ast_location(expr));
-        }
         *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
         return;
     }
@@ -4307,56 +4366,96 @@ static void disambiguate_expression(AST expr, decl_context_t decl_context, nodec
 
     int i;
     int correct_option = -1;
-    int function_call = -1;
+
+    struct { AST t; int idx; } prioritize[4] = { { NULL, 0 } };
+
+    // Due to a glitch we have to check the ambiguities in a very specific order
+    //
+    // * function call
+    // * array reference
+    // * derived type constructors
+    // * class member accesses
+    //
     for (i = 0; i < num_ambig; i++)
     {
         AST current_expr = ast_get_ambiguity(expr, i);
 
-        nodecl_t nodecl_check_expr = nodecl_null();
         switch (ASTType(current_expr))
         {
             case AST_FUNCTION_CALL:
-            case AST_ARRAY_SUBSCRIPT:
-            case AST_DERIVED_TYPE_CONSTRUCTOR:
                 {
-                    enter_test_expression();
-                    fortran_check_expression_impl_(current_expr, decl_context, &nodecl_check_expr);
-                    leave_test_expression();
-
-                    if (ASTType(current_expr) == AST_FUNCTION_CALL)
-                    {
-                        function_call = i;
-                    }
+                    ERROR_CONDITION(prioritize[0].t != NULL, "More than one ambiguity!\n", 0);
+                    prioritize[0].t = current_expr;
+                    prioritize[0].idx = i;
                     break;
                 }
+            case AST_ARRAY_SUBSCRIPT:
+                {
+                    ERROR_CONDITION(prioritize[1].t != NULL, "More than one ambiguity!\n", 0);
+                    prioritize[1].t = current_expr;
+                    prioritize[1].idx = i;
+                    break;
+                }
+            case AST_DERIVED_TYPE_CONSTRUCTOR:
+                {
+                    ERROR_CONDITION(prioritize[2].t != NULL, "More than one ambiguity!\n", 0);
+                    prioritize[2].t = current_expr;
+                    prioritize[2].idx = i;
+                    break;
+                }
+            case AST_CLASS_MEMBER_ACCESS:
+                {
+                    ERROR_CONDITION(prioritize[3].t != NULL, "More than one ambiguity!\n", 0);
+                    prioritize[3].t = current_expr;
+                    prioritize[3].idx = i;
+                    break;
+                }
+                break;
             default:
                 {
                     internal_error("%s: unexpected node '%s'\n", 
-                            ast_location(expr),
-                            ast_print_node_type(ASTType(expr)));
+                            ast_location(current_expr),
+                            ast_print_node_type(ASTType(current_expr)));
                     break;
                 }
         }
+    }
 
-        if (!nodecl_is_err_expr(nodecl_check_expr))
+    for (i = 0; i < (int)STATIC_ARRAY_LENGTH(prioritize); i++)
+    {
+        if (prioritize[i].t != NULL)
         {
-            if (correct_option < 0)
+            nodecl_t nodecl_check_expr = nodecl_null();
+            AST current_expr = prioritize[i].t;
+            enter_test_expression();
+            fortran_check_expression_impl_(current_expr, decl_context, &nodecl_check_expr);
+            leave_test_expression();
+
+            if (!nodecl_is_err_expr(nodecl_check_expr))
             {
-                correct_option = i;
-            }
-            else
-            {
-                internal_error("%s: more than one interpretation valid for '%s'\n",
-                        fortran_prettyprint_in_buffer(current_expr));
+                if (correct_option < 0)
+                {
+                    correct_option = prioritize[i].idx;
+                }
+                else
+                {
+                    internal_error("%s: more than one interpretation valid for '%s'\n",
+                            fortran_prettyprint_in_buffer(current_expr));
+                }
             }
         }
     }
 
     if (correct_option < 0)
     {
-        ERROR_CONDITION(function_call < 0, "Invalid ambiguity", 0);
-        // Default to function call as a fallback
-        ast_replace_with_ambiguity(expr, function_call);
+        ERROR_CONDITION(prioritize[0].t == NULL && prioritize[3].t == NULL, 
+                "Invalid ambiguity", 0);
+
+        // Use function call if no class member access ambiguity has arisen
+        if (prioritize[3].t == NULL)
+            ast_replace_with_ambiguity(expr, prioritize[0].idx);
+        else
+            ast_replace_with_ambiguity(expr, prioritize[3].idx);
     }
     else
     {

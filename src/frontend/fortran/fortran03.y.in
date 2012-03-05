@@ -223,6 +223,8 @@ static void append_statement_to_block(AST block, AST stmt)
 %type<ast> non_top_level_program_unit_stmt
 %type<ast> program_body
 %type<ast> interface_program_body
+%type<ast> substring
+%type<ast> substring_singleton_list
 %type<ast> subscript_triplet
 %type<ast> forall_assignment_stmt
 %type<ast> end_enum_stmt
@@ -331,6 +333,12 @@ static void append_statement_to_block(AST block, AST stmt)
 %type<ast> image_set
 %type<ast> expr
 %type<ast> data_ref
+%type<ast> data_ref_image_selector
+%type<ast> data_ref_substring
+%type<ast> data_ref_member_access
+%type<ast> data_ref_member_access_end_with_array
+%type<ast> data_ref_array_subscript
+%type<ast> data_ref_array_subscript_end_with_array
 %type<ast> data_ref_no_array
 %type<ast> lock_variable
 %type<ast> case_expr
@@ -2305,25 +2313,50 @@ default_char_variable : variable
 ;
 int_variable : variable
 ;
-data_ref : data_ref_no_array
-| data_ref '(' section_subscript_list ')'
+// data_ref is structured as an expression grammar
+data_ref : data_ref_image_selector
+;
+data_ref_image_selector : data_ref_substring
+| data_ref_substring image_selector
+{
+     $$ = ASTMake2(AST_IMAGE_REF, $1, $2, ASTFileName($1), ASTLine($1), NULL);
+}
+;
+data_ref_substring : data_ref_member_access
+| data_ref_member_access_end_with_array '(' substring_singleton_list ')'
 {
     $$ = ASTMake2(AST_ARRAY_SUBSCRIPT, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }
-| data_ref '(' section_subscript_list ')' image_selector
+| data_ref_array_subscript_end_with_array '(' substring_singleton_list ')'
 {
-    AST array_ref = ASTMake2(AST_ARRAY_SUBSCRIPT, $1, $3, ASTFileName($1), ASTLine($1), NULL);
-    $$ = ASTMake2(AST_IMAGE_REF, array_ref, $5, ASTFileName($1), ASTLine($1), NULL);
+    $$ = ASTMake2(AST_ARRAY_SUBSCRIPT, $1, $3, ASTFileName($1), ASTLine($1), NULL);
+}
+;
+data_ref_member_access : data_ref_array_subscript
+| data_ref_member_access '%' name
+{
+     $$ = ASTMake2(AST_CLASS_MEMBER_ACCESS, $1, $3, ASTFileName($1), ASTLine($1), NULL);
+}
+| data_ref_member_access_end_with_array
+;
+data_ref_member_access_end_with_array : data_ref_member_access '%' name '(' section_subscript_list ')'
+{
+    AST array = ASTMake2(AST_ARRAY_SUBSCRIPT, $3, $5, ASTFileName($3), ASTLine($3), NULL);
+    $$ = ASTMake2(AST_CLASS_MEMBER_ACCESS, $1, array, ASTFileName($1), ASTLine($1), NULL);
+}
+;
+data_ref_array_subscript : name
+| data_ref_array_subscript_end_with_array
+;
+data_ref_array_subscript_end_with_array : name '(' section_subscript_list ')'
+{
+     $$ = ASTMake2(AST_ARRAY_SUBSCRIPT, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 data_ref_no_array : name
-| name image_selector
+| data_ref_member_access '%' name
 {
-    $$ = ASTMake2(AST_IMAGE_REF, $1, $2, ASTFileName($1), ASTLine($1), NULL);
-}
-| data_ref '%' name
-{
-    $$ = ASTMake2(AST_CLASS_MEMBER_ACCESS, $1, $3, ASTFileName($1), ASTLine($1), NULL);
+     $$ = ASTMake2(AST_CLASS_MEMBER_ACCESS, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 subscript : int_expr
@@ -2343,17 +2376,24 @@ subscript_triplet : subscript ':' subscript ':' stride
 {
     $$ = ASTMake3(AST_SUBSCRIPT_TRIPLET, $1, NULL, $4, ASTFileName($1), ASTLine($1), NULL);
 }
-| subscript ':' subscript
+| ':' ':' stride
+{
+    $$ = ASTMake3(AST_SUBSCRIPT_TRIPLET, NULL, NULL, $3, $1.token_file, $1.token_line, NULL);
+}
+| substring
+;
+substring_singleton_list: substring
+{
+    $$ = ASTListLeaf($1);
+}
+;
+substring : subscript ':' subscript
 {
     $$ = ASTMake3(AST_SUBSCRIPT_TRIPLET, $1, $3, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
 | subscript ':'
 {
     $$ = ASTMake3(AST_SUBSCRIPT_TRIPLET, $1, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
-}
-| ':' ':' stride
-{
-    $$ = ASTMake3(AST_SUBSCRIPT_TRIPLET, NULL, NULL, $3, $1.token_file, $1.token_line, NULL);
 }
 | ':' subscript
 {
