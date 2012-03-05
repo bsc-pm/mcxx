@@ -165,13 +165,17 @@ namespace Codegen
                 // We are in the top level of a data-value
                 bool in_data_value;
 
+                // We emit an array construct but we want it flattened
+                bool flatten_array_construct;
+
                 State()
                     : _indent_level(0),
                     current_symbol(NULL),
                     current_module(NULL),
                     in_forall(false),
                     in_interface(false),
-                    in_data_value(false)
+                    in_data_value(false),
+                    flatten_array_construct(false)
                 {
                 }
             } state;

@@ -69,7 +69,8 @@ void fortran_initialize_translation_unit_scope(translation_unit_t* translation_u
 
     fortran_init_intrinsics(decl_context);
 
-    translation_unit->module_cache = rb_tree_create((int (*)(const void*, const void*))strcasecmp, null_dtor, null_dtor);
+    translation_unit->module_file_cache = rb_tree_create((int (*)(const void*, const void*))strcasecmp, null_dtor, null_dtor);
+    translation_unit->module_symbol_cache = rb_tree_create((int (*)(const void*, const void*))strcasecmp, null_dtor, null_dtor);
 }
 
 
@@ -215,7 +216,6 @@ static scope_entry_t* get_intent_declared_symbol_info(decl_context_t decl_contex
 {
     return get_special_symbol(decl_context, ".intent_declared");
 }
-
 
 void add_untyped_symbol(decl_context_t decl_context, scope_entry_t* entry)
 {
@@ -1046,7 +1046,7 @@ static void build_scope_module_program_unit(AST program_unit,
     // Keep the module in the file's module cache
     if (!CURRENT_CONFIGURATION->debug_options.disable_module_cache)
     {
-        rb_tree_insert(CURRENT_COMPILED_FILE->module_cache, strtolower(new_entry->symbol_name), new_entry);
+        rb_tree_insert(CURRENT_COMPILED_FILE->module_file_cache, strtolower(new_entry->symbol_name), new_entry);
     }
 
     // Store the module in a file
@@ -3384,18 +3384,20 @@ static void build_dimension_decl(AST a,
     if (decl_context.current_scope->related_entry->kind != SK_FUNCTION)
         nodecl_saved_dim = NULL;
 
-    type_t* array_type = compute_type_from_array_spec(no_ref(entry->type_information), 
-            array_spec,
-            decl_context,
-            /* array_spec_kind */ NULL,
-            nodecl_saved_dim);
-    entry->type_information = array_type;
-
-    if (was_ref)
+    if (!is_error_type(entry->type_information))
     {
-        entry->type_information = get_lvalue_reference_type(entry->type_information);
-    }
+        type_t* array_type = compute_type_from_array_spec(no_ref(entry->type_information), 
+                array_spec,
+                decl_context,
+                /* array_spec_kind */ NULL,
+                nodecl_saved_dim);
+        entry->type_information = array_type;
 
+        if (was_ref)
+        {
+            entry->type_information = get_lvalue_reference_type(entry->type_information);
+        }
+    }
 }
 
 static void build_scope_allocatable_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -3954,16 +3956,19 @@ static void build_scope_common_stmt(AST a,
 
                 char was_ref = is_lvalue_reference_type(sym->type_information);
 
-                type_t* array_type = compute_type_from_array_spec(no_ref(sym->type_information),
-                        array_spec,
-                        decl_context,
-                        /* array_spec_kind */ NULL,
-                        /* nodecl_output */ NULL);
-                sym->type_information = array_type;
-
-                if (was_ref)
+                if (!is_error_type(sym->type_information))
                 {
-                    sym->type_information = get_lvalue_reference_type(sym->type_information);
+                    type_t* array_type = compute_type_from_array_spec(no_ref(sym->type_information),
+                            array_spec,
+                            decl_context,
+                            /* array_spec_kind */ NULL,
+                            /* nodecl_output */ NULL);
+                    sym->type_information = array_type;
+
+                    if (was_ref)
+                    {
+                        sym->type_information = get_lvalue_reference_type(sym->type_information);
+                    }
                 }
             }
 
@@ -4859,16 +4864,19 @@ static void build_scope_dimension_stmt(AST a, decl_context_t decl_context, nodec
         if (entry->entity_specs.is_implicit_basic_type)
             entry->entity_specs.is_implicit_but_not_function = 1;
 
-        entry->type_information = array_type;
-
-        if (is_pointer)
+        if (!is_error_type(entry->type_information))
         {
-            entry->type_information = get_pointer_type(no_ref(entry->type_information));
-        }
+            entry->type_information = array_type;
 
-        if (was_ref)
-        {
-            entry->type_information = get_lvalue_reference_type(entry->type_information);
+            if (is_pointer)
+            {
+                entry->type_information = get_pointer_type(no_ref(entry->type_information));
+            }
+
+            if (was_ref)
+            {
+                entry->type_information = get_lvalue_reference_type(entry->type_information);
+            }
         }
     }
 
@@ -6113,11 +6121,14 @@ static void build_scope_pointer_stmt(AST a, decl_context_t decl_context, nodecl_
             remove_unknown_kind_symbol(decl_context, entry);
         }
 
-        entry->type_information = get_pointer_type(no_ref(entry->type_information));
-
-        if (was_ref)
+        if (!is_error_type(entry->type_information))
         {
-            entry->type_information = get_lvalue_reference_type(entry->type_information);
+            entry->type_information = get_pointer_type(no_ref(entry->type_information));
+
+            if (was_ref)
+            {
+                entry->type_information = get_lvalue_reference_type(entry->type_information);
+            }
         }
     }
 
@@ -6489,11 +6500,14 @@ static void build_scope_target_stmt(AST a, decl_context_t decl_context, nodecl_t
 
                 *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_saved_dim);
 
-                entry->type_information = array_type;
-
-                if (was_ref)
+                if (!is_error_type(entry->type_information))
                 {
-                    entry->type_information = get_lvalue_reference_type(entry->type_information);
+                    entry->type_information = array_type;
+
+                    if (was_ref)
+                    {
+                        entry->type_information = get_lvalue_reference_type(entry->type_information);
+                    }
                 }
             }
         }
@@ -6725,13 +6739,16 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
                 remove_unknown_kind_symbol(decl_context, entry);
             }
            
-            entry->type_information = array_type;
-
-            entry->type_information = get_cv_qualified_type(entry->type_information, cv_qualif);
-
-            if (was_ref)
+            if (!is_error_type(entry->type_information))
             {
-                entry->type_information = get_lvalue_reference_type(entry->type_information);
+                entry->type_information = array_type;
+
+                entry->type_information = get_cv_qualified_type(entry->type_information, cv_qualif);
+
+                if (was_ref)
+                {
+                    entry->type_information = get_lvalue_reference_type(entry->type_information);
+                }
             }
         }
 
@@ -6979,18 +6996,13 @@ static scope_entry_t* query_module_for_symbol_name(scope_entry_t* module_symbol,
 static char come_from_the_same_module(scope_entry_t* new_symbol_used,
         scope_entry_t* existing_symbol)
 {
-    // If both symbols come from modules and they point to the same symbol,
-    // then they are the same
-    if (new_symbol_used->entity_specs.from_module
-            && existing_symbol->entity_specs.from_module
-            && (new_symbol_used->entity_specs.alias_to == existing_symbol->entity_specs.alias_to
-                || (strcmp(new_symbol_used->entity_specs.alias_to->entity_specs.in_module->symbol_name, 
-                        existing_symbol->entity_specs.alias_to->entity_specs.in_module->symbol_name) == 0)
-               )
-       )
-        return 1;
+    if (new_symbol_used->entity_specs.from_module)
+        new_symbol_used = new_symbol_used->entity_specs.alias_to;
 
-    return 0;
+    if (existing_symbol->entity_specs.from_module)
+        existing_symbol = existing_symbol->entity_specs.alias_to;
+
+    return new_symbol_used == existing_symbol;
 }
 
 static scope_entry_t* insert_symbol_from_module(scope_entry_t* entry, 
@@ -7006,12 +7018,20 @@ static scope_entry_t* insert_symbol_from_module(scope_entry_t* entry,
 
     if (check_repeated_name != NULL)
     {
-        scope_entry_t* existing_name = entry_list_head(check_repeated_name);
-        if (come_from_the_same_module(entry, existing_name))
+        scope_entry_list_iterator_t *it = NULL;
+        for (it = entry_list_iterator_begin(check_repeated_name);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
-            return existing_name;
+            scope_entry_t* existing_name = entry_list_iterator_current(it);
+            if (come_from_the_same_module(entry, existing_name))
+            {
+                entry_list_iterator_free(it);
+                return existing_name;
+            }
         }
-        // We allow the symbol be repeated, using it should be wrong (but this is not checked!)
+        entry_list_iterator_free(it);
+        // We allow the symbol be repeated, using it will be wrong 
     }
     entry_list_free(check_repeated_name);
     
@@ -7124,7 +7144,7 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
         fprintf(stderr, "BUILDSCOPE: Loading module '%s'\n", module_name_str);
     }
 
-    rb_red_blk_node* query = rb_tree_query(CURRENT_COMPILED_FILE->module_cache, module_name_str);
+    rb_red_blk_node* query = rb_tree_query(CURRENT_COMPILED_FILE->module_file_cache, module_name_str);
     if (query != NULL)
     {
         module_symbol = (scope_entry_t*)rb_node_get_info(query);
@@ -7151,7 +7171,7 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
 
         // And add it to the cache of opened modules
         ERROR_CONDITION(module_symbol == NULL, "Invalid symbol", 0);
-        rb_tree_insert(CURRENT_COMPILED_FILE->module_cache, module_name_str, module_symbol);
+        rb_tree_insert(CURRENT_COMPILED_FILE->module_file_cache, module_name_str, module_symbol);
     }
 
     scope_entry_t* used_modules = get_or_create_used_modules_symbol_info(decl_context);
@@ -7356,23 +7376,26 @@ static void build_scope_volatile_stmt(AST a, decl_context_t decl_context, nodecl
         }
         char is_ref = is_lvalue_reference_type(entry->type_information);
 
-        if (!is_volatile_qualified_type(no_ref(entry->type_information)))
+        if (!is_error_type(entry->type_information))
         {
-            if (!is_ref)
+            if (!is_volatile_qualified_type(no_ref(entry->type_information)))
             {
-                entry->type_information = get_volatile_qualified_type(entry->type_information);
+                if (!is_ref)
+                {
+                    entry->type_information = get_volatile_qualified_type(entry->type_information);
+                }
+                else
+                {
+                    entry->type_information = get_lvalue_reference_type(
+                            get_volatile_qualified_type(no_ref(entry->type_information)));
+                }
             }
             else
             {
-                entry->type_information = get_lvalue_reference_type(
-                        get_volatile_qualified_type(no_ref(entry->type_information)));
+                error_printf("%s: error: entity '%s' already has VOLATILE attribute\n",
+                        ast_location(a), entry->symbol_name);
+                continue;
             }
-        }
-        else
-        {
-            error_printf("%s: error: entity '%s' already has VOLATILE attribute\n",
-                    ast_location(a), entry->symbol_name);
-            continue;
         }
     }
 

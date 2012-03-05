@@ -958,10 +958,9 @@ static const_value_t* reshape_array_from_flattened_rec(
         int* shape,
         int* factors,
         int* subscript,
-        int* permutation,
         
         const_value_t* flattened_array,
-        const_value_t* pad
+        const_value_t* flattened_pad
         )
 {
     if (rank == N)
@@ -970,26 +969,29 @@ static const_value_t* reshape_array_from_flattened_rec(
 
         determine_lineal_index_of_array_subscript(N, subscript, factors, &index_);
 
-        int i;
-        fprintf(stderr, "(");
-        for (i = 0; i < N; i++)
-        {
-            if (i > 0)
-                fprintf(stderr, ", ");
-            fprintf(stderr, "%d", subscript[i]);
-        }
-        fprintf(stderr, ") -> %d\n", index_);
+        // int i;
+        // fprintf(stderr, "(");
+        // for (i = 0; i < N; i++)
+        // {
+        //     if (i > 0)
+        //         fprintf(stderr, ", ");
+        //     fprintf(stderr, "%d", subscript[i]);
+        // }
+        // fprintf(stderr, ") -> %d\n", index_);
 
         if (index_ < 0)
             return NULL;
 
         if (index_ >= const_value_get_num_elements(flattened_array))
         {
-            if (pad == NULL)
+            if (flattened_pad == NULL)
                 return NULL;
             else
-                // FIXME - PAD MUST BE FLATTENED TOO!
-                return pad;
+            {
+                int start = index_ - const_value_get_num_elements(flattened_array);
+                const_value_t* result = const_value_get_element_num(flattened_pad, start % const_value_get_num_elements(flattened_pad));
+                return result;
+            }
         }
 
         const_value_t* value = const_value_get_element_num(flattened_array, index_);
@@ -1011,10 +1013,9 @@ static const_value_t* reshape_array_from_flattened_rec(
                     shape,
                     factors,
                     subscript,
-                    permutation,
                     
                     flattened_array,
-                    pad
+                    flattened_pad
                     );
 
             subscript[current_rank]++;
@@ -1027,7 +1028,7 @@ static const_value_t* reshape_array_from_flattened_rec(
 static const_value_t* reshape_array_from_flattened(
          const_value_t* flattened_array, 
          const_value_t* const_val_shape,
-         const_value_t* pad,
+         const_value_t* flattened_pad,
          const_value_t* order
          )
 {
@@ -1071,6 +1072,7 @@ static const_value_t* reshape_array_from_flattened(
     int subscript[N];
     memset(subscript, 0, sizeof(subscript));
 
+#if 0
     fprintf(stderr, "RESHAPE!!!\n");
 #define PRINT_ARRAY(x) \
         fprintf(stderr, "%s = (", #x); \
@@ -1084,6 +1086,7 @@ static const_value_t* reshape_array_from_flattened(
     PRINT_ARRAY(shape)
     PRINT_ARRAY(factors)
     PRINT_ARRAY(permutation)
+#endif
 
     return reshape_array_from_flattened_rec(
             N,
@@ -1091,10 +1094,9 @@ static const_value_t* reshape_array_from_flattened(
             shape,
             factors,
             subscript,
-            permutation,
 
             flattened_array,
-            pad
+            flattened_pad
             );
 }
 
@@ -1115,11 +1117,16 @@ static nodecl_t simplify_reshape(int num_arguments UNUSED_PARAMETER, nodecl_t* a
             order = nodecl_get_constant(arguments[3]);
 
         const_value_t* flattened_source = flatten_array(nodecl_get_constant(arguments[0]));
+        const_value_t* flattened_pad = NULL;
+        if (pad != NULL)
+        {
+            flattened_pad = flatten_array(pad);
+        }
 
         const_value_t* val = reshape_array_from_flattened(
                 flattened_source,
                 shape,
-                pad,
+                flattened_pad,
                 order
                 );
         if (val == NULL)

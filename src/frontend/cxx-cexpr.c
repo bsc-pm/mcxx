@@ -277,8 +277,88 @@ const_value_t* const_value_cast_to_bytes(const_value_t* val, int bytes, char sig
     return NULL;
 }
 
+static const_value_t* make_multival(int num_elements, const_value_t **elements)
+{
+    const_value_t* result = calloc(1, sizeof(*result));
+
+    result->value.m = calloc(1, sizeof(const_multi_value_t) + sizeof(const_value_t) * num_elements);
+    result->value.m->num_elements = num_elements;
+
+    int i;
+    for (i = 0; i < num_elements; i++)
+    {
+        result->value.m->elements[i] = elements[i];
+    }
+
+    return result;
+}
+
+static const_value_t* multival_get_element_num(const_value_t* v, int element)
+{
+    return v->value.m->elements[element];
+}
+
+static int multival_get_num_elements(const_value_t* v)
+{
+    return v->value.m->num_elements;
+}
+
+#define IS_STRUCTURED(x) \
+    (x == CVK_COMPLEX \
+    || x == CVK_ARRAY \
+    || x == CVK_STRUCT \
+    || x == CVK_VECTOR \
+    || x == CVK_STRING)
+
+// Use this to apply a unary function to a multival
+static const_value_t* map_unary_to_structured_value(const_value_t* (*fun)(const_value_t*),
+        const_value_t* m1)
+{
+    ERROR_CONDITION(!IS_STRUCTURED(m1->kind), "The value is not a multiple-value constant", 0);
+
+    int i, num_elements = multival_get_num_elements(m1);
+    const_value_t* result_arr[num_elements];
+    for (i = 0; i < num_elements; i++)
+    {
+        result_arr[i] = fun(multival_get_element_num(m1, i));
+    }
+
+    const_value_t* mval = make_multival(num_elements, result_arr);
+    mval->kind = m1->kind;
+
+    return mval;
+}
+
+// Use this to apply a binary function to a couple of multivals
+static const_value_t* map_binary_to_structured_value(const_value_t* (*fun)(const_value_t*, const_value_t*),
+        const_value_t* m1,
+        const_value_t* m2)
+{
+    ERROR_CONDITION(!IS_STRUCTURED(m1->kind) || !IS_STRUCTURED(m2->kind), "One of the values is not a multiple-value constant", 0);
+    ERROR_CONDITION(multival_get_num_elements(m1) != multival_get_num_elements(m2), 
+            "Cannot apply a binary map to multiple-values with different number of elements %d != %d", 
+            multival_get_num_elements(m1),
+            multival_get_num_elements(m2));
+
+    int i, num_elements = multival_get_num_elements(m1);
+    const_value_t* result_arr[num_elements];
+    for (i = 0; i < num_elements; i++)
+    {
+        result_arr[i] = fun(multival_get_element_num(m1, i), multival_get_element_num(m2, i));
+    }
+
+    const_value_t* mval = make_multival(num_elements, result_arr);
+    mval->kind = m1->kind;
+
+    return mval;
+}
+
 const_value_t* const_value_cast_to_signed_int_value(const_value_t* val)
 {
+    if (IS_STRUCTURED(val->kind))
+    {
+        return map_unary_to_structured_value(const_value_cast_to_signed_int_value, val);
+    }
     return const_value_cast_to_bytes(val, type_get_size(get_signed_int_type()), 1);
 }
 
@@ -836,6 +916,7 @@ nodecl_t const_value_to_nodecl(const_value_t* v)
                     list = nodecl_append_to_list(list, const_value_to_nodecl(v->value.m->elements[i]));
                 }
 
+                // Get the type from the first element
                 type_t* t = get_void_type();
                 if (v->value.m->num_elements > 0)
                 {
@@ -849,9 +930,12 @@ nodecl_t const_value_to_nodecl(const_value_t* v)
                         nodecl_make_integer_literal(get_signed_int_type(), const_value_get_signed_int(v->value.m->num_elements), NULL, 0),
                         CURRENT_COMPILED_FILE->global_decl_context);
 
-                return nodecl_make_structured_value(
+                nodecl_t result = nodecl_make_structured_value(
                         list, t,
                         NULL, 0);
+
+                nodecl_set_constant(result, v);
+                return result;
                 break;
             }
         default:
@@ -954,6 +1038,9 @@ float const_value_cast_to_float(const_value_t* v)
     else if (v->kind == CVK_FLOAT128)
         return (float)v->value.f128;
 #endif
+    else if (IS_STRUCTURED(v->kind))
+    {
+    }
 
     internal_error("Code unreachable", 0);
 }
@@ -1041,22 +1128,38 @@ __float128 const_value_cast_to_float128(const_value_t* v)
 
 const_value_t* const_value_cast_to_float_value(const_value_t* val)
 {
+    if (IS_STRUCTURED(val->kind))
+    {
+        return map_unary_to_structured_value(const_value_cast_to_float_value, val);
+    }
     return const_value_get_float(const_value_cast_to_float(val));
 }
 
 const_value_t* const_value_cast_to_double_value(const_value_t* val)
 {
+    if (IS_STRUCTURED(val->kind))
+    {
+        return map_unary_to_structured_value(const_value_cast_to_double_value, val);
+    }
     return const_value_get_double(const_value_cast_to_double(val));
 }
 
 const_value_t* const_value_cast_to_long_double_value(const_value_t* val)
 {
+    if (IS_STRUCTURED(val->kind))
+    {
+        return map_unary_to_structured_value(const_value_cast_to_long_double_value, val);
+    }
     return const_value_get_long_double(const_value_cast_to_long_double(val));
 }
 
 #ifdef HAVE_QUADMATH_H
 const_value_t* const_value_cast_to_float128_value(const_value_t* val)
 {
+    if (IS_STRUCTURED(val->kind))
+    {
+        return map_unary_to_structured_value(const_value_cast_to_float128_value, val);
+    }
     return const_value_get_float128(const_value_cast_to_float128(val));
 }
 #endif 
@@ -1123,31 +1226,6 @@ int const_value_get_bytes(const_value_t* val)
     return val->num_bytes;
 }
 
-static const_value_t* make_multival(int num_elements, const_value_t **elements)
-{
-    const_value_t* result = calloc(1, sizeof(*result));
-
-    result->value.m = calloc(1, sizeof(const_multi_value_t) + sizeof(const_value_t) * num_elements);
-    result->value.m->num_elements = num_elements;
-
-    int i;
-    for (i = 0; i < num_elements; i++)
-    {
-        result->value.m->elements[i] = elements[i];
-    }
-
-    return result;
-}
-
-static const_value_t* multival_get_element_num(const_value_t* v, int element)
-{
-    return v->value.m->elements[element];
-}
-
-static int multival_get_num_elements(const_value_t* v)
-{
-    return v->value.m->num_elements;
-}
 
 const_value_t* const_value_make_array(int num_elements, const_value_t **elements)
 {
@@ -1231,13 +1309,6 @@ const_value_t* const_value_complex_get_imag_part(const_value_t* value)
     ERROR_CONDITION(!const_value_is_complex(value), "This is not a complex constant", 0);
     return multival_get_element_num(value, 1);
 }
-
-#define IS_STRUCTURED(x) \
-    (x == CVK_COMPLEX \
-    || x == CVK_ARRAY \
-    || x == CVK_STRUCT \
-    || x == CVK_VECTOR \
-    || x == CVK_STRING)
 
 int const_value_get_num_elements(const_value_t* value)
 {
@@ -1346,49 +1417,6 @@ static const_value_t* extend_second_operand_to_structured_value(const_value_t* (
     return mval;
 }
 
-// Use this to apply a binary function to a couple of multivals
-static const_value_t* map_binary_to_structured_value(const_value_t* (*fun)(const_value_t*, const_value_t*),
-        const_value_t* m1,
-        const_value_t* m2)
-{
-    ERROR_CONDITION(!IS_STRUCTURED(m1->kind) || !IS_STRUCTURED(m2->kind), "One of the values is not a multiple-value constant", 0);
-    ERROR_CONDITION(multival_get_num_elements(m1) != multival_get_num_elements(m2), 
-            "Cannot apply a binary map to multiple-values with different number of elements %d != %d", 
-            multival_get_num_elements(m1),
-            multival_get_num_elements(m2));
-
-    int i, num_elements = multival_get_num_elements(m1);
-    const_value_t* result_arr[num_elements];
-    for (i = 0; i < num_elements; i++)
-    {
-        result_arr[i] = fun(multival_get_element_num(m1, i), multival_get_element_num(m2, i));
-    }
-
-    const_value_t* mval = make_multival(num_elements, result_arr);
-    mval->kind = m1->kind;
-
-    return mval;
-}
-
-#if 0
-static const_value_t* map_unary_to_structured_value(const_value_t* (*fun)(const_value_t*),
-        const_value_t* m1)
-{
-    ERROR_CONDITION(!IS_STRUCTURED(m1->kind), "The value is not a multiple-value constant", 0);
-
-    int i, num_elements = multival_get_num_elements(m1);
-    const_value_t* result_arr[num_elements];
-    for (i = 0; i < num_elements; i++)
-    {
-        result_arr[i] = fun(multival_get_element_num(m1, i));
-    }
-
-    const_value_t* mval = make_multival(num_elements, result_arr);
-    mval->kind = m1->kind;
-
-    return mval;
-}
-#endif
 
 #define OP(_opname) const_value_##opname
 

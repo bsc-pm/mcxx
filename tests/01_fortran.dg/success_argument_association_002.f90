@@ -1,20 +1,23 @@
 ! <testinfo>
 ! test_generator=config/mercurium-fortran
 ! </testinfo>
-PROGRAM P
+
+!! This used to be a PROGRAM but passing internal procedures
+!! is a Fortran 2008 feature
+MODULE M
   CONTAINS
 
     SUBROUTINE S(F)
           REAL :: F
           PRINT *, F(1.0)
-    END
+    END SUBROUTINE S
 
     FUNCTION R(X)
      REAL :: X, R
      R = X + 1.0
-    END
+    END FUNCTION R
 
     SUBROUTINE S2
         CALL S(R) !! Failure
-    END
-END
+    END SUBROUTINE S2
+END MODULE M

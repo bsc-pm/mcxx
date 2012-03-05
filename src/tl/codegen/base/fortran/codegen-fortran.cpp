@@ -699,9 +699,50 @@ OPERATOR_TABLE
         TL::Type type = node.get_type();
         if (type.is_array())
         {
-            file << "(/ ";
-            codegen_comma_separated_list(node.get_items());
-            file << " /)";
+            int n = get_rank_of_type(type.get_internal_type());
+
+            if (n == 1
+                    || state.flatten_array_construct)
+            {
+                file << "(/ ";
+                codegen_comma_separated_list(node.get_items());
+                file << " /)";
+            }
+            else
+            {
+                // We need a RESHAPE
+                // First prepare shape
+                std::string shape;
+                TL::Type t = type;
+                int n = 0;
+                while (is_fortran_array_type(t.get_internal_type()))
+                {
+
+                    std::stringstream ss;
+
+                    const_value_t* v = nodecl_get_constant(t.array_get_size().get_internal_nodecl());
+                    ERROR_CONDITION((v == NULL), "There must be a constant here!", 0);
+
+                    ss << const_value_cast_to_signed_int(v);
+                    if (n != 0)
+                        ss << ", ";
+
+                    shape = ss.str() + shape;
+                    t = t.array_element();
+                    n++;
+                }
+               
+                file << "RESHAPE( SOURCE=";
+                file << "(/ ";
+
+                bool old_array_constructor = state.flatten_array_construct;
+                state.flatten_array_construct = true;
+                codegen_comma_separated_list(node.get_items());
+                state.flatten_array_construct = old_array_constructor;
+
+                file << " /), ";
+                file << "SHAPE = (/ " << shape << " /) )";
+            }
         }
         else if (type.is_named_class())
         {
@@ -2597,6 +2638,9 @@ OPERATOR_TABLE
                 codegen_status_map_t old_codegen_status = _codegen_status;
                 name_set_t old_name_set = _name_set;
                 rename_map_t old_rename_map = _rename_map;
+
+                // In an interface we have to forget everything...
+                clear_codegen_status();
                 clear_renames();
 
                 codegen_procedure_declaration_header(entry, lacks_result);
@@ -2640,7 +2684,8 @@ OPERATOR_TABLE
                         TL::Symbol class_type  = dummy_type.basic_type().get_symbol();
                         decl_context_t class_context = class_type.get_scope().get_decl_context();
 
-                        if ((TL::Symbol(class_context.current_scope->related_entry) != entry)
+                        if (!class_type.is_from_module()
+                                && (TL::Symbol(class_context.current_scope->related_entry) != entry)
                                 // Global names must not be IMPORTed
                                 && (class_context.current_scope != entry_context.global_scope
                                     // Unless at this point they have already been defined
