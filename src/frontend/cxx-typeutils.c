@@ -1266,7 +1266,7 @@ enum type_tag_t class_type_get_class_kind(type_t* t)
     return t->type->class_info->class_kind;
 }
 
-static template_parameter_list_t* compute_template_parameter_values_of_primary(template_parameter_list_t* template_parameter_list)
+template_parameter_list_t* compute_template_parameter_values_of_primary(template_parameter_list_t* template_parameter_list)
 {
     int i;
     template_parameter_list_t* result = duplicate_template_argument_list(template_parameter_list);
@@ -1596,16 +1596,21 @@ type_t* template_type_get_matching_specialized_type(type_t* t,
     return NULL;
 }
 
-type_t* template_type_get_specialized_type_after_type(type_t* t, 
+static type_t* template_type_get_specialized_type_after_type_aux(type_t* t, 
         template_parameter_list_t *template_arguments, 
         type_t* after_type,
+        char reuse_existing, 
         decl_context_t decl_context, 
         const char* filename, int line)
 {
-    type_t* existing_spec = template_type_get_matching_specialized_type(t, 
-            template_arguments, 
-            decl_context);
-
+    type_t* existing_spec = NULL;
+    if (reuse_existing)
+    {   
+        existing_spec = template_type_get_matching_specialized_type(t, 
+                template_arguments, 
+                decl_context);
+    }
+    
     if (existing_spec != NULL)
     {
         return existing_spec;
@@ -1751,15 +1756,38 @@ type_t* template_type_get_specialized_type_after_type(type_t* t,
     return get_user_defined_type(specialized_symbol);
 }
 
+type_t* template_type_get_specialized_type_after_type(type_t* t, 
+        template_parameter_list_t *template_arguments, 
+        type_t* after_type,
+        decl_context_t decl_context, 
+        const char* filename, int line)
+{
+    return template_type_get_specialized_type_after_type_aux(t, template_arguments, after_type, /* reuse_existing */ 1, decl_context, filename, line);
+}
+
+
+type_t* template_type_get_specialized_type_noreuse(type_t* t, 
+        template_parameter_list_t* template_parameters,
+        decl_context_t decl_context, 
+        const char* filename, int line)
+{
+    return template_type_get_specialized_type_after_type_aux(t,
+            template_parameters,
+            /* after_type */ NULL /* It will create an empty one */,
+            /* reuse_existing */ 0,
+            decl_context,
+            filename, line);
+}
 
 type_t* template_type_get_specialized_type(type_t* t, 
         template_parameter_list_t* template_parameters,
         decl_context_t decl_context, 
         const char* filename, int line)
 {
-    return template_type_get_specialized_type_after_type(t,
+    return template_type_get_specialized_type_after_type_aux(t,
             template_parameters,
             /* after_type */ NULL /* It will create an empty one */,
+            /* reuse_existing */ 1,
             decl_context,
             filename, line);
 }
