@@ -357,6 +357,13 @@ typedef struct compilation_configuration_tag
     // Directory where we unwrap the native modules
     const char* module_native_dir;
 
+    // Fortran default kinds
+    int default_integer_kind;
+    int default_real_kind;
+    int default_logical_kind;
+    int default_character_kind;
+    int doubleprecision_kind;
+
     source_kind_t force_source_kind;
 
     const char* native_compiler_name;

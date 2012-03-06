@@ -517,29 +517,132 @@ char are_conformable_types(type_t* t1, type_t* t2)
         return 0;
 }
 
+static type_t* _default_integer_type = NULL;
+static type_t* _default_real_type = NULL;
+static type_t* _doubleprecision_type = NULL;
+static type_t* _default_logical_type = NULL;
+static type_t* _default_character_type = NULL;
+
+static void wrong_init_kind(const char* typename, int kind_size, type_t* (*kind_fun)(int))
+{
+    int number_of_valids = 0;
+    const char* valid_set = "";
+
+    int test = 1;
+    while (test <= 16)
+    {
+        if (kind_fun(test) != NULL)
+        {
+            if (number_of_valids > 0)
+            {
+                uniquestr_sprintf(&valid_set, "%s, %d", valid_set, test);
+            }
+            else
+            {
+                uniquestr_sprintf(&valid_set, "%d", test);
+            }
+            number_of_valids++;
+        }
+        test = test * 2;
+    }
+
+    const char* valid_values_message = "";
+
+    if (number_of_valids == 1)
+    {
+        uniquestr_sprintf(&valid_values_message, ". Valid value is %s", valid_set);
+    }
+    else if (number_of_valids > 1)
+    {
+        uniquestr_sprintf(&valid_values_message, ". Valid values are %s", valid_set);
+    }
+
+    running_error("Error: KIND %d is not valid for type %s%s\n", kind_size,
+            typename, valid_values_message);
+}
+
+void fortran_init_kinds(void)
+{
+    char already_init = 0;
+    if (already_init)
+        return;
+
+    already_init = 1;
+
+    // INTEGER
+    if (CURRENT_CONFIGURATION->default_integer_kind <= 0)
+    {
+        CURRENT_CONFIGURATION->default_integer_kind = 4;
+    }
+    _default_integer_type = fortran_choose_int_type_from_kind(CURRENT_CONFIGURATION->default_integer_kind);
+    if (_default_integer_type == NULL)
+        wrong_init_kind("INTEGER", CURRENT_CONFIGURATION->default_integer_kind, fortran_choose_int_type_from_kind);
+
+    // REAL
+    if (CURRENT_CONFIGURATION->default_real_kind <= 0)
+    {
+        CURRENT_CONFIGURATION->default_real_kind = 4;
+    }
+    _default_real_type = fortran_choose_float_type_from_kind(CURRENT_CONFIGURATION->default_real_kind);
+    if (_default_real_type == NULL)
+        wrong_init_kind("REAL", CURRENT_CONFIGURATION->default_real_kind, fortran_choose_float_type_from_kind);
+
+    // DOUBLE PRECISION
+    if (CURRENT_CONFIGURATION->doubleprecision_kind <= 0)
+    {
+        CURRENT_CONFIGURATION->doubleprecision_kind = 8;
+    }
+    _doubleprecision_type = fortran_choose_float_type_from_kind(CURRENT_CONFIGURATION->doubleprecision_kind);
+    if (_doubleprecision_type == NULL)
+        wrong_init_kind("DOUBLE PRECISION", CURRENT_CONFIGURATION->doubleprecision_kind, fortran_choose_float_type_from_kind);
+
+    if (CURRENT_CONFIGURATION->doubleprecision_kind < CURRENT_CONFIGURATION->default_real_kind)
+        // This is weird
+        fprintf(stderr, "Warning: Setting a KIND for DOUBLE PRECISION smaller than the default REAL\n");
+
+    // LOGICAL
+    if (CURRENT_CONFIGURATION->default_logical_kind <= 0)
+    {
+        CURRENT_CONFIGURATION->default_logical_kind = 4;
+    }
+    _default_logical_type = fortran_choose_logical_type_from_kind(CURRENT_CONFIGURATION->default_logical_kind);
+    if (_default_logical_type == NULL)
+        wrong_init_kind("LOGICAL", CURRENT_CONFIGURATION->default_logical_kind, fortran_choose_logical_type_from_kind);
+
+    // CHARACTER
+    if (CURRENT_CONFIGURATION->default_character_kind <= 0)
+    {
+        CURRENT_CONFIGURATION->default_character_kind = 1;
+    }
+    _default_character_type = fortran_choose_character_type_from_kind(CURRENT_CONFIGURATION->default_character_kind);
+    if (_default_character_type == NULL)
+        wrong_init_kind("CHARACTER", CURRENT_CONFIGURATION->default_character_kind, fortran_choose_character_type_from_kind);
+}
+
+
 type_t* fortran_get_default_integer_type(void)
 {
-    return get_signed_int_type();
+    return _default_integer_type;
 }
 
 type_t* fortran_get_default_real_type(void)
 {
-    return get_float_type();
+    return _default_real_type;
 }
 
 type_t* fortran_get_doubleprecision_type(void)
 {
-    return get_double_type();
+    return _doubleprecision_type;
 }
 
 type_t* fortran_get_default_logical_type(void)
 {
-    return get_bool_of_integer_type(fortran_get_default_integer_type());
+    return _default_logical_type;
 }
 
 type_t* fortran_get_default_character_type(void)
 {
-    return get_char_type();
+    return _default_character_type;
 }
 
 int fortran_get_default_integer_type_kind(void)
@@ -566,3 +669,84 @@ int fortran_get_default_character_type_kind(void)
 {
     return type_get_size(fortran_get_default_character_type());
 }
+
+static type_t* choose_type_from_kind_table(
+        type_t** type_table, 
+        int num_types, 
+        int kind_size)
+{
+    type_t* result = NULL;
+    if ((0 < kind_size)
+            && (kind_size <= num_types))
+    {
+        result = type_table[kind_size];
+    }
+
+    return result;
+}
+
+#define MAX_INT_KIND MCXX_MAX_BYTES_INTEGER
+type_t* fortran_choose_int_type_from_kind(int kind_size)
+{
+    static char int_types_init = 0;
+    static type_t* int_types[MAX_INT_KIND + 1] = { 0 };
+    if (!int_types_init)
+    {
+        int_types[type_get_size(get_signed_long_long_int_type())] = get_signed_long_long_int_type();
+        int_types[type_get_size(get_signed_long_int_type())] = get_signed_long_int_type();
+        int_types[type_get_size(get_signed_int_type())] = get_signed_int_type();
+        int_types[type_get_size(get_signed_short_int_type())] = get_signed_short_int_type();
+        int_types[type_get_size(get_signed_byte_type())] = get_signed_byte_type();
+        int_types_init = 1;
+    }
+    return choose_type_from_kind_table(int_types, MAX_INT_KIND, kind_size);
+}
+
+#define MAX_FLOAT_KIND 16
+type_t* fortran_choose_float_type_from_kind(int kind_size)
+{
+    static char float_types_init = 0;
+    static type_t* float_types[MAX_FLOAT_KIND + 1] = { 0 };
+    if (!float_types_init)
+    {
+        int i;
+        for (i = 0; i < CURRENT_CONFIGURATION->type_environment->num_float_types; i++)
+        {
+            float_types[CURRENT_CONFIGURATION->type_environment->all_floats[i]->bits / 8] 
+                = get_floating_type_from_descriptor(CURRENT_CONFIGURATION->type_environment->all_floats[i]);
+        }
+        float_types_init = 1;
+    }
+    return choose_type_from_kind_table(float_types, MAX_FLOAT_KIND, kind_size);
+}
+
+#define MAX_LOGICAL_KIND MCXX_MAX_BYTES_INTEGER
+type_t* fortran_choose_logical_type_from_kind(int kind_size)
+{
+    static char logical_types_init = 0;
+    static type_t* logical_types[MAX_LOGICAL_KIND + 1] = { 0 };
+    if (!logical_types_init)
+    {
+        logical_types[type_get_size(get_signed_long_long_int_type())] = get_bool_of_integer_type(get_signed_long_long_int_type());
+        logical_types[type_get_size(get_signed_long_int_type())] = get_bool_of_integer_type(get_signed_long_int_type());
+        logical_types[type_get_size(get_signed_int_type())] = get_bool_of_integer_type(get_signed_int_type());
+        logical_types[type_get_size(get_signed_short_int_type())] = get_bool_of_integer_type(get_signed_short_int_type());
+        logical_types[type_get_size(get_signed_byte_type())] = get_bool_of_integer_type(get_signed_byte_type());
+        logical_types_init = 1;
+    }
+    return choose_type_from_kind_table(logical_types, MAX_LOGICAL_KIND, kind_size);
+}
+
+#define MAX_CHARACTER_KIND MCXX_MAX_BYTES_INTEGER
+type_t* fortran_choose_character_type_from_kind(int kind_size)
+{
+    static char character_types_init = 0;
+    static type_t* character_types[MAX_CHARACTER_KIND + 1] = { 0 };
+    if (!character_types_init)
+    {
+        character_types[type_get_size(get_char_type())] = get_char_type();
+        character_types_init = 1;
+    }
+    return choose_type_from_kind_table(character_types, MAX_CHARACTER_KIND, kind_size);
+}
+

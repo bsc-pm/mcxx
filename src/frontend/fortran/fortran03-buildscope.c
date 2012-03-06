@@ -67,6 +67,8 @@ void fortran_initialize_translation_unit_scope(translation_unit_t* translation_u
     // Declared in cxx-buildscope.c
     c_initialize_builtin_symbols(decl_context);
 
+    fortran_init_kinds();
+
     fortran_init_intrinsics(decl_context);
 
     translation_unit->module_file_cache = rb_tree_create((int (*)(const void*, const void*))strcasecmp, null_dtor, null_dtor);
@@ -2377,95 +2379,50 @@ static int compute_kind_specifier(AST kind_expr, decl_context_t decl_context,
     }
 }
 
-static type_t* choose_type_from_kind_table(nodecl_t expr, type_t** type_table, int num_types, 
+static type_t* choose_type_from_kind_function(nodecl_t expr, 
+        type_t* (*kind_function)(int kind),
         int kind_size,
         int default_kind_size)
 {
-    type_t* result = NULL;
-    if ((0 < kind_size)
-            && (kind_size <= num_types))
-    {
-        result = type_table[kind_size];
-    }
+    type_t* result = kind_function(kind_size);
 
     if (result == NULL)
     {
         error_printf("%s: error: KIND=%d not supported\n", nodecl_get_locus(expr), kind_size);
-        result = (type_table[default_kind_size] != NULL ? type_table[default_kind_size] : /* desperate */ type_table[1]);
+
+        result = kind_function(default_kind_size);
+        // Desperate attempt
+        if (result == NULL)
+        {
+            result = kind_function(1);
+        }
         ERROR_CONDITION(result == NULL, "Fallback kind should not be NULL", 0);
     }
 
     return result;
 }
 
-#define MAX_INT_KIND MCXX_MAX_BYTES_INTEGER
-static char int_types_init = 0;
-static type_t* int_types[MAX_INT_KIND + 1] = { 0 };
+// These functions are used in intrinsics code
+// This is why they are external
 type_t* choose_int_type_from_kind(nodecl_t expr, int kind_size)
 {
-    if (!int_types_init)
-    {
-        int_types[type_get_size(get_signed_long_long_int_type())] = get_signed_long_long_int_type();
-        int_types[type_get_size(get_signed_long_int_type())] = get_signed_long_int_type();
-        int_types[type_get_size(get_signed_int_type())] = get_signed_int_type();
-        int_types[type_get_size(get_signed_short_int_type())] = get_signed_short_int_type();
-        int_types[type_get_size(get_signed_byte_type())] = get_signed_byte_type();
-        int_types_init = 1;
-    }
-    return choose_type_from_kind_table(expr, int_types, MAX_INT_KIND, kind_size, fortran_get_default_integer_type_kind());
+    return choose_type_from_kind_function(expr, fortran_choose_int_type_from_kind, kind_size, fortran_get_default_integer_type_kind());
 }
-#undef MAX_INT_KIND
 
-#define MAX_FLOAT_KIND MCXX_MAX_BYTES_INTEGER
-static char float_types_init = 0;
-static type_t* float_types[MAX_FLOAT_KIND + 1] = { 0 };
 type_t* choose_float_type_from_kind(nodecl_t expr, int kind_size)
 {
-    if (!float_types_init)
-    {
-        int i;
-        for (i = 0; i < CURRENT_CONFIGURATION->type_environment->num_float_types; i++)
-        {
-            float_types[CURRENT_CONFIGURATION->type_environment->all_floats[i]->bits / 8] 
-                = get_floating_type_from_descriptor(CURRENT_CONFIGURATION->type_environment->all_floats[i]);
-        }
-        float_types_init = 1;
-    }
-    return choose_type_from_kind_table(expr, float_types, MAX_FLOAT_KIND, kind_size, fortran_get_default_real_type_kind());
+    return choose_type_from_kind_function(expr, fortran_choose_float_type_from_kind, kind_size, fortran_get_default_real_type_kind());
 }
-#undef MAX_FLOAT_KIND
 
-#define MAX_LOGICAL_KIND MCXX_MAX_BYTES_INTEGER
-static char logical_types_init = 0;
-static type_t* logical_types[MAX_LOGICAL_KIND + 1] = { 0 };
 type_t* choose_logical_type_from_kind(nodecl_t expr, int kind_size)
 {
-    if (!logical_types_init)
-    {
-        logical_types[type_get_size(get_signed_long_long_int_type())] = get_bool_of_integer_type(get_signed_long_long_int_type());
-        logical_types[type_get_size(get_signed_long_int_type())] = get_bool_of_integer_type(get_signed_long_int_type());
-        logical_types[type_get_size(get_signed_int_type())] = get_bool_of_integer_type(get_signed_int_type());
-        logical_types[type_get_size(get_signed_short_int_type())] = get_bool_of_integer_type(get_signed_short_int_type());
-        logical_types[type_get_size(get_signed_byte_type())] = get_bool_of_integer_type(get_signed_byte_type());
-        logical_types_init = 1;
-    }
-    return choose_type_from_kind_table(expr, logical_types, MAX_LOGICAL_KIND, kind_size, fortran_get_default_logical_type_kind());
+    return choose_type_from_kind_function(expr, fortran_choose_logical_type_from_kind, kind_size, fortran_get_default_logical_type_kind());
 }
-#undef MAX_LOGICAL_KIND
 
-#define MAX_CHARACTER_KIND MCXX_MAX_BYTES_INTEGER
-static char character_types_init = 0;
-static type_t* character_types[MAX_CHARACTER_KIND + 1] = { 0 };
 type_t* choose_character_type_from_kind(nodecl_t expr, int kind_size)
 {
-    if (!character_types_init)
-    {
-        character_types[type_get_size(get_char_type())] = get_char_type();
-        character_types_init = 1;
-    }
-    return choose_type_from_kind_table(expr, character_types, MAX_CHARACTER_KIND, kind_size, fortran_get_default_character_type_kind());
+    return choose_type_from_kind_function(expr, fortran_choose_character_type_from_kind, kind_size, fortran_get_default_character_type_kind());
 }
-#undef MAX_CHARACTER_KIND
 
 static type_t* choose_type_from_kind(AST expr, decl_context_t decl_context, type_t* (*fun)(nodecl_t expr, int kind_size),
         int (*default_kind)(void))
