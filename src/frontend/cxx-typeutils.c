@@ -5854,6 +5854,9 @@ type_t* reference_type_get_referenced_type(type_t* t1)
 // Remove the reference type, returning the referenced type
 type_t* no_ref(type_t* t)
 {
+    if (t == NULL)
+        return NULL;
+
     if (is_lvalue_reference_type(t)
             || is_rvalue_reference_type(t))
         return reference_type_get_referenced_type(t);
