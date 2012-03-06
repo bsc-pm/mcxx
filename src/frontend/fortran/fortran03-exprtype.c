@@ -1581,7 +1581,7 @@ static void check_decimal_literal(AST expr, decl_context_t decl_context, nodecl_
         q++;
     }
 
-    int kind = 4;
+    int kind = fortran_get_default_integer_type_kind();
     if (*p == '_')
     {
         p++;
@@ -1860,7 +1860,7 @@ static void check_floating_literal(AST expr, decl_context_t decl_context, nodecl
 {
    char* floating_text = strdup(strtolower(ASTText(expr)));
 
-   unsigned int kind = 4;
+   unsigned int kind = fortran_get_default_real_type_kind();
    char *q = NULL; 
    if ((q = strchr(floating_text, '_')) != NULL)
    {

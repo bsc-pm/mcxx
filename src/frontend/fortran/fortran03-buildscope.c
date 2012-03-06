@@ -2377,7 +2377,9 @@ static int compute_kind_specifier(AST kind_expr, decl_context_t decl_context,
     }
 }
 
-static type_t* choose_type_from_kind_table(nodecl_t expr, type_t** type_table, int num_types, int kind_size)
+static type_t* choose_type_from_kind_table(nodecl_t expr, type_t** type_table, int num_types, 
+        int kind_size,
+        int default_kind_size)
 {
     type_t* result = NULL;
     if ((0 < kind_size)
@@ -2389,7 +2391,7 @@ static type_t* choose_type_from_kind_table(nodecl_t expr, type_t** type_table, i
     if (result == NULL)
     {
         error_printf("%s: error: KIND=%d not supported\n", nodecl_get_locus(expr), kind_size);
-        result = (type_table[4] != NULL ? type_table[4] : type_table[1]);
+        result = (type_table[default_kind_size] != NULL ? type_table[default_kind_size] : /* desperate */ type_table[1]);
         ERROR_CONDITION(result == NULL, "Fallback kind should not be NULL", 0);
     }
 
@@ -2410,7 +2412,7 @@ type_t* choose_int_type_from_kind(nodecl_t expr, int kind_size)
         int_types[type_get_size(get_signed_byte_type())] = get_signed_byte_type();
         int_types_init = 1;
     }
-    return choose_type_from_kind_table(expr, int_types, MAX_INT_KIND, kind_size);
+    return choose_type_from_kind_table(expr, int_types, MAX_INT_KIND, kind_size, fortran_get_default_integer_type_kind());
 }
 #undef MAX_INT_KIND
 
@@ -2429,7 +2431,7 @@ type_t* choose_float_type_from_kind(nodecl_t expr, int kind_size)
         }
         float_types_init = 1;
     }
-    return choose_type_from_kind_table(expr, float_types, MAX_FLOAT_KIND, kind_size);
+    return choose_type_from_kind_table(expr, float_types, MAX_FLOAT_KIND, kind_size, fortran_get_default_real_type_kind());
 }
 #undef MAX_FLOAT_KIND
 
@@ -2447,7 +2449,7 @@ type_t* choose_logical_type_from_kind(nodecl_t expr, int kind_size)
         logical_types[type_get_size(get_signed_byte_type())] = get_bool_of_integer_type(get_signed_byte_type());
         logical_types_init = 1;
     }
-    return choose_type_from_kind_table(expr, logical_types, MAX_LOGICAL_KIND, kind_size);
+    return choose_type_from_kind_table(expr, logical_types, MAX_LOGICAL_KIND, kind_size, fortran_get_default_logical_type_kind());
 }
 #undef MAX_LOGICAL_KIND
 
@@ -2461,7 +2463,7 @@ type_t* choose_character_type_from_kind(nodecl_t expr, int kind_size)
         character_types[type_get_size(get_char_type())] = get_char_type();
         character_types_init = 1;
     }
-    return choose_type_from_kind_table(expr, character_types, MAX_CHARACTER_KIND, kind_size);
+    return choose_type_from_kind_table(expr, character_types, MAX_CHARACTER_KIND, kind_size, fortran_get_default_character_type_kind());
 }
 #undef MAX_CHARACTER_KIND
 
