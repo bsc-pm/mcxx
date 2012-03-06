@@ -1737,7 +1737,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ObjectInit& node)
             &CxxBase::define_symbol,
             &CxxBase::define_all_entities_in_trees);
 
-    set_codegen_status(sym, CODEGEN_STATUS_NONE);
+    state.must_be_object_init.erase(sym);
     define_symbol(sym);
 }
 
@@ -3314,7 +3314,9 @@ void CxxBase::define_symbol(TL::Symbol symbol)
     }
 
     // Do nothing if already defined
-    if (get_codegen_status(symbol) == CODEGEN_STATUS_DEFINED)
+    if (get_codegen_status(symbol) == CODEGEN_STATUS_DEFINED
+            // It is a symbol that will be object-inited
+            || state.must_be_object_init.find(symbol) != state.must_be_object_init.end())
         return;
 
     // We only generate user declared code
@@ -3457,7 +3459,10 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
 
     // Do nothing if already defined or declared
     if (get_codegen_status(symbol) == CODEGEN_STATUS_DEFINED
-            || get_codegen_status(symbol) == CODEGEN_STATUS_DECLARED)
+            || get_codegen_status(symbol) == CODEGEN_STATUS_DECLARED
+            // It is a symbol that will be object-inited
+            || state.must_be_object_init.find(symbol) != state.must_be_object_init.end()
+            )
         return;
 
     set_codegen_status(symbol, CODEGEN_STATUS_DECLARED);
@@ -3498,14 +3503,12 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
             {
                 decl_specifiers += "extern ";
             }
-            else 
+            
+            // If this not a member, or if it is, is nonstatic, then it has already been defined
+            if (!symbol.is_member()
+                    || !symbol.is_static())
             {
-                // If this not a member, or if it is, is nonstatic, then it has already been defined
-                if (!symbol.is_member()
-                        || !symbol.is_static())
-                {
-                    set_codegen_status(symbol, CODEGEN_STATUS_DEFINED);
-                }
+                set_codegen_status(symbol, CODEGEN_STATUS_DEFINED);
             }
 
             if (symbol.is_thread())
@@ -4246,7 +4249,7 @@ void CxxBase::entry_local_definition(
         {
             // If this is an object init (and the traversal ensures that
             // they will be seen first) we assume it's already been defined
-            set_codegen_status(entry, CODEGEN_STATUS_DEFINED);
+            state.must_be_object_init.insert(entry);
         }
     }
 }
