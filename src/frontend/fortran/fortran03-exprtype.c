@@ -1876,12 +1876,11 @@ static void check_floating_literal(AST expr, decl_context_t decl_context, nodecl
    else if ((q = strchr(floating_text, 'd')) != NULL)
    {
        *q = 'e';
-       kind = 8;
+       kind = fortran_get_doubleprecision_type_kind();
    }
 
-    nodecl_t nodecl_fake = nodecl_make_text(floating_text, ASTFileName(expr), ASTLine(expr));
+   nodecl_t nodecl_fake = nodecl_make_text(floating_text, ASTFileName(expr), ASTLine(expr));
    type_t* t = choose_float_type_from_kind(nodecl_fake, kind);
-
 
    const_value_t *value = NULL;
    if (kind == (floating_type_get_info(get_float_type())->bits / 8))
