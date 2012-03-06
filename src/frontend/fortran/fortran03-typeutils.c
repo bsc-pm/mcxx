@@ -527,6 +527,11 @@ type_t* fortran_get_default_real_type(void)
     return get_float_type();
 }
 
+type_t* fortran_get_doubleprecision_type(void)
+{
+    return get_double_type();
+}
+
 type_t* fortran_get_default_logical_type(void)
 {
     return get_bool_of_integer_type(fortran_get_default_integer_type());
@@ -545,6 +550,11 @@ int fortran_get_default_integer_type_kind(void)
 int fortran_get_default_real_type_kind(void)
 {
     return type_get_size(fortran_get_default_real_type());
+}
+
+int fortran_get_doubleprecision_type_kind(void)
+{
+    return type_get_size(fortran_get_doubleprecision_type());
 }
 
 int fortran_get_default_logical_type_kind(void)

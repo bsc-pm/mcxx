@@ -1209,8 +1209,6 @@ static void check_boolean_literal(AST expr, decl_context_t decl_context UNUSED_P
 
 static void check_complex_literal(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    // Const value does not support yet complex numbers, simply compute its
-    // type
     AST real_part = ASTSon0(expr);
     AST imag_part = ASTSon1(expr);
 
@@ -1237,7 +1235,7 @@ static void check_complex_literal(AST expr, decl_context_t decl_context, nodecl_
     if (is_integer_type(real_part_type)
             && is_integer_type(imag_part_type))
     {
-        result_type = get_complex_type(get_float_type());
+        result_type = get_complex_type(fortran_get_default_real_type());
     }
     else if (is_floating_type(real_part_type)
             || is_floating_type(imag_part_type))

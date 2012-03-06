@@ -1001,91 +1001,91 @@ done;
 
 static void fortran_init_specific_names(decl_context_t decl_context)
 {
-    type_t* default_char = get_array_type(get_char_type(), nodecl_null(), decl_context);
+    type_t* default_char = get_array_type(fortran_get_default_character_type(), nodecl_null(), decl_context);
 
-    REGISTER_SPECIFIC_INTRINSIC_1("abs", "abs", get_float_type());
-    REGISTER_SPECIFIC_INTRINSIC_1("acos", "acos", get_float_type());
-    REGISTER_SPECIFIC_INTRINSIC_1("aimag", "aimag", get_complex_type(get_float_type()));
-    REGISTER_SPECIFIC_INTRINSIC_2("aint", "aint", get_float_type(), NULL);
-    REGISTER_SPECIFIC_INTRINSIC_1("alog", "log", get_float_type());
-    REGISTER_SPECIFIC_INTRINSIC_1("alog10", "log10", get_float_type());
-    REGISTER_SPECIFIC_INTRINSIC_2("amod", "mod", get_float_type(), get_float_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("abs", "abs", fortran_get_default_real_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("acos", "acos", fortran_get_default_real_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("aimag", "aimag", get_complex_type(fortran_get_default_real_type()));
+    REGISTER_SPECIFIC_INTRINSIC_2("aint", "aint", fortran_get_default_real_type(), NULL);
+    REGISTER_SPECIFIC_INTRINSIC_1("alog", "log", fortran_get_default_real_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("alog10", "log10", fortran_get_default_real_type());
+    REGISTER_SPECIFIC_INTRINSIC_2("amod", "mod", fortran_get_default_real_type(), fortran_get_default_real_type());
     // 'amax0' 'amax1' 'amin0' 'amin1' are defined as generic intrinsics due to their non-fortranish nature of unbounded number of parameters
-    REGISTER_SPECIFIC_INTRINSIC_2("anint", "anint", get_float_type(), NULL);
-    REGISTER_SPECIFIC_INTRINSIC_1("asin", "asin", get_float_type());
-    REGISTER_SPECIFIC_INTRINSIC_1("atan", "atan", get_float_type());
-    REGISTER_SPECIFIC_INTRINSIC_2("atan2", "atan2", get_float_type(), get_float_type());
-    REGISTER_SPECIFIC_INTRINSIC_1("cabs", "abs", get_complex_type(get_float_type()));
-    REGISTER_SPECIFIC_INTRINSIC_1("ccos", "cos", get_complex_type(get_float_type()));
-    REGISTER_SPECIFIC_INTRINSIC_1("cexp", "exp", get_complex_type(get_float_type()));
-    REGISTER_SPECIFIC_INTRINSIC_1("cexp", "exp", get_complex_type(get_float_type()));
-    REGISTER_SPECIFIC_INTRINSIC_2("char", "char", get_signed_int_type(), NULL);
-    REGISTER_SPECIFIC_INTRINSIC_1("clog", "log", get_complex_type(get_float_type()));
-    REGISTER_SPECIFIC_INTRINSIC_1("conjg", "conjg", get_complex_type(get_float_type()));
-    REGISTER_SPECIFIC_INTRINSIC_1("cos", "cos", get_float_type());
-    REGISTER_SPECIFIC_INTRINSIC_1("cosh", "cosh", get_float_type());
-    REGISTER_SPECIFIC_INTRINSIC_1("csin", "sin", get_complex_type(get_float_type()));
-    REGISTER_SPECIFIC_INTRINSIC_1("csqrt", "sqrt", get_complex_type(get_float_type()));
-    REGISTER_SPECIFIC_INTRINSIC_1("dabs", "abs", get_double_type());
-    REGISTER_SPECIFIC_INTRINSIC_1("dacos", "cos", get_double_type());
-    REGISTER_SPECIFIC_INTRINSIC_1("dasin", "asin", get_double_type());
-    REGISTER_SPECIFIC_INTRINSIC_1("datan", "atan", get_double_type());
-    REGISTER_SPECIFIC_INTRINSIC_2("datan2", "atan2", get_double_type(), get_double_type());
-    REGISTER_SPECIFIC_INTRINSIC_1("dcos", "cos", get_double_type());
-    REGISTER_SPECIFIC_INTRINSIC_1("dcosh", "cosh", get_double_type());
-    REGISTER_SPECIFIC_INTRINSIC_2("ddim", "dim", get_double_type(), get_double_type());
-    REGISTER_SPECIFIC_INTRINSIC_1("dexp", "exp", get_double_type());
-    REGISTER_SPECIFIC_INTRINSIC_2("dim", "dim", get_float_type(), get_float_type());
-    REGISTER_SPECIFIC_INTRINSIC_2("dint", "aint", get_double_type(), NULL);
-    REGISTER_SPECIFIC_INTRINSIC_1("dlog", "log", get_double_type());
-    REGISTER_SPECIFIC_INTRINSIC_1("dlog10", "log10", get_double_type());
+    REGISTER_SPECIFIC_INTRINSIC_2("anint", "anint", fortran_get_default_real_type(), NULL);
+    REGISTER_SPECIFIC_INTRINSIC_1("asin", "asin", fortran_get_default_real_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("atan", "atan", fortran_get_default_real_type());
+    REGISTER_SPECIFIC_INTRINSIC_2("atan2", "atan2", fortran_get_default_real_type(), fortran_get_default_real_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("cabs", "abs", get_complex_type(fortran_get_default_real_type()));
+    REGISTER_SPECIFIC_INTRINSIC_1("ccos", "cos", get_complex_type(fortran_get_default_real_type()));
+    REGISTER_SPECIFIC_INTRINSIC_1("cexp", "exp", get_complex_type(fortran_get_default_real_type()));
+    REGISTER_SPECIFIC_INTRINSIC_1("cexp", "exp", get_complex_type(fortran_get_default_real_type()));
+    REGISTER_SPECIFIC_INTRINSIC_2("char", "char", fortran_get_default_integer_type(), NULL);
+    REGISTER_SPECIFIC_INTRINSIC_1("clog", "log", get_complex_type(fortran_get_default_real_type()));
+    REGISTER_SPECIFIC_INTRINSIC_1("conjg", "conjg", get_complex_type(fortran_get_default_real_type()));
+    REGISTER_SPECIFIC_INTRINSIC_1("cos", "cos", fortran_get_default_real_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("cosh", "cosh", fortran_get_default_real_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("csin", "sin", get_complex_type(fortran_get_default_real_type()));
+    REGISTER_SPECIFIC_INTRINSIC_1("csqrt", "sqrt", get_complex_type(fortran_get_default_real_type()));
+    REGISTER_SPECIFIC_INTRINSIC_1("dabs", "abs", fortran_get_doubleprecision_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("dacos", "cos", fortran_get_doubleprecision_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("dasin", "asin", fortran_get_doubleprecision_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("datan", "atan", fortran_get_doubleprecision_type());
+    REGISTER_SPECIFIC_INTRINSIC_2("datan2", "atan2", fortran_get_doubleprecision_type(), fortran_get_doubleprecision_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("dcos", "cos", fortran_get_doubleprecision_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("dcosh", "cosh", fortran_get_doubleprecision_type());
+    REGISTER_SPECIFIC_INTRINSIC_2("ddim", "dim", fortran_get_doubleprecision_type(), fortran_get_doubleprecision_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("dexp", "exp", fortran_get_doubleprecision_type());
+    REGISTER_SPECIFIC_INTRINSIC_2("dim", "dim", fortran_get_default_real_type(), fortran_get_default_real_type());
+    REGISTER_SPECIFIC_INTRINSIC_2("dint", "aint", fortran_get_doubleprecision_type(), NULL);
+    REGISTER_SPECIFIC_INTRINSIC_1("dlog", "log", fortran_get_doubleprecision_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("dlog10", "log10", fortran_get_doubleprecision_type());
     // dmax1 dmin1 are defined as generic intrinsics
-    REGISTER_SPECIFIC_INTRINSIC_2("dmod", "mod", get_double_type(), get_double_type());
-    REGISTER_SPECIFIC_INTRINSIC_2("dnint", "anint", get_double_type(), NULL);
-    REGISTER_SPECIFIC_INTRINSIC_2("dprod", "dprod", get_float_type(), get_float_type());
-    REGISTER_SPECIFIC_INTRINSIC_2("dreal", "real", get_complex_type(get_double_type()), NULL);
-    REGISTER_SPECIFIC_INTRINSIC_2("dsign", "sign", get_double_type(), get_double_type());
-    REGISTER_SPECIFIC_INTRINSIC_1("dsin", "sin", get_double_type());
-    REGISTER_SPECIFIC_INTRINSIC_1("dsinh", "sinh", get_double_type());
-    REGISTER_SPECIFIC_INTRINSIC_1("dsqrt", "sqrt", get_double_type());
-    REGISTER_SPECIFIC_INTRINSIC_1("dtan", "tan", get_double_type());
-    REGISTER_SPECIFIC_INTRINSIC_1("dtanh", "tanh", get_double_type());
-    REGISTER_SPECIFIC_INTRINSIC_1("exp", "exp", get_float_type());
-    REGISTER_SPECIFIC_INTRINSIC_1("iabs", "abs", get_signed_int_type());
+    REGISTER_SPECIFIC_INTRINSIC_2("dmod", "mod", fortran_get_doubleprecision_type(), fortran_get_doubleprecision_type());
+    REGISTER_SPECIFIC_INTRINSIC_2("dnint", "anint", fortran_get_doubleprecision_type(), NULL);
+    REGISTER_SPECIFIC_INTRINSIC_2("dprod", "dprod", fortran_get_default_real_type(), fortran_get_default_real_type());
+    REGISTER_SPECIFIC_INTRINSIC_2("dreal", "real", get_complex_type(fortran_get_doubleprecision_type()), NULL);
+    REGISTER_SPECIFIC_INTRINSIC_2("dsign", "sign", fortran_get_doubleprecision_type(), fortran_get_doubleprecision_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("dsin", "sin", fortran_get_doubleprecision_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("dsinh", "sinh", fortran_get_doubleprecision_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("dsqrt", "sqrt", fortran_get_doubleprecision_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("dtan", "tan", fortran_get_doubleprecision_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("dtanh", "tanh", fortran_get_doubleprecision_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("exp", "exp", fortran_get_default_real_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("iabs", "abs", fortran_get_default_integer_type());
     REGISTER_SPECIFIC_INTRINSIC_2("ichar", "ichar", default_char, NULL);
-    REGISTER_SPECIFIC_INTRINSIC_2("idim", "dim", get_signed_int_type(), get_signed_int_type());
-    REGISTER_SPECIFIC_INTRINSIC_2("idint", "int", get_double_type(), NULL);
-    REGISTER_SPECIFIC_INTRINSIC_2("idnint", "nint", get_double_type(), NULL);
-    REGISTER_SPECIFIC_INTRINSIC_2("ifix", "int", get_float_type(), NULL);
+    REGISTER_SPECIFIC_INTRINSIC_2("idim", "dim", fortran_get_default_integer_type(), get_signed_int_type());
+    REGISTER_SPECIFIC_INTRINSIC_2("idint", "int", fortran_get_doubleprecision_type(), NULL);
+    REGISTER_SPECIFIC_INTRINSIC_2("idnint", "nint", fortran_get_doubleprecision_type(), NULL);
+    REGISTER_SPECIFIC_INTRINSIC_2("ifix", "int", fortran_get_default_real_type(), NULL);
     REGISTER_SPECIFIC_INTRINSIC_2("index", "index", default_char, default_char);
-    REGISTER_SPECIFIC_INTRINSIC_2("int", "int", get_signed_int_type(), NULL);
-    REGISTER_SPECIFIC_INTRINSIC_2("isign", "sign", get_signed_int_type(), get_signed_int_type());
+    REGISTER_SPECIFIC_INTRINSIC_2("int", "int", fortran_get_default_integer_type(), NULL);
+    REGISTER_SPECIFIC_INTRINSIC_2("isign", "sign", fortran_get_default_integer_type(), get_signed_int_type());
     REGISTER_SPECIFIC_INTRINSIC_2("len", "len", default_char, NULL);
     REGISTER_SPECIFIC_INTRINSIC_2("lge", "lge", default_char, default_char);
     REGISTER_SPECIFIC_INTRINSIC_2("lgt", "lgt", default_char, default_char);
     REGISTER_SPECIFIC_INTRINSIC_2("lle", "lle", default_char, default_char);
     REGISTER_SPECIFIC_INTRINSIC_2("llt", "llt", default_char, default_char);
-    REGISTER_SPECIFIC_INTRINSIC_2("mod", "mod", get_signed_int_type(), get_signed_int_type());
-    REGISTER_SPECIFIC_INTRINSIC_2("nint", "nint", get_float_type(), NULL);
-    REGISTER_SPECIFIC_INTRINSIC_2("real", "real", get_signed_int_type(), NULL);
-    REGISTER_SPECIFIC_INTRINSIC_2("sign", "sign", get_float_type(), get_float_type());
-    REGISTER_SPECIFIC_INTRINSIC_1("sin", "sin", get_float_type());
-    //REGISTER_SPECIFIC_INTRINSIC_2("sngl", "real", get_double_type(), NULL);
-    REGISTER_SPECIFIC_INTRINSIC_1("sqrt", "sqrt", get_float_type());
-    REGISTER_SPECIFIC_INTRINSIC_1("tan", "tan", get_float_type());
-    REGISTER_SPECIFIC_INTRINSIC_1("tanh", "tanh", get_float_type());
+    REGISTER_SPECIFIC_INTRINSIC_2("mod", "mod", fortran_get_default_integer_type(), get_signed_int_type());
+    REGISTER_SPECIFIC_INTRINSIC_2("nint", "nint", fortran_get_default_real_type(), NULL);
+    REGISTER_SPECIFIC_INTRINSIC_2("real", "real", fortran_get_default_integer_type(), NULL);
+    REGISTER_SPECIFIC_INTRINSIC_2("sign", "sign", fortran_get_default_real_type(), fortran_get_default_real_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("sin", "sin", fortran_get_default_real_type());
+    //REGISTER_SPECIFIC_INTRINSIC_2("sngl", "real", fortran_get_doubleprecision_type(), NULL);
+    REGISTER_SPECIFIC_INTRINSIC_1("sqrt", "sqrt", fortran_get_default_real_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("tan", "tan", fortran_get_default_real_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("tanh", "tanh", fortran_get_default_real_type());
 
     // Non standard stuff
     // Very old (normally from g77) intrinsics
-    REGISTER_SPECIFIC_INTRINSIC_1("cdabs", "abs", get_complex_type(get_double_type()));
-    REGISTER_SPECIFIC_INTRINSIC_1("zabs", "abs", get_complex_type(get_double_type()));
-    REGISTER_SPECIFIC_INTRINSIC_1("dconjg", "conjg", get_complex_type(get_double_type()));
-    REGISTER_SPECIFIC_INTRINSIC_1("dimag", "aimag", get_complex_type(get_double_type()));
+    REGISTER_SPECIFIC_INTRINSIC_1("cdabs", "abs", get_complex_type(fortran_get_doubleprecision_type()));
+    REGISTER_SPECIFIC_INTRINSIC_1("zabs", "abs", get_complex_type(fortran_get_doubleprecision_type()));
+    REGISTER_SPECIFIC_INTRINSIC_1("dconjg", "conjg", get_complex_type(fortran_get_doubleprecision_type()));
+    REGISTER_SPECIFIC_INTRINSIC_1("dimag", "aimag", get_complex_type(fortran_get_doubleprecision_type()));
 
-    REGISTER_CUSTOM_INTRINSIC_1("dfloat", get_double_type(), get_signed_int_type());
+    REGISTER_CUSTOM_INTRINSIC_1("dfloat", fortran_get_doubleprecision_type(), fortran_get_default_integer_type());
     REGISTER_CUSTOM_INTRINSIC_2("getenv", get_void_type(), fortran_get_default_character_type(), 
             fortran_get_default_character_type());
-    REGISTER_CUSTOM_INTRINSIC_1("sngl", get_float_type(), get_double_type());
+    REGISTER_CUSTOM_INTRINSIC_1("sngl", fortran_get_default_real_type(), fortran_get_doubleprecision_type());
 }
 
 scope_entry_t* compute_intrinsic_abs(scope_entry_t* symbol UNUSED_PARAMETER,
@@ -1252,7 +1252,7 @@ scope_entry_t* compute_intrinsic_all(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t* return_type = array_type_get_element_type(t0);
 
         return GET_INTRINSIC_TRANSFORMATIONAL("all", return_type, t0, 
-                (t1 == NULL ? get_signed_int_type() : t1));
+                (t1 == NULL ? fortran_get_default_integer_type() : t1));
     }
     return NULL;
 }
@@ -1312,7 +1312,7 @@ scope_entry_t* compute_intrinsic_any(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t* return_type = array_type_get_element_type(t0);
 
         return GET_INTRINSIC_TRANSFORMATIONAL("any", return_type, t0, 
-                (t1 == NULL ? get_signed_int_type() : t1));
+                (t1 == NULL ? fortran_get_default_integer_type() : t1));
     }
     return NULL;
 }
@@ -1773,7 +1773,7 @@ scope_entry_t* compute_intrinsic_dcmplx(scope_entry_t* symbol UNUSED_PARAMETER,
                 || is_integer_type(t1)))
     {
         return GET_INTRINSIC_ELEMENTAL("dcmplx", 
-                get_complex_type(get_double_type()),
+                get_complex_type(fortran_get_doubleprecision_type()),
                 t0, 
                 t1 == NULL ? t0 : t1);
     }
@@ -1786,7 +1786,7 @@ scope_entry_t* compute_intrinsic_command_argument_count(scope_entry_t* symbol UN
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
-    get_intrinsic_symbol_("command_argument_count", get_signed_int_type(), 0, NULL, symbol->decl_context, 
+    get_intrinsic_symbol_("command_argument_count", fortran_get_default_integer_type(), 0, NULL, symbol->decl_context, 
             /* is_elemental */ 0, 
             /* is_pure */ 0, 
             /* is_transformational */ 1, 
@@ -1857,7 +1857,7 @@ scope_entry_t* compute_intrinsic_count(scope_entry_t* symbol UNUSED_PARAMETER,
         return GET_INTRINSIC_TRANSFORMATIONAL("count", 
                 choose_int_type_from_kind(argument_expressions[2], di),
                 t0, 
-                (t1 == NULL ? get_signed_int_type() : t1),
+                (t1 == NULL ? fortran_get_default_integer_type() : t1),
                 fortran_get_default_integer_type());
     }
 
@@ -1896,7 +1896,7 @@ scope_entry_t* compute_intrinsic_cshift(scope_entry_t* symbol UNUSED_PARAMETER,
             && (t2 == NULL || is_integer_type(t2)))
     {
         return GET_INTRINSIC_TRANSFORMATIONAL("cshift", t0, t0, t1, 
-                t2 == NULL ? get_signed_int_type() : t2);
+                t2 == NULL ? fortran_get_default_integer_type() : t2);
     }
     return NULL;
 }
@@ -1920,7 +1920,7 @@ scope_entry_t* compute_intrinsic_date_and_time(scope_entry_t* symbol UNUSED_PARA
                  get_rank_of_type(t3) == 1)))
     {
         type_t* char_type = get_array_type(get_char_type(), nodecl_null(), symbol->decl_context);
-        type_t* int_array = get_n_ranked_type(get_signed_int_type(), 1, symbol->decl_context);
+        type_t* int_array = get_n_ranked_type(fortran_get_default_integer_type(), 1, symbol->decl_context);
         return GET_INTRINSIC_IMPURE("date_and_time", get_void_type(), char_type, char_type, char_type, int_array);
     }
 
@@ -1939,7 +1939,7 @@ scope_entry_t* compute_intrinsic_dble(scope_entry_t* symbol UNUSED_PARAMETER,
             || is_floating_type(t0)
             || is_complex_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("dble", get_double_type(), t0);
+        return GET_INTRINSIC_ELEMENTAL("dble", fortran_get_doubleprecision_type(), t0);
     }
     return NULL;
 }
@@ -1955,7 +1955,7 @@ scope_entry_t* compute_intrinsic_digits(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_integer_type(get_rank0_type(t0))
             || is_floating_type(get_rank0_type(t0)))
     {
-        return GET_INTRINSIC_INQUIRY("digits", get_signed_int_type(), t0);
+        return GET_INTRINSIC_INQUIRY("digits", fortran_get_default_integer_type(), t0);
     }
 
     return NULL;
@@ -2026,7 +2026,7 @@ scope_entry_t* compute_intrinsic_dprod(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_float_type(t0)
             && is_float_type(t1))
     {
-        return GET_INTRINSIC_ELEMENTAL("dprod", get_double_type(), t0, t1);
+        return GET_INTRINSIC_ELEMENTAL("dprod", fortran_get_doubleprecision_type(), t0, t1);
     }
 
     return NULL;
@@ -2097,7 +2097,7 @@ scope_entry_t* compute_intrinsic_eoshift(scope_entry_t* symbol UNUSED_PARAMETER,
                 t0,
                 t1,
                 t2 == NULL ? get_rank0_type(t0) : t2,
-                t3 == NULL ? get_signed_int_type() : t3);
+                t3 == NULL ? fortran_get_default_integer_type() : t3);
     }
 
     return NULL;
@@ -2183,8 +2183,8 @@ scope_entry_t* compute_intrinsic_execute_command_line(scope_entry_t* symbol UNUS
         return GET_INTRINSIC_IMPURE("execute_command_line", 
                 get_void_type(), // It is a subroutine
                 t1, 
-                t2 == NULL ? get_signed_int_type() : t2,
-                t3 == NULL ? get_signed_int_type() : t3,
+                t2 == NULL ? fortran_get_default_integer_type() : t2,
+                t3 == NULL ? fortran_get_default_integer_type() : t3,
                 t4 == NULL ? get_n_ranked_type(get_char_type(), 1, symbol->decl_context) : t3);
 
     }
@@ -2216,7 +2216,7 @@ scope_entry_t* compute_intrinsic_exponent(scope_entry_t* symbol UNUSED_PARAMETER
     type_t* t0 = get_rank0_type(argument_types[0]);
     if (is_floating_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("exponent", get_signed_int_type(), t0);
+        return GET_INTRINSIC_ELEMENTAL("exponent", fortran_get_default_integer_type(), t0);
     }
     return NULL;
 }
@@ -2362,8 +2362,8 @@ scope_entry_t* compute_intrinsic_get_command(scope_entry_t* symbol UNUSED_PARAME
         return GET_INTRINSIC_IMPURE("get_command",
                 get_void_type(), // Is a subroutine
                 t0 == NULL ? get_n_ranked_type(get_char_type(), 1, symbol->decl_context) : t0,
-                t1 == NULL ? get_signed_int_type() : t1,
-                t2 == NULL ? get_signed_int_type() : t2);
+                t1 == NULL ? fortran_get_default_integer_type() : t1,
+                t2 == NULL ? fortran_get_default_integer_type() : t2);
     }
     return NULL;
 }
@@ -2388,8 +2388,8 @@ scope_entry_t* compute_intrinsic_get_command_argument(scope_entry_t* symbol UNUS
                 get_void_type(), // Is a subroutine
                 t0,
                 t1 == NULL ? get_n_ranked_type(get_char_type(), 1, symbol->decl_context) : t1,
-                t2 == NULL ? get_signed_int_type() : t2,
-                t3 == NULL ? get_signed_int_type() : t3);
+                t2 == NULL ? fortran_get_default_integer_type() : t2,
+                t3 == NULL ? fortran_get_default_integer_type() : t3);
     }
 
     return NULL;
@@ -2417,8 +2417,8 @@ scope_entry_t* compute_intrinsic_get_environment_variable(scope_entry_t* symbol 
                 get_void_type(), // is a subroutine
                 t0,
                 t1 == NULL ? get_n_ranked_type(get_char_type(), 1, symbol->decl_context) : t1,
-                t2 == NULL ? get_signed_int_type() : t2,
-                t3 == NULL ? get_signed_int_type() : t3,
+                t2 == NULL ? fortran_get_default_integer_type() : t2,
+                t3 == NULL ? fortran_get_default_integer_type() : t3,
                 t3 == NULL ? fortran_get_default_logical_type() : t4);
     }
 
@@ -2846,7 +2846,7 @@ scope_entry_t* compute_intrinsic_kind(scope_entry_t* symbol UNUSED_PARAMETER,
 
     if (is_fortran_intrinsic_type(t0))
     {
-        return GET_INTRINSIC_INQUIRY("kind", get_signed_int_type(), t0);
+        return GET_INTRINSIC_INQUIRY("kind", fortran_get_default_integer_type(), t0);
     }
 
     return NULL;
@@ -2908,7 +2908,7 @@ scope_entry_t* compute_intrinsic_leadz(scope_entry_t* symbol UNUSED_PARAMETER,
 
     if (is_integer_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("leadz", get_signed_int_type(), t0);
+        return GET_INTRINSIC_ELEMENTAL("leadz", fortran_get_default_integer_type(), t0);
     }
     return NULL;
 }
@@ -3260,7 +3260,7 @@ scope_entry_t* compute_intrinsic_max0(
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
-    return compute_intrinsic_max_min_aux("max0", /* output_type */ get_signed_int_type(), /* input_type */ get_signed_int_type(), 
+    return compute_intrinsic_max_min_aux("max0", /* output_type */ fortran_get_default_integer_type(), /* input_type */ get_signed_int_type(), 
             symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
@@ -3271,7 +3271,7 @@ scope_entry_t* compute_intrinsic_max1(
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
-    return compute_intrinsic_max_min_aux("max1", /* output_type */ get_signed_int_type(), /* input_type */ get_float_type(), 
+    return compute_intrinsic_max_min_aux("max1", /* output_type */ fortran_get_default_integer_type(), /* input_type */ fortran_get_default_real_type(), 
             symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
@@ -3282,7 +3282,7 @@ scope_entry_t* compute_intrinsic_amax0(
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
-    return compute_intrinsic_max_min_aux("amax0", /* output_type */ get_float_type(), /* input_type */ get_signed_int_type(), 
+    return compute_intrinsic_max_min_aux("amax0", /* output_type */ fortran_get_default_real_type(), /* input_type */ fortran_get_default_integer_type(), 
             symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
@@ -3293,7 +3293,7 @@ scope_entry_t* compute_intrinsic_amax1(
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
-    return compute_intrinsic_max_min_aux("amax1", /* output_type */ get_float_type(), /* input_type */ get_float_type(), 
+    return compute_intrinsic_max_min_aux("amax1", /* output_type */ fortran_get_default_real_type(), /* input_type */ fortran_get_default_real_type(), 
             symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
@@ -3304,7 +3304,7 @@ scope_entry_t* compute_intrinsic_dmax1(
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
-    return compute_intrinsic_max_min_aux("dmax1", /* output_type */ get_double_type(), /* input_type */ get_double_type(), 
+    return compute_intrinsic_max_min_aux("dmax1", /* output_type */ fortran_get_doubleprecision_type(), /* input_type */ fortran_get_doubleprecision_type(), 
             symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
@@ -3318,7 +3318,7 @@ scope_entry_t* compute_intrinsic_maxexponent(scope_entry_t* symbol UNUSED_PARAME
 
     if (is_floating_type(get_rank0_type(t0)))
     {
-        return GET_INTRINSIC_INQUIRY("maxexponent", get_signed_int_type(), t0);
+        return GET_INTRINSIC_INQUIRY("maxexponent", fortran_get_default_integer_type(), t0);
     }
     return NULL;
 }
@@ -3409,7 +3409,7 @@ scope_entry_t* compute_intrinsic_maxval_0(scope_entry_t* symbol UNUSED_PARAMETER
             return GET_INTRINSIC_TRANSFORMATIONAL("maxval", 
                     get_rank0_type(t0),
                     t0,
-                    t1 == NULL ? get_signed_int_type() : t1,
+                    t1 == NULL ? fortran_get_default_integer_type() : t1,
                     t2 == NULL ? fortran_get_default_logical_type() : t2);
         }
         else
@@ -3417,7 +3417,7 @@ scope_entry_t* compute_intrinsic_maxval_0(scope_entry_t* symbol UNUSED_PARAMETER
             return GET_INTRINSIC_TRANSFORMATIONAL("maxval",
                     get_n_ranked_type(get_rank0_type(t0), get_rank_of_type(t0) - 1, symbol->decl_context),
                     t0,
-                    t1 == NULL ? get_signed_int_type() : t1,
+                    t1 == NULL ? fortran_get_default_integer_type() : t1,
                     t2 == NULL ? fortran_get_default_logical_type() : t2);
         }
     }
@@ -3490,7 +3490,7 @@ scope_entry_t* compute_intrinsic_min0(
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
-    return compute_intrinsic_max_min_aux("min0", /* output_type */ get_signed_int_type(), /* input_type */ get_signed_int_type(), 
+    return compute_intrinsic_max_min_aux("min0", /* output_type */ fortran_get_default_integer_type(), /* input_type */ get_signed_int_type(), 
             symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
@@ -3501,7 +3501,7 @@ scope_entry_t* compute_intrinsic_min1(
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
-    return compute_intrinsic_max_min_aux("min1", /* output_type */ get_signed_int_type(), /* input_type */ get_float_type(), 
+    return compute_intrinsic_max_min_aux("min1", /* output_type */ fortran_get_default_integer_type(), /* input_type */ fortran_get_default_real_type(), 
             symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
@@ -3512,7 +3512,7 @@ scope_entry_t* compute_intrinsic_amin0(
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
-    return compute_intrinsic_max_min_aux("amin0", /* output_type */ get_float_type(), /* input_type */ get_signed_int_type(), 
+    return compute_intrinsic_max_min_aux("amin0", /* output_type */ fortran_get_default_real_type(), /* input_type */ fortran_get_default_integer_type(), 
             symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
@@ -3523,7 +3523,9 @@ scope_entry_t* compute_intrinsic_amin1(
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
-    return compute_intrinsic_max_min_aux("amin1", /* output_type */ get_float_type(), /* input_type */ get_float_type(), 
+    return compute_intrinsic_max_min_aux("amin1", 
+            /* output_type */ fortran_get_default_real_type(), 
+            /* input_type */ fortran_get_default_real_type(), 
             symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
@@ -3534,7 +3536,9 @@ scope_entry_t* compute_intrinsic_dmin1(
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
-    return compute_intrinsic_max_min_aux("dmin1", /* output_type */ get_double_type(), /* input_type */ get_double_type(), 
+    return compute_intrinsic_max_min_aux("dmin1", 
+            /* output_type */ fortran_get_doubleprecision_type(), 
+            /* input_type */ fortran_get_doubleprecision_type(), 
             symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
@@ -3548,7 +3552,7 @@ scope_entry_t* compute_intrinsic_minexponent(scope_entry_t* symbol UNUSED_PARAME
 
     if (is_floating_type(get_rank0_type(t0)))
     {
-        return GET_INTRINSIC_INQUIRY("minexponent", get_signed_int_type(), t0);
+        return GET_INTRINSIC_INQUIRY("minexponent", fortran_get_default_integer_type(), t0);
     }
     return NULL;
 }
@@ -3589,7 +3593,7 @@ scope_entry_t* compute_intrinsic_minloc_0(scope_entry_t* symbol UNUSED_PARAMETER
                     get_n_ranked_type(choose_int_type_from_kind(kind, di), rank, symbol->decl_context),
                     t0, 
                     t2 == NULL ? fortran_get_default_logical_type() : t2, 
-                    get_signed_int_type(),
+                    fortran_get_default_integer_type(),
                     t4 == NULL ? fortran_get_default_logical_type() : t4);
         }
         else
@@ -3599,7 +3603,7 @@ scope_entry_t* compute_intrinsic_minloc_0(scope_entry_t* symbol UNUSED_PARAMETER
                     t0, 
                     t1,
                     t2 == NULL ? fortran_get_default_logical_type() : t2, 
-                    get_signed_int_type(),
+                    fortran_get_default_integer_type(),
                     t4 == NULL ? fortran_get_default_logical_type() : t4);
         }
     }
@@ -3639,7 +3643,7 @@ scope_entry_t* compute_intrinsic_minval_0(scope_entry_t* symbol UNUSED_PARAMETER
             return GET_INTRINSIC_TRANSFORMATIONAL("minval", 
                     get_rank0_type(t0),
                     t0,
-                    t1 == NULL ? get_signed_int_type() : t1,
+                    t1 == NULL ? fortran_get_default_integer_type() : t1,
                     t2 == NULL ? fortran_get_default_logical_type() : t2);
         }
         else
@@ -3647,7 +3651,7 @@ scope_entry_t* compute_intrinsic_minval_0(scope_entry_t* symbol UNUSED_PARAMETER
             return GET_INTRINSIC_TRANSFORMATIONAL("minval",
                     get_n_ranked_type(get_rank0_type(t0), get_rank_of_type(t0) - 1, symbol->decl_context),
                     t0,
-                    t1 == NULL ? get_signed_int_type() : t1,
+                    t1 == NULL ? fortran_get_default_integer_type() : t1,
                     t2 == NULL ? fortran_get_default_logical_type() : t2);
         }
     }
@@ -3939,7 +3943,7 @@ scope_entry_t* compute_intrinsic_popcnt(scope_entry_t* symbol UNUSED_PARAMETER,
 
     if (is_integer_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("popcnt", get_signed_int_type(), t0);
+        return GET_INTRINSIC_ELEMENTAL("popcnt", fortran_get_default_integer_type(), t0);
     } 
 
     return NULL;
@@ -3955,7 +3959,7 @@ scope_entry_t* compute_intrinsic_poppar(scope_entry_t* symbol UNUSED_PARAMETER,
 
     if (is_integer_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("poppar", get_signed_int_type(), t0);
+        return GET_INTRINSIC_ELEMENTAL("poppar", fortran_get_default_integer_type(), t0);
     } 
 
     return NULL;
@@ -3972,7 +3976,7 @@ scope_entry_t* compute_intrinsic_precision(scope_entry_t* symbol UNUSED_PARAMETE
     if (is_complex_type(get_rank0_type(t0))
             || is_floating_type(get_rank0_type(t0)))
     {
-        return GET_INTRINSIC_INQUIRY("precision", get_signed_int_type(), t0);
+        return GET_INTRINSIC_INQUIRY("precision", fortran_get_default_integer_type(), t0);
     }
     return NULL;
 }
@@ -4012,7 +4016,7 @@ scope_entry_t* compute_intrinsic_product_0(scope_entry_t* symbol UNUSED_PARAMETE
         return GET_INTRINSIC_TRANSFORMATIONAL("product",
                 return_type,
                 t0, 
-                t1 == NULL ? get_signed_int_type() : t1,
+                t1 == NULL ? fortran_get_default_integer_type() : t1,
                 t2 == NULL ? fortran_get_default_logical_type() : t2);
     }
 
@@ -4039,7 +4043,7 @@ scope_entry_t* compute_intrinsic_radix(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_integer_type(get_rank0_type(t0))
             || is_floating_type(get_rank0_type(t0)))
     {
-        return GET_INTRINSIC_INQUIRY("radix", get_signed_int_type(), t0);
+        return GET_INTRINSIC_INQUIRY("radix", fortran_get_default_integer_type(), t0);
     }
 
     return NULL;
@@ -4080,9 +4084,9 @@ scope_entry_t* compute_intrinsic_random_seed(scope_entry_t* symbol UNUSED_PARAME
     {
         return GET_INTRINSIC_IMPURE("random_seed", 
                 /* subroutine */ get_void_type(),
-                get_signed_int_type(),
-                get_n_ranked_type(get_signed_int_type(), 1, symbol->decl_context),
-                get_n_ranked_type(get_signed_int_type(), 1, symbol->decl_context));
+                fortran_get_default_integer_type(),
+                get_n_ranked_type(fortran_get_default_integer_type(), 1, symbol->decl_context),
+                get_n_ranked_type(fortran_get_default_integer_type(), 1, symbol->decl_context));
     }
 
     return NULL;
@@ -4100,7 +4104,7 @@ scope_entry_t* compute_intrinsic_range(scope_entry_t* symbol UNUSED_PARAMETER,
             || is_floating_type(get_rank0_type(t0))
             || is_complex_type(get_rank0_type(t0)))
     {
-        return GET_INTRINSIC_ELEMENTAL("range", get_signed_int_type(), t0);
+        return GET_INTRINSIC_ELEMENTAL("range", fortran_get_default_integer_type(), t0);
     }
 
     return NULL;
@@ -4138,7 +4142,7 @@ scope_entry_t* compute_intrinsic_float(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_integer_type(t0))
     {
         return GET_INTRINSIC_ELEMENTAL("float", 
-                get_float_type(),
+                fortran_get_default_real_type(),
                 t0);
     }
     return NULL;
@@ -4312,7 +4316,7 @@ scope_entry_t* compute_intrinsic_selected_char_kind(scope_entry_t* symbol UNUSED
     type_t* t0 = no_ref(argument_types[0]);
     if (is_fortran_character_type(t0))
     {
-        return GET_INTRINSIC_TRANSFORMATIONAL("selected_char_kind", get_signed_int_type(), t0);
+        return GET_INTRINSIC_TRANSFORMATIONAL("selected_char_kind", fortran_get_default_integer_type(), t0);
     }
     return NULL;
 }
@@ -4326,7 +4330,7 @@ scope_entry_t* compute_intrinsic_selected_int_kind(scope_entry_t* symbol UNUSED_
     type_t* t0 = no_ref(argument_types[0]);
     if (is_integer_type(t0))
     {
-        return GET_INTRINSIC_TRANSFORMATIONAL("selected_int_kind", get_signed_int_type(), t0);
+        return GET_INTRINSIC_TRANSFORMATIONAL("selected_int_kind", fortran_get_default_integer_type(), t0);
     }
     return NULL;
 }
@@ -4348,10 +4352,10 @@ scope_entry_t* compute_intrinsic_selected_real_kind(scope_entry_t* symbol UNUSED
             && (t1 == NULL || is_integer_type(t1))
             && (t2 == NULL || is_integer_type(t2)))
     {
-        return GET_INTRINSIC_TRANSFORMATIONAL("selected_real_kind", get_signed_int_type(), 
-                t0 == NULL ? get_signed_int_type() : t0,
-                t1 == NULL ? get_signed_int_type() : t1,
-                t2 == NULL ? get_signed_int_type() : t2);
+        return GET_INTRINSIC_TRANSFORMATIONAL("selected_real_kind", fortran_get_default_integer_type(), 
+                t0 == NULL ? fortran_get_default_integer_type() : t0,
+                t1 == NULL ? fortran_get_default_integer_type() : t1,
+                t2 == NULL ? fortran_get_default_integer_type() : t2);
     }
     return NULL;
 }
@@ -4521,7 +4525,7 @@ scope_entry_t* compute_intrinsic_size(scope_entry_t* symbol UNUSED_PARAMETER,
         return GET_INTRINSIC_INQUIRY("size", 
                 choose_int_type_from_kind(argument_expressions[2], di),
                 t0,
-                t1 == NULL ? get_signed_int_type() : t1,
+                t1 == NULL ? fortran_get_default_integer_type() : t1,
                 fortran_get_default_integer_type());
     }
 
@@ -4640,7 +4644,7 @@ scope_entry_t* compute_intrinsic_sum_0(scope_entry_t* symbol UNUSED_PARAMETER,
         return GET_INTRINSIC_TRANSFORMATIONAL("sum",
                 return_type,
                 t0, 
-                t1 == NULL ? get_signed_int_type() : t1,
+                t1 == NULL ? fortran_get_default_integer_type() : t1,
                 t2 == NULL ? fortran_get_default_logical_type() : t2);
     }
 
@@ -4671,9 +4675,9 @@ scope_entry_t* compute_intrinsic_system_clock(scope_entry_t* symbol UNUSED_PARAM
             && (t2 == NULL || is_integer_type(t2)))
     {
         return GET_INTRINSIC_IMPURE("system_clock", /*subroutine*/ get_void_type(), 
-                t0 == NULL ? get_signed_int_type() : t0, 
-                t1 == NULL ? get_signed_int_type() : t1, 
-                t2 == NULL ? get_signed_int_type() : t2);
+                t0 == NULL ? fortran_get_default_integer_type() : t0, 
+                t1 == NULL ? fortran_get_default_integer_type() : t1, 
+                t2 == NULL ? fortran_get_default_integer_type() : t2);
     }
 
     return NULL;
@@ -4754,7 +4758,7 @@ scope_entry_t* compute_intrinsic_trailz(scope_entry_t* symbol UNUSED_PARAMETER,
     type_t* t0 = get_rank0_type(argument_types[0]);
     if (is_integer_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("trailz", get_signed_int_type(), t0);
+        return GET_INTRINSIC_ELEMENTAL("trailz", fortran_get_default_integer_type(), t0);
     }
     return NULL;
 }
@@ -4774,14 +4778,14 @@ scope_entry_t* compute_intrinsic_transfer(scope_entry_t* symbol UNUSED_PARAMETER
         if (!is_fortran_array_type(t1) 
                 && t2 == NULL)
         {
-            return GET_INTRINSIC_TRANSFORMATIONAL("transfer", t1, t0, t1, get_signed_int_type());
+            return GET_INTRINSIC_TRANSFORMATIONAL("transfer", t1, t0, t1, fortran_get_default_integer_type());
         }
         else if (is_fortran_array_type(t1)
                 && t2 == NULL)
         {
             return GET_INTRINSIC_TRANSFORMATIONAL("transfer", 
                     get_n_ranked_type(get_rank0_type(t1), 1, symbol->decl_context),
-                    t0, t1, get_signed_int_type());
+                    t0, t1, fortran_get_default_integer_type());
         }
         else
         {
@@ -4963,7 +4967,7 @@ scope_entry_t* compute_intrinsic_etime(scope_entry_t* symbol UNUSED_PARAMETER,
             && is_float_type(get_rank0_type(t0)))
     {
         return GET_INTRINSIC_INQUIRY("etime",
-                get_float_type(),
+                fortran_get_default_real_type(),
                 t0);
     }
     return NULL;

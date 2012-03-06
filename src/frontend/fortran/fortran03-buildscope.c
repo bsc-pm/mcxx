@@ -2503,7 +2503,7 @@ static type_t* gather_type_from_declaration_type_spec_(AST a,
     {
         case AST_INT_TYPE:
             {
-                result = get_signed_int_type();
+                result = fortran_get_default_integer_type();
                 if (ASTSon0(a) != NULL)
                 {
                     result = choose_type_from_kind(ASTSon0(a), decl_context, 
@@ -2513,7 +2513,7 @@ static type_t* gather_type_from_declaration_type_spec_(AST a,
             }
         case AST_FLOAT_TYPE:
             {
-                result = get_float_type();
+                result = fortran_get_default_real_type();
                 if (ASTSon0(a) != NULL)
                 {
                     result = choose_type_from_kind(ASTSon0(a), decl_context, 
@@ -2523,7 +2523,7 @@ static type_t* gather_type_from_declaration_type_spec_(AST a,
             }
         case AST_DOUBLE_TYPE:
             {
-                result = get_double_type();
+                result = fortran_get_doubleprecision_type();
                 break;
             }
         case AST_COMPLEX_TYPE:
@@ -2597,7 +2597,7 @@ static type_t* gather_type_from_declaration_type_spec_(AST a,
             }
         case AST_BOOL_TYPE:
             {
-                result = get_bool_of_integer_type(get_signed_int_type());
+                result = get_bool_of_integer_type(fortran_get_default_logical_type());
                 if (ASTSon0(a) != NULL)
                 {
                     result = choose_type_from_kind(ASTSon0(a), decl_context, 
