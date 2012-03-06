@@ -218,6 +218,9 @@ namespace Codegen
                 // Used in define_generic_entities  
                 std::set<TL::Symbol> walked_symbols;
 
+                // Object init
+                std::set<TL::Symbol> must_be_object_init;
+
                 // This means that we are doing &X and X is a rebindable reference
                 bool do_not_derref_rebindable_reference;
 
@@ -241,6 +244,7 @@ namespace Codegen
                     being_checked_for_required(),
                     pending_nested_types_to_define(),
                     walked_symbols(),
+                    must_be_object_init(),
                     do_not_derref_rebindable_reference(false),
                     _indent_level(0) { }
             } state;

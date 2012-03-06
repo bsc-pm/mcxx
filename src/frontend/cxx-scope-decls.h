@@ -259,14 +259,6 @@ enum intent_kind_tag
     INTENT_INOUT = INTENT_IN | INTENT_OUT,
 } intent_kind_t;
 
-enum codegen_status_tag
-{
-    CODEGEN_STATUS_NONE = 0,
-    CODEGEN_STATUS_DECLARED = 1,
-    CODEGEN_STATUS_DEFINED = 2
-};
-typedef enum codegen_status_tag codegen_status_t;
-
 typedef nodecl_t (*simplify_function_t)(int num_arguments, nodecl_t *arguments);
 
 typedef void (*emission_handler_t)(scope_entry_t*, const char* filename, int line);
