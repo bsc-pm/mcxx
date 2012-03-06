@@ -35,6 +35,13 @@
 
 namespace Codegen
 {
+    enum codegen_status_t
+    {
+        CODEGEN_STATUS_NONE = 0,
+        CODEGEN_STATUS_DECLARED = 1,
+        CODEGEN_STATUS_DEFINED = 2
+    };
+
     class CodegenVisitor : public Nodecl::NodeclVisitor<void>
     {
         private:
