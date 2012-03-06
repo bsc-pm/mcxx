@@ -369,14 +369,14 @@ static nodecl_t simplify_epsilon(int num_arguments UNUSED_PARAMETER, nodecl_t* a
     else if (is_double_type(t))
     {
         return nodecl_make_floating_literal(
-                get_float_type(),
+                get_double_type(),
                 const_value_get_double(DBL_EPSILON),
                 NULL, 0);
     }
     else if (is_long_double_type(t))
     {
         return nodecl_make_floating_literal(
-                get_float_type(),
+                get_long_double_type(),
                 const_value_get_long_double(LDBL_EPSILON),
                 NULL, 0);
     }

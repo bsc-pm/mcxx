@@ -218,6 +218,16 @@
 "  --disable-intrinsics     Ignore all known Fortran intrinsics\n" \
 "  -J <dir>                 Sets <dir> as the output module directory\n" \
 "                           This flag is only meaningful for Fortran\n" \
+"  --integer-kind=N         Set the default kind of INTEGER\n" \
+"                           By default it is 4. Fortran only\n" \
+"  --real-kind=N            Set the default kind of REAL\n" \
+"                           By default it is 4. Fortran only\n" \
+"  --double-kind=N          Set the kind of DOUBLEPRECISION\n" \
+"                           By default it is 8. Fortran only\n" \
+"  --logical-kind=N         Set the default kind of LOGICAL\n" \
+"                           By default it is 4. Fortran only\n" \
+"  --character-kind=N       Set the default kind of CHARACTER\n" \
+"                           By default it is 1. Fortran only\n" \
 "\n" \
 "gcc compatibility flags:\n" \
 "\n" \
@@ -305,6 +315,11 @@ typedef enum
     OPTION_EMPTY_SENTINELS,
     OPTION_DISABLE_INTRINSICS,
     OPTION_FORTRAN_PRESCANNER,
+    OPTION_FORTRAN_DOUBLEPRECISION_KIND,
+    OPTION_FORTRAN_INTEGER_KIND,
+    OPTION_FORTRAN_LOGICAL_KIND,
+    OPTION_FORTRAN_REAL_KIND,
+    OPTION_FORTRAN_CHARACTER_KIND,
     OPTION_VERBOSE,
 } COMMAND_LINE_OPTIONS;
 
@@ -363,6 +378,11 @@ struct command_line_long_options command_line_long_options[] =
     {"sentinels", CLP_REQUIRED_ARGUMENT, OPTION_EMPTY_SENTINELS},
     {"disable-intrinsics", CLP_NO_ARGUMENT, OPTION_DISABLE_INTRINSICS},
     {"fpc", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_PRESCANNER },
+    {"integer-kind", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_INTEGER_KIND},
+    {"real-kind", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_REAL_KIND},
+    {"double-kind",  CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_DOUBLEPRECISION_KIND},
+    {"logical-kind", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_LOGICAL_KIND},
+    {"character-kind", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_CHARACTER_KIND},
     // sentinel
     {NULL, 0, 0}
 };
@@ -1234,6 +1254,31 @@ int parse_arguments(int argc, const char* argv[],
                 case OPTION_FORTRAN_PRESCANNER:
                     {
                         CURRENT_CONFIGURATION->prescanner_name = uniquestr(parameter_info.argument);
+                        break;
+                    }
+                case OPTION_FORTRAN_DOUBLEPRECISION_KIND:
+                    {
+                        CURRENT_CONFIGURATION->doubleprecision_kind = atoi(parameter_info.argument);
+                        break;
+                    }
+                case OPTION_FORTRAN_REAL_KIND:
+                    {
+                        CURRENT_CONFIGURATION->default_real_kind = atoi(parameter_info.argument);
+                        break;
+                    }
+                case OPTION_FORTRAN_INTEGER_KIND:
+                    {
+                        CURRENT_CONFIGURATION->default_integer_kind = atoi(parameter_info.argument);
+                        break;
+                    }
+                case OPTION_FORTRAN_LOGICAL_KIND:
+                    {
+                        CURRENT_CONFIGURATION->default_logical_kind = atoi(parameter_info.argument);
+                        break;
+                    }
+                case OPTION_FORTRAN_CHARACTER_KIND:
+                    {
+                        CURRENT_CONFIGURATION->default_character_kind = atoi(parameter_info.argument);
                         break;
                     }
                 default:

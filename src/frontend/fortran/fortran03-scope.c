@@ -30,6 +30,7 @@
 #include "cxx-scope.h"
 #include "cxx-entrylist.h"
 #include "fortran03-buildscope.h"
+#include "fortran03-typeutils.h"
 #include <string.h>
 #include <ctype.h>
 
@@ -96,11 +97,11 @@ static implicit_info_t* get_default_fortran_implicit(void)
         char c;
         for (c = 'a'; c <= 'z'; c++)
         {
-            (*(result->data->implicit_letter_set))[c - 'a'] = get_float_type();
+            (*(result->data->implicit_letter_set))[c - 'a'] = fortran_get_default_real_type();
         }
         for (c = 'i'; c <= 'n'; c++)
         {
-            (*(result->data->implicit_letter_set))[c - 'a'] = get_signed_int_type();
+            (*(result->data->implicit_letter_set))[c - 'a'] = fortran_get_default_integer_type();
         }
         result->data->letter_set_is_shared = 1;
     }

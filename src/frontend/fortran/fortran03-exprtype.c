@@ -1209,8 +1209,6 @@ static void check_boolean_literal(AST expr, decl_context_t decl_context UNUSED_P
 
 static void check_complex_literal(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    // Const value does not support yet complex numbers, simply compute its
-    // type
     AST real_part = ASTSon0(expr);
     AST imag_part = ASTSon1(expr);
 
@@ -1237,7 +1235,7 @@ static void check_complex_literal(AST expr, decl_context_t decl_context, nodecl_
     if (is_integer_type(real_part_type)
             && is_integer_type(imag_part_type))
     {
-        result_type = get_complex_type(get_float_type());
+        result_type = get_complex_type(fortran_get_default_real_type());
     }
     else if (is_floating_type(real_part_type)
             || is_floating_type(imag_part_type))
@@ -1583,7 +1581,7 @@ static void check_decimal_literal(AST expr, decl_context_t decl_context, nodecl_
         q++;
     }
 
-    int kind = 4;
+    int kind = fortran_get_default_integer_type_kind();
     if (*p == '_')
     {
         p++;
@@ -1862,7 +1860,7 @@ static void check_floating_literal(AST expr, decl_context_t decl_context, nodecl
 {
    char* floating_text = strdup(strtolower(ASTText(expr)));
 
-   unsigned int kind = 4;
+   unsigned int kind = fortran_get_default_real_type_kind();
    char *q = NULL; 
    if ((q = strchr(floating_text, '_')) != NULL)
    {
@@ -1878,12 +1876,11 @@ static void check_floating_literal(AST expr, decl_context_t decl_context, nodecl
    else if ((q = strchr(floating_text, 'd')) != NULL)
    {
        *q = 'e';
-       kind = 8;
+       kind = fortran_get_doubleprecision_type_kind();
    }
 
-    nodecl_t nodecl_fake = nodecl_make_text(floating_text, ASTFileName(expr), ASTLine(expr));
+   nodecl_t nodecl_fake = nodecl_make_text(floating_text, ASTFileName(expr), ASTLine(expr));
    type_t* t = choose_float_type_from_kind(nodecl_fake, kind);
-
 
    const_value_t *value = NULL;
    if (kind == (floating_type_get_info(get_float_type())->bits / 8))

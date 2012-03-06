@@ -73,15 +73,24 @@ LIBMF03_EXTERN type_t* rebuild_array_type(type_t* rank0_type, type_t* array_type
 
 LIBMF03_EXTERN char are_conformable_types(type_t* t1, type_t* t2);
 
-type_t* fortran_get_default_integer_type(void);
-type_t* fortran_get_default_real_type(void);
-type_t* fortran_get_default_logical_type(void);
-type_t* fortran_get_default_character_type(void);
+LIBMF03_EXTERN type_t* fortran_get_default_integer_type(void);
+LIBMF03_EXTERN type_t* fortran_get_default_real_type(void);
+LIBMF03_EXTERN type_t* fortran_get_doubleprecision_type(void);
+LIBMF03_EXTERN type_t* fortran_get_default_logical_type(void);
+LIBMF03_EXTERN type_t* fortran_get_default_character_type(void);
 
-int fortran_get_default_integer_type_kind(void);
-int fortran_get_default_real_type_kind(void);
-int fortran_get_default_logical_type_kind(void);
-int fortran_get_default_character_type_kind(void);
+LIBMF03_EXTERN int fortran_get_default_integer_type_kind(void);
+LIBMF03_EXTERN int fortran_get_default_real_type_kind(void);
+LIBMF03_EXTERN int fortran_get_doubleprecision_type_kind(void);
+LIBMF03_EXTERN int fortran_get_default_logical_type_kind(void);
+LIBMF03_EXTERN int fortran_get_default_character_type_kind(void);
+
+LIBMF03_EXTERN void fortran_init_kinds(void);
+
+LIBMF03_EXTERN type_t* fortran_choose_int_type_from_kind(int kind_size);
+LIBMF03_EXTERN type_t* fortran_choose_float_type_from_kind(int kind_size);
+LIBMF03_EXTERN type_t* fortran_choose_logical_type_from_kind(int kind_size);
+LIBMF03_EXTERN type_t* fortran_choose_character_type_from_kind(int kind_size);
 
 MCXX_END_DECLS
 
