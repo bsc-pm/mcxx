@@ -4664,7 +4664,7 @@ scope_entry_t* compute_intrinsic_system_clock(scope_entry_t* symbol UNUSED_PARAM
     type_t* t2 = argument_types[2];
 
     if ((t0 == NULL || is_integer_type(t0))
-            && (t1 == NULL || is_integer_type(t0) || is_floating_type(t0))
+            && (t1 == NULL || is_integer_type(t1) || is_floating_type(t1))
             && (t2 == NULL || is_integer_type(t2)))
     {
         return GET_INTRINSIC_IMPURE("system_clock", /*subroutine*/ get_void_type(), 
