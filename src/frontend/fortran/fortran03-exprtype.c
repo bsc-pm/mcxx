@@ -45,6 +45,8 @@
 #include <string.h>
 #include <ctype.h>
 #include <stdlib.h>
+#include <math.h>
+#include <errno.h>
 
 static void fortran_check_expression_impl_(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
 
@@ -1840,6 +1842,22 @@ static void check_equal_op(AST expr, decl_context_t decl_context, nodecl_t* node
     common_binary_check(expr, decl_context, nodecl_output);
 }
 
+#define check_range_of_floating(expr, text, value, kind) \
+    do { \
+        if (value == 0 && errno == ERANGE) \
+        { \
+            error_printf("%s: error: value '%s' underflows REAL(KIND=%d)\n", \
+                    ast_location(expr), text, kind); \
+            value = 0.0; \
+        } \
+        else if (isinf(value)) \
+        { \
+            error_printf("%s: error: value '%s' overflows REAL(KIND=%d)\n", \
+                    ast_location(expr), text, kind); \
+            value = 0.0; \
+        } \
+    } while (0) 
+
 static void check_floating_literal(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
    char* floating_text = strdup(strtolower(ASTText(expr)));
@@ -1870,17 +1888,26 @@ static void check_floating_literal(AST expr, decl_context_t decl_context, nodecl
    const_value_t *value = NULL;
    if (kind == (floating_type_get_info(get_float_type())->bits / 8))
    {
+       errno = 0;
        float f = strtof(floating_text, NULL);
+       check_range_of_floating(expr, floating_text, f, kind);
+
        value = const_value_get_float(f);
    }
    else if (kind == (floating_type_get_info(get_double_type())->bits / 8))
    {
+       errno = 0;
        double d = strtod(floating_text, NULL);
+       check_range_of_floating(expr, floating_text, d, kind);
+
        value = const_value_get_double(d);
    }
    else if (kind == (floating_type_get_info(get_long_double_type())->bits / 8))
    {
+       errno = 0;
        long double ld = strtold(floating_text, NULL);
+       check_range_of_floating(expr, floating_text, ld, kind);
+
        value = const_value_get_long_double(ld);
    }
    else if (is_other_float_type(t))
@@ -1889,13 +1916,16 @@ static void check_floating_literal(AST expr, decl_context_t decl_context, nodecl
        // __float128
        if (kind == 16)
        {
+           errno = 0;
            __float128 f128 = strtoflt128(floating_text, NULL);
+           check_range_of_floating(expr, floating_text, f128, kind);
+
            value = const_value_get_float128(f128);
        }
        else
 #endif
        {
-           running_error("%s: error: literals of KIND=%d not supported yet\n", ast_location(expr), kind);
+           running_error("%s: error: literals of KIND=%d not supported\n", ast_location(expr), kind);
        }
    }
    else

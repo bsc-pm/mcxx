@@ -51,6 +51,9 @@
 #include <ctype.h>
 #include <string.h>
 
+#include <math.h>
+#include <errno.h>
+
 #include "fortran/fortran03-exprtype.h"
 
 static const char builtin_prefix[] = "__builtin_";
@@ -1289,6 +1292,22 @@ static void character_literal_type(AST expr, nodecl_t* nodecl_output)
             ASTFileName(expr), ASTLine(expr));
 }
 
+#define check_range_of_floating(expr, text, value, typename) \
+    do { \
+        if (value == 0 && errno == ERANGE) \
+        { \
+            error_printf("%s: error: value '%s' underflows %s\n", \
+                    ast_location(expr), text, typename); \
+            value = 0.0; \
+        } \
+        else if (isinf(value)) \
+        { \
+            error_printf("%s: error: value '%s' overflows %s\n", \
+                    ast_location(expr), text, typename); \
+            value = 0.0; \
+        } \
+    } while (0)
+
 static void floating_literal_type(AST expr, nodecl_t* nodecl_output)
 {
     const_value_t* value = NULL;
@@ -1329,7 +1348,10 @@ static void floating_literal_type(AST expr, nodecl_t* nodecl_output)
     {
         result = get_long_double_type();
 
+        errno = 0;
         long double ld = strtold(literal, NULL);
+        check_range_of_floating(expr, literal, ld, "long double");
+
         value = const_value_get_long_double(ld);
 
         if (is_complex)
@@ -1339,7 +1361,10 @@ static void floating_literal_type(AST expr, nodecl_t* nodecl_output)
     {
         result = get_float_type();
 
+        errno = 0;
         float f = strtof(literal, NULL);
+        check_range_of_floating(expr, literal, f, "float");
+
         value = const_value_get_float(f);
 
         if (is_complex)
@@ -1349,7 +1374,10 @@ static void floating_literal_type(AST expr, nodecl_t* nodecl_output)
     {
         result = get_double_type();
 
+        errno = 0;
         double d = strtod(literal, NULL);
+        check_range_of_floating(expr, literal, d, "double");
+
         value = const_value_get_double(d);
 
         if (is_complex)
