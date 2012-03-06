@@ -4302,7 +4302,8 @@ static void check_ptr_assignment(AST expr, decl_context_t decl_context, nodecl_t
         return;
     }
 
-    char is_target_of_subobject = 0;
+    char target_is_subobject_of_target = 0;
+    char is_transitively_a_pointer = 0;
     scope_entry_t* rvalue_sym = NULL;
     if (nodecl_get_symbol(nodecl_rvalue) != NULL)
     {
@@ -4315,13 +4316,22 @@ static void check_ptr_assignment(AST expr, decl_context_t decl_context, nodecl_t
             // We don't want the accessed fields, we want the variable
             while (nodecl_get_kind(auxiliar) == NODECL_CLASS_MEMBER_ACCESS)
             {
+                scope_entry_t* component = nodecl_get_symbol(nodecl_get_child(auxiliar, 1));
+
+                if (component != NULL
+                        && is_pointer_type(component->type_information))
+                    is_transitively_a_pointer = 1;
+
                 auxiliar = nodecl_get_child(auxiliar, 0);
             }
 
             scope_entry_t* sym = nodecl_get_symbol(auxiliar);
-            if (sym != NULL && sym->entity_specs.is_target)
+            if (sym != NULL)
             {
-                is_target_of_subobject = 1;
+                if (sym->entity_specs.is_target)
+                    target_is_subobject_of_target = 1;
+                if (is_pointer_type(no_ref(sym->type_information)))
+                    is_transitively_a_pointer = 1;
             }
         }
     }
@@ -4331,7 +4341,8 @@ static void check_ptr_assignment(AST expr, decl_context_t decl_context, nodecl_t
     {
         if (!(is_pointer_type(no_ref(rvalue_sym->type_information))
                 || rvalue_sym->entity_specs.is_target
-                || is_target_of_subobject))
+                || target_is_subobject_of_target
+                || is_transitively_a_pointer))
         {
             // If the variable is not a POINTER, not a TARGET or not a subobject of a TARGET, error
             if (!checking_ambiguity())
