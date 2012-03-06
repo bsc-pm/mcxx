@@ -108,7 +108,6 @@ integer|all|bitfield_first|Significance order of the first bit of this bitfield
 integer|all|bitfield_last|Significance order of the last bit of this bitfield (the same as first if the bitfield is just 1 bit wide)
 typeof(_size_t)|all|field_offset|Offset of the storage unit of a field/nonstatic data-member
 array(typeof(gather_gcc_attribute_t))|all|gcc_attributes|GCC attributes synthesized for the symbol from the syntax
-typeof(codegen_status_t)|all|*codegen_status|Status during codegen
 typeof(simplify_function_t)|all|*simplify_function|Function used to simplify expressions
 typeof(emission_handler_t)|all|*emission_handler|When is_non_emitted is true, this function can emit it
 nodecl|all|asm_specification|__asm specification of GCC 
