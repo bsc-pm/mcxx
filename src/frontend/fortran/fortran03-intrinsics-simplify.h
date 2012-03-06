@@ -323,6 +323,10 @@ static nodecl_t simplify_kind(int num_arguments UNUSED_PARAMETER, nodecl_t* argu
     {
         t = complex_type_get_base_type(t);
     }
+    else if (is_fortran_character_type(t))
+    {
+        t = array_type_get_element_type(t);
+    }
 
     return nodecl_make_int_literal(type_get_size(t));
 }
