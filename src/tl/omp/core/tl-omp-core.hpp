@@ -79,6 +79,8 @@ namespace TL
 #define OMP_CONSTRUCT_NOEND(_directive, _name) \
                 OMP_CONSTRUCT(_directive, _name)
 #include "tl-omp-constructs.def"
+                // Section is special
+                OMP_CONSTRUCT("section", section)
 #undef OMP_CONSTRUCT
 #undef OMP_CONSTRUCT_NOEND
 #undef OMP_DIRECTIVE
@@ -126,8 +128,7 @@ namespace TL
 
 				RealTimeInfo task_real_time_handler_pre(TL::PragmaCustomLine construct);
 
-                void common_sections_handler(TL::PragmaCustomStatement construct, const std::string& pragma_name);
-                void fix_first_section(TL::PragmaCustomStatement construct);
+                void fix_sections_layout(TL::PragmaCustomStatement construct, const std::string& pragma_name);
 
                 void collapse_loop_first(Nodecl::NodeclBase& construct);
 

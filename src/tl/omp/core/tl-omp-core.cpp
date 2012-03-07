@@ -145,33 +145,47 @@ namespace TL
         void Core::register_omp_constructs()
         {
 #define OMP_DIRECTIVE(_directive, _name) \
-                { \
-                    if (!_already_registered) \
-                    { \
-                      register_directive(_directive); \
-                    } \
-                    dispatcher().directive.pre[_directive].connect(functor(&Core::_name##_handler_pre, *this)); \
-                    dispatcher().directive.post[_directive].connect(functor(&Core::_name##_handler_post, *this)); \
-                }
+                      register_directive(_directive); 
 #define OMP_CONSTRUCT_COMMON(_directive, _name, _noend) \
-                { \
-                    if (!_already_registered) \
-                    { \
-                      register_construct(_directive, _noend); \
-                    } \
-                    dispatcher().declaration.pre[_directive].connect(functor((void (Core::*)(TL::PragmaCustomDeclaration))&Core::_name##_handler_pre, *this)); \
-                    dispatcher().declaration.post[_directive].connect(functor((void (Core::*)(TL::PragmaCustomDeclaration))&Core::_name##_handler_post, *this)); \
-                    dispatcher().statement.pre[_directive].connect(functor((void (Core::*)(TL::PragmaCustomStatement))&Core::_name##_handler_pre, *this)); \
-                    dispatcher().statement.post[_directive].connect(functor((void (Core::*)(TL::PragmaCustomStatement))&Core::_name##_handler_post, *this)); \
-                }
+            register_construct(_directive, _noend); 
+
+            // Register pragmas
+            if (!_already_registered)
+            {
 #define OMP_CONSTRUCT(_directive, _name) OMP_CONSTRUCT_COMMON(_directive, _name, false)
 #define OMP_CONSTRUCT_NOEND(_directive, _name) OMP_CONSTRUCT_COMMON(_directive, _name, true)
 #include "tl-omp-constructs.def"
+                // Note that section is not handled specially here, we always want it to be parsed as a directive
 #undef OMP_DIRECTIVE
 #undef OMP_CONSTRUCT_COMMON
 #undef OMP_CONSTRUCT
 #undef OMP_CONSTRUCT_NOEND
+            }
+
             _already_registered = true;
+
+            // Connect handlers to member functions
+#define OMP_DIRECTIVE(_directive, _name) \
+            { \
+                dispatcher().directive.pre[_directive].connect(functor((void (Core::*)(TL::PragmaCustomDirective))&Core::_name##_handler_pre, *this)); \
+                dispatcher().directive.post[_directive].connect(functor((void (Core::*)(TL::PragmaCustomDirective))&Core::_name##_handler_post, *this)); \
+            }
+#define OMP_CONSTRUCT_COMMON(_directive, _name, _noend) \
+            { \
+                dispatcher().declaration.pre[_directive].connect(functor((void (Core::*)(TL::PragmaCustomDeclaration))&Core::_name##_handler_pre, *this)); \
+                dispatcher().declaration.post[_directive].connect(functor((void (Core::*)(TL::PragmaCustomDeclaration))&Core::_name##_handler_post, *this)); \
+                dispatcher().statement.pre[_directive].connect(functor((void (Core::*)(TL::PragmaCustomStatement))&Core::_name##_handler_pre, *this)); \
+                dispatcher().statement.post[_directive].connect(functor((void (Core::*)(TL::PragmaCustomStatement))&Core::_name##_handler_post, *this)); \
+            }
+#define OMP_CONSTRUCT(_directive, _name) OMP_CONSTRUCT_COMMON(_directive, _name, false)
+#define OMP_CONSTRUCT_NOEND(_directive, _name) OMP_CONSTRUCT_COMMON(_directive, _name, true)
+#include "tl-omp-constructs.def"
+            // Section is special
+            OMP_CONSTRUCT("section", section)
+#undef OMP_DIRECTIVE
+#undef OMP_CONSTRUCT_COMMON
+#undef OMP_CONSTRUCT
+#undef OMP_CONSTRUCT_NOEND
         }
 
         void Core::get_clause_symbols(PragmaCustomClause clause, 
@@ -516,53 +530,230 @@ namespace TL
             get_data_implicit_attributes(construct, default_data_attr, data_sharing);
         }
 
-        void Core::common_sections_handler(TL::PragmaCustomStatement construct, const std::string& pragma_name)
+        void Core::fix_sections_layout(TL::PragmaCustomStatement construct, const std::string& pragma_name)
         {
+            // Sections must be fixed since #pragma omp section is parsed as if it were a directive
             Nodecl::NodeclBase stmt = construct.get_statements();
-            if (!stmt.is<Nodecl::CompoundStatement>())
+
+            ERROR_CONDITION(!stmt.is<Nodecl::List>(), "This is not a list", 0);
+
+            // In C/C++ a compound statement is mandatory
+
+            Nodecl::List l = stmt.as<Nodecl::List>();
+
+            TL::ObjectList<Nodecl::NodeclBase> section_seq;
+
+            if (IS_C_LANGUAGE
+                    || IS_CXX_LANGUAGE)
             {
-                running_error("%s: error: '#pragma omp %s' must be followed by a compound statement\n",
-                        construct.get_locus().c_str(),
-                        pragma_name.c_str());
-            }
+                Nodecl::NodeclBase first = l[0];
 
-            Nodecl::CompoundStatement cmp_stmt = stmt.as<Nodecl::CompoundStatement>();
-            Nodecl::List inner_stmt = cmp_stmt.get_statements().as<Nodecl::List>();
-
-            internal_error("Not yet implemented", 0);
-
-            if (inner_stmt.size() > 1)
-            {
-                if (!PragmaUtils::is_pragma_construct("omp", "section", inner_stmt[0])
-                        && !PragmaUtils::is_pragma_construct("omp", "section", inner_stmt[1]))
+                // C/C++ frontend wraps a NODECL_COMPOUND_STATEMENT inside a NODECL_CONTEXT
+                if (!first.is<Nodecl::Context>()
+                        || !first.as<Nodecl::Context>().get_in_context().is<Nodecl::List>()
+                        || !first.as<Nodecl::Context>().get_in_context().as<Nodecl::List>().front().is<Nodecl::CompoundStatement>())
                 {
-                    error_printf("%s: error: only the first structured-block can have '#pragma omp section' ommitted\n",
-                            inner_stmt[1].get_locus().c_str());
+                    std::cerr << ast_print_node_type(nodecl_get_kind(l[0].get_internal_nodecl())) << std::endl;
+                    running_error("%s: error: '#pragma omp %s' must be followed by a compound statement\n",
+                            construct.get_locus().c_str(),
+                            pragma_name.c_str());
+                }
+                else
+                {
+                    l = first.as<Nodecl::Context>()
+                        .get_in_context()
+                        .as<Nodecl::List>()
+                        .front()
+                        .as<Nodecl::CompoundStatement>()
+                        .get_statements()
+                        .as<Nodecl::List>();
+                }
+
+                if (l.empty())
+                {
+                    running_error("%s: error: '#pragma omp %s' cannot have an empty compound statement\n",
+                            construct.get_locus().c_str(),
+                            pragma_name.c_str());
+                }
+
+                struct Wrap
+                {
+                    static void into_section(
+                            Nodecl::NodeclBase& current_pragma, 
+                            Nodecl::NodeclBase& current_statement, 
+                            TL::ObjectList<Nodecl::NodeclBase>& section_seq,
+                            Nodecl::NodeclBase& construct)
+                    {
+                        // We will build a #pragma omp section
+                        Nodecl::NodeclBase pragma_line;
+                        if (current_pragma.is_null())
+                        {
+                            // There is none, craft one here
+                            pragma_line = Nodecl::PragmaCustomLine::make(
+                                    Nodecl::NodeclBase::null(),
+                                    Nodecl::NodeclBase::null(),
+                                    Nodecl::NodeclBase::null(),
+                                    "section",
+                                    construct.get_filename(),
+                                    construct.get_line());
+                        }
+                        else
+                        {
+                            pragma_line = current_pragma.as<Nodecl::PragmaCustomDirective>().get_pragma_line();
+                        }
+
+                        TL::ObjectList<Nodecl::NodeclBase> singleton_list;
+                        singleton_list.append(current_statement);
+
+                        Nodecl::NodeclBase pragma_construct = Nodecl::PragmaCustomStatement::make(
+                                pragma_line,
+                                Nodecl::List::make(singleton_list), 
+                                "omp",
+                                construct.get_filename(),
+                                construct.get_line());
+                        section_seq.append(pragma_construct);
+                    }
+                };
+
+                // Check that the sequence must be (section, stmt)* except for the first that may be only stmt
+                bool next_must_be_omp_section = PragmaUtils::is_pragma_construct("omp", "section", l[0]);
+
+                Nodecl::NodeclBase current_pragma;
+                for (Nodecl::List::iterator it = l.begin();
+                        it != l.end();
+                        it++)
+                {
+                    if (next_must_be_omp_section != PragmaUtils::is_pragma_construct("omp", "section", *it))
+                    {
+                        if (next_must_be_omp_section)
+                        {
+                            running_error("%s: error: expecting a '#pragma omp section'\n", it->get_locus().c_str());
+                        }
+                        else
+                        {
+                            running_error("%s: error: a '#pragma omp section' cannot appear here\n", it->get_locus().c_str());
+                        }
+                    }
+                    else if (next_must_be_omp_section)
+                    {
+                        // Is it the last statement a #pragma omp section?
+                        if ((it+1) == l.end())
+                        {
+                            running_error("%s: error: a '#pragma omp section' cannot appear here\n", it->get_locus().c_str());
+                        }
+                        current_pragma = *it;
+                    }
+                    else // !next_must_be_omp_section
+                    {
+                        Nodecl::NodeclBase current_statement = *it;
+                        Wrap::into_section(current_pragma, current_statement, section_seq, construct);
+                    }
+                    next_must_be_omp_section = !next_must_be_omp_section;
                 }
             }
-        }
-
-        void Core::fix_first_section(TL::PragmaCustomStatement construct)
-        {
-            Nodecl::NodeclBase stmt = construct.get_statements();
-            ERROR_CONDITION(!stmt.is<Nodecl::CompoundStatement>(), "It must be a compound statement", 0);
-
-            Nodecl::CompoundStatement cmp_stmt = stmt.as<Nodecl::CompoundStatement>();
-            Nodecl::List inner_stmt = cmp_stmt.get_statements().as<Nodecl::List>();
-
-            if (!inner_stmt.empty()
-                    && !PragmaUtils::is_pragma_construct("omp", "section", 
-                        inner_stmt[0]))
+            else if (IS_FORTRAN_LANGUAGE)
             {
-                Source add_section_src;
-                add_section_src
-                    << "#pragma omp section\n"
-                    <<  inner_stmt[0].prettyprint()
-                    ;
+                // In fortran we do not allow two consecutive sections
+                if (l.empty())
+                {
+                    running_error("%s: error: '!$OMP %s' cannot have an empty block\n",
+                            construct.get_locus().c_str(),
+                            strtoupper(pragma_name.c_str()));
+                }
 
-                Nodecl::NodeclBase add_section_tree = add_section_src.parse_statement(inner_stmt[0]);
-                inner_stmt[0].replace(add_section_tree);
+                bool previous_was_section = false;
+
+                ObjectList<Nodecl::NodeclBase> statement_set;
+                Nodecl::NodeclBase current_pragma;
+
+                struct Wrap
+                {
+                    static void into_section(Nodecl::NodeclBase& current_pragma,
+                            TL::ObjectList<Nodecl::NodeclBase>& statement_set,
+                            TL::ObjectList<Nodecl::NodeclBase>& section_seq,
+                            Nodecl::NodeclBase& construct)
+                    {
+                        Nodecl::NodeclBase pragma_line;
+                        if (!current_pragma.is_null())
+                        {
+                            pragma_line = current_pragma.as<Nodecl::PragmaCustomDirective>().get_pragma_line();
+                        }
+                        else
+                        {
+                            // There is no current pragma craft one here
+                            pragma_line = Nodecl::PragmaCustomLine::make(
+                                    Nodecl::NodeclBase::null(),
+                                    Nodecl::NodeclBase::null(),
+                                    Nodecl::NodeclBase::null(),
+                                    "section",
+                                    construct.get_filename(),
+                                    construct.get_line());
+                        }
+
+                        Nodecl::NodeclBase pragma_construct = Nodecl::PragmaCustomStatement::make(
+                                pragma_line,
+                                Nodecl::List::make(statement_set), 
+                                "omp",
+                                construct.get_filename(),
+                                construct.get_line());
+                        section_seq.append(pragma_construct);
+
+                        statement_set.clear();
+                    }
+                };
+
+                for (Nodecl::List::iterator it = l.begin();
+                        it != l.end();
+                        it++)
+                {
+                    bool current_is_section = PragmaUtils::is_pragma_construct("omp", "section", *it);
+                    bool current_is_the_last = ((it + 1) == l.end());
+
+                    if (current_is_section 
+                            && (previous_was_section
+                                // Or it is the last
+                                || current_is_the_last))
+                    {
+                        running_error("%s: error: misplaced '!$OMP SECTION'\n", 
+                                it->get_locus().c_str());
+                    }
+
+                    if (!current_is_section)
+                    {
+                        statement_set.append(*it);
+                    }
+                    else
+                    {
+                        // We do not have to do anything for the first
+                        if (it != l.begin())
+                        {
+                            Wrap::into_section(current_pragma, statement_set, section_seq, construct);
+                        }
+                        // Keep the current pragma
+                        current_pragma = *it;
+                    }
+
+                    previous_was_section = current_is_section;
+                }
+
+                // Do not forget the last section
+                Wrap::into_section(current_pragma, statement_set, section_seq, construct);
             }
+            else
+            {
+                internal_error("Code unreachable", 0);
+            }
+
+            Nodecl::NodeclBase compound_statement =
+                Nodecl::CompoundStatement::make(
+                        Nodecl::List::make(section_seq),
+                        Nodecl::NodeclBase::null(),
+                        construct.get_filename(),
+                        construct.get_line());
+
+            construct
+                .get_statements()
+                .integrate(compound_statement);
         }
 
         void Core::common_for_handler(TL::PragmaCustomStatement construct, DataSharingEnvironment& data_sharing)
@@ -779,12 +970,11 @@ namespace TL
             _openmp_info->push_current_data_sharing(data_sharing);
             common_parallel_handler(construct, data_sharing);
 
-            common_sections_handler(construct, "parallel sections");
+            fix_sections_layout(construct, "parallel sections");
         }
 
         void Core::parallel_sections_handler_post(TL::PragmaCustomStatement construct)
         {
-            fix_first_section(construct);
             _openmp_info->pop_current_data_sharing();
         }
 
@@ -869,13 +1059,32 @@ namespace TL
 
             common_workshare_handler(construct, data_sharing);
 
-            common_sections_handler(construct, "sections");
+            fix_sections_layout(construct, "sections");
         }
 
         void Core::sections_handler_post(TL::PragmaCustomStatement construct)
         {
-            fix_first_section(construct);
             _openmp_info->pop_current_data_sharing();
+        }
+
+        void Core::section_handler_pre(TL::PragmaCustomDirective directive)
+        {
+            // fix_sections_layout should have removed these nodes
+            internal_error("Code unreachable", 0);
+        }
+
+        void Core::section_handler_post(TL::PragmaCustomDirective directive)
+        {
+            // fix_sections_layout should have removed these nodes
+            internal_error("Code unreachable", 0);
+        }
+
+        void Core::section_handler_pre(TL::PragmaCustomStatement)
+        {
+        }
+
+        void Core::section_handler_post(TL::PragmaCustomStatement)
+        {
         }
 
         void Core::declare_reduction_handler_pre(TL::PragmaCustomDirective directive)
@@ -910,6 +1119,7 @@ namespace TL
         INVALID_DECLARATION_HANDLER(for)
         INVALID_DECLARATION_HANDLER(parallel_sections)
         INVALID_DECLARATION_HANDLER(sections)
+        INVALID_DECLARATION_HANDLER(section)
         INVALID_DECLARATION_HANDLER(single)
 
 #define EMPTY_HANDLERS_CONSTRUCT(_name) \
@@ -922,7 +1132,6 @@ namespace TL
         void Core::_name##_handler_pre(TL::PragmaCustomDirective) { } \
         void Core::_name##_handler_post(TL::PragmaCustomDirective) { } 
 
-        EMPTY_HANDLERS_CONSTRUCT(section)
         EMPTY_HANDLERS_DIRECTIVE(barrier)
         EMPTY_HANDLERS_CONSTRUCT(atomic)
         EMPTY_HANDLERS_CONSTRUCT(master)

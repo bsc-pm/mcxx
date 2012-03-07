@@ -212,7 +212,6 @@ namespace TL { namespace OpenMP {
         INVALID_DECLARATION_HANDLER(parallel_for)
         INVALID_DECLARATION_HANDLER(for)
         INVALID_DECLARATION_HANDLER(parallel_sections)
-        INVALID_DECLARATION_HANDLER(section)
         INVALID_DECLARATION_HANDLER(sections)
         INVALID_DECLARATION_HANDLER(single)
 
@@ -232,6 +231,8 @@ namespace TL { namespace OpenMP {
         EMPTY_HANDLERS_CONSTRUCT(ordered)
         EMPTY_HANDLERS_CONSTRUCT(parallel_do)
         EMPTY_HANDLERS_CONSTRUCT(do)
+
+        EMPTY_HANDLERS_DIRECTIVE(section)
 
     void Base::barrier_handler_pre(TL::PragmaCustomDirective) { } 
     void Base::barrier_handler_post(TL::PragmaCustomDirective directive) 
@@ -420,6 +421,7 @@ namespace TL { namespace OpenMP {
     void Base::sections_handler_pre(TL::PragmaCustomStatement) { }
     void Base::sections_handler_post(TL::PragmaCustomStatement directive)
     {
+#if 0
         OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
 
@@ -452,12 +454,8 @@ namespace TL { namespace OpenMP {
                     set_of_tasks,
                     directive.get_filename(),
                     directive.get_line()));
+#endif
     }
-
-    // Keep these (they are handled later in parallel_sections_handler_post or
-    // sections_handler_post)
-    void Base::section_handler_pre(TL::PragmaCustomStatement) { }
-    void Base::section_handler_post(TL::PragmaCustomStatement directive) { }
 
     void Base::parallel_for_handler_pre(TL::PragmaCustomStatement)
     {

@@ -34,6 +34,8 @@
 #include "string_utils.h"
 #include <ctype.h>
 
+#include "cxx-lexer.h"
+
 namespace Codegen
 {
     const std::string ptr_loc_base_name = "PTR_LOC_";
@@ -1790,19 +1792,24 @@ OPERATOR_TABLE
         // Code generation of the statement
         walk(node.get_statements());
 
-        file << "!$" 
-            << strtoupper(node.get_text().c_str())
-            << " END "
-            << strtoupper(pragma_custom_line.get_text().c_str());
-
-        // Code generation of the pragma end clauses
-        Nodecl::NodeclBase end_clauses = pragma_custom_line.get_end_clauses();
-        if (!end_clauses.is_null())
+        // If this is a directive disguised in a statement, do not print an end directive
+        // This happens i.e. for !$OMP SECTION because of its special syntax
+        if (lookup_pragma_directive(node.get_text().c_str(), pragma_custom_line.get_text().c_str()) != PDK_DIRECTIVE)
         {
-            file << " ";
-            walk(end_clauses);
+            file << "!$" 
+                << strtoupper(node.get_text().c_str())
+                << " END "
+                << strtoupper(pragma_custom_line.get_text().c_str());
+
+            // Code generation of the pragma end clauses
+            Nodecl::NodeclBase end_clauses = pragma_custom_line.get_end_clauses();
+            if (!end_clauses.is_null())
+            {
+                file << " ";
+                walk(end_clauses);
+            }
+            file << "\n";
         }
-        file << "\n";
     }
 
     void FortranBase::visit(const Nodecl::PragmaCustomDirective& node)
