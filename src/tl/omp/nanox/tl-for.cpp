@@ -75,15 +75,25 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
     std::string outline_name = ss.str();
 
     Source loop_distr_setup;
-    loop_distr_setup
-        << "int _nth_lower = _args->loop_info.lower;"
-        << "int _nth_upper = _args->loop_info.upper;"
-        << "int _nth_step = _args->loop_info.step;"
-        << "int _nth_step_sign = 1;"
-        << "if (_nth_step < 0)"
-        <<   "_nth_step_sign = -1;"
-        ;
 
+    if (Nanos::Version::interface_is_at_least("worksharing", 1000))
+    {
+          loop_distr_setup
+              << "nanos_ws_item_loop_t _nth_info;"
+              << "int j;"
+              ;
+    }
+    else
+    {
+        loop_distr_setup
+            << "int _nth_lower = _args->loop_info.lower;"
+            << "int _nth_upper = _args->loop_info.upper;"
+            << "int _nth_step = _args->loop_info.step;"
+            << "int _nth_step_sign = 1;"
+            << "if (_nth_step < 0)"
+            <<   "_nth_step_sign = -1;"
+            ;
+    }
     Source final_barrier;
 
     if ( (!ctr.get_clause("nowait").is_defined() 
@@ -137,18 +147,49 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
                 replaced_body);
                 
         Source outline_body;
-        outline_body
-            << loop_distr_setup
-            << "for ("
-            <<    induction_var_name << "= _nth_lower;"
-            <<    "(_nth_step_sign * " << induction_var_name << ")" << "<= (_nth_step_sign * _nth_upper);"
-            <<    induction_var_name << "+= _nth_step"
-            << ")"
-            << "{"
-            <<    replaced_body
-            << "}"
-            ;
-
+        if (Nanos::Version::interface_is_at_least("worksharing", 1000))
+        {
+            outline_body
+                << loop_distr_setup
+                << "nanos_worksharing_next_item(_args->wsd, (nanos_ws_item_t *) &_nth_info);"
+                << "if ("<< for_statement.get_step() <<" > 0)"
+                << "{"
+                <<      "while (_nth_info.execute)"
+                <<      "{"
+                <<          "for (j = _nth_info.lower; j <= _nth_info.upper; j +=" << for_statement.get_step() << ")"
+                <<          "{"
+                <<              replaced_body
+                <<          "}"
+                <<          "nanos_worksharing_next_item(_args->wsd, (nanos_ws_item_t *) &_nth_info);"
+                <<      "}"
+                << "}"
+                << "else"
+                << "{"
+                <<      "while (_nth_info.execute)"
+                <<      "{"
+                <<          "for (j = _nth_info.lower; j >= _nth_info.upper; j +=" << for_statement.get_step() << ")"
+                <<          "{"
+                <<              replaced_body
+                <<          "}"
+                <<          "nanos_worksharing_next_item(_args->wsd, (nanos_ws_item_t *) &_nth_info);"
+                <<      "}"
+                << "}"
+                ;
+        }
+        else
+        {
+            outline_body
+                << loop_distr_setup
+                << "for ("
+                <<    induction_var_name << "= _nth_lower;"
+                <<    "(_nth_step_sign * " << induction_var_name << ")" << "<= (_nth_step_sign * _nth_upper);"
+                <<    induction_var_name << "+= _nth_step"
+                << ")"
+                << "{"
+                <<    replaced_body
+                << "}"
+                ;
+        }
         device_provider->create_outline(outline_name,
                 struct_arg_type_name,
                 data_environ_info,
@@ -175,10 +216,16 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
 
     Source dependency_array, num_dependences;
 
-    fill_data_args("ol_args", 
-            data_environ_info, 
-            dependences, 
-            /* is_pointer */ true,
+    bool is_pointer = true;
+    if (Nanos::Version::interface_is_at_least("worksharing", 1000))
+    {
+       is_pointer = false;
+    }
+
+    fill_data_args("ol_args",
+            data_environ_info,
+            dependences,
+            is_pointer,
             fill_outline_arguments);
 
     bool env_is_runtime_sized = data_environ_info.environment_is_runtime_sized();
@@ -431,22 +478,29 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
     }
 
 
-    Source current_slicer;
-    Source chunk_value;
+    Source policy, chunk_value;
     chunk_value = Source("0");
-    current_slicer = Source("static_for");
+    policy = Source("static_for");
+
 
     PragmaCustomClause schedule_clause = ctr.get_clause("schedule");
     if (schedule_clause.is_defined())
     {
         ObjectList<std::string> args = schedule_clause.get_arguments(ExpressionTokenizerTrim());
 
-        current_slicer = args[0] + "_for";
+        policy = args[0] + "_for";
 
         if (args.size() > 1)
         {
             chunk_value = Source(args[1]);
         }
+    }
+  
+    Source current_slicer = policy;
+    if (Nanos::Version::interface_is_at_least("worksharing", 1000))
+    {
+        //Currently, this version of Nanos only supports replicate slicer
+        current_slicer = Source("replicate");
     }
 
     // FIXME - Move this to a tl-workshare.cpp
@@ -582,7 +636,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
         slicer_alignment <<  "__alignof__(nanos_slicer_data_for_t),"
             ;
     }
-    
+
     std::string name_outline_args_var = "ol_args";
     if (Nanos::Version::interface_is_at_least("worksharing", 1000))
     {
@@ -640,8 +694,65 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
     }
     else if (Nanos::Version::interface_is_at_least("worksharing", 1000))
     {
+        std::stringstream smp_outline_call;
+        smp_outline_call << "_smp_" << outline_name << "(&ol_args);";
+
+        Source fill_outline_arguments_im;
+        fill_data_args("ol_args_im",
+                data_environ_info,
+                dependences,
+                /*is_pointer*/ true,
+                fill_outline_arguments_im);
+
         spawn_source
             << "{"
+            <<      struct_arg_type_name << " ol_args;"
+            <<      "nanos_ws_info_loop_t info_loop = "
+            <<          "{"
+            <<              for_statement.get_lower_bound() << ","
+            <<              for_statement.get_upper_bound() << ","
+            <<              for_statement.get_step()        << ","
+            <<              chunk_value
+            <<          "};"
+            <<      "bool single_guard;"
+            <<      "nanos_ws_t ws_policy = nanos_find_worksharing(\"" << policy << "\");"
+            <<      "nanos_err_t err = nanos_worksharing_create(&ol_args.wsd, ws_policy, (nanos_ws_info_t *) &info_loop, &single_guard);"
+            <<      "if (err != NANOS_OK) nanos_handle_error(err);"
+            <<      "if (single_guard)"
+            <<      "{"
+            <<          "int sup_threads;"
+            <<          "err = nanos_team_get_num_supporting_threads(&sup_threads);"
+            <<          "if (err != NANOS_OK) nanos_handle_error(err);"
+            <<          "if (sup_threads)"
+            <<          "{"
+            <<              "ol_args.wsd->threads = (nanos_thread_t *)__builtin_alloca(sizeof(nanos_thread_t) * sup_threads);"
+            <<              "err = nanos_team_get_supporting_threads(&ol_args.wsd->nths, ol_args.wsd->threads);"
+            <<              "if (err != NANOS_OK) nanos_handle_error(err);"
+            <<              struct_arg_type_name << "* ol_args_im = (" << struct_arg_type_name << "*)0;"
+            <<              struct_runtime_size
+            <<              "nanos_wd_t wd = (nanos_wd_t)0;"
+            <<              "nanos_wd_props_t props;"
+            <<              "__builtin_memset(&props, 0, sizeof(props));"
+            <<              creation
+            <<              "props.mandatory_creation = 1;"
+            <<              priority
+            <<              tiedness
+            <<              copy_decl
+            <<              device_description
+            <<              "static nanos_slicer_t " << current_slicer << " = 0;"
+            <<              "if (!" << current_slicer << ") " << current_slicer <<  " = nanos_find_slicer(\"" << current_slicer << "\");"
+            <<              "if (" << current_slicer << " == 0) fprintf (stderr, \"Cannot find " << current_slicer << " slicer plugin\\n\");"
+            <<              decl_slicer_data_if_needed
+            <<              "err = " << create_sliced_wd
+            <<              "if (err != NANOS_OK) nanos_handle_error(err);"
+            <<              "ol_args_im->wsd = ol_args.wsd;"
+            <<              fill_outline_arguments_im
+            <<            "err = nanos_submit(wd, " << num_dependences << ", (nanos_dependence_t*)" << dependency_array << ", (nanos_team_t)0);"
+            <<            "if (err != NANOS_OK) nanos_handle_error (err);"
+            <<          "}"
+            <<      "}"
+            <<      fill_outline_arguments
+            <<      smp_outline_call.str()
             << "}"
             ;
     }
@@ -664,8 +775,8 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
             <<        priority
             <<        tiedness
             <<        copy_decl
-            <<        "static nanos_slicer_t " << current_slicer << " = 0;"
             <<        device_description
+            <<        "static nanos_slicer_t " << current_slicer << " = 0;"
             <<        "if (!" << current_slicer << ") " << current_slicer <<  " = nanos_find_slicer(\"" << current_slicer << "\");"
             <<        decl_slicer_data_if_needed
             <<        "err = " << create_sliced_wd
