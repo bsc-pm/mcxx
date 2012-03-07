@@ -584,7 +584,6 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
     }
 
     Source create_sliced_wd, loop_information, decl_slicer_data_if_needed;
-
     if (Nanos::Version::interface_is_at_least("master", 5008))
     {
         create_sliced_wd
@@ -629,7 +628,38 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
             << "slicer_data_for->_chunk = " << chunk_value << ";"
             ;
     }
-    if(!_no_nanox_calls)
+
+
+    if (_no_nanox_calls)
+    {
+        if(!current_targets.contains("smp"))
+        {
+            running_error("%s: error: the code generation without calls to runtime only works in smp devices\n",
+                    ctr.get_ast().get_locus().c_str());
+        }
+
+        // The code generated must not contain calls to runtime. The execution will be serial
+        std::stringstream smp_device_call;
+        smp_device_call << "_smp_" << outline_name << "(ol_args);";
+
+        spawn_source
+            << "{"
+            <<     struct_arg_type_name << "* ol_args = (" << struct_arg_type_name << "*)0;"
+            <<     fill_outline_arguments
+            <<     omp_reduction_argument
+            <<     loop_information
+            <<     smp_device_call.str()
+            << "}"
+            ;
+    }
+    else if (Nanos::Version::interface_is_at_least("worksharing", 1000))
+    {
+        spawn_source
+            << "{"
+            << "}"
+            ;
+    }
+    else
     {
         spawn_source
             << "{"
@@ -667,30 +697,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
             << "}"
             ;
     }
-    else
-    {
-        if(current_targets.contains("smp"))
-        {
-            std::stringstream smp_device_call;
-            smp_device_call << "_smp_" << outline_name << "(ol_args);";
-            
-            // The code generated must not contain calls to runtime. The execution will be serial
-            spawn_source
-                << "{"
-                <<     struct_arg_type_name << "* ol_args = (" << struct_arg_type_name << "*)0;"
-                <<     fill_outline_arguments
-                <<     omp_reduction_argument
-                <<     loop_information
-                <<     smp_device_call.str() 
-                << "}"
-                ;
-        }
-        else
-        {
-            running_error("%s: error: the code generation without calls to runtime only works in smp devices\n",
-                    ctr.get_ast().get_locus().c_str()); 
-        }
-    }
+
     AST_t spawn_tree = spawn_source.parse_statement(ctr.get_ast(), ctr.get_scope_link());
     ctr.get_ast().replace(spawn_tree);
 }
