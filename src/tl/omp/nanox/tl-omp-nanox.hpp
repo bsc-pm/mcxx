@@ -43,7 +43,7 @@ namespace Nanox
 
         // devices :
             static Source get_barrier_code(AST_t ref_tree);
-            
+
         private:
             void parallel_postorder(PragmaCustomConstruct ctr);
             void parallel_for_postorder(PragmaCustomConstruct ctr);

@@ -1,7 +1,10 @@
 #include "tl-nanos.hpp"
 #include "tl-omp-nanox.hpp"
 
-namespace TL { namespace Nanox {
+namespace TL
+{
+namespace Nanox
+{
 
     // Taskwait
     Source OMPTransform::get_wait_completion(Source arg, bool avoid_flush, AST_t ref_tree)
