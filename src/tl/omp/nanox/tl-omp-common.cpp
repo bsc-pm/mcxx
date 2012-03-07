@@ -46,4 +46,46 @@ namespace TL { namespace Nanox {
         return barrier_src;
     }
 
-} }
+    Source OMPTransform::get_create_sliced_wd_code(const std::string &name,
+            Source device_descriptor,
+            Source struct_arg_type_name,
+            Source alignment,
+            Source current_slicer,
+            Source slicer_alignment,
+            Source num_copies1,
+            Source copy_data1)
+    {
+        Source create_sliced_wd;
+        if (Nanos::Version::interface_is_at_least("master", 5008))
+        {
+            create_sliced_wd
+                <<"nanos_create_sliced_wd(&wd, "
+                <<   /* num_devices */ "1, " << device_descriptor << ", "
+                <<   "sizeof(" << struct_arg_type_name << "),"
+                <<   alignment
+                <<   "(void**)&" << name <<","
+                <<   "nanos_current_wd(),"
+                <<   current_slicer << ","
+                <<   "&props," << num_copies1 << "," << copy_data1 << ");"
+                ;
+        }
+        else
+        {
+            create_sliced_wd
+                << "nanos_create_sliced_wd(&wd, "
+                <<   /* num_devices */ "1, " << device_descriptor << ", "
+                <<   "sizeof(" << struct_arg_type_name << "),"
+                <<   alignment
+                <<   "(void**)&" << name <<","
+                <<   "nanos_current_wd(),"
+                <<   current_slicer << ","
+                <<   "sizeof(nanos_slicer_data_for_t),"
+                <<   slicer_alignment
+                <<   "(nanos_slicer_t*) &slicer_data_for,"
+                <<   "&props," << num_copies1 << "," << copy_data1 << ");"
+                ;
+        }
+        return create_sliced_wd;
+    }
+}
+}

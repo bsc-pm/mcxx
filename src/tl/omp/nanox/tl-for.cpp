@@ -582,20 +582,19 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
         slicer_alignment <<  "__alignof__(nanos_slicer_data_for_t),"
             ;
     }
+    
+    std::string name_outline_args_var = "ol_args";
+    if (Nanos::Version::interface_is_at_least("worksharing", 1000))
+    {
+        name_outline_args_var = "ol_args_im";
+    }
 
-    Source create_sliced_wd, loop_information, decl_slicer_data_if_needed;
+    Source create_sliced_wd = get_create_sliced_wd_code(name_outline_args_var, device_descriptor,
+            struct_arg_type_name, alignment, current_slicer, slicer_alignment, num_copies1, copy_data1);
+
+    Source loop_information, decl_slicer_data_if_needed;
     if (Nanos::Version::interface_is_at_least("master", 5008))
     {
-        create_sliced_wd
-            <<"nanos_create_sliced_wd(&wd, "
-            <<   /* num_devices */ "1, " << device_descriptor << ", "
-            <<   "sizeof(" << struct_arg_type_name << "),"
-            <<   alignment
-            <<   "(void**)&ol_args,"
-            <<   "nanos_current_wd(),"
-            <<   current_slicer << ","
-            <<   "&props," << num_copies1 << "," << copy_data1 << ");"
-            ;
         loop_information
             << "ol_args->loop_info.lower = " << for_statement.get_lower_bound() << ";"
             << "ol_args->loop_info.upper = " << for_statement.get_upper_bound() << ";"
@@ -605,19 +604,6 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
     }
     else
     {
-        create_sliced_wd
-            << "nanos_create_sliced_wd(&wd, "
-            <<   /* num_devices */ "1, " << device_descriptor << ", "
-            <<   "sizeof(" << struct_arg_type_name << "),"
-            <<   alignment
-            <<   "(void**)&ol_args,"
-            <<   "nanos_current_wd(),"
-            <<   current_slicer << ","
-            <<   "sizeof(nanos_slicer_data_for_t),"
-            <<   slicer_alignment
-            <<   "(nanos_slicer_t*) &slicer_data_for,"
-            <<   "&props," << num_copies1 << "," << copy_data1 << ");"
-            ;
         decl_slicer_data_if_needed
             << "nanos_slicer_data_for_t* slicer_data_for = (nanos_slicer_data_for_t*)0;"
             ;
