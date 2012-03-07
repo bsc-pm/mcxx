@@ -41,11 +41,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
 
     OpenMP::DataSharingEnvironment& data_sharing = openmp_info->get_data_sharing(ctr.get_ast());
     ObjectList<OpenMP::DependencyItem> dependences;
-    data_sharing.get_all_dependences(dependences);	
-    Source loop_info_field;
-    loop_info_field
-        << "nanos_loop_info_t loop_info;"
-        ;
+    data_sharing.get_all_dependences(dependences);
 
     DataEnvironInfo data_environ_info;
     compute_data_environment(
@@ -54,10 +50,20 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
             data_environ_info,
             _converted_vlas);
 
+
     std::string struct_arg_type_name;
-    define_arguments_structure(ctr, struct_arg_type_name, data_environ_info, 
+    Source loop_info_field;
+    if (Nanos::Version::interface_is_at_least("worksharing", 1000))
+    {
+        loop_info_field << "nanos_ws_desc_t *wsd;";
+    }
+    else
+    {
+        loop_info_field << "nanos_loop_info_t loop_info;";
+    }
+    define_arguments_structure(ctr, struct_arg_type_name, data_environ_info,
             ObjectList<OpenMP::DependencyItem>(), loop_info_field);
-            
+
     FunctionDefinition funct_def = ctr.get_enclosing_function();
     Symbol function_symbol = funct_def.get_function_symbol();
 
