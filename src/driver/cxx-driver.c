@@ -1310,7 +1310,7 @@ int parse_arguments(int argc, const char* argv[],
             && !native_verbose
             && v_specified)
     {
-        // -v has been given with nothing else
+        // --v has been given with nothing else
         print_version();
         exit(EXIT_SUCCESS);
     }
