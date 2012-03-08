@@ -4051,7 +4051,7 @@ static void link_objects(void)
     if (CURRENT_CONFIGURATION->do_not_link)
         return;
 
-    const char * file_list[compilation_process.num_translation_units];
+    const char * file_list[compilation_process.num_translation_units + 1];
 
     int j;
     for (j = 0; j < compilation_process.num_translation_units; j++)
