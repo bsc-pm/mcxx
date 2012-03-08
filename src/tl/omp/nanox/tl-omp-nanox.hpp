@@ -44,6 +44,14 @@ namespace Nanox
         // devices :
             static Source get_barrier_code(AST_t ref_tree);
 
+            static Source get_nanos_create_wd_code(Source num_devices,
+                    Source device_descriptor,
+                    Source struct_size,
+                    Source alignment,
+                    Source data,
+                    Source num_copies,
+                    Source copy_data);
+
         private:
             void parallel_postorder(PragmaCustomConstruct ctr);
             void parallel_for_postorder(PragmaCustomConstruct ctr);
@@ -106,7 +114,7 @@ namespace Nanox
                             Source num_copies1,
                             Source copy_data1);
 
-            // Temporary data during traversal
+           // Temporary data during traversal
             struct SectionInfo
             {
                 AST_t placeholder;

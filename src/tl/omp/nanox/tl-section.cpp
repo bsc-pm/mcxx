@@ -96,11 +96,11 @@ void OMPTransform::section_postorder(PragmaCustomConstruct ctr)
             ;
     }
 
-    Source device_descriptor, 
-           device_description, 
-           device_description_line, 
-           num_devices,
+    Source device_descriptor,
+           device_description,
+           device_description_line,
            ancillary_device_description;
+
     device_descriptor << outline_name << "_devices";
     device_description
         << ancillary_device_description
@@ -172,9 +172,23 @@ void OMPTransform::section_postorder(PragmaCustomConstruct ctr)
     Source alignment;
     if (Nanos::Version::interface_is_at_least("master", 5004))
     {
-        alignment <<  "__alignof__(" << struct_arg_type_name << "),"
+        alignment <<  "__alignof__(" << struct_arg_type_name << ")"
             ;
     }
+
+    Source num_devices, struct_size,
+           num_copies, copy_data, data, nanos_create_wd;
+
+    num_devices << 1;
+    struct_size << "sizeof(" << struct_arg_type_name << ")";
+    data << "(void**)&section_data";
+
+    // FIXME: No copies at the moment
+    num_copies << 0;
+    copy_data << "(nanos_copy_data_t**)0";
+
+    nanos_create_wd = OMPTransform::get_nanos_create_wd_code(num_devices,
+            device_descriptor, struct_size, alignment, data, num_copies, copy_data);
 
     spawn_source
         << "{"
@@ -185,14 +199,7 @@ void OMPTransform::section_postorder(PragmaCustomConstruct ctr)
         <<    "nanos_wd_props_t props;"
         <<    "__builtin_memset(&props, 0, sizeof(props));"
         <<    "props.mandatory_creation = 1;"
-        <<    "err = nanos_create_wd(&wd, "
-        <<          /* num_devices */ "1, " << device_descriptor << ", "
-        <<          "sizeof(" << struct_arg_type_name << "),"
-        <<          alignment
-        <<          "(void**)&section_data,"
-        <<          "nanos_current_wd(),"
-        // FIXME: No copies at the moment
-        <<          "&props, 0, (nanos_copy_data_t**)0);"
+        <<    "err = " << nanos_create_wd
         <<    "if (err != NANOS_OK) nanos_handle_error(err);"
         <<    fill_outline_arguments
         // Do not submit, it will be done by the slicer

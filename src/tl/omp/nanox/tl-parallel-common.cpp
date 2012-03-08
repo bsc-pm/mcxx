@@ -225,7 +225,10 @@ Source TL::Nanox::common_parallel_code(
         << comment("A false 'if' clause evaluation means using current thread")
         << "_nanos_num_threads = (" << expr.prettyprint() << ") ? _nanos_num_threads : 1;";
     }
-
+    Source nanos_create_wd, data;
+    data << "(void**)&ol_args";
+    nanos_create_wd = OMPTransform::get_nanos_create_wd_code(num_devices,
+            device_descriptor, struct_size, alignment, data, num_copies, copy_data);
     result
         << "{"
         <<   "unsigned int _nanos_num_threads = " << num_threads << ";"
@@ -250,13 +253,7 @@ Source TL::Nanox::common_parallel_code(
         <<      struct_arg_type_name << " *ol_args = 0;"
         <<      "props.tie_to = _nanos_threads[_i];"
         <<      "nanos_wd_t wd = 0;"
-        <<      "err = nanos_create_wd(&wd, " << num_devices << ","
-        <<                    device_descriptor << ", "
-        <<                    struct_size << ","
-        <<                    alignment
-        <<                    "(void**)&ol_args,"
-        <<                    "nanos_current_wd(), "
-        <<                    "&props, " << num_copies << "," << copy_data << ");"
+        <<      "err = " << nanos_create_wd
         <<      "if (err != NANOS_OK) nanos_handle_error(err);"
         <<      fill_outline_arguments
         <<      "err = nanos_submit(wd, 0, (nanos_dependence_t*)0, 0);"

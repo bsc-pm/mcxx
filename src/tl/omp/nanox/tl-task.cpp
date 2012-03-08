@@ -290,22 +290,27 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         if_expr_cond_end << "}";
     }
 
+    bool props_tied;
     Source tiedness, priority;
     PragmaCustomClause untied_clause = ctr.get_clause("untied");
     if (untied_clause.is_defined())
     {
+        props_tied = 0;
         tiedness << "props.tied = 0;";
     }
     else
     {
+        props_tied = 1;
         tiedness << "props.tied = 1;";
     }
 
     PragmaCustomClause priority_clause = ctr.get_clause("priority");
+    std::string props_priority = "0";
     if (priority_clause.is_defined())
     {
+        props_priority = priority_clause.get_arguments()[0];
         priority
-            << "props.priority = " << priority_clause.get_arguments()[0] << ";"
+            << "props.priority = " << props_priority << ";"
             ;
     }
 
@@ -603,17 +608,18 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
     // TODO: Implement the corresponding part in the runtime in order to allow create_wd_and_run
     // function work properly
     Source creation;
-
+    bool props_mandatory_creation = 0;
     if ( current_targets.contains( "cuda" ) )
     {
         creation << "props.mandatory_creation = 1;"
             ;
+        props_mandatory_creation = 1;
     }
 
     Source alignment;
     if (Nanos::Version::interface_is_at_least("master", 5004))
     {
-        alignment <<  "__alignof__(" << struct_arg_type_name << "),"
+        alignment <<  "__alignof__(" << struct_arg_type_name << ")"
             ;
     }
 
@@ -672,9 +678,67 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         }
     }
 
+#if 0
+    Source constant_variable_declaration,
+           constant_structure_code;
+
+    constant_structure_code
+        << ancillary_device_description
+        << constant_variable_declaration
+        ;
+
+             
+   //  typedef struct
+   //  {
+   //      nanos_wd_props_t props;
+   //      size_t data_alignment;
+   //      size_t num_copies;
+   //      size_t num_devices;
+   //      nanos_device_t devices[];
+   //  }
+   //  nanos_const_wd_definition_t;
+
+    constant_variable_declaration
+        << "nanos_const_wd_definition_t _const_def" << outline_num << " "
+        << "{"
+        <<      "{"
+        <<          props_mandatory_creation << ", "
+        <<          props_tied  << ", "
+        <<          "0, " /* reserved0 */
+        <<          "0, " /* reserved1 */
+        <<          "0, " /* reserved2 */
+        <<          "0, " /* reserved3 */
+        <<          "0, " /* reserved4 */
+        <<          "0, " /* reserved5 */
+        <<          "0, " /* tie_to */
+        <<          props_priority
+        <<      "}, "
+        <<      alignment   << ", "
+        <<      num_copies  << ", "
+        <<      num_devices << ", "
+        <<      "{"
+        <<          device_description_line
+        <<      "}"
+        << "};"
+        ;
+
+    AST_t constant_structure_code_tree =
+            constant_structure_code.parse_declaration(
+                ctr.get_ast().get_enclosing_function_definition_declaration(),
+                ctr.get_scope_link());
+    ctr.get_ast().prepend_sibling_function(constant_structure_code_tree);
+#endif
+
+
     if(!_no_nanox_calls)
     {
-        spawn_code
+        Source data, nanos_create_wd;
+        data << "(void**)&ol_args";
+
+         nanos_create_wd = OMPTransform::get_nanos_create_wd_code(num_devices,
+                 device_descriptor, struct_size, alignment, data, num_copies, copy_data);
+
+         spawn_code
             << "{"
             // Devices related to this task
             <<     device_description
@@ -690,11 +754,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             <<     copy_decl
             <<     "nanos_err_t err;"
             <<     if_expr_cond_start
-            <<     "err = nanos_create_wd(&wd, " << num_devices << "," << device_descriptor << ","
-            <<                 struct_size << ","
-            <<                 alignment
-            <<                 "(void**)&ol_args, nanos_current_wd(),"
-            <<                 "&props, " << num_copies << ", " << copy_data << ");"
+            <<     "err = " << nanos_create_wd
             <<     "if (err != NANOS_OK) nanos_handle_error (err);"
             <<     if_expr_cond_end
             <<     "if (wd != (nanos_wd_t)0)"
@@ -716,7 +776,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             <<        "err = nanos_create_wd_and_run("
             <<                num_devices << ", " << device_descriptor << ", "
             <<                struct_size << ", "
-            <<                alignment
+            <<                alignment << ", "
             <<                (immediate_is_alloca ? "imm_args" : "&imm_args") << ","
             <<                num_dependences << ", (" << dependency_struct << "*)" << dependency_array << ", &props,"
             <<                num_copies << "," << copy_imm_data

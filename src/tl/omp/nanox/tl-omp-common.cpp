@@ -5,7 +5,6 @@ namespace TL
 {
 namespace Nanox
 {
-
     // Taskwait
     Source OMPTransform::get_wait_completion(Source arg, bool avoid_flush, AST_t ref_tree)
     {
@@ -89,6 +88,30 @@ namespace Nanox
                 ;
         }
         return create_sliced_wd;
+    }
+
+     Source OMPTransform::get_nanos_create_wd_code(Source num_devices,
+            Source device_descriptor,
+            Source struct_size,
+            Source alignment,
+            Source data,
+            Source num_copies,
+            Source copy_data)
+    {
+        Source create_wd;
+        create_wd
+            << "nanos_create_wd(&wd, "
+            <<       num_devices << ", "
+            <<       device_descriptor << ", "
+            <<       struct_size << ", "
+            <<       alignment << ", "
+            <<       "(void**)&ol_args, "
+            <<       "nanos_current_wd(), "
+            <<       "&props, "
+            <<       num_copies << ", "
+            <<       copy_data << ");"
+            ;
+        return create_wd;
     }
 }
 }
