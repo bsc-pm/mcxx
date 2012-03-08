@@ -105,12 +105,13 @@ namespace Nanox
             <<       device_descriptor << ", "
             <<       struct_size << ", "
             <<       alignment << ", "
-            <<       "(void**)&ol_args, "
+            <<       data << ", "
             <<       "nanos_current_wd(), "
             <<       "&props, "
             <<       num_copies << ", "
             <<       copy_data << ");"
             ;
+
         return create_wd;
     }
 }
