@@ -529,8 +529,8 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                 const char* struct_addr;
             } fill_copy_data_info[] = {
                 { &copy_items_src, "copy_data", "ol_args->", "ol_args" },
-                { &copy_immediate_setup, "imm_copy_data", 
-                    immediate_is_alloca ? "imm_args->" : "imm_args.", 
+                { &copy_immediate_setup, "imm_copy_data",
+                    immediate_is_alloca ? "imm_args->" : "imm_args.",
                     immediate_is_alloca ? "imm_args" : "&imm_args" },
                 { NULL, "" },
             };
@@ -578,7 +578,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                 translation_fun_name << "_xlate_copy_address_" << outline_num
                     ;
                 // FIXME - Templates
-                set_translation_fun 
+                set_translation_fun
                     << "nanos_set_translate_function(wd, " << translation_fun_name << ");"
                     ;
 
@@ -616,12 +616,12 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         alignment <<  "__alignof__(" << struct_arg_type_name << "),"
             ;
     }
-    
+
     Source fill_real_time_info;
-    if(Nanos::Version::interface_is_at_least("realtime",1000)) 
+    if(Nanos::Version::interface_is_at_least("realtime",1000))
     {
         Source release_after, deadline, onerror;
-        fill_real_time_info 
+        fill_real_time_info
             << deadline
             << release_after
             << onerror
@@ -636,7 +636,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         {
             release_after << "props._release_after = -1;";
         }
-       
+
         //Adds deadline time information
         if(rt_info.has_deadline_time())
         {
@@ -650,18 +650,18 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
         //Adds action error information
         //looking for the event 'OMP_DEADLINE_EXPIRED'
-        std::string action = 
-            rt_info.get_action_error(OpenMP::RealTimeInfo::OMP_DEADLINE_EXPIRED); 
-        
+        std::string action =
+            rt_info.get_action_error(OpenMP::RealTimeInfo::OMP_DEADLINE_EXPIRED);
+
         if(action != "")
         {
             onerror  << "props._onerror_action = " << action << ";";
         }
-        else 
+        else
         {
             //looking for the event 'OMP_ANY_EVENT'
-            action = rt_info.get_action_error(OpenMP::RealTimeInfo::OMP_ANY_EVENT); 
-            if(action != "") 
+            action = rt_info.get_action_error(OpenMP::RealTimeInfo::OMP_ANY_EVENT);
+            if(action != "")
             {
                 onerror  << "props._onerror_action = " << action << ";";
             }
@@ -703,7 +703,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             <<        fill_dependences_outline
             <<        copy_setup
             <<        set_translation_fun
-            <<        "err = nanos_submit(wd, " << num_dependences << ", (" << dependency_struct << "*)" 
+            <<        "err = nanos_submit(wd, " << num_dependences << ", (" << dependency_struct << "*)"
             << dependency_array << ", (nanos_team_t)0);"
             <<        "if (err != NANOS_OK) nanos_handle_error (err);"
             <<     "}"
@@ -713,38 +713,38 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             <<        fill_immediate_arguments
             <<        fill_dependences_immediate
             <<        copy_immediate_setup
-            <<        "err = nanos_create_wd_and_run(" 
+            <<        "err = nanos_create_wd_and_run("
             <<                num_devices << ", " << device_descriptor << ", "
-            <<                struct_size << ", " 
+            <<                struct_size << ", "
             <<                alignment
             <<                (immediate_is_alloca ? "imm_args" : "&imm_args") << ","
             <<                num_dependences << ", (" << dependency_struct << "*)" << dependency_array << ", &props,"
-            <<                num_copies << "," << copy_imm_data 
+            <<                num_copies << "," << copy_imm_data
             <<                translation_fun_arg_name << ");"
             <<        "if (err != NANOS_OK) nanos_handle_error (err);"
             <<     "}"
             << "}"
             ;
     }
-    else 
+    else
     {
         if(current_targets.contains("smp"))
         {
             std::stringstream smp_device_call;
             smp_device_call << "_smp_" << outline_name << "(&imm_args);";
-            
+
             // The code generated must not contain calls to runtime. The execution will be serial
             spawn_code
                 << "{"
                 <<     immediate_decl
                 <<     fill_immediate_arguments
-                <<     smp_device_call.str() 
+                <<     smp_device_call.str()
                 << "}"
                 ;
         }
-        else 
+        else
         {
-            running_error("%s: error: the code generation without calls to runtime only works in smp devices\n", 
+            running_error("%s: error: the code generation without calls to runtime only works in smp devices\n",
                 ctr.get_ast().get_locus().c_str());
         }
     }
