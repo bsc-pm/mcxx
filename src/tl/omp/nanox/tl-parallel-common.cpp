@@ -170,7 +170,7 @@ Source TL::Nanox::common_parallel_code(
     Source alignment;
     if (Nanos::Version::interface_is_at_least("master", 5004))
     {
-        alignment <<  "__alignof__(" << struct_arg_type_name << "),"
+        alignment <<  "__alignof__(" << struct_arg_type_name << ")"
             ;
     }
 
@@ -265,7 +265,7 @@ Source TL::Nanox::common_parallel_code(
         <<   "err = nanos_create_wd_and_run(" << num_devices << ", "
         <<                              device_descriptor << ", "
         <<                              struct_size << ", " 
-        <<                              alignment
+        <<                              alignment << ", "
         <<                              (immediate_is_alloca ? "imm_args" : "&imm_args") << ","
         <<                              "0,"
         <<                              "(nanos_dependence_t*)0, "
