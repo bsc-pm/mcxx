@@ -38,7 +38,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         void visit(const Nodecl::Parallel::AsyncCall& construct);
 
     private:
-        std::string declare_argument_structure(OutlineInfo& outline_info, Nodecl::NodeclBase construct);
+        TL::Symbol declare_argument_structure(OutlineInfo& outline_info, Nodecl::NodeclBase construct);
         bool c_type_needs_vla_handling(TL::Type t);
         bool c_requires_vla_handling(OutlineDataItem& outline_data_item);
 
@@ -54,7 +54,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         void emit_outline(OutlineInfo& outline_info,
                 Nodecl::NodeclBase body,
                 const std::string& outline_name,
-                const std::string& structure_name);
+                TL::Symbol structure_symbol);
 
         TL::Type c_handle_vla_type_rec(
                 OutlineDataItem& outline_data_item,

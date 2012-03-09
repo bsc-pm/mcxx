@@ -38,6 +38,180 @@ using TL::Source;
 
 namespace TL { namespace Nanox {
 
+    static TL::Symbol new_function_symbol(Scope sc,
+            const std::string& name,
+            TL::Type return_type,
+            ObjectList<std::string> parameter_names,
+            ObjectList<TL::Type> parameter_types)
+    {
+        // FIXME - Wrap
+        decl_context_t decl_context = sc.get_decl_context();
+
+        scope_entry_t* entry = new_symbol(decl_context, decl_context.current_scope, name.c_str());
+
+        entry->kind = SK_FUNCTION;
+        entry->file = "";
+        entry->line = 0;
+
+        ERROR_CONDITION(parameter_names.size() != parameter_types.size(), "Mismatch between names and types", 0);
+
+        decl_context_t function_context = new_function_context(decl_context);
+        function_context = new_block_context(function_context);
+
+        entry->related_decl_context = function_context;
+
+        parameter_info_t* p_types = new parameter_info_t[parameter_types.size()];
+
+        parameter_info_t* it_ptypes = &(p_types[0]);
+        ObjectList<TL::Type>::iterator type_it = parameter_types.begin();
+        for (ObjectList<std::string>::iterator it = parameter_names.begin();
+                it != parameter_names.end();
+                it++, it_ptypes++, type_it++)
+        {
+            scope_entry_t* param = new_symbol(function_context, function_context.current_scope, it->c_str());
+            param->kind = SK_VARIABLE;
+            param->file = "";
+            param->line = 0;
+
+            param->type_information = type_it->get_internal_type();
+
+            P_LIST_ADD(entry->entity_specs.related_symbols,
+                    entry->entity_specs.num_related_symbols,
+                    param);
+
+            it_ptypes->type_info = get_indirect_type(param);
+        }
+
+        type_t *function_type = get_new_function_type(
+                return_type.get_internal_type(),
+                p_types,
+                parameter_types.size());
+
+        entry->type_information = function_type;
+
+        delete[] p_types;
+
+        return entry;
+    }
+
+    static void build_empty_body_for_function(
+            TL::Symbol function_symbol,
+            Nodecl::NodeclBase &function_code,
+            Nodecl::NodeclBase &empty_stmt
+            )
+    {
+        empty_stmt = Nodecl::EmptyStatement::make("", 0);
+        TL::ObjectList<Nodecl::NodeclBase> stmt_list_;
+        stmt_list_.append(empty_stmt);
+        Nodecl::List stmt_list = Nodecl::List::make(stmt_list_);
+
+        Nodecl::NodeclBase context = Nodecl::Context::make(stmt_list, function_symbol.get_related_scope(), "", 0);
+
+        function_code = Nodecl::FunctionCode::make(context, 
+                Nodecl::NodeclBase::null(),
+                Nodecl::NodeclBase::null(),
+                function_symbol,
+                "", 0);
+    }
+
+    void LoweringVisitor::emit_outline(OutlineInfo& outline_info,
+            Nodecl::NodeclBase body,
+            const std::string& outline_name,
+            TL::Symbol structure_symbol)
+    {
+        TL::ObjectList<std::string> parameter_names;
+        TL::ObjectList<TL::Type> parameter_types;
+
+        TL::ObjectList<OutlineDataItem> data_items = outline_info.get_data_items();
+        for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
+                it != data_items.end();
+                it++)
+        {
+            if (!it->get_symbol().is_valid())
+                continue;
+
+            switch (it->get_sharing())
+            {
+                case OutlineDataItem::SHARING_PRIVATE:
+                    {
+                        break;
+                    }
+                case OutlineDataItem::SHARING_SHARED:
+                case OutlineDataItem::SHARING_CAPTURE:
+                case OutlineDataItem::SHARING_CAPTURE_ADDRESS:
+                    {
+                        switch (it->get_item_kind())
+                        {
+                            case OutlineDataItem::ITEM_KIND_NORMAL:
+                            case OutlineDataItem::ITEM_KIND_DATA_DIMENSION:
+                                {
+                                    parameter_names.append(it->get_field_name());
+                                    break;
+                                }
+                            case OutlineDataItem::ITEM_KIND_DATA_ADDRESS:
+                                {
+                                    parameter_names.append("ptr_" + it->get_field_name());
+
+                                    break;
+                                }
+                            default:
+                                {
+                                    internal_error("Code unreachable", 0);
+                                }
+                        }
+                        TL::Type param_type = it->get_field_type();
+                        if (IS_FORTRAN_LANGUAGE)
+                        {
+                            param_type = param_type.get_lvalue_reference_to();
+                        }
+                        parameter_types.append(param_type);
+                        break;
+                    }
+                default:
+                    {
+                        internal_error("Unexpected data sharing kind", 0);
+                    }
+            }
+        }
+
+        TL::Symbol current_function = body.retrieve_context().get_decl_context().current_scope->related_entry;
+
+        TL::Symbol unpacked_function = new_function_symbol(
+                // We want a sibling of the current function
+                current_function.get_scope(),
+                outline_name + "_unpacked",
+                TL::Type::get_void_type(),
+                parameter_names,
+                parameter_types);
+
+        // FIXME - C++ static for members and such
+        ObjectList<std::string> structure_name;
+        structure_name.append("args");
+        ObjectList<TL::Type> structure_type;
+        structure_type.append(
+                TL::Type(get_user_defined_type( structure_symbol.get_internal_symbol())).get_lvalue_reference_to() 
+                );
+        Nodecl::NodeclBase unpacked_function_code, unpacked_function_body;
+        build_empty_body_for_function(unpacked_function, 
+                unpacked_function_code,
+                unpacked_function_body);
+        Nodecl::Utils::append_to_top_level_nodecl(unpacked_function_code);
+
+        TL::Symbol outline_function = new_function_symbol(
+                current_function.get_scope(),
+                outline_name,
+                TL::Type::get_void_type(),
+                structure_name,
+                structure_type);
+
+        Nodecl::NodeclBase outline_function_code, outline_function_body;
+        build_empty_body_for_function(outline_function, 
+                outline_function_code,
+                outline_function_body);
+        Nodecl::Utils::append_to_top_level_nodecl(outline_function_code);
+    }
+
+#if 0
     void LoweringVisitor::emit_outline(OutlineInfo& outline_info,
             Nodecl::NodeclBase body,
             const std::string& outline_name,
@@ -263,5 +437,6 @@ namespace TL { namespace Nanox {
         Nodecl::NodeclBase new_body = replaced_body_src.parse_statement(placeholder_body);
         placeholder_body.replace(new_body);
     }
+#endif
 
 } }

@@ -116,8 +116,8 @@ void LoweringVisitor::emit_async_common(
         ;
     
     // Declare argument structure
-    std::string structure_name = declare_argument_structure(outline_info, construct);
-    struct_arg_type_name << structure_name;
+    TL::Symbol structure_symbol = declare_argument_structure(outline_info, construct);
+    struct_arg_type_name << structure_symbol.get_name();
 
     // FIXME - No devices yet, let's mimick the structure of one SMP
     {
@@ -136,7 +136,7 @@ void LoweringVisitor::emit_async_common(
     }
 
     // Outline
-    emit_outline(outline_info, statements, outline_name, structure_name);
+    emit_outline(outline_info, statements, outline_name, structure_symbol);
 
     Source err_name;
     err_name << "err";

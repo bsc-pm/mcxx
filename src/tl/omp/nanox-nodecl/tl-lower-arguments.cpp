@@ -272,7 +272,7 @@ namespace TL { namespace Nanox {
         outline_data_item.set_field_type(field_type);
     }
 
-    std::string LoweringVisitor::declare_argument_structure(OutlineInfo& outline_info, Nodecl::NodeclBase construct)
+    TL::Symbol LoweringVisitor::declare_argument_structure(OutlineInfo& outline_info, Nodecl::NodeclBase construct)
     {
         // Come up with a unique name
         Counter& counter = CounterManager::get_counter("nanos++-struct");
@@ -405,6 +405,6 @@ namespace TL { namespace Nanox {
             std::cerr << "FIXME: finished class issues nonempty nodecl" << std::endl; 
         }
 
-        return structure_name;
+        return new_class_symbol;
     }
 } }
