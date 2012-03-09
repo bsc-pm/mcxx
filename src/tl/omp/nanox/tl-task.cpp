@@ -731,25 +731,38 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
     if(!_no_nanox_calls)
     {
-        Source data, nanos_create_wd;
-        data << "(void**)&ol_args";
 
-         nanos_create_wd = OMPTransform::get_nanos_create_wd_code(num_devices,
-                 device_descriptor, struct_size, alignment, data, num_copies, copy_data);
+        Source data, imm_data, deps,
+               nanos_create_wd, nanos_create_run_wd,
+               properties_opt, device_description_opt;
+
+        data << "(void**)&ol_args";
+        imm_data << (immediate_is_alloca ? "imm_args" : "&imm_args");
+        deps << "(" << dependency_struct << "*)" << dependency_array;
+        properties_opt
+            << "nanos_wd_props_t props;"
+            << "__builtin_memset(&props, 0, sizeof(props));"
+            << creation
+            << priority
+            << tiedness
+            << fill_real_time_info;
+
+        device_description_opt
+            << device_description;
+
+        nanos_create_wd = OMPTransform::get_nanos_create_wd_code(num_devices,
+                device_descriptor, struct_size, alignment, data, num_copies, copy_data);
+
+        nanos_create_run_wd = OMPTransform::get_nanos_create_and_run_wd_code(num_devices, device_descriptor,
+                struct_size, alignment, imm_data, num_dependences, deps, num_copies, copy_imm_data, translation_fun_arg_name);
 
          spawn_code
             << "{"
-            // Devices related to this task
-            <<     device_description
+            <<     device_description_opt
             <<     struct_arg_type_name << "* ol_args = (" << struct_arg_type_name << "*)0;"
             <<     struct_runtime_size
             <<     "nanos_wd_t wd = (nanos_wd_t)0;"
-            <<     "nanos_wd_props_t props;"
-            <<     "__builtin_memset(&props, 0, sizeof(props));"
-            <<     creation
-            <<     priority
-            <<     tiedness
-            <<     fill_real_time_info
+            <<     properties_opt
             <<     copy_decl
             <<     "nanos_err_t err;"
             <<     if_expr_cond_start
@@ -763,7 +776,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             <<        copy_setup
             <<        set_translation_fun
             <<        "err = nanos_submit(wd, " << num_dependences << ", (" << dependency_struct << "*)"
-            << dependency_array << ", (nanos_team_t)0);"
+            <<                  dependency_array << ", (nanos_team_t)0);"
             <<        "if (err != NANOS_OK) nanos_handle_error (err);"
             <<     "}"
             <<     "else"
@@ -772,14 +785,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             <<        fill_immediate_arguments
             <<        fill_dependences_immediate
             <<        copy_immediate_setup
-            <<        "err = nanos_create_wd_and_run("
-            <<                num_devices << ", " << device_descriptor << ", "
-            <<                struct_size << ", "
-            <<                alignment << ", "
-            <<                (immediate_is_alloca ? "imm_args" : "&imm_args") << ","
-            <<                num_dependences << ", (" << dependency_struct << "*)" << dependency_array << ", &props,"
-            <<                num_copies << "," << copy_imm_data
-            <<                translation_fun_arg_name << ");"
+            <<        "err = " << nanos_create_run_wd
             <<        "if (err != NANOS_OK) nanos_handle_error (err);"
             <<     "}"
             << "}"

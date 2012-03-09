@@ -27,6 +27,7 @@
 
 
 #include "tl-nanos.hpp"
+#include "tl-counters.hpp"
 #include "tl-parallel-common.hpp"
 #include "tl-devices.hpp"
 
@@ -225,10 +226,19 @@ Source TL::Nanox::common_parallel_code(
         << comment("A false 'if' clause evaluation means using current thread")
         << "_nanos_num_threads = (" << expr.prettyprint() << ") ? _nanos_num_threads : 1;";
     }
-    Source nanos_create_wd, data;
+
+    Source data, imm_data, num_dependences, deps, nanos_create_wd, nanos_create_run_wd; 
+    num_dependences << "0";
+    deps << "(nanos_dependence_t*)0";
+    imm_data << (immediate_is_alloca ? "imm_args" : "&imm_args");
     data << "(void**)&ol_args";
+    
     nanos_create_wd = OMPTransform::get_nanos_create_wd_code(num_devices,
             device_descriptor, struct_size, alignment, data, num_copies, copy_data);
+
+    nanos_create_run_wd = OMPTransform::get_nanos_create_and_run_wd_code(num_devices, device_descriptor,
+            struct_size, alignment, imm_data, num_dependences, deps, num_copies, imm_copy_data, xlate_arg);
+
     result
         << "{"
         <<   "unsigned int _nanos_num_threads = " << num_threads << ";"
@@ -240,7 +250,7 @@ Source TL::Nanox::common_parallel_code(
         <<              "(nanos_constraint_t*)0, /* reuse_current */ 1, _nanos_threads);"
         <<   "if (err != NANOS_OK) nanos_handle_error(err);"
 
-        <<   device_description      
+        <<   device_description
 
         <<   struct_runtime_size
 
@@ -262,14 +272,7 @@ Source TL::Nanox::common_parallel_code(
         <<   "props.tie_to = _nanos_threads[0];"
         <<   immediate_decl
         <<   fill_immediate_arguments
-        <<   "err = nanos_create_wd_and_run(" << num_devices << ", "
-        <<                              device_descriptor << ", "
-        <<                              struct_size << ", " 
-        <<                              alignment << ", "
-        <<                              (immediate_is_alloca ? "imm_args" : "&imm_args") << ","
-        <<                              "0,"
-        <<                              "(nanos_dependence_t*)0, "
-        <<                              "&props, " << num_copies << "," << imm_copy_data << xlate_arg << ");"
+        <<   "err = " << nanos_create_run_wd
         <<   "if (err != NANOS_OK) nanos_handle_error(err);"
         <<   "err = nanos_end_team(_nanos_team);"
         <<   "if (err != NANOS_OK) nanos_handle_error(err);"
