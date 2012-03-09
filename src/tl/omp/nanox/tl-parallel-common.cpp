@@ -186,12 +186,12 @@ Source TL::Nanox::common_parallel_code(
     {
         C_LANGUAGE()
         {
-            xlate_arg << ", (void*)0"
+            xlate_arg << "(void*)0"
                 ;
         }
         CXX_LANGUAGE()
         {
-            xlate_arg << ", 0"
+            xlate_arg << "0"
                 ;
         }
     }
