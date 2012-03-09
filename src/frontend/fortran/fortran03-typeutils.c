@@ -462,10 +462,36 @@ type_t* rebuild_array_type(type_t* rank0_type, type_t* array_type)
     {
         type_t* t = rebuild_array_type(rank0_type, array_type_get_element_type(array_type));
 
-        return get_array_type_bounds(t, 
-                array_type_get_array_lower_bound(array_type),
-                array_type_get_array_upper_bound(array_type),
-                array_type_get_array_size_expr_context(array_type));
+        if (array_type_has_region(array_type))
+        {
+            return get_array_type_bounds_with_regions(t, 
+                    array_type_get_array_lower_bound(array_type),
+                    array_type_get_array_upper_bound(array_type),
+                    array_type_get_array_size_expr_context(array_type),
+                    // Why did we do this so difficult?
+                    nodecl_make_range(
+                        array_type_get_region_lower_bound(array_type),
+                        array_type_get_region_upper_bound(array_type),
+                        array_type_get_region_stride(array_type),
+                        fortran_get_default_integer_type(),
+                        "", 0),
+                    array_type_get_region_size_expr_context(array_type)
+                    );
+        }
+        else if (array_type_with_descriptor(array_type))
+        {
+            return get_array_type_bounds_with_descriptor(t, 
+                    array_type_get_array_lower_bound(array_type),
+                    array_type_get_array_upper_bound(array_type),
+                    array_type_get_array_size_expr_context(array_type));
+        }
+        else 
+        {
+            return get_array_type_bounds(t, 
+                    array_type_get_array_lower_bound(array_type),
+                    array_type_get_array_upper_bound(array_type),
+                    array_type_get_array_size_expr_context(array_type));
+        }
     }
 }
 
