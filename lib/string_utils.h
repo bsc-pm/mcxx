@@ -72,14 +72,14 @@ LIBUTILS_EXTERN unsigned int simple_hash_str(const char *str);
 #define P_LIST_ADD(list, size, elem)  \
 do { \
     (size)++; \
-    (list) = realloc((list), sizeof(*(list))*(size)); \
+    (list) = (__typeof__(list))realloc((list), sizeof(*(list))*(size)); \
     (list)[((size)-1)] = (elem); \
 } while(0)
 
 #define P_LIST_ADD_PREPEND(list, size, elem) \
 do {  \
     (size)++; \
-    (list) = realloc((list), sizeof(*(list))*(size)); \
+    (list) = (__typeof__(list))realloc((list), sizeof(*(list))*(size)); \
     int _i; \
     for (_i = (size) - 1; _i > 0; _i--) \
     { \
@@ -134,7 +134,7 @@ do { \
             ((list)[_i -1]) = ((list)[_i]); \
         } \
         (size)--; \
-        (list) = realloc((list), sizeof(*(list))*(size)); \
+        (list) = (__typeof__(list))realloc((list), sizeof(*(list))*(size)); \
     }\
 } while (0)
 
