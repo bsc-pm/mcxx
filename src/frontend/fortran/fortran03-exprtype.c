@@ -533,7 +533,7 @@ static void check_array_constructor(AST expr, decl_context_t decl_context, nodec
 
 static void check_substring(AST expr, decl_context_t decl_context, nodecl_t nodecl_subscripted, nodecl_t* nodecl_output)
 {
-    type_t* subscripted_type = no_ref(nodecl_get_type(nodecl_subscripted));
+    type_t* lhs_type = no_ref(nodecl_get_type(nodecl_subscripted));
 
     AST subscript_list = ASTSon1(expr);
 
@@ -581,10 +581,15 @@ static void check_substring(AST expr, decl_context_t decl_context, nodecl_t node
     if (upper != NULL)
         fortran_check_expression_impl_(upper, decl_context, &nodecl_upper);
 
-    type_t* synthesized_type = NULL;
+    type_t* string_type = get_rank0_type(lhs_type);
+    ERROR_CONDITION(!is_fortran_character_type(string_type), "Bad string type", 0);
 
-    // Do not compute the exact size at the moment
-    synthesized_type = get_array_type_bounds(array_type_get_element_type(subscripted_type), nodecl_lower, nodecl_upper, decl_context);
+    // Rebuild string type
+    type_t* synthesized_type = get_array_type_bounds(array_type_get_element_type(string_type), nodecl_lower, nodecl_upper, decl_context);
+    if (is_fortran_array_type(lhs_type))
+    {
+        synthesized_type = rebuild_array_type(synthesized_type, lhs_type);
+    }
 
     nodecl_t nodecl_stride = const_value_to_nodecl(const_value_get_one(/* bytes */ fortran_get_default_integer_type_kind(), /* signed */ 1));
     
@@ -1066,14 +1071,31 @@ static void check_array_ref(AST expr, decl_context_t decl_context, nodecl_t* nod
 
     type_t* subscripted_type = nodecl_get_type(nodecl_subscripted);
 
-    if (is_fortran_array_type(no_ref(subscripted_type))
-            || is_pointer_to_fortran_array_type(no_ref(subscripted_type)))
+    // This ordering is important to preserve the proper meaning of the subscript
+    // A(1:2) where 'A' is an array
+    if (ASTType(ASTSon0(expr)) != AST_ARRAY_SUBSCRIPT
+            && (is_fortran_array_type(no_ref(subscripted_type))
+                || is_pointer_to_fortran_array_type(no_ref(subscripted_type))))
     {
         check_array_ref_(expr, decl_context, nodecl_subscripted, nodecl_output);
         return;
     }
-    else if (is_fortran_character_type(get_rank0_type(no_ref(subscripted_type)))
-            || is_pointer_to_fortran_character_type(get_rank0_type(no_ref(subscripted_type))))
+    // C(1:2) where 'C' is a scalar CHARACTER
+    else if (is_fortran_character_type(no_ref(subscripted_type))
+            || is_pointer_to_fortran_character_type(no_ref(subscripted_type)))
+    {
+        check_substring(expr, decl_context, nodecl_subscripted, nodecl_output);
+        return;
+    }
+    // A(1:2)(3:4) where 'A' is an array of CHARACTER and 'A(1:2)' yields an array type (i.e. an array-section)
+    else if (
+            ASTType(ASTSon0(expr)) == AST_ARRAY_SUBSCRIPT
+            && (// An array of CHARACTER
+                (is_fortran_array_type(no_ref(subscripted_type))
+                 && is_fortran_character_type(get_rank0_type(no_ref(subscripted_type))))
+                // A pointer to array of CHARACTER
+                || (is_pointer_to_fortran_array_type(no_ref(subscripted_type))
+                    && is_pointer_to_fortran_character_type(get_rank0_type(no_ref(subscripted_type))))))
     {
         check_substring(expr, decl_context, nodecl_subscripted, nodecl_output);
         return;
@@ -1407,7 +1429,16 @@ static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t*
 
     if (ASTType(rhs) == AST_ARRAY_SUBSCRIPT)
     {
-        check_array_ref_(rhs, decl_context, nodecl_rhs, &nodecl_rhs);
+        if (is_fortran_array_type(component_type)
+                || is_pointer_to_fortran_array_type(component_type))
+        {
+            check_array_ref_(rhs, decl_context, nodecl_rhs, &nodecl_rhs);
+        }
+        else if (is_fortran_character_type(component_type)
+                || is_pointer_to_fortran_character_type(component_type))
+        {
+            check_substring(rhs, decl_context, nodecl_rhs, &nodecl_rhs);
+        }
     }
 
     if (nodecl_is_err_expr(nodecl_rhs))
