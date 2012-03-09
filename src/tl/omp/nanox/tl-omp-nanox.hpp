@@ -52,6 +52,33 @@ namespace Nanox
                     Source num_copies,
                     Source copy_data);
 
+            static Source get_nanos_create_and_run_wd_code(
+                    Source num_devices,
+                    Source device_descriptor,
+                    Source struct_size,
+                    Source alignment,
+                    Source data,
+                    Source num_dependences,
+                    Source deps,
+                    Source num_copies,
+                    Source copy_imm_data,
+                    Source translation_fun_arg_name);
+
+            static Source get_nanos_create_wd_compact_code(
+                    Source constants_structure,
+                    Source struct_size,
+                    Source data,
+                    Source copy_data);
+
+            static Source get_nanos_create_and_run_wd_compact_code(
+                    Source constants_structure,
+                    Source struct_size,
+                    Source data,
+                    Source num_dependences,
+                    Source deps,
+                    Source copy_imm_data,
+                    Source translation_fun_arg_name);
+
         private:
             void parallel_postorder(PragmaCustomConstruct ctr);
             void parallel_for_postorder(PragmaCustomConstruct ctr);

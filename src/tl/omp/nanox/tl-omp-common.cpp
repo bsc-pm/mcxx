@@ -114,5 +114,80 @@ namespace Nanox
 
         return create_wd;
     }
+
+     Source OMPTransform::get_nanos_create_wd_compact_code(
+            Source constants_structure,
+            Source struct_size,
+            Source data,
+            Source copy_data)
+    {
+        Source create_wd;
+        create_wd
+            << "nanos_create_wd_compact(&wd, "
+            <<       "&" << constants_structure << ", "
+            <<       struct_size << ", "
+            <<       data << ", "
+            <<       "nanos_current_wd(), "
+            <<       copy_data << ");"
+            ;
+
+        return create_wd;
+    }
+
+
+     Source OMPTransform::get_nanos_create_and_run_wd_code(
+             Source num_devices,
+             Source device_descriptor,
+             Source struct_size,
+             Source alignment,
+             Source data,
+             Source num_dependences,
+             Source deps,
+             Source num_copies,
+             Source copy_imm_data,
+             Source translation_fun_arg_name)
+     {
+         Source create_wd_and_run;
+         create_wd_and_run
+             << "nanos_create_wd_and_run("
+             <<       num_devices << ", " << device_descriptor << ", "
+             <<       struct_size << ", "
+             <<       alignment << ", "
+             <<       data << ","
+             <<       num_dependences << ", "
+             <<       deps  << ", "
+             <<       "&props, "
+             <<       num_copies << ", "
+             <<       copy_imm_data << ", "
+             <<       translation_fun_arg_name << ");"
+             ;
+
+             return create_wd_and_run;
+     }
+
+
+     Source OMPTransform::get_nanos_create_and_run_wd_compact_code(
+            Source constants_structure,
+             Source struct_size,
+             Source data,
+             Source num_dependences,
+             Source deps,
+             Source copy_imm_data,
+             Source translation_fun_arg_name)
+     {
+         Source create_wd_and_run;
+         create_wd_and_run
+             << "nanos_create_wd_and_run_compact("
+             <<       "&" << constants_structure << ", "
+             <<       struct_size << ", "
+             <<       data << ","
+             <<       num_dependences << ", "
+             <<       deps  << ", "
+             <<       copy_imm_data << ", "
+             <<       translation_fun_arg_name << ");"
+             ;
+
+             return create_wd_and_run;
+     }
 }
 }
