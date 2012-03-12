@@ -57,6 +57,8 @@ namespace TL { namespace Nanox {
 
         decl_context_t function_context = new_function_context(decl_context);
         function_context = new_block_context(function_context);
+        function_context.function_scope->related_entry = entry;
+        function_context.block_scope->related_entry = entry;
 
         entry->related_decl_context = function_context;
 
@@ -73,12 +75,18 @@ namespace TL { namespace Nanox {
             param->file = "";
             param->line = 0;
 
+            param->defined = 1;
+
+            param->entity_specs.is_parameter = 1;
+
             param->type_information = type_it->get_internal_type();
 
             P_LIST_ADD(entry->entity_specs.related_symbols,
                     entry->entity_specs.num_related_symbols,
                     param);
 
+            it_ptypes->is_ellipsis = 0;
+            it_ptypes->nonadjusted_type_info = NULL;
             it_ptypes->type_info = get_indirect_type(param);
         }
 
@@ -119,8 +127,22 @@ namespace TL { namespace Nanox {
             const std::string& outline_name,
             TL::Symbol structure_symbol)
     {
+        TL::Symbol current_function = body.retrieve_context().get_decl_context().current_scope->related_entry;
+
+        if (current_function.is_nested_function())
+        {
+            if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+                running_error("%s: error: nested functions are not supported\n", 
+                        body.get_locus().c_str());
+            if (IS_FORTRAN_LANGUAGE)
+                running_error("%s: error: internal subprograms are not supported\n", 
+                        body.get_locus().c_str());
+        }
+
         TL::ObjectList<std::string> parameter_names;
         TL::ObjectList<TL::Type> parameter_types;
+
+        Source unpack_code, unpacked_arguments, cleanup_code;
 
         TL::ObjectList<OutlineDataItem> data_items = outline_info.get_data_items();
         for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
@@ -159,12 +181,48 @@ namespace TL { namespace Nanox {
                                     internal_error("Code unreachable", 0);
                                 }
                         }
-                        TL::Type param_type = it->get_field_type();
-                        if (IS_FORTRAN_LANGUAGE)
-                        {
-                            param_type = param_type.get_lvalue_reference_to();
-                        }
+
+                        TL::Type param_type = it->get_in_outline_type();
                         parameter_types.append(param_type);
+
+                        Source argument;
+                        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+                        {
+                            // Normal shared items are passed by reference from a pointer,
+                            // derreference here
+                            if (it->get_sharing() == OutlineDataItem::SHARING_SHARED
+                                    && it->get_item_kind() == OutlineDataItem::ITEM_KIND_NORMAL)
+                            {
+                                argument << "*(args." << it->get_field_name() << ")";
+                            }
+                            // Any other thing is passed by value
+                            else
+                            {
+                                argument << "args." << it->get_field_name();
+                            }
+
+                            if (IS_CXX_LANGUAGE
+                                    && it->get_allocation_policy() != OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DESTROY)
+                            {
+                                internal_error("Not yet implemented: call the destructor", 0);
+                            }
+                        }
+                        else if (IS_FORTRAN_LANGUAGE)
+                        {
+                            argument << "args % " << it->get_field_name();
+
+                            if (it->get_allocation_policy() == OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE)
+                            {
+                                cleanup_code
+                                    << "DEALLOCATE(args % " << it->get_field_name() << ")\n"
+                                    ;
+                            }
+                        }
+                        else
+                        {
+                            internal_error("running error", 0);
+                        }
+                        unpacked_arguments.append_with_separator(argument, ", ");
                         break;
                     }
                 default:
@@ -173,8 +231,6 @@ namespace TL { namespace Nanox {
                     }
             }
         }
-
-        TL::Symbol current_function = body.retrieve_context().get_decl_context().current_scope->related_entry;
 
         TL::Symbol unpacked_function = new_function_symbol(
                 // We want a sibling of the current function
@@ -191,11 +247,6 @@ namespace TL { namespace Nanox {
         structure_type.append(
                 TL::Type(get_user_defined_type( structure_symbol.get_internal_symbol())).get_lvalue_reference_to() 
                 );
-        Nodecl::NodeclBase unpacked_function_code, unpacked_function_body;
-        build_empty_body_for_function(unpacked_function, 
-                unpacked_function_code,
-                unpacked_function_body);
-        Nodecl::Utils::append_to_top_level_nodecl(unpacked_function_code);
 
         TL::Symbol outline_function = new_function_symbol(
                 current_function.get_scope(),
@@ -204,11 +255,73 @@ namespace TL { namespace Nanox {
                 structure_name,
                 structure_type);
 
+        if (IS_FORTRAN_LANGUAGE
+                && current_function.is_in_module())
+        {
+            scope_entry_t* module_sym = current_function.in_module().get_internal_symbol();
+
+            unpacked_function.get_internal_symbol()->entity_specs.in_module = module_sym;
+            P_LIST_ADD(
+                    module_sym->entity_specs.related_symbols,
+                    module_sym->entity_specs.num_related_symbols,
+                    unpacked_function.get_internal_symbol());
+
+            unpacked_function.get_internal_symbol()->entity_specs.is_module_procedure = 1;
+
+            outline_function.get_internal_symbol()->entity_specs.in_module = module_sym;
+            P_LIST_ADD(
+                    module_sym->entity_specs.related_symbols,
+                    module_sym->entity_specs.num_related_symbols,
+                    outline_function.get_internal_symbol());
+            outline_function.get_internal_symbol()->entity_specs.is_module_procedure = 1;
+        }
+
+        Nodecl::NodeclBase unpacked_function_code, unpacked_function_body;
+        build_empty_body_for_function(unpacked_function, 
+                unpacked_function_code,
+                unpacked_function_body);
+        Nodecl::Utils::append_to_top_level_nodecl(unpacked_function_code);
+
+        TL::ReplaceSymbols replace_symbols;
+
+        Source replaced_body_src;
+        replaced_body_src << replace_symbols.replace(body);
+
+        Nodecl::NodeclBase new_unpacked_body = replaced_body_src.parse_statement(unpacked_function_body);
+        unpacked_function_body.replace(new_unpacked_body);
+
         Nodecl::NodeclBase outline_function_code, outline_function_body;
         build_empty_body_for_function(outline_function, 
                 outline_function_code,
                 outline_function_body);
         Nodecl::Utils::append_to_top_level_nodecl(outline_function_code);
+
+        Source outline_src;
+        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+        {
+            outline_src
+                << "{"
+                <<      unpack_code
+                <<      outline_name << "_unpacked(" << unpacked_arguments << ");"
+                <<      cleanup_code
+                << "}"
+                ;
+        }
+        else if (IS_FORTRAN_LANGUAGE)
+        {
+            outline_src
+                << unpack_code << "\n"
+                << "CALL " << outline_name << "_unpacked(" << unpacked_arguments << ")\n"
+                << cleanup_code
+                ;
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
+        }
+
+        Nodecl::NodeclBase new_outline_body = outline_src.parse_statement(outline_function_body);
+        outline_function_body.replace(new_outline_body);
     }
 
 #if 0

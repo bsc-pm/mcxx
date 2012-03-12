@@ -95,6 +95,7 @@ static int is_format_statement(char* token);
 
 static char last_eos = 1;
 
+#define RETURN_SUBPARSE_TOKEN(x) do { last_eos = 1; return (x); }  while(0)
 #define RETURN_TOKEN(x) do { last_eos = 0; return (x); }  while(0)
 #define RETURN_EOS { if (!last_eos) { last_eos = 1; return (EOS); } }
 #define RETURN_PRAGMA_EOS { if (!last_eos) { last_eos = 1; return (PRAGMA_CUSTOM_NEWLINE); } }
@@ -878,17 +879,17 @@ schar       ([^\\"\n\r]|{c_escape_seq}|(\\["]))
 
 @PROGRAM-UNIT@ {		
 	parse_token_text();
-	RETURN_TOKEN(SUBPARSE_PROGRAM_UNIT);
+	RETURN_SUBPARSE_TOKEN(SUBPARSE_PROGRAM_UNIT);
 }
 
 @EXPRESSION@ {			
 	parse_token_text();
-	RETURN_TOKEN(SUBPARSE_EXPRESSION);
+	RETURN_SUBPARSE_TOKEN(SUBPARSE_EXPRESSION);
 }
 
 @STATEMENT@ {			
 	parse_token_text();
-	RETURN_TOKEN(SUBPARSE_STATEMENT);
+	RETURN_SUBPARSE_TOKEN(SUBPARSE_STATEMENT);
 }
 
 @GLOBAL@ {

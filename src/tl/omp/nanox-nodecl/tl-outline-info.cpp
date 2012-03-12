@@ -97,8 +97,8 @@ namespace TL { namespace Nanox {
                     t = t.references_to();
                 }
 
-                t = t.get_lvalue_reference_to();
-                outline_info.set_field_type(t);
+                outline_info.set_field_type(t.get_pointer_to());
+                outline_info.set_in_outline_type(t.get_lvalue_reference_to());
             }
 
             void visit(const Nodecl::Parallel::Shared& shared)
@@ -194,6 +194,7 @@ namespace TL { namespace Nanox {
                 }
 
                 outline_info.set_field_type(t);
+                outline_info.set_in_outline_type(t.get_lvalue_reference_to());
             }
 
             void visit(const Nodecl::Parallel::Capture& shared)

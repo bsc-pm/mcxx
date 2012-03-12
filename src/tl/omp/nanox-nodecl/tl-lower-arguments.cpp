@@ -317,12 +317,6 @@ namespace TL { namespace Nanox {
             field.get_internal_symbol()->kind = SK_VARIABLE;
 
             TL::Type field_type = it->get_field_type();
-            if (field_type.is_any_reference())
-            {
-                // Note that we do not use rebindable references because they
-                // would not be initializable
-                field_type = field_type.references_to().get_pointer_to();
-            }
 
             field.get_internal_symbol()->entity_specs.is_member = 1;
             field.get_internal_symbol()->entity_specs.class_type = ::get_user_defined_type(new_class_symbol.get_internal_symbol());

@@ -205,12 +205,11 @@ namespace Codegen
                 it != pre_visitor.seen_modules.end();
                 it++)
         {
-            TL::Symbol old_module = state.current_module;
             TL::Symbol& current_module(it->module);
 
             set_codegen_status(current_module, CODEGEN_STATUS_DEFINED);
 
-            state.current_module = current_module;
+            push_declaring_entity(current_module);
 
             TL::ObjectList<Nodecl::NodeclBase> nodes_before_contains = it->nodes_before_contains;
            
@@ -224,24 +223,17 @@ namespace Codegen
             {
                 Nodecl::NodeclBase& node(*it2);
 
-                // Keep the codegen map
-                codegen_status_map_t old_codegen_status = _codegen_status;
-                name_set_t old_name_set = _name_set;
-                rename_map_t old_rename_map = _rename_map;
-
+                push_declaration_status();
                 clear_renames();
 
                 walk(node);
                 
-                // And restore it after the module procedure has been emitted
-                _codegen_status = old_codegen_status;
-                _name_set = old_name_set;
-                _rename_map = old_rename_map;
+                pop_declaration_status();
             }
 
             codegen_module_footer(current_module);
 
-            state.current_module = old_module;
+            pop_declaring_entity();
         }
 
         walk(list);
@@ -373,18 +365,11 @@ namespace Codegen
                     it != internal_subprograms.end();
                     it++)
             {
-                // Keep the codegen map
-                codegen_status_map_t old_codegen_status = _codegen_status;
-                name_set_t old_name_set = _name_set;
-                rename_map_t old_rename_map = _rename_map;
-
+                push_declaration_status();
                 clear_renames();
 
                 walk(*it);
-                // And restore it after the internal function has been emitted
-                _codegen_status = old_codegen_status;
-                _name_set = old_name_set;
-                _rename_map = old_rename_map;
+                pop_declaration_status();
             }
             dec_indent();
 
@@ -399,7 +384,7 @@ namespace Codegen
         Nodecl::List internal_subprograms = node.get_internal_functions().as<Nodecl::List>();
 
         // Module procedures are only printed if we are in the current module
-        if (state.current_module != TL::Symbol(entry.get_internal_symbol()->entity_specs.in_module))
+        if (get_current_declaring_module() != TL::Symbol(entry.get_internal_symbol()->entity_specs.in_module))
         {
 
            // The function can be contained in an other function, and this other function
@@ -423,7 +408,7 @@ namespace Codegen
                     sym->related_decl_context.current_scope->contained_in != NULL)
             {
                 sym = sym->related_decl_context.current_scope->contained_in->related_entry;
-                if (state.current_module == TL::Symbol(sym))
+                if (get_current_declaring_symbol()== TL::Symbol(sym))
                 {
                     should_be_printed = 1;
                 }
@@ -436,8 +421,7 @@ namespace Codegen
 
         _external_symbols.clear();
 
-        TL::Symbol old_sym = state.current_symbol;
-        state.current_symbol = entry;
+        push_declaring_entity(entry);
 
         if (get_codegen_status(entry) == CODEGEN_STATUS_DEFINED)
             return;
@@ -478,7 +462,7 @@ namespace Codegen
         clear_codegen_status();
         clear_renames();
 
-        state.current_symbol = old_sym;
+        pop_declaring_entity();
     }
 
     void FortranBase::visit(const Nodecl::Context& node)
@@ -505,7 +489,7 @@ namespace Codegen
 
         if (entry.is_fortran_module())
         {
-            ERROR_CONDITION(state.current_module.is_valid(), "We are already printing a module!\n", 0);
+            ERROR_CONDITION(get_current_declaring_module().is_valid(), "We are already printing a module!\n", 0);
 
             // This is needed when a module (which had no functions) is
             // extended with new functions, the tree is scanned first for
@@ -516,14 +500,13 @@ namespace Codegen
 
             set_codegen_status(entry, CODEGEN_STATUS_DEFINED);
 
+            push_declaring_entity(entry);
 
-            TL::Symbol old_module = state.current_module;
-
-            state.current_module = entry;
             TL::ObjectList<Nodecl::NodeclBase> empty_set_of_nodes_before_contains;
             codegen_module_header(entry, empty_set_of_nodes_before_contains);
             codegen_module_footer(entry);
-            state.current_module = old_module;
+
+            pop_declaring_entity();
 
             clear_codegen_status();
             clear_renames();
@@ -532,12 +515,12 @@ namespace Codegen
         {
             set_codegen_status(entry, CODEGEN_STATUS_DEFINED);
 
-            TL::Symbol old_sym = state.current_symbol;
+            push_declaring_entity(entry);
 
-            state.current_symbol = entry;
             codegen_blockdata_header(entry);
             codegen_blockdata_footer(entry);
-            state.current_symbol = old_sym;
+
+            pop_declaring_entity();
 
             clear_codegen_status();
             clear_renames();
@@ -1826,8 +1809,8 @@ OPERATOR_TABLE
             if (related_entry->kind == SK_MODULE)
             {
                 TL::Symbol modul_sym = TL::Symbol(related_entry);
-                if(state.current_module.is_invalid()
-                    || state.current_module != modul_sym)
+                if(get_current_declaring_module().is_invalid()
+                    || get_current_declaring_module() != modul_sym)
                 {
                     print = false;
                 }
@@ -2225,7 +2208,7 @@ OPERATOR_TABLE
         decl_context_t entry_context = entry.get_scope().get_decl_context();
         
         // We only declare entities in the current scope that are not internal subprograms or module procedures
-        bool ok_to_declare = (state.current_symbol == TL::Symbol(entry_context.current_scope->related_entry))
+        bool ok_to_declare = (get_current_declaring_symbol()== TL::Symbol(entry_context.current_scope->related_entry))
             && !entry.is_nested_function()
             && !entry.is_module_procedure();
 
@@ -2250,6 +2233,15 @@ OPERATOR_TABLE
                 && entry.is_function()
                 && entry.is_module_procedure()
                 && entry.is_entry())
+        {
+            ok_to_declare = true;
+        }
+
+        // d) the entity is a TYPE(t) in an entirely differentscope and we are not in an
+        // INTERFACE (which will use an IMPORT)
+        if (!ok_to_declare
+                && entry.is_class()
+                && !inside_an_interface())
         {
             ok_to_declare = true;
         }
@@ -2538,11 +2530,7 @@ OPERATOR_TABLE
                     }
                     else if (!iface.is_module_procedure())
                     {
-                        // Keep the state
-                        codegen_status_map_t old_codegen_status = _codegen_status;
-                        name_set_t old_name_set = _name_set;
-                        rename_map_t old_rename_map = _rename_map;
-
+                        push_declaration_status();
                         clear_renames();
 
                         bool old_in_interface = state.in_interface;
@@ -2550,10 +2538,7 @@ OPERATOR_TABLE
                         declare_symbol(iface);
                         state.in_interface = old_in_interface;
 
-                        // And restore it after the interface has been emitted
-                        _codegen_status = old_codegen_status;
-                        _name_set = old_name_set;
-                        _rename_map = old_rename_map;
+                        pop_declaration_status();
                     }
                 }
                 dec_indent();
@@ -2641,10 +2626,7 @@ OPERATOR_TABLE
                 }
                 bool lacks_result = false;
 
-                // Keep the state
-                codegen_status_map_t old_codegen_status = _codegen_status;
-                name_set_t old_name_set = _name_set;
-                rename_map_t old_rename_map = _rename_map;
+                push_declaration_status();
 
                 // In an interface we have to forget everything...
                 clear_codegen_status();
@@ -2652,8 +2634,7 @@ OPERATOR_TABLE
 
                 codegen_procedure_declaration_header(entry, lacks_result);
 
-                TL::Symbol old_sym = state.current_symbol;
-                state.current_symbol = entry;
+                push_declaring_entity(entry);
 
                 inc_indent();
 
@@ -2704,6 +2685,7 @@ OPERATOR_TABLE
                                 indent();
                                 file << "IMPORT :: " << class_type.get_name() << "\n";
                                 already_imported.insert(class_type);
+                                set_codegen_status(class_type, CODEGEN_STATUS_DEFINED);
                             }
                         }
                     }
@@ -2730,14 +2712,13 @@ OPERATOR_TABLE
                     declare_symbol(*it);
                 }
                 dec_indent();
-                state.current_symbol = old_sym;
+
+                pop_declaring_entity();
 
                 codegen_procedure_declaration_footer(entry);
 
                 // And restore the state after the interface has been emitted
-                _codegen_status = old_codegen_status;
-                _name_set = old_name_set;
-                _rename_map = old_rename_map;
+                pop_declaration_status();
 
                 if (!state.in_interface)
                 {
@@ -2786,8 +2767,7 @@ OPERATOR_TABLE
             }
 
 
-            TL::Symbol old_sym = state.current_symbol;
-            state.current_symbol = entry;
+            push_declaring_entity(entry);
 
             // We do this because we want the type fully laid out if there is any bitfield
             for (TL::ObjectList<TL::Symbol>::iterator it = members.begin();
@@ -2889,7 +2869,7 @@ OPERATOR_TABLE
 
 
             dec_indent();
-            state.current_symbol = old_sym;
+            pop_declaring_entity();
 
             indent();
             file << "END TYPE " << real_name << "\n";
@@ -2985,9 +2965,8 @@ OPERATOR_TABLE
             file << "SAVE\n";
         }
 
-        TL::Symbol previous_sym = state.current_symbol;
+        push_declaring_entity(entry);
 
-        state.current_symbol = entry;
         for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
                 it != related_symbols.end();
                 it++)
@@ -3018,7 +2997,7 @@ OPERATOR_TABLE
             walk(node);
         }
 
-        state.current_symbol = previous_sym;
+        pop_declaring_entity();
         dec_indent();
 
         indent();
@@ -3855,7 +3834,7 @@ OPERATOR_TABLE
         TL::Scope sc = node.retrieve_context();
 
         state = State();
-        state.current_symbol = TL::Symbol(sc.get_decl_context().current_scope->related_entry);
+        push_declaring_entity(sc.get_decl_context().current_scope->related_entry);
 
         file.clear();
         file.str("");
@@ -3873,10 +3852,86 @@ OPERATOR_TABLE
 
         this->do_not_declare.clear();
 
+        pop_declaring_entity();
+
         clear_codegen_status();
         clear_renames();
 
         return result;
+    }
+
+    void FortranBase::push_declaration_status()
+    {
+        // Keep the codegen map
+        _codegen_status_stack.push_back(_codegen_status);
+        _name_set_stack.push_back(_name_set);
+        _rename_map_stack.push_back(_rename_map);
+    }
+
+    void FortranBase::pop_declaration_status()
+    {
+        _codegen_status = _codegen_status_stack.back();
+        _codegen_status_stack.pop_back();
+
+        _name_set = _name_set_stack.back();
+        _name_set_stack.pop_back();
+
+        _rename_map = _rename_map_stack.back();
+        _rename_map_stack.pop_back();
+    }
+
+    void FortranBase::push_declaring_entity(TL::Symbol sym)
+    {
+        _being_declared_stack.push_back(sym);
+    }
+
+    void FortranBase::pop_declaring_entity()
+    {
+        _being_declared_stack.pop_back();
+    }
+
+    TL::Symbol FortranBase::get_current_declaring_symbol()
+    {
+        if (_being_declared_stack.empty())
+            return TL::Symbol();
+
+        return _being_declared_stack.back();
+    }
+
+    TL::Symbol FortranBase::get_current_declaring_module()
+    {
+        for (std::vector<TL::Symbol>::reverse_iterator rit = _being_declared_stack.rbegin();
+                rit != _being_declared_stack.rend();
+                rit++)
+        {
+            if (rit->is_fortran_module())
+                return *rit;
+        }
+
+        return TL::Symbol();
+    }
+
+    bool FortranBase::inside_an_interface()
+    {
+        TL::Symbol current_declaring = get_current_declaring_symbol();
+        if (current_declaring.is_function())
+            return false;
+
+        // If it is, make sure it must have appeared in an interface
+        if (current_declaring.is_nested_function()
+                || current_declaring.is_module_procedure())
+            return false;
+
+        int num_functs = 0;
+        for (std::vector<TL::Symbol>::iterator it = _being_declared_stack.begin();
+                it != _being_declared_stack.end() && *it != current_declaring;
+                it++)
+        {
+            if (it->is_function())
+                num_functs++;
+        }
+
+        return (num_functs > 1);
     }
 }
 

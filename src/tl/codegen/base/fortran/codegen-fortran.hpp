@@ -30,6 +30,7 @@
 #include "codegen-phase.hpp"
 
 #include <set>
+#include <stack>
 
 namespace Codegen
 {
@@ -150,12 +151,6 @@ namespace Codegen
                 // Level of indentation
                 int _indent_level;
 
-                // Current program unit
-                TL::Symbol current_symbol;
-
-                // Current module (can be NULL if not currently emitting a module)
-                TL::Symbol current_module;
-
                 // Inside a FORALL construct
                 bool in_forall;
 
@@ -170,8 +165,6 @@ namespace Codegen
 
                 State()
                     : _indent_level(0),
-                    current_symbol(NULL),
-                    current_module(NULL),
                     in_forall(false),
                     in_interface(false),
                     in_data_value(false),
@@ -186,17 +179,22 @@ namespace Codegen
             // If a symbol is in CODEGEN_STATUS_DEFINED we do not define it again
             typedef std::map<TL::Symbol, codegen_status_t> codegen_status_map_t;
             codegen_status_map_t _codegen_status;
+            std::vector<codegen_status_map_t> _codegen_status_stack;
 
             // Set of names actively used in the current scoping unit
             // This is used for renames (see later)
             typedef std::set<std::string> name_set_t;
             name_set_t _name_set;
+            std::vector<name_set_t> _name_set_stack;
 
             // Given a symbol, its rename, if any. When _name_set detects
             // that a name has already been used in this scoping unit
             // a rename for it is computed, and then kep here
             typedef std::map<TL::Symbol, std::string> rename_map_t;
             rename_map_t _rename_map;
+            std::vector<rename_map_t> _rename_map_stack;
+
+            std::vector<TL::Symbol> _being_declared_stack;
 
             // Map of types for PTR_LOC
             // When (due to code coming from C-parsed code) we need
@@ -301,6 +299,17 @@ namespace Codegen
             void clear_renames();
 
             void emit_ptr_loc_C();
+
+            void push_declaration_status();
+            void pop_declaration_status();
+
+            void push_declaring_entity(TL::Symbol sym);
+            void pop_declaring_entity();
+
+            TL::Symbol get_current_declaring_symbol();
+            TL::Symbol get_current_declaring_module();
+
+            bool inside_an_interface();
     };
 }
 
