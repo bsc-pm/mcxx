@@ -75,7 +75,8 @@ Source TL::Nanox::common_parallel_code(
            device_description, 
            device_description_line, 
            num_devices,
-           ancillary_device_description;
+           ancillary_device_description,
+           qualified_device_description;
     device_descriptor << outline_name << "_devices";
     device_description
         << ancillary_device_description
@@ -125,7 +126,8 @@ Source TL::Nanox::common_parallel_code(
                 parallel_code,
                 sl,
                 ancillary_device_description, 
-                device_description_line);
+                device_description_line,
+                qualified_device_description);
     }
 
     num_devices << current_targets.size();

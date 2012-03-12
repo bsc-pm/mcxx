@@ -70,7 +70,8 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
            device_description, 
            device_description_line, 
            num_devices,
-           ancillary_device_description;
+           ancillary_device_description,
+           qualified_device_description;
     device_descriptor << outline_name << "_devices";
     device_description
         << ancillary_device_description
@@ -143,7 +144,8 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                 ctr.get_statement().get_ast(),
                 ctr.get_scope_link(),
                 ancillary_device_description, 
-                device_description_line);
+                device_description_line,
+                qualified_device_description);
     }
 
     int total_devices = current_targets.size();
@@ -225,7 +227,8 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                     ctr.get_statement().get_ast(),
                     ctr.get_scope_link(),
                     ancillary_device_description, 
-                    device_description_line);
+                    device_description_line,
+                    qualified_device_description);
         }
     }
 

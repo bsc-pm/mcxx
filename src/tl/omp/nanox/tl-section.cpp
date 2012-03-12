@@ -99,7 +99,8 @@ void OMPTransform::section_postorder(PragmaCustomConstruct ctr)
     Source device_descriptor,
            device_description,
            device_description_line,
-           ancillary_device_description;
+           ancillary_device_description,
+           qualified_device_description;
 
     device_descriptor << outline_name << "_devices";
     device_description
@@ -155,7 +156,8 @@ void OMPTransform::section_postorder(PragmaCustomConstruct ctr)
                 ctr.get_statement().get_ast(),
                 ctr.get_scope_link(),
                 ancillary_device_description, 
-                device_description_line);
+                device_description_line,
+                qualified_device_description);
     }
 
     // FIXME - Move this to a tl-workshare.cpp
