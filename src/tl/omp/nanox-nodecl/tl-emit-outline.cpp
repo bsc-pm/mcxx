@@ -48,6 +48,7 @@ namespace TL { namespace Nanox {
         decl_context_t decl_context = sc.get_decl_context();
 
         scope_entry_t* entry = new_symbol(decl_context, decl_context.current_scope, name.c_str());
+        entry->entity_specs.is_user_declared = 1;
 
         entry->kind = SK_FUNCTION;
         entry->file = "";
@@ -71,6 +72,7 @@ namespace TL { namespace Nanox {
                 it++, it_ptypes++, type_it++)
         {
             scope_entry_t* param = new_symbol(function_context, function_context.current_scope, it->c_str());
+            param->entity_specs.is_user_declared = 1;
             param->kind = SK_VARIABLE;
             param->file = "";
             param->line = 0;
@@ -202,7 +204,7 @@ namespace TL { namespace Nanox {
                             }
 
                             if (IS_CXX_LANGUAGE
-                                    && it->get_allocation_policy() != OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DESTROY)
+                                    && it->get_allocation_policy() == OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DESTROY)
                             {
                                 internal_error("Not yet implemented: call the destructor", 0);
                             }
@@ -502,7 +504,7 @@ namespace TL { namespace Nanox {
                             }
 
                             if (IS_CXX_LANGUAGE
-                                    && it->get_allocation_policy() != OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DESTROY)
+                                    && it->get_allocation_policy() == OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DESTROY)
                             {
                                 internal_error("Not yet implemented: call the destructor", 0);
                             }

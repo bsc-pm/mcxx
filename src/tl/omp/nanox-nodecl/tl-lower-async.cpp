@@ -72,14 +72,12 @@ void LoweringVisitor::emit_async_common(
     Source struct_arg_type_name,
            struct_runtime_size,
            struct_size,
-           alignment,
-           fill_real_time_info,
            copy_decl,
-           num_copies,
            copy_data,
            immediate_decl,
            copy_imm_data,
-           translation_fun_arg_name;
+           translation_fun_arg_name,
+           const_wd_info;
 
     Nodecl::NodeclBase fill_outline_arguments_tree,
         fill_dependences_outline_tree;
@@ -102,83 +100,100 @@ void LoweringVisitor::emit_async_common(
     }
 
 
-    // Devices stuff
-    Source device_descriptor, 
-           device_description, 
-           device_description_line, 
-           num_devices,
-           ancillary_device_description;
-    device_descriptor << outline_name << "_devices";
-    device_description
-        << ancillary_device_description
-        << "nanos_device_t " << device_descriptor << "[1];"
-        << device_description_line
-        ;
-    
     // Declare argument structure
     TL::Symbol structure_symbol = declare_argument_structure(outline_info, construct);
     struct_arg_type_name << structure_symbol.get_name();
 
-    // FIXME - No devices yet, let's mimick the structure of one SMP
     {
-        num_devices << "1";
-        ancillary_device_description
-            << comment("SMP device descriptor")
-            << "nanos_smp_args_t " << outline_name << "_smp_args;" 
-            << outline_name << "_smp_args.outline = (void(*)(void*))&" << outline_name << ";"
+        // Static stuff
+        //
+        // typedef struct { 
+        //     nanos_wd_props_t props; 
+        //     size_t data_alignment; 
+        //     size_t num_copies; 
+        //     size_t num_devices; 
+        //     nanos_device_t *devices; 
+        // } nanos_const_wd_definition_t; 
+
+        Source alignment, props_init, num_copies;
+
+        Source device_descriptor, 
+               device_description, 
+               device_description_init, 
+               num_devices,
+               ancillary_device_description;
+
+        const_wd_info
+            << device_description
+            << "static nanos_const_wd_definition_t nanos_wd_const_data = {"
+            << ".props = " << props_init  << ", \n"
+            << ".data_alignment = " << alignment << ", \n"
+            << ".num_copies = " << num_copies << ",\n"
+            << ".num_devices = " << num_devices << ",\n"
+            << ".devices = " << device_descriptor
+            << "};"
             ;
 
-        device_description_line
-            << device_descriptor << "[0].factory = &nanos_smp_factory;"
-            // FIXME - Figure a way to get the true size
-            << device_descriptor << "[0].dd_size = nanos_smp_dd_size;"
-            << device_descriptor << "[0].arg = &" << outline_name << "_smp_args;";
+        alignment << "__alignof__(" << struct_arg_type_name << ")";
+        num_copies << "0";
+
+        device_descriptor << outline_name << "_devices";
+        device_description
+            << ancillary_device_description
+            << "static nanos_device_t " << device_descriptor << "[" << num_devices << "] = {"
+            << device_description_init
+            << "};"
+            ;
+
+        Source mandatory_creation,
+               tiedness,
+               priority;
+
+        props_init
+            << "{ .mandatory_creation = " << mandatory_creation << ", .tied = " << tiedness << ", .priority = " << priority << "}"
+            ;
+
+        mandatory_creation << "0";
+        tiedness << (int)!!is_untied;
+
+        if (priority_expr.is_null())
+        {
+            priority << "0";
+        }
+        else
+        {
+            priority << as_expression(priority_expr);
+        }
+
+        // FIXME - No devices yet, let's mimick the structure of one SMP
+        {
+            num_devices << "1";
+            ancillary_device_description
+                << "static nanos_smp_args_t " << outline_name << "_smp_args = {" 
+                << ".outline = (void(*)(void*))&" << outline_name 
+                << "};"
+                ;
+
+            device_description_init
+                << "{"
+                << /* factory */ "&nanos_smp_factory, 0, &" << outline_name << "_smp_args"
+                << "}"
+                ;
+        }
     }
+
+    Source dynamic_size;
+    struct_size << "sizeof(imm_args)" << dynamic_size;
+
+    translation_fun_arg_name << "(void (*)(void*, void*))0";
+    copy_data << "(nanos_copy_data_t**)0";
+    copy_imm_data << "(nanos_copy_data_t*)0";
 
     // Outline
     emit_outline(outline_info, statements, outline_name, structure_symbol);
 
     Source err_name;
     err_name << "err";
-
-    Source dynamic_size;
-
-    struct_size << "sizeof(imm_args)" << dynamic_size;
-    alignment << "__alignof__(" << struct_arg_type_name << "), ";
-    num_copies << "0";
-    copy_data << "(nanos_copy_data_t**)0";
-    copy_imm_data << "(nanos_copy_data_t*)0";
-    translation_fun_arg_name << ", (void (*)(void*, void*))0";
-
-    Source mandatory_creation,
-           tiedness,
-           priority;
-
-    mandatory_creation 
-        << "props.mandatory_creation = 0;"
-        ;
-
-    if (is_untied)
-    {
-        tiedness << "props.tied = 0;"
-            ;
-    }
-    else
-    {
-        tiedness << "props.tied = 1;"
-            ;
-    }
-
-    if (priority_expr.is_null())
-    {
-        priority << "props.priority = 0;"
-            ;
-    }
-    else
-    {
-        priority << "props.priority = " << as_expression(priority_expr) << ";"
-            ;
-    }
 
     // Account for the extra size due to overallocated items
     bool there_are_overallocated = false;
@@ -233,7 +248,7 @@ void LoweringVisitor::emit_async_common(
     spawn_code
         << "{"
         // Devices related to this task
-        <<     device_description
+        <<     const_wd_info
         <<     struct_arg_type_name << "* ol_args;"
         <<     "ol_args = (" << struct_arg_type_name << "*) 0;"
         <<     immediate_decl
@@ -241,17 +256,13 @@ void LoweringVisitor::emit_async_common(
         <<     "nanos_wd_t wd = (nanos_wd_t)0;"
         <<     "nanos_wd_props_t props;"
         <<     "props.tie_to = (nanos_thread_t)0;"
-        <<     mandatory_creation
-        <<     tiedness
-        <<     priority
-        <<     fill_real_time_info
         <<     copy_decl
         <<     "nanos_err_t " << err_name <<";"
-        <<     err_name << " = nanos_create_wd(&wd, " << num_devices << "," << device_descriptor << ","
-        <<                 struct_size << ","
-        <<                 alignment
-        <<                 "(void**)&ol_args, nanos_current_wd(),"
-        <<                 "&props, " << num_copies << ", " << copy_data << ");"
+        // nanos_err_t nanos_create_wd_compact ( nanos_wd_t *wd, nanos_const_wd_definition_t *const_data, size_t data_size,
+        //                               void ** data, nanos_wg_t wg, nanos_copy_data_t **copies )
+        <<     err_name << " = nanos_create_wd_compact(&wd, &nanos_wd_const_data," 
+        <<                 struct_size << ", (void**)&ol_args, nanos_current_wd(),"
+        <<                 copy_data << ");"
         <<     "if (" << err_name << " != NANOS_OK) nanos_handle_error (" << err_name << ");"
         <<     "if (wd != (nanos_wd_t)0)"
         <<     "{"
@@ -264,13 +275,13 @@ void LoweringVisitor::emit_async_common(
         <<     "{"
         <<          statement_placeholder(fill_immediate_arguments_tree)
         <<          fill_dependences_immediate
-        <<          err_name << " = nanos_create_wd_and_run(" 
-        <<                  num_devices << ", " << device_descriptor << ", "
+        // nanos_err_t nanos_create_wd_and_run_compact ( nanos_const_wd_definition_t *const_data, size_t data_size, void * data, size_t num_deps, 
+        //                                       nanos_dependence_t *deps, nanos_copy_data_t *copies, nanos_translate_args_t translate_args );
+        <<          err_name << " = nanos_create_wd_and_run_compact(&nanos_wd_const_data,"
         <<                  struct_size << ", " 
-        <<                  alignment
         <<                  "&imm_args,"
-        <<                  num_dependences << ", dependences, &props,"
-        <<                  num_copies << "," << copy_imm_data 
+        <<                  num_dependences << ", dependences, "
+        <<                  copy_imm_data << ", "
         <<                  translation_fun_arg_name << ");"
         <<          "if (" << err_name << " != NANOS_OK) nanos_handle_error (" << err_name << ");"
         <<     "}"

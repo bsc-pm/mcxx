@@ -298,6 +298,7 @@ namespace TL { namespace Nanox {
         TL::Scope sc(CURRENT_COMPILED_FILE->global_decl_context);
         TL::Symbol new_class_symbol = sc.new_symbol(structure_name);
         new_class_symbol.get_internal_symbol()->kind = SK_CLASS;
+        new_class_symbol.get_internal_symbol()->entity_specs.is_user_declared = 1;
 
         type_t* new_class_type = get_new_class_type(sc.get_decl_context(), TT_STRUCT);
         decl_context_t class_context = new_class_context(sc.get_decl_context(), new_class_symbol.get_internal_symbol());
@@ -315,6 +316,7 @@ namespace TL { namespace Nanox {
         {
             TL::Symbol field = class_scope.new_symbol(it->get_field_name());
             field.get_internal_symbol()->kind = SK_VARIABLE;
+            field.get_internal_symbol()->entity_specs.is_user_declared = 1;
 
             TL::Type field_type = it->get_field_type();
 

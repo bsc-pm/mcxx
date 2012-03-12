@@ -831,9 +831,9 @@ template <typename Iterator>
 CxxBase::Ret CxxBase::codegen_function_call_arguments(Iterator begin, Iterator end, TL::Type function_type, int ignore_n_first)
 {
     bool has_ellipsis = 0;
-    TL::ObjectList<TL::Type> arguments_type = function_type.parameters(has_ellipsis);
-    TL::ObjectList<TL::Type>::iterator type_it = arguments_type.begin();
-    TL::ObjectList<TL::Type>::iterator type_end = arguments_type.end();
+    TL::ObjectList<TL::Type> parameters_type = function_type.parameters(has_ellipsis);
+    TL::ObjectList<TL::Type>::iterator type_it = parameters_type.begin();
+    TL::ObjectList<TL::Type>::iterator type_end = parameters_type.end();
 
 
     Iterator arg_it = begin;
@@ -862,8 +862,17 @@ CxxBase::Ret CxxBase::codegen_function_call_arguments(Iterator begin, Iterator e
         if (type_it != type_end
                 && type_it->is_valid())
         {
-            if ((IS_C_LANGUAGE && type_it->is_any_reference())
-                    || (IS_CXX_LANGUAGE && type_it->is_rebindable_reference()))
+            bool param_is_ref = ((IS_C_LANGUAGE && type_it->is_any_reference())
+                    || (IS_CXX_LANGUAGE && type_it->is_rebindable_reference()));
+
+            bool arg_is_ref = ((IS_C_LANGUAGE && arg_it->get_type().is_any_reference())
+                    || (IS_CXX_LANGUAGE && arg_it->get_type().is_rebindable_reference()));
+
+            if (param_is_ref && !arg_is_ref)
+            {
+                file << "&";
+            }
+            else if (!param_is_ref && arg_is_ref)
             {
                 state.do_not_derref_rebindable_reference = true;
             }
