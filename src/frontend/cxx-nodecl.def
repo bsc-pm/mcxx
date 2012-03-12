@@ -66,15 +66,15 @@ statement-but-object-init: NODECL_EMPTY_STATEMENT()
           | NODECL_EXPRESSION_STATEMENT([nest]expression)
           | compound-statement
           | NODECL_DO_STATEMENT([statement]statement-seq, [condition]expression)
-          | NODECL_WHILE_STATEMENT([condition]expression, [statement]statement-seq) 
-          | NODECL_FOR_STATEMENT([loop_header]loop-control, [statement]statement-seq) 
+          | NODECL_WHILE_STATEMENT([condition]expression, [statement]statement-seq, [loop_name]name-opt) 
+          | NODECL_FOR_STATEMENT([loop_header]loop-control, [statement]statement-seq, [loop_name]name-opt) 
           | NODECL_IF_ELSE_STATEMENT([condition]expression, [then]statement-seq, [else]statement-seq-opt) 
           | NODECL_LABELED_STATEMENT([statement]statement-seq) symbol
           | NODECL_SWITCH_STATEMENT([switch]expression, [statement]statement-seq)
           | NODECL_DEFAULT_STATEMENT([statement]statement-seq)
           | NODECL_CASE_STATEMENT([case]case-expression-seq, [statement]statement-seq)
-          | NODECL_BREAK_STATEMENT()
-          | NODECL_CONTINUE_STATEMENT()
+          | NODECL_BREAK_STATEMENT([construct_name]name-opt)
+          | NODECL_CONTINUE_STATEMENT([construct_name]name-opt)
           | NODECL_GOTO_STATEMENT() symbol
           | NODECL_RETURN_STATEMENT([value]expression-opt)
           | pragma-directive

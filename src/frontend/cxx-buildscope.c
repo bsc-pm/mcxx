@@ -11545,7 +11545,9 @@ static void build_scope_while_statement(AST a,
     *nodecl_output = nodecl_make_list_1(
             nodecl_make_context(
                 nodecl_make_list_1(
-                    nodecl_make_while_statement(nodecl_condition, nodecl_statement, ASTFileName(a), ASTLine(a))),
+                    nodecl_make_while_statement(nodecl_condition, nodecl_statement, 
+                        /* loop_name */ nodecl_null(),
+                        ASTFileName(a), ASTLine(a))),
                 block_context,
                 ASTFileName(a), ASTLine(a)));
 }
@@ -11722,6 +11724,7 @@ static void build_scope_for_statement(AST a,
                 nodecl_make_context(
                     nodecl_make_list_1(
                         nodecl_make_for_statement(nodecl_loop_control, nodecl_statement, 
+                            /* loop name */ nodecl_null(),
                             ASTFileName(a), ASTLine(a))),
                     block_context,
                     ASTFileName(a), ASTLine(a)
@@ -12062,7 +12065,9 @@ static void build_scope_break(AST a,
         nodecl_t* nodecl_output)
 {
     *nodecl_output = nodecl_make_list_1(
-            nodecl_make_break_statement(ASTFileName(a), ASTLine(a)));
+            nodecl_make_break_statement(
+                /* construct_name */ nodecl_null(),
+                ASTFileName(a), ASTLine(a)));
 }
 
 static void build_scope_continue(AST a, 
@@ -12070,7 +12075,9 @@ static void build_scope_continue(AST a,
         nodecl_t* nodecl_output)
 {
     *nodecl_output = nodecl_make_list_1(
-            nodecl_make_continue_statement(ASTFileName(a), ASTLine(a)));
+            nodecl_make_continue_statement(
+                /* construct_name */ nodecl_null(),
+                ASTFileName(a), ASTLine(a)));
 }
 
 static void build_scope_pragma_custom_directive(AST a, 

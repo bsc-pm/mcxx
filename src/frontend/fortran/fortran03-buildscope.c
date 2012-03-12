@@ -4031,14 +4031,16 @@ static void build_scope_label_assign_stmt(AST a UNUSED_PARAMETER, decl_context_t
                     ASTLine(a)));
 }
 
-scope_entry_t* fortran_query_label(AST label, 
+scope_entry_t* fortran_query_label_str_(const char* label, 
         decl_context_t decl_context, 
+        const char* filename,
+        int line,
         char is_definition)
 {
     decl_context_t global_context = decl_context;
     global_context.current_scope = global_context.function_scope;
 
-    const char* label_text = strappend(".label_", ASTText(label));
+    const char* label_text = strappend(".label_", label);
     scope_entry_list_t* entry_list = query_name_str(global_context, label_text);
 
     scope_entry_t* new_label = NULL;
@@ -4046,10 +4048,10 @@ scope_entry_t* fortran_query_label(AST label,
     {
         new_label = new_symbol(decl_context, decl_context.function_scope, label_text);
         // Fix the symbol name (which for labels does not match the query name)
-        new_label->symbol_name = ASTText(label);
+        new_label->symbol_name = label;
         new_label->kind = SK_LABEL;
-        new_label->line = ASTLine(label);
-        new_label->file = ASTFileName(label);
+        new_label->file = filename;
+        new_label->line = line;
         new_label->do_not_print = 1;
         new_label->defined = is_definition;
     }
@@ -4060,8 +4062,74 @@ scope_entry_t* fortran_query_label(AST label,
         {
             if (new_label->defined)
             {
-                error_printf("%s: error: label %s has already been defined in %s:%d\n",
-                        ast_location(label),
+                error_printf("%s:%d: error: label %s has already been defined in %s:%d\n",
+                        filename, line,
+                        new_label->symbol_name,
+                        new_label->file, new_label->line);
+            }
+            else
+            {
+                new_label->defined = 1;
+            }
+        }
+    }
+
+    entry_list_free(entry_list);
+    return new_label;
+}
+
+
+scope_entry_t* fortran_query_label(AST label, 
+        decl_context_t decl_context, 
+        char is_definition)
+{
+    return fortran_query_label_str_(ASTText(label),
+            decl_context,
+            ASTFileName(label),
+            ASTLine(label),
+            is_definition);
+}
+
+scope_entry_t* fortran_query_construct_name_str(
+        const char* construct_name, decl_context_t decl_context, char is_definition,
+        const char* filename, int line
+        )
+{
+    scope_entry_list_t* entry_list = query_name_str_flags(decl_context, 
+            construct_name, 
+            DF_ONLY_CURRENT_SCOPE);
+
+    scope_entry_t* new_label = NULL;
+    if (entry_list == NULL)
+    {
+        if (is_definition)
+        {
+            new_label = new_symbol(decl_context, decl_context.current_scope, construct_name);
+            new_label->kind = SK_LABEL;
+            new_label->file = filename;
+            new_label->line = line;
+            new_label->do_not_print = 1;
+            new_label->defined = 1;
+        }
+    }
+    else
+    {
+        new_label = entry_list_head(entry_list);
+
+        if (new_label->kind != SK_LABEL)
+        {
+            error_printf("%s:%d: error: name '%s' cannot be used as a construct name\n", 
+                    filename, line,
+                    new_label->symbol_name);
+            return NULL;
+        }
+
+        if (is_definition)
+        {
+            if (new_label->defined)
+            {
+                error_printf("%s:%d: error: construct name %s has already been defined in %s:%d\n",
+                        filename, line,
                         new_label->symbol_name,
                         new_label->file, new_label->line);
             }
@@ -4118,12 +4186,39 @@ static void build_scope_critical_construct(AST a,
     unsupported_statement(a, "CRITICAL");
 }
 
-static void build_scope_cycle_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
+static nodecl_t get_construct_name(AST construct_name, decl_context_t decl_context)
 {
+    if (construct_name == NULL)
+        return nodecl_null();
+    else 
+    {
+        scope_entry_t* construct_name_sym = fortran_query_construct_name_str(
+                ASTText(construct_name), decl_context, /* is_definition */ 0,
+                ASTFileName(construct_name), ASTLine(construct_name));
+
+        if (construct_name_sym == NULL)
+        {
+            error_printf("%s: error: construct name '%s' not defined\n", ast_location(construct_name), ASTText(construct_name));
+            return nodecl_null();
+        }
+        else
+        {
+            return nodecl_make_symbol(construct_name_sym, ASTFileName(construct_name), ASTLine(construct_name));
+        }
+    }
+}
+
+static void build_scope_cycle_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
+{
+    AST loop_name = ASTSon0(a);
+    nodecl_t nodecl_construct_name = get_construct_name(loop_name, decl_context);
+
     *nodecl_output = 
         nodecl_make_list_1(
                 // This continue is the C continue, not the Fortran continue!
-                nodecl_make_continue_statement(ASTFileName(a), ASTLine(a))
+                nodecl_make_continue_statement(
+                    nodecl_construct_name,
+                    ASTFileName(a), ASTLine(a))
                 );
 }
 
@@ -4851,6 +4946,17 @@ static void build_scope_do_construct(AST a, decl_context_t decl_context, nodecl_
     AST upper = ASTSon1(loop_control);
     AST stride = ASTSon2(loop_control);
 
+    const char* construct_name = ASTText(a);
+
+    nodecl_t nodecl_named_label = nodecl_null();
+    if (construct_name != NULL)
+    {
+        scope_entry_t* named_label = fortran_query_construct_name_str(
+                construct_name, decl_context, /* is_definition */ 1,
+                ASTFileName(a), ASTLine(a));
+        nodecl_named_label = nodecl_make_symbol(named_label, ASTFileName(a), ASTLine(a));
+    }
+
     nodecl_t nodecl_lower = nodecl_null();
     if (assig != NULL)
     {
@@ -4913,6 +5019,7 @@ static void build_scope_do_construct(AST a, decl_context_t decl_context, nodecl_
                         nodecl_stride, 
                         ASTFileName(loop_control), ASTLine(loop_control)),
                     nodecl_statement,
+                    nodecl_named_label,
                     ASTFileName(a), ASTLine(a)));
 }
 
@@ -5029,11 +5136,16 @@ static void build_scope_equivalence_stmt(AST a,
 
 }
 
-static void build_scope_exit_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
+static void build_scope_exit_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
+    AST loop_name = ASTSon0(a);
+    nodecl_t nodecl_construct_name = get_construct_name(loop_name, decl_context);
+
     *nodecl_output = 
         nodecl_make_list_1(
-                nodecl_make_break_statement(ASTFileName(a), ASTLine(a)));
+                nodecl_make_break_statement(
+                    nodecl_construct_name,
+                    ASTFileName(a), ASTLine(a)));
 }
 
 static void build_scope_external_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output UNUSED_PARAMETER)
@@ -5219,6 +5331,16 @@ static void build_scope_if_construct(AST a, decl_context_t decl_context, nodecl_
     AST then_statement = ASTSon1(a);
     AST else_statement = ASTSon2(a);
     AST endif_statement = ASTSon3(a);
+
+    // Nowhere in the language this is used but in the syntax
+    const char* construct_name = ASTText(a);
+
+    if (construct_name != NULL)
+    {
+        fortran_query_construct_name_str(
+                construct_name, decl_context, /*is_definition */ 1,
+                ASTFileName(a), ASTLine(a));
+    }
 
     nodecl_t nodecl_logical_expr = nodecl_null();
     fortran_check_expression(logical_expr, decl_context, &nodecl_logical_expr);
@@ -7483,6 +7605,17 @@ static void build_scope_while_stmt(AST a, decl_context_t decl_context, nodecl_t*
     AST block = ASTSon1(a);
     AST end_do_statement = ASTSon2(a);
 
+    const char* construct_name = ASTText(a);
+
+    nodecl_t nodecl_named_label = nodecl_null();
+    if (construct_name != NULL)
+    {
+        scope_entry_t* named_label = fortran_query_construct_name_str(
+                construct_name, decl_context, /* is_definition */ 1,
+                ASTFileName(a), ASTLine(a));
+        nodecl_named_label = nodecl_make_symbol(named_label, ASTFileName(a), ASTLine(a));
+    }
+
     nodecl_t nodecl_expr = nodecl_null();
     fortran_check_expression(expr, decl_context, &nodecl_expr);
 
@@ -7520,6 +7653,7 @@ static void build_scope_while_stmt(AST a, decl_context_t decl_context, nodecl_t*
         nodecl_make_list_1(
                 nodecl_make_while_statement(nodecl_expr,
                     nodecl_statement, 
+                    nodecl_named_label,
                     ASTFileName(a), ASTLine(a)));
 }
 

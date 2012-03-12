@@ -1216,19 +1216,39 @@ OPERATOR_TABLE
     void FortranBase::visit(const Nodecl::ForStatement& node)
     {
         indent();
+        if (!node.get_loop_name().is_null())
+        {
+            walk(node.get_loop_name());
+            file << " : ";
+        }
         file << "DO";
+
         walk(node.get_loop_header());
         file<< "\n";
         inc_indent();
         walk(node.get_statement());
         dec_indent();
         indent();
-        file << "END DO\n";
+
+        file << "END DO";
+        if (!node.get_loop_name().is_null())
+        {
+            file << " ";
+            walk(node.get_loop_name());
+        }
+        file << "\n";
     }
 
     void FortranBase::visit(const Nodecl::WhileStatement& node)
     {
         indent();
+
+        if (!node.get_loop_name().is_null())
+        {
+            walk(node.get_loop_name());
+            file << " : ";
+        }
+
         file << "DO WHILE(";
         walk(node.get_condition());
         file << ")\n";
@@ -1236,7 +1256,14 @@ OPERATOR_TABLE
         walk(node.get_statement());
         dec_indent();
         indent();
+
         file << "END DO\n";
+        if (!node.get_loop_name().is_null())
+        {
+            file << " ";
+            walk(node.get_loop_name());
+        }
+        file << "\n";
     }
 
     void FortranBase::visit(const Nodecl::LoopControl& node)
@@ -1316,13 +1343,25 @@ OPERATOR_TABLE
     void FortranBase::visit(const Nodecl::BreakStatement& node)
     {
         indent();
-        file << "EXIT\n";
+        file << "EXIT";
+        if (!node.get_construct_name().is_null())
+        {
+            file << " ";
+            walk(node.get_construct_name());
+        }
+        file << "\n";
     }
 
     void FortranBase::visit(const Nodecl::ContinueStatement& node)
     {
         indent();
-        file << "CYCLE\n";
+        file << "CYCLE";
+        if (!node.get_construct_name().is_null())
+        {
+            file << " ";
+            walk(node.get_construct_name());
+        }
+        file << "\n";
     }
 
     void FortranBase::visit(const Nodecl::FortranIoSpec& node)

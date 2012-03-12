@@ -157,6 +157,14 @@ static void append_statement_to_block(AST block, AST stmt)
     }
 }
 
+static const char* safe_asttext(AST a)
+{
+    if (a == NULL)
+        return NULL;
+    else
+        return ASTText(a);
+}
+
 %}
 
 // Rules
@@ -3089,11 +3097,11 @@ inner_shared_do_construct : label_do_shared_stmt block do_term_action_stmt
 ;
 nonlabel_do_stmt : labeldef name_colon_opt TOK_DO loop_control eos
 {
-    $$ = ASTMake4Label(AST_FOR_STATEMENT, $1, $4, NULL, NULL, $3.token_file, $3.token_line, NULL);
+    $$ = ASTMake4Label(AST_FOR_STATEMENT, $1, $4, NULL, NULL, $3.token_file, $3.token_line, safe_asttext($2));
 }
 | labeldef name_colon_opt TOK_DO while_loop_control eos
 {
-    $$ = ASTMake4Label(AST_WHILE_STATEMENT, $1, $4, NULL, NULL, $3.token_file, $3.token_line, NULL);
+    $$ = ASTMake4Label(AST_WHILE_STATEMENT, $1, $4, NULL, NULL, $3.token_file, $3.token_line, safe_asttext($2));
 }
 | labeldef name_colon_opt TOK_DO concurrent_loop_control eos
 {
@@ -3102,16 +3110,16 @@ nonlabel_do_stmt : labeldef name_colon_opt TOK_DO loop_control eos
 | labeldef name_colon_opt TOK_DO eos
 {
     AST empty_loop_control = ASTMake3(AST_LOOP_CONTROL, NULL, NULL, NULL, $3.token_file, $3.token_line, NULL);
-    $$ = ASTMake4Label(AST_FOR_STATEMENT, $1, empty_loop_control, NULL, NULL, $3.token_file, $3.token_line, NULL);
+    $$ = ASTMake4Label(AST_FOR_STATEMENT, $1, empty_loop_control, NULL, NULL, $3.token_file, $3.token_line, safe_asttext($2));
 }
 ;
 label_do_stmt : labeldef name_colon_opt TOK_DO label loop_control eos
 {
-    $$ = ASTMake5Label(AST_FOR_STATEMENT, $1, $5, NULL, NULL, $4, $3.token_file, $3.token_line, NULL);
+    $$ = ASTMake5Label(AST_FOR_STATEMENT, $1, $5, NULL, NULL, $4, $3.token_file, $3.token_line, safe_asttext($2));
 }
 | labeldef name_colon_opt TOK_DO label while_loop_control eos
 {
-    $$ = ASTMake5Label(AST_WHILE_STATEMENT, $1, $5, NULL, NULL, $4, $3.token_file, $3.token_line, NULL);
+    $$ = ASTMake5Label(AST_WHILE_STATEMENT, $1, $5, NULL, NULL, $4, $3.token_file, $3.token_line, safe_asttext($2));
 }
 | labeldef name_colon_opt TOK_DO label concurrent_loop_control eos
 {
@@ -3119,16 +3127,16 @@ label_do_stmt : labeldef name_colon_opt TOK_DO label loop_control eos
 }
 | labeldef name_colon_opt TOK_DO label eos
 {
-    $$ = ASTMake5Label(AST_FOR_STATEMENT, $1, NULL, NULL, NULL, $4, $3.token_file, $3.token_line, NULL);
+    $$ = ASTMake5Label(AST_FOR_STATEMENT, $1, NULL, NULL, NULL, $4, $3.token_file, $3.token_line, safe_asttext($2));
 }
 ;
 label_do_shared_stmt : labeldef name_colon_opt TOK_DO do_shared_label loop_control eos
 {
-    $$ = ASTMake5Label(AST_FOR_STATEMENT, $1, $5, NULL, NULL, $4, $3.token_file, $3.token_line, NULL);
+    $$ = ASTMake5Label(AST_FOR_STATEMENT, $1, $5, NULL, NULL, $4, $3.token_file, $3.token_line, safe_asttext($2));
 }
 | labeldef name_colon_opt TOK_DO do_shared_label while_loop_control eos
 {
-    $$ = ASTMake5Label(AST_WHILE_STATEMENT, $1, $5, NULL, NULL, $4, $3.token_file, $3.token_line, NULL);
+    $$ = ASTMake5Label(AST_WHILE_STATEMENT, $1, $5, NULL, NULL, $4, $3.token_file, $3.token_line, safe_asttext($2));
 }
 | labeldef name_colon_opt TOK_DO do_shared_label concurrent_loop_control eos
 {
@@ -3136,7 +3144,7 @@ label_do_shared_stmt : labeldef name_colon_opt TOK_DO do_shared_label loop_contr
 }
 | labeldef name_colon_opt TOK_DO do_shared_label eos
 {
-    $$ = ASTMake5Label(AST_FOR_STATEMENT, $1, NULL, NULL, NULL, $4, $3.token_file, $3.token_line, NULL);
+    $$ = ASTMake5Label(AST_FOR_STATEMENT, $1, NULL, NULL, NULL, $4, $3.token_file, $3.token_line, safe_asttext($2));
 }
 ;
 do_shared_label : TOK_SHARED_LABEL
@@ -3229,7 +3237,7 @@ name_colon_opt : name ':'
 ;
 if_construct : labeldef name_colon_opt TOK_IF '(' logical_expr ')' TOK_THEN eos block end_if_stmt
 {
-    AST result = ASTMake4(AST_IF_ELSE_STATEMENT, $5, $9, NULL, $10, $3.token_file, $3.token_line, NULL);
+    AST result = ASTMake4(AST_IF_ELSE_STATEMENT, $5, $9, NULL, $10, $3.token_file, $3.token_line, safe_asttext($2));
     if ($1 != NULL)
     {
         result = ASTMake2(AST_LABELED_STATEMENT, $1, result, ASTFileName($1), ASTLine($1), NULL);
@@ -3238,7 +3246,7 @@ if_construct : labeldef name_colon_opt TOK_IF '(' logical_expr ')' TOK_THEN eos 
 }
 | labeldef name_colon_opt TOK_IF '(' logical_expr ')' TOK_THEN eos block labeldef TOK_ELSE name_opt eos block end_if_stmt
 {
-    AST result = ASTMake4(AST_IF_ELSE_STATEMENT, $5, $9, $14, $15, $3.token_file, $3.token_line, NULL);
+    AST result = ASTMake4(AST_IF_ELSE_STATEMENT, $5, $9, $14, $15, $3.token_file, $3.token_line, safe_asttext($2));
     if ($1 != NULL)
     {
         result = ASTMake2(AST_LABELED_STATEMENT, $1, result, ASTFileName($1), ASTLine($1), NULL);
@@ -3247,7 +3255,7 @@ if_construct : labeldef name_colon_opt TOK_IF '(' logical_expr ')' TOK_THEN eos 
 }
 | labeldef name_colon_opt TOK_IF '(' logical_expr ')' TOK_THEN eos block elseif_seq 
 {
-    AST result = ASTMake4(AST_IF_ELSE_STATEMENT, $5, $9, $10, NULL, $3.token_file, $3.token_line, NULL);
+    AST result = ASTMake4(AST_IF_ELSE_STATEMENT, $5, $9, $10, NULL, $3.token_file, $3.token_line, safe_asttext($2));
     if ($1 != NULL)
     {
         result = ASTMake2(AST_LABELED_STATEMENT, $1, result, ASTFileName($1), ASTLine($1), NULL);
