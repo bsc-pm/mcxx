@@ -195,7 +195,8 @@ namespace Nanox
                     AST_t reference_tree,
                     ScopeLink sl,
                     Source &ancillary_device_description,
-                    Source &device_descriptor) = 0;
+                    Source &device_descriptor,
+                    Source &qualified_device_description) = 0;
 
             /*!
               This function adds a new function definition to a device. Its

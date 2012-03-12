@@ -74,7 +74,8 @@ namespace TL
                         AST_t reference_tree,
                         ScopeLink sl,
                         Source &ancillary_device_description,
-                        Source &device_descriptor);
+                        Source &device_descriptor,
+                        Source &qualified_device_description);
         };
 
         class ReplaceSrcGPU : public ReplaceSrcIdExpression

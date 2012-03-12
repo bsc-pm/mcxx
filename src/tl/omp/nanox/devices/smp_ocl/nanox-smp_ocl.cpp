@@ -1019,7 +1019,8 @@ void DeviceSMP_OCL::get_device_descriptor(const std::string& task_name,
         AST_t reference_tree,
         ScopeLink sl,
         Source &ancillary_device_description,
-        Source &device_descriptor)
+        Source &device_descriptor,
+        Source &qualified_device_description)
 {
     Source outline_name;
     outline_name

@@ -807,7 +807,8 @@ void DeviceCUDA::get_device_descriptor(const std::string& task_name,
 		AST_t reference_tree,
 		ScopeLink sl,
 		Source &ancillary_device_description,
-		Source &device_descriptor)
+		Source &device_descriptor,
+        Source &qualified_device_description)
 {
 	Source outline_name;
 	if (!outline_flags.implemented_outline)
