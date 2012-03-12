@@ -346,7 +346,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
     if (priority_clause.is_defined())
     {
         priority
-            << "props.tied = " << priority_clause.get_arguments()[0] << ";"
+            << "props.priority = " << priority_clause.get_arguments()[0] << ";"
             ;
     }
 
