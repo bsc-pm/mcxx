@@ -44,6 +44,9 @@ Source TL::Nanox::common_parallel_code(
         AST_t parallel_code,
         const ObjectList<std::string>& current_targets)
 {
+    FunctionDefinition funct_def = ctr.get_enclosing_function();
+    Symbol function_symbol = funct_def.get_function_symbol();
+    
     ScopeLink sl = ctr.get_scope_link();
     Source result;
 
@@ -210,7 +213,92 @@ Source TL::Nanox::common_parallel_code(
     {
         num_threads << "nanos_omp_get_max_threads()";
     }
-  
+
+    int outline_num = TL::CounterManager::get_counter(NANOX_OUTLINE_COUNTER);
+
+    Source qualified_context_opt;
+    if (Nanos::Version::interface_is_at_least("master", 5012))
+    {
+        AST_t function_definition = ctr.get_ast().get_enclosing_function_definition_declaration();
+        AST_t outermost_class = function_definition;
+        while (outermost_class.get_enclosing_class_specifier() != NULL)
+        {
+            outermost_class = outermost_class.get_enclosing_class_specifier();
+        }
+
+        if(function_symbol.is_member())
+        {
+            // The function is member of class. The constants structure should be declared static
+            // and filled in the innermost namespace scope or global scope
+            Symbol class_sym = function_symbol.get_class_type().get_symbol();
+            std::string aux_qual_name = class_sym.get_qualified_name(class_sym.get_scope());
+            qualified_context_opt << aux_qual_name.substr(2, aux_qual_name.size()-2) << "::";
+
+            Source static_constant_decls;
+            static_constant_decls
+                << ancillary_device_description
+                << "static nanos_device_t _const_devices_" << outline_num << "[" << num_devices << "];"
+                << "static nanos_const_wd_definition_t _const_def" << outline_num << ";"
+                ;
+
+            AST_t static_constant_decls_tree =
+                static_constant_decls.parse_member(function_definition, ctr.get_scope_link(), class_sym);
+            function_symbol.get_point_of_declaration().prepend(static_constant_decls_tree);
+        }
+
+        Source constant_variable_declaration,
+               constant_devices_declaration,
+               constant_structure_code;
+
+        constant_structure_code
+            << qualified_device_description
+            << constant_devices_declaration
+            << constant_variable_declaration
+            ;
+
+        constant_devices_declaration
+            << "nanos_device_t "<< qualified_context_opt << "_const_devices_" << outline_num << "[" << num_devices << "] ="
+            << "{"
+            <<      device_description_line
+            << "};"
+            ;
+
+        constant_variable_declaration
+            << "nanos_const_wd_definition_t " << qualified_context_opt << "_const_def" << outline_num << " ="
+            << "{"
+            <<      "{"
+            <<          "1, " /* mandatory_creation */
+            <<          "0, " /* tied */
+            <<          "0, " /* reserved0 */
+            <<          "0, " /* reserved1 */
+            <<          "0, " /* reserved2 */
+            <<          "0, " /* reserved3 */
+            <<          "0, " /* reserved4 */
+            <<          "0, " /* reserved5 */
+            <<          "0, " /* tie_to */
+            <<          "0"   /* priority */
+            <<      "}, "
+            <<      alignment   << ", "
+            <<      num_copies  << ", "
+            <<      num_devices << ", "
+            <<      " _const_devices_" << outline_num
+            << "};"
+            ;
+
+        AST_t constant_structure_code_tree =
+            constant_structure_code.parse_declaration(
+                    function_definition,
+                    ctr.get_scope_link());
+
+        if (function_symbol.is_member())
+        {
+            outermost_class.append(constant_structure_code_tree);
+        }
+        else
+        {
+            function_definition.prepend(constant_structure_code_tree);
+        }
+    }
     Source if_code;
     PragmaCustomClause if_clause = ctr.get_clause("if");
     if (if_clause.is_defined())
@@ -229,17 +317,49 @@ Source TL::Nanox::common_parallel_code(
         << "_nanos_num_threads = (" << expr.prettyprint() << ") ? _nanos_num_threads : 1;";
     }
 
-    Source data, imm_data, num_dependences, deps, nanos_create_wd, nanos_create_run_wd; 
+    Source data, imm_data, num_dependences, deps, nanos_create_wd, nanos_create_run_wd,
+           properties1_opt, properties2, properties3, device_description_opt;
     num_dependences << "0";
     deps << "(nanos_dependence_t*)0";
     imm_data << (immediate_is_alloca ? "imm_args" : "&imm_args");
     data << "(void**)&ol_args";
-    
-    nanos_create_wd = OMPTransform::get_nanos_create_wd_code(num_devices,
-            device_descriptor, struct_size, alignment, data, num_copies, copy_data);
 
-    nanos_create_run_wd = OMPTransform::get_nanos_create_and_run_wd_code(num_devices, device_descriptor,
-            struct_size, alignment, imm_data, num_dependences, deps, num_copies, imm_copy_data, xlate_arg);
+    if ( Nanos::Version::interface_is_at_least("master", 5012))
+    {
+        Source constant_structure_name;
+        constant_structure_name << "_const_def" << outline_num;
+        nanos_create_wd = OMPTransform::get_nanos_create_wd_compact_code(
+                constant_structure_name, struct_size, data, copy_data);
+
+        nanos_create_run_wd = OMPTransform::get_nanos_create_and_run_wd_compact_code(constant_structure_name,
+                struct_size, imm_data, num_dependences, deps, imm_copy_data, xlate_arg);
+
+        properties2
+            << qualified_context_opt << "_const_def" << outline_num << ".props.tie_to = _nanos_threads[_i];";
+
+        properties3
+            << qualified_context_opt << "_const_def" << outline_num << ".props.tie_to = _nanos_threads[0];";
+    }
+    else
+    {
+        nanos_create_wd = OMPTransform::get_nanos_create_wd_code(num_devices,
+                device_descriptor, struct_size, alignment, data, num_copies, copy_data);
+
+        nanos_create_run_wd = OMPTransform::get_nanos_create_and_run_wd_code(num_devices, device_descriptor,
+                struct_size, alignment, imm_data, num_dependences, deps, num_copies, imm_copy_data, xlate_arg);
+        device_description_opt << device_description;
+
+        properties1_opt
+            <<   "nanos_wd_props_t props = {0};"
+            <<   "props.mandatory_creation = 1;";
+
+        properties2
+            <<  "props.tie_to = _nanos_threads[_i];";
+
+        properties3
+            << "props.tie_to = _nanos_threads[0];";
+
+    }
 
     result
         << "{"
@@ -251,19 +371,15 @@ Source TL::Nanox::common_parallel_code(
         <<   "err = nanos_create_team(&_nanos_team, (nanos_sched_t)0, &_nanos_num_threads,"
         <<              "(nanos_constraint_t*)0, /* reuse_current */ 1, _nanos_threads);"
         <<   "if (err != NANOS_OK) nanos_handle_error(err);"
-
-        <<   device_description
-
+        <<   device_description_opt
         <<   struct_runtime_size
-
-        <<   "nanos_wd_props_t props = {0};"
-        <<   "props.mandatory_creation = 1;"
+        <<   properties1_opt
         <<   "unsigned _i;"
         <<   "for (_i = 1; _i < _nanos_num_threads; _i++)"
         <<   "{"
         //   We have to create a wd tied to a thread
         <<      struct_arg_type_name << " *ol_args = 0;"
-        <<      "props.tie_to = _nanos_threads[_i];"
+        <<      properties2
         <<      "nanos_wd_t wd = 0;"
         <<      "err = " << nanos_create_wd
         <<      "if (err != NANOS_OK) nanos_handle_error(err);"
@@ -271,7 +387,7 @@ Source TL::Nanox::common_parallel_code(
         <<      "err = nanos_submit(wd, 0, (nanos_dependence_t*)0, 0);"
         <<      "if (err != NANOS_OK) nanos_handle_error(err);"
         <<   "}"
-        <<   "props.tie_to = _nanos_threads[0];"
+        <<   properties3
         <<   immediate_decl
         <<   fill_immediate_arguments
         <<   "err = " << nanos_create_run_wd
@@ -281,6 +397,7 @@ Source TL::Nanox::common_parallel_code(
         << "}"
         ;
 
+    TL::CounterManager::get_counter(NANOX_OUTLINE_COUNTER)++;
     return result;
 }
 

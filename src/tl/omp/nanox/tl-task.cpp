@@ -59,7 +59,6 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             dependences, Source());
 
     int outline_num = TL::CounterManager::get_counter(NANOX_OUTLINE_COUNTER);
-    TL::CounterManager::get_counter(NANOX_OUTLINE_COUNTER)++;
 
     std::stringstream ss;
     ss << "_ol_" << function_symbol.get_name() << "_" << outline_num;
@@ -680,57 +679,89 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         }
     }
 
-#if 0
-    Source constant_variable_declaration,
-           constant_structure_code;
+    if (Nanos::Version::interface_is_at_least("master", 5012))
+    {
+        AST_t function_definition = ctr.get_ast().get_enclosing_function_definition_declaration();
+        AST_t outermost_class = function_definition;
+        while (outermost_class.get_enclosing_class_specifier() != NULL)
+        {
+            outermost_class = outermost_class.get_enclosing_class_specifier();
+        }
 
-    constant_structure_code
-        << ancillary_device_description
-        << constant_variable_declaration
-        ;
+        Source qualified_context_opt;
+        if(function_symbol.is_member())
+        {
+            // The function is member of class. The constants structure should be declared static
+            // and filled in the innermost namespace scope or global scope
+            Symbol class_sym = function_symbol.get_class_type().get_symbol();
+            std::string aux_qual_name = class_sym.get_qualified_name(class_sym.get_scope());
+            qualified_context_opt << aux_qual_name.substr(2, aux_qual_name.size()-2) << "::";
 
-             
-   //  typedef struct
-   //  {
-   //      nanos_wd_props_t props;
-   //      size_t data_alignment;
-   //      size_t num_copies;
-   //      size_t num_devices;
-   //      nanos_device_t devices[];
-   //  }
-   //  nanos_const_wd_definition_t;
+            Source static_constant_decls;
+            static_constant_decls
+                << ancillary_device_description
+                << "static nanos_device_t _const_devices_" << outline_num << "[" << num_devices << "];"
+                << "static nanos_const_wd_definition_t _const_def" << outline_num << ";"
+                ;
 
-    constant_variable_declaration
-        << "nanos_const_wd_definition_t _const_def" << outline_num << " "
-        << "{"
-        <<      "{"
-        <<          props_mandatory_creation << ", "
-        <<          props_tied  << ", "
-        <<          "0, " /* reserved0 */
-        <<          "0, " /* reserved1 */
-        <<          "0, " /* reserved2 */
-        <<          "0, " /* reserved3 */
-        <<          "0, " /* reserved4 */
-        <<          "0, " /* reserved5 */
-        <<          "0, " /* tie_to */
-        <<          props_priority
-        <<      "}, "
-        <<      alignment   << ", "
-        <<      num_copies  << ", "
-        <<      num_devices << ", "
-        <<      "{"
-        <<          device_description_line
-        <<      "}"
-        << "};"
-        ;
+            AST_t static_constant_decls_tree =
+                static_constant_decls.parse_member(function_definition, ctr.get_scope_link(), class_sym);
+            function_symbol.get_point_of_declaration().prepend(static_constant_decls_tree);
+        }
 
-    AST_t constant_structure_code_tree =
+        Source constant_variable_declaration,
+               constant_devices_declaration,
+               constant_structure_code;
+
+        constant_structure_code
+            << qualified_device_description
+            << constant_devices_declaration
+            << constant_variable_declaration
+            ;
+
+        constant_devices_declaration
+            << "nanos_device_t "<< qualified_context_opt << "_const_devices_" << outline_num << "[" << num_devices << "] ="
+            << "{"
+            <<      device_description_line
+            << "};"
+            ;
+
+        constant_variable_declaration
+            << "nanos_const_wd_definition_t " << qualified_context_opt << "_const_def" << outline_num << " ="
+            << "{"
+            <<      "{"
+            <<          props_mandatory_creation << ", "
+            <<          props_tied  << ", "
+            <<          "0, " /* reserved0 */
+            <<          "0, " /* reserved1 */
+            <<          "0, " /* reserved2 */
+            <<          "0, " /* reserved3 */
+            <<          "0, " /* reserved4 */
+            <<          "0, " /* reserved5 */
+            <<          "0, " /* tie_to */
+            <<          props_priority
+            <<      "}, "
+            <<      alignment   << ", "
+            <<      num_copies  << ", "
+            <<      num_devices << ", "
+            <<      " _const_devices_" << outline_num
+            << "};"
+            ;
+
+        AST_t constant_structure_code_tree =
             constant_structure_code.parse_declaration(
-                ctr.get_ast().get_enclosing_function_definition_declaration(),
-                ctr.get_scope_link());
-    ctr.get_ast().prepend_sibling_function(constant_structure_code_tree);
-#endif
+                    function_definition,
+                    ctr.get_scope_link());
 
+        if (function_symbol.is_member())
+        {
+            outermost_class.append(constant_structure_code_tree);
+        }
+        else
+        {
+            function_definition.prepend(constant_structure_code_tree);
+        }
+    }
 
     if(!_no_nanox_calls)
     {
@@ -742,24 +773,37 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         data << "(void**)&ol_args";
         imm_data << (immediate_is_alloca ? "imm_args" : "&imm_args");
         deps << "(" << dependency_struct << "*)" << dependency_array;
-        properties_opt
-            << "nanos_wd_props_t props;"
-            << "__builtin_memset(&props, 0, sizeof(props));"
-            << creation
-            << priority
-            << tiedness
-            << fill_real_time_info;
+        if (Nanos::Version::interface_is_at_least("master", 5012))
+        {
+            Source constant_structure_name;
+            constant_structure_name << "_const_def" << outline_num;
+            nanos_create_wd = OMPTransform::get_nanos_create_wd_compact_code(
+                    constant_structure_name, struct_size, data, copy_data);
 
-        device_description_opt
-            << device_description;
+            nanos_create_run_wd = OMPTransform::get_nanos_create_and_run_wd_compact_code(constant_structure_name,
+                    struct_size, imm_data, num_dependences, deps, copy_imm_data, translation_fun_arg_name);
+        }
+        else
+        {
+            properties_opt
+                << "nanos_wd_props_t props;"
+                << "__builtin_memset(&props, 0, sizeof(props));"
+                << creation
+                << priority
+                << tiedness
+                << fill_real_time_info;
 
-        nanos_create_wd = OMPTransform::get_nanos_create_wd_code(num_devices,
-                device_descriptor, struct_size, alignment, data, num_copies, copy_data);
+            device_description_opt
+                << device_description;
 
-        nanos_create_run_wd = OMPTransform::get_nanos_create_and_run_wd_code(num_devices, device_descriptor,
-                struct_size, alignment, imm_data, num_dependences, deps, num_copies, copy_imm_data, translation_fun_arg_name);
+            nanos_create_wd = OMPTransform::get_nanos_create_wd_code(num_devices,
+                    device_descriptor, struct_size, alignment, data, num_copies, copy_data);
 
-         spawn_code
+            nanos_create_run_wd = OMPTransform::get_nanos_create_and_run_wd_code(num_devices, device_descriptor,
+                    struct_size, alignment, imm_data, num_dependences, deps, num_copies, copy_imm_data, translation_fun_arg_name);
+        }
+
+        spawn_code
             << "{"
             <<     device_description_opt
             <<     struct_arg_type_name << "* ol_args = (" << struct_arg_type_name << "*)0;"
@@ -813,12 +857,14 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         else
         {
             running_error("%s: error: the code generation without calls to runtime only works in smp devices\n",
-                ctr.get_ast().get_locus().c_str());
+                    ctr.get_ast().get_locus().c_str());
         }
     }
 
     AST_t spawn_tree = spawn_code.parse_statement(ctr.get_ast(), ctr.get_scope_link());
     ctr.get_ast().replace(spawn_tree);
+    
+    TL::CounterManager::get_counter(NANOX_OUTLINE_COUNTER)++;
 }
 
 static void fix_dependency_expression_rec(Source &src, Expression expr, bool top_level, bool get_addr)

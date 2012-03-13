@@ -82,7 +82,7 @@ void OMPTransform::section_postorder(PragmaCustomConstruct ctr)
     Symbol function_symbol = funct_def.get_function_symbol();
 
     int outline_num = TL::CounterManager::get_counter(NANOX_OUTLINE_COUNTER);
-    TL::CounterManager::get_counter(NANOX_OUTLINE_COUNTER)++;
+
     std::stringstream ss;
     ss << "_ol_" << function_symbol.get_name() << "_" << outline_num;
 
@@ -189,18 +189,119 @@ void OMPTransform::section_postorder(PragmaCustomConstruct ctr)
     num_copies << 0;
     copy_data << "(nanos_copy_data_t**)0";
 
-    nanos_create_wd = OMPTransform::get_nanos_create_wd_code(num_devices,
-            device_descriptor, struct_size, alignment, data, num_copies, copy_data);
+    if (Nanos::Version::interface_is_at_least("master", 5012))
+    {
+        AST_t function_definition = ctr.get_ast().get_enclosing_function_definition_declaration();
+        AST_t outermost_class = function_definition;
+        while (outermost_class.get_enclosing_class_specifier() != NULL)
+        {
+            outermost_class = outermost_class.get_enclosing_class_specifier();
+        }
+
+        Source qualified_context_opt;
+        if(function_symbol.is_member())
+        {
+            // The function is member of class. The constants structure should be declared static
+            // and filled in the innermost namespace scope or global scope
+            Symbol class_sym = function_symbol.get_class_type().get_symbol();
+            std::string aux_qual_name = class_sym.get_qualified_name(class_sym.get_scope());
+            qualified_context_opt << aux_qual_name.substr(2, aux_qual_name.size()-2) << "::";
+
+            Source static_constant_decls;
+            static_constant_decls
+                << ancillary_device_description
+                << "static nanos_device_t _const_devices_" << outline_num << "[" << num_devices << "];"
+                << "static nanos_const_wd_definition_t _const_def" << outline_num << ";"
+                ;
+
+            AST_t static_constant_decls_tree =
+                static_constant_decls.parse_member(function_definition, ctr.get_scope_link(), class_sym);
+            function_symbol.get_point_of_declaration().prepend(static_constant_decls_tree);
+        }
+
+        Source constant_variable_declaration,
+               constant_devices_declaration,
+               constant_structure_code;
+
+        constant_structure_code
+            << qualified_device_description
+            << constant_devices_declaration
+            << constant_variable_declaration
+            ;
+
+        constant_devices_declaration
+            << "nanos_device_t "<< qualified_context_opt << "_const_devices_" << outline_num << "[" << num_devices << "] ="
+            << "{"
+            <<      device_description_line
+            << "};"
+            ;
+
+        constant_variable_declaration
+            << "nanos_const_wd_definition_t " << qualified_context_opt << "_const_def" << outline_num << " ="
+            << "{"
+            <<      "{"
+            <<          "1, " /* mandatory_creation */
+            <<          "0, " /* tied */
+            <<          "0, " /* reserved0 */
+            <<          "0, " /* reserved1 */
+            <<          "0, " /* reserved2 */
+            <<          "0, " /* reserved3 */
+            <<          "0, " /* reserved4 */
+            <<          "0, " /* reserved5 */
+            <<          "0, " /* tie_to */
+            <<          "0"   /* priority */
+            <<      "}, "
+            <<      alignment   << ", "
+            <<      num_copies  << ", "
+            <<      num_devices << ", "
+            <<      " _const_devices_" << outline_num
+            << "};"
+            ;
+
+        AST_t constant_structure_code_tree =
+            constant_structure_code.parse_declaration(
+                    function_definition,
+                    ctr.get_scope_link());
+
+        if (function_symbol.is_member())
+        {
+            outermost_class.append(constant_structure_code_tree);
+        }
+        else
+        {
+            function_definition.prepend_sibling_function(constant_structure_code_tree);
+        }
+    }
+
+    Source properties_opt, device_description_opt;
+    if (Nanos::Version::interface_is_at_least("master", 5012))
+    {
+        Source constant_structure_name;
+        constant_structure_name << "_const_def" << outline_num;
+        nanos_create_wd = OMPTransform::get_nanos_create_wd_compact_code(
+                constant_structure_name, struct_size, data, copy_data);
+    }
+    else
+    {
+        nanos_create_wd = OMPTransform::get_nanos_create_wd_code(num_devices,
+                device_descriptor, struct_size, alignment, data, num_copies, copy_data);
+
+        properties_opt
+            << "nanos_wd_props_t props;"
+            << "__builtin_memset(&props, 0, sizeof(props));"
+            << "props.mandatory_creation = 1;"
+            ;
+        device_description_opt
+            << device_description;
+    }
 
     spawn_source
         << "{"
         <<    "nanos_err_t err;"
         <<    "nanos_wd_t wd = (nanos_wd_t)0;"
-        <<    device_description
+        <<    device_description_opt
         <<    struct_arg_type_name << "*section_data = ("<< struct_arg_type_name << "*)0;"
-        <<    "nanos_wd_props_t props;"
-        <<    "__builtin_memset(&props, 0, sizeof(props));"
-        <<    "props.mandatory_creation = 1;"
+        <<    properties_opt
         <<    "err = " << nanos_create_wd
         <<    "if (err != NANOS_OK) nanos_handle_error(err);"
         <<    fill_outline_arguments
@@ -211,4 +312,5 @@ void OMPTransform::section_postorder(PragmaCustomConstruct ctr)
 
     AST_t spawn_tree = spawn_source.parse_statement(ctr.get_ast(), ctr.get_scope_link());
     ctr.get_ast().replace(spawn_tree);
+    TL::CounterManager::get_counter(NANOX_OUTLINE_COUNTER)++;
 }
