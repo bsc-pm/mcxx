@@ -45,6 +45,8 @@
    http://www.graphviz.org/
  */
 
+static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int position);
+
 static rb_red_blk_tree* pointer_set = NULL;
 
 static char* quote_protect(const char *c)
@@ -86,6 +88,7 @@ static void symbol_dump_graphviz(FILE* f, scope_entry_t* entry)
 {
     if (rb_tree_query(pointer_set, entry) != NULL)
         return;
+    rb_tree_insert(pointer_set, entry, entry);
 
     const char* symbol_name = entry->symbol_name;
     if (symbol_name != NULL)
@@ -107,16 +110,27 @@ static void symbol_dump_graphviz(FILE* f, scope_entry_t* entry)
     {
         symbol_name = "<<unnamed symbol>>";
     }
+
     fprintf(f, "sym_%zd[fontcolor=\"/dark28/2\",color=\"/dark28/2\", shape=rectangle,label=\"%s\\n%s:%d\"]\n", 
             (size_t)entry, symbol_name, entry->file, entry->line);
 
-    rb_tree_insert(pointer_set, entry, entry);
+
+    if (!nodecl_is_null(entry->value))
+    {
+        ast_dump_graphviz_rec(nodecl_get_ast(entry->value), f, 0, -1);
+
+        fprintf(f, "sym_%zd -> n%zd [label=\"value\"]\n",
+                (size_t)entry,
+                (size_t)nodecl_get_ast(entry->value));
+    }
+
 }
 
 static void scope_t_dump_graphviz(FILE* f, scope_t* scope)
 {
     if (rb_tree_query(pointer_set, scope) != NULL)
         return;
+    rb_tree_insert(pointer_set, scope, scope);
 
     size_t s = (size_t)scope;
 
@@ -141,8 +155,6 @@ static void scope_t_dump_graphviz(FILE* f, scope_t* scope)
         fprintf(f, "scope_%zd -> sym_%zd [layer=\"symbols\",label=\"%s\",fontcolor=\"/dark28/2\",color=\"/dark28/2\"]\n",
                 s, (size_t)scope->related_entry, "sym");
     }
-
-    rb_tree_insert(pointer_set, scope, scope);
 
     if (scope->contained_in != NULL)
     {
@@ -204,6 +216,7 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int positi
 {
     if (rb_tree_query(pointer_set, a) != NULL)
         return;
+    rb_tree_insert(pointer_set, a, a);
 
     const char* shape = "box";
     const char* color = "color=\"#000000\",fontcolor=\"#000000\"";
@@ -329,8 +342,6 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int positi
             fprintf(f, "n%zd -> n%zd [label=\"%d\"]\n", parent_node, current_node, position);
         }
     }
-
-    rb_tree_insert(pointer_set, a, a);
 }
 
 static int comp_vptr(const void* v1, const void *v2)
