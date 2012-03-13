@@ -149,13 +149,14 @@ void CxxBase::visit(const Nodecl::Reference &node)
 
     bool old_do_not_derref_rebindable_ref = state.do_not_derref_rebindable_reference;
 
-    if (!rhs.get_type().is_rebindable_reference())
+    if ((IS_C_LANGUAGE && rhs.get_type().is_any_reference())
+            || (IS_CXX_LANGUAGE && rhs.get_type().is_rebindable_reference()))
     {
-        file << "&"; 
+        state.do_not_derref_rebindable_reference = true;
     }
     else
     {
-        state.do_not_derref_rebindable_reference = true;
+        file << "&"; 
     }
 
     if (needs_parentheses) 
@@ -446,11 +447,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ClassMemberAccess& node)
     // Do not print anonymous symbols
     if (!is_anonymous)
     {
-        if (must_derref_all)
-        {
-            // Right part can be a reference but we do not want to derref it
-            state.do_not_derref_rebindable_reference = true;
-        }
+        // Right part can be a reference but we do not want to derref it
+        state.do_not_derref_rebindable_reference = true;
 
         file << ".";
         needs_parentheses = operand_has_lower_priority(node, rhs); 
@@ -856,8 +854,12 @@ CxxBase::Ret CxxBase::codegen_function_call_arguments(Iterator begin, Iterator e
             file << ", ";
         }
 
+        Nodecl::NodeclBase actual_arg = *arg_it;
+
         bool old_do_not_derref_rebindable_ref = state.do_not_derref_rebindable_reference;
         state.do_not_derref_rebindable_reference = false;
+
+        bool do_reference = false;
 
         if (type_it != type_end
                 && type_it->is_valid())
@@ -870,23 +872,37 @@ CxxBase::Ret CxxBase::codegen_function_call_arguments(Iterator begin, Iterator e
 
             if (param_is_ref && !arg_is_ref)
             {
-                file << "&";
+                if (arg_it->template is<Nodecl::Derreference>())
+                {
+                    actual_arg = arg_it->template as<Nodecl::Derreference>().get_rhs();
+                }
+                else
+                {
+                    do_reference = true;
+                }
             }
             else if (!param_is_ref && arg_is_ref)
             {
+                // Do nothing
+            }
+            else if (param_is_ref && arg_is_ref)
+            {
                 state.do_not_derref_rebindable_reference = true;
+            }
+            else if (!param_is_ref && !arg_is_ref)
+            {
+                // Do nothing
             }
         }
 
-        if (state.do_not_derref_rebindable_reference
-                && arg_it->template is<Nodecl::Derreference>())
+        if (do_reference)
         {
-            // Ignore top level derreference
-            walk(arg_it->template as<Nodecl::Derreference>().get_rhs());
+            file << "&(";
         }
-        else
+        walk(actual_arg);
+        if (do_reference)
         {
-            walk(*arg_it);
+            file << ")";
         }
 
         if (type_it != type_end)
@@ -3652,7 +3668,7 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
                     Nodecl::NodeclBase init = symbol.get_initialization();
 
                     //The equal will be inserted in the CxxEqualInitializer visitor
-                    if (init.get_kind() != NODECL_CXX_EQUAL_INITIALIZER)
+                    if (!init.is<Nodecl::CxxEqualInitializer>())
                     {
                         file << " = ";
                     }
@@ -3704,7 +3720,17 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
                             file << "(";
                         }
 
+                        if ((IS_C_LANGUAGE && symbol.get_type().is_any_reference())
+                                || (IS_CXX_LANGUAGE && symbol.get_type().is_rebindable_reference()))
+                        {
+                            file << "&(";
+                        }
                         walk(init);
+                        if ((IS_C_LANGUAGE && symbol.get_type().is_any_reference())
+                                || (IS_CXX_LANGUAGE && symbol.get_type().is_rebindable_reference()))
+                        {
+                            file << ")";
+                        }
 
                         if (top_is_comma)
                         {
