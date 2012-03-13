@@ -112,7 +112,7 @@ void LoweringVisitor::emit_async_common(
         //     size_t data_alignment; 
         //     size_t num_copies; 
         //     size_t num_devices; 
-        //     nanos_device_t *devices; 
+        //     nanos_device_t devices[8]; 
         // } nanos_const_wd_definition_t; 
 
         Source alignment, props_init, num_copies;
@@ -121,22 +121,20 @@ void LoweringVisitor::emit_async_common(
                device_description, 
                device_description_init, 
                num_devices,
-               ancillary_device_description;
-
-        Source static_;
-
-        if (!IS_FORTRAN_LANGUAGE)
-            static_ << " static ";
+               ancillary_device_description,
+               fortran_dynamic_init;
 
         const_wd_info
             << device_description
-            << static_ << "nanos_const_wd_definition_t nanos_wd_const_data = {"
-            << ".props = " << props_init  << ", \n"
-            << ".data_alignment = " << alignment << ", \n"
-            << ".num_copies = " << num_copies << ",\n"
-            << ".num_devices = " << num_devices << ",\n"
-            << ".devices = " << device_descriptor
+            << "static nanos_const_wd_definition_t nanos_wd_const_data = {"
+            << /* ".props = " << */ props_init << ", \n"
+            << /* ".data_alignment = " << */ alignment << ", \n"
+            << /* ".num_copies = " << */ num_copies << ",\n"
+            << /* ".num_devices = " << */ num_devices << ",\n"
+            // << /* ".devices = " << */ device_descriptor
+            << /* ".devices = " << */ "{" << device_description_init << "}"
             << "};"
+            << fortran_dynamic_init
             ;
 
         alignment << "__alignof__(" << struct_arg_type_name << ")";
@@ -145,7 +143,7 @@ void LoweringVisitor::emit_async_common(
         device_descriptor << outline_name << "_devices";
         device_description
             << ancillary_device_description
-            << static_ << " nanos_device_t " << device_descriptor << "[" << num_devices << "] = {"
+            << "static __attribute__((fortran_target)) nanos_device_t " << device_descriptor << "[" << num_devices << "] = {"
             << device_description_init
             << "};"
             ;
@@ -154,8 +152,21 @@ void LoweringVisitor::emit_async_common(
                tiedness,
                priority;
 
+        // We expand all the struct due to a limitation in the FE. See ticket
+        // #963
         props_init
-            << "{ .mandatory_creation = " << mandatory_creation << ", .tied = " << tiedness << ", .priority = " << priority << "}"
+            << "{ " 
+            << /* ".mandatory_creation = " << */ mandatory_creation << ",\n"
+            << /* ".tied = " << */ tiedness << ",\n"
+            << /* ".reserved0 =" << */ "0,\n"
+            << /* ".reserved1 =" << */ "0,\n"
+            << /* ".reserved2 =" << */ "0,\n"
+            << /* ".reserved3 =" << */ "0,\n"
+            << /* ".reserved4 =" << */ "0,\n"
+            << /* ".reserved5 =" << */ "0,\n"
+            << /* ".tie_to =" << */    "0,\n"
+            << /* ".priority = " << */ priority 
+            << "}"
             ;
 
         mandatory_creation << "0";
@@ -173,17 +184,38 @@ void LoweringVisitor::emit_async_common(
         // FIXME - No devices yet, let's mimick the structure of one SMP
         {
             num_devices << "1";
-            ancillary_device_description
-                << static_ << " nanos_smp_args_t " << outline_name << "_smp_args = {" 
-                << ".outline = (void(*)(void*))&" << outline_name 
-                << "};"
-                ;
 
-            device_description_init
-                << "{"
-                << /* factory */ "&nanos_smp_factory, 0, &" << outline_name << "_smp_args"
-                << "}"
-                ;
+            if (!IS_FORTRAN_LANGUAGE)
+            {
+                ancillary_device_description
+                    << "static nanos_smp_args_t " << outline_name << "_smp_args = {" 
+                    << ".outline = (void(*)(void*))&" << outline_name 
+                    << "};"
+                    ;
+                device_description_init
+                    << "{"
+                    << /* factory */ "&nanos_smp_factory, 0, &" << outline_name << "_smp_args"
+                    << "}"
+                    ;
+            }
+            else
+            {
+                // We'll fill them later because of Fortran limitations
+                ancillary_device_description
+                    << "static nanos_smp_args_t " << outline_name << "_smp_args;" 
+                    ;
+                device_description_init
+                    << "{"
+                    // factory , dd_size, arg
+                    << "0, 128, 0"
+                    << "}"
+                    ;
+                fortran_dynamic_init
+                    << outline_name << "_smp_args.outline = (void(*)(void*))&" << outline_name << ";"
+                    << "nanos_wd_const_data.devices[0].factory = &nanos_smp_factory;"
+                    << "nanos_wd_const_data.devices[0].arg = &" << outline_name << "_smp_args;"
+                    ;
+            }
         }
     }
 

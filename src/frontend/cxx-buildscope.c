@@ -1314,6 +1314,9 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                     current_gather_info.vla_dimension_symbols = NULL;
                 }
 
+                // Fortran compatibility
+                entry->entity_specs.is_target = current_gather_info.is_fortran_target;
+
                 if (entry->defined
                         && !BITMAP_TEST(decl_context.decl_flags, DF_ALLOW_REDEFINITION)
                         && !current_gather_info.is_extern)

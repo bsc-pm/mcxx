@@ -754,72 +754,107 @@ OPERATOR_TABLE
 
             file << real_name << "(";
             Nodecl::List items = node.get_items().as<Nodecl::List>();
-            Nodecl::List::iterator list_it = items.begin();
+            Nodecl::List::iterator init_expr_it = items.begin();
 
-            TL::ObjectList<TL::Symbol> symbols = type.get_symbol().get_type().get_nonstatic_data_members();
-            TL::ObjectList<TL::Symbol>::iterator sym_it = symbols.begin();
+            TL::ObjectList<TL::Symbol> members = type.get_symbol().get_type().get_nonstatic_data_members();
+            TL::ObjectList<TL::Symbol>::iterator member_it = members.begin();
 
-            int num_items_not_bitfields = 0;
-            bool pending_bitfields = false;
+            int num_items = 0;
+            bool previous_was_bitfield = false;
             unsigned int bitfield_pack = 0u;
 
-            while (list_it != items.end()
-                    && sym_it != symbols.end())
+            int first_bitfield_offset = 0;
+
+            while (init_expr_it != items.end()
+                    && member_it != members.end())
             {
-                if (sym_it->is_bitfield())
+                if (member_it->is_bitfield())
                 {
                     int bitfield_size = 
                         const_value_cast_to_4(
-                                nodecl_get_constant(sym_it->get_bitfield_size().get_internal_nodecl())
+                                nodecl_get_constant(member_it->get_bitfield_size().get_internal_nodecl())
                                 );
                     if (bitfield_size != 1)
                     {
                         internal_error("Bitfields of more than one bit are not supported", 0);
                     }
-                    if (!list_it->is_constant())
+                    if (!init_expr_it->is_constant())
                     {
                         internal_error("This bitfield initialization is not constant", 0);
                     }
-                    const_value_t* const_val = nodecl_get_constant(list_it->get_internal_nodecl());
+                    const_value_t* const_val = nodecl_get_constant(init_expr_it->get_internal_nodecl());
                     if (const_value_is_nonzero(const_val))
                     {
-                        bitfield_pack |= (1 << sym_it->get_bitfield_first());
+                        bitfield_pack |= (1 << member_it->get_bitfield_first());
                     }
-                    pending_bitfields = true;
+
+                    first_bitfield_offset = member_it->get_bitfield_offset();
+
+                    previous_was_bitfield = true;
                 }
                 else
                 {
-                    if (pending_bitfields)
+                    if (previous_was_bitfield)
                     {
-                        if (num_items_not_bitfields > 0)
+                        if (num_items > 0)
                             file << ", ";
 
                         file << std::hex << "Z'" << bitfield_pack << "'" << std::dec;
+                        num_items++;
+
+                        // Get current offset and compute the number of bytes
+                        int current_offset = member_it->get_offset();
+                        // Not this -1 because we have already emitted one of the values
+                        int num_bytes = current_offset - first_bitfield_offset - 1;
+
+                        ERROR_CONDITION(num_bytes <= 0, "Offset is wrong", 0);
+
+                        int i, current_byte = first_bitfield_offset;
+                        for (i = 0; i < num_bytes; i++, current_byte++)
+                        {
+                            file << ", 0";
+                            num_items++;
+                        }
 
                         bitfield_pack = 0;
-
-                        pending_bitfields = false;
-                        num_items_not_bitfields++;
                     }
 
-                    if (num_items_not_bitfields > 0)
+                    if (num_items > 0)
                         file << ", ";
 
-                    walk(*list_it);
+                    walk(*init_expr_it);
 
-                    num_items_not_bitfields++;
+                    num_items++;
+
+                    previous_was_bitfield = false;
                 }
 
-                list_it++;
-                sym_it++;
+                init_expr_it++;
+                member_it++;
             }
 
-            if (pending_bitfields)
+            if (previous_was_bitfield 
+                    && member_it == members.end())
             {
-                if (num_items_not_bitfields > 0)
+                if (num_items > 0)
                     file << ", ";
 
                 file << std::hex << "Z'" << bitfield_pack << "'" << std::dec;
+
+                TL::Symbol last = members.back();
+                // Only up to the size of the bitfield now
+                
+                int num_bytes = 
+                    std::max((uint64_t)1,
+                            const_value_cast_to_8(
+                                nodecl_get_constant(last.get_bitfield_size().get_internal_nodecl()
+                                    )) / 8) - 1;
+
+                int i, current_byte = first_bitfield_offset;
+                for (i = 0; i < num_bytes; i++, current_byte++)
+                {
+                    file << ", 0";
+                }
             }
 
             // codegen_comma_separated_list(node.get_items());

@@ -73,6 +73,8 @@ struct gather_decl_spec_tag {
     char is_overriden_type;
     char emit_always;
 
+    char is_fortran_target;
+
     // In some cases we allow gather_type_spec_from_simple_type_specifier to allow templates
     char allow_class_template_names;
 
