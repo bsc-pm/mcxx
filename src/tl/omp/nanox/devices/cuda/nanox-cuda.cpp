@@ -861,9 +861,7 @@ void DeviceCUDA::get_device_descriptor(const std::string& task_name,
     }
 
     device_descriptor
-        << "{ nanos_gpu_factory, " 
-        << /* nanos_gpu_dd_size */" 0, "
-        << "&" << task_name << "_gpu_args },"
+        << "{ nanos_gpu_factory, nanos_gpu_dd_size, &" << task_name << "_gpu_args },"
         ;
 }
 
