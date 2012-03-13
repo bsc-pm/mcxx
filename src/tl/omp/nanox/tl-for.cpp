@@ -699,12 +699,21 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
         std::stringstream smp_outline_call;
         smp_outline_call << "_smp_" << outline_name << "(&ol_args);";
 
-        Source fill_outline_arguments_im;
+        Source fill_outline_arguments_im, bool_type;
         fill_data_args("ol_args_im",
                 data_environ_info,
                 dependences,
                 /*is_pointer*/ true,
                 fill_outline_arguments_im);
+
+        C_LANGUAGE()
+        {
+            bool_type << "_Bool";
+        }
+        CXX_LANGUAGE()
+        {
+            bool_type << "bool";
+        }
 
         spawn_source
             << "{"
@@ -716,7 +725,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
             <<              for_statement.get_step()        << ","
             <<              chunk_value
             <<          "};"
-            <<      "bool single_guard;"
+            <<      bool_type << " single_guard;"
             <<      "nanos_ws_t ws_policy = nanos_find_worksharing(\"" << policy << "\");"
             <<      "nanos_err_t err = nanos_worksharing_create(&ol_args.wsd, ws_policy, (nanos_ws_info_t *) &info_loop, &single_guard);"
             <<      "if (err != NANOS_OK) nanos_handle_error(err);"
