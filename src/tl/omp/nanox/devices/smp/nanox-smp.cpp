@@ -2600,10 +2600,39 @@ void DeviceSMP::get_device_descriptor(const std::string& task_name,
         }
     }
 
-    ancillary_device_description
-        << comment("SMP device descriptor")
-        << "nanos_smp_args_t " << task_name << "_smp_args = { (void(*)(void*))" << additional_casting << outline_name << "};"
-        ;
+    if (Nanos::Version::interface_is_at_least("master", 5012))
+    {
+        ancillary_device_description
+            << "static nanos_smp_args_t " << task_name << "_smp_args;"
+            ;
+        if (function_symbol.is_member())
+        {
+            Symbol class_sym = function_symbol.get_class_type().get_symbol();
+            std::string aux_qual_name = class_sym.get_qualified_name(class_sym.get_scope());
+            // Remove the first '::'
+            std::string qualified_name = aux_qual_name.substr(2, aux_qual_name.size()-2);
+
+            qualified_device_description
+                << comment("SMP device descriptor")
+                << "nanos_smp_args_t "  << qualified_name << "::" << task_name << "_smp_args"
+                << " = { (void(*)(void*))" << additional_casting << outline_name << "};"
+                ;
+        }
+        else
+        {
+            qualified_device_description
+            << comment("SMP device descriptor")
+            << "nanos_smp_args_t " << task_name << "_smp_args = { (void(*)(void*))" << additional_casting << outline_name << "};"
+            ;
+        }
+    }
+    else
+    {
+        ancillary_device_description
+            << comment("SMP device descriptor")
+            << "nanos_smp_args_t " << task_name << "_smp_args = { (void(*)(void*))" << additional_casting << outline_name << "};"
+            ;
+    }
 
     device_descriptor
         << "{ nanos_smp_factory, nanos_smp_dd_size, &" << task_name << "_smp_args },"

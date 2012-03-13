@@ -33,6 +33,7 @@
 #include "tl-simd.hpp"
 #include "nanox-find_common.hpp"
 #include "tl-omp-nanox.hpp"
+#include "tl-nanos.hpp"
 
 #include <iostream>
 #include <fstream>
@@ -935,7 +936,10 @@ void DeviceGPU::get_device_descriptor(const std::string& task_name,
         Source &device_descriptor,
         Source &qualified_device_description)
 {
-	Source outline_name;
+    FunctionDefinition enclosing_function_def(reference_tree.get_enclosing_function_definition(), sl);
+    Symbol function_symbol = enclosing_function_def.get_function_symbol();
+	
+    Source outline_name;
 	if (!outline_flags.implemented_outline)
 	{
 		outline_name
@@ -947,11 +951,41 @@ void DeviceGPU::get_device_descriptor(const std::string& task_name,
 		outline_name << task_name;
 	}
 
-	ancillary_device_description
-		<< comment("GPU device descriptor")
-		<< "nanos_smp_args_t " 
-        << task_name << "_gpu_args = { (void(*)(void*))" << outline_name << "};"
-		;
+    if (Nanos::Version::interface_is_at_least("master", 5012))
+    {
+        ancillary_device_description
+            << "static nanos_smp_args_t " << task_name << "_gpu_args;"
+            ;
+        if (function_symbol.is_member())
+        {
+            Symbol class_sym = function_symbol.get_class_type().get_symbol();
+            std::string aux_qual_name = class_sym.get_qualified_name(class_sym.get_scope());
+            // Remove the first '::'
+            std::string qualified_name = aux_qual_name.substr(2, aux_qual_name.size()-2);
+
+            qualified_device_description
+                << comment("GPU device descriptor")
+                << "nanos_smp_args_t "  << qualified_name << "::" << task_name << "_gpu_args"
+                << " = { (void(*)(void*))" << outline_name << "};"
+                ;
+        }
+        else
+        {
+            qualified_device_description
+                << comment("GPU device descriptor")
+                << "nanos_smp_args_t " << task_name << "_gpu_args = { (void(*)(void*))" << outline_name << "};"
+                ;
+        }
+    }
+    else
+    {
+        ancillary_device_description
+            << comment("GPU device descriptor")
+            << "nanos_smp_args_t "
+            << task_name << "_gpu_args = { (void(*)(void*))" << outline_name << "};"
+            ;
+    }
+
 
 	device_descriptor
 		<< "{ nanos_gpu_factory, nanos_gpu_dd_size, &" << task_name << "_gpu_args },"
