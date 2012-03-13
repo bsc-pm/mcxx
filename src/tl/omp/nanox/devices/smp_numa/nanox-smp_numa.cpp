@@ -494,7 +494,9 @@ void DeviceSMP_NUMA::get_device_descriptor(const std::string& task_name,
     }
 
     device_descriptor
-        << "{ nanos_smp_factory, nanos_smp_dd_size, &" << task_name << "_smp_numa_args },"
+        << "{ nanos_smp_factory, "
+        << /* nanos_smp_dd_size */ "0, "
+        << "&" << task_name << "_smp_numa_args },"
         ;
 }
 
