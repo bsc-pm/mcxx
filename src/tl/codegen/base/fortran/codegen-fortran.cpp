@@ -527,7 +527,8 @@ namespace Codegen
         }
         else if (entry.is_variable())
         {
-            if (!entry.get_type().is_const())
+            if (!entry.is_static()
+                    && !entry.get_type().is_const())
             {
                 // Fake an assignment statement
                 indent();
@@ -731,6 +732,11 @@ OPERATOR_TABLE
         }
         else if (type.is_named_class())
         {
+            while (type.get_symbol().is_typedef())
+            {
+                type = type.get_symbol().get_type();
+            }
+            
             // Remove prefixes that might come from C
             std::string struct_prefix = "struct ";
             // Unions cannot be expressed in fortran!
@@ -747,7 +753,76 @@ OPERATOR_TABLE
             }
 
             file << real_name << "(";
-            codegen_comma_separated_list(node.get_items());
+            Nodecl::List items = node.get_items().as<Nodecl::List>();
+            Nodecl::List::iterator list_it = items.begin();
+
+            TL::ObjectList<TL::Symbol> symbols = type.get_symbol().get_type().get_nonstatic_data_members();
+            TL::ObjectList<TL::Symbol>::iterator sym_it = symbols.begin();
+
+            int num_items_not_bitfields = 0;
+            bool pending_bitfields = false;
+            unsigned int bitfield_pack = 0u;
+
+            while (list_it != items.end()
+                    && sym_it != symbols.end())
+            {
+                if (sym_it->is_bitfield())
+                {
+                    int bitfield_size = 
+                        const_value_cast_to_4(
+                                nodecl_get_constant(sym_it->get_bitfield_size().get_internal_nodecl())
+                                );
+                    if (bitfield_size != 1)
+                    {
+                        internal_error("Bitfields of more than one bit are not supported", 0);
+                    }
+                    if (!list_it->is_constant())
+                    {
+                        internal_error("This bitfield initialization is not constant", 0);
+                    }
+                    const_value_t* const_val = nodecl_get_constant(list_it->get_internal_nodecl());
+                    if (const_value_is_nonzero(const_val))
+                    {
+                        bitfield_pack |= (1 << sym_it->get_bitfield_first());
+                    }
+                    pending_bitfields = true;
+                }
+                else
+                {
+                    if (pending_bitfields)
+                    {
+                        if (num_items_not_bitfields > 0)
+                            file << ", ";
+
+                        file << std::hex << "Z'" << bitfield_pack << "'" << std::dec;
+
+                        bitfield_pack = 0;
+
+                        pending_bitfields = false;
+                        num_items_not_bitfields++;
+                    }
+
+                    if (num_items_not_bitfields > 0)
+                        file << ", ";
+
+                    walk(*list_it);
+
+                    num_items_not_bitfields++;
+                }
+
+                list_it++;
+                sym_it++;
+            }
+
+            if (pending_bitfields)
+            {
+                if (num_items_not_bitfields > 0)
+                    file << ", ";
+
+                file << std::hex << "Z'" << bitfield_pack << "'" << std::dec;
+            }
+
+            // codegen_comma_separated_list(node.get_items());
             file << ")";
         }
         else
@@ -2119,6 +2194,13 @@ OPERATOR_TABLE
             }
         }
 
+        // Extra stuff
+        if (node.is<Nodecl::StructuredValue>()
+                && node.get_type().is_named_class())
+        {
+            (this->*do_declare)(node.get_type().get_symbol(), data);
+        }
+
         TL::Symbol entry = node.get_symbol();
         if (entry.is_valid())
         {
@@ -2403,24 +2485,25 @@ OPERATOR_TABLE
             //     }
             // }
 
-            if (!entry.get_initialization().is_null()
-                    // Only SAVE or PARAMETER are initialized in Fortran
-                    && (entry.is_static()
-                        || entry.get_type().is_const()))
+            if (!entry.get_initialization().is_null())
             {
                 declare_everything_needed(entry.get_initialization());
 
-                TL::Type t = entry.get_type();
-                if (t.is_any_reference())
-                    t = t.references_to();
+                if (entry.is_static()
+                            || entry.get_type().is_const())
+                {
+                    TL::Type t = entry.get_type();
+                    if (t.is_any_reference())
+                        t = t.references_to();
 
-                if (is_fortran_representable_pointer(t))
-                {
-                    initializer = " => " + codegen_to_str(entry.get_initialization());
-                }
-                else
-                {
-                    initializer = " = " + codegen_to_str(entry.get_initialization());
+                    if (is_fortran_representable_pointer(t))
+                    {
+                        initializer = " => " + codegen_to_str(entry.get_initialization());
+                    }
+                    else
+                    {
+                        initializer = " = " + codegen_to_str(entry.get_initialization());
+                    }
                 }
             }
 
