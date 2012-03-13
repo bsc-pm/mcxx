@@ -123,9 +123,14 @@ void LoweringVisitor::emit_async_common(
                num_devices,
                ancillary_device_description;
 
+        Source static_;
+
+        if (!IS_FORTRAN_LANGUAGE)
+            static_ << " static ";
+
         const_wd_info
             << device_description
-            << "static nanos_const_wd_definition_t nanos_wd_const_data = {"
+            << static_ << "nanos_const_wd_definition_t nanos_wd_const_data = {"
             << ".props = " << props_init  << ", \n"
             << ".data_alignment = " << alignment << ", \n"
             << ".num_copies = " << num_copies << ",\n"
@@ -140,7 +145,7 @@ void LoweringVisitor::emit_async_common(
         device_descriptor << outline_name << "_devices";
         device_description
             << ancillary_device_description
-            << "static nanos_device_t " << device_descriptor << "[" << num_devices << "] = {"
+            << static_ << " nanos_device_t " << device_descriptor << "[" << num_devices << "] = {"
             << device_description_init
             << "};"
             ;
@@ -169,7 +174,7 @@ void LoweringVisitor::emit_async_common(
         {
             num_devices << "1";
             ancillary_device_description
-                << "static nanos_smp_args_t " << outline_name << "_smp_args = {" 
+                << static_ << " nanos_smp_args_t " << outline_name << "_smp_args = {" 
                 << ".outline = (void(*)(void*))&" << outline_name 
                 << "};"
                 ;
