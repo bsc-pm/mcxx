@@ -757,6 +757,11 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FieldDesignator& node)
     Nodecl::NodeclBase field = node.get_field();
     Nodecl::NodeclBase next = node.get_next();
 
+    if (IS_CXX_LANGUAGE)
+    {
+        file << " /* ";
+    }
+
     file << ".";
     walk(field);
 
@@ -765,6 +770,12 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FieldDesignator& node)
     {
         file << " = ";
     }
+
+    if (IS_CXX_LANGUAGE)
+    {
+        file << " */ ";
+    }
+
     walk(next);
 }
 
@@ -1540,15 +1551,26 @@ CxxBase::Ret CxxBase::visit(const Nodecl::IndexDesignator& node)
     Nodecl::NodeclBase _index = node.get_index();
     Nodecl::NodeclBase next = node.get_next();
 
+    if (IS_CXX_LANGUAGE)
+    {
+        file << " /* ";
+    }
+
     file << "[";
     walk(_index);
     file << "]";
+
 
     if (!next.is<Nodecl::FieldDesignator>()
             && !next.is<Nodecl::IndexDesignator>())
     {
         file << " = ";
     }
+    if (IS_CXX_LANGUAGE)
+    {
+        file << " */ ";
+    }
+
     walk(next);
 }
 
