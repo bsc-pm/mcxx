@@ -6197,7 +6197,7 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
         case STK_INDIRECT :
             {
                 scope_entry_t* entry = simple_type->user_defined_type;
-                
+
                 char is_dependent = 0;
                 int max_level = 0;
                 result = get_fully_qualified_symbol_name(entry,
@@ -6581,6 +6581,13 @@ const char* get_declaration_string_internal(type_t* type_info,
         char is_parameter)
 {
     ERROR_CONDITION(type_info == NULL, "This cannot be null", 0);
+
+    while (is_indirect_type(type_info)
+            // Advance indirects unless they refer to existing typedefs
+            && type_info->type->user_defined_type->kind != SK_TYPEDEF)
+    {
+        type_info = type_info->type->user_defined_type->type_information;
+    }
 
     type_t* base_type = get_foundation_type(type_info);
     const char* base_type_name = get_simple_type_name_string(decl_context, base_type);
