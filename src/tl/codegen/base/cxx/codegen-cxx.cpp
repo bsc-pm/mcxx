@@ -760,8 +760,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FieldDesignator& node)
     file << ".";
     walk(field);
 
-    if (!field.is<Nodecl::FieldDesignator>()
-            && !field.is<Nodecl::IndexDesignator>())
+    if (!next.is<Nodecl::FieldDesignator>()
+            && !next.is<Nodecl::IndexDesignator>())
     {
         file << " = ";
     }
@@ -1544,8 +1544,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::IndexDesignator& node)
     walk(_index);
     file << "]";
 
-    if (!_index.is<Nodecl::FieldDesignator>()
-            && !_index.is<Nodecl::IndexDesignator>())
+    if (!next.is<Nodecl::FieldDesignator>()
+            && !next.is<Nodecl::IndexDesignator>())
     {
         file << " = ";
     }

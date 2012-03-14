@@ -10723,7 +10723,6 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
         else
         {
             // Empty is OK
-            // FIXME: Should we compute the default value instead of an empty tree?
             *nodecl_output = nodecl_make_structured_value(nodecl_null(), 
                     declared_type,
                     nodecl_get_filename(braced_initializer), 
@@ -10735,17 +10734,40 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
     internal_error("Code unreachable", 0);
 }
 
+typedef
+struct designator_path_item_tag
+{
+    node_t kind;
+    nodecl_t value;
+} designator_path_item_t;
+
+typedef
+struct designator_path_tag
+{
+    int num_items;
+    designator_path_item_t* items;
+} designator_path_t;
+
 static void check_nodecl_designation_type(nodecl_t nodecl_designation,
         decl_context_t decl_context, 
         type_t* declared_type,
         type_t** designated_type,
-        scope_entry_t** designated_field,
-        nodecl_t* nodecl_output)
+        nodecl_t* nodecl_output,
+        designator_path_t* designator_path
+        )
 { 
     (*designated_type) = declared_type;
 
     int num_designators = 0;
     nodecl_t* nodecl_designator_list = nodecl_unpack_list(nodecl_designation, &num_designators);
+
+    ERROR_CONDITION(num_designators == 0, "Invalid number of designators", 0);
+
+    if (designator_path != NULL)
+    {
+        designator_path->num_items = num_designators;
+        designator_path->items = calloc(num_designators, sizeof(*designator_path->items));
+    }
 
     int i;
     char ok = 1;
@@ -10770,7 +10792,6 @@ static void check_nodecl_designation_type(nodecl_t nodecl_designation,
                     }
                     else
                     {
-
                         nodecl_t nodecl_name = nodecl_get_child(nodecl_current_designator, 0);
                         scope_entry_list_t* entry_list = get_member_of_class_type_nodecl(
                                 decl_context,
@@ -10787,7 +10808,15 @@ static void check_nodecl_designation_type(nodecl_t nodecl_designation,
                             if (entry->kind == SK_VARIABLE)
                             {
                                 (*designated_type)  = entry->type_information;
-                                (*designated_field) = entry;
+
+                                if (designator_path != NULL)
+                                {
+                                    designator_path->items[i].kind = NODECL_FIELD_DESIGNATOR;
+                                    designator_path->items[i].value = 
+                                        nodecl_make_symbol(entry, 
+                                                nodecl_get_filename(nodecl_current_designator),
+                                                nodecl_get_line(nodecl_current_designator));
+                                }
                             }
                             else
                             {
@@ -10812,8 +10841,14 @@ static void check_nodecl_designation_type(nodecl_t nodecl_designation,
                     }
                     else
                     {
-                        // We should check that the array is not unbounded
                         *designated_type = array_type_get_element_type(*designated_type);
+
+                        if (designator_path != NULL)
+                        {
+                            designator_path->items[i].kind = NODECL_INDEX_DESIGNATOR;
+                            designator_path->items[i].value = 
+                                nodecl_copy(nodecl_get_child(nodecl_current_designator, 0));
+                        }
                     }
                     break;
                 }
@@ -10840,12 +10875,14 @@ static void check_nodecl_designated_initializer(nodecl_t designated_initializer,
         nodecl_t* nodecl_output)
 {
     type_t* designated_type  = NULL;
-    //the designated_field is not useful in this case
-    scope_entry_t* designated_field = NULL;
     nodecl_t error_designation = nodecl_null();
 
+    designator_path_t designated_path;
+
     check_nodecl_designation_type(nodecl_get_child(designated_initializer, 0), 
-            decl_context, declared_type, &designated_type, &designated_field, &error_designation);
+            decl_context, declared_type, &designated_type, 
+            &error_designation,
+            &designated_path);
     
     if(!nodecl_is_null(error_designation) && nodecl_is_err_expr(error_designation)) 
     {
@@ -10857,6 +10894,26 @@ static void check_nodecl_designated_initializer(nodecl_t designated_initializer,
 
     nodecl_t nodecl_initializer_clause = nodecl_get_child(designated_initializer, 1);
     check_nodecl_initializer_clause(nodecl_initializer_clause, decl_context, designated_type, nodecl_output);
+
+    // Now build the designation, it must be built backwards
+    int i; 
+    for (i = designated_path.num_items - 1; i >= 0; i--)
+    {
+        nodecl_t (*nodecl_ptr_fun)(nodecl_t, nodecl_t, const char*, int line);
+
+        if (designated_path.items[i].kind == NODECL_FIELD_DESIGNATOR)
+            nodecl_ptr_fun = nodecl_make_field_designator;
+        else if (designated_path.items[i].kind == NODECL_INDEX_DESIGNATOR)
+            nodecl_ptr_fun = nodecl_make_index_designator;
+        else
+            internal_error("Code unreachable", 0);
+
+        *nodecl_output = (nodecl_ptr_fun)(
+                designated_path.items[i].value,
+                *nodecl_output, 
+                nodecl_get_filename(*nodecl_output),
+                nodecl_get_line(*nodecl_output));
+    }
 }
 
 static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer, 
@@ -12507,7 +12564,6 @@ static void check_gcc_offset_designation(nodecl_t nodecl_designator,
         const char* filename,
         int line)
 {
-
     if (!is_complete_type(accessed_type))
     {
         error_printf("%s:%d: error: invalid use of incomplete type '%s'\n", 
@@ -12519,12 +12575,13 @@ static void check_gcc_offset_designation(nodecl_t nodecl_designator,
 
     //the designated_type is not useful in this case
     type_t* designated_type  = NULL;
-    scope_entry_t* designated_field = NULL;
     nodecl_t error_designation = nodecl_null(); 
-   
-   check_nodecl_designation_type(nodecl_designator, decl_context, 
-        accessed_type, &designated_type, &designated_field, &error_designation);
-    
+
+    designator_path_t designated_path;
+
+    check_nodecl_designation_type(nodecl_designator, decl_context, 
+            accessed_type, &designated_type, &error_designation, &designated_path);
+
     if(!nodecl_is_null(error_designation) && nodecl_is_err_expr(error_designation)) 
     {
         *nodecl_output = nodecl_make_err_expr(
@@ -12533,9 +12590,15 @@ static void check_gcc_offset_designation(nodecl_t nodecl_designator,
         return;
     }
 
+    ERROR_CONDITION(designated_path.num_items == 0, "Invalid designation", 0);
+    ERROR_CONDITION(designated_path.items[designated_path.num_items - 1].kind != NODECL_FIELD_DESIGNATOR,
+            "Invalid designator kind", 0);
+
+    scope_entry_t* designated_field = nodecl_get_symbol(designated_path.items[designated_path.num_items - 1].value);
+
     type_get_size(accessed_type);
     size_t offset_field = designated_field->entity_specs.field_offset;
-  
+
     *nodecl_output = nodecl_make_offsetof(nodecl_make_type(accessed_type, filename, line),
             nodecl_designator, get_signed_int_type(),filename, line);
 
