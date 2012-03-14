@@ -31,6 +31,8 @@
 #include "tl-nodecl-alg.hpp"
 #include "tl-datareference.hpp"
 
+#include "cxx-cexpr.h"
+
 using TL::Source;
 
 namespace TL { namespace Nanox {
@@ -57,6 +59,90 @@ struct TaskEnvironmentVisitor : public Nodecl::ExhaustiveVisitor<void>
             this->is_untied = true;
         }
 };
+
+static TL::Symbol declare_const_wd_type(int num_devices)
+{
+    static std::map<int, Symbol> _map;
+    std::map<int, Symbol>::iterator it = _map.find(num_devices);
+
+    if (it == _map.end())
+    {
+        std::stringstream ss;
+        if (IS_C_LANGUAGE)
+        {
+            ss << "struct ";
+        }
+        ss << "nanos_const_wd_definition_" << num_devices;
+
+        TL::Scope sc(CURRENT_COMPILED_FILE->global_decl_context);
+        TL::Symbol new_class_symbol = sc.new_symbol(ss.str());
+        new_class_symbol.get_internal_symbol()->kind = SK_CLASS;
+        new_class_symbol.get_internal_symbol()->entity_specs.is_user_declared = 1;
+
+        type_t* new_class_type = get_new_class_type(sc.get_decl_context(), TT_STRUCT);
+        decl_context_t class_context = new_class_context(sc.get_decl_context(), new_class_symbol.get_internal_symbol());
+        TL::Scope class_scope(class_context);
+
+        class_type_set_inner_context(new_class_type, class_context);
+
+        new_class_symbol.get_internal_symbol()->type_information = new_class_type;
+
+        _map[num_devices] = new_class_symbol;
+
+        {
+            // Base field
+            TL::Symbol base_class = sc.get_symbol_from_name("nanos_const_wd_definition_t");
+            ERROR_CONDITION(!base_class.is_valid(), "Invalid symbol", 0);
+
+            TL::Symbol field = class_scope.new_symbol("base");
+            field.get_internal_symbol()->kind = SK_VARIABLE;
+            field.get_internal_symbol()->entity_specs.is_user_declared = 1;
+
+            field.get_internal_symbol()->entity_specs.is_member = 1;
+            field.get_internal_symbol()->entity_specs.class_type = ::get_user_defined_type(new_class_symbol.get_internal_symbol());
+            field.get_internal_symbol()->entity_specs.access = AS_PUBLIC;
+
+            field.get_internal_symbol()->file = "";
+            field.get_internal_symbol()->line = 0;
+
+            field.get_internal_symbol()->type_information = ::get_user_defined_type(base_class.get_internal_symbol());
+            class_type_add_member(new_class_type, field.get_internal_symbol());
+        }
+
+        {
+            // Devices field
+            TL::Symbol devices_class = sc.get_symbol_from_name("nanos_device_t");
+            ERROR_CONDITION(!devices_class.is_valid(), "Invalid symbol", 0);
+
+            TL::Symbol field = class_scope.new_symbol("devices");
+            field.get_internal_symbol()->kind = SK_VARIABLE;
+            field.get_internal_symbol()->entity_specs.is_user_declared = 1;
+
+            field.get_internal_symbol()->entity_specs.is_member = 1;
+            field.get_internal_symbol()->entity_specs.class_type = ::get_user_defined_type(new_class_symbol.get_internal_symbol());
+
+
+            field.get_internal_symbol()->entity_specs.access = AS_PUBLIC;
+
+            field.get_internal_symbol()->file = "";
+            field.get_internal_symbol()->line = 0;
+
+            field.get_internal_symbol()->type_information = 
+                ::get_array_type(
+                        ::get_user_defined_type(devices_class.get_internal_symbol()),
+                        const_value_to_nodecl( const_value_get_signed_int(num_devices)),
+                        class_scope.get_decl_context());
+
+            class_type_add_member(new_class_type, field.get_internal_symbol());
+        }
+
+        return new_class_symbol;
+    }
+    else
+    {
+        return it->second;
+    }
+}
 
 void LoweringVisitor::emit_async_common(
         Nodecl::NodeclBase construct,
@@ -112,26 +198,30 @@ void LoweringVisitor::emit_async_common(
         //     size_t data_alignment; 
         //     size_t num_copies; 
         //     size_t num_devices; 
-        //     nanos_device_t devices[8]; 
         // } nanos_const_wd_definition_t; 
+
+        // FIXME
+        int num_devices = 1;
+        TL::Symbol const_wd_type = declare_const_wd_type(num_devices);
 
         Source alignment, props_init, num_copies;
 
         Source device_descriptor, 
                device_description, 
                device_description_init, 
-               num_devices,
+               num_devices_src,
                ancillary_device_description,
                fortran_dynamic_init;
 
         const_wd_info
             << device_description
-            << "static nanos_const_wd_definition_t nanos_wd_const_data = {"
+            << "static " << const_wd_type.get_name() << " nanos_wd_const_data = {"
+            << "{"
             << /* ".props = " << */ props_init << ", \n"
             << /* ".data_alignment = " << */ alignment << ", \n"
             << /* ".num_copies = " << */ num_copies << ",\n"
-            << /* ".num_devices = " << */ num_devices << ",\n"
-            // << /* ".devices = " << */ device_descriptor
+            << /* ".num_devices = " << */ num_devices_src << ",\n"
+            << "}, "
             << /* ".devices = " << */ "{" << device_description_init << "}"
             << "};"
 
@@ -147,9 +237,6 @@ void LoweringVisitor::emit_async_common(
         device_descriptor << outline_name << "_devices";
         device_description
             << ancillary_device_description
-            << "static __attribute__((fortran_target)) nanos_device_t " << device_descriptor << "[" << num_devices << "] = {"
-            << device_description_init
-            << "};"
             ;
 
         Source mandatory_creation,
@@ -186,7 +273,7 @@ void LoweringVisitor::emit_async_common(
 
         // FIXME - No devices yet, let's mimick the structure of one SMP
         {
-            num_devices << "1";
+            num_devices_src << num_devices;
 
             if (!IS_FORTRAN_LANGUAGE)
             {
@@ -299,7 +386,7 @@ void LoweringVisitor::emit_async_common(
         <<     "nanos_err_t " << err_name <<";"
         // nanos_err_t nanos_create_wd_compact ( nanos_wd_t *wd, nanos_const_wd_definition_t *const_data, size_t data_size,
         //                               void ** data, nanos_wg_t wg, nanos_copy_data_t **copies )
-        <<     err_name << " = nanos_create_wd_compact(&wd, &nanos_wd_const_data, &nanos_wd_dyn_props, " 
+        <<     err_name << " = nanos_create_wd_compact(&wd, &(nanos_wd_const_data.base), &nanos_wd_dyn_props, " 
         <<                 struct_size << ", (void**)&ol_args, nanos_current_wd(),"
         <<                 copy_data << ");"
         <<     "if (" << err_name << " != NANOS_OK) nanos_handle_error (" << err_name << ");"
@@ -316,7 +403,7 @@ void LoweringVisitor::emit_async_common(
         <<          fill_dependences_immediate
         // nanos_err_t nanos_create_wd_and_run_compact ( nanos_const_wd_definition_t *const_data, size_t data_size, void * data, size_t num_deps, 
         //                                       nanos_dependence_t *deps, nanos_copy_data_t *copies, nanos_translate_args_t translate_args );
-        <<          err_name << " = nanos_create_wd_and_run_compact(&nanos_wd_const_data, &nanos_wd_dyn_props, "
+        <<          err_name << " = nanos_create_wd_and_run_compact(&(nanos_wd_const_data.base), &nanos_wd_dyn_props, "
         <<                  struct_size << ", " 
         <<                  "&imm_args,"
         <<                  num_dependences << ", dependences, "
