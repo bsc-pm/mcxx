@@ -266,8 +266,9 @@ namespace TL
                 bool _is_parallel;
 
                 DataSharingAttribute get_internal(Symbol sym);
-                
+
                 RealTimeInfo _real_time_info;
+
             public:
                 //! Constructor
                 /*!
@@ -426,6 +427,10 @@ namespace TL
                 
                 RealTimeInfo _real_time_info;
 
+                bool _has_task_priority;
+
+                int _task_priority;
+
                 Expression *_if_clause_cond_expr;
 
                 Symbol get_symbol() const;
@@ -464,13 +469,20 @@ namespace TL
                 void set_real_time_info(const RealTimeInfo & rt_info);
 
                 RealTimeInfo get_real_time_info() const;
+
+                void set_has_task_priority(bool b);
+
+                bool get_has_task_priority() const;
                 
+                void set_task_priority(int i);
+
+                int get_task_priority() const;
+
                 bool has_if_clause() const;
 
                 void set_if_clause_conditional_expression(Expression expr);
                 
                 Expression get_if_clause_conditional_expression() const;
-
         };
 
         class LIBTL_CLASS FunctionTaskSet : public TL::Object
