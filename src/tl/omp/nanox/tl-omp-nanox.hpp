@@ -132,15 +132,19 @@ namespace Nanox
             // Support
             Source get_single_guard(const std::string&);
 
-            Source get_create_sliced_wd_code(const std::string &,
-                            Source device_descriptor,
-                            Source struct_arg_type_name,
-                            Source alignment,
-                            Source current_slicer,
-                            Source slicer_alignment,
-                            Source num_copies1,
-                            Source copy_data1);
+            Source get_create_sliced_wd_code(
+                    Source device_descriptor,
+                    Source outline_data_size,
+                    Source alignment,
+                    Source outline_data,
+                    Source current_slicer,
+                    Source slicer_size,
+                    Source slicer_alignment,
+                    Source slicer_data,
+                    Source num_copies1,
+                    Source copy_data1);
 
+            bool _initialize_worksharings;
            // Temporary data during traversal
             struct SectionInfo
             {

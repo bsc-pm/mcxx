@@ -630,23 +630,29 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
             << "ol_args->rdv_" << it->get_symbol().get_name() << " = rdv_" << it->get_symbol().get_name() << ";";
     }
 
-    Source alignment, slicer_alignment;
+
+    // Preparing some (not all) arguments for the 'create_sliced_wd' call
+    Source alignment, slicer_alignment, outline_data_size,
+           outline_data, slicer_size, slicer_data, create_sliced_wd;
     if (Nanos::Version::interface_is_at_least("master", 5004))
     {
-        alignment <<  "__alignof__(" << struct_arg_type_name << "),"
-            ;
-        slicer_alignment <<  "__alignof__(nanos_slicer_data_for_t),"
-            ;
+        alignment <<  "__alignof__(" << struct_arg_type_name << ")";
+        slicer_alignment <<  "__alignof__(nanos_slicer_data_for_t)";
     }
 
-    std::string name_outline_args_var = "ol_args";
-    if (Nanos::Version::interface_is_at_least("worksharing", 1000))
+    outline_data << ((Nanos::Version::interface_is_at_least("worksharing", 1000)) ?
+            "(void **)&ol_args_im" : "(void **)&ol_args");
+
+    if (!Nanos::Version::interface_is_at_least("master", 5008))
     {
-        name_outline_args_var = "ol_args_im";
+        slicer_size << "sizeof(nanos_slicer_data_for_t)";
     }
 
-    Source create_sliced_wd = get_create_sliced_wd_code(name_outline_args_var, device_descriptor,
-            struct_arg_type_name, alignment, current_slicer, slicer_alignment, num_copies1, copy_data1);
+    outline_data_size << "sizeof(" << struct_arg_type_name << ")";
+    slicer_data << "(nanos_slicer_t*) &slicer_data_for";
+
+    create_sliced_wd = get_create_sliced_wd_code(device_descriptor, outline_data_size, alignment, outline_data,
+            current_slicer, slicer_size, slicer_alignment, slicer_data, num_copies1, copy_data1);
 
     Source loop_information, decl_slicer_data_if_needed;
     if (Nanos::Version::interface_is_at_least("master", 5008))

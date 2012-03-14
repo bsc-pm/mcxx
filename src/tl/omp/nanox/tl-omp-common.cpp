@@ -48,12 +48,15 @@ namespace Nanox
         return barrier_src;
     }
 
-    Source OMPTransform::get_create_sliced_wd_code(const std::string &name,
+    Source OMPTransform::get_create_sliced_wd_code(
             Source device_descriptor,
-            Source struct_arg_type_name,
+            Source outline_data_size,
             Source alignment,
+            Source outline_data,
             Source current_slicer,
+            Source slicer_size,
             Source slicer_alignment,
+            Source slicer_data,
             Source num_copies1,
             Source copy_data1)
     {
@@ -61,30 +64,38 @@ namespace Nanox
         if (Nanos::Version::interface_is_at_least("master", 5008))
         {
             create_sliced_wd
-                <<"nanos_create_sliced_wd(&wd, "
-                <<   /* num_devices */ "1, " << device_descriptor << ", "
-                <<   "sizeof(" << struct_arg_type_name << "),"
-                <<   alignment
-                <<   "(void**)&" << name <<","
-                <<   "nanos_current_wd(),"
-                <<   current_slicer << ","
-                <<   "&props," << num_copies1 << "," << copy_data1 << ");"
+                <<"nanos_create_sliced_wd("
+                <<      "&wd, "
+                <<       "1, " /* num_devices */
+                <<      device_descriptor << ", "
+                <<      outline_data_size << ", "
+                <<      alignment << ", "
+                <<      outline_data << ", "
+                <<      "nanos_current_wd(), "
+                <<      current_slicer << ", "
+                <<      "&props, "
+                <<      num_copies1 << ", "
+                <<      copy_data1 << ");"
                 ;
         }
         else
         {
             create_sliced_wd
-                << "nanos_create_sliced_wd(&wd, "
-                <<   /* num_devices */ "1, " << device_descriptor << ", "
-                <<   "sizeof(" << struct_arg_type_name << "),"
-                <<   alignment
-                <<   "(void**)&" << name <<","
-                <<   "nanos_current_wd(),"
-                <<   current_slicer << ","
-                <<   "sizeof(nanos_slicer_data_for_t),"
-                <<   slicer_alignment
-                <<   "(nanos_slicer_t*) &slicer_data_for,"
-                <<   "&props," << num_copies1 << "," << copy_data1 << ");"
+                << "nanos_create_sliced_wd("
+                <<      "&wd, "
+                <<      "1, " /* num_devices */
+                <<      device_descriptor << ", "
+                <<      outline_data_size << ", "
+                <<      alignment << ", "
+                <<      outline_data << ", "
+                <<      "nanos_current_wd(), "
+                <<      current_slicer << ", "
+                <<      slicer_size << ", "
+                <<      slicer_alignment << ", "
+                <<      slicer_data <<", "
+                <<      "&props, "
+                <<      num_copies1 << ", "
+                <<      copy_data1 << ");"
                 ;
         }
         return create_sliced_wd;
