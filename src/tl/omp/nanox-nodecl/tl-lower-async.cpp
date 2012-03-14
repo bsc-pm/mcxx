@@ -134,7 +134,11 @@ void LoweringVisitor::emit_async_common(
             // << /* ".devices = " << */ device_descriptor
             << /* ".devices = " << */ "{" << device_description_init << "}"
             << "};"
+
             << fortran_dynamic_init
+
+            << "nanos_wd_dyn_props_t nanos_wd_dyn_props;"
+            << "nanos_wd_dyn_props.tie_to = 0;"
             ;
 
         alignment << "__alignof__(" << struct_arg_type_name << ")";
@@ -164,7 +168,6 @@ void LoweringVisitor::emit_async_common(
             << /* ".reserved3 =" << */ "0,\n"
             << /* ".reserved4 =" << */ "0,\n"
             << /* ".reserved5 =" << */ "0,\n"
-            << /* ".tie_to =" << */    "0,\n"
             << /* ".priority = " << */ priority 
             << "}"
             ;
@@ -207,7 +210,7 @@ void LoweringVisitor::emit_async_common(
                 device_description_init
                     << "{"
                     // factory , dd_size, arg
-                    << "0, 128, 0"
+                    << "0, 0, 0"
                     << "}"
                     ;
                 fortran_dynamic_init
@@ -292,12 +295,11 @@ void LoweringVisitor::emit_async_common(
         <<     struct_runtime_size
         <<     "nanos_wd_t wd = (nanos_wd_t)0;"
         <<     "nanos_wd_props_t props;"
-        <<     "props.tie_to = (nanos_thread_t)0;"
         <<     copy_decl
         <<     "nanos_err_t " << err_name <<";"
         // nanos_err_t nanos_create_wd_compact ( nanos_wd_t *wd, nanos_const_wd_definition_t *const_data, size_t data_size,
         //                               void ** data, nanos_wg_t wg, nanos_copy_data_t **copies )
-        <<     err_name << " = nanos_create_wd_compact(&wd, &nanos_wd_const_data," 
+        <<     err_name << " = nanos_create_wd_compact(&wd, &nanos_wd_const_data, &nanos_wd_dyn_props, " 
         <<                 struct_size << ", (void**)&ol_args, nanos_current_wd(),"
         <<                 copy_data << ");"
         <<     "if (" << err_name << " != NANOS_OK) nanos_handle_error (" << err_name << ");"
@@ -314,7 +316,7 @@ void LoweringVisitor::emit_async_common(
         <<          fill_dependences_immediate
         // nanos_err_t nanos_create_wd_and_run_compact ( nanos_const_wd_definition_t *const_data, size_t data_size, void * data, size_t num_deps, 
         //                                       nanos_dependence_t *deps, nanos_copy_data_t *copies, nanos_translate_args_t translate_args );
-        <<          err_name << " = nanos_create_wd_and_run_compact(&nanos_wd_const_data,"
+        <<          err_name << " = nanos_create_wd_and_run_compact(&nanos_wd_const_data, &nanos_wd_dyn_props, "
         <<                  struct_size << ", " 
         <<                  "&imm_args,"
         <<                  num_dependences << ", dependences, "
