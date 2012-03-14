@@ -93,51 +93,30 @@ void OMPTransform::sections_postorder(PragmaCustomConstruct ctr)
     Source alignment, slicer_alignment;
     if (Nanos::Version::interface_is_at_least("master", 5004))
     {
-        alignment <<  "__alignof__(nanos_compound_wd_data_t),"
-            ;
-        slicer_alignment << "1,";
+        alignment <<  "__alignof__(nanos_compound_wd_data_t)";
+        slicer_alignment << "1";
     }
 
-    Source create_sliced_wd, dummy_if_needed;
-    if (Nanos::Version::interface_is_at_least("master", 5008))
-    {
-        create_sliced_wd
-            << "nanos_create_sliced_wd(&cwd, "
-            // FIXME - Devices is hardcoded to SMP!
-            <<   "1, compound_device,"
-            <<   "sizeof(nanos_compound_wd_data_t) + (" << section_list.size() << ") * sizeof(nanos_wd_t),"
-            <<   alignment
-            <<   "(void**)&list_of_wds,"
-            <<   "nanos_current_wd(),"
-            <<   "compound_slicer,"
-            <<   "&props,"
-            // No copies either
-            <<   "0, (nanos_copy_data_t**)0);"
-            ;
+    // Preparing some (not all) arguments for the 'create_sliced_wd' call
+    Source create_sliced_wd, dummy_if_needed, device_descriptor, outline_data_size,
+           outline_data, current_slicer, slicer_size, slicer_data, num_copies1, copy_data1;
 
-    }
-    else
+    // FIXME - Devices is hardcoded to SMP!
+    device_descriptor << "compound_device";
+    outline_data_size << "sizeof(nanos_compound_wd_data_t) + (" << section_list.size() << ") * sizeof(nanos_wd_t)";
+    outline_data << "(void**)&list_of_wds";
+    current_slicer << "compound_slicer";
+    slicer_size << "0";
+    slicer_data << "&dummy";
+    num_copies1 << "0";
+    copy_data1 << "(nanos_copy_data_t**)0";
+
+    create_sliced_wd = get_create_sliced_wd_code(device_descriptor, outline_data_size, alignment, outline_data,
+            current_slicer, slicer_size, slicer_alignment, slicer_data, num_copies1, copy_data1);
+
+    if (!Nanos::Version::interface_is_at_least("master", 5008))
     {
-        dummy_if_needed 
-            << "void *dummy = (void*)0;"
-            ;
-        create_sliced_wd
-            << "nanos_create_sliced_wd(&cwd, "
-            // FIXME - Devices is hardcoded to SMP!
-            <<   "1, compound_device,"
-            <<   "sizeof(nanos_compound_wd_data_t) + (" << section_list.size() << ") * sizeof(nanos_wd_t),"
-            <<   alignment
-            <<   "(void**)&list_of_wds,"
-            <<   "nanos_current_wd(),"
-            <<   "compound_slicer,"
-            // No data for this WD
-            <<   /* sizeof */ "0,"
-            <<   slicer_alignment
-            <<   "&dummy,"
-            <<   "&props,"
-            // No copies either
-            <<   "0, (nanos_copy_data_t**)0);"
-            ;
+        dummy_if_needed << "void *dummy = (void*)0;";
     }
 
     Source compound_wd_src;
@@ -161,15 +140,15 @@ void OMPTransform::sections_postorder(PragmaCustomConstruct ctr)
         <<    "nanos_device_t compound_device[1] = { { nanos_smp_factory, nanos_smp_dd_size, &compound_devices_smp_args } };"
 
         <<    "nanos_compound_wd_data_t *list_of_wds = (nanos_compound_wd_data_t*)0;"
-        <<    dummy_if_needed 
+        <<    dummy_if_needed
 
-        <<    "nanos_wd_t cwd = (nanos_wd_t)0;"
-        <<    "err = " << create_sliced_wd  
+        <<    "nanos_wd_t wd = (nanos_wd_t)0;"
+        <<    "err = " << create_sliced_wd
         <<    "if (err != NANOS_OK) nanos_handle_error(err);"
         // Fill slicer data
         <<    "list_of_wds->nsect = " << section_list.size() << ";"
         <<    "__builtin_memcpy(list_of_wds->lwd, _wd_section_list, sizeof(_wd_section_list));"
-        <<    "err = nanos_submit(cwd, 0, (nanos_dependence_t*)0, 0);"
+        <<    "err = nanos_submit(wd, 0, (nanos_dependence_t*)0, 0);"
         <<    "if (err != NANOS_OK) nanos_handle_error(err);"
         << "}"
         ;
