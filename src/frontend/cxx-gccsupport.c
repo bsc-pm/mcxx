@@ -436,11 +436,6 @@ static void gather_one_gcc_attribute(const char* attribute_name,
     {
         gather_info->emit_always = 1;
     }
-    // Mercurium specifics
-    else if (strcmp(attribute_name, "fortran_target") == 0)
-    {
-        gather_info->is_fortran_target = 1;
-    }
     // CUDA attributes
     else if (CURRENT_CONFIGURATION->enable_cuda)
     {
