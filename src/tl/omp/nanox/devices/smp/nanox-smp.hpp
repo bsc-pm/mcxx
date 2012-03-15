@@ -134,8 +134,7 @@ namespace TL
                         AST_t reference_tree,
                         ScopeLink sl,
                         Source &ancillary_device_description,
-                        Source &device_descriptor,
-                        Source &qualified_device_description);
+                        Source &device_descriptor);
                         
                 virtual Source get_reduction_update(ObjectList<OpenMP::ReductionSymbol> reduction_references, ScopeLink sl);
                 virtual Source get_reduction_code(ObjectList<OpenMP::ReductionSymbol> reduction_references, ScopeLink sl);

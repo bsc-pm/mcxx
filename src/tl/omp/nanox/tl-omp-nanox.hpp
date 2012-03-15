@@ -65,13 +65,11 @@ namespace Nanox
                     Source translation_fun_arg_name);
 
             static Source get_nanos_create_wd_compact_code(
-                    Source constants_structure,
                     Source struct_size,
                     Source data,
                     Source copy_data);
 
             static Source get_nanos_create_and_run_wd_compact_code(
-                    Source constants_structure,
                     Source struct_size,
                     Source data,
                     Source num_dependences,

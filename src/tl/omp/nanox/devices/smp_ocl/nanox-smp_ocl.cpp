@@ -1019,8 +1019,7 @@ void DeviceSMP_OCL::get_device_descriptor(const std::string& task_name,
         AST_t reference_tree,
         ScopeLink sl,
         Source &ancillary_device_description,
-        Source &device_descriptor,
-        Source &qualified_device_description)
+        Source &device_descriptor)
 {
     Source outline_name;
     outline_name
@@ -1075,30 +1074,12 @@ void DeviceSMP_OCL::get_device_descriptor(const std::string& task_name,
     if (Nanos::Version::interface_is_at_least("master", 5012))
     {
         ancillary_device_description
-            << "static nanos_smp_args_t " << task_name << "_smp_ocl_args;"
+            << comment("SMP_OCL device descriptor")
+            << "static nanos_smp_args_t " 
+            << task_name << "_smp_ocl_args = { (void(*)(void*))" 
+            << additional_casting 
+            << "__OpenCL_" << outline_name << "_kernel" <<"};"
             ;
-
-        if (function_symbol.is_member())
-        {
-            Symbol class_sym = function_symbol.get_class_type().get_symbol();
-            std::string aux_qual_name = class_sym.get_qualified_name(class_sym.get_scope());
-            // Remove the first '::'
-            std::string qualified_name = aux_qual_name.substr(2, aux_qual_name.size()-2);
-
-            qualified_device_description
-                << comment("SMP_OCL device descriptor")
-                << "nanos_smp_args_t "  << qualified_name << "::" << task_name << "_smp_ocl_args"
-                << " = { (void(*)(void*))" << additional_casting << "__OpenCL_" << outline_name << "_kernel };" 
-                ;
-        }
-        else
-        {
-            qualified_device_description
-                << comment("SMP_OCL device descriptor")
-                << "nanos_smp_args_t "  << task_name << "_smp_ocl_args"
-                << " = { (void(*)(void*))" << additional_casting << "__OpenCL_" << outline_name << "_kernel };" 
-                ;
-        }
     }
     else
     {

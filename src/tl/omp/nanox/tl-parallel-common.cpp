@@ -78,8 +78,8 @@ Source TL::Nanox::common_parallel_code(
            device_description, 
            device_description_line, 
            num_devices,
-           ancillary_device_description,
-           qualified_device_description;
+           ancillary_device_description;
+
     device_descriptor << outline_name << "_devices";
     device_description
         << ancillary_device_description
@@ -129,8 +129,7 @@ Source TL::Nanox::common_parallel_code(
                 parallel_code,
                 sl,
                 ancillary_device_description, 
-                device_description_line,
-                qualified_device_description);
+                device_description_line);
     }
 
     num_devices << current_targets.size();
@@ -214,90 +213,6 @@ Source TL::Nanox::common_parallel_code(
         num_threads << "nanos_omp_get_max_threads()";
     }
 
-    int outline_num = TL::CounterManager::get_counter(NANOX_OUTLINE_COUNTER);
-
-    Source qualified_context_opt;
-    if (Nanos::Version::interface_is_at_least("master", 5012))
-    {
-        AST_t function_definition = ctr.get_ast().get_enclosing_function_definition_declaration();
-        AST_t outermost_class = function_definition;
-        while (outermost_class.get_enclosing_class_specifier() != NULL)
-        {
-            outermost_class = outermost_class.get_enclosing_class_specifier();
-        }
-
-        if(function_symbol.is_member())
-        {
-            // The function is member of class. The constants structure should be declared static
-            // and filled in the innermost namespace scope or global scope
-            Symbol class_sym = function_symbol.get_class_type().get_symbol();
-            std::string aux_qual_name = class_sym.get_qualified_name(class_sym.get_scope());
-            qualified_context_opt << aux_qual_name.substr(2, aux_qual_name.size()-2) << "::";
-
-            Source static_constant_decls;
-            static_constant_decls
-                << ancillary_device_description
-                << "static nanos_device_t _const_devices_" << outline_num << "[" << num_devices << "];"
-                << "static nanos_const_wd_definition_t _const_def" << outline_num << ";"
-                ;
-
-            AST_t static_constant_decls_tree =
-                static_constant_decls.parse_member(function_definition, ctr.get_scope_link(), class_sym);
-            function_symbol.get_point_of_declaration().prepend(static_constant_decls_tree);
-        }
-
-        Source constant_variable_declaration,
-               constant_devices_declaration,
-               constant_structure_code;
-
-        constant_structure_code
-            << qualified_device_description
-            << constant_devices_declaration
-            << constant_variable_declaration
-            ;
-
-        constant_devices_declaration
-            << "nanos_device_t "<< qualified_context_opt << "_const_devices_" << outline_num << "[" << num_devices << "] ="
-            << "{"
-            <<      device_description_line
-            << "};"
-            ;
-
-        constant_variable_declaration
-            << "nanos_const_wd_definition_t " << qualified_context_opt << "_const_def" << outline_num << " ="
-            << "{"
-            <<      "{"
-            <<          "1, " /* mandatory_creation */
-            <<          "0, " /* tied */
-            <<          "0, " /* reserved0 */
-            <<          "0, " /* reserved1 */
-            <<          "0, " /* reserved2 */
-            <<          "0, " /* reserved3 */
-            <<          "0, " /* reserved4 */
-            <<          "0, " /* reserved5 */
-            <<          "0"   /* priority */
-            <<      "}, "
-            <<      alignment   << ", "
-            <<      num_copies  << ", "
-            <<      num_devices << ", "
-            <<      " _const_devices_" << outline_num
-            << "};"
-            ;
-
-        AST_t constant_structure_code_tree =
-            constant_structure_code.parse_declaration(
-                    function_definition,
-                    ctr.get_scope_link());
-
-        if (function_symbol.is_member())
-        {
-            outermost_class.append(constant_structure_code_tree);
-        }
-        else
-        {
-            function_definition.prepend(constant_structure_code_tree);
-        }
-    }
     Source if_code;
     PragmaCustomClause if_clause = ctr.get_clause("if");
     if (if_clause.is_defined())
@@ -317,7 +232,8 @@ Source TL::Nanox::common_parallel_code(
     }
 
     Source data, imm_data, num_dependences, deps, nanos_create_wd, nanos_create_run_wd,
-           properties_opt, decl_dyn_props_opt, modify_tie_to1, modify_tie_to2, device_description_opt;
+           properties_opt, decl_dyn_props_opt, modify_tie_to1, modify_tie_to2, device_description_opt,
+           constant_code_opt, constant_struct_definition, constant_variable_declaration;
 
     num_dependences << "0";
     deps << "(nanos_dependence_t*)0";
@@ -326,17 +242,52 @@ Source TL::Nanox::common_parallel_code(
 
     if ( Nanos::Version::interface_is_at_least("master", 5012))
     {
-        Source constant_structure_name;
-        constant_structure_name << "_const_def" << outline_num;
-        nanos_create_wd = OMPTransform::get_nanos_create_wd_compact_code(
-                constant_structure_name, struct_size, data, copy_data);
+        nanos_create_wd = OMPTransform::get_nanos_create_wd_compact_code(struct_size, data, copy_data);
 
-        nanos_create_run_wd = OMPTransform::get_nanos_create_and_run_wd_compact_code(constant_structure_name,
+        nanos_create_run_wd = OMPTransform::get_nanos_create_and_run_wd_compact_code(
                 struct_size, imm_data, num_dependences, deps, imm_copy_data, xlate_arg);
 
         decl_dyn_props_opt << "nanos_wd_dyn_props_t dyn_props = {0};";
         modify_tie_to1 << "dyn_props.tie_to = _nanos_threads[_i];";
         modify_tie_to2 << "dyn_props.tie_to = _nanos_threads[0];";
+
+        constant_code_opt
+            << constant_struct_definition
+            <<  constant_variable_declaration
+            ;
+
+        constant_struct_definition
+            << "struct nanos_const_wd_definition_local_t"
+            << "{"
+            <<      "nanos_const_wd_definition_t base;"
+            <<      "nanos_device_t devices[" << num_devices << "];"
+            << "};"
+            ;
+
+        constant_variable_declaration
+            << "static struct nanos_const_wd_definition_local_t _const_def ="
+            << "{"
+            <<      "{"
+            <<          "{"
+            <<              "1, " /* mandatory_creation */
+            <<              "0, " /* tied */
+            <<              "0, " /* reserved0 */
+            <<              "0, " /* reserved1 */
+            <<              "0, " /* reserved2 */
+            <<              "0, " /* reserved3 */
+            <<              "0, " /* reserved4 */
+            <<              "0, " /* reserved5 */
+            <<              "0, " /* priority */
+            <<          "}, "
+            <<          alignment   << ", "
+            <<          num_copies  << ", "
+            <<          num_devices << ", "
+            <<      "},"
+            <<      "{"
+            <<          device_description_line
+            <<      "}"
+            << "};"
+            ;
     }
     else
     {
@@ -365,8 +316,10 @@ Source TL::Nanox::common_parallel_code(
         <<   "err = nanos_create_team(&_nanos_team, (nanos_sched_t)0, &_nanos_num_threads,"
         <<              "(nanos_constraint_t*)0, /* reuse_current */ 1, _nanos_threads);"
         <<   "if (err != NANOS_OK) nanos_handle_error(err);"
+        <<   ancillary_device_description
         <<   device_description_opt
         <<   struct_runtime_size
+        <<   constant_code_opt
         <<   properties_opt
         <<   decl_dyn_props_opt
         <<   "unsigned _i;"
@@ -414,7 +367,7 @@ void TL::Nanox::regions_spawn(
         Source dependency_regions;
         Source immediate_dependency_regions;
         dependency_struct << "nanos_data_access_t";
-        
+
         if (!dependences.empty())
         {
             dependency_array << "_data_accesses";
@@ -436,19 +389,19 @@ void TL::Nanox::regions_spawn(
                     << "};"
                     ;
             }
-                    
+
             int num_dep = 0;
             for (ObjectList<OpenMP::DependencyItem>::iterator it = dependences.begin();
                     it != dependences.end();
                     it++)
             {
                 // Set dependency flags
-                
+
                 Source dependency_flags;
                 Source reduction_flag;
                 dependency_flags << "{";
                 OpenMP::DependencyDirection attr = it->get_kind();
-               
+
                 if (is_task)
                 {
                     if (!((attr & OpenMP::DEP_REDUCTION) == OpenMP::DEP_REDUCTION))
@@ -478,7 +431,7 @@ void TL::Nanox::regions_spawn(
                         // Reduction behaves like an inout
                         dependency_flags << "1, 1,";
                     }
-                    
+
                     if ((attr & OpenMP::DEP_REDUCTION) == OpenMP::DEP_REDUCTION)
                     {
                         // Reductions cannot be renamed
@@ -512,7 +465,7 @@ void TL::Nanox::regions_spawn(
                     {
                         dependency_flags << "0,"; 
                     }
-                    
+
                     // Can rename in this case
                     dependency_flags << "1";
                 }
@@ -542,7 +495,7 @@ void TL::Nanox::regions_spawn(
 
                 Type dependency_type = dependency_expression.get_type();
                 int num_dimensions = dependency_type.get_num_dimensions();
-                
+
                 // Compute the base type of the dependency and the array containing the size of each dimension
                 Type dependency_base_type = dependency_type;
                 std::string dimension_sizes[num_dimensions];         
@@ -552,8 +505,8 @@ void TL::Nanox::regions_spawn(
                     dependency_base_type = dependency_base_type.array_element();
                 }
                 std::string base_type_name = dependency_base_type.get_declaration(data_ref.get_scope(), "");
-                
-                
+
+
                 // Generate the spawn
                 dependency_regions 
                     << "nanos_region_dimension_t dimensions" << num_dep << "[" << std::max(num_dimensions,1) << "] = {"
@@ -562,23 +515,23 @@ void TL::Nanox::regions_spawn(
                 immediate_dependency_regions 
                     << "nanos_region_dimension_t dimensions" << num_dep << "[" << std::max(num_dimensions,1) << "] = {"
                     << imm_dims_description << "};";
-               
+
                 if (num_dimensions == 0) 
                 {
                     // A scalar
                     Source dependency_offset, imm_dependency_offset;
                     dims_description << "{" 
-                                     << "sizeof(" << base_type_name << "), " 
-                                     << dependency_offset << ", "
-                                     << "sizeof(" << base_type_name << ")" 
-                                     << "}"
-                                     ;
+                        << "sizeof(" << base_type_name << "), " 
+                        << dependency_offset << ", "
+                        << "sizeof(" << base_type_name << ")" 
+                        << "}"
+                        ;
                     imm_dims_description << "{" 
-                                     << "sizeof(" << base_type_name << "), " 
-                                     << imm_dependency_offset << ", "
-                                     << "sizeof(" << base_type_name << ")" 
-                                     << "}"
-                                     ;
+                        << "sizeof(" << base_type_name << "), " 
+                        << imm_dependency_offset << ", "
+                        << "sizeof(" << base_type_name << ")" 
+                        << "}"
+                        ;
 
                     dependency_offset
                         << "((char*)(" << dependency_expression.get_address() << ") - " << "(char*)ol_args->" << dependency_field_name << ")"
@@ -605,13 +558,13 @@ void TL::Nanox::regions_spawn(
                     {
                         aux_type = aux_type.array_element();
                     }
-                              
+
                     if (aux_type.array_is_region())
                     {
                         AST_t lb, ub, size;
                         aux_type.array_get_region_bounds(lb, ub);
                         size = aux_type.array_get_region_size();
-                        
+
                         dims_description << "{" 
                             << "sizeof(" << base_type_name << ") * (" << dimension_sizes[num_dimensions-1] << "), " 
                             << "sizeof(" << base_type_name << ") * (" << lb.prettyprint() << "), "
@@ -630,7 +583,7 @@ void TL::Nanox::regions_spawn(
                         {
                             lb = "1";
                         }
-                        
+
                         dims_description << "{" 
                             << "sizeof(" << base_type_name << ") * (" << dimension_sizes[num_dimensions-1] << "), " 
                             << lb << ", "
@@ -638,22 +591,22 @@ void TL::Nanox::regions_spawn(
                             << "}"
                             ;     
                     }
-                   
+
                     // The rest of dimensions, if there are, are computed in terms of number of elements
                     if (num_dimensions > 1)
                     {    
                         fill_dimensions(num_dimensions, 0, dimension_sizes, dependency_type, 
-                                        dims_description, dependency_expression.get_scope());
+                                dims_description, dependency_expression.get_scope());
                     }
                 }
-     
+
                 Source dependency_offset, imm_dependency_offset;
 
                 if (num_dimensions == 0)
                 {
                     num_dimensions++;
                 }
-                
+
                 Source dep_expr_addr = data_ref.get_address();
                 dependency_offset
                     << "((char*)(" << dep_expr_addr << ") - " << "(char*)ol_args->" << dependency_field_name << ")"
@@ -710,7 +663,7 @@ void TL::Nanox::regions_spawn(
     else
     {
         dependency_struct << "nanos_dependence_t";
-        
+
         if (!dependences.empty())
         {
             dependency_array << "_dependences";
@@ -721,7 +674,7 @@ void TL::Nanox::regions_spawn(
                 << dependency_defs_outline
                 << "};"
                 ;
-            
+
             if (is_task)
             {
                 fill_dependences_immediate
@@ -730,7 +683,7 @@ void TL::Nanox::regions_spawn(
                     << "};"
                     ;
             }
-                    
+
             int num_dep = 0;
             for (ObjectList<OpenMP::DependencyItem>::iterator it = dependences.begin();
                     it != dependences.end();
@@ -741,7 +694,7 @@ void TL::Nanox::regions_spawn(
                 Source reduction_flag;
                 dependency_flags << "{";
                 OpenMP::DependencyDirection attr = it->get_kind();
-                
+
                 if (is_task)
                 {
                     if (!((attr & OpenMP::DEP_REDUCTION) == OpenMP::DEP_REDUCTION))
@@ -784,7 +737,7 @@ void TL::Nanox::regions_spawn(
                         // Reduction behaves like an inout
                         dependency_flags << "1, 1,";
                     }
-                    
+
                     if ((attr & OpenMP::DEP_REDUCTION) == OpenMP::DEP_REDUCTION)
                     {
                         // Reductions cannot be renamed
@@ -816,7 +769,7 @@ void TL::Nanox::regions_spawn(
                     {
                         dependency_flags << "0,"; 
                     }
-                    
+
                     // Can rename in this case
                     dependency_flags << "1";
                 }

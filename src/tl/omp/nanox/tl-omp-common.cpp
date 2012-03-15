@@ -145,15 +145,15 @@ namespace Nanox
     }
 
      Source OMPTransform::get_nanos_create_wd_compact_code(
-            Source constants_structure,
             Source struct_size,
             Source data,
             Source copy_data)
     {
         Source create_wd;
         create_wd
-            << "nanos_create_wd_compact(&wd, "
-            <<       "&" << constants_structure << ", "
+            << "nanos_create_wd_compact("
+            <<       "&wd, "
+            <<       "&_const_def.base, "
             <<       "&dyn_props, "
             <<       struct_size << ", "
             <<       data << ", "
@@ -163,7 +163,6 @@ namespace Nanox
 
         return create_wd;
     }
-
 
      Source OMPTransform::get_nanos_create_and_run_wd_code(
              Source num_devices,
@@ -198,7 +197,6 @@ namespace Nanox
 
 
      Source OMPTransform::get_nanos_create_and_run_wd_compact_code(
-            Source constants_structure,
              Source struct_size,
              Source data,
              Source num_dependences,
@@ -209,7 +207,7 @@ namespace Nanox
          Source create_wd_and_run;
          create_wd_and_run
              << "nanos_create_wd_and_run_compact("
-             <<       "&" << constants_structure << ", "
+             <<       "&_const_def.base, "
              <<       "&dyn_props, "
              <<       struct_size << ", "
              <<       data << ","

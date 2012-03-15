@@ -206,8 +206,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
                 ctr.get_statement().get_ast(),
                 ctr.get_scope_link(),
                 ancillary_device_description, 
-                device_description_line,
-                qualified_device_description);
+                device_description_line);
     }
 
     num_devices << current_targets.size();

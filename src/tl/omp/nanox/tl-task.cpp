@@ -69,8 +69,8 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
            device_description, 
            device_description_line, 
            num_devices,
-           ancillary_device_description,
-           qualified_device_description;
+           ancillary_device_description;
+
     device_descriptor << outline_name << "_devices";
     device_description
         << ancillary_device_description
@@ -143,8 +143,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                 ctr.get_statement().get_ast(),
                 ctr.get_scope_link(),
                 ancillary_device_description, 
-                device_description_line,
-                qualified_device_description);
+                device_description_line);
     }
 
     int total_devices = current_targets.size();
@@ -226,8 +225,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                     ctr.get_statement().get_ast(),
                     ctr.get_scope_link(),
                     ancillary_device_description, 
-                    device_description_line,
-                    qualified_device_description);
+                    device_description_line);
         }
     }
 
@@ -679,110 +677,62 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         }
     }
 
-    if (Nanos::Version::interface_is_at_least("master", 5012))
-    {
-        AST_t function_definition = ctr.get_ast().get_enclosing_function_definition_declaration();
-        AST_t outermost_class = function_definition;
-        while (outermost_class.get_enclosing_class_specifier() != NULL)
-        {
-            outermost_class = outermost_class.get_enclosing_class_specifier();
-        }
-
-        Source qualified_context_opt;
-        if(function_symbol.is_member())
-        {
-            // The function is member of class. The constants structure should be declared static
-            // and filled in the innermost namespace scope or global scope
-            Symbol class_sym = function_symbol.get_class_type().get_symbol();
-            std::string aux_qual_name = class_sym.get_qualified_name(class_sym.get_scope());
-            qualified_context_opt << aux_qual_name.substr(2, aux_qual_name.size()-2) << "::";
-
-            Source static_constant_decls;
-            static_constant_decls
-                << ancillary_device_description
-                << "static nanos_device_t _const_devices_" << outline_num << "[" << num_devices << "];"
-                << "static nanos_const_wd_definition_t _const_def" << outline_num << ";"
-                ;
-
-            AST_t static_constant_decls_tree =
-                static_constant_decls.parse_member(function_definition, ctr.get_scope_link(), class_sym);
-            function_symbol.get_point_of_declaration().prepend(static_constant_decls_tree);
-        }
-
-        Source constant_variable_declaration,
-               constant_devices_declaration,
-               constant_structure_code;
-
-        constant_structure_code
-            << qualified_device_description
-            << constant_devices_declaration
-            << constant_variable_declaration
-            ;
-
-        constant_devices_declaration
-            << "nanos_device_t "<< qualified_context_opt << "_const_devices_" << outline_num << "[" << num_devices << "] ="
-            << "{"
-            <<      device_description_line
-            << "};"
-            ;
-
-        constant_variable_declaration
-            << "nanos_const_wd_definition_t " << qualified_context_opt << "_const_def" << outline_num << " ="
-            << "{"
-            <<      "{"
-            <<          props_mandatory_creation << ", "
-            <<          props_tied  << ", "
-            <<          "0, " /* reserved0 */
-            <<          "0, " /* reserved1 */
-            <<          "0, " /* reserved2 */
-            <<          "0, " /* reserved3 */
-            <<          "0, " /* reserved4 */
-            <<          "0, " /* reserved5 */
-            <<          props_priority
-            <<      "}, "
-            <<      alignment   << ", "
-            <<      num_copies  << ", "
-            <<      num_devices << ", "
-            <<      " _const_devices_" << outline_num
-            << "};"
-            ;
-
-        AST_t constant_structure_code_tree =
-            constant_structure_code.parse_declaration(
-                    function_definition,
-                    ctr.get_scope_link());
-
-        if (function_symbol.is_member())
-        {
-            outermost_class.append(constant_structure_code_tree);
-        }
-        else
-        {
-            function_definition.prepend(constant_structure_code_tree);
-        }
-    }
-
     if(!_no_nanox_calls)
     {
-
         Source data, imm_data, deps, nanos_create_wd, nanos_create_run_wd,
-               properties_opt, device_description_opt, decl_dyn_props_opt;
+               properties_opt, device_description_opt, decl_dyn_props_opt,
+               constant_code_opt, constant_struct_definition, constant_variable_declaration;
 
         data << "(void**)&ol_args";
         imm_data << (immediate_is_alloca ? "imm_args" : "&imm_args");
         deps << "(" << dependency_struct << "*)" << dependency_array;
+        
         if (Nanos::Version::interface_is_at_least("master", 5012))
         {
+            nanos_create_wd = OMPTransform::get_nanos_create_wd_compact_code(struct_size, data, copy_data);
 
-            Source constant_structure_name;
-            constant_structure_name << "_const_def" << outline_num;
-            nanos_create_wd = OMPTransform::get_nanos_create_wd_compact_code(
-                    constant_structure_name, struct_size, data, copy_data);
-
-            nanos_create_run_wd = OMPTransform::get_nanos_create_and_run_wd_compact_code(constant_structure_name,
+            nanos_create_run_wd = OMPTransform::get_nanos_create_and_run_wd_compact_code(
                     struct_size, imm_data, num_dependences, deps, copy_imm_data, translation_fun_arg_name);
-
+            
             decl_dyn_props_opt << "nanos_wd_dyn_props_t dyn_props = {0};";
+            
+            constant_code_opt
+                << constant_struct_definition
+                <<  constant_variable_declaration
+                ;
+
+            constant_struct_definition
+                << "struct nanos_const_wd_definition_local_t"
+                << "{"
+                <<      "nanos_const_wd_definition_t base;"
+                <<      "nanos_device_t devices[" << num_devices << "];"
+                << "};"
+                ;
+
+            constant_variable_declaration
+                << "static struct nanos_const_wd_definition_local_t _const_def ="
+                << "{"
+                <<      "{"
+                <<          "{"
+                <<              props_mandatory_creation << ", "
+                <<              props_tied  << ", "
+                <<              "0, " /* reserved0 */
+                <<              "0, " /* reserved1 */
+                <<              "0, " /* reserved2 */
+                <<              "0, " /* reserved3 */
+                <<              "0, " /* reserved4 */
+                <<              "0, " /* reserved5 */
+                <<              props_priority
+                <<          "}, "
+                <<          alignment   << ", "
+                <<          num_copies  << ", "
+                <<          num_devices << ", "
+                <<      "},"
+                <<      "{"
+                <<          device_description_line
+                <<      "}"
+                << "};"
+                ;
         }
         else
         {
@@ -806,10 +756,12 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
         spawn_code
             << "{"
+            <<     ancillary_device_description
             <<     device_description_opt
             <<     struct_arg_type_name << "* ol_args = (" << struct_arg_type_name << "*)0;"
             <<     struct_runtime_size
             <<     "nanos_wd_t wd = (nanos_wd_t)0;"
+            <<     constant_code_opt
             <<     properties_opt
             <<     decl_dyn_props_opt
             <<     copy_decl
