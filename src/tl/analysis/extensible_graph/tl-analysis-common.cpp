@@ -369,7 +369,6 @@ namespace TL
             ObjectList<struct var_usage_t*> fake_list(1, fake_usage);
             for (ObjectList<struct var_usage_t*>::iterator it = list.begin(); it != list.end(); ++it)
             {
-                std::cerr << "comparing " <<(*it)->get_nodecl().prettyprint() << " and " << n.prettyprint() << std::endl;
                 if (usage_list_contains_englobing_nodecl((*it)->get_nodecl(), fake_list))
                     return true;
             }

@@ -215,6 +215,12 @@ namespace TL
         */ 
         #define _UNDEF_SC       "undef_scope"
         
+        /*! \def _RACE
+        * Set of symbols in a race situation in a task
+        * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once Auto-scoping is performed).
+        */ 
+        #define _RACE           "race"
+        
         /*! \def _IN_DEPS
         * Set of symbols with input dependence in a task
         * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once the Liveness analysis is performed).

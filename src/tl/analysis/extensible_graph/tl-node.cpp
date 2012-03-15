@@ -1710,6 +1710,31 @@ namespace TL
             set_data(_UNDEF_SC, undef_sc_vars);
         }
         
+        ext_sym_set Node::get_race_vars()
+        {
+            ext_sym_set race_vars;
+              
+            if (has_key(_RACE))
+            {
+                race_vars = get_data<ext_sym_set>(_RACE);
+            }
+              
+            return race_vars;
+        }
+        
+        void Node::set_race_var(ExtensibleSymbol ei)
+        {
+            ext_sym_set race_vars;
+              
+            if (has_key(_RACE))
+            {
+                race_vars = get_data<ext_sym_set>(_RACE);
+            }
+              
+            race_vars.insert(ei);
+            set_data(_RACE, race_vars);
+        }
+        
         nodecl_map Node::get_reaching_definitions()
         {
             nodecl_map reaching_defs;
@@ -1854,6 +1879,63 @@ namespace TL
                 }
                 std::cerr << std::endl;
             }
+        }
+        
+        void Node::print_auto_scoping()
+        {
+            if (CURRENT_CONFIGURATION->debug_options.analysis_verbose ||
+                CURRENT_CONFIGURATION->debug_options.enable_debug_code)
+            {
+                ext_sym_set private_vars = get_private_vars();
+                std::cerr << std::endl << "     - Private(";
+                for(ext_sym_set::iterator it = private_vars.begin(); it != private_vars.end(); ++it)
+                {
+                    std::cerr << it->get_nodecl().prettyprint();
+                    if (it != private_vars.end()-1)
+                        std::cerr << ", ";
+                }
+                std::cerr << ")" << std::endl;
+
+                ext_sym_set firstprivate_vars = get_firstprivate_vars();
+                std::cerr << "     - Firstprivate(";
+                for(ext_sym_set::iterator it = firstprivate_vars.begin(); it != firstprivate_vars.end(); ++it)
+                {
+                    std::cerr << it->get_nodecl().prettyprint();
+                    if (it != firstprivate_vars.end()-1)
+                        std::cerr << ", ";
+                }
+                std::cerr << ")" << std::endl;
+                    
+                ext_sym_set race_vars = get_race_vars();
+                std::cerr << "     - Race(";
+                for(ext_sym_set::iterator it = race_vars.begin(); it != race_vars.end(); ++it)
+                {
+                    std::cerr << it->get_nodecl().prettyprint();
+                    if (it != race_vars.end()-1)
+                        std::cerr << ", ";
+                }
+                std::cerr << ")" << std::endl;
+
+                ext_sym_set shared_vars = get_shared_vars();
+                std::cerr << "     - Shared(";
+                for(ext_sym_set::iterator it = shared_vars.begin(); it != shared_vars.end(); ++it)
+                {
+                    std::cerr << it->get_nodecl().prettyprint();
+                    if (it != shared_vars.end()-1)
+                        std::cerr << ", ";
+                }
+                std::cerr << ")" << std::endl;
+                
+                ext_sym_set undef_vars = get_undef_sc_vars();
+                std::cerr << "     - Undef(";
+                for(ext_sym_set::iterator it = undef_vars.begin(); it != undef_vars.end(); ++it)
+                {
+                    std::cerr << it->get_nodecl().prettyprint();
+                    if (it != undef_vars.end()-1)
+                        std::cerr << ", ";
+                }
+                std::cerr << ")" << std::endl;
+            }            
         }
         
         void Node::print_task_dependencies()

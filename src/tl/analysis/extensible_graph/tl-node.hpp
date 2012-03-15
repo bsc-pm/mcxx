@@ -466,6 +466,10 @@ namespace TL
                 
                 void set_undef_sc_var(ext_sym_set new_undef_sc_vars);
                 
+                ext_sym_set get_race_vars();
+
+                void set_race_var(ExtensibleSymbol ei);
+                
                 //! Return the map containing, for each symbol defined until this moment, its correspondent expression
                 nodecl_map get_reaching_definitions();
 
@@ -484,6 +488,7 @@ namespace TL
                 // *** Utils *** //
                 void print_use_def_chains();
                 void print_liveness();
+                void print_auto_scoping();
                 void print_task_dependencies();
                 
             friend class CfgAnalysisVisitor;

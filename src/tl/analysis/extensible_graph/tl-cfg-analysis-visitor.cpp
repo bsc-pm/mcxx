@@ -622,14 +622,11 @@ namespace Analysis
                 if (usage_list_contains_englobed_nodecl(n, _usage))
                 {   // delete the englobed part
                     delete_englobed_var_in_usage_list(n, _usage);
-                    std::cerr << "Deleting: " << n.prettyprint() << std::endl;
                 }
                 char usage = '1';
                 if (_defining) usage = '0';
                 struct var_usage_t* new_ipa_var = new var_usage_t(ExtensibleSymbol(n), usage);
-                std::cerr << "  set_up ..... " << n.prettyprint() << "(" << _usage.size() << ")" << std::endl;
                 _usage.insert(new_ipa_var);
-                std::cerr << "(" << _usage.size() << ")" << std::endl;
             }
         }
     }
@@ -875,9 +872,7 @@ namespace Analysis
                             else
                             {   // Is the first use of the variable in the current graph
                                 struct var_usage_t* new_ipa_var = *it;
-                                std::cerr << "  nested ipa ..... " << current_var.prettyprint() << "(" << _usage.size() << ")" << std::endl;
                                 _usage.insert(new_ipa_var);
-                                std::cerr << "(" << _usage.size() << ")" << std::endl;
                             }
                         }
                     }

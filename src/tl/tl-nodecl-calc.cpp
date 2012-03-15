@@ -632,4 +632,9 @@ namespace Nodecl
         TL::ObjectList<const_value_t*> rhs = walk(n.get_rhs());
         return rhs;
     }
+    
+    Calculator::Ret Calculator::visit(const Nodecl::Sizeof& n)
+    {
+        return TL::ObjectList<const_value_t*>();
+    }
 }
