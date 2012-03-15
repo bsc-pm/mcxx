@@ -654,7 +654,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
     create_sliced_wd = get_create_sliced_wd_code(device_descriptor, outline_data_size, alignment, outline_data,
             current_slicer, slicer_size, slicer_alignment, slicer_data, num_copies1, copy_data1);
 
-    Source loop_information, decl_slicer_data_if_needed;
+    Source loop_information, decl_slicer_data_if_needed, decl_dynamic_props_opt;
     if (Nanos::Version::interface_is_at_least("master", 5008))
     {
         loop_information
@@ -677,6 +677,10 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
             ;
     }
 
+    if (Nanos::Version::interface_is_at_least("master", 5012))
+    {
+        decl_dynamic_props_opt << "nanos_wd_dyn_props_t dyn_props = { 0 };";
+    }
 
     if (_no_nanox_calls)
     {
@@ -754,6 +758,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
             <<              "props.mandatory_creation = 1;"
             <<              priority
             <<              tiedness
+            <<              decl_dynamic_props_opt
             <<              copy_decl
             <<              device_description
             <<              "static nanos_slicer_t " << current_slicer << " = 0;"
@@ -791,6 +796,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
             <<        "props.mandatory_creation = 1;"
             <<        priority
             <<        tiedness
+            <<        decl_dynamic_props_opt
             <<        copy_decl
             <<        device_description
             <<        "static nanos_slicer_t " << current_slicer << " = 0;"

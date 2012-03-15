@@ -61,7 +61,25 @@ namespace Nanox
             Source copy_data1)
     {
         Source create_sliced_wd;
-        if (Nanos::Version::interface_is_at_least("master", 5008))
+        if (Nanos::Version::interface_is_at_least("master", 5012))
+        {
+            create_sliced_wd
+                <<"nanos_create_sliced_wd("
+                <<      "&wd, "
+                <<       "1, " /* num_devices */
+                <<      device_descriptor << ", "
+                <<      outline_data_size << ", "
+                <<      alignment << ", "
+                <<      outline_data << ", "
+                <<      "nanos_current_wd(), "
+                <<      current_slicer << ", "
+                <<      "&props, "
+                <<      "&dyn_props, "
+                <<      num_copies1 << ", "
+                <<      copy_data1 << ");"
+                ;
+        }
+        else if (Nanos::Version::interface_is_at_least("master", 5008))
         {
             create_sliced_wd
                 <<"nanos_create_sliced_wd("

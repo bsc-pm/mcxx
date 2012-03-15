@@ -119,12 +119,19 @@ void OMPTransform::sections_postorder(PragmaCustomConstruct ctr)
         dummy_if_needed << "void *dummy = (void*)0;";
     }
 
+    Source decl_dynamic_props_opt;
+    if (Nanos::Version::interface_is_at_least("master", 5012))
+    {
+        decl_dynamic_props_opt << "nanos_wd_dyn_props_t dyn_props = { 0 };";
+    }
+
     Source compound_wd_src;
     compound_wd_src
         << "{"
         <<    "nanos_wd_props_t props;"
         <<    "__builtin_memset(&props, 0, sizeof(props));"
         <<    "props.mandatory_creation = 1;"
+        <<    decl_dynamic_props_opt
 
         <<    "nanos_err_t err;"
         <<    "nanos_slicer_t compound_slicer = nanos_find_slicer(\"compound_wd\");"
