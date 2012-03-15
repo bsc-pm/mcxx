@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -23,6 +23,7 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
 
 
 
@@ -78,6 +79,8 @@ namespace TL
 #define OMP_CONSTRUCT_NOEND(_directive, _name) \
                 OMP_CONSTRUCT(_directive, _name)
 #include "tl-omp-constructs.def"
+                // Section is special
+                OMP_CONSTRUCT("section", section)
 #undef OMP_CONSTRUCT
 #undef OMP_CONSTRUCT_NOEND
 #undef OMP_DIRECTIVE
@@ -125,8 +128,7 @@ namespace TL
 
 				RealTimeInfo task_real_time_handler_pre(TL::PragmaCustomLine construct);
 
-                void common_sections_handler(TL::PragmaCustomStatement construct, const std::string& pragma_name);
-                void fix_first_section(TL::PragmaCustomStatement construct);
+                void fix_sections_layout(TL::PragmaCustomStatement construct, const std::string& pragma_name);
 
                 void collapse_loop_first(Nodecl::NodeclBase& construct);
 

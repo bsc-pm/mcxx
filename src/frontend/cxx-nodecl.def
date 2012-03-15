@@ -36,7 +36,16 @@ top-level : function-code
 name : NODECL_SYMBOL() symbol
 type : NODECL_TYPE() type
 
-function-code : NODECL_FUNCTION_CODE([statements]context, [initializers]mem-init-seq-opt, [internal_functions]function-code-seq-opt) symbol
+function-code: regular-function-code
+             | template-function-code
+
+internal-function-code: regular-function-code
+                      | template-function-code
+                      | pragma-declaration
+
+regular-function-code : NODECL_FUNCTION_CODE([statements]context, [initializers]mem-init-seq-opt, [internal_functions]internal-function-code-seq-opt) symbol
+template-function-code: NODECL_TEMPLATE_FUNCTION_CODE([statements]context, [initializers]mem-init-seq-opt, [internal_functions]internal-function-code-seq-opt) symbol
+
 object-init : NODECL_OBJECT_INIT() symbol
 
 mem-init: NODECL_MEMBER_INIT([init_expr]expression) symbol
@@ -46,6 +55,7 @@ mem-init: NODECL_MEMBER_INIT([init_expr]expression) symbol
 statement : statement-but-object-init
           | object-init
           | context
+          | function-code
 
 context : NODECL_CONTEXT([in_context] in_context) context
 
@@ -56,15 +66,15 @@ statement-but-object-init: NODECL_EMPTY_STATEMENT()
           | NODECL_EXPRESSION_STATEMENT([nest]expression)
           | compound-statement
           | NODECL_DO_STATEMENT([statement]statement-seq, [condition]expression)
-          | NODECL_WHILE_STATEMENT([condition]expression, [statement]statement-seq) 
-          | NODECL_FOR_STATEMENT([loop_header]loop-control, [statement]statement-seq) 
+          | NODECL_WHILE_STATEMENT([condition]expression, [statement]statement-seq, [loop_name]name-opt) 
+          | NODECL_FOR_STATEMENT([loop_header]loop-control, [statement]statement-seq, [loop_name]name-opt) 
           | NODECL_IF_ELSE_STATEMENT([condition]expression, [then]statement-seq, [else]statement-seq-opt) 
           | NODECL_LABELED_STATEMENT([statement]statement-seq) symbol
           | NODECL_SWITCH_STATEMENT([switch]expression, [statement]statement-seq)
           | NODECL_DEFAULT_STATEMENT([statement]statement-seq)
           | NODECL_CASE_STATEMENT([case]case-expression-seq, [statement]statement-seq)
-          | NODECL_BREAK_STATEMENT()
-          | NODECL_CONTINUE_STATEMENT()
+          | NODECL_BREAK_STATEMENT([construct_name]name-opt)
+          | NODECL_CONTINUE_STATEMENT([construct_name]name-opt)
           | NODECL_GOTO_STATEMENT() symbol
           | NODECL_RETURN_STATEMENT([value]expression-opt)
           | pragma-directive
@@ -73,6 +83,7 @@ statement-but-object-init: NODECL_EMPTY_STATEMENT()
           | fortran-only-statements
           | parallel-statements
           | compatibility
+          | NODECL_ERR_STATEMENT()
 
 compound-statement : NODECL_COMPOUND_STATEMENT([statements]statement-seq-opt, [finally]statement-seq-opt) 
 
@@ -109,7 +120,7 @@ string-literal: NODECL_STRING_LITERAL() type const_value
 expression : literal
            | name
            | context
-           | NODECL_FUNCTION_CALL([called] expression, [arguments] argument-seq-opt) type
+           | NODECL_FUNCTION_CALL([called] expression, [arguments] argument-seq-opt, [alternate_name]name-opt) type
            | NODECL_ARRAY_SUBSCRIPT([subscripted] expression, [subscripts]expression-seq) type
            | NODECL_RANGE([lower] expression-opt, [upper] expression-opt, [stride] expression) type
            | NODECL_CLASS_MEMBER_ACCESS([lhs]expression, [member]expression) type
@@ -146,9 +157,11 @@ expression : literal
            | fortran-expressions
            | object-init
            | compatibility
+           | NODECL_ERR_EXPR()
 # This one is intended to represent implicit conversions allowed by the base language
            | NODECL_CONVERSION([nest] expression) type
-           | NODECL_ERR_EXPR()
+# This one represents an expression the value of which is already saved in another symbol
+           | NODECL_SAVED_EXPR([expression]expression) type symbol
 
 structured-value: NODECL_STRUCTURED_VALUE([items]initializer-item-seq-opt) type
 
@@ -215,7 +228,7 @@ cxx-dependent-name : NODECL_CXX_DEP_GLOBAL_NAME_NESTED([items] cxx-atom-dependen
                    | NODECL_CXX_DEP_NAME_NESTED([items] cxx-atom-dependent-name-seq)
                    | cxx-atom-dependent-name
 cxx-atom-dependent-name : cxx-simple-name
-                   | NODECL_CXX_DEP_TEMPLATE_ID([name]cxx-atom-dependent-name) template-parameters
+                   | NODECL_CXX_DEP_TEMPLATE_ID([name]cxx-atom-dependent-name) text template-parameters
                    | NODECL_CXX_DEP_NAME_CONVERSION() 
 
 cxx-simple-name: NODECL_CXX_DEP_NAME_SIMPLE() text
@@ -356,8 +369,8 @@ exec-environment : NODECL_PARALLEL*CONDITION([condition]expression)
                  | NODECL_PARALLEL*SHARED([shared_symbols]name-seq)
                  | NODECL_PARALLEL*PRIVATE([private_symbols]name-seq)
                  | NODECL_PARALLEL*REDUCTION([reductions]async-reduction-seq)
-                 | NODECL_PARALLEL*DEP_INPUT([input_deps]expression-seq)
-                 | NODECL_PARALLEL*DEP_OUTPUT([output_deps]expression-seq)
+                 | NODECL_PARALLEL*DEP_IN([in_deps]expression-seq)
+                 | NODECL_PARALLEL*DEP_OUT([out_deps]expression-seq)
                  | NODECL_PARALLEL*DEP_INOUT([inout_deps]expression-seq)
                  | NODECL_PARALLEL*COPY_IN([input_deps]expression-seq)
                  | NODECL_PARALLEL*COPY_OUT([output_deps]expression-seq)
@@ -365,6 +378,8 @@ exec-environment : NODECL_PARALLEL*CONDITION([condition]expression)
                  | NODECL_PARALLEL*SCHEDULE([schedule]expression)
 # Not yet decided
                  | NODECL_PARALLEL*TARGET() 
+                 | NODECL_PARALLEL*PRIORITY([priority]expression) 
+                 | NODECL_PARALLEL*UNTIED()
 
 async-reduction : NODECL_PARALLEL*REDUCTION_ITEM([reductor]name, [reduced_symbols]name-seq)
 

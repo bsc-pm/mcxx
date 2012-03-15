@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -23,6 +23,7 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
 
 
 
@@ -122,6 +123,12 @@ namespace TL
 
             //! Gets the scope where this symbol is defined
             Scope get_scope() const;
+    
+            //! Gets the scope related to this symbol
+            /*
+             * The scoping unit introduced by namespaces [C++] and program units [Fortran] and functions [C]
+             */
+            Scope get_related_scope() const;
 
             //! Returns the location of the symbol
             std::string get_locus() const;
@@ -160,6 +167,31 @@ namespace TL
             bool is_template() const;
             //! States whether this symbol is a function
             bool is_function() const;
+
+            //! States whether this symbol is a MODULE PROCEDURE
+            /*!
+             * A module procedure is a procedure (function or subroutine)
+             * defined inside a module. Note that a module procedure returns
+             * true for Symbol::is_in_module and Symbol::is_function. The
+             * converse is not always true, a Symbol::is_function might be
+             * Symbol::is_in_module but not be a module procedure.
+             *
+             * In the example below, QUUX is a module procedure while FOO is not
+             *
+             * MODULE M
+             *   INTERFACE
+             *     SUBROUTINE FOO
+             *     END SUBROUTINE FOO
+             *   END INTERFACE
+             *  CONTAINS
+             *   SUBROUTINE QUUX
+             *   END SUBROUTINE QUUX
+             * END MODULE M
+             */
+            bool is_module_procedure() const;
+
+            //! States whether this function is nested
+            bool is_nested_function() const;
             //! States whether this symbol is a statement function statmeent symbol
             /*! \note This is only meaningful in Fortran */
             bool is_statement_function_statement() const;
@@ -185,15 +217,28 @@ namespace TL
             //! Returns the MODULE symbol where this symbol belongs
             /*! \note This only makes sense if is_in_module returned true */
             Symbol in_module() const;
+
+            //! States that this symbol is available in this program unit because of a USE statement
+            /*! \note This only applies to Fortran */
+            bool is_from_module() const;
             
+            //! States that this symbol is available in this program unit because of a USE statement
+            /*! \note This only makes sense if is_from_module returned true */
+            Symbol from_module() const;
+
+            //! Returns the original symbol from the module
+            /*!
+             * Symbols where is_from_module returns true, have an alias to the real symbol
+             * of the module. Use this function to get it
+             */
+            Symbol aliased_from_module() const;
+
             //! States that this symbol is a BLOCK DATA program unit
             /*! \note This only applies to Fortran */
             bool is_fortran_blockdata() const;
             
             //! States whether this symbol is a parameter of a function
             bool is_parameter() const;
-            //! Returns the position of this parameter
-            int get_parameter_position() const;
 
             //! States whether this symbol is a template parameter
             bool is_template_parameter() const;
@@ -203,6 +248,15 @@ namespace TL
 
             //! States if this is a member entity
             bool is_member() const;
+
+            //! Gets the byte offset of the storage unit of this member
+            /*!
+             * Only meaningful for nonstatic variables otherwise it returns 0
+             *
+             * \note Make sure you have requested the size of the class, otherwise this field
+             * will have not been computed yet
+             */
+            int get_offset() const;
 
             //! States if this symbol is artificial
             /*!
@@ -226,6 +280,9 @@ namespace TL
             //! Returns the initialization tree
             Nodecl::NodeclBase get_initialization() const;
 
+            //! Returns the nodecl stored in the field _value
+            Nodecl::NodeclBase get_value() const;
+            
             //! States whether this symbol is static
             bool is_static() const;
             //! States whether this symbol is register
@@ -239,6 +296,41 @@ namespace TL
             
             //! Returns the size of the bitfield
             Nodecl::NodeclBase get_bitfield_size() const;
+
+            //! Returns the offset of the first byte used by the bitfield
+            /*!
+             * This is the offset in bytes where the first bit is laid out
+             *
+             * struct A
+             * {
+             *   char c;
+             *   int x : 12;
+             * };
+             *
+             * Symbol::get_offset of x will return 0 since a storage unit of an int
+             * can start at offset 0 of the struct
+             *
+             * Symbol::get_bitfield_offset of x will return 1, since the first bit is
+             * laid out right after c
+             *
+             * \note Since one cannot get the address of a bitfield, they do not have
+             * a well defined offset. Symbol::get_offset is the offset of the storage unit
+             * which they occupy (so they may be apparently sharing the offset with another
+             * member, like in the example shown above)
+             */
+            int get_bitfield_offset() const;
+
+            //! First bit of a bitfield inside its byte
+            int get_bitfield_first() const;
+
+            //! Last bit of a bitfield inside its byte
+            /*!
+             * It will be the same as first if the bitfield is 1 bit wide
+             *
+             * Do not assume that last is always greater than first, it can be
+             * lower. Whether it is lower or bigger depends on the architecture
+             */
+            int get_bitfield_last() const;
 
             //! States whether the symbol is user declared
             /*!
@@ -360,6 +452,9 @@ namespace TL
              */
             bool is_defined() const;
 
+            // States whether the symbol is defined inside a class specifier
+            bool is_defined_inside_class() const; 
+
             //! Do not use unless told to do so
             scope_entry_t* get_internal_symbol() const
             {
@@ -424,6 +519,12 @@ namespace TL
               */
             bool is_optional() const;
 
+            //! This Fortran program unit has a global SAVE
+            /*!
+             * States whether this program unit has a SAVE specifier with an empty name-list
+             */
+            bool is_saved_program_unit() const;
+
             //! This symbol is TARGET
             /*! 
               States whether this symbol has the TARGET attribute
@@ -466,7 +567,7 @@ namespace TL
 
             //! States if this symbol has a linkage different to that of the base language
             bool has_nondefault_linkage() const;
-            
+
             //! Returns the linkage identifier or empty if is the default
             std::string get_linkage() const;
 

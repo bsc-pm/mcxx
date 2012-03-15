@@ -1,8 +1,42 @@
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
+
+#ifdef HAVE_CONFIG_H
+  #include "config.h"
+#endif
+#ifdef HAVE_OPEN_MEMSTREAM
+  // Needed, otherwise open_memstream is not declared
+  #define _GNU_SOURCE
+#endif
 #include "cxx-nodecl.h"
 #include "cxx-exprtype.h"
 #include "cxx-utils.h"
 #include "cxx-codegen.h"
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 
 typedef
@@ -479,6 +513,10 @@ void nodecl_exchange(nodecl_t old_node, nodecl_t new_node)
     ERROR_CONDITION(nodecl_is_null(old_node), "Old node cannot be null", 0);
     ERROR_CONDITION(nodecl_is_null(new_node), "New node cannot be null", 0);
 
+    // Do nothing
+    if (nodecl_get_ast(old_node) == nodecl_get_ast(new_node))
+        return;
+
     nodecl_t parent_of_old = nodecl_get_parent(old_node);
 
     ERROR_CONDITION(nodecl_is_null(parent_of_old), "Without parent, exchange is not possible", 0);
@@ -552,14 +590,14 @@ const char* nodecl_stmt_to_source(nodecl_t n)
 
     const char* c = nodecl_to_source(n);
     int ITEMS = strlen(c) + strlen(PRE) + strlen(POST);
-    char result[1 + ITEMS];
+    char result[2 + ITEMS];
 
-    snprintf(result, ITEMS, "%s%s%s", PRE, c, POST);
+    snprintf(result, ITEMS + 1, "%s%s%s", PRE, c, POST);
 
 #undef PRE
 #undef POST
 
-    return uniquestr(c);
+    return uniquestr(result);
 }
 
 const char* nodecl_expr_to_source(nodecl_t n)
@@ -569,14 +607,14 @@ const char* nodecl_expr_to_source(nodecl_t n)
 
     const char* c = nodecl_to_source(n);
     int ITEMS = strlen(c) + strlen(PRE) + strlen(POST);
-    char result[1 + ITEMS];
+    char result[2 + ITEMS];
 
-    snprintf(result, ITEMS, "%s%s%s", PRE, c, POST);
+    snprintf(result, ITEMS + 1, "%s%s%s", PRE, c, POST);
 
 #undef PRE
 #undef POST
 
-    return uniquestr(c);
+    return uniquestr(result);
 }
 
 static const char* nodecl_to_source(nodecl_t n)
@@ -587,7 +625,7 @@ static const char* nodecl_to_source(nodecl_t n)
 
     if (!nodecl_is_null(n))
     {
-        fprintf(string_stream, "(\"ast=%p\")", nodecl_get_ast(n));
+        fprintf(string_stream, "\"ast=%p\"", nodecl_get_ast(n));
     }
 
     fclose(string_stream);
@@ -616,25 +654,22 @@ nodecl_t nodecl_make_from_ast_nodecl_literal(AST a)
     for_each_element(string_literal_list, it)
     {
         AST current_string_literal = ASTSon1(it);
-        char* literal = strdup(ASTText(current_string_literal));
+        char* temp = strdup(ASTText(current_string_literal));
+        char* literal = temp;
         ERROR_CONDITION(literal == NULL, "Text cannot be null", 0);
+
+        ERROR_CONDITION(*literal != '"', "Malformed string literal", 0);
 
         // Ignore "
         literal += 1;
 
-        char* delim = strchr(literal, ':');
+        char* delim = strchr(literal, '=');
 
         ERROR_CONDITION(delim == NULL || delim == literal, "Malformed string literal", 0);
 
-        char attr_name[delim - literal + 1];
-        memset(attr_name, 0, sizeof(attr_name));
-
-        strncpy(attr_name, literal, delim - literal);
-
-        // These two 1 cancel each other, but this way is clearer what we mean
-        char value[strlen(literal) - (delim - literal + 1) + 1];
-        memset(value, 0, sizeof(value));
-        strncpy(value, delim + 1, strlen(literal) - (delim - literal + 1));
+        *delim = '\0';
+        char* value = delim + 1;
+        char* attr_name = literal;
 
         // Erase trailing "
         delim = strchr(value, '"');
@@ -653,7 +688,7 @@ nodecl_t nodecl_make_from_ast_nodecl_literal(AST a)
             internal_error("Malformed nodecl literal. Unknown property '%s'\n", attr_name);
         }
 
-        free(literal);
+        free(temp);
     }
 
     return result;

@@ -1,5 +1,5 @@
 ##########################################################################
-#  (C) Copyright 2006-2011 Barcelona Supercomputing Center               #
+#  (C) Copyright 2006-2012 Barcelona Supercomputing Center               #
 #                          Centro Nacional de Supercomputacion           #
 #                                                                        #
 #  This file is part of Mercurium C/C++ source-to-source compiler.       #
@@ -59,6 +59,9 @@ check-local: prepare-check
 	$(MAKE) -C config
 	$(MAKE) -C .
 	./config/bets $(BETS_OPTIONS) $(BETS_DIRS)
+
+fortran-check : prepare-check
+	./config/bets $(BETS_OPTIONS) $(BETS_DIRS)/01_fortran.dg $(BETS_DIRS)/06_phases_openmp.dg/common/fortran
 
 dist-hook:
 	for i in $(srcdir)/*.dg; \

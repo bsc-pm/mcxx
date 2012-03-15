@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -23,6 +23,7 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
 
 
 
@@ -86,6 +87,15 @@ tl_type_t tl_object(void *data)
     
     result.kind = TL_OTHER;
     result.data._data = data;
+
+    return result;
+}
+
+tl_type_t tl_nodecl(nodecl_t n)
+{
+    tl_type_t result;
+    result.kind = TL_NODECL;
+    result.data._nodecl = n;
 
     return result;
 }

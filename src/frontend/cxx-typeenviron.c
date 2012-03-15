@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -23,6 +23,7 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
 
 
 #ifdef HAVE_CONFIG_H
@@ -59,6 +60,14 @@ static void next_offset_with_align(_size_t* current_offset, _size_t required_ali
     // arithmetic, but I felt lazy when I wrote that
     while ((*current_offset) % required_align != 0)
         (*current_offset)++;
+}
+
+// This returns the offset of the storage unit of a bitfield
+static _size_t compute_bitfield_offset(_size_t offset, _size_t required_align)
+{
+    while (offset % required_align != 0)
+        offset--;
+    return offset;
 }
 
 static int round_to_upper_byte(_size_t bit_offset)
@@ -115,9 +124,11 @@ static void system_v_field_layout(scope_entry_t* field,
     if (is_array_type(field_type)
             && nodecl_is_null(array_type_get_array_size_expr(field_type)))
     {
-        if (!is_last_field)
+        if (!is_last_field 
+                // Fortran stuff
+                && !array_type_with_descriptor(field_type))
         {
-            running_error("Invalid unbounded array found when computing type of struct\n", 0);
+            internal_error("Invalid unbounded array found when computing type of struct\n", 0);
         }
         else
         {
@@ -157,7 +168,7 @@ static void system_v_field_layout(scope_entry_t* field,
         }
         else
         {
-            // Fix the offset since we are one byte ahed
+            // Fix the offset since we are one byte ahead
             if ((*offset) > 0)
             {
                (*offset) = (*offset) - 1; 
@@ -220,6 +231,26 @@ static void system_v_field_layout(scope_entry_t* field,
 
         // Now update current bit
         (*current_bit_within_storage) = initial_bit + filled_bits;
+        
+        // Store the byte boundary (*offset) for this field
+        // Note that the byte boundary is aligned to the storage unit of this bitfield
+        // which may be shared with another (possibly bitfield)field
+        _size_t bitfield_offset = compute_bitfield_offset((*offset), field_align);
+        field->entity_specs.field_offset = bitfield_offset;
+        field->entity_specs.bitfield_offset = (*offset);
+
+        if (CURRENT_CONFIGURATION->type_environment->endianness == ENV_LITTLE_ENDIAN)
+        {
+            // Little endian lays bits starting from the least significant one
+            field->entity_specs.bitfield_first = initial_bit;
+            field->entity_specs.bitfield_last = field->entity_specs.bitfield_first + (filled_bits - 1);
+        }
+        else
+        {
+            // Big endian lays bits starting from the most significant one
+            field->entity_specs.bitfield_first = (field_size * 8 - initial_bit) - 1;
+            field->entity_specs.bitfield_last = field->entity_specs.bitfield_first - (filled_bits - 1);
+        }
 
         // Advance always the offset (we will go backwards for consecutive bitfields)
         (*offset) += round_to_upper_byte(filled_bits);
@@ -237,7 +268,7 @@ static void system_v_field_layout(scope_entry_t* field,
         // the "internal padding"
         next_offset_with_align(&(*offset), field_align);
 
-        // Store the (*offset) for this field
+        // Store the byte boundary (*offset) for this field
         field->entity_specs.field_offset = (*offset);
 
         // Now update the (*offset), we have to advance at least field_size
@@ -785,7 +816,7 @@ static void cxx_abi_register_subobject_offset(layout_info_t* layout_info,
         {
             scope_entry_t* nonstatic_data_member = entry_list_iterator_current(it);
 
-            // Bitfields do not have offset!
+            // Bitfields are not taken into account here
             if (!nonstatic_data_member->entity_specs.is_bitfield)
             {
                 _size_t field_offset = nonstatic_data_member->entity_specs.field_offset;
@@ -989,6 +1020,24 @@ static void cxx_abi_lay_bitfield(type_t* t UNUSED_PARAMETER,
 
             filled_bits = bitsize;
         }
+        
+        // Keep the storage unit boundary offset of this bitfield
+        _size_t bitfield_offset = compute_bitfield_offset(offset, member_align);
+        member->entity_specs.field_offset = bitfield_offset;
+        member->entity_specs.bitfield_offset = offset;
+
+        if (CURRENT_CONFIGURATION->type_environment->endianness == ENV_LITTLE_ENDIAN)
+        {
+            // Little endian lays bits starting from the least significant one
+            member->entity_specs.bitfield_first = initial_bit;
+            member->entity_specs.bitfield_last = member->entity_specs.bitfield_first + (filled_bits - 1);
+        }
+        else
+        {
+            // Big endian lays bits starting from the most significant one
+            member->entity_specs.bitfield_first = (size_of_member * 8 - initial_bit) - 1;
+            member->entity_specs.bitfield_last = member->entity_specs.bitfield_first - (filled_bits - 1);
+        }
 
         // Update align if not unnamed
         if (!member->entity_specs.is_unnamed_bitfield)
@@ -1001,12 +1050,17 @@ static void cxx_abi_lay_bitfield(type_t* t UNUSED_PARAMETER,
         _size_t integral_type_align = type_get_alignment(align_integral_type);
 
         next_offset_with_align(&offset, integral_type_align);
+        
+        // Keep the byte boundary offset of this bitfield
+        member->entity_specs.field_offset = offset;
 
         // Advance the required amount of bytes
         used_bytes += bitsize / 8;
         // And we save the bit in the last (partially) filled byte
         initial_bit = 0;
         filled_bits = bitsize % 8;
+
+        // FIXME - bitfield_first and bitfield_last not filled here!
 
         // Update align if not unnamed
         if (!member->entity_specs.is_unnamed_bitfield)
@@ -1458,12 +1512,13 @@ static void cxx_abi_class_sizeof(type_t* class_type)
 
     DEBUG_SIZEOF_CODE()
     {
-        fprintf(stderr, "Final layout of class '%s'\n\n", print_declarator(class_type));
+        fprintf(stderr, "Final layout of class '%s'\n", print_declarator(class_type));
         cxx_abi_print_layout(&layout_info);
         fprintf(stderr, "sizeof == %zu\n", type_get_size(class_type));
         fprintf(stderr, "dsize == %zu\n", type_get_data_size(class_type));
         fprintf(stderr, "nvsizeof == %zu\n", class_type_get_non_virtual_size(class_type));
         fprintf(stderr, "nvalign == %zu\n", class_type_get_non_virtual_align(class_type));
+        fprintf(stderr, "\n");
     }
 }
 
@@ -1534,7 +1589,14 @@ void generic_system_v_sizeof(type_t* t)
         return;
     }
 
-    internal_error("Unreachable code", 0);
+    FORTRAN_LANGUAGE()
+    {
+        // For Fortran we don't do fancy things
+        system_v_generic_sizeof(t);
+        return;
+    }
+
+    internal_error("Language not supported", 0);
 }
 
 struct floating_type_info_tag binary_float_16 =
@@ -1648,6 +1710,8 @@ void init_type_environments(void)
     linux_ia32.environ_id = "linux-i386";
     linux_ia32.environ_name = "Linux IA32";
 
+    linux_ia32.endianness = ENV_LITTLE_ENDIAN;
+
     linux_ia32.sizeof_bool = 1;
     linux_ia32.alignof_bool = 1;
 
@@ -1712,6 +1776,8 @@ void init_type_environments(void)
     // ***************************+***************
     linux_amd64.environ_id = "linux-x86_64";
     linux_amd64.environ_name = "Linux AMD64/EMT64";
+
+    linux_amd64.endianness = ENV_LITTLE_ENDIAN;
 
     // '_Bool' in C99
     // 'bool' in C++
@@ -1787,6 +1853,8 @@ void init_type_environments(void)
     linux_ia64.environ_id = "linux-ia64";
     linux_ia64.environ_name = "Linux Itanium";
 
+    linux_ia64.endianness = ENV_LITTLE_ENDIAN;
+
     // '_Bool' in C99
     // 'bool' in C++
     linux_ia64.sizeof_bool = 1;
@@ -1850,6 +1918,8 @@ void init_type_environments(void)
     // ***************************+***************
     linux_ppc32.environ_id = "linux-ppc32";
     linux_ppc32.environ_name = "Linux PowerPC 32";
+
+    linux_ia64.endianness = ENV_BIG_ENDIAN;
 
     // '_Bool' in C99
     // 'bool' in C++
@@ -1919,6 +1989,8 @@ void init_type_environments(void)
     // ***************************+***************
     linux_ppc64.environ_id = "linux-ppc64";
     linux_ppc64.environ_name = "Linux PowerPC 64";
+
+    linux_ppc64.endianness = ENV_BIG_ENDIAN;
 
     // '_Bool' in C99
     // 'bool' in C++
@@ -1990,6 +2062,8 @@ void init_type_environments(void)
     linux_spu.environ_id = "linux-spu";
     linux_spu.environ_name = "Linux SPU";
 
+    linux_spu.endianness = ENV_BIG_ENDIAN;
+
     // '_Bool' in C99
     // 'bool' in C++
     linux_spu.sizeof_bool = 1;
@@ -2054,6 +2128,8 @@ void init_type_environments(void)
     // ***************************+***************
     solaris_sparcv9.environ_id = "solaris-sparcv9";
     solaris_sparcv9.environ_name = "Solaris SPARCv9";
+
+    solaris_sparcv9.endianness = ENV_BIG_ENDIAN;
 
     // '_Bool' in C99
     // 'bool' in C++
@@ -2127,6 +2203,8 @@ void init_type_environments(void)
     // ***************************+***************
     linux_arm_eabi.environ_id = "linux-arm";
     linux_arm_eabi.environ_name = "Linux ARM (GNUEABI)";
+
+    linux_arm_eabi.endianness = ENV_LITTLE_ENDIAN;
 
     // '_Bool' in C99
     // 'bool' in C++

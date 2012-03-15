@@ -1,5 +1,5 @@
 ##########################################################################
-#  (C) Copyright 2006-2011 Barcelona Supercomputing Center               #
+#  (C) Copyright 2006-2012 Barcelona Supercomputing Center               #
 #                          Centro Nacional de Supercomputacion           #
 #                                                                        #
 #  This file is part of Mercurium C/C++ source-to-source compiler.       #
@@ -63,10 +63,10 @@ libmf03_la_SOURCES = \
                      fortran03-intrinsics-simplify.h \
                      fortran03-intrinsics.c \
                      fortran03-modules.h \
+                     fortran03-modules-data.h \
                      fortran03-modules-bits.h \
                      fortran03-modules.c \
                      fortran03-codegen.h \
-                     fortran03-codegen.c \
                      libmf03-common.h \
                      $(END)
 
@@ -90,6 +90,7 @@ libmf03_la_CFLAGS = -DLIBMF03_DLL_EXPORT \
 				    -I$(top_srcdir)/src/driver \
 				    -I$(top_srcdir)/src/driver/fortran \
                     -fexceptions \
+					-std=gnu99 \
 				    -DPKGDATADIR=\"$(pkgdatadir)\" \
                     $(sqlite3_CFLAGS) \
                     $(END)
@@ -123,7 +124,10 @@ libmf03_prescanner_la_LDFLAGS = $(dll_exports) -avoid-version $(no_undefined)
 ADDITIONAL_GRAMMARS_FORTRAN = 
 ADDITIONAL_GRAMMARS_FORTRAN += fortran03-subparse.y
 
-ADDITIONAL_GRAMMARS = ../cxx-pragma.y $(ADDITIONAL_GRAMMARS_FORTRAN)
+ADDITIONAL_GRAMMARS = ../cxx-pragma.y \
+					  ../cxx-nodecl.y \
+					  ../cxx-placeholders.y \
+                      $(ADDITIONAL_GRAMMARS_FORTRAN)
 
 EXTRA_DIST += $(ADDITIONAL_GRAMMARS_FORTRAN)
 

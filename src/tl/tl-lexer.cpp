@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -25,6 +25,7 @@
 --------------------------------------------------------------------*/
 
 
+
 #ifdef HAVE_CONFIG_H
  #include "config.h"
 #endif
@@ -35,9 +36,7 @@
 #include "c99-parser.h"
 #include "cxx-parser.h"
 #include "cxx-lexer.h"
-#ifdef FORTRAN_SUPPORT
 #include "fortran03-parser.h"
-#endif
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -66,14 +65,12 @@ extern "C"
 
     extern token_atrib_t mcxxlval;
 
-#ifdef FORTRAN_SUPPORT
     extern YY_BUFFER_STATE mf03_scan_string (const char *yy_str);
     extern void mf03_switch_to_buffer (YY_BUFFER_STATE new_buffer);
     extern void mf03_delete_buffer(YY_BUFFER_STATE b);
     extern int mf03lex(void);
 
     extern token_atrib_t mf03lval;
-#endif
 }
 
 namespace TL {
@@ -152,10 +149,6 @@ namespace TL {
         public:
         ObjectList<Lexer::pair_token> lex_string(const std::string& str)
         {
-#ifndef FORTRAN_SUPPORT
-            internal_error("Fortran not supported", 0);
-            return ObjectList<Lexer::pair_token>();
-#else
             ObjectList<Lexer::pair_token> result;
 
             char *line = ::strdup(str.c_str());
@@ -178,7 +171,6 @@ namespace TL {
             ::free(line);
 
             return result;
-#endif
         }
     };
 

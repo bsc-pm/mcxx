@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -23,6 +23,7 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
 
 
 
@@ -67,12 +68,22 @@ typedef struct floating_type_info_tag floating_type_info_t;
 
 #define MAX_DIFFERENT_FLOATS 8
 
+typedef
+enum endianness_tag
+{
+    ENV_BIG_ENDIAN,
+    ENV_LITTLE_ENDIAN,
+} endianness_t;
+
 struct type_environment_tag
 {
     // This is a short name (without blanks) used to identify it in the config file
     const char* environ_id;
     // A more descriptive name
     const char* environ_name;
+
+    // Endianness
+    endianness_t endianness;
 
     // bool
     _size_t sizeof_bool;

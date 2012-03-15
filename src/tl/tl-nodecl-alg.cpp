@@ -1,3 +1,29 @@
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
+
 #include "tl-nodecl-alg.hpp"
 #include "tl-nodecl-calc.hpp"
 #include "tl-predicateutils.hpp"
@@ -35,6 +61,13 @@ namespace Nodecl
         return sym_list;
     }
 
+    static bool is_parameter_of_another_function(TL::Symbol symbol, TL::Scope sc)
+    {
+        return (symbol.is_parameter()
+                && (symbol.get_scope().get_decl_context().current_scope->related_entry 
+                    != sc.get_decl_context().current_scope->related_entry));
+    }
+
     struct IsLocalSymbol : TL::Predicate<TL::Symbol>
     {
         private:
@@ -50,7 +83,28 @@ namespace Nodecl
             {
                 // If its scope is contained in the base node one, then it is
                 // "local"
-                return sym.get_scope().scope_is_enclosed_by(_sc);
+                return sym.get_scope().scope_is_enclosed_by(_sc)
+                    && !is_parameter_of_another_function(sym, _sc);
+            }
+    };
+
+    struct IsNonLocalSymbol : TL::Predicate<TL::Symbol>
+    {
+        private:
+            TL::Scope _sc;
+
+        public:
+            IsNonLocalSymbol(Nodecl::NodeclBase root)
+                : _sc(root.retrieve_context())
+            {
+            }
+
+            virtual bool do_(const TL::Symbol& sym) const
+            {
+                // If its scope is not contained in the base node one, then it
+                // is "nonlocal"
+                return !sym.get_scope().scope_is_enclosed_by(_sc)
+                    && !is_parameter_of_another_function(sym, _sc);
             }
     };
 
@@ -62,8 +116,8 @@ namespace Nodecl
 
     TL::ObjectList<TL::Symbol> Utils::get_nonlocal_symbols(Nodecl::NodeclBase n)
     {
-        IsLocalSymbol local(n);
-        return get_all_symbols(n).filter(negate(local));
+        IsNonLocalSymbol non_local(n);
+        return get_all_symbols(n).filter(non_local);
     }
 
     static void get_all_symbols_occurrences_rec(Nodecl::NodeclBase n, TL::ObjectList<Nodecl::Symbol> &result)
@@ -96,19 +150,34 @@ namespace Nodecl
     struct IsLocalOcurrence : TL::Predicate<Nodecl::Symbol>
     {
         private:
-            TL::Scope _sc;
+            IsLocalSymbol _pred;
 
         public:
             IsLocalOcurrence(Nodecl::NodeclBase root)
-                : _sc(root.retrieve_context())
+                : _pred(root)
             {
             }
 
             virtual bool do_(const Nodecl::Symbol& n) const
             {
-                // If its scope is contained in the base node one, then it is
-                // "local"
-                return n.get_symbol().get_scope().scope_is_enclosed_by(_sc);
+                return _pred(n.get_symbol());
+            }
+    };
+
+    struct IsNonLocalOcurrence : TL::Predicate<Nodecl::Symbol>
+    {
+        private:
+            IsNonLocalSymbol _pred;
+
+        public:
+            IsNonLocalOcurrence(Nodecl::NodeclBase root)
+                : _pred(root)
+            {
+            }
+
+            virtual bool do_(const Nodecl::Symbol& n) const
+            {
+                return _pred(n.get_symbol());
             }
     };
 
@@ -120,8 +189,8 @@ namespace Nodecl
 
     TL::ObjectList<Nodecl::Symbol> Utils::get_nonlocal_symbols_occurrences(Nodecl::NodeclBase n)
     {
-        IsLocalOcurrence local(n);
-        return get_all_symbols_occurrences(n).filter(negate(local));
+        IsNonLocalOcurrence local(n);
+        return get_all_symbols_occurrences(n).filter(local);
     }
 
     static void get_all_symbols_first_occurrence_rec(Nodecl::NodeclBase n, TL::ObjectList<Nodecl::Symbol> &result)
@@ -160,8 +229,8 @@ namespace Nodecl
 
     TL::ObjectList<Nodecl::Symbol> Utils::get_nonlocal_symbols_first_occurrence(Nodecl::NodeclBase n)
     {
-        IsLocalOcurrence local(n);
-        return get_all_symbols_first_occurrence(n).filter(negate(local));
+        IsNonLocalOcurrence local(n);
+        return get_all_symbols_first_occurrence(n).filter(local);
     }
 
     static bool equal_trees_rec(nodecl_t n1, nodecl_t n2)

@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -25,6 +25,7 @@
 --------------------------------------------------------------------*/
 
 
+
 #ifndef TL_FORTRAN
 #define TL_FORTRAN
 
@@ -32,7 +33,6 @@
  #include "config.h"
 #endif
 
-#ifdef FORTRAN_SUPPORT
 
 #include "tl-common.hpp"
 #include "tl-langconstruct.hpp"
@@ -112,7 +112,5 @@ namespace TL { namespace Fortran {
             static const PredicateAttr predicate;
     };
 } }
-
-#endif
 
 #endif

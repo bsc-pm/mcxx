@@ -23,7 +23,11 @@ subparsing : SUBPARSE_STATEMENT block
 {
     $$ = $2;
 }
-| SUBPARSE_PROGRAM_UNIT program_unit
+| SUBPARSE_EXPRESSION common_name EOS
+{
+    $$ = $2;
+}
+| SUBPARSE_PROGRAM_UNIT program_unit_seq
 {
     $$ = $2;
 }

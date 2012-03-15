@@ -1,3 +1,29 @@
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
+
 #ifndef CODEGEN_CXX_HPP
 #define CODEGEN_CXX_HPP
 
@@ -44,7 +70,9 @@ namespace Codegen
             Ret visit(const Nodecl::ConditionalExpression &);
             Ret visit(const Nodecl::Context &);
             Ret visit(const Nodecl::ContinueStatement &);
+            Ret visit(const Nodecl::SavedExpr &);
             Ret visit(const Nodecl::Conversion &);
+            Ret visit(const Nodecl::CxxArrow &);
             Ret visit(const Nodecl::CxxBracedInitializer &);
             Ret visit(const Nodecl::CxxDepGlobalNameNested &);
             Ret visit(const Nodecl::CxxDepNameConversion &);
@@ -52,6 +80,7 @@ namespace Codegen
             Ret visit(const Nodecl::CxxDepNameSimple &);
             Ret visit(const Nodecl::CxxDepTemplateId &);
             Ret visit(const Nodecl::CxxEqualInitializer &);
+            Ret visit(const Nodecl::CxxMemberInit &);
             Ret visit(const Nodecl::CxxExplicitTypeCast &);
             Ret visit(const Nodecl::CxxParenthesizedInitializer &);
             Ret visit(const Nodecl::DefaultStatement &);
@@ -71,6 +100,7 @@ namespace Codegen
             Ret visit(const Nodecl::ForStatement &);
             Ret visit(const Nodecl::FunctionCall &);
             Ret visit(const Nodecl::FunctionCode &);
+            Ret visit(const Nodecl::TemplateFunctionCode &);
             Ret visit(const Nodecl::GotoStatement &);
             Ret visit(const Nodecl::GreaterOrEqualThan &);
             Ret visit(const Nodecl::GreaterThan &);
@@ -140,6 +170,7 @@ namespace Codegen
             Ret visit(const Nodecl::GccAsmDefinition& node);
             Ret visit(const Nodecl::GccAsmOperand& node);
             Ret visit(const Nodecl::GccAsmSpec& node);
+            Ret visit(const Nodecl::GccBuiltinVaArg& node);
             Ret visit(const Nodecl::UpcSyncStatement& node);
             Ret visit(const Nodecl::SourceComment& node);
             Ret visit(const Nodecl::PreprocessorLine& node);
@@ -155,14 +186,26 @@ namespace Codegen
                 TL::Symbol global_namespace;
                 TL::Symbol opened_namespace;
 
+                enum EmitDeclarations
+                {
+                    EMIT_ALL_DECLARATIONS,
+                    EMIT_CURRENT_SCOPE_DECLARATIONS,
+                    EMIT_NO_DECLARATIONS,
+                };
+
+                EmitDeclarations emit_declarations;
+
                 bool in_condition;
                 Nodecl::NodeclBase condition_top;
 
                 bool in_member_declaration;
 
+                bool in_dependent_template_function_code;
+
                 bool inside_structured_value;
 
                 TL::ObjectList<TL::Symbol> classes_being_defined;
+
 
                 std::set<TL::Type> walked_types;
 
@@ -172,8 +215,14 @@ namespace Codegen
                 // Used in define_required_before_class and define_symbol_if_nonnested
                 std::set<TL::Symbol> pending_nested_types_to_define;
                 
+                // Used in define_generic_entities  
+                std::set<TL::Symbol> walked_symbols;
+
+                // Object init
+                std::set<TL::Symbol> must_be_object_init;
+
                 // This means that we are doing &X and X is a rebindable reference
-                bool referenced_rebindable_reference;
+                bool do_not_derref_rebindable_reference;
 
                 // Not meant to be used directly, use functions 
                 // get_indent_level, set_indent_level
@@ -184,15 +233,19 @@ namespace Codegen
                     : current_scope(),
                     global_namespace(),
                     opened_namespace(),
+                    emit_declarations(EMIT_NO_DECLARATIONS),
                     in_condition(false),
                     condition_top(Nodecl::NodeclBase::null()),
                     in_member_declaration(false),
+                    in_dependent_template_function_code(false),
                     inside_structured_value(),
                     classes_being_defined(),
                     walked_types(),
                     being_checked_for_required(),
                     pending_nested_types_to_define(),
-                    referenced_rebindable_reference(false),
+                    walked_symbols(),
+                    must_be_object_init(),
+                    do_not_derref_rebindable_reference(false),
                     _indent_level(0) { }
             } state;
             // End of State
@@ -219,20 +272,32 @@ namespace Codegen
                     );
 
             bool is_local_symbol(TL::Symbol entry);
+            bool is_prototype_symbol(TL::Symbol entry);
+            bool all_enclosing_classes_are_user_declared(TL::Symbol entry);
 
             void define_all_entities_in_trees(const Nodecl::NodeclBase&);
             void define_nonlocal_entities_in_trees(const Nodecl::NodeclBase&);
+            void define_nonlocal_nonprototype_entities_in_trees(const Nodecl::NodeclBase& node);
+            void define_nonprototype_entities_in_trees(const Nodecl::NodeclBase& node);
             void define_nonnested_entities_in_trees(const Nodecl::NodeclBase&);
             void define_local_entities_in_trees(const Nodecl::NodeclBase&);
 
             void declare_symbol_if_nonlocal(TL::Symbol);
             void define_symbol_if_nonlocal(TL::Symbol);
 
+            void declare_symbol_if_nonlocal_nonprototype(TL::Symbol);
+            void define_symbol_if_nonlocal_nonprototype(TL::Symbol);
+
+            void declare_symbol_if_nonprototype(TL::Symbol);
+            void define_symbol_if_nonprototype(TL::Symbol);
+
             void declare_symbol_if_local(TL::Symbol);
             void define_symbol_if_local(TL::Symbol);
 
             void declare_symbol_if_nonnested(TL::Symbol);
             void define_symbol_if_nonnested(TL::Symbol);
+
+            void define_specializations_user_declared(TL::Symbol);
 
             void walk_type_for_symbols(TL::Type, 
                     bool needs_def, 
@@ -273,6 +338,9 @@ namespace Codegen
             template <typename Iterator>
             void walk_expression_unpacked_list(Iterator begin, Iterator end);
 
+            template <typename Iterator>
+                void codegen_function_call_arguments(Iterator begin, Iterator end, TL::Type function_type, int ignore_n_first);
+
             template <typename Node>
                 CxxBase::Ret visit_function_call(const Node&, bool is_virtual_call);
 
@@ -288,8 +356,14 @@ namespace Codegen
             static std::string unmangle_symbol_name(TL::Symbol);
 
             void declare_all_in_template_arguments(TL::TemplateParameters template_arguments);
+            
+            void declare_all_in_template_header(TL::TemplateParameters template_arguments);
 
-            void codegen_template_parameters(TL::TemplateParameters template_parameters);
+            void codegen_template_headers_all_levels(TL::TemplateParameters template_parameters);
+            
+            void codegen_template_headers_bounded(TL::TemplateParameters template_parameters, TL::TemplateParameters lim);
+
+            void codegen_template_header(TL::TemplateParameters template_parameters, bool endline = true);
 
             std::string template_arguments_to_str(TL::Symbol);
 

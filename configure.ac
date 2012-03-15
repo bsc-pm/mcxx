@@ -109,62 +109,15 @@ TL_EXTENSIONS=""
 TL_OMP_EXTENSIONS=""
 INSTALL_CONFIG_FILES="00.config.plain"
 
-COMPILER_NAMES="plaincxx plaincc"
-
-dnl ----- Fortran support ----
-
-FRONTEND_EXTENSIONS=""
-
-is_enabled_fortran="no"
-AC_MSG_CHECKING([if enabled Fortran support in the compiler])
-AC_ARG_ENABLE([fortran],
-    AS_HELP_STRING([--enable-fortran], [Enables Fortran support. This is EXPERIMENTAL]),
-    [
-      if test x$enableval = xyes -o x$enableval = x;
-      then
-         is_enabled_fortran="yes"
-         AC_MSG_RESULT([yes])
-      else if test x$enableval = xno;
-           then
-              is_enabled_fortran="no"
-              AC_MSG_RESULT([no])
-           else
-              AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
-           fi
-      fi
-    ],
-    [
-       AC_MSG_RESULT([no])
-    ]
-)
-
-fortran_enabled=no
-if test x$is_enabled_fortran = xyes;
-then
-    FRONTEND_EXTENSIONS=" fortran"
-    AC_DEFINE([FORTRAN_SUPPORT], 1, [Define to 1 if Fortran support is enabled in the compiler])
-    COMPILER_NAMES="${COMPILER_NAMES} plainf95 plainfc"
-    fortran_enabled=yes
-fi
-
-AM_CONDITIONAL(FORTRAN_SUPPORT, test x$is_enabled_fortran = xyes)
-
-AC_SUBST([fortran_enabled])
-
-AC_SUBST([FRONTEND_EXTENSIONS])
-
-dnl ----- End of Fortran support ----
+COMPILER_NAMES="plaincxx plaincc plainfc plainf95"
 
 dnl ----- SQLITE - Required only for fortran ---
 
 PKG_PROG_PKG_CONFIG
 
-if test x$is_enabled_fortran = xyes;
-then
-    PKG_CHECK_MODULES([sqlite3], [sqlite3 >= 3.6.16],
-            [], 
-            AC_MSG_WARN([Fortran support requires sqlite 3.6.16]))
-fi
+PKG_CHECK_MODULES([sqlite3], [sqlite3 >= 3.6.16],
+                  [], 
+                  AC_MSG_ERROR([Fortran support requires sqlite 3.6.16]))
 
 AC_SUBST([sqlite3_CFLAGS])
 AC_SUBST([sqlite3_LIBS])
@@ -299,11 +252,8 @@ then
 # mcxx always gets installed
    COMPILER_NAMES="${COMPILER_NAMES} mcc"
 
-   if test x$is_enabled_fortran = xyes;
-   then
-      INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.fortran"
-      COMPILER_NAMES="${COMPILER_NAMES} mf95 mfc"
-   fi
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.fortran"
+   COMPILER_NAMES="${COMPILER_NAMES} mf95 mfc"
    
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.cuda 50.config.ocl 50.config.gpu"
 fi
@@ -332,7 +282,7 @@ dnl Region support
 nanox_regions="no"
 AC_MSG_CHECKING([if Nanos++ regions support is enabled])
 AC_ARG_ENABLE([nanox-regions],
-  AS_HELP_STRING([--enable-nanox-regions], [Enables support of regions in Nanos++]),
+  AS_HELP_STRING([--enable-nanox-regions], [Enables support of regions in tests of Nanos++]),
   [
     if test x$enableval = xyes -o x$enableval = x;
     then
@@ -609,8 +559,7 @@ AC_ARG_ENABLE([tl-openmp-profile],
 dnl --------------------- Shared between Nanox and Nanos4 ------------------
 if test x$is_enabled_tl_omp_nanos4 = xyes \
       -o x$is_enabled_tl_omp_nanox = xyes \
-      -o x$is_enabled_tl_omp_profile = xyes \
-      -o x$is_enabled_fortran = xyes ;
+      -o x$is_enabled_tl_omp_profile = xyes;
 then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 10.config.omp-base 50.config.omp.mercurium"
    TL_EXTENSIONS="${TL_EXTENSIONS} omp"
@@ -1502,12 +1451,9 @@ echo ""
 echo " * Default type environment : " $default_type_environ
 echo "   Host supports __float128 and quadmath.h : " $have_float_128
 echo ""
-echo " * Fortran support (EXPERIMENTAL): " $is_enabled_fortran
-if test x$is_enabled_fortran = xyes;
-then
-   echo "   SQLite 3 cflags: " $sqlite3_CFLAGS
-   echo "   SQLite 3 libs: " $sqlite3_LIBS
-fi
+echo " * Fortran support : yes"
+echo "   SQLite 3 cflags: " $sqlite3_CFLAGS
+echo "   SQLite 3 libs: " $sqlite3_LIBS
 echo ""
 echo " * TL Examples will be built :" $is_enabled_tl_examples
 echo ""
@@ -1522,7 +1468,7 @@ then
      AC_MSG_WARN([directory '${nanox_include}' does not seem to exist, compilation is likely to fail])
   fi
 
-	echo "   Nanos++ regions support:" $nanox_regions
+	echo "   Nanos++ tests regions support:" $nanox_regions
 fi
 
 echo "   GPU testing enabled:" $gpu_valid

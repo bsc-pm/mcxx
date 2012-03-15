@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -26,6 +26,7 @@
 
 
 
+
 #include "tl-symbol.hpp"
 #include "tl-type.hpp"
 #include "tl-scope.hpp"
@@ -34,6 +35,9 @@
 #include "cxx-typeutils.h"
 #include "cxx-scope.h"
 #include "cxx-exprtype.h"
+
+#include "codegen-phase.hpp"
+#include "codegen-fortran.hpp"
 
 namespace TL
 {
@@ -52,6 +56,12 @@ namespace TL
         const char** parameter_names  = new const char*[num_parameters + 1];
         const char** param_attributes = new const char*[num_parameters + 1];
 
+        for (int i = 0; i < num_parameters; i++)
+        {
+            parameter_names[i] = NULL;
+            param_attributes[i] = NULL;
+        }
+
         int orig_size = parameters.size();
         for (int i = 0; i < orig_size; i++)
         {
@@ -65,12 +75,20 @@ namespace TL
         for (int i = 0; i < num_parameters; i++)
         {
             if (i < orig_size)
+            {
                 parameters[i] = parameter_names[i];
-            else
-                parameters[i].append(parameter_names[i]);
+            }
+            else 
+            {
+                if (parameter_names[i] != NULL)
+                    parameters.append(parameter_names[i]);
+                else
+                    parameters.append("");
+            }
         }
 
         delete[] parameter_names;
+        delete[] param_attributes;
 
         return result;
     }
@@ -87,6 +105,22 @@ namespace TL
     {
         return get_declaration_string_internal(_type_info, sc._decl_context,
                 symbol_name.c_str(), "", 0, 0, NULL, NULL, flags == PARAMETER_DECLARATION);
+    }
+
+    std::string Type::get_fortran_declaration(Scope sc, const std::string& symbol_name,
+            TypeDeclFlags flags)
+    {
+        if (!IS_FORTRAN_LANGUAGE)
+        {
+            running_error("This function cannot be called if we are not in Fortran", 0);
+        }
+
+        Codegen::FortranBase &codegen_phase = static_cast<Codegen::FortranBase&>(Codegen::get_current());
+
+        std::string type_specifier, array_specifier;
+        codegen_phase.codegen_type(*this, type_specifier, array_specifier, /* is_dummy */ flags == PARAMETER_DECLARATION);
+
+        return type_specifier + " :: " + symbol_name + array_specifier;
     }
 
     Type Type::get_pointer_to()
@@ -141,6 +175,20 @@ namespace TL
         decl_context_t decl_context = sc.get_decl_context();
 
         type_t* array_to = get_array_type_bounds(result_type, 
+                lower_bound.get_internal_nodecl(), 
+                upper_bound.get_internal_nodecl(), 
+                decl_context);
+
+        return Type(array_to);
+    }
+
+    Type Type::get_array_to_with_descriptor(Nodecl::NodeclBase lower_bound, Nodecl::NodeclBase upper_bound, Scope sc)
+    {
+        type_t* result_type = this->_type_info;
+
+        decl_context_t decl_context = sc.get_decl_context();
+
+        type_t* array_to = get_array_type_bounds_with_descriptor(result_type, 
                 lower_bound.get_internal_nodecl(), 
                 upper_bound.get_internal_nodecl(), 
                 decl_context);
@@ -277,6 +325,11 @@ namespace TL
         return ::is_dependent_typename_type(_type_info);
     }
 
+    bool Type::is_dependent() const
+    {
+        return is_dependent_type(_type_info);
+    }
+    
     void Type::dependent_typename_get_components(Symbol& entry_symbol, Nodecl::NodeclBase& parts)
     {
         scope_entry_t* entry = NULL;
@@ -406,6 +459,11 @@ namespace TL
                 && is_named_type(_type_info));
     }
 
+    Type Type::enum_get_underlying_type() const
+    {
+        return ::enum_type_get_underlying_type(_type_info);
+    }
+
     bool Type::is_named() const
     {
         return is_named_type(_type_info);
@@ -448,6 +506,16 @@ namespace TL
         if (is_array())
         {
             return (!array_type_is_unknown_size(_type_info));
+        }
+
+        return false;
+    }
+
+    bool Type::array_requires_descriptor() const
+    {
+        if (is_array())
+        {
+            return (array_type_with_descriptor(_type_info));
         }
 
         return false;
@@ -920,7 +988,7 @@ namespace TL
         return ::class_type_is_incomplete_dependent(_type_info);
     }
 
-    class_kind_t Type::class_type_get_class_kind() const
+    type_tag_t Type::class_type_get_class_kind() const
     {
         return ::class_type_get_class_kind(_type_info);
     }
@@ -1106,7 +1174,22 @@ namespace TL
     {
         return _tpl_param_value->is_default;
     }
-    
+
+    bool TemplateParameters::operator==(TemplateParameters t) const
+    {
+        return this->_tpl_params == t._tpl_params;
+    }
+
+    bool TemplateParameters::operator!=(TemplateParameters t) const
+    {
+        return !(this->operator==(t));
+    }
+
+    bool TemplateParameters::is_valid() const
+    {
+        return _tpl_params != NULL;
+    }
+
     int TemplateParameters::get_num_parameters() const
     {
         return _tpl_params->num_parameters;

@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -23,6 +23,7 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
 
 
 
@@ -245,24 +246,6 @@ enum spu_builtin_types {
     B_OVERLOAD, 
     B_INTERNAL
 };
-
-#if 0
-static char is_scalar_type(type_t* t)
-{
-    return is_integral_type(t) 
-        || is_floating_type(t)
-        || is_pointer_type(t);
-}
-
-static type_t* main_variant(type_t* t)
-{
-    if (is_vector_type(t))
-    {
-        return vector_type_get_element_type(t);
-    }
-    return t;
-}
-#endif
 
 static scope_entry_t* solve_spu_overload_name(scope_entry_t* overloaded_function, 
         type_t** types, 

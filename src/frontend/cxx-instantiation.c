@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -23,6 +23,7 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
 
 
 
@@ -52,14 +53,15 @@ static scope_entry_t* add_duplicate_member_to_class(decl_context_t context_of_be
         type_t* being_instantiated,
         scope_entry_t* member_of_template)
 {
-    scope_entry_t* new_member = new_symbol(context_of_being_instantiated, 
+    scope_entry_t* new_member = new_symbol(context_of_being_instantiated,
             context_of_being_instantiated.current_scope,
             member_of_template->symbol_name);
 
     *new_member = *member_of_template;
 
-    new_member->decl_context = context_of_being_instantiated;
     new_member->entity_specs.is_member = 1;
+    new_member->entity_specs.is_user_declared = 0;
+    new_member->decl_context = context_of_being_instantiated;
     new_member->entity_specs.class_type = being_instantiated;
 
     class_type_add_member(get_actual_class_type(being_instantiated), new_member);
@@ -477,6 +479,12 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                         anon_member->entity_specs.is_member = 1;
                         anon_member->entity_specs.class_type = being_instantiated;
                         anon_member->entity_specs.access = new_member->entity_specs.access;
+
+                        // The anonymous union will be defined in the class scope
+                        new_member->entity_specs.is_user_declared = 0;
+                        anon_member->entity_specs.is_user_declared = 0;
+                        primary_template->entity_specs.is_user_declared = 0;
+
                         class_type_add_member(being_instantiated, anon_member);
                     }
                 }
@@ -714,99 +722,325 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
             }
     }
 }
-
-static void instantiate_dependent_friend(type_t* selected_template UNUSED_PARAMETER,
-        type_t* being_instantiated, 
+static void instantiate_dependent_friend_class(type_t* selected_template UNUSED_PARAMETER,
+        type_t* being_instantiated,
         scope_entry_t* friend,
         decl_context_t context_of_being_instantiated,
         decl_context_t context_translation_function(decl_context_t UNUSED_PARAMETER, void* UNUSED_PARAMETER) UNUSED_PARAMETER,
         void *translation_data UNUSED_PARAMETER,
-        const char *filename, 
+        const char *filename,
         int line)
 {
-    if(friend->kind == SK_DEPENDENT_FRIEND_CLASS) 
+    scope_entry_t* new_friend = friend;
+    if (is_dependent_type(friend->type_information))
     {
-        nodecl_t name = instantiate_expression(friend->value, context_of_being_instantiated);
-        
-        // Search the name of the friend class
-        scope_entry_list_t* result_list = query_nodecl_name(context_of_being_instantiated, name);
-
-        // Now look for a type
-        enum cxx_symbol_kind filter_classes[] =
+        type_t* new_type = update_type_for_instantiation(friend->type_information,
+                context_of_being_instantiated,
+                filename,
+                line);
+        if (!is_dependent_typename_type(new_type))
         {
-            SK_CLASS,
-            /* SK_DEPENDENT_ENTITY,*/
-            SK_TEMPLATE, // For the primary template
-        };
-
-        // We only want the filter_classes entries of the result_list
-        scope_entry_list_t* filter_list = filter_symbol_kind_set(result_list,
-                STATIC_ARRAY_LENGTH(filter_classes), filter_classes);
-        entry_list_free(result_list);
-
-        scope_entry_t* entry = NULL;
-        if(filter_list != NULL)
-        {
-            entry = entry_list_head(filter_list);
+            new_friend = named_type_get_symbol(new_type);
         }
-        else 
+        else
         {
-            char is_qualified = (nodecl_get_kind(friend->value) == NODECL_CXX_DEP_GLOBAL_NAME_NESTED
-                    ||  nodecl_get_kind(friend->value) == NODECL_CXX_DEP_NAME_NESTED);
+            new_friend = calloc(1, sizeof(*new_friend));
 
-            if(is_qualified)
-            {
-                error_printf("%s:%d: error: in friend declaration, class '%s' does not exist\n",
-                        filename, line, codegen_to_str(name));
-                return;
-            }
+            new_friend->symbol_name = friend->symbol_name;
+            new_friend->kind = SK_DEPENDENT_FRIEND_CLASS;
+            new_friend->type_information = new_type;
+            new_friend->line = line;
+            new_friend->file = filename;
+            new_friend->entity_specs = friend->entity_specs;
 
-            scope_entry_t* new_class = NULL;
+            new_friend->decl_context = context_of_being_instantiated;
 
-            new_class = new_symbol(context_of_being_instantiated,
-                    context_of_being_instantiated.namespace_scope,
-                    codegen_to_str(friend->value));
+            // We need the context of the friend declaration because in the code generation
+            // phase we must print the template arguments
+            new_friend->related_decl_context = friend->decl_context;
 
-            new_class->line = line;
-            new_class->file = filename;
-            new_class->kind = SK_CLASS;
-            new_class->entity_specs.is_friend_declared = 1;
-            new_class->type_information = get_new_class_type(context_of_being_instantiated, SK_CLASS);
+            // Link the template parameters properly
+            template_parameter_list_t *new_temp_param_list =
+                duplicate_template_argument_list(friend->decl_context.template_parameters);
+            new_temp_param_list->enclosing = context_of_being_instantiated.template_parameters;
+            new_friend->decl_context.template_parameters = new_temp_param_list;
 
-            entry = new_class;
+            // Copy the type tag of the 'friend' symbol to 'new_friend' symbol
+            // This type_tag will be used in codegen
+            enum type_tag_t friend_kind;
+            friend_kind = get_dependent_entry_kind(friend->type_information);
+            set_dependent_entry_kind(new_friend->type_information, friend_kind);
         }
 
-        class_type_add_friend_symbol(being_instantiated, entry);
-        entry_list_free(filter_list);
-    }
-    else if (friend->kind == SK_DEPENDENT_FRIEND_FUNCTION)
-    {
-        internal_error("instantiate dependent function friend is not implemented yet.\n",0);
+        // If the new type is not dependent, we change the kind of
+        // the new_friend symbol to SK_CLASS
+        if (!is_dependent_type(new_friend->type_information))
+        {
+            new_friend->kind = SK_CLASS;
+        }
     }
     else
     {
-        internal_error("Code unreachable", 0);
+        // The kind of the symbol is SK_DEPENDENT_FRIEND_CLASS but
+        // his type is not dependent -> ERROR, this shouldn't never happen
+        internal_error("Code unreachable.",0);
     }
 
-#if 0
-    decl_context_t orig_decl_context;
-    AST declarator = nodecl_unwrap_cxx_dependent_expr(friend->value, &orig_decl_context);
-    type_t* member_type = update_type_for_instantiation(friend->type_information,
-            context_of_being_instantiated,
-            context_translation_function, translation_data,
-            filename, line);
+    class_type_add_friend_symbol(get_actual_class_type(being_instantiated), new_friend);
+}
 
-    // FIXME - We should use the original one!
-    gather_decl_spec_t gather_info;
-    memset(&gather_info, 0, sizeof(gather_info));
-    gather_info.is_friend = 1;
+static void instantiate_dependent_friend_function(type_t* selected_template UNUSED_PARAMETER,
+        type_t* being_instantiated,
+        scope_entry_t* friend,
+        decl_context_t context_of_being_instantiated,
+        decl_context_t context_translation_function(decl_context_t UNUSED_PARAMETER, void* UNUSED_PARAMETER) UNUSED_PARAMETER,
+        void *translation_data UNUSED_PARAMETER,
+        const char *filename,
+        int line)
+{
+    type_t* new_type = update_type_for_instantiation(friend->type_information,
+            context_of_being_instantiated, filename, line);
 
-    build_scope_friend_declarator(context_of_being_instantiated,
-            &gather_info,
-            being_instantiated,
-            member_type,
-            declarator);
-#endif
+    char found_candidate = 0;
+    char is_template_id = nodecl_name_ends_in_template_id(friend->value);
+    char is_templ_funct_decl = is_template_type(friend->type_information);
+    char is_qualified = (nodecl_get_kind(friend->value) == NODECL_CXX_DEP_NAME_NESTED
+            || nodecl_get_kind(friend->value) == NODECL_CXX_DEP_GLOBAL_NAME_NESTED);
+
+    scope_entry_t* new_friend = NULL;
+    scope_entry_list_t* candidates_list =
+        entry_list_from_symbol_array(friend->entity_specs.num_related_symbols, friend->entity_specs.related_symbols);
+
+    // Does candidates list contain a SK_DEPENDENT_ENTITY?
+    if (candidates_list != NULL)
+    {
+        scope_entry_t* sym = entry_list_head(candidates_list);
+        if (sym->kind == SK_DEPENDENT_ENTITY)
+        {
+            // Try to solve the dependent entity
+            entry_list_free(candidates_list);
+            candidates_list = query_dependent_entity_in_context(context_of_being_instantiated, sym, filename, line);
+        }
+    }
+
+    // Summary:
+    //  1. The declaration is not a template function
+    //      1.1 It's a qualified or unqualified template-id -> refers to a specialization of a function template
+    //      1.2 It's a qualified name -> refers to:
+    //          1.2.1   A nontemplate function, otherwise
+    //          1.2.2   A matching specialization of a template function
+    //      1.3 It's an unqualied name -> declares an nontemplate function
+    //  2. Otherwise,
+    //      2.1 It's a qualified name -> refers to a template function
+
+    if (!is_templ_funct_decl)
+    {
+        if (!is_template_id) // 1.2.1 and 1.3
+        {
+            //First attempt, an exact match against either SK_FUNCTION
+            scope_entry_list_iterator_t* it = NULL;
+            for (it = entry_list_iterator_begin(candidates_list);
+                    !entry_list_iterator_end(it) && !found_candidate;
+                    entry_list_iterator_next(it))
+            {
+                scope_entry_t* sym_candidate = entry_list_iterator_current(it);
+                if (sym_candidate->kind == SK_FUNCTION
+                        && equivalent_types(new_type, sym_candidate->type_information))
+                {
+                    found_candidate = 1;
+                    new_friend = sym_candidate;
+                }
+            }
+        }
+
+        if (is_template_id
+                || (!found_candidate && is_qualified)) // 1.1 and 1.2.2
+        {
+            // Second attempt, match a specialization of a template function
+            nodecl_t new_name = instantiate_expression(friend->value, context_of_being_instantiated);
+
+            // We may need to update the explicit template argument list
+            template_parameter_list_t* expl_templ_param = NULL;
+            template_parameter_list_t* nodecl_templ_param = nodecl_name_get_last_template_arguments(new_name);
+            if (nodecl_templ_param != NULL)
+            {
+                expl_templ_param =
+                    update_template_argument_list(context_of_being_instantiated, nodecl_templ_param, filename, line);
+            }
+
+            new_friend = solve_template_function(candidates_list, expl_templ_param, new_type, filename, line);
+            if (new_friend != NULL)
+            {
+                found_candidate = 1;
+            }
+        }
+
+        entry_list_free(candidates_list);
+
+        if (!found_candidate)
+        {
+            if (is_template_id)
+            {
+                error_printf("%s:%d: function '%s' shall refer a specialization of a function template\n",
+                        filename, line, friend->symbol_name);
+                return;
+            }
+            else if (is_qualified)
+            {
+                error_printf("%s:%d: function '%s' shall refer a nontemplate function or a specialization of a function template\n",
+                        filename, line, friend->symbol_name);
+                return;
+            }
+            // The friend declarator-id is unqualified
+
+            context_of_being_instantiated.current_scope =
+                context_of_being_instantiated.namespace_scope;
+
+            // Has the function been declared after the friend declaration but before the instantiation?
+            // Example:
+            //
+            // template<T>
+            //  class A
+            //  {
+            //      friend int foo();
+            //  };
+            //  int foo();
+            //  A<int> a;
+
+            scope_entry_list_t* list =
+                query_in_scope_str_flags(context_of_being_instantiated, friend->symbol_name, DF_ONLY_CURRENT_SCOPE);
+
+            scope_entry_list_iterator_t* it = NULL;
+            for (it = entry_list_iterator_begin(list);
+                    !entry_list_iterator_end(it) && !found_candidate;
+                    entry_list_iterator_next(it))
+            {
+                scope_entry_t* sym_candidate = entry_list_iterator_current(it);
+                if (sym_candidate->kind == SK_FUNCTION
+                        && equivalent_types(new_type, sym_candidate->type_information))
+                {
+                    found_candidate = 1;
+                    new_friend = sym_candidate;
+                }
+            }
+            entry_list_free(list);
+
+            if (!found_candidate)
+            {
+                // We shoud create a new symbol
+                new_friend = new_symbol(context_of_being_instantiated,
+                        context_of_being_instantiated.current_scope,
+                        friend->symbol_name);
+
+                new_friend->kind = SK_DEPENDENT_FRIEND_FUNCTION;
+                new_friend->type_information = new_type;
+                new_friend->line = line;
+                new_friend->file = filename;
+                new_friend->entity_specs = friend->entity_specs;
+
+                // Try to promote the symbol to SK_FUNCTION
+                if (!is_dependent_type(new_friend->type_information))
+                {
+                    new_friend->kind = SK_FUNCTION;
+                }
+            }
+        }
+    }
+    else
+    {
+        // A friend function template declaration inside a class template definition
+        type_t* template_type = friend->type_information;
+        ERROR_CONDITION(!is_template_type(template_type), "Must be a template type", 0);
+        
+        //We should update the type of the primary symbol
+        scope_entry_t* primary_symbol = named_type_get_symbol(template_type_get_primary_type(template_type));
+        type_t* primary_type = primary_symbol->type_information;
+        type_t* updated_primary_type =
+            update_type_for_instantiation(primary_type, context_of_being_instantiated, filename, line);
+        
+        if (!is_qualified)
+        {
+            // We create a new SK_TEMPLATE symbol
+            scope_entry_t* new_template = new_symbol(context_of_being_instantiated,
+                    context_of_being_instantiated.current_scope, friend->symbol_name);
+
+            new_template->kind = SK_TEMPLATE;
+            new_template->line = line;
+            new_template->file = filename;
+            new_template->entity_specs.is_friend_declared = 0;
+
+            // We create the new_type of the new template symbol
+            template_parameter_list_t* temp_params = template_type_get_template_parameters(template_type);
+            new_template->type_information = get_new_template_type(temp_params,
+                    updated_primary_type, new_template->symbol_name, context_of_being_instantiated, line, filename);
+
+            // Perhaps we may need to update some entity specs of the new primary symbol
+            type_t* new_primary_type = template_type_get_primary_type(new_template->type_information);
+            scope_entry_t* new_primary_symbol = named_type_get_symbol(new_primary_type);
+            new_primary_symbol->entity_specs.any_exception = primary_symbol->entity_specs.any_exception;
+
+            // We never add the template symbol, always the primary
+            new_friend = new_primary_symbol;
+        }
+        else
+        {
+            nodecl_t new_name = instantiate_expression(friend->value, context_of_being_instantiated);
+
+            // We may need to update the explicit template argument list
+            template_parameter_list_t* expl_templ_param = NULL;
+            template_parameter_list_t* nodecl_templ_param = nodecl_name_get_last_template_arguments(new_name);
+            if (nodecl_templ_param != NULL)
+            {
+                expl_templ_param =
+                    update_template_argument_list(context_of_being_instantiated, nodecl_templ_param, filename, line);
+            }
+
+            new_friend = solve_template_function(candidates_list, expl_templ_param,updated_primary_type, filename, line);
+        }
+    }
+    class_type_add_friend_symbol(get_actual_class_type(being_instantiated), new_friend);
+}
+
+static void instantiate_dependent_friend(type_t* selected_template UNUSED_PARAMETER,
+        type_t* being_instantiated,
+        scope_entry_t* friend,
+        decl_context_t context_of_being_instantiated,
+        decl_context_t context_translation_function(decl_context_t UNUSED_PARAMETER, void* UNUSED_PARAMETER) UNUSED_PARAMETER,
+        void *translation_data UNUSED_PARAMETER,
+        const char *filename,
+        int line)
+{
+    switch (friend->kind)
+    {
+        case SK_DEPENDENT_FRIEND_CLASS:
+            {
+                instantiate_dependent_friend_class(selected_template,
+                        being_instantiated,
+                        friend,
+                        context_of_being_instantiated,
+                        context_translation_function,
+                        translation_data,
+                        filename,
+                        line);
+                break;
+            }
+        case SK_DEPENDENT_FRIEND_FUNCTION:
+            {
+                instantiate_dependent_friend_function(selected_template,
+                        being_instantiated,
+                        friend,
+                        context_of_being_instantiated,
+                        context_translation_function,
+                        translation_data,
+                        filename,
+                        line);
+                break;
+            }
+        default:
+            {
+                internal_error("Code unreachable", 0);
+            }
+    }
 }
 
 static void instantiate_bases(
@@ -947,9 +1181,9 @@ static void instantiate_specialized_template_class(type_t* selected_template,
     {
         scope_entry_t* member = entry_list_iterator_current(it);
 
-        instantiate_member(selected_template, 
-                being_instantiated, 
-                member, 
+        instantiate_member(selected_template,
+                being_instantiated,
+                member,
                 inner_decl_context,
                 filename, line,
                 &template_map, &num_items_template_map,
@@ -968,18 +1202,53 @@ static void instantiate_specialized_template_class(type_t* selected_template,
         if (friend->kind == SK_DEPENDENT_FRIEND_FUNCTION
                 || friend->kind == SK_DEPENDENT_FRIEND_CLASS)
         {
-            instantiate_dependent_friend(selected_template, 
-                    being_instantiated, 
+            instantiate_dependent_friend(selected_template,
+                    being_instantiated,
                     friend,
                     inner_decl_context,
                     translation_function,
                     &translation_info,
                     filename, line);
         }
-        else if (friend->kind == SK_FUNCTION
-                || friend->kind == SK_CLASS)
+        else if (friend->kind == SK_CLASS)
         {
-            class_type_add_friend_symbol(get_actual_class_type(being_instantiated), friend);
+
+            // The symbol 'friend' may has a dependent type. Example:
+            //
+            //
+            //    template < typename T1>
+            //        struct B {};
+            //
+            //    template < typename T2>
+            //        struct A
+            //        {
+            //            friend struct B<T2>; (1)
+            //        };
+            //
+            //    A<int> foo; (2)
+            //
+            //
+            // The symbol 'B<T2>' created in (1) has kind 'SK_CLASS' but his type is dependent
+            // In the instantiation (2) we should modify his type
+            
+            scope_entry_t* new_friend = friend;
+            if (is_dependent_type(friend->type_information))
+            {
+                type_t* new_type = update_type_for_instantiation(get_user_defined_type(friend),
+                        inner_decl_context,
+                        filename,
+                        line);
+                new_friend = named_type_get_symbol(new_type);
+            }
+
+            class_type_add_friend_symbol(get_actual_class_type(being_instantiated), new_friend);
+        }
+        else if (friend->kind == SK_FUNCTION)
+        {
+            // This code is unreachable because all the dependent friend functions 
+            // of a template class always will be a SK_DEPENDENT_FRIEND_FUNCTION.
+            // (See function 'find_dependent_friend_function_declaration' in buildscope)
+            internal_error("Code unreachable", 0);
         }
         else
         {
@@ -1227,7 +1496,7 @@ void instantiation_add_symbol_to_instantiate(scope_entry_t* entry,
 
 static void instantiate_template_function(scope_entry_t* entry, const char* filename, int line)
 {
-    // DEBUG_CODE()
+    DEBUG_CODE()
     {
         fprintf(stderr, "INSTANTIATION: Instantiating function '%s' with type '%s' at '%s:%d\n",
                 entry->symbol_name,
@@ -1250,9 +1519,9 @@ static void instantiate_template_function(scope_entry_t* entry, const char* file
     scope_entry_t* primary_specialization_function = named_type_get_symbol(primary_specialization_type);
     // type_t* primary_specialization_function_type = primary_specialization_function->type_information;
 
-    nodecl_t orig_function_definition = primary_specialization_function->entity_specs.function_code;
+    // nodecl_t orig_function_definition = primary_specialization_function->entity_specs.function_code;
 
-    ast_dump_graphviz(nodecl_get_ast(orig_function_definition), stderr);
+    // ast_dump_graphviz(nodecl_get_ast(orig_function_definition), stderr);
 
     // 
     // // Remove dependent types

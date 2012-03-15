@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -26,6 +26,7 @@
 
 
 
+
 #ifdef HAVE_CONFIG_H
   #include "config.h"
 #endif
@@ -41,6 +42,7 @@
 #endif
 #include "cxx-driver.h"
 #include "cxx-utils.h"
+#include "cxx-diagnostic.h"
 #include "cxx-compilerphases.hpp"
 #include "tl-compilerphase.hpp"
 #include "tl-setdto-phase.hpp"
@@ -179,7 +181,19 @@ namespace TL
                     if (phase->get_phase_status() != CompilerPhase::PHASE_STATUS_OK)
                     {
                         // Ideas to improve this are welcome :)
-                        running_error("Phase '%s' did not end successfully. Ending compilation", 
+                        running_error("Compiler phase '%s' notified that it did not end successfully. Ending compilation", 
+                                phase->get_phase_name().c_str());
+                    }
+
+                    char there_were_errors = (diagnostics_get_error_count() != 0);
+                    if (CURRENT_CONFIGURATION->warnings_as_errors)
+                    {
+                        there_were_errors = there_were_errors || (diagnostics_get_warn_count() != 0);
+                    }
+
+                    if (there_were_errors)
+                    {
+                        running_error("Compiler phase '%s' yielded diagnostic errors. Ending compilation", 
                                 phase->get_phase_name().c_str());
                     }
 
@@ -625,14 +639,8 @@ extern "C"
         {
             fprintf(stderr, "COMPILERPHASES: DTO Initialized\n");
         }
-    }
 
-    // FIXME - This function should be merged with initialize_dto
-    void setup_dto(translation_unit_t* translation_unit)
-    {
-        TL::DTO* _dto = reinterpret_cast<TL::DTO*>(translation_unit->dto);
-        TL::DTO& dto = *_dto;
-
+        translation_unit->nodecl = nodecl_make_top_level(nodecl_null(), translation_unit->input_filename, 0);
         TL::RefPtr<Nodecl::TopLevel> top_level_nodecl(new Nodecl::TopLevel(translation_unit->nodecl));
         dto.set_object("nodecl", top_level_nodecl);
     }

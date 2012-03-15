@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -26,11 +26,13 @@
 
 
 
+
 #include "cxx-process.h"
 #include "cxx-utils.h"
 #include "uniquestr.h"
 #include "filename.h"
 
+#include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
 
@@ -61,6 +63,14 @@ translation_unit_t* add_new_file_to_compilation_process(
             && output_file != NULL)
     {
         translation_unit->output_filename = uniquestr(output_file);
+    }
+
+    // Give a fallback value
+    if (configuration->do_not_link
+            && configuration->do_not_compile
+            && translation_unit->output_filename == NULL)
+    {
+        translation_unit->output_filename = "-";
     }
 
     if (current_file_process == NULL)

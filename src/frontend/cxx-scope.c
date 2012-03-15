@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -23,6 +23,7 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
 
 
 
@@ -622,7 +623,7 @@ static char is_not_friend_declared(scope_entry_t* entry, void* p UNUSED_PARAMETE
     return !is_friend_declared(entry);
 }
 
-scope_entry_list_t* filter_friend_declared(scope_entry_list_t* entry_list)
+static scope_entry_list_t* filter_friend_declared(scope_entry_list_t* entry_list)
 {
     return filter_symbol_using_predicate(entry_list, is_not_friend_declared, NULL);
 }
@@ -1143,7 +1144,7 @@ char nodecl_name_ends_in_template_id(nodecl_t nodecl_name)
     return (nodecl_get_kind(nodecl_name_get_last_part(nodecl_name)) == NODECL_CXX_DEP_TEMPLATE_ID);
 }
 
-template_parameter_list_t* nodecl_name_name_last_template_arguments(nodecl_t nodecl_name)
+template_parameter_list_t* nodecl_name_get_last_template_arguments(nodecl_t nodecl_name)
 {
     if (nodecl_name_ends_in_template_id(nodecl_name))
     {
@@ -1181,7 +1182,8 @@ static void build_dependent_parts_for_symbol_rec(
         nodecl_t nodecl_current = nodecl_make_cxx_dep_name_simple(entry->symbol_name, filename, line);
         if (template_arguments != NULL)
         {
-            nodecl_current = nodecl_make_cxx_dep_template_id(nodecl_current, template_arguments, filename, line);
+            // If our enclosing is dependent, we need a 'template '
+            nodecl_current = nodecl_make_cxx_dep_template_id(nodecl_current, "template ", template_arguments, filename, line);
         }
 
         if (nodecl_is_null(nodecl_prev))
@@ -1217,8 +1219,10 @@ type_t* build_dependent_typename_for_entry(
 
     nodecl_t nodecl_current = nodecl_null(); 
 
+    const char* template_tag = "";
     if (nodecl_get_kind(nodecl_last) == NODECL_CXX_DEP_TEMPLATE_ID)
     {
+        template_tag = nodecl_get_text(nodecl_last);
         template_arguments = nodecl_get_template_parameters(nodecl_name);
         nodecl_current = nodecl_copy(nodecl_get_child(nodecl_name, 0));
     }
@@ -1229,7 +1233,7 @@ type_t* build_dependent_typename_for_entry(
 
     if (template_arguments != NULL)
     {
-        nodecl_current = nodecl_make_cxx_dep_template_id(nodecl_current, template_arguments, filename, line);
+        nodecl_current = nodecl_make_cxx_dep_template_id(nodecl_current, template_tag, template_arguments, filename, line);
     }
 
     nodecl_t dependent_parts = nodecl_null();
@@ -1645,6 +1649,12 @@ static scope_entry_list_t* name_lookup(decl_context_t decl_context,
         else // BLOCK_SCOPE || PROTOTYPE_SCOPE || FUNCTION_SCOPE (although its contains should be NULL)
         {
             result = query_name_in_scope(current_scope, name);
+        }
+
+
+        if (BITMAP_TEST(decl_flags, DF_IGNORE_FRIEND_DECL))
+        {
+            result = filter_friend_declared(result);
         }
 
         if (BITMAP_TEST(decl_flags, DF_ELABORATED_NAME))
@@ -2868,8 +2878,7 @@ const char* template_arguments_to_str(
                 {
                     const char* abstract_declaration;
 
-                    abstract_declaration = 
-                        get_declaration_string_internal(argument->type, decl_context, "", "", 0, 0, NULL, NULL, 0);
+                    abstract_declaration = print_type_str(argument->type, decl_context);
 
                     argument_str = abstract_declaration;
                     break;
@@ -2945,7 +2954,7 @@ static const char* get_fully_qualified_symbol_name_of_dependent_typename(
             &dependent_entry, &nodecl_parts);
 
     const char* result = get_fully_qualified_symbol_name(dependent_entry,
-            dependent_entry->decl_context,
+            decl_context,
             is_dependent, max_qualif_level);
 
     int num_parts = 0;
@@ -3288,23 +3297,28 @@ scope_entry_t* lookup_of_template_parameter(decl_context_t context,
 
     template_parameter_list_t *template_parameters = context.template_parameters;
 
-    int i = 0;
-    while (template_parameters != NULL)
+
+    int j = 0;
     {
-        if (template_parameters->parameters != NULL)
+        int i = 0;
+        while (template_parameters != NULL)
         {
-            ERROR_CONDITION(i == MCXX_MAX_TEMPLATE_NESTING_LEVELS, "Too many template nesting levels", 0);
-            levels[i] = template_parameters->parameters;
-            value_levels[i] = template_parameters->arguments;
-            num_items[i] = template_parameters->num_parameters;
+            if (template_parameters->parameters != NULL)
+            {
+                ERROR_CONDITION(j == MCXX_MAX_TEMPLATE_NESTING_LEVELS, "Too many template nesting levels", 0);
+                levels[j] = template_parameters->parameters;
+                value_levels[j] = template_parameters->arguments;
+                num_items[j] = template_parameters->num_parameters;
+                j++;
+            }
+
+            i++;
+            template_parameters = template_parameters->enclosing;
         }
-
-        i++;
-        template_parameters = template_parameters->enclosing;
     }
-
+    
     // Nesting is too deep
-    if (template_parameter_nesting > i)
+    if (template_parameter_nesting > j)
     {
         DEBUG_CODE()
         {
@@ -3313,9 +3327,9 @@ scope_entry_t* lookup_of_template_parameter(decl_context_t context,
         return NULL;
     }
 
-    template_parameter_t** current_nesting = levels[i - template_parameter_nesting];
-    template_parameter_value_t** current_values = value_levels[i - template_parameter_nesting];
-    int current_num_items = num_items[i - template_parameter_nesting];
+    template_parameter_t** current_nesting = levels[j - template_parameter_nesting];
+    template_parameter_value_t** current_values = value_levels[j - template_parameter_nesting];
+    int current_num_items = num_items[j - template_parameter_nesting];
     
     // This position does not exist
     if (current_num_items < (template_parameter_position + 1))
@@ -3407,6 +3421,17 @@ char is_unqualified_id_expression(AST a)
                 || ASTType(a) == AST_OPERATOR_FUNCTION_ID_TEMPLATE);
 }
 
+char is_qualified_id_expression(AST a)
+{
+    return a != NULL
+        && (ASTType(a) == AST_QUALIFIED_ID);
+}
+
+char is_id_expression(AST a)
+{
+    return is_unqualified_id_expression(a) || is_qualified_id_expression(a);
+}
+
 static char is_inline_namespace_of_(scope_t* inner_namespace_scope, scope_t* outer_namespace_scope)
 {
     if (inner_namespace_scope == NULL)
@@ -3446,9 +3471,7 @@ static const char* symbol_kind_table_str[] =
 #define SYMBOL_KIND(x, _) \
         [x] = #x, 
     SYMBOL_KIND_TABLE
-#ifdef FORTRAN_SUPPORT
     SYMBOL_KIND_TABLE_FORTRAN
-#endif
 #undef SYMBOL_KIND
 };
 
@@ -3494,7 +3517,11 @@ int get_template_nesting_of_template_parameters(template_parameter_list_t* templ
     int nesting = 0;
     while (template_parameters != NULL)
     {
-        nesting++;
+        if (template_parameters->parameters != NULL)
+        {
+            nesting++;
+        }
+        
         template_parameters = template_parameters->enclosing;
     }
 
@@ -4420,11 +4447,16 @@ static void compute_nodecl_name_from_unqualified_id(AST unqualified_id, decl_con
                     return;
                 }
 
+                const char* template_tag = "";
+                if (ast_get_text(unqualified_id) != NULL)
+                    template_tag = ast_get_text(unqualified_id);
+
                 *nodecl_output = nodecl_make_cxx_dep_template_id(
                         nodecl_make_cxx_dep_name_simple(
                             name,
                             ASTFileName(unqualified_id), 
                             ASTLine(unqualified_id)),
+                        template_tag,
                         template_parameters,
                         ASTFileName(unqualified_id), 
                         ASTLine(unqualified_id));
@@ -4462,6 +4494,7 @@ static void compute_nodecl_name_from_unqualified_id(AST unqualified_id, decl_con
                             name,
                             ASTFileName(unqualified_id), 
                             ASTLine(unqualified_id)),
+                        /* template_tag */ "",
                         template_parameters,
                         ASTFileName(unqualified_id), 
                         ASTLine(unqualified_id));
@@ -4608,7 +4641,6 @@ void compute_nodecl_name_from_id_expression(AST id_expression, decl_context_t de
     switch (ASTType(id_expression))
     {
         case AST_QUALIFIED_ID:
-        case AST_QUALIFIED_TEMPLATE:
             {
                 AST global_op = ASTSon0(id_expression);
                 AST nested_name_spec = ASTSon1(id_expression);

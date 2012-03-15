@@ -1,5 +1,5 @@
 ##########################################################################
-#  (C) Copyright 2006-2011 Barcelona Supercomputing Center               #
+#  (C) Copyright 2006-2012 Barcelona Supercomputing Center               #
 #                          Centro Nacional de Supercomputacion           #
 #                                                                        #
 #  This file is part of Mercurium C/C++ source-to-source compiler.       #
@@ -31,11 +31,8 @@ mcxxexec_PROGRAMS = mcxx mcxx-embedder
 
 DIST_SUBDIRS=fortran
 
-SUBDIRS=
+SUBDIRS=fortran
 
-if FORTRAN_SUPPORT
-SUBDIRS += fortran
-endif
 
 # We build the current directory the last one
 SUBDIRS += .
@@ -66,11 +63,9 @@ mcxx_CFLAGS=-D_GNU_SOURCE \
 			-DPKGDATADIR=\"$(pkgdatadir)\" \
 			-Wall
 
-if FORTRAN_SUPPORT
 mcxx_CFLAGS += -I$(top_srcdir)/src/frontend/fortran
 mcxx_CFLAGS += -I$(top_builddir)/src/frontend/fortran
 mcxx_CFLAGS += -I$(top_srcdir)/src/driver/fortran
-endif
 
 mcxx_SOURCES = \
   cxx-configfile.h \
@@ -105,19 +100,21 @@ mcxx_LDADD = \
    $(top_builddir)/src/frontend/libmcxx-process.la \
    $(top_builddir)/src/frontend/libmcxx.la \
    $(top_builddir)/src/tl/libtl.la \
+   $(top_builddir)/src/tl/codegen/common/libcodegen-common.la \
+   $(top_builddir)/src/tl/codegen/base/cxx/libcodegen-cxx.la \
+   $(top_builddir)/src/tl/codegen/base/fortran/libcodegen-fortran.la \
    $(top_builddir)/src/mcxx_tl/libmcxxtl.la \
    $(END)
 
-if FORTRAN_SUPPORT
 mcxx_LDADD += $(top_builddir)/src/frontend/fortran/libmf03.la
 mcxx_LDADD += $(top_builddir)/src/driver/fortran/libmf03-driver.la
 mcxx_LDADD += $(sqlite3_LIBS)
-endif
 
 if WINDOWS_BUILD
 else
 # '$$ORIGIN' is a relocatable hint to GNU ld
 mcxx_LDFLAGS = \
+	-Wl,--no-as-needed \
     -Wl,-E \
     -Wl,@RPATH_PARAMETER@,'$$ORIGIN'/../lib \
     -Wl,@RPATH_PARAMETER@,'$$ORIGIN'/../lib/mcxx \

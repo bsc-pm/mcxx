@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -23,6 +23,7 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
 
 
 
@@ -210,8 +211,7 @@ static void print_scope_entry(const char* key, scope_entry_t* entry, int global_
     }
     if (entry->kind == SK_VARIABLE && entry->entity_specs.is_parameter)
     {
-        PRINT_INDENTED_LINE(stderr, global_indent+1, "Is parameter %d of the function\n",
-                entry->entity_specs.parameter_position);
+        PRINT_INDENTED_LINE(stderr, global_indent+1, "Is parameter the function\n");
     }
 
     if (entry->kind == SK_TEMPLATE)
@@ -390,6 +390,19 @@ static void print_scope_entry(const char* key, scope_entry_t* entry, int global_
     {
         PRINT_INDENTED_LINE(stderr, global_indent+1, "Is member of '%s'\n",
                 print_declarator(entry->entity_specs.class_type));
+        if (entry->kind == SK_VARIABLE
+                && !entry->entity_specs.is_static)
+        {
+            PRINT_INDENTED_LINE(stderr, global_indent+1, "Offset of nonstatic member (at byte boundary): %zd\n",
+                    entry->entity_specs.field_offset);
+            if (entry->entity_specs.is_bitfield)
+            {
+                PRINT_INDENTED_LINE(stderr, global_indent+1, "First bit: %d\n",
+                        entry->entity_specs.bitfield_first);
+                PRINT_INDENTED_LINE(stderr, global_indent+1, "Last bit: %d\n",
+                        entry->entity_specs.bitfield_last);
+            }
+        }
     }
 
     if (entry->entity_specs.is_static)
@@ -432,7 +445,6 @@ static void print_scope_entry(const char* key, scope_entry_t* entry, int global_
              entry_list_iterator_free(it);
          }
     }
-#ifdef FORTRAN_SUPPORT
     if (entry->kind == SK_PROGRAM
             || entry->kind == SK_FUNCTION
             || entry->kind == SK_MODULE)
@@ -465,5 +477,4 @@ static void print_scope_entry(const char* key, scope_entry_t* entry, int global_
     {
         PRINT_INDENTED_LINE(stderr, global_indent+1, "No related symbols\n");
     }
-#endif
 }

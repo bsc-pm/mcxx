@@ -47,7 +47,7 @@ def get_up_to_matching_paren(s):
 def print_type_and_name(_type, name):
     _type = _type.strip(" \n")
     if (_type == "bool"):  
-        return [("char", name, ":1")]
+        return [("bool", name, ":1")]
     elif (_type == "integer"):
         return [("int", name, "")]
     elif (_type == "AST"):
@@ -104,6 +104,8 @@ def print_entity_specifiers(lines):
 #ifndef CXX_ENTITY_SPECIFIERS_H
 #define CXX_ENTITY_SPECIFIERS_H
 
+#include <stdbool.h>
+
 // Include this file only from cxx-scope-decls.h and not from anywhere else
 
 typedef struct entity_specifiers_tag\n{"""
@@ -117,12 +119,6 @@ typedef struct entity_specifiers_tag\n{"""
 
       language = language.strip(" \n")
       if (language != current_language) :
-          if (current_language == "all" and language == "fortran"):
-              print "#ifdef FORTRAN_SUPPORT"
-          elif (current_language == "fortran" and language == "all"):
-              print "#endif // FORTRAN_SUPPORT"
-          else: 
-              raise Exception("Invalid sequence of languages from %s -> %s" % (current_language, language))
           current_language = language
       descr = description.strip(" \n")
       if (descr):
@@ -247,7 +243,7 @@ def get_extra_load_code(_type, num_name, list_name):
 def get_load_code(_type, name):
     result = []
     result.append("{");
-    if (_type == "integer" or _type == "bool") :
+    if (_type == "integer") :
         result.append("int i;");
         result.append("if (query_contains_field(ncols, names, \"" + name + "\", &i))");
         result.append("{")
@@ -313,6 +309,9 @@ def get_load_code(_type, name):
     elif (_type == "scope"):
         result.append("// Scope is not stored (yet)");
         result.append("sym->entity_specs." + name + " = CURRENT_COMPILED_FILE->global_decl_context;")
+    elif (_type == "bool"):
+        # Booleans are handled apart
+        pass
     else :
         sys.stderr.write("%s: info: not handling '%s'\n" % (sys.argv[0], type_name))
         pass
@@ -331,9 +330,8 @@ def print_fortran_modules_functions(lines):
       if (name[0] == "*"):
           continue
       if (_type == "bool"):
-          attr_names.append(name)
-          _format.append("%d")
-          sprintf_arguments.append("(int)(sym->entity_specs.%s)" % (name))
+          # Booleans are handled different
+          pass
       elif (_type == "integer"):
           attr_names.append(name)
           _format.append("%d")
@@ -413,6 +411,42 @@ def print_fortran_modules_functions(lines):
           continue;
       print get_load_code(_type, name)
     print "}"
+
+    print "typedef struct module_packed_bits_tag"
+    print "{"
+    for l in lines:
+      fields = l.split("|");
+      (_type,language,name,description) = fields
+      if name[1] == "*":
+          continue;
+      if _type == "bool":
+          print "_Bool %s:1;" % (name)
+    print "} module_packed_bits_t;"
+
+    print "static module_packed_bits_t synthesize_packed_bits(scope_entry_t* sym)"
+    print "{"
+    print "module_packed_bits_t result;"
+    for l in lines:
+      fields = l.split("|");
+      (_type,language,name,description) = fields
+      if name[1] == "*":
+          continue;
+      if _type == "bool":
+          print "result.%s = sym->entity_specs.%s;" % (name, name)
+    print "return result;"
+    print "}"
+
+    print "static void unpack_bits(scope_entry_t* sym, module_packed_bits_t bitpack)"
+    print "{"
+    for l in lines:
+      fields = l.split("|");
+      (_type,language,name,description) = fields
+      if name[1] == "*":
+          continue;
+      if _type == "bool":
+          print "sym->entity_specs.%s = bitpack.%s;" % (name, name)
+    print "}"
+
     print "#endif // FORTRAN03_MODULES_BITS_H"
 
 

@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -25,6 +25,7 @@
 --------------------------------------------------------------------*/
 
 
+
 #ifndef FORTRAN03_BUILDSCOPE_H
 #define FORTRAN03_BUILDSCOPE_H
 
@@ -38,7 +39,7 @@ MCXX_BEGIN_DECLS
 
 LIBMF03_EXTERN void fortran_initialize_translation_unit_scope(translation_unit_t* translation_unit);
 
-LIBMF03_EXTERN void build_scope_fortran_translation_unit(translation_unit_t* translation_unit);
+LIBMF03_EXTERN nodecl_t build_scope_fortran_translation_unit(translation_unit_t* translation_unit);
 
 LIBMF03_EXTERN void fortran_build_scope_statement(AST statement, decl_context_t decl_context, nodecl_t* nodecl_output);
 
@@ -47,7 +48,7 @@ LIBMF03_EXTERN type_t* choose_float_type_from_kind(nodecl_t expr, int kind_size)
 LIBMF03_EXTERN type_t* choose_logical_type_from_kind(nodecl_t expr, int kind_size);
 LIBMF03_EXTERN type_t* choose_character_type_from_kind(nodecl_t expr, int kind_size);
 
-LIBMF03_EXTERN void build_scope_program_unit(AST program_unit, 
+LIBMF03_EXTERN void build_scope_program_unit_seq(AST program_unit_seq, 
         decl_context_t decl_context,
         nodecl_t* nodecl_output);
 
@@ -55,6 +56,7 @@ LIBMF03_EXTERN scope_entry_t* function_get_result_symbol(scope_entry_t* entry);
 
 LIBMF03_EXTERN scope_entry_t* get_data_symbol_info(decl_context_t decl_context_t);
 LIBMF03_EXTERN scope_entry_t* get_equivalence_symbol_info(decl_context_t decl_context);
+LIBMF03_EXTERN scope_entry_t* get_used_modules_symbol_info(decl_context_t decl_context);
 
 LIBMF03_EXTERN scope_entry_t* fortran_query_label(AST label, 
         decl_context_t decl_context, 
@@ -65,6 +67,9 @@ LIBMF03_EXTERN void remove_untyped_symbol(decl_context_t decl_context, scope_ent
 
 LIBMF03_EXTERN void add_unknown_kind_symbol(decl_context_t decl_context, scope_entry_t* entry);
 LIBMF03_EXTERN void remove_unknown_kind_symbol(decl_context_t decl_context, scope_entry_t* entry);
+
+LIBMF03_EXTERN scope_entry_t* query_common_name(decl_context_t decl_context, const char* common_name,
+        const char* filename, int line);
 
 MCXX_END_DECLS
 

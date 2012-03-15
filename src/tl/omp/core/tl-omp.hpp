@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -26,6 +26,7 @@
 
 
 
+
 #ifndef TL_OMP_HPP
 #define TL_OMP_HPP
 
@@ -46,6 +47,8 @@
 #include <set>
 #include <stack>
 #include <utility>
+
+#include "tl-modules.hpp"
 
 namespace TL
 {
@@ -91,17 +94,6 @@ namespace TL
 
 #undef BITMAP
 
-        class LIBTL_CLASS DependencyItem : public TL::Object
-        {
-            private:
-                DataReference _dep_expr;
-                DependencyDirection _kind;
-            public:
-                DependencyItem(DataReference dep_expr, DependencyDirection kind);
-
-                DependencyDirection get_kind() const;
-                DataReference get_dependency_expression() const;
-        };
 
         enum CopyDirection
         {
@@ -117,6 +109,8 @@ namespace TL
                 DataReference _copy_expr;
                 CopyDirection _kind;
             public:
+                CopyItem() { }
+
                 CopyItem(DataReference data_reference, CopyDirection direction);
 
                 CopyDirection get_kind() const;
@@ -127,6 +121,9 @@ namespace TL
                 {
                     return _copy_expr.get_base_symbol() == c._copy_expr.get_base_symbol();
                 }
+
+                void module_write(ModuleWriter& mw);
+                void module_read(ModuleReader& mw);
         };
 
         //! Auxiliar class used in reduction clauses
@@ -228,6 +225,25 @@ namespace TL
                 void add_error_behavior(std::string event, std::string action);
                  
                 void add_error_behavior(std::string action);
+
+                void module_write(ModuleWriter& mw);
+                void module_read(ModuleReader& mw);
+        };
+
+        class LIBTL_CLASS DependencyItem : public TL::Object
+        {
+            private:
+                DataReference _dep_expr;
+                DependencyDirection _kind;
+            public:
+                DependencyItem() { }
+                DependencyItem(DataReference dep_expr, DependencyDirection kind);
+
+                DependencyDirection get_kind() const;
+                DataReference get_dependency_expression() const;
+
+                void module_write(ModuleWriter& mw);
+                void module_read(ModuleReader& mw);
         };
 
         //! This class represents data sharing environment in a OpenMP construct
@@ -354,16 +370,6 @@ namespace TL
                 void reset();
         };
 
-        class LIBTL_CLASS FunctionTaskDependency
-        {
-            private:
-                DependencyDirection _direction;
-                DataReference _expr;
-            public:
-                FunctionTaskDependency(DataReference expr, DependencyDirection direction);
-                DependencyDirection get_direction() const; 
-                DataReference get_data_reference() const;
-        };
 
         class LIBTL_CLASS FunctionTaskTargetInfo
         {
@@ -376,7 +382,6 @@ namespace TL
 
                 bool _copy_deps;
             public:
-
                 FunctionTaskTargetInfo();
                 bool can_be_ommitted();
 
@@ -394,16 +399,48 @@ namespace TL
                 void set_device_list(const ObjectList<std::string>& device_list);
 
                 ObjectList<std::string> get_device_list() const;
+
+                void module_write(ModuleWriter& mw);
+                void module_read(ModuleReader& mr);
+        };
+
+        class LIBTL_CLASS FunctionTaskDependency : public DependencyItem
+        {
+            public:
+                FunctionTaskDependency() { }
+
+                FunctionTaskDependency(DataReference expr, DependencyDirection direction)
+                    : DependencyItem(expr, direction) { }
+
+                DependencyDirection get_direction() const
+                {
+                    return this->get_kind();
+                }
+
+                DataReference get_data_reference() const
+                {
+                    return this->get_dependency_expression();
+                }
+
+                void module_write(ModuleWriter& mw)
+                {
+                    this->DependencyItem::module_write(mw);
+                }
+                void module_read(ModuleReader& mw)
+                {
+                    this->DependencyItem::module_read(mw);
+                }
         };
 
         class LIBTL_CLASS FunctionTaskInfo 
         {
+            public:
+                typedef std::map<std::string, Symbol> implementation_table_t;
             private:
                 Symbol _sym;
 
                 ObjectList<FunctionTaskDependency> _parameters;
 
-                typedef std::map<std::string, Symbol> implementation_table_t;
                 implementation_table_t _implementation_table;
 
                 FunctionTaskTargetInfo _target_info;
@@ -412,11 +449,11 @@ namespace TL
 
                 Nodecl::NodeclBase _if_clause_cond_expr;
 
-                Symbol get_symbol() const;
-
                 implementation_table_t get_implementation_table() const;
 
             public:
+                FunctionTaskInfo() { }
+
                 FunctionTaskInfo(Symbol sym,
                         ObjectList<FunctionTaskDependency> parameter_info,
                         FunctionTaskTargetInfo target_info);
@@ -446,12 +483,19 @@ namespace TL
                 bool has_if_clause() const;
                 void set_if_clause_conditional_expression(Nodecl::NodeclBase expr);
                 Nodecl::NodeclBase get_if_clause_conditional_expression() const;
+
+                Symbol get_symbol() const;
+
+                // 
+                void module_write(ModuleWriter& mw);
+                void module_read(ModuleReader& mr);
         };
 
         class LIBTL_CLASS FunctionTaskSet : public TL::Object
         {
             private:
-                std::map<Symbol, FunctionTaskInfo> _map;
+                typedef std::map<Symbol, FunctionTaskInfo> map_t;
+                map_t _map;
             public:
                 FunctionTaskSet();
 
@@ -464,6 +508,10 @@ namespace TL
                 bool empty() const;
 
                 bool is_function_task_or_implements(Symbol sym) const;
+
+                // Fortran
+                void emit_module_info();
+                void load_from_module(TL::Symbol module);
         };
 
 

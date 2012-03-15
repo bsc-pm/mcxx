@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -23,6 +23,7 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
 
 
 
@@ -146,6 +147,22 @@ int config_set_preprocessor_options(struct compilation_configuration_tag* config
     return 0;
 }
 
+int config_set_fortran_preprocessor_name(struct compilation_configuration_tag* config, const char* index, const char* value)
+{
+    config->fortran_preprocessor_name = uniquestr(value);
+    return 0;
+}
+
+int config_set_fortran_preprocessor_options(struct compilation_configuration_tag* config, const char* index, const char* value)
+{
+    int num;
+    const char** blank_separated_options = blank_separate_values(value, &num);
+
+    add_to_parameter_list(&config->fortran_preprocessor_options, blank_separated_options, num);
+
+    return 0;
+}
+
 int config_set_preprocessor_uses_stdout(struct compilation_configuration_tag * config, const char* index, const char *value)
 {
     int bool_value = -1;
@@ -166,12 +183,11 @@ int config_set_preprocessor_uses_stdout(struct compilation_configuration_tag * c
 
 int config_set_prescanner_options(struct compilation_configuration_tag* config, const char* index, const char* value)
 {
-#ifdef FORTRAN_SUPPORT
     int num;
     const char** blank_separated_options = blank_separate_values(value, &num);
 
     add_to_parameter_list(&config->prescanner_options, blank_separated_options, num);
-#endif
+
     return 0;
 }
 

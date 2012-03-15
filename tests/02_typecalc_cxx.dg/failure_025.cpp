@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -25,32 +25,25 @@
 --------------------------------------------------------------------*/
 
 
+
 /*
 <testinfo>
 test_generator=config/mercurium
 test_compile_fail=yes
 </testinfo>
 */
-
-typedef int T1 __attribute__((vector_size(16)));
-typedef short int T2 __attribute__((vector_size(16)));
-
-void g(T1 t1);
-void g(T2 t1);
-
-void f()
+namespace N
 {
-   T1 t1;
-   T2 t2;
+    template<typename T1>
+        void foo();
 
-   t1 + t1;
-   t1 = t1;
-
-   t1 = t2;
-   t2 = t1;
-
-   t2 += t2;
-
-   g(t1);
-   g(t2);
 }
+
+template<typename T>
+class A
+{
+    template<typename T1>
+        friend int N::foo();
+};
+
+A<int> a;

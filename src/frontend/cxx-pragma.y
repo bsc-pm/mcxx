@@ -1,5 +1,8 @@
 /*!if GRAMMAR_PROLOGUE*/
 
+%token<token_atrib> UNKNOWN_PRAGMA "<unknown-pragma>"
+%type<ast> unknown_pragma
+
 /*!ifnot FORTRAN2003*/
 %token<token_atrib> VERBATIM_PRAGMA "<verbatim pragma>"
 %token<token_atrib> VERBATIM_CONSTRUCT "<verbatim construct>"
@@ -35,7 +38,9 @@
 %type<ast> pragma_custom_noend_line_construct
 %type<ast> pragma_custom_end_construct
 %type<ast> pragma_custom_end_construct_noend
-%type<ast> pragma_custom_construct_program_unit
+%type<ast> pragma_custom_construct_internal_program_unit
+%type<ast> pragma_custom_construct_module_subprogram_unit
+%type<ast> pragma_custom_construct_interface_body
 /*!endif*/
 %type<ast> pragma_custom_clause
 %type<ast> pragma_custom_clause_seq
@@ -53,7 +58,49 @@
 /*!endif*/
 /*!if GRAMMAR_RULES*/
 
-// Grammar entry point
+// ****************************
+//   Unknown pragma
+// ****************************
+
+/*!ifnot FORTRAN2003*/
+unknown_pragma : UNKNOWN_PRAGMA
+{
+	$$ = ASTLeaf(AST_UNKNOWN_PRAGMA, $1.token_file, $1.token_line, $1.token_text);
+}
+;
+
+common_block_declaration : unknown_pragma
+{
+    $$ = $1;
+}
+;
+
+member_declaration : unknown_pragma
+{
+    $$ = $1;
+}
+;
+/*!endif*/
+
+/*!if FORTRAN2003*/
+unknown_pragma : UNKNOWN_PRAGMA eos
+{
+	$$ = ASTLeaf(AST_UNKNOWN_PRAGMA, $1.token_file, $1.token_line, $1.token_text);
+}
+;
+
+non_top_level_program_unit_stmt: unknown_pragma
+;
+internal_subprogram : unknown_pragma
+;
+module_subprogram : unknown_pragma
+;
+/*!endif*/
+
+// ****************************
+//   Pragma rules
+// ****************************
+
 /*!ifnot FORTRAN2003*/
 no_if_statement : pragma_custom_construct_statement
 {
@@ -91,11 +138,6 @@ non_top_level_program_unit_stmt: pragma_custom_construct_statement
     $$ = $1;
 }
 | pragma_custom_directive
-{
-    $$ = $1;
-}
-;
-program_unit : pragma_custom_construct_program_unit
 {
     $$ = $1;
 }
@@ -165,6 +207,10 @@ pragma_custom_end_construct : PRAGMA_CUSTOM PRAGMA_CUSTOM_END_CONSTRUCT pragma_c
 {
 	$$ = ASTMake2(AST_PRAGMA_CUSTOM_LINE, $3, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
+| PRAGMA_CUSTOM PRAGMA_CUSTOM_END_CONSTRUCT pragma_custom_clause_opt_seq '(' pragma_clause_arg_list ')' PRAGMA_CUSTOM_NEWLINE
+{
+	$$ = ASTMake2(AST_PRAGMA_CUSTOM_LINE, $3, $5, $2.token_file, $2.token_line, $2.token_text);
+}
 ;
 
 pragma_custom_end_construct_noend : PRAGMA_CUSTOM PRAGMA_CUSTOM_END_CONSTRUCT_NOEND pragma_custom_clause_opt_seq PRAGMA_CUSTOM_NEWLINE
@@ -173,11 +219,6 @@ pragma_custom_end_construct_noend : PRAGMA_CUSTOM PRAGMA_CUSTOM_END_CONSTRUCT_NO
 }
 ;
 
-pragma_custom_construct_program_unit : PRAGMA_CUSTOM pragma_custom_line_construct program_unit
-{
-	$$ = ASTMake3(AST_PRAGMA_CUSTOM_CONSTRUCT, $2, $3, NULL, $1.token_file, $1.token_line, $1.token_text);
-}
-;
 
 pragma_custom_noend_line_construct : PRAGMA_CUSTOM_CONSTRUCT_NOEND pragma_custom_clause_opt_seq PRAGMA_CUSTOM_NEWLINE
 {
@@ -186,6 +227,33 @@ pragma_custom_noend_line_construct : PRAGMA_CUSTOM_CONSTRUCT_NOEND pragma_custom
 | PRAGMA_CUSTOM_CONSTRUCT_NOEND '(' pragma_clause_arg_list ')' pragma_custom_clause_opt_seq PRAGMA_CUSTOM_NEWLINE
 {
 	$$ = ASTMake2(AST_PRAGMA_CUSTOM_LINE, $5, $3, $1.token_file, $1.token_line, $1.token_text);
+}
+;
+
+module_subprogram : pragma_custom_construct_module_subprogram_unit
+;
+
+pragma_custom_construct_module_subprogram_unit : PRAGMA_CUSTOM pragma_custom_line_construct module_subprogram
+{
+	$$ = ASTMake3(AST_PRAGMA_CUSTOM_CONSTRUCT, $2, $3, NULL, $1.token_file, $1.token_line, $1.token_text);
+}
+;
+
+internal_subprogram : pragma_custom_construct_internal_program_unit
+;
+
+pragma_custom_construct_internal_program_unit : PRAGMA_CUSTOM pragma_custom_line_construct internal_subprogram
+{
+	$$ = ASTMake3(AST_PRAGMA_CUSTOM_CONSTRUCT, $2, $3, NULL, $1.token_file, $1.token_line, $1.token_text);
+}
+;
+
+interface_body : pragma_custom_construct_interface_body
+;
+
+pragma_custom_construct_interface_body : PRAGMA_CUSTOM pragma_custom_line_construct interface_body
+{
+	$$ = ASTMake3(AST_PRAGMA_CUSTOM_CONSTRUCT, $2, $3, NULL, $1.token_file, $1.token_line, $1.token_text);
 }
 ;
 /*!endif*/

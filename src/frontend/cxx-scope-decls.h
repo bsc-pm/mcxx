@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -26,6 +26,7 @@
 
 
 
+
 #ifndef CXX_SCOPE_DECLS_H
 #define CXX_SCOPE_DECLS_H
 
@@ -42,9 +43,7 @@
 #include "cxx-limits.h"
 #include "cxx-nodecl-output.h"
 
-#ifdef FORTRAN_SUPPORT
 #include "fortran/fortran03-scope-decls.h"
-#endif 
 
 // Extensible schema
 #include "extstruct.h"
@@ -96,9 +95,8 @@ enum decl_flags_tag
     DF_DEPENDENT_TYPENAME = BITMAP(8),
     // Enables weird lookup for 'struct X'/'union X'/'enum X'
     DF_ELABORATED_NAME = BITMAP(9),
-    // Relaxed typechecking, ambiguity decl-expr is solved always to expr if it
-    // cannot be disambiguated
-    DF_AMBIGUITY_FALLBACK_TO_EXPR = BITMAP(12),
+    // The querys will ignore the friend declarations
+    DF_IGNORE_FRIEND_DECL = BITMAP(10),
 } decl_flags_t;
 
 #undef BITMAP
@@ -130,9 +128,7 @@ struct decl_context_tag
     // Prototype scope, if any
     struct scope_tag* prototype_scope;
 
-#ifdef FORTRAN_SUPPORT
     implicit_info_t* implicit_info;
-#endif 
 
     // Scope of the declaration,
     // should never be null
@@ -159,14 +155,12 @@ struct decl_context_tag
     SYMBOL_KIND(SK_USING, "using declared name") \
     SYMBOL_KIND(SK_OTHER, "<<internal symbol>>") 
 
-#ifdef FORTRAN_SUPPORT
 #define SYMBOL_KIND_TABLE_FORTRAN \
     SYMBOL_KIND(SK_COMMON, "COMMON name") \
     SYMBOL_KIND(SK_NAMELIST, "NAMELIST name") \
     SYMBOL_KIND(SK_MODULE, "MODULE name") \
     SYMBOL_KIND(SK_PROGRAM, "PROGRAM name") \
     SYMBOL_KIND(SK_BLOCKDATA, "BLOCK DATA name") 
-#endif
 
 enum cxx_symbol_kind
 {
@@ -175,10 +169,7 @@ enum cxx_symbol_kind
     x, 
 
     SYMBOL_KIND_TABLE
-
-#ifdef FORTRAN_SUPPORT
     SYMBOL_KIND_TABLE_FORTRAN
-#endif
 
 #undef SYMBOL_KIND
     SK_LAST_KIND
@@ -259,7 +250,6 @@ struct default_argument_info_tag
     decl_context_t context;
 };
 
-#ifdef FORTRAN_SUPPORT
 typedef
 enum intent_kind_tag
 {
@@ -268,15 +258,6 @@ enum intent_kind_tag
     INTENT_OUT = 2,
     INTENT_INOUT = INTENT_IN | INTENT_OUT,
 } intent_kind_t;
-#endif
-
-enum codegen_status_tag
-{
-    CODEGEN_STATUS_NONE = 0,
-    CODEGEN_STATUS_DECLARED = 1,
-    CODEGEN_STATUS_DEFINED = 2
-};
-typedef enum codegen_status_tag codegen_status_t;
 
 typedef nodecl_t (*simplify_function_t)(int num_arguments, nodecl_t *arguments);
 

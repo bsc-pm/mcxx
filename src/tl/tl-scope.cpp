@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -23,6 +23,7 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
 
 
 
@@ -231,5 +232,10 @@ namespace TL
     Symbol Scope::get_related_symbol() const
     {
         return _decl_context.current_scope->related_entry;
+    }
+    
+    template_parameter_list_t* Scope::get_template_parameters() const
+    {
+       return _decl_context.template_parameters;
     }
 }

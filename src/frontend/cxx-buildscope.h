@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -23,6 +23,7 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
 
 
 
@@ -83,7 +84,9 @@ LIBMCXX_EXTERN void build_scope_statement(struct AST_tag* statement, decl_contex
 LIBMCXX_EXTERN void initialize_translation_unit_scope(translation_unit_t* translation_unit, decl_context_t* decl_context);
 LIBMCXX_EXTERN void c_initialize_translation_unit_scope(translation_unit_t* translation_unit);
 
-LIBMCXX_EXTERN void build_scope_translation_unit(translation_unit_t* translation_unit);
+LIBMCXX_EXTERN void c_initialize_builtin_symbols(decl_context_t decl_context);
+
+LIBMCXX_EXTERN nodecl_t build_scope_translation_unit(translation_unit_t* translation_unit);
 LIBMCXX_EXTERN void build_scope_declaration_sequence(AST list, 
         decl_context_t decl_context, 
         nodecl_t* nodecl_output_list);

@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -25,6 +25,7 @@
 --------------------------------------------------------------------*/
 
 
+
 #ifndef TL_OMP_DEPS_HPP
 #define TL_OMP_DEPS_HPP
 
@@ -39,13 +40,13 @@ enum DependencyDirection
 {
     DEP_DIR_UNDEFINED = 0,
     // Input dependence
-    DEP_DIR_INPUT = BITMAP(1),
+    DEP_DIR_IN = BITMAP(1),
     // Output dependence
-    DEP_DIR_OUTPUT = BITMAP(2),
+    DEP_DIR_OUT = BITMAP(2),
     // Inout dependence
-    DEP_DIR_INOUT = DEP_DIR_INPUT | DEP_DIR_OUTPUT,
-    // Reduction dependences
-    DEP_REDUCTION = BITMAP(3),
+    DEP_DIR_INOUT = DEP_DIR_IN | DEP_DIR_OUT,
+    // Concurrent dependences
+    DEP_CONCURRENT = BITMAP(3),
 };
 
 } }

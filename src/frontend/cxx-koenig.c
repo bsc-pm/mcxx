@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -23,6 +23,7 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
 
 
 
@@ -81,8 +82,10 @@ scope_entry_list_t* koenig_lookup(
 
     scope_entry_list_t *result = NULL;
 
-    // First do normal lookup
-    result = query_nodecl_name(normal_decl_context, nodecl_simple_name);
+    // First do normal lookup, filtering non-visible function friend declaration
+    result = query_name_str_flags(normal_decl_context, 
+            nodecl_get_text(nodecl_simple_name), 
+            DF_IGNORE_FRIEND_DECL);
 
     // For every associated scope
     int i;

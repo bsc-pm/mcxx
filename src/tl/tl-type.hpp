@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -23,6 +23,7 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
 
 
 
@@ -75,9 +76,14 @@ namespace TL
         public:
             TemplateParameters(template_parameter_list_t* tpl_params) : _tpl_params(tpl_params) { }
 
+            bool operator==(TemplateParameters t) const;
+            bool operator!=(TemplateParameters t) const;
+            
+            bool is_valid() const;
+
             //! Returns the number of parameters in the current parameter level
             int get_num_parameters() const;
-
+            
             typedef enum template_parameter_kind TemplateParameterKind;
 
             //! Returns the n-th template parameter as a pair of the symbol and its kind
@@ -122,6 +128,8 @@ namespace TL
                 NORMAL_DECLARATION,
                 PARAMETER_DECLARATION
             };
+
+            Type() : _type_info(NULL) { }
 
             Type(type_t* type_info)
                 : _type_info(type_info)
@@ -184,21 +192,24 @@ namespace TL
             {
             }
 
-            //! Returns a string with a declaration
+            //! Returns a string with a C/C++ declaration
             std::string get_simple_declaration(Scope sc, const std::string& symbol_name, 
                     TypeDeclFlags flags = NORMAL_DECLARATION) const;
-            //! Returns a string with a declaration
+            //! Returns a string with a C/C++ declaration
             std::string get_declaration(Scope sc, const std::string& symbol_name,
                     TypeDeclFlags flags = NORMAL_DECLARATION) const;
 
-            //! Returns a string with a declaration and suitable initializer
+            //! Returns a string with a C/C++ declaration and suitable initializer
             std::string get_declaration_with_initializer(Scope sc, 
                     const std::string& symbol_name, const std::string& initializer,
                     TypeDeclFlags flags = NORMAL_DECLARATION) const;
 
-            //! Returns a string with a function declaration and parameter names
+            //! Returns a string with a C/C++ function declaration and parameter names
             std::string get_declaration_with_parameters(Scope sc, const std::string& symbol_name,
                     ObjectList<std::string>& parameters, ObjectList<std::string>& parameter_attributes, TypeDeclFlags flags = NORMAL_DECLARATION) const;
+
+            // Returns a string with a Fortran declaration
+            std::string get_fortran_declaration(Scope sc, const std::string& symbol_name, TypeDeclFlags flags = NORMAL_DECLARATION);
 
             //! Basic type
             /*! Returns the basic type on which this type is built 
@@ -257,6 +268,14 @@ namespace TL
              * \param scope Scope of \a lower_bound and \a upper_bound
              */
             Type get_array_to(Nodecl::NodeclBase lower_bound, Nodecl::NodeclBase upper_bound, Scope scope);
+
+            //! Returns a ranged array to the current type with descriptor
+            /*! 
+             * \param lower_bound The lower bound expression of the array. 
+             * \param upper_bound The upper bound expression of the array. 
+             * \param scope Scope of \a lower_bound and \a upper_bound
+             */
+            Type get_array_to_with_descriptor(Nodecl::NodeclBase lower_bound, Nodecl::NodeclBase upper_bound, Scope scope);
 
             //! Gets a lvalue reference (C++) to the current type
             Type get_lvalue_reference_to();
@@ -374,6 +393,8 @@ namespace TL
             bool is_unnamed_enum() const;
             //! States that this type is a named enum-type
             bool is_named_enum() const;
+            //! Returns the underlying integer of this enum type
+            Type enum_get_underlying_type() const;
 
             //! Returns the related symbol of this named type
             Symbol get_symbol() const;
@@ -480,6 +501,12 @@ namespace TL
             //! Returns the expression of the array dimension
             Nodecl::NodeclBase array_get_size() const; 
 
+            //! States whether the frontend flagged this array as requiring an in-memory descriptor
+            /*!
+             * This only happens in Fortran for some array kinds
+             */
+            bool array_requires_descriptor() const;
+
             //! Return the number of dimensions for an array type or 0 for the rest of types
             int get_num_dimensions() const;
 
@@ -505,7 +532,13 @@ namespace TL
             //! This returns the expression of the array region size 
             Nodecl::NodeclBase array_get_region_size() const;
             
-            //! [C only] States whether current array is a VLA
+            //! [C and Fortran] States whether current array is a VLA
+            /*!
+             * There are no VLAs in Fortran but this attribute will be true for
+             * those arrays not requiring descriptors the size of which is non
+             * constant (like explicit shape arrays with bounds depending on
+             * dummy arguments)
+             */
             bool array_is_vla() const;
 
             //! States whether current type is a vector-type
@@ -545,6 +578,8 @@ namespace TL
              * \endcode
              */
             bool is_dependent_typename() const;
+            
+            bool is_dependent() const;
 
             //! Decomposes the dependent typename into its entry symbol and its syntactic part
             void dependent_typename_get_components(Symbol& entry_symbol, Nodecl::NodeclBase& parts);
@@ -572,7 +607,7 @@ namespace TL
             bool class_type_is_incomplete_independent() const;
             bool class_type_is_incomplete_dependent() const;
 
-            class_kind_t class_type_get_class_kind() const;
+            type_tag_t class_type_get_class_kind() const;
 
             //! States whether the type is a lvalue or rvalue reference type
             bool is_any_reference() const;

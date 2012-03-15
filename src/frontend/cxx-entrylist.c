@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -23,6 +23,7 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
 
 
 #include "cxx-entrylist.h"
@@ -408,4 +409,35 @@ scope_entry_list_t* entry_list_remove(scope_entry_list_t* entry_list, scope_entr
     entry_list->num_items_list--;
 
     return entry_list;
+}
+
+
+void entry_list_to_symbol_array(scope_entry_list_t* list, scope_entry_t*** array, int* num_items)
+{
+    int size = entry_list_size(list);
+    *array = counted_calloc(size, sizeof(scope_entry_t*), &_bytes_entry_lists);
+
+    *num_items = 0;
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(list); !entry_list_iterator_end(it); entry_list_iterator_next(it))
+    {
+        (*array)[*num_items] = entry_list_iterator_current(it);
+        (*num_items)++;
+    }
+}
+
+scope_entry_list_t* entry_list_from_symbol_array(int num_items, scope_entry_t** list)
+{
+    if(num_items <= 0)
+    {
+        return NULL;
+    }
+
+    scope_entry_list_t* result = entry_list_allocate();
+    int ind;
+    for (ind = 0; ind < num_items; ++ind)
+    {
+        entry_list_add(result, list[ind]);
+    }
+    return result;
 }

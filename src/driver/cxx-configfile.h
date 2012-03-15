@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -23,6 +23,7 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
 
 
 
@@ -61,6 +62,9 @@ option_function_t config_set_identifier;
 option_function_t config_set_target_options;
 option_function_t config_set_compiler_dto;
 option_function_t config_set_codegen_phase;
+
+option_function_t config_set_fortran_preprocessor_name;
+option_function_t config_set_fortran_preprocessor_options;
 
 void print_help_target_options(void);
 

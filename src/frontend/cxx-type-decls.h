@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -23,6 +23,7 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
 
 
 
@@ -84,12 +85,15 @@ enum standard_conversion_item_tag
     SCI_QUALIFICATION_CONVERSION,
 } standard_conversion_item_t;
 
-// Class kind
-enum class_kind_t {
-    CK_INVALID = 0,
-    CK_STRUCT, // struct
-    CK_CLASS, // class
-    CK_UNION // union 
+// type tag
+enum type_tag_t 
+{
+    TT_TYPENAME = 0, //typename
+    TT_STRUCT, // struct
+    TT_CLASS, // class
+    TT_UNION, // union
+    TT_ENUM,  // enum
+    TT_INVALID 
 };
 
 // Standard conversion info

@@ -1,3 +1,29 @@
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
+
 #include "cxx-cuda.h"
 #include "cxx-exprtype.h"
 #include "cxx-overload.h"
@@ -49,7 +75,7 @@ static type_t* cuda_get_dim3_type(void)
             new_class_sym = new_symbol(global_decl_context, global_decl_context.current_scope, "dim3");
         }
         new_class_sym->kind = SK_CLASS;
-        new_class_sym->type_information = get_new_class_type(global_decl_context, CK_STRUCT);
+        new_class_sym->type_information = get_new_class_type(global_decl_context, TT_STRUCT);
         decl_context_t class_context = new_class_context(global_decl_context, new_class_sym);
 
         class_type_set_inner_context(new_class_sym->type_information, class_context);
@@ -102,7 +128,7 @@ static type_t* cuda_get_uint3_type(void)
         }
 
         new_class_sym->kind = SK_CLASS;
-        new_class_sym->type_information = get_new_class_type(global_decl_context, CK_STRUCT);
+        new_class_sym->type_information = get_new_class_type(global_decl_context, TT_STRUCT);
         decl_context_t class_context = new_class_context(global_decl_context, new_class_sym);
 
         class_type_set_inner_context(new_class_sym->type_information, class_context);
@@ -142,7 +168,7 @@ static type_t* cuda_get_cudaStream_t_type(void)
         // typedef struct CUstream_st *cudaStream_t;
         scope_entry_t* new_class_sym = new_symbol(global_decl_context, global_decl_context.current_scope, "struct CUstream_st");
         new_class_sym->kind = SK_CLASS;
-        new_class_sym->type_information = get_new_class_type(global_decl_context, CK_STRUCT);
+        new_class_sym->type_information = get_new_class_type(global_decl_context, TT_STRUCT);
 
         scope_entry_t* new_typedef_sym = new_symbol(global_decl_context, global_decl_context.current_scope, "cudaStream_t");
         new_typedef_sym->kind = SK_TYPEDEF;
@@ -392,6 +418,7 @@ void check_cuda_kernel_call(AST expression, decl_context_t decl_context, nodecl_
                     nodecl_make_function_call(
                         nodecl_postfix,
                         nodecl_argument_list,
+                        /* alternate_name */ nodecl_null(),
                         get_unknown_dependent_type(),
                         filename, line),
                     get_unknown_dependent_type(),

@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -24,11 +24,10 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+
 #ifndef FORTRAN_PRETTYPRINT_C
   #define FORTRAN_PRETTYPRINT_C
 #endif
-
-#include "fortran03-prettyprint.h"
 
 #ifdef HAVE_CONFIG_H
   #include "config.h"
@@ -37,6 +36,8 @@
   // Needed, otherwise open_memstream is not declared
   #define _GNU_SOURCE
 #endif
+
+#include "fortran03-prettyprint.h"
 
 
 #include <stdio.h>

@@ -1,5 +1,5 @@
 ##########################################################################
-#  (C) Copyright 2006-2011 Barcelona Supercomputing Center               #
+#  (C) Copyright 2006-2012 Barcelona Supercomputing Center               #
 #                          Centro Nacional de Supercomputacion           #
 #                                                                        #
 #  This file is part of Mercurium C/C++ source-to-source compiler.       #
@@ -155,6 +155,9 @@ libtl_la_SOURCES = \
 	tl-datareference.cpp \
 	tl-replace.hpp \
 	tl-replace.cpp \
+    tl-modules-fwd.hpp \
+    tl-modules.hpp \
+    tl-modules.cpp \
     $(END)
 
 if WINDOWS_BUILD
@@ -165,9 +168,7 @@ endif
 
 PARSER_INFO_C=$(builddir)/../frontend/c99-parser-internal.h
 PARSER_INFO_CXX=$(builddir)/../frontend/cxx-parser-internal.h
-if FORTRAN_SUPPORT
 PARSER_INFO_FORTRAN=$(builddir)/../frontend/fortran/fortran03-parser-internal.h
-endif
 
 # Flex makes things very difficult
 tl-lexer-tokens.hpp : $(PARSER_INFO_C) $(PARSER_INFO_CXX) $(PARSER_INFO_FORTRAN)
@@ -216,6 +217,4 @@ libtl_la_LIBADD = \
 	$(top_builddir)/src/frontend/libmcxx.la \
 	$(END)
 
-if FORTRAN_SUPPORT
 libtl_la_LIBADD += $(top_builddir)/src/frontend/fortran/libmf03.la
-endif

@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -25,14 +25,15 @@
 --------------------------------------------------------------------*/
 
 
+
 /*
+// g++ cannot compile this code, it gets lost during the instantiation of A<B>
+// so we run it as if it were a Mercurium extension
+
 <testinfo>
-test_generator=config/mercurium
+test_generator=config/mercurium-extensions
 </testinfo>
 */
-
-// g++ cannot compile this code, it gets lost during
-// the instantiation of A<B>
 
 template <typename _T>
 struct A;

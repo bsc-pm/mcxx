@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -23,6 +23,7 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
 
 
 
@@ -98,15 +99,18 @@ typedef struct translation_unit_tag
     int num_top_level_includes;
     top_level_include_t **top_level_include_list;
 
-#ifdef FORTRAN_SUPPORT
-    rb_red_blk_tree *module_cache;
+    // This is a cache of module files actually opened and loaded
+    rb_red_blk_tree *module_file_cache;
+
+    // This is a cache of module symbols that may have appeared during load of
+    // other caches (this is a superset of module_file_cache)
+    rb_red_blk_tree *module_symbol_cache;
 
     int num_modules_to_wrap;
     module_to_wrap_info_t** modules_to_wrap;
 
     int num_module_files_to_hide;
     const char** module_files_to_hide;
-#endif // FORTRAN_SUPPORT
 
     // Opaque pointer used when running compiler phases
     void *dto;
@@ -313,7 +317,7 @@ typedef struct compilation_configuration_tag
     char do_not_compile;
     char do_not_link;
     char generate_assembler;
-    char disable_openmp;
+    char enable_openmp;
 	char force_language;
 
     // -Werror
@@ -332,7 +336,10 @@ typedef struct compilation_configuration_tag
     const char** preprocessor_options;
     char preprocessor_uses_stdout;
 
-#ifdef FORTRAN_SUPPORT
+    // Fortran preprocessor
+    const char* fortran_preprocessor_name;
+    const char** fortran_preprocessor_options;
+
     // Fortran prescanner
     const char* prescanner_name;
     const char** prescanner_options;
@@ -349,7 +356,14 @@ typedef struct compilation_configuration_tag
 
     // Directory where we unwrap the native modules
     const char* module_native_dir;
-#endif
+
+    // Fortran default kinds
+    int default_integer_kind;
+    int default_real_kind;
+    int default_logical_kind;
+    int default_character_kind;
+    int doubleprecision_kind;
+
     source_kind_t force_source_kind;
 
     const char* native_compiler_name;
@@ -429,10 +443,8 @@ typedef struct compilation_configuration_tag
     int num_target_option_maps;
     target_options_map_t** target_options_maps;
 
-#ifdef FORTRAN_SUPPORT
     // Fortran lexing
     char disable_empty_sentinels;
-#endif
 } compilation_configuration_t;
 
 struct compiler_phase_loader_tag

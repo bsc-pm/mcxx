@@ -1,3 +1,29 @@
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
+
 #include "cxx-driver-fortran.h"
 #include "cxx-driver-decls.h"
 #include "cxx-driver-utils.h"
@@ -230,6 +256,12 @@ static const char* unwrap_module(const char* wrap_module, const char* module_nam
 
 static void register_module_for_later_wrap(const char* module_name, const char* mf03_filename)
 {
+    int i;
+    for (i = 0; i < CURRENT_COMPILED_FILE->num_modules_to_wrap; i++)
+    {
+        if (strcasecmp(CURRENT_COMPILED_FILE->modules_to_wrap[i]->module_name, module_name) == 0)
+            return;
+    }
     module_to_wrap_info_t *module_to_wrap = calloc(1, sizeof(*module_to_wrap));
 
     module_to_wrap->module_name = module_name;
@@ -363,13 +395,13 @@ void driver_fortran_retrieve_module(const char* module_name, const char **mf03_f
 
     if (CURRENT_CONFIGURATION->debug_options.disable_module_cache)
     {
+        // Try first with a hypothetical unwrapped module
         *mf03_filename = get_path_of_mercurium_nonwrapped_module(module_name);
-        return;
+        if (*mf03_filename != NULL)
+            return;
     }
-    else
-    {
-        wrap_module = get_path_of_mercurium_wrap_module(module_name);
-    }
+
+    wrap_module = get_path_of_mercurium_wrap_module(module_name);
 
     if (wrap_module != NULL)
     {

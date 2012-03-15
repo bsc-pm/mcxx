@@ -1,5 +1,5 @@
 ##########################################################################
-#  (C) Copyright 2006-2011 Barcelona Supercomputing Center               #
+#  (C) Copyright 2006-2012 Barcelona Supercomputing Center               #
 #                          Centro Nacional de Supercomputacion           #
 #                                                                        #
 #  This file is part of Mercurium C/C++ source-to-source compiler.       #
@@ -24,10 +24,6 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-SUBDIRS=cxx legacy_cxx
-
-if FORTRAN_SUPPORT
-SUBDIRS += fortran legacy_fortran
-endif
+SUBDIRS=cxx fortran
 
 DIST_SUBDIRS=cxx fortran legacy_cxx legacy_fortran

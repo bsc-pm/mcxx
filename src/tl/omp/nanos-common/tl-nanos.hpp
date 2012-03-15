@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -23,6 +23,7 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
 
 
 
@@ -65,6 +66,8 @@ namespace TL
                 map_events _map_events;
 
                 void reset_version_info();
+
+                static bool _already_registered;
                 
             public:
                 Interface();
@@ -79,6 +82,8 @@ namespace TL
 
                 virtual void run(TL::DTO& dto);
                 virtual void phase_cleanup(DTO& dto);
+
+                void walk(Nodecl::NodeclBase top_level);
                 
                 ~Interface() { }
         };

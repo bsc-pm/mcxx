@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -26,6 +26,7 @@
 
 
 
+
 #ifndef CXX_PRETTYPRINT_C
   #define CXX_PRETTYPRINT_C
 #endif
@@ -47,9 +48,7 @@
 #include "cxx-prettyprint-internal.h"
 #include "cxx-diagnostic.h"
 
-#ifdef FORTRAN_SUPPORT
 #include "fortran/fortran03-prettyprint.h"
-#endif
 
 HANDLER_PROTOTYPE(ambiguity_handler);
 HANDLER_PROTOTYPE(sequence_handler);
@@ -96,7 +95,6 @@ HANDLER_PROTOTYPE(son_handler_then_suffix_parameter);
 HANDLER_PROTOTYPE(templated_cast_handler);
 HANDLER_PROTOTYPE(qualified_id_handler);
 HANDLER_PROTOTYPE(member_declaration_qualif_handler);
-HANDLER_PROTOTYPE(qualified_template_handler);
 HANDLER_PROTOTYPE(conversion_type_id_handler);
 HANDLER_PROTOTYPE(constructor_initializer_handler);
 HANDLER_PROTOTYPE(mem_initializer_handler);
@@ -251,7 +249,6 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_DECLARATOR_ID_EXPR, unary_container_handler, NULL),
     NODE_HANDLER(AST_GLOBAL_SCOPE, double_colon_handler, NULL),
     NODE_HANDLER(AST_NESTED_NAME_SPECIFIER, nested_name_handler, NULL),
-    NODE_HANDLER(AST_NESTED_NAME_SPECIFIER_TEMPLATE, nested_name_handler, NULL),
     NODE_HANDLER(AST_SYMBOL, simple_text_handler, NULL),
     NODE_HANDLER(AST_TEMPLATE_ID, template_id_handler, NULL),
     NODE_HANDLER(AST_TEMPLATE_EXPRESSION_ARGUMENT, unary_container_handler, NULL),
@@ -331,9 +328,7 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_DIV, binary_operator_handler, "/"),
     NODE_HANDLER(AST_MOD, binary_operator_handler, "%"),
     NODE_HANDLER(AST_MUL, binary_operator_handler, "*"),
-#ifdef FORTRAN_SUPPORT
     NODE_HANDLER(AST_POWER, binary_operator_handler, "^^"),
-#endif
     NODE_HANDLER(AST_POINTER_TO_MEMBER, infix_parameter_handler, ".*"),
     NODE_HANDLER(AST_POINTER_TO_POINTER_MEMBER, infix_parameter_handler, "->*"),
     NODE_HANDLER(AST_CAST, cast_expression_handler, NULL),
@@ -341,8 +336,8 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_PREINCREMENT, prefix_with_parameter_then_son_handler, "++"),
     NODE_HANDLER(AST_DERREFERENCE, prefix_with_parameter_then_son_handler, "*"),
     NODE_HANDLER(AST_REFERENCE, prefix_with_parameter_then_son_handler, "&"),
-    NODE_HANDLER(AST_PLUS, prefix_with_parameter_then_son_handler, "+"),
-    NODE_HANDLER(AST_NEG, prefix_with_parameter_then_son_handler, "-"),
+    NODE_HANDLER(AST_PLUS, prefix_with_parameter_then_son_handler, " +"),
+    NODE_HANDLER(AST_NEG, prefix_with_parameter_then_son_handler, " -"),
     NODE_HANDLER(AST_LOGICAL_NOT, prefix_with_parameter_then_son_handler, "!"),
     NODE_HANDLER(AST_BITWISE_NOT, prefix_with_parameter_then_son_handler, "~"),
     NODE_HANDLER(AST_SIZEOF, prefix_with_parameter_then_son_handler, "sizeof "),
@@ -372,7 +367,6 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_THIS_VARIABLE, simple_parameter_handler, "this"),
     NODE_HANDLER(AST_PARENTHESIZED_EXPRESSION, parenthesized_son_handler, NULL),
     NODE_HANDLER(AST_QUALIFIED_ID, qualified_id_handler, NULL),
-    NODE_HANDLER(AST_QUALIFIED_TEMPLATE, qualified_template_handler, NULL),
     NODE_HANDLER(AST_DESTRUCTOR_ID, unary_container_handler, NULL),
     NODE_HANDLER(AST_DESTRUCTOR_TEMPLATE_ID, prefix_with_parameter_then_son_handler, "~"),
     NODE_HANDLER(AST_CONVERSION_FUNCTION_ID, prefix_with_parameter_then_son_handler, "operator "),
@@ -609,12 +603,9 @@ void cxx_prettyprint(FILE* f, AST a)
 
 void prettyprint(FILE* f, AST a)
 {
-#ifdef FORTRAN_SUPPORT
     if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
     {
-#endif
-    cxx_prettyprint(f, a);
-#ifdef FORTRAN_SUPPORT
+        cxx_prettyprint(f, a);
     }
     else if (IS_FORTRAN_LANGUAGE)
     {
@@ -624,7 +615,6 @@ void prettyprint(FILE* f, AST a)
     {
         internal_error("Code unreachable", 0);
     }
-#endif
 }
 
 const char* cxx_prettyprint_in_buffer(AST a)
@@ -637,12 +627,9 @@ const char* cxx_prettyprint_in_buffer(AST a)
 
 const char* prettyprint_in_buffer(AST a)
 {
-#ifdef FORTRAN_SUPPORT
     if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
     {
-#endif
-    return cxx_prettyprint_in_buffer(a);
-#ifdef FORTRAN_SUPPORT
+        return cxx_prettyprint_in_buffer(a);
     }
     else if (IS_FORTRAN_LANGUAGE)
     {
@@ -652,7 +639,6 @@ const char* prettyprint_in_buffer(AST a)
     {
         internal_error("Code unreachable", 0);
     }
-#endif
 }
 
 const char* cxx_prettyprint_in_buffer_callback(AST a, prettyprint_callback_t callback, void *data)
@@ -668,12 +654,9 @@ const char* cxx_prettyprint_in_buffer_callback(AST a, prettyprint_callback_t cal
 
 const char* prettyprint_in_buffer_callback(AST a, prettyprint_callback_t callback, void *data)
 {
-#ifdef FORTRAN_SUPPORT
     if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
     {
-#endif
-    return cxx_prettyprint_in_buffer_callback(a, callback, data);
-#ifdef FORTRAN_SUPPORT
+        return cxx_prettyprint_in_buffer_callback(a, callback, data);
     }
     else if (IS_FORTRAN_LANGUAGE)
     {
@@ -683,7 +666,6 @@ const char* prettyprint_in_buffer_callback(AST a, prettyprint_callback_t callbac
     {
         internal_error("Code unreachable", 0);
     }
-#endif
 }
 
 const char* cxx_list_handler_in_buffer(AST a)
@@ -696,12 +678,9 @@ const char* cxx_list_handler_in_buffer(AST a)
 
 const char* list_handler_in_buffer(AST a)
 {
-#ifdef FORTRAN_SUPPORT
     if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
     {
-#endif
-    return cxx_list_handler_in_buffer(a);
-#ifdef FORTRAN_SUPPORT
+        return cxx_list_handler_in_buffer(a);
     }
     else if (IS_FORTRAN_LANGUAGE)
     {
@@ -711,7 +690,6 @@ const char* list_handler_in_buffer(AST a)
     {
         internal_error("Code unreachable", 0);
     }
-#endif
 }
 
 static void increase_level(prettyprint_context_t *pt_ctx)
@@ -895,11 +873,6 @@ static void list_parenthesized_son_handler(FILE* f, AST a, prettyprint_context_t
 
 static void nested_name_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
-    if (ASTType(a) == AST_NESTED_NAME_SPECIFIER_TEMPLATE)
-    {
-        token_fprintf(f, a, pt_ctx, "template ");
-    }
-
     prettyprint_level(f, ASTSon0(a), pt_ctx);
 
     double_colon_handler(f, a, pt_ctx);
@@ -1339,18 +1312,6 @@ static void qualified_id_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
         prettyprint_level(f, ASTSon1(a), pt_ctx);
     }
 
-    prettyprint_level(f, ASTSon2(a), pt_ctx);
-}
-
-static void qualified_template_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    if (ASTSon0(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon0(a), pt_ctx);
-    }
-
-    prettyprint_level(f, ASTSon1(a), pt_ctx);
-    token_fprintf(f, a, pt_ctx, "template ");
     prettyprint_level(f, ASTSon2(a), pt_ctx);
 }
 

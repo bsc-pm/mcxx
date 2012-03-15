@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -24,8 +24,12 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+
 #include "tl-outline-info.hpp"
 #include "tl-nodecl-visitor.hpp"
+#include "tl-datareference.hpp"
+#include "codegen-phase.hpp"
+#include "cxx-diagnostic.h"
 
 namespace TL { namespace Nanox {
 
@@ -74,10 +78,27 @@ namespace TL { namespace Nanox {
     {
         private:
             OutlineInfo& _outline_info;
+            bool _is_function_task;
         public:
-            OutlineInfoSetupVisitor(OutlineInfo& outline_info)
-                : _outline_info(outline_info)
+            OutlineInfoSetupVisitor(OutlineInfo& outline_info, bool is_function_task)
+                : _outline_info(outline_info), _is_function_task(is_function_task)
             {
+            }
+
+            void add_shared(Symbol sym)
+            {
+                OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym);
+
+                outline_info.set_sharing(OutlineDataItem::SHARING_SHARED);
+
+                Type t = sym.get_type();
+                if (t.is_any_reference())
+                {
+                    t = t.references_to();
+                }
+
+                outline_info.set_field_type(t.get_pointer_to());
+                outline_info.set_in_outline_type(t.get_lvalue_reference_to());
             }
 
             void visit(const Nodecl::Parallel::Shared& shared)
@@ -88,11 +109,92 @@ namespace TL { namespace Nanox {
                         it++)
                 {
                     TL::Symbol sym = it->as<Nodecl::Symbol>().get_symbol();
-                    OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym);
 
-                    outline_info.set_sharing(OutlineDataItem::SHARING_SHARED);
-                    outline_info.set_field_type(sym.get_type().get_lvalue_reference_to());
+                    FORTRAN_LANGUAGE()
+                    {
+                        TL::Type type = sym.get_type();
+                        if (type.is_pointer()
+                                || (type.is_any_reference() 
+                                    && type.references_to().is_pointer()))
+                        {
+                            running_error("%s: sorry: shared POINTER variable '%s' is not supported in Fortran yet\n",
+                                    it->get_locus().c_str(),
+                                    sym.get_name().c_str());
+                        }
+                    }
+                    add_shared(sym);
                 }
+            }
+
+            void add_dependence(Nodecl::List list, OutlineDataItem::Directionality directionality)
+            {
+                for (Nodecl::List::iterator it = list.begin();
+                        it != list.end();
+                        it++)
+                {
+                    TL::DataReference data_ref(*it);
+                    if (data_ref.is_valid())
+                    {
+                        TL::Symbol sym = data_ref.get_base_symbol();
+                        if (!_is_function_task)
+                        {
+                            // If we are in an inline task, dependences are
+                            // truly shared...
+                            add_shared(sym);
+                        }
+                        else
+                        {
+                            // ... but in function tasks, dependences have just
+                            // their addresses captured
+                            add_capture(sym);
+                        }
+
+                        OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym);
+                        outline_info.set_directionality(
+                                OutlineDataItem::Directionality(directionality | outline_info.get_directionality())
+                                );
+
+                        outline_info.get_dependences().append(data_ref);
+                    }
+                    else
+                    {
+                        internal_error("%s: data reference '%s' must be valid at this point!\n", 
+                                it->get_locus().c_str(),
+                                Codegen::get_current().codegen_to_str(*it).c_str()
+                                );
+                    }
+                }
+            }
+
+            void visit(const Nodecl::Parallel::DepIn& dep_in)
+            {
+                add_dependence(dep_in.get_in_deps().as<Nodecl::List>(), OutlineDataItem::DIRECTIONALITY_IN);
+            }
+
+            void visit(const Nodecl::Parallel::DepOut& dep_out)
+            {
+                add_dependence(dep_out.get_out_deps().as<Nodecl::List>(), OutlineDataItem::DIRECTIONALITY_OUT);
+            }
+
+            void visit(const Nodecl::Parallel::DepInout& dep_inout)
+            {
+                add_dependence(dep_inout.get_inout_deps().as<Nodecl::List>(), OutlineDataItem::DIRECTIONALITY_INOUT);
+            }
+
+            void add_capture(Symbol sym)
+            {
+                OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym);
+
+                outline_info.set_sharing(OutlineDataItem::SHARING_CAPTURE);
+
+                Type t = sym.get_type();
+                if (t.is_any_reference())
+                {
+                    t = t.references_to();
+                }
+
+                outline_info.set_field_type(t);
+                outline_info.set_in_outline_type(t.get_lvalue_reference_to());
             }
 
             void visit(const Nodecl::Parallel::Capture& shared)
@@ -103,9 +205,7 @@ namespace TL { namespace Nanox {
                         it++)
                 {
                     TL::Symbol sym = it->as<Nodecl::Symbol>().get_symbol();
-                    OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym);
-
-                    outline_info.set_sharing(OutlineDataItem::SHARING_CAPTURE);
+                    add_capture(sym);
                 }
             }
 
@@ -129,9 +229,9 @@ namespace TL { namespace Nanox {
             }
     };
 
-    OutlineInfo::OutlineInfo(Nodecl::NodeclBase environment)
+    OutlineInfo::OutlineInfo(Nodecl::NodeclBase environment, bool is_function_task)
     {
-        OutlineInfoSetupVisitor setup_visitor(*this);
+        OutlineInfoSetupVisitor setup_visitor(*this, is_function_task);
         setup_visitor.walk(environment);
     }
 

@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -25,6 +25,7 @@
 --------------------------------------------------------------------*/
 
 
+
 #ifndef FORTRAN03_SCOPE_H
 #define FORTRAN03_SCOPE_H
 
@@ -42,12 +43,24 @@ LIBMF03_EXTERN decl_context_t fortran_new_block_context(decl_context_t);
 
 // The first function avoids implicit symbols. The second query
 // only shows implicit symbols.
-LIBMF03_EXTERN scope_entry_t* fortran_query_name_str(decl_context_t decl_context, const char* unqualified_name);
+LIBMF03_EXTERN scope_entry_t* fortran_query_name_str(decl_context_t decl_context, 
+        const char* unqualified_name,
+        const char* filename, 
+        int line);
+LIBMF03_EXTERN scope_entry_list_t* fortran_query_name_str_for_function(decl_context_t decl_context, 
+        const char* unqualified_name,
+        const char* filename, 
+        int line);
 LIBMF03_EXTERN scope_entry_t* fortran_query_intrinsic_name_str(decl_context_t decl_context, const char* unqualified_name);
 
 // Creates a new fortran symbol. Use this function instead of new_symbol as
 // this one takes care of case. It always uses current_scope.
 LIBMF03_EXTERN scope_entry_t* new_fortran_symbol(decl_context_t, const char* name);
+
+// Like new_fortran_symbol but does not sign the symbol in the unknown type set
+LIBMF03_EXTERN scope_entry_t* new_fortran_symbol_not_unknown(decl_context_t, const char* name);
+
+// Creates a new fortran implicit type appearing in an expression
 LIBMF03_EXTERN scope_entry_t* new_fortran_implicit_symbol(decl_context_t decl_context, AST locus, const char* name);
 
 // Use this one for typechecking of expressions only. This function uses

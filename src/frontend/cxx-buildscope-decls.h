@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -23,6 +23,7 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
 
 
 
@@ -97,6 +98,10 @@ struct gather_decl_spec_tag {
         nodecl_t argument;
         decl_context_t context;
     } arguments_info[MCXX_MAX_FUNCTION_PARAMETERS];
+    
+    // VLA info
+    int num_vla_dimension_symbols;
+    scope_entry_t** vla_dimension_symbols;
 
     // Attribute info
     int num_gcc_attributes;

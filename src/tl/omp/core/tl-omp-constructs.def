@@ -18,6 +18,8 @@
 //     only-one-statement (probably a construct)
 //   [$!SENTINEL END X <clauses-opt>]         <-- optional
 // 
+// OMP_SECTIONS is special
+// 
 
 OMP_CONSTRUCT("parallel", parallel)
 
@@ -35,7 +37,9 @@ OMP_CONSTRUCT("single", single)
 
 OMP_CONSTRUCT("parallel|sections", parallel_sections)
 OMP_CONSTRUCT("sections", sections)
-OMP_CONSTRUCT("section", section)
+
+// section is closer to a construct but it cannot be handled as such
+OMP_DIRECTIVE("section", section)
 
 OMP_CONSTRUCT("task", task)
 OMP_DIRECTIVE("taskwait", taskwait)
@@ -48,7 +52,5 @@ OMP_DIRECTIVE("declare|reduction", declare_reduction)
 
 OMP_CONSTRUCT("target", target)
 
-#ifdef FORTRAN_SUPPORT
 OMP_CONSTRUCT_NOEND("parallel|do", parallel_do)
 OMP_CONSTRUCT_NOEND("do", do)
-#endif

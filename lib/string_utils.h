@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -23,6 +23,7 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
 
 
 
@@ -62,6 +63,8 @@ LIBUTILS_EXTERN void  merge_sort_list_str(const char** list, int size,unsigned c
 // Like asprintf but returning a uniquestr
 LIBUTILS_EXTERN int uniquestr_sprintf(const char** out_str, const char* format, ...);
 
+LIBUTILS_EXTERN unsigned int simple_hash_str(const char *str);
+
 // Routine to ease adding pointers to a pointer list
 //   list is a T**
 //   size is an int
@@ -69,14 +72,14 @@ LIBUTILS_EXTERN int uniquestr_sprintf(const char** out_str, const char* format, 
 #define P_LIST_ADD(list, size, elem)  \
 do { \
     (size)++; \
-    (list) = realloc((list), sizeof(*(list))*(size)); \
+    (list) = (__typeof__(list))realloc((list), sizeof(*(list))*(size)); \
     (list)[((size)-1)] = (elem); \
 } while(0)
 
 #define P_LIST_ADD_PREPEND(list, size, elem) \
 do {  \
     (size)++; \
-    (list) = realloc((list), sizeof(*(list))*(size)); \
+    (list) = (__typeof__(list))realloc((list), sizeof(*(list))*(size)); \
     int _i; \
     for (_i = (size) - 1; _i > 0; _i--) \
     { \
@@ -131,7 +134,7 @@ do { \
             ((list)[_i -1]) = ((list)[_i]); \
         } \
         (size)--; \
-        (list) = realloc((list), sizeof(*(list))*(size)); \
+        (list) = (__typeof__(list))realloc((list), sizeof(*(list))*(size)); \
     }\
 } while (0)
 

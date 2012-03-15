@@ -35,6 +35,7 @@ source @abs_builddir@/mercurium-libraries
 cat <<EOF
 MCC="@abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --profile=mcc --config-dir=@abs_top_builddir@/config --verbose"
 MCXX="@abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --profile=mcxx --config-dir=@abs_top_builddir@/config --verbose"
+MFC="@abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --profile=mfc --config-dir=@abs_top_builddir@/config --verbose"
 EOF
 
 if [ ! -z "@NANOX_INCLUDES@" ];
@@ -46,17 +47,20 @@ compile_versions="\${compile_versions} nanox_plain nanox_no_xlate"
 #plain
 test_CC_nanox_plain="\${MCC}"
 test_CXX_nanox_plain="\${MCXX}"
+test_FC_nanox_plain="\${MFC}"
 
-test_CFLAGS_nanox_plain="--nanox -std=gnu99"
-test_CXXFLAGS_nanox_plain="--nanox"
+test_CFLAGS_nanox_plain="-std=gnu99"
+test_CXXFLAGS_nanox_plain=""
 
 #no_xlate
 
 test_CC_nanox_no_xlate="\${MCC}"
 test_CXX_nanox_no_xlate="\${MCXX}"
+test_FC_nanox_no_xlate="\${MFC}"
 
-test_CFLAGS_nanox_no_xlate="--nanox -std=gnu99 --variable=do_not_create_translation_function:1"
-test_CXXFLAGS_nanox_no_xlate="--nanox --variable=do_not_create_translation_function:1"
+test_CFLAGS_nanox_no_xlate="-std=gnu99 --variable=do_not_create_translation_function:1"
+test_CXXFLAGS_nanox_no_xlate="--variable=do_not_create_translation_function:1"
+test_FFLAGS_nanox_no_xlate="--variable=do_not_create_translation_function:1"
 
 EOF
 
@@ -68,9 +72,11 @@ compile_versions="\${compile_versions} nanox_instrument"
 
 test_CC_nanox_instrument="\${MCC}"
 test_CXX_nanox_instrument="\${MCXX}"
+test_FC_nanox_instrument="\${MFC}"
 
 test_CFLAGS_nanox_instrument="\${test_CFLAGS_nanox_plain} --instrument"
 test_CXXFLAGS_nanox_instrument="\${test_CXXFLAGS_nanox_plain} --instrument"
+test_FFLAGS_nanox_instrument="\${test_FFLAGS_nanox_plain} --instrument"
 EOF
 
 fi
