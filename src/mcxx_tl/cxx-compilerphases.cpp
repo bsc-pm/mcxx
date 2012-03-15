@@ -42,6 +42,7 @@
 #endif
 #include "cxx-driver.h"
 #include "cxx-utils.h"
+#include "cxx-diagnostic.h"
 #include "cxx-compilerphases.hpp"
 #include "tl-compilerphase.hpp"
 #include "tl-setdto-phase.hpp"
@@ -180,7 +181,19 @@ namespace TL
                     if (phase->get_phase_status() != CompilerPhase::PHASE_STATUS_OK)
                     {
                         // Ideas to improve this are welcome :)
-                        running_error("Phase '%s' did not end successfully. Ending compilation", 
+                        running_error("Compiler phase '%s' notified that it did not end successfully. Ending compilation", 
+                                phase->get_phase_name().c_str());
+                    }
+
+                    char there_were_errors = (diagnostics_get_error_count() != 0);
+                    if (CURRENT_CONFIGURATION->warnings_as_errors)
+                    {
+                        there_were_errors = there_were_errors || (diagnostics_get_warn_count() != 0);
+                    }
+
+                    if (there_were_errors)
+                    {
+                        running_error("Compiler phase '%s' yielded diagnostic errors. Ending compilation", 
                                 phase->get_phase_name().c_str());
                     }
 
