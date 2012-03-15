@@ -275,7 +275,6 @@ Source TL::Nanox::common_parallel_code(
             <<          "0, " /* reserved3 */
             <<          "0, " /* reserved4 */
             <<          "0, " /* reserved5 */
-            <<          "0, " /* tie_to */
             <<          "0"   /* priority */
             <<      "}, "
             <<      alignment   << ", "
@@ -318,7 +317,8 @@ Source TL::Nanox::common_parallel_code(
     }
 
     Source data, imm_data, num_dependences, deps, nanos_create_wd, nanos_create_run_wd,
-           properties1_opt, properties2, properties3, device_description_opt;
+           properties_opt, decl_dyn_props_opt, modify_tie_to1, modify_tie_to2, device_description_opt;
+
     num_dependences << "0";
     deps << "(nanos_dependence_t*)0";
     imm_data << (immediate_is_alloca ? "imm_args" : "&imm_args");
@@ -334,11 +334,9 @@ Source TL::Nanox::common_parallel_code(
         nanos_create_run_wd = OMPTransform::get_nanos_create_and_run_wd_compact_code(constant_structure_name,
                 struct_size, imm_data, num_dependences, deps, imm_copy_data, xlate_arg);
 
-        properties2
-            << qualified_context_opt << "_const_def" << outline_num << ".props.tie_to = _nanos_threads[_i];";
-
-        properties3
-            << qualified_context_opt << "_const_def" << outline_num << ".props.tie_to = _nanos_threads[0];";
+        decl_dyn_props_opt << "nanos_wd_dyn_props_t dyn_props = {0};";
+        modify_tie_to1 << "dyn_props.tie_to = _nanos_threads[_i];";
+        modify_tie_to2 << "dyn_props.tie_to = _nanos_threads[0];";
     }
     else
     {
@@ -349,16 +347,12 @@ Source TL::Nanox::common_parallel_code(
                 struct_size, alignment, imm_data, num_dependences, deps, num_copies, imm_copy_data, xlate_arg);
         device_description_opt << device_description;
 
-        properties1_opt
+        properties_opt
             <<   "nanos_wd_props_t props = {0};"
             <<   "props.mandatory_creation = 1;";
 
-        properties2
-            <<  "props.tie_to = _nanos_threads[_i];";
-
-        properties3
-            << "props.tie_to = _nanos_threads[0];";
-
+        modify_tie_to1 << "props.tie_to = _nanos_threads[_i];";
+        modify_tie_to2 << "props.tie_to = _nanos_threads[0];";
     }
 
     result
@@ -373,13 +367,14 @@ Source TL::Nanox::common_parallel_code(
         <<   "if (err != NANOS_OK) nanos_handle_error(err);"
         <<   device_description_opt
         <<   struct_runtime_size
-        <<   properties1_opt
+        <<   properties_opt
+        <<   decl_dyn_props_opt
         <<   "unsigned _i;"
         <<   "for (_i = 1; _i < _nanos_num_threads; _i++)"
         <<   "{"
         //   We have to create a wd tied to a thread
         <<      struct_arg_type_name << " *ol_args = 0;"
-        <<      properties2
+        <<      modify_tie_to1
         <<      "nanos_wd_t wd = 0;"
         <<      "err = " << nanos_create_wd
         <<      "if (err != NANOS_OK) nanos_handle_error(err);"
@@ -387,7 +382,7 @@ Source TL::Nanox::common_parallel_code(
         <<      "err = nanos_submit(wd, 0, (nanos_dependence_t*)0, 0);"
         <<      "if (err != NANOS_OK) nanos_handle_error(err);"
         <<   "}"
-        <<   properties3
+        <<   modify_tie_to2
         <<   immediate_decl
         <<   fill_immediate_arguments
         <<   "err = " << nanos_create_run_wd

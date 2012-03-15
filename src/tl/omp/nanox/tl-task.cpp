@@ -738,7 +738,6 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             <<          "0, " /* reserved3 */
             <<          "0, " /* reserved4 */
             <<          "0, " /* reserved5 */
-            <<          "0, " /* tie_to */
             <<          props_priority
             <<      "}, "
             <<      alignment   << ", "
@@ -766,15 +765,15 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
     if(!_no_nanox_calls)
     {
 
-        Source data, imm_data, deps,
-               nanos_create_wd, nanos_create_run_wd,
-               properties_opt, device_description_opt;
+        Source data, imm_data, deps, nanos_create_wd, nanos_create_run_wd,
+               properties_opt, device_description_opt, decl_dyn_props_opt;
 
         data << "(void**)&ol_args";
         imm_data << (immediate_is_alloca ? "imm_args" : "&imm_args");
         deps << "(" << dependency_struct << "*)" << dependency_array;
         if (Nanos::Version::interface_is_at_least("master", 5012))
         {
+
             Source constant_structure_name;
             constant_structure_name << "_const_def" << outline_num;
             nanos_create_wd = OMPTransform::get_nanos_create_wd_compact_code(
@@ -782,6 +781,8 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
             nanos_create_run_wd = OMPTransform::get_nanos_create_and_run_wd_compact_code(constant_structure_name,
                     struct_size, imm_data, num_dependences, deps, copy_imm_data, translation_fun_arg_name);
+
+            decl_dyn_props_opt << "nanos_wd_dyn_props_t dyn_props = {0};";
         }
         else
         {
@@ -810,6 +811,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             <<     struct_runtime_size
             <<     "nanos_wd_t wd = (nanos_wd_t)0;"
             <<     properties_opt
+            <<     decl_dyn_props_opt
             <<     copy_decl
             <<     "nanos_err_t err;"
             <<     if_expr_cond_start

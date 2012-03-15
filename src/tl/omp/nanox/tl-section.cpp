@@ -248,7 +248,6 @@ void OMPTransform::section_postorder(PragmaCustomConstruct ctr)
             <<          "0, " /* reserved3 */
             <<          "0, " /* reserved4 */
             <<          "0, " /* reserved5 */
-            <<          "0, " /* tie_to */
             <<          "0"   /* priority */
             <<      "}, "
             <<      alignment   << ", "
@@ -273,13 +272,15 @@ void OMPTransform::section_postorder(PragmaCustomConstruct ctr)
         }
     }
 
-    Source properties_opt, device_description_opt;
+    Source properties_opt, device_description_opt, decl_dyn_props_opt;
     if (Nanos::Version::interface_is_at_least("master", 5012))
     {
         Source constant_structure_name;
         constant_structure_name << "_const_def" << outline_num;
         nanos_create_wd = OMPTransform::get_nanos_create_wd_compact_code(
                 constant_structure_name, struct_size, data, copy_data);
+
+        decl_dyn_props_opt << "nanos_wd_dyn_props_t dyn_props = {0};";
     }
     else
     {
@@ -291,8 +292,7 @@ void OMPTransform::section_postorder(PragmaCustomConstruct ctr)
             << "__builtin_memset(&props, 0, sizeof(props));"
             << "props.mandatory_creation = 1;"
             ;
-        device_description_opt
-            << device_description;
+        device_description_opt << device_description;
     }
 
     spawn_source
@@ -302,6 +302,7 @@ void OMPTransform::section_postorder(PragmaCustomConstruct ctr)
         <<    device_description_opt
         <<    struct_arg_type_name << "*section_data = ("<< struct_arg_type_name << "*)0;"
         <<    properties_opt
+        <<    decl_dyn_props_opt
         <<    "err = " << nanos_create_wd
         <<    "if (err != NANOS_OK) nanos_handle_error(err);"
         <<    fill_outline_arguments

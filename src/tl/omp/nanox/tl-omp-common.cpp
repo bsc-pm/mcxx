@@ -154,6 +154,7 @@ namespace Nanox
         create_wd
             << "nanos_create_wd_compact(&wd, "
             <<       "&" << constants_structure << ", "
+            <<       "&dyn_props, "
             <<       struct_size << ", "
             <<       data << ", "
             <<       "nanos_current_wd(), "
@@ -179,7 +180,8 @@ namespace Nanox
          Source create_wd_and_run;
          create_wd_and_run
              << "nanos_create_wd_and_run("
-             <<       num_devices << ", " << device_descriptor << ", "
+             <<       num_devices << ", "
+             <<       device_descriptor << ", "
              <<       struct_size << ", "
              <<       alignment << ", "
              <<       data << ","
@@ -208,6 +210,7 @@ namespace Nanox
          create_wd_and_run
              << "nanos_create_wd_and_run_compact("
              <<       "&" << constants_structure << ", "
+             <<       "&dyn_props, "
              <<       struct_size << ", "
              <<       data << ","
              <<       num_dependences << ", "
