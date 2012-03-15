@@ -296,8 +296,8 @@ void LoweringVisitor::emit_async_common(
                     ;
                 device_description_init
                     << "{"
-                    // factory , dd_size, arg
-                    << "0, 0, 0"
+                    // factory, arg
+                    << "0, 0"
                     << "}"
                     ;
                 fortran_dynamic_init
