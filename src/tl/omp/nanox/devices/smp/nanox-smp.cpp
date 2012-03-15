@@ -2600,6 +2600,7 @@ void DeviceSMP::get_device_descriptor(const std::string& task_name,
         }
     }
 
+    Source nanos_dd_size_opt;
     if (Nanos::Version::interface_is_at_least("master", 5012))
     {
         ancillary_device_description
@@ -2632,10 +2633,11 @@ void DeviceSMP::get_device_descriptor(const std::string& task_name,
             << comment("SMP device descriptor")
             << "nanos_smp_args_t " << task_name << "_smp_args = { (void(*)(void*))" << additional_casting << outline_name << "};"
             ;
+        nanos_dd_size_opt << "nanos_smp_dd_size, ";
     }
 
     device_descriptor
-        << "{ nanos_smp_factory, nanos_smp_dd_size, &" << task_name << "_smp_args },"
+        << "{ nanos_smp_factory, " << nanos_dd_size_opt << "&" << task_name << "_smp_args },"
         ;
 }
 

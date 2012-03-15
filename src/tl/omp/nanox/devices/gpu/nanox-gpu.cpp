@@ -951,6 +951,7 @@ void DeviceGPU::get_device_descriptor(const std::string& task_name,
 		outline_name << task_name;
 	}
 
+    Source nanos_dd_size_opt;
     if (Nanos::Version::interface_is_at_least("master", 5012))
     {
         ancillary_device_description
@@ -984,11 +985,12 @@ void DeviceGPU::get_device_descriptor(const std::string& task_name,
             << "nanos_smp_args_t "
             << task_name << "_gpu_args = { (void(*)(void*))" << outline_name << "};"
             ;
+        nanos_dd_size_opt << "nanos_gpu_dd_size, ";
     }
 
 
 	device_descriptor
-		<< "{ nanos_gpu_factory, nanos_gpu_dd_size, &" << task_name << "_gpu_args },"
+		<< "{ nanos_gpu_factory, " << nanos_dd_size_opt << "&" << task_name << "_gpu_args },"
 		;
 }
 
