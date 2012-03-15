@@ -609,7 +609,8 @@ namespace TL
         if (ASTType(a) == AST_COMMON_NAME)
         {
             // We allow common names in expressions
-            scope_entry_t* entry = ::query_common_name(decl_context, ASTText(ASTSon0(a)));
+            scope_entry_t* entry = ::query_common_name(decl_context, ASTText(ASTSon0(a)),
+                    ASTFileName(ASTSon0(a)), ASTLine(ASTSon0(a)));
             if (entry != NULL)
             {
                 *nodecl_output = ::nodecl_make_symbol(entry, ASTFileName(a), ASTLine(a));

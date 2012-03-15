@@ -29,6 +29,8 @@
 #include "cxx-typeutils.h"
 #include "cxx-scope.h"
 #include "cxx-entrylist.h"
+#include "cxx-diagnostic.h"
+#include "cxx-ambiguity.h"
 #include "fortran03-buildscope.h"
 #include "fortran03-typeutils.h"
 #include <string.h>
@@ -229,7 +231,9 @@ type_t* get_implicit_type_for_symbol(decl_context_t decl_context, const char* na
 
 scope_entry_t* fortran_get_variable_with_locus(decl_context_t decl_context, AST locus, const char* name)
 {
-    scope_entry_t* result = fortran_query_name_str(decl_context, name);
+    ERROR_CONDITION(locus == NULL, "Locus is needed", 0);
+
+    scope_entry_t* result = fortran_query_name_str(decl_context, name, ASTFileName(locus), ASTLine(locus));
 
     if (result == NULL)
     {
@@ -308,7 +312,10 @@ scope_entry_t* query_name_in_class(decl_context_t class_context, const char* nam
     return entry;
 }
 
-scope_entry_t* fortran_query_name_str(decl_context_t decl_context, const char* unqualified_name)
+scope_entry_t* fortran_query_name_str(decl_context_t decl_context, 
+        const char* unqualified_name,
+        const char* filename, 
+        int line)
 {
     scope_entry_t* result = NULL;
     decl_context_t current_decl_context = decl_context;
@@ -321,6 +328,14 @@ scope_entry_t* fortran_query_name_str(decl_context_t decl_context, const char* u
         scope_entry_list_t* result_list = query_in_scope_str(current_decl_context, strtolower(unqualified_name));    
         if (result_list != NULL)
         {
+            if (entry_list_size(result_list) != 1)
+            {
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s:%d: error: name '%s' is ambiguous\n", filename, line, unqualified_name);
+                }
+            }
+
             result = entry_list_head(result_list);
             entry_list_free(result_list);
 
@@ -358,4 +373,96 @@ scope_entry_t* fortran_query_intrinsic_name_str(decl_context_t decl_context, con
     }
     
     return result;
+}
+
+static char all_names_are_generic_specifiers(scope_entry_list_t* entry_list)
+{
+    if (entry_list == 0)
+        return 0;
+
+    char result = 1;
+
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(entry_list);
+            !entry_list_iterator_end(it) && result;
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* entry = entry_list_iterator_current(it);
+        result = entry->entity_specs.is_generic_spec;
+    }
+    entry_list_iterator_free(it);
+
+    return result;
+}
+
+// This routine performs a usual Fortran lookup unless it finds a generic
+// specifier, when found it will continue the lookup upwards the lexical scope
+// since there may be more than one generic specifier in a given scope or in
+// the enclosing one
+//
+// See ticket #923
+scope_entry_list_t* fortran_query_name_str_for_function(decl_context_t decl_context, 
+        const char* unqualified_name,
+        const char* filename, 
+        int line)
+{
+    scope_entry_list_t* result_list = NULL;
+    decl_context_t current_decl_context = decl_context;
+    scope_t* current_scope = decl_context.current_scope;
+
+    char keep_trying = 1;
+
+    while (keep_trying
+            && current_scope != NULL)
+    {
+        current_decl_context.current_scope = current_scope;
+        scope_entry_list_t* entry_list = query_in_scope_str(current_decl_context, strtolower(unqualified_name));    
+        if (entry_list != NULL)
+        {
+            // If we find more than one name but not all are generic specifiers
+            // this is an ambiguity case
+            if ((entry_list_size(entry_list) > 1)
+                    && !all_names_are_generic_specifiers(entry_list))
+            {
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s:%d: error: name '%s' is ambiguous\n", filename, line, unqualified_name);
+                }
+
+                // Give up returning the first result_list found
+                entry_list = entry_list_new(entry_list_head(entry_list));
+                entry_list_free(entry_list);
+                return entry_list;
+            }
+
+            // If any name is not a generic specifier do not continue
+            // the lookup
+            if (!all_names_are_generic_specifiers(entry_list))
+            {
+                keep_trying = 0;
+            }
+
+            // Add all the symbols found
+            scope_entry_list_iterator_t* it = NULL;
+            for (it = entry_list_iterator_begin(entry_list);
+                    !entry_list_iterator_end(it);
+                    entry_list_iterator_next(it))
+            {
+                scope_entry_t* current = entry_list_iterator_current(it);
+                // Some symbols in the global scope must be ignored
+                if (!(decl_context.global_scope == current_scope
+                            && current->entity_specs.is_global_hidden))
+                {
+                    result_list = entry_list_add_once(result_list, current);
+                }
+            }
+            entry_list_iterator_free(it);
+
+            entry_list_free(entry_list);
+        }
+
+        current_scope = current_scope->contained_in;
+    }
+
+    return result_list;
 }

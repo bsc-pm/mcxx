@@ -501,7 +501,7 @@ static void check_intent_declared_symbols(decl_context_t decl_context)
         scope_entry_t* entry = intent_declared->entity_specs.related_symbols[i];
          if (!entry->entity_specs.is_parameter)
          {
-             error_printf("%s:%d: error: entity '%s' is not a dummy arguments\n",
+             error_printf("%s:%d: error: entity '%s' is not a dummy argument\n",
                     entry->file,
                     entry->line,
                     entry->symbol_name);
@@ -1185,7 +1185,8 @@ static scope_entry_t* new_procedure_symbol(
 {
     scope_entry_t* entry = NULL;
 
-    entry = fortran_query_name_str(decl_context, ASTText(name));
+    entry = fortran_query_name_str(decl_context, ASTText(name),
+            ASTFileName(name), ASTLine(name));
 
     if (entry != NULL)
     {
@@ -1294,6 +1295,13 @@ static scope_entry_t* new_procedure_symbol(
                         ASTText(prefix_spec));
             }
         }
+
+        if (entry->entity_specs.is_elemental
+                && entry->entity_specs.is_recursive)
+        {
+            error_printf("%s: error: RECURSIVE and ELEMENTAL cannot be specified at the same time\n",
+                    ast_location(prefix));
+        }
     }
 
     int num_dummy_arguments = 0;
@@ -1361,10 +1369,6 @@ static scope_entry_t* new_procedure_symbol(
         // AST binding_spec = ASTSon0(suffix);
         result = ASTSon1(suffix);
     }
-    
-    // Insert the name of the procedure, so it is found not only in
-    // the global scope (which is not visible in Fortran)
-    insert_entry(program_unit_context.current_scope, entry);
 
     scope_entry_t* result_sym = NULL;
     if (result != NULL)
@@ -1395,8 +1399,14 @@ static scope_entry_t* new_procedure_symbol(
 
             if (strcasecmp(ASTText(result), entry->symbol_name) == 0)
             {
-                error_printf("%s: error: RESULT name is the same as FUNCTION name\n",
+                error_printf("%s: error: RESULT name is the same as the FUNCTION name\n",
                         ast_location(result));
+            }
+            else
+            {
+                // Insert the function-name (only if they are different to
+                // avoid more errors)
+                insert_entry(program_unit_context.current_scope, entry);
             }
         }
     }
@@ -1425,6 +1435,15 @@ static scope_entry_t* new_procedure_symbol(
         P_LIST_ADD(entry->entity_specs.related_symbols,
                 entry->entity_specs.num_related_symbols,
                 result_sym);
+    }
+    else if (!is_function)
+    {
+        // Insert the subroutine-name
+        insert_entry(program_unit_context.current_scope, entry);
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
     }
 
     // Try to come up with a sensible type for this entity
@@ -1466,26 +1485,31 @@ static scope_entry_t* new_procedure_symbol(
 
 static scope_entry_t* new_entry_symbol(decl_context_t decl_context, 
         AST name, AST suffix, AST dummy_arg_name_list,
-        char is_function)
+        scope_entry_t* principal_procedure)
 {
-    scope_entry_t* entry = NULL;
-    entry = fortran_query_name_str(decl_context, ASTText(name));
-    char exist_entry = (entry != NULL);
-    if (exist_entry)
+    char is_function = !is_void_type(function_type_get_return_type(principal_procedure->type_information));
+
+    if (principal_procedure->entity_specs.is_nested_function)
+    {
+         error_printf("%s: error: internal subprograms cannot have an alternate ENTRY\n",
+                 ast_location(name));
+         return NULL;
+    }
+
+    scope_entry_t* existing_name = NULL;
+    // Note the lookup is done at the same scope as the principal procedure
+    existing_name = fortran_query_name_str(principal_procedure->decl_context, ASTText(name), ASTFileName(name), ASTLine(name));
+    if (existing_name != NULL)
     {
         // We do not allow redeclaration if the symbol has already been defined
-        if ( entry->defined
-                // If not defined it can only be a parameter of the current procedure
-                // being given an interface
-                || (!entry->entity_specs.is_parameter
-                    // Or an advanced declaration of a module procedure found in an INTERFACE at module level
-                    && !entry->entity_specs.is_module_procedure
+        if (existing_name->defined
+                || ( 
+                    // If not defined it can only be an advanced declaration of
+                    // a module procedure found in an INTERFACE at module level
+                    !existing_name->entity_specs.is_module_procedure
                     // Or a symbol we said something about it in the specification part of a module
-                    && !(entry->kind == SK_UNDEFINED
-                        && entry->entity_specs.in_module != NULL)
-                    // Or an advanced declaration of the function return type
-                    && !(entry->kind == SK_UNDEFINED 
-                            && is_function)))
+                    && !(existing_name->kind == SK_UNDEFINED
+                        && existing_name->entity_specs.in_module != NULL)))
         {
             error_printf("%s: error: redeclaration of entity '%s'\n", 
                     ast_location(name), 
@@ -1493,15 +1517,21 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
             return NULL;
         }
         // It can't be redefined anymore
-        if (entry->entity_specs.is_module_procedure)
+        if (existing_name->entity_specs.is_module_procedure)
         {
-            remove_not_fully_defined_symbol(entry->decl_context, entry);
+            remove_not_fully_defined_symbol(existing_name->decl_context, existing_name);
         }
     }
-    else
+
+    scope_entry_t* entry = existing_name;
+    if (entry == NULL)
     {
-        entry = new_fortran_symbol(decl_context, ASTText(name));
+        // Declare it as a sibling of the current function
+        entry = new_symbol(principal_procedure->decl_context, 
+                principal_procedure->decl_context.current_scope,
+                strtolower(ASTText(name)));
     }
+    entry->decl_context = decl_context;
 
     entry->kind = SK_FUNCTION;
     entry->file = ASTFileName(name);
@@ -1510,22 +1540,28 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
     entry->entity_specs.is_implicit_basic_type = 1;
     entry->defined = 1;
     remove_unknown_kind_symbol(decl_context, entry);
-    
 
+    if (principal_procedure->decl_context.current_scope == principal_procedure->decl_context.global_scope)
+    {
+        entry->entity_specs.is_global_hidden = 1;
+    }
+
+    entry->entity_specs.is_recursive = principal_procedure->entity_specs.is_recursive;
+    entry->entity_specs.is_pure = principal_procedure->entity_specs.is_pure;
+    entry->entity_specs.is_elemental = principal_procedure->entity_specs.is_elemental;
+    
     type_t* return_type = get_void_type();
     if (is_function)
     {
         // The return type has been specified
-        if(exist_entry)
+        if (existing_name != NULL)
         {
+            return_type = existing_name->type_information;
             entry->entity_specs.is_implicit_basic_type = 0;
-            return_type = 
-                entry->type_information;
         }
         else
         {
-            return_type = 
-                get_implicit_type_for_symbol(decl_context, entry->symbol_name);
+            return_type = get_implicit_type_for_symbol(decl_context, entry->symbol_name);
         }
     }
     else
@@ -1608,12 +1644,13 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
     {
         if (!is_function)
         {
-            error_printf("%s: error: RESULT is only valid for FUNCTION statement\n",
+            error_printf("%s: error: RESULT is not valid in an ENTRY of a SUBROUTINE\n",
                     ast_location(result));
         }
         else
         {
             result_sym = get_symbol_for_name(decl_context, result, ASTText(result));
+            ERROR_CONDITION(result_sym == existing_name, "Wrong symbol found", 0);
 
             result_sym->kind = SK_VARIABLE;
             result_sym->file = ASTFileName(result);
@@ -1629,13 +1666,25 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
             P_LIST_ADD(entry->entity_specs.related_symbols,
                     entry->entity_specs.num_related_symbols,
                     result_sym);
+
+            if (strcasecmp(entry->symbol_name, result_sym->symbol_name) == 0)
+            {
+                error_printf("%s: error: RESULT name is the same as ENTRY name\n", 
+                        ast_location(result));
+            }
+            else
+            {
+                // Insert the entry-name only if they are different
+                insert_entry(decl_context.current_scope, entry);
+            }
         }
     }
     else if (is_function)
     {
         //Since this function does not have an explicit result variable we will insert an alias
         //that will hide the function name
-        result_sym = new_symbol(decl_context, decl_context.current_scope, entry->symbol_name);
+        result_sym = get_symbol_for_name(decl_context, result, entry->symbol_name);
+
         result_sym->kind = SK_VARIABLE;
         result_sym->file = entry->file;
         result_sym->line = entry->line;
@@ -1658,6 +1707,14 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
                 entry->entity_specs.num_related_symbols,
                 result_sym);
     }
+    else if (!is_function)
+    {
+        insert_entry(decl_context.current_scope, entry);
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
 
     // Try to come up with a sensible type for this entity
     parameter_info_t parameter_info[num_dummy_arguments + 1];
@@ -1675,12 +1732,9 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
     entry->entity_specs.is_implicit_basic_type = 0;
     entry->related_decl_context = decl_context;
    
-
-    scope_entry_t* related_entry = decl_context.current_scope->related_entry;
-    if (related_entry != NULL 
-            && related_entry->entity_specs.in_module != NULL)
+    if (principal_procedure->entity_specs.is_module_procedure)
     {
-        scope_entry_t * sym_module = related_entry->entity_specs.in_module;
+        scope_entry_t * sym_module = principal_procedure->entity_specs.in_module;
 
         entry->entity_specs.is_module_procedure = 1;
         
@@ -2444,7 +2498,8 @@ static type_t* get_derived_type_name(AST a, decl_context_t decl_context)
 
     type_t* result = NULL;
 
-    scope_entry_t* entry = fortran_query_name_str(decl_context, strtolower(ASTText(name)));
+    scope_entry_t* entry = fortran_query_name_str(decl_context, strtolower(ASTText(name)), 
+                ASTFileName(name), ASTLine(name));
     if (entry != NULL
             && entry->kind == SK_CLASS)
     {
@@ -3616,10 +3671,13 @@ static const char* get_common_name_str(const char* common_name)
     return common_name_str;
 }
 
-scope_entry_t* query_common_name(decl_context_t decl_context, const char* common_name)
+scope_entry_t* query_common_name(decl_context_t decl_context, 
+        const char* common_name,
+        const char* filename,
+        int line)
 {
     scope_entry_t* result = fortran_query_name_str(decl_context, 
-            get_common_name_str(common_name));
+            get_common_name_str(common_name), filename, line);
 
     return result;
 }
@@ -3645,7 +3703,10 @@ static void build_scope_bind_stmt(AST a UNUSED_PARAMETER,
         scope_entry_t* entry = NULL;
         if (ASTType(bind_entity) == AST_COMMON_NAME)
         {
-            entry = query_common_name(decl_context, ASTText(ASTSon0(bind_entity)));
+            entry = query_common_name(decl_context, 
+                    ASTText(ASTSon0(bind_entity)),
+                    ASTFileName(ASTSon0(bind_entity)), 
+                    ASTLine(ASTSon0(bind_entity)));
         }
         else
         {
@@ -3844,7 +3905,10 @@ static void build_scope_common_stmt(AST a,
         }
        
         // Looking the symbol in all scopes except program unit global scope 
-        scope_entry_t* common_sym = fortran_query_name_str(decl_context, get_common_name_str(common_name_str));
+        scope_entry_t* common_sym = fortran_query_name_str(decl_context, 
+                get_common_name_str(common_name_str),
+                ASTFileName(common_block_item),
+                ASTLine(common_block_item));
         if (common_sym == NULL)
         {
             // If the symbol is not found, we should create a new one
@@ -4037,15 +4101,16 @@ scope_entry_t* fortran_query_label_str_(const char* label,
         int line,
         char is_definition)
 {
-    decl_context_t global_context = decl_context;
-    global_context.current_scope = global_context.function_scope;
+    decl_context_t function_context = decl_context;
+    function_context.current_scope = function_context.function_scope;
 
     const char* label_text = strappend(".label_", label);
-    scope_entry_list_t* entry_list = query_name_str(global_context, label_text);
+    scope_entry_list_t* entry_list = query_name_str(function_context, label_text);
 
     scope_entry_t* new_label = NULL;
     if (entry_list == NULL)
     {
+        // Sign in the symbol in the function scope
         new_label = new_symbol(decl_context, decl_context.function_scope, label_text);
         // Fix the symbol name (which for labels does not match the query name)
         new_label->symbol_name = label;
@@ -4521,7 +4586,9 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
         }
     }
 
-    scope_entry_t* class_name = fortran_query_name_str(decl_context, ASTText(name));
+    scope_entry_t* class_name = fortran_query_name_str(decl_context, ASTText(name),
+            ASTFileName(name),
+            ASTLine(name));
 
     if (class_name != NULL)
     {
@@ -5023,8 +5090,13 @@ static void build_scope_do_construct(AST a, decl_context_t decl_context, nodecl_
                     ASTFileName(a), ASTLine(a)));
 }
 
+
 static void build_scope_entry_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
+    static scope_entry_t error_entry_;
+    // Error value
+    static scope_entry_t *error_entry = &error_entry_;
+
     if (nodecl_get_symbol(_nodecl_wrap(a)) == NULL)
     {
         // If there is no symbol, then this is the first time we visit this node
@@ -5045,38 +5117,37 @@ static void build_scope_entry_stmt(AST a, decl_context_t decl_context, nodecl_t*
                     ast_location(a),
                     ASTText(name));
             // Keep it for the second invocation
-            nodecl_set_symbol(_nodecl_wrap(a), related_sym);
+            nodecl_set_symbol(_nodecl_wrap(a), error_entry);
             return;
         }
 
         // We are analyzing this ENTRY statement as if it were a declaration, no nodecls are created
-        char is_function = !is_void_type(function_type_get_return_type(related_sym->type_information)); 
-        scope_entry_t* entry = new_entry_symbol(decl_context, name, suffix, dummy_arg_list, is_function);
-        entry->kind = SK_FUNCTION;
-
-        if (related_sym->entity_specs.is_module_procedure)
+        scope_entry_t* entry = new_entry_symbol(decl_context, name, suffix, dummy_arg_list, related_sym);
+        if (entry != NULL)
         {
-            // Our principal procedure is a module procedure, this symbol will live as a sibling
-            insert_entry(related_sym->entity_specs.in_module->related_decl_context.current_scope, entry);
-        }
+            if (related_sym->entity_specs.is_module_procedure)
+            {
+                // Our principal procedure is a module procedure, this symbol will live as a sibling
+                insert_entry(related_sym->entity_specs.in_module->related_decl_context.current_scope, entry);
+            }
 
-        // (1) And we piggyback the entry in the node so we avoid a query later
-        nodecl_set_symbol(_nodecl_wrap(a), entry);
+            // (1) And we piggyback the entry in the node so we avoid a query later
+            nodecl_set_symbol(_nodecl_wrap(a), entry);
+        }
+        else
+        {
+            // (1) And we piggyback the entry in the node so we avoid a query later
+            nodecl_set_symbol(_nodecl_wrap(a), error_entry);
+        }
     }
     else
     {
         // Recover the symbol we piggybacked in (1) above
         scope_entry_t* entry = nodecl_get_symbol(_nodecl_wrap(a));
 
-        if (entry->kind == SK_PROGRAM)
-        {
-            // This is an error
-            *nodecl_output = nodecl_make_list_1(
-                    nodecl_make_err_statement(ASTFileName(a), ASTLine(a))
-                    );
+        if (entry == error_entry)
             return;
-        }
-
+        
         // Create the entry statement so we remember the entry point
         *nodecl_output = 
             nodecl_make_list_1(
@@ -5522,7 +5593,9 @@ static void build_scope_import_stmt(AST a,
         {
             AST name = ASTSon1(it);
 
-            scope_entry_t* entry = fortran_query_name_str(enclosing_context, ASTText(name));
+            scope_entry_t* entry = fortran_query_name_str(enclosing_context, ASTText(name),
+                    ASTFileName(name),
+                    ASTLine(name));
             if (entry == NULL)
             {
                 error_printf("%s: error: name '%s' in IMPORT statement not found in host associated scope\n",
@@ -5752,7 +5825,7 @@ static void build_scope_interface_block(AST a,
     if (generic_spec != NULL)
     {
         const char* name = get_name_of_generic_spec(generic_spec);
-        scope_entry_t* generic_spec_sym = fortran_query_name_str(decl_context, name);
+        scope_entry_t* generic_spec_sym = get_symbol_for_name(decl_context, generic_spec, name);
 
         if (generic_spec_sym == NULL)
         {
@@ -5765,7 +5838,8 @@ static void build_scope_interface_block(AST a,
         }
 
         if (generic_spec_sym->kind != SK_UNDEFINED
-                && generic_spec_sym->kind != SK_FUNCTION)
+                && (generic_spec_sym->kind != SK_FUNCTION
+                    || !generic_spec_sym->entity_specs.is_generic_spec))
         {
             error_printf("%s: error: redefining symbol '%s'\n", 
                     ast_location(generic_spec),
@@ -5788,18 +5862,6 @@ static void build_scope_interface_block(AST a,
                     generic_spec_sym->entity_specs.num_related_symbols,
                     related_symbols[i]);
         }
-
-        if (decl_context.current_scope->related_entry != NULL
-                && decl_context.current_scope->related_entry->kind == SK_MODULE)
-        {
-            scope_entry_t* module = decl_context.current_scope->related_entry;
-
-            P_LIST_ADD_ONCE(module->entity_specs.related_symbols,
-                    module->entity_specs.num_related_symbols,
-                    generic_spec_sym);
-
-            generic_spec_sym->entity_specs.in_module = module;
-        }
     }
 }
 
@@ -5817,7 +5879,7 @@ static void build_scope_intrinsic_stmt(AST a, decl_context_t decl_context UNUSED
         decl_context_t global_context = decl_context;
         global_context.current_scope = decl_context.global_scope;
 
-        scope_entry_t* entry = fortran_query_name_str(decl_context, ASTText(name));
+        scope_entry_t* entry = fortran_query_name_str(decl_context, ASTText(name), ASTFileName(name), ASTLine(name));
         scope_entry_t* entry_intrinsic = fortran_query_intrinsic_name_str(global_context, ASTText(name));
         
         // The symbol exists in the current scope 
@@ -6370,7 +6432,9 @@ static void build_scope_save_stmt(AST a, decl_context_t decl_context, nodecl_t* 
         scope_entry_t* entry = NULL;
         if (ASTType(saved_entity) == AST_COMMON_NAME)
         {
-            entry = query_common_name(decl_context, ASTText(ASTSon0(saved_entity)));
+            entry = query_common_name(decl_context, ASTText(ASTSon0(saved_entity)),
+                    ASTFileName(ASTSon0(saved_entity)),
+                    ASTLine(ASTSon0(saved_entity)));
 
             if (entry == NULL)
             {
@@ -6897,7 +6961,9 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
             decl_context_t global_context = decl_context;
             global_context.current_scope = decl_context.global_scope;
 
-            scope_entry_t* intrinsic_name = fortran_query_name_str(global_context, entry->symbol_name);
+            scope_entry_t* intrinsic_name = fortran_query_name_str(global_context, entry->symbol_name,
+                    ASTFileName(name),
+                    ASTLine(name));
             if (intrinsic_name == NULL
                     || !intrinsic_name->entity_specs.is_builtin)
             {
@@ -8217,7 +8283,9 @@ static void opt_nextrec_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, dec
 static void opt_nml_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
-    scope_entry_t* entry = fortran_query_name_str(decl_context, ASTText(value));
+    scope_entry_t* entry = fortran_query_name_str(decl_context, ASTText(value),
+            ASTFileName(value),
+            ASTLine(value));
     if (entry == NULL
             || entry->kind != SK_NAMELIST)
     {
@@ -8538,7 +8606,8 @@ static void opt_ambiguous_io_spec_handler(AST io_stmt, AST opt_value_ambig, decl
                 AST nml_io_spec = ast_get_ambiguity(opt_value_ambig, namelist_option);
                 AST value = ASTSon0(nml_io_spec);
 
-                scope_entry_t* entry = fortran_query_name_str(decl_context, ASTText(value));
+                scope_entry_t* entry = fortran_query_name_str(decl_context, ASTText(value),
+                        ASTFileName(value), ASTLine(value));
 
                 if (entry == NULL
                         || entry->kind != SK_NAMELIST)
@@ -8587,7 +8656,8 @@ static char check_statement_function_statement(AST stmt, decl_context_t decl_con
     AST dummy_arg_name_list = ASTSon1(stmt);
     AST expr = ASTSon2(stmt);
 
-    scope_entry_t* entry = fortran_query_name_str(decl_context, ASTText(name));
+    scope_entry_t* entry = fortran_query_name_str(decl_context, ASTText(name),
+            ASTFileName(name), ASTLine(name));
     if (entry == NULL)
     {
         entry = 

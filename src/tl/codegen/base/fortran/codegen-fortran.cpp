@@ -3443,14 +3443,14 @@ OPERATOR_TABLE
 
         if (get_codegen_status(entry) == CODEGEN_STATUS_DEFINED)
             return;
-        set_codegen_status(entry, CODEGEN_STATUS_DEFINED);
-
 
         TL::ObjectList<TL::Symbol> used_modules_list = used_modules.get_related_symbols();
         bool found = used_modules_list.contains(module);
         // This module was not explicitly used
         if (!found)
             return;
+
+        set_codegen_status(entry, CODEGEN_STATUS_DEFINED);
 
         indent();
         if (!entry.get_internal_symbol()->entity_specs.is_renamed)

@@ -50,7 +50,7 @@
 
 static void fortran_check_expression_impl_(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
 
-static void check_symbol_of_called_name(AST sym, decl_context_t decl_context, nodecl_t* nodecl_output, char is_call_stmt);
+static void check_symbol_of_called_name(AST sym, decl_context_t decl_context, scope_entry_list_t** symbol_list, char is_call_stmt);
 
 static void check_symbol_of_argument(AST sym, decl_context_t decl_context, nodecl_t* nodecl_output);
 
@@ -2318,8 +2318,8 @@ static char inside_context_of_symbol(decl_context_t decl_context, scope_entry_t*
 }
 
 
-static void check_called_symbol(
-        scope_entry_t* symbol, 
+static void check_called_symbol_list(
+        scope_entry_list_t* symbol_list,
         decl_context_t decl_context, 
         AST location,
         AST procedure_designator,
@@ -2333,31 +2333,73 @@ static void check_called_symbol(
         scope_entry_t** generic_specifier_symbol, // This will be non-NULL if the function call goes through a generic specifier name
         nodecl_t* nodecl_simplify)
 {
-    if (symbol == NULL
-            || symbol->kind != SK_FUNCTION)
+    scope_entry_t* symbol = NULL;
+
+    // First solve the generic specifier
+    if (entry_list_size(symbol_list) > 1
+            || entry_list_head(symbol_list)->entity_specs.is_generic_spec)
     {
-        if (!checking_ambiguity())
+        scope_entry_list_iterator_t* it = NULL;
+        for (it = entry_list_iterator_begin(symbol_list);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
-            error_printf("%s: error: in %s, '%s' does not designate a procedure\n",
-                    ast_location(location),
-                    !is_call_stmt ? "function reference" : "CALL statement",
-                    fortran_prettyprint_in_buffer(procedure_designator));
+            scope_entry_t* current_generic_spec = entry_list_iterator_current(it);
+
+            scope_entry_t* specific_symbol = get_specific_interface(current_generic_spec, 
+                    num_actual_arguments, 
+                    actual_arguments_keywords,
+                    nodecl_actual_arguments);
+
+            if (specific_symbol != NULL)
+            {
+                if (symbol != NULL)
+                {
+                    error_printf("%s: error: more than one specific interface matches generic interface '%s' in function reference\n",
+                            ast_location(location),
+                            fortran_prettyprint_in_buffer(procedure_designator));
+                    info_printf("%s:%d: info: specific interface '%s' matches\n",
+                            symbol->file,
+                            symbol->line,
+                            symbol->symbol_name);
+                    info_printf("%s:%d: info: specific interface '%s' matches\n",
+                            specific_symbol->file,
+                            specific_symbol->line,
+                            specific_symbol->symbol_name);
+                }
+                *generic_specifier_symbol = current_generic_spec;
+                symbol = specific_symbol;
+            }
         }
-        *result_type = get_error_type();
-        return;
+
+        entry_list_iterator_free(it);
+
+        if (symbol == NULL)
+        {
+            if ( !checking_ambiguity())
+            {
+                error_printf("%s: error: no specific interface matches generic interface '%s' in function reference\n",
+                        ast_location(location),
+                        fortran_prettyprint_in_buffer(procedure_designator));
+            }
+            *result_type = get_error_type();
+            return;
+        }
+
+    }
+    else if (entry_list_size(symbol_list) == 1)
+    {
+        symbol = entry_list_head(symbol_list);
     }
 
-    if (inside_context_of_symbol(decl_context, symbol)
-            && !symbol->entity_specs.is_recursive)
+    ERROR_CONDITION(symbol == NULL, "Symbol function not set", 0);
+
+    if (!symbol->entity_specs.is_recursive
+            && inside_context_of_symbol(decl_context, symbol))
     {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: cannot call recursively '%s'\n",
-                    ast_location(location),
-                    fortran_prettyprint_in_buffer(procedure_designator));
-        }
-        *result_type = get_error_type();
-        return;
+        error_printf("%s: error: cannot recursively call '%s'\n",
+                ast_location(location),
+                symbol->symbol_name);
     }
 
     type_t* return_type = NULL; 
@@ -2470,30 +2512,6 @@ static void check_called_symbol(
     }
     else
     {
-        if (symbol->entity_specs.is_generic_spec)
-        {
-            scope_entry_t* specific_symbol = get_specific_interface(symbol, num_actual_arguments, 
-                actual_arguments_keywords,
-                nodecl_actual_arguments);
-            if (specific_symbol == NULL)
-            {
-                if (!checking_ambiguity())
-                {
-                    error_printf("%s: error: no specific interface matches generic interface '%s' in function reference\n",
-                            ast_location(location),
-                            fortran_prettyprint_in_buffer(procedure_designator));
-                }
-
-                *result_type = get_error_type();
-                return;
-            }
-
-            // Remember the generic specifier
-            *generic_specifier_symbol = symbol;
-            // but perform everything else using the specific one
-            symbol = specific_symbol;
-        }
-
         // This is now a specfic procedure reference
         ERROR_CONDITION (!is_function_type(symbol->type_information), "Invalid type for function symbol!\n", 0);
 
@@ -2736,8 +2754,14 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
     AST procedure_designator = ASTSon0(expr);
     AST actual_arg_spec_list = ASTSon1(expr);
 
-    nodecl_t nodecl_proc_designator = nodecl_null();
-    check_symbol_of_called_name(procedure_designator, decl_context, &nodecl_proc_designator, is_call_stmt);
+    scope_entry_list_t* symbol_list = NULL;
+    check_symbol_of_called_name(procedure_designator, decl_context, &symbol_list, is_call_stmt);
+
+    if (symbol_list == NULL)
+    {
+        *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
+        return;
+    }
 
     int num_actual_arguments = 0;
 
@@ -2824,19 +2848,12 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
         }
     }
 
-    if (nodecl_is_err_expr(nodecl_proc_designator))
-    {
-        *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
-        return;
-    }
-
-    scope_entry_t* symbol = nodecl_get_symbol(nodecl_proc_designator);
 
     type_t* result_type = NULL;
     scope_entry_t* called_symbol = NULL;
     scope_entry_t* generic_specifier_symbol = NULL;
     nodecl_t nodecl_simplify = nodecl_null();
-    check_called_symbol(symbol, 
+    check_called_symbol_list(symbol_list, 
             decl_context, 
             expr, 
             procedure_designator, 
@@ -2851,8 +2868,7 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
             &nodecl_simplify
             );
 
-    // ERROR_CONDITION(called_symbol == NULL, "Invalid symbol called returned by check_called_symbol", 0);
-    ERROR_CONDITION(result_type == NULL, "Invalid type returned by check_called_symbol", 0);
+    ERROR_CONDITION(result_type == NULL, "Invalid type returned by check_called_symbol_list", 0);
 
     if (is_error_type(result_type))
     {
@@ -3247,9 +3263,11 @@ static void check_user_defined_unary_op(AST expr, decl_context_t decl_context, n
 
     AST operator = ASTSon0(expr);
     const char* operator_name = strtolower(strappend(".operator.", ASTText(operator)));
-    scope_entry_t* call_sym = fortran_query_name_str(decl_context, operator_name);
+    scope_entry_list_t* call_list = fortran_query_name_str_for_function(decl_context, operator_name,
+            ASTFileName(operator),
+            ASTLine(operator));
 
-    if (call_sym == NULL)
+    if (call_list == NULL)
     {
         if (!checking_ambiguity())
         {
@@ -3267,7 +3285,7 @@ static void check_user_defined_unary_op(AST expr, decl_context_t decl_context, n
     scope_entry_t* called_symbol = NULL;
     scope_entry_t* generic_specifier_symbol = NULL;
     nodecl_t nodecl_simplify = nodecl_null();
-    check_called_symbol(call_sym, 
+    check_called_symbol_list(call_list, 
             decl_context, 
             expr, 
             operator, 
@@ -3281,7 +3299,7 @@ static void check_user_defined_unary_op(AST expr, decl_context_t decl_context, n
             &generic_specifier_symbol,
             &nodecl_simplify);
 
-    ERROR_CONDITION(result_type == NULL, "Invalid type returned by check_called_symbol", 0);
+    ERROR_CONDITION(result_type == NULL, "Invalid type returned by check_called_symbol_list", 0);
 
     if (is_error_type(result_type))
     {
@@ -3347,9 +3365,11 @@ static void check_user_defined_binary_op(AST expr, decl_context_t decl_context, 
 
     AST operator = ASTSon0(expr);
     const char* operator_name = strtolower(strappend(".operator.", ASTText(operator)));
-    scope_entry_t* call_sym = fortran_get_variable_with_locus(decl_context, operator, operator_name);
+    scope_entry_list_t* call_list = fortran_query_name_str_for_function(decl_context, operator_name,
+            ASTFileName(operator),
+            ASTLine(operator));
 
-    if (call_sym == NULL)
+    if (call_list == NULL)
     {
         if (!checking_ambiguity())
         {
@@ -3367,7 +3387,7 @@ static void check_user_defined_binary_op(AST expr, decl_context_t decl_context, 
     scope_entry_t* called_symbol = NULL;
     scope_entry_t* generic_specifier_symbol = NULL;
     nodecl_t nodecl_simplify = nodecl_null();
-    check_called_symbol(call_sym, 
+    check_called_symbol_list(call_list, 
             decl_context, 
             /* location */ expr, 
             operator, 
@@ -3381,7 +3401,7 @@ static void check_user_defined_binary_op(AST expr, decl_context_t decl_context, 
             &generic_specifier_symbol,
             &nodecl_simplify);
 
-    ERROR_CONDITION(result_type == NULL, "Invalid type returned by check_called_symbol", 0);
+    ERROR_CONDITION(result_type == NULL, "Invalid type returned by check_called_symbol_list", 0);
 
     if (is_error_type(result_type))
     {
@@ -3436,7 +3456,10 @@ static char is_name_of_funtion_call(AST expr)
 }
 #endif
 
-static void check_symbol_of_called_name(AST sym, decl_context_t decl_context, nodecl_t* nodecl_output, char is_call_stmt)
+static void check_symbol_of_called_name(AST sym, 
+        decl_context_t decl_context, 
+        scope_entry_list_t** call_list, 
+        char is_call_stmt)
 { 
     if (ASTType(sym) != AST_SYMBOL)
     {
@@ -3444,20 +3467,21 @@ static void check_symbol_of_called_name(AST sym, decl_context_t decl_context, no
         {
             error_printf("%s: error: expression is not a valid procedure designator\n", ast_location(sym));
         }
-        *nodecl_output = nodecl_make_err_expr(ASTFileName(sym), ASTLine(sym));
+        *call_list = NULL;
         return;
     }
 
     // Look the symbol up. This will ignore INTRINSIC names
-    scope_entry_t* entry = fortran_query_name_str(decl_context, ASTText(sym));
-    if (entry == NULL)
+    scope_entry_list_t* entry_list = fortran_query_name_str_for_function(decl_context, ASTText(sym),
+            ASTFileName(sym), ASTLine(sym));
+    if (entry_list == NULL)
     {
         char entry_is_an_intrinsic = 0;
         
         // We did not find anything.
         //
         // Does this name match the name of an INTRINSIC?
-        entry = fortran_query_intrinsic_name_str(decl_context, ASTText(sym));
+        scope_entry_t* entry = fortran_query_intrinsic_name_str(decl_context, ASTText(sym));
         if (entry != NULL)
         {
             // It names an intrinsic
@@ -3475,6 +3499,10 @@ static void check_symbol_of_called_name(AST sym, decl_context_t decl_context, no
                 // Inserting the intrinsic as an alias is okay here since there
                 // is no doubt about the name being the INTRINSIC symbol
                 insert_alias(decl_context.current_scope, entry, strtolower(ASTText(sym)));
+
+                // We are done, this is the single name being called
+                *call_list = entry_list_new(entry);
+                return;
             }
         }
 
@@ -3506,7 +3534,7 @@ static void check_symbol_of_called_name(AST sym, decl_context_t decl_context, no
                     {
                         error_printf("%s: error: '%s' is not a function name\n", ast_location(sym), ASTText(sym));
                     }
-                    *nodecl_output = nodecl_make_err_expr(ASTFileName(sym), ASTLine(sym));
+                    *call_list = NULL;
                     return;
                 }
                 else if (!is_implicit_none(decl_context))
@@ -3523,93 +3551,116 @@ static void check_symbol_of_called_name(AST sym, decl_context_t decl_context, no
 
             // Do not allow its type be redefined anymore
             entry->entity_specs.is_implicit_basic_type = 0;
+
+            // And we are done
+            *call_list = entry_list_new(entry);
+            return;
         }
     }
     else
     {
-        if (entry->kind == SK_UNDEFINED)
+        // fortran_query_name_str_for_function returns a single item if a non generic specifier was found
+        // if more than one generic specifier is found, all the visible ones in the current scope are returned
+        // thus we do not have to check anything
+        if (entry_list_size(entry_list) == 1)
         {
-            // Make it a function
-            entry->kind = SK_FUNCTION;
-            remove_unknown_kind_symbol(decl_context, entry);
-            
-            // and update its type
-            if (entry->entity_specs.alias_to != NULL
-                    && entry->entity_specs.alias_to->entity_specs.is_builtin)
+            scope_entry_t* entry = entry_list_head(entry_list);
+            if (entry->kind == SK_UNDEFINED)
             {
-                /*
-                 * Heads up here!
-                 *
-                 * PROGRAM P
-                 *   IMPLICIT NONE
-                 *
-                 *   CALL F1(SQRT)      !!! (1)
-                 *   CALL F2(SQRT(1.2)) !!! (2)
-                 * END PROGRAM P
-                 *
-                 * Initially in (1) we created an SK_UNDEFINED with an alias to the intrinsic SQRT because
-                 * we were not 100% sure if this was going to be a variable or the called intrinsic. Then in (2)
-                 * our suspicions get confirmed: SQRT was indeed an INTRINSIC, but we created a fake symbol
-                 * which now we want it to behave like the intrinsic.
-                 *
-                 * Note 1. If (2) were removed, then SQRT usage is wrong. 
-                 *
-                 * Note 2. Nothing of this happens if SQRT is stated as an
-                 * intrinsic using an INTRINSIC :: SQRT statement.
-                 */
+                // Make it a function
+                entry->kind = SK_FUNCTION;
+                remove_unknown_kind_symbol(decl_context, entry);
 
-                remove_untyped_symbol(decl_context, entry);
-
-                // This is a bit crude but will do since intrinsics are not meant to be changed elsewhere
-                scope_entry_t* intrinsic_symbol = entry->entity_specs.alias_to;
-                *entry = *intrinsic_symbol;
-            }
-            else
-            {
-                scope_entry_t * intrinsic_sym = fortran_query_intrinsic_name_str(decl_context, entry->symbol_name);
-                if (intrinsic_sym == NULL || entry->entity_specs.is_parameter)
+                // and update its type
+                if (entry->entity_specs.alias_to != NULL
+                        && entry->entity_specs.alias_to->entity_specs.is_builtin)
                 {
-                    // This is the usual case, when instead of SQRT the user wrote
-                    // SRTQ (and we are not in IMPLICIT NONE)
-                    entry->type_information = get_nonproto_function_type(entry->type_information, 0);
-                }
-                else 
-                {
-                    // From now, the symbol is an intrinsic
-                    *entry = *intrinsic_sym;
-                }
-            }
-        }
+                    /*
+                     * Heads up here!
+                     *
+                     * PROGRAM P
+                     *   IMPLICIT NONE
+                     *
+                     *   CALL F1(SQRT)      !!! (1)
+                     *   CALL F2(SQRT(1.2)) !!! (2)
+                     * END PROGRAM P
+                     *
+                     * Initially in (1) we created an SK_UNDEFINED with an alias to the intrinsic SQRT because
+                     * we were not 100% sure if this was going to be a variable or the called intrinsic. Then in (2)
+                     * our suspicions get confirmed: SQRT was indeed an INTRINSIC, but we created a fake symbol
+                     * which now we want it to behave like the intrinsic.
+                     *
+                     * Note 1. If (2) were removed, then SQRT usage is wrong. 
+                     *
+                     * Note 2. Nothing of this happens if SQRT is stated as an
+                     * intrinsic using an INTRINSIC :: SQRT statement.
+                     */
 
-        if (entry->kind != SK_FUNCTION)
-        {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: '%s' is not a %s name\n", ast_location(sym), entry->symbol_name,
-                        is_call_stmt ? "subroutine" : "function");
+                    remove_untyped_symbol(decl_context, entry);
+
+                    // This is a bit crude but will do since intrinsics are not meant to be changed elsewhere
+                    scope_entry_t* intrinsic_symbol = entry->entity_specs.alias_to;
+                    *entry = *intrinsic_symbol;
+                }
+                else
+                {
+                    scope_entry_t * intrinsic_sym = fortran_query_intrinsic_name_str(decl_context, entry->symbol_name);
+                    if (intrinsic_sym == NULL || entry->entity_specs.is_parameter)
+                    {
+                        // This is the usual case, when instead of SQRT the user wrote
+                        // SRTQ (and we are not in IMPLICIT NONE)
+                        entry->type_information = get_nonproto_function_type(entry->type_information, 0);
+                    }
+                    else 
+                    {
+                        // From now, the symbol is an intrinsic
+                        *entry = *intrinsic_sym;
+                    }
+                }
             }
-            *nodecl_output = nodecl_make_err_expr(ASTFileName(sym), ASTLine(sym));
+
+            if (entry->kind != SK_FUNCTION)
+            {
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: '%s' is not a %s name\n", ast_location(sym), entry->symbol_name,
+                            is_call_stmt ? "subroutine" : "function");
+                }
+                *call_list = NULL;
+                return;
+            }
+
+            // Generic specifiers are not to be handled here
+            if (!is_computed_function_type(entry->type_information))
+            {
+                if (is_call_stmt
+                        && entry->entity_specs.is_implicit_basic_type)
+                {
+                    entry->type_information = get_nonproto_function_type(get_void_type(), 0);
+                }
+            }
+
+            // This symbol is not untyped anymore
+            remove_untyped_symbol(decl_context, entry);
+            // nor its type can be redefined (this would never happen in real Fortran because of statement ordering)
+            entry->entity_specs.is_implicit_basic_type = 0;
+
+            // And we are done
+            *call_list = entry_list_new(entry);
             return;
         }
-
-        // Generic specifiers are not to be handled here
-        if (!is_computed_function_type(entry->type_information))
+        else if (entry_list_size(entry_list) > 1)
         {
-            if (is_call_stmt
-                    && entry->entity_specs.is_implicit_basic_type)
-            {
-                entry->type_information = get_nonproto_function_type(get_void_type(), 0);
-            }
+            // This case is only possible when fortran_query_name_str_for_function finds a generic specifier
+            // we do not have to check anything
+            *call_list = entry_list;
+            return;
         }
-
-        // This symbol is not untyped anymore
-        remove_untyped_symbol(decl_context, entry);
-        // nor its type can be redefined (this would never happen in real Fortran because of statement ordering)
-        entry->entity_specs.is_implicit_basic_type = 0;
+        else
+        {
+            internal_error("Code unreachable", 0);
+        }
     }
-    
-    *nodecl_output = nodecl_make_symbol(entry, ASTFileName(sym), ASTLine(sym));
-    nodecl_set_type(*nodecl_output, entry->type_information);
 }
 
 // Common function when we finally understand that a
@@ -3709,7 +3760,8 @@ static void check_symbol_name_as_a_variable(
 static void check_symbol_of_argument(AST sym, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     // Look the symbol up. This will ignore INTRINSIC names
-    scope_entry_t* entry = fortran_query_name_str(decl_context, ASTText(sym));
+    scope_entry_t* entry = fortran_query_name_str(decl_context, ASTText(sym),
+            ASTFileName(sym), ASTLine(sym));
     if (entry == NULL)
     {
         // We did not find anything.
@@ -3936,9 +3988,10 @@ static char is_defined_assignment(AST expr, AST lvalue,
         scope_entry_t** generic_specifier_symbol)
 {
     const char* operator_name = ".operator.=";
-    scope_entry_t* call_sym = fortran_query_name_str(decl_context, operator_name);
+    scope_entry_list_t* call_list = fortran_query_name_str_for_function(decl_context, operator_name,
+            ASTFileName(expr), ASTLine(expr));
 
-    if (call_sym == NULL)
+    if (call_list == NULL)
         return 0;
 
     int num_actual_arguments = 2;
@@ -3951,7 +4004,7 @@ static char is_defined_assignment(AST expr, AST lvalue,
 
     enter_test_expression();
     nodecl_t nodecl_simplify = nodecl_null();
-    check_called_symbol(call_sym, 
+    check_called_symbol_list(call_list, 
             decl_context,
             /* location */ expr,
             operator_designation,
@@ -4997,10 +5050,12 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
     {
         result = get_error_type();
         // Now try with a user defined operator
-        scope_entry_t* call_sym = fortran_get_variable_with_locus(decl_context, expr, value->op_symbol_name);
+        scope_entry_list_t* call_list = fortran_query_name_str_for_function(decl_context, value->op_symbol_name,
+                ASTFileName(expr),
+                ASTLine(expr));
 
         // Perform a resolution by means of a call check
-        if (call_sym != NULL)
+        if (call_list != NULL)
         {
             int num_actual_arguments = 0;
             const char* keywords[2] = { NULL, NULL };
@@ -5022,7 +5077,7 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
             scope_entry_t* called_symbol = NULL;
             scope_entry_t* generic_specifier_symbol = NULL;
             nodecl_t nodecl_simplify = nodecl_null();
-            check_called_symbol(call_sym, 
+            check_called_symbol_list(call_list, 
                     decl_context, 
                     /* location */ expr, 
                     operator_designation,
