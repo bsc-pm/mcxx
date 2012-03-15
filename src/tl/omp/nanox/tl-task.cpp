@@ -73,7 +73,6 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
     device_descriptor << outline_name << "_devices";
     device_description
-        << ancillary_device_description
         << "nanos_device_t " << device_descriptor << "[] ="
         << "{"
         << device_description_line
