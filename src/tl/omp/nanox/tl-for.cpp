@@ -80,7 +80,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
     {
           loop_distr_setup
               << "nanos_ws_item_loop_t _nth_info;"
-              << "int j;"
+              << "int _nth;"
               ;
     }
     else
@@ -157,7 +157,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
                 << "{"
                 <<      "while (_nth_info.execute)"
                 <<      "{"
-                <<          "for (j = _nth_info.lower; j <= _nth_info.upper; j +=" << for_statement.get_step() << ")"
+                <<          "for (_nth = _nth_info.lower; _nth <= _nth_info.upper; _nth +=" << for_statement.get_step() << ")"
                 <<          "{"
                 <<              replaced_body
                 <<          "}"
@@ -168,7 +168,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
                 << "{"
                 <<      "while (_nth_info.execute)"
                 <<      "{"
-                <<          "for (j = _nth_info.lower; j >= _nth_info.upper; j +=" << for_statement.get_step() << ")"
+                <<          "for (_nth = _nth_info.lower; _nth >= _nth_info.upper; _nth +=" << for_statement.get_step() << ")"
                 <<          "{"
                 <<              replaced_body
                 <<          "}"
@@ -737,7 +737,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
 
             //This function will preload the worksharing plugins
             worksharing_inits
-                << "void nanos_omp_initialize_worksharings(void *)"
+                << "void nanos_omp_initialize_worksharings(void *_dummy)"
                 << "{"
                 <<      "ws_policy[0] = nanos_omp_find_worksharing(omp_sched_static);"
                 <<      "ws_policy[1] = nanos_omp_find_worksharing(omp_sched_dynamic);"
