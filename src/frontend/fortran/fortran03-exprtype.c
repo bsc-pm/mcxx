@@ -4182,6 +4182,7 @@ static void cast_initialization(
                     nodecl_get_line(*nodecl_output));
         }
     }
+    // The user is initializing a a complex type using either a float or an integer
     else if (is_complex_type(initialized_type)
             && (const_value_is_floating(val)
                 || const_value_is_integer(val)))
@@ -4225,6 +4226,48 @@ static void cast_initialization(
                     initialized_type,
                     nodecl_get_filename(*nodecl_output),
                     nodecl_get_line(*nodecl_output));
+        }
+    }
+    else if (is_fortran_character_type(initialized_type)
+            && const_value_is_string(val))
+    {
+        *casted_const = val;
+
+        nodecl_t size_init = array_type_get_array_size_expr(initialized_type);
+
+        if (!nodecl_is_null(size_init)
+                && nodecl_is_constant(size_init))
+        {
+            signed int n = const_value_cast_to_signed_int(nodecl_get_constant(size_init));
+
+            ERROR_CONDITION(n <= 0, "Invalid length", 0);
+
+            if (const_value_get_num_elements(val) < n)
+            {
+                char c[n];
+                int s = const_value_get_num_elements(val);
+
+                int i;
+                for (i = 0; i < n; i++)
+                {
+                    if (i < s)
+                    {
+                        c[i] = (char)const_value_cast_to_signed_int(const_value_get_element_num(val, i));
+                    }
+                    else
+                    {
+                        c[i] = ' ';
+                    }
+                }
+
+                *casted_const = const_value_make_string(c, n);
+            }
+        }
+
+        if (nodecl_output != NULL)
+        {
+            // Build a nodecl if needed
+            *nodecl_output = const_value_to_nodecl(*casted_const);
         }
     }
     else
