@@ -74,13 +74,15 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
 
     std::string outline_name = ss.str();
 
+    Source induction_var_name = for_statement.get_induction_variable().prettyprint();
+
     Source loop_distr_setup;
 
     if (Nanos::Version::interface_is_at_least("worksharing", 1000))
     {
           loop_distr_setup
               << "nanos_ws_item_loop_t _nth_info;"
-              << "int _nth;"
+              // << "int " << induction_var_name << ";"
               ;
     }
     else
@@ -104,8 +106,6 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
     {
         final_barrier << get_barrier_code(ctr.get_ast());
     }
-
-    Source induction_var_name = for_statement.get_induction_variable().prettyprint();
 
     Source device_descriptor, 
            device_description, 
@@ -157,7 +157,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
                 << "{"
                 <<      "while (_nth_info.execute)"
                 <<      "{"
-                <<          "for (_nth = _nth_info.lower; _nth <= _nth_info.upper; _nth +=" << for_statement.get_step() << ")"
+                <<          "for (" << induction_var_name << " = _nth_info.lower; " << induction_var_name << " <= _nth_info.upper; " << induction_var_name << " +=" << for_statement.get_step() << ")"
                 <<          "{"
                 <<              replaced_body
                 <<          "}"
@@ -168,7 +168,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
                 << "{"
                 <<      "while (_nth_info.execute)"
                 <<      "{"
-                <<          "for (_nth = _nth_info.lower; _nth >= _nth_info.upper; _nth +=" << for_statement.get_step() << ")"
+                <<          "for (" << induction_var_name << " = _nth_info.lower; " << induction_var_name << " >= _nth_info.upper; " << induction_var_name << " +=" << for_statement.get_step() << ")"
                 <<          "{"
                 <<              replaced_body
                 <<          "}"
