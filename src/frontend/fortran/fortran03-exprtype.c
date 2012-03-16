@@ -2467,7 +2467,7 @@ static void check_called_symbol_list(
             for (i = 0; i < num_actual_arguments; i++)
             {
                 int current_rank = get_rank_of_type(nodecl_get_type(nodecl_actual_arguments[i]));
-                if (common_rank < 0)
+                if (common_rank <= 0)
                 {
                     common_rank = current_rank;
                 }
@@ -2638,7 +2638,7 @@ static void check_called_symbol_list(
                 for (i = 0; i < num_completed_arguments && ok; i++)
                 {
                     int current_rank = get_rank_of_type(fixed_argument_info_items[i].type); 
-                    if (common_rank < 0)
+                    if (common_rank <= 0)
                     {
                         common_rank = current_rank;
                     }
