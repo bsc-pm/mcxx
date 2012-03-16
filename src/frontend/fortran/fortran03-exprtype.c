@@ -5106,7 +5106,7 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
                 }
                 else
                 {
-                    nodecl_argument_list = nodecl_make_list_2(nodecl_rhs, nodecl_lhs);
+                    nodecl_argument_list = nodecl_make_list_2(nodecl_lhs, nodecl_rhs);
                 }
 
                 nodecl_t nodecl_generic_spec = nodecl_null();
