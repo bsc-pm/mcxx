@@ -478,12 +478,8 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
         }
     }
 
-
     Source policy, chunk_value;
     chunk_value = Source("0");
-    policy = Source("static_for");
-
-
     PragmaCustomClause schedule_clause = ctr.get_clause("schedule");
     if (schedule_clause.is_defined())
     {
@@ -496,11 +492,23 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
             chunk_value = Source(args[1]);
         }
     }
-    Source current_slicer = Source(policy.get_source());
+    Source current_slicer;
     if (Nanos::Version::interface_is_at_least("worksharing", 1000))
     {
         //Currently, this version of Nanos only supports replicate slicer
         current_slicer = Source("replicate");
+    }
+    else
+    {
+        if (!schedule_clause.is_defined())
+        {
+            //Default slicer if it is not defined a policy
+            current_slicer = Source("static_for");
+        }
+        else
+        {
+            current_slicer = Source(policy.get_source());
+        }
     }
 
     // FIXME - Move this to a tl-workshare.cpp
@@ -702,10 +710,8 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
             << "}"
             ;
     }
-    else if (Nanos::Version::interface_is_at_least("worksharing", 1000) ||
-             Nanos::Version::interface_is_at_least("omp", 5))
+    else if (Nanos::Version::interface_is_at_least("worksharing", 1000))
     {
-
         std::stringstream smp_outline_call;
         smp_outline_call << "_smp_" << outline_name << "(&ol_args);";
 
@@ -718,14 +724,14 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
 
         if (_initialize_worksharings)
         {
-            //We initialize the worksharings one time per file
+             //Preload the plugins: we initialize the worksharings one time per file
             _initialize_worksharings = false;
 
             Source worksharing_code, worksharing_decls, worksharing_inits;
             worksharing_code
                 << worksharing_decls
                 << worksharing_inits
-                << "__attribute__((weak, section(\"nanos_init\"))) "
+                << "__attribute__((weak, section(\"nanos_post_init\"))) "
                 << "    nanos_init_desc_t __section__nanos_init_worksharing ="
                 << "{"
                 <<     "nanos_omp_initialize_worksharings, (void*)0"
@@ -735,35 +741,66 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
             worksharing_decls << "static nanos_ws_t ws_policy[4];";
 
             //This function will preload the worksharing plugins
-            worksharing_inits
-                << "void nanos_omp_initialize_worksharings(void *_dummy)"
-                << "{"
-                <<      "ws_policy[0] = nanos_omp_find_worksharing(omp_sched_static);"
-                <<      "ws_policy[1] = nanos_omp_find_worksharing(omp_sched_dynamic);"
-                <<      "ws_policy[2] = nanos_omp_find_worksharing(omp_sched_guided);"
-                <<      "ws_policy[3] = nanos_omp_find_worksharing(omp_sched_auto);"
-                << "}"
-                ;
+            if (Nanos::Version::interface_is_at_least("omp", 5))
+            {
+                worksharing_inits
+                    << "void nanos_omp_initialize_worksharings(void *_dummy)"
+                    << "{"
+                    <<      "ws_policy[0] = nanos_omp_find_worksharing(omp_sched_static);"
+                    <<      "ws_policy[1] = nanos_omp_find_worksharing(omp_sched_dynamic);"
+                    <<      "ws_policy[2] = nanos_omp_find_worksharing(omp_sched_guided);"
+                    <<      "ws_policy[3] = nanos_omp_find_worksharing(omp_sched_auto);"
+                    << "}"
+                    ;
+            }
+            else
+            {
+                worksharing_inits
+                    << "void nanos_omp_initialize_worksharings(void *_dummy)"
+                    << "{"
+                    <<      "ws_policy[0] = nanos_find_worksharing(\"static_for\");"
+                    <<      "ws_policy[1] = nanos_find_worksharing(\"dynamic_for\");"
+                    <<      "ws_policy[2] = nanos_find_worksharing(\"guided_for\");"
+                    << "}"
+                    ;
+
+            }
             AST_t worksharing_tree = worksharing_code.parse_global(ctr.get_ast(), ctr.get_scope_link());
             ctr.get_ast().prepend_sibling_global(worksharing_tree);
         }
 
-        int id_worksharing = -1;
-        if (policy.get_source() == "static_for")
+        std::string scheduler_str = policy.get_source();
+        Source current_ws_policy;
+        if (scheduler_str == "static_for")
         {
-            id_worksharing = 0;
+            current_ws_policy << "nanos_ws_t* current_ws_policy = &ws_policy[0];";
         }
-        else if (policy.get_source() =="dynamic_for")
+        else if (scheduler_str =="dynamic_for")
         {
-            id_worksharing = 1;
+            current_ws_policy << "nanos_ws_t* current_ws_policy = &ws_policy[1];";
         }
-        else if (policy.get_source() == "guided_for")
+        else if (scheduler_str == "guided_for")
         {
-            id_worksharing = 2;
+            current_ws_policy << "nanos_ws_t* current_ws_policy = &ws_policy[2];";
+        }
+        else if (scheduler_str == "auto_for")
+        {
+            current_ws_policy << "nanos_ws_t* current_ws_policy = &ws_policy[3];";
+        }
+        else if (scheduler_str == "runtime_for" || !schedule_clause.is_defined())
+        {
+            current_ws_policy
+                << "int _chunk;"
+                << "omp_sched_t _runtime_sched;"
+                << "err = nanos_omp_get_schedule(&_runtime_sched, &_chunk);"
+                << "if (err != NANOS_OK) nanos_handle_error(err);"
+                << "nanos_ws_t* current_ws_policy = &ws_policy[_runtime_sched - 1];"
+                ;
+            chunk_value = Source("_chunk");
         }
         else
         {
-            id_worksharing = 3;
+            internal_error("unexpected omp scheduler '%s'\n", scheduler_str.c_str());
         }
 
         C_LANGUAGE()
@@ -778,6 +815,9 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
         spawn_source
             << "{"
             <<      struct_arg_type_name << " ol_args;"
+            <<      bool_type << " single_guard;"
+            <<      "nanos_err_t err;"
+            <<      current_ws_policy
             <<      "nanos_ws_info_loop_t info_loop = "
             <<          "{"
             <<              for_statement.get_lower_bound() << ","
@@ -785,8 +825,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
             <<              for_statement.get_step()        << ","
             <<              chunk_value
             <<          "};"
-            <<      bool_type << " single_guard;"
-            <<      "nanos_err_t err = nanos_worksharing_create(&ol_args.wsd, ws_policy["<< id_worksharing << "], (nanos_ws_info_t *) &info_loop, &single_guard);"
+            <<      "err = nanos_worksharing_create(&ol_args.wsd, *current_ws_policy, (nanos_ws_info_t *) &info_loop, &single_guard);"
             <<      "if (err != NANOS_OK) nanos_handle_error(err);"
             <<      "if (single_guard)"
             <<      "{"
