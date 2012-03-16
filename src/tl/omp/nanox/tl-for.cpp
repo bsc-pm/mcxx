@@ -496,8 +496,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
             chunk_value = Source(args[1]);
         }
     }
-  
-    Source current_slicer = policy;
+    Source current_slicer = Source(policy.get_source());
     if (Nanos::Version::interface_is_at_least("worksharing", 1000))
     {
         //Currently, this version of Nanos only supports replicate slicer
