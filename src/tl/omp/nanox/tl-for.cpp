@@ -147,8 +147,17 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
                 replaced_body);
 
         Source outline_body;
+
         if (Nanos::Version::interface_is_at_least("worksharing", 1000))
         {
+            Source instr_enter_burst_opt, instr_leave_burst_opt;
+            //This new instrumentation is supported only in smp devices
+            if (_enable_instrumentation && device_provider->get_name()=="smp")
+            {
+                instr_enter_burst_opt << "nanos_instrument_enter_burst(ek, ev_chunk);";
+                instr_leave_burst_opt << "nanos_instrument_leave_burst(ek);";
+            }
+
             outline_body
                 << loop_distr_setup
                 << "nanos_worksharing_next_item(_args->wsd, (nanos_ws_item_t *) &_nth_info);"
@@ -156,12 +165,14 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
                 << "{"
                 <<      "while (_nth_info.execute)"
                 <<      "{"
+                <<          instr_enter_burst_opt
                 <<          "for (" << induction_var_name << " = _nth_info.lower;"
                 <<                     induction_var_name << " <= _nth_info.upper;"
                 <<                     induction_var_name << " +=" << for_statement.get_step() << ")"
                 <<          "{"
                 <<              replaced_body
                 <<          "}"
+                <<          instr_leave_burst_opt
                 <<          "nanos_worksharing_next_item(_args->wsd, (nanos_ws_item_t *) &_nth_info);"
                 <<      "}"
                 << "}"
@@ -169,15 +180,19 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
                 << "{"
                 <<      "while (_nth_info.execute)"
                 <<      "{"
+                <<          instr_enter_burst_opt
                 <<          "for (" << induction_var_name << " = _nth_info.lower;"
                 <<                     induction_var_name << " >= _nth_info.upper;"
                 <<                     induction_var_name << " +=" << for_statement.get_step() << ")"
                 <<          "{"
                 <<              replaced_body
                 <<          "}"
+                <<          instr_leave_burst_opt
                 <<          "nanos_worksharing_next_item(_args->wsd, (nanos_ws_item_t *) &_nth_info);"
                 <<      "}"
                 << "}"
+                // close de enter_bust opened in device instrumentation (nanox-smp.cpp)
+                << instr_leave_burst_opt
                 << final_barrier
                 ;
         }
