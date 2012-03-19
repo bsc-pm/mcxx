@@ -98,7 +98,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
     Source final_barrier;
 
     if ( (!ctr.get_clause("nowait").is_defined()
-            && !ctr.get_clause("input").is_defind()
+            && !ctr.get_clause("input").is_defined()
             && !ctr.get_clause("output").is_defined()
             && !ctr.get_clause("inout").is_defined() )
             || !data_environ_info.get_reduction_symbols().empty())
@@ -178,6 +178,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
                 <<          "nanos_worksharing_next_item(_args->wsd, (nanos_ws_item_t *) &_nth_info);"
                 <<      "}"
                 << "}"
+                << final_barrier
                 ;
         }
         else
