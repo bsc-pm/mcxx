@@ -297,6 +297,7 @@ LIBMCXX_EXTERN char is_function_type(type_t* t);
 LIBMCXX_EXTERN char is_lvalue_reference_type(type_t* t1);
 LIBMCXX_EXTERN char is_rvalue_reference_type(type_t* t1);
 LIBMCXX_EXTERN char is_rebindable_reference_type(type_t* t1);
+LIBMCXX_EXTERN char is_any_reference_type(type_t* t1);
 
 LIBMCXX_EXTERN char is_vector_type(type_t* t);
 
