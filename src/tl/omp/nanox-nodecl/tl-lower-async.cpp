@@ -260,7 +260,7 @@ void LoweringVisitor::emit_async_common(
             ;
 
         mandatory_creation << "0";
-        tiedness << (int)!!is_untied;
+        tiedness << (int)!is_untied;
 
         if (priority_expr.is_null())
         {
