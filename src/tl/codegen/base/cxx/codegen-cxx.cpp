@@ -3063,8 +3063,11 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
         indent();
         file << "friend ";
 
-        if (_friend.is_class() ||
-                _friend.get_internal_symbol()->kind == SK_DEPENDENT_FRIEND_CLASS)
+        if (_friend.get_internal_symbol()->kind == SK_DEPENDENT_FRIEND_CLASS)
+        {
+            file << print_type_str(_friend.get_type().get_internal_type(), _friend.get_scope().get_decl_context());
+        }
+        else if (_friend.is_class())
         {
             std::string friend_class_key;
             switch (_friend.get_type().class_type_get_class_kind())

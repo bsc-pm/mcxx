@@ -2321,6 +2321,13 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
                 template_type_get_specialized_type_noreuse(template_type, tpl, decl_context, friend_sym->file, friend_sym->line);
         }
 
+        //Promote a SK_DEPENDENT_ENTITY to SK_DEPENDENT_FRIEND_CLASS
+        if (friend_sym->kind == SK_DEPENDENT_ENTITY)
+        {
+            friend_sym->kind = SK_DEPENDENT_FRIEND_CLASS;
+            set_dependent_entry_kind(entry->type_information, class_kind);
+        }
+
         class_type_add_friend_symbol(class_symbol->type_information, friend_sym);
         *type_info = get_void_type();
         return;
