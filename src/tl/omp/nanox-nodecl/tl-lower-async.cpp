@@ -284,7 +284,7 @@ void LoweringVisitor::emit_async_common(
                     ;
                 device_description_init
                     << "{"
-                    << /* factory */ "&nanos_smp_factory, 0, &" << outline_name << "_smp_args"
+                    << /* factory */ "&nanos_smp_factory, &" << outline_name << "_smp_args"
                     << "}"
                     ;
             }
