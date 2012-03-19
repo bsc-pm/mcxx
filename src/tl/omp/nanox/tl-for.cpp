@@ -82,7 +82,6 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
     {
           loop_distr_setup
               << "nanos_ws_item_loop_t _nth_info;"
-              // << "int " << induction_var_name << ";"
               ;
     }
     else
@@ -98,18 +97,18 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
     }
     Source final_barrier;
 
-    if ( (!ctr.get_clause("nowait").is_defined() 
-            && !ctr.get_clause("input").is_defined() 
-            && !ctr.get_clause("output").is_defined() 
+    if ( (!ctr.get_clause("nowait").is_defined()
+            && !ctr.get_clause("input").is_defind()
+            && !ctr.get_clause("output").is_defined()
             && !ctr.get_clause("inout").is_defined() )
             || !data_environ_info.get_reduction_symbols().empty())
     {
         final_barrier << get_barrier_code(ctr.get_ast());
     }
 
-    Source device_descriptor, 
-           device_description, 
-           device_description_line, 
+    Source device_descriptor,
+           device_description,
+           device_description_line,
            num_devices,
            ancillary_device_description,
            qualified_device_description;
@@ -146,7 +145,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
                 ctr.get_scope_link(),
                 initial_setup,
                 replaced_body);
-                
+
         Source outline_body;
         if (Nanos::Version::interface_is_at_least("worksharing", 1000))
         {
@@ -157,7 +156,9 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
                 << "{"
                 <<      "while (_nth_info.execute)"
                 <<      "{"
-                <<          "for (" << induction_var_name << " = _nth_info.lower; " << induction_var_name << " <= _nth_info.upper; " << induction_var_name << " +=" << for_statement.get_step() << ")"
+                <<          "for (" << induction_var_name << " = _nth_info.lower;"
+                <<                     induction_var_name << " <= _nth_info.upper;"
+                <<                     induction_var_name << " +=" << for_statement.get_step() << ")"
                 <<          "{"
                 <<              replaced_body
                 <<          "}"
@@ -168,7 +169,9 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
                 << "{"
                 <<      "while (_nth_info.execute)"
                 <<      "{"
-                <<          "for (" << induction_var_name << " = _nth_info.lower; " << induction_var_name << " >= _nth_info.upper; " << induction_var_name << " +=" << for_statement.get_step() << ")"
+                <<          "for (" << induction_var_name << " = _nth_info.lower;"
+                <<                     induction_var_name << " >= _nth_info.upper;"
+                <<                     induction_var_name << " +=" << for_statement.get_step() << ")"
                 <<          "{"
                 <<              replaced_body
                 <<          "}"
@@ -200,12 +203,12 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
                 initial_setup,
                 outline_body);
 
-        device_provider->get_device_descriptor(outline_name, 
-                data_environ_info, 
+        device_provider->get_device_descriptor(outline_name,
+                data_environ_info,
                 outline_flags,
                 ctr.get_statement().get_ast(),
                 ctr.get_scope_link(),
-                ancillary_device_description, 
+                ancillary_device_description,
                 device_description_line);
     }
 
