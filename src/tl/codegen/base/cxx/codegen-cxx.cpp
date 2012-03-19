@@ -5153,15 +5153,15 @@ void CxxBase::declare_all_in_template_header(TL::TemplateParameters template_par
 
 void CxxBase::codegen_template_headers_bounded(TL::TemplateParameters template_parameters, TL::TemplateParameters lim)
 {
-    if (template_parameters.has_enclosing_parameters())
+    if (template_parameters != lim)
     {
-        TL::TemplateParameters enclosing_template_parameters = template_parameters.get_enclosing_parameters();
-        if (enclosing_template_parameters != lim)
+        if (template_parameters.has_enclosing_parameters())
         {
-            codegen_template_headers_all_levels(enclosing_template_parameters);
+            TL::TemplateParameters enclosing_template_parameters = template_parameters.get_enclosing_parameters();
+            codegen_template_headers_bounded(enclosing_template_parameters, lim);
         }
+        codegen_template_header(template_parameters);
     }
-    codegen_template_header(template_parameters);
 }
 
 void CxxBase::codegen_template_headers_all_levels(TL::TemplateParameters template_parameters)
