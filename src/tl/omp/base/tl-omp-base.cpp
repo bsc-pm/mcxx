@@ -259,12 +259,22 @@ namespace TL { namespace OpenMP {
         PragmaCustomLine pragma_line = directive.get_pragma_line();
 
         PragmaCustomClause on_clause = pragma_line.get_clause("on");
-
+        TL::ObjectList<Nodecl::NodeclBase> expr_list;
         if (on_clause.is_defined())
         {
+            expr_list = on_clause.get_arguments_as_expressions();
+        }
+
+        if (!expr_list.empty())
+        {
+            Nodecl::Parallel::DepInout dep_inout = Nodecl::Parallel::DepInout::make(
+                    Nodecl::List::make(expr_list), 
+                    directive.get_filename(), 
+                    directive.get_line());
+
             directive.replace(
                     Nodecl::Parallel::WaitAsyncsDependences::make(
-                        Nodecl::List::make(on_clause.get_arguments_as_expressions()),
+                        Nodecl::List::make(dep_inout),
                         directive.get_filename(), directive.get_line())
                     );
         }

@@ -1077,7 +1077,7 @@ void LoweringVisitor::fill_dependences(
     }
 }
 
-static void fill_dimensions(int n_dims, int actual_dim, int current_dep_num,
+void LoweringVisitor::fill_dimensions(int n_dims, int actual_dim, int current_dep_num,
         Nodecl::NodeclBase * dim_sizes, 
         Type dep_type, 
         Source& dims_description, 
