@@ -198,6 +198,11 @@ namespace TL
         return (this->_symbol->kind == SK_FUNCTION);
     }
 
+    bool Symbol::is_nested_function() const
+    {
+        return (this->_symbol->entity_specs.is_nested_function);
+    }
+
     bool Symbol::is_statement_function_statement() const
     {
         return (this->_symbol->kind == SK_FUNCTION
@@ -222,47 +227,27 @@ namespace TL
 
     bool Symbol::is_fortran_main_program() const
     {
-#ifdef FORTRAN_SUPPORT
         return (this->_symbol->kind == SK_PROGRAM);
-#else
-        return false;
-#endif
     }
 
     bool Symbol::is_fortran_module() const
     {
-#ifdef FORTRAN_SUPPORT
         return (this->_symbol->kind == SK_MODULE);
-#else
-        return false;
-#endif
     }
 
     bool Symbol::is_in_module() const
     {
-#ifdef FORTRAN_SUPPORT
         return (this->_symbol->entity_specs.in_module != NULL);
-#else
-        return false;
-#endif
     }
 
     Symbol Symbol::in_module() const
     {
-#ifdef FORTRAN_SUPPORT
         return this->_symbol->entity_specs.in_module;
-#else
-        return Symbol(NULL);
-#endif
     }
 
     bool Symbol::is_fortran_blockdata() const
     {
-#ifdef FORTRAN_SUPPORT
         return (this->_symbol->kind == SK_BLOCKDATA);
-#else
-        return false;
-#endif
     }
 
     bool Symbol::is_typedef() const
@@ -325,11 +310,6 @@ namespace TL
         return (_symbol->entity_specs.is_parameter);
     }
 
-    int Symbol::get_parameter_position() const
-    {
-        return (_symbol->entity_specs.parameter_position);
-    }
-
     bool Symbol::is_static() const
     {
         return (_symbol->entity_specs.is_static);
@@ -353,6 +333,11 @@ namespace TL
     Nodecl::NodeclBase Symbol::get_bitfield_size() const
     {
         return _symbol->entity_specs.bitfield_size;
+    }
+
+    int Symbol::get_bitfield_offset() const
+    {
+        return _symbol->entity_specs.bitfield_offset;
     }
 
     bool Symbol::is_user_declared() const
@@ -551,110 +536,62 @@ namespace TL
 
     bool Symbol::is_fortran_common() const
     {
-#ifdef FORTRAN_SUPPORT
         return _symbol->kind == SK_COMMON;
-#else
-        return false;
-#endif
     }
 
     bool Symbol::is_fortran_namelist() const
     {
-#ifdef FORTRAN_SUPPORT
         return _symbol->kind == SK_NAMELIST;
-#else
-        return false;
-#endif
     }
 
     bool Symbol::is_allocatable() const
     {
-#ifdef FORTRAN_SUPPORT
         return _symbol->entity_specs.is_allocatable;
-#else
-        return false;
-#endif
     }
 
     bool Symbol::is_in_common() const
     {
-#ifdef FORTRAN_SUPPORT
         return _symbol->entity_specs.is_in_common;
-#else
-        return false;
-#endif
     }
 
     Symbol Symbol::in_common() const
     {
-#ifdef FORTRAN_SUPPORT
         return _symbol->entity_specs.in_common;
-#else
-        return Symbol(NULL);
-#endif
     }
 
     bool Symbol::is_in_namelist() const
     {
-#ifdef FORTRAN_SUPPORT
         return _symbol->entity_specs.is_in_namelist;
-#else
-        return false;
-#endif
     }
 
     bool Symbol::is_optional() const
     {
-#ifdef FORTRAN_SUPPORT
         return _symbol->entity_specs.is_optional;
-#else
-        return false;
-#endif
     }
 
     bool Symbol::is_target() const
     {
-#ifdef FORTRAN_SUPPORT
         return _symbol->entity_specs.is_target;
-#else
-        return false;
-#endif
     }
 
     bool Symbol::is_elemental() const
     {
-#ifdef FORTRAN_SUPPORT
         return _symbol->entity_specs.is_elemental;
-#else
-        return false;
-#endif
     }
 
     bool Symbol::is_recursive() const
     {
-#ifdef FORTRAN_SUPPORT
         return _symbol->entity_specs.is_recursive;
-#else
-        return false;
-#endif
     }
 
     bool Symbol::is_result() const
     {
-#ifdef FORTRAN_SUPPORT
         return _symbol->entity_specs.is_result;
-#else
-        return false;
-#endif
     }
 
     bool Symbol::is_generic_specifier() const
     {
-#ifdef FORTRAN_SUPPORT
         return _symbol->entity_specs.is_generic_spec;
-#else
-        return false;
-#endif
     }
 
     bool Symbol::has_nondefault_linkage() const
@@ -722,5 +659,20 @@ namespace TL
     Symbol Symbol::get_cray_pointer() const
     {
         return _symbol->entity_specs.cray_pointer;
+    }
+
+    int Symbol::get_offset() const
+    {
+        return _symbol->entity_specs.field_offset;
+    }
+
+    int Symbol::get_bitfield_first() const
+    {
+        return _symbol->entity_specs.bitfield_first;
+    }
+
+    int Symbol::get_bitfield_last() const
+    {
+        return _symbol->entity_specs.bitfield_last;
     }
 }

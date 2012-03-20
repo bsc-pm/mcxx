@@ -177,6 +177,8 @@ namespace Codegen
            
             codegen_module_header(current_module, nodes_before_contains);
 
+            clear_renames();
+
             for (TL::ObjectList<Nodecl::NodeclBase>::iterator it2 = it->nodes_after_contains.begin();
                     it2 != it->nodes_after_contains.end();
                     it2++)
@@ -224,7 +226,8 @@ namespace Codegen
         return c;
     }
     
-    void FortranBase::codegen_procedure(TL::Symbol entry, Nodecl::List statement_seq, Nodecl::List internal_subprograms)
+    void FortranBase::codegen_procedure(TL::Symbol entry, Nodecl::List statement_seq, Nodecl::List internal_subprograms, 
+            bool lacks_result)
     {
         inc_indent();
         declare_use_statements(statement_seq);
@@ -244,6 +247,17 @@ namespace Codegen
 
         if (entry.is_function())
         {
+            if (lacks_result)
+            {
+                std::string type_specifier;
+                std::string array_specifier;
+                codegen_type(entry.get_type().returns(), type_specifier, array_specifier,
+                        /* is_dummy */ 0);
+
+                indent();
+                file << type_specifier << " :: " << entry.get_name() << "\n";
+            }
+
             for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
                     it != related_symbols.end();
                     it++)
@@ -288,10 +302,17 @@ namespace Codegen
                     it++)
             {
                 // Keep the codegen map
-                codegen_status_map_t keep = _codegen_status;
+                codegen_status_map_t old_codegen_status = _codegen_status;
+                name_set_t old_name_set = _name_set;
+                rename_map_t old_rename_map = _rename_map;
+
+                clear_renames();
+
                 walk(*it);
                 // And restore it after the internal function has been emitted
-                _codegen_status = keep;
+                _codegen_status = old_codegen_status;
+                _name_set = old_name_set;
+                _rename_map = old_rename_map;
             }
             dec_indent();
 
@@ -307,7 +328,40 @@ namespace Codegen
 
         // Module procedures are only printed if we are in the current module
         if (state.current_module != TL::Symbol(entry.get_internal_symbol()->entity_specs.in_module))
-            return;
+        {
+
+           // The function can be contained in an other function, and this other function
+           // can be contained in the current_module. In this case, the current function must be printed.
+           //
+           // Example:
+           //
+           //  MODULE M
+           //      CONTAINS
+           //          SUBROUTINE G
+           //              CONTAINS
+           //                  FUNCTION F()
+           //                  END FUNCTION F
+           //           END SUBROUTINE G
+           //  END MODULE M
+
+            char should_be_printed = 0;
+
+            scope_entry_t* sym = entry.get_internal_symbol();
+            while (!should_be_printed &&
+                    sym->related_decl_context.current_scope->contained_in != NULL)
+            {
+                sym = sym->related_decl_context.current_scope->contained_in->related_entry;
+                if (state.current_module == TL::Symbol(sym))
+                {
+                    should_be_printed = 1;
+                }
+            }
+
+
+            if (!should_be_printed) 
+                return;
+        }
+
 
         TL::Symbol old_sym = state.current_symbol;
         state.current_symbol = entry;
@@ -327,15 +381,16 @@ namespace Codegen
             file << "PROGRAM " << program_name << "\n";
             inc_indent();
 
-            codegen_procedure(entry, statement_seq, internal_subprograms);
+            codegen_procedure(entry, statement_seq, internal_subprograms, /* lacks_result */ false);
 
             dec_indent();
             file << "END PROGRAM " << program_name << "\n\n";
         }
         else if (entry.is_function())
         {
-            codegen_procedure_declaration_header(entry);
-            codegen_procedure(entry, statement_seq, internal_subprograms);
+            bool lacks_result = false;
+            codegen_procedure_declaration_header(entry, lacks_result);
+            codegen_procedure(entry, statement_seq, internal_subprograms, lacks_result);
             codegen_procedure_declaration_footer(entry);
             // Add a separating new line between program units
             // We do not do this in codegen_procedure_declaration_footer because we do not want
@@ -348,6 +403,7 @@ namespace Codegen
         }
 
         clear_codegen_status();
+        clear_renames();
 
         state.current_symbol = old_sym;
     }
@@ -397,6 +453,7 @@ namespace Codegen
             state.current_module = old_module;
 
             clear_codegen_status();
+            clear_renames();
         }
         else if (entry.is_fortran_blockdata())
         {
@@ -410,6 +467,7 @@ namespace Codegen
             state.current_symbol = old_sym;
 
             clear_codegen_status();
+            clear_renames();
         }
         else if (entry.is_variable())
         {
@@ -417,7 +475,7 @@ namespace Codegen
             {
                 // Fake an assignment statement
                 indent();
-                file << entry.get_name() << " = ";
+                file << rename(entry) << " = ";
                 walk(entry.get_initialization());
                 file << "\n";
             }
@@ -519,7 +577,6 @@ OPERATOR_TABLE
         for (i = 0; i < length; i++)
         {
             int current = bytes[i];
-
             if (::isprint(current))
             {
                 if (current == '\"')
@@ -533,11 +590,14 @@ OPERATOR_TABLE
             }
             else
             {
-                if (i > 0)
+                
+                if (i > 0 && ::isprint(bytes[i-1]))
                 {
                     file << "\" // ";
                 }
-                file << "char(" << current << ")";
+                unsigned char current_char = current;
+                
+                file << "char(" << (unsigned int) current_char << ")";
                 if ((i+1) < length)
                 {
                     file << " // ";
@@ -574,7 +634,7 @@ OPERATOR_TABLE
         }
         else if (type.is_named_class())
         {
-            file << type.get_symbol().get_name() << "(";
+            file << rename(type.get_symbol()) << "(";
             codegen_comma_separated_list(node.get_items());
             file << ")";
         }
@@ -662,13 +722,20 @@ OPERATOR_TABLE
     void FortranBase::visit(const Nodecl::Symbol& node)
     {
         TL::Symbol symbol = node.get_symbol();
-        file << symbol.get_name();
+        file << rename(symbol);
     }
 
     void FortranBase::visit(const Nodecl::Assignment& node)
     {
         Nodecl::NodeclBase lhs = node.get_lhs();
         Nodecl::NodeclBase rhs = node.get_rhs();
+
+        if (is_bitfield_access(lhs))
+        {
+            emit_bitfield_store(node);
+            // Do nothing else
+            return;
+        }
 
         walk(lhs);
 
@@ -681,7 +748,7 @@ OPERATOR_TABLE
         if (lhs_type.is_any_reference())
             lhs_type = lhs_type.references_to();
 
-        if (lhs_type.is_pointer()
+        if (is_fortran_representable_pointer(lhs_type)
                 && !lhs.is<Nodecl::Derreference>())
         {
             is_ptr_assignment = true;
@@ -758,9 +825,9 @@ OPERATOR_TABLE
 
     void FortranBase::visit(const Nodecl::Reference& node)
     {
-        // No explicit references happens in Fortran
-        // LOC will appear as a conversion from T* or T[] to int
+        file << "LOC(";
         walk(node.get_rhs());
+        file << ")";
     }
 
     void FortranBase::visit(const Nodecl::ParenthesizedExpression& node)
@@ -1507,33 +1574,21 @@ OPERATOR_TABLE
 
         if (source_type.is_any_reference())
             source_type = source_type.references_to();
-
-        if (dest_type.is_integral_type()
-                && !dest_type.is_bool())
+        
+        // C-style casts from/to int
+        // or integers of different size
+        if ((dest_type.is_integral_type()
+                    && !dest_type.is_bool()
+                    && (source_type.is_pointer() 
+                        || (source_type.is_integral_type()
+                            && !source_type.is_bool())))
+                // T* <- int
+                || (dest_type.is_pointer() 
+                    && source_type.is_integral_type()
+                    && !source_type.is_bool()))
         {
             file << "INT(";
-            if (!source_type.is_pointer()
-                    && !source_type.is_array())
-            {
-                walk(nest);
-            }
-            else 
-            {
-                // An implicit conversion from T* T[] to int
-
-                // The zero pointer is handled specially
-                if (nest.is_constant()
-                        && const_value_is_zero(nodecl_get_constant(nest.get_internal_nodecl())))
-                {
-                    file << "0";
-                }
-                else
-                {
-                    file << "LOC("; 
-                    walk(nest); 
-                    file << ")";
-                }
-            }
+            walk(nest);
             file << ", KIND=" << dest_type.get_size() << ")";
         }
         else if (dest_type.is_floating_type())
@@ -1562,6 +1617,14 @@ OPERATOR_TABLE
                 walk(nest);
             }
             file << ", KIND=" << dest_type.get_size() << ")";
+        }
+        else if (dest_type.is_pointer()
+                && source_type.is_array())
+        {
+            // We need a LOC here
+            file << "LOC(";
+            walk(nest);
+            file << ")";
         }
         else
         {
@@ -1610,6 +1673,50 @@ OPERATOR_TABLE
         if (it == _codegen_status.end())
         {
             return CODEGEN_STATUS_NONE;
+        }
+        else
+        {
+            return it->second;
+        }
+    }
+
+    bool FortranBase::name_has_already_been_used(std::string str)
+    {
+        return (_name_set.find(str) != _name_set.end());
+    }
+
+    bool FortranBase::name_has_already_been_used(TL::Symbol sym)
+    {
+        return name_has_already_been_used(sym.get_name());
+    }
+
+    std::string FortranBase::rename(TL::Symbol sym)
+    {
+        static int prefix = 0;
+
+        rename_map_t::iterator it = _rename_map.find(sym);
+
+        if (it == _rename_map.end())
+        {
+            std::stringstream ss;
+
+            if (!name_has_already_been_used(sym)
+                    // There are several cases where we do not allow renaming
+                    || sym.is_intrinsic()
+                    || sym.is_member()
+                    || (sym.get_internal_symbol()->entity_specs.from_module != NULL))
+            {
+                ss << sym.get_name();
+            }
+            else
+            {
+                ss << sym.get_name() << "_" << prefix;
+                prefix++;
+            }
+            _name_set.insert(ss.str());
+            _rename_map[sym] = ss.str();
+
+            return ss.str();
         }
         else
         {
@@ -1673,14 +1780,12 @@ OPERATOR_TABLE
         if (get_codegen_status(entry) == CODEGEN_STATUS_DEFINED)
             return;
 
-        bool is_global = false;
-
         decl_context_t entry_context = entry.get_scope().get_decl_context();
         // We do not declare anything not in our context 
         if (state.current_symbol != TL::Symbol(entry_context.current_scope->related_entry)
                 // unless 
                 //    a) it is in the global scope
-                && (is_global = (entry_context.current_scope != entry_context.global_scope))
+                && (entry_context.current_scope != entry_context.global_scope)
                 //    b) it is an intrinsic
                 && !entry.is_intrinsic())
         {
@@ -1689,14 +1794,26 @@ OPERATOR_TABLE
             return;
         }
 
+        // There are some things in our context that do not have to be declared either
+        // Internal subprograms do not have to be emitted here
+        if (entry.is_function() 
+                && entry.is_nested_function())
+        {
+            return;
+        }
+
+        bool is_global = (entry_context.current_scope == entry_context.global_scope);
+
+        bool is_global_variable = false;
+        
         // Let's protect ourselves with stuff that cannot be emitted in Fortran coming from
         // the global scope
         if (is_global)
         {
+            // Global variables require a wicked treatment
             if (entry.is_variable())
             {
-                internal_error("Error: global variable '%s' cannot be emitted in Fortran\n",
-                        entry.get_name().c_str());
+                is_global_variable = true;
             }
         }
 
@@ -1708,8 +1825,7 @@ OPERATOR_TABLE
             std::string array_specifier;
             std::string initializer;
 
-            codegen_type(entry.get_type(), type_spec, array_specifier,
-                    /* is_dummy */ entry.is_parameter());
+            TL::Type declared_type = entry.get_type();
 
             std::string attribute_list = "";
 
@@ -1723,8 +1839,9 @@ OPERATOR_TABLE
             {
                 if (entry.get_type().is_pointer())
                 {
-                    internal_error("Error: pointers cannot be passed by value in Fortran\n", 
-                            entry.get_name().c_str());
+                    // internal_error("Error: pointers cannot be passed by value in Fortran\n", 
+                    //         entry.get_name().c_str());
+                    declared_type = (CURRENT_CONFIGURATION->type_environment->type_of_sizeof)();
                 }
                 else if (entry.get_type().is_array())
                 {
@@ -1744,7 +1861,8 @@ OPERATOR_TABLE
                 attribute_list += ", SAVE";
             if (entry.get_type().is_volatile())
                 attribute_list += ", VOLATILE";
-            if (entry.get_type().is_const())
+            if (entry.get_type().is_const()
+                    && !entry.get_initialization().is_null())
             {
                 attribute_list += ", PARAMETER";
             }
@@ -1804,7 +1922,7 @@ OPERATOR_TABLE
                 if (t.is_any_reference())
                     t = t.references_to();
 
-                if (t.is_pointer())
+                if (is_fortran_representable_pointer(t))
                 {
                     initializer = " => " + codegen(entry.get_initialization());
                 }
@@ -1814,9 +1932,21 @@ OPERATOR_TABLE
                 }
             }
 
+            codegen_type(declared_type, type_spec, array_specifier,
+                    /* is_dummy */ entry.is_parameter());
+
             indent();
 
-            file << type_spec << attribute_list << " :: " << entry.get_name() << array_specifier << initializer << "\n";
+            file << type_spec << attribute_list << " :: " << rename(entry) << array_specifier << initializer << "\n";
+
+            if (is_global_variable)
+            {
+                std::string common_name = rename(entry) + "_c";
+                indent();
+                file << "COMMON /" << common_name << "/ " << rename(entry) << "\n";
+                indent();
+                file << "BIND(C, NAME=\"" << entry.get_name() << "\") :: /" << common_name << "/ \n";
+            }
 
             if (entry.is_in_common())
             {
@@ -1828,8 +1958,8 @@ OPERATOR_TABLE
                 declare_symbol(entry.get_cray_pointer());
                 indent();
                 file << "POINTER (" 
-                    << entry.get_cray_pointer().get_name() << ", "
-                    << entry.get_name() << ")\n"
+                    << rename(entry.get_cray_pointer()) << ", "
+                    << rename(entry) << ")\n"
                     ;
             }
         }
@@ -1937,8 +2067,12 @@ OPERATOR_TABLE
                     }
                     else
                     {
-                        // Keep the codegen map
-                        codegen_status_map_t keep = _codegen_status;
+                        // Keep the state
+                        codegen_status_map_t old_codegen_status = _codegen_status;
+                        name_set_t old_name_set = _name_set;
+                        rename_map_t old_rename_map = _rename_map;
+
+                        clear_renames();
 
                         bool old_in_interface = state.in_interface;
                         state.in_interface = true;
@@ -1946,7 +2080,9 @@ OPERATOR_TABLE
                         state.in_interface = old_in_interface;
                         
                         // And restore it after the interface has been emitted
-                        _codegen_status = keep;
+                        _codegen_status = old_codegen_status;
+                        _name_set = old_name_set;
+                        _rename_map = old_rename_map;
                     }
                 }
                 dec_indent();
@@ -1983,8 +2119,25 @@ OPERATOR_TABLE
                         it++)
                 {
                     TL::Symbol &sym(*it);
+
+                    // Do not declare this one otherwise the name for the
+                    // function statement will be renamed
+                    if (sym.is_result_variable())
+                        continue;
+
                     declare_symbol(sym);
                 }
+
+                std::string type_spec;
+                std::string array_specifier;
+                codegen_type(entry.get_type().returns(), 
+                        type_spec, array_specifier,
+                        /* is_dummy */ false);
+
+                // Declare the scalar representing this statement function statement
+                indent();
+                file << type_spec << " :: " << entry.get_name() << std::endl;
+
 
                 declare_symbols_rec(entry.get_initialization());
 
@@ -2015,7 +2168,15 @@ OPERATOR_TABLE
                     file << "INTERFACE\n";
                     inc_indent();
                 }
-                codegen_procedure_declaration_header(entry);
+                bool lacks_result = false;
+
+                // Keep the state
+                codegen_status_map_t old_codegen_status = _codegen_status;
+                name_set_t old_name_set = _name_set;
+                rename_map_t old_rename_map = _rename_map;
+                clear_renames();
+
+                codegen_procedure_declaration_header(entry, lacks_result);
 
                 TL::Symbol old_sym = state.current_symbol;
                 state.current_symbol = entry;
@@ -2025,23 +2186,35 @@ OPERATOR_TABLE
                 indent();
                 file << "IMPLICIT NONE\n";
 
+                if (lacks_result)
+                {
+                    std::string type_specifier;
+                    std::string array_specifier;
+                    codegen_type(entry.get_type().returns(), type_specifier, array_specifier,
+                            /* is_dummy */ 0);
+
+                    indent();
+                    file << type_specifier << " :: " << entry.get_name() << "\n";
+                }
+                
                 TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
                 for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
                         it != related_symbols.end();
                         it++)
                 {
-                    // Keep the codegen map
-                    codegen_status_map_t keep = _codegen_status;
 
                     declare_symbol(*it);
                     
-                    // And restore it after the interface has been emitted
-                    _codegen_status = keep;
                 }
                 dec_indent();
                 state.current_symbol = old_sym;
 
                 codegen_procedure_declaration_footer(entry);
+                
+                // And restore the state after the interface has been emitted
+                _codegen_status = old_codegen_status;
+                _name_set = old_name_set;
+                _rename_map = old_rename_map;
 
                 if (!state.in_interface)
                 {
@@ -2078,7 +2251,7 @@ OPERATOR_TABLE
             std::string struct_prefix = "struct ";
             // Unions cannot be expressed in fortran!
             std::string class_prefix =  "class ";
-            std::string real_name = entry.get_name();
+            std::string real_name = rename(entry);
 
             if (real_name.substr(0, struct_prefix.size()) == struct_prefix)
             {
@@ -2095,13 +2268,83 @@ OPERATOR_TABLE
             TL::Symbol old_sym = state.current_symbol;
             state.current_symbol = entry;
 
+            // We do this because we want the type fully laid out if there is any bitfield
+            for (TL::ObjectList<TL::Symbol>::iterator it = members.begin();
+                    it != members.end();
+                    it++)
+            {
+                if (it->is_bitfield())
+                {
+                    entry.get_type().get_size();
+                    break;
+                }
+            }
+
+            bool previous_was_bitfield = false;
+            int first_bitfield_offset = 0;
+
             inc_indent();
             // Second pass to declare components
             for (TL::ObjectList<TL::Symbol>::iterator it = members.begin();
                     it != members.end();
                     it++)
             {
-                declare_symbol(*it);
+                if (it->is_bitfield())
+                {
+                    // Do not declare anything but remember byte offsets
+                    if (!previous_was_bitfield)
+                    {
+                        first_bitfield_offset = it->get_bitfield_offset();
+                    }
+
+                    previous_was_bitfield = true;
+                }
+                else
+                {
+                    if (previous_was_bitfield)
+                    {
+                        // Get current offset and compute the number of bytes
+                        int current_offset = it->get_offset();
+                        int num_bytes = current_offset - first_bitfield_offset;
+
+                        ERROR_CONDITION(num_bytes <= 0, "Offset is wrong", 0);
+
+                        int i, current_byte = first_bitfield_offset;
+                        for (i = 0; i < num_bytes; i++, current_byte++)
+                        {
+                            std::stringstream ss;
+                            ss << "INTEGER(KIND=1) :: bitfield_pad_" << current_byte << "\n";
+
+                            indent();
+                            file << ss.str();
+                        }
+                    }
+
+                    declare_symbol(*it);
+
+                    previous_was_bitfield = false;
+                }
+            }
+
+            // Add final bitfield padding
+            if (previous_was_bitfield)
+            {
+                TL::Symbol last = members.back();
+                // Only up to the size of the bitfield now
+                
+                int num_bytes = const_value_cast_to_8(
+                        nodecl_get_constant(last.get_bitfield_size().get_internal_nodecl()
+                            )) / 8;
+
+                int i, current_byte = first_bitfield_offset;
+                for (i = 0; i < num_bytes; i++, current_byte++)
+                {
+                    std::stringstream ss;
+                    ss << "INTEGER(KIND=1) :: bitfield_pad_" << current_byte << "\n";
+
+                    indent();
+                    file << ss.str();
+                }
             }
 
             dec_indent();
@@ -2134,6 +2377,21 @@ OPERATOR_TABLE
                     0);
 
             declare_symbol(aliased_type.get_symbol());
+        }
+        else if (entry.is_enumerator())
+        {
+            std::string type_spec;
+            std::string array_specifier;
+            std::string initializer;
+
+            codegen_type(entry.get_type(), type_spec, array_specifier,
+                    /* is_dummy */ entry.is_parameter());
+
+            initializer = " = " + codegen(entry.get_initialization());
+
+            // Emit it as a parameter
+            indent();
+            file << type_spec << ", PARAMETER :: " << rename(entry) << initializer << "\n";
         }
         else
         {
@@ -2317,6 +2575,11 @@ OPERATOR_TABLE
         }
     }
 
+    void FortranBase::visit(const Nodecl::CxxDepNameSimple& node)
+    {
+        file << node.get_text();
+    }
+
     void FortranBase::codegen_reverse_comma_separated_list(Nodecl::NodeclBase node)
     {
         if (node.is_null())
@@ -2394,6 +2657,17 @@ OPERATOR_TABLE
 
                 entry_type = entry_type.array_element();
             }
+            
+            // The 'entry_type' is the rank0 type of the array
+            // This type may be a derived type and may be defined in a module
+            if (entry_type.is_named_class())
+            {
+                TL::Symbol class_entry = entry_type.get_symbol();
+                if (class_entry.get_internal_symbol()->entity_specs.from_module != NULL)
+                {
+                    codegen_use_statement(class_entry);
+                }
+            }
         }
 
         if (entry.get_internal_symbol()->entity_specs.from_module == NULL
@@ -2453,6 +2727,23 @@ OPERATOR_TABLE
 
     }
 
+    bool FortranBase::is_fortran_representable_pointer(TL::Type t)
+    {
+        if (!t.is_pointer())
+            return false;
+
+        t = t.points_to();
+
+        return (t.is_bool()
+                || t.is_integral_type()
+                || t.is_floating_type()
+                || t.is_complex()
+                || t.is_class()
+                || t.is_enum()
+                || t.is_array()
+                || (is_fortran_character_type(t.get_internal_type())));
+    }
+
     void FortranBase::codegen_type(TL::Type t, std::string& type_specifier, std::string& array_specifier, bool /* is_dummy */)
     {
         type_specifier = "";
@@ -2460,11 +2751,16 @@ OPERATOR_TABLE
         if (t.is_any_reference())
             t = t.references_to();
 
-        bool is_pointer = false;
-        if (t.is_pointer())
+        bool is_fortran_pointer = is_fortran_representable_pointer(t);
+        if (is_fortran_pointer)
         {
-            is_pointer = true;
             t = t.points_to();
+        }
+        
+        // If this is an enum, use its underlying integer type
+        if (t.is_enum())
+        {
+            t = t.enum_get_underlying_type();
         }
 
         struct array_spec_tag {
@@ -2485,37 +2781,46 @@ OPERATOR_TABLE
                 internal_error("too many array dimensions %d\n", MCXX_MAX_ARRAY_SPECIFIER);
             }
 
-            array_spec_list[array_spec_idx].lower = array_type_get_array_lower_bound(t.get_internal_type());
-            if (array_spec_list[array_spec_idx].lower.is_constant())
+            if (!is_fortran_pointer)
             {
-                array_spec_list[array_spec_idx].lower = 
-                    const_value_to_nodecl(nodecl_get_constant(array_spec_list[array_spec_idx].lower.get_internal_nodecl()));
-            }
-            else
-            {
-                declare_symbols_rec(array_spec_list[array_spec_idx].lower);
-            }
-
-            if (!array_type_is_unknown_size(t.get_internal_type()))
-            {
-                array_spec_list[array_spec_idx].upper = array_type_get_array_upper_bound(t.get_internal_type());
-
-                if (array_spec_list[array_spec_idx].upper.is_constant())
+                array_spec_list[array_spec_idx].lower = array_type_get_array_lower_bound(t.get_internal_type());
+                if (array_spec_list[array_spec_idx].lower.is_constant())
                 {
-                    array_spec_list[array_spec_idx].upper = 
-                        const_value_to_nodecl(nodecl_get_constant(array_spec_list[array_spec_idx].upper.get_internal_nodecl()));
+                    array_spec_list[array_spec_idx].lower = 
+                        const_value_to_nodecl(nodecl_get_constant(array_spec_list[array_spec_idx].lower.get_internal_nodecl()));
                 }
                 else
                 {
-                    declare_symbols_rec(array_spec_list[array_spec_idx].upper);
+                    declare_symbols_rec(array_spec_list[array_spec_idx].lower);
                 }
+
+                if (!array_type_is_unknown_size(t.get_internal_type()))
+                {
+                    array_spec_list[array_spec_idx].upper = array_type_get_array_upper_bound(t.get_internal_type());
+
+                    if (array_spec_list[array_spec_idx].upper.is_constant())
+                    {
+                        array_spec_list[array_spec_idx].upper = 
+                            const_value_to_nodecl(nodecl_get_constant(array_spec_list[array_spec_idx].upper.get_internal_nodecl()));
+                    }
+                    else
+                    {
+                        declare_symbols_rec(array_spec_list[array_spec_idx].upper);
+                    }
+                }
+                else
+                {
+                    array_spec_list[array_spec_idx].is_undefined = true;
+                }
+
+                array_spec_list[array_spec_idx].with_descriptor = array_type_with_descriptor(t.get_internal_type());
             }
             else
             {
                 array_spec_list[array_spec_idx].is_undefined = true;
+                array_spec_list[array_spec_idx].with_descriptor = true;
             }
 
-            array_spec_list[array_spec_idx].with_descriptor = array_type_with_descriptor(t.get_internal_type());
 
             t = t.array_element();
         }
@@ -2578,7 +2883,7 @@ OPERATOR_TABLE
             std::string struct_prefix = "struct ";
             // Unions cannot be expressed in fortran!
             std::string class_prefix =  "class ";
-            std::string real_name = entry.get_name();
+            std::string real_name = rename(entry);
 
             if (real_name.substr(0, struct_prefix.size()) == struct_prefix)
             {
@@ -2617,12 +2922,21 @@ OPERATOR_TABLE
 
             type_specifier = ss.str();
         }
+        // Note: This is NOT a Fortran pointer, Fortran pointers will have
+        // their basic type simplified at this point
+        else if (t.is_pointer())
+        {
+            // Non Fortran pointer, use an INTEGER of size the pointer size
+            std::stringstream ss;
+            ss << "INTEGER(" << CURRENT_CONFIGURATION->type_environment->sizeof_pointer << ")";
+            type_specifier = ss.str();
+        }
         else 
         {
             internal_error("Not a FORTRAN printable type '%s'\n", print_declarator(t.get_internal_type()));
         }
 
-        if (is_pointer)
+        if (is_fortran_pointer)
         {
             type_specifier += ", POINTER";
         }
@@ -2674,7 +2988,7 @@ OPERATOR_TABLE
         }
     }
 
-    void FortranBase::codegen_procedure_declaration_header(TL::Symbol entry)
+    void FortranBase::codegen_procedure_declaration_header(TL::Symbol entry, bool & lacks_result)
     {
         bool is_function = !entry.get_type().returns().is_void();
 
@@ -2730,11 +3044,16 @@ OPERATOR_TABLE
 
         if (is_function)
         {
-            ERROR_CONDITION(!result_var.is_valid(), "No result symbol!", 0);
-
-            if (result_var.get_name() != entry.get_name())
+            if (result_var.is_valid())
             {
-                file << " RESULT(" << result_var.get_name() << ")";
+                if (result_var.get_name() != entry.get_name())
+                {
+                    file << " RESULT(" << result_var.get_name() << ")";
+                }
+            }
+            else
+            {
+                lacks_result = true;
             }
         }
 
@@ -2791,6 +3110,83 @@ OPERATOR_TABLE
         }
     }
 
+    void FortranBase::clear_renames()
+    {
+        _name_set.clear();
+        _rename_map.clear();
+    }
+
+    bool FortranBase::is_bitfield_access(const Nodecl::NodeclBase& lhs)
+    {
+        // A % B
+        if (!lhs.is<Nodecl::ClassMemberAccess>())
+            return false;
+
+        Nodecl::NodeclBase member = lhs.as<Nodecl::ClassMemberAccess>().get_member();
+
+        if (!member.is<Nodecl::Symbol>())
+            return false;
+
+        TL::Symbol sym = member.get_symbol();
+        if (!sym.is_bitfield())
+            return false;
+
+        return true;
+    }
+
+    void FortranBase::emit_bitfield_store(const Nodecl::Assignment &node)
+    {
+        Nodecl::NodeclBase lhs = node.get_lhs();
+        Nodecl::NodeclBase rhs = node.get_rhs();
+
+        if (!lhs.is<Nodecl::ClassMemberAccess>())
+        {
+            running_error("%s: error: bitfield not accessed through a field-name", 
+                    node.get_locus().c_str());
+        }
+
+        TL::Symbol symbol = lhs.as<Nodecl::ClassMemberAccess>().get_member().get_symbol();
+
+        ERROR_CONDITION(!symbol.is_valid() || !symbol.is_bitfield(), "Symbol '%s' must be a bitfield!\n", symbol.get_name().c_str());
+
+        lhs = lhs.as<Nodecl::ClassMemberAccess>().get_lhs();
+
+        std::stringstream bitfield_accessor;
+        bitfield_accessor << codegen(lhs) << " % bitfield_pad_" << symbol.get_offset();
+
+        file << bitfield_accessor.str() << " = ";
+
+        int bitfield_size = 
+            const_value_cast_to_4(
+            nodecl_get_constant(symbol.get_bitfield_size().get_internal_nodecl())
+            );
+
+        if (bitfield_size != 1)
+        {
+            running_error("%s: error: codegen of stores in bitfields larger than one bit is not implemented", 
+                    node.get_locus().c_str());
+        }
+
+        if (rhs.is_constant())
+        {
+            const_value_t* const_val = nodecl_get_constant(rhs.get_internal_nodecl());
+            if (const_value_is_nonzero(const_val))
+            {
+                file << "IBSET";
+            }
+            else
+            {
+                file << "IBCLR";
+            }
+
+            file << "(" << bitfield_accessor.str() << ", " << symbol.get_bitfield_first() << ")";
+        }
+        else
+        {
+            running_error("%s: error: non constants stores of bitfields is not implemented", 
+                    node.get_locus().c_str());
+        }
+    }
 }
 
 EXPORT_PHASE(Codegen::FortranBase)

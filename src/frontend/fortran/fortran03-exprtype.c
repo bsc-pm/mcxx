@@ -400,11 +400,30 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context,
             }
             else if (*current_type == NULL)
             {
-                *current_type = nodecl_get_type(nodecl_expr);
+                *current_type = get_rank0_type(nodecl_get_type(nodecl_expr));
             }
 
             if ((*num_items) >= 0)
-                (*num_items)++;
+            {
+                type_t* expr_type = nodecl_get_type(nodecl_expr);
+
+                if (!is_array_type(expr_type))
+                {
+                    (*num_items)++;
+                }
+                else
+                {
+                    int num_elements = array_type_get_total_number_of_elements(expr_type);
+                    if (num_elements >= 0)
+                    {
+                        *num_items += num_elements;
+                    }
+                    else
+                    {
+                        *num_items = -1;
+                    }
+                }
+            }
 
             *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_expr);
         }
@@ -1937,7 +1956,7 @@ static scope_entry_t* get_specific_interface(scope_entry_t* symbol,
 
                     if (strcasecmp(related_sym->symbol_name, keyword_names[i]) == 0)
                     {
-                        position = related_sym->entity_specs.parameter_position;
+                        position = j;
                     }
                 }
                 if (position < 0)
@@ -1963,12 +1982,12 @@ static scope_entry_t* get_specific_interface(scope_entry_t* symbol,
 
                 if (related_sym->entity_specs.is_parameter)
                 {
-                    if (argument_types[related_sym->entity_specs.parameter_position].type == NULL)
+                    if (argument_types[i].type == NULL)
                     {
                         if (related_sym->entity_specs.is_optional)
                         {
-                            argument_types[related_sym->entity_specs.parameter_position].type = related_sym->type_information;
-                            argument_types[related_sym->entity_specs.parameter_position].not_present = 1;
+                            argument_types[i].type = related_sym->type_information;
+                            argument_types[i].not_present = 1;
                             num_arguments++;
                         }
                         else 
@@ -2271,7 +2290,7 @@ static void check_called_symbol(
 
                     if (strcasecmp(related_sym->symbol_name, actual_arguments_keywords[i]) == 0)
                     {
-                        position = related_sym->entity_specs.parameter_position;
+                        position = j;
                     }
                 }
                 if (position < 0)
@@ -2311,12 +2330,12 @@ static void check_called_symbol(
 
             if (related_sym->entity_specs.is_parameter)
             {
-                if (argument_info_items[related_sym->entity_specs.parameter_position].type == NULL)
+                if (argument_info_items[i].type == NULL)
                 {
                     if (related_sym->entity_specs.is_optional)
                     {
-                        argument_info_items[related_sym->entity_specs.parameter_position].type = related_sym->type_information;
-                        argument_info_items[related_sym->entity_specs.parameter_position].not_present = 1;
+                        argument_info_items[i].type = related_sym->type_information;
+                        argument_info_items[i].not_present = 1;
                         num_completed_arguments++;
                     }
                     else 
@@ -3795,23 +3814,45 @@ static void check_ptr_assignment(AST expr, decl_context_t decl_context, nodecl_t
         return;
     }
 
+    char is_target_named_type_var = 0;
     scope_entry_t* rvalue_sym = NULL;
     if (nodecl_get_symbol(nodecl_rvalue) != NULL)
     {
         rvalue_sym = nodecl_get_symbol(nodecl_rvalue);
+        nodecl_t auxiliar = nodecl_rvalue;
+        
+        // If a named type variable is declared target, all his fields are target too.
+        if (nodecl_get_kind(auxiliar) == NODECL_CLASS_MEMBER_ACCESS)
+        {
+            // We don't want the accessed fields, we want the variable
+            while (nodecl_get_kind(auxiliar) == NODECL_CLASS_MEMBER_ACCESS)
+            {
+                auxiliar = nodecl_get_child(auxiliar, 0);
+            }
+
+            scope_entry_t* sym = nodecl_get_symbol(auxiliar);
+            if (sym != NULL && sym->entity_specs.is_target)
+            {
+                is_target_named_type_var = 1;
+            }
+        }
     }
+
     if (rvalue_sym == NULL
             || rvalue_sym->kind != SK_VARIABLE
             || (!is_pointer_type(no_ref(rvalue_sym->type_information)) &&
                 !rvalue_sym->entity_specs.is_target))
     {
-        if (!checking_ambiguity())
+        if (!is_target_named_type_var)
         {
-            error_printf("%s: error: right hand of pointer assignment is not a POINTER or TARGET data-reference\n",
-                    ast_location(expr));
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: right hand of pointer assignment is not a POINTER or TARGET data-reference\n",
+                        ast_location(expr));
+            }
+            *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
+            return;
         }
-        *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
-        return;
     }
 
     if (is_pointer_type(no_ref(rvalue_sym->type_information)))
@@ -4036,6 +4077,19 @@ static operand_types_t arithmetic_binary[] =
     { is_complex_type, is_complex_type, common_kind, DO_CONVERT_TO_RESULT },
 };
 
+static operand_types_t arithmetic_binary_power[] =
+{
+    { is_integer_type, is_integer_type, common_kind, DO_NOT_CONVERT_TO_RESULT },
+    { is_integer_type, is_floating_type,  second_type, DO_NOT_CONVERT_TO_RESULT },
+    { is_integer_type, is_complex_type, second_type, DO_NOT_CONVERT_TO_RESULT },
+    { is_floating_type, is_integer_type, first_type, DO_NOT_CONVERT_TO_RESULT },
+    { is_floating_type, is_floating_type, common_kind, DO_NOT_CONVERT_TO_RESULT },
+    { is_floating_type, is_complex_type, second_type, DO_NOT_CONVERT_TO_RESULT },
+    { is_complex_type, is_integer_type, first_type, DO_NOT_CONVERT_TO_RESULT },
+    { is_complex_type, is_floating_type, first_type, DO_NOT_CONVERT_TO_RESULT },
+    { is_complex_type, is_complex_type, common_kind, DO_NOT_CONVERT_TO_RESULT },
+};
+
 
 static operand_types_t concat_op[] = 
 {
@@ -4131,7 +4185,7 @@ static operand_map_t operand_map[] =
     HANDLER_MAP(AST_MINUS, arithmetic_binary, const_bin_sub, ".operator.-", nodecl_make_minus),
     HANDLER_MAP(AST_MUL, arithmetic_binary, const_bin_mult, ".operator.*", nodecl_make_mul),
     HANDLER_MAP(AST_DIV, arithmetic_binary, const_bin_div, ".operator./", nodecl_make_div),
-    HANDLER_MAP(AST_POWER, arithmetic_binary, const_bin_power, ".operator.**", nodecl_make_power),
+    HANDLER_MAP(AST_POWER, arithmetic_binary_power, const_bin_power, ".operator.**", nodecl_make_power),
     // String concat
     HANDLER_MAP(AST_CONCAT, concat_op, const_bin_concat, ".operator.//", nodecl_make_concat),
     // Relational strong

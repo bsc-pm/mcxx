@@ -35,6 +35,8 @@
 #include "cxx-scope.h"
 #include "cxx-exprtype.h"
 
+#include "codegen-fortran.hpp"
+
 namespace TL
 {
     std::string Type::get_declaration_with_initializer(Scope sc, const std::string& symbol_name,
@@ -89,6 +91,25 @@ namespace TL
                 symbol_name.c_str(), "", 0, 0, NULL, NULL, flags == PARAMETER_DECLARATION);
     }
 
+    std::string Type::get_fortran_declaration(Scope sc, const std::string& symbol_name,
+            TypeDeclFlags flags)
+    {
+        if (!IS_FORTRAN_LANGUAGE)
+        {
+            running_error("This function cannot be called if we are not in Fortran", 0);
+        }
+
+        // FIXME - All this architecture must be largely improved
+        ERROR_CONDITION(CURRENT_CONFIGURATION->codegen_phase == NULL,
+                "Codegen phase has not been loaded yet for this configuration", 0);
+        Codegen::FortranBase* codegen_phase = reinterpret_cast<Codegen::FortranBase*>(CURRENT_CONFIGURATION->codegen_phase);
+
+        std::string type_specifier, array_specifier;
+        codegen_phase->codegen_type(*this, type_specifier, array_specifier, /* is_dummy */ flags == PARAMETER_DECLARATION);
+
+        return type_specifier + " :: " + symbol_name + array_specifier;
+    }
+
     Type Type::get_pointer_to()
     {
         type_t* work_type = this->_type_info;
@@ -141,6 +162,20 @@ namespace TL
         decl_context_t decl_context = sc.get_decl_context();
 
         type_t* array_to = get_array_type_bounds(result_type, 
+                lower_bound.get_internal_nodecl(), 
+                upper_bound.get_internal_nodecl(), 
+                decl_context);
+
+        return Type(array_to);
+    }
+
+    Type Type::get_array_to_with_descriptor(Nodecl::NodeclBase lower_bound, Nodecl::NodeclBase upper_bound, Scope sc)
+    {
+        type_t* result_type = this->_type_info;
+
+        decl_context_t decl_context = sc.get_decl_context();
+
+        type_t* array_to = get_array_type_bounds_with_descriptor(result_type, 
                 lower_bound.get_internal_nodecl(), 
                 upper_bound.get_internal_nodecl(), 
                 decl_context);
@@ -406,6 +441,11 @@ namespace TL
                 && is_named_type(_type_info));
     }
 
+    Type Type::enum_get_underlying_type() const
+    {
+        return ::enum_type_get_underlying_type(_type_info);
+    }
+
     bool Type::is_named() const
     {
         return is_named_type(_type_info);
@@ -448,6 +488,16 @@ namespace TL
         if (is_array())
         {
             return (!array_type_is_unknown_size(_type_info));
+        }
+
+        return false;
+    }
+
+    bool Type::array_requires_descriptor() const
+    {
+        if (is_array())
+        {
+            return (array_type_with_descriptor(_type_info));
         }
 
         return false;

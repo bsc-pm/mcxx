@@ -1,8 +1,16 @@
+#ifdef HAVE_CONFIG_H
+  #include "config.h"
+#endif
+#ifdef HAVE_OPEN_MEMSTREAM
+  // Needed, otherwise open_memstream is not declared
+  #define _GNU_SOURCE
+#endif
 #include "cxx-nodecl.h"
 #include "cxx-exprtype.h"
 #include "cxx-utils.h"
 #include "cxx-codegen.h"
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 
 typedef

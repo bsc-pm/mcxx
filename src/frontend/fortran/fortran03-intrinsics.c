@@ -664,6 +664,7 @@ static scope_entry_t* get_intrinsic_symbol_(const char* name,
         new_entry->entity_specs.is_elemental = is_elemental;
         new_entry->entity_specs.is_pure = (is_pure || is_elemental);
 
+        new_entry->entity_specs.is_global_hidden = 1;
         new_entry->entity_specs.is_builtin = 1;
         new_entry->entity_specs.is_builtin_subroutine = is_void_type(result_type);
 
@@ -789,6 +790,7 @@ void fortran_init_intrinsics(decl_context_t decl_context)
         new_intrinsic->kind = SK_FUNCTION; \
         new_intrinsic->do_not_print = 1; \
         new_intrinsic->type_information = get_computed_function_type(compute_intrinsic_##name##_aux); \
+        new_intrinsic->entity_specs.is_global_hidden = 1; \
         new_intrinsic->entity_specs.is_builtin = 1; \
         if (kind0 == ES || kind0 == PS || kind0 == S) \
         new_intrinsic->entity_specs.is_builtin_subroutine = 1; \
@@ -802,6 +804,7 @@ void fortran_init_intrinsics(decl_context_t decl_context)
         new_intrinsic->kind = SK_FUNCTION; \
         new_intrinsic->do_not_print = 1; \
         new_intrinsic->type_information = get_computed_function_type(compute_intrinsic_##name##_aux); \
+        new_intrinsic->entity_specs.is_global_hidden = 1; \
         new_intrinsic->entity_specs.is_builtin = 1; \
         if (kind0 == ES || kind0 == PS || kind0 == S) \
         new_intrinsic->entity_specs.is_builtin_subroutine = 1; \
@@ -1015,7 +1018,7 @@ static void fortran_init_specific_names(decl_context_t decl_context)
     REGISTER_SPECIFIC_INTRINSIC_2("real", "real", get_signed_int_type(), NULL);
     REGISTER_SPECIFIC_INTRINSIC_2("sign", "sign", get_float_type(), get_float_type());
     REGISTER_SPECIFIC_INTRINSIC_1("sin", "sin", get_float_type());
-    REGISTER_SPECIFIC_INTRINSIC_2("sngl", "real", get_double_type(), NULL);
+    //REGISTER_SPECIFIC_INTRINSIC_2("sngl", "real", get_double_type(), NULL);
     REGISTER_SPECIFIC_INTRINSIC_1("sqrt", "sqrt", get_float_type());
     REGISTER_SPECIFIC_INTRINSIC_1("tan", "tan", get_float_type());
     REGISTER_SPECIFIC_INTRINSIC_1("tanh", "tanh", get_float_type());
@@ -1030,6 +1033,7 @@ static void fortran_init_specific_names(decl_context_t decl_context)
     REGISTER_CUSTOM_INTRINSIC_1("dfloat", get_double_type(), get_signed_int_type());
     REGISTER_CUSTOM_INTRINSIC_2("getenv", get_void_type(), fortran_get_default_character_type(), 
             fortran_get_default_character_type());
+    REGISTER_CUSTOM_INTRINSIC_1("sngl", get_float_type(), get_double_type());
 }
 
 scope_entry_t* compute_intrinsic_abs(scope_entry_t* symbol UNUSED_PARAMETER,
@@ -4849,7 +4853,6 @@ static void update_keywords_of_intrinsic(scope_entry_t* entry, const char* keywo
         new_keyword_sym->type_information = function_type_get_parameter_type_num(entry->type_information, i);
 
         new_keyword_sym->entity_specs.is_parameter = 1;
-        new_keyword_sym->entity_specs.parameter_position = i;
         new_keyword_sym->entity_specs.is_optional = current_variant.is_optional[i];
 
         P_LIST_ADD(entry->entity_specs.related_symbols,

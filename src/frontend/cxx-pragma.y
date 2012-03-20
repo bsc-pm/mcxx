@@ -165,6 +165,10 @@ pragma_custom_end_construct : PRAGMA_CUSTOM PRAGMA_CUSTOM_END_CONSTRUCT pragma_c
 {
 	$$ = ASTMake2(AST_PRAGMA_CUSTOM_LINE, $3, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
+| PRAGMA_CUSTOM PRAGMA_CUSTOM_END_CONSTRUCT pragma_custom_clause_opt_seq '(' pragma_clause_arg_list ')' PRAGMA_CUSTOM_NEWLINE
+{
+	$$ = ASTMake2(AST_PRAGMA_CUSTOM_LINE, $3, $5, $2.token_file, $2.token_line, $2.token_text);
+}
 ;
 
 pragma_custom_end_construct_noend : PRAGMA_CUSTOM PRAGMA_CUSTOM_END_CONSTRUCT_NOEND pragma_custom_clause_opt_seq PRAGMA_CUSTOM_NEWLINE

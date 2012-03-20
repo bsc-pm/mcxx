@@ -60,6 +60,8 @@ bool|all|is_injected_class_name|This symbol is the injected class name
 bool|all|is_unnamed|This is an unnamed struct or enum
 bool|all|is_defined_inside_class_specifier|This symbol has been defined inside the class specifier
 bool|all|is_non_emitted|States that this function symbol has not been emitted yet because it is a non-template member function of an instantiated template class
+bool|all|is_nested_function|States that this function is nested inside another one
+bool|fortran|is_global_hidden|States that this global symbol does not have to be visible in normal lookups
 bool|fortran|is_implicit_basic_type|This entity has got an implicit basic type
 bool|fortran|is_implicit_but_not_function|This entity has got an implicit basic type but we know it cannot be a function name because of a previous usage
 bool|fortran|is_allocatable|This entity has the ALLOCATABLE attribute
@@ -90,7 +92,6 @@ symbol|fortran|specific_intrinsic|For some INTRINSICs they have a specific funct
 typeof(access_specifier_t)|all|access|Accessibility: public, private, protected
 integer|all|template_parameter_nesting|Nesting in the template parameter scoping hierarchy. See is_template_parameter
 integer|all|template_parameter_position|Position in the template parameter scoping hierarchy. See is_template_parameter
-integer|all|parameter_position|States the position of this parameter. See is_parameter
 type|all|class_type|The class type where a member belongs. See is_member
 symbol|fortran|from_module|If not NULL, it means the symbol comes because the module was USEd
 symbol|fortran|in_module|If not NULL it means that this symbol is a component of the module
@@ -100,7 +101,10 @@ array(type)|all|exceptions|Exception specifier for functions. Can be empty. See 
 array(typeof(default_argument_info_t*))|all|num_parameters,default_argument_info|Default arguments for functions
 nodecl|all|bitfield_size|Expression of the bitfield
 scope|all|bitfield_size_context|Context for the bitfield expression
-typeof(_size_t)|all|field_offset|Offsetof of a field/nonstatic data-member
+typeof(_size_t)|all|bitfield_offset|Offset in bytes since the beginning of the struct (does not have to be tha same as storage unit)
+integer|all|bitfield_first|Significance order of the first bit of this bitfield
+integer|all|bitfield_last|Significance order of the last bit of this bitfield (the same as first if the bitfield is just 1 bit wide)
+typeof(_size_t)|all|field_offset|Offset of the storage unit of a field/nonstatic data-member
 array(typeof(gather_gcc_attribute_t))|all|gcc_attributes|GCC attributes synthesized for the symbol from the syntax
 typeof(codegen_status_t)|all|*codegen_status|Status during codegen
 typeof(simplify_function_t)|all|*simplify_function|Function used to simplify expressions

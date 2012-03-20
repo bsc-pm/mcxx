@@ -50,10 +50,7 @@
 #include <ctype.h>
 #include <string.h>
 
-#ifdef FORTRAN_SUPPORT
 #include "fortran/fortran03-exprtype.h"
-#endif
-
 
 static const char builtin_prefix[] = "__builtin_";
 
@@ -390,12 +387,9 @@ static char c_check_expression(AST expression, decl_context_t decl_context, node
 
 char check_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-#ifdef FORTRAN_SUPPORT
     if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
     {
-#endif
-    return c_check_expression(expression, decl_context, nodecl_output);
-#ifdef FORTRAN_SUPPORT
+        return c_check_expression(expression, decl_context, nodecl_output);
     }
     else if (IS_FORTRAN_LANGUAGE)
     {
@@ -405,7 +399,6 @@ char check_expression(AST expression, decl_context_t decl_context, nodecl_t* nod
     {
         internal_error("Code unreachable", 0);
     }
-#endif
 }
 
 char check_expression_non_executable(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -741,9 +734,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
         case AST_BITWISE_OR :
         case AST_LOGICAL_AND :
         case AST_LOGICAL_OR :
-#ifdef FORTRAN_SUPPORT
         case AST_POWER:
-#endif
             {
                 check_binary_expression(expression, decl_context, nodecl_output);
                 break;
@@ -1963,7 +1954,11 @@ char function_has_been_deleted(decl_context_t decl_context, scope_entry_t* entry
     return c;
 }
 
-static void error_message_overload_failed(candidate_t* candidates, const char* filename, int line);
+static void error_message_overload_failed(candidate_t* candidates, 
+        const char* name,
+        decl_context_t decl_context,
+        int num_arguments, type_t** arguments,
+        const char* filename, int line);
 
 static type_t* compute_user_defined_bin_operator_type(AST operator_name, 
         nodecl_t *lhs, nodecl_t *rhs, 
@@ -2170,7 +2165,11 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
     {
         if (!checking_ambiguity())
         {
-            error_message_overload_failed(candidate_set, filename, line);
+            error_message_overload_failed(candidate_set, 
+                    prettyprint_in_buffer(operator_name),
+                    decl_context,
+                    num_arguments, argument_types,
+                    filename, line);
         }
         overloaded_type = get_error_type();
     }
@@ -2330,7 +2329,11 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
     {
         if (!checking_ambiguity())
         {
-            error_message_overload_failed(candidate_set, filename, line);
+            error_message_overload_failed(candidate_set, 
+                    prettyprint_in_buffer(operator_name),
+                    decl_context,
+                    num_arguments, argument_types,
+                    filename, line);
         }
         overloaded_type = get_error_type();
     }
@@ -2749,7 +2752,6 @@ void compute_bin_operator_mul_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t 
             nodecl_output);
 }
 
-#ifdef FORTRAN_SUPPORT
 static
 void compute_bin_operator_pow_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t decl_context, 
         const char* filename, int line, nodecl_t* nodecl_output)
@@ -2764,7 +2766,6 @@ void compute_bin_operator_pow_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t 
             filename, line,
             nodecl_output);
 }
-#endif
 
 static
 void compute_bin_operator_div_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t decl_context, 
@@ -5009,9 +5010,7 @@ static struct bin_operator_funct_type_t binary_expression_fun[] =
     [AST_BITWISE_OR]            = OPERATOR_FUNCT_INIT(compute_bin_operator_bitwise_or_type),
     [AST_LOGICAL_AND]           = OPERATOR_FUNCT_INIT(compute_bin_operator_logical_and_type),
     [AST_LOGICAL_OR]            = OPERATOR_FUNCT_INIT(compute_bin_operator_logical_or_type),
-#ifdef FORTRAN_SUPPORT
     [AST_POWER]              = OPERATOR_FUNCT_INIT(compute_bin_operator_pow_type),
-#endif
     [AST_ASSIGNMENT]            = OPERATOR_FUNCT_INIT(compute_bin_operator_assig_type),
     [AST_MUL_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_mul_assig_type),
     [AST_DIV_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_div_assig_type),
@@ -5043,9 +5042,7 @@ static struct bin_operator_funct_type_t binary_expression_fun[] =
     [NODECL_BITWISE_OR]            = OPERATOR_FUNCT_INIT(compute_bin_operator_bitwise_or_type),
     [NODECL_LOGICAL_AND]           = OPERATOR_FUNCT_INIT(compute_bin_operator_logical_and_type),
     [NODECL_LOGICAL_OR]            = OPERATOR_FUNCT_INIT(compute_bin_operator_logical_or_type),
-#ifdef FORTRAN_SUPPORT
     [NODECL_POWER]              = OPERATOR_FUNCT_INIT(compute_bin_operator_pow_type),
-#endif
     [NODECL_ASSIGNMENT]            = OPERATOR_FUNCT_INIT(compute_bin_operator_assig_type),
     [NODECL_MUL_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_mul_assig_type),
     [NODECL_DIV_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_div_assig_type),
@@ -5678,7 +5675,11 @@ static void check_nodecl_array_subscript_expression(
         {
             if (!checking_ambiguity())
             {
-                error_message_overload_failed(candidate_set, filename, line);
+                error_message_overload_failed(candidate_set, 
+                        "operator[]",
+                        decl_context,
+                        num_arguments, argument_types,
+                        filename, line);
             }
             *nodecl_output = nodecl_make_err_expr(filename, line);
             return;
@@ -6277,7 +6278,12 @@ static void check_conditional_expression_impl_nodecl_aux(nodecl_t first_op,
             {
                 if (!checking_ambiguity())
                 {
-                    error_message_overload_failed(candidate_set, filename, line);
+                    error_message_overload_failed(candidate_set, 
+                            "operator ?",
+                            decl_context,
+                            num_arguments,
+                            argument_types,
+                            filename, line);
                 }
                 *nodecl_output = nodecl_make_err_expr(filename, line);
                 return;
@@ -7078,30 +7084,148 @@ static void check_delete_expression(AST expression, decl_context_t decl_context,
             nodecl_output);
 }
 
+static void check_nodecl_cast_expr(nodecl_t nodecl_casted_expr, 
+        decl_context_t decl_context, 
+        type_t* declarator_type,
+        const char* cast_kind,
+        const char* filename, int line,
+        nodecl_t* nodecl_output)
+{
+    if (is_dependent_type(declarator_type))
+    {
+        *nodecl_output = nodecl_make_cast(
+                nodecl_casted_expr,
+                declarator_type,
+                cast_kind,
+                filename, line);
+        nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+        return;
+    }
+
+    if (IS_CXX_LANGUAGE
+            && (strcmp(cast_kind, "C") == 0
+                || strcmp(cast_kind, "static_cast") == 0))
+    {
+        // FIXME - For a C cast we need to check the following cases (in this order!)
+        //
+        //   const_cast
+        //   static_cast
+        //   static_cast + const_cast
+        //   reinterpret_cast
+        //   reinterpret_cast + const_cast
+        // 
+        // We may be missing conversions in a C cast if a const_cast is required after a static_cast
+
+        // Shut up the compiler if things go wrong
+        enter_test_expression();
+        // Check if an initialization is possible
+        // If possible this will set a proper conversion call
+        nodecl_t nodecl_cast_output = nodecl_null();
+        nodecl_t nodecl_parenthesized_init = nodecl_make_cxx_parenthesized_initializer(
+                nodecl_make_list_1(nodecl_copy(nodecl_casted_expr)),
+                nodecl_get_filename(nodecl_casted_expr),
+                nodecl_get_line(nodecl_casted_expr));
+        // This actually checks T(e)
+        check_nodecl_parenthesized_initializer(nodecl_parenthesized_init, 
+                decl_context, 
+                declarator_type, 
+                &nodecl_cast_output);
+        leave_test_expression();
+
+        // T(e) becomes (T){e}, so we get 'e' so the result is (T)e and not (T)(T){e}
+        if (nodecl_get_kind(nodecl_cast_output) == NODECL_STRUCTURED_VALUE)
+        {
+            nodecl_cast_output = nodecl_list_head(nodecl_get_child(nodecl_cast_output, 0));
+        }
+
+        if (!nodecl_is_err_expr(nodecl_cast_output))
+        {
+            nodecl_casted_expr = nodecl_cast_output;
+        }
+    }
+
+    char is_lvalue = 0;
+    if (is_lvalue_reference_type(declarator_type))
+    {
+        is_lvalue = 1;
+    }
+
+    *nodecl_output = nodecl_make_cast(
+            nodecl_casted_expr,
+            declarator_type,
+            cast_kind,
+            filename, line);
+
+    if (nodecl_is_constant(nodecl_casted_expr)
+            && (is_integral_type(declarator_type)
+               || is_pointer_type(declarator_type)))
+    {
+        const_value_t * const_casted_expr = nodecl_get_constant(nodecl_casted_expr);
+        
+        // The const_casted_expr variable can be a string literal. 
+        // Example:
+        // (const void *)"ABC";
+        // 
+        // Something similar appears in strcmp function
+        if (const_value_is_integer(const_casted_expr)
+                || const_value_is_floating(const_casted_expr))
+        {
+            nodecl_set_constant(*nodecl_output,
+                    const_value_cast_to_bytes(
+                        const_casted_expr,
+                        type_get_size(declarator_type), 
+                        /* sign */ is_signed_integral_type(declarator_type)));
+        }
+    }
+
+    if (is_dependent_type(declarator_type))
+    {
+        nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+    }
+    if (is_dependent_type(declarator_type)
+            || nodecl_expr_is_value_dependent(nodecl_casted_expr))
+    {
+        nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
+    }
+
+    nodecl_expr_set_is_lvalue(*nodecl_output, is_lvalue);
+}
+
 static void check_nodecl_explicit_type_conversion(type_t* type_info,
-        nodecl_t parenthesized_init, decl_context_t decl_context,
+        nodecl_t nodecl_expr_list, decl_context_t decl_context,
         nodecl_t* nodecl_output,
         const char* filename,
         int line)
 {
-    check_nodecl_parenthesized_initializer(parenthesized_init, decl_context, type_info, nodecl_output);
-
-    if (nodecl_is_err_expr(*nodecl_output))
+    if (nodecl_list_length(nodecl_expr_list) == 1)
     {
-        *nodecl_output = nodecl_make_err_expr(filename, line);
-        return;
+        // Use the same code as the (T)e syntax
+        check_nodecl_cast_expr(nodecl_list_head(nodecl_expr_list), decl_context, type_info, "C", filename, line, nodecl_output);
     }
+    else
+    {
+        // Otherwise try a parenthesized initializer (which should do)
+        nodecl_t parenthesized_init = nodecl_make_cxx_parenthesized_initializer(nodecl_expr_list, filename, line);
 
-    if (is_dependent_type(type_info))
-    {
-        *nodecl_output = 
-            nodecl_make_cxx_explicit_type_cast(*nodecl_output, type_info, filename, line);
-        nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
-    }
-    if (is_dependent_type(type_info)
-            || nodecl_expr_is_value_dependent(*nodecl_output))
-    {
-        nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
+        check_nodecl_parenthesized_initializer(parenthesized_init, decl_context, type_info, nodecl_output);
+
+        if (nodecl_is_err_expr(*nodecl_output))
+        {
+            *nodecl_output = nodecl_make_err_expr(filename, line);
+            return;
+        }
+
+        if (is_dependent_type(type_info))
+        {
+            *nodecl_output = 
+                nodecl_make_cxx_explicit_type_cast(*nodecl_output, type_info, filename, line);
+            nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+        }
+        if (is_dependent_type(type_info)
+                || nodecl_expr_is_value_dependent(*nodecl_output))
+        {
+            nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
+        }
     }
 }
 
@@ -7119,8 +7243,6 @@ static void check_explicit_type_conversion_common(type_t* type_info,
         *nodecl_output = nodecl_make_err_expr(ASTFileName(expression_list), ASTLine(expression_list));
         return;
     }
-
-    nodecl_expr_list = nodecl_make_cxx_parenthesized_initializer(nodecl_expr_list, ASTFileName(expr), ASTLine(expr));
 
     check_nodecl_explicit_type_conversion(type_info, nodecl_expr_list, decl_context,
             nodecl_output, ASTFileName(expr), ASTLine(expr));
@@ -8105,7 +8227,12 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
         // Overload failed
         if (!checking_ambiguity())
         {
-            error_message_overload_failed(candidate_set, filename, line);
+            error_message_overload_failed(candidate_set, 
+                    codegen_to_str(nodecl_called),
+                    decl_context,
+                    num_arguments,
+                    argument_types,
+                    filename, line);
         }
         *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
@@ -8367,9 +8494,16 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t 
             {
                 entry = entry_list_head(result);
             }
-
-            nodecl_called = nodecl_make_symbol(entry, ASTFileName(called_expression), ASTLine(called_expression));
-            nodecl_set_type(nodecl_called, entry->type_information);
+            
+            if (entry->kind != SK_FUNCTION && entry->kind != SK_VARIABLE)
+            {
+                nodecl_called = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
+            }
+            else 
+            {
+                nodecl_called = nodecl_make_symbol(entry, ASTFileName(called_expression), ASTLine(called_expression));
+                nodecl_set_type(nodecl_called, entry->type_information);
+            }
             entry_list_free(result);
         }
         else
@@ -8387,101 +8521,6 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t 
     check_nodecl_function_call(nodecl_called, nodecl_argument_list, decl_context, nodecl_output);
 }
 
-static void check_nodecl_cast_expr(nodecl_t nodecl_casted_expr, 
-        decl_context_t decl_context, 
-        type_t* declarator_type,
-        const char* cast_kind,
-        const char* filename, int line,
-        nodecl_t* nodecl_output)
-{
-    if (is_dependent_type(declarator_type))
-    {
-        *nodecl_output = nodecl_make_cast(
-                nodecl_casted_expr,
-                declarator_type,
-                cast_kind,
-                filename, line);
-        nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
-        return;
-    }
-
-    if (IS_CXX_LANGUAGE
-            && (strcmp(cast_kind, "C") == 0
-                || strcmp(cast_kind, "static_cast") == 0))
-    {
-        // FIXME - For a C cast we need to check the following cases (in this order!)
-        //
-        //   const_cast
-        //   static_cast
-        //   static_cast + const_cast
-        //   reinterpret_cast
-        //   reinterpret_cast + const_cast
-        // 
-        // We may be missing conversions in a C cast if a const_cast is required after a static_cast
-
-        // Shut up the compiler if things go wrong
-        enter_test_expression();
-        // Check if an initialization is possible
-        // If possible this will set a proper conversion call
-        nodecl_t nodecl_cast_output = nodecl_null();
-        nodecl_t nodecl_parenthesized_init = nodecl_make_cxx_parenthesized_initializer(
-                nodecl_make_list_1(nodecl_copy(nodecl_casted_expr)),
-                nodecl_get_filename(nodecl_casted_expr),
-                nodecl_get_line(nodecl_casted_expr));
-        // This actually checks T(e)
-        check_nodecl_parenthesized_initializer(nodecl_parenthesized_init, 
-                decl_context, 
-                declarator_type, 
-                &nodecl_cast_output);
-        leave_test_expression();
-
-        // T(e) becomes (T){e}, so we get 'e' so the result is (T)e and not (T)(T){e}
-        if (nodecl_get_kind(nodecl_cast_output) == NODECL_STRUCTURED_VALUE)
-        {
-            nodecl_cast_output = nodecl_list_head(nodecl_get_child(nodecl_cast_output, 0));
-        }
-
-        if (!nodecl_is_err_expr(nodecl_cast_output))
-        {
-            nodecl_casted_expr = nodecl_cast_output;
-        }
-    }
-
-    char is_lvalue = 0;
-    if (is_lvalue_reference_type(declarator_type))
-    {
-        is_lvalue = 1;
-    }
-
-    *nodecl_output = nodecl_make_cast(
-            nodecl_casted_expr,
-            declarator_type,
-            cast_kind,
-            filename, line);
-
-    if (nodecl_is_constant(nodecl_casted_expr)
-            && (is_integral_type(declarator_type)
-               || is_pointer_type(declarator_type)))
-    {
-        nodecl_set_constant(*nodecl_output,
-                const_value_cast_to_bytes(
-                    nodecl_get_constant(nodecl_casted_expr),
-                    type_get_size(declarator_type), 
-                    /* sign */ is_signed_integral_type(declarator_type)));
-    }
-
-    if (is_dependent_type(declarator_type))
-    {
-        nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
-    }
-    if (is_dependent_type(declarator_type)
-            || nodecl_expr_is_value_dependent(nodecl_casted_expr))
-    {
-        nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
-    }
-
-    nodecl_expr_set_is_lvalue(*nodecl_output, is_lvalue);
-}
 
 static void check_cast_expr(AST expr, AST type_id, AST casted_expression_list, decl_context_t decl_context,
         const char* cast_kind,
@@ -8985,7 +9024,12 @@ static void check_nodecl_member_access(
         {
             if (!checking_ambiguity())
             {
-                error_message_overload_failed(candidate_set, nodecl_get_filename(nodecl_accessed), nodecl_get_line(nodecl_accessed));
+                error_message_overload_failed(candidate_set, 
+                        "operator->",
+                        decl_context,
+                        /* num_arguments */ 1, 
+                        argument_types,
+                        nodecl_get_filename(nodecl_accessed), nodecl_get_line(nodecl_accessed));
             }
             *nodecl_output = nodecl_make_err_expr(filename, line);
             return;
@@ -9254,7 +9298,11 @@ static void check_postoperator_user_defined(
     {
         if (!checking_ambiguity())
         {
-            error_message_overload_failed(candidate_set, nodecl_get_filename(postoperated_expr), nodecl_get_line(postoperated_expr));
+            error_message_overload_failed(candidate_set, 
+                    get_operator_function_name(operator),
+                    decl_context,
+                    num_arguments, argument_types,
+                    nodecl_get_filename(postoperated_expr), nodecl_get_line(postoperated_expr));
         }
         *nodecl_output = nodecl_make_err_expr(nodecl_get_filename(postoperated_expr), nodecl_get_line(postoperated_expr));
         return;
@@ -9384,7 +9432,11 @@ static void check_preoperator_user_defined(AST operator,
     {
         if (!checking_ambiguity())
         {
-            error_message_overload_failed(candidate_set, nodecl_get_filename(preoperated_expr), nodecl_get_line(preoperated_expr));
+            error_message_overload_failed(candidate_set, 
+                    get_operator_function_name(operator),
+                    decl_context,
+                    num_arguments, argument_types,
+                    nodecl_get_filename(preoperated_expr), nodecl_get_line(preoperated_expr));
         }
         *nodecl_output = nodecl_make_err_expr(nodecl_get_filename(preoperated_expr), nodecl_get_line(preoperated_expr));
         return;
@@ -11708,14 +11760,18 @@ char check_initialization(AST initializer, decl_context_t decl_context, type_t* 
             if (nodecl_is_constant(*nodecl_output))
             {
                 const_value_t* v = nodecl_get_constant(*nodecl_output);
-                fprintf(stderr, " with a constant value of ");
-                if (const_value_is_signed(v))
+                fprintf(stderr, " with a constant value ");
+                if (const_value_is_integer(v)
+                        || const_value_is_floating(v))
                 {
-                    fprintf(stderr, " '%lld'", (long long int)const_value_cast_to_8(v));
-                }
-                else
-                {
-                    fprintf(stderr, " '%llu'", (unsigned long long int)const_value_cast_to_8(v));
+                    if (const_value_is_signed(v))
+                    {
+                        fprintf(stderr, " '%lld'", (long long int)const_value_cast_to_8(v));
+                    }
+                    else
+                    {
+                        fprintf(stderr, " '%llu'", (unsigned long long int)const_value_cast_to_8(v));
+                    }
                 }
             }
             fprintf(stderr, "\n");
@@ -13481,11 +13537,14 @@ char check_copy_assignment_operator(scope_entry_t* entry,
         {
             if (!checking_ambiguity())
             {
-                error_message_overload_failed(candidate_set, filename, line);
+                const char*  c = NULL;;
+                uniquestr_sprintf(&c, "copy assignment operator of class %s", entry->symbol_name);
+                error_message_overload_failed(candidate_set, 
+                        c,
+                        decl_context,
+                        num_arguments, arguments,
+                        filename, line);
                 entry_list_free(operator_overload_set);
-                error_printf("%s:%d: error: no copy assignment operator for type '%s'\n",
-                        filename, line,
-                        print_type_str(t, decl_context));
             }
             return 0;
         }
@@ -13566,10 +13625,32 @@ void diagnostic_candidates(scope_entry_list_t* candidates, const char* filename,
     entry_list_iterator_free(it);
 }
 
-static void error_message_overload_failed(candidate_t* candidates, const char* filename, int line)
+static void error_message_overload_failed(candidate_t* candidates, 
+        const char* name,
+        decl_context_t decl_context,
+        int num_arguments,
+        type_t** arguments,
+        const char* filename, int line)
 {
-    error_printf("%s:%d: error: overload call failed\n",
-            filename, line);
+    const char* argument_types = "(";
+
+    int i, j = 0;
+    for (i = 0; i < num_arguments; i++)
+    {
+        if (arguments[i] == NULL)
+            continue;
+
+        if (j > 0)
+            argument_types = strappend(argument_types, ", ");
+
+        argument_types = strappend(argument_types, print_type_str(arguments[i], decl_context));
+        j++;
+    }
+
+    argument_types = strappend(argument_types, ")");
+
+    error_printf("%s:%d: error: failed overload call to %s%s\n",
+            filename, line, name, argument_types);
 
     if (candidates != NULL)
     {
@@ -14204,12 +14285,8 @@ static void instantiate_explicit_type_cast(nodecl_instantiate_expr_visitor_t* v,
         free(list);
     }
 
-    nodecl_t new_parenthesized_init = nodecl_make_cxx_parenthesized_initializer(nodecl_new_list, 
-            nodecl_get_filename(node),
-            nodecl_get_line(node));
-
     check_nodecl_explicit_type_conversion(t, 
-            new_parenthesized_init, 
+            nodecl_new_list,
             v->decl_context, 
             &v->nodecl_result,
             nodecl_get_filename(node),
@@ -14432,9 +14509,7 @@ static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, 
     NODECL_VISITOR(v)->visit_bitwise_or = instantiate_expr_visitor_fun(instantiate_binary_op);
     NODECL_VISITOR(v)->visit_logical_and = instantiate_expr_visitor_fun(instantiate_binary_op);
     NODECL_VISITOR(v)->visit_logical_or = instantiate_expr_visitor_fun(instantiate_binary_op);
-#ifdef FORTRAN_SUPPORT
     NODECL_VISITOR(v)->visit_power = instantiate_expr_visitor_fun(instantiate_binary_op);
-#endif
     NODECL_VISITOR(v)->visit_assignment = instantiate_expr_visitor_fun(instantiate_binary_op);
     NODECL_VISITOR(v)->visit_mul_assignment = instantiate_expr_visitor_fun(instantiate_binary_op);
     NODECL_VISITOR(v)->visit_div_assignment = instantiate_expr_visitor_fun(instantiate_binary_op);

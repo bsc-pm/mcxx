@@ -160,6 +160,8 @@ namespace TL
             bool is_template() const;
             //! States whether this symbol is a function
             bool is_function() const;
+            //! States whether this function is nested
+            bool is_nested_function() const;
             //! States whether this symbol is a statement function statmeent symbol
             /*! \note This is only meaningful in Fortran */
             bool is_statement_function_statement() const;
@@ -192,8 +194,6 @@ namespace TL
             
             //! States whether this symbol is a parameter of a function
             bool is_parameter() const;
-            //! Returns the position of this parameter
-            int get_parameter_position() const;
 
             //! States whether this symbol is a template parameter
             bool is_template_parameter() const;
@@ -203,6 +203,15 @@ namespace TL
 
             //! States if this is a member entity
             bool is_member() const;
+
+            //! Gets the byte offset of the storage unit of this member
+            /*!
+             * Only meaningful for nonstatic variables otherwise it returns 0
+             *
+             * \note Make sure you have requested the size of the class, otherwise this field
+             * will have not been computed yet
+             */
+            int get_offset() const;
 
             //! States if this symbol is artificial
             /*!
@@ -239,6 +248,41 @@ namespace TL
             
             //! Returns the size of the bitfield
             Nodecl::NodeclBase get_bitfield_size() const;
+
+            //! Returns the offset of the first byte used by the bitfield
+            /*!
+             * This is the offset in bytes where the first bit is laid out
+             *
+             * struct A
+             * {
+             *   char c;
+             *   int x : 12;
+             * };
+             *
+             * Symbol::get_offset of x will return 0 since a storage unit of an int
+             * can start at offset 0 of the struct
+             *
+             * Symbol::get_bitfield_offset of x will return 1, since the first bit is
+             * laid out right after c
+             *
+             * \note Since one cannot get the address of a bitfield, they do not have
+             * a well defined offset. Symbol::get_offset is the offset of the storage unit
+             * which they occupy (so they may be apparently sharing the offset with another
+             * member, like in the example shown above)
+             */
+            int get_bitfield_offset() const;
+
+            //! First bit of a bitfield inside its byte
+            int get_bitfield_first() const;
+
+            //! Last bit of a bitfield inside its byte
+            /*!
+             * It will be the same as first if the bitfield is 1 bit wide
+             *
+             * Do not assume that last is always greater than first, it can be
+             * lower. Whether it is lower or bigger depends on the architecture
+             */
+            int get_bitfield_last() const;
 
             //! States whether the symbol is user declared
             /*!
@@ -466,7 +510,7 @@ namespace TL
 
             //! States if this symbol has a linkage different to that of the base language
             bool has_nondefault_linkage() const;
-            
+
             //! Returns the linkage identifier or empty if is the default
             std::string get_linkage() const;
 

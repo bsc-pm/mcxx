@@ -271,6 +271,7 @@ struct simple_type_tag {
     // Template dependent types (STK_TEMPLATE_DEPENDENT_TYPE)
     scope_entry_t* dependent_entry;
     nodecl_t dependent_parts;
+    enum class_kind_t dependent_entry_kind;  // CK_INVALID will be use as "typename"
 
     // Complex types, base type of the complex type
     type_t* complex_element;
@@ -1195,15 +1196,22 @@ type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entry,
     return result;
 }
 
-type_t* get_dependent_typename_type(scope_entry_t* dependent_entity, 
-        decl_context_t decl_context,
-        AST nested_name, 
-        AST unqualified_part)
+enum class_kind_t get_dependent_entry_kind(type_t* t)
 {
-    nodecl_t nodecl_dependent_parts = nodecl_null();
-    compute_nodecl_name_from_nested_name(nested_name, unqualified_part, decl_context, &nodecl_dependent_parts);
+    if (t == NULL || t->type == NULL)
+    {
+        return CK_INVALID;
+    }
+    return t->type->dependent_entry_kind;
+}
 
-    return get_dependent_typename_type_from_parts(dependent_entity, nodecl_dependent_parts);
+void set_dependent_entry_kind(type_t* t, enum class_kind_t kind)
+{
+    if (t == NULL || t->type == NULL)
+    {
+        internal_error("code unreachable.", 0);
+    }
+    t->type->dependent_entry_kind = kind;
 }
 
 void dependent_typename_get_components(type_t* t, 
@@ -2391,7 +2399,6 @@ static type_t* _get_array_type(type_t* element_type,
             && (nodecl_is_null(lower_bound) || nodecl_is_null(upper_bound)),
             "Invalid definition of boundaries for array", 0);
 
-    char expression_sizes_ok = 1;
     char whole_size_is_constant = 0;
     _size_t whole_size_k = 0;
 
@@ -2536,7 +2543,7 @@ static type_t* _get_array_type(type_t* element_type,
                 result->array->with_descriptor = with_descriptor;
 
                 // If the element_type is array propagate the 'is_vla' value
-                if(element_type->array != NULL)
+                if (element_type->array != NULL)
                 {
                     result->array->is_vla = element_type->array->is_vla;
                 }
@@ -2571,21 +2578,22 @@ static type_t* _get_array_type(type_t* element_type,
 
             result->array->with_descriptor = with_descriptor;
 
-            C_LANGUAGE()
+            // In C This is a VLA
+            if (IS_C_LANGUAGE)
             {
-                if (expression_sizes_ok)
-                {
-                    // This is a VLA
-                    // In C++ there are no VLA's but this path can be followed by
-                    // dependent arrays
-                    result->array->is_vla = 1;
-                }
+                result->array->is_vla = 1;
+            }
+            // In Fortran, non constant arrays are considered VLAs unless they
+            // require a descriptor
+            if (IS_FORTRAN_LANGUAGE
+                    && !with_descriptor)
+            {
+                result->array->is_vla = 1;
             }
 
             result->info->is_dependent = is_dependent_type(element_type);
 
-            if (expression_sizes_ok
-                    && !result->info->is_dependent
+            if (!result->info->is_dependent
                     && nodecl_expr_is_value_dependent(whole_size))
             {
                 result->info->is_dependent = 1;
@@ -5446,6 +5454,32 @@ nodecl_t array_type_get_array_upper_bound(type_t* t)
     return t->array->upper_bound;
 }
 
+int array_type_get_total_number_of_elements(type_t* t)
+{
+    ERROR_CONDITION(!is_array_type(t), "This is not an array type", 0);
+    t = advance_over_typedefs(t);
+
+    int number_of_elements = 1;
+    while (is_array_type(t))
+    {
+        if (array_type_is_unknown_size(t))
+        {
+            return -1;
+        }
+
+        nodecl_t whole_size = array_type_get_array_size_expr(t);
+        if (!nodecl_is_constant(whole_size))
+        {
+            return -1;
+        }
+
+        const_value_t * size = nodecl_get_constant(whole_size);
+        number_of_elements *= const_value_cast_to_signed_int(size);
+        t = array_type_get_element_type(t);
+    }
+    return number_of_elements;
+}
+
 decl_context_t array_type_get_array_size_expr_context(type_t* t)
 {
     ERROR_CONDITION(!is_array_type(t), "This is not an array type", 0);
@@ -6025,8 +6059,9 @@ static char is_function_or_template_function_name(scope_entry_t* entry, void* p 
 }
 
 // Gives a string with the name of this simple type
-static const char* get_simple_type_name_string_internal(decl_context_t decl_context, simple_type_t* simple_type)
+static const char* get_simple_type_name_string_internal(decl_context_t decl_context, type_t* t)
 {
+    simple_type_t* simple_type = t->type;
     ERROR_CONDITION(simple_type == NULL, "This cannot be null", 0);
 
     const char* result = "";
@@ -6236,7 +6271,34 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
 
                 if (is_dependent && !nodecl_is_null(nodecl_parts))
                 {
-                    result = strappend("typename ", result);
+                    enum class_kind_t kind = get_dependent_entry_kind(t);
+                    switch(kind)
+                    {
+                        case CK_INVALID:
+                            {
+                                result = strappend("typename ", result);
+                                break;
+                            }
+                        case CK_STRUCT:
+                            {
+                                result = strappend("struct ", result);
+                                break;
+                            }
+                        case CK_CLASS:
+                            {
+                                result = strappend("class ", result);
+                                break;
+                            }
+                        case CK_UNION:
+                            {
+                                result = strappend("union ", result);
+                                break;
+                            }
+                        default:
+                            {
+                                internal_error("code unreachable.", 0);
+                            }
+                    }
                 }
 
                 if (!nodecl_is_null(nodecl_parts))
@@ -6359,7 +6421,7 @@ const char* get_simple_type_name_string(decl_context_t decl_context, type_t* typ
     else
     {
         result = get_cv_qualifier_string(type_info);
-        result = strappend(result, get_simple_type_name_string_internal(decl_context, type_info->type));
+        result = strappend(result, get_simple_type_name_string_internal(decl_context, type_info));
     }
 
     return result;
@@ -6440,7 +6502,7 @@ static const char* get_type_name_string(decl_context_t decl_context,
     const char* left = "";
     const char* right = "";
     get_type_name_str_internal(decl_context, type_info, &left, &right, 
-            num_parameter_names, parameter_names,parameter_attributes, is_parameter);
+            num_parameter_names, parameter_names, parameter_attributes, is_parameter);
 
     const char* result = strappend(left, symbol_name);
     result = strappend(result, right);
@@ -6771,8 +6833,11 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                         }
                     }
 
-                    //Adding the parameter attributes
-                    if (parameter_attributes != NULL && parameter_attributes[i] != NULL)
+                    // Add the parameter attributes
+                    if (parameter_attributes != NULL
+                            && i < num_parameter_names
+                            && parameter_attributes[i] != NULL
+                            && (strlen(parameter_attributes[i]) > 0))
                     {
                         prototype = strappend(prototype, " ");
                         prototype = strappend(prototype, parameter_attributes[i]);

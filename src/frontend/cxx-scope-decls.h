@@ -42,9 +42,7 @@
 #include "cxx-limits.h"
 #include "cxx-nodecl-output.h"
 
-#ifdef FORTRAN_SUPPORT
 #include "fortran/fortran03-scope-decls.h"
-#endif 
 
 // Extensible schema
 #include "extstruct.h"
@@ -130,9 +128,7 @@ struct decl_context_tag
     // Prototype scope, if any
     struct scope_tag* prototype_scope;
 
-#ifdef FORTRAN_SUPPORT
     implicit_info_t* implicit_info;
-#endif 
 
     // Scope of the declaration,
     // should never be null
@@ -159,14 +155,12 @@ struct decl_context_tag
     SYMBOL_KIND(SK_USING, "using declared name") \
     SYMBOL_KIND(SK_OTHER, "<<internal symbol>>") 
 
-#ifdef FORTRAN_SUPPORT
 #define SYMBOL_KIND_TABLE_FORTRAN \
     SYMBOL_KIND(SK_COMMON, "COMMON name") \
     SYMBOL_KIND(SK_NAMELIST, "NAMELIST name") \
     SYMBOL_KIND(SK_MODULE, "MODULE name") \
     SYMBOL_KIND(SK_PROGRAM, "PROGRAM name") \
     SYMBOL_KIND(SK_BLOCKDATA, "BLOCK DATA name") 
-#endif
 
 enum cxx_symbol_kind
 {
@@ -175,10 +169,7 @@ enum cxx_symbol_kind
     x, 
 
     SYMBOL_KIND_TABLE
-
-#ifdef FORTRAN_SUPPORT
     SYMBOL_KIND_TABLE_FORTRAN
-#endif
 
 #undef SYMBOL_KIND
     SK_LAST_KIND
@@ -259,7 +250,6 @@ struct default_argument_info_tag
     decl_context_t context;
 };
 
-#ifdef FORTRAN_SUPPORT
 typedef
 enum intent_kind_tag
 {
@@ -268,7 +258,6 @@ enum intent_kind_tag
     INTENT_OUT = 2,
     INTENT_INOUT = INTENT_IN | INTENT_OUT,
 } intent_kind_t;
-#endif
 
 enum codegen_status_tag
 {

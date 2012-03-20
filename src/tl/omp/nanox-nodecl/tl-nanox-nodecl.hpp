@@ -10,7 +10,7 @@ namespace TL { namespace Nanox {
         public:
             Lowering();
             virtual void run(DTO& dto);
-            virtual void pre_run(DTO& dto) { }
+            virtual void pre_run(DTO& dto);
     };
 
 } } 

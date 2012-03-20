@@ -38,7 +38,7 @@ MCXX_BEGIN_DECLS
 
 LIBMF03_EXTERN void fortran_initialize_translation_unit_scope(translation_unit_t* translation_unit);
 
-LIBMF03_EXTERN void build_scope_fortran_translation_unit(translation_unit_t* translation_unit);
+LIBMF03_EXTERN nodecl_t build_scope_fortran_translation_unit(translation_unit_t* translation_unit);
 
 LIBMF03_EXTERN void fortran_build_scope_statement(AST statement, decl_context_t decl_context, nodecl_t* nodecl_output);
 
@@ -47,7 +47,7 @@ LIBMF03_EXTERN type_t* choose_float_type_from_kind(nodecl_t expr, int kind_size)
 LIBMF03_EXTERN type_t* choose_logical_type_from_kind(nodecl_t expr, int kind_size);
 LIBMF03_EXTERN type_t* choose_character_type_from_kind(nodecl_t expr, int kind_size);
 
-LIBMF03_EXTERN void build_scope_program_unit(AST program_unit, 
+LIBMF03_EXTERN void build_scope_program_unit_seq(AST program_unit_seq, 
         decl_context_t decl_context,
         nodecl_t* nodecl_output);
 
@@ -65,6 +65,8 @@ LIBMF03_EXTERN void remove_untyped_symbol(decl_context_t decl_context, scope_ent
 
 LIBMF03_EXTERN void add_unknown_kind_symbol(decl_context_t decl_context, scope_entry_t* entry);
 LIBMF03_EXTERN void remove_unknown_kind_symbol(decl_context_t decl_context, scope_entry_t* entry);
+
+LIBMF03_EXTERN scope_entry_t* query_common_name(decl_context_t decl_context, const char* common_name);
 
 MCXX_END_DECLS
 

@@ -47,7 +47,7 @@ def get_up_to_matching_paren(s):
 def print_type_and_name(_type, name):
     _type = _type.strip(" \n")
     if (_type == "bool"):  
-        return [("char", name, ":1")]
+        return [("bool", name, ":1")]
     elif (_type == "integer"):
         return [("int", name, "")]
     elif (_type == "AST"):
@@ -104,6 +104,8 @@ def print_entity_specifiers(lines):
 #ifndef CXX_ENTITY_SPECIFIERS_H
 #define CXX_ENTITY_SPECIFIERS_H
 
+#include <stdbool.h>
+
 // Include this file only from cxx-scope-decls.h and not from anywhere else
 
 typedef struct entity_specifiers_tag\n{"""
@@ -117,12 +119,6 @@ typedef struct entity_specifiers_tag\n{"""
 
       language = language.strip(" \n")
       if (language != current_language) :
-          if (current_language == "all" and language == "fortran"):
-              print "#ifdef FORTRAN_SUPPORT"
-          elif (current_language == "fortran" and language == "all"):
-              print "#endif // FORTRAN_SUPPORT"
-          else: 
-              raise Exception("Invalid sequence of languages from %s -> %s" % (current_language, language))
           current_language = language
       descr = description.strip(" \n")
       if (descr):

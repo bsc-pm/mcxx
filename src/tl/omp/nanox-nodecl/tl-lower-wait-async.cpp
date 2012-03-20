@@ -11,6 +11,8 @@ void LoweringVisitor::visit(const Nodecl::Parallel::WaitAsyncsShallow& construct
 
     Source src, wd_name, err_name;
 
+    err_name << "err";
+
     src << "{"
         <<     "nanos_wd_t " << wd_name << ";"
         <<     wd_name << " = nanos_current_wd();"
@@ -21,9 +23,6 @@ void LoweringVisitor::visit(const Nodecl::Parallel::WaitAsyncsShallow& construct
 
     wd_name << "current_wd_" << (int)current_wd;
     current_wd++;
-
-    err_name << "err_" << (int)err_counter;
-    err_counter++;
 
     FORTRAN_LANGUAGE()
     {

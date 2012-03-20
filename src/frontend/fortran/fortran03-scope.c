@@ -247,7 +247,7 @@ scope_entry_t* new_fortran_implicit_symbol(decl_context_t decl_context, AST locu
     return new_entry;
 }
 
-scope_entry_t* new_fortran_symbol(decl_context_t decl_context, const char* name)
+scope_entry_t* new_fortran_symbol_not_unknown(decl_context_t decl_context, const char* name)
 {
     DEBUG_CODE()
     {
@@ -257,6 +257,13 @@ scope_entry_t* new_fortran_symbol(decl_context_t decl_context, const char* name)
     }
 
     scope_entry_t * new_entry = new_symbol(decl_context, decl_context.current_scope, strtolower(name));
+    return new_entry;
+}
+
+scope_entry_t* new_fortran_symbol(decl_context_t decl_context, const char* name)
+{
+    scope_entry_t* new_entry = new_fortran_symbol_not_unknown(decl_context, name);
+
     add_unknown_kind_symbol(decl_context, new_entry);
     return new_entry;
 }
@@ -290,9 +297,9 @@ scope_entry_t* fortran_query_name_str(decl_context_t decl_context, const char* u
             result = entry_list_head(result_list);
             entry_list_free(result_list);
 
-            // An intrinsic found in global scope is ignored
-            if (result->entity_specs.is_builtin
-                    && current_scope == decl_context.global_scope)
+            // Some symbols in the global scope must be ignored
+            if (decl_context.global_scope == current_scope
+                    && result->entity_specs.is_global_hidden)
             {
                 result = NULL;
             }

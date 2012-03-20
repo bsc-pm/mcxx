@@ -32,7 +32,6 @@
  #include "config.h"
 #endif
 
-#ifdef FORTRAN_SUPPORT
 
 #include "tl-common.hpp"
 #include "tl-langconstruct.hpp"
@@ -112,7 +111,5 @@ namespace TL { namespace Fortran {
             static const PredicateAttr predicate;
     };
 } }
-
-#endif
 
 #endif

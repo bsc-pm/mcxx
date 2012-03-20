@@ -31,20 +31,29 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
            if_expr_cond_end,
            num_copies,
            copy_data,
-           fill_outline_arguments,
-           fill_dependences_outline,
-           copy_setup,
            set_translation_fun,
            num_dependences,
            dependency_struct,
            dependency_array,
            immediate_decl,
-           fill_immediate_arguments,
-           fill_dependences_immediate,
-           copy_immediate_setup,
            copy_imm_data,
            translation_fun_arg_name;
-    
+
+    Nodecl::NodeclBase fill_outline_arguments_tree,
+        fill_dependences_outline_tree;
+    Source fill_outline_arguments,
+           fill_dependences_outline;
+
+    Nodecl::NodeclBase fill_immediate_arguments_tree,
+        fill_dependences_immediate_tree;
+    Source fill_immediate_arguments,
+           fill_dependences_immediate;
+
+    Nodecl::NodeclBase copy_outline_setup_tree;
+    Source copy_outline_setup;
+
+    Nodecl::NodeclBase copy_immediate_setup_tree;
+    Source copy_immediate_setup;
 
     // Name of the outline
     std::string outline_name;
@@ -53,6 +62,8 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         std::stringstream ss;
         ss << "ol_" << function_symbol.get_name() << "_" << (int)task_counter;
         outline_name = ss.str();
+
+        task_counter++;
     }
     
     // Devices stuff
@@ -78,14 +89,14 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         ancillary_device_description
             << comment("SMP device descriptor")
             << "nanos_smp_args_t " << outline_name << "_smp_args;" 
-            << outline_name << "_smp_args.outline = &" << outline_name << ";"
+            << outline_name << "_smp_args.outline = (void(*)(void*))&" << outline_name << ";"
             ;
 
         device_description_line
             << device_descriptor << "[0].factory = &nanos_smp_factory;"
             // FIXME - Figure a way to get the true size
-            << device_descriptor << "[0].size = nanos_smp_dd_size();"
-            << device_descriptor << "[0].args = &" << outline_name << "_smp_args;";
+            << device_descriptor << "[0].dd_size = nanos_smp_dd_size;"
+            << device_descriptor << "[0].arg = &" << outline_name << "_smp_args;";
     }
 
     // Outline
@@ -105,18 +116,16 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
     }
 
     Source err_name;
-    Counter& err_counter = CounterManager::get_counter("nanos++-err");
-    err_name << "err_" << (int)err_counter;
-    err_counter++;
+    err_name << "err";
 
     struct_size << "sizeof(imm_args)";
     alignment << "__alignof__(" << struct_arg_type_name << "), ";
     num_copies << "0";
-    copy_data << "(void*)0";
-    copy_imm_data << "(void*)0";
-    translation_fun_arg_name << ", (void*)0";
+    copy_data << "(nanos_copy_data_t**)0";
+    copy_imm_data << "(nanos_copy_data_t*)0";
+    translation_fun_arg_name << ", (void (*)(void*, void*))0";
     num_dependences << "0";
-    dependency_struct << "void";
+    dependency_struct << "nanos_dependence_t";
     dependency_array << "0";
 
     // Spawn code
@@ -126,12 +135,15 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         <<     device_description
         // We use an extra struct because of Fortran
         <<     "struct { " << struct_arg_type_name << "* args; } ol_args;"
-        <<     "ol_args.args = (void*) 0;"
+        <<     "ol_args.args = (" << struct_arg_type_name << "*) 0;"
         <<     immediate_decl
         <<     struct_runtime_size
         <<     "nanos_wd_t wd = (nanos_wd_t)0;"
         <<     "nanos_wd_props_t props;"
-        // <<     "__builtin_memset(&props, 0, sizeof(props));"
+        <<     "props.mandatory_creation = 0;"
+        <<     "props.tied = 0;"
+        <<     "props.tie_to = (nanos_thread_t)0;"
+        <<     "props.priority = 0;"
         <<     creation
         <<     priority
         <<     tiedness
@@ -144,23 +156,24 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         <<                 alignment
         <<                 "(void**)&ol_args, nanos_current_wd(),"
         <<                 "&props, " << num_copies << ", " << copy_data << ");"
-        <<     "if (" << err_name << " != nanos_ok) nanos_handle_error (" << err_name << ");"
+        <<     "if (" << err_name << " != NANOS_OK) nanos_handle_error (" << err_name << ");"
         <<     if_expr_cond_end
         <<     "if (wd != (nanos_wd_t)0)"
         <<     "{"
-        <<        fill_outline_arguments
-        <<        fill_dependences_outline
-        <<        copy_setup
+        <<        statement_placeholder(fill_outline_arguments_tree)
+        <<        statement_placeholder(fill_dependences_outline_tree)
+        <<        statement_placeholder(copy_outline_setup_tree)
+        <<        copy_outline_setup
         <<        set_translation_fun
         <<        err_name << " = nanos_submit(wd, " << num_dependences << ", (" << dependency_struct << "*)" 
         <<         dependency_array << ", (nanos_team_t)0);"
-        <<        "if (" << err_name << " != nanos_ok) nanos_handle_error (" << err_name << ");"
+        <<        "if (" << err_name << " != NANOS_OK) nanos_handle_error (" << err_name << ");"
         <<     "}"
         <<     "else"
         <<     "{"
-        <<          fill_immediate_arguments
-        <<          fill_dependences_immediate
-        <<          copy_immediate_setup
+        <<          statement_placeholder(fill_immediate_arguments_tree)
+        <<          statement_placeholder(fill_dependences_immediate_tree)
+        <<          statement_placeholder(copy_immediate_setup_tree)
         <<          err_name << " = nanos_create_wd_and_run(" 
         <<                  num_devices << ", " << device_descriptor << ", "
         <<                  struct_size << ", " 
@@ -169,39 +182,10 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         <<                  num_dependences << ", (" << dependency_struct << "*)" << dependency_array << ", &props,"
         <<                  num_copies << "," << copy_imm_data 
         <<                  translation_fun_arg_name << ");"
-        <<          "if (" << err_name << " != nanos_ok) nanos_handle_error (" << err_name << ");"
+        <<          "if (" << err_name << " != NANOS_OK) nanos_handle_error (" << err_name << ");"
         <<     "}"
         << "}"
         ;
-
-    TL::ObjectList<OutlineDataItem> data_items = outline_info.get_data_items();
-
-    for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
-            it != data_items.end();
-            it++)
-    {
-        if (it->get_sharing() == OutlineDataItem::SHARING_CAPTURE)
-        {
-            fill_outline_arguments << 
-                "ol_args.args->" << it->get_field_name() << " = " << it->get_symbol().get_name() << ";"
-                ;
-            fill_immediate_arguments << 
-                "imm_args." << it->get_field_name() << " = " << it->get_symbol().get_name() << ";"
-                ;
-        }
-        else if (it->get_sharing() == OutlineDataItem::SHARING_SHARED)
-        {
-            fill_outline_arguments << 
-                "ol_args.args->" << it->get_field_name() << " = &" << it->get_symbol().get_name() << ";"
-                ;
-            fill_immediate_arguments << 
-                "imm_args." << it->get_field_name() << " = &" << it->get_symbol().get_name() << ";"
-                ;
-
-            // Make it TARGET. Required by Fortran
-            it->get_symbol().get_internal_symbol()->entity_specs.is_target = 1;
-        }
-    }
 
     FORTRAN_LANGUAGE()
     {
@@ -209,14 +193,81 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
         Source::source_language = SourceLanguage::C;
     }
 
-    Nodecl::NodeclBase n = spawn_code.parse_statement(construct);
+    Nodecl::NodeclBase spawn_code_tree = spawn_code.parse_statement(construct);
 
     FORTRAN_LANGUAGE()
     {
         Source::source_language = SourceLanguage::Current;
     }
 
-    construct.integrate(n);
+    // Now fill the arguments information (this part is language dependent)
+    TL::ObjectList<OutlineDataItem> data_items = outline_info.get_data_items();
+    if (IS_C_LANGUAGE
+            || IS_CXX_LANGUAGE)
+    {
+        for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
+                it != data_items.end();
+                it++)
+        {
+
+            if (it->get_sharing() == OutlineDataItem::SHARING_CAPTURE)
+            {
+                fill_outline_arguments << 
+                    "ol_args.args->" << it->get_field_name() << " = " << it->get_symbol().get_name() << ";"
+                    ;
+                fill_immediate_arguments << 
+                    "imm_args." << it->get_field_name() << " = " << it->get_symbol().get_name() << ";"
+                    ;
+            }
+            else if (it->get_sharing() == OutlineDataItem::SHARING_SHARED)
+            {
+                fill_outline_arguments << 
+                    "ol_args.args->" << it->get_field_name() << " = &" << it->get_symbol().get_name() << ";"
+                    ;
+                fill_immediate_arguments << 
+                    "imm_args." << it->get_field_name() << " = &" << it->get_symbol().get_name() << ";"
+                    ;
+            }
+        }
+    }
+    else if (IS_FORTRAN_LANGUAGE)
+    {
+
+        for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
+                it != data_items.end();
+                it++)
+        {
+
+            if (it->get_sharing() == OutlineDataItem::SHARING_CAPTURE)
+            {
+                fill_outline_arguments << 
+                    "ol_args % args % " << it->get_field_name() << " = " << it->get_symbol().get_name() << "\n"
+                    ;
+                fill_immediate_arguments << 
+                    "imm_args % " << it->get_field_name() << " = " << it->get_symbol().get_name() << "\n"
+                    ;
+            }
+            else if (it->get_sharing() == OutlineDataItem::SHARING_SHARED)
+            {
+                fill_outline_arguments << 
+                    "ol_args % args %" << it->get_field_name() << " => " << it->get_symbol().get_name() << "\n"
+                    ;
+                fill_immediate_arguments << 
+                    "imm_args % " << it->get_field_name() << " => " << it->get_symbol().get_name() << "\n"
+                    ;
+                // Make it TARGET as required by Fortran
+                it->get_symbol().get_internal_symbol()->entity_specs.is_target = 1;
+            }
+        }
+    }
+
+    Nodecl::NodeclBase new_tree = fill_outline_arguments.parse_statement(fill_outline_arguments_tree);
+    fill_outline_arguments_tree.integrate(new_tree);
+
+    new_tree = fill_immediate_arguments.parse_statement(fill_immediate_arguments_tree);
+    fill_immediate_arguments_tree.integrate(new_tree);
+
+    construct.integrate(spawn_code_tree);
 }
 
 } }

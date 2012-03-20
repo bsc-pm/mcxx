@@ -6,5 +6,6 @@ options = -std=gnu99
 [mcxx : omp-base]
 language = C++
 {openmp} preprocessor_options = -include new 
+preprocessor_name = g++
 compiler_name = g++
 linker_name = g++

@@ -97,12 +97,10 @@ LIBMCXX_EXTERN type_t* get_gcc_builtin_va_list_type(void);
 LIBMCXX_EXTERN type_t* get_user_defined_type(scope_entry_t* entry);
 LIBMCXX_EXTERN type_t* get_indirect_type(scope_entry_t* entry);
 
-LIBMCXX_EXTERN type_t* get_dependent_typename_type(scope_entry_t* dependent_entity, 
-        decl_context_t decl_context,
-        AST nested_name, AST unqualified_part);
-
 LIBMCXX_EXTERN type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entity, 
         nodecl_t dependent_parts);
+LIBMCXX_EXTERN enum class_kind_t get_dependent_entry_kind(type_t* t);
+LIBMCXX_EXTERN void set_dependent_entry_kind(type_t* t, enum class_kind_t kind);
 
 LIBMCXX_EXTERN type_t* get_new_enum_type(decl_context_t decl_context);
 LIBMCXX_EXTERN type_t* get_new_class_type(decl_context_t decl_context, enum class_kind_t class_kind);
@@ -404,6 +402,10 @@ LIBMCXX_EXTERN decl_context_t array_type_get_array_size_expr_context(type_t* t);
 LIBMCXX_EXTERN char array_type_is_unknown_size(type_t* t);
 LIBMCXX_EXTERN nodecl_t array_type_get_array_lower_bound(type_t* t);
 LIBMCXX_EXTERN nodecl_t array_type_get_array_upper_bound(type_t* t);
+
+// This function returns the total number of elements of an array if
+// all dimensions of this array are constant. Otherwise returns -1.
+LIBMCXX_EXTERN int  array_type_get_total_number_of_elements(type_t* t);
 
 LIBMCXX_EXTERN char array_type_is_vla(type_t* t);
 

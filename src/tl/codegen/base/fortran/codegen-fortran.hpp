@@ -3,6 +3,8 @@
 
 #include "codegen-phase.hpp"
 
+#include <set>
+
 namespace Codegen
 {
     class FortranBase : public CodegenPhase
@@ -104,6 +106,12 @@ namespace Codegen
             void visit(const Nodecl::Sizeof& node);
             void visit(const Nodecl::Alignof& node);
 
+            void visit(const Nodecl::CxxDepNameSimple& node);
+
+            void codegen_type(TL::Type t, 
+                    std::string& type_specifier, 
+                    std::string& array_specifier,
+                    bool is_dummy);
         private:
             // State
             struct State
@@ -128,6 +136,13 @@ namespace Codegen
 
             typedef std::map<TL::Symbol, codegen_status_t> codegen_status_map_t;
             codegen_status_map_t _codegen_status;
+
+            typedef std::set<std::string> name_set_t;
+            name_set_t _name_set;
+
+            typedef std::map<TL::Symbol, std::string> rename_map_t;
+            rename_map_t _rename_map;
+
             void set_codegen_status(TL::Symbol sym, codegen_status_t status);
             codegen_status_t get_codegen_status(TL::Symbol sym);
 
@@ -138,9 +153,9 @@ namespace Codegen
             int get_indent_level();
             void set_indent_level(int);
 
-            void codegen_procedure(TL::Symbol entry, Nodecl::List statement_seq, Nodecl::List internal_subprograms);
+            void codegen_procedure(TL::Symbol entry, Nodecl::List statement_seq, Nodecl::List internal_subprograms, bool lacks_result);
 
-            void codegen_procedure_declaration_header(TL::Symbol entry);
+            void codegen_procedure_declaration_header(TL::Symbol entry, bool& lacks_result);
             void codegen_procedure_declaration_footer(TL::Symbol entry);
 
             void codegen_module_header(TL::Symbol, TL::ObjectList<Nodecl::NodeclBase>);
@@ -177,10 +192,7 @@ namespace Codegen
                     const std::string& operator_arith, 
                     const std::string& operator_bool);
 
-            void codegen_type(TL::Type t, 
-                    std::string& type_specifier, 
-                    std::string& array_specifier,
-                    bool is_dummy);
+            bool is_fortran_representable_pointer(TL::Type t);
 
             void codegen_casting(
                     TL::Type dest_type, 
@@ -196,6 +208,14 @@ namespace Codegen
             virtual Ret unhandled_node(const Nodecl::NodeclBase & n);
 
             void clear_codegen_status();
+
+            bool is_bitfield_access(const Nodecl::NodeclBase &node);
+            void emit_bitfield_store(const Nodecl::Assignment &node);
+
+            bool name_has_already_been_used(std::string str);
+            bool name_has_already_been_used(TL::Symbol sym);
+            std::string rename(TL::Symbol sym);
+            void clear_renames();
     };
 }
 

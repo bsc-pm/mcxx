@@ -40,6 +40,7 @@ END=
 libtlnanox_lowering_la_SOURCES = \
 								 tl-nanox-nodecl.cpp \
 								 tl-nanox-nodecl.hpp \
+								 tl-nanox-nodecl-prerun.cpp \
 								 tl-lowering-visitor.cpp \
 								 tl-lowering-visitor.hpp \
 								 tl-lower-arguments.cpp \

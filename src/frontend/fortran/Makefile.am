@@ -90,6 +90,7 @@ libmf03_la_CFLAGS = -DLIBMF03_DLL_EXPORT \
 				    -I$(top_srcdir)/src/driver \
 				    -I$(top_srcdir)/src/driver/fortran \
                     -fexceptions \
+					-std=gnu99 \
 				    -DPKGDATADIR=\"$(pkgdatadir)\" \
                     $(sqlite3_CFLAGS) \
                     $(END)
@@ -123,7 +124,7 @@ libmf03_prescanner_la_LDFLAGS = $(dll_exports) -avoid-version $(no_undefined)
 ADDITIONAL_GRAMMARS_FORTRAN = 
 ADDITIONAL_GRAMMARS_FORTRAN += fortran03-subparse.y
 
-ADDITIONAL_GRAMMARS = ../cxx-pragma.y $(ADDITIONAL_GRAMMARS_FORTRAN)
+ADDITIONAL_GRAMMARS = ../cxx-pragma.y ../cxx-placeholders.y $(ADDITIONAL_GRAMMARS_FORTRAN)
 
 EXTRA_DIST += $(ADDITIONAL_GRAMMARS_FORTRAN)
 

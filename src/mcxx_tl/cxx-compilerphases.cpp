@@ -625,14 +625,8 @@ extern "C"
         {
             fprintf(stderr, "COMPILERPHASES: DTO Initialized\n");
         }
-    }
 
-    // FIXME - This function should be merged with initialize_dto
-    void setup_dto(translation_unit_t* translation_unit)
-    {
-        TL::DTO* _dto = reinterpret_cast<TL::DTO*>(translation_unit->dto);
-        TL::DTO& dto = *_dto;
-
+        translation_unit->nodecl = nodecl_make_top_level(nodecl_null(), translation_unit->input_filename, 0);
         TL::RefPtr<Nodecl::TopLevel> top_level_nodecl(new Nodecl::TopLevel(translation_unit->nodecl));
         dto.set_object("nodecl", top_level_nodecl);
     }

@@ -82,10 +82,8 @@ namespace TL { namespace OpenMP {
         EMPTY_HANDLERS_CONSTRUCT(master)
         EMPTY_HANDLERS_CONSTRUCT(critical)
         EMPTY_HANDLERS_CONSTRUCT(ordered)
-#ifdef FORTRAN_SUPPORT
         EMPTY_HANDLERS_CONSTRUCT(parallel_do)
         EMPTY_HANDLERS_CONSTRUCT(do)
-#endif
 
     void Base::barrier_handler_pre(TL::PragmaCustomDirective) { } 
     void Base::barrier_handler_post(TL::PragmaCustomDirective directive) 
