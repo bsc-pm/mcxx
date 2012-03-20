@@ -601,6 +601,10 @@ static void check_substring(AST expr, decl_context_t decl_context, nodecl_t node
         nodecl_subscripted = nodecl_get_child(nodecl_subscripted, 0);
         data_type = get_pointer_type(data_type);
     }
+    else if (!nodecl_is_constant(nodecl_subscripted))
+    {
+        data_type = lvalue_ref(data_type);
+    }
 
     *nodecl_output = nodecl_make_array_subscript(
             nodecl_subscripted,
@@ -615,7 +619,7 @@ static void check_substring(AST expr, decl_context_t decl_context, nodecl_t node
     {
         *nodecl_output = nodecl_make_derreference(
                 *nodecl_output,
-                synthesized_type,
+                lvalue_ref(synthesized_type),
                 nodecl_get_filename(*nodecl_output),
                 nodecl_get_line(*nodecl_output));
         nodecl_set_symbol(*nodecl_output, nodecl_get_symbol(nodecl_subscripted));
@@ -816,7 +820,7 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
                         saved_symbol,
                         ASTFileName(expr),
                         ASTLine(expr));
-                nodecl_set_type(nodecl_lower_dim[current_idx], saved_symbol->type_information);
+                nodecl_set_type(nodecl_lower_dim[current_idx], lvalue_ref(saved_symbol->type_information));
             }
 
             nodecl_upper_dim[current_idx] = array_type_get_array_upper_bound(dimension_type);
@@ -831,7 +835,7 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
                         saved_symbol,
                         ASTFileName(expr),
                         ASTLine(expr));
-                nodecl_set_type(nodecl_upper_dim[current_idx], saved_symbol->type_information);
+                nodecl_set_type(nodecl_upper_dim[current_idx], lvalue_ref(saved_symbol->type_information));
             }
 
             dimension_type = array_type_get_element_type(dimension_type);
@@ -1020,6 +1024,10 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
         nodecl_subscripted = nodecl_get_child(nodecl_subscripted, 0);
         data_type = get_pointer_type(data_type);
     }
+    else if (!is_const_qualified_type(no_ref(symbol->type_information)))
+    {
+        data_type = lvalue_ref(data_type);
+    }
 
     *nodecl_output = nodecl_make_array_subscript(nodecl_subscripted, 
             nodecl_list,
@@ -1032,7 +1040,7 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
     {
         *nodecl_output = nodecl_make_derreference(
                 *nodecl_output,
-                synthesized_type,
+                lvalue_ref(synthesized_type),
                 nodecl_get_filename(*nodecl_output),
                 nodecl_get_line(*nodecl_output));
         nodecl_set_symbol(*nodecl_output, nodecl_get_symbol(nodecl_subscripted));
@@ -1421,7 +1429,7 @@ static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t*
     if (is_pointer_type(component_type))
     {
         nodecl_rhs = nodecl_make_derreference(nodecl_rhs, 
-                pointer_type_get_pointee_type(component_type),
+                lvalue_ref(pointer_type_get_pointee_type(component_type)),
                 ASTFileName(name),
                 ASTLine(name));
         nodecl_set_symbol(nodecl_rhs, component_symbol);
@@ -1484,7 +1492,13 @@ static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t*
     }
 
     if (rhs_is_pointer)
+    {
         synthesized_type = get_pointer_type(synthesized_type);
+    }
+    else if (!nodecl_is_constant(nodecl_lhs))
+    {
+        synthesized_type = lvalue_ref(synthesized_type);
+    }
 
     *nodecl_output =
         nodecl_make_class_member_access(
@@ -1501,7 +1515,7 @@ static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t*
         *nodecl_output = 
             nodecl_make_derreference(
                     *nodecl_output,
-                    pointer_type_get_pointee_type(synthesized_type),
+                    lvalue_ref(pointer_type_get_pointee_type(synthesized_type)),
                     ASTFileName(expr),
                     ASTLine(expr));
         nodecl_set_symbol(*nodecl_output, component_symbol);
@@ -2987,7 +3001,7 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
         if (is_pointer_type(no_ref(result_type)))
         {
             *nodecl_output = nodecl_make_derreference(*nodecl_output, 
-                    pointer_type_get_pointee_type(no_ref(result_type)),
+                    lvalue_ref(pointer_type_get_pointee_type(no_ref(result_type))),
                     ASTFileName(expr), ASTLine(expr));
         }
     }
@@ -3330,7 +3344,7 @@ static void check_user_defined_unary_op(AST expr, decl_context_t decl_context, n
     if (is_pointer_type(no_ref(result_type)))
     {
         *nodecl_output = nodecl_make_derreference(*nodecl_output, 
-                pointer_type_get_pointee_type(no_ref(result_type)),
+                lvalue_ref(pointer_type_get_pointee_type(no_ref(result_type))),
                 ASTFileName(expr), ASTLine(expr));
     }
 }
@@ -3438,7 +3452,7 @@ static void check_user_defined_binary_op(AST expr, decl_context_t decl_context, 
     if (is_pointer_type(no_ref(result_type)))
     {
         *nodecl_output = nodecl_make_derreference(*nodecl_output, 
-                pointer_type_get_pointee_type(no_ref(result_type)),
+                lvalue_ref(pointer_type_get_pointee_type(no_ref(result_type))),
                 ASTFileName(expr), ASTLine(expr));
     }
 }
@@ -3663,7 +3677,7 @@ static void check_symbol_of_called_name(AST sym,
     }
 }
 
-// Common function when we finally understand that a
+// Common function when we finally understand that a name must be a variable-name
 static void check_symbol_name_as_a_variable(
         AST sym,
         scope_entry_t* entry,
@@ -3729,7 +3743,14 @@ static void check_symbol_name_as_a_variable(
     }
 
     *nodecl_output = nodecl_make_symbol(entry, ASTFileName(sym), ASTLine(sym));
-    nodecl_set_type(*nodecl_output, entry->type_information);
+    if (!is_const_qualified_type(no_ref(entry->type_information)))
+    {
+        nodecl_set_type(*nodecl_output, lvalue_ref(entry->type_information));
+    }
+    else
+    {
+        nodecl_set_type(*nodecl_output, entry->type_information);
+    }
 
     if (is_const_qualified_type(no_ref(entry->type_information))
             && !nodecl_is_null(entry->value)
@@ -3751,7 +3772,7 @@ static void check_symbol_name_as_a_variable(
         *nodecl_output = 
             nodecl_make_derreference(
                     *nodecl_output,
-                    pointer_type_get_pointee_type(no_ref(entry->type_information)),
+                    lvalue_ref(pointer_type_get_pointee_type(no_ref(entry->type_information))),
                     ASTFileName(sym), ASTLine(sym));
         nodecl_set_symbol(*nodecl_output, entry);
     }
@@ -3867,13 +3888,21 @@ static void check_symbol_of_argument(AST sym, decl_context_t decl_context, nodec
         else
         {
             *nodecl_output = nodecl_make_symbol(entry, ASTFileName(sym), ASTLine(sym));
-            nodecl_set_type(*nodecl_output, entry->type_information);
+
+            if (!is_const_qualified_type(no_ref(entry->type_information)))
+            {
+                nodecl_set_type(*nodecl_output, lvalue_ref(entry->type_information));
+            }
+            else
+            {
+                nodecl_set_type(*nodecl_output, lvalue_ref(entry->type_information));
+            }
         }
     }
     else if (entry->kind == SK_FUNCTION)
     {
         *nodecl_output = nodecl_make_symbol(entry, ASTFileName(sym), ASTLine(sym));
-        nodecl_set_type(*nodecl_output, entry->type_information);
+        nodecl_set_type(*nodecl_output, lvalue_ref(entry->type_information));
     }
     else
     {
@@ -5168,7 +5197,7 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
                 if (is_pointer_type(no_ref(result)))
                 {
                     *nodecl_output = nodecl_make_derreference(*nodecl_output, 
-                            pointer_type_get_pointee_type(no_ref(result)),
+                            lvalue_ref(pointer_type_get_pointee_type(no_ref(result))),
                             ASTFileName(expr), ASTLine(expr));
                 }
 
