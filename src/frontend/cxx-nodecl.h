@@ -108,10 +108,6 @@ void nodecl_set_child(nodecl_t, int, nodecl_t);
 // Free a temporally allocated nodecl
 void nodecl_free(nodecl_t);
 
-// Expression specific stuff
-char nodecl_expr_is_lvalue(nodecl_t);
-void nodecl_expr_set_is_lvalue(nodecl_t, char);
-
 char nodecl_expr_is_value_dependent(nodecl_t);
 void nodecl_expr_set_is_value_dependent(nodecl_t, char);
 

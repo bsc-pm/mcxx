@@ -3615,7 +3615,6 @@ static void build_scope_expression_stmt(AST a, decl_context_t decl_context, node
         *nodecl_output = nodecl_make_expression_statement(nodecl_expr,
                 ASTFileName(expr),
                 ASTLine(expr));
-        nodecl_expr_set_is_lvalue(*nodecl_output, nodecl_expr_is_lvalue(nodecl_expr));
     }
     else
     {

@@ -42,7 +42,6 @@
 typedef
 struct nodecl_expr_info_tag
 {
-    char is_lvalue:1;
     char is_value_dependent:1;
     char is_type_dependent_expression:1;
     int _reserved0;
@@ -348,29 +347,6 @@ char nodecl_is_list(nodecl_t n)
 void nodecl_free(nodecl_t n)
 {
     ast_free(nodecl_get_ast(n));
-}
-
-char nodecl_expr_is_lvalue(nodecl_t expr)
-{
-    nodecl_expr_info_t* expr_info = nodecl_expr_get_expression_info_noalloc(expr.tree);
-    return expr_info == NULL ? 0 : expr_info->is_lvalue;
-}
-
-void nodecl_expr_set_is_lvalue(nodecl_t node, char is_lvalue)
-{
-    nodecl_expr_info_t* expr_info = nodecl_expr_get_expression_info_noalloc(node.tree);
-    if (expr_info == NULL)
-    {
-        if (is_lvalue)
-        {
-            expr_info = nodecl_expr_get_expression_info(node.tree);
-            expr_info->is_lvalue = 1;
-        }
-    }
-    else
-    {
-        expr_info->is_lvalue = is_lvalue;
-    }
 }
 
 char nodecl_expr_is_value_dependent(nodecl_t node)

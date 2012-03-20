@@ -1962,6 +1962,11 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                 {
                     type_t* computed_type = nodecl_get_type(nodecl_expr);
 
+                    C_LANGUAGE()
+                    {
+                        computed_type = no_ref(computed_type);
+                    }
+
                     CXX_LANGUAGE()
                     {
                         // Ignore top level references like g++ does
@@ -6014,7 +6019,7 @@ static void set_array_type(type_t** declarator_type,
                 new_vla_dim->file = ASTFileName(constant_expr);
                 new_vla_dim->line = ASTLine(constant_expr);
                 new_vla_dim->value = nodecl_expr;
-                new_vla_dim->type_information = get_const_qualified_type(nodecl_get_type(nodecl_expr));
+                new_vla_dim->type_information = get_const_qualified_type(no_ref(nodecl_get_type(nodecl_expr)));
                 
                 // It's not user declared code, but we must generate it.
                 // For this reason, we do this trick
