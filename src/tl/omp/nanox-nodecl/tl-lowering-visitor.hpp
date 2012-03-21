@@ -35,6 +35,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         LoweringVisitor();
         void visit(const Nodecl::Parallel::Async& construct);
         void visit(const Nodecl::Parallel::WaitAsyncsShallow& construct);
+        void visit(const Nodecl::Parallel::WaitAsyncsDependences& construct);
         void visit(const Nodecl::Parallel::AsyncCall& construct);
 
     private:
@@ -101,6 +102,23 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 // out
                 Source& result_src
                 );
+        void fill_dependences_wait(
+                Nodecl::NodeclBase ctr,
+                OutlineInfo& outline_info,
+                // out
+                Source& result_src
+                );
+
+        void emit_wait_async(Nodecl::NodeclBase construct, OutlineInfo& outline_info);
+
+        static void fill_dimensions(int n_dims, int actual_dim, int current_dep_num,
+                Nodecl::NodeclBase * dim_sizes, 
+                Type dep_type, 
+                Source& dims_description, 
+                Source& dependency_regions_code, 
+                Scope sc);
+
+        void emit_wait_async(Nodecl::NodeclBase construct, bool has_dependences, OutlineInfo& outline_info);
 };
 
 } }

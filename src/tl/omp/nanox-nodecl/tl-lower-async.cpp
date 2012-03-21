@@ -260,7 +260,7 @@ void LoweringVisitor::emit_async_common(
             ;
 
         mandatory_creation << "0";
-        tiedness << (int)!!is_untied;
+        tiedness << (int)!is_untied;
 
         if (priority_expr.is_null())
         {
@@ -284,7 +284,7 @@ void LoweringVisitor::emit_async_common(
                     ;
                 device_description_init
                     << "{"
-                    << /* factory */ "&nanos_smp_factory, 0, &" << outline_name << "_smp_args"
+                    << /* factory */ "&nanos_smp_factory, &" << outline_name << "_smp_args"
                     << "}"
                     ;
             }
@@ -1077,7 +1077,7 @@ void LoweringVisitor::fill_dependences(
     }
 }
 
-static void fill_dimensions(int n_dims, int actual_dim, int current_dep_num,
+void LoweringVisitor::fill_dimensions(int n_dims, int actual_dim, int current_dep_num,
         Nodecl::NodeclBase * dim_sizes, 
         Type dep_type, 
         Source& dims_description, 

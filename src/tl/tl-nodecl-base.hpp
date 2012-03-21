@@ -412,7 +412,12 @@ namespace Nodecl {
             // Inserts _before_ the iterator it
             void insert(iterator it, Nodecl::NodeclBase new_node)
             {
-                if (it != this->end())
+                if (this->empty())
+                {
+                    // This list is empty, it does not matter where we put it
+                    *this = Nodecl::List::make(new_node);
+                }
+                else if (it != this->end())
                 {
                     nodecl_t singleton = nodecl_make_list_1(new_node.get_internal_nodecl());
 

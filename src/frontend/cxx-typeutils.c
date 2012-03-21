@@ -5706,6 +5706,13 @@ char is_rebindable_reference_to_class_type(type_t* t1)
             && is_class_type(reference_type_get_referenced_type(t1)));
 }
 
+char is_any_reference_type(type_t* t1)
+{
+    return is_lvalue_reference_type(t1)
+        || is_rvalue_reference_type(t1)
+        || is_rebindable_reference_type(t1);
+}
+
 char is_any_reference_to_class_type(type_t* t1)
 {
     return is_lvalue_reference_to_class_type(t1)
@@ -5865,12 +5872,8 @@ type_t* no_ref(type_t* t)
 
 type_t* lvalue_ref(type_t* t)
 {
-    if (!IS_C_LANGUAGE)
-    {
-        if (!is_lvalue_reference_type(t)
-                && !is_rvalue_reference_type(t))
-            return get_lvalue_reference_type(t);
-    }
+    if (!is_any_reference_type(t))
+        return get_lvalue_reference_type(t);
     return t;
 }
 

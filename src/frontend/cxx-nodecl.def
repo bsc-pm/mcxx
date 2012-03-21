@@ -392,7 +392,7 @@ atomic-execution : NODECL_PARALLEL*ATOMIC([name]name-opt, [statements]statement-
 
 composited-execution : NODECL_PARALLEL*COMPOSITE([environment]exec-environment-seq-opt, [regions]async-execution-seq)
 
-synchronization : NODECL_PARALLEL*WAIT_ASYNCS_DEPENDENCES([expressions] expression-seq-opt)
+synchronization : NODECL_PARALLEL*WAIT_ASYNCS_DEPENDENCES([environment] exec-environment-seq-opt)
 # First level
                 | NODECL_PARALLEL*WAIT_ASYNCS_SHALLOW()
 # All levels
