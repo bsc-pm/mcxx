@@ -6683,7 +6683,9 @@ static void check_new_expression_impl(
     {
         // The new type is dependent
         *nodecl_output = nodecl_make_new(
-                nodecl_init_list, 
+                nodecl_make_cxx_explicit_type_cast(nodecl_init_list, 
+                    new_type, 
+                    filename, line), 
                 nodecl_placement_list,
                 /* allocation function */ nodecl_null(),
                 get_unknown_dependent_type(), 

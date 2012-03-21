@@ -684,6 +684,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxEqualInitializer& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxMemberInit& node)
 {
+    TL::Symbol function = this->get_current_scope().get_decl_context().current_scope->related_entry;
+
     walk(node.get_name());
     walk(node.get_initializer());
 }
@@ -1263,6 +1265,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
 
     if (!initializers.is_null())
     {
+        push_context(symbol.get_scope());
         inc_indent();
 
         indent();
@@ -1273,6 +1276,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
         dec_indent();
 
         file << "\n";
+        pop_context();
     }
 
     this->walk(context);
@@ -1485,6 +1489,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 
     if (!initializers.is_null())
     {
+        push_context(symbol.get_scope());
         inc_indent();
 
         indent();
@@ -1495,6 +1500,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
         dec_indent();
 
         file << "\n";
+        pop_context();
     }
 
     this->walk(context);
@@ -1762,6 +1768,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::New& node)
 
     Nodecl::NodeclBase placement = node.get_placement();
     // Nodecl::NodeclBase operator_new = nodecl_get_child(node, 2);
+    
+    if (node.get_text() == "global")
+        file << "::";
 
     file << "new ";
 
@@ -3332,6 +3341,23 @@ void CxxBase::define_nonnested_entities_in_trees(Nodecl::NodeclBase const& node)
             &CxxBase::entry_just_define);
 }
 
+void CxxBase::define_or_declare_if_complete(TL::Symbol sym,
+        void (CxxBase::* symbol_to_declare)(TL::Symbol),
+        void (CxxBase::* symbol_to_define)(TL::Symbol))
+{
+    if ((sym.is_class()
+                || sym.is_enum())
+            && ( ::is_incomplete_type(sym.get_type().get_internal_type()) 
+                || symbol_is_nested_in_defined_classes(sym)))
+    {
+        (this->*symbol_to_declare)(sym);
+    }
+    else
+    {
+        (this->*symbol_to_define)(sym);
+    }
+}
+
 void CxxBase::define_specializations_user_declared(TL::Symbol sym)
 {
     if (sym.is_template_parameter())
@@ -3351,15 +3377,7 @@ void CxxBase::define_specializations_user_declared(TL::Symbol sym)
 
         if (sym_spec.is_user_declared())
         {
-            TL::Type t = sym_spec.get_type();
-            if ( ::is_complete_type(t.get_internal_type()) )
-            {
-                define_symbol(sym_spec);
-            }
-            else
-            {
-                declare_symbol(sym_spec);
-            }
+            define_or_declare_if_complete(sym_spec, &CxxBase::declare_symbol, &CxxBase::define_symbol);
         }
     }
 }
@@ -3548,16 +3566,8 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
             .get_primary_template()
             .get_symbol();
 
-        TL::Type t = primary_symbol.get_type();
 
-        if ( ::is_complete_type(t.get_internal_type()) )
-        {
-            define_symbol(primary_symbol);
-        }
-        else
-        {
-            declare_symbol(primary_symbol);
-        }
+        define_or_declare_if_complete(primary_symbol, &CxxBase::declare_symbol, &CxxBase::define_symbol);
         return;
     }
 
@@ -4510,15 +4520,7 @@ void CxxBase::walk_type_for_symbols(TL::Type t,
     else if (t.is_named_class())
     {
         TL::Symbol class_entry = t.get_symbol();
-        if (needs_def
-                && ::is_complete_type( class_entry.get_type().get_internal_type() ))
-        {
-            (this->*symbol_to_define)(class_entry);
-        }
-        else
-        {
-            (this->*symbol_to_declare)(class_entry);
-        }
+        define_or_declare_if_complete(class_entry, symbol_to_declare, symbol_to_define);
     }
     else if (t.is_unnamed_class())
     {
@@ -4548,16 +4550,7 @@ void CxxBase::walk_type_for_symbols(TL::Type t,
         TL::Symbol enum_entry = t.get_symbol();
 
         walk_type_for_symbols(enum_entry.get_type(), /* needs_def */ 1, symbol_to_declare, symbol_to_define, define_entities_in_tree);
-
-        if (needs_def
-                && ::is_complete_type( enum_entry.get_type().get_internal_type() ))
-        {
-            (this->*symbol_to_define)(enum_entry);
-        }
-        else
-        {
-            (this->*symbol_to_declare)(enum_entry);
-        }
+        define_or_declare_if_complete(enum_entry, symbol_to_declare, symbol_to_define);
     }
     else if (t.is_unresolved_overload())
     {
@@ -4784,6 +4777,11 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
         case NODECL_STRUCTURED_VALUE:
         case NODECL_PARENTHESIZED_EXPRESSION:
         case NODECL_COMPOUND_EXPRESSION:
+
+        case NODECL_CXX_DEP_NAME_SIMPLE:
+        case NODECL_CXX_DEP_NAME_NESTED:
+        case NODECL_CXX_DEP_GLOBAL_NAME_NESTED:
+        case NODECL_CXX_DEP_TEMPLATE_ID:
             {
                 return -1;
             }

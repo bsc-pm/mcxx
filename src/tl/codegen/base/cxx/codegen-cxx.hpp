@@ -302,6 +302,10 @@ namespace Codegen
 
             void define_specializations_user_declared(TL::Symbol);
 
+            void define_or_declare_if_complete(TL::Symbol sym,
+                    void (CxxBase::* symbol_to_declare)(TL::Symbol),
+                    void (CxxBase::* symbol_to_define)(TL::Symbol));
+
             void walk_type_for_symbols(TL::Type, 
                     bool needs_def, 
                     void (CxxBase::* declare_fun)(TL::Symbol),
