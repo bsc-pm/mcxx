@@ -123,7 +123,7 @@ namespace TL
             {
                 Codegen::CodegenPhase *p = static_cast<Codegen::CodegenPhase*>(_proxy);
 
-                return p->codegen_to_str(n);
+                return p->codegen_to_str(n, n.retrieve_context());
             }
     };
 }

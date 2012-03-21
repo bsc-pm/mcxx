@@ -39,12 +39,14 @@ bool CodegenVisitor::is_file_output() const
     return _is_file_output;
 }
 
-std::string CodegenVisitor::codegen_to_str(const Nodecl::NodeclBase& n)
+std::string CodegenVisitor::codegen_to_str(const Nodecl::NodeclBase& n, TL::Scope sc)
 {
     bool old_is_file_output = this->_is_file_output;
     this->_is_file_output = false;
 
+    this->push_context(sc);
     std::string result = this->codegen(n);
+    this->pop_context();
 
     this->_is_file_output = old_is_file_output;
     return result;
@@ -55,7 +57,10 @@ void CodegenVisitor::codegen_top_level(const Nodecl::NodeclBase& n, FILE* f)
     bool old_is_file_output = this->_is_file_output;
     this->_is_file_output = true;
 
+    this->push_context( n.retrieve_context() );
     std::string str ( this->codegen(n) );
+    this->pop_context();
+
     fprintf(f, "%s", str.c_str());
 
     this->_is_file_output = old_is_file_output;

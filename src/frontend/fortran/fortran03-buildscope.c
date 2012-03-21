@@ -3025,7 +3025,7 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
             {
                 error_printf("%s: error: expression '%s' must be of integer type\n",
                         nodecl_get_locus(lower_bound),
-                        codegen_to_str(lower_bound));
+                        codegen_to_str(lower_bound, nodecl_retrieve_context(lower_bound)));
             }
             else if (nodecl_is_err_expr(lower_bound))
             {
@@ -3044,7 +3044,7 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
             {
                 error_printf("%s: error: expression '%s' must be of integer type\n",
                         nodecl_get_locus(upper_bound),
-                        codegen_to_str(upper_bound));
+                        codegen_to_str(upper_bound, nodecl_retrieve_context(upper_bound)));
             }
             else if (nodecl_is_err_expr(upper_bound))
             {
@@ -3141,7 +3141,7 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
             {
                 error_printf("%s: error: dimension specifier '%s' must be constant in this context\n",
                         nodecl_get_locus(lower_bound),
-                        codegen_to_str(lower_bound));
+                        codegen_to_str(lower_bound, nodecl_retrieve_context(lower_bound)));
             }
             else
             {
@@ -3177,7 +3177,7 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
             {
                 error_printf("%s: error: dimension specifier '%s' must be constant in this context\n",
                         nodecl_get_locus(upper_bound),
-                        codegen_to_str(upper_bound));
+                        codegen_to_str(upper_bound, nodecl_retrieve_context(upper_bound)));
             }
             else
             {
@@ -4410,7 +4410,7 @@ static void build_scope_data_stmt(AST a, decl_context_t decl_context, nodecl_t* 
                 {
                     error_printf("%s: error: data-stmt-repeat '%s' is not a constant expression\n",
                             nodecl_get_locus(nodecl_repeat),
-                            codegen_to_str(nodecl_repeat));
+                            codegen_to_str(nodecl_repeat, nodecl_retrieve_context(nodecl_repeat)));
                 }
 
                 nodecl_t nodecl_value;
@@ -4420,7 +4420,7 @@ static void build_scope_data_stmt(AST a, decl_context_t decl_context, nodecl_t* 
                 {
                     error_printf("%s: error: data-stmt-value '%s' is not a constant expression\n",
                             nodecl_get_locus(nodecl_value),
-                            codegen_to_str(nodecl_value));
+                            codegen_to_str(nodecl_value, nodecl_retrieve_context(nodecl_value)));
                 }
 
                 if (!nodecl_is_constant(nodecl_repeat)
@@ -4452,7 +4452,7 @@ static void build_scope_data_stmt(AST a, decl_context_t decl_context, nodecl_t* 
                 {
                     error_printf("%s: error: data-stmt-value '%s' is not a constant expression\n",
                             nodecl_get_locus(nodecl_value),
-                            codegen_to_str(nodecl_value));
+                            codegen_to_str(nodecl_value, nodecl_retrieve_context(nodecl_value)));
                     continue;
                 }
 
@@ -5035,7 +5035,7 @@ static void build_scope_do_construct(AST a, decl_context_t decl_context, nodecl_
         {
             warn_printf("%s: warning: loop variable '%s' should be of integer type\n",
                     ast_location(a),
-                    codegen_to_str(do_loop_var));
+                    codegen_to_str(do_loop_var, nodecl_retrieve_context(do_loop_var)));
         }
     }
     nodecl_t nodecl_upper = nodecl_null();

@@ -677,14 +677,16 @@ extern "C"
         codegen_phase->run(dto);
     }
 
-    const char* codegen_to_str(nodecl_t node)
+    const char* codegen_to_str(nodecl_t node, decl_context_t decl_context)
     {
         ERROR_CONDITION(CURRENT_CONFIGURATION->codegen_phase == NULL,
                 "Codegen phase has not been loaded yet for this configuration", 0);
 
         Codegen::CodegenPhase* codegen_phase = reinterpret_cast<Codegen::CodegenPhase*>(CURRENT_CONFIGURATION->codegen_phase);
 
-        std::string str = codegen_phase->codegen_to_str(node);
+        codegen_phase->push_context(decl_context);
+        std::string str = codegen_phase->codegen_to_str(node, TL::Scope(decl_context));
+        codegen_phase->pop_context();
 
         return uniquestr(str.c_str());
     }

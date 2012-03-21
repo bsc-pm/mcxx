@@ -646,7 +646,10 @@ namespace TL
                 }
                 else
                 {
-                    std::string nodecl_string(codegen_to_str(it->get_nodecl().get_internal_nodecl()));
+                    std::string nodecl_string(codegen_to_str(
+                                it->get_nodecl().get_internal_nodecl(),
+                                nodecl_retrieve_context(it->get_nodecl().get_internal_nodecl())
+                                ));
                     result += nodecl_string + ", ";                
                 }
             }

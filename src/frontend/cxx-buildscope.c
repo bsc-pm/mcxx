@@ -1039,7 +1039,7 @@ void introduce_using_entity_nodecl_name(nodecl_t nodecl_name, decl_context_t dec
         {
             error_printf("%s: error: entity '%s' in using-declaration is unknown",
                     nodecl_get_locus(nodecl_name),
-                    codegen_to_str(nodecl_name));
+                    codegen_to_str(nodecl_name, decl_context));
         }
         return;
     }
@@ -2299,7 +2299,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
 
             nodecl_t nodecl_name = nodecl_null();
             compute_nodecl_name_from_id_expression(id_expression, decl_context, &nodecl_name);
-            friend_sym->symbol_name = codegen_to_str(nodecl_name);
+            friend_sym->symbol_name = codegen_to_str(nodecl_name, decl_context);
 
             friend_sym->value = nodecl_name;
             friend_sym->decl_context = decl_context;
@@ -3009,10 +3009,10 @@ static type_t* compute_underlying_type_enum(const_value_t* min_value,
         DEBUG_CODE()
         {
             fprintf(stderr, "BUILDSCOPE: Checking enum values range '%s..%s' with range '%s..%s' of %s\n",
-                    codegen_to_str(const_value_to_nodecl(min_value)),
-                    codegen_to_str(const_value_to_nodecl(max_value)),
-                    codegen_to_str(const_value_to_nodecl(integer_type_get_minimum(*result))),
-                    codegen_to_str(const_value_to_nodecl(integer_type_get_maximum(*result))),
+                    codegen_to_str(const_value_to_nodecl(min_value), CURRENT_COMPILED_FILE->global_decl_context),
+                    codegen_to_str(const_value_to_nodecl(max_value), CURRENT_COMPILED_FILE->global_decl_context),
+                    codegen_to_str(const_value_to_nodecl(integer_type_get_minimum(*result)), CURRENT_COMPILED_FILE->global_decl_context),
+                    codegen_to_str(const_value_to_nodecl(integer_type_get_maximum(*result)), CURRENT_COMPILED_FILE->global_decl_context),
                     print_declarator(*result));
         }
 
@@ -3025,8 +3025,8 @@ static type_t* compute_underlying_type_enum(const_value_t* min_value,
     }
 #undef B_
     internal_error("Cannot come up with a wide enough integer type for range %s..%s\n",
-            codegen_to_str(const_value_to_nodecl(min_value)),
-            codegen_to_str(const_value_to_nodecl(max_value)));
+            codegen_to_str(const_value_to_nodecl(min_value), CURRENT_COMPILED_FILE->global_decl_context),
+            codegen_to_str(const_value_to_nodecl(max_value), CURRENT_COMPILED_FILE->global_decl_context));
 }
 
 /*
@@ -3282,7 +3282,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                 else
                 {
                     fprintf(stderr, "BUILDSCOPE: Registering enumerator '%s' with value '%s' and type '%s'\n", ASTText(enumeration_name),
-                            codegen_to_str(enumeration_item->value),
+                            codegen_to_str(enumeration_item->value, decl_context),
                             print_declarator(enumeration_item->type_information));
                 }
             }
@@ -7775,7 +7775,7 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
 
     nodecl_t nodecl_name = nodecl_null();
     compute_nodecl_name_from_id_expression(declarator_id, decl_context, &nodecl_name);
-    entry->symbol_name = codegen_to_str(nodecl_name);
+    entry->symbol_name = codegen_to_str(nodecl_name, decl_context);
 
     entry->value = nodecl_name;
     entry->decl_context = decl_context;

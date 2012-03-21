@@ -2533,11 +2533,11 @@ OPERATOR_TABLE
 
                     if (is_fortran_representable_pointer(t))
                     {
-                        initializer = " => " + codegen_to_str(entry.get_initialization());
+                        initializer = " => " + codegen_to_str(entry.get_initialization(), entry.get_initialization().retrieve_context());
                     }
                     else
                     {
-                        initializer = " = " + codegen_to_str(entry.get_initialization());
+                        initializer = " = " + codegen_to_str(entry.get_initialization(), entry.get_initialization().retrieve_context());
                     }
                 }
             }
@@ -3069,7 +3069,8 @@ OPERATOR_TABLE
             codegen_type(entry.get_type(), type_spec, array_specifier,
                     /* is_dummy */ entry.is_parameter());
 
-            initializer = " = " + codegen_to_str(entry.get_initialization());
+            initializer = " = " + codegen_to_str(entry.get_initialization(),
+                    entry.get_initialization().retrieve_context());
 
             // Emit it as a parameter
             indent();
@@ -3659,7 +3660,8 @@ OPERATOR_TABLE
                 }
 
                 ss << "CHARACTER(LEN=" 
-                    << (array_type_is_unknown_size(t.get_internal_type()) ? "*" : this->codegen_to_str(upper_bound))
+                    << (array_type_is_unknown_size(t.get_internal_type()) ? "*" : 
+                            this->codegen_to_str(upper_bound, upper_bound.retrieve_context()))
                     << ")";
             }
             else
@@ -3710,15 +3712,18 @@ OPERATOR_TABLE
 
                 if (!array_spec_list[array_spec_idx].is_undefined)
                 {
-                    array_specifier += this->codegen_to_str(array_spec_list[array_spec_idx].lower);
+                    array_specifier += this->codegen_to_str(array_spec_list[array_spec_idx].lower, 
+                            array_spec_list[array_spec_idx].lower.retrieve_context());
                     array_specifier += ":";
-                    array_specifier += this->codegen_to_str(array_spec_list[array_spec_idx].upper);
+                    array_specifier += this->codegen_to_str(array_spec_list[array_spec_idx].upper,
+                            array_spec_list[array_spec_idx].upper.retrieve_context());
                 }
                 else
                 {
                     if (!array_spec_list[array_spec_idx].lower.is_null())
                     {
-                        array_specifier += this->codegen_to_str(array_spec_list[array_spec_idx].lower);
+                        array_specifier += this->codegen_to_str(array_spec_list[array_spec_idx].lower, 
+                                array_spec_list[array_spec_idx].lower.retrieve_context());
                         array_specifier += ":";
                         if (!array_spec_list[array_spec_idx].with_descriptor)
                         {
@@ -3912,7 +3917,7 @@ OPERATOR_TABLE
         lhs = lhs.as<Nodecl::ClassMemberAccess>().get_lhs();
 
         std::stringstream bitfield_accessor;
-        bitfield_accessor << codegen_to_str(lhs) << " % bitfield_pad_" << symbol.get_offset();
+        bitfield_accessor << codegen_to_str(lhs, lhs.retrieve_context()) << " % bitfield_pad_" << symbol.get_offset();
 
         file << bitfield_accessor.str() << " = ";
 

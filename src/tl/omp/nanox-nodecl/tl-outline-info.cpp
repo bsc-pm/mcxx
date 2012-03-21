@@ -160,7 +160,7 @@ namespace TL { namespace Nanox {
                     {
                         internal_error("%s: data reference '%s' must be valid at this point!\n", 
                                 it->get_locus().c_str(),
-                                Codegen::get_current().codegen_to_str(*it).c_str()
+                                Codegen::get_current().codegen_to_str(*it, it->retrieve_context()).c_str()
                                 );
                     }
                 }

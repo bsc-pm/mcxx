@@ -53,7 +53,7 @@ namespace Nodecl
     std::string NodeclBase::prettyprint()
     {
         const char* result = NULL;
-        result = codegen_to_str(_n);
+        result = codegen_to_str(_n, nodecl_retrieve_context(_n));
 
         if (result == NULL)
         {

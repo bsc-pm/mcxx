@@ -144,6 +144,9 @@ namespace Codegen
                     bool is_dummy);
 
             std::string emit_declaration_part(Nodecl::NodeclBase node, const TL::ObjectList<TL::Symbol>& do_not_declare);
+
+            virtual void push_context(TL::Scope sc) { }
+            virtual void pop_context() { }
         private:
             // State
             struct State

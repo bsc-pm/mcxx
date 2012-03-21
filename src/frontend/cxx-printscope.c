@@ -199,7 +199,7 @@ static void print_scope_entry(const char* key, scope_entry_t* entry, int global_
         if (entry->entity_specs.is_bitfield)
         {
             PRINT_INDENTED_LINE(stderr, global_indent + 1, "Bitfield of size: %s\n", 
-                    codegen_to_str(entry->entity_specs.bitfield_size));
+                    codegen_to_str(entry->entity_specs.bitfield_size, nodecl_retrieve_context(entry->entity_specs.bitfield_size)));
         }
     }
     if (entry->kind == SK_TEMPLATE_PARAMETER
@@ -335,7 +335,7 @@ static void print_scope_entry(const char* key, scope_entry_t* entry, int global_
             && !nodecl_is_null(entry->value))
     {
         PRINT_INDENTED_LINE(stderr, global_indent+1, "Expression value: %s\n",
-                codegen_to_str(entry->value));
+                codegen_to_str(entry->value, nodecl_retrieve_context(entry->value)));
     }
 
     if (entry->kind == SK_FUNCTION)
@@ -365,7 +365,8 @@ static void print_scope_entry(const char* key, scope_entry_t* entry, int global_
                     {
                         PRINT_INDENTED_LINE(stderr, global_indent + 1, "Default argument for parameter '%d' is '%s' \n", 
                                 i,
-                                codegen_to_str(entry->entity_specs.default_argument_info[i]->argument));
+                                codegen_to_str(entry->entity_specs.default_argument_info[i]->argument, 
+                                    nodecl_retrieve_context(entry->entity_specs.default_argument_info[i]->argument)));
                     }
                 }
             }

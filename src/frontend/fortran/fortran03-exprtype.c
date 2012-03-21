@@ -241,11 +241,12 @@ static void fortran_check_expression_impl_(AST expression, decl_context_t decl_c
         }
         else
         {
+            nodecl_t konst = const_value_to_nodecl(nodecl_get_constant(*nodecl_output));
             fprintf(stderr, "EXPRTYPE: %s: '%s' has type '%s' with a constant value of '%s'\n",
                     ast_location(expression),
                     fortran_prettyprint_in_buffer(expression),
                     print_declarator(nodecl_get_type(*nodecl_output)),
-                    codegen_to_str(const_value_to_nodecl(nodecl_get_constant(*nodecl_output))));
+                    codegen_to_str(konst, nodecl_retrieve_context(konst)));
         }
     }
 
@@ -1602,7 +1603,7 @@ static int compute_kind_from_literal(const char* p, AST expr, decl_context_t dec
 
         ERROR_CONDITION(!nodecl_is_constant(sym->value),
                 "Invalid nonconstant expression for kind '%s'", 
-                codegen_to_str(sym->value));
+                codegen_to_str(sym->value, nodecl_retrieve_context(sym->value)));
 
         return const_value_cast_to_4(nodecl_get_constant(sym->value));
     }
@@ -2456,7 +2457,7 @@ static void check_called_symbol_list(
                     {
                         info_printf("%s: info:    '%s' of type %s\n", 
                                 ast_location(location),
-                                codegen_to_str(nodecl_actual_arguments[i]),
+                                codegen_to_str(nodecl_actual_arguments[i], nodecl_retrieve_context(nodecl_actual_arguments[i])),
                                 fortran_print_type_str(nodecl_get_type(nodecl_actual_arguments[i])));
                     }
                 }
@@ -4377,7 +4378,7 @@ void fortran_check_initialization(
             {
                 error_printf("%s: error: initializer '%s' of type '%s' is not valid to initialize '%s' of type '%s'\n",
                         ast_location(expr),
-                        codegen_to_str(*nodecl_output),
+                        codegen_to_str(*nodecl_output, nodecl_retrieve_context(*nodecl_output)),
                         fortran_print_type_str(nodecl_get_type(*nodecl_output)),
                         entry->symbol_name,
                         fortran_print_type_str(entry->type_information));
@@ -4392,7 +4393,7 @@ void fortran_check_initialization(
             {
                 error_printf("%s: error: initializer '%s' is not a constant expression\n",
                         ast_location(expr),
-                        codegen_to_str(*nodecl_output));
+                        codegen_to_str(*nodecl_output, nodecl_retrieve_context(*nodecl_output)));
             }
             *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
             return;

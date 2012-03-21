@@ -142,7 +142,7 @@ const char* fortran_print_type_str(type_t* t)
         nodecl_t length = array_type_get_array_size_expr(t);
         char c[128] = { 0 };
         snprintf(c, 127, "CHARACTER(LEN=%s)",
-                nodecl_is_null(length) ? "*" : codegen_to_str(length));
+                nodecl_is_null(length) ? "*" : codegen_to_str(length, nodecl_retrieve_context(length)));
         c[127] = '\0';
         result = uniquestr(c);
     }
@@ -186,9 +186,11 @@ const char* fortran_print_type_str(type_t* t)
         {
             if (!array_spec_list[array_spec_idx].is_undefined)
             {
-                result = strappend(result, codegen_to_str(array_spec_list[array_spec_idx].lower));
+                result = strappend(result, codegen_to_str(array_spec_list[array_spec_idx].lower, 
+                            nodecl_retrieve_context(array_spec_list[array_spec_idx].lower)));
                 result = strappend(result, ":");
-                result = strappend(result, codegen_to_str(array_spec_list[array_spec_idx].upper));
+                result = strappend(result, codegen_to_str(array_spec_list[array_spec_idx].upper, 
+                            nodecl_retrieve_context(array_spec_list[array_spec_idx].upper)));
             }
             else
             {

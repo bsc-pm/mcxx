@@ -49,10 +49,7 @@ std::string CxxBase::codegen(const Nodecl::NodeclBase &n)
     State old_state = state;
     state = State();
 
-    TL::Scope sc = n.retrieve_context();
-    state.current_scope = sc;
-
-    decl_context_t decl_context = sc.get_decl_context();
+    decl_context_t decl_context = this->get_current_scope().get_decl_context();
 
     state.global_namespace = decl_context.global_scope->related_entry;
     state.opened_namespace = decl_context.namespace_scope->related_entry;
@@ -66,8 +63,8 @@ std::string CxxBase::codegen(const Nodecl::NodeclBase &n)
 
     walk(n);
 
-    // Make sure the global namespace is closed
-    codegen_move_namespace_from_to(state.opened_namespace, state.global_namespace);
+    // Make sure the starting namespace is closed
+    codegen_move_namespace_from_to(state.opened_namespace, decl_context.namespace_scope->related_entry);
     
     std::string result = file.str();
 
@@ -77,6 +74,21 @@ std::string CxxBase::codegen(const Nodecl::NodeclBase &n)
     file.seekp(0, std::ios_base::end);
 
     return result;
+}
+
+void CxxBase::push_context(TL::Scope sc)
+{
+    _scope_stack.push_back(sc);
+}
+
+void CxxBase::pop_context()
+{
+    _scope_stack.pop_back();
+}
+
+TL::Scope CxxBase::get_current_scope() const
+{
+    return _scope_stack.back();
 }
 
 #define OPERATOR_TABLE \
@@ -346,7 +358,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Cast& node)
     if (IS_C_LANGUAGE
             || cast_kind == "C")
     {
-        file << "(" << this->get_declaration(t, state.current_scope,  "") << ")";
+        file << "(" << this->get_declaration(t, this->get_current_scope(),  "") << ")";
         char needs_parentheses = operand_has_lower_priority(node, nest);
         if (needs_parentheses)
         {
@@ -360,7 +372,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Cast& node)
     }
     else
     {
-        std::string decl = this->get_declaration(t, state.current_scope,  "");
+        std::string decl = this->get_declaration(t, this->get_current_scope(),  "");
         if (decl[0] == ':')
         {
             decl = " " + decl;
@@ -384,7 +396,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CatchHandler& node)
     if (name.is_null())
     {
         // FIXME: Is this always safe?
-        file << this->get_declaration(type, state.current_scope,  "");
+        file << this->get_declaration(type, this->get_current_scope(),  "");
     }
     else
     {
@@ -493,8 +505,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CompoundExpression& node)
     Nodecl::Context context = node.get_nest().as<Nodecl::Context>();
     Nodecl::List statements = context.get_in_context().as<Nodecl::List>();
 
-    TL::Scope old_scope = state.current_scope;
-    state.current_scope = context.retrieve_context();
+    this->push_context(context.retrieve_context());
 
     file << "{\n";
     inc_indent();
@@ -521,7 +532,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CompoundExpression& node)
     indent();
     file << "}";
 
-    state.current_scope = old_scope;
+    this->pop_context();
 
     file << ") ";
 }
@@ -592,12 +603,11 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ConditionalExpression& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::Context& node)
 {
-    TL::Scope old_scope = state.current_scope;
-    state.current_scope = node.retrieve_context();
+    this->push_context(node.retrieve_context());
 
     walk(node.get_in_context());
 
-    state.current_scope = old_scope;
+    this->pop_context();
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::ContinueStatement& node)
@@ -643,7 +653,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepGlobalNameNested& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepNameConversion& node)
 {
-    file << "operator " << this->get_declaration(node.get_type(), state.current_scope, "");
+    file << "operator " << this->get_declaration(node.get_type(), this->get_current_scope(), "");
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepNameNested& node)
@@ -663,7 +673,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepTemplateId& node)
     walk(node.get_name());
 
     file << ::template_arguments_to_str(nodecl_get_template_parameters(node.get_internal_nodecl()), 
-                state.current_scope.get_decl_context());
+                this->get_current_scope().get_decl_context());
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxEqualInitializer& node)
@@ -682,7 +692,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxExplicitTypeCast& node)
 {
     TL::Type t = node.get_type();
 
-    file << this->get_declaration(t, state.current_scope,  "");
+    file << this->get_declaration(t, this->get_current_scope(),  "");
 
     walk(node.get_init_list());
 }
@@ -1771,7 +1781,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::New& node)
     else
     {
         // new[] cannot have an initializer, so just print the type
-        file << this->get_declaration(t, state.current_scope,  "");
+        file << this->get_declaration(t, this->get_current_scope(),  "");
     }
 }
 
@@ -1976,14 +1986,14 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Sizeof& node)
 {
     TL::Type t = node.get_size_type().get_type();
 
-    file << "sizeof(" << this->get_declaration(t, state.current_scope,  "") << ")";
+    file << "sizeof(" << this->get_declaration(t, this->get_current_scope(),  "") << ")";
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::Alignof& node)
 {
     TL::Type t = node.get_align_type().get_type();
 
-    file << "__alignof__(" << this->get_declaration(t, state.current_scope,  "") << ")";
+    file << "__alignof__(" << this->get_declaration(t, this->get_current_scope(),  "") << ")";
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::StringLiteral& node)
@@ -2073,7 +2083,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
             {
                 if (!state.inside_structured_value)
                 {
-                    file << "(" << this->get_declaration(type, state.current_scope,  "") << ")";
+                    file << "(" << this->get_declaration(type, this->get_current_scope(),  "") << ")";
                 }
 
                 char inside_structured_value = state.inside_structured_value;
@@ -2089,7 +2099,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
             // T(expr-list)
         case CXX03_EXPLICIT:
             {
-                file << this->get_declaration(type, state.current_scope,  "");
+                file << this->get_declaration(type, this->get_current_scope(),  "");
 
                 if (items.empty())
                 {
@@ -2114,7 +2124,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
             // T{expr-list}
         case CXX1X_EXPLICIT:
             {
-                file << this->get_declaration(type, state.current_scope,  "");
+                file << this->get_declaration(type, this->get_current_scope(),  "");
 
                 char inside_structured_value = state.inside_structured_value;
                 state.inside_structured_value = 1;
@@ -2180,22 +2190,21 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Symbol& node)
         file << "(*";
     }
 
-    if (IS_CXX_LANGUAGE
-            && !entry.is_template_parameter()
-            && !entry.is_builtin())
+    C_LANGUAGE()
     {
-        if (entry.is_dependent_entity())
+        file << entry.get_name();
+    }
+    CXX_LANGUAGE()
+    {
+        if (entry.is_builtin())
         {
-            file << entry.get_qualified_name(node.retrieve_context());
+            // Builtins cannot be qualified
+            file << entry.get_name();
         }
         else
         {
-            file << entry.get_qualified_name(entry.get_scope());
+            file << entry.get_qualified_name(this->get_current_scope());
         }
-    }
-    else
-    {
-        file << entry.get_name();
     }
 
     if (must_derref)
@@ -2250,7 +2259,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TryBlock& node)
 CxxBase::Ret CxxBase::visit(const Nodecl::Type& node)
 {
     TL::Type type = node.get_type();
-    file << this->get_declaration(type, state.current_scope,  "");
+    file << this->get_declaration(type, this->get_current_scope(),  "");
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::Typeid& node)
@@ -2297,6 +2306,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::WhileStatement& node)
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxDecl& node)
 {
     TL::Symbol sym = node.get_symbol();
+    state.must_be_object_init.erase(sym);
 
     if ((sym.is_class()
                 || sym.is_enum())
@@ -2826,7 +2836,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                         internal_error("Unreachable code", 0);
                     }
                 }
-
+                
                 file << base.get_qualified_name(symbol.get_scope());
             }
         }
@@ -3361,7 +3371,7 @@ void CxxBase::define_symbol(TL::Symbol symbol)
 
     if (state.emit_declarations == State::EMIT_CURRENT_SCOPE_DECLARATIONS)
     {
-        if (state.current_scope.get_decl_context().current_scope != symbol.get_scope().get_decl_context().current_scope)
+        if (this->get_current_scope().get_decl_context().current_scope != symbol.get_scope().get_decl_context().current_scope)
             return;
     }
 
@@ -3517,7 +3527,7 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
 
     if (state.emit_declarations == State::EMIT_CURRENT_SCOPE_DECLARATIONS)
     {
-        if (state.current_scope.get_decl_context().current_scope != symbol.get_scope().get_decl_context().current_scope)
+        if (this->get_current_scope().get_decl_context().current_scope != symbol.get_scope().get_decl_context().current_scope)
             return;
     }
 
@@ -4357,18 +4367,19 @@ void CxxBase::entry_local_definition(
         void (CxxBase::*def_sym_fun)(TL::Symbol))
 {
     // FIXME - Improve this
-    if (state.current_scope.get_decl_context().current_scope 
+    if (this->get_current_scope().get_decl_context().current_scope 
             == entry.get_scope().get_decl_context().current_scope)
     {
-        if (!node.is<Nodecl::ObjectInit>())
-        {
-            (this->*def_sym_fun)(entry);
-        }
-        else
+        if (node.is<Nodecl::ObjectInit>()
+                || node.is<Nodecl::CxxDecl>())
         {
             // If this is an object init (and the traversal ensures that
             // they will be seen first) we assume it's already been defined
             state.must_be_object_init.insert(entry);
+        }
+        else
+        {
+            (this->*def_sym_fun)(entry);
         }
     }
 }
@@ -5311,7 +5322,9 @@ void CxxBase::codegen_template_header(TL::TemplateParameters template_parameters
                         }
                     case TPK_NONTYPE:
                         {
+                            push_context(symbol.get_scope());
                             walk(temp_arg.get_value());
+                            pop_context();
                             break;
                         }
                     default:

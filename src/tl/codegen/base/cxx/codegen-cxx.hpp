@@ -41,6 +41,8 @@ namespace Codegen
         protected:
             virtual std::string codegen(const Nodecl::NodeclBase&);
         public:
+            virtual void push_context(TL::Scope sc);
+            virtual void pop_context();
 
             Ret visit(const Nodecl::Add &);
             Ret visit(const Nodecl::AddAssignment &);
@@ -182,8 +184,6 @@ namespace Codegen
             // State
             struct State
             {
-                TL::Scope current_scope;
-
                 TL::Symbol current_symbol;
                 TL::Symbol global_namespace;
                 TL::Symbol opened_namespace;
@@ -231,8 +231,7 @@ namespace Codegen
                 // inc_indent, dec_indent
                 int _indent_level;
 
-                State()
-                    : current_scope(),
+                State() :
                     global_namespace(),
                     opened_namespace(),
                     emit_declarations(EMIT_NO_DECLARATIONS),
@@ -251,6 +250,8 @@ namespace Codegen
                     _indent_level(0) { }
             } state;
             // End of State
+
+            std::vector<TL::Scope> _scope_stack;
 
             bool symbol_is_same_or_nested_in(TL::Symbol symbol, TL::Symbol class_sym);
             bool symbol_is_nested_in_defined_classes(TL::Symbol symbol);
@@ -380,6 +381,8 @@ namespace Codegen
             std::string get_declaration_with_parameters(TL::Type, TL::Scope, const std::string& name,
                     TL::ObjectList<std::string>& names, TL::ObjectList<std::string> & parameter_attributes);
             TL::Type fix_references(TL::Type t);
+
+            TL::Scope get_current_scope() const;
     };
 }
 

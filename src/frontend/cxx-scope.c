@@ -72,6 +72,8 @@ static scope_entry_list_t* name_lookup(decl_context_t decl_context,
 
 template_parameter_list_t* duplicate_template_argument_list(template_parameter_list_t* template_parameters)
 {
+    ERROR_CONDITION(template_parameters == NULL, "Template parameters cannot be NULL here", 0);
+
     template_parameter_list_t* result = counted_calloc(1, sizeof(*result), &_bytes_used_scopes);
 
     *result = *template_parameters;
@@ -1681,7 +1683,7 @@ static nodecl_t update_nodecl_template_argument_expression(nodecl_t nodecl,
     DEBUG_CODE()
     {
         fprintf(stderr, "SCOPE: Updating expression '%s'\n", 
-                codegen_to_str(nodecl));
+                codegen_to_str(nodecl, decl_context));
     }
 
     nodecl_t nodecl_output = nodecl_null();
@@ -1700,7 +1702,7 @@ static nodecl_t update_nodecl_constant_expression(nodecl_t nodecl,
     DEBUG_CODE()
     {
         fprintf(stderr, "SCOPE: Updating expression '%s'\n", 
-                codegen_to_str(nodecl));
+                codegen_to_str(nodecl, decl_context));
     }
     nodecl = instantiate_expression(nodecl, decl_context);
 
@@ -1711,7 +1713,7 @@ static nodecl_t update_nodecl_constant_expression(nodecl_t nodecl,
         {
             error_printf("%s: error: expression '%s' is not constant\n",
                     nodecl_get_locus(nodecl),
-                    codegen_to_str(nodecl));
+                    codegen_to_str(nodecl, decl_context));
         }
     }
 
@@ -2259,7 +2261,7 @@ static type_t* update_type_aux_(type_t* orig_type,
             DEBUG_CODE()
             {
                 fprintf(stderr, "SCOPE: Expression '%s' successfully updated\n",
-                        codegen_to_str(array_size));
+                        codegen_to_str(array_size, decl_context));
             }
         }
 
@@ -2885,7 +2887,7 @@ const char* template_arguments_to_str(
                 }
             case TPK_NONTYPE:
                 {
-                    argument_str = codegen_to_str(argument->value);
+                    argument_str = codegen_to_str(argument->value, decl_context);
                     break;
                 }
             default:
@@ -3002,7 +3004,7 @@ static const char* get_fully_qualified_symbol_name_of_dependent_typename(
                     case TPK_NONTYPE:
                         {
                             result = strappend(result, 
-                                    codegen_to_str(template_arg->value));
+                                    codegen_to_str(template_arg->value, decl_context));
                             break;
                         }
                     case TPK_TEMPLATE:
@@ -3572,7 +3574,7 @@ void print_template_parameter_list_aux(template_parameter_list_t* template_param
                         }
                     case TPK_NONTYPE:
                         {
-                            fprintf(stderr, "  Argument: %s\n", codegen_to_str(v->value));
+                            fprintf(stderr, "  Argument: %s\n", codegen_to_str(v->value, CURRENT_COMPILED_FILE->global_decl_context));
                             fprintf(stderr, "  (Type: %s)\n", print_declarator(v->type));
                             break;
                         }
