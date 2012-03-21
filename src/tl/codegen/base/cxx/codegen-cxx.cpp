@@ -1113,6 +1113,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
             TL::Type template_type = symbol_type.get_related_template_type();
             TL::Type primary_type = template_type.get_primary_template();
             TL::Symbol primary_symbol = primary_type.get_symbol();
+
             declare_symbol(primary_symbol);
         }
     }
@@ -2457,7 +2458,16 @@ TL::ObjectList<TL::Symbol> CxxBase::define_required_before_class(TL::Symbol symb
 
             if (primary_symbol != symbol)
             {
-                declare_symbol_if_nonnested(primary_symbol);
+                TL::Type t = primary_symbol.get_type();
+
+                if (::is_complete_type(t.get_internal_type()))
+                {
+                    define_symbol_if_nonnested(primary_symbol);
+                }
+                else
+                {
+                    declare_symbol_if_nonnested(primary_symbol);
+                }
             }
         }
 
@@ -2548,13 +2558,14 @@ TL::ObjectList<TL::Symbol> CxxBase::define_required_before_class(TL::Symbol symb
             TL::Symbol &_friend(*it);
             walk_type_for_symbols(
                     _friend.get_type(), 
-                    /* needs_def */ 0, 
+                    /* needs_def */ 1, 
                     &CxxBase::declare_symbol_if_nonnested, 
                     &CxxBase::define_symbol_if_nonnested,
                     &CxxBase::define_nonnested_entities_in_trees);
 
             if (!_friend.is_friend_declared())
             {
+                // ??? Try defining?
                 declare_symbol_if_nonnested(_friend);
             }
         }
@@ -2565,7 +2576,7 @@ TL::ObjectList<TL::Symbol> CxxBase::define_required_before_class(TL::Symbol symb
             || symbol.is_variable())
     {
         walk_type_for_symbols(
-                symbol.get_type(), /* needs_def */ 0, 
+                symbol.get_type(), /* needs_def */ 1, 
                 &CxxBase::declare_symbol_if_nonnested, 
                 &CxxBase::define_symbol_if_nonnested,
                 &CxxBase::define_nonnested_entities_in_trees);
@@ -2665,6 +2676,8 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
 
     char is_dependent_class = 0;
     TL::Type symbol_type = symbol.get_type();
+
+    ERROR_CONDITION(::is_incomplete_type(symbol_type.get_internal_type()), "An incomplete class cannot be defined", 0);
     
     CXX_LANGUAGE()
     {
@@ -2893,6 +2906,9 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                         TL::Type primary_template = related_template.get_primary_template();
                         char is_primary_template = (primary_template.get_symbol() == member);
 
+                        // FIXME - This comment below is obsolete, right?
+                        // *****
+                        //
                         // C++ has a problem here: we cannot explicitly
                         // specialize a member template class in non namespace
                         // scope but we need the definition, here EXCEPTIONALLY
@@ -2900,6 +2916,9 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                         // quirk. Other solutions (like flattening the members)
                         // are more cumbersome and more painstaking than this
                         // one.
+                        //
+                        // *****
+                        // FIXME - That comment above is obsolete, right?
                         if (is_primary_template)
                         {
                             // Try hard to avoid emitting dependent code
@@ -3300,9 +3319,18 @@ void CxxBase::define_specializations_user_declared(TL::Symbol sym)
     {
         TL::Type type_spec = *it;
         TL::Symbol sym_spec = type_spec.get_symbol();
+
         if (sym_spec.is_user_declared())
         {
-            define_symbol(sym_spec);
+            TL::Type t = sym_spec.get_type();
+            if ( ::is_complete_type(t.get_internal_type()) )
+            {
+                define_symbol(sym_spec);
+            }
+            else
+            {
+                declare_symbol(sym_spec);
+            }
         }
     }
 }
@@ -3490,7 +3518,17 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
             .get_related_template_type()
             .get_primary_template()
             .get_symbol();
-        declare_symbol(primary_symbol);
+
+        TL::Type t = primary_symbol.get_type();
+
+        if ( ::is_complete_type(t.get_internal_type()) )
+        {
+            define_symbol(primary_symbol);
+        }
+        else
+        {
+            declare_symbol(primary_symbol);
+        }
         return;
     }
 
@@ -3952,7 +3990,7 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
 
         walk_type_for_symbols(
                 symbol.get_type(),
-                /* needs_def */ false,
+                /* needs_def */ 1,
                 &CxxBase::declare_symbol_if_nonlocal,
                 &CxxBase::define_symbol_if_nonlocal,
                 &CxxBase::define_nonprototype_entities_in_trees);
@@ -4219,6 +4257,7 @@ void CxxBase::define_generic_entities(Nodecl::NodeclBase node,
                 define_entities_fun);
     }
 
+#if 0
     if (node.is<Nodecl::Conversion>())
     {
         // Special cases for conversion nodes 
@@ -4282,6 +4321,7 @@ void CxxBase::define_generic_entities(Nodecl::NodeclBase node,
                     define_entities_fun);
         }
     }
+#endif
 }
 
 void CxxBase::entry_just_define(
@@ -4391,15 +4431,15 @@ void CxxBase::walk_type_for_symbols(TL::Type t,
     }
     else if (t.is_pointer())
     {
-        walk_type_for_symbols(t.points_to(), /* needs_def */ 0, symbol_to_declare, symbol_to_define,
+        walk_type_for_symbols(t.points_to(), /* needs_def */ 1, symbol_to_declare, symbol_to_define,
                 define_entities_in_tree);
     }
     else if (t.is_pointer_to_member())
     {
-        walk_type_for_symbols(t.pointed_class(), /* needs_def */ 0, symbol_to_declare, symbol_to_define,
+        walk_type_for_symbols(t.pointed_class(), /* needs_def */ 1, symbol_to_declare, symbol_to_define,
                 define_entities_in_tree);
 
-        walk_type_for_symbols(t.points_to(), /* needs_def */ 0, symbol_to_declare, symbol_to_define,
+        walk_type_for_symbols(t.points_to(), /* needs_def */ 1, symbol_to_declare, symbol_to_define,
                 define_entities_in_tree);
     }
     else if (t.is_array())
@@ -4420,14 +4460,14 @@ void CxxBase::walk_type_for_symbols(TL::Type t,
     else if (t.is_function())
     {
         walk_type_for_symbols(t.returns(),
-                /* needs_def */ 0, symbol_to_declare, symbol_to_define, define_entities_in_tree);
+                /* needs_def */ 1, symbol_to_declare, symbol_to_define, define_entities_in_tree);
         TL::ObjectList<TL::Type> params = t.parameters();
         for (TL::ObjectList<TL::Type>::iterator it = params.begin();
                 it != params.end();
                 it++)
         {
             walk_type_for_symbols(*it,
-                    /* needs_def */ 0, 
+                    /* needs_def */ 1, 
                     symbol_to_declare,
                     symbol_to_define,
                     &CxxBase::define_nonprototype_entities_in_trees);
@@ -4440,7 +4480,8 @@ void CxxBase::walk_type_for_symbols(TL::Type t,
     else if (t.is_named_class())
     {
         TL::Symbol class_entry = t.get_symbol();
-        if (needs_def)
+        if (needs_def
+                && ::is_complete_type( class_entry.get_type().get_internal_type() ))
         {
             (this->*symbol_to_define)(class_entry);
         }
@@ -4478,7 +4519,8 @@ void CxxBase::walk_type_for_symbols(TL::Type t,
 
         walk_type_for_symbols(enum_entry.get_type(), /* needs_def */ 1, symbol_to_declare, symbol_to_define, define_entities_in_tree);
 
-        if (needs_def)
+        if (needs_def
+                && ::is_complete_type( enum_entry.get_type().get_internal_type() ))
         {
             (this->*symbol_to_define)(enum_entry);
         }
@@ -5054,7 +5096,7 @@ void CxxBase::declare_all_in_template_arguments(TL::TemplateParameters template_
                 {
                     walk_type_for_symbols(
                             argument.get_type(),
-                            /* needs_def */ 0,
+                            /* needs_def */ 1,
                             &CxxBase::declare_symbol_if_nonnested,
                             &CxxBase::define_symbol_if_nonnested,
                             &CxxBase::define_nonnested_entities_in_trees);

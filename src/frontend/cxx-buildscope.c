@@ -126,7 +126,8 @@ static void gather_type_spec_from_dependent_typename(AST a, type_t** simple_type
 static void gather_type_spec_from_elaborated_class_specifier(AST a, 
         type_t** type_info,
         gather_decl_spec_t *gather_info,
-        decl_context_t decl_context);
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output);
 static void gather_type_spec_from_elaborated_enum_specifier(AST a, 
         type_t** type_info, 
         gather_decl_spec_t* gather_info, 
@@ -1806,7 +1807,7 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
             break;
         case AST_ELABORATED_TYPE_CLASS_SPEC :
         case AST_GCC_ELABORATED_TYPE_CLASS_SPEC :
-            gather_type_spec_from_elaborated_class_specifier(a, simple_type_info, gather_info, decl_context);
+            gather_type_spec_from_elaborated_class_specifier(a, simple_type_info, gather_info, decl_context, nodecl_output);
             break;
         case AST_CHAR_TYPE :
             // It can be either signed or unsigned, so do not assume it is
@@ -2085,7 +2086,8 @@ static char is_dependent_class_scope(decl_context_t decl_context)
 static void gather_type_spec_from_elaborated_class_specifier(AST a, 
         type_t** type_info,
         gather_decl_spec_t *gather_info,
-        decl_context_t decl_context)
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output)
 {
     /*
      * This function should maintain strictly these two variables.
@@ -2326,7 +2328,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
                 template_type_get_specialized_type_noreuse(template_type, tpl, decl_context, friend_sym->file, friend_sym->line);
         }
 
-        //Promote a SK_DEPENDENT_ENTITY to SK_DEPENDENT_FRIEND_CLASS
+        // Promote a SK_DEPENDENT_ENTITY to SK_DEPENDENT_FRIEND_CLASS
         if (friend_sym->kind == SK_DEPENDENT_ENTITY)
         {
             friend_sym->kind = SK_DEPENDENT_FRIEND_CLASS;
@@ -4849,7 +4851,7 @@ static void build_scope_delayed_functions(nodecl_t* nodecl_output)
         build_scope_function_definition(function_def, previous_symbol, decl_context, 
                 is_template, is_explicit_instantiation, /* declared_symbols */ NULL, &nodecl_funct_def);
 
-        if(previous_symbol->kind != SK_DEPENDENT_FRIEND_FUNCTION)
+        if (previous_symbol->kind != SK_DEPENDENT_FRIEND_FUNCTION)
         {
             *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_funct_def);
         }
