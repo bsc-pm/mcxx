@@ -2278,9 +2278,9 @@ void DeviceSMP::create_outline(
                 << "nanos_event_value_t ev_chunk;"
                 << "nanos_err_t err = nanos_instrument_get_key(\"user-funct-name\", &ek);"
                 << "if (err != NANOS_OK) nanos_handle_error(err);"
-                << "err = nanos_instrument_register_value(&ev_loop, \"user-funct-name\", \"outlined-loop\", \"Outlined loop function\", false);"
+                << "err = nanos_instrument_register_value(&ev_loop, \"user-funct-name\", \"outlined-loop\", \"Outlined loop function\", 0);"
                 << "if (err != NANOS_OK) nanos_handle_error(err);"
-                << "err = nanos_instrument_register_value(&ev_chunk, \"user-funct-name\", \"loop-chunk\", \"Loop chunk\", false);"
+                << "err = nanos_instrument_register_value(&ev_chunk, \"user-funct-name\", \"loop-chunk\", \"Loop chunk\", 0);"
                 << "if (err != NANOS_OK) nanos_handle_error(err);"
                 // This enter_burst is closed by a leave_burst contained in body code
                 // body code is filled in tl-for.cpp
