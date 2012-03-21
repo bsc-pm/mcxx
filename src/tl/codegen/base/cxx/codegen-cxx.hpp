@@ -164,6 +164,8 @@ namespace Codegen
             Ret visit(const Nodecl::VirtualFunctionCall &);
             Ret visit(const Nodecl::WhileStatement &);
 
+            Ret visit(const Nodecl::CxxDecl& node);
+
             Ret visit(const Nodecl::Verbatim& node);
             Ret visit(const Nodecl::UnknownPragma& node);
             Ret visit(const Nodecl::GxxTrait& node);

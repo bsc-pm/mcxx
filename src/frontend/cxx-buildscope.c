@@ -115,7 +115,8 @@ static void gather_type_spec_from_simple_type_specifier(AST a, type_t** type_inf
         gather_decl_spec_t* gather_info, decl_context_t decl_context);
 static void gather_type_spec_from_enum_specifier(AST a, type_t** type_info, 
         gather_decl_spec_t* gather_info,
-        decl_context_t decl_context);
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output);
 static void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
         gather_decl_spec_t* gather_info,
         decl_context_t decl_context,
@@ -131,7 +132,8 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
 static void gather_type_spec_from_elaborated_enum_specifier(AST a, 
         type_t** type_info, 
         gather_decl_spec_t* gather_info, 
-        decl_context_t decl_context);
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output);
 
 static void gather_gcc_attributes_spread(AST a, gather_decl_spec_t* gather_info, 
         decl_context_t declarator_context);
@@ -1437,6 +1439,14 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
             {
                 *declared_symbols = entry_list_add(*declared_symbols, entry);
             }
+
+            CXX_LANGUAGE()
+            {
+                *nodecl_output = nodecl_concat_lists(
+                        *nodecl_output,
+                        nodecl_make_list_1(
+                            nodecl_make_cxx_decl(entry, ASTFileName(init_declarator), ASTLine(init_declarator)))); 
+            }
         }
     }
     else if (simple_type_info != NULL)
@@ -1796,14 +1806,14 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
             break;
         case AST_ENUM_SPECIFIER :
         case AST_GCC_ENUM_SPECIFIER :
-            gather_type_spec_from_enum_specifier(a, simple_type_info, gather_info, decl_context);
+            gather_type_spec_from_enum_specifier(a, simple_type_info, gather_info, decl_context, nodecl_output);
             break;
         case AST_CLASS_SPECIFIER :
             gather_type_spec_from_class_specifier(a, simple_type_info, gather_info, decl_context, nodecl_output);
             break;
         case AST_ELABORATED_TYPE_ENUM_SPEC :
         case AST_GCC_ELABORATED_TYPE_ENUM_SPEC :
-            gather_type_spec_from_elaborated_enum_specifier(a, simple_type_info, gather_info, decl_context);
+            gather_type_spec_from_elaborated_enum_specifier(a, simple_type_info, gather_info, decl_context, nodecl_output);
             break;
         case AST_ELABORATED_TYPE_CLASS_SPEC :
         case AST_GCC_ELABORATED_TYPE_CLASS_SPEC :
@@ -2599,12 +2609,23 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
     class_entry->entity_specs.is_user_declared = 1;
 
     *type_info = get_user_defined_type(class_entry);
+
+    CXX_LANGUAGE()
+    {
+        // Remember the declaration
+        *nodecl_output = 
+            nodecl_concat_lists(
+                    *nodecl_output,
+                    nodecl_make_list_1(
+                        nodecl_make_cxx_decl(class_entry, ASTFileName(a), ASTLine(a))));
+    }
 }
 
 static void gather_type_spec_from_elaborated_enum_specifier(AST a, 
         type_t** type_info, 
         gather_decl_spec_t* gather_info, 
-        decl_context_t decl_context)
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output)
 {
     AST id_expression = ASTSon0(a);
 
@@ -2743,6 +2764,15 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a,
         }
 
         *type_info = get_user_defined_type(entry);
+    }
+
+    CXX_LANGUAGE()
+    {
+        *nodecl_output = 
+            nodecl_concat_lists(
+                    *nodecl_output,
+                    nodecl_make_list_1(
+                        nodecl_make_cxx_decl(entry, ASTFileName(a), ASTLine(a))));
     }
 }
 
@@ -3005,9 +3035,9 @@ static type_t* compute_underlying_type_enum(const_value_t* min_value,
  */
 void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
         gather_decl_spec_t* gather_info,
-        decl_context_t decl_context)
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output)
 {
-
     type_t* enum_type = NULL;
 
     AST enum_name = ASTSon0(a);
@@ -3306,6 +3336,15 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
     }
 
     set_is_complete_type(enum_type, /* is_complete */ 1);
+
+    CXX_LANGUAGE()
+    {
+        *nodecl_output = 
+            nodecl_concat_lists(
+                    *nodecl_output,
+                    nodecl_make_list_1(
+                        nodecl_make_cxx_decl(new_entry, ASTFileName(a), ASTLine(a))));
+    }
 }
 
 void build_scope_base_clause(AST base_clause, type_t* class_type, decl_context_t decl_context)
@@ -3770,7 +3809,7 @@ static void build_scope_ctor_initializer(
                 if (!entry_list_contains(direct_base_classes, entry)
                         && !entry_list_contains(virtual_bases, entry))
                 {
-                    warn_printf("%s: class '%s' is not a direct base or virtual base of class '%s'\n",
+                    error_printf("%s: error: class '%s' is not a direct base or virtual base of class '%s'\n",
                             ast_location(id_expression),
                             get_qualified_symbol_name(entry, entry->decl_context),
                             get_qualified_symbol_name(class_sym, class_sym->decl_context));
@@ -5582,6 +5621,14 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     memcpy(class_entry->entity_specs.gcc_attributes, gather_info->gcc_attributes, 
                 class_entry->entity_specs.num_gcc_attributes * sizeof(*class_entry->entity_specs.gcc_attributes));
 
+    CXX_LANGUAGE()
+    {
+        *nodecl_output =
+            nodecl_concat_lists(
+                    *nodecl_output,
+                    nodecl_make_list_1(
+                        nodecl_make_cxx_decl(class_entry, ASTFileName(a), ASTLine(a))));
+    }
 
     ERROR_CONDITION(class_entry != NULL
             && class_type != class_entry->type_information,
@@ -8469,8 +8516,15 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
         }
         else if (is_function_type(declarator_type))
         {
-            // At the moment do nothing for it
+            // Do nothing
         }
+
+        // Keep declaration
+        *nodecl_output = 
+            nodecl_concat_lists(
+                    *nodecl_output,
+                    nodecl_make_list_1(
+                        nodecl_make_cxx_decl(entry, ASTFileName(init_declarator), ASTLine(init_declarator))));
     }
 }
 

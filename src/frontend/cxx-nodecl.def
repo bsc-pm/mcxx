@@ -32,6 +32,7 @@ top-level : function-code
           | object-init
           | pragma-directive
           | compatibility
+          | cxx-decl
 
 name : NODECL_SYMBOL() symbol
 type : NODECL_TYPE() type
@@ -54,6 +55,7 @@ mem-init: NODECL_MEMBER_INIT([init_expr]expression) symbol
 
 statement : statement-but-object-init
           | object-init
+          | cxx-decl
           | context
           | function-code
 
@@ -222,6 +224,10 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
 cxx-expr-dependent-nodecls: cxx-dependent-name
    | cxx-dependent-initializer
    | cxx-dependent-expressions
+
+# nodecl was created entirely to avoid this kind of "declaration nodes" but we
+# will not be able to get rid of them until we instantiate template functions
+cxx-decl : NODECL_CXX_DECL() symbol
 
 # Special nodes for dependent names
 cxx-dependent-name : NODECL_CXX_DEP_GLOBAL_NAME_NESTED([items] cxx-atom-dependent-name-seq)

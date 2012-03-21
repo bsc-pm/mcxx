@@ -2294,6 +2294,22 @@ CxxBase::Ret CxxBase::visit(const Nodecl::WhileStatement& node)
     dec_indent();
 }
 
+CxxBase::Ret CxxBase::visit(const Nodecl::CxxDecl& node)
+{
+    TL::Symbol sym = node.get_symbol();
+
+    if ((sym.is_class()
+                || sym.is_enum())
+            && (::is_incomplete_type(sym.get_type().get_internal_type())))
+    {
+        declare_symbol(sym);
+    }
+    else
+    {
+        define_symbol(sym);
+    }
+}
+
 CxxBase::Ret CxxBase::visit(const Nodecl::Verbatim& node)
 {
     file << node.get_text();
@@ -3308,6 +3324,9 @@ void CxxBase::define_nonnested_entities_in_trees(Nodecl::NodeclBase const& node)
 
 void CxxBase::define_specializations_user_declared(TL::Symbol sym)
 {
+    if (sym.is_template_parameter())
+        return;
+
     ERROR_CONDITION(!sym.is_template(), "must be a template symbol", 0);
 
     set_codegen_status(sym, CODEGEN_STATUS_DEFINED);
@@ -5257,11 +5276,6 @@ void CxxBase::codegen_template_header(TL::TemplateParameters template_parameters
                     std::string declaration = this->get_declaration(symbol.get_type(),
                             symbol.get_scope(),
                             symbol.get_name());
-                    if (declaration[0] == ':'
-                            && i == 0)
-                    {
-                        file << " ";
-                    }
 
                     file << declaration;
                     break;
@@ -5289,13 +5303,13 @@ void CxxBase::codegen_template_header(TL::TemplateParameters template_parameters
                 switch (tpl_param.second)
                 {
                     case TPK_TYPE:
+                    case TPK_TEMPLATE:
                         {
                             TL::Type temp_arg_type = temp_arg.get_type();
                             file << print_type_str(temp_arg_type.get_internal_type(), symbol.get_scope().get_decl_context());
                             break;
                         }
                     case TPK_NONTYPE:
-                    case TPK_TEMPLATE:
                         {
                             walk(temp_arg.get_value());
                             break;
