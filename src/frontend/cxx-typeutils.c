@@ -6254,13 +6254,13 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
                         || IS_CXX03_LANGUAGE)
                 {
                     result = strappend(result, "__typeof__(");
-                    result = strappend(result, codegen_to_str(simple_type->typeof_expr, nodecl_retrieve_context(simple_type->typeof_expr)));
+                    result = strappend(result, codegen_to_str(simple_type->typeof_expr, decl_context));
                     result = strappend(result, ")");
                 }
                 else if (IS_CXX1X_LANGUAGE)
                 {
                     result = strappend(result, "decltype(");
-                    result = strappend(result, codegen_to_str(simple_type->typeof_expr, nodecl_retrieve_context(simple_type->typeof_expr)));
+                    result = strappend(result, codegen_to_str(simple_type->typeof_expr, decl_context));
                     result = strappend(result, ")");
                 }
                 else

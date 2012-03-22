@@ -709,6 +709,13 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxParenthesizedInitializer& node)
     file << ")";
 }
 
+CxxBase::Ret CxxBase::visit(const Nodecl::CxxSizeof& node)
+{
+    file << "sizeof(";
+    walk(node.get_expr());
+    file << ")";
+}
+
 CxxBase::Ret CxxBase::visit(const Nodecl::DefaultStatement& node)
 {
     Nodecl::NodeclBase statement = node.get_statement();
@@ -3705,6 +3712,8 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
             // Initializer
             if (emit_initializer)
             {
+                push_context(symbol.get_scope());
+
                 char equal_is_needed = 0;
                 char is_call_to_self_constructor = 0;
                 C_LANGUAGE()
@@ -3863,6 +3872,8 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
                         walk(symbol.get_initialization());
                     }
                 }
+
+                pop_context();
             }
 
             if (!state.in_condition)

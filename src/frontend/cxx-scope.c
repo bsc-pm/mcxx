@@ -3084,6 +3084,7 @@ static const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
         }
         else
         {
+            __asm__ __volatile__("int3;");
             result = strappend("/* ??? */", entry->symbol_name);
         }
 
