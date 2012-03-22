@@ -3504,6 +3504,7 @@ void CxxBase::define_symbol(TL::Symbol symbol)
                 it++)
         {
             TL::Symbol &enumerator(*it);
+            push_context(enumerator.get_scope());
             if (it != enumerators.begin())
             {
                 file << ",\n";
@@ -3516,6 +3517,7 @@ void CxxBase::define_symbol(TL::Symbol symbol)
                 file << " = ";
                 walk(enumerator.get_initialization());
             }
+            pop_context();
         }
 
         dec_indent();
