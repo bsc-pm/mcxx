@@ -2096,11 +2096,20 @@ OPERATOR_TABLE
 
     void FortranBase::set_codegen_status(TL::Symbol sym, codegen_status_t status)
     {
+        if (sym.is_from_module())
+        {
+            sym = sym.aliased_from_module();
+        }
         _codegen_status[sym] = status;
     }
 
     codegen_status_t FortranBase::get_codegen_status(TL::Symbol sym)
     {
+        if (sym.is_from_module())
+        {
+            sym = sym.aliased_from_module();
+        }
+
         std::map<TL::Symbol, codegen_status_t>::iterator it = _codegen_status.find(sym);
 
         if (it == _codegen_status.end())
