@@ -82,7 +82,7 @@ struct translation_info_tag
     decl_context_t context_of_template;
     decl_context_t context_of_being_instantiated;
 } translation_info_t;
-
+#if 0
 static decl_context_t translation_function(decl_context_t decl_context, void *d)
 {
     translation_info_t * p = (translation_info_t*)d;
@@ -108,7 +108,7 @@ static decl_context_t translation_function(decl_context_t decl_context, void *d)
 
     return result;
 }
-
+#endif
 static scope_entry_t* instantiate_template_type_member(type_t* template_type, 
         decl_context_t context_of_being_instantiated,
         scope_entry_t *member_of_template,
@@ -722,6 +722,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
             }
     }
 }
+#if 0
 static void instantiate_dependent_friend_class(type_t* selected_template UNUSED_PARAMETER,
         type_t* being_instantiated,
         scope_entry_t* friend,
@@ -1042,6 +1043,7 @@ static void instantiate_dependent_friend(type_t* selected_template UNUSED_PARAME
             }
     }
 }
+#endif
 
 static void instantiate_bases(
         type_t* selected_class_type,
@@ -1094,9 +1096,9 @@ static void instantiate_specialized_template_class(type_t* selected_template,
 
     class_type_set_inner_context(being_instantiated_sym->type_information, inner_decl_context);
 
-    translation_info_t translation_info;
-    translation_info.context_of_template = class_type_get_inner_context(get_actual_class_type(selected_template));
-    translation_info.context_of_being_instantiated = inner_decl_context;
+    //translation_info_t translation_info;
+    //translation_info.context_of_template = class_type_get_inner_context(get_actual_class_type(selected_template));
+    //translation_info.context_of_being_instantiated = inner_decl_context;
 
     if (instantiation_base_clause != NULL)
     {
@@ -1202,13 +1204,13 @@ static void instantiate_specialized_template_class(type_t* selected_template,
         if (friend->kind == SK_DEPENDENT_FRIEND_FUNCTION
                 || friend->kind == SK_DEPENDENT_FRIEND_CLASS)
         {
-            instantiate_dependent_friend(selected_template,
-                    being_instantiated,
-                    friend,
-                    inner_decl_context,
-                    translation_function,
-                    &translation_info,
-                    filename, line);
+            //instantiate_dependent_friend(selected_template,
+            //        being_instantiated,
+            //        friend,
+            //        inner_decl_context,
+            //        translation_function,
+            //        &translation_info,
+            //        filename, line);
         }
         else if (friend->kind == SK_CLASS)
         {
@@ -1494,7 +1496,7 @@ void instantiation_add_symbol_to_instantiate(scope_entry_t* entry,
     }
 }
 
-static void instantiate_template_function(scope_entry_t* entry, const char* filename, int line)
+static void instantiate_template_function(scope_entry_t* entry, const char* filename UNUSED_PARAMETER, int line UNUSED_PARAMETER)
 {
     DEBUG_CODE()
     {
@@ -1505,6 +1507,7 @@ static void instantiate_template_function(scope_entry_t* entry, const char* file
                 entry->line);
     }
 
+#if 0
     // Update to the instantiation point
     entry->file = filename;
     entry->line = line;
@@ -1555,6 +1558,7 @@ static void instantiate_template_function(scope_entry_t* entry, const char* file
         fprintf(stderr, "INSTANTIATION: ended instantation of function template '%s'\n",
                 print_declarator(template_specialized_type));
     }
+#endif
 }
 
 static scope_entry_t* being_instantiated_now[MCXX_MAX_TEMPLATE_NESTING_LEVELS];
