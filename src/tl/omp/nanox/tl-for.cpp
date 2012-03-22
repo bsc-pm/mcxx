@@ -152,13 +152,24 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
         {
             Source instr_enter_burst_opt, instr_leave_burst_opt;
             //This new instrumentation is supported only in smp devices
+            Source instrument_before;
             if (_enable_instrumentation && device_provider->get_name()=="smp")
             {
-                instr_enter_burst_opt << "nanos_instrument_enter_burst(ek, ev_chunk);";
-                instr_leave_burst_opt << "nanos_instrument_leave_burst(ek);";
+                // instrument_before
+                //     << "nanos_event_key_t ek;"
+                //     << "nanos_event_value_t ev_chunk;"
+                //     << "nanos_err_t err = nanos_instrument_get_key(\"user-funct-name\", &ek);"
+                //     << "if (err != NANOS_OK) nanos_handle_error(err);"
+                //     << "err = nanos_instrument_register_value(&ev_chunk, \"user-funct-name\", \"loop-chunk\", \"Loop chunk\", 0);"
+                //     << "if (err != NANOS_OK) nanos_handle_error(err);"
+                //     ;
+
+                // instr_enter_burst_opt << "nanos_instrument_enter_burst(ek, ev_chunk);";
+                // instr_leave_burst_opt << "nanos_instrument_leave_burst(ek);";
             }
 
             outline_body
+                << instrument_before
                 << loop_distr_setup
                 << "nanos_worksharing_next_item(_args->wsd, (nanos_ws_item_t *) &_nth_info);"
                 << "if ("<< for_statement.get_step() <<" > 0)"
@@ -191,8 +202,6 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
                 <<          "nanos_worksharing_next_item(_args->wsd, (nanos_ws_item_t *) &_nth_info);"
                 <<      "}"
                 << "}"
-                // close de enter_bust opened in device instrumentation (nanox-smp.cpp)
-                << instr_leave_burst_opt
                 << final_barrier
                 ;
         }
