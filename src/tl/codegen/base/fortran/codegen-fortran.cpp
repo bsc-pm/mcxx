@@ -233,6 +233,9 @@ namespace Codegen
 
             codegen_module_footer(current_module);
 
+            clear_codegen_status();
+            clear_renames();
+
             pop_declaring_entity();
         }
 
