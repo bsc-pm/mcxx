@@ -3084,7 +3084,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
         inc_indent();
 
         // A. Generate a template header if this friend declaration has one
-        if (_friend.get_type().is_template_specialized_type())
+        if (_friend.get_type().is_template_specialized_type() && _friend.is_template())
         {
             TL::Type template_type = _friend.get_type().get_related_template_type();
             template_symbol = template_type.get_related_template_symbol();
@@ -3103,7 +3103,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                 {
                     template_parameters = _friend.get_scope().get_template_parameters();
                 }
-                codegen_template_header(template_parameters);
+                codegen_template_headers_bounded(template_parameters, symbol.get_scope().get_template_parameters());
             }
         }
         else if (_friend.get_type().is_dependent_typename() ||
@@ -3141,11 +3141,11 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
 
             if (!is_primary_template)
             {
-                file << friend_class_key << " " << _friend.get_qualified_name(_friend.get_scope());
+                file << friend_class_key << " " << _friend.get_qualified_name(symbol.get_scope());
             }
             else
             {
-                file << friend_class_key << template_symbol.get_qualified_name(_friend.get_scope());
+                file << friend_class_key << template_symbol.get_qualified_name(symbol.get_scope());
             }
         }
         else if (_friend.is_function() ||
