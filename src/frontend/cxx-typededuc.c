@@ -98,11 +98,11 @@ char deduce_template_arguments_common(
             }
             else
             {
-                fprintf(stderr, "TYPEDEDUC: %d explicit template arguments already available\n", 
+                fprintf(stderr, "TYPEDEDUC: There are %d explicit template arguments\n", 
                         explicit_template_parameters->num_parameters);
                 for (i = 0; i < explicit_template_parameters->num_parameters; i++)
                 {
-                    template_parameter_value_t* current_template_argument = template_parameters->arguments[i];
+                    template_parameter_value_t* current_template_argument = explicit_template_parameters->arguments[i];
 
                     const char* value = "<<<UNKNOWN>>>";
                     if (current_template_argument != NULL)

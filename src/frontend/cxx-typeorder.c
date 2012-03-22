@@ -173,11 +173,17 @@ static char is_less_or_equal_specialized_template_function_common_(type_t* f1, t
                 decl_context, deduced_template_arguments, filename, line);
     }
 
+    ERROR_CONDITION(!is_function_type(f1) || !is_function_type(f2), "functions types are not", 0);
+
     DEBUG_CODE()
     {
-        fprintf(stderr, "TYPEORDER: Computing whether one function is less or equal specialized than the other\n");
+        fprintf(stderr, "TYPEORDER: Computing whether one function type is less or equal specialized than the other\n");
+        fprintf(stderr, "TYPEORDER: Is\n");
+        fprintf(stderr, "TYPEORDER:      %s\n", print_declarator(f1));
+        fprintf(stderr, "TYPEORDER: less or equal specialized than\n");
+        fprintf(stderr, "TYPEORDER:      %s\n", print_declarator(f2));
+        fprintf(stderr, "TYPEORDER: ?\n");
     }
-    ERROR_CONDITION(!is_function_type(f1) || !is_function_type(f2), "functions types are not", 0);
 
     int num_arguments = function_type_get_num_parameters(f2);
     if (function_type_get_has_ellipsis(f2))

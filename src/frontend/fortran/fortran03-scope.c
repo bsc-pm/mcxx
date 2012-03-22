@@ -216,7 +216,9 @@ type_t* get_implicit_type_for_symbol(decl_context_t decl_context, const char* na
 
     if (decl_context.implicit_info != NULL
             && decl_context.implicit_info->data != NULL
-            && decl_context.implicit_info->data->implicit_letter_set != NULL)
+            && decl_context.implicit_info->data->implicit_letter_set != NULL
+            && ('a' <= tolower(name[0]))
+            && (tolower(name[0]) <= 'z'))
     {
         implicit_type = 
             (*(decl_context.implicit_info->data->implicit_letter_set))[tolower(name[0]) - 'a'];

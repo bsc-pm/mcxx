@@ -193,6 +193,23 @@ namespace TL
                             member.get_line());
                 _data_ref._sizeof = make_sizeof(member);
             }
+
+            virtual void visit(const Nodecl::Shaping& shaping_expr)
+            {
+                walk(shaping_expr.get_postfix());
+
+                if (!_data_ref._is_valid)
+                    return;
+
+                TL::Type t = shaping_expr.get_type();
+                if (t.is_any_reference())
+                    t = t.references_to();
+
+                _data_ref._data_type = t;
+
+                _data_ref._base_address = shaping_expr.get_postfix().copy();
+                _data_ref._sizeof = make_sizeof(shaping_expr);
+            }
     };
 
     DataReference::DataReference(Nodecl::NodeclBase expr)

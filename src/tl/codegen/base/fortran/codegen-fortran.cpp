@@ -233,6 +233,9 @@ namespace Codegen
 
             codegen_module_footer(current_module);
 
+            clear_codegen_status();
+            clear_renames();
+
             pop_declaring_entity();
         }
 
@@ -2093,11 +2096,20 @@ OPERATOR_TABLE
 
     void FortranBase::set_codegen_status(TL::Symbol sym, codegen_status_t status)
     {
+        if (sym.is_from_module())
+        {
+            sym = sym.aliased_from_module();
+        }
         _codegen_status[sym] = status;
     }
 
     codegen_status_t FortranBase::get_codegen_status(TL::Symbol sym)
     {
+        if (sym.is_from_module())
+        {
+            sym = sym.aliased_from_module();
+        }
+
         std::map<TL::Symbol, codegen_status_t>::iterator it = _codegen_status.find(sym);
 
         if (it == _codegen_status.end())
@@ -2499,26 +2511,6 @@ OPERATOR_TABLE
                         }
                 }
             }
-
-            // if (entry.in_module().is_valid())
-            // {
-            //     switch (entry.get_access_specifier())
-            //     {
-            //         case AS_PUBLIC:
-            //             {
-            //                 attribute_list += ", PUBLIC";
-            //                 break;
-            //             }
-            //         case AS_PRIVATE:
-            //             {
-            //                 attribute_list += ", PRIVATE";
-            //                 break;
-            //             }
-            //         default:
-            //             {
-            //             }
-            //     }
-            // }
 
             if (!entry.get_initialization().is_null())
             {
