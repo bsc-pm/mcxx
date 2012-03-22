@@ -154,6 +154,26 @@ TL::Scope CxxBase::get_current_scope() const
         } \
     }
 
+bool CxxBase::is_non_language_reference_type(TL::Type type)
+{
+    return ((IS_C_LANGUAGE && type.is_any_reference())
+            || (IS_CXX_LANGUAGE && type.is_rebindable_reference()));
+}
+
+bool CxxBase::is_non_language_reference_variable(TL::Symbol sym)
+{
+    return is_non_language_reference_type(sym.get_type());
+}
+
+bool CxxBase::is_non_language_reference_variable(const Nodecl::NodeclBase &n)
+{
+    if (n.get_symbol().is_valid())
+    {
+        return is_non_language_reference_variable(n.get_symbol());
+    }
+    return false;
+}
+
 void CxxBase::visit(const Nodecl::Reference &node) 
 { 
     Nodecl::NodeclBase rhs = node.children()[0]; 
@@ -161,8 +181,7 @@ void CxxBase::visit(const Nodecl::Reference &node)
 
     bool old_do_not_derref_rebindable_ref = state.do_not_derref_rebindable_reference;
 
-    if ((IS_C_LANGUAGE && rhs.get_type().is_any_reference())
-            || (IS_CXX_LANGUAGE && rhs.get_type().is_rebindable_reference()))
+    if (is_non_language_reference_variable(rhs))
     {
         state.do_not_derref_rebindable_reference = true;
     }
@@ -432,8 +451,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ClassMemberAccess& node)
         && sym.get_type().get_symbol().is_anonymous_union();
 
     bool must_derref_all = (sym.is_valid()
-            && ((IS_C_LANGUAGE && sym.get_type().is_any_reference())
-                || (IS_CXX_LANGUAGE && sym.get_type().is_rebindable_reference()))
+            && is_non_language_reference_variable(sym)
             && !sym.get_type().references_to().is_array()
             && !state.do_not_derref_rebindable_reference);
 
@@ -894,11 +912,9 @@ CxxBase::Ret CxxBase::codegen_function_call_arguments(Iterator begin, Iterator e
         if (type_it != type_end
                 && type_it->is_valid())
         {
-            bool param_is_ref = ((IS_C_LANGUAGE && type_it->is_any_reference())
-                    || (IS_CXX_LANGUAGE && type_it->is_rebindable_reference()));
+            bool param_is_ref = is_non_language_reference_type(*type_it);
 
-            bool arg_is_ref = ((IS_C_LANGUAGE && arg_it->get_type().is_any_reference())
-                    || (IS_CXX_LANGUAGE && arg_it->get_type().is_rebindable_reference()));
+            bool arg_is_ref = is_non_language_reference_variable(*arg_it);
 
             if (param_is_ref && !arg_is_ref)
             {
@@ -997,7 +1013,6 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
     if (function_type.is_pointer())
         function_type = function_type.points_to();
     
-    
     // There are a lot of cases!
     if (!function_type.is_function())
     {
@@ -1010,6 +1025,12 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
     
     // Currently, this never happens
     ERROR_CONDITION(!function_type.is_function(), "Expecting a function type", 0);
+
+    bool is_non_language_ref = is_non_language_reference_type(function_type.returns());
+    if (is_non_language_ref)
+    {
+        file << "(*(";
+    }
 
     switch (kind)
     {
@@ -1083,6 +1104,11 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
             {
                 internal_error("Unhandled function call kind", 0);
             }
+    }
+
+    if (is_non_language_ref)
+    {
+        file << "))";
     }
 }
 
@@ -2196,10 +2222,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Symbol& node)
         define_symbol(entry.get_class_type().get_symbol());
     }
 
-    bool must_derref = (((IS_C_LANGUAGE && entry.get_type().is_any_reference())
-                || (IS_CXX_LANGUAGE && entry.get_type().is_rebindable_reference()))
-            && !entry.get_type().references_to().is_array()
-            && !state.do_not_derref_rebindable_reference);
+    bool must_derref = is_non_language_reference_variable(entry)
+        && !entry.get_type().references_to().is_array()
+        && !state.do_not_derref_rebindable_reference;
 
     if (must_derref)
     {
@@ -3833,16 +3858,17 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
                             file << "(";
                         }
 
-                        if ((IS_C_LANGUAGE && symbol.get_type().is_any_reference())
-                                || (IS_CXX_LANGUAGE && symbol.get_type().is_rebindable_reference()))
+                        bool is_non_language_ref = (is_non_language_reference_variable(symbol)
+                                && !symbol.get_type().references_to().is_array());
+
+                        if (is_non_language_ref)
                         {
-                            file << "&(";
+                            file << "(&(";
                         }
                         walk(init);
-                        if ((IS_C_LANGUAGE && symbol.get_type().is_any_reference())
-                                || (IS_CXX_LANGUAGE && symbol.get_type().is_rebindable_reference()))
+                        if (is_non_language_ref)
                         {
-                            file << ")";
+                            file << "))";
                         }
 
                         if (top_is_comma)
@@ -5489,8 +5515,7 @@ std::string CxxBase::get_declaration_with_parameters(TL::Type t, TL::Scope scope
 
 TL::Type CxxBase::fix_references(TL::Type t)
 {
-    if ((IS_C_LANGUAGE && t.is_any_reference())
-            || (IS_CXX_LANGUAGE && t.is_rebindable_reference()))
+    if (is_non_language_reference_type(t))
     {
         TL::Type ref = t.references_to();
         if (ref.is_array())

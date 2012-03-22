@@ -2530,9 +2530,7 @@ static void unary_record_conversion_to_result(type_t* result, nodecl_t* op)
 {
     type_t* op_type = nodecl_get_type(*op);
 
-    if (!equivalent_types(
-                get_unqualified_type(no_ref(result)),
-                get_unqualified_type(no_ref(op_type))))
+    if (!equivalent_types(result, op_type))
     {
         *op = cxx_nodecl_make_conversion(*op, result,
                 nodecl_get_filename(*op),
@@ -2562,12 +2560,33 @@ type_t* compute_type_no_overload_add_operation(nodecl_t *lhs, nodecl_t *rhs)
     }
     else if (is_pointer_arithmetic(no_ref(lhs_type), no_ref(rhs_type)))
     {
-        return compute_pointer_arithmetic_type(no_ref(lhs_type), no_ref(rhs_type));
+        type_t* result = compute_pointer_arithmetic_type(no_ref(lhs_type), no_ref(rhs_type));
+
+        if (is_pointer_and_integral_type(
+                    no_ref(lhs_type), 
+                    no_ref(rhs_type)))
+        {
+            unary_record_conversion_to_result(result, lhs);
+            unary_record_conversion_to_result(no_ref(rhs_type), rhs);
+        }
+        else if (is_pointer_and_integral_type(
+                    no_ref(rhs_type), 
+                    no_ref(lhs_type)))
+        {
+            unary_record_conversion_to_result(no_ref(rhs_type), rhs);
+            unary_record_conversion_to_result(result, lhs);
+        }
+
+        return result;
     }
     // Vector case
     else if (both_operands_are_vector_types(no_ref(lhs_type), no_ref(rhs_type)))
     {
-        return lhs_type;
+        type_t* result = no_ref(lhs_type);
+
+        binary_record_conversion_to_result(result, lhs, rhs);
+
+        return result;
     }
     else if (one_scalar_operand_and_one_vector_operand(no_ref(lhs_type), no_ref(rhs_type)))
     {
@@ -2802,7 +2821,11 @@ type_t* compute_type_no_overload_bin_arithmetic(nodecl_t *lhs, nodecl_t *rhs)
     // Vector case
     else if (both_operands_are_vector_types(no_ref(lhs_type), no_ref(rhs_type)))
     {
-        return lhs_type;
+        type_t* result = no_ref(lhs_type);
+
+        binary_record_conversion_to_result(result, lhs, rhs);
+
+        return result;
     }
     else if (one_scalar_operand_and_one_vector_operand(no_ref(lhs_type), no_ref(rhs_type)))
     {
@@ -2954,7 +2977,11 @@ type_t* compute_type_no_overload_bin_only_integer(nodecl_t *lhs, nodecl_t *rhs)
     // Vector case
     else if (both_operands_are_vector_types(no_ref(lhs_type), no_ref(rhs_type)))
     {
-        return lhs_type;
+        type_t* result = no_ref(lhs_type);
+
+        binary_record_conversion_to_result(result, lhs, rhs);
+
+        return result;
     }
     else if (one_scalar_operand_and_one_vector_operand(no_ref(lhs_type), no_ref(rhs_type)))
     {
@@ -3063,17 +3090,29 @@ static type_t* compute_type_no_overload_sub(nodecl_t *lhs, nodecl_t *rhs)
     }
     else if (is_pointer_and_integral_type(no_ref(lhs_type), no_ref(rhs_type)))
     {
-        return compute_pointer_arithmetic_type(no_ref(lhs_type), no_ref(rhs_type));
+        type_t* result = compute_pointer_arithmetic_type(no_ref(lhs_type), no_ref(rhs_type));
+
+        unary_record_conversion_to_result(result, lhs);
+        unary_record_conversion_to_result(no_ref(rhs_type), rhs);
+
+        return result;
     }
     else if (pointer_types_are_similar(no_ref(lhs_type), no_ref(rhs_type)))
     {
         // FIXME, this should be the type related to ptrdiff_t (usually int)
-        return get_signed_int_type();
+        type_t* result = get_ptrdiff_t_type();
+
+        binary_record_conversion_to_result(result, lhs, rhs);
+        return result;
     }
     // Vector case
     else if (both_operands_are_vector_types(no_ref(lhs_type), no_ref(rhs_type)))
     {
-        return lhs_type;
+        type_t* result = no_ref(lhs_type);
+
+        binary_record_conversion_to_result(result, lhs, rhs);
+
+        return result;
     }
     else if (one_scalar_operand_and_one_vector_operand(no_ref(lhs_type), no_ref(rhs_type)))
     {
@@ -3143,13 +3182,17 @@ static type_t* compute_type_no_overload_only_integral_lhs_type(nodecl_t *lhs, no
     if (both_operands_are_integral(no_ref(lhs_type), no_ref(rhs_type)))
     {
         // Always the left one in this case
-        return no_ref(lhs_type);
-    }
-    else if(left_operand_is_vector_and_right_operand_is_scalar(no_ref(lhs_type), no_ref(rhs_type)))
-    {
-        type_t* result = vector_type_get_element_type(lhs_type);
+        type_t* result = no_ref(lhs_type);
 
-        unary_record_conversion_to_result(result, rhs);
+        binary_record_conversion_to_result(result, lhs, rhs);
+
+        return result;
+    }
+    else if (left_operand_is_vector_and_right_operand_is_scalar(no_ref(lhs_type), no_ref(rhs_type)))
+    {
+        type_t* result = vector_type_get_element_type(no_ref(lhs_type));
+
+        binary_record_conversion_to_result(result, lhs, rhs);
 
         return result;
     }
@@ -3299,14 +3342,21 @@ type_t* compute_type_no_overload_relational_operator(nodecl_t *lhs, nodecl_t *rh
     if (both_operands_are_arithmetic(no_ref_lhs_type, no_ref_rhs_type)
             || pointer_types_are_similar(no_ref_lhs_type, no_ref_rhs_type))
     {
+        type_t* result_type = NULL;
         C_LANGUAGE()
         {
-            return get_signed_int_type();
+            result_type = get_signed_int_type();
         }
         CXX_LANGUAGE()
         {
-            return get_bool_type();
+            result_type = get_bool_type();
         }
+        ERROR_CONDITION(result_type == NULL, "Code unreachable", 0);
+
+        unary_record_conversion_to_result(no_ref_lhs_type, lhs);
+        unary_record_conversion_to_result(no_ref_rhs_type, rhs);
+
+        return result_type;
     }
     else if (both_operands_are_vector_types(no_ref_lhs_type, no_ref_rhs_type)
             || one_scalar_operand_and_one_vector_operand(no_ref_lhs_type, no_ref_rhs_type))
@@ -3356,7 +3406,12 @@ type_t* compute_type_no_overload_relational_operator(nodecl_t *lhs, nodecl_t *rh
         {
             ret_bool_type = get_bool_type();
         }
-        return get_vector_type(ret_bool_type, vector_type_get_vector_size(common_vec_type));
+        type_t* result_type = get_vector_type(ret_bool_type, vector_type_get_vector_size(common_vec_type));
+
+        unary_record_conversion_to_result(no_ref_lhs_type, lhs);
+        unary_record_conversion_to_result(no_ref_rhs_type, rhs);
+
+        return result_type;
     }
     else
     {
@@ -3557,10 +3612,16 @@ static type_t* compute_type_no_overload_logical_op(nodecl_t* lhs, nodecl_t* rhs)
     {
         if (is_vector_op)
         {
-            return get_vector_type(conversion_type, vector_size);
+            type_t* result = get_vector_type(conversion_type, vector_size);
+
+            binary_record_conversion_to_result(result, lhs, rhs);
+
+            return result;
         }
         else
         {
+            binary_record_conversion_to_result(conversion_type, lhs, rhs);
+
             return conversion_type;
         }
     }
@@ -3801,24 +3862,26 @@ static type_t* compute_type_no_overload_assig_arithmetic_or_pointer_type(nodecl_
 
     if (both_operands_are_arithmetic(no_ref(lhs_type), no_ref(rhs_type)))
     {
-        type_t* common_type = compute_arithmetic_builtin_bin_op(no_ref(lhs_type), no_ref(rhs_type));
-
-        unary_record_conversion_to_result(common_type, rhs);
+        unary_record_conversion_to_result(no_ref(lhs_type), rhs);
 
         return lhs_type;
     }
-    else if (is_pointer_arithmetic(no_ref(lhs_type), no_ref(rhs_type)))
+    else if (is_pointer_and_integral_type(no_ref(lhs_type), no_ref(rhs_type)))
     {
+        unary_record_conversion_to_result(no_ref(rhs_type), rhs);
+
         return lhs_type;
     }
     else if (both_operands_are_vector_types(no_ref(lhs_type), 
                 no_ref(rhs_type)))
     {
+        unary_record_conversion_to_result(no_ref(lhs_type), rhs);
+
         return lhs_type;
     }
     else if (left_operand_is_vector_and_right_operand_is_scalar(no_ref(lhs_type), no_ref(rhs_type)))
     {
-        unary_record_conversion_to_result(lhs_type, rhs);
+        unary_record_conversion_to_result(no_ref(lhs_type), rhs);
 
         return lhs_type;
     }
@@ -4006,30 +4069,13 @@ static void compute_bin_nonoperator_assig_only_arithmetic_type(nodecl_t *lhs, no
             return;
         }
 
-        type_t* t = lvalue_ref(lhs_type);
-
-        // Keep conversions
-        if (!equivalent_types(
-                    get_unqualified_type(no_ref(nodecl_get_type(*lhs))), 
-                    get_unqualified_type(no_ref(t))))
-        {
-            *lhs = cxx_nodecl_make_conversion(*lhs, t,
-                    nodecl_get_filename(*lhs),
-                    nodecl_get_line(*lhs));
-        }
-        if (!equivalent_types(
-                    get_unqualified_type(no_ref(nodecl_get_type(*rhs))), 
-                    get_unqualified_type(no_ref(t))))
-        {
-            *rhs = cxx_nodecl_make_conversion(*rhs, t,
-                    nodecl_get_filename(*rhs),
-                    nodecl_get_line(*rhs));
-        }
+        type_t* result_type = lvalue_ref(lhs_type);
+        unary_record_conversion_to_result(no_ref(result_type), rhs);
 
         *nodecl_output = nodecl_make_assignment(
                 *lhs,
                 *rhs,
-                t, 
+                result_type, 
                 filename, line);
         return;
     }
@@ -4413,14 +4459,14 @@ static void compute_unary_operator_generic(
                     nodecl_get_line(*op));
         }
 
-        *nodecl_output = nodecl_unary_fun(
-                *op,
-                computed_type, filename, line);
-
         if (is_lvalue)
         {
             computed_type = lvalue_ref(computed_type);
         }
+
+        *nodecl_output = nodecl_unary_fun(
+                *op,
+                computed_type, filename, line);
 
         if (nodecl_expr_is_value_dependent(*op))
         {

@@ -1765,6 +1765,7 @@ void init_type_environments(void)
     linux_ia32.compute_sizeof = generic_system_v_sizeof;
 
     linux_ia32.type_of_sizeof = get_unsigned_int_type;
+    linux_ia32.type_of_ptrdiff_t = get_signed_int_type;
 
     linux_ia32.char_type = get_signed_char_type;
 
@@ -1838,6 +1839,7 @@ void init_type_environments(void)
 
     // In PPC64 a size_t is an unsigned long 
     linux_amd64.type_of_sizeof = get_unsigned_long_int_type;
+    linux_amd64.type_of_ptrdiff_t = get_signed_long_int_type;
 
     // In PPC64 'char' == 'unsigned char'
     linux_amd64.char_type = get_unsigned_char_type;
@@ -1907,6 +1909,7 @@ void init_type_environments(void)
     linux_ia64.compute_sizeof = generic_system_v_sizeof;
 
     linux_ia64.type_of_sizeof = get_unsigned_long_int_type;
+    linux_ia64.type_of_ptrdiff_t = get_signed_long_int_type;
 
     linux_ia64.char_type = get_signed_char_type;
 
@@ -1976,6 +1979,7 @@ void init_type_environments(void)
     linux_ppc32.compute_sizeof = generic_system_v_sizeof;
 
     linux_ppc32.type_of_sizeof = get_unsigned_int_type;
+    linux_ppc32.type_of_ptrdiff_t = get_signed_int_type;
 
     // In PPC32 'char' == 'unsigned char'
     linux_ppc32.char_type = get_unsigned_char_type;
@@ -2048,6 +2052,7 @@ void init_type_environments(void)
 
     // In PPC64 a size_t is an unsigned long 
     linux_ppc64.type_of_sizeof = get_unsigned_long_int_type;
+    linux_ppc64.type_of_ptrdiff_t = get_signed_long_int_type;
 
     // In PPC64 'char' == 'unsigned char'
     linux_ppc64.char_type = get_unsigned_char_type;
@@ -2119,6 +2124,7 @@ void init_type_environments(void)
     linux_spu.compute_sizeof = generic_system_v_sizeof;
 
     linux_spu.type_of_sizeof = get_unsigned_int_type;
+    linux_spu.type_of_ptrdiff_t = get_signed_int_type;
 
     // In PPC32 'char' == 'unsigned char'
     linux_spu.char_type = get_unsigned_char_type;
@@ -2189,6 +2195,7 @@ void init_type_environments(void)
 
     // In SparcV9 a size_t is an unsigned long 
     solaris_sparcv9.type_of_sizeof = get_unsigned_long_int_type;
+    solaris_sparcv9.type_of_ptrdiff_t = get_signed_long_int_type;
 
     // In SparcV9 'char' == 'signed char'
     solaris_sparcv9.char_type = get_signed_char_type;
@@ -2264,6 +2271,7 @@ void init_type_environments(void)
     linux_arm_eabi.compute_sizeof = generic_system_v_sizeof;
 
     linux_arm_eabi.type_of_sizeof = get_unsigned_int_type;
+    linux_arm_eabi.type_of_ptrdiff_t = get_signed_int_type;
 
     // In ARM 'char' == 'unsigned char'
     // ?check this?

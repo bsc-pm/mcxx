@@ -831,6 +831,18 @@ type_t* get_size_t_type(void)
     }
 }
 
+type_t* get_ptrdiff_t_type(void)
+{
+    if (!CURRENT_CONFIGURATION->disable_sizeof)
+    {
+        return (CURRENT_CONFIGURATION->type_environment->type_of_ptrdiff_t)();
+    }
+    else
+    {
+        return get_signed_int_type();
+    }
+}
+
 type_t* get_unsigned_short_int_type(void)
 {
     static type_t* _type = NULL;
