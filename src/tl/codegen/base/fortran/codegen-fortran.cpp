@@ -2503,26 +2503,6 @@ OPERATOR_TABLE
                 }
             }
 
-            // if (entry.in_module().is_valid())
-            // {
-            //     switch (entry.get_access_specifier())
-            //     {
-            //         case AS_PUBLIC:
-            //             {
-            //                 attribute_list += ", PUBLIC";
-            //                 break;
-            //             }
-            //         case AS_PRIVATE:
-            //             {
-            //                 attribute_list += ", PRIVATE";
-            //                 break;
-            //             }
-            //         default:
-            //             {
-            //             }
-            //     }
-            // }
-
             if (!entry.get_initialization().is_null())
             {
                 declare_everything_needed(entry.get_initialization());
