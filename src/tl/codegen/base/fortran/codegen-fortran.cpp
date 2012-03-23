@@ -1187,7 +1187,21 @@ OPERATOR_TABLE
         }
 
         ERROR_CONDITION(!called.get_symbol().is_valid(), "Invalid symbol in call", 0);
-        bool is_call = (called.get_symbol().get_type().returns().is_void());
+
+        TL::Type function_type = called.get_symbol().get_type();
+
+        if (function_type.is_any_reference())
+            function_type = function_type.references_to();
+
+        if (function_type.is_pointer())
+        {
+            function_type = function_type.points_to();
+            ERROR_CONDITION(!called.is<Nodecl::Derreference>(), "The called entity should be derreferenced!", 0);
+            called = called.as<Nodecl::Derreference>().get_rhs();
+        }
+
+        ERROR_CONDITION(!function_type.is_function(), "Function type is not", 0);
+        bool is_call = (function_type.returns().is_void());
 
         TL::Symbol entry = function_name_in_charge.get_symbol();
         ERROR_CONDITION(!entry.is_valid(), "Invalid symbol in call", 0);
@@ -2321,6 +2335,125 @@ OPERATOR_TABLE
         return fun_name.str();
     }
 
+    void FortranBase::emit_interface_for_symbol(TL::Symbol entry)
+    {
+        // Get the real symbol (it may be the same as entry) but it will be
+        // different when we are emitting a function (or pointer to function)
+        // the interface of which is declared after another existing interface
+        // name
+        TL::Symbol real_entry = entry.get_related_scope().get_decl_context().current_scope->related_entry;
+        decl_context_t entry_context = real_entry.get_scope().get_decl_context();
+
+        if (!state.in_interface)
+        {
+            indent();
+            file << "INTERFACE\n";
+            inc_indent();
+        }
+        bool lacks_result = false;
+
+        push_declaration_status();
+
+        // In an interface we have to forget everything...
+        clear_codegen_status();
+        clear_renames();
+
+        codegen_procedure_declaration_header(entry, lacks_result);
+
+        push_declaring_entity(real_entry);
+
+        inc_indent();
+
+        TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
+        // Check every related entries lest they required stuff coming from other modules
+        for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
+                it != related_symbols.end();
+                it++)
+        {
+            TL::Symbol &sym(*it);
+            emit_use_statement_if_symbol_comes_from_module(sym, entry.get_related_scope());
+        }
+
+        // Import statements
+        std::set<TL::Symbol> already_imported;
+        for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
+                it != related_symbols.end();
+                it++)
+        {
+            TL::Type dummy_type = it->get_type();
+
+            // This is not a regular Fortran parameter, give up
+            if (!dummy_type.is_any_reference())
+                continue;
+
+            dummy_type = dummy_type.references_to();
+
+            if (dummy_type.is_pointer()
+                    && !is_fortran_representable_pointer(dummy_type))
+                // We are not going to emit a real TYPE for it, so skip it
+                continue;
+
+            if (dummy_type.basic_type().is_class())
+            {
+                TL::Symbol class_type  = dummy_type.basic_type().get_symbol();
+                decl_context_t class_context = class_type.get_scope().get_decl_context();
+
+                if (!class_type.is_from_module()
+                        && (TL::Symbol(class_context.current_scope->related_entry) != entry)
+                        // Global names must not be IMPORTed
+                        && (class_context.current_scope != entry_context.global_scope
+                            // Unless at this point they have already been defined
+                            || get_codegen_status(class_type) == CODEGEN_STATUS_DEFINED))
+                {
+                    if (already_imported.find(class_type) == already_imported.end())
+                    {
+                        // We will need an IMPORT as this type comes from an enclosing scope
+                        indent();
+                        file << "IMPORT :: " << class_type.get_name() << "\n";
+                        already_imported.insert(class_type);
+                        set_codegen_status(class_type, CODEGEN_STATUS_DEFINED);
+                    }
+                }
+            }
+        }
+
+        indent();
+        file << "IMPLICIT NONE\n";
+
+        if (lacks_result)
+        {
+            std::string type_specifier;
+            std::string array_specifier;
+            codegen_type(entry.get_type().returns(), type_specifier, array_specifier,
+                    /* is_dummy */ 0);
+
+            indent();
+            file << type_specifier << " :: " << entry.get_name() << "\n";
+        }
+
+        for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
+                it != related_symbols.end();
+                it++)
+        {
+            declare_symbol(*it);
+        }
+        dec_indent();
+
+        pop_declaring_entity();
+
+        codegen_procedure_declaration_footer(entry);
+
+        // And restore the state after the interface has been emitted
+        pop_declaration_status();
+
+        if (!state.in_interface)
+        {
+            dec_indent();
+            indent();
+            file << "END INTERFACE\n";
+        }
+    }
+
     void FortranBase::address_of_pointer(Nodecl::NodeclBase node)
     {
         if (node.is_null())
@@ -2405,7 +2538,7 @@ OPERATOR_TABLE
             ok_to_declare = true;
         }
 
-        // d) the entity is a TYPE(t) in an entirely differentscope and we are not in an
+        // d) the entity is a TYPE(t) in an entirely different scope and we are not in an
         // INTERFACE (which will use an IMPORT)
         if (!ok_to_declare
                 && entry.is_class()
@@ -2436,6 +2569,13 @@ OPERATOR_TABLE
 
         if (entry.is_variable())
         {
+            bool is_function_pointer = 
+                (entry.get_type().is_pointer()
+                 && entry.get_type().points_to().is_function())
+                || (entry.get_type().is_any_reference()
+                        && entry.get_type().references_to().is_pointer()
+                        && entry.get_type().references_to().points_to().is_function());
+
             std::string type_spec;
             std::string array_specifier;
             std::string initializer;
@@ -2534,8 +2674,41 @@ OPERATOR_TABLE
                 }
             }
 
-            codegen_type(declared_type, type_spec, array_specifier,
-                    /* is_dummy */ entry.is_parameter());
+            if (!is_function_pointer)
+            {
+                codegen_type(declared_type, type_spec, array_specifier,
+                        /* is_dummy */ entry.is_parameter());
+            }
+            else
+            {
+                TL::Type function_type = entry.get_type();
+                if (function_type.is_any_reference())
+                    function_type = function_type.references_to();
+                function_type = function_type.points_to();
+                ERROR_CONDITION(!function_type.is_function(), "Function type is not", 0);
+
+                TL::Type return_type = function_type.returns();
+
+                if (function_type.lacks_prototype())
+                {
+                    attribute_list += ", EXTERNAL";
+
+                    if (return_type.is_void())
+                    {
+                        type_spec = "POINTER";
+                    }
+                    else
+                    {
+                        attribute_list += ", POINTER";
+                        codegen_type(return_type, type_spec, array_specifier, /* is_dummy */ false);
+                    }
+                }
+                else
+                {
+                    emit_interface_for_symbol(entry);
+                    type_spec = "POINTER";
+                }
+            }
 
             indent();
 
@@ -2619,6 +2792,19 @@ OPERATOR_TABLE
         }
         else if (entry.is_function())
         {
+            TL::Type function_type = entry.get_type();
+
+            if (!entry.is_generic_specifier()
+                    && !entry.is_intrinsic())
+            {
+                if (function_type.is_any_reference())
+                    function_type = function_type.references_to();
+                if (function_type.is_pointer())
+                    function_type = function_type.points_to();
+
+                ERROR_CONDITION(!function_type.is_function(), "Function type is not", 0);
+            }
+
             // First pass to declare everything that might be needed by the dummy arguments
             TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
             for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
@@ -2695,18 +2881,18 @@ OPERATOR_TABLE
                 indent();
                 file << "END INTERFACE " << get_generic_specifier_str(entry.get_name()) << "\n";
             }
-            else if (entry.get_type().lacks_prototype())
+            else if (function_type.lacks_prototype())
             {
                 indent();
 
-                if (!entry.get_type().returns().is_void()
+                if (!function_type.returns().is_void()
                         // If nobody said anything about this function, we cannot assume
                         // it is a function
                         && !entry.get_internal_symbol()->entity_specs.is_implicit_basic_type)
                 {
                     std::string type_spec;
                     std::string array_specifier;
-                    codegen_type(entry.get_type().returns(), 
+                    codegen_type(function_type.returns(), 
                             type_spec, array_specifier, /* is_dummy */ 0);
                     file << type_spec << ", EXTERNAL :: " << entry.get_name() << "\n";
                 }
@@ -2767,114 +2953,7 @@ OPERATOR_TABLE
             }
             else
             {
-                if (!state.in_interface)
-                {
-                    indent();
-                    file << "INTERFACE\n";
-                    inc_indent();
-                }
-                bool lacks_result = false;
-
-                push_declaration_status();
-
-                // In an interface we have to forget everything...
-                clear_codegen_status();
-                clear_renames();
-
-                codegen_procedure_declaration_header(entry, lacks_result);
-
-                push_declaring_entity(entry);
-
-                inc_indent();
-
-                TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
-                // Check every related entries lest they required stuff coming from other modules
-                for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
-                        it != related_symbols.end();
-                        it++)
-                {
-                    TL::Symbol &sym(*it);
-                    emit_use_statement_if_symbol_comes_from_module(sym, entry.get_related_scope());
-                }
-
-                // Import statements
-                std::set<TL::Symbol> already_imported;
-                for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
-                        it != related_symbols.end();
-                        it++)
-                {
-                    TL::Type dummy_type = it->get_type();
-
-                    // This is not a regular Fortran parameter, give up
-                    if (!dummy_type.is_any_reference())
-                        continue;
-
-                    dummy_type = dummy_type.references_to();
-
-                    if (dummy_type.is_pointer()
-                            && !is_fortran_representable_pointer(dummy_type))
-                        // We are not going to emit a real TYPE for it, so skip it
-                        continue;
-
-                    if (dummy_type.basic_type().is_class())
-                    {
-                        TL::Symbol class_type  = dummy_type.basic_type().get_symbol();
-                        decl_context_t class_context = class_type.get_scope().get_decl_context();
-
-                        if (!class_type.is_from_module()
-                                && (TL::Symbol(class_context.current_scope->related_entry) != entry)
-                                // Global names must not be IMPORTed
-                                && (class_context.current_scope != entry_context.global_scope
-                                    // Unless at this point they have already been defined
-                                    || get_codegen_status(class_type) == CODEGEN_STATUS_DEFINED))
-                        {
-                            if (already_imported.find(class_type) == already_imported.end())
-                            {
-                                // We will need an IMPORT as this type comes from an enclosing scope
-                                indent();
-                                file << "IMPORT :: " << class_type.get_name() << "\n";
-                                already_imported.insert(class_type);
-                                set_codegen_status(class_type, CODEGEN_STATUS_DEFINED);
-                            }
-                        }
-                    }
-                }
-
-                indent();
-                file << "IMPLICIT NONE\n";
-
-                if (lacks_result)
-                {
-                    std::string type_specifier;
-                    std::string array_specifier;
-                    codegen_type(entry.get_type().returns(), type_specifier, array_specifier,
-                            /* is_dummy */ 0);
-
-                    indent();
-                    file << type_specifier << " :: " << entry.get_name() << "\n";
-                }
-
-                for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
-                        it != related_symbols.end();
-                        it++)
-                {
-                    declare_symbol(*it);
-                }
-                dec_indent();
-
-                pop_declaring_entity();
-
-                codegen_procedure_declaration_footer(entry);
-
-                // And restore the state after the interface has been emitted
-                pop_declaration_status();
-
-                if (!state.in_interface)
-                {
-                    dec_indent();
-                    indent();
-                    file << "END INTERFACE\n";
-                }
+                emit_interface_for_symbol(entry);
             }
         }
         else if (entry.is_class())
@@ -3481,6 +3560,7 @@ OPERATOR_TABLE
                 || t.is_class()
                 || t.is_enum()
                 || t.is_array()
+                || t.is_function()
                 || (is_fortran_character_type(t.get_internal_type())));
     }
 
@@ -3747,7 +3827,13 @@ OPERATOR_TABLE
 
     void FortranBase::codegen_procedure_declaration_header(TL::Symbol entry, bool & lacks_result)
     {
-        bool is_function = !entry.get_type().returns().is_void();
+        TL::Type function_type = entry.get_type();
+        if (function_type.is_any_reference())
+            function_type = function_type.references_to();
+        if (function_type.is_pointer())
+            function_type = function_type.points_to();
+
+        bool is_function = !function_type.returns().is_void();
 
         indent();
 
@@ -3819,7 +3905,13 @@ OPERATOR_TABLE
     
     void FortranBase::codegen_procedure_declaration_footer(TL::Symbol entry)
     {
-        bool is_function = !entry.get_type().returns().is_void();
+        TL::Type function_type = entry.get_type();
+        if (function_type.is_any_reference())
+            function_type = function_type.references_to();
+        if (function_type.is_pointer())
+            function_type = function_type.points_to();
+
+        bool is_function = !function_type.returns().is_void();
 
         indent();
         file << "END "

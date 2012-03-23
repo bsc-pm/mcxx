@@ -5249,22 +5249,54 @@ static void build_scope_external_stmt(AST a, decl_context_t decl_context, nodecl
                 continue;
             }
         }
-        
-        // We mark the symbol as a external function
-        entry->kind = SK_FUNCTION;
-        entry->entity_specs.is_extern = 1;
-        remove_unknown_kind_symbol(decl_context, entry);
 
-        if (is_void_type(no_ref(entry->type_information)))
+        if (entry->kind == SK_UNDEFINED)
+        {
+            // We mark the symbol as a external function
+            entry->kind = SK_FUNCTION;
+            entry->entity_specs.is_extern = 1;
+            remove_unknown_kind_symbol(decl_context, entry);
+        }
+
+        type_t* type = entry->type_information;
+        char was_ref = 0;
+        if (is_lvalue_reference_type(type))
+        {
+            was_ref = 1;
+            type = no_ref(type);
+        }
+
+        char was_pointer = 0;
+        if (is_pointer_type(type))
+        {
+            was_pointer = 1;
+            type = pointer_type_get_pointee_type(type);
+        }
+
+        type_t* new_type = NULL;
+
+        if (is_void_type(type))
         {
             // We do not know it, set a type like one of a SUBROUTINE
-            entry->type_information = get_nonproto_function_type(get_void_type(), 0);
+            new_type = get_nonproto_function_type(get_void_type(), 0);
         }
         else
         {
-            entry->type_information = get_nonproto_function_type(entry->type_information, 0);
+            new_type = get_nonproto_function_type(type, 0);
         }
         remove_untyped_symbol(decl_context, entry);
+
+        if (was_pointer)
+        {
+            new_type = get_pointer_type(new_type);
+        }
+
+        if (was_ref)
+        {
+            new_type = get_lvalue_reference_type(new_type);
+        }
+
+        entry->type_information = new_type;
     }
 }
 
@@ -6263,6 +6295,12 @@ static void build_scope_pointer_stmt(AST a, decl_context_t decl_context, nodecl_
             remove_unknown_kind_symbol(decl_context, entry);
         }
 
+        if (entry->kind == SK_FUNCTION)
+        {
+            entry->entity_specs.is_extern = 0;
+            entry->kind = SK_VARIABLE;
+        }
+
         if (!is_error_type(entry->type_information))
         {
             entry->type_information = get_pointer_type(no_ref(entry->type_information));
@@ -6319,10 +6357,231 @@ static void build_scope_print_stmt(AST a, decl_context_t decl_context, nodecl_t*
                 nodecl_make_fortran_print_statement(nodecl_get_child(nodecl_format, 0), nodecl_io_items, ASTFileName(a), ASTLine(a)));
 }
 
-static void build_scope_procedure_decl_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER, 
+static void copy_interface(scope_entry_t* orig, scope_entry_t* dest)
+{
+    type_t* function_type = no_ref(orig->type_information);
+    if (is_pointer_type(function_type))
+        function_type = pointer_type_get_pointee_type(function_type);
+
+    ERROR_CONDITION(!is_function_type(function_type), "Function type is not", 0);
+
+    dest->type_information = function_type;
+
+    dest->entity_specs.is_elemental = orig->entity_specs.is_elemental;
+    dest->entity_specs.is_pure = orig->entity_specs.is_pure;
+
+    dest->related_decl_context = orig->related_decl_context;
+
+    dest->entity_specs.num_related_symbols = orig->entity_specs.num_related_symbols;
+    dest->entity_specs.related_symbols = orig->entity_specs.related_symbols;
+}
+
+static void synthesize_procedure_type(scope_entry_t* entry, 
+        scope_entry_t* interface, type_t* return_type, 
+        decl_context_t decl_context,
+        char do_pointer)
+{
+    char was_ref = is_lvalue_reference_type(entry->type_information);
+    type_t* t = no_ref(entry->type_information);
+
+    if (is_pointer_type(t))
+    { 
+        t = pointer_type_get_pointee_type(t);
+    }
+
+    if (interface == NULL)
+    {
+        type_t* new_type = t;
+
+        if (return_type == NULL)
+        {
+            new_type = get_nonproto_function_type(no_ref(entry->type_information), 0);
+        }
+        else
+        {
+            new_type = get_nonproto_function_type(return_type, 0);
+            entry->entity_specs.is_implicit_basic_type = 0;
+            remove_untyped_symbol(decl_context, entry);
+        }
+
+        entry->type_information = new_type;
+    }
+    else
+    {
+        // This function sets entry->type_information (among many other things)
+        copy_interface(interface, entry);
+    }
+
+    if (do_pointer)
+    {
+        entry->type_information = get_pointer_type(entry->type_information);
+    }
+
+    if (was_ref)
+    {
+        entry->type_information = get_lvalue_reference_type(entry->type_information);
+    }
+}
+
+static void build_scope_procedure_decl_stmt(AST a, decl_context_t decl_context, 
         nodecl_t* nodecl_output UNUSED_PARAMETER)
 {
-    unsupported_statement(a, "PROCEDURE");
+    AST proc_interface = ASTSon0(a);
+    AST proc_attr_spec_list = ASTSon1(a);
+    AST proc_decl_list = ASTSon2(a);
+
+    attr_spec_t attr_spec;
+    memset(&attr_spec, 0, sizeof(attr_spec));
+
+    scope_entry_t* interface = NULL;
+    type_t* return_type = NULL;
+
+    if (proc_interface != NULL)
+    {
+        if (ASTType(proc_interface) == AST_SYMBOL)
+        {
+            interface = get_symbol_for_name(decl_context, proc_interface, ASTText(proc_interface));
+
+            if (interface == NULL
+                    || interface->kind != SK_FUNCTION)
+            {
+                error_printf("%s: error: '%s' is not an interface name\n",
+                        ast_location(proc_interface),
+                        interface->symbol_name);
+                interface = NULL;
+            }
+            else if (interface->kind == SK_FUNCTION
+                    || (interface->kind == SK_VARIABLE
+                        && is_pointer_to_function_type(no_ref(interface->type_information))))
+            {
+                type_t* function_type = no_ref(interface->type_information);
+
+                if (is_pointer_type(function_type))
+                {
+                    function_type = pointer_type_get_pointee_type(function_type);
+                }
+
+                if (function_type_get_lacking_prototype(function_type))
+                {
+                    error_printf("%s: error: '%s' does not have an explicit interface\n",
+                            ast_location(proc_interface),
+                            interface->symbol_name);
+
+                    interface = NULL;
+                }
+            }
+        }
+        else
+        {
+            return_type = gather_type_from_declaration_type_spec(proc_interface, decl_context);
+        }
+    }
+
+    if (proc_attr_spec_list != NULL)
+        gather_attr_spec_list(proc_attr_spec_list, decl_context, &attr_spec);
+
+    AST it;
+    for_each_element(proc_decl_list, it)
+    {
+        AST name = ASTSon1(it);
+
+        AST init = NULL;
+
+        if (ASTType(name) == AST_RENAME)
+        {
+            name = ASTSon0(name);
+            init = ASTSon0(name);
+        }
+
+        scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
+
+        if (entry->entity_specs.is_builtin)
+        {
+            error_printf("%s: error: entity '%s' already has INTRINSIC attribute and INTRINSIC attribute conflicts with EXTERNAL attribute\n",
+                    ast_location(name),
+                    entry->symbol_name);
+            continue;
+        }
+
+        if (attr_spec.is_save)
+        {
+            if (entry->entity_specs.is_static)
+            {
+                running_error("%s: error: SAVE attribute already specified for symbol '%s'\n", 
+                        ast_location(name),
+                        entry->symbol_name);
+            }
+            entry->entity_specs.is_static = 1;
+        }
+
+        if (attr_spec.is_optional)
+        {
+            if (!entry->entity_specs.is_parameter)
+            {
+                error_printf("%s: error: OPTIONAL attribute is only for dummy arguments\n",
+                        ast_location(name));
+            }
+            if (entry->entity_specs.is_optional)
+            {
+                error_printf("%s: error: OPTIONAL attribute already specified for symbol '%s'\n", 
+                        ast_location(name),
+                        entry->symbol_name);
+            }
+            entry->entity_specs.is_optional = 1;
+        }
+
+        if (!attr_spec.is_pointer
+                && !is_pointer_type(no_ref(entry->type_information)))
+        {
+            if (entry->kind == SK_UNDEFINED)
+            {
+                entry->kind = SK_FUNCTION;
+                remove_unknown_kind_symbol(decl_context, entry);
+
+                synthesize_procedure_type(entry, interface, return_type, decl_context,
+                        /* do_pointer */ 0);
+            }
+            else if (entry->kind == SK_FUNCTION)
+            {
+                error_printf("%s: error: entity '%s' already has EXTERNAL attribute\n", 
+                        ast_location(name),
+                        entry->symbol_name);
+            }
+            else
+            {
+                error_printf("%s: error: entity '%s' cannot appear in a PROCEDURE statement\n",
+                        ast_location(name),
+                        entry->symbol_name);
+            }
+        }
+        else
+        {
+            if (attr_spec.is_pointer
+                    && is_pointer_type(no_ref(entry->type_information)))
+            {
+                running_error("%s: error: POINTER attribute already specified for symbol '%s'\n",
+                        ast_location(name),
+                        entry->symbol_name);
+            }
+
+            entry->kind = SK_VARIABLE;
+            remove_unknown_kind_symbol(decl_context, entry);
+
+            synthesize_procedure_type(entry, interface, return_type, decl_context,
+                    /* do_pointer */ 1);
+        }
+
+
+        if (init != NULL)
+        {
+            if (!is_pointer_type(entry->type_information))
+            {
+                error_printf("%s: error: only procedure pointers can be initialized in a procedure declaration statement\n",
+                        ast_location(name));
+            }
+            internal_error("Not yet implemented", 0);
+        }
+    }
 }
 
 static void build_scope_protected_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER, 
@@ -6979,32 +7238,62 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
             }
         }
 
-        if (current_attr_spec.is_external)
+        if (current_attr_spec.is_external
+                && !is_error_type(entry->type_information))
         {
-            entry->kind = SK_FUNCTION;
+            if (is_function_type(no_ref(entry->type_information)))
+            {
+                error_printf("%s: error: entity '%s' already has the EXTERNAL attribute\n", 
+                        ast_location(name),
+                        entry->symbol_name);
+            }
+
+            char was_ref = is_lvalue_reference_type(entry->type_information);
             entry->type_information = get_nonproto_function_type(entry->type_information, 0);
-            remove_unknown_kind_symbol(decl_context, entry);
+            if (was_ref)
+            {
+                entry->type_information = get_lvalue_reference_type(entry->type_information);
+            }
+
+            if (!current_attr_spec.is_pointer
+                    && !is_pointer_type(no_ref(entry->type_information)))
+            {
+                entry->kind = SK_FUNCTION;
+                entry->entity_specs.is_extern = 1;
+                remove_unknown_kind_symbol(decl_context, entry);
+            }
         }
 
-        if (current_attr_spec.is_external)
+        if ((current_attr_spec.is_pointer 
+                    || is_pointer_type(no_ref(entry->type_information)))
+                && !is_error_type(entry->type_information))
         {
-            entry->entity_specs.is_extern = 1;
+            if (current_attr_spec.is_pointer
+                    && is_pointer_type(no_ref(entry->type_information)))
+            {
+                error_printf("%s: error: entity '%s' already has the POINTER attribute\n",
+                        ast_location(name),
+                        entry->symbol_name);
+            }
+            else
+            {
+                entry->kind = SK_VARIABLE;
+                entry->entity_specs.is_extern = 0;
+
+                remove_unknown_kind_symbol(decl_context, entry);
+
+                char was_ref = is_lvalue_reference_type(entry->type_information);
+                entry->type_information = get_pointer_type(no_ref(entry->type_information));
+                if (was_ref)
+                {
+                    entry->type_information = get_lvalue_reference_type(entry->type_information);
+                }
+            }
         }
 
         if (current_attr_spec.is_save)
         {
             entry->entity_specs.is_static = 1;
-        }
-
-        if (current_attr_spec.is_pointer
-                && !is_error_type(entry->type_information))
-        {
-            char was_ref = is_lvalue_reference_type(entry->type_information);
-            entry->type_information = get_pointer_type(no_ref(entry->type_information));
-            if (was_ref)
-            {
-                entry->type_information = get_lvalue_reference_type(entry->type_information);
-            }
         }
 
         entry->entity_specs.is_target = current_attr_spec.is_target;
