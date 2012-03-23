@@ -6374,6 +6374,8 @@ static void copy_interface(scope_entry_t* orig, scope_entry_t* dest)
 
     dest->entity_specs.num_related_symbols = orig->entity_specs.num_related_symbols;
     dest->entity_specs.related_symbols = orig->entity_specs.related_symbols;
+
+    dest->entity_specs.is_implicit_basic_type = 0;
 }
 
 static void synthesize_procedure_type(scope_entry_t* entry, 
