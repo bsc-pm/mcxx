@@ -34,12 +34,10 @@ namespace TL
         void OpenMPTransform::taskyield_postorder(PragmaCustomConstruct taskyield_construct)
         {
             Source taskyield_source;
-            Statement taskyield_body = taskyield_construct.get_statement();
 
             taskyield_source
                 << "{"
                 <<    "nanos_yield();"
-                <<    taskyield_body.prettyprint() // This will avoid breakage if you did not write ';' after the taskyield pragma
                 << "}"
                 ;
 

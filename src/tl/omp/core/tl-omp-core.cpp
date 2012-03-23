@@ -1100,6 +1100,8 @@ namespace TL
         EMPTY_HANDLERS(critical)
         EMPTY_HANDLERS(flush)
         EMPTY_HANDLERS(ordered)
+        EMPTY_HANDLERS(taskyield)
+
 #ifdef FORTRAN_SUPPORT
         EMPTY_HANDLERS(parallel_do)
         EMPTY_HANDLERS(do)
