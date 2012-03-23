@@ -159,6 +159,7 @@ struct type_environment_tag
 
     // The type that matches the one of sizeof
     type_t* (*type_of_sizeof)(void);
+    type_t* (*type_of_ptrdiff_t)(void);
 
     // The exact 'char' type (depending on the environment it is 'signed' or
     // 'unsigned')

@@ -73,6 +73,7 @@ LIBMCXX_EXTERN type_t* get_unsigned_int_type(void);
 LIBMCXX_EXTERN type_t* get_unsigned_short_int_type(void);
 LIBMCXX_EXTERN type_t* get_unsigned_int_type(void);
 LIBMCXX_EXTERN type_t* get_size_t_type(void);
+LIBMCXX_EXTERN type_t* get_ptrdiff_t_type(void);
 LIBMCXX_EXTERN type_t* get_unsigned_long_int_type(void);
 LIBMCXX_EXTERN type_t* get_unsigned_long_long_int_type(void);
 LIBMCXX_EXTERN type_t* get_floating_type_from_descriptor(floating_type_info_t* info);

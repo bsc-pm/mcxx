@@ -395,6 +395,8 @@ namespace TL { namespace Nanox {
                 construct.get_filename().c_str(),
                 construct.get_line(),
                 &nodecl_output);
+        set_is_complete_type(new_class_type, /* is_complete */ 1);
+        set_is_complete_type(get_actual_class_type(new_class_type), /* is_complete */ 1);
 
         if (!nodecl_is_null(nodecl_output))
         {

@@ -136,6 +136,22 @@ static TL::Symbol declare_const_wd_type(int num_devices)
             class_type_add_member(new_class_type, field.get_internal_symbol());
         }
 
+        nodecl_t nodecl_output = nodecl_null();
+        finish_class_type(new_class_type, 
+                ::get_user_defined_type(new_class_symbol.get_internal_symbol()),
+                sc.get_decl_context(), 
+                "", 0,
+                // construct.get_filename().c_str(),
+                // construct.get_line(),
+                &nodecl_output);
+        set_is_complete_type(new_class_type, /* is_complete */ 1);
+        set_is_complete_type(get_actual_class_type(new_class_type), /* is_complete */ 1);
+
+        if (!nodecl_is_null(nodecl_output))
+        {
+            std::cerr << "FIXME: finished class issues nonempty nodecl" << std::endl; 
+        }
+
         return new_class_symbol;
     }
     else

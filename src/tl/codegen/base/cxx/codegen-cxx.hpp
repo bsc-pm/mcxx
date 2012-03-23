@@ -388,6 +388,10 @@ namespace Codegen
             TL::Type fix_references(TL::Type t);
 
             TL::Scope get_current_scope() const;
+
+            bool is_non_language_reference_variable(TL::Symbol sym);
+            bool is_non_language_reference_variable(const Nodecl::NodeclBase& n);
+            bool is_non_language_reference_type(TL::Type type);
     };
 }
 

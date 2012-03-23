@@ -44,6 +44,8 @@ OMP_DIRECTIVE("section", section)
 OMP_CONSTRUCT("task", task)
 OMP_DIRECTIVE("taskwait", taskwait)
 
+OMP_DIRECTIVE("taskyield", taskyield)
+
 OMP_DIRECTIVE("threadprivate", threadprivate)
 
 OMP_CONSTRUCT("ordered", ordered)
