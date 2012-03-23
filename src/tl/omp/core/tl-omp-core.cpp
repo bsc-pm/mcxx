@@ -1140,6 +1140,7 @@ namespace TL
         EMPTY_HANDLERS_CONSTRUCT(ordered)
         EMPTY_HANDLERS_CONSTRUCT(parallel_do)
         EMPTY_HANDLERS_CONSTRUCT(do)
+        EMPTY_HANDLERS_DIRECTIVE(taskyield)
 
         void openmp_core_run_next_time(DTO& dto)
         {
