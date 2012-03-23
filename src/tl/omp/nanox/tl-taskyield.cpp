@@ -26,12 +26,12 @@
 
 
 
-#include "tl-omptransform.hpp"
+#include "tl-omp-nanox.hpp"
 namespace TL
 {
     namespace Nanox
     {
-        void OpenMPTransform::taskyield_postorder(PragmaCustomConstruct taskyield_construct)
+        void OMPTransform::taskyield_postorder(PragmaCustomConstruct taskyield_construct)
         {
             Source taskyield_source;
 
