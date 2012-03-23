@@ -8144,10 +8144,9 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
             type_t* return_type = function_type_get_return_type(function_type);
 
             // Everything seems fine here
-            *nodecl_output = nodecl_make_function_call(
+            *nodecl_output = cxx_nodecl_make_function_call(
                     nodecl_called,
                     nodecl_argument_list_output,
-                    /* alternate_name */ nodecl_null(),
                     return_type,
                     filename, line);
             return;
@@ -10933,10 +10932,9 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
 
                 if (conversors[i] != NULL)
                 {
-                    nodecl_arg = nodecl_make_function_call(
+                    nodecl_arg = cxx_nodecl_make_function_call(
                             nodecl_make_symbol(conversors[i], nodecl_get_filename(nodecl_arg), nodecl_get_line(nodecl_arg)),
                             nodecl_make_list_1(nodecl_arg),
-                            /* alternate_name */ nodecl_null(),
                             actual_type_of_conversor(conversors[i]), nodecl_get_filename(nodecl_arg), nodecl_get_line(nodecl_arg));
                 }
 
@@ -13863,7 +13861,7 @@ nodecl_t cxx_nodecl_make_function_call(nodecl_t called, nodecl_t arg_list, type_
     type_t* function_type = NULL;
     if (called_symbol != NULL)
     {
-        function_type = called_symbol->type_information;
+        function_type = no_ref(called_symbol->type_information);
     }
     else
     {
@@ -13924,34 +13922,52 @@ nodecl_t cxx_nodecl_make_function_call(nodecl_t called, nodecl_t arg_list, type_
 
     free(list);
 
-    if (called_symbol != NULL
-            && called_symbol->kind == SK_FUNCTION)
+    if (called_symbol != NULL)
     {
-        ensure_function_is_emitted(called_symbol, nodecl_get_filename(called), nodecl_get_line(called));
-
-        // Default arguments
-        int arg_i = nodecl_list_length(converted_arg_list);
-        if (ignore_this)
+        if (called_symbol->kind == SK_FUNCTION)
         {
-            // Do not count the implicit member
-            arg_i--;
+            ensure_function_is_emitted(called_symbol, nodecl_get_filename(called), nodecl_get_line(called));
+
+            // Default arguments
+            int arg_i = nodecl_list_length(converted_arg_list);
+            if (ignore_this)
+            {
+                // Do not count the implicit member
+                arg_i--;
+            }
+            ERROR_CONDITION(arg_i < 0, "Invalid argument count %d\n", arg_i);
+
+            for(; arg_i < num_parameters; arg_i++)
+            {
+                ERROR_CONDITION(called_symbol->entity_specs.default_argument_info == NULL
+                        || called_symbol->entity_specs.default_argument_info[arg_i] == NULL,
+                        "Invalid default argument information %d", arg_i);
+
+                converted_arg_list = nodecl_append_to_list(converted_arg_list,
+                        called_symbol->entity_specs.default_argument_info[arg_i]->argument);
+            }
+
+            if (called_symbol->entity_specs.is_member 
+                    && called_symbol->entity_specs.is_virtual)
+            {
+                return nodecl_make_virtual_function_call(called, converted_arg_list, t, filename, line);
+            }
+            else
+            {
+                return nodecl_make_function_call(called, converted_arg_list, /* alternate_name */ nodecl_null(), t, filename, line);
+            }
         }
-        ERROR_CONDITION(arg_i < 0, "Invalid argument count %d\n", arg_i);
-
-        for(; arg_i < num_parameters; arg_i++)
+        else if (called_symbol->kind == SK_VARIABLE
+                && is_pointer_to_function_type(no_ref(called_symbol->type_information)))
         {
-            ERROR_CONDITION(called_symbol->entity_specs.default_argument_info == NULL
-                    || called_symbol->entity_specs.default_argument_info[arg_i] == NULL,
-                    "Invalid default argument information %d", arg_i);
-
-            converted_arg_list = nodecl_append_to_list(converted_arg_list,
-                    called_symbol->entity_specs.default_argument_info[arg_i]->argument);
-        }
-
-        if (called_symbol->entity_specs.is_member 
-                && called_symbol->entity_specs.is_virtual)
-        {
-            return nodecl_make_virtual_function_call(called, converted_arg_list, t, filename, line);
+            return nodecl_make_function_call(
+                    nodecl_make_derreference(called,
+                        lvalue_ref(pointer_type_get_pointee_type(called_symbol->type_information)),
+                        nodecl_get_filename(called),
+                        nodecl_get_line(called)),
+                    converted_arg_list, 
+                    /* alternate_name */ nodecl_null(), t, 
+                    filename, line);
         }
         else
         {
