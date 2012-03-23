@@ -82,6 +82,7 @@ namespace Nanox
             void parallel_for_postorder(PragmaCustomConstruct ctr);
             void task_postorder(PragmaCustomConstruct ctr);
             void taskwait_postorder(PragmaCustomConstruct ctr);
+            void taskyield_postorder(PragmaCustomConstruct ctr);
             void single_postorder(PragmaCustomConstruct ctr);
             void for_postorder(PragmaCustomConstruct ctr);
             void atomic_postorder(PragmaCustomConstruct ctr);
