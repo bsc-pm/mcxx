@@ -121,6 +121,21 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
         << "};"
         ;
 
+    Source policy, chunk_value;
+    chunk_value = Source("0");
+    PragmaCustomClause schedule_clause = ctr.get_clause("schedule");
+    if (schedule_clause.is_defined())
+    {
+        ObjectList<std::string> args = schedule_clause.get_arguments(ExpressionTokenizerTrim());
+
+        policy = args[0] + "_for";
+
+        if (args.size() > 1)
+        {
+            chunk_value = Source(args[1]);
+        }
+    }
+
     OutlineFlags outline_flags;
 
     DeviceHandler &device_handler = DeviceHandler::get_device_handler();
@@ -150,40 +165,108 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
 
         if (Nanos::Version::interface_is_at_least("worksharing", 1000))
         {
-            Source instr_enter_burst_opt, instr_leave_burst_opt;
-            //This new instrumentation is supported only in smp devices
-            Source instrument_before;
-            if (_enable_instrumentation && device_provider->get_name()=="smp")
+            Source instrument_before_opt, instrument_after_opt;
+            if (_enable_instrumentation)
             {
-                // instrument_before
-                //     << "nanos_event_key_t ek;"
-                //     << "nanos_event_value_t ev_chunk;"
-                //     << "nanos_err_t err = nanos_instrument_get_key(\"user-funct-name\", &ek);"
-                //     << "if (err != NANOS_OK) nanos_handle_error(err);"
-                //     << "err = nanos_instrument_register_value(&ev_chunk, \"user-funct-name\", \"loop-chunk\", \"Loop chunk\", 0);"
-                //     << "if (err != NANOS_OK) nanos_handle_error(err);"
-                //     ;
+                 instrument_before_opt
+                     << "static int nanos_loop_init = 0;"
+                     << "static nanos_event_key_t nanos_instr_loop_lower_key = 0;"
+                     << "static nanos_event_value_t nanos_instr_loop_lower_value = 0;"
+                     << "static nanos_event_key_t nanos_instr_loop_upper_key = 0;"
+                     << "static nanos_event_value_t nanos_instr_loop_upper_value = 0;"
+                     << "static nanos_event_key_t nanos_instr_loop_step_key = 0;"
+                     << "static nanos_event_value_t nanos_instr_loop_step_value = 0;"
+                     << "static nanos_event_key_t nanos_instr_chunk_size_key = 0;"
+                     << "static nanos_event_value_t nanos_instr_chunk_size_value = 0;"
 
-                // instr_enter_burst_opt << "nanos_instrument_enter_burst(ek, ev_chunk);";
-                // instr_leave_burst_opt << "nanos_instrument_leave_burst(ek);";
+                     << "if (nanos_loop_init == 0)"
+                     << "{"
+                     <<     "nanos_err_t err;"
+                     <<     "err = nanos_instrument_get_key(\"loop-lower\", &nanos_instr_loop_lower_key);"
+                     <<     "if (err != NANOS_OK) nanos_handle_error(err);"
+                     <<     "err = nanos_instrument_register_value(&nanos_instr_loop_lower_value,"
+                     <<         "\"loop-lower\", \"" << for_statement.get_lower_bound() << "\", \"Loop lower bound\", 0);"
+                     <<     "if (err != NANOS_OK) nanos_handle_error(err);"
+
+                     <<     "err = nanos_instrument_get_key(\"loop-upper\", &nanos_instr_loop_upper_key);"
+                     <<     "if (err != NANOS_OK) nanos_handle_error(err);"
+                     <<     "err = nanos_instrument_register_value(&nanos_instr_loop_upper_value,"
+                     <<         "\"loop-upper\", \"" << for_statement.get_upper_bound() << "\", \"Loop upper bound\" , 0);"
+                     <<     "if (err != NANOS_OK) nanos_handle_error(err);"
+
+                     <<     "err = nanos_instrument_get_key(\"loop-step\", &nanos_instr_loop_step_key);"
+                     <<     "if (err != NANOS_OK) nanos_handle_error(err);"
+                     <<     "err = nanos_instrument_register_value(&nanos_instr_loop_step_value,"
+                     <<         "\"loop-step\", \"" << for_statement.get_step() << "\", \"Loop step\" , 0);"
+                     <<     "if (err != NANOS_OK) nanos_handle_error(err);"
+
+                     <<     "err = nanos_instrument_get_key(\"chunk-size\", &nanos_instr_chunk_size_key);"
+                     <<     "if (err != NANOS_OK) nanos_handle_error(err);"
+                     <<     "err = nanos_instrument_register_value(&nanos_instr_chunk_size_value,"
+                     <<         "\"chunk-size\", \""<< chunk_value << "\", \"Chunk size\" , 0);"
+                     <<     "if (err != NANOS_OK) nanos_handle_error(err);"
+
+                     <<     "nanos_loop_init = 1;"
+                     << "}"
+
+                     << "nanos_event_t loop_events_before;"
+                     << "loop_events_before.type = NANOS_POINT;"
+                     // Number of register events
+                     << "loop_events_before.info.point.nkvs = 4;"
+
+                     << "loop_events_before.info.point.keys = (nanos_event_key_t*) __builtin_alloca(sizeof(nanos_event_key_t)*4);"
+                     << "loop_events_before.info.point.keys[0] = nanos_instr_loop_lower_key;"
+                     << "loop_events_before.info.point.keys[1] = nanos_instr_loop_upper_key;"
+                     << "loop_events_before.info.point.keys[2] = nanos_instr_loop_step_key;"
+                     << "loop_events_before.info.point.keys[3] = nanos_instr_chunk_size_key;"
+
+
+                     << "loop_events_before.info.point.values = (nanos_event_value_t*) __builtin_alloca(sizeof(nanos_event_value_t)*4);"
+                     << "loop_events_before.info.point.values[0] = nanos_instr_loop_lower_value;"
+                     << "loop_events_before.info.point.values[1] = nanos_instr_loop_upper_value;"
+                     << "loop_events_before.info.point.values[2] = nanos_instr_loop_step_value;"
+                     << "loop_events_before.info.point.values[3] = nanos_instr_chunk_size_value;"
+                     
+                     << "nanos_instrument_events(1, &loop_events_before);"
+                     ;
+
+                 instrument_after_opt
+                     << "nanos_event_t loop_events_after;"
+                     << "loop_events_after.type = NANOS_POINT;"
+
+                     // Number of register events
+                     << "loop_events_after.info.point.nkvs = 4;"
+                     
+                     << "loop_events_after.info.point.keys = (nanos_event_key_t*) __builtin_alloca(sizeof(nanos_event_key_t)*4);"
+                     << "loop_events_after.info.point.keys[0] = nanos_instr_loop_lower_key;"
+                     << "loop_events_after.info.point.keys[1] = nanos_instr_loop_upper_key;"
+                     << "loop_events_after.info.point.keys[2] = nanos_instr_loop_step_key;"
+                     << "loop_events_after.info.point.keys[3] = nanos_instr_chunk_size_key;"
+
+                     << "loop_events_after.info.point.values = (nanos_event_value_t*) __builtin_alloca(sizeof(nanos_event_value_t)*4);"
+                     << "loop_events_after.info.point.values[0] = nanos_instr_loop_lower_value;"
+                     << "loop_events_after.info.point.values[1] = nanos_instr_loop_upper_value;"
+                     << "loop_events_after.info.point.values[2] = nanos_instr_loop_step_value;"
+                     << "loop_events_after.info.point.values[3] = nanos_instr_chunk_size_value;"
+
+                     << "nanos_instrument_events(1, &loop_events_after);"
+                     ;
             }
 
             outline_body
-                << instrument_before
                 << loop_distr_setup
                 << "nanos_worksharing_next_item(_args->wsd, (nanos_ws_item_t *) &_nth_info);"
+                << instrument_before_opt
                 << "if ("<< for_statement.get_step() <<" > 0)"
                 << "{"
                 <<      "while (_nth_info.execute)"
                 <<      "{"
-                <<          instr_enter_burst_opt
                 <<          "for (" << induction_var_name << " = _nth_info.lower;"
                 <<                     induction_var_name << " <= _nth_info.upper;"
                 <<                     induction_var_name << " +=" << for_statement.get_step() << ")"
                 <<          "{"
                 <<              replaced_body
                 <<          "}"
-                <<          instr_leave_burst_opt
                 <<          "nanos_worksharing_next_item(_args->wsd, (nanos_ws_item_t *) &_nth_info);"
                 <<      "}"
                 << "}"
@@ -191,17 +274,16 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
                 << "{"
                 <<      "while (_nth_info.execute)"
                 <<      "{"
-                <<          instr_enter_burst_opt
                 <<          "for (" << induction_var_name << " = _nth_info.lower;"
                 <<                     induction_var_name << " >= _nth_info.upper;"
                 <<                     induction_var_name << " +=" << for_statement.get_step() << ")"
                 <<          "{"
                 <<              replaced_body
                 <<          "}"
-                <<          instr_leave_burst_opt
                 <<          "nanos_worksharing_next_item(_args->wsd, (nanos_ws_item_t *) &_nth_info);"
                 <<      "}"
                 << "}"
+                << instrument_after_opt
                 << final_barrier
                 ;
         }
@@ -506,20 +588,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
         }
     }
 
-    Source policy, chunk_value;
-    chunk_value = Source("0");
-    PragmaCustomClause schedule_clause = ctr.get_clause("schedule");
-    if (schedule_clause.is_defined())
-    {
-        ObjectList<std::string> args = schedule_clause.get_arguments(ExpressionTokenizerTrim());
 
-        policy = args[0] + "_for";
-
-        if (args.size() > 1)
-        {
-            chunk_value = Source(args[1]);
-        }
-    }
     Source current_slicer;
     if (Nanos::Version::interface_is_at_least("worksharing", 1000))
     {
