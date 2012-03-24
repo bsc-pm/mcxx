@@ -3961,10 +3961,6 @@ static void build_scope_common_stmt(AST a,
             sym->entity_specs.is_in_common = 1;
             sym->entity_specs.in_common = common_sym;
 
-            // This name cannot be used as a function name anymore
-            if (sym->entity_specs.is_implicit_basic_type)
-                sym->entity_specs.is_implicit_but_not_function = 1;
-
             if (array_spec != NULL)
             {
                 if (is_fortran_array_type(no_ref(sym->type_information))
@@ -4462,12 +4458,7 @@ static void build_scope_data_stmt(AST a, decl_context_t decl_context, nodecl_t* 
 
         entry->value = nodecl_append_to_list(entry->value, 
                 nodecl_make_fortran_data(nodecl_item_set, nodecl_data_set, ASTFileName(data_stmt_set), ASTLine(data_stmt_set)));
-        
-        // This name cannot be used as a function name anymore
-        if (entry->entity_specs.is_implicit_basic_type)
-            entry->entity_specs.is_implicit_but_not_function = 1;
     }
-
 }
 
 static void build_scope_deallocate_stmt(AST a, 
@@ -4980,9 +4971,6 @@ static void build_scope_dimension_stmt(AST a, decl_context_t decl_context, nodec
             entry->kind = SK_VARIABLE;
             remove_unknown_kind_symbol(decl_context, entry);
         }
-        // This name cannot be used as a function name anymore
-        if (entry->entity_specs.is_implicit_basic_type)
-            entry->entity_specs.is_implicit_but_not_function = 1;
 
         if (!is_error_type(entry->type_information))
         {
@@ -6762,9 +6750,6 @@ static void build_scope_stmt_function_stmt(AST a, decl_context_t decl_context,
                 dummy_arg->kind = SK_VARIABLE;
                 remove_unknown_kind_symbol(decl_context, dummy_arg);
             }
-            // This can be used latter if trying to give a nonzero rank to this
-            // entity
-            dummy_arg->entity_specs.is_dummy_arg_stmt_function = 1;
 
             P_LIST_ADD(entry->entity_specs.related_symbols,
                     entry->entity_specs.num_related_symbols,
@@ -7017,7 +7002,6 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
 
         entry->type_information = update_basic_type_with_type(entry->type_information, basic_type);
         entry->entity_specs.is_implicit_basic_type = 0;
-        entry->entity_specs.is_implicit_but_not_function = 0;
 
         entry->file = ASTFileName(declaration);
         entry->line = ASTLine(declaration);
@@ -7036,7 +7020,6 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
                 {
                     sym->type_information = update_basic_type_with_type(sym->type_information, basic_type);
                     sym->entity_specs.is_implicit_basic_type = 0;
-                    sym->entity_specs.is_implicit_but_not_function = 0;
                 }
             }
         }
