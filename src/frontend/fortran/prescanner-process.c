@@ -82,7 +82,6 @@ static void convert_whole_line_comments(void);
 #if 0
 static void remove_inlined_comments(void);
 #endif
-static void handle_include_directives(prescanner_t*);
 static void normalize_line(prescanner_t*, char** line);
 static void convert_lines(prescanner_t*);
 static void continuate_lines(prescanner_t*);
@@ -119,9 +118,6 @@ static void fortran_prescanner_process(prescanner_t* prescanner)
 	// their inline comments
 	remove_inlined_comments();
 #endif
-
-	// Handle "INCLUDE" directives
-	handle_include_directives(prescanner);
 
 	convert_lines(prescanner);
 
@@ -182,17 +178,118 @@ static void close_files(prescanner_t* prescanner)
     }
 }
 
+static char* get_filename_include(char* c, regmatch_t sub_matching[]);
+static char* fortran_literal(char* c);
+static char* create_new_filename(char* c);
+static void manage_included_file(
+        prescanner_t* prescanner,
+        char* included_filename, FILE** handle_included_file, 
+		FILE** handle_output_file);
+
+static void handle_include_line(
+        prescanner_t* prescanner,
+        line_t* iter,
+        regmatch_t *sub_matching)
+{
+    static int maximum_nesting_level = 0;
+    // We save current information
+    line_t* current_file_lines = file_lines;
+    line_t* current_last_line = last_line;
+    FILE* current_input_file = prescanner->input_file;
+    FILE* current_output_file = prescanner->output_file;
+    const char* current_filename = prescanner->input_filename;
+
+    if (maximum_nesting_level > 99)
+    {
+        running_error("%s:%d: error: too many levels of nesting (> %d)",
+                prescanner->input_filename,
+                iter->line,
+                maximum_nesting_level);
+    }
+    maximum_nesting_level++;
+
+    // Get the filename
+    char* included_filename = get_filename_include(iter->line, sub_matching);
+    char* new_included_filename = create_new_filename(included_filename);
+    char* fortran_literal_filename = fortran_literal(new_included_filename);
+
+    // We replace the include with the new file
+    iter->line[0] = '\0';
+    strcat(iter->line, "      INCLUDE \"");
+    strcat(iter->line, fortran_literal_filename);
+    strcat(iter->line, "\"");
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "DEBUG: INCLUDE LINE-> Opening file '%s'\n", included_filename);
+    }
+
+    manage_included_file(prescanner, included_filename, &prescanner->input_file, &prescanner->output_file);
+
+    if (prescanner->input_file == NULL)
+    {
+        running_error("%s:%d: error: cannot open included file '%s' (%s)\n",
+                prescanner->input_filename,
+                iter->line_number,
+                included_filename,
+                strerror(errno));
+    }
+
+    // Now, recursive processing
+    fortran_prescanner_process(prescanner);
+
+    free(included_filename);
+    free(new_included_filename);
+    free(fortran_literal_filename);
+
+    maximum_nesting_level--;
+
+    // We restore saved information
+    file_lines = current_file_lines;
+    last_line = current_last_line;
+    prescanner->input_filename = current_filename;
+    prescanner->input_file = current_input_file;
+    prescanner->output_file = current_output_file;
+}
+
+// Don't modify this regex without updating where will the filename go (currently in sub_matching[1])
+#define INCLUDE_CONSTANT_STRING "((['](([^']|[']['])+)['])|([\"](([^\"]|[\"][\"])+)[\"]))"
+#define INCLUDE_KEYWORD "i[[:blank:]]*n[[:blank:]]*c[[:blank:]]*l[[:blank:]]*u[[:blank:]]*d[[:blank:]]*e"
+#define INCLUDE_DIRECTIVE_REGEX \
+"^[[:blank:]]*"INCLUDE_KEYWORD"[[:blank:]]*"INCLUDE_CONSTANT_STRING"[[:blank:]]*(!.*)?$"
+
+#define INCLUDES_PREFIX "mf95_"
+
 static void convert_lines(prescanner_t* prescanner)
 {
+    // INCLUDE stuff
+	regex_t match_include_directive;
+	// It is enough with 2
+	regmatch_t sub_matching[2];
+
+    int code;
+	if ((code = regcomp(&match_include_directive, INCLUDE_DIRECTIVE_REGEX, REG_EXTENDED | REG_ICASE)) != 0)
+	{
+		char error_message[120];
+		regerror(code, &match_include_directive, error_message, 120);
+		internal_error("Error when compiling regular expression (%s)\n", error_message);
+	}
+
 	// This is a global variable with local scope
 	static language_level next = LANG_TOP_LEVEL;
 	line_t* iter = file_lines;
 
 	while (iter != NULL)
 	{
-		// This is not true when we have includes dealing here
-		next = convert_line(prescanner, next, &iter->line, iter->line_number);
-		iter = iter->next;
+		if (regexec(&match_include_directive, iter->line, 2, sub_matching, 0) == 0)
+		{
+            handle_include_line(prescanner, iter, sub_matching);
+        }
+        else
+        {
+            next = convert_line(prescanner, next, &iter->line, iter->line_number);
+        }
+        iter = iter->next;
 	}
 }
 
@@ -629,105 +726,6 @@ static void trim_right(char* c)
 
 		c[length + 1] = '\0';
 	}
-}
-
-// Don't modify this regex without updating where will the filename go (currently in sub_matching[1])
-#define INCLUDE_CONSTANT_STRING "((['](([^']|[']['])+)['])|([\"](([^\"]|[\"][\"])+)[\"]))"
-#define INCLUDE_KEYWORD "i[[:blank:]]*n[[:blank:]]*c[[:blank:]]*l[[:blank:]]*u[[:blank:]]*d[[:blank:]]*e"
-#define INCLUDE_DIRECTIVE_REGEX \
-"^[[:blank:]]*"INCLUDE_KEYWORD"[[:blank:]]*"INCLUDE_CONSTANT_STRING"[[:blank:]]*(!.*)?$"
-
-#define INCLUDES_PREFIX "mf95_"
-
-static char* get_filename_include(char* c, regmatch_t sub_matching[]);
-static char* fortran_literal(char* c);
-static char* create_new_filename(char* c);
-static void manage_included_file(
-        prescanner_t* prescanner,
-        char* included_filename, FILE** handle_included_file, 
-		FILE** handle_output_file);
-
-static void handle_include_directives(prescanner_t* prescanner)
-{
-	static int maximum_nesting_level = 0;
-	// We save current information
-	line_t* current_file_lines = file_lines;
-	line_t* current_last_line = last_line;
-	FILE* current_input_file = prescanner->input_file;
-	FILE* current_output_file = prescanner->output_file;
-    const char* current_filename = prescanner->input_filename;
-	int code;
-
-	regex_t match_include_directive;
-	// It is enough with 2
-	regmatch_t sub_matching[2];
-
-	if ((code = regcomp(&match_include_directive, INCLUDE_DIRECTIVE_REGEX, REG_EXTENDED | REG_ICASE)) != 0)
-	{
-		char error_message[120];
-		regerror(code, &match_include_directive, error_message, 120);
-		internal_error("Error when compiling regular expression (%s)\n", error_message);
-	}
-
-	line_t* iter = current_file_lines;
-	while (iter != NULL)
-	{
-		if (regexec(&match_include_directive, iter->line, 2, sub_matching, 0) == 0)
-		{
-			if (maximum_nesting_level > 99)
-			{
-                running_error("%s:%d: error: too many levels of nesting (> %d)",
-                        prescanner->input_filename,
-                        iter->line,
-                        maximum_nesting_level);
-			}
-			maximum_nesting_level++;
-
-			// Get the filename
-			char* included_filename = get_filename_include(iter->line, sub_matching);
-			char* new_included_filename = create_new_filename(included_filename);
-			char* fortran_literal_filename = fortran_literal(new_included_filename);
-			
-			// We replace the include with the new file
-			iter->line[0] = '\0';
-			strcat(iter->line, "      INCLUDE \"");
-			strcat(iter->line, fortran_literal_filename);
-			strcat(iter->line, "\"");
-
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "DEBUG: INCLUDE LINE-> Opening file '%s'\n", included_filename);
-            }
-
-			manage_included_file(prescanner, included_filename, &prescanner->input_file, &prescanner->output_file);
-
-			if (prescanner->input_file == NULL)
-			{
-                running_error("%s:%d: error: cannot open included file '%s' (%s)\n",
-                        prescanner->input_filename,
-                        iter->line_number,
-                        included_filename,
-                        strerror(errno));
-			}
-
-			// Now, recursive processing
-			fortran_prescanner_process(prescanner);
-
-			free(included_filename);
-			free(new_included_filename);
-			free(fortran_literal_filename);
-
-			maximum_nesting_level--;
-		}
-		iter = iter->next;
-	}
-
-	// We restore saved information
-	file_lines = current_file_lines;
-	last_line = current_last_line;
-    prescanner->input_filename = current_filename;
-	prescanner->input_file = current_input_file;
-	prescanner->output_file = current_output_file;
 }
 
 static char* get_filename_include(char* c, regmatch_t sub_matching[])
