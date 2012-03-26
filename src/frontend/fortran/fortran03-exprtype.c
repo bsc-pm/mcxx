@@ -2527,8 +2527,14 @@ static void check_called_symbol_list(
     }
     else
     {
+        type_t* function_type = no_ref(symbol->type_information);
+        if (is_pointer_to_function_type(function_type))
+        {
+            function_type = pointer_type_get_pointee_type(function_type);
+        }
+
         // This is now a specfic procedure reference
-        ERROR_CONDITION (!is_function_type(symbol->type_information), "Invalid type for function symbol!\n", 0);
+        ERROR_CONDITION (!is_function_type(function_type), "We need a function type!", 0);
 
         // Complete with those arguments that are not present
         // Reorder the arguments
@@ -2619,8 +2625,8 @@ static void check_called_symbol_list(
             }
         }
 
-        if (!function_type_get_lacking_prototype(symbol->type_information) 
-                && num_completed_arguments > function_type_get_num_parameters(symbol->type_information))
+        if (!function_type_get_lacking_prototype(function_type)
+                && num_completed_arguments > function_type_get_num_parameters(function_type))
         {
             if (!checking_ambiguity())
             {
@@ -2632,15 +2638,15 @@ static void check_called_symbol_list(
             return;
         }
 
-        ERROR_CONDITION(!function_type_get_lacking_prototype(symbol->type_information) 
-                && (num_completed_arguments != function_type_get_num_parameters(symbol->type_information)), 
+        ERROR_CONDITION(!function_type_get_lacking_prototype(function_type) 
+                && (num_completed_arguments != function_type_get_num_parameters(function_type)), 
                 "Mismatch between arguments and the type of the function %d != %d", 
                 num_completed_arguments,
-                function_type_get_num_parameters(symbol->type_information));
+                function_type_get_num_parameters(function_type));
 
         char argument_type_mismatch = 0;
         int common_rank = -1;
-        if (!function_type_get_lacking_prototype(symbol->type_information))
+        if (!function_type_get_lacking_prototype(function_type))
         {
             actual_argument_info_t fixed_argument_info_items[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
             memcpy(fixed_argument_info_items, argument_info_items, sizeof(fixed_argument_info_items));
@@ -2676,7 +2682,7 @@ static void check_called_symbol_list(
 
             for (i = 0; i < num_completed_arguments; i++)
             {
-                type_t* formal_type = no_ref(function_type_get_parameter_type_num(symbol->type_information, i));
+                type_t* formal_type = no_ref(function_type_get_parameter_type_num(function_type, i));
                 type_t* real_type = no_ref(fixed_argument_info_items[i].type);
 
                 if (is_pointer_type(formal_type)
@@ -2718,7 +2724,7 @@ static void check_called_symbol_list(
             return;
         }
 
-        return_type = function_type_get_return_type(symbol->type_information);
+        return_type = function_type_get_return_type(function_type);
 
         if (symbol->entity_specs.is_elemental
                 && !is_void_type(return_type))
@@ -2992,8 +2998,23 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
                     ASTFileName(procedure_designator), ASTLine(procedure_designator));
         }
 
+        nodecl_t nodecl_called = 
+                nodecl_make_symbol(called_symbol, ASTFileName(procedure_designator), ASTLine(procedure_designator));
+        if (called_symbol->kind == SK_VARIABLE)
+        {
+            // This must be a pointer to function
+            ERROR_CONDITION(!is_pointer_to_function_type(no_ref(called_symbol->type_information)), "Invalid symbol", 0);
+
+            nodecl_called = nodecl_make_derreference(
+                    nodecl_called,
+                    lvalue_ref(called_symbol->type_information),
+                    ASTFileName(procedure_designator),
+                    ASTLine(procedure_designator));
+            nodecl_set_symbol(nodecl_called, called_symbol);
+        }
+
         *nodecl_output = nodecl_make_function_call(
-                nodecl_make_symbol(called_symbol, ASTFileName(procedure_designator), ASTLine(procedure_designator)),
+                nodecl_called,
                 nodecl_argument_list,
                 nodecl_generic_spec,
                 result_type,
@@ -3328,8 +3349,23 @@ static void check_user_defined_unary_op(AST expr, decl_context_t decl_context, n
         nodecl_generic_spec = nodecl_make_symbol(generic_specifier_symbol, ASTFileName(expr), ASTLine(expr));
     }
 
+    nodecl_t nodecl_called = nodecl_make_symbol(called_symbol, ASTFileName(expr), ASTLine(expr));
+
+    if (called_symbol->kind == SK_VARIABLE)
+    {
+        // This must be a pointer to function
+        ERROR_CONDITION(!is_pointer_to_function_type(no_ref(called_symbol->type_information)), "Invalid symbol", 0);
+
+        nodecl_called = nodecl_make_derreference(
+                nodecl_called,
+                lvalue_ref(called_symbol->type_information),
+                ASTFileName(expr),
+                ASTLine(expr));
+        nodecl_set_symbol(nodecl_called, called_symbol);
+    }
+
     *nodecl_output = nodecl_make_function_call(
-            nodecl_make_symbol(called_symbol, ASTFileName(expr), ASTLine(expr)),
+            nodecl_called,
             nodecl_make_list_1(
                 nodecl_make_fortran_named_pair_spec(nodecl_null(),
                     fortran_nodecl_adjust_function_argument(
@@ -3430,8 +3466,23 @@ static void check_user_defined_binary_op(AST expr, decl_context_t decl_context, 
         nodecl_generic_spec = nodecl_make_symbol(generic_specifier_symbol, ASTFileName(expr), ASTLine(expr));
     }
 
+    nodecl_t nodecl_called = nodecl_make_symbol(called_symbol, ASTFileName(expr), ASTLine(expr));
+
+    if (called_symbol->kind == SK_VARIABLE)
+    {
+        // This must be a pointer to function
+        ERROR_CONDITION(!is_pointer_to_function_type(no_ref(called_symbol->type_information)), "Invalid symbol", 0);
+
+        nodecl_called = nodecl_make_derreference(
+                nodecl_called,
+                lvalue_ref(called_symbol->type_information),
+                ASTFileName(expr),
+                ASTLine(expr));
+        nodecl_set_symbol(nodecl_called, called_symbol);
+    }
+
     *nodecl_output = nodecl_make_function_call(
-            nodecl_make_symbol(called_symbol, ASTFileName(expr), ASTLine(expr)),
+            nodecl_called,
             nodecl_make_list_2(
                 nodecl_make_fortran_named_pair_spec(nodecl_null(),
                     fortran_nodecl_adjust_function_argument(
@@ -3507,6 +3558,7 @@ static void check_symbol_of_called_name(AST sym,
                     && !entry->entity_specs.is_intrinsic_subroutine)
             {
                 entry_is_an_intrinsic = 0;
+                entry = NULL;
             }
 
             if (entry_is_an_intrinsic) 
@@ -3524,7 +3576,7 @@ static void check_symbol_of_called_name(AST sym,
         if (!entry_is_an_intrinsic) 
         {
             // Well, it does not name an intrinsic either (_or_ it does name
-            // one but it does match its usage) (i.e. CALLing an INTRINSIC
+            // one but it does not match its usage) (i.e. CALLing an INTRINSIC
             // FUNCTION)
             if (is_call_stmt)
             {
@@ -3547,7 +3599,7 @@ static void check_symbol_of_called_name(AST sym,
                     // This is not a CALL and we are under IMPLICIT NONE. Something is amiss
                     if (!checking_ambiguity())
                     {
-                        error_printf("%s: error: '%s' is not a function name\n", ast_location(sym), ASTText(sym));
+                        error_printf("%s: error: '%s' is not a known function name\n", ast_location(sym), ASTText(sym));
                     }
                     *call_list = NULL;
                     return;
@@ -3586,7 +3638,6 @@ static void check_symbol_of_called_name(AST sym,
                 entry->kind = SK_FUNCTION;
                 remove_unknown_kind_symbol(decl_context, entry);
 
-                // and update its type
                 if (entry->entity_specs.alias_to != NULL
                         && entry->entity_specs.alias_to->entity_specs.is_builtin)
                 {
@@ -3620,45 +3671,75 @@ static void check_symbol_of_called_name(AST sym,
                 else
                 {
                     scope_entry_t * intrinsic_sym = fortran_query_intrinsic_name_str(decl_context, entry->symbol_name);
-                    if (intrinsic_sym == NULL || entry->entity_specs.is_parameter)
-                    {
-                        // This is the usual case, when instead of SQRT the user wrote
-                        // SRTQ (and we are not in IMPLICIT NONE)
-                        entry->type_information = get_nonproto_function_type(entry->type_information, 0);
-                    }
-                    else 
+                    if (intrinsic_sym != NULL)
                     {
                         // From now, the symbol is an intrinsic
                         *entry = *intrinsic_sym;
                     }
                 }
+
+                char was_ref = is_lvalue_reference_type(entry->type_information);
+                if (!is_call_stmt)
+                {
+                    entry->type_information = get_nonproto_function_type(entry->type_information, 0);
+
+                    // This symbol is not untyped anymore
+                    remove_untyped_symbol(decl_context, entry);
+                    // nor its type can be redefined (this would never happen in real Fortran because of statement ordering)
+                    entry->entity_specs.is_implicit_basic_type = 0;
+                }
+                else
+                {
+                    // This is a call but do not change its status of untyped type
+                    entry->type_information = get_nonproto_function_type(get_void_type(), 0);
+                }
+
+                if (was_ref)
+                    entry->type_information = lvalue_ref(entry->type_information);
             }
 
-            if (entry->kind != SK_FUNCTION)
+            if (entry->kind == SK_FUNCTION)
+            {
+                // OK
+                if (entry->entity_specs.is_implicit_basic_type)
+                {
+                    // Case for
+                    //
+                    // EXTERNAL :: FOO, BAR
+                    //
+                    // CALL FOO()
+                    // A = BAR(3.5)
+
+                    if (is_call_stmt)
+                    {
+                        char was_ref = is_lvalue_reference_type(entry->type_information);
+                        entry->type_information = get_nonproto_function_type(get_void_type(), 0);
+
+                        if (was_ref)
+                            entry->type_information = lvalue_ref(entry->type_information);
+                    }
+
+                    // This symbol is not untyped anymore
+                    remove_untyped_symbol(decl_context, entry);
+                    // nor its type can be redefined (this would never happen in real Fortran because of statement ordering)
+                    entry->entity_specs.is_implicit_basic_type = 0;
+                }
+            }
+            else if (entry->kind == SK_VARIABLE
+                    && is_pointer_to_function_type(no_ref(entry->type_information)))
+            {
+                // OK
+            }
+            else
             {
                 if (!checking_ambiguity())
                 {
-                    error_printf("%s: error: '%s' is not a %s name\n", ast_location(sym), entry->symbol_name,
-                            is_call_stmt ? "subroutine" : "function");
+                    error_printf("%s: error: name '%s' %s\n", ast_location(sym), entry->symbol_name,
+                            is_call_stmt ? "is not a valid subroutine name for a CALL statement" : "cannot appear in a function reference");
                 }
                 *call_list = NULL;
                 return;
             }
-
-            // Generic specifiers are not to be handled here
-            if (!is_computed_function_type(entry->type_information))
-            {
-                if (is_call_stmt
-                        && entry->entity_specs.is_implicit_basic_type)
-                {
-                    entry->type_information = get_nonproto_function_type(get_void_type(), 0);
-                }
-            }
-
-            // This symbol is not untyped anymore
-            remove_untyped_symbol(decl_context, entry);
-            // nor its type can be redefined (this would never happen in real Fortran because of statement ordering)
-            entry->entity_specs.is_implicit_basic_type = 0;
 
             // And we are done
             *call_list = entry_list_new(entry);
@@ -4117,8 +4198,23 @@ static void check_assignment(AST expr, decl_context_t decl_context, nodecl_t* no
             nodecl_generic_spec = nodecl_make_symbol(generic_specifier_symbol, ASTFileName(expr), ASTLine(expr));
         }
 
+        nodecl_t nodecl_called = nodecl_make_symbol(assignment_op, ASTFileName(expr), ASTLine(expr));
+
+        if (assignment_op->kind == SK_VARIABLE)
+        {
+            // This must be a pointer to function
+            ERROR_CONDITION(!is_pointer_to_function_type(no_ref(assignment_op->type_information)), "Invalid symbol", 0);
+
+            nodecl_called = nodecl_make_derreference(
+                    nodecl_called,
+                    lvalue_ref(assignment_op->type_information),
+                    ASTFileName(expr),
+                    ASTLine(expr));
+            nodecl_set_symbol(nodecl_called, assignment_op);
+        }
+
         *nodecl_output = nodecl_make_function_call(
-                nodecl_make_symbol(assignment_op, ASTFileName(expr), ASTLine(expr)),
+                nodecl_called,
                 nodecl_make_list_2(
                     nodecl_make_fortran_named_pair_spec(
                         nodecl_null(),
@@ -5188,8 +5284,23 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
                     nodecl_generic_spec = nodecl_make_symbol(generic_specifier_symbol, ast_get_filename(expr), ast_get_line(expr));
                 }
 
+                nodecl_t nodecl_called = nodecl_make_symbol(called_symbol, ASTFileName(expr), ASTLine(expr));
+
+                if (called_symbol->kind == SK_VARIABLE)
+                {
+                    // This must be a pointer to function
+                    ERROR_CONDITION(!is_pointer_to_function_type(no_ref(called_symbol->type_information)), "Invalid symbol", 0);
+
+                    nodecl_called = nodecl_make_derreference(
+                            nodecl_called,
+                            lvalue_ref(called_symbol->type_information),
+                            ASTFileName(expr),
+                            ASTLine(expr));
+                    nodecl_set_symbol(nodecl_called, called_symbol);
+                }
+
                 *nodecl_output = nodecl_make_function_call(
-                        nodecl_make_symbol(called_symbol, ast_get_filename(expr), ast_get_line(expr)),
+                        nodecl_called,
                         nodecl_argument_list,
                         nodecl_generic_spec,
                         result,

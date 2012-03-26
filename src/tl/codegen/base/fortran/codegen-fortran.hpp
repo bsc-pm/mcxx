@@ -313,6 +313,8 @@ namespace Codegen
             TL::Symbol get_current_declaring_module();
 
             bool inside_an_interface();
+
+            void emit_interface_for_symbol(TL::Symbol entry);
     };
 }
 
