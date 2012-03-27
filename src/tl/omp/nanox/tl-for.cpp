@@ -31,6 +31,12 @@
 #include "tl-counters.hpp"
 #include "tl-devices.hpp"
 
+#define WRONG_REDUCTIONS_WORKAROUND 1
+
+#ifdef WRONG_REDUCTIONS_WORKAROUND
+  #warning Wrong implementaton of reductions so tests pass
+#endif
+
 using namespace TL;
 using namespace TL::Nanox;
 
@@ -665,9 +671,28 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
         {
             auxiliar_initializer << udr2.get_identity().prettyprint();
         }
-                  
+
+#ifdef WRONG_REDUCTIONS_WORKAROUND
+        Source reduction_array_size;
+        reduction_array_size << "_nth_team";
+
+        Source static_reduction_array;
+        if (Nanos::Version::interface_is_at_least("worksharing", 1000))
+        {
+            static_reduction_array
+                << "static "
+                ;
+
+            reduction_array_size = Source("128");
+        }
+#endif // WRONG_REDUCTIONS_WORKAROUND
+
+
         reduction_join_arr_decls
-            << rs.get_type().get_declaration(rs.get_scope(), "") << " rdv_" << rs.get_name() << "[_nth_team];"
+#ifdef WRONG_REDUCTIONS_WORKAROUND
+            << static_reduction_array
+#endif // WRONG_REDUCTIONS_WORKAROUND
+            << rs.get_type().get_declaration(rs.get_scope(), "") << " rdv_" << rs.get_name() << "[" << reduction_array_size << "];"
             << "for(rs_i=0; rs_i<_nth_team; rs_i++)"
             << "{"
         ;
@@ -716,21 +741,32 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
             it++)
     {
         DeviceProvider* device_provider = device_handler.get_device(*it);
-        
+
         if (device_provider->get_name()=="smp")
         {
             omp_reduction_join 
                 << device_provider->get_reduction_code(reduction_symbols, ctr.get_scope_link())
-            ;
+                ;
         }
     }
+
     // Fill outline variables
     for (ObjectList<OpenMP::ReductionSymbol>::iterator it = reduction_symbols.begin();
             it != reduction_symbols.end();
             it++)
     {
-        omp_reduction_argument
-            << "ol_args->rdv_" << it->get_symbol().get_name() << " = rdv_" << it->get_symbol().get_name() << ";";
+        if (Nanos::Version::interface_is_at_least("worksharing", 1000))
+        {
+#ifdef WRONG_REDUCTIONS_WORKAROUND
+            omp_reduction_argument
+                << "ol_args.rdv_" << it->get_symbol().get_name() << " = rdv_" << it->get_symbol().get_name() << ";";
+#endif
+        }
+        else
+        {
+            omp_reduction_argument
+                << "ol_args->rdv_" << it->get_symbol().get_name() << " = rdv_" << it->get_symbol().get_name() << ";";
+        }
     }
 
 
@@ -909,12 +945,27 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
             bool_type << "bool";
         }
 
+
+#ifdef WRONG_REDUCTIONS_WORKAROUND
+        // Make the reduction in the master
+        Source omp_reduction_join_master;
+        omp_reduction_join_master
+            << "if (omp_get_thread_num() == 0)"
+            << "{"
+            << omp_reduction_join
+            << "}"
+            ;
+#endif
+
         spawn_source
             << "{"
             <<      struct_arg_type_name << " ol_args;"
             <<      bool_type << " single_guard;"
             <<      "nanos_err_t err;"
             <<      current_ws_policy
+#ifdef WRONG_REDUCTIONS_WORKAROUND
+            <<      reduction_join_arr_decls
+#endif
             <<      "nanos_ws_info_loop_t info_loop = "
             <<          "{"
             <<              for_statement.get_lower_bound() << ","
@@ -959,7 +1010,14 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
             <<          "}"
             <<      "}"
             <<      fill_outline_arguments
+#ifdef WRONG_REDUCTIONS_WORKAROUND
+            <<      omp_reduction_argument
+#endif // WRONG_REDUCTIONS_WORKAROUND
             <<      smp_outline_call.str()
+#ifdef WRONG_REDUCTIONS_WORKAROUND
+            <<      final_barrier
+            <<      omp_reduction_join_master
+#endif // WRONG_REDUCTIONS_WORKAROUND
             << "}"
             ;
     }
