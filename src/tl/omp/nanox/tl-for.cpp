@@ -663,6 +663,11 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
 
             if (udr2.has_identity())
             {
+                if (udr2.get_need_equal_initializer())
+                {
+                    identity << " = ";
+                }
+
                 identity <<  udr2.get_identity().prettyprint() << ";"
                     ;
             }
