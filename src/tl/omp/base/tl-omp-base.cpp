@@ -234,6 +234,8 @@ namespace TL { namespace OpenMP {
 
         EMPTY_HANDLERS_DIRECTIVE(section)
 
+        EMPTY_HANDLERS_DIRECTIVE(taskyield)
+
     void Base::barrier_handler_pre(TL::PragmaCustomDirective) { } 
     void Base::barrier_handler_post(TL::PragmaCustomDirective directive) 
     {

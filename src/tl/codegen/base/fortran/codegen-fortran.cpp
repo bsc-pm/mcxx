@@ -2341,8 +2341,16 @@ OPERATOR_TABLE
         // different when we are emitting a function (or pointer to function)
         // the interface of which is declared after another existing interface
         // name
-        TL::Symbol real_entry = entry.get_related_scope().get_decl_context().current_scope->related_entry;
-        decl_context_t entry_context = real_entry.get_scope().get_decl_context();
+        decl_context_t entry_context = entry.get_scope().get_decl_context();
+
+        TL::Symbol real_entry = entry;
+        if (entry.get_related_scope().get_decl_context().current_scope != NULL
+                && entry.get_related_scope().get_decl_context().current_scope->related_entry != NULL)
+        {
+            real_entry = entry.get_related_scope().get_decl_context().current_scope->related_entry;
+            entry_context = real_entry.get_scope().get_decl_context();
+        }
+
 
         if (!state.in_interface)
         {
@@ -2422,9 +2430,15 @@ OPERATOR_TABLE
 
         if (lacks_result)
         {
+            TL::Type function_type = entry.get_type();
+            if (function_type.is_any_reference())
+                function_type = function_type.references_to();
+            if (function_type.is_pointer())
+                function_type = function_type.points_to();
+
             std::string type_specifier;
             std::string array_specifier;
-            codegen_type(entry.get_type().returns(), type_specifier, array_specifier,
+            codegen_type(function_type.returns(), type_specifier, array_specifier,
                     /* is_dummy */ 0);
 
             indent();
@@ -2569,12 +2583,15 @@ OPERATOR_TABLE
 
         if (entry.is_variable())
         {
+#if 0
             bool is_function_pointer = 
                 (entry.get_type().is_pointer()
                  && entry.get_type().points_to().is_function())
                 || (entry.get_type().is_any_reference()
                         && entry.get_type().references_to().is_pointer()
                         && entry.get_type().references_to().points_to().is_function());
+#endif
+            bool is_function_pointer = false;
 
             std::string type_spec;
             std::string array_specifier;
@@ -3560,7 +3577,8 @@ OPERATOR_TABLE
                 || t.is_class()
                 || t.is_enum()
                 || t.is_array()
-                || t.is_function()
+                // Fortran 2003
+                // || t.is_function()
                 || (is_fortran_character_type(t.get_internal_type())));
     }
 
