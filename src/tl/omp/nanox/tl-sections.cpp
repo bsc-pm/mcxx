@@ -144,7 +144,7 @@ void OMPTransform::sections_postorder(PragmaCustomConstruct ctr)
         // FIXME: Can this be reused for other devices? 
         // FIXME: Looks like we will have to change something in DeviceProvider...
         <<    "nanos_smp_args_t compound_devices_smp_args = { (void(*)(void*))compound_dev };"
-        <<    "nanos_device_t compound_device[1] = { { nanos_smp_factory, nanos_smp_dd_size, &compound_devices_smp_args } };"
+        <<    "nanos_device_t compound_device[1] = { { nanos_smp_factory, &compound_devices_smp_args } };"
 
         <<    "nanos_compound_wd_data_t *list_of_wds = (nanos_compound_wd_data_t*)0;"
         <<    dummy_if_needed
