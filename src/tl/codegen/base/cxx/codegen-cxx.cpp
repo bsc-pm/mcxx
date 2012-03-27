@@ -3138,12 +3138,6 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                 codegen_template_headers_bounded(template_parameters, symbol.get_scope().get_template_parameters());
             }
         }
-        else if (_friend.get_type().is_dependent_typename() ||
-                 _friend.get_internal_symbol()->kind == SK_DEPENDENT_FRIEND_CLASS)
-        {
-            TL::TemplateParameters template_parameters = _friend.get_scope().get_template_parameters();
-            codegen_template_headers_bounded(template_parameters, symbol.get_scope().get_template_parameters());
-        }
 
         // B. Generate the function or class declaration
         indent();
