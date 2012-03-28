@@ -124,6 +124,12 @@ static void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
 static void gather_type_spec_from_dependent_typename(AST a, type_t** simple_type_info,
         decl_context_t decl_context);
 
+static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
+        type_t** type_info,
+        gather_decl_spec_t *gather_info,
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output);
+
 static void gather_type_spec_from_elaborated_class_specifier(AST a, 
         type_t** type_info,
         gather_decl_spec_t *gather_info,
@@ -2287,11 +2293,26 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
     }
 
     class_entry = entry;
-    if (is_template_specialized_type(class_symbol->type_information))
+
+    // Is this class inside one or more template class definition?
+    char is_nested_in_one_or_more_template_class =
+        is_template_specialized_type(class_symbol->type_information);
+
+    scope_entry_t* auxiliar_sym = class_symbol;
+    while (!is_nested_in_one_or_more_template_class &&
+            auxiliar_sym->decl_context.current_scope->related_entry != NULL &&
+            auxiliar_sym->decl_context.current_scope->related_entry->kind == SK_CLASS)
+    {
+        auxiliar_sym = auxiliar_sym->decl_context.current_scope->related_entry;
+        is_nested_in_one_or_more_template_class =
+            is_template_specialized_type(class_symbol->type_information);
+    }
+
+    if (is_nested_in_one_or_more_template_class)
     {
         if (entry != NULL)
         {
-            if (gather_info->is_template)
+            if (gather_info->is_template || ASTType(id_expression) == AST_TEMPLATE_ID)
             {
                 if (!is_template_specialized_type(entry->type_information))
                 {
@@ -2351,13 +2372,17 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
                 // we need to remember the template arguments
                 class_entry->type_information =
                     template_type_get_specialized_type_noreuse(template_type, tpl, decl_context, class_entry->file, class_entry->line);
+                if (gather_info->is_template)
+                {
+                    class_entry->type_information = named_type_get_symbol(class_entry->type_information)->type_information;
+                }
             }
 
             // Promote a SK_DEPENDENT_ENTITY to SK_DEPENDENT_FRIEND_CLASS
             if (class_entry->kind == SK_DEPENDENT_ENTITY)
             {
                 class_entry->kind = SK_DEPENDENT_FRIEND_CLASS;
-                set_dependent_entry_kind(entry->type_information, class_kind);
+                set_dependent_entry_kind(class_entry->type_information, class_kind);
             }
 
             *type_info = get_void_type();
@@ -2450,7 +2475,7 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
 
                 class_type = class_entry->type_information;
             }
-            else 
+            else
             {
                 // A non-template class is declared inside an other non-template class
                 new_class->type_information = get_new_class_type(decl_context, class_kind);
@@ -2495,7 +2520,7 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
 }
 
 
-static void gather_type_spec_from_elaborated_class_specifier(AST a, 
+static void gather_type_spec_from_elaborated_class_specifier(AST a,
         type_t** type_info,
         gather_decl_spec_t *gather_info,
         decl_context_t decl_context,
@@ -2514,7 +2539,6 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
      */
     scope_entry_t* class_entry = NULL;
     type_t* class_type = NULL;
-    /* --- */
 
     AST class_key = ASTSon0(a);
 
@@ -2555,48 +2579,17 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
     {
         decl_flags |= DF_ELABORATED_NAME;
     }
-    
-    // decl_context_query is a new decl_context_t created  for the queries
-    decl_context_t decl_context_query = decl_context;
-
-    // If a friend declaration appears in a local class and the specified name is not qualified,
-    // we only look up in the innermost enclosing non-class scope
-    //
-    //  class X {}; 
-    //  class Y {}; 
-    //  void foo() 
-    //  {
-    //       class Y {};
-    //       class A
-    //       {
-    //           friend class X; // X is not found in ::Foo()
-    //           friend class Y; // Y is found  ::Foo()::Y
-    //       };
-    //  
-    //       X x; // ::X;
-    //       Y y; // ::Foo()::Y
-    //  }
-    char is_local_class_friend_decl = 0;
-    if (gather_info->is_friend
-            && is_unqualified_id_expression(id_expression)
-            && decl_context.current_scope->kind == CLASS_SCOPE 
-            && decl_context.current_scope->contained_in != NULL
-            && decl_context.current_scope->contained_in->kind == BLOCK_SCOPE)
-
-    {
-        is_local_class_friend_decl = 1;
-        decl_flags |= DF_ONLY_CURRENT_SCOPE;
-        decl_context_query.current_scope = decl_context.current_scope->contained_in;
-    }
 
     char is_friend_class_declaration =
         (gather_info->no_declarators && gather_info->is_friend);
 
-   if (is_friend_class_declaration)
-   {
-       gather_type_spec_from_elaborated_friend_class_specifier(a, type_info, gather_info,decl_context, nodecl_output);
-       return;
-   }
+    // The friend class declarations are a bit special. For this reason, they are treated
+    // in a separate 'gather_type_spec_from_elaborated_friend_class_specifier' function
+    if (is_friend_class_declaration)
+    {
+        gather_type_spec_from_elaborated_friend_class_specifier(a, type_info, gather_info,decl_context, nodecl_output);
+        return;
+    }
 
     CXX_LANGUAGE()
     {
@@ -2607,17 +2600,17 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         {
             if (is_unqualified_id_expression(id_expression))
             {
-                result_list = query_in_scope_flags(decl_context_query, id_expression, decl_flags);
+                result_list = query_in_scope_flags(decl_context, id_expression, decl_flags);
             }
             else
             {
-                result_list = query_id_expression_flags(decl_context_query,
+                result_list = query_id_expression_flags(decl_context,
                         id_expression, decl_flags | DF_DEPENDENT_TYPENAME);
             }
         }
         else
         {
-            result_list = query_id_expression_flags(decl_context_query,
+            result_list = query_id_expression_flags(decl_context,
                     id_expression, decl_flags | DF_DEPENDENT_TYPENAME);
         }
     }
@@ -2627,7 +2620,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         const char* class_name = ASTText(id_expression);
         class_name = strappend(class_kind_name, strappend(" ", class_name));
 
-        result_list = query_name_str(decl_context_query, class_name);
+        result_list = query_name_str(decl_context, class_name);
     }
 
     // Now look for a type
@@ -2673,106 +2666,13 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         entry = named_type_get_symbol(primary_template_type);
     }
 
-    decl_context_t orig_decl_context = decl_context;
-
-    if (entry != NULL && is_friend_class_declaration)
-    {
-        scope_entry_t* class_symbol = decl_context.current_scope->related_entry;
-        ERROR_CONDITION(class_symbol->kind != SK_CLASS, "Invalid symbol", 0);
-
-        scope_entry_t* friend_sym = entry;
-
-        //Is it a template friend class declaration?
-        if (gather_info->is_template)
-        {
-            // Is the query result a template?
-            if (!is_template_specialized_type(entry->type_information))
-            {
-                if (!checking_ambiguity())
-                {
-                    error_printf("%s: '%s' is not a template\n",
-                            ast_location(a), prettyprint_in_buffer(a));
-                }
-                *type_info = get_error_type();
-                return;
-            }
-
-            type_t* template_type = template_specialized_type_get_related_template_type(entry->type_information);
-
-            friend_sym = counted_calloc(1, sizeof(*entry), &_bytes_used_buildscope);
-            friend_sym->kind = SK_DEPENDENT_FRIEND_CLASS;
-            friend_sym->file = ASTFileName(a);
-            friend_sym->line = ASTLine(a);
-
-            nodecl_t nodecl_name = nodecl_null();
-            compute_nodecl_name_from_id_expression(id_expression, decl_context, &nodecl_name);
-            friend_sym->symbol_name = codegen_to_str(nodecl_name, decl_context);
-
-            friend_sym->value = nodecl_name;
-            friend_sym->decl_context = decl_context;
-            friend_sym->entity_specs.is_friend_declared = 1;
-
-            template_parameter_list_t* tpl = decl_context.template_parameters;
-            tpl = compute_template_parameter_values_of_primary(tpl);
-
-            // We need a fresh version every time for the friend declaration
-            // because we don't want to share it between classes
-            // Example:
-            //
-            // template <typename T2>
-            // struct M
-            // {
-            //     struct B;
-            // };
-            //
-            // template<typename T>
-            // struct A1
-            // {
-            //     template <typename S2>
-            //         friend class M;
-            // };
-            //
-            // template<typename T>
-            // struct A2
-            // {
-            //     template <typename S3>
-            //         friend class M;
-            // };
-            //
-            // ::A1<T>::M and ::A2<T>::M shall be different symbols because
-            // we need to remember the template arguments
-            friend_sym->type_information =
-                template_type_get_specialized_type_noreuse(template_type, tpl, decl_context, friend_sym->file, friend_sym->line);
-        }
-
-        // Promote a SK_DEPENDENT_ENTITY to SK_DEPENDENT_FRIEND_CLASS
-        if (friend_sym->kind == SK_DEPENDENT_ENTITY)
-        {
-            friend_sym->kind = SK_DEPENDENT_FRIEND_CLASS;
-            set_dependent_entry_kind(entry->type_information, class_kind);
-        }
-
-        class_type_add_friend_symbol(class_symbol->type_information, friend_sym);
-        *type_info = get_void_type();
-        return;
-    }
-
     if (entry == NULL)
     {
         // The name was not found.
         // We will have to create a symbol (if unqualified, otherwise this is an error)
         if (is_unqualified_id_expression(id_expression))
         {
-            if (is_local_class_friend_decl)
-            {
-                // The new symbol will be created in a BLOCK_SCOPE
-                decl_context.current_scope = decl_context.current_scope->contained_in;
-            }
-            else if (is_friend_class_declaration)
-            {
-                decl_context.current_scope = decl_context.namespace_scope;
-            }
-            else if (!gather_info->no_declarators
+            if (!gather_info->no_declarators
                     || gather_info->parameter_declaration)
             {
                 // Look for the smallest enclosing non-function-prototype scope
@@ -2822,7 +2722,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
 
                 DEBUG_CODE()
                 {
-                    fprintf(stderr, "BUILDSCOPE: Type not found, creating a stub in scope %p for '%s' %p\n", 
+                    fprintf(stderr, "BUILDSCOPE: Type not found, creating a stub in scope %p for '%s' %p\n",
                             decl_context.current_scope,
                             class_name,
                             new_class);
@@ -2836,12 +2736,12 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
                 class_entry = new_class;
                 class_type = class_entry->type_information;
             }
-            else 
+            else
             {
                 if (ASTType(id_expression) != AST_TEMPLATE_ID)
                 {
                     new_class->kind = SK_TEMPLATE;
-                    new_class->type_information = get_new_template_type(decl_context.template_parameters, 
+                    new_class->type_information = get_new_template_type(decl_context.template_parameters,
                             get_new_class_type(decl_context, class_kind),
                             ASTText(id_expression), decl_context,
                             ASTLine(id_expression),
@@ -2858,7 +2758,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
                         new_class->entity_specs.is_member = 1;
                         // FIXME!
                         // new_class->entity_specs.access = current_access;
-                        new_class->entity_specs.class_type = 
+                        new_class->entity_specs.class_type =
                             get_user_defined_type(decl_context.current_scope->related_entry);
                     }
 
@@ -2872,13 +2772,13 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
 
                     class_type = class_entry->type_information;
                 }
-                else 
+                else
                 {
                     // This is invalid because it is "class A<int>" but we
                     // didn't find any symbol related to it
                     if (!checking_ambiguity())
                     {
-                        error_printf("%s: error: invalid template-name '%s'\n", 
+                        error_printf("%s: error: invalid template-name '%s'\n",
                                 ast_location(id_expression),
                                 prettyprint_in_buffer(id_expression));
                     }
@@ -2891,8 +2791,8 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         {
             if (!checking_ambiguity())
             {
-                error_printf("%s: error: class name '%s' not found\n", 
-                        ast_location(id_expression), 
+                error_printf("%s: error: class name '%s' not found\n",
+                        ast_location(id_expression),
                         prettyprint_in_buffer(id_expression));
             }
             *type_info = get_error_type();
@@ -2999,18 +2899,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         }
     }
 
-    if (is_friend_class_declaration)
-    {
-        ERROR_CONDITION(orig_decl_context.current_scope->kind != CLASS_SCOPE, "Invalid class scope\n", 0);
-
-        scope_entry_t* class_symbol = orig_decl_context.current_scope->related_entry;
-        ERROR_CONDITION(class_symbol->kind != SK_CLASS, "Invalid symbol", 0);
-
-        class_type_add_friend_symbol(class_symbol->type_information, class_entry);
-    }
-
-    ERROR_CONDITION(class_entry == NULL,
-            "Invalid class entry", 0);
+    ERROR_CONDITION(class_entry == NULL, "Invalid class entry", 0);
 
     // State this symbol has been created by the code and not by the type system
     class_entry->entity_specs.is_user_declared = 1;
@@ -3020,7 +2909,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
     CXX_LANGUAGE()
     {
         // Remember the declaration
-        *nodecl_output = 
+        *nodecl_output =
             nodecl_concat_lists(
                     *nodecl_output,
                     nodecl_make_list_1(
@@ -8167,10 +8056,8 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
 
         template_type_set_related_symbol(func_templ->type_information, func_templ);
 
-        // The type of 'func_templ' symbol also will be stored in 'entry' symbol
-        // The reason: we use the type of 'entry' symbol for distinguish between
-        // a function declaration or a template function declaration
-        declarator_type = func_templ->type_information;
+        // We should update the declarator type with the primary type
+        declarator_type = primary_symbol->type_information;
     }
 
     //We create a new symbol always
