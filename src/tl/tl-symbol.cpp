@@ -205,6 +205,11 @@ namespace TL
     {
         return (this->_symbol->kind == SK_FUNCTION);
     }
+    
+    bool Symbol::is_dependent_friend_function() const
+    {
+        return (this->_symbol->kind == SK_DEPENDENT_FRIEND_FUNCTION);
+    }
 
     bool Symbol::is_module_procedure() const
     {
@@ -296,6 +301,11 @@ namespace TL
     bool Symbol::is_class() const
     {
         return this->_symbol->kind == SK_CLASS;
+    }
+
+    bool Symbol::is_dependent_friend_class() const
+    {
+        return this->_symbol->kind == SK_DEPENDENT_FRIEND_CLASS;
     }
 
     bool Symbol::is_template() const
