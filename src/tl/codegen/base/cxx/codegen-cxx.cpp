@@ -1141,7 +1141,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
 
     TL::Symbol symbol = node.get_symbol();
     TL::Type symbol_type = symbol.get_type();
-    TL::Scope symbol_scope = symbol.get_scope();
+    TL::Scope function_scope = context.retrieve_context();
 
     ERROR_CONDITION(!symbol.is_function(), "Invalid symbol", 0);
 
@@ -1239,7 +1239,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
 
     std::string asm_specification = gcc_asm_specifier_to_str(symbol);
 
-    std::string qualified_name = symbol.get_class_qualification(symbol_scope, /* without_template */ true);
+    std::string qualified_name = symbol.get_class_qualification(function_scope, /* without_template */ true);
 
     //if (symbol_type.is_template_specialized_type()
     //        && !symbol.is_conversion_function())
@@ -1257,13 +1257,13 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
     }
 
     std::string declarator;
-    declarator = this->get_declaration_with_parameters(real_type, symbol_scope, qualified_name, parameter_names, parameter_attributes);
+    declarator = this->get_declaration_with_parameters(real_type, function_scope, qualified_name, parameter_names, parameter_attributes);
 
     std::string exception_spec = exception_specifier_to_str(symbol);
 
     move_to_namespace_of_symbol(symbol);
 
-    TL::TemplateParameters template_parameters = symbol_scope.get_template_parameters();
+    TL::TemplateParameters template_parameters = function_scope.get_template_parameters();
     codegen_template_headers_all_levels(template_parameters);
     
     bool requires_extern_linkage = false;
