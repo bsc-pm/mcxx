@@ -75,7 +75,7 @@ namespace TL
                 };
 
                 // -- FIXME -- Think this a bit more
-                // This is similar to Transfer but it does not involve copies
+                // This is similar to CopyDirectionality but it does not involve copies
                 // between devices this is only useful for lastprivate and
                 // reduction
                 enum Flow
@@ -94,7 +94,7 @@ namespace TL
                     DIRECTIONALITY_CONCURRENT = 1 << 2
                 };
 
-                enum Transfer
+                enum CopyDirectionality
                 {
                     COPY_NONE = 0,
                     COPY_IN,
@@ -132,14 +132,14 @@ namespace TL
                 // -- FIXME --
                 // Reductions
 
-                // -- FIXME ---
                 // Dependences
                 Directionality _directionality;
                 TL::ObjectList<Nodecl::NodeclBase> _dependences;
                 
                 // -- FIXME ---
                 // Copies
-                Transfer _transfer;
+                CopyDirectionality _copy_directionality;
+                TL::ObjectList<Nodecl::NodeclBase> _copies;
 
                 AllocationPolicyFlags _allocation_policy_flags;
                 
@@ -153,7 +153,7 @@ namespace TL
                     _sharing(),
                     _shared_expression(),
                     _directionality(),
-                    _transfer(),
+                    _copy_directionality(),
                     _allocation_policy_flags()
                 {
                 }
@@ -167,7 +167,7 @@ namespace TL
                     _sharing(),
                     _shared_expression(),
                     _directionality(),
-                    _transfer(),
+                    _copy_directionality(),
                     _allocation_policy_flags()
                 {
                 }
@@ -263,6 +263,16 @@ namespace TL
                     _directionality = directionality;
                 }
 
+                CopyDirectionality get_copy_directionality() const
+                {
+                    return _copy_directionality;
+                }
+
+                void set_copy_directionality(CopyDirectionality directionality)
+                {
+                    _copy_directionality = directionality;
+                }
+
                 Directionality get_directionality() const
                 {
                     return _directionality;
@@ -276,6 +286,16 @@ namespace TL
                 const TL::ObjectList<Nodecl::NodeclBase>& get_dependences() const
                 {
                     return _dependences;
+                }
+
+                TL::ObjectList<Nodecl::NodeclBase>& get_copies()
+                {
+                    return _copies;
+                }
+
+                const TL::ObjectList<Nodecl::NodeclBase>& get_copies() const
+                {
+                    return _copies;
                 }
 
                 void set_shared_expression(Nodecl::NodeclBase shared_expr)

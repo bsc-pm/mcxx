@@ -181,6 +181,61 @@ namespace TL { namespace Nanox {
                 add_dependence(dep_inout.get_inout_deps().as<Nodecl::List>(), OutlineDataItem::DIRECTIONALITY_INOUT);
             }
 
+            void add_copies(Nodecl::List list, OutlineDataItem::CopyDirectionality copy_directionality)
+            {
+                for (Nodecl::List::iterator it = list.begin();
+                        it != list.end();
+                        it++)
+                {
+                    TL::DataReference data_ref(*it);
+                    if (data_ref.is_valid())
+                    {
+                        TL::Symbol sym = data_ref.get_base_symbol();
+                        if (!_is_function_task)
+                        {
+                            // If we are in an inline task, dependences are
+                            // truly shared...
+                            add_shared(sym);
+                        }
+                        else
+                        {
+                            // ... but in function tasks, dependences have just
+                            // their addresses captured
+                            add_capture(sym);
+                        }
+
+                        OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym);
+                        outline_info.set_copy_directionality(
+                                OutlineDataItem::CopyDirectionality(copy_directionality | outline_info.get_copy_directionality())
+                                );
+
+                        outline_info.get_copies().append(data_ref);
+                    }
+                    else
+                    {
+                        internal_error("%s: data reference '%s' must be valid at this point!\n", 
+                                it->get_locus().c_str(),
+                                Codegen::get_current().codegen_to_str(*it, it->retrieve_context()).c_str()
+                                );
+                    }
+                }
+            }
+
+            void visit(const Nodecl::Parallel::CopyIn& copy_in)
+            {
+                add_copies(copy_in.get_input_copies().as<Nodecl::List>(), OutlineDataItem::COPY_IN);
+            }
+
+            void visit(const Nodecl::Parallel::CopyOut& copy_out)
+            {
+                add_copies(copy_out.get_output_copies().as<Nodecl::List>(), OutlineDataItem::COPY_OUT);
+            }
+
+            void visit(const Nodecl::Parallel::CopyInout& copy_inout)
+            {
+                add_copies(copy_inout.get_inout_copies().as<Nodecl::List>(), OutlineDataItem::COPY_INOUT);
+            }
+
             void add_capture(Symbol sym)
             {
                 OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym);

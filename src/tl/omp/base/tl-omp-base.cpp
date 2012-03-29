@@ -55,6 +55,31 @@ namespace TL { namespace OpenMP {
         }
     }
 
+    template <typename T,
+             typename List>
+    static void make_copy_list(
+            List& dependences,
+            CopyDirection kind,
+            const std::string& filename, int line,
+            ObjectList<Nodecl::NodeclBase>& result_list)
+    {
+        TL::ObjectList<Nodecl::NodeclBase> data_ref_list;
+        for (typename List::iterator it = dependences.begin();
+                it != dependences.end();
+                it++)
+        {
+            if (it->get_kind() != kind)
+                continue;
+
+            data_ref_list.append(it->get_copy_expression());
+        }
+
+        if (!data_ref_list.empty())
+        {
+            result_list.append(T::make(Nodecl::List::make(data_ref_list), filename, line));
+        }
+    }
+
     class FunctionCallVisitor : public Nodecl::ExhaustiveVisitor<void>
     {
         private:
@@ -425,10 +450,17 @@ namespace TL { namespace OpenMP {
     }
 
     void Base::target_handler_pre(TL::PragmaCustomStatement) { }
-    void Base::target_handler_pre(TL::PragmaCustomDeclaration) { }
+    void Base::target_handler_pre(TL::PragmaCustomDeclaration decl) { }
 
-    void Base::target_handler_post(TL::PragmaCustomStatement) { }
-    void Base::target_handler_post(TL::PragmaCustomDeclaration) { }
+    void Base::target_handler_post(TL::PragmaCustomStatement stmt) 
+    {
+        stmt.integrate(stmt.get_statements());
+    }
+
+    void Base::target_handler_post(TL::PragmaCustomDeclaration decl)
+    { 
+        Nodecl::Utils::remove_from_enclosing_list(decl);
+    }
 
     void Base::sections_handler_pre(TL::PragmaCustomStatement) { }
     void Base::sections_handler_post(TL::PragmaCustomStatement directive)
@@ -568,6 +600,27 @@ namespace TL { namespace OpenMP {
 
         make_dependency_list<Nodecl::Parallel::DepInout>(
                 dependences, OpenMP::DEP_DIR_INOUT,
+                pragma_line.get_filename(), pragma_line.get_line(),
+                result_list);
+
+        TL::ObjectList<OpenMP::CopyItem> copies;
+        data_sharing_env.get_all_copies(copies);
+
+        make_copy_list<Nodecl::Parallel::CopyIn>(
+                copies, 
+                OpenMP::COPY_DIR_IN,
+                pragma_line.get_filename(), pragma_line.get_line(),
+                result_list);
+
+        make_copy_list<Nodecl::Parallel::CopyOut>(
+                copies, 
+                OpenMP::COPY_DIR_IN,
+                pragma_line.get_filename(), pragma_line.get_line(),
+                result_list);
+
+        make_copy_list<Nodecl::Parallel::CopyInout>(
+                copies, 
+                OpenMP::COPY_DIR_INOUT,
                 pragma_line.get_filename(), pragma_line.get_line(),
                 result_list);
 
