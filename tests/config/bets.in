@@ -29,8 +29,8 @@ pass=0
 fail=0
 faulty=0
 
-junit_log_OUT=
-junit_log_ERR=
+export junit_log_OUT=
+export junit_log_ERR=
 
 #utility functions
 log ()
@@ -50,13 +50,13 @@ junit_log()
 debug ()
 {
     log $*
-    [ -n "$junit_log_ERR" ] && (echo "$*" &>> $junit_log_ERR)
+    [ -n "$junit_log_ERR" ] && (echo "$*" >> $junit_log_ERR)
 }
 
 logcmd ()
 {
     log $*
-    [ -n "$junit_log_ERR" ] && (echo "$*" &>> $junit_log_ERR)
+    [ -n "$junit_log_ERR" ] && (echo "$*" >> $junit_log_ERR)
     $* 
 }
 
@@ -101,8 +101,8 @@ passfail ()
    local full_test_name=$1
    shift
 
-   declare -gx junit_log_OUT=$(mktemp)
-   declare -gx junit_log_ERR=$(mktemp)
+   export junit_log_OUT=$(mktemp)
+   export junit_log_ERR=$(mktemp)
 
    # Note that >> is right here since $* may have appended stuff already
    START=$(date "+%s.%N")
