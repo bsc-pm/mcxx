@@ -30,7 +30,7 @@ SUBDIRS = . codegen omp analysis
 END=
 
 DIST_SUBDIRS=analysis \
-	     omp \
+			 omp \
              superscalar \
              instr \
              instr_pthreads \
@@ -40,6 +40,7 @@ DIST_SUBDIRS=analysis \
              hlt \
              ss_valgrind \
              manip \
+			 codegen \
              $(END)
 
 lib_LTLIBRARIES = libtl.la
@@ -110,6 +111,7 @@ libtl_la_SOURCES = \
     tl-nodecl-replace.hpp \
     tl-nodecl-replace.cpp \
     tl-scope.hpp \
+    tl-scope-fwd.hpp \
     tl-scope.cpp \
     tl-dto.hpp \
     tl-dto.cpp \
@@ -121,6 +123,7 @@ libtl_la_SOURCES = \
     tl-lexer.hpp \
     tl-lexer.cpp \
     tl-lexer-tokens.hpp \
+    tl-source-fwd.hpp \
     tl-source.hpp \
     tl-source.cpp \
     tl-type-fwd.hpp \

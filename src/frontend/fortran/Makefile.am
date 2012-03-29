@@ -42,6 +42,7 @@ BUILT_SOURCES += fortran03-modules-bits.h
 libmf03_la_SOURCES = \
                      fortran03-parser.c \
                      fortran03-parser.h \
+                     fortran03-lexer.h \
                      fortran03-scanner.c \
                      fortran03-parser-internal.h \
                      fortran03-utils.h \

@@ -1003,6 +1003,24 @@ AC_ARG_ENABLE([file-regeneration],
   ]
 )
 
+distcheck_processing=no
+AC_ARG_ENABLE([distcheck-processing],
+  AS_HELP_STRING([--enable-distcheck-processing], [Extra steps during distcheck. DO NOT USE IT]),
+  [
+    if test x$enableval = xyes -o x$enableval = x;
+    then
+       distcheck_processing=yes
+    else if test x$enableval = xno;
+         then
+            distcheck_processing=no
+         else
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+         fi
+    fi
+  ]
+)
+AM_CONDITIONAL(RUNNING_DISTCHECK, test x$distcheck_processing = xyes)
+
 # Make these variables precious
 AC_ARG_VAR([FLEX], [GNU Flex])
 AC_ARG_VAR([BISON], [GNU Bison])
