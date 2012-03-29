@@ -50,13 +50,13 @@ junit_log()
 debug ()
 {
     log $*
-    [ -n "$junit_log_ERR" ] && (echo "$*" &>> $junit_log_ERR)
+    [ -n "$junit_log_ERR" ] && (echo "$*" >> $junit_log_ERR)
 }
 
 logcmd ()
 {
     log $*
-    [ -n "$junit_log_ERR" ] && (echo "$*" &>> $junit_log_ERR)
+    [ -n "$junit_log_ERR" ] && (echo "$*" >> $junit_log_ERR)
     $* 
 }
 
