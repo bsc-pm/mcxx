@@ -948,6 +948,7 @@ void introduce_using_entities(
 
     entry_list_free(existing_usings);
 
+    const char* symbol_name = NULL;
     // Now add all the used entities to the current scope
     for (it = entry_list_iterator_begin(used_entities);
             !entry_list_iterator_end(it);
@@ -973,37 +974,41 @@ void introduce_using_entities(
                     }
                     return;
                 }
+
+                // If this entity is being hidden by another member of this class, do not add it
+                scope_entry_list_t* member_functions = class_type_get_member_functions(current_class->type_information);
+                scope_entry_list_iterator_t* it2 = NULL;
+                for (it2 = entry_list_iterator_begin(member_functions);
+                        !entry_list_iterator_end(it2);
+                        entry_list_iterator_next(it2))
+                {
+                    scope_entry_t* current_member = entry_list_iterator_current(it2);
+
+                    if ((strcmp(current_member->symbol_name, entry->symbol_name) == 0)
+                            && function_type_same_parameter_types(current_member->type_information, entry->type_information))
+                    {
+                        // This one is being hidden by a member function of the current class
+                        is_hidden = 1;
+                        break;
+                    }
+                }
+                entry_list_iterator_free(it2);
+                entry_list_free(member_functions);
+
+                symbol_name = entry->symbol_name;
             }
             else
             {
+                // Dependent entity like _Base::f where _Base is a template parameter
                 if (nodecl_is_null(nodecl_name))
                 {
                     internal_error("Invalid dependent name found", 0);
                 }
-                // Dependent entity
-                continue;
+
+                // The name of the symbol will be _Base but we do not want that one, we want f
+                nodecl_t nodecl_last_part = nodecl_name_get_last_part(nodecl_name);
+                symbol_name = nodecl_get_text(nodecl_last_part);
             }
-
-            // If this entity is being hidden by another member of this class, do not add it
-            scope_entry_list_t* member_functions = class_type_get_member_functions(current_class->type_information);
-            scope_entry_list_iterator_t* it2 = NULL;
-            for (it2 = entry_list_iterator_begin(member_functions);
-                    !entry_list_iterator_end(it2);
-                    entry_list_iterator_next(it2))
-            {
-                scope_entry_t* current_member = entry_list_iterator_current(it2);
-
-                if ((strcmp(current_member->symbol_name, entry->symbol_name) == 0)
-                        && function_type_same_parameter_types(current_member->type_information, entry->type_information))
-                {
-                    // This one is being hidden by a member function of the current class
-                    is_hidden = 1;
-                    break;
-                }
-            }
-
-            entry_list_iterator_free(it2);
-            entry_list_free(member_functions);
         }
 
         if (is_hidden)
@@ -1013,7 +1018,7 @@ void introduce_using_entities(
         if (entry_list_contains(already_using, entry))
                 continue;
 
-        scope_entry_t* used_name = new_symbol(decl_context, decl_context.current_scope, entry->symbol_name);
+        scope_entry_t* used_name = new_symbol(decl_context, decl_context.current_scope, symbol_name);
         used_name->kind = SK_USING;
         used_name->file = filename;
         used_name->line = line;
