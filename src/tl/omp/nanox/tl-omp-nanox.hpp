@@ -43,12 +43,46 @@ namespace Nanox
 
         // devices :
             static Source get_barrier_code(AST_t ref_tree);
-            
+
+            static Source get_nanos_create_wd_code(Source num_devices,
+                    Source device_descriptor,
+                    Source struct_size,
+                    Source alignment,
+                    Source data,
+                    Source num_copies,
+                    Source copy_data);
+
+            static Source get_nanos_create_and_run_wd_code(
+                    Source num_devices,
+                    Source device_descriptor,
+                    Source struct_size,
+                    Source alignment,
+                    Source data,
+                    Source num_dependences,
+                    Source deps,
+                    Source num_copies,
+                    Source copy_imm_data,
+                    Source translation_fun_arg_name);
+
+            static Source get_nanos_create_wd_compact_code(
+                    Source struct_size,
+                    Source data,
+                    Source copy_data);
+
+            static Source get_nanos_create_and_run_wd_compact_code(
+                    Source struct_size,
+                    Source data,
+                    Source num_dependences,
+                    Source deps,
+                    Source copy_imm_data,
+                    Source translation_fun_arg_name);
+
         private:
             void parallel_postorder(PragmaCustomConstruct ctr);
             void parallel_for_postorder(PragmaCustomConstruct ctr);
             void task_postorder(PragmaCustomConstruct ctr);
             void taskwait_postorder(PragmaCustomConstruct ctr);
+            void taskyield_postorder(PragmaCustomConstruct ctr);
             void single_postorder(PragmaCustomConstruct ctr);
             void for_postorder(PragmaCustomConstruct ctr);
             void atomic_postorder(PragmaCustomConstruct ctr);
@@ -97,7 +131,20 @@ namespace Nanox
             // Support
             Source get_single_guard(const std::string&);
 
-            // Temporary data during traversal
+            Source get_create_sliced_wd_code(
+                    Source device_descriptor,
+                    Source outline_data_size,
+                    Source alignment,
+                    Source outline_data,
+                    Source current_slicer,
+                    Source slicer_size,
+                    Source slicer_alignment,
+                    Source slicer_data,
+                    Source num_copies1,
+                    Source copy_data1);
+
+            bool _initialize_worksharings;
+           // Temporary data during traversal
             struct SectionInfo
             {
                 AST_t placeholder;

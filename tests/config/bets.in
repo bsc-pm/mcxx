@@ -5,7 +5,6 @@ readonly bets_version=0.9
 
 #color constants
 
-machine_output=""
 output_filter=""
 
 define_colors()
@@ -30,6 +29,9 @@ pass=0
 fail=0
 faulty=0
 
+export junit_log_OUT=
+export junit_log_ERR=
+
 #utility functions
 log ()
 {
@@ -40,22 +42,27 @@ log ()
     echo -e $n $* >> $logfile
 }
 
+junit_log()
+{
+    echo $* >> $junit_logfile
+}
+
 debug ()
 {
     log $*
+    [ -n "$junit_log_ERR" ] && (echo "$*" >> $junit_log_ERR)
 }
 
 logcmd ()
 {
     log $*
+    [ -n "$junit_log_ERR" ] && (echo "$*" >> $junit_log_ERR)
     $* 
 }
 
 buffer=
 filtered_message ()
 {
-    [ -n "$machine_output" ] && return
-
     local n
     if [ "$1" = "-n" ]; then
       shift; n=-n
@@ -68,8 +75,6 @@ filtered_message ()
 
 message ()
 {
-    [ -n "$machine_output" ] && return
-
     local n
     if [ "$1" = "-n" ]; then
       shift; n=-n
@@ -78,6 +83,12 @@ message ()
       echo -e $buffer "$*" 
       buffer=""
     fi
+}
+
+escape_xml ()
+{
+    # Got from http://www.daemonforums.org/showthread.php?t=4054
+    cat $1 | sed -e 's~&~\&amp;~g' -e 's~<~\&lt;~g'  -e  's~>~\&gt;~g' 1> $2
 }
 
 # action functions
@@ -90,31 +101,70 @@ passfail ()
    local full_test_name=$1
    shift
 
-   $* 1>> $logfile 2>> $logfile || ret=1
+   export junit_log_OUT=$(mktemp)
+   export junit_log_ERR=$(mktemp)
+
+   # Note that >> is right here since $* may have appended stuff already
+   START=$(date "+%s.%N")
+   $* 1>> $junit_log_OUT 2>> $junit_log_ERR || ret=1
+   END=$(date "+%s.%N")
+
+   ELAPSED=$(echo $END - $START | bc -l)
+
+   cat $junit_log_ERR $junit_log_OUT >> $logfile
 
    if [ "$test_fail" ]; then
      reverse='!'
    fi
 
+   junit_log "<testcase name=\"${full_test_name}\" time=\"$ELAPSED\">"
+
    if [ $reverse $ret -eq 0 ]; then
      if [ ! "$test_faulty" ];
      then
        filtered_message "${GREEN}passed${NORMAL}"
-       [ -n "$machine_output" ] && echo "${full_test_name}:passed"
        log "passed"
      else
        filtered_message "${YELLOW}passed (faulty)${NORMAL}"
-       [ -n "$machine_output" ] && echo "${full_test_name}:passed (faulty)"
        log "passed (faulty)"
        let faulty=faulty+1
+       # Note in jUnit output these tests are not flagged in any special way!
      fi
      let pass=pass+1
    else
      filtered_message "${RED}failed${NORMAL}!"
-     [ -n "$machine_output" ] && echo "${full_test_name}:failed"
      log "failed!"
+     junit_log "<error />"
      let fail=fail+1
    fi
+
+   escaped_xml_OUT=$(mktemp)
+   escaped_xml_ERR=$(mktemp)
+
+   junit_log "<system-out>"
+   escape_xml $junit_log_OUT $escaped_xml_OUT
+   cat $escaped_xml_OUT >> $junit_logfile
+   junit_log "</system-out>"
+
+   junit_log "<system-err>"
+   escape_xml $junit_log_ERR $escaped_xml_ERR
+   cat $escaped_xml_ERR >> $junit_logfile
+   junit_log "</system-err>"
+
+   junit_log "</testcase>"
+
+   rm -f $escaped_xml_OUT
+   rm -f $escaped_xml_ERR
+
+   rm -f $junit_log_OUT
+   rm -f $junit_log_ERR
+
+   # Not sure if needed
+   junit_log_OUT=""
+   junit_log_ERR=""
+   unset junit_log_OUT
+   unset junit_log_ERR
+
    return $ret
 }
 
@@ -486,7 +536,7 @@ run_gen_test ()
    
    test_noexec=${test_noexec:-$test_nolink}
    if [ "$test_ignore" ]; then
-      [ -n "$machine_output" ] && echo "${name}:ignored"
+      junit_log "<testcase name=\"${name}\"><skipped>Ignored test</skipped></testcase>"
       filtered_message "Test $name ${YELLOW}ignored${NORMAL}"
    else    
      for v in $all_compile_versions; do
@@ -562,7 +612,6 @@ run_dir()
 
   debug "Testing $base"
   message "===Entering directory $base==="
-  [ -n "$machine_output" ] && echo "$base:dir>"
 
   #test subdirs
   local dirs=$(find . -maxdepth 1 -type d -path "./*" | cut -c3- | sort)
@@ -572,12 +621,15 @@ run_dir()
      cd ..
   done
 
+  testsuite_name=$(echo $base | tr . _)
+  junit_log "<testsuite name=\"$testsuite_name\" tests=\"\">"
+
   #run test
   for file in $(find . -maxdepth 1 -type f | sort ); do
      run_file $file
   done
 
-  [ -n "$machine_output" ] && echo "$base:dir<"
+  junit_log "</testsuite>"
 }
 
 # mode functions
@@ -616,9 +668,17 @@ do_run ()
 
    if [ "${logfile:0:1}" != "/" ]; then
      logfile=$basedir/$logfile
+     junit_logfile=${logfile}.xml
    fi
    readonly logfile
+   readonly junit_logfile
    echo > $logfile
+
+   # Start junit log
+   cat > $junit_logfile << EOF
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites>
+EOF
 
    message "===Running tests==="
    
@@ -634,7 +694,9 @@ do_run ()
         if [ -f $t ]; then
           old_dir=$(pwd)
           cd $(dirname $t)
+          junit_log "<testsuite name=\"singleton\" tests=\"\">"
           run_file $(basename $t)
+          junit_log "</testsuite>"
           cd "$old_dir"
         fi
      done
@@ -644,6 +706,11 @@ do_run ()
    
    #clean-up
    rm -fr $tmpdir
+
+   # End junit log
+   cat >> $junit_logfile << EOF
+</testsuites>
+EOF
    
    if [ $fail -eq 0 -a $pass -eq 0 ]; then
      message "No test run. Any files in here? :-)"
@@ -700,10 +767,6 @@ while [ -z $done ]; do
 case $1 in
     -h)
        mode=help; shift
-       ;;
-    --ants)
-       machine_output="1"; 
-       use_color=no; shift
        ;;
     --list)
        mode=list; shift

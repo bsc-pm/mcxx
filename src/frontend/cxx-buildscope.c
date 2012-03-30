@@ -1462,6 +1462,7 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                     {
                         // The expression type is dependent, wrap it in a typeof
                         computed_type = get_gcc_typeof_expr_type(expression, decl_context);
+                        set_is_dependent_type(computed_type, 1);
                     }
 
                     switch (ASTType(expression))

@@ -267,7 +267,7 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
                 it++)
         {
             Expression& section(*it);
-            
+
             Source upper_bound;
             if (section.is_array_section_size())
             {
@@ -284,8 +284,15 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
             
             AST_t upper_bound_tree = upper_bound.parse_expression(section.get_ast(),
                     section.get_scope_link());
-            rebuilt_type = rebuilt_type.get_array_to(section.array_section_lower().get_ast(), upper_bound_tree, section.get_scope());
 
+            rebuilt_type = rebuilt_type.get_array_to(section.array_section_lower().get_ast(), upper_bound_tree, section.get_scope());
+        }
+
+        for (ObjectList<Expression>::reverse_iterator rit = range_set.rbegin();
+                rit != range_set.rend();
+                rit++)
+        {
+            Expression& section(*rit);
             arr_addr << "[" << section.array_section_lower() << "]"
                 ;
         }

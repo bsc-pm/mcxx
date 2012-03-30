@@ -140,6 +140,8 @@ namespace TL
             _implementation_table(ft_copy._implementation_table), 
             _target_info(ft_copy._target_info), 
             _real_time_info(ft_copy._real_time_info),
+            _has_task_priority(ft_copy._has_task_priority),
+            _task_priority(ft_copy._task_priority),
             _if_clause_cond_expr(NULL)
         {
             if(ft_copy.has_if_clause()) 
@@ -160,6 +162,8 @@ namespace TL
                 _target_info = ft_copy.get_target_info();
                 _implementation_table = ft_copy.get_implementation_table();
                 _real_time_info = ft_copy.get_real_time_info();
+                _has_task_priority = ft_copy.get_has_task_priority();
+                _task_priority = ft_copy.get_task_priority();
                 _if_clause_cond_expr = NULL;
                 if(ft_copy.has_if_clause()) 
                 {
@@ -254,7 +258,27 @@ namespace TL
         {
             return _real_time_info;
         }
+
+        void FunctionTaskInfo::set_has_task_priority(bool b)
+        {
+            _has_task_priority = b;
+        }
+
+        bool FunctionTaskInfo::get_has_task_priority() const
+        {
+            return _has_task_priority;
+        }
         
+        void FunctionTaskInfo::set_task_priority(int i)
+        {
+            _task_priority = i;
+        }
+
+        int FunctionTaskInfo::get_task_priority() const
+        {
+            return _task_priority;
+        }
+
         bool FunctionTaskInfo::has_if_clause() const 
         {
             return (_if_clause_cond_expr != NULL);
@@ -610,7 +634,6 @@ namespace TL
                  target_info.set_copy_deps(target_context.copy_deps);
              }
 
-
             FunctionTaskInfo task_info(function_sym, dependence_list, target_info);
 
             //adding real time information to the task
@@ -630,6 +653,17 @@ namespace TL
                 Expression cond_expr = Expression(expr_tree, construct.get_scope_link());
                 task_info.set_if_clause_conditional_expression(cond_expr);
             }
+            
+            // Support priority clause
+            bool has_priority = false;
+            PragmaCustomClause priority_clause = construct.get_clause("priority");
+            if (priority_clause.is_defined())
+            {
+                has_priority = true;
+                int priority = atoi(priority_clause.get_arguments()[0].c_str());
+                task_info.set_task_priority(priority);
+            }
+            task_info.set_has_task_priority(has_priority);
 
             std::cerr << construct.get_ast().get_locus()
                 << ": note: adding task function '" << function_sym.get_name() << "'" << std::endl;

@@ -327,9 +327,20 @@ char is_pointer_to_fortran_array_type(type_t* t)
         && is_fortran_array_type(pointer_type_get_pointee_type(t));
 }
 
+char fortran_is_scalar_type(type_t* t)
+{
+    return (!is_pointer_type(t)
+            && !is_pointer_to_member_type(t)
+            && !is_array_type(t)
+            && !is_lvalue_reference_type(t)
+            && !is_rvalue_reference_type(t)
+            && !is_function_type(t)
+            && !is_vector_type(t));
+}
+
 type_t* rebuild_array_type(type_t* rank0_type, type_t* array_type)
 {
-    ERROR_CONDITION(!is_scalar_type(rank0_type)
+    ERROR_CONDITION(!fortran_is_scalar_type(rank0_type)
             && !is_fortran_character_type(rank0_type), "Invalid rank0 type", 0);
 
     if (!is_fortran_array_type(array_type))

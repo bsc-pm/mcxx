@@ -314,6 +314,10 @@ namespace TL
                     }
 
                     Type var_type = var_sym.get_type();
+                    if (var_type.is_reference())
+                    {
+                        var_type = var_type.references_to();
+                    }
 
                     std::string reductor_name = original_reductor_name;
                     // Ammend as needed the reductor name for this variable
@@ -1096,6 +1100,8 @@ namespace TL
         EMPTY_HANDLERS(critical)
         EMPTY_HANDLERS(flush)
         EMPTY_HANDLERS(ordered)
+        EMPTY_HANDLERS(taskyield)
+
 #ifdef FORTRAN_SUPPORT
         EMPTY_HANDLERS(parallel_do)
         EMPTY_HANDLERS(do)

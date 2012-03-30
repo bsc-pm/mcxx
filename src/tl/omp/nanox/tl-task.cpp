@@ -59,7 +59,6 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             dependences, Source());
 
     int outline_num = TL::CounterManager::get_counter(NANOX_OUTLINE_COUNTER);
-    TL::CounterManager::get_counter(NANOX_OUTLINE_COUNTER)++;
 
     std::stringstream ss;
     ss << "_ol_" << function_symbol.get_name() << "_" << outline_num;
@@ -71,18 +70,13 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
            device_description_line, 
            num_devices,
            ancillary_device_description;
+
     device_descriptor << outline_name << "_devices";
     device_description
-        << "static nanos_device_t " << device_descriptor << "[ " << num_devices << " ];"
-        << "static void __register_" << device_descriptor << "(void *p __attribute__((unused)))"
+        << "nanos_device_t " << device_descriptor << "[] ="
         << "{"
-        <<    ancillary_device_description
-        <<    "nanos_device_t tmp[ " << num_devices << " ] = { " << device_description_line << "};"
-        <<    "__builtin_memcpy(" << device_descriptor << ", tmp,"
-        <<    "                 sizeof(" << device_descriptor << "));"
-        << "}"
-        << "__attribute__((section(\"nanos_post_init\"))) "
-        << "nanos_init_desc_t __register_" << device_descriptor << "_list = { __register_" << device_descriptor << ", (void*)0 };"
+        << device_description_line
+        << "};"
         ;
 
     // Check for __symbol clause, and if found, get the task function symbol
@@ -295,22 +289,27 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         if_expr_cond_end << "}";
     }
 
+    bool props_tied;
     Source tiedness, priority;
     PragmaCustomClause untied_clause = ctr.get_clause("untied");
     if (untied_clause.is_defined())
     {
+        props_tied = 0;
         tiedness << "props.tied = 0;";
     }
     else
     {
+        props_tied = 1;
         tiedness << "props.tied = 1;";
     }
 
     PragmaCustomClause priority_clause = ctr.get_clause("priority");
+    std::string props_priority = "0";
     if (priority_clause.is_defined())
     {
+        props_priority = priority_clause.get_arguments()[0];
         priority
-            << "props.priority = " << priority_clause.get_arguments()[0] << ";"
+            << "props.priority = " << props_priority << ";"
             ;
     }
 
@@ -372,12 +371,12 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         {
             C_LANGUAGE()
             {
-                translation_fun_arg_name << ", (void*) 0"
+                translation_fun_arg_name << "(void*) 0"
                     ;
             }
             CXX_LANGUAGE()
             {
-                translation_fun_arg_name << ", 0"
+                translation_fun_arg_name << "0"
                     ;
             }
         }
@@ -534,8 +533,8 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                 const char* struct_addr;
             } fill_copy_data_info[] = {
                 { &copy_items_src, "copy_data", "ol_args->", "ol_args" },
-                { &copy_immediate_setup, "imm_copy_data", 
-                    immediate_is_alloca ? "imm_args->" : "imm_args.", 
+                { &copy_immediate_setup, "imm_copy_data",
+                    immediate_is_alloca ? "imm_args->" : "imm_args.",
                     immediate_is_alloca ? "imm_args" : "&imm_args" },
                 { NULL, "" },
             };
@@ -565,12 +564,12 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             {
                 C_LANGUAGE()
                 {
-                    translation_fun_arg_name << ", (void*) 0"
+                    translation_fun_arg_name << "(void*) 0"
                         ;
                 }
                 CXX_LANGUAGE()
                 {
-                    translation_fun_arg_name << ", 0"
+                    translation_fun_arg_name << "0"
                         ;
                 }
             }
@@ -583,15 +582,14 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                 translation_fun_name << "_xlate_copy_address_" << outline_num
                     ;
                 // FIXME - Templates
-                set_translation_fun 
+                set_translation_fun
                     << "nanos_set_translate_function(wd, " << translation_fun_name << ");"
                     ;
 
                 if (Nanos::Version::interface_is_at_least("master", 5005))
                 {
                     translation_fun_arg_name
-                        // Note this starting comma
-                        << ", _xlate_copy_address_" << outline_num
+                        << "_xlate_copy_address_" << outline_num
                         ;
                 }
 
@@ -608,25 +606,26 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
     // TODO: Implement the corresponding part in the runtime in order to allow create_wd_and_run
     // function work properly
     Source creation;
-
+    bool props_mandatory_creation = 0;
     if ( current_targets.contains( "cuda" ) )
     {
         creation << "props.mandatory_creation = 1;"
             ;
+        props_mandatory_creation = 1;
     }
 
     Source alignment;
     if (Nanos::Version::interface_is_at_least("master", 5004))
     {
-        alignment <<  "__alignof__(" << struct_arg_type_name << "),"
+        alignment <<  "__alignof__(" << struct_arg_type_name << ")"
             ;
     }
-    
+
     Source fill_real_time_info;
-    if(Nanos::Version::interface_is_at_least("realtime",1000)) 
+    if(Nanos::Version::interface_is_at_least("realtime",1000))
     {
         Source release_after, deadline, onerror;
-        fill_real_time_info 
+        fill_real_time_info
             << deadline
             << release_after
             << onerror
@@ -641,7 +640,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         {
             release_after << "props._release_after = -1;";
         }
-       
+
         //Adds deadline time information
         if(rt_info.has_deadline_time())
         {
@@ -655,18 +654,18 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
         //Adds action error information
         //looking for the event 'OMP_DEADLINE_EXPIRED'
-        std::string action = 
-            rt_info.get_action_error(OpenMP::RealTimeInfo::OMP_DEADLINE_EXPIRED); 
-        
+        std::string action =
+            rt_info.get_action_error(OpenMP::RealTimeInfo::OMP_DEADLINE_EXPIRED);
+
         if(action != "")
         {
             onerror  << "props._onerror_action = " << action << ";";
         }
-        else 
+        else
         {
             //looking for the event 'OMP_ANY_EVENT'
-            action = rt_info.get_action_error(OpenMP::RealTimeInfo::OMP_ANY_EVENT); 
-            if(action != "") 
+            action = rt_info.get_action_error(OpenMP::RealTimeInfo::OMP_ANY_EVENT);
+            if(action != "")
             {
                 onerror  << "props._onerror_action = " << action << ";";
             }
@@ -679,30 +678,95 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
     if(!_no_nanox_calls)
     {
-        // Global device
-        AST_t device_tree = device_description.parse_declaration(ctr.get_ast().get_enclosing_function_definition_declaration().get_parent(), 
-                ctr.get_scope_link());
-        ctr.get_ast().prepend_sibling_function(device_tree);
+        Source data, imm_data, deps, nanos_create_wd, nanos_create_run_wd,
+               properties_opt, device_description_opt, decl_dyn_props_opt,
+               constant_code_opt, constant_struct_definition, constant_variable_declaration;
+
+        data << "(void**)&ol_args";
+        imm_data << (immediate_is_alloca ? "imm_args" : "&imm_args");
+        deps << "(" << dependency_struct << "*)" << dependency_array;
+        
+        if (Nanos::Version::interface_is_at_least("master", 5012))
+        {
+            nanos_create_wd = OMPTransform::get_nanos_create_wd_compact_code(struct_size, data, copy_data);
+
+            nanos_create_run_wd = OMPTransform::get_nanos_create_and_run_wd_compact_code(
+                    struct_size, imm_data, num_dependences, deps, copy_imm_data, translation_fun_arg_name);
+            
+            decl_dyn_props_opt << "nanos_wd_dyn_props_t dyn_props = {0};";
+            
+            constant_code_opt
+                << constant_struct_definition
+                <<  constant_variable_declaration
+                ;
+
+            constant_struct_definition
+                << "struct nanos_const_wd_definition_local_t"
+                << "{"
+                <<      "nanos_const_wd_definition_t base;"
+                <<      "nanos_device_t devices[" << num_devices << "];"
+                << "};"
+                ;
+
+            constant_variable_declaration
+                << "static struct nanos_const_wd_definition_local_t _const_def ="
+                << "{"
+                <<      "{"
+                <<          "{"
+                <<              props_mandatory_creation << ", "
+                <<              props_tied  << ", "
+                <<              "0, " /* reserved0 */
+                <<              "0, " /* reserved1 */
+                <<              "0, " /* reserved2 */
+                <<              "0, " /* reserved3 */
+                <<              "0, " /* reserved4 */
+                <<              "0, " /* reserved5 */
+                <<              props_priority
+                <<          "}, "
+                <<          alignment   << ", "
+                <<          num_copies  << ", "
+                <<          num_devices << ", "
+                <<      "},"
+                <<      "{"
+                <<          device_description_line
+                <<      "}"
+                << "};"
+                ;
+        }
+        else
+        {
+            properties_opt
+                << "nanos_wd_props_t props;"
+                << "__builtin_memset(&props, 0, sizeof(props));"
+                << creation
+                << priority
+                << tiedness
+                << fill_real_time_info;
+
+            device_description_opt
+                << device_description;
+
+            nanos_create_wd = OMPTransform::get_nanos_create_wd_code(num_devices,
+                    device_descriptor, struct_size, alignment, data, num_copies, copy_data);
+
+            nanos_create_run_wd = OMPTransform::get_nanos_create_and_run_wd_code(num_devices, device_descriptor,
+                    struct_size, alignment, imm_data, num_dependences, deps, num_copies, copy_imm_data, translation_fun_arg_name);
+        }
 
         spawn_code
             << "{"
+            <<     ancillary_device_description
+            <<     device_description_opt
             <<     struct_arg_type_name << "* ol_args = (" << struct_arg_type_name << "*)0;"
             <<     struct_runtime_size
             <<     "nanos_wd_t wd = (nanos_wd_t)0;"
-            <<     "nanos_wd_props_t props;"
-            <<     "__builtin_memset(&props, 0, sizeof(props));"
-            <<     creation
-            <<     priority
-            <<     tiedness
-            <<     fill_real_time_info
+            <<     constant_code_opt
+            <<     properties_opt
+            <<     decl_dyn_props_opt
             <<     copy_decl
             <<     "nanos_err_t err;"
             <<     if_expr_cond_start
-            <<     "err = nanos_create_wd(&wd, " << num_devices << "," << device_descriptor << ","
-            <<                 struct_size << ","
-            <<                 alignment
-            <<                 "(void**)&ol_args, nanos_current_wd(),"
-            <<                 "&props, " << num_copies << ", " << copy_data << ");"
+            <<     "err = " << nanos_create_wd
             <<     "if (err != NANOS_OK) nanos_handle_error (err);"
             <<     if_expr_cond_end
             <<     "if (wd != (nanos_wd_t)0)"
@@ -711,8 +775,8 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             <<        fill_dependences_outline
             <<        copy_setup
             <<        set_translation_fun
-            <<        "err = nanos_submit(wd, " << num_dependences << ", (" << dependency_struct << "*)" 
-            << dependency_array << ", (nanos_team_t)0);"
+            <<        "err = nanos_submit(wd, " << num_dependences << ", (" << dependency_struct << "*)"
+            <<                  dependency_array << ", (nanos_team_t)0);"
             <<        "if (err != NANOS_OK) nanos_handle_error (err);"
             <<     "}"
             <<     "else"
@@ -721,44 +785,39 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             <<        fill_immediate_arguments
             <<        fill_dependences_immediate
             <<        copy_immediate_setup
-            <<        "err = nanos_create_wd_and_run(" 
-            <<                num_devices << ", " << device_descriptor << ", "
-            <<                struct_size << ", " 
-            <<                alignment
-            <<                (immediate_is_alloca ? "imm_args" : "&imm_args") << ","
-            <<                num_dependences << ", (" << dependency_struct << "*)" << dependency_array << ", &props,"
-            <<                num_copies << "," << copy_imm_data 
-            <<                translation_fun_arg_name << ");"
+            <<        "err = " << nanos_create_run_wd
             <<        "if (err != NANOS_OK) nanos_handle_error (err);"
             <<     "}"
             << "}"
             ;
     }
-    else 
+    else
     {
         if(current_targets.contains("smp"))
         {
             std::stringstream smp_device_call;
             smp_device_call << "_smp_" << outline_name << "(&imm_args);";
-            
+
             // The code generated must not contain calls to runtime. The execution will be serial
             spawn_code
                 << "{"
                 <<     immediate_decl
                 <<     fill_immediate_arguments
-                <<     smp_device_call.str() 
+                <<     smp_device_call.str()
                 << "}"
                 ;
         }
-        else 
+        else
         {
-            running_error("%s: error: the code generation without calls to runtime only works in smp devices\n", 
-                ctr.get_ast().get_locus().c_str());
+            running_error("%s: error: the code generation without calls to runtime only works in smp devices\n",
+                    ctr.get_ast().get_locus().c_str());
         }
     }
 
     AST_t spawn_tree = spawn_code.parse_statement(ctr.get_ast(), ctr.get_scope_link());
     ctr.get_ast().replace(spawn_tree);
+    
+    TL::CounterManager::get_counter(NANOX_OUTLINE_COUNTER)++;
 }
 
 static void fix_dependency_expression_rec(Source &src, Expression expr, bool top_level, bool get_addr)

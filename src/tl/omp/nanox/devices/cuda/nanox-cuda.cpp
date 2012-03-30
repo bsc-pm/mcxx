@@ -822,7 +822,10 @@ void DeviceCUDA::get_device_descriptor(const std::string& task_name,
 		Source &ancillary_device_description,
 		Source &device_descriptor)
 {
-	Source outline_name;
+    FunctionDefinition enclosing_function_def(reference_tree.get_enclosing_function_definition(), sl);
+    Symbol function_symbol = enclosing_function_def.get_function_symbol();
+
+    Source outline_name;
 	if (!outline_flags.implemented_outline)
 	{
 		outline_name
@@ -833,16 +836,29 @@ void DeviceCUDA::get_device_descriptor(const std::string& task_name,
 	{
 		outline_name << task_name;
 	}
+    
+    Source nanos_dd_size_opt;
+    if (Nanos::Version::interface_is_at_least("master", 5012))
+    {
+        ancillary_device_description
+            << comment("CUDA device descriptor")
+            << "static nanos_smp_args_t "
+            << task_name << "_gpu_args = { (void(*)(void*))" << outline_name << "};"
+            ;
+    }
+    else
+    {
+        ancillary_device_description
+            << comment("CUDA device descriptor")
+            << "nanos_smp_args_t "
+            << task_name << "_gpu_args = { (void(*)(void*))" << outline_name << "};"
+            ;
+        nanos_dd_size_opt << "nanos_gpu_dd_size, ";
+    }
 
-	ancillary_device_description
-		<< comment("CUDA device descriptor")
-		<< "static nanos_smp_args_t " 
-		<< task_name << "_gpu_args = { (void(*)(void*))" << outline_name << "};"
-		;
-
-	device_descriptor
-		<< "{ nanos_gpu_factory, nanos_gpu_dd_size, &" << task_name << "_gpu_args },"
-		;
+    device_descriptor
+        << "{ nanos_gpu_factory, " << nanos_dd_size_opt << "&" << task_name << "_gpu_args },"
+        ;
 }
 
 void DeviceCUDA::do_replacements(DataEnvironInfo& data_environ,

@@ -2312,12 +2312,12 @@ void DeviceSMP::create_outline(
             << "events_after[1].info.burst.key = nanos_instr_uf_location_key;"
             << "events_after[1].info.burst.value = nanos_instr_uf_location_value;"
             << "nanos_instrument_events(2, events_after);"
-//            << "nanos_instrument_leave_burst(nanos_instr_uf_name_key);"
+            //            << "nanos_instrument_leave_burst(nanos_instr_uf_name_key);"
             ;
 
 
-         if (outline_flags.task_symbol != NULL)
-         {
+        if (outline_flags.task_symbol != NULL)
+        {
             uf_name_id
                 << "\"" << outline_flags.task_symbol.get_name() << "\""
                 ;
@@ -2328,13 +2328,13 @@ void DeviceSMP::create_outline(
             uf_name_descr
                 << "\"Task '" << outline_flags.task_symbol.get_name() << "'\""
                 ;
-                        uf_location_descr
-                                << "\"It was invoked from function '" << function_symbol.get_qualified_name() << "'"
-                                << " in construct at '" << reference_tree.get_locus() << "'\""
-                                ;
-         }
-         else
-         {
+            uf_location_descr
+                << "\"It was invoked from function '" << function_symbol.get_qualified_name() << "'"
+                << " in construct at '" << reference_tree.get_locus() << "'\""
+                ;
+        }
+        else
+        {
             uf_name_id
                 << uf_location_id
                 ;
@@ -2599,13 +2599,25 @@ void DeviceSMP::get_device_descriptor(const std::string& task_name,
         }
     }
 
-    ancillary_device_description
-        << comment("SMP device descriptor")
-        << "static nanos_smp_args_t " << task_name << "_smp_args = { (void(*)(void*))" << additional_casting << outline_name << "};"
-        ;
+    Source nanos_dd_size_opt;
+    if (Nanos::Version::interface_is_at_least("master", 5012))
+    {
+        ancillary_device_description
+            << comment("SMP device descriptor")
+            << "static nanos_smp_args_t " << task_name << "_smp_args = { (void(*)(void*))" << additional_casting << outline_name << "};"
+            ;
+    }
+    else
+    {
+        ancillary_device_description
+            << comment("SMP device descriptor")
+            << "nanos_smp_args_t " << task_name << "_smp_args = { (void(*)(void*))" << additional_casting << outline_name << "};"
+            ;
+        nanos_dd_size_opt << "nanos_smp_dd_size, ";
+    }
 
     device_descriptor
-        << "{ nanos_smp_factory, nanos_smp_dd_size, &" << task_name << "_smp_args },"
+        << "{ nanos_smp_factory, " << nanos_dd_size_opt << "&" << task_name << "_smp_args },"
         ;
 }
 

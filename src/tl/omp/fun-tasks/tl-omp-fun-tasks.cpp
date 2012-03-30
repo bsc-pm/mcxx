@@ -568,8 +568,12 @@ namespace OpenMP
             //         ;
             // }
             
+            // Propagate the priority information
+            if (task_info.get_has_task_priority())
+            {
+                arg_clauses << " priority("<< task_info.get_task_priority()<<")";
+            }
             
-
             FunctionTaskTargetInfo target_info = task_info.get_target_info();
 
             if (!target_info.can_be_ommitted())

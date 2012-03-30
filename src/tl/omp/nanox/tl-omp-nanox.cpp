@@ -34,7 +34,8 @@ using namespace TL::Nanox;
 
 
 OMPTransform::OMPTransform() 
-        : _compiler_alignment(true)
+        : _compiler_alignment(true),
+          _initialize_worksharings(true)
 {
     set_phase_name("OpenMP for nanox");
     set_phase_description("This phase implements OpenMP targeting nanox runtime");
@@ -44,6 +45,8 @@ OMPTransform::OMPTransform()
     on_directive_post["task"].connect(functor(&OMPTransform::task_postorder, *this));
 
     on_directive_post["taskwait"].connect(functor(&OMPTransform::taskwait_postorder, *this));
+
+    on_directive_post["taskyield"].connect(functor(&OMPTransform::taskyield_postorder, *this));
 
     on_directive_post["single"].connect(functor(&OMPTransform::single_postorder, *this));
 
@@ -139,6 +142,8 @@ void OMPTransform::phase_cleanup(DTO& data_flow)
 {
     _lock_names.clear();
     _converted_vlas.clear();
+    // For every file, we should initialize the worksharings
+    _initialize_worksharings = true;
 }
 
 void OMPTransform::set_weaks_as_statics(const std::string& str)

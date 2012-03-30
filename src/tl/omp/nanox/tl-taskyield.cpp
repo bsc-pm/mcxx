@@ -25,32 +25,26 @@
 --------------------------------------------------------------------*/
 
 
-/*
-<testinfo>
-test_generator=config/mercurium-omp
 
-# rferrer: REMOVE (when nanos++ works again)
-test_ignore=yes
-# rferrer: END OF REMOVE
-</testinfo>
-*/
-
-#include <stdlib.h>
-
-int main(int argc, char* argv[])
+#include "tl-omp-nanox.hpp"
+namespace TL
 {
-    int x, k = 3;
-#pragma omp parallel private(x)
+    namespace Nanox
     {
-#pragma omp for
-        for (x = 0; x < 10; x++)
+        void OMPTransform::taskyield_postorder(PragmaCustomConstruct taskyield_construct)
         {
-            k = 12;
+            Source taskyield_source;
+
+            taskyield_source
+                << "{"
+                <<    "nanos_yield();"
+                << "}"
+                ;
+
+            AST_t taskyield_code = taskyield_source.parse_statement(taskyield_construct.get_ast(),
+                    taskyield_construct.get_scope_link());
+
+            taskyield_construct.get_ast().replace(taskyield_code);
         }
     }
-
-    if (k != 12)
-        abort();
-
-    return 0;
 }

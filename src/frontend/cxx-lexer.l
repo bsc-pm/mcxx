@@ -81,8 +81,11 @@ static lexer_keyword_t gxx_43_keywords[] =
     { "__is_convertible_to", GXX_IS_CONVERTIBLE_TO },
     { "__is_empty", GXX_IS_EMPTY },
     { "__is_enum", GXX_IS_ENUM },
+    { "__is_literal_type", GXX_IS_LITERAL_TYPE },
     { "__is_pod", GXX_IS_POD },
     { "__is_polymorphic", GXX_IS_POLYMORPHIC },
+    { "__is_standard_layout", GXX_IS_STANDARD_LAYOUT },
+    { "__is_trivial", GXX_IS_TRIVIAL },
     { "__is_union", GXX_IS_UNION },
     // Sentinel
     { NULL, 0 },
@@ -889,6 +892,7 @@ type {
 
  /*!if CPLUSPLUS*/
 "decltype"      { parse_token_text(); return DECLTYPE; }
+"__decltype"    { parse_token_text(); return DECLTYPE; }
 "explicit"      { parse_token_text(); return EXPLICIT; } 
 "private"       { parse_token_text(); return PRIVATE; } 
 "protected"     { parse_token_text(); return PROTECTED; } 
@@ -1012,8 +1016,11 @@ type {
 "__is_convertible_to" |
 "__is_empty" |
 "__is_enum" |
+"__is_literal_type" |
 "__is_pod" |
 "__is_polymorphic" |
+"__is_standard_layout" |
+"__is_trivial" |
 "__is_union" {
     return lookup_keyword_in_table(gxx_43_keywords, yytext, !CURRENT_CONFIGURATION->disable_gxx_type_traits);
 }

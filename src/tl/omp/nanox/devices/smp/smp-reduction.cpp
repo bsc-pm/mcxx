@@ -43,8 +43,8 @@ static Source perform_reduction_symbol( const OpenMP::ReductionSymbol& reduction
         replace_udr_builtin.add_replacement(udr2.get_out_symbol(), reduction_var_name);
         replace_udr_builtin.add_replacement(udr2.get_in_symbol(), partial_reduction);
 
- std::cout << "UDR2: " << udr2.get_out_symbol().get_name() << ", " << reduction_var_name.get_source() << "\n";
- std::cout << "UDR2: " << udr2.get_in_symbol().get_name() << ", " << partial_reduction.get_source() << "\n";
+         // std::cout << "UDR2: " << udr2.get_out_symbol().get_name() << ", " << reduction_var_name.get_source() << "\n";
+         // std::cout << "UDR2: " << udr2.get_in_symbol().get_name() << ", " << partial_reduction.get_source() << "\n";
 
         result 
                 << replace_udr_builtin.replace(udr2.get_combine_expr())
@@ -192,7 +192,7 @@ Source DeviceSMP::get_reduction_code(ObjectList<OpenMP::ReductionSymbol> reducti
     // Source code that gathers the values computed by every thread
     Source reduction_gathering;
     Source reduction_update;
-    
+
     reduction_code
             << comment("Reduction code performed after the join")
             << "int rdv_i;"

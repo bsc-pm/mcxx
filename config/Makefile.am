@@ -32,7 +32,7 @@ CONFIG_MCXX=\
             config.mcxx \
             $(END)
 
-# We need a dist hook to keep these files in sync with their .in
+# We need a dist hook to keep these files in sync with their template.*
 # see below
 CONFIG_FILES =  \
        50.config.acotes \
@@ -61,7 +61,7 @@ INSTALL_CONFIG_FILES = @INSTALL_CONFIG_FILES@
 dist-hook:
 	for i in $(CONFIG_FILES) $(CONFIG_MCXX); \
     do \
-       cp "$(srcdir)/$${i}.in" "$(distdir)" ; \
+       cp "$(srcdir)/template.$${i}" "$(distdir)" ; \
     done
 
 CLEANFILES += $(CONFIG_FILES) $(CONFIG_MCXX)
@@ -72,11 +72,8 @@ include ./Makefile.replace
 BUILT_SOURCES=$(CONFIG_MCXX) $(INSTALL_CONFIG_FILES)
 
 # This is valid in parallel make since we are generating one goal file at a time
-# config.% : config.%.in Makefile
-# 	$(AM_V_GEN)( $(config_edit) "$(srcdir)/$@.in" > "$@.tmp"; mv -f "$@.tmp" "$@" )
-
-$(INSTALL_CONFIG_FILES) $(CONFIG_MCXX): % : %.in
-	$(AM_V_GEN)( $(config_edit) "$(srcdir)/$@.in" > "$@.tmp"; mv -f "$@.tmp" "$@" )
+$(INSTALL_CONFIG_FILES) $(CONFIG_MCXX): % : template.%
+	$(AM_V_GEN)( $(config_edit) "$(srcdir)/template.$@" > "$@.tmp"; mv -f "$@.tmp" "$@" )
 
 # Where and what to install
 pkgdata_DATA = \

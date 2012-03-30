@@ -27,30 +27,36 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-omp
-
-# rferrer: REMOVE (when nanos++ works again)
-test_ignore=yes
-# rferrer: END OF REMOVE
+test_generator=config/mercurium-nanox
 </testinfo>
 */
+#include <assert.h>
 
-#include <stdlib.h>
-
-int main(int argc, char* argv[])
+#pragma omp task  concurrent([1] var)
+void f(int * var, int cnst)
 {
-    int x, k = 3;
-#pragma omp parallel private(x)
-    {
-#pragma omp for
-        for (x = 0; x < 10; x++)
-        {
-            k = 12;
-        }
-    }
-
-    if (k != 12)
-        abort();
-
-    return 0;
+    assert(*var == cnst);
 }
+
+#pragma omp task  inout([1] var)
+void g(int * var)
+{
+    (*var) = 2;
+}
+
+int main()
+{
+    int i;
+    int result = 1;
+    int *ptrResult = &result;
+    for (i = 0; i < 10; i++)
+        f(ptrResult, 1);
+
+    g(ptrResult);
+
+    for (i = 0; i < 10; i++)
+        f(ptrResult, 2);
+#pragma omp taskwait
+
+}
+

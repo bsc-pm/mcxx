@@ -24,33 +24,18 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-
 /*
 <testinfo>
-test_generator=config/mercurium-omp
-
-# rferrer: REMOVE (when nanos++ works again)
-test_ignore=yes
-# rferrer: END OF REMOVE
+test_generator=config/mercurium
 </testinfo>
 */
 
-#include <stdlib.h>
 
-int main(int argc, char* argv[])
+template<typename _T >
+void f()
 {
-    int x, k = 3;
-#pragma omp parallel private(x)
-    {
-#pragma omp for
-        for (x = 0; x < 10; x++)
-        {
-            k = 12;
-        }
-    }
-
-    if (k != 12)
-        abort();
-
-    return 0;
+    _T aux;
+    __decltype(aux) aux2 = aux;
+    aux2 > 0;
 }
+

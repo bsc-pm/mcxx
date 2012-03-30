@@ -7453,7 +7453,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
     //Vector types
     //scalar -->__attribute_((vector_size(X)))  
     if(is_vector_type(no_ref(dest)) 
-            && is_scalar_type(no_ref(orig)))
+            && is_arithmetic_type(no_ref(orig)))
     {
         DEBUG_CODE()
         {
@@ -8244,17 +8244,121 @@ computed_function_type_t computed_function_type_get_computing_function(type_t* t
     return t->compute_type_function;
 }
 
-char is_scalar_type(type_t* t)
+// A literal type may be:
+//  1. scalar type
+//  2. a class type with:
+//      2.1 a trivial copy constructor,
+//      2.2 no non-trivial move constructor,
+//      2.3 a trivial destructor,
+//      2.4 a trivial default constructor or at least one constexpr constructor
+//          other than the copy or move constructor  FIXME: THIS IS NOT SUPPORTED YET
+//      2.5 all non-static data members and base classes of literal types
+//  3. an array of literal type
+//
+char is_literal_type(type_t* t)
 {
-    return (!is_pointer_type(t)
-            && !is_pointer_to_member_type(t)
-            && !is_array_type(t)
-            && !is_lvalue_reference_type(t)
-            && !is_rvalue_reference_type(t)
-            && !is_function_type(t)
-            && !is_vector_type(t));
+    if (is_scalar_type(t))
+    {
+        return 1;
+    }
+    if (is_class_type(t))
+    {
+        int i;
+        for (i = 0; i < class_type_get_num_copy_constructors(t); i++)
+        {
+            scope_entry_t* entry = class_type_get_copy_constructor_num(t, i);
+            if (entry->entity_specs.is_trivial)
+            {
+                return 1;
+            }
+        }
+        
+        char found_bad_case = 0;
+        for (i = 0; i < class_type_get_num_move_constructors(t) && !found_bad_case; i++)
+        {
+            scope_entry_t* entry = class_type_get_move_constructor_num(t, i);
+            if (!entry->entity_specs.is_trivial)
+            {
+                found_bad_case = 1;
+            }
+        }
+        if (!found_bad_case)
+        {
+            return 1;
+        }
+
+        scope_entry_t* destructor = class_type_get_destructor(t);
+        if (destructor != NULL && destructor->entity_specs.is_trivial)
+        {
+            return 1;
+        }
+
+        found_bad_case = 0;
+        for (i = 0; i < class_type_get_num_nonstatic_data_members(t) && !found_bad_case; i++)
+        {
+            scope_entry_t* data_member = class_type_get_nonstatic_data_member_num(t, i);
+            if (!is_literal_type(data_member->type_information))
+            {
+                found_bad_case = 1;
+            }
+        }
+
+        if (!found_bad_case)
+        {
+            for (i = 0 ; i < class_type_get_num_bases(t) && !found_bad_case; i++)
+            {
+                char is_virtual = 0;
+                char is_dependent = 0;
+                scope_entry_t* base = class_type_get_base_num(t, i, &is_virtual, &is_dependent);
+                if (!is_literal_type(base->type_information))
+                {
+                    found_bad_case = 1;
+                }
+            }
+            if (!found_bad_case)
+            {
+                return 1;
+            }
+        }
+    }
+
+    if (is_array_type(t) && is_literal_type(array_type_get_element_type(t)))
+    {
+        return 1;
+    }
+    return 0;
 }
 
+// A trivial type may be:
+//  1. scalar type
+//  2. trivial class type
+//  3. arrays of such types
+//  4. cv-qualified versions of these types
+//
+char is_trivial_type(type_t* t)
+{
+    t = get_unqualified_type(t);
+    return (is_scalar_type(t) ||
+           (is_class_type(t) && class_type_is_trivial(t)) ||
+           (is_array_type(t) && is_trivial_type(array_type_get_element_type(t))));
+}
+
+// A scalar type may be:
+//  1. arithmetic type
+//  2. enumeration type
+//  3. pointer type
+//  4. pointer to member type
+//  5. std::nullptr_-t  FIXME: THIS IS NOT SUPPORTED YET
+//  6. cv-qualified versions of these types
+//
+char is_scalar_type(type_t* t)
+{
+    t = get_unqualified_type(t);
+    return (is_arithmetic_type(t) ||
+            is_enum_type(t) ||
+            is_pointer_type(t) ||
+            is_pointer_to_member_type(t));
+}
 
 char is_incomplete_type(type_t* t)
 {
@@ -8768,15 +8872,7 @@ char class_type_is_pod(type_t* t)
 
 static char closure_of_simple_properties(type_t* t, char (*class_prop)(type_t*))
 {
-    if (is_integral_type(t)
-            || is_enum_type(t)
-            || is_floating_type(t))
-        return 1;
-
-    if (is_pointer_type(t))
-        return 1;
-
-    if (is_pointer_to_member_type(t))
+    if (is_scalar_type(t))
         return 1;
 
     if (is_lvalue_reference_type(t)
