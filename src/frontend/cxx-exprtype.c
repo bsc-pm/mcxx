@@ -12731,7 +12731,7 @@ static void check_nodecl_gcc_real_or_imag_part(nodecl_t nodecl_expr,
 
         result_type = complex_type_get_base_type(t);
 
-        if (is_lvalue_reference_type(t))
+        if (is_lvalue_reference_type(nodecl_get_type(nodecl_expr)))
         {
             result_type = lvalue_ref(result_type);
         }
