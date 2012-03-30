@@ -2384,7 +2384,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::UnknownPragma& node)
 CxxBase::Ret CxxBase::visit(const Nodecl::GxxTrait& node)
 {
     Nodecl::NodeclBase lhs = node.get_lhs();
-    Nodecl::NodeclBase rhs = node.get_lhs();
+    Nodecl::NodeclBase rhs = node.get_rhs();
 
     file << node.get_text() << "(";
 

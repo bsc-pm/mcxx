@@ -928,10 +928,10 @@ static char eval_type_trait__is_convertible_to(type_t* first_type UNUSED_PARAMET
    a void type. 
 */
 static char eval_type_trait__is_empty(type_t* first_type, 
-        type_t* second_type, 
+        type_t* second_type UNUSED_PARAMETER, 
         decl_context_t decl_context)
 {
-    if (!eval_type_trait__is_class(first_type, second_type, decl_context))
+    if (!eval_type_trait__is_class(first_type, NULL, decl_context))
         return 0;
 
     if (is_class_type(first_type))
