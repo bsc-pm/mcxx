@@ -955,6 +955,7 @@ void introduce_using_entities(
             entry_list_iterator_next(it))
     {
         scope_entry_t* entry = entry_list_iterator_current(it);
+        symbol_name = entry->symbol_name;
 
         char is_hidden = 0;
 
@@ -994,8 +995,6 @@ void introduce_using_entities(
                 }
                 entry_list_iterator_free(it2);
                 entry_list_free(member_functions);
-
-                symbol_name = entry->symbol_name;
             }
             else
             {
@@ -1016,7 +1015,7 @@ void introduce_using_entities(
 
         // Do not add it twice in the scope
         if (entry_list_contains(already_using, entry))
-                continue;
+            continue;
 
         scope_entry_t* used_name = new_symbol(decl_context, decl_context.current_scope, symbol_name);
         used_name->kind = SK_USING;
