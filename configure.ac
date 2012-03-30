@@ -326,7 +326,7 @@ AC_SUBST([NANOX_LIBS])
 AC_SUBST([NANOX_INSTRUMENTATION])
 
 
-dnl Region support
+dnl Region support. This is only used in tests!
 nanox_regions="no"
 AC_MSG_CHECKING([if Nanos++ regions support is enabled])
 AC_ARG_ENABLE([nanox-regions],
@@ -358,9 +358,9 @@ AC_ARG_ENABLE([nanox-regions],
             nanos_h_interface_is_at_least_6000=yes
         fi
 
-        if test $nanos_h_interface_is_at_least_6000 = xyes;
+        if test x$nanos_h_interface_is_at_least_6000 = xyes;
         then
-             nanox_regions="no"
+             nanox_regions="yes"
              AC_MSG_RESULT([yes (Supported by Nanos++)])
         else
              AC_MSG_RESULT([no (Not supported by Nanos++, master API $nanox_family_version is <6000)])
