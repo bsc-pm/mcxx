@@ -3087,7 +3087,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
 
                     TL::Symbol entry = unresolved[0];
 
-                    file << "using " << entry.get_qualified_name(/* without_template */ 1) << ";";
+                    file << "using " << entry.get_qualified_name(/* without_template */ 1) << ";\n";
                 }
                 else if (member.is_enum()
                         || member.is_typedef())

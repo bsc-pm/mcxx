@@ -7946,6 +7946,9 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
         decl_context_t decl_context, 
         nodecl_t* nodecl_output)
 {
+    // Keep the original name, lest it was a dependent call after all
+    nodecl_t nodecl_called_name = nodecl_called;
+
     const char* filename = nodecl_get_filename(nodecl_called);
     int line = nodecl_get_line(nodecl_called);
 
@@ -8059,7 +8062,9 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
             // parameter with type pointer to function
             || nodecl_expr_is_value_dependent(nodecl_called))
     {
-        *nodecl_output = nodecl_make_function_call(nodecl_called,
+        // This is a dependent call, remember the original called name instead
+        // of anything synthesized by lookup
+        *nodecl_output = nodecl_make_function_call(nodecl_called_name,
                 nodecl_argument_list,
                 /* alternate_name */ nodecl_null(),
                 get_unknown_dependent_type(),
