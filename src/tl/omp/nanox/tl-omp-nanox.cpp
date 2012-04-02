@@ -35,6 +35,8 @@ using namespace TL::Nanox;
 
 OMPTransform::OMPTransform() 
         : _compiler_alignment(true),
+          _do_not_create_translation_fun(false),
+          _no_nanox_calls(false),
           _initialize_worksharings(true)
 {
     set_phase_name("OpenMP for nanox");
