@@ -14151,6 +14151,17 @@ static void instantiate_expr_not_implemented_yet(nodecl_instantiate_expr_visitor
     internal_error("Expression '%s' not yet implemented\n", ast_print_node_type(nodecl_get_kind(nodecl_expr)));
 }
 
+static void instantiate_type(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    type_t* t = nodecl_get_type(node);
+    t = update_type_for_instantiation(t,
+            v->decl_context,
+            nodecl_get_filename(node),
+            nodecl_get_line(node));
+
+    v->nodecl_result = nodecl_make_type(t, nodecl_get_filename(node), nodecl_get_line(node));
+}
+
 static void instantiate_expr_literal(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
 {
     nodecl_t result = nodecl_generic_make(nodecl_get_kind(node), nodecl_get_filename(node), nodecl_get_line(node));
@@ -14380,6 +14391,37 @@ static void instantiate_function_call(nodecl_instantiate_expr_visitor_t* v, node
             new_list,
             v->decl_context,
             &v->nodecl_result);
+}
+
+static void instantiate_gxx_trait(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    nodecl_t lhs_type = nodecl_get_child(node, 0);
+    nodecl_t lhs_type_inst = instantiate_expr_walk(v, lhs_type);
+    if (nodecl_is_err_expr(lhs_type_inst))
+    {
+        v->nodecl_result = nodecl_make_err_expr(nodecl_get_filename(node), nodecl_get_line(node));
+        return;
+    }
+
+    nodecl_t rhs_type = nodecl_get_child(node, 1);
+    nodecl_t rhs_type_inst_opt = nodecl_null();
+    if (!nodecl_is_null(rhs_type))
+    {
+        rhs_type_inst_opt = instantiate_expr_walk(v, rhs_type);
+        if (nodecl_is_err_expr(rhs_type_inst_opt))
+        {
+            v->nodecl_result = nodecl_make_err_expr(nodecl_get_filename(node), nodecl_get_line(node));
+            return;
+        }
+    }
+
+    v->nodecl_result = nodecl_make_gxx_trait(
+            lhs_type_inst,
+            rhs_type_inst_opt,
+            nodecl_get_type(node),
+            nodecl_get_text(node),
+            nodecl_get_filename(node),
+            nodecl_get_line(node));
 }
 
 static void instantiate_dep_sizeof_expr(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
@@ -14662,6 +14704,9 @@ static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, 
 
     v->decl_context = decl_context;
 
+   //Type
+    NODECL_VISITOR(v)->visit_type = instantiate_expr_visitor_fun(instantiate_type);
+
     // Literals
     NODECL_VISITOR(v)->visit_integer_literal = instantiate_expr_visitor_fun(instantiate_expr_literal);
     NODECL_VISITOR(v)->visit_floating_literal = instantiate_expr_visitor_fun(instantiate_expr_literal);
@@ -14702,7 +14747,7 @@ static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, 
     NODECL_VISITOR(v)->visit_bitwise_or_assignment  = instantiate_expr_visitor_fun(instantiate_binary_op);
     NODECL_VISITOR(v)->visit_bitwise_xor_assignment = instantiate_expr_visitor_fun(instantiate_binary_op);
     NODECL_VISITOR(v)->visit_mod_assignment = instantiate_expr_visitor_fun(instantiate_binary_op);
-    
+
     // Unary
     NODECL_VISITOR(v)->visit_derreference = instantiate_expr_visitor_fun(instantiate_unary_op);
     NODECL_VISITOR(v)->visit_reference = instantiate_expr_visitor_fun(instantiate_reference);
@@ -14715,6 +14760,7 @@ static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, 
 
     // Function call
     NODECL_VISITOR(v)->visit_function_call = instantiate_expr_visitor_fun(instantiate_function_call);
+    NODECL_VISITOR(v)->visit_gxx_trait = instantiate_expr_visitor_fun(instantiate_gxx_trait);
 
     // Sizeof
     NODECL_VISITOR(v)->visit_sizeof = instantiate_expr_visitor_fun(instantiate_nondep_sizeof);
