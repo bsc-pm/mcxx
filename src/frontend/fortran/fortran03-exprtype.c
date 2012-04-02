@@ -4247,8 +4247,26 @@ static void cast_initialization(
     // constant value
     const_value_t* val = init_constant;
 
-    // The user is initializing an integer using a float. 
+    // The user is initializing an integer with another integer
     if (is_any_int_type(initialized_type)
+            && const_value_is_integer(val))
+    {
+        // Ensure the integer constant is of the size the user declared
+        *casted_const = const_value_cast_to_bytes(
+                val,
+                type_get_size(initialized_type),
+                /* signed */ 1);
+        if (nodecl_output != NULL)
+        {
+            *nodecl_output = nodecl_make_integer_literal(
+                    initialized_type,
+                    *casted_const,
+                    nodecl_get_filename(*nodecl_output),
+                    nodecl_get_line(*nodecl_output));
+        }
+    }
+    // The user is initializing an integer using a float. 
+    else if (is_any_int_type(initialized_type)
             && const_value_is_floating(val))
     {
         *casted_const = const_value_cast_to_bytes(
