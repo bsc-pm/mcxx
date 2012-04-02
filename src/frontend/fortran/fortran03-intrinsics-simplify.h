@@ -443,13 +443,33 @@ static nodecl_t simplify_xbound(int num_arguments UNUSED_PARAMETER, nodecl_t* ar
             t = array_type_get_element_type(t);
         }
 
-        return nodecl_make_structured_value(
+        nodecl_t result = nodecl_make_structured_value(
                 nodecl_list,
                 get_array_type_bounds(choose_int_type_from_kind(kind, kind_),
                     nodecl_make_one(),
                     nodecl_make_int_literal(kind_),
                     CURRENT_COMPILED_FILE->global_decl_context),
                 NULL, 0);
+
+        if (rank > 0)
+        {
+            const_value_t* const_vals[rank];
+
+            t = no_ref(nodecl_get_type(array));
+            for (i = 0; i < rank; i++)
+            {
+                nodecl_t bound = nodecl_copy(bound_fun(t)); 
+
+                const_vals[rank - i - 1] = nodecl_get_constant(bound);
+
+                t = array_type_get_element_type(t);
+            }
+
+            nodecl_set_constant(result, 
+                    const_value_make_array(rank, const_vals));
+        }
+
+        return result;
     }
     else
     {
@@ -586,9 +606,10 @@ static nodecl_t simplify_shape(int num_arguments UNUSED_PARAMETER, nodecl_t* arg
         t = array_type_get_element_type(t);
     }
 
+    nodecl_t result = nodecl_null();
     if (rank > 0)
     {
-        return nodecl_make_structured_value(
+        result = nodecl_make_structured_value(
                 nodecl_list,
                 get_array_type_bounds(
                     choose_int_type_from_kind(kind, kind_),
@@ -596,10 +617,26 @@ static nodecl_t simplify_shape(int num_arguments UNUSED_PARAMETER, nodecl_t* arg
                     nodecl_make_int_literal(rank),
                     CURRENT_COMPILED_FILE->global_decl_context),
                 NULL, 0);
+
+        const_value_t* const_vals[rank];
+
+        t = no_ref(nodecl_get_type(array));
+        for (i = 0; i < rank; i++)
+        {
+            nodecl_t size = array_type_get_array_size_expr(t);
+
+            const_vals[rank - i - 1] = nodecl_get_constant(size);
+
+            t = array_type_get_element_type(t);
+        }
+
+        nodecl_set_constant(
+                result,
+                const_value_make_array(rank, const_vals));
     }
     else
     {
-        return nodecl_make_structured_value(
+        result = nodecl_make_structured_value(
                 nodecl_null(),
                 get_array_type_bounds(
                     choose_int_type_from_kind(kind, kind_),
@@ -608,6 +645,8 @@ static nodecl_t simplify_shape(int num_arguments UNUSED_PARAMETER, nodecl_t* arg
                     CURRENT_COMPILED_FILE->global_decl_context),
                 NULL, 0);
     }
+
+    return result;
 }
 
 static nodecl_t simplify_max_min(int num_arguments, nodecl_t* arguments,
