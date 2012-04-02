@@ -126,7 +126,7 @@ ADDITIONAL_GRAMMARS_FORTRAN =
 ADDITIONAL_GRAMMARS_FORTRAN += fortran03-subparse.y
 
 ADDITIONAL_GRAMMARS = ../cxx-pragma.y \
-					  ../cxx-nodecl.y \
+					  ../cxx-literal-nodes.y \
 					  ../cxx-placeholders.y \
                       $(ADDITIONAL_GRAMMARS_FORTRAN)
 

@@ -233,7 +233,7 @@ EXTRA_DIST += cxx-scanner.c
 
 ADDITIONAL_GRAMMARS = 
 ADDITIONAL_GRAMMARS += cxx-subparse.y
-ADDITIONAL_GRAMMARS += cxx-nodecl.y
+ADDITIONAL_GRAMMARS += cxx-literal-nodes.y
 ADDITIONAL_GRAMMARS += cxx-pragma.y
 ADDITIONAL_GRAMMARS += cxx-omp.y
 ADDITIONAL_GRAMMARS += cxx-superscalar.y

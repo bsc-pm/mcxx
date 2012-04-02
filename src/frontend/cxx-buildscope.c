@@ -2079,6 +2079,21 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                 *simple_type_info = declarator_type;
                 break;
             }
+            // Mercurium internal mechanism
+        case AST_TYPE_LITERAL_REF:
+            {
+                const char *tmp = ASTText(a);
+
+                const char * prefix = NULL;
+                void *p = NULL;
+                unpack_pointer(tmp, &prefix, &p);
+
+                ERROR_CONDITION(prefix == NULL || p == NULL || strcmp(prefix, "type") != 0,
+                        "Failure during unpack of type", 0);
+
+                *simple_type_info = (type_t*)p;
+                break;
+            }
         case AST_AMBIGUITY:
             {
                 // GCC typeof
