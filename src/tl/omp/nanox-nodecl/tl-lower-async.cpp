@@ -174,10 +174,12 @@ void LoweringVisitor::emit_async_common(
     Source struct_arg_type_name,
            struct_runtime_size,
            struct_size,
-           copy_decl,
-           copy_data,
+           copy_ol_decl,
+           copy_ol_arg,
+           copy_ol_setup,
            immediate_decl,
-           copy_imm_data,
+           copy_imm_arg,
+           copy_imm_setup,
            translation_fun_arg_name,
            const_wd_info;
 
@@ -329,8 +331,6 @@ void LoweringVisitor::emit_async_common(
     struct_size << "sizeof(imm_args)" << dynamic_size;
 
     translation_fun_arg_name << "(void (*)(void*, void*))0";
-    copy_data << "(nanos_copy_data_t**)0";
-    copy_imm_data << "(nanos_copy_data_t*)0";
 
     // Outline
     emit_outline(outline_info, statements, outline_name, structure_symbol);
@@ -398,18 +398,19 @@ void LoweringVisitor::emit_async_common(
         <<     struct_runtime_size
         <<     "nanos_wd_t wd = (nanos_wd_t)0;"
         <<     "nanos_wd_props_t props;"
-        <<     copy_decl
+        <<     copy_ol_decl
         <<     "nanos_err_t " << err_name <<";"
         // nanos_err_t nanos_create_wd_compact ( nanos_wd_t *wd, nanos_const_wd_definition_t *const_data, size_t data_size,
         //                               void ** data, nanos_wg_t wg, nanos_copy_data_t **copies )
         <<     err_name << " = nanos_create_wd_compact(&wd, &(nanos_wd_const_data.base), &nanos_wd_dyn_props, " 
         <<                 struct_size << ", (void**)&ol_args, nanos_current_wd(),"
-        <<                 copy_data << ");"
+        <<                 copy_ol_arg << ");"
         <<     "if (" << err_name << " != NANOS_OK) nanos_handle_error (" << err_name << ");"
         <<     "if (wd != (nanos_wd_t)0)"
         <<     "{"
         <<        statement_placeholder(fill_outline_arguments_tree)
         <<        fill_dependences_outline
+        <<        copy_ol_setup
         <<        err_name << " = nanos_submit(wd, " << num_dependences << ", dependences, (nanos_team_t)0);"
         <<        "if (" << err_name << " != NANOS_OK) nanos_handle_error (" << err_name << ");"
         <<     "}"
@@ -417,13 +418,14 @@ void LoweringVisitor::emit_async_common(
         <<     "{"
         <<          statement_placeholder(fill_immediate_arguments_tree)
         <<          fill_dependences_immediate
+        <<          copy_imm_setup
         // nanos_err_t nanos_create_wd_and_run_compact ( nanos_const_wd_definition_t *const_data, size_t data_size, void * data, size_t num_deps, 
         //                                       nanos_dependence_t *deps, nanos_copy_data_t *copies, nanos_translate_args_t translate_args );
         <<          err_name << " = nanos_create_wd_and_run_compact(&(nanos_wd_const_data.base), &nanos_wd_dyn_props, "
         <<                  struct_size << ", " 
         <<                  "&imm_args,"
         <<                  num_dependences << ", dependences, "
-        <<                  copy_imm_data << ", "
+        <<                  copy_imm_arg << ", "
         <<                  translation_fun_arg_name << ");"
         <<          "if (" << err_name << " != NANOS_OK) nanos_handle_error (" << err_name << ");"
         <<     "}"
@@ -435,6 +437,14 @@ void LoweringVisitor::emit_async_common(
     
     // Fill dependences for outline
     num_dependences << count_dependences(outline_info);
+
+    fill_copies(construct,
+        outline_info,
+        copy_ol_decl,
+        copy_ol_arg,
+        copy_ol_setup,
+        copy_imm_arg,
+        copy_imm_setup);
 
     fill_dependences(construct, 
             outline_info, 
@@ -730,6 +740,24 @@ int LoweringVisitor::count_dependences(OutlineInfo& outline_info)
     return num_deps;
 }
 
+int LoweringVisitor::count_copies(OutlineInfo& outline_info)
+{
+    int num_copies = 0;
+
+    TL::ObjectList<OutlineDataItem> data_items = outline_info.get_data_items();
+    for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
+            it != data_items.end();
+            it++)
+    {
+        if (it->get_copy_directionality() == OutlineDataItem::COPY_NONE)
+            continue;
+
+        num_copies += it->get_copies().size();
+    }
+
+    return num_copies;
+}
+
 static void fill_dimensions(int n_dims, 
         int actual_dim, 
         int current_dep_num,
@@ -738,6 +766,91 @@ static void fill_dimensions(int n_dims,
         Source& dims_description, 
         Source& dependency_regions_code, 
         Scope sc);
+
+void LoweringVisitor::fill_copies(
+        Nodecl::NodeclBase ctr,
+        OutlineInfo& outline_info, 
+        // Source arguments_accessor,
+        // out
+        Source& copy_ol_decl,
+        Source& copy_ol_arg,
+        Source& copy_ol_setup,
+        Source& copy_imm_arg,
+        Source& copy_imm_setup)
+{
+    int num_copies = count_copies(outline_info);
+
+    if (num_copies == 0)
+    {
+        copy_ol_arg << "(nanos_copy_data_t**)0";
+        copy_imm_arg << copy_ol_arg;
+        return;
+    }
+    
+    copy_ol_arg << "&ol_copy_data";
+    copy_imm_arg << "imm_copy_data";
+
+    // FIXME - This must be versioned
+    if (Nanos::Version::interface_is_at_least("copies_dep", 1000))
+    {
+        internal_error("New copies dependency not implemented", 0);
+        return;
+    }
+
+    copy_ol_decl
+        << "nanos_copy_data_t *ol_copy_data = (nanos_copy_data_t*)0;"
+        ;
+    copy_imm_setup 
+        << "nanos_copy_data_t imm_copy_data[" << num_copies << "];";
+
+    // typedef struct {
+    //    uint64_t address;
+    //    nanos_sharing_t sharing;
+    //    struct {
+    //       bool input: 1;
+    //       bool output: 1;
+    //    } flags;
+    //    size_t size;
+    // } nanos_copy_data_internal_t;
+
+    TL::ObjectList<OutlineDataItem> data_items = outline_info.get_data_items();
+
+    int current_copy_num = 0;
+    for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
+            it != data_items.end();
+            it++)
+    {
+        OutlineDataItem::CopyDirectionality dir = it->get_copy_directionality();
+        if (dir == OutlineDataItem::COPY_NONE)
+            continue;
+
+        TL::ObjectList<Nodecl::NodeclBase> copies = it->get_copies();
+        for (ObjectList<Nodecl::NodeclBase>::iterator copy_it = copies.begin();
+                copy_it != copies.end();
+                copy_it++, current_copy_num++)
+        {
+            TL::DataReference data_ref(*copy_it);
+
+            int input = (dir & OutlineDataItem::COPY_IN) == OutlineDataItem::COPY_IN;
+            int output = (dir & OutlineDataItem::COPY_IN) == OutlineDataItem::COPY_OUT;
+
+            copy_ol_setup
+                << "ol_copy_data[" << current_copy_num << "].sharing = NANOS_SHARED;"
+                << "ol_copy_data[" << current_copy_num << "].address = (uint64_t)" << as_expression(data_ref.get_base_address()) << ";"
+                << "ol_copy_data[" << current_copy_num << "].size = " << as_expression(data_ref.get_sizeof()) << ";"
+                << "ol_copy_data[" << current_copy_num << "].flags.input = " << input << ";"
+                << "ol_copy_data[" << current_copy_num << "].flags.output = " << output << ";"
+                ;
+            copy_imm_setup
+                << "imm_copy_data[" << current_copy_num << "].sharing = NANOS_SHARED;"
+                << "imm_copy_data[" << current_copy_num << "].address = (uint64_t)" << as_expression(data_ref.get_base_address()) << ";"
+                << "imm_copy_data[" << current_copy_num << "].size = " << as_expression(data_ref.get_sizeof()) << ";"
+                << "imm_copy_data[" << current_copy_num << "].flags.input = " << input << ";"
+                << "imm_copy_data[" << current_copy_num << "].flags.output = " << output << ";"
+                ;
+        }
+    }
+}
 
 void LoweringVisitor::fill_dependences(
         Nodecl::NodeclBase ctr,
