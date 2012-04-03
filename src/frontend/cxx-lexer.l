@@ -1084,6 +1084,8 @@ type {
 @OMP_UDR_CONSTRUCTOR@ { parse_token_text(); return OMP_UDR_CONSTRUCTOR; }
 @NODECL-LITERAL-EXPR@ { parse_token_text(); return NODECL_LITERAL_EXPR; }
 @NODECL-LITERAL-STMT@ { parse_token_text(); return NODECL_LITERAL_STMT; }
+@SYMBOL-LITERAL-REF@ { parse_token_text(); return SYMBOL_LITERAL_REF; }
+@TYPE-LITERAL-REF@ { parse_token_text(); return TYPE_LITERAL_REF; }
  /*!if CPLUSPLUS*/
 @MEMBER@ { parse_token_text(); return SUBPARSE_MEMBER; }
  /*!endif*/

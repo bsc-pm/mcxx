@@ -2650,6 +2650,18 @@ static type_t* gather_type_from_declaration_type_spec_(AST a,
                         ast_location(a));
                 break;
             }
+            // Special nodes
+        case AST_TYPE_LITERAL_REF:
+            {
+                const char *prefix = NULL;
+                void *p = NULL;
+                unpack_pointer(ASTText(a), &prefix, &p);
+                ERROR_CONDITION(prefix == NULL || p == NULL || strcmp(prefix, "type") != 0,
+                        "Failure during unpack of type", 0);
+
+                result = (type_t*)p;
+                break;
+            }
         default:
             {
                 internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(a)));

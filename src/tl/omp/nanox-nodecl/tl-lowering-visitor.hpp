@@ -94,6 +94,18 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 );
 
         int count_dependences(OutlineInfo& outline_info);
+        int count_copies(OutlineInfo& outline_info);
+
+        void fill_copies(
+                Nodecl::NodeclBase ctr,
+                OutlineInfo& outline_info, 
+                // Source arguments_accessor,
+                // out
+                Source& copy_ol_decl,
+                Source& copy_ol_arg,
+                Source& copy_ol_setup,
+                Source& copy_imm_arg,
+                Source& copy_imm_setup);
 
         void fill_dependences(
                 Nodecl::NodeclBase ctr,

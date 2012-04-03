@@ -65,6 +65,10 @@ LIBUTILS_EXTERN int uniquestr_sprintf(const char** out_str, const char* format, 
 
 LIBUTILS_EXTERN unsigned int simple_hash_str(const char *str);
 
+// Packed pointers
+LIBUTILS_EXTERN const char* pack_pointer(const char* prefix, void* pointer_addr);
+LIBUTILS_EXTERN void unpack_pointer(const char* text, const char** prefix, void** pointer_addr);
+
 // Routine to ease adding pointers to a pointer list
 //   list is a T**
 //   size is an int

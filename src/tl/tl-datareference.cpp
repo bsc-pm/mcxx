@@ -43,9 +43,13 @@ namespace TL
 
             Nodecl::NodeclBase make_sizeof(Nodecl::NodeclBase ctr)
             {
+                Type t = ctr.get_type();
+                if (t.is_any_reference())
+                    t = t.references_to();
+
                 return Nodecl::Sizeof::make(
                         Nodecl::Type::make(
-                            ctr.get_type(), 
+                            t,
                             ctr.get_filename(),
                             ctr.get_line()),
                         ctr.copy(),

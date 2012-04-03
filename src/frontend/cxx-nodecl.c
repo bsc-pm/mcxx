@@ -601,7 +601,7 @@ static const char* nodecl_to_source(nodecl_t n)
 
     if (!nodecl_is_null(n))
     {
-        fprintf(string_stream, "\"ast=%p\"", nodecl_get_ast(n));
+        fprintf(string_stream, pack_pointer("ast", nodecl_get_ast(n)));
     }
 
     fclose(string_stream);
@@ -629,42 +629,20 @@ nodecl_t nodecl_make_from_ast_nodecl_literal(AST a)
 
     for_each_element(string_literal_list, it)
     {
+        const char* attr_name = NULL;
+        void *p = NULL;
         AST current_string_literal = ASTSon1(it);
-        char* temp = strdup(ASTText(current_string_literal));
-        char* literal = temp;
-        ERROR_CONDITION(literal == NULL, "Text cannot be null", 0);
 
-        ERROR_CONDITION(*literal != '"', "Malformed string literal", 0);
-
-        // Ignore "
-        literal += 1;
-
-        char* delim = strchr(literal, '=');
-
-        ERROR_CONDITION(delim == NULL || delim == literal, "Malformed string literal", 0);
-
-        *delim = '\0';
-        char* value = delim + 1;
-        char* attr_name = literal;
-
-        // Erase trailing "
-        delim = strchr(value, '"');
-        ERROR_CONDITION(delim == NULL, "Malformed string literal", 0);
-        *delim = '\0';
+        unpack_pointer(ASTText(current_string_literal), &attr_name, &p);
 
         if (strcmp(attr_name, "ast") == 0)
         {
-            void *p = NULL;
-            sscanf(value, "%p", &p);
-
             result = _nodecl_wrap((AST)p);
         }
         else
         {
             internal_error("Malformed nodecl literal. Unknown property '%s'\n", attr_name);
         }
-
-        free(temp);
     }
 
     return result;
