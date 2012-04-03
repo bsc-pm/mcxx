@@ -4659,7 +4659,10 @@ static type_t* advance_dependent_typename_aux(
             fprintf(stderr, "TYPEUTILS: Looking for dependent-part '%s'\n", name);
         }
 
-        scope_entry_list_t* member_list = query_in_scope_str(class_context, name);
+        scope_entry_list_t* member_list = query_nodecl_name_in_class(
+                class_context,  // unused
+                current_member,
+                nodecl_simple_name);
 
         if (member_list == NULL)
         {
@@ -4842,7 +4845,10 @@ static type_t* advance_dependent_typename_aux(
         fprintf(stderr, "TYPEUTILS: Looking for last dependent-part '%s'\n", name);
     }
 
-    scope_entry_list_t* member_list = query_in_scope_str(class_context, name);
+    scope_entry_list_t* member_list = query_nodecl_name_in_class(
+            class_context,  // unused
+            current_member,
+            nodecl_simple_name);
 
     if (member_list == NULL)
     {

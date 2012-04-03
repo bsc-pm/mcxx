@@ -4383,6 +4383,12 @@ scope_entry_list_t* query_nodecl_name_in_class_flags(
                 nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name));
     }
 
+    if (is_incomplete_type(class_type))
+    {
+        // There is no way this can suceed at all
+        return NULL;
+    }
+
     return query_nodecl_name_in_class_aux(decl_context, class_symbol, nodecl_name, decl_flags);
 }
 
