@@ -1947,13 +1947,23 @@ char checking_ambiguity(void)
     return (_ambiguity_testing != 0);
 }
 
-static void favor_known_expression_ambiguities(AST previous_choice, 
-        AST current_choice, 
-        int current_index, 
+static void favor_known_expression_ambiguities(AST previous_choice,
+        AST current_choice,
+        int current_index,
         int *correct_choice,
         nodecl_t current_nodecl,
         nodecl_t* previous_output)
 {
+    // If a choice has kind 'AST_EXPRESSION' we really need
+    // the kind of the son to try to solve this ambiguity
+    current_choice =
+        (ASTType(current_choice) == AST_EXPRESSION)
+            ? ASTSon0(current_choice): current_choice;
+
+    previous_choice =
+        (ASTType(previous_choice) == AST_EXPRESSION)
+            ? ASTSon0(previous_choice): previous_choice;
+
     // How to read this checks
     //
     //  either_type(a, b, T1, T2) 
