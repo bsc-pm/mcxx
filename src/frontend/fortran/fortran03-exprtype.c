@@ -109,7 +109,7 @@ typedef struct check_expression_handler_tag
  STATEMENT_HANDLER(AST_POWER, check_power_op) \
  STATEMENT_HANDLER(AST_STRING_LITERAL, check_string_literal) \
  STATEMENT_HANDLER(AST_USER_DEFINED_UNARY_OP, check_user_defined_unary_op) \
- STATEMENT_HANDLER(AST_SYMBOL, check_symbol_variable) \
+ STATEMENT_HANDLER(AST_SYMBOL, check_symbol_of_variable) \
  STATEMENT_HANDLER(AST_ASSIGNMENT, check_assignment) \
  STATEMENT_HANDLER(AST_PTR_ASSIGNMENT, check_ptr_assignment) \
  STATEMENT_HANDLER(AST_AMBIGUITY, disambiguate_expression) \
@@ -3993,7 +3993,7 @@ static void check_symbol_of_argument(AST sym, decl_context_t decl_context, nodec
 }
 
 
-static void check_symbol_variable(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_symbol_of_variable(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     // Entry will never be an intrinsic function
     scope_entry_t* entry = fortran_get_variable_with_locus(decl_context, expr, ASTText(expr));
@@ -4412,6 +4412,37 @@ static void cast_initialization(
         {
             // Build a nodecl if needed
             *nodecl_output = const_value_to_nodecl(*casted_const);
+        }
+    }
+    else if (is_fortran_array_type(initialized_type)
+            && !const_value_is_array(val))
+    {
+        nodecl_t nodecl_size = array_type_get_array_size_expr(initialized_type);
+        if (nodecl_is_constant(nodecl_size))
+        {
+            int i;
+            int size = const_value_cast_to_signed_int(nodecl_get_constant(nodecl_size));
+            type_t* element_type = array_type_get_element_type(initialized_type);
+
+            if (size > 0)
+            {
+                const_value_t* const_values[size];
+                for (i = 0 ; i < size; i++)
+                {
+                    cast_initialization(element_type,
+                            val,
+                            &(const_values[i]),
+                            /* nodecl_output */ NULL);
+
+                }
+
+                *casted_const = const_value_make_array(size, const_values);
+
+                if (nodecl_output != NULL)
+                {
+                    *nodecl_output = const_value_to_nodecl(*casted_const);
+                }
+            }
         }
     }
     else

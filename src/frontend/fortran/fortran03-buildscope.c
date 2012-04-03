@@ -1386,6 +1386,13 @@ static scope_entry_t* new_procedure_symbol(
             result_sym->file = ASTFileName(result);
             result_sym->line = ASTLine(result);
             result_sym->entity_specs.is_result = 1;
+
+            result_sym->entity_specs.is_implicit_basic_type = !function_has_type_spec;
+            if (function_has_type_spec)
+            {
+                // This is not untyped since a type appeared in the prefix
+                remove_untyped_symbol(program_unit_context, result_sym);
+            }
             
             remove_unknown_kind_symbol(program_unit_context, result_sym);
 
@@ -1428,6 +1435,10 @@ static scope_entry_t* new_procedure_symbol(
             // Add it as an explicit unknown symbol because we want it to be
             // updated with a later IMPLICIT
             add_untyped_symbol(program_unit_context, result_sym);
+        }
+        else
+        {
+            remove_untyped_symbol(program_unit_context, result_sym);
         }
 
         return_type = get_indirect_type(result_sym);
@@ -4042,7 +4053,16 @@ static void build_scope_assigned_goto_stmt(AST a UNUSED_PARAMETER, decl_context_
     // warn_printf("%s: warning: deprecated assigned-goto statement\n", 
     //         ast_location(a));
 
-    scope_entry_t* label_var = fortran_get_variable_with_locus(decl_context, ASTSon0(a), ASTText(ASTSon0(a)));
+    AST label_name = ASTSon0(a);
+    scope_entry_t* label_var = fortran_get_variable_with_locus(decl_context, label_name, ASTText(label_name));
+    if (label_var == NULL)
+    {
+        error_printf("%s: error: symbol '%s' is unknown\n", ast_location(label_name), ASTText(label_name));
+        *nodecl_output = nodecl_make_list_1(
+                nodecl_make_err_statement(ASTFileName(a), ASTLine(a))
+                );
+        return;
+    }
 
     AST label_list = ASTSon1(a);
     nodecl_t nodecl_label_list = nodecl_null();
@@ -6005,14 +6025,21 @@ static void build_scope_namelist_stmt(AST a, decl_context_t decl_context,
         {
             AST namelist_item_name = ASTSon1(it2);
 
-            scope_entry_t* namelist_element = get_symbol_for_name(decl_context, namelist_item_name, ASTText(namelist_item_name));
+            scope_entry_t* namelist_element = fortran_get_variable_with_locus(decl_context, namelist_item_name, ASTText(namelist_item_name));
 
-            namelist_element->entity_specs.is_in_namelist = 1;
-            namelist_element->entity_specs.namelist = new_namelist;
+            if (namelist_element != NULL)
+            {
+                namelist_element->entity_specs.is_in_namelist = 1;
+                namelist_element->entity_specs.namelist = new_namelist;
 
-            P_LIST_ADD(new_namelist->entity_specs.related_symbols,
-                    new_namelist->entity_specs.num_related_symbols,
-                    namelist_element);
+                P_LIST_ADD(new_namelist->entity_specs.related_symbols,
+                        new_namelist->entity_specs.num_related_symbols,
+                        namelist_element);
+            }
+            else
+            {
+                error_printf("%s: error: entity '%s' is unknown\n", ast_location(namelist_item_name), ASTText(namelist_item_name));
+            }
         }
     }
 
