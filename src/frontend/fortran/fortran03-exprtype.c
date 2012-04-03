@@ -109,7 +109,7 @@ typedef struct check_expression_handler_tag
  STATEMENT_HANDLER(AST_POWER, check_power_op) \
  STATEMENT_HANDLER(AST_STRING_LITERAL, check_string_literal) \
  STATEMENT_HANDLER(AST_USER_DEFINED_UNARY_OP, check_user_defined_unary_op) \
- STATEMENT_HANDLER(AST_SYMBOL, check_symbol_variable) \
+ STATEMENT_HANDLER(AST_SYMBOL, check_symbol_of_variable) \
  STATEMENT_HANDLER(AST_ASSIGNMENT, check_assignment) \
  STATEMENT_HANDLER(AST_PTR_ASSIGNMENT, check_ptr_assignment) \
  STATEMENT_HANDLER(AST_AMBIGUITY, disambiguate_expression) \
@@ -3993,7 +3993,7 @@ static void check_symbol_of_argument(AST sym, decl_context_t decl_context, nodec
 }
 
 
-static void check_symbol_variable(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_symbol_of_variable(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     // Entry will never be an intrinsic function
     scope_entry_t* entry = fortran_get_variable_with_locus(decl_context, expr, ASTText(expr));
