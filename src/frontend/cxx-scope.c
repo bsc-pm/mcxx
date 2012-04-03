@@ -4383,7 +4383,8 @@ scope_entry_list_t* query_nodecl_name_in_class_flags(
                 nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name));
     }
 
-    if (is_incomplete_type(class_type))
+    decl_context_t inner_class_context = class_type_get_inner_context(class_type);
+    if (inner_class_context.class_scope == NULL)
     {
         // There is no way this can suceed at all
         return NULL;
