@@ -4042,7 +4042,16 @@ static void build_scope_assigned_goto_stmt(AST a UNUSED_PARAMETER, decl_context_
     // warn_printf("%s: warning: deprecated assigned-goto statement\n", 
     //         ast_location(a));
 
-    scope_entry_t* label_var = fortran_get_variable_with_locus(decl_context, ASTSon0(a), ASTText(ASTSon0(a)));
+    AST label_name = ASTSon0(a);
+    scope_entry_t* label_var = fortran_get_variable_with_locus(decl_context, label_name, ASTText(label_name));
+    if (label_var == NULL)
+    {
+        error_printf("%s: error: symbol '%s' is unknown\n", ast_location(label_name), ASTText(label_name));
+        *nodecl_output = nodecl_make_list_1(
+                nodecl_make_err_statement(ASTFileName(a), ASTLine(a))
+                );
+        return;
+    }
 
     AST label_list = ASTSon1(a);
     nodecl_t nodecl_label_list = nodecl_null();
