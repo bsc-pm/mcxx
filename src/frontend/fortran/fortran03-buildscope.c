@@ -1386,6 +1386,13 @@ static scope_entry_t* new_procedure_symbol(
             result_sym->file = ASTFileName(result);
             result_sym->line = ASTLine(result);
             result_sym->entity_specs.is_result = 1;
+
+            result_sym->entity_specs.is_implicit_basic_type = !function_has_type_spec;
+            if (function_has_type_spec)
+            {
+                // This is not untyped since a type appeared in the prefix
+                remove_untyped_symbol(program_unit_context, result_sym);
+            }
             
             remove_unknown_kind_symbol(program_unit_context, result_sym);
 
@@ -1428,6 +1435,10 @@ static scope_entry_t* new_procedure_symbol(
             // Add it as an explicit unknown symbol because we want it to be
             // updated with a later IMPLICIT
             add_untyped_symbol(program_unit_context, result_sym);
+        }
+        else
+        {
+            remove_untyped_symbol(program_unit_context, result_sym);
         }
 
         return_type = get_indirect_type(result_sym);
