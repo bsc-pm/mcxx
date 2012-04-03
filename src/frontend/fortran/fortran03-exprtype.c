@@ -4414,6 +4414,37 @@ static void cast_initialization(
             *nodecl_output = const_value_to_nodecl(*casted_const);
         }
     }
+    else if (is_fortran_array_type(initialized_type)
+            && !const_value_is_array(val))
+    {
+        nodecl_t nodecl_size = array_type_get_array_size_expr(initialized_type);
+        if (nodecl_is_constant(nodecl_size))
+        {
+            int i;
+            int size = const_value_cast_to_signed_int(nodecl_get_constant(nodecl_size));
+            type_t* element_type = array_type_get_element_type(initialized_type);
+
+            if (size > 0)
+            {
+                const_value_t* const_values[size];
+                for (i = 0 ; i < size; i++)
+                {
+                    cast_initialization(element_type,
+                            val,
+                            &(const_values[i]),
+                            /* nodecl_output */ NULL);
+
+                }
+
+                *casted_const = const_value_make_array(size, const_values);
+
+                if (nodecl_output != NULL)
+                {
+                    *nodecl_output = const_value_to_nodecl(*casted_const);
+                }
+            }
+        }
+    }
     else
     {
         // No cast
