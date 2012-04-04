@@ -287,6 +287,8 @@ static const_value_t* make_multival(int num_elements, const_value_t **elements)
     int i;
     for (i = 0; i < num_elements; i++)
     {
+        ERROR_CONDITION(elements[i] == NULL, "Invalid NULL constant in component %d of multi-value constant", i);
+
         result->value.m->elements[i] = elements[i];
     }
 
@@ -295,6 +297,8 @@ static const_value_t* make_multival(int num_elements, const_value_t **elements)
 
 static const_value_t* multival_get_element_num(const_value_t* v, int element)
 {
+    ERROR_CONDITION(element >= v->value.m->num_elements, "Invalid index %d in a multi-value constant with up to %d components", 
+            element, v->value.m->num_elements);
     return v->value.m->elements[element];
 }
 
