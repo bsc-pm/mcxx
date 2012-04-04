@@ -823,6 +823,7 @@ static char check_simple_or_member_declaration(AST a, decl_context_t decl_contex
                 {
                     scope_entry_t* entry = entry_list_head(entry_list);
                     entry_list_free(entry_list);
+                    entry = entry_advance_aliases(entry);
 
                     if (entry->kind == SK_TYPEDEF
                             || entry->kind == SK_ENUM
