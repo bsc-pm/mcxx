@@ -8592,8 +8592,9 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t 
             check_expression_impl_(called_expression, decl_context, &nodecl_called);
         }
 
-        if (any_arg_is_dependent
-                || nodecl_expr_is_type_dependent(nodecl_called))
+        if (!nodecl_is_err_expr(nodecl_called)
+                && (any_arg_is_dependent
+                    || nodecl_expr_is_type_dependent(nodecl_called)))
         {
             if (is_id_expression(called_expression))
             {
