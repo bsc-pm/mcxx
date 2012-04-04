@@ -49,4 +49,5 @@ libtlnanox_lowering_la_SOURCES = \
 								 tl-emit-outline.cpp \
 								 tl-outline-info.hpp \
 								 tl-outline-info.cpp \
+								 tl-lower-single.cpp \
 								 $(END)

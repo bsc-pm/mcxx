@@ -353,17 +353,24 @@ parallel-statements : parallel-execution
                     | synchronization
 
 parallel-execution : async-execution
-                   | sequential-execution
+                   | single-execution
+                   | exclusive-execution
                    | replicated-execution
                    | distributed-execution
                    | atomic-execution
                    | composited-execution
 
-sequential-execution : NODECL_PARALLEL*SERIALIZE([environment]exec-environment-seq-opt, [statements]statement-seq-opt)
+# single
+single-execution : NODECL_PARALLEL*SINGLE([environment]exec-environment-seq-opt, [statements]statement-seq-opt)
 
+# critical
+exclusive-execution : NODECL_PARALLEL*EXCLUSIVE([environment]exec-environment-seq-opt, [statements]statement-seq-opt)
+
+# inline task
 async-execution : NODECL_PARALLEL*ASYNC([environment]exec-environment-seq-opt, [statements]statement-seq-opt) 
                 | async-call
 
+# function task
 async-call : NODECL_PARALLEL*ASYNC_CALL([environment]exec-environment-seq-opt, [call]expression)
 
 # Futures?
@@ -386,24 +393,32 @@ exec-environment : NODECL_PARALLEL*CONDITION([condition]expression)
                  | NODECL_PARALLEL*TARGET() 
                  | NODECL_PARALLEL*PRIORITY([priority]expression) 
                  | NODECL_PARALLEL*UNTIED()
+                 | NODECL_PARALLEL*CRITICAL_NAME() text
 
 async-reduction : NODECL_PARALLEL*REDUCTION_ITEM([reductor]name, [reduced_symbols]name-seq)
 
+# parallel
 replicated-execution : NODECL_PARALLEL*REPLICATE([environment]exec-environment-seq-opt, [num_replicas]expression-opt, [exec]async-execution)
 
+# for
 distributed-execution : NODECL_PARALLEL*DISTRIBUTE([environment]exec-environment-seq-opt, [ranges]distribute-range-seq, [exec]async-execution)
 distribute-range : NODECL_PARALLEL*DISTRIBUTE_RANGE([lower]expression, [upper]expression, [step]expression) symbol
 
+# atomic
 atomic-execution : NODECL_PARALLEL*ATOMIC([name]name-opt, [statements]statement-seq-opt)
 
+# sections
 composited-execution : NODECL_PARALLEL*COMPOSITE([environment]exec-environment-seq-opt, [regions]async-execution-seq)
 
 synchronization : NODECL_PARALLEL*WAIT_ASYNCS_DEPENDENCES([environment] exec-environment-seq-opt)
-# First level
+# First level of async
                 | NODECL_PARALLEL*WAIT_ASYNCS_SHALLOW()
-# All levels
+# All levels of async
                 | NODECL_PARALLEL*WAIT_ASYNCS_DEEP()
                 | NODECL_PARALLEL*FLUSH_MEMORY([expressions] expression-seq-opt)
+# Full barrier
                 | NODECL_PARALLEL*BARRIER_FULL()
+# First half of a barrier (signaling phase)
                 | NODECL_PARALLEL*BARRIER_SIGNAL()
+# Second half of a barrier (waiting phase)
                 | NODECL_PARALLEL*BARRIER_WAIT()

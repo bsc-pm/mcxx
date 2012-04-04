@@ -290,7 +290,7 @@ namespace TL { namespace Nanox {
         replaced_body_src << replace_symbols.replace(body);
 
         Nodecl::NodeclBase new_unpacked_body = replaced_body_src.parse_statement(unpacked_function_body);
-        unpacked_function_body.replace(new_unpacked_body);
+        unpacked_function_body.integrate(new_unpacked_body);
 
         Nodecl::NodeclBase outline_function_code, outline_function_body;
         build_empty_body_for_function(outline_function, 
@@ -323,7 +323,7 @@ namespace TL { namespace Nanox {
         }
 
         Nodecl::NodeclBase new_outline_body = outline_src.parse_statement(outline_function_body);
-        outline_function_body.replace(new_outline_body);
+        outline_function_body.integrate(new_outline_body);
     }
 
 #if 0
@@ -550,7 +550,7 @@ namespace TL { namespace Nanox {
         replaced_body_src << replace_symbols.replace(body);
 
         Nodecl::NodeclBase new_body = replaced_body_src.parse_statement(placeholder_body);
-        placeholder_body.replace(new_body);
+        placeholder_body.integrate(new_body);
     }
 #endif
 

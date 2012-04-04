@@ -10133,3 +10133,17 @@ void _type_assign_to(type_t* dest, type_t* src)
     // Bitwise copy will be enough
     *dest = *src;
 }
+
+// Use this for embedding in a TL::Source
+// This is not for prettyprinting!
+const char* type_to_source(type_t* t)
+{
+    const char* pack = pack_pointer("type", (void*)t);
+
+    const char* c = NULL;
+
+    uniquestr_sprintf(&c, "%s%s%s", 
+            "@TYPE-LITERAL-REF@(", pack, ")");
+
+    return c;
+}

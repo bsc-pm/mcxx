@@ -213,6 +213,8 @@ namespace TL
         public:
             PragmaCustomParameter(Nodecl::List node)
                 : PragmaClauseArgList(node) { }
+
+            bool is_defined() const;
     };
 
     class LIBTL_CLASS PragmaCustomLine : public Nodecl::PragmaCustomLine

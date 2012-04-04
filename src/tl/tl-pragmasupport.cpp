@@ -247,6 +247,11 @@ namespace TL
         return !_pragma_clauses.empty();
     }
 
+    bool PragmaCustomParameter::is_defined() const
+    {
+        return !this->empty();
+    }
+
     bool PragmaCustomClause::is_singleton() const
     {
         return _pragma_clauses.size() == 1;

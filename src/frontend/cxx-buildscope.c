@@ -2082,7 +2082,7 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
             // Mercurium internal mechanism
         case AST_TYPE_LITERAL_REF:
             {
-                const char *tmp = ASTText(a);
+                const char *tmp = ASTText(ASTSon0(a));
 
                 const char * prefix = NULL;
                 void *p = NULL;
