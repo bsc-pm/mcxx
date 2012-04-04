@@ -500,7 +500,13 @@ namespace Nodecl {
             }
 
             static List make(const TL::ObjectList<NodeclBase>& list);
-            static List make(const NodeclBase& list);
+
+            static List make(const NodeclBase& item_1);
+            static List make(const NodeclBase& item_1, const NodeclBase& item_2);
+            static List make(const NodeclBase& item_1, const NodeclBase& item_2, const NodeclBase& item_3);
+            static List make(const NodeclBase& item_1, const NodeclBase& item_2, const NodeclBase& item_3, const NodeclBase& item_4);
+            static List make(const NodeclBase& item_1, const NodeclBase& item_2, const NodeclBase& item_3, const NodeclBase& item_4, const NodeclBase& item_5);
+            static List make(const NodeclBase& item_1, const NodeclBase& item_2, const NodeclBase& item_3, const NodeclBase& item_4, const NodeclBase& item_5, const NodeclBase& item_6);
     };
 }
 

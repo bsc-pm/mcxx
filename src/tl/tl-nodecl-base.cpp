@@ -151,9 +151,33 @@ namespace Nodecl
         return make_list_helper(list.begin(), list.end() - 1);
     }
 
-    List List::make(const NodeclBase& list)
+    List List::make(const NodeclBase& item_1)
     {
-        return nodecl_make_list_1(list.get_internal_nodecl());
+        return nodecl_make_list_1(item_1.get_internal_nodecl());
     }
 
+    List List::make(const NodeclBase& item_1, const NodeclBase& item_2)
+    {
+        return nodecl_make_list_2(item_1.get_internal_nodecl(), item_2.get_internal_nodecl());
+    }
+
+    List List::make(const NodeclBase& item_1, const NodeclBase& item_2, const NodeclBase& item_3)
+    {
+        return nodecl_make_list_3(item_1.get_internal_nodecl(), item_2.get_internal_nodecl(), item_3.get_internal_nodecl());
+    }
+
+    List List::make(const NodeclBase& item_1, const NodeclBase& item_2, const NodeclBase& item_3, const NodeclBase& item_4)
+    {
+        return nodecl_make_list_4(item_1.get_internal_nodecl(), item_2.get_internal_nodecl(), item_3.get_internal_nodecl(), item_4.get_internal_nodecl());
+    }
+
+    List List::make(const NodeclBase& item_1, const NodeclBase& item_2, const NodeclBase& item_3, const NodeclBase& item_4, const NodeclBase& item_5)
+    {
+        return nodecl_make_list_5(item_1.get_internal_nodecl(), item_2.get_internal_nodecl(), item_3.get_internal_nodecl(), item_4.get_internal_nodecl(), item_5.get_internal_nodecl());
+    }
+
+    List List::make(const NodeclBase& item_1, const NodeclBase& item_2, const NodeclBase& item_3, const NodeclBase& item_4, const NodeclBase& item_5, const NodeclBase& item_6)
+    {
+        return nodecl_make_list_6(item_1.get_internal_nodecl(), item_2.get_internal_nodecl(), item_3.get_internal_nodecl(), item_4.get_internal_nodecl(), item_5.get_internal_nodecl(), item_6.get_internal_nodecl());
+    }
 }
