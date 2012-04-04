@@ -303,18 +303,19 @@ static int multival_get_num_elements(const_value_t* v)
     return v->value.m->num_elements;
 }
 
-#define IS_STRUCTURED(x) \
+#define IS_MULTIVALUE(x) \
     (x == CVK_COMPLEX \
     || x == CVK_ARRAY \
     || x == CVK_STRUCT \
     || x == CVK_VECTOR \
-    || x == CVK_STRING)
+    || x == CVK_STRING \
+    || x == CVK_RANGE)
 
 // Use this to apply a unary function to a multival
 static const_value_t* map_unary_to_structured_value(const_value_t* (*fun)(const_value_t*),
         const_value_t* m1)
 {
-    ERROR_CONDITION(!IS_STRUCTURED(m1->kind), "The value is not a multiple-value constant", 0);
+    ERROR_CONDITION(!IS_MULTIVALUE(m1->kind), "The value is not a multiple-value constant", 0);
 
     int i, num_elements = multival_get_num_elements(m1);
     const_value_t* result_arr[num_elements];
@@ -334,7 +335,7 @@ static const_value_t* map_binary_to_structured_value(const_value_t* (*fun)(const
         const_value_t* m1,
         const_value_t* m2)
 {
-    ERROR_CONDITION(!IS_STRUCTURED(m1->kind) || !IS_STRUCTURED(m2->kind), "One of the values is not a multiple-value constant", 0);
+    ERROR_CONDITION(!IS_MULTIVALUE(m1->kind) || !IS_MULTIVALUE(m2->kind), "One of the values is not a multiple-value constant", 0);
     ERROR_CONDITION(multival_get_num_elements(m1) != multival_get_num_elements(m2), 
             "Cannot apply a binary map to multiple-values with different number of elements %d != %d", 
             multival_get_num_elements(m1),
@@ -355,7 +356,7 @@ static const_value_t* map_binary_to_structured_value(const_value_t* (*fun)(const
 
 const_value_t* const_value_cast_to_signed_int_value(const_value_t* val)
 {
-    if (IS_STRUCTURED(val->kind))
+    if (IS_MULTIVALUE(val->kind))
     {
         return map_unary_to_structured_value(const_value_cast_to_signed_int_value, val);
     }
@@ -1038,7 +1039,7 @@ float const_value_cast_to_float(const_value_t* v)
     else if (v->kind == CVK_FLOAT128)
         return (float)v->value.f128;
 #endif
-    else if (IS_STRUCTURED(v->kind))
+    else if (IS_MULTIVALUE(v->kind))
     {
     }
 
@@ -1128,7 +1129,7 @@ __float128 const_value_cast_to_float128(const_value_t* v)
 
 const_value_t* const_value_cast_to_float_value(const_value_t* val)
 {
-    if (IS_STRUCTURED(val->kind))
+    if (IS_MULTIVALUE(val->kind))
     {
         return map_unary_to_structured_value(const_value_cast_to_float_value, val);
     }
@@ -1137,7 +1138,7 @@ const_value_t* const_value_cast_to_float_value(const_value_t* val)
 
 const_value_t* const_value_cast_to_double_value(const_value_t* val)
 {
-    if (IS_STRUCTURED(val->kind))
+    if (IS_MULTIVALUE(val->kind))
     {
         return map_unary_to_structured_value(const_value_cast_to_double_value, val);
     }
@@ -1146,7 +1147,7 @@ const_value_t* const_value_cast_to_double_value(const_value_t* val)
 
 const_value_t* const_value_cast_to_long_double_value(const_value_t* val)
 {
-    if (IS_STRUCTURED(val->kind))
+    if (IS_MULTIVALUE(val->kind))
     {
         return map_unary_to_structured_value(const_value_cast_to_long_double_value, val);
     }
@@ -1156,7 +1157,7 @@ const_value_t* const_value_cast_to_long_double_value(const_value_t* val)
 #ifdef HAVE_QUADMATH_H
 const_value_t* const_value_cast_to_float128_value(const_value_t* val)
 {
-    if (IS_STRUCTURED(val->kind))
+    if (IS_MULTIVALUE(val->kind))
     {
         return map_unary_to_structured_value(const_value_cast_to_float128_value, val);
     }
@@ -1293,7 +1294,7 @@ const_value_t* const_value_make_complex(const_value_t* real_part, const_value_t*
 const_value_t* const_value_make_range(const_value_t* lower, const_value_t* upper, const_value_t* stride)
 {
     const_value_t* range[] = { lower, upper, stride };
-    const_value_t* result = make_multival(2, range);
+    const_value_t* result = make_multival(3, range);
     result->kind = CVK_RANGE;
     return result;
 }
@@ -1312,13 +1313,13 @@ const_value_t* const_value_complex_get_imag_part(const_value_t* value)
 
 int const_value_get_num_elements(const_value_t* value)
 {
-    ERROR_CONDITION(!IS_STRUCTURED(value->kind), "This is not a multiple-value constant", 0);
+    ERROR_CONDITION(!IS_MULTIVALUE(value->kind), "This is not a multiple-value constant", 0);
     return multival_get_num_elements(value);
 }
 
 const_value_t* const_value_get_element_num(const_value_t* value, int num)
 {
-    ERROR_CONDITION(!IS_STRUCTURED(value->kind), "This is not a multiple-value constant", 0);
+    ERROR_CONDITION(!IS_MULTIVALUE(value->kind), "This is not a multiple-value constant", 0);
     return multival_get_element_num(value, num);
 }
 
@@ -1381,8 +1382,8 @@ static const_value_t* extend_first_operand_to_structured_value(const_value_t* (*
         const_value_t* m1,
         const_value_t* m2)
 {
-    ERROR_CONDITION(!IS_STRUCTURED(m1->kind), "The first operand must be a multiple-value constant", 0);
-    ERROR_CONDITION(IS_STRUCTURED(m2->kind), "The second operand must not be a multiple-value constant", 0);
+    ERROR_CONDITION(!IS_MULTIVALUE(m1->kind), "The first operand must be a multiple-value constant", 0);
+    ERROR_CONDITION(IS_MULTIVALUE(m2->kind), "The second operand must not be a multiple-value constant", 0);
 
     int i, num_elements = multival_get_num_elements(m1);
     const_value_t* result_arr[num_elements];
@@ -1401,8 +1402,8 @@ static const_value_t* extend_second_operand_to_structured_value(const_value_t* (
         const_value_t* m1,
         const_value_t* m2)
 {
-    ERROR_CONDITION(IS_STRUCTURED(m1->kind), "The first operand must not be a multiple-value constant", 0);
-    ERROR_CONDITION(!IS_STRUCTURED(m2->kind), "The second operand must be a multiple-value constant", 0);
+    ERROR_CONDITION(IS_MULTIVALUE(m1->kind), "The first operand must not be a multiple-value constant", 0);
+    ERROR_CONDITION(!IS_MULTIVALUE(m2->kind), "The second operand must be a multiple-value constant", 0);
 
     int i, num_elements = multival_get_num_elements(m2);
     const_value_t* result_arr[num_elements];
@@ -1960,17 +1961,17 @@ const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2) \
     { \
         return const_value_##_opname ( const_value_real_to_complex(v1), v2 ); \
     } \
-    else if (IS_STRUCTURED(v1->kind) \
-            && IS_STRUCTURED(v2->kind) \
+    else if (IS_MULTIVALUE(v1->kind) \
+            && IS_MULTIVALUE(v2->kind) \
             && (multival_get_num_elements(v1) == multival_get_num_elements(v2))) \
     { \
         return map_binary_to_structured_value( const_value_##_opname, v1, v2); \
     } \
-    else if (IS_STRUCTURED(v1->kind)) \
+    else if (IS_MULTIVALUE(v1->kind)) \
     { \
         return extend_first_operand_to_structured_value( const_value_##_opname, v1, v2); \
     } \
-    else if (IS_STRUCTURED(v2->kind)) \
+    else if (IS_MULTIVALUE(v2->kind)) \
     { \
         return extend_second_operand_to_structured_value( const_value_##_opname, v1, v2); \
     } \
@@ -2039,17 +2040,17 @@ const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2) \
     { \
         return const_value_##_opname ( const_value_real_to_complex(v1), v2 ); \
     } \
-    else if (IS_STRUCTURED(v1->kind) \
-            && IS_STRUCTURED(v2->kind) \
+    else if (IS_MULTIVALUE(v1->kind) \
+            && IS_MULTIVALUE(v2->kind) \
             && (multival_get_num_elements(v1) == multival_get_num_elements(v2))) \
     { \
         return map_binary_to_structured_value( const_value_##_opname, v1, v2); \
     } \
-    else if (IS_STRUCTURED(v1->kind)) \
+    else if (IS_MULTIVALUE(v1->kind)) \
     { \
         return extend_first_operand_to_structured_value( const_value_##_opname, v1, v2); \
     } \
-    else if (IS_STRUCTURED(v2->kind)) \
+    else if (IS_MULTIVALUE(v2->kind)) \
     { \
         return extend_second_operand_to_structured_value( const_value_##_opname, v1, v2); \
     } \
@@ -2307,17 +2308,17 @@ const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2) \
     { \
         return const_value_##_opname ( const_value_real_to_complex(v1), v2 ); \
     } \
-    else if (IS_STRUCTURED(v1->kind) \
-            && IS_STRUCTURED(v2->kind) \
+    else if (IS_MULTIVALUE(v1->kind) \
+            && IS_MULTIVALUE(v2->kind) \
             && (multival_get_num_elements(v1) == multival_get_num_elements(v2))) \
     { \
         return map_binary_to_structured_value( const_value_##_opname, v1, v2); \
     } \
-    else if (IS_STRUCTURED(v1->kind)) \
+    else if (IS_MULTIVALUE(v1->kind)) \
     { \
         return extend_first_operand_to_structured_value( const_value_##_opname, v1, v2); \
     } \
-    else if (IS_STRUCTURED(v2->kind)) \
+    else if (IS_MULTIVALUE(v2->kind)) \
     { \
         return extend_second_operand_to_structured_value( const_value_##_opname, v1, v2); \
     } \
@@ -2386,17 +2387,17 @@ const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2) \
     { \
         return const_value_##_opname ( const_value_real_to_complex(v1), v2 ); \
     } \
-    else if (IS_STRUCTURED(v1->kind) \
-            && IS_STRUCTURED(v2->kind) \
+    else if (IS_MULTIVALUE(v1->kind) \
+            && IS_MULTIVALUE(v2->kind) \
             && (multival_get_num_elements(v1) == multival_get_num_elements(v2))) \
     { \
         return map_binary_to_structured_value( const_value_##_opname, v1, v2); \
     } \
-    else if (IS_STRUCTURED(v1->kind)) \
+    else if (IS_MULTIVALUE(v1->kind)) \
     { \
         return extend_first_operand_to_structured_value( const_value_##_opname, v1, v2); \
     } \
-    else if (IS_STRUCTURED(v2->kind)) \
+    else if (IS_MULTIVALUE(v2->kind)) \
     { \
         return extend_second_operand_to_structured_value( const_value_##_opname, v1, v2); \
     } \
