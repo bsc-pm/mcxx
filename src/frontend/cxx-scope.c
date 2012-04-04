@@ -3632,6 +3632,7 @@ static scope_entry_list_t* query_nodecl_simple_name(decl_context_t decl_context,
     if (result != NULL
             && BITMAP_TEST(decl_flags, DF_DEPENDENT_TYPENAME)
             && (head = entry_list_head(result))->entity_specs.is_member
+            && !head->entity_specs.is_injected_class_name
             && is_dependent_type(head->entity_specs.class_type))
     {
         scope_entry_t* new_sym = counted_calloc(1, sizeof(*new_sym), &_bytes_used_scopes);
