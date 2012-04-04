@@ -7321,7 +7321,8 @@ static void check_nodecl_explicit_type_conversion(type_t* type_info,
         const char* filename,
         int line)
 {
-    if (nodecl_list_length(nodecl_expr_list) == 1)
+    if (nodecl_list_length(nodecl_expr_list) == 1
+            && !is_dependent_type(type_info))
     {
         // Use the same code as the (T)e syntax
         check_nodecl_cast_expr(nodecl_list_head(nodecl_expr_list), decl_context, type_info, "C", filename, line, nodecl_output);

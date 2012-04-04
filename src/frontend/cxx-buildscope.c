@@ -12251,7 +12251,6 @@ static void build_scope_return_statement(AST a,
 
     if (expression != NULL)
     {
-
         nodecl_t nodecl_expr = nodecl_null();
         if (ASTType(expression) == AST_INITIALIZER_BRACES)
         {
@@ -12279,17 +12278,24 @@ static void build_scope_return_statement(AST a,
 
         if (valid_expr)
         {
-            check_nodecl_expr_initializer(nodecl_expr, 
-                    decl_context,
-                    return_type,
-                    &nodecl_return);
-
-            if (nodecl_is_err_expr(nodecl_return))
+            if (!nodecl_expr_is_type_dependent(nodecl_expr))
             {
-                error_printf("%s: error: no conversion is possible from '%s' to '%s' in return statement\n", 
-                        ast_location(a),
-                        print_type_str(nodecl_get_type(nodecl_expr), decl_context),
-                        print_type_str(return_type, decl_context));
+                check_nodecl_expr_initializer(nodecl_expr, 
+                        decl_context,
+                        return_type,
+                        &nodecl_return);
+
+                if (nodecl_is_err_expr(nodecl_return))
+                {
+                    error_printf("%s: error: no conversion is possible from '%s' to '%s' in return statement\n", 
+                            ast_location(a),
+                            print_type_str(nodecl_get_type(nodecl_expr), decl_context),
+                            print_type_str(return_type, decl_context));
+                }
+            }
+            else
+            {
+                nodecl_return = nodecl_expr;
             }
         }
     }
@@ -12304,7 +12310,6 @@ static void build_scope_return_statement(AST a,
             }
         }
     }
-
 
     *nodecl_output = 
         nodecl_make_list_1(
