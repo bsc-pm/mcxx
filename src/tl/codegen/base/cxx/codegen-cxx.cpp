@@ -731,7 +731,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxParenthesizedInitializer& node)
     file << "(";
     if (!node.get_init().is_null())
     {
-        walk(node.get_init());
+        walk_expression_list(node.get_init().as<Nodecl::List>());
     }
     file << ")";
 }
