@@ -2432,7 +2432,8 @@ scope_entry_t* compute_intrinsic_huge(scope_entry_t* symbol UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = no_ref(argument_types[0]);
-    if (is_floating_type(get_rank0_type(t0)))
+    if (is_integer_type(get_rank0_type(t0))
+            || is_floating_type(get_rank0_type(t0)))
     {
         return GET_INTRINSIC_INQUIRY("huge", get_rank0_type(t0), t0);
     }
