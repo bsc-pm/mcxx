@@ -662,7 +662,7 @@ static const_value_t* compute_subconstant_of_array_rec(
             {
                 if ((current_subscript + 1) == total_subscripts)
                 {
-                    result_array[item] = const_value_get_element_num(current_rank_value, i);
+                    result_array[item] = const_value_get_element_num(current_rank_value, i - array_rank_base);
                 }
                 else
                 {

@@ -1491,7 +1491,7 @@ static nodecl_t simplify_maxminval(int num_arguments,
     if (num_arguments == 2)
     {
         array = arguments[0];
-        dim = arguments[1];
+        mask = arguments[1];
     }
     else if (num_arguments == 3)
     {
@@ -1540,11 +1540,11 @@ static const_value_t* get_max_neuter_for_type(type_t* t)
 {
     if (is_integer_type(t))
     {
-        return const_value_neg(integer_type_get_maximum(t));
+        return integer_type_get_minimum(t);
     }
     else if (is_floating_type(t))
     {
-        return const_value_neg(get_huge_value(t));
+        return get_huge_value(t);
     }
     else if (is_fortran_character_type(t))
     {
@@ -1580,7 +1580,6 @@ static nodecl_t simplify_maxval(int num_arguments, nodecl_t* arguments)
     type_t* array_type = no_ref(nodecl_get_type(array));
     type_t* element_type = get_rank0_type(array_type);
     int num_dimensions = get_rank_of_type(array_type);
-
 
     return simplify_maxminval(
             num_arguments, arguments,
