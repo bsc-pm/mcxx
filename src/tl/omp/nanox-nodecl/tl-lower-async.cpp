@@ -783,7 +783,7 @@ void LoweringVisitor::fill_copies(
     if (num_copies == 0)
     {
         copy_ol_arg << "(nanos_copy_data_t**)0";
-        copy_imm_arg << copy_ol_arg;
+        copy_imm_arg << "(nanos_copy_data_t*)0";
         return;
     }
     
