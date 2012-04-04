@@ -7632,7 +7632,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
             new_entry->file = ASTFileName(declarator_id);
 
             new_entry->entity_specs.linkage_spec = current_linkage;
-
+            new_entry->entity_specs.is_explicit = gather_info->is_explicit;
             new_entry->entity_specs.is_friend_declared = gather_info->is_friend;
 
             if (is_named_type(declarator_type))
@@ -7718,7 +7718,9 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
             // Update info
             new_entry->line = ASTLine(declarator_id);
             new_entry->file = ASTFileName(declarator_id);
-            
+
+            new_entry->entity_specs.is_explicit = gather_info->is_explicit;
+
             // Keep parameter names
             set_parameters_as_related_symbols(new_entry, 
                     gather_info, 

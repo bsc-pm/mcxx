@@ -4230,6 +4230,11 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
             }
         }
 
+        if (symbol.is_explicit_constructor())
+        {
+            decl_spec_seq += "explicit ";
+        }
+
         std::string gcc_attributes = gcc_attributes_to_str(symbol);
         std::string asm_specification = gcc_asm_specifier_to_str(symbol);
 
