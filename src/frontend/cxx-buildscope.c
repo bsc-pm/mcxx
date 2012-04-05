@@ -6381,7 +6381,7 @@ static void set_array_type(type_t** declarator_type,
                 static int vla_counter = 0;
 
                 const char* vla_name = NULL; 
-                uniquestr_sprintf(&vla_name, "__vla_%d", vla_counter);
+                uniquestr_sprintf(&vla_name, "mcc_vla_%d", vla_counter);
                 vla_counter++;
 
                 scope_entry_t* new_vla_dim = new_symbol(decl_context, decl_context.current_scope, vla_name);
