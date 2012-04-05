@@ -12823,6 +12823,11 @@ static void build_scope_upc_forall_statement(AST a,
     internal_error("Not yet implemented", 0);
 }
 
+static void build_scope_nodecl_literal(AST a, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
+{
+    *nodecl_output = nodecl_make_from_ast_nodecl_literal(a);
+}
+
 #define STMT_HANDLER(type, hndl) [type] = { .handler = (hndl) }
 
 static stmt_scope_handler_map_t stmt_scope_handlers[] =
@@ -12857,6 +12862,7 @@ static stmt_scope_handler_map_t stmt_scope_handlers[] =
     // Special nodes that come only from TL::Source
     STMT_HANDLER(AST_NODE_LIST, build_scope_implicit_compound_statement),
     STMT_HANDLER(AST_STATEMENT_PLACEHOLDER, check_statement_placeholder),
+    STMT_HANDLER(AST_NODECL_LITERAL, build_scope_nodecl_literal),
 };
 
 static void build_scope_statement_seq(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
