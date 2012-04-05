@@ -13612,7 +13612,7 @@ char check_copy_constructor(scope_entry_t* entry,
         else
         {
             entry_list_free(candidates);
-            if (function_has_been_deleted(decl_context, chosen_constructor, ASTFileName(NULL), ASTLine(NULL)))
+            if (function_has_been_deleted(decl_context, chosen_constructor, filename, line))
             {
                 return 0;
             }
