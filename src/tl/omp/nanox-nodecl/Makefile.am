@@ -51,4 +51,6 @@ libtlnanox_lowering_la_SOURCES = \
 								 tl-outline-info.cpp \
 								 tl-lower-single.cpp \
 								 tl-lower-barrier.cpp \
+								 tl-lower-parallel.cpp \
+								 tl-parallel-spawn.cpp \
 								 $(END)

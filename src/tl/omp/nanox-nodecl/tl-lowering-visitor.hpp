@@ -33,12 +33,13 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
 {
     public:
         LoweringVisitor();
-        void visit(const Nodecl::Parallel::Async& construct);
-        void visit(const Nodecl::Parallel::WaitAsyncsShallow& construct);
-        void visit(const Nodecl::Parallel::WaitAsyncsDependences& construct);
-        void visit(const Nodecl::Parallel::AsyncCall& construct);
-        void visit(const Nodecl::Parallel::Single& construct);
-        void visit(const Nodecl::Parallel::BarrierFull& construct);
+        virtual void visit(const Nodecl::Parallel::Async& construct);
+        virtual void visit(const Nodecl::Parallel::WaitAsyncsShallow& construct);
+        virtual void visit(const Nodecl::Parallel::WaitAsyncsDependences& construct);
+        virtual void visit(const Nodecl::Parallel::AsyncCall& construct);
+        virtual void visit(const Nodecl::Parallel::Single& construct);
+        virtual void visit(const Nodecl::Parallel::BarrierFull& construct);
+        virtual void visit(const Nodecl::Parallel::Replicate& construct);
 
     private:
         TL::Symbol declare_argument_structure(OutlineInfo& outline_info, Nodecl::NodeclBase construct);
@@ -133,6 +134,29 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Scope sc);
 
         void emit_wait_async(Nodecl::NodeclBase construct, bool has_dependences, OutlineInfo& outline_info);
+
+        std::string get_outline_name(TL::Symbol function_symbol);
+
+        Source fill_const_wd_info(
+                Source &struct_arg_type_name,
+                const std::string& outline_name,
+                bool is_untied,
+                bool mandatory_creation,
+                Nodecl::NodeclBase priority_expr);
+
+        void allocate_immediate_structure(
+                OutlineInfo& outline_info,
+                Source &struct_arg_type_name,
+                Source &struct_size,
+
+                // out
+                Source &immediate_decl,
+                Source &dynamic_size);
+
+        void parallel_spawn(
+                OutlineInfo& outline_info,
+                Nodecl::NodeclBase construct,
+                const std::string& outline_name);
 };
 
 } }
