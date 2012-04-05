@@ -7038,7 +7038,7 @@ static void check_new_expression(AST new_expr, decl_context_t decl_context, node
     {
         AST expression_list = ASTSon0(new_placement);
 
-        if (!check_expression_list(expression_list, decl_context, &nodecl_placement))
+        if (!check_list_of_expressions(expression_list, decl_context, &nodecl_placement))
         {
             nodecl_free(nodecl_placement);
 
@@ -7073,7 +7073,7 @@ static void check_new_expression(AST new_expr, decl_context_t decl_context, node
 
         if (expression_list != NULL)
         {
-            if (!check_expression_list(expression_list, decl_context, &nodecl_init_list))
+            if (!check_list_of_expressions(expression_list, decl_context, &nodecl_init_list))
             {
                 nodecl_free(nodecl_init_list);
                 nodecl_free(nodecl_placement);
@@ -7360,7 +7360,7 @@ static void check_explicit_type_conversion_common(type_t* type_info,
 {
     nodecl_t nodecl_expr_list = nodecl_null();
 
-    check_expression_list(expression_list, decl_context, &nodecl_expr_list);
+    check_list_of_expressions(expression_list, decl_context, &nodecl_expr_list);
 
     if (!nodecl_is_null(nodecl_expr_list) 
             && nodecl_is_err_expr(nodecl_expr_list))
@@ -7446,7 +7446,11 @@ void check_function_arguments(AST arguments, decl_context_t decl_context,
     {
         if (ASTType(arguments) == AST_AMBIGUITY)
         {
-            solve_ambiguous_expression_list(arguments, decl_context);
+            char result = solve_ambiguous_list(arguments, decl_context, /* nodecl_output */ NULL);
+            if (result == 0)
+            {
+                internal_error("Ambiguity not solved %s", ast_location(arguments));
+            }
         }
 
         AST list = arguments;
@@ -7456,7 +7460,11 @@ void check_function_arguments(AST arguments, decl_context_t decl_context,
         {
             if (ASTType(iter) == AST_AMBIGUITY)
             {
-                solve_ambiguous_expression_list(iter, decl_context);
+                char result = solve_ambiguous_list(iter, decl_context, /* nodecl_output */ NULL);
+                if (result == 0)
+                {
+                    internal_error("Ambiguity not solved %s", ast_location(iter));
+                }
             }
 
             AST parameter_expr = ASTSon1(iter);
@@ -13367,7 +13375,7 @@ static void check_shaping_expression(AST expression,
     }
 
     nodecl_t nodecl_shape_list = nodecl_null();
-    if (!check_expression_list(shape_list, decl_context, &nodecl_shape_list))
+    if (!check_list_of_expressions(shape_list, decl_context, &nodecl_shape_list))
     {
         *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
@@ -13380,9 +13388,9 @@ static void check_shaping_expression(AST expression,
             nodecl_output);
 }
 
-
-char check_expression_list(AST expression_list, 
-        decl_context_t decl_context, 
+// Note that a list of expressions is NOT an expression
+char check_list_of_expressions(AST expression_list,
+        decl_context_t decl_context,
         nodecl_t* nodecl_output)
 {
     *nodecl_output = nodecl_null();
@@ -13394,51 +13402,13 @@ char check_expression_list(AST expression_list,
 
     if (ASTType(expression_list) == AST_AMBIGUITY)
     {
-        int correct_choice = -1;
-        int i;
-        for (i = 0; i < ast_get_num_ambiguities(expression_list); i++)
-        {
-            AST current_expression_list = ast_get_ambiguity(expression_list, i);
-
-            nodecl_t nodecl_expr = nodecl_null();
-            enter_test_expression();
-            check_expression_list(current_expression_list, decl_context, &nodecl_expr);
-            leave_test_expression();
-
-            if (nodecl_is_null(nodecl_expr)
-                    || !nodecl_is_err_expr(nodecl_expr))
-            {
-                if (correct_choice < 0)
-                {
-                    correct_choice = i;
-                    *nodecl_output = nodecl_expr;
-                }
-                else
-                {
-                    AST previous_choice = ast_get_ambiguity(expression_list, correct_choice);
-                    AST current_choice = ast_get_ambiguity(expression_list, i);
-                    internal_error("More than one valid alternative '%s' vs '%s'", 
-                            ast_print_node_type(ASTType(previous_choice)),
-                            ast_print_node_type(ASTType(current_choice)));
-                }
-            }
-        }
-
-        if (correct_choice < 0)
-        {
-            *nodecl_output = nodecl_make_err_expr(ASTFileName(expression_list), ASTLine(expression_list));
-            return 0;
-        }
-        else
-        {
-            return 1;
-        }
+        return solve_ambiguous_list(expression_list, decl_context, nodecl_output);
     }
     else
     {
         // Check the beginning of the list
         nodecl_t nodecl_prev_list = nodecl_null();
-        check_expression_list(ASTSon0(expression_list), decl_context, &nodecl_prev_list);
+        check_list_of_expressions(ASTSon0(expression_list), decl_context, &nodecl_prev_list);
 
         if (!nodecl_is_null(nodecl_prev_list)
                 && nodecl_is_err_expr(nodecl_prev_list))
@@ -13612,7 +13582,7 @@ char check_copy_constructor(scope_entry_t* entry,
         else
         {
             entry_list_free(candidates);
-            if (function_has_been_deleted(decl_context, chosen_constructor, ASTFileName(NULL), ASTLine(NULL)))
+            if (function_has_been_deleted(decl_context, chosen_constructor, filename, line))
             {
                 return 0;
             }

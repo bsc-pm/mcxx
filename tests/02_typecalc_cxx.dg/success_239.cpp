@@ -26,32 +26,58 @@
 
 
 
+/*
+<testinfo>
+test_generator=config/mercurium
+</testinfo>
+*/
 
-#ifndef CXX_INSTANTIATION_H
-#define CXX_INSTANTIATION_H
+typedef long unsigned int size_t;
+namespace N
+{
+    using ::size_t;
+}
 
-#include "libmcxx-common.h"
-#include "cxx-macros.h"
-#include "cxx-scope-decls.h"
-#include "cxx-nodecl-decls.h"
 
-MCXX_BEGIN_DECLS
+namespace N
+{
+    template < typename T>
+        class indirect_array;
+}
 
-LIBMCXX_EXTERN void instantiate_template_class(scope_entry_t* entry, decl_context_t decl_context, 
-        const char *filename, int line);
 
-LIBMCXX_EXTERN AST instantiate_tree(AST orig_tree, decl_context_t context_of_being_instantiated);
+namespace N
+{
+    template < typename T1>
+        class valarray
+        {
+            public: 
+                valarray();
+                valarray(const indirect_array<T1>&);
 
-LIBMCXX_EXTERN void instantiation_init(void);
+        };
+}
 
-LIBMCXX_EXTERN nodecl_t instantiation_instantiate_pending_functions(void);
 
-LIBMCXX_EXTERN char can_be_instantiated(scope_entry_t* entry, decl_context_t decl_context, const char *filename, int line);
+namespace N
+{
+    class gslice
+    {
+        valarray<size_t> f();
+    };
 
-LIBMCXX_EXTERN void instantiation_add_symbol_to_instantiate(scope_entry_t* entry,
-        const char* filename,
-        int line);
+    valarray<size_t> gslice::f()
+    {
+        return valarray<size_t>();
+    }
+}
 
-MCXX_END_DECLS
+namespace N
+{
+    template < typename T2>
+        class indirect_array
+        {
+        };
+}
 
-#endif // CXX_INSTANTIATION_H
+

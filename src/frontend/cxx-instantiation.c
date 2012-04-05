@@ -260,9 +260,10 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
 
                 if (is_named_class_type(new_member->type_information))
                 {
-                    if (class_type_is_incomplete_independent(get_actual_class_type(new_member->type_information)))
+                    type_t* t = advance_over_typedefs(new_member->type_information);
+                    if (class_type_is_incomplete_independent(get_actual_class_type(t)))
                     {
-                        scope_entry_t* class_entry = named_type_get_symbol(new_member->type_information);
+                        scope_entry_t* class_entry = named_type_get_symbol(t);
                         instantiate_template_class(class_entry, context_of_being_instantiated, filename, line);
                     }
                 }
@@ -1353,7 +1354,11 @@ static void instantiate_bases(
     }
 }
 
-void instantiate_template_class(scope_entry_t* entry, decl_context_t decl_context, const char *filename, int line)
+
+
+static type_t* solve_template_for_instantiation(scope_entry_t* entry, decl_context_t decl_context UNUSED_PARAMETER, 
+        template_parameter_list_t** deduced_template_arguments,
+        const char *filename, int line)
 {
     if (entry->kind != SK_CLASS
             && entry->kind != SK_TYPEDEF)
@@ -1384,15 +1389,42 @@ void instantiate_template_class(scope_entry_t* entry, decl_context_t decl_contex
         internal_error("Symbol '%s' is not a class eligible for instantiation", entry->symbol_name);
     }
 
-    type_t* template_type = 
+    type_t* template_type =
         template_specialized_type_get_related_template_type(template_specialized_type);
 
-    template_parameter_list_t* deduced_template_arguments = NULL;
 
     type_t* selected_template = solve_class_template(
-            template_type, 
+            template_type,
             get_user_defined_type(entry),
-            &deduced_template_arguments, filename, line);
+            deduced_template_arguments, filename, line);
+
+    return selected_template;
+}
+
+char can_be_instantiated(scope_entry_t* entry, decl_context_t decl_context, const char *filename, int line)
+{
+    template_parameter_list_t* deduced_template_arguments = NULL;
+    type_t* selected_template =
+        solve_template_for_instantiation(entry, decl_context, &deduced_template_arguments, filename, line);
+    return (selected_template != NULL && !is_incomplete_type(selected_template));
+}
+
+void instantiate_template_class(scope_entry_t* entry, decl_context_t decl_context, const char *filename, int line)
+{
+    //Ignore typedefs
+    if (entry->kind != SK_CLASS)
+    {
+        ERROR_CONDITION(!is_named_class_type(entry->type_information), "Invalid class type", 0);
+
+        type_t* t = advance_over_typedefs(entry->type_information);
+        entry = named_type_get_symbol(t);
+
+        ERROR_CONDITION(entry->kind != SK_CLASS, "Invalid class symbol", 0);
+    }
+    
+    template_parameter_list_t* deduced_template_arguments = NULL;
+    type_t* selected_template =
+        solve_template_for_instantiation(entry, decl_context, &deduced_template_arguments, filename, line);
 
     if (selected_template != NULL)
     {
