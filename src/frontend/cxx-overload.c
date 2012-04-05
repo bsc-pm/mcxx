@@ -524,7 +524,12 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
             && class_type_is_incomplete_independent(get_actual_class_type(no_ref(orig))))
     {
         scope_entry_t* symbol = named_type_get_symbol(no_ref(orig));
-        instantiate_template_class(symbol, decl_context, filename, line);
+
+        if (can_be_instantiated(symbol, decl_context, filename, line))
+        {
+            instantiate_template_class(symbol, decl_context, filename, line);
+        }
+
     }
     // Given a class 'A' base of a class 'B'
     //
@@ -535,7 +540,10 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
         scope_entry_t* class_symbol = pointer_to_member_type_get_class(no_ref(dest));
         if (class_type_is_incomplete_independent(get_actual_class_type(class_symbol->type_information)))
         {
-            instantiate_template_class(class_symbol, decl_context, filename, line);
+            if (can_be_instantiated(class_symbol, decl_context, filename, line))
+            {
+                instantiate_template_class(class_symbol, decl_context, filename, line);
+            }
         }
     }
 
@@ -563,15 +571,18 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
         if (is_named_class_type(no_ref(orig))
                 && class_type_is_incomplete_independent(get_actual_class_type(no_ref(orig))))
         {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "ICS: Instantiating destination type know if it is derived or not\n");
-            }
             scope_entry_t* symbol = named_type_get_symbol(no_ref(orig));
-            instantiate_template_class(symbol, decl_context, filename, line);
-            DEBUG_CODE()
+            if (can_be_instantiated(symbol, decl_context, filename, line))
             {
-                fprintf(stderr, "ICS: Destination type instantiated\n");
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "ICS: Instantiating destination type know if it is derived or not\n");
+                }
+                instantiate_template_class(symbol, decl_context, filename, line);
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "ICS: Destination type instantiated\n");
+                }
             }
         }
 
@@ -786,15 +797,20 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
         if (is_named_class_type(class_type)
                 && class_type_is_incomplete_independent(get_actual_class_type(class_type)))
         {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "ICS: Instantiating destination type to get conversor constructors\n");
-            }
             scope_entry_t* symbol = named_type_get_symbol(class_type);
-            instantiate_template_class(symbol, decl_context, filename, line);
-            DEBUG_CODE()
+            if (can_be_instantiated(symbol, decl_context, filename, line))
             {
-                fprintf(stderr, "ICS: Destination type instantiated\n");
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "ICS: Instantiating destination type to get conversor constructors\n");
+                }
+                
+                instantiate_template_class(symbol, decl_context, filename, line);
+                
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "ICS: Destination type instantiated\n");
+                }
             }
         }
 
