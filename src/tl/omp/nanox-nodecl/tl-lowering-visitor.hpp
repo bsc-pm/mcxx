@@ -38,6 +38,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         void visit(const Nodecl::Parallel::WaitAsyncsDependences& construct);
         void visit(const Nodecl::Parallel::AsyncCall& construct);
         void visit(const Nodecl::Parallel::Single& construct);
+        void visit(const Nodecl::Parallel::BarrierFull& construct);
 
     private:
         TL::Symbol declare_argument_structure(OutlineInfo& outline_info, Nodecl::NodeclBase construct);

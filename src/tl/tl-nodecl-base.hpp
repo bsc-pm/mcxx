@@ -94,7 +94,7 @@ namespace Nodecl {
             }
             
             // Prettyprint
-            std::string prettyprint();
+            std::string prettyprint() const;
 
             // Simple RTTI
             template <typename T> bool is() const { return !this->is_null() && (T::_kind == this->get_kind()); }
