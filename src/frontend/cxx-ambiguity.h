@@ -60,8 +60,9 @@ LIBMCXX_EXTERN char check_type_id_tree(AST type_id, decl_context_t decl_context)
 // To be turned into a static
 LIBMCXX_EXTERN char check_type_id_tree_or_class_template_name(AST type_id, decl_context_t decl_context);
 
-LIBMCXX_EXTERN void solve_ambiguous_expression_list(AST expression_list, decl_context_t decl_context);
 LIBMCXX_EXTERN void solve_ambiguous_expression(AST ambig_expression, decl_context_t decl_context, nodecl_t* nodecl_output);
+
+LIBMCXX_EXTERN char solve_ambiguous_list(AST ambiguous_list, decl_context_t decl_context, nodecl_t* nodecl_output);
 
 LIBMCXX_EXTERN void solve_condition_ambiguity(AST a, decl_context_t decl_context);
 

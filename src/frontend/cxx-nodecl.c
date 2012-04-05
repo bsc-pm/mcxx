@@ -601,7 +601,7 @@ static const char* nodecl_to_source(nodecl_t n)
 
     if (!nodecl_is_null(n))
     {
-        fprintf(string_stream, pack_pointer("ast", nodecl_get_ast(n)));
+        fprintf(string_stream, "%s", pack_pointer("ast", nodecl_get_ast(n)));
     }
 
     fclose(string_stream);
