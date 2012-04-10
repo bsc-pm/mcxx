@@ -530,8 +530,33 @@ namespace Codegen
         }
         else if (entry.is_variable())
         {
-            if (!entry.is_static()
-                    && !entry.get_type().is_const())
+            if (entry.is_static())
+            {
+                // Do nothing 
+                //
+                // static int a = 3;
+            }
+            else if (entry.get_type().is_const()
+                            && !entry.get_initialization().is_null()
+                            && entry.get_initialization().is_constant())
+            {
+                // Do nothing
+                //
+                // const int n = x;
+            }
+            else if (entry.get_type().is_array()
+                    && entry.get_type().array_is_vla()
+                    && !entry.is_parameter())
+            {
+                // ALLOCATE this non-dummy VLA
+                indent();
+                std::string type_spec, array_spec;
+                codegen_type(entry.get_type(), type_spec, array_spec, 
+                        // Note: we set it as a dummy because we want the full array_spec, not just (:, :)
+                        /* is_dummy */ true);
+                file << "ALLOCATE(" << rename(entry) << array_spec << ")\n";
+            }
+            else
             {
                 // Fake an assignment statement
                 indent();
@@ -2439,7 +2464,7 @@ OPERATOR_TABLE
             std::string type_specifier;
             std::string array_specifier;
             codegen_type(function_type.returns(), type_specifier, array_specifier,
-                    /* is_dummy */ 0);
+                    /* is_dummy */ false);
 
             indent();
             file << type_specifier << " :: " << entry.get_name() << "\n";
@@ -2601,7 +2626,13 @@ OPERATOR_TABLE
 
             std::string attribute_list = "";
 
-            if (entry.is_allocatable())
+            // VLA that are not parameter are handled as if they were allocatable
+            bool handle_as_allocatable = declared_type.is_array()
+                && declared_type.array_is_vla()
+                && !entry.is_parameter();
+
+            if (entry.is_allocatable() 
+                    || handle_as_allocatable)
                 attribute_list += ", ALLOCATABLE";
             if (entry.is_target())
                 attribute_list += ", TARGET";
@@ -2640,7 +2671,8 @@ OPERATOR_TABLE
             if (entry.get_type().is_volatile())
                 attribute_list += ", VOLATILE";
             if (entry.get_type().is_const()
-                    && !entry.get_initialization().is_null())
+                    && !entry.get_initialization().is_null()
+                    && entry.get_initialization().is_constant())
             {
                 attribute_list += ", PARAMETER";
             }
@@ -2674,7 +2706,8 @@ OPERATOR_TABLE
                 declare_everything_needed(entry.get_initialization());
 
                 if (entry.is_static()
-                            || entry.get_type().is_const())
+                        || (entry.get_type().is_const()
+                            && entry.get_initialization().is_constant()))
                 {
                     TL::Type t = entry.get_type();
                     if (t.is_any_reference())
@@ -3582,7 +3615,7 @@ OPERATOR_TABLE
                 || (is_fortran_character_type(t.get_internal_type())));
     }
 
-    void FortranBase::codegen_type(TL::Type t, std::string& type_specifier, std::string& array_specifier, bool /* is_dummy */)
+    void FortranBase::codegen_type(TL::Type t, std::string& type_specifier, std::string& array_specifier, bool is_dummy)
     {
         type_specifier = "";
 
@@ -3594,6 +3627,10 @@ OPERATOR_TABLE
         {
             t = t.points_to();
         }
+        
+        bool handle_as_allocatable = t.is_array()
+            && t.array_is_vla()
+            && !is_dummy;
         
         // If this is an enum, use its underlying integer type
         if (t.is_enum())
@@ -3619,7 +3656,8 @@ OPERATOR_TABLE
                 internal_error("too many array dimensions %d\n", MCXX_MAX_ARRAY_SPECIFIER);
             }
 
-            if (!is_fortran_pointer)
+            if (!is_fortran_pointer
+                    && !handle_as_allocatable)
             {
                 array_spec_list[array_spec_idx].lower = array_type_get_array_lower_bound(t.get_internal_type());
                 if (array_spec_list[array_spec_idx].lower.is_constant())
