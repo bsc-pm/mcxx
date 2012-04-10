@@ -560,8 +560,17 @@ namespace Codegen
             {
                 // Fake an assignment statement
                 indent();
-                file << rename(entry) << " = ";
-                walk(entry.get_initialization());
+                Nodecl::Symbol nodecl_sym = Nodecl::Symbol::make(entry, node.get_filename(), node.get_line());
+                nodecl_set_type(nodecl_sym.get_internal_nodecl(), entry.get_type().get_internal_type());
+
+                Nodecl::Assignment assig = Nodecl::Assignment::make(
+                        nodecl_sym,
+                        entry.get_initialization().copy(),
+                        entry.get_type(),
+                        node.get_filename(),
+                        node.get_line());
+
+                walk(assig);
                 file << "\n";
             }
         }
