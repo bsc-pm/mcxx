@@ -1372,8 +1372,6 @@ OPERATOR_TABLE
         if (header.is<Nodecl::LoopControl>())
         {
             // Not a ranged loop. This is a DO WHILE
-            indent();
-
             if (!node.get_loop_name().is_null())
             {
                 walk(node.get_loop_name());
@@ -1383,10 +1381,12 @@ OPERATOR_TABLE
             Nodecl::LoopControl lc = node.get_loop_header().as<Nodecl::LoopControl>();
 
             // Init
+            indent();
             walk(lc.get_init());
             file << "\n";
 
             // Loop
+            indent();
             file << "DO WHILE(";
             walk(lc.get_cond());
             file << ")";
@@ -1395,11 +1395,12 @@ OPERATOR_TABLE
             // Loop body
             inc_indent();
             walk(node.get_statement());
-            dec_indent();
 
             // Advance loop
+            indent();
             walk(lc.get_next());
             file << "\n";
+            dec_indent();
 
             indent();
             file << "END DO";
