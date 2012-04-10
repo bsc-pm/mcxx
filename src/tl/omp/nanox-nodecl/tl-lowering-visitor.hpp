@@ -156,6 +156,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         void parallel_spawn(
                 OutlineInfo& outline_info,
                 Nodecl::NodeclBase construct,
+                Nodecl::NodeclBase num_replicas,
                 const std::string& outline_name);
 };
 

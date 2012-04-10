@@ -33,6 +33,7 @@ namespace TL { namespace Nanox {
     void LoweringVisitor::parallel_spawn(
             OutlineInfo& outline_info,
             Nodecl::NodeclBase construct,
+            Nodecl::NodeclBase num_replicas,
             const std::string& outline_name)
     {
         Source nanos_create_wd,
@@ -99,9 +100,15 @@ namespace TL { namespace Nanox {
                 /* mandatory_creation */ true,
                 /* priority_expr */ Nodecl::NodeclBase::null());
                 
-        // FIXME
         Source num_threads;
-        num_threads << "nanos_omp_get_max_threads()";
+        if (num_replicas.is_null())
+        {
+            num_threads << "nanos_omp_get_max_threads()";
+        }
+        else
+        {
+            num_threads << as_expression(num_replicas);
+        }
 
         Nodecl::NodeclBase fill_outline_arguments_tree,
             fill_dependences_outline_tree;
