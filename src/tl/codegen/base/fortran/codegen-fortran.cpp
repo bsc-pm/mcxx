@@ -1367,28 +1367,80 @@ OPERATOR_TABLE
 
     void FortranBase::visit(const Nodecl::ForStatement& node)
     {
-        indent();
-        if (!node.get_loop_name().is_null())
-        {
-            walk(node.get_loop_name());
-            file << " : ";
-        }
-        file << "DO";
+        Nodecl::NodeclBase header = node.get_loop_header();
 
-        walk(node.get_loop_header());
-        file<< "\n";
-        inc_indent();
-        walk(node.get_statement());
-        dec_indent();
-        indent();
-
-        file << "END DO";
-        if (!node.get_loop_name().is_null())
+        if (header.is<Nodecl::LoopControl>())
         {
-            file << " ";
-            walk(node.get_loop_name());
+            // Not a ranged loop. This is a DO WHILE
+            indent();
+
+            if (!node.get_loop_name().is_null())
+            {
+                walk(node.get_loop_name());
+                file << " : ";
+            }
+
+            Nodecl::LoopControl lc = node.get_loop_header().as<Nodecl::LoopControl>();
+
+            // Init
+            walk(lc.get_init());
+            file << "\n";
+
+            // Loop
+            file << "DO WHILE(";
+            walk(lc.get_cond());
+            file << ")";
+            file << "\n";
+
+            // Loop body
+            inc_indent();
+            walk(node.get_statement());
+            dec_indent();
+
+            // Advance loop
+            walk(lc.get_next());
+            file << "\n";
+
+            indent();
+            file << "END DO";
+
+            if (!node.get_loop_name().is_null())
+            {
+                file << " ";
+                walk(node.get_loop_name());
+            }
+            file << "\n";
         }
-        file << "\n";
+        else if (header.is<Nodecl::RangeLoopControl>())
+        {
+            indent();
+
+            if (!node.get_loop_name().is_null())
+            {
+                walk(node.get_loop_name());
+                file << " : ";
+            }
+            file << "DO";
+
+            walk(node.get_loop_header());
+            file << "\n";
+            inc_indent();
+            walk(node.get_statement());
+            dec_indent();
+            indent();
+
+            file << "END DO";
+            if (!node.get_loop_name().is_null())
+            {
+                file << " ";
+                walk(node.get_loop_name());
+            }
+            file << "\n";
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
+        }
     }
 
     void FortranBase::visit(const Nodecl::WhileStatement& node)
@@ -1418,11 +1470,12 @@ OPERATOR_TABLE
         file << "\n";
     }
 
-    void FortranBase::visit(const Nodecl::LoopControl& node)
+    void FortranBase::visit(const Nodecl::RangeLoopControl& node)
     {
-        Nodecl::NodeclBase init = node.get_init();
-        Nodecl::NodeclBase cond = node.get_cond();
-        Nodecl::NodeclBase next = node.get_next();
+        TL::Symbol ind_var = node.get_symbol();
+        Nodecl::NodeclBase lower = node.get_lower();
+        Nodecl::NodeclBase upper = node.get_upper();
+        Nodecl::NodeclBase stride = node.get_step();
 
         std::string separator = ", ";
 
@@ -1432,7 +1485,7 @@ OPERATOR_TABLE
             separator = ":";
         }
 
-        if (!init.is_null())
+        if (!lower.is_null())
         {
             // Needed for DO but not for FORALL which uses a (
             if (!state.in_forall)
@@ -1440,22 +1493,29 @@ OPERATOR_TABLE
                 file << " ";
             }
 
-            walk(init);
+            bool old_in_forall = state.in_forall;
+            state.in_forall = false;
 
-            if (!cond.is_null())
+            file << rename(ind_var) << " = ";
+
+            walk(lower);
+
+            if (!upper.is_null())
             {
                 file << separator;
-                walk(cond);
+                walk(upper);
             }
-            if (!next.is_null())
+            if (!stride.is_null())
             {
                 file << separator;
-                walk(next);
+                walk(stride);
             }
             else
             {
                 file << separator << "1";
             }
+
+            state.in_forall = old_in_forall;
         }
     }
 

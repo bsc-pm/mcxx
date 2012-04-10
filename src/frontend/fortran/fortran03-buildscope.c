@@ -5028,11 +5028,14 @@ static void build_scope_do_construct(AST a, decl_context_t decl_context, nodecl_
     AST block = ASTSon1(a);
     AST end_do_statement = ASTSon2(a);
 
-    AST assig = ASTSon0(loop_control);
-    AST upper = ASTSon1(loop_control);
-    AST stride = ASTSon2(loop_control);
+    AST do_variable = ASTSon0(loop_control);
+    AST lower = ASTSon1(loop_control);
+    AST upper = ASTSon2(loop_control);
+    AST stride = ASTSon3(loop_control);
 
     const char* construct_name = ASTText(a);
+
+    char error_signaled = 0;
 
     nodecl_t nodecl_named_label = nodecl_null();
     if (construct_name != NULL)
@@ -5043,30 +5046,54 @@ static void build_scope_do_construct(AST a, decl_context_t decl_context, nodecl_
         nodecl_named_label = nodecl_make_symbol(named_label, ASTFileName(a), ASTLine(a));
     }
 
-    nodecl_t nodecl_lower = nodecl_null();
-    if (assig != NULL)
+    scope_entry_t* ind_var = NULL;
+    if (do_variable != NULL)
     {
-        fortran_check_expression(assig, decl_context, &nodecl_lower);
+        nodecl_t nodecl_var = nodecl_null();
+        fortran_check_expression(do_variable, decl_context, &nodecl_var);
 
-        nodecl_t do_loop_var = nodecl_get_child(nodecl_lower, 0);
-        scope_entry_t* sym = nodecl_get_symbol(do_loop_var);
-        if (sym != NULL
-                && !is_integer_type(no_ref(sym->type_information)))
+        if (!nodecl_is_err_expr(nodecl_var))
         {
-            warn_printf("%s: warning: loop variable '%s' should be of integer type\n",
-                    ast_location(a),
-                    codegen_to_str(do_loop_var, nodecl_retrieve_context(do_loop_var)));
+            ind_var = nodecl_get_symbol(nodecl_var);
+            if (ind_var != NULL
+                    && !is_integer_type(no_ref(ind_var->type_information)))
+            {
+                warn_printf("%s: warning: loop variable '%s' should be of integer type\n",
+                        ast_location(a),
+                        codegen_to_str(nodecl_var, nodecl_retrieve_context(nodecl_var)));
+            }
+        }
+        else
+        {
+            error_signaled = 1;
+        }
+    }
+    nodecl_t nodecl_lower = nodecl_null();
+    if (lower != NULL)
+    {
+        fortran_check_expression(lower, decl_context, &nodecl_lower);
+        if (nodecl_is_err_expr(nodecl_lower))
+        {
+            error_signaled = 1;
         }
     }
     nodecl_t nodecl_upper = nodecl_null();
     if (upper != NULL)
     {
         fortran_check_expression(upper, decl_context, &nodecl_upper);
+        if (nodecl_is_err_expr(nodecl_upper))
+        {
+            error_signaled = 1;
+        }
     }
     nodecl_t nodecl_stride = nodecl_null();
     if (stride != NULL)
     {
         fortran_check_expression(stride, decl_context, &nodecl_stride);
+        if (nodecl_is_err_expr(nodecl_stride))
+        {
+            error_signaled = 1;
+        }
     }
     else
     {
@@ -5075,6 +5102,14 @@ static void build_scope_do_construct(AST a, decl_context_t decl_context, nodecl_
 
     nodecl_t nodecl_statement = nodecl_null();
     fortran_build_scope_statement(block, decl_context, &nodecl_statement);
+
+    if (error_signaled)
+    {
+        *nodecl_output
+            = nodecl_make_list_1(
+                    nodecl_make_err_statement(ASTFileName(a), ASTLine(a)));
+        return;
+    }
 
     // Convert a labeled END DO into a labeled CONTINUE at the end of the block
     if (end_do_statement != NULL
@@ -5100,9 +5135,11 @@ static void build_scope_do_construct(AST a, decl_context_t decl_context, nodecl_
     *nodecl_output = 
         nodecl_make_list_1(
                 nodecl_make_for_statement(
-                    nodecl_make_loop_control(nodecl_lower, 
+                    nodecl_make_range_loop_control(
+                        nodecl_lower, 
                         nodecl_upper, 
                         nodecl_stride, 
+                        ind_var,
                         ASTFileName(loop_control), ASTLine(loop_control)),
                     nodecl_statement,
                     nodecl_named_label,
@@ -5355,14 +5392,11 @@ static void build_scope_forall_header(AST a, decl_context_t decl_context,
             fortran_check_expression(forall_step, decl_context, &nodecl_step);
         }
 
-        nodecl_t nodecl_triplet = nodecl_make_loop_control(
-                nodecl_make_assignment(
-                    nodecl_name,
-                    nodecl_lower,
-                    nodecl_get_type(nodecl_name), 
-                    ASTFileName(name), ASTLine(name)),
+        nodecl_t nodecl_triplet = nodecl_make_range_loop_control(
+                nodecl_lower,
                 nodecl_upper,
                 nodecl_step,
+                nodecl_get_symbol(nodecl_name),
                 ASTFileName(a),
                 ASTLine(a));
 

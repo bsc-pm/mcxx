@@ -392,6 +392,11 @@ namespace Codegen
             bool is_non_language_reference_variable(TL::Symbol sym);
             bool is_non_language_reference_variable(const Nodecl::NodeclBase& n);
             bool is_non_language_reference_type(TL::Type type);
+
+            void emit_range_loop_header(
+                    Nodecl::RangeLoopControl lc,
+                    Nodecl::NodeclBase statement,
+                    const std::string& rel_op);
     };
 }
 

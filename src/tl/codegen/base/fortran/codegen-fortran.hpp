@@ -89,7 +89,7 @@ namespace Codegen
             void visit(const Nodecl::GotoStatement& node);
             void visit(const Nodecl::ForStatement& node);
             void visit(const Nodecl::WhileStatement& node);
-            void visit(const Nodecl::LoopControl& node);
+            void visit(const Nodecl::RangeLoopControl& node);
             void visit(const Nodecl::SwitchStatement& node);
             void visit(const Nodecl::CaseStatement& node);
             void visit(const Nodecl::DefaultStatement& node);
