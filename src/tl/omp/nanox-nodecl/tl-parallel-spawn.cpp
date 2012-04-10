@@ -118,7 +118,7 @@ namespace TL { namespace Nanox {
             << "{"
             <<   const_wd_info
             <<   immediate_decl
-            <<   "unsigned int nanos_num_threads = " << num_threads << ";"
+            <<   "int nanos_num_threads = " << num_threads << ";"
             <<   "nanos_team_t nanos_team = (nanos_team_t)0;"
             <<   "nanos_thread_t nanos_team_threads[nanos_num_threads];"
             <<   "nanos_err_t err;"
@@ -126,7 +126,7 @@ namespace TL { namespace Nanox {
             <<              "(nanos_constraint_t*)0, /* reuse_current */ 1, nanos_team_threads);"
             <<   "if (err != NANOS_OK) nanos_handle_error(err);"
             <<  "nanos_wd_dyn_props_t dyn_props = { 0 };"
-            <<   "unsigned nth_i;"
+            <<   "int nth_i;"
             <<   "for (nth_i = 1; nth_i < nanos_num_threads; nth_i = nth_i + 1)"
             <<   "{"
             //   We have to create a wd tied to a thread
