@@ -689,17 +689,366 @@ namespace Nodecl
             list.push_back(n);
         }
     }
+
+    Nodecl::NodeclBase Utils::advance_conversions(Nodecl::NodeclBase n)
+    {
+        while (n.is<Nodecl::Conversion>())
+        {
+            n = n.as<Nodecl::Conversion>().get_nest();
+        }
+        return n;
+    }
 }
 
 namespace TL
 {
-    bool ForStatement::is_regular_loop() const
+    // This is actually what OpenMP expects
+    // Lower bound and upper bound are closed ranges: 
+    //      [lower_bound, upper_bound] if step is positive
+    //      [upper_bound, lower_bound] if step is negative
+    void ForStatement::analyze_loop_header()
     {
-        internal_error("Not yet implemented", 0);
+        Nodecl::NodeclBase lc = this->get_loop_header();
+        if (lc.is<Nodecl::RangeLoopControl>())
+        {
+            // This is trivially true for ranged loops
+            Nodecl::RangeLoopControl loop_control = lc.as<Nodecl::RangeLoopControl>();
+
+            // Empty loops are obviously not allowed
+            if (loop_control.get_lower().is_null())
+            {
+                _is_omp_valid = false;
+                return;
+            }
+
+            _induction_var = loop_control.get_symbol();
+            _lower_bound = loop_control.get_lower().copy();
+            _upper_bound = loop_control.get_upper().copy();
+            _step = loop_control.get_step().copy();
+
+            _is_omp_valid = true;
+        }
+        else if (lc.is<Nodecl::LoopControl>())
+        {
+            Nodecl::LoopControl loop_control = lc.as<Nodecl::LoopControl>();
+            Nodecl::NodeclBase init_expr = loop_control.get_init();
+            Nodecl::NodeclBase test_expr = loop_control.get_cond();
+            Nodecl::NodeclBase incr_expr = loop_control.get_next();
+
+            // init-expr must have the following form
+            //
+            //   _induction_var = lb
+            //   integer-type   _induction_var = lb
+            //   random-access-iterator _induction_var = lb    // CURRENTLY NOT SUPPORTED
+            //   pointer-type _induction_var = lb
+
+            _induction_var = TL::Symbol(NULL);
+
+            // _induction_var = lb
+            if (init_expr.is<Nodecl::Assignment>())
+            { 
+                Nodecl::NodeclBase lhs = init_expr.as<Nodecl::Assignment>().get_lhs();
+                if (lhs.is<Nodecl::Symbol>())
+                {
+                    _induction_var = lhs.get_symbol();
+                }
+
+                Nodecl::NodeclBase rhs = init_expr.as<Nodecl::Assignment>().get_rhs();
+                _lower_bound = rhs.copy();
+            }
+            // T _induction_var = lb
+            else if (init_expr.is<Nodecl::ObjectInit>())
+            { 
+                _induction_var = init_expr.get_symbol();
+
+                _lower_bound = _induction_var.get_value().copy();
+            }
+            else
+            {
+                _is_omp_valid = false;
+                return;
+            }
+
+            if (!_induction_var.is_valid())
+            {
+                _is_omp_valid = false;
+                return;
+            }
+
+            // test-expr must be
+            //
+            // _induction_var relational-op b
+            // b relational-op _induction_var
+            if ((test_expr.is<Nodecl::LowerThan>()
+                        || test_expr.is<Nodecl::LowerOrEqualThan>()
+                        || test_expr.is<Nodecl::GreaterThan>()
+                        || test_expr.is<Nodecl::GreaterOrEqualThan>())
+                    && (Nodecl::Utils::advance_conversions(test_expr.as<Nodecl::LowerThan>().get_lhs()).get_symbol() == _induction_var
+                        || Nodecl::Utils::advance_conversions(test_expr.as<Nodecl::LowerThan>().get_rhs()).get_symbol() == _induction_var))
+
+            { 
+                Nodecl::NodeclBase lhs = test_expr.as<Nodecl::LowerThan>().get_lhs();
+                Nodecl::NodeclBase rhs = test_expr.as<Nodecl::LowerThan>().get_rhs();
+
+                bool lhs_is_var = (Nodecl::Utils::advance_conversions(lhs).get_symbol() == _induction_var);
+
+                if (test_expr.is<Nodecl::LowerThan>())
+                {
+                    if (lhs_is_var)
+                    {
+                        // x < E  this is like x <= (E - 1)
+                        TL::Type t = lhs.get_type();
+
+                        if (t.is_any_reference())
+                            t = t.references_to();
+
+                        _upper_bound = Nodecl::Minus::make(
+                                rhs.copy(),
+                                const_value_to_nodecl(const_value_get_one(4, 1)),
+                                t,
+                                rhs.get_filename(),
+                                rhs.get_line());
+
+                        if (rhs.is_constant())
+                        {
+                            nodecl_set_constant(
+                                    _upper_bound.get_internal_nodecl(),
+                                    const_value_sub(
+                                        rhs.get_constant(),
+                                        const_value_get_one(4, 1)));
+                        }
+                    }
+                    else
+                    {
+                        // E < x this is like x > E this is like x >= E + 1
+                        TL::Type t = lhs.get_type();
+
+                        if (t.is_any_reference())
+                            t = t.references_to();
+
+                        _upper_bound = Nodecl::Add::make(
+                                lhs.copy(),
+                                const_value_to_nodecl(const_value_get_one(4, 1)),
+                                t,
+                                lhs.get_filename(),
+                                lhs.get_line());
+
+                        if (lhs.is_constant())
+                        {
+                            nodecl_set_constant(
+                                    _upper_bound.get_internal_nodecl(),
+                                    const_value_add(
+                                        lhs.get_constant(),
+                                        const_value_get_one(4, 1)));
+                        }
+                    }
+                }
+                else if (test_expr.is<Nodecl::LowerOrEqualThan>())
+                {
+                    if (lhs_is_var)
+                    {
+                        // x <= E
+                        _upper_bound = rhs.copy();
+                    }
+                    else
+                    {
+                        // E <= x this is like x >= E
+                        _upper_bound = lhs.copy();
+                    }
+                }
+                else if (test_expr.is<Nodecl::GreaterThan>())
+                {
+                    if (lhs_is_var)
+                    {
+                        // x > E, this is like x >= E + 1
+                        TL::Type t = rhs.get_type();
+
+                        if (t.is_any_reference())
+                            t = t.references_to();
+
+                        _upper_bound = Nodecl::Add::make(
+                                rhs.copy(),
+                                const_value_to_nodecl(const_value_get_one(4, 1)),
+                                t,
+                                rhs.get_filename(),
+                                rhs.get_line());
+
+                        if (rhs.is_constant())
+                        {
+                            nodecl_set_constant(
+                                    _upper_bound.get_internal_nodecl(),
+                                    const_value_add(
+                                        rhs.get_constant(),
+                                        const_value_get_one(4, 1)));
+                        }
+                    }
+                    else
+                    {
+                        // E > x this is like x < E, this is like x <= E - 1
+                        TL::Type t = lhs.get_type();
+
+                        if (t.is_any_reference())
+                            t = t.references_to();
+
+                        _upper_bound = Nodecl::Minus::make(
+                                lhs.copy(),
+                                const_value_to_nodecl(const_value_get_one(4, 1)),
+                                t,
+                                lhs.get_filename(),
+                                lhs.get_line());
+
+                        if (lhs.is_constant())
+                        {
+                            nodecl_set_constant(
+                                    _upper_bound.get_internal_nodecl(),
+                                    const_value_sub(
+                                        lhs.get_constant(),
+                                        const_value_get_one(4, 1)));
+                        }
+                    }
+                }
+                else if (test_expr.is<Nodecl::GreaterOrEqualThan>())
+                {
+                    if (lhs_is_var)
+                    {
+                        // x >= E
+                        _upper_bound = rhs.copy();
+                    }
+                    else
+                    {
+                        // E >= x this is like x <= E
+                        _upper_bound = lhs.copy();
+                    }
+                }
+                else
+                {
+                    internal_error("Code unreachable", 0);
+                }
+            }
+            else
+            {
+                _is_omp_valid = false;
+                return;
+            }
+
+            // incr-expr must have the following form
+            // ++_induction_var
+            if (incr_expr.is<Nodecl::Preincrement>()
+                    && incr_expr.as<Nodecl::Preincrement>().get_rhs().get_symbol() == _induction_var)
+            { 
+                _step = const_value_to_nodecl(const_value_get_one(4, 1));
+            }
+            // _induction_var++
+            else if (incr_expr.is<Nodecl::Postincrement>()
+                    && incr_expr.as<Nodecl::Postincrement>().get_rhs().get_symbol() == _induction_var)
+            { 
+                _step = const_value_to_nodecl(const_value_get_one(4, 1));
+            }
+            // --_induction_var
+            else if (incr_expr.is<Nodecl::Predecrement>()
+                    && incr_expr.as<Nodecl::Predecrement>().get_rhs().get_symbol() == _induction_var)
+            { 
+                _step = const_value_to_nodecl(const_value_get_minus_one(4, 1));
+            }
+            // _induction_var--
+            else if (incr_expr.is<Nodecl::Postdecrement>()
+                    && incr_expr.as<Nodecl::Postdecrement>().get_rhs().get_symbol() == _induction_var)
+            { 
+                _step = const_value_to_nodecl(const_value_get_minus_one(4, 1));
+            }
+            // _induction_var += incr
+            else if (incr_expr.is<Nodecl::AddAssignment>()
+                    && incr_expr.as<Nodecl::AddAssignment>().get_lhs().get_symbol() == _induction_var)
+            {
+                _step = incr_expr.as<Nodecl::AddAssignment>().get_rhs().copy();
+            }
+            // _induction_var -= incr
+            else if (incr_expr.is<Nodecl::SubAssignment>()
+                    && incr_expr.as<Nodecl::SubAssignment>().get_lhs().get_symbol() == _induction_var)
+            {
+                Nodecl::NodeclBase rhs = incr_expr.as<Nodecl::AddAssignment>().get_rhs();
+
+                TL::Type t = incr_expr.as<Nodecl::AddAssignment>().get_rhs().get_type();
+
+                if (t.is_any_reference())
+                    t = t.references_to();
+
+                _step = Nodecl::Neg::make(
+                        rhs,
+                        t,
+                        rhs.get_filename(),
+                        rhs.get_line());
+
+                if (rhs.is_constant())
+                {
+                    nodecl_set_constant(
+                            _step.get_internal_nodecl(),
+                            const_value_neg(rhs.get_constant()));
+                }
+            }
+            // _induction_var = _induction_var + incr
+            else if (incr_expr.is<Nodecl::Assignment>()
+                    && incr_expr.as<Nodecl::Assignment>().get_lhs().get_symbol() == _induction_var
+                    && incr_expr.as<Nodecl::Assignment>().get_rhs().is<Nodecl::Add>()
+                    && incr_expr.as<Nodecl::Assignment>().get_rhs().as<Nodecl::Add>().get_lhs().get_symbol() == _induction_var)
+            {
+                _step = incr_expr.as<Nodecl::Assignment>().get_rhs().as<Nodecl::Add>().get_rhs().copy();
+            }
+            // _induction_var = incr + _induction_var
+            else if (incr_expr.is<Nodecl::Assignment>()
+                    && incr_expr.as<Nodecl::Assignment>().get_lhs().get_symbol() == _induction_var
+                    && incr_expr.as<Nodecl::Assignment>().get_rhs().is<Nodecl::Add>()
+                    && incr_expr.as<Nodecl::Assignment>().get_rhs().as<Nodecl::Add>().get_rhs().get_symbol() == _induction_var)
+            {
+                _step = incr_expr.as<Nodecl::Assignment>().get_rhs().as<Nodecl::Add>().get_lhs().copy();
+            }
+            // _induction_var = _induction_var - incr
+            else if (incr_expr.is<Nodecl::Assignment>()
+                    && incr_expr.as<Nodecl::Assignment>().get_lhs().get_symbol() == _induction_var
+                    && incr_expr.as<Nodecl::Assignment>().get_rhs().is<Nodecl::Minus>()
+                    && incr_expr.as<Nodecl::Assignment>().get_rhs().as<Nodecl::Minus>().get_lhs().get_symbol() == _induction_var)
+            {
+                Nodecl::NodeclBase rhs = incr_expr.as<Nodecl::Assignment>().get_rhs().as<Nodecl::Minus>().get_rhs();
+
+                TL::Type t = rhs.get_type();
+
+                if (t.is_any_reference())
+                    t = t.references_to();
+
+                _step = Nodecl::Neg::make(
+                        rhs.copy(),
+                        t,
+                        rhs.get_filename(),
+                        rhs.get_line());
+
+                if (rhs.is_constant())
+                {
+                    nodecl_set_constant(
+                            _step.get_internal_nodecl(),
+                            const_value_neg(rhs.get_constant()));
+                }
+            }
+            else
+            {
+                _is_omp_valid = false;
+                return;
+            }
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
+        }
+
+        _is_omp_valid = true;
+    }
+
+    bool ForStatement::is_omp_valid_loop() const
+    {
+        return _is_omp_valid;
     }
 
     TL::Symbol ForStatement::get_induction_variable() const
     {
-        internal_error("Not yet implemented", 0);
+        return _induction_var;
     }
 }

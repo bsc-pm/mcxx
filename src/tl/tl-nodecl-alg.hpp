@@ -65,6 +65,8 @@ namespace Nodecl
         TL::Symbol get_enclosing_function(Nodecl::NodeclBase n);
 
         void append_to_top_level_nodecl(Nodecl::NodeclBase n);
+
+        Nodecl::NodeclBase advance_conversions(Nodecl::NodeclBase n);
     }
 }
 
@@ -72,11 +74,25 @@ namespace TL
 {
     struct ForStatement : Nodecl::ForStatement
     {
+        private:
+            bool _is_omp_valid;
+
+            TL::Symbol _induction_var;
+
+            Nodecl::NodeclBase _lower_bound;
+            Nodecl::NodeclBase _upper_bound;
+            Nodecl::NodeclBase _step;
+
+            void analyze_loop_header();
         public:
             ForStatement(const Nodecl::ForStatement n)
-                : Nodecl::ForStatement(n) { }
+                : Nodecl::ForStatement(n) 
+            { 
+                    analyze_loop_header();
+            }
 
-            bool is_regular_loop() const;
+            bool is_omp_valid_loop() const;
+
             Symbol get_induction_variable() const;
     };
 }
