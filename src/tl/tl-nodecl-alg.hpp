@@ -94,6 +94,10 @@ namespace TL
             bool is_omp_valid_loop() const;
 
             Symbol get_induction_variable() const;
+
+            Nodecl::NodeclBase get_lower_bound() const;
+            Nodecl::NodeclBase get_upper_bound() const;
+            Nodecl::NodeclBase get_step() const;
     };
 }
 

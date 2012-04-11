@@ -1051,4 +1051,19 @@ namespace TL
     {
         return _induction_var;
     }
+
+    Nodecl::NodeclBase ForStatement::get_lower_bound() const
+    {
+        return _lower_bound;
+    }
+
+    Nodecl::NodeclBase ForStatement::get_upper_bound() const
+    {
+        return _upper_bound;
+    }
+
+    Nodecl::NodeclBase ForStatement::get_step() const
+    {
+        return _step;
+    }
 }

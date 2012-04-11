@@ -760,6 +760,7 @@ namespace TL
         {
             Nodecl::NodeclBase stmt = construct.get_statements();
 
+            // Do we really need such a deep structure?
             // NODECL_LIST -> NODECL_CONTEXT -> NODECL_LIST
 
             ERROR_CONDITION(!stmt.is<Nodecl::List>(), "Invalid tree", 0);
@@ -786,7 +787,7 @@ namespace TL
             }
             else
             {
-                running_error("%s: error: for-statement in '#pragma omp for' and '#pragma omp parallel for' is not of canonical form",
+                running_error("%s: error: for-statement in '#pragma omp for' and '#pragma omp parallel for' is not in OpenMP canonical form",
                         stmt.get_locus().c_str());
             }
         }
