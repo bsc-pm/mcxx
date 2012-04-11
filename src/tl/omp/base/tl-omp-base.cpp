@@ -471,9 +471,53 @@ namespace TL { namespace OpenMP {
     }
 
     void Base::for_handler_pre(TL::PragmaCustomStatement) { }
-    void Base::for_handler_post(TL::PragmaCustomStatement)
+    void Base::for_handler_post(TL::PragmaCustomStatement directive)
     {
-        internal_error("Not yet implemented", 0);
+        OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
+        PragmaCustomLine pragma_line = directive.get_pragma_line();
+        Nodecl::List execution_environment = this->make_execution_environment(ds, pragma_line);
+
+        Nodecl::NodeclBase stmt = directive.get_statements();
+        ERROR_CONDITION(!stmt.is<Nodecl::List>(), "Invalid tree", 0);
+        stmt = stmt.as<Nodecl::List>().front();
+        ERROR_CONDITION(!stmt.is<Nodecl::Context>(), "Invalid tree", 0);
+        stmt = stmt.as<Nodecl::Context>().get_in_context();
+        ERROR_CONDITION(!stmt.is<Nodecl::List>(), "Invalid tree", 0);
+        stmt = stmt.as<Nodecl::List>().front();
+        ERROR_CONDITION (!stmt.is<Nodecl::ForStatement>(), "Invalid tree", 0);
+
+        TL::ForStatement for_statement(stmt.as<Nodecl::ForStatement>());
+
+        Nodecl::List code;
+        Nodecl::Parallel::Distribute distribute =
+            Nodecl::Parallel::Distribute::make(
+                    execution_environment,
+                    Nodecl::Parallel::DistributeRange::make(
+                        for_statement.get_lower_bound(), 
+                        for_statement.get_upper_bound(), 
+                        for_statement.get_step(), 
+                        for_statement.get_induction_variable(),
+                        for_statement.get_filename(),
+                        for_statement.get_line()),
+                    Nodecl::Parallel::Async::make(
+                        /* unused */ Nodecl::NodeclBase::null(),
+                        for_statement.get_statement(),
+                        for_statement.get_filename(),
+                        for_statement.get_line()),
+                    directive.get_filename(),
+                    directive.get_line());
+
+        code.push_back(distribute);
+
+        if (!pragma_line.get_clause("nowait").is_defined())
+        {
+            code.push_back(
+                    Nodecl::Parallel::BarrierFull::make(
+                        directive.get_filename(),
+                        directive.get_line()));
+        }
+
+        directive.integrate(code);
     }
 
     // Function tasks

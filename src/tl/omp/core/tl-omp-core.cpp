@@ -760,6 +760,18 @@ namespace TL
         {
             Nodecl::NodeclBase stmt = construct.get_statements();
 
+            // Do we really need such a deep structure?
+            // NODECL_LIST -> NODECL_CONTEXT -> NODECL_LIST
+
+            ERROR_CONDITION(!stmt.is<Nodecl::List>(), "Invalid tree", 0);
+            stmt = stmt.as<Nodecl::List>().front();
+
+            ERROR_CONDITION(!stmt.is<Nodecl::Context>(), "Invalid tree", 0);
+            stmt = stmt.as<Nodecl::Context>().get_in_context();
+
+            ERROR_CONDITION(!stmt.is<Nodecl::List>(), "Invalid tree", 0);
+            stmt = stmt.as<Nodecl::List>().front();
+
             if (!stmt.is<Nodecl::ForStatement>())
             {
                 running_error("%s: error: a for-statement is required for '#pragma omp for' and '#pragma omp parallel for'",
@@ -768,14 +780,14 @@ namespace TL
 
             TL::ForStatement for_statement(stmt.as<Nodecl::ForStatement>());
 
-            if (for_statement.is_regular_loop())
+            if (for_statement.is_omp_valid_loop())
             {
                 Symbol sym  = for_statement.get_induction_variable();
                 data_sharing.set_data_sharing(sym, DS_PRIVATE);
             }
             else
             {
-                running_error("%s: error: for-statement in '#pragma omp for' and '#pragma omp parallel for' is not of canonical form",
+                running_error("%s: error: for-statement in '#pragma omp for' and '#pragma omp parallel for' is not in OpenMP canonical form",
                         stmt.get_locus().c_str());
             }
         }
