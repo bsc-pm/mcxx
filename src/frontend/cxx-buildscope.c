@@ -574,7 +574,7 @@ static void build_scope_declaration(AST a, decl_context_t decl_context,
             }
         case AST_EXPLICIT_INSTANTIATION :
             {
-                // template A<int>;
+                // template struct A<int>;
                 build_scope_explicit_instantiation(a, decl_context, nodecl_output);
                 break;
             }
@@ -806,25 +806,45 @@ static void build_scope_gcc_asm_definition(AST a, decl_context_t decl_context, n
     *nodecl_output = nodecl_make_list_1(nodecl_gcc_asm);
 }
 
-static void build_scope_explicit_instantiation(AST a, 
-        decl_context_t decl_context, 
+static void build_scope_explicit_instantiation(AST a,
+        decl_context_t decl_context,
         nodecl_t* nodecl_output)
 {
-    AST decl_specifier_seq = ASTSon1(a);
-    AST declarator = ASTSon2(a);
+    // There are two forms of explicit instantiation: an explicit instantiation
+    // definition and an explicit instantiation declaration. An explicit
+    // instantiation declaration begins with the 'extern' keyword.
+    char is_expl_inst_decl = 0;
+    AST class_or_function_specifier = ASTSon0(a);
+    if (class_or_function_specifier != NULL)
+    {
+        if (ASTType(class_or_function_specifier) == AST_EXTERN_SPEC)
+        {
+            is_expl_inst_decl = 1;
+        }
+        else
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: invalid specifier '%s' in an explicit instantiation\n",
+                        ast_location(a), prettyprint_in_buffer(class_or_function_specifier));
+            }
+        }
+    }
 
+    AST declarator = ASTSon2(a);
     type_t* simple_type_info = NULL;
     gather_decl_spec_t gather_info;
     memset(&gather_info, 0, sizeof(gather_info));
-    gather_info.is_template = 1;
+    gather_info.is_template = 0;
     gather_info.is_explicit_instantiation = 1;
     gather_info.no_declarators = (declarator == NULL);
 
+    AST decl_specifier_seq = ASTSon1(a);
     if (decl_specifier_seq != NULL)
     {
-        build_scope_decl_specifier_seq(decl_specifier_seq, 
-                &gather_info, 
-                &simple_type_info, 
+        build_scope_decl_specifier_seq(decl_specifier_seq,
+                &gather_info,
+                &simple_type_info,
                 decl_context,
                 nodecl_output);
     }
@@ -832,10 +852,15 @@ static void build_scope_explicit_instantiation(AST a,
     type_t* declarator_type = NULL;
     compute_declarator_type(declarator, &gather_info, simple_type_info, &declarator_type, decl_context, nodecl_output);
     // FIXME - We should instantiate here if no 'extern' is given
+
+    nodecl_t declarator_name_opt = nodecl_null();
+    scope_entry_t* entry = NULL;
     if (declarator != NULL)
     {
-        scope_entry_t *entry = build_scope_declarator_name(declarator, declarator_type, &gather_info, decl_context, nodecl_output);
+        entry = build_scope_declarator_name(declarator, declarator_type, &gather_info, decl_context, nodecl_output);
 
+        AST id_expr = get_declarator_id_expression(declarator, decl_context);
+        compute_nodecl_name_from_id_expression(ASTSon0(id_expr), decl_context, &declarator_name_opt);
         if (entry == NULL)
         {
             if (!checking_ambiguity())
@@ -843,6 +868,64 @@ static void build_scope_explicit_instantiation(AST a,
                 error_printf("%s: invalid explicit instantiation\n", ast_location(a));
             }
         }
+    }
+    else
+    {
+        if (is_named_type(declarator_type)
+                && named_type_get_symbol(declarator_type)->kind == SK_CLASS)
+        {
+            entry = named_type_get_symbol(declarator_type);
+        }
+        else
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: should be a class\n", ast_location(a));
+            }
+        }
+    }
+
+    if (entry != NULL)
+    {
+        // GCC crashes when the declarator is qualified and it's declared inside
+        // of this qualified context
+        // Example:
+        //
+        // namespace A
+        // {
+        //      template < typename T >
+        //      void f(T)
+        //      {
+        //      }
+        //
+        //      template void A::f<int>(int); // GCC crashes
+        //      template void ::A::f<int>(int); // GCC Crashes
+        //
+        // }
+        // template void ::A::f<int>(int); // GCC ok
+        //
+        // For this reason, we need the original context and declarator
+
+        nodecl_t nodecl_context =
+            nodecl_make_context(/* optional statement sequence */ nodecl_null(),
+                    decl_context, ASTFileName(a), ASTLine(a));
+
+        *nodecl_output = (is_expl_inst_decl) ?
+            nodecl_make_list_1(
+                    nodecl_make_cxx_extern_explicit_instantiation(
+                        declarator_name_opt,
+                        nodecl_context,
+                        entry,
+                        ASTFileName(a),
+                        ASTLine(a)))
+            :
+            nodecl_make_list_1(
+                    nodecl_make_cxx_explicit_instantiation(
+                        declarator_name_opt,
+                        nodecl_context,
+                        entry,
+                        ASTFileName(a),
+                        ASTLine(a)));
     }
 }
 
@@ -2920,8 +3003,14 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
 
     ERROR_CONDITION(class_entry == NULL, "Invalid class entry", 0);
 
-    // State this symbol has been created by the code and not by the type system
-    class_entry->entity_specs.is_user_declared = 1;
+
+    if ((!is_template_specialized_type(class_entry->type_information) ||
+            (gather_info->is_template && gather_info->no_declarators)))
+    {
+        // State this symbol has been created by the code and not by the type system
+        class_entry->entity_specs.is_user_declared = 1;
+    }
+
 
     *type_info = get_user_defined_type(class_entry);
 

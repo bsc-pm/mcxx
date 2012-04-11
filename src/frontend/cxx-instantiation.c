@@ -445,7 +445,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     class_type_set_enclosing_class_type(get_actual_class_type(primary_specialization),
                             get_actual_class_type(being_instantiated));
 
-                    set_is_complete_type(primary_specialization, /* is_complete */ 1);
+                    set_is_complete_type(primary_specialization, is_complete_type(member_of_template->type_information));
 
                     scope_entry_t* new_member = named_type_get_symbol(
                             template_type_get_specialized_type(template_type,
@@ -468,7 +468,8 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     class_type_set_instantiation_trees(get_actual_class_type(new_member->type_information),
                             orig_body_tree, orig_bases_tree);
 
-                    set_is_complete_type(new_member->type_information, /* is_complete */ 0);
+
+                    set_is_complete_type(new_member->type_information, 0);
                     set_is_dependent_type(new_member->type_information, /* is_dependent */ 0);
 
                     if (new_member->entity_specs.is_anonymous_union)

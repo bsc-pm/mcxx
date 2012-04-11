@@ -2370,6 +2370,66 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxDecl& node)
         define_symbol(sym);
     }
 }
+void CxxBase::codegen_explicit_instantiation(TL::Symbol sym,
+        const Nodecl::NodeclBase & declarator_name,
+        const Nodecl::NodeclBase & context,
+        bool is_extern)
+{
+    if (sym.is_class())
+    {
+        std::string class_key;
+        switch (sym.get_type().class_type_get_class_kind())
+        {
+            case TT_CLASS:
+                class_key = "class";
+                break;
+            case TT_STRUCT:
+                class_key = "struct";
+                break;
+            case TT_UNION:
+                class_key = "union";
+                break;
+            default:
+                internal_error("Invalid class kind", 0);
+        }
+        if (is_extern)
+            file << "extern ";
+
+        file << "template " << class_key << " " << sym.get_qualified_name(sym.get_scope()) << ";\n";
+
+    }
+    else if (sym.is_function())
+    {
+        move_to_namespace_of_symbol(context.retrieve_context().get_related_symbol());
+        if (is_extern)
+            file << "extern ";
+        std::string original_declarator_name = codegen(declarator_name);
+        file << "template " << get_declaration(sym.get_type(), sym.get_scope(), original_declarator_name) << ";\n";
+    }
+    else
+    {
+        internal_error("Invalid symbol", 0);
+    }
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::CxxExplicitInstantiation& node)
+{
+    TL::Symbol sym = node.get_symbol();
+    Nodecl::NodeclBase declarator_name = node.get_declarator_name();
+    Nodecl::NodeclBase context = node.get_context();
+    state.must_be_object_init.erase(sym);
+    codegen_explicit_instantiation(sym, declarator_name, context);
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::CxxExternExplicitInstantiation& node)
+{
+    file << "extern ";
+    TL::Symbol sym = node.get_symbol();
+    Nodecl::NodeclBase declarator_name = node.get_declarator_name();
+    Nodecl::NodeclBase context = node.get_context();
+    state.must_be_object_init.erase(sym);
+    codegen_explicit_instantiation(sym, declarator_name, context);
+}
 
 CxxBase::Ret CxxBase::visit(const Nodecl::Verbatim& node)
 {

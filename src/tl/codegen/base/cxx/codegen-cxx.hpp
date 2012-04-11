@@ -168,6 +168,8 @@ namespace Codegen
             Ret visit(const Nodecl::WhileStatement &);
 
             Ret visit(const Nodecl::CxxDecl& node);
+            Ret visit(const Nodecl::CxxExplicitInstantiation& node);
+            Ret visit(const Nodecl::CxxExternExplicitInstantiation& node);
 
             Ret visit(const Nodecl::Verbatim& node);
             Ret visit(const Nodecl::UnknownPragma& node);
@@ -392,6 +394,11 @@ namespace Codegen
             bool is_non_language_reference_variable(TL::Symbol sym);
             bool is_non_language_reference_variable(const Nodecl::NodeclBase& n);
             bool is_non_language_reference_type(TL::Type type);
+
+            void codegen_explicit_instantiation(TL::Symbol sym,
+                    const Nodecl::NodeclBase & declarator_name,
+                    const Nodecl::NodeclBase & context,
+                    bool is_extern = false);
     };
 }
 
