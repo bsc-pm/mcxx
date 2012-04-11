@@ -40,6 +40,8 @@ test_compile_faulty_nanox_instrument=yes
 </testinfo>
 */
 
+#include "omp.h"
+
 // fail because we need to lookup in all nested classes
 
 class A {

@@ -117,57 +117,57 @@ void DeviceCUDA::do_cuda_inline_get_addresses(
 	for (ObjectList<OpenMP::CopyItem>::iterator it = copies.begin();
 			it != copies.end();
 			it++, j++)
-    {
-        DataReference data_ref = it->get_copy_expression();
-        Symbol sym = data_ref.get_base_symbol();
+	{
+		DataReference data_ref = it->get_copy_expression();
+		Symbol sym = data_ref.get_base_symbol();
 
-        OpenMP::DataSharingEnvironment &data_sharing = data_env_info.get_data_sharing();
-        OpenMP::DataSharingAttribute data_sharing_attr = data_sharing.get_data_sharing(sym);
+		OpenMP::DataSharingEnvironment &data_sharing = data_env_info.get_data_sharing();
+		OpenMP::DataSharingAttribute data_sharing_attr = data_sharing.get_data_sharing(sym);
 
-        DataEnvironItem data_env_item = data_env_info.get_data_of_symbol(sym);
+		DataEnvironItem data_env_item = data_env_info.get_data_of_symbol(sym);
 
-        ERROR_CONDITION(!data_env_item.get_symbol().is_valid(),
-                "Invalid data for copy symbol", 0);
+		ERROR_CONDITION(!data_env_item.get_symbol().is_valid(),
+				"Invalid data for copy symbol", 0);
 
-        bool is_shared = data_env_item.is_shared();
+		bool is_shared = data_env_item.is_shared();
 
-        Type type = sym.get_type();
+		Type type = sym.get_type();
 
-        if (type.is_array())
-        {
-            type = type.array_element().get_pointer_to();
-            is_shared = false;
-        }
-        else if (is_shared)
-        {
-            type = type.get_pointer_to();
-        }
+		if (type.is_array())
+		{
+			type = type.array_element().get_pointer_to();
+			is_shared = false;
+		}
+		else if (is_shared)
+		{
+			type = type.get_pointer_to();
+		}
 
-        std::string copy_name = "_cp_" + sym.get_name();
+		std::string copy_name = "_cp_" + sym.get_name();
 
-        if (!err_declared)
-        {
-            copy_setup
-                << "nanos_err_t cp_err;"
-                ;
-            err_declared = true;
-        }
+		if (!err_declared)
+		{
+			copy_setup
+				<< "nanos_err_t cp_err;"
+				;
+			err_declared = true;
+		}
 
-        copy_setup
-            << type.get_declaration(sc, copy_name) << ";"
-            << "cp_err = nanos_get_addr(" << j << ", (void**)&" << copy_name << current_wd_param << ");"
-            << "if (cp_err != NANOS_OK) nanos_handle_error(cp_err);"
-            ;
+		copy_setup
+			<< type.get_declaration(sc, copy_name) << ";"
+			<< "cp_err = nanos_get_addr(" << j << ", (void**)&" << copy_name << current_wd_param << ");"
+			<< "if (cp_err != NANOS_OK) nanos_handle_error(cp_err);"
+			;
 
-        if (!is_shared)
-        {
-            replace_src.add_replacement(sym, copy_name);
-        }
-        else
-        {
-            replace_src.add_replacement(sym, "(*" + copy_name + ")");
-        }
-    }
+		if (!is_shared)
+		{
+			replace_src.add_replacement(sym, copy_name);
+		}
+		else
+		{
+			replace_src.add_replacement(sym, "(*" + copy_name + ")");
+		}
+	}
 }
 
 void DeviceCUDA::do_cuda_outline_replacements(
@@ -204,14 +204,15 @@ void DeviceCUDA::do_cuda_outline_replacements(
 			// Do nothing as they are private, we create a variable with the
 			// same original name
 		}
-		else if (data_env_item.is_firstprivate())
+		else if (data_env_item.is_firstprivate()
+				|| data_env_item.is_shared())
 		{
 			replace_src.add_replacement(sym, "_args->" + field_name);
 		}
-		else if (data_env_item.is_shared())
-		{
-			replace_src.add_replacement(sym, "(*_args->" + field_name + ")");
-		}
+		// else if (data_env_item.is_shared())
+		// {
+		// 	replace_src.add_replacement(sym, "(*_args->" + field_name + ")");
+		// }
 		else
 		{
 			internal_error("Code unreachable", 0);
@@ -250,29 +251,29 @@ void DeviceCUDA::get_output_file(std::ofstream& cudaFile)
 	// Check if the file has already been created (and written)
 	bool new_file = false;
 
-    Source included_files;
+	Source included_files;
 	if (_cudaFilename == "")
-    {
-        // Set the file name
-        _cudaFilename = "cudacc_";
-        _cudaFilename += CompilationProcess::get_current_file().get_filename(false);
-        size_t file_extension = _cudaFilename.find_last_of(".");
-        _cudaFilename.erase(file_extension, _cudaFilename.length());
-        _cudaFilename += ".cu";
-        new_file = true;
+	{
+		// Set the file name
+		_cudaFilename = "cudacc_";
+		_cudaFilename += CompilationProcess::get_current_file().get_filename(false);
+		size_t file_extension = _cudaFilename.find_last_of(".");
+		_cudaFilename.erase(file_extension, _cudaFilename.length());
+		_cudaFilename += ".cu";
+		new_file = true;
 
-        // Remove the intermediate source file
-        mark_file_for_cleanup( _cudaFilename.c_str() );
+		// Remove the intermediate source file
+		mark_file_for_cleanup( _cudaFilename.c_str() );
 
-        // Get *.cu included files
-        ObjectList<IncludeLine> lines = CurrentFile::get_top_level_included_files();
+		// Get *.cu included files
+		ObjectList<IncludeLine> lines = CurrentFile::get_top_level_included_files();
 
-        for (ObjectList<IncludeLine>::iterator it = lines.begin(); it != lines.end(); it++)
-        {
-            std::string line = (*it).get_preprocessor_line();
-            included_files << line << "\n";
-        }
-    }
+		for (ObjectList<IncludeLine>::iterator it = lines.begin(); it != lines.end(); it++)
+		{
+			std::string line = (*it).get_preprocessor_line();
+			included_files << line << "\n";
+		}
+	}
 
 	const std::string configuration_name = "cuda";
 	CompilationProcess::add_file(_cudaFilename, configuration_name, new_file);
@@ -291,73 +292,98 @@ void DeviceCUDA::get_output_file(std::ofstream& cudaFile)
 void DeviceCUDA::insert_function_definition(PragmaCustomConstruct ctr, bool is_copy)
 {
 	std::ofstream cudaFile; 
-    get_output_file(cudaFile);
+	get_output_file(cudaFile);
 
-    bool needs_device = false;
-    AST_t decl = ctr.get_declaration();
+	bool needs_device = false;
+	bool needs_extern_c = false;
+	AST_t decl = ctr.get_declaration();
 
-    if (FunctionDefinition::predicate(decl))
-    {
-        // unless we find a kernel configuration call
-        needs_device = true;
+	if (FunctionDefinition::predicate(decl))
+	{
+		// unless we find a kernel configuration call
+		needs_device = true;
 
-        FunctionDefinition funct_def(decl, ctr.get_scope_link());
-        Statement stmt = funct_def.get_function_body();
+		FunctionDefinition funct_def(decl, ctr.get_scope_link());
+		Statement stmt = funct_def.get_function_body();
 
-        if (!stmt.get_ast().depth_subtrees(PredicateType(AST_CUDA_KERNEL_CALL)).empty())
-        {
-            needs_device = false;
-        }
-    }
-    else if (Declaration::predicate(decl))
-    {
-        Declaration decl(ctr.get_declaration(), ctr.get_scope_link());
+		if (!stmt.get_ast().depth_subtrees(PredicateType(AST_CUDA_KERNEL_CALL)).empty())
+		{
+			needs_device = false;
+		}
 
-        DeclarationSpec decl_specifier_seq = decl.get_declaration_specifiers();
-        if (decl_specifier_seq.get_ast().depth_subtrees(PredicateType(AST_TYPEDEF_SPEC)).empty())
-        {
-            needs_device = true;
-        }
+		if (_fwdSymbols.count(funct_def.get_function_symbol()) != 0)
+		{
+			// Nothing to do here, already defined
+			return;
+		}
 
-        ObjectList<DeclaredEntity> declared_entities = decl.get_declared_entities();
+		_fwdSymbols.insert(funct_def.get_function_symbol());
+	}
+	else if (Declaration::predicate(decl))
+	{
+		Declaration decl(ctr.get_declaration(), ctr.get_scope_link());
 
-        ObjectList<Symbol> sym_list;
-        for (ObjectList<DeclaredEntity>::iterator it = declared_entities.begin();
-                it != declared_entities.end();
-                it++)
-        {
-            sym_list.insert(it->get_declared_symbol());
-        }
+		DeclarationSpec decl_specifier_seq = decl.get_declaration_specifiers();
+		if (decl_specifier_seq.get_ast().depth_subtrees(PredicateType(AST_TYPEDEF_SPEC)).empty())
+		{
+			needs_device = true;
+		}
 
-        for (ObjectList<Symbol>::iterator it = sym_list.begin();
-                it != sym_list.end();
-                it++)
-        {
-            if (_function_task_set->is_function_task_or_implements(*it))
-            {
-                needs_device = false;
-            }
-        }
-    }
+		ObjectList<DeclaredEntity> declared_entities = decl.get_declared_entities();
 
-    if (needs_device)
-    {
-        cudaFile << "__device__ ";
-    }
+		ObjectList<Symbol> sym_list;
+		for (ObjectList<DeclaredEntity>::iterator it = declared_entities.begin();
+				it != declared_entities.end();
+				it++)
+		{
+			sym_list.insert(it->get_declared_symbol());
+		}
 
-    cudaFile << ctr.get_declaration().prettyprint_external();
+		for (ObjectList<Symbol>::iterator it = sym_list.begin();
+				it != sym_list.end();
+				it++)
+		{
+			if (_function_task_set->is_function_task_or_implements(*it))
+			{
+				needs_device = false;
+			}
+		}
+	}
 
-    cudaFile.close();
+	if (!needs_device 
+			&& IS_C_LANGUAGE)
+	{
+		needs_extern_c = true;
+	}
 
-    if (!is_copy)
-    {
-        ctr.get_ast().remove_in_list();
-    }
+	if (needs_extern_c)
+	{
+		cudaFile << "extern \"C\" {\n";
+	}
+
+	if (needs_device)
+	{
+		cudaFile << "__device__ ";
+	}
+
+	cudaFile << ctr.get_declaration().prettyprint_external() << "\n";
+
+	if (needs_extern_c)
+	{
+		cudaFile << "}\n";
+	}
+
+	cudaFile.close();
+
+	if (!is_copy)
+	{
+		ctr.get_ast().remove_in_list();
+	}
 }
 
 void DeviceCUDA::insert_declaration(PragmaCustomConstruct ctr, bool is_copy)
 {
-    insert_function_definition(ctr, is_copy);
+	insert_function_definition(ctr, is_copy);
 }
 
 void DeviceCUDA::create_outline(
@@ -372,62 +398,85 @@ void DeviceCUDA::create_outline(
 {
 	/***************** Write the CUDA file *****************/
 
+	// Check if the task is a function, or it is inlined
+	// Outline tasks need more work to do
+	bool is_outline_task = (outline_flags.task_symbol != NULL);
+
+	ObjectList<IdExpression> extern_occurrences;
+	//DeclarationClosure decl_closure (sl);
+	std::set<Symbol> extern_symbols;
+
 	// Get all the needed symbols and CUDA included files
 	Source forward_declaration;
-	AST_t function_tree;
+	AST_t function_tree = (is_outline_task ?
+			outline_flags.task_symbol.get_point_of_declaration() :
+			reference_tree);
 
+	// Get the definition of non local symbols
+	LangConstruct construct (function_tree, sl);
+	extern_occurrences = construct.non_local_symbol_occurrences();
 
-	// Check if the task is a function, or it is inlined
-	if (outline_flags.task_symbol != NULL)
+	for (ObjectList<IdExpression>::iterator it = extern_occurrences.begin();
+			it != extern_occurrences.end();
+			it++)
 	{
-		// Get the definition of non local symbols
-		function_tree = outline_flags.task_symbol.get_point_of_declaration();
-		LangConstruct construct (function_tree, sl);
-		ObjectList<IdExpression> extern_occurrences = construct.non_local_symbol_occurrences();
-		DeclarationClosure decl_closure (sl);
-		std::set<Symbol> extern_symbols;
+		Symbol s = it->get_symbol();
 
-		for (ObjectList<IdExpression>::iterator it = extern_occurrences.begin();
-				it != extern_occurrences.end();
-				it++)
+		// If this symbol does not come from the input file, do not consider it
+		if (s.get_filename() != CompilationProcess::get_current_file().get_filename(/* fullpath */ true))
+			continue;
+
+		if (s.get_internal_symbol()->kind == SK_ENUMERATOR)
 		{
-			Symbol s = it->get_symbol();
-			// Check we have not already added the symbol
-			if (_fwdSymbols.count(s.get_name()) == 0)
-			{
-				_fwdSymbols.insert(s.get_name());
-				decl_closure.add(s);
-
-				// TODO: check the symbol is not a global variable
-				extern_symbols.insert(s);
-			}
+			s = s.get_type().get_symbol();
+		}
+		while (s.is_member())
+		{
+			s = s.get_class_type().get_symbol();
 		}
 
-		// Maybe it is not needed --> user-defined structs must be included in GPU kernel's file
-		//forward_declaration << decl_closure.closure() << "\n";
-
-		for (std::set<Symbol>::iterator it = extern_symbols.begin();
-				it != extern_symbols.end(); it++)
+		// Check we have not already added the symbol
+		if (_fwdSymbols.count(s) == 0)
 		{
-			// Check the symbol is not a function definition before adding it to forward declaration (see #529)
-			AST_t a = it->get_point_of_declaration();
-			if (!FunctionDefinition::predicate(a))
-			{
-				forward_declaration << a.prettyprint_external() << "\n";
-			}
-		}
 
+			_fwdSymbols.insert(s);
+			//decl_closure.add(s);
+
+			// TODO: check the symbol is not a global variable
+
+			extern_symbols.insert(s);
+		}
+	}
+
+	// Maybe it is not needed --> user-defined structs must be included in GPU kernel's file
+	// Plus, 'closure()' method is not working anyway...
+	//forward_declaration << decl_closure.closure() << "\n";
+
+	for (std::set<Symbol>::iterator it = extern_symbols.begin();
+			it != extern_symbols.end(); it++)
+	{
+		// Check the symbol is not a function definition before adding it to forward declaration (see #529)
+		AST_t a = it->get_point_of_declaration();
+		if (!FunctionDefinition::predicate(a))
+		{
+			forward_declaration << a.prettyprint_external() << "\n";
+		}
+	}
+
+	// If it is an outlined task, do some more work
+	if (is_outline_task)
+	{
 		// Check if the task symbol is actually a function definition or a declaration
 		if (FunctionDefinition::predicate(function_tree))
 		{
 			// Check if we have already printed the function definition in the CUDA file
-			if (_taskSymbols.count(outline_flags.task_symbol.get_name()) == 0)
+			if (_taskSymbols.count(outline_flags.task_symbol) == 0)
 			{
 				forward_declaration << function_tree.get_enclosing_function_definition().prettyprint_external();
 
 				// Keep record of which tasks have been printed to the CUDA file
 				// in order to avoid repeating them
-				_taskSymbols.insert(outline_flags.task_symbol.get_name());
+				_taskSymbols.insert(outline_flags.task_symbol);
 
 				// Remove the function definition from the original source code
 				function_tree.remove_in_list();
@@ -465,20 +514,20 @@ void DeviceCUDA::create_outline(
 			if (funct_def_list.size() == 1)
 			{
 				// Check if we have already printed the function definition in the CUDA file
-				if (_taskSymbols.count(outline_flags.task_symbol.get_name()) == 0)
+				if (_taskSymbols.count(outline_flags.task_symbol) == 0)
 				{
 					forward_declaration << funct_def_list[0].get_enclosing_function_definition().prettyprint_external();
 
 					// Keep record of which tasks have been printed to the CUDA file
 					// in order to avoid repeating them
-					_taskSymbols.insert(outline_flags.task_symbol.get_name());
+					_taskSymbols.insert(outline_flags.task_symbol);
 				}
 
 				// Remove the function definition from the original source code
 				funct_def_list[0].remove_in_list();
 			}
 			else if (funct_def_list.size() == 0
-					&& _taskSymbols.count(outline_flags.task_symbol.get_name()) > 0)
+					&& _taskSymbols.count(outline_flags.task_symbol) > 0)
 			{
 				// We have already removed it and printed it in the CUDA file, do nothing
 			}
@@ -558,29 +607,29 @@ void DeviceCUDA::create_outline(
 			uf_name_descr
 				<< "\"Task '" << outline_flags.task_symbol.get_name() << "'\""
 				;
-            uf_location_descr
-                << "\"'" << function_symbol.get_qualified_name() << "'"
-                << " invoked at '" << reference_tree.get_locus() << "'\""
-                ;
+			uf_location_descr
+				<< "\"'" << function_symbol.get_qualified_name() << "'"
+				<< " invoked at '" << reference_tree.get_locus() << "'\""
+				;
 		}
 		else
-        {
-            uf_name_id
-                << uf_location_id
-                ;
-            uf_location_id
-                << "\"" << outline_name << ":" << reference_tree.get_locus() << "\""
-                ;
+		{
+			uf_name_id
+				<< uf_location_id
+				;
+			uf_location_id
+				<< "\"" << outline_name << ":" << reference_tree.get_locus() << "\""
+				;
 
-            uf_name_descr
-                << uf_location_descr
-                ;
-            uf_location_descr
-                << "\"Outline from '"
-                << reference_tree.get_locus()
-                << "' in '" << function_symbol.get_qualified_name() << "'\""
-                ;
-        }
+			uf_name_descr
+				<< uf_location_descr
+				;
+			uf_location_descr
+				<< "\"Outline from '"
+				<< reference_tree.get_locus()
+				<< "' in '" << function_symbol.get_qualified_name() << "'\""
+				;
+		}
 	}
 
 	// arguments_struct_definition
@@ -592,9 +641,16 @@ void DeviceCUDA::create_outline(
 		running_error("Invalid typename for struct args", 0);
 	}
 
-	arguments_struct_definition
-		<< struct_typename_sym.get_point_of_declaration().prettyprint();
+	// Check if we have already printed the argument's struct definition in the CUDA file
+	if (_taskSymbols.count(struct_typename_sym) == 0)
+	{
+		arguments_struct_definition
+			<< struct_typename_sym.get_point_of_declaration().prettyprint();
 
+		// Keep record of which argument's struct definitions have been printed to the CUDA file
+		// in order to avoid repeating them
+		_taskSymbols.insert(struct_typename_sym);
+	}
 	// outline_name
 	outline_name
 		<< gpu_outline_name(task_name)
@@ -653,19 +709,17 @@ void DeviceCUDA::create_outline(
 		}
 	}
 
-	// final_code
-	if (outline_flags.barrier_at_end)
-	{
-		final_code
-			<< "nanos_team_barrier();"
-			;
-	}
+        if (outline_flags.parallel)
+        {
+		running_error("%s: error: parallel not supported in CUDA devices", reference_tree.get_locus().c_str() );
+        }
 
-	if (outline_flags.leave_team)
+	// final_code
+    if (outline_flags.parallel || outline_flags.barrier_at_end)
 	{
-		final_code
-			<< "nanos_leave_team();"
-			;
+        final_code
+            << OMPTransform::get_barrier_code(reference_tree)
+            ;
 	}
 
 	// Parse it in a sibling function context
@@ -756,7 +810,10 @@ void DeviceCUDA::get_device_descriptor(const std::string& task_name,
 		Source &ancillary_device_description,
 		Source &device_descriptor)
 {
-	Source outline_name;
+    FunctionDefinition enclosing_function_def(reference_tree.get_enclosing_function_definition(), sl);
+    Symbol function_symbol = enclosing_function_def.get_function_symbol();
+
+    Source outline_name;
 	if (!outline_flags.implemented_outline)
 	{
 		outline_name
@@ -767,16 +824,29 @@ void DeviceCUDA::get_device_descriptor(const std::string& task_name,
 	{
 		outline_name << task_name;
 	}
+    
+    Source nanos_dd_size_opt;
+    if (Nanos::Version::interface_is_at_least("master", 5012))
+    {
+        ancillary_device_description
+            << comment("CUDA device descriptor")
+            << "static nanos_smp_args_t "
+            << task_name << "_gpu_args = { (void(*)(void*))" << outline_name << "};"
+            ;
+    }
+    else
+    {
+        ancillary_device_description
+            << comment("CUDA device descriptor")
+            << "nanos_smp_args_t "
+            << task_name << "_gpu_args = { (void(*)(void*))" << outline_name << "};"
+            ;
+        nanos_dd_size_opt << "nanos_gpu_dd_size, ";
+    }
 
-	ancillary_device_description
-		<< comment("CUDA device descriptor")
-		<< "nanos_smp_args_t " 
-        << task_name << "_gpu_args = { (void(*)(void*))" << outline_name << "};"
-		;
-
-	device_descriptor
-		<< "{ nanos_gpu_factory, nanos_gpu_dd_size, &" << task_name << "_gpu_args },"
-		;
+    device_descriptor
+        << "{ nanos_gpu_factory, " << nanos_dd_size_opt << "&" << task_name << "_gpu_args },"
+        ;
 }
 
 void DeviceCUDA::do_replacements(DataEnvironInfo& data_environ,

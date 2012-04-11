@@ -2506,6 +2506,14 @@ CxxBase::Ret CxxBase::visit(const Nodecl::GxxTrait& node)
     file << ")";
 }
 
+CxxBase::Ret CxxBase::visit(const Nodecl::AsmDefinition& node)
+{
+    indent();
+    file << "asm(";
+    walk(node.get_asm_text());
+    file << ");\n";
+}
+
 CxxBase::Ret CxxBase::visit(const Nodecl::GccAsmDefinition& node)
 {
     Nodecl::NodeclBase op0 = node.get_operands0();

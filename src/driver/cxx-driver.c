@@ -2837,6 +2837,9 @@ static void parse_translation_unit(translation_unit_t* translation_unit, const c
     // initialized in function initialize_semantic_analysis
     ast_set_child(translation_unit->parsed_tree, 0, parsed_tree);
 
+    // The filename can be used in the future (e.g. in tl-nanos.cpp)
+    ast_set_filename(translation_unit->parsed_tree, translation_unit->input_filename);
+    
     timing_end(&timing_parsing);
 
     if (CURRENT_CONFIGURATION->verbose)

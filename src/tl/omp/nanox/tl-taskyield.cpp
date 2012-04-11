@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -26,42 +26,25 @@
 
 
 
-/*
-<testinfo>
-test_generator=config/mercurium-omp
-
-</testinfo>
-*/
-
-#include <stdlib.h>
-
-int a;
-int main(int argc, char *argv[])
+#include "tl-omp-nanox.hpp"
+namespace TL
 {
-    int b;
-
-    a = 10;
-    b = 20;
-
-#pragma omp parallel firstprivate(a, b)
+    namespace Nanox
     {
-        int i;
-        for (i = 0; i < 10; i++)
+        void OMPTransform::taskyield_postorder(PragmaCustomConstruct taskyield_construct)
         {
-            if (a != (10 + i))
-                abort();
-            if (b != (20 + i))
-                abort();
-            a++;
-            b++;
+            Source taskyield_source;
+
+            taskyield_source
+                << "{"
+                <<    "nanos_yield();"
+                << "}"
+                ;
+
+            AST_t taskyield_code = taskyield_source.parse_statement(taskyield_construct.get_ast(),
+                    taskyield_construct.get_scope_link());
+
+            taskyield_construct.get_ast().replace(taskyield_code);
         }
     }
-
-    if (a != 10)
-        abort();
-
-    if (b != 20)
-        abort();
-
-    return 0;
 }

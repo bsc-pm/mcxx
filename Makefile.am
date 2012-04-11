@@ -34,7 +34,6 @@ ACLOCAL_AMFLAGS=-I m4
 DISTCHECK_CONFIGURE_FLAGS =
 # We need to augment the command line variables
 override DISTCHECK_CONFIGURE_FLAGS += --enable-distcheck-processing=yes
-override DISTCHECK_CONFIGURE_FLAGS += $(SUPERSCALAR_DISTCHECK_CONFIGURE_FLAGS)
 
 dist-hook:
 	if [ -n "$(gitpath)" ]; \

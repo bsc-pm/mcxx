@@ -77,6 +77,7 @@ static type_t* cuda_get_dim3_type(void)
         new_class_sym->kind = SK_CLASS;
         new_class_sym->type_information = get_new_class_type(global_decl_context, TT_STRUCT);
         decl_context_t class_context = new_class_context(global_decl_context, new_class_sym);
+	class_type_set_inner_context(new_class_sym->type_information, class_context);
 
         class_type_set_inner_context(new_class_sym->type_information, class_context);
 
@@ -130,6 +131,7 @@ static type_t* cuda_get_uint3_type(void)
         new_class_sym->kind = SK_CLASS;
         new_class_sym->type_information = get_new_class_type(global_decl_context, TT_STRUCT);
         decl_context_t class_context = new_class_context(global_decl_context, new_class_sym);
+	class_type_set_inner_context(new_class_sym->type_information, class_context);
 
         class_type_set_inner_context(new_class_sym->type_information, class_context);
 
@@ -440,5 +442,5 @@ void init_cuda_builtins(decl_context_t decl_context UNUSED_PARAMETER)
 {
     cuda_get_dim3_type();
     cuda_get_uint3_type();
-    cuda_get_cudaStream_t_type();
+    // cuda_get_cudaStream_t_type();
 }

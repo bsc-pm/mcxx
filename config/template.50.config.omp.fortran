@@ -1,15 +1,11 @@
-[mfc : omp-base]
+# Fortran EXPERIMENTAL support
+[mf95]
 language = Fortran
 options =
-fortran_preprocessor_name = gfortran
-fortran_preprocessor_options = -cpp -E
+preprocessor_name = gfortran
+preprocessor_options = -cpp -E
 compiler_name = gfortran
 compiler_options =
 linker_name = gfortran
-linker_options = 
-
-[mf95 : mfc]
-
-[auxcc : plaincc]
-target_options[mfc] = no_sublink embed
-target_options[mf95] = no_sublink embed
+linker_options =
+{openmp} compiler_phase = libtlomp-core.so

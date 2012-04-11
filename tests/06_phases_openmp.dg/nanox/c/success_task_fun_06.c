@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -25,43 +25,45 @@
 --------------------------------------------------------------------*/
 
 
-
 /*
 <testinfo>
-test_generator=config/mercurium-omp
-
+test_generator=config/mercurium-nanox
 </testinfo>
 */
+#include <assert.h>
 
-#include <stdlib.h>
-
-int a;
-int main(int argc, char *argv[])
+#pragma omp task  inout([1] var)
+void f(int * var, int cnst)
 {
-    int b;
-
-    a = 10;
-    b = 20;
-
-#pragma omp parallel firstprivate(a, b)
+    int i = 0;
+    double x = 1;
+    for (i = 0; i < 10000; ++i)
     {
-        int i;
-        for (i = 0; i < 10; i++)
-        {
-            if (a != (10 + i))
-                abort();
-            if (b != (20 + i))
-                abort();
-            a++;
-            b++;
-        }
+        x = x * 2.0;
     }
-
-    if (a != 10)
-        abort();
-
-    if (b != 20)
-        abort();
-
-    return 0;
+    assert(*var == cnst);
+    (*var) = (*var) + 1;
 }
+
+#pragma omp task  concurrent([1] var)
+void g(int * var)
+{
+    (*var) = 0;
+}
+
+int main()
+{
+    int i;
+    int result = 0;
+    int *ptrResult = &result;
+    for (i = 0; i < 10; i++)
+        f(ptrResult, i);
+
+    g(ptrResult);
+
+    for (i = 0; i < 10; i++)
+        f(ptrResult, i);
+#pragma omp taskwait
+
+}
+
