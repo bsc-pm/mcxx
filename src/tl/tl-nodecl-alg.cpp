@@ -802,20 +802,21 @@ namespace TL
                         if (t.is_any_reference())
                             t = t.references_to();
 
-                        _upper_bound = Nodecl::Minus::make(
-                                rhs.copy(),
-                                const_value_to_nodecl(const_value_get_one(4, 1)),
-                                t,
-                                rhs.get_filename(),
-                                rhs.get_line());
-
                         if (rhs.is_constant())
                         {
-                            nodecl_set_constant(
-                                    _upper_bound.get_internal_nodecl(),
+                            _upper_bound = const_value_to_nodecl(
                                     const_value_sub(
                                         rhs.get_constant(),
                                         const_value_get_one(4, 1)));
+                        }
+                        else
+                        {
+                            _upper_bound = Nodecl::Minus::make(
+                                    rhs.copy(),
+                                    const_value_to_nodecl(const_value_get_one(4, 1)),
+                                    t,
+                                    rhs.get_filename(),
+                                    rhs.get_line());
                         }
                     }
                     else
@@ -826,20 +827,21 @@ namespace TL
                         if (t.is_any_reference())
                             t = t.references_to();
 
-                        _upper_bound = Nodecl::Add::make(
-                                lhs.copy(),
-                                const_value_to_nodecl(const_value_get_one(4, 1)),
-                                t,
-                                lhs.get_filename(),
-                                lhs.get_line());
-
                         if (lhs.is_constant())
                         {
-                            nodecl_set_constant(
-                                    _upper_bound.get_internal_nodecl(),
+                            _upper_bound = const_value_to_nodecl(
                                     const_value_add(
                                         lhs.get_constant(),
                                         const_value_get_one(4, 1)));
+                        }
+                        else
+                        {
+                            _upper_bound = Nodecl::Add::make(
+                                    lhs.copy(),
+                                    const_value_to_nodecl(const_value_get_one(4, 1)),
+                                    t,
+                                    lhs.get_filename(),
+                                    lhs.get_line());
                         }
                     }
                 }
@@ -866,20 +868,22 @@ namespace TL
                         if (t.is_any_reference())
                             t = t.references_to();
 
-                        _upper_bound = Nodecl::Add::make(
-                                rhs.copy(),
-                                const_value_to_nodecl(const_value_get_one(4, 1)),
-                                t,
-                                rhs.get_filename(),
-                                rhs.get_line());
 
                         if (rhs.is_constant())
                         {
-                            nodecl_set_constant(
-                                    _upper_bound.get_internal_nodecl(),
+                            _upper_bound = const_value_to_nodecl(
                                     const_value_add(
                                         rhs.get_constant(),
                                         const_value_get_one(4, 1)));
+                        }
+                        else
+                        {
+                            _upper_bound = Nodecl::Add::make(
+                                    rhs.copy(),
+                                    const_value_to_nodecl(const_value_get_one(4, 1)),
+                                    t,
+                                    rhs.get_filename(),
+                                    rhs.get_line());
                         }
                     }
                     else
@@ -890,20 +894,21 @@ namespace TL
                         if (t.is_any_reference())
                             t = t.references_to();
 
-                        _upper_bound = Nodecl::Minus::make(
-                                lhs.copy(),
-                                const_value_to_nodecl(const_value_get_one(4, 1)),
-                                t,
-                                lhs.get_filename(),
-                                lhs.get_line());
-
                         if (lhs.is_constant())
                         {
-                            nodecl_set_constant(
-                                    _upper_bound.get_internal_nodecl(),
+                            _upper_bound = const_value_to_nodecl(
                                     const_value_sub(
                                         lhs.get_constant(),
                                         const_value_get_one(4, 1)));
+                        }
+                        else
+                        {
+                            _upper_bound = Nodecl::Minus::make(
+                                    lhs.copy(),
+                                    const_value_to_nodecl(const_value_get_one(4, 1)),
+                                    t,
+                                    lhs.get_filename(),
+                                    lhs.get_line());
                         }
                     }
                 }
@@ -973,17 +978,17 @@ namespace TL
                 if (t.is_any_reference())
                     t = t.references_to();
 
-                _step = Nodecl::Neg::make(
-                        rhs,
-                        t,
-                        rhs.get_filename(),
-                        rhs.get_line());
-
                 if (rhs.is_constant())
                 {
-                    nodecl_set_constant(
-                            _step.get_internal_nodecl(),
-                            const_value_neg(rhs.get_constant()));
+                    _step = const_value_to_nodecl(const_value_neg(rhs.get_constant()));
+                }
+                else
+                {
+                    _step = Nodecl::Neg::make(
+                            rhs,
+                            t,
+                            rhs.get_filename(),
+                            rhs.get_line());
                 }
             }
             // _induction_var = _induction_var + incr
@@ -1015,17 +1020,18 @@ namespace TL
                 if (t.is_any_reference())
                     t = t.references_to();
 
-                _step = Nodecl::Neg::make(
-                        rhs.copy(),
-                        t,
-                        rhs.get_filename(),
-                        rhs.get_line());
-
                 if (rhs.is_constant())
                 {
-                    nodecl_set_constant(
-                            _step.get_internal_nodecl(),
+                    _step = const_value_to_nodecl(
                             const_value_neg(rhs.get_constant()));
+                }
+                else
+                {
+                    _step = Nodecl::Neg::make(
+                            rhs.copy(),
+                            t,
+                            rhs.get_filename(),
+                            rhs.get_line());
                 }
             }
             else
