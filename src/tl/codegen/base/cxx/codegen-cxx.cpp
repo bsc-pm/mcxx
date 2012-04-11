@@ -4868,7 +4868,9 @@ void CxxBase::walk_type_for_symbols(TL::Type t,
         TL::Symbol dependent_entry(NULL);
         t.dependent_typename_get_components(dependent_entry, nodecl_parts);
 
-        if (needs_def)
+        if (needs_def
+                && !(dependent_entry.is_class()
+                    && ::is_incomplete_type(dependent_entry.get_type().get_internal_type())))
         {
             (this->*symbol_to_define)(dependent_entry);
         }
