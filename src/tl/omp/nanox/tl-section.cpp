@@ -83,7 +83,7 @@ void OMPTransform::section_postorder(PragmaCustomConstruct ctr)
     Symbol function_symbol = funct_def.get_function_symbol();
 
     int outline_num = TL::CounterManager::get_counter(NANOX_OUTLINE_COUNTER);
-    TL::CounterManager::get_counter(NANOX_OUTLINE_COUNTER)++;
+
     std::stringstream ss;
     ss << "_ol_" << function_symbol.get_name() << "_" << outline_num;
 
@@ -97,14 +97,13 @@ void OMPTransform::section_postorder(PragmaCustomConstruct ctr)
             ;
     }
 
-    Source device_descriptor, 
-           device_description, 
-           device_description_line, 
-           num_devices,
+    Source device_descriptor,
+           device_description,
+           device_description_line,
            ancillary_device_description;
+
     device_descriptor << outline_name << "_devices";
     device_description
-        << ancillary_device_description
         << "nanos_device_t " << device_descriptor << "[] ="
         << "{"
         << device_description_line
@@ -173,27 +172,91 @@ void OMPTransform::section_postorder(PragmaCustomConstruct ctr)
     Source alignment;
     if (Nanos::Version::interface_is_at_least("master", 5004))
     {
-        alignment <<  "__alignof__(" << struct_arg_type_name << "),"
+        alignment <<  "__alignof__(" << struct_arg_type_name << ")"
             ;
+    }
+
+    Source num_devices, struct_size,
+           num_copies, copy_data, data, nanos_create_wd;
+
+    num_devices << 1;
+    struct_size << "sizeof(" << struct_arg_type_name << ")";
+    data << "(void**)&section_data";
+
+    // FIXME: No copies at the moment
+    num_copies << 0;
+    copy_data << "(nanos_copy_data_t**)0";
+
+    Source properties_opt, device_description_opt, decl_dyn_props_opt,
+           constant_code_opt, constant_struct_definition, constant_variable_declaration;
+    if (Nanos::Version::interface_is_at_least("master", 5012))
+    {
+        nanos_create_wd = OMPTransform::get_nanos_create_wd_compact_code(struct_size, data, copy_data);
+
+        decl_dyn_props_opt << "nanos_wd_dyn_props_t dyn_props = {0};";
+        
+        constant_code_opt
+            << constant_struct_definition
+            <<  constant_variable_declaration
+            ;
+
+        constant_struct_definition
+            << "struct nanos_const_wd_definition_local_t"
+            << "{"
+            <<      "nanos_const_wd_definition_t base;"
+            <<      "nanos_device_t devices[" << num_devices << "];"
+            << "};"
+            ;
+
+        constant_variable_declaration
+            << "static struct nanos_const_wd_definition_local_t _const_def ="
+            << "{"
+            <<      "{"
+            <<          "{"
+            <<              "1, " /* mandatory_creation */
+            <<              "0, " /* tied */
+            <<              "0, " /* reserved0 */
+            <<              "0, " /* reserved1 */
+            <<              "0, " /* reserved2 */
+            <<              "0, " /* reserved3 */
+            <<              "0, " /* reserved4 */
+            <<              "0, " /* reserved5 */
+            <<              "0, " /* priority */
+            <<          "}, "
+            <<          alignment   << ", "
+            <<          num_copies  << ", "
+            <<          num_devices << ", "
+            <<      "},"
+            <<      "{"
+            <<          device_description_line
+            <<      "}"
+            << "};"
+            ;
+    }
+    else
+    {
+        nanos_create_wd = OMPTransform::get_nanos_create_wd_code(num_devices,
+                device_descriptor, struct_size, alignment, data, num_copies, copy_data);
+
+        properties_opt
+            << "nanos_wd_props_t props;"
+            << "__builtin_memset(&props, 0, sizeof(props));"
+            << "props.mandatory_creation = 1;"
+            ;
+        device_description_opt << device_description;
     }
 
     spawn_source
         << "{"
         <<    "nanos_err_t err;"
-        <<    "nanos_wd_t wd = (nanos_wd_t)0;"
-        <<    device_description
+        <<    "nanos_wd_t  wd = (nanos_wd_t)0;"
+        <<    ancillary_device_description
+        <<    device_description_opt
         <<    struct_arg_type_name << "*section_data = ("<< struct_arg_type_name << "*)0;"
-        <<    "nanos_wd_props_t props;"
-        <<    "__builtin_memset(&props, 0, sizeof(props));"
-        <<    "props.mandatory_creation = 1;"
-        <<    "err = nanos_create_wd(&wd, "
-        <<          /* num_devices */ "1, " << device_descriptor << ", "
-        <<          "sizeof(" << struct_arg_type_name << "),"
-        <<          alignment
-        <<          "(void**)&section_data,"
-        <<          "nanos_current_wd(),"
-        // FIXME: No copies at the moment
-        <<          "&props, 0, (nanos_copy_data_t**)0);"
+        <<    constant_code_opt
+        <<    properties_opt
+        <<    decl_dyn_props_opt
+        <<    "err = " << nanos_create_wd
         <<    "if (err != NANOS_OK) nanos_handle_error(err);"
         <<    fill_outline_arguments
         // Do not submit, it will be done by the slicer
@@ -203,4 +266,5 @@ void OMPTransform::section_postorder(PragmaCustomConstruct ctr)
 
     AST_t spawn_tree = spawn_source.parse_statement(ctr.get_ast(), ctr.get_scope_link());
     ctr.get_ast().replace(spawn_tree);
+    TL::CounterManager::get_counter(NANOX_OUTLINE_COUNTER)++;
 }

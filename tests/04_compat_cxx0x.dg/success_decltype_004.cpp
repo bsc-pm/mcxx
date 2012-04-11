@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -25,43 +25,16 @@
 --------------------------------------------------------------------*/
 
 
-
 /*
 <testinfo>
-test_generator=config/mercurium-omp
-
+test_generator=config/mercurium-extensions
 </testinfo>
 */
 
-#include <stdlib.h>
-
-int a;
-int main(int argc, char *argv[])
+template<typename _T>
+void f() 
 {
-    int b;
-
-    a = 10;
-    b = 20;
-
-#pragma omp parallel firstprivate(a, b)
-    {
-        int i;
-        for (i = 0; i < 10; i++)
-        {
-            if (a != (10 + i))
-                abort();
-            if (b != (20 + i))
-                abort();
-            a++;
-            b++;
-        }
-    }
-
-    if (a != 10)
-        abort();
-
-    if (b != 20)
-        abort();
-
-    return 0;
+    _T aux;
+    decltype(aux) aux2 = aux;
+    aux2 > 0; 
 }

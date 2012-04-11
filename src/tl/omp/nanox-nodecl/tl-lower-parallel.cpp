@@ -76,6 +76,6 @@ namespace TL { namespace Nanox {
         emit_outline(outline_info, statements, outline_name, structure_symbol);
 
         // This function replaces the current construct
-        parallel_spawn(outline_info, construct, outline_name);
+        parallel_spawn(outline_info, construct, num_replicas, outline_name);
     }
 } }

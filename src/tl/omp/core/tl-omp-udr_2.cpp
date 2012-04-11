@@ -188,7 +188,7 @@ namespace TL
                                 scope_link, (*it).type, identity_expr, is_constructor, need_equal_initializer);
                     builtin_udr.set_identity(identity_expr);
                     builtin_udr.set_is_constructor(false);
-                    builtin_udr.set_need_equal_initializer(false);
+                    builtin_udr.set_need_equal_initializer(true);
                     builtin_udr.set_function_definition_symbol(NULL);    // Builtin UDRs don't have a function definition
 
                     builtin_udr.sign_in_scope(global_scope, (*it).type);

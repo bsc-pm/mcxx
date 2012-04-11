@@ -867,19 +867,126 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FloatingLiteral& node)
 #endif
 }
 
+void CxxBase::emit_range_loop_header(
+        Nodecl::RangeLoopControl lc,
+        Nodecl::NodeclBase statement,
+        const std::string& rel_op)
+{
+
+    TL::Symbol ind_var = lc.get_symbol();
+
+    indent();
+    file << "for (";
+
+    // I = L
+    file << ind_var.get_qualified_name();
+    file << " = ";
+    walk(lc.get_lower());
+    file << "; ";
+
+    // I <= L     (or   I >= L)
+    file << ind_var.get_qualified_name() << rel_op;
+    walk(lc.get_upper());
+    file << "; ";
+
+    // I += S
+    file << ind_var.get_qualified_name() << " += ";
+    walk(lc.get_step());
+
+    file << ")\n";
+
+    inc_indent();
+    walk(statement);
+    dec_indent();
+}
+
 CxxBase::Ret CxxBase::visit(const Nodecl::ForStatement& node)
 {
     Nodecl::NodeclBase loop_control = node.get_loop_header();
     Nodecl::NodeclBase statement = node.get_statement();
 
-    indent();
-    file << "for (";
-    walk(loop_control);
-    file << ")";
+    if (loop_control.is<Nodecl::LoopControl>())
+    {
+        indent();
+        file << "for (";
+        walk(loop_control);
+        file << ")\n";
 
-    inc_indent();
-    walk(statement);
-    dec_indent();
+        inc_indent();
+        walk(statement);
+        dec_indent();
+    }
+    else if (loop_control.is<Nodecl::RangeLoopControl>())
+    {
+        Nodecl::RangeLoopControl lc = loop_control.as<Nodecl::RangeLoopControl>();
+
+        Nodecl::NodeclBase lower = lc.get_lower();
+        Nodecl::NodeclBase upper = lc.get_upper();
+        Nodecl::NodeclBase step = lc.get_step();
+
+        // Try to be a bit smart
+        if (lower.is_null())
+        {
+            // This only happens for DO without loop-control
+            indent();
+            file << "for (;;)\n";
+            inc_indent();
+            walk(statement);
+            dec_indent();
+        }
+        else if (!step.is_null()
+                && step.is_constant())
+        {
+            std::string rel_op = " <= ";
+            bool is_positive = 0;
+            const_value_t* v = step.get_constant();
+            if (const_value_is_negative(v))
+            {
+                rel_op = " >= ";
+            }
+
+            emit_range_loop_header(lc, statement, rel_op);
+        }
+        else
+        {
+            indent();
+            file << "if (";
+            walk(step);
+            file << "> 0)\n;";
+
+            inc_indent();
+            indent();
+            file << "{\n";
+
+            inc_indent();
+            emit_range_loop_header(lc, statement, " <= ");
+            dec_indent();
+
+            indent();
+            file << "}\n";
+            dec_indent();
+
+            indent();
+            file << "else\n";
+
+            inc_indent();
+            indent();
+            file << "{\n";
+
+            inc_indent();
+            emit_range_loop_header(lc, statement, " >= ");
+            dec_indent();
+
+            indent();
+            file << "}\n";
+            dec_indent();
+        }
+
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
 }
 
 template <typename Iterator>
@@ -1764,14 +1871,14 @@ CxxBase::Ret CxxBase::visit(const Nodecl::LoopControl& node)
     state.in_condition = 1;
 
     walk(init);
-    file << ";";
+    file << "; ";
 
     Nodecl::NodeclBase old_condition_top = state.condition_top;
     state.condition_top = cond;
 
     // But it is desirable for the condition in "for( ... ; (i = x) ; ...)"
     walk(cond);
-    file << ";";
+    file << "; ";
 
     state.condition_top = old_condition_top;
 
@@ -2457,6 +2564,14 @@ CxxBase::Ret CxxBase::visit(const Nodecl::GxxTrait& node)
     }
 
     file << ")";
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::AsmDefinition& node)
+{
+    indent();
+    file << "asm(";
+    walk(node.get_asm_text());
+    file << ");\n";
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::GccAsmDefinition& node)

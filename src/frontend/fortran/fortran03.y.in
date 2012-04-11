@@ -3151,7 +3151,7 @@ nonlabel_do_stmt : labeldef name_colon_opt TOK_DO loop_control eos
 }
 | labeldef name_colon_opt TOK_DO eos
 {
-    AST empty_loop_control = ASTMake3(AST_LOOP_CONTROL, NULL, NULL, NULL, $3.token_file, $3.token_line, NULL);
+    AST empty_loop_control = ASTMake4(AST_LOOP_CONTROL, NULL, NULL, NULL, NULL, $3.token_file, $3.token_line, NULL);
     $$ = ASTMake4Label(AST_FOR_STATEMENT, $1, empty_loop_control, NULL, NULL, $3.token_file, $3.token_line, safe_asttext($2));
 }
 ;
@@ -3212,8 +3212,7 @@ comma_opt : ','
 ;
 loop_control : comma_opt do_variable '=' int_expr ',' int_expr comma_int_expr_opt
 {
-    AST assig = ASTMake2(AST_ASSIGNMENT, $2, $4, ASTFileName($2), ASTLine($2), NULL);
-    $$ = ASTMake3(AST_LOOP_CONTROL, assig, $6, $7, ASTFileName($2), ASTLine($2), "fortran");
+    $$ = ASTMake4(AST_LOOP_CONTROL, $2, $4, $6, $7, ASTFileName($2), ASTLine($2), "fortran");
 }
 ;
 while_loop_control : ',' TOK_WHILE '(' logical_expr ')'

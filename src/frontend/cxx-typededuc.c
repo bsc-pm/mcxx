@@ -959,6 +959,10 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
             original_parameter_type = update_type(original_parameter_type,
                     updated_context, filename, line);
 
+            // The type failed to be updated
+            if (original_parameter_type == NULL)
+                return 0;
+
             if (!is_dependent_type(original_parameter_type))
             {
                 // Skip this one since explicit parameter types left this one
@@ -970,6 +974,10 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
         type_t* updated_type = 
             update_type(original_parameter_type, 
                     updated_context, filename, line);
+
+        // The type failed to be updated
+        if (updated_type == NULL)
+            return 0;
 
         if (is_unresolved_overloaded_type(argument_types[i])
                 || (is_pointer_type(argument_types[i])

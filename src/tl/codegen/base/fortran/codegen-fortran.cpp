@@ -530,13 +530,47 @@ namespace Codegen
         }
         else if (entry.is_variable())
         {
-            if (!entry.is_static()
-                    && !entry.get_type().is_const())
+            if (entry.is_static())
+            {
+                // Do nothing 
+                //
+                // static int a = 3;
+            }
+            else if (entry.get_type().is_const()
+                            && !entry.get_initialization().is_null()
+                            && entry.get_initialization().is_constant())
+            {
+                // Do nothing
+                //
+                // const int n = x;
+            }
+            else if (entry.get_type().is_array()
+                    && entry.get_type().array_is_vla()
+                    && !entry.is_parameter())
+            {
+                // ALLOCATE this non-dummy VLA
+                indent();
+                std::string type_spec, array_spec;
+                codegen_type(entry.get_type(), type_spec, array_spec, 
+                        // Note: we set it as a dummy because we want the full array_spec, not just (:, :)
+                        /* is_dummy */ true);
+                file << "ALLOCATE(" << rename(entry) << array_spec << ")\n";
+            }
+            else
             {
                 // Fake an assignment statement
                 indent();
-                file << rename(entry) << " = ";
-                walk(entry.get_initialization());
+                Nodecl::Symbol nodecl_sym = Nodecl::Symbol::make(entry, node.get_filename(), node.get_line());
+                nodecl_set_type(nodecl_sym.get_internal_nodecl(), entry.get_type().get_internal_type());
+
+                Nodecl::Assignment assig = Nodecl::Assignment::make(
+                        nodecl_sym,
+                        entry.get_initialization().copy(),
+                        entry.get_type(),
+                        node.get_filename(),
+                        node.get_line());
+
+                walk(assig);
                 file << "\n";
             }
         }
@@ -1342,28 +1376,81 @@ OPERATOR_TABLE
 
     void FortranBase::visit(const Nodecl::ForStatement& node)
     {
-        indent();
-        if (!node.get_loop_name().is_null())
-        {
-            walk(node.get_loop_name());
-            file << " : ";
-        }
-        file << "DO";
+        Nodecl::NodeclBase header = node.get_loop_header();
 
-        walk(node.get_loop_header());
-        file<< "\n";
-        inc_indent();
-        walk(node.get_statement());
-        dec_indent();
-        indent();
-
-        file << "END DO";
-        if (!node.get_loop_name().is_null())
+        if (header.is<Nodecl::LoopControl>())
         {
-            file << " ";
-            walk(node.get_loop_name());
+            // Not a ranged loop. This is a DO WHILE
+            if (!node.get_loop_name().is_null())
+            {
+                walk(node.get_loop_name());
+                file << " : ";
+            }
+
+            Nodecl::LoopControl lc = node.get_loop_header().as<Nodecl::LoopControl>();
+
+            // Init
+            indent();
+            walk(lc.get_init());
+            file << "\n";
+
+            // Loop
+            indent();
+            file << "DO WHILE(";
+            walk(lc.get_cond());
+            file << ")";
+            file << "\n";
+
+            // Loop body
+            inc_indent();
+            walk(node.get_statement());
+
+            // Advance loop
+            indent();
+            walk(lc.get_next());
+            file << "\n";
+            dec_indent();
+
+            indent();
+            file << "END DO";
+
+            if (!node.get_loop_name().is_null())
+            {
+                file << " ";
+                walk(node.get_loop_name());
+            }
+            file << "\n";
         }
-        file << "\n";
+        else if (header.is<Nodecl::RangeLoopControl>())
+        {
+            indent();
+
+            if (!node.get_loop_name().is_null())
+            {
+                walk(node.get_loop_name());
+                file << " : ";
+            }
+            file << "DO";
+
+            walk(node.get_loop_header());
+            file << "\n";
+            inc_indent();
+            walk(node.get_statement());
+            dec_indent();
+            indent();
+
+            file << "END DO";
+            if (!node.get_loop_name().is_null())
+            {
+                file << " ";
+                walk(node.get_loop_name());
+            }
+            file << "\n";
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
+        }
     }
 
     void FortranBase::visit(const Nodecl::WhileStatement& node)
@@ -1393,11 +1480,12 @@ OPERATOR_TABLE
         file << "\n";
     }
 
-    void FortranBase::visit(const Nodecl::LoopControl& node)
+    void FortranBase::visit(const Nodecl::RangeLoopControl& node)
     {
-        Nodecl::NodeclBase init = node.get_init();
-        Nodecl::NodeclBase cond = node.get_cond();
-        Nodecl::NodeclBase next = node.get_next();
+        TL::Symbol ind_var = node.get_symbol();
+        Nodecl::NodeclBase lower = node.get_lower();
+        Nodecl::NodeclBase upper = node.get_upper();
+        Nodecl::NodeclBase stride = node.get_step();
 
         std::string separator = ", ";
 
@@ -1407,7 +1495,7 @@ OPERATOR_TABLE
             separator = ":";
         }
 
-        if (!init.is_null())
+        if (!lower.is_null())
         {
             // Needed for DO but not for FORALL which uses a (
             if (!state.in_forall)
@@ -1415,22 +1503,29 @@ OPERATOR_TABLE
                 file << " ";
             }
 
-            walk(init);
+            bool old_in_forall = state.in_forall;
+            state.in_forall = false;
 
-            if (!cond.is_null())
+            file << rename(ind_var) << " = ";
+
+            walk(lower);
+
+            if (!upper.is_null())
             {
                 file << separator;
-                walk(cond);
+                walk(upper);
             }
-            if (!next.is_null())
+            if (!stride.is_null())
             {
                 file << separator;
-                walk(next);
+                walk(stride);
             }
             else
             {
                 file << separator << "1";
             }
+
+            state.in_forall = old_in_forall;
         }
     }
 
@@ -2439,7 +2534,7 @@ OPERATOR_TABLE
             std::string type_specifier;
             std::string array_specifier;
             codegen_type(function_type.returns(), type_specifier, array_specifier,
-                    /* is_dummy */ 0);
+                    /* is_dummy */ false);
 
             indent();
             file << type_specifier << " :: " << entry.get_name() << "\n";
@@ -2601,7 +2696,13 @@ OPERATOR_TABLE
 
             std::string attribute_list = "";
 
-            if (entry.is_allocatable())
+            // VLA that are not parameter are handled as if they were allocatable
+            bool handle_as_allocatable = declared_type.is_array()
+                && declared_type.array_is_vla()
+                && !entry.is_parameter();
+
+            if (entry.is_allocatable() 
+                    || handle_as_allocatable)
                 attribute_list += ", ALLOCATABLE";
             if (entry.is_target())
                 attribute_list += ", TARGET";
@@ -2640,7 +2741,8 @@ OPERATOR_TABLE
             if (entry.get_type().is_volatile())
                 attribute_list += ", VOLATILE";
             if (entry.get_type().is_const()
-                    && !entry.get_initialization().is_null())
+                    && !entry.get_initialization().is_null()
+                    && entry.get_initialization().is_constant())
             {
                 attribute_list += ", PARAMETER";
             }
@@ -2674,7 +2776,8 @@ OPERATOR_TABLE
                 declare_everything_needed(entry.get_initialization());
 
                 if (entry.is_static()
-                            || entry.get_type().is_const())
+                        || (entry.get_type().is_const()
+                            && entry.get_initialization().is_constant()))
                 {
                     TL::Type t = entry.get_type();
                     if (t.is_any_reference())
@@ -3582,7 +3685,7 @@ OPERATOR_TABLE
                 || (is_fortran_character_type(t.get_internal_type())));
     }
 
-    void FortranBase::codegen_type(TL::Type t, std::string& type_specifier, std::string& array_specifier, bool /* is_dummy */)
+    void FortranBase::codegen_type(TL::Type t, std::string& type_specifier, std::string& array_specifier, bool is_dummy)
     {
         type_specifier = "";
 
@@ -3594,6 +3697,10 @@ OPERATOR_TABLE
         {
             t = t.points_to();
         }
+        
+        bool handle_as_allocatable = t.is_array()
+            && t.array_is_vla()
+            && !is_dummy;
         
         // If this is an enum, use its underlying integer type
         if (t.is_enum())
@@ -3619,7 +3726,8 @@ OPERATOR_TABLE
                 internal_error("too many array dimensions %d\n", MCXX_MAX_ARRAY_SPECIFIER);
             }
 
-            if (!is_fortran_pointer)
+            if (!is_fortran_pointer
+                    && !handle_as_allocatable)
             {
                 array_spec_list[array_spec_idx].lower = array_type_get_array_lower_bound(t.get_internal_type());
                 if (array_spec_list[array_spec_idx].lower.is_constant())
