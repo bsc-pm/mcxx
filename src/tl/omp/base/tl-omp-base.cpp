@@ -491,16 +491,18 @@ namespace TL { namespace OpenMP {
         Nodecl::List code;
         Nodecl::Parallel::Distribute distribute =
             Nodecl::Parallel::Distribute::make(
-                    execution_environment,
-                    Nodecl::Parallel::DistributeRange::make(
-                        for_statement.get_lower_bound(), 
-                        for_statement.get_upper_bound(), 
-                        for_statement.get_step(), 
-                        for_statement.get_induction_variable(),
-                        for_statement.get_filename(),
-                        for_statement.get_line()),
+                    Nodecl::NodeclBase::null(),
+                    // This is a list because of multidimensional distribution
+                    Nodecl::List::make(
+                        Nodecl::Parallel::DistributeRange::make(
+                            for_statement.get_lower_bound(), 
+                            for_statement.get_upper_bound(), 
+                            for_statement.get_step(), 
+                            for_statement.get_induction_variable(),
+                            for_statement.get_filename(),
+                            for_statement.get_line())),
                     Nodecl::Parallel::Async::make(
-                        /* unused */ Nodecl::NodeclBase::null(),
+                        execution_environment,
                         for_statement.get_statement(),
                         for_statement.get_filename(),
                         for_statement.get_line()),

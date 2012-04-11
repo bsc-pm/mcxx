@@ -144,7 +144,7 @@ namespace TL { namespace Nanox {
         TL::ObjectList<std::string> parameter_names;
         TL::ObjectList<TL::Type> parameter_types;
 
-        Source unpack_code, unpacked_arguments, cleanup_code;
+        Source unpack_code, unpacked_arguments, cleanup_code, private_entities;
 
         TL::ObjectList<OutlineDataItem> data_items = outline_info.get_data_items();
         for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
@@ -158,6 +158,26 @@ namespace TL { namespace Nanox {
             {
                 case OutlineDataItem::SHARING_PRIVATE:
                     {
+                        TL::Symbol sym = it->get_symbol();
+
+                        if (IS_C_LANGUAGE
+                                || IS_CXX_LANGUAGE)
+                        {
+                            private_entities
+                                << as_type(sym.get_type()) << " " << sym.get_name() << ";"
+                                ;
+                        }
+                        else if (IS_FORTRAN_LANGUAGE)
+                        {
+                            private_entities
+                                << as_type(sym.get_type()) << " :: " << sym.get_name() << "\n"
+                                ;
+                        }
+                        else
+                        {
+                            internal_error("Code unreachable", 0);
+                        }
+
                         break;
                     }
                 case OutlineDataItem::SHARING_SHARED:
@@ -286,10 +306,23 @@ namespace TL { namespace Nanox {
 
         TL::ReplaceSymbols replace_symbols;
 
-        Source replaced_body_src;
-        replaced_body_src << replace_symbols.replace(body);
+        Source outline_body;
+        if (!IS_FORTRAN_LANGUAGE)
+        {
+            outline_body
+                << "{";
+        }
+        outline_body 
+            << private_entities
+            << replace_symbols.replace(body)
+            ;
+        if (!IS_FORTRAN_LANGUAGE)
+        {
+            outline_body
+                << "}";
+        }
 
-        Nodecl::NodeclBase new_unpacked_body = replaced_body_src.parse_statement(unpacked_function_body);
+        Nodecl::NodeclBase new_unpacked_body = outline_body.parse_statement(unpacked_function_body);
         unpacked_function_body.integrate(new_unpacked_body);
 
         Nodecl::NodeclBase outline_function_code, outline_function_body;
@@ -330,8 +363,20 @@ namespace TL { namespace Nanox {
     void LoweringVisitor::emit_outline(OutlineInfo& outline_info,
             Nodecl::NodeclBase body,
             const std::string& outline_name,
-            const std::string& structure_name)
+            TL::Symbol structure_symbol)
     {
+        TL::Symbol current_function = body.retrieve_context().get_decl_context().current_scope->related_entry;
+
+        if (current_function.is_nested_function())
+        {
+            if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+                running_error("%s: error: nested functions are not supported\n", 
+                        body.get_locus().c_str());
+            if (IS_FORTRAN_LANGUAGE)
+                running_error("%s: error: internal subprograms are not supported\n", 
+                        body.get_locus().c_str());
+        }
+
         Source outline, 
             unpacked_arguments, 
             unpacked_parameters, 
@@ -347,6 +392,8 @@ namespace TL { namespace Nanox {
 
         Nodecl::NodeclBase placeholder_body;
 
+        TL::Type structure_type = ::get_user_defined_type(structure_symbol.get_internal_symbol());
+
         // FIXME - Factorize this as a common action of "create a function"
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
         {
@@ -356,7 +403,7 @@ namespace TL { namespace Nanox {
                 <<      private_entities
                 <<      statement_placeholder(placeholder_body)
                 << "}"
-                << "void " << outline_name << "(" << structure_name << " @ref@ args)"
+                << "void " << outline_name << "(" << as_type(structure_type) << " @ref@ args)"
                 << "{"
                 <<      unpack_code
                 <<      outline_name << "_unpacked(" << unpacked_arguments << ");"
@@ -377,7 +424,7 @@ namespace TL { namespace Nanox {
 
                 << "SUBROUTINE " << outline_name << "(args)\n"
                 <<      "IMPLICIT NONE\n"
-                <<      "TYPE(" << structure_name << ") :: args\n"
+                <<      as_type(structure_type) << " :: args\n"
                 <<      "INTERFACE\n"
                 <<           "SUBROUTINE " << outline_name << "_unpacked(" << unpacked_parameters << ")\n"
                 <<                "IMPLICIT NONE\n"
@@ -396,7 +443,6 @@ namespace TL { namespace Nanox {
         }
 
         TL::ReplaceSymbols replace_symbols;
-        TL::ObjectList<Symbol> do_not_declare;
 
         TL::ObjectList<OutlineDataItem> data_items = outline_info.get_data_items();
         for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
@@ -406,9 +452,6 @@ namespace TL { namespace Nanox {
             if (!it->get_symbol().is_valid())
                 continue;
 
-            // We are manually declaring this symbol, do not declare it at all
-            do_not_declare.insert(it->get_symbol());
-
             switch (it->get_sharing())
             {
                 case OutlineDataItem::SHARING_PRIVATE:
@@ -416,16 +459,14 @@ namespace TL { namespace Nanox {
                         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
                         {
                             private_entities 
-                                << it->get_field_type().get_declaration(it->get_symbol().get_scope(), it->get_field_name())
+                                << as_type(it->get_field_type()) << " " << it->get_field_name()
                                 << ";"
                                 ;
                         }
                         else if (IS_FORTRAN_LANGUAGE)
                         {
                             private_entities 
-                                << it->get_field_type().get_fortran_declaration(
-                                        it->get_symbol().get_scope(), 
-                                        it->get_field_name()) 
+                                << as_type(it->get_field_type()) << " :: " << it->get_field_name()
                                 << "\n"
                                 ;
                         }
@@ -443,21 +484,16 @@ namespace TL { namespace Nanox {
                                 case OutlineDataItem::ITEM_KIND_NORMAL:
                                 case OutlineDataItem::ITEM_KIND_DATA_DIMENSION:
                                     {
-                                        parameter << it->get_field_type().get_declaration(it->get_symbol().get_scope(), it->get_field_name());
+                                        parameter << as_type(it->get_in_outline_type()) << " " << it->get_field_name();
                                         break;
                                     }
                                 case OutlineDataItem::ITEM_KIND_DATA_ADDRESS:
                                     {
-                                        parameter 
-                                            << it->get_field_type().get_declaration(it->get_symbol().get_scope(), "ptr_" + it->get_field_name());
 
-                                        // Note the type being emitted here is using as names those of the fields 
-                                        // FIXME: This will not work in C++ (where members will appear as A::b)
-                                        // We need to update the type again... with the real members but this requires parsing the function first
                                         private_entities
-                                            << it->get_in_outline_type().get_declaration(it->get_symbol().get_scope(), it->get_field_name())
+                                            << as_type(it->get_in_outline_type()) << " " << it->get_field_name() << " = " 
                                             << " = "
-                                            << "(" << it->get_in_outline_type().get_declaration(it->get_symbol().get_scope(), "") << ")"
+                                            << "(" << as_type(it->get_in_outline_type()) << ")"
                                             << "ptr_" << it->get_field_name()
                                             << ";"
                                             ;
@@ -474,10 +510,7 @@ namespace TL { namespace Nanox {
                             parameter << it->get_symbol().get_name();
 
                             unpacked_parameter_declarations 
-                                << it->get_in_outline_type().get_fortran_declaration(
-                                        it->get_symbol().get_scope(), 
-                                        it->get_field_name(), 
-                                        Type::PARAMETER_DECLARATION) 
+                                << as_type(it->get_in_outline_type()) << " :: " << it->get_field_name()
                                 << "\n"
                                 ;
                         }
@@ -532,14 +565,6 @@ namespace TL { namespace Nanox {
                         internal_error("Unexpected data sharing kind", 0);
                     }
             }
-        }
-
-        if (IS_FORTRAN_LANGUAGE)
-        {
-            // Complete all what fortran needs
-            Codegen::FortranBase& codegen = static_cast<Codegen::FortranBase&>(Codegen::get_current());
-
-            declaration_part << codegen.emit_declaration_part(body, do_not_declare);
         }
 
         Nodecl::NodeclBase node = outline.parse_global(body);
