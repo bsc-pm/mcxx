@@ -3705,7 +3705,7 @@ void CxxBase::define_symbol(TL::Symbol symbol)
         TL::Symbol entry(NULL);
         Nodecl::NodeclBase n = Nodecl::NodeclBase::null();
         symbol.get_type().dependent_typename_get_components(entry, n);
-        define_symbol(entry);
+        define_symbol_if_nonnested(entry);
         return;
     }
 
@@ -3840,6 +3840,11 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
     if (symbol.get_type().is_template_specialized_type()
             && !symbol.is_user_declared())
     {
+        //We may need to define or declare the template arguments
+        TL::TemplateParameters template_arguments =
+            symbol.get_type().template_specialized_type_get_template_arguments();
+        declare_all_in_template_arguments(template_arguments);
+
         //We must declare ONLY the primary template
         TL::Symbol primary_symbol =
             symbol
