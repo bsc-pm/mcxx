@@ -8637,15 +8637,22 @@ static void build_scope_template_declaration(AST a,
 
 }
 
+static void push_new_template_header_level(decl_context_t decl_context, decl_context_t *template_context)
+{
+    (*template_context) = decl_context;
+    // A new level of template nesting
+    (*template_context).template_parameters =
+        counted_calloc(1, sizeof(*(*template_context).template_parameters), &_bytes_used_buildscope);
+    (*template_context).template_parameters->enclosing = decl_context.template_parameters;
+}
+
 void build_scope_template_header(AST template_parameter_list, 
         decl_context_t decl_context, 
         decl_context_t *template_context,
         nodecl_t* nodecl_output)
 {
-    (*template_context) = decl_context;
-    // A new level of template nesting
-    (*template_context).template_parameters = counted_calloc(1, sizeof(*(*template_context).template_parameters), &_bytes_used_buildscope);
-    (*template_context).template_parameters->enclosing = decl_context.template_parameters;
+    push_new_template_header_level(decl_context, template_context);
+
 
     int nesting = get_template_nesting_of_context(decl_context) + 1;
     build_scope_template_parameter_list(template_parameter_list, 
@@ -8662,12 +8669,8 @@ static void build_scope_explicit_template_specialization(AST a,
         scope_entry_list_t** declared_symbols,
         nodecl_t* nodecl_output)
 {
-    template_parameter_list_t *tpl_param_list = counted_calloc(1, sizeof(*tpl_param_list), &_bytes_used_buildscope);
-    tpl_param_list->enclosing = decl_context.template_parameters;
-
-    decl_context_t template_context = decl_context;
-    template_context.template_parameters = tpl_param_list;
-
+    decl_context_t template_context;
+    push_new_template_header_level(decl_context, &template_context);
     // Note that we do not increment here the template_nesting because complete
     // specializations do not introduce a new template nesting. 
     //
