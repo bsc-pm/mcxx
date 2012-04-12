@@ -143,10 +143,16 @@ namespace Codegen
                     std::string& array_specifier,
                     bool is_dummy);
 
-            std::string emit_declaration_part(Nodecl::NodeclBase node, const TL::ObjectList<TL::Symbol>& do_not_declare);
-
             virtual void push_context(TL::Scope sc) { }
             virtual void pop_context() { }
+
+            std::string emit_declaration_for_symbol(TL::Symbol symbol, TL::Scope sc);
+            std::string emit_declaration_for_symbols(const TL::ObjectList<TL::Symbol>& sym_set, TL::Scope sc);
+
+            void set_emit_types_as_literals(bool b)
+            {
+                state.emit_types_as_literals = b;
+            }
         private:
             // State
             struct State
@@ -166,12 +172,15 @@ namespace Codegen
                 // We emit an array construct but we want it flattened
                 bool flatten_array_construct;
 
+                bool emit_types_as_literals;
+
                 State()
                     : _indent_level(0),
                     in_forall(false),
                     in_interface(false),
                     in_data_value(false),
-                    flatten_array_construct(false)
+                    flatten_array_construct(false),
+                    emit_types_as_literals(false)
                 {
                 }
             } state;

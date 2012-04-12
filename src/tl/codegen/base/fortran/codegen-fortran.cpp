@@ -29,6 +29,7 @@
 #include "fortran03-scope.h"
 #include "fortran03-typeutils.h"
 #include "tl-compilerpipeline.hpp"
+#include "tl-source.hpp"
 #include "cxx-cexpr.h"
 #include "cxx-driver-utils.h"
 #include "string_utils.h"
@@ -3687,6 +3688,14 @@ OPERATOR_TABLE
 
     void FortranBase::codegen_type(TL::Type t, std::string& type_specifier, std::string& array_specifier, bool is_dummy)
     {
+        // We were requested to emit types as literals
+        if (state.emit_types_as_literals)
+        {
+            type_specifier = as_type(t);
+            array_specifier = "";
+            return;
+        }
+
         type_specifier = "";
 
         if (t.is_any_reference())
@@ -4198,6 +4207,54 @@ OPERATOR_TABLE
         ::mark_file_for_cleanup(file_name.c_str());
     }
 
+    std::string FortranBase::emit_declaration_for_symbol(TL::Symbol symbol, TL::Scope sc)
+    {
+        clear_codegen_status();
+        clear_renames();
+
+        state = State();
+        push_declaring_entity(sc.get_decl_context().current_scope->related_entry);
+
+        file.clear();
+        file.str("");
+
+        if (symbol.is_from_module())
+        {
+            codegen_use_statement(symbol, sc);
+        }
+        else
+        {
+            declare_symbol(symbol);
+        }
+
+        std::string result = file.str();
+
+        file.clear();
+        file.str("");
+
+        pop_declaring_entity();
+
+        clear_codegen_status();
+        clear_renames();
+
+        return result;
+    }
+
+    std::string FortranBase::emit_declaration_for_symbols(const TL::ObjectList<TL::Symbol>& sym_set, TL::Scope sc)
+    {
+        std::string result;
+
+        for (TL::ObjectList<TL::Symbol>::const_iterator it = sym_set.begin();
+                it != sym_set.end();
+                it++)
+        {
+            result += emit_declaration_for_symbol(*it, sc);
+        }
+
+        return result;
+    }
+
+#if 0
     std::string FortranBase::emit_declaration_part(Nodecl::NodeclBase node, const TL::ObjectList<TL::Symbol>& do_not_declare)
     {
         clear_codegen_status();
@@ -4231,6 +4288,7 @@ OPERATOR_TABLE
 
         return result;
     }
+#endif
 
     void FortranBase::push_declaration_status()
     {

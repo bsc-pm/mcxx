@@ -34,9 +34,45 @@
 #include "codegen-phase.hpp"
 #include "codegen-fortran.hpp"
 
+#include "fortran03-scope.h"
+
 using TL::Source;
 
 namespace TL { namespace Nanox {
+
+    struct FunctionVisitor : Nodecl::ExhaustiveVisitor<void>
+    {
+        public:
+
+            TL::ObjectList<TL::Symbol> function_set;
+
+            virtual void visit(const Nodecl::FunctionCall &function_call)
+            {
+                Nodecl::NodeclBase function_name = function_call.get_called();
+                Nodecl::NodeclBase alternate_name = function_call.get_alternate_name();
+                Nodecl::NodeclBase argument_seq = function_call.get_arguments();
+
+                if (alternate_name.is_null())
+                {
+                    walk(function_name);
+                }
+                else
+                {
+                    walk(alternate_name);
+                }
+
+                walk(argument_seq);
+            }
+
+            virtual void visit(const Nodecl::Symbol &node_sym)
+            {
+                TL::Symbol sym = node_sym.get_symbol();
+                if (sym.is_function())
+                {
+                    function_set.insert(sym);
+                }
+            }
+    };
 
     static TL::Symbol new_function_symbol(Scope sc,
             const std::string& name,
@@ -56,8 +92,16 @@ namespace TL { namespace Nanox {
 
         ERROR_CONDITION(parameter_names.size() != parameter_types.size(), "Mismatch between names and types", 0);
 
-        decl_context_t function_context = new_function_context(decl_context);
-        function_context = new_block_context(function_context);
+        decl_context_t function_context ;
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            function_context = new_program_unit_context(decl_context);
+        }
+        else
+        {
+            function_context = new_function_context(decl_context);
+            function_context = new_block_context(function_context);
+        }
         function_context.function_scope->related_entry = entry;
         function_context.block_scope->related_entry = entry;
 
@@ -144,7 +188,7 @@ namespace TL { namespace Nanox {
         TL::ObjectList<std::string> parameter_names;
         TL::ObjectList<TL::Type> parameter_types;
 
-        Source unpack_code, unpacked_arguments, cleanup_code, private_entities;
+        Source unpack_code, unpacked_arguments, cleanup_code, private_entities, extra_declarations;
 
         TL::ObjectList<OutlineDataItem> data_items = outline_info.get_data_items();
         for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
@@ -313,6 +357,7 @@ namespace TL { namespace Nanox {
                 << "{";
         }
         outline_body 
+            << extra_declarations
             << private_entities
             << replace_symbols.replace(body)
             ;
@@ -320,6 +365,23 @@ namespace TL { namespace Nanox {
         {
             outline_body
                 << "}";
+        }
+
+        // Fortran may require explicit declaration for external procedures or module procedures
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            FunctionVisitor fun_visitor;
+            fun_visitor.walk(body);
+
+            extra_declarations 
+                << "IMPLICIT NONE\n";
+
+            // Complete all what fortran needs
+            Codegen::FortranBase& codegen = static_cast<Codegen::FortranBase&>(Codegen::get_current());
+
+            codegen.set_emit_types_as_literals(true);
+            extra_declarations << codegen.emit_declaration_for_symbols(fun_visitor.function_set, body.retrieve_context());
+            codegen.set_emit_types_as_literals(false);
         }
 
         Nodecl::NodeclBase new_unpacked_body = outline_body.parse_statement(unpacked_function_body);
