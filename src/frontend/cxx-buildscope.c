@@ -8637,12 +8637,16 @@ static void build_scope_template_declaration(AST a,
 
 }
 
-static void push_new_template_header_level(decl_context_t decl_context, decl_context_t *template_context)
+static void push_new_template_header_level(decl_context_t decl_context,
+        decl_context_t *template_context,
+        char is_explicit_specialization)
 {
     (*template_context) = decl_context;
     // A new level of template nesting
     (*template_context).template_parameters =
         counted_calloc(1, sizeof(*(*template_context).template_parameters), &_bytes_used_buildscope);
+
+    (*template_context).template_parameters->is_explicit_specialization = is_explicit_specialization;
     (*template_context).template_parameters->enclosing = decl_context.template_parameters;
 }
 
@@ -8651,10 +8655,18 @@ void build_scope_template_header(AST template_parameter_list,
         decl_context_t *template_context,
         nodecl_t* nodecl_output)
 {
-    push_new_template_header_level(decl_context, template_context);
+    push_new_template_header_level(decl_context, template_context, /* is explicit specialization */ 0);
 
+    // Note: We are not using the function 'get_template_nesting_of_context' because
+    // this function ignores empty template headers
+    template_parameter_list_t*  template_parameters = template_context->template_parameters;
+    int nesting = 0;
+    while (template_parameters != NULL)
+    {
+        nesting++;
+        template_parameters = template_parameters->enclosing;
+    }
 
-    int nesting = get_template_nesting_of_context(decl_context) + 1;
     build_scope_template_parameter_list(template_parameter_list, 
             (*template_context).template_parameters, 
             nesting,
@@ -8670,7 +8682,8 @@ static void build_scope_explicit_template_specialization(AST a,
         nodecl_t* nodecl_output)
 {
     decl_context_t template_context;
-    push_new_template_header_level(decl_context, &template_context);
+    push_new_template_header_level(decl_context, &template_context, /* is explicit specialization */ 1);
+
     // Note that we do not increment here the template_nesting because complete
     // specializations do not introduce a new template nesting. 
     //
@@ -10132,11 +10145,6 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     {
         cuda_kernel_symbols_for_function_body(function_body, &gather_info, decl_context, block_context);
     }
-
-    // Fix inherited template context
-    //template_parameter_list_t* enclosing_template_parameters = block_context.template_parameters;
-    //block_context.template_parameters = counted_calloc(1, sizeof(*block_context.template_parameters), &_bytes_used_buildscope);
-    //block_context.template_parameters->enclosing = enclosing_template_parameters;
 
     // Sign in __func__ (C99) and GCC's __FUNCTION__ and __PRETTY_FUNCTION__
     {
