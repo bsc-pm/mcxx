@@ -85,6 +85,7 @@ template_parameter_list_t* duplicate_template_argument_list(template_parameter_l
         // Copy pointers
         result->arguments[i] = template_parameters->arguments[i];
     }
+    result->is_explicit_specialization = template_parameters->is_explicit_specialization;
 
     return result;
 }
@@ -3305,7 +3306,7 @@ scope_entry_t* lookup_of_template_parameter(decl_context_t context,
         int i = 0;
         while (template_parameters != NULL)
         {
-            if (template_parameters->parameters != NULL)
+            if (template_parameters->parameters != NULL || template_parameters->is_explicit_specialization)
             {
                 ERROR_CONDITION(j == MCXX_MAX_TEMPLATE_NESTING_LEVELS, "Too many template nesting levels", 0);
                 levels[j] = template_parameters->parameters;
@@ -3519,14 +3520,9 @@ int get_template_nesting_of_template_parameters(template_parameter_list_t* templ
     int nesting = 0;
     while (template_parameters != NULL)
     {
-        if (template_parameters->parameters != NULL)
-        {
-            nesting++;
-        }
-        
+        nesting++;
         template_parameters = template_parameters->enclosing;
     }
-
     return nesting;
 }
 
