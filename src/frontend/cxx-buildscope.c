@@ -4011,33 +4011,35 @@ static nesting_check_t check_template_nesting_of_name(scope_entry_t* entry, temp
 {
     if (is_template_specialized_type(entry->type_information))
     {
-        if (is_dependent_type(entry->type_information))
+        if (!entry->entity_specs.is_user_declared)
         {
-            if (template_parameters == NULL
-                    || template_parameters->num_parameters == 0)
-                return NESTING_CHECK_INVALID;
-        }
-        else
-        {
-            if (template_parameters == NULL
-                    || template_parameters->num_parameters != 0)
-                return NESTING_CHECK_INVALID;
-        }
-
-        if (entry->entity_specs.is_member)
-        {
-            return check_template_nesting_of_name(named_type_get_symbol(entry->entity_specs.class_type), template_parameters->enclosing);
-        }
-        else
-        {
-            // If this is not a member, but there is still another level of template declarations, there is something amiss
-            if (template_parameters->enclosing != NULL)
+            if (is_dependent_type(entry->type_information))
             {
-                return NESTING_CHECK_INVALID;
+                if (template_parameters == NULL
+                        || (!template_parameters->is_explicit_specialization && template_parameters->num_parameters == 0))
+                    return NESTING_CHECK_INVALID;
             }
-        }
+            else
+            {
+                if (template_parameters == NULL
+                        || (!template_parameters->is_explicit_specialization && template_parameters->num_parameters != 0))
+                    return NESTING_CHECK_INVALID;
+            }
 
-        return NESTING_CHECK_OK;
+            if (entry->entity_specs.is_member)
+            {
+                return check_template_nesting_of_name(named_type_get_symbol(entry->entity_specs.class_type), template_parameters->enclosing);
+            }
+            else
+            {
+                // If this is not a member, but there is still another level of template declarations, there is something amiss
+                if (template_parameters->enclosing != NULL)
+                {
+                    return NESTING_CHECK_INVALID;
+                }
+            }
+            return NESTING_CHECK_OK;
+        }
     }
     else
     {
@@ -5721,8 +5723,32 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                 fprintf(stderr, "BUILDSCOPE: Updating template scope\n");
             }
             class_entry->decl_context.template_parameters = decl_context.template_parameters;
-
             inner_decl_context = new_class_context(class_entry->decl_context, class_entry);
+
+            if (inner_decl_context.template_parameters != NULL &&
+                    inner_decl_context.template_parameters->is_explicit_specialization)
+            {
+                // We should ignore the innermost template header because it's a explicit
+                // specialization declaration (we don't need them)
+                // Example:
+                //
+                // template < typename T>
+                //    struct A
+                //    {
+                //        void f(T);
+                //    };
+                //
+                // template <>
+                //    struct A<float>
+                //    {
+                //        void f(int*);
+                //    };
+                //
+                // void A<float>::f(int*) {} OK!
+
+                inner_decl_context.template_parameters = inner_decl_context.template_parameters->enclosing;
+            }
+
             class_type_set_inner_context(class_type, inner_decl_context);
         }
         else if (filtered_class_entry_list == NULL
@@ -8657,15 +8683,7 @@ void build_scope_template_header(AST template_parameter_list,
 {
     push_new_template_header_level(decl_context, template_context, /* is explicit specialization */ 0);
 
-    // Note: We are not using the function 'get_template_nesting_of_context' because
-    // this function ignores empty template headers
-    template_parameter_list_t*  template_parameters = template_context->template_parameters;
-    int nesting = 0;
-    while (template_parameters != NULL)
-    {
-        nesting++;
-        template_parameters = template_parameters->enclosing;
-    }
+    int nesting = get_template_nesting_of_context(decl_context) + 1;
 
     build_scope_template_parameter_list(template_parameter_list, 
             (*template_context).template_parameters, 

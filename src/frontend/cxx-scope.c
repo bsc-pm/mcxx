@@ -3520,14 +3520,9 @@ int get_template_nesting_of_template_parameters(template_parameter_list_t* templ
     int nesting = 0;
     while (template_parameters != NULL)
     {
-        if (template_parameters->parameters != NULL)
-        {
-            nesting++;
-        }
-        
+        nesting++;
         template_parameters = template_parameters->enclosing;
     }
-
     return nesting;
 }
 
