@@ -1555,6 +1555,18 @@ char has_dependent_template_parameters(template_parameter_list_t* template_param
     return 0;
 }
 
+char is_template_explicit_specialization(template_parameter_list_t* template_parameters)
+{
+    char is_explicit_specialization = 0;
+    template_parameter_list_t* tpl = template_parameters;
+    while (tpl != NULL && !is_explicit_specialization)
+    {
+        is_explicit_specialization = tpl->is_explicit_specialization;
+        tpl = tpl->enclosing;
+    }
+    return is_explicit_specialization;
+}
+
 type_t* template_type_get_matching_specialized_type(type_t* t,
         template_parameter_list_t* template_parameters,
         decl_context_t decl_context)

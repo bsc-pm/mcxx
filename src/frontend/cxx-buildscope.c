@@ -5578,42 +5578,63 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
             if (class_entry->kind == SK_TEMPLATE
                     && ASTType(class_id_expression) != AST_TEMPLATE_ID)
             {
+                scope_entry_t* template_sym = class_entry;
                 if (decl_context.template_parameters == NULL)
                 {
                     if (!checking_ambiguity())
                     {
                         error_printf("%s: error: template parameters required for declaration of '%s'\n",
                                 ast_location(class_id_expression),
-                                get_qualified_symbol_name(class_entry, decl_context));
+                                get_qualified_symbol_name(template_sym, decl_context));
                     }
                     *type_info = get_error_type();
                     return;
                 }
+
                 if (decl_context.template_parameters->num_parameters
-                        != template_type_get_template_parameters(class_entry->type_information)->num_parameters)
+                        != template_type_get_template_parameters(template_sym->type_information)->num_parameters)
                 {
                     if (!checking_ambiguity())
                     {
                         error_printf("%s: error: redeclaration with %d template parameters while previous declaration used %d\n",
                                 ast_location(class_id_expression),
                                 decl_context.template_parameters->num_parameters,
-                                template_type_get_template_parameters(class_entry->type_information)->num_parameters);
+                                template_type_get_template_parameters(template_sym->type_information)->num_parameters);
                     }
                     *type_info = get_error_type();
                     return;
                 }
 
-                template_type_update_template_parameters(class_entry->type_information,
+                template_type_update_template_parameters(template_sym->type_information,
                         decl_context.template_parameters);
 
                 // If it was friend-declared, it is not anymore
-                if (class_entry->entity_specs.is_friend_declared)
-                    class_entry->entity_specs.is_friend_declared = 0;
+                if (template_sym->entity_specs.is_friend_declared)
+                    template_sym->entity_specs.is_friend_declared = 0;
 
                 // This is a named type
-                type_t* primary_type = template_type_get_primary_type(class_entry->type_information);
+                type_t* primary_type = template_type_get_primary_type(template_sym->type_information);
+
                 class_entry = named_type_get_symbol(primary_type);
                 class_type = class_entry->type_information;
+
+
+                if (is_template_explicit_specialization(decl_context.template_parameters))
+                {
+                    // We are declaring a template class nested in at least one class
+                    // explicit specialization
+                    class_entry->type_information =
+                        get_new_class_type(class_entry->decl_context, class_kind);
+
+                    set_as_template_specialized_type(
+                            class_entry->type_information,
+                            class_entry->decl_context.template_parameters,
+                            template_sym->type_information);
+
+                    class_type = class_entry->type_information;
+                    inner_decl_context = new_class_context(class_entry->decl_context, class_entry);
+                    class_type_set_inner_context(class_type, inner_decl_context);
+                }
 
                 ERROR_CONDITION((class_entry->kind != SK_CLASS
                             && class_entry->kind != SK_FUNCTION), 

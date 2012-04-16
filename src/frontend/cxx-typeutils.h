@@ -613,6 +613,8 @@ LIBMCXX_EXTERN char is_braced_list_type(type_t* t);
 
 LIBMCXX_EXTERN char has_dependent_template_parameters(template_parameter_list_t* template_parameters);
 
+LIBMCXX_EXTERN char is_template_explicit_specialization(template_parameter_list_t* template_parameters);
+
 LIBMCXX_EXTERN char syntactic_comparison_of_nested_names(
         nodecl_t dependent_parts_1,
         nodecl_t dependent_parts_2);
