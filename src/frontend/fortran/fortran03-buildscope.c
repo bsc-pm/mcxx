@@ -2666,7 +2666,9 @@ static type_t* gather_type_from_declaration_type_spec_(AST a,
             {
                 const char *prefix = NULL;
                 void *p = NULL;
-                unpack_pointer(ASTText(a), &prefix, &p);
+                const char *tmp = ASTText(ASTSon0(a));
+                unpack_pointer(tmp, &prefix, &p);
+
                 ERROR_CONDITION(prefix == NULL || p == NULL || strcmp(prefix, "type") != 0,
                         "Failure during unpack of type", 0);
 
