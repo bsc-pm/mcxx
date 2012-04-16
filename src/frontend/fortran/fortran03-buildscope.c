@@ -4497,7 +4497,10 @@ static void build_scope_data_stmt(AST a, decl_context_t decl_context, nodecl_t* 
         }
 
         entry->value = nodecl_append_to_list(entry->value, 
-                nodecl_make_fortran_data(nodecl_item_set, nodecl_data_set, ASTFileName(data_stmt_set), ASTLine(data_stmt_set)));
+                nodecl_make_context(
+                    nodecl_make_fortran_data(nodecl_item_set, nodecl_data_set, ASTFileName(data_stmt_set), ASTLine(data_stmt_set)),
+                    decl_context,
+                    ASTFileName(data_stmt_set), ASTLine(data_stmt_set)));
     }
 }
 
@@ -5266,7 +5269,12 @@ static void build_scope_equivalence_stmt(AST a,
                 ASTLine(equivalence_set));
 
         equivalence_info->value = nodecl_append_to_list(equivalence_info->value, 
-                nodecl_equivalence);
+                nodecl_make_context(
+                    nodecl_equivalence,
+                    decl_context,
+                    ASTFileName(equivalence_set),
+                    ASTLine(equivalence_set))
+                );
     }
 
 }
