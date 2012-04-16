@@ -3638,6 +3638,8 @@ static void check_symbol_of_called_name(AST sym,
                 entry->kind = SK_FUNCTION;
                 remove_unknown_kind_symbol(decl_context, entry);
 
+                scope_entry_t * intrinsic_sym = fortran_query_intrinsic_name_str(decl_context, entry->symbol_name);
+
                 if (entry->entity_specs.alias_to != NULL
                         && entry->entity_specs.alias_to->entity_specs.is_builtin)
                 {
@@ -3668,34 +3670,33 @@ static void check_symbol_of_called_name(AST sym,
                     scope_entry_t* intrinsic_symbol = entry->entity_specs.alias_to;
                     *entry = *intrinsic_symbol;
                 }
+                else if (intrinsic_sym != NULL)
+                {
+                    // From now, the symbol is an intrinsic
+                    *entry = *intrinsic_sym;
+                }
                 else
                 {
-                    scope_entry_t * intrinsic_sym = fortran_query_intrinsic_name_str(decl_context, entry->symbol_name);
-                    if (intrinsic_sym != NULL)
+                    // Implicitly declared function due to its usage
+                    char was_ref = is_lvalue_reference_type(entry->type_information);
+                    if (!is_call_stmt)
                     {
-                        // From now, the symbol is an intrinsic
-                        *entry = *intrinsic_sym;
+                        entry->type_information = get_nonproto_function_type(entry->type_information, 0);
+
+                        // This symbol is not untyped anymore
+                        remove_untyped_symbol(decl_context, entry);
+                        // nor its type can be redefined (this would never happen in real Fortran because of statement ordering)
+                        entry->entity_specs.is_implicit_basic_type = 0;
                     }
-                }
+                    else
+                    {
+                        // This is a call but do not change its status of untyped type
+                        entry->type_information = get_nonproto_function_type(get_void_type(), 0);
+                    }
 
-                char was_ref = is_lvalue_reference_type(entry->type_information);
-                if (!is_call_stmt)
-                {
-                    entry->type_information = get_nonproto_function_type(entry->type_information, 0);
-
-                    // This symbol is not untyped anymore
-                    remove_untyped_symbol(decl_context, entry);
-                    // nor its type can be redefined (this would never happen in real Fortran because of statement ordering)
-                    entry->entity_specs.is_implicit_basic_type = 0;
+                    if (was_ref)
+                        entry->type_information = lvalue_ref(entry->type_information);
                 }
-                else
-                {
-                    // This is a call but do not change its status of untyped type
-                    entry->type_information = get_nonproto_function_type(get_void_type(), 0);
-                }
-
-                if (was_ref)
-                    entry->type_information = lvalue_ref(entry->type_information);
             }
 
             if (entry->kind == SK_FUNCTION)
