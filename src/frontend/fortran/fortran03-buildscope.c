@@ -3762,8 +3762,14 @@ static void build_scope_block_construct(AST a,
 
     *nodecl_output = 
         nodecl_make_list_1(
-                nodecl_make_compound_statement(nodecl_body, nodecl_null(),
-                    ASTFileName(a), ASTLine(a)));
+                nodecl_make_context(
+                    nodecl_make_list_1(
+                        nodecl_make_compound_statement(nodecl_body, nodecl_null(),
+                            ASTFileName(a), ASTLine(a))),
+                    new_context,
+                    ASTFileName(a),
+                    ASTLine(a)
+                    ));
 }
 
 static void build_scope_case_construct(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
