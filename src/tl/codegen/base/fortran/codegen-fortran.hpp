@@ -143,8 +143,8 @@ namespace Codegen
                     std::string& array_specifier,
                     bool is_dummy);
 
-            virtual void push_context(TL::Scope sc) { }
-            virtual void pop_context() { }
+            virtual void push_scope(TL::Scope sc) { }
+            virtual void pop_scope() { }
 
             std::string emit_declaration_for_symbol(TL::Symbol symbol, TL::Scope sc);
             std::string emit_declaration_for_symbols(const TL::ObjectList<TL::Symbol>& sym_set, TL::Scope sc);
