@@ -1694,7 +1694,7 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
     {
         //Since this function does not have an explicit result variable we will insert an alias
         //that will hide the function name
-        result_sym = get_symbol_for_name(decl_context, result, entry->symbol_name);
+        result_sym = get_symbol_for_name(decl_context, name, entry->symbol_name);
 
         result_sym->kind = SK_VARIABLE;
         result_sym->file = entry->file;
