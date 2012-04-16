@@ -246,7 +246,7 @@ static void fortran_check_expression_impl_(AST expression, decl_context_t decl_c
                     ast_location(expression),
                     fortran_prettyprint_in_buffer(expression),
                     print_declarator(nodecl_get_type(*nodecl_output)),
-                    codegen_to_str(konst, nodecl_retrieve_context(konst)));
+                    codegen_to_str(konst, nodecl_retrieve_context(*nodecl_output)));
         }
     }
 
