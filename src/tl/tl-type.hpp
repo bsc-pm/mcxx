@@ -106,6 +106,8 @@ namespace TL
 
             //! Returns the enclosing template parameter level
             TemplateParameters get_enclosing_parameters() const;
+
+            bool get_is_explicit_specialization() const;
     };
     
     //! This class wraps a type in the compiler type system

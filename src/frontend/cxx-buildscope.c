@@ -3009,6 +3009,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
     {
         // State this symbol has been created by the code and not by the type system
         class_entry->entity_specs.is_user_declared = 1;
+        class_entry->entity_specs.is_instantiable = 1;
     }
 
 
@@ -6062,8 +6063,8 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     // };
     //
 
-    // Save the template parameters
     class_entry->entity_specs.is_user_declared = 1;
+    class_entry->entity_specs.is_instantiable = 1;
 
     class_entry->entity_specs.num_gcc_attributes = gather_info->num_gcc_attributes;
     

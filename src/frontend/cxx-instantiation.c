@@ -60,6 +60,7 @@ static scope_entry_t* add_duplicate_member_to_class(decl_context_t context_of_be
     *new_member = *member_of_template;
 
     new_member->entity_specs.is_member = 1;
+    new_member->entity_specs.is_instantiable = 0;
     new_member->entity_specs.is_user_declared = 0;
     new_member->decl_context = context_of_being_instantiated;
     new_member->entity_specs.class_type = being_instantiated;
@@ -206,7 +207,7 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
                 template_type_get_primary_type(
                     template_specialized_type_get_related_template_type(member_of_template->type_information)))->entity_specs;
 
-    named_type_get_symbol(new_primary_template)->entity_specs.is_user_declared = 1;
+    named_type_get_symbol(new_primary_template)->entity_specs.is_instantiable = 1;
 
     named_type_get_symbol(new_primary_template)->entity_specs.class_type = being_instantiated;
 
@@ -437,7 +438,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     template_type_set_related_symbol(template_type, new_fake_template_symbol);
 
                     scope_entry_t* primary_template = named_type_get_symbol(template_type_get_primary_type(template_type));
-                    primary_template->entity_specs.is_user_declared = 1;
+                    primary_template->entity_specs.is_instantiable = 1;
 
                     type_t* primary_specialization = primary_template->type_information;
 
@@ -457,6 +458,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
 
                     new_member->entity_specs = member_of_template->entity_specs;
                     new_member->entity_specs.is_member = 1;
+                    new_member->entity_specs.is_user_declared = 0;
                     new_member->entity_specs.class_type = being_instantiated;
 
                     class_type_add_member(get_actual_class_type(being_instantiated), new_member);
@@ -483,8 +485,11 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                         anon_member->entity_specs.access = new_member->entity_specs.access;
 
                         // The anonymous union will be defined in the class scope
+                        new_member->entity_specs.is_instantiable = 0;
                         new_member->entity_specs.is_user_declared = 0;
+                        anon_member->entity_specs.is_instantiable = 0;
                         anon_member->entity_specs.is_user_declared = 0;
+                        primary_template->entity_specs.is_instantiable = 0;
                         primary_template->entity_specs.is_user_declared = 0;
 
                         class_type_add_member(being_instantiated, anon_member);
@@ -550,7 +555,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                                 member_of_template->file, 
                                 member_of_template->line);
 
-                        named_type_get_symbol(new_template_specialized_type)->entity_specs.is_user_declared = 1;
+                        named_type_get_symbol(new_template_specialized_type)->entity_specs.is_instantiable = 1;
 
                         class_type_add_member(
                                 get_actual_class_type(being_instantiated),
