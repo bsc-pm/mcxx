@@ -40,11 +40,11 @@ using TL::Source;
 
 namespace TL { namespace Nanox {
 
-    struct FunctionVisitor : Nodecl::ExhaustiveVisitor<void>
+    struct FortranExtraDeclsVisitor : Nodecl::ExhaustiveVisitor<void>
     {
         public:
 
-            TL::ObjectList<TL::Symbol> function_set;
+            TL::ObjectList<TL::Symbol> extra_decl_sym;
 
             virtual void visit(const Nodecl::FunctionCall &function_call)
             {
@@ -69,7 +69,18 @@ namespace TL { namespace Nanox {
                 TL::Symbol sym = node_sym.get_symbol();
                 if (sym.is_function())
                 {
-                    function_set.insert(sym);
+                    extra_decl_sym.insert(sym);
+                }
+            }
+
+            virtual void visit(const Nodecl::StructuredValue &node)
+            {
+                TL::Type t = node.get_type();
+                walk(node.get_items());
+
+                if (t.is_named_class())
+                {
+                    extra_decl_sym.insert(t.get_symbol());
                 }
             }
     };
@@ -367,21 +378,27 @@ namespace TL { namespace Nanox {
                 << "}";
         }
 
-        // Fortran may require explicit declaration for external procedures or module procedures
+        // Fortran may require more symbols
         if (IS_FORTRAN_LANGUAGE)
         {
-            FunctionVisitor fun_visitor;
+            FortranExtraDeclsVisitor fun_visitor;
             fun_visitor.walk(body);
 
-            extra_declarations 
+            extra_declarations
                 << "IMPLICIT NONE\n";
 
-            // Complete all what fortran needs
-            Codegen::FortranBase& codegen = static_cast<Codegen::FortranBase&>(Codegen::get_current());
+            // Insert extra symbols
+            TL::Source::ReferenceScope ref_scope(unpacked_function_body);
+            decl_context_t decl_context = ref_scope.get_scope().get_decl_context();
 
-            codegen.set_emit_types_as_literals(true);
-            extra_declarations << codegen.emit_declaration_for_symbols(fun_visitor.function_set, body.retrieve_context());
-            codegen.set_emit_types_as_literals(false);
+            for (ObjectList<Symbol>::iterator it = fun_visitor.extra_decl_sym.begin();
+                    it != fun_visitor.extra_decl_sym.end();
+                    it++)
+            {
+                // Insert the name in the context...
+                TL::Scope sc = ref_scope.get_scope();
+                ::insert_entry(decl_context.current_scope, it->get_internal_symbol());
+            }
         }
 
         Nodecl::NodeclBase new_unpacked_body = outline_body.parse_statement(unpacked_function_body);
@@ -420,226 +437,6 @@ namespace TL { namespace Nanox {
         Nodecl::NodeclBase new_outline_body = outline_src.parse_statement(outline_function_body);
         outline_function_body.integrate(new_outline_body);
     }
-
-#if 0
-    void LoweringVisitor::emit_outline(OutlineInfo& outline_info,
-            Nodecl::NodeclBase body,
-            const std::string& outline_name,
-            TL::Symbol structure_symbol)
-    {
-        TL::Symbol current_function = body.retrieve_context().get_decl_context().current_scope->related_entry;
-
-        if (current_function.is_nested_function())
-        {
-            if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-                running_error("%s: error: nested functions are not supported\n", 
-                        body.get_locus().c_str());
-            if (IS_FORTRAN_LANGUAGE)
-                running_error("%s: error: internal subprograms are not supported\n", 
-                        body.get_locus().c_str());
-        }
-
-        Source outline, 
-            unpacked_arguments, 
-            unpacked_parameters, 
-            unpacked_parameter_declarations, // Fortran only
-            unpack_code, 
-            private_entities, 
-            cleanup_code;
-
-        // Fortran extras
-        Source declaration_part,
-               // Not filled at the moment
-               internal_subprograms;
-
-        Nodecl::NodeclBase placeholder_body;
-
-        TL::Type structure_type = ::get_user_defined_type(structure_symbol.get_internal_symbol());
-
-        // FIXME - Factorize this as a common action of "create a function"
-        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-        {
-            outline
-                << "void " << outline_name << "_unpacked(" << unpacked_parameters << ")"
-                << "{"
-                <<      private_entities
-                <<      statement_placeholder(placeholder_body)
-                << "}"
-                << "void " << outline_name << "(" << as_type(structure_type) << " @ref@ args)"
-                << "{"
-                <<      unpack_code
-                <<      outline_name << "_unpacked(" << unpacked_arguments << ");"
-                <<      cleanup_code
-                << "}"
-                ;
-        }
-        else if (IS_FORTRAN_LANGUAGE)
-        {
-            outline
-                << "SUBROUTINE " << outline_name << "_unpacked(" << unpacked_parameters << ")\n"
-                <<      declaration_part
-                <<      unpacked_parameter_declarations << "\n"
-                <<      private_entities << "\n"
-                <<      statement_placeholder(placeholder_body) << "\n"
-                <<      internal_subprograms
-                << "END SUBROUTINE " << outline_name << "_unpacked\n"
-
-                << "SUBROUTINE " << outline_name << "(args)\n"
-                <<      "IMPLICIT NONE\n"
-                <<      as_type(structure_type) << " :: args\n"
-                <<      "INTERFACE\n"
-                <<           "SUBROUTINE " << outline_name << "_unpacked(" << unpacked_parameters << ")\n"
-                <<                "IMPLICIT NONE\n"
-                <<                unpacked_parameter_declarations << "\n"
-                <<           "END SUBROUTINE\n"
-                <<      "END INTERFACE\n"
-                <<      unpack_code << "\n"
-                <<      "CALL " << outline_name << "_unpacked(" << unpacked_arguments << ")\n"
-                <<      cleanup_code
-                << "END SUBROUTINE " << outline_name << "\n"
-                ;
-        }
-        else
-        {
-            internal_error("Code unreachable", 0);
-        }
-
-        TL::ReplaceSymbols replace_symbols;
-
-        TL::ObjectList<OutlineDataItem> data_items = outline_info.get_data_items();
-        for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
-                it != data_items.end();
-                it++)
-        {
-            if (!it->get_symbol().is_valid())
-                continue;
-
-            switch (it->get_sharing())
-            {
-                case OutlineDataItem::SHARING_PRIVATE:
-                    {
-                        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-                        {
-                            private_entities 
-                                << as_type(it->get_field_type()) << " " << it->get_field_name()
-                                << ";"
-                                ;
-                        }
-                        else if (IS_FORTRAN_LANGUAGE)
-                        {
-                            private_entities 
-                                << as_type(it->get_field_type()) << " :: " << it->get_field_name()
-                                << "\n"
-                                ;
-                        }
-                        break;
-                    }
-                case OutlineDataItem::SHARING_SHARED:
-                case OutlineDataItem::SHARING_CAPTURE:
-                case OutlineDataItem::SHARING_CAPTURE_ADDRESS:
-                    {
-                        Source parameter;
-                        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-                        {
-                            switch (it->get_item_kind())
-                            {
-                                case OutlineDataItem::ITEM_KIND_NORMAL:
-                                case OutlineDataItem::ITEM_KIND_DATA_DIMENSION:
-                                    {
-                                        parameter << as_type(it->get_in_outline_type()) << " " << it->get_field_name();
-                                        break;
-                                    }
-                                case OutlineDataItem::ITEM_KIND_DATA_ADDRESS:
-                                    {
-
-                                        private_entities
-                                            << as_type(it->get_in_outline_type()) << " " << it->get_field_name() << " = " 
-                                            << " = "
-                                            << "(" << as_type(it->get_in_outline_type()) << ")"
-                                            << "ptr_" << it->get_field_name()
-                                            << ";"
-                                            ;
-                                        break;
-                                    }
-                                default:
-                                    {
-                                        internal_error("Code unreachable", 0);
-                                    }
-                            }
-                        }
-                        else if (IS_FORTRAN_LANGUAGE)
-                        {
-                            parameter << it->get_symbol().get_name();
-
-                            unpacked_parameter_declarations 
-                                << as_type(it->get_in_outline_type()) << " :: " << it->get_field_name()
-                                << "\n"
-                                ;
-                        }
-                        else
-                        {
-                            internal_error("Code unreachable", 0);
-                        }
-                        unpacked_parameters.append_with_separator(parameter, ", ");
-
-                        Source argument;
-                        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-                        {
-                            // Normal shared items are passed by reference from a pointer,
-                            // derreference here
-                            if (it->get_sharing() == OutlineDataItem::SHARING_SHARED
-                                    && it->get_item_kind() == OutlineDataItem::ITEM_KIND_NORMAL)
-                            {
-                                argument << "*(args." << it->get_field_name() << ")";
-                            }
-                            // Any other thing is passed by value
-                            else
-                            {
-                                argument << "args." << it->get_field_name();
-                            }
-
-                            if (IS_CXX_LANGUAGE
-                                    && it->get_allocation_policy() == OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DESTROY)
-                            {
-                                internal_error("Not yet implemented: call the destructor", 0);
-                            }
-                        }
-                        else if (IS_FORTRAN_LANGUAGE)
-                        {
-                            argument << "args % " << it->get_field_name();
-
-                            if (it->get_allocation_policy() == OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE)
-                            {
-                                cleanup_code
-                                    << "DEALLOCATE(args % " << it->get_field_name() << ")\n"
-                                    ;
-                            }
-                        }
-                        else
-                        {
-                            internal_error("running error", 0);
-                        }
-                        unpacked_arguments.append_with_separator(argument, ", ");
-                        break;
-                    }
-                default:
-                    {
-                        internal_error("Unexpected data sharing kind", 0);
-                    }
-            }
-        }
-
-        Nodecl::NodeclBase node = outline.parse_global(body);
-        Nodecl::Utils::append_to_top_level_nodecl(node);
-
-        // Now replace the body
-        Source replaced_body_src;
-        replaced_body_src << replace_symbols.replace(body);
-
-        Nodecl::NodeclBase new_body = replaced_body_src.parse_statement(placeholder_body);
-        placeholder_body.integrate(new_body);
-    }
-#endif
 
     std::string LoweringVisitor::get_outline_name(TL::Symbol function_symbol)
     {
