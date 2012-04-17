@@ -916,6 +916,15 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ForStatement& node)
         walk(statement);
         dec_indent();
     }
+    else if (loop_control.is<Nodecl::UnboundedLoopControl>())
+    {
+        // This only happens for DO without loop-control
+        indent();
+        file << "for (;;)\n";
+        inc_indent();
+        walk(statement);
+        dec_indent();
+    }
     else if (loop_control.is<Nodecl::RangeLoopControl>())
     {
         Nodecl::RangeLoopControl lc = loop_control.as<Nodecl::RangeLoopControl>();
@@ -924,17 +933,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ForStatement& node)
         Nodecl::NodeclBase upper = lc.get_upper();
         Nodecl::NodeclBase step = lc.get_step();
 
-        // Try to be a bit smart
-        if (lower.is_null())
-        {
-            // This only happens for DO without loop-control
-            indent();
-            file << "for (;;)\n";
-            inc_indent();
-            walk(statement);
-            dec_indent();
-        }
-        else if (!step.is_null()
+        if (!step.is_null()
                 && step.is_constant())
         {
             std::string rel_op = " <= ";

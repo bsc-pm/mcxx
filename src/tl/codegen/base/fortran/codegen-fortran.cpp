@@ -1450,6 +1450,31 @@ OPERATOR_TABLE
             }
             file << "\n";
         }
+        else if (header.is<Nodecl::UnboundedLoopControl>())
+        {
+            indent();
+
+            if (!node.get_loop_name().is_null())
+            {
+                walk(node.get_loop_name());
+                file << " : ";
+            }
+
+            file << "DO\n";
+
+            inc_indent();
+            walk(node.get_statement());
+            dec_indent();
+            indent();
+
+            file << "END DO";
+            if (!node.get_loop_name().is_null())
+            {
+                file << " ";
+                walk(node.get_loop_name());
+            }
+            file << "\n";
+        }
         else
         {
             internal_error("Code unreachable", 0);

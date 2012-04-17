@@ -5079,6 +5079,11 @@ static void build_scope_do_construct(AST a, decl_context_t decl_context, nodecl_
             error_signaled = 1;
         }
     }
+
+    char unbounded_loop = lower == NULL
+        && upper == NULL
+        && stride == NULL;
+
     nodecl_t nodecl_lower = nodecl_null();
     if (lower != NULL)
     {
@@ -5143,18 +5148,32 @@ static void build_scope_do_construct(AST a, decl_context_t decl_context, nodecl_
         nodecl_statement = nodecl_append_to_list(nodecl_statement, nodecl_labeled_empty_statement);
     }
 
-    *nodecl_output = 
-        nodecl_make_list_1(
-                nodecl_make_for_statement(
-                    nodecl_make_range_loop_control(
-                        nodecl_lower, 
-                        nodecl_upper, 
-                        nodecl_stride, 
-                        ind_var,
-                        ASTFileName(loop_control), ASTLine(loop_control)),
-                    nodecl_statement,
-                    nodecl_named_label,
-                    ASTFileName(a), ASTLine(a)));
+    if (!unbounded_loop)
+    {
+        *nodecl_output = 
+            nodecl_make_list_1(
+                    nodecl_make_for_statement(
+                        nodecl_make_range_loop_control(
+                            nodecl_lower, 
+                            nodecl_upper, 
+                            nodecl_stride, 
+                            ind_var,
+                            ASTFileName(loop_control), ASTLine(loop_control)),
+                        nodecl_statement,
+                        nodecl_named_label,
+                        ASTFileName(a), ASTLine(a)));
+    }
+    else 
+    {
+        *nodecl_output = 
+            nodecl_make_list_1(
+                    nodecl_make_for_statement(
+                        nodecl_make_unbounded_loop_control(
+                            ASTFileName(loop_control), ASTLine(loop_control)),
+                        nodecl_statement,
+                        nodecl_named_label,
+                        ASTFileName(a), ASTLine(a)));
+    }
 }
 
 
