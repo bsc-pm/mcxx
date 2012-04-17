@@ -3096,6 +3096,12 @@ OPERATOR_TABLE
                 {
                     file << "EXTERNAL :: " << entry.get_name() << "\n";
                 }
+
+                if (entry.is_optional())
+                {
+                    indent();
+                    file << "OPTIONAL :: " << entry.get_name() << "\n";
+                }
             }
             // Statement functions
             else if (entry.is_statement_function_statement())
@@ -3150,6 +3156,15 @@ OPERATOR_TABLE
             else
             {
                 emit_interface_for_symbol(entry);
+
+                if (!state.in_interface)
+                {
+                    if (entry.is_optional())
+                    {
+                        indent();
+                        file << "OPTIONAL :: " << entry.get_name() << "\n";
+                    }
+                }
             }
         }
         else if (entry.is_class())
