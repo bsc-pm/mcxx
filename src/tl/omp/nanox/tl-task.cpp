@@ -308,9 +308,18 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
     if (priority_clause.is_defined())
     {
         props_priority = priority_clause.get_arguments()[0];
-        priority
-            << "props.priority = " << props_priority << ";"
-            ;
+        if (Nanos::Version::interface_is_at_least("master", 5014))
+        {
+            priority
+                << "dyn_props.priority = " << props_priority << ";"
+                ;
+        }
+        else
+        {
+            priority
+                << "props.priority = " << props_priority << ";"
+                ;
+        }
     }
 
     Source struct_runtime_size, struct_size;
