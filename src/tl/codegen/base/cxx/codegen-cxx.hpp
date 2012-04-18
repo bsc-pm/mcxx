@@ -267,8 +267,8 @@ namespace Codegen
                     int level);
             void define_class_symbol(TL::Symbol symbol);
 
-            void define_symbol(TL::Symbol symbol);
-            void declare_symbol(TL::Symbol symbol);
+            void define_symbol_always(TL::Symbol symbol);
+            void declare_symbol_always(TL::Symbol symbol);
 
             void define_generic_entities(Nodecl::NodeclBase node,
                     void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
