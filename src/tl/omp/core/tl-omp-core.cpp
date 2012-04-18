@@ -964,6 +964,16 @@ namespace TL
             _openmp_info->pop_current_data_sharing();
         }
 
+        void Core::do_handler_pre(TL::PragmaCustomStatement construct)
+        {
+            for_handler_pre(construct);
+        }
+
+        void Core::do_handler_post(TL::PragmaCustomStatement construct)
+        {
+            for_handler_post(construct);
+        }
+
         void Core::single_handler_pre(TL::PragmaCustomStatement construct)
         {
             DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct);
@@ -1151,7 +1161,6 @@ namespace TL
         EMPTY_HANDLERS_DIRECTIVE(flush)
         EMPTY_HANDLERS_CONSTRUCT(ordered)
         EMPTY_HANDLERS_CONSTRUCT(parallel_do)
-        EMPTY_HANDLERS_CONSTRUCT(do)
         EMPTY_HANDLERS_DIRECTIVE(taskyield)
 
         void openmp_core_run_next_time(DTO& dto)

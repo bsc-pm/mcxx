@@ -60,8 +60,8 @@ namespace Codegen
 
             virtual Ret unhandled_node(const Nodecl::NodeclBase & n);
 
-            virtual void push_context(TL::Scope sc) { }
-            virtual void pop_context() { }
+            virtual void push_scope(TL::Scope sc) { }
+            virtual void pop_scope() { }
     };
 }
 

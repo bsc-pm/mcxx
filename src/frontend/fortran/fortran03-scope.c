@@ -431,9 +431,9 @@ scope_entry_list_t* fortran_query_name_str_for_function(decl_context_t decl_cont
                 }
 
                 // Give up returning the first result_list found
-                entry_list = entry_list_new(entry_list_head(entry_list));
+                result_list = entry_list_new(entry_list_head(entry_list));
                 entry_list_free(entry_list);
-                return entry_list;
+                return result_list;
             }
 
             // If any name is not a generic specifier do not continue

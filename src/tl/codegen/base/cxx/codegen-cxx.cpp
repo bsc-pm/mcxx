@@ -76,12 +76,12 @@ std::string CxxBase::codegen(const Nodecl::NodeclBase &n)
     return result;
 }
 
-void CxxBase::push_context(TL::Scope sc)
+void CxxBase::push_scope(TL::Scope sc)
 {
     _scope_stack.push_back(sc);
 }
 
-void CxxBase::pop_context()
+void CxxBase::pop_scope()
 {
     _scope_stack.pop_back();
 }
@@ -523,7 +523,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CompoundExpression& node)
     Nodecl::Context context = node.get_nest().as<Nodecl::Context>();
     Nodecl::List statements = context.get_in_context().as<Nodecl::List>();
 
-    this->push_context(context.retrieve_context());
+    this->push_scope(context.retrieve_context());
 
     file << "{\n";
     inc_indent();
@@ -550,7 +550,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CompoundExpression& node)
     indent();
     file << "}";
 
-    this->pop_context();
+    this->pop_scope();
 
     file << ") ";
 }
@@ -621,11 +621,11 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ConditionalExpression& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::Context& node)
 {
-    this->push_context(node.retrieve_context());
+    this->push_scope(node.retrieve_context());
 
     walk(node.get_in_context());
 
-    this->pop_context();
+    this->pop_scope();
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::ContinueStatement& node)
@@ -916,6 +916,15 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ForStatement& node)
         walk(statement);
         dec_indent();
     }
+    else if (loop_control.is<Nodecl::UnboundedLoopControl>())
+    {
+        // This only happens for DO without loop-control
+        indent();
+        file << "for (;;)\n";
+        inc_indent();
+        walk(statement);
+        dec_indent();
+    }
     else if (loop_control.is<Nodecl::RangeLoopControl>())
     {
         Nodecl::RangeLoopControl lc = loop_control.as<Nodecl::RangeLoopControl>();
@@ -924,17 +933,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ForStatement& node)
         Nodecl::NodeclBase upper = lc.get_upper();
         Nodecl::NodeclBase step = lc.get_step();
 
-        // Try to be a bit smart
-        if (lower.is_null())
-        {
-            // This only happens for DO without loop-control
-            indent();
-            file << "for (;;)\n";
-            inc_indent();
-            walk(statement);
-            dec_indent();
-        }
-        else if (!step.is_null()
+        if (!step.is_null()
                 && step.is_constant())
         {
             std::string rel_op = " <= ";
@@ -1414,7 +1413,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
 
     if (!initializers.is_null())
     {
-        push_context(symbol.get_scope());
+        push_scope(symbol.get_scope());
         inc_indent();
 
         indent();
@@ -1425,7 +1424,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
         dec_indent();
 
         file << "\n";
-        pop_context();
+        pop_scope();
     }
 
     this->walk(context);
@@ -1631,7 +1630,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 
     if (!initializers.is_null())
     {
-        push_context(symbol.get_scope());
+        push_scope(symbol.get_scope());
         inc_indent();
 
         indent();
@@ -1642,7 +1641,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
         dec_indent();
 
         file << "\n";
-        pop_context();
+        pop_scope();
     }
 
     this->walk(context);
@@ -3798,7 +3797,7 @@ void CxxBase::define_symbol(TL::Symbol symbol)
                 it++)
         {
             TL::Symbol &enumerator(*it);
-            push_context(enumerator.get_scope());
+            push_scope(enumerator.get_scope());
             if (it != enumerators.begin())
             {
                 file << ",\n";
@@ -3811,7 +3810,7 @@ void CxxBase::define_symbol(TL::Symbol symbol)
                 file << " = ";
                 walk(enumerator.get_initialization());
             }
-            pop_context();
+            pop_scope();
         }
 
         dec_indent();
@@ -4013,7 +4012,7 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
             // Initializer
             if (emit_initializer)
             {
-                push_context(symbol.get_scope());
+                push_scope(symbol.get_scope());
 
                 char equal_is_needed = 0;
                 char is_call_to_self_constructor = 0;
@@ -4175,7 +4174,7 @@ void CxxBase::declare_symbol(TL::Symbol symbol)
                     }
                 }
 
-                pop_context();
+                pop_scope();
             }
 
             if (!state.in_condition)
@@ -5640,9 +5639,9 @@ void CxxBase::codegen_template_header(TL::TemplateParameters template_parameters
                         }
                     case TPK_NONTYPE:
                         {
-                            push_context(symbol.get_scope());
+                            push_scope(symbol.get_scope());
                             walk(temp_arg.get_value());
-                            pop_context();
+                            pop_scope();
                             break;
                         }
                     default:

@@ -255,7 +255,6 @@ namespace TL { namespace OpenMP {
         EMPTY_HANDLERS_CONSTRUCT(master)
         EMPTY_HANDLERS_CONSTRUCT(ordered)
         EMPTY_HANDLERS_CONSTRUCT(parallel_do)
-        EMPTY_HANDLERS_CONSTRUCT(do)
 
         EMPTY_HANDLERS_DIRECTIVE(section)
 
@@ -520,6 +519,16 @@ namespace TL { namespace OpenMP {
         }
 
         directive.integrate(code);
+    }
+
+    void Base::do_handler_pre(TL::PragmaCustomStatement directive)
+    {
+        for_handler_pre(directive);
+    }
+
+    void Base::do_handler_post(TL::PragmaCustomStatement directive)
+    {
+        for_handler_post(directive);
     }
 
     // Function tasks

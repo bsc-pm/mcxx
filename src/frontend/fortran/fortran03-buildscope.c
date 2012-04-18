@@ -1694,7 +1694,7 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
     {
         //Since this function does not have an explicit result variable we will insert an alias
         //that will hide the function name
-        result_sym = get_symbol_for_name(decl_context, result, entry->symbol_name);
+        result_sym = get_symbol_for_name(decl_context, name, entry->symbol_name);
 
         result_sym->kind = SK_VARIABLE;
         result_sym->file = entry->file;
@@ -2666,7 +2666,9 @@ static type_t* gather_type_from_declaration_type_spec_(AST a,
             {
                 const char *prefix = NULL;
                 void *p = NULL;
-                unpack_pointer(ASTText(a), &prefix, &p);
+                const char *tmp = ASTText(ASTSon0(a));
+                unpack_pointer(tmp, &prefix, &p);
+
                 ERROR_CONDITION(prefix == NULL || p == NULL || strcmp(prefix, "type") != 0,
                         "Failure during unpack of type", 0);
 
@@ -3760,8 +3762,14 @@ static void build_scope_block_construct(AST a,
 
     *nodecl_output = 
         nodecl_make_list_1(
-                nodecl_make_compound_statement(nodecl_body, nodecl_null(),
-                    ASTFileName(a), ASTLine(a)));
+                nodecl_make_context(
+                    nodecl_make_list_1(
+                        nodecl_make_compound_statement(nodecl_body, nodecl_null(),
+                            ASTFileName(a), ASTLine(a))),
+                    new_context,
+                    ASTFileName(a),
+                    ASTLine(a)
+                    ));
 }
 
 static void build_scope_case_construct(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -4489,7 +4497,10 @@ static void build_scope_data_stmt(AST a, decl_context_t decl_context, nodecl_t* 
         }
 
         entry->value = nodecl_append_to_list(entry->value, 
-                nodecl_make_fortran_data(nodecl_item_set, nodecl_data_set, ASTFileName(data_stmt_set), ASTLine(data_stmt_set)));
+                nodecl_make_context(
+                    nodecl_make_fortran_data(nodecl_item_set, nodecl_data_set, ASTFileName(data_stmt_set), ASTLine(data_stmt_set)),
+                    decl_context,
+                    ASTFileName(data_stmt_set), ASTLine(data_stmt_set)));
     }
 }
 
@@ -5068,6 +5079,11 @@ static void build_scope_do_construct(AST a, decl_context_t decl_context, nodecl_
             error_signaled = 1;
         }
     }
+
+    char unbounded_loop = lower == NULL
+        && upper == NULL
+        && stride == NULL;
+
     nodecl_t nodecl_lower = nodecl_null();
     if (lower != NULL)
     {
@@ -5132,18 +5148,32 @@ static void build_scope_do_construct(AST a, decl_context_t decl_context, nodecl_
         nodecl_statement = nodecl_append_to_list(nodecl_statement, nodecl_labeled_empty_statement);
     }
 
-    *nodecl_output = 
-        nodecl_make_list_1(
-                nodecl_make_for_statement(
-                    nodecl_make_range_loop_control(
-                        nodecl_lower, 
-                        nodecl_upper, 
-                        nodecl_stride, 
-                        ind_var,
-                        ASTFileName(loop_control), ASTLine(loop_control)),
-                    nodecl_statement,
-                    nodecl_named_label,
-                    ASTFileName(a), ASTLine(a)));
+    if (!unbounded_loop)
+    {
+        *nodecl_output = 
+            nodecl_make_list_1(
+                    nodecl_make_for_statement(
+                        nodecl_make_range_loop_control(
+                            nodecl_lower, 
+                            nodecl_upper, 
+                            nodecl_stride, 
+                            ind_var,
+                            ASTFileName(loop_control), ASTLine(loop_control)),
+                        nodecl_statement,
+                        nodecl_named_label,
+                        ASTFileName(a), ASTLine(a)));
+    }
+    else 
+    {
+        *nodecl_output = 
+            nodecl_make_list_1(
+                    nodecl_make_for_statement(
+                        nodecl_make_unbounded_loop_control(
+                            ASTFileName(loop_control), ASTLine(loop_control)),
+                        nodecl_statement,
+                        nodecl_named_label,
+                        ASTFileName(a), ASTLine(a)));
+    }
 }
 
 
@@ -5258,7 +5288,12 @@ static void build_scope_equivalence_stmt(AST a,
                 ASTLine(equivalence_set));
 
         equivalence_info->value = nodecl_append_to_list(equivalence_info->value, 
-                nodecl_equivalence);
+                nodecl_make_context(
+                    nodecl_equivalence,
+                    decl_context,
+                    ASTFileName(equivalence_set),
+                    ASTLine(equivalence_set))
+                );
     }
 
 }
@@ -5912,9 +5947,11 @@ static void build_scope_interface_block(AST a,
         const char* name = get_name_of_generic_spec(generic_spec);
         scope_entry_t* generic_spec_sym = get_symbol_for_name(decl_context, generic_spec, name);
 
-        if (generic_spec_sym == NULL)
+        if (generic_spec_sym == NULL
+                || generic_spec_sym->entity_specs.from_module)
         {
-            generic_spec_sym = new_fortran_symbol(decl_context, name);
+            generic_spec_sym = create_fortran_symbol_for_name_(decl_context, generic_spec, name, /* no_implicit */ 1);
+
             // If this name is not related to a specific interface, make it void
             generic_spec_sym->type_information = get_void_type();
 
@@ -7466,9 +7503,9 @@ static void build_scope_unlock_stmt(AST a, decl_context_t decl_context UNUSED_PA
     unsupported_statement(a, "UNLOCK");
 }
 
-static scope_entry_t* query_module_for_symbol_name(scope_entry_t* module_symbol, const char* name)
+static scope_entry_list_t* query_module_for_name(scope_entry_t* module_symbol, const char* name)
 {
-    scope_entry_t* sym_in_module = NULL;
+    scope_entry_list_t* result = NULL;
     int i;
     for (i = 0; i < module_symbol->entity_specs.num_related_symbols; i++)
     {
@@ -7478,12 +7515,11 @@ static scope_entry_t* query_module_for_symbol_name(scope_entry_t* module_symbol,
                 // Filter private symbols
                 && sym->entity_specs.access != AS_PRIVATE)
         {
-            sym_in_module = sym;
-            break;
+            result = entry_list_add_once(result, sym);
         }
     }
 
-    return sym_in_module;
+    return result;
 }
 
 static char come_from_the_same_module(scope_entry_t* new_symbol_used,
@@ -7688,10 +7724,10 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
                 AST local_name = ASTSon0(rename_tree);
                 AST sym_in_module_name = ASTSon1(rename_tree);
                 const char* sym_in_module_name_str = get_name_of_generic_spec(sym_in_module_name);
-                scope_entry_t* sym_in_module = 
-                    query_module_for_symbol_name(module_symbol, sym_in_module_name_str);
+                scope_entry_list_t* syms_in_module = 
+                    query_module_for_name(module_symbol, sym_in_module_name_str);
 
-                if (sym_in_module == NULL)
+                if (syms_in_module == NULL)
                 {
                     running_error("%s: error: symbol '%s' not found in module '%s'\n", 
                             ast_location(sym_in_module_name),
@@ -7699,27 +7735,36 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
                             module_symbol->symbol_name);
                 }
 
-                insert_symbol_from_module(sym_in_module, 
-                        decl_context, 
-                        get_name_of_generic_spec(local_name), 
-                        module_symbol, 
-                        ASTFileName(local_name), 
-                        ASTLine(local_name));
+                scope_entry_list_iterator_t* entry_list_it = NULL;
+                for (entry_list_it = entry_list_iterator_begin(syms_in_module);
+                        !entry_list_iterator_end(entry_list_it);
+                        entry_list_iterator_next(entry_list_it))
+                {
+                    scope_entry_t* sym_in_module = entry_list_iterator_current(entry_list_it);
 
-                // "USE M, C => A, D => A" is valid so we avoid adding twice
-                // 'A' in the list (it would be harmless, though)
-                char found = 0;
-                int i;
-                for (i = 0; i < num_renamed_symbols && found; i++)
-                {
-                    found = (renamed_symbols[i] == sym_in_module);
+                    insert_symbol_from_module(sym_in_module, 
+                            decl_context, 
+                            get_name_of_generic_spec(local_name), 
+                            module_symbol, 
+                            ASTFileName(local_name), 
+                            ASTLine(local_name));
+
+                    // "USE M, C => A, D => A" is valid so we avoid adding twice
+                    // 'A' in the list (entry_list_it would be harmless, though)
+                    char found = 0;
+                    int i;
+                    for (i = 0; i < num_renamed_symbols && found; i++)
+                    {
+                        found = (renamed_symbols[i] == sym_in_module);
+                    }
+                    if (!found)
+                    {
+                        ERROR_CONDITION(num_renamed_symbols == MCXX_MAX_RENAMED_SYMBOLS, "Too many renames", 0);
+                        renamed_symbols[num_renamed_symbols] = sym_in_module;
+                        num_renamed_symbols++;
+                    }
                 }
-                if (!found)
-                {
-                    ERROR_CONDITION(num_renamed_symbols == MCXX_MAX_RENAMED_SYMBOLS, "Too many renames", 0);
-                    renamed_symbols[num_renamed_symbols] = sym_in_module;
-                    num_renamed_symbols++;
-                }
+                entry_list_iterator_free(entry_list_it);
             }
         }
 
@@ -7764,10 +7809,10 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
                         AST sym_in_module_name = ASTSon1(only);
                         const char * sym_in_module_name_str = ASTText(sym_in_module_name);
 
-                        scope_entry_t* sym_in_module = 
-                            query_module_for_symbol_name(module_symbol, sym_in_module_name_str);
+                        scope_entry_list_t* syms_in_module = 
+                            query_module_for_name(module_symbol, sym_in_module_name_str);
 
-                        if (sym_in_module == NULL)
+                        if (syms_in_module == NULL)
                         {
                             running_error("%s: error: symbol '%s' not found in module '%s'\n", 
                                     ast_location(sym_in_module_name),
@@ -7775,12 +7820,22 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
                                     module_symbol->symbol_name);
                         }
 
-                        insert_symbol_from_module(sym_in_module, 
-                                decl_context, 
-                                get_name_of_generic_spec(local_name), 
-                                module_symbol, 
-                                ASTFileName(local_name), 
-                                ASTLine(local_name));
+                        scope_entry_list_iterator_t* entry_list_it = NULL;
+                        for (entry_list_it = entry_list_iterator_begin(syms_in_module);
+                                !entry_list_iterator_end(entry_list_it);
+                                entry_list_iterator_next(entry_list_it))
+                        {
+                            scope_entry_t* sym_in_module = entry_list_iterator_current(entry_list_it);
+
+                            insert_symbol_from_module(sym_in_module, 
+                                    decl_context, 
+                                    get_name_of_generic_spec(local_name), 
+                                    module_symbol, 
+                                    ASTFileName(local_name), 
+                                    ASTLine(local_name));
+                        }
+                        entry_list_iterator_free(entry_list_it);
+
                         break;
                     }
                 default:
@@ -7789,10 +7844,10 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
                         AST sym_in_module_name = only;
                         const char * sym_in_module_name_str = ASTText(sym_in_module_name);
 
-                        scope_entry_t* sym_in_module = 
-                            query_module_for_symbol_name(module_symbol, sym_in_module_name_str);
+                        scope_entry_list_t* syms_in_module = 
+                            query_module_for_name(module_symbol, sym_in_module_name_str);
 
-                        if (sym_in_module == NULL)
+                        if (syms_in_module == NULL)
                         {
                             running_error("%s: error: symbol '%s' not found in module '%s'\n", 
                                     ast_location(sym_in_module_name),
@@ -7800,12 +7855,21 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
                                     module_symbol->symbol_name);
                         }
 
-                        insert_symbol_from_module(sym_in_module, 
-                                decl_context, 
-                                sym_in_module->symbol_name, 
-                                module_symbol,
-                                ASTFileName(sym_in_module_name), 
-                                ASTLine(sym_in_module_name));
+                        scope_entry_list_iterator_t* entry_list_it = NULL;
+                        for (entry_list_it = entry_list_iterator_begin(syms_in_module);
+                                !entry_list_iterator_end(entry_list_it);
+                                entry_list_iterator_next(entry_list_it))
+                        {
+                            scope_entry_t* sym_in_module = entry_list_iterator_current(entry_list_it);
+                            insert_symbol_from_module(sym_in_module, 
+                                    decl_context, 
+                                    sym_in_module->symbol_name, 
+                                    module_symbol,
+                                    ASTFileName(sym_in_module_name), 
+                                    ASTLine(sym_in_module_name));
+                        }
+                        entry_list_iterator_free(entry_list_it);
+
                         break;
                     }
             }

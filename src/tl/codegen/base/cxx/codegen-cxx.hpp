@@ -41,8 +41,8 @@ namespace Codegen
         protected:
             virtual std::string codegen(const Nodecl::NodeclBase&);
         public:
-            virtual void push_context(TL::Scope sc);
-            virtual void pop_context();
+            virtual void push_scope(TL::Scope sc);
+            virtual void pop_scope();
 
             Ret visit(const Nodecl::Add &);
             Ret visit(const Nodecl::AddAssignment &);

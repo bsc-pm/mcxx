@@ -684,9 +684,9 @@ extern "C"
 
         Codegen::CodegenPhase* codegen_phase = reinterpret_cast<Codegen::CodegenPhase*>(CURRENT_CONFIGURATION->codegen_phase);
 
-        codegen_phase->push_context(decl_context);
+        codegen_phase->push_scope(decl_context);
         std::string str = codegen_phase->codegen_to_str(node, TL::Scope(decl_context));
-        codegen_phase->pop_context();
+        codegen_phase->pop_scope();
 
         return uniquestr(str.c_str());
     }

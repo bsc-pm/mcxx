@@ -1018,7 +1018,6 @@ static void fortran_init_specific_names(decl_context_t decl_context)
     REGISTER_SPECIFIC_INTRINSIC_1("cabs", "abs", get_complex_type(fortran_get_default_real_type()));
     REGISTER_SPECIFIC_INTRINSIC_1("ccos", "cos", get_complex_type(fortran_get_default_real_type()));
     REGISTER_SPECIFIC_INTRINSIC_1("cexp", "exp", get_complex_type(fortran_get_default_real_type()));
-    REGISTER_SPECIFIC_INTRINSIC_1("cexp", "exp", get_complex_type(fortran_get_default_real_type()));
     REGISTER_SPECIFIC_INTRINSIC_2("char", "char", fortran_get_default_integer_type(), NULL);
     REGISTER_SPECIFIC_INTRINSIC_1("clog", "log", get_complex_type(fortran_get_default_real_type()));
     REGISTER_SPECIFIC_INTRINSIC_1("conjg", "conjg", get_complex_type(fortran_get_default_real_type()));
