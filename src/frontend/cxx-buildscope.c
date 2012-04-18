@@ -7194,11 +7194,6 @@ static scope_entry_t* build_scope_declarator_name(AST declarator, type_t* declar
     scope_entry_t* entry = build_scope_declarator_id_expr(declarator_id_expr, declarator_type, gather_info,
             decl_context, nodecl_output);
 
-    if(entry != NULL)
-    {
-        entry->entity_specs.is_user_declared = 1;
-    }
-
     return entry;
 }
 
@@ -7700,12 +7695,12 @@ static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* decl
         entry->kind = SK_VARIABLE;
         entry->type_information = declarator_type;
 
+        entry->entity_specs.is_user_declared = 1;
         entry->entity_specs.is_static = gather_info->is_static;
         entry->entity_specs.is_mutable = gather_info->is_mutable;
         entry->entity_specs.is_extern = gather_info->is_extern;
         entry->entity_specs.is_register = gather_info->is_register;
         entry->entity_specs.is_thread = gather_info->is_thread;
-
         entry->entity_specs.linkage_spec = current_linkage;
 
         // Copy gcc attributes

@@ -200,20 +200,20 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
 
     type_t* new_primary_template = template_type_get_primary_type(new_member->type_information);
 
-    named_type_get_symbol(new_primary_template)->decl_context = new_context_for_template_parameters;
+    scope_entry_t* new_primary_symbol = named_type_get_symbol(new_primary_template);
+    new_primary_symbol->decl_context = new_context_for_template_parameters;
 
-    named_type_get_symbol(new_primary_template)->entity_specs = 
-        named_type_get_symbol(
-                template_type_get_primary_type(
+    new_primary_symbol->entity_specs = named_type_get_symbol(
+            template_type_get_primary_type(
                     template_specialized_type_get_related_template_type(member_of_template->type_information)))->entity_specs;
 
-    named_type_get_symbol(new_primary_template)->entity_specs.is_instantiable = 1;
-
-    named_type_get_symbol(new_primary_template)->entity_specs.class_type = being_instantiated;
+    new_primary_symbol->entity_specs.is_instantiable = 1;
+    new_primary_symbol->entity_specs.is_user_declared = 0;
+    new_primary_symbol->entity_specs.class_type = being_instantiated;
 
     class_type_add_member(
             get_actual_class_type(being_instantiated),
-            named_type_get_symbol(new_primary_template));
+            new_primary_symbol);
 
     if (is_class)
     {
@@ -556,6 +556,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                                 member_of_template->line);
 
                         named_type_get_symbol(new_template_specialized_type)->entity_specs.is_instantiable = 1;
+                        named_type_get_symbol(new_template_specialized_type)->entity_specs.is_user_declared = 0;
 
                         class_type_add_member(
                                 get_actual_class_type(being_instantiated),
