@@ -5618,8 +5618,13 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                 {
                     // We are declaring a template class nested in at least one class
                     // explicit specialization
-                    class_entry->type_information =
+                    type_t* new_class_type =
                         get_new_class_type(class_entry->decl_context, class_kind);
+
+                    // Propagate 'is_dependent' type property
+                    set_is_dependent_type(new_class_type, is_dependent_type(class_entry->type_information));
+
+                    class_entry->type_information = new_class_type;
 
                     set_as_template_specialized_type(
                             class_entry->type_information,
