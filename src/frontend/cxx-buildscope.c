@@ -3009,6 +3009,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
     {
         // State this symbol has been created by the code and not by the type system
         class_entry->entity_specs.is_user_declared = 1;
+        class_entry->entity_specs.is_instantiable = 1;
     }
 
 
@@ -4013,17 +4014,11 @@ static nesting_check_t check_template_nesting_of_name(scope_entry_t* entry, temp
     {
         if (!entry->entity_specs.is_user_declared)
         {
-            if (is_dependent_type(entry->type_information))
+            if (template_parameters == NULL ||
+                    (!template_parameters->is_explicit_specialization &&
+                        template_parameters->num_parameters == 0))
             {
-                if (template_parameters == NULL
-                        || (!template_parameters->is_explicit_specialization && template_parameters->num_parameters == 0))
-                    return NESTING_CHECK_INVALID;
-            }
-            else
-            {
-                if (template_parameters == NULL
-                        || (!template_parameters->is_explicit_specialization && template_parameters->num_parameters != 0))
-                    return NESTING_CHECK_INVALID;
+                return NESTING_CHECK_INVALID;
             }
 
             if (entry->entity_specs.is_member)
@@ -5578,42 +5573,68 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
             if (class_entry->kind == SK_TEMPLATE
                     && ASTType(class_id_expression) != AST_TEMPLATE_ID)
             {
+                scope_entry_t* template_sym = class_entry;
                 if (decl_context.template_parameters == NULL)
                 {
                     if (!checking_ambiguity())
                     {
                         error_printf("%s: error: template parameters required for declaration of '%s'\n",
                                 ast_location(class_id_expression),
-                                get_qualified_symbol_name(class_entry, decl_context));
+                                get_qualified_symbol_name(template_sym, decl_context));
                     }
                     *type_info = get_error_type();
                     return;
                 }
+
                 if (decl_context.template_parameters->num_parameters
-                        != template_type_get_template_parameters(class_entry->type_information)->num_parameters)
+                        != template_type_get_template_parameters(template_sym->type_information)->num_parameters)
                 {
                     if (!checking_ambiguity())
                     {
                         error_printf("%s: error: redeclaration with %d template parameters while previous declaration used %d\n",
                                 ast_location(class_id_expression),
                                 decl_context.template_parameters->num_parameters,
-                                template_type_get_template_parameters(class_entry->type_information)->num_parameters);
+                                template_type_get_template_parameters(template_sym->type_information)->num_parameters);
                     }
                     *type_info = get_error_type();
                     return;
                 }
 
-                template_type_update_template_parameters(class_entry->type_information,
+                template_type_update_template_parameters(template_sym->type_information,
                         decl_context.template_parameters);
 
                 // If it was friend-declared, it is not anymore
-                if (class_entry->entity_specs.is_friend_declared)
-                    class_entry->entity_specs.is_friend_declared = 0;
+                if (template_sym->entity_specs.is_friend_declared)
+                    template_sym->entity_specs.is_friend_declared = 0;
 
                 // This is a named type
-                type_t* primary_type = template_type_get_primary_type(class_entry->type_information);
+                type_t* primary_type = template_type_get_primary_type(template_sym->type_information);
+
                 class_entry = named_type_get_symbol(primary_type);
                 class_type = class_entry->type_information;
+
+
+                if (is_template_explicit_specialization(decl_context.template_parameters))
+                {
+                    // We are declaring a template class nested in at least one class
+                    // explicit specialization
+                    type_t* new_class_type =
+                        get_new_class_type(class_entry->decl_context, class_kind);
+
+                    // Propagate 'is_dependent' type property
+                    set_is_dependent_type(new_class_type, is_dependent_type(class_entry->type_information));
+
+                    class_entry->type_information = new_class_type;
+
+                    set_as_template_specialized_type(
+                            class_entry->type_information,
+                            class_entry->decl_context.template_parameters,
+                            template_sym->type_information);
+
+                    class_type = class_entry->type_information;
+                    inner_decl_context = new_class_context(class_entry->decl_context, class_entry);
+                    class_type_set_inner_context(class_type, inner_decl_context);
+                }
 
                 ERROR_CONDITION((class_entry->kind != SK_CLASS
                             && class_entry->kind != SK_FUNCTION), 
@@ -6041,8 +6062,8 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     // };
     //
 
-    // Save the template parameters
     class_entry->entity_specs.is_user_declared = 1;
+    class_entry->entity_specs.is_instantiable = 1;
 
     class_entry->entity_specs.num_gcc_attributes = gather_info->num_gcc_attributes;
     
@@ -7172,11 +7193,6 @@ static scope_entry_t* build_scope_declarator_name(AST declarator, type_t* declar
     scope_entry_t* entry = build_scope_declarator_id_expr(declarator_id_expr, declarator_type, gather_info,
             decl_context, nodecl_output);
 
-    if(entry != NULL)
-    {
-        entry->entity_specs.is_user_declared = 1;
-    }
-
     return entry;
 }
 
@@ -7678,12 +7694,12 @@ static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* decl
         entry->kind = SK_VARIABLE;
         entry->type_information = declarator_type;
 
+        entry->entity_specs.is_user_declared = 1;
         entry->entity_specs.is_static = gather_info->is_static;
         entry->entity_specs.is_mutable = gather_info->is_mutable;
         entry->entity_specs.is_extern = gather_info->is_extern;
         entry->entity_specs.is_register = gather_info->is_register;
         entry->entity_specs.is_thread = gather_info->is_thread;
-
         entry->entity_specs.linkage_spec = current_linkage;
 
         // Copy gcc attributes

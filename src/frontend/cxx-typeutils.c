@@ -1361,6 +1361,7 @@ type_t* get_new_template_type(template_parameter_list_t* template_parameter_list
     primary_symbol->line = line;
     primary_symbol->file = filename;
     primary_symbol->entity_specs.is_user_declared = 1;
+    primary_symbol->entity_specs.is_instantiable = 1;
 
     primary_type->info->is_template_specialized_type = 1;
     primary_type->template_parameters = template_parameter_list;
@@ -1555,6 +1556,18 @@ char has_dependent_template_parameters(template_parameter_list_t* template_param
     return 0;
 }
 
+char is_template_explicit_specialization(template_parameter_list_t* template_parameters)
+{
+    char is_explicit_specialization = 0;
+    template_parameter_list_t* tpl = template_parameters;
+    while (tpl != NULL && !is_explicit_specialization)
+    {
+        is_explicit_specialization = tpl->is_explicit_specialization;
+        tpl = tpl->enclosing;
+    }
+    return is_explicit_specialization;
+}
+
 type_t* template_type_get_matching_specialized_type(type_t* t,
         template_parameter_list_t* template_parameters,
         decl_context_t decl_context)
@@ -1724,6 +1737,7 @@ static type_t* template_type_get_specialized_type_after_type_aux(type_t* t,
     // must be cleared at this point
     specialized_symbol->entity_specs = primary_symbol->entity_specs;
     specialized_symbol->entity_specs.is_user_declared = 0;
+    specialized_symbol->entity_specs.is_instantiable = 0;
 
     // Let this be filled later
     specialized_symbol->entity_specs.num_related_symbols = 0;

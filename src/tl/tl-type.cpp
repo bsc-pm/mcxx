@@ -1222,6 +1222,11 @@ namespace TL
         return TemplateParameters(_tpl_params->enclosing);
     }
 
+    bool TemplateParameters::get_is_explicit_specialization() const
+    {
+        return _tpl_params->is_explicit_specialization;
+    }
+
     Type::BaseInfo::BaseInfo(TL::Symbol _base, 
             bool _is_virtual,
             access_specifier_t _access_specifier)

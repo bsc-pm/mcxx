@@ -79,7 +79,7 @@ type_t* solve_class_template(type_t* template_type,
         }
 
         // We do not want these for instantiation purposes
-        if (!named_type_get_symbol(current_specialized_type)->entity_specs.is_user_declared)
+        if (!named_type_get_symbol(current_specialized_type)->entity_specs.is_instantiable)
         {
             DEBUG_CODE()
             {

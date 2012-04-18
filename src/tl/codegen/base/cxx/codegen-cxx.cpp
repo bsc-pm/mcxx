@@ -1585,25 +1585,17 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 
     move_to_namespace_of_symbol(symbol);
 
-    // We shall generate a empty template header if the function is template specialized
-    if (is_template_specialized)
+    // We may need zero or more empty template headers
+    TL::TemplateParameters tpl = symbol_scope.get_template_parameters();
+    while (tpl.is_valid())
     {
-        indent();
-        file << "template<>\n";
-    }
-
-    // The context may contain instantions of a template class.
-    // We shall generate zero or more empty template headers if needed.
-    TL::Symbol class_entry = symbol;
-    while (class_entry.is_member())
-    {
-        class_entry = class_entry.get_class_type().get_symbol();
-        if (class_entry.get_type().is_template_specialized_type()
-                && !class_entry.is_user_declared())
+        // We should ignore some 'fake' empty template headers
+        if (tpl.get_num_parameters() > 0 || tpl.get_is_explicit_specialization())
         {
-            indent();
-            file << "template<>\n";
+             indent();
+             file << "template <>\n";
         }
+        tpl = tpl.get_enclosing_parameters();
     }
 
     bool requires_extern_linkage = false;
@@ -2987,12 +2979,34 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
         if (is_template_specialized)
         {
             TL::TemplateParameters template_parameters(NULL);
+            template_parameters = symbol.get_scope().get_template_parameters();
+
             if (!(symbol_type.class_type_is_complete_independent()
                         || symbol_type.class_type_is_incomplete_independent()))
             {
-                template_parameters = symbol.get_scope().get_template_parameters();
+                if (defined_inside_class)
+                {
+                    // We only want the template header related to the current class
+                    TL::Symbol enclosing_class = symbol.get_class_type().get_symbol();
+                    codegen_template_headers_bounded(template_parameters,
+                            enclosing_class.get_scope().get_template_parameters());
+                }
+                else
+                {
+                    // We want all template headers
+                    codegen_template_headers_all_levels(template_parameters);
+                }
             }
-            codegen_template_header(template_parameters);
+            else
+            {
+                while (template_parameters.is_valid() &&
+                        template_parameters.get_is_explicit_specialization())
+                {
+                    indent();
+                    file << "template <>\n";
+                    template_parameters = template_parameters.get_enclosing_parameters();
+                }
+            }
         }
         else
         {
@@ -3216,8 +3230,16 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                             if (one_specialization_defined_inside_the_class
                                     || is_dependent_class)
                             {
-                                define_class_symbol_aux(member, symbols_defined_inside_class, level + 1);
-                                set_codegen_status(member, CODEGEN_STATUS_DEFINED);
+                                if (is_complete_type(member.get_type().get_internal_type()))
+                                {
+                                    define_class_symbol_aux(member, symbols_defined_inside_class, level + 1);
+                                    set_codegen_status(member, CODEGEN_STATUS_DEFINED);
+                                }
+                                else
+                                {
+                                    declare_symbol(member);
+                                    set_codegen_status(member, CODEGEN_STATUS_DECLARED);
+                                }
                             }
                             else
                             {
@@ -3724,8 +3746,7 @@ void CxxBase::define_symbol(TL::Symbol symbol)
         return;
 
     // We only generate user declared code
-    if (!symbol.is_user_declared() ||
-            (symbol.is_class() && !all_enclosing_classes_are_user_declared(symbol)))
+    if (!symbol.is_user_declared())
         return;
 
     if (symbol.is_variable())
@@ -5548,7 +5569,7 @@ void CxxBase::codegen_template_headers_all_levels(TL::TemplateParameters templat
 void CxxBase::codegen_template_header(TL::TemplateParameters template_parameters, bool endline)
 {
     indent();
-    if (!template_parameters.is_valid())
+    if (template_parameters.get_is_explicit_specialization())
     {
         file << "template <>";
         if (endline)
