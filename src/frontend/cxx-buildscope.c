@@ -4014,17 +4014,11 @@ static nesting_check_t check_template_nesting_of_name(scope_entry_t* entry, temp
     {
         if (!entry->entity_specs.is_user_declared)
         {
-            if (is_dependent_type(entry->type_information))
+            if (template_parameters == NULL ||
+                    (!template_parameters->is_explicit_specialization &&
+                        template_parameters->num_parameters == 0))
             {
-                if (template_parameters == NULL
-                        || (!template_parameters->is_explicit_specialization && template_parameters->num_parameters == 0))
-                    return NESTING_CHECK_INVALID;
-            }
-            else
-            {
-                if (template_parameters == NULL
-                        || (!template_parameters->is_explicit_specialization && template_parameters->num_parameters != 0))
-                    return NESTING_CHECK_INVALID;
+                return NESTING_CHECK_INVALID;
             }
 
             if (entry->entity_specs.is_member)
