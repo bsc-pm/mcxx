@@ -2979,17 +2979,34 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
 
         if (is_template_specialized)
         {
+            TL::TemplateParameters template_parameters(NULL);
+            template_parameters = symbol.get_scope().get_template_parameters();
+
             if (!(symbol_type.class_type_is_complete_independent()
                         || symbol_type.class_type_is_incomplete_independent()))
             {
-                TL::TemplateParameters template_parameters(NULL);
-                template_parameters = symbol.get_scope().get_template_parameters();
-                codegen_template_header(template_parameters);
+                if (defined_inside_class)
+                {
+                    // We only want the template header related to the current class
+                    TL::Symbol enclosing_class = symbol.get_class_type().get_symbol();
+                    codegen_template_headers_bounded(template_parameters,
+                            enclosing_class.get_scope().get_template_parameters());
+                }
+                else
+                {
+                    // We want all template headers
+                    codegen_template_headers_all_levels(template_parameters);
+                }
             }
             else
             {
-                indent();
-                file << "template <>\n";
+                while (template_parameters.is_valid() &&
+                        template_parameters.get_is_explicit_specialization())
+                {
+                    indent();
+                    file << "template <>\n";
+                    template_parameters = template_parameters.get_enclosing_parameters();
+                }
             }
         }
         else
@@ -3214,8 +3231,16 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                             if (one_specialization_defined_inside_the_class
                                     || is_dependent_class)
                             {
-                                define_class_symbol_aux(member, symbols_defined_inside_class, level + 1);
-                                set_codegen_status(member, CODEGEN_STATUS_DEFINED);
+                                if (is_complete_type(member.get_type().get_internal_type()))
+                                {
+                                    define_class_symbol_aux(member, symbols_defined_inside_class, level + 1);
+                                    set_codegen_status(member, CODEGEN_STATUS_DEFINED);
+                                }
+                                else
+                                {
+                                    declare_symbol(member);
+                                    set_codegen_status(member, CODEGEN_STATUS_DECLARED);
+                                }
                             }
                             else
                             {
