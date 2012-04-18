@@ -688,10 +688,12 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         
         if (Nanos::Version::interface_is_at_least("master", 5012))
         {
-            nanos_create_wd = OMPTransform::get_nanos_create_wd_compact_code(struct_size, data, copy_data);
+            nanos_create_wd = OMPTransform::get_nanos_create_wd_compact_code(struct_size, data, copy_data,
+                    props_priority);
 
             nanos_create_run_wd = OMPTransform::get_nanos_create_and_run_wd_compact_code(
-                    struct_size, imm_data, num_dependences, deps, copy_imm_data, translation_fun_arg_name);
+                    struct_size, imm_data, num_dependences, deps, copy_imm_data, translation_fun_arg_name,
+                    props_priority);
             
             decl_dyn_props_opt << "nanos_wd_dyn_props_t dyn_props = {0};";
             
@@ -721,7 +723,16 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                 <<              "0, " /* reserved3 */
                 <<              "0, " /* reserved4 */
                 <<              "0, " /* reserved5 */
-                <<              props_priority
+                ;
+
+            if (!Nanos::Version::interface_is_at_least("master", 5014))
+            {
+                // After 5014, props is a dynamic property
+                constant_variable_declaration
+                    <<              props_priority
+                    ;
+            }
+            constant_variable_declaration
                 <<          "}, "
                 <<          alignment   << ", "
                 <<          num_copies  << ", "

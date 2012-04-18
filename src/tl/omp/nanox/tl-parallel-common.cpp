@@ -241,10 +241,10 @@ Source TL::Nanox::common_parallel_code(
 
     if ( Nanos::Version::interface_is_at_least("master", 5012))
     {
-        nanos_create_wd = OMPTransform::get_nanos_create_wd_compact_code(struct_size, data, copy_data);
+        nanos_create_wd = OMPTransform::get_nanos_create_wd_compact_code(struct_size, data, copy_data, Source("0"));
 
         nanos_create_run_wd = OMPTransform::get_nanos_create_and_run_wd_compact_code(
-                struct_size, imm_data, num_dependences, deps, imm_copy_data, xlate_arg);
+                struct_size, imm_data, num_dependences, deps, imm_copy_data, xlate_arg, Source("0"));
 
         decl_dyn_props_opt << "nanos_wd_dyn_props_t dyn_props = {0};";
         modify_tie_to1 << "dyn_props.tie_to = _nanos_threads[_i];";
@@ -276,7 +276,14 @@ Source TL::Nanox::common_parallel_code(
             <<              "0, " /* reserved3 */
             <<              "0, " /* reserved4 */
             <<              "0, " /* reserved5 */
-            <<              "0, " /* priority */
+            ;
+        if ( !Nanos::Version::interface_is_at_least("master", 5014))
+        {
+            constant_variable_declaration
+                <<              "0, " /* priority */
+                ;
+        }
+        constant_variable_declaration
             <<          "}, "
             <<          alignment   << ", "
             <<          num_copies  << ", "
