@@ -3762,6 +3762,18 @@ OPERATOR_TABLE
                 << "\n";
         }
 
+
+        // Mark all symbols of this module that have the same name as defined too
+        TL::ObjectList<TL::Symbol> symbols_in_module = module.get_related_symbols();
+        for (TL::ObjectList<TL::Symbol>::iterator it = symbols_in_module.begin();
+                it != symbols_in_module.end();
+                it++)
+        {
+            if (it->get_name() == entry.get_name())
+            {
+                set_codegen_status(*it, CODEGEN_STATUS_DEFINED);
+            }
+        }
     }
 
     bool FortranBase::is_fortran_representable_pointer(TL::Type t)
