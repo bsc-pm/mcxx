@@ -290,4 +290,13 @@ namespace TL { namespace Nanox {
         setup_visitor.walk(environment);
     }
 
+    OutlineDataItem& OutlineInfo::prepend_field(const std::string& str, TL::Type t)
+    {
+        std::string field_name = get_field_name(str);
+        OutlineDataItem env_item(field_name, t);
+
+        _data_env_items.std::vector<OutlineDataItem>::insert(_data_env_items.begin(), env_item);
+        return _data_env_items.front();
+    }
+
 } }

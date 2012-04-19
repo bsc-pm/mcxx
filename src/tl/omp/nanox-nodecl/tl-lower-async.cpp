@@ -552,6 +552,9 @@ void LoweringVisitor::fill_arguments(
                 it != data_items.end();
                 it++)
         {
+            if (!it->get_symbol().is_valid())
+                continue;
+
             switch (it->get_sharing())
             {
                 case OutlineDataItem::SHARING_CAPTURE:
@@ -670,6 +673,9 @@ void LoweringVisitor::fill_arguments(
                 it != data_items.end();
                 it++)
         {
+            if (!it->get_symbol().is_valid())
+                continue;
+
             switch (it->get_sharing())
             {
 

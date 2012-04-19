@@ -51,6 +51,9 @@ namespace TL { namespace Nanox {
 
     bool LoweringVisitor::c_requires_vla_handling(OutlineDataItem& outline_data_item)
     {
+        if (!outline_data_item.get_symbol().is_valid())
+            return false;
+
         TL::Type t = outline_data_item.get_symbol().get_type();
 
         return c_type_needs_vla_handling(t);

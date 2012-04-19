@@ -158,11 +158,25 @@ namespace TL
                 {
                 }
 
-                OutlineDataItem(const std::string field_name)
+                // OutlineDataItem(const std::string field_name)
+                //     : _item_kind(ITEM_KIND_NORMAL),
+                //     _sym(NULL), 
+                //     _field_name(field_name), 
+                //     _field_type(NULL),
+                //     _in_outline_type(NULL),
+                //     _sharing(),
+                //     _shared_expression(),
+                //     _directionality(),
+                //     _copy_directionality(),
+                //     _allocation_policy_flags()
+                // {
+                // }
+
+                OutlineDataItem(const std::string field_name, TL::Type field_type)
                     : _item_kind(ITEM_KIND_NORMAL),
                     _sym(NULL), 
                     _field_name(field_name), 
-                    _field_type(_sym.get_type()),
+                    _field_type(field_type),
                     _in_outline_type(NULL),
                     _sharing(),
                     _shared_expression(),
@@ -342,6 +356,8 @@ namespace TL
 
                 OutlineInfo(Nodecl::NodeclBase environment, bool is_function_task = false);
                 OutlineInfo() : _data_env_items() { }
+
+                OutlineDataItem& prepend_field(const std::string& str, TL::Type t);
         };
     }
 }

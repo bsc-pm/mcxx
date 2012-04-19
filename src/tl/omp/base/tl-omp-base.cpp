@@ -236,6 +236,7 @@ namespace TL { namespace OpenMP {
         INVALID_DECLARATION_HANDLER(parallel)
         INVALID_DECLARATION_HANDLER(parallel_for)
         INVALID_DECLARATION_HANDLER(for)
+        INVALID_DECLARATION_HANDLER(do)
         INVALID_DECLARATION_HANDLER(parallel_sections)
         INVALID_DECLARATION_HANDLER(sections)
         INVALID_DECLARATION_HANDLER(single)

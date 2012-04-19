@@ -34,13 +34,13 @@ namespace TL { namespace Nanox {
             OutlineInfo& outline_info,
             Nodecl::NodeclBase construct,
             Nodecl::NodeclBase num_replicas,
-            const std::string& outline_name)
+            const std::string& outline_name,
+            TL::Symbol structure_symbol)
     {
         Source nanos_create_wd,
                nanos_create_wd_and_run,
                immediate_decl;
 
-        TL::Symbol structure_symbol = declare_argument_structure(outline_info, construct);
         Source struct_arg_type_name;
         struct_arg_type_name << structure_symbol.get_name();
 
@@ -56,7 +56,6 @@ namespace TL { namespace Nanox {
                 // out
                 immediate_decl,
                 dynamic_size);
-
 
         Source translation_fun_arg_name;
 

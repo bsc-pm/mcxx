@@ -40,6 +40,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         virtual void visit(const Nodecl::Parallel::Single& construct);
         virtual void visit(const Nodecl::Parallel::BarrierFull& construct);
         virtual void visit(const Nodecl::Parallel::Replicate& construct);
+        virtual void visit(const Nodecl::Parallel::Distribute& construct);
 
     private:
         TL::Symbol declare_argument_structure(OutlineInfo& outline_info, Nodecl::NodeclBase construct);
@@ -156,7 +157,15 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 OutlineInfo& outline_info,
                 Nodecl::NodeclBase construct,
                 Nodecl::NodeclBase num_replicas,
-                const std::string& outline_name);
+                const std::string& outline_name,
+                TL::Symbol structure_symbol);
+
+        void loop_spawn(
+                OutlineInfo& outline_info,
+                Nodecl::NodeclBase construct,
+                Nodecl::List ranges,
+                const std::string& outline_name,
+                TL::Symbol structure_symbol);
 };
 
 } }
