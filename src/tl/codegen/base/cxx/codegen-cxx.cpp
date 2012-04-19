@@ -2692,9 +2692,11 @@ bool CxxBase::symbol_is_nested_in_defined_classes(TL::Symbol symbol)
     }
 
     return false;
-} 
+}
 
-TL::ObjectList<TL::Symbol> CxxBase::define_required_before_class(TL::Symbol symbol)
+TL::ObjectList<TL::Symbol> CxxBase::define_required_before_class(TL::Symbol symbol,
+        void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
+        void (CxxBase::*def_sym_fun)(TL::Symbol symbol))
 {
     state.pending_nested_types_to_define.clear();
 
@@ -2709,7 +2711,10 @@ TL::ObjectList<TL::Symbol> CxxBase::define_required_before_class(TL::Symbol symb
                 && symbol.get_type().template_specialized_type_get_template_arguments().get_num_parameters() != 0)
         {
             TL::TemplateParameters template_arguments = symbol.get_type().template_specialized_type_get_template_arguments();
-            declare_all_in_template_arguments(template_arguments);
+            declare_all_in_template_arguments(
+                    template_arguments,
+                    decl_sym_fun,
+                    def_sym_fun);
 
             TL::Type template_type = symbol.get_type().get_related_template_type();
             TL::Type primary_template = template_type.get_primary_template();
@@ -2887,7 +2892,8 @@ TL::ObjectList<TL::Symbol> CxxBase::define_required_before_class(TL::Symbol symb
     {
         TL::Symbol& entry(*it);
         // This indirectly fills state.pending_nested_types_to_define
-        TL::ObjectList<TL::Symbol> pending_symbols = define_required_before_class(entry);
+        TL::ObjectList<TL::Symbol> pending_symbols =
+            define_required_before_class(entry, decl_sym_fun, def_sym_fun);
         result.insert(pending_symbols);
     }
 
@@ -3524,7 +3530,9 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
     }
 }
 
-void CxxBase::define_class_symbol(TL::Symbol symbol)
+void CxxBase::define_class_symbol(TL::Symbol symbol,
+        void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
+        void (CxxBase::*def_sym_fun)(TL::Symbol symbol))
 {
     if (symbol.is_anonymous_union() && !symbol.is_user_declared())
     {
@@ -3537,7 +3545,8 @@ void CxxBase::define_class_symbol(TL::Symbol symbol)
     state.classes_being_defined.push_back(symbol);
 
     // This indirectly fills state.pending_nested_types_to_define
-    TL::ObjectList<TL::Symbol> symbols_defined_inside_class = define_required_before_class(symbol);
+    TL::ObjectList<TL::Symbol> symbols_defined_inside_class =
+        define_required_before_class(symbol, decl_sym_fun, def_sym_fun);
 
     define_class_symbol_aux(symbol, symbols_defined_inside_class, /* level */ 0);
 
@@ -3779,7 +3788,10 @@ void CxxBase::do_define_symbol(TL::Symbol symbol,
             //We may need to define or declare the template arguments
             TL::TemplateParameters template_arguments =
                 symbol.get_type().template_specialized_type_get_template_arguments();
-            declare_all_in_template_arguments(template_arguments);
+            declare_all_in_template_arguments(
+                    template_arguments,
+                    decl_sym_fun,
+                    def_sym_fun);
 
             //We must define all user declared specializations
             define_specializations_user_declared(template_symbol);
@@ -3887,7 +3899,7 @@ void CxxBase::do_define_symbol(TL::Symbol symbol,
     }
     else if (symbol.is_class())
     {
-        define_class_symbol(symbol);
+        define_class_symbol(symbol, decl_sym_fun, def_sym_fun);
     }
     else if (symbol.is_function())
     {
@@ -3931,7 +3943,10 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         //We may need to define or declare the template arguments
         TL::TemplateParameters template_arguments =
             symbol.get_type().template_specialized_type_get_template_arguments();
-        declare_all_in_template_arguments(template_arguments);
+        declare_all_in_template_arguments(
+                template_arguments,
+                decl_sym_fun,
+                def_sym_fun);
 
         //We must declare ONLY the primary template
         TL::Symbol primary_symbol =
@@ -4312,8 +4327,12 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                     is_primary_template = 1;
                 }
 
-                TL::TemplateParameters template_arguments = symbol.get_type().template_specialized_type_get_template_arguments();
-                declare_all_in_template_arguments(template_arguments);
+                TL::TemplateParameters template_arguments =
+                    symbol.get_type().template_specialized_type_get_template_arguments();
+                declare_all_in_template_arguments(
+                        template_arguments,
+                        decl_sym_fun,
+                        def_sym_fun);
 
                 if (!symbol.get_type().class_type_is_complete_independent()
                         && !symbol.get_type().class_type_is_incomplete_independent())
@@ -5499,7 +5518,9 @@ std::string CxxBase::unmangle_symbol_name(TL::Symbol symbol)
     return ::unmangle_symbol_name(symbol.get_internal_symbol());
 }
 
-void CxxBase::declare_all_in_template_arguments(TL::TemplateParameters template_arguments)
+void CxxBase::declare_all_in_template_arguments(TL::TemplateParameters template_arguments,
+        void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
+        void (CxxBase::*def_sym_fun)(TL::Symbol symbol))
 {
     int i, n = template_arguments.get_num_parameters();
 
@@ -5514,8 +5535,8 @@ void CxxBase::declare_all_in_template_arguments(TL::TemplateParameters template_
                     walk_type_for_symbols(
                             argument.get_type(),
                             /* needs_def */ 1,
-                            &CxxBase::declare_symbol_if_nonnested,
-                            &CxxBase::define_symbol_if_nonnested,
+                            decl_sym_fun,
+                            def_sym_fun,
                             &CxxBase::define_nonnested_entities_in_trees);
                     break;
                 }
@@ -5524,16 +5545,15 @@ void CxxBase::declare_all_in_template_arguments(TL::TemplateParameters template_
                     walk_type_for_symbols(
                             argument.get_type(),
                             /* needs_def */ 1,
-                            &CxxBase::declare_symbol_if_nonnested,
-                            &CxxBase::define_symbol_if_nonnested,
+                            decl_sym_fun,
+                            def_sym_fun,
                             &CxxBase::define_nonnested_entities_in_trees);
                     define_nonnested_entities_in_trees(argument.get_value());
                     break;
                 }
             case TPK_TEMPLATE:
                 {
-                    declare_symbol_always(argument.get_type().get_symbol());
-
+                    (this->*decl_sym_fun)(argument.get_type().get_symbol());
                     break;
                 }
             default:

@@ -261,11 +261,17 @@ namespace Codegen
             bool symbol_is_same_or_nested_in(TL::Symbol symbol, TL::Symbol class_sym);
             bool symbol_is_nested_in_defined_classes(TL::Symbol symbol);
 
-            TL::ObjectList<TL::Symbol> define_required_before_class(TL::Symbol symbol);
+            TL::ObjectList<TL::Symbol> define_required_before_class(TL::Symbol symbol,
+                    void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
+                    void (CxxBase::*def_sym_fun)(TL::Symbol symbol));
+
             void define_class_symbol_aux(TL::Symbol symbol,
                     TL::ObjectList<TL::Symbol> symbols_defined_inside_class,
                     int level);
-            void define_class_symbol(TL::Symbol symbol);
+
+            void define_class_symbol(TL::Symbol symbol,
+                    void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
+                    void (CxxBase::*def_sym_fun)(TL::Symbol symbol));
 
             void do_define_symbol(TL::Symbol symbol,
                     void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
@@ -375,7 +381,9 @@ namespace Codegen
 
             static std::string unmangle_symbol_name(TL::Symbol);
 
-            void declare_all_in_template_arguments(TL::TemplateParameters template_arguments);
+            void declare_all_in_template_arguments(TL::TemplateParameters template_arguments,
+                    void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
+                    void (CxxBase::*def_sym_fun)(TL::Symbol symbol));
             
             void declare_all_in_template_header(TL::TemplateParameters template_arguments);
 
