@@ -141,8 +141,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Source &struct_arg_type_name,
                 const std::string& outline_name,
                 bool is_untied,
-                bool mandatory_creation,
-                Nodecl::NodeclBase priority_expr);
+                bool mandatory_creation);
 
         void allocate_immediate_structure(
                 OutlineInfo& outline_info,

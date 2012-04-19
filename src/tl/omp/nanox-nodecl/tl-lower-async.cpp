@@ -164,8 +164,7 @@ Source LoweringVisitor::fill_const_wd_info(
         Source &struct_arg_type_name,
         const std::string& outline_name,
         bool is_untied,
-        bool mandatory_creation,
-        Nodecl::NodeclBase priority_expr)
+        bool mandatory_creation)
 {
     // Static stuff
     //
@@ -229,20 +228,10 @@ Source LoweringVisitor::fill_const_wd_info(
         << /* ".reserved3 =" << */ "0,\n"
         << /* ".reserved4 =" << */ "0,\n"
         << /* ".reserved5 =" << */ "0,\n"
-        << /* ".priority = " << */ priority 
         << "}"
         ;
 
     tiedness << (int)!is_untied;
-
-    if (priority_expr.is_null())
-    {
-        priority << "0";
-    }
-    else
-    {
-        priority << as_expression(priority_expr);
-    }
 
     // FIXME - No devices yet, let's mimick the structure of one SMP
     {
@@ -384,12 +373,12 @@ void LoweringVisitor::emit_async_common(
             struct_arg_type_name,
             outline_name,
             is_untied,
-            /* mandatory_creation */ 0,
-            priority_expr);
+            /* mandatory_creation */ 0);
 
     dynamic_wd_info
         << "nanos_wd_dyn_props_t nanos_wd_dyn_props;"
         << "nanos_wd_dyn_props.tie_to = 0;"
+        << "nanos_wd_dyn_props.priority = " << as_expression(priority_expr) << ";"
         ;
 
     Source dynamic_size;
