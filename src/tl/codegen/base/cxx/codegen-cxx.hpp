@@ -267,8 +267,13 @@ namespace Codegen
                     int level);
             void define_class_symbol(TL::Symbol symbol);
 
-            void define_symbol_always(TL::Symbol symbol);
-            void declare_symbol_always(TL::Symbol symbol);
+            void do_define_symbol(TL::Symbol symbol,
+                    void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
+                    void (CxxBase::*def_sym_fun)(TL::Symbol symbol));
+
+            void do_declare_symbol(TL::Symbol symbol,
+                    void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
+                    void (CxxBase::*def_sym_fun)(TL::Symbol symbol));
 
             void define_generic_entities(Nodecl::NodeclBase node,
                     void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
@@ -289,6 +294,9 @@ namespace Codegen
             void define_nonprototype_entities_in_trees(const Nodecl::NodeclBase& node);
             void define_nonnested_entities_in_trees(const Nodecl::NodeclBase&);
             void define_local_entities_in_trees(const Nodecl::NodeclBase&);
+
+            void declare_symbol_always(TL::Symbol);
+            void define_symbol_always(TL::Symbol);
 
             void declare_symbol_if_nonlocal(TL::Symbol);
             void define_symbol_if_nonlocal(TL::Symbol);

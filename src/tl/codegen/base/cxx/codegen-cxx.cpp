@@ -1263,7 +1263,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
     if (symbol.is_member())
     {
         TL::Symbol class_symbol = symbol.get_class_type().get_symbol();
-        this->define_symbol_always(class_symbol);
+        do_define_symbol(class_symbol,
+                &CxxBase::declare_symbol_always,
+                &CxxBase::define_symbol_always);
     }
     else
     {
@@ -1274,7 +1276,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
             TL::Type primary_type = template_type.get_primary_template();
             TL::Symbol primary_symbol = primary_type.get_symbol();
 
-            declare_symbol_always(primary_symbol);
+            do_declare_symbol(primary_symbol,
+                    &CxxBase::declare_symbol_always,
+                    &CxxBase::define_symbol_always);
         }
     }
 
@@ -1471,7 +1475,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
     if (symbol.is_member())
     {
         TL::Symbol class_symbol = symbol.get_class_type().get_symbol();
-        this->define_symbol_always(class_symbol);
+        do_define_symbol(class_symbol,
+                &CxxBase::declare_symbol_always,
+                &CxxBase::define_symbol_always);
     }
     else
     {
@@ -1481,7 +1487,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
             TL::Type template_type = symbol_type.get_related_template_type();
             TL::Type primary_type = template_type.get_primary_template();
             TL::Symbol primary_symbol = primary_type.get_symbol();
-            declare_symbol_always(primary_symbol);
+            do_declare_symbol(primary_symbol,
+                    &CxxBase::declare_symbol_always,
+                    &CxxBase::define_symbol_always);
         }
     }
 
@@ -1946,7 +1954,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ObjectInit& node)
             &CxxBase::define_all_entities_in_trees);
 
     state.must_be_object_init.erase(sym);
-    define_symbol_always(sym);
+    do_define_symbol(sym,
+            &CxxBase::declare_symbol_always,
+            &CxxBase::define_symbol_always);
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::Offsetof& node)
@@ -2327,7 +2337,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Symbol& node)
 
     if (entry.is_member())
     {
-        define_symbol_always(entry.get_class_type().get_symbol());
+        do_define_symbol(entry.get_class_type().get_symbol(),
+                &CxxBase::declare_symbol_always,
+                &CxxBase::define_symbol_always);
     }
 
     bool must_derref = is_non_language_reference_variable(entry)
@@ -2461,11 +2473,15 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxDecl& node)
                 || sym.is_enum())
             && (::is_incomplete_type(sym.get_type().get_internal_type())))
     {
-        declare_symbol_always(sym);
+        do_declare_symbol(sym,
+                &CxxBase::declare_symbol_always,
+                &CxxBase::define_symbol_always);
     }
     else
     {
-        define_symbol_always(sym);
+        do_define_symbol(sym,
+                &CxxBase::declare_symbol_always,
+                &CxxBase::define_symbol_always);
     }
 }
 void CxxBase::codegen_explicit_instantiation(TL::Symbol sym,
@@ -3176,7 +3192,9 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                 }
                 else
                 {
-                    define_symbol_always(member);
+                    do_define_symbol(member,
+                            &CxxBase::declare_symbol_always,
+                            &CxxBase::define_symbol_always);
                 }
                 set_codegen_status(member, CODEGEN_STATUS_DEFINED);
             }
@@ -3237,13 +3255,17 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                                 }
                                 else
                                 {
-                                    declare_symbol_always(member);
+                                    do_declare_symbol(member,
+                                            &CxxBase::declare_symbol_always,
+                                            &CxxBase::define_symbol_always);
                                     set_codegen_status(member, CODEGEN_STATUS_DECLARED);
                                 }
                             }
                             else
                             {
-                                declare_symbol_always(member);
+                                do_declare_symbol(member,
+                                        &CxxBase::declare_symbol_always,
+                                        &CxxBase::define_symbol_always);
                                 set_codegen_status(member, CODEGEN_STATUS_DECLARED);
                             }
                         }
@@ -3269,7 +3291,9 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                         }
                         else
                         {
-                            declare_symbol_always(member);
+                            do_declare_symbol(member,
+                                    &CxxBase::declare_symbol_always,
+                                    &CxxBase::define_symbol_always);
                             set_codegen_status(member, CODEGEN_STATUS_DECLARED);
                         }
                     }
@@ -3288,12 +3312,16 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                 else if (member.is_enum()
                         || member.is_typedef())
                 {
-                    define_symbol_always(member);
+                    do_define_symbol(member,
+                            &CxxBase::declare_symbol_always,
+                            &CxxBase::define_symbol_always);
                     set_codegen_status(member, CODEGEN_STATUS_DEFINED);
                 }
                 else
                 {
-                    declare_symbol_always(member);
+                    do_declare_symbol(member,
+                            &CxxBase::declare_symbol_always,
+                            &CxxBase::define_symbol_always);
                     if (member.is_variable()
                             && (!member.is_static()
                                 || ((member.get_type().is_integral_type()
@@ -3544,11 +3572,27 @@ bool CxxBase::all_enclosing_classes_are_user_declared(TL::Symbol entry)
     return result;
 }
 
+void CxxBase::define_symbol_always(TL::Symbol symbol)
+{
+    do_define_symbol(symbol,
+            &CxxBase::declare_symbol_always,
+            &CxxBase::define_symbol_always);
+}
+
+void CxxBase::declare_symbol_always(TL::Symbol symbol)
+{
+    do_declare_symbol(symbol,
+            &CxxBase::declare_symbol_always,
+            &CxxBase::define_symbol_always);
+}
+
 void CxxBase::define_symbol_if_local(TL::Symbol symbol)
 {
     if (is_local_symbol(symbol))
     {
-        define_symbol_always(symbol);
+        do_define_symbol(symbol,
+                &CxxBase::declare_symbol_if_local,
+                &CxxBase::define_symbol_if_local);
     }
 }
 
@@ -3556,7 +3600,9 @@ void CxxBase::declare_symbol_if_local(TL::Symbol symbol)
 {
     if (is_local_symbol(symbol))
     {
-        declare_symbol_always(symbol);
+        do_declare_symbol(symbol,
+                &CxxBase::declare_symbol_if_local,
+                &CxxBase::define_symbol_if_local);
     }
 }
 
@@ -3564,7 +3610,19 @@ void CxxBase::define_symbol_if_nonlocal(TL::Symbol symbol)
 {
     if (!is_local_symbol(symbol))
     {
-        define_symbol_always(symbol);
+        do_define_symbol(symbol,
+                &CxxBase::declare_symbol_if_nonlocal,
+                &CxxBase::define_symbol_if_nonlocal);
+    }
+}
+
+void CxxBase::declare_symbol_if_nonlocal(TL::Symbol symbol)
+{
+    if (!is_local_symbol(symbol))
+    {
+        do_declare_symbol(symbol,
+                &CxxBase::declare_symbol_if_nonlocal,
+                &CxxBase::define_symbol_if_nonlocal);
     }
 }
 
@@ -3573,23 +3631,9 @@ void CxxBase::define_symbol_if_nonlocal_nonprototype(TL::Symbol symbol)
     if (!is_local_symbol(symbol)
             && !is_prototype_symbol(symbol))
     {
-        define_symbol_always(symbol);
-    }
-}
-
-void CxxBase::define_symbol_if_nonprototype(TL::Symbol symbol)
-{
-    if (!is_prototype_symbol(symbol))
-    {
-        define_symbol_always(symbol);
-    }
-}
-
-void CxxBase::declare_symbol_if_nonlocal(TL::Symbol symbol)
-{
-    if (!is_local_symbol(symbol))
-    {
-        declare_symbol_always(symbol);
+        do_define_symbol(symbol,
+                &CxxBase::declare_symbol_if_nonlocal_nonprototype,
+                &CxxBase::define_symbol_if_nonlocal_nonprototype);
     }
 }
 
@@ -3598,7 +3642,19 @@ void CxxBase::declare_symbol_if_nonlocal_nonprototype(TL::Symbol symbol)
     if (!is_local_symbol(symbol)
             && !is_prototype_symbol(symbol))
     {
-        declare_symbol_always(symbol);
+        do_declare_symbol(symbol,
+                &CxxBase::declare_symbol_if_nonlocal_nonprototype,
+                &CxxBase::define_symbol_if_nonlocal_nonprototype);
+    }
+}
+
+void CxxBase::define_symbol_if_nonprototype(TL::Symbol symbol)
+{
+    if (!is_prototype_symbol(symbol))
+    {
+        do_define_symbol(symbol,
+                &CxxBase::declare_symbol_if_nonprototype,
+                &CxxBase::define_symbol_if_nonprototype);
     }
 }
 
@@ -3606,7 +3662,9 @@ void CxxBase::declare_symbol_if_nonprototype(TL::Symbol symbol)
 {
     if (!is_prototype_symbol(symbol))
     {
-        declare_symbol_always(symbol);
+        do_define_symbol(symbol,
+                &CxxBase::declare_symbol_if_nonprototype,
+                &CxxBase::define_symbol_if_nonprototype);
     }
 }
 
@@ -3614,12 +3672,14 @@ void CxxBase::define_symbol_if_nonnested(TL::Symbol symbol)
 {
     if (!symbol_is_nested_in_defined_classes(symbol))
     {
-        define_symbol_always(symbol);
+        do_define_symbol(symbol,
+               &CxxBase::declare_symbol_if_nonnested,
+               &CxxBase::define_symbol_if_nonnested);
     }
     else
     {
         // This symbol is nested in a defined class
-        // We cannot define it now, so we keep it 
+        // We cannot define it now, so we keep it
         state.pending_nested_types_to_define.insert(symbol);
     }
 }
@@ -3629,7 +3689,9 @@ void CxxBase::declare_symbol_if_nonnested(TL::Symbol symbol)
     if (!symbol_is_nested_in_defined_classes(symbol)
             || !symbol.is_member())
     {
-        declare_symbol_always(symbol);
+        do_declare_symbol(symbol,
+                &CxxBase::declare_symbol_if_nonnested,
+                &CxxBase::define_symbol_if_nonnested);
     }
 }
 
@@ -3678,12 +3740,16 @@ void CxxBase::define_specializations_user_declared(TL::Symbol sym)
 
         if (sym_spec.is_user_declared())
         {
-            define_or_declare_if_complete(sym_spec, &CxxBase::declare_symbol_always, &CxxBase::define_symbol_always);
+            define_or_declare_if_complete(sym_spec,
+                    &CxxBase::declare_symbol_always,
+                    &CxxBase::define_symbol_always);
         }
     }
 }
 
-void CxxBase::define_symbol_always(TL::Symbol symbol)
+void CxxBase::do_define_symbol(TL::Symbol symbol,
+        void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
+        void (CxxBase::*def_sym_fun)(TL::Symbol symbol))
 {
     if (state.emit_declarations == State::EMIT_NO_DECLARATIONS)
         return;
@@ -3751,7 +3817,7 @@ void CxxBase::define_symbol_always(TL::Symbol symbol)
 
     if (symbol.is_variable())
     {
-        declare_symbol_always(symbol);
+        (this->*decl_sym_fun)(symbol);
     }
     else if (symbol.is_typedef())
     {
@@ -3769,7 +3835,7 @@ void CxxBase::define_symbol_always(TL::Symbol symbol)
     }
     else if (symbol.is_enumerator())
     {
-        define_symbol_always(symbol.get_type().get_symbol());
+        (this->*def_sym_fun)(symbol.get_type().get_symbol());
     }
     else if (symbol.is_enum())
     {
@@ -3826,7 +3892,7 @@ void CxxBase::define_symbol_always(TL::Symbol symbol)
     else if (symbol.is_function())
     {
         // Functions are not defined but only declared
-        declare_symbol_always(symbol);
+        (this->*decl_sym_fun)(symbol);
     }
     else if (symbol.is_template_parameter())
     {
@@ -3840,7 +3906,9 @@ void CxxBase::define_symbol_always(TL::Symbol symbol)
     set_codegen_status(symbol, CODEGEN_STATUS_DEFINED);
 }
 
-void CxxBase::declare_symbol_always(TL::Symbol symbol)
+void CxxBase::do_declare_symbol(TL::Symbol symbol,
+        void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
+        void (CxxBase::*def_sym_fun)(TL::Symbol symbol))
 {
     if (state.emit_declarations == State::EMIT_NO_DECLARATIONS)
         return;
@@ -3874,7 +3942,9 @@ void CxxBase::declare_symbol_always(TL::Symbol symbol)
             .get_symbol();
 
 
-        define_or_declare_if_complete(primary_symbol, &CxxBase::declare_symbol_always, &CxxBase::define_symbol_always);
+        define_or_declare_if_complete(primary_symbol,
+                &CxxBase::declare_symbol_always,
+                &CxxBase::define_symbol_always);
         return;
     }
 
@@ -4212,7 +4282,7 @@ void CxxBase::declare_symbol_always(TL::Symbol symbol)
                         || (state.classes_being_defined.back() != 
                             symbol.get_class_type().get_symbol()))
                 {
-                    define_symbol_always(symbol.get_class_type().get_symbol());
+                    (this->*def_sym_fun)(symbol.get_class_type().get_symbol());
                     return;
                 }
             }
@@ -4231,11 +4301,11 @@ void CxxBase::declare_symbol_always(TL::Symbol symbol)
                 template_type = symbol.get_type().get_related_template_type();
                 primary_template = template_type.get_primary_template();
                 primary_symbol = primary_template.get_symbol();
-                declare_symbol_always(primary_symbol);
+                (this->*decl_sym_fun)(primary_symbol);
 
                 if (primary_symbol != symbol)
                 {
-                    declare_symbol_always(primary_symbol);
+                    (this->*decl_sym_fun)(primary_symbol);
                 }
                 else
                 {
@@ -4303,7 +4373,7 @@ void CxxBase::declare_symbol_always(TL::Symbol symbol)
             if (class_key == "union" &&
                     symbol.get_scope().is_class_scope())
             {
-                define_symbol_always(symbol);
+                (this->*def_sym_fun)(symbol);
                 return;
             }
 
@@ -4321,17 +4391,17 @@ void CxxBase::declare_symbol_always(TL::Symbol symbol)
     }
     else if (symbol.is_enumerator())
     {
-        declare_symbol_always(symbol.get_type().get_symbol());
+        (this->*decl_sym_fun)(symbol.get_type().get_symbol());
     }
     else if (symbol.is_enum())
     {
         // Enums cannot be only declared but defined
-        define_symbol_always(symbol);
+        (this->*def_sym_fun)(symbol);
     }
     else if (symbol.is_typedef())
     {
         // Typedefs can't be simply declared
-        define_symbol_always(symbol);
+        (this->*def_sym_fun)(symbol);
     }
     else if (symbol.is_function())
     {
@@ -4370,7 +4440,7 @@ void CxxBase::declare_symbol_always(TL::Symbol symbol)
                 TL::Type template_type = symbol.get_type().get_related_template_type();
                 TL::Type primary_template = template_type.get_primary_template();
                 TL::Symbol primary_symbol = primary_template.get_symbol();
-                declare_symbol_always(primary_symbol);
+                (this->*decl_sym_fun)(primary_symbol);
 
                 if (primary_symbol != symbol)
                 {
@@ -4536,7 +4606,7 @@ void CxxBase::declare_symbol_always(TL::Symbol symbol)
 
         symbol.get_type().dependent_typename_get_components(entry, n);
 
-        declare_symbol_always(entry);
+        (this->*decl_sym_fun)(entry);
     }
     else if(symbol.get_type().is_dependent_typename() || symbol.is_dependent_friend_function())
     {
@@ -5463,6 +5533,7 @@ void CxxBase::declare_all_in_template_arguments(TL::TemplateParameters template_
             case TPK_TEMPLATE:
                 {
                     declare_symbol_always(argument.get_type().get_symbol());
+
                     break;
                 }
             default:
