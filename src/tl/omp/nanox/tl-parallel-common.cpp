@@ -335,7 +335,7 @@ Source TL::Nanox::common_parallel_code(
         <<      struct_arg_type_name << " *ol_args = 0;"
         <<      modify_tie_to1
         <<      "nanos_wd_t wd = 0;"
-        <<      "err = " << nanos_create_wd
+        <<      nanos_create_wd
         <<      "if (err != NANOS_OK) nanos_handle_error(err);"
         <<      fill_outline_arguments
         <<      "err = nanos_submit(wd, 0, (nanos_dependence_t*)0, 0);"
@@ -344,7 +344,7 @@ Source TL::Nanox::common_parallel_code(
         <<   modify_tie_to2
         <<   immediate_decl
         <<   fill_immediate_arguments
-        <<   "err = " << nanos_create_run_wd
+        <<   nanos_create_run_wd
         <<   "if (err != NANOS_OK) nanos_handle_error(err);"
         <<   "err = nanos_end_team(_nanos_team);"
         <<   "if (err != NANOS_OK) nanos_handle_error(err);"

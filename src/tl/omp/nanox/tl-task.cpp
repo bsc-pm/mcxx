@@ -777,7 +777,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             <<     copy_decl
             <<     "nanos_err_t err;"
             <<     if_expr_cond_start
-            <<     "err = " << nanos_create_wd
+            <<     nanos_create_wd
             <<     "if (err != NANOS_OK) nanos_handle_error (err);"
             <<     if_expr_cond_end
             <<     "if (wd != (nanos_wd_t)0)"
@@ -796,7 +796,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             <<        fill_immediate_arguments
             <<        fill_dependences_immediate
             <<        copy_immediate_setup
-            <<        "err = " << nanos_create_run_wd
+            <<        nanos_create_run_wd
             <<        "if (err != NANOS_OK) nanos_handle_error (err);"
             <<     "}"
             << "}"

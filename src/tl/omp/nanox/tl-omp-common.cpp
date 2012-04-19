@@ -64,7 +64,7 @@ namespace Nanox
         if (Nanos::Version::interface_is_at_least("master", 5012))
         {
             create_sliced_wd
-                <<"nanos_create_sliced_wd("
+                <<"err = nanos_create_sliced_wd("
                 <<      "&wd, "
                 <<       "1, " /* num_devices */
                 <<      device_descriptor << ", "
@@ -82,7 +82,7 @@ namespace Nanox
         else if (Nanos::Version::interface_is_at_least("master", 5008))
         {
             create_sliced_wd
-                <<"nanos_create_sliced_wd("
+                <<"err = nanos_create_sliced_wd("
                 <<      "&wd, "
                 <<       "1, " /* num_devices */
                 <<      device_descriptor << ", "
@@ -129,7 +129,7 @@ namespace Nanox
     {
         Source create_wd;
         create_wd
-            << "nanos_create_wd(&wd, "
+            << "err = nanos_create_wd(&wd, "
             <<       num_devices << ", "
             <<       device_descriptor << ", "
             <<       struct_size << ", "
@@ -158,7 +158,7 @@ namespace Nanox
                  ;
          }
          create_wd
-             << "nanos_create_wd_compact("
+             << "err = nanos_create_wd_compact("
              <<       "&wd, "
              <<       "&_const_def.base, "
              <<       "&dyn_props, "
@@ -185,7 +185,7 @@ namespace Nanox
      {
          Source create_wd_and_run;
          create_wd_and_run
-             << "nanos_create_wd_and_run("
+             << "err = nanos_create_wd_and_run("
              <<       num_devices << ", "
              <<       device_descriptor << ", "
              <<       struct_size << ", "
@@ -220,7 +220,7 @@ namespace Nanox
                  ;
          }
          create_wd_and_run
-             << "nanos_create_wd_and_run_compact("
+             << "err = nanos_create_wd_and_run_compact("
              <<       "&_const_def.base, "
              <<       "&dyn_props, "
              <<       struct_size << ", "
