@@ -54,5 +54,5 @@ libtlnanox_lowering_la_SOURCES = \
 								 tl-lower-parallel.cpp \
 								 tl-lower-distribute.cpp \
 								 tl-parallel-spawn.cpp \
-								 tl-sliced-spawn.cpp \
+								 tl-loop-spawn.cpp \
 								 $(END)
