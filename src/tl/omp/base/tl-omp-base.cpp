@@ -470,23 +470,30 @@ namespace TL { namespace OpenMP {
         directive.integrate(code);
     }
 
+
     void Base::for_handler_pre(TL::PragmaCustomStatement) { }
     void Base::for_handler_post(TL::PragmaCustomStatement directive)
+    {
+        Nodecl::NodeclBase statement = directive.get_statements();
+        ERROR_CONDITION(!statement.is<Nodecl::List>(), "Invalid tree", 0);
+        statement = statement.as<Nodecl::List>().front();
+        ERROR_CONDITION(!statement.is<Nodecl::Context>(), "Invalid tree", 0);
+        statement = statement.as<Nodecl::Context>().get_in_context();
+        ERROR_CONDITION(!statement.is<Nodecl::List>(), "Invalid tree", 0);
+        statement = statement.as<Nodecl::List>().front();
+
+        loop_handler_post(directive, statement);
+    }
+
+    void Base::loop_handler_pre(TL::PragmaCustomStatement) { }
+    void Base::loop_handler_post(TL::PragmaCustomStatement directive, Nodecl::NodeclBase statement)
     {
         OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
         Nodecl::List execution_environment = this->make_execution_environment(ds, pragma_line);
 
-        Nodecl::NodeclBase stmt = directive.get_statements();
-        ERROR_CONDITION(!stmt.is<Nodecl::List>(), "Invalid tree", 0);
-        stmt = stmt.as<Nodecl::List>().front();
-        ERROR_CONDITION(!stmt.is<Nodecl::Context>(), "Invalid tree", 0);
-        stmt = stmt.as<Nodecl::Context>().get_in_context();
-        ERROR_CONDITION(!stmt.is<Nodecl::List>(), "Invalid tree", 0);
-        stmt = stmt.as<Nodecl::List>().front();
-        ERROR_CONDITION (!stmt.is<Nodecl::ForStatement>(), "Invalid tree", 0);
-
-        TL::ForStatement for_statement(stmt.as<Nodecl::ForStatement>());
+        ERROR_CONDITION (!statement.is<Nodecl::ForStatement>(), "Invalid tree", 0);
+        TL::ForStatement for_statement(statement.as<Nodecl::ForStatement>());
 
         Nodecl::List code;
         Nodecl::Parallel::Distribute distribute =
@@ -524,12 +531,16 @@ namespace TL { namespace OpenMP {
 
     void Base::do_handler_pre(TL::PragmaCustomStatement directive)
     {
-        for_handler_pre(directive);
+        loop_handler_pre(directive);
     }
 
     void Base::do_handler_post(TL::PragmaCustomStatement directive)
     {
-        for_handler_post(directive);
+        Nodecl::NodeclBase statement = directive.get_statements();
+        ERROR_CONDITION(!statement.is<Nodecl::List>(), "Invalid tree", 0);
+        statement = statement.as<Nodecl::List>().front();
+
+        loop_handler_post(directive, statement);
     }
 
     // Function tasks

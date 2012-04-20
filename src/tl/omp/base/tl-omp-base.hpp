@@ -67,6 +67,9 @@ namespace TL
 #undef OMP_DIRECTIVE
 
                 Nodecl::List make_execution_environment(OpenMP::DataSharingEnvironment&, PragmaCustomLine);
+
+                void loop_handler_pre(TL::PragmaCustomStatement);
+                void loop_handler_post(TL::PragmaCustomStatement directive, Nodecl::NodeclBase statement);
         };
     }
 }

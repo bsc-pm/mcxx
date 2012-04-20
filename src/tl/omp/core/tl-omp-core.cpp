@@ -756,29 +756,15 @@ namespace TL
                 .integrate(compound_statement);
         }
 
-        void Core::common_for_handler(TL::PragmaCustomStatement construct, DataSharingEnvironment& data_sharing)
+        void Core::common_for_handler(Nodecl::NodeclBase statement, DataSharingEnvironment& data_sharing)
         {
-            Nodecl::NodeclBase stmt = construct.get_statements();
-
-            // Do we really need such a deep structure?
-            // NODECL_LIST -> NODECL_CONTEXT -> NODECL_LIST
-
-            ERROR_CONDITION(!stmt.is<Nodecl::List>(), "Invalid tree", 0);
-            stmt = stmt.as<Nodecl::List>().front();
-
-            ERROR_CONDITION(!stmt.is<Nodecl::Context>(), "Invalid tree", 0);
-            stmt = stmt.as<Nodecl::Context>().get_in_context();
-
-            ERROR_CONDITION(!stmt.is<Nodecl::List>(), "Invalid tree", 0);
-            stmt = stmt.as<Nodecl::List>().front();
-
-            if (!stmt.is<Nodecl::ForStatement>())
+            if (!statement.is<Nodecl::ForStatement>())
             {
                 running_error("%s: error: a for-statement is required for '#pragma omp for' and '#pragma omp parallel for'",
-                        stmt.get_locus().c_str());
+                        statement.get_locus().c_str());
             }
 
-            TL::ForStatement for_statement(stmt.as<Nodecl::ForStatement>());
+            TL::ForStatement for_statement(statement.as<Nodecl::ForStatement>());
 
             if (for_statement.is_omp_valid_loop())
             {
@@ -787,8 +773,20 @@ namespace TL
             }
             else
             {
-                running_error("%s: error: for-statement in '#pragma omp for' and '#pragma omp parallel for' is not in OpenMP canonical form",
-                        stmt.get_locus().c_str());
+                if (IS_FORTRAN_LANGUAGE)
+                {
+                    running_error("%s: error: DO-statement in !$OMP DO directive is not valid", 
+                            statement.get_locus().c_str());
+                }
+                else if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+                {
+                    running_error("%s: error: for-statement in '#pragma omp for' and '#pragma omp parallel for' is not in OpenMP canonical form",
+                            statement.get_locus().c_str());
+                }
+                else
+                {
+                    internal_error("Code unreachable", 0);
+                }
             }
         }
 
@@ -952,10 +950,24 @@ namespace TL
                 // This will replace the tree
                 collapse_loop_first(construct);
             }
+            
+            Nodecl::NodeclBase stmt = construct.get_statements();
+
+            // Do we really need such a deep structure?
+            // NODECL_LIST -> NODECL_CONTEXT -> NODECL_LIST
+
+            ERROR_CONDITION(!stmt.is<Nodecl::List>(), "Invalid tree", 0);
+            stmt = stmt.as<Nodecl::List>().front();
+
+            ERROR_CONDITION(!stmt.is<Nodecl::Context>(), "Invalid tree", 0);
+            stmt = stmt.as<Nodecl::Context>().get_in_context();
+
+            ERROR_CONDITION(!stmt.is<Nodecl::List>(), "Invalid tree", 0);
+            stmt = stmt.as<Nodecl::List>().front();
 
             _openmp_info->push_current_data_sharing(data_sharing);
             common_workshare_handler(construct, data_sharing);
-            common_for_handler(construct, data_sharing);
+            common_for_handler(stmt, data_sharing);
             get_dependences_info(construct.get_pragma_line(), data_sharing);
         }
 
@@ -966,12 +978,28 @@ namespace TL
 
         void Core::do_handler_pre(TL::PragmaCustomStatement construct)
         {
-            for_handler_pre(construct);
+            DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct);
+
+            if (construct.get_pragma_line().get_clause("collapse").is_defined())
+            {
+                // This will replace the tree
+                collapse_loop_first(construct);
+            }
+            
+            Nodecl::NodeclBase stmt = construct.get_statements();
+
+            ERROR_CONDITION(!stmt.is<Nodecl::List>(), "Invalid tree", 0);
+            stmt = stmt.as<Nodecl::List>().front();
+
+            _openmp_info->push_current_data_sharing(data_sharing);
+            common_workshare_handler(construct, data_sharing);
+            common_for_handler(stmt, data_sharing);
+            get_dependences_info(construct.get_pragma_line(), data_sharing);
         }
 
         void Core::do_handler_post(TL::PragmaCustomStatement construct)
         {
-            for_handler_post(construct);
+            // for_handler_post(construct);
         }
 
         void Core::single_handler_pre(TL::PragmaCustomStatement construct)
