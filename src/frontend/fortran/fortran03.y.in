@@ -920,6 +920,8 @@ static const char* safe_asttext(AST a)
 %token<token_atrib> END_GLOBAL "<end-global-program-unit>"
 %token<token_atrib> TYPEDEF "<typedef>"
 
+%token<token_atrib> TOK_IS_VARIABLE "<is-variable-specifier>"
+
 /*!define GRAMMAR_PROLOGUE*/
 /*!include fortran03-subparse.y*/
 /*!include cxx-literal-nodes.y*/
@@ -1808,6 +1810,11 @@ attr_spec : access_spec
     $$ = ASTLeaf(AST_ATTR_SPEC, $1.token_file, $1.token_line, $1.token_text);
 }
 | TOK_VOLATILE
+{
+    $$ = ASTLeaf(AST_ATTR_SPEC, $1.token_file, $1.token_line, $1.token_text);
+}
+// Mercurium extension
+| TOK_IS_VARIABLE
 {
     $$ = ASTLeaf(AST_ATTR_SPEC, $1.token_file, $1.token_line, $1.token_text);
 }

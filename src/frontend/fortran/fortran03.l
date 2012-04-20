@@ -912,6 +912,11 @@ schar       ([^\\"\n\r]|{c_escape_seq}|(\\["]))
     RETURN_TOKEN(TYPEDEF);
 }
 
+@IS_VARIABLE@ {
+    parse_token_text();
+    RETURN_TOKEN(TOK_IS_VARIABLE);
+}
+
  /* Special tokens for placeholders */
 @STATEMENT-PH::0[xX]{hexdigit}+@ { parse_token_text(); RETURN_TOKEN(STATEMENT_PLACEHOLDER); }
 

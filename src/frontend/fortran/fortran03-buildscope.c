@@ -2729,6 +2729,9 @@ struct attr_spec_tag
 
     char is_c_binding;
     const char* c_binding_name;
+
+    // Mercurium extension
+    char is_variable;
 } attr_spec_t;
 
 #define ATTR_SPEC_HANDLER_LIST \
@@ -2750,13 +2753,16 @@ ATTR_SPEC_HANDLER(value) \
 ATTR_SPEC_HANDLER(public) \
 ATTR_SPEC_HANDLER(private) \
 ATTR_SPEC_HANDLER(volatile) \
-ATTR_SPEC_HANDLER(bind) 
+ATTR_SPEC_HANDLER(bind) \
+ATTR_SPEC_HANDLER_STR(is_variable, "@IS_VARIABLE@")
 
 // Forward declarations
 #define ATTR_SPEC_HANDLER(_name) \
     static void attr_spec_##_name##_handler(AST attr_spec_item, decl_context_t decl_context, attr_spec_t* attr_spec);
+#define ATTR_SPEC_HANDLER_STR(_name, _) ATTR_SPEC_HANDLER(_name)
 ATTR_SPEC_HANDLER_LIST
 #undef ATTR_SPEC_HANDLER
+#undef ATTR_SPEC_HANDLER_STR
 
 typedef struct attr_spec_handler_tag {
     const char* attr_name;
@@ -2767,8 +2773,11 @@ typedef struct attr_spec_handler_tag {
 attr_spec_handler_t attr_spec_handler_table[] = {
 #define ATTR_SPEC_HANDLER(_name) \
     { #_name , attr_spec_##_name##_handler },
+#define ATTR_SPEC_HANDLER_STR(_name, _str) \
+    { _str, attr_spec_##_name##_handler },
 ATTR_SPEC_HANDLER_LIST
 #undef ATTR_SPEC_HANDLER
+#undef ATTR_SPEC_HANDLER_STR
 };
 
 static int attr_handler_cmp(const void *a, const void *b)
@@ -2973,6 +2982,14 @@ static void attr_spec_bind_handler(AST a,
     {
         attr_spec->c_binding_name = ASTText(ASTSon0(a));
     }
+}
+
+static void attr_spec_is_variable_handler(AST a UNUSED_PARAMETER, 
+        decl_context_t decl_context UNUSED_PARAMETER,
+        attr_spec_t* attr_spec)
+{
+    // This is a special extension flag used by mercurium
+    attr_spec->is_variable = 1;
 }
 
 static void gather_attr_spec_list(AST attr_spec_list, decl_context_t decl_context, attr_spec_t *attr_spec)
@@ -7473,6 +7490,25 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
         DEBUG_CODE()
         {
             fprintf(stderr, "BUILDSCOPE: Type of symbol '%s' is '%s'\n", entry->symbol_name, print_declarator(entry->type_information));
+        }
+
+        if (current_attr_spec.is_variable)
+        {
+            if (entry->kind == SK_VARIABLE)
+            {
+                // Do nothing
+            }
+            else if (entry->kind == SK_UNDEFINED)
+            {
+                entry->kind = SK_VARIABLE;
+                remove_unknown_kind_symbol(decl_context, entry);
+            }
+            else
+            {
+                error_printf("%s: internal access specifier <is-variable> was passed but the name '%s' was not an undefined nor a variable name\n",
+                         ast_location(declaration),
+                         entry->symbol_name);
+            }
         }
     }
 }
