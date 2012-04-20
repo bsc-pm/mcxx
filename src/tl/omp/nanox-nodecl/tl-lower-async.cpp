@@ -395,7 +395,18 @@ void LoweringVisitor::emit_async_common(
     translation_fun_arg_name << "(void (*)(void*, void*))0";
 
     // Outline
-    emit_outline(outline_info, statements, outline_name, structure_symbol);
+    Source outline_source;
+    Nodecl::NodeclBase placeholder;
+    outline_source << statement_placeholder(placeholder);
+
+    emit_outline(outline_info, statements, outline_source, outline_name, structure_symbol);
+
+    Source outline_statements_source;
+    outline_statements_source
+        << statements.prettyprint();
+
+    Nodecl::NodeclBase outline_statements_code = outline_statements_source.parse_statement(placeholder);
+    placeholder.integrate(outline_statements_code);
 
     Source err_name;
     err_name << "err";

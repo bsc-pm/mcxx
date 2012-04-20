@@ -35,7 +35,12 @@ namespace TL { namespace Nanox {
         Source barrier_src;
 
         barrier_src
-            << "nanos_omp_barrier();"
+            << "{"
+            << "nanos_err_t err;"
+            << "err = nanos_omp_barrier();"
+            << "if (err != NANOS_OK)"
+            <<    "nanos_handle_error(err);"
+            << "}"
             ;
 
         FORTRAN_LANGUAGE()

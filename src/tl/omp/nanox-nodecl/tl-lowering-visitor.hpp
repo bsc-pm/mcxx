@@ -57,9 +57,16 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 OutlineInfo& outline_info);
 
         void emit_outline(OutlineInfo& outline_info,
+                Nodecl::NodeclBase construct,
+                Source body_source,
+                const std::string& outline_name,
+                TL::Symbol structure_symbol);
+#if 0
+        void emit_outline(OutlineInfo& outline_info,
                 Nodecl::NodeclBase body,
                 const std::string& outline_name,
                 TL::Symbol structure_symbol);
+#endif
 
         TL::Type c_handle_vla_type_rec(
                 OutlineDataItem& outline_data_item,
@@ -163,6 +170,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         void loop_spawn(
                 OutlineInfo& outline_info,
                 Nodecl::NodeclBase construct,
+                Nodecl::List distribute_environment,
                 Nodecl::List ranges,
                 const std::string& outline_name,
                 TL::Symbol structure_symbol);

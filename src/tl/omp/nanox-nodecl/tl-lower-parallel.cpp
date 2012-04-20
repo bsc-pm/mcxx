@@ -73,7 +73,18 @@ namespace TL { namespace Nanox {
         Symbol function_symbol = Nodecl::Utils::get_enclosing_function(construct);
         std::string outline_name = get_outline_name(function_symbol);
 
-        emit_outline(outline_info, statements, outline_name, structure_symbol);
+        Source outline_source;
+        Nodecl::NodeclBase placeholder;
+        outline_source << statement_placeholder(placeholder);
+
+        emit_outline(outline_info, statements, outline_source, outline_name, structure_symbol);
+
+        Source outline_statements_source;
+        outline_statements_source
+            << statements.prettyprint();
+
+        Nodecl::NodeclBase outline_statements_code = outline_statements_source.parse_statement(placeholder);
+        placeholder.integrate(outline_statements_code);
 
         // This function replaces the current construct
         parallel_spawn(outline_info, construct, num_replicas, outline_name, structure_symbol);

@@ -34,6 +34,7 @@ namespace TL { namespace Nanox {
 
     void LoweringVisitor::loop_spawn(OutlineInfo& outline_info, 
             Nodecl::NodeclBase construct, 
+            Nodecl::List distribute_environment, 
             Nodecl::List ranges, 
             const std::string& outline_name,
             TL::Symbol structure_symbol)
@@ -42,6 +43,9 @@ namespace TL { namespace Nanox {
         {
             internal_error("Only ranges of 1 dimension implemented", 0);
         }
+
+        Nodecl::Parallel::Schedule schedule = distribute_environment[0].as<Nodecl::Parallel::Schedule>();
+        ERROR_CONDITION(!schedule.is<Nodecl::Parallel::Schedule>(), "Invalid tree", 0);
 
         Nodecl::Parallel::DistributeRange distribute_range = ranges[0].as<Nodecl::Parallel::DistributeRange>();
         Nodecl::NodeclBase lower = distribute_range.get_lower();
@@ -72,20 +76,37 @@ namespace TL { namespace Nanox {
 
         Source call_outline_function;
 
+        Source schedule_setup;
+
+        if (schedule.get_text() == "runtime")
+        {
+            schedule_setup
+                <<     "omp_sched_t nanos_runtime_sched;"
+                <<     "err = nanos_omp_get_schedule(&nanos_runtime_sched, &nanos_chunk);"
+                <<     "if (err != NANOS_OK)"
+                <<         "nanos_handle_error(err);"
+                <<     "nanos_ws_t *current_ws_policy = nanos_omp_find_worksharing(nanos_runtime_sched);"
+                ;
+        }
+        else
+        {
+            schedule_setup
+                <<     "nanos_ws_t *current_ws_policy = nanos_omp_find_worksharing(omp_sched_" << schedule.get_text() << ");"
+                ;
+        }
+
+        schedule_setup
+            <<     "int nanos_chunk;"
+            <<     "nanos_chunk = " << as_expression(schedule.get_chunk()) << ";"
+            ;
+
         Source spawn_code;
         spawn_code 
         << "{"
         <<     immediate_decl
         <<     "_Bool single_guard;"
         <<     "nanos_err_t err;"
-        <<     "int nanos_chunk;"
-        // FIXME - Get the appropiate schedule and chunk
-        // FIXME - Reductions
-        <<     "omp_sched_t nanos_runtime_sched;"
-        <<     "err = nanos_omp_get_schedule(&nanos_runtime_sched, &nanos_chunk);"
-        <<     "if (err != NANOS_OK)"
-        <<         "nanos_handle_error(err);"
-        <<     "nanos_ws_t *current_ws_policy = nanos_omp_find_worksharing(nanos_runtime_sched);"
+        <<     schedule_setup
         <<     "nanos_ws_info_loop_t info_loop;"
         <<     "info_loop.lower_bound = " << as_expression(lower) << ";"
         <<     "info_loop.upper_bound = " << as_expression(upper) << ";"

@@ -34,8 +34,7 @@ namespace TL { namespace Nanox {
 
     void LoweringVisitor::visit(const Nodecl::Parallel::Distribute& construct)
     {
-        // Unused
-        // Nodecl::NodeclBase distribute_environment = construct.get_environment();
+        Nodecl::List distribute_environment = construct.get_environment().as<Nodecl::List>();
 
         Nodecl::List ranges = construct.get_ranges().as<Nodecl::List>();
         Nodecl::NodeclBase executable_part = construct.get_exec();
@@ -57,6 +56,8 @@ namespace TL { namespace Nanox {
         ERROR_CONDITION(sym.is_invalid(), "Invalid symbol", 0);
 
         TL::Type nanos_ws_desc_type = ::get_user_defined_type(sym.get_internal_symbol());
+        nanos_ws_desc_type = nanos_ws_desc_type.get_lvalue_reference_to();
+
         OutlineDataItem &wsd_data_item = outline_info.prepend_field("wsd", nanos_ws_desc_type);
         wsd_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE);
 
@@ -69,41 +70,55 @@ namespace TL { namespace Nanox {
                 it++)
         {
             // FIXME - Negative step
-            Nodecl::Parallel::DistributeRange range(it->as<Nodecl::Parallel::DistributeRange>());
             TL::Symbol ind_var = it->get_symbol();
+            Nodecl::Parallel::DistributeRange range(it->as<Nodecl::Parallel::DistributeRange>());
+
             for_header 
-                << "for (" << ind_var.get_name() << " = " << as_expression(range.get_lower()) << ";" 
-                << ind_var.get_name() << " <= " << as_expression(range.get_upper()) << ";"
+                << "for (" << ind_var.get_name() << " = nanos_loop_info.lower;" 
+                << ind_var.get_name() << " <= nanos_loop_info.upper;"
                 << ind_var.get_name() << " += " << as_expression(range.get_step()) << ")"
                 << "{"
                 ;
             for_footer 
                 << "}";
         }
+        
+        //     nanos_worksharing_next_item(_args->wsd, (nanos_ws_item_t *) &_nth_info);
+        //     if (1 > 0)
+        //     {
+        //         while (_nth_info.execute)
+        //         {
+        //             for (i = _nth_info.lower;
+        //                 i <= _nth_info.upper;
+        //                 i += 1)
 
+        Nodecl::NodeclBase placeholder;
         Source outline_source;
         outline_source
             << "{"
+            << "nanos_ws_item_loop_t nanos_loop_info;"
+            << "nanos_err_t err;"
+            << "err = nanos_worksharing_next_item(&wsd, (nanos_ws_item_t*)&nanos_loop_info);"
+            << "if (err != NANOS_OK)"
+            <<     "nanos_handle_error(err);"
             << for_header
-            << as_statement(statements.copy())
+            << statement_placeholder(placeholder)
             << for_footer
             << "}"
             ;
 
-        FORTRAN_LANGUAGE()
-        {
-            // Parse in C
-            Source::source_language = SourceLanguage::C;
-        }
-        Nodecl::NodeclBase outline_code = outline_source.parse_statement(construct);
-        FORTRAN_LANGUAGE()
-        {
-            Source::source_language = SourceLanguage::Current;
-        }
+        emit_outline(outline_info, statements, outline_source, outline_name, structure_symbol);
 
-        emit_outline(outline_info, outline_code, outline_name, structure_symbol);
+        // Now complete the placeholder
+        Source iteration_source;
+        iteration_source
+            << statements.prettyprint()
+            ;
 
-        loop_spawn(outline_info, construct, ranges, outline_name, structure_symbol);
+        Nodecl::NodeclBase iteration_code = iteration_source.parse_statement(placeholder);
+        placeholder.integrate(iteration_code);
+
+        loop_spawn(outline_info, construct, distribute_environment, ranges, outline_name, structure_symbol);
     }
 
 } }

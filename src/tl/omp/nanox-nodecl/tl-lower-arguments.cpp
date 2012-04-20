@@ -328,7 +328,7 @@ namespace TL { namespace Nanox {
             field.get_internal_symbol()->entity_specs.access = AS_PUBLIC;
 
             field.get_internal_symbol()->file = uniquestr(construct.get_filename().c_str());
-            field.get_internal_symbol()->line = construct.get_line();
+            field.get_internal_symbol()->line = 10000 + construct.get_line();
 
             // Language specific parts
             if (IS_FORTRAN_LANGUAGE)
@@ -388,8 +388,6 @@ namespace TL { namespace Nanox {
             data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE);
             data_item.set_field_type(it->get_type());
         }
-
-        set_is_complete_type(new_class_type, 1);
 
         nodecl_t nodecl_output = nodecl_null();
         finish_class_type(new_class_type, 

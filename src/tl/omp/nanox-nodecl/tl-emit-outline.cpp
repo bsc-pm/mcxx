@@ -180,20 +180,21 @@ namespace TL { namespace Nanox {
     }
 
     void LoweringVisitor::emit_outline(OutlineInfo& outline_info,
-            Nodecl::NodeclBase body,
+            Nodecl::NodeclBase original_statements,
+            Source body_source,
             const std::string& outline_name,
             TL::Symbol structure_symbol)
     {
-        TL::Symbol current_function = body.retrieve_context().get_decl_context().current_scope->related_entry;
+        TL::Symbol current_function = original_statements.retrieve_context().get_decl_context().current_scope->related_entry;
 
         if (current_function.is_nested_function())
         {
             if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
                 running_error("%s: error: nested functions are not supported\n", 
-                        body.get_locus().c_str());
+                        original_statements.get_locus().c_str());
             if (IS_FORTRAN_LANGUAGE)
                 running_error("%s: error: internal subprograms are not supported\n", 
-                        body.get_locus().c_str());
+                        original_statements.get_locus().c_str());
         }
 
         TL::ObjectList<std::string> parameter_names;
@@ -206,26 +207,40 @@ namespace TL { namespace Nanox {
                 it != data_items.end();
                 it++)
         {
-            if (!it->get_symbol().is_valid())
-                continue;
-
             switch (it->get_sharing())
             {
                 case OutlineDataItem::SHARING_PRIVATE:
                     {
                         TL::Symbol sym = it->get_symbol();
 
+                        std::string name;
+                        TL::Type t;
+                        if (sym.is_valid())
+                        {
+                            name = sym.get_name();
+                            t = sym.get_type();
+                        }
+                        else
+                        {
+                            name = it->get_field_name();
+                            t = it->get_in_outline_type();
+                        }
+
                         if (IS_C_LANGUAGE
                                 || IS_CXX_LANGUAGE)
                         {
                             private_entities
-                                << as_type(sym.get_type()) << " " << sym.get_name() << ";"
+                                << as_type(t) << " " << name << ";"
                                 ;
                         }
                         else if (IS_FORTRAN_LANGUAGE)
                         {
+                            // @IS_VARIABLE@ means that this symbol must already be assumed a variable
+                            //
+                            // Fortran FE is very lax and this symbol would be left as a SK_UNDEFINED
+                            // which is a kind of symbol that the C/C++ FE does not know anything about
                             private_entities
-                                << as_type(sym.get_type()) << " :: " << sym.get_name() << "\n"
+                                << as_type(t) << ", @IS_VARIABLE@ :: " << name << "\n"
                                 ;
                         }
                         else
@@ -359,8 +374,7 @@ namespace TL { namespace Nanox {
                 unpacked_function_body);
         Nodecl::Utils::append_to_top_level_nodecl(unpacked_function_code);
 
-        TL::ReplaceSymbols replace_symbols;
-
+        Nodecl::NodeclBase body_placeholder;
         Source outline_body;
         if (!IS_FORTRAN_LANGUAGE)
         {
@@ -370,7 +384,7 @@ namespace TL { namespace Nanox {
         outline_body 
             << extra_declarations
             << private_entities
-            << replace_symbols.replace(body)
+            << statement_placeholder(body_placeholder)
             ;
         if (!IS_FORTRAN_LANGUAGE)
         {
@@ -382,7 +396,7 @@ namespace TL { namespace Nanox {
         if (IS_FORTRAN_LANGUAGE)
         {
             FortranExtraDeclsVisitor fun_visitor;
-            fun_visitor.walk(body);
+            fun_visitor.walk(original_statements);
 
             extra_declarations
                 << "IMPLICIT NONE\n";
@@ -403,6 +417,18 @@ namespace TL { namespace Nanox {
 
         Nodecl::NodeclBase new_unpacked_body = outline_body.parse_statement(unpacked_function_body);
         unpacked_function_body.integrate(new_unpacked_body);
+
+        FORTRAN_LANGUAGE()
+        {
+            // Parse in C
+            Source::source_language = SourceLanguage::C;
+        }
+        Nodecl::NodeclBase outline_body_code = body_source.parse_statement(body_placeholder);
+        FORTRAN_LANGUAGE()
+        {
+            Source::source_language = SourceLanguage::Current;
+        }
+        body_placeholder.integrate(outline_body_code);
 
         Nodecl::NodeclBase outline_function_code, outline_function_body;
         build_empty_body_for_function(outline_function, 
@@ -437,6 +463,7 @@ namespace TL { namespace Nanox {
         Nodecl::NodeclBase new_outline_body = outline_src.parse_statement(outline_function_body);
         outline_function_body.integrate(new_outline_body);
     }
+
 
     std::string LoweringVisitor::get_outline_name(TL::Symbol function_symbol)
     {
