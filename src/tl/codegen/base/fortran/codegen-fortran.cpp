@@ -730,6 +730,27 @@ OPERATOR_TABLE
         free(bytes);
     }
 
+    namespace {
+        std::string fix_class_name(std::string str)
+        {
+            // Remove prefixes that might come from C
+            std::string struct_prefix = "struct ";
+            // Unions cannot be expressed in fortran!
+            std::string class_prefix =  "class ";
+
+            if (str.substr(0, struct_prefix.size()) == struct_prefix)
+            {
+                str = str.substr(struct_prefix.size());
+            }
+            else if (str.substr(0, class_prefix.size()) == class_prefix)
+            {
+                str = str.substr(class_prefix.size());
+            }
+
+            return str;
+        }
+    }
+
     void FortranBase::visit(const Nodecl::Text& node)
     {
         file << node.get_text();
@@ -792,20 +813,8 @@ OPERATOR_TABLE
                 type = type.get_symbol().get_type();
             }
             
-            // Remove prefixes that might come from C
-            std::string struct_prefix = "struct ";
-            // Unions cannot be expressed in fortran!
-            std::string class_prefix =  "class ";
             std::string real_name = rename(type.get_symbol());
-
-            if (real_name.substr(0, struct_prefix.size()) == struct_prefix)
-            {
-                real_name = real_name.substr(struct_prefix.size());
-            }
-            else if (real_name.substr(0, class_prefix.size()) == class_prefix)
-            {
-                real_name = real_name.substr(class_prefix.size());
-            }
+            real_name = fix_class_name(real_name);
 
             file << real_name << "(";
             Nodecl::List items = node.get_items().as<Nodecl::List>();
@@ -2555,21 +2564,27 @@ OPERATOR_TABLE
 
             if (dummy_type.basic_type().is_class())
             {
-                TL::Symbol class_type  = dummy_type.basic_type().get_symbol();
+                TL::Type t = dummy_type.basic_type().advance_over_typedefs();
+                ERROR_CONDITION(!t.is_named_class(), "Invalid class", 0);
+
+                TL::Symbol class_type  = t.get_symbol();
                 decl_context_t class_context = class_type.get_scope().get_decl_context();
 
+                // if (!class_type.is_from_module()
+                //         && (TL::Symbol(class_context.current_scope->related_entry) != entry)
+                //         // Global names must not be IMPORTed
+                //         && (class_context.current_scope != entry_context.global_scope
+                //             // Unless at this point they have already been defined
+                //             || get_codegen_status(class_type) == CODEGEN_STATUS_DEFINED))
                 if (!class_type.is_from_module()
-                        && (TL::Symbol(class_context.current_scope->related_entry) != entry)
-                        // Global names must not be IMPORTed
-                        && (class_context.current_scope != entry_context.global_scope
-                            // Unless at this point they have already been defined
-                            || get_codegen_status(class_type) == CODEGEN_STATUS_DEFINED))
+                        && !class_type.is_in_module()
+                         && (TL::Symbol(class_context.current_scope->related_entry) != entry))
                 {
                     if (already_imported.find(class_type) == already_imported.end())
                     {
                         // We will need an IMPORT as this type comes from an enclosing scope
                         indent();
-                        file << "IMPORT :: " << class_type.get_name() << "\n";
+                        file << "IMPORT :: " << fix_class_name(class_type.get_name()) << "\n";
                         already_imported.insert(class_type);
                         set_codegen_status(class_type, CODEGEN_STATUS_DEFINED);
                     }
@@ -2672,8 +2687,30 @@ OPERATOR_TABLE
     bool FortranBase::entry_is_in_scope(TL::Symbol entry, TL::Scope sc)
     {
         // - The symbol is declared in the current scope
-        if (entry.get_scope().get_decl_context().current_scope == sc.get_decl_context().current_scope)
+        decl_context_t entry_context = entry.get_scope().get_decl_context();
+        decl_context_t sc_context = sc.get_decl_context();
+
+        if (entry_context.current_scope == sc_context.current_scope)
             return true;
+
+        // If both are BLOCK_CONTEXT check if entry_context is accessible from sc
+        if (sc_context.current_scope->kind == BLOCK_SCOPE
+                && entry_context.current_scope->kind == BLOCK_SCOPE)
+        { 
+            scope_t* sc_scope = sc_context.current_scope;
+            scope_t* entry_scope = entry_context.current_scope;
+
+            while (sc_scope != NULL
+                    && sc_scope->kind == BLOCK_SCOPE
+                    && sc_scope != entry_scope)
+            {
+                sc_scope = sc_scope->contained_in;
+            }
+
+            // We reached entry_scope from sc_scope
+            if (sc_scope == entry_scope)
+                return true;
+        }
 
         // Maybe the symbol is not declared in the current scope but it lives in the current scope
         // (because of an insertion)
@@ -3207,21 +3244,8 @@ OPERATOR_TABLE
                 internal_error("Unions cannot be emitted in Fortran", 0);
             }
 
-            // Remove prefixes that might come from C
-            std::string struct_prefix = "struct ";
-            // Unions cannot be expressed in fortran!
-            std::string class_prefix =  "class ";
             std::string real_name = rename(entry);
-
-            if (real_name.substr(0, struct_prefix.size()) == struct_prefix)
-            {
-                real_name = real_name.substr(struct_prefix.size());
-            }
-            else if (real_name.substr(0, class_prefix.size()) == class_prefix)
-            {
-                real_name = real_name.substr(class_prefix.size());
-            }
-
+            real_name = fix_class_name(real_name);
 
             push_declaring_entity(entry);
 
@@ -3960,19 +3984,8 @@ OPERATOR_TABLE
 
             declare_symbol(entry, entry.get_scope());
 
-            std::string struct_prefix = "struct ";
-            // Unions cannot be expressed in fortran!
-            std::string class_prefix =  "class ";
             std::string real_name = rename(entry);
-
-            if (real_name.substr(0, struct_prefix.size()) == struct_prefix)
-            {
-                real_name = real_name.substr(struct_prefix.size());
-            }
-            else if (real_name.substr(0, class_prefix.size()) == class_prefix)
-            {
-                real_name = real_name.substr(class_prefix.size());
-            }
+            real_name = fix_class_name(real_name);
 
             type_specifier = "TYPE(" + real_name + ")";
         }
