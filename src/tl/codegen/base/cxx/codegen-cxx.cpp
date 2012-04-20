@@ -1383,7 +1383,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
     move_to_namespace_of_symbol(symbol);
 
     TL::TemplateParameters template_parameters = function_scope.get_template_parameters();
-    codegen_template_headers_all_levels(template_parameters);
+    codegen_template_headers_all_levels(template_parameters, /*show default values*/ false);
     
     bool requires_extern_linkage = false;
     CXX_LANGUAGE()
@@ -3024,12 +3024,13 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                     // We only want the template header related to the current class
                     TL::Symbol enclosing_class = symbol.get_class_type().get_symbol();
                     codegen_template_headers_bounded(template_parameters,
-                            enclosing_class.get_scope().get_template_parameters());
+                            enclosing_class.get_scope().get_template_parameters(),
+                            /*show default values*/ true);
                 }
                 else
                 {
                     // We want all template headers
-                    codegen_template_headers_all_levels(template_parameters);
+                    codegen_template_headers_all_levels(template_parameters, /*show default values*/ true);
                 }
             }
             else
@@ -3057,7 +3058,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                     if (!symbol.is_anonymous_union())
                     {
                         TL::TemplateParameters template_parameters = symbol.get_scope().get_template_parameters();
-                        codegen_template_headers_all_levels(template_parameters);
+                        codegen_template_headers_all_levels(template_parameters, /*show default values*/ true);
                     }
                 }
             }
@@ -3408,7 +3409,12 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                 {
                     template_parameters = _friend.get_scope().get_template_parameters();
                 }
-                codegen_template_headers_bounded(template_parameters, symbol.get_scope().get_template_parameters());
+                codegen_template_headers_bounded(
+                        template_parameters,
+                        symbol.get_scope().get_template_parameters(),
+                        /*show default values*/ (_friend.is_class() ||
+                            _friend.is_dependent_friend_class())
+                        );
             }
         }
 
@@ -4397,7 +4403,8 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                             "as a dependent template specialized type!\n", 0);
 
                     TL::TemplateParameters template_parameters = symbol.get_type().template_specialized_type_get_template_arguments();
-                    codegen_template_header(template_parameters);
+                    codegen_template_header(template_parameters,
+                            /*show default values*/ true);
                 }
             }
             
@@ -4482,7 +4489,8 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                 else
                 {
                     TL::TemplateParameters template_parameters = template_type.template_type_get_template_parameters();
-                    codegen_template_header(template_parameters);
+                    codegen_template_header(template_parameters,
+                            /*show default values*/ false);
                     is_primary_template = 1;
                 }
             }
@@ -5646,31 +5654,38 @@ void CxxBase::declare_all_in_template_header(TL::TemplateParameters template_par
     }
 }
 
-
-void CxxBase::codegen_template_headers_bounded(TL::TemplateParameters template_parameters, TL::TemplateParameters lim)
+void CxxBase::codegen_template_headers_bounded(
+        TL::TemplateParameters template_parameters,
+        TL::TemplateParameters lim,
+        bool show_default_values)
 {
     if (template_parameters != lim)
     {
         if (template_parameters.has_enclosing_parameters())
         {
             TL::TemplateParameters enclosing_template_parameters = template_parameters.get_enclosing_parameters();
-            codegen_template_headers_bounded(enclosing_template_parameters, lim);
+            codegen_template_headers_bounded(enclosing_template_parameters, lim, show_default_values);
         }
-        codegen_template_header(template_parameters);
+        codegen_template_header(template_parameters, show_default_values);
     }
 }
 
-void CxxBase::codegen_template_headers_all_levels(TL::TemplateParameters template_parameters)
+void CxxBase::codegen_template_headers_all_levels(
+        TL::TemplateParameters template_parameters,
+        bool show_default_values)
 {
     if (template_parameters.has_enclosing_parameters())
     {
         TL::TemplateParameters enclosing_template_parameters = template_parameters.get_enclosing_parameters();
-        codegen_template_headers_all_levels(enclosing_template_parameters);
+        codegen_template_headers_all_levels(enclosing_template_parameters, show_default_values);
     }
-    codegen_template_header(template_parameters);
+    codegen_template_header(template_parameters, show_default_values);
 }
 
-void CxxBase::codegen_template_header(TL::TemplateParameters template_parameters, bool endline)
+void CxxBase::codegen_template_header(
+        TL::TemplateParameters template_parameters,
+        bool show_default_values,
+        bool endline)
 {
     indent();
     if (template_parameters.get_is_explicit_specialization())
@@ -5715,7 +5730,10 @@ void CxxBase::codegen_template_header(TL::TemplateParameters template_parameters
             case TPK_TEMPLATE:
                 {
                     TL::Type template_type = symbol.get_type();
-                    codegen_template_header(symbol.get_type().template_type_get_template_parameters(), /* endline */ false);
+                    codegen_template_header(
+                            symbol.get_type().template_type_get_template_parameters(),
+                            show_default_values,
+                            /* endline */ false);
                     file << " class " << symbol.get_name();
                     break;
                 }
@@ -5726,7 +5744,8 @@ void CxxBase::codegen_template_header(TL::TemplateParameters template_parameters
         }
 
         // Has this template parameter a default value?
-        if (template_parameters.has_argument(i))
+        if (show_default_values &&
+                template_parameters.has_argument(i))
         {
             TL::TemplateArgument temp_arg = template_parameters.get_argument_num(i);
             if (temp_arg.is_default())

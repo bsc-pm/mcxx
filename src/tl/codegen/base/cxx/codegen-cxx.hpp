@@ -387,11 +387,19 @@ namespace Codegen
             
             void declare_all_in_template_header(TL::TemplateParameters template_arguments);
 
-            void codegen_template_headers_all_levels(TL::TemplateParameters template_parameters);
+            void codegen_template_headers_all_levels(
+                    TL::TemplateParameters template_parameters,
+                    bool show_default_values);
             
-            void codegen_template_headers_bounded(TL::TemplateParameters template_parameters, TL::TemplateParameters lim);
+            void codegen_template_headers_bounded(
+                    TL::TemplateParameters template_parameters,
+                    TL::TemplateParameters lim,
+                    bool show_default_values);
 
-            void codegen_template_header(TL::TemplateParameters template_parameters, bool endline = true);
+            void codegen_template_header(
+                    TL::TemplateParameters template_parameters,
+                    bool show_default_values,
+                    bool endline = true);
 
             std::string template_arguments_to_str(TL::Symbol);
 
