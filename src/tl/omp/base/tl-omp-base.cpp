@@ -27,6 +27,7 @@
 #include "tl-omp-base.hpp"
 #include "tl-nodecl-alg.hpp"
 #include "cxx-diagnostic.h"
+#include "cxx-cexpr.h"
 
 namespace TL { namespace OpenMP {
 
@@ -491,6 +492,62 @@ namespace TL { namespace OpenMP {
         OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
         Nodecl::List execution_environment = this->make_execution_environment(ds, pragma_line);
+        Nodecl::List distribute_environment;
+
+        if (pragma_line.get_clause("schedule").is_defined())
+        {
+            PragmaCustomClause clause = pragma_line.get_clause("schedule");
+
+            ObjectList<std::string> arguments = clause.get_tokenized_arguments();
+
+            Nodecl::NodeclBase chunk;
+
+            if (arguments.size() == 1)
+            {
+                chunk = const_value_to_nodecl(const_value_get_signed_int(1));
+            }
+            else if (arguments.size() == 2)
+            {
+                chunk = Source(arguments[1]).parse_expression(directive);
+            }
+            else
+            {
+                // Core should have checked this
+                internal_error("Invalid values in schedule clause", 0);
+            }
+
+            std::string schedule = arguments[0];
+            schedule = strtolower(schedule.c_str());
+
+            if (schedule == "static"
+                    || schedule == "dynamic"
+                    || schedule == "guided"
+                    || schedule == "runtime"
+                    || schedule == "auto")
+            {
+            distribute_environment.push_back(
+                    Nodecl::Parallel::Schedule::make(
+                        chunk,
+                        schedule,
+                        directive.get_filename(),
+                        directive.get_line()));
+            }
+            else
+            {
+                internal_error("Invalid schedule '%s' for schedule clause\n", 
+                        schedule.c_str());
+            }
+        }
+        else
+        {
+            // def-sched-var is STATIC in our implementation
+            distribute_environment.push_back(
+                    Nodecl::Parallel::Schedule::make(
+                        ::const_value_to_nodecl(const_value_get_signed_int(1)),
+                        "static", 
+                        directive.get_filename(),
+                        directive.get_line()));
+        }
 
         ERROR_CONDITION (!statement.is<Nodecl::ForStatement>(), "Invalid tree", 0);
         TL::ForStatement for_statement(statement.as<Nodecl::ForStatement>());
@@ -498,7 +555,7 @@ namespace TL { namespace OpenMP {
         Nodecl::List code;
         Nodecl::Parallel::Distribute distribute =
             Nodecl::Parallel::Distribute::make(
-                    Nodecl::NodeclBase::null(),
+                    distribute_environment,
                     // This is a list because of multidimensional distribution
                     Nodecl::List::make(
                         Nodecl::Parallel::DistributeRange::make(
