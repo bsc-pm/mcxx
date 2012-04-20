@@ -134,6 +134,11 @@ namespace Codegen
             void visit(const Nodecl::Sizeof& node);
             void visit(const Nodecl::Alignof& node);
 
+            void visit(const Nodecl::MulAssignment & node);
+            void visit(const Nodecl::DivAssignment & node);
+            void visit(const Nodecl::AddAssignment & node);
+            void visit(const Nodecl::SubAssignment & node);
+
             void visit(const Nodecl::SavedExpr& node);
 
             void visit(const Nodecl::CxxDepNameSimple& node);

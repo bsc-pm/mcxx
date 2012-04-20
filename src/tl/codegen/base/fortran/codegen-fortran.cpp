@@ -599,6 +599,10 @@ namespace Codegen
     BINARY_EXPRESSION(LogicalOr, " .OR. ") \
     BINARY_EXPRESSION(Power, " ** ") \
     BINARY_EXPRESSION(Concat, " // ") \
+    BINARY_EXPRESSION_ASSIG(MulAssignment, " * ") \
+    BINARY_EXPRESSION_ASSIG(DivAssignment, " / ") \
+    BINARY_EXPRESSION_ASSIG(AddAssignment, " + ") \
+    BINARY_EXPRESSION_ASSIG(SubAssignment, " - ") 
 
 #define PREFIX_UNARY_EXPRESSION(_name, _operand) \
     void FortranBase::visit(const Nodecl::_name &node) \
@@ -612,6 +616,17 @@ namespace Codegen
     { \
         Nodecl::NodeclBase lhs = node.get_lhs(); \
         Nodecl::NodeclBase rhs = node.get_rhs(); \
+        walk(lhs); \
+        file << _operand; \
+        walk(rhs); \
+    }
+#define BINARY_EXPRESSION_ASSIG(_name, _operand) \
+    void FortranBase::visit(const Nodecl::_name &node) \
+    { \
+        Nodecl::NodeclBase lhs = node.get_lhs(); \
+        Nodecl::NodeclBase rhs = node.get_rhs(); \
+        walk(lhs); \
+        file << " = "; \
         walk(lhs); \
         file << _operand; \
         walk(rhs); \
