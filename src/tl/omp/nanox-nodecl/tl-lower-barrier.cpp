@@ -38,7 +38,15 @@ namespace TL { namespace Nanox {
             << "nanos_omp_barrier();"
             ;
 
+        FORTRAN_LANGUAGE()
+        {
+            Source::source_language = SourceLanguage::C;
+        }
         Nodecl::NodeclBase barrier = barrier_src.parse_statement(construct);
+        FORTRAN_LANGUAGE()
+        {
+            Source::source_language = SourceLanguage::Current;
+        }
 
         construct.integrate(barrier);
     }
