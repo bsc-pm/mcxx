@@ -2825,7 +2825,8 @@ OPERATOR_TABLE
                     attribute_list += ", SAVE";
                 }
             }
-            if (entry.get_type().is_volatile())
+            if (entry.get_type().is_volatile()
+                    && !entry.is_member())
                 attribute_list += ", VOLATILE";
             if (entry.get_type().is_const()
                     && !entry.get_initialization().is_null()
