@@ -2745,19 +2745,38 @@ TL::ObjectList<TL::Symbol> CxxBase::define_required_before_class(TL::Symbol symb
             define_symbol_if_nonnested(base_class);
         }
 
+
         TL::ObjectList<TL::Symbol> members = symbol.get_type().get_all_members();
         for (TL::ObjectList<TL::Symbol>::iterator it = members.begin();
                 it != members.end();
                 it++)
         {
             TL::Symbol &member(*it);
+            if (member.is_using_symbol() ||
+                    (member.is_class() && !member.is_defined_inside_class()))
+                continue;
 
-            if (member.is_using_symbol())
+            if (member.is_enum())
             {
-                //  Do nothing
+                TL::ObjectList<TL::Symbol> enumerators = member.get_type().enum_get_enumerators();
+                for (TL::ObjectList<TL::Symbol>::iterator it2 = enumerators.begin();
+                        it2 != enumerators.end();
+                        it2++)
+                {
+                    TL::Symbol &enumerator(*it2);
+                    define_nonnested_entities_in_trees(enumerator.get_initialization());
+                }
             }
-            else if (!member.is_class()
-                    && !member.is_enum())
+            else if(member.is_class())
+            {
+                walk_type_for_symbols(
+                        member.get_type(),
+                        /* needs_def */ 1,
+                        &CxxBase::declare_symbol_if_nonnested,
+                        &CxxBase::define_symbol_if_nonnested,
+                        &CxxBase::define_nonnested_entities_in_trees);
+            }
+            else
             {
                 if (member.is_variable()
                         && member.is_static()
@@ -2800,17 +2819,6 @@ TL::ObjectList<TL::Symbol> CxxBase::define_required_before_class(TL::Symbol symb
                             &CxxBase::define_nonnested_entities_in_trees);
                 }
             }
-            else if (member.is_enum())
-            {
-                TL::ObjectList<TL::Symbol> enumerators = member.get_type().enum_get_enumerators();
-                for (TL::ObjectList<TL::Symbol>::iterator it2 = enumerators.begin();
-                        it2 != enumerators.end();
-                        it2++)
-                {
-                    TL::Symbol &enumerator(*it2);
-                    define_nonnested_entities_in_trees(enumerator.get_initialization());
-                }
-            }
         }
 
 
@@ -2820,6 +2828,11 @@ TL::ObjectList<TL::Symbol> CxxBase::define_required_before_class(TL::Symbol symb
                 it++)
         {
             TL::Symbol &_friend(*it);
+
+            if (_friend.is_class()
+                    && _friend.is_member())
+                continue;
+
             walk_type_for_symbols(
                     _friend.get_type(),
                     /* needs_def */ 1,
