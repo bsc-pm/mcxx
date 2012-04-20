@@ -3495,6 +3495,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
         }
         else if (_friend.is_function())
         {
+            std::string exception_spec = exception_specifier_to_str(_friend);
             TL::Type real_type = friend_type;
             if (symbol.is_conversion_function())
             {
@@ -3504,10 +3505,11 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
             std::string function_name = (is_primary_template) ?
                 unmangle_symbol_name(_friend) : _friend.get_qualified_name();
 
-            file << this->get_declaration(real_type, symbol.get_scope(), function_name);
+            file << this->get_declaration(real_type, symbol.get_scope(), function_name) << exception_spec;
         }
         else if (_friend.is_dependent_friend_function())
         {
+            std::string exception_spec = exception_specifier_to_str(_friend);
             TL::Type real_type = friend_type;
             if (symbol.is_conversion_function())
             {
@@ -3526,7 +3528,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                     _friend.get_qualified_name(symbol.get_scope(), /* without template id */ false);
             }
 
-            file << this->get_declaration(real_type, symbol.get_scope(), function_name);
+            file << this->get_declaration(real_type, symbol.get_scope(), function_name) << exception_spec;
         }
         else
         {
