@@ -2823,7 +2823,6 @@ TL::ObjectList<TL::Symbol> CxxBase::define_required_before_class(TL::Symbol symb
         }
 
 
-#if 0
         TL::ObjectList<TL::Symbol> friends = symbol.get_type().class_get_friends();
         for (TL::ObjectList<TL::Symbol>::iterator it = friends.begin();
                 it != friends.end();
@@ -2868,7 +2867,6 @@ TL::ObjectList<TL::Symbol> CxxBase::define_required_before_class(TL::Symbol symb
                 declare_symbol_if_nonnested(_friend);
             }
         }
-#endif
     }
     else if (symbol.is_enum()
             || symbol.is_enumerator()
@@ -3373,7 +3371,6 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
     }
 
     // 3. Declare friends
-#if 0
     TL::ObjectList<TL::Symbol> friends = symbol_type.class_get_friends();
 
     for (TL::ObjectList<TL::Symbol>::iterator it = friends.begin();
@@ -3542,7 +3539,6 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
         file << ";\n";
         dec_indent();
     }
-#endif
 
     indent();
 
