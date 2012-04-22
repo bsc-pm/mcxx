@@ -1947,11 +1947,6 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ObjectInit& node)
 {
     TL::Symbol sym = node.get_symbol();
 
-    if (node.get_line() == 1842)
-    {
-        __asm__ __volatile__ ("int3;");
-    }
-
     walk_type_for_symbols(sym.get_type(),
             /* needs def */ 1,
             &CxxBase::declare_symbol_always,
