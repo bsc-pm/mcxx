@@ -1947,6 +1947,11 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ObjectInit& node)
 {
     TL::Symbol sym = node.get_symbol();
 
+    if (node.get_line() == 1842)
+    {
+        __asm__ __volatile__ ("int3;");
+    }
+
     walk_type_for_symbols(sym.get_type(),
             /* needs def */ 1,
             &CxxBase::declare_symbol_always,
@@ -2767,7 +2772,8 @@ TL::ObjectList<TL::Symbol> CxxBase::define_required_before_class(TL::Symbol symb
                     define_nonnested_entities_in_trees(enumerator.get_initialization());
                 }
             }
-            else if(member.is_class())
+            else if(member.is_class()
+                    || member.is_typedef())
             {
                 walk_type_for_symbols(
                         member.get_type(),
@@ -2822,6 +2828,7 @@ TL::ObjectList<TL::Symbol> CxxBase::define_required_before_class(TL::Symbol symb
         }
 
 
+#if 0
         TL::ObjectList<TL::Symbol> friends = symbol.get_type().class_get_friends();
         for (TL::ObjectList<TL::Symbol>::iterator it = friends.begin();
                 it != friends.end();
@@ -2866,6 +2873,7 @@ TL::ObjectList<TL::Symbol> CxxBase::define_required_before_class(TL::Symbol symb
                 declare_symbol_if_nonnested(_friend);
             }
         }
+#endif
     }
     else if (symbol.is_enum()
             || symbol.is_enumerator()
@@ -3370,6 +3378,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
     }
 
     // 3. Declare friends
+#if 0
     TL::ObjectList<TL::Symbol> friends = symbol_type.class_get_friends();
 
     for (TL::ObjectList<TL::Symbol>::iterator it = friends.begin();
@@ -3538,6 +3547,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
         file << ";\n";
         dec_indent();
     }
+#endif
 
     indent();
 
@@ -4877,8 +4887,7 @@ void CxxBase::walk_type_for_symbols(TL::Type t,
     if (!t.is_valid())
         return;
 
-    if (state.walked_types.find(t) != state.walked_types.end())
-        return;
+    bool being_walked = state.walked_types.find(t) != state.walked_types.end();
 
     // This effectively poisons return, do not return from this function
 #define return 1=1;
@@ -4889,62 +4898,90 @@ void CxxBase::walk_type_for_symbols(TL::Type t,
     if (t.is_named()
             && t.get_symbol().is_typedef())
     {
-        walk_type_for_symbols(
-                t.get_symbol().get_type(),
-                needs_def, 
-                symbol_to_declare, 
-                symbol_to_define,
-                define_entities_in_tree);
+        if (!being_walked)
+        {
+            walk_type_for_symbols(
+                    t.get_symbol().get_type(),
+                    needs_def, 
+                    symbol_to_declare, 
+                    symbol_to_define,
+                    define_entities_in_tree);
+        }
 
         (this->*symbol_to_define)(t.get_symbol());
     }
     else if (t.is_pointer())
     {
-        walk_type_for_symbols(t.points_to(), /* needs_def */ 1, symbol_to_declare, symbol_to_define,
-                define_entities_in_tree);
+        if (!being_walked)
+        {
+            walk_type_for_symbols(t.points_to(), /* needs_def */ 1, symbol_to_declare, symbol_to_define,
+                    define_entities_in_tree);
+        }
     }
     else if (t.is_pointer_to_member())
     {
-        walk_type_for_symbols(t.pointed_class(), /* needs_def */ 1, symbol_to_declare, symbol_to_define,
-                define_entities_in_tree);
+        if (!being_walked)
+        {
+            walk_type_for_symbols(t.pointed_class(), /* needs_def */ 1, symbol_to_declare, symbol_to_define,
+                    define_entities_in_tree);
+        }
 
-        walk_type_for_symbols(t.points_to(), /* needs_def */ 1, symbol_to_declare, symbol_to_define,
-                define_entities_in_tree);
+        if (!being_walked)
+        {
+            walk_type_for_symbols(t.points_to(), /* needs_def */ 1, symbol_to_declare, symbol_to_define,
+                    define_entities_in_tree);
+        }
     }
     else if (t.is_array())
     {
         (this->*define_entities_in_tree)(t.array_get_size());
-        walk_type_for_symbols(t.array_element(), 
-                /* needs_def */ 1, symbol_to_declare, symbol_to_define,
-                define_entities_in_tree);
+        if (!being_walked)
+        {
+            walk_type_for_symbols(t.array_element(), 
+                    /* needs_def */ 1, symbol_to_declare, symbol_to_define,
+                    define_entities_in_tree);
+        }
     }
     else if (t.is_lvalue_reference()
             || t.is_rvalue_reference())
     {
-        walk_type_for_symbols(t.references_to(), 
-                needs_def, 
-                symbol_to_declare, symbol_to_define,
-                define_entities_in_tree);
+        if (!being_walked)
+        {
+            walk_type_for_symbols(t.references_to(), 
+                    needs_def, 
+                    symbol_to_declare, symbol_to_define,
+                    define_entities_in_tree);
+        }
     }
     else if (t.is_function())
     {
-        walk_type_for_symbols(t.returns(),
-                /* needs_def */ 1, symbol_to_declare, symbol_to_define, define_entities_in_tree);
-        TL::ObjectList<TL::Type> params = t.parameters();
-        for (TL::ObjectList<TL::Type>::iterator it = params.begin();
-                it != params.end();
-                it++)
+        if (!being_walked)
         {
-            walk_type_for_symbols(*it,
-                    /* needs_def */ 1, 
-                    symbol_to_declare,
-                    symbol_to_define,
-                    &CxxBase::define_nonprototype_entities_in_trees);
+            walk_type_for_symbols(t.returns(),
+                    /* needs_def */ 1, symbol_to_declare, symbol_to_define, define_entities_in_tree);
+        }
+
+        if (!being_walked)
+        {
+            TL::ObjectList<TL::Type> params = t.parameters();
+            for (TL::ObjectList<TL::Type>::iterator it = params.begin();
+                    it != params.end();
+                    it++)
+            {
+                walk_type_for_symbols(*it,
+                        /* needs_def */ 1, 
+                        symbol_to_declare,
+                        symbol_to_define,
+                        &CxxBase::define_nonprototype_entities_in_trees);
+            }
         }
     }
     else if (t.is_vector())
     {
-        walk_type_for_symbols(t.vector_element(), /* needs_def */ 1, symbol_to_declare, symbol_to_define, define_entities_in_tree);
+        if (!being_walked)
+        {
+            walk_type_for_symbols(t.vector_element(), /* needs_def */ 1, symbol_to_declare, symbol_to_define, define_entities_in_tree);
+        }
     }
     else if (t.is_named_class())
     {
@@ -4954,13 +4991,27 @@ void CxxBase::walk_type_for_symbols(TL::Type t,
     else if (t.is_unnamed_class())
     {
         // Special case for nested members
-        TL::ObjectList<TL::Symbol> members = t.get_all_members();
 
-        for (TL::ObjectList<TL::Symbol>::iterator it = members.begin();
-                it != members.end();
+        // Bases
+        TL::ObjectList<TL::Type::BaseInfo> bases = t.get_bases();
+        for (TL::ObjectList<TL::Type::BaseInfo>::iterator it = bases.begin();
+                it != bases.end();
                 it++)
         {
-            walk_type_for_symbols(it->get_type(), /* needs_def */ 1, symbol_to_declare, symbol_to_define, define_entities_in_tree);
+            TL::Symbol &base_class(it->base);
+            define_or_declare_if_complete(base_class, symbol_to_declare, symbol_to_define);
+        }
+
+        // Members
+        if (!being_walked)
+        {
+            TL::ObjectList<TL::Symbol> members = t.get_all_members();
+            for (TL::ObjectList<TL::Symbol>::iterator it = members.begin();
+                    it != members.end();
+                    it++)
+            {
+                walk_type_for_symbols(it->get_type(), /* needs_def */ 1, symbol_to_declare, symbol_to_define, define_entities_in_tree);
+            }
         }
     }
     else if (t.is_unnamed_enum())
@@ -4978,7 +5029,10 @@ void CxxBase::walk_type_for_symbols(TL::Type t,
     {
         TL::Symbol enum_entry = t.get_symbol();
 
-        walk_type_for_symbols(enum_entry.get_type(), /* needs_def */ 1, symbol_to_declare, symbol_to_define, define_entities_in_tree);
+        if (!being_walked)
+        {
+            walk_type_for_symbols(enum_entry.get_type(), /* needs_def */ 1, symbol_to_declare, symbol_to_define, define_entities_in_tree);
+        }
         define_or_declare_if_complete(enum_entry, symbol_to_declare, symbol_to_define);
     }
     else if (t.is_unresolved_overload())
@@ -5022,7 +5076,10 @@ void CxxBase::walk_type_for_symbols(TL::Type t,
     }
 #undef return
 
-    state.walked_types.erase(t);
+    if (!being_walked)
+    {
+        state.walked_types.erase(t);
+    }
 }
 
 void CxxBase::set_codegen_status(TL::Symbol sym, codegen_status_t status)
