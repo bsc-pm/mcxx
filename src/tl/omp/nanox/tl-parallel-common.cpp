@@ -368,7 +368,7 @@ void TL::Nanox::regions_spawn(
         PragmaCustomConstruct ctr, 
         bool is_task)
 {
-    if (Nanos::Version::interface_is_at_least("master", 6001))
+    if (Nanos::Version::interface_is_at_least("deps_api", 1000)) 
     {
         Source dependency_regions;
         Source immediate_dependency_regions;
