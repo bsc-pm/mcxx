@@ -3481,7 +3481,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
 
             if (friend_type.is_dependent_typename())
             {
-                file << this->get_declaration(friend_type, symbol.get_scope(), "")<<std::endl;
+                file << this->get_declaration(friend_type, symbol.get_scope(), "");
             }
             else if(friend_type.is_template_specialized_type())
             {
@@ -3491,7 +3491,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
             else
             {
                 file << friend_class_key << " "
-                     << this->get_declaration(friend_type, symbol.get_scope(), "")<<std::endl;
+                     << this->get_declaration(friend_type, symbol.get_scope(), "");
             }
         }
         else if (_friend.is_function())
