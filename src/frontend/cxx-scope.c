@@ -3089,7 +3089,7 @@ static const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
         }
 
         // This is dependent
-        (*is_dependent) |= 1;
+        (*is_dependent) = 1;
         return result;
     }
     else if (entry->kind == SK_DEPENDENT_ENTITY)
@@ -3114,9 +3114,14 @@ static const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
         if (template_sym->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
         {
             // This is dependent
-            (*is_dependent) |= 1;
+            (*is_dependent) = 1;
             return result;
         }
+    }
+
+    if (entry->kind == SK_TYPEDEF)
+    {
+        (*is_dependent) |= is_dependent_type(entry->type_information);
     }
 
     if (entry->entity_specs.is_member)

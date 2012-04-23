@@ -1278,6 +1278,102 @@ enum type_tag_t class_type_get_class_kind(type_t* t)
     return t->type->class_info->class_kind;
 }
 
+static type_t* remove_typedefs(type_t* t)
+{
+    if (is_named_type(t)
+            && named_type_get_symbol(t)->kind == SK_TYPEDEF)
+    {
+        return remove_typedefs(named_type_get_symbol(t)->type_information);
+    }
+    else if (is_pointer_type(t))
+    {
+        return get_pointer_type(
+                remove_typedefs(pointer_type_get_pointee_type(t)));
+    }
+    else if (is_pointer_to_member_type(t))
+    {
+        type_t* pointee = remove_typedefs(pointer_type_get_pointee_type(t));
+        scope_entry_t* class_symbol = pointer_to_member_type_get_class(t);
+
+        return get_pointer_to_member_type(pointee, class_symbol);
+    }
+    else if (is_lvalue_reference_type(t))
+    {
+        return get_lvalue_reference_type(
+                remove_typedefs(reference_type_get_referenced_type(t)));
+    }
+    else if (is_rvalue_reference_type(t))
+    {
+        return get_rvalue_reference_type(
+                remove_typedefs(reference_type_get_referenced_type(t)));
+    }
+    else if (is_array_type(t))
+    {
+        return get_array_type(
+                remove_typedefs(array_type_get_element_type(t)),
+                array_type_get_array_size_expr(t),
+                array_type_get_array_size_expr_context(t));
+    }
+    else if (is_function_type(t))
+    {
+        type_t* return_type = remove_typedefs(function_type_get_return_type(t));
+
+        int i, N = function_type_get_num_parameters(t);
+
+        parameter_info_t param_info[N+1];
+        memset(param_info, 0, sizeof(param_info));
+
+        for (i = 0; i < N; i++)
+        {
+            param_info[i].type_info = remove_typedefs(function_type_get_parameter_type_num(t, i));
+        }
+
+        return get_new_function_type(return_type, param_info, N); 
+    }
+    else if (is_vector_type(t))
+    {
+        return get_vector_type(
+                remove_typedefs(vector_type_get_element_type(t)),
+                vector_type_get_vector_size(t));
+    }
+    else
+    {
+        return t;
+    }
+}
+
+static template_parameter_list_t* simplify_template_arguments(template_parameter_list_t* template_arguments)
+{
+    int i;
+    template_parameter_list_t* result = duplicate_template_argument_list(template_arguments);
+
+    for (i = 0; i < result->num_parameters; i++)
+    {
+        if (result->arguments[i] != NULL)
+        {
+            switch (result->parameters[i]->kind)
+            {
+                case TPK_TYPE :
+                case TPK_NONTYPE :
+                    {
+                        result->arguments[i]->type = remove_typedefs(result->arguments[i]->type);
+                        break;
+                    }
+                case TPK_TEMPLATE : 
+                    {
+                        break;
+                    }
+                default :
+                    {
+                        internal_error("Invalid template parameter kind %d\n", result->parameters[i]->kind);
+                    }
+            }
+        }
+    }
+
+    return result;
+}
+
 template_parameter_list_t* compute_template_parameter_values_of_primary(template_parameter_list_t* template_parameter_list)
 {
     int i;
@@ -1332,6 +1428,9 @@ type_t* get_new_template_type(template_parameter_list_t* template_parameter_list
         const char* template_name, decl_context_t decl_context, int line, const char* filename)
 {
     _template_type_counter++;
+
+    // Remove all typedefs from default template arguments
+    template_parameter_list = simplify_template_arguments(template_parameter_list);
 
     type_t* type_info = get_simple_type();
     type_info->type->kind = STK_TEMPLATE_TYPE;
@@ -1640,6 +1739,9 @@ static type_t* template_type_get_specialized_type_after_type_aux(type_t* t,
     {
         return existing_spec;
     }
+
+    // Remove all typedefs from template arguments
+    template_arguments = simplify_template_arguments(template_arguments);
 
     char has_dependent_temp_args = has_dependent_template_parameters(template_arguments);
 
@@ -6432,7 +6534,8 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
 
                 nodecl_t  nodecl_parts = simple_type->dependent_parts;
 
-                if (is_dependent && !nodecl_is_null(nodecl_parts))
+                if (is_dependent 
+                        && !nodecl_is_null(nodecl_parts))
                 {
                     enum type_tag_t kind = get_dependent_entry_kind(t);
                     switch(kind)
