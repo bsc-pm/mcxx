@@ -1272,7 +1272,17 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
     TL::Type symbol_type = symbol.get_type();
     TL::Scope function_scope = context.retrieve_context();
 
+
     ERROR_CONDITION(!symbol.is_function(), "Invalid symbol", 0);
+
+    // This is a member of a local class. Ignore unless we are defining its local class
+    if (is_local_symbol(symbol))
+    {
+        if (state.classes_being_defined.empty()
+                || (state.classes_being_defined.back() !=
+                    symbol.get_class_type().get_symbol()))
+            return;
+    }
 
     if (symbol.is_member())
     {
@@ -1364,7 +1374,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
     }
 
     std::string gcc_attributes = "";
-    
+
     if (symbol.has_gcc_attributes())
     {
         gcc_attributes = gcc_attributes_to_str(symbol) + " ";
@@ -1372,12 +1382,21 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
 
     std::string asm_specification = gcc_asm_specifier_to_str(symbol);
 
-    std::string qualified_name = symbol.get_class_qualification(function_scope, /* without_template */ true);
+    std::string declarator_name;
+
+    if (!is_local_symbol(symbol))
+    {
+        declarator_name = symbol.get_class_qualification(function_scope, /* without_template */ true);
+    }
+    else
+    {
+        declarator_name = unmangle_symbol_name(symbol);
+    }
 
     //if (symbol_type.is_template_specialized_type()
     //        && !symbol.is_conversion_function())
     //{
-    //    qualified_name += template_arguments_to_str(symbol);
+    //    declarator_name += template_arguments_to_str(symbol);
     //}
 
     TL::Type real_type = symbol_type.advance_over_typedefs();
@@ -1390,19 +1409,22 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
     }
 
     std::string declarator;
-    declarator = this->get_declaration_with_parameters(real_type, function_scope, qualified_name, parameter_names, parameter_attributes);
+    declarator = this->get_declaration_with_parameters(real_type, function_scope, declarator_name, parameter_names, parameter_attributes);
 
     std::string exception_spec = exception_specifier_to_str(symbol);
 
     move_to_namespace_of_symbol(symbol);
 
-    TL::TemplateParameters template_parameters = function_scope.get_template_parameters();
-    codegen_template_headers_all_levels(template_parameters, /*show default values*/ false);
-    
+    if (!is_local_symbol(symbol))
+    {
+        TL::TemplateParameters template_parameters = function_scope.get_template_parameters();
+        codegen_template_headers_all_levels(template_parameters, /*show default values*/ false);
+    }
+
     bool requires_extern_linkage = false;
     CXX_LANGUAGE()
     {
-        requires_extern_linkage = (!symbol.is_member() 
+        requires_extern_linkage = (!symbol.is_member()
                 && symbol.has_nondefault_linkage());
 
         if (requires_extern_linkage)
@@ -1460,6 +1482,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 {
+
     //Only independent code
     Nodecl::Context context = node.get_statements().as<Nodecl::Context>();
     Nodecl::List statement_seq = context.get_in_context().as<Nodecl::List>();
@@ -1479,6 +1502,16 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
     Nodecl::NodeclBase statement = statement_seq[0];
 
     TL::Symbol symbol = node.get_symbol();
+    
+    // This is a member of a local class. Ignore unless we are defining its local class
+    if (is_local_symbol(symbol))
+    {
+        if (state.classes_being_defined.empty()
+                || (state.classes_being_defined.back() != 
+                    symbol.get_class_type().get_symbol()))
+            return;
+    }
+
     TL::Type symbol_type = symbol.get_type();
 
     TL::Scope symbol_scope = symbol.get_scope();
@@ -1583,12 +1616,20 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 
     std::string asm_specification = gcc_asm_specifier_to_str(symbol);
 
-    std::string qualified_name = symbol.get_class_qualification(symbol_scope, /* without_template */ true);
+    std::string declarator_name;
+    if (!is_local_symbol(symbol))
+    {
+        declarator_name = symbol.get_class_qualification(symbol_scope, /* without_template */ true);
+    }
+    else
+    {
+        declarator_name = unmangle_symbol_name(symbol);
+    }
 
     if (is_template_specialized
             && !symbol.is_conversion_function())
     {
-        qualified_name += template_arguments_to_str(symbol);
+        declarator_name += template_arguments_to_str(symbol);
     }
 
     TL::Type real_type = symbol_type.advance_over_typedefs();
@@ -1601,7 +1642,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
     }
 
     std::string declarator = this->get_declaration_with_parameters(
-            real_type, symbol_scope, qualified_name, parameter_names, parameter_attributes);
+            real_type, symbol_scope, declarator_name, parameter_names, parameter_attributes);
 
     std::string exception_spec = exception_specifier_to_str(symbol);
 
@@ -2273,7 +2314,29 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
             // T(expr-list)
         case CXX03_EXPLICIT:
             {
-                file << this->get_declaration(type, this->get_current_scope(),  "");
+                // Special cases that are not valid here
+                //   short int
+                //   long int
+                //   unsigned int
+                //   signed int
+
+                if (type.is_signed_short_int())
+                {
+                    file << "short";
+                }
+                else if (type.is_signed_long_int())
+                {
+                    file << "long";
+                }
+                else if (type.is_unsigned_int())
+                {
+                    file << "unsigned";
+                }
+                else
+                {
+                    // No effort done for invalid cases that the syntax does not allow
+                    file << this->get_declaration(type, this->get_current_scope(),  "");
+                }
 
                 if (items.empty())
                 {
@@ -2298,7 +2361,23 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
             // T{expr-list}
         case CXX1X_EXPLICIT:
             {
-                file << this->get_declaration(type, this->get_current_scope(),  "");
+                if (type.is_signed_short_int())
+                {
+                    file << "short";
+                }
+                else if (type.is_signed_long_int())
+                {
+                    file << "long";
+                }
+                else if (type.is_unsigned_int())
+                {
+                    file << "unsigned";
+                }
+                else
+                {
+                    // No effort done for invalid cases that the syntax does not allow
+                    file << this->get_declaration(type, this->get_current_scope(),  "");
+                }
 
                 char inside_structured_value = state.inside_structured_value;
                 state.inside_structured_value = 1;
@@ -2999,7 +3078,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
     TL::Type symbol_type = symbol.get_type();
 
     ERROR_CONDITION(::is_incomplete_type(symbol_type.get_internal_type()), "An incomplete class cannot be defined", 0);
-    
+
     CXX_LANGUAGE()
     {
         char is_template_specialized = 0;
@@ -3034,54 +3113,57 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
 
         move_to_namespace_of_symbol(symbol);
 
-        if (is_template_specialized)
+        if (!is_local_symbol(symbol))
         {
-            TL::TemplateParameters template_parameters(NULL);
-            template_parameters = symbol.get_scope().get_template_parameters();
-
-            if (!(symbol_type.class_type_is_complete_independent()
-                        || symbol_type.class_type_is_incomplete_independent()))
+            if (is_template_specialized)
             {
-                if (defined_inside_class)
+                TL::TemplateParameters template_parameters(NULL);
+                template_parameters = symbol.get_scope().get_template_parameters();
+
+                if (!(symbol_type.class_type_is_complete_independent()
+                            || symbol_type.class_type_is_incomplete_independent()))
                 {
-                    // We only want the template header related to the current class
-                    TL::Symbol enclosing_class = symbol.get_class_type().get_symbol();
-                    codegen_template_headers_bounded(template_parameters,
-                            enclosing_class.get_scope().get_template_parameters(),
-                            /*show default values*/ true);
+                    if (defined_inside_class)
+                    {
+                        // We only want the template header related to the current class
+                        TL::Symbol enclosing_class = symbol.get_class_type().get_symbol();
+                        codegen_template_headers_bounded(template_parameters,
+                                enclosing_class.get_scope().get_template_parameters(),
+                                /*show default values*/ true);
+                    }
+                    else
+                    {
+                        // We want all template headers
+                        codegen_template_headers_all_levels(template_parameters, /*show default values*/ true);
+                    }
                 }
                 else
                 {
-                    // We want all template headers
-                    codegen_template_headers_all_levels(template_parameters, /*show default values*/ true);
+                    while (template_parameters.is_valid() &&
+                            template_parameters.get_is_explicit_specialization())
+                    {
+                        indent();
+                        file << "template <>\n";
+                        template_parameters = template_parameters.get_enclosing_parameters();
+                    }
                 }
             }
             else
             {
-                while (template_parameters.is_valid() &&
-                        template_parameters.get_is_explicit_specialization())
+                if (!defined_inside_class)
                 {
-                    indent();
-                    file << "template <>\n";
-                    template_parameters = template_parameters.get_enclosing_parameters();
-                }
-            }
-        }
-        else
-        {
-            if (!defined_inside_class)
-            {
-                // A special case: a class declaration or definition is inside an other template class
-                TL::Symbol related_symbol = symbol.get_scope().get_related_symbol();
-                TL::Type type_related_symbol = related_symbol.get_type();
-                if (type_related_symbol.is_template_specialized_type())
-                {
-                    // If the symbol is an anonymous union then it must be defined in the enclosing class definition.
-                    // Otherwise, this symbol must be defined in its namespace and we should generate all template headers.
-                    if (!symbol.is_anonymous_union())
+                    // A special case: a class declaration or definition is inside an other template class
+                    TL::Symbol related_symbol = symbol.get_scope().get_related_symbol();
+                    TL::Type type_related_symbol = related_symbol.get_type();
+                    if (type_related_symbol.is_template_specialized_type())
                     {
-                        TL::TemplateParameters template_parameters = symbol.get_scope().get_template_parameters();
-                        codegen_template_headers_all_levels(template_parameters, /*show default values*/ true);
+                        // If the symbol is an anonymous union then it must be defined in the enclosing class definition.
+                        // Otherwise, this symbol must be defined in its namespace and we should generate all template headers.
+                        if (!symbol.is_anonymous_union())
+                        {
+                            TL::TemplateParameters template_parameters = symbol.get_scope().get_template_parameters();
+                            codegen_template_headers_all_levels(template_parameters, /*show default values*/ true);
+                        }
                     }
                 }
             }
@@ -3360,6 +3442,21 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                             &CxxBase::define_symbol_always);
                     set_codegen_status(member, CODEGEN_STATUS_DEFINED);
                 }
+                else if (member.is_function())
+                {
+                    // This is a local function, emit it here
+                    if (is_local_symbol(member)
+                            && !nodecl_is_null(member.get_internal_symbol()->entity_specs.function_code))
+                    {
+                        walk(member.get_internal_symbol()->entity_specs.function_code);
+                    }
+                    else
+                    {
+                        do_declare_symbol(member, 
+                            &CxxBase::declare_symbol_always,
+                            &CxxBase::define_symbol_always);
+                    }
+                }
                 else
                 {
                     do_declare_symbol(member,
@@ -3435,8 +3532,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                 codegen_template_headers_bounded(
                         template_parameters,
                         symbol.get_scope().get_template_parameters(),
-                        /*show default values*/ (_friend.is_class() ||
-                            _friend.is_dependent_friend_class())
+                        /*show default values*/ false
                         );
             }
         }
@@ -3599,25 +3695,25 @@ void CxxBase::define_class_symbol(TL::Symbol symbol,
     state.pending_nested_types_to_define = current_pending;
 }
 
-bool CxxBase::is_local_symbol_common(TL::Symbol entry)
+bool CxxBase::is_local_symbol(TL::Symbol entry)
 {
     return entry.is_valid()
         && (entry.get_scope().is_block_scope()
                 || entry.get_scope().is_function_scope()
-                || (entry.is_member() && is_local_symbol_common(entry.get_class_type().get_symbol())));
+                || (entry.is_member() && is_local_symbol(entry.get_class_type().get_symbol())));
 }
 
-bool CxxBase::is_local_symbol(TL::Symbol entry)
+bool CxxBase::is_local_symbol_but_local_class(TL::Symbol entry)
 {
-    return is_local_symbol_common(entry)
-        // C++ Local classes are "nonlocal" because we will define them later
+    return is_local_symbol(entry)
+        // C++ local classes are not considered here
         && !(IS_CXX_LANGUAGE && entry.is_class() && entry.get_scope().is_block_scope());
 }
 
-// Note: is_nonlocal_symbol is NOT EQUIVALENT to !is_local_symbol
-bool CxxBase::is_nonlocal_symbol(TL::Symbol entry)
+// Note: is_nonlocal_symbol_but_local_class is NOT EQUIVALENT to !is_local_symbol_but_local_class
+bool CxxBase::is_nonlocal_symbol_but_local_class(TL::Symbol entry)
 {
-    return !is_local_symbol_common(entry)
+    return !is_local_symbol(entry)
         // C++ Local classes are obiously non local
         && !(IS_CXX_LANGUAGE && entry.is_class() && entry.get_scope().is_block_scope());
 }
@@ -3656,7 +3752,7 @@ void CxxBase::declare_symbol_always(TL::Symbol symbol)
 
 void CxxBase::define_symbol_if_local(TL::Symbol symbol)
 {
-    if (is_local_symbol(symbol))
+    if (is_local_symbol_but_local_class(symbol))
     {
         do_define_symbol(symbol,
                 &CxxBase::declare_symbol_if_local,
@@ -3666,7 +3762,7 @@ void CxxBase::define_symbol_if_local(TL::Symbol symbol)
 
 void CxxBase::declare_symbol_if_local(TL::Symbol symbol)
 {
-    if (is_local_symbol(symbol))
+    if (is_local_symbol_but_local_class(symbol))
     {
         do_declare_symbol(symbol,
                 &CxxBase::declare_symbol_if_local,
@@ -3676,7 +3772,7 @@ void CxxBase::declare_symbol_if_local(TL::Symbol symbol)
 
 void CxxBase::define_symbol_if_nonlocal(TL::Symbol symbol)
 {
-    if (is_nonlocal_symbol(symbol))
+    if (is_nonlocal_symbol_but_local_class(symbol))
     {
         do_define_symbol(symbol,
                 &CxxBase::declare_symbol_if_nonlocal,
@@ -3686,7 +3782,7 @@ void CxxBase::define_symbol_if_nonlocal(TL::Symbol symbol)
 
 void CxxBase::declare_symbol_if_nonlocal(TL::Symbol symbol)
 {
-    if (is_nonlocal_symbol(symbol))
+    if (is_nonlocal_symbol_but_local_class(symbol))
     {
         do_declare_symbol(symbol,
                 &CxxBase::declare_symbol_if_nonlocal,
@@ -3696,7 +3792,7 @@ void CxxBase::declare_symbol_if_nonlocal(TL::Symbol symbol)
 
 void CxxBase::define_symbol_if_nonlocal_nonprototype(TL::Symbol symbol)
 {
-    if (is_nonlocal_symbol(symbol)
+    if (is_nonlocal_symbol_but_local_class(symbol)
             && !is_prototype_symbol(symbol))
     {
         do_define_symbol(symbol,
@@ -3707,7 +3803,7 @@ void CxxBase::define_symbol_if_nonlocal_nonprototype(TL::Symbol symbol)
 
 void CxxBase::declare_symbol_if_nonlocal_nonprototype(TL::Symbol symbol)
 {
-    if (is_nonlocal_symbol(symbol)
+    if (is_nonlocal_symbol_but_local_class(symbol)
             && !is_prototype_symbol(symbol))
     {
         do_declare_symbol(symbol,
@@ -4130,7 +4226,7 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
             {
                 emit_initializer = 1;
                 if (symbol.is_member()
-                        // FIXME -> || !is_local_symbol(symbol))
+                        // FIXME -> || !is_local_symbol_but_local_class(symbol))
                         || (!symbol.get_scope().is_block_scope()
                             && !symbol.get_scope().is_function_scope()))
                 {
@@ -5324,6 +5420,14 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
         case NODECL_TYPEID:
         case NODECL_POSTINCREMENT:
         case NODECL_POSTDECREMENT:
+
+        case NODECL_CXX_ARROW:
+        case NODECL_CXX_ARROW_PTR_MEMBER:
+        case NODECL_CXX_DOT_PTR_MEMBER:
+        case NODECL_CXX_POSTFIX_INITIALIZER:
+        case NODECL_CXX_ARRAY_SECTION_RANGE:
+        case NODECL_CXX_ARRAY_SECTION_SIZE:
+        case NODECL_CXX_EXPLICIT_TYPE_CAST:
             {
                 return -2;
             }
@@ -5344,6 +5448,8 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
             // FIXME: Do we want them or we can use builtins?
             // case NODECL_ALIGNOF
             // case NODECL_LABEL_ADDR
+        case NODECL_CXX_SIZEOF:
+        case NODECL_CXX_ALIGNOF:
             {
                 return -3;
             }

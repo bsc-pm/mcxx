@@ -3042,7 +3042,9 @@ static const char* get_fully_qualified_symbol_name_of_dependent_typename(
 // Get the fully qualified symbol name in the scope of the ocurrence
 static const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry, 
         decl_context_t decl_context, char* is_dependent, int* max_qualif_level,
-        char no_templates, char only_classes)
+        char no_templates, 
+        char only_classes,
+        char do_not_emit_template_keywords)
 {
     // DEBUG_CODE()
     // {
@@ -3136,7 +3138,7 @@ static const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
         char prev_is_dependent = 0;
         const char* class_qualification = 
             get_fully_qualified_symbol_name_ex(class_symbol, decl_context, &prev_is_dependent, max_qualif_level, 
-                    /* no_templates */ 0, only_classes);
+                    /* no_templates */ 0, only_classes, do_not_emit_template_keywords);
 
         if (!class_symbol->entity_specs.is_anonymous_union)
         {
@@ -3144,7 +3146,8 @@ static const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
         }
 
         if (prev_is_dependent
-                && current_has_template_parameters)
+                && current_has_template_parameters
+                && !do_not_emit_template_keywords)
         {
             class_qualification = strappend(class_qualification, "template ");
         }
@@ -3167,28 +3170,36 @@ const char* get_fully_qualified_symbol_name(scope_entry_t* entry,
         decl_context_t decl_context, char* is_dependent, int* max_qualif_level)
 {
     return get_fully_qualified_symbol_name_ex(entry,
-            decl_context, is_dependent, max_qualif_level, /* no_templates */ 0, /* only_classes */ 0);
+            decl_context, is_dependent, max_qualif_level, 
+            /* no_templates */ 0, /* only_classes */ 0,
+            /* do_not_emit_template_keywords */ 0);
 }
 
 const char* get_fully_qualified_symbol_name_without_template(scope_entry_t* entry, 
         decl_context_t decl_context, char* is_dependent, int* max_qualif_level)
 {
     return get_fully_qualified_symbol_name_ex(entry,
-            decl_context, is_dependent, max_qualif_level, /* no_templates */ 1, /* only_classes */ 0);
+            decl_context, is_dependent, max_qualif_level, 
+            /* no_templates */ 1, /* only_classes */ 0,
+            /* do_not_emit_template_keywords */ 0);
 }
 
 const char* get_class_qualification_of_symbol(scope_entry_t* entry,
         decl_context_t decl_context, char* is_dependent, int* max_qualif_level)
 {
     return get_fully_qualified_symbol_name_ex(entry,
-            decl_context, is_dependent, max_qualif_level, /* no_templates */ 0, /* only_classes */ 1);
+            decl_context, is_dependent, max_qualif_level, 
+            /* no_templates */ 0, /* only_classes */ 1,
+            /* do_not_emit_template_keywords */ 1);
 }
 
 const char* get_class_qualification_of_symbol_without_template(scope_entry_t* entry,
         decl_context_t decl_context, char* is_dependent, int* max_qualif_level)
 {
     return get_fully_qualified_symbol_name_ex(entry,
-            decl_context, is_dependent, max_qualif_level, /* no_templates */ 1, /* only_classes */ 1);
+            decl_context, is_dependent, max_qualif_level, 
+            /* no_templates */ 1, /* only_classes */ 1,
+            /* do_not_emit_template_keywords */ 1);
 }
 
 
