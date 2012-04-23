@@ -485,9 +485,6 @@ LIBMCXX_EXTERN scope_entry_t* named_type_get_symbol(type_t* t);
 LIBMCXX_EXTERN char pointer_types_are_similar(type_t* t_orig, type_t* t_dest);
 
 LIBMCXX_EXTERN type_t* template_type_get_primary_type(type_t* t);
-LIBMCXX_EXTERN type_t* template_type_get_matching_specialized_type(type_t* t,
-        template_parameter_list_t* template_parameter_list,
-        decl_context_t decl_context);
 
 LIBMCXX_EXTERN type_t* template_type_get_specialized_type(type_t* t,
         template_parameter_list_t * template_parameters,

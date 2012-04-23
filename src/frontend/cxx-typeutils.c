@@ -1568,7 +1568,7 @@ char is_template_explicit_specialization(template_parameter_list_t* template_par
     return is_explicit_specialization;
 }
 
-type_t* template_type_get_matching_specialized_type(type_t* t,
+static type_t* template_type_get_matching_specialized_type(type_t* t,
         template_parameter_list_t* template_parameters,
         decl_context_t decl_context)
 {
