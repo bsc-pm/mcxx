@@ -291,17 +291,17 @@ namespace TL { namespace Nanos {
                     //     }
                 case Expression::BITWISE_AND : // x &= y
                     {
-                        intrinsic_function_name = "__sync_sub_and_fetch";
+                        intrinsic_function_name = "__sync_and_and_fetch";
                         break;
                     }
                 case Expression::BITWISE_OR : // x |= y
                     {
-                        intrinsic_function_name = "__sync_sub_or_fetch";
+                        intrinsic_function_name = "__sync_or_and_fetch";
                         break;
                     }
                 case Expression::BITWISE_XOR : // x ^= y
                     {
-                        intrinsic_function_name = "__sync_sub_xor_fetch";
+                        intrinsic_function_name = "__sync_xor_and_fetch";
                         break;
                     }
                     // case Expression::SHIFT_LEFT : // x <<= y
