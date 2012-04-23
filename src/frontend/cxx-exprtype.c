@@ -7054,6 +7054,8 @@ static void check_new_expression(AST new_expr, decl_context_t decl_context, node
     gather_decl_spec_t gather_info;
     memset(&gather_info, 0, sizeof(gather_info));
 
+    gather_info.is_cxx_new_declarator = 1;
+
     nodecl_t dummy_nodecl_output = nodecl_null();
     build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &dummy_type, decl_context, &dummy_nodecl_output);
 

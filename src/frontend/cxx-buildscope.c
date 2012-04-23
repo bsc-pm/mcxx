@@ -6512,7 +6512,8 @@ static void set_array_type(type_t** declarator_type,
                 return;
             }
             // // Maybe we should check for decl_context.block_scope != NULL
-            else if (decl_context.current_scope->kind == BLOCK_SCOPE)
+            else if (decl_context.current_scope->kind == BLOCK_SCOPE
+                    && !gather_info->is_cxx_new_declarator)
             {
                 static int vla_counter = 0;
 

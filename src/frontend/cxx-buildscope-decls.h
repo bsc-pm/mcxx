@@ -73,6 +73,10 @@ struct gather_decl_spec_tag {
     char is_overriden_type;
     char emit_always;
 
+    // We are in the declarator of "new T[e]" 
+    // 'e' may be non-constant, do not create a VLA entity for it
+    char is_cxx_new_declarator;
+
     // In some cases we allow gather_type_spec_from_simple_type_specifier to allow templates
     char allow_class_template_names;
 

@@ -75,6 +75,8 @@ namespace Codegen
             Ret visit(const Nodecl::SavedExpr &);
             Ret visit(const Nodecl::Conversion &);
             Ret visit(const Nodecl::CxxArrow &);
+            Ret visit(const Nodecl::CxxArrowPtrMember& node);
+            Ret visit(const Nodecl::CxxDotPtrMember& node);
             Ret visit(const Nodecl::CxxBracedInitializer &);
             Ret visit(const Nodecl::CxxDepGlobalNameNested &);
             Ret visit(const Nodecl::CxxDepNameConversion &);
@@ -290,7 +292,10 @@ namespace Codegen
                         void (CxxBase::*def_sym_fun_2)(TL::Symbol symbol))
                     );
 
+            bool is_local_symbol_common(TL::Symbol entry);
             bool is_local_symbol(TL::Symbol entry);
+            // Note: is_nonlocal_symbol is NOT EQUIVALENT to !is_local_symbol
+            bool is_nonlocal_symbol(TL::Symbol entry);
             bool is_prototype_symbol(TL::Symbol entry);
             bool all_enclosing_classes_are_user_declared(TL::Symbol entry);
 
@@ -350,7 +355,9 @@ namespace Codegen
                     scope_entry_t** list, 
                     int* position);
             void codegen_move_namespace_from_to(TL::Symbol from, TL::Symbol to);
+
             void move_to_namespace_of_symbol(TL::Symbol symbol);
+            void move_to_namespace(TL::Symbol namespace_sym);
 
             void indent();
             void inc_indent(int n = 1);

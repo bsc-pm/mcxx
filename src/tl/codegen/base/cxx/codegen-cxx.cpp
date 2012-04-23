@@ -653,6 +653,20 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxArrow& node)
     walk(node.get_member());
 }
 
+CxxBase::Ret CxxBase::visit(const Nodecl::CxxArrowPtrMember& node)
+{
+    walk(node.get_lhs());
+    file << "->*";
+    walk(node.get_ptr());
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::CxxDotPtrMember& node)
+{
+    walk(node.get_lhs());
+    file << ".*";
+    walk(node.get_ptr());
+}
+
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxBracedInitializer& node)
 {
     file << "{";
@@ -2514,7 +2528,8 @@ void CxxBase::codegen_explicit_instantiation(TL::Symbol sym,
     }
     else if (sym.is_function())
     {
-        move_to_namespace_of_symbol(context.retrieve_context().get_related_symbol());
+        decl_context_t decl_context = context.retrieve_context().get_decl_context();
+        move_to_namespace(decl_context.namespace_scope->related_entry);
         if (is_extern)
             file << "extern ";
         std::string original_declarator_name = codegen(declarator_name);
@@ -2537,12 +2552,11 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxExplicitInstantiation& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxExternExplicitInstantiation& node)
 {
-    file << "extern ";
     TL::Symbol sym = node.get_symbol();
     Nodecl::NodeclBase declarator_name = node.get_declarator_name();
     Nodecl::NodeclBase context = node.get_context();
     state.must_be_object_init.erase(sym);
-    codegen_explicit_instantiation(sym, declarator_name, context);
+    codegen_explicit_instantiation(sym, declarator_name, context, /* is_extern */ true);
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::Verbatim& node)
@@ -2852,12 +2866,20 @@ TL::ObjectList<TL::Symbol> CxxBase::define_required_before_class(TL::Symbol symb
                 {
 
                     TL::Symbol &_func(*it2);
+                    
+                    if (_func.is_template())
+                    {
+                        _func = _func.get_type().get_primary_template().get_symbol();
+                    }
+                    
                     walk_type_for_symbols(
                             _func.get_type(),
                             /* needs_def */ 1,
                             &CxxBase::declare_symbol_if_nonnested,
                             &CxxBase::define_symbol_if_nonnested,
                             &CxxBase::define_nonnested_entities_in_trees);
+
+                    declare_symbol_if_nonnested(_func);
                 }
             }
 
@@ -3577,12 +3599,27 @@ void CxxBase::define_class_symbol(TL::Symbol symbol,
     state.pending_nested_types_to_define = current_pending;
 }
 
-bool CxxBase::is_local_symbol(TL::Symbol entry)
+bool CxxBase::is_local_symbol_common(TL::Symbol entry)
 {
     return entry.is_valid()
         && (entry.get_scope().is_block_scope()
                 || entry.get_scope().is_function_scope()
-                || (entry.is_member() && is_local_symbol(entry.get_class_type().get_symbol())));
+                || (entry.is_member() && is_local_symbol_common(entry.get_class_type().get_symbol())));
+}
+
+bool CxxBase::is_local_symbol(TL::Symbol entry)
+{
+    return is_local_symbol_common(entry)
+        // C++ Local classes are "nonlocal" because we will define them later
+        && !(IS_CXX_LANGUAGE && entry.is_class() && entry.get_scope().is_block_scope());
+}
+
+// Note: is_nonlocal_symbol is NOT EQUIVALENT to !is_local_symbol
+bool CxxBase::is_nonlocal_symbol(TL::Symbol entry)
+{
+    return !is_local_symbol_common(entry)
+        // C++ Local classes are obiously non local
+        && !(IS_CXX_LANGUAGE && entry.is_class() && entry.get_scope().is_block_scope());
 }
 
 bool CxxBase::is_prototype_symbol(TL::Symbol entry)
@@ -3639,7 +3676,7 @@ void CxxBase::declare_symbol_if_local(TL::Symbol symbol)
 
 void CxxBase::define_symbol_if_nonlocal(TL::Symbol symbol)
 {
-    if (!is_local_symbol(symbol))
+    if (is_nonlocal_symbol(symbol))
     {
         do_define_symbol(symbol,
                 &CxxBase::declare_symbol_if_nonlocal,
@@ -3649,7 +3686,7 @@ void CxxBase::define_symbol_if_nonlocal(TL::Symbol symbol)
 
 void CxxBase::declare_symbol_if_nonlocal(TL::Symbol symbol)
 {
-    if (!is_local_symbol(symbol))
+    if (is_nonlocal_symbol(symbol))
     {
         do_declare_symbol(symbol,
                 &CxxBase::declare_symbol_if_nonlocal,
@@ -3659,7 +3696,7 @@ void CxxBase::declare_symbol_if_nonlocal(TL::Symbol symbol)
 
 void CxxBase::define_symbol_if_nonlocal_nonprototype(TL::Symbol symbol)
 {
-    if (!is_local_symbol(symbol)
+    if (is_nonlocal_symbol(symbol)
             && !is_prototype_symbol(symbol))
     {
         do_define_symbol(symbol,
@@ -3670,7 +3707,7 @@ void CxxBase::define_symbol_if_nonlocal_nonprototype(TL::Symbol symbol)
 
 void CxxBase::declare_symbol_if_nonlocal_nonprototype(TL::Symbol symbol)
 {
-    if (!is_local_symbol(symbol)
+    if (is_nonlocal_symbol(symbol)
             && !is_prototype_symbol(symbol))
     {
         do_declare_symbol(symbol,
@@ -4571,6 +4608,7 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         }
 
         std::string declarator = "";
+        std::string pure_spec = "";
         if (!real_type.lacks_prototype())
         {
             // declarator = this->get_declaration(
@@ -4582,10 +4620,11 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                     parameter_names, 
                     parameter_attributes);
 
+
             if (symbol.is_virtual()
                     && symbol.is_pure())
             {
-                declarator += " = 0";
+                pure_spec += " = 0 ";
             }
         }
         else
@@ -4626,7 +4665,7 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
 
 
         indent();
-        file << decl_spec_seq << declarator << exception_spec << asm_specification << gcc_attributes << ";\n";
+        file << decl_spec_seq << declarator << exception_spec << pure_spec << asm_specification << gcc_attributes << ";\n";
 
         CXX_LANGUAGE()
         {
@@ -5178,6 +5217,20 @@ void CxxBase::move_to_namespace_of_symbol(TL::Symbol symbol)
     // First close the namespaces
     codegen_move_namespace_from_to(state.opened_namespace, namespace_sym);
     state.opened_namespace = namespace_sym;
+}
+
+void CxxBase::move_to_namespace(TL::Symbol namespace_sym)
+{
+    C_LANGUAGE()
+    {
+        return;
+    }
+
+    ERROR_CONDITION(namespace_sym.get_internal_symbol()->kind != SK_NAMESPACE, "This is not a namespace", 0);
+
+    // First close the namespaces
+    codegen_move_namespace_from_to(state.opened_namespace, namespace_sym.get_internal_symbol());
+    state.opened_namespace = namespace_sym.get_internal_symbol();
 }
 
 void CxxBase::indent()
