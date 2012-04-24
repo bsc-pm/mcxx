@@ -1049,7 +1049,27 @@ CxxBase::Ret CxxBase::codegen_function_call_arguments(Iterator begin, Iterator e
             {
                 if (arg_it->template is<Nodecl::Derreference>())
                 {
-                    actual_arg = arg_it->template as<Nodecl::Derreference>().get_rhs();
+                    // Consider this case                 [ Emitted C ]
+                    // void f(int &s, int (&v)[10])    -> void f(int* const s, int * const v)
+                    // {
+                    // }
+                    //
+                    // void g()                           void g()
+                    // {                                  {
+                    //    int (*k)[10];                      int (*k)[10];
+                    //    f(*k);                             f(*k); // Emitting f(k) would be wrong
+                    // }                                  }
+                    //
+                    // Note that "*k" has type "int[10]" but then it gets converted into "int*"
+                    // conversely "k" is just "int(*)[10]" but this cannot be converted into "int*"
+                    bool is_array_argument =
+                        (arg_it->get_type().is_array()
+                         || (arg_it->get_type().is_any_reference()
+                             && arg_it->get_type().references_to().is_array()));
+                    if (!is_array_argument)
+                    {
+                        actual_arg = arg_it->template as<Nodecl::Derreference>().get_rhs();
+                    }
                 }
                 else
                 {
