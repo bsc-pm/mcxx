@@ -5783,7 +5783,10 @@ void CxxBase::declare_all_in_template_arguments(TL::TemplateParameters template_
                 }
             case TPK_TEMPLATE:
                 {
-                    (this->*decl_sym_fun)(argument.get_type().get_symbol());
+                    TL::Symbol template_symbol = argument.get_type().get_symbol();
+                    TL::Type primary_type = template_symbol.get_type().get_primary_template();
+                    TL::Symbol primary_symbol = primary_type.get_symbol();
+                    (this->*decl_sym_fun)(primary_symbol);
                     break;
                 }
             default:
