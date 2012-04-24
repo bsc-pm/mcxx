@@ -332,7 +332,7 @@ void LoweringVisitor::allocate_immediate_structure(
 
 void LoweringVisitor::emit_async_common(
         Nodecl::NodeclBase construct,
-        TL::Symbol function_symbol, 
+        TL::Symbol function_symbol,
         Nodecl::NodeclBase statements,
         Nodecl::NodeclBase priority_expr,
         bool is_untied,
@@ -374,6 +374,11 @@ void LoweringVisitor::emit_async_common(
             outline_name,
             is_untied,
             /* mandatory_creation */ 0);
+
+    if (priority_expr.is_null())
+    {
+        priority_expr = const_value_to_nodecl(const_value_get_signed_int(0));
+    }
 
     dynamic_wd_info
         << "nanos_wd_dyn_props_t nanos_wd_dyn_props;"
