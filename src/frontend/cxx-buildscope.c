@@ -2396,21 +2396,7 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
 
     class_entry = entry;
 
-    // Is this class inside one or more template class definition?
-    char is_nested_in_one_or_more_template_class =
-        is_template_specialized_type(class_symbol->type_information);
-
-    scope_entry_t* auxiliar_sym = class_symbol;
-    while (!is_nested_in_one_or_more_template_class &&
-            auxiliar_sym->decl_context.current_scope->related_entry != NULL &&
-            auxiliar_sym->decl_context.current_scope->related_entry->kind == SK_CLASS)
-    {
-        auxiliar_sym = auxiliar_sym->decl_context.current_scope->related_entry;
-        is_nested_in_one_or_more_template_class =
-            is_template_specialized_type(class_symbol->type_information);
-    }
-
-    if (is_nested_in_one_or_more_template_class)
+    if (is_dependent_type(class_symbol->type_information))
     {
         if (entry != NULL)
         {
@@ -2486,9 +2472,6 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
                 class_entry->kind = SK_DEPENDENT_FRIEND_CLASS;
                 set_dependent_entry_kind(class_entry->type_information, class_kind);
             }
-
-            *type_info = get_void_type();
-            class_type_add_friend_symbol(class_symbol->type_information, class_entry);
         }
         else
         {
@@ -2519,10 +2502,9 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
 
                 class_type = class_entry->type_information;
             }
-
-            *type_info = get_void_type();
-            class_type_add_friend_symbol(class_symbol->type_information, class_entry);
         }
+        *type_info = get_void_type();
+        class_type_add_friend_symbol(class_symbol->type_information, class_entry);
     }
     else
     {
