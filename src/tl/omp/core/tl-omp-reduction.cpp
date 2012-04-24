@@ -27,26 +27,12 @@
 
 
 #include "tl-omp-core.hpp"
-#include "tl-omp-udr_2.hpp"
+#include "tl-omp-udr.hpp"
 
 namespace TL
 {
     namespace OpenMP
     {
-        static bool udr_is_builtin_operator(const std::string& op_name)
-        {
-            return (op_name == "+"
-                    || op_name == "-"
-                    || op_name == "*"
-                    || op_name == "/"
-                    || op_name == "&"
-                    || op_name == "|"
-                    || op_name == "^"
-                    || op_name == "&&"
-                    || op_name == "||");
-        }
-
-
         void Core::get_reduction_symbols(
                 TL::PragmaCustomLine construct,
                 TL::PragmaCustomClause clause, 
@@ -143,7 +129,7 @@ namespace TL
                             if (!var_type.is_named_class()
                                     && !var_type.is_dependent_typename())
                             {
-                                std::cerr << construct.get_locus() << ": warning: reductor '" << reductor_name 
+                                std::cerr << construct.get_locus() << ": warning: reductor '" << reductor_name
                                     << "' is no valid for non class-type variable '" << var_sym.get_qualified_name() << "'"
                                     << ", skipping"
                                     << std::endl;
@@ -163,37 +149,52 @@ namespace TL
                     }
                     else
                     {
-                        Nodecl::NodeclBase reductor_name_tree;
-
                         bool found = false;
-                        UDRInfoItem2 udr2;
-                        udr2.set_type(var_type);
+                        UDRInfoItem udr;
+                        udr.set_type(var_type);
 
-                        if (var_type.is_class())
+
+                        CXX_LANGUAGE()
                         {
-                            reductor_name_tree
-                                = udr2.parse_omp_udr_operator_name(construct, reductor_name);
+                            if (udr_is_builtin_operator(reductor_name) 
+                                    && var_type.is_enum())
+                            {
+                                var_type = var_type.get_enum_underlying_type();
+                            }
                         }
 
-                        if (reductor_name_tree.is<Nodecl::ErrExpr>())
+                        Nodecl::NodeclBase reductor_name_node = UDRInfoItem::compute_nodecl_of_udr_name(reductor_name,
+                                var_type,
+                                construct.get_filename(),
+                                construct.get_line()
+                                );
+
+                        udr = UDRInfoItem::lookup_udr(
+                                construct.retrieve_context(),
+                                reductor_name_node,
+                                // out
+                                found);
+
+                        if (found)
                         {
-                            running_error("%s: error: no suitable reductor operator '%s' was found for reduced variable '%s' of type '%s'",
-                                    construct.get_locus().c_str(),
-                                    reductor_name.c_str(),
-                                    var_tree.prettyprint().c_str(),
-                                    var_sym.get_type().get_declaration(var_sym.get_scope(), "").c_str());
-                        }
-                        else
-                        {
-                            ReductionSymbol red_sym(var_sym, udr2);
+                            ReductionSymbol red_sym(var_sym, udr);
                             sym_list.append(red_sym);
-                            if (!udr2.is_builtin_operator() /* && construct.get_show_warnings( ) */)
+                            if (!udr.is_builtin_operator())
                             {
                                 std::cerr << construct.get_locus() 
                                     << ": note: reduction of variable '" << var_sym.get_name() << "' solved to '" 
                                     << reductor_name << "'"
                                     << std::endl;
                             }
+                        }
+                        else
+                        {
+                            // Make this a hard error, otherwise lots of false positives will slip in
+                            running_error("%s: error: no suitable reductor operator '%s' was found for reduced variable '%s' of type '%s'",
+                                    construct.get_locus().c_str(),
+                                    reductor_name.c_str(),
+                                    var_tree.prettyprint().c_str(),
+                                    var_sym.get_type().get_declaration(var_sym.get_scope(), "").c_str());
                         }
                     }
                 }

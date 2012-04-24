@@ -329,11 +329,11 @@ namespace TL
             return *_current_data_sharing;
         }
 
-        ObjectList<UDRInfoItem2> Info::get_udr_list(Nodecl::NodeclBase a)
+        ObjectList<UDRInfoItem> Info::get_udr_list(Nodecl::NodeclBase a)
         {
             if (_map_udr_info.find(a) == _map_udr_info.end())
             {
-                ObjectList<UDRInfoItem2> empty_udr_list;
+                ObjectList<UDRInfoItem> empty_udr_list;
                 return empty_udr_list;
             }
             else
@@ -349,7 +349,7 @@ namespace TL
             if (_map_udr_info.find(a) != _map_udr_info.end())
             {
                 int i=0;
-                for(ObjectList<UDRInfoItem2>::iterator it = _map_udr_info[a].begin();
+                for(ObjectList<UDRInfoItem>::iterator it = _map_udr_info[a].begin();
                         it != _map_udr_info[a].end();
                         it++)
                 {
@@ -360,7 +360,7 @@ namespace TL
 #endif
         }
 
-        void Info::set_udr_list(Nodecl::NodeclBase a, ObjectList<UDRInfoItem2> udr_list)
+        void Info::set_udr_list(Nodecl::NodeclBase a, ObjectList<UDRInfoItem> udr_list)
         {
             _map_udr_info[a] = udr_list;
         }

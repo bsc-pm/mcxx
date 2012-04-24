@@ -29,7 +29,7 @@
 
 #include "tl-omp-core.hpp"
 #include "tl-source.hpp"
-#include "tl-omp-udr_2.hpp"
+#include "tl-omp-udr.hpp"
 #include "tl-builtin.hpp"
 #include "tl-nodecl-alg.hpp"
 #include "cxx-diagnostic.h"
@@ -113,7 +113,7 @@ namespace TL
             Nodecl::NodeclBase translation_unit = dto["nodecl"];
             Scope global_scope = translation_unit.retrieve_context();
 
-            // initialize_builtin_udr_reductions_2(translation_unit);
+            initialize_builtin_udr_reductions(translation_unit);
 
             PragmaCustomCompilerPhase::run(dto);
 

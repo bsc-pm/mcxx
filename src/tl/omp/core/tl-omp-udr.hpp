@@ -27,8 +27,8 @@
 
 
 
-#ifndef TL_OMP_UDR_2_HPP
-#define TL_OMP_UDR_2_HPP
+#ifndef TL_OMP_UDR_HPP
+#define TL_OMP_UDR_HPP
 
 #include "tl-symbol.hpp"
 #include "tl-type.hpp"
@@ -38,7 +38,7 @@ namespace TL
 {
     namespace OpenMP
     {
-        class LIBTL_CLASS UDRInfoItem2 : public TL::Object
+        class LIBTL_CLASS UDRInfoItem : public TL::Object
         {
 
             private:
@@ -60,26 +60,35 @@ namespace TL
 
             public:
                 // Constructor
-                UDRInfoItem2();
+                UDRInfoItem();
 
                 // Methods
                 void sign_in_scope(Scope sc, Type types) const;
 
-                UDRInfoItem2 bases_lookup(Type type,
+#if 0
+                UDRInfoItem bases_lookup(Type type,
                         Nodecl::NodeclBase reductor_tree,
                         bool &found) const;
 
-                UDRInfoItem2 argument_dependent_lookup(Type type,
+                UDRInfoItem argument_dependent_lookup(Type type,
                         Nodecl::NodeclBase reductor_tree,
                         bool &found, Scope sc) const;
+#endif
+                static Nodecl::NodeclBase compute_nodecl_of_udr_name(
+                        const std::string& reductor_name,
+                        TL::Type udr_type,
+                        const std::string& filename,
+                        int line);
 
-                UDRInfoItem2 lookup_udr(Scope sc,
-                        bool &found,
-                        Type udr_type,
-                        Nodecl::NodeclBase reductor_tree,
-                        int udr_counter) const;
+                static UDRInfoItem lookup_udr(
+                        Scope sc,
+                        Nodecl::NodeclBase reductor_name_node,
 
-                std::string get_symbol_name(Type t) const;
+                        bool &found);
+
+                static std::string udr_get_symbol_name(
+                        const std::string &reductor_name,
+                        Type t);
 
                 Nodecl::NodeclBase parse_omp_udr_operator_name(
                         Source::ReferenceScope ref_scope,
@@ -121,10 +130,11 @@ namespace TL
 
         // Functions used in tl-omp-core.cpp
         // {
-        void initialize_builtin_udr_reductions_2(Nodecl::NodeclBase translation_unit);
-        bool udr_is_builtin_operator_2(const std::string &op_name);
+        void initialize_builtin_udr_reductions(Nodecl::NodeclBase translation_unit);
+        bool udr_is_builtin_operator(const std::string &op_name);
+        std::string udr_builtin_operator_get_name(const std::string& reductor_name);
         // }
     }
 }
 
-#endif // TL_OMP_UDR_2_HPP
+#endif // TL_OMP_UDR_HPP

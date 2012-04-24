@@ -86,6 +86,7 @@ omp_udr_unqualified_operator :  IDENTIFIER
 | omp_udr_builtin_op
 {
 	$$ = $1;
+// FIXME - Try to avoid this
 	struct { const char *op; const char *name; } map[] =
     { 
         { "+", "_plus_"},

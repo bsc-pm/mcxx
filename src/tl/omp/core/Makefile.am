@@ -53,6 +53,6 @@ libtlomp_core_la_SOURCES = \
    tl-omp-target.cpp \
    tl-omp-collapse.cpp \
    tl-omp-reduction.cpp \
-   tl-omp-udr_2.hpp \
-   tl-omp-udr_2.cpp \
+   tl-omp-udr.hpp \
+   tl-omp-udr.cpp \
    $(END)
