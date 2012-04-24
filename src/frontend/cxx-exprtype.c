@@ -5511,17 +5511,24 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
         }
         else
         {
-            scope_entry_list_t* this_symbol_list 
+            scope_entry_list_t* this_symbol_list
                 = query_name_str(decl_context, "this");
+            scope_entry_t* this_symbol = NULL;
+                type_t* this_type = NULL;
             if (this_symbol_list != NULL)
             {
-                scope_entry_t* this_symbol = entry_list_head(this_symbol_list);
-
+                this_symbol =  entry_list_head(this_symbol_list);
                 // Construct (*this).x
-                type_t* this_type = pointer_type_get_pointee_type(this_symbol->type_information);
+                this_type = pointer_type_get_pointee_type(this_symbol->type_information);
+            }
+
+            if (this_symbol != NULL
+                    && class_type_is_base(entry->entity_specs.class_type, this_type))
+            {
+                // Construct (*this).x
                 cv_qualifier_t this_qualifier = get_cv_qualifier(this_type);
 
-                nodecl_t nodecl_this_derref = 
+                nodecl_t nodecl_this_derref =
                     nodecl_make_derreference(
                             nodecl_make_symbol(this_symbol, nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name)),
                             get_lvalue_reference_type(this_type),
