@@ -328,7 +328,7 @@ namespace TL { namespace Nanox {
             field.get_internal_symbol()->entity_specs.access = AS_PUBLIC;
 
             field.get_internal_symbol()->file = uniquestr(construct.get_filename().c_str());
-            field.get_internal_symbol()->line = 10000 + construct.get_line();
+            field.get_internal_symbol()->line = construct.get_line();
 
             // Language specific parts
             if (IS_FORTRAN_LANGUAGE)
