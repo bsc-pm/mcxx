@@ -29,6 +29,7 @@
 #include "tl-source.hpp"
 #include "tl-lowering-visitor.hpp"
 #include "tl-nodecl-alg.hpp"
+#include "cxx-cexpr.h"
 
 namespace TL { namespace Nanox {
 
@@ -56,7 +57,7 @@ namespace TL { namespace Nanox {
         ERROR_CONDITION(sym.is_invalid(), "Invalid symbol", 0);
 
         TL::Type nanos_ws_desc_type = ::get_user_defined_type(sym.get_internal_symbol());
-        nanos_ws_desc_type = nanos_ws_desc_type.get_lvalue_reference_to();
+        nanos_ws_desc_type = nanos_ws_desc_type.get_pointer_to();
 
         OutlineDataItem &wsd_data_item = outline_info.prepend_field("wsd", nanos_ws_desc_type);
         wsd_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE);
@@ -64,46 +65,90 @@ namespace TL { namespace Nanox {
         // Build the structure
         TL::Symbol structure_symbol = declare_argument_structure(outline_info, construct);
 
-        Source for_header, for_footer;
-        for (Nodecl::List::iterator it = ranges.begin();
-                it != ranges.end();
-                it++)
+        Nodecl::NodeclBase placeholder1, placeholder2;
+        Source for_code;
+        if (ranges.size() == 1)
         {
-            // FIXME - Negative step
-            TL::Symbol ind_var = it->get_symbol();
-            Nodecl::Parallel::DistributeRange range(it->as<Nodecl::Parallel::DistributeRange>());
+            Nodecl::Range range_item = ranges.front().as<Nodecl::Range>();
 
-            for_header 
-                << "for (" << ind_var.get_name() << " = nanos_loop_info.lower;" 
-                << ind_var.get_name() << " <= nanos_loop_info.upper;"
-                << ind_var.get_name() << " += " << as_expression(range.get_step()) << ")"
-                << "{"
-                ;
-            for_footer 
-                << "}";
+            TL::Symbol ind_var = range_item.get_symbol();
+            Nodecl::Parallel::DistributeRange range(range_item.as<Nodecl::Parallel::DistributeRange>());
+
+            if (range.get_step().is_constant())
+            {
+                const_value_t* cval = range.get_step().get_constant();
+
+                Nodecl::NodeclBase cval_nodecl = const_value_to_nodecl(cval);
+
+                if (const_value_is_positive(cval))
+                {
+
+                    for_code
+                        << "for (" << ind_var.get_name() << " = nanos_loop_info.lower;"
+                        << ind_var.get_name() << " <= nanos_loop_info.upper;"
+                        << ind_var.get_name() << " += " << cval_nodecl.prettyprint() << ")"
+                        << "{"
+                        ;
+                }
+                else
+                {
+                    for_code
+                        << "for (" << ind_var.get_name() << " = nanos_loop_info.lower;"
+                        << ind_var.get_name() << " >= nanos_loop_info.upper;"
+                        << ind_var.get_name() << " += " << cval_nodecl.prettyprint() << ")"
+                        << "{"
+                        ;
+                }
+
+                for_code
+                    << statement_placeholder(placeholder1)
+                    << "}"
+                    ;
+            }
+            else
+            {
+
+                for_code
+                    << as_type(range.get_step().get_type()) << " nanos_step = " << as_expression(range.get_step()) << ";"
+                    << "if (nanos_step > 0)"
+                    << "{"
+                    <<    "for (" << ind_var.get_name() << " = nanos_loop_info.lower;"
+                    <<    ind_var.get_name() << " <= nanos_loop_info.upper;"
+                    <<    ind_var.get_name() << " += nanos_step)"
+                    <<    "{"
+                    <<    statement_placeholder(placeholder1)
+                    <<    "}"
+                    << "}"
+                    << "else"
+                    << "{"
+                    <<    "for (" << ind_var.get_name() << " = nanos_loop_info.lower;"
+                    <<    ind_var.get_name() << " >= nanos_loop_info.upper;"
+                    <<    ind_var.get_name() << " += nanos_step)"
+                    <<    "{"
+                    <<    statement_placeholder(placeholder2)
+                    <<    "}"
+                    << "}"
+                    ;
+            }
         }
-        
-        //     nanos_worksharing_next_item(_args->wsd, (nanos_ws_item_t *) &_nth_info);
-        //     if (1 > 0)
-        //     {
-        //         while (_nth_info.execute)
-        //         {
-        //             for (i = _nth_info.lower;
-        //                 i <= _nth_info.upper;
-        //                 i += 1)
+        else if (ranges.size() > 1)
+        {
+            internal_error("Collapsed ranges not implemented yet", 0);
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
+        }
 
-        Nodecl::NodeclBase placeholder;
         Source outline_source;
         outline_source
             << "{"
             << "nanos_ws_item_loop_t nanos_loop_info;"
             << "nanos_err_t err;"
-            << "err = nanos_worksharing_next_item(&wsd, (nanos_ws_item_t*)&nanos_loop_info);"
+            << "err = nanos_worksharing_next_item(wsd, (nanos_ws_item_t*)&nanos_loop_info);"
             << "if (err != NANOS_OK)"
             <<     "nanos_handle_error(err);"
-            << for_header
-            << statement_placeholder(placeholder)
-            << for_footer
+            << for_code
             << "}"
             ;
 
@@ -115,8 +160,14 @@ namespace TL { namespace Nanox {
             << statements.prettyprint()
             ;
 
-        Nodecl::NodeclBase iteration_code = iteration_source.parse_statement(placeholder);
-        placeholder.integrate(iteration_code);
+        Nodecl::NodeclBase iteration_code = iteration_source.parse_statement(placeholder1);
+        placeholder1.integrate(iteration_code);
+
+        if (!placeholder2.is_null())
+        {
+            Nodecl::NodeclBase iteration_code = iteration_source.parse_statement(placeholder2);
+            placeholder2.integrate(iteration_code);
+        }
 
         loop_spawn(outline_info, construct, distribute_environment, ranges, outline_name, structure_symbol);
     }
