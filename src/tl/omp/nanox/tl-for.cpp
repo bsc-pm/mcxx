@@ -1006,7 +1006,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
             <<              "if (!" << current_slicer << ") " << current_slicer <<  " = nanos_find_slicer(\"" << current_slicer << "\");"
             <<              "if (" << current_slicer << " == 0) fprintf (stderr, \"Cannot find " << current_slicer << " slicer plugin\\n\");"
             <<              decl_slicer_data_if_needed
-            <<              "err = " << create_sliced_wd
+            <<              create_sliced_wd
             <<              "if (err != NANOS_OK) nanos_handle_error(err);"
             <<              "ol_args_im->wsd = ol_args.wsd;"
             <<              fill_outline_arguments_im
@@ -1050,7 +1050,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
             <<        "static nanos_slicer_t " << current_slicer << " = 0;"
             <<        "if (!" << current_slicer << ") " << current_slicer <<  " = nanos_find_slicer(\"" << current_slicer << "\");"
             <<        decl_slicer_data_if_needed
-            <<        "err = " << create_sliced_wd
+            <<        create_sliced_wd
             <<        "if (err != NANOS_OK) nanos_handle_error(err);"
             <<            fill_outline_arguments
             <<            omp_reduction_argument

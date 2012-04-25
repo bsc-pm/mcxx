@@ -64,7 +64,7 @@ namespace Nanox
         if (Nanos::Version::interface_is_at_least("master", 5012))
         {
             create_sliced_wd
-                <<"nanos_create_sliced_wd("
+                <<"err = nanos_create_sliced_wd("
                 <<      "&wd, "
                 <<       "1, " /* num_devices */
                 <<      device_descriptor << ", "
@@ -82,7 +82,7 @@ namespace Nanox
         else if (Nanos::Version::interface_is_at_least("master", 5008))
         {
             create_sliced_wd
-                <<"nanos_create_sliced_wd("
+                <<"err = nanos_create_sliced_wd("
                 <<      "&wd, "
                 <<       "1, " /* num_devices */
                 <<      device_descriptor << ", "
@@ -129,7 +129,7 @@ namespace Nanox
     {
         Source create_wd;
         create_wd
-            << "nanos_create_wd(&wd, "
+            << "err = nanos_create_wd(&wd, "
             <<       num_devices << ", "
             <<       device_descriptor << ", "
             <<       struct_size << ", "
@@ -147,22 +147,29 @@ namespace Nanox
      Source OMPTransform::get_nanos_create_wd_compact_code(
             Source struct_size,
             Source data,
-            Source copy_data)
-    {
-        Source create_wd;
-        create_wd
-            << "nanos_create_wd_compact("
-            <<       "&wd, "
-            <<       "&_const_def.base, "
-            <<       "&dyn_props, "
-            <<       struct_size << ", "
-            <<       data << ", "
-            <<       "nanos_current_wd(), "
-            <<       copy_data << ");"
-            ;
+            Source copy_data,
+            Source priority)
+     {
+         Source create_wd;
+         if (Nanos::Version::interface_is_at_least("master", 5014))
+         {
+             create_wd
+                 << "dyn_props.priority = " << priority << ";"
+                 ;
+         }
+         create_wd
+             << "err = nanos_create_wd_compact("
+             <<       "&wd, "
+             <<       "&_const_def.base, "
+             <<       "&dyn_props, "
+             <<       struct_size << ", "
+             <<       data << ", "
+             <<       "nanos_current_wd(), "
+             <<       copy_data << ");"
+             ;
 
-        return create_wd;
-    }
+         return create_wd;
+     }
 
      Source OMPTransform::get_nanos_create_and_run_wd_code(
              Source num_devices,
@@ -178,7 +185,7 @@ namespace Nanox
      {
          Source create_wd_and_run;
          create_wd_and_run
-             << "nanos_create_wd_and_run("
+             << "err = nanos_create_wd_and_run("
              <<       num_devices << ", "
              <<       device_descriptor << ", "
              <<       struct_size << ", "
@@ -202,11 +209,18 @@ namespace Nanox
              Source num_dependences,
              Source deps,
              Source copy_imm_data,
-             Source translation_fun_arg_name)
+             Source translation_fun_arg_name,
+             Source priority)
      {
          Source create_wd_and_run;
+         if (Nanos::Version::interface_is_at_least("master", 5014))
+         {
+             create_wd_and_run
+                 << "dyn_props.priority = " << priority << ";"
+                 ;
+         }
          create_wd_and_run
-             << "nanos_create_wd_and_run_compact("
+             << "err = nanos_create_wd_and_run_compact("
              <<       "&_const_def.base, "
              <<       "&dyn_props, "
              <<       struct_size << ", "

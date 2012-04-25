@@ -190,10 +190,11 @@ void OMPTransform::section_postorder(PragmaCustomConstruct ctr)
            constant_code_opt, constant_struct_definition, constant_variable_declaration;
     if (Nanos::Version::interface_is_at_least("master", 5012))
     {
-        nanos_create_wd = OMPTransform::get_nanos_create_wd_compact_code(struct_size, data, copy_data);
+        nanos_create_wd = OMPTransform::get_nanos_create_wd_compact_code(struct_size, data, copy_data, 
+                /* priority */ Source("0"));
 
         decl_dyn_props_opt << "nanos_wd_dyn_props_t dyn_props = {0};";
-        
+
         constant_code_opt
             << constant_struct_definition
             <<  constant_variable_declaration
@@ -220,7 +221,14 @@ void OMPTransform::section_postorder(PragmaCustomConstruct ctr)
             <<              "0, " /* reserved3 */
             <<              "0, " /* reserved4 */
             <<              "0, " /* reserved5 */
-            <<              "0, " /* priority */
+            ;
+        if (!Nanos::Version::interface_is_at_least("master", 5014))
+        {
+            constant_variable_declaration
+                <<              "0, " /* priority */
+                ;
+        }
+        constant_variable_declaration
             <<          "}, "
             <<          alignment   << ", "
             <<          num_copies  << ", "

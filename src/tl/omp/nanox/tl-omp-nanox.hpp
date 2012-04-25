@@ -67,7 +67,8 @@ namespace Nanox
             static Source get_nanos_create_wd_compact_code(
                     Source struct_size,
                     Source data,
-                    Source copy_data);
+                    Source copy_data,
+                    Source props_priority);
 
             static Source get_nanos_create_and_run_wd_compact_code(
                     Source struct_size,
@@ -75,7 +76,8 @@ namespace Nanox
                     Source num_dependences,
                     Source deps,
                     Source copy_imm_data,
-                    Source translation_fun_arg_name);
+                    Source translation_fun_arg_name,
+                    Source props_priority);
 
         private:
             void parallel_postorder(PragmaCustomConstruct ctr);
