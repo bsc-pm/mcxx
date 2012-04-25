@@ -31,30 +31,16 @@
 test_generator=config/mercurium
 </testinfo>
 */
-class X {};
-class Y {};
-void f() 
+template<class _Tp> class A;
+class B;
+
+template<class _Tp>
+class A
 {
-    class A 
-    {
-         int private_var;
-        friend class X;
-        friend class Y;
-        friend class Z;
-    };
+    void f (B& b);
+};
 
-    class Y 
-    {
-        public: 
-        void foo(A* a) 
-        {
-            a->private_var = 1;
-        }
-    };
-
-
-    X x; //::X
-    Y y; // f()::Y
-    A a; // f()::A
-    y.foo(&a);
-}
+class B
+{
+    A<int> a;
+};

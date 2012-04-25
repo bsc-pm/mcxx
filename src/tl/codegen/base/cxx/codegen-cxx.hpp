@@ -213,6 +213,9 @@ namespace Codegen
                 bool in_dependent_template_function_code;
 
                 bool inside_structured_value;
+                
+                bool do_not_emit_other_declarations;
+
 
                 TL::ObjectList<TL::Symbol> classes_being_defined;
 
@@ -248,6 +251,7 @@ namespace Codegen
                     in_member_declaration(false),
                     in_dependent_template_function_code(false),
                     inside_structured_value(),
+                    do_not_emit_other_declarations(false),
                     classes_being_defined(),
                     walked_types(),
                     being_checked_for_required(),
