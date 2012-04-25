@@ -3730,7 +3730,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
             nodecl_concat_lists(
                     *nodecl_output,
                     nodecl_make_list_1(
-                        nodecl_make_cxx_decl(new_entry, ASTFileName(a), ASTLine(a))));
+                        nodecl_make_cxx_def(new_entry, ASTFileName(a), ASTLine(a))));
     }
 }
 
@@ -6060,7 +6060,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
             nodecl_concat_lists(
                     *nodecl_output,
                     nodecl_make_list_1(
-                        nodecl_make_cxx_decl(class_entry, ASTFileName(a), ASTLine(a))));
+                        nodecl_make_cxx_def(class_entry, ASTFileName(a), ASTLine(a))));
     }
 
     ERROR_CONDITION(class_entry != NULL
