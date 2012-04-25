@@ -1995,6 +1995,9 @@ void DeviceSMP::do_smp_outline_replacements(AST_t body,
                     it != vla_dims.end();
                     it++)
             {
+                // Declare a local variable for it
+                initial_code << "int " << *it << " = _args->" << *it << ";";
+
                 Source new_dim;
                 new_dim << "_args->" << *it;
 
