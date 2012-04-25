@@ -5099,12 +5099,6 @@ void CxxBase::walk_type_for_symbols(TL::Type t,
     if (!t.is_valid())
         return;
 
-    if (state.do_not_emit_other_declarations)
-    {
-        std::cerr << "WARNING: walking types when we were told not to emit other declarations: " << print_declarator(t.get_internal_type()) << std::endl;
-        __asm__ __volatile__ ( "int3;");
-    }
-
     bool being_walked = state.walked_types.find(t) != state.walked_types.end();
 
     // This effectively poisons return, do not return from this function
