@@ -337,7 +337,6 @@ namespace Codegen
                     void (CxxBase::* symbol_to_define)(TL::Symbol));
 
             void walk_type_for_symbols(TL::Type, 
-                    bool needs_def, 
                     void (CxxBase::* declare_fun)(TL::Symbol),
                     void (CxxBase::* define_fun)(TL::Symbol),
                     void (CxxBase::* define_entities)(const Nodecl::NodeclBase&));
