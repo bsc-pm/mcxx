@@ -575,6 +575,9 @@ namespace TL
             //! Returns the linkage identifier or empty if is the default
             std::string get_linkage() const;
 
+            //! Returns the number of related symbols of this symbol
+            int get_num_related_symbols() const;
+
             //! Returns the symbols related to this one
             /*!
              * The exact set returned depends on the kind of the symbol as kept by the frontend

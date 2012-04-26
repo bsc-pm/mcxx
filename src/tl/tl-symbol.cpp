@@ -659,6 +659,11 @@ namespace TL
         return std::string(_symbol->entity_specs.linkage_spec);
     }
 
+    int Symbol::get_num_related_symbols() const
+    {
+        return _symbol->entity_specs.num_related_symbols;
+    }
+
     ObjectList<Symbol> Symbol::get_related_symbols() const
     {
         ObjectList<Symbol> result;
