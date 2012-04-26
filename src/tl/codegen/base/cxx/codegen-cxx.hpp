@@ -280,6 +280,9 @@ namespace Codegen
                     void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
                     void (CxxBase::*def_sym_fun)(TL::Symbol symbol));
 
+            void define_or_declare_variable(TL::Symbol,
+                    bool is_definition);
+
             void do_define_symbol(TL::Symbol symbol,
                     void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
                     void (CxxBase::*def_sym_fun)(TL::Symbol symbol));
@@ -328,8 +331,6 @@ namespace Codegen
 
             void declare_symbol_if_nonnested(TL::Symbol);
             void define_symbol_if_nonnested(TL::Symbol);
-
-            void define_specializations_user_declared(TL::Symbol);
 
             void define_or_declare_if_complete(TL::Symbol sym,
                     void (CxxBase::* symbol_to_declare)(TL::Symbol),
