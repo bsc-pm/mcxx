@@ -317,6 +317,75 @@ namespace TL { namespace Nanox {
                         unpacked_arguments.append_with_separator(argument, ", ");
                         break;
                     }
+                case OutlineDataItem::SHARING_REDUCTION:
+                    {
+                        // This is a mixture of private and shared
+                        // A private is emitted for the partial reduction
+                        // Such partial reduction must be initialized with the entity
+                        TL::Symbol sym = it->get_symbol();
+
+                        std::string name;
+                        TL::Type t;
+                        if (sym.is_valid())
+                        {
+                            name = sym.get_name();
+                            t = sym.get_type();
+                        }
+                        else
+                        {
+                            name = it->get_field_name();
+                            t = it->get_in_outline_type();
+                        }
+
+                        if (IS_C_LANGUAGE
+                                || IS_CXX_LANGUAGE)
+                        {
+                            private_entities
+                                << as_type(t) << " " << name << " = " << as_expression(it->get_reduction_info()->get_identity().copy()) << ";"
+                                ;
+                        }
+                        else if (IS_FORTRAN_LANGUAGE)
+                        {
+                            // @IS_VARIABLE@ means that this symbol must already be assumed a variable
+                            //
+                            // Fortran FE is very lax and this symbol would be left as a SK_UNDEFINED
+                            // which is a kind of symbol that the C/C++ FE does not know anything about
+                            private_entities
+                                << as_type(t) << ", @IS_VARIABLE@ :: " << name << "\n"
+                                << name << " = " << as_expression(it->get_reduction_info()->get_identity().copy()) << "\n"
+                                ;
+                        }
+                        else
+                        {
+                            internal_error("Code unreachable", 0);
+                        }
+
+                        // Note here that we use the same type as the field for convenience
+                        TL::Type param_type = it->get_field_type();
+                        if (IS_FORTRAN_LANGUAGE)
+                        {
+                            param_type = param_type.get_lvalue_reference_to();
+                        }
+
+                        parameter_names.append("rdp_" + it->get_field_name());
+                        parameter_types.append(param_type);
+
+                        Source argument;
+                        // Now the shared part
+                        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+                        {
+                            // Normal shared items are passed by reference from a pointer,
+                            // derreference here
+                            argument << "*(args." << it->get_field_name() << ")";
+                        }
+                        else if (IS_FORTRAN_LANGUAGE)
+                        {
+                            argument << "args % " << it->get_field_name();
+                        }
+                        unpacked_arguments.append_with_separator(argument, ", ");
+
+                        break;
+                    }
                 default:
                     {
                         internal_error("Unexpected data sharing kind", 0);

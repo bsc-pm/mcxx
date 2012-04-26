@@ -74,7 +74,7 @@ namespace TL { namespace Nanox {
         Source fill_outline_arguments;
 
         Nodecl::NodeclBase fill_immediate_arguments_tree;
-        Source fill_immediate_arguments;
+        Source fill_immediate_arguments, fill_immediate_arguments_reductions;
 
         Source call_outline_function;
 
@@ -124,7 +124,7 @@ namespace TL { namespace Nanox {
 
         Source worksharing_creation;
 
-        Source init_reduction_code, extra_sync_due_to_reductions;
+        Source reduction_variables, init_reduction_code, extra_sync_due_to_reductions;
 
         if (reduction_items.empty())
         {
@@ -153,8 +153,10 @@ namespace TL { namespace Nanox {
                 if (reduction_type.is_any_reference())
                     reduction_type = reduction_type.references_to();
 
-                init_reduction_code
+                reduction_variables
                     << "nanos_reduction_t* " << nanos_red_name << ";"
+                    ;
+                init_reduction_code
                     << "err = nanos_malloc(&" << nanos_red_name << ", sizeof(nanos_reduction_t), " 
                     << "\"" << construct.get_filename() << "\", " << construct.get_line() << ");"
                     << "if (err != NANOS_OK)"
@@ -165,9 +167,12 @@ namespace TL { namespace Nanox {
                     << "if (err != NANOS_OK)"
                     <<     "nanos_handle_error(err);"
                     << nanos_red_name << "->bop = " << udr_info->get_basic_reductor_function().get_name() << ";"
-                    // FIXME - What is the name of this function ??
-                    << nanos_red_name << "->cleanup = NULL;"
+                    << nanos_red_name << "->cleanup = " << udr_info->get_cleanup_function().get_name() << ";"
                     << "nanos_register_reduction(" << nanos_red_name << ");"
+                    ;
+
+                fill_immediate_arguments_reductions
+                    << "imm_args." << it->get_field_name() << " = " << nanos_red_name << "->privates;"
                     ;
             }
 
@@ -196,6 +201,7 @@ namespace TL { namespace Nanox {
         <<     "info_loop.loop_step = "   << as_expression(step)  << ";"
         <<     "info_loop.chunk_size = nanos_chunk;"
         <<     worksharing_creation
+        <<     reduction_variables
         <<     "if (single_guard)"
         <<     "{"
         <<         init_reduction_code
@@ -203,43 +209,42 @@ namespace TL { namespace Nanox {
         <<         "err = nanos_team_get_num_supporting_threads(&sup_threads);"
         <<         "if (err != NANOS_OK)"
         <<             "nanos_handle_error(err);"
-        <<         "if (sup_threads > 0)"
-        <<         "{"
-        <<             "imm_args.wsd->threads = (nanos_thread_t *) __builtin_alloca(sizeof(nanos_thread_t) * sup_threads);"
-        <<             "err = nanos_team_get_supporting_threads(&imm_args.wsd->nths, imm_args.wsd->threads);"
-        <<             "if (err != NANOS_OK)"
-        <<                 "nanos_handle_error(err);"
-        <<             struct_arg_type_name << " *ol_args_im = (" << struct_arg_type_name <<"*) 0;"
-        <<             "nanos_wd_t wd = (nanos_wd_t) 0;"
-        <<             "nanos_wd_props_t props;"
-        <<             "__builtin_memset(&props, 0, sizeof (props));"
-        <<             "props.mandatory_creation = 1;"
-        <<             "props.tied = 1;"
-        <<             "nanos_wd_dyn_props_t dyn_props = {0};"
-        <<             "/* SMP device descriptor */"
-        <<             "static nanos_smp_args_t _ol_f_0_smp_args = {(void (*)(void *)) _smp__ol_f_0};"
-        <<             "nanos_device_t _ol_f_0_devices[] = {{"
-        <<                 "nanos_smp_factory,"
-        <<                 "&_ol_f_0_smp_args"
-        <<             "}};"
-        <<             "static nanos_slicer_t replicate = 0;"
-        <<             "if (!replicate)"
-        <<                 "replicate = nanos_find_slicer(\"replicate\");"
-        <<             "if (replicate == 0)"
-        <<                 "fprintf(stderr, \"Cannot find replicate slicer plugin\n\");"
-        <<             "err = nanos_create_sliced_wd(&wd, 1, _ol_f_0_devices, sizeof(_nx_data_env_0_t), __alignof__(_nx_data_env_0_t), (void **) &ol_args_im, nanos_current_wd(), replicate, &props, &dyn_props, 0, (nanos_copy_data_t **) 0);"
-        <<             "if (err != NANOS_OK)"
-        <<                 "nanos_handle_error(err);"
-        <<             "ol_args_im->wsd = ol_args.wsd;"
-        <<             "ol_args_im->s_0 = &(s);"
-        <<             "ol_args_im->k_0 = &(k);"
-        <<             "err = nanos_submit(wd, 0, (nanos_dependence_t *) 0, (nanos_team_t) 0);"
-        <<             "if (err != NANOS_OK)"
-        <<                 "nanos_handle_error(err);"
-        <<         "}"
+        // <<         "if (sup_threads > 0)"
+        // <<         "{"
+        // <<             "imm_args.wsd->threads = (nanos_thread_t *) __builtin_alloca(sizeof(nanos_thread_t) * sup_threads);"
+        // <<             "err = nanos_team_get_supporting_threads(&imm_args.wsd->nths, imm_args.wsd->threads);"
+        // <<             "if (err != NANOS_OK)"
+        // <<                 "nanos_handle_error(err);"
+        // <<             struct_arg_type_name << " *ol_args_im = (" << struct_arg_type_name <<"*) 0;"
+        // <<             "nanos_wd_t wd = (nanos_wd_t) 0;"
+        // <<             "nanos_wd_props_t props;"
+        // <<             "__builtin_memset(&props, 0, sizeof (props));"
+        // <<             "props.mandatory_creation = 1;"
+        // <<             "props.tied = 1;"
+        // <<             "nanos_wd_dyn_props_t dyn_props = {0};"
+        // <<             "/* SMP device descriptor */"
+        // <<             "static nanos_smp_args_t _ol_f_0_smp_args = {(void (*)(void *)) _smp__ol_f_0};"
+        // <<             "nanos_device_t _ol_f_0_devices[] = {{"
+        // <<                 "nanos_smp_factory,"
+        // <<                 "&_ol_f_0_smp_args"
+        // <<             "}};"
+        // <<             "static nanos_slicer_t replicate = (nanos_slicer_t)0;"
+        // <<             "if (!replicate)"
+        // <<                 "replicate = nanos_find_slicer(\"replicate\");"
+        // <<             "if (replicate == (nanos_slicer_t)0)"
+        // <<                 "fprintf(stderr, \"Cannot find replicate slicer plugin\\n\");"
+        // <<             "err = nanos_create_sliced_wd(&wd, 1, _ol_f_0_devices, sizeof(_nx_data_env_0_t), __alignof__(_nx_data_env_0_t), (void **) &ol_args_im, nanos_current_wd(), replicate, &props, &dyn_props, 0, (nanos_copy_data_t **) 0);"
+        // <<             "if (err != NANOS_OK)"
+        // <<                 "nanos_handle_error(err);"
+        // <<             "ol_args_im->wsd = ol_args.wsd;"
+        // <<             "err = nanos_submit(wd, 0, (nanos_dependence_t *) 0, (nanos_team_t) 0);"
+        // <<             "if (err != NANOS_OK)"
+        // <<                 "nanos_handle_error(err);"
+        // <<         "}"
         <<     "}"
         <<     extra_sync_due_to_reductions
         <<     statement_placeholder(fill_immediate_arguments_tree)
+        <<     fill_immediate_arguments_reductions
         <<     call_outline_function
         << "}"
         ;

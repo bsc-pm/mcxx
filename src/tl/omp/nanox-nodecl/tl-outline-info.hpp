@@ -183,6 +183,7 @@ namespace TL
                     _in_outline_type(NULL),
                     _sharing(),
                     _shared_expression(),
+                    _udr_info_item(NULL),
                     _directionality(),
                     _copy_directionality(),
                     _allocation_policy_flags()
@@ -336,7 +337,7 @@ namespace TL
 
                 bool is_reduction() const
                 {
-                    return _udr_info_item != NULL;
+                    return _sharing == SHARING_REDUCTION;
                 }
 
                 OpenMP::UDRInfoItem* get_reduction_info() const

@@ -30,6 +30,7 @@
 #include "tl-lowering-visitor.hpp"
 #include "tl-nodecl-alg.hpp"
 #include "cxx-cexpr.h"
+#include "tl-predicateutils.hpp"
 
 namespace TL { namespace Nanox {
 
@@ -66,7 +67,7 @@ namespace TL { namespace Nanox {
         TL::Symbol structure_symbol = declare_argument_structure(outline_info, construct);
 
         Nodecl::NodeclBase placeholder1, placeholder2;
-        Source for_code;
+        Source for_code, reduction_code;
         if (ranges.size() == 1)
         {
             Nodecl::Range range_item = ranges.front().as<Nodecl::Range>();
@@ -149,8 +150,24 @@ namespace TL { namespace Nanox {
             << "if (err != NANOS_OK)"
             <<     "nanos_handle_error(err);"
             << for_code
+            << reduction_code
             << "}"
             ;
+
+        TL::ObjectList<OutlineDataItem> reduction_items = outline_info.get_data_items().filter(
+                predicate(&OutlineDataItem::is_reduction));
+
+        if (!reduction_items.empty())
+        {
+            for (TL::ObjectList<OutlineDataItem>::iterator it = reduction_items.begin();
+                    it != reduction_items.end();
+                    it++)
+            {
+                reduction_code
+                    << "rdp_" << it->get_field_name() << "[omp_get_thread_num()] = " << it->get_symbol().get_name() << ";"
+                    ;
+            }
+        }
 
         emit_outline(outline_info, statements, outline_source, outline_name, structure_symbol);
 

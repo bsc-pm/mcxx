@@ -637,6 +637,7 @@ namespace TL
             _name(""),
             _type(NULL),
             _basic_function(NULL),
+            _cleanup_function(NULL),
             _is_builtin(false)
             // _combine_expression(),
             // _in_symbol(),
@@ -770,9 +771,19 @@ namespace TL
             _is_builtin = is_builtin;
         }
 
+        bool UDRInfoItem::is_builtin_operator() const
+        {
+            return _is_builtin;
+        }
+
         void UDRInfoItem::set_identity(Nodecl::NodeclBase identity)
         {
             _identity = identity;
+        }
+
+        Nodecl::NodeclBase UDRInfoItem::get_identity() const
+        {
+            return _identity;
         }
 
         Symbol UDRInfoItem::get_basic_reductor_function() const
@@ -785,12 +796,21 @@ namespace TL
             _basic_function = sym;
         }
 
+        Symbol UDRInfoItem::get_cleanup_function() const
+        {
+            return _cleanup_function;
+        }
+
+        void UDRInfoItem::set_cleanup_function(Symbol sym)
+        {
+            _cleanup_function = sym;
+        }
+
         UDRInfoItem& UDRInfoItem::get_udr_info_item_from_symbol_holder(TL::Symbol symbol)
         {
             RefPtr<UDRInfoItem> obj =
                 RefPtr<UDRInfoItem>::cast_dynamic(symbol.get_attribute("udr_info"));
             return *obj;
         }
-
     }
 }

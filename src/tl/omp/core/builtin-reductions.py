@@ -86,6 +86,10 @@ for red in builtin_reductions:
         print "      TL::Symbol function = global_scope.get_symbol_from_name(\"nanos_reduction_bop_%s_%s\");" % (internal_op_name, internal_type_name)
         print "      ERROR_CONDITION(!function.is_valid(), \"Builtin function '%%s' not found\", \"nanos_reduction_bop_%s_%s\");" % (internal_op_name, internal_type_name)
         print "      builtin_udr.set_basic_reductor_function(function);"
+        print "      // Cleanup function"
+        print "      TL::Symbol cleanup_function = global_scope.get_symbol_from_name(\"nanos_reduction_default_cleanup_%s\");" % (internal_type_name)
+        print "      ERROR_CONDITION(!cleanup_function.is_valid(), \"Builtin cleanup function '%%s' not found\", \"nanos_reduction_default_cleanup_%s\");" % (internal_type_name)
+        print "      builtin_udr.set_cleanup_function(cleanup_function);"
 
         print "      builtin_udr.sign_in_scope(global_scope);"
         print "   }"

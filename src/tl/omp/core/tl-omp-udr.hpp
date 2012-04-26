@@ -47,12 +47,14 @@ namespace TL
 
                 std::string _name;
 			    Type _type;
+
                 Symbol _basic_function;
+                Symbol _cleanup_function;
 
                 bool _is_builtin;
 
                 Nodecl::NodeclBase _identity;
-                
+
             public:
                 // Constructor
                 UDRInfoItem();
@@ -101,9 +103,13 @@ namespace TL
 
                 Symbol get_basic_reductor_function() const;
                 void set_basic_reductor_function(Symbol sym);
+
                 // FIXME - Vectorial version
                 // Symbol get_basic_reductor_function() const;
                 // void set_basic_reductor_function(Symbol sym);
+
+                Symbol get_cleanup_function() const;
+                void set_cleanup_function(Symbol sym);
         };
 
         void initialize_builtin_udr_reductions(TL::Scope global_scope);
