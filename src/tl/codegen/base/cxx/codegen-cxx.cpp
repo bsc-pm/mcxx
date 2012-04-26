@@ -3510,19 +3510,22 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                 }
                 else
                 {
-                    do_declare_symbol(member,
-                            &CxxBase::declare_symbol_always,
-                            &CxxBase::define_symbol_always);
                     if (member.is_variable()
                             && (!member.is_static()
                                 || ((member.get_type().is_integral_type()
                                         || member.get_type().is_enum()
                                     && member.get_type().is_const()))))
                     {
+                        do_define_symbol(member, 
+                            &CxxBase::declare_symbol_always,
+                            &CxxBase::define_symbol_always);
                         set_codegen_status(member, CODEGEN_STATUS_DEFINED);
                     }
                     else
                     {
+                        do_declare_symbol(member,
+                                &CxxBase::declare_symbol_always,
+                                &CxxBase::define_symbol_always);
                         set_codegen_status(member, CODEGEN_STATUS_DECLARED);
                     }
                 }
@@ -3555,8 +3558,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                     _friend.is_dependent_friend_function()))
             continue;
 
-        char is_primary_template = 0;
-        TL::Symbol template_symbol(NULL);
+        bool is_primary_template = false;
         TL::Type friend_type = _friend.get_type();
         inc_indent();
 
@@ -3564,27 +3566,19 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
         if (friend_type.is_template_specialized_type())
         {
             TL::Type template_type = friend_type.get_related_template_type();
-            template_symbol = template_type.get_related_template_symbol();
             TL::Type primary_template = template_type.get_primary_template();
             TL::Symbol primary_symbol = primary_template.get_symbol();
 
             if (friend_type.is_dependent())
             {
-                TL::TemplateParameters template_parameters(NULL);
-                if (_friend == primary_symbol)
-                {
-                    is_primary_template = 1;
-                    template_parameters = template_type.template_type_get_template_parameters();
-                }
-                else
-                {
-                    template_parameters = _friend.get_scope().get_template_parameters();
-                }
+                is_primary_template = (_friend == primary_symbol);
+                TL::TemplateParameters template_parameters =
+                    _friend.get_scope().get_template_parameters();
+
                 codegen_template_headers_bounded(
                         template_parameters,
                         symbol.get_scope().get_template_parameters(),
-                        /*show default values*/ false
-                        );
+                        /* show default values */ false);
             }
         }
 
@@ -3611,13 +3605,17 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
             }
 
             file << friend_class_key << " ";
-            if (!is_primary_template)
+            
+
+            // In the related symbols of _friend symbol we have stored the results of the query
+            // done in buildscope. If there are no results, we should not qualify the friend name
+            if (_friend.get_num_related_symbols() == 0)
             {
-                file << _friend.get_qualified_name(symbol.get_scope());
+                file << _friend.get_name();
             }
             else
             {
-                file << template_symbol.get_qualified_name(symbol.get_scope());
+                file << _friend.get_qualified_name(symbol.get_scope());
             }
         }
         else if(_friend.is_dependent_friend_class())
@@ -4866,9 +4864,10 @@ void CxxBase::define_generic_entities(Nodecl::NodeclBase node,
                 def_sym_fun,
                 define_entities_fun
                 );
+
+            (this->*define_entry_fun)(node, entry, def_sym_fun);
         }
-        (this->*define_entry_fun)(node, entry, def_sym_fun);
-        
+
         if (state.walked_symbols.find(entry) == state.walked_symbols.end())
         {
             state.walked_symbols.insert(entry);
