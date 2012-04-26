@@ -1533,12 +1533,15 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                 *declared_symbols = entry_list_add(*declared_symbols, entry);
             }
 
+            nodecl_t (*make_cxx_decl_or_def)(scope_entry_t*, const char*, int) =
+                    (entry->defined) ? nodecl_make_cxx_def : nodecl_make_cxx_decl;
+
             CXX_LANGUAGE()
             {
                 *nodecl_output = nodecl_concat_lists(
                         *nodecl_output,
                         nodecl_make_list_1(
-                            nodecl_make_cxx_decl(entry, ASTFileName(init_declarator), ASTLine(init_declarator)))); 
+                           make_cxx_decl_or_def(entry, ASTFileName(init_declarator), ASTLine(init_declarator)))); 
             }
         }
     }
