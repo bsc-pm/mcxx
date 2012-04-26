@@ -5313,8 +5313,15 @@ void CxxBase::codegen_move_namespace_from_to(TL::Symbol from, TL::Symbol to)
             real_name = "/* anonymous */";
         }
 
+        std::string gcc_attributes = "";
+        if (namespace_nesting_to[i]->entity_specs.num_gcc_attributes > 0)
+        {
+            gcc_attributes =
+                " " + gcc_attributes_to_str(namespace_nesting_to[i]);
+        }
+        
         indent();
-        file << "namespace " << real_name << " {\n";
+        file << "namespace " << real_name << gcc_attributes << " {\n";
         if ((i + 1) < num_from)
         {
             file << " ";

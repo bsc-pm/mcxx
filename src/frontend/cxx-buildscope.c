@@ -9415,13 +9415,13 @@ static void build_scope_namespace_alias(AST a, decl_context_t decl_context)
 /*
  * This function builds symbol table information for a namespace definition
  */
-static void build_scope_namespace_definition(AST a, 
-        decl_context_t decl_context, 
+static void build_scope_namespace_definition(AST a,
+        decl_context_t decl_context,
         nodecl_t* nodecl_output)
 {
     AST namespace_name = ASTSon0(a);
 
-    char is_inline = 0; 
+    char is_inline = 0;
     if (ASTType(a) == AST_GCC_NAMESPACE_DEFINITION)
     {
         // Technically this is not a gcc extension but c++0x
@@ -9438,7 +9438,7 @@ static void build_scope_namespace_definition(AST a,
 
     if (namespace_name != NULL)
     {
-        ERROR_CONDITION((decl_context.current_scope->kind != NAMESPACE_SCOPE), 
+        ERROR_CONDITION((decl_context.current_scope->kind != NAMESPACE_SCOPE),
                 "Incorrect scope, it should be a namespace scope", 0);
 
         // Register this namespace if it does not exist in this scope
@@ -9460,7 +9460,7 @@ static void build_scope_namespace_definition(AST a,
 
         scope_entry_t* entry = NULL;
         decl_context_t namespace_context;
-        if (list != NULL && 
+        if (list != NULL &&
                 entry_list_head(list)->kind == SK_NAMESPACE)
         {
             entry = entry_list_head(list);
@@ -9488,7 +9488,6 @@ static void build_scope_namespace_definition(AST a,
             entry->related_decl_context = namespace_context;
 
             // Link the scope of this newly created namespace
-
             if (is_inline)
             {
                 entry->entity_specs.is_inline = 1;
@@ -9496,10 +9495,27 @@ static void build_scope_namespace_definition(AST a,
                 // An inline namespace is an associated namespace of the current namespace
                 scope_t* namespace_scope = decl_context.current_scope;
 
-                P_LIST_ADD_ONCE(namespace_scope->use_namespace, namespace_scope->num_used_namespaces, 
+                P_LIST_ADD_ONCE(namespace_scope->use_namespace, namespace_scope->num_used_namespaces,
                         entry);
             }
         }
+
+        // Anonymous namespace cannot have gcc attributes
+        AST gcc_attributes = ASTSon2(a);
+        gather_decl_spec_t gather_info;
+        memset(&gather_info, 0, sizeof(gather_info));
+        gather_gcc_attribute_list(gcc_attributes, &gather_info, decl_context);
+
+        // Copying the gcc attributes from gather_info to the symbol
+        entry->entity_specs.num_gcc_attributes = gather_info.num_gcc_attributes;
+        entry->entity_specs.gcc_attributes = counted_calloc(
+                entry->entity_specs.num_gcc_attributes,
+                sizeof(*entry->entity_specs.gcc_attributes),
+                &_bytes_used_buildscope);
+
+        memcpy(entry->entity_specs.gcc_attributes,
+                gather_info.gcc_attributes,
+                entry->entity_specs.num_gcc_attributes * sizeof(*entry->entity_specs.gcc_attributes));
 
         entry_list_free(list);
 
@@ -9515,7 +9531,7 @@ static void build_scope_namespace_definition(AST a,
         scope_entry_list_t* list = query_in_scope_str_flags(decl_context, unnamed_namespace, DF_ONLY_CURRENT_SCOPE);
 
         decl_context_t namespace_context;
-        if (list != NULL && 
+        if (list != NULL &&
                 entry_list_head(list)->kind == SK_NAMESPACE)
         {
             scope_entry_t* entry = entry_list_head(list);
@@ -9546,12 +9562,11 @@ static void build_scope_namespace_definition(AST a,
             entry->related_decl_context = namespace_context;
 
             // Link the scope of this newly created namespace
-
             // And associate it to the current namespace
             scope_t* namespace_scope = decl_context.current_scope;
 
             // Anonymous namespace is implemented as an associated namespace of the current scope
-            P_LIST_ADD_ONCE(namespace_scope->use_namespace, namespace_scope->num_used_namespaces, 
+            P_LIST_ADD_ONCE(namespace_scope->use_namespace, namespace_scope->num_used_namespaces,
                     entry);
         }
 
