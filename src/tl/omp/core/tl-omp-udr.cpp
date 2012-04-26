@@ -177,110 +177,6 @@ namespace TL
             return get_valid_zero_initializer(t);
         }
 
-        void initialize_builtin_udr_reductions(Nodecl::NodeclBase translation_unit)
-        {
-            static bool already_initialized = false;
-            if (already_initialized)
-                return;
-            already_initialized = true;
-
-            typedef struct 
-            {
-                std::string udr_specifier;
-                std::string identity;
-            } reduction_info_t;
-
-            Scope global_scope = translation_unit.retrieve_context();
-
-            std::string zero = "0";
-            std::string real_zero = "0.0";
-            std::string one = "1";
-            std::string real_one = "1.0";
-            std::string neg_zero = "~0";
-
-            const std::string complex_types = "float _Complex, double _Complex, long double _Complex ";
-            const std::string real_types = "float, double, long double, " + complex_types;
-
-            std::string integer_types = "";
-			CXX_LANGUAGE()
-            {
-                integer_types = "bool, ";
-            }
-            C_LANGUAGE()
-            {
-                integer_types = "_Bool, "; 
-            }
-			integer_types += "signed char, char, short int, int, long int, " \
-                      "unsigned char, unsigned short, unsigned int, unsigned long, long long int, " \
-                      "unsigned long long int";
-            const std::string scalar_types = integer_types + ", " + real_types;
-
-            reduction_info_t builtin_operators[] =
-            {
-                // arithmetic operators
-                {"+: " + integer_types + ": _out += _in", zero},
-                {"+: " + real_types + ": _out += _in", real_zero},
-                {"-: " + integer_types + ": _out -= _in", zero},
-                {"-: " + real_types + ": _out -= _in", real_zero},
-                {"*: " + integer_types + ": _out *= _in", one},
-                {"*: " + real_types + ": _out *= _in", real_one},
-                // logic bit operators
-                {"&: " + integer_types + ": _out &= _in", neg_zero},
-                {"|: " + integer_types + ": _out |= _in", zero},
-                {"^: " + integer_types + ": _out ^= _in", zero},
-                {"&&: " + scalar_types + ": _out = _out && _in", one},
-                {"||: " + scalar_types + ": _out = _out || _in", zero},
-                {"", ""}
-            };
-
-            // call 'parse_omp_udr_declare_arguments' to create one UDRInfoItem for each builtin case
-            int i = 0;
-            for(i; builtin_operators[i].udr_specifier != ""; i++)
-            {
-			    std::string name;
-                ObjectList<UDRParsedInfo> parsed_info_list;
-                Scope scope_of_clause;
-
-                parse_omp_udr_declare_arguments(builtin_operators[i].udr_specifier,
-                        translation_unit,
-                        name,
-                        parsed_info_list);
-
-                std::string udr_sp = builtin_operators[i].udr_specifier;
-		        // Declare a new UDR for each type
-		        for (ObjectList<UDRParsedInfo>::iterator it = parsed_info_list.begin();
-		                it != parsed_info_list.end();
-		                it++)
-                {
-                    UDRParsedInfo& parsed_info(*it);
-                    // New udr being declared
-                    bool found = false;
-                    UDRInfoItem builtin_udr;
-                    builtin_udr.set_name(name);
-                    builtin_udr.set_type(parsed_info.type);
-                    builtin_udr.set_combine_expr(parsed_info.combine_expression);
-                    builtin_udr.set_is_builtin_operator(true);
-
-                    builtin_udr.set_builtin_operator(udr_sp.substr(0, udr_sp.find(':')));
-                    builtin_udr.set_in_symbol(parsed_info.in_symbol);
-                    builtin_udr.set_out_symbol(parsed_info.out_symbol);
-                    Nodecl::NodeclBase identity_expr;
-                    bool is_constructor, need_equal_initializer;
-
-                    parse_udr_identity(builtin_operators[i].identity,
-                            translation_unit, parsed_info.type, identity_expr,
-                            is_constructor, need_equal_initializer);
-
-                    builtin_udr.set_identity(identity_expr);
-                    builtin_udr.set_is_constructor(false);
-                    builtin_udr.set_need_equal_initializer(true);
-                    builtin_udr.set_function_definition_symbol(NULL);    // Builtin UDRs don't have a function definition
-
-                    builtin_udr.sign_in_scope(global_scope, parsed_info.type);
-                }
-            }
-        }
-
         struct OnlyMembers : Predicate<Symbol>
         {
             virtual bool do_(OnlyMembers::ArgType sym) const
@@ -740,14 +636,15 @@ namespace TL
         UDRInfoItem::UDRInfoItem(): 
             _name(""),
             _type(NULL),
-            _combine_expression(),
-            _in_symbol(),
-            _out_symbol(),
-            _is_builtin(false),
-            _builtin_op(""),
-            _has_identity(false),
-            _identity(),
-            _function_definition_symbol()
+            _basic_function(NULL),
+            _is_builtin(false)
+            // _combine_expression(),
+            // _in_symbol(),
+            // _out_symbol(),
+            // _builtin_op(""),
+            // _has_identity(false),
+            // _identity(),
+            // _function_definition_symbol()
         {
         }
 
@@ -757,10 +654,6 @@ namespace TL
                 Type t)
         {
             std::string reductor_name = red_name;
-            if (udr_is_builtin_operator(reductor_name))
-            {
-                reductor_name = udr_builtin_operator_get_name(reductor_name);
-            }
 
 		    Type canonic_type = t.get_unqualified_type().get_canonical_type();
 
@@ -770,144 +663,26 @@ namespace TL
 		    return (".udr_" + reductor_name + "_" + ss.str());
         }
 
-
-        void UDRInfoItem::sign_in_scope(Scope sc, Type type) const
+        TL::Symbol UDRInfoItem::get_symbol_holder() const
         {
-            std::string sym_name = this->udr_get_symbol_name(_name, type);
+            return _symbol_holder;
+        }
+
+        void UDRInfoItem::sign_in_scope(Scope sc) const
+        {
+            std::string sym_name = this->udr_get_symbol_name(_name, _type);
             Symbol sym = sc.new_artificial_symbol(sym_name);
 
             RefPtr<UDRInfoItem> cp(new UDRInfoItem(*this));
             sym.set_attribute("udr_info", cp);
 
+            cp->_symbol_holder = sym;
+
             DEBUG_CODE()
             {
-                    std::cerr << "UDR: Signing in '" << sym_name << std::endl;
+                std::cerr << "UDR: Signing in '" << sym_name << std::endl;
             }
         }
-
-        static void find_bases(Type t, ObjectList<Symbol> &bases)
-        {
-            internal_error("Not yet implemented", 0);
-#if 0
-            ObjectList<Symbol> actual_bases = t.get_bases_class_symbol_list();
-            if (actual_bases.empty())
-            {
-                return;
-            }
-
-            // Append the founded bases if needed
-            for(ObjectList<Symbol>::iterator it=actual_bases.begin();
-                    it != actual_bases.end();
-                    it++)
-            {
-                if (!bases.contains(*it)) bases.append(*it);
-            }
-
-            // Recursive call for each base
-            for(ObjectList<Symbol>::iterator it=actual_bases.begin();
-                    it != actual_bases.end();
-                    it++)
-            {
-                if (it->get_type().is_class())
-                {
-                    find_bases(it->get_type(), bases);
-                }
-            }
-#endif
-        }
-
-#if 0
-        UDRInfoItem UDRInfoItem::bases_lookup(Type type,
-                Nodecl::NodeclBase reductor_tree,
-                bool &found) const
-        {
-            UDRInfoItem udr2;
-	        ObjectList<Symbol> bases;
-	        find_bases(type, bases);
-            ObjectList<Symbol> candidate_bases;
-            for (int i=0; i<bases.size(); i++)
-			{
-	            if (bases[i].get_type().is_class())
-	            {
-	                std::string sym_name = this->udr_get_symbol_name(bases[i].get_type());
-					ObjectList<Symbol> lookup = bases[i].get_scope().get_symbols_from_name(sym_name);
-					if (!lookup.empty())
-					{
-                        candidate_bases.append(lookup);
-					}
-	            }
-			}
-            if (!candidate_bases.empty())
-            {
-	            if (candidate_bases.size()>1)
-	            {
-			        running_error("%s: error: ambiguous user defined reduction with identifier '%s'\n",
-			                reductor_tree.get_locus().c_str(),
-			                _name.c_str());
-	            }
-	            else if (candidate_bases.size()==1)
-	            {
-					found = true;
-					RefPtr<UDRInfoItem> obj = 
-							RefPtr<UDRInfoItem>::cast_dynamic(candidate_bases[0].get_attribute("udr_info"));
-					udr2 = (*obj);
-	            }
-            }
-            return udr2;
-        }
-#endif
-
-#if 0
-        UDRInfoItem UDRInfoItem::argument_dependent_lookup(Type type,
-                Nodecl::NodeclBase reductor_tree,
-                bool &found,
-                Scope sc) const
-        {
-            internal_error("Not implemented yet", 0);
-            UDRInfoItem udr2;
-
-            ObjectList<Symbol> bases;
-            bases.append(type.get_symbol());
-            find_bases(type, bases);
-
-     		ObjectList<Type> arg_list;
-			arg_list.append(type);
-
-			ObjectList<Symbol> koenig_symbols;
-            int candidate_type = -1;
-	    	for (int it = 0; it != bases.size(); it++)
-		    {
-		        std::string sym_name = this->udr_get_symbol_name(bases[it].get_type());
-                ObjectList<Symbol> actual_koenig_symbols = sc.koenig_lookup(arg_list, Scope::wrap_symbol_name(sym_name));
-                if (!actual_koenig_symbols.empty()) 
-                {
-                    candidate_type = it;
-                    koenig_symbols.append(actual_koenig_symbols);
-                }
-		    }
-
-			if (!koenig_symbols.empty())
-			{
-		        if (koenig_symbols.size()>1)
-		        {
-		            running_error("%s: error: ambiguous user defined reduction with identifier '%s'\n",
-		                    reductor_tree.get_locus().c_str(),
-		                    _name.c_str());
-		        }
-		        else
-		        {
-                    std::string sym_name = this->udr_get_symbol_name(bases[candidate_type].get_type());
-					ObjectList<Symbol> lookup = koenig_symbols[0].get_scope().get_symbols_from_name(sym_name);
-					found = true;
-					RefPtr<UDRInfoItem> obj = 
-							RefPtr<UDRInfoItem>::cast_dynamic(lookup.at(0).get_attribute("udr_info"));
-					udr2 = (*obj);
-		        }
-			}
-
-            return udr2;
-        }
-#endif
 
         Nodecl::NodeclBase UDRInfoItem::compute_nodecl_of_udr_name(
                 const std::string& reductor_name,
@@ -977,41 +752,6 @@ namespace TL
             _type = t;
         }
 
-        Nodecl::NodeclBase UDRInfoItem::get_combine_expr() const
-        {
-            return _combine_expression;
-        }
-
-        void UDRInfoItem::set_combine_expr(Nodecl::NodeclBase combine_expr)
-        {
-            _combine_expression = combine_expr;
-        }
-
-        Symbol UDRInfoItem::get_in_symbol() const
-        {
-            return _in_symbol;
-        }
-
-        void UDRInfoItem::set_in_symbol(Symbol s)
-        {
-            _in_symbol = s;
-        }
-
-        Symbol UDRInfoItem::get_out_symbol() const
-        {
-            return _out_symbol;
-        }
-
-        void UDRInfoItem::set_out_symbol(Symbol s)
-        {
-            _out_symbol = s;
-        }
-
-        bool UDRInfoItem::is_builtin_operator() const
-        {
-            return _is_builtin;
-        }
-
         bool udr_is_builtin_operator(const std::string& op_name)
         {
             return (op_name == "+"
@@ -1025,112 +765,31 @@ namespace TL
                     || op_name == "||");
         }
 
-        std::string udr_builtin_operator_get_name(const std::string& reductor_name)
-        {
-            if (reductor_name == "+") 
-                return "_plus_";
-            else if (reductor_name == "-") 
-                return "_minus_";
-            else if (reductor_name == "*") 
-                return "_mult_";
-            else if (reductor_name == "&") 
-                return "_and_";
-            else if (reductor_name == "|") 
-                return "_or_";
-            else if (reductor_name == "^") 
-                return "_exp_";
-            else if (reductor_name == "&&") 
-                return "_andand_";
-            else if (reductor_name == "||") 
-                return "_oror_";
-            else
-            {
-                internal_error("Invalid builtin operator name", 0);
-            }
-        }
-
         void UDRInfoItem::set_is_builtin_operator(bool is_builtin)
         {
             _is_builtin = is_builtin;
         }
 
-        std::string UDRInfoItem::get_builtin_operator() const
-        {
-            return _builtin_op;
-        }
-        
-        void UDRInfoItem::set_builtin_operator(const std::string builtin_op)
-        {
-            _builtin_op = builtin_op;
-        }
-
-        bool UDRInfoItem::get_is_constructor() const
-        {
-            return _is_constructor;
-        }
-
-        void UDRInfoItem::set_is_constructor(bool constructor)
-        {
-            _is_constructor = constructor;
-        }
-
-        bool UDRInfoItem::get_need_equal_initializer() const
-        {
-            return _need_equal_initializer;
-        }
-
-        void UDRInfoItem::set_need_equal_initializer(bool need_equal_init)
-        {
-            _need_equal_initializer = need_equal_init;
-        }
-
-        bool UDRInfoItem::has_identity() const
-        {
-            return _has_identity;
-        }
-
-        Nodecl::NodeclBase UDRInfoItem::get_identity() const
-        {
-            if (identity_is_constructor())
-            {
-                return _identity.children()[0];
-            }
-            else
-                return _identity;
-        }
-
-        Nodecl::NodeclBase UDRInfoItem::get_raw_identity() const
-        {
-            return _identity;
-        }
-
         void UDRInfoItem::set_identity(Nodecl::NodeclBase identity)
         {
             _identity = identity;
-            _has_identity = !_identity.is_null();
         }
 
-        bool UDRInfoItem::identity_is_constructor() const
+        Symbol UDRInfoItem::get_basic_reductor_function() const
         {
-            internal_error("Not yet implemented", 0);
-#if 0
-            if (!_identity.is_null())
-            {
-                return _identity.internal_ast_type_() == AST_OMP_UDR_CONSTRUCTOR;
-            }
-            else 
-                return false;
-#endif
+            return _basic_function;
         }
 
-        Symbol UDRInfoItem::get_function_definition_symbol() const
+        void UDRInfoItem::set_basic_reductor_function(Symbol sym)
         {
-            return _function_definition_symbol;
+            _basic_function = sym;
         }
 
-        void UDRInfoItem::set_function_definition_symbol(Symbol sym)
+        UDRInfoItem& UDRInfoItem::get_udr_info_item_from_symbol_holder(TL::Symbol symbol)
         {
-            _function_definition_symbol = sym;
+            RefPtr<UDRInfoItem> obj =
+                RefPtr<UDRInfoItem>::cast_dynamic(symbol.get_attribute("udr_info"));
+            return *obj;
         }
 
     }

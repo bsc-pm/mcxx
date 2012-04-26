@@ -278,9 +278,21 @@ namespace TL { namespace Nanox {
                 }
             }
 
-            void visit(const Nodecl::Parallel::Reduction& shared)
+            void add_reduction(TL::Symbol symbol, OpenMP::UDRInfoItem& udr_info)
             {
-                internal_error("Not yet implemented", 0);
+                    OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(symbol);
+                    outline_info.set_sharing(OutlineDataItem::SHARING_REDUCTION);
+                    outline_info.set_reduction_info(&udr_info);
+            }
+
+            void visit(const Nodecl::Parallel::ReductionItem& reduction)
+            {
+                TL::Symbol udr_reductor = reduction.get_reductor().get_symbol();
+                TL::Symbol symbol = reduction.get_reduced_symbol().get_symbol();
+
+                OpenMP::UDRInfoItem &udr_info = OpenMP::UDRInfoItem::get_udr_info_item_from_symbol_holder(udr_reductor);
+
+                add_reduction(symbol, udr_info);
             }
     };
 

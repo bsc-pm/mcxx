@@ -131,17 +131,17 @@ namespace TL
         {
             private:
                 Symbol _symbol;
-                UDRInfoItem _udr_item_2;
+                UDRInfoItem _udr_item;
 
             public:
                 ReductionSymbol(Symbol s, 
-                        const UDRInfoItem& udr_info_item_2)
-                    : _symbol(s), _udr_item_2(udr_info_item_2)
+                        const UDRInfoItem& udr_info_item)
+                    : _symbol(s), _udr_item(udr_info_item)
                 {
                 }
 
                 ReductionSymbol(const ReductionSymbol& red_sym)
-                    : _symbol(red_sym._symbol), _udr_item_2(red_sym._udr_item_2)
+                    : _symbol(red_sym._symbol), _udr_item(red_sym._udr_item)
                 {
                 }
 
@@ -150,9 +150,9 @@ namespace TL
                     return _symbol;
                 }
 
-                const UDRInfoItem& get_udr_2() const
+                const UDRInfoItem& get_udr() const
                 {
-                    return _udr_item_2;
+                    return _udr_item;
                 }
         };
         
