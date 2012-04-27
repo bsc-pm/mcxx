@@ -1166,10 +1166,7 @@ type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entry,
     type_t* result = get_simple_type();
     result->type->kind = STK_TEMPLATE_DEPENDENT_TYPE;
 
-    if (!nodecl_is_null(dependent_parts))
-    {
-        ERROR_CONDITION(nodecl_get_kind(dependent_parts) != NODECL_CXX_DEP_NAME_NESTED, "Invalid nodecl", 0);
-    }
+    ERROR_CONDITION(!nodecl_is_null(dependent_parts) && nodecl_get_kind(dependent_parts) != NODECL_CXX_DEP_NAME_NESTED, "Invalid nodecl", 0);
 
     if (dependent_entry->kind == SK_DEPENDENT_ENTITY)
     {

@@ -1804,6 +1804,10 @@ static type_t* update_dependent_typename(
         const char* filename,
         int line)
 {
+    ERROR_CONDITION(
+            !nodecl_is_null(dependent_parts)
+            && nodecl_get_kind(dependent_parts) != NODECL_CXX_DEP_NAME_NESTED, "Invalid tree", 0);
+
     scope_entry_t* dependent_entry = named_type_get_symbol(dependent_entry_type);
 
     if (is_dependent_type(dependent_entry_type))
@@ -2335,14 +2339,18 @@ static type_t* update_type_aux_(type_t* orig_type,
             nodecl_t* list = NULL;
             int i;
 
-            list = nodecl_unpack_list(fix_dependent_parts, &num_items);
+            ERROR_CONDITION(nodecl_get_kind(fix_dependent_parts) != NODECL_CXX_DEP_NAME_NESTED, "Invalid tree kind", 0);
+
+            list = nodecl_unpack_list(nodecl_get_child(fix_dependent_parts, 0), &num_items);
             for (i = 0; i < num_items; i++)
             {
                 appended_dependent_parts = nodecl_append_to_list(appended_dependent_parts, list[i]);
             }
             free(list);
 
-            list = nodecl_unpack_list(dependent_parts, &num_items);
+            ERROR_CONDITION(nodecl_get_kind(dependent_parts) != NODECL_CXX_DEP_NAME_NESTED, "Invalid tree kind", 0);
+
+            list = nodecl_unpack_list(nodecl_get_child(dependent_parts, 0), &num_items);
             for (i = 0; i < num_items; i++)
             {
                 appended_dependent_parts = nodecl_append_to_list(appended_dependent_parts, list[i]);
@@ -2352,7 +2360,10 @@ static type_t* update_type_aux_(type_t* orig_type,
             cv_qualif |= cv_qualif_dep;
 
             fixed_type = get_user_defined_type(fix_dependent_entry);
-            dependent_parts = appended_dependent_parts;
+
+            dependent_parts = nodecl_make_cxx_dep_name_nested(appended_dependent_parts, 
+                    nodecl_get_filename(dependent_parts),
+                    nodecl_get_line(dependent_parts));
         }
         else if (!is_named_type(fixed_type))
         {
