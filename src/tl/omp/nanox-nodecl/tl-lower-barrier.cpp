@@ -29,8 +29,7 @@
 #include "tl-lowering-visitor.hpp"
 
 namespace TL { namespace Nanox {
-
-    void LoweringVisitor::visit(const Nodecl::Parallel::BarrierFull& construct)
+    Source LoweringVisitor::full_barrier_source()
     {
         Source barrier_src;
 
@@ -42,6 +41,13 @@ namespace TL { namespace Nanox {
             <<    "nanos_handle_error(err);"
             << "}"
             ;
+
+        return barrier_src;
+    }
+
+    void LoweringVisitor::visit(const Nodecl::Parallel::BarrierFull& construct)
+    {
+        Source barrier_src = full_barrier_source();
 
         FORTRAN_LANGUAGE()
         {

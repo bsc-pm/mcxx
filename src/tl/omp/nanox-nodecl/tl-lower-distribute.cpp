@@ -67,7 +67,7 @@ namespace TL { namespace Nanox {
         TL::Symbol structure_symbol = declare_argument_structure(outline_info, construct);
 
         Nodecl::NodeclBase placeholder1, placeholder2;
-        Source for_code, reduction_code;
+        Source for_code, reduction_code, barrier_code;
         if (ranges.size() == 1)
         {
             Nodecl::Range range_item = ranges.front().as<Nodecl::Range>();
@@ -152,6 +152,7 @@ namespace TL { namespace Nanox {
             << for_code
             << reduction_code
             << "}"
+            << barrier_code
             ;
 
         TL::ObjectList<OutlineDataItem> reduction_items = outline_info.get_data_items().filter(
@@ -167,6 +168,13 @@ namespace TL { namespace Nanox {
                     << "rdp_" << it->get_field_name() << "[omp_get_thread_num()] = " << it->get_symbol().get_name() << ";"
                     ;
             }
+        }
+
+        if (!reduction_items.empty()
+                || !distribute_environment.find_first<Nodecl::Parallel::BarrierAtEnd>().is_null())
+        {
+            barrier_code
+                << full_barrier_source();
         }
 
         emit_outline(outline_info, statements, outline_source, outline_name, structure_symbol);

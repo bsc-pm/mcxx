@@ -46,8 +46,8 @@ namespace TL { namespace Nanox {
             internal_error("Only ranges of 1 dimension implemented", 0);
         }
 
-        Nodecl::Parallel::Schedule schedule = distribute_environment[0].as<Nodecl::Parallel::Schedule>();
-        ERROR_CONDITION(!schedule.is<Nodecl::Parallel::Schedule>(), "Invalid tree", 0);
+        Nodecl::Parallel::Schedule schedule = distribute_environment.find_first<Nodecl::Parallel::Schedule>();
+        ERROR_CONDITION(schedule.is_null(), "Schedule tree is missing", 0);
 
         Nodecl::Parallel::DistributeRange distribute_range = ranges[0].as<Nodecl::Parallel::DistributeRange>();
         Nodecl::NodeclBase lower = distribute_range.get_lower();
@@ -157,7 +157,7 @@ namespace TL { namespace Nanox {
                     << "nanos_reduction_t* " << nanos_red_name << ";"
                     ;
                 init_reduction_code
-                    << "err = nanos_malloc(&" << nanos_red_name << ", sizeof(nanos_reduction_t), " 
+                    << "err = nanos_malloc((void**)&" << nanos_red_name << ", sizeof(nanos_reduction_t), " 
                     << "\"" << construct.get_filename() << "\", " << construct.get_line() << ");"
                     << "if (err != NANOS_OK)"
                     <<     "nanos_handle_error(err);"

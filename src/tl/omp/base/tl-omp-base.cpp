@@ -549,6 +549,14 @@ namespace TL { namespace OpenMP {
                         directive.get_line()));
         }
 
+        if (!pragma_line.get_clause("nowait").is_defined())
+        {
+            distribute_environment.push_back(
+                    Nodecl::Parallel::BarrierAtEnd::make(
+                        directive.get_filename(),
+                        directive.get_line()));
+        }
+
         ERROR_CONDITION (!statement.is<Nodecl::ForStatement>(), "Invalid tree", 0);
         TL::ForStatement for_statement(statement.as<Nodecl::ForStatement>());
 
@@ -574,14 +582,6 @@ namespace TL { namespace OpenMP {
                     directive.get_line());
 
         code.push_back(distribute);
-
-        if (!pragma_line.get_clause("nowait").is_defined())
-        {
-            code.push_back(
-                    Nodecl::Parallel::BarrierFull::make(
-                        directive.get_filename(),
-                        directive.get_line()));
-        }
 
         directive.integrate(code);
     }

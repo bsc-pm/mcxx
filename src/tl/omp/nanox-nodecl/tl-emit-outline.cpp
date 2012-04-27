@@ -376,7 +376,7 @@ namespace TL { namespace Nanox {
                         {
                             // Normal shared items are passed by reference from a pointer,
                             // derreference here
-                            argument << "*(args." << it->get_field_name() << ")";
+                            argument << "args." << it->get_field_name();
                         }
                         else if (IS_FORTRAN_LANGUAGE)
                         {

@@ -499,6 +499,18 @@ namespace Nodecl {
                 erase(this->last());
             }
 
+            template <typename T>
+            T find_first() const
+            {
+                const_iterator it = this->begin();
+                while (it != this->end())
+                {
+                    if (it->is<T>())
+                        return it->as<T>();
+                }
+                return T(nodecl_null());
+            }
+
             static List make(const TL::ObjectList<NodeclBase>& list);
 
             static List make(const NodeclBase& item_1);
