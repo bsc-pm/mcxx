@@ -40,46 +40,38 @@ namespace TL
     {
         class LIBTL_CLASS UDRInfoItem : public TL::Object
         {
-
             private:
+                // Symbol that refers to this info
+                // It will be set to non-null by sign_in_scope
+                Symbol _symbol_holder;
+
                 std::string _name;
 			    Type _type;
-			    Nodecl::NodeclBase _combine_expression;
-			    Symbol _in_symbol;
-			    Symbol _out_symbol;
+
+                Symbol _basic_function;
+                Symbol _cleanup_function;
 
                 bool _is_builtin;
-                std::string _builtin_op;
 
-                bool _has_identity;
                 Nodecl::NodeclBase _identity;
-                bool _need_equal_initializer;
-                bool _is_constructor;
-
-                Symbol _function_definition_symbol;
 
             public:
                 // Constructor
                 UDRInfoItem();
 
                 // Methods
-                void sign_in_scope(Scope sc, Type types) const;
+                void sign_in_scope(Scope sc) const;
 
-#if 0
-                UDRInfoItem bases_lookup(Type type,
-                        Nodecl::NodeclBase reductor_tree,
-                        bool &found) const;
-
-                UDRInfoItem argument_dependent_lookup(Type type,
-                        Nodecl::NodeclBase reductor_tree,
-                        bool &found, Scope sc) const;
-#endif
                 static Nodecl::NodeclBase compute_nodecl_of_udr_name(
                         const std::string& reductor_name,
                         TL::Type udr_type,
                         const std::string& filename,
                         int line);
 
+                // Factory
+                static UDRInfoItem& get_udr_info_item_from_symbol_holder(TL::Symbol symbol);
+
+                // Factory
                 static UDRInfoItem lookup_udr(
                         Scope sc,
                         Nodecl::NodeclBase reductor_name_node,
@@ -94,6 +86,8 @@ namespace TL
                         Source::ReferenceScope ref_scope,
                         const std::string &omp_udr_oper_name);
 
+                TL::Symbol get_symbol_holder() const;
+
                 // Getters, setters and consults
                 std::string get_name() const;
                 void set_name(const std::string& str);
@@ -101,39 +95,25 @@ namespace TL
                 Type get_type() const;
                 void set_type(Type t);
 
-                Nodecl::NodeclBase get_combine_expr() const;
-                void set_combine_expr(Nodecl::NodeclBase combine_expr);
-
-                Symbol get_in_symbol() const;
-                void set_in_symbol(Symbol s);
-                Symbol get_out_symbol() const;
-                void set_out_symbol(Symbol s);
-
                 bool is_builtin_operator() const;
                 void set_is_builtin_operator(bool is_builtin);
-                std::string get_builtin_operator() const;
-                void set_builtin_operator(const std::string builtin_op);
 
-                bool get_is_constructor() const;
-                void set_is_constructor(bool constructor);
-                bool get_need_equal_initializer() const;
-                void set_need_equal_initializer(bool need_equal_init);
-                bool has_identity() const; 
                 Nodecl::NodeclBase get_identity() const;
-                Nodecl::NodeclBase get_raw_identity() const;
                 void set_identity(Nodecl::NodeclBase identity);
-                bool identity_is_constructor() const;
 
-                Symbol get_function_definition_symbol() const;
-                void set_function_definition_symbol(Symbol sym);
+                Symbol get_basic_reductor_function() const;
+                void set_basic_reductor_function(Symbol sym);
+
+                // FIXME - Vectorial version
+                // Symbol get_basic_reductor_function() const;
+                // void set_basic_reductor_function(Symbol sym);
+
+                Symbol get_cleanup_function() const;
+                void set_cleanup_function(Symbol sym);
         };
 
-        // Functions used in tl-omp-core.cpp
-        // {
-        void initialize_builtin_udr_reductions(Nodecl::NodeclBase translation_unit);
+        void initialize_builtin_udr_reductions(TL::Scope global_scope);
         bool udr_is_builtin_operator(const std::string &op_name);
-        std::string udr_builtin_operator_get_name(const std::string& reductor_name);
-        // }
     }
 }
 

@@ -278,9 +278,41 @@ namespace TL { namespace Nanox {
                 }
             }
 
-            void visit(const Nodecl::Parallel::Reduction& shared)
+            void add_reduction(TL::Symbol symbol, OpenMP::UDRInfoItem& udr_info)
             {
-                internal_error("Not yet implemented", 0);
+                OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(symbol);
+                outline_info.set_sharing(OutlineDataItem::SHARING_REDUCTION);
+                outline_info.set_reduction_info(&udr_info);
+
+                TL::Type t = symbol.get_type();
+                if (t.is_any_reference())
+                    t = t.references_to();
+
+                outline_info.set_in_outline_type(symbol.get_type());
+
+                if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+                {
+                    outline_info.set_field_type(t.get_pointer_to());
+                }
+                else if (IS_FORTRAN_LANGUAGE)
+                {
+                    outline_info.set_field_type(
+                            t.get_array_to_with_descriptor(
+                                Nodecl::NodeclBase::null(),
+                                Nodecl::NodeclBase::null(),
+                                symbol.get_scope())
+                            .get_pointer_to());
+                }
+            }
+
+            void visit(const Nodecl::Parallel::ReductionItem& reduction)
+            {
+                TL::Symbol udr_reductor = reduction.get_reductor().get_symbol();
+                TL::Symbol symbol = reduction.get_reduced_symbol().get_symbol();
+
+                OpenMP::UDRInfoItem &udr_info = OpenMP::UDRInfoItem::get_udr_info_item_from_symbol_holder(udr_reductor);
+
+                add_reduction(symbol, udr_info);
             }
     };
 

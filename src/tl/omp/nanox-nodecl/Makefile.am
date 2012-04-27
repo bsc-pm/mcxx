@@ -29,10 +29,12 @@ include ../../Makefile.phases
 phases_LTLIBRARIES = libtlnanox-lowering.la
 
 
-libtlnanox_lowering_la_CFLAGS = $(tl_cflags) -I$(srcdir)/../nanos-common
-libtlnanox_lowering_la_CXXFLAGS = $(tl_cflags) -I$(srcdir)/../nanos-common
+libtlnanox_lowering_la_CFLAGS = $(tl_cflags) -I$(srcdir)/../nanos-common -I$(srcdir)/../core
+libtlnanox_lowering_la_CXXFLAGS = $(tl_cflags) -I$(srcdir)/../nanos-common -I$(srcdir)/../core
 
-libtlnanox_lowering_la_LIBADD = $(tl_libadd) ../nanos-common/libtlnanos-version.la
+libtlnanox_lowering_la_LIBADD = $(tl_libadd) \
+								../core/libtlomp-core.la \
+								../nanos-common/libtlnanos-version.la
 libtlnanox_lowering_la_LDFLAGS = $(tl_ldflags)
 
 END=

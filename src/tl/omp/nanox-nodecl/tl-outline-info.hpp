@@ -36,6 +36,8 @@
 #include <string>
 #include <sstream>
 
+#include "tl-omp.hpp"
+
 namespace TL
 {
     namespace Nanox
@@ -69,6 +71,7 @@ namespace TL
                     SHARING_CAPTURE,
                     SHARING_PRIVATE,
 
+                    SHARING_REDUCTION,
                     // Like SHARING_SHARED but we do not keep the address of
                     // the symbol but of the _shared_expression
                     SHARING_CAPTURE_ADDRESS,
@@ -129,20 +132,20 @@ namespace TL
                 Sharing _sharing;
                 Nodecl::NodeclBase _shared_expression;
 
-                // -- FIXME --
                 // Reductions
+                OpenMP::UDRInfoItem *_udr_info_item;
 
                 // Dependences
                 Directionality _directionality;
                 TL::ObjectList<Nodecl::NodeclBase> _dependences;
-                
+
                 // -- FIXME ---
                 // Copies
                 CopyDirectionality _copy_directionality;
                 TL::ObjectList<Nodecl::NodeclBase> _copies;
 
                 AllocationPolicyFlags _allocation_policy_flags;
-                
+
             public:
                 OutlineDataItem(TL::Symbol symbol, const std::string& field_name)
                     : _item_kind(ITEM_KIND_NORMAL),
@@ -180,6 +183,7 @@ namespace TL
                     _in_outline_type(NULL),
                     _sharing(),
                     _shared_expression(),
+                    _udr_info_item(NULL),
                     _directionality(),
                     _copy_directionality(),
                     _allocation_policy_flags()
@@ -325,13 +329,28 @@ namespace TL
                             "Shared expression is missing!", 0);
                     return _shared_expression;
                 }
+
+                void set_reduction_info(OpenMP::UDRInfoItem* udr_info_item)
+                {
+                    _udr_info_item = udr_info_item;
+                }
+
+                bool is_reduction() const
+                {
+                    return _sharing == SHARING_REDUCTION;
+                }
+
+                OpenMP::UDRInfoItem* get_reduction_info() const
+                {
+                    return _udr_info_item;
+                }
         };
 
         class OutlineInfo
         {
             private:
                 ObjectList<OutlineDataItem> _data_env_items;
-            
+
                 // -- FIXME --
                 // Devices!
 
