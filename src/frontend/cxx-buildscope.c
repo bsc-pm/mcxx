@@ -2937,7 +2937,8 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
 
         if (gather_info->no_declarators
                 && ASTType(id_expression) == AST_TEMPLATE_ID
-                && decl_context.current_scope->kind != NAMESPACE_SCOPE)
+                && decl_context.current_scope->kind != NAMESPACE_SCOPE
+                && decl_context.current_scope->kind != CLASS_SCOPE)
         {
             if (!checking_ambiguity())
                 {

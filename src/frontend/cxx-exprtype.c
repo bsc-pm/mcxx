@@ -10191,6 +10191,8 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
         return;
     }
 
+    char braced_initializer_is_dependent = nodecl_expr_is_type_dependent(braced_initializer);
+
     nodecl_t initializer_clause_list = nodecl_get_child(braced_initializer, 0);
 
     if ((is_class_type(declared_type)
@@ -10364,7 +10366,8 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
     }
     // Not an aggregate class
     else if (is_class_type(declared_type)
-            && !is_aggregate_type(declared_type))
+            && !is_aggregate_type(declared_type)
+            && !braced_initializer_is_dependent)
     {
         // This one is the toughest
         type_t* arg_list[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
@@ -10640,7 +10643,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
         }
     }
     // Not an aggregate of any kind
-    else 
+    else if (!braced_initializer_is_dependent)
     {
         if (!nodecl_is_null(initializer_clause_list))
         {
@@ -10691,6 +10694,11 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                     nodecl_get_line(braced_initializer));
             return;
         }
+    }
+    else if (braced_initializer_is_dependent)
+    {
+        *nodecl_output = braced_initializer;
+        return;
     }
 
     internal_error("Code unreachable", 0);
@@ -10896,6 +10904,13 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
 
     const char* filename = nodecl_get_filename(direct_initializer);
     int line = nodecl_get_line(direct_initializer);
+
+    char direct_initializer_is_dependent = nodecl_expr_is_type_dependent(direct_initializer);
+    if (direct_initializer_is_dependent)
+    {
+        *nodecl_output = direct_initializer;
+        return;
+    }
 
     if (is_class_type(declared_type))
     {
@@ -11845,12 +11860,6 @@ void check_initialization_nodecl(nodecl_t nodecl_initializer, decl_context_t dec
         return;
     }
 
-    if (nodecl_expr_is_type_dependent(nodecl_initializer))
-    {
-        *nodecl_output = nodecl_initializer;
-        return;
-    }
-
     switch (nodecl_get_kind(nodecl_initializer))
     {
         case NODECL_CXX_EQUAL_INITIALIZER:
@@ -11881,12 +11890,6 @@ static void check_nodecl_initializer_clause(nodecl_t initializer_clause,
         nodecl_t* nodecl_output)
 {
     if (nodecl_is_err_expr(initializer_clause))
-    {
-        *nodecl_output = initializer_clause;
-        return;
-    }
-
-    if (nodecl_expr_is_type_dependent(initializer_clause))
     {
         *nodecl_output = initializer_clause;
         return;

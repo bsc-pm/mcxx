@@ -1992,6 +1992,16 @@ static void favor_known_expression_ambiguities(AST previous_choice,
             (*previous_output) = current_nodecl;
         }
     }
+    
+    else if ((either = either_type(previous_choice, current_choice,
+                    AST_TYPEID_TYPE, AST_TYPEID_EXPR)))
+    {
+        if (either < 0)
+        {
+            (*correct_choice) = current_index;
+            (*previous_output) = current_nodecl;
+        }
+    }
     // This one covers cases like this one
     //
     // template <typename _T>

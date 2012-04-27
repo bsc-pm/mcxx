@@ -2702,6 +2702,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Verbatim& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::UnknownPragma& node)
 {
+    move_to_namespace(node.retrieve_context().get_decl_context().namespace_scope->related_entry);
+
     file << "#pragma " << node.get_text() << "\n";
 }
 
