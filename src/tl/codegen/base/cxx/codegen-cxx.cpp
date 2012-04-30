@@ -3387,19 +3387,6 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                         TL::Type primary_template = related_template.get_primary_template();
                         char is_primary_template = (primary_template.get_symbol() == member);
 
-                        // FIXME - This comment below is obsolete, right?
-                        // *****
-                        //
-                        // C++ has a problem here: we cannot explicitly
-                        // specialize a member template class in non namespace
-                        // scope but we need the definition, here EXCEPTIONALLY
-                        // we will emit dependent code because this language
-                        // quirk. Other solutions (like flattening the members)
-                        // are more cumbersome and more painstaking than this
-                        // one.
-                        //
-                        // *****
-                        // FIXME - That comment above is obsolete, right?
                         if (is_primary_template)
                         {
                             // Try hard to avoid emitting dependent code
