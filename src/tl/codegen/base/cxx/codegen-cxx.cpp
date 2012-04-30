@@ -3389,42 +3389,10 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
 
                         if (is_primary_template)
                         {
-                            // Try hard to avoid emitting dependent code
-                            //
-                            // Check every complete specialization
-                            char one_specialization_defined_inside_the_class = 0;
-
-                            TL::ObjectList<TL::Type> specializations = related_template.get_specializations();
-
-                            for (TL::ObjectList<TL::Type>::iterator it = specializations.begin();
-                                    it != specializations.end();
-                                    it++)
+                            if (is_complete_type(member.get_type().get_internal_type()))
                             {
-                                TL::Type& current_spec(*it);
-                                TL::Symbol current_spec_symbol = current_spec.get_symbol();
-
-                                if (it->class_type_is_complete_independent()
-                                        && symbols_defined_inside_class.contains(current_spec_symbol))
-                                {
-                                    one_specialization_defined_inside_the_class = 1;
-                                }
-                            }
-
-                            if (one_specialization_defined_inside_the_class
-                                    || is_dependent_class)
-                            {
-                                if (is_complete_type(member.get_type().get_internal_type()))
-                                {
-                                    define_class_symbol_aux(member, symbols_defined_inside_class, level + 1);
-                                    set_codegen_status(member, CODEGEN_STATUS_DEFINED);
-                                }
-                                else
-                                {
-                                    do_declare_symbol(member,
-                                            &CxxBase::declare_symbol_always,
-                                            &CxxBase::define_symbol_always);
-                                    set_codegen_status(member, CODEGEN_STATUS_DECLARED);
-                                }
+                                define_class_symbol_aux(member, symbols_defined_inside_class, level + 1);
+                                set_codegen_status(member, CODEGEN_STATUS_DEFINED);
                             }
                             else
                             {
