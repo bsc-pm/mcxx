@@ -338,6 +338,9 @@ namespace TL { namespace Nanox {
     void LoweringVisitor::visit(const Nodecl::Parallel::Atomic& construct)
     {
         Nodecl::List statements = construct.get_statements().as<Nodecl::List>();
+
+        walk(statements);
+
         Nodecl::List replacements;
 
         for (Nodecl::List::iterator it = statements.begin(); it != statements.end(); it++)

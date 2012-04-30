@@ -45,6 +45,8 @@ namespace TL { namespace Nanox {
         Nodecl::Parallel::Async async = executable_part.as<Nodecl::Parallel::Async>();
         Nodecl::NodeclBase statements = async.get_statements();
 
+        walk(statements);
+
         Nodecl::NodeclBase environment = async.get_environment();
 
         OutlineInfo outline_info(environment);

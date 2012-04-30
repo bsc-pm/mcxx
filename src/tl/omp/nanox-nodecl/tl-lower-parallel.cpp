@@ -59,8 +59,7 @@ namespace TL { namespace Nanox {
         Nodecl::NodeclBase environment = async.get_environment();
         Nodecl::NodeclBase statements = async.get_statements();
 
-        // FIXME !!!
-        // walk(statements);
+        walk(statements);
 
         // -- Not used yet
         // ParallelEnvironmentVisitor parallel_environment;

@@ -33,6 +33,9 @@ namespace TL { namespace Nanox {
     void LoweringVisitor::visit(const Nodecl::Parallel::Single& construct)
     {
         Nodecl::NodeclBase environment = construct.get_environment();
+        Nodecl::NodeclBase statements = construct.get_statements();
+
+        walk(statements);
 
         TL::Source transform_code, final_barrier;
         transform_code
@@ -43,7 +46,7 @@ namespace TL { namespace Nanox {
 
             << "if (single_guard)"
             << "{"
-            <<     as_statement(construct.get_statements().copy())
+            <<     as_statement(statements.copy())
             << "}"
             << "}"
             ;

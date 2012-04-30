@@ -44,6 +44,9 @@ namespace TL { namespace Nanox {
     void LoweringVisitor::visit(const Nodecl::Parallel::Exclusive& construct)
     {
         Nodecl::NodeclBase environment = construct.get_environment();
+        Nodecl::NodeclBase statements = construct.get_statements();
+
+        walk(statements);
 
         std::string lock_name = "nanos_default_critical_lock";
         if (!environment.is_null())
@@ -109,7 +112,7 @@ namespace TL { namespace Nanox {
         Nodecl::NodeclBase critical_code;
         critical_code = critical_postorder_src.parse_statement(construct);
 
-        stmt_placeholder.integrate(construct.get_statements().copy());
+        stmt_placeholder.integrate(statements.copy());
 
         construct.integrate(critical_code);
     }

@@ -515,6 +515,8 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
     Nodecl::NodeclBase environment = construct.get_environment();
     Nodecl::NodeclBase statements = construct.get_statements();
 
+    walk(statements);
+
     TaskEnvironmentVisitor task_environment;
     task_environment.walk(environment);
 
