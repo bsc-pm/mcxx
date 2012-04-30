@@ -73,7 +73,7 @@ namespace TL { namespace Nanox {
                         return true;
                     }
                 case NODECL_ADD_ASSIGNMENT:
-                case NODECL_SUB_ASSIGNMENT:
+                case NODECL_MINUS_ASSIGNMENT:
                 case NODECL_MUL_ASSIGNMENT:
                 case NODECL_DIV_ASSIGNMENT:
                 case NODECL_BITWISE_AND_ASSIGNMENT:
@@ -115,7 +115,7 @@ namespace TL { namespace Nanox {
                         using_builtin =
                             lhs_is_integral
                             && (op_kind == NODECL_ADD_ASSIGNMENT                 // x += y
-                                    || op_kind == NODECL_SUB_ASSIGNMENT          // x -= y
+                                    || op_kind == NODECL_MINUS_ASSIGNMENT        // x -= y
                                     || op_kind == NODECL_BITWISE_AND_ASSIGNMENT  // x &= y
                                     || op_kind == NODECL_BITWISE_OR_ASSIGNMENT   // x |= y
                                     || op_kind == NODECL_BITWISE_XOR_ASSIGNMENT  // x ^= y
@@ -274,7 +274,7 @@ namespace TL { namespace Nanox {
                             intrinsic_function_name = "__sync_add_and_fetch";
                             break;
                         }
-                    case NODECL_SUB_ASSIGNMENT : // x -= y
+                    case NODECL_MINUS_ASSIGNMENT : // x -= y
                         {
                             intrinsic_function_name = "__sync_sub_and_fetch";
                             break;

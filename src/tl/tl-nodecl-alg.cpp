@@ -712,7 +712,7 @@ namespace Nodecl
             case NODECL_ADD_ASSIGNMENT:
                 return "+";
             case NODECL_MINUS:
-            case NODECL_SUB_ASSIGNMENT:
+            case NODECL_MINUS_ASSIGNMENT:
                 return "-";
             case NODECL_MUL:
             case NODECL_MUL_ASSIGNMENT:
@@ -1012,8 +1012,8 @@ namespace TL
                 _step = incr_expr.as<Nodecl::AddAssignment>().get_rhs().copy();
             }
             // _induction_var -= incr
-            else if (incr_expr.is<Nodecl::SubAssignment>()
-                    && incr_expr.as<Nodecl::SubAssignment>().get_lhs().get_symbol() == _induction_var)
+            else if (incr_expr.is<Nodecl::MinusAssignment>()
+                    && incr_expr.as<Nodecl::MinusAssignment>().get_lhs().get_symbol() == _induction_var)
             {
                 Nodecl::NodeclBase rhs = incr_expr.as<Nodecl::AddAssignment>().get_rhs();
 

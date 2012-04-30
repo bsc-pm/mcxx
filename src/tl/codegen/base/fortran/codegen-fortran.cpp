@@ -602,7 +602,7 @@ namespace Codegen
     BINARY_EXPRESSION_ASSIG(MulAssignment, " * ") \
     BINARY_EXPRESSION_ASSIG(DivAssignment, " / ") \
     BINARY_EXPRESSION_ASSIG(AddAssignment, " + ") \
-    BINARY_EXPRESSION_ASSIG(SubAssignment, " - ") 
+    BINARY_EXPRESSION_ASSIG(MinusAssignment, " - ") 
 
 #define PREFIX_UNARY_EXPRESSION(_name, _operand) \
     void FortranBase::visit(const Nodecl::_name &node) \

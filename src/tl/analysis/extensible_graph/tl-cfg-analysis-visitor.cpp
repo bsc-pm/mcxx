@@ -207,7 +207,7 @@ namespace Analysis
         {
             _init_expression = compute_init_expr(rhs, lhs, 0);
         }
-        else if (n.template is<Nodecl::SubAssignment>())
+        else if (n.template is<Nodecl::MinusAssignment>())
         {
             _init_expression = compute_init_expr(rhs, lhs, 1);
         }
@@ -258,7 +258,7 @@ namespace Analysis
         binary_assignment(n);
     }
     
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::SubAssignment& n)
+    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::MinusAssignment& n)
     {
         binary_assignment(n);
     }
@@ -742,7 +742,7 @@ namespace Analysis
         op_assignment_visit(n);
     }
     
-    CfgIPAVisitor::Ret CfgIPAVisitor::visit(const Nodecl::SubAssignment& n)
+    CfgIPAVisitor::Ret CfgIPAVisitor::visit(const Nodecl::MinusAssignment& n)
     {
         op_assignment_visit(n);
     }

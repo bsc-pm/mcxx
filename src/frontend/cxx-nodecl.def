@@ -192,7 +192,7 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | NODECL_MUL_ASSIGNMENT([lhs] expression, [rhs] expression) type
                   | NODECL_DIV_ASSIGNMENT([lhs] expression, [rhs] expression) type
                   | NODECL_ADD_ASSIGNMENT([lhs] expression, [rhs] expression) type
-                  | NODECL_SUB_ASSIGNMENT([lhs] expression, [rhs] expression) type
+                  | NODECL_MINUS_ASSIGNMENT([lhs] expression, [rhs] expression) type
                   | NODECL_SHL_ASSIGNMENT([lhs] expression, [rhs] expression) type
                   | NODECL_SHR_ASSIGNMENT([lhs] expression, [rhs] expression) type
                   | NODECL_BITWISE_AND_ASSIGNMENT([lhs] expression, [rhs] expression) type

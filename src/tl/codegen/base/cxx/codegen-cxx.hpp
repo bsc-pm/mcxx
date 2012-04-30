@@ -157,7 +157,7 @@ namespace Codegen
             Ret visit(const Nodecl::Sizeof &);
             Ret visit(const Nodecl::StringLiteral &);
             Ret visit(const Nodecl::StructuredValue &);
-            Ret visit(const Nodecl::SubAssignment &);
+            Ret visit(const Nodecl::MinusAssignment &);
             Ret visit(const Nodecl::SwitchStatement &);
             Ret visit(const Nodecl::Symbol &);
             Ret visit(const Nodecl::Text &);

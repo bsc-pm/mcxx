@@ -1489,7 +1489,7 @@ namespace TL
             return ObjectList<Node*>(1, merge_nodes(n, left, right));
         }
 
-        CfgVisitor::Ret CfgVisitor::visit(const Nodecl::SubAssignment& n)
+        CfgVisitor::Ret CfgVisitor::visit(const Nodecl::MinusAssignment& n)
         {
             Node* left = walk(n.get_lhs())[0];
             Node* right = walk(n.get_rhs())[0];

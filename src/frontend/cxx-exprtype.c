@@ -4375,7 +4375,7 @@ static void compute_bin_operator_sub_assig_type(nodecl_t* lhs, nodecl_t* rhs,
     }
 
     compute_bin_operator_assig_arithmetic_or_pointer_type(lhs, rhs, 
-            operation_tree, decl_context, nodecl_make_sub_assignment,
+            operation_tree, decl_context, nodecl_make_minus_assignment,
             filename, line, nodecl_output);
 }
 
@@ -5189,7 +5189,7 @@ static struct bin_operator_funct_type_t binary_expression_fun[] =
     [NODECL_MUL_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_mul_assig_type),
     [NODECL_DIV_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_div_assig_type),
     [NODECL_ADD_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_add_assig_type),
-    [NODECL_SUB_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_sub_assig_type),
+    [NODECL_MINUS_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_sub_assig_type),
     [NODECL_SHL_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_shl_assig_type),
     [NODECL_SHR_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_shr_assig_type),
     [NODECL_BITWISE_AND_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_bitwise_and_assig_type),
@@ -14733,7 +14733,7 @@ static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, 
     NODECL_VISITOR(v)->visit_mul_assignment = instantiate_expr_visitor_fun(instantiate_binary_op);
     NODECL_VISITOR(v)->visit_div_assignment = instantiate_expr_visitor_fun(instantiate_binary_op);
     NODECL_VISITOR(v)->visit_add_assignment = instantiate_expr_visitor_fun(instantiate_binary_op);
-    NODECL_VISITOR(v)->visit_sub_assignment = instantiate_expr_visitor_fun(instantiate_binary_op);
+    NODECL_VISITOR(v)->visit_minus_assignment = instantiate_expr_visitor_fun(instantiate_binary_op);
     NODECL_VISITOR(v)->visit_shl_assignment = instantiate_expr_visitor_fun(instantiate_binary_op);
     NODECL_VISITOR(v)->visit_shr_assignment = instantiate_expr_visitor_fun(instantiate_binary_op);
     NODECL_VISITOR(v)->visit_bitwise_and_assignment = instantiate_expr_visitor_fun(instantiate_binary_op);

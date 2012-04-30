@@ -112,7 +112,7 @@ namespace TL
                 Ret visit(const Nodecl::Shl& n);
                 Ret visit(const Nodecl::Assignment& n);
                 Ret visit(const Nodecl::AddAssignment& n);
-                Ret visit(const Nodecl::SubAssignment& n);
+                Ret visit(const Nodecl::MinusAssignment& n);
                 Ret visit(const Nodecl::DivAssignment& n);
                 Ret visit(const Nodecl::MulAssignment& n);
                 Ret visit(const Nodecl::ModAssignment& n);
@@ -151,3 +151,4 @@ namespace TL
 }
 
 #endif      // TL_CFG_RENAMING_VISITOR_HPP
+

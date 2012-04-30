@@ -127,7 +127,7 @@ TL::Scope CxxBase::get_current_scope() const
     BINARY_EXPRESSION_ASSIG(MulAssignment, " *= ") \
     BINARY_EXPRESSION_ASSIG(DivAssignment, " /= ") \
     BINARY_EXPRESSION_ASSIG(AddAssignment, " += ") \
-    BINARY_EXPRESSION_ASSIG(SubAssignment, " -= ") \
+    BINARY_EXPRESSION_ASSIG(MinusAssignment, " -= ") \
     BINARY_EXPRESSION_ASSIG(ShlAssignment, " <<= ") \
     BINARY_EXPRESSION_ASSIG(ShrAssignment, " >>= ") \
     BINARY_EXPRESSION_ASSIG(BitwiseAndAssignment, " &= ") \
@@ -5493,7 +5493,7 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
         case NODECL_MUL_ASSIGNMENT :
         case NODECL_DIV_ASSIGNMENT:
         case NODECL_ADD_ASSIGNMENT:
-        case NODECL_SUB_ASSIGNMENT:
+        case NODECL_MINUS_ASSIGNMENT:
         case NODECL_SHL_ASSIGNMENT:
         case NODECL_SHR_ASSIGNMENT:
         case NODECL_BITWISE_AND_ASSIGNMENT:
