@@ -698,6 +698,50 @@ namespace Nodecl
         }
         return n;
     }
+
+    std::string Utils::get_elemental_operator_of_binary_expression(Nodecl::NodeclBase n)
+    {
+        return get_elemental_operator_of_binary_expression(n.get_kind());
+    }
+
+    std::string Utils::get_elemental_operator_of_binary_expression(node_t n)
+    {
+        switch (n)
+        {
+            case NODECL_ADD:
+            case NODECL_ADD_ASSIGNMENT:
+                return "+";
+            case NODECL_SUB:
+            case NODECL_SUB_ASSIGNMENT:
+                return "-";
+            case NODECL_MUL:
+            case NODECL_MUL_ASSIGNMENT:
+                return "*";
+            case NODECL_DIV:
+            case NODECL_DIV_ASSIGNMENT:
+                return "/";
+            case NODECL_MOD:
+            case NODECL_MOD_ASSIGNMENT:
+                return "%";
+            case NODECL_SHL:
+            case NODECL_SHL_ASSIGNMENT:
+                return "<<";
+            case NODECL_SHR:
+            case NODECL_SHR_ASSIGNMENT:
+                return ">>";
+            case NODECL_BITWISE_AND:
+            case NODECL_BITWISE_AND_ASSIGNMENT:
+                return "&";
+            case NODECL_BITWISE_OR:
+            case NODECL_BITWISE_OR_ASSIGNMENT:
+                return "|";
+            case NODECL_BITWISE_XOR:
+            case NODECL_BITWISE_XOR_ASSIGNMENT:
+                return "^";
+            default:
+                return "";
+        }
+    }
 }
 
 namespace TL

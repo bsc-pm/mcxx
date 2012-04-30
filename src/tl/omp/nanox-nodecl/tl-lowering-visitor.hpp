@@ -27,6 +27,8 @@
 #include "tl-nodecl-visitor.hpp"
 #include "tl-outline-info.hpp"
 
+#include <set>
+
 namespace TL { namespace Nanox {
 
 class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
@@ -41,6 +43,9 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         virtual void visit(const Nodecl::Parallel::BarrierFull& construct);
         virtual void visit(const Nodecl::Parallel::Replicate& construct);
         virtual void visit(const Nodecl::Parallel::Distribute& construct);
+        virtual void visit(const Nodecl::Parallel::Exclusive& construct);
+        virtual void visit(const Nodecl::Parallel::FlushMemory& construct);
+        virtual void visit(const Nodecl::Parallel::Atomic& construct);
 
     private:
         TL::Symbol declare_argument_structure(OutlineInfo& outline_info, Nodecl::NodeclBase construct);
@@ -176,6 +181,8 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 TL::Symbol structure_symbol);
 
         Source full_barrier_source();
+
+        std::set<std::string> _lock_names;
 };
 
 } }

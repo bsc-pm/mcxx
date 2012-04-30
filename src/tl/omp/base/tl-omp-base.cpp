@@ -242,6 +242,7 @@ namespace TL { namespace OpenMP {
         INVALID_DECLARATION_HANDLER(sections)
         INVALID_DECLARATION_HANDLER(single)
         INVALID_DECLARATION_HANDLER(critical)
+        INVALID_DECLARATION_HANDLER(atomic)
 
 #define EMPTY_HANDLERS_CONSTRUCT(_name) \
         void Base::_name##_handler_pre(TL::PragmaCustomStatement) { } \
@@ -253,7 +254,6 @@ namespace TL { namespace OpenMP {
         void Base::_name##_handler_pre(TL::PragmaCustomDirective) { } \
         void Base::_name##_handler_post(TL::PragmaCustomDirective) { }
 
-        EMPTY_HANDLERS_CONSTRUCT(atomic)
         EMPTY_HANDLERS_CONSTRUCT(master)
         EMPTY_HANDLERS_CONSTRUCT(ordered)
         EMPTY_HANDLERS_CONSTRUCT(parallel_do)
@@ -261,6 +261,19 @@ namespace TL { namespace OpenMP {
         EMPTY_HANDLERS_DIRECTIVE(section)
 
         EMPTY_HANDLERS_DIRECTIVE(taskyield)
+
+    void Base::atomic_handler_pre(TL::PragmaCustomStatement) { }
+    void Base::atomic_handler_post(TL::PragmaCustomStatement directive)
+    {
+        Nodecl::Parallel::Atomic atomic =
+            Nodecl::Parallel::Atomic::make(
+                    Nodecl::NodeclBase::null(),
+                    directive.get_statements().copy(),
+                    directive.get_filename(),
+                    directive.get_line());
+
+        directive.integrate(atomic);
+    }
 
     void Base::critical_handler_pre(TL::PragmaCustomStatement) { }
     void Base::critical_handler_post(TL::PragmaCustomStatement directive)

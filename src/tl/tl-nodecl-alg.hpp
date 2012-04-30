@@ -67,6 +67,9 @@ namespace Nodecl
         void append_to_top_level_nodecl(Nodecl::NodeclBase n);
 
         Nodecl::NodeclBase advance_conversions(Nodecl::NodeclBase n);
+
+        std::string get_elemental_operator_of_binary_expression(Nodecl::NodeclBase n);
+        std::string get_elemental_operator_of_binary_expression(node_t);
     }
 }
 
