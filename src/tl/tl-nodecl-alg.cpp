@@ -711,7 +711,7 @@ namespace Nodecl
             case NODECL_ADD:
             case NODECL_ADD_ASSIGNMENT:
                 return "+";
-            case NODECL_SUB:
+            case NODECL_MINUS:
             case NODECL_SUB_ASSIGNMENT:
                 return "-";
             case NODECL_MUL:
