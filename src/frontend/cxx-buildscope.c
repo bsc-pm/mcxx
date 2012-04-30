@@ -5732,7 +5732,8 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
             class_entry->decl_context.template_parameters = decl_context.template_parameters;
             inner_decl_context = new_class_context(class_entry->decl_context, class_entry);
 
-            if (inner_decl_context.template_parameters != NULL &&
+            // Remove empty template headers if they are produced by an explicit template specialization
+            while (inner_decl_context.template_parameters != NULL &&
                     inner_decl_context.template_parameters->is_explicit_specialization)
             {
                 // We should ignore the innermost template header because it's a explicit
