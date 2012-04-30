@@ -11557,35 +11557,44 @@ static void compute_nodecl_gcc_initializer(AST initializer,
 
 static void compute_nodecl_direct_initializer(AST initializer, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    AST initializer_list = ASTSon0(initializer);
-
     char any_is_type_dependent = 0;
-    *nodecl_output = nodecl_null();
+    nodecl_t nodecl_initializer_list = nodecl_null();
+    
+    AST initializer_list = ASTSon0(initializer);
     if (initializer_list != NULL)
     {
-        AST it;
-        for_each_element(initializer_list, it)
+        if (!check_list_of_expressions(initializer_list, decl_context, &nodecl_initializer_list))
         {
-            AST initializer_clause = ASTSon1(it);
+            *nodecl_output = nodecl_make_err_expr(
+                    ASTFileName(initializer),
+                    ASTLine(initializer));
+            return;
+        }
 
-            nodecl_t nodecl_initializer_clause = nodecl_null();
-            compute_nodecl_initializer_clause(initializer_clause, decl_context, &nodecl_initializer_clause);
-
-            if (nodecl_is_err_expr(nodecl_initializer_clause))
+        int num_items = 0;
+        if (!nodecl_is_null(nodecl_initializer_list))
+        {
+            nodecl_t* nodecl_list = nodecl_unpack_list(nodecl_initializer_list, &num_items);
+            for (int i = 0; i < num_items; ++i)
             {
-                *nodecl_output = nodecl_initializer_clause;
-                return;
+                nodecl_t current_nodecl = nodecl_list[i];
+                if (nodecl_is_err_expr(current_nodecl))
+                {
+                    *nodecl_output = current_nodecl;
+                    return;
+                }
+
+                any_is_type_dependent = any_is_type_dependent ||
+                    nodecl_expr_is_type_dependent(current_nodecl);
             }
-
-            any_is_type_dependent = any_is_type_dependent || 
-                nodecl_expr_is_type_dependent(nodecl_initializer_clause);
-
-            *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_initializer_clause);
         }
     }
 
-    *nodecl_output = nodecl_make_cxx_parenthesized_initializer(*nodecl_output, 
-            ASTFileName(initializer), ASTLine(initializer));
+    *nodecl_output = nodecl_make_cxx_parenthesized_initializer(
+            nodecl_initializer_list,
+            ASTFileName(initializer),
+            ASTLine(initializer));
+
     nodecl_expr_set_is_type_dependent(*nodecl_output, any_is_type_dependent);
 }
 
