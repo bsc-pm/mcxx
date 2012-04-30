@@ -380,7 +380,6 @@ async-call : NODECL_PARALLEL*ASYNC_CALL([environment]exec-environment-seq-opt, [
 
 # Futures?
 # expression : async-call
-# expression : NODECL_PARALLEL*ATOMIC_UPDATE_STATEMENT([expr] expression)
 
 exec-environment : NODECL_PARALLEL*CONDITION([condition]expression)
                  | NODECL_PARALLEL*CAPTURE([captured_symbols]name-seq)
