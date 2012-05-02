@@ -97,7 +97,7 @@ namespace TL { namespace Nanox {
                 outline_name,
                 /* is_untied */ false,
                 /* mandatory_creation */ true);
-                
+
         Source num_threads;
         if (num_replicas.is_null())
         {
@@ -117,16 +117,33 @@ namespace TL { namespace Nanox {
             fill_dependences_immediate_tree;
         Source fill_immediate_arguments,
                fill_dependences_immediate;
-            
+
+        Source fill_outline_arguments_reductions,
+               fill_immediate_arguments_reductions;
+        Source reduction_variables_decl,
+               reduction_initialization;
+
+        reduction_initialization_code(
+                Source("nanos_num_threads"),
+                outline_info,
+                construct,
+                // out
+                reduction_variables_decl,
+                reduction_initialization,
+                fill_outline_arguments_reductions,
+                fill_immediate_arguments_reductions);
+
         Source spawn_code;
         spawn_code
             << "{"
             <<   const_wd_info
             <<   immediate_decl
             <<   "int nanos_num_threads = " << num_threads << ";"
+            <<   "nanos_err_t err;"
+            <<   reduction_variables_decl
+            <<   reduction_initialization
             <<   "nanos_team_t nanos_team = (nanos_team_t)0;"
             <<   "nanos_thread_t nanos_team_threads[nanos_num_threads];"
-            <<   "nanos_err_t err;"
             <<   "err = nanos_create_team(&nanos_team, (nanos_sched_t)0, &nanos_num_threads,"
             <<              "(nanos_constraint_t*)0, /* reuse_current */ 1, nanos_team_threads);"
             <<   "if (err != NANOS_OK) nanos_handle_error(err);"
@@ -140,10 +157,10 @@ namespace TL { namespace Nanox {
             <<      "nanos_wd_t wd = (nanos_wd_t)0;"
             <<      copy_ol_decl
             <<      "err = " << nanos_create_wd
-            
             <<      "if (err != NANOS_OK) nanos_handle_error(err);"
             // This is a placeholder because arguments are filled using the base language (possibly Fortran)
             <<      statement_placeholder(fill_outline_arguments_tree)
+            <<      fill_outline_arguments_reductions
             <<      fill_dependences_outline
             <<      copy_ol_setup
             <<      "err = nanos_submit(wd, 0, (nanos_dependence_t*)0, 0);"
@@ -152,6 +169,7 @@ namespace TL { namespace Nanox {
             <<   "dyn_props.tie_to = nanos_team_threads[0];"
             // This is a placeholder because arguments are filled using the base language (possibly Fortran)
             <<   statement_placeholder(fill_immediate_arguments_tree)
+            <<   fill_immediate_arguments_reductions
             <<   fill_dependences_immediate
             <<   copy_imm_setup
             <<   "err = " << nanos_create_wd_and_run
@@ -162,7 +180,7 @@ namespace TL { namespace Nanox {
             ;
 
         fill_arguments(construct, outline_info, fill_outline_arguments, fill_immediate_arguments);
-        
+
         // Fill dependences for outline
         num_dependences << count_dependences(outline_info);
 

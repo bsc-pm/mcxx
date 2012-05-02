@@ -108,9 +108,6 @@ namespace TL { namespace Nanox {
             <<         "nanos_handle_error(err);"
             ;
 
-        TL::ObjectList<OutlineDataItem> reduction_items = outline_info.get_data_items().filter(
-                predicate(&OutlineDataItem::is_reduction));
-
         Source worksharing_creation_under_reduction;
         worksharing_creation_under_reduction
             <<     "err = nanos_worksharing_create(&imm_args.wsd, *current_ws_policy, (nanos_ws_info_t *) &info_loop, (void*)0);"
@@ -125,6 +122,8 @@ namespace TL { namespace Nanox {
 
         Source reduction_variables, init_reduction_code, extra_sync_due_to_reductions;
 
+        TL::ObjectList<OutlineDataItem> reduction_items = outline_info.get_data_items().filter(
+                predicate(&OutlineDataItem::is_reduction));
         if (reduction_items.empty())
         {
             worksharing_creation
@@ -136,44 +135,19 @@ namespace TL { namespace Nanox {
                 << worksharing_creation_under_reduction;
 
             init_reduction_code
-                << "int nanos_max_threads = nanos_omp_get_max_threads();"
+                << "int nanos_num_threads = nanos_omp_get_max_threads();"
                 ;
 
-            for (TL::ObjectList<OutlineDataItem>::iterator it = reduction_items.begin();
-                    it != reduction_items.end();
-                    it++)
-            {
-                std::string nanos_red_name = "nanos_red_" + it->get_symbol().get_name();
-
-                OpenMP::UDRInfoItem *udr_info = it->get_reduction_info();
-                ERROR_CONDITION(udr_info == NULL, "Invalid reduction info", 0);
-
-                TL::Type reduction_type = it->get_symbol().get_type();
-                if (reduction_type.is_any_reference())
-                    reduction_type = reduction_type.references_to();
-
-                reduction_variables
-                    << "nanos_reduction_t* " << nanos_red_name << ";"
-                    ;
-                init_reduction_code
-                    << "err = nanos_malloc((void**)&" << nanos_red_name << ", sizeof(nanos_reduction_t), " 
-                    << "\"" << construct.get_filename() << "\", " << construct.get_line() << ");"
-                    << "if (err != NANOS_OK)"
-                    <<     "nanos_handle_error(err);"
-                    << nanos_red_name << "->original = (void*)&" << it->get_symbol().get_name() << ";"
-                    << "err = nanos_malloc(&" << nanos_red_name << "->privates, sizeof(" << as_type(reduction_type) << ") * nanos_max_threads, "
-                    << "\"" << construct.get_filename() << "\", " << construct.get_line() << ");"
-                    << "if (err != NANOS_OK)"
-                    <<     "nanos_handle_error(err);"
-                    << nanos_red_name << "->bop = " << udr_info->get_basic_reductor_function().get_name() << ";"
-                    << nanos_red_name << "->cleanup = " << udr_info->get_cleanup_function().get_name() << ";"
-                    << "nanos_register_reduction(" << nanos_red_name << ");"
-                    ;
-
-                fill_immediate_arguments_reductions
-                    << "imm_args." << it->get_field_name() << " = " << nanos_red_name << "->privates;"
-                    ;
-            }
+            Source fill_outline_arguments_reductions; // unused!
+            reduction_initialization_code(
+                    Source("nanos_num_threads"),
+                    outline_info,
+                    construct,
+                    // out
+                    reduction_variables,
+                    init_reduction_code,
+                    /* unused! */ fill_outline_arguments_reductions,
+                    fill_immediate_arguments_reductions);
 
             init_reduction_code
                 << "nanos_release_sync_init();"

@@ -182,6 +182,16 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
 
         Source full_barrier_source();
 
+        void reduction_initialization_code(
+                Source max_threads,
+                OutlineInfo& outline_info,
+                Nodecl::NodeclBase construct,
+                // out
+                Source &reduction_declaration,
+                Source &register_code,
+                Source &fill_outline_arguments,
+                Source &fill_immediate_arguments);
+
         std::set<std::string> _lock_names;
 };
 
