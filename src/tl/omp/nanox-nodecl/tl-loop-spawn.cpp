@@ -70,7 +70,7 @@ namespace TL { namespace Nanox {
                 dynamic_size);
 
         Nodecl::NodeclBase fill_outline_arguments_tree;
-        Source fill_outline_arguments;
+        Source fill_outline_arguments, fill_outline_arguments_reductions;
 
         Nodecl::NodeclBase fill_immediate_arguments_tree;
         Source fill_immediate_arguments, fill_immediate_arguments_reductions;
@@ -138,7 +138,6 @@ namespace TL { namespace Nanox {
                 << "int nanos_num_threads = nanos_omp_get_max_threads();"
                 ;
 
-            Source fill_outline_arguments_reductions; // unused!
             reduction_initialization_code(
                     Source("nanos_num_threads"),
                     outline_info,
@@ -146,7 +145,7 @@ namespace TL { namespace Nanox {
                     // out
                     reduction_variables,
                     init_reduction_code,
-                    /* unused! */ fill_outline_arguments_reductions,
+                    fill_outline_arguments_reductions,
                     fill_immediate_arguments_reductions);
 
             init_reduction_code
@@ -160,6 +159,13 @@ namespace TL { namespace Nanox {
                 ;
 
         }
+
+        Source const_wd_info;
+        const_wd_info
+            << fill_const_wd_info(struct_arg_type_name,
+                    outline_name,
+                    /* is_untied */ false,
+                    /* mandatory_creation */ true);
 
         Source spawn_code;
         spawn_code
@@ -182,38 +188,36 @@ namespace TL { namespace Nanox {
         <<         "err = nanos_team_get_num_supporting_threads(&sup_threads);"
         <<         "if (err != NANOS_OK)"
         <<             "nanos_handle_error(err);"
-        // <<         "if (sup_threads > 0)"
-        // <<         "{"
-        // <<             "imm_args.wsd->threads = (nanos_thread_t *) __builtin_alloca(sizeof(nanos_thread_t) * sup_threads);"
-        // <<             "err = nanos_team_get_supporting_threads(&imm_args.wsd->nths, imm_args.wsd->threads);"
-        // <<             "if (err != NANOS_OK)"
-        // <<                 "nanos_handle_error(err);"
-        // <<             struct_arg_type_name << " *ol_args_im = (" << struct_arg_type_name <<"*) 0;"
-        // <<             "nanos_wd_t wd = (nanos_wd_t) 0;"
-        // <<             "nanos_wd_props_t props;"
-        // <<             "__builtin_memset(&props, 0, sizeof (props));"
-        // <<             "props.mandatory_creation = 1;"
-        // <<             "props.tied = 1;"
-        // <<             "nanos_wd_dyn_props_t dyn_props = {0};"
-        // <<             "/* SMP device descriptor */"
-        // <<             "static nanos_smp_args_t _ol_f_0_smp_args = {(void (*)(void *)) _smp__ol_f_0};"
-        // <<             "nanos_device_t _ol_f_0_devices[] = {{"
-        // <<                 "nanos_smp_factory,"
-        // <<                 "&_ol_f_0_smp_args"
-        // <<             "}};"
-        // <<             "static nanos_slicer_t replicate = (nanos_slicer_t)0;"
-        // <<             "if (!replicate)"
-        // <<                 "replicate = nanos_find_slicer(\"replicate\");"
-        // <<             "if (replicate == (nanos_slicer_t)0)"
-        // <<                 "fprintf(stderr, \"Cannot find replicate slicer plugin\\n\");"
-        // <<             "err = nanos_create_sliced_wd(&wd, 1, _ol_f_0_devices, sizeof(_nx_data_env_0_t), __alignof__(_nx_data_env_0_t), (void **) &ol_args_im, nanos_current_wd(), replicate, &props, &dyn_props, 0, (nanos_copy_data_t **) 0);"
-        // <<             "if (err != NANOS_OK)"
-        // <<                 "nanos_handle_error(err);"
-        // <<             "ol_args_im->wsd = ol_args.wsd;"
-        // <<             "err = nanos_submit(wd, 0, (nanos_dependence_t *) 0, (nanos_team_t) 0);"
-        // <<             "if (err != NANOS_OK)"
-        // <<                 "nanos_handle_error(err);"
-        // <<         "}"
+        <<         "if (sup_threads > 0)"
+        <<         "{"
+        <<             "imm_args.wsd->threads = (nanos_thread_t *) __builtin_alloca(sizeof(nanos_thread_t) * sup_threads);"
+        <<             "err = nanos_team_get_supporting_threads(&imm_args.wsd->nths, imm_args.wsd->threads);"
+        <<             "if (err != NANOS_OK)"
+        <<                 "nanos_handle_error(err);"
+        <<             struct_arg_type_name << " *ol_args = (" << struct_arg_type_name <<"*) 0;"
+        <<             const_wd_info
+        <<             "nanos_wd_t wd = (nanos_wd_t) 0;"
+        <<             "nanos_wd_dyn_props_t dyn_props = {0};"
+
+        <<             "static nanos_slicer_t replicate = (nanos_slicer_t)0;"
+        <<             "if (!replicate)"
+        <<                 "replicate = nanos_find_slicer(\"replicate\");"
+        <<             "if (replicate == (nanos_slicer_t)0)"
+        <<                 "__builtin_abort();"
+        <<             "err = nanos_create_sliced_wd(&wd, "
+        <<                                           "nanos_wd_const_data.base.num_devices, nanos_wd_const_data.devices, "
+        <<                                           struct_size << ",  nanos_wd_const_data.base.data_alignment, "
+        <<                                           "(void**)&ol_args, nanos_current_wd(), replicate,"
+        <<                                           "&nanos_wd_const_data.base.props, &dyn_props, 0, (nanos_copy_data_t**)0);"
+        <<             "if (err != NANOS_OK)"
+        <<                 "nanos_handle_error(err);"
+        <<             "ol_args->wsd = imm_args.wsd;"
+        <<             statement_placeholder(fill_outline_arguments_tree)
+        <<             fill_outline_arguments_reductions
+        <<             "err = nanos_submit(wd, 0, (nanos_dependence_t *) 0, (nanos_team_t) 0);"
+        <<             "if (err != NANOS_OK)"
+        <<                 "nanos_handle_error(err);"
+        <<         "}"
         <<     "}"
         <<     extra_sync_due_to_reductions
         <<     statement_placeholder(fill_immediate_arguments_tree)
