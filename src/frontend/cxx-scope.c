@@ -3901,11 +3901,28 @@ static scope_entry_list_t* query_nodecl_conversion_name(decl_context_t decl_cont
     }
 
     // We keep this tree because of the double lookup required for conversion-id
-    AST type_id = nodecl_get_ast(nodecl_get_child(nodecl_name, 0));
+    AST type_id = nodecl_get_ast(nodecl_get_child(nodecl_name, 1));
 
     // Lookup first in class scope
     decl_context_t class_context = decl_context;
     class_context.current_scope = class_context.class_scope;
+
+   AST type_specifier_seq = ASTSon0(type_id);
+   AST type_spec = ASTSon1(type_specifier_seq);
+
+   //FIXME: The type specifier may be a struct/class
+   if (ASTType(type_spec) == AST_SIMPLE_TYPE_SPEC)
+   {
+       AST id_expression = ASTSon0(type_spec);
+
+       decl_context_t expression_context =
+           nodecl_get_decl_context(nodecl_get_child(nodecl_name, 0));
+
+       nodecl_t nodecl_id_expression = nodecl_null();
+       compute_nodecl_name_from_id_expression(id_expression, expression_context, &nodecl_id_expression);
+
+       ast_set_child(type_specifier_seq, 1, nodecl_get_ast(nodecl_id_expression));
+   }
 
     type_t* t = compute_type_for_type_id_tree(type_id, class_context);
     if (t == NULL)
@@ -4536,11 +4553,17 @@ static void compute_nodecl_name_from_unqualified_id(AST unqualified_id, decl_con
         case AST_CONVERSION_FUNCTION_ID:
             {
                 *nodecl_output = nodecl_make_cxx_dep_name_conversion(
-                        ASTFileName(unqualified_id), 
+                        nodecl_make_context(
+                            /* optional statement sequence */ nodecl_null(),
+                            decl_context,
+                            ASTFileName(unqualified_id),
+                            ASTLine(unqualified_id)),
+                        ASTFileName(unqualified_id),
                         ASTLine(unqualified_id));
+
                 // This is ugly but we need to keep the original tree around before lowering it into nodecl
                 AST conversion_type_id = ast_copy(ASTSon0(unqualified_id));
-                ast_set_child(nodecl_get_ast(*nodecl_output), 0, conversion_type_id);
+                ast_set_child(nodecl_get_ast(*nodecl_output), 1, conversion_type_id);
                 break;
             }
         case AST_DESTRUCTOR_ID:
