@@ -570,7 +570,7 @@ namespace TL { namespace OpenMP {
                         directive.get_line()));
         }
 
-        ERROR_CONDITION (!statement.is<Nodecl::ForStatement>(), "Invalid tree", 0);
+        ERROR_CONDITION (!statement.is<Nodecl::ForStatement>(), "Invalid tree of kind '%s'", ast_print_node_type(statement.get_kind()));
         TL::ForStatement for_statement(statement.as<Nodecl::ForStatement>());
 
         Nodecl::List code;
@@ -636,40 +636,99 @@ namespace TL { namespace OpenMP {
     void Base::sections_handler_pre(TL::PragmaCustomStatement) { }
     void Base::sections_handler_post(TL::PragmaCustomStatement directive)
     {
-#if 0
+        // We simplify
+        //
+        // #pragma omp sections
+        // {
+        //   #pragma omp section
+        //     S1
+        //   #pragma omp section
+        //     S2
+        //   #pragma omp section
+        //     S3
+        // }
+        //
+        // into
+        //
+        // #pragma omp for
+        // for (i = 0; i < number_of_sections; i++)
+        // {
+        //   switch (i)
+        //   {
+        //      case 0: S1; break;
+        //      case 1: S2; break;
+        //      case 2: S3; break;
+        //      default: abort();
+        // }
+        //
         OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
 
-        Nodecl::List execution_environment = this->make_execution_environment(ds, pragma_line);
-
         Nodecl::List tasks = directive.get_statements().as<Nodecl::List>();
-        ObjectList<Nodecl::NodeclBase> new_tasks;
 
-        for (Nodecl::List::iterator it = tasks.begin();
-                it != tasks.end();
-                it++)
+        // FIXME - This does not work with Fortran
+
+        if (IS_C_LANGUAGE
+                || IS_CXX_LANGUAGE)
         {
-            // We should check that they are pragma section
-            ERROR_CONDITION((!it->is<Nodecl::PragmaCustomStatement>()), "Invalid node found", 0);
+            // In C/C++ there is an extra compound statement right after #pragma omp sections
+            ERROR_CONDITION(!tasks[0].is<Nodecl::CompoundStatement>(), "Expecting a compound statement here", 0);
+
+            tasks = tasks[0].as<Nodecl::CompoundStatement>().get_statements().as<Nodecl::List>();
+        }
+
+        Nodecl::NodeclBase for_placeholder;
+        Source sections_for, section_seq;
+
+        sections_for
+            << "{"
+            << "int section_id;"
+            << statement_placeholder(for_placeholder)
+            << "}"
+        ;
+
+        Nodecl::NodeclBase new_code = sections_for.parse_statement(directive);
+
+        Source for_source;
+        for_source
+            << "for (section_id = 0; section_id < " << tasks.size() << "; section_id++)"
+            << "{"
+            << "switch (section_id)"
+            << "{"
+            <<  section_seq
+            << "default: __builtin_abort();"
+            << "}"
+            << "}"
+            ;
+
+        int section_idx = 0;
+        for (Nodecl::List::iterator it = tasks.begin(); it != tasks.end(); it++, section_idx++)
+        {
+            ERROR_CONDITION(!it->is<Nodecl::PragmaCustomStatement>(), "Unexpected node '%s'\n",
+                    ast_print_node_type(it->get_kind()));
 
             Nodecl::PragmaCustomStatement p = it->as<Nodecl::PragmaCustomStatement>();
 
-            new_tasks.append( Nodecl::Parallel::Async::make(
-                        execution_environment.copy(),
-                        p.get_statements().copy(),
-                        it->get_filename(),
-                        it->get_line()) );
+            section_seq
+                << "case " << section_idx << " : "
+                << p.get_statements().prettyprint()
+                << "break;"
+                ;
         }
 
-        Nodecl::List set_of_tasks = Nodecl::List::make(new_tasks);
+        ds.set_data_sharing(for_placeholder.retrieve_context().get_symbol_from_name("section_id"), OpenMP::DS_PRIVATE);
 
-        directive.integrate(
-                Nodecl::Parallel::Composite::make(
-                    Nodecl::NodeclBase::null(),
-                    set_of_tasks,
-                    directive.get_filename(),
-                    directive.get_line()));
-#endif
+        Nodecl::NodeclBase for_code = for_source.parse_statement(for_placeholder);
+        for_placeholder.integrate(for_code);
+
+        directive.get_statements().integrate(new_code);
+
+        ERROR_CONDITION(!for_code.is<Nodecl::Context>(), "Invalid tree", 0);
+        for_code = for_code.as<Nodecl::Context>().get_in_context();
+        ERROR_CONDITION(!for_code.is<Nodecl::List>(), "Invalid tree", 0);
+        for_code = for_code.as<Nodecl::List>().front();
+
+        loop_handler_post(directive, for_code);
     }
 
     void Base::parallel_for_handler_pre(TL::PragmaCustomStatement)
