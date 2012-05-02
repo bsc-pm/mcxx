@@ -111,8 +111,15 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
         nodecl_t* nodecl_output,
         scope_entry_list_t** declared_symbols);
 
+static void common_gather_type_spec_from_simple_type_specifier(AST a, type_t** type_info,
+        gather_decl_spec_t* gather_info, scope_entry_list_t* query_results);
+
 static void gather_type_spec_from_simple_type_specifier(AST a, type_t** type_info,
         gather_decl_spec_t* gather_info, decl_context_t decl_context);
+
+static void nodecl_gather_type_spec_from_simple_type_specifier(nodecl_t a, type_t** type_info,
+        gather_decl_spec_t* gather_info, decl_context_t decl_context);
+
 static void gather_type_spec_from_enum_specifier(AST a, type_t** type_info, 
         gather_decl_spec_t* gather_info,
         decl_context_t decl_context,
@@ -2186,6 +2193,15 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                 solve_ambiguous_type_specifier(a, decl_context);
                 return gather_type_spec_information(a, simple_type_info, gather_info, decl_context, nodecl_output);
             }
+        case NODECL_CXX_DEP_NAME_SIMPLE:
+        case NODECL_CXX_DEP_TEMPLATE_ID:
+        case NODECL_CXX_DEP_NAME_CONVERSION:
+        case NODECL_CXX_DEP_NAME_NESTED:
+        case NODECL_CXX_DEP_GLOBAL_NAME_NESTED:
+            {
+                nodecl_gather_type_spec_from_simple_type_specifier(_nodecl_wrap(a), simple_type_info, gather_info, decl_context);
+                break;
+            }
         default:
             {
                 internal_error("Unknown node '%s'", ast_print_node_type(ASTType(a)));
@@ -3234,21 +3250,10 @@ static void gather_type_spec_from_dependent_typename(AST a, type_t** type_info,
     *type_info = entry->type_information;
 }
 
-/*
- * This routine is called in gather_type_spec_information and its purpose is to
- * fill the simple_type with the proper reference of the user defined type.
- */
-void gather_type_spec_from_simple_type_specifier(AST a, type_t** type_info,
-        gather_decl_spec_t* gather_info,
-        decl_context_t decl_context)
+static void common_gather_type_spec_from_simple_type_specifier(AST a,
+        type_t** type_info, gather_decl_spec_t* gather_info, scope_entry_list_t* query_results)
 {
-    AST id_expression = ASTSon0(a);
-
-    decl_flags_t flags = DF_IGNORE_FRIEND_DECL;
-    scope_entry_list_t* entry_list = query_id_expression_flags(decl_context, 
-            id_expression, flags);
-
-    if (entry_list == NULL)
+    if (query_results == NULL)
     {
         if (!checking_ambiguity())
         {
@@ -3260,14 +3265,14 @@ void gather_type_spec_from_simple_type_specifier(AST a, type_t** type_info,
     }
 
     scope_entry_list_iterator_t* it = NULL;
-    for (it = entry_list_iterator_begin(entry_list);
+    for (it = entry_list_iterator_begin(query_results);
             !entry_list_iterator_end(it);
             entry_list_iterator_next(it))
     {
         scope_entry_t* entry = entry_advance_aliases(entry_list_iterator_current(it));
-        if (entry->kind != SK_ENUM 
-                && entry->kind != SK_CLASS 
-                && entry->kind != SK_TYPEDEF 
+        if (entry->kind != SK_ENUM
+                && entry->kind != SK_CLASS
+                && entry->kind != SK_TYPEDEF
                 && entry->kind != SK_TEMPLATE_TYPE_PARAMETER
                 && (!gather_info->allow_class_template_names || entry->kind != SK_TEMPLATE)
                 && (!gather_info->allow_class_template_names || entry->kind != SK_TEMPLATE_TEMPLATE_PARAMETER)
@@ -3275,7 +3280,7 @@ void gather_type_spec_from_simple_type_specifier(AST a, type_t** type_info,
         {
             if (!checking_ambiguity())
             {
-                error_printf("%s: error: identifier '%s' does not name a type\n", 
+                error_printf("%s: error: identifier '%s' does not name a type\n",
                         ast_location(a),
                         prettyprint_in_buffer(a));
                 if (entry->kind == SK_DEPENDENT_ENTITY)
@@ -3291,7 +3296,7 @@ void gather_type_spec_from_simple_type_specifier(AST a, type_t** type_info,
     }
     entry_list_iterator_free(it);
 
-    scope_entry_t* entry = entry_advance_aliases(entry_list_head(entry_list));
+    scope_entry_t* entry = entry_advance_aliases(entry_list_head(query_results));
 
     // Chances are that through class-scope lookup we have found the injected name
     if (entry->entity_specs.is_injected_class_name)
@@ -3299,7 +3304,7 @@ void gather_type_spec_from_simple_type_specifier(AST a, type_t** type_info,
         entry = named_type_get_symbol(entry->entity_specs.class_type);
     }
 
-    entry_list_free(entry_list);
+    entry_list_free(query_results);
 
     if (entry->entity_specs.is_member
             && is_dependent_type(entry->entity_specs.class_type))
@@ -3336,6 +3341,31 @@ void gather_type_spec_from_simple_type_specifier(AST a, type_t** type_info,
         (*type_info) = get_user_defined_type(entry);
     }
 }
+
+/*
+ * This routine is called in gather_type_spec_information and its purpose is to
+ * fill the simple_type with the proper reference of the user defined type.
+ */
+static void gather_type_spec_from_simple_type_specifier(AST a, type_t** type_info,
+        gather_decl_spec_t* gather_info,
+        decl_context_t decl_context)
+{
+    AST id_expression = ASTSon0(a);
+    decl_flags_t flags = DF_IGNORE_FRIEND_DECL;
+    scope_entry_list_t* entry_list = query_id_expression_flags(decl_context, id_expression, flags);
+
+    common_gather_type_spec_from_simple_type_specifier(a, type_info, gather_info, entry_list);
+}
+
+static void nodecl_gather_type_spec_from_simple_type_specifier(nodecl_t a, type_t** type_info,
+        gather_decl_spec_t* gather_info, decl_context_t decl_context)
+{
+    decl_flags_t flags = DF_IGNORE_FRIEND_DECL;
+    scope_entry_list_t* entry_list = query_nodecl_name_flags(decl_context, a, flags);
+
+    common_gather_type_spec_from_simple_type_specifier(nodecl_get_ast(a), type_info, gather_info, entry_list);
+}
+
 
 static type_t* compute_underlying_type_enum(const_value_t* min_value, 
         const_value_t* max_value, 

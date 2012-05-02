@@ -240,7 +240,7 @@ cxx-dependent-name : NODECL_CXX_DEP_GLOBAL_NAME_NESTED([items] cxx-atom-dependen
                    | cxx-atom-dependent-name
 cxx-atom-dependent-name : cxx-simple-name
                    | NODECL_CXX_DEP_TEMPLATE_ID([name]cxx-atom-dependent-name) text template-parameters
-                   | NODECL_CXX_DEP_NAME_CONVERSION() 
+                   | NODECL_CXX_DEP_NAME_CONVERSION([context] context)
 
 cxx-simple-name: NODECL_CXX_DEP_NAME_SIMPLE() text
 
