@@ -507,6 +507,7 @@ namespace Nodecl {
                 {
                     if (it->is<T>())
                         return it->as<T>();
+                    it++;
                 }
                 return T(nodecl_null());
             }
