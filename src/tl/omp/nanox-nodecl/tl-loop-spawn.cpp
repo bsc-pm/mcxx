@@ -135,7 +135,7 @@ namespace TL { namespace Nanox {
                 << worksharing_creation_under_reduction;
 
             init_reduction_code
-                << "int nanos_num_threads = nanos_omp_get_max_threads();"
+                << "unsigned int nanos_num_threads = nanos_omp_get_max_threads();"
                 ;
 
             reduction_initialization_code(
