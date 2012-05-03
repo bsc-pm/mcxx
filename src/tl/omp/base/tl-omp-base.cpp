@@ -178,15 +178,17 @@ namespace TL { namespace OpenMP {
 
 #define OMP_DIRECTIVE(_directive, _name) \
                 { \
-                    dispatcher().directive.pre[_directive].connect(functor(&Base::_name##_handler_pre, *this)); \
-                    dispatcher().directive.post[_directive].connect(functor(&Base::_name##_handler_post, *this)); \
+                    std::string directive_name = remove_separators_of_directive(_directive); \
+                    dispatcher().directive.pre[directive_name].connect(functor(&Base::_name##_handler_pre, *this)); \
+                    dispatcher().directive.post[directive_name].connect(functor(&Base::_name##_handler_post, *this)); \
                 }
 #define OMP_CONSTRUCT_COMMON(_directive, _name, _noend) \
                 { \
-                    dispatcher().declaration.pre[_directive].connect(functor((void (Base::*)(TL::PragmaCustomDeclaration))&Base::_name##_handler_pre, *this)); \
-                    dispatcher().declaration.post[_directive].connect(functor((void (Base::*)(TL::PragmaCustomDeclaration))&Base::_name##_handler_post, *this)); \
-                    dispatcher().statement.pre[_directive].connect(functor((void (Base::*)(TL::PragmaCustomStatement))&Base::_name##_handler_pre, *this)); \
-                    dispatcher().statement.post[_directive].connect(functor((void (Base::*)(TL::PragmaCustomStatement))&Base::_name##_handler_post, *this)); \
+                    std::string directive_name = remove_separators_of_directive(_directive); \
+                    dispatcher().declaration.pre[directive_name].connect(functor((void (Base::*)(TL::PragmaCustomDeclaration))&Base::_name##_handler_pre, *this)); \
+                    dispatcher().declaration.post[directive_name].connect(functor((void (Base::*)(TL::PragmaCustomDeclaration))&Base::_name##_handler_post, *this)); \
+                    dispatcher().statement.pre[directive_name].connect(functor((void (Base::*)(TL::PragmaCustomStatement))&Base::_name##_handler_pre, *this)); \
+                    dispatcher().statement.post[directive_name].connect(functor((void (Base::*)(TL::PragmaCustomStatement))&Base::_name##_handler_post, *this)); \
                 }
 #define OMP_CONSTRUCT(_directive, _name) OMP_CONSTRUCT_COMMON(_directive, _name, false)
 #define OMP_CONSTRUCT_NOEND(_directive, _name) OMP_CONSTRUCT_COMMON(_directive, _name, true)
