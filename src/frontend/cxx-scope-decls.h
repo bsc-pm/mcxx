@@ -95,8 +95,10 @@ enum decl_flags_tag
     DF_DEPENDENT_TYPENAME = BITMAP(8),
     // Enables weird lookup for 'struct X'/'union X'/'enum X'
     DF_ELABORATED_NAME = BITMAP(9),
-    // The querys will ignore the friend declarations
+    // The queries will ignore the friend declarations
     DF_IGNORE_FRIEND_DECL = BITMAP(10),
+    // The queries will not create dependent entities for unqualified names
+    DF_DO_NOT_CREATE_UNQUALIFIED_DEPENDENT_ENTITY = BITMAP(11),
 } decl_flags_t;
 
 #undef BITMAP

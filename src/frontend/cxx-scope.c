@@ -3654,6 +3654,7 @@ static scope_entry_list_t* query_nodecl_simple_name(decl_context_t decl_context,
     scope_entry_t* head = NULL;
     if (result != NULL
             && BITMAP_TEST(decl_flags, DF_DEPENDENT_TYPENAME)
+            && !BITMAP_TEST(decl_flags, DF_DO_NOT_CREATE_UNQUALIFIED_DEPENDENT_ENTITY)
             && (head = entry_list_head(result))->entity_specs.is_member
             && !head->entity_specs.is_injected_class_name
             && is_dependent_type(head->entity_specs.class_type))
@@ -3666,7 +3667,7 @@ static scope_entry_list_t* query_nodecl_simple_name(decl_context_t decl_context,
         new_sym->line = line;
         new_sym->type_information = build_dependent_typename_for_entry(
                 named_type_get_symbol(head->entity_specs.class_type),
-                nodecl_name, 
+                nodecl_name,
                 filename,
                 line);
 

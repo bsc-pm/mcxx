@@ -5478,6 +5478,33 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
         return;
     }
 
+    if (entry->entity_specs.is_member
+            && !entry->entity_specs.is_injected_class_name
+            && is_dependent_type(entry->entity_specs.class_type)
+            && (nodecl_get_kind(nodecl_name) == NODECL_CXX_DEP_NAME_SIMPLE
+                || nodecl_get_kind(nodecl_name) == NODECL_CXX_DEP_TEMPLATE_ID))
+    {
+        scope_entry_t* new_sym = counted_calloc(1, sizeof(*new_sym), &_bytes_used_expr_check);
+        new_sym->kind = SK_DEPENDENT_ENTITY;
+        new_sym->symbol_name = nodecl_get_text(nodecl_name_get_last_part(nodecl_name));
+        new_sym->decl_context = decl_context;
+        new_sym->file = ast_get_filename(nodecl_get_ast(nodecl_name));
+        new_sym->line = ast_get_line(nodecl_get_ast(nodecl_name));
+        new_sym->type_information = build_dependent_typename_for_entry(
+                named_type_get_symbol(entry->entity_specs.class_type),
+                nodecl_name,
+                ast_get_filename(nodecl_get_ast(nodecl_name)),
+                ast_get_line(nodecl_get_ast(nodecl_name)));
+
+        *nodecl_output = nodecl_make_symbol(new_sym, nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name));
+        nodecl_set_type(*nodecl_output, new_sym->type_information);
+        nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+        nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
+        return;
+        return ;
+    }
+
+
     template_parameter_list_t* last_template_args = NULL;
     if (nodecl_name_ends_in_template_id(nodecl_name))
     {
@@ -5658,6 +5685,10 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
         }
         nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
     }
+    else
+    {
+        internal_error("code unreachable", 0);
+    }
 }
 
 static void cxx_common_name_check(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -5671,7 +5702,12 @@ static void cxx_common_name_check(AST expr, decl_context_t decl_context, nodecl_
         return;
     }
 
-    scope_entry_list_t* result_list = query_nodecl_name_flags(decl_context, nodecl_name, DF_DEPENDENT_TYPENAME | DF_IGNORE_FRIEND_DECL);
+    scope_entry_list_t* result_list = query_nodecl_name_flags(
+            decl_context,
+            nodecl_name,
+            DF_DEPENDENT_TYPENAME |
+            DF_IGNORE_FRIEND_DECL |
+            DF_DO_NOT_CREATE_UNQUALIFIED_DEPENDENT_ENTITY);
 
     cxx_compute_name_from_entry_list(nodecl_name, result_list, decl_context, nodecl_output);
 }
