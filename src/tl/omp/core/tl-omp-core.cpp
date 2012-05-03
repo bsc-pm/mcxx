@@ -933,9 +933,20 @@ namespace TL
                 collapse_loop_first(construct);
             }
 
+            Nodecl::NodeclBase stmt = construct.get_statements();
+
+            ERROR_CONDITION(!stmt.is<Nodecl::List>(), "Invalid tree", 0);
+            stmt = stmt.as<Nodecl::List>().front();
+
+            ERROR_CONDITION(!stmt.is<Nodecl::Context>(), "Invalid tree", 0);
+            stmt = stmt.as<Nodecl::Context>().get_in_context();
+
+            ERROR_CONDITION(!stmt.is<Nodecl::List>(), "Invalid tree", 0);
+            stmt = stmt.as<Nodecl::List>().front();
+
             _openmp_info->push_current_data_sharing(data_sharing);
             common_parallel_handler(construct, data_sharing);
-            common_for_handler(construct, data_sharing);
+            common_for_handler(stmt, data_sharing);
         }
 
         void Core::parallel_for_handler_post(TL::PragmaCustomStatement construct)
