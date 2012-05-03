@@ -1977,31 +1977,7 @@ static void favor_known_expression_ambiguities(AST previous_choice,
     //  since the 1 case is already OK to us (so we go into the if
     //  but nothing is done)
     //
-    //  Example:
-    //
-    //   sizeof(T()) could be either a type or an expression but we
-    //   favor the type 'function () returning T' instead of 'call
-    //   T with zero arguments'
     int either;
-    if ((either = either_type(previous_choice, current_choice,
-                    AST_SIZEOF_TYPEID, AST_SIZEOF)))
-    {
-        if (either < 0)
-        {
-            (*correct_choice) = current_index;
-            (*previous_output) = current_nodecl;
-        }
-    }
-    
-    else if ((either = either_type(previous_choice, current_choice,
-                    AST_TYPEID_TYPE, AST_TYPEID_EXPR)))
-    {
-        if (either < 0)
-        {
-            (*correct_choice) = current_index;
-            (*previous_output) = current_nodecl;
-        }
-    }
     // This one covers cases like this one
     //
     // template <typename _T>
@@ -2022,7 +1998,7 @@ static void favor_known_expression_ambiguities(AST previous_choice,
     //
     // But this last case is not ambiguous so it will never go
     // through this desambiguation code
-    else if ((either = either_type(previous_choice, current_choice, 
+    if ((either = either_type(previous_choice, current_choice, 
                     AST_EXPLICIT_TYPE_CONVERSION, AST_FUNCTION_CALL)))
     {
         if (either < 0)
