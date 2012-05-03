@@ -156,8 +156,9 @@ TL::Scope CxxBase::get_current_scope() const
 
 bool CxxBase::is_non_language_reference_type(TL::Type type)
 {
-    return ((IS_C_LANGUAGE && type.is_any_reference())
-            || (IS_CXX_LANGUAGE && type.is_rebindable_reference()));
+    return this->is_file_output()
+        && ((IS_C_LANGUAGE && type.is_any_reference())
+                || (IS_CXX_LANGUAGE && type.is_rebindable_reference()));
 }
 
 bool CxxBase::is_non_language_reference_variable(TL::Symbol sym)
