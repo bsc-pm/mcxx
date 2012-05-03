@@ -394,8 +394,8 @@ exec-environment : NODECL_PARALLEL*CONDITION([condition]expression)
                  | NODECL_PARALLEL*COPY_INOUT([inout_copies]expression-seq)
                  | NODECL_PARALLEL*SCHEDULE([chunk]expression-opt) text
 # Not yet decided
-                 | NODECL_PARALLEL*TARGET() 
-                 | NODECL_PARALLEL*PRIORITY([priority]expression) 
+                 | NODECL_PARALLEL*TARGET()
+                 | NODECL_PARALLEL*PRIORITY([priority]expression)
                  | NODECL_PARALLEL*UNTIED()
                  | NODECL_PARALLEL*CRITICAL_NAME() text
                  | NODECL_PARALLEL*BARRIER_AT_END()
@@ -403,19 +403,19 @@ exec-environment : NODECL_PARALLEL*CONDITION([condition]expression)
 async-reduction : NODECL_PARALLEL*REDUCTION_ITEM([reductor]name, [reduced_symbol]name)
 
 # parallel
-replicated-execution : NODECL_PARALLEL*REPLICATE([environment]exec-environment-seq-opt, [num_replicas]expression-opt, [exec]async-execution)
+replicated-execution : NODECL_PARALLEL*REPLICATE([environment]exec-environment-seq-opt, [num_replicas]expression-opt, [statements]statement-seq)
 
 # for
-distributed-execution : NODECL_PARALLEL*DISTRIBUTE([environment]exec-environment-seq-opt, [ranges]distribute-range-seq, [exec]async-execution)
+distributed-execution : NODECL_PARALLEL*DISTRIBUTE([environment]exec-environment-seq-opt, [ranges]distribute-range-seq, [statements]statement-seq)
 distribute-range : NODECL_PARALLEL*DISTRIBUTE_RANGE([lower]expression, [upper]expression, [step]expression) symbol
 
 # atomic
-atomic-execution : NODECL_PARALLEL*ATOMIC([name]name-opt, [statements]statement-seq-opt)
+atomic-execution : NODECL_PARALLEL*ATOMIC([name]name-opt, [statements]statement-seq)
 
 # sections
-composited-execution : NODECL_PARALLEL*COMPOSITE([environment]exec-environment-seq-opt, [regions]async-execution-seq)
+composited-execution : NODECL_PARALLEL*COMPOUND([environment]exec-environment-seq-opt, [regions]statement-seq)
 
-synchronization : NODECL_PARALLEL*WAIT_ASYNCS_DEPENDENCES([environment] exec-environment-seq-opt)
+synchronization : NODECL_PARALLEL*WAIT_ASYNCS_DEPENDENCES([environment]exec-environment-seq-opt)
 # First level of async
                 | NODECL_PARALLEL*WAIT_ASYNCS_SHALLOW()
 # All levels of async
