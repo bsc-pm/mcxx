@@ -630,6 +630,12 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                                     new_member->decl_context)));
                 }
 
+                new_member->entity_specs.is_copy_constructor =
+                    function_is_copy_constructor(new_member, being_instantiated);
+
+                new_member->entity_specs.is_copy_assignment_operator =
+                    function_is_copy_assignment_operator(new_member, being_instantiated);
+
                 if (member_of_template->entity_specs.is_constructor)
                 {
                     if (member_of_template->entity_specs.is_default_constructor)

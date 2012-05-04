@@ -10526,7 +10526,7 @@ static void build_scope_member_template_simple_declaration(decl_context_t decl_c
             nodecl_output, /* declared_symbols */ NULL);
 }
 
-static char is_copy_assignment_operator(scope_entry_t* entry, type_t* class_type)
+char function_is_copy_assignment_operator(scope_entry_t* entry, type_t* class_type)
 {
     // Remember copy assignment operators
     if ((strcmp(entry->symbol_name, STR_OPERATOR_ASSIGNMENT) == 0)
@@ -10571,7 +10571,7 @@ static char is_move_assignment_operator(scope_entry_t* entry, type_t* class_type
     return 0;
 }
 
-static char is_copy_constructor(scope_entry_t* entry, type_t* class_type)
+char function_is_copy_constructor(scope_entry_t* entry, type_t* class_type)
 {
     if (entry->entity_specs.is_constructor
             && can_be_called_with_number_of_arguments(entry, 1)
@@ -10691,10 +10691,8 @@ static void update_member_function_info(AST declarator_name,
                         class_type_set_default_constructor(class_type, entry);
                     }
 
-                    if (is_copy_constructor(entry, class_type))
-                    {
-                        entry->entity_specs.is_copy_constructor = 1;
-                    }
+                    entry->entity_specs.is_copy_constructor =
+                        function_is_copy_constructor(entry, class_type);
 
                     CXX1X_LANGUAGE()
                     {
@@ -10723,10 +10721,8 @@ static void update_member_function_info(AST declarator_name,
         case AST_OPERATOR_FUNCTION_ID :
         case AST_OPERATOR_FUNCTION_ID_TEMPLATE :
             {
-                if (is_copy_assignment_operator(entry, class_type))
-                {
-                    entry->entity_specs.is_copy_assignment_operator = 1;
-                }
+                entry->entity_specs.is_copy_assignment_operator =
+                    function_is_copy_assignment_operator(entry, class_type);
 
                 CXX1X_LANGUAGE()
                 {
