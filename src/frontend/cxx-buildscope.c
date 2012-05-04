@@ -1107,11 +1107,18 @@ void introduce_using_entities(
         if (entry_list_contains(already_using, entry))
             continue;
 
+        scope_entry_t* original_entry = entry;
+        if (original_entry->kind == SK_USING)
+        {
+            // We want the ultimate alias
+            original_entry = original_entry->entity_specs.alias_to;
+        }
+
         scope_entry_t* used_name = new_symbol(decl_context, decl_context.current_scope, symbol_name);
         used_name->kind = SK_USING;
         used_name->file = filename;
         used_name->line = line;
-        used_name->entity_specs.alias_to = entry;
+        used_name->entity_specs.alias_to = original_entry;
         if (current_class != NULL)
         {
             used_name->entity_specs.is_member = 1;

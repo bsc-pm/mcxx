@@ -2022,8 +2022,12 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
             && (best_viable != NULL))
     {
         overload_entry_list_t* current = it;
-        // Do not compare to ourselves
-        if (current != best_viable)
+        
+        scope_entry_t* sym_current = entry_advance_aliases(current->candidate->entry);
+        scope_entry_t* sym_best_viable = entry_advance_aliases(best_viable->candidate->entry);
+
+        // Do not compare to the same symbol
+        if (sym_best_viable != sym_current)
         {
             if (!is_better_function(best_viable, current, 
                         decl_context, filename, line))
