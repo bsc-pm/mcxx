@@ -43,28 +43,14 @@ namespace TL { namespace Nanox {
 
     void LoweringVisitor::visit(const Nodecl::Parallel::Replicate& construct)
     {
-        // -- Not used yet
-        // Nodecl::NodeclBase replicate_environment = construct.get_environment(); 
         Nodecl::NodeclBase num_replicas = construct.get_num_replicas();
-        Nodecl::NodeclBase async_execution = construct.get_exec();
-
-        if (!async_execution.is<Nodecl::Parallel::Async>())
-        {
-            internal_error("Unsupported async node at '%s' of kind '%s'\n", 
-                    async_execution.get_locus().c_str(),
-                    ast_print_node_type(ASTType(nodecl_get_ast(async_execution.get_internal_nodecl()))));
-        }
-
-        Nodecl::Parallel::Async async( async_execution.as<Nodecl::Parallel::Async>() );
-
-        Nodecl::NodeclBase environment = async.get_environment();
-        Nodecl::NodeclBase statements = async.get_statements();
+        Nodecl::NodeclBase environment = construct.get_environment();
+        Nodecl::NodeclBase statements = construct.get_statements();
 
         walk(statements);
 
-        // -- Not used yet
-        // ParallelEnvironmentVisitor parallel_environment;
-        // parallel_environment.walk(environment);
+        // Get the new statements
+        statements = construct.get_statements();
 
         OutlineInfo outline_info(environment);
 
@@ -75,7 +61,7 @@ namespace TL { namespace Nanox {
 
         Source outline_source, reduction_code;
         Nodecl::NodeclBase placeholder;
-        outline_source 
+        outline_source
             << statement_placeholder(placeholder)
             << reduction_code
             ;

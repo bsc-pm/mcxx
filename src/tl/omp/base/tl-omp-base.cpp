@@ -178,15 +178,17 @@ namespace TL { namespace OpenMP {
 
 #define OMP_DIRECTIVE(_directive, _name) \
                 { \
-                    dispatcher().directive.pre[_directive].connect(functor(&Base::_name##_handler_pre, *this)); \
-                    dispatcher().directive.post[_directive].connect(functor(&Base::_name##_handler_post, *this)); \
+                    std::string directive_name = remove_separators_of_directive(_directive); \
+                    dispatcher().directive.pre[directive_name].connect(functor(&Base::_name##_handler_pre, *this)); \
+                    dispatcher().directive.post[directive_name].connect(functor(&Base::_name##_handler_post, *this)); \
                 }
 #define OMP_CONSTRUCT_COMMON(_directive, _name, _noend) \
                 { \
-                    dispatcher().declaration.pre[_directive].connect(functor((void (Base::*)(TL::PragmaCustomDeclaration))&Base::_name##_handler_pre, *this)); \
-                    dispatcher().declaration.post[_directive].connect(functor((void (Base::*)(TL::PragmaCustomDeclaration))&Base::_name##_handler_post, *this)); \
-                    dispatcher().statement.pre[_directive].connect(functor((void (Base::*)(TL::PragmaCustomStatement))&Base::_name##_handler_pre, *this)); \
-                    dispatcher().statement.post[_directive].connect(functor((void (Base::*)(TL::PragmaCustomStatement))&Base::_name##_handler_post, *this)); \
+                    std::string directive_name = remove_separators_of_directive(_directive); \
+                    dispatcher().declaration.pre[directive_name].connect(functor((void (Base::*)(TL::PragmaCustomDeclaration))&Base::_name##_handler_pre, *this)); \
+                    dispatcher().declaration.post[directive_name].connect(functor((void (Base::*)(TL::PragmaCustomDeclaration))&Base::_name##_handler_post, *this)); \
+                    dispatcher().statement.pre[directive_name].connect(functor((void (Base::*)(TL::PragmaCustomStatement))&Base::_name##_handler_pre, *this)); \
+                    dispatcher().statement.post[directive_name].connect(functor((void (Base::*)(TL::PragmaCustomStatement))&Base::_name##_handler_post, *this)); \
                 }
 #define OMP_CONSTRUCT(_directive, _name) OMP_CONSTRUCT_COMMON(_directive, _name, false)
 #define OMP_CONSTRUCT_NOEND(_directive, _name) OMP_CONSTRUCT_COMMON(_directive, _name, true)
@@ -446,13 +448,9 @@ namespace TL { namespace OpenMP {
 
         directive.integrate(
                 Nodecl::Parallel::Replicate::make(
-                    Nodecl::NodeclBase::null(),
+                    execution_environment,
                     number_of_replicas,
-                    Nodecl::Parallel::Async::make(
-                        execution_environment,
-                        directive.get_statements().copy(),
-                        directive.get_filename(),
-                        directive.get_line()),
+                    directive.get_statements().copy(),
                     directive.get_filename(),
                     directive.get_line()));
     }
@@ -496,16 +494,15 @@ namespace TL { namespace OpenMP {
         ERROR_CONDITION(!statement.is<Nodecl::List>(), "Invalid tree", 0);
         statement = statement.as<Nodecl::List>().front();
 
-        loop_handler_post(directive, statement);
+        Nodecl::NodeclBase code = loop_handler_post(directive, statement);
+        directive.integrate(code);
     }
 
-    void Base::loop_handler_pre(TL::PragmaCustomStatement) { }
-    void Base::loop_handler_post(TL::PragmaCustomStatement directive, Nodecl::NodeclBase statement)
+    Nodecl::NodeclBase Base::loop_handler_post(TL::PragmaCustomStatement directive, Nodecl::NodeclBase statement)
     {
         OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
         Nodecl::List execution_environment = this->make_execution_environment(ds, pragma_line);
-        Nodecl::List distribute_environment;
 
         if (pragma_line.get_clause("schedule").is_defined())
         {
@@ -538,12 +535,12 @@ namespace TL { namespace OpenMP {
                     || schedule == "runtime"
                     || schedule == "auto")
             {
-            distribute_environment.push_back(
-                    Nodecl::Parallel::Schedule::make(
-                        chunk,
-                        schedule,
-                        directive.get_filename(),
-                        directive.get_line()));
+                execution_environment.push_back(
+                        Nodecl::Parallel::Schedule::make(
+                            chunk,
+                            schedule,
+                            directive.get_filename(),
+                            directive.get_line()));
             }
             else
             {
@@ -554,7 +551,7 @@ namespace TL { namespace OpenMP {
         else
         {
             // def-sched-var is STATIC in our implementation
-            distribute_environment.push_back(
+            execution_environment.push_back(
                     Nodecl::Parallel::Schedule::make(
                         ::const_value_to_nodecl(const_value_get_signed_int(1)),
                         "static",
@@ -564,7 +561,7 @@ namespace TL { namespace OpenMP {
 
         if (!pragma_line.get_clause("nowait").is_defined())
         {
-            distribute_environment.push_back(
+            execution_environment.push_back(
                     Nodecl::Parallel::BarrierAtEnd::make(
                         directive.get_filename(),
                         directive.get_line()));
@@ -573,10 +570,9 @@ namespace TL { namespace OpenMP {
         ERROR_CONDITION (!statement.is<Nodecl::ForStatement>(), "Invalid tree of kind '%s'", ast_print_node_type(statement.get_kind()));
         TL::ForStatement for_statement(statement.as<Nodecl::ForStatement>());
 
-        Nodecl::List code;
         Nodecl::Parallel::Distribute distribute =
             Nodecl::Parallel::Distribute::make(
-                    distribute_environment,
+                    execution_environment,
                     // This is a list because of multidimensional distribution
                     Nodecl::List::make(
                         Nodecl::Parallel::DistributeRange::make(
@@ -586,23 +582,16 @@ namespace TL { namespace OpenMP {
                             for_statement.get_induction_variable(),
                             for_statement.get_filename(),
                             for_statement.get_line())),
-                    Nodecl::Parallel::Async::make(
-                        execution_environment,
-                        for_statement.get_statement(),
-                        for_statement.get_filename(),
-                        for_statement.get_line()),
+                    for_statement.get_statement(),
                     directive.get_filename(),
                     directive.get_line());
 
-        code.push_back(distribute);
+        Nodecl::NodeclBase code = Nodecl::List::make(distribute);
 
-        directive.integrate(code);
+        return code;
     }
 
-    void Base::do_handler_pre(TL::PragmaCustomStatement directive)
-    {
-        loop_handler_pre(directive);
-    }
+    void Base::do_handler_pre(TL::PragmaCustomStatement directive) { }
 
     void Base::do_handler_post(TL::PragmaCustomStatement directive)
     {
@@ -610,7 +599,8 @@ namespace TL { namespace OpenMP {
         ERROR_CONDITION(!statement.is<Nodecl::List>(), "Invalid tree", 0);
         statement = statement.as<Nodecl::List>().front();
 
-        loop_handler_post(directive, statement);
+        Nodecl::NodeclBase code = loop_handler_post(directive, statement);
+        directive.integrate(code);
     }
 
     // Function tasks
@@ -728,15 +718,49 @@ namespace TL { namespace OpenMP {
         ERROR_CONDITION(!for_code.is<Nodecl::List>(), "Invalid tree", 0);
         for_code = for_code.as<Nodecl::List>().front();
 
-        loop_handler_post(directive, for_code);
+        Nodecl::NodeclBase loop_code = loop_handler_post(directive, for_code);
+        directive.integrate(loop_code);
     }
 
-    void Base::parallel_for_handler_pre(TL::PragmaCustomStatement)
-    {
-    }
+    void Base::parallel_for_handler_pre(TL::PragmaCustomStatement) { }
 
-    void Base::parallel_for_handler_post(TL::PragmaCustomStatement)
+    void Base::parallel_for_handler_post(TL::PragmaCustomStatement directive)
     {
+        OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
+        PragmaCustomLine pragma_line = directive.get_pragma_line();
+        Nodecl::List execution_environment = this->make_execution_environment(ds, pragma_line);
+
+        Nodecl::NodeclBase statement = directive.get_statements();
+        ERROR_CONDITION(!statement.is<Nodecl::List>(), "Invalid tree", 0);
+        statement = statement.as<Nodecl::List>().front();
+        ERROR_CONDITION(!statement.is<Nodecl::Context>(), "Invalid tree", 0);
+        statement = statement.as<Nodecl::Context>().get_in_context();
+        ERROR_CONDITION(!statement.is<Nodecl::List>(), "Invalid tree", 0);
+        statement = statement.as<Nodecl::List>().front();
+
+        Nodecl::NodeclBase number_of_replicas;
+        PragmaCustomClause clause = pragma_line.get_clause("num_threads");
+        if (clause.is_defined())
+        {
+            ObjectList<Nodecl::NodeclBase> args = clause.get_arguments_as_expressions();
+
+            // Let core check this for us
+            ERROR_CONDITION (args.size() != 1, "num_threads wrong clause", 0);
+
+            number_of_replicas = args[0];
+        }
+
+        Nodecl::NodeclBase code = loop_handler_post(directive, statement);
+
+        Nodecl::NodeclBase replicate
+            = Nodecl::Parallel::Replicate::make(
+                execution_environment,
+                number_of_replicas,
+                code,
+                directive.get_filename(),
+                directive.get_line());
+
+        directive.integrate(replicate);
     }
 
     // Keep these

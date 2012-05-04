@@ -341,6 +341,9 @@ namespace TL { namespace Nanox {
 
         walk(statements);
 
+        // Get the new statements
+        statements = construct.get_statements().as<Nodecl::List>();
+
         Nodecl::List replacements;
 
         for (Nodecl::List::iterator it = statements.begin(); it != statements.end(); it++)

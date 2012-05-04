@@ -46,7 +46,7 @@ namespace TL { namespace Nanox {
 
             << "if (single_guard)"
             << "{"
-            <<     as_statement(statements.copy())
+            <<     statements.prettyprint()
             << "}"
             << "}"
             ;

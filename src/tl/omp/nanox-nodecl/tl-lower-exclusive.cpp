@@ -48,6 +48,9 @@ namespace TL { namespace Nanox {
 
         walk(statements);
 
+        // Get the new statements
+        statements = construct.get_statements();
+
         std::string lock_name = "nanos_default_critical_lock";
         if (!environment.is_null())
         {

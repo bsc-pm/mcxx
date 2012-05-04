@@ -38,16 +38,14 @@ namespace TL { namespace Nanox {
         Nodecl::List distribute_environment = construct.get_environment().as<Nodecl::List>();
 
         Nodecl::List ranges = construct.get_ranges().as<Nodecl::List>();
-        Nodecl::NodeclBase executable_part = construct.get_exec();
-
-        ERROR_CONDITION(!executable_part.is<Nodecl::Parallel::Async>(), "Invalid tree", 0);
-
-        Nodecl::Parallel::Async async = executable_part.as<Nodecl::Parallel::Async>();
-        Nodecl::NodeclBase statements = async.get_statements();
+        Nodecl::NodeclBase statements = construct.get_statements();
 
         walk(statements);
 
-        Nodecl::NodeclBase environment = async.get_environment();
+        // Get the new statements
+        statements = construct.get_statements();
+
+        Nodecl::NodeclBase environment = construct.get_environment();
 
         OutlineInfo outline_info(environment);
         Symbol function_symbol = Nodecl::Utils::get_enclosing_function(construct);

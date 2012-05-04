@@ -86,13 +86,13 @@ namespace TL { namespace Nanox {
                 <<     "err = nanos_omp_get_schedule(&nanos_runtime_sched, &nanos_chunk);"
                 <<     "if (err != NANOS_OK)"
                 <<         "nanos_handle_error(err);"
-                <<     "nanos_ws_t *current_ws_policy = nanos_omp_find_worksharing(nanos_runtime_sched);"
+                <<     "nanos_ws_t current_ws_policy = nanos_omp_find_worksharing(nanos_runtime_sched);"
                 ;
         }
         else
         {
             schedule_setup
-                <<     "nanos_ws_t *current_ws_policy = nanos_omp_find_worksharing(omp_sched_" << schedule.get_text() << ");"
+                <<     "nanos_ws_t current_ws_policy = nanos_omp_find_worksharing(omp_sched_" << schedule.get_text() << ");"
                 ;
         }
 
@@ -103,14 +103,14 @@ namespace TL { namespace Nanox {
 
         Source usual_worksharing_creation;
         usual_worksharing_creation
-            <<     "err = nanos_worksharing_create(&imm_args.wsd, *current_ws_policy, (nanos_ws_info_t *) &info_loop, &single_guard);"
+            <<     "err = nanos_worksharing_create(&imm_args.wsd, current_ws_policy, (nanos_ws_info_t *) &info_loop, &single_guard);"
             <<     "if (err != NANOS_OK)"
             <<         "nanos_handle_error(err);"
             ;
 
         Source worksharing_creation_under_reduction;
         worksharing_creation_under_reduction
-            <<     "err = nanos_worksharing_create(&imm_args.wsd, *current_ws_policy, (nanos_ws_info_t *) &info_loop, (void*)0);"
+            <<     "err = nanos_worksharing_create(&imm_args.wsd, current_ws_policy, (nanos_ws_info_t *) &info_loop, (void*)0);"
             <<     "if (err != NANOS_OK)"
             <<         "nanos_handle_error(err);"
             <<     "err = nanos_enter_sync_init ( &single_guard );"
@@ -135,7 +135,7 @@ namespace TL { namespace Nanox {
                 << worksharing_creation_under_reduction;
 
             init_reduction_code
-                << "int nanos_num_threads = nanos_omp_get_max_threads();"
+                << "unsigned int nanos_num_threads = nanos_omp_get_max_threads();"
                 ;
 
             reduction_initialization_code(
@@ -171,7 +171,7 @@ namespace TL { namespace Nanox {
         spawn_code
         << "{"
         <<     immediate_decl
-        <<     "_Bool single_guard;"
+        <<     as_type(get_bool_type()) << " single_guard;"
         <<     "nanos_err_t err;"
         <<     schedule_setup
         <<     "nanos_ws_info_loop_t info_loop;"
