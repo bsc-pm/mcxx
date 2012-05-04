@@ -1277,39 +1277,41 @@ enum type_tag_t class_type_get_class_kind(type_t* t)
 
 static type_t* remove_typedefs(type_t* t)
 {
+    cv_qualifier_t cv_qualif = get_cv_qualifier(t);
     if (is_named_type(t)
             && named_type_get_symbol(t)->kind == SK_TYPEDEF)
     {
-        return remove_typedefs(named_type_get_symbol(t)->type_information);
+        return get_cv_qualified_type(remove_typedefs(named_type_get_symbol(t)->type_information), cv_qualif);
     }
     else if (is_pointer_type(t))
     {
-        return get_pointer_type(
-                remove_typedefs(pointer_type_get_pointee_type(t)));
+        return get_cv_qualified_type(get_pointer_type(
+                remove_typedefs(pointer_type_get_pointee_type(t))), cv_qualif);
     }
     else if (is_pointer_to_member_type(t))
     {
         type_t* pointee = remove_typedefs(pointer_type_get_pointee_type(t));
         scope_entry_t* class_symbol = pointer_to_member_type_get_class(t);
 
-        return get_pointer_to_member_type(pointee, class_symbol);
+        return get_cv_qualified_type(get_pointer_to_member_type(pointee, class_symbol), cv_qualif);
     }
     else if (is_lvalue_reference_type(t))
     {
-        return get_lvalue_reference_type(
-                remove_typedefs(reference_type_get_referenced_type(t)));
+        return get_cv_qualified_type(get_lvalue_reference_type(
+                remove_typedefs(reference_type_get_referenced_type(t))), cv_qualif);
     }
     else if (is_rvalue_reference_type(t))
     {
-        return get_rvalue_reference_type(
-                remove_typedefs(reference_type_get_referenced_type(t)));
+        return get_cv_qualified_type(get_rvalue_reference_type(
+                remove_typedefs(reference_type_get_referenced_type(t))), cv_qualif);
     }
     else if (is_array_type(t))
     {
-        return get_array_type(
+        // Check this
+        return get_cv_qualified_type(get_array_type(
                 remove_typedefs(array_type_get_element_type(t)),
                 array_type_get_array_size_expr(t),
-                array_type_get_array_size_expr_context(t));
+                array_type_get_array_size_expr_context(t)), cv_qualif);
     }
     else if (is_function_type(t))
     {
@@ -1325,13 +1327,13 @@ static type_t* remove_typedefs(type_t* t)
             param_info[i].type_info = remove_typedefs(function_type_get_parameter_type_num(t, i));
         }
 
-        return get_new_function_type(return_type, param_info, N); 
+        return get_cv_qualified_type(get_new_function_type(return_type, param_info, N), cv_qualif); 
     }
     else if (is_vector_type(t))
     {
-        return get_vector_type(
+        return get_cv_qualified_type(get_vector_type(
                 remove_typedefs(vector_type_get_element_type(t)),
-                vector_type_get_vector_size(t));
+                vector_type_get_vector_size(t)), cv_qualif);
     }
     else
     {
