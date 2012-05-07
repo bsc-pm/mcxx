@@ -115,7 +115,7 @@ namespace TL { namespace Nanox {
         Nodecl::NodeclBase critical_code;
         critical_code = critical_postorder_src.parse_statement(construct);
 
-        stmt_placeholder.integrate(statements.copy());
+        stmt_placeholder.integrate(statements.shallow_copy());
 
         construct.integrate(critical_code);
     }

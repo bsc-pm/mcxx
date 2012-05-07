@@ -332,7 +332,7 @@ static nodecl_t simplify_len(int num_arguments UNUSED_PARAMETER, nodecl_t* argum
     if (array_type_is_unknown_size(t))
         return nodecl_null();
 
-    return nodecl_copy(array_type_get_array_size_expr(t));
+    return nodecl_shallow_copy(array_type_get_array_size_expr(t));
 }
 
 static nodecl_t simplify_kind(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
@@ -460,7 +460,7 @@ static nodecl_t simplify_xbound(int num_arguments UNUSED_PARAMETER, nodecl_t* ar
             }
 
             nodecl_list = nodecl_concat_lists(
-                    nodecl_make_list_1(nodecl_copy(bound_fun(t))),
+                    nodecl_make_list_1(nodecl_shallow_copy(bound_fun(t))),
                     nodecl_list);
 
             t = array_type_get_element_type(t);
@@ -481,7 +481,7 @@ static nodecl_t simplify_xbound(int num_arguments UNUSED_PARAMETER, nodecl_t* ar
             t = no_ref(nodecl_get_type(array));
             for (i = 0; i < rank; i++)
             {
-                nodecl_t bound = nodecl_copy(bound_fun(t)); 
+                nodecl_t bound = nodecl_shallow_copy(bound_fun(t)); 
 
                 const_vals[rank - i - 1] = nodecl_get_constant(bound);
 
@@ -514,7 +514,7 @@ static nodecl_t simplify_xbound(int num_arguments UNUSED_PARAMETER, nodecl_t* ar
 
             if (!array_type_is_unknown_size(t))
             {
-                return nodecl_copy(bound_fun(t));
+                return nodecl_shallow_copy(bound_fun(t));
             }
         }
     }
@@ -583,7 +583,7 @@ static nodecl_t simplify_size(int num_arguments UNUSED_PARAMETER, nodecl_t* argu
 
             if (!array_type_is_unknown_size(t))
             {
-                return nodecl_copy(array_type_get_array_size_expr(t));
+                return nodecl_shallow_copy(array_type_get_array_size_expr(t));
             }
         }
     }
@@ -623,7 +623,7 @@ static nodecl_t simplify_shape(int num_arguments UNUSED_PARAMETER, nodecl_t* arg
             return nodecl_null();
 
         nodecl_list = nodecl_concat_lists(
-                nodecl_make_list_1(nodecl_copy(size)),
+                nodecl_make_list_1(nodecl_shallow_copy(size)),
                 nodecl_list);
 
         t = array_type_get_element_type(t);

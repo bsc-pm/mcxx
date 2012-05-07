@@ -43,7 +43,7 @@ char nodecl_is_null(nodecl_t t);
 AST nodecl_get_ast(nodecl_t t);
 
 // Deep copy of the tree
-nodecl_t nodecl_copy(nodecl_t t);
+nodecl_t nodecl_shallow_copy(nodecl_t t);
 
 // Parent
 nodecl_t nodecl_get_parent(nodecl_t t);

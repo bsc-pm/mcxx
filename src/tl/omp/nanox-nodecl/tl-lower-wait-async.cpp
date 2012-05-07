@@ -146,7 +146,7 @@ void LoweringVisitor::fill_dependences_wait(
                 {
                     Source dimension_size, dimension_lower_bound, dimension_accessed_length;
 
-                    dimension_size << as_expression(dimension_sizes[num_dimensions - 1].copy()) << "* sizeof(" << base_type_name << ")";
+                    dimension_size << as_expression(dimension_sizes[num_dimensions - 1].shallow_copy()) << "* sizeof(" << base_type_name << ")";
                     dimension_lower_bound << "0";
                     dimension_accessed_length << dimension_size;
 
@@ -194,9 +194,9 @@ void LoweringVisitor::fill_dependences_wait(
                         size = contiguous_array_type.array_get_size();
                     }
 
-                    dimension_size << "sizeof(" << base_type_name << ") * " << as_expression(dimension_sizes[num_dimensions - 1].copy());
-                    dimension_lower_bound << "sizeof(" << base_type_name << ") * " << as_expression(lb.copy());
-                    dimension_accessed_length << "sizeof(" << base_type_name << ") * " << as_expression(size.copy());
+                    dimension_size << "sizeof(" << base_type_name << ") * " << as_expression(dimension_sizes[num_dimensions - 1].shallow_copy());
+                    dimension_lower_bound << "sizeof(" << base_type_name << ") * " << as_expression(lb.shallow_copy());
+                    dimension_accessed_length << "sizeof(" << base_type_name << ") * " << as_expression(size.shallow_copy());
 
                     if (IS_C_LANGUAGE
                             || IS_CXX_LANGUAGE)
@@ -344,7 +344,7 @@ void LoweringVisitor::fill_dependences_wait(
                 }
 
                 Nodecl::NodeclBase ptr_ref = 
-                    Nodecl::Reference::make(dep_expr.copy(),
+                    Nodecl::Reference::make(dep_expr.shallow_copy(),
                             dep_expr.get_type().get_pointer_to(),
                             dep_expr.get_filename(),
                             dep_expr.get_line());

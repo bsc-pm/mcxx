@@ -7299,7 +7299,7 @@ static void check_nodecl_cast_expr(nodecl_t nodecl_casted_expr,
         // If possible this will set a proper conversion call
         nodecl_t nodecl_cast_output = nodecl_null();
         nodecl_t nodecl_parenthesized_init = nodecl_make_cxx_parenthesized_initializer(
-                nodecl_make_list_1(nodecl_copy(nodecl_casted_expr)),
+                nodecl_make_list_1(nodecl_shallow_copy(nodecl_casted_expr)),
                 nodecl_get_filename(nodecl_casted_expr),
                 nodecl_get_line(nodecl_casted_expr));
         // This actually checks T(e)
@@ -8082,7 +8082,7 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
         }
         else
         {
-            cxx_compute_name_from_entry_list(nodecl_copy(nodecl_called), candidates, decl_context, &nodecl_called);
+            cxx_compute_name_from_entry_list(nodecl_shallow_copy(nodecl_called), candidates, decl_context, &nodecl_called);
         }
     }
 
@@ -8332,7 +8332,7 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
             }
 
             // This is the implicit argument
-            nodecl_implicit_argument = nodecl_copy(nodecl_called);
+            nodecl_implicit_argument = nodecl_shallow_copy(nodecl_called);
             argument_types[0] = called_type;
         }
     }
@@ -8973,7 +8973,7 @@ static char is_pseudo_destructor_id(decl_context_t decl_context,
         int i;
         for (i = 0; i < num_items - 1; i++)
         {
-            new_list = nodecl_append_to_list(new_list, nodecl_copy(list[i]));
+            new_list = nodecl_append_to_list(new_list, nodecl_shallow_copy(list[i]));
         }
 
         if (nodecl_get_kind(nodecl_member) == NODECL_CXX_DEP_GLOBAL_NAME_NESTED)
@@ -8993,7 +8993,7 @@ static char is_pseudo_destructor_id(decl_context_t decl_context,
     {
         // For the case T::~T, we cannot build a nested name with a single
         // element, so use the element itself
-        nodecl_new_nested_name = nodecl_copy(list[0]);
+        nodecl_new_nested_name = nodecl_shallow_copy(list[0]);
     }
 
     scope_entry_list_t* entry_list = query_nodecl_name_flags(decl_context, 
@@ -10853,7 +10853,7 @@ static void check_nodecl_designation_type(nodecl_t nodecl_designation,
                         {
                             designator_path->items[i].kind = NODECL_INDEX_DESIGNATOR;
                             designator_path->items[i].value = 
-                                nodecl_copy(nodecl_get_child(nodecl_current_designator, 0));
+                                nodecl_shallow_copy(nodecl_get_child(nodecl_current_designator, 0));
                         }
                     }
                     break;
@@ -13165,7 +13165,7 @@ static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
         nodecl_upper = 
             nodecl_make_minus(
                     nodecl_make_add(
-                        nodecl_copy(nodecl_upper), nodecl_copy(nodecl_lower),
+                        nodecl_shallow_copy(nodecl_upper), nodecl_shallow_copy(nodecl_lower),
                         get_signed_int_type(), 
                         nodecl_get_filename(nodecl_upper), 
                         nodecl_get_line(nodecl_upper)),
@@ -14399,7 +14399,7 @@ static void instantiate_function_call(nodecl_instantiate_expr_visitor_t* v, node
 
     if (nodecl_get_kind(orig_called) == NODECL_CXX_DEP_NAME_SIMPLE)
     {
-        nodecl_called = nodecl_copy(orig_called);
+        nodecl_called = nodecl_shallow_copy(orig_called);
     }
     else
     {

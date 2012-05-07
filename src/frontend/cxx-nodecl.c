@@ -159,7 +159,7 @@ void nodecl_set_type(nodecl_t t, type_t* type)
     nodecl_expr_set_type(t.tree, type);
 }
 
-nodecl_t nodecl_copy(nodecl_t t)
+nodecl_t nodecl_shallow_copy(nodecl_t t)
 {
     nodecl_t result = { ast_copy(t.tree) };
     return result;

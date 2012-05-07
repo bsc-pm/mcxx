@@ -71,9 +71,9 @@ namespace Nodecl {
                 }
                 return result;
             }
-            Nodecl::NodeclBase copy() const
+            Nodecl::NodeclBase shallow_copy() const
             {
-                return nodecl_copy(this->_n);
+                return nodecl_shallow_copy(this->_n);
             }
             bool is_constant() const { return ::nodecl_is_constant(_n); }
             Nodecl::NodeclBase get_parent() const

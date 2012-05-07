@@ -766,9 +766,9 @@ namespace TL
             }
 
             _induction_var = loop_control.get_symbol();
-            _lower_bound = loop_control.get_lower().copy();
-            _upper_bound = loop_control.get_upper().copy();
-            _step = loop_control.get_step().copy();
+            _lower_bound = loop_control.get_lower().shallow_copy();
+            _upper_bound = loop_control.get_upper().shallow_copy();
+            _step = loop_control.get_step().shallow_copy();
 
             _is_omp_valid = true;
         }
@@ -798,14 +798,14 @@ namespace TL
                 }
 
                 Nodecl::NodeclBase rhs = init_expr.as<Nodecl::Assignment>().get_rhs();
-                _lower_bound = rhs.copy();
+                _lower_bound = rhs.shallow_copy();
             }
             // T _induction_var = lb
             else if (init_expr.is<Nodecl::ObjectInit>())
             { 
                 _induction_var = init_expr.get_symbol();
 
-                _lower_bound = _induction_var.get_value().copy();
+                _lower_bound = _induction_var.get_value().shallow_copy();
             }
             else
             {
@@ -856,7 +856,7 @@ namespace TL
                         else
                         {
                             _upper_bound = Nodecl::Minus::make(
-                                    rhs.copy(),
+                                    rhs.shallow_copy(),
                                     const_value_to_nodecl(const_value_get_one(4, 1)),
                                     t,
                                     rhs.get_filename(),
@@ -881,7 +881,7 @@ namespace TL
                         else
                         {
                             _upper_bound = Nodecl::Add::make(
-                                    lhs.copy(),
+                                    lhs.shallow_copy(),
                                     const_value_to_nodecl(const_value_get_one(4, 1)),
                                     t,
                                     lhs.get_filename(),
@@ -894,12 +894,12 @@ namespace TL
                     if (lhs_is_var)
                     {
                         // x <= E
-                        _upper_bound = rhs.copy();
+                        _upper_bound = rhs.shallow_copy();
                     }
                     else
                     {
                         // E <= x this is like x >= E
-                        _upper_bound = lhs.copy();
+                        _upper_bound = lhs.shallow_copy();
                     }
                 }
                 else if (test_expr.is<Nodecl::GreaterThan>())
@@ -923,7 +923,7 @@ namespace TL
                         else
                         {
                             _upper_bound = Nodecl::Add::make(
-                                    rhs.copy(),
+                                    rhs.shallow_copy(),
                                     const_value_to_nodecl(const_value_get_one(4, 1)),
                                     t,
                                     rhs.get_filename(),
@@ -948,7 +948,7 @@ namespace TL
                         else
                         {
                             _upper_bound = Nodecl::Minus::make(
-                                    lhs.copy(),
+                                    lhs.shallow_copy(),
                                     const_value_to_nodecl(const_value_get_one(4, 1)),
                                     t,
                                     lhs.get_filename(),
@@ -961,12 +961,12 @@ namespace TL
                     if (lhs_is_var)
                     {
                         // x >= E
-                        _upper_bound = rhs.copy();
+                        _upper_bound = rhs.shallow_copy();
                     }
                     else
                     {
                         // E >= x this is like x <= E
-                        _upper_bound = lhs.copy();
+                        _upper_bound = lhs.shallow_copy();
                     }
                 }
                 else
@@ -1009,7 +1009,7 @@ namespace TL
             else if (incr_expr.is<Nodecl::AddAssignment>()
                     && incr_expr.as<Nodecl::AddAssignment>().get_lhs().get_symbol() == _induction_var)
             {
-                _step = incr_expr.as<Nodecl::AddAssignment>().get_rhs().copy();
+                _step = incr_expr.as<Nodecl::AddAssignment>().get_rhs().shallow_copy();
             }
             // _induction_var -= incr
             else if (incr_expr.is<Nodecl::MinusAssignment>()
@@ -1041,7 +1041,7 @@ namespace TL
                     && incr_expr.as<Nodecl::Assignment>().get_rhs().is<Nodecl::Add>()
                     && incr_expr.as<Nodecl::Assignment>().get_rhs().as<Nodecl::Add>().get_lhs().get_symbol() == _induction_var)
             {
-                _step = incr_expr.as<Nodecl::Assignment>().get_rhs().as<Nodecl::Add>().get_rhs().copy();
+                _step = incr_expr.as<Nodecl::Assignment>().get_rhs().as<Nodecl::Add>().get_rhs().shallow_copy();
             }
             // _induction_var = incr + _induction_var
             else if (incr_expr.is<Nodecl::Assignment>()
@@ -1049,7 +1049,7 @@ namespace TL
                     && incr_expr.as<Nodecl::Assignment>().get_rhs().is<Nodecl::Add>()
                     && incr_expr.as<Nodecl::Assignment>().get_rhs().as<Nodecl::Add>().get_rhs().get_symbol() == _induction_var)
             {
-                _step = incr_expr.as<Nodecl::Assignment>().get_rhs().as<Nodecl::Add>().get_lhs().copy();
+                _step = incr_expr.as<Nodecl::Assignment>().get_rhs().as<Nodecl::Add>().get_lhs().shallow_copy();
             }
             // _induction_var = _induction_var - incr
             else if (incr_expr.is<Nodecl::Assignment>()
@@ -1072,7 +1072,7 @@ namespace TL
                 else
                 {
                     _step = Nodecl::Neg::make(
-                            rhs.copy(),
+                            rhs.shallow_copy(),
                             t,
                             rhs.get_filename(),
                             rhs.get_line());

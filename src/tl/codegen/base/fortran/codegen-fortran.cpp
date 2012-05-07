@@ -568,7 +568,7 @@ namespace Codegen
 
                 Nodecl::Assignment assig = Nodecl::Assignment::make(
                         nodecl_sym,
-                        entry.get_initialization().copy(),
+                        entry.get_initialization().shallow_copy(),
                         entry.get_type(),
                         node.get_filename(),
                         node.get_line());

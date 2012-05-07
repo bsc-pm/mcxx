@@ -129,7 +129,7 @@ namespace TL { namespace OpenMP {
                         Nodecl::Parallel::AsyncCall async_call = Nodecl::Parallel::AsyncCall::make(
                                 exec_env,
                                 // Do we need to copy this?
-                                call.copy(),
+                                call.shallow_copy(),
                                 call.get_filename(),
                                 call.get_line());
 
@@ -270,7 +270,7 @@ namespace TL { namespace OpenMP {
         Nodecl::Parallel::Atomic atomic =
             Nodecl::Parallel::Atomic::make(
                     Nodecl::NodeclBase::null(),
-                    directive.get_statements().copy(),
+                    directive.get_statements().shallow_copy(),
                     directive.get_filename(),
                     directive.get_line());
 
@@ -299,7 +299,7 @@ namespace TL { namespace OpenMP {
         directive.integrate(
                 Nodecl::Parallel::Exclusive::make(
                     exec_env,
-                    directive.get_statements().copy(),
+                    directive.get_statements().shallow_copy(),
                     directive.get_filename(),
                     directive.get_line()));
     }
@@ -318,7 +318,7 @@ namespace TL { namespace OpenMP {
         PragmaClauseArgList parameter = directive.get_pragma_line().get_parameter();
         directive.integrate(
                 Nodecl::Parallel::FlushMemory::make(
-                    parameter.copy(),
+                    parameter.shallow_copy(),
                     directive.get_filename(), directive.get_line())
                 );
     }
@@ -400,7 +400,7 @@ namespace TL { namespace OpenMP {
 
         Nodecl::NodeclBase async_code =
                     Nodecl::Parallel::Async::make(execution_environment,
-                        directive.get_statements().copy(),
+                        directive.get_statements().shallow_copy(),
                         directive.get_filename(),
                         directive.get_line());
 
@@ -418,7 +418,7 @@ namespace TL { namespace OpenMP {
                 async_code = Nodecl::IfElseStatement::make(
                         expr_list[0],
                         Nodecl::List::make(async_code),
-                        directive.get_statements().copy(),
+                        directive.get_statements().shallow_copy(),
                         directive.get_filename(),
                         directive.get_line());
             }
@@ -450,7 +450,7 @@ namespace TL { namespace OpenMP {
                 Nodecl::Parallel::Replicate::make(
                     execution_environment,
                     number_of_replicas,
-                    directive.get_statements().copy(),
+                    directive.get_statements().shallow_copy(),
                     directive.get_filename(),
                     directive.get_line()));
     }
@@ -467,7 +467,7 @@ namespace TL { namespace OpenMP {
         code.push_back(
                 Nodecl::Parallel::Single::make(
                     execution_environment,
-                    directive.get_statements().copy(),
+                    directive.get_statements().shallow_copy(),
                     directive.get_filename(),
                     directive.get_line()));
 

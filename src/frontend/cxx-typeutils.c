@@ -1180,24 +1180,24 @@ type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entry,
         {
             result->type->dependent_parts = 
                 nodecl_make_cxx_dep_name_nested(
-                        nodecl_concat_lists(nodecl_copy(nodecl_get_child(indirect_dependent_type->type->dependent_parts, 0)),
-                            nodecl_copy(nodecl_get_child(dependent_parts, 0))), 
+                        nodecl_concat_lists(nodecl_shallow_copy(nodecl_get_child(indirect_dependent_type->type->dependent_parts, 0)),
+                            nodecl_shallow_copy(nodecl_get_child(dependent_parts, 0))), 
                         nodecl_get_filename(indirect_dependent_type->type->dependent_parts),
                         nodecl_get_line(indirect_dependent_type->type->dependent_parts));
         }
         else if (nodecl_is_null(indirect_dependent_type->type->dependent_parts))
         {
-            result->type->dependent_parts = nodecl_copy(dependent_parts);
+            result->type->dependent_parts = nodecl_shallow_copy(dependent_parts);
         }
         else // nodecl_is_null(dependent_parts)
         {
-            result->type->dependent_parts = nodecl_copy(indirect_dependent_type->type->dependent_parts);
+            result->type->dependent_parts = nodecl_shallow_copy(indirect_dependent_type->type->dependent_parts);
         }
     }
     else
     {
         result->type->dependent_entry = dependent_entry;
-        result->type->dependent_parts = nodecl_copy(dependent_parts);
+        result->type->dependent_parts = nodecl_shallow_copy(dependent_parts);
     }
 
     // This is always dependent
@@ -2102,9 +2102,9 @@ static type_t* _clone_array_type(type_t* array_type, type_t* new_element_type)
 
         // And now rebuild the array type
         type_t* result = _get_array_type(new_element_type, 
-                nodecl_copy(whole_size), 
-                nodecl_copy(lower_bound), 
-                nodecl_copy(upper_bound), 
+                nodecl_shallow_copy(whole_size), 
+                nodecl_shallow_copy(lower_bound), 
+                nodecl_shallow_copy(upper_bound), 
                 decl_context,
                 array_region,
                 with_descriptor);
@@ -2835,7 +2835,7 @@ type_t* get_array_type(type_t* element_type, nodecl_t whole_size, decl_context_t
             }
             else
             {
-                temp = nodecl_copy(whole_size);
+                temp = nodecl_shallow_copy(whole_size);
             }
 
             upper_bound = nodecl_make_minus(
@@ -2889,7 +2889,7 @@ static nodecl_t compute_whole_size_given_bounds(
         }
         else
         {
-            lower_bound = nodecl_copy(lower_bound);
+            lower_bound = nodecl_shallow_copy(lower_bound);
         }
 
         if (nodecl_get_kind(upper_bound) == NODECL_SAVED_EXPR)
@@ -2902,7 +2902,7 @@ static nodecl_t compute_whole_size_given_bounds(
         }
         else
         {
-            upper_bound = nodecl_copy(upper_bound);
+            upper_bound = nodecl_shallow_copy(upper_bound);
         }
 
         whole_size = 
@@ -2961,8 +2961,8 @@ type_t* get_array_type_bounds_with_regions(type_t* element_type,
         nodecl_t region,
         decl_context_t region_decl_context)
 {
-    lower_bound = nodecl_copy(lower_bound);
-    upper_bound = nodecl_copy(upper_bound);
+    lower_bound = nodecl_shallow_copy(lower_bound);
+    upper_bound = nodecl_shallow_copy(upper_bound);
 
     nodecl_t whole_size = compute_whole_size_given_bounds(lower_bound, upper_bound);
 
@@ -4935,7 +4935,7 @@ static type_t* advance_dependent_typename_aux(
         }
     }
 
-    nodecl_t nodecl_unqualified_name = nodecl_copy(dep_parts[num_items - 1]);
+    nodecl_t nodecl_unqualified_name = nodecl_shallow_copy(dep_parts[num_items - 1]);
 
     // Last part
     ERROR_CONDITION(nodecl_get_kind(nodecl_unqualified_name) != NODECL_CXX_DEP_NAME_SIMPLE

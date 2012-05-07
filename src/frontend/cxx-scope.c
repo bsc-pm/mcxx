@@ -1227,11 +1227,11 @@ type_t* build_dependent_typename_for_entry(
     {
         template_tag = nodecl_get_text(nodecl_last);
         template_arguments = nodecl_get_template_parameters(nodecl_name);
-        nodecl_current = nodecl_copy(nodecl_get_child(nodecl_name, 0));
+        nodecl_current = nodecl_shallow_copy(nodecl_get_child(nodecl_name, 0));
     }
     else
     {
-        nodecl_current = nodecl_copy(nodecl_name);
+        nodecl_current = nodecl_shallow_copy(nodecl_name);
     }
 
     if (template_arguments != NULL)
@@ -1847,7 +1847,7 @@ static type_t* update_dependent_typename(
     nodecl_t new_dependent_parts_list = nodecl_null();
     for (i = 0; i < num_parts; i++)
     {
-        nodecl_t new_current_part = nodecl_copy(list[i]);
+        nodecl_t new_current_part = nodecl_shallow_copy(list[i]);
 
         if (nodecl_get_kind(new_current_part) == NODECL_CXX_DEP_TEMPLATE_ID)
         {

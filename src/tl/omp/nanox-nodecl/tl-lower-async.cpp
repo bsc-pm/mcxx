@@ -669,10 +669,10 @@ void LoweringVisitor::fill_arguments(
                         Type t = it->get_shared_expression().get_type();
 
                         fill_outline_arguments 
-                            << "ol_args->" << it->get_field_name() << " = " << as_expression( it->get_shared_expression().copy() ) << ";"
+                            << "ol_args->" << it->get_field_name() << " = " << as_expression( it->get_shared_expression().shallow_copy() ) << ";"
                             ;
                         fill_immediate_arguments 
-                            << "imm_args." << it->get_field_name() << " = " << as_expression( it->get_shared_expression().copy() ) << ";"
+                            << "imm_args." << it->get_field_name() << " = " << as_expression( it->get_shared_expression().shallow_copy() ) << ";"
                             ;
                         break;
                     }
@@ -730,10 +730,10 @@ void LoweringVisitor::fill_arguments(
                 case OutlineDataItem::SHARING_CAPTURE_ADDRESS:
                     {
                         fill_outline_arguments << 
-                            "ol_args %" << it->get_field_name() << " => " << as_expression( it->get_shared_expression().copy()) << "\n"
+                            "ol_args %" << it->get_field_name() << " => " << as_expression( it->get_shared_expression().shallow_copy()) << "\n"
                             ;
                         fill_immediate_arguments << 
-                            "imm_args % " << it->get_field_name() << " => " << as_expression( it->get_shared_expression().copy() ) << "\n"
+                            "imm_args % " << it->get_field_name() << " => " << as_expression( it->get_shared_expression().shallow_copy() ) << "\n"
                             ;
                         
                         // Best effort, this may fail sometimes
@@ -1022,7 +1022,7 @@ void LoweringVisitor::fill_dependences(
                 {
                     Source dimension_size, dimension_lower_bound, dimension_accessed_length;
 
-                    dimension_size << as_expression(dimension_sizes[num_dimensions - 1].copy()) << "* sizeof(" << base_type_name << ")";
+                    dimension_size << as_expression(dimension_sizes[num_dimensions - 1].shallow_copy()) << "* sizeof(" << base_type_name << ")";
                     dimension_lower_bound << "0";
                     dimension_accessed_length << dimension_size;
 
@@ -1070,9 +1070,9 @@ void LoweringVisitor::fill_dependences(
                         size = contiguous_array_type.array_get_size();
                     }
 
-                    dimension_size << "sizeof(" << base_type_name << ") * " << as_expression(dimension_sizes[num_dimensions - 1].copy());
-                    dimension_lower_bound << "sizeof(" << base_type_name << ") * " << as_expression(lb.copy());
-                    dimension_accessed_length << "sizeof(" << base_type_name << ") * " << as_expression(size.copy());
+                    dimension_size << "sizeof(" << base_type_name << ") * " << as_expression(dimension_sizes[num_dimensions - 1].shallow_copy());
+                    dimension_lower_bound << "sizeof(" << base_type_name << ") * " << as_expression(lb.shallow_copy());
+                    dimension_accessed_length << "sizeof(" << base_type_name << ") * " << as_expression(size.shallow_copy());
 
                     if (IS_C_LANGUAGE
                             || IS_CXX_LANGUAGE)
@@ -1276,9 +1276,9 @@ void LoweringVisitor::fill_dimensions(int n_dims, int actual_dim, int current_de
             size = dep_type.array_get_size();
         }
 
-        dimension_size << as_expression(dim_sizes[n_dims - actual_dim - 1].copy());
-        dimension_lower_bound << as_expression(lb.copy());
-        dimension_accessed_length << as_expression(size.copy());
+        dimension_size << as_expression(dim_sizes[n_dims - actual_dim - 1].shallow_copy());
+        dimension_lower_bound << as_expression(lb.shallow_copy());
+        dimension_accessed_length << as_expression(size.shallow_copy());
 
         if (IS_C_LANGUAGE
                 || IS_CXX_LANGUAGE)
@@ -1314,7 +1314,7 @@ static Nodecl::NodeclBase rewrite_single_dependency(Nodecl::NodeclBase node, con
 
         if (it != map.end())
         {
-            return (it->second.copy());
+            return (it->second.shallow_copy());
         }
     }
 
@@ -1339,7 +1339,7 @@ static TL::ObjectList<Nodecl::NodeclBase> rewrite_dependences(
             it != deps.end();
             it++)
     {
-        Nodecl::NodeclBase copy = it->copy();
+        Nodecl::NodeclBase copy = it->shallow_copy();
         result.append( rewrite_single_dependency(copy, param_to_arg_expr) );
     }
 
@@ -1493,9 +1493,9 @@ void LoweringVisitor::visit(const Nodecl::Parallel::AsyncCall& construct)
     Nodecl::NodeclBase expr_statement = 
                 Nodecl::ExpressionStatement::make(
                     Nodecl::FunctionCall::make(
-                        function_call.get_called().copy(),
+                        function_call.get_called().shallow_copy(),
                         nodecl_arg_list,
-                        function_call.get_alternate_name().copy(),
+                        function_call.get_alternate_name().shallow_copy(),
                         Type::get_void_type(),
                         function_call.get_filename(),
                         function_call.get_line()),

@@ -3676,7 +3676,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                             && nodecl_expr_is_value_dependent(base_enumerator))
                     {
                         nodecl_t add_one = nodecl_make_add(
-                                nodecl_copy(base_enumerator),
+                                nodecl_shallow_copy(base_enumerator),
                                 const_value_to_nodecl(const_value_get_signed_int(delta)),
                                 get_unknown_dependent_type(),
                                 nodecl_get_filename(base_enumerator),
@@ -12741,7 +12741,7 @@ static void finish_pragma_declaration(
             nodecl_pragma_output = nodecl_append_to_list(
                     nodecl_pragma_output,
                     nodecl_make_pragma_custom_declaration(
-                        nodecl_copy(nodecl_pragma_line), 
+                        nodecl_shallow_copy(nodecl_pragma_line), 
                         nodecl_null(), 
                         nodecl_make_pragma_context(decl_context, entry->file, entry->line),
                         nodecl_make_pragma_context(
@@ -12770,10 +12770,10 @@ static void finish_pragma_declaration(
             nodecl_pragma_output = nodecl_append_to_list(
                     nodecl_pragma_output,
                     nodecl_make_pragma_custom_declaration(
-                        nodecl_copy(nodecl_pragma_line), 
+                        nodecl_shallow_copy(nodecl_pragma_line), 
                         list[i], 
-                        nodecl_copy(pragma_context),
-                        nodecl_copy(prototype_context),
+                        nodecl_shallow_copy(pragma_context),
+                        nodecl_shallow_copy(prototype_context),
                         nodecl_get_symbol(list[i]), 
                         text, filename, line));
         }

@@ -341,7 +341,7 @@ namespace TL { namespace Nanox {
                                 || IS_CXX_LANGUAGE)
                         {
                             private_entities
-                                << as_type(t) << " " << name << " = " << as_expression(it->get_reduction_info()->get_identity().copy()) << ";"
+                                << as_type(t) << " " << name << " = " << as_expression(it->get_reduction_info()->get_identity().shallow_copy()) << ";"
                                 ;
                         }
                         else if (IS_FORTRAN_LANGUAGE)
@@ -352,7 +352,7 @@ namespace TL { namespace Nanox {
                             // which is a kind of symbol that the C/C++ FE does not know anything about
                             private_entities
                                 << as_type(t) << ", @IS_VARIABLE@ :: " << name << "\n"
-                                << name << " = " << as_expression(it->get_reduction_info()->get_identity().copy()) << "\n"
+                                << name << " = " << as_expression(it->get_reduction_info()->get_identity().shallow_copy()) << "\n"
                                 ;
                         }
                         else

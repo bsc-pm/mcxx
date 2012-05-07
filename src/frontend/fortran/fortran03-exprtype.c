@@ -865,7 +865,7 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
             }
             else
             {
-                nodecl_lower = nodecl_copy(nodecl_lower_dim[num_subscripts]);
+                nodecl_lower = nodecl_shallow_copy(nodecl_lower_dim[num_subscripts]);
             }
 
             if (upper != NULL)
@@ -874,7 +874,7 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
             }
             else
             {
-                nodecl_upper = nodecl_copy(nodecl_upper_dim[num_subscripts]);
+                nodecl_upper = nodecl_shallow_copy(nodecl_upper_dim[num_subscripts]);
             }
 
             if (stride != NULL)
@@ -4872,8 +4872,8 @@ static type_t* combine_character_array(type_t* t1, type_t* t2)
         else
         {
             upper = nodecl_make_add(
-                    nodecl_copy(length1),
-                    nodecl_copy(length2),
+                    nodecl_shallow_copy(length1),
+                    nodecl_shallow_copy(length2),
                     fortran_get_default_logical_type(),
                     NULL, 0);
         }

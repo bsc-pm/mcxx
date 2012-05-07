@@ -52,7 +52,7 @@ namespace TL
                             t,
                             ctr.get_filename(),
                             ctr.get_line()),
-                        ctr.copy(),
+                        ctr.shallow_copy(),
                         Type(::get_size_t_type()),
                         ctr.get_filename(),
                         ctr.get_line());
@@ -76,7 +76,7 @@ namespace TL
 
                 _data_ref._data_type = t;
                 _data_ref._base_address = Nodecl::Reference::make(
-                        sym.copy(),
+                        sym.shallow_copy(),
                         t.get_pointer_to(),
                         sym.get_filename(),
                         sym.get_line());
@@ -102,7 +102,7 @@ namespace TL
                     t = t.references_to();
 
                 _data_ref._data_type = t;
-                _data_ref._base_address = derref.get_rhs().copy();
+                _data_ref._base_address = derref.get_rhs().shallow_copy();
                 _data_ref._sizeof = make_sizeof(derref);
             }
              
@@ -147,11 +147,11 @@ namespace TL
                 {
                     if (it->is<Nodecl::Range>())
                     {
-                        low_subscripts.push_back(it->as<Nodecl::Range>().get_lower().copy());
+                        low_subscripts.push_back(it->as<Nodecl::Range>().get_lower().shallow_copy());
                     }
                     else
                     {
-                        low_subscripts.push_back(it->copy());
+                        low_subscripts.push_back(it->shallow_copy());
                     }
                 }
 
@@ -187,7 +187,7 @@ namespace TL
                     Nodecl::Reference::make(
                             Nodecl::ClassMemberAccess::make(
                                 _data_ref._base_address.as<Nodecl::Reference>().get_rhs(),
-                                member.get_member().copy(),
+                                member.get_member().shallow_copy(),
                                 t,
                                 member.get_filename(),
                                 member.get_line()
@@ -211,7 +211,7 @@ namespace TL
 
                 _data_ref._data_type = t;
 
-                _data_ref._base_address = shaping_expr.get_postfix().copy();
+                _data_ref._base_address = shaping_expr.get_postfix().shallow_copy();
                 _data_ref._sizeof = make_sizeof(shaping_expr);
             }
     };
@@ -281,12 +281,12 @@ namespace TL
 
     Nodecl::NodeclBase DataReference::get_base_address() const
     {
-        return _base_address.copy();
+        return _base_address.shallow_copy();
     }
 
     Nodecl::NodeclBase DataReference::get_sizeof() const
     {
-        return _sizeof.copy();
+        return _sizeof.shallow_copy();
     }
 
     DataReference::~DataReference()

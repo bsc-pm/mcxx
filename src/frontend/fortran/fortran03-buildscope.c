@@ -4492,7 +4492,7 @@ static void build_scope_data_stmt(AST a, decl_context_t decl_context, nodecl_t* 
                 uint64_t i;
                 for (i = 0; i < repeat; i++)
                 {
-                    nodecl_data_set = nodecl_append_to_list(nodecl_data_set, nodecl_copy(nodecl_value));
+                    nodecl_data_set = nodecl_append_to_list(nodecl_data_set, nodecl_shallow_copy(nodecl_value));
                 }
             }
             else

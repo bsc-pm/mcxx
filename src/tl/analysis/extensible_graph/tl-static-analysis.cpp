@@ -1014,7 +1014,7 @@ namespace TL
                 {
                     if (n.get_symbol() == s)
                     {
-                        return s_map.copy();
+                        return s_map.shallow_copy();
                     }
                 }
                 else if (n.is<Nodecl::ClassMemberAccess>())
