@@ -278,7 +278,7 @@ AC_SUBST([NANOX_LIBS])
 AC_SUBST([NANOX_INSTRUMENTATION])
 
 
-dnl Region support
+dnl Region support. This is only used in tests!
 nanox_regions="no"
 AC_MSG_CHECKING([if Nanos++ regions support is enabled])
 AC_ARG_ENABLE([nanox-regions],
@@ -310,9 +310,9 @@ AC_ARG_ENABLE([nanox-regions],
             nanos_h_interface_is_at_least_6000=yes
         fi
 
-        if test $nanos_h_interface_is_at_least_6000 = xyes;
+        if test x$nanos_h_interface_is_at_least_6000 = xyes;
         then
-             nanox_regions="no"
+             nanox_regions="yes"
              AC_MSG_RESULT([yes (Supported by Nanos++)])
         else
              AC_MSG_RESULT([no (Not supported by Nanos++, master API $nanox_family_version is <6000)])
@@ -774,6 +774,7 @@ SUPERSCALAR_INCLUDES="${superscalar_include}"
 SUPERSCALAR_LIBS="$superscalar_lib"
 
 is_enabled_tl_superscalar="no"
+is_explicitly_enabled_tl_superscalar="no"
 
 AC_MSG_CHECKING([if Cell/SMP superscalar TL support is enabled])
 AC_ARG_ENABLE([tl-superscalar],
@@ -782,6 +783,7 @@ AC_ARG_ENABLE([tl-superscalar],
     if test x"$enableval" = x"yes" -o x"$enableval" = x"";
     then
         is_enabled_tl_superscalar="yes"
+        is_explicitly_enabled_tl_superscalar="yes"
         AC_MSG_RESULT([yes])
     else if test x"$enableval" = x"no";
          then
@@ -806,6 +808,9 @@ AC_ARG_ENABLE([tl-superscalar],
 
 ENABLE_SUPERSCALAR=$is_enabled_tl_superscalar
 AC_SUBST([ENABLE_SUPERSCALAR])
+
+ENABLE_SUPERSCALAR_TESTS=$is_explicitly_enabled_tl_superscalar
+AC_SUBST([ENABLE_SUPERSCALAR_TESTS])
 
 AC_MSG_CHECKING([which Cell/SMP superscalar runtime API version to use])
 AC_ARG_WITH([superscalar-runtime-api-version],
@@ -1002,6 +1007,24 @@ AC_ARG_ENABLE([file-regeneration],
     fi
   ]
 )
+
+distcheck_processing=no
+AC_ARG_ENABLE([distcheck-processing],
+  AS_HELP_STRING([--enable-distcheck-processing], [Extra steps during distcheck. DO NOT USE IT]),
+  [
+    if test x$enableval = xyes -o x$enableval = x;
+    then
+       distcheck_processing=yes
+    else if test x$enableval = xno;
+         then
+            distcheck_processing=no
+         else
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+         fi
+    fi
+  ]
+)
+AM_CONDITIONAL(RUNNING_DISTCHECK, test x$distcheck_processing = xyes)
 
 # Make these variables precious
 AC_ARG_VAR([FLEX], [GNU Flex])

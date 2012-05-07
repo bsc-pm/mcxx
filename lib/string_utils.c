@@ -318,3 +318,38 @@ unsigned int simple_hash_str(const char *str)
 
     return h; // or, h % ARRAY_SIZE;
 }
+
+// Packed pointers in strings
+//
+#define PACK_POINTER_FORMAT_WRITE "\"%s:%p\""
+const char* pack_pointer(const char* prefix, void* pointer_addr)
+{
+    const char* result = NULL;
+    uniquestr_sprintf(&result, PACK_POINTER_FORMAT_WRITE, prefix, pointer_addr);
+    return result;
+}
+
+#define PACK_POINTER_FORMAT_READ "\"%255[^:]:%p\""
+void unpack_pointer(const char* text, 
+        // out
+        const char** prefix, void** pointer_addr)
+{
+    if (text == NULL)
+    {
+        *prefix = NULL;
+        *pointer_addr = NULL;
+        return;
+    }
+
+    char tmp[256] = { 0 };
+
+    int matched = sscanf(text, PACK_POINTER_FORMAT_READ, tmp, pointer_addr);
+    if (matched != 2)
+    {
+        *prefix = NULL;
+        *pointer_addr = NULL;
+        return;
+    }
+
+    *prefix = uniquestr(tmp);
+}

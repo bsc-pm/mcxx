@@ -94,7 +94,7 @@ namespace Nodecl {
             }
             
             // Prettyprint
-            std::string prettyprint();
+            std::string prettyprint() const;
 
             // Simple RTTI
             template <typename T> bool is() const { return !this->is_null() && (T::_kind == this->get_kind()); }
@@ -412,7 +412,12 @@ namespace Nodecl {
             // Inserts _before_ the iterator it
             void insert(iterator it, Nodecl::NodeclBase new_node)
             {
-                if (it != this->end())
+                if (this->empty())
+                {
+                    // This list is empty, it does not matter where we put it
+                    *this = Nodecl::List::make(new_node);
+                }
+                else if (it != this->end())
                 {
                     nodecl_t singleton = nodecl_make_list_1(new_node.get_internal_nodecl());
 
@@ -494,8 +499,27 @@ namespace Nodecl {
                 erase(this->last());
             }
 
+            template <typename T>
+            T find_first() const
+            {
+                const_iterator it = this->begin();
+                while (it != this->end())
+                {
+                    if (it->is<T>())
+                        return it->as<T>();
+                    it++;
+                }
+                return T(nodecl_null());
+            }
+
             static List make(const TL::ObjectList<NodeclBase>& list);
-            static List make(const NodeclBase& list);
+
+            static List make(const NodeclBase& item_1);
+            static List make(const NodeclBase& item_1, const NodeclBase& item_2);
+            static List make(const NodeclBase& item_1, const NodeclBase& item_2, const NodeclBase& item_3);
+            static List make(const NodeclBase& item_1, const NodeclBase& item_2, const NodeclBase& item_3, const NodeclBase& item_4);
+            static List make(const NodeclBase& item_1, const NodeclBase& item_2, const NodeclBase& item_3, const NodeclBase& item_4, const NodeclBase& item_5);
+            static List make(const NodeclBase& item_1, const NodeclBase& item_2, const NodeclBase& item_3, const NodeclBase& item_4, const NodeclBase& item_5, const NodeclBase& item_6);
     };
 }
 

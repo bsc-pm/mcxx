@@ -81,6 +81,12 @@ namespace TL
             
             bool is_valid() const;
 
+            /* Do not use it unless directed to do so */
+            template_parameter_list_t* get_internal_template_parameter_list()
+            {
+                return _tpl_params;
+            }
+
             //! Returns the number of parameters in the current parameter level
             int get_num_parameters() const;
             
@@ -100,6 +106,8 @@ namespace TL
 
             //! Returns the enclosing template parameter level
             TemplateParameters get_enclosing_parameters() const;
+
+            bool get_is_explicit_specialization() const;
     };
     
     //! This class wraps a type in the compiler type system

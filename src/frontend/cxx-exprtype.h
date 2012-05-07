@@ -54,7 +54,7 @@ LIBMCXX_EXTERN char check_expression(AST a, decl_context_t decl_context, nodecl_
 
 LIBMCXX_EXTERN char check_expression_non_executable(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
 
-LIBMCXX_EXTERN char check_expression_list(AST expression_list, decl_context_t decl_context, nodecl_t* nodecl_output);
+LIBMCXX_EXTERN char check_list_of_expressions(AST expression_list, decl_context_t decl_context, nodecl_t* nodecl_output);
 
 LIBMCXX_EXTERN char check_initialization(AST initializer, 
         decl_context_t decl_context, 

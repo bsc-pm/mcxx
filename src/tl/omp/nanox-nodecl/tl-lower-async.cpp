@@ -136,6 +136,22 @@ static TL::Symbol declare_const_wd_type(int num_devices)
             class_type_add_member(new_class_type, field.get_internal_symbol());
         }
 
+        nodecl_t nodecl_output = nodecl_null();
+        finish_class_type(new_class_type, 
+                ::get_user_defined_type(new_class_symbol.get_internal_symbol()),
+                sc.get_decl_context(), 
+                "", 0,
+                // construct.get_filename().c_str(),
+                // construct.get_line(),
+                &nodecl_output);
+        set_is_complete_type(new_class_type, /* is_complete */ 1);
+        set_is_complete_type(get_actual_class_type(new_class_type), /* is_complete */ 1);
+
+        if (!nodecl_is_null(nodecl_output))
+        {
+            std::cerr << "FIXME: finished class issues nonempty nodecl" << std::endl; 
+        }
+
         return new_class_symbol;
     }
     else
@@ -144,184 +160,128 @@ static TL::Symbol declare_const_wd_type(int num_devices)
     }
 }
 
-void LoweringVisitor::emit_async_common(
-        Nodecl::NodeclBase construct,
-        TL::Symbol function_symbol, 
-        Nodecl::NodeclBase statements,
-        Nodecl::NodeclBase priority_expr,
+Source LoweringVisitor::fill_const_wd_info(
+        Source &struct_arg_type_name,
+        const std::string& outline_name,
         bool is_untied,
-
-        OutlineInfo& outline_info)
+        bool mandatory_creation)
 {
-    Source spawn_code;
+    // Static stuff
+    //
+    // typedef struct { 
+    //     nanos_wd_props_t props; 
+    //     size_t data_alignment; 
+    //     size_t num_copies; 
+    //     size_t num_devices; 
+    // } nanos_const_wd_definition_t; 
 
-    Source struct_arg_type_name,
-           struct_runtime_size,
-           struct_size,
-           copy_decl,
-           copy_data,
-           immediate_decl,
-           copy_imm_data,
-           translation_fun_arg_name,
-           const_wd_info;
+    // FIXME
+    int num_devices = 1;
+    TL::Symbol const_wd_type = declare_const_wd_type(num_devices);
 
-    Nodecl::NodeclBase fill_outline_arguments_tree,
-        fill_dependences_outline_tree;
-    Source fill_outline_arguments,
-           fill_dependences_outline;
+    Source alignment, props_init, num_copies;
 
-    Nodecl::NodeclBase fill_immediate_arguments_tree,
-        fill_dependences_immediate_tree;
-    Source fill_immediate_arguments,
-           fill_dependences_immediate;
-    
-    std::string outline_name;
+    Source device_descriptor, 
+           device_description, 
+           device_description_init, 
+           num_devices_src,
+           ancillary_device_description,
+           fortran_dynamic_init;
+
+    Source result;
+    result
+        << device_description
+        << "static " << const_wd_type.get_name() << " nanos_wd_const_data = {"
+        << "{"
+        << /* ".props = " << */ props_init << ", \n"
+        << /* ".data_alignment = " << */ alignment << ", \n"
+        << /* ".num_copies = " << */ num_copies << ",\n"
+        << /* ".num_devices = " << */ num_devices_src << ",\n"
+        << "}, "
+        << /* ".devices = " << */ "{" << device_description_init << "}"
+        << "};"
+
+        << fortran_dynamic_init
+
+        ;
+
+    alignment << "__alignof__(" << struct_arg_type_name << ")";
+    num_copies << "0";
+
+    device_descriptor << outline_name << "_devices";
+    device_description
+        << ancillary_device_description
+        ;
+
+    Source tiedness,
+           priority;
+
+    // We expand all the struct due to a limitation in the FE. See ticket
+    // #963
+    props_init
+        << "{ " 
+        << /* ".mandatory_creation = " << */ (int)mandatory_creation << ",\n"
+        << /* ".tied = " << */ tiedness << ",\n"
+        << /* ".reserved0 =" << */ "0,\n"
+        << /* ".reserved1 =" << */ "0,\n"
+        << /* ".reserved2 =" << */ "0,\n"
+        << /* ".reserved3 =" << */ "0,\n"
+        << /* ".reserved4 =" << */ "0,\n"
+        << /* ".reserved5 =" << */ "0,\n"
+        << "}"
+        ;
+
+    tiedness << (int)!is_untied;
+
+    // FIXME - No devices yet, let's mimick the structure of one SMP
     {
-        Counter& task_counter = CounterManager::get_counter("nanos++-outline");
-        std::stringstream ss;
-        ss << "ol_" << function_symbol.get_name() << "_" << (int)task_counter;
-        outline_name = ss.str();
+        num_devices_src << num_devices;
 
-        task_counter++;
-    }
-
-
-    // Declare argument structure
-    TL::Symbol structure_symbol = declare_argument_structure(outline_info, construct);
-    struct_arg_type_name << structure_symbol.get_name();
-
-    {
-        // Static stuff
-        //
-        // typedef struct { 
-        //     nanos_wd_props_t props; 
-        //     size_t data_alignment; 
-        //     size_t num_copies; 
-        //     size_t num_devices; 
-        // } nanos_const_wd_definition_t; 
-
-        // FIXME
-        int num_devices = 1;
-        TL::Symbol const_wd_type = declare_const_wd_type(num_devices);
-
-        Source alignment, props_init, num_copies;
-
-        Source device_descriptor, 
-               device_description, 
-               device_description_init, 
-               num_devices_src,
-               ancillary_device_description,
-               fortran_dynamic_init;
-
-        const_wd_info
-            << device_description
-            << "static " << const_wd_type.get_name() << " nanos_wd_const_data = {"
-            << "{"
-            << /* ".props = " << */ props_init << ", \n"
-            << /* ".data_alignment = " << */ alignment << ", \n"
-            << /* ".num_copies = " << */ num_copies << ",\n"
-            << /* ".num_devices = " << */ num_devices_src << ",\n"
-            << "}, "
-            << /* ".devices = " << */ "{" << device_description_init << "}"
-            << "};"
-
-            << fortran_dynamic_init
-
-            << "nanos_wd_dyn_props_t nanos_wd_dyn_props;"
-            << "nanos_wd_dyn_props.tie_to = 0;"
-            ;
-
-        alignment << "__alignof__(" << struct_arg_type_name << ")";
-        num_copies << "0";
-
-        device_descriptor << outline_name << "_devices";
-        device_description
-            << ancillary_device_description
-            ;
-
-        Source mandatory_creation,
-               tiedness,
-               priority;
-
-        // We expand all the struct due to a limitation in the FE. See ticket
-        // #963
-        props_init
-            << "{ " 
-            << /* ".mandatory_creation = " << */ mandatory_creation << ",\n"
-            << /* ".tied = " << */ tiedness << ",\n"
-            << /* ".reserved0 =" << */ "0,\n"
-            << /* ".reserved1 =" << */ "0,\n"
-            << /* ".reserved2 =" << */ "0,\n"
-            << /* ".reserved3 =" << */ "0,\n"
-            << /* ".reserved4 =" << */ "0,\n"
-            << /* ".reserved5 =" << */ "0,\n"
-            << /* ".priority = " << */ priority 
-            << "}"
-            ;
-
-        mandatory_creation << "0";
-        tiedness << (int)!!is_untied;
-
-        if (priority_expr.is_null())
+        if (!IS_FORTRAN_LANGUAGE)
         {
-            priority << "0";
+            ancillary_device_description
+                << "static nanos_smp_args_t " << outline_name << "_smp_args = {" 
+                << ".outline = (void(*)(void*))&" << outline_name 
+                << "};"
+                ;
+            device_description_init
+                << "{"
+                << /* factory */ "&nanos_smp_factory, &" << outline_name << "_smp_args"
+                << "}"
+                ;
         }
         else
         {
-            priority << as_expression(priority_expr);
-        }
-
-        // FIXME - No devices yet, let's mimick the structure of one SMP
-        {
-            num_devices_src << num_devices;
-
-            if (!IS_FORTRAN_LANGUAGE)
-            {
-                ancillary_device_description
-                    << "static nanos_smp_args_t " << outline_name << "_smp_args = {" 
-                    << ".outline = (void(*)(void*))&" << outline_name 
-                    << "};"
-                    ;
-                device_description_init
-                    << "{"
-                    << /* factory */ "&nanos_smp_factory, 0, &" << outline_name << "_smp_args"
-                    << "}"
-                    ;
-            }
-            else
-            {
-                // We'll fill them later because of Fortran limitations
-                ancillary_device_description
-                    << "static nanos_smp_args_t " << outline_name << "_smp_args;" 
-                    ;
-                device_description_init
-                    << "{"
-                    // factory, arg
-                    << "0, 0"
-                    << "}"
-                    ;
-                fortran_dynamic_init
-                    << outline_name << "_smp_args.outline = (void(*)(void*))&" << outline_name << ";"
-                    << "nanos_wd_const_data.devices[0].factory = &nanos_smp_factory;"
-                    << "nanos_wd_const_data.devices[0].arg = &" << outline_name << "_smp_args;"
-                    ;
-            }
+            // We'll fill them later because of Fortran limitations
+            ancillary_device_description
+                << "static nanos_smp_args_t " << outline_name << "_smp_args;" 
+                ;
+            device_description_init
+                << "{"
+                // factory, arg
+                << "0, 0"
+                << "}"
+                ;
+            fortran_dynamic_init
+                << outline_name << "_smp_args.outline = (void(*)(void*))&" << outline_name << ";"
+                << "nanos_wd_const_data.devices[0].factory = &nanos_smp_factory;"
+                << "nanos_wd_const_data.devices[0].arg = &" << outline_name << "_smp_args;"
+                ;
         }
     }
 
-    Source dynamic_size;
-    struct_size << "sizeof(imm_args)" << dynamic_size;
+    return result;
+}
 
-    translation_fun_arg_name << "(void (*)(void*, void*))0";
-    copy_data << "(nanos_copy_data_t**)0";
-    copy_imm_data << "(nanos_copy_data_t*)0";
+void LoweringVisitor::allocate_immediate_structure(
+        OutlineInfo& outline_info,
+        Source &struct_arg_type_name,
+        Source &struct_size,
 
-    // Outline
-    emit_outline(outline_info, statements, outline_name, structure_symbol);
-
-    Source err_name;
-    err_name << "err";
-
+        // out
+        Source &immediate_decl,
+        Source &dynamic_size)
+{
     // Account for the extra size due to overallocated items
     bool there_are_overallocated = false;
     bool immediate_is_alloca = false;
@@ -368,6 +328,93 @@ void LoweringVisitor::emit_async_common(
             << "&imm_args = (" << struct_arg_type_name << " *) __builtin_alloca(" << struct_size << ");"
             ;
     }
+}
+
+void LoweringVisitor::emit_async_common(
+        Nodecl::NodeclBase construct,
+        TL::Symbol function_symbol,
+        Nodecl::NodeclBase statements,
+        Nodecl::NodeclBase priority_expr,
+        bool is_untied,
+
+        OutlineInfo& outline_info)
+{
+    Source spawn_code;
+
+    Source struct_arg_type_name,
+           struct_size,
+           copy_ol_decl,
+           copy_ol_arg,
+           copy_ol_setup,
+           immediate_decl,
+           copy_imm_arg,
+           copy_imm_setup,
+           translation_fun_arg_name,
+           const_wd_info,
+           dynamic_wd_info;
+
+    Nodecl::NodeclBase fill_outline_arguments_tree,
+        fill_dependences_outline_tree;
+    Source fill_outline_arguments,
+           fill_dependences_outline;
+
+    Nodecl::NodeclBase fill_immediate_arguments_tree,
+        fill_dependences_immediate_tree;
+    Source fill_immediate_arguments,
+           fill_dependences_immediate;
+    
+    std::string outline_name = get_outline_name(function_symbol);
+
+    // Declare argument structure
+    TL::Symbol structure_symbol = declare_argument_structure(outline_info, construct);
+    struct_arg_type_name << structure_symbol.get_name();
+
+    const_wd_info << fill_const_wd_info(
+            struct_arg_type_name,
+            outline_name,
+            is_untied,
+            /* mandatory_creation */ 0);
+
+    if (priority_expr.is_null())
+    {
+        priority_expr = const_value_to_nodecl(const_value_get_signed_int(0));
+    }
+
+    dynamic_wd_info
+        << "nanos_wd_dyn_props_t nanos_wd_dyn_props;"
+        << "nanos_wd_dyn_props.tie_to = 0;"
+        << "nanos_wd_dyn_props.priority = " << as_expression(priority_expr) << ";"
+        ;
+
+    Source dynamic_size;
+    struct_size << "sizeof(imm_args)" << dynamic_size;
+
+    allocate_immediate_structure(
+            outline_info,
+            struct_arg_type_name,
+            struct_size,
+            // out
+            immediate_decl,
+            dynamic_size);
+
+    translation_fun_arg_name << "(void (*)(void*, void*))0";
+
+    // Outline
+    Source outline_source;
+    Nodecl::NodeclBase placeholder;
+    outline_source << statement_placeholder(placeholder);
+
+    emit_outline(outline_info, statements, outline_source, outline_name, structure_symbol);
+
+    Source outline_statements_source;
+    outline_statements_source
+        << statements.prettyprint();
+
+    Nodecl::NodeclBase outline_statements_code = outline_statements_source.parse_statement(placeholder);
+    placeholder.integrate(outline_statements_code);
+
+    Source err_name;
+    err_name << "err";
 
     Source num_dependences;
 
@@ -376,38 +423,37 @@ void LoweringVisitor::emit_async_common(
         << "{"
         // Devices related to this task
         <<     const_wd_info
+        <<     dynamic_wd_info
         <<     struct_arg_type_name << "* ol_args;"
         <<     "ol_args = (" << struct_arg_type_name << "*) 0;"
         <<     immediate_decl
-        <<     struct_runtime_size
         <<     "nanos_wd_t wd = (nanos_wd_t)0;"
-        <<     "nanos_wd_props_t props;"
-        <<     copy_decl
+        <<     copy_ol_decl
         <<     "nanos_err_t " << err_name <<";"
-        // nanos_err_t nanos_create_wd_compact ( nanos_wd_t *wd, nanos_const_wd_definition_t *const_data, size_t data_size,
-        //                               void ** data, nanos_wg_t wg, nanos_copy_data_t **copies )
         <<     err_name << " = nanos_create_wd_compact(&wd, &(nanos_wd_const_data.base), &nanos_wd_dyn_props, " 
         <<                 struct_size << ", (void**)&ol_args, nanos_current_wd(),"
-        <<                 copy_data << ");"
+        <<                 copy_ol_arg << ");"
         <<     "if (" << err_name << " != NANOS_OK) nanos_handle_error (" << err_name << ");"
         <<     "if (wd != (nanos_wd_t)0)"
         <<     "{"
+                  // This is a placeholder because arguments are filled using the base language (possibly Fortran)
         <<        statement_placeholder(fill_outline_arguments_tree)
         <<        fill_dependences_outline
+        <<        copy_ol_setup
         <<        err_name << " = nanos_submit(wd, " << num_dependences << ", dependences, (nanos_team_t)0);"
         <<        "if (" << err_name << " != NANOS_OK) nanos_handle_error (" << err_name << ");"
         <<     "}"
         <<     "else"
         <<     "{"
+                    // This is a placeholder because arguments are filled using the base language (possibly Fortran)
         <<          statement_placeholder(fill_immediate_arguments_tree)
         <<          fill_dependences_immediate
-        // nanos_err_t nanos_create_wd_and_run_compact ( nanos_const_wd_definition_t *const_data, size_t data_size, void * data, size_t num_deps, 
-        //                                       nanos_dependence_t *deps, nanos_copy_data_t *copies, nanos_translate_args_t translate_args );
+        <<          copy_imm_setup
         <<          err_name << " = nanos_create_wd_and_run_compact(&(nanos_wd_const_data.base), &nanos_wd_dyn_props, "
         <<                  struct_size << ", " 
         <<                  "&imm_args,"
         <<                  num_dependences << ", dependences, "
-        <<                  copy_imm_data << ", "
+        <<                  copy_imm_arg << ", "
         <<                  translation_fun_arg_name << ");"
         <<          "if (" << err_name << " != NANOS_OK) nanos_handle_error (" << err_name << ");"
         <<     "}"
@@ -419,6 +465,14 @@ void LoweringVisitor::emit_async_common(
     
     // Fill dependences for outline
     num_dependences << count_dependences(outline_info);
+
+    fill_copies(construct,
+        outline_info,
+        copy_ol_decl,
+        copy_ol_arg,
+        copy_ol_setup,
+        copy_imm_arg,
+        copy_imm_setup);
 
     fill_dependences(construct, 
             outline_info, 
@@ -460,6 +514,11 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
 {
     Nodecl::NodeclBase environment = construct.get_environment();
     Nodecl::NodeclBase statements = construct.get_statements();
+
+    walk(statements);
+
+    // Get the new statements
+    statements = construct.get_statements();
 
     TaskEnvironmentVisitor task_environment;
     task_environment.walk(environment);
@@ -514,6 +573,9 @@ void LoweringVisitor::fill_arguments(
                 it != data_items.end();
                 it++)
         {
+            if (!it->get_symbol().is_valid())
+                continue;
+
             switch (it->get_sharing())
             {
                 case OutlineDataItem::SHARING_CAPTURE:
@@ -614,6 +676,11 @@ void LoweringVisitor::fill_arguments(
                             ;
                         break;
                     }
+                case OutlineDataItem::SHARING_REDUCTION:
+                    {
+                        // This is filled elsewhere
+                        break;
+                    }
                 case OutlineDataItem::SHARING_PRIVATE:
                     {
                         // Do nothing
@@ -632,6 +699,9 @@ void LoweringVisitor::fill_arguments(
                 it != data_items.end();
                 it++)
         {
+            if (!it->get_symbol().is_valid())
+                continue;
+
             switch (it->get_sharing())
             {
 
@@ -714,6 +784,24 @@ int LoweringVisitor::count_dependences(OutlineInfo& outline_info)
     return num_deps;
 }
 
+int LoweringVisitor::count_copies(OutlineInfo& outline_info)
+{
+    int num_copies = 0;
+
+    TL::ObjectList<OutlineDataItem> data_items = outline_info.get_data_items();
+    for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
+            it != data_items.end();
+            it++)
+    {
+        if (it->get_copy_directionality() == OutlineDataItem::COPY_NONE)
+            continue;
+
+        num_copies += it->get_copies().size();
+    }
+
+    return num_copies;
+}
+
 static void fill_dimensions(int n_dims, 
         int actual_dim, 
         int current_dep_num,
@@ -722,6 +810,91 @@ static void fill_dimensions(int n_dims,
         Source& dims_description, 
         Source& dependency_regions_code, 
         Scope sc);
+
+void LoweringVisitor::fill_copies(
+        Nodecl::NodeclBase ctr,
+        OutlineInfo& outline_info, 
+        // Source arguments_accessor,
+        // out
+        Source& copy_ol_decl,
+        Source& copy_ol_arg,
+        Source& copy_ol_setup,
+        Source& copy_imm_arg,
+        Source& copy_imm_setup)
+{
+    int num_copies = count_copies(outline_info);
+
+    if (num_copies == 0)
+    {
+        copy_ol_arg << "(nanos_copy_data_t**)0";
+        copy_imm_arg << "(nanos_copy_data_t*)0";
+        return;
+    }
+    
+    copy_ol_arg << "&ol_copy_data";
+    copy_imm_arg << "imm_copy_data";
+
+    // FIXME - This must be versioned
+    if (Nanos::Version::interface_is_at_least("copies_dep", 1000))
+    {
+        internal_error("New copies dependency not implemented", 0);
+        return;
+    }
+
+    copy_ol_decl
+        << "nanos_copy_data_t *ol_copy_data = (nanos_copy_data_t*)0;"
+        ;
+    copy_imm_setup 
+        << "nanos_copy_data_t imm_copy_data[" << num_copies << "];";
+
+    // typedef struct {
+    //    uint64_t address;
+    //    nanos_sharing_t sharing;
+    //    struct {
+    //       bool input: 1;
+    //       bool output: 1;
+    //    } flags;
+    //    size_t size;
+    // } nanos_copy_data_internal_t;
+
+    TL::ObjectList<OutlineDataItem> data_items = outline_info.get_data_items();
+
+    int current_copy_num = 0;
+    for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
+            it != data_items.end();
+            it++)
+    {
+        OutlineDataItem::CopyDirectionality dir = it->get_copy_directionality();
+        if (dir == OutlineDataItem::COPY_NONE)
+            continue;
+
+        TL::ObjectList<Nodecl::NodeclBase> copies = it->get_copies();
+        for (ObjectList<Nodecl::NodeclBase>::iterator copy_it = copies.begin();
+                copy_it != copies.end();
+                copy_it++, current_copy_num++)
+        {
+            TL::DataReference data_ref(*copy_it);
+
+            int input = (dir & OutlineDataItem::COPY_IN) == OutlineDataItem::COPY_IN;
+            int output = (dir & OutlineDataItem::COPY_IN) == OutlineDataItem::COPY_OUT;
+
+            copy_ol_setup
+                << "ol_copy_data[" << current_copy_num << "].sharing = NANOS_SHARED;"
+                << "ol_copy_data[" << current_copy_num << "].address = (uint64_t)" << as_expression(data_ref.get_base_address()) << ";"
+                << "ol_copy_data[" << current_copy_num << "].size = " << as_expression(data_ref.get_sizeof()) << ";"
+                << "ol_copy_data[" << current_copy_num << "].flags.input = " << input << ";"
+                << "ol_copy_data[" << current_copy_num << "].flags.output = " << output << ";"
+                ;
+            copy_imm_setup
+                << "imm_copy_data[" << current_copy_num << "].sharing = NANOS_SHARED;"
+                << "imm_copy_data[" << current_copy_num << "].address = (uint64_t)" << as_expression(data_ref.get_base_address()) << ";"
+                << "imm_copy_data[" << current_copy_num << "].size = " << as_expression(data_ref.get_sizeof()) << ";"
+                << "imm_copy_data[" << current_copy_num << "].flags.input = " << input << ";"
+                << "imm_copy_data[" << current_copy_num << "].flags.output = " << output << ";"
+                ;
+        }
+    }
+}
 
 void LoweringVisitor::fill_dependences(
         Nodecl::NodeclBase ctr,
@@ -1077,7 +1250,7 @@ void LoweringVisitor::fill_dependences(
     }
 }
 
-static void fill_dimensions(int n_dims, int actual_dim, int current_dep_num,
+void LoweringVisitor::fill_dimensions(int n_dims, int actual_dim, int current_dep_num,
         Nodecl::NodeclBase * dim_sizes, 
         Type dep_type, 
         Source& dims_description, 

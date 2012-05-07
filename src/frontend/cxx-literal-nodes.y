@@ -2,10 +2,16 @@
 %token<token_atrib> NODECL_LITERAL_EXPR "<nodecl-literal-expression>"
 %token<token_atrib> NODECL_LITERAL_STMT "<nodecl-literal-statement>"
 
+%token<token_atrib> SYMBOL_LITERAL_REF "<symbol-literal-reference>"
+%token<token_atrib> TYPE_LITERAL_REF "<type-literal-reference>"
+
 %type<ast> nodecl_literal_expr
 %type<ast> nodecl_literal_stmt
 %type<ast> nodecl_literal_attribute_seq
 %type<ast> nodecl_string_literal
+
+%type<ast> symbol_literal_ref
+%type<ast> type_literal_ref
 
 /*!endif*/
 
@@ -38,6 +44,18 @@ nodecl_literal_attribute_seq : nodecl_literal_attribute_seq ',' nodecl_string_li
 }
 ;
 
+symbol_literal_ref : SYMBOL_LITERAL_REF '(' nodecl_string_literal ')'
+{
+    $$ = ASTMake1(AST_SYMBOL_LITERAL_REF, $3, $1.token_file, $1.token_line, NULL);
+}
+;
+
+type_literal_ref : TYPE_LITERAL_REF '(' nodecl_string_literal ')'
+{
+    $$ = ASTMake1(AST_TYPE_LITERAL_REF, $3, $1.token_file, $1.token_line, NULL);
+}
+;
+
 /*!if FORTRAN2003*/
 nodecl_string_literal : CHAR_LITERAL
 /*!endif*/
@@ -57,7 +75,24 @@ primary_expression : nodecl_literal_expr
 }
 ;
 
+unqualified_id : symbol_literal_ref
+{
+    $$ = $1;
+}
+;
+
 no_if_statement : nodecl_literal_stmt
+{
+    $$ = $1;
+}
+;
+
+/*!if C99*/
+simple_type_specifier : type_literal_ref
+/*!endif*/
+/*!if CPLUSPLUS*/
+named_simple_type_specifier : type_literal_ref
+/*!endif*/
 {
     $$ = $1;
 }
@@ -68,6 +103,10 @@ no_if_statement : nodecl_literal_stmt
 primary : nodecl_literal_expr
 ;
 non_top_level_program_unit_stmt : nodecl_literal_stmt
+;
+declaration_type_spec : type_literal_ref
+;
+name : symbol_literal_ref
 ;
 /*!endif*/
 

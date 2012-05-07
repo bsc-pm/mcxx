@@ -27,15 +27,25 @@
 #include "tl-nodecl-visitor.hpp"
 #include "tl-outline-info.hpp"
 
+#include <set>
+
 namespace TL { namespace Nanox {
 
 class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
 {
     public:
         LoweringVisitor();
-        void visit(const Nodecl::Parallel::Async& construct);
-        void visit(const Nodecl::Parallel::WaitAsyncsShallow& construct);
-        void visit(const Nodecl::Parallel::AsyncCall& construct);
+        virtual void visit(const Nodecl::Parallel::Async& construct);
+        virtual void visit(const Nodecl::Parallel::WaitAsyncsShallow& construct);
+        virtual void visit(const Nodecl::Parallel::WaitAsyncsDependences& construct);
+        virtual void visit(const Nodecl::Parallel::AsyncCall& construct);
+        virtual void visit(const Nodecl::Parallel::Single& construct);
+        virtual void visit(const Nodecl::Parallel::BarrierFull& construct);
+        virtual void visit(const Nodecl::Parallel::Replicate& construct);
+        virtual void visit(const Nodecl::Parallel::Distribute& construct);
+        virtual void visit(const Nodecl::Parallel::Exclusive& construct);
+        virtual void visit(const Nodecl::Parallel::FlushMemory& construct);
+        virtual void visit(const Nodecl::Parallel::Atomic& construct);
 
     private:
         TL::Symbol declare_argument_structure(OutlineInfo& outline_info, Nodecl::NodeclBase construct);
@@ -52,9 +62,16 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 OutlineInfo& outline_info);
 
         void emit_outline(OutlineInfo& outline_info,
+                Nodecl::NodeclBase construct,
+                Source body_source,
+                const std::string& outline_name,
+                TL::Symbol structure_symbol);
+#if 0
+        void emit_outline(OutlineInfo& outline_info,
                 Nodecl::NodeclBase body,
                 const std::string& outline_name,
                 TL::Symbol structure_symbol);
+#endif
 
         TL::Type c_handle_vla_type_rec(
                 OutlineDataItem& outline_data_item,
@@ -93,6 +110,18 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 );
 
         int count_dependences(OutlineInfo& outline_info);
+        int count_copies(OutlineInfo& outline_info);
+
+        void fill_copies(
+                Nodecl::NodeclBase ctr,
+                OutlineInfo& outline_info, 
+                // Source arguments_accessor,
+                // out
+                Source& copy_ol_decl,
+                Source& copy_ol_arg,
+                Source& copy_ol_setup,
+                Source& copy_imm_arg,
+                Source& copy_imm_setup);
 
         void fill_dependences(
                 Nodecl::NodeclBase ctr,
@@ -101,6 +130,70 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 // out
                 Source& result_src
                 );
+        void fill_dependences_wait(
+                Nodecl::NodeclBase ctr,
+                OutlineInfo& outline_info,
+                // out
+                Source& result_src
+                );
+
+        void emit_wait_async(Nodecl::NodeclBase construct, OutlineInfo& outline_info);
+
+        static void fill_dimensions(int n_dims, int actual_dim, int current_dep_num,
+                Nodecl::NodeclBase * dim_sizes, 
+                Type dep_type, 
+                Source& dims_description, 
+                Source& dependency_regions_code, 
+                Scope sc);
+
+        void emit_wait_async(Nodecl::NodeclBase construct, bool has_dependences, OutlineInfo& outline_info);
+
+        std::string get_outline_name(TL::Symbol function_symbol);
+
+        Source fill_const_wd_info(
+                Source &struct_arg_type_name,
+                const std::string& outline_name,
+                bool is_untied,
+                bool mandatory_creation);
+
+        void allocate_immediate_structure(
+                OutlineInfo& outline_info,
+                Source &struct_arg_type_name,
+                Source &struct_size,
+
+                // out
+                Source &immediate_decl,
+                Source &dynamic_size);
+
+        void parallel_spawn(
+                OutlineInfo& outline_info,
+                Nodecl::NodeclBase construct,
+                Nodecl::NodeclBase num_replicas,
+                const std::string& outline_name,
+                TL::Symbol structure_symbol);
+
+        void loop_spawn(
+                OutlineInfo& outline_info,
+                Nodecl::NodeclBase construct,
+                Nodecl::List distribute_environment,
+                Nodecl::List ranges,
+                const std::string& outline_name,
+                TL::Symbol structure_symbol,
+                Source inline_iteration_source);
+
+        Source full_barrier_source();
+
+        void reduction_initialization_code(
+                Source max_threads,
+                OutlineInfo& outline_info,
+                Nodecl::NodeclBase construct,
+                // out
+                Source &reduction_declaration,
+                Source &register_code,
+                Source &fill_outline_arguments,
+                Source &fill_immediate_arguments);
+
+        std::set<std::string> _lock_names;
 };
 
 } }

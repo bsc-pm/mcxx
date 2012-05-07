@@ -77,6 +77,7 @@ static type_t* cuda_get_dim3_type(void)
         new_class_sym->kind = SK_CLASS;
         new_class_sym->type_information = get_new_class_type(global_decl_context, TT_STRUCT);
         decl_context_t class_context = new_class_context(global_decl_context, new_class_sym);
+	class_type_set_inner_context(new_class_sym->type_information, class_context);
 
         class_type_set_inner_context(new_class_sym->type_information, class_context);
 
@@ -130,6 +131,7 @@ static type_t* cuda_get_uint3_type(void)
         new_class_sym->kind = SK_CLASS;
         new_class_sym->type_information = get_new_class_type(global_decl_context, TT_STRUCT);
         decl_context_t class_context = new_class_context(global_decl_context, new_class_sym);
+	class_type_set_inner_context(new_class_sym->type_information, class_context);
 
         class_type_set_inner_context(new_class_sym->type_information, class_context);
 
@@ -290,7 +292,7 @@ void check_nodecl_cuda_kernel_call(nodecl_t nodecl_postfix, nodecl_t nodecl_cuda
                 error_printf("%s: error: %s argument '%s' for kernel call cannot be converted to type '%s'\n",
                         nodecl_get_locus(nodecl_arg),
                         kernel_args[i].position,
-                        codegen_to_str(nodecl_arg),
+                        codegen_to_str(nodecl_arg, nodecl_retrieve_context(nodecl_arg)),
                         print_type_str(dest_type, decl_context));
             }
             *nodecl_output = nodecl_make_err_expr(filename, line);
@@ -440,5 +442,5 @@ void init_cuda_builtins(decl_context_t decl_context UNUSED_PARAMETER)
 {
     cuda_get_dim3_type();
     cuda_get_uint3_type();
-    cuda_get_cudaStream_t_type();
+    // cuda_get_cudaStream_t_type();
 }

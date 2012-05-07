@@ -33,7 +33,7 @@ ADDITIONAL_TESTS=@ADDITIONAL_TESTSUITES@
 END=
 CLEANFILES=
 
-CLEANFILES+=test.log
+CLEANFILES+=test.log test.log.xml
 
 # Replacements are defined in this makefile
 include ../config/Makefile.replace
@@ -55,10 +55,21 @@ prepare-check: ./config/bets
 
 BETS_DIRS=$(srcdir)
 
-check-local: prepare-check
+do-check : prepare-check
 	$(MAKE) -C config
 	$(MAKE) -C .
 	./config/bets $(BETS_OPTIONS) $(BETS_DIRS)
+
+preserve-check-log:
+if RUNNING_DISTCHECK
+	( \
+	preservedir="${top_builddir}/../../";  \
+	echo "Trying to copy test.log.xml to $${preservedir}" ; \
+	cp -vf test.log.xml $${preservedir} || true ; \
+	)
+endif
+
+check-local : do-check preserve-check-log
 
 fortran-check : prepare-check
 	./config/bets $(BETS_OPTIONS) $(BETS_DIRS)/01_fortran.dg $(BETS_DIRS)/06_phases_openmp.dg/common/fortran

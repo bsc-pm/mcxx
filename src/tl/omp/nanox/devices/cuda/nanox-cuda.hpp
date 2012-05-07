@@ -43,7 +43,8 @@ namespace TL
             private:
                 std::string _cudaFilename;
                 AST_t _root;
-                std::set<std::string> _taskSymbols;
+                std::set<Symbol> _taskSymbols;
+                std::set<Symbol> _fwdSymbols;
 
                 void do_cuda_outline_replacements(
                         AST_t body,
@@ -63,7 +64,6 @@ namespace TL
 
                 void get_output_file(std::ofstream& cudaFile);
 
-                std::set<std::string> _fwdSymbols;
 
                 RefPtr<OpenMP::FunctionTaskSet> _function_task_set; 
             public:

@@ -213,6 +213,8 @@ namespace TL
         public:
             PragmaCustomParameter(Nodecl::List node)
                 : PragmaClauseArgList(node) { }
+
+            bool is_defined() const;
     };
 
     class LIBTL_CLASS PragmaCustomLine : public Nodecl::PragmaCustomLine
@@ -491,6 +493,8 @@ namespace TL
              * Each fase must activate this flag if wants to show the warnings
              */
             void warning_pragma_unused_clauses(bool warning);
+
+            static std::string remove_separators_of_directive(const std::string& str);
     };
 
     namespace PragmaUtils 

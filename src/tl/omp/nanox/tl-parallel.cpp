@@ -38,22 +38,6 @@ using namespace TL::Nanox;
 
 void OMPTransform::parallel_postorder(PragmaCustomConstruct ctr)
 {
-    std::cerr << ctr.get_ast().get_locus() << ": warning: '#pragma omp parallel' is not fully implemented" << std::endl;
-
-    Source code;
-
-    code 
-        << "{"
-        <<    ctr.get_statement()
-        <<    get_barrier_code(ctr.get_ast())
-        << "}"
-        ;
-
-    AST_t parallel_code = code.parse_statement(ctr.get_ast(), ctr.get_scope_link());
-    ctr.get_ast().replace(parallel_code);
-
-#undef OMP_PARALLEL_IS_SUPPORTED
-#if OMP_PARALLEL_IS_SUPPORTED
     OpenMP::DataSharingEnvironment& data_sharing = openmp_info->get_data_sharing(ctr.get_ast());
 
     DataEnvironInfo data_environ_info;
@@ -87,35 +71,21 @@ void OMPTransform::parallel_postorder(PragmaCustomConstruct ctr)
 
     Source initial_replace_code, replaced_body;
 
-    Source num_threads;
-
-    PragmaCustomClause num_threads_clause = ctr.get_clause("num_threads");
-    if (num_threads_clause.is_defined())
-    {
-        num_threads << num_threads_clause.get_expression_list()[0];
-    }
-    else
-    {
-        // Do not know how to request the default parallel team thread number
-        num_threads << "0";
-    }
-
     AST_t parallel_code = ctr.get_statement().get_ast();
 
     ObjectList<std::string> current_targets;
     data_sharing.get_all_devices(current_targets);
 
-    Source spawn_source = common_parallel_code(outline_name,
+    Source spawn_source = common_parallel_code(
+            ctr,
+            outline_name,
             struct_arg_type_name,
-            num_threads,
-            ctr.get_scope_link(),
             data_environ_info,
             parallel_code,
             current_targets);
 
     AST_t spawn_tree = spawn_source.parse_statement(ctr.get_ast(), ctr.get_scope_link());
     ctr.get_ast().replace(spawn_tree);
-#endif
 }
 
 void OMPTransform::parallel_for_postorder(PragmaCustomConstruct ctr)

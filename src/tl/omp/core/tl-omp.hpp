@@ -38,7 +38,7 @@
 #include "tl-dto.hpp"
 
 #include "tl-pragmasupport.hpp"
-#include "tl-omp-udr_2.hpp"
+#include "tl-omp-udr.hpp"
 #include "tl-omp-deps.hpp"
 
 #include "tl-datareference.hpp"
@@ -131,17 +131,17 @@ namespace TL
         {
             private:
                 Symbol _symbol;
-                UDRInfoItem2 _udr_item_2;
+                UDRInfoItem _udr_item;
 
             public:
                 ReductionSymbol(Symbol s, 
-                        const UDRInfoItem2& udr_info_item_2)
-                    : _symbol(s), _udr_item_2(udr_info_item_2)
+                        const UDRInfoItem& udr_info_item)
+                    : _symbol(s), _udr_item(udr_info_item)
                 {
                 }
 
                 ReductionSymbol(const ReductionSymbol& red_sym)
-                    : _symbol(red_sym._symbol), _udr_item_2(red_sym._udr_item_2)
+                    : _symbol(red_sym._symbol), _udr_item(red_sym._udr_item)
                 {
                 }
 
@@ -150,9 +150,9 @@ namespace TL
                     return _symbol;
                 }
 
-                const UDRInfoItem2& get_udr_2() const
+                const UDRInfoItem& get_udr() const
                 {
-                    return _udr_item_2;
+                    return _udr_item;
                 }
         };
         
@@ -347,7 +347,7 @@ namespace TL
                 DataSharingEnvironment* _current_data_sharing;
                 std::map<Nodecl::NodeclBase, DataSharingEnvironment*> _map_data_sharing;
                 std::stack<DataSharingEnvironment*> _stack_data_sharing;
-                std::map<Nodecl::NodeclBase, ObjectList<UDRInfoItem2> > _map_udr_info;
+                std::map<Nodecl::NodeclBase, ObjectList<UDRInfoItem> > _map_udr_info;
 
             public:
                 Info(DataSharingEnvironment* root_data_sharing)
@@ -360,8 +360,8 @@ namespace TL
                 DataSharingEnvironment& get_current_data_sharing();
                 DataSharingEnvironment& get_root_data_sharing();
 
-                ObjectList<UDRInfoItem2> get_udr_list(Nodecl::NodeclBase a);
-                void set_udr_list(Nodecl::NodeclBase expr, ObjectList<UDRInfoItem2> udr_list);
+                ObjectList<UDRInfoItem> get_udr_list(Nodecl::NodeclBase a);
+                void set_udr_list(Nodecl::NodeclBase expr, ObjectList<UDRInfoItem> udr_list);
                 void set_udr_symbols(Nodecl::NodeclBase a, ObjectList<Symbol>);
 
                 void push_current_data_sharing(DataSharingEnvironment&);

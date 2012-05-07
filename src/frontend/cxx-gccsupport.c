@@ -928,10 +928,10 @@ static char eval_type_trait__is_convertible_to(type_t* first_type UNUSED_PARAMET
    a void type. 
 */
 static char eval_type_trait__is_empty(type_t* first_type, 
-        type_t* second_type, 
+        type_t* second_type UNUSED_PARAMETER, 
         decl_context_t decl_context)
 {
-    if (!eval_type_trait__is_class(first_type, second_type, decl_context))
+    if (!eval_type_trait__is_class(first_type, NULL, decl_context))
         return 0;
 
     if (is_class_type(first_type))
@@ -977,21 +977,6 @@ static char eval_type_trait__is_pod(type_t* first_type,
 }
 
 /*
-    __is_standard_layout (type)
-
-    If type is a standard-layout type ([basic.types]) the trait is true, else it is false.
-    Requires: type shall be a complete type, (possibly cv-qualified) void,
-    or an array of unknown bound.
-
-*/
-static char eval_type_trait__is_standard_layout(type_t* first_type,
-        type_t* second_type UNUSED_PARAMETER,
-        decl_context_t decl_context UNUSED_PARAMETER)
-{
-    return is_standard_layout_type(first_type);
-}
-
-/*
    __is_polymorphic (type)
 
    If type is a polymorphic class ([class.virtual]) then the trait is true,
@@ -1014,6 +999,21 @@ static char eval_type_trait__is_polymorphic(type_t* first_type,
     }
 
     return 0;
+}
+
+/*
+    __is_standard_layout (type)
+
+    If type is a standard-layout type ([basic.types]) the trait is true, else it is false.
+    Requires: type shall be a complete type, (possibly cv-qualified) void,
+    or an array of unknown bound.
+
+*/
+static char eval_type_trait__is_standard_layout(type_t* first_type,
+        type_t* second_type UNUSED_PARAMETER,
+        decl_context_t decl_context UNUSED_PARAMETER)
+{
+    return is_standard_layout_type(first_type);
 }
 
 /*

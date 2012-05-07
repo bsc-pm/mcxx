@@ -119,7 +119,8 @@ namespace Analysis
 
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::unhandled_node(const Nodecl::NodeclBase& n)
     {
-        std::cerr << "Unhandled node during CFG Analysis'" << codegen_to_str(n.get_internal_nodecl())
+        std::cerr << "Unhandled node during CFG Analysis'" << codegen_to_str(n.get_internal_nodecl(), 
+                nodecl_retrieve_context(n.get_internal_nodecl()))
                   << "' of type '" << ast_print_node_type(n.get_kind()) << "'" << std::endl;
     }
 
@@ -206,7 +207,7 @@ namespace Analysis
         {
             _init_expression = compute_init_expr(rhs, lhs, 0);
         }
-        else if (n.template is<Nodecl::SubAssignment>())
+        else if (n.template is<Nodecl::MinusAssignment>())
         {
             _init_expression = compute_init_expr(rhs, lhs, 1);
         }
@@ -257,7 +258,7 @@ namespace Analysis
         binary_assignment(n);
     }
     
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::SubAssignment& n)
+    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::MinusAssignment& n)
     {
         binary_assignment(n);
     }
@@ -743,7 +744,7 @@ namespace Analysis
         op_assignment_visit(n);
     }
     
-    CfgIPAVisitor::Ret CfgIPAVisitor::visit(const Nodecl::SubAssignment& n)
+    CfgIPAVisitor::Ret CfgIPAVisitor::visit(const Nodecl::MinusAssignment& n)
     {
         op_assignment_visit(n);
     }

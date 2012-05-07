@@ -37,10 +37,10 @@ namespace TL
 {
     namespace Nanox
     {
-        Source common_parallel_code(const std::string& outline_name, 
+        Source common_parallel_code(
+                PragmaCustomConstruct &ctr,
+                const std::string& outline_name, 
                 const std::string& struct_arg_type_name,
-                Source num_threads,
-                ScopeLink sl,
                 DataEnvironInfo& data_environ_info,
                 AST_t parallel_code,
                 const ObjectList<std::string>& current_targets);
@@ -50,9 +50,9 @@ namespace TL
          * This code is shared for "for" and "task" dependences.
          * @param is_task states whether the code must be generated for a "task" or for a "for".
          */
-        void regions_spawn(Source& dependency_struct, 
+        void regions_spawn(
+                Source& dependency_struct, 
                 Source& dependency_array, 
-                Source& dependency_regions, 
                 Source& num_dependences,
                 Source& fill_dependences_outline, 
                 Source& fill_dependences_immediate,

@@ -27,8 +27,10 @@
 #include "tl-nanos.hpp"
 #include "tl-omp-nanox.hpp"
 
-namespace TL { namespace Nanox {
-
+namespace TL
+{
+namespace Nanox
+{
     // Taskwait
     Source OMPTransform::get_wait_completion(Source arg, bool avoid_flush, AST_t ref_tree)
     {
@@ -72,4 +74,176 @@ namespace TL { namespace Nanox {
         return barrier_src;
     }
 
-} }
+    Source OMPTransform::get_create_sliced_wd_code(
+            Source device_descriptor,
+            Source outline_data_size,
+            Source alignment,
+            Source outline_data,
+            Source current_slicer,
+            Source slicer_size,
+            Source slicer_alignment,
+            Source slicer_data,
+            Source num_copies1,
+            Source copy_data1)
+    {
+        Source create_sliced_wd;
+        if (Nanos::Version::interface_is_at_least("master", 5012))
+        {
+            create_sliced_wd
+                <<"nanos_create_sliced_wd("
+                <<      "&wd, "
+                <<       "1, " /* num_devices */
+                <<      device_descriptor << ", "
+                <<      outline_data_size << ", "
+                <<      alignment << ", "
+                <<      outline_data << ", "
+                <<      "nanos_current_wd(), "
+                <<      current_slicer << ", "
+                <<      "&props, "
+                <<      "&dyn_props, "
+                <<      num_copies1 << ", "
+                <<      copy_data1 << ");"
+                ;
+        }
+        else if (Nanos::Version::interface_is_at_least("master", 5008))
+        {
+            create_sliced_wd
+                <<"nanos_create_sliced_wd("
+                <<      "&wd, "
+                <<       "1, " /* num_devices */
+                <<      device_descriptor << ", "
+                <<      outline_data_size << ", "
+                <<      alignment << ", "
+                <<      outline_data << ", "
+                <<      "nanos_current_wd(), "
+                <<      current_slicer << ", "
+                <<      "&props, "
+                <<      num_copies1 << ", "
+                <<      copy_data1 << ");"
+                ;
+        }
+        else
+        {
+            create_sliced_wd
+                << "nanos_create_sliced_wd("
+                <<      "&wd, "
+                <<      "1, " /* num_devices */
+                <<      device_descriptor << ", "
+                <<      outline_data_size << ", "
+                <<      alignment << ", "
+                <<      outline_data << ", "
+                <<      "nanos_current_wd(), "
+                <<      current_slicer << ", "
+                <<      slicer_size << ", "
+                <<      slicer_alignment << ", "
+                <<      slicer_data <<", "
+                <<      "&props, "
+                <<      num_copies1 << ", "
+                <<      copy_data1 << ");"
+                ;
+        }
+        return create_sliced_wd;
+    }
+
+     Source OMPTransform::get_nanos_create_wd_code(Source num_devices,
+            Source device_descriptor,
+            Source struct_size,
+            Source alignment,
+            Source data,
+            Source num_copies,
+            Source copy_data)
+    {
+        Source create_wd;
+        create_wd
+            << "nanos_create_wd(&wd, "
+            <<       num_devices << ", "
+            <<       device_descriptor << ", "
+            <<       struct_size << ", "
+            <<       alignment << ", "
+            <<       data << ", "
+            <<       "nanos_current_wd(), "
+            <<       "&props, "
+            <<       num_copies << ", "
+            <<       copy_data << ");"
+            ;
+
+        return create_wd;
+    }
+
+     Source OMPTransform::get_nanos_create_wd_compact_code(
+            Source struct_size,
+            Source data,
+            Source copy_data)
+    {
+        Source create_wd;
+        create_wd
+            << "nanos_create_wd_compact("
+            <<       "&wd, "
+            <<       "&_const_def.base, "
+            <<       "&dyn_props, "
+            <<       struct_size << ", "
+            <<       data << ", "
+            <<       "nanos_current_wd(), "
+            <<       copy_data << ");"
+            ;
+
+        return create_wd;
+    }
+
+     Source OMPTransform::get_nanos_create_and_run_wd_code(
+             Source num_devices,
+             Source device_descriptor,
+             Source struct_size,
+             Source alignment,
+             Source data,
+             Source num_dependences,
+             Source deps,
+             Source num_copies,
+             Source copy_imm_data,
+             Source translation_fun_arg_name)
+     {
+         Source create_wd_and_run;
+         create_wd_and_run
+             << "nanos_create_wd_and_run("
+             <<       num_devices << ", "
+             <<       device_descriptor << ", "
+             <<       struct_size << ", "
+             <<       alignment << ", "
+             <<       data << ","
+             <<       num_dependences << ", "
+             <<       deps  << ", "
+             <<       "&props, "
+             <<       num_copies << ", "
+             <<       copy_imm_data << ", "
+             <<       translation_fun_arg_name << ");"
+             ;
+
+             return create_wd_and_run;
+     }
+
+
+     Source OMPTransform::get_nanos_create_and_run_wd_compact_code(
+             Source struct_size,
+             Source data,
+             Source num_dependences,
+             Source deps,
+             Source copy_imm_data,
+             Source translation_fun_arg_name)
+     {
+         Source create_wd_and_run;
+         create_wd_and_run
+             << "nanos_create_wd_and_run_compact("
+             <<       "&_const_def.base, "
+             <<       "&dyn_props, "
+             <<       struct_size << ", "
+             <<       data << ","
+             <<       num_dependences << ", "
+             <<       deps  << ", "
+             <<       copy_imm_data << ", "
+             <<       translation_fun_arg_name << ");"
+             ;
+
+             return create_wd_and_run;
+     }
+}
+}

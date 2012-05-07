@@ -1062,7 +1062,6 @@ static sqlite3_uint64 insert_ast(sqlite3* handle, AST a)
         insert_symbol(handle, sym);
     }
 
-    char is_lvalue = nodecl_expr_is_lvalue(_nodecl_wrap(a));
     char is_const_val = nodecl_is_constant(_nodecl_wrap(a));
     sqlite3_uint64 const_val = 0;
     if (is_const_val)
@@ -1102,7 +1101,7 @@ static sqlite3_uint64 insert_ast(sqlite3* handle, AST a)
     // 2
     sqlite3_bind_int64(_insert_ast_stmt, 10, P2ULL(type));
     sqlite3_bind_int64(_insert_ast_stmt, 11, P2ULL(sym));
-    sqlite3_bind_int  (_insert_ast_stmt, 12, is_lvalue);
+    sqlite3_bind_int  (_insert_ast_stmt, 12, 0); // Removed, kept here for historical reasons
     sqlite3_bind_int  (_insert_ast_stmt, 13, is_const_val);
     sqlite3_bind_int64(_insert_ast_stmt, 14, const_val);
     sqlite3_bind_int  (_insert_ast_stmt, 15, is_value_dependent);
@@ -2055,7 +2054,7 @@ static int get_ast(void *datum,
     // Children: 5  + 0 -> 5 + MCXX_MAX_AST_CHILDREN - 1
     sqlite3_uint64 type_oid = safe_atoull(values[5 + MCXX_MAX_AST_CHILDREN + 0]);
     sqlite3_uint64 sym_oid = safe_atoull(values[5 + MCXX_MAX_AST_CHILDREN + 1]);
-    char is_lvalue = safe_atoull(values[5 + MCXX_MAX_AST_CHILDREN + 2]);
+    // char is_lvalue = safe_atoull(values[5 + MCXX_MAX_AST_CHILDREN + 2]);
     char is_const_val = safe_atoull(values[5 + MCXX_MAX_AST_CHILDREN + 3]);
     sqlite3_uint64 const_val = safe_atoull(values[5 + MCXX_MAX_AST_CHILDREN + 4]);
     // char is_value_dependent = safe_atoull(values[5 + MCXX_MAX_AST_CHILDREN + 5]);
@@ -2088,7 +2087,6 @@ static int get_ast(void *datum,
         nodecl_set_symbol(_nodecl_wrap(a), entry);
     }
 
-    nodecl_expr_set_is_lvalue(_nodecl_wrap(a), is_lvalue != 0);
     if (is_const_val)
     {
         const_value_t* v = load_const_value(handle, const_val);

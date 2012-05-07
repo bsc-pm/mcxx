@@ -64,27 +64,23 @@ static nodecl_t simplify_precision(int num_arguments UNUSED_PARAMETER, nodecl_t*
     return nodecl_make_int_literal(precision);
 }
 
-
-static nodecl_t simplify_huge(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+static const_value_t* get_huge_value(type_t* t)
 {
-    nodecl_t x = arguments[0];
-
-    type_t* t = nodecl_get_type(x);
     t = get_rank0_type(t);
 
     if (is_floating_type(t))
     {
         if (is_float_type(t))
         {
-            return nodecl_make_floating_literal(t, const_value_get_float(FLT_MAX), NULL, 0);
+            return const_value_get_float(FLT_MAX);
         }
         else if (is_double_type(t))
         {
-            return nodecl_make_floating_literal(t, const_value_get_double(DBL_MAX), NULL, 0);
+            return const_value_get_double(DBL_MAX);
         }
         else if (is_long_double_type(t))
         {
-            return nodecl_make_floating_literal(t, const_value_get_long_double(LDBL_MAX), NULL, 0);
+            return const_value_get_long_double(LDBL_MAX);
         }
         else 
         {
@@ -92,17 +88,71 @@ static nodecl_t simplify_huge(int num_arguments UNUSED_PARAMETER, nodecl_t* argu
             const floating_type_info_t* floating_info = floating_type_get_info(t);
             if (floating_info->bits == 128)
             {
-                return nodecl_make_floating_literal(t, const_value_get_float128(FLT128_MAX), NULL, 0);
+                return const_value_get_float128(FLT128_MAX);
             }
 #endif
         }
     }
     else if (is_integer_type(t))
     {
-        return nodecl_make_integer_literal(t, integer_type_get_maximum(t), NULL, 0);
+        return integer_type_get_maximum(t);
+    }
+
+    return NULL;
+}
+
+
+static nodecl_t simplify_huge(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+{
+    nodecl_t x = arguments[0];
+
+    type_t* t = nodecl_get_type(x);
+
+    const_value_t* val = get_huge_value(t);
+
+    if (val != NULL)
+    {
+        return const_value_to_nodecl(val);
     }
 
     return nodecl_null();
+}
+
+static const_value_t* get_tiny_value(type_t* t)
+{
+    t = get_rank0_type(t);
+
+    if (is_floating_type(t))
+    {
+        if (is_float_type(t))
+        {
+            return const_value_get_float(FLT_MIN);
+        }
+        else if (is_double_type(t))
+        {
+            return const_value_get_double(DBL_MIN);
+        }
+        else if (is_long_double_type(t))
+        {
+            return const_value_get_long_double(LDBL_MIN);
+        }
+        else 
+        {
+#ifdef HAVE_QUADMATH_H
+            const floating_type_info_t* floating_info = floating_type_get_info(t);
+            if (floating_info->bits == 128)
+            {
+                return const_value_get_float128(FLT128_MIN);
+            }
+#endif
+        }
+    }
+    else if (is_integer_type(t))
+    {
+        return const_value_get_one(type_get_size(t), 1);
+    }
+
+    return NULL;
 }
 
 static nodecl_t simplify_tiny(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
@@ -110,36 +160,12 @@ static nodecl_t simplify_tiny(int num_arguments UNUSED_PARAMETER, nodecl_t* argu
     nodecl_t x = arguments[0];
 
     type_t* t = nodecl_get_type(x);
-    t = get_rank0_type(t);
 
-    if (is_floating_type(t))
+    const_value_t* val = get_tiny_value(t);
+
+    if (val != NULL)
     {
-        if (is_float_type(t))
-        {
-            return nodecl_make_floating_literal(t, const_value_get_float(FLT_MIN), NULL, 0);
-        }
-        else if (is_double_type(t))
-        {
-            return nodecl_make_floating_literal(t, const_value_get_double(DBL_MIN), NULL, 0);
-        }
-        else if (is_long_double_type(t))
-        {
-            return nodecl_make_floating_literal(t, const_value_get_long_double(LDBL_MIN), NULL, 0);
-        }
-        else 
-        {
-#ifdef HAVE_QUADMATH_H
-            const floating_type_info_t* floating_info = floating_type_get_info(t);
-            if (floating_info->bits == 128)
-            {
-                return nodecl_make_floating_literal(t, const_value_get_float128(FLT128_MIN), NULL, 0);
-            }
-#endif
-        }
-    }
-    else if (is_integer_type(t))
-    {
-        return nodecl_make_integer_literal(t, const_value_get_one(type_get_size(t), 1), NULL, 0);
+        return const_value_to_nodecl(val);
     }
 
     return nodecl_null();
@@ -150,21 +176,18 @@ static nodecl_t simplify_tiny(int num_arguments UNUSED_PARAMETER, nodecl_t* argu
 static nodecl_t simplify_range(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
 {
     nodecl_t x = arguments[0];
-    type_t* t = nodecl_get_type(x);
+    type_t* t = no_ref(nodecl_get_type(x));
 
     int value = 0;
     if (is_integer_type(t))
     {
-        nodecl_t huge = simplify_huge(1, arguments);
-        const_value_t* val = nodecl_get_constant(huge);
+        const_value_t* val = get_huge_value(t);
         value = log10( const_value_cast_to_8(val) );
     }
     else if (is_floating_type(t))
     {
-        nodecl_t huge = simplify_huge(1, arguments);
-        nodecl_t tiny = simplify_tiny(1, arguments);
-        double huge_val = const_value_cast_to_double(nodecl_get_constant(huge));
-        double tiny_val = const_value_cast_to_double(nodecl_get_constant(tiny));
+        double huge_val = const_value_cast_to_double(get_huge_value(t));
+        double tiny_val = const_value_cast_to_double(get_tiny_value(t));
 
         value = MIN(log10(huge_val), -log10(tiny_val));
     }
@@ -443,13 +466,33 @@ static nodecl_t simplify_xbound(int num_arguments UNUSED_PARAMETER, nodecl_t* ar
             t = array_type_get_element_type(t);
         }
 
-        return nodecl_make_structured_value(
+        nodecl_t result = nodecl_make_structured_value(
                 nodecl_list,
                 get_array_type_bounds(choose_int_type_from_kind(kind, kind_),
                     nodecl_make_one(),
                     nodecl_make_int_literal(kind_),
                     CURRENT_COMPILED_FILE->global_decl_context),
                 NULL, 0);
+
+        if (rank > 0)
+        {
+            const_value_t* const_vals[rank];
+
+            t = no_ref(nodecl_get_type(array));
+            for (i = 0; i < rank; i++)
+            {
+                nodecl_t bound = nodecl_copy(bound_fun(t)); 
+
+                const_vals[rank - i - 1] = nodecl_get_constant(bound);
+
+                t = array_type_get_element_type(t);
+            }
+
+            nodecl_set_constant(result, 
+                    const_value_make_array(rank, const_vals));
+        }
+
+        return result;
     }
     else
     {
@@ -586,9 +629,10 @@ static nodecl_t simplify_shape(int num_arguments UNUSED_PARAMETER, nodecl_t* arg
         t = array_type_get_element_type(t);
     }
 
+    nodecl_t result = nodecl_null();
     if (rank > 0)
     {
-        return nodecl_make_structured_value(
+        result = nodecl_make_structured_value(
                 nodecl_list,
                 get_array_type_bounds(
                     choose_int_type_from_kind(kind, kind_),
@@ -596,10 +640,26 @@ static nodecl_t simplify_shape(int num_arguments UNUSED_PARAMETER, nodecl_t* arg
                     nodecl_make_int_literal(rank),
                     CURRENT_COMPILED_FILE->global_decl_context),
                 NULL, 0);
+
+        const_value_t* const_vals[rank];
+
+        t = no_ref(nodecl_get_type(array));
+        for (i = 0; i < rank; i++)
+        {
+            nodecl_t size = array_type_get_array_size_expr(t);
+
+            const_vals[rank - i - 1] = nodecl_get_constant(size);
+
+            t = array_type_get_element_type(t);
+        }
+
+        nodecl_set_constant(
+                result,
+                const_value_make_array(rank, const_vals));
     }
     else
     {
-        return nodecl_make_structured_value(
+        result = nodecl_make_structured_value(
                 nodecl_null(),
                 get_array_type_bounds(
                     choose_int_type_from_kind(kind, kind_),
@@ -608,6 +668,8 @@ static nodecl_t simplify_shape(int num_arguments UNUSED_PARAMETER, nodecl_t* arg
                     CURRENT_COMPILED_FILE->global_decl_context),
                 NULL, 0);
     }
+
+    return result;
 }
 
 static nodecl_t simplify_max_min(int num_arguments, nodecl_t* arguments,
@@ -836,6 +898,7 @@ static nodecl_t simplify_achar(int num_arguments, nodecl_t* arguments)
     return simplify_char(num_arguments, arguments);
 }
 
+
 static int flatten_array_count_elements(const_value_t* v)
 {
     if (const_value_is_array(v))
@@ -879,6 +942,75 @@ static const_value_t* flatten_array(const_value_t* v)
 
     const_value_t** pos = flattened_items;
     flatten_array_rec(v, &pos);
+
+    const_value_t* result = const_value_make_array(N, flattened_items);
+
+    return result;
+}
+
+static int flatten_array_count_elements_with_mask(const_value_t* v, const_value_t* mask)
+{
+    if (const_value_is_array(v) != const_value_is_array(mask))
+            return -1;
+
+    if (const_value_is_array(v))
+    {
+        int r = 0;
+        int i, N = const_value_get_num_elements(v);
+        for (i = 0; i < N; i++)
+        {
+            r += flatten_array_count_elements_with_mask(
+                    const_value_get_element_num(v, i),
+                    const_value_get_element_num(mask, i));
+        }
+
+        return r;
+    }
+    else 
+    {
+        if (const_value_is_nonzero(mask))
+            return 1;
+        else
+            return 0;
+    }
+}
+
+void flatten_array_mask_rec(const_value_t* v, const_value_t* mask, const_value_t*** scalar_item)
+{
+    if (const_value_is_array(v))
+    {
+        int i, N = const_value_get_num_elements(v);
+        for (i = 0; i < N; i++)
+        {
+            flatten_array_mask_rec(
+                    const_value_get_element_num(v, i), 
+                    const_value_get_element_num(mask, i), 
+                    scalar_item);
+        }
+    }
+    else
+    {
+        if (const_value_is_nonzero(mask))
+        {
+            (**scalar_item) = v;
+            (*scalar_item)++;
+        }
+    }
+}
+
+static const_value_t* flatten_array_with_mask(const_value_t* v, const_value_t* mask)
+{
+    if (mask == NULL)
+        return flatten_array(v);
+
+    int N = flatten_array_count_elements_with_mask(v, mask);
+    if (N < 0)
+        return NULL;
+
+    const_value_t* flattened_items[N];
+
+    const_value_t** pos = flattened_items;
+    flatten_array_mask_rec(v, mask, &pos);
 
     const_value_t* result = const_value_make_array(N, flattened_items);
 
@@ -1139,6 +1271,387 @@ static nodecl_t simplify_reshape(int num_arguments UNUSED_PARAMETER, nodecl_t* a
         return const_value_to_nodecl(val);
     }
     return nodecl_null();
+}
+
+typedef int index_info_t[MCXX_MAX_ARRAY_SPECIFIER];
+
+static const_value_t* reduce_for_a_given_dimension(
+        const_value_t* original_array, 
+        const_value_t* mask, 
+        int num_dimensions,
+        int reduced_dimension,
+        index_info_t index_info,
+        const_value_t* (*combine)(const_value_t* a, const_value_t* b),
+        const_value_t* neuter)
+{
+    const_value_t* result = NULL;
+
+    const_value_t* considered_array = original_array;
+    const_value_t* considered_mask_array = mask;
+
+    int i = 0;
+    for (i = 0; i < reduced_dimension - 1; i++)
+    {
+        considered_array = const_value_get_element_num(considered_array, 
+                index_info[i]);
+
+        if (considered_mask_array != NULL)
+        {
+            considered_mask_array = const_value_get_element_num(considered_mask_array, 
+                index_info[i]);
+        }
+    }
+
+    // Now we are in the reduced dimension
+    int N = const_value_get_num_elements(considered_array);
+    for (i = 0; i < N; i++)
+    {
+        const_value_t* current_value = const_value_get_element_num(considered_array, i);
+
+        const_value_t* current_mask = NULL;
+        if (considered_mask_array != NULL)
+        {
+            current_mask = const_value_get_element_num(considered_mask_array, i);
+        }
+
+        int j;
+        for (j = reduced_dimension; j < num_dimensions; j++)
+        {
+            current_value = const_value_get_element_num(current_value, index_info[j]);
+
+            if (current_mask != NULL)
+            {
+                current_mask = const_value_get_element_num(current_mask, index_info[j]);
+            }
+        }
+
+        if (current_mask == NULL
+                || const_value_is_nonzero(current_mask))
+        {
+            if (result == NULL)
+            {
+                result = current_value;
+            }
+            else
+            {
+                result = combine(result, current_value);
+            }
+        }
+    }
+
+    if (result == NULL)
+    {
+        result = neuter;
+    }
+
+    return result;
+}
+
+
+static const_value_t* reduce_recursively(
+        const_value_t* original_array, 
+        const_value_t* mask, 
+        int reduced_dimension,
+        int num_dimensions,
+        index_info_t index_info,
+        const_value_t* (*combine)(const_value_t* a, const_value_t* b),
+        const_value_t* neuter,
+
+        const_value_t* current_array, 
+        int current_dimension)
+{
+    if ((current_dimension + 1) < num_dimensions)
+    {
+        int i, N = const_value_get_num_elements(current_array);
+
+        const_value_t* tmp[N];
+
+        for (i = 0; i < N; i++)
+        {
+            index_info[current_dimension] = i;
+
+            tmp[i] = reduce_recursively(original_array,
+                    mask,
+                    reduced_dimension,
+                    num_dimensions,
+                    index_info,
+                    combine,
+                    neuter,
+
+                    const_value_get_element_num(current_array, i),
+                    current_dimension + 1);
+
+            // Early return if this is the reduced dimension
+            if ((current_dimension + 1) == reduced_dimension)
+            {
+                return tmp[i];
+            }
+        }
+
+        return const_value_make_array(N, tmp);
+    }
+    else if ((current_dimension + 1) == num_dimensions)
+    {
+        int i, N = const_value_get_num_elements(current_array);
+        const_value_t* tmp[N];
+
+        for (i = 0; i < N; i++)
+        {
+            index_info[current_dimension] = i;
+
+            tmp[i] = reduce_for_a_given_dimension(original_array, mask, num_dimensions, reduced_dimension, index_info, combine, neuter);
+
+            // Early return if this is the reduced dimension
+            if ((current_dimension + 1) == reduced_dimension)
+            {
+                return tmp[i];
+            }
+        }
+
+        return const_value_make_array(N, tmp);
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
+}
+
+static const_value_t* simplify_maxminval_aux(
+        const_value_t* array_constant,
+        const_value_t* dim_constant,
+        const_value_t* mask_constant,
+        int num_dimensions,
+        const_value_t* (*combine)(const_value_t* a, const_value_t* b),
+        const_value_t* neuter
+        )
+{
+    // no DIM=
+    if ((dim_constant == NULL)
+            // or rank 1
+            || (num_dimensions == 1))
+    {
+        // Case 1) Reduce all values into a scalar
+        const_value_t* values = flatten_array_with_mask(array_constant, mask_constant);
+        int num_values = const_value_get_num_elements(values);
+        if (num_values > 0)
+        {
+            const_value_t* reduced_val = const_value_get_element_num(values, 0);
+            int i;
+            for (i = 1; i < num_values; i++)
+            {
+                const_value_t* current_val = const_value_get_element_num(values, i);
+                reduced_val = combine(reduced_val, current_val);
+            }
+
+            return reduced_val;
+        }
+        else
+        {
+            // Degenerated case
+            return neuter;
+        }
+    }
+    else
+    {
+        // Case 2) Multidimensional reduction
+        // Recursively traverse all elements
+        //
+        index_info_t index_info;
+        memset(index_info, 0, sizeof(index_info));
+
+        int reduced_dim = const_value_cast_to_signed_int(dim_constant);
+
+        // This is in fortran order, but we internally use C order +1
+        reduced_dim = num_dimensions - reduced_dim + 1;
+
+        return reduce_recursively(
+                array_constant,
+                mask_constant,
+                reduced_dim,
+                num_dimensions,
+                index_info,
+                combine,
+                neuter,
+
+                array_constant,
+                0);
+    }
+}
+
+static nodecl_t simplify_maxminval(int num_arguments, 
+        nodecl_t* arguments,
+        int num_dimensions,
+        const_value_t* (*combine)(const_value_t* a, const_value_t* b),
+        const_value_t* neuter
+        )
+{
+    nodecl_t array = nodecl_null();
+    nodecl_t dim = nodecl_null();
+    nodecl_t mask = nodecl_null();
+    if (num_arguments == 2)
+    {
+        array = arguments[0];
+        mask = arguments[1];
+    }
+    else if (num_arguments == 3)
+    {
+        array = arguments[0];
+        dim = arguments[1];
+        mask = arguments[2];
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
+
+    if (!nodecl_is_constant(array)
+            || (!nodecl_is_null(dim) && !nodecl_is_constant(dim))
+            || (!nodecl_is_null(mask) && !nodecl_is_constant(mask)))
+        return nodecl_null();
+
+    const_value_t* v = simplify_maxminval_aux(
+            nodecl_get_constant(array),
+            nodecl_is_null(dim) ? NULL : nodecl_get_constant(dim),
+            nodecl_is_null(mask) ? NULL : nodecl_get_constant(mask),
+            num_dimensions,
+            combine,
+            neuter);
+
+    if (v == NULL)
+        return nodecl_null();
+
+    return const_value_to_nodecl(v);
+}
+
+static const_value_t* const_value_compute_max(const_value_t* a, const_value_t* b)
+{
+    // a > b
+    if (const_value_is_nonzero(const_value_gt(a, b)))
+    {
+        return a;
+    }
+    else
+    {
+        return b;
+    }
+}
+
+static const_value_t* get_max_neuter_for_type(type_t* t)
+{
+    if (is_integer_type(t))
+    {
+        return integer_type_get_minimum(t);
+    }
+    else if (is_floating_type(t))
+    {
+        return get_huge_value(t);
+    }
+    else if (is_fortran_character_type(t))
+    {
+        nodecl_t nodecl_size = array_type_get_array_size_expr(t);
+        const_value_t* size_constant = nodecl_get_constant(nodecl_size);
+        ERROR_CONDITION(size_constant == NULL, "This should not happen", 0);
+
+        int size = const_value_cast_to_signed_int(size_constant);
+        ERROR_CONDITION(size <= 0, "This should not happen", 0);
+
+        const_value_t* values[size];
+
+        const_value_t* zero = const_value_get_zero(type_get_size(array_type_get_element_type(t)), 1);
+
+        int i;
+        for (i = 0; i < size; i++)
+        {
+            values[i] = zero;
+        }
+
+        return const_value_make_string_from_values(size, values);
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
+}
+
+static nodecl_t simplify_maxval(int num_arguments, nodecl_t* arguments)
+{
+    nodecl_t array = arguments[0];
+
+    type_t* array_type = no_ref(nodecl_get_type(array));
+    type_t* element_type = get_rank0_type(array_type);
+    int num_dimensions = get_rank_of_type(array_type);
+
+    return simplify_maxminval(
+            num_arguments, arguments,
+            num_dimensions,
+            const_value_compute_max,
+            get_max_neuter_for_type(element_type));
+}
+
+static const_value_t* const_value_compute_min(const_value_t* a, const_value_t* b)
+{
+    // a < b
+    if (const_value_is_nonzero(const_value_lt(a, b)))
+    {
+        return a;
+    }
+    else
+    {
+        return b;
+    }
+}
+
+static const_value_t* get_min_neuter_for_type(type_t* t)
+{
+    // We do not use integer_type_get_minimum because fortran does not use two's complement
+    if (is_integer_type(t))
+    {
+        return integer_type_get_maximum(t);
+    }
+    else if (is_floating_type(t))
+    {
+        return get_huge_value(t);
+    }
+    else if (is_fortran_character_type(t))
+    {
+        nodecl_t nodecl_size = array_type_get_array_size_expr(t);
+        const_value_t* size_constant = nodecl_get_constant(nodecl_size);
+        ERROR_CONDITION(size_constant == NULL, "This should not happen", 0);
+
+        int size = const_value_cast_to_signed_int(size_constant);
+        ERROR_CONDITION(size <= 0, "This should not happen", 0);
+
+        const_value_t* values[size];
+
+        const_value_t* zero = integer_type_get_maximum(array_type_get_element_type(t));
+
+        int i;
+        for (i = 0; i < size; i++)
+        {
+            values[i] = zero;
+        }
+
+        return const_value_make_string_from_values(size, values);
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
+}
+
+static nodecl_t simplify_minval(int num_arguments, nodecl_t* arguments)
+{
+    nodecl_t array = arguments[0];
+
+    type_t* array_type = no_ref(nodecl_get_type(array));
+    type_t* element_type = get_rank0_type(array_type);
+    int num_dimensions = get_rank_of_type(array_type);
+
+    return simplify_maxminval(
+            num_arguments, arguments,
+            num_dimensions,
+            const_value_compute_min,
+            get_min_neuter_for_type(element_type));
 }
 
 #endif

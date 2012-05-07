@@ -58,7 +58,7 @@ namespace TL
                 void _name##_handler_pre(TL::PragmaCustomStatement); \
                 void _name##_handler_post(TL::PragmaCustomStatement); \
                 void _name##_handler_pre(TL::PragmaCustomDeclaration); \
-                void _name##_handler_post(TL::PragmaCustomDeclaration); 
+                void _name##_handler_post(TL::PragmaCustomDeclaration);
 #define OMP_CONSTRUCT_NOEND(_directive, _name) \
                 OMP_CONSTRUCT(_directive, _name)
 #include "tl-omp-constructs.def"
@@ -67,6 +67,9 @@ namespace TL
 #undef OMP_DIRECTIVE
 
                 Nodecl::List make_execution_environment(OpenMP::DataSharingEnvironment&, PragmaCustomLine);
+
+                // void loop_handler_pre(TL::PragmaCustomStatement);
+                Nodecl::NodeclBase loop_handler_post(TL::PragmaCustomStatement directive, Nodecl::NodeclBase statement);
         };
     }
 }

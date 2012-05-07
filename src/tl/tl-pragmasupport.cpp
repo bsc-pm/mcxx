@@ -152,6 +152,20 @@ namespace TL
         // _pragma_dispatcher.set_warning_clauses(warning);
     }
 
+    std::string PragmaCustomCompilerPhase::remove_separators_of_directive(const std::string& str)
+    {
+        std::string result(str);
+
+        for (std::string::iterator it = result.begin();
+                it != result.end();
+                it++)
+        {
+            if (*it == '|') *it = ' ';
+        }
+
+        return result;
+    }
+
     PragmaMapDispatcher& PragmaCustomCompilerPhase::dispatcher()
     {
         return _pragma_map_dispatcher;
@@ -245,6 +259,11 @@ namespace TL
     bool PragmaCustomClause::is_defined() const
     {
         return !_pragma_clauses.empty();
+    }
+
+    bool PragmaCustomParameter::is_defined() const
+    {
+        return !this->empty();
     }
 
     bool PragmaCustomClause::is_singleton() const

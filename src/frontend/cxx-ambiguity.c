@@ -823,6 +823,7 @@ static char check_simple_or_member_declaration(AST a, decl_context_t decl_contex
                 {
                     scope_entry_t* entry = entry_list_head(entry_list);
                     entry_list_free(entry_list);
+                    entry = entry_advance_aliases(entry);
 
                     if (entry->kind == SK_TYPEDEF
                             || entry->kind == SK_ENUM
@@ -1146,6 +1147,56 @@ static char check_expression_statement(AST a, decl_context_t decl_context)
     return result;
 }
 
+
+char solve_ambiguous_list(AST ambiguous_list, decl_context_t decl_context,
+        nodecl_t* nodecl_output)
+{
+    ERROR_CONDITION(ASTType(ambiguous_list) != AST_AMBIGUITY, "invalid kind", 0);
+
+    int i;
+    int correct_choice = -1;
+    for (i = 0; i < ast_get_num_ambiguities(ambiguous_list); i++)
+    {
+        AST current_expression_list = ast_get_ambiguity(ambiguous_list, i);
+
+        nodecl_t nodecl_expr = nodecl_null();
+        enter_test_expression();
+        check_list_of_expressions(current_expression_list, decl_context, &nodecl_expr);
+        leave_test_expression();
+
+        if (nodecl_is_null(nodecl_expr)
+                || !nodecl_is_err_expr(nodecl_expr))
+        {
+            if (correct_choice < 0)
+            {
+                correct_choice = i;
+                if (nodecl_output != NULL)
+                    *nodecl_output = nodecl_expr;
+            }
+            else
+            {
+                AST previous_choice = ast_get_ambiguity(ambiguous_list, correct_choice);
+                AST current_choice = ast_get_ambiguity(ambiguous_list, i);
+                internal_error("More than one valid alternative '%s' vs '%s'",
+                        ast_print_node_type(ASTType(previous_choice)),
+                        ast_print_node_type(ASTType(current_choice)));
+            }
+        }
+    }
+
+    if (correct_choice < 0)
+    {
+        if (nodecl_output != NULL)
+            *nodecl_output = nodecl_make_err_expr(ASTFileName(ambiguous_list), ASTLine(ambiguous_list));
+        return 0;
+    }
+    else
+    {
+        choose_option(ambiguous_list, correct_choice);
+        return 1;
+    }
+}
+
 // Returns if the template_parameter could be disambiguated.
 // If it can be disambiguated, it is disambiguated here
 void solve_ambiguous_template_argument(AST ambig_template_parameter, decl_context_t decl_context)
@@ -1315,7 +1366,7 @@ static char check_init_declarator(AST init_declarator, decl_context_t decl_conte
                     nodecl_t nodecl_dummy = nodecl_null();
 
                     enter_test_expression();
-                    result = check_expression_list(initializer_list, decl_context, &nodecl_dummy);
+                    result = check_list_of_expressions(initializer_list, decl_context, &nodecl_dummy);
                     leave_test_expression();
 
                     nodecl_free(nodecl_dummy);
@@ -1795,53 +1846,6 @@ void solve_ambiguous_type_specifier(AST ambig_type, decl_context_t decl_context)
     }
 }
 
-void solve_ambiguous_expression_list(AST expression_list, decl_context_t decl_context)
-{
-    int correct_choice = -1;
-    int i;
-    for (i = 0; i < ast_get_num_ambiguities(expression_list); i++)
-    {
-        AST current_expression_list = ast_get_ambiguity(expression_list, i);
-        AST iter;
-
-        char result = 1;
-        for_each_element(current_expression_list, iter)
-        {
-            AST current_expression = ASTSon1(iter);
-
-            nodecl_t nodecl_dummy = nodecl_null();
-            enter_test_expression();
-            result = result && check_expression(current_expression, decl_context, &nodecl_dummy);
-            leave_test_expression();
-        }
-
-        if (result)
-        {
-            if (correct_choice < 0)
-            {
-                correct_choice = i;
-            }
-            else
-            {
-                AST previous_choice = ast_get_ambiguity(expression_list, correct_choice);
-                AST current_choice = ast_get_ambiguity(expression_list, i);
-                internal_error("More than one valid alternative '%s' vs '%s'", 
-                        ast_print_node_type(ASTType(previous_choice)),
-                        ast_print_node_type(ASTType(current_choice)));
-            }
-        }
-    }
-
-    if (correct_choice < 0)
-    {
-        internal_error("Ambiguity not solved %s", ast_location(expression_list));
-    }
-    else
-    {
-        choose_option(expression_list, correct_choice);
-    }
-}
-
 /*
  * Auxiliar functions
  */
@@ -1947,9 +1951,9 @@ char checking_ambiguity(void)
     return (_ambiguity_testing != 0);
 }
 
-static void favor_known_expression_ambiguities(AST previous_choice, 
-        AST current_choice, 
-        int current_index, 
+static void favor_known_expression_ambiguities(AST previous_choice,
+        AST current_choice,
+        int current_index,
         int *correct_choice,
         nodecl_t current_nodecl,
         nodecl_t* previous_output)
@@ -1973,21 +1977,7 @@ static void favor_known_expression_ambiguities(AST previous_choice,
     //  since the 1 case is already OK to us (so we go into the if
     //  but nothing is done)
     //
-    //  Example:
-    //
-    //   sizeof(T()) could be either a type or an expression but we
-    //   favor the type 'function () returning T' instead of 'call
-    //   T with zero arguments'
     int either;
-    if ((either = either_type(previous_choice, current_choice,
-                    AST_SIZEOF_TYPEID, AST_SIZEOF)))
-    {
-        if (either < 0)
-        {
-            (*correct_choice) = current_index;
-            (*previous_output) = current_nodecl;
-        }
-    }
     // This one covers cases like this one
     //
     // template <typename _T>
@@ -2008,7 +1998,7 @@ static void favor_known_expression_ambiguities(AST previous_choice,
     //
     // But this last case is not ambiguous so it will never go
     // through this desambiguation code
-    else if ((either = either_type(previous_choice, current_choice, 
+    if ((either = either_type(previous_choice, current_choice, 
                     AST_EXPLICIT_TYPE_CONVERSION, AST_FUNCTION_CALL)))
     {
         if (either < 0)

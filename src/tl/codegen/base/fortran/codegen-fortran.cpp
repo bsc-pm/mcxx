@@ -29,7 +29,9 @@
 #include "fortran03-scope.h"
 #include "fortran03-typeutils.h"
 #include "tl-compilerpipeline.hpp"
+#include "tl-source.hpp"
 #include "cxx-cexpr.h"
+#include "cxx-entrylist.h"
 #include "cxx-driver-utils.h"
 #include "string_utils.h"
 #include <ctype.h>
@@ -233,6 +235,9 @@ namespace Codegen
 
             codegen_module_footer(current_module);
 
+            clear_codegen_status();
+            clear_renames();
+
             pop_declaring_entity();
         }
 
@@ -294,7 +299,7 @@ namespace Codegen
                     it != related_symbols.end();
                     it++)
             {
-                declare_symbol(*it);
+                declare_symbol(*it, it->get_scope());
             }
         }
 
@@ -309,7 +314,7 @@ namespace Codegen
                     it++)
             {
                 // Here we declare everything in the context of the enclosing program unit
-                declare_everything_needed(*it);
+                declare_everything_needed(*it, entry.get_related_scope());
 
                 // We explicitly check dummy arguments because they might not be used
                 TL::Symbol internal_procedure = it->get_symbol();
@@ -320,7 +325,8 @@ namespace Codegen
                 {
                     if (it->get_type().basic_type().is_class())
                     {
-                        declare_symbol(it->get_type().basic_type().get_symbol());
+                        declare_symbol(it->get_type().basic_type().get_symbol(), 
+                                it->get_type().basic_type().get_symbol().get_scope());
                     }
                 }
             }
@@ -527,13 +533,47 @@ namespace Codegen
         }
         else if (entry.is_variable())
         {
-            if (!entry.is_static()
-                    && !entry.get_type().is_const())
+            if (entry.is_static())
+            {
+                // Do nothing 
+                //
+                // static int a = 3;
+            }
+            else if (entry.get_type().is_const()
+                            && !entry.get_initialization().is_null()
+                            && entry.get_initialization().is_constant())
+            {
+                // Do nothing
+                //
+                // const int n = x;
+            }
+            else if (entry.get_type().is_array()
+                    && entry.get_type().array_is_vla()
+                    && !entry.is_parameter())
+            {
+                // ALLOCATE this non-dummy VLA
+                indent();
+                std::string type_spec, array_spec;
+                codegen_type(entry.get_type(), type_spec, array_spec, 
+                        // Note: we set it as a dummy because we want the full array_spec, not just (:, :)
+                        /* is_dummy */ true);
+                file << "ALLOCATE(" << rename(entry) << array_spec << ")\n";
+            }
+            else
             {
                 // Fake an assignment statement
                 indent();
-                file << rename(entry) << " = ";
-                walk(entry.get_initialization());
+                Nodecl::Symbol nodecl_sym = Nodecl::Symbol::make(entry, node.get_filename(), node.get_line());
+                nodecl_set_type(nodecl_sym.get_internal_nodecl(), entry.get_type().get_internal_type());
+
+                Nodecl::Assignment assig = Nodecl::Assignment::make(
+                        nodecl_sym,
+                        entry.get_initialization().copy(),
+                        entry.get_type(),
+                        node.get_filename(),
+                        node.get_line());
+
+                walk(assig);
                 file << "\n";
             }
         }
@@ -559,6 +599,10 @@ namespace Codegen
     BINARY_EXPRESSION(LogicalOr, " .OR. ") \
     BINARY_EXPRESSION(Power, " ** ") \
     BINARY_EXPRESSION(Concat, " // ") \
+    BINARY_EXPRESSION_ASSIG(MulAssignment, " * ") \
+    BINARY_EXPRESSION_ASSIG(DivAssignment, " / ") \
+    BINARY_EXPRESSION_ASSIG(AddAssignment, " + ") \
+    BINARY_EXPRESSION_ASSIG(MinusAssignment, " - ") 
 
 #define PREFIX_UNARY_EXPRESSION(_name, _operand) \
     void FortranBase::visit(const Nodecl::_name &node) \
@@ -572,6 +616,17 @@ namespace Codegen
     { \
         Nodecl::NodeclBase lhs = node.get_lhs(); \
         Nodecl::NodeclBase rhs = node.get_rhs(); \
+        walk(lhs); \
+        file << _operand; \
+        walk(rhs); \
+    }
+#define BINARY_EXPRESSION_ASSIG(_name, _operand) \
+    void FortranBase::visit(const Nodecl::_name &node) \
+    { \
+        Nodecl::NodeclBase lhs = node.get_lhs(); \
+        Nodecl::NodeclBase rhs = node.get_rhs(); \
+        walk(lhs); \
+        file << " = "; \
         walk(lhs); \
         file << _operand; \
         walk(rhs); \
@@ -675,6 +730,27 @@ OPERATOR_TABLE
         free(bytes);
     }
 
+    namespace {
+        std::string fix_class_name(std::string str)
+        {
+            // Remove prefixes that might come from C
+            std::string struct_prefix = "struct ";
+            // Unions cannot be expressed in fortran!
+            std::string class_prefix =  "class ";
+
+            if (str.substr(0, struct_prefix.size()) == struct_prefix)
+            {
+                str = str.substr(struct_prefix.size());
+            }
+            else if (str.substr(0, class_prefix.size()) == class_prefix)
+            {
+                str = str.substr(class_prefix.size());
+            }
+
+            return str;
+        }
+    }
+
     void FortranBase::visit(const Nodecl::Text& node)
     {
         file << node.get_text();
@@ -737,20 +813,8 @@ OPERATOR_TABLE
                 type = type.get_symbol().get_type();
             }
             
-            // Remove prefixes that might come from C
-            std::string struct_prefix = "struct ";
-            // Unions cannot be expressed in fortran!
-            std::string class_prefix =  "class ";
             std::string real_name = rename(type.get_symbol());
-
-            if (real_name.substr(0, struct_prefix.size()) == struct_prefix)
-            {
-                real_name = real_name.substr(struct_prefix.size());
-            }
-            else if (real_name.substr(0, class_prefix.size()) == class_prefix)
-            {
-                real_name = real_name.substr(class_prefix.size());
-            }
+            real_name = fix_class_name(real_name);
 
             file << real_name << "(";
             Nodecl::List items = node.get_items().as<Nodecl::List>();
@@ -1184,7 +1248,21 @@ OPERATOR_TABLE
         }
 
         ERROR_CONDITION(!called.get_symbol().is_valid(), "Invalid symbol in call", 0);
-        bool is_call = (called.get_symbol().get_type().returns().is_void());
+
+        TL::Type function_type = called.get_symbol().get_type();
+
+        if (function_type.is_any_reference())
+            function_type = function_type.references_to();
+
+        if (function_type.is_pointer())
+        {
+            function_type = function_type.points_to();
+            ERROR_CONDITION(!called.is<Nodecl::Derreference>(), "The called entity should be derreferenced!", 0);
+            called = called.as<Nodecl::Derreference>().get_rhs();
+        }
+
+        ERROR_CONDITION(!function_type.is_function(), "Function type is not", 0);
+        bool is_call = (function_type.returns().is_void());
 
         TL::Symbol entry = function_name_in_charge.get_symbol();
         ERROR_CONDITION(!entry.is_valid(), "Invalid symbol in call", 0);
@@ -1325,28 +1403,106 @@ OPERATOR_TABLE
 
     void FortranBase::visit(const Nodecl::ForStatement& node)
     {
-        indent();
-        if (!node.get_loop_name().is_null())
-        {
-            walk(node.get_loop_name());
-            file << " : ";
-        }
-        file << "DO";
+        Nodecl::NodeclBase header = node.get_loop_header();
 
-        walk(node.get_loop_header());
-        file<< "\n";
-        inc_indent();
-        walk(node.get_statement());
-        dec_indent();
-        indent();
-
-        file << "END DO";
-        if (!node.get_loop_name().is_null())
+        if (header.is<Nodecl::LoopControl>())
         {
-            file << " ";
-            walk(node.get_loop_name());
+            // Not a ranged loop. This is a DO WHILE
+            if (!node.get_loop_name().is_null())
+            {
+                walk(node.get_loop_name());
+                file << " : ";
+            }
+
+            Nodecl::LoopControl lc = node.get_loop_header().as<Nodecl::LoopControl>();
+
+            // Init
+            indent();
+            walk(lc.get_init());
+            file << "\n";
+
+            // Loop
+            indent();
+            file << "DO WHILE(";
+            walk(lc.get_cond());
+            file << ")";
+            file << "\n";
+
+            // Loop body
+            inc_indent();
+            walk(node.get_statement());
+
+            // Advance loop
+            indent();
+            walk(lc.get_next());
+            file << "\n";
+            dec_indent();
+
+            indent();
+            file << "END DO";
+
+            if (!node.get_loop_name().is_null())
+            {
+                file << " ";
+                walk(node.get_loop_name());
+            }
+            file << "\n";
         }
-        file << "\n";
+        else if (header.is<Nodecl::RangeLoopControl>())
+        {
+            indent();
+
+            if (!node.get_loop_name().is_null())
+            {
+                walk(node.get_loop_name());
+                file << " : ";
+            }
+            file << "DO";
+
+            walk(node.get_loop_header());
+            file << "\n";
+            inc_indent();
+            walk(node.get_statement());
+            dec_indent();
+            indent();
+
+            file << "END DO";
+            if (!node.get_loop_name().is_null())
+            {
+                file << " ";
+                walk(node.get_loop_name());
+            }
+            file << "\n";
+        }
+        else if (header.is<Nodecl::UnboundedLoopControl>())
+        {
+            indent();
+
+            if (!node.get_loop_name().is_null())
+            {
+                walk(node.get_loop_name());
+                file << " : ";
+            }
+
+            file << "DO\n";
+
+            inc_indent();
+            walk(node.get_statement());
+            dec_indent();
+            indent();
+
+            file << "END DO";
+            if (!node.get_loop_name().is_null())
+            {
+                file << " ";
+                walk(node.get_loop_name());
+            }
+            file << "\n";
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
+        }
     }
 
     void FortranBase::visit(const Nodecl::WhileStatement& node)
@@ -1376,11 +1532,12 @@ OPERATOR_TABLE
         file << "\n";
     }
 
-    void FortranBase::visit(const Nodecl::LoopControl& node)
+    void FortranBase::visit(const Nodecl::RangeLoopControl& node)
     {
-        Nodecl::NodeclBase init = node.get_init();
-        Nodecl::NodeclBase cond = node.get_cond();
-        Nodecl::NodeclBase next = node.get_next();
+        TL::Symbol ind_var = node.get_symbol();
+        Nodecl::NodeclBase lower = node.get_lower();
+        Nodecl::NodeclBase upper = node.get_upper();
+        Nodecl::NodeclBase stride = node.get_step();
 
         std::string separator = ", ";
 
@@ -1390,7 +1547,7 @@ OPERATOR_TABLE
             separator = ":";
         }
 
-        if (!init.is_null())
+        if (!lower.is_null())
         {
             // Needed for DO but not for FORALL which uses a (
             if (!state.in_forall)
@@ -1398,22 +1555,29 @@ OPERATOR_TABLE
                 file << " ";
             }
 
-            walk(init);
+            bool old_in_forall = state.in_forall;
+            state.in_forall = false;
 
-            if (!cond.is_null())
+            file << rename(ind_var) << " = ";
+
+            walk(lower);
+
+            if (!upper.is_null())
             {
                 file << separator;
-                walk(cond);
+                walk(upper);
             }
-            if (!next.is_null())
+            if (!stride.is_null())
             {
                 file << separator;
-                walk(next);
+                walk(stride);
             }
             else
             {
                 file << separator << "1";
             }
+
+            state.in_forall = old_in_forall;
         }
     }
 
@@ -1750,8 +1914,8 @@ OPERATOR_TABLE
 
     void FortranBase::visit(const Nodecl::FortranData& node)
     {
-        declare_everything_needed(node.get_objects());
-        declare_everything_needed(node.get_values());
+        declare_everything_needed(node.get_objects(), node.retrieve_context());
+        declare_everything_needed(node.get_values(), node.retrieve_context());
 
         indent();
         file << "DATA ";
@@ -1765,8 +1929,8 @@ OPERATOR_TABLE
 
     void FortranBase::visit(const Nodecl::FortranEquivalence& node)
     {
-        declare_everything_needed(node.get_first());
-        declare_everything_needed(node.get_second());
+        declare_everything_needed(node.get_first(), node.retrieve_context());
+        declare_everything_needed(node.get_second(), node.retrieve_context());
 
         indent();
         file << "EQUIVALENCE (";
@@ -2093,11 +2257,20 @@ OPERATOR_TABLE
 
     void FortranBase::set_codegen_status(TL::Symbol sym, codegen_status_t status)
     {
+        if (sym.is_from_module())
+        {
+            sym = sym.aliased_from_module();
+        }
         _codegen_status[sym] = status;
     }
 
     codegen_status_t FortranBase::get_codegen_status(TL::Symbol sym)
     {
+        if (sym.is_from_module())
+        {
+            sym = sym.aliased_from_module();
+        }
+
         std::map<TL::Symbol, codegen_status_t>::iterator it = _codegen_status.find(sym);
 
         if (it == _codegen_status.end())
@@ -2193,7 +2366,7 @@ OPERATOR_TABLE
     }
 
     void FortranBase::traverse_looking_for_symbols(Nodecl::NodeclBase node,
-            void (FortranBase::*do_declare)(TL::Symbol entry, void *data),
+            void (FortranBase::*do_declare)(TL::Symbol entry, Nodecl::NodeclBase node, void *data),
             void *data)
     {
         if (node.is_null())
@@ -2233,27 +2406,41 @@ OPERATOR_TABLE
         if (node.is<Nodecl::StructuredValue>()
                 && node.get_type().is_named_class())
         {
-            (this->*do_declare)(node.get_type().get_symbol(), data);
+            (this->*do_declare)(node.get_type().get_symbol(), node, data);
         }
 
         TL::Symbol entry = node.get_symbol();
         if (entry.is_valid())
         {
-            (this->*do_declare)(entry, data);
+            (this->*do_declare)(entry, node, data);
         }
     }
 
-    void FortranBase::do_declare_symbol(TL::Symbol entry, void*)
+    void FortranBase::do_declare_symbol(TL::Symbol entry, Nodecl::NodeclBase node, void*)
     {
         if (!entry.is_from_module())
         {
-            declare_symbol(entry);
+            declare_symbol(entry, node.retrieve_context());
+        }
+    }
+
+    void FortranBase::do_declare_symbol_in_scope(TL::Symbol entry, Nodecl::NodeclBase, void* data)
+    {
+        if (!entry.is_from_module())
+        {
+            TL::Scope* sc = static_cast<TL::Scope*>(data);
+            declare_symbol(entry, *sc);
         }
     }
 
     void FortranBase::declare_symbols_rec(Nodecl::NodeclBase node)
     {
-        traverse_looking_for_symbols(node, &FortranBase::do_declare_symbol, NULL);
+        traverse_looking_for_symbols(node, &FortranBase::do_declare_symbol, &node);
+    }
+
+    void FortranBase::declare_symbols_rec(Nodecl::NodeclBase node, TL::Scope sc)
+    {
+        traverse_looking_for_symbols(node, &FortranBase::do_declare_symbol_in_scope, &sc);
     }
 
     std::string FortranBase::define_ptr_loc(TL::Type t, const std::string& function_name = "")
@@ -2309,7 +2496,146 @@ OPERATOR_TABLE
         return fun_name.str();
     }
 
-    void FortranBase::address_of_pointer(Nodecl::NodeclBase node)
+    void FortranBase::emit_interface_for_symbol(TL::Symbol entry)
+    {
+        // Get the real symbol (it may be the same as entry) but it will be
+        // different when we are emitting a function (or pointer to function)
+        // the interface of which is declared after another existing interface
+        // name
+        decl_context_t entry_context = entry.get_scope().get_decl_context();
+
+        TL::Symbol real_entry = entry;
+        if (entry.get_related_scope().get_decl_context().current_scope != NULL
+                && entry.get_related_scope().get_decl_context().current_scope->related_entry != NULL)
+        {
+            real_entry = entry.get_related_scope().get_decl_context().current_scope->related_entry;
+            entry_context = real_entry.get_scope().get_decl_context();
+        }
+
+
+        if (!state.in_interface)
+        {
+            indent();
+            file << "INTERFACE\n";
+            inc_indent();
+        }
+        bool lacks_result = false;
+
+        push_declaration_status();
+
+        // In an interface we have to forget everything...
+        clear_codegen_status();
+        clear_renames();
+
+        codegen_procedure_declaration_header(entry, lacks_result);
+
+        push_declaring_entity(real_entry);
+
+        inc_indent();
+
+        TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
+        // Check every related entries lest they required stuff coming from other modules
+        for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
+                it != related_symbols.end();
+                it++)
+        {
+            TL::Symbol &sym(*it);
+            emit_use_statement_if_symbol_comes_from_module(sym, entry.get_related_scope());
+        }
+
+        // Import statements
+        std::set<TL::Symbol> already_imported;
+        for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
+                it != related_symbols.end();
+                it++)
+        {
+            TL::Type dummy_type = it->get_type();
+
+            // This is not a regular Fortran parameter, give up
+            if (!dummy_type.is_any_reference())
+                continue;
+
+            dummy_type = dummy_type.references_to();
+
+            if (dummy_type.is_pointer()
+                    && !is_fortran_representable_pointer(dummy_type))
+                // We are not going to emit a real TYPE for it, so skip it
+                continue;
+
+            if (dummy_type.basic_type().is_class())
+            {
+                TL::Type t = dummy_type.basic_type().advance_over_typedefs();
+                ERROR_CONDITION(!t.is_named_class(), "Invalid class", 0);
+
+                TL::Symbol class_type  = t.get_symbol();
+                decl_context_t class_context = class_type.get_scope().get_decl_context();
+
+                // if (!class_type.is_from_module()
+                //         && (TL::Symbol(class_context.current_scope->related_entry) != entry)
+                //         // Global names must not be IMPORTed
+                //         && (class_context.current_scope != entry_context.global_scope
+                //             // Unless at this point they have already been defined
+                //             || get_codegen_status(class_type) == CODEGEN_STATUS_DEFINED))
+                if (!class_type.is_from_module()
+                        && !class_type.is_in_module()
+                         && (TL::Symbol(class_context.current_scope->related_entry) != entry))
+                {
+                    if (already_imported.find(class_type) == already_imported.end())
+                    {
+                        // We will need an IMPORT as this type comes from an enclosing scope
+                        indent();
+                        file << "IMPORT :: " << fix_class_name(class_type.get_name()) << "\n";
+                        already_imported.insert(class_type);
+                        set_codegen_status(class_type, CODEGEN_STATUS_DEFINED);
+                    }
+                }
+            }
+        }
+
+        indent();
+        file << "IMPLICIT NONE\n";
+
+        if (lacks_result)
+        {
+            TL::Type function_type = entry.get_type();
+            if (function_type.is_any_reference())
+                function_type = function_type.references_to();
+            if (function_type.is_pointer())
+                function_type = function_type.points_to();
+
+            std::string type_specifier;
+            std::string array_specifier;
+            codegen_type(function_type.returns(), type_specifier, array_specifier,
+                    /* is_dummy */ false);
+
+            indent();
+            file << type_specifier << " :: " << entry.get_name() << "\n";
+        }
+
+        for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
+                it != related_symbols.end();
+                it++)
+        {
+            declare_symbol(*it, it->get_scope());
+        }
+        dec_indent();
+
+        pop_declaring_entity();
+
+        codegen_procedure_declaration_footer(entry);
+
+        // And restore the state after the interface has been emitted
+        pop_declaration_status();
+
+        if (!state.in_interface)
+        {
+            dec_indent();
+            indent();
+            file << "END INTERFACE\n";
+        }
+    }
+
+    void FortranBase::address_of_pointer(Nodecl::NodeclBase node, TL::Scope sc)
     {
         if (node.is_null())
             return;
@@ -2319,7 +2645,7 @@ OPERATOR_TABLE
                 it != children.end();
                 it++)
         {
-            address_of_pointer(*it);
+            address_of_pointer(*it, sc);
         }
 
         if (node.is<Nodecl::Reference>())
@@ -2350,7 +2676,59 @@ OPERATOR_TABLE
         }
     }
 
-    void FortranBase::declare_symbol(TL::Symbol entry)
+    void FortranBase::address_of_pointer(Nodecl::NodeclBase node)
+    {
+        if (node.is_null())
+            return;
+
+        address_of_pointer(node, node.retrieve_context());
+    }
+
+    bool FortranBase::entry_is_in_scope(TL::Symbol entry, TL::Scope sc)
+    {
+        // - The symbol is declared in the current scope
+        decl_context_t entry_context = entry.get_scope().get_decl_context();
+        decl_context_t sc_context = sc.get_decl_context();
+
+        if (entry_context.current_scope == sc_context.current_scope)
+            return true;
+
+        // If both are BLOCK_CONTEXT check if entry_context is accessible from sc
+        if (sc_context.current_scope->kind == BLOCK_SCOPE
+                && entry_context.current_scope->kind == BLOCK_SCOPE)
+        { 
+            scope_t* sc_scope = sc_context.current_scope;
+            scope_t* entry_scope = entry_context.current_scope;
+
+            while (sc_scope != NULL
+                    && sc_scope->kind == BLOCK_SCOPE
+                    && sc_scope != entry_scope)
+            {
+                sc_scope = sc_scope->contained_in;
+            }
+
+            // We reached entry_scope from sc_scope
+            if (sc_scope == entry_scope)
+                return true;
+        }
+
+        // Maybe the symbol is not declared in the current scope but it lives in the current scope
+        // (because of an insertion)
+        decl_context_t decl_context = sc.get_decl_context();
+
+        scope_entry_list_t* query = query_in_scope_str(decl_context, entry.get_name().c_str());
+
+        if (query != NULL
+                && entry_list_contains(query, entry.get_internal_symbol()))
+        {
+            entry_list_free(query);
+            return true;
+        }
+
+        return false;
+    }
+
+    void FortranBase::declare_symbol(TL::Symbol entry, TL::Scope sc)
     {
         ERROR_CONDITION(!entry.is_valid(), "Invalid symbol to declare", 0);
 
@@ -2364,7 +2742,7 @@ OPERATOR_TABLE
         decl_context_t entry_context = entry.get_scope().get_decl_context();
         
         // We only declare entities in the current scope that are not internal subprograms or module procedures
-        bool ok_to_declare = (get_current_declaring_symbol()== TL::Symbol(entry_context.current_scope->related_entry))
+        bool ok_to_declare = entry_is_in_scope(entry, sc)
             && !entry.is_nested_function()
             && !entry.is_module_procedure();
 
@@ -2393,7 +2771,7 @@ OPERATOR_TABLE
             ok_to_declare = true;
         }
 
-        // d) the entity is a TYPE(t) in an entirely differentscope and we are not in an
+        // d) the entity is a TYPE(t) in an entirely different scope and we are not in an
         // INTERFACE (which will use an IMPORT)
         if (!ok_to_declare
                 && entry.is_class()
@@ -2424,6 +2802,16 @@ OPERATOR_TABLE
 
         if (entry.is_variable())
         {
+#if 0
+            bool is_function_pointer = 
+                (entry.get_type().is_pointer()
+                 && entry.get_type().points_to().is_function())
+                || (entry.get_type().is_any_reference()
+                        && entry.get_type().references_to().is_pointer()
+                        && entry.get_type().references_to().points_to().is_function());
+#endif
+            bool is_function_pointer = false;
+
             std::string type_spec;
             std::string array_specifier;
             std::string initializer;
@@ -2432,7 +2820,13 @@ OPERATOR_TABLE
 
             std::string attribute_list = "";
 
-            if (entry.is_allocatable())
+            // VLA that are not parameter are handled as if they were allocatable
+            bool handle_as_allocatable = declared_type.is_array()
+                && declared_type.array_is_vla()
+                && !entry.is_parameter();
+
+            if (entry.is_allocatable() 
+                    || handle_as_allocatable)
                 attribute_list += ", ALLOCATABLE";
             if (entry.is_target())
                 attribute_list += ", TARGET";
@@ -2468,10 +2862,12 @@ OPERATOR_TABLE
                     attribute_list += ", SAVE";
                 }
             }
-            if (entry.get_type().is_volatile())
+            if (entry.get_type().is_volatile()
+                    && !entry.is_member())
                 attribute_list += ", VOLATILE";
             if (entry.get_type().is_const()
-                    && !entry.get_initialization().is_null())
+                    && !entry.get_initialization().is_null()
+                    && entry.get_initialization().is_constant())
             {
                 attribute_list += ", PARAMETER";
             }
@@ -2500,32 +2896,13 @@ OPERATOR_TABLE
                 }
             }
 
-            // if (entry.in_module().is_valid())
-            // {
-            //     switch (entry.get_access_specifier())
-            //     {
-            //         case AS_PUBLIC:
-            //             {
-            //                 attribute_list += ", PUBLIC";
-            //                 break;
-            //             }
-            //         case AS_PRIVATE:
-            //             {
-            //                 attribute_list += ", PRIVATE";
-            //                 break;
-            //             }
-            //         default:
-            //             {
-            //             }
-            //     }
-            // }
-
             if (!entry.get_initialization().is_null())
             {
                 declare_everything_needed(entry.get_initialization());
 
                 if (entry.is_static()
-                            || entry.get_type().is_const())
+                        || (entry.get_type().is_const()
+                            && entry.get_initialization().is_constant()))
                 {
                     TL::Type t = entry.get_type();
                     if (t.is_any_reference())
@@ -2533,17 +2910,50 @@ OPERATOR_TABLE
 
                     if (is_fortran_representable_pointer(t))
                     {
-                        initializer = " => " + codegen_to_str(entry.get_initialization());
+                        initializer = " => " + codegen_to_str(entry.get_initialization(), entry.get_initialization().retrieve_context());
                     }
                     else
                     {
-                        initializer = " = " + codegen_to_str(entry.get_initialization());
+                        initializer = " = " + codegen_to_str(entry.get_initialization(), entry.get_initialization().retrieve_context());
                     }
                 }
             }
 
-            codegen_type(declared_type, type_spec, array_specifier,
-                    /* is_dummy */ entry.is_parameter());
+            if (!is_function_pointer)
+            {
+                codegen_type(declared_type, type_spec, array_specifier,
+                        /* is_dummy */ entry.is_parameter());
+            }
+            else
+            {
+                TL::Type function_type = entry.get_type();
+                if (function_type.is_any_reference())
+                    function_type = function_type.references_to();
+                function_type = function_type.points_to();
+                ERROR_CONDITION(!function_type.is_function(), "Function type is not", 0);
+
+                TL::Type return_type = function_type.returns();
+
+                if (function_type.lacks_prototype())
+                {
+                    attribute_list += ", EXTERNAL";
+
+                    if (return_type.is_void())
+                    {
+                        type_spec = "POINTER";
+                    }
+                    else
+                    {
+                        attribute_list += ", POINTER";
+                        codegen_type(return_type, type_spec, array_specifier, /* is_dummy */ false);
+                    }
+                }
+                else
+                {
+                    emit_interface_for_symbol(entry);
+                    type_spec = "POINTER";
+                }
+            }
 
             indent();
 
@@ -2560,12 +2970,12 @@ OPERATOR_TABLE
 
             if (entry.is_in_common())
             {
-                declare_symbol(entry.in_common());
+                declare_symbol(entry.in_common(), entry.in_common().get_scope());
             }
 
             if (entry.is_cray_pointee())
             {
-                declare_symbol(entry.get_cray_pointer());
+                declare_symbol(entry.get_cray_pointer(), entry.get_cray_pointer().get_scope());
                 indent();
                 file << "POINTER (" 
                     << rename(entry.get_cray_pointer()) << ", "
@@ -2582,7 +2992,7 @@ OPERATOR_TABLE
                     it++)
             {
                 TL::Symbol &sym(*it);
-                declare_symbol(sym);
+                declare_symbol(sym, sym.get_scope());
             }
 
             std::string keyword;
@@ -2627,15 +3037,32 @@ OPERATOR_TABLE
         }
         else if (entry.is_function())
         {
-            // First pass to declare everything that might be needed by the dummy arguments
-            TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
-            for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
-                    it != related_symbols.end();
-                    it++)
+            TL::Type function_type = entry.get_type();
+
+            if (!entry.is_generic_specifier()
+                    && !entry.is_intrinsic())
             {
-                if (it->get_type().basic_type().is_class())
+                if (function_type.is_any_reference())
+                    function_type = function_type.references_to();
+                if (function_type.is_pointer())
+                    function_type = function_type.points_to();
+
+                ERROR_CONDITION(!function_type.is_function(), "Function type is not", 0);
+            }
+
+            if (!entry.is_generic_specifier())
+            {
+                // First pass to declare everything that might be needed by the dummy arguments
+                TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
+                for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
+                        it != related_symbols.end();
+                        it++)
                 {
-                    declare_symbol(it->get_type().basic_type().get_symbol());
+                    if (it->get_type().basic_type().is_class())
+                    {
+                        declare_symbol(it->get_type().basic_type().get_symbol(), 
+                                it->get_type().basic_type().get_symbol().get_scope());
+                    }
                 }
             }
 
@@ -2646,14 +3073,14 @@ OPERATOR_TABLE
                         it != related_symbols.end();
                         it++)
                 {
-                    declare_symbol(*it);
+                    declare_symbol(*it, it->get_scope());
                 }
                 return;
             }
             if (entry.is_intrinsic())
             {
                 // Improve this
-                scope_entry_t* generic_entry = ::fortran_query_intrinsic_name_str(entry.get_scope().get_decl_context(), entry.get_name().c_str());
+                TL::Symbol generic_entry = ::fortran_query_intrinsic_name_str(entry.get_scope().get_decl_context(), entry.get_name().c_str());
 
                 if (TL::Symbol(generic_entry) == entry)
                 {
@@ -2662,7 +3089,7 @@ OPERATOR_TABLE
                 }
                 else
                 {
-                    declare_symbol(generic_entry);
+                    declare_symbol(generic_entry, generic_entry.get_scope());
                 }
             }
             else if (entry.is_generic_specifier())
@@ -2692,7 +3119,7 @@ OPERATOR_TABLE
 
                         bool old_in_interface = state.in_interface;
                         state.in_interface = true;
-                        declare_symbol(iface);
+                        declare_symbol(iface, iface.get_scope());
                         state.in_interface = old_in_interface;
 
                         pop_declaration_status();
@@ -2703,24 +3130,30 @@ OPERATOR_TABLE
                 indent();
                 file << "END INTERFACE " << get_generic_specifier_str(entry.get_name()) << "\n";
             }
-            else if (entry.get_type().lacks_prototype())
+            else if (function_type.lacks_prototype())
             {
                 indent();
 
-                if (!entry.get_type().returns().is_void()
+                if (!function_type.returns().is_void()
                         // If nobody said anything about this function, we cannot assume
                         // it is a function
                         && !entry.get_internal_symbol()->entity_specs.is_implicit_basic_type)
                 {
                     std::string type_spec;
                     std::string array_specifier;
-                    codegen_type(entry.get_type().returns(), 
+                    codegen_type(function_type.returns(), 
                             type_spec, array_specifier, /* is_dummy */ 0);
                     file << type_spec << ", EXTERNAL :: " << entry.get_name() << "\n";
                 }
                 else
                 {
                     file << "EXTERNAL :: " << entry.get_name() << "\n";
+                }
+
+                if (entry.is_optional())
+                {
+                    indent();
+                    file << "OPTIONAL :: " << entry.get_name() << "\n";
                 }
             }
             // Statement functions
@@ -2738,7 +3171,7 @@ OPERATOR_TABLE
                     if (sym.is_result_variable())
                         continue;
 
-                    declare_symbol(sym);
+                    declare_symbol(sym, sym.get_scope());
                 }
 
                 std::string type_spec;
@@ -2752,7 +3185,7 @@ OPERATOR_TABLE
                 file << type_spec << " :: " << entry.get_name() << std::endl;
 
 
-                declare_everything_needed(entry.get_initialization());
+                declare_everything_needed(entry.get_initialization(), entry.get_scope());
 
                 indent();
                 file << entry.get_name() << "(";
@@ -2775,113 +3208,15 @@ OPERATOR_TABLE
             }
             else
             {
+                emit_interface_for_symbol(entry);
+
                 if (!state.in_interface)
                 {
-                    indent();
-                    file << "INTERFACE\n";
-                    inc_indent();
-                }
-                bool lacks_result = false;
-
-                push_declaration_status();
-
-                // In an interface we have to forget everything...
-                clear_codegen_status();
-                clear_renames();
-
-                codegen_procedure_declaration_header(entry, lacks_result);
-
-                push_declaring_entity(entry);
-
-                inc_indent();
-
-                TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
-                // Check every related entries lest they required stuff coming from other modules
-                for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
-                        it != related_symbols.end();
-                        it++)
-                {
-                    TL::Symbol &sym(*it);
-                    emit_use_statement_if_symbol_comes_from_module(sym, entry.get_related_scope());
-                }
-
-                // Import statements
-                std::set<TL::Symbol> already_imported;
-                for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
-                        it != related_symbols.end();
-                        it++)
-                {
-                    TL::Type dummy_type = it->get_type();
-
-                    // This is not a regular Fortran parameter, give up
-                    if (!dummy_type.is_any_reference())
-                        continue;
-
-                    dummy_type = dummy_type.references_to();
-
-                    if (dummy_type.is_pointer()
-                            && !is_fortran_representable_pointer(dummy_type))
-                        // We are not going to emit a real TYPE for it, so skip it
-                        continue;
-
-                    if (dummy_type.basic_type().is_class())
+                    if (entry.is_optional())
                     {
-                        TL::Symbol class_type  = dummy_type.basic_type().get_symbol();
-                        decl_context_t class_context = class_type.get_scope().get_decl_context();
-
-                        if (!class_type.is_from_module()
-                                && (TL::Symbol(class_context.current_scope->related_entry) != entry)
-                                // Global names must not be IMPORTed
-                                && (class_context.current_scope != entry_context.global_scope
-                                    // Unless at this point they have already been defined
-                                    || get_codegen_status(class_type) == CODEGEN_STATUS_DEFINED))
-                        {
-                            if (already_imported.find(class_type) == already_imported.end())
-                            {
-                                // We will need an IMPORT as this type comes from an enclosing scope
-                                indent();
-                                file << "IMPORT :: " << class_type.get_name() << "\n";
-                                already_imported.insert(class_type);
-                                set_codegen_status(class_type, CODEGEN_STATUS_DEFINED);
-                            }
-                        }
+                        indent();
+                        file << "OPTIONAL :: " << entry.get_name() << "\n";
                     }
-                }
-
-                indent();
-                file << "IMPLICIT NONE\n";
-
-                if (lacks_result)
-                {
-                    std::string type_specifier;
-                    std::string array_specifier;
-                    codegen_type(entry.get_type().returns(), type_specifier, array_specifier,
-                            /* is_dummy */ 0);
-
-                    indent();
-                    file << type_specifier << " :: " << entry.get_name() << "\n";
-                }
-
-                for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
-                        it != related_symbols.end();
-                        it++)
-                {
-                    declare_symbol(*it);
-                }
-                dec_indent();
-
-                pop_declaring_entity();
-
-                codegen_procedure_declaration_footer(entry);
-
-                // And restore the state after the interface has been emitted
-                pop_declaration_status();
-
-                if (!state.in_interface)
-                {
-                    dec_indent();
-                    indent();
-                    file << "END INTERFACE\n";
                 }
             }
         }
@@ -2895,11 +3230,12 @@ OPERATOR_TABLE
                     it++)
             {
                 TL::Symbol &component(*it);
-                declare_everything_needed(component.get_initialization());
+                declare_everything_needed(component.get_initialization(), entry.get_scope());
 
                 if (component.get_type().basic_type().is_class())
                 {
-                    declare_symbol(component.get_type().basic_type().get_symbol());
+                    declare_symbol(component.get_type().basic_type().get_symbol(),
+                            component.get_type().basic_type().get_symbol().get_scope());
                 }
             }
 
@@ -2908,21 +3244,8 @@ OPERATOR_TABLE
                 internal_error("Unions cannot be emitted in Fortran", 0);
             }
 
-            // Remove prefixes that might come from C
-            std::string struct_prefix = "struct ";
-            // Unions cannot be expressed in fortran!
-            std::string class_prefix =  "class ";
             std::string real_name = rename(entry);
-
-            if (real_name.substr(0, struct_prefix.size()) == struct_prefix)
-            {
-                real_name = real_name.substr(struct_prefix.size());
-            }
-            else if (real_name.substr(0, class_prefix.size()) == class_prefix)
-            {
-                real_name = real_name.substr(class_prefix.size());
-            }
-
+            real_name = fix_class_name(real_name);
 
             push_declaring_entity(entry);
 
@@ -2987,7 +3310,7 @@ OPERATOR_TABLE
                         }
                     }
 
-                    declare_symbol(*it);
+                    declare_symbol(*it, it->get_scope());
 
                     previous_was_bitfield = false;
                 }
@@ -3058,7 +3381,7 @@ OPERATOR_TABLE
                     "Typedefs in Fortran can only be aliases of named classes",
                     0);
 
-            declare_symbol(aliased_type.get_symbol());
+            declare_symbol(aliased_type.get_symbol(), aliased_type.get_symbol().get_scope());
         }
         else if (entry.is_enumerator())
         {
@@ -3069,7 +3392,8 @@ OPERATOR_TABLE
             codegen_type(entry.get_type(), type_spec, array_specifier,
                     /* is_dummy */ entry.is_parameter());
 
-            initializer = " = " + codegen_to_str(entry.get_initialization());
+            initializer = " = " + codegen_to_str(entry.get_initialization(),
+                    entry.get_initialization().retrieve_context());
 
             // Emit it as a parameter
             indent();
@@ -3136,7 +3460,7 @@ OPERATOR_TABLE
             // We emit everything but module procedures
             if (!sym.is_module_procedure())
             {
-                declare_symbol(sym);
+                declare_symbol(sym, sym.get_scope());
             }
             if (sym.get_access_specifier() == AS_PRIVATE)
             {
@@ -3169,7 +3493,7 @@ OPERATOR_TABLE
         file << "END MODULE " << entry.get_name() << "\n\n";
     }
 
-    void FortranBase::do_declare_symbol_from_module(TL::Symbol entry, void *data)
+    void FortranBase::do_declare_symbol_from_module(TL::Symbol entry, Nodecl::NodeclBase, void *data)
     {
         const TL::Scope* sc = (const TL::Scope*)(data);
 
@@ -3222,7 +3546,7 @@ OPERATOR_TABLE
                 it++)
         {
             TL::Symbol &sym(*it);
-            declare_symbol(sym);
+            declare_symbol(sym, sym.get_scope());
         }
         
         // Could we improve the name of this function?
@@ -3256,6 +3580,12 @@ OPERATOR_TABLE
     {
         declare_symbols_rec(node);
         address_of_pointer(node);
+    }
+
+    void FortranBase::declare_everything_needed(Nodecl::NodeclBase node, TL::Scope sc)
+    {
+        declare_symbols_rec(node, sc);
+        address_of_pointer(node, sc);
     }
 
     void FortranBase::codegen_comma_separated_list(Nodecl::NodeclBase node)
@@ -3472,6 +3802,18 @@ OPERATOR_TABLE
                 << "\n";
         }
 
+
+        // Mark all symbols of this module that have the same name as defined too
+        TL::ObjectList<TL::Symbol> symbols_in_module = module.get_related_symbols();
+        for (TL::ObjectList<TL::Symbol>::iterator it = symbols_in_module.begin();
+                it != symbols_in_module.end();
+                it++)
+        {
+            if (it->get_name() == entry.get_name())
+            {
+                set_codegen_status(*it, CODEGEN_STATUS_DEFINED);
+            }
+        }
     }
 
     bool FortranBase::is_fortran_representable_pointer(TL::Type t)
@@ -3488,11 +3830,21 @@ OPERATOR_TABLE
                 || t.is_class()
                 || t.is_enum()
                 || t.is_array()
+                // Fortran 2003
+                // || t.is_function()
                 || (is_fortran_character_type(t.get_internal_type())));
     }
 
-    void FortranBase::codegen_type(TL::Type t, std::string& type_specifier, std::string& array_specifier, bool /* is_dummy */)
+    void FortranBase::codegen_type(TL::Type t, std::string& type_specifier, std::string& array_specifier, bool is_dummy)
     {
+        // We were requested to emit types as literals
+        if (state.emit_types_as_literals)
+        {
+            type_specifier = as_type(t);
+            array_specifier = "";
+            return;
+        }
+
         type_specifier = "";
 
         if (t.is_any_reference())
@@ -3503,6 +3855,10 @@ OPERATOR_TABLE
         {
             t = t.points_to();
         }
+        
+        bool handle_as_allocatable = t.is_array()
+            && t.array_is_vla()
+            && !is_dummy;
         
         // If this is an enum, use its underlying integer type
         if (t.is_enum())
@@ -3528,7 +3884,8 @@ OPERATOR_TABLE
                 internal_error("too many array dimensions %d\n", MCXX_MAX_ARRAY_SPECIFIER);
             }
 
-            if (!is_fortran_pointer)
+            if (!is_fortran_pointer
+                    && !handle_as_allocatable)
             {
                 array_spec_list[array_spec_idx].lower = array_type_get_array_lower_bound(t.get_internal_type());
                 if (array_spec_list[array_spec_idx].lower.is_constant())
@@ -3625,21 +3982,10 @@ OPERATOR_TABLE
         {
             TL::Symbol entry = t.get_symbol();
 
-            declare_symbol(entry);
+            declare_symbol(entry, entry.get_scope());
 
-            std::string struct_prefix = "struct ";
-            // Unions cannot be expressed in fortran!
-            std::string class_prefix =  "class ";
             std::string real_name = rename(entry);
-
-            if (real_name.substr(0, struct_prefix.size()) == struct_prefix)
-            {
-                real_name = real_name.substr(struct_prefix.size());
-            }
-            else if (real_name.substr(0, class_prefix.size()) == class_prefix)
-            {
-                real_name = real_name.substr(class_prefix.size());
-            }
+            real_name = fix_class_name(real_name);
 
             type_specifier = "TYPE(" + real_name + ")";
         }
@@ -3659,7 +4005,8 @@ OPERATOR_TABLE
                 }
 
                 ss << "CHARACTER(LEN=" 
-                    << (array_type_is_unknown_size(t.get_internal_type()) ? "*" : this->codegen_to_str(upper_bound))
+                    << (array_type_is_unknown_size(t.get_internal_type()) ? "*" : 
+                            this->codegen_to_str(upper_bound, upper_bound.retrieve_context()))
                     << ")";
             }
             else
@@ -3710,15 +4057,18 @@ OPERATOR_TABLE
 
                 if (!array_spec_list[array_spec_idx].is_undefined)
                 {
-                    array_specifier += this->codegen_to_str(array_spec_list[array_spec_idx].lower);
+                    array_specifier += this->codegen_to_str(array_spec_list[array_spec_idx].lower, 
+                            array_spec_list[array_spec_idx].lower.retrieve_context());
                     array_specifier += ":";
-                    array_specifier += this->codegen_to_str(array_spec_list[array_spec_idx].upper);
+                    array_specifier += this->codegen_to_str(array_spec_list[array_spec_idx].upper,
+                            array_spec_list[array_spec_idx].upper.retrieve_context());
                 }
                 else
                 {
                     if (!array_spec_list[array_spec_idx].lower.is_null())
                     {
-                        array_specifier += this->codegen_to_str(array_spec_list[array_spec_idx].lower);
+                        array_specifier += this->codegen_to_str(array_spec_list[array_spec_idx].lower, 
+                                array_spec_list[array_spec_idx].lower.retrieve_context());
                         array_specifier += ":";
                         if (!array_spec_list[array_spec_idx].with_descriptor)
                         {
@@ -3750,7 +4100,13 @@ OPERATOR_TABLE
 
     void FortranBase::codegen_procedure_declaration_header(TL::Symbol entry, bool & lacks_result)
     {
-        bool is_function = !entry.get_type().returns().is_void();
+        TL::Type function_type = entry.get_type();
+        if (function_type.is_any_reference())
+            function_type = function_type.references_to();
+        if (function_type.is_pointer())
+            function_type = function_type.points_to();
+
+        bool is_function = !function_type.returns().is_void();
 
         indent();
 
@@ -3822,7 +4178,13 @@ OPERATOR_TABLE
     
     void FortranBase::codegen_procedure_declaration_footer(TL::Symbol entry)
     {
-        bool is_function = !entry.get_type().returns().is_void();
+        TL::Type function_type = entry.get_type();
+        if (function_type.is_any_reference())
+            function_type = function_type.references_to();
+        if (function_type.is_pointer())
+            function_type = function_type.points_to();
+
+        bool is_function = !function_type.returns().is_void();
 
         indent();
         file << "END "
@@ -3912,7 +4274,7 @@ OPERATOR_TABLE
         lhs = lhs.as<Nodecl::ClassMemberAccess>().get_lhs();
 
         std::stringstream bitfield_accessor;
-        bitfield_accessor << codegen_to_str(lhs) << " % bitfield_pad_" << symbol.get_offset();
+        bitfield_accessor << codegen_to_str(lhs, lhs.retrieve_context()) << " % bitfield_pad_" << symbol.get_offset();
 
         file << bitfield_accessor.str() << " = ";
 
@@ -3983,6 +4345,54 @@ OPERATOR_TABLE
         ::mark_file_for_cleanup(file_name.c_str());
     }
 
+    std::string FortranBase::emit_declaration_for_symbol(TL::Symbol symbol, TL::Scope sc)
+    {
+        clear_codegen_status();
+        clear_renames();
+
+        state = State();
+        push_declaring_entity(sc.get_decl_context().current_scope->related_entry);
+
+        file.clear();
+        file.str("");
+
+        if (symbol.is_from_module())
+        {
+            codegen_use_statement(symbol, sc);
+        }
+        else
+        {
+            declare_symbol(symbol, symbol.get_scope());
+        }
+
+        std::string result = file.str();
+
+        file.clear();
+        file.str("");
+
+        pop_declaring_entity();
+
+        clear_codegen_status();
+        clear_renames();
+
+        return result;
+    }
+
+    std::string FortranBase::emit_declaration_for_symbols(const TL::ObjectList<TL::Symbol>& sym_set, TL::Scope sc)
+    {
+        std::string result;
+
+        for (TL::ObjectList<TL::Symbol>::const_iterator it = sym_set.begin();
+                it != sym_set.end();
+                it++)
+        {
+            result += emit_declaration_for_symbol(*it, sc);
+        }
+
+        return result;
+    }
+
+#if 0
     std::string FortranBase::emit_declaration_part(Nodecl::NodeclBase node, const TL::ObjectList<TL::Symbol>& do_not_declare)
     {
         clear_codegen_status();
@@ -4016,6 +4426,7 @@ OPERATOR_TABLE
 
         return result;
     }
+#endif
 
     void FortranBase::push_declaration_status()
     {

@@ -48,7 +48,8 @@ bool|all|is_explicit|This constructor has been marked as explicit
 bool|all|is_surrogate_function|This function is a surrogate fake symbol created during overload resolution
 bool|all|is_anonymous_union|This is an anonymous union (or class)
 bool|all|is_member_of_anonymous|This entity is a member of an anonymous entity
-bool|all|is_user_declared|This specialization of template has been user declared
+bool|all|is_user_declared|This symbol has been written by the user in the source code
+bool|all|is_instantiable|This specialization of template can be instantiate
 bool|all|is_template_parameter|This is a template parameter
 bool|all|is_parameter|This symbol is a parameter of a function
 bool|all|is_member|This symbol is a member of a class
@@ -63,7 +64,6 @@ bool|all|is_non_emitted|States that this function symbol has not been emitted ye
 bool|all|is_nested_function|States that this function is nested inside another one
 bool|fortran|is_global_hidden|States that this global symbol does not have to be visible in normal lookups
 bool|fortran|is_implicit_basic_type|This entity has got an implicit basic type
-bool|fortran|is_implicit_but_not_function|This entity has got an implicit basic type but we know it cannot be a function name because of a previous usage
 bool|fortran|is_allocatable|This entity has the ALLOCATABLE attribute
 bool|fortran|is_in_common|This entity appears in a COMMON construct
 bool|fortran|is_in_namelist|This entity appears in a NAMELIST 
@@ -73,7 +73,6 @@ bool|fortran|is_elemental|This is an ELEMENTAL function
 bool|fortran|is_recursive|This is a RECURSIVE function
 bool|fortran|is_result|This symbol is the RESULT variable of the function
 bool|fortran|is_stmt_function|This symbol has been declared after a statement function statement
-bool|fortran|is_dummy_arg_stmt_function|This symbol is a dummy argument of a statement function
 bool|fortran|is_generic_spec|This symbol is a generic specifier name
 bool|fortran|is_intrinsic_subroutine|This symbol is an INTRINSIC SUBROUTINE
 bool|fortran|is_intrinsic_function|This symbol is an INTRINSIC FUNCTION

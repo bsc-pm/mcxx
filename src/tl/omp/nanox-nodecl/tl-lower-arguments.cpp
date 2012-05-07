@@ -51,6 +51,9 @@ namespace TL { namespace Nanox {
 
     bool LoweringVisitor::c_requires_vla_handling(OutlineDataItem& outline_data_item)
     {
+        if (!outline_data_item.get_symbol().is_valid())
+            return false;
+
         TL::Type t = outline_data_item.get_symbol().get_type();
 
         return c_type_needs_vla_handling(t);
@@ -386,8 +389,6 @@ namespace TL { namespace Nanox {
             data_item.set_field_type(it->get_type());
         }
 
-        set_is_complete_type(new_class_type, 1);
-
         nodecl_t nodecl_output = nodecl_null();
         finish_class_type(new_class_type, 
                 ::get_user_defined_type(new_class_symbol.get_internal_symbol()),
@@ -395,6 +396,8 @@ namespace TL { namespace Nanox {
                 construct.get_filename().c_str(),
                 construct.get_line(),
                 &nodecl_output);
+        set_is_complete_type(new_class_type, /* is_complete */ 1);
+        set_is_complete_type(get_actual_class_type(new_class_type), /* is_complete */ 1);
 
         if (!nodecl_is_null(nodecl_output))
         {

@@ -73,6 +73,7 @@ LIBMCXX_EXTERN type_t* get_unsigned_int_type(void);
 LIBMCXX_EXTERN type_t* get_unsigned_short_int_type(void);
 LIBMCXX_EXTERN type_t* get_unsigned_int_type(void);
 LIBMCXX_EXTERN type_t* get_size_t_type(void);
+LIBMCXX_EXTERN type_t* get_ptrdiff_t_type(void);
 LIBMCXX_EXTERN type_t* get_unsigned_long_int_type(void);
 LIBMCXX_EXTERN type_t* get_unsigned_long_long_int_type(void);
 LIBMCXX_EXTERN type_t* get_floating_type_from_descriptor(floating_type_info_t* info);
@@ -297,6 +298,7 @@ LIBMCXX_EXTERN char is_function_type(type_t* t);
 LIBMCXX_EXTERN char is_lvalue_reference_type(type_t* t1);
 LIBMCXX_EXTERN char is_rvalue_reference_type(type_t* t1);
 LIBMCXX_EXTERN char is_rebindable_reference_type(type_t* t1);
+LIBMCXX_EXTERN char is_any_reference_type(type_t* t1);
 
 LIBMCXX_EXTERN char is_vector_type(type_t* t);
 
@@ -305,6 +307,10 @@ LIBMCXX_EXTERN char is_generic_vector_type(type_t* t);
 LIBMCXX_EXTERN char is_class_type(type_t* possible_class);
 LIBMCXX_EXTERN char is_unnamed_class_type(type_t* possible_class);
 LIBMCXX_EXTERN char is_named_class_type(type_t* possible_class);
+
+LIBMCXX_EXTERN char is_literal_type(type_t* possible_union);
+
+LIBMCXX_EXTERN char is_trivial_type(type_t* possible_union);
 
 LIBMCXX_EXTERN char is_union_type(type_t* possible_union);
 
@@ -479,9 +485,6 @@ LIBMCXX_EXTERN scope_entry_t* named_type_get_symbol(type_t* t);
 LIBMCXX_EXTERN char pointer_types_are_similar(type_t* t_orig, type_t* t_dest);
 
 LIBMCXX_EXTERN type_t* template_type_get_primary_type(type_t* t);
-LIBMCXX_EXTERN type_t* template_type_get_matching_specialized_type(type_t* t,
-        template_parameter_list_t* template_parameter_list,
-        decl_context_t decl_context);
 
 LIBMCXX_EXTERN type_t* template_type_get_specialized_type(type_t* t,
         template_parameter_list_t * template_parameters,
@@ -607,6 +610,8 @@ LIBMCXX_EXTERN char is_braced_list_type(type_t* t);
 
 LIBMCXX_EXTERN char has_dependent_template_parameters(template_parameter_list_t* template_parameters);
 
+LIBMCXX_EXTERN char is_template_explicit_specialization(template_parameter_list_t* template_parameters);
+
 LIBMCXX_EXTERN char syntactic_comparison_of_nested_names(
         nodecl_t dependent_parts_1,
         nodecl_t dependent_parts_2);
@@ -661,6 +666,9 @@ LIBMCXX_EXTERN const char* print_type_str(type_t* t, decl_context_t decl_context
 // They are used solely for Fortran modules and type serialization
 LIBMCXX_EXTERN type_t* _type_get_empty_type(void);
 LIBMCXX_EXTERN void _type_assign_to(type_t*, type_t*);
+
+// TL::Source stuff
+LIBMCXX_EXTERN const char* type_to_source(type_t* t);
 
 MCXX_END_DECLS
 

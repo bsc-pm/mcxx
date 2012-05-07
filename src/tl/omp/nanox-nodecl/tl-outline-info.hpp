@@ -36,6 +36,8 @@
 #include <string>
 #include <sstream>
 
+#include "tl-omp.hpp"
+
 namespace TL
 {
     namespace Nanox
@@ -69,13 +71,14 @@ namespace TL
                     SHARING_CAPTURE,
                     SHARING_PRIVATE,
 
+                    SHARING_REDUCTION,
                     // Like SHARING_SHARED but we do not keep the address of
                     // the symbol but of the _shared_expression
                     SHARING_CAPTURE_ADDRESS,
                 };
 
                 // -- FIXME -- Think this a bit more
-                // This is similar to Transfer but it does not involve copies
+                // This is similar to CopyDirectionality but it does not involve copies
                 // between devices this is only useful for lastprivate and
                 // reduction
                 enum Flow
@@ -94,7 +97,7 @@ namespace TL
                     DIRECTIONALITY_CONCURRENT = 1 << 2
                 };
 
-                enum Transfer
+                enum CopyDirectionality
                 {
                     COPY_NONE = 0,
                     COPY_IN,
@@ -129,20 +132,20 @@ namespace TL
                 Sharing _sharing;
                 Nodecl::NodeclBase _shared_expression;
 
-                // -- FIXME --
                 // Reductions
+                OpenMP::UDRInfoItem *_udr_info_item;
 
-                // -- FIXME ---
                 // Dependences
                 Directionality _directionality;
                 TL::ObjectList<Nodecl::NodeclBase> _dependences;
-                
+
                 // -- FIXME ---
                 // Copies
-                Transfer _transfer;
+                CopyDirectionality _copy_directionality;
+                TL::ObjectList<Nodecl::NodeclBase> _copies;
 
                 AllocationPolicyFlags _allocation_policy_flags;
-                
+
             public:
                 OutlineDataItem(TL::Symbol symbol, const std::string& field_name)
                     : _item_kind(ITEM_KIND_NORMAL),
@@ -153,21 +156,36 @@ namespace TL
                     _sharing(),
                     _shared_expression(),
                     _directionality(),
-                    _transfer(),
+                    _copy_directionality(),
                     _allocation_policy_flags()
                 {
                 }
 
-                OutlineDataItem(const std::string field_name)
+                // OutlineDataItem(const std::string field_name)
+                //     : _item_kind(ITEM_KIND_NORMAL),
+                //     _sym(NULL), 
+                //     _field_name(field_name), 
+                //     _field_type(NULL),
+                //     _in_outline_type(NULL),
+                //     _sharing(),
+                //     _shared_expression(),
+                //     _directionality(),
+                //     _copy_directionality(),
+                //     _allocation_policy_flags()
+                // {
+                // }
+
+                OutlineDataItem(const std::string field_name, TL::Type field_type)
                     : _item_kind(ITEM_KIND_NORMAL),
                     _sym(NULL), 
                     _field_name(field_name), 
-                    _field_type(_sym.get_type()),
+                    _field_type(field_type),
                     _in_outline_type(NULL),
                     _sharing(),
                     _shared_expression(),
+                    _udr_info_item(NULL),
                     _directionality(),
-                    _transfer(),
+                    _copy_directionality(),
                     _allocation_policy_flags()
                 {
                 }
@@ -263,6 +281,16 @@ namespace TL
                     _directionality = directionality;
                 }
 
+                CopyDirectionality get_copy_directionality() const
+                {
+                    return _copy_directionality;
+                }
+
+                void set_copy_directionality(CopyDirectionality directionality)
+                {
+                    _copy_directionality = directionality;
+                }
+
                 Directionality get_directionality() const
                 {
                     return _directionality;
@@ -278,6 +306,16 @@ namespace TL
                     return _dependences;
                 }
 
+                TL::ObjectList<Nodecl::NodeclBase>& get_copies()
+                {
+                    return _copies;
+                }
+
+                const TL::ObjectList<Nodecl::NodeclBase>& get_copies() const
+                {
+                    return _copies;
+                }
+
                 void set_shared_expression(Nodecl::NodeclBase shared_expr)
                 {
                     _shared_expression = shared_expr;
@@ -291,13 +329,28 @@ namespace TL
                             "Shared expression is missing!", 0);
                     return _shared_expression;
                 }
+
+                void set_reduction_info(OpenMP::UDRInfoItem* udr_info_item)
+                {
+                    _udr_info_item = udr_info_item;
+                }
+
+                bool is_reduction() const
+                {
+                    return _sharing == SHARING_REDUCTION;
+                }
+
+                OpenMP::UDRInfoItem* get_reduction_info() const
+                {
+                    return _udr_info_item;
+                }
         };
 
         class OutlineInfo
         {
             private:
                 ObjectList<OutlineDataItem> _data_env_items;
-            
+
                 // -- FIXME --
                 // Devices!
 
@@ -322,6 +375,8 @@ namespace TL
 
                 OutlineInfo(Nodecl::NodeclBase environment, bool is_function_task = false);
                 OutlineInfo() : _data_env_items() { }
+
+                OutlineDataItem& prepend_field(const std::string& str, TL::Type t);
         };
     }
 }

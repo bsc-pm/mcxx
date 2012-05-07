@@ -160,7 +160,7 @@ namespace TL { namespace Nanox {
                     {
                         internal_error("%s: data reference '%s' must be valid at this point!\n", 
                                 it->get_locus().c_str(),
-                                Codegen::get_current().codegen_to_str(*it).c_str()
+                                Codegen::get_current().codegen_to_str(*it, it->retrieve_context()).c_str()
                                 );
                     }
                 }
@@ -179,6 +179,61 @@ namespace TL { namespace Nanox {
             void visit(const Nodecl::Parallel::DepInout& dep_inout)
             {
                 add_dependence(dep_inout.get_inout_deps().as<Nodecl::List>(), OutlineDataItem::DIRECTIONALITY_INOUT);
+            }
+
+            void add_copies(Nodecl::List list, OutlineDataItem::CopyDirectionality copy_directionality)
+            {
+                for (Nodecl::List::iterator it = list.begin();
+                        it != list.end();
+                        it++)
+                {
+                    TL::DataReference data_ref(*it);
+                    if (data_ref.is_valid())
+                    {
+                        TL::Symbol sym = data_ref.get_base_symbol();
+                        if (!_is_function_task)
+                        {
+                            // If we are in an inline task, dependences are
+                            // truly shared...
+                            add_shared(sym);
+                        }
+                        else
+                        {
+                            // ... but in function tasks, dependences have just
+                            // their addresses captured
+                            add_capture(sym);
+                        }
+
+                        OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym);
+                        outline_info.set_copy_directionality(
+                                OutlineDataItem::CopyDirectionality(copy_directionality | outline_info.get_copy_directionality())
+                                );
+
+                        outline_info.get_copies().append(data_ref);
+                    }
+                    else
+                    {
+                        internal_error("%s: data reference '%s' must be valid at this point!\n", 
+                                it->get_locus().c_str(),
+                                Codegen::get_current().codegen_to_str(*it, it->retrieve_context()).c_str()
+                                );
+                    }
+                }
+            }
+
+            void visit(const Nodecl::Parallel::CopyIn& copy_in)
+            {
+                add_copies(copy_in.get_input_copies().as<Nodecl::List>(), OutlineDataItem::COPY_IN);
+            }
+
+            void visit(const Nodecl::Parallel::CopyOut& copy_out)
+            {
+                add_copies(copy_out.get_output_copies().as<Nodecl::List>(), OutlineDataItem::COPY_OUT);
+            }
+
+            void visit(const Nodecl::Parallel::CopyInout& copy_inout)
+            {
+                add_copies(copy_inout.get_inout_copies().as<Nodecl::List>(), OutlineDataItem::COPY_INOUT);
             }
 
             void add_capture(Symbol sym)
@@ -223,9 +278,41 @@ namespace TL { namespace Nanox {
                 }
             }
 
-            void visit(const Nodecl::Parallel::Reduction& shared)
+            void add_reduction(TL::Symbol symbol, OpenMP::UDRInfoItem& udr_info)
             {
-                internal_error("Not yet implemented", 0);
+                OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(symbol);
+                outline_info.set_sharing(OutlineDataItem::SHARING_REDUCTION);
+                outline_info.set_reduction_info(&udr_info);
+
+                TL::Type t = symbol.get_type();
+                if (t.is_any_reference())
+                    t = t.references_to();
+
+                outline_info.set_in_outline_type(symbol.get_type());
+
+                if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+                {
+                    outline_info.set_field_type(t.get_pointer_to());
+                }
+                else if (IS_FORTRAN_LANGUAGE)
+                {
+                    outline_info.set_field_type(
+                            t.get_array_to_with_descriptor(
+                                Nodecl::NodeclBase::null(),
+                                Nodecl::NodeclBase::null(),
+                                symbol.get_scope())
+                            .get_pointer_to());
+                }
+            }
+
+            void visit(const Nodecl::Parallel::ReductionItem& reduction)
+            {
+                TL::Symbol udr_reductor = reduction.get_reductor().get_symbol();
+                TL::Symbol symbol = reduction.get_reduced_symbol().get_symbol();
+
+                OpenMP::UDRInfoItem &udr_info = OpenMP::UDRInfoItem::get_udr_info_item_from_symbol_holder(udr_reductor);
+
+                add_reduction(symbol, udr_info);
             }
     };
 
@@ -233,6 +320,15 @@ namespace TL { namespace Nanox {
     {
         OutlineInfoSetupVisitor setup_visitor(*this, is_function_task);
         setup_visitor.walk(environment);
+    }
+
+    OutlineDataItem& OutlineInfo::prepend_field(const std::string& str, TL::Type t)
+    {
+        std::string field_name = get_field_name(str);
+        OutlineDataItem env_item(field_name, t);
+
+        _data_env_items.std::vector<OutlineDataItem>::insert(_data_env_items.begin(), env_item);
+        return _data_env_items.front();
     }
 
 } }

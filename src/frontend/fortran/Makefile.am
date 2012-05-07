@@ -42,6 +42,7 @@ BUILT_SOURCES += fortran03-modules-bits.h
 libmf03_la_SOURCES = \
                      fortran03-parser.c \
                      fortran03-parser.h \
+                     fortran03-lexer.h \
                      fortran03-scanner.c \
                      fortran03-parser-internal.h \
                      fortran03-utils.h \
@@ -125,7 +126,7 @@ ADDITIONAL_GRAMMARS_FORTRAN =
 ADDITIONAL_GRAMMARS_FORTRAN += fortran03-subparse.y
 
 ADDITIONAL_GRAMMARS = ../cxx-pragma.y \
-					  ../cxx-nodecl.y \
+					  ../cxx-literal-nodes.y \
 					  ../cxx-placeholders.y \
                       $(ADDITIONAL_GRAMMARS_FORTRAN)
 

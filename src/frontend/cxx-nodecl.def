@@ -1,4 +1,4 @@
-# Syntax
+
 #
 #   rule : another-rule
 #        | NODECL_TREE_CONSTRUCTOR([child_name] rule-name, ...) options
@@ -32,6 +32,7 @@ top-level : function-code
           | object-init
           | pragma-directive
           | compatibility
+          | cxx-decl
 
 name : NODECL_SYMBOL() symbol
 type : NODECL_TYPE() type
@@ -54,6 +55,7 @@ mem-init: NODECL_MEMBER_INIT([init_expr]expression) symbol
 
 statement : statement-but-object-init
           | object-init
+          | cxx-decl
           | context
           | function-code
 
@@ -90,6 +92,8 @@ compound-statement : NODECL_COMPOUND_STATEMENT([statements]statement-seq-opt, [f
 case-expression : expression
 
 loop-control: NODECL_LOOP_CONTROL([init]expression-opt, [cond]expression-opt, [next]expression-opt)
+            | NODECL_RANGE_LOOP_CONTROL([lower]expression, [upper]expression, [step]expression-opt) symbol
+            | NODECL_UNBOUNDED_LOOP_CONTROL()
 
 pragma-directive: NODECL_PRAGMA_CUSTOM_DIRECTIVE([pragma_line]pragma-line, [context_of_decl]pragma-context) text
                 | pragma-declaration
@@ -188,7 +192,7 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | NODECL_MUL_ASSIGNMENT([lhs] expression, [rhs] expression) type
                   | NODECL_DIV_ASSIGNMENT([lhs] expression, [rhs] expression) type
                   | NODECL_ADD_ASSIGNMENT([lhs] expression, [rhs] expression) type
-                  | NODECL_SUB_ASSIGNMENT([lhs] expression, [rhs] expression) type
+                  | NODECL_MINUS_ASSIGNMENT([lhs] expression, [rhs] expression) type
                   | NODECL_SHL_ASSIGNMENT([lhs] expression, [rhs] expression) type
                   | NODECL_SHR_ASSIGNMENT([lhs] expression, [rhs] expression) type
                   | NODECL_BITWISE_AND_ASSIGNMENT([lhs] expression, [rhs] expression) type
@@ -212,16 +216,23 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | NODECL_OFFSETOF([offset_type]type, [designator]cxx-dependent-initializer-seq) type
                   | NODECL_SHAPING([postfix] expression, [shape] expression-seq) type
                   | NODECL_PSEUDO_DESTRUCTOR_NAME([accessed] expression, [destructor_name] cxx-dependent-name) type
-                  | cxx-dependent-nodecls
+                  | cxx-expr-dependent-nodecls
                   | cuda-expressions
 
 # This is only for dependent parts of C++. These nodecls exist because
 # usual nodecls may not retain enough semantic information for a successful
 # instantiation. These nodecls should never appear in the code (but may be accessible
 # through symbols for instantiation purposes)
-cxx-dependent-nodecls: cxx-dependent-name
+cxx-expr-dependent-nodecls: cxx-dependent-name
    | cxx-dependent-initializer
    | cxx-dependent-expressions
+
+# nodecl was created entirely to avoid this kind of "declaration nodes" but we
+# will not be able to get rid of them until we instantiate template functions
+cxx-decl : NODECL_CXX_DECL() symbol
+    | NODECL_CXX_DEF() symbol
+    | NODECL_CXX_EXPLICIT_INSTANTIATION([declarator_name] cxx-dependent-name-opt, [context] context) symbol
+    | NODECL_CXX_EXTERN_EXPLICIT_INSTANTIATION([declarator_name] cxx-dependent-name-opt, [context] context) symbol
 
 # Special nodes for dependent names
 cxx-dependent-name : NODECL_CXX_DEP_GLOBAL_NAME_NESTED([items] cxx-atom-dependent-name-seq)
@@ -229,7 +240,7 @@ cxx-dependent-name : NODECL_CXX_DEP_GLOBAL_NAME_NESTED([items] cxx-atom-dependen
                    | cxx-atom-dependent-name
 cxx-atom-dependent-name : cxx-simple-name
                    | NODECL_CXX_DEP_TEMPLATE_ID([name]cxx-atom-dependent-name) text template-parameters
-                   | NODECL_CXX_DEP_NAME_CONVERSION() 
+                   | NODECL_CXX_DEP_NAME_CONVERSION([context] context)
 
 cxx-simple-name: NODECL_CXX_DEP_NAME_SIMPLE() text
 
@@ -347,22 +358,28 @@ parallel-statements : parallel-execution
                     | synchronization
 
 parallel-execution : async-execution
-                   | sequential-execution
+                   | single-execution
+                   | exclusive-execution
                    | replicated-execution
                    | distributed-execution
                    | atomic-execution
                    | composited-execution
 
-sequential-execution : NODECL_PARALLEL*SERIALIZE([environment]exec-environment-seq-opt, [statements]statement-seq-opt)
+# single
+single-execution : NODECL_PARALLEL*SINGLE([environment]exec-environment-seq-opt, [statements]statement-seq-opt)
 
+# critical
+exclusive-execution : NODECL_PARALLEL*EXCLUSIVE([environment]exec-environment-seq-opt, [statements]statement-seq-opt)
+
+# inline task
 async-execution : NODECL_PARALLEL*ASYNC([environment]exec-environment-seq-opt, [statements]statement-seq-opt) 
                 | async-call
 
+# function task
 async-call : NODECL_PARALLEL*ASYNC_CALL([environment]exec-environment-seq-opt, [call]expression)
 
 # Futures?
 # expression : async-call
-# expression : NODECL_PARALLEL*ATOMIC_UPDATE_STATEMENT([expr] expression)
 
 exec-environment : NODECL_PARALLEL*CONDITION([condition]expression)
                  | NODECL_PARALLEL*CAPTURE([captured_symbols]name-seq)
@@ -372,32 +389,41 @@ exec-environment : NODECL_PARALLEL*CONDITION([condition]expression)
                  | NODECL_PARALLEL*DEP_IN([in_deps]expression-seq)
                  | NODECL_PARALLEL*DEP_OUT([out_deps]expression-seq)
                  | NODECL_PARALLEL*DEP_INOUT([inout_deps]expression-seq)
-                 | NODECL_PARALLEL*COPY_IN([input_deps]expression-seq)
-                 | NODECL_PARALLEL*COPY_OUT([output_deps]expression-seq)
-                 | NODECL_PARALLEL*COPY_INOUT([inout_deps]expression-seq)
-                 | NODECL_PARALLEL*SCHEDULE([schedule]expression)
+                 | NODECL_PARALLEL*COPY_IN([input_copies]expression-seq)
+                 | NODECL_PARALLEL*COPY_OUT([output_copies]expression-seq)
+                 | NODECL_PARALLEL*COPY_INOUT([inout_copies]expression-seq)
+                 | NODECL_PARALLEL*SCHEDULE([chunk]expression-opt) text
 # Not yet decided
-                 | NODECL_PARALLEL*TARGET() 
-                 | NODECL_PARALLEL*PRIORITY([priority]expression) 
+                 | NODECL_PARALLEL*TARGET()
+                 | NODECL_PARALLEL*PRIORITY([priority]expression)
                  | NODECL_PARALLEL*UNTIED()
+                 | NODECL_PARALLEL*CRITICAL_NAME() text
+                 | NODECL_PARALLEL*BARRIER_AT_END()
 
-async-reduction : NODECL_PARALLEL*REDUCTION_ITEM([reductor]name, [reduced_symbols]name-seq)
+async-reduction : NODECL_PARALLEL*REDUCTION_ITEM([reductor]name, [reduced_symbol]name)
 
-replicated-execution : NODECL_PARALLEL*REPLICATE([environment]exec-environment-seq-opt, [num_replicas]expression-opt, [exec]async-execution)
+# parallel
+replicated-execution : NODECL_PARALLEL*REPLICATE([environment]exec-environment-seq-opt, [num_replicas]expression-opt, [statements]statement-seq)
 
-distributed-execution : NODECL_PARALLEL*DISTRIBUTE([environment]exec-environment-seq-opt, [ranges]distribute-range-seq, [exec]async-execution)
+# for
+distributed-execution : NODECL_PARALLEL*DISTRIBUTE([environment]exec-environment-seq-opt, [ranges]distribute-range-seq, [statements]statement-seq)
 distribute-range : NODECL_PARALLEL*DISTRIBUTE_RANGE([lower]expression, [upper]expression, [step]expression) symbol
 
-atomic-execution : NODECL_PARALLEL*ATOMIC([name]name-opt, [statements]statement-seq-opt)
+# atomic
+atomic-execution : NODECL_PARALLEL*ATOMIC([name]name-opt, [statements]statement-seq)
 
-composited-execution : NODECL_PARALLEL*COMPOSITE([environment]exec-environment-seq-opt, [regions]async-execution-seq)
+# sections
+composited-execution : NODECL_PARALLEL*COMPOUND([environment]exec-environment-seq-opt, [regions]statement-seq)
 
-synchronization : NODECL_PARALLEL*WAIT_ASYNCS_DEPENDENCES([expressions] expression-seq-opt)
-# First level
+synchronization : NODECL_PARALLEL*WAIT_ASYNCS_DEPENDENCES([environment]exec-environment-seq-opt)
+# First level of async
                 | NODECL_PARALLEL*WAIT_ASYNCS_SHALLOW()
-# All levels
+# All levels of async
                 | NODECL_PARALLEL*WAIT_ASYNCS_DEEP()
                 | NODECL_PARALLEL*FLUSH_MEMORY([expressions] expression-seq-opt)
+# Full barrier
                 | NODECL_PARALLEL*BARRIER_FULL()
+# First half of a barrier (signaling phase)
                 | NODECL_PARALLEL*BARRIER_SIGNAL()
+# Second half of a barrier (waiting phase)
                 | NODECL_PARALLEL*BARRIER_WAIT()

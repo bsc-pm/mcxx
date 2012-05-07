@@ -454,11 +454,14 @@ namespace TL
 
     LIBTL_EXTERN std::string to_string(const ObjectList<std::string>& t, const std::string& separator = "");
 
-    // Use these to embed nodecls in Source where an expression is valid
+    // Use these to embed TL::NodeclBase in Source where an expression is valid
     LIBTL_EXTERN std::string as_expression(const Nodecl::NodeclBase& nodecl);
     
-    // Use these to embed nodecls in Source where a statement is valid
+    // Use these to embed TL::NodeclBase in Source where a statement is valid
     LIBTL_EXTERN std::string as_statement(const Nodecl::NodeclBase& nodecl);
+
+    // Use these to embed TL::Type in Source where a typename would be valid (in C/C++)
+    LIBTL_EXTERN std::string as_type(TL::Type t);
 }
 
 #endif // TL_SOURCE_T_HPP

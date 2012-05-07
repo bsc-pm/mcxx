@@ -39,10 +39,15 @@ namespace TL
             PragmaCustomClause device = pragma_line.get_clause("device");
             if (!device.is_defined())
             {
-                std::cerr << pragma_line.get_locus() << ": warning: '#pragma omp target' needs a 'device' clause" << std::endl;
+                //     std::cerr << pragma_line.get_locus() << ": warning: '#pragma omp target' needs a 'device' clause" << std::endl;
+                target_ctx.device_list = device.get_tokenized_arguments();
             }
-
-            target_ctx.device_list = device.get_tokenized_arguments();
+            else
+            {
+                // Default is smp
+                target_ctx.device_list.clear();
+                target_ctx.device_list.append("smp");
+            }
 
             PragmaCustomClause copy_in = pragma_line.get_clause("copy_in");
             if (copy_in.is_defined())
@@ -186,10 +191,24 @@ namespace TL
 
         void Core::target_handler_pre(TL::PragmaCustomStatement ctr)
         {
+            Nodecl::NodeclBase nested_pragma = ctr.get_statements();
+            if (!nested_pragma.is_null()
+                    && nested_pragma.is<Nodecl::List>())
+            {
+                nested_pragma = nested_pragma.as<Nodecl::List>().front();
+            }
+
+            if (nested_pragma.is_null() 
+                    || !PragmaUtils::is_pragma_construct("omp", "task", nested_pragma))
+            {
+                std::cerr << ctr.get_locus()
+                    << ": warning: '#pragma omp target' must precede a '#pragma omp task' in this context" << std::endl;
+                std::cerr << ctr.get_locus() << ": warning: skipping the whole '#pragma omp target'" << std::endl;
+                return;
+            }
+
             PragmaCustomLine pragma_line = ctr.get_pragma_line();
             TargetContext target_ctx;
-
-            common_target_handler_pre(pragma_line, target_ctx);
 
             if (target_ctx.has_implements)
             {
@@ -199,16 +218,7 @@ namespace TL
                 return;
             }
 
-            Nodecl::NodeclBase nested_pragma = ctr.get_statements();
-
-            if (nested_pragma.is_null() 
-                    || !PragmaUtils::is_pragma_construct("omp", "target", nested_pragma))
-            {
-                std::cerr << ctr.get_locus()
-                    << ": warning: '#pragma omp target' must precede a '#pragma omp task' in this context" << std::endl;
-                std::cerr << ctr.get_locus() << ": warning: skipping the whole '#pragma omp target'" << std::endl;
-                return;
-            }
+            common_target_handler_pre(pragma_line, target_ctx);
 
             _target_context.push(target_ctx);
         }
@@ -355,8 +365,6 @@ namespace TL
                     {
                         internal_error("Invalid dependency kind", 0);
                     }
-
-                    internal_error("Not yet implemented", 0);
 
                     p->append(it->get_dependency_expression());
                 }

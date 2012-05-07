@@ -159,6 +159,8 @@ namespace TL
             bool is_typedef() const;
             //! States whether this symbol is a class
             bool is_class() const;
+            //! States whether this symbol is a dependent friend class
+            bool is_dependent_friend_class() const;
             //! States whether this symbol is an enum name
             bool is_enum() const;
             //! States whether this symbol is an enumerator name
@@ -167,6 +169,8 @@ namespace TL
             bool is_template() const;
             //! States whether this symbol is a function
             bool is_function() const;
+            //! States whether this symbol is a dependent friend function
+            bool is_dependent_friend_function() const;
 
             //! States whether this symbol is a MODULE PROCEDURE
             /*!
@@ -570,6 +574,9 @@ namespace TL
 
             //! Returns the linkage identifier or empty if is the default
             std::string get_linkage() const;
+
+            //! Returns the number of related symbols of this symbol
+            int get_num_related_symbols() const;
 
             //! Returns the symbols related to this one
             /*!

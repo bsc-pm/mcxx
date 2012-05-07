@@ -38,28 +38,30 @@ END=
 EXTRA_DIST =
 
 libextensible_graph_la_SOURCES = \
-   tl-edge.hpp \
-   tl-edge.cpp \
-   tl-node.hpp \
-   tl-node.cpp \
-   tl-cfg-renaming-visitor.hpp \
+   tl-analysis-common.cpp \
+   tl-analysis-common.hpp \
+   tl-analysis-phase.cpp \
+   tl-analysis-phase.hpp \
+   tl-cfg-analysis-visitor.cpp \
+   tl-cfg-analysis-visitor.hpp \
    tl-cfg-renaming-visitor.cpp \
-   tl-extensible-symbol.hpp \
-   tl-extensible-symbol.cpp \
+   tl-cfg-renaming-visitor.hpp \
+   tl-cfg-visitor.cpp \
+   tl-cfg-visitor.hpp \
+   tl-edge.cpp \
+   tl-edge.hpp \
+   tl-node.cpp \
+   tl-node.hpp \
    tl-extensible-graph.cpp \
    tl-extensible-graph.hpp \
-   tl-analysis-common.hpp \
-   tl-analysis-common.cpp \
-   tl-dot-graph.cpp \
-   tl-loop-analysis.hpp \
-   tl-loop-analysis.cpp \
+   tl-extensible-symbol.cpp \
+   tl-extensible-symbol.hpp \
    tl-reaching-definitions.cpp \
-   tl-static-analysis.hpp \
+   tl-loop-analysis.cpp \
+   tl-loop-analysis.hpp \
    tl-static-analysis.cpp \
-   tl-cfg-visitor.hpp \
-   tl-cfg-visitor.cpp \
-   tl-cfg-analysis-visitor.hpp \
-   tl-cfg-analysis-visitor.cpp \
-   tl-analysis-phase.hpp \
-   tl-analysis-phase.cpp \
+   tl-static-analysis.hpp \
+   tl-structures.hpp \
+   tl-dot-graph.cpp \
    $(END)
+

@@ -524,7 +524,12 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
             && class_type_is_incomplete_independent(get_actual_class_type(no_ref(orig))))
     {
         scope_entry_t* symbol = named_type_get_symbol(no_ref(orig));
-        instantiate_template_class(symbol, decl_context, filename, line);
+
+        if (can_be_instantiated(symbol, decl_context, filename, line))
+        {
+            instantiate_template_class(symbol, decl_context, filename, line);
+        }
+
     }
     // Given a class 'A' base of a class 'B'
     //
@@ -535,7 +540,10 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
         scope_entry_t* class_symbol = pointer_to_member_type_get_class(no_ref(dest));
         if (class_type_is_incomplete_independent(get_actual_class_type(class_symbol->type_information)))
         {
-            instantiate_template_class(class_symbol, decl_context, filename, line);
+            if (can_be_instantiated(class_symbol, decl_context, filename, line))
+            {
+                instantiate_template_class(class_symbol, decl_context, filename, line);
+            }
         }
     }
 
@@ -563,15 +571,18 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
         if (is_named_class_type(no_ref(orig))
                 && class_type_is_incomplete_independent(get_actual_class_type(no_ref(orig))))
         {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "ICS: Instantiating destination type know if it is derived or not\n");
-            }
             scope_entry_t* symbol = named_type_get_symbol(no_ref(orig));
-            instantiate_template_class(symbol, decl_context, filename, line);
-            DEBUG_CODE()
+            if (can_be_instantiated(symbol, decl_context, filename, line))
             {
-                fprintf(stderr, "ICS: Destination type instantiated\n");
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "ICS: Instantiating destination type know if it is derived or not\n");
+                }
+                instantiate_template_class(symbol, decl_context, filename, line);
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "ICS: Destination type instantiated\n");
+                }
             }
         }
 
@@ -786,15 +797,20 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
         if (is_named_class_type(class_type)
                 && class_type_is_incomplete_independent(get_actual_class_type(class_type)))
         {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "ICS: Instantiating destination type to get conversor constructors\n");
-            }
             scope_entry_t* symbol = named_type_get_symbol(class_type);
-            instantiate_template_class(symbol, decl_context, filename, line);
-            DEBUG_CODE()
+            if (can_be_instantiated(symbol, decl_context, filename, line))
             {
-                fprintf(stderr, "ICS: Destination type instantiated\n");
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "ICS: Instantiating destination type to get conversor constructors\n");
+                }
+                
+                instantiate_template_class(symbol, decl_context, filename, line);
+                
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "ICS: Destination type instantiated\n");
+                }
             }
         }
 
@@ -2006,8 +2022,12 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
             && (best_viable != NULL))
     {
         overload_entry_list_t* current = it;
-        // Do not compare to ourselves
-        if (current != best_viable)
+        
+        scope_entry_t* sym_current = entry_advance_aliases(current->candidate->entry);
+        scope_entry_t* sym_best_viable = entry_advance_aliases(best_viable->candidate->entry);
+
+        // Do not compare to the same symbol
+        if (sym_best_viable != sym_current)
         {
             if (!is_better_function(best_viable, current, 
                         decl_context, filename, line))
@@ -2297,7 +2317,6 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
                 template_parameter_list_t* type_template_parameters 
                     = template_type_get_template_parameters(current_fun->type_information);
 
-
                 type_t* argument_types[1] = { functional_type };
                 int num_argument_types = 1;
 
@@ -2312,7 +2331,7 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
                             template_parameters, type_template_parameters,
                             argument_types, num_argument_types,
                             parameter_types, 
-                            decl_context,
+                            primary_symbol->decl_context,
                             &deduced_template_arguments, filename, line,
                             explicit_template_parameters,
                             deduction_flags_empty()))
@@ -2321,7 +2340,7 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
                     {
                         fprintf(stderr, "OVERLOAD: When solving address of overload function: "
                                 "template function-name specialization "
-                                "'%s' deducing template arguments\n",
+                                "'%s' successfully deduced template arguments\n",
                                 current_fun->symbol_name);
                     }
 
@@ -2343,7 +2362,55 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
                                     print_declarator(named_symbol->type_information));
                         }
 
-                        viable_functions = entry_list_add(viable_functions, named_symbol);
+                        if (can_match
+                                && equivalent_types(named_symbol->type_information, 
+                                    functional_type))
+                        {
+                            DEBUG_CODE()
+                            {
+                                fprintf(stderr, "OVERLOAD: When solving address of overload function: "
+                                        "template function-name specialization "
+                                        "'%s' at ('%s:%d') is a matching specialization with type '%s' that matches the target type\n",
+                                        named_symbol->symbol_name,
+                                        named_symbol->file,
+                                        named_symbol->line,
+                                        print_declarator(named_symbol->type_information));
+                            }
+                            viable_functions = entry_list_add(viable_functions, named_symbol);
+                        }
+                        else
+                        {
+                            DEBUG_CODE()
+                            {
+                                fprintf(stderr, "OVERLOAD: When solving address of overload function: "
+                                        "template function-name specialization "
+                                        "'%s' at ('%s:%d') is a matching specialization with type '%s' DOES NOT match the target type\n",
+                                        named_symbol->symbol_name,
+                                        named_symbol->file,
+                                        named_symbol->line,
+                                        print_declarator(named_symbol->type_information));
+                            }
+                        }
+                    }
+                    else
+                    {
+                        DEBUG_CODE()
+                        {
+                            fprintf(stderr, "OVERLOAD: When solving address of overload function: "
+                                    "template function-name specialization "
+                                    "'%s' NO matching specialization was found\n",
+                                    current_fun->symbol_name);
+                        }
+                    }
+                }
+                else
+                {
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "OVERLOAD: When solving address of overload function: "
+                                "template function-name specialization "
+                                "'%s' FAILED to deduce template arguments\n",
+                                current_fun->symbol_name);
                     }
                 }
             }
@@ -2395,6 +2462,12 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
         // Now we need the more specialized one
         // we will do a two scans algorithm
 
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "OVERLOAD: When solving address of overload: there are %d viable functions, choosing the more specialized\n", 
+                    entry_list_size(viable_functions));
+        }
+
         scope_entry_list_iterator_t* it2 = entry_list_iterator_begin(viable_functions);
         scope_entry_t* most_specialized = entry_list_iterator_current(it2);
         entry_list_iterator_next(it2);
@@ -2403,15 +2476,24 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
         {
             scope_entry_t* current = entry_list_iterator_current(it2);
             template_parameter_list_t* deduced_template_arguments = NULL;
+
+            // Such comparison is performed on the primaries, not on the specializations themselves
+            scope_entry_t* current_primary = 
+                named_type_get_symbol(
+                        template_type_get_primary_type(template_specialized_type_get_related_template_type(current->type_information)));
+            scope_entry_t* most_specialized_primary = 
+                named_type_get_symbol(
+                        template_type_get_primary_type(template_specialized_type_get_related_template_type(most_specialized->type_information)));
+
             if (!is_less_or_equal_specialized_template_function(
-                        current->type_information,
-                        most_specialized->type_information,
+                        current_primary->type_information,
+                        most_specialized_primary->type_information,
                         decl_context,
                         &deduced_template_arguments, 
                         /* explicit_template_parameters */ NULL,
                         filename, line, /* is_conversion */ 0))
             {
-                // if (!(a<=b)) it2 means that a > b
+                // if (!(a<=b)) it means that a > b
                 most_specialized = current;
             }
             entry_list_iterator_next(it2);
@@ -2423,12 +2505,20 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
         while (!entry_list_iterator_end(it2))
         {
             scope_entry_t* current = entry_list_iterator_current(it2);
+
             if (current != most_specialized)
             {
+                scope_entry_t* most_specialized_primary = 
+                    named_type_get_symbol(
+                            template_type_get_primary_type(template_specialized_type_get_related_template_type(most_specialized->type_information)));
+                scope_entry_t* current_primary = 
+                    named_type_get_symbol(
+                            template_type_get_primary_type(template_specialized_type_get_related_template_type(current->type_information)));
+
                 template_parameter_list_t* deduced_template_arguments = NULL;
                 if (is_less_or_equal_specialized_template_function(
-                            most_specialized->type_information,
-                            current->type_information,
+                            most_specialized_primary->type_information,
+                            current_primary->type_information,
                             decl_context,
                             &deduced_template_arguments, 
                             /* explicit_template_parameters */ NULL,

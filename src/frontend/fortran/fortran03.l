@@ -874,12 +874,17 @@ schar       ([^\\"\n\r]|{c_escape_seq}|(\\["]))
 
 @NODECL-LITERAL-STMT@ {
     parse_token_text();
-    RETURN_TOKEN(NODECL_LITERAL_STMT);
+    RETURN_SUBPARSE_TOKEN(NODECL_LITERAL_STMT);
 }
 
 @PROGRAM-UNIT@ {		
 	parse_token_text();
 	RETURN_SUBPARSE_TOKEN(SUBPARSE_PROGRAM_UNIT);
+}
+
+@TYPE-LITERAL-REF@ { 
+    parse_token_text(); 
+    RETURN_SUBPARSE_TOKEN(TYPE_LITERAL_REF); 
 }
 
 @EXPRESSION@ {			
@@ -905,6 +910,11 @@ schar       ([^\\"\n\r]|{c_escape_seq}|(\\["]))
 @TYPEDEF@ {
     parse_token_text();
     RETURN_TOKEN(TYPEDEF);
+}
+
+@IS_VARIABLE@ {
+    parse_token_text();
+    RETURN_TOKEN(TOK_IS_VARIABLE);
 }
 
  /* Special tokens for placeholders */

@@ -1,6 +1,6 @@
 #!@BASH@
 
-if [ "@ENABLE_SUPERSCALAR@" = "no" ];
+if [ "@ENABLE_SUPERSCALAR_TESTS@" = "no" ];
 then
 
 cat <<EOF

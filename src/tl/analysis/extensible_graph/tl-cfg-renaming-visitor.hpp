@@ -44,7 +44,7 @@ namespace TL
         * - Zero elements: no renames has been performed
         * - More element: renamed nodecls
         */
-        class LIBTL_CLASS CfgRenamingVisitor : public Nodecl::NodeclVisitor<Nodecl::NodeclBase>
+        class LIBTL_CLASS CfgRenamingVisitor : public Nodecl::NodeclVisitor<TL::ObjectList<Nodecl::NodeclBase> >
         {
             private:
                 //! map used to rename de nodes
@@ -112,7 +112,7 @@ namespace TL
                 Ret visit(const Nodecl::Shl& n);
                 Ret visit(const Nodecl::Assignment& n);
                 Ret visit(const Nodecl::AddAssignment& n);
-                Ret visit(const Nodecl::SubAssignment& n);
+                Ret visit(const Nodecl::MinusAssignment& n);
                 Ret visit(const Nodecl::DivAssignment& n);
                 Ret visit(const Nodecl::MulAssignment& n);
                 Ret visit(const Nodecl::ModAssignment& n);
@@ -151,3 +151,4 @@ namespace TL
 }
 
 #endif      // TL_CFG_RENAMING_VISITOR_HPP
+

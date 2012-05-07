@@ -46,6 +46,8 @@ LIBMCXX_EXTERN void instantiation_init(void);
 
 LIBMCXX_EXTERN nodecl_t instantiation_instantiate_pending_functions(void);
 
+LIBMCXX_EXTERN char can_be_instantiated(scope_entry_t* entry, decl_context_t decl_context, const char *filename, int line);
+
 LIBMCXX_EXTERN void instantiation_add_symbol_to_instantiate(scope_entry_t* entry,
         const char* filename,
         int line);

@@ -703,6 +703,11 @@ namespace TL
         return nodecl_stmt_to_source(n.get_internal_nodecl());
     }
 
+    std::string as_type(TL::Type t)
+    {
+        return type_to_source(t.get_internal_type());
+    }
+
     std::string statement_placeholder(Nodecl::NodeclBase& placeholder)
     {
         std::stringstream ss;

@@ -28,7 +28,7 @@
 
 
 #include "tl-omp-core.hpp"
-#include "tl-omp-udr_2.hpp"
+#include "tl-omp-udr.hpp"
 #include "tl-source.hpp"
 
 #include "cxx-parser.h"
@@ -39,379 +39,25 @@
 #include "cxx-koenig.h"
 #include "cxx-instantiation.h"
 #include "cxx-utils.h"
+#include "cxx-prettyprint.h"
 
 
 namespace TL
 {
     namespace OpenMP
     {
-        static void parse_omp_udr_declare_arguments_2(const std::string &omp_udr_str, Nodecl::NodeclBase ref_tree, 
-                std::string &udr_name, ObjectList<UDRParsedInfo>& udr_parsed_info_list,
-                Nodecl::NodeclBase &ref_tree_of_clause, Scope& scope_of_clause);
-        static void parse_udr_identity(const std::string& omp_udr_identity, Nodecl::NodeclBase reference_tree,
-                Type udr_type, Nodecl::NodeclBase &parsed_tree, bool& is_constructor, bool& need_equal_initializer);
-
-        static std::string get_valid_zero_initializer(Type t)
-        {
-            if (t.is_class())
-            {
-                ObjectList<Symbol> nonstatic_data = t.get_nonstatic_data_members();
-                if (nonstatic_data.empty())
-                {
-                    return "{ }";
-                }
-                else
-                {
-                    return "{" + get_valid_zero_initializer(t.get_nonstatic_data_members()[0].get_type()) + "}";
-                }
-            }
-            else
-            {
-                return "0";
-            }
-        }
-
-        static std::string get_valid_value_initializer(Type t)
-        {
-            // Fall back
-            if (t.is_dependent_typename())
-                return "";
-
-            if (t.is_class())
-            {
-                if (!t.is_pod())
-                {
-                    // If it is not pod, default initialization should do the right thing
-                    return "";
-                }
-            }
-            // For most cases, get_valid_zero_initializer is enough
-            return get_valid_zero_initializer(t);
-        }
-
-        void initialize_builtin_udr_reductions_2(Nodecl::NodeclBase translation_unit)
-        {
-            internal_error("Not implemented yet", 0);
-#if 0
-            static bool already_initialized = false;
-            if (already_initialized)
-                return;
-            already_initialized = true;
-
-            typedef struct 
-            {
-                std::string udr_specifier;
-                std::string identity;
-            } reduction_info_t;
-
-            Scope global_scope = scope_link.get_scope(translation_unit);
-
-            // FIXME - This should be moved to nodecl!!!
-            std::string zero = "0";
-            std::string real_zero = "0.0";
-            std::string one = "1";
-            std::string real_one = "1.0";
-            std::string neg_zero = "~0";
-
-            const std::string complex_types = "float _Complex, double _Complex, long double _Complex ";
-            const std::string real_types = "float, double, long double, " + complex_types;
-
-            std::string integer_types = "";
-			CXX_LANGUAGE()
-            {
-                integer_types = "bool, ";
-            }
-            C_LANGUAGE()
-            {
-                integer_types = "_Bool, "; 
-            }
-			integer_types += "signed char, char, short int, int, long int, " \
-                      "unsigned char, unsigned short, unsigned int, unsigned long, long long int, " \
-                      "unsigned long long int";
-            const std::string scalar_types = integer_types + ", " + real_types;
-
-            reduction_info_t builtin_operators[] =
-            {
-                // arithmetic operators
-                {"+: " + integer_types + ": _out += _in", zero},
-                {"+: " + real_types + ": _out += _in", real_zero},
-                {"-: " + integer_types + ": _out -= _in", zero},
-                {"-: " + real_types + ": _out -= _in", real_zero}, 
-                {"*: " + integer_types + ": _out *= _in", one}, 
-                {"*: " + real_types + ": _out *= _in", real_one},
-                // logic bit operators
-                {"&: " + integer_types + ": _out &= _in", neg_zero}, 
-                {"|: " + integer_types + ": _out |= _in", zero}, 
-                {"^: " + integer_types + ": _out ^= _in", zero}, 
-                {"&&: " + scalar_types + ": _out = _out && _in", one}, 
-                {"||: " + scalar_types + ": _out = _out || _in", zero},
-                {"", ""}
-            };
-
-            // call 'parse_omp_udr_declare_arguments_2' to create one UDRInfoItem2 for each builtin case  
-            int i = 0;
-            for(i; builtin_operators[i].udr_specifier != ""; i++)
-            {
-			    std::string name;
-                ObjectList<UDRParsedInfo> parsed_info_list;
-                Scope scope_of_clause;
-                Nodecl::NodeclBase ref_tree_of_clause(NULL);
-
-                parse_omp_udr_declare_arguments_2(builtin_operators[i].udr_specifier, 
-                        translation_unit, 
-                        scope_link,
-                        name,
-                        parsed_info_list,
-                        ref_tree_of_clause,
-                        scope_of_clause);
-
-                std::string udr_sp = builtin_operators[i].udr_specifier;
-		        // Declare a new UDR for each type
-		        for (ObjectList<UDRParsedInfo>::iterator it = parsed_info_list.begin();
-		                it != parsed_info_list.end();
-		                it++)
-		        {
-		            // New udr being declared
-		            bool found = false;
-		            UDRInfoItem2 builtin_udr;
-		            builtin_udr.set_name(name);
-		            builtin_udr.set_type((*it).type);
-		            builtin_udr.set_combine_expr((*it).combine_expression);
-                    builtin_udr.set_is_builtin_operator(true);
-                    
-                    builtin_udr.set_builtin_operator(udr_sp.substr(0, udr_sp.find(':')));
-		            builtin_udr.set_in_symbol((*it).in_symbol);
-		            builtin_udr.set_out_symbol((*it).out_symbol);
-                    Nodecl::NodeclBase identity_expr(NULL);
-                    bool is_constructor, need_equal_initializer;
-                    parse_udr_identity(builtin_operators[i].identity, ref_tree_of_clause,
-                                scope_link, (*it).type, identity_expr, is_constructor, need_equal_initializer);
-                    builtin_udr.set_identity(identity_expr);
-                    builtin_udr.set_is_constructor(false);
-                    builtin_udr.set_need_equal_initializer(false);
-                    builtin_udr.set_function_definition_symbol(NULL);    // Builtin UDRs don't have a function definition
-
-                    builtin_udr.sign_in_scope(global_scope, (*it).type);
-                }
-            }
-#endif
-        }
-
-        struct OnlyMembers : Predicate<Symbol>
-        {
-            virtual bool do_(OnlyMembers::ArgType sym) const
-            {
-                // Well, it turns that the frontend is not properly labelling template names
-                // as being members
-                Symbol current = sym;
-                if (current.get_type().is_template_type())
-                {
-                    current = current.get_type().get_primary_template().get_symbol();
-                }
-                return current.is_member()
-                    && !current.is_static();
-            }
-        };
-
-        struct OnlyNonMembers : Predicate<Symbol>
-        {
-            virtual bool do_(OnlyNonMembers::ArgType sym) const
-            {
-                return !OnlyMembers()(sym);
-            }
-        };
-
-
-        Nodecl::NodeclBase UDRInfoItem2::parse_omp_udr_operator_name(
-                Source::ReferenceScope ref_scope,
-                const std::string &omp_udr_oper_name)
-        {
-            internal_error("Not implemented yet", 0);
-#if 0
-            std::string mangled_str = "@OMP_OPERATOR_NAME@ " + omp_udr_oper_name;
-            char* str = strdup(mangled_str.c_str());
-
-            C_LANGUAGE()
-            {
-                mc99_prepare_string_for_scanning(str);
-            }
-            CXX_LANGUAGE()
-            {
-                mcxx_prepare_string_for_scanning(str);
-            }
-
-            int parse_result = 0;
-            AST a;
-
-            C_LANGUAGE()
-            {
-                parse_result = mc99parse(&a);
-            }
-            CXX_LANGUAGE()
-            {
-                parse_result = mcxxparse(&a);
-            }
-
-            if (parse_result != 0)
-            {
-                running_error("Could not parse OpenMP user-defined reduction operator name\n\n%s\n", 
-                        TL::Source::format_source(mangled_str).c_str());
-            }
-
-            // Get the scope and declarating context of the reference tree
-            Scope sc = sl.get_scope(ref_tree);
-            decl_context_t decl_context = sc.get_decl_context();
-
-            nodecl_t nodecl_output = nodecl_null();
-
-            enter_test_expression();
-            check_expression(a, decl_context, &nodecl_output);
-            leave_test_expression();
-
-            // Set properly the context of the reference tree
-            scope_link_t* _scope_link = sl.get_internal_scope_link();
-            scope_link_set(_scope_link, a, decl_context);
-
-            Nodecl::NodeclBase result(a);
-            return result;
-#endif
-        }
-
-        // omp_udr_declare_arg_2 : omp_udr_operator_2 ':' omp_udr_type_specifier ':' omp_udr_expression
-        // {
-        //     $$ = ASTMake3(AST_OMP_UDR_DECLARE_ARG_2, $1, $3, $5, ASTFileName($1), ASTLine($1), NULL);
-        // }
-        static void parse_omp_udr_declare_arguments_2(const std::string &omp_udr_str, 
-                Nodecl::NodeclBase ref_tree, 
-                std::string &udr_name,
-                ObjectList<UDRParsedInfo>& udr_parsed_info_list,
-                Nodecl::NodeclBase &ref_tree_of_clause,
-                Scope& scope_of_clause)
-        {
-            internal_error("Not yet implemented", 0);
-#if 0
-            std::stringstream ss;
-            ss << "#line " << ref_tree.get_line() << " \"" << ref_tree.get_file() << "\"\n";
-
-            std::string mangled_str = ss.str() + "@OMP_UDR_DECLARE_2@ " + omp_udr_str;
-
-            char *str = strdup(mangled_str.c_str());
-            C_LANGUAGE()
-            {
-                mc99_prepare_string_for_scanning(str);
-            }
-            CXX_LANGUAGE()
-            {
-                mcxx_prepare_string_for_scanning(str);
-            }
-
-            int parse_result = 0;
-            AST a = NULL;
-            CXX_LANGUAGE()
-            {
-                parse_result = mcxxparse(&a);
-            }
-            C_LANGUAGE()
-            {
-                parse_result = mc99parse(&a);
-            }
-
-            if (parse_result != 0)
-            {
-                running_error("Could not parse OpenMP user-defined reduction argument\n\n%s\n", 
-                        TL::Source::format_source(mangled_str).c_str());
-            } 
-
-            free(str);
-
-            Scope sc = sl.get_scope(ref_tree);
-            decl_context_t decl_context = sc.get_decl_context();
-
-            scope_link_t* _scope_link = sl.get_internal_scope_link();
-
-            AST id_expr = ASTSon0(a);
-            AST type_expr = ASTSon1(a);
-            AST combine_expr = ASTSon2(a);
-
-            // Set the proper scope link
-            scope_link_set(_scope_link, a, decl_context);
-            ref_tree_of_clause = Nodecl::NodeclBase(a);
-            scope_of_clause = Scope(decl_context);
-
-            udr_name = Nodecl::NodeclBase(id_expr).prettyprint();
-
-            AST type_it;
-      
-            for_each_element(type_expr, type_it)
-            {
-                UDRParsedInfo udr_parsed_info;
-                decl_context_t new_context = new_block_context(decl_context);
-
-                // Build type
-                AST type_id = ASTSon1(type_it);
-
-                type_t* type_info = NULL;
-                gather_decl_spec_t gather_info;
-                memset(&gather_info, 0, sizeof(gather_info));
-
-                AST type_specifier_seq = ASTSon0(type_id);
-                AST abstract_decl = ASTSon1(type_id);
-                
-                nodecl_t dummy_nodecl_output = { NULL };
-                build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &type_info,
-                        decl_context, &dummy_nodecl_output);
-
-                type_t* declarator_type = type_info;
-                compute_declarator_type(abstract_decl, &gather_info, type_info, &declarator_type,
-                        decl_context, &dummy_nodecl_output);
-
-                udr_parsed_info.type = Type(declarator_type);
-
-                // Check combine expression
-                AST expression = ast_copy(combine_expr);
-
-                scope_entry_t* out_symbol = new_symbol(new_context, new_context.current_scope, "_out");
-    			out_symbol->kind = SK_VARIABLE;
-    			out_symbol->file = ASTFileName(expression);
-    			out_symbol->line = ASTLine(expression);
-    			out_symbol->type_information = declarator_type;
-
-                scope_entry_t* in_symbol = new_symbol(new_context, new_context.current_scope, "_in");
-    			in_symbol->kind = SK_VARIABLE;
-	    		in_symbol->file = ASTFileName(expression);
-	    		in_symbol->line = ASTLine(expression);
-	    		in_symbol->type_information = get_const_qualified_type(declarator_type);
-
-                nodecl_t nodecl_output = nodecl_null();
-	    	    bool res = check_expression(expression, new_context, &nodecl_output);
-	    		if (!res)
-                {
-                    running_error("%s: error: invalid expression '%s' for OpenMP UDR reduction\n", 
-	    				ast_location(combine_expr), prettyprint_in_buffer(combine_expr));
-                }
-
-				scope_link_set(sl.get_internal_scope_link(), expression, new_context);
-
-                udr_parsed_info.combine_expression = Nodecl::NodeclBase(expression);
-                udr_parsed_info.in_symbol = Symbol(in_symbol);
-                udr_parsed_info.out_symbol = Symbol(out_symbol);
-
-                udr_parsed_info_list.append(udr_parsed_info);
-            }    
-#endif
-        }
+        static void parse_omp_udr_declare_arguments(const std::string &omp_udr_str, Nodecl::NodeclBase ref_tree,
+                std::string &udr_name, ObjectList<UDRParsedInfo>& udr_parsed_info_list);
 
         static void parse_udr_identity(const std::string& omp_udr_identity,
-                Nodecl::NodeclBase reference_tree,
+                Nodecl::NodeclBase ref_tree,
                 Type udr_type,
                 Nodecl::NodeclBase &parsed_tree,
-                bool& is_constructor,
-                bool& need_equal)
+                bool& is_constructor, 
+                bool& need_equal_initializer)
         {
-            internal_error("Not yet implemented", 0);
-#if 0
             std::stringstream ss;
-            ss << "#line " << reference_tree.get_line() << " \"" << reference_tree.get_file() << "\"\n";
+            ss << "#line " << ref_tree.get_line() << " \"" << ref_tree.get_filename() << "\"\n";
 
             std::string parsed_string = ss.str() + "@OMP_UDR_IDENTITY@ ";
 
@@ -457,40 +103,263 @@ namespace TL
                         TL::Source::format_source(parsed_string).c_str());
             }
 
-            Scope sc = sl.get_scope(reference_tree);
+            Scope sc = ref_tree.retrieve_context();
             decl_context_t decl_context = sc.get_decl_context();
 
             if (ASTType(a) != AST_OMP_UDR_CONSTRUCTOR)
             {
-                is_constructor = false;
-                // check_initializer_clause(a, decl_context, udr_type.get_internal_type());
+                // Plain expression
+                nodecl_t nodecl_expr;
+                check_expression(a, decl_context, &nodecl_expr);
+                parsed_tree = nodecl_expr;
             }
             else
             {
                 is_constructor = true;
+
                 AST omp_udr_args = ASTSon0(a);
                 AST expr_list = ASTSon0(omp_udr_args);
 
                 if (expr_list != NULL)
                 {
-                    // check_expression_list(expr_list, decl_context);
+                    nodecl_t nodecl_expr;
+                    check_list_of_expressions(expr_list, decl_context, &nodecl_expr);
+
+                    parsed_tree = nodecl_expr;
                 }
             }
 
-            parsed_tree = Nodecl::NodeclBase(a);
-
-            if (ast_get_type(a)==AST_INITIALIZER_BRACES)
+            if (ast_get_type(a) == AST_INITIALIZER_BRACES)
             {
-                need_equal = true;
+                need_equal_initializer = true;
             }
             else
             {
-                need_equal = false;
+                need_equal_initializer = false;
+            }
+        }
+
+        static std::string get_valid_zero_initializer(Type t)
+        {
+            if (t.is_class())
+            {
+                ObjectList<Symbol> nonstatic_data = t.get_nonstatic_data_members();
+                if (nonstatic_data.empty())
+                {
+                    return "{ }";
+                }
+                else
+                {
+                    return "{" + get_valid_zero_initializer(t.get_nonstatic_data_members()[0].get_type()) + "}";
+                }
+            }
+            else
+            {
+                return "0";
+            }
+        }
+
+        static std::string get_valid_value_initializer(Type t)
+        {
+            // Fall back
+            if (t.is_dependent_typename())
+                return "";
+
+            if (t.is_class())
+            {
+                if (!t.is_pod())
+                {
+                    // If it is not pod, default initialization should do the right thing
+                    return "";
+                }
+            }
+            // For most cases, get_valid_zero_initializer is enough
+            return get_valid_zero_initializer(t);
+        }
+
+        struct OnlyMembers : Predicate<Symbol>
+        {
+            virtual bool do_(OnlyMembers::ArgType sym) const
+            {
+                // Well, it turns that the frontend is not properly labelling template names
+                // as being members
+                Symbol current = sym;
+                if (current.get_type().is_template_type())
+                {
+                    current = current.get_type().get_primary_template().get_symbol();
+                }
+                return current.is_member()
+                    && !current.is_static();
+            }
+        };
+
+        struct OnlyNonMembers : Predicate<Symbol>
+        {
+            virtual bool do_(OnlyNonMembers::ArgType sym) const
+            {
+                return !OnlyMembers()(sym);
+            }
+        };
+
+
+        Nodecl::NodeclBase UDRInfoItem::parse_omp_udr_operator_name(
+                Source::ReferenceScope ref_scope,
+                const std::string &omp_udr_oper_name)
+        {
+            std::string mangled_str = "@OMP_OPERATOR_NAME@ " + omp_udr_oper_name;
+            char* str = strdup(mangled_str.c_str());
+
+            C_LANGUAGE()
+            {
+                mc99_prepare_string_for_scanning(str);
+            }
+            CXX_LANGUAGE()
+            {
+                mcxx_prepare_string_for_scanning(str);
             }
 
-            free(str);
-#endif
+            int parse_result = 0;
+            AST a;
+
+            C_LANGUAGE()
+            {
+                parse_result = mc99parse(&a);
+            }
+            CXX_LANGUAGE()
+            {
+                parse_result = mcxxparse(&a);
+            }
+
+            if (parse_result != 0)
+            {
+                running_error("Could not parse OpenMP user-defined reduction operator name\n\n%s\n", 
+                        TL::Source::format_source(mangled_str).c_str());
+            }
+
+            // Get the scope and declarating context of the reference tree
+            Scope sc = ref_scope.get_scope();
+            decl_context_t decl_context = sc.get_decl_context();
+
+            nodecl_t nodecl_output = nodecl_null();
+
+            enter_test_expression();
+            check_expression(a, decl_context, &nodecl_output);
+            leave_test_expression();
+
+            return nodecl_output;
         }
+
+        // omp_udr_declare_arg_2 : omp_udr_operator_2 ':' omp_udr_type_specifier ':' omp_udr_expression
+        // {
+        //     $$ = ASTMake3(AST_OMP_UDR_DECLARE_ARG_2, $1, $3, $5, ASTFileName($1), ASTLine($1), NULL);
+        // }
+        static void parse_omp_udr_declare_arguments(const std::string &omp_udr_str, 
+                Nodecl::NodeclBase ref_tree, 
+                std::string &udr_name,
+                ObjectList<UDRParsedInfo>& udr_parsed_info_list)
+        {
+            std::stringstream ss;
+            ss << "#line " << ref_tree.get_line() << " \"" << ref_tree.get_filename() << "\"\n";
+
+            std::string mangled_str = ss.str() + "@OMP_UDR_DECLARE_2@ " + omp_udr_str;
+
+            char *str = strdup(mangled_str.c_str());
+            C_LANGUAGE()
+            {
+                mc99_prepare_string_for_scanning(str);
+            }
+            CXX_LANGUAGE()
+            {
+                mcxx_prepare_string_for_scanning(str);
+            }
+
+            int parse_result = 0;
+            AST a = NULL;
+            CXX_LANGUAGE()
+            {
+                parse_result = mcxxparse(&a);
+            }
+            C_LANGUAGE()
+            {
+                parse_result = mc99parse(&a);
+            }
+
+            if (parse_result != 0)
+            {
+                running_error("Could not parse OpenMP user-defined reduction argument\n\n%s\n", 
+                        TL::Source::format_source(mangled_str).c_str());
+            } 
+
+            free(str);
+
+            Scope sc = ref_tree.retrieve_context();
+            decl_context_t decl_context = sc.get_decl_context();
+
+            AST udr_name_tree = ASTSon0(a);
+            AST type_expr = ASTSon1(a);
+            AST combine_expr = ASTSon2(a);
+
+            // FIXME 
+            udr_name = ASTText(udr_name_tree);
+
+            AST type_it;
+      
+            for_each_element(type_expr, type_it)
+            {
+                UDRParsedInfo udr_parsed_info;
+                decl_context_t new_context = new_block_context(decl_context);
+
+                // Build type
+                AST type_id = ASTSon1(type_it);
+
+                type_t* type_info = NULL;
+                gather_decl_spec_t gather_info;
+                memset(&gather_info, 0, sizeof(gather_info));
+
+                AST type_specifier_seq = ASTSon0(type_id);
+                AST abstract_decl = ASTSon1(type_id);
+                
+                nodecl_t dummy_nodecl_output = { NULL };
+                build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &type_info,
+                        decl_context, &dummy_nodecl_output);
+
+                type_t* declarator_type = type_info;
+                compute_declarator_type(abstract_decl, &gather_info, type_info, &declarator_type,
+                        decl_context, &dummy_nodecl_output);
+
+                udr_parsed_info.type = Type(declarator_type);
+
+                // Check combine expression
+                AST expression = ast_copy(combine_expr);
+
+                scope_entry_t* out_symbol = new_symbol(new_context, new_context.current_scope, "_out");
+    			out_symbol->kind = SK_VARIABLE;
+    			out_symbol->file = ASTFileName(expression);
+    			out_symbol->line = ASTLine(expression);
+    			out_symbol->type_information = declarator_type;
+
+                scope_entry_t* in_symbol = new_symbol(new_context, new_context.current_scope, "_in");
+    			in_symbol->kind = SK_VARIABLE;
+	    		in_symbol->file = ASTFileName(expression);
+	    		in_symbol->line = ASTLine(expression);
+	    		in_symbol->type_information = get_const_qualified_type(declarator_type);
+
+                nodecl_t nodecl_combine_expression = nodecl_null();
+	    	    bool res = check_expression(expression, new_context, &nodecl_combine_expression);
+	    		if (!res)
+                {
+                    running_error("%s: error: invalid expression '%s' for OpenMP UDR reduction\n", 
+	    				ast_location(combine_expr), prettyprint_in_buffer(combine_expr));
+                }
+
+                udr_parsed_info.combine_expression = nodecl_combine_expression;
+                udr_parsed_info.in_symbol = Symbol(in_symbol);
+                udr_parsed_info.out_symbol = Symbol(out_symbol);
+
+                udr_parsed_info_list.append(udr_parsed_info);
+            }    
+        }
+
 
 #if 0
         void Core::declare_reduction_handler_pre_2(PragmaCustomConstruct construct)
@@ -543,7 +412,7 @@ namespace TL
                 }
             }
 
-            ObjectList<UDRInfoItem2> udrs;
+            ObjectList<UDRInfoItem> udrs;
             // Declare a new UDR for each type
             for (ObjectList<UDRParsedInfo>::iterator it = parsed_info_list.begin();
                     it != parsed_info_list.end();
@@ -551,7 +420,7 @@ namespace TL
             {
                 // New udr being declared
                 bool found = false;
-                UDRInfoItem2 new_udr;
+                UDRInfoItem new_udr;
                 new_udr.set_name(name);
                 new_udr.set_type((*it).type);
                 new_udr.set_combine_expr((*it).combine_expression);
@@ -603,7 +472,7 @@ namespace TL
 
                     std::stringstream ss;
                     ss << _udr_counter;
-                    std::string function_name = new_udr.get_symbol_name((*it).type) + "_" + ss.str();
+                    std::string function_name = new_udr.udr_get_symbol_name((*it).type) + "_" + ss.str();
 		            function_name = function_name.substr(1, function_name.size());   // symbol name without initial dot
 
                     new_udr.sign_in_scope(construct.get_scope(), (*it).type);
@@ -635,19 +504,19 @@ namespace TL
         {
 		    if (_new_udr)
 	        {
-	            ObjectList<OpenMP::UDRInfoItem2> udr_list = _openmp_info->get_udr_list(ctr.get_ast());
+	            ObjectList<OpenMP::UDRInfoItem> udr_list = _openmp_info->get_udr_list(ctr.get_ast());
                 ObjectList<Symbol> udr_symbol_list;
-	            for(ObjectList<OpenMP::UDRInfoItem2>::iterator it = udr_list.begin();
+	            for(ObjectList<OpenMP::UDRInfoItem>::iterator it = udr_list.begin();
 	                    it != udr_list.end(); 
 	                    it++)
 	            {
 	                Source pragma_functions;
-			        OpenMP::UDRInfoItem2 udr2 = (*it);
+			        OpenMP::UDRInfoItem udr2 = (*it);
 			        Type udr_type = udr2.get_type();
 
 			        Symbol out = udr2.get_out_symbol();
 			        Symbol in = udr2.get_in_symbol();
-			        std::string function_name = udr2.get_symbol_name(udr_type);
+			        std::string function_name = udr2.udr_get_symbol_name(udr_type);
 
 					// Remove initial period 
                     function_name = function_name.substr(1, function_name.size());
@@ -750,8 +619,8 @@ namespace TL
 
                     // Add the symbol to the UDR info
                     (*it).set_function_definition_symbol(function_sym);
-                     RefPtr<UDRInfoItem2> cp(new UDRInfoItem2(*it));
-                    ctr.get_scope().get_symbol_from_name(udr2.get_symbol_name(udr_type)).set_attribute("udr_info", cp);
+                     RefPtr<UDRInfoItem> cp(new UDRInfoItem(*it));
+                    ctr.get_scope().get_symbol_from_name(udr2.udr_get_symbol_name(udr_type)).set_attribute("udr_info", cp);
 	            }
                 ctr.get_ast().remove_in_list();
 	        }
@@ -764,293 +633,127 @@ namespace TL
 #endif
 
 
-        UDRInfoItem2::UDRInfoItem2(): 
+        UDRInfoItem::UDRInfoItem(): 
             _name(""),
             _type(NULL),
-            _combine_expression(),
-            _in_symbol(),
-            _out_symbol(),
-            _is_builtin(false),
-            _builtin_op(""),
-            _has_identity(false),
-            _identity(),
-            _function_definition_symbol()
+            _basic_function(NULL),
+            _cleanup_function(NULL),
+            _is_builtin(false)
+            // _combine_expression(),
+            // _in_symbol(),
+            // _out_symbol(),
+            // _builtin_op(""),
+            // _has_identity(false),
+            // _identity(),
+            // _function_definition_symbol()
         {
         }
 
-        // UDRInfoItem2 Methods
-        std::string UDRInfoItem2::get_symbol_name(Type t) const
+        // UDRInfoItem Methods
+        std::string UDRInfoItem::udr_get_symbol_name(
+                const std::string &red_name,
+                Type t)
         {
+            std::string reductor_name = red_name;
+
 		    Type canonic_type = t.get_unqualified_type().get_canonical_type();
 
 			std::stringstream ss;
 			ss << canonic_type.get_internal_type();
 
-		    return (".udr_" + _name + "_" + ss.str());
+		    return (".udr_" + reductor_name + "_" + ss.str());
         }
 
-
-        void UDRInfoItem2::sign_in_scope(Scope sc, Type type) const
+        TL::Symbol UDRInfoItem::get_symbol_holder() const
         {
-            std::string sym_name = this->get_symbol_name(type);
+            return _symbol_holder;
+        }
+
+        void UDRInfoItem::sign_in_scope(Scope sc) const
+        {
+            std::string sym_name = this->udr_get_symbol_name(_name, _type);
             Symbol sym = sc.new_artificial_symbol(sym_name);
 
-            RefPtr<UDRInfoItem2> cp(new UDRInfoItem2(*this));
+            RefPtr<UDRInfoItem> cp(new UDRInfoItem(*this));
             sym.set_attribute("udr_info", cp);
 
+            cp->_symbol_holder = sym;
+
             DEBUG_CODE()
             {
-                    std::cerr << "UDR: Signing in '" << sym_name << std::endl;
+                std::cerr << "UDR: Signing in '" << sym_name << std::endl;
             }
         }
 
-        static void find_bases(Type t, ObjectList<Symbol> &bases)
+        Nodecl::NodeclBase UDRInfoItem::compute_nodecl_of_udr_name(
+                const std::string& reductor_name,
+                TL::Type udr_type,
+                const std::string& filename,
+                int line)
         {
-            internal_error("Not yet implemented", 0);
-#if 0
-            ObjectList<Symbol> actual_bases = t.get_bases_class_symbol_list();
-            if (actual_bases.empty())
+            if (IS_C_LANGUAGE
+                    || IS_FORTRAN_LANGUAGE)
             {
-                return;
+                return Nodecl::CxxDepNameSimple::make(
+                        udr_get_symbol_name(reductor_name, udr_type),
+                        filename,
+                        line);
             }
-
-            // Append the founded bases if needed
-            for(ObjectList<Symbol>::iterator it=actual_bases.begin();
-                    it != actual_bases.end();
-                    it++)
+            else
             {
-                if (!bases.contains(*it)) bases.append(*it);
+                internal_error("Not yet implemented for C++", 0);
             }
-
-            // Recursive call for each base
-            for(ObjectList<Symbol>::iterator it=actual_bases.begin();
-                    it != actual_bases.end();
-                    it++)
-            {
-                if (it->get_type().is_class())
-                {
-                    find_bases(it->get_type(), bases);
-                }
-            }
-#endif
         }
 
-        UDRInfoItem2 UDRInfoItem2::bases_lookup(Type type,
-                Nodecl::NodeclBase reductor_tree,
-                bool &found) const
-        {
-            UDRInfoItem2 udr2;
-	        ObjectList<Symbol> bases;
-	        find_bases(type, bases);
-            ObjectList<Symbol> candidate_bases;
-            for (int i=0; i<bases.size(); i++)
-			{
-	            if (bases[i].get_type().is_class())
-	            {
-	                std::string sym_name = this->get_symbol_name(bases[i].get_type());
-					ObjectList<Symbol> lookup = bases[i].get_scope().get_symbols_from_name(sym_name);
-					if (!lookup.empty())
-					{
-                        candidate_bases.append(lookup);
-					}
-	            }
-			}
-            if (!candidate_bases.empty())
-            {
-	            if (candidate_bases.size()>1)
-	            {
-			        running_error("%s: error: ambiguous user defined reduction with identifier '%s'\n",
-			                reductor_tree.get_locus().c_str(),
-			                _name.c_str());
-	            }
-	            else if (candidate_bases.size()==1)
-	            {
-					found = true;
-					RefPtr<UDRInfoItem2> obj = 
-							RefPtr<UDRInfoItem2>::cast_dynamic(candidate_bases[0].get_attribute("udr_info"));
-					udr2 = (*obj);
-	            }
-            }
-            return udr2;
-        }
+        UDRInfoItem UDRInfoItem::lookup_udr(
+                Scope sc,
+                Nodecl::NodeclBase reductor_name,
 
-        UDRInfoItem2 UDRInfoItem2::argument_dependent_lookup(Type type,
-                Nodecl::NodeclBase reductor_tree,
-                bool &found,
-                Scope sc) const
-        {
-            internal_error("Not implemented yet", 0);
-#if 0
-            UDRInfoItem2 udr2;
-
-            ObjectList<Symbol> bases;
-            bases.append(type.get_symbol());
-            find_bases(type, bases);
-
-     		ObjectList<Type> arg_list;
-			arg_list.append(type);
-
-			ObjectList<Symbol> koenig_symbols;
-            int candidate_type = -1;
-	    	for (int it = 0; it != bases.size(); it++)
-		    {
-		        std::string sym_name = this->get_symbol_name(bases[it].get_type());
-                ObjectList<Symbol> actual_koenig_symbols = sc.koenig_lookup(arg_list, Scope::wrap_symbol_name(sym_name));
-                if (!actual_koenig_symbols.empty()) 
-                {
-                    candidate_type = it;
-                    koenig_symbols.append(actual_koenig_symbols);
-                }
-		    }
-
-			if (!koenig_symbols.empty())
-			{
-		        if (koenig_symbols.size()>1)
-		        {
-		            running_error("%s: error: ambiguous user defined reduction with identifier '%s'\n",
-		                    reductor_tree.get_locus().c_str(),
-		                    _name.c_str());
-		        }
-		        else
-		        {
-                    std::string sym_name = this->get_symbol_name(bases[candidate_type].get_type());
-					ObjectList<Symbol> lookup = koenig_symbols[0].get_scope().get_symbols_from_name(sym_name);
-					found = true;
-					RefPtr<UDRInfoItem2> obj = 
-							RefPtr<UDRInfoItem2>::cast_dynamic(lookup.at(0).get_attribute("udr_info"));
-					udr2 = (*obj);
-		        }
-			}
-
-            return udr2;
-#endif
-        }
-
-        UDRInfoItem2 UDRInfoItem2::lookup_udr(Scope sc,
-                bool &found,
-                Type type,
-                Nodecl::NodeclBase reductor_tree,
-                int udr_counter) const
+                bool &found)
         {
             found = false;
-            std::string sym_name = this->get_symbol_name(type);
+
+            ERROR_CONDITION(!reductor_name.is<Nodecl::CxxDepNameSimple>(), "Invalid tree", 0);
+
+            std::string udr_name = reductor_name.get_text();
 
             DEBUG_CODE()
             {
-                std::cerr << "UDR: Lookup start '"  << sym_name << "'" << std::endl;
+                std::cerr << "UDR: Lookup start '"  << udr_name << "'" << std::endl;
             }
 
-            C_LANGUAGE()
+            ObjectList<Symbol> lookup = sc.get_symbols_from_name(udr_name);
+            if (!lookup.empty())
             {
-                ObjectList<Symbol> lookup = sc.get_symbols_from_name(sym_name);
-		        if (!lookup.empty())
-		        {
-		            found = true;
-				    RefPtr<UDRInfoItem2> obj = 
-                            RefPtr<UDRInfoItem2>::cast_dynamic(lookup.at(0).get_attribute("udr_info"));
-  				    return (*obj);
-		        }
-                return *this;
+                found = true;
+                RefPtr<UDRInfoItem> obj =
+                    RefPtr<UDRInfoItem>::cast_dynamic(lookup.at(0).get_attribute("udr_info"));
+                return (*obj);
             }
-
-            CXX_LANGUAGE()
-            {
-                // Simple lookup for declarations
-                if (udr_counter==-1)
-                {
-		            ObjectList<Symbol> lookup = sc.get_symbols_from_name(sym_name);
-		            if (!lookup.empty())
-		            {
-		                found = true;
-		            }
-                    return *this;            
-                }
-
-                // Koenig lookup and koenig in bases for unqualified types
-                if (type.get_unqualified_type() == type && type.is_named())
-                {
-                    UDRInfoItem2 koenig_udr = argument_dependent_lookup(type, reductor_tree, found, sc);
-                    if (found)
-                    {
-                        return koenig_udr;
-                    }
-                }
-  
-                // Normal lookup and in bases for classe types
-                ObjectList<Symbol> lookup = sc.get_symbols_from_name(sym_name);
-                if (!lookup.empty())
-                {
-                    found = true;
-					RefPtr<UDRInfoItem2> obj = 
-							RefPtr<UDRInfoItem2>::cast_dynamic(lookup.at(0).get_attribute("udr_info"));
-					return (*obj);
-                }
-                if (type.is_class())
-                {
-                    return bases_lookup(type, reductor_tree, found);
-                }
-            }
-
-            return *this;
         }
 
-        // UDRInfoItem2 Getters, setters and consults
-        std::string UDRInfoItem2::get_name() const
+        // UDRInfoItem Getters, setters and consults
+        std::string UDRInfoItem::get_name() const
         {
             return _name;
         }
 
-        void UDRInfoItem2::set_name(const std::string& str)
+        void UDRInfoItem::set_name(const std::string& str)
         {
             _name = str;
         }
 
-        Type UDRInfoItem2::get_type() const
+        Type UDRInfoItem::get_type() const
         {
             return _type;
         }
 
-        void UDRInfoItem2::set_type(Type t)
+        void UDRInfoItem::set_type(Type t)
         {
             _type = t;
         }
 
-        Nodecl::NodeclBase UDRInfoItem2::get_combine_expr() const
-        {
-            return _combine_expression;
-        }
-
-        void UDRInfoItem2::set_combine_expr(Nodecl::NodeclBase combine_expr)
-        {
-            _combine_expression = combine_expr;
-        }
-
-        Symbol UDRInfoItem2::get_in_symbol() const
-        {
-            return _in_symbol;
-        }
-
-        void UDRInfoItem2::set_in_symbol(Symbol s)
-        {
-            _in_symbol = s;
-        }
-
-        Symbol UDRInfoItem2::get_out_symbol() const
-        {
-            return _out_symbol;
-        }
-
-        void UDRInfoItem2::set_out_symbol(Symbol s)
-        {
-            _out_symbol = s;
-        }
-
-        bool UDRInfoItem2::is_builtin_operator() const
-        {
-            return _is_builtin;
-        }
-
-        bool udr_is_builtin_operator_2(const std::string& op_name)
+        bool udr_is_builtin_operator(const std::string& op_name)
         {
             return (op_name == "+"
                     || op_name == "-"
@@ -1063,89 +766,51 @@ namespace TL
                     || op_name == "||");
         }
 
-        void UDRInfoItem2::set_is_builtin_operator(bool is_builtin)
+        void UDRInfoItem::set_is_builtin_operator(bool is_builtin)
         {
             _is_builtin = is_builtin;
         }
 
-        std::string UDRInfoItem2::get_builtin_operator() const
+        bool UDRInfoItem::is_builtin_operator() const
         {
-            return _builtin_op;
-        }
-        
-        void UDRInfoItem2::set_builtin_operator(const std::string builtin_op)
-        {
-            _builtin_op = builtin_op;
+            return _is_builtin;
         }
 
-        bool UDRInfoItem2::get_is_constructor() const
+        void UDRInfoItem::set_identity(Nodecl::NodeclBase identity)
         {
-            return _is_constructor;
+            _identity = identity;
         }
 
-        void UDRInfoItem2::set_is_constructor(bool constructor)
-        {
-            _is_constructor = constructor;
-        }
-
-        bool UDRInfoItem2::get_need_equal_initializer() const
-        {
-            return _need_equal_initializer;
-        }
-
-        void UDRInfoItem2::set_need_equal_initializer(bool need_equal_init)
-        {
-            _need_equal_initializer = need_equal_init;
-        }
-
-        bool UDRInfoItem2::has_identity() const
-        {
-            return _has_identity;
-        }
-
-        Nodecl::NodeclBase UDRInfoItem2::get_identity() const
-        {
-            if (identity_is_constructor())
-            {
-                return _identity.children()[0];
-            }
-            else
-                return _identity;
-        }
-
-        Nodecl::NodeclBase UDRInfoItem2::get_raw_identity() const
+        Nodecl::NodeclBase UDRInfoItem::get_identity() const
         {
             return _identity;
         }
 
-        void UDRInfoItem2::set_identity(Nodecl::NodeclBase identity)
+        Symbol UDRInfoItem::get_basic_reductor_function() const
         {
-            _identity = identity;
-            _has_identity = !_identity.is_null();
+            return _basic_function;
         }
 
-        bool UDRInfoItem2::identity_is_constructor() const
+        void UDRInfoItem::set_basic_reductor_function(Symbol sym)
         {
-            internal_error("Not yet implemented", 0);
-#if 0
-            if (!_identity.is_null())
-            {
-                return _identity.internal_ast_type_() == AST_OMP_UDR_CONSTRUCTOR;
-            }
-            else 
-                return false;
-#endif
+            _basic_function = sym;
         }
 
-        Symbol UDRInfoItem2::get_function_definition_symbol() const
+        Symbol UDRInfoItem::get_cleanup_function() const
         {
-            return _function_definition_symbol;
+            return _cleanup_function;
         }
 
-        void UDRInfoItem2::set_function_definition_symbol(Symbol sym)
+        void UDRInfoItem::set_cleanup_function(Symbol sym)
         {
-            _function_definition_symbol = sym;
+            _cleanup_function = sym;
         }
 
+        UDRInfoItem& UDRInfoItem::get_udr_info_item_from_symbol_holder(TL::Symbol symbol)
+        {
+            RefPtr<UDRInfoItem> obj =
+                RefPtr<UDRInfoItem>::cast_dynamic(symbol.get_attribute("udr_info"));
+            return *obj;
+        }
     }
 }

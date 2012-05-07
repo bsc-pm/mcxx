@@ -98,28 +98,35 @@ char deduce_template_arguments_common(
             }
             else
             {
-                fprintf(stderr, "TYPEDEDUC: %d explicit template arguments already available\n", 
+                fprintf(stderr, "TYPEDEDUC: There are %d explicit template arguments\n", 
                         explicit_template_parameters->num_parameters);
                 for (i = 0; i < explicit_template_parameters->num_parameters; i++)
                 {
-                    template_parameter_value_t* current_template_argument = template_parameters->arguments[i];
+                    template_parameter_value_t* current_template_argument = explicit_template_parameters->arguments[i];
 
                     const char* value = "<<<UNKNOWN>>>";
-                    switch (current_template_argument->kind)
+                    if (current_template_argument != NULL)
                     {
-                        case TPK_TEMPLATE:
-                        case TPK_TYPE:
-                            value = print_declarator(current_template_argument->type);
-                            break;
-                        case TPK_NONTYPE:
-                            value = codegen_to_str(current_template_argument->value);
-                            break;
-                        default:
-                            internal_error("Code unreachable", 0);
+                        switch (current_template_argument->kind)
+                        {
+                            case TPK_TEMPLATE:
+                            case TPK_TYPE:
+                                value = print_declarator(current_template_argument->type);
+                                break;
+                            case TPK_NONTYPE:
+                                value = codegen_to_str(current_template_argument->value, nodecl_retrieve_context(current_template_argument->value));
+                                break;
+                            default:
+                                internal_error("Code unreachable", 0);
+                        }
+                        fprintf(stderr, "TYPEDEDUC:   [%d] %s <- %s\n", i, 
+                                kind_name[current_template_argument->kind],
+                                value);
                     }
-                    fprintf(stderr, "TYPEDEDUC:   [%d] %s <- %s\n", i, 
-                            kind_name[current_template_argument->kind],
-                            value);
+                    else
+                    {
+                        fprintf(stderr, "TYPEDEDUC:   [%d] <<NULL!!!>>\n", i);
+                    }
                 }
                 fprintf(stderr, "TYPEDEDUC: End of explicit template arguments available\n");
             }
@@ -636,7 +643,7 @@ char deduce_template_arguments_common(
                     case TPK_NONTYPE:
                         {
                             fprintf(stderr, "TYPEDEDUC:    [%d] Deduced expression: %s\n", j,
-                                    codegen_to_str(current_deduction->deduced_parameters[j]->value));
+                                    codegen_to_str(current_deduction->deduced_parameters[j]->value, nodecl_retrieve_context(current_deduction->deduced_parameters[j]->value)));
                             fprintf(stderr, "TYPEDEDUC:    [%d] (Deduced) Type: %s\n", j,
                                     print_declarator(current_deduction->deduced_parameters[j]->type));
                             break;
@@ -952,6 +959,10 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
             original_parameter_type = update_type(original_parameter_type,
                     updated_context, filename, line);
 
+            // The type failed to be updated
+            if (original_parameter_type == NULL)
+                return 0;
+
             if (!is_dependent_type(original_parameter_type))
             {
                 // Skip this one since explicit parameter types left this one
@@ -963,6 +974,10 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
         type_t* updated_type = 
             update_type(original_parameter_type, 
                     updated_context, filename, line);
+
+        // The type failed to be updated
+        if (updated_type == NULL)
+            return 0;
 
         if (is_unresolved_overloaded_type(argument_types[i])
                 || (is_pointer_type(argument_types[i])
@@ -1296,7 +1311,7 @@ static template_parameter_list_t* build_template_parameter_list_from_deduction_s
                         fprintf(stderr, "TYPEDEDUC: Position '%d' and nesting '%d' nontype template parameter updated to '%s'\n",
                                 current_deduction->parameter_position,
                                 nesting,
-                                codegen_to_str(argument->value));
+                                codegen_to_str(argument->value, nodecl_retrieve_context(argument->value)));
                     }
                 }
                 break;

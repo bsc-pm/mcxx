@@ -196,13 +196,13 @@ FORTRAN_GENERIC_INTRINSIC(matmul, "MATRIX_A,MATRIX_B", T, NULL) \
 FORTRAN_GENERIC_INTRINSIC(max, NULL, E, simplify_max) \
 FORTRAN_GENERIC_INTRINSIC(maxexponent, "X", I, simplify_maxexponent) \
 FORTRAN_GENERIC_INTRINSIC_2(maxloc, "ARRAY,DIM,?MASK,?KIND,?BACK", T, NULL, "ARRAY,?MASK,?KIND,?BACK", T, NULL) \
-FORTRAN_GENERIC_INTRINSIC_2(maxval, "ARRAY,DIM,?MASK", E, NULL, "ARRAY,?MASK", T, NULL) \
+FORTRAN_GENERIC_INTRINSIC_2(maxval, "ARRAY,DIM,?MASK", T, simplify_maxval, "ARRAY,?MASK", T, simplify_maxval) \
 FORTRAN_GENERIC_INTRINSIC(merge, "TSOURCE,FSOURCE,MASK", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(merge_bits, "I,J,MASK", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(min, NULL, E, simplify_min) \
 FORTRAN_GENERIC_INTRINSIC(minexponent, "X", I, simplify_minexponent) \
 FORTRAN_GENERIC_INTRINSIC_2(minloc, "ARRAY,DIM,?MASK,?KIND,?BACK", E, NULL, "ARRAY,?MASK,?KIND,?BACK", T, NULL) \
-FORTRAN_GENERIC_INTRINSIC_2(minval, "ARRAY,DIM,?MASK", E, NULL, "ARRAY,?MASK", T, NULL) \
+FORTRAN_GENERIC_INTRINSIC_2(minval, "ARRAY,DIM,?MASK", T, simplify_minval, "ARRAY,?MASK", T, simplify_minval) \
 FORTRAN_GENERIC_INTRINSIC(mod, "A,P", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(modulo, "A,P", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(move_alloc, "FROM,TO", PS, NULL) \
@@ -1017,7 +1017,6 @@ static void fortran_init_specific_names(decl_context_t decl_context)
     REGISTER_SPECIFIC_INTRINSIC_2("atan2", "atan2", fortran_get_default_real_type(), fortran_get_default_real_type());
     REGISTER_SPECIFIC_INTRINSIC_1("cabs", "abs", get_complex_type(fortran_get_default_real_type()));
     REGISTER_SPECIFIC_INTRINSIC_1("ccos", "cos", get_complex_type(fortran_get_default_real_type()));
-    REGISTER_SPECIFIC_INTRINSIC_1("cexp", "exp", get_complex_type(fortran_get_default_real_type()));
     REGISTER_SPECIFIC_INTRINSIC_1("cexp", "exp", get_complex_type(fortran_get_default_real_type()));
     REGISTER_SPECIFIC_INTRINSIC_2("char", "char", fortran_get_default_integer_type(), NULL);
     REGISTER_SPECIFIC_INTRINSIC_1("clog", "log", get_complex_type(fortran_get_default_real_type()));

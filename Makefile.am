@@ -30,9 +30,10 @@ DIST_SUBDIRS = $(SUBDIRS) doc
 
 ACLOCAL_AMFLAGS=-I m4
 
-SUPERSCALAR_DISTCHECK_CONFIGURE_FLAGS = --with-superscalar-runtime-api-version=@superscalar_version@
-
-DISTCHECK_CONFIGURE_FLAGS = $(SUPERSCALAR_DISTCHECK_CONFIGURE_FLAGS)
+# We should use AM_DISTCHECK_CONFIGURE_FLAGS but it is only available in Automake 1.11
+DISTCHECK_CONFIGURE_FLAGS =
+# We need to augment the command line variables
+override DISTCHECK_CONFIGURE_FLAGS += --enable-distcheck-processing=yes
 
 dist-hook:
 	if [ -n "$(gitpath)" ]; \

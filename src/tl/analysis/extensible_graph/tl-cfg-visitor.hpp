@@ -128,7 +128,7 @@ namespace TL
             }
         };  
     
-        class LIBTL_CLASS CfgVisitor : public Nodecl::NodeclVisitor<Node*>
+        class LIBTL_CLASS CfgVisitor : public Nodecl::NodeclVisitor<TL::ObjectList<Node*> >
         {
         protected:
             ObjectList<ExtensibleGraph*> _cfgs;
@@ -363,7 +363,7 @@ namespace TL
             Ret visit(const Nodecl::DoStatement& n);
             Ret visit(const Nodecl::Assignment& n);
             Ret visit(const Nodecl::AddAssignment& n);
-            Ret visit(const Nodecl::SubAssignment& n);
+            Ret visit(const Nodecl::MinusAssignment& n);
             Ret visit(const Nodecl::DivAssignment& n);
             Ret visit(const Nodecl::MulAssignment& n);
             Ret visit(const Nodecl::ModAssignment& n);

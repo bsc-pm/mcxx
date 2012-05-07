@@ -28,6 +28,7 @@
 
 
 #include "tl-nanos.hpp"
+#include "tl-counters.hpp"
 #include "tl-parallel-common.hpp"
 #include "tl-devices.hpp"
 
@@ -36,14 +37,18 @@ using namespace TL::Nanox;
 
 static void fill_dimensions(int n_dims, int actual_dim, std::string* dim_sizes, Type dep_type, Source& dims_description, Scope sc);
 
-Source TL::Nanox::common_parallel_code(const std::string& outline_name, 
+Source TL::Nanox::common_parallel_code(
+        PragmaCustomConstruct &ctr,
+        const std::string& outline_name,
         const std::string& struct_arg_type_name,
-        Source num_threads,
-        ScopeLink sl,
         DataEnvironInfo& data_environ_info,
         AST_t parallel_code,
         const ObjectList<std::string>& current_targets)
 {
+    FunctionDefinition funct_def = ctr.get_enclosing_function();
+    Symbol function_symbol = funct_def.get_function_symbol();
+    
+    ScopeLink sl = ctr.get_scope_link();
     Source result;
 
     Source fill_outline_arguments, fill_immediate_arguments;
@@ -75,9 +80,9 @@ Source TL::Nanox::common_parallel_code(const std::string& outline_name,
            device_description_line, 
            num_devices,
            ancillary_device_description;
+
     device_descriptor << outline_name << "_devices";
     device_description
-        << ancillary_device_description
         << "nanos_device_t " << device_descriptor << "[] ="
         << "{"
         << device_description_line
@@ -99,8 +104,7 @@ Source TL::Nanox::common_parallel_code(const std::string& outline_name,
 
         OutlineFlags outline_flags;
 
-        outline_flags.leave_team = true;
-        outline_flags.barrier_at_end = true;
+        outline_flags.parallel = true;
 
         Source initial_setup, replaced_body;
 
@@ -171,7 +175,7 @@ Source TL::Nanox::common_parallel_code(const std::string& outline_name,
     Source alignment;
     if (Nanos::Version::interface_is_at_least("master", 5004))
     {
-        alignment <<  "__alignof__(" << struct_arg_type_name << "),"
+        alignment <<  "__alignof__(" << struct_arg_type_name << ")"
             ;
     }
 
@@ -187,82 +191,183 @@ Source TL::Nanox::common_parallel_code(const std::string& outline_name,
     {
         C_LANGUAGE()
         {
-            xlate_arg << ", (void*)0"
+            xlate_arg << "(void*)0"
                 ;
         }
         CXX_LANGUAGE()
         {
-            xlate_arg << ", 0"
+            xlate_arg << "0"
                 ;
         }
+    }
+
+    Source num_threads;
+
+    PragmaCustomClause num_threads_clause = ctr.get_clause("num_threads");
+    if (num_threads_clause.is_defined())
+    {
+        num_threads << num_threads_clause.get_expression_list()[0];
+    }
+    else
+    {
+        num_threads << "nanos_omp_get_max_threads()";
+    }
+
+    Source if_code;
+    PragmaCustomClause if_clause = ctr.get_clause("if");
+    if (if_clause.is_defined())
+    {
+        ObjectList<Expression> expr_list = if_clause.get_expression_list();
+        if (expr_list.size() != 1)
+        {
+            running_error("%s: error: clause 'if' requires just one argument\n",
+                    ctr.get_ast().get_locus().c_str());
+        }
+
+        Expression &expr = expr_list[0];
+
+        if_code
+        << comment("A false 'if' clause evaluation means using current thread")
+        << "_nanos_num_threads = (" << expr.prettyprint() << ") ? _nanos_num_threads : 1;";
+    }
+
+    Source data, imm_data, num_dependences, deps, nanos_create_wd, nanos_create_run_wd,
+           properties_opt, decl_dyn_props_opt, modify_tie_to1, modify_tie_to2, device_description_opt,
+           constant_code_opt, constant_struct_definition, constant_variable_declaration;
+
+    num_dependences << "0";
+    deps << "(nanos_dependence_t*)0";
+    imm_data << (immediate_is_alloca ? "imm_args" : "&imm_args");
+    data << "(void**)&ol_args";
+
+    if ( Nanos::Version::interface_is_at_least("master", 5012))
+    {
+        nanos_create_wd = OMPTransform::get_nanos_create_wd_compact_code(struct_size, data, copy_data);
+
+        nanos_create_run_wd = OMPTransform::get_nanos_create_and_run_wd_compact_code(
+                struct_size, imm_data, num_dependences, deps, imm_copy_data, xlate_arg);
+
+        decl_dyn_props_opt << "nanos_wd_dyn_props_t dyn_props = {0};";
+        modify_tie_to1 << "dyn_props.tie_to = _nanos_threads[_i];";
+        modify_tie_to2 << "dyn_props.tie_to = _nanos_threads[0];";
+
+        constant_code_opt
+            << constant_struct_definition
+            <<  constant_variable_declaration
+            ;
+
+        constant_struct_definition
+            << "struct nanos_const_wd_definition_local_t"
+            << "{"
+            <<      "nanos_const_wd_definition_t base;"
+            <<      "nanos_device_t devices[" << num_devices << "];"
+            << "};"
+            ;
+
+        constant_variable_declaration
+            << "static struct nanos_const_wd_definition_local_t _const_def ="
+            << "{"
+            <<      "{"
+            <<          "{"
+            <<              "1, " /* mandatory_creation */
+            <<              "0, " /* tied */
+            <<              "0, " /* reserved0 */
+            <<              "0, " /* reserved1 */
+            <<              "0, " /* reserved2 */
+            <<              "0, " /* reserved3 */
+            <<              "0, " /* reserved4 */
+            <<              "0, " /* reserved5 */
+            <<              "0, " /* priority */
+            <<          "}, "
+            <<          alignment   << ", "
+            <<          num_copies  << ", "
+            <<          num_devices << ", "
+            <<      "},"
+            <<      "{"
+            <<          device_description_line
+            <<      "}"
+            << "};"
+            ;
+    }
+    else
+    {
+        nanos_create_wd = OMPTransform::get_nanos_create_wd_code(num_devices,
+                device_descriptor, struct_size, alignment, data, num_copies, copy_data);
+
+        nanos_create_run_wd = OMPTransform::get_nanos_create_and_run_wd_code(num_devices, device_descriptor,
+                struct_size, alignment, imm_data, num_dependences, deps, num_copies, imm_copy_data, xlate_arg);
+        device_description_opt << device_description;
+
+        properties_opt
+            <<   "nanos_wd_props_t props = {0};"
+            <<   "props.mandatory_creation = 1;";
+
+        modify_tie_to1 << "props.tie_to = _nanos_threads[_i];";
+        modify_tie_to2 << "props.tie_to = _nanos_threads[0];";
     }
 
     result
         << "{"
         <<   "unsigned int _nanos_num_threads = " << num_threads << ";"
+        <<   if_code
         <<   "nanos_team_t _nanos_team = (nanos_team_t)0;"
         <<   "nanos_thread_t _nanos_threads[_nanos_num_threads];"
         <<   "nanos_err_t err;"
         <<   "err = nanos_create_team(&_nanos_team, (nanos_sched_t)0, &_nanos_num_threads,"
         <<              "(nanos_constraint_t*)0, /* reuse_current */ 1, _nanos_threads);"
         <<   "if (err != NANOS_OK) nanos_handle_error(err);"
-
-        <<   device_description      
-
+        <<   ancillary_device_description
+        <<   device_description_opt
         <<   struct_runtime_size
-
-        <<   "nanos_wd_props_t props;"
-        <<   "__builtin_memset(&props, 0, sizeof(props));"
-        <<   "props.mandatory_creation = 1;"
-        <<   "int _i;"
+        <<   constant_code_opt
+        <<   properties_opt
+        <<   decl_dyn_props_opt
+        <<   "unsigned _i;"
         <<   "for (_i = 1; _i < _nanos_num_threads; _i++)"
         <<   "{"
         //   We have to create a wd tied to a thread
         <<      struct_arg_type_name << " *ol_args = 0;"
-        <<      "props.tie_to = _nanos_threads[_i];"
+        <<      modify_tie_to1
         <<      "nanos_wd_t wd = 0;"
-        <<      "err = nanos_create_wd(&wd, " << num_devices << ","
-        <<                    device_descriptor << ", "
-        <<                    struct_size << ","
-        <<                    alignment
-        <<                    "(void**)&ol_args,"
-        <<                    "nanos_current_wd(), "
-        <<                    "&props, " << num_copies << "," << copy_data << ");"
+        <<      "err = " << nanos_create_wd
         <<      "if (err != NANOS_OK) nanos_handle_error(err);"
         <<      fill_outline_arguments
         <<      "err = nanos_submit(wd, 0, (nanos_dependence_t*)0, 0);"
         <<      "if (err != NANOS_OK) nanos_handle_error(err);"
         <<   "}"
-        <<   "props.tie_to = &_nanos_threads[0];"
+        <<   modify_tie_to2
         <<   immediate_decl
         <<   fill_immediate_arguments
-        <<   "err = nanos_create_wd_and_run(" << num_devices << ", "
-        <<                              device_descriptor << ", "
-        <<                              struct_size << ", " 
-        <<                              alignment
-        <<                              (immediate_is_alloca ? "imm_args" : "&imm_args") << ","
-        <<                              "0,"
-        <<                              "(nanos_dependence_t*)0, "
-        <<                              "&props, " << num_copies << "," << imm_copy_data << xlate_arg << ");"
+        <<   "err = " << nanos_create_run_wd
         <<   "if (err != NANOS_OK) nanos_handle_error(err);"
         <<   "err = nanos_end_team(_nanos_team);"
         <<   "if (err != NANOS_OK) nanos_handle_error(err);"
         << "}"
         ;
 
+    TL::CounterManager::get_counter(NANOX_OUTLINE_COUNTER)++;
     return result;
 }
 
 
-void TL::Nanox::regions_spawn(Source& dependency_struct, Source& dependency_array, Source& dependency_regions, Source& num_dependences,
-                              Source& fill_dependences_outline, Source& fill_dependences_immediate,
-                              ObjectList<OpenMP::DependencyItem> dependences, DataEnvironInfo data_environ_info,
-                              bool immediate_is_alloca, PragmaCustomConstruct ctr, bool is_task)
+void TL::Nanox::regions_spawn(
+        Source& dependency_struct, 
+        Source& dependency_array, 
+        Source& num_dependences,
+        Source& fill_dependences_outline, 
+        Source& fill_dependences_immediate,
+        ObjectList<OpenMP::DependencyItem> dependences, 
+        DataEnvironInfo data_environ_info,
+        bool immediate_is_alloca, 
+        PragmaCustomConstruct ctr, 
+        bool is_task)
 {
     if (Nanos::Version::interface_is_at_least("master", 6001))
     {
+        Source dependency_regions;
+        Source immediate_dependency_regions;
         dependency_struct << "nanos_data_access_t";
-        
+
         if (!dependences.empty())
         {
             dependency_array << "_data_accesses";
@@ -278,25 +383,25 @@ void TL::Nanox::regions_spawn(Source& dependency_struct, Source& dependency_arra
             if (is_task)
             {    
                 fill_dependences_immediate
-                    << dependency_regions
+                    << immediate_dependency_regions
                     << "nanos_data_access_t _data_accesses[" << num_dependences << "] = {"
                     << dependency_defs_immediate
                     << "};"
                     ;
             }
-                    
+
             int num_dep = 0;
             for (ObjectList<OpenMP::DependencyItem>::iterator it = dependences.begin();
                     it != dependences.end();
                     it++)
             {
                 // Set dependency flags
-                
+
                 Source dependency_flags;
                 Source reduction_flag;
                 dependency_flags << "{";
                 OpenMP::DependencyDirection attr = it->get_kind();
-               
+
                 if (is_task)
                 {
                     if (!((attr & OpenMP::DEP_REDUCTION) == OpenMP::DEP_REDUCTION))
@@ -326,7 +431,7 @@ void TL::Nanox::regions_spawn(Source& dependency_struct, Source& dependency_arra
                         // Reduction behaves like an inout
                         dependency_flags << "1, 1,";
                     }
-                    
+
                     if ((attr & OpenMP::DEP_REDUCTION) == OpenMP::DEP_REDUCTION)
                     {
                         // Reductions cannot be renamed
@@ -360,7 +465,7 @@ void TL::Nanox::regions_spawn(Source& dependency_struct, Source& dependency_arra
                     {
                         dependency_flags << "0,"; 
                     }
-                    
+
                     // Can rename in this case
                     dependency_flags << "1";
                 }
@@ -386,11 +491,11 @@ void TL::Nanox::regions_spawn(Source& dependency_struct, Source& dependency_arra
                 }
 
                 DataReference dependency_expression = it->get_dependency_expression();
-                Source dims_description;
+                Source dims_description, imm_dims_description;
 
                 Type dependency_type = dependency_expression.get_type();
                 int num_dimensions = dependency_type.get_num_dimensions();
-                
+
                 // Compute the base type of the dependency and the array containing the size of each dimension
                 Type dependency_base_type = dependency_type;
                 std::string dimension_sizes[num_dimensions];         
@@ -400,20 +505,50 @@ void TL::Nanox::regions_spawn(Source& dependency_struct, Source& dependency_arra
                     dependency_base_type = dependency_base_type.array_element();
                 }
                 std::string base_type_name = dependency_base_type.get_declaration(data_ref.get_scope(), "");
-                
-                
+
+
                 // Generate the spawn
-                dependency_regions << "nanos_region_dimension_t dimensions" << num_dep << "[" << std::max(num_dimensions,1) << "] = {"
-                                   << dims_description << "};";
-               
+                dependency_regions 
+                    << "nanos_region_dimension_t dimensions" << num_dep << "[" << std::max(num_dimensions,1) << "] = {"
+                    << dims_description << "};";
+
+                immediate_dependency_regions 
+                    << "nanos_region_dimension_t dimensions" << num_dep << "[" << std::max(num_dimensions,1) << "] = {"
+                    << imm_dims_description << "};";
+
                 if (num_dimensions == 0) 
                 {
+                    // A scalar
+                    Source dependency_offset, imm_dependency_offset;
                     dims_description << "{" 
-                                     << "sizeof(" << base_type_name << "), " 
-                                     << "0, "
-                                     << "sizeof(" << base_type_name << ")" 
-                                     << "}"
-                                     ;
+                        << "sizeof(" << base_type_name << "), " 
+                        << dependency_offset << ", "
+                        << "sizeof(" << base_type_name << ")" 
+                        << "}"
+                        ;
+                    imm_dims_description << "{" 
+                        << "sizeof(" << base_type_name << "), " 
+                        << imm_dependency_offset << ", "
+                        << "sizeof(" << base_type_name << ")" 
+                        << "}"
+                        ;
+
+                    dependency_offset
+                        << "((char*)(" << dependency_expression.get_address() << ") - " << "(char*)ol_args->" << dependency_field_name << ")"
+                        ;
+
+                    if (!immediate_is_alloca)
+                    {
+                        imm_dependency_offset
+                            << "((char*)(" << dependency_expression.get_address() << ") - " << "(char*)imm_args." << dependency_field_name << ")"
+                            ;
+                    }
+                    else
+                    {
+                        imm_dependency_offset
+                            << "((char*)(" << dependency_expression.get_address() << ") - " << "(char*)imm_args->" << dependency_field_name << ")"
+                            ;
+                    }
                 }
                 else
                 {
@@ -423,13 +558,13 @@ void TL::Nanox::regions_spawn(Source& dependency_struct, Source& dependency_arra
                     {
                         aux_type = aux_type.array_element();
                     }
-                              
+
                     if (aux_type.array_is_region())
                     {
                         AST_t lb, ub, size;
                         aux_type.array_get_region_bounds(lb, ub);
                         size = aux_type.array_get_region_size();
-                        
+
                         dims_description << "{" 
                             << "sizeof(" << base_type_name << ") * (" << dimension_sizes[num_dimensions-1] << "), " 
                             << "sizeof(" << base_type_name << ") * (" << lb.prettyprint() << "), "
@@ -448,7 +583,7 @@ void TL::Nanox::regions_spawn(Source& dependency_struct, Source& dependency_arra
                         {
                             lb = "1";
                         }
-                        
+
                         dims_description << "{" 
                             << "sizeof(" << base_type_name << ") * (" << dimension_sizes[num_dimensions-1] << "), " 
                             << lb << ", "
@@ -456,65 +591,55 @@ void TL::Nanox::regions_spawn(Source& dependency_struct, Source& dependency_arra
                             << "}"
                             ;     
                     }
-                   
+
                     // The rest of dimensions, if there are, are computed in terms of number of elements
                     if (num_dimensions > 1)
                     {    
                         fill_dimensions(num_dimensions, 0, dimension_sizes, dependency_type, 
-                                        dims_description, dependency_expression.get_scope());
+                                dims_description, dependency_expression.get_scope());
                     }
                 }
-     
+
                 Source dependency_offset, imm_dependency_offset;
 
-                if (num_dimensions == 0) num_dimensions++;
+                if (num_dimensions == 0)
+                {
+                    num_dimensions++;
+                }
+
+                Source dep_expr_addr = data_ref.get_address();
+                dependency_offset
+                    << "((char*)(" << dep_expr_addr << ") - " << "(char*)ol_args->" << dependency_field_name << ")"
+                    ;
+
                 dependency_defs_outline
                     << "{"
                     << "(void*)ol_args->" << dependency_field_name << ","
                     << dependency_flags << ","
                     << num_dimensions << ","
-                    << "dimensions" << num_dep
+                    << "dimensions" << num_dep <<","
+                    << dependency_offset  
                     << "}"
-                    ;
-
-                Source dep_expr_addr = data_ref.get_address();
-
-                dependency_offset
-                    << "((char*)(" << dep_expr_addr << ") - " << "(char*)ol_args->" << dependency_field_name << ")"
                     ;
 
                 if (is_task)
                 {
-                    if (!immediate_is_alloca)
-                    {
-                        dependency_defs_immediate
-                            << "{"
-                            << "(void*)imm_args." << dependency_field_name << ","
-                            << dependency_flags << ","
-                            << num_dimensions << ","
-                            << "dimensions" << num_dep
-                            << "}"
-                            ;
+                    std::string access_operator = (!immediate_is_alloca) ? "." : "->";
 
-                        imm_dependency_offset
-                            << "((char*)(" << dep_expr_addr << ") - " << "(char*)imm_args." << dependency_field_name << ")"
-                            ;
-                    }
-                    else
-                    {
-                        dependency_defs_immediate
-                            << "{"
-                            << "(void*)imm_args->" << dependency_field_name << ","
-                            << dependency_flags << ","
-                            << num_dimensions << ","
-                            << "dimensions" << num_dep
-                            << "}"
-                            ;
+                    imm_dependency_offset
+                        << "((char*)(" << dep_expr_addr << ") - " 
+                        << "(char*)imm_args" << access_operator << dependency_field_name << ")"
+                        ;
 
-                        imm_dependency_offset
-                            << "((char*)(" << dep_expr_addr << ") - " << "(char*)imm_args->" << dependency_field_name << ")"
-                            ;
-                    }
+                    dependency_defs_immediate
+                        << "{"
+                        << "(void*)imm_args"<< access_operator << dependency_field_name << ","
+                        << dependency_flags << ","
+                        << num_dimensions << ","
+                        << "dimensions" << num_dep << ","
+                        << imm_dependency_offset 
+                        << "}"
+                        ;
                 }
 
                 if ((it + 1) != dependences.end())
@@ -538,7 +663,7 @@ void TL::Nanox::regions_spawn(Source& dependency_struct, Source& dependency_arra
     else
     {
         dependency_struct << "nanos_dependence_t";
-        
+
         if (!dependences.empty())
         {
             dependency_array << "_dependences";
@@ -549,7 +674,7 @@ void TL::Nanox::regions_spawn(Source& dependency_struct, Source& dependency_arra
                 << dependency_defs_outline
                 << "};"
                 ;
-            
+
             if (is_task)
             {
                 fill_dependences_immediate
@@ -558,7 +683,7 @@ void TL::Nanox::regions_spawn(Source& dependency_struct, Source& dependency_arra
                     << "};"
                     ;
             }
-                    
+
             int num_dep = 0;
             for (ObjectList<OpenMP::DependencyItem>::iterator it = dependences.begin();
                     it != dependences.end();
@@ -569,7 +694,7 @@ void TL::Nanox::regions_spawn(Source& dependency_struct, Source& dependency_arra
                 Source reduction_flag;
                 dependency_flags << "{";
                 OpenMP::DependencyDirection attr = it->get_kind();
-                
+
                 if (is_task)
                 {
                     if (!((attr & OpenMP::DEP_REDUCTION) == OpenMP::DEP_REDUCTION))
@@ -612,7 +737,7 @@ void TL::Nanox::regions_spawn(Source& dependency_struct, Source& dependency_arra
                         // Reduction behaves like an inout
                         dependency_flags << "1, 1,";
                     }
-                    
+
                     if ((attr & OpenMP::DEP_REDUCTION) == OpenMP::DEP_REDUCTION)
                     {
                         // Reductions cannot be renamed
@@ -644,7 +769,7 @@ void TL::Nanox::regions_spawn(Source& dependency_struct, Source& dependency_arra
                     {
                         dependency_flags << "0,"; 
                     }
-                    
+
                     // Can rename in this case
                     dependency_flags << "1";
                 }
@@ -745,41 +870,41 @@ void TL::Nanox::regions_spawn(Source& dependency_struct, Source& dependency_arra
 
 static void fill_dimensions(int n_dims, int actual_dim, std::string* dim_sizes, Type dep_type, Source& dims_description, Scope sc)
 {
-    if (actual_dim > 1)
+    if (actual_dim < (n_dims-1))
     {
         fill_dimensions(n_dims, actual_dim+1, dim_sizes, dep_type.array_element(), dims_description, sc);
-    }
-    
-    if (dep_type.array_is_region())
-    {
-        AST_t lb, ub, size;
-        dep_type.array_get_region_bounds(lb, ub);
-        size = dep_type.array_get_region_size();
-       
-        dims_description << ", {" 
-            << "(" << dim_sizes[actual_dim] << "), " 
-            << "(" << lb.prettyprint() << "), "
-            << "(" << size.prettyprint() << ")"
-            << "}"
-            ;
-    }
-    else
-    {
-        std::string lb;
-        if (IS_C_LANGUAGE)
+
+        if (dep_type.array_is_region())
         {
-            lb = "0";
+            AST_t lb, ub, size;
+            dep_type.array_get_region_bounds(lb, ub);
+            size = dep_type.array_get_region_size();
+
+            dims_description << ", {"
+                << "(" << dim_sizes[actual_dim] << "), "
+                << "(" << lb.prettyprint() << "), "
+                << "(" << size.prettyprint() << ")"
+                << "}"
+                ;
         }
-        else if (IS_FORTRAN_LANGUAGE)
+        else
         {
-            lb = "1";
+            std::string lb;
+            if (IS_C_LANGUAGE)
+            {
+                lb = "0";
+            }
+            else if (IS_FORTRAN_LANGUAGE)
+            {
+                lb = "1";
+            }
+
+            dims_description << ", {"
+                << "(" << dep_type.array_get_size().prettyprint() << "), "
+                << "(" << lb << "), "
+                << "(" << dim_sizes[actual_dim] << ")"
+                << "}"
+                ;
         }
-      
-        dims_description << ", {" 
-            << "(" << dep_type.array_get_size().prettyprint() << "), " 
-            << "(" << lb << "), "
-            << "(" << dim_sizes[actual_dim] << ")"
-            << "}"
-            ;
     }
 }

@@ -29,7 +29,7 @@
 
 #include "tl-omp-core.hpp"
 #include "tl-source.hpp"
-#include "tl-omp-udr_2.hpp"
+#include "tl-omp-udr.hpp"
 #include "tl-builtin.hpp"
 #include "tl-nodecl-alg.hpp"
 #include "cxx-diagnostic.h"
@@ -113,7 +113,7 @@ namespace TL
             Nodecl::NodeclBase translation_unit = dto["nodecl"];
             Scope global_scope = translation_unit.retrieve_context();
 
-            // initialize_builtin_udr_reductions_2(translation_unit);
+            initialize_builtin_udr_reductions(global_scope);
 
             PragmaCustomCompilerPhase::run(dto);
 
@@ -167,15 +167,17 @@ namespace TL
             // Connect handlers to member functions
 #define OMP_DIRECTIVE(_directive, _name) \
             { \
-                dispatcher().directive.pre[_directive].connect(functor((void (Core::*)(TL::PragmaCustomDirective))&Core::_name##_handler_pre, *this)); \
-                dispatcher().directive.post[_directive].connect(functor((void (Core::*)(TL::PragmaCustomDirective))&Core::_name##_handler_post, *this)); \
+                std::string directive_name = remove_separators_of_directive(_directive); \
+                dispatcher().directive.pre[directive_name].connect(functor((void (Core::*)(TL::PragmaCustomDirective))&Core::_name##_handler_pre, *this)); \
+                dispatcher().directive.post[directive_name].connect(functor((void (Core::*)(TL::PragmaCustomDirective))&Core::_name##_handler_post, *this)); \
             }
 #define OMP_CONSTRUCT_COMMON(_directive, _name, _noend) \
             { \
-                dispatcher().declaration.pre[_directive].connect(functor((void (Core::*)(TL::PragmaCustomDeclaration))&Core::_name##_handler_pre, *this)); \
-                dispatcher().declaration.post[_directive].connect(functor((void (Core::*)(TL::PragmaCustomDeclaration))&Core::_name##_handler_post, *this)); \
-                dispatcher().statement.pre[_directive].connect(functor((void (Core::*)(TL::PragmaCustomStatement))&Core::_name##_handler_pre, *this)); \
-                dispatcher().statement.post[_directive].connect(functor((void (Core::*)(TL::PragmaCustomStatement))&Core::_name##_handler_post, *this)); \
+                std::string directive_name = remove_separators_of_directive(_directive); \
+                dispatcher().declaration.pre[directive_name].connect(functor((void (Core::*)(TL::PragmaCustomDeclaration))&Core::_name##_handler_pre, *this)); \
+                dispatcher().declaration.post[directive_name].connect(functor((void (Core::*)(TL::PragmaCustomDeclaration))&Core::_name##_handler_post, *this)); \
+                dispatcher().statement.pre[directive_name].connect(functor((void (Core::*)(TL::PragmaCustomStatement))&Core::_name##_handler_pre, *this)); \
+                dispatcher().statement.post[directive_name].connect(functor((void (Core::*)(TL::PragmaCustomStatement))&Core::_name##_handler_post, *this)); \
             }
 #define OMP_CONSTRUCT(_directive, _name) OMP_CONSTRUCT_COMMON(_directive, _name, false)
 #define OMP_CONSTRUCT_NOEND(_directive, _name) OMP_CONSTRUCT_COMMON(_directive, _name, true)
@@ -756,27 +758,37 @@ namespace TL
                 .integrate(compound_statement);
         }
 
-        void Core::common_for_handler(TL::PragmaCustomStatement construct, DataSharingEnvironment& data_sharing)
+        void Core::common_for_handler(Nodecl::NodeclBase statement, DataSharingEnvironment& data_sharing)
         {
-            Nodecl::NodeclBase stmt = construct.get_statements();
-
-            if (!stmt.is<Nodecl::ForStatement>())
+            if (!statement.is<Nodecl::ForStatement>())
             {
                 running_error("%s: error: a for-statement is required for '#pragma omp for' and '#pragma omp parallel for'",
-                        stmt.get_locus().c_str());
+                        statement.get_locus().c_str());
             }
 
-            TL::ForStatement for_statement(stmt.as<Nodecl::ForStatement>());
+            TL::ForStatement for_statement(statement.as<Nodecl::ForStatement>());
 
-            if (for_statement.is_regular_loop())
+            if (for_statement.is_omp_valid_loop())
             {
                 Symbol sym  = for_statement.get_induction_variable();
                 data_sharing.set_data_sharing(sym, DS_PRIVATE);
             }
             else
             {
-                running_error("%s: error: for-statement in '#pragma omp for' and '#pragma omp parallel for' is not of canonical form",
-                        stmt.get_locus().c_str());
+                if (IS_FORTRAN_LANGUAGE)
+                {
+                    running_error("%s: error: DO-statement in !$OMP DO directive is not valid", 
+                            statement.get_locus().c_str());
+                }
+                else if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+                {
+                    running_error("%s: error: for-statement in '#pragma omp for' and '#pragma omp parallel for' is not in OpenMP canonical form",
+                            statement.get_locus().c_str());
+                }
+                else
+                {
+                    internal_error("Code unreachable", 0);
+                }
             }
         }
 
@@ -921,9 +933,20 @@ namespace TL
                 collapse_loop_first(construct);
             }
 
+            Nodecl::NodeclBase stmt = construct.get_statements();
+
+            ERROR_CONDITION(!stmt.is<Nodecl::List>(), "Invalid tree", 0);
+            stmt = stmt.as<Nodecl::List>().front();
+
+            ERROR_CONDITION(!stmt.is<Nodecl::Context>(), "Invalid tree", 0);
+            stmt = stmt.as<Nodecl::Context>().get_in_context();
+
+            ERROR_CONDITION(!stmt.is<Nodecl::List>(), "Invalid tree", 0);
+            stmt = stmt.as<Nodecl::List>().front();
+
             _openmp_info->push_current_data_sharing(data_sharing);
             common_parallel_handler(construct, data_sharing);
-            common_for_handler(construct, data_sharing);
+            common_for_handler(stmt, data_sharing);
         }
 
         void Core::parallel_for_handler_post(TL::PragmaCustomStatement construct)
@@ -940,16 +963,56 @@ namespace TL
                 // This will replace the tree
                 collapse_loop_first(construct);
             }
+            
+            Nodecl::NodeclBase stmt = construct.get_statements();
+
+            // Do we really need such a deep structure?
+            // NODECL_LIST -> NODECL_CONTEXT -> NODECL_LIST
+
+            ERROR_CONDITION(!stmt.is<Nodecl::List>(), "Invalid tree", 0);
+            stmt = stmt.as<Nodecl::List>().front();
+
+            ERROR_CONDITION(!stmt.is<Nodecl::Context>(), "Invalid tree", 0);
+            stmt = stmt.as<Nodecl::Context>().get_in_context();
+
+            ERROR_CONDITION(!stmt.is<Nodecl::List>(), "Invalid tree", 0);
+            stmt = stmt.as<Nodecl::List>().front();
 
             _openmp_info->push_current_data_sharing(data_sharing);
             common_workshare_handler(construct, data_sharing);
-            common_for_handler(construct, data_sharing);
+            common_for_handler(stmt, data_sharing);
             get_dependences_info(construct.get_pragma_line(), data_sharing);
         }
 
         void Core::for_handler_post(TL::PragmaCustomStatement construct)
         {
             _openmp_info->pop_current_data_sharing();
+        }
+
+        void Core::do_handler_pre(TL::PragmaCustomStatement construct)
+        {
+            DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct);
+
+            if (construct.get_pragma_line().get_clause("collapse").is_defined())
+            {
+                // This will replace the tree
+                collapse_loop_first(construct);
+            }
+            
+            Nodecl::NodeclBase stmt = construct.get_statements();
+
+            ERROR_CONDITION(!stmt.is<Nodecl::List>(), "Invalid tree", 0);
+            stmt = stmt.as<Nodecl::List>().front();
+
+            _openmp_info->push_current_data_sharing(data_sharing);
+            common_workshare_handler(construct, data_sharing);
+            common_for_handler(stmt, data_sharing);
+            get_dependences_info(construct.get_pragma_line(), data_sharing);
+        }
+
+        void Core::do_handler_post(TL::PragmaCustomStatement construct)
+        {
+            // for_handler_post(construct);
         }
 
         void Core::single_handler_pre(TL::PragmaCustomStatement construct)
@@ -1117,6 +1180,7 @@ namespace TL
         INVALID_DECLARATION_HANDLER(parallel)
         INVALID_DECLARATION_HANDLER(parallel_for)
         INVALID_DECLARATION_HANDLER(for)
+        INVALID_DECLARATION_HANDLER(do)
         INVALID_DECLARATION_HANDLER(parallel_sections)
         INVALID_DECLARATION_HANDLER(sections)
         INVALID_DECLARATION_HANDLER(section)
@@ -1139,7 +1203,7 @@ namespace TL
         EMPTY_HANDLERS_DIRECTIVE(flush)
         EMPTY_HANDLERS_CONSTRUCT(ordered)
         EMPTY_HANDLERS_CONSTRUCT(parallel_do)
-        EMPTY_HANDLERS_CONSTRUCT(do)
+        EMPTY_HANDLERS_DIRECTIVE(taskyield)
 
         void openmp_core_run_next_time(DTO& dto)
         {

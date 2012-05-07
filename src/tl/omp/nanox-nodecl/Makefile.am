@@ -29,10 +29,12 @@ include ../../Makefile.phases
 phases_LTLIBRARIES = libtlnanox-lowering.la
 
 
-libtlnanox_lowering_la_CFLAGS = $(tl_cflags) -I$(srcdir)/../nanos-common
-libtlnanox_lowering_la_CXXFLAGS = $(tl_cflags) -I$(srcdir)/../nanos-common
+libtlnanox_lowering_la_CFLAGS = $(tl_cflags) -I$(srcdir)/../nanos-common -I$(srcdir)/../core -I @NANOX_INCLUDES@
+libtlnanox_lowering_la_CXXFLAGS = $(tl_cflags) -I$(srcdir)/../nanos-common -I$(srcdir)/../core -I @NANOX_INCLUDES@
 
-libtlnanox_lowering_la_LIBADD = $(tl_libadd) ../nanos-common/libtlnanos-version.la
+libtlnanox_lowering_la_LIBADD = $(tl_libadd) \
+								../core/libtlomp-core.la \
+								../nanos-common/libtlnanos-version.la
 libtlnanox_lowering_la_LDFLAGS = $(tl_ldflags)
 
 END=
@@ -49,4 +51,14 @@ libtlnanox_lowering_la_SOURCES = \
 								 tl-emit-outline.cpp \
 								 tl-outline-info.hpp \
 								 tl-outline-info.cpp \
+								 tl-lower-single.cpp \
+								 tl-lower-barrier.cpp \
+								 tl-lower-replicate.cpp \
+								 tl-lower-distribute.cpp \
+								 tl-lower-exclusive.cpp \
+								 tl-lower-flush.cpp \
+								 tl-lower-atomic.cpp \
+								 tl-parallel-spawn.cpp \
+								 tl-loop-spawn.cpp \
+								 tl-reduction-common.cpp \
 								 $(END)

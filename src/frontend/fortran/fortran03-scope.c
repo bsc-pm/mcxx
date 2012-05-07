@@ -216,7 +216,9 @@ type_t* get_implicit_type_for_symbol(decl_context_t decl_context, const char* na
 
     if (decl_context.implicit_info != NULL
             && decl_context.implicit_info->data != NULL
-            && decl_context.implicit_info->data->implicit_letter_set != NULL)
+            && decl_context.implicit_info->data->implicit_letter_set != NULL
+            && ('a' <= tolower(name[0]))
+            && (tolower(name[0]) <= 'z'))
     {
         implicit_type = 
             (*(decl_context.implicit_info->data->implicit_letter_set))[tolower(name[0]) - 'a'];
@@ -250,7 +252,6 @@ scope_entry_t* fortran_get_variable_with_locus(decl_context_t decl_context, AST 
             {
                 result->kind = SK_VARIABLE;
                 remove_unknown_kind_symbol(decl_context, result);
-
             }
         }
         DEBUG_CODE()
@@ -430,9 +431,9 @@ scope_entry_list_t* fortran_query_name_str_for_function(decl_context_t decl_cont
                 }
 
                 // Give up returning the first result_list found
-                entry_list = entry_list_new(entry_list_head(entry_list));
+                result_list = entry_list_new(entry_list_head(entry_list));
                 entry_list_free(entry_list);
-                return entry_list;
+                return result_list;
             }
 
             // If any name is not a generic specifier do not continue

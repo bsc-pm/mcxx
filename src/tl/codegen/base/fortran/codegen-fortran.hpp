@@ -89,7 +89,7 @@ namespace Codegen
             void visit(const Nodecl::GotoStatement& node);
             void visit(const Nodecl::ForStatement& node);
             void visit(const Nodecl::WhileStatement& node);
-            void visit(const Nodecl::LoopControl& node);
+            void visit(const Nodecl::RangeLoopControl& node);
             void visit(const Nodecl::SwitchStatement& node);
             void visit(const Nodecl::CaseStatement& node);
             void visit(const Nodecl::DefaultStatement& node);
@@ -134,6 +134,11 @@ namespace Codegen
             void visit(const Nodecl::Sizeof& node);
             void visit(const Nodecl::Alignof& node);
 
+            void visit(const Nodecl::MulAssignment & node);
+            void visit(const Nodecl::DivAssignment & node);
+            void visit(const Nodecl::AddAssignment & node);
+            void visit(const Nodecl::MinusAssignment & node);
+
             void visit(const Nodecl::SavedExpr& node);
 
             void visit(const Nodecl::CxxDepNameSimple& node);
@@ -143,7 +148,16 @@ namespace Codegen
                     std::string& array_specifier,
                     bool is_dummy);
 
-            std::string emit_declaration_part(Nodecl::NodeclBase node, const TL::ObjectList<TL::Symbol>& do_not_declare);
+            virtual void push_scope(TL::Scope sc) { }
+            virtual void pop_scope() { }
+
+            std::string emit_declaration_for_symbol(TL::Symbol symbol, TL::Scope sc);
+            std::string emit_declaration_for_symbols(const TL::ObjectList<TL::Symbol>& sym_set, TL::Scope sc);
+
+            void set_emit_types_as_literals(bool b)
+            {
+                state.emit_types_as_literals = b;
+            }
         private:
             // State
             struct State
@@ -163,12 +177,15 @@ namespace Codegen
                 // We emit an array construct but we want it flattened
                 bool flatten_array_construct;
 
+                bool emit_types_as_literals;
+
                 State()
                     : _indent_level(0),
                     in_forall(false),
                     in_interface(false),
                     in_data_value(false),
-                    flatten_array_construct(false)
+                    flatten_array_construct(false),
+                    emit_types_as_literals(false)
                 {
                 }
             } state;
@@ -240,16 +257,18 @@ namespace Codegen
             void codegen_comma_separated_list(Nodecl::NodeclBase);
             void codegen_reverse_comma_separated_list(Nodecl::NodeclBase);
 
-            void do_declare_symbol(TL::Symbol entry, void*);
-            void declare_symbol(TL::Symbol);
+            void do_declare_symbol(TL::Symbol entry, Nodecl::NodeclBase, void*);
+            void do_declare_symbol_in_scope(TL::Symbol entry, Nodecl::NodeclBase, void*);
+            void declare_symbol(TL::Symbol, TL::Scope sc);
 
             void declare_everything_needed(Nodecl::NodeclBase statement_seq);
+            void declare_everything_needed(Nodecl::NodeclBase statement_seq, TL::Scope sc);
 
             void traverse_looking_for_symbols(Nodecl::NodeclBase node,
-                    void (FortranBase::*do_declare)(TL::Symbol entry, void *data),
+                    void (FortranBase::*do_declare)(TL::Symbol entry, Nodecl::NodeclBase node, void *data),
                     void *data);
 
-            void do_declare_symbol_from_module(TL::Symbol entry, void *data);
+            void do_declare_symbol_from_module(TL::Symbol entry, Nodecl::NodeclBase node, void *data);
             void declare_use_statements(Nodecl::NodeclBase statement_seq);
             void declare_use_statements(Nodecl::NodeclBase node, TL::Scope sc);
             void emit_use_statement_if_symbol_comes_from_module(TL::Symbol entry, const TL::Scope &sc);
@@ -284,7 +303,9 @@ namespace Codegen
             void declare_symbols_from_modules_rec(Nodecl::NodeclBase node, const TL::Scope &sc);
 
             void declare_symbols_rec(Nodecl::NodeclBase node);
+            void declare_symbols_rec(Nodecl::NodeclBase node, TL::Scope sc);
             void address_of_pointer(Nodecl::NodeclBase node);
+            void address_of_pointer(Nodecl::NodeclBase node, TL::Scope sc);
 
             virtual Ret unhandled_node(const Nodecl::NodeclBase & n);
 
@@ -310,6 +331,10 @@ namespace Codegen
             TL::Symbol get_current_declaring_module();
 
             bool inside_an_interface();
+
+            void emit_interface_for_symbol(TL::Symbol entry);
+
+            bool entry_is_in_scope(TL::Symbol entry, TL::Scope sc);
     };
 }
 

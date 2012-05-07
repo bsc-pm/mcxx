@@ -426,6 +426,7 @@ def print_fortran_modules_functions(lines):
     print "static module_packed_bits_t synthesize_packed_bits(scope_entry_t* sym)"
     print "{"
     print "module_packed_bits_t result;"
+    print "memset(&result, 0, sizeof(result));"
     for l in lines:
       fields = l.split("|");
       (_type,language,name,description) = fields

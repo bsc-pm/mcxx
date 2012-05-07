@@ -32,18 +32,11 @@ test_generator=config/mercurium
 test_compile_fail=yes
 </testinfo>
 */
-namespace N
+template < typename T>
+struct A
 {
-    template<typename T1>
-        void foo();
-
-}
-
-template<typename T>
-class A
-{
-    template<typename T1>
-        friend int N::foo();
+    typedef A<T> self;
+    A() {}
+    A(const self &) {}
+    A(const A &) {}
 };
-
-A<int> a;

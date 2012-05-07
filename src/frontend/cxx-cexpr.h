@@ -70,6 +70,7 @@ LIBMCXX_EXTERN char const_value_is_zero(const_value_t* v);
 LIBMCXX_EXTERN char const_value_is_one(const_value_t* v);
 LIBMCXX_EXTERN char const_value_is_signed(const_value_t* val);
 LIBMCXX_EXTERN char const_value_is_positive(const_value_t* v);
+LIBMCXX_EXTERN char const_value_is_negative(const_value_t* v);
 
 LIBMCXX_EXTERN const_value_t* const_value_get_float(float f);
 LIBMCXX_EXTERN const_value_t* const_value_get_double(double d);

@@ -453,10 +453,10 @@ namespace TL
                 lb = Nodecl::AddAssignment::make(lb1, lb2, n.get_type(), _filename, _line);
                 ub = Nodecl::AddAssignment::make(ub1, ub2, n.get_type(), _filename, _line);
             }
-            else if (n.template is<Nodecl::SubAssignment>())
+            else if (n.template is<Nodecl::MinusAssignment>())
             {
-                lb = Nodecl::SubAssignment::make(lb1, lb2, n.get_type(), _filename, _line);
-                ub = Nodecl::SubAssignment::make(ub1, ub2, n.get_type(), _filename, _line);
+                lb = Nodecl::MinusAssignment::make(lb1, lb2, n.get_type(), _filename, _line);
+                ub = Nodecl::MinusAssignment::make(ub1, ub2, n.get_type(), _filename, _line);
             }
             else if (n.template is<Nodecl::DivAssignment>())
             {
@@ -762,9 +762,9 @@ namespace TL
             {
                 renamed = Nodecl::AddAssignment::make(lhs, rhs, n.get_type(), _filename, _line);
             }
-            else if (n.template is<Nodecl::SubAssignment>())
+            else if (n.template is<Nodecl::MinusAssignment>())
             {
-                renamed = Nodecl::SubAssignment::make(lhs, rhs, n.get_type(), _filename, _line);
+                renamed = Nodecl::MinusAssignment::make(lhs, rhs, n.get_type(), _filename, _line);
             }
             else if (n.template is<Nodecl::DivAssignment>())
             {
@@ -991,7 +991,7 @@ namespace TL
             return visit_binary(n);
         }
         
-        CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::SubAssignment& n)
+        CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::MinusAssignment& n)
         {
             return visit_binary(n);
         }
