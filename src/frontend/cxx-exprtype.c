@@ -13808,8 +13808,21 @@ static void diagnostic_single_candidate(scope_entry_t* entry,
 void diagnostic_candidates(scope_entry_list_t* candidates, const char* filename, int line)
 {
     info_printf("%s:%d: info: candidates are:\n", filename, line);
+    scope_entry_list_t* unrepeated_candidates = NULL;
+
     scope_entry_list_iterator_t* it;
     for (it = entry_list_iterator_begin(candidates);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* candidate_fun = entry_list_iterator_current(it);
+        candidate_fun = entry_advance_aliases(candidate_fun);
+
+        unrepeated_candidates = entry_list_add_once(unrepeated_candidates, candidate_fun);
+    }
+    entry_list_iterator_free(it);
+
+    for (it = entry_list_iterator_begin(unrepeated_candidates);
             !entry_list_iterator_end(it);
             entry_list_iterator_next(it))
     {
@@ -13817,6 +13830,8 @@ void diagnostic_candidates(scope_entry_list_t* candidates, const char* filename,
         diagnostic_single_candidate(candidate_fun, filename, line);
     }
     entry_list_iterator_free(it);
+
+    entry_list_free(unrepeated_candidates);
 }
 
 static void error_message_overload_failed(candidate_t* candidates, 
@@ -13848,17 +13863,21 @@ static void error_message_overload_failed(candidate_t* candidates,
 
     if (candidates != NULL)
     {
-        info_printf("%s:%d: info: candidates are\n", filename, line);
-
         candidate_t* it = candidates;
+
+        scope_entry_list_t* candidate_list = NULL;
+
         while (it != NULL)
         {
             scope_entry_t* entry = it->entry;
 
-            diagnostic_single_candidate(entry, filename, line);
-
+            candidate_list = entry_list_add_once(candidate_list, entry);
             it = it->next;
         }
+
+        diagnostic_candidates(candidate_list, filename, line);
+
+        entry_list_free(candidate_list);
     }
     else
     {
