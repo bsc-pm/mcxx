@@ -193,7 +193,7 @@ namespace TL { namespace Nanox {
             placeholder2.integrate(iteration_code);
         }
 
-        loop_spawn(outline_info, construct, distribute_environment, ranges, outline_name, structure_symbol);
+        loop_spawn(outline_info, construct, distribute_environment, ranges, outline_name, structure_symbol, outline_source);
     }
 
 } }
