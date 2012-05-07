@@ -32,7 +32,7 @@
 
 namespace Nodecl
 {
-    class LIBTL_CLASS Calculator : public Nodecl::NodeclVisitor<const_value_t*>
+    class LIBTL_CLASS Calculator : public Nodecl::NodeclVisitor<TL::ObjectList<const_value_t*> >
     {
     private:
         // *** Visitors *** //

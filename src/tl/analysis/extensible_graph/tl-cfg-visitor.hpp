@@ -153,7 +153,7 @@ namespace TL
             }
         };  
     
-        class LIBTL_CLASS CfgVisitor : public Nodecl::NodeclVisitor<Node*>
+        class LIBTL_CLASS CfgVisitor : public Nodecl::NodeclVisitor<TL::ObjectList<Node*> >
         {
         protected:
             ObjectList<ExtensibleGraph*> _cfgs;

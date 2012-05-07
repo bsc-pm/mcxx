@@ -44,7 +44,7 @@ namespace TL
         * - Zero elements: no renames has been performed
         * - More element: renamed nodecls
         */
-        class LIBTL_CLASS CfgRenamingVisitor : public Nodecl::NodeclVisitor<Nodecl::NodeclBase>
+        class LIBTL_CLASS CfgRenamingVisitor : public Nodecl::NodeclVisitor<TL::ObjectList<Nodecl::NodeclBase> >
         {
             private:
                 //! map used to rename de nodes
