@@ -1,9 +1,36 @@
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
+
 #ifndef CODEGEN_FORTRAN_HPP
 #define CODEGEN_FORTRAN_HPP
 
 #include "codegen-phase.hpp"
 
 #include <set>
+#include <stack>
 
 namespace Codegen
 {
@@ -96,6 +123,7 @@ namespace Codegen
             void visit(const Nodecl::FieldDesignator& node);
             void visit(const Nodecl::Conversion& node);
             void visit(const Nodecl::UnknownPragma& node);
+            void visit(const Nodecl::PragmaCustomDeclaration& node);
             void visit(const Nodecl::PragmaCustomClause& node);
             void visit(const Nodecl::PragmaCustomLine& node);
             void visit(const Nodecl::PragmaCustomStatement& node);
@@ -106,42 +134,86 @@ namespace Codegen
             void visit(const Nodecl::Sizeof& node);
             void visit(const Nodecl::Alignof& node);
 
+            void visit(const Nodecl::SavedExpr& node);
+
             void visit(const Nodecl::CxxDepNameSimple& node);
 
             void codegen_type(TL::Type t, 
                     std::string& type_specifier, 
                     std::string& array_specifier,
                     bool is_dummy);
+
+            std::string emit_declaration_part(Nodecl::NodeclBase node, const TL::ObjectList<TL::Symbol>& do_not_declare);
         private:
             // State
             struct State
             {
+                // Level of indentation
                 int _indent_level;
 
-                TL::Symbol current_symbol;
-                TL::Symbol current_module;
-
+                // Inside a FORALL construct
                 bool in_forall;
+
+                // An INTERFACE block (without generic-specifier) is open
                 bool in_interface;
+
+                // We are in the top level of a data-value
+                bool in_data_value;
+
+                // We emit an array construct but we want it flattened
+                bool flatten_array_construct;
 
                 State()
                     : _indent_level(0),
-                    current_symbol(NULL),
-                    current_module(NULL),
                     in_forall(false),
-                    in_interface(false)
+                    in_interface(false),
+                    in_data_value(false),
+                    flatten_array_construct(false)
                 {
                 }
             } state;
 
+            // Status of the declaration of a given symbol inside a program unit
+            // in Fortran only CODEGEN_STATUS_DEFINED or CODEGEN_STATUS_NONE
+            //
+            // If a symbol is in CODEGEN_STATUS_DEFINED we do not define it again
             typedef std::map<TL::Symbol, codegen_status_t> codegen_status_map_t;
             codegen_status_map_t _codegen_status;
+            std::vector<codegen_status_map_t> _codegen_status_stack;
 
+            // Set of names actively used in the current scoping unit
+            // This is used for renames (see later)
             typedef std::set<std::string> name_set_t;
             name_set_t _name_set;
+            std::vector<name_set_t> _name_set_stack;
 
+            // Given a symbol, its rename, if any. When _name_set detects
+            // that a name has already been used in this scoping unit
+            // a rename for it is computed, and then kep here
             typedef std::map<TL::Symbol, std::string> rename_map_t;
             rename_map_t _rename_map;
+            std::vector<rename_map_t> _rename_map_stack;
+
+            std::vector<TL::Symbol> _being_declared_stack;
+
+            // Map of types for PTR_LOC
+            // When (due to code coming from C-parsed code) we need
+            // the address of a pointer variable (not the address of what
+            // is pointing which can actually be obtained using LOC)
+            // we emit a PTR_LOC_xxx call which must be later emitted in C
+            typedef std::map<TL::Type, std::string> ptr_loc_map_t;
+            ptr_loc_map_t _ptr_loc_map;
+
+            // This is a set stating if a given PTR_LOC_xxx names has been
+            // emitted already or not in the current scoping unit
+            typedef std::set<std::string> external_symbol_set_t;
+            external_symbol_set_t _external_symbols;
+
+            // This is a set used for emit_declaration_part which states that a
+            // given symbol does not have to be declared at all
+            TL::ObjectList<TL::Symbol> do_not_declare;
+
+            std::string define_ptr_loc(TL::Type t, const std::string& function_name);
 
             void set_codegen_status(TL::Symbol sym, codegen_status_t status);
             codegen_status_t get_codegen_status(TL::Symbol sym);
@@ -168,11 +240,19 @@ namespace Codegen
             void codegen_comma_separated_list(Nodecl::NodeclBase);
             void codegen_reverse_comma_separated_list(Nodecl::NodeclBase);
 
+            void do_declare_symbol(TL::Symbol entry, void*);
             void declare_symbol(TL::Symbol);
+
             void declare_everything_needed(Nodecl::NodeclBase statement_seq);
 
+            void traverse_looking_for_symbols(Nodecl::NodeclBase node,
+                    void (FortranBase::*do_declare)(TL::Symbol entry, void *data),
+                    void *data);
+
+            void do_declare_symbol_from_module(TL::Symbol entry, void *data);
             void declare_use_statements(Nodecl::NodeclBase statement_seq);
-            void emit_use_statement_if_symbol_comes_from_module(TL::Symbol entry);
+            void declare_use_statements(Nodecl::NodeclBase node, TL::Scope sc);
+            void emit_use_statement_if_symbol_comes_from_module(TL::Symbol entry, const TL::Scope &sc);
 
             void codegen_write_or_read_statement(
                     const std::string& keyword,
@@ -199,11 +279,12 @@ namespace Codegen
                     TL::Type source_type, 
                     Nodecl::NodeclBase nest);
 
-            void codegen_use_statement(TL::Symbol entry);
+            void codegen_use_statement(TL::Symbol entry, const TL::Scope &sc);
 
-            void declare_symbols_from_modules_rec(Nodecl::NodeclBase node);
+            void declare_symbols_from_modules_rec(Nodecl::NodeclBase node, const TL::Scope &sc);
 
             void declare_symbols_rec(Nodecl::NodeclBase node);
+            void address_of_pointer(Nodecl::NodeclBase node);
 
             virtual Ret unhandled_node(const Nodecl::NodeclBase & n);
 
@@ -216,6 +297,19 @@ namespace Codegen
             bool name_has_already_been_used(TL::Symbol sym);
             std::string rename(TL::Symbol sym);
             void clear_renames();
+
+            void emit_ptr_loc_C();
+
+            void push_declaration_status();
+            void pop_declaration_status();
+
+            void push_declaring_entity(TL::Symbol sym);
+            void pop_declaring_entity();
+
+            TL::Symbol get_current_declaring_symbol();
+            TL::Symbol get_current_declaring_module();
+
+            bool inside_an_interface();
     };
 }
 

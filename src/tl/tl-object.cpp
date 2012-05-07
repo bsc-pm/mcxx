@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -26,6 +26,7 @@
 
 
 
+
 #include "tl-builtin.hpp"
 #include "tl-object.hpp"
 #include "tl-symbol.hpp"
@@ -33,6 +34,8 @@
 
 #include <cstdlib>
 #include <cstring>
+
+#include "cxx-utils.h"
 
 namespace TL
 {
@@ -99,6 +102,11 @@ RefPtr<Object> Object::get_attribute(const std::string& name) const
             }
         case TL_UNDEFINED :
             {
+                break;
+            }
+        case TL_NODECL:
+            {
+                internal_error("Not implemented", 0);
                 break;
             }
     }

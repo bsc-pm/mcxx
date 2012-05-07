@@ -1,25 +1,29 @@
 /*--------------------------------------------------------------------
-(C) Copyright 2006-2009 Barcelona Supercomputing Center 
-Centro Nacional de Supercomputacion
-
-This file is part of Mercurium C/C++ source-to-source compiler.
-
-This library is free software; you can redistribute it and/or
-modify it under the terms of the GNU Lesser General Public
-License as published by the Free Software Foundation; either
-version 3 of the License, or (at your option) any later version.
-
-Mercurium C/C++ source-to-source compiler is distributed in the hope
-that it will be useful, but WITHOUT ANY WARRANTY; without even the
-implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
-PURPOSE.  See the GNU Lesser General Public License for more
-details.
-
-You should have received a copy of the GNU Lesser General Public
-License along with Mercurium C/C++ source-to-source compiler; if
-not, write to the Free Software Foundation, Inc., 675 Mass Ave,
-Cambridge, MA 02139, USA.
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
 
 
 #ifndef EXTENSIBLE_SYMBOL_HPP
@@ -45,6 +49,8 @@ namespace TL
                 
                 //! Returns the symbol contained in a nodecl which is an Extensible Symbol or 
                 //! a part of a nodecl which is an Extensible Symbol
+                ObjectList<Symbol> get_nodecl_symbols(Nodecl::NodeclBase n) const;
+                
                 Symbol get_nodecl_symbol(Nodecl::NodeclBase n) const;
                 
             public:
@@ -69,6 +75,8 @@ namespace TL
                 // *** Getters and Setters *** //
 
                 //! Returns the symbol wrapped in the Extended Symbol
+                ObjectList<Symbol> get_symbols() const;
+
                 Symbol get_symbol() const;
                 
                 //! Returns the name of the wrapped symbol.
@@ -80,6 +88,8 @@ namespace TL
                 //! Returns the nodecl associated with the wrapped symbol.
                 Nodecl::NodeclBase get_nodecl() const;           
 
+                static ObjectList<Nodecl::NodeclBase> get_nodecls_base(Nodecl::NodeclBase n);
+                
                 static Nodecl::NodeclBase get_nodecl_base(Nodecl::NodeclBase n);
                 
                 //! Returns true when the extensible symbol contains a symbols which do not represents

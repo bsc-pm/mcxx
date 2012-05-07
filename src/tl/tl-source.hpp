@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -23,6 +23,7 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
 
 
 
@@ -453,7 +454,10 @@ namespace TL
 
     LIBTL_EXTERN std::string to_string(const ObjectList<std::string>& t, const std::string& separator = "");
 
+    // Use these to embed nodecls in Source where an expression is valid
     LIBTL_EXTERN std::string as_expression(const Nodecl::NodeclBase& nodecl);
+    
+    // Use these to embed nodecls in Source where a statement is valid
     LIBTL_EXTERN std::string as_statement(const Nodecl::NodeclBase& nodecl);
 }
 

@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -26,6 +26,7 @@
 
 
 
+
 #ifndef TL_SCOPE_HPP
 #define TL_SCOPE_HPP
 
@@ -46,8 +47,6 @@
 
 namespace TL
 {
-    class TemplateParameter;
-    
     //! \addtogroup Wrap 
     //! @{
 
@@ -81,7 +80,7 @@ namespace TL
             }
 
             //! Do not use this one unless directed to do so
-            decl_context_t get_decl_context()
+            decl_context_t get_decl_context() const
             {
                 return _decl_context;
             }
@@ -212,7 +211,7 @@ namespace TL
             Scope temporal_scope() const;
 
             //! Returns the template parameters related to this scope
-            ObjectList<TemplateParameter> get_template_parameters() const;
+            template_parameter_list_t* get_template_parameters() const;
 
             //! Returns all symbols signed in in this scope
             /*! 

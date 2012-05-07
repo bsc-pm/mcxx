@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -23,6 +23,7 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
 
 
 
@@ -2015,16 +2016,10 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
                 {
                     scope_entry_t* entry = entry_advance_aliases(current->candidate->entry);
                     fprintf(stderr, "Ambiguous call to '%s'\n",
-                            get_declaration_string_internal(entry->type_information,
+                            print_decl_type_str(
+                                entry->type_information,
                                 entry->decl_context,
-                                entry->symbol_name, 
-                                "", // initializer
-                                0, // semicolon
-                                0, // num_parameter_names
-                                NULL, // parameter_names
-                                NULL, // parameter_attributes
-                                0 // is_parameter
-                                ));
+                                entry->symbol_name));
                 }
                 best_found = 0;
             }
@@ -2040,16 +2035,10 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
         {
             scope_entry_t* entry = entry_advance_aliases(best_viable->candidate->entry);
             fprintf(stderr, "Ambiguous call to '%s'\n",
-                    get_declaration_string_internal(entry->type_information,
+                    print_decl_type_str(entry->type_information,
                         entry->decl_context,
-                        entry->symbol_name, 
-                        "", // initializer
-                        0, // semicolon
-                        0, // num_parameter_names
-                        NULL, // parameter_names
-                        NULL, // parameter_attributes
-                        0 // is_parameter
-                        ));
+                        entry->symbol_name
+                       ));
             fprintf(stderr, "OVERLOAD: There is no best function\n");
         }
         return NULL;
@@ -2062,16 +2051,10 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
             {
                 scope_entry_t* entry = entry_advance_aliases(best_viable->candidate->entry);
                 fprintf(stderr, "Call to '%s' requires ambiguous conversion\n",
-                        get_declaration_string_internal(entry->type_information,
+                        print_decl_type_str(
+                            entry->type_information,
                             entry->decl_context,
-                            entry->symbol_name, 
-                            "", // initializer
-                            0, // semicolon
-                            0, // num_parameter_names
-                            NULL, // parameter_names
-                            NULL, // parameter_attributes
-                            0 // is_parameter
-                            ));
+                            entry->symbol_name ));
                 fprintf(stderr, "OVERLOAD: There is no best function because ambiguous conversion\n");
             }
             return NULL;

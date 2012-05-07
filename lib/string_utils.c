@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -23,6 +23,7 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
 
 
 #include "string_utils.h"
@@ -121,7 +122,7 @@ char is_blank_string(const char* c)
 {
     char result = 1;
 
-    while (result && (c != '\0'))
+    while (result && (*c != '\0'))
     {
         result &= is_blank(*c);
         c++;
@@ -301,4 +302,19 @@ int uniquestr_sprintf(const char** out_str, const char* format, ...)
     va_end(args);
 
     return result;
+}
+
+unsigned int simple_hash_str(const char *str)
+{
+    const int MULTIPLIER = 33;
+    unsigned int h;
+    unsigned const char *p;
+
+    h = 0;
+    for (p = (unsigned const char*)str; *p != '\0'; p++)
+        h = MULTIPLIER * h + *p;
+
+    h += (h >> 5);
+
+    return h; // or, h % ARRAY_SIZE;
 }

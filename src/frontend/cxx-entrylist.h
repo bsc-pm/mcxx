@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -23,6 +23,7 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
 
 
 #ifndef CXX_ENTRYLIST_H
@@ -76,6 +77,9 @@ LIBMCXX_EXTERN scope_entry_list_t* entry_list_merge(const scope_entry_list_t* li
 LIBMCXX_EXTERN char entry_list_contains(const scope_entry_list_t* l, 
         scope_entry_t* entry);
 
+LIBMCXX_EXTERN void entry_list_to_symbol_array(scope_entry_list_t*, scope_entry_t*** array, int* num_items);
+
+LIBMCXX_EXTERN scope_entry_list_t* entry_list_from_symbol_array(int num_items, scope_entry_t**);
 
 MCXX_END_DECLS
 

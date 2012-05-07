@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -25,12 +25,14 @@
 --------------------------------------------------------------------*/
 
 
+
 #ifndef TL_DATA_REFERENCE_HPP
 #define TL_DATA_REFERENCE_HPP
 
 #include "tl-nodecl.hpp"
 #include "tl-source.hpp"
 #include "tl-type.hpp"
+#include "tl-modules.hpp"
 #include <sstream>
 
 namespace TL
@@ -57,44 +59,15 @@ namespace TL
     */
     class DataReference : public Nodecl::NodeclBase
     {
-        private:
-            bool _valid;
-            Symbol _base_symbol;
-            Type _type;
-            Source _size;
-            Source _addr;
-            std::stringstream _warnlog;
-
-            static bool gather_info_data_expr_rec(Nodecl::NodeclBase expr, 
-                    Symbol &base_sym, 
-                    Source &size, 
-                    Source &addr, 
-                    Type& type,
-                    bool enclosing_is_array,
-                    bool & pointer_access_member,
-                    std::stringstream& warnlog);
-
-            static bool gather_info_data_expr(Nodecl::NodeclBase &expr, 
-                    Symbol &base_sym, 
-                    Source &size, 
-                    Source &addr,
-                    Type &type,
-                    std::stringstream& warnlog);
-
-            static Source safe_expression_size(Type type, Scope sc);
         public:
+            DataReference() : _is_valid(false) { }
+
             //! Constructors of a DataReference
             /*! 
               Use is_valid to know if the expression wrapped as a DataReference
               is eligible as a data reference.
              */
             DataReference(Nodecl::NodeclBase expr);
-
-            //! Copy constructor
-            DataReference(const DataReference& data_ref);
-
-            //! Copy assignment operator
-            DataReference& operator=(const DataReference& data_ref);
 
             //! States whether this expression is a data reference
             /*!
@@ -103,18 +76,11 @@ namespace TL
               */
             bool is_valid() const;
 
-            //! States whether this expression is a data reference
-            /*!
-              Not all expressions are data references, as defined by this class,
-              use this function to check it
-              */
-            bool is_valid(std::string& reason) const;
-            
             //! Returns the warning log
             /*!
               This is the same message as is_valid(std::string&) stores in its first parameter
               */
-            std::string get_warning_log() const;
+            std::string get_error_log() const;
 
             //! Gets the base symbol
             /*!
@@ -126,21 +92,6 @@ namespace TL
               */
             Symbol get_base_symbol() const;
 
-            //! Returns a way to obtain an address of the data reference
-            /*!
-              Since data references express named entities, there is a way to
-              get its address. This function returns a Source with an
-              expression which evaluates to the address of the data reference.
-              */
-            Source get_address() const;
-
-            //! Returns the size of the data reference
-            /*!
-              This function returns an expression which evaluates to the known
-              size of a data reference
-              */
-            Source get_sizeof() const;
-
             //! Returns a type representing the data covered by the data reference
             /*!
               This function returns a type which represents the data covered
@@ -150,6 +101,30 @@ namespace TL
               as this function uses Type::get_array_to(const std::string&)
              */
             Type get_data_type() const;
+
+            //! Returns the base address of the DataReference
+            Nodecl::NodeclBase get_base_address() const;
+
+            //! Returns an expression that designates the size of the DataReference
+            Nodecl::NodeclBase get_sizeof() const;
+
+            friend struct DataReferenceVisitor;
+
+            ~DataReference();
+
+            void module_write(ModuleWriter& mw);
+            void module_read(ModuleReader& mw);
+        private:
+            bool _is_valid;
+
+            TL::Symbol _base_symbol;
+            TL::Type _data_type;
+
+            // Error log
+            std::string _error_log;
+
+            Nodecl::NodeclBase _base_address;
+            Nodecl::NodeclBase _sizeof;
     };
 }
 

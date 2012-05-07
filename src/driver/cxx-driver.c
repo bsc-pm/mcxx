@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -23,6 +23,7 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
 
 
 
@@ -142,7 +143,8 @@
 "  --Wx:<profile>:<flags>,options\n" \
 "                           Like --W<flags>,<options> but for\n" \
 "                           a specific compiler profile\n" \
-"  --no-openmp              Disables all OpenMP support\n" \
+"  --openmp                 Enables OpenMP support\n" \
+"  --no-openmp              Disables OpenMP support (by default)\n" \
 "  --config-file=<file>     Uses <file> as config file.\n" \
 "                           Use --print-config-file to get the\n" \
 "                           default path\n" \
@@ -216,6 +218,16 @@
 "  --disable-intrinsics     Ignore all known Fortran intrinsics\n" \
 "  -J <dir>                 Sets <dir> as the output module directory\n" \
 "                           This flag is only meaningful for Fortran\n" \
+"  --integer-kind=N         Set the default kind of INTEGER\n" \
+"                           By default it is 4. Fortran only\n" \
+"  --real-kind=N            Set the default kind of REAL\n" \
+"                           By default it is 4. Fortran only\n" \
+"  --double-kind=N          Set the kind of DOUBLEPRECISION\n" \
+"                           By default it is 8. Fortran only\n" \
+"  --logical-kind=N         Set the default kind of LOGICAL\n" \
+"                           By default it is 4. Fortran only\n" \
+"  --character-kind=N       Set the default kind of CHARACTER\n" \
+"                           By default it is 1. Fortran only\n" \
 "\n" \
 "gcc compatibility flags:\n" \
 "\n" \
@@ -276,6 +288,7 @@ typedef enum
     OPTION_HELP_DEBUG_FLAGS,
     OPTION_HELP_TARGET_OPTIONS,
     OPTION_OUTPUT_DIRECTORY,
+    OPTION_OPENMP,
     OPTION_NO_OPENMP,
     OPTION_EXTERNAL_VAR,
     OPTION_CONFIG_FILE,
@@ -302,6 +315,11 @@ typedef enum
     OPTION_EMPTY_SENTINELS,
     OPTION_DISABLE_INTRINSICS,
     OPTION_FORTRAN_PRESCANNER,
+    OPTION_FORTRAN_DOUBLEPRECISION_KIND,
+    OPTION_FORTRAN_INTEGER_KIND,
+    OPTION_FORTRAN_LOGICAL_KIND,
+    OPTION_FORTRAN_REAL_KIND,
+    OPTION_FORTRAN_CHARACTER_KIND,
     OPTION_VERBOSE,
 } COMMAND_LINE_OPTIONS;
 
@@ -335,6 +353,7 @@ struct command_line_long_options command_line_long_options[] =
     {"debug-flags",  CLP_REQUIRED_ARGUMENT, OPTION_DEBUG_FLAG},
     {"help-debug-flags", CLP_NO_ARGUMENT, OPTION_HELP_DEBUG_FLAGS},
     {"help-target-options", CLP_NO_ARGUMENT, OPTION_HELP_TARGET_OPTIONS},
+    {"openmp", CLP_NO_ARGUMENT, OPTION_OPENMP},
     {"no-openmp", CLP_NO_ARGUMENT, OPTION_NO_OPENMP},
     {"variable", CLP_REQUIRED_ARGUMENT, OPTION_EXTERNAL_VAR},
     {"typecheck", CLP_NO_ARGUMENT, OPTION_TYPECHECK},
@@ -359,6 +378,11 @@ struct command_line_long_options command_line_long_options[] =
     {"sentinels", CLP_REQUIRED_ARGUMENT, OPTION_EMPTY_SENTINELS},
     {"disable-intrinsics", CLP_NO_ARGUMENT, OPTION_DISABLE_INTRINSICS},
     {"fpc", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_PRESCANNER },
+    {"integer-kind", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_INTEGER_KIND},
+    {"real-kind", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_REAL_KIND},
+    {"double-kind",  CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_DOUBLEPRECISION_KIND},
+    {"logical-kind", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_LOGICAL_KIND},
+    {"character-kind", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_CHARACTER_KIND},
     // sentinel
     {NULL, 0, 0}
 };
@@ -764,10 +788,11 @@ int parse_arguments(int argc, const char* argv[],
             char already_handled = 1;
             switch (parameter_info.value)
             {
+                case OPTION_OPENMP :
                 case OPTION_NO_OPENMP :
                     {
-                        CURRENT_CONFIGURATION->disable_openmp = 1;
-                        // If 'openmp' is in the parameter flags, set it to false, otherwise add it as false
+                        CURRENT_CONFIGURATION->enable_openmp = (parameter_info.value == OPTION_OPENMP);
+                        // If 'openmp' is in the parameter flags, set it to true
                         int i;
                         char found = 0;
                         for (i = 0; !found && (i < compilation_process.num_parameter_flags); i++)
@@ -775,7 +800,7 @@ int parse_arguments(int argc, const char* argv[],
                             if (strcmp(compilation_process.parameter_flags[i]->name, "openmp") == 0)
                             {
                                 found = 1;
-                                compilation_process.parameter_flags[i]->value = 0;
+                                compilation_process.parameter_flags[i]->value = CURRENT_CONFIGURATION->enable_openmp;
                             }
                         }
                         if (!found)
@@ -933,6 +958,8 @@ int parse_arguments(int argc, const char* argv[],
                         char temp[256] = { 0 };
                         snprintf(temp, 255, "-I%s", parameter_info.argument);
                         add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, temp);
+                        add_to_parameter_list_str(&CURRENT_CONFIGURATION->fortran_preprocessor_options, temp);
+                        add_to_parameter_list_str(&CURRENT_CONFIGURATION->prescanner_options, temp);
                         P_LIST_ADD(CURRENT_CONFIGURATION->module_dirs, CURRENT_CONFIGURATION->num_module_dirs,
                                 uniquestr(parameter_info.argument));
                         P_LIST_ADD(CURRENT_CONFIGURATION->include_dirs, CURRENT_CONFIGURATION->num_include_dirs,
@@ -971,6 +998,7 @@ int parse_arguments(int argc, const char* argv[],
                         char temp[256] = { 0 };
                         snprintf(temp, 255, "-D%s", parameter_info.argument);
                         add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, temp);
+                        add_to_parameter_list_str(&CURRENT_CONFIGURATION->fortran_preprocessor_options, temp);
                         break;
                     }
                 case 'U' :
@@ -978,6 +1006,7 @@ int parse_arguments(int argc, const char* argv[],
                         char temp[256] = { 0 };
                         snprintf(temp, 255, "-U%s", parameter_info.argument);
                         add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, temp);
+                        add_to_parameter_list_str(&CURRENT_CONFIGURATION->fortran_preprocessor_options, temp);
                         break;
                     }
                 case 'g' :
@@ -1227,6 +1256,31 @@ int parse_arguments(int argc, const char* argv[],
                         CURRENT_CONFIGURATION->prescanner_name = uniquestr(parameter_info.argument);
                         break;
                     }
+                case OPTION_FORTRAN_DOUBLEPRECISION_KIND:
+                    {
+                        CURRENT_CONFIGURATION->doubleprecision_kind = atoi(parameter_info.argument);
+                        break;
+                    }
+                case OPTION_FORTRAN_REAL_KIND:
+                    {
+                        CURRENT_CONFIGURATION->default_real_kind = atoi(parameter_info.argument);
+                        break;
+                    }
+                case OPTION_FORTRAN_INTEGER_KIND:
+                    {
+                        CURRENT_CONFIGURATION->default_integer_kind = atoi(parameter_info.argument);
+                        break;
+                    }
+                case OPTION_FORTRAN_LOGICAL_KIND:
+                    {
+                        CURRENT_CONFIGURATION->default_logical_kind = atoi(parameter_info.argument);
+                        break;
+                    }
+                case OPTION_FORTRAN_CHARACTER_KIND:
+                    {
+                        CURRENT_CONFIGURATION->default_character_kind = atoi(parameter_info.argument);
+                        break;
+                    }
                 default:
                     {
                         internal_error("Unhandled known option\n", 0);
@@ -1256,7 +1310,7 @@ int parse_arguments(int argc, const char* argv[],
             && !native_verbose
             && v_specified)
     {
-        // -v has been given with nothing else
+        // --v has been given with nothing else
         print_version();
         exit(EXIT_SUCCESS);
     }
@@ -1345,7 +1399,6 @@ static void add_parameter_all_toolchain(const char *argument, char dry_run)
     {
         add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, argument);
         add_to_parameter_list_str(&CURRENT_CONFIGURATION->native_compiler_options, argument);
-        //add_to_parameter_list_str(&CURRENT_CONFIGURATION->linker_options, argument);
         add_to_linker_command(uniquestr(argument), NULL);
     }
 }
@@ -1992,9 +2045,14 @@ static void parse_subcommand_arguments(const char* arguments)
     const char** parameters = comma_separate_values(p, &num_parameters);
 
     if (prepro_flag)
+    {
         add_to_parameter_list(
                 &configuration->preprocessor_options,
                 parameters, num_parameters);
+        add_to_parameter_list(
+                &configuration->fortran_preprocessor_options,
+                parameters, num_parameters);
+    }
     if (native_flag)
         add_to_parameter_list(
                 &configuration->native_compiler_options,
@@ -2060,11 +2118,10 @@ static void initialize_default_values(void)
 
     CURRENT_CONFIGURATION->column_width = 132;
 
-    // Add openmp as an implicit flag
+    // Add openmp as an implicit (disabled) flag
     struct parameter_flags_tag *new_parameter_flag = calloc(1, sizeof(*new_parameter_flag));
 
     new_parameter_flag->name = uniquestr("openmp");
-    new_parameter_flag->value = 1;
 
     P_LIST_ADD(compilation_process.parameter_flags, 
             compilation_process.num_parameter_flags,
@@ -2298,7 +2355,7 @@ static void enable_hlt_phase(void);
 static void finalize_committed_configuration(void)
 {
     // OpenMP support involves omp pragma
-    if (!CURRENT_CONFIGURATION->disable_openmp)
+    if (CURRENT_CONFIGURATION->enable_openmp)
     {
         config_add_preprocessor_prefix(CURRENT_CONFIGURATION, /* index */ NULL, "omp");
     }
@@ -2924,7 +2981,7 @@ static const char* codegen_translation_unit(translation_unit_t* translation_unit
 
         if (IS_FORTRAN_LANGUAGE)
         {
-            // Change the extension to be .f95 always
+            // Change the extension to be .f90 always
             const char * ext = strrchr(input_filename_basename, '.');
             ERROR_CONDITION(ext == NULL, "Expecting extension", 0);
 
@@ -2934,7 +2991,7 @@ static const char* codegen_translation_unit(translation_unit_t* translation_unit
             strncpy(c, input_filename_basename, (size_t)(ext - input_filename_basename));
             c[ext - input_filename_basename + 1] = '\0';
 
-            input_filename_basename = strappend(c, ".f95");
+            input_filename_basename = strappend(c, ".f90");
         }
 
         output_filename_basename = strappend(preffix,
@@ -3993,7 +4050,7 @@ static void link_objects(void)
     if (CURRENT_CONFIGURATION->do_not_link)
         return;
 
-    const char * file_list[compilation_process.num_translation_units];
+    const char * file_list[compilation_process.num_translation_units + 1];
 
     int j;
     for (j = 0; j < compilation_process.num_translation_units; j++)

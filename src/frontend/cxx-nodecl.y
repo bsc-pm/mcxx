@@ -17,7 +17,12 @@ nodecl_literal_expr : NODECL_LITERAL_EXPR '(' nodecl_literal_attribute_seq  ')'
 }
 ;
 
+/*!ifnot FORTRAN2003*/
 nodecl_literal_stmt : NODECL_LITERAL_STMT '(' nodecl_literal_attribute_seq ')'
+/*!endif*/
+/*!if FORTRAN2003*/
+nodecl_literal_stmt : NODECL_LITERAL_STMT '(' nodecl_literal_attribute_seq ')' eos
+/*!endif*/
 {
     $$ = ASTMake1(AST_NODECL_LITERAL, $3, $1.token_file, $1.token_line, NULL);
 }

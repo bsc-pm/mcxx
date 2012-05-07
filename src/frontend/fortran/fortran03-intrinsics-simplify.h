@@ -1,3 +1,29 @@
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
+
 #ifndef FORTRAN03_INTRINSICS_SIMPLIFY_H
 #define FORTRAN03_INTRINSICS_SIMPLIFY_H
 
@@ -46,17 +72,30 @@ static nodecl_t simplify_huge(int num_arguments UNUSED_PARAMETER, nodecl_t* argu
     type_t* t = nodecl_get_type(x);
     t = get_rank0_type(t);
 
-    if (is_float_type(t))
+    if (is_floating_type(t))
     {
-        return nodecl_make_floating_literal(t, const_value_get_float(FLT_MAX), NULL, 0);
-    }
-    else if (is_double_type(t))
-    {
-        return nodecl_make_floating_literal(t, const_value_get_double(DBL_MAX), NULL, 0);
-    }
-    else if (is_long_double_type(t))
-    {
-        return nodecl_make_floating_literal(t, const_value_get_long_double(LDBL_MAX), NULL, 0);
+        if (is_float_type(t))
+        {
+            return nodecl_make_floating_literal(t, const_value_get_float(FLT_MAX), NULL, 0);
+        }
+        else if (is_double_type(t))
+        {
+            return nodecl_make_floating_literal(t, const_value_get_double(DBL_MAX), NULL, 0);
+        }
+        else if (is_long_double_type(t))
+        {
+            return nodecl_make_floating_literal(t, const_value_get_long_double(LDBL_MAX), NULL, 0);
+        }
+        else 
+        {
+#ifdef HAVE_QUADMATH_H
+            const floating_type_info_t* floating_info = floating_type_get_info(t);
+            if (floating_info->bits == 128)
+            {
+                return nodecl_make_floating_literal(t, const_value_get_float128(FLT128_MAX), NULL, 0);
+            }
+#endif
+        }
     }
     else if (is_integer_type(t))
     {
@@ -73,17 +112,30 @@ static nodecl_t simplify_tiny(int num_arguments UNUSED_PARAMETER, nodecl_t* argu
     type_t* t = nodecl_get_type(x);
     t = get_rank0_type(t);
 
-    if (is_float_type(t))
+    if (is_floating_type(t))
     {
-        return nodecl_make_floating_literal(t, const_value_get_float(FLT_MIN), NULL, 0);
-    }
-    else if (is_double_type(t))
-    {
-        return nodecl_make_floating_literal(t, const_value_get_double(DBL_MIN), NULL, 0);
-    }
-    else if (is_long_double_type(t))
-    {
-        return nodecl_make_floating_literal(t, const_value_get_long_double(LDBL_MIN), NULL, 0);
+        if (is_float_type(t))
+        {
+            return nodecl_make_floating_literal(t, const_value_get_float(FLT_MIN), NULL, 0);
+        }
+        else if (is_double_type(t))
+        {
+            return nodecl_make_floating_literal(t, const_value_get_double(DBL_MIN), NULL, 0);
+        }
+        else if (is_long_double_type(t))
+        {
+            return nodecl_make_floating_literal(t, const_value_get_long_double(LDBL_MIN), NULL, 0);
+        }
+        else 
+        {
+#ifdef HAVE_QUADMATH_H
+            const floating_type_info_t* floating_info = floating_type_get_info(t);
+            if (floating_info->bits == 128)
+            {
+                return nodecl_make_floating_literal(t, const_value_get_float128(FLT128_MIN), NULL, 0);
+            }
+#endif
+        }
     }
     else if (is_integer_type(t))
     {
@@ -149,19 +201,20 @@ static nodecl_t simplify_selected_real_kind(int num_arguments UNUSED_PARAMETER, 
             || !nodecl_is_constant(radix))
         return nodecl_null();
 
-    // Get our three reals: float, double, long double
-    type_t* real_types[] = { get_float_type(), get_double_type(), get_long_double_type() };
-
-    int num_reals = sizeof(real_types) / sizeof(real_types[0]);
 
     uint64_t p_ = const_value_cast_to_8(nodecl_get_constant(p));
     uint64_t r_ = const_value_cast_to_8(nodecl_get_constant(r));
     uint64_t radix_ = const_value_cast_to_8(nodecl_get_constant(radix));
 
+    int num_reals = CURRENT_CONFIGURATION->type_environment->num_float_types;
+
     int i;
     for (i = 0; i < num_reals; i++)
     {
-        nodecl_t nodecl_type = nodecl_make_type(real_types[i], NULL, 0);
+        type_t* real_type = get_floating_type_from_descriptor(CURRENT_CONFIGURATION->type_environment->all_floats[i]);
+
+        // Reuse other simplification routines. We build a convenience node here
+        nodecl_t nodecl_type = nodecl_make_type(real_type, NULL, 0);
 
         nodecl_t precision = simplify_precision(1, &nodecl_type);
         nodecl_t range = simplify_range(1, &nodecl_type);
@@ -171,15 +224,17 @@ static nodecl_t simplify_selected_real_kind(int num_arguments UNUSED_PARAMETER, 
         uint64_t range_ = const_value_cast_to_8(nodecl_get_constant(range));
         uint64_t current_radix_ = const_value_cast_to_8(nodecl_get_constant(current_radix));
 
+        nodecl_free(nodecl_type);
+
         if (p_ <= precision_
                 && r_ <= range_
                 && (radix_ == 0 || radix_ == current_radix_))
         {
-            return nodecl_make_int_literal(type_get_size(real_types[i]));
+            return nodecl_make_int_literal(type_get_size(real_type));
         }
     }
 
-    return nodecl_null();
+    return nodecl_make_int_literal(-1);
 }
 
 static nodecl_t simplify_selected_int_kind(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
@@ -220,8 +275,11 @@ static nodecl_t simplify_selected_char_kind(int num_arguments UNUSED_PARAMETER, 
     {
         const char* t = nodecl_get_text(name);
 
-        if (strcmp(t, "\"ASCII\"") == 0
-                || strcmp(t, "'ASCII'") == 0)
+        if ((strcmp(t, "\"ASCII\"") == 0)
+                || (strcmp(t, "'ASCII'") == 0)
+                // gfortran
+                || (strcmp(t, "\"DEFAULT\"") == 0)
+                || (strcmp(t, "'DEFAULT'") == 0))
         {
             return nodecl_make_int_literal(1);
         }
@@ -265,6 +323,10 @@ static nodecl_t simplify_kind(int num_arguments UNUSED_PARAMETER, nodecl_t* argu
     {
         t = complex_type_get_base_type(t);
     }
+    else if (is_fortran_character_type(t))
+    {
+        t = array_type_get_element_type(t);
+    }
 
     return nodecl_make_int_literal(type_get_size(t));
 }
@@ -307,14 +369,14 @@ static nodecl_t simplify_epsilon(int num_arguments UNUSED_PARAMETER, nodecl_t* a
     else if (is_double_type(t))
     {
         return nodecl_make_floating_literal(
-                get_float_type(),
+                get_double_type(),
                 const_value_get_double(DBL_EPSILON),
                 NULL, 0);
     }
     else if (is_long_double_type(t))
     {
         return nodecl_make_floating_literal(
-                get_float_type(),
+                get_long_double_type(),
                 const_value_get_long_double(LDBL_EPSILON),
                 NULL, 0);
     }
@@ -528,9 +590,10 @@ static nodecl_t simplify_shape(int num_arguments UNUSED_PARAMETER, nodecl_t* arg
     {
         return nodecl_make_structured_value(
                 nodecl_list,
-                get_array_type_bounds(choose_int_type_from_kind(kind, kind_),
+                get_array_type_bounds(
+                    choose_int_type_from_kind(kind, kind_),
                     nodecl_make_one(),
-                    nodecl_make_int_literal(kind_),
+                    nodecl_make_int_literal(rank),
                     CURRENT_COMPILED_FILE->global_decl_context),
                 NULL, 0);
     }
@@ -538,7 +601,8 @@ static nodecl_t simplify_shape(int num_arguments UNUSED_PARAMETER, nodecl_t* arg
     {
         return nodecl_make_structured_value(
                 nodecl_null(),
-                get_array_type_bounds(choose_int_type_from_kind(kind, kind_),
+                get_array_type_bounds(
+                    choose_int_type_from_kind(kind, kind_),
                     nodecl_make_one(),
                     nodecl_make_zero(), 
                     CURRENT_COMPILED_FILE->global_decl_context),
@@ -571,13 +635,14 @@ static nodecl_t simplify_max_min(int num_arguments, nodecl_t* arguments,
             if (nodecl_is_constant(current_arg))
             {
                 const_value_t *current_val = nodecl_get_constant(result);
+
                 const_value_t *new_val = nodecl_get_constant(current_arg);
 
                 const_value_t* t = combine(new_val, current_val);
 
                 if (const_value_is_nonzero(t))
                 {
-                    result = current_arg;
+                    result = const_value_to_nodecl(const_value_cast_as_another( new_val, current_val ));
                 }
             }
             else
@@ -763,6 +828,316 @@ static nodecl_t simplify_char(int num_arguments UNUSED_PARAMETER, nodecl_t* argu
         return const_value_to_nodecl(const_value_make_string(&c, 1));
     }
 
+    return nodecl_null();
+}
+
+static nodecl_t simplify_achar(int num_arguments, nodecl_t* arguments)
+{
+    return simplify_char(num_arguments, arguments);
+}
+
+static int flatten_array_count_elements(const_value_t* v)
+{
+    if (const_value_is_array(v))
+    {
+        int r = 0;
+        int i, N = const_value_get_num_elements(v);
+        for (i = 0; i < N; i++)
+        {
+            r += flatten_array_count_elements(const_value_get_element_num(v, i));
+        }
+
+        return r;
+    }
+    else
+    {
+        return 1;
+    }
+}
+
+void flatten_array_rec(const_value_t* v, const_value_t*** scalar_item)
+{
+    if (const_value_is_array(v))
+    {
+        int i, N = const_value_get_num_elements(v);
+        for (i = 0; i < N; i++)
+        {
+            flatten_array_rec(const_value_get_element_num(v, i), scalar_item);
+        }
+    }
+    else
+    {
+        (**scalar_item) = v;
+        (*scalar_item)++;
+    }
+}
+
+static const_value_t* flatten_array(const_value_t* v)
+{
+    int N = flatten_array_count_elements(v);
+    const_value_t* flattened_items[N];
+
+    const_value_t** pos = flattened_items;
+    flatten_array_rec(v, &pos);
+
+    const_value_t* result = const_value_make_array(N, flattened_items);
+
+    return result;
+}
+
+static void compute_factors_of_array_indexing(
+        int N,
+        int* shape, 
+        int* factors)
+{
+    int i;
+    for (i = 0; i < N; i++)
+    {
+        factors[i] = 1;
+        int j;
+        for (j = 0; j < i; j++)
+        {
+            factors[i] = factors[i] * shape[j];
+        }
+    }
+}
+
+#if 0
+static void determine_array_subscript_of_lineal_index(
+        int N,
+        int* factors,
+
+        int index_,
+
+        int* subscript
+        )
+{
+    int i;
+    int val = index_;
+    for (i = N - 1; i > 1; i--)
+    {
+        subscript[i] = val / factors[i];
+        val = val % factors[i];
+    }
+
+    subscript[0] = val;
+}
+#endif
+
+static void permute_subscript(
+        int N,
+        int *subscript,
+        int *permutation,
+
+        int *out
+        )
+{
+    int i;
+    for (i = 0; i < N; i++)
+    {
+        out[permutation[i]] = subscript[i];
+    }
+}
+
+static void determine_lineal_index_of_array_subscript(
+        int N,
+        int *subscript,
+
+        int *factors,
+
+        int *index_)
+{
+    (*index_) = 0;
+
+    int i;
+    for (i = 0; i < N; i++)
+    {
+        (*index_) = (*index_) + factors[i] * subscript[i];
+    }
+}
+
+static const_value_t* reshape_array_from_flattened_rec(
+        int N,
+        int rank,
+        int* shape,
+        int* factors,
+        int* subscript,
+        
+        const_value_t* flattened_array,
+        const_value_t* flattened_pad
+        )
+{
+    if (rank == N)
+    {
+        int index_ = 0;
+
+        determine_lineal_index_of_array_subscript(N, subscript, factors, &index_);
+
+        // int i;
+        // fprintf(stderr, "(");
+        // for (i = 0; i < N; i++)
+        // {
+        //     if (i > 0)
+        //         fprintf(stderr, ", ");
+        //     fprintf(stderr, "%d", subscript[i]);
+        // }
+        // fprintf(stderr, ") -> %d\n", index_);
+
+        if (index_ < 0)
+            return NULL;
+
+        if (index_ >= const_value_get_num_elements(flattened_array))
+        {
+            if (flattened_pad == NULL)
+                return NULL;
+            else
+            {
+                int start = index_ - const_value_get_num_elements(flattened_array);
+                const_value_t* result = const_value_get_element_num(flattened_pad, start % const_value_get_num_elements(flattened_pad));
+                return result;
+            }
+        }
+
+        const_value_t* value = const_value_get_element_num(flattened_array, index_);
+
+        return value;
+    }
+    else
+    {
+        int i;
+        int current_rank = N - rank - 1;
+        subscript[current_rank] = 0;
+        int size = shape[current_rank];
+        const_value_t* result[size];
+        for (i = 0; i < size; i++)
+        {
+            result[i] = reshape_array_from_flattened_rec(
+                    N,
+                    rank + 1,
+                    shape,
+                    factors,
+                    subscript,
+                    
+                    flattened_array,
+                    flattened_pad
+                    );
+
+            subscript[current_rank]++;
+        }
+
+        return const_value_make_array(size, result);
+    }
+}
+
+static const_value_t* reshape_array_from_flattened(
+         const_value_t* flattened_array, 
+         const_value_t* const_val_shape,
+         const_value_t* flattened_pad,
+         const_value_t* order
+         )
+{
+    int N = const_value_get_num_elements(const_val_shape);
+    int shape[N];
+
+    int i;
+    for (i = 0; i < N; i++)
+    {
+        shape[i] = const_value_cast_to_signed_int(const_value_get_element_num(const_val_shape, i));
+    }
+
+
+    int permutation[N];
+    if (order == NULL)
+    {
+        for (i = 0; i < N; i++)
+        {
+            permutation[i] = i;
+        }
+    }
+    else
+    {
+        for (i = 0; i < N; i++)
+        {
+            permutation[i] = const_value_cast_to_signed_int(const_value_get_element_num(order, i)) - 1;
+        }
+    }
+
+    // We first have to permute the shape to get the proper factors
+    int temp_shape[N];
+    permute_subscript(N, shape, permutation, temp_shape);
+
+    int temp_factors[N];
+    compute_factors_of_array_indexing(N, temp_shape, temp_factors);
+
+    // But factors appear in the given shape order, so we have to permute them as well
+    int factors[N];
+    permute_subscript(N, temp_factors, permutation, factors);
+
+    int subscript[N];
+    memset(subscript, 0, sizeof(subscript));
+
+#if 0
+    fprintf(stderr, "RESHAPE!!!\n");
+#define PRINT_ARRAY(x) \
+        fprintf(stderr, "%s = (", #x); \
+        for (i = 0; i < N; i++) \
+        { \
+            if (i > 0) \
+                fprintf(stderr, ", "); \
+            fprintf(stderr, "%d", x[i]); \
+        } \
+        fprintf(stderr, ")\n"); 
+    PRINT_ARRAY(shape)
+    PRINT_ARRAY(factors)
+    PRINT_ARRAY(permutation)
+#endif
+
+    return reshape_array_from_flattened_rec(
+            N,
+            /* rank */ 0,
+            shape,
+            factors,
+            subscript,
+
+            flattened_array,
+            flattened_pad
+            );
+}
+
+static nodecl_t simplify_reshape(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+{
+    if (nodecl_is_constant(arguments[0])
+            && nodecl_is_constant(arguments[1])
+            && (nodecl_is_null(arguments[2]) || nodecl_is_constant(arguments[2]))
+            && (nodecl_is_null(arguments[3]) || nodecl_is_constant(arguments[3])))
+    {
+        const_value_t* shape = nodecl_get_constant(arguments[1]);
+
+        const_value_t* pad = NULL;
+        if (!nodecl_is_null(arguments[2]))
+            pad = nodecl_get_constant(arguments[2]);
+        const_value_t* order = NULL;
+        if (!nodecl_is_null(arguments[3]))
+            order = nodecl_get_constant(arguments[3]);
+
+        const_value_t* flattened_source = flatten_array(nodecl_get_constant(arguments[0]));
+        const_value_t* flattened_pad = NULL;
+        if (pad != NULL)
+        {
+            flattened_pad = flatten_array(pad);
+        }
+
+        const_value_t* val = reshape_array_from_flattened(
+                flattened_source,
+                shape,
+                flattened_pad,
+                order
+                );
+        if (val == NULL)
+            return nodecl_null();
+
+        return const_value_to_nodecl(val);
+    }
     return nodecl_null();
 }
 

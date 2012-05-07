@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -26,6 +26,7 @@
 
 
 
+
 #include "tl-omp.hpp"
 #include "tl-builtin.hpp"
 #include "tl-nodecl.hpp"
@@ -36,6 +37,12 @@
 
 namespace TL
 {
+    template <>
+        struct ModuleWriterTrait<OpenMP::DependencyDirection> : EnumWriterTrait<OpenMP::DependencyDirection> { };
+
+    template <>
+        struct ModuleReaderTrait<OpenMP::DependencyDirection> : EnumReaderTrait<OpenMP::DependencyDirection> { };
+
     namespace OpenMP
     {
 
@@ -73,7 +80,10 @@ namespace TL
             _map(ds._map),
             _map_data_ref(ds._map_data_ref),
             _enclosing(ds._enclosing),
-            _reduction_symbols(ds._reduction_symbols)
+            _reduction_symbols(ds._reduction_symbols),
+            _dependency_items(ds._dependency_items),
+            _copy_items(ds._copy_items),
+            _device_list(ds._device_list)
         {
             (*_num_refs)++;
             if (_enclosing != NULL)
@@ -393,6 +403,18 @@ namespace TL
         DataReference DependencyItem::get_dependency_expression() const
         {
             return _dep_expr;
+        }
+
+        void DependencyItem::module_write(ModuleWriter& mw)
+        {
+            mw.write(_dep_expr);
+            mw.write(_kind);
+        }
+
+        void DependencyItem::module_read(ModuleReader& mr)
+        {
+            mr.read(_dep_expr);
+            mr.read(_kind);
         }
 
         CopyItem::CopyItem(DataReference copy_expr, CopyDirection direction)

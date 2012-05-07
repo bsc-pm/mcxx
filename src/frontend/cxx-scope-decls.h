@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -23,6 +23,7 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
 
 
 
@@ -94,9 +95,8 @@ enum decl_flags_tag
     DF_DEPENDENT_TYPENAME = BITMAP(8),
     // Enables weird lookup for 'struct X'/'union X'/'enum X'
     DF_ELABORATED_NAME = BITMAP(9),
-    // Relaxed typechecking, ambiguity decl-expr is solved always to expr if it
-    // cannot be disambiguated
-    DF_AMBIGUITY_FALLBACK_TO_EXPR = BITMAP(12),
+    // The querys will ignore the friend declarations
+    DF_IGNORE_FRIEND_DECL = BITMAP(10),
 } decl_flags_t;
 
 #undef BITMAP
@@ -258,14 +258,6 @@ enum intent_kind_tag
     INTENT_OUT = 2,
     INTENT_INOUT = INTENT_IN | INTENT_OUT,
 } intent_kind_t;
-
-enum codegen_status_tag
-{
-    CODEGEN_STATUS_NONE = 0,
-    CODEGEN_STATUS_DECLARED = 1,
-    CODEGEN_STATUS_DEFINED = 2
-};
-typedef enum codegen_status_tag codegen_status_t;
 
 typedef nodecl_t (*simplify_function_t)(int num_arguments, nodecl_t *arguments);
 

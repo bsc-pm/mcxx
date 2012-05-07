@@ -282,7 +282,7 @@ dnl Region support
 nanox_regions="no"
 AC_MSG_CHECKING([if Nanos++ regions support is enabled])
 AC_ARG_ENABLE([nanox-regions],
-  AS_HELP_STRING([--enable-nanox-regions], [Enables support of regions in Nanos++]),
+  AS_HELP_STRING([--enable-nanox-regions], [Enables support of regions in tests of Nanos++]),
   [
     if test x$enableval = xyes -o x$enableval = x;
     then
@@ -1468,7 +1468,7 @@ then
      AC_MSG_WARN([directory '${nanox_include}' does not seem to exist, compilation is likely to fail])
   fi
 
-	echo "   Nanos++ regions support:" $nanox_regions
+	echo "   Nanos++ tests regions support:" $nanox_regions
 fi
 
 echo "   GPU testing enabled:" $gpu_valid

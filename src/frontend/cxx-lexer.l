@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -23,6 +23,7 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
 
 %{
 /* 
@@ -84,7 +85,7 @@ static lexer_keyword_t gxx_43_keywords[] =
     { "__is_literal_type", GXX_IS_LITERAL_TYPE },
     { "__is_pod", GXX_IS_POD },
     { "__is_polymorphic", GXX_IS_POLYMORPHIC },
-    { "__is_std_layout", GXX_IS_STD_LAYOUT },
+    { "__is_standard_layout", GXX_IS_STANDARD_LAYOUT },
     { "__is_trivial", GXX_IS_TRIVIAL },
     { "__is_union", GXX_IS_UNION },
     // Sentinel
@@ -1032,8 +1033,11 @@ type {
 "__is_convertible_to" |
 "__is_empty" |
 "__is_enum" |
+"__is_literal_type" |
 "__is_pod" |
 "__is_polymorphic" |
+"__is_standard_layout" |
+"__is_trivial" |
 "__is_union" {
     return lookup_keyword_in_table(gxx_43_keywords, yytext, !CURRENT_CONFIGURATION->disable_gxx_type_traits);
 }

@@ -93,6 +93,11 @@ namespace TL
                 Nodecl::Conversion aux = nodecl.as<Nodecl::Conversion>();
                 return is_range(aux.get_nest());
             }
+            else if (nodecl.is<Nodecl::Cast>())
+            {
+                Nodecl::Cast aux = nodecl.as<Nodecl::Cast>();
+                return is_range(aux.get_rhs());
+            }
             else if (nodecl.is<Nodecl::Add>())
             {
                 Nodecl::Add aux = nodecl.as<Nodecl::Add>();

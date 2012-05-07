@@ -1,3 +1,29 @@
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
+
 #ifndef TL_NODECL_BASE_HPP
 #define TL_NODECL_BASE_HPP
 
@@ -27,8 +53,10 @@ namespace Nodecl {
             virtual ~NodeclBase() { }
             TL::Type get_type() const { return TL::Type(::nodecl_get_type(_n)); }
             bool has_type() const { return ::nodecl_get_type(_n) != NULL; }
+            void set_type(TL::Type t) { ::nodecl_set_type(_n, t.get_internal_type()); }
             TL::Symbol get_symbol() const { return TL::Symbol(::nodecl_get_symbol(_n)); }
             bool has_symbol() const { return ::nodecl_get_symbol(_n) != NULL; }
+            void set_symbol(TL::Symbol sym) { ::nodecl_set_symbol(_n, sym.get_internal_symbol()); }
             TL::Scope retrieve_context() const { return nodecl_retrieve_context(_n); }
             std::string get_text() const { const char* c = ::nodecl_get_text(_n); if (c == NULL) c = ""; return c; }
             std::string get_filename() const { const char* c = nodecl_get_filename(_n); if (c == NULL) c = "(null)"; return c; }
@@ -88,6 +116,16 @@ namespace Nodecl {
 
             // Works like replace but handles lists. 
             void integrate(Nodecl::NodeclBase new_node) const;
+
+            // This sets this Nodecls as childs of the current node 
+            void rechild(const TL::ObjectList<NodeclBase>& new_childs)
+            {
+                ERROR_CONDITION(new_childs.size() != ::MCXX_MAX_AST_CHILDREN, "Invalid list of children", 0);
+                for (int i = 0; i < ::MCXX_MAX_AST_CHILDREN; i++)
+                {
+                    nodecl_set_child(_n, i, new_childs[i].get_internal_nodecl());
+                }
+            }
 
             // Internal use only
             void* get_internal_tree_address();

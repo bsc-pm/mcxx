@@ -1,5 +1,5 @@
 ##########################################################################
-#  (C) Copyright 2006-2011 Barcelona Supercomputing Center               #
+#  (C) Copyright 2006-2012 Barcelona Supercomputing Center               #
 #                          Centro Nacional de Supercomputacion           #
 #                                                                        #
 #  This file is part of Mercurium C/C++ source-to-source compiler.       #
@@ -100,6 +100,7 @@ mcxx_LDADD = \
    $(top_builddir)/src/frontend/libmcxx-process.la \
    $(top_builddir)/src/frontend/libmcxx.la \
    $(top_builddir)/src/tl/libtl.la \
+   $(top_builddir)/src/tl/codegen/common/libcodegen-common.la \
    $(top_builddir)/src/tl/codegen/base/cxx/libcodegen-cxx.la \
    $(top_builddir)/src/tl/codegen/base/fortran/libcodegen-fortran.la \
    $(top_builddir)/src/mcxx_tl/libmcxxtl.la \
@@ -113,6 +114,7 @@ if WINDOWS_BUILD
 else
 # '$$ORIGIN' is a relocatable hint to GNU ld
 mcxx_LDFLAGS = \
+	-Wl,--no-as-needed \
     -Wl,-E \
     -Wl,@RPATH_PARAMETER@,'$$ORIGIN'/../lib \
     -Wl,@RPATH_PARAMETER@,'$$ORIGIN'/../lib/mcxx \

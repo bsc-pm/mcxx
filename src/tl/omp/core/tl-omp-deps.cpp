@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -26,6 +26,7 @@
 
 
 
+
 #include "tl-omp-core.hpp"
 #include "tl-omp-deps.hpp"
 
@@ -41,11 +42,11 @@ namespace TL { namespace OpenMP {
         {
             DataReference expr(*it);
             std::string warning;
-            if (!expr.is_valid(warning))
+            if (!expr.is_valid())
             {
-                std::cerr << warning;
+                std::cerr << expr.get_error_log();
                 std::cerr << expr.get_locus() 
-                    << ": warning: skipping invalid dependency expression '" << expr.prettyprint() << "'" << std::endl;
+                    << ": error: skipping invalid dependency expression '" << expr.prettyprint() << "'" << std::endl;
                 continue;
             }
 
@@ -88,35 +89,37 @@ namespace TL { namespace OpenMP {
 
     void Core::get_dependences_info(TL::PragmaCustomLine construct, DataSharingEnvironment& data_sharing)
     {
-        PragmaCustomClause input_clause = construct.get_clause("input");
-        get_dependences_info_clause(input_clause, data_sharing, DEP_DIR_INPUT);
+        PragmaCustomClause input_clause = construct.get_clause("in", 
+                /* deprecated */ "input");
+        get_dependences_info_clause(input_clause, data_sharing, DEP_DIR_IN);
 
-        PragmaCustomClause output_clause = construct.get_clause("output");
-        get_dependences_info_clause(output_clause, data_sharing, DEP_DIR_OUTPUT);
+        PragmaCustomClause output_clause = construct.get_clause("out", 
+                /* deprecated */ "output");
+        get_dependences_info_clause(output_clause, data_sharing, DEP_DIR_OUT);
 
         PragmaCustomClause inout_clause = construct.get_clause("inout");
         get_dependences_info_clause(inout_clause, data_sharing, DEP_DIR_INOUT);
 
         PragmaCustomClause concurrent_clause = construct.get_clause("concurrent");
         get_dependences_info_clause(concurrent_clause, data_sharing, 
-                (OpenMP::DependencyDirection)(DEP_REDUCTION));
+                (OpenMP::DependencyDirection)(DEP_CONCURRENT));
 
-        PragmaCustomClause fp_input_clause = construct.get_clause("__fp_input");
-        get_dependences_info_clause(fp_input_clause, data_sharing, 
-                (OpenMP::DependencyDirection)(DEP_DIR_INPUT));
+        // PragmaCustomClause fp_input_clause = construct.get_clause("__fp_input");
+        // get_dependences_info_clause(fp_input_clause, data_sharing, 
+        //         (OpenMP::DependencyDirection)(DEP_DIR_INPUT));
 
-        PragmaCustomClause fp_output_clause = construct.get_clause("__fp_output");
-        get_dependences_info_clause(fp_output_clause, data_sharing, 
-                (OpenMP::DependencyDirection)(DEP_DIR_OUTPUT));
+        // PragmaCustomClause fp_output_clause = construct.get_clause("__fp_output");
+        // get_dependences_info_clause(fp_output_clause, data_sharing, 
+        //         (OpenMP::DependencyDirection)(DEP_DIR_OUTPUT));
 
-        PragmaCustomClause fp_inout_clause = construct.get_clause("__fp_inout");
-        get_dependences_info_clause(fp_inout_clause, data_sharing, 
-                (OpenMP::DependencyDirection)(DEP_DIR_INOUT));
+        // PragmaCustomClause fp_inout_clause = construct.get_clause("__fp_inout");
+        // get_dependences_info_clause(fp_inout_clause, data_sharing, 
+        //         (OpenMP::DependencyDirection)(DEP_DIR_INOUT));
 
-        // Same meaning as 'concurrent'
-        PragmaCustomClause fp_reduction_clause = construct.get_clause("__fp_reduction");
-        get_dependences_info_clause(fp_reduction_clause, data_sharing, 
-                (OpenMP::DependencyDirection)(DEP_REDUCTION));
+        // // Same meaning as 'concurrent'
+        // PragmaCustomClause fp_reduction_clause = construct.get_clause("__fp_reduction");
+        // get_dependences_info_clause(fp_reduction_clause, data_sharing, 
+        //         (OpenMP::DependencyDirection)(DEP_REDUCTION));
     }
 
     void Core::get_dependences_info_clause(PragmaCustomClause clause,

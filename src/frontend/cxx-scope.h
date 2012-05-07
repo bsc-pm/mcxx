@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -23,6 +23,7 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
 
 
 
@@ -158,6 +159,8 @@ LIBMCXX_EXTERN unsigned long long symbols_used_memory(void);
 LIBMCXX_EXTERN scope_entry_t* lookup_of_template_parameter(decl_context_t context, 
         int template_parameter_nesting, int template_parameter_position);
 
+LIBMCXX_EXTERN char is_id_expression(AST a);
+LIBMCXX_EXTERN char is_qualified_id_expression(AST a);
 LIBMCXX_EXTERN char is_unqualified_id_expression(AST a);
 
 LIBMCXX_EXTERN char is_inline_namespace_of(decl_context_t inner_namespace_ctx, 
@@ -185,7 +188,6 @@ LIBMCXX_EXTERN template_parameter_value_t* update_template_parameter_value(
 
 // Friend support
 LIBMCXX_EXTERN char is_friend_declared(scope_entry_t* entry);
-LIBMCXX_EXTERN scope_entry_list_t* filter_friend_declared(scope_entry_list_t* entry_list);
 
 // Iteration in scopes
 LIBMCXX_EXTERN void scope_for_each_entity(scope_t* sc, void *data, void (fun)(scope_entry_list_t*, void*));
@@ -222,7 +224,7 @@ LIBMCXX_EXTERN scope_entry_list_t* class_context_lookup(decl_context_t decl_cont
 // C++ names
 LIBMCXX_EXTERN nodecl_t nodecl_name_get_last_part(nodecl_t nodecl_name);
 LIBMCXX_EXTERN char nodecl_name_ends_in_template_id(nodecl_t nodecl_name);
-LIBMCXX_EXTERN template_parameter_list_t* nodecl_name_name_last_template_arguments(nodecl_t nodecl_name);
+LIBMCXX_EXTERN template_parameter_list_t* nodecl_name_get_last_template_arguments(nodecl_t nodecl_name);
 
 LIBMCXX_EXTERN type_t* build_dependent_typename_for_entry(
         scope_entry_t* class_symbol,

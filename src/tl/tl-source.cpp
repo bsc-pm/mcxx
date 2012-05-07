@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -23,6 +23,7 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
 
 
 
@@ -608,7 +609,8 @@ namespace TL
         if (ASTType(a) == AST_COMMON_NAME)
         {
             // We allow common names in expressions
-            scope_entry_t* entry = ::query_common_name(decl_context, ASTText(ASTSon0(a)));
+            scope_entry_t* entry = ::query_common_name(decl_context, ASTText(ASTSon0(a)),
+                    ASTFileName(ASTSon0(a)), ASTLine(ASTSon0(a)));
             if (entry != NULL)
             {
                 *nodecl_output = ::nodecl_make_symbol(entry, ASTFileName(a), ASTLine(a));

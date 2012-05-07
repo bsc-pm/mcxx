@@ -1,6 +1,6 @@
 # OpenMP + Nanos 
 [omp-base]
-options =
+options = --openmp
 {debug} options = -g
 {(instrument|instrumentation)} options = --variable=instrument:1
 preprocessor_name = gcc

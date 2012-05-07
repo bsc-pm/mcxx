@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -23,6 +23,7 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
 
 
 #ifndef FORTRAN03_BUILDSCOPE_H
@@ -55,6 +56,7 @@ LIBMF03_EXTERN scope_entry_t* function_get_result_symbol(scope_entry_t* entry);
 
 LIBMF03_EXTERN scope_entry_t* get_data_symbol_info(decl_context_t decl_context_t);
 LIBMF03_EXTERN scope_entry_t* get_equivalence_symbol_info(decl_context_t decl_context);
+LIBMF03_EXTERN scope_entry_t* get_used_modules_symbol_info(decl_context_t decl_context);
 
 LIBMF03_EXTERN scope_entry_t* fortran_query_label(AST label, 
         decl_context_t decl_context, 
@@ -66,7 +68,8 @@ LIBMF03_EXTERN void remove_untyped_symbol(decl_context_t decl_context, scope_ent
 LIBMF03_EXTERN void add_unknown_kind_symbol(decl_context_t decl_context, scope_entry_t* entry);
 LIBMF03_EXTERN void remove_unknown_kind_symbol(decl_context_t decl_context, scope_entry_t* entry);
 
-LIBMF03_EXTERN scope_entry_t* query_common_name(decl_context_t decl_context, const char* common_name);
+LIBMF03_EXTERN scope_entry_t* query_common_name(decl_context_t decl_context, const char* common_name,
+        const char* filename, int line);
 
 MCXX_END_DECLS
 

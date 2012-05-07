@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -23,6 +23,7 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
 
 
 
@@ -145,6 +146,13 @@ namespace TL
 
         return result;
     }
+    
+    Scope Symbol::get_related_scope() const
+    {
+        Scope result(_symbol->related_decl_context);
+
+        return result;
+    }
 
     Symbol& Symbol::operator=(Symbol s)
     {
@@ -198,6 +206,11 @@ namespace TL
         return (this->_symbol->kind == SK_FUNCTION);
     }
 
+    bool Symbol::is_module_procedure() const
+    {
+        return (this->_symbol->entity_specs.is_module_procedure);
+    }
+
     bool Symbol::is_nested_function() const
     {
         return (this->_symbol->entity_specs.is_nested_function);
@@ -243,6 +256,21 @@ namespace TL
     Symbol Symbol::in_module() const
     {
         return this->_symbol->entity_specs.in_module;
+    }
+
+    bool Symbol::is_from_module() const
+    {
+        return (this->_symbol->entity_specs.from_module != NULL);
+    }
+
+    Symbol Symbol::from_module() const
+    {
+        return this->_symbol->entity_specs.from_module;
+    }
+
+    Symbol Symbol::aliased_from_module() const
+    {
+        return this->_symbol->entity_specs.alias_to;
     }
 
     bool Symbol::is_fortran_blockdata() const
@@ -441,6 +469,11 @@ namespace TL
         return _symbol->value;
     }
 
+    Nodecl::NodeclBase Symbol::get_value() const
+    {
+        return _symbol->value;
+    }
+    
     bool Symbol::has_namespace_scope() const
     {
         return _symbol->decl_context.current_scope != NULL
@@ -506,6 +539,11 @@ namespace TL
         return _symbol->defined;
     }
 
+    bool Symbol::is_defined_inside_class() const
+    {
+        return _symbol->entity_specs.is_defined_inside_class_specifier;
+    }
+
     bool Symbol::not_to_be_printed() const
     {
         return _symbol->do_not_print;
@@ -567,6 +605,11 @@ namespace TL
     bool Symbol::is_optional() const
     {
         return _symbol->entity_specs.is_optional;
+    }
+
+    bool Symbol::is_saved_program_unit() const
+    {
+        return _symbol->entity_specs.is_saved_program_unit;
     }
 
     bool Symbol::is_target() const

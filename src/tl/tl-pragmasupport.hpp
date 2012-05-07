@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -23,6 +23,7 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
 
 
 
@@ -225,9 +226,21 @@ namespace TL
             //! Returns a clause by name
             TL::PragmaCustomClause get_clause(const std::string &name) const;
 
+            //! Returns a clause by name or a deprecated name
+            TL::PragmaCustomClause get_clause(const std::string &name, const std::string& deprecated_name) const;
+
             //! Returns a clause by a set of alias names
             TL::PragmaCustomClause get_clause(const ObjectList<std::string>& aliased_names) const;
 
+            //! Returns a clause by name or a list of deprecated names
+            TL::PragmaCustomClause get_clause(const std::string &name,
+                    const ObjectList<std::string>& deprecated_names) const;
+            
+            //! Returns a clause by a set of alias names and deprecated names
+            TL::PragmaCustomClause get_clause(
+                    const ObjectList<std::string>& aliased_names,
+                    const ObjectList<std::string>& deprecated_names) const;
+            
             //! This function returns all clauses in the order they appear in the pragma
             ObjectList<TL::PragmaCustomSingleClause> get_all_clauses() const;
 
@@ -443,10 +456,12 @@ namespace TL
 
             //! Entry point of the phase
             /*!
-             * This function registers traverse functors to perform
-             * a traversal on all the constructs and directives.
+             * This function calls PragmaCustomCompilerPhase::walk
              */
             virtual void run(DTO& data_flow);
+
+            //! Walk the tree as if called from run
+            void walk(Nodecl::NodeclBase& node);
 
             //! Function to register a directive
             /*!

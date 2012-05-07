@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -23,6 +23,7 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
 
 
 
@@ -99,11 +100,11 @@ LIBMCXX_EXTERN type_t* get_indirect_type(scope_entry_t* entry);
 
 LIBMCXX_EXTERN type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entity, 
         nodecl_t dependent_parts);
-LIBMCXX_EXTERN enum class_kind_t get_dependent_entry_kind(type_t* t);
-LIBMCXX_EXTERN void set_dependent_entry_kind(type_t* t, enum class_kind_t kind);
+LIBMCXX_EXTERN enum type_tag_t get_dependent_entry_kind(type_t* t);
+LIBMCXX_EXTERN void set_dependent_entry_kind(type_t* t, enum type_tag_t kind);
 
 LIBMCXX_EXTERN type_t* get_new_enum_type(decl_context_t decl_context);
-LIBMCXX_EXTERN type_t* get_new_class_type(decl_context_t decl_context, enum class_kind_t class_kind);
+LIBMCXX_EXTERN type_t* get_new_class_type(decl_context_t decl_context, enum type_tag_t class_kind);
 
 LIBMCXX_EXTERN type_t* get_new_template_type(template_parameter_list_t* template_parameter_list, type_t* primary_type,
         const char* template_name, decl_context_t decl_context, int line, const char* filename);
@@ -113,6 +114,8 @@ LIBMCXX_EXTERN type_t* get_complex_type(type_t* t);
 LIBMCXX_EXTERN type_t* get_unresolved_overloaded_type(const scope_entry_list_t* overload_set,
         template_parameter_list_t* explicit_template_parameters);
 LIBMCXX_EXTERN template_parameter_list_t* unresolved_overloaded_type_get_explicit_template_arguments(type_t* t);
+
+LIBMCXX_EXTERN template_parameter_list_t* compute_template_parameter_values_of_primary(template_parameter_list_t* template_parameter_list);
 
 LIBMCXX_EXTERN scope_entry_t* unresolved_overloaded_type_simplify(type_t* t, 
         decl_context_t decl_context, const char* filename, int line);
@@ -307,6 +310,9 @@ LIBMCXX_EXTERN char is_union_type(type_t* possible_union);
 
 LIBMCXX_EXTERN char is_named_type(type_t* t);
 
+// All indirect types are named types (the converse is not always true)
+LIBMCXX_EXTERN char is_indirect_type(type_t* t);
+
 LIBMCXX_EXTERN char is_void_type(type_t* t);
 LIBMCXX_EXTERN char is_void_pointer_type(type_t* t1);
 
@@ -339,6 +345,10 @@ LIBMCXX_EXTERN char is_pseudo_destructor_call_type(type_t *t);
 LIBMCXX_EXTERN char is_literal_string_type(type_t* t);
 
 LIBMCXX_EXTERN char is_template_type(type_t* t);
+
+LIBMCXX_EXTERN char is_literal_type(type_t* t);
+
+LIBMCXX_EXTERN char is_trivial_type(type_t* t);
 
 LIBMCXX_EXTERN char is_scalar_type(type_t* t);
 
@@ -422,7 +432,7 @@ LIBMCXX_EXTERN int enum_type_get_num_enumerators(type_t* t);
 LIBMCXX_EXTERN scope_entry_t* enum_type_get_enumerator_num(type_t* t, int n);
 LIBMCXX_EXTERN type_t* enum_type_get_underlying_type(type_t* t);
 
-LIBMCXX_EXTERN enum class_kind_t class_type_get_class_kind(type_t* t);
+LIBMCXX_EXTERN enum type_tag_t class_type_get_class_kind(type_t* t);
 LIBMCXX_EXTERN int class_type_get_num_bases(type_t* class_type);
 LIBMCXX_EXTERN scope_entry_t* class_type_get_base_num(type_t* class_type, int num, 
         char *is_virtual, 
@@ -472,10 +482,16 @@ LIBMCXX_EXTERN type_t* template_type_get_primary_type(type_t* t);
 LIBMCXX_EXTERN type_t* template_type_get_matching_specialized_type(type_t* t,
         template_parameter_list_t* template_parameter_list,
         decl_context_t decl_context);
-LIBMCXX_EXTERN type_t* template_type_get_specialized_type(type_t* t, 
+
+LIBMCXX_EXTERN type_t* template_type_get_specialized_type(type_t* t,
         template_parameter_list_t * template_parameters,
-        decl_context_t decl_context, 
+        decl_context_t decl_context,
         const char* filename, int line);
+LIBMCXX_EXTERN type_t* template_type_get_specialized_type_noreuse(type_t* t,
+        template_parameter_list_t * template_parameters,
+        decl_context_t decl_context,
+        const char* filename, int line);
+
 LIBMCXX_EXTERN type_t* template_type_get_specialized_type_after_type(type_t* t, 
         template_parameter_list_t *template_parameters, 
         type_t* after_type,
@@ -579,6 +595,7 @@ LIBMCXX_EXTERN const char* get_declaration_string_internal(type_t* type_info,
         const char** parameter_names,
         const char** parameter_attributes,
         char is_parameter);
+
 LIBMCXX_EXTERN const char* get_simple_type_name_string(decl_context_t decl_context, type_t* type_info);
 LIBMCXX_EXTERN const char* get_named_type_name(scope_entry_t* entry);
 
@@ -639,6 +656,11 @@ LIBMCXX_EXTERN size_t get_type_t_size(void);
 
 LIBMCXX_EXTERN const char* print_decl_type_str(type_t* t, decl_context_t decl_context, const char* name);
 LIBMCXX_EXTERN const char* print_type_str(type_t* t, decl_context_t decl_context);
+
+// DO NOT USE THESE FUNCTIONS!
+// They are used solely for Fortran modules and type serialization
+LIBMCXX_EXTERN type_t* _type_get_empty_type(void);
+LIBMCXX_EXTERN void _type_assign_to(type_t*, type_t*);
 
 MCXX_END_DECLS
 

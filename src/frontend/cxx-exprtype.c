@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -26,6 +26,7 @@
 
 
 
+
 #include "cxx-exprtype.h"
 #include "cxx-ambiguity.h"
 #include "cxx-utils.h"
@@ -49,6 +50,9 @@
 #include "cxx-codegen.h"
 #include <ctype.h>
 #include <string.h>
+
+#include <math.h>
+#include <errno.h>
 
 #include "fortran/fortran03-exprtype.h"
 
@@ -543,7 +547,6 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
                 break;
             }
         case AST_QUALIFIED_ID :
-        case AST_QUALIFIED_TEMPLATE :
             {
                 check_qualified_id(expression, decl_context, nodecl_output);
 
@@ -868,6 +871,11 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
                 break;
             }
             // Special nodes
+        case AST_NODECL_LITERAL:
+            {
+                *nodecl_output = nodecl_make_from_ast_nodecl_literal(expression);
+                break;
+            }
         case AST_DIMENSION_STR:
             {
                 internal_error("Not supported", 0);
@@ -996,54 +1004,158 @@ static void decimal_literal_type(AST expr, nodecl_t* nodecl_output)
         last--;
     }
 
-    type_t* result = NULL;
-    switch (is_long)
-    {
-        case 0 :
-            {
-                result = ((is_unsigned == 0 ) ? get_signed_int_type() : get_unsigned_int_type());
+    char is_decimal = (ASTType(expr) == AST_DECIMAL_LITERAL);
 
-                if (is_unsigned)
-                {
-                    result = get_unsigned_int_type();
-                    val = const_value_get_integer(strtoul(literal, NULL, 0), type_get_size(result), /*sign*/ 0);
-                }
-                else
-                {
-                    result = get_signed_int_type();
-                    val = const_value_get_integer(strtol(literal, NULL, 0), type_get_size(result), /* sign*/ 1);
-                }
-                break;
-            }
-        case 1 : 
-            {
-                if (is_unsigned)
-                {
-                    result = get_unsigned_long_int_type();
-                    val = const_value_get_integer(strtoul(literal, NULL, 0), type_get_size(result), 0);
-                }
-                else
-                {
-                    result = get_signed_long_int_type();
-                    val = const_value_get_integer(strtol(literal, NULL, 0), type_get_size(result), 1);
-                }
-                break;
-            }
-        default :
-            {
-                if (is_unsigned)
-                {
-                    result = get_unsigned_long_long_int_type();
-                    val = const_value_get_integer(strtoull(literal, NULL, 0), type_get_size(result), 0);
-                }
-                else
-                {
-                    result = get_signed_long_long_int_type();
-                    val = const_value_get_integer(strtoll(literal, NULL, 0), type_get_size(result), 1);
-                }
-                break;
-            }
+    type_t** eligible_types = NULL;
+    int num_eligible_types = 0;
+
+    // decimal no suffix -> int, long, long long
+    type_t* decimal_no_suffix[] = { 
+        get_signed_int_type(), 
+        get_signed_long_int_type(), 
+        get_signed_long_long_int_type() 
+    };
+
+    if (is_decimal
+            && !is_unsigned
+            && !is_long)
+    {
+        eligible_types = decimal_no_suffix;
+        num_eligible_types = STATIC_ARRAY_LENGTH(decimal_no_suffix);
     }
+
+    // oct/hex no suffix -> int, unsigned int, long, unsigned long, long long, unsigned long long
+    type_t* nondecimal_no_suffix[] = { 
+        get_signed_int_type(),
+        get_unsigned_int_type(),
+        get_signed_long_int_type(),
+        get_unsigned_long_int_type(),
+        get_signed_long_long_int_type(),
+        get_unsigned_long_long_int_type() 
+    };
+
+    if (!is_decimal
+            && !is_unsigned
+            && is_long == 0)
+    {
+        eligible_types = nondecimal_no_suffix;
+        num_eligible_types = STATIC_ARRAY_LENGTH(nondecimal_no_suffix);
+    }
+    
+    // U suffix  -> unsigned int, unsigned long, unsigned long long
+    type_t* U_suffix[] =  {
+        get_unsigned_int_type(),
+        get_unsigned_long_int_type(),
+        get_unsigned_long_long_int_type(),
+    };
+
+    if (is_unsigned
+            && is_long == 0)
+    {
+        eligible_types = U_suffix;
+        num_eligible_types = STATIC_ARRAY_LENGTH(U_suffix);
+    }
+
+    // decimal L suffix  -> long, long long
+    type_t* decimal_L_suffix[] = {
+        get_signed_long_int_type(),
+        get_signed_long_long_int_type(),
+    };
+
+    if (is_decimal
+            && !is_unsigned
+            && is_long == 1)
+    {
+        eligible_types = decimal_L_suffix;
+        num_eligible_types = STATIC_ARRAY_LENGTH(decimal_L_suffix);
+    }
+
+    // oct/hex L suffix -> long, unsigned long, long long, unsigned long long
+    type_t* nondecimal_L_suffix[] = {
+        get_signed_long_int_type(),
+        get_unsigned_long_int_type(),
+        get_signed_long_long_int_type(),
+        get_unsigned_long_long_int_type(),
+    };
+
+    if (!is_decimal
+            && !is_unsigned
+            && is_long == 1)
+    {
+        eligible_types = nondecimal_L_suffix;
+        num_eligible_types = STATIC_ARRAY_LENGTH(nondecimal_L_suffix);
+    }
+
+    // UL suffix -> unsigned long, unsigned long long
+    type_t* UL_suffix[] = { 
+        get_unsigned_long_int_type(),
+        get_unsigned_long_long_int_type(),
+    };
+
+    if (is_unsigned
+            && is_long == 1)
+    {
+        eligible_types = UL_suffix;
+        num_eligible_types = STATIC_ARRAY_LENGTH(UL_suffix);
+    }
+
+    // LL suffix -> long long, unsigned long logn
+    type_t* decimal_LL_suffix[] = {
+        get_signed_long_long_int_type(),
+    };
+
+    if (is_decimal
+            && !is_unsigned
+            && is_long == 2)
+    {
+        eligible_types = decimal_LL_suffix;
+        num_eligible_types = STATIC_ARRAY_LENGTH(decimal_LL_suffix);
+    }
+
+    type_t* nondecimal_LL_suffix[] = {
+        get_signed_long_long_int_type(),
+        get_unsigned_long_long_int_type(),
+    };
+
+    if (!is_decimal
+            && !is_unsigned
+            && is_long == 2)
+    {
+        eligible_types = nondecimal_LL_suffix;
+        num_eligible_types = STATIC_ARRAY_LENGTH(nondecimal_LL_suffix);
+    }
+
+    // ULL suffix -> unsigned long long
+    type_t* ULL_suffix[] = {
+        get_unsigned_long_long_int_type(),
+    };
+
+    if (is_unsigned
+            && is_long == 2)
+    {
+        eligible_types = ULL_suffix;
+        num_eligible_types = STATIC_ARRAY_LENGTH(ULL_suffix);
+    }
+
+    ERROR_CONDITION(eligible_types == NULL, "No set of eligible types has been computed", 0);
+
+    uint64_t parsed_value = (uint64_t)strtoull(literal, NULL, 0);
+
+    type_t* result =
+        const_value_get_minimal_integer_type_from_list_of_types(
+                parsed_value,
+                num_eligible_types,
+                eligible_types);
+
+    if (result == NULL)
+    {
+        error_printf("%s: error: there is not any appropiate integer type for constant '%s', assuming 'unsigned long long'\n",
+                ast_location(expr),
+                ASTText(expr));
+        result = get_unsigned_long_long_int_type();
+    }
+
+    val = const_value_get_integer(strtoul(literal, NULL, 0), type_get_size(result), /*sign*/ 0);
 
     // Zero is a null pointer constant requiring a distinguishable 'int' type
     if (ASTType(expr) == AST_OCTAL_LITERAL
@@ -1180,6 +1292,22 @@ static void character_literal_type(AST expr, nodecl_t* nodecl_output)
             ASTFileName(expr), ASTLine(expr));
 }
 
+#define check_range_of_floating(expr, text, value, typename) \
+    do { \
+        if (value == 0 && errno == ERANGE) \
+        { \
+            error_printf("%s: error: value '%s' underflows %s\n", \
+                    ast_location(expr), text, typename); \
+            value = 0.0; \
+        } \
+        else if (isinf(value)) \
+        { \
+            error_printf("%s: error: value '%s' overflows %s\n", \
+                    ast_location(expr), text, typename); \
+            value = 0.0; \
+        } \
+    } while (0)
+
 static void floating_literal_type(AST expr, nodecl_t* nodecl_output)
 {
     const_value_t* value = NULL;
@@ -1220,7 +1348,10 @@ static void floating_literal_type(AST expr, nodecl_t* nodecl_output)
     {
         result = get_long_double_type();
 
+        errno = 0;
         long double ld = strtold(literal, NULL);
+        check_range_of_floating(expr, literal, ld, "long double");
+
         value = const_value_get_long_double(ld);
 
         if (is_complex)
@@ -1230,7 +1361,10 @@ static void floating_literal_type(AST expr, nodecl_t* nodecl_output)
     {
         result = get_float_type();
 
+        errno = 0;
         float f = strtof(literal, NULL);
+        check_range_of_floating(expr, literal, f, "float");
+
         value = const_value_get_float(f);
 
         if (is_complex)
@@ -1240,7 +1374,10 @@ static void floating_literal_type(AST expr, nodecl_t* nodecl_output)
     {
         result = get_double_type();
 
+        errno = 0;
         double d = strtod(literal, NULL);
+        check_range_of_floating(expr, literal, d, "double");
+
         value = const_value_get_double(d);
 
         if (is_complex)
@@ -1636,14 +1773,14 @@ static char both_operands_are_vector_types(type_t* lhs_type, type_t* rhs_type)
 
 static char one_scalar_operand_and_one_vector_operand(type_t* lhs_type, type_t* rhs_type)
 {
-    return (is_vector_type(lhs_type) && is_scalar_type(rhs_type))
-           || (is_scalar_type(lhs_type) && is_vector_type(rhs_type));
+    return (is_vector_type(lhs_type) && is_arithmetic_type(rhs_type)) ||
+           (is_vector_type(rhs_type) && is_arithmetic_type(lhs_type));
 }
 
 static char left_operand_is_vector_and_right_operand_is_scalar(type_t* lhs_type, type_t* rhs_type)
 {
-    return (is_vector_type(lhs_type) && is_scalar_type(rhs_type));
-}    
+    return (is_vector_type(lhs_type) && is_arithmetic_type(rhs_type));
+}
 
 static char is_pointer_and_integral_type(type_t* lhs_type, type_t* rhs_type)
 {
@@ -4832,8 +4969,7 @@ static void parse_reference(AST op,
     {
         // C++ from now
         // We need this function because this operator is so silly in C++
-        if (ASTType(op) == AST_QUALIFIED_ID
-                || ASTType(op) == AST_QUALIFIED_TEMPLATE)
+        if (ASTType(op) == AST_QUALIFIED_ID)
         {
             nodecl_t op_name = nodecl_null();
             compute_nodecl_name_from_id_expression(op, decl_context, &op_name);
@@ -4929,7 +5065,7 @@ static void compute_operator_reference_type(nodecl_t* op,
             template_parameter_list_t* last_template_args = NULL;
             if (nodecl_name_ends_in_template_id(*op))
             {
-                last_template_args = nodecl_name_name_last_template_arguments(*op);
+                last_template_args = nodecl_name_get_last_template_arguments(*op);
             }
 
             type_t* t = get_unresolved_overloaded_type(entry_list, last_template_args);
@@ -5302,8 +5438,6 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
         }
     }
 
-    entry_list = filter_friend_declared(entry_list);
-
     if (entry_list == NULL)
     {
         if (!checking_ambiguity())
@@ -5330,7 +5464,7 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
     template_parameter_list_t* last_template_args = NULL;
     if (nodecl_name_ends_in_template_id(nodecl_name))
     {
-        last_template_args = nodecl_name_name_last_template_arguments(nodecl_name);
+        last_template_args = nodecl_name_get_last_template_arguments(nodecl_name);
     }
 
     if (entry->kind == SK_VARIABLE)
@@ -5478,7 +5612,7 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
         }
 
         type_t* t =  get_unresolved_overloaded_type(entry_list, last_template_args);
-        *nodecl_output = nodecl_make_symbol(entry, nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name));
+        *nodecl_output = nodecl_make_symbol(named_type, nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name));
         nodecl_set_type(*nodecl_output, t);
 
         if (last_template_args != NULL
@@ -5516,7 +5650,7 @@ static void cxx_common_name_check(AST expr, decl_context_t decl_context, nodecl_
         return;
     }
 
-    scope_entry_list_t* result_list = query_nodecl_name_flags(decl_context, nodecl_name, DF_DEPENDENT_TYPENAME);
+    scope_entry_list_t* result_list = query_nodecl_name_flags(decl_context, nodecl_name, DF_DEPENDENT_TYPENAME | DF_IGNORE_FRIEND_DECL);
 
     cxx_compute_name_from_entry_list(nodecl_name, result_list, decl_context, nodecl_output);
 }
@@ -7361,8 +7495,8 @@ static scope_entry_list_t* do_koenig_lookup(nodecl_t nodecl_simple_name,
         decl_context_t decl_context)
 {
     // First try to do a normal lookup
-    scope_entry_list_t* entry_list = query_name_str(decl_context, 
-            nodecl_get_text(nodecl_simple_name));
+    scope_entry_list_t* entry_list = query_name_str_flags(decl_context, 
+            nodecl_get_text(nodecl_simple_name), DF_IGNORE_FRIEND_DECL);
 
     enum cxx_symbol_kind filter_function_names[] = 
     {
@@ -7519,11 +7653,6 @@ static scope_entry_list_t* do_koenig_lookup(nodecl_t nodecl_simple_name,
     old_entry_list = entry_list;
     entry_list = filter_symbol_kind_set(old_entry_list,
             STATIC_ARRAY_LENGTH(filter_function_names), filter_function_names);
-    entry_list_free(old_entry_list);
-
-    // Remove friend declared
-    old_entry_list = entry_list;
-    entry_list = filter_friend_declared(entry_list);
     entry_list_free(old_entry_list);
 
     // Filter the list again
@@ -7881,6 +8010,7 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
     scope_entry_list_t* candidates = NULL;
     template_parameter_list_t* explicit_template_arguments = NULL;
     type_t* called_type = NULL;
+    char success_koenig_lookup = 1;
     if (nodecl_get_kind(nodecl_called) == NODECL_CXX_DEP_NAME_SIMPLE)
     {
         candidates = do_koenig_lookup(nodecl_called, nodecl_argument_list, decl_context);
@@ -7888,7 +8018,8 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
         if (candidates == NULL)
         {
             // Try a plain lookup
-            candidates = query_nodecl_name_flags(decl_context, nodecl_called, DF_DEPENDENT_TYPENAME);
+            success_koenig_lookup = 0;
+            candidates = query_nodecl_name_flags(decl_context, nodecl_called, DF_DEPENDENT_TYPENAME | DF_IGNORE_FRIEND_DECL);
         }
 
         if (candidates == NULL)
@@ -7908,6 +8039,31 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
         }
     }
 
+    // A koenig lookup may find a friend function declaration symbol and this symbol has not been defined by the user
+    //
+    // Example:
+    // namespace N
+    // {
+    //     class A
+    //     {
+    //         friend void f(int, const A&);
+    //     };
+    //     void g()
+    //     {
+    //         A a;
+    //         f(3,a); // Koenig
+    //     }
+    // }
+    if (success_koenig_lookup)
+    {
+        scope_entry_t* called_symbol = nodecl_get_symbol(nodecl_called);
+        // We want to declare it
+        if (called_symbol != NULL)
+        {
+            called_symbol->entity_specs.is_friend_declared = 0;
+        }
+    }
+
     if (nodecl_expr_is_type_dependent(nodecl_called)
             // It may be value dependent if we are calling a nontype template
             // parameter with type pointer to function
@@ -7915,6 +8071,7 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
     {
         *nodecl_output = nodecl_make_function_call(nodecl_called,
                 nodecl_argument_list,
+                /* alternate_name */ nodecl_null(),
                 get_unknown_dependent_type(),
                 filename, line);
         nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
@@ -8000,6 +8157,7 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
             *nodecl_output = nodecl_make_function_call(
                     nodecl_called,
                     nodecl_argument_list_output,
+                    /* alternate_name */ nodecl_null(),
                     return_type,
                     filename, line);
 
@@ -8447,12 +8605,20 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t 
             check_expression_impl_(called_expression, decl_context, &nodecl_called);
         }
 
-        if (any_arg_is_dependent 
+        if (any_arg_is_dependent
                 || nodecl_expr_is_type_dependent(nodecl_called))
         {
+            if (is_id_expression(called_expression))
+            {
+                // The code is dependent. For this reason we should ignore the nodecl constructed in
+                // the function 'check_expression_impl_' and compute a new nodecl using the original AST.
+                compute_nodecl_name_from_id_expression(called_expression, decl_context, &nodecl_called);
+            }
+            
             *nodecl_output = nodecl_make_function_call(
                     nodecl_called,
                     nodecl_argument_list,
+                    /* alternate_name */ nodecl_null(),
                     get_unknown_dependent_type(),
                     ASTFileName(expr), ASTLine(expr));
             nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
@@ -9166,7 +9332,7 @@ static void check_nodecl_member_access(
             template_parameter_list_t* last_template_args = NULL;
             if (nodecl_name_ends_in_template_id(nodecl_member))
             {
-                last_template_args = nodecl_name_name_last_template_arguments(nodecl_member);
+                last_template_args = nodecl_name_get_last_template_arguments(nodecl_member);
             }
 
             type_t* t = get_unresolved_overloaded_type(entry_list, last_template_args);
@@ -10557,7 +10723,6 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
         else
         {
             // Empty is OK
-            // FIXME: Should we compute the default value instead of an empty tree?
             *nodecl_output = nodecl_make_structured_value(nodecl_null(), 
                     declared_type,
                     nodecl_get_filename(braced_initializer), 
@@ -10569,17 +10734,40 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
     internal_error("Code unreachable", 0);
 }
 
+typedef
+struct designator_path_item_tag
+{
+    node_t kind;
+    nodecl_t value;
+} designator_path_item_t;
+
+typedef
+struct designator_path_tag
+{
+    int num_items;
+    designator_path_item_t* items;
+} designator_path_t;
+
 static void check_nodecl_designation_type(nodecl_t nodecl_designation,
         decl_context_t decl_context, 
         type_t* declared_type,
         type_t** designated_type,
-        scope_entry_t** designated_field,
-        nodecl_t* nodecl_output)
+        nodecl_t* nodecl_output,
+        designator_path_t* designator_path
+        )
 { 
     (*designated_type) = declared_type;
 
     int num_designators = 0;
     nodecl_t* nodecl_designator_list = nodecl_unpack_list(nodecl_designation, &num_designators);
+
+    ERROR_CONDITION(num_designators == 0, "Invalid number of designators", 0);
+
+    if (designator_path != NULL)
+    {
+        designator_path->num_items = num_designators;
+        designator_path->items = calloc(num_designators, sizeof(*designator_path->items));
+    }
 
     int i;
     char ok = 1;
@@ -10604,7 +10792,6 @@ static void check_nodecl_designation_type(nodecl_t nodecl_designation,
                     }
                     else
                     {
-
                         nodecl_t nodecl_name = nodecl_get_child(nodecl_current_designator, 0);
                         scope_entry_list_t* entry_list = get_member_of_class_type_nodecl(
                                 decl_context,
@@ -10621,7 +10808,15 @@ static void check_nodecl_designation_type(nodecl_t nodecl_designation,
                             if (entry->kind == SK_VARIABLE)
                             {
                                 (*designated_type)  = entry->type_information;
-                                (*designated_field) = entry;
+
+                                if (designator_path != NULL)
+                                {
+                                    designator_path->items[i].kind = NODECL_FIELD_DESIGNATOR;
+                                    designator_path->items[i].value = 
+                                        nodecl_make_symbol(entry, 
+                                                nodecl_get_filename(nodecl_current_designator),
+                                                nodecl_get_line(nodecl_current_designator));
+                                }
                             }
                             else
                             {
@@ -10646,8 +10841,14 @@ static void check_nodecl_designation_type(nodecl_t nodecl_designation,
                     }
                     else
                     {
-                        // We should check that the array is not unbounded
                         *designated_type = array_type_get_element_type(*designated_type);
+
+                        if (designator_path != NULL)
+                        {
+                            designator_path->items[i].kind = NODECL_INDEX_DESIGNATOR;
+                            designator_path->items[i].value = 
+                                nodecl_copy(nodecl_get_child(nodecl_current_designator, 0));
+                        }
                     }
                     break;
                 }
@@ -10674,12 +10875,14 @@ static void check_nodecl_designated_initializer(nodecl_t designated_initializer,
         nodecl_t* nodecl_output)
 {
     type_t* designated_type  = NULL;
-    //the designated_field is not useful in this case
-    scope_entry_t* designated_field = NULL;
     nodecl_t error_designation = nodecl_null();
 
+    designator_path_t designated_path;
+
     check_nodecl_designation_type(nodecl_get_child(designated_initializer, 0), 
-            decl_context, declared_type, &designated_type, &designated_field, &error_designation);
+            decl_context, declared_type, &designated_type, 
+            &error_designation,
+            &designated_path);
     
     if(!nodecl_is_null(error_designation) && nodecl_is_err_expr(error_designation)) 
     {
@@ -10691,6 +10894,26 @@ static void check_nodecl_designated_initializer(nodecl_t designated_initializer,
 
     nodecl_t nodecl_initializer_clause = nodecl_get_child(designated_initializer, 1);
     check_nodecl_initializer_clause(nodecl_initializer_clause, decl_context, designated_type, nodecl_output);
+
+    // Now build the designation, it must be built backwards
+    int i; 
+    for (i = designated_path.num_items - 1; i >= 0; i--)
+    {
+        nodecl_t (*nodecl_ptr_fun)(nodecl_t, nodecl_t, const char*, int line);
+
+        if (designated_path.items[i].kind == NODECL_FIELD_DESIGNATOR)
+            nodecl_ptr_fun = nodecl_make_field_designator;
+        else if (designated_path.items[i].kind == NODECL_INDEX_DESIGNATOR)
+            nodecl_ptr_fun = nodecl_make_index_designator;
+        else
+            internal_error("Code unreachable", 0);
+
+        *nodecl_output = (nodecl_ptr_fun)(
+                designated_path.items[i].value,
+                *nodecl_output, 
+                nodecl_get_filename(*nodecl_output),
+                nodecl_get_line(*nodecl_output));
+    }
 }
 
 static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer, 
@@ -10774,6 +10997,7 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
                     nodecl_arg = nodecl_make_function_call(
                             nodecl_make_symbol(conversors[i], nodecl_get_filename(nodecl_arg), nodecl_get_line(nodecl_arg)),
                             nodecl_make_list_1(nodecl_arg),
+                            /* alternate_name */ nodecl_null(),
                             actual_type_of_conversor(conversors[i]), nodecl_get_filename(nodecl_arg), nodecl_get_line(nodecl_arg));
                 }
 
@@ -12340,7 +12564,6 @@ static void check_gcc_offset_designation(nodecl_t nodecl_designator,
         const char* filename,
         int line)
 {
-
     if (!is_complete_type(accessed_type))
     {
         error_printf("%s:%d: error: invalid use of incomplete type '%s'\n", 
@@ -12352,12 +12575,13 @@ static void check_gcc_offset_designation(nodecl_t nodecl_designator,
 
     //the designated_type is not useful in this case
     type_t* designated_type  = NULL;
-    scope_entry_t* designated_field = NULL;
     nodecl_t error_designation = nodecl_null(); 
-   
-   check_nodecl_designation_type(nodecl_designator, decl_context, 
-        accessed_type, &designated_type, &designated_field, &error_designation);
-    
+
+    designator_path_t designated_path;
+
+    check_nodecl_designation_type(nodecl_designator, decl_context, 
+            accessed_type, &designated_type, &error_designation, &designated_path);
+
     if(!nodecl_is_null(error_designation) && nodecl_is_err_expr(error_designation)) 
     {
         *nodecl_output = nodecl_make_err_expr(
@@ -12366,9 +12590,15 @@ static void check_gcc_offset_designation(nodecl_t nodecl_designator,
         return;
     }
 
+    ERROR_CONDITION(designated_path.num_items == 0, "Invalid designation", 0);
+    ERROR_CONDITION(designated_path.items[designated_path.num_items - 1].kind != NODECL_FIELD_DESIGNATOR,
+            "Invalid designator kind", 0);
+
+    scope_entry_t* designated_field = nodecl_get_symbol(designated_path.items[designated_path.num_items - 1].value);
+
     type_get_size(accessed_type);
     size_t offset_field = designated_field->entity_specs.field_offset;
-  
+
     *nodecl_output = nodecl_make_offsetof(nodecl_make_type(accessed_type, filename, line),
             nodecl_designator, get_signed_int_type(),filename, line);
 
@@ -13795,12 +14025,12 @@ nodecl_t cxx_nodecl_make_function_call(nodecl_t called, nodecl_t arg_list, type_
         }
         else
         {
-            return nodecl_make_function_call(called, converted_arg_list, t, filename, line);
+            return nodecl_make_function_call(called, converted_arg_list, /* alternate_name */ nodecl_null(), t, filename, line);
         }
     }
     else
     {
-        return nodecl_make_function_call(called, converted_arg_list, t, filename, line);
+        return nodecl_make_function_call(called, converted_arg_list, /* alternate_name */ nodecl_null(), t, filename, line);
     }
 }
 
@@ -14313,6 +14543,7 @@ static void instantiate_dep_template_id(nodecl_instantiate_expr_visitor_t* v, no
     nodecl_t nodecl_name = instantiate_expr_walk(v, nodecl_get_child(node, 0));
 
     v->nodecl_result = nodecl_make_cxx_dep_template_id(nodecl_name,
+            nodecl_get_text(node),
             update_template_args,
             nodecl_get_filename(node),
             nodecl_get_line(node));

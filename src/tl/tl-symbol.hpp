@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -23,6 +23,7 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
 
 
 
@@ -122,6 +123,12 @@ namespace TL
 
             //! Gets the scope where this symbol is defined
             Scope get_scope() const;
+    
+            //! Gets the scope related to this symbol
+            /*
+             * The scoping unit introduced by namespaces [C++] and program units [Fortran] and functions [C]
+             */
+            Scope get_related_scope() const;
 
             //! Returns the location of the symbol
             std::string get_locus() const;
@@ -160,6 +167,29 @@ namespace TL
             bool is_template() const;
             //! States whether this symbol is a function
             bool is_function() const;
+
+            //! States whether this symbol is a MODULE PROCEDURE
+            /*!
+             * A module procedure is a procedure (function or subroutine)
+             * defined inside a module. Note that a module procedure returns
+             * true for Symbol::is_in_module and Symbol::is_function. The
+             * converse is not always true, a Symbol::is_function might be
+             * Symbol::is_in_module but not be a module procedure.
+             *
+             * In the example below, QUUX is a module procedure while FOO is not
+             *
+             * MODULE M
+             *   INTERFACE
+             *     SUBROUTINE FOO
+             *     END SUBROUTINE FOO
+             *   END INTERFACE
+             *  CONTAINS
+             *   SUBROUTINE QUUX
+             *   END SUBROUTINE QUUX
+             * END MODULE M
+             */
+            bool is_module_procedure() const;
+
             //! States whether this function is nested
             bool is_nested_function() const;
             //! States whether this symbol is a statement function statmeent symbol
@@ -187,7 +217,22 @@ namespace TL
             //! Returns the MODULE symbol where this symbol belongs
             /*! \note This only makes sense if is_in_module returned true */
             Symbol in_module() const;
+
+            //! States that this symbol is available in this program unit because of a USE statement
+            /*! \note This only applies to Fortran */
+            bool is_from_module() const;
             
+            //! States that this symbol is available in this program unit because of a USE statement
+            /*! \note This only makes sense if is_from_module returned true */
+            Symbol from_module() const;
+
+            //! Returns the original symbol from the module
+            /*!
+             * Symbols where is_from_module returns true, have an alias to the real symbol
+             * of the module. Use this function to get it
+             */
+            Symbol aliased_from_module() const;
+
             //! States that this symbol is a BLOCK DATA program unit
             /*! \note This only applies to Fortran */
             bool is_fortran_blockdata() const;
@@ -235,6 +280,9 @@ namespace TL
             //! Returns the initialization tree
             Nodecl::NodeclBase get_initialization() const;
 
+            //! Returns the nodecl stored in the field _value
+            Nodecl::NodeclBase get_value() const;
+            
             //! States whether this symbol is static
             bool is_static() const;
             //! States whether this symbol is register
@@ -404,6 +452,9 @@ namespace TL
              */
             bool is_defined() const;
 
+            // States whether the symbol is defined inside a class specifier
+            bool is_defined_inside_class() const; 
+
             //! Do not use unless told to do so
             scope_entry_t* get_internal_symbol() const
             {
@@ -467,6 +518,12 @@ namespace TL
               This function is only meaningful in Fortran. In C/C++ it always returns false
               */
             bool is_optional() const;
+
+            //! This Fortran program unit has a global SAVE
+            /*!
+             * States whether this program unit has a SAVE specifier with an empty name-list
+             */
+            bool is_saved_program_unit() const;
 
             //! This symbol is TARGET
             /*! 

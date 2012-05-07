@@ -1,25 +1,29 @@
 /*--------------------------------------------------------------------
-(C) Copyright 2006-2009 Barcelona Supercomputing Center 
-Centro Nacional de Supercomputacion
-
-This file is part of Mercurium C/C++ source-to-source compiler.
-
-This library is free software; you can redistribute it and/or
-modify it under the terms of the GNU Lesser General Public
-License as published by the Free Software Foundation; either
-version 3 of the License, or (at your option) any later version.
-
-Mercurium C/C++ source-to-source compiler is distributed in the hope
-that it will be useful, but WITHOUT ANY WARRANTY; without even the
-implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
-PURPOSE.  See the GNU Lesser General Public License for more
-details.
-
-You should have received a copy of the GNU Lesser General Public
-License along with Mercurium C/C++ source-to-source compiler; if
-not, write to the Free Software Foundation, Inc., 675 Mass Ave,
-Cambridge, MA 02139, USA.
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
 
 #include "cxx-cexpr.h"
 #include "cxx-codegen.h"
@@ -618,14 +622,11 @@ namespace Analysis
                 if (usage_list_contains_englobed_nodecl(n, _usage))
                 {   // delete the englobed part
                     delete_englobed_var_in_usage_list(n, _usage);
-                    std::cerr << "Deleting: " << n.prettyprint() << std::endl;
                 }
                 char usage = '1';
                 if (_defining) usage = '0';
                 struct var_usage_t* new_ipa_var = new var_usage_t(ExtensibleSymbol(n), usage);
-                std::cerr << "  set_up ..... " << n.prettyprint() << "(" << _usage.size() << ")" << std::endl;
                 _usage.insert(new_ipa_var);
-                std::cerr << "(" << _usage.size() << ")" << std::endl;
             }
         }
     }
@@ -871,9 +872,7 @@ namespace Analysis
                             else
                             {   // Is the first use of the variable in the current graph
                                 struct var_usage_t* new_ipa_var = *it;
-                                std::cerr << "  nested ipa ..... " << current_var.prettyprint() << "(" << _usage.size() << ")" << std::endl;
                                 _usage.insert(new_ipa_var);
-                                std::cerr << "(" << _usage.size() << ")" << std::endl;
                             }
                         }
                     }

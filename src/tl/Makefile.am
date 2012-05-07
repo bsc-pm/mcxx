@@ -1,5 +1,5 @@
 ##########################################################################
-#  (C) Copyright 2006-2011 Barcelona Supercomputing Center               #
+#  (C) Copyright 2006-2012 Barcelona Supercomputing Center               #
 #                          Centro Nacional de Supercomputacion           #
 #                                                                        #
 #  This file is part of Mercurium C/C++ source-to-source compiler.       #
@@ -155,6 +155,9 @@ libtl_la_SOURCES = \
 	tl-datareference.cpp \
 	tl-replace.hpp \
 	tl-replace.cpp \
+    tl-modules-fwd.hpp \
+    tl-modules.hpp \
+    tl-modules.cpp \
     $(END)
 
 if WINDOWS_BUILD

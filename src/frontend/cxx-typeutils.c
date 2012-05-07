@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -23,6 +23,7 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
 
 
 
@@ -154,7 +155,7 @@ struct virtual_base_class_info_tag
 typedef 
 struct class_info_tag {
     // Kind of class {struct, class}
-    enum class_kind_t class_kind:4;
+    enum type_tag_t class_kind:4;
 
     // Currently unused
     unsigned char is_local_class:1;
@@ -271,7 +272,7 @@ struct simple_type_tag {
     // Template dependent types (STK_TEMPLATE_DEPENDENT_TYPE)
     scope_entry_t* dependent_entry;
     nodecl_t dependent_parts;
-    enum class_kind_t dependent_entry_kind;  // CK_INVALID will be use as "typename"
+    enum type_tag_t dependent_entry_kind;  
 
     // Complex types, base type of the complex type
     type_t* complex_element;
@@ -1196,21 +1197,17 @@ type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entry,
     return result;
 }
 
-enum class_kind_t get_dependent_entry_kind(type_t* t)
+enum type_tag_t get_dependent_entry_kind(type_t* t)
 {
-    if (t == NULL || t->type == NULL)
-    {
-        return CK_INVALID;
-    }
+    ERROR_CONDITION(!is_dependent_typename_type(t),
+            "This is not a dependent typename type", 0);
     return t->type->dependent_entry_kind;
 }
 
-void set_dependent_entry_kind(type_t* t, enum class_kind_t kind)
+void set_dependent_entry_kind(type_t* t, enum type_tag_t kind)
 {
-    if (t == NULL || t->type == NULL)
-    {
-        internal_error("code unreachable.", 0);
-    }
+    ERROR_CONDITION(!is_dependent_typename_type(t),
+            "This is not a dependent typename type", 0);
     t->type->dependent_entry_kind = kind;
 }
 
@@ -1241,7 +1238,7 @@ type_t* get_new_enum_type(decl_context_t decl_context)
     return type_info;
 }
 
-type_t* get_new_class_type(decl_context_t decl_context, enum class_kind_t class_kind)
+type_t* get_new_class_type(decl_context_t decl_context, enum type_tag_t class_kind)
 {
     _class_type_counter++;
 
@@ -1260,7 +1257,7 @@ type_t* get_new_class_type(decl_context_t decl_context, enum class_kind_t class_
     return type_info;
 }
 
-enum class_kind_t class_type_get_class_kind(type_t* t)
+enum type_tag_t class_type_get_class_kind(type_t* t)
 {
     ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
 
@@ -1269,7 +1266,7 @@ enum class_kind_t class_type_get_class_kind(type_t* t)
     return t->type->class_info->class_kind;
 }
 
-static template_parameter_list_t* compute_template_parameter_values_of_primary(template_parameter_list_t* template_parameter_list)
+template_parameter_list_t* compute_template_parameter_values_of_primary(template_parameter_list_t* template_parameter_list)
 {
     int i;
     template_parameter_list_t* result = duplicate_template_argument_list(template_parameter_list);
@@ -1599,16 +1596,21 @@ type_t* template_type_get_matching_specialized_type(type_t* t,
     return NULL;
 }
 
-type_t* template_type_get_specialized_type_after_type(type_t* t, 
+static type_t* template_type_get_specialized_type_after_type_aux(type_t* t, 
         template_parameter_list_t *template_arguments, 
         type_t* after_type,
+        char reuse_existing, 
         decl_context_t decl_context, 
         const char* filename, int line)
 {
-    type_t* existing_spec = template_type_get_matching_specialized_type(t, 
-            template_arguments, 
-            decl_context);
-
+    type_t* existing_spec = NULL;
+    if (reuse_existing)
+    {   
+        existing_spec = template_type_get_matching_specialized_type(t, 
+                template_arguments, 
+                decl_context);
+    }
+    
     if (existing_spec != NULL)
     {
         return existing_spec;
@@ -1715,6 +1717,27 @@ type_t* template_type_get_specialized_type_after_type(type_t* t,
     specialized_symbol->entity_specs.num_related_symbols = 0;
     specialized_symbol->entity_specs.related_symbols = NULL;
 
+    // Copy exception stuff
+    if (specialized_symbol->kind == SK_FUNCTION)
+    {
+        specialized_symbol->entity_specs.any_exception = primary_symbol->entity_specs.any_exception;
+
+        // Update exception specifications
+        decl_context_t updated_context = primary_symbol->decl_context;
+        updated_context.template_parameters = template_arguments;
+
+        int i;
+        for (i = 0; i < primary_symbol->entity_specs.num_exceptions; i++)
+        {
+           type_t* exception_type = primary_symbol->entity_specs.exceptions[i];
+           type_t* updated_exception_type = update_type(exception_type, updated_context, filename, line);
+
+           P_LIST_ADD(specialized_symbol->entity_specs.exceptions, 
+                   specialized_symbol->entity_specs.num_exceptions,
+                   updated_exception_type);
+        }
+    }
+
     // Remove the extra template-scope we got from the primary one
     // specialized_symbol->decl_context.template_scope = 
     //     specialized_symbol->decl_context.template_scope->contained_in;
@@ -1733,15 +1756,38 @@ type_t* template_type_get_specialized_type_after_type(type_t* t,
     return get_user_defined_type(specialized_symbol);
 }
 
+type_t* template_type_get_specialized_type_after_type(type_t* t, 
+        template_parameter_list_t *template_arguments, 
+        type_t* after_type,
+        decl_context_t decl_context, 
+        const char* filename, int line)
+{
+    return template_type_get_specialized_type_after_type_aux(t, template_arguments, after_type, /* reuse_existing */ 1, decl_context, filename, line);
+}
+
+
+type_t* template_type_get_specialized_type_noreuse(type_t* t, 
+        template_parameter_list_t* template_parameters,
+        decl_context_t decl_context, 
+        const char* filename, int line)
+{
+    return template_type_get_specialized_type_after_type_aux(t,
+            template_parameters,
+            /* after_type */ NULL /* It will create an empty one */,
+            /* reuse_existing */ 0,
+            decl_context,
+            filename, line);
+}
 
 type_t* template_type_get_specialized_type(type_t* t, 
         template_parameter_list_t* template_parameters,
         decl_context_t decl_context, 
         const char* filename, int line)
 {
-    return template_type_get_specialized_type_after_type(t,
+    return template_type_get_specialized_type_after_type_aux(t,
             template_parameters,
             /* after_type */ NULL /* It will create an empty one */,
+            /* reuse_existing */ 1,
             decl_context,
             filename, line);
 }
@@ -2473,16 +2519,10 @@ static type_t* _get_array_type(type_t* element_type,
 
         type_t* undefined_array_type = NULL;
         if (nodecl_is_null(lower_bound)
-                && nodecl_is_null(upper_bound))
+                && nodecl_is_null(upper_bound)
+                && array_region == NULL)
         {
             undefined_array_type = rb_tree_query_type(_undefined_array_types[!!with_descriptor], element_type);
-            
-             if (undefined_array_type != NULL &&
-                     (!nodecl_is_null(undefined_array_type->array->lower_bound) || 
-                      !nodecl_is_null(undefined_array_type->array->upper_bound)))
-             {
-                 undefined_array_type = NULL;
-             }
         }         
         if (undefined_array_type == NULL)
         {
@@ -2500,10 +2540,17 @@ static type_t* _get_array_type(type_t* element_type,
             
             result->array->with_descriptor = with_descriptor;
 
+            result->array->region = array_region;
+
             // If the element_type is array propagate the 'is_vla' value
-            if(element_type->array != NULL) 
+            if (is_array_type(element_type))
             {
+                // If the element_type is array propagate the 'is_vla' value
                 result->array->is_vla = element_type->array->is_vla;
+
+                // Check that the descriptor attribute is consistent
+                ERROR_CONDITION((with_descriptor != result->array->with_descriptor),
+                        "Multidimensional array created with inconsistent descriptor flag", 0);
             }
 
             result->array->array_expr_decl_context = decl_context;
@@ -2512,7 +2559,12 @@ static type_t* _get_array_type(type_t* element_type,
 
             result->info->is_dependent = is_dependent_type(element_type);
 
-            rb_tree_insert(_undefined_array_types[!!with_descriptor], element_type, result);
+            if (nodecl_is_null(lower_bound)
+                    && nodecl_is_null(upper_bound)
+                    && array_region == NULL)
+            {
+                rb_tree_insert(_undefined_array_types[!!with_descriptor], element_type, result);
+            }
         }
         else
         {
@@ -2542,10 +2594,14 @@ static type_t* _get_array_type(type_t* element_type,
                 
                 result->array->with_descriptor = with_descriptor;
 
-                // If the element_type is array propagate the 'is_vla' value
-                if (element_type->array != NULL)
+                if (is_array_type(element_type))
                 {
+                    // If the element_type is array propagate the 'is_vla' value
                     result->array->is_vla = element_type->array->is_vla;
+
+                    // Check that the descriptor attribute is consistent
+                    ERROR_CONDITION((with_descriptor != result->array->with_descriptor),
+                            "Multidimensional array created with inconsistent descriptor flag", 0);
                 }
 
                 result->array->whole_size = whole_size;
@@ -2628,22 +2684,41 @@ type_t* get_array_type(type_t* element_type, nodecl_t whole_size, decl_context_t
     {
         lower_bound = get_zero_tree(nodecl_get_filename(whole_size), nodecl_get_line(whole_size));
 
-        nodecl_t t = nodecl_copy(whole_size);
-
-        upper_bound = nodecl_make_minus(
-                nodecl_make_parenthesized_expression(t, nodecl_get_type(whole_size), 
-                    nodecl_get_filename(whole_size), nodecl_get_line(whole_size)),
-                get_one_tree(nodecl_get_filename(whole_size), nodecl_get_line(whole_size)),
-                get_signed_int_type(),
-                nodecl_get_filename(whole_size), nodecl_get_line(whole_size));
-
         if (nodecl_is_constant(whole_size))
         {
             // Compute the constant
             const_value_t* c = const_value_sub(
                     nodecl_get_constant(whole_size),
                     const_value_get_one(/* bytes */ 4, /* signed */ 1));
-            nodecl_set_constant(upper_bound, c);
+
+            upper_bound = const_value_to_nodecl(c);
+        }
+        else
+        {
+            nodecl_t temp = nodecl_null();
+
+            if (nodecl_get_kind(whole_size) == NODECL_SAVED_EXPR)
+            {
+                scope_entry_t* saved_sym = nodecl_get_symbol(whole_size);
+                temp = nodecl_make_symbol(
+                        saved_sym,
+                        nodecl_get_filename(whole_size),
+                        nodecl_get_line(whole_size));
+                nodecl_set_type(temp, saved_sym->type_information);
+            }
+            else
+            {
+                temp = nodecl_copy(whole_size);
+            }
+
+            upper_bound = nodecl_make_minus(
+                    nodecl_make_parenthesized_expression(temp, 
+                        nodecl_get_type(temp), 
+                        nodecl_get_filename(whole_size), 
+                        nodecl_get_line(whole_size)),
+                    get_one_tree(nodecl_get_filename(whole_size), nodecl_get_line(whole_size)),
+                    get_signed_int_type(),
+                    nodecl_get_filename(whole_size), nodecl_get_line(whole_size));
         }
 
         nodecl_expr_set_is_value_dependent(upper_bound,
@@ -2654,46 +2729,83 @@ type_t* get_array_type(type_t* element_type, nodecl_t whole_size, decl_context_t
             /* array_region */ NULL, /* with_descriptor */ 0);
 }
 
+static nodecl_t compute_whole_size_given_bounds(
+        nodecl_t lower_bound, 
+        nodecl_t upper_bound)
+{
+    if(nodecl_is_null(lower_bound) 
+            || nodecl_is_null(upper_bound))
+        return nodecl_null();
+
+    nodecl_t whole_size = nodecl_null();
+    if (nodecl_is_constant(lower_bound)
+            && nodecl_is_constant(upper_bound))
+    {
+        whole_size = const_value_to_nodecl(
+                const_value_add(
+                    const_value_sub(
+                        nodecl_get_constant(upper_bound),
+                        nodecl_get_constant(lower_bound)),
+                    const_value_get_one(4, 1)));
+    }
+    else
+    {
+        nodecl_t one_tree = get_one_tree(nodecl_get_filename(lower_bound), nodecl_get_line(lower_bound));
+
+        if (nodecl_get_kind(lower_bound) == NODECL_SAVED_EXPR)
+        {
+            scope_entry_t* saved_sym = nodecl_get_symbol(lower_bound);
+            lower_bound = nodecl_make_symbol(saved_sym,
+                    nodecl_get_filename(lower_bound),
+                    nodecl_get_line(lower_bound));
+            nodecl_set_type(lower_bound, saved_sym->type_information);
+        }
+        else
+        {
+            lower_bound = nodecl_copy(lower_bound);
+        }
+
+        if (nodecl_get_kind(upper_bound) == NODECL_SAVED_EXPR)
+        {
+            scope_entry_t* saved_sym = nodecl_get_symbol(upper_bound);
+            upper_bound = nodecl_make_symbol(saved_sym,
+                    nodecl_get_filename(upper_bound),
+                    nodecl_get_line(upper_bound));
+            nodecl_set_type(upper_bound, saved_sym->type_information);
+        }
+        else
+        {
+            upper_bound = nodecl_copy(upper_bound);
+        }
+
+        whole_size = 
+            nodecl_make_add(
+                    nodecl_make_parenthesized_expression(
+                        nodecl_make_minus(
+                            upper_bound,
+                            lower_bound,
+                            get_signed_int_type(),
+                            nodecl_get_filename(lower_bound), 
+                            nodecl_get_line(lower_bound)),
+                        get_signed_int_type(),
+                        nodecl_get_filename(lower_bound), 
+                        nodecl_get_line(lower_bound)),
+                    one_tree,
+                    get_signed_int_type(),
+                    nodecl_get_filename(lower_bound), 
+                    nodecl_get_line(lower_bound));
+    }
+
+    return whole_size;
+}
+
 static type_t* get_array_type_bounds_common(type_t* element_type,
         nodecl_t lower_bound,
         nodecl_t upper_bound,
         decl_context_t decl_context,
         char with_descriptor)
 {
-    nodecl_t whole_size = nodecl_null();
-    lower_bound = nodecl_copy(lower_bound);
-    upper_bound = nodecl_copy(upper_bound);
-
-    if (!nodecl_is_null(lower_bound)
-            && !nodecl_is_null(upper_bound))
-    {
-        if (nodecl_is_constant(lower_bound)
-                && nodecl_is_constant(upper_bound))
-        {
-            whole_size = const_value_to_nodecl(const_value_add(
-                        const_value_sub(nodecl_get_constant(upper_bound),
-                            nodecl_get_constant(lower_bound)),
-                        const_value_get_one(4, 1)));
-        }
-        else
-        {
-            nodecl_t one_tree = get_one_tree(nodecl_get_filename(lower_bound), nodecl_get_line(lower_bound));
-
-            whole_size = 
-                nodecl_make_add(
-                        nodecl_make_parenthesized_expression(
-                            nodecl_make_minus(
-                                upper_bound,
-                                lower_bound,
-                                get_signed_int_type(),
-                                nodecl_get_filename(lower_bound), nodecl_get_line(lower_bound)),
-                            get_signed_int_type(),
-                            nodecl_get_filename(lower_bound), nodecl_get_line(lower_bound)),
-                        one_tree,
-                        get_signed_int_type(),
-                        nodecl_get_filename(lower_bound), nodecl_get_line(lower_bound));
-        }
-    }
+    nodecl_t whole_size = compute_whole_size_given_bounds(lower_bound, upper_bound);
 
     return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context, 
             /* array_region */ NULL, with_descriptor);
@@ -2722,65 +2834,16 @@ type_t* get_array_type_bounds_with_regions(type_t* element_type,
         nodecl_t region,
         decl_context_t region_decl_context)
 {
-    nodecl_t whole_size = nodecl_null();
     lower_bound = nodecl_copy(lower_bound);
     upper_bound = nodecl_copy(upper_bound);
 
-    if (!nodecl_is_null(lower_bound)
-            && !nodecl_is_null(upper_bound))
-    {
-        nodecl_t one_tree = get_one_tree(nodecl_get_filename(lower_bound), nodecl_get_line(lower_bound));
-
-        whole_size = nodecl_make_add(
-                nodecl_make_parenthesized_expression(
-                    nodecl_make_minus(
-                        nodecl_make_parenthesized_expression(upper_bound, 
-                            nodecl_get_type(upper_bound), 
-                            nodecl_get_filename(upper_bound),
-                            nodecl_get_line(upper_bound)),
-                        nodecl_make_parenthesized_expression(lower_bound, 
-                            nodecl_get_type(lower_bound), 
-                            nodecl_get_filename(lower_bound),
-                            nodecl_get_line(lower_bound)), 
-                        nodecl_get_type(lower_bound),
-                        nodecl_get_filename(lower_bound), 
-                        nodecl_get_line(lower_bound)),
-                    nodecl_get_type(lower_bound),
-                    nodecl_get_filename(lower_bound), 
-                    nodecl_get_line(lower_bound)),
-                one_tree,
-                nodecl_get_type(lower_bound),
-                nodecl_get_filename(lower_bound), 
-                nodecl_get_line(lower_bound));
-    }
-
-    nodecl_t one_tree = get_one_tree(nodecl_get_filename(lower_bound), nodecl_get_line(lower_bound));
+    nodecl_t whole_size = compute_whole_size_given_bounds(lower_bound, upper_bound);
 
     nodecl_t region_lower_bound = nodecl_get_child(region, 0);
     nodecl_t region_upper_bound = nodecl_get_child(region, 1);
     nodecl_t region_stride = nodecl_get_child(region, 2);
     
-    nodecl_t region_whole_size = nodecl_make_add(
-            nodecl_make_parenthesized_expression(
-                nodecl_make_minus(
-                    nodecl_make_parenthesized_expression(region_upper_bound, 
-                        nodecl_get_type(region_upper_bound), 
-                        nodecl_get_filename(region_upper_bound),
-                        nodecl_get_line(region_upper_bound)),
-                    nodecl_make_parenthesized_expression(region_lower_bound, 
-                        nodecl_get_type(region_lower_bound), 
-                        nodecl_get_filename(region_lower_bound),
-                        nodecl_get_line(region_lower_bound)), 
-                    nodecl_get_type(region_lower_bound),
-                    nodecl_get_filename(region_lower_bound), 
-                    nodecl_get_line(region_lower_bound)),
-                nodecl_get_type(region_lower_bound),
-                nodecl_get_filename(region_lower_bound), 
-                nodecl_get_line(region_lower_bound)),
-            one_tree,
-            nodecl_get_type(region_lower_bound),
-            nodecl_get_filename(region_lower_bound), 
-            nodecl_get_line(region_lower_bound));
+    nodecl_t region_whole_size = compute_whole_size_given_bounds(region_lower_bound, region_upper_bound);
 
     array_region_t* array_region = counted_calloc(1, sizeof(*array_region), &_bytes_due_to_type_system);
     array_region->lower_bound = region_lower_bound;
@@ -4111,8 +4174,7 @@ char equivalent_types(type_t* t1, type_t* t2)
     return result;
 }
 
-static
-char equivalent_builtin_type(simple_type_t* t1, simple_type_t *t2);
+static char equivalent_builtin_type(type_t* t1, type_t *t2);
 
 static char equivalent_named_types(scope_entry_t* s1, scope_entry_t* s2)
 {
@@ -4133,6 +4195,47 @@ static char equivalent_named_types(scope_entry_t* s1, scope_entry_t* s2)
     }
     else
     {
+        FORTRAN_LANGUAGE()
+        {
+            // Consider this case
+            //
+            // MODULE M1
+            //   TYPE T             ! This is M1.T
+            //     INTEGER :: X
+            //   END TYPE T
+            // END MODULE M1
+            //
+            // MODULE M2
+            //   USE M1             ! Introduces M2.T as an alias to M1.T
+            //
+            //  CONTAINS 
+            //    SUBROUTINE S(X)   
+            //     TYPE(T) :: X     ! X is of type M2.T (not M1.T)
+            //    END
+            // END
+            //
+            // MODULE M3
+            //   USE M1             ! Introduces M3.T as an alias to M1.T
+            //   USE M2             ! Introduces M3.S as an alias to M2.S
+            //                      ! (M2.T is not introduces as it would be repeat an existing alias to M1.T)
+            // CONTAINS
+            //   SUBROUTINE S2
+            //     TYPE(T) :: X1     ! X1 is of type M3.T (not M2.T or M1.T)
+            //
+            //     CALL S(X1)        !<-- We need to realize that M3.T and M2.T are both aliases of M1.T
+            //   END
+            // END
+            if (s1->entity_specs.from_module)
+            {
+                ERROR_CONDITION(s1->entity_specs.alias_to == NULL, "No alias in from-module symbol '%s'!\n", s1->symbol_name);
+                s1 = s1->entity_specs.alias_to;
+            }
+            if (s2->entity_specs.from_module)
+            {
+                ERROR_CONDITION(s2->entity_specs.alias_to == NULL, "No alias in from-module symbol '%s'!\n", s2->symbol_name);
+                s2 = s2->entity_specs.alias_to;
+            }
+        }
         return equivalent_types(s1->type_information, s2->type_information);
     }
 }
@@ -4151,7 +4254,7 @@ char equivalent_simple_types(type_t *p_t1, type_t *p_t2)
     switch (t1->kind)
     {
         case STK_BUILTIN_TYPE :
-            result = equivalent_builtin_type(t1, t2);
+            result = equivalent_builtin_type(p_t1, p_t2);
             break;
         case STK_TEMPLATE_TYPE :
             /* Fall-through */
@@ -4192,8 +4295,11 @@ char equivalent_simple_types(type_t *p_t1, type_t *p_t2)
     return result;
 }
 
-char equivalent_builtin_type(simple_type_t* t1, simple_type_t *t2)
+char equivalent_builtin_type(type_t* p_t1, type_t *p_t2)
 {
+    simple_type_t* t1 = p_t1->type;
+    simple_type_t* t2 = p_t2->type;
+
     if (t1->builtin_type != t2->builtin_type)
     {
         return 0;
@@ -4232,6 +4338,14 @@ char equivalent_builtin_type(simple_type_t* t1, simple_type_t *t2)
             || t1->builtin_type == BT_CHAR)
     {
         if (t1->is_signed != t2->is_signed)
+            return 0;
+    }
+
+    // bool may be different in their sizes
+    if (t1->builtin_type == BT_BOOL
+            && t2->builtin_type == BT_BOOL)
+    {
+        if (p_t1->info->size != p_t2->info->size)
             return 0;
     }
 
@@ -5178,6 +5292,7 @@ char is_integral_type(type_t* t)
 char is_signed_integral_type(type_t* t)
 {
     return is_signed_char_type(t)
+        || is_signed_byte_type(t)
         || is_signed_short_int_type(t)
         || is_signed_int_type(t)
         || is_signed_long_int_type(t)
@@ -5635,6 +5750,15 @@ char is_named_type(type_t* t)
             && t->type->user_defined_type != NULL);
 }
 
+char is_indirect_type(type_t* t)
+{
+    return (t != NULL
+            && t->kind == TK_DIRECT
+            && t->type->kind == STK_INDIRECT
+            && t->type->is_indirect
+            && t->type->user_defined_type != NULL);
+}
+
 scope_entry_t* named_type_get_symbol(type_t* t)
 {
     if (is_named_type(t))
@@ -5730,6 +5854,9 @@ type_t* reference_type_get_referenced_type(type_t* t1)
 // Remove the reference type, returning the referenced type
 type_t* no_ref(type_t* t)
 {
+    if (t == NULL)
+        return NULL;
+
     if (is_lvalue_reference_type(t)
             || is_rvalue_reference_type(t))
         return reference_type_get_referenced_type(t);
@@ -5839,7 +5966,7 @@ char is_union_type(type_t* possible_union)
 
     type_t* actual_class = get_actual_class_type(possible_union);
 
-    return (actual_class->type->class_info->class_kind == CK_UNION);
+    return (actual_class->type->class_info->class_kind == TT_UNION);
 }
 
 char is_unnamed_class_type(type_t* possible_class)
@@ -6070,7 +6197,7 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
         case STK_INDIRECT :
             {
                 scope_entry_t* entry = simple_type->user_defined_type;
-                
+
                 char is_dependent = 0;
                 int max_level = 0;
                 result = get_fully_qualified_symbol_name(entry,
@@ -6101,11 +6228,11 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
                         {
                             switch (class_type_get_class_kind(entry->type_information))
                             {
-                                case CK_UNION:
+                                case TT_UNION:
                                     result = strappend("union ", result); break;
-                                case CK_STRUCT:
+                                case TT_STRUCT:
                                     result = strappend("struct ", result); break;
-                                case CK_CLASS:
+                                case TT_CLASS:
                                     result = strappend("class ", result); break;
                                 default:
                                     internal_error("Code unreachable", 0);
@@ -6224,6 +6351,7 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
                             {
                                 result = strappend(result, "_Bool");
                             }
+
                             break;
                         }
                     case BT_VOID :
@@ -6271,27 +6399,32 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
 
                 if (is_dependent && !nodecl_is_null(nodecl_parts))
                 {
-                    enum class_kind_t kind = get_dependent_entry_kind(t);
+                    enum type_tag_t kind = get_dependent_entry_kind(t);
                     switch(kind)
                     {
-                        case CK_INVALID:
+                        case TT_TYPENAME:
                             {
                                 result = strappend("typename ", result);
                                 break;
                             }
-                        case CK_STRUCT:
+                        case TT_STRUCT:
                             {
                                 result = strappend("struct ", result);
                                 break;
                             }
-                        case CK_CLASS:
+                        case TT_CLASS:
                             {
                                 result = strappend("class ", result);
                                 break;
                             }
-                        case CK_UNION:
+                        case TT_UNION:
                             {
                                 result = strappend("union ", result);
+                                break;
+                            }
+                        case TT_ENUM:
+                            {
+                                result = strappend("enum ", result);
                                 break;
                             }
                         default:
@@ -6449,6 +6582,13 @@ const char* get_declaration_string_internal(type_t* type_info,
 {
     ERROR_CONDITION(type_info == NULL, "This cannot be null", 0);
 
+    while (is_indirect_type(type_info)
+            // Advance indirects unless they refer to existing typedefs
+            && type_info->type->user_defined_type->kind != SK_TYPEDEF)
+    {
+        type_info = type_info->type->user_defined_type->type_information;
+    }
+
     type_t* base_type = get_foundation_type(type_info);
     const char* base_type_name = get_simple_type_name_string(decl_context, base_type);
     const char* declarator_name = get_type_name_string(decl_context, type_info, symbol_name, 
@@ -6502,7 +6642,10 @@ static const char* get_type_name_string(decl_context_t decl_context,
     const char* left = "";
     const char* right = "";
     get_type_name_str_internal(decl_context, type_info, &left, &right, 
-            num_parameter_names, parameter_names, parameter_attributes, is_parameter);
+            num_parameter_names, 
+            parameter_names, 
+            parameter_attributes, 
+            is_parameter);
 
     const char* result = strappend(left, symbol_name);
     result = strappend(result, right);
@@ -6705,7 +6848,8 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                     (*left) = strappend((*left), "(");
                 }
 
-                (*left) = strappend((*left), type_info->pointer->pointee_class->symbol_name);
+                (*left) = strappend((*left), 
+                        get_qualified_symbol_name(type_info->pointer->pointee_class, type_info->pointer->pointee_class->decl_context));
 
                 (*left) = strappend((*left), "::");
                 (*left) = strappend((*left), "*");
@@ -6757,22 +6901,44 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                         num_parameter_names, parameter_names, parameter_attributes, is_parameter);
 
                 const char* whole_size = NULL;
-                if (is_parameter
-                        && (nodecl_is_null(type_info->array->whole_size)))
+                if (is_parameter)
                 {
                     // Get rid of those annoying unbounded arrays
                     // in parameters
                     //
                     // This is not valid, but works most of the time...
-                    whole_size = uniquestr("[0]");
+                    if (nodecl_is_null(type_info->array->whole_size))
+                    {
+                        whole_size = uniquestr("[0]");
+                    }
+                    else
+                    {
+                        const char* whole_size_str = uniquestr(codegen_to_str(type_info->array->whole_size));
 
+                        whole_size = strappend("[", whole_size_str);
+                        whole_size = strappend(whole_size, "]");
+                    }
                 }
                 else
                 {
-                    const char* whole_size_str = uniquestr(codegen_to_str(type_info->array->whole_size));
+                    if (nodecl_is_null(type_info->array->whole_size))
+                    {
+                        whole_size = uniquestr("[]");
+                    }
+                    // If this is a saved expression and it is not a parameter we use its saved expression instead
+                    else if (nodecl_get_kind(type_info->array->whole_size) == NODECL_SAVED_EXPR)
+                    {
+                        scope_entry_t* saved_sym = nodecl_get_symbol(type_info->array->whole_size);
+                        whole_size = strappend("[", get_qualified_symbol_name(saved_sym, saved_sym->decl_context));
+                        whole_size = strappend(whole_size, "]");
+                    }
+                    else
+                    {
+                        const char* whole_size_str = uniquestr(codegen_to_str(type_info->array->whole_size));
 
-                    whole_size = strappend("[", whole_size_str);
-                    whole_size = strappend(whole_size, "]");
+                        whole_size = strappend("[", whole_size_str);
+                        whole_size = strappend(whole_size, "]");
+                    }
                 }
 
                 (*right) = strappend(whole_size, (*right));
@@ -7087,8 +7253,22 @@ static const char* get_builtin_type_name(type_t* type_info)
                         result = strappend(result, "int");
                         break;
                     case BT_BOOL :
-                        result = strappend(result, "bool");
-                        break;
+                        {
+
+                            // Mark booleans of nonregular size
+                            if (type_get_size(type_info) != type_get_size(get_bool_type()))
+                            {
+                                char c[256];
+                                snprintf(c, 255, "boolean of %zd bytes", (size_t)type_get_size(type_info));
+                                c[255] = '\0';
+                                result = strappend(result, c);
+                            }
+                            else
+                            {
+                                result = strappend(result, "bool");
+                            }
+                            break;
+                        }
                     case BT_FLOAT :
                         result = strappend(result, "float");
                         break;
@@ -7390,10 +7570,10 @@ const char* print_declarator(type_t* printed_declarator)
                 tmp_result = strappend(tmp_result, codegen_to_str(printed_declarator->array->lower_bound));
                 tmp_result = strappend(tmp_result, ":");
                 tmp_result = strappend(tmp_result, codegen_to_str(printed_declarator->array->upper_bound));
-                tmp_result = strappend(tmp_result, "] of ");
+                tmp_result = strappend(tmp_result, "]");
                 if (printed_declarator->array->region != NULL)
                 {
-                    tmp_result = strappend(tmp_result, "{");
+                    tmp_result = strappend(tmp_result, " with region {");
                     tmp_result = strappend(tmp_result, codegen_to_str(printed_declarator->array->region->lower_bound));
                     tmp_result = strappend(tmp_result, " ; ");
                     tmp_result = strappend(tmp_result, codegen_to_str(printed_declarator->array->region->upper_bound));
@@ -7891,7 +8071,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
     //Vector types
     //scalar -->__attribute_((vector_size(X)))  
     if(is_vector_type(no_ref(dest)) 
-            && is_scalar_type(no_ref(orig)))
+            && is_arithmetic_type(no_ref(orig)))
     {
         DEBUG_CODE()
         {
@@ -8658,17 +8838,132 @@ computed_function_type_t computed_function_type_get_computing_function(type_t* t
     return t->compute_type_function;
 }
 
-char is_scalar_type(type_t* t)
+// A literal type may be:
+//  1. scalar type
+//  2. a class type with:
+//      2.1 a trivial copy constructor,
+//      2.2 no non-trivial move constructor,
+//      2.3 a trivial destructor,
+//      2.4 a trivial default constructor or at least one constexpr constructor
+//          other than the copy or move constructor  FIXME: THIS IS NOT SUPPORTED YET
+//      2.5 all non-static data members and base classes of literal types
+//  3. an array of literal type
+//
+char is_literal_type(type_t* t)
 {
-    return (!is_pointer_type(t)
-            && !is_pointer_to_member_type(t)
-            && !is_array_type(t)
-            && !is_lvalue_reference_type(t)
-            && !is_rvalue_reference_type(t)
-            && !is_function_type(t)
-            && !is_vector_type(t));
+    if (is_scalar_type(t))
+    {
+        return 1;
+    }
+    if (is_class_type(t))
+    {
+        scope_entry_list_t* copy_constructors = class_type_get_copy_constructors(t);
+        scope_entry_list_iterator_t* it = NULL;
+
+        for (it = entry_list_iterator_begin(copy_constructors);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
+        {
+            scope_entry_t* entry = entry_list_iterator_current(it);
+            if (entry->entity_specs.is_trivial)
+            {
+                return 1;
+            }
+        }
+
+        char found_bad_case = 0;
+        scope_entry_list_t* move_constructors = class_type_get_move_constructors(t);
+        for (it = entry_list_iterator_begin(move_constructors);
+                !entry_list_iterator_end(it) && !found_bad_case;
+                entry_list_iterator_next(it))
+        {
+            scope_entry_t* entry = entry_list_iterator_current(it);
+            if (!entry->entity_specs.is_trivial)
+            {
+                found_bad_case = 1;
+            }
+        }
+        if (!found_bad_case)
+        {
+            return 1;
+        }
+
+        scope_entry_t* destructor = class_type_get_destructor(t);
+        if (destructor != NULL && destructor->entity_specs.is_trivial)
+        {
+            return 1;
+        }
+
+        found_bad_case = 0;
+        scope_entry_list_t* nonstatic_data_members = class_type_get_nonstatic_data_members(t);
+        for (it = entry_list_iterator_begin(nonstatic_data_members);
+                !entry_list_iterator_end(it) && !found_bad_case;
+                entry_list_iterator_next(it))
+        {
+            scope_entry_t* data_member = entry_list_iterator_current(it);
+            if (!is_literal_type(data_member->type_information))
+            {
+                found_bad_case = 1;
+            }
+        }
+
+        if (!found_bad_case)
+        {
+            int i;
+            for (i = 0 ; i < class_type_get_num_bases(t) && !found_bad_case; i++)
+            {
+                char is_virtual = 0;
+                char is_dependent = 0;
+                scope_entry_t* base = class_type_get_base_num(t, i, &is_virtual, &is_dependent, NULL);
+                if (!is_literal_type(base->type_information))
+                {
+                    found_bad_case = 1;
+                }
+            }
+            if (!found_bad_case)
+            {
+                return 1;
+            }
+        }
+    }
+
+    if (is_array_type(t) && is_literal_type(array_type_get_element_type(t)))
+    {
+        return 1;
+    }
+    return 0;
 }
 
+// A trivial type may be:
+//  1. scalar type
+//  2. trivial class type
+//  3. arrays of such types
+//  4. cv-qualified versions of these types
+//
+char is_trivial_type(type_t* t)
+{
+    t = get_unqualified_type(t);
+    return (is_scalar_type(t) ||
+           (is_class_type(t) && class_type_is_trivial(t)) ||
+           (is_array_type(t) && is_trivial_type(array_type_get_element_type(t))));
+}
+
+// A scalar type may be:
+//  1. arithmetic type
+//  2. enumeration type
+//  3. pointer type
+//  4. pointer to member type
+//  5. std::nullptr_-t  FIXME: THIS IS NOT SUPPORTED YET
+//  6. cv-qualified versions of these types
+//
+char is_scalar_type(type_t* t)
+{
+    t = get_unqualified_type(t);
+    return (is_arithmetic_type(t) ||
+            is_enum_type(t) ||
+            is_pointer_type(t) ||
+            is_pointer_to_member_type(t));
+}
 
 char is_incomplete_type(type_t* t)
 {
@@ -9273,15 +9568,7 @@ char class_type_is_pod(type_t* t)
 
 static char closure_of_simple_properties(type_t* t, char (*class_prop)(type_t*))
 {
-    if (is_integral_type(t)
-            || is_enum_type(t)
-            || is_floating_type(t))
-        return 1;
-
-    if (is_pointer_type(t))
-        return 1;
-
-    if (is_pointer_to_member_type(t))
+    if (is_scalar_type(t))
         return 1;
 
     if (is_lvalue_reference_type(t)
@@ -9808,4 +10095,16 @@ type_t* get_implicit_none_type(void)
 char is_implicit_none_type(type_t* t)
 {
     return t == _implicit_none_type;
+}
+
+type_t* _type_get_empty_type(void)
+{
+    type_t* result = get_simple_type();
+    return result;
+}
+
+void _type_assign_to(type_t* dest, type_t* src)
+{
+    // Bitwise copy will be enough
+    *dest = *src;
 }

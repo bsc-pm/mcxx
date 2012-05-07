@@ -3,9 +3,9 @@
 ! </testinfo>
 SUBROUTINE S(A, B, N, V)
     IMPLICIT NONE
+    INTEGER :: N, V
     INTEGER :: A(N)
     INTEGER :: B(N)
-    INTEGER :: N, V
 
     A = V
     B = V
@@ -16,10 +16,9 @@ PROGRAM P
     INTERFACE
         SUBROUTINE S(A, B, N, V)
             IMPLICIT NONE
+            INTEGER :: N, V
             INTEGER :: A(N)
             INTEGER :: B(N)
-            INTEGER :: N
-            INTEGER :: V
         END SUBROUTINE S
     END INTERFACE
 

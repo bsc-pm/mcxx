@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -23,6 +23,7 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
 
 %{
 /**
@@ -84,13 +85,20 @@ static const char* return_pragma_prefix_longest_match(const char* prefix,
         pragma_directive_kind_t* kind,
         char* original_directive);
 
+static void increment_line_number(struct scan_file_descriptor* current_file)
+{
+    current_file->line_number += 1 + current_file->joined_lines;
+    current_file->joined_lines = 0;
+}
+
 static int is_format_statement(char* token);
 
 static char last_eos = 1;
 
+#define RETURN_SUBPARSE_TOKEN(x) do { last_eos = 1; return (x); }  while(0)
 #define RETURN_TOKEN(x) do { last_eos = 0; return (x); }  while(0)
-#define RETURN_EOS { if (!last_eos) { last_eos = 1; fortran_scanning_now->joined_lines = 0; return (EOS); } }
-#define RETURN_PRAGMA_EOS { if (!last_eos) { last_eos = 1; fortran_scanning_now->joined_lines = 0; return (PRAGMA_CUSTOM_NEWLINE); } }
+#define RETURN_EOS { if (!last_eos) { last_eos = 1; return (EOS); } }
+#define RETURN_PRAGMA_EOS { if (!last_eos) { last_eos = 1; return (PRAGMA_CUSTOM_NEWLINE); } }
 
 #define DOUBLE_CONTINUATION  1
 #define SINGLE_CONTINUATION  0
@@ -119,6 +127,7 @@ uchar           (\\u{hexquad}|\\U{hexquad}{hexquad})
 nondigit        ([_a-zA-Z]|uchar)
 idnondigit  ({nondigit}|{uchar})
 identifier ([a-z]([a-z0-9_]*))
+kind (({digit}+)|({identifier}))
 
  /* Sentinels as much as 32 letters */
 sentinel [!][$][a-zA-Z0-9_]{0,32}
@@ -360,7 +369,10 @@ schar       ([^\\"\n\r]|{c_escape_seq}|(\\["]))
 }
 
 <preprocess>.       { /* ignore line */  }
-<preprocess>{newline}  { fortran_scanning_now->line_number++; BEGIN(INITIAL); }
+<preprocess>{newline}  { 
+    increment_line_number(fortran_scanning_now);
+    BEGIN(INITIAL); 
+}
 
 <<EOF>> {
 	if (!last_eos)
@@ -409,7 +421,6 @@ schar       ([^\\"\n\r]|{c_escape_seq}|(\\["]))
 	if (check_continued_sentinel_line(yytext, &sentinel))
 	{
 	    reintroduce_continued_line(yytext, DOUBLE_CONTINUATION, sentinel);
-	    fortran_scanning_now->line_number++;
 	}
 	else
 	{
@@ -420,8 +431,8 @@ schar       ([^\\"\n\r]|{c_escape_seq}|(\\["]))
 	}
 }
 
-^(([^\n\r!'"])|{FORTRAN_STRING})+&[[:blank:]]*(![^\n\r]*)?{newline}[[:blank:]]*&[^\n\r]+{newline} |
-^(([^\n\r!'"])|{FORTRAN_STRING})*{UNENDED_STRING}&[[:blank:]]*{newline}[[:blank:]]*&[^\n\r]+{newline} {
+^(([^\n\r!'"])|{FORTRAN_STRING})+&([[:blank:]]*(![^\n\r]*)?{newline})+[[:blank:]]*&[^\n\r]+{newline} |
+^(([^\n\r!'"])|{FORTRAN_STRING})*{UNENDED_STRING}&([[:blank:]]*{newline})+[[:blank:]]*&[^\n\r]+{newline} {
 	// The first regex allows comments because all strings are closed
     // The second one does not allows them because the last string is opened
     // This recognizes double continued lines
@@ -434,10 +445,9 @@ schar       ([^\\"\n\r]|{c_escape_seq}|(\\["]))
 	//  & Patterson "
 
 	reintroduce_continued_line(yytext, DOUBLE_CONTINUATION, NULL);
-	fortran_scanning_now->line_number++;
 }
 
-^[[:blank:]]*{sentinel}[[:blank:]]+(([^\n\r!'"])|{FORTRAN_STRING})+&[[:blank:]]*(![^\n\r]*)?{newline}[[:blank:]]*{sentinel}[[:blank:]]+[^&][^\n\r]*{newline} {
+^[[:blank:]]*{sentinel}[[:blank:]]+(([^\n\r!'"])|{FORTRAN_STRING})+&([[:blank:]]*(![^\n\r]*)?{newline})+[[:blank:]]*{sentinel}[[:blank:]]+[^&][^\n\r]*{newline} {
 	// !$SENTINEL INTEGER &
 	// !$SENTINEL :: A=3
 
@@ -445,7 +455,6 @@ schar       ([^\\"\n\r]|{c_escape_seq}|(\\["]))
 	if (check_continued_sentinel_line(yytext, &sentinel))
 	{
 	    reintroduce_continued_line(yytext, SINGLE_CONTINUATION, sentinel);
-	    fortran_scanning_now->line_number++;
 	}
 	else
 	{
@@ -456,8 +465,8 @@ schar       ([^\\"\n\r]|{c_escape_seq}|(\\["]))
 	}
 }
 
-^(([^\n\r!'"])|{FORTRAN_STRING})+&[[:blank:]]*(![^\n\r]*)?{newline}[[:blank:]]*[^&][^\n\r]*{newline} |
-^(([^\n\r!'"])|{FORTRAN_STRING})*{UNENDED_STRING}&[[:blank:]]*{newline}[[:blank:]]*[^&][^\n\r]*{newline} {
+^(([^\n\r!'"])|{FORTRAN_STRING})+&([[:blank:]]*(![^\n\r]*)?{newline})+[[:blank:]]*[^&][^\n\r]*{newline} |
+^(([^\n\r!'"])|{FORTRAN_STRING})*{UNENDED_STRING}&([[:blank:]]*{newline})+[[:blank:]]*[^&][^\n\r]*{newline} {
 	// The first regex allows comments because all strings are closed
     // The second one does not allows them because the last string is opened
     // This recognizes continued lines with continuation mark at the end
@@ -467,10 +476,6 @@ schar       ([^\\"\n\r]|{c_escape_seq}|(\\["]))
 
 	// Note that we do not handle the forbidden continuation of END statements
 	reintroduce_continued_line(yytext, SINGLE_CONTINUATION, NULL);
-
-	fortran_scanning_now->line_number++;
-
-	// At this point all continuated lines should already be joined
 }
 
 [0-9]+[[:blank:]]+format([^'"\n\r;]|([']([^'\n\r]|(['][']))*['])|(["]([^"\n\r]|(["]["]))*["]))*([;]|{newline})  {
@@ -636,7 +641,20 @@ schar       ([^\\"\n\r]|{c_escape_seq}|(\\["]))
     {
         case PDK_DIRECTIVE : 
             {
-                token = PRAGMA_CUSTOM_DIRECTIVE;
+                if (!is_end_directive)
+                {
+                    token = PRAGMA_CUSTOM_DIRECTIVE;
+                }
+                else
+                {
+                    running_error("%s:%d: error: '!$%s %s' directive cannot be '!$%s END %s'\n", 
+                            fortran_scanning_now->current_filename,
+                            fortran_scanning_now->line_number,
+                            strtoupper(current_pragma_prefix),
+                            strtoupper(longest_match),
+                            strtoupper(current_pragma_prefix),
+                            strtoupper(longest_match));
+                }
                 break;
             }
         case PDK_CONSTRUCT_NOEND :
@@ -861,17 +879,17 @@ schar       ([^\\"\n\r]|{c_escape_seq}|(\\["]))
 
 @PROGRAM-UNIT@ {		
 	parse_token_text();
-	RETURN_TOKEN(SUBPARSE_PROGRAM_UNIT);
+	RETURN_SUBPARSE_TOKEN(SUBPARSE_PROGRAM_UNIT);
 }
 
 @EXPRESSION@ {			
 	parse_token_text();
-	RETURN_TOKEN(SUBPARSE_EXPRESSION);
+	RETURN_SUBPARSE_TOKEN(SUBPARSE_EXPRESSION);
 }
 
 @STATEMENT@ {			
 	parse_token_text();
-	RETURN_TOKEN(SUBPARSE_STATEMENT);
+	RETURN_SUBPARSE_TOKEN(SUBPARSE_STATEMENT);
 }
 
 @GLOBAL@ {
@@ -898,13 +916,13 @@ schar       ([^\\"\n\r]|{c_escape_seq}|(\\["]))
 
 <COMMENT>{newline} {
 	// We have arrived at the end
-	fortran_scanning_now->line_number++;
+    increment_line_number(fortran_scanning_now);
 	BEGIN(0);
 	RETURN_EOS;
 }
 
 {newline} {
-	fortran_scanning_now->line_number++;
+    increment_line_number(fortran_scanning_now);
 	parse_token_text();
 	BEGIN(INITIAL);
 	RETURN_EOS;
@@ -986,7 +1004,7 @@ x["][0-9a-f]+["] {
 	RETURN_TOKEN(HEX_LITERAL);
 }
 
-[0-9]+[.][0-9]+([edq][+-]?[0-9]+)(_([a-z][a-z0-9]{0,30}|[0-9]+))? {
+[0-9]+[.][0-9]+([edq][+-]?[0-9]+)(_{kind})? {
 	// Reals with integer part, fraction, exponent and
 	// optionally kind_param
 	// 123.456e789
@@ -995,7 +1013,7 @@ x["][0-9a-f]+["] {
 	RETURN_TOKEN(REAL_LITERAL);
 }
 
-[0-9]+[.][0-9]+(_([a-z][a-z0-9]{0,30}|[0-9]+))? {
+[0-9]+[.][0-9]+(_{kind})? {
 	// Reals with integer part, fraction
 	// and optionally kind_param
 	// 123.456
@@ -1004,7 +1022,7 @@ x["][0-9a-f]+["] {
 	RETURN_TOKEN(REAL_LITERAL);
 }
 
-[.][0-9]+([edq][+-]?[0-9]+)(_([a-z][a-z0-9]{0,30}|[0-9]+))? {
+[.][0-9]+([edq][+-]?[0-9]+)(_{kind})? {
 	// Reals with fraction, exponent
 	// and optionally kind_param
 	// .456e789
@@ -1013,7 +1031,7 @@ x["][0-9a-f]+["] {
 	RETURN_TOKEN(REAL_LITERAL);
 }
 
-[.][0-9]+(_([a-z][a-z0-9]{0,30}|[0-9]+))? {
+[.][0-9]+(_{kind})? {
 	// Reals with fraction and
 	// optionally kind_param
 	// .456
@@ -1022,7 +1040,7 @@ x["][0-9a-f]+["] {
 	RETURN_TOKEN(REAL_LITERAL);
 }
 
-[0-9]+[.]?([edq][+-]?[0-9]+)(_([a-z][a-z0-9]{0,30}|[0-9]+))? {
+[0-9]+[.]?([edq][+-]?[0-9]+)(_{kind})? {
 	// Reals with integer part, exponent
 	// and optionally kind_param
 	// 123.e456
@@ -1038,7 +1056,7 @@ x["][0-9a-f]+["] {
 	RETURN_TOKEN(DECIMAL_LITERAL);
 }
 
-[0-9]+[.](_([a-z][a-z0-9]{0,30}|[0-9]+))? {
+[0-9]+[.](_{kind})? {
 	// Real with only integer part
 	// and optionally kind_param
 	// 123.
@@ -1046,12 +1064,12 @@ x["][0-9a-f]+["] {
 	RETURN_TOKEN(REAL_LITERAL);
 }
 
-(([a-z][a-z0-9]{0,30}|[0-9]+)_)?["]([^"\n\r]|["]["])*["] {
+({kind}_)?["]([^"\n\r]|["]["])*["] {
 	parse_token_text();
 	RETURN_TOKEN(CHAR_LITERAL);
 }
 
-(([a-z][a-z0-9]{0,30}|[0-9]+)_)?[']([^'\n\r]|[']['])*['] {
+({kind}_)?[']([^'\n\r]|[']['])*['] {
 	parse_token_text();
 	RETURN_TOKEN(CHAR_LITERAL);
 }
@@ -1077,7 +1095,7 @@ x["][0-9a-f]+["] {
     RETURN_TOKEN(DECIMAL_LITERAL);
 }
 
-[0-9]+_([a-z][a-z0-9]{0,30}|[0-9]+) {
+[0-9]+_{kind} {
 	parse_token_text();
 	RETURN_TOKEN(DECIMAL_LITERAL);
 }
@@ -2136,6 +2154,16 @@ goto {
  	RETURN_TOKEN(']');
 }
 
+"(/" { 
+    parse_token_text();
+    RETURN_TOKEN(TOK_LPARENT_SLASH); 
+}
+
+"/)" { 
+    parse_token_text();
+    RETURN_TOKEN(TOK_SLASH_RPARENT); 
+}
+
 "==" {
 	parse_token_text();
 	RETURN_TOKEN(TOK_EQUAL);
@@ -2374,83 +2402,105 @@ static void reintroduce_continued_line(char* continued_line, char double_continu
 
     // Copy all the string springing over &\n&
 
-    // Find the newline, there is only one, regex enforces this
+    // Find the first newline
     char* newline = strchr(temporal, '\n');
 
     ERROR_CONDITION(newline == NULL, "There must be a new-line\n", 0);
 
     char* limit_first_line = NULL; 
     char* limit_second_line = NULL;
-    char second_line_is_comment = 0;
+        
     // We will look for the rightmost & and the leftmost &
     // so we cut here
     *newline = '\0';
 
-    // We remove any comment 
-    trim_inline_comment(temporal);
+    // First line
+    char * first_line = temporal;
+    // We remove any final comment in the first line
+    trim_inline_comment(first_line);
+    // Now we can safely look for rightmost "&"
+    limit_first_line = strrchr(first_line, '&'); 
+    
+    // Second line
+    // The (potential) second line starts here
+    char* second_line = newline + 1;
 
-    // Look for rightmost "&"
-    limit_first_line = strrchr(temporal, '&'); 
+    int num_joined_lines = 1;
+
+    // Ignore comments and empty lines
+    char not_real_second_line = 1;
+    while (not_real_second_line)
+    {
+        // Let's assume for now it is the real second line we want
+        not_real_second_line = 0;
+        // Now advance blanks
+        while (*second_line == ' ' 
+                || *second_line == '\t')
+        {
+            second_line++;
+        }
+
+        // It is a comment, just ignore up to the newline
+        if (*second_line == '!')
+        {
+            while (*second_line != '\0')
+            {
+                if (*second_line == '\n'
+                        || (*second_line == '\r' // DOS CR-NL
+                        && *(second_line + 1) == '\n'))
+                {
+                    if (*second_line == '\r')
+                        second_line++;
+
+                    break;
+                }
+                second_line++;
+            }
+        }
+
+        if (*second_line == '\n')
+        {
+            // If we advanced the second line up to an newline it means 
+            // that it was empty. This is not the real second line we wanted
+            not_real_second_line = 1;
+
+            // Inore '\n'
+            second_line++;
+
+            // Account for another line
+            num_joined_lines++;
+        }
+    };
 
     if (double_continuation)
     {
         // Look for the leftmost "&"
-        limit_second_line = strchr(newline + 1, '&');
+        limit_second_line = strchr(second_line, '&');
         // We are not interested in "&"
         limit_second_line++;
     }
     else
     {
-        limit_second_line = newline+1;
-
-        // Advance blanks
-        while (*limit_second_line == ' ' || *limit_first_line == '\t') 
-        {
-            limit_second_line++;
-        }
-
-        // This is a comment !
-        if (*limit_second_line == '!')
-        {
-            second_line_is_comment = 1;
-        }
+        limit_second_line = second_line;
     }
 
     if (limit_first_line && limit_second_line)
     {
         // Let's reintroduce all the whole line
         *limit_first_line = '\0';
-        if (!second_line_is_comment)
-        {
-            DEBUG_CODE() DEBUG_MESSAGE("Let's reintroduce -%s%s-\n", temporal, limit_second_line);
-        }
-        else
-        {
-            DEBUG_CODE() DEBUG_MESSAGE("Let's reintroduce -%s%s-\n", temporal, "&\n");
-        }
+
         char* last_character = limit_second_line + strlen(limit_second_line);
 
-        // But only if the second line was something useful
-        if (!second_line_is_comment)
+        // We cannot do this in an empty string
+        if (last_character != limit_second_line) 
         {
-            // We cannot do this in an empty string
-            if (last_character != limit_second_line) 
+            // Introducing the second line
+            last_character--; // Spring over the NULL
+            while (last_character >= limit_second_line)
             {
-                // Introducing the second line
-                last_character--; // Spring over the NULL
-                while (last_character >= limit_second_line)
-                {
-                    unput(*last_character);
-                    last_character--;
-                }
+                unput(*last_character);
+                last_character--;
             }
-        }
-        else
-        {
-            // If it was a comment we have to reintroduce "&\n"
-            // to enable "continuation magic" for the incoming line
-            unput('\n');
-            unput('&');
         }
 
         // Introduce first line
@@ -2477,8 +2527,8 @@ static void reintroduce_continued_line(char* continued_line, char double_continu
         }
     }
 
-    // This line was joined
-    fortran_scanning_now->joined_lines++;
+    // This line was joined, we do not update line_number but the number of joined_lines (at least 1, but may be more)
+    fortran_scanning_now->joined_lines += num_joined_lines;
     DEBUG_CODE() DEBUG_MESSAGE("Incrementing joined_lines (%d)\n", fortran_scanning_now->joined_lines);
     // Free
     free(temporal);
@@ -2735,7 +2785,6 @@ static void trim_inline_comment(char* line)
 	{
 		// We don't have to take into account whole line comments as the have been removed
 		// previously
-
 		if (!in_string && (*p == '\'' || *p == '"'))
 		{
 			// If we are not in a string and we see a delimiter

@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -23,6 +23,7 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
 
 
 
@@ -82,6 +83,8 @@ LIBMCXX_EXTERN uint32_t const_value_cast_to_4(const_value_t* val);
 LIBMCXX_EXTERN uint16_t const_value_cast_to_2(const_value_t* val);
 LIBMCXX_EXTERN uint8_t const_value_cast_to_1(const_value_t* val);
 
+LIBMCXX_EXTERN const_value_t* const_value_cast_as_another(const_value_t* val, const_value_t* mold);
+
 LIBMCXX_EXTERN int const_value_cast_to_signed_int(const_value_t* val);
 
 LIBMCXX_EXTERN const_value_t* const_value_cast_to_bytes(const_value_t* val, int bytes, char sign);
@@ -91,6 +94,11 @@ LIBMCXX_EXTERN const_value_t* const_value_cast_to_signed_int_value(const_value_t
 LIBMCXX_EXTERN nodecl_t const_value_to_nodecl(const_value_t* v);
 
 LIBMCXX_EXTERN type_t* const_value_get_minimal_integer_type(const_value_t* val);
+LIBMCXX_EXTERN type_t* const_value_get_minimal_integer_for_value_at_least_signed_int(const_value_t* val);
+LIBMCXX_EXTERN type_t* const_value_get_minimal_integer_type_from_list_of_types(
+        uint64_t value,
+        int num_types,
+        type_t** types);
 
 LIBMCXX_EXTERN const_value_t* integer_type_get_maximum(type_t* t);
 LIBMCXX_EXTERN const_value_t* integer_type_get_minimum(type_t* t);

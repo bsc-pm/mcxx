@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -23,6 +23,7 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
 
 
 #include <config.h>
@@ -128,6 +129,7 @@ statements_information_t statements_info[] =
 	STATEMENT_INFO(ST_ACCESS, 1, 1, "access"),
 	STATEMENT_INFO(ST_ALLOCATABLE, 1, 1, "allocatable"),
 	STATEMENT_INFO(ST_COMMON, 1, 1, "common"),
+	STATEMENT_INFO(ST_CONTAINS, 1, 0, "contains"),
 	STATEMENT_INFO(ST_DATA, 1, 1, "data"),
 	STATEMENT_INFO(ST_DIMENSION, 1, 1, "dimension"),
 	STATEMENT_INFO(ST_EQUIVALENCE, 1, 0, "equivalence"),
@@ -148,6 +150,7 @@ statements_information_t statements_info[] =
 	STATEMENT_INFO(ST_IF, 0, 0, "if"),
 	STATEMENT_INFO(ST_WHERE, 0, 0, "where"),
 	STATEMENT_INFO(ST_ALLOCATE, 0, 0, "allocate"),
+	STATEMENT_INFO(ST_BLOCK, 0, 1, "block"),
 	STATEMENT_INFO(ST_BACKSPACE, 0, 1, "backspace"),
 	STATEMENT_INFO(ST_CALL, 0, 1, "call"),
 	STATEMENT_INFO(ST_CLOSE, 0, 0, "close"),
@@ -469,53 +472,65 @@ static line_information_t* get_information_from_line(prescanner_t* prescanner, c
  */
 static void remove_all_spaces(char** line)
 {
-	char* newline = calloc(strlen(*line) + 1, sizeof(char));
-	char in_string = 0, inlined_comment = 0, delim = 0;
-	char *p, *q;
+    int allocated_size = strlen(*line) + 5;
+    char* newline = calloc(allocated_size, sizeof(char));
 
-	q = newline;
-	p = *line;
+    char in_string = 0, inlined_comment = 0, delim = 0;
+    char *p, *q;
 
-	while (*p != '\0')
-	{
-		if (!in_string)
-		{
-			if (inlined_comment || (*p != ' ' && *p != '\t' && *p != '!'))
-			{
-				*q = *p;
-				q++;
-			}
+    q = newline;
+    p = *line;
 
-			if (!inlined_comment && (*p == '\'' || *p == '"'))
-			{
-				delim = *p;
-				in_string = 1;
-			}
-			else if (*p == '!')
-			{
-				// Add a space to make it more readable
-				*q = ' '; q++;
-				*q = *p; q++;
-				inlined_comment = 1;
-			}
-		}
-		else
-		{
-			*q = *p;
-			q++;
+    while (*p != '\0')
+    {
+        ERROR_CONDITION((q - newline) >= allocated_size, "Buffer overflow detected\n", 0);
 
-			if ((*p == delim) && (*(p+1) != delim))
-			{
-				in_string = 0;
-			}
-		}
-		p++;
-	}
+        if (!in_string)
+        {
+            if (!inlined_comment) 
+            {
+                if (*p != ' ' && *p != '\t' && *p != '!')
+                {
+                    *q = *p;
+                    q++;
+                }
+                else if (*p == '!')
+                {
+                    // Add a space to make it more readable
+                    *q = ' '; q++;
+                    *q = *p; q++;
+                    inlined_comment = 1;
+                }
 
-	*q = '\0';
+                if(*p == '\'' || *p == '"')
+                {
+                    delim = *p;
+                    in_string = 1;
+                }
+            }
+            else // !inlined_comment
+            {
+                *q = *p;
+                q++;
+            }
+        }
+        else
+        {
+            *q = *p;
+            q++;
 
-	free(*line);
-	*line = newline;
+            if ((*p == delim) && (*(p+1) != delim))
+            {
+                in_string = 0;
+            }
+        }
+        p++;
+    }
+
+    *q = '\0';
+
+    free(*line);
+    *line = newline;
 }
 
 /*

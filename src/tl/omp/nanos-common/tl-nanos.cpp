@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -26,6 +26,7 @@
 
 
 
+
 #include "cxx-utils.h"
 
 #include "tl-nanos.hpp"
@@ -40,9 +41,9 @@ namespace TL
     namespace Nanos
     {
         // Definition of static members
-        const int Version::DEFAULT_VERSION = 399;
-        const char* Version::DEFAULT_FAMILY = "trunk";
         std::map<std::string, int> Version::_interfaces;
+
+        bool Interface::_already_registered = false;
 
         bool Version::interface_has_family(const std::string &fam)
         {
@@ -117,24 +118,37 @@ namespace TL
             set_phase_name("Nanos Runtime Source-Compiler Versioning Interface");
             set_phase_description("This phase enables support for '#pragma nanos', the interface for versioning runtime and compiler for Nanos");
 
-            register_directive("interface");
+            if (!_already_registered)
+            {
+                register_directive("interface");
+                register_directive("instrument|declare");
+                register_directive("instrument|emit");
+
+                _already_registered = true;
+            }
+
             dispatcher().directive.pre["interface"].connect(functor(&Interface::interface_preorder, *this));
             dispatcher().directive.post["interface"].connect(functor(&Interface::interface_postorder, *this));
 
-            register_directive("instrument|declare");
             dispatcher().directive.pre["instrument|declare"].connect(functor(&Interface::instrument_declare_pre, *this));
             dispatcher().directive.post["instrument|declare"].connect(functor(&Interface::instrument_declare_post, *this));
 
-            register_directive("instrument|emit");
             dispatcher().directive.pre["instrument|emit"].connect(functor(&Interface::instrument_emit_pre, *this));
             dispatcher().directive.post["instrument|emit"].connect(functor(&Interface::instrument_emit_post, *this));
         }
 
         void Interface::run(TL::DTO& dto)
         {
-            reset_version_info();
             // Run looking up for every "#pragma nanos"
-            PragmaCustomCompilerPhase::run(dto);
+            Nodecl::NodeclBase top_level = dto["nodecl"];
+            this->Interface::walk(top_level);
+        }
+
+        void Interface::walk(Nodecl::NodeclBase top_level)
+        {
+            reset_version_info();
+
+            PragmaCustomCompilerPhase::walk(top_level);
             
             // Create versioning symbols
             Source versioning_symbols;
@@ -155,12 +169,6 @@ namespace TL
                     ;
             }
 
-            // Code to maintain the Nanos4 version
-            versioning_symbols
-                << "const char* __nanos_family __attribute__((weak)) = \"" << Version::_interfaces.begin()->first << "\";"
-                << "int __nanos_version __attribute__((weak)) = " << Version::_interfaces.begin()->second << ";"
-            ;
-            
             // Code for Nanox version
             for(std::map<std::string, int>::iterator it = Version::_interfaces.begin();
                     it != Version::_interfaces.end();
@@ -176,11 +184,9 @@ namespace TL
                     ;
             }
 
-            Nodecl::NodeclBase nodecl =  dto["nodecl"];
-
             if (!IS_FORTRAN_LANGUAGE)
             {
-                Nodecl::NodeclBase versioning_symbols_tree = versioning_symbols.parse_global(nodecl);
+                Nodecl::NodeclBase versioning_symbols_tree = versioning_symbols.parse_global(top_level);
             }
                     
 #if 0
@@ -227,7 +233,6 @@ namespace TL
         void Interface::reset_version_info()
         {
             Version::_interfaces.clear();
-            Version::_interfaces[Version::DEFAULT_FAMILY] = Version::DEFAULT_VERSION;
         }
 
         void Interface::interface_preorder(TL::PragmaCustomDirective ctr)
@@ -243,9 +248,8 @@ namespace TL
                 && !version_clause.get_tokenized_arguments(ExpressionTokenizer()).empty())
             {
                 std::string new_family = family_clause.get_tokenized_arguments(ExpressionTokenizer())[0];
-                if (Version::_interfaces.find(new_family) != Version::_interfaces.end()
-                    && (new_family != Version::DEFAULT_FAMILY
-                    || Version::_interfaces[new_family] != Version::DEFAULT_VERSION))
+
+                if (Version::_interfaces.find(new_family) != Version::_interfaces.end())
                 {
                     std::stringstream ss;
                     ss << Version::_interfaces[family_clause.get_tokenized_arguments(ExpressionTokenizer())[0]];

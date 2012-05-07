@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -26,6 +26,7 @@
 
 
 
+
 #include "tl-symbol.hpp"
 #include "tl-type.hpp"
 #include "tl-scope.hpp"
@@ -35,6 +36,7 @@
 #include "cxx-scope.h"
 #include "cxx-exprtype.h"
 
+#include "codegen-phase.hpp"
 #include "codegen-fortran.hpp"
 
 namespace TL
@@ -54,6 +56,12 @@ namespace TL
         const char** parameter_names  = new const char*[num_parameters + 1];
         const char** param_attributes = new const char*[num_parameters + 1];
 
+        for (int i = 0; i < num_parameters; i++)
+        {
+            parameter_names[i] = NULL;
+            param_attributes[i] = NULL;
+        }
+
         int orig_size = parameters.size();
         for (int i = 0; i < orig_size; i++)
         {
@@ -67,12 +75,20 @@ namespace TL
         for (int i = 0; i < num_parameters; i++)
         {
             if (i < orig_size)
+            {
                 parameters[i] = parameter_names[i];
-            else
-                parameters[i].append(parameter_names[i]);
+            }
+            else 
+            {
+                if (parameter_names[i] != NULL)
+                    parameters.append(parameter_names[i]);
+                else
+                    parameters.append("");
+            }
         }
 
         delete[] parameter_names;
+        delete[] param_attributes;
 
         return result;
     }
@@ -99,13 +115,10 @@ namespace TL
             running_error("This function cannot be called if we are not in Fortran", 0);
         }
 
-        // FIXME - All this architecture must be largely improved
-        ERROR_CONDITION(CURRENT_CONFIGURATION->codegen_phase == NULL,
-                "Codegen phase has not been loaded yet for this configuration", 0);
-        Codegen::FortranBase* codegen_phase = reinterpret_cast<Codegen::FortranBase*>(CURRENT_CONFIGURATION->codegen_phase);
+        Codegen::FortranBase &codegen_phase = static_cast<Codegen::FortranBase&>(Codegen::get_current());
 
         std::string type_specifier, array_specifier;
-        codegen_phase->codegen_type(*this, type_specifier, array_specifier, /* is_dummy */ flags == PARAMETER_DECLARATION);
+        codegen_phase.codegen_type(*this, type_specifier, array_specifier, /* is_dummy */ flags == PARAMETER_DECLARATION);
 
         return type_specifier + " :: " + symbol_name + array_specifier;
     }
@@ -312,6 +325,11 @@ namespace TL
         return ::is_dependent_typename_type(_type_info);
     }
 
+    bool Type::is_dependent() const
+    {
+        return is_dependent_type(_type_info);
+    }
+    
     void Type::dependent_typename_get_components(Symbol& entry_symbol, Nodecl::NodeclBase& parts)
     {
         scope_entry_t* entry = NULL;
@@ -970,7 +988,7 @@ namespace TL
         return ::class_type_is_incomplete_dependent(_type_info);
     }
 
-    class_kind_t Type::class_type_get_class_kind() const
+    type_tag_t Type::class_type_get_class_kind() const
     {
         return ::class_type_get_class_kind(_type_info);
     }
@@ -1156,7 +1174,22 @@ namespace TL
     {
         return _tpl_param_value->is_default;
     }
-    
+
+    bool TemplateParameters::operator==(TemplateParameters t) const
+    {
+        return this->_tpl_params == t._tpl_params;
+    }
+
+    bool TemplateParameters::operator!=(TemplateParameters t) const
+    {
+        return !(this->operator==(t));
+    }
+
+    bool TemplateParameters::is_valid() const
+    {
+        return _tpl_params != NULL;
+    }
+
     int TemplateParameters::get_num_parameters() const
     {
         return _tpl_params->num_parameters;

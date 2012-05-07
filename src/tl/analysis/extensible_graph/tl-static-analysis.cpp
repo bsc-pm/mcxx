@@ -1,25 +1,29 @@
 /*--------------------------------------------------------------------
-(C) Copyright 2006-2009 Barcelona Supercomputing Center 
-Centro Nacional de Supercomputacion
-
-This file is part of Mercurium C/C++ source-to-source compiler.
-
-This library is free software; you can redistribute it and/or
-modify it under the terms of the GNU Lesser General Public
-License as published by the Free Software Foundation; either
-version 3 of the License, or (at your option) any later version.
-
-Mercurium C/C++ source-to-source compiler is distributed in the hope
-that it will be useful, but WITHOUT ANY WARRANTY; without even the
-implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
-PURPOSE.  See the GNU Lesser General Public License for more
-details.
-
-You should have received a copy of the GNU Lesser General Public
-License along with Mercurium C/C++ source-to-source compiler; if
-not, write to the Free Software Foundation, Inc., 675 Mass Ave,
-Cambridge, MA 02139, USA.
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
 
 
 #include <typeinfo>
@@ -36,7 +40,7 @@ namespace TL
 {
     namespace Analysis
     {
-        static void compute_params_usage_in_unknown_func_call(Nodecl::NodeclBase n, ext_sym_set undef_behaviour_vars, ext_sym_set ue_vars);
+        static void compute_params_usage_in_unknown_func_call(Nodecl::NodeclBase n, ext_sym_set& undef_behaviour_vars, ext_sym_set& ue_vars);
         static ObjectList<Node*> uses_from_node_to_node(Node* current, Node* end, ExtensibleSymbol ei, Node* task);
         
         // *** NODE *** //
@@ -210,8 +214,14 @@ namespace TL
                                 ext_sym_set inner_live_in = live_in;
                                 live_in.clear();
                                 for(ext_sym_set::iterator it = inner_live_in.begin(); it != inner_live_in.end(); ++it)
-                                    if ( !it->get_symbol().get_scope().scope_is_enclosed_by(sc) && it->get_symbol().get_scope() != sc )
-                                        live_in.append(*it);
+                                {
+                                    ObjectList<Symbol> syms = it->get_symbols();
+                                    for (ObjectList<Symbol>::iterator its = syms.begin(); its != syms.end(); ++its)
+                                    {   // If one of the symbols in the expression is not local, then the whole symbol is not local
+                                        if ( !its->get_scope().scope_is_enclosed_by(sc) && its->get_scope() != sc )
+                                            live_in.append(*it);
+                                    }
+                                }
                             }
                         }
                         
@@ -270,6 +280,7 @@ namespace TL
                 if (it->is_array())
                 {
                     // Delete it from the other groups
+                    purge_set_of_auto_scoped_array(*it, _undefined_vars);
                     purge_set_of_auto_scoped_array(*it, _firstprivate_vars);
                     purge_set_of_auto_scoped_array(*it, _private_vars);
                     purge_set_of_auto_scoped_array(*it, _shared_vars);
@@ -375,6 +386,7 @@ namespace TL
             {
                 task->print_use_def_chains();
                 task->print_liveness();
+                task->print_auto_scoping();
                 task->print_task_dependencies();
             }
             
@@ -533,10 +545,7 @@ namespace TL
                 ExtensibleGraph::clear_visits(task->get_graph_entry_node());
             }
             
-//             task->set_private_var(_private_vars);
-//             task->set_firstprivate_var(_firstprivate_vars);
-//             task->set_shared_var(_shared_vars);
-//             task->set_undef_sc_var(_undefined_vars);
+            task->print_auto_scoping();
             
             return '1';
         }
@@ -633,7 +642,8 @@ namespace TL
                     ext_sym_set ue = current->get_ue_vars();
                     for (ext_sym_set::iterator it = ue.begin(); it != ue.end(); ++it)
                     {  
-                        if (!it->get_symbol().get_scope().scope_is_enclosed_by(sc)/* && it->get_symbol().get_scope() != sc*/
+                        Symbol s(it->get_symbol());
+                        if (s.is_valid() && !s.get_scope().scope_is_enclosed_by(sc)/* && it->get_symbol().get_scope() != sc*/
                             && !ext_sym_set_contains_englobing_nodecl(*it, undef))
                             scope_variable(task, current, '1', *it, is_in_loop, scoped_vars);
                     }
@@ -641,7 +651,8 @@ namespace TL
                     ext_sym_set killed = current->get_killed_vars();
                     for (ext_sym_set::iterator it = killed.begin(); it != killed.end(); ++it)
                     {  
-                        if (!it->get_symbol().get_scope().scope_is_enclosed_by(sc)/* && it->get_symbol().get_scope() != sc*/
+                        Symbol s(it->get_symbol());
+                        if (s.is_valid() && !s.get_scope().scope_is_enclosed_by(sc)/* && it->get_symbol().get_scope() != sc*/
                             && !ext_sym_set_contains_englobing_nodecl(*it, undef))
                             scope_variable(task, current, '0', *it, is_in_loop, scoped_vars);
                     }    
@@ -718,7 +729,9 @@ namespace TL
                         //      − If the first action performed in v within the task is a write, then v is scoped as PRIVATE.
                         //      − If the first action performed in v within the task is a read, then v is scoped as FIRSTPRIVATE.
                         //   B. If we can assure that no data race can occur, then v is scoped as SHARED.
+                        // TODO
                         std::cerr << "Variable within task is written, we should look for data race conditions here!!" << std::endl;
+                        task->set_race_var(ei);
                     }
                 }
             }
@@ -743,7 +756,7 @@ namespace TL
                     }
                 }
                 
-                // look simultaneous code in encountering thread
+                // TODO look simultaneous code in encountering thread
                 
                 
             }
@@ -1123,6 +1136,24 @@ namespace TL
                     }
                 }
                 // While checking parameters, we can have many types of "Extensible symbols"
+                else if (n.is<Nodecl::Add>())
+                {
+                    Nodecl::Add aux = n.as<Nodecl::Add>();
+                    Nodecl::NodeclBase lhs = match_nodecl_with_symbol(aux.get_lhs(), s, arg);
+                    Nodecl::NodeclBase rhs = match_nodecl_with_symbol(aux.get_rhs(), s, arg);
+                    if (!lhs.is_null() && !rhs.is_null())
+                    {
+                        internal_error("Using two parameters in the same argument expression. Not yet implemented\n", 0);
+                    }
+                    else if (!lhs.is_null())
+                    {
+                        return lhs;
+                    }
+                    else if (!rhs.is_null())
+                    {
+                        return rhs;
+                    }
+                }
                 else if (n.is<Nodecl::Minus>())
                 {
                     Nodecl::Minus aux = n.as<Nodecl::Minus>();
@@ -1294,7 +1325,6 @@ namespace TL
                             ObjectList<struct var_usage_t*> ipa_usage = ipa_visitor.get_usage();
                             for (ObjectList<struct var_usage_t*>::iterator it = ipa_usage.begin(); it != ipa_usage.end(); ++it)
                             {
-                                std::cerr << "IPA  ::  " << (*it)->get_nodecl().prettyprint() << std::endl;
                                 char usage = (*it)->get_usage();
                                 Nodecl::NodeclBase s = (*it)->get_nodecl();
                                 if (usage == '0')
@@ -1312,7 +1342,6 @@ namespace TL
                                 }
                                 else if (usage == '3')
                                 {
-                                    std::cerr << "********* UNDEF VAR 1:" << s.prettyprint() << std::endl;
                                     undef_vars.insert(ExtensibleSymbol(s));
                                 }
                                 else
@@ -1347,7 +1376,6 @@ namespace TL
                                     
                                     for (ObjectList<Nodecl::NodeclBase>::iterator its = arg_ei.begin(); its != arg_ei.end(); ++its)
                                     {
-                                        std::cerr << "ARG  ::  " << its->prettyprint() << std::endl;
                                         if( !usage_list_contains_englobing_nodecl(*its, ipa_usage) 
                                             && !usage_list_contains_englobed_nodecl(*its, ipa_usage) )
                                         {   // All arguments that are not already in the list, have to be set as UE
@@ -1383,7 +1411,6 @@ namespace TL
                         ObjectList<Nodecl::NodeclBase> non_ref_args = get_non_reference_args(func_call, called_func_graph);
                         for (ObjectList<Nodecl::NodeclBase>::iterator it = non_ref_args.begin(); it != non_ref_args.end(); ++it)
                         {
-                            std::cerr << "NON_REF  ::  " << it->prettyprint() << std::endl;
                             if (it->is<Nodecl::Symbol>() || it->is<Nodecl::Cast>() || it->is<Nodecl::ClassMemberAccess>()
                                 || it->is<Nodecl::Reference>() || it->is<Nodecl::Derreference>() 
                                 || it->is<Nodecl::ArraySubscript>()) 
@@ -1477,8 +1504,9 @@ namespace TL
                                 }
                                 else
                                 {
-                                    if ( !it->get_symbol().get_scope().scope_is_enclosed_by(function_sym.get_scope()) 
-                                             && it->get_symbol().get_scope() != function_sym.get_scope() )
+                                    Symbol s = it->get_symbol();
+                                    if (s.is_valid() && !s.get_scope().scope_is_enclosed_by(function_sym.get_scope()) 
+                                             && s.get_scope() != function_sym.get_scope())
                                     {   // UE variable is global
                                         node_ue_vars.insert(*it);
                                     }
@@ -1520,7 +1548,8 @@ namespace TL
                                     ExtensibleSymbol ei(killed_arg);
                                     ei.propagate_constant_values(const_args);
                                     // Only reference parameters can be killed, the rest are only used to make a temporary copy
-                                    if (ei.get_symbol().get_type().is_pointer())
+                                    s = ei.get_symbol();
+                                    if (s.is_valid() && s.get_type().is_pointer())
                                     {   // FIXME We must go in this case if the Parameter is passed by reference and 
                                         // if the argument is not a temporary value
                                         // decl_context_t param_context =
@@ -1533,10 +1562,14 @@ namespace TL
                                         node_ue_vars.insert(ei);
                                     }
                                 }
-                                else if ( !it->get_symbol().get_scope().scope_is_enclosed_by(function_sym.get_scope()) 
+                                else
+                                {
+                                    s = it->get_symbol();
+                                    if (s.is_valid() && !it->get_symbol().get_scope().scope_is_enclosed_by(function_sym.get_scope()) 
                                         && it->get_symbol().get_scope() != function_sym.get_scope() )
-                                {   // KILLED variable is global
-                                    node_killed_vars.insert(it->get_nodecl());
+                                    {   // KILLED variable is global
+                                        node_killed_vars.insert(it->get_nodecl());
+                                    }
                                 }
                             }
 
@@ -1553,6 +1586,7 @@ namespace TL
                 }
                 else
                 {
+                    std::cerr << "**************** CALL TO FUNC '" << node->get_function_node_symbol().get_name() << "' UNRECOGNIZED" << std::endl;
                     _actual_cfg->set_use_def_computed('2');
                    
                     // Set undefined_behaviour to all parameters in the function call
@@ -1592,10 +1626,13 @@ namespace TL
             }
         }
         
-        static void compute_params_usage_in_unknown_func_call(Nodecl::NodeclBase n, ext_sym_set undef_behaviour_vars, ext_sym_set ue_vars)
+        static void compute_params_usage_in_unknown_func_call(Nodecl::NodeclBase n, ext_sym_set& undef_behaviour_vars, ext_sym_set& ue_vars)
         {
-            if (n.is<Nodecl::Symbol>() || n.is<Nodecl::ClassMemberAccess>() || n.is<Nodecl::ArraySubscript>()
-                || n.is<Nodecl::Reference>() || n.is<Nodecl::Derreference>() || n.is<Nodecl::Cast>())
+            if (n.is<Nodecl::Symbol>() || n.is<Nodecl::ClassMemberAccess>())
+            {
+                ue_vars.insert(ExtensibleSymbol(n));
+            }
+            else if (n.is<Nodecl::Reference>() || n.is<Nodecl::Derreference>())
             {
                 ExtensibleSymbol ei(n);
                 undef_behaviour_vars.insert(ei);
