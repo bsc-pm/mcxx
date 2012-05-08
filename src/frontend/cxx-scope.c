@@ -1847,21 +1847,47 @@ static type_t* update_dependent_typename(
     nodecl_t new_dependent_parts_list = nodecl_null();
     for (i = 0; i < num_parts; i++)
     {
-        nodecl_t new_current_part = nodecl_shallow_copy(list[i]);
-
-        if (nodecl_get_kind(new_current_part) == NODECL_CXX_DEP_TEMPLATE_ID)
+        nodecl_t new_current_part = nodecl_null();
+        switch (nodecl_get_kind(list[i]))
         {
-            template_parameter_list_t* template_arguments 
-                = nodecl_get_template_parameters(new_current_part);
-            template_parameter_list_t* new_template_arguments 
-                = update_template_argument_list(decl_context, 
-                        template_arguments, 
-                        filename, line);
+            case NODECL_CXX_DEP_NAME_SIMPLE:
+                {
+                    new_current_part = nodecl_make_cxx_dep_name_simple(
+                            nodecl_get_text(list[i]),
+                            nodecl_get_filename(list[i]),
+                            nodecl_get_line(list[i]));
+                    break;
+                }
+            case NODECL_CXX_DEP_TEMPLATE_ID:
+                {
+                    nodecl_t old_simple_name = nodecl_get_child(list[i], 0);
+                    nodecl_t new_simple_name = nodecl_make_cxx_dep_name_simple(
+                            nodecl_get_text(old_simple_name),
+                            nodecl_get_filename(old_simple_name),
+                            nodecl_get_line(old_simple_name));
 
-            if (new_template_arguments == NULL)
-                return NULL;
+                    template_parameter_list_t* template_arguments
+                        = nodecl_get_template_parameters(list[i]);
 
-            nodecl_set_template_parameters(new_current_part, new_template_arguments);
+                    template_parameter_list_t* new_template_arguments
+                        = update_template_argument_list(decl_context,
+                                template_arguments,
+                                filename, line);
+
+                    new_current_part = nodecl_make_cxx_dep_template_id(
+                            new_simple_name,
+                            nodecl_get_text(list[i]),
+                            new_template_arguments,
+                            nodecl_get_filename(list[i]),
+                            nodecl_get_line(list[i]));
+                    break;
+                }
+            default:
+                {
+                    internal_error("unexpected nodecl of type '%s'\n",
+                            ast_print_node_type(ASTType(nodecl_get_ast(list[i]))));
+                    break;
+                }
         }
 
         new_dependent_parts_list = nodecl_append_to_list(new_dependent_parts_list,
