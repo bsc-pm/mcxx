@@ -3390,7 +3390,8 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
 
                         if (is_primary_template)
                         {
-                            if (is_complete_type(member.get_type().get_internal_type()))
+                            if (member.is_defined_inside_class() &&
+                                    is_complete_type(member.get_type().get_internal_type()))
                             {
                                 define_class_symbol_aux(member, symbols_defined_inside_class, level + 1);
                                 set_codegen_status(member, CODEGEN_STATUS_DEFINED);
