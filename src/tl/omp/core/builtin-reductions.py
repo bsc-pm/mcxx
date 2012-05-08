@@ -60,6 +60,7 @@ print "#include \"tl-type.hpp\""
 
 print "void TL::OpenMP::initialize_builtin_udr_reductions(TL::Scope global_scope)"
 print "{"
+print "    return;"
 print "    static bool already_initialized = false;"
 print "    if (already_initialized)"
 print "        return;"

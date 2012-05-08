@@ -595,9 +595,25 @@ def generate_copy_visitor_class_header(rule_map):
     print "#include \"tl-nodecl-copy-visitor-base.hpp\""
     print ""
     print "namespace Nodecl {"
-    print "   class CopyVisitor : public CopyVisitorBase"
+    print "   class ShallowCopyVisitor : public CopyVisitorBase"
     print "   {"
     print "      public:"
+    classes_and_children = get_all_class_names_and_children_names_namespaces(rule_map)
+    for ((namespaces, class_name), children_name, tree_kind, nodecl_class) in classes_and_children:
+         qualified_name = get_qualified_name(namespaces, class_name)
+         print "        virtual Ret visit(const Nodecl::%s & n);" % (qualified_name)
+    print "   };"
+    print "   struct SymbolMap"
+    print "   {"
+    print "       virtual TL::Symbol map(TL::Symbol sym) = 0;"
+    print "       virtual void add_map(TL::Symbol source, TL::Symbol target) = 0;"
+    print "   };"
+    print "   class DeepCopyVisitorBase : public CopyVisitorBase"
+    print "   {"
+    print "      protected:"
+    print "         SymbolMap &_map_symbol;"
+    print "      public:"
+    print "          DeepCopyVisitorBase(SymbolMap &map_symbol) : _map_symbol(map_symbol) { }"
     classes_and_children = get_all_class_names_and_children_names_namespaces(rule_map)
     for ((namespaces, class_name), children_name, tree_kind, nodecl_class) in classes_and_children:
          qualified_name = get_qualified_name(namespaces, class_name)
@@ -615,7 +631,7 @@ def generate_copy_visitor_class_impl(rule_map):
     classes_and_children = get_all_class_names_and_children_names_namespaces(rule_map)
     for ((namespaces, class_name), children_name, tree_kind, nodecl_class) in classes_and_children:
          qualified_name = get_qualified_name(namespaces, class_name)
-         print "  CopyVisitor::Ret CopyVisitor::visit(const Nodecl::%s & n)" % (qualified_name)
+         print "  ShallowCopyVisitor::Ret ShallowCopyVisitor::visit(const Nodecl::%s & n)" % (qualified_name)
          print "  {"
 
          factory_arguments = []
@@ -625,6 +641,43 @@ def generate_copy_visitor_class_impl(rule_map):
 
          if nodecl_class.needs_symbol:
              print "TL::Symbol symbol = n.get_symbol();"
+             factory_arguments.append("symbol")
+         if nodecl_class.needs_type:
+             print "TL::Type type = n.get_type();";
+             factory_arguments.append("type")
+         if nodecl_class.needs_text:
+             print "const std::string& text = n.get_text();"
+             factory_arguments.append("text")
+         if nodecl_class.needs_cval:
+             print "const_value_t* cval = n.get_constant();"
+             factory_arguments.append("cval")
+         if nodecl_class.needs_template_parameters:
+             print "template_parameter_list_t* template_parameters = nodecl_get_template_parameters(n.get_internal_nodecl());"
+             factory_arguments.append("template_parameters")
+         if nodecl_class.needs_decl_context:
+             print "TL::Scope sc = nodecl_get_decl_context(n.get_internal_nodecl());";
+             factory_arguments.append("sc")
+
+         print "const std::string &filename = n.get_filename();"
+         factory_arguments.append("filename")
+         print "int line = n.get_line();"
+         factory_arguments.append("line")
+
+         print "return %s::make(%s);" % (qualified_name, string.join(factory_arguments, ", "))
+
+         print "  }"
+    for ((namespaces, class_name), children_name, tree_kind, nodecl_class) in classes_and_children:
+         qualified_name = get_qualified_name(namespaces, class_name)
+         print "  DeepCopyVisitorBase::Ret DeepCopyVisitorBase::visit(const Nodecl::%s & n)" % (qualified_name)
+         print "  {"
+
+         factory_arguments = []
+         for child_name in children_name:
+             print "Nodecl::NodeclBase child_%s = walk(n.get_%s());" % (child_name, child_name)
+             factory_arguments.append("child_%s" % (child_name))
+
+         if nodecl_class.needs_symbol:
+             print "TL::Symbol symbol = _map_symbol.map( n.get_symbol() );"
              factory_arguments.append("symbol")
          if nodecl_class.needs_type:
              print "TL::Type type = n.get_type();";

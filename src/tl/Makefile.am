@@ -104,6 +104,8 @@ libtl_la_SOURCES = \
     tl-nodecl-copy-visitor-base.cpp \
     tl-nodecl-copy-visitor.hpp \
     tl-nodecl-copy-visitor.cpp \
+    tl-nodecl-deep-copy.hpp \
+    tl-nodecl-deep-copy.cpp \
     tl-nodecl-fwd.hpp \
     tl-nodecl-base-fwd.hpp \
     tl-nodecl-base.hpp \

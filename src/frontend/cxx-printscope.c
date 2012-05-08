@@ -108,7 +108,7 @@ static void print_scope_full_context(decl_context_t decl_context, int global_ind
     }
 }
 
-static void print_scope_full_aux(const void* key UNUSED_PARAMETER, void* info, void* data)
+static void print_scope_full_aux(const void* key, void* info, void* data)
 {
     scope_entry_list_t* entry_list = (scope_entry_list_t*)info;
 

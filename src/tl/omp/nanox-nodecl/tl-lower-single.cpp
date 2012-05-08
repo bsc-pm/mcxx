@@ -27,6 +27,7 @@
 
 #include "tl-source.hpp"
 #include "tl-lowering-visitor.hpp"
+#include "tl-nodecl-deep-copy.hpp"
 
 namespace TL { namespace Nanox {
 
@@ -37,6 +38,12 @@ namespace TL { namespace Nanox {
 
         walk(statements);
 
+        statements = construct.get_statements();
+
+        Nodecl::SimpleSymbolMap symbol_map; // currently empty
+        Nodecl::NodeclBase copied_statements = deep_copy(statements, construct, symbol_map);
+        Nodecl::NodeclBase copied_statements_1 = deep_copy(statements, construct, symbol_map);
+
         TL::Source transform_code, final_barrier;
         transform_code
             << "{"
@@ -46,7 +53,8 @@ namespace TL { namespace Nanox {
 
             << "if (single_guard)"
             << "{"
-            <<     statements.prettyprint()
+            <<     as_statement(copied_statements)
+            <<     as_statement(copied_statements_1)
             << "}"
             << "}"
             ;
