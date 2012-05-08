@@ -55,6 +55,9 @@ enum
     // Scope limits
     MCXX_MAX_SCOPES_NESTING = 128,
 
+    // Max linkage nesting
+    MCXX_MAX_LINKAGE_NESTING = 128,
+
     // C99 Designator
     MCXX_MAX_DESIGNATORS = 64,
 
