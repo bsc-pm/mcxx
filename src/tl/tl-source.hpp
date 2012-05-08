@@ -188,6 +188,17 @@ namespace TL
         L _l;
     };
 
+    struct ReferenceScope
+    {
+        private:
+            Scope _scope;
+        public:
+            ReferenceScope(Scope sc);
+            ReferenceScope(Nodecl::NodeclBase nodecl);
+
+            Scope get_scope() const;
+    };
+
     //! A class used to generate in, a convenient way, code in the compiler
     class LIBTL_CLASS Source : public Object
     {
@@ -201,17 +212,6 @@ namespace TL
                 ALLOW_REDECLARATION = 1 << 1,
                 //! Does not check an expression
                 DO_NOT_CHECK_EXPRESSION = 1 << 2,
-            };
-
-            struct ReferenceScope
-            {
-                private:
-                    Scope _scope;
-                public:
-                    ReferenceScope(Scope sc);
-                    ReferenceScope(Nodecl::NodeclBase nodecl);
-
-                    Scope get_scope() const;
             };
 
             static SourceLanguage source_language;

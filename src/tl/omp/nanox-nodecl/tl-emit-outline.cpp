@@ -471,7 +471,7 @@ namespace TL { namespace Nanox {
                 << "IMPLICIT NONE\n";
 
             // Insert extra symbols
-            TL::Source::ReferenceScope ref_scope(unpacked_function_body);
+            TL::ReferenceScope ref_scope(unpacked_function_body);
             decl_context_t decl_context = ref_scope.get_scope().get_decl_context();
 
             for (ObjectList<Symbol>::iterator it = fun_visitor.extra_decl_sym.begin();

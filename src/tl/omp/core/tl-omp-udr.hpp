@@ -83,7 +83,7 @@ namespace TL
                         Type t);
 
                 Nodecl::NodeclBase parse_omp_udr_operator_name(
-                        Source::ReferenceScope ref_scope,
+                        ReferenceScope ref_scope,
                         const std::string &omp_udr_oper_name);
 
                 TL::Symbol get_symbol_holder() const;

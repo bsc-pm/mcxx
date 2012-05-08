@@ -203,7 +203,7 @@ namespace TL
 
 
         Nodecl::NodeclBase UDRInfoItem::parse_omp_udr_operator_name(
-                Source::ReferenceScope ref_scope,
+                ReferenceScope ref_scope,
                 const std::string &omp_udr_oper_name)
         {
             std::string mangled_str = "@OMP_OPERATOR_NAME@ " + omp_udr_oper_name;

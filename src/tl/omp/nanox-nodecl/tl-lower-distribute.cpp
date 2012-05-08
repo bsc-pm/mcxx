@@ -53,7 +53,7 @@ namespace TL { namespace Nanox {
         std::string outline_name = get_outline_name(function_symbol);
 
         // Add field wsd
-        TL::Symbol sym = Source::ReferenceScope(construct).get_scope().get_symbol_from_name("nanos_ws_desc_t");
+        TL::Symbol sym = ReferenceScope(construct).get_scope().get_symbol_from_name("nanos_ws_desc_t");
         ERROR_CONDITION(sym.is_invalid(), "Invalid symbol", 0);
 
         TL::Type nanos_ws_desc_type = ::get_user_defined_type(sym.get_internal_symbol());

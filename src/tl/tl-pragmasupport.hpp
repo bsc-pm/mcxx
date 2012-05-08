@@ -103,7 +103,7 @@ namespace TL
          * get_arguments_as_expressions(ClauseTokenizer) but using the
          * given ReferenceScope to perform the parse of the expressions
          */
-        ObjectList<Nodecl::NodeclBase> get_arguments_as_expressions(Source::ReferenceScope, const ClauseTokenizer& = ExpressionTokenizerTrim()) const;
+        ObjectList<Nodecl::NodeclBase> get_arguments_as_expressions(ReferenceScope, const ClauseTokenizer& = ExpressionTokenizerTrim()) const;
     };
 
     //! This is the dual to PragmaCustomClause
@@ -143,7 +143,7 @@ namespace TL
              * get_arguments_as_expressions(ClauseTokenizer) but using the
              * given ReferenceScope to perform the parse of the expressions
              */
-            ObjectList<Nodecl::NodeclBase> get_arguments_as_expressions(Source::ReferenceScope, const ClauseTokenizer& = ExpressionTokenizerTrim()) const;
+            ObjectList<Nodecl::NodeclBase> get_arguments_as_expressions(ReferenceScope, const ClauseTokenizer& = ExpressionTokenizerTrim()) const;
     };
 
     //! This is a helper class not related to a specific Nodecl
@@ -200,7 +200,7 @@ namespace TL
              * get_arguments_as_expressions(ClauseTokenizer) but using the
              * given ReferenceScope to perform the parse of the expressions
              */
-            ObjectList<Nodecl::NodeclBase> get_arguments_as_expressions(Source::ReferenceScope, const ClauseTokenizer & = ExpressionTokenizerTrim()) const;
+            ObjectList<Nodecl::NodeclBase> get_arguments_as_expressions(ReferenceScope, const ClauseTokenizer & = ExpressionTokenizerTrim()) const;
 
             std::string get_locus() const;
 
@@ -268,7 +268,7 @@ namespace TL
 
         PragmaCustomLine get_pragma_line() const;
 
-        Source::ReferenceScope get_context_of_declaration() const; 
+        ReferenceScope get_context_of_declaration() const; 
     };
 
     class LIBTL_CLASS PragmaCustomStatement : public Nodecl::PragmaCustomStatement

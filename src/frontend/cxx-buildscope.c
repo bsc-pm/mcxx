@@ -282,8 +282,36 @@ static void call_destructors_of_classes(decl_context_t block_context,
         const char* filename, int line,
         nodecl_t* nodecl_output);
 
+typedef struct linkage_stack_tag { const char* name; char is_braced; } linkage_stack_t;
+
 // Current linkage: NULL means the default linkage (if any) of the symbol
-static const char* current_linkage = NULL;
+static linkage_stack_t _linkage_stack[MCXX_MAX_LINKAGE_NESTING] = { { NULL, 1 } };
+static int _top_linkage_stack = 0;
+
+static const char* linkage_current_get_name(void)
+{
+    return _linkage_stack[_top_linkage_stack].name;
+}
+
+static char linkage_current_is_braced(void)
+{
+    return _linkage_stack[_top_linkage_stack].is_braced;
+}
+
+static void linkage_push(const char* linkage_name, char is_braced)
+{
+    _top_linkage_stack++;
+    ERROR_CONDITION(_top_linkage_stack == MCXX_MAX_LINKAGE_NESTING, "Too many linkage nesting levels", 0);
+
+    _linkage_stack[_top_linkage_stack].name = linkage_name;
+    _linkage_stack[_top_linkage_stack].is_braced = is_braced;
+}
+
+static void linkage_pop(void)
+{
+    ERROR_CONDITION(_top_linkage_stack == 0, "Linkage stack is empty!", 0);
+    _top_linkage_stack--;
+}
 
 static void gather_decl_spec_information(AST a, 
         gather_decl_spec_t* gather_info, decl_context_t decl_context);
@@ -7722,10 +7750,12 @@ static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* decl
         entry->entity_specs.is_user_declared = 1;
         entry->entity_specs.is_static = gather_info->is_static;
         entry->entity_specs.is_mutable = gather_info->is_mutable;
-        entry->entity_specs.is_extern = gather_info->is_extern;
+        entry->entity_specs.is_extern = gather_info->is_extern 
+            // 'extern "C" int x;'  is like 'extern "C" extern int x;'
+            || (linkage_current_get_name() != NULL && !linkage_current_is_braced());
         entry->entity_specs.is_register = gather_info->is_register;
         entry->entity_specs.is_thread = gather_info->is_thread;
-        entry->entity_specs.linkage_spec = current_linkage;
+        entry->entity_specs.linkage_spec = linkage_current_get_name();
 
         // Copy gcc attributes
         entry->entity_specs.num_gcc_attributes = gather_info->num_gcc_attributes;
@@ -7787,7 +7817,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
             new_entry->line = ASTLine(declarator_id);
             new_entry->file = ASTFileName(declarator_id);
 
-            new_entry->entity_specs.linkage_spec = current_linkage;
+            new_entry->entity_specs.linkage_spec = linkage_current_get_name();
             new_entry->entity_specs.is_explicit = gather_info->is_explicit;
             new_entry->entity_specs.is_friend_declared = gather_info->is_friend;
 
@@ -7903,7 +7933,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
         new_entry->entity_specs.is_inline = gather_info->is_inline;
         new_entry->entity_specs.is_virtual = gather_info->is_virtual;
 
-        new_entry->entity_specs.linkage_spec = current_linkage;
+        new_entry->entity_specs.linkage_spec = linkage_current_get_name();
 
         // "is_pure" of a function is computed in "build_scope_member_simple_declaration"
 
@@ -8579,17 +8609,17 @@ static void build_scope_linkage_specifier(AST a, decl_context_t decl_context, no
     if (declaration_sequence == NULL)
         return;
 
-    const char* previous_linkage = current_linkage;
-
     AST linkage_spec = ASTSon0(a);
-    current_linkage = uniquestr(ASTText(linkage_spec));
+    const char* current_linkage = uniquestr(ASTText(linkage_spec));
     // Ignore C++ linkage as it is the default
     if (strcmp(current_linkage, "\"C++\"") == 0)
         current_linkage = NULL;
 
+    linkage_push(current_linkage, /* is braced */ 1);
+
     build_scope_declaration_sequence(declaration_sequence, decl_context, nodecl_output);
 
-    current_linkage = previous_linkage;
+    linkage_pop();
 }
 
 /*
@@ -8604,13 +8634,13 @@ static void build_scope_linkage_specifier_declaration(AST a,
 {
     AST declaration = ASTSon1(a);
 
-    const char* previous_linkage = current_linkage;
-
     AST linkage_spec = ASTSon0(a);
-    current_linkage = uniquestr(ASTText(linkage_spec));
+    const char* current_linkage = uniquestr(ASTText(linkage_spec));
     // Ignore C++ linkage as it is the default
     if (strcmp(current_linkage, "\"C++\"") == 0)
         current_linkage = NULL;
+
+    linkage_push(current_linkage, /* is braced */ 0);
 
     if (ASTType(declaration)  == AST_LINKAGE_SPEC_DECL)
     {
@@ -8622,7 +8652,7 @@ static void build_scope_linkage_specifier_declaration(AST a,
         build_scope_declaration(declaration, decl_context, nodecl_output, declared_symbols);
     }
 
-    current_linkage = previous_linkage;
+    linkage_pop();
 }
 
 /*
@@ -10253,6 +10283,8 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
         }
     }
 
+    linkage_push(NULL, /* is_braced */ 1);
+
     nodecl_t body_nodecl = nodecl_null();
     if (ASTType(statement) == AST_COMPOUND_STATEMENT)
     {
@@ -10312,6 +10344,9 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     {
         internal_error("Unreachable code", 0);
     }
+
+    linkage_pop();
+
     nodecl_t (*ptr_nodecl_make_func_code)(nodecl_t, nodecl_t, nodecl_t, scope_entry_t*,const char*, int) = NULL;
 
     ptr_nodecl_make_func_code = (!is_dependent_type(entry->type_information) &&
