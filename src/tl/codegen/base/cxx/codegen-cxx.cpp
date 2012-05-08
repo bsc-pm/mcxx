@@ -1316,8 +1316,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
     }
     else
     {
-        if (symbol_type.is_template_specialized_type()
-                && symbol_type.template_specialized_type_get_template_arguments().get_num_parameters() != 0)
+        if (symbol_type.is_template_specialized_type())
         {
             TL::Type template_type = symbol_type.get_related_template_type();
             TL::Type primary_type = template_type.get_primary_template();
@@ -1564,8 +1563,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
     }
     else
     {
-        if (is_template_specialized
-                && symbol_type.template_specialized_type_get_template_arguments().get_num_parameters() != 0)
+        if (is_template_specialized)
         {
             TL::Type template_type = symbol_type.get_related_template_type();
             TL::Type primary_type = template_type.get_primary_template();
@@ -2860,8 +2858,7 @@ TL::ObjectList<TL::Symbol> CxxBase::define_required_before_class(TL::Symbol symb
 
     if (symbol.is_class())
     {
-        if (symbol.get_type().is_template_specialized_type()
-                && symbol.get_type().template_specialized_type_get_template_arguments().get_num_parameters() != 0)
+        if (symbol.get_type().is_template_specialized_type())
         {
             TL::TemplateParameters template_arguments = symbol.get_type().template_specialized_type_get_template_arguments();
             declare_all_in_template_arguments(
@@ -3143,8 +3140,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
         TL::Type primary_template(NULL);
         TL::Symbol primary_symbol(NULL);
 
-        if (symbol_type.is_template_specialized_type()
-                && symbol_type.template_specialized_type_get_template_arguments().get_num_parameters() != 0)
+        if (symbol_type.is_template_specialized_type())
         {
             is_template_specialized = 1;
             template_type = symbol_type.get_related_template_type();
@@ -3381,8 +3377,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
             {
                 if (member.is_class())
                 {
-                    if (member.get_type().is_template_specialized_type()
-                            && member.get_type().template_specialized_type_get_template_arguments().get_num_parameters() != 0)
+                    if (member.get_type().is_template_specialized_type())
                     {
                         TL::Type related_template = member.get_type().get_related_template_type();
                         TL::Type primary_template = related_template.get_primary_template();
@@ -3390,7 +3385,8 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
 
                         if (is_primary_template)
                         {
-                            if (is_complete_type(member.get_type().get_internal_type()))
+                            if (member.is_defined_inside_class() &&
+                                    is_complete_type(member.get_type().get_internal_type()))
                             {
                                 define_class_symbol_aux(member, symbols_defined_inside_class, level + 1);
                                 set_codegen_status(member, CODEGEN_STATUS_DEFINED);
@@ -4442,8 +4438,7 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
             TL::Type primary_template(NULL);
             TL::Symbol primary_symbol(NULL);
 
-            if (symbol.get_type().is_template_specialized_type()
-                    && symbol.get_type().template_specialized_type_get_template_arguments().get_num_parameters() != 0)
+            if (symbol.get_type().is_template_specialized_type())
             {
                 is_template_specialized = 1;
                 template_type = symbol.get_type().get_related_template_type();
@@ -4590,8 +4585,7 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                 inc_indent();
             }
 
-            if (symbol.get_type().is_template_specialized_type()
-                    && symbol.get_type().template_specialized_type_get_template_arguments().get_num_parameters() != 0)
+            if (symbol.get_type().is_template_specialized_type())
             {
                 TL::Type template_type = symbol.get_type().get_related_template_type();
                 TL::Type primary_template = template_type.get_primary_template();
