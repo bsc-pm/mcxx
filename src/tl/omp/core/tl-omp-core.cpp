@@ -1046,7 +1046,7 @@ namespace TL
             DataSharingEnvironment& data_sharing = _openmp_info->get_current_data_sharing();
             
             // Extract from the PragmaCustomDirective the context of declaration
-            Source::ReferenceScope context_of_decl = construct.get_context_of_declaration();
+            ReferenceScope context_of_decl = construct.get_context_of_declaration();
 
             // Extract from the PragmaCustomDirective the pragma line
             PragmaCustomLine pragma_line = construct.get_pragma_line();

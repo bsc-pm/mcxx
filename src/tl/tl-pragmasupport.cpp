@@ -191,7 +191,7 @@ namespace TL
         return tokenizer.tokenize(raw);
     }
 
-    ObjectList<Nodecl::NodeclBase> PragmaClauseArgList::get_arguments_as_expressions(Source::ReferenceScope ref_scope, 
+    ObjectList<Nodecl::NodeclBase> PragmaClauseArgList::get_arguments_as_expressions(ReferenceScope ref_scope, 
             const ClauseTokenizer& tokenizer) const
     {
         ObjectList<std::string> str_list = this->get_tokenized_arguments(tokenizer);
@@ -226,7 +226,7 @@ namespace TL
         return PragmaClauseArgList(this->get_arguments().as<Nodecl::List>()).get_tokenized_arguments(tokenizer);
     }
 
-    ObjectList<Nodecl::NodeclBase> PragmaCustomSingleClause::get_arguments_as_expressions(Source::ReferenceScope ref_scope, 
+    ObjectList<Nodecl::NodeclBase> PragmaCustomSingleClause::get_arguments_as_expressions(ReferenceScope ref_scope, 
             const ClauseTokenizer& tokenizer) const
     {
         return PragmaClauseArgList(this->get_arguments().as<Nodecl::List>()).get_arguments_as_expressions(ref_scope, tokenizer);
@@ -284,7 +284,7 @@ namespace TL
     }
 
     ObjectList<Nodecl::NodeclBase> PragmaCustomClause::get_arguments_as_expressions(
-        Source::ReferenceScope ref_scope, 
+        ReferenceScope ref_scope, 
         const ClauseTokenizer & tokenizer) const
     {
         ObjectList<Nodecl::NodeclBase> result;
@@ -413,9 +413,9 @@ namespace TL
         return TL::PragmaCustomLine(this->Nodecl::PragmaCustomDirective::get_pragma_line().as<Nodecl::PragmaCustomLine>());
     }
 
-    Source::ReferenceScope TL::PragmaCustomDirective::get_context_of_declaration() const
+    ReferenceScope TL::PragmaCustomDirective::get_context_of_declaration() const
     {
-        return Source::ReferenceScope(this->Nodecl::PragmaCustomDirective::get_context_of_decl().as<Source::ReferenceScope>());
+        return ReferenceScope(this->Nodecl::PragmaCustomDirective::get_context_of_decl().as<ReferenceScope>());
     }
     
     bool PragmaUtils::is_pragma_construct(const std::string& prefix, 
