@@ -451,6 +451,86 @@ def print_fortran_modules_functions(lines):
     print "#endif // FORTRAN03_MODULES_BITS_H"
 
 
+def print_deep_copy_entity_specs(lines):
+    print "// DO NOT MODIFY THIS FILE."
+    print "// It will be overwritten when gen-symbols-attrs.py or cxx-entity_specs.def are modified"
+    print "#include \"cxx-scope.h\""
+    print "#include \"cxx-nodecl-deep-copy.h\""
+    print "#include \"cxx-typeutils.h\""
+    print "#include \"string_utils.h\""
+
+    print """
+    void symbol_deep_copy_entity_specs(scope_entry_t* dest, scope_entry_t* source, decl_context_t decl_context, void* info, scope_entry_t* (*map)(scope_entry_t*, void*))
+    {
+    """
+    for l in lines:
+      fields = l.split("|");
+      (_type,language,name,description) = fields
+      if (name[0] == "*"):
+          name = name[1:]
+          continue
+      if _type in ["bool", "integer"]:
+          print "dest->entity_specs.%s = source->entity_specs.%s;" % (name, name)
+      elif (_type == "scope"):
+          print "dest->entity_specs.%s = decl_context;" % (name)
+      elif (_type == "nodecl"):
+          print "dest->entity_specs.%s = nodecl_deep_copy(source->entity_specs.%s, decl_context, info, map);" % (name, name)
+      elif (_type == "type"):
+          print "dest->entity_specs.%s = type_deep_copy(source->entity_specs.%s, decl_context, info, map);" % (name, name)
+      elif (_type == "symbol"):
+          print "dest->entity_specs.%s = map(source->entity_specs.%s, info);" % (name, name)
+      elif (_type == "string"):
+          print "dest->entity_specs.%s = source->entity_specs.%s;" % (name, name)
+      elif (_type.startswith("typeof")):
+            type_name = get_up_to_matching_paren(_type[len("typeof"):])
+            if type_name in ["intent_kind_t", "access_specifier_t", "_size_t"]:
+                print "dest->entity_specs.%s = source->entity_specs.%s;" % (name, name)
+            else:
+                sys.stderr.write("%s: warning: not handling typeof '%s'\n" % (sys.argv[0], type_name))
+      elif _type.startswith("array"):
+          type_name = get_up_to_matching_paren(_type[len("array"):])
+          field_names = name.split(",")
+          if (len(field_names) == 1):
+             num_name = "num_" + name
+             list_name = name
+          elif (len(field_names) == 2):
+              num_name = field_names[0]
+              list_name = field_names[1]
+          else:
+              raise Exception("Invalid number of fields in array name. Only 1 or 2 comma-separated are allowed")
+          if type_name.startswith("typeof"):
+              type_name = get_up_to_matching_paren(type_name[len("typeof"):])
+          print "{"
+          print "int i, N = source->entity_specs.%s;" % (num_name)
+          print "for (i = 0; i < N; i++)"
+          print "{"
+          if type_name == "symbol":
+              print "scope_entry_t* copied = map(source->entity_specs.%s[i], info);" % (list_name)
+              print "P_LIST_ADD(dest->entity_specs.%s, dest->entity_specs.%s, copied);" % (list_name, num_name)
+          elif type_name == "type":
+              print "type_t* copied = type_deep_copy(source->entity_specs.%s[i], decl_context, info, map);" % (list_name)
+              print "P_LIST_ADD(dest->entity_specs.%s, dest->entity_specs.%s, copied);" % (list_name, num_name)
+          elif type_name == "default_argument_info_t*":
+                  print "default_argument_info_t* source_default_arg = source->entity_specs.%s[i];" % (list_name)
+                  print "default_argument_info_t* copied = calloc(1, sizeof(*copied));"
+                  print "copied->argument = nodecl_deep_copy(source_default_arg->argument, decl_context, info, map);"
+                  print "copied->context = decl_context;"
+                  print "P_LIST_ADD(dest->entity_specs.%s, dest->entity_specs.%s, copied);" % (list_name, num_name)
+          elif type_name == "gather_gcc_attribute_t":
+              print "gather_gcc_attribute_t source_gcc_attr = source->entity_specs.%s[i];" % (list_name)
+              print "gather_gcc_attribute_t copied;"
+              print "copied.attribute_name = source_gcc_attr.attribute_name;"
+              print "copied.expression_list = nodecl_deep_copy(source_gcc_attr.expression_list, decl_context, info, map);"
+              print "P_LIST_ADD(dest->entity_specs.%s, dest->entity_specs.%s, copied);" % (list_name, num_name)
+          else:
+              sys.stderr.write("%s: warning: not handling type array of type '%s'\n" % (sys.argv[0], _type))
+          print "}"
+          print "}"
+      else:
+          sys.stderr.write("%s: warning: not handling type '%s'\n" % (sys.argv[0], _type))
+    print """
+    }
+    """
 
 lines = loadlines(f)
 check_file(lines)
@@ -462,5 +542,7 @@ if op == "entity_specifiers":
     print_entity_specifiers(lines)
 elif op == "fortran_modules":
     print_fortran_modules_functions(lines)
+elif op == "c_deep_copy_entity_specs":
+    print_deep_copy_entity_specs(lines)
 else:
     raise Exception("Invalid operation %s" % (op))
