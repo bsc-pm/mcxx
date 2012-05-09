@@ -481,7 +481,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ClassMemberAccess& node)
         // Right part can be a reference but we do not want to derref it
         state.do_not_derref_rebindable_reference = true;
 
-        file << ".";
+        file << "."
+             << /* template tag if needed */ node.get_text();
+
         needs_parentheses = operand_has_lower_priority(node, rhs);
         if (needs_parentheses)
         {
@@ -650,7 +652,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::SavedExpr& node)
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxArrow& node)
 {
     walk(node.get_lhs());
-    file << "->";
+    file << "->"
+         << /* template tag if needed */ node.get_text();
     walk(node.get_member());
 }
 
@@ -3466,9 +3469,11 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                 {
                     if (member.is_variable()
                             && (!member.is_static()
-                                || ((member.get_type().is_integral_type()
-                                        || member.get_type().is_enum()
-                                    && member.get_type().is_const()))))
+                                || (member.get_type().is_integral_type()
+                                    || member.get_type().is_enum()
+                                    && member.get_type().is_const())
+                                || member.is_defined_inside_class()))
+
                     {
                         do_define_symbol(member,
                             &CxxBase::declare_symbol_always,
@@ -3981,7 +3986,8 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
                         && (!state.in_member_declaration
                             || (symbol.get_type().is_integral_type()
                                 || symbol.get_type().is_enum())
-                            && symbol.get_type().is_const()))))
+                            && symbol.get_type().is_const())
+                        || symbol.is_defined_inside_class())))
         {
             emit_initializer = 1;
             if (symbol.is_member()
