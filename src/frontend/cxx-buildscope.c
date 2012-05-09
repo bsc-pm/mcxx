@@ -11483,6 +11483,8 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                         get_unqualified_type(entry->type_information), 
                                         &nodecl_expr);
 
+                                entry->entity_specs.is_defined_inside_class_specifier = 1;
+
                                 entry->value = nodecl_expr;
                             }
                             // Special initializer for functions
