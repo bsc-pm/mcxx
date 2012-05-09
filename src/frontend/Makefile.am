@@ -81,6 +81,7 @@ libmcxx_la_SOURCES = \
   cxx-nodecl-output.c \
   cxx-nodecl-visitor.h \
   cxx-nodecl-visitor.c \
+  cxx-nodecl-shallow-copy.c \
   cxx-lexer.h \
   cxx-parser.h \
   cxx-parser-internal.h \
@@ -436,6 +437,11 @@ CLEANFILES    += cxx-nodecl-visitor.c
 BUILT_SOURCES += cxx-nodecl-visitor.c
 cxx-nodecl-visitor.c : $(NODECL_DEPS)
 	$(PYTHON_verbose)$(PYTHON) $(srcdir)/nodecl-generator.py $(srcdir)/cxx-nodecl.def c_visitor_def > $@
+
+CLEANFILES    += cxx-nodecl-shallow-copy.c
+BUILT_SOURCES += cxx-nodecl-shallow-copy.c
+cxx-nodecl-shallow-copy.c : $(NODECL_DEPS)
+	$(PYTHON_verbose)$(PYTHON) $(srcdir)/nodecl-generator.py $(srcdir)/cxx-nodecl.def c_shallow_copy_def > $@
 
 CLEANFILES    += cxx-asttype-nodecl.def
 BUILT_SOURCES += cxx-asttype-nodecl.def
