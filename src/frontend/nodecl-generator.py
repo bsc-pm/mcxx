@@ -1093,6 +1093,19 @@ nodecl_t nodecl_shallow_copy(nodecl_t n)
         return nodecl_null();
     switch (nodecl_get_kind(n))
     {
+        case AST_NODE_LIST:
+        {
+          int num_items = 0;
+          nodecl_t result = nodecl_null();
+          nodecl_t* list = nodecl_unpack_list(n, &num_items);
+          int i;
+          for (i = 0; i < num_items; i++)
+          {
+                  result = nodecl_append_to_list(result, nodecl_shallow_copy(list[i]));
+          }
+          return result;
+          break;
+        }
 """
 
     node_kind = []
