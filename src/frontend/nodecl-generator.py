@@ -68,7 +68,7 @@ def parse_rules(f):
                         ("symbol", "symbol"),
                         ("type", "type"),
                         ("text", "text"),
-                        ("cval", "const_value"),
+                        ("cval", "const-value"),
                         ("template_parameters", "template-parameters"),
                         ("decl_context", "context")]
 
