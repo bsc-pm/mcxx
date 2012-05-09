@@ -37,7 +37,7 @@ top-level : function-code
           | compatibility
           | cxx-decl
 
-name : NODECL_SYMBOL() symbol type-opt
+name : NODECL_SYMBOL() symbol type-opt const_value-opt
 type : NODECL_TYPE() type
 
 function-code: regular-function-code
@@ -127,50 +127,50 @@ string-literal: NODECL_STRING_LITERAL() type const_value
 expression : literal
            | name
            | context
-           | NODECL_FUNCTION_CALL([called] expression, [arguments] argument-seq-opt, [alternate_name]name-opt) type
-           | NODECL_ARRAY_SUBSCRIPT([subscripted] expression, [subscripts]expression-seq) type
-           | NODECL_RANGE([lower] expression-opt, [upper] expression-opt, [stride] expression) type
-           | NODECL_CLASS_MEMBER_ACCESS([lhs]expression, [member]expression) type
-           | NODECL_PLUS([rhs]expression) type
-           | NODECL_NEG([rhs]expression) type
-           | NODECL_MUL([lhs]expression, [rhs]expression) type
-           | NODECL_POWER([lhs]expression, [rhs]expression) type
-           | NODECL_DIV([lhs]expression, [rhs]expression) type
-           | NODECL_MOD([lhs]expression, [rhs]expression) type
-           | NODECL_ADD([lhs]expression, [rhs]expression) type
-           | NODECL_MINUS([lhs]expression, [rhs]expression) type
-           | NODECL_CONCAT([lhs]expression, [rhs]expression) type
-           | NODECL_EQUAL([lhs]expression, [rhs]expression) type
-           | NODECL_DIFFERENT([lhs]expression, [rhs]expression) type
-           | NODECL_LOWER_THAN([lhs]expression, [rhs]expression) type
-           | NODECL_LOWER_OR_EQUAL_THAN([lhs]expression, [rhs]expression) type
-           | NODECL_GREATER_THAN([lhs]expression, [rhs]expression) type
-           | NODECL_GREATER_OR_EQUAL_THAN([lhs]expression, [rhs]expression) type
-           | NODECL_LOGICAL_NOT([rhs]expression) type
-           | NODECL_LOGICAL_AND([lhs] expression, [rhs] expression) type
-           | NODECL_LOGICAL_OR([lhs] expression, [rhs] expression) type
-           | NODECL_BITWISE_NOT([rhs]expression) type
-           | NODECL_BITWISE_AND([lhs] expression, [rhs] expression) type
-           | NODECL_BITWISE_OR([lhs] expression, [rhs] expression) type
-           | NODECL_BITWISE_XOR([lhs] expression, [rhs] expression) type
-           | NODECL_SHL([lhs] expression, [rhs] expression) type
-           | NODECL_SHR([lhs] expression, [rhs] expression) type
-           | NODECL_ASSIGNMENT([lhs] expression, [rhs] expression) type
-           | NODECL_PARENTHESIZED_EXPRESSION([nest]expression) type
-           | NODECL_DERREFERENCE([rhs]expression) type
-           | NODECL_CAST([rhs]expression) type text
-           | NODECL_COMPOUND_EXPRESSION([nest]context) type
+           | NODECL_FUNCTION_CALL([called] expression, [arguments] argument-seq-opt, [alternate_name]name-opt) type const-value_opt
+           | NODECL_ARRAY_SUBSCRIPT([subscripted] expression, [subscripts]expression-seq) type const-value_opt
+           | NODECL_RANGE([lower] expression-opt, [upper] expression-opt, [stride] expression) type const-value_opt
+           | NODECL_CLASS_MEMBER_ACCESS([lhs]expression, [member]expression) type const-value_opt
+           | NODECL_PLUS([rhs]expression) type const-value_opt
+           | NODECL_NEG([rhs]expression) type const-value_opt
+           | NODECL_MUL([lhs]expression, [rhs]expression) type const-value_opt
+           | NODECL_POWER([lhs]expression, [rhs]expression) type const-value_opt
+           | NODECL_DIV([lhs]expression, [rhs]expression) type const-value_opt
+           | NODECL_MOD([lhs]expression, [rhs]expression) type const-value_opt
+           | NODECL_ADD([lhs]expression, [rhs]expression) type const-value_opt
+           | NODECL_MINUS([lhs]expression, [rhs]expression) type const-value_opt
+           | NODECL_CONCAT([lhs]expression, [rhs]expression) type const-value_opt
+           | NODECL_EQUAL([lhs]expression, [rhs]expression) type const-value_opt
+           | NODECL_DIFFERENT([lhs]expression, [rhs]expression) type const-value_opt
+           | NODECL_LOWER_THAN([lhs]expression, [rhs]expression) type const-value_opt
+           | NODECL_LOWER_OR_EQUAL_THAN([lhs]expression, [rhs]expression) type const-value_opt
+           | NODECL_GREATER_THAN([lhs]expression, [rhs]expression) type const-value_opt
+           | NODECL_GREATER_OR_EQUAL_THAN([lhs]expression, [rhs]expression) type const-value_opt
+           | NODECL_LOGICAL_NOT([rhs]expression) type const-value_opt
+           | NODECL_LOGICAL_AND([lhs] expression, [rhs] expression) type const-value_opt
+           | NODECL_LOGICAL_OR([lhs] expression, [rhs] expression) type const-value_opt
+           | NODECL_BITWISE_NOT([rhs]expression) type const-value_opt
+           | NODECL_BITWISE_AND([lhs] expression, [rhs] expression) type const-value_opt
+           | NODECL_BITWISE_OR([lhs] expression, [rhs] expression) type const-value_opt
+           | NODECL_BITWISE_XOR([lhs] expression, [rhs] expression) type const-value_opt
+           | NODECL_SHL([lhs] expression, [rhs] expression) type const-value_opt
+           | NODECL_SHR([lhs] expression, [rhs] expression) type const-value_opt
+           | NODECL_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value_opt
+           | NODECL_PARENTHESIZED_EXPRESSION([nest]expression) type const-value_opt
+           | NODECL_DERREFERENCE([rhs]expression) type const-value_opt
+           | NODECL_CAST([rhs]expression) type text const-value_opt
+           | NODECL_COMPOUND_EXPRESSION([nest]context) type const-value_opt
            | c-cxx-expressions
            | fortran-expressions
            | object-init
            | compatibility
            | NODECL_ERR_EXPR()
 # This one is intended to represent implicit conversions allowed by the base language
-           | NODECL_CONVERSION([nest] expression) type
+           | NODECL_CONVERSION([nest] expression) type const-value_opt
 # This one represents an expression the value of which is already saved in another symbol
-           | NODECL_SAVED_EXPR([expression]expression) type symbol
+           | NODECL_SAVED_EXPR([expression]expression) type symbol const-value_opt
 
-structured-value: NODECL_STRUCTURED_VALUE([items]initializer-item-seq-opt) type
+structured-value: NODECL_STRUCTURED_VALUE([items]initializer-item-seq-opt) type const-value_opt
 
 initializer-item: NODECL_FIELD_DESIGNATOR([field]name, [next]initializer-item)
           | NODECL_INDEX_DESIGNATOR([index]expression, [next]initializer-item)
@@ -185,40 +185,40 @@ argument : named-pair
 
 named-pair: NODECL_FORTRAN_NAMED_PAIR_SPEC([name]name-opt, [argument]expression)
 
-alt-return: NODECL_FORTRAN_ALTERNATE_RETURN_ARGUMENT() symbol type
+alt-return: NODECL_FORTRAN_ALTERNATE_RETURN_ARGUMENT() symbol type const-value_opt
 
-c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]expression, [false]expression) type
-                  | NODECL_REFERENCE([rhs]expression) type
-                  | NODECL_COMMA([rhs]expression, [lhs]expression) type
-                  | NODECL_THROW([rhs]expression-opt) type
-                  | NODECL_VIRTUAL_FUNCTION_CALL([called] expression, [arguments] argument-seq) type
-                  | NODECL_MUL_ASSIGNMENT([lhs] expression, [rhs] expression) type
-                  | NODECL_DIV_ASSIGNMENT([lhs] expression, [rhs] expression) type
-                  | NODECL_ADD_ASSIGNMENT([lhs] expression, [rhs] expression) type
-                  | NODECL_MINUS_ASSIGNMENT([lhs] expression, [rhs] expression) type
-                  | NODECL_SHL_ASSIGNMENT([lhs] expression, [rhs] expression) type
-                  | NODECL_SHR_ASSIGNMENT([lhs] expression, [rhs] expression) type
-                  | NODECL_BITWISE_AND_ASSIGNMENT([lhs] expression, [rhs] expression) type
-                  | NODECL_BITWISE_OR_ASSIGNMENT([lhs] expression, [rhs] expression) type
-                  | NODECL_BITWISE_XOR_ASSIGNMENT([lhs] expression, [rhs] expression) type
-                  | NODECL_MOD_ASSIGNMENT([lhs] expression, [rhs] expression) type
-                  | NODECL_PREINCREMENT([rhs]expression) type
-                  | NODECL_POSTINCREMENT([rhs]expression) type
-                  | NODECL_PREDECREMENT([rhs]expression) type
-                  | NODECL_POSTDECREMENT([rhs]expression) type
-                  | NODECL_SIZEOF([size_type]type, [expr]expression-opt) type
-                  | NODECL_ALIGNOF([align_type]type) type
-                  | NODECL_OFFSET([base]expression, [offset]expression) type
-                  | NODECL_TYPEID([arg]type-or-expr) type
-                  | NODECL_NEW([init]expression-opt, [placement]expression-seq-opt, [alloc_func]name-opt) type text
-                  | NODECL_DELETE([rhs]expression) type
-                  | NODECL_DELETE_ARRAY([rhs]expression) type
-                  | NODECL_POINTER_TO_MEMBER() symbol type
-                  | NODECL_REAL_PART([rhs]expression) type
-                  | NODECL_IMAG_PART([rhs]expression) type
-                  | NODECL_OFFSETOF([offset_type]type, [designator]cxx-dependent-initializer-seq) type
-                  | NODECL_SHAPING([postfix] expression, [shape] expression-seq) type
-                  | NODECL_PSEUDO_DESTRUCTOR_NAME([accessed] expression, [destructor_name] cxx-dependent-name) type
+c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]expression, [false]expression) type const-value_opt
+                  | NODECL_REFERENCE([rhs]expression) type const-value_opt
+                  | NODECL_COMMA([rhs]expression, [lhs]expression) type const-value_opt
+                  | NODECL_THROW([rhs]expression-opt) type const-value_opt
+                  | NODECL_VIRTUAL_FUNCTION_CALL([called] expression, [arguments] argument-seq) type const-value_opt
+                  | NODECL_MUL_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value_opt
+                  | NODECL_DIV_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value_opt
+                  | NODECL_ADD_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value_opt
+                  | NODECL_MINUS_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value_opt
+                  | NODECL_SHL_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value_opt
+                  | NODECL_SHR_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value_opt
+                  | NODECL_BITWISE_AND_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value_opt
+                  | NODECL_BITWISE_OR_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value_opt
+                  | NODECL_BITWISE_XOR_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value_opt
+                  | NODECL_MOD_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value_opt
+                  | NODECL_PREINCREMENT([rhs]expression) type const-value_opt
+                  | NODECL_POSTINCREMENT([rhs]expression) type const-value_opt
+                  | NODECL_PREDECREMENT([rhs]expression) type const-value_opt
+                  | NODECL_POSTDECREMENT([rhs]expression) type const-value_opt
+                  | NODECL_SIZEOF([size_type]type, [expr]expression-opt) type const-value_opt
+                  | NODECL_ALIGNOF([align_type]type) type const-value_opt
+                  | NODECL_OFFSET([base]expression, [offset]expression) type const-value_opt
+                  | NODECL_TYPEID([arg]type-or-expr) type const-value_opt
+                  | NODECL_NEW([init]expression-opt, [placement]expression-seq-opt, [alloc_func]name-opt) type text const-value_opt
+                  | NODECL_DELETE([rhs]expression) type const-value_opt
+                  | NODECL_DELETE_ARRAY([rhs]expression) type const-value_opt
+                  | NODECL_POINTER_TO_MEMBER() symbol type const-value_opt
+                  | NODECL_REAL_PART([rhs]expression) type const-value_opt
+                  | NODECL_IMAG_PART([rhs]expression) type const-value_opt
+                  | NODECL_OFFSETOF([offset_type]type, [designator]cxx-dependent-initializer-seq) type const-value_opt
+                  | NODECL_SHAPING([postfix] expression, [shape] expression-seq) type const-value_opt
+                  | NODECL_PSEUDO_DESTRUCTOR_NAME([accessed] expression, [destructor_name] cxx-dependent-name) type const-value_opt
                   | cxx-expr-dependent-nodecls
                   | cuda-expressions
 
@@ -255,28 +255,28 @@ cxx-dependent-initializer : NODECL_CXX_BRACED_INITIALIZER([init]expression-seq-o
     | NODECL_C99_INDEX_DESIGNATOR([expr]expression) 
 
 # a->b
-cxx-dependent-expressions: NODECL_CXX_ARROW([lhs]expression, [member]expression) type
+cxx-dependent-expressions: NODECL_CXX_ARROW([lhs]expression, [member]expression) type const_value-opt
 # a.*b
-    | NODECL_CXX_DOT_PTR_MEMBER([lhs]expression, [ptr]expression) type
+    | NODECL_CXX_DOT_PTR_MEMBER([lhs]expression, [ptr]expression) type const_value-opt
 # a->*b
-    | NODECL_CXX_ARROW_PTR_MEMBER([lhs]expression, [ptr]expression) type
+    | NODECL_CXX_ARROW_PTR_MEMBER([lhs]expression, [ptr]expression) type const_value-opt
 # sizeof(expr)
-    | NODECL_CXX_SIZEOF([expr] expression) type
+    | NODECL_CXX_SIZEOF([expr] expression) type const_value-opt
 # alignof(expr)
-    | NODECL_CXX_ALIGNOF([expr] expression) type
+    | NODECL_CXX_ALIGNOF([expr] expression) type const_value-opt
 # (type) { ... }
-    | NODECL_CXX_POSTFIX_INITIALIZER([postfix]expression) type
+    | NODECL_CXX_POSTFIX_INITIALIZER([postfix]expression) type const_value-opt
 # a[e:e]
-    | NODECL_CXX_ARRAY_SECTION_RANGE([postfix] expression, [lower] expression-opt, [upper] expression-opt, [stride] expression-opt) type
+    | NODECL_CXX_ARRAY_SECTION_RANGE([postfix] expression, [lower] expression-opt, [upper] expression-opt, [stride] expression-opt) type const_value-opt
 # a[e;e]
-    | NODECL_CXX_ARRAY_SECTION_SIZE([postfix] expression, [start] expression-opt, [num_items] expression-opt, [stride] expression-opt) type
+    | NODECL_CXX_ARRAY_SECTION_SIZE([postfix] expression, [start] expression-opt, [num_items] expression-opt, [stride] expression-opt) type const_value-opt
 # T(expr-list)
-    | NODECL_CXX_EXPLICIT_TYPE_CAST([init_list]cxx-dependent-initializer) type
+    | NODECL_CXX_EXPLICIT_TYPE_CAST([init_list]cxx-dependent-initializer) type const_value-opt
 
 # id-expr(expr) in a member initializer
-cxx-mem-init: NODECL_CXX_MEMBER_INIT([name]cxx-dependent-name, [initializer]expression) type
+cxx-mem-init: NODECL_CXX_MEMBER_INIT([name]cxx-dependent-name, [initializer]expression) type const_value-opt
 
-cuda-expressions : NODECL_CUDA_KERNEL_CALL([kernel_config] expression-seq, [function_call] expression) type
+cuda-expressions : NODECL_CUDA_KERNEL_CALL([kernel_config] expression-seq, [function_call] expression) type const-value_opt
 
 type-or-expr : type
              | expression
@@ -349,7 +349,7 @@ gcc-asm-operand : NODECL_GCC_ASM_OPERAND( [identifier]text-opt, [constraint]text
 
 upc-sync-statement : NODECL_UPC_SYNC_STATEMENT([expr]expression) text
 
-gxx-traits: NODECL_GXX_TRAIT([lhs]type, [rhs]type-opt) text type
+gxx-traits: NODECL_GXX_TRAIT([lhs]type, [rhs]type-opt) text type const_value-opt
 
 text : NODECL_TEXT() text
 
