@@ -130,7 +130,7 @@ expression : literal
            | NODECL_FUNCTION_CALL([called] expression, [arguments] argument-seq-opt, [alternate_name]name-opt) type const-value_opt
            | NODECL_ARRAY_SUBSCRIPT([subscripted] expression, [subscripts]expression-seq) type const-value_opt
            | NODECL_RANGE([lower] expression-opt, [upper] expression-opt, [stride] expression) type const-value_opt
-           | NODECL_CLASS_MEMBER_ACCESS([lhs]expression, [member]expression) type const-value_opt
+           | NODECL_CLASS_MEMBER_ACCESS([lhs]expression, [member]expression) type const-value_opt text-opt
            | NODECL_PLUS([rhs]expression) type const-value_opt
            | NODECL_NEG([rhs]expression) type const-value_opt
            | NODECL_MUL([lhs]expression, [rhs]expression) type const-value_opt
@@ -255,7 +255,7 @@ cxx-dependent-initializer : NODECL_CXX_BRACED_INITIALIZER([init]expression-seq-o
     | NODECL_C99_INDEX_DESIGNATOR([expr]expression) 
 
 # a->b
-cxx-dependent-expressions: NODECL_CXX_ARROW([lhs]expression, [member]expression) type const_value-opt
+cxx-dependent-expressions: NODECL_CXX_ARROW([lhs]expression, [member]expression) type const_value-opt text
 # a.*b
     | NODECL_CXX_DOT_PTR_MEMBER([lhs]expression, [ptr]expression) type const_value-opt
 # a->*b

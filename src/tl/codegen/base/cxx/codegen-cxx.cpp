@@ -481,7 +481,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ClassMemberAccess& node)
         // Right part can be a reference but we do not want to derref it
         state.do_not_derref_rebindable_reference = true;
 
-        file << ".";
+        file << "."
+             << /* template tag if needed */ node.get_text();
+
         needs_parentheses = operand_has_lower_priority(node, rhs);
         if (needs_parentheses)
         {
@@ -650,7 +652,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::SavedExpr& node)
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxArrow& node)
 {
     walk(node.get_lhs());
-    file << "->";
+    file << "->"
+         << /* template tag if needed */ node.get_text();
     walk(node.get_member());
 }
 

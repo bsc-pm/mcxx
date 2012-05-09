@@ -334,7 +334,7 @@ static void check_array_subscript_expr(AST expr, decl_context_t decl_context, no
 static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output);
 static void check_explicit_type_conversion(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output);
 static void check_explicit_typename_type_conversion(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output);
-static void check_member_access(AST member_access, decl_context_t decl_context, char is_arrow, nodecl_t* nodecl_output);
+static void check_member_access(AST member_access, decl_context_t decl_context, char is_arrow, char has_template_tag, nodecl_t* nodecl_output);
 static void check_typeid_expr(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output);
 static void check_typeid_type(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output);
 static void check_sizeof_expr(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output);
@@ -597,7 +597,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
         case AST_CLASS_MEMBER_ACCESS :
             {
                 char is_arrow = (ASTType(expression) == AST_POINTER_CLASS_MEMBER_ACCESS);
-                check_member_access(expression, decl_context, is_arrow, nodecl_output);
+                check_member_access(expression, decl_context, is_arrow, /*has template tag*/ 0, nodecl_output);
                 break;
             }
         case AST_CLASS_TEMPLATE_MEMBER_ACCESS :
@@ -8885,7 +8885,7 @@ static void check_comma_operand(AST expression, decl_context_t decl_context, nod
 static void check_templated_member_access(AST templated_member_access, decl_context_t decl_context, 
         char is_arrow, nodecl_t* nodecl_output)
 {
-    check_member_access(templated_member_access, decl_context, is_arrow, nodecl_output);
+    check_member_access(templated_member_access, decl_context, is_arrow, /*has template tag*/ 1, nodecl_output);
 }
 
 static nodecl_t integrate_field_accesses(nodecl_t base, nodecl_t accessor)
@@ -9085,6 +9085,7 @@ static void check_nodecl_member_access(
         nodecl_t nodecl_member,
         decl_context_t decl_context, 
         char is_arrow,
+        char has_template_tag,
         const char* filename, int line,
         nodecl_t* nodecl_output)
 {
@@ -9093,6 +9094,8 @@ static void check_nodecl_member_access(
         *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
+
+    const char* template_tag = has_template_tag ? "template " : "";
 
     type_t* conversion_type = NULL;
     if (nodecl_get_kind(nodecl_member) == NODECL_CXX_DEP_NAME_CONVERSION)
@@ -9113,6 +9116,8 @@ static void check_nodecl_member_access(
                     nodecl_member,
                     get_unknown_dependent_type(),
                     filename, line);
+            
+            nodecl_set_text(*nodecl_output, template_tag);
         }
         else
         {
@@ -9120,6 +9125,7 @@ static void check_nodecl_member_access(
                     nodecl_accessed,
                     nodecl_member,
                     get_unknown_dependent_type(),
+                    template_tag,
                     filename, line);
         }
         nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
@@ -9394,7 +9400,7 @@ static void check_nodecl_member_access(
     }
 }
 
-static void check_member_access(AST member_access, decl_context_t decl_context, char is_arrow, nodecl_t* nodecl_output)
+static void check_member_access(AST member_access, decl_context_t decl_context, char is_arrow, char has_template_tag, nodecl_t* nodecl_output)
 {
     AST class_expr = ASTSon0(member_access);
     AST id_expression = ASTSon1(member_access);
@@ -9411,7 +9417,7 @@ static void check_member_access(AST member_access, decl_context_t decl_context, 
     nodecl_t nodecl_name = nodecl_null();
     compute_nodecl_name_from_id_expression(id_expression, decl_context, &nodecl_name);
 
-    check_nodecl_member_access(nodecl_accessed, nodecl_name, decl_context, is_arrow, 
+    check_nodecl_member_access(nodecl_accessed, nodecl_name, decl_context, is_arrow, has_template_tag,
             ASTFileName(member_access), ASTLine(member_access),
             nodecl_output);
 }
