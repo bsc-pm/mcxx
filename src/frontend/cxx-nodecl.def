@@ -19,7 +19,10 @@
 #
 # The order that appears here is the order in which this extra information is
 # passed (regardless of the precise syntax of the rule, i.e. 'symbol' is always
-# considered before 'type')
+# considered before 'type'). An option-name can be appeneded "-opt" to state
+# that the node may contain a value of that option, but that value is not
+# mandatory for the node. Use this when you want to ensure that copy routines
+# copy these values as well (otherwise these extra values will be ignored)
 #
 # There is a special rule 'nodecl' which is the root of the whole hierarchy,
 # while not enforced every rule should be referenced in another rule. The
@@ -34,7 +37,7 @@ top-level : function-code
           | compatibility
           | cxx-decl
 
-name : NODECL_SYMBOL() symbol
+name : NODECL_SYMBOL() symbol type-opt
 type : NODECL_TYPE() type
 
 function-code: regular-function-code
