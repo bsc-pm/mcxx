@@ -766,6 +766,12 @@ namespace Nodecl
 
         return result;
     }
+
+    Nodecl::NodeclBase Utils::deep_copy(Nodecl::NodeclBase orig, TL::ReferenceScope ref_scope)
+    {
+        Utils::SimpleSymbolMap empty_map;
+        return deep_copy(orig, ref_scope, empty_map);
+    }
 }
 
 namespace TL
