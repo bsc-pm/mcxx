@@ -3382,12 +3382,10 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                 {
                     if (member.get_type().is_template_specialized_type())
                     {
-                        TL::Type related_template = member.get_type().get_related_template_type();
-                        TL::Type primary_template = related_template.get_primary_template();
-                        char is_primary_template = (primary_template.get_symbol() == member);
-
-                        if (is_primary_template)
+                        // We should declare all user template specializations
+                        if (member.is_user_declared())
                         {
+                            // Could this specialization be defined?
                             if (member.is_defined_inside_class() &&
                                     is_complete_type(member.get_type().get_internal_type()))
                             {
