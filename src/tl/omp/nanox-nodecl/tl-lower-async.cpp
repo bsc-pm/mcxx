@@ -28,7 +28,7 @@
 #include "tl-nanos.hpp"
 #include "tl-source.hpp"
 #include "tl-counters.hpp"
-#include "tl-nodecl-alg.hpp"
+#include "tl-nodecl-utils.hpp"
 #include "tl-datareference.hpp"
 
 #include "cxx-cexpr.h"

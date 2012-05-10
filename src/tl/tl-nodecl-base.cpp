@@ -25,7 +25,7 @@
 --------------------------------------------------------------------*/
 
 #include "tl-nodecl-base.hpp"
-#include "tl-nodecl-alg.hpp"
+#include "tl-nodecl-utils.hpp"
 #include "cxx-utils.h"
 #include "cxx-codegen.h"
 #include "fortran03-codegen.h"

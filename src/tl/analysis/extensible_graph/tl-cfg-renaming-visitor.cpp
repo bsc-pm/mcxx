@@ -30,7 +30,7 @@
 #include "cxx-codegen.h"
 
 #include "tl-cfg-renaming-visitor.hpp"
-#include "tl-nodecl-alg.hpp"
+#include "tl-nodecl-utils.hpp"
 #include "tl-nodecl-calc.hpp"
 
 

@@ -31,7 +31,7 @@
 #include "tl-source.hpp"
 #include "tl-omp-udr.hpp"
 #include "tl-builtin.hpp"
-#include "tl-nodecl-alg.hpp"
+#include "tl-nodecl-utils.hpp"
 #include "cxx-diagnostic.h"
 
 #include <algorithm>

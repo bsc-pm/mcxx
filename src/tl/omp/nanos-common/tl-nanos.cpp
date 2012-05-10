@@ -32,7 +32,7 @@
 #include "tl-nanos.hpp"
 #include "tl-source.hpp"
 #include "tl-lexer.hpp"
-#include "tl-nodecl-alg.hpp"
+#include "tl-nodecl-utils.hpp"
 
 #include <sstream>
 

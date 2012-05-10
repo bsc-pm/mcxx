@@ -24,7 +24,7 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#include "tl-nodecl-alg.hpp"
+#include "tl-nodecl-utils.hpp"
 #include "tl-nodecl-calc.hpp"
 #include "tl-predicateutils.hpp"
 #include "cxx-utils.h"
