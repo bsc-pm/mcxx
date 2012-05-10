@@ -28,6 +28,7 @@
 #define TL_NODECL_ALG_HPP
 
 #include "tl-nodecl.hpp"
+#include "tl-source.hpp"
 
 #include <tr1/unordered_map>
 
@@ -46,7 +47,7 @@ namespace Nodecl
         TL::ObjectList<Nodecl::Symbol> get_all_symbols_first_occurrence(Nodecl::NodeclBase);
         TL::ObjectList<Nodecl::Symbol> get_nonlocal_symbols_first_occurrence(Nodecl::NodeclBase);
         TL::ObjectList<Nodecl::Symbol> get_local_symbols_first_occurrence(Nodecl::NodeclBase);
-       
+
         bool equal_nodecls(Nodecl::NodeclBase n1, Nodecl::NodeclBase n2);
         struct Nodecl_hash {
             size_t operator() (const Nodecl::NodeclBase& n) const;
@@ -70,6 +71,40 @@ namespace Nodecl
 
         std::string get_elemental_operator_of_binary_expression(Nodecl::NodeclBase n);
         std::string get_elemental_operator_of_binary_expression(node_t);
+
+        struct SymbolMap
+        {
+            virtual TL::Symbol map(TL::Symbol) = 0;
+        };
+
+        struct SimpleSymbolMap : public SymbolMap
+        {
+            virtual TL::Symbol map(TL::Symbol s)
+            {
+                if (!s.is_valid())
+                    return s;
+
+                symbol_map_t::iterator it = _symbol_map.find(s);
+                if (it != _symbol_map.end())
+                    return it->second;
+                else
+                    return s;
+            }
+
+            virtual void add_map(TL::Symbol source, TL::Symbol target)
+            {
+                _symbol_map[source] = target;
+            }
+
+            private:
+            typedef std::map<TL::Symbol, TL::Symbol> symbol_map_t;
+            symbol_map_t _symbol_map;
+        };
+
+        Nodecl::NodeclBase deep_copy(Nodecl::NodeclBase orig, TL::ReferenceScope ref_scope, SymbolMap& map);
+        
+        // Like above but with an empty map
+        Nodecl::NodeclBase deep_copy(Nodecl::NodeclBase orig, TL::ReferenceScope ref_scope);
     }
 }
 

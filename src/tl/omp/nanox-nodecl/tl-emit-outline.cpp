@@ -27,7 +27,7 @@
 #include "tl-lowering-visitor.hpp"
 #include "tl-source.hpp"
 #include "tl-counters.hpp"
-#include "tl-nodecl-alg.hpp"
+#include "tl-nodecl-utils.hpp"
 #include "tl-outline-info.hpp"
 #include "tl-replace.hpp"
 

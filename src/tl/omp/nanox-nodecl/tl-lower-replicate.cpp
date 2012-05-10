@@ -27,7 +27,7 @@
 
 #include "tl-source.hpp"
 #include "tl-lowering-visitor.hpp"
-#include "tl-nodecl-alg.hpp"
+#include "tl-nodecl-utils.hpp"
 #include "tl-predicateutils.hpp"
 
 namespace TL { namespace Nanox {

@@ -24,9 +24,10 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#include "tl-nodecl-alg.hpp"
+#include "tl-nodecl-utils.hpp"
 #include "tl-nodecl-calc.hpp"
 #include "tl-predicateutils.hpp"
+#include "cxx-nodecl-deep-copy.h"
 #include "cxx-utils.h"
 #include <algorithm>
 
@@ -741,6 +742,35 @@ namespace Nodecl
             default:
                 return "";
         }
+    }
+
+    namespace {
+        scope_entry_t* symbol_map_adapter(scope_entry_t* source, void *symbol_map_obj)
+        {
+            Utils::SymbolMap* symbol_map = static_cast<Utils::SymbolMap*>(symbol_map_obj);
+
+            TL::Symbol target = symbol_map->map(TL::Symbol(source));
+
+            return target.get_internal_symbol();
+        }
+    }
+
+    Nodecl::NodeclBase Utils::deep_copy(Nodecl::NodeclBase orig, TL::ReferenceScope ref_scope, Utils::SymbolMap& map)
+    {
+        Nodecl::NodeclBase result;
+
+        result = ::nodecl_deep_copy(orig.get_internal_nodecl(), 
+                ref_scope.get_scope().get_decl_context(),
+                (void*)&map,
+                symbol_map_adapter);
+
+        return result;
+    }
+
+    Nodecl::NodeclBase Utils::deep_copy(Nodecl::NodeclBase orig, TL::ReferenceScope ref_scope)
+    {
+        Utils::SimpleSymbolMap empty_map;
+        return deep_copy(orig, ref_scope, empty_map);
     }
 }
 

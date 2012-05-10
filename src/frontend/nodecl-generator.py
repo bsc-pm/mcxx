@@ -1225,6 +1225,8 @@ def generate_c_deep_copy_def(rule_map):
 
     print """
 
+nodecl_t nodecl_deep_copy_context(nodecl_t n, decl_context_t new_decl_context, void* info, scope_entry_t* (map)(scope_entry_t*, void* info));
+
 nodecl_t nodecl_deep_copy_rec(nodecl_t n, decl_context_t new_decl_context, void* info, scope_entry_t* (*map)(scope_entry_t*, void* info))
 {
     if (nodecl_is_null(n))
@@ -1255,6 +1257,12 @@ nodecl_t nodecl_deep_copy_rec(nodecl_t n, decl_context_t new_decl_context, void*
         nodecl_class = node[2]
         print "       case %s:" % (node[0])
         print "       {"
+
+        if (node[0] == "NODECL_CONTEXT"):
+            print "          return nodecl_deep_copy_context(n, new_decl_context, info, map);"
+            print "       }"
+            continue
+
         factory_arguments = []
         i = 0
         for subtree in nodecl_class.subtrees:
@@ -1271,6 +1279,7 @@ nodecl_t nodecl_deep_copy_rec(nodecl_t n, decl_context_t new_decl_context, void*
         if needs_attr("symbol"):
             factory_arguments.append("symbol")
 
+        # FIXME - The type may have to be regenerated as well
         if has_attr("type"):
             print "type_t* type = nodecl_get_type(n);"
         if needs_attr("type"):

@@ -27,7 +27,7 @@
 
 #include "tl-source.hpp"
 #include "tl-lowering-visitor.hpp"
-#include "tl-nodecl-alg.hpp"
+#include "tl-nodecl-utils.hpp"
 #include "cxx-cexpr.h"
 #include "tl-predicateutils.hpp"
 

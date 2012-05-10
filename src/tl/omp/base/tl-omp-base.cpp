@@ -25,7 +25,7 @@
 --------------------------------------------------------------------*/
 
 #include "tl-omp-base.hpp"
-#include "tl-nodecl-alg.hpp"
+#include "tl-nodecl-utils.hpp"
 #include "cxx-diagnostic.h"
 #include "cxx-cexpr.h"
 

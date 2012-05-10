@@ -82,6 +82,12 @@ libmcxx_la_SOURCES = \
   cxx-nodecl-visitor.h \
   cxx-nodecl-visitor.c \
   cxx-nodecl-shallow-copy.c \
+  cxx-nodecl-deep-copy-base.c \
+  cxx-nodecl-deep-copy.h \
+  cxx-nodecl-deep-copy.c \
+  cxx-symbol-deep-copy-entity-specs.c \
+  cxx-symbol-deep-copy.h \
+  cxx-symbol-deep-copy.c \
   cxx-lexer.h \
   cxx-parser.h \
   cxx-parser-internal.h \
@@ -411,6 +417,11 @@ BUILT_SOURCES += cxx-entity-specs.h
 cxx-entity-specs.h : $(srcdir)/cxx-entity-specs.def $(srcdir)/gen-symbol-attrs.py
 	$(PYTHON_verbose)$(PYTHON) $(srcdir)/gen-symbol-attrs.py $(srcdir)/cxx-entity-specs.def > $@
 
+CLEANFILES    += cxx-symbol-deep-copy-entity-specs.c
+BUILT_SOURCES += cxx-symbol-deep-copy-entity-specs.c
+cxx-symbol-deep-copy-entity-specs.c : $(srcdir)/cxx-entity-specs.def $(srcdir)/gen-symbol-attrs.py
+	$(PYTHON_verbose)$(PYTHON) $(srcdir)/gen-symbol-attrs.py $(srcdir)/cxx-entity-specs.def c_deep_copy_entity_specs > $@
+
 NODECL_DEPS = $(srcdir)/cxx-nodecl.def $(srcdir)/nodecl-generator.py
 
 CLEANFILES    += cxx-nodecl-checker.c
@@ -442,6 +453,11 @@ CLEANFILES    += cxx-nodecl-shallow-copy.c
 BUILT_SOURCES += cxx-nodecl-shallow-copy.c
 cxx-nodecl-shallow-copy.c : $(NODECL_DEPS)
 	$(PYTHON_verbose)$(PYTHON) $(srcdir)/nodecl-generator.py $(srcdir)/cxx-nodecl.def c_shallow_copy_def > $@
+
+CLEANFILES    += cxx-nodecl-deep-copy-base.c
+BUILT_SOURCES += cxx-nodecl-deep-copy-base.c
+cxx-nodecl-deep-copy-base.c : $(NODECL_DEPS)
+	$(PYTHON_verbose)$(PYTHON) $(srcdir)/nodecl-generator.py $(srcdir)/cxx-nodecl.def c_deep_copy_def > $@
 
 CLEANFILES    += cxx-asttype-nodecl.def
 BUILT_SOURCES += cxx-asttype-nodecl.def

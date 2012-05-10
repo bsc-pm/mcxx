@@ -1,0 +1,41 @@
+#include "cxx-symbol-deep-copy.h"
+#include "cxx-nodecl-deep-copy.h"
+#include "cxx-typeutils.h"
+#include "cxx-utils.h"
+
+// This function is machine generated in cxx-symbol-deep-copy-entity-specs.c
+extern void symbol_deep_copy_entity_specs(scope_entry_t* dest,
+        scope_entry_t* source,
+        decl_context_t new_decl_context,
+        void *info, scope_entry_t* (*map)(scope_entry_t*, void*));
+
+void symbol_deep_copy(scope_entry_t* dest, 
+        scope_entry_t* source,
+        decl_context_t new_decl_context,
+        void *info, scope_entry_t* (*map)(scope_entry_t*, void*))
+{
+    ERROR_CONDITION(source->kind == SK_CLASS, "Local class replication not implemented yet", 0);
+    ERROR_CONDITION(source->kind == SK_NAMESPACE, "Namespaces should not be replicated!", 0);
+
+    dest->kind = source->kind;
+
+    dest->defined = source->defined;
+
+    dest->type_information = type_deep_copy(source->type_information, new_decl_context, info, map);
+
+    // Should not contain any useful information
+    dest->related_decl_context = source->related_decl_context;
+
+    dest->value = nodecl_deep_copy(source->value, new_decl_context, info, map);
+
+    dest->file = source->file;
+    dest->line = source->line;
+
+    dest->do_not_print = source->do_not_print;
+
+    dest->value = nodecl_deep_copy(source->value, new_decl_context, info, map);
+
+    symbol_deep_copy_entity_specs(dest, source, new_decl_context, info, map);
+
+    // FIXME - Not copying extended data. There is no way to reliably copy such information
+}
