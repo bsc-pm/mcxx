@@ -354,79 +354,81 @@ gxx-traits: NODECL_GXX_TRAIT([lhs]type, [rhs]type-opt) text type const-value-opt
 text : NODECL_TEXT() text
 
 ##############################
-# Parallelism (ongoing work) #
+# OpenMP                     #
 ##############################
+
+# Note that we use OPEN_M_P as we want nice names (OpenMP instead of Openmp) in the C++ part
 
 parallel-statements : parallel-execution
                     | synchronization
 
-parallel-execution : async-execution
-                   | single-execution
-                   | exclusive-execution
-                   | replicated-execution
-                   | distributed-execution
-                   | atomic-execution
-                   | composited-execution
+parallel-execution : task-construct
+                   | single-construct
+                   | critical-construct
+                   | parallel-construct
+                   | for-construct
+                   | atomic-construct
+                   | sections-construct
 
 # single
-single-execution : NODECL_PARALLEL*SINGLE([environment]exec-environment-seq-opt, [statements]statement-seq-opt)
+single-construct : NODECL_OPEN_M_P*SINGLE([environment]exec-environment-seq-opt, [statements]statement-seq-opt)
 
 # critical
-exclusive-execution : NODECL_PARALLEL*EXCLUSIVE([environment]exec-environment-seq-opt, [statements]statement-seq-opt)
+critical-construct : NODECL_OPEN_M_P*CRITICAL([environment]exec-environment-seq-opt, [statements]statement-seq-opt)
 
 # inline task
-async-execution : NODECL_PARALLEL*ASYNC([environment]exec-environment-seq-opt, [statements]statement-seq-opt) 
-                | async-call
+task-construct : NODECL_OPEN_M_P*TASK([environment]exec-environment-seq-opt, [statements]statement-seq-opt) 
+                | task-call
 
 # function task
-async-call : NODECL_PARALLEL*ASYNC_CALL([environment]exec-environment-seq-opt, [call]expression)
+task-call : NODECL_OPEN_M_P*TASK_CALL([environment]exec-environment-seq-opt, [call]expression)
 
 # Futures?
-# expression : async-call
+# expression : task-call
 
-exec-environment : NODECL_PARALLEL*CONDITION([condition]expression)
-                 | NODECL_PARALLEL*CAPTURE([captured_symbols]name-seq)
-                 | NODECL_PARALLEL*SHARED([shared_symbols]name-seq)
-                 | NODECL_PARALLEL*PRIVATE([private_symbols]name-seq)
-                 | NODECL_PARALLEL*REDUCTION([reductions]async-reduction-seq)
-                 | NODECL_PARALLEL*DEP_IN([in_deps]expression-seq)
-                 | NODECL_PARALLEL*DEP_OUT([out_deps]expression-seq)
-                 | NODECL_PARALLEL*DEP_INOUT([inout_deps]expression-seq)
-                 | NODECL_PARALLEL*COPY_IN([input_copies]expression-seq)
-                 | NODECL_PARALLEL*COPY_OUT([output_copies]expression-seq)
-                 | NODECL_PARALLEL*COPY_INOUT([inout_copies]expression-seq)
-                 | NODECL_PARALLEL*SCHEDULE([chunk]expression-opt) text
+exec-environment : NODECL_OPEN_M_P*IF([condition]expression)
+                 | NODECL_OPEN_M_P*FIRSTPRIVATE([captured_symbols]name-seq)
+                 | NODECL_OPEN_M_P*SHARED([shared_symbols]name-seq)
+                 | NODECL_OPEN_M_P*PRIVATE([private_symbols]name-seq)
+                 | NODECL_OPEN_M_P*REDUCTION([reductions]reduction-item-seq)
+                 | NODECL_OPEN_M_P*DEP_IN([in_deps]expression-seq)
+                 | NODECL_OPEN_M_P*DEP_OUT([out_deps]expression-seq)
+                 | NODECL_OPEN_M_P*DEP_INOUT([inout_deps]expression-seq)
+                 | NODECL_OPEN_M_P*COPY_IN([input_copies]expression-seq)
+                 | NODECL_OPEN_M_P*COPY_OUT([output_copies]expression-seq)
+                 | NODECL_OPEN_M_P*COPY_INOUT([inout_copies]expression-seq)
+                 | NODECL_OPEN_M_P*SCHEDULE([chunk]expression-opt) text
 # Not yet decided
-                 | NODECL_PARALLEL*TARGET()
-                 | NODECL_PARALLEL*PRIORITY([priority]expression)
-                 | NODECL_PARALLEL*UNTIED()
-                 | NODECL_PARALLEL*CRITICAL_NAME() text
-                 | NODECL_PARALLEL*BARRIER_AT_END()
+                 | NODECL_OPEN_M_P*TARGET()
+                 | NODECL_OPEN_M_P*PRIORITY([priority]expression)
+                 | NODECL_OPEN_M_P*UNTIED()
+                 | NODECL_OPEN_M_P*CRITICAL_NAME() text
+                 | NODECL_OPEN_M_P*BARRIER_AT_END()
 
-async-reduction : NODECL_PARALLEL*REDUCTION_ITEM([reductor]name, [reduced_symbol]name)
+reduction-item : NODECL_OPEN_M_P*REDUCTION_ITEM([reductor]name, [reduced_symbol]name)
 
 # parallel
-replicated-execution : NODECL_PARALLEL*REPLICATE([environment]exec-environment-seq-opt, [num_replicas]expression-opt, [statements]statement-seq)
+parallel-construct : NODECL_OPEN_M_P*PARALLEL([environment]exec-environment-seq-opt, [num_replicas]expression-opt, [statements]statement-seq)
 
 # for
-distributed-execution : NODECL_PARALLEL*DISTRIBUTE([environment]exec-environment-seq-opt, [ranges]distribute-range-seq, [statements]statement-seq)
-distribute-range : NODECL_PARALLEL*DISTRIBUTE_RANGE([lower]expression, [upper]expression, [step]expression) symbol
+for-construct : NODECL_OPEN_M_P*FOR([environment]exec-environment-seq-opt, [ranges]for-range-seq, [statements]statement-seq)
+for-range : NODECL_OPEN_M_P*FOR_RANGE([lower]expression, [upper]expression, [step]expression) symbol
 
 # atomic
-atomic-execution : NODECL_PARALLEL*ATOMIC([name]name-opt, [statements]statement-seq)
+atomic-construct : NODECL_OPEN_M_P*ATOMIC([name]name-opt, [statements]statement-seq)
 
 # sections
-composited-execution : NODECL_PARALLEL*COMPOUND([environment]exec-environment-seq-opt, [regions]statement-seq)
+sections-construct : NODECL_OPEN_M_P*SECTIONS([environment]exec-environment-seq-opt, [regions]statement-seq)
 
-synchronization : NODECL_PARALLEL*WAIT_ASYNCS_DEPENDENCES([environment]exec-environment-seq-opt)
+synchronization : NODECL_OPEN_M_P*WAIT_ON_DEPENDENCES([environment]exec-environment-seq-opt)
 # First level of async
-                | NODECL_PARALLEL*WAIT_ASYNCS_SHALLOW()
+                | NODECL_OPEN_M_P*TASKWAIT_SHALLOW()
 # All levels of async
-                | NODECL_PARALLEL*WAIT_ASYNCS_DEEP()
-                | NODECL_PARALLEL*FLUSH_MEMORY([expressions] expression-seq-opt)
+                | NODECL_OPEN_M_P*TASKWAIT_DEEP()
+                | NODECL_OPEN_M_P*FLUSH_MEMORY([expressions] expression-seq-opt)
 # Full barrier
-                | NODECL_PARALLEL*BARRIER_FULL()
+                | NODECL_OPEN_M_P*BARRIER_FULL()
 # First half of a barrier (signaling phase)
-                | NODECL_PARALLEL*BARRIER_SIGNAL()
+                | NODECL_OPEN_M_P*BARRIER_SIGNAL()
 # Second half of a barrier (waiting phase)
-                | NODECL_PARALLEL*BARRIER_WAIT()
+                | NODECL_OPEN_M_P*BARRIER_WAIT()

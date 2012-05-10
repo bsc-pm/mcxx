@@ -30,7 +30,7 @@
 namespace TL { namespace Nanox {
 
 
-    void LoweringVisitor::visit(const Nodecl::Parallel::FlushMemory& construct)
+    void LoweringVisitor::visit(const Nodecl::OpenMP::FlushMemory& construct)
     {
         Source flush_source;
         flush_source

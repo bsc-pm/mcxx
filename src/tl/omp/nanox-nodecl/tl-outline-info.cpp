@@ -101,7 +101,7 @@ namespace TL { namespace Nanox {
                 outline_info.set_in_outline_type(t.get_lvalue_reference_to());
             }
 
-            void visit(const Nodecl::Parallel::Shared& shared)
+            void visit(const Nodecl::OpenMP::Shared& shared)
             {
                 Nodecl::List l = shared.get_shared_symbols().as<Nodecl::List>();
                 for (Nodecl::List::iterator it = l.begin();
@@ -166,17 +166,17 @@ namespace TL { namespace Nanox {
                 }
             }
 
-            void visit(const Nodecl::Parallel::DepIn& dep_in)
+            void visit(const Nodecl::OpenMP::DepIn& dep_in)
             {
                 add_dependence(dep_in.get_in_deps().as<Nodecl::List>(), OutlineDataItem::DIRECTIONALITY_IN);
             }
 
-            void visit(const Nodecl::Parallel::DepOut& dep_out)
+            void visit(const Nodecl::OpenMP::DepOut& dep_out)
             {
                 add_dependence(dep_out.get_out_deps().as<Nodecl::List>(), OutlineDataItem::DIRECTIONALITY_OUT);
             }
 
-            void visit(const Nodecl::Parallel::DepInout& dep_inout)
+            void visit(const Nodecl::OpenMP::DepInout& dep_inout)
             {
                 add_dependence(dep_inout.get_inout_deps().as<Nodecl::List>(), OutlineDataItem::DIRECTIONALITY_INOUT);
             }
@@ -221,17 +221,17 @@ namespace TL { namespace Nanox {
                 }
             }
 
-            void visit(const Nodecl::Parallel::CopyIn& copy_in)
+            void visit(const Nodecl::OpenMP::CopyIn& copy_in)
             {
                 add_copies(copy_in.get_input_copies().as<Nodecl::List>(), OutlineDataItem::COPY_IN);
             }
 
-            void visit(const Nodecl::Parallel::CopyOut& copy_out)
+            void visit(const Nodecl::OpenMP::CopyOut& copy_out)
             {
                 add_copies(copy_out.get_output_copies().as<Nodecl::List>(), OutlineDataItem::COPY_OUT);
             }
 
-            void visit(const Nodecl::Parallel::CopyInout& copy_inout)
+            void visit(const Nodecl::OpenMP::CopyInout& copy_inout)
             {
                 add_copies(copy_inout.get_inout_copies().as<Nodecl::List>(), OutlineDataItem::COPY_INOUT);
             }
@@ -252,7 +252,7 @@ namespace TL { namespace Nanox {
                 outline_info.set_in_outline_type(t.get_lvalue_reference_to());
             }
 
-            void visit(const Nodecl::Parallel::Capture& shared)
+            void visit(const Nodecl::OpenMP::Firstprivate& shared)
             {
                 Nodecl::List l = shared.get_captured_symbols().as<Nodecl::List>();
                 for (Nodecl::List::iterator it = l.begin();
@@ -264,7 +264,7 @@ namespace TL { namespace Nanox {
                 }
             }
 
-            void visit(const Nodecl::Parallel::Private& private_)
+            void visit(const Nodecl::OpenMP::Private& private_)
             {
                 Nodecl::List l = private_.get_private_symbols().as<Nodecl::List>();
                 for (Nodecl::List::iterator it = l.begin();
@@ -305,7 +305,7 @@ namespace TL { namespace Nanox {
                 }
             }
 
-            void visit(const Nodecl::Parallel::ReductionItem& reduction)
+            void visit(const Nodecl::OpenMP::ReductionItem& reduction)
             {
                 TL::Symbol udr_reductor = reduction.get_reductor().get_symbol();
                 TL::Symbol symbol = reduction.get_reduced_symbol().get_symbol();

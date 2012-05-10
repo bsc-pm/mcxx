@@ -438,13 +438,13 @@ void LoweringVisitor::emit_wait_async(Nodecl::NodeclBase construct,
     construct.integrate(n);
 }
 
-void LoweringVisitor::visit(const Nodecl::Parallel::WaitAsyncsShallow& construct)
+void LoweringVisitor::visit(const Nodecl::OpenMP::TaskwaitShallow& construct)
 {
     OutlineInfo outline_info(Nodecl::NodeclBase::null());
     emit_wait_async(construct, /* has_dependences */ false, outline_info);
 }
 
-void LoweringVisitor::visit(const Nodecl::Parallel::WaitAsyncsDependences& construct)
+void LoweringVisitor::visit(const Nodecl::OpenMP::WaitOnDependences& construct)
 {
     Nodecl::NodeclBase environment = construct.get_environment();
 

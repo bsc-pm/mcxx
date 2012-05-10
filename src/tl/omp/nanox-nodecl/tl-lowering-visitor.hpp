@@ -35,17 +35,17 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
 {
     public:
         LoweringVisitor();
-        virtual void visit(const Nodecl::Parallel::Async& construct);
-        virtual void visit(const Nodecl::Parallel::WaitAsyncsShallow& construct);
-        virtual void visit(const Nodecl::Parallel::WaitAsyncsDependences& construct);
-        virtual void visit(const Nodecl::Parallel::AsyncCall& construct);
-        virtual void visit(const Nodecl::Parallel::Single& construct);
-        virtual void visit(const Nodecl::Parallel::BarrierFull& construct);
-        virtual void visit(const Nodecl::Parallel::Replicate& construct);
-        virtual void visit(const Nodecl::Parallel::Distribute& construct);
-        virtual void visit(const Nodecl::Parallel::Exclusive& construct);
-        virtual void visit(const Nodecl::Parallel::FlushMemory& construct);
-        virtual void visit(const Nodecl::Parallel::Atomic& construct);
+        virtual void visit(const Nodecl::OpenMP::Task& construct);
+        virtual void visit(const Nodecl::OpenMP::TaskwaitShallow& construct);
+        virtual void visit(const Nodecl::OpenMP::WaitOnDependences& construct);
+        virtual void visit(const Nodecl::OpenMP::TaskCall& construct);
+        virtual void visit(const Nodecl::OpenMP::Single& construct);
+        virtual void visit(const Nodecl::OpenMP::BarrierFull& construct);
+        virtual void visit(const Nodecl::OpenMP::Parallel& construct);
+        virtual void visit(const Nodecl::OpenMP::For& construct);
+        virtual void visit(const Nodecl::OpenMP::Critical& construct);
+        virtual void visit(const Nodecl::OpenMP::FlushMemory& construct);
+        virtual void visit(const Nodecl::OpenMP::Atomic& construct);
 
     private:
         TL::Symbol declare_argument_structure(OutlineInfo& outline_info, Nodecl::NodeclBase construct);

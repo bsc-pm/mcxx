@@ -41,7 +41,7 @@ namespace TL { namespace Nanox {
 
     }
 
-    void LoweringVisitor::visit(const Nodecl::Parallel::Exclusive& construct)
+    void LoweringVisitor::visit(const Nodecl::OpenMP::Critical& construct)
     {
         Nodecl::NodeclBase environment = construct.get_environment();
         Nodecl::NodeclBase statements = construct.get_statements();
@@ -54,7 +54,7 @@ namespace TL { namespace Nanox {
         std::string lock_name = "nanos_default_critical_lock";
         if (!environment.is_null())
         {
-            Nodecl::NodeclBase critical_name_node = environment.as<Nodecl::List>().find_first<Nodecl::Parallel::CriticalName>();
+            Nodecl::NodeclBase critical_name_node = environment.as<Nodecl::List>().find_first<Nodecl::OpenMP::CriticalName>();
             if (!critical_name_node.is_null())
             {
                 lock_name = "nanos_critical_lock_" + critical_name_node.get_text();

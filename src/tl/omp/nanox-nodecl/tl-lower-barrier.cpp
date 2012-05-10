@@ -45,7 +45,7 @@ namespace TL { namespace Nanox {
         return barrier_src;
     }
 
-    void LoweringVisitor::visit(const Nodecl::Parallel::BarrierFull& construct)
+    void LoweringVisitor::visit(const Nodecl::OpenMP::BarrierFull& construct)
     {
         Source barrier_src = full_barrier_source();
 

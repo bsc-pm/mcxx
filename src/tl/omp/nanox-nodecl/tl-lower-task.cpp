@@ -49,12 +49,12 @@ struct TaskEnvironmentVisitor : public Nodecl::ExhaustiveVisitor<void>
         {
         }
 
-        void visit(const Nodecl::Parallel::Priority& priority)
+        void visit(const Nodecl::OpenMP::Priority& priority)
         {
             this->priority = priority.get_priority();
         }
 
-        void visit(const Nodecl::Parallel::Untied& untied)
+        void visit(const Nodecl::OpenMP::Untied& untied)
         {
             this->is_untied = true;
         }
@@ -510,7 +510,7 @@ void LoweringVisitor::emit_async_common(
     construct.integrate(spawn_code_tree);
 }
 
-void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
+void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
 {
     Nodecl::NodeclBase environment = construct.get_environment();
     Nodecl::NodeclBase statements = construct.get_statements();
@@ -1396,7 +1396,7 @@ static void fill_map_parameters_to_arguments(
     }
 }
 
-void LoweringVisitor::visit(const Nodecl::Parallel::AsyncCall& construct)
+void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
 {
     Nodecl::FunctionCall function_call = construct.get_call().as<Nodecl::FunctionCall>();
     ERROR_CONDITION(!function_call.get_called().is<Nodecl::Symbol>(), "Invalid ASYNC CALL!", 0);

@@ -126,14 +126,14 @@ namespace TL { namespace OpenMP {
 
                         Nodecl::NodeclBase exec_env = this->make_exec_environment(call, task_info);
 
-                        Nodecl::Parallel::AsyncCall async_call = Nodecl::Parallel::AsyncCall::make(
+                        Nodecl::OpenMP::TaskCall task_call = Nodecl::OpenMP::TaskCall::make(
                                 exec_env,
                                 // Do we need to copy this?
                                 call.shallow_copy(),
                                 call.get_filename(),
                                 call.get_line());
 
-                        call.integrate(async_call);
+                        call.integrate(task_call);
                     }
                 }
             }
@@ -145,21 +145,21 @@ namespace TL { namespace OpenMP {
 
                 TL::ObjectList<FunctionTaskDependency> task_dependences = function_task_info.get_parameter_info();
 
-                make_dependency_list<Nodecl::Parallel::DepIn>(
-                        task_dependences, 
+                make_dependency_list<Nodecl::OpenMP::DepIn>(
+                        task_dependences,
                         OpenMP::DEP_DIR_IN,
-                        call.get_filename(), 
+                        call.get_filename(),
                         call.get_line(),
                         result_list);
 
-                make_dependency_list<Nodecl::Parallel::DepOut>(
+                make_dependency_list<Nodecl::OpenMP::DepOut>(
                         task_dependences, 
                         OpenMP::DEP_DIR_OUT,
                         call.get_filename(), 
                         call.get_line(),
                         result_list);
 
-                make_dependency_list<Nodecl::Parallel::DepInout>(
+                make_dependency_list<Nodecl::OpenMP::DepInout>(
                         task_dependences, 
                         OpenMP::DEP_DIR_INOUT,
                         call.get_filename(), 
@@ -267,8 +267,8 @@ namespace TL { namespace OpenMP {
     void Base::atomic_handler_pre(TL::PragmaCustomStatement) { }
     void Base::atomic_handler_post(TL::PragmaCustomStatement directive)
     {
-        Nodecl::Parallel::Atomic atomic =
-            Nodecl::Parallel::Atomic::make(
+        Nodecl::OpenMP::Atomic atomic =
+            Nodecl::OpenMP::Atomic::make(
                     Nodecl::NodeclBase::null(),
                     directive.get_statements().shallow_copy(),
                     directive.get_filename(),
@@ -291,13 +291,13 @@ namespace TL { namespace OpenMP {
             ObjectList<std::string> critical_name = param.get_tokenized_arguments();
 
             exec_env = Nodecl::List::make(
-                    Nodecl::Parallel::CriticalName::make(critical_name[0],
+                    Nodecl::OpenMP::CriticalName::make(critical_name[0],
                         directive.get_filename(),
                         directive.get_line()));
         }
 
         directive.integrate(
-                Nodecl::Parallel::Exclusive::make(
+                Nodecl::OpenMP::Critical::make(
                     exec_env,
                     directive.get_statements().shallow_copy(),
                     directive.get_filename(),
@@ -308,7 +308,7 @@ namespace TL { namespace OpenMP {
     void Base::barrier_handler_post(TL::PragmaCustomDirective directive)
     {
         directive.integrate(
-                Nodecl::Parallel::BarrierFull::make(directive.get_filename(), directive.get_line())
+                Nodecl::OpenMP::BarrierFull::make(directive.get_filename(), directive.get_line())
                 );
     }
 
@@ -317,7 +317,7 @@ namespace TL { namespace OpenMP {
     {
         PragmaClauseArgList parameter = directive.get_pragma_line().get_parameter();
         directive.integrate(
-                Nodecl::Parallel::FlushMemory::make(
+                Nodecl::OpenMP::FlushMemory::make(
                     parameter.shallow_copy(),
                     directive.get_filename(), directive.get_line())
                 );
@@ -337,13 +337,13 @@ namespace TL { namespace OpenMP {
 
         if (!expr_list.empty())
         {
-            Nodecl::Parallel::DepInout dep_inout = Nodecl::Parallel::DepInout::make(
+            Nodecl::OpenMP::DepInout dep_inout = Nodecl::OpenMP::DepInout::make(
                     Nodecl::List::make(expr_list),
                     directive.get_filename(),
                     directive.get_line());
 
             directive.integrate(
-                    Nodecl::Parallel::WaitAsyncsDependences::make(
+                    Nodecl::OpenMP::WaitOnDependences::make(
                         Nodecl::List::make(dep_inout),
                         directive.get_filename(), directive.get_line())
                     );
@@ -351,7 +351,7 @@ namespace TL { namespace OpenMP {
         else
         {
             directive.integrate(
-                    Nodecl::Parallel::WaitAsyncsShallow::make(
+                    Nodecl::OpenMP::TaskwaitShallow::make(
                         directive.get_filename(),
                         directive.get_line())
                     );
@@ -371,7 +371,7 @@ namespace TL { namespace OpenMP {
         if (untied.is_defined())
         {
             execution_environment.push_back(
-                    Nodecl::Parallel::Untied::make(
+                    Nodecl::OpenMP::Untied::make(
                         directive.get_filename(),
                         directive.get_line()));
         }
@@ -389,7 +389,7 @@ namespace TL { namespace OpenMP {
             else
             {
                 execution_environment.push_back(
-                        Nodecl::Parallel::Priority::make(
+                        Nodecl::OpenMP::Priority::make(
                             expr_list[0],
                             directive.get_filename(),
                             directive.get_line()));
@@ -399,7 +399,7 @@ namespace TL { namespace OpenMP {
         PragmaCustomClause if_clause = pragma_line.get_clause("if");
 
         Nodecl::NodeclBase async_code =
-                    Nodecl::Parallel::Async::make(execution_environment,
+                    Nodecl::OpenMP::Task::make(execution_environment,
                         directive.get_statements().shallow_copy(),
                         directive.get_filename(),
                         directive.get_line());
@@ -447,7 +447,7 @@ namespace TL { namespace OpenMP {
         }
 
         directive.integrate(
-                Nodecl::Parallel::Replicate::make(
+                Nodecl::OpenMP::Parallel::make(
                     execution_environment,
                     number_of_replicas,
                     directive.get_statements().shallow_copy(),
@@ -465,7 +465,7 @@ namespace TL { namespace OpenMP {
 
         Nodecl::List code;
         code.push_back(
-                Nodecl::Parallel::Single::make(
+                Nodecl::OpenMP::Single::make(
                     execution_environment,
                     directive.get_statements().shallow_copy(),
                     directive.get_filename(),
@@ -474,7 +474,7 @@ namespace TL { namespace OpenMP {
         if (!pragma_line.get_clause("nowait").is_defined())
         {
             code.push_back(
-                    Nodecl::Parallel::BarrierFull::make(
+                    Nodecl::OpenMP::BarrierFull::make(
                         directive.get_filename(),
                         directive.get_line()));
         }
@@ -536,7 +536,7 @@ namespace TL { namespace OpenMP {
                     || schedule == "auto")
             {
                 execution_environment.push_back(
-                        Nodecl::Parallel::Schedule::make(
+                        Nodecl::OpenMP::Schedule::make(
                             chunk,
                             schedule,
                             directive.get_filename(),
@@ -552,7 +552,7 @@ namespace TL { namespace OpenMP {
         {
             // def-sched-var is STATIC in our implementation
             execution_environment.push_back(
-                    Nodecl::Parallel::Schedule::make(
+                    Nodecl::OpenMP::Schedule::make(
                         ::const_value_to_nodecl(const_value_get_signed_int(1)),
                         "static",
                         directive.get_filename(),
@@ -562,7 +562,7 @@ namespace TL { namespace OpenMP {
         if (!pragma_line.get_clause("nowait").is_defined())
         {
             execution_environment.push_back(
-                    Nodecl::Parallel::BarrierAtEnd::make(
+                    Nodecl::OpenMP::BarrierAtEnd::make(
                         directive.get_filename(),
                         directive.get_line()));
         }
@@ -570,12 +570,12 @@ namespace TL { namespace OpenMP {
         ERROR_CONDITION (!statement.is<Nodecl::ForStatement>(), "Invalid tree of kind '%s'", ast_print_node_type(statement.get_kind()));
         TL::ForStatement for_statement(statement.as<Nodecl::ForStatement>());
 
-        Nodecl::Parallel::Distribute distribute =
-            Nodecl::Parallel::Distribute::make(
+        Nodecl::OpenMP::For distribute =
+            Nodecl::OpenMP::For::make(
                     execution_environment,
                     // This is a list because of multidimensional distribution
                     Nodecl::List::make(
-                        Nodecl::Parallel::DistributeRange::make(
+                        Nodecl::OpenMP::ForRange::make(
                             for_statement.get_lower_bound(),
                             for_statement.get_upper_bound(),
                             for_statement.get_step(),
@@ -753,7 +753,7 @@ namespace TL { namespace OpenMP {
         Nodecl::NodeclBase code = loop_handler_post(directive, statement);
 
         Nodecl::NodeclBase replicate
-            = Nodecl::Parallel::Replicate::make(
+            = Nodecl::OpenMP::Parallel::make(
                 execution_environment,
                 number_of_replicas,
                 code,
@@ -816,7 +816,7 @@ namespace TL { namespace OpenMP {
 
             virtual Nodecl::NodeclBase do_(ArgType arg) const
             {
-                return Nodecl::Parallel::ReductionItem::make(
+                return Nodecl::OpenMP::ReductionItem::make(
                         /* reductor */ Nodecl::Symbol::make(arg.get_udr().get_symbol_holder(), _filename, _line),
                         /* reduced symbol */ Nodecl::Symbol::make(arg.get_symbol(), _filename, _line),
                         _filename, _line);
@@ -845,15 +845,15 @@ namespace TL { namespace OpenMP {
     {
         TL::ObjectList<Nodecl::NodeclBase> result_list;
 
-        make_data_sharing_list<Nodecl::Parallel::Shared>(
+        make_data_sharing_list<Nodecl::OpenMP::Shared>(
                 data_sharing_env, OpenMP::DS_SHARED,
                 pragma_line.get_filename(), pragma_line.get_line(),
                 result_list);
-        make_data_sharing_list<Nodecl::Parallel::Private>(
+        make_data_sharing_list<Nodecl::OpenMP::Private>(
                 data_sharing_env, OpenMP::DS_PRIVATE,
                 pragma_line.get_filename(), pragma_line.get_line(),
                 result_list);
-        make_data_sharing_list<Nodecl::Parallel::Capture>(
+        make_data_sharing_list<Nodecl::OpenMP::Firstprivate>(
                 data_sharing_env, OpenMP::DS_FIRSTPRIVATE,
                 pragma_line.get_filename(), pragma_line.get_line(),
                 result_list);
@@ -865,7 +865,7 @@ namespace TL { namespace OpenMP {
             TL::ObjectList<Nodecl::NodeclBase> reduction_nodes = reductions.map(ReductionSymbolBuilder(pragma_line.get_filename(), pragma_line.get_line()));
 
             result_list.append(
-                    Nodecl::Parallel::Reduction::make(Nodecl::List::make(reduction_nodes),
+                    Nodecl::OpenMP::Reduction::make(Nodecl::List::make(reduction_nodes),
                         pragma_line.get_filename(), pragma_line.get_line())
                     );
         }
@@ -873,19 +873,19 @@ namespace TL { namespace OpenMP {
         TL::ObjectList<OpenMP::DependencyItem> dependences;
         data_sharing_env.get_all_dependences(dependences);
 
-        make_dependency_list<Nodecl::Parallel::DepIn>(
+        make_dependency_list<Nodecl::OpenMP::DepIn>(
                 dependences,
                 OpenMP::DEP_DIR_IN,
                 pragma_line.get_filename(), pragma_line.get_line(),
                 result_list);
 
-        make_dependency_list<Nodecl::Parallel::DepOut>(
+        make_dependency_list<Nodecl::OpenMP::DepOut>(
                 dependences,
                 OpenMP::DEP_DIR_OUT,
                 pragma_line.get_filename(), pragma_line.get_line(),
                 result_list);
 
-        make_dependency_list<Nodecl::Parallel::DepInout>(
+        make_dependency_list<Nodecl::OpenMP::DepInout>(
                 dependences, OpenMP::DEP_DIR_INOUT,
                 pragma_line.get_filename(), pragma_line.get_line(),
                 result_list);
@@ -893,19 +893,19 @@ namespace TL { namespace OpenMP {
         TL::ObjectList<OpenMP::CopyItem> copies;
         data_sharing_env.get_all_copies(copies);
 
-        make_copy_list<Nodecl::Parallel::CopyIn>(
+        make_copy_list<Nodecl::OpenMP::CopyIn>(
                 copies,
                 OpenMP::COPY_DIR_IN,
                 pragma_line.get_filename(), pragma_line.get_line(),
                 result_list);
 
-        make_copy_list<Nodecl::Parallel::CopyOut>(
+        make_copy_list<Nodecl::OpenMP::CopyOut>(
                 copies,
                 OpenMP::COPY_DIR_IN,
                 pragma_line.get_filename(), pragma_line.get_line(),
                 result_list);
 
-        make_copy_list<Nodecl::Parallel::CopyInout>(
+        make_copy_list<Nodecl::OpenMP::CopyInout>(
                 copies,
                 OpenMP::COPY_DIR_INOUT,
                 pragma_line.get_filename(), pragma_line.get_line(),

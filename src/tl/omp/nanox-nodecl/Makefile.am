@@ -46,16 +46,16 @@ libtlnanox_lowering_la_SOURCES = \
 								 tl-lowering-visitor.cpp \
 								 tl-lowering-visitor.hpp \
 								 tl-lower-arguments.cpp \
-								 tl-lower-async.cpp \
-								 tl-lower-wait-async.cpp \
+								 tl-lower-task.cpp \
+								 tl-lower-taskwait.cpp \
 								 tl-emit-outline.cpp \
 								 tl-outline-info.hpp \
 								 tl-outline-info.cpp \
 								 tl-lower-single.cpp \
 								 tl-lower-barrier.cpp \
-								 tl-lower-replicate.cpp \
-								 tl-lower-distribute.cpp \
-								 tl-lower-exclusive.cpp \
+								 tl-lower-parallel.cpp \
+								 tl-lower-for.cpp \
+								 tl-lower-critical.cpp \
 								 tl-lower-flush.cpp \
 								 tl-lower-atomic.cpp \
 								 tl-parallel-spawn.cpp \

@@ -33,7 +33,7 @@
 
 namespace TL { namespace Nanox {
 
-    void LoweringVisitor::visit(const Nodecl::Parallel::Distribute& construct)
+    void LoweringVisitor::visit(const Nodecl::OpenMP::For& construct)
     {
         Nodecl::List distribute_environment = construct.get_environment().as<Nodecl::List>();
 
@@ -72,7 +72,7 @@ namespace TL { namespace Nanox {
             Nodecl::Range range_item = ranges.front().as<Nodecl::Range>();
 
             TL::Symbol ind_var = range_item.get_symbol();
-            Nodecl::Parallel::DistributeRange range(range_item.as<Nodecl::Parallel::DistributeRange>());
+            Nodecl::OpenMP::ForRange range(range_item.as<Nodecl::OpenMP::ForRange>());
 
             if (range.get_step().is_constant())
             {
@@ -170,7 +170,7 @@ namespace TL { namespace Nanox {
         }
 
         if (!reduction_items.empty()
-                || !distribute_environment.find_first<Nodecl::Parallel::BarrierAtEnd>().is_null())
+                || !distribute_environment.find_first<Nodecl::OpenMP::BarrierAtEnd>().is_null())
         {
             barrier_code
                 << full_barrier_source();

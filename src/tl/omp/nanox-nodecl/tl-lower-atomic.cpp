@@ -335,7 +335,7 @@ namespace TL { namespace Nanox {
         }
     }
 
-    void LoweringVisitor::visit(const Nodecl::Parallel::Atomic& construct)
+    void LoweringVisitor::visit(const Nodecl::OpenMP::Atomic& construct)
     {
         Nodecl::List statements = construct.get_statements().as<Nodecl::List>();
 

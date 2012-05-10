@@ -31,7 +31,7 @@
 
 namespace TL { namespace Nanox {
 
-    void LoweringVisitor::visit(const Nodecl::Parallel::Single& construct)
+    void LoweringVisitor::visit(const Nodecl::OpenMP::Single& construct)
     {
         Nodecl::NodeclBase environment = construct.get_environment();
         Nodecl::NodeclBase statements = construct.get_statements();

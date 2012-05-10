@@ -46,10 +46,10 @@ namespace TL { namespace Nanox {
             internal_error("Only ranges of 1 dimension implemented", 0);
         }
 
-        Nodecl::Parallel::Schedule schedule = distribute_environment.find_first<Nodecl::Parallel::Schedule>();
+        Nodecl::OpenMP::Schedule schedule = distribute_environment.find_first<Nodecl::OpenMP::Schedule>();
         ERROR_CONDITION(schedule.is_null(), "Schedule tree is missing", 0);
 
-        Nodecl::Parallel::DistributeRange distribute_range = ranges[0].as<Nodecl::Parallel::DistributeRange>();
+        Nodecl::OpenMP::ForRange distribute_range = ranges[0].as<Nodecl::OpenMP::ForRange>();
         Nodecl::NodeclBase lower = distribute_range.get_lower();
         Nodecl::NodeclBase upper = distribute_range.get_upper();
         Nodecl::NodeclBase step = distribute_range.get_step();
