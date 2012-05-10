@@ -6693,6 +6693,7 @@ static void set_function_parameter_clause(type_t** function_type,
     }
     else
     {
+        static int function_declarator_nesting_level = 0;
         for_each_element(list, iter)
         {
             if (num_parameters > MCXX_MAX_FUNCTION_PARAMETERS)
@@ -6812,8 +6813,11 @@ static void set_function_parameter_clause(type_t** function_type,
             scope_entry_t* entry = NULL;
             type_t* type_info = NULL;
 
+            function_declarator_nesting_level++;
             compute_declarator_type(parameter_declarator, 
                     &param_decl_gather_info, simple_type_info, &type_info, param_decl_context, nodecl_output);
+            function_declarator_nesting_level--;
+
             if (is_error_type(type_info))
             {
                 *function_type = get_error_type();
@@ -6823,6 +6827,22 @@ static void set_function_parameter_clause(type_t** function_type,
             if (parameter_declarator != NULL)
             {
                 entry = build_scope_declarator_name(parameter_declarator, type_info, &param_decl_gather_info, param_decl_context, nodecl_output);
+            }
+
+            if (entry == NULL)
+            {
+                // The declarator was abstract, craft a name
+                const char* arg_name;
+                if (function_declarator_nesting_level == 0)
+                {
+                    uniquestr_sprintf(&arg_name, "mcc_arg_%d", num_parameters);
+                }
+                else
+                {
+                    uniquestr_sprintf(&arg_name, "mcc_arg_%d_%d", function_declarator_nesting_level, num_parameters);
+                }
+                AST declarator_id = ASTLeaf(AST_SYMBOL, ASTFileName(parameter_decl_spec_seq), ASTLine(parameter_decl_spec_seq), arg_name);
+                entry = register_new_variable_name(declarator_id, type_info, &param_decl_gather_info, param_decl_context);
             }
 
             // Now normalize the types
