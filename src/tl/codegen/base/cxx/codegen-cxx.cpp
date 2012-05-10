@@ -4515,12 +4515,14 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                 }
                 else
                 {
-                    ERROR_CONDITION(!is_primary_template, "Only the primary template is allowed "
+                    ERROR_CONDITION(!symbol.is_user_declared(),
+                            "Only user declared template specializations are allowed "
                             "as a dependent template specialized type!\n", 0);
 
-                    TL::TemplateParameters template_parameters = symbol.get_type().template_specialized_type_get_template_arguments();
-                    codegen_template_header(template_parameters,
-                            /*show default values*/ true);
+                    TL::TemplateParameters template_parameters =
+                        symbol.get_type().template_specialized_type_get_template_parameters();
+
+                    codegen_template_header(template_parameters, /*show default values*/ true);
                 }
             }
 

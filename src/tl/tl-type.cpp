@@ -885,6 +885,11 @@ namespace TL
         return (::is_template_specialized_type(_type_info));
     }
 
+    TemplateParameters Type::template_specialized_type_get_template_parameters() const
+    {
+        return ::template_specialized_type_get_template_parameters(_type_info);
+    }
+    
     TemplateParameters Type::template_specialized_type_get_template_arguments() const
     {
         return ::template_specialized_type_get_template_arguments(_type_info);

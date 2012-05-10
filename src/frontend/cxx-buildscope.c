@@ -2729,11 +2729,28 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         return;
     }
 
+    char declare_something = !gather_info->no_declarators ||
+        !(
+                // These examples does not declare anything:
+                // template < typename T1>
+                // struct B
+                // {
+                //      class F {};
+                // };
+                // struct A
+                // {
+                //      struct B<T>;
+                //      struct B<T>::F;
+                // };
+                !gather_info->is_template &&
+                !gather_info->parameter_declaration &&
+                (ASTType(id_expression) == AST_TEMPLATE_ID || ASTType(id_expression) == AST_QUALIFIED_ID)
+         );
+
     CXX_LANGUAGE()
     {
         if (gather_info->no_declarators
                 && !gather_info->parameter_declaration
-                && !gather_info->is_friend
                 && ASTType(id_expression) != AST_TEMPLATE_ID)
         {
             if (is_unqualified_id_expression(id_expression))
@@ -2748,8 +2765,16 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         }
         else
         {
-            result_list = query_id_expression_flags(decl_context,
-                    id_expression, decl_flags | DF_DEPENDENT_TYPENAME);
+            if (is_unqualified_id_expression(id_expression)
+                    && ASTType(id_expression) == AST_TEMPLATE_ID)
+            {
+                result_list = query_in_scope_flags(decl_context, id_expression, decl_flags);
+            }
+            else
+            {
+                result_list = query_id_expression_flags(decl_context,
+                        id_expression, decl_flags | DF_DEPENDENT_TYPENAME);
+            }
         }
     }
 
@@ -2964,7 +2989,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
     {
         if (entry->kind == SK_DEPENDENT_ENTITY)
         {
-            if (gather_info->no_declarators)
+            if (!declare_something)
             {
                 if (!checking_ambiguity())
                 {

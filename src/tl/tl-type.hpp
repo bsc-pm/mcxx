@@ -700,6 +700,9 @@ namespace TL
             */
             bool is_template_specialized_type() const;
 
+            //! Returns the template parameters of a specialized template type
+            TemplateParameters template_specialized_type_get_template_parameters() const;
+            
             //! Returns the template arguments of a specialized template type
             TemplateParameters template_specialized_type_get_template_arguments() const;
             
