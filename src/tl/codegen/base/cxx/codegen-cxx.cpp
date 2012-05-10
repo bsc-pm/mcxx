@@ -4448,10 +4448,11 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                 template_type = symbol.get_type().get_related_template_type();
                 primary_template = template_type.get_primary_template();
                 primary_symbol = primary_template.get_symbol();
-                (this->*decl_sym_fun)(primary_symbol);
 
                 if (primary_symbol != symbol)
                 {
+                    // Before the declaration of this specialization we should ensure
+                    // that the primary specialization has been defined
                     (this->*decl_sym_fun)(primary_symbol);
                 }
                 else
