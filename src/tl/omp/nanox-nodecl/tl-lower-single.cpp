@@ -27,7 +27,7 @@
 
 #include "tl-source.hpp"
 #include "tl-lowering-visitor.hpp"
-#include "tl-nodecl-deep-copy.hpp"
+#include "tl-nodecl-utils.hpp"
 
 namespace TL { namespace Nanox {
 
@@ -40,9 +40,7 @@ namespace TL { namespace Nanox {
 
         statements = construct.get_statements();
 
-        Nodecl::SimpleSymbolMap symbol_map; // currently empty
-        Nodecl::NodeclBase copied_statements = deep_copy(statements, construct, symbol_map);
-        Nodecl::NodeclBase copied_statements_1 = deep_copy(statements, construct, symbol_map);
+        Nodecl::NodeclBase placeholder;
 
         TL::Source transform_code, final_barrier;
         transform_code
@@ -53,13 +51,26 @@ namespace TL { namespace Nanox {
 
             << "if (single_guard)"
             << "{"
-            <<     as_statement(copied_statements)
-            <<     as_statement(copied_statements_1)
+            << statement_placeholder(placeholder)
             << "}"
             << "}"
             ;
 
+        FORTRAN_LANGUAGE()
+        {
+            // Parse in C
+            Source::source_language = SourceLanguage::C;
+        }
         Nodecl::NodeclBase n = transform_code.parse_statement(construct);
+        FORTRAN_LANGUAGE()
+        {
+            Source::source_language = SourceLanguage::Current;
+        }
+
+        Nodecl::Utils::SimpleSymbolMap empty_symbol_map;
+        Nodecl::NodeclBase copied_statements = Nodecl::Utils::deep_copy(statements, placeholder, empty_symbol_map);
+        placeholder.integrate(copied_statements);
+
         construct.integrate(n);
     }
 
