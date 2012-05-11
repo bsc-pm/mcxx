@@ -1368,7 +1368,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
             it++, i++)
     {
         TL::Symbol current_param = *it;
-        if (current_param.is_valid())
+        if (current_param.is_valid()
+                && !current_param.not_to_be_printed())
         {
             parameter_names[i] = current_param.get_name();
             set_codegen_status(current_param, CODEGEN_STATUS_DEFINED);
@@ -1614,7 +1615,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
             it++, i++)
     {
         TL::Symbol current_param = *it;
-        if (current_param.is_valid())
+        if (current_param.is_valid()
+                && !current_param.not_to_be_printed())
         {
             parameter_names[i] = current_param.get_name();
             set_codegen_status(current_param, CODEGEN_STATUS_DEFINED);
@@ -4623,7 +4625,8 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                 it++, i++)
         {
             TL::Symbol current_param = *it;
-            if (current_param.is_valid())
+            if (current_param.is_valid()
+                    && !current_param.not_to_be_printed())
             {
                 parameter_names[i] = current_param.get_name();
                 if (current_param.has_gcc_attributes())

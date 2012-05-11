@@ -6868,6 +6868,7 @@ static void set_function_parameter_clause(type_t** function_type,
                 }
                 AST declarator_id = ASTLeaf(AST_SYMBOL, ASTFileName(parameter_decl_spec_seq), ASTLine(parameter_decl_spec_seq), arg_name);
                 entry = register_new_variable_name(declarator_id, type_info, &param_decl_gather_info, param_decl_context);
+                entry->do_not_print = 1;
             }
 
             // Now normalize the types
