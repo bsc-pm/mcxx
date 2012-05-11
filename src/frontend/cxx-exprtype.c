@@ -139,7 +139,8 @@ type_t* actual_type_of_conversor(scope_entry_t* conv)
 
 static
 scope_entry_t* expand_template_given_arguments(scope_entry_t* entry,
-        type_t** argument_types, int num_arguments, decl_context_t decl_context,
+        type_t** argument_types, int num_arguments, 
+        decl_context_t decl_context,
         const char* filename, int line,
         template_parameter_list_t* explicit_template_parameters)
 {
@@ -2196,8 +2197,12 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
                         return get_error_type();
                     }
 
+                    nodecl_t nodecl_conversor =
+                        nodecl_make_symbol(conversors[0], nodecl_get_filename(*lhs), nodecl_get_line(*lhs));
+                    nodecl_set_type(nodecl_conversor, conversors[0]->type_information);
+
                     *lhs = cxx_nodecl_make_function_call(
-                            nodecl_make_symbol(conversors[0], nodecl_get_filename(*lhs), nodecl_get_line(*lhs)),
+                            nodecl_conversor,
                             nodecl_make_list_1(*lhs),
                             actual_type_of_conversor(conversors[0]), nodecl_get_filename(*lhs), nodecl_get_line(*lhs));
                 }
@@ -2256,9 +2261,12 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
                 {
                     return get_error_type();
                 }
+                nodecl_t nodecl_conversor = 
+                        nodecl_make_symbol(conversors[1], nodecl_get_filename(*rhs), nodecl_get_line(*rhs));
+                nodecl_set_type(nodecl_conversor, conversors[1]->type_information);
 
                 *rhs = cxx_nodecl_make_function_call(
-                        nodecl_make_symbol(conversors[1], nodecl_get_filename(*rhs), nodecl_get_line(*rhs)),
+                        nodecl_conversor,
                         nodecl_make_list_1(*rhs),
                         actual_type_of_conversor(conversors[1]), nodecl_get_filename(*rhs), nodecl_get_line(*rhs));
             }
@@ -2420,8 +2428,12 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
                         return get_error_type();
                     }
 
+                    nodecl_t nodecl_conversor = 
+                            nodecl_make_symbol(conversors[0], nodecl_get_filename(*op), nodecl_get_line(*op));
+                    nodecl_set_type(nodecl_conversor, conversors[0]->type_information);
+
                     *op = cxx_nodecl_make_function_call(
-                            nodecl_make_symbol(conversors[0], nodecl_get_filename(*op), nodecl_get_line(*op)),
+                            nodecl_conversor,
                             nodecl_make_list_1(*op),
                             actual_type_of_conversor(conversors[0]), nodecl_get_filename(*op), nodecl_get_line(*op));
                 }
@@ -2794,11 +2806,14 @@ void compute_bin_operator_generic(
         }
         else
         {
-            *nodecl_output = 
-                    cxx_nodecl_make_function_call(
-                        nodecl_make_symbol(selected_operator, filename, line),
-                        nodecl_make_list_2(*lhs, *rhs),
-                        result, filename, line);
+            nodecl_t nodecl_selected_op =
+                        nodecl_make_symbol(selected_operator, filename, line);
+            nodecl_set_type(nodecl_selected_op, selected_operator->type_information);
+
+            *nodecl_output = cxx_nodecl_make_function_call(
+                    nodecl_selected_op,
+                    nodecl_make_list_2(*lhs, *rhs),
+                    result, filename, line);
         }
     }
     else
@@ -4128,9 +4143,13 @@ static void compute_bin_nonoperator_assig_only_arithmetic_type(nodecl_t *lhs, no
         }
         else
         {
+            nodecl_t nodecl_selected_op =
+                        nodecl_make_symbol(selected_operator, filename, line);
+            nodecl_set_type(nodecl_selected_op, selected_operator->type_information);
+
             *nodecl_output = 
                 cxx_nodecl_make_function_call(
-                        nodecl_make_symbol(selected_operator, filename, line),
+                        nodecl_selected_op,
                         nodecl_make_list_2(*lhs, *rhs),
                         result, filename, line);
         }
@@ -8121,7 +8140,8 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
     {
         // This is a dependent call, remember the original called name instead
         // of anything synthesized by lookup
-        *nodecl_output = nodecl_make_function_call(nodecl_called_name,
+        *nodecl_output = nodecl_make_function_call(
+                nodecl_called_name,
                 nodecl_argument_list,
                 /* alternate_name */ nodecl_null(),
                 get_unknown_dependent_type(),
@@ -8451,14 +8471,16 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
     {
         ERROR_CONDITION(nodecl_is_null(nodecl_implicit_argument), "There must be an implicit argument when calling a surrogate!", 0);
 
+        nodecl_t nodecl_called_surrogate = nodecl_make_symbol(overloaded_call->entity_specs.alias_to, 
+                nodecl_get_filename(nodecl_implicit_argument), nodecl_get_line(nodecl_implicit_argument));
+        nodecl_set_type(nodecl_called_surrogate, overloaded_call->entity_specs.alias_to->type_information);
+
         nodecl_called = cxx_nodecl_make_function_call(
-                nodecl_make_symbol(overloaded_call->entity_specs.alias_to, 
-                    nodecl_get_filename(nodecl_implicit_argument), nodecl_get_line(nodecl_implicit_argument)),
+                nodecl_called_surrogate,
                 nodecl_make_list_1(nodecl_implicit_argument),
                 function_type_get_return_type(overloaded_call->entity_specs.alias_to->type_information),
                 nodecl_get_filename(nodecl_implicit_argument), nodecl_get_line(nodecl_implicit_argument)
                 );
-
 
         overloaded_call = overloaded_call->entity_specs.alias_to;
 
@@ -8473,6 +8495,7 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
     else
     {
         nodecl_called = nodecl_make_symbol(overloaded_call, filename, line);
+        nodecl_set_type(nodecl_called, overloaded_call->type_information);
 
         function_type_of_called = overloaded_call->type_information;
 
@@ -8548,7 +8571,7 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
                         else
                         {
                             nodecl_arg =
-                                nodecl_make_pointer_to_member(solved_function, 
+                                nodecl_make_pointer_to_member(solved_function,
                                         get_lvalue_reference_type(
                                             get_pointer_to_member_type(solved_function->type_information,
                                                 named_type_get_symbol(solved_function->entity_specs.class_type))),
@@ -8563,9 +8586,12 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
                             *nodecl_output = nodecl_make_err_expr(filename, line);
                             return;
                         }
+                        nodecl_t nodecl_conversor =
+                                nodecl_make_symbol(conversors[arg_i], nodecl_get_filename(nodecl_arg),  nodecl_get_line(nodecl_arg));
+                        nodecl_set_type(nodecl_conversor, conversors[arg_i]->type_information);
 
                         nodecl_arg = cxx_nodecl_make_function_call(
-                                nodecl_make_symbol(conversors[arg_i], nodecl_get_filename(nodecl_arg),  nodecl_get_line(nodecl_arg)),
+                                nodecl_conversor,
                                 nodecl_make_list_1(nodecl_arg),
                                 actual_type_of_conversor(conversors[arg_i]), nodecl_get_filename(nodecl_arg), nodecl_get_line(nodecl_arg));
                     }
@@ -8659,7 +8685,7 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t 
                 // the function 'check_expression_impl_' and compute a new nodecl using the original AST.
                 compute_nodecl_name_from_id_expression(called_expression, decl_context, &nodecl_called);
             }
-            
+
             *nodecl_output = nodecl_make_function_call(
                     nodecl_called,
                     nodecl_argument_list,
