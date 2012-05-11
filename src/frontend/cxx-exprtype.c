@@ -163,6 +163,9 @@ scope_entry_t* expand_template_given_arguments(scope_entry_t* entry,
     {
         // Now get a specialized template type for this
         // function (this will sign it in if it does not exist)
+        //
+        // FIXME - Instantiate default arguments here since they may fail
+        //
         type_t* named_specialization_type = template_type_get_specialized_type(entry->type_information,
                 argument_list, decl_context, filename, line);
 
