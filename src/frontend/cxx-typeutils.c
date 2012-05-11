@@ -168,8 +168,8 @@ struct class_info_tag {
 
     // The inner decl context created by this class
     decl_context_t inner_decl_context;
-    
-    // All members must be here, but can also be in lists below
+
+    // All members must be here
     scope_entry_list_t* members;
 
     // Destructor
