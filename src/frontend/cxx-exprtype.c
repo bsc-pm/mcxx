@@ -14644,6 +14644,12 @@ static void instantiate_common_dep_name_nested(nodecl_instantiate_expr_visitor_t
     free(list);
 
     v->nodecl_result = (*func)(nodecl_result_list, nodecl_get_filename(node), nodecl_get_line(node));
+
+    scope_entry_list_t* entry_list = query_nodecl_name(v->decl_context, v->nodecl_result);
+
+    nodecl_t nodecl_output = nodecl_null();
+    cxx_compute_name_from_entry_list(v->nodecl_result, entry_list, v->decl_context, &nodecl_output);
+    v->nodecl_result = nodecl_output;
 }
 
 static void instantiate_dep_global_name_nested(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
