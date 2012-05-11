@@ -1270,6 +1270,11 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCall& node)
     visit_function_call(node, /* is_virtual_call */ false);
 }
 
+CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepFunctionCall& node)
+{
+    visit_function_call(node, /* is_virtual_call */ false);
+}
+
 CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
 {
     // We are going to generate dependent code

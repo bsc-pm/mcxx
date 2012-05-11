@@ -8140,7 +8140,7 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
     {
         // This is a dependent call, remember the original called name instead
         // of anything synthesized by lookup
-        *nodecl_output = nodecl_make_function_call(
+        *nodecl_output = nodecl_make_cxx_dep_function_call(
                 nodecl_called_name,
                 nodecl_argument_list,
                 /* alternate_name */ nodecl_null(),
@@ -8686,7 +8686,7 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t 
                 compute_nodecl_name_from_id_expression(called_expression, decl_context, &nodecl_called);
             }
 
-            *nodecl_output = nodecl_make_function_call(
+            *nodecl_output = nodecl_make_cxx_dep_function_call(
                     nodecl_called,
                     nodecl_argument_list,
                     /* alternate_name */ nodecl_null(),
@@ -14031,8 +14031,18 @@ nodecl_t cxx_nodecl_make_function_call(nodecl_t called, nodecl_t arg_list, type_
                         || called_symbol->entity_specs.default_argument_info[arg_i] == NULL,
                         "Invalid default argument information %d", arg_i);
 
-                converted_arg_list = nodecl_append_to_list(converted_arg_list,
-                        called_symbol->entity_specs.default_argument_info[arg_i]->argument);
+                // We need to update the default argument
+                nodecl_t new_default_argument = instantiate_expression(
+                        called_symbol->entity_specs.default_argument_info[arg_i]->argument,
+                        called_symbol->decl_context);
+
+                if (nodecl_is_err_expr(new_default_argument))
+                {
+                    // Best effort
+                    return new_default_argument;
+                }
+
+                converted_arg_list = nodecl_append_to_list(converted_arg_list, new_default_argument);
             }
 
             if (called_symbol->entity_specs.is_member 
@@ -14428,6 +14438,40 @@ static void instantiate_reference(nodecl_instantiate_expr_visitor_t* v, nodecl_t
 }
 
 static void instantiate_function_call(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    nodecl_t nodecl_called = instantiate_expr_walk(v, nodecl_get_child(node, 0));
+
+    nodecl_t nodecl_argument_list = nodecl_get_child(node, 1);
+
+    int num_items = 0;
+    nodecl_t* list = nodecl_unpack_list(nodecl_argument_list, &num_items);
+
+    nodecl_t new_list = nodecl_null();
+    int i;
+    for (i = 0; i < num_items; i++)
+    {
+        nodecl_t current_arg = instantiate_expr_walk(v, list[i]);
+
+        if (nodecl_is_err_expr(current_arg))
+        {
+            v->nodecl_result = nodecl_make_err_expr(nodecl_get_filename(node), nodecl_get_line(node));
+            return;
+        }
+
+        new_list = nodecl_append_to_list(
+                new_list,
+                current_arg);
+    }
+
+    v->nodecl_result =  nodecl_make_function_call(nodecl_called,
+            new_list,
+            /* alternate_name */ nodecl_null(),
+            nodecl_get_type(node),
+            nodecl_get_filename(node),
+            nodecl_get_line(node));
+}
+
+static void instantiate_cxx_dep_function_call(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
 {
     nodecl_t nodecl_called = nodecl_null();
     nodecl_t orig_called = nodecl_get_child(node, 0);
@@ -14849,6 +14893,7 @@ static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, 
 
     // Function call
     NODECL_VISITOR(v)->visit_function_call = instantiate_expr_visitor_fun(instantiate_function_call);
+    NODECL_VISITOR(v)->visit_cxx_dep_function_call = instantiate_expr_visitor_fun(instantiate_cxx_dep_function_call);
     NODECL_VISITOR(v)->visit_gxx_trait = instantiate_expr_visitor_fun(instantiate_gxx_trait);
 
     // Sizeof
