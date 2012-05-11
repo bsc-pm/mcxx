@@ -588,6 +588,30 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     new_member->entity_specs.is_non_emitted = 1;
                     new_member->entity_specs.emission_template = member_of_template;
                     new_member->entity_specs.emission_handler = instantiate_emit_member_function;
+
+                    new_member->entity_specs.default_argument_info = 
+                        calloc(member_of_template->entity_specs.num_parameters,
+                                sizeof(*new_member->entity_specs.default_argument_info));
+
+                    int i;
+                    for (i = 0; i < member_of_template->entity_specs.num_parameters; i++)
+                    {
+                        default_argument_info_t* orig_default_arg_info = member_of_template->entity_specs.default_argument_info[i];
+                        if (orig_default_arg_info == NULL)
+                            continue;
+
+                        nodecl_t new_default_arg = orig_default_arg_info->argument;
+                        if (!nodecl_is_null(new_default_arg))
+                        {
+                            new_default_arg = instantiate_expression(new_default_arg, context_of_being_instantiated);
+
+                            default_argument_info_t* new_default_arg_info = calloc(1, sizeof(*new_default_arg_info));
+                            new_default_arg_info->argument = new_default_arg;
+                            new_default_arg_info->context = context_of_being_instantiated;
+
+                            new_member->entity_specs.default_argument_info[i] = new_default_arg_info;
+                        }
+                    }
                 }
                 else
                 {
