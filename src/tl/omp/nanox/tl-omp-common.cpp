@@ -165,7 +165,16 @@ namespace Nanox
              <<       struct_size << ", "
              <<       data << ", "
              <<       "nanos_current_wd(), "
-             <<       copy_data << ");"
+             <<       copy_data 
+             ;
+         if (Nanos::Version::interface_is_at_least("copies_api", 1000))
+         {
+             create_wd << ", "
+                 << "&nanos_copies_region_buffer"
+                 ;
+         }
+         create_wd
+             <<       ");"
              ;
 
          return create_wd;
@@ -199,7 +208,7 @@ namespace Nanox
              <<       translation_fun_arg_name << ");"
              ;
 
-             return create_wd_and_run;
+         return create_wd_and_run;
      }
 
 
@@ -228,10 +237,21 @@ namespace Nanox
              <<       num_dependences << ", "
              <<       deps  << ", "
              <<       copy_imm_data << ", "
+             ;
+
+         if (Nanos::Version::interface_is_at_least("copies_api", 1000))
+         {
+             // What's the point of this?
+             create_wd_and_run
+                 << "nanos_copies_imm_region_buffer, "
+                 ;
+         }
+
+         create_wd_and_run
              <<       translation_fun_arg_name << ");"
              ;
 
-             return create_wd_and_run;
+         return create_wd_and_run;
      }
 }
 }
