@@ -595,7 +595,7 @@ namespace OpenMP
                 ObjectList<CopyItem> copy_out = target_info.get_copy_out();
                 ObjectList<CopyItem> copy_inout = target_info.get_copy_inout();
 
-                Source clause_in_args, clause_out_args, clause_inout_args;
+                Source clause_in_args, clause_out_args, clause_inout_args, clause_concurrent;
 
                 struct
                 {
@@ -684,6 +684,7 @@ namespace OpenMP
                                     break;
                                 }
                             case DEP_DIR_INOUT :
+                            case DEP_REDUCTION :
                                 {
                                     clause_args = &clause_inout_args;
                                     break;
