@@ -44,8 +44,10 @@ enum DependencyDirection
     DEP_DIR_OUTPUT = BITMAP(2),
     // Inout dependence
     DEP_DIR_INOUT = DEP_DIR_INPUT | DEP_DIR_OUTPUT,
-    // Reduction dependences
-    DEP_REDUCTION = BITMAP(3),
+    // Reduction dependencies
+    DEP_CONCURRENT = BITMAP(3),
+    // Commutative dependencies
+    DEP_COMMUTATIVE = BITMAP(4)
 };
 
 } }

@@ -523,6 +523,13 @@ namespace TL
                 reduction_arguments = reduction_clause.get_arguments(ExpressionTokenizer());
             }
 
+            PragmaCustomClause commutative_clause = construct.get_clause("commutative");
+            ObjectList<std::string> commutative_arguments;
+            if (commutative_clause.is_defined())
+            {
+               commutative_arguments = commutative_clause.get_arguments(ExpressionTokenizer());
+            }
+
             // Now discover whether this is a function definition or a declaration
             DeclaredEntity decl_entity(AST_t(), construct.get_scope_link());
             if (Declaration::predicate(construct.get_declaration()))
@@ -607,7 +614,10 @@ namespace TL
              dependence_list.append(inout_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_INOUT,
                              param_ref_tree,construct.get_scope_link())));
 
-             dependence_list.append(reduction_arguments.map(FunctionTaskDependencyGenerator(DEP_REDUCTION,
+             dependence_list.append(reduction_arguments.map(FunctionTaskDependencyGenerator(DEP_CONCURRENT,
+                             param_ref_tree,construct.get_scope_link())));
+
+             dependence_list.append(commutative_arguments.map(FunctionTaskDependencyGenerator(DEP_COMMUTATIVE,
                              param_ref_tree,construct.get_scope_link())));
 
              dependence_list_check(dependence_list);

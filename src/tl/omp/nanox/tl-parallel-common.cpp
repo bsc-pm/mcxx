@@ -404,16 +404,32 @@ void TL::Nanox::regions_spawn(
                 // Set dependency flags
 
                 Source dependency_flags;
-                Source reduction_flag;
                 dependency_flags << "{";
                 OpenMP::DependencyDirection attr = it->get_kind();
 
                 if (is_task)
                 {
-                    if (!((attr & OpenMP::DEP_REDUCTION) == OpenMP::DEP_REDUCTION))
-                    {
-                        reduction_flag << "0";
+                    // Set dependency_flags to "input,output,rename,"
 
+                    if (((attr & OpenMP::DEP_CONCURRENT) == OpenMP::DEP_CONCURRENT) ||
+                        ((attr & OpenMP::DEP_COMMUTATIVE) == OpenMP::DEP_COMMUTATIVE))
+                    {
+                        // Reduction and Commutative behave like inout, and cannot be renamed
+                        dependency_flags << "1,1,0,";
+
+                        if ((attr & OpenMP::DEP_COMMUTATIVE) == OpenMP::DEP_COMMUTATIVE)
+                        {
+                            if (!Nanos::Version::interface_is_at_least("deps_api", 1001))
+                            {
+                                fprintf(stderr,
+                                        "%s: warning: the current version of Nanos does not"
+                                        " support commutative dependencies in Superscalar\n",
+                                        ctr.get_ast().get_locus().c_str());
+                            }
+                        }
+                    }
+                    else
+                    {
                         if ((attr & OpenMP::DEP_DIR_INPUT) == OpenMP::DEP_DIR_INPUT)
                         {
                             dependency_flags << "1,"; 
@@ -430,28 +446,34 @@ void TL::Nanox::regions_spawn(
                         {
                             dependency_flags << "0,"; 
                         }
-                    }
-                    else 
-                    {
-                        reduction_flag << "1";
-                        // Reduction behaves like an inout
-                        dependency_flags << "1, 1,";
+                        // Can rename
+                        dependency_flags << "1,";
                     }
 
-                    if ((attr & OpenMP::DEP_REDUCTION) == OpenMP::DEP_REDUCTION)
+                    // Add reduction flag to make dependency_flags "input,output,rename,concurrent"
+
+                    if ((attr & OpenMP::DEP_CONCURRENT) == OpenMP::DEP_CONCURRENT)
                     {
-                        // Reductions cannot be renamed
-                        dependency_flags << "0,"
-                            ;
+                        dependency_flags << "1";
                     }
                     else
                     {
-                        // Can rename otherwise
-                        dependency_flags << "1,"
-                            ;
+                        dependency_flags << "0";
                     }
 
-                    dependency_flags << reduction_flag;
+                    // Add commutative flag to make dependency_flags "input,output,rename,concurrent,commutative"
+
+                    if (Nanos::Version::interface_is_at_least("deps_api", 1001))
+                    {
+                        if ((attr & OpenMP::DEP_COMMUTATIVE) == OpenMP::DEP_COMMUTATIVE)
+                        {
+                            dependency_flags << ",1";
+                        }
+                        else
+                        {
+                            dependency_flags << ",0";
+                        }
+                    }
                 }
                 else
                 {
@@ -697,19 +719,39 @@ void TL::Nanox::regions_spawn(
             {
                 // Set dependency flags
                 Source dependency_flags;
-                Source reduction_flag;
                 dependency_flags << "{";
                 OpenMP::DependencyDirection attr = it->get_kind();
 
                 if (is_task)
                 {
-                    if (!((attr & OpenMP::DEP_REDUCTION) == OpenMP::DEP_REDUCTION))
-                    {
-                        if (Nanos::Version::interface_is_at_least("master", 5001))
-                        {
-                            reduction_flag << "0";
-                        }
+                    // Set dependency_flags to "input,output,rename"
 
+                    if ((attr & OpenMP::DEP_CONCURRENT) == OpenMP::DEP_CONCURRENT)
+                    {
+                       // Reduction behaves like an inout, and cannot be renamed
+                       dependency_flags << "1,1,0";
+                       if (!Nanos::Version::interface_is_at_least("master", 5001))
+                       {
+                           fprintf(stderr,
+                                   "%s: warning: the current version of Nanos does not"
+                                   " support reduction dependencies in Superscalar\n",
+                                   ctr.get_ast().get_locus().c_str());
+                       }
+                    }
+                    else if ((attr & OpenMP::DEP_COMMUTATIVE) == OpenMP::DEP_COMMUTATIVE)
+                    {
+                       // Commutative behaves like an inout, and cannot be renamed
+                       dependency_flags << "1,1,0";
+                       if (!Nanos::Version::interface_is_at_least("deps_api", 1001))
+                       {
+                           fprintf(stderr,
+                                   "%s: warning: the current version of Nanos does not"
+                                   " support commutative dependencies in Superscalar\n",
+                                   ctr.get_ast().get_locus().c_str());
+                       }
+                    }
+                    else
+                    {
                         if ((attr & OpenMP::DEP_DIR_INPUT) == OpenMP::DEP_DIR_INPUT)
                         {
                             dependency_flags << "1,"; 
@@ -726,36 +768,36 @@ void TL::Nanox::regions_spawn(
                         {
                             dependency_flags << "0,"; 
                         }
+                        // Can rename in this case
+                        dependency_flags << "1";
                     }
-                    else 
+
+                    if (Nanos::Version::interface_is_at_least("master", 5001))
                     {
-                        if (!Nanos::Version::interface_is_at_least("master", 5001))
+                        // Add reduction flag to make dependency_flags "input,output,rename,reduction"
+
+                        if ((attr & OpenMP::DEP_CONCURRENT) == OpenMP::DEP_CONCURRENT)
                         {
-                            fprintf(stderr,
-                                    "%s: warning: the current version of Nanos does not"
-                                    " support reduction dependencies in Superscalar\n",
-                                    ctr.get_ast().get_locus().c_str());
+                            dependency_flags << ",1";
                         }
                         else
                         {
-                            reduction_flag << "1";
+                            dependency_flags << ",0";
                         }
-                        // Reduction behaves like an inout
-                        dependency_flags << "1, 1,";
-                    }
 
-                    if ((attr & OpenMP::DEP_REDUCTION) == OpenMP::DEP_REDUCTION)
-                    {
-                        // Reductions cannot be renamed
-                        dependency_flags << "0,";
+                        if (Nanos::Version::interface_is_at_least("deps_api", 1001))
+                        {
+                            // Add commutative flag to make dependency_flags "input,output,rename,reduction,commutative"
+                            if ((attr & OpenMP::DEP_COMMUTATIVE) == OpenMP::DEP_COMMUTATIVE)
+                            {
+                                dependency_flags << ",1";
+                            }
+                            else
+                            {
+                                dependency_flags << ",0";
+                            }
+                        }
                     }
-                    else
-                    {
-                        // Can rename otherwise
-                        dependency_flags << "1,";
-                    }
-
-                    dependency_flags << reduction_flag;
                 }
                 else
                 {
