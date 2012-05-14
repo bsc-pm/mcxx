@@ -316,10 +316,18 @@ namespace TL { namespace Nanox {
             }
     };
 
+    OutlineInfo::OutlineInfo() : _data_env_items(), _symbol_map(NULL) { }
+
     OutlineInfo::OutlineInfo(Nodecl::NodeclBase environment, bool is_function_task)
+        : _data_env_items(), _symbol_map(NULL)
     {
         OutlineInfoSetupVisitor setup_visitor(*this, is_function_task);
         setup_visitor.walk(environment);
+    }
+
+    OutlineInfo::~OutlineInfo()
+    {
+        delete _symbol_map;
     }
 
     OutlineDataItem& OutlineInfo::prepend_field(const std::string& str, TL::Type t)
@@ -329,6 +337,36 @@ namespace TL { namespace Nanox {
 
         _data_env_items.std::vector<OutlineDataItem>::insert(_data_env_items.begin(), env_item);
         return _data_env_items.front();
+    }
+
+    Nodecl::Utils::SymbolMap& OutlineInfo::compute_symbol_map(TL::ReferenceScope ref_scope)
+    {
+        if (_symbol_map != NULL)
+        {
+            delete _symbol_map;
+        }
+        _symbol_map = new Nodecl::Utils::SimpleSymbolMap();
+
+        Scope sc = ref_scope.get_scope();
+
+        Nodecl::Utils::SymbolMap* result = new Nodecl::Utils::SimpleSymbolMap();
+
+        for (TL::ObjectList<OutlineDataItem>::iterator it = _data_env_items.begin();
+                it != _data_env_items.end();
+                it++)
+        {
+            TL::Symbol new_sym = sc.get_symbol_from_name(it->get_symbol().get_name());
+
+            if (!new_sym.is_valid())
+            {
+                internal_error("There is no symbol for '%s' in the scope created for the outline\n", 
+                        it->get_symbol().get_name().c_str());
+            }
+
+            _symbol_map->add_map(it->get_symbol(), new_sym);
+        }
+
+        return *_symbol_map;
     }
 
 } }

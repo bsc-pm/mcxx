@@ -33,6 +33,7 @@
 #include "tl-symbol.hpp"
 #include "tl-type.hpp"
 #include "tl-nodecl.hpp"
+#include "tl-nodecl-utils.hpp"
 #include <string>
 #include <sstream>
 
@@ -355,7 +356,13 @@ namespace TL
                 // Devices!
 
                 std::string get_field_name(std::string name);
+
+                Nodecl::Utils::SimpleSymbolMap* _symbol_map;
             public:
+                OutlineInfo(Nodecl::NodeclBase environment, bool is_function_task = false);
+                OutlineInfo();
+                ~OutlineInfo();
+
                 //! Get new or retrieve existing OutlineDataItem for symbol
                 /*!
                  * Note that this function retrieves an OutlineDataItem for
@@ -373,10 +380,10 @@ namespace TL
                     return _data_env_items;
                 }
 
-                OutlineInfo(Nodecl::NodeclBase environment, bool is_function_task = false);
-                OutlineInfo() : _data_env_items() { }
 
                 OutlineDataItem& prepend_field(const std::string& str, TL::Type t);
+
+                Nodecl::Utils::SymbolMap& compute_symbol_map(ReferenceScope ref_scope);
         };
     }
 }
