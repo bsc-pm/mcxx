@@ -355,6 +355,11 @@ namespace TL { namespace Nanox {
                 it != _data_env_items.end();
                 it++)
         {
+            // Some entities in the outline info are not related to a real
+            // symbol of the input.  Ignore them
+            if (!it->get_symbol().is_valid())
+                continue;
+
             TL::Symbol new_sym = sc.get_symbol_from_name(it->get_symbol().get_name());
 
             if (!new_sym.is_valid())

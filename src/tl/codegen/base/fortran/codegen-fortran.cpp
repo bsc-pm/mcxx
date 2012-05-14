@@ -637,11 +637,18 @@ OPERATOR_TABLE
 
     void FortranBase::visit(const Nodecl::ClassMemberAccess &node) 
     { 
-        Nodecl::NodeclBase lhs = node.get_lhs(); 
-        Nodecl::NodeclBase member = node.get_member(); 
-        walk(lhs); 
-        file << " % "; 
-        walk(member);
+        if (is_bitfield_access(node))
+        {
+            emit_bitfield_load(node);
+        }
+        else
+        {
+            Nodecl::NodeclBase lhs = node.get_lhs(); 
+            Nodecl::NodeclBase member = node.get_member(); 
+            walk(lhs); 
+            file << " % "; 
+            walk(member);
+        }
     }
 
     void FortranBase::visit(const Nodecl::Range& node)
@@ -2167,7 +2174,14 @@ OPERATOR_TABLE
 
         if (source_type.is_any_reference())
             source_type = source_type.references_to();
-        
+
+        // Probably a lvalue to rvalue conversion
+        if (source_type.is_same_type(dest_type))
+        {
+            walk(nest);
+            return;
+        }
+
         // C-style casts from/to int
         // or integers of different size
         if ((dest_type.is_integral_type()
@@ -2212,7 +2226,10 @@ OPERATOR_TABLE
             file << ", KIND=" << dest_type.get_size() << ")";
         }
         else if (dest_type.is_pointer()
-                && (source_type.is_array() || source_type.is_pointer())
+                && ((source_type.is_array()
+                        && !source_type.array_element().is_char())
+                    || (source_type.is_pointer()
+                        && !source_type.points_to().is_char()))
                 && !nest.is<Nodecl::Reference>())
         {
             // We need a LOC here
@@ -2239,7 +2256,7 @@ OPERATOR_TABLE
     {
         if (node.get_expr().is_null())
         {
-            file << node.get_type().get_size();
+            file << node.get_size_type().get_type().get_size() << "_" << node.get_type().get_size();
         }
         else
         {
@@ -2834,9 +2851,18 @@ OPERATOR_TABLE
                     && !entry.get_type().is_any_reference()
                     && !is_fortran_character_type(entry.get_type().get_internal_type()))
             {
-                if (entry.get_type().is_pointer())
+                if (entry.get_type().is_pointer()
+                        && entry.get_type().points_to().is_char())
+                {
+                    declared_type = TL::Type(
+                            :: get_array_type(entry.get_type().points_to().get_internal_type(),
+                                nodecl_null(),
+                                entry.get_scope().get_decl_context()) );
+                }
+                else if (entry.get_type().is_pointer())
                 {
                     declared_type = TL::Type(get_size_t_type());
+                    attribute_list += ", VALUE";
                 }
                 else if (entry.get_type().is_array())
                 {
@@ -2848,7 +2874,6 @@ OPERATOR_TABLE
                     internal_error("Error: struct/class types cannot be passed by value in Fortran\n", 
                             entry.get_name().c_str());
                 }
-                attribute_list += ", VALUE";
             }
             if (entry.is_optional())
                 attribute_list += ", OPTIONAL";
@@ -4016,6 +4041,12 @@ OPERATOR_TABLE
 
             type_specifier = ss.str();
         }
+        // Special case for char* / const char*
+        else if (t.is_pointer()
+                && t.points_to().is_char())
+        {
+            type_specifier = "CHARACTER(LEN=*)";
+        }
         // Note: This is NOT a Fortran pointer, Fortran pointers will have
         // their basic type simplified at this point
         else if (t.is_pointer())
@@ -4254,6 +4285,30 @@ OPERATOR_TABLE
             return false;
 
         return true;
+    }
+
+    void FortranBase::emit_bitfield_load(const Nodecl::ClassMemberAccess &node)
+    {
+        TL::Symbol symbol = node.get_member().get_symbol();
+
+        ERROR_CONDITION(!symbol.is_valid() || !symbol.is_bitfield(), "Symbol '%s' must be a bitfield!\n", symbol.get_name().c_str());
+
+        Nodecl::NodeclBase lhs = node.get_lhs();
+
+        int bitfield_size = 
+            const_value_cast_to_4(
+                    nodecl_get_constant(symbol.get_bitfield_size().get_internal_nodecl())
+                    );
+
+        if (bitfield_size != 1)
+        {
+            running_error("%s: error: codegen of loads in bitfields larger than one bit is not implemented", 
+                    node.get_locus().c_str());
+        }
+
+        file << "IBITS(";
+        walk(lhs);
+        file << " % bitfield_pad_" << symbol.get_offset() << ", " << symbol.get_bitfield_first() << ", 1)";
     }
 
     void FortranBase::emit_bitfield_store(const Nodecl::Assignment &node)

@@ -74,6 +74,11 @@ namespace TL { namespace Nanox {
             TL::Symbol ind_var = range_item.get_symbol();
             Nodecl::OpenMP::ForRange range(range_item.as<Nodecl::OpenMP::ForRange>());
 
+            for_code
+                << "while (nanos_loop_info.execute)"
+                << "{"
+                ;
+
             if (range.get_step().is_constant())
             {
                 const_value_t* cval = range.get_step().get_constant();
@@ -130,6 +135,11 @@ namespace TL { namespace Nanox {
                     << "}"
                     ;
             }
+
+            for_code
+                << "err = nanos_worksharing_next_item((nanos_ws_desc_t*)wsd, (nanos_ws_item_t*)&nanos_loop_info);"
+                << "}"
+                ;
         }
         else if (ranges.size() > 1)
         {
@@ -145,7 +155,7 @@ namespace TL { namespace Nanox {
             << "{"
             << "nanos_ws_item_loop_t nanos_loop_info;"
             << "nanos_err_t err;"
-            << "err = nanos_worksharing_next_item(wsd, (nanos_ws_item_t*)&nanos_loop_info);"
+            << "err = nanos_worksharing_next_item((nanos_ws_desc_t*)wsd, (nanos_ws_item_t*)&nanos_loop_info);"
             << "if (err != NANOS_OK)"
             <<     "nanos_handle_error(err);"
             << for_code
@@ -184,15 +194,17 @@ namespace TL { namespace Nanox {
             << statements.prettyprint()
             ;
 
-        // FIXME - Fill the symbol map
-#warning SymbolMap must be set appropiately
-        Nodecl::Utils::SimpleSymbolMap symbol_map;
-
-        placeholder1.integrate(Nodecl::Utils::deep_copy(statements, placeholder1, symbol_map));
+        Nodecl::Utils::SymbolMap &symbol_map = outline_info.compute_symbol_map(placeholder1);
+        placeholder1.integrate(
+                Nodecl::Utils::deep_copy(statements, placeholder1, symbol_map)
+                );
 
         if (!placeholder2.is_null())
         {
-            placeholder2.integrate(Nodecl::Utils::deep_copy(statements, placeholder2, symbol_map));
+            Nodecl::Utils::SymbolMap &symbol_map2 = outline_info.compute_symbol_map(placeholder2);
+            placeholder2.integrate(
+                    Nodecl::Utils::deep_copy(statements, placeholder2, symbol_map)
+                    );
         }
 
         loop_spawn(outline_info, construct, distribute_environment, ranges, outline_name, structure_symbol, outline_source);

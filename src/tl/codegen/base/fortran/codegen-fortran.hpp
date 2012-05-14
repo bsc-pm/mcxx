@@ -313,6 +313,7 @@ namespace Codegen
 
             bool is_bitfield_access(const Nodecl::NodeclBase &node);
             void emit_bitfield_store(const Nodecl::Assignment &node);
+            void emit_bitfield_load(const Nodecl::ClassMemberAccess &node);
 
             bool name_has_already_been_used(std::string str);
             bool name_has_already_been_used(TL::Symbol sym);
