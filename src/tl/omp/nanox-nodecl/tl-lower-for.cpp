@@ -184,13 +184,15 @@ namespace TL { namespace Nanox {
             << statements.prettyprint()
             ;
 
-        Nodecl::NodeclBase iteration_code = iteration_source.parse_statement(placeholder1);
-        placeholder1.integrate(iteration_code);
+        // FIXME - Fill the symbol map
+#warning SymbolMap must be set appropiately
+        Nodecl::Utils::SimpleSymbolMap symbol_map;
+
+        placeholder1.integrate(Nodecl::Utils::deep_copy(statements, placeholder1, symbol_map));
 
         if (!placeholder2.is_null())
         {
-            Nodecl::NodeclBase iteration_code = iteration_source.parse_statement(placeholder2);
-            placeholder2.integrate(iteration_code);
+            placeholder2.integrate(Nodecl::Utils::deep_copy(statements, placeholder2, symbol_map));
         }
 
         loop_spawn(outline_info, construct, distribute_environment, ranges, outline_name, structure_symbol, outline_source);

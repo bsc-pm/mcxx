@@ -82,11 +82,10 @@ namespace TL { namespace Nanox {
 
         emit_outline(outline_info, statements, outline_source, outline_name, structure_symbol);
 
-        Source outline_statements_source;
-        outline_statements_source
-            << statements.prettyprint();
+#warning SymbolMap must be set accordingly
+        Nodecl::Utils::SimpleSymbolMap symbol_map;
 
-        Nodecl::NodeclBase outline_statements_code = outline_statements_source.parse_statement(placeholder);
+        Nodecl::NodeclBase outline_statements_code = Nodecl::Utils::deep_copy(statements, placeholder, symbol_map);
         placeholder.integrate(outline_statements_code);
 
         // This function replaces the current construct
