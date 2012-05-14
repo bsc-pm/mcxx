@@ -444,20 +444,20 @@ namespace TL { namespace Nanox {
         Nodecl::Utils::append_to_top_level_nodecl(unpacked_function_code);
 
         Nodecl::NodeclBase body_placeholder;
-        Source outline_body;
+        Source unpacked_source;
         if (!IS_FORTRAN_LANGUAGE)
         {
-            outline_body
+            unpacked_source
                 << "{";
         }
-        outline_body 
+        unpacked_source
             << extra_declarations
             << private_entities
             << statement_placeholder(body_placeholder)
             ;
         if (!IS_FORTRAN_LANGUAGE)
         {
-            outline_body
+            unpacked_source
                 << "}";
         }
 
@@ -484,7 +484,7 @@ namespace TL { namespace Nanox {
             }
         }
 
-        Nodecl::NodeclBase new_unpacked_body = outline_body.parse_statement(unpacked_function_body);
+        Nodecl::NodeclBase new_unpacked_body = unpacked_source.parse_statement(unpacked_function_body);
         unpacked_function_body.integrate(new_unpacked_body);
 
         FORTRAN_LANGUAGE()
