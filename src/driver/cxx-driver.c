@@ -1587,6 +1587,9 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
                     if (!dry_run)
                     {
                         add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, argument);
+
+                        // Remove -E as some drivers do not accept -E and -M/-MM at the same time
+                        remove_string_from_null_ended_string_array(CURRENT_CONFIGURATION->preprocessor_options, "-E");
                     }
                     (*should_advance)++;
                 }
@@ -2977,6 +2980,19 @@ static void warn_preprocessor_flags(
         const char* input_filename,
         int num_arguments)
 {
+    // Precheck that the preprocessor is not implicitly enabled
+    int i;
+    for (i = 0; CURRENT_CONFIGURATION->preprocessor_options[i] != NULL; i++)
+    {
+        const char* flag = CURRENT_CONFIGURATION->preprocessor_options[i];
+
+        if (strcmp(flag, "-M") == 0
+                || strcmp(flag, "-MM") == 0)
+        {
+            return;
+        }
+    }
+
     // Since this is easy to forget we will warn the user
     struct prepro_flags 
     {
@@ -3021,7 +3037,6 @@ static void warn_preprocessor_flags(
         { NULL, NULL }
     };
 
-    int i;
     for (i = 0; i < num_arguments; i++)
     {
         int j;
