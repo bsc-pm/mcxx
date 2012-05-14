@@ -406,8 +406,7 @@ void LoweringVisitor::emit_async_common(
 
     emit_outline(outline_info, statements, outline_source, outline_name, structure_symbol);
 
-#warning SymbolMap must be set accordingly
-    Nodecl::Utils::SimpleSymbolMap symbol_map;
+    Nodecl::Utils::SymbolMap &symbol_map = outline_info.compute_symbol_map(placeholder);
 
     Nodecl::NodeclBase outline_statements_code = Nodecl::Utils::deep_copy(statements, placeholder, symbol_map);
     placeholder.integrate(outline_statements_code);
