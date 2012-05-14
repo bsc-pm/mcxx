@@ -102,7 +102,7 @@ namespace Nodecl
         };
 
         Nodecl::NodeclBase deep_copy(Nodecl::NodeclBase orig, TL::ReferenceScope ref_scope, SymbolMap& map);
-        
+
         // Like above but with an empty map
         Nodecl::NodeclBase deep_copy(Nodecl::NodeclBase orig, TL::ReferenceScope ref_scope);
     }
