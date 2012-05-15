@@ -268,6 +268,7 @@ namespace Codegen
 
             bool symbol_is_same_or_nested_in(TL::Symbol symbol, TL::Symbol class_sym);
             bool symbol_is_nested_in_defined_classes(TL::Symbol symbol);
+            bool symbol_or_its_bases_are_nested_in_defined_classes(TL::Symbol symbol);
 
             TL::ObjectList<TL::Symbol> define_required_before_class(TL::Symbol symbol,
                     void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),

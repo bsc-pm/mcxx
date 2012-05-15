@@ -417,7 +417,7 @@ namespace TL
             Type advance_over_typedefs();
 
             //! Get the symbol list of classes which are base of the type
-            ObjectList<Symbol> get_bases_class_symbol_list() DEPRECATED;
+            ObjectList<Symbol> get_bases_class_symbol_list();
 
             struct BaseInfo
             {
