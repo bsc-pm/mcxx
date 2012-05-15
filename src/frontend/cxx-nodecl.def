@@ -435,5 +435,5 @@ synchronization : NODECL_OPEN_M_P*WAIT_ON_DEPENDENCES([environment]exec-environm
 # Second half of a barrier (waiting phase)
                 | NODECL_OPEN_M_P*BARRIER_WAIT()
 # SIMD    
-simd-construct : NODECL_OPEN_M_P*SIMD_CONSTRUCT()
+simd-construct : NODECL_OPEN_M_P*SIMD_CONSTRUCT([statements]statement-seq)
 

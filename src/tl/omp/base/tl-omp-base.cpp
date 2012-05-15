@@ -627,8 +627,7 @@ namespace TL { namespace OpenMP {
     void Base::simd_handler_post(TL::PragmaCustomStatement stmt) 
     {
         Nodecl::List code;
-        code.push_back(Nodecl::OpenMP::SimdConstruct::make());
-        code.push_back(stmt.get_statements());
+        code.push_back(Nodecl::OpenMP::SimdConstruct::make(stmt.get_statements().shallow_copy()));
 
         stmt.integrate(code);
     }
