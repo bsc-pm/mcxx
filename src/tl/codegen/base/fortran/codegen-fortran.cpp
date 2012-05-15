@@ -1282,12 +1282,29 @@ OPERATOR_TABLE
             }
             else
             {
-                if (parameter_type.is_pointer()
-                        && arg.get_type().is_any_reference())
+                if (parameter_type.is_pointer())
                 {
-                    file << "LOC(";
-                    walk(arg);
-                    file << ")";
+                    // Several cases:
+                    //        Parameter       Argument         Pass
+                    //         non-Fortran     non-Fortran     Do nothing
+                    //         non-Fortran     Fortran         LOC
+                    //
+                    TL::Type arg_type = arg.get_type();
+                    bool is_ref = arg_type.is_any_reference();
+                    if (is_ref)
+                        arg_type = arg_type.references_to();
+                    if ((arg_type.is_pointer()
+                                && !is_fortran_representable_pointer(arg_type))
+                            || !is_ref)
+                    {
+                        walk(arg);
+                    }
+                    else
+                    {
+                        file << "LOC(";
+                        walk(arg);
+                        file << ")";
+                    }
                 }
                 else
                 {
@@ -2934,6 +2951,10 @@ OPERATOR_TABLE
                 {
                     internal_error("Error: struct/class types cannot be passed by value in Fortran\n", 
                             entry.get_name().c_str());
+                }
+                else
+                {
+                    attribute_list += ", VALUE";
                 }
             }
             if (entry.is_optional())
