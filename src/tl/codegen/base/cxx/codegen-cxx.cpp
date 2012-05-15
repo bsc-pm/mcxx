@@ -2855,6 +2855,29 @@ bool CxxBase::symbol_is_nested_in_defined_classes(TL::Symbol symbol)
     return false;
 }
 
+bool CxxBase::symbol_or_its_bases_are_nested_in_defined_classes(TL::Symbol symbol)
+{
+    if (symbol_is_nested_in_defined_classes(symbol))
+    {
+        return true;
+    }
+
+    if (symbol.is_class())
+    {
+        TL::ObjectList<TL::Symbol> bases = symbol.get_type().get_bases_class_symbol_list();
+        for (TL::ObjectList<TL::Symbol>::iterator it = bases.begin();
+                it != bases.end();
+                it++)
+        {
+            if (symbol_is_nested_in_defined_classes(*it))
+            {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 TL::ObjectList<TL::Symbol> CxxBase::define_required_before_class(TL::Symbol symbol,
         void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
         void (CxxBase::*def_sym_fun)(TL::Symbol symbol))
@@ -3851,7 +3874,7 @@ void CxxBase::declare_symbol_if_nonprototype(TL::Symbol symbol)
 
 void CxxBase::define_symbol_if_nonnested(TL::Symbol symbol)
 {
-    if (!symbol_is_nested_in_defined_classes(symbol))
+    if (!symbol_or_its_bases_are_nested_in_defined_classes(symbol))
     {
         do_define_symbol(symbol,
                &CxxBase::declare_symbol_if_nonnested,
@@ -3867,7 +3890,7 @@ void CxxBase::define_symbol_if_nonnested(TL::Symbol symbol)
 
 void CxxBase::declare_symbol_if_nonnested(TL::Symbol symbol)
 {
-    if (!symbol_is_nested_in_defined_classes(symbol)
+    if (!symbol_or_its_bases_are_nested_in_defined_classes(symbol)
             || !symbol.is_member())
     {
         do_declare_symbol(symbol,
@@ -3892,7 +3915,7 @@ void CxxBase::define_or_declare_if_complete(TL::Symbol sym,
     if ((sym.is_class()
                 || sym.is_enum())
             && ( ::is_incomplete_type(sym.get_type().get_internal_type())
-                || symbol_is_nested_in_defined_classes(sym)))
+                || symbol_or_its_bases_are_nested_in_defined_classes(sym)))
     {
         (this->*symbol_to_declare)(sym);
     }
@@ -4236,7 +4259,7 @@ void CxxBase::do_define_symbol(TL::Symbol symbol,
     if (symbol.is_member())
     {
         TL::Symbol class_entry = symbol.get_class_type().get_symbol();
-        if (!symbol_is_nested_in_defined_classes(class_entry))
+        if (!symbol_or_its_bases_are_nested_in_defined_classes(class_entry))
         {
             define_symbol_if_nonnested(class_entry);
         }
@@ -4394,7 +4417,7 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
     if (symbol.is_member())
     {
         TL::Symbol class_entry = symbol.get_class_type().get_symbol();
-        if (!symbol_is_nested_in_defined_classes(class_entry))
+        if (!symbol_or_its_bases_are_nested_in_defined_classes(class_entry))
         {
             define_symbol_if_nonnested(class_entry);
         }

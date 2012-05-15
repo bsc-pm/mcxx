@@ -7339,7 +7339,17 @@ static void check_nodecl_cast_expr(nodecl_t nodecl_casted_expr,
 
         if (!nodecl_is_err_expr(nodecl_cast_output))
         {
-            nodecl_casted_expr = nodecl_cast_output;
+            if (is_class_type(no_ref(declarator_type)))
+            {
+                // For classes there will be an explicit call to a constructor
+                // we cannot do an extra cast
+                *nodecl_output = nodecl_cast_output;
+                return;
+            }
+            else
+            {
+                nodecl_casted_expr = nodecl_cast_output;
+            }
         }
     }
 
@@ -7389,7 +7399,8 @@ static void check_nodecl_explicit_type_conversion(type_t* type_info,
         int line)
 {
     if (nodecl_list_length(nodecl_expr_list) == 1
-            && !is_dependent_type(type_info))
+            && !is_dependent_type(type_info)
+            && !is_class_type(type_info))
     {
         // Use the same code as the (T)e syntax
         check_nodecl_cast_expr(nodecl_list_head(nodecl_expr_list), decl_context, type_info, "C", filename, line, nodecl_output);
@@ -7398,6 +7409,24 @@ static void check_nodecl_explicit_type_conversion(type_t* type_info,
     {
         // Otherwise try a parenthesized initializer (which should do)
         nodecl_t parenthesized_init = nodecl_make_cxx_parenthesized_initializer(nodecl_expr_list, filename, line);
+
+        int num_items = 0, i = 0;
+        char any_arg_is_type_dependent = 0;
+        nodecl_t* list = nodecl_unpack_list(nodecl_expr_list, &num_items);
+        while (i < num_items  && !any_arg_is_type_dependent)
+        {
+            any_arg_is_type_dependent = nodecl_expr_is_type_dependent(list[i]);
+            ++i;
+        }
+
+        if (any_arg_is_type_dependent)
+        {
+            *nodecl_output =
+                nodecl_make_cxx_explicit_type_cast(parenthesized_init, type_info, filename, line);
+            nodecl_set_type(*nodecl_output, type_info);
+            nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+            return;
+        }
 
         check_nodecl_parenthesized_initializer(parenthesized_init, decl_context, type_info, nodecl_output);
 
@@ -7409,7 +7438,7 @@ static void check_nodecl_explicit_type_conversion(type_t* type_info,
 
         if (is_dependent_type(type_info))
         {
-            *nodecl_output = 
+            *nodecl_output =
                 nodecl_make_cxx_explicit_type_cast(*nodecl_output, type_info, filename, line);
             nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
         }
