@@ -4739,11 +4739,21 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         //         filename, line,
         //         &nodecl_ctor_initializer);
 
-        char has_virtual_bases = (virtual_base_classes != NULL);
-
-        char has_bases_with_non_trivial_constructors = 0;
 
         // Now figure out if it is trivial
+        //
+        // A constructor is trivial if it is an implicitly-declared default constructor and if:
+        //  1. its class has no virtual functions and no virtual base classes
+        //  2. all the direct base classes of its class have trivial constructors
+        //  3. for all the nonstatic data members of its class that are of class type (or array thereof),
+        //     each such class has a trivial constructor.
+        //  Otherwise, the constructor is non-trivial.
+
+        // 1.
+        char has_virtual_bases = (virtual_base_classes != NULL);
+
+        // 2.
+        char has_bases_with_non_trivial_constructors = 0;
         scope_entry_list_iterator_t* it0 = NULL;
         for (it0 = entry_list_iterator_begin(direct_base_classes);
                 !entry_list_iterator_end(it0) && !has_bases_with_non_trivial_constructors;
@@ -4770,8 +4780,8 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         }
         entry_list_iterator_free(it0);
 
+        // 3.
         char has_nonstatic_data_member_with_no_trivial_constructor = 0;
-
         scope_entry_list_iterator_t* it = NULL;
         for (it = entry_list_iterator_begin(nonstatic_data_members);
                 !entry_list_iterator_end(it) 
@@ -4792,13 +4802,12 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
 
                 type_t* member_actual_class_type = get_actual_class_type(member_class_type);
 
-                scope_entry_t* default_constructor 
+                scope_entry_t* default_constructor
                     = class_type_get_default_constructor(member_actual_class_type);
 
-                ERROR_CONDITION(default_constructor == NULL, "Invalid class", 0);
-
-                has_nonstatic_data_member_with_no_trivial_constructor 
-                    |= !default_constructor->entity_specs.is_trivial;
+                has_nonstatic_data_member_with_no_trivial_constructor
+                    |= !(default_constructor != NULL &&
+                            default_constructor->entity_specs.is_trivial);
             }
         }
         entry_list_iterator_free(it);
