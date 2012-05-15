@@ -56,3 +56,5 @@ OMP_CONSTRUCT("target", target)
 
 OMP_CONSTRUCT_NOEND("parallel|do", parallel_do)
 OMP_CONSTRUCT_NOEND("do", do)
+
+OMP_CONSTRUCT("simd", simd)

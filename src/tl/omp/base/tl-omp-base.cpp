@@ -623,6 +623,20 @@ namespace TL { namespace OpenMP {
         Nodecl::Utils::remove_from_enclosing_list(decl);
     }
 
+    void Base::simd_handler_pre(TL::PragmaCustomStatement) { }
+    void Base::simd_handler_post(TL::PragmaCustomStatement stmt) 
+    {
+        Nodecl::List code;
+        code.push_back(Nodecl::OpenMP::SimdConstruct::make());
+        code.push_back(stmt.get_statements());
+
+        stmt.integrate(code);
+    }
+    
+    void Base::simd_handler_pre(TL::PragmaCustomDeclaration decl) { }
+    void Base::simd_handler_post(TL::PragmaCustomDeclaration decl) { }
+
+
     void Base::sections_handler_pre(TL::PragmaCustomStatement) { }
     void Base::sections_handler_post(TL::PragmaCustomStatement directive)
     {
