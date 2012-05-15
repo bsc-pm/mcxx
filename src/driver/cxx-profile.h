@@ -32,9 +32,13 @@
 
 #include "cxx-driver-decls.h"
 
+MCXX_BEGIN_DECLS
+
 compilation_configuration_t* get_compilation_configuration(const char* name);
 compilation_configuration_t* new_compilation_configuration(const char* name, compilation_configuration_t* base);
 
 void initialize_with_base(compilation_configuration_t* config);
+
+MCXX_END_DECLS
 
 #endif // CXX_PROFILE_H

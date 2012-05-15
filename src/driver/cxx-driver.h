@@ -64,6 +64,8 @@ target_options_map_t* get_target_options(compilation_configuration_t* configurat
 
 const char* preprocess_file(const char* input_filename);
 
+void load_compiler_phases(compilation_configuration_t* config);
+
 MCXX_END_DECLS
 
 #endif // CXX_DRIVER_H

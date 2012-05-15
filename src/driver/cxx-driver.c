@@ -437,8 +437,6 @@ static void parse_subcommand_arguments(const char* arguments);
 
 static void enable_debug_flag(const char* flag);
 
-static void load_compiler_phases(compilation_configuration_t* config);
-
 static void help_message(void);
 
 static void print_memory_report(void);
@@ -4182,7 +4180,7 @@ static char check_for_ambiguities(AST a, AST* ambiguous_node)
 }
 
 
-static void load_compiler_phases(compilation_configuration_t* config)
+void load_compiler_phases(compilation_configuration_t* config)
 {
     // Do nothing if they were already loaded 
     // This is also checked (and set) in cxx-compilerphases.cpp but here we

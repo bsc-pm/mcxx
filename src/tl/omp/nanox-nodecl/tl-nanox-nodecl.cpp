@@ -25,7 +25,14 @@
 --------------------------------------------------------------------*/
 
 #include "tl-nanox-nodecl.hpp"
+#include "tl-nodecl-utils.hpp"
 #include "tl-lowering-visitor.hpp"
+#include "tl-compilerpipeline.hpp"
+#include "codegen-phase.hpp"
+#include "cxx-profile.h"
+#include "cxx-driver-utils.h"
+#include <stdio.h>
+#include <errno.h>
 
 namespace TL { namespace Nanox {
 
@@ -43,6 +50,79 @@ namespace TL { namespace Nanox {
 
         LoweringVisitor lowering_visitor;
         lowering_visitor.walk(n);
+
+        finalize_phase(n);
+    }
+
+    void Lowering::finalize_phase(Nodecl::NodeclBase global_node)
+    {
+        set_openmp_programming_model(global_node);
+    }
+
+    void Lowering::set_openmp_programming_model(Nodecl::NodeclBase global_node)
+    {
+        Source src;
+        // if (!_static_weak_symbols)
+        // {
+        src 
+            << "__attribute__((weak, section(\"nanos_init\"))) nanos_init_desc_t __section__nanos_init = { nanos_omp_set_interface, (void*)0 };"
+            ;
+        // }
+        // else
+        // {
+        //     // Some compilers (like ICC) may require this
+        //     src 
+        //         << "static __attribute__((section(\"nanos_init\"))) nanos_init_desc_t __section__nanos_init = { nanos_omp_set_interface, (void*)0 };"
+        //         ;
+        // }
+
+        FORTRAN_LANGUAGE()
+        {
+            // Parse in C
+            Source::source_language = SourceLanguage::C;
+        }
+        Nodecl::NodeclBase n = src.parse_global(global_node);
+        FORTRAN_LANGUAGE()
+        {
+            Source::source_language = SourceLanguage::Current;
+        }
+
+        if (!IS_FORTRAN_LANGUAGE)
+        {
+            Nodecl::Utils::append_to_top_level_nodecl(n);
+        }
+        else
+        {
+            CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_C;
+
+            std::string file_name = "aux_omp_file_" + TL::CompilationProcess::get_current_file().get_filename(/* fullpath */ false) + ".c";
+            FILE* new_file = fopen(file_name.c_str(), "w");
+            if (new_file == NULL)
+            {
+                running_error("%s: error: cannot open file '%s'. %s\n", 
+                        TL::CompilationProcess::get_current_file().get_filename().c_str(),
+                        file_name.c_str(),
+                        strerror(errno));
+            }
+
+            compilation_configuration_t* configuration = ::get_compilation_configuration("auxcc");
+            ERROR_CONDITION (configuration == NULL, "auxcc profile is mandatory when using Fortran", 0);
+
+            // Make sure phases are loaded (this is needed for codegen)
+            load_compiler_phases(configuration);
+
+            TL::CompilationProcess::add_file(file_name, "auxcc");
+
+            Codegen::CodegenPhase* phase = reinterpret_cast<Codegen::CodegenPhase*>(configuration->codegen_phase);
+            phase->codegen_top_level(n, new_file);
+
+            fclose(new_file);
+
+            ::mark_file_for_cleanup(file_name.c_str());
+
+            CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_FORTRAN;
+        }
+
     }
 
 } }
