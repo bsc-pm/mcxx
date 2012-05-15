@@ -102,14 +102,14 @@ namespace TL { namespace Nanox {
 
         Source usual_worksharing_creation;
         usual_worksharing_creation
-            <<     "err = nanos_worksharing_create(&wsd, current_ws_policy, (nanos_ws_info_t *) &nanos_setup_info_loop, &single_guard);"
+            <<     "err = nanos_worksharing_create(&wsd, current_ws_policy, &nanos_setup_info_loop, &single_guard);"
             <<     "if (err != NANOS_OK)"
             <<         "nanos_handle_error(err);"
             ;
 
         Source worksharing_creation_under_reduction;
         worksharing_creation_under_reduction
-            <<     "err = nanos_worksharing_create(&wsd, current_ws_policy, (nanos_ws_info_t *) &nanos_setup_info_loop, (void*)0);"
+            <<     "err = nanos_worksharing_create(&wsd, current_ws_policy, &nanos_setup_info_loop, (void*)0);"
             <<     "if (err != NANOS_OK)"
             <<         "nanos_handle_error(err);"
             <<     "err = nanos_enter_sync_init ( &single_guard );"

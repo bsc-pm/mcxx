@@ -257,6 +257,8 @@ namespace Codegen
             void codegen_comma_separated_list(Nodecl::NodeclBase);
             void codegen_reverse_comma_separated_list(Nodecl::NodeclBase);
 
+            void codegen_function_call_arguments(const Nodecl::NodeclBase arguments, TL::Type function_type);
+
             void do_declare_symbol(TL::Symbol entry, Nodecl::NodeclBase, void*);
             void do_declare_symbol_in_scope(TL::Symbol entry, Nodecl::NodeclBase, void*);
             void declare_symbol(TL::Symbol, TL::Scope sc);

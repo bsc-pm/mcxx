@@ -59,6 +59,11 @@ namespace TL { namespace Nanox {
         TL::Type nanos_ws_desc_type = ::get_user_defined_type(sym.get_internal_symbol());
         nanos_ws_desc_type = nanos_ws_desc_type.get_pointer_to();
 
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            nanos_ws_desc_type = nanos_ws_desc_type.get_lvalue_reference_to();
+        }
+
         OutlineDataItem &wsd_data_item = outline_info.prepend_field("wsd", nanos_ws_desc_type);
         wsd_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE);
 
@@ -137,7 +142,7 @@ namespace TL { namespace Nanox {
             }
 
             for_code
-                << "err = nanos_worksharing_next_item((nanos_ws_desc_t*)wsd, (nanos_ws_item_t*)&nanos_loop_info);"
+                << "err = nanos_worksharing_next_item(wsd, &nanos_loop_info);"
                 << "}"
                 ;
         }
@@ -155,7 +160,7 @@ namespace TL { namespace Nanox {
             << "{"
             << "nanos_ws_item_loop_t nanos_loop_info;"
             << "nanos_err_t err;"
-            << "err = nanos_worksharing_next_item((nanos_ws_desc_t*)wsd, (nanos_ws_item_t*)&nanos_loop_info);"
+            << "err = nanos_worksharing_next_item(wsd, &nanos_loop_info);"
             << "if (err != NANOS_OK)"
             <<     "nanos_handle_error(err);"
             << for_code
