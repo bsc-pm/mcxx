@@ -401,6 +401,8 @@ namespace TL { namespace Nanox {
                 parameter_names,
                 parameter_types);
 
+        outline_info.set_unpacked_function_symbol(unpacked_function);
+
         // FIXME - C++ static for members and such
         ObjectList<std::string> structure_name;
         structure_name.append("args");

@@ -199,18 +199,28 @@ namespace TL { namespace Nanox {
             << statements.prettyprint()
             ;
 
-        Nodecl::Utils::SymbolMap &symbol_map = outline_info.compute_symbol_map(placeholder1);
+        Nodecl::Utils::SymbolMap *symbol_map = outline_info.compute_symbol_map(placeholder1);
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            // Copy FUNCTIONs and other local stuff
+            symbol_map = new Nodecl::Utils::FortranProgramUnitSymbolMap(symbol_map,
+                    function_symbol,
+                    outline_info.get_unpacked_function_symbol());
+        }
+
         placeholder1.integrate(
-                Nodecl::Utils::deep_copy(statements, placeholder1, symbol_map)
+                Nodecl::Utils::deep_copy(statements, placeholder1, *symbol_map)
                 );
 
         if (!placeholder2.is_null())
         {
-            Nodecl::Utils::SymbolMap &symbol_map2 = outline_info.compute_symbol_map(placeholder2);
             placeholder2.integrate(
-                    Nodecl::Utils::deep_copy(statements, placeholder2, symbol_map)
+                    Nodecl::Utils::deep_copy(statements, placeholder2, *symbol_map)
                     );
         }
+
+        delete symbol_map;
+        symbol_map = NULL;
 
         // Now for the inline case
         placeholder1 = Nodecl::NodeclBase::null();
@@ -223,7 +233,6 @@ namespace TL { namespace Nanox {
 
         if (!placeholder2.is_null())
         {
-            Nodecl::Utils::SymbolMap &symbol_map2 = outline_info.compute_symbol_map(placeholder2);
             placeholder2.integrate(
                     Nodecl::Utils::deep_copy(statements, placeholder2)
                     );

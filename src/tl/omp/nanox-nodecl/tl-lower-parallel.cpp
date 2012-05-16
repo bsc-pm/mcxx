@@ -82,9 +82,18 @@ namespace TL { namespace Nanox {
 
         emit_outline(outline_info, statements, outline_source, outline_name, structure_symbol);
 
-        Nodecl::Utils::SymbolMap &symbol_map = outline_info.compute_symbol_map(placeholder);
+        Nodecl::Utils::SymbolMap *symbol_map = outline_info.compute_symbol_map(placeholder);
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            // Copy FUNCTIONs and other local stuff
+            symbol_map = new Nodecl::Utils::FortranProgramUnitSymbolMap(symbol_map,
+                    function_symbol,
+                    outline_info.get_unpacked_function_symbol());
+        }
 
-        Nodecl::NodeclBase outline_statements_code = Nodecl::Utils::deep_copy(statements, placeholder, symbol_map);
+        Nodecl::NodeclBase outline_statements_code = Nodecl::Utils::deep_copy(statements, placeholder, *symbol_map);
+        delete symbol_map;
+
         placeholder.integrate(outline_statements_code);
 
         // This function replaces the current construct

@@ -316,19 +316,16 @@ namespace TL { namespace Nanox {
             }
     };
 
-    OutlineInfo::OutlineInfo() : _data_env_items(), _symbol_map(NULL) { }
+    OutlineInfo::OutlineInfo() : _data_env_items() { }
 
     OutlineInfo::OutlineInfo(Nodecl::NodeclBase environment, bool is_function_task)
-        : _data_env_items(), _symbol_map(NULL)
+        : _data_env_items()
     {
         OutlineInfoSetupVisitor setup_visitor(*this, is_function_task);
         setup_visitor.walk(environment);
     }
 
-    OutlineInfo::~OutlineInfo()
-    {
-        delete _symbol_map;
-    }
+    OutlineInfo::~OutlineInfo() { }
 
     OutlineDataItem& OutlineInfo::prepend_field(const std::string& str, TL::Type t)
     {
@@ -339,17 +336,11 @@ namespace TL { namespace Nanox {
         return _data_env_items.front();
     }
 
-    Nodecl::Utils::SymbolMap& OutlineInfo::compute_symbol_map(TL::ReferenceScope ref_scope)
+    Nodecl::Utils::SymbolMap* OutlineInfo::compute_symbol_map(TL::ReferenceScope ref_scope)
     {
-        if (_symbol_map != NULL)
-        {
-            delete _symbol_map;
-        }
-        _symbol_map = new Nodecl::Utils::SimpleSymbolMap();
+        Nodecl::Utils::SimpleSymbolMap* result = new Nodecl::Utils::SimpleSymbolMap();
 
         Scope sc = ref_scope.get_scope();
-
-        Nodecl::Utils::SymbolMap* result = new Nodecl::Utils::SimpleSymbolMap();
 
         for (TL::ObjectList<OutlineDataItem>::iterator it = _data_env_items.begin();
                 it != _data_env_items.end();
@@ -368,10 +359,10 @@ namespace TL { namespace Nanox {
                         it->get_symbol().get_name().c_str());
             }
 
-            _symbol_map->add_map(it->get_symbol(), new_sym);
+            result->add_map(it->get_symbol(), new_sym);
         }
 
-        return *_symbol_map;
+        return result;
     }
 
 } }

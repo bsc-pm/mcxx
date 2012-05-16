@@ -357,7 +357,8 @@ namespace TL
 
                 std::string get_field_name(std::string name);
 
-                Nodecl::Utils::SimpleSymbolMap* _symbol_map;
+                TL::Symbol _unpacked_function_symbol;
+
             public:
                 OutlineInfo(Nodecl::NodeclBase environment, bool is_function_task = false);
                 OutlineInfo();
@@ -383,7 +384,17 @@ namespace TL
 
                 OutlineDataItem& prepend_field(const std::string& str, TL::Type t);
 
-                Nodecl::Utils::SymbolMap& compute_symbol_map(ReferenceScope ref_scope);
+                Nodecl::Utils::SymbolMap* compute_symbol_map(ReferenceScope ref_scope);
+
+                TL::Symbol get_unpacked_function_symbol() const
+                {
+                    return _unpacked_function_symbol;
+                }
+
+                void set_unpacked_function_symbol(TL::Symbol sym)
+                {
+                    _unpacked_function_symbol = sym;
+                }
         };
     }
 }
