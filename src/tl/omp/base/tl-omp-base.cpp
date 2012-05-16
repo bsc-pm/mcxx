@@ -512,9 +512,19 @@ namespace TL { namespace OpenMP {
 
             Nodecl::NodeclBase chunk;
 
+            std::string schedule = arguments[0];
+            schedule = strtolower(schedule.c_str());
+
             if (arguments.size() == 1)
             {
-                chunk = const_value_to_nodecl(const_value_get_signed_int(1));
+                if (schedule == "static")
+                {
+                    chunk = const_value_to_nodecl(const_value_get_signed_int(0));
+                }
+                else
+                {
+                    chunk = const_value_to_nodecl(const_value_get_signed_int(1));
+                }
             }
             else if (arguments.size() == 2)
             {
@@ -525,9 +535,6 @@ namespace TL { namespace OpenMP {
                 // Core should have checked this
                 internal_error("Invalid values in schedule clause", 0);
             }
-
-            std::string schedule = arguments[0];
-            schedule = strtolower(schedule.c_str());
 
             if (schedule == "static"
                     || schedule == "dynamic"
@@ -553,7 +560,7 @@ namespace TL { namespace OpenMP {
             // def-sched-var is STATIC in our implementation
             execution_environment.push_back(
                     Nodecl::OpenMP::Schedule::make(
-                        ::const_value_to_nodecl(const_value_get_signed_int(1)),
+                        ::const_value_to_nodecl(const_value_get_signed_int(0)),
                         "static",
                         directive.get_filename(),
                         directive.get_line()));
