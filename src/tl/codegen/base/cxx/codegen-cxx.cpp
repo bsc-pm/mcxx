@@ -3013,11 +3013,20 @@ TL::ObjectList<TL::Symbol> CxxBase::define_required_before_class(TL::Symbol symb
                     && _friend.is_member())
                 continue;
 
-            walk_type_for_symbols(
-                    _friend.get_type(),
-                    &CxxBase::declare_symbol_if_nonnested,
-                    &CxxBase::define_symbol_if_nonnested,
-                    &CxxBase::define_nonnested_entities_in_trees);
+
+            if (_friend.is_class())
+            {
+                (this->*decl_sym_fun)(_friend);
+            }
+            else
+            {
+                walk_type_for_symbols(
+                        _friend.get_type(),
+                        &CxxBase::declare_symbol_if_nonnested,
+                        &CxxBase::define_symbol_if_nonnested,
+                        &CxxBase::define_nonnested_entities_in_trees);
+            }
+
 
             if (_friend.is_dependent_friend_function())
             {
@@ -3395,8 +3404,9 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                         && member.get_type().get_symbol().is_anonymous_union())
                 {
                     TL::Symbol class_sym = member.get_type().get_symbol();
+                    state.classes_being_defined.push_back(class_sym);
                     define_class_symbol_aux(class_sym, symbols_defined_inside_class, level + 1);
-                    set_codegen_status(class_sym, CODEGEN_STATUS_DEFINED);
+                    state.classes_being_defined.pop_back();
                 }
                 else
                 {
@@ -3419,8 +3429,9 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                             if (member.is_defined_inside_class() &&
                                     is_complete_type(member.get_type().get_internal_type()))
                             {
+                                state.classes_being_defined.push_back(member);
                                 define_class_symbol_aux(member, symbols_defined_inside_class, level + 1);
-                                set_codegen_status(member, CODEGEN_STATUS_DEFINED);
+                                state.classes_being_defined.pop_back();
                             }
                             else
                             {
@@ -3447,8 +3458,9 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                     {
                         if (member.is_defined_inside_class() || symbols_defined_inside_class.contains(member))
                         {
+                            state.classes_being_defined.push_back(member);
                             define_class_symbol_aux(member, symbols_defined_inside_class, level + 1);
-                            set_codegen_status(member, CODEGEN_STATUS_DEFINED);
+                            state.classes_being_defined.pop_back();
                         }
                         else
                         {
@@ -3877,8 +3889,8 @@ void CxxBase::define_symbol_if_nonnested(TL::Symbol symbol)
     if (!symbol_or_its_bases_are_nested_in_defined_classes(symbol))
     {
         do_define_symbol(symbol,
-               &CxxBase::declare_symbol_if_nonnested,
-               &CxxBase::define_symbol_if_nonnested);
+                &CxxBase::declare_symbol_if_nonnested,
+                &CxxBase::define_symbol_if_nonnested);
     }
     else
     {
@@ -4247,6 +4259,12 @@ void CxxBase::do_define_symbol(TL::Symbol symbol,
     if (symbol.is_injected_class_name())
         symbol = symbol.get_class_type().get_symbol();
 
+    if (symbol.get_type().is_template_specialized_type() &&
+            !symbol.is_user_declared())
+    {
+        return;
+    }
+
     if (symbol.is_dependent_entity())
     {
         TL::Symbol entry(NULL);
@@ -4399,6 +4417,9 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                     decl_sym_fun,
                     def_sym_fun);
         }
+
+        set_codegen_status(symbol, CODEGEN_STATUS_DECLARED);
+
         //We must declare ONLY the primary template
         TL::Symbol primary_symbol =
             symbol
@@ -4407,10 +4428,8 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
             .get_primary_template()
             .get_symbol();
 
+        (this->*decl_sym_fun)(primary_symbol);
 
-        define_or_declare_if_complete(primary_symbol,
-                &CxxBase::declare_symbol_always,
-                &CxxBase::define_symbol_always);
         return;
     }
 
