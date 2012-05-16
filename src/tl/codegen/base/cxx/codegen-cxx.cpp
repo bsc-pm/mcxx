@@ -4259,9 +4259,20 @@ void CxxBase::do_define_symbol(TL::Symbol symbol,
     if (symbol.is_injected_class_name())
         symbol = symbol.get_class_type().get_symbol();
 
-    if (symbol.get_type().is_template_specialized_type() &&
-            !symbol.is_user_declared())
+    if (symbol.get_type().is_template_specialized_type()
+            && !symbol.is_user_declared())
     {
+        if (!state.do_not_emit_other_declarations)
+        {
+            //We may need to define or declare the template arguments
+            TL::TemplateParameters template_arguments =
+                symbol.get_type().template_specialized_type_get_template_arguments();
+
+            declare_all_in_template_arguments(
+                    template_arguments,
+                    decl_sym_fun,
+                    def_sym_fun);
+        }
         return;
     }
 
