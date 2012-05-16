@@ -212,7 +212,22 @@ namespace TL { namespace Nanox {
                     );
         }
 
+        // Now for the inline case
+        placeholder1 = Nodecl::NodeclBase::null();
+        placeholder2 = Nodecl::NodeclBase::null();
         loop_spawn(outline_info, construct, distribute_environment, ranges, outline_name, structure_symbol, outline_source);
+
+        placeholder1.integrate(
+                Nodecl::Utils::deep_copy(statements, placeholder1)
+                );
+
+        if (!placeholder2.is_null())
+        {
+            Nodecl::Utils::SymbolMap &symbol_map2 = outline_info.compute_symbol_map(placeholder2);
+            placeholder2.integrate(
+                    Nodecl::Utils::deep_copy(statements, placeholder2)
+                    );
+        }
     }
 
 } }

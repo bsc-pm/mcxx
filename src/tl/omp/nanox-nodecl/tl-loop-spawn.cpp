@@ -92,6 +92,8 @@ namespace TL { namespace Nanox {
         {
             schedule_setup
                 <<     "nanos_ws_t current_ws_policy = nanos_omp_find_worksharing(omp_sched_" << schedule.get_text() << ");"
+                <<     "if (current_ws_policy == 0)"
+                <<         "nanos_handle_error(NANOS_UNIMPLEMENTED);"
                 ;
         }
 
