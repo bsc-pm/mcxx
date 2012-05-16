@@ -1360,7 +1360,10 @@ scope_entry_t* compute_intrinsic_associated(scope_entry_t* symbol UNUSED_PARAMET
     {
         if (nodecl_is_null(argument_expressions[1]))
         {
-            return GET_INTRINSIC_INQUIRY("associated", fortran_get_default_logical_type(), ptr_type, ptr_type);
+            return GET_INTRINSIC_INQUIRY("associated",
+                    fortran_get_default_logical_type(),
+                    get_lvalue_reference_type(ptr_type),
+                    get_lvalue_reference_type(ptr_type));
         }
         else
         {
@@ -1371,7 +1374,10 @@ scope_entry_t* compute_intrinsic_associated(scope_entry_t* symbol UNUSED_PARAMET
             {
                 if (equivalent_tkr_types(pointer_type_get_pointee_type(ptr_type), pointer_type_get_pointee_type(target_type)))
                 {
-                    return GET_INTRINSIC_INQUIRY("associated", fortran_get_default_logical_type(), ptr_type, target_type);
+                    return GET_INTRINSIC_INQUIRY("associated", 
+                            fortran_get_default_logical_type(),
+                            get_lvalue_reference_type(ptr_type),
+                            get_lvalue_reference_type(target_type));
                 }
             }
         }
