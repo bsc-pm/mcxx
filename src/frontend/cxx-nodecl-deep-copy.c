@@ -172,11 +172,11 @@ static void register_symbols_of_fortran_program_unit(const char* name, scope_ent
 static void fill_symbols(const char* name, scope_entry_list_t* entry_list, closure_hash_t* data);
 static void fill_symbols_of_fortran_program_unit(const char* name, scope_entry_list_t* entry_list, closure_hash_t* data);
 
-void free_closure_info(closure_hash_t* closure_info)
+void free_closure_info(nested_map_info_t* nested_map_info)
 {
-    free(closure_info->filled_symbols);
+    free(nested_map_info->source_list);
+    free(nested_map_info->target_list);
 }
-
 
 static void copy_block_scope(decl_context_t new_block_context_, scope_t* block_scope, nested_map_info_t *nested_map_info)
 {
