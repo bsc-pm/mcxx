@@ -2618,14 +2618,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxDecl& node)
     TL::Symbol sym = node.get_symbol();
     state.must_be_object_init.erase(sym);
 
-    bool old = state.do_not_emit_other_declarations;
-    state.do_not_emit_other_declarations = true;
-
     do_declare_symbol(sym,
             &CxxBase::declare_symbol_always,
             &CxxBase::define_symbol_always);
-
-    state.do_not_emit_other_declarations = old;
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxDef& node)
@@ -2633,14 +2628,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxDef& node)
     TL::Symbol sym = node.get_symbol();
     state.must_be_object_init.erase(sym);
 
-    bool old = state.do_not_emit_other_declarations;
-    state.do_not_emit_other_declarations = true;
-
     do_define_symbol(sym,
             &CxxBase::declare_symbol_always,
             &CxxBase::define_symbol_always);
-
-    state.do_not_emit_other_declarations = old;
 }
 
 void CxxBase::codegen_explicit_instantiation(TL::Symbol sym,
