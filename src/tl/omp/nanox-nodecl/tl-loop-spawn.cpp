@@ -104,14 +104,14 @@ namespace TL { namespace Nanox {
 
         Source usual_worksharing_creation;
         usual_worksharing_creation
-            <<     "err = nanos_worksharing_create(&wsd, current_ws_policy, &nanos_setup_info_loop, &single_guard);"
+            <<     "err = nanos_worksharing_create(&wsd, current_ws_policy, (void**)&nanos_setup_info_loop, &single_guard);"
             <<     "if (err != NANOS_OK)"
             <<         "nanos_handle_error(err);"
             ;
 
         Source worksharing_creation_under_reduction;
         worksharing_creation_under_reduction
-            <<     "err = nanos_worksharing_create(&wsd, current_ws_policy, &nanos_setup_info_loop, (void*)0);"
+            <<     "err = nanos_worksharing_create(&wsd, current_ws_policy, (void**)&nanos_setup_info_loop, (void*)0);"
             <<     "if (err != NANOS_OK)"
             <<         "nanos_handle_error(err);"
             <<     "err = nanos_enter_sync_init ( &single_guard );"
@@ -192,7 +192,7 @@ namespace TL { namespace Nanox {
         <<         "if (sup_threads > 0)"
         <<         "{"
         // <<             "wsd->threads = (nanos_thread_t *) __builtin_alloca(sizeof(nanos_thread_t) * sup_threads);"
-        <<             "err = nanos_malloc(&(wsd->threads), sizeof(nanos_thread_t) * sup_threads, \"\", 0);"
+        <<             "err = nanos_malloc((void**)&(wsd->threads), sizeof(nanos_thread_t) * sup_threads, \"\", 0);"
         <<             "if (err != NANOS_OK)"
         <<                 "nanos_handle_error(err);"
         <<             "err = nanos_team_get_supporting_threads(&wsd->nths, wsd->threads);"
