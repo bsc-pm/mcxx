@@ -68,6 +68,9 @@ namespace TL { namespace Nanox {
 #undef STR
 #undef STR_
 
+        TL::Symbol nanos_lock_t_name = ReferenceScope(construct).get_scope().get_symbol_from_name("nanos_lock_t");
+        ERROR_CONDITION(!nanos_lock_t_name.is_valid(), "nanos_lock_t required but not found in the scope", 0);
+
         if (IS_C_LANGUAGE
                 || IS_CXX_LANGUAGE)
         {
@@ -79,14 +82,14 @@ namespace TL { namespace Nanox {
                 C_LANGUAGE()
                 {
                     global_lock_decl
-                        << "__attribute__((weak)) nanos_lock_t " << lock_name << " = " << initializer << ";"
+                        << "__attribute__((weak)) " << as_type(nanos_lock_t_name.get_type()) << " " << lock_name << " = " << initializer << ";"
                         ;
                 }
                 CXX_LANGUAGE()
                 {
                     // There is a nice constructor doing what NANOS_INIT_LOCK_FREE does
                     global_lock_decl
-                        << "__attribute__((weak)) nanos_lock_t " << lock_name << ";"
+                        << "__attribute__((weak)) " << as_type(nanos_lock_t_name.get_type()) << " " << lock_name << ";"
                         ;
                 }
 
@@ -95,7 +98,21 @@ namespace TL { namespace Nanox {
         }
         else if (IS_FORTRAN_LANGUAGE)
         {
-            internal_error("Critical in Fortran not yet implemented", 0);
+            if (_lock_names.find(lock_name) == _lock_names.end())
+            {
+                _lock_names.insert(lock_name);
+                // We need to sign in the global lock
+                Source global_lock_decl;
+                global_lock_decl
+                    << "COMMON /nanos_lock_" << lock_name << "_/ " << lock_name << "\n"
+                    << as_type(nanos_lock_t_name.get_type()) << ", @IS_VARIABLE@ :: " << lock_name << "\n"
+                    ;
+
+                Nodecl::NodeclBase global_lock_tree = global_lock_decl.parse_statement(construct);
+            }
+
+            // Make this TYPE a SEQUENCE one, otherwise we cannot put it in the COMMON
+            class_type_set_is_packed(nanos_lock_t_name.get_type().get_internal_type(), 1);
         }
         else
         {
@@ -106,14 +123,27 @@ namespace TL { namespace Nanox {
         Source critical_postorder_src;
         critical_postorder_src
             << "{"
-            <<    "nanos_set_lock(&" << lock_name << ");"
+            <<    "nanos_err_t err;"
+            <<    "err = nanos_set_lock(&" << lock_name << ");"
+            <<    "if (err != NANOS_OK) nanos_handle_error(err);"
             <<    statement_placeholder(stmt_placeholder)
-            <<    "nanos_unset_lock(&" << lock_name << ");"
+            <<    "err = nanos_unset_lock(&" << lock_name << ");"
+            <<    "if (err != NANOS_OK) nanos_handle_error(err);"
             << "}"
             ;
 
         Nodecl::NodeclBase critical_code;
+        FORTRAN_LANGUAGE()
+        {
+            // Parse in C
+            Source::source_language = SourceLanguage::C;
+        }
         critical_code = critical_postorder_src.parse_statement(construct);
+        FORTRAN_LANGUAGE()
+        {
+            // Parse in C
+            Source::source_language = SourceLanguage::Current;
+        }
 
         stmt_placeholder.integrate(statements.shallow_copy());
 
