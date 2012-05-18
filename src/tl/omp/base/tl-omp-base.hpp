@@ -69,7 +69,20 @@ namespace TL
                 Nodecl::List make_execution_environment(OpenMP::DataSharingEnvironment&, PragmaCustomLine);
 
                 // void loop_handler_pre(TL::PragmaCustomStatement);
-                Nodecl::NodeclBase loop_handler_post(TL::PragmaCustomStatement directive, Nodecl::NodeclBase statement);
+                Nodecl::NodeclBase loop_handler_post(TL::PragmaCustomStatement directive, 
+                        Nodecl::NodeclBase statement,
+                        bool barrier_at_end,
+                        bool is_combined_worksharing);
+
+                void lower_sections_into_switch(
+                        Nodecl::NodeclBase directive,
+                        Nodecl::NodeclBase statements,
+                        // modified
+                        OpenMP::DataSharingEnvironment &ds,
+                        // output
+                        Nodecl::NodeclBase& new_code,
+                        Nodecl::NodeclBase& for_code
+                        );
         };
     }
 }

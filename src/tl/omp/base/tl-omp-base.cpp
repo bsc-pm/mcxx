@@ -238,6 +238,7 @@ namespace TL { namespace OpenMP {
 
         INVALID_DECLARATION_HANDLER(parallel)
         INVALID_DECLARATION_HANDLER(parallel_for)
+        INVALID_DECLARATION_HANDLER(parallel_do)
         INVALID_DECLARATION_HANDLER(for)
         INVALID_DECLARATION_HANDLER(do)
         INVALID_DECLARATION_HANDLER(parallel_sections)
@@ -258,7 +259,6 @@ namespace TL { namespace OpenMP {
 
         INVALID_DECLARATION_HANDLER(master)
         EMPTY_HANDLERS_CONSTRUCT(ordered)
-        EMPTY_HANDLERS_CONSTRUCT(parallel_do)
 
         EMPTY_HANDLERS_DIRECTIVE(section)
 
@@ -445,7 +445,7 @@ namespace TL { namespace OpenMP {
 
         Nodecl::List execution_environment = this->make_execution_environment(ds, pragma_line);
 
-        Nodecl::NodeclBase number_of_replicas;
+        Nodecl::NodeclBase num_threads;
         PragmaCustomClause clause = pragma_line.get_clause("num_threads");
         if (clause.is_defined())
         {
@@ -454,13 +454,13 @@ namespace TL { namespace OpenMP {
             // Let core check this for us
             ERROR_CONDITION (args.size() != 1, "num_threads wrong clause", 0);
 
-            number_of_replicas = args[0];
+            num_threads = args[0];
         }
 
         directive.integrate(
                 Nodecl::OpenMP::Parallel::make(
                     execution_environment,
-                    number_of_replicas,
+                    num_threads,
                     directive.get_statements().shallow_copy(),
                     directive.get_filename(),
                     directive.get_line()));
@@ -505,11 +505,18 @@ namespace TL { namespace OpenMP {
         ERROR_CONDITION(!statement.is<Nodecl::List>(), "Invalid tree", 0);
         statement = statement.as<Nodecl::List>().front();
 
-        Nodecl::NodeclBase code = loop_handler_post(directive, statement);
+        PragmaCustomLine pragma_line = directive.get_pragma_line();
+        bool barrier_at_end = !pragma_line.get_clause("nowait").is_defined();
+
+        Nodecl::NodeclBase code = loop_handler_post(directive, statement, barrier_at_end, /* is_combined_worksharing */ false);
         directive.integrate(code);
     }
 
-    Nodecl::NodeclBase Base::loop_handler_post(TL::PragmaCustomStatement directive, Nodecl::NodeclBase statement)
+    Nodecl::NodeclBase Base::loop_handler_post(
+            TL::PragmaCustomStatement directive,
+            Nodecl::NodeclBase statement,
+            bool barrier_at_end,
+            bool is_combined_worksharing)
     {
         OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
@@ -577,10 +584,18 @@ namespace TL { namespace OpenMP {
                         directive.get_line()));
         }
 
-        if (!pragma_line.get_clause("nowait").is_defined())
+        if (barrier_at_end)
         {
             execution_environment.push_back(
                     Nodecl::OpenMP::BarrierAtEnd::make(
+                        directive.get_filename(),
+                        directive.get_line()));
+        }
+
+        if (is_combined_worksharing)
+        {
+            execution_environment.push_back(
+                    Nodecl::OpenMP::CombinedWorksharing::make(
                         directive.get_filename(),
                         directive.get_line()));
         }
@@ -610,15 +625,53 @@ namespace TL { namespace OpenMP {
     }
 
     void Base::do_handler_pre(TL::PragmaCustomStatement directive) { }
-
     void Base::do_handler_post(TL::PragmaCustomStatement directive)
     {
         Nodecl::NodeclBase statement = directive.get_statements();
         ERROR_CONDITION(!statement.is<Nodecl::List>(), "Invalid tree", 0);
         statement = statement.as<Nodecl::List>().front();
 
-        Nodecl::NodeclBase code = loop_handler_post(directive, statement);
+        PragmaCustomLine pragma_line = directive.get_pragma_line();
+        bool barrier_at_end = !pragma_line.get_clause("nowait").is_defined();
+
+        Nodecl::NodeclBase code = loop_handler_post(directive, statement, barrier_at_end, /* is_combined_worksharing */ false);
         directive.integrate(code);
+    }
+
+    void Base::parallel_do_handler_pre(TL::PragmaCustomStatement directive) { }
+    void Base::parallel_do_handler_post(TL::PragmaCustomStatement directive)
+    {
+        OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
+        PragmaCustomLine pragma_line = directive.get_pragma_line();
+        Nodecl::List execution_environment = this->make_execution_environment(ds, pragma_line);
+
+        Nodecl::NodeclBase statement = directive.get_statements();
+        ERROR_CONDITION(!statement.is<Nodecl::List>(), "Invalid tree", 0);
+        statement = statement.as<Nodecl::List>().front();
+
+        Nodecl::NodeclBase num_threads;
+        PragmaCustomClause clause = pragma_line.get_clause("num_threads");
+        if (clause.is_defined())
+        {
+            ObjectList<Nodecl::NodeclBase> args = clause.get_arguments_as_expressions();
+
+            // Let core check this for us
+            ERROR_CONDITION (args.size() != 1, "num_threads wrong clause", 0);
+
+            num_threads = args[0];
+        }
+
+        Nodecl::NodeclBase code = loop_handler_post(directive, statement, /* barrier_at_end */ false, /* is_combined_worksharing */ true);
+
+        Nodecl::NodeclBase nodecl_parallel
+            = Nodecl::OpenMP::Parallel::make(
+                execution_environment,
+                num_threads,
+                code,
+                directive.get_filename(),
+                directive.get_line());
+
+        directive.integrate(nodecl_parallel);
     }
 
     // Function tasks
@@ -639,6 +692,94 @@ namespace TL { namespace OpenMP {
     void Base::target_handler_post(TL::PragmaCustomDeclaration decl)
     {
         Nodecl::Utils::remove_from_enclosing_list(decl);
+    }
+
+    void Base::lower_sections_into_switch(
+            Nodecl::NodeclBase directive,
+            Nodecl::NodeclBase statements,
+            // modified
+            OpenMP::DataSharingEnvironment &ds,
+            // output
+            Nodecl::NodeclBase& new_code,
+            Nodecl::NodeclBase& for_code
+            )
+    {
+        Nodecl::List tasks = statements.as<Nodecl::List>();
+
+        if (IS_C_LANGUAGE
+                || IS_CXX_LANGUAGE)
+        {
+            // In C/C++ there is an extra compound statement right after #pragma omp sections
+            ERROR_CONDITION(!tasks[0].is<Nodecl::CompoundStatement>(), "Expecting a compound statement here", 0);
+
+            tasks = tasks[0].as<Nodecl::CompoundStatement>().get_statements().as<Nodecl::List>();
+        }
+
+        Source new_context_source;
+        new_context_source
+            << "{"
+            << "int omp_section_id_;"
+            << statement_placeholder(for_code)
+            << "}"
+            ;
+
+        FORTRAN_LANGUAGE()
+        {
+            // Parse in C
+            Source::source_language = SourceLanguage::C;
+        }
+        new_code = new_context_source.parse_statement(directive);
+        FORTRAN_LANGUAGE()
+        {
+            Source::source_language = SourceLanguage::Current;
+        }
+
+        // Set omp_section_id_ as private
+        TL::Symbol section_id = ReferenceScope(for_code).get_scope().get_symbol_from_name("omp_section_id_");
+        ERROR_CONDITION(!section_id.is_valid(), "Induction variable of OpenMP sections not found", 0);
+        ds.set_data_sharing(section_id, OpenMP::DS_PRIVATE);
+
+        Source for_source, section_seq;
+        for_source
+            << "for (omp_section_id_ = 0; omp_section_id_ < " << tasks.size() << "; omp_section_id_++)"
+            << "{"
+            << "switch (omp_section_id_)"
+            << "{"
+            <<  section_seq
+            << "default: { abort(); } break;"
+            << "}"
+            << "}"
+            ;
+
+        int section_idx = 0;
+        for (Nodecl::List::iterator it = tasks.begin(); it != tasks.end(); it++, section_idx++)
+        {
+            ERROR_CONDITION(!it->is<Nodecl::PragmaCustomStatement>(), "Unexpected node '%s'\n",
+                    ast_print_node_type(it->get_kind()));
+
+            Nodecl::PragmaCustomStatement p = it->as<Nodecl::PragmaCustomStatement>();
+
+            section_seq
+                << "case " << section_idx << " : "
+                << as_statement( p.get_statements().shallow_copy() )
+                << "break;"
+                ;
+        }
+
+        FORTRAN_LANGUAGE()
+        {
+            // Parse in C
+            Source::source_language = SourceLanguage::C;
+        }
+        Nodecl::NodeclBase new_for_code = for_source.parse_statement(for_code);
+        FORTRAN_LANGUAGE()
+        {
+            Source::source_language = SourceLanguage::Current;
+        }
+
+        for_code.integrate(new_for_code);
+
+        for_code = new_for_code;
     }
 
     void Base::sections_handler_pre(TL::PragmaCustomStatement) { }
@@ -672,62 +813,14 @@ namespace TL { namespace OpenMP {
         OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
 
-        Nodecl::List tasks = directive.get_statements().as<Nodecl::List>();
-
-        // FIXME - This does not work with Fortran
-
-        if (IS_C_LANGUAGE
-                || IS_CXX_LANGUAGE)
-        {
-            // In C/C++ there is an extra compound statement right after #pragma omp sections
-            ERROR_CONDITION(!tasks[0].is<Nodecl::CompoundStatement>(), "Expecting a compound statement here", 0);
-
-            tasks = tasks[0].as<Nodecl::CompoundStatement>().get_statements().as<Nodecl::List>();
-        }
-
-        Nodecl::NodeclBase for_placeholder;
-        Source sections_for, section_seq;
-
-        sections_for
-            << "{"
-            << "int section_id;"
-            << statement_placeholder(for_placeholder)
-            << "}"
-        ;
-
-        Nodecl::NodeclBase new_code = sections_for.parse_statement(directive);
-
-        Source for_source;
-        for_source
-            << "for (section_id = 0; section_id < " << tasks.size() << "; section_id++)"
-            << "{"
-            << "switch (section_id)"
-            << "{"
-            <<  section_seq
-            << "default: __builtin_abort();"
-            << "}"
-            << "}"
-            ;
-
-        int section_idx = 0;
-        for (Nodecl::List::iterator it = tasks.begin(); it != tasks.end(); it++, section_idx++)
-        {
-            ERROR_CONDITION(!it->is<Nodecl::PragmaCustomStatement>(), "Unexpected node '%s'\n",
-                    ast_print_node_type(it->get_kind()));
-
-            Nodecl::PragmaCustomStatement p = it->as<Nodecl::PragmaCustomStatement>();
-
-            section_seq
-                << "case " << section_idx << " : "
-                << p.get_statements().prettyprint()
-                << "break;"
-                ;
-        }
-
-        ds.set_data_sharing(for_placeholder.retrieve_context().get_symbol_from_name("section_id"), OpenMP::DS_PRIVATE);
-
-        Nodecl::NodeclBase for_code = for_source.parse_statement(for_placeholder);
-        for_placeholder.integrate(for_code);
+        Nodecl::NodeclBase new_code, for_code;
+        lower_sections_into_switch(directive,
+                directive.get_statements(),
+                // update
+                ds,
+                // out
+                new_code,
+                for_code);
 
         directive.get_statements().integrate(new_code);
 
@@ -736,8 +829,60 @@ namespace TL { namespace OpenMP {
         ERROR_CONDITION(!for_code.is<Nodecl::List>(), "Invalid tree", 0);
         for_code = for_code.as<Nodecl::List>().front();
 
-        Nodecl::NodeclBase loop_code = loop_handler_post(directive, for_code);
+        bool barrier_at_end = !pragma_line.get_clause("nowait").is_defined();
+
+        Nodecl::NodeclBase loop_code = loop_handler_post(directive, for_code, barrier_at_end, /* is_combined_worksharing */ false);
         directive.integrate(loop_code);
+    }
+
+    void Base::parallel_sections_handler_pre(TL::PragmaCustomStatement) { }
+    void Base::parallel_sections_handler_post(TL::PragmaCustomStatement directive)
+    {
+        // See sections_handler_post for an explanation of the transformation performed here
+        OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
+        PragmaCustomLine pragma_line = directive.get_pragma_line();
+
+        Nodecl::List execution_environment = this->make_execution_environment(ds, pragma_line);
+
+        Nodecl::NodeclBase new_code, for_code;
+        lower_sections_into_switch(directive,
+                directive.get_statements(),
+                // update
+                ds,
+                // out
+                new_code,
+                for_code);
+
+        directive.get_statements().integrate(new_code);
+
+        ERROR_CONDITION(!for_code.is<Nodecl::Context>(), "Invalid tree", 0);
+        for_code = for_code.as<Nodecl::Context>().get_in_context();
+        ERROR_CONDITION(!for_code.is<Nodecl::List>(), "Invalid tree", 0);
+        for_code = for_code.as<Nodecl::List>().front();
+
+        Nodecl::NodeclBase loop_code = loop_handler_post(directive, for_code, /* barrier_at_end */ false, /* is_combined_worksharing */ true);
+
+        Nodecl::NodeclBase num_threads;
+        PragmaCustomClause clause = pragma_line.get_clause("num_threads");
+        if (clause.is_defined())
+        {
+            ObjectList<Nodecl::NodeclBase> args = clause.get_arguments_as_expressions();
+
+            // Let core check this for us
+            ERROR_CONDITION (args.size() != 1, "num_threads wrong clause", 0);
+
+            num_threads = args[0];
+        }
+
+        Nodecl::NodeclBase nodecl_parallel
+            = Nodecl::OpenMP::Parallel::make(
+                execution_environment,
+                num_threads,
+                loop_code,
+                directive.get_filename(),
+                directive.get_line());
+
+        directive.integrate(nodecl_parallel);
     }
 
     void Base::parallel_for_handler_pre(TL::PragmaCustomStatement) { }
@@ -756,7 +901,7 @@ namespace TL { namespace OpenMP {
         ERROR_CONDITION(!statement.is<Nodecl::List>(), "Invalid tree", 0);
         statement = statement.as<Nodecl::List>().front();
 
-        Nodecl::NodeclBase number_of_replicas;
+        Nodecl::NodeclBase num_threads;
         PragmaCustomClause clause = pragma_line.get_clause("num_threads");
         if (clause.is_defined())
         {
@@ -765,20 +910,20 @@ namespace TL { namespace OpenMP {
             // Let core check this for us
             ERROR_CONDITION (args.size() != 1, "num_threads wrong clause", 0);
 
-            number_of_replicas = args[0];
+            num_threads = args[0];
         }
 
-        Nodecl::NodeclBase code = loop_handler_post(directive, statement);
+        Nodecl::NodeclBase code = loop_handler_post(directive, statement, /* barrier_at_end */ false, /* is_combined_worksharing */ true);
 
-        Nodecl::NodeclBase replicate
+        Nodecl::NodeclBase nodecl_parallel
             = Nodecl::OpenMP::Parallel::make(
                 execution_environment,
-                number_of_replicas,
+                num_threads,
                 code,
                 directive.get_filename(),
                 directive.get_line());
 
-        directive.integrate(replicate);
+        directive.integrate(nodecl_parallel);
     }
 
     // Keep these
@@ -790,15 +935,8 @@ namespace TL { namespace OpenMP {
     {
     }
 
-    void Base::parallel_sections_handler_pre(TL::PragmaCustomStatement)
-    {
-    }
 
     void Base::declare_reduction_handler_post(TL::PragmaCustomDirective)
-    {
-    }
-
-    void Base::parallel_sections_handler_post(TL::PragmaCustomStatement)
     {
     }
 

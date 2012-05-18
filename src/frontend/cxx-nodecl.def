@@ -404,6 +404,8 @@ exec-environment : NODECL_OPEN_M_P*IF([condition]expression)
                  | NODECL_OPEN_M_P*COPY_OUT([output_copies]expression-seq)
                  | NODECL_OPEN_M_P*COPY_INOUT([inout_copies]expression-seq)
                  | NODECL_OPEN_M_P*SCHEDULE([chunk]expression-opt) text
+# Used for parallel + {sections,for}
+                 | NODECL_OPEN_M_P*COMBINED_WORKSHARING()
 # Not yet decided
                  | NODECL_OPEN_M_P*TARGET()
                  | NODECL_OPEN_M_P*PRIORITY([priority]expression)

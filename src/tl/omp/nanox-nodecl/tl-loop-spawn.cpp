@@ -190,7 +190,6 @@ namespace TL { namespace Nanox {
         <<             "nanos_handle_error(err);"
         <<         "if (sup_threads > 0)"
         <<         "{"
-        // <<             "wsd->threads = (nanos_thread_t *) __builtin_alloca(sizeof(nanos_thread_t) * sup_threads);"
         <<             "err = nanos_malloc((void**)&(wsd->threads), sizeof(nanos_thread_t) * sup_threads, \"\", 0);"
         <<             "if (err != NANOS_OK)"
         <<                 "nanos_handle_error(err);"

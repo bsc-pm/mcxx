@@ -173,6 +173,25 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 const std::string& outline_name,
                 TL::Symbol structure_symbol);
 
+        Source get_loop_distribution_source(
+                const Nodecl::OpenMP::For &construct,
+                Nodecl::List& distribute_environment,
+                Nodecl::List& ranges,
+                OutlineInfo& outline_info,
+                Nodecl::NodeclBase &placeholder1,
+                Nodecl::NodeclBase &placeholder2);
+
+        void distribute_loop_with_outline(
+                const Nodecl::OpenMP::For& construct,
+                Nodecl::List& distribute_environment,
+                Nodecl::List& ranges,
+                OutlineInfo& outline_info,
+                Nodecl::NodeclBase& statements,
+                Source &distribute_loop_source,
+                Nodecl::NodeclBase& placeholder1,
+                Nodecl::NodeclBase& placeholder2
+                );
+
         void loop_spawn(
                 OutlineInfo& outline_info,
                 Nodecl::NodeclBase construct,
