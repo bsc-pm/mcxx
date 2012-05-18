@@ -221,40 +221,7 @@ namespace TL { namespace Nanox {
 
         delete symbol_map; symbol_map = NULL;
 
-        //
-        // Inline case
-        //
-
-        Nodecl::NodeclBase inline_code;
-        Source inline_source;
-        inline_source
-            << statement_placeholder(inline_code);
-
-        loop_spawn(outline_info, construct, distribute_environment, ranges, outline_name, structure_symbol, inline_source);
-
-        symbol_map = outline_info.compute_symbol_map(inline_code);
-
-        placeholder1 = Nodecl::NodeclBase::null();
-        placeholder2 = Nodecl::NodeclBase::null();
-
-        Nodecl::NodeclBase distribute_code = outline_source.parse_statement(inline_code);
-
-        placeholder1.integrate(
-                Nodecl::Utils::deep_copy(statements, placeholder1, *symbol_map)
-                );
-
-        if (!placeholder2.is_null())
-        {
-            placeholder2.integrate(
-                    Nodecl::Utils::deep_copy(statements, placeholder2, *symbol_map)
-                    );
-        }
-
-        Nodecl::NodeclBase privatized_distribute_code =
-            Nodecl::Utils::deep_copy(distribute_code, inline_code, *symbol_map);
-        inline_code.integrate(privatized_distribute_code);
-
-        delete symbol_map; symbol_map = NULL;
+        loop_spawn(outline_info, construct, distribute_environment, ranges, outline_name, structure_symbol);
     }
 
 } }

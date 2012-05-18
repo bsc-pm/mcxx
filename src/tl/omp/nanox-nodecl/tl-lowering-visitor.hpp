@@ -178,8 +178,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::List distribute_environment,
                 Nodecl::List ranges,
                 const std::string& outline_name,
-                TL::Symbol structure_symbol,
-                Source inline_iteration_source);
+                TL::Symbol structure_symbol);
 
         Source full_barrier_source();
 

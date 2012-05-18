@@ -38,8 +38,7 @@ namespace TL { namespace Nanox {
             Nodecl::List distribute_environment, 
             Nodecl::List ranges, 
             const std::string& outline_name,
-            TL::Symbol structure_symbol,
-            Source inline_iteration_code)
+            TL::Symbol structure_symbol)
     {
         if (ranges.size() != 1)
         {
@@ -168,8 +167,6 @@ namespace TL { namespace Nanox {
                     /* is_untied */ false,
                     /* mandatory_creation */ true);
 
-        Nodecl::NodeclBase private_decls;
-
         Source spawn_code;
         spawn_code
         << "{"
@@ -230,9 +227,12 @@ namespace TL { namespace Nanox {
         <<                 "nanos_handle_error(err);"
         <<         "}"
         <<     "}"
-        <<     statement_placeholder(private_decls)
         <<     extra_sync_due_to_reductions
-        <<     inline_iteration_code
+        <<     immediate_decl
+        <<     "imm_args.wsd = wsd;"
+        <<     statement_placeholder(fill_immediate_arguments_tree)
+        <<     fill_immediate_arguments_reductions
+        <<     outline_name << "(imm_args);"
         << "}"
         ;
 
@@ -255,64 +255,11 @@ namespace TL { namespace Nanox {
             fill_outline_arguments_tree.integrate(new_tree);
         }
 
-        Source private_entities;
-        TL::ObjectList<OutlineDataItem> data_items = outline_info.get_data_items();
-        for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
-                it != data_items.end();
-                it++)
+        if (!fill_immediate_arguments.empty())
         {
-            switch (it->get_sharing())
-            {
-                case OutlineDataItem::SHARING_PRIVATE:
-                    {
-                        TL::Symbol sym = it->get_symbol();
-
-                        std::string name;
-                        TL::Type t;
-                        if (sym.is_valid())
-                        {
-                            name = sym.get_name();
-                            t = sym.get_type();
-                        }
-                        else
-                        {
-                            name = it->get_field_name();
-                            t = it->get_in_outline_type();
-                        }
-
-                        if (IS_C_LANGUAGE
-                                || IS_CXX_LANGUAGE)
-                        {
-                            private_entities
-                                << as_type(t) << " " << name << ";"
-                                ;
-                        }
-                        else if (IS_FORTRAN_LANGUAGE)
-                        {
-                            // @IS_VARIABLE@ means that this symbol must already be assumed a variable
-                            //
-                            // Fortran FE is very lax and this symbol would be left as a SK_UNDEFINED
-                            // which is a kind of symbol that the C/C++ FE does not know anything about
-                            private_entities
-                                << as_type(t) << ", @IS_VARIABLE@ :: " << name << "\n"
-                                ;
-                        }
-                        else
-                        {
-                            internal_error("Code unreachable", 0);
-                        }
-                    }
-                default:
-                    {
-                        // Do nothing
-                        break;
-                    }
-            }
+            Nodecl::NodeclBase new_tree = fill_immediate_arguments.parse_statement(fill_immediate_arguments_tree);
+            fill_immediate_arguments_tree.integrate(new_tree);
         }
-
-        private_decls.integrate(
-                private_entities.parse_statement(private_decls)
-                );
 
         construct.integrate(spawn_code_tree);
     }
