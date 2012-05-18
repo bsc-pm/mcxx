@@ -163,6 +163,9 @@ struct class_info_tag {
     // Is abstract class
     unsigned char is_abstract:1;
 
+    // Is a packed class (SEQUENCE in Fortran or __attribute__((packed)) )
+    unsigned char is_packed:1;
+
     // Enclosing class type
     type_t* enclosing_class_type;
 
@@ -3562,6 +3565,24 @@ void class_type_set_enclosing_class_type(type_t* t, type_t* enclosing_class_type
     t = get_actual_class_type(t);
 
     t->type->class_info->enclosing_class_type = enclosing_class_type;
+}
+
+void class_type_set_is_packed(type_t* t, char is_packed)
+{
+    ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
+
+    t = get_actual_class_type(t);
+
+    t->type->class_info->is_packed = is_packed;
+}
+
+char class_type_is_packed(type_t* t)
+{
+    ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
+
+    t = get_actual_class_type(t);
+
+    return t->type->class_info->is_packed;
 }
 
 type_t* class_type_get_enclosing_class_type(type_t* t)

@@ -617,6 +617,8 @@ namespace TL
 
             type_tag_t class_type_get_class_kind() const;
 
+            bool class_type_is_packed() const;
+
             //! States whether the type is a lvalue or rvalue reference type
             bool is_any_reference() const;
 

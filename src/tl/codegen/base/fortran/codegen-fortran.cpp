@@ -3381,6 +3381,13 @@ OPERATOR_TABLE
             int first_bitfield_offset = 0;
 
             inc_indent();
+
+            if (entry.get_type().class_type_is_packed())
+            {
+                indent();
+                file << "SEQUENCE\n";
+            }
+
             // Second pass to declare components
             for (TL::ObjectList<TL::Symbol>::iterator it = members.begin();
                     it != members.end();

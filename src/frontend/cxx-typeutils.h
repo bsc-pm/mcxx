@@ -552,6 +552,9 @@ LIBMCXX_EXTERN char class_type_is_dynamic(type_t* t);
 LIBMCXX_EXTERN char class_type_is_abstract(type_t* class_type);
 LIBMCXX_EXTERN void class_type_set_is_abstract(type_t* class_type, char is_abstract);
 
+LIBMCXX_EXTERN void class_type_set_is_packed(type_t* t, char is_packed);
+LIBMCXX_EXTERN char class_type_is_packed(type_t* class_type);
+
 LIBMCXX_EXTERN type_t* advance_over_typedefs(type_t* t);
 LIBMCXX_EXTERN type_t* advance_over_typedefs_with_cv_qualif(type_t* t1, cv_qualifier_t* cv_qualif);
 

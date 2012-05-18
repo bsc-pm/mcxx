@@ -4972,6 +4972,7 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
     }
 
     set_is_complete_type(class_name->type_information, 1);
+    class_type_set_is_packed(class_name->type_information, is_sequence);
 
     if (decl_context.current_scope->related_entry != NULL
             && decl_context.current_scope->related_entry->kind == SK_MODULE)
