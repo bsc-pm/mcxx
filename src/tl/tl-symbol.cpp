@@ -275,7 +275,17 @@ namespace TL
 
     Symbol Symbol::aliased_from_module() const
     {
+        return get_alias_to();
+    }
+
+    Symbol Symbol::get_alias_to() const
+    {
         return this->_symbol->entity_specs.alias_to;
+    }
+    
+    bool Symbol::has_alias_to() const
+    {
+        return (this->_symbol->entity_specs.alias_to != NULL);
     }
 
     bool Symbol::is_fortran_blockdata() const
@@ -446,12 +456,12 @@ namespace TL
     {
         return (_symbol->entity_specs.is_friend_declared);
     }
-    
+
     bool Symbol::is_entry() const
     {
         return (_symbol->entity_specs.is_entry);
     }
-    
+
     bool Symbol::function_throws_any_exception() const
     {
         return (_symbol->entity_specs.any_exception);

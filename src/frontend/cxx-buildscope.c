@@ -2259,9 +2259,9 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
         type_t** type_info,
         gather_decl_spec_t *gather_info,
         decl_context_t decl_context,
-        nodecl_t* nodecl_output)
+        nodecl_t* nodecl_output UNUSED_PARAMETER)
 {
-    /*
+    /* FIXME
      * This function should maintain strictly these two variables.
      *
      * class_entry will hold the symbol associated to a class specifier with name (or template-id)
@@ -2377,33 +2377,8 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
     scope_entry_t* entry = (entry_list != NULL) ? entry_list_head(entry_list) : NULL;
     entry_list_free(entry_list);
 
-    // We want the primary template in this particular case
-    if (entry != NULL &&
-            entry->kind == SK_TEMPLATE)
-    {
-        if (decl_context.template_parameters->num_parameters
-                != template_type_get_template_parameters(entry->type_information)->num_parameters)
-        {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: redeclaration with %d template parameters while previous declaration used %d\n",
-                        ast_location(id_expression),
-                        decl_context.template_parameters->num_parameters,
-                        template_type_get_template_parameters(entry->type_information)->num_parameters);
-            }
-            *type_info = get_error_type();
-            return;
-        }
-
-        template_type_update_template_parameters(entry->type_information,
-                decl_context.template_parameters);
-
-        // This is the class name
-        type_t* primary_template_type = template_type_get_primary_type(entry->type_information);
-        entry = named_type_get_symbol(primary_template_type);
-    }
-
-    if (entry == NULL && is_qualified_id_expression(id_expression))
+    if (entry == NULL &&
+            is_qualified_id_expression(id_expression))
     {
         if (!checking_ambiguity())
         {
@@ -2449,85 +2424,40 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
     }
 
     class_entry = entry;
-
-    if (is_dependent_type(class_symbol->type_information))
+    if (entry != NULL)
     {
-        if (entry != NULL)
+        scope_entry_t* alias_to_entry = class_entry;
+        if (gather_info->is_template || ASTType(id_expression) == AST_TEMPLATE_ID)
         {
-            if (gather_info->is_template || ASTType(id_expression) == AST_TEMPLATE_ID)
-            {
-                if (!is_template_specialized_type(entry->type_information))
-                {
-                    if (!checking_ambiguity())
-                    {
-                        error_printf("%s: '%s' is not a template\n",
-                                ast_location(a), prettyprint_in_buffer(a));
-                    }
-                    *type_info = get_error_type();
-                    return;
-                }
+            // We create a fake symbol with the right context and an alias to
+            // the real friend (entry)
+            alias_to_entry =
+                counted_calloc(1, sizeof(*entry), &_bytes_used_buildscope);
+            alias_to_entry->kind = SK_DEPENDENT_FRIEND_CLASS;
+            alias_to_entry->file = ASTFileName(a);
+            alias_to_entry->line = ASTLine(a);
 
-                type_t* template_type = template_specialized_type_get_related_template_type(entry->type_information);
+            alias_to_entry->symbol_name = class_name;
+            alias_to_entry->decl_context = decl_context;
+            alias_to_entry->entity_specs.is_user_declared = 0;
+            alias_to_entry->entity_specs.is_friend_declared = 1;
 
-                class_entry = counted_calloc(1, sizeof(*entry), &_bytes_used_buildscope);
-                class_entry->kind = SK_DEPENDENT_FRIEND_CLASS;
-                class_entry->file = ASTFileName(a);
-                class_entry->line = ASTLine(a);
-
-                nodecl_t nodecl_name = nodecl_null();
-                compute_nodecl_name_from_id_expression(id_expression, decl_context, &nodecl_name);
-                class_entry->value = nodecl_name;
-
-                class_entry->symbol_name = class_name;
-                class_entry->decl_context = decl_context;
-                class_entry->entity_specs.is_user_declared = 0;
-                class_entry->entity_specs.is_friend_declared = 1;
-
-                template_parameter_list_t* tpl = decl_context.template_parameters;
-                tpl = compute_template_parameter_values_of_primary(tpl);
-
-                // We need a fresh version every time for the friend declaration
-                // because we don't want to share it between classes
-                // Example:
-                //
-                // template <typename T2>
-                // struct M
-                // {
-                //     struct B;
-                // };
-                //
-                // template<typename T>
-                // struct A1
-                // {
-                //     template <typename S2>
-                //         friend class M;
-                // };
-                //
-                // template<typename T>
-                // struct A2
-                // {
-                //     template <typename S3>
-                //         friend class M;
-                // };
-                //
-                // ::A1<T>::M and ::A2<T>::M shall be different symbols because
-                // we need to remember the template arguments
-                class_entry->type_information =
-                    template_type_get_specialized_type_noreuse(template_type, tpl, decl_context, class_entry->file, class_entry->line);
-                if (gather_info->is_template)
-                {
-                    class_entry->type_information = named_type_get_symbol(class_entry->type_information)->type_information;
-                }
-            }
-
-            // Promote a SK_DEPENDENT_ENTITY to SK_DEPENDENT_FRIEND_CLASS
-            if (class_entry->kind == SK_DEPENDENT_ENTITY)
-            {
-                class_entry->kind = SK_DEPENDENT_FRIEND_CLASS;
-                set_dependent_entry_kind(class_entry->type_information, class_kind);
-            }
+            alias_to_entry->entity_specs.alias_to = entry;
         }
-        else
+
+        // Promote a SK_DEPENDENT_ENTITY to SK_DEPENDENT_FRIEND_CLASS
+        if (class_entry->kind == SK_DEPENDENT_ENTITY)
+        {
+            class_entry->kind = SK_DEPENDENT_FRIEND_CLASS;
+            set_dependent_entry_kind(class_entry->type_information, class_kind);
+        }
+
+        *type_info = get_void_type();
+        class_type_add_friend_symbol(class_symbol->type_information, alias_to_entry);
+    }
+    else
+    {
+        if (is_dependent_type(class_symbol->type_information))
         {
             class_entry = counted_calloc(1, sizeof(*entry), &_bytes_used_buildscope);
             class_entry->kind = SK_DEPENDENT_FRIEND_CLASS;
@@ -2545,24 +2475,30 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
                 template_type_set_related_symbol(class_entry->type_information, class_entry);
 
                 // Get the primary class
-                class_entry = named_type_get_symbol(template_type_get_primary_type(class_entry->type_information));
+                scope_entry_t* primary_symbol =
+                    named_type_get_symbol(template_type_get_primary_type(class_entry->type_information));
 
                 // Update some fields
-                class_entry->kind = SK_DEPENDENT_FRIEND_CLASS;
-                class_entry->line = ASTLine(a);
-                class_entry->file = ASTFileName(a);
-                class_entry->entity_specs.is_user_declared = 0;
-                class_entry->entity_specs.is_friend_declared = 1;
+                primary_symbol->kind = SK_DEPENDENT_FRIEND_CLASS;
+                primary_symbol->line = ASTLine(a);
+                primary_symbol->file = ASTFileName(a);
+                primary_symbol->entity_specs.is_user_declared = 0;
+                primary_symbol->entity_specs.is_friend_declared = 1;
 
-                class_type = class_entry->type_information;
+                class_type = primary_symbol->type_information;
+
+                *type_info = get_void_type();
+                // The template symbol is added as a friend!
+                class_type_add_friend_symbol(class_symbol->type_information, class_entry);
+                class_entry = primary_symbol;
+            }
+            else
+            {
+                *type_info = get_void_type();
+                class_type_add_friend_symbol(class_symbol->type_information, class_entry);
             }
         }
-        *type_info = get_void_type();
-        class_type_add_friend_symbol(class_symbol->type_information, class_entry);
-    }
-    else
-    {
-        if (entry == NULL)
+        else
         {
             if (is_local_class_friend_decl)
             {
@@ -2644,15 +2580,10 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
                     set_is_dependent_type(class_entry->type_information, 1);
                 }
             }
-        }
+            class_type_add_friend_symbol(class_symbol->type_information, class_entry);
+            *type_info = get_user_defined_type(class_entry);
 
-        class_type_add_friend_symbol(class_symbol->type_information, class_entry);
-        *type_info = get_user_defined_type(class_entry);
-
-        CXX_LANGUAGE()
-        {
-            *nodecl_output = nodecl_concat_lists(*nodecl_output,
-                    nodecl_make_list_1(nodecl_make_cxx_decl(class_entry, ASTFileName(a), ASTLine(a))));
+            // Friend class declarations do not create a new cxx_decl nodecl
         }
     }
 }

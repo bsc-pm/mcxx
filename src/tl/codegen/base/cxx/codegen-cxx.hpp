@@ -282,6 +282,9 @@ namespace Codegen
                     void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
                     void (CxxBase::*def_sym_fun)(TL::Symbol symbol));
 
+            void declare_friend_symbol(TL::Symbol friend_symbol,
+                    TL::Symbol class_symbol);
+
             void define_or_declare_variable(TL::Symbol,
                     bool is_definition);
 

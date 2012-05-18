@@ -237,6 +237,12 @@ namespace TL
              */
             Symbol aliased_from_module() const;
 
+
+            bool has_alias_to() const;
+
+
+            Symbol get_alias_to() const;
+
             //! States that this symbol is a BLOCK DATA program unit
             /*! \note This only applies to Fortran */
             bool is_fortran_blockdata() const;

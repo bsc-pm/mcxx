@@ -3534,166 +3534,12 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
 
     // 3. Declare friends
     TL::ObjectList<TL::Symbol> friends = symbol_type.class_get_friends();
-
     for (TL::ObjectList<TL::Symbol>::iterator it = friends.begin();
             it != friends.end();
             it++)
     {
         TL::Symbol &_friend(*it);
-
-         //The user did not declare it, ignore it
-        if (_friend.is_friend_declared() &&
-                  !(_friend.is_dependent_friend_class() ||
-                    _friend.is_dependent_friend_function()))
-            continue;
-
-        bool is_primary_template = false;
-        TL::Type friend_type = _friend.get_type();
-        inc_indent();
-
-        // A. Generate a template header if this friend declaration has one
-        if (friend_type.is_template_specialized_type())
-        {
-            TL::Type template_type = friend_type.get_related_template_type();
-            TL::Type primary_template = template_type.get_primary_template();
-            TL::Symbol primary_symbol = primary_template.get_symbol();
-
-            if (friend_type.is_dependent())
-            {
-                is_primary_template = (_friend == primary_symbol);
-                TL::TemplateParameters template_parameters =
-                    _friend.get_scope().get_template_parameters();
-
-                codegen_template_headers_bounded(
-                        template_parameters,
-                        symbol.get_scope().get_template_parameters(),
-                        /* show default values */ false);
-            }
-        }
-
-        // B. Generate the function or class declaration
-        indent();
-        file << "friend ";
-
-        if (_friend.is_class())
-        {
-            std::string friend_class_key;
-            switch (friend_type.class_type_get_class_kind())
-            {
-                case TT_CLASS:
-                    friend_class_key = "class";
-                    break;
-                case TT_STRUCT:
-                    friend_class_key = "struct";
-                    break;
-                case TT_UNION:
-                    friend_class_key = "union";
-                    break;
-                default:
-                    internal_error("Invalid class kind", 0);
-            }
-
-            file << friend_class_key << " ";
-
-
-            // In the related symbols of _friend symbol we have stored the results of the query
-            // done in buildscope. If there are no results, we should not qualify the friend name
-            if (_friend.get_num_related_symbols() == 0)
-            {
-                file << _friend.get_name();
-            }
-            else
-            {
-                file << _friend.get_qualified_name(symbol.get_scope());
-            }
-        }
-        else if(_friend.is_dependent_friend_class())
-        {
-            enum type_tag_t class_key_tag;
-            if (friend_type.is_dependent_typename())
-            {
-                class_key_tag = get_dependent_entry_kind(friend_type.get_internal_type());
-            }
-            else
-            {
-                class_key_tag = friend_type.class_type_get_class_kind();
-            }
-
-            std::string friend_class_key;
-            switch (class_key_tag)
-            {
-                case TT_CLASS:
-                    friend_class_key = "class";
-                    break;
-                case TT_STRUCT:
-                    friend_class_key = "struct";
-                    break;
-                case TT_UNION:
-                    friend_class_key = "union";
-                    break;
-                default:
-                    internal_error("Invalid class kind", 0);
-            }
-
-            if (friend_type.is_dependent_typename())
-            {
-                file << this->get_declaration(friend_type, symbol.get_scope(), "");
-            }
-            else if(friend_type.is_template_specialized_type())
-            {
-                file << friend_class_key << " "
-                     << _friend.get_qualified_name(symbol.get_scope(), /* without template id */true);
-            }
-            else
-            {
-                file << friend_class_key << " "
-                     << this->get_declaration(friend_type, symbol.get_scope(), "");
-            }
-        }
-        else if (_friend.is_function())
-        {
-            std::string exception_spec = exception_specifier_to_str(_friend);
-            TL::Type real_type = friend_type;
-            if (symbol.is_conversion_function())
-            {
-                real_type = get_new_function_type(NULL, NULL, 0);
-            }
-
-            std::string function_name = (is_primary_template) ?
-                unmangle_symbol_name(_friend) : _friend.get_qualified_name();
-
-            file << this->get_declaration(real_type, symbol.get_scope(), function_name) << exception_spec;
-        }
-        else if (_friend.is_dependent_friend_function())
-        {
-            std::string exception_spec = exception_specifier_to_str(_friend);
-            TL::Type real_type = friend_type;
-            if (symbol.is_conversion_function())
-            {
-                real_type = get_new_function_type(NULL, NULL, 0);
-            }
-
-            std::string function_name;
-            if (friend_type.is_template_specialized_type())
-            {
-                function_name =
-                    _friend.get_qualified_name(symbol.get_scope(), /* without template id */ true);
-            }
-            else
-            {
-                function_name =
-                    _friend.get_qualified_name(symbol.get_scope(), /* without template id */ false);
-            }
-
-            file << this->get_declaration(real_type, symbol.get_scope(), function_name) << exception_spec;
-        }
-        else
-        {
-            internal_error("Invalid friend symbol kind '%s'\n", symbol_kind_name(_friend.get_internal_symbol()));
-        }
-
-        file << ";\n";
-        dec_indent();
+        declare_friend_symbol(*it, symbol);
     }
 
     indent();
@@ -3735,6 +3581,187 @@ void CxxBase::define_class_symbol(TL::Symbol symbol,
     state.classes_being_defined.pop_back();
 
     state.pending_nested_types_to_define = current_pending;
+}
+
+void CxxBase::declare_friend_symbol(TL::Symbol friend_symbol, TL::Symbol class_symbol)
+{
+    //The user did not declare it, ignore it
+    if (friend_symbol.is_friend_declared() &&
+            !(friend_symbol.is_dependent_friend_class() ||
+                friend_symbol.is_dependent_friend_function() ||
+                friend_symbol.is_template()))
+        return;
+
+
+    bool is_template_friend_declaration = false,
+         is_primary_template = false;
+
+    if (friend_symbol.is_template())
+    {
+        is_template_friend_declaration = true;
+        TL::Type primary_template = friend_symbol.get_type().get_primary_template();
+        TL::Symbol primary_symbol = primary_template.get_symbol();
+        friend_symbol = primary_symbol;
+    }
+    
+    TL::Type friend_type = friend_symbol.get_type();
+    inc_indent();
+
+    // A. Generate a template header if this friend declaration has one
+    if (friend_symbol.is_dependent_friend_class() && friend_symbol.has_alias_to())
+    {
+        // It's a special case: friend_symbol contains the right context
+        // of the template friend declaration and an alias to the real friend symbol
+        TL::Symbol pointed_symbol = friend_symbol.get_alias_to();
+        if (pointed_symbol.is_template())
+        {
+            is_template_friend_declaration = true;
+            TL::Type primary_template = pointed_symbol.get_type().get_primary_template();
+            TL::Symbol primary_symbol = primary_template.get_symbol();
+            pointed_symbol = primary_symbol;
+        }
+
+        codegen_template_headers_bounded(
+                friend_symbol.get_scope().get_template_parameters(),
+                class_symbol.get_scope().get_template_parameters(),
+                /* show default values */ false);
+
+        // Now, we should change the fake friend symbol by the real pointed symbol
+        friend_symbol = pointed_symbol;
+        friend_type = pointed_symbol.get_type();
+    }
+    else if (friend_type.is_template_specialized_type())
+    {
+        TL::Type template_type = friend_type.get_related_template_type();
+        TL::Type primary_template = template_type.get_primary_template();
+        TL::Symbol primary_symbol = primary_template.get_symbol();
+
+        if (friend_type.is_dependent())
+        {
+            is_primary_template = (friend_symbol == primary_symbol);
+            TL::TemplateParameters template_parameters =
+                friend_symbol.get_scope().get_template_parameters();
+
+            codegen_template_headers_bounded(
+                    template_parameters,
+                    class_symbol.get_scope().get_template_parameters(),
+                    /* show default values */ false);
+        }
+    }
+
+    // B. Generate the function or class declaration
+    indent();
+    file << "friend ";
+
+    if (friend_symbol.is_class())
+    {
+        std::string friend_class_key;
+        switch (friend_type.class_type_get_class_kind())
+        {
+            case TT_CLASS:
+                friend_class_key = "class";
+                break;
+            case TT_STRUCT:
+                friend_class_key = "struct";
+                break;
+            case TT_UNION:
+                friend_class_key = "union";
+                break;
+            default:
+                internal_error("Invalid class kind", 0);
+        }
+
+        file << friend_class_key << " ";
+
+        if ((get_codegen_status(friend_symbol) != CODEGEN_STATUS_DECLARED &&
+                    get_codegen_status(friend_symbol) != CODEGEN_STATUS_DEFINED))
+        {
+            // The class_symbol has not been declared or defined before this friend declaration
+            // We cannot print its qualified
+            file << friend_symbol.get_name();
+        }
+        else
+        {
+            file << friend_symbol.get_qualified_name(class_symbol.get_scope(),
+                    /*without template id */ is_template_friend_declaration);
+        }
+    }
+    else if(friend_symbol.is_dependent_friend_class())
+    {
+        enum type_tag_t class_key_tag;
+        if (friend_type.is_dependent_typename())
+        {
+            class_key_tag = get_dependent_entry_kind(friend_type.get_internal_type());
+        }
+        else
+        {
+            class_key_tag = friend_type.class_type_get_class_kind();
+        }
+
+        std::string friend_class_key;
+        switch (class_key_tag)
+        {
+            case TT_CLASS:
+                friend_class_key = "class";
+                break;
+            case TT_STRUCT:
+                friend_class_key = "struct";
+                break;
+            case TT_UNION:
+                friend_class_key = "union";
+                break;
+            default:
+                internal_error("Invalid class kind", 0);
+        }
+
+        file << this->get_declaration(friend_type, friend_symbol.get_scope(), "");
+    }
+    else if (friend_symbol.is_function())
+    {
+        std::string exception_spec = exception_specifier_to_str(friend_symbol);
+        TL::Type real_type = friend_type;
+        if (class_symbol.is_conversion_function())
+        {
+            real_type = get_new_function_type(NULL, NULL, 0);
+        }
+
+        std::string function_name = (is_primary_template) ?
+            unmangle_symbol_name(friend_symbol) : friend_symbol.get_qualified_name();
+
+        file << this->get_declaration(real_type, class_symbol.get_scope(), function_name) << exception_spec;
+    }
+    else if (friend_symbol.is_dependent_friend_function())
+    {
+        std::string exception_spec = exception_specifier_to_str(friend_symbol);
+        TL::Type real_type = friend_type;
+        if (class_symbol.is_conversion_function())
+        {
+            real_type = get_new_function_type(NULL, NULL, 0);
+        }
+
+        std::string function_name;
+        if (friend_type.is_template_specialized_type())
+        {
+            function_name = friend_symbol.get_qualified_name(
+                    class_symbol.get_scope(),
+                    /* without template id */ true);
+        }
+        else
+        {
+            function_name = friend_symbol.get_qualified_name(
+                    class_symbol.get_scope(),
+                    /* without template id */ false);
+        }
+
+        file << this->get_declaration(real_type, class_symbol.get_scope(), function_name) << exception_spec;
+    }
+    else
+    {
+        internal_error("Invalid friend class_symbol kind '%s'\n", symbol_kind_name(friend_symbol.get_internal_symbol()));
+    }
+
+    file << ";\n";
+    dec_indent();
 }
 
 bool CxxBase::is_local_symbol(TL::Symbol entry)
