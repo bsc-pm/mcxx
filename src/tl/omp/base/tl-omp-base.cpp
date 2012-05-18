@@ -256,7 +256,7 @@ namespace TL { namespace OpenMP {
         void Base::_name##_handler_pre(TL::PragmaCustomDirective) { } \
         void Base::_name##_handler_post(TL::PragmaCustomDirective) { }
 
-        EMPTY_HANDLERS_CONSTRUCT(master)
+        INVALID_DECLARATION_HANDLER(master)
         EMPTY_HANDLERS_CONSTRUCT(ordered)
         EMPTY_HANDLERS_CONSTRUCT(parallel_do)
 
@@ -320,6 +320,17 @@ namespace TL { namespace OpenMP {
                 Nodecl::OpenMP::FlushMemory::make(
                     parameter.shallow_copy(),
                     directive.get_filename(), directive.get_line())
+                );
+    }
+
+    void Base::master_handler_pre(TL::PragmaCustomStatement) { }
+    void Base::master_handler_post(TL::PragmaCustomStatement directive)
+    {
+        directive.integrate(
+                Nodecl::OpenMP::Master::make(
+                    directive.get_statements().shallow_copy(),
+                    directive.get_filename(),
+                    directive.get_line())
                 );
     }
 
