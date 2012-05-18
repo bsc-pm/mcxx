@@ -67,8 +67,7 @@ namespace TL { namespace Nanox {
             Source::source_language = SourceLanguage::Current;
         }
 
-        Nodecl::Utils::SimpleSymbolMap empty_symbol_map; // No replacements needed here
-        Nodecl::NodeclBase copied_statements = Nodecl::Utils::deep_copy(statements, placeholder, empty_symbol_map);
+        Nodecl::NodeclBase copied_statements = Nodecl::Utils::deep_copy(statements, placeholder);
         placeholder.integrate(copied_statements);
 
         construct.integrate(n);
