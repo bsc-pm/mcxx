@@ -40,6 +40,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         virtual void visit(const Nodecl::OpenMP::WaitOnDependences& construct);
         virtual void visit(const Nodecl::OpenMP::TaskCall& construct);
         virtual void visit(const Nodecl::OpenMP::Single& construct);
+        virtual void visit(const Nodecl::OpenMP::Master& construct);
         virtual void visit(const Nodecl::OpenMP::BarrierFull& construct);
         virtual void visit(const Nodecl::OpenMP::Parallel& construct);
         virtual void visit(const Nodecl::OpenMP::For& construct);
@@ -178,8 +179,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::List distribute_environment,
                 Nodecl::List ranges,
                 const std::string& outline_name,
-                TL::Symbol structure_symbol,
-                Source inline_iteration_source);
+                TL::Symbol structure_symbol);
 
         Source full_barrier_source();
 

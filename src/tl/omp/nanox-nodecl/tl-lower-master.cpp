@@ -25,15 +25,15 @@
 --------------------------------------------------------------------*/
 
 
+
 #include "tl-source.hpp"
 #include "tl-lowering-visitor.hpp"
 #include "tl-nodecl-utils.hpp"
 
 namespace TL { namespace Nanox {
 
-    void LoweringVisitor::visit(const Nodecl::OpenMP::Single& construct)
+    void LoweringVisitor::visit(const Nodecl::OpenMP::Master& construct)
     {
-        Nodecl::NodeclBase environment = construct.get_environment();
         Nodecl::NodeclBase statements = construct.get_statements();
 
         walk(statements);
@@ -41,18 +41,11 @@ namespace TL { namespace Nanox {
         statements = construct.get_statements();
 
         Nodecl::NodeclBase placeholder;
-
-        TL::Source transform_code, final_barrier;
+        Source transform_code;
         transform_code
-            << "{"
-            << as_type(::get_bool_type()) << " single_guard;"
-            << "nanos_err_t err = nanos_omp_single(&single_guard);"
-            << "if (err != NANOS_OK) nanos_handle_error(err);"
-
-            << "if (single_guard)"
+            << "if (nanos_omp_get_thread_num() == 0)"
             << "{"
             << statement_placeholder(placeholder)
-            << "}"
             << "}"
             ;
 
@@ -69,8 +62,7 @@ namespace TL { namespace Nanox {
 
         Nodecl::NodeclBase copied_statements = Nodecl::Utils::deep_copy(statements, placeholder);
         placeholder.integrate(copied_statements);
-
-        construct.integrate(n);
     }
 
 } }
+

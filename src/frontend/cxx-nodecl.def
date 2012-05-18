@@ -371,9 +371,13 @@ parallel-execution : task-construct
                    | for-construct
                    | atomic-construct
                    | sections-construct
+                   | master-construct
 
 # single
 single-construct : NODECL_OPEN_M_P*SINGLE([environment]exec-environment-seq-opt, [statements]statement-seq-opt)
+
+# master
+master-construct : NODECL_OPEN_M_P*MASTER([statements]statement-seq-opt)
 
 # critical
 critical-construct : NODECL_OPEN_M_P*CRITICAL([environment]exec-environment-seq-opt, [statements]statement-seq-opt)

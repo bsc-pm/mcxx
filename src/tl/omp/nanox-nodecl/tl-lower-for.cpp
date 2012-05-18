@@ -80,7 +80,7 @@ namespace TL { namespace Nanox {
             Nodecl::OpenMP::ForRange range(range_item.as<Nodecl::OpenMP::ForRange>());
 
             for_code
-                << "while (nanos_loop_info.execute)"
+                << "while (nanos_item_loop.execute)"
                 << "{"
                 ;
 
@@ -94,8 +94,8 @@ namespace TL { namespace Nanox {
                 {
 
                     for_code
-                        << "for (" << ind_var.get_name() << " = nanos_loop_info.lower;"
-                        << ind_var.get_name() << " <= nanos_loop_info.upper;"
+                        << "for (" << ind_var.get_name() << " = nanos_item_loop.lower;"
+                        << ind_var.get_name() << " <= nanos_item_loop.upper;"
                         << ind_var.get_name() << " += " << cval_nodecl.prettyprint() << ")"
                         << "{"
                         ;
@@ -103,8 +103,8 @@ namespace TL { namespace Nanox {
                 else
                 {
                     for_code
-                        << "for (" << ind_var.get_name() << " = nanos_loop_info.lower;"
-                        << ind_var.get_name() << " >= nanos_loop_info.upper;"
+                        << "for (" << ind_var.get_name() << " = nanos_item_loop.lower;"
+                        << ind_var.get_name() << " >= nanos_item_loop.upper;"
                         << ind_var.get_name() << " += " << cval_nodecl.prettyprint() << ")"
                         << "{"
                         ;
@@ -122,8 +122,8 @@ namespace TL { namespace Nanox {
                     << as_type(range.get_step().get_type()) << " nanos_step = " << as_expression(range.get_step()) << ";"
                     << "if (nanos_step > 0)"
                     << "{"
-                    <<    "for (" << ind_var.get_name() << " = nanos_loop_info.lower;"
-                    <<    ind_var.get_name() << " <= nanos_loop_info.upper;"
+                    <<    "for (" << ind_var.get_name() << " = nanos_item_loop.lower;"
+                    <<    ind_var.get_name() << " <= nanos_item_loop.upper;"
                     <<    ind_var.get_name() << " += nanos_step)"
                     <<    "{"
                     <<    statement_placeholder(placeholder1)
@@ -131,8 +131,8 @@ namespace TL { namespace Nanox {
                     << "}"
                     << "else"
                     << "{"
-                    <<    "for (" << ind_var.get_name() << " = nanos_loop_info.lower;"
-                    <<    ind_var.get_name() << " >= nanos_loop_info.upper;"
+                    <<    "for (" << ind_var.get_name() << " = nanos_item_loop.lower;"
+                    <<    ind_var.get_name() << " >= nanos_item_loop.upper;"
                     <<    ind_var.get_name() << " += nanos_step)"
                     <<    "{"
                     <<    statement_placeholder(placeholder2)
@@ -142,7 +142,7 @@ namespace TL { namespace Nanox {
             }
 
             for_code
-                << "err = nanos_worksharing_next_item(wsd, &nanos_loop_info);"
+                << "err = nanos_worksharing_next_item(wsd, (void**)&nanos_item_loop);"
                 << "}"
                 ;
         }
@@ -158,9 +158,9 @@ namespace TL { namespace Nanox {
         Source outline_source;
         outline_source
             << "{"
-            << "nanos_ws_item_loop_t nanos_loop_info;"
+            << "nanos_ws_item_loop_t nanos_item_loop;"
             << "nanos_err_t err;"
-            << "err = nanos_worksharing_next_item(wsd, &nanos_loop_info);"
+            << "err = nanos_worksharing_next_item(wsd, (void**)&nanos_item_loop);"
             << "if (err != NANOS_OK)"
             <<     "nanos_handle_error(err);"
             << for_code
@@ -219,24 +219,9 @@ namespace TL { namespace Nanox {
                     );
         }
 
-        delete symbol_map;
-        symbol_map = NULL;
+        delete symbol_map; symbol_map = NULL;
 
-        // Now for the inline case
-        placeholder1 = Nodecl::NodeclBase::null();
-        placeholder2 = Nodecl::NodeclBase::null();
-        loop_spawn(outline_info, construct, distribute_environment, ranges, outline_name, structure_symbol, outline_source);
-
-        placeholder1.integrate(
-                Nodecl::Utils::deep_copy(statements, placeholder1)
-                );
-
-        if (!placeholder2.is_null())
-        {
-            placeholder2.integrate(
-                    Nodecl::Utils::deep_copy(statements, placeholder2)
-                    );
-        }
+        loop_spawn(outline_info, construct, distribute_environment, ranges, outline_name, structure_symbol);
     }
 
 } }

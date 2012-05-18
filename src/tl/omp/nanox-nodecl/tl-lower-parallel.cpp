@@ -62,8 +62,12 @@ namespace TL { namespace Nanox {
         Source outline_source, reduction_code;
         Nodecl::NodeclBase placeholder;
         outline_source
+            << "nanos_err_t err = nanos_omp_set_implicit(nanos_current_wd());"
+            << "if (err != NANOS_OK) nanos_handle_error(err);"
             << statement_placeholder(placeholder)
             << reduction_code
+            << "err = nanos_omp_barrier();"
+            << "if (err != NANOS_OK) nanos_handle_error(err);"
             ;
 
         TL::ObjectList<OutlineDataItem> reduction_items = outline_info.get_data_items().filter(

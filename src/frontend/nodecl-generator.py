@@ -458,6 +458,7 @@ def generate_visitor_class_header(rule_map):
     for (namespaces, class_name) in classes:
         qualified_name = get_qualified_name(namespaces, class_name)
         print "     virtual Ret visit(const Nodecl::%s &) = 0;" % (qualified_name)
+    print "   virtual _Ret join_list(TL::ObjectList<_Ret> &) = 0;"
     print "   virtual ~BaseNodeclVisitor() { }"
     print "};"
     print "template <>"
@@ -472,7 +473,7 @@ def generate_visitor_class_header(rule_map):
     print "   virtual ~BaseNodeclVisitor() { }"
     print "};"
     print "template <typename _Ret>"
-    print "class NodeclVisitor : public BaseNodeclVisitor<_Ret>"
+    print "class UnhandledNodeclVisitor : public BaseNodeclVisitor<_Ret>"
     print "{"
     print "   public:"
     print "     typedef typename BaseNodeclVisitor<_Ret>::Ret Ret;"
@@ -480,8 +481,41 @@ def generate_visitor_class_header(rule_map):
     for (namespaces, class_name) in classes:
         qualified_name = get_qualified_name(namespaces, class_name)
         print "     virtual Ret visit(const Nodecl::%s & n) { return this->unhandled_node(n); }" % (qualified_name)
-    print "   virtual ~NodeclVisitor() { }"
+    print "   virtual ~UnhandledNodeclVisitor() { }"
     print "};"
+    print "template <typename _Ret>"
+    print "class NodeclVisitor : public UnhandledNodeclVisitor<_Ret>"
+    print "{"
+    print "   public:"
+    print "     typedef typename UnhandledNodeclVisitor<_Ret>::Ret Ret;"
+    print "};"
+    print "template <typename _Ret>"
+    print "class NodeclVisitor<TL::ObjectList<_Ret> > : public UnhandledNodeclVisitor<TL::ObjectList<_Ret> >"
+    print "{"
+    print "   public:"
+    print "     typedef typename UnhandledNodeclVisitor<TL::ObjectList<_Ret> >::Ret Ret;"
+    print "     TL::ObjectList<_Ret> join_list(TL::ObjectList<TL::ObjectList<_Ret> > &list)"
+    print "     {"
+    print          "TL::ObjectList<_Ret> result;"
+    print          "for (typename TL::ObjectList<TL::ObjectList<_Ret> >::iterator it = list.begin(); it != list.end(); it++)"
+    print          "{"
+    print               "TL::ObjectList<_Ret> &o_list(*it);"
+    print               "result.append(o_list);"
+    print          "}"
+    print          "return result;"
+    print "     }"
+    print "};"
+    print "template <>"
+    print "class NodeclVisitor<Nodecl::NodeclBase> : public UnhandledNodeclVisitor<Nodecl::NodeclBase>"
+    print "{"
+    print "   public:"
+    print "     typedef typename UnhandledNodeclVisitor<Nodecl::NodeclBase>::Ret Ret;"
+    print "     virtual Nodecl::NodeclBase join_list(TL::ObjectList<Nodecl::NodeclBase> &list)"
+    print "     {"
+    print "         return Nodecl::List::make(list);"
+    print "     }"
+    print "};"
+
     print "template <typename _Ret>"
     print "class ExhaustiveVisitor : public NodeclVisitor<_Ret>"
     print "{"
@@ -519,25 +553,6 @@ def generate_visitor_class_header(rule_map):
     print "   BaseNodeclVisitor<_Ret> *_proxy;"
     print "};"
 
-    print "// You should provide an implementation for each returned type"
-    print "inline Nodecl::NodeclBase join_walk_list(TL::ObjectList<Nodecl::NodeclBase> &list)"
-    print "{"
-    print "   return Nodecl::List::make(list);"
-    print "}"
-
-
-    print "template <typename _Ret>"
-    print "TL::ObjectList<_Ret> join_walk_list(TL::ObjectList<TL::ObjectList<_Ret> > &list)"
-    print "{"
-    print     "TL::ObjectList<_Ret> result;"
-    print     "for (typename TL::ObjectList<TL::ObjectList<_Ret> >::iterator it = list.begin(); it != list.end(); it++)"
-    print     "{"
-    print          "TL::ObjectList<_Ret> &o_list(*it);"
-    print          "result.append(o_list);"
-    print     "}"
-    print     "return result;"
-    print "}"
-
     print "template <typename _Ret>"
     print "typename BaseNodeclVisitor<_Ret>::Ret BaseNodeclVisitor<_Ret>::walk(const NodeclBase& n)"
     print "{"
@@ -547,7 +562,7 @@ def generate_visitor_class_header(rule_map):
     switch ((int)n.get_kind())
     {
         case AST_NODE_LIST: { TL::ObjectList<Ret> result; AST tree = nodecl_get_ast(n._n); AST it; for_each_element(tree, it) { AST elem = ASTSon1(it);
-NodeclBase nb(::_nodecl_wrap(elem)); result.append(this->walk(nb)); } return join_walk_list(result); break; }
+NodeclBase nb(::_nodecl_wrap(elem)); result.append(this->walk(nb)); } return this->join_list(result); break; }
 """
     node_kind = set([])
     for rule_name in rule_map:
