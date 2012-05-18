@@ -136,7 +136,7 @@ namespace TL { namespace Nanox {
 
             param->entity_specs.is_parameter = 1;
 
-            param->type_information = type_it->get_internal_type();
+            param->type_information = get_unqualified_type(type_it->get_internal_type());
 
             P_LIST_ADD(entry->entity_specs.related_symbols,
                     entry->entity_specs.num_related_symbols,
