@@ -135,11 +135,15 @@ namespace TL { namespace Nanox {
 
                 int rank = ::get_rank_of_type(t.get_internal_type());
                 t = TL::Type(
-                        ::get_n_ranked_type(
+                        ::get_n_ranked_type_with_descriptor(
                             ::get_rank0_type(t.get_internal_type()), rank, CURRENT_COMPILED_FILE->global_decl_context)
                         );
 
                 if (is_pointer)
+                {
+                    t = t.get_pointer_to();
+                }
+                else
                 {
                     data_item.set_allocation_policy(OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE);
                 }
@@ -180,6 +184,9 @@ namespace TL { namespace Nanox {
             // VLA types
             handle_vla_entity(*(*it), outline_info);
         }
+
+        // Update again
+        data_items = outline_info.get_data_items();
 
         // FIXME - Wrap lots of things
         TL::Scope sc(CURRENT_COMPILED_FILE->global_decl_context);
