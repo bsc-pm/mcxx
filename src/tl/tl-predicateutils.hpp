@@ -237,6 +237,21 @@ namespace TL
             }
     };
 
+    template <class T>
+    class AdaptorPredicate : public Predicate<T>
+    {
+        private:
+            const Functor<bool, T>& _fun;
+        public:
+
+            AdaptorPredicate(const Functor<bool, T>& fun) : _fun(fun) { }
+
+            virtual bool do_(typename AdaptorPredicate::ArgType t) const
+            {
+                return _fun(t);
+            }
+    };
+
     //! Adaptor function to create predicates after a non-member function returning bool
     template <class T>
     FunctionPredicateVal<T> predicate(bool (*pf)(T))
@@ -287,6 +302,13 @@ namespace TL
     ThisMemberFunctionConstPredicate<T> predicate(bool (T::* pf)() const)
     {
         return ThisMemberFunctionConstPredicate<T>(pf);
+    }
+
+    template <class T>
+    AdaptorPredicate<T> predicate(const Functor<bool, T>& fun)
+    {
+        AdaptorPredicate<T> adaptor_pred(fun);
+        return adaptor_pred;
     }
 
     //! Class of predicates useful to check whether an element is in a list
