@@ -517,6 +517,27 @@ type_t* get_n_ranked_type(type_t* scalar_type, int rank, decl_context_t decl_con
     }
 }
 
+type_t* get_n_ranked_type_with_descriptor(type_t* scalar_type, int rank, decl_context_t decl_context)
+{
+    scalar_type = no_ref(scalar_type);
+
+    ERROR_CONDITION(is_fortran_array_type(scalar_type), "This is not a scalar type!", 0);
+
+    if (rank == 0)
+    {
+        return scalar_type;
+    }
+    else if (rank > 0)
+    {
+        return get_array_type_bounds_with_descriptor(
+                get_n_ranked_type(scalar_type, rank-1, decl_context), nodecl_null(), nodecl_null(), decl_context);
+    }
+    else
+    {
+        internal_error("Invalid rank %d\n", rank);
+    }
+}
+
 char is_fortran_intrinsic_type(type_t* t)
 {
     t = no_ref(t);
