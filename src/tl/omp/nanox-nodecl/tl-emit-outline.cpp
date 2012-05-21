@@ -85,6 +85,218 @@ namespace TL { namespace Nanox {
             }
     };
 
+    static TL::Symbol new_function_symbol_unpacked(
+            Scope sc,
+            const std::string& function_name,
+            OutlineInfo& outline_info)
+    {
+        decl_context_t decl_context = sc.get_decl_context();
+        decl_context_t function_context;
+
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            function_context = new_program_unit_context(decl_context);
+        }
+        else
+        {
+            function_context = new_function_context(decl_context);
+            function_context = new_block_context(function_context);
+        }
+
+        // Create all the symbols and an appropiate mapping
+
+        Nodecl::Utils::SimpleSymbolMap symbol_map;
+
+        TL::ObjectList<TL::Symbol> parameter_symbols;
+
+        TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
+        for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+                it != data_items.end();
+                it++)
+        {
+            TL::Symbol sym = (*it)->get_symbol();
+            TL::Type type(NULL);
+
+            std::string name;
+            if (sym.is_valid())
+            {
+                name = sym.get_name();
+                type = sym.get_type();
+            }
+            else
+            {
+                name = (*it)->get_field_name();
+                type = (*it)->get_in_outline_type();
+            }
+
+            switch ((*it)->get_sharing())
+            {
+                case OutlineDataItem::SHARING_PRIVATE:
+                    {
+                        scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope, name.c_str());
+                        private_sym->kind = SK_VARIABLE;
+                        private_sym->type_information = (*it)->get_in_outline_type().get_internal_type();
+                        private_sym->defined = private_sym->entity_specs.is_user_declared = 1;
+
+                        if (sym.is_valid())
+                        {
+                            symbol_map.add_map(sym, private_sym);
+                        }
+
+                        break;
+                    }
+                case OutlineDataItem::SHARING_SHARED:
+                case OutlineDataItem::SHARING_CAPTURE:
+                case OutlineDataItem::SHARING_CAPTURE_ADDRESS:
+                    {
+                        switch ((*it)->get_item_kind())
+                        {
+                            case OutlineDataItem::ITEM_KIND_NORMAL:
+                            case OutlineDataItem::ITEM_KIND_DATA_DIMENSION:
+                                {
+                                    scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope,
+                                            name.c_str());
+                                    private_sym->kind = SK_VARIABLE;
+                                    private_sym->type_information = (*it)->get_in_outline_type().get_internal_type();
+                                    private_sym->defined = private_sym->entity_specs.is_user_declared = 1;
+
+                                    if (sym.is_valid())
+                                    {
+                                        symbol_map.add_map(sym, private_sym);
+                                    }
+
+                                    parameter_symbols.append(private_sym);
+                                    break;
+                                }
+                            case OutlineDataItem::ITEM_KIND_DATA_ADDRESS:
+                                {
+                                    scope_entry_t* param_addr_sym = ::new_symbol(function_context, function_context.current_scope, 
+                                            ("ptr_" + name).c_str());
+                                    param_addr_sym->kind = SK_VARIABLE;
+                                    param_addr_sym->type_information = ::get_pointer_type(::get_void_type());
+                                    param_addr_sym->defined = param_addr_sym->entity_specs.is_user_declared = 1;
+
+                                    parameter_symbols.append(param_addr_sym);
+
+                                    scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope, name.c_str());
+                                    private_sym->kind = SK_VARIABLE;
+                                    private_sym->type_information = (*it)->get_in_outline_type().get_internal_type();
+                                    private_sym->defined = private_sym->entity_specs.is_user_declared = 1;
+
+                                    if (sym.is_valid())
+                                    {
+                                        symbol_map.add_map(sym, private_sym);
+                                    }
+                                    break;
+                                }
+                            default:
+                                {
+                                    internal_error("Code unreachable", 0);
+                                }
+                        }
+                        break;
+                    }
+                case OutlineDataItem::SHARING_REDUCTION:
+                    {
+                        // This is a mixture of private and shared
+                        // A private is emitted for the partial reduction
+                        // Such partial reduction must be initialized with the entity
+
+                        // Parameter
+                        TL::Type param_type = (*it)->get_field_type();
+                        if (IS_FORTRAN_LANGUAGE)
+                        {
+                            param_type = param_type.get_lvalue_reference_to();
+                        }
+
+                        scope_entry_t* reduction_private_sym = ::new_symbol(function_context, function_context.current_scope, 
+                                ("rdp_" + (*it)->get_field_name()).c_str());
+                        reduction_private_sym->kind = SK_VARIABLE;
+                        reduction_private_sym->type_information = param_type.get_internal_type();
+                        reduction_private_sym->defined = reduction_private_sym->entity_specs.is_user_declared = 1;
+
+                        parameter_symbols.append(reduction_private_sym);
+
+                        // Local variable
+                        scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope, name.c_str());
+                        private_sym->kind = SK_VARIABLE;
+                        private_sym->type_information = (*it)->get_in_outline_type().get_internal_type();
+                        private_sym->defined = private_sym->entity_specs.is_user_declared = 1;
+
+                        if (sym.is_valid())
+                        {
+                            symbol_map.add_map(sym, private_sym);
+                        }
+
+                        break;
+                    }
+                default:
+                    {
+                        internal_error("Unexpected data sharing kind", 0);
+                    }
+            }
+        }
+
+        // Update types of parameters (this is needed by VLAs)
+        for (TL::ObjectList<TL::Symbol>::iterator it = parameter_symbols.begin();
+                it != parameter_symbols.end();
+                it++)
+        {
+            it->get_internal_symbol()->type_information =
+                type_deep_copy(it->get_internal_symbol()->type_information,
+                       function_context,
+                       &symbol_map,
+                       Nodecl::Utils::SymbolMap::adapter);
+        }
+
+        // Now everything is set to register the function
+        scope_entry_t* new_function_sym = new_symbol(decl_context, decl_context.current_scope, function_name.c_str());
+        new_function_sym->entity_specs.is_user_declared = 1;
+
+        new_function_sym->kind = SK_FUNCTION;
+        new_function_sym->file = "";
+        new_function_sym->line = 0;
+
+        function_context.function_scope->related_entry = new_function_sym;
+        function_context.block_scope->related_entry = new_function_sym;
+
+        new_function_sym->related_decl_context = function_context;
+
+        parameter_info_t* p_types = new parameter_info_t[parameter_symbols.size()];
+
+        parameter_info_t* it_ptypes = &(p_types[0]);
+        for (ObjectList<TL::Symbol>::iterator it = parameter_symbols.begin();
+                it != parameter_symbols.end();
+                it++, it_ptypes++)
+        {
+            scope_entry_t* param = it->get_internal_symbol();
+
+            param->entity_specs.is_parameter = 1;
+
+            P_LIST_ADD(new_function_sym->entity_specs.related_symbols,
+                    new_function_sym->entity_specs.num_related_symbols,
+                    param);
+
+            it_ptypes->is_ellipsis = 0;
+            it_ptypes->nonadjusted_type_info = NULL;
+
+            // FIXME - We should do all the remaining lvalue adjustments
+            type_t* param_type = get_unqualified_type(param->type_information);
+            it_ptypes->type_info = param_type;
+        }
+
+        type_t *function_type = get_new_function_type(
+                get_void_type(),
+                p_types,
+                parameter_symbols.size());
+
+        new_function_sym->type_information = function_type;
+
+        delete[] p_types;
+
+        return new_function_sym;
+    }
+
     static TL::Symbol new_function_symbol(Scope sc,
             const std::string& name,
             TL::Type return_type,
@@ -197,9 +409,6 @@ namespace TL { namespace Nanox {
                         original_statements.get_locus().c_str());
         }
 
-        TL::ObjectList<std::string> parameter_names;
-        TL::ObjectList<TL::Type> parameter_types;
-
         Source unpack_code, unpacked_arguments, cleanup_code, private_entities, extra_declarations;
 
         TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
@@ -261,13 +470,11 @@ namespace TL { namespace Nanox {
                             case OutlineDataItem::ITEM_KIND_NORMAL:
                             case OutlineDataItem::ITEM_KIND_DATA_DIMENSION:
                                 {
-                                    parameter_names.append((*it)->get_field_name());
                                     break;
                                 }
                             case OutlineDataItem::ITEM_KIND_DATA_ADDRESS:
                                 {
                                     param_type = TL::Type::get_void_type().get_pointer_to();
-                                    parameter_names.append("ptr_" + (*it)->get_field_name());
 
                                     private_entities
                                         << as_type((*it)->get_in_outline_type()) 
@@ -283,8 +490,6 @@ namespace TL { namespace Nanox {
                                     internal_error("Code unreachable", 0);
                                 }
                         }
-
-                        parameter_types.append(param_type);
 
                         Source argument;
                         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
@@ -381,9 +586,6 @@ namespace TL { namespace Nanox {
                             param_type = param_type.get_lvalue_reference_to();
                         }
 
-                        parameter_names.append("rdp_" + (*it)->get_field_name());
-                        parameter_types.append(param_type);
-
                         Source argument;
                         // Now the shared part
                         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
@@ -407,13 +609,17 @@ namespace TL { namespace Nanox {
             }
         }
 
-        TL::Symbol unpacked_function = new_function_symbol(
-                // We want a sibling of the current function
+        TL::Symbol unpacked_function = new_function_symbol_unpacked(
                 current_function.get_scope(),
                 outline_name + "_unpacked",
-                TL::Type::get_void_type(),
-                parameter_names,
-                parameter_types);
+                outline_info);
+        // TL::Symbol unpacked_function = new_function_symbol(
+        //         // We want a sibling of the current function
+        //         current_function.get_scope(),
+        //         outline_name + "_unpacked",
+        //         TL::Type::get_void_type(),
+        //         parameter_names,
+        //         parameter_types);
 
         outline_info.set_unpacked_function_symbol(unpacked_function);
 
