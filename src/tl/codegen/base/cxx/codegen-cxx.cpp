@@ -3741,21 +3741,8 @@ void CxxBase::declare_friend_symbol(TL::Symbol friend_symbol, TL::Symbol class_s
 
         file << this->get_declaration(friend_type, friend_symbol.get_scope(), "");
     }
-    else if (friend_symbol.is_function())
-    {
-        std::string exception_spec = exception_specifier_to_str(friend_symbol);
-        TL::Type real_type = friend_type;
-        if (class_symbol.is_conversion_function())
-        {
-            real_type = get_new_function_type(NULL, NULL, 0);
-        }
-
-        std::string function_name = (is_primary_template) ?
-            unmangle_symbol_name(friend_symbol) : friend_symbol.get_qualified_name();
-
-        file << this->get_declaration(real_type, class_symbol.get_scope(), function_name) << exception_spec;
-    }
-    else if (friend_symbol.is_dependent_friend_function())
+    else if (friend_symbol.is_function()
+            || friend_symbol.is_dependent_friend_function())
     {
         std::string exception_spec = exception_specifier_to_str(friend_symbol);
         TL::Type real_type = friend_type;
@@ -3765,20 +3752,18 @@ void CxxBase::declare_friend_symbol(TL::Symbol friend_symbol, TL::Symbol class_s
         }
 
         std::string function_name;
-        if (friend_type.is_template_specialized_type())
+        if (friend_symbol.is_function())
         {
-            function_name = friend_symbol.get_qualified_name(
-                    class_symbol.get_scope(),
-                    /* without template id */ true);
+            function_name = (is_primary_template) ?
+                unmangle_symbol_name(friend_symbol) : friend_symbol.get_qualified_name();
         }
         else
         {
-            function_name = friend_symbol.get_qualified_name(
-                    class_symbol.get_scope(),
-                    /* without template id */ false);
+            function_name = friend_symbol.get_qualified_name(class_symbol.get_scope(),
+                    /* without template id */ (friend_type.is_template_specialized_type()));
         }
 
-        file << this->get_declaration(real_type, class_symbol.get_scope(), function_name) << exception_spec;
+        file << this->get_declaration(real_type, friend_symbol.get_scope(), function_name) << exception_spec;
     }
     else
     {
