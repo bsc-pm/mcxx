@@ -41,21 +41,21 @@ namespace TL { namespace Nanox {
             Source &fill_outline_arguments,
             Source &fill_immediate_arguments)
     {
-        TL::ObjectList<OutlineDataItem> reduction_items = outline_info.get_data_items().filter(
-                predicate(&OutlineDataItem::is_reduction));
+        TL::ObjectList<OutlineDataItem*> reduction_items = outline_info.get_data_items().filter(
+                predicate(lift_pointer(functor(&OutlineDataItem::is_reduction))));
 
         if (!reduction_items.empty())
         {
-            for (TL::ObjectList<OutlineDataItem>::iterator it = reduction_items.begin();
+            for (TL::ObjectList<OutlineDataItem*>::iterator it = reduction_items.begin();
                     it != reduction_items.end();
                     it++)
             {
-                std::string nanos_red_name = "nanos_red_" + it->get_symbol().get_name();
+                std::string nanos_red_name = "nanos_red_" + (*it)->get_symbol().get_name();
 
-                OpenMP::UDRInfoItem *udr_info = it->get_reduction_info();
+                OpenMP::UDRInfoItem *udr_info = (*it)->get_reduction_info();
                 ERROR_CONDITION(udr_info == NULL, "Invalid reduction info", 0);
 
-                TL::Type reduction_type = it->get_symbol().get_type();
+                TL::Type reduction_type = (*it)->get_symbol().get_type();
                 if (reduction_type.is_any_reference())
                     reduction_type = reduction_type.references_to();
 
@@ -68,7 +68,7 @@ namespace TL { namespace Nanox {
                     << "\"" << construct.get_filename() << "\", " << construct.get_line() << ");"
                     << "if (err != NANOS_OK)"
                     <<     "nanos_handle_error(err);"
-                    << nanos_red_name << "->original = (void*)&" << it->get_symbol().get_name() << ";"
+                    << nanos_red_name << "->original = (void*)&" << (*it)->get_symbol().get_name() << ";"
                    << "err = nanos_malloc(&" << nanos_red_name << "->privates, sizeof(" << as_type(reduction_type) << ") * " << max_threads <<", "
                     << "\"" << construct.get_filename() << "\", " << construct.get_line() << ");"
                     << "if (err != NANOS_OK)"
@@ -79,10 +79,10 @@ namespace TL { namespace Nanox {
                     ;
 
                 fill_outline_arguments
-                    << "ol_args->" << it->get_field_name() << " = " << nanos_red_name << "->privates;"
+                    << "ol_args->" << (*it)->get_field_name() << " = " << nanos_red_name << "->privates;"
                     ;
                 fill_immediate_arguments
-                    << "imm_args." << it->get_field_name() << " = " << nanos_red_name << "->privates;"
+                    << "imm_args." << (*it)->get_field_name() << " = " << nanos_red_name << "->privates;"
                     ;
             }
         }

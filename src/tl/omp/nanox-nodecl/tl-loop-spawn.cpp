@@ -122,8 +122,8 @@ namespace TL { namespace Nanox {
 
         Source reduction_variables, init_reduction_code, extra_sync_due_to_reductions;
 
-        TL::ObjectList<OutlineDataItem> reduction_items = outline_info.get_data_items().filter(
-                predicate(&OutlineDataItem::is_reduction));
+        TL::ObjectList<OutlineDataItem*> reduction_items = outline_info.get_data_items().filter(
+                predicate(lift_pointer(functor(&OutlineDataItem::is_reduction))));
         if (reduction_items.empty())
         {
             worksharing_creation

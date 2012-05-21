@@ -202,16 +202,16 @@ namespace TL { namespace Nanox {
 
         Source unpack_code, unpacked_arguments, cleanup_code, private_entities, extra_declarations;
 
-        TL::ObjectList<OutlineDataItem> data_items = outline_info.get_data_items();
-        for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
+        TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
+        for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
                 it != data_items.end();
                 it++)
         {
-            switch (it->get_sharing())
+            switch ((*it)->get_sharing())
             {
                 case OutlineDataItem::SHARING_PRIVATE:
                     {
-                        TL::Symbol sym = it->get_symbol();
+                        TL::Symbol sym = (*it)->get_symbol();
 
                         std::string name;
                         TL::Type t;
@@ -222,8 +222,8 @@ namespace TL { namespace Nanox {
                         }
                         else
                         {
-                            name = it->get_field_name();
-                            t = it->get_in_outline_type();
+                            name = (*it)->get_field_name();
+                            t = (*it)->get_in_outline_type();
                         }
 
                         if (IS_C_LANGUAGE
@@ -254,17 +254,27 @@ namespace TL { namespace Nanox {
                 case OutlineDataItem::SHARING_CAPTURE:
                 case OutlineDataItem::SHARING_CAPTURE_ADDRESS:
                     {
-                        switch (it->get_item_kind())
+                        TL::Type param_type = (*it)->get_in_outline_type();
+
+                        switch ((*it)->get_item_kind())
                         {
                             case OutlineDataItem::ITEM_KIND_NORMAL:
                             case OutlineDataItem::ITEM_KIND_DATA_DIMENSION:
                                 {
-                                    parameter_names.append(it->get_field_name());
+                                    parameter_names.append((*it)->get_field_name());
                                     break;
                                 }
                             case OutlineDataItem::ITEM_KIND_DATA_ADDRESS:
                                 {
-                                    parameter_names.append("ptr_" + it->get_field_name());
+                                    param_type = TL::Type::get_void_type().get_pointer_to();
+                                    parameter_names.append("ptr_" + (*it)->get_field_name());
+
+                                    private_entities
+                                        << as_type((*it)->get_in_outline_type()) 
+                                        << " " << (*it)->get_field_name() 
+                                        << " = " << "(" << as_type((*it)->get_in_outline_type()) << ") ptr_" << (*it)->get_field_name() 
+                                        << ";"
+                                        ;
 
                                     break;
                                 }
@@ -274,7 +284,6 @@ namespace TL { namespace Nanox {
                                 }
                         }
 
-                        TL::Type param_type = it->get_in_outline_type();
                         parameter_types.append(param_type);
 
                         Source argument;
@@ -282,31 +291,36 @@ namespace TL { namespace Nanox {
                         {
                             // Normal shared items are passed by reference from a pointer,
                             // derreference here
-                            if (it->get_sharing() == OutlineDataItem::SHARING_SHARED
-                                    && it->get_item_kind() == OutlineDataItem::ITEM_KIND_NORMAL)
+                            if ((*it)->get_sharing() == OutlineDataItem::SHARING_SHARED
+                                    && (*it)->get_item_kind() == OutlineDataItem::ITEM_KIND_NORMAL)
                             {
-                                argument << "*(args." << it->get_field_name() << ")";
+                                argument << "*(args." << (*it)->get_field_name() << ")";
                             }
                             // Any other thing is passed by value
                             else
                             {
-                                argument << "args." << it->get_field_name();
+                                argument << "args." << (*it)->get_field_name();
                             }
 
                             if (IS_CXX_LANGUAGE
-                                    && it->get_allocation_policy() == OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DESTROY)
+                                    && (*it)->get_allocation_policy() == OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DESTROY)
                             {
                                 internal_error("Not yet implemented: call the destructor", 0);
                             }
                         }
                         else if (IS_FORTRAN_LANGUAGE)
                         {
-                            argument << "args % " << it->get_field_name();
+                            argument << "args % " << (*it)->get_field_name();
 
-                            if (it->get_allocation_policy() == OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE)
+                            if (((*it)->get_allocation_policy()
+                                        & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE ==
+                                        OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE)
+                                    || ((*it)->get_allocation_policy()
+                                        & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_POINTER ==
+                                        OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_POINTER))
                             {
                                 cleanup_code
-                                    << "DEALLOCATE(args % " << it->get_field_name() << ")\n"
+                                    << "DEALLOCATE(args % " << (*it)->get_field_name() << ")\n"
                                     ;
                             }
                         }
@@ -322,7 +336,7 @@ namespace TL { namespace Nanox {
                         // This is a mixture of private and shared
                         // A private is emitted for the partial reduction
                         // Such partial reduction must be initialized with the entity
-                        TL::Symbol sym = it->get_symbol();
+                        TL::Symbol sym = (*it)->get_symbol();
 
                         std::string name;
                         TL::Type t;
@@ -333,15 +347,15 @@ namespace TL { namespace Nanox {
                         }
                         else
                         {
-                            name = it->get_field_name();
-                            t = it->get_in_outline_type();
+                            name = (*it)->get_field_name();
+                            t = (*it)->get_in_outline_type();
                         }
 
                         if (IS_C_LANGUAGE
                                 || IS_CXX_LANGUAGE)
                         {
                             private_entities
-                                << as_type(t) << " " << name << " = " << as_expression(it->get_reduction_info()->get_identity().shallow_copy()) << ";"
+                                << as_type(t) << " " << name << " = " << as_expression((*it)->get_reduction_info()->get_identity().shallow_copy()) << ";"
                                 ;
                         }
                         else if (IS_FORTRAN_LANGUAGE)
@@ -352,7 +366,7 @@ namespace TL { namespace Nanox {
                             // which is a kind of symbol that the C/C++ FE does not know anything about
                             private_entities
                                 << as_type(t) << ", @IS_VARIABLE@ :: " << name << "\n"
-                                << name << " = " << as_expression(it->get_reduction_info()->get_identity().shallow_copy()) << "\n"
+                                << name << " = " << as_expression((*it)->get_reduction_info()->get_identity().shallow_copy()) << "\n"
                                 ;
                         }
                         else
@@ -361,13 +375,13 @@ namespace TL { namespace Nanox {
                         }
 
                         // Note here that we use the same type as the field for convenience
-                        TL::Type param_type = it->get_field_type();
+                        TL::Type param_type = (*it)->get_field_type();
                         if (IS_FORTRAN_LANGUAGE)
                         {
                             param_type = param_type.get_lvalue_reference_to();
                         }
 
-                        parameter_names.append("rdp_" + it->get_field_name());
+                        parameter_names.append("rdp_" + (*it)->get_field_name());
                         parameter_types.append(param_type);
 
                         Source argument;
@@ -376,11 +390,11 @@ namespace TL { namespace Nanox {
                         {
                             // Normal shared items are passed by reference from a pointer,
                             // derreference here
-                            argument << "args." << it->get_field_name();
+                            argument << "args." << (*it)->get_field_name();
                         }
                         else if (IS_FORTRAN_LANGUAGE)
                         {
-                            argument << "args % " << it->get_field_name();
+                            argument << "args % " << (*it)->get_field_name();
                         }
                         unpacked_arguments.append_with_separator(argument, ", ");
 

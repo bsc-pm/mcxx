@@ -36,11 +36,12 @@ namespace TL { namespace Nanox {
     std::string OutlineInfo::get_field_name(std::string name)
     {
         int times_name_appears = 0;
-        for (ObjectList<OutlineDataItem>::iterator it = _data_env_items.begin();
+        for (ObjectList<OutlineDataItem*>::iterator it = _data_env_items.begin();
                 it != _data_env_items.end();
                 it++)
         {
-            if (it->get_symbol().get_name() == name)
+            if ((*it)->get_symbol().is_valid()
+                    && (*it)->get_symbol().get_name() == name)
             {
                 times_name_appears++;
             }
@@ -59,19 +60,19 @@ namespace TL { namespace Nanox {
 
     OutlineDataItem& OutlineInfo::get_entity_for_symbol(TL::Symbol sym)
     {
-        for (ObjectList<OutlineDataItem>::iterator it = _data_env_items.begin();
+        for (ObjectList<OutlineDataItem*>::iterator it = _data_env_items.begin();
                 it != _data_env_items.end();
                 it++)
         {
-            if (it->get_symbol() == sym)
-                return *it;
+            if ((*it)->get_symbol() == sym)
+                return *(*it);
         }
 
         std::string field_name = get_field_name(sym.get_name());
-        OutlineDataItem env_item(sym, field_name);
+        OutlineDataItem* env_item = new OutlineDataItem(sym, field_name);
 
         _data_env_items.append(env_item);
-        return _data_env_items.back();
+        return (*_data_env_items.back());
     }
 
     class OutlineInfoSetupVisitor : public Nodecl::ExhaustiveVisitor<void>
@@ -330,10 +331,10 @@ namespace TL { namespace Nanox {
     OutlineDataItem& OutlineInfo::prepend_field(const std::string& str, TL::Type t)
     {
         std::string field_name = get_field_name(str);
-        OutlineDataItem env_item(field_name, t);
+        OutlineDataItem* env_item = new OutlineDataItem(field_name, t);
 
-        _data_env_items.std::vector<OutlineDataItem>::insert(_data_env_items.begin(), env_item);
-        return _data_env_items.front();
+        _data_env_items.std::vector<OutlineDataItem*>::insert(_data_env_items.begin(), env_item);
+        return *(_data_env_items.front());
     }
 
     Nodecl::Utils::SymbolMap* OutlineInfo::compute_symbol_map(TL::ReferenceScope ref_scope)
@@ -342,24 +343,24 @@ namespace TL { namespace Nanox {
 
         Scope sc = ref_scope.get_scope();
 
-        for (TL::ObjectList<OutlineDataItem>::iterator it = _data_env_items.begin();
+        for (TL::ObjectList<OutlineDataItem*>::iterator it = _data_env_items.begin();
                 it != _data_env_items.end();
                 it++)
         {
             // Some entities in the outline info are not related to a real
             // symbol of the input.  Ignore them
-            if (!it->get_symbol().is_valid())
+            if (!(*it)->get_symbol().is_valid())
                 continue;
 
-            TL::Symbol new_sym = sc.get_symbol_from_name(it->get_symbol().get_name());
+            TL::Symbol new_sym = sc.get_symbol_from_name((*it)->get_symbol().get_name());
 
             if (!new_sym.is_valid())
             {
                 internal_error("There is no symbol for '%s' in the scope created for the outline\n", 
-                        it->get_symbol().get_name().c_str());
+                        (*it)->get_symbol().get_name().c_str());
             }
 
-            result->add_map(it->get_symbol(), new_sym);
+            result->add_map((*it)->get_symbol(), new_sym);
         }
 
         return result;

@@ -43,7 +43,7 @@ void LoweringVisitor::fill_dependences_wait(
 
     int num_deps = count_dependences(outline_info);
 
-    TL::ObjectList<OutlineDataItem> data_items = outline_info.get_data_items();
+    TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
 
     if (num_deps == 0)
     {
@@ -72,15 +72,15 @@ void LoweringVisitor::fill_dependences_wait(
             ;
 
         int current_dep_num = 0;
-        for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
+        for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
                 it != data_items.end();
                 it++)
         {
-            OutlineDataItem::Directionality dir = it->get_directionality();
+            OutlineDataItem::Directionality dir = (*it)->get_directionality();
             if (dir == OutlineDataItem::DIRECTIONALITY_NONE)
                 continue;
 
-            TL::ObjectList<Nodecl::NodeclBase> deps = it->get_dependences();
+            TL::ObjectList<Nodecl::NodeclBase> deps = (*it)->get_dependences();
             for (ObjectList<Nodecl::NodeclBase>::iterator dep_it = deps.begin();
                     dep_it != deps.end();
                     dep_it++, current_dep_num++)
@@ -279,15 +279,15 @@ void LoweringVisitor::fill_dependences_wait(
             ;
 
         int current_dep_num = 0;
-        for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
+        for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
                 it != data_items.end();
                 it++)
         {
-            OutlineDataItem::Directionality dir = it->get_directionality();
+            OutlineDataItem::Directionality dir = (*it)->get_directionality();
             if (dir == OutlineDataItem::DIRECTIONALITY_NONE)
                 continue;
 
-            TL::ObjectList<Nodecl::NodeclBase> deps = it->get_dependences();
+            TL::ObjectList<Nodecl::NodeclBase> deps = (*it)->get_dependences();
             for (ObjectList<Nodecl::NodeclBase>::iterator dep_it = deps.begin();
                     dep_it != deps.end();
                     dep_it++, current_dep_num++)

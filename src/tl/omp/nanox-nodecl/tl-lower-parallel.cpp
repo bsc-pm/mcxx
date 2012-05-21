@@ -41,6 +41,13 @@ namespace TL { namespace Nanox {
             }
     };
 
+    namespace {
+        bool ptr_outline_data_item_is_reduction(OutlineDataItem* it)
+        {
+            return it->is_reduction();
+        }
+    }
+
     void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
     {
         Nodecl::NodeclBase num_replicas = construct.get_num_replicas();
@@ -70,16 +77,16 @@ namespace TL { namespace Nanox {
             << "if (err != NANOS_OK) nanos_handle_error(err);"
             ;
 
-        TL::ObjectList<OutlineDataItem> reduction_items = outline_info.get_data_items().filter(
-                predicate(&OutlineDataItem::is_reduction));
+        TL::ObjectList<OutlineDataItem*> reduction_items = outline_info.get_data_items().filter(
+                predicate(lift_pointer(functor(&OutlineDataItem::is_reduction))));
         if (!reduction_items.empty())
         {
-            for (TL::ObjectList<OutlineDataItem>::iterator it = reduction_items.begin();
+            for (TL::ObjectList<OutlineDataItem*>::iterator it = reduction_items.begin();
                     it != reduction_items.end();
                     it++)
             {
                 reduction_code
-                    << "rdp_" << it->get_field_name() << "[omp_get_thread_num()] = " << it->get_symbol().get_name() << ";"
+                    << "rdp_" << (*it)->get_field_name() << "[omp_get_thread_num()] = " << (*it)->get_symbol().get_name() << ";"
                     ;
             }
         }

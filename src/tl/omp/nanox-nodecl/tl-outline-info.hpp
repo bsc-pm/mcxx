@@ -114,8 +114,10 @@ namespace TL
                     ALLOCATION_POLICY_OVERALLOCATED        = 1 << 1,
                     // Call the destructor (C++)
                     ALLOCATION_POLICY_TASK_MUST_DESTROY    = 1 << 2,
-                    // Deallocate entity (Fortran)
-                    ALLOCATION_POLICY_TASK_MUST_DEALLOCATE = 1 << 3,
+                    // Deallocate entity ALLOCATABLE (Fortran)
+                    ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE = 1 << 3,
+                    // Deallocate entity POINTER (Fortran)
+                    ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_POINTER = 1 << 4,
                 };
 
             private:
@@ -350,7 +352,7 @@ namespace TL
         class OutlineInfo
         {
             private:
-                ObjectList<OutlineDataItem> _data_env_items;
+                ObjectList<OutlineDataItem*> _data_env_items;
 
                 // -- FIXME --
                 // Devices!
@@ -371,16 +373,10 @@ namespace TL
                  */
                 OutlineDataItem& get_entity_for_symbol(TL::Symbol sym);
 
-                ObjectList<OutlineDataItem>& get_data_items()
+                ObjectList<OutlineDataItem*> get_data_items()
                 {
                     return _data_env_items;
                 }
-
-                const ObjectList<OutlineDataItem>& get_data_items() const
-                {
-                    return _data_env_items;
-                }
-
 
                 OutlineDataItem& prepend_field(const std::string& str, TL::Type t);
 

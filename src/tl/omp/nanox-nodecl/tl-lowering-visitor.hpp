@@ -51,7 +51,6 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
     private:
         TL::Symbol declare_argument_structure(OutlineInfo& outline_info, Nodecl::NodeclBase construct);
         bool c_type_needs_vla_handling(TL::Type t);
-        bool c_requires_vla_handling(OutlineDataItem& outline_data_item);
 
         void emit_async_common(
                 Nodecl::NodeclBase construct,
@@ -73,35 +72,9 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 const std::string& outline_name,
                 TL::Symbol structure_symbol);
 #endif
-
-        TL::Type c_handle_vla_type_rec(
-                OutlineDataItem& outline_data_item,
-                TL::Type type, 
-                TL::Scope class_scope, 
-                TL::Symbol new_class_symbol,
-                TL::Type new_class_type,
-                TL::ObjectList<TL::Symbol>& new_symbols,
-                const std::string& filename, 
-                int line);
-        void c_handle_vla_type(
-                OutlineDataItem& outline_data_item,
-                TL::Scope class_scope, 
-                TL::Symbol new_class_symbol,
-                TL::Type new_class_type,
-                TL::ObjectList<TL::Symbol>& new_symbols,
-                const std::string& filename, 
-                int line);
-
-        void fortran_handle_vla_type(
-                OutlineDataItem& outline_data_item,
-                TL::Type field_type,
-                TL::Symbol field_symbol,
-                TL::Scope class_scope, 
-                TL::Symbol new_class_symbol,
-                TL::Type new_class_type,
-                TL::ObjectList<TL::Symbol>& new_symbols,
-                const std::string& filename, 
-                int line);
+        void handle_vla_entity(OutlineDataItem& data_item, OutlineInfo& outline_info);
+        void handle_vla_type_rec(TL::Type t, OutlineInfo& outline_info);
+        void handle_vla_saved_expr(Nodecl::NodeclBase saved_expr, OutlineInfo& outline_info);
 
         void fill_arguments(
                 Nodecl::NodeclBase ctr,
