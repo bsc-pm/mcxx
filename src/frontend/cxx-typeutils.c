@@ -10342,13 +10342,74 @@ type_t* type_deep_copy(type_t* orig, decl_context_t new_decl_context, void *info
         type_t* element_type = array_type_get_element_type(orig);
         element_type = type_deep_copy(element_type, new_decl_context, info, map);
 
-        nodecl_t array_size = array_type_get_array_size_expr(orig);
-        array_size = nodecl_deep_copy(array_size, new_decl_context, info, map);
+        // Use the constructor that affects the least to the array type
+        if ((IS_C_LANGUAGE
+                    || IS_CXX_LANGUAGE)
+                && !array_type_has_region(orig))
+        {
+            nodecl_t array_size = array_type_get_array_size_expr(orig);
+            array_size = nodecl_deep_copy(array_size, new_decl_context, info, map);
 
-        result = get_array_type(
-                element_type,
-                array_size,
-                new_decl_context);
+            result = get_array_type(
+                    element_type,
+                    array_size,
+                    new_decl_context);
+        }
+        else if (IS_FORTRAN_LANGUAGE
+                && !array_type_has_region(orig))
+        {
+            nodecl_t lower_bound = array_type_get_array_lower_bound(orig);
+            nodecl_t upper_bound = array_type_get_array_upper_bound(orig);
+
+            lower_bound = nodecl_deep_copy(lower_bound, new_decl_context, info, map);
+            upper_bound = nodecl_deep_copy(upper_bound, new_decl_context, info, map);
+
+            bool has_descriptor = array_type_with_descriptor(orig);
+
+            if (!has_descriptor)
+            {
+                result = get_array_type_bounds(
+                        element_type,
+                        lower_bound,
+                        upper_bound,
+                        new_decl_context);
+            }
+            else
+            {
+                result = get_array_type_bounds_with_descriptor(
+                        element_type,
+                        lower_bound,
+                        upper_bound,
+                        new_decl_context);
+            }
+        }
+        else if (array_type_has_region(orig))
+        {
+            nodecl_t lower_bound = array_type_get_array_lower_bound(orig);
+            nodecl_t upper_bound = array_type_get_array_upper_bound(orig);
+
+            lower_bound = nodecl_deep_copy(lower_bound, new_decl_context, info, map);
+            upper_bound = nodecl_deep_copy(upper_bound, new_decl_context, info, map);
+
+            nodecl_t region_lower_bound = array_type_get_region_lower_bound(orig);
+            nodecl_t region_upper_bound = array_type_get_region_upper_bound(orig);
+            nodecl_t region_stride = array_type_get_region_stride(orig);
+
+            region_lower_bound = nodecl_deep_copy(region_lower_bound, new_decl_context, info, map);
+            region_upper_bound = nodecl_deep_copy(region_upper_bound, new_decl_context, info, map);
+
+            result = get_array_type_bounds_with_regions(element_type,
+                    lower_bound,
+                    upper_bound,
+                    new_decl_context,
+                    nodecl_make_range(region_lower_bound, region_upper_bound, region_stride,
+                        get_signed_int_type(), NULL, 0),
+                    new_decl_context);
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
+        }
     }
     else if (is_function_type(orig))
     {
