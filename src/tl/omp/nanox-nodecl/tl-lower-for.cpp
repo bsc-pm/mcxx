@@ -197,7 +197,8 @@ namespace TL { namespace Nanox {
         // Build the structure
         TL::Symbol structure_symbol = declare_argument_structure(outline_info, construct);
 
-        emit_outline(outline_info, statements, distribute_loop_source, outline_name, structure_symbol);
+        Nodecl::Utils::SymbolMap *symbol_map = NULL;
+        emit_outline(outline_info, statements, distribute_loop_source, outline_name, structure_symbol, symbol_map);
 
         // Now complete the placeholder
         Source iteration_source;
@@ -205,7 +206,6 @@ namespace TL { namespace Nanox {
             << statements.prettyprint()
             ;
 
-        Nodecl::Utils::SymbolMap *symbol_map = outline_info.compute_symbol_map(placeholder1);
         if (IS_FORTRAN_LANGUAGE)
         {
             // Copy FUNCTIONs and other local stuff

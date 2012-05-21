@@ -88,7 +88,8 @@ namespace TL { namespace Nanox {
     static TL::Symbol new_function_symbol_unpacked(
             Scope sc,
             const std::string& function_name,
-            OutlineInfo& outline_info)
+            OutlineInfo& outline_info,
+            Nodecl::Utils::SymbolMap*& out_symbol_map)
     {
         decl_context_t decl_context = sc.get_decl_context();
         decl_context_t function_context;
@@ -105,7 +106,7 @@ namespace TL { namespace Nanox {
 
         // Create all the symbols and an appropiate mapping
 
-        Nodecl::Utils::SimpleSymbolMap symbol_map;
+        Nodecl::Utils::SimpleSymbolMap *symbol_map = new Nodecl::Utils::SimpleSymbolMap();
 
         TL::ObjectList<TL::Symbol> parameter_symbols;
 
@@ -140,7 +141,7 @@ namespace TL { namespace Nanox {
 
                         if (sym.is_valid())
                         {
-                            symbol_map.add_map(sym, private_sym);
+                            symbol_map->add_map(sym, private_sym);
                         }
 
                         break;
@@ -162,7 +163,7 @@ namespace TL { namespace Nanox {
 
                                     if (sym.is_valid())
                                     {
-                                        symbol_map.add_map(sym, private_sym);
+                                        symbol_map->add_map(sym, private_sym);
                                     }
 
                                     parameter_symbols.append(private_sym);
@@ -185,7 +186,7 @@ namespace TL { namespace Nanox {
 
                                     if (sym.is_valid())
                                     {
-                                        symbol_map.add_map(sym, private_sym);
+                                        symbol_map->add_map(sym, private_sym);
                                     }
                                     break;
                                 }
@@ -225,7 +226,7 @@ namespace TL { namespace Nanox {
 
                         if (sym.is_valid())
                         {
-                            symbol_map.add_map(sym, private_sym);
+                            symbol_map->add_map(sym, private_sym);
                         }
 
                         break;
@@ -245,7 +246,7 @@ namespace TL { namespace Nanox {
             it->get_internal_symbol()->type_information =
                 type_deep_copy(it->get_internal_symbol()->type_information,
                        function_context,
-                       &symbol_map,
+                       symbol_map,
                        Nodecl::Utils::SymbolMap::adapter);
         }
 
@@ -294,6 +295,7 @@ namespace TL { namespace Nanox {
 
         delete[] p_types;
 
+        out_symbol_map = symbol_map;
         return new_function_sym;
     }
 
@@ -395,7 +397,8 @@ namespace TL { namespace Nanox {
             Nodecl::NodeclBase original_statements,
             Source body_source,
             const std::string& outline_name,
-            TL::Symbol structure_symbol)
+            TL::Symbol structure_symbol,
+            Nodecl::Utils::SymbolMap* &symbol_map)
     {
         TL::Symbol current_function = original_statements.retrieve_context().get_decl_context().current_scope->related_entry;
 
@@ -612,7 +615,8 @@ namespace TL { namespace Nanox {
         TL::Symbol unpacked_function = new_function_symbol_unpacked(
                 current_function.get_scope(),
                 outline_name + "_unpacked",
-                outline_info);
+                outline_info,
+                symbol_map);
         // TL::Symbol unpacked_function = new_function_symbol(
         //         // We want a sibling of the current function
         //         current_function.get_scope(),

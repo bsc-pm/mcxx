@@ -26,6 +26,7 @@
 
 #include "tl-nodecl-visitor.hpp"
 #include "tl-outline-info.hpp"
+#include "tl-nodecl-utils.hpp"
 
 #include <set>
 
@@ -65,7 +66,9 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::NodeclBase construct,
                 Source body_source,
                 const std::string& outline_name,
-                TL::Symbol structure_symbol);
+                TL::Symbol structure_symbol,
+                // out
+                Nodecl::Utils::SymbolMap* &symbol_map);
 #if 0
         void emit_outline(OutlineInfo& outline_info,
                 Nodecl::NodeclBase body,

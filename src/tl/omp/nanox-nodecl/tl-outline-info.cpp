@@ -337,33 +337,4 @@ namespace TL { namespace Nanox {
         return *(_data_env_items.front());
     }
 
-    Nodecl::Utils::SymbolMap* OutlineInfo::compute_symbol_map(TL::ReferenceScope ref_scope)
-    {
-        Nodecl::Utils::SimpleSymbolMap* result = new Nodecl::Utils::SimpleSymbolMap();
-
-        Scope sc = ref_scope.get_scope();
-
-        for (TL::ObjectList<OutlineDataItem*>::iterator it = _data_env_items.begin();
-                it != _data_env_items.end();
-                it++)
-        {
-            // Some entities in the outline info are not related to a real
-            // symbol of the input.  Ignore them
-            if (!(*it)->get_symbol().is_valid())
-                continue;
-
-            TL::Symbol new_sym = sc.get_symbol_from_name((*it)->get_symbol().get_name());
-
-            if (!new_sym.is_valid())
-            {
-                internal_error("There is no symbol for '%s' in the scope created for the outline\n", 
-                        (*it)->get_symbol().get_name().c_str());
-            }
-
-            result->add_map((*it)->get_symbol(), new_sym);
-        }
-
-        return result;
-    }
-
 } }

@@ -380,8 +380,6 @@ namespace TL
 
                 OutlineDataItem& prepend_field(const std::string& str, TL::Type t);
 
-                Nodecl::Utils::SymbolMap* compute_symbol_map(ReferenceScope ref_scope);
-
                 TL::Symbol get_unpacked_function_symbol() const
                 {
                     return _unpacked_function_symbol;

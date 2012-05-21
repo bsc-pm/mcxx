@@ -91,9 +91,9 @@ namespace TL { namespace Nanox {
             }
         }
 
-        emit_outline(outline_info, statements, outline_source, outline_name, structure_symbol);
+        Nodecl::Utils::SymbolMap *symbol_map = NULL;
+        emit_outline(outline_info, statements, outline_source, outline_name, structure_symbol, symbol_map);
 
-        Nodecl::Utils::SymbolMap *symbol_map = outline_info.compute_symbol_map(placeholder);
         if (IS_FORTRAN_LANGUAGE)
         {
             // Copy FUNCTIONs and other local stuff
