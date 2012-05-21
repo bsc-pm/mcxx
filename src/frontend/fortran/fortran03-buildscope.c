@@ -3199,12 +3199,12 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
                 new_vla_dim->line = nodecl_get_line(lower_bound);
                 new_vla_dim->value = lower_bound;
                 new_vla_dim->type_information = no_ref(nodecl_get_type(lower_bound));
+                new_vla_dim->entity_specs.is_saved_expression = 1;
 
-                lower_bound = nodecl_make_saved_expr(lower_bound,
-                        new_vla_dim,
-                        nodecl_get_type(lower_bound),
-                        nodecl_get_filename(lower_bound),
-                        nodecl_get_line(lower_bound));
+                lower_bound = nodecl_make_symbol(new_vla_dim,
+                        new_vla_dim->file,
+                        new_vla_dim->line);
+                nodecl_set_type(lower_bound, new_vla_dim->type_information);
 
                 *nodecl_output = nodecl_append_to_list(*nodecl_output,
                         nodecl_make_object_init(new_vla_dim, 
@@ -3235,12 +3235,12 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
                 new_vla_dim->line = nodecl_get_line(upper_bound);
                 new_vla_dim->value = upper_bound;
                 new_vla_dim->type_information = no_ref(nodecl_get_type(upper_bound));
+                new_vla_dim->entity_specs.is_saved_expression = 1;
 
-                upper_bound = nodecl_make_saved_expr(upper_bound,
-                        new_vla_dim,
-                        nodecl_get_type(upper_bound),
-                        nodecl_get_filename(upper_bound),
-                        nodecl_get_line(upper_bound));
+                upper_bound = nodecl_make_symbol(new_vla_dim,
+                        new_vla_dim->file,
+                        new_vla_dim->line);
+                nodecl_set_type(upper_bound, new_vla_dim->type_information);
 
                 *nodecl_output = nodecl_append_to_list(*nodecl_output,
                         nodecl_make_object_init(new_vla_dim, 

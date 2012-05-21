@@ -66,7 +66,8 @@ namespace TL { namespace Nanox {
             {
                 Nodecl::NodeclBase size = t.array_get_size();
 
-                if (size.is<Nodecl::SavedExpr>())
+                if (size.is<Nodecl::Symbol>()
+                        && size.get_symbol().is_saved_expression())
                 {
                     handle_vla_saved_expr(size, outline_info);
                 }
@@ -76,10 +77,12 @@ namespace TL { namespace Nanox {
                 Nodecl::NodeclBase lower, upper;
                 t.array_get_bounds(lower, upper);
 
-                if (lower.is<Nodecl::SavedExpr>())
+                if (lower.is<Nodecl::Symbol>()
+                        && lower.get_symbol().is_saved_expression())
                     handle_vla_saved_expr(lower, outline_info);
 
-                if (upper.is<Nodecl::SavedExpr>())
+                if (upper.is<Nodecl::Symbol>()
+                        && upper.get_symbol().is_saved_expression())
                     handle_vla_saved_expr(upper, outline_info);
             }
             handle_vla_type_rec(t.array_element(), outline_info);

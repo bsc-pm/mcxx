@@ -6534,7 +6534,7 @@ static void set_array_type(type_t** declarator_type,
             {
                 static int vla_counter = 0;
 
-                const char* vla_name = NULL; 
+                const char* vla_name = NULL;
                 uniquestr_sprintf(&vla_name, "mcc_vla_%d", vla_counter);
                 vla_counter++;
 
@@ -6545,20 +6545,18 @@ static void set_array_type(type_t** declarator_type,
                 new_vla_dim->line = ASTLine(constant_expr);
                 new_vla_dim->value = nodecl_expr;
                 new_vla_dim->type_information = get_const_qualified_type(no_ref(nodecl_get_type(nodecl_expr)));
-                
+
                 // It's not user declared code, but we must generate it.
                 // For this reason, we do this trick
                 new_vla_dim->entity_specs.is_user_declared = 1;
+                new_vla_dim->entity_specs.is_saved_expression = 1;
 
                 P_LIST_ADD(gather_info->vla_dimension_symbols,
                         gather_info->num_vla_dimension_symbols,
                         new_vla_dim);
 
-                nodecl_expr = nodecl_make_saved_expr(nodecl_expr, 
-                        new_vla_dim, 
-                        nodecl_get_type(nodecl_expr),
-                        nodecl_get_filename(nodecl_expr),
-                        nodecl_get_line(nodecl_expr));
+                nodecl_expr = nodecl_make_symbol(new_vla_dim, new_vla_dim->file, new_vla_dim->line);
+                nodecl_set_type(nodecl_expr, new_vla_dim->type_information);
             }
         }
     }

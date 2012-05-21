@@ -190,6 +190,11 @@ namespace TL
         return (this->_symbol->kind == SK_VARIABLE);
     }
 
+    bool Symbol::is_saved_expression() const
+    {
+        return this->_symbol->entity_specs.is_saved_expression;
+    }
+
     bool Symbol::is_result_variable() const
     {
         return (this->_symbol->kind == SK_VARIABLE

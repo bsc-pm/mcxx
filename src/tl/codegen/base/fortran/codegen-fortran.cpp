@@ -3725,12 +3725,6 @@ OPERATOR_TABLE
         }
     }
 
-    void FortranBase::visit(const Nodecl::SavedExpr& node)
-    {
-        TL::Symbol symbol = node.get_symbol();
-        file << rename(symbol);
-    }
-
     void FortranBase::visit(const Nodecl::CxxDepNameSimple& node)
     {
         file << node.get_text();
@@ -3820,18 +3814,20 @@ OPERATOR_TABLE
                     if (!lower.is_null())
                     {
                         declare_symbols_from_modules_rec(lower, sc);
-                        if (lower.is<Nodecl::SavedExpr>())
+                        if (lower.is<Nodecl::Symbol>()
+                                && lower.get_symbol().is_saved_expression())
                         {
-                            declare_symbols_from_modules_rec(lower.as<Nodecl::SavedExpr>().get_expression(), sc);
+                            declare_symbols_from_modules_rec(lower.get_symbol().get_value(), sc);
                         }
                     }
 
                     if (!upper.is_null())
                     {
                         declare_symbols_from_modules_rec(upper, sc);
-                        if (upper.is<Nodecl::SavedExpr>())
+                        if (upper.is<Nodecl::Symbol>()
+                                && upper.get_symbol().is_saved_expression())
                         {
-                            declare_symbols_from_modules_rec(upper.as<Nodecl::SavedExpr>().get_expression(), sc);
+                            declare_symbols_from_modules_rec(upper.get_symbol().get_value(), sc);
                         }
                     }
 
@@ -4165,14 +4161,16 @@ OPERATOR_TABLE
 
                 // Get the real expression of this saved expression
                 if (!array_spec_list[array_spec_idx].lower.is_null()
-                        && array_spec_list[array_spec_idx].lower.is<Nodecl::SavedExpr>())
+                        && array_spec_list[array_spec_idx].lower.is<Nodecl::Symbol>()
+                        && array_spec_list[array_spec_idx].lower.get_symbol().is_saved_expression())
                 {
-                    array_spec_list[array_spec_idx].lower = array_spec_list[array_spec_idx].lower.as<Nodecl::SavedExpr>().get_expression();
+                    array_spec_list[array_spec_idx].lower = array_spec_list[array_spec_idx].lower.get_symbol().get_value();
                 }
                 if (!array_spec_list[array_spec_idx].upper.is_null()
-                        && array_spec_list[array_spec_idx].upper.is<Nodecl::SavedExpr>())
+                        && array_spec_list[array_spec_idx].upper.is<Nodecl::Symbol>()
+                        && array_spec_list[array_spec_idx].upper.get_symbol().is_saved_expression())
                 {
-                    array_spec_list[array_spec_idx].upper = array_spec_list[array_spec_idx].upper.as<Nodecl::SavedExpr>().get_expression();
+                    array_spec_list[array_spec_idx].upper = array_spec_list[array_spec_idx].upper.get_symbol().get_value();
                 }
 
                 if (!array_spec_list[array_spec_idx].is_undefined)

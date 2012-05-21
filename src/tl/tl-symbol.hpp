@@ -150,6 +150,8 @@ namespace TL
 
             //! States whether this symbol is a variable
             bool is_variable() const;
+            //! States whether this symbol is a variable that stores a runtime value of the program
+            bool is_saved_expression() const;
             //! States whether this symbol is the result variable
             /*! \note Only meaningful in Fortran */
             bool is_result_variable() const;

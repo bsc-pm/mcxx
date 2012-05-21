@@ -643,12 +643,6 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Conversion& node)
     walk(node.get_nest());
 }
 
-CxxBase::Ret CxxBase::visit(const Nodecl::SavedExpr& node)
-{
-    // Do nothing
-    walk(node.get_expression());
-}
-
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxArrow& node)
 {
     walk(node.get_lhs());

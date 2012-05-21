@@ -2825,21 +2825,7 @@ type_t* get_array_type(type_t* element_type, nodecl_t whole_size, decl_context_t
         }
         else
         {
-            nodecl_t temp = nodecl_null();
-
-            if (nodecl_get_kind(whole_size) == NODECL_SAVED_EXPR)
-            {
-                scope_entry_t* saved_sym = nodecl_get_symbol(whole_size);
-                temp = nodecl_make_symbol(
-                        saved_sym,
-                        nodecl_get_filename(whole_size),
-                        nodecl_get_line(whole_size));
-                nodecl_set_type(temp, saved_sym->type_information);
-            }
-            else
-            {
-                temp = nodecl_shallow_copy(whole_size);
-            }
+            nodecl_t temp = nodecl_shallow_copy(whole_size);
 
             upper_bound = nodecl_make_minus(
                     nodecl_make_parenthesized_expression(temp, 
@@ -2882,31 +2868,8 @@ static nodecl_t compute_whole_size_given_bounds(
     {
         nodecl_t one_tree = get_one_tree(nodecl_get_filename(lower_bound), nodecl_get_line(lower_bound));
 
-        if (nodecl_get_kind(lower_bound) == NODECL_SAVED_EXPR)
-        {
-            scope_entry_t* saved_sym = nodecl_get_symbol(lower_bound);
-            lower_bound = nodecl_make_symbol(saved_sym,
-                    nodecl_get_filename(lower_bound),
-                    nodecl_get_line(lower_bound));
-            nodecl_set_type(lower_bound, saved_sym->type_information);
-        }
-        else
-        {
-            lower_bound = nodecl_shallow_copy(lower_bound);
-        }
-
-        if (nodecl_get_kind(upper_bound) == NODECL_SAVED_EXPR)
-        {
-            scope_entry_t* saved_sym = nodecl_get_symbol(upper_bound);
-            upper_bound = nodecl_make_symbol(saved_sym,
-                    nodecl_get_filename(upper_bound),
-                    nodecl_get_line(upper_bound));
-            nodecl_set_type(upper_bound, saved_sym->type_information);
-        }
-        else
-        {
-            upper_bound = nodecl_shallow_copy(upper_bound);
-        }
+        lower_bound = nodecl_shallow_copy(lower_bound);
+        upper_bound = nodecl_shallow_copy(upper_bound);
 
         whole_size = 
             nodecl_make_add(
@@ -7084,7 +7047,8 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                         whole_size = uniquestr("[]");
                     }
                     // If this is a saved expression and it is not a parameter we use its saved expression instead
-                    else if (nodecl_get_kind(type_info->array->whole_size) == NODECL_SAVED_EXPR)
+                    else if (nodecl_get_kind(type_info->array->whole_size) == NODECL_SYMBOL
+                            && nodecl_get_symbol(type_info->array->whole_size)->entity_specs.is_saved_expression)
                     {
                         scope_entry_t* saved_sym = nodecl_get_symbol(type_info->array->whole_size);
                         whole_size = strappend("[", get_qualified_symbol_name(saved_sym, saved_sym->decl_context));
