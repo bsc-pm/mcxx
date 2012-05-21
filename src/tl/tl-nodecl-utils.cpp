@@ -744,15 +744,13 @@ namespace Nodecl
         }
     }
 
-    namespace {
-        scope_entry_t* symbol_map_adapter(scope_entry_t* source, void *symbol_map_obj)
-        {
-            Utils::SymbolMap* symbol_map = static_cast<Utils::SymbolMap*>(symbol_map_obj);
+    scope_entry_t* Utils::SymbolMap::adapter(scope_entry_t* source, void *symbol_map_obj)
+    {
+        Utils::SymbolMap* symbol_map = static_cast<Utils::SymbolMap*>(symbol_map_obj);
 
-            TL::Symbol target = symbol_map->map(TL::Symbol(source));
+        TL::Symbol target = symbol_map->map(TL::Symbol(source));
 
-            return target.get_internal_symbol();
-        }
+        return target.get_internal_symbol();
     }
 
     Nodecl::NodeclBase Utils::deep_copy(Nodecl::NodeclBase orig, TL::ReferenceScope ref_scope, Utils::SymbolMap& map)
@@ -762,7 +760,7 @@ namespace Nodecl
         result = ::nodecl_deep_copy(orig.get_internal_nodecl(), 
                 ref_scope.get_scope().get_decl_context(),
                 (void*)&map,
-                symbol_map_adapter);
+                SymbolMap::adapter);
 
         return result;
     }

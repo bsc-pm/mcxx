@@ -77,6 +77,8 @@ namespace Nodecl
         struct SymbolMap
         {
             virtual TL::Symbol map(TL::Symbol) = 0;
+
+            static scope_entry_t* adapter(scope_entry_t* source, void *symbol_map_obj);
         };
 
         struct SimpleSymbolMap : public SymbolMap
