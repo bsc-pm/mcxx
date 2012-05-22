@@ -1362,26 +1362,10 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
         define_nonlocal_entities_in_trees(statement);
     }
 
-    TL::ObjectList<TL::Symbol> related_symbols = symbol.get_related_symbols();
-    TL::ObjectList<std::string> parameter_names(related_symbols.size());
-    TL::ObjectList<std::string> parameter_attributes(related_symbols.size());
-    int i = 0;
-    for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
-            it != related_symbols.end();
-            it++, i++)
-    {
-        TL::Symbol current_param = *it;
-        if (current_param.is_valid()
-                && !current_param.not_to_be_printed())
-        {
-            parameter_names[i] = current_param.get_name();
-            set_codegen_status(current_param, CODEGEN_STATUS_DEFINED);
-            if (current_param.has_gcc_attributes())
-            {
-                parameter_attributes[i] = gcc_attributes_to_str(current_param);
-            }
-        }
-    }
+    int num_parameters = symbol.get_related_symbols().size();
+    TL::ObjectList<std::string> parameter_names(num_parameters);
+    TL::ObjectList<std::string> parameter_attributes(num_parameters);
+    fill_parameter_names_and_parameter_attributes(symbol, parameter_names, parameter_attributes);
 
     std::string decl_spec_seq;
 
@@ -1618,27 +1602,11 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 
         define_nonlocal_entities_in_trees(statement);
     }
-
-    TL::ObjectList<TL::Symbol> related_symbols = symbol.get_related_symbols();
-    TL::ObjectList<std::string> parameter_names(related_symbols.size());
-    TL::ObjectList<std::string> parameter_attributes(related_symbols.size());
-    int i = 0;
-    for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
-            it != related_symbols.end();
-            it++, i++)
-    {
-        TL::Symbol current_param = *it;
-        if (current_param.is_valid()
-                && !current_param.not_to_be_printed())
-        {
-            parameter_names[i] = current_param.get_name();
-            set_codegen_status(current_param, CODEGEN_STATUS_DEFINED);
-            if (current_param.has_gcc_attributes())
-            {
-                parameter_attributes[i] = gcc_attributes_to_str(current_param);
-            }
-        }
-    }
+    
+    int num_parameters = symbol.get_related_symbols().size();
+    TL::ObjectList<std::string> parameter_names(num_parameters);
+    TL::ObjectList<std::string> parameter_attributes(num_parameters);
+    fill_parameter_names_and_parameter_attributes(symbol, parameter_names, parameter_attributes);
 
     std::string decl_spec_seq;
 
@@ -4720,25 +4688,10 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
             }
         }
 
-        TL::ObjectList<TL::Symbol> related_symbols = symbol.get_related_symbols();
-        TL::ObjectList<std::string> parameter_names(related_symbols.size());
-        TL::ObjectList<std::string> parameter_attributes(related_symbols.size());
-        int i = 0;
-        for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
-                it != related_symbols.end();
-                it++, i++)
-        {
-            TL::Symbol current_param = *it;
-            if (current_param.is_valid()
-                    && !current_param.not_to_be_printed())
-            {
-                parameter_names[i] = current_param.get_name();
-                if (current_param.has_gcc_attributes())
-                {
-                    parameter_attributes[i] = gcc_attributes_to_str(current_param);
-                }
-            }
-        }
+        int num_parameters = symbol.get_related_symbols().size();
+        TL::ObjectList<std::string> parameter_names(num_parameters);
+        TL::ObjectList<std::string> parameter_attributes(num_parameters);
+        fill_parameter_names_and_parameter_attributes(symbol, parameter_names, parameter_attributes);
 
         std::string decl_spec_seq;
         if (symbol.is_static())
@@ -4804,10 +4757,6 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         std::string pure_spec = "";
         if (!real_type.lacks_prototype())
         {
-            // declarator = this->get_declaration(
-            //         real_type,
-            //         symbol.get_scope(),
-            //         function_name);
             declarator = this->get_declaration_with_parameters(real_type, symbol.get_scope(),
                     function_name,
                     parameter_names,
@@ -6214,6 +6163,41 @@ std::string CxxBase::get_declaration(TL::Type t, TL::Scope scope, const std::str
     t = fix_references(t);
 
     return t.get_declaration(scope,  name);
+}
+
+void CxxBase::fill_parameter_names_and_parameter_attributes(TL::Symbol symbol,
+        TL::ObjectList<std::string>& parameter_names,
+        TL::ObjectList<std::string>& parameter_attributes)
+{
+    ERROR_CONDITION(!symbol.is_function(), "This symbol should be a function\n", 0);
+
+    int i = 0;
+    TL::ObjectList<TL::Symbol> related_symbols = symbol.get_related_symbols();
+    for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
+            it != related_symbols.end();
+            it++, i++)
+    {
+        TL::Symbol current_param = *it;
+        if (current_param.is_valid())
+        {
+            if(!current_param.not_to_be_printed())
+            {
+                parameter_names[i] = current_param.get_name();
+            }
+
+            if (current_param.has_gcc_attributes())
+            {
+                parameter_attributes[i] = gcc_attributes_to_str(current_param);
+            }
+
+            if (get_codegen_status(current_param) != CODEGEN_STATUS_DEFINED
+                    && symbol.has_default_argument_num(i))
+            {
+                parameter_attributes[i] += " = " + codegen(symbol.get_default_argument_num(i));
+            }
+            set_codegen_status(current_param, CODEGEN_STATUS_DEFINED);
+        }
+    }
 }
 
 std::string CxxBase::get_declaration_with_parameters(TL::Type t, TL::Scope scope,

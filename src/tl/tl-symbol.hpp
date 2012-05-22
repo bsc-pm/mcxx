@@ -602,6 +602,17 @@ namespace TL
             Nodecl::NodeclBase get_asm_specification() const;
 
             Nodecl::Symbol make_nodecl(const std::string& filename = "", int line = 0) const;
+
+            /*!
+             * States whether this symbol has a parameter i with a default argument
+             */
+            bool has_default_argument_num(int i) const;
+
+            /*!
+             * Returns the default argument of parameter i
+             */
+            Nodecl::NodeclBase get_default_argument_num(int i) const;
+
         private:
             scope_entry_t* _symbol;
     };

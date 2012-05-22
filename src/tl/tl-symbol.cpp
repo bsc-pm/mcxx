@@ -748,4 +748,15 @@ namespace TL
     {
         return _symbol->entity_specs.bitfield_last;
     }
+
+    bool Symbol::has_default_argument_num(int i) const
+    {
+        return (_symbol->entity_specs.default_argument_info[i] != NULL
+                && !nodecl_is_null(_symbol->entity_specs.default_argument_info[i]->argument));
+    }
+
+    Nodecl::NodeclBase Symbol::get_default_argument_num(int i) const
+    {
+        return _symbol->entity_specs.default_argument_info[i]->argument;
+    }
 }

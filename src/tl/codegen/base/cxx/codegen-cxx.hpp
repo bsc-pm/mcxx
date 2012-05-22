@@ -426,6 +426,10 @@ namespace Codegen
 
             virtual Ret unhandled_node(const Nodecl::NodeclBase & n);
 
+            void fill_parameter_names_and_parameter_attributes(TL::Symbol symbol,
+                    TL::ObjectList<std::string>& parameter_names,
+                    TL::ObjectList<std::string>& parameter_attributes);
+
             std::string get_declaration(TL::Type t, TL::Scope scope, const std::string& name);
             std::string get_declaration_with_parameters(TL::Type, TL::Scope, const std::string& name,
                     TL::ObjectList<std::string>& names, TL::ObjectList<std::string> & parameter_attributes);
