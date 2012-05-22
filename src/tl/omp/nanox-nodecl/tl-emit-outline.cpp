@@ -438,28 +438,6 @@ namespace TL { namespace Nanox {
                             t = (*it)->get_in_outline_type();
                         }
 
-                        if (IS_C_LANGUAGE
-                                || IS_CXX_LANGUAGE)
-                        {
-                            private_entities
-                                << as_type(t) << " " << name << ";"
-                                ;
-                        }
-                        else if (IS_FORTRAN_LANGUAGE)
-                        {
-                            // @IS_VARIABLE@ means that this symbol must already be assumed a variable
-                            //
-                            // Fortran FE is very lax and this symbol would be left as a SK_UNDEFINED
-                            // which is a kind of symbol that the C/C++ FE does not know anything about
-                            private_entities
-                                << as_type(t) << ", @IS_VARIABLE@ :: " << name << "\n"
-                                ;
-                        }
-                        else
-                        {
-                            internal_error("Code unreachable", 0);
-                        }
-
                         break;
                     }
                 case OutlineDataItem::SHARING_SHARED:
@@ -520,12 +498,11 @@ namespace TL { namespace Nanox {
                         {
                             argument << "args % " << (*it)->get_field_name();
 
-                            if (((*it)->get_allocation_policy()
-                                        & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE ==
-                                        OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE)
-                                    || ((*it)->get_allocation_policy()
-                                        & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_POINTER ==
-                                        OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_POINTER))
+                            bool is_allocatable = (*it)->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE;
+                            bool is_pointer = (*it)->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_POINTER;
+
+                            if (is_allocatable
+                                    || is_pointer)
                             {
                                 cleanup_code
                                     << "DEALLOCATE(args % " << (*it)->get_field_name() << ")\n"
@@ -557,36 +534,6 @@ namespace TL { namespace Nanox {
                         {
                             name = (*it)->get_field_name();
                             t = (*it)->get_in_outline_type();
-                        }
-
-                        if (IS_C_LANGUAGE
-                                || IS_CXX_LANGUAGE)
-                        {
-                            private_entities
-                                << as_type(t) << " " << name << " = " << as_expression((*it)->get_reduction_info()->get_identity().shallow_copy()) << ";"
-                                ;
-                        }
-                        else if (IS_FORTRAN_LANGUAGE)
-                        {
-                            // @IS_VARIABLE@ means that this symbol must already be assumed a variable
-                            //
-                            // Fortran FE is very lax and this symbol would be left as a SK_UNDEFINED
-                            // which is a kind of symbol that the C/C++ FE does not know anything about
-                            private_entities
-                                << as_type(t) << ", @IS_VARIABLE@ :: " << name << "\n"
-                                << name << " = " << as_expression((*it)->get_reduction_info()->get_identity().shallow_copy()) << "\n"
-                                ;
-                        }
-                        else
-                        {
-                            internal_error("Code unreachable", 0);
-                        }
-
-                        // Note here that we use the same type as the field for convenience
-                        TL::Type param_type = (*it)->get_field_type();
-                        if (IS_FORTRAN_LANGUAGE)
-                        {
-                            param_type = param_type.get_lvalue_reference_to();
                         }
 
                         Source argument;
