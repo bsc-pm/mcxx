@@ -2132,6 +2132,7 @@ static void initialize_default_values(void)
     }
 
     CURRENT_CONFIGURATION->type_environment = default_environment;
+    CURRENT_CONFIGURATION->fortran_array_descriptor = default_fortran_array_descriptor;
 
     CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_CXX;
 
@@ -4564,7 +4565,7 @@ static void list_fortran_array_descriptors(void)
 
     fprintf(stdout, "\n");
     fprintf(stdout, "Command line parameter --fortran-descriptor=<env-id> can be used to choose a particular architecture.\n");
-    fprintf(stdout, "If not specified, default environment is '%s' (%s)\n",
+    fprintf(stdout, "If not specified, default Fortran array descriptor is '%s' (%s)\n",
             default_fortran_array_descriptor->descriptor_id,
             default_fortran_array_descriptor->descriptor_name);
 

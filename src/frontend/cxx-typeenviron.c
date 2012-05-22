@@ -137,6 +137,7 @@ static void system_v_field_layout(scope_entry_t* field,
             type_set_alignment(field_type,
                     fortran_alignment_of_array_descriptor(element_type,
                         fortran_get_rank_of_type(field_type)));
+            type_set_valid_size(field_type, 1);
         }
         else if (is_last_field)
         {
