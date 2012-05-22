@@ -295,7 +295,7 @@ int config_set_environment(struct compilation_configuration_tag* config, const c
 
 int config_set_fortran_array_descriptor(struct compilation_configuration_tag* config, const char* index, const char* value)
 {
-    type_environment_t* chosen_array_descriptor = get_fortran_array_descriptor(value);
+    fortran_array_descriptor_t* chosen_array_descriptor = get_fortran_array_descriptor(value);
     if (chosen_array_descriptor != NULL)
     {
         config->fortran_array_descriptor = chosen_array_descriptor;
