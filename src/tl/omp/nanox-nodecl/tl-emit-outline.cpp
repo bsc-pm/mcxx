@@ -458,8 +458,7 @@ namespace TL { namespace Nanox {
                                     param_type = TL::Type::get_void_type().get_pointer_to();
 
                                     private_entities
-                                        << as_type((*it)->get_in_outline_type()) 
-                                        << " " << (*it)->get_field_name() 
+                                        << (*it)->get_field_name() 
                                         << " = " << "(" << as_type((*it)->get_in_outline_type()) << ") ptr_" << (*it)->get_field_name() 
                                         << ";"
                                         ;
