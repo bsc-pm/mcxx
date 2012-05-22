@@ -7,6 +7,7 @@
 #include "cxx-configfile-parser.h"
 #include "cxx-utils.h"
 #include "cxx-typeenviron.h"
+#include "fortran03-typeenviron.h"
 
 static void new_option_list(option_list_t* list);
 static void add_to_option_list(option_list_t* list, p_compilation_configuration_line);
@@ -119,6 +120,7 @@ profile: profile_header profile_body
     new_configuration->configuration_lines = $2.options;
 
     new_configuration->type_environment = default_environment;
+    new_configuration->fortran_array_descriptor = default_fortran_array_descriptor;
 
     if (get_compilation_configuration($1.profile_name) != NULL)
     {
