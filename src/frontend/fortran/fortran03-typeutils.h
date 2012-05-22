@@ -34,45 +34,42 @@ MCXX_BEGIN_DECLS
 
 LIBMF03_EXTERN const char* fortran_print_type_str(type_t*);
 
-LIBMF03_EXTERN char is_fortran_intrinsic_type(type_t* t);
+LIBMF03_EXTERN char fortran_is_intrinsic_type(type_t* t);
 
-LIBMF03_EXTERN char is_pointer_to_array_type(type_t*);
-LIBMF03_EXTERN int get_rank_of_type(type_t* t);
-LIBMF03_EXTERN type_t* get_rank0_type(type_t* t);
-LIBMF03_EXTERN type_t* get_n_ranked_type(type_t* scalar_type, int rank, decl_context_t decl_context);
-LIBMF03_EXTERN type_t* get_n_ranked_type_with_descriptor(type_t* scalar_type, int rank, decl_context_t decl_context);
+LIBMF03_EXTERN int fortran_get_rank_of_type(type_t* t);
+LIBMF03_EXTERN type_t* fortran_get_rank0_type(type_t* t);
+LIBMF03_EXTERN type_t* fortran_get_n_ranked_type(type_t* scalar_type, int rank, decl_context_t decl_context);
+LIBMF03_EXTERN type_t* fortran_get_n_ranked_type_with_descriptor(type_t* scalar_type, int rank, decl_context_t decl_context);
 
-LIBMF03_EXTERN char equivalent_tk_types(type_t* t1, type_t* t2);
-LIBMF03_EXTERN char equivalent_tkr_types(type_t* t1, type_t* t2);
+LIBMF03_EXTERN char fortran_equivalent_tk_types(type_t* t1, type_t* t2);
+LIBMF03_EXTERN char fortran_equivalent_tkr_types(type_t* t1, type_t* t2);
 
 // States that this is an array of character type
-LIBMF03_EXTERN char is_fortran_character_type(type_t*);
-// A pointer to is_fortran_character_type
-LIBMF03_EXTERN char is_pointer_to_fortran_character_type(type_t* t);
-LIBMF03_EXTERN char is_fortran_character_type_or_pointer_to(type_t* t);
+LIBMF03_EXTERN char fortran_is_character_type(type_t*);
+// A pointer to fortran_is_character_type
+LIBMF03_EXTERN char fortran_is_pointer_to_character_type(type_t* t);
+LIBMF03_EXTERN char fortran_is_character_type_or_pointer_to(type_t* t);
 
 // States that this is an array of non-character type
-LIBMF03_EXTERN char is_fortran_array_type(type_t* t);
+LIBMF03_EXTERN char fortran_is_array_type(type_t* t);
 
 // States that this is an scalar type
 LIBMF03_EXTERN char fortran_is_scalar_type(type_t* t);
 
-// A pointer to is_fortran_array_type
-LIBMF03_EXTERN char is_pointer_to_fortran_array_type(type_t* t);
-LIBMF03_EXTERN char is_fortran_array_type_or_pointer_to(type_t* t);
+// A pointer to fortran_is_array_type
+LIBMF03_EXTERN char fortran_is_pointer_to_array_type(type_t* t);
+LIBMF03_EXTERN char fortran_is_array_type_or_pointer_to(type_t* t);
 
-
-
-LIBMF03_EXTERN type_t* replace_return_type_of_function_type(type_t* function_type, 
+LIBMF03_EXTERN type_t* fortran_replace_return_type_of_function_type(type_t* function_type, 
         type_t* new_return_type);
 
-LIBMF03_EXTERN type_t* update_basic_type_with_type(type_t* type_info, type_t* basic_type);
+LIBMF03_EXTERN type_t* fortran_update_basic_type_with_type(type_t* type_info, type_t* basic_type);
 
-LIBMF03_EXTERN char basic_type_is_implicit_none(type_t* t);
+LIBMF03_EXTERN char fortran_basic_type_is_implicit_none(type_t* t);
 
-LIBMF03_EXTERN type_t* rebuild_array_type(type_t* rank0_type, type_t* array_type);
+LIBMF03_EXTERN type_t* fortran_rebuild_array_type(type_t* rank0_type, type_t* array_type);
 
-LIBMF03_EXTERN char are_conformable_types(type_t* t1, type_t* t2);
+LIBMF03_EXTERN char fortran_are_conformable_types(type_t* t1, type_t* t2);
 
 LIBMF03_EXTERN type_t* fortran_get_default_integer_type(void);
 LIBMF03_EXTERN type_t* fortran_get_default_real_type(void);

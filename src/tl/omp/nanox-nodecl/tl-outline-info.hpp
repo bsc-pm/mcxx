@@ -361,6 +361,10 @@ namespace TL
 
                 TL::Symbol _unpacked_function_symbol;
 
+                // Do not copy
+                OutlineInfo(const OutlineInfo&);
+                OutlineInfo& operator=(const OutlineInfo&);
+
             public:
                 OutlineInfo(Nodecl::NodeclBase environment, bool is_function_task = false);
                 OutlineInfo();

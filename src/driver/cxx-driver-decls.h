@@ -34,6 +34,7 @@
 #include "cxx-scope-decls.h"
 #include "cxx-buildscope-decls.h"
 #include "cxx-nodecl-decls.h"
+#include "fortran03-typeenviron-decls.h"
 #include <stddef.h>
 
 MCXX_BEGIN_DECLS
@@ -421,6 +422,9 @@ typedef struct compilation_configuration_tag
 
     // Type environment
     struct type_environment_tag* type_environment;
+
+    // Fortran array descriptor (compiler dependent)
+    struct fortran_array_descriptor_t* fortran_array_descriptor;
 
     // Flags affecting some bits of the language
     code_shape_t code_shape;

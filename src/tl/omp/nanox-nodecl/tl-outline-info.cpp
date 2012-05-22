@@ -319,14 +319,22 @@ namespace TL { namespace Nanox {
 
     OutlineInfo::OutlineInfo() : _data_env_items() { }
 
+    OutlineInfo::~OutlineInfo() 
+    {
+        for (ObjectList<OutlineDataItem*>::iterator it = _data_env_items.begin();
+                it != _data_env_items.end();
+                it++)
+        {
+            delete *it;
+        }
+    }
+
     OutlineInfo::OutlineInfo(Nodecl::NodeclBase environment, bool is_function_task)
         : _data_env_items()
     {
         OutlineInfoSetupVisitor setup_visitor(*this, is_function_task);
         setup_visitor.walk(environment);
     }
-
-    OutlineInfo::~OutlineInfo() { }
 
     OutlineDataItem& OutlineInfo::prepend_field(const std::string& str, TL::Type t)
     {
