@@ -522,7 +522,7 @@ type_t* fortran_get_n_ranked_type_with_descriptor(type_t* scalar_type, int rank,
     else if (rank > 0)
     {
         return get_array_type_bounds_with_descriptor(
-                fortran_get_n_ranked_type(scalar_type, rank-1, decl_context), nodecl_null(), nodecl_null(), decl_context);
+                fortran_get_n_ranked_type_with_descriptor(scalar_type, rank-1, decl_context), nodecl_null(), nodecl_null(), decl_context);
     }
     else
     {
