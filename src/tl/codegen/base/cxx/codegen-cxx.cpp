@@ -3746,15 +3746,40 @@ void CxxBase::declare_friend_symbol(TL::Symbol friend_symbol, TL::Symbol class_s
         }
 
         std::string function_name;
-        if (friend_symbol.is_function())
+        if ((get_codegen_status(friend_symbol) != CODEGEN_STATUS_DECLARED &&
+                    get_codegen_status(friend_symbol) != CODEGEN_STATUS_DEFINED))
         {
-            function_name = (is_primary_template) ?
-                unmangle_symbol_name(friend_symbol) : friend_symbol.get_qualified_name();
+            function_name = friend_symbol.get_name();
         }
         else
         {
             function_name = friend_symbol.get_qualified_name(class_symbol.get_scope(),
                     /* without template id */ (friend_type.is_template_specialized_type()));
+        }
+
+        file << this->get_declaration(real_type, friend_symbol.get_scope(), function_name) << exception_spec;
+    }
+    else if (friend_symbol.is_dependent_friend_function())
+    {
+        std::string exception_spec = exception_specifier_to_str(friend_symbol);
+        TL::Type real_type = friend_type;
+        if (class_symbol.is_conversion_function())
+        {
+            real_type = get_new_function_type(NULL, NULL, 0);
+        }
+
+        std::string function_name;
+        TL::ObjectList<TL::Symbol> candidates_set = friend_symbol.get_related_symbols();
+        if (candidates_set.size() == 1 &&
+                (get_codegen_status(candidates_set[0]) == CODEGEN_STATUS_DECLARED ||
+                 get_codegen_status(candidates_set[0]) == CODEGEN_STATUS_DEFINED))
+        {
+            function_name = friend_symbol.get_qualified_name(candidates_set[0].get_scope(),
+                    /* without template id */ (friend_type.is_template_specialized_type()));
+        }
+        else
+        {
+            function_name = friend_symbol.get_name();
         }
 
         file << this->get_declaration(real_type, friend_symbol.get_scope(), function_name) << exception_spec;
