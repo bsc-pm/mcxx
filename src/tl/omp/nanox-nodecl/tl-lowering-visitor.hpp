@@ -26,6 +26,7 @@
 
 #include "tl-nodecl-visitor.hpp"
 #include "tl-outline-info.hpp"
+#include "tl-nodecl-utils.hpp"
 
 #include <set>
 
@@ -40,6 +41,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         virtual void visit(const Nodecl::OpenMP::WaitOnDependences& construct);
         virtual void visit(const Nodecl::OpenMP::TaskCall& construct);
         virtual void visit(const Nodecl::OpenMP::Single& construct);
+        virtual void visit(const Nodecl::OpenMP::Master& construct);
         virtual void visit(const Nodecl::OpenMP::BarrierFull& construct);
         virtual void visit(const Nodecl::OpenMP::Parallel& construct);
         virtual void visit(const Nodecl::OpenMP::For& construct);
@@ -50,7 +52,6 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
     private:
         TL::Symbol declare_argument_structure(OutlineInfo& outline_info, Nodecl::NodeclBase construct);
         bool c_type_needs_vla_handling(TL::Type t);
-        bool c_requires_vla_handling(OutlineDataItem& outline_data_item);
 
         void emit_async_common(
                 Nodecl::NodeclBase construct,
@@ -65,42 +66,18 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::NodeclBase construct,
                 Source body_source,
                 const std::string& outline_name,
-                TL::Symbol structure_symbol);
+                TL::Symbol structure_symbol,
+                // out
+                Nodecl::Utils::SymbolMap* &symbol_map);
 #if 0
         void emit_outline(OutlineInfo& outline_info,
                 Nodecl::NodeclBase body,
                 const std::string& outline_name,
                 TL::Symbol structure_symbol);
 #endif
-
-        TL::Type c_handle_vla_type_rec(
-                OutlineDataItem& outline_data_item,
-                TL::Type type, 
-                TL::Scope class_scope, 
-                TL::Symbol new_class_symbol,
-                TL::Type new_class_type,
-                TL::ObjectList<TL::Symbol>& new_symbols,
-                const std::string& filename, 
-                int line);
-        void c_handle_vla_type(
-                OutlineDataItem& outline_data_item,
-                TL::Scope class_scope, 
-                TL::Symbol new_class_symbol,
-                TL::Type new_class_type,
-                TL::ObjectList<TL::Symbol>& new_symbols,
-                const std::string& filename, 
-                int line);
-
-        void fortran_handle_vla_type(
-                OutlineDataItem& outline_data_item,
-                TL::Type field_type,
-                TL::Symbol field_symbol,
-                TL::Scope class_scope, 
-                TL::Symbol new_class_symbol,
-                TL::Type new_class_type,
-                TL::ObjectList<TL::Symbol>& new_symbols,
-                const std::string& filename, 
-                int line);
+        void handle_vla_entity(OutlineDataItem& data_item, OutlineInfo& outline_info);
+        void handle_vla_type_rec(TL::Type t, OutlineInfo& outline_info);
+        void handle_vla_saved_expr(Nodecl::NodeclBase saved_expr, OutlineInfo& outline_info);
 
         void fill_arguments(
                 Nodecl::NodeclBase ctr,
@@ -172,14 +149,32 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 const std::string& outline_name,
                 TL::Symbol structure_symbol);
 
+        Source get_loop_distribution_source(
+                const Nodecl::OpenMP::For &construct,
+                Nodecl::List& distribute_environment,
+                Nodecl::List& ranges,
+                OutlineInfo& outline_info,
+                Nodecl::NodeclBase &placeholder1,
+                Nodecl::NodeclBase &placeholder2);
+
+        void distribute_loop_with_outline(
+                const Nodecl::OpenMP::For& construct,
+                Nodecl::List& distribute_environment,
+                Nodecl::List& ranges,
+                OutlineInfo& outline_info,
+                Nodecl::NodeclBase& statements,
+                Source &distribute_loop_source,
+                Nodecl::NodeclBase& placeholder1,
+                Nodecl::NodeclBase& placeholder2
+                );
+
         void loop_spawn(
                 OutlineInfo& outline_info,
                 Nodecl::NodeclBase construct,
                 Nodecl::List distribute_environment,
                 Nodecl::List ranges,
                 const std::string& outline_name,
-                TL::Symbol structure_symbol,
-                Source inline_iteration_source);
+                TL::Symbol structure_symbol);
 
         Source full_barrier_source();
 

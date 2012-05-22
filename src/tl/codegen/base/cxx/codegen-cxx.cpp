@@ -643,12 +643,6 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Conversion& node)
     walk(node.get_nest());
 }
 
-CxxBase::Ret CxxBase::visit(const Nodecl::SavedExpr& node)
-{
-    // Do nothing
-    walk(node.get_expression());
-}
-
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxArrow& node)
 {
     walk(node.get_lhs());
@@ -1279,8 +1273,6 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
 {
     // We are going to generate dependent code
     state.in_dependent_template_function_code = true;
-    bool old = state.do_not_emit_other_declarations;
-    state.do_not_emit_other_declarations = true;
 
     Nodecl::Context context = node.get_statements().as<Nodecl::Context>();
     Nodecl::List statement_seq = context.get_in_context().as<Nodecl::List>();
@@ -1300,20 +1292,26 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
     Nodecl::NodeclBase statement = statement_seq[0];
 
     TL::Symbol symbol = node.get_symbol();
+
+    // We don't define twice a symbol
+    if (get_codegen_status(symbol) == CODEGEN_STATUS_DEFINED)
+        return;
+
+    // Two return cases for C++:
+    //  - The symbol is defined inside a certain class and we are not defining this class yet
+    //  - The symbol is not defined inside a class and, currently, we are defining one or more
+    if (IS_CXX_LANGUAGE &&
+            (symbol.is_defined_inside_class() &&
+             (state.classes_being_defined.empty() ||
+              state.classes_being_defined.back() != symbol.get_class_type().get_symbol()) ||
+             (!symbol.is_defined_inside_class() && !state.classes_being_defined.empty())))
+        return;
+
     TL::Type symbol_type = symbol.get_type();
     TL::Scope function_scope = context.retrieve_context();
 
 
     ERROR_CONDITION(!symbol.is_function(), "Invalid symbol", 0);
-
-    // This is a member of a local class. Ignore unless we are defining its local class
-    if (is_local_symbol(symbol))
-    {
-        if (state.classes_being_defined.empty()
-                || (state.classes_being_defined.back() !=
-                    symbol.get_class_type().get_symbol()))
-            return;
-    }
 
     if (symbol.is_member())
     {
@@ -1364,34 +1362,23 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
         define_nonlocal_entities_in_trees(statement);
     }
 
-    TL::ObjectList<TL::Symbol> related_symbols = symbol.get_related_symbols();
-    TL::ObjectList<std::string> parameter_names(related_symbols.size());
-    TL::ObjectList<std::string> parameter_attributes(related_symbols.size());
-    int i = 0;
-    for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
-            it != related_symbols.end();
-            it++, i++)
-    {
-        TL::Symbol current_param = *it;
-        if (current_param.is_valid()
-                && !current_param.not_to_be_printed())
-        {
-            parameter_names[i] = current_param.get_name();
-            set_codegen_status(current_param, CODEGEN_STATUS_DEFINED);
-            if (current_param.has_gcc_attributes())
-            {
-                parameter_attributes[i] = gcc_attributes_to_str(current_param);
-            }
-        }
-    }
+    int num_parameters = symbol.get_related_symbols().size();
+    TL::ObjectList<std::string> parameter_names(num_parameters);
+    TL::ObjectList<std::string> parameter_attributes(num_parameters);
+    fill_parameter_names_and_parameter_attributes(symbol, parameter_names, parameter_attributes);
 
     std::string decl_spec_seq;
 
     if (symbol.is_static()
-            && !symbol.is_member())
+            && (!symbol.is_member()
+                || (IS_CXX_LANGUAGE
+                    && symbol.is_defined_inside_class()
+                    && get_codegen_status(symbol) != CODEGEN_STATUS_DECLARED
+                    && get_codegen_status(symbol) != CODEGEN_STATUS_DEFINED)))
     {
         decl_spec_seq += "static ";
     }
+
     if (symbol.is_extern() && symbol.get_initialization().is_null())
     {
         decl_spec_seq += "extern ";
@@ -1419,7 +1406,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
 
     std::string declarator_name;
 
-    if (!is_local_symbol(symbol))
+    if (!symbol.is_defined_inside_class())
     {
         declarator_name = symbol.get_class_qualification(function_scope, /* without_template */ true);
     }
@@ -1457,26 +1444,32 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
 
     move_to_namespace_of_symbol(symbol);
 
-    if (!is_local_symbol(symbol))
+    TL::TemplateParameters template_parameters = function_scope.get_template_parameters();
+    if (symbol.is_defined_inside_class())
     {
-        TL::TemplateParameters template_parameters = function_scope.get_template_parameters();
-        codegen_template_headers_all_levels(template_parameters, /*show default values*/ false);
+        TL::Symbol class_sym = symbol.get_class_type().get_symbol();
+        codegen_template_headers_bounded(
+                template_parameters,
+                class_sym.get_scope().get_template_parameters(),
+                /*show default variables*/ false);
+    }
+    else
+    {
+        codegen_template_headers_all_levels(
+                template_parameters,
+                /*show default values*/ false);
     }
 
-    bool requires_extern_linkage = false;
-    CXX_LANGUAGE()
+    bool requires_extern_linkage = (!symbol.is_member()
+            && symbol.has_nondefault_linkage());
+
+    if (requires_extern_linkage)
     {
-        requires_extern_linkage = (!symbol.is_member()
-                && symbol.has_nondefault_linkage());
+        file << "extern " + symbol.get_linkage() + "\n";
+        indent();
+        file << "{\n";
 
-        if (requires_extern_linkage)
-        {
-            file << "extern " + symbol.get_linkage() + "\n";
-            indent();
-            file << "{\n";
-
-            inc_indent();
-        }
+        inc_indent();
     }
 
     if (!symbol.is_member()
@@ -1511,22 +1504,16 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
 
     this->walk(context);
 
-    CXX_LANGUAGE()
+    if (requires_extern_linkage)
     {
-        if (requires_extern_linkage)
-        {
-            dec_indent();
-            indent();
-            file << "}\n";
-        }
+        dec_indent();
+        indent();
+        file << "}\n";
     }
-
-    state.do_not_emit_other_declarations = old;
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 {
-
     //Only independent code
     Nodecl::Context context = node.get_statements().as<Nodecl::Context>();
     Nodecl::List statement_seq = context.get_in_context().as<Nodecl::List>();
@@ -1547,14 +1534,19 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 
     TL::Symbol symbol = node.get_symbol();
 
-    // This is a member of a local class. Ignore unless we are defining its local class
-    if (is_local_symbol(symbol))
-    {
-        if (state.classes_being_defined.empty()
-                || (state.classes_being_defined.back() !=
-                    symbol.get_class_type().get_symbol()))
-            return;
-    }
+    // We don't define twice a symbol
+    if (get_codegen_status(symbol) == CODEGEN_STATUS_DEFINED)
+        return;
+
+    // Two return cases for C++:
+    //  - The symbol is defined inside a certain class and we are not defining this class yet
+    //  - The symbol is not defined inside a class and, currently, we are defining one or more
+    if (IS_CXX_LANGUAGE &&
+            (symbol.is_defined_inside_class() &&
+             (state.classes_being_defined.empty() ||
+              state.classes_being_defined.back() != symbol.get_class_type().get_symbol()) ||
+             (!symbol.is_defined_inside_class() && !state.classes_being_defined.empty())))
+        return;
 
     TL::Type symbol_type = symbol.get_type();
 
@@ -1610,35 +1602,24 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 
         define_nonlocal_entities_in_trees(statement);
     }
-
-    TL::ObjectList<TL::Symbol> related_symbols = symbol.get_related_symbols();
-    TL::ObjectList<std::string> parameter_names(related_symbols.size());
-    TL::ObjectList<std::string> parameter_attributes(related_symbols.size());
-    int i = 0;
-    for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
-            it != related_symbols.end();
-            it++, i++)
-    {
-        TL::Symbol current_param = *it;
-        if (current_param.is_valid()
-                && !current_param.not_to_be_printed())
-        {
-            parameter_names[i] = current_param.get_name();
-            set_codegen_status(current_param, CODEGEN_STATUS_DEFINED);
-            if (current_param.has_gcc_attributes())
-            {
-                parameter_attributes[i] = gcc_attributes_to_str(current_param);
-            }
-        }
-    }
+    
+    int num_parameters = symbol.get_related_symbols().size();
+    TL::ObjectList<std::string> parameter_names(num_parameters);
+    TL::ObjectList<std::string> parameter_attributes(num_parameters);
+    fill_parameter_names_and_parameter_attributes(symbol, parameter_names, parameter_attributes);
 
     std::string decl_spec_seq;
 
     if (symbol.is_static()
-            && !symbol.is_member())
+            && (!symbol.is_member()
+                || (IS_CXX_LANGUAGE
+                    && symbol.is_defined_inside_class()
+                    && get_codegen_status(symbol) != CODEGEN_STATUS_DECLARED
+                    && get_codegen_status(symbol) != CODEGEN_STATUS_DEFINED)))
     {
         decl_spec_seq += "static ";
     }
+
     if (symbol.is_extern() && symbol.get_initialization().is_null())
     {
         decl_spec_seq += "extern ";
@@ -1665,13 +1646,20 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
     std::string asm_specification = gcc_asm_specifier_to_str(symbol);
 
     std::string declarator_name;
-    if (!is_local_symbol(symbol))
+    if (IS_C_LANGUAGE)
     {
-        declarator_name = symbol.get_class_qualification(symbol_scope, /* without_template */ true);
+        declarator_name = unmangle_symbol_name(symbol);
     }
     else
     {
-        declarator_name = unmangle_symbol_name(symbol);
+        if (!symbol.is_defined_inside_class())
+        {
+            declarator_name = symbol.get_class_qualification(symbol_scope, /* without_template */ true);
+        }
+        else
+        {
+            declarator_name = unmangle_symbol_name(symbol);
+        }
     }
 
     if (is_template_specialized
@@ -2618,14 +2606,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxDecl& node)
     TL::Symbol sym = node.get_symbol();
     state.must_be_object_init.erase(sym);
 
-    bool old = state.do_not_emit_other_declarations;
-    state.do_not_emit_other_declarations = true;
-
     do_declare_symbol(sym,
             &CxxBase::declare_symbol_always,
             &CxxBase::define_symbol_always);
-
-    state.do_not_emit_other_declarations = old;
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxDef& node)
@@ -2633,14 +2616,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxDef& node)
     TL::Symbol sym = node.get_symbol();
     state.must_be_object_init.erase(sym);
 
-    bool old = state.do_not_emit_other_declarations;
-    state.do_not_emit_other_declarations = true;
-
     do_define_symbol(sym,
             &CxxBase::declare_symbol_always,
             &CxxBase::define_symbol_always);
-
-    state.do_not_emit_other_declarations = old;
 }
 
 void CxxBase::codegen_explicit_instantiation(TL::Symbol sym,
@@ -2855,6 +2833,29 @@ bool CxxBase::symbol_is_nested_in_defined_classes(TL::Symbol symbol)
     return false;
 }
 
+bool CxxBase::symbol_or_its_bases_are_nested_in_defined_classes(TL::Symbol symbol)
+{
+    if (symbol_is_nested_in_defined_classes(symbol))
+    {
+        return true;
+    }
+
+    if (symbol.is_class())
+    {
+        TL::ObjectList<TL::Symbol> bases = symbol.get_type().get_bases_class_symbol_list();
+        for (TL::ObjectList<TL::Symbol>::iterator it = bases.begin();
+                it != bases.end();
+                it++)
+        {
+            if (symbol_is_nested_in_defined_classes(*it))
+            {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 TL::ObjectList<TL::Symbol> CxxBase::define_required_before_class(TL::Symbol symbol,
         void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
         void (CxxBase::*def_sym_fun)(TL::Symbol symbol))
@@ -2990,11 +2991,20 @@ TL::ObjectList<TL::Symbol> CxxBase::define_required_before_class(TL::Symbol symb
                     && _friend.is_member())
                 continue;
 
-            walk_type_for_symbols(
-                    _friend.get_type(),
-                    &CxxBase::declare_symbol_if_nonnested,
-                    &CxxBase::define_symbol_if_nonnested,
-                    &CxxBase::define_nonnested_entities_in_trees);
+
+            if (_friend.is_class())
+            {
+                (this->*decl_sym_fun)(_friend);
+            }
+            else
+            {
+                walk_type_for_symbols(
+                        _friend.get_type(),
+                        &CxxBase::declare_symbol_if_nonnested,
+                        &CxxBase::define_symbol_if_nonnested,
+                        &CxxBase::define_nonnested_entities_in_trees);
+            }
+
 
             if (_friend.is_dependent_friend_function())
             {
@@ -3372,8 +3382,9 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                         && member.get_type().get_symbol().is_anonymous_union())
                 {
                     TL::Symbol class_sym = member.get_type().get_symbol();
+                    state.classes_being_defined.push_back(class_sym);
                     define_class_symbol_aux(class_sym, symbols_defined_inside_class, level + 1);
-                    set_codegen_status(class_sym, CODEGEN_STATUS_DEFINED);
+                    state.classes_being_defined.pop_back();
                 }
                 else
                 {
@@ -3396,8 +3407,9 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                             if (member.is_defined_inside_class() &&
                                     is_complete_type(member.get_type().get_internal_type()))
                             {
+                                state.classes_being_defined.push_back(member);
                                 define_class_symbol_aux(member, symbols_defined_inside_class, level + 1);
-                                set_codegen_status(member, CODEGEN_STATUS_DEFINED);
+                                state.classes_being_defined.pop_back();
                             }
                             else
                             {
@@ -3424,8 +3436,9 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                     {
                         if (member.is_defined_inside_class() || symbols_defined_inside_class.contains(member))
                         {
+                            state.classes_being_defined.push_back(member);
                             define_class_symbol_aux(member, symbols_defined_inside_class, level + 1);
-                            set_codegen_status(member, CODEGEN_STATUS_DEFINED);
+                            state.classes_being_defined.pop_back();
                         }
                         else
                         {
@@ -3457,17 +3470,16 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                 }
                 else if (member.is_function())
                 {
-                    // This is a local function, emit it here
-                    if (is_local_symbol(member)
-                            && !nodecl_is_null(member.get_internal_symbol()->entity_specs.function_code))
+                    if (!nodecl_is_null(member.get_internal_symbol()->entity_specs.function_code) &&
+                            member.is_defined_inside_class())
                     {
                         walk(member.get_internal_symbol()->entity_specs.function_code);
                     }
                     else
                     {
                         do_declare_symbol(member,
-                            &CxxBase::declare_symbol_always,
-                            &CxxBase::define_symbol_always);
+                                &CxxBase::declare_symbol_always,
+                                &CxxBase::define_symbol_always);
                     }
                 }
                 else
@@ -3509,166 +3521,12 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
 
     // 3. Declare friends
     TL::ObjectList<TL::Symbol> friends = symbol_type.class_get_friends();
-
     for (TL::ObjectList<TL::Symbol>::iterator it = friends.begin();
             it != friends.end();
             it++)
     {
         TL::Symbol &_friend(*it);
-
-         //The user did not declare it, ignore it
-        if (_friend.is_friend_declared() &&
-                  !(_friend.is_dependent_friend_class() ||
-                    _friend.is_dependent_friend_function()))
-            continue;
-
-        bool is_primary_template = false;
-        TL::Type friend_type = _friend.get_type();
-        inc_indent();
-
-        // A. Generate a template header if this friend declaration has one
-        if (friend_type.is_template_specialized_type())
-        {
-            TL::Type template_type = friend_type.get_related_template_type();
-            TL::Type primary_template = template_type.get_primary_template();
-            TL::Symbol primary_symbol = primary_template.get_symbol();
-
-            if (friend_type.is_dependent())
-            {
-                is_primary_template = (_friend == primary_symbol);
-                TL::TemplateParameters template_parameters =
-                    _friend.get_scope().get_template_parameters();
-
-                codegen_template_headers_bounded(
-                        template_parameters,
-                        symbol.get_scope().get_template_parameters(),
-                        /* show default values */ false);
-            }
-        }
-
-        // B. Generate the function or class declaration
-        indent();
-        file << "friend ";
-
-        if (_friend.is_class())
-        {
-            std::string friend_class_key;
-            switch (friend_type.class_type_get_class_kind())
-            {
-                case TT_CLASS:
-                    friend_class_key = "class";
-                    break;
-                case TT_STRUCT:
-                    friend_class_key = "struct";
-                    break;
-                case TT_UNION:
-                    friend_class_key = "union";
-                    break;
-                default:
-                    internal_error("Invalid class kind", 0);
-            }
-
-            file << friend_class_key << " ";
-
-
-            // In the related symbols of _friend symbol we have stored the results of the query
-            // done in buildscope. If there are no results, we should not qualify the friend name
-            if (_friend.get_num_related_symbols() == 0)
-            {
-                file << _friend.get_name();
-            }
-            else
-            {
-                file << _friend.get_qualified_name(symbol.get_scope());
-            }
-        }
-        else if(_friend.is_dependent_friend_class())
-        {
-            enum type_tag_t class_key_tag;
-            if (friend_type.is_dependent_typename())
-            {
-                class_key_tag = get_dependent_entry_kind(friend_type.get_internal_type());
-            }
-            else
-            {
-                class_key_tag = friend_type.class_type_get_class_kind();
-            }
-
-            std::string friend_class_key;
-            switch (class_key_tag)
-            {
-                case TT_CLASS:
-                    friend_class_key = "class";
-                    break;
-                case TT_STRUCT:
-                    friend_class_key = "struct";
-                    break;
-                case TT_UNION:
-                    friend_class_key = "union";
-                    break;
-                default:
-                    internal_error("Invalid class kind", 0);
-            }
-
-            if (friend_type.is_dependent_typename())
-            {
-                file << this->get_declaration(friend_type, symbol.get_scope(), "");
-            }
-            else if(friend_type.is_template_specialized_type())
-            {
-                file << friend_class_key << " "
-                     << _friend.get_qualified_name(symbol.get_scope(), /* without template id */true);
-            }
-            else
-            {
-                file << friend_class_key << " "
-                     << this->get_declaration(friend_type, symbol.get_scope(), "");
-            }
-        }
-        else if (_friend.is_function())
-        {
-            std::string exception_spec = exception_specifier_to_str(_friend);
-            TL::Type real_type = friend_type;
-            if (symbol.is_conversion_function())
-            {
-                real_type = get_new_function_type(NULL, NULL, 0);
-            }
-
-            std::string function_name = (is_primary_template) ?
-                unmangle_symbol_name(_friend) : _friend.get_qualified_name();
-
-            file << this->get_declaration(real_type, symbol.get_scope(), function_name) << exception_spec;
-        }
-        else if (_friend.is_dependent_friend_function())
-        {
-            std::string exception_spec = exception_specifier_to_str(_friend);
-            TL::Type real_type = friend_type;
-            if (symbol.is_conversion_function())
-            {
-                real_type = get_new_function_type(NULL, NULL, 0);
-            }
-
-            std::string function_name;
-            if (friend_type.is_template_specialized_type())
-            {
-                function_name =
-                    _friend.get_qualified_name(symbol.get_scope(), /* without template id */ true);
-            }
-            else
-            {
-                function_name =
-                    _friend.get_qualified_name(symbol.get_scope(), /* without template id */ false);
-            }
-
-            file << this->get_declaration(real_type, symbol.get_scope(), function_name) << exception_spec;
-        }
-        else
-        {
-            internal_error("Invalid friend symbol kind '%s'\n", symbol_kind_name(_friend.get_internal_symbol()));
-        }
-
-        file << ";\n";
-        dec_indent();
+        declare_friend_symbol(*it, symbol);
     }
 
     indent();
@@ -3710,6 +3568,197 @@ void CxxBase::define_class_symbol(TL::Symbol symbol,
     state.classes_being_defined.pop_back();
 
     state.pending_nested_types_to_define = current_pending;
+}
+
+void CxxBase::declare_friend_symbol(TL::Symbol friend_symbol, TL::Symbol class_symbol)
+{
+    //The user did not declare it, ignore it
+    if (friend_symbol.is_friend_declared() &&
+            !(friend_symbol.is_dependent_friend_class() ||
+                friend_symbol.is_dependent_friend_function() ||
+                friend_symbol.is_template()))
+        return;
+
+
+    bool is_template_friend_declaration = false,
+         is_primary_template = false;
+
+    if (friend_symbol.is_template())
+    {
+        is_template_friend_declaration = true;
+        TL::Type primary_template = friend_symbol.get_type().get_primary_template();
+        TL::Symbol primary_symbol = primary_template.get_symbol();
+        friend_symbol = primary_symbol;
+    }
+
+    TL::Type friend_type = friend_symbol.get_type();
+    inc_indent();
+
+    // A. Generate a template header if this friend declaration has one
+    if (friend_symbol.is_dependent_friend_class() && friend_symbol.has_alias_to())
+    {
+        // It's a special case: friend_symbol contains the right context
+        // of the template friend declaration and an alias to the real friend symbol
+        TL::Symbol pointed_symbol = friend_symbol.get_alias_to();
+        if (pointed_symbol.is_template())
+        {
+            is_template_friend_declaration = true;
+            TL::Type primary_template = pointed_symbol.get_type().get_primary_template();
+            TL::Symbol primary_symbol = primary_template.get_symbol();
+            pointed_symbol = primary_symbol;
+        }
+
+        codegen_template_headers_bounded(
+                friend_symbol.get_scope().get_template_parameters(),
+                class_symbol.get_scope().get_template_parameters(),
+                /* show default values */ false);
+
+        // Now, we should change the fake friend symbol by the real pointed symbol
+        friend_symbol = pointed_symbol;
+        friend_type = pointed_symbol.get_type();
+    }
+    else if (friend_type.is_template_specialized_type())
+    {
+        TL::Type template_type = friend_type.get_related_template_type();
+        TL::Type primary_template = template_type.get_primary_template();
+        TL::Symbol primary_symbol = primary_template.get_symbol();
+
+        if (friend_type.is_dependent())
+        {
+            is_primary_template = (friend_symbol == primary_symbol);
+            TL::TemplateParameters template_parameters =
+                friend_symbol.get_scope().get_template_parameters();
+
+            codegen_template_headers_bounded(
+                    template_parameters,
+                    class_symbol.get_scope().get_template_parameters(),
+                    /* show default values */ false);
+        }
+    }
+
+    // B. Generate the function or class declaration
+    indent();
+    file << "friend ";
+
+    if (friend_symbol.is_class())
+    {
+        std::string friend_class_key;
+        switch (friend_type.class_type_get_class_kind())
+        {
+            case TT_CLASS:
+                friend_class_key = "class";
+                break;
+            case TT_STRUCT:
+                friend_class_key = "struct";
+                break;
+            case TT_UNION:
+                friend_class_key = "union";
+                break;
+            default:
+                internal_error("Invalid class kind", 0);
+        }
+
+        file << friend_class_key << " ";
+
+        if ((get_codegen_status(friend_symbol) != CODEGEN_STATUS_DECLARED &&
+                    get_codegen_status(friend_symbol) != CODEGEN_STATUS_DEFINED))
+        {
+            // The class_symbol has not been declared or defined before this friend declaration
+            // We cannot print its qualified
+            file << friend_symbol.get_name();
+        }
+        else
+        {
+            file << friend_symbol.get_qualified_name(class_symbol.get_scope(),
+                    /*without template id */ is_template_friend_declaration);
+        }
+    }
+    else if(friend_symbol.is_dependent_friend_class())
+    {
+        enum type_tag_t class_key_tag;
+        if (friend_type.is_dependent_typename())
+        {
+            class_key_tag = get_dependent_entry_kind(friend_type.get_internal_type());
+        }
+        else
+        {
+            class_key_tag = friend_type.class_type_get_class_kind();
+        }
+
+        std::string friend_class_key;
+        switch (class_key_tag)
+        {
+            case TT_CLASS:
+                friend_class_key = "class";
+                break;
+            case TT_STRUCT:
+                friend_class_key = "struct";
+                break;
+            case TT_UNION:
+                friend_class_key = "union";
+                break;
+            default:
+                internal_error("Invalid class kind", 0);
+        }
+
+        file << this->get_declaration(friend_type, friend_symbol.get_scope(), "");
+    }
+    else if (friend_symbol.is_function()
+            || friend_symbol.is_dependent_friend_function())
+    {
+        std::string exception_spec = exception_specifier_to_str(friend_symbol);
+        TL::Type real_type = friend_type;
+        if (class_symbol.is_conversion_function())
+        {
+            real_type = get_new_function_type(NULL, NULL, 0);
+        }
+
+        std::string function_name;
+        if ((get_codegen_status(friend_symbol) != CODEGEN_STATUS_DECLARED &&
+                    get_codegen_status(friend_symbol) != CODEGEN_STATUS_DEFINED))
+        {
+            function_name = friend_symbol.get_name();
+        }
+        else
+        {
+            function_name = friend_symbol.get_qualified_name(class_symbol.get_scope(),
+                    /* without template id */ (friend_type.is_template_specialized_type()));
+        }
+
+        file << this->get_declaration(real_type, friend_symbol.get_scope(), function_name) << exception_spec;
+    }
+    else if (friend_symbol.is_dependent_friend_function())
+    {
+        std::string exception_spec = exception_specifier_to_str(friend_symbol);
+        TL::Type real_type = friend_type;
+        if (class_symbol.is_conversion_function())
+        {
+            real_type = get_new_function_type(NULL, NULL, 0);
+        }
+
+        std::string function_name;
+        TL::ObjectList<TL::Symbol> candidates_set = friend_symbol.get_related_symbols();
+        if (candidates_set.size() == 1 &&
+                (get_codegen_status(candidates_set[0]) == CODEGEN_STATUS_DECLARED ||
+                 get_codegen_status(candidates_set[0]) == CODEGEN_STATUS_DEFINED))
+        {
+            function_name = friend_symbol.get_qualified_name(candidates_set[0].get_scope(),
+                    /* without template id */ (friend_type.is_template_specialized_type()));
+        }
+        else
+        {
+            function_name = friend_symbol.get_name();
+        }
+
+        file << this->get_declaration(real_type, friend_symbol.get_scope(), function_name) << exception_spec;
+    }
+    else
+    {
+        internal_error("Invalid friend class_symbol kind '%s'\n", symbol_kind_name(friend_symbol.get_internal_symbol()));
+    }
+
+    file << ";\n";
+    dec_indent();
 }
 
 bool CxxBase::is_local_symbol(TL::Symbol entry)
@@ -3851,11 +3900,11 @@ void CxxBase::declare_symbol_if_nonprototype(TL::Symbol symbol)
 
 void CxxBase::define_symbol_if_nonnested(TL::Symbol symbol)
 {
-    if (!symbol_is_nested_in_defined_classes(symbol))
+    if (!symbol_or_its_bases_are_nested_in_defined_classes(symbol))
     {
         do_define_symbol(symbol,
-               &CxxBase::declare_symbol_if_nonnested,
-               &CxxBase::define_symbol_if_nonnested);
+                &CxxBase::declare_symbol_if_nonnested,
+                &CxxBase::define_symbol_if_nonnested);
     }
     else
     {
@@ -3867,7 +3916,7 @@ void CxxBase::define_symbol_if_nonnested(TL::Symbol symbol)
 
 void CxxBase::declare_symbol_if_nonnested(TL::Symbol symbol)
 {
-    if (!symbol_is_nested_in_defined_classes(symbol)
+    if (!symbol_or_its_bases_are_nested_in_defined_classes(symbol)
             || !symbol.is_member())
     {
         do_declare_symbol(symbol,
@@ -3892,7 +3941,7 @@ void CxxBase::define_or_declare_if_complete(TL::Symbol sym,
     if ((sym.is_class()
                 || sym.is_enum())
             && ( ::is_incomplete_type(sym.get_type().get_internal_type())
-                || symbol_is_nested_in_defined_classes(sym)))
+                || symbol_or_its_bases_are_nested_in_defined_classes(sym)))
     {
         (this->*symbol_to_declare)(sym);
     }
@@ -4224,6 +4273,23 @@ void CxxBase::do_define_symbol(TL::Symbol symbol,
     if (symbol.is_injected_class_name())
         symbol = symbol.get_class_type().get_symbol();
 
+    if (symbol.get_type().is_template_specialized_type()
+            && !symbol.is_user_declared())
+    {
+        if (!state.do_not_emit_other_declarations)
+        {
+            //We may need to define or declare the template arguments
+            TL::TemplateParameters template_arguments =
+                symbol.get_type().template_specialized_type_get_template_arguments();
+
+            declare_all_in_template_arguments(
+                    template_arguments,
+                    decl_sym_fun,
+                    def_sym_fun);
+        }
+        return;
+    }
+
     if (symbol.is_dependent_entity())
     {
         TL::Symbol entry(NULL);
@@ -4236,7 +4302,7 @@ void CxxBase::do_define_symbol(TL::Symbol symbol,
     if (symbol.is_member())
     {
         TL::Symbol class_entry = symbol.get_class_type().get_symbol();
-        if (!symbol_is_nested_in_defined_classes(class_entry))
+        if (!symbol_or_its_bases_are_nested_in_defined_classes(class_entry))
         {
             define_symbol_if_nonnested(class_entry);
         }
@@ -4376,6 +4442,9 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                     decl_sym_fun,
                     def_sym_fun);
         }
+
+        set_codegen_status(symbol, CODEGEN_STATUS_DECLARED);
+
         //We must declare ONLY the primary template
         TL::Symbol primary_symbol =
             symbol
@@ -4384,17 +4453,15 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
             .get_primary_template()
             .get_symbol();
 
+        (this->*decl_sym_fun)(primary_symbol);
 
-        define_or_declare_if_complete(primary_symbol,
-                &CxxBase::declare_symbol_always,
-                &CxxBase::define_symbol_always);
         return;
     }
 
     if (symbol.is_member())
     {
         TL::Symbol class_entry = symbol.get_class_type().get_symbol();
-        if (!symbol_is_nested_in_defined_classes(class_entry))
+        if (!symbol_or_its_bases_are_nested_in_defined_classes(class_entry))
         {
             define_symbol_if_nonnested(class_entry);
         }
@@ -4621,25 +4688,10 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
             }
         }
 
-        TL::ObjectList<TL::Symbol> related_symbols = symbol.get_related_symbols();
-        TL::ObjectList<std::string> parameter_names(related_symbols.size());
-        TL::ObjectList<std::string> parameter_attributes(related_symbols.size());
-        int i = 0;
-        for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
-                it != related_symbols.end();
-                it++, i++)
-        {
-            TL::Symbol current_param = *it;
-            if (current_param.is_valid()
-                    && !current_param.not_to_be_printed())
-            {
-                parameter_names[i] = current_param.get_name();
-                if (current_param.has_gcc_attributes())
-                {
-                    parameter_attributes[i] = gcc_attributes_to_str(current_param);
-                }
-            }
-        }
+        int num_parameters = symbol.get_related_symbols().size();
+        TL::ObjectList<std::string> parameter_names(num_parameters);
+        TL::ObjectList<std::string> parameter_attributes(num_parameters);
+        fill_parameter_names_and_parameter_attributes(symbol, parameter_names, parameter_attributes);
 
         std::string decl_spec_seq;
         if (symbol.is_static())
@@ -4705,10 +4757,6 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         std::string pure_spec = "";
         if (!real_type.lacks_prototype())
         {
-            // declarator = this->get_declaration(
-            //         real_type,
-            //         symbol.get_scope(),
-            //         function_name);
             declarator = this->get_declaration_with_parameters(real_type, symbol.get_scope(),
                     function_name,
                     parameter_names,
@@ -6115,6 +6163,41 @@ std::string CxxBase::get_declaration(TL::Type t, TL::Scope scope, const std::str
     t = fix_references(t);
 
     return t.get_declaration(scope,  name);
+}
+
+void CxxBase::fill_parameter_names_and_parameter_attributes(TL::Symbol symbol,
+        TL::ObjectList<std::string>& parameter_names,
+        TL::ObjectList<std::string>& parameter_attributes)
+{
+    ERROR_CONDITION(!symbol.is_function(), "This symbol should be a function\n", 0);
+
+    int i = 0;
+    TL::ObjectList<TL::Symbol> related_symbols = symbol.get_related_symbols();
+    for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
+            it != related_symbols.end();
+            it++, i++)
+    {
+        TL::Symbol current_param = *it;
+        if (current_param.is_valid())
+        {
+            if(!current_param.not_to_be_printed())
+            {
+                parameter_names[i] = current_param.get_name();
+            }
+
+            if (current_param.has_gcc_attributes())
+            {
+                parameter_attributes[i] = gcc_attributes_to_str(current_param);
+            }
+
+            if (get_codegen_status(current_param) != CODEGEN_STATUS_DEFINED
+                    && symbol.has_default_argument_num(i))
+            {
+                parameter_attributes[i] += " = " + codegen(symbol.get_default_argument_num(i));
+            }
+            set_codegen_status(current_param, CODEGEN_STATUS_DEFINED);
+        }
+    }
 }
 
 std::string CxxBase::get_declaration_with_parameters(TL::Type t, TL::Scope scope,

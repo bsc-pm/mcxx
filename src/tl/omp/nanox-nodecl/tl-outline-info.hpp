@@ -33,6 +33,7 @@
 #include "tl-symbol.hpp"
 #include "tl-type.hpp"
 #include "tl-nodecl.hpp"
+#include "tl-nodecl-utils.hpp"
 #include <string>
 #include <sstream>
 
@@ -113,8 +114,10 @@ namespace TL
                     ALLOCATION_POLICY_OVERALLOCATED        = 1 << 1,
                     // Call the destructor (C++)
                     ALLOCATION_POLICY_TASK_MUST_DESTROY    = 1 << 2,
-                    // Deallocate entity (Fortran)
-                    ALLOCATION_POLICY_TASK_MUST_DEALLOCATE = 1 << 3,
+                    // Deallocate entity ALLOCATABLE (Fortran)
+                    ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE = 1 << 3,
+                    // Deallocate entity POINTER (Fortran)
+                    ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_POINTER = 1 << 4,
                 };
 
             private:
@@ -349,13 +352,24 @@ namespace TL
         class OutlineInfo
         {
             private:
-                ObjectList<OutlineDataItem> _data_env_items;
+                ObjectList<OutlineDataItem*> _data_env_items;
 
                 // -- FIXME --
                 // Devices!
 
                 std::string get_field_name(std::string name);
+
+                TL::Symbol _unpacked_function_symbol;
+
+                // Do not copy
+                OutlineInfo(const OutlineInfo&);
+                OutlineInfo& operator=(const OutlineInfo&);
+
             public:
+                OutlineInfo(Nodecl::NodeclBase environment, bool is_function_task = false);
+                OutlineInfo();
+                ~OutlineInfo();
+
                 //! Get new or retrieve existing OutlineDataItem for symbol
                 /*!
                  * Note that this function retrieves an OutlineDataItem for
@@ -363,20 +377,22 @@ namespace TL
                  */
                 OutlineDataItem& get_entity_for_symbol(TL::Symbol sym);
 
-                ObjectList<OutlineDataItem>& get_data_items()
+                ObjectList<OutlineDataItem*> get_data_items()
                 {
                     return _data_env_items;
                 }
-
-                const ObjectList<OutlineDataItem>& get_data_items() const
-                {
-                    return _data_env_items;
-                }
-
-                OutlineInfo(Nodecl::NodeclBase environment, bool is_function_task = false);
-                OutlineInfo() : _data_env_items() { }
 
                 OutlineDataItem& prepend_field(const std::string& str, TL::Type t);
+
+                TL::Symbol get_unpacked_function_symbol() const
+                {
+                    return _unpacked_function_symbol;
+                }
+
+                void set_unpacked_function_symbol(TL::Symbol sym)
+                {
+                    _unpacked_function_symbol = sym;
+                }
         };
     }
 }

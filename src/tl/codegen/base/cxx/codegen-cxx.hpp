@@ -72,7 +72,6 @@ namespace Codegen
             Ret visit(const Nodecl::ConditionalExpression &);
             Ret visit(const Nodecl::Context &);
             Ret visit(const Nodecl::ContinueStatement &);
-            Ret visit(const Nodecl::SavedExpr &);
             Ret visit(const Nodecl::Conversion &);
             Ret visit(const Nodecl::CxxArrow &);
             Ret visit(const Nodecl::CxxArrowPtrMember& node);
@@ -252,7 +251,7 @@ namespace Codegen
                     in_member_declaration(false),
                     in_dependent_template_function_code(false),
                     inside_structured_value(),
-                    do_not_emit_other_declarations(false),
+                    do_not_emit_other_declarations(IS_CXX_LANGUAGE),
                     classes_being_defined(),
                     walked_types(),
                     being_checked_for_required(),
@@ -268,6 +267,7 @@ namespace Codegen
 
             bool symbol_is_same_or_nested_in(TL::Symbol symbol, TL::Symbol class_sym);
             bool symbol_is_nested_in_defined_classes(TL::Symbol symbol);
+            bool symbol_or_its_bases_are_nested_in_defined_classes(TL::Symbol symbol);
 
             TL::ObjectList<TL::Symbol> define_required_before_class(TL::Symbol symbol,
                     void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
@@ -280,6 +280,9 @@ namespace Codegen
             void define_class_symbol(TL::Symbol symbol,
                     void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
                     void (CxxBase::*def_sym_fun)(TL::Symbol symbol));
+
+            void declare_friend_symbol(TL::Symbol friend_symbol,
+                    TL::Symbol class_symbol);
 
             void define_or_declare_variable(TL::Symbol,
                     bool is_definition);
@@ -422,6 +425,10 @@ namespace Codegen
             std::string gcc_asm_specifier_to_str(TL::Symbol);
 
             virtual Ret unhandled_node(const Nodecl::NodeclBase & n);
+
+            void fill_parameter_names_and_parameter_attributes(TL::Symbol symbol,
+                    TL::ObjectList<std::string>& parameter_names,
+                    TL::ObjectList<std::string>& parameter_attributes);
 
             std::string get_declaration(TL::Type t, TL::Scope scope, const std::string& name);
             std::string get_declaration_with_parameters(TL::Type, TL::Scope, const std::string& name,

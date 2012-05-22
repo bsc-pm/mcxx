@@ -36,8 +36,14 @@ test_generator=config/mercurium
 template < typename T>
 class A
 {
-    class B 
+    class B
     {
-        friend class A<T>;
+        template < typename T1 >
+        friend class ::A;
+
+        friend class ::A<T>;
     };
 };
+
+template < typename  T2>
+class C;

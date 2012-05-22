@@ -41,6 +41,13 @@ namespace TL { namespace Nanox {
             }
     };
 
+    namespace {
+        bool ptr_outline_data_item_is_reduction(OutlineDataItem* it)
+        {
+            return it->is_reduction();
+        }
+    }
+
     void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
     {
         Nodecl::NodeclBase num_replicas = construct.get_num_replicas();
@@ -62,31 +69,42 @@ namespace TL { namespace Nanox {
         Source outline_source, reduction_code;
         Nodecl::NodeclBase placeholder;
         outline_source
+            << "nanos_err_t err = nanos_omp_set_implicit(nanos_current_wd());"
+            << "if (err != NANOS_OK) nanos_handle_error(err);"
             << statement_placeholder(placeholder)
             << reduction_code
+            << "err = nanos_omp_barrier();"
+            << "if (err != NANOS_OK) nanos_handle_error(err);"
             ;
 
-        TL::ObjectList<OutlineDataItem> reduction_items = outline_info.get_data_items().filter(
-                predicate(&OutlineDataItem::is_reduction));
+        TL::ObjectList<OutlineDataItem*> reduction_items = outline_info.get_data_items().filter(
+                predicate(lift_pointer(functor(&OutlineDataItem::is_reduction))));
         if (!reduction_items.empty())
         {
-            for (TL::ObjectList<OutlineDataItem>::iterator it = reduction_items.begin();
+            for (TL::ObjectList<OutlineDataItem*>::iterator it = reduction_items.begin();
                     it != reduction_items.end();
                     it++)
             {
                 reduction_code
-                    << "rdp_" << it->get_field_name() << "[omp_get_thread_num()] = " << it->get_symbol().get_name() << ";"
+                    << "rdp_" << (*it)->get_field_name() << "[omp_get_thread_num()] = " << (*it)->get_symbol().get_name() << ";"
                     ;
             }
         }
 
-        emit_outline(outline_info, statements, outline_source, outline_name, structure_symbol);
+        Nodecl::Utils::SymbolMap *symbol_map = NULL;
+        emit_outline(outline_info, statements, outline_source, outline_name, structure_symbol, symbol_map);
 
-        Source outline_statements_source;
-        outline_statements_source
-            << statements.prettyprint();
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            // Copy FUNCTIONs and other local stuff
+            symbol_map = new Nodecl::Utils::FortranProgramUnitSymbolMap(symbol_map,
+                    function_symbol,
+                    outline_info.get_unpacked_function_symbol());
+        }
 
-        Nodecl::NodeclBase outline_statements_code = outline_statements_source.parse_statement(placeholder);
+        Nodecl::NodeclBase outline_statements_code = Nodecl::Utils::deep_copy(statements, placeholder, *symbol_map);
+        delete symbol_map;
+
         placeholder.integrate(outline_statements_code);
 
         // This function replaces the current construct

@@ -190,6 +190,11 @@ namespace TL
         return (this->_symbol->kind == SK_VARIABLE);
     }
 
+    bool Symbol::is_saved_expression() const
+    {
+        return this->_symbol->entity_specs.is_saved_expression;
+    }
+
     bool Symbol::is_result_variable() const
     {
         return (this->_symbol->kind == SK_VARIABLE
@@ -275,7 +280,17 @@ namespace TL
 
     Symbol Symbol::aliased_from_module() const
     {
+        return get_alias_to();
+    }
+
+    Symbol Symbol::get_alias_to() const
+    {
         return this->_symbol->entity_specs.alias_to;
+    }
+    
+    bool Symbol::has_alias_to() const
+    {
+        return (this->_symbol->entity_specs.alias_to != NULL);
     }
 
     bool Symbol::is_fortran_blockdata() const
@@ -446,12 +461,12 @@ namespace TL
     {
         return (_symbol->entity_specs.is_friend_declared);
     }
-    
+
     bool Symbol::is_entry() const
     {
         return (_symbol->entity_specs.is_entry);
     }
-    
+
     bool Symbol::function_throws_any_exception() const
     {
         return (_symbol->entity_specs.any_exception);
@@ -732,5 +747,16 @@ namespace TL
     int Symbol::get_bitfield_last() const
     {
         return _symbol->entity_specs.bitfield_last;
+    }
+
+    bool Symbol::has_default_argument_num(int i) const
+    {
+        return (_symbol->entity_specs.default_argument_info[i] != NULL
+                && !nodecl_is_null(_symbol->entity_specs.default_argument_info[i]->argument));
+    }
+
+    Nodecl::NodeclBase Symbol::get_default_argument_num(int i) const
+    {
+        return _symbol->entity_specs.default_argument_info[i]->argument;
     }
 }

@@ -38,8 +38,7 @@ namespace TL { namespace Nanox {
             Nodecl::List distribute_environment, 
             Nodecl::List ranges, 
             const std::string& outline_name,
-            TL::Symbol structure_symbol,
-            Source inline_iteration_code)
+            TL::Symbol structure_symbol)
     {
         if (ranges.size() != 1)
         {
@@ -92,6 +91,8 @@ namespace TL { namespace Nanox {
         {
             schedule_setup
                 <<     "nanos_ws_t current_ws_policy = nanos_omp_find_worksharing(omp_sched_" << schedule.get_text() << ");"
+                <<     "if (current_ws_policy == 0)"
+                <<         "nanos_handle_error(NANOS_UNIMPLEMENTED);"
                 ;
         }
 
@@ -102,14 +103,14 @@ namespace TL { namespace Nanox {
 
         Source usual_worksharing_creation;
         usual_worksharing_creation
-            <<     "err = nanos_worksharing_create(&wsd, current_ws_policy, (nanos_ws_info_t *) &nanos_setup_info_loop, &single_guard);"
+            <<     "err = nanos_worksharing_create(&wsd, current_ws_policy, (void**)&nanos_setup_info_loop, &single_guard);"
             <<     "if (err != NANOS_OK)"
             <<         "nanos_handle_error(err);"
             ;
 
         Source worksharing_creation_under_reduction;
         worksharing_creation_under_reduction
-            <<     "err = nanos_worksharing_create(&wsd, current_ws_policy, (nanos_ws_info_t *) &nanos_setup_info_loop, (void*)0);"
+            <<     "err = nanos_worksharing_create(&wsd, current_ws_policy, (void**)&nanos_setup_info_loop, (void*)0);"
             <<     "if (err != NANOS_OK)"
             <<         "nanos_handle_error(err);"
             <<     "err = nanos_enter_sync_init ( &single_guard );"
@@ -121,8 +122,8 @@ namespace TL { namespace Nanox {
 
         Source reduction_variables, init_reduction_code, extra_sync_due_to_reductions;
 
-        TL::ObjectList<OutlineDataItem> reduction_items = outline_info.get_data_items().filter(
-                predicate(&OutlineDataItem::is_reduction));
+        TL::ObjectList<OutlineDataItem*> reduction_items = outline_info.get_data_items().filter(
+                predicate(lift_pointer(functor(&OutlineDataItem::is_reduction))));
         if (reduction_items.empty())
         {
             worksharing_creation
@@ -189,23 +190,27 @@ namespace TL { namespace Nanox {
         <<             "nanos_handle_error(err);"
         <<         "if (sup_threads > 0)"
         <<         "{"
-        <<             "wsd->threads = (nanos_thread_t *) __builtin_alloca(sizeof(nanos_thread_t) * sup_threads);"
+        <<             "err = nanos_malloc((void**)&(wsd->threads), sizeof(nanos_thread_t) * sup_threads, \"\", 0);"
+        <<             "if (err != NANOS_OK)"
+        <<                 "nanos_handle_error(err);"
         <<             "err = nanos_team_get_supporting_threads(&wsd->nths, wsd->threads);"
         <<             "if (err != NANOS_OK)"
         <<                 "nanos_handle_error(err);"
         <<             struct_arg_type_name << " *ol_args = (" << struct_arg_type_name <<"*) 0;"
         <<             const_wd_info
         <<             "nanos_wd_t wd = (nanos_wd_t) 0;"
-        <<             "nanos_wd_dyn_props_t dyn_props = {0};"
+        <<             "nanos_wd_dyn_props_t dyn_props;"
+        <<             "dyn_props.tie_to = (nanos_thread_t)0;"
+        <<             "dyn_props.priority = 0;"
 
         <<             "static nanos_slicer_t replicate = (nanos_slicer_t)0;"
-        <<             "if (!replicate)"
+        <<             "if (replicate == (nanos_slicer_t)0)"
         <<                 "replicate = nanos_find_slicer(\"replicate\");"
         <<             "if (replicate == (nanos_slicer_t)0)"
-        <<                 "__builtin_abort();"
+        <<                 "nanos_handle_error(NANOS_UNIMPLEMENTED);"
         <<             "err = nanos_create_sliced_wd(&wd, "
         <<                                           "nanos_wd_const_data.base.num_devices, nanos_wd_const_data.devices, "
-        <<                                           struct_size << ",  nanos_wd_const_data.base.data_alignment, "
+        <<                                           "(size_t)" << struct_size << ",  nanos_wd_const_data.base.data_alignment, "
         <<                                           "(void**)&ol_args, nanos_current_wd(), replicate,"
         <<                                           "&nanos_wd_const_data.base.props, &dyn_props, 0, (nanos_copy_data_t**)0);"
         <<             "if (err != NANOS_OK)"
@@ -216,10 +221,17 @@ namespace TL { namespace Nanox {
         <<             "err = nanos_submit(wd, 0, (nanos_dependence_t *) 0, (nanos_team_t) 0);"
         <<             "if (err != NANOS_OK)"
         <<                 "nanos_handle_error(err);"
+        <<             "err = nanos_free(wsd->threads);"
+        <<             "if (err != NANOS_OK)"
+        <<                 "nanos_handle_error(err);"
         <<         "}"
         <<     "}"
         <<     extra_sync_due_to_reductions
-        <<     inline_iteration_code
+        <<     immediate_decl
+        <<     "imm_args.wsd = wsd;"
+        <<     statement_placeholder(fill_immediate_arguments_tree)
+        <<     fill_immediate_arguments_reductions
+        <<     outline_name << "(imm_args);"
         << "}"
         ;
 
@@ -240,6 +252,12 @@ namespace TL { namespace Nanox {
         {
             Nodecl::NodeclBase new_tree = fill_outline_arguments.parse_statement(fill_outline_arguments_tree);
             fill_outline_arguments_tree.integrate(new_tree);
+        }
+
+        if (!fill_immediate_arguments.empty())
+        {
+            Nodecl::NodeclBase new_tree = fill_immediate_arguments.parse_statement(fill_immediate_arguments_tree);
+            fill_immediate_arguments_tree.integrate(new_tree);
         }
 
         construct.integrate(spawn_code_tree);

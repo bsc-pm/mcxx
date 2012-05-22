@@ -163,6 +163,9 @@ struct class_info_tag {
     // Is abstract class
     unsigned char is_abstract:1;
 
+    // Is a packed class (SEQUENCE in Fortran or __attribute__((packed)) )
+    unsigned char is_packed:1;
+
     // Enclosing class type
     type_t* enclosing_class_type;
 
@@ -2822,21 +2825,7 @@ type_t* get_array_type(type_t* element_type, nodecl_t whole_size, decl_context_t
         }
         else
         {
-            nodecl_t temp = nodecl_null();
-
-            if (nodecl_get_kind(whole_size) == NODECL_SAVED_EXPR)
-            {
-                scope_entry_t* saved_sym = nodecl_get_symbol(whole_size);
-                temp = nodecl_make_symbol(
-                        saved_sym,
-                        nodecl_get_filename(whole_size),
-                        nodecl_get_line(whole_size));
-                nodecl_set_type(temp, saved_sym->type_information);
-            }
-            else
-            {
-                temp = nodecl_shallow_copy(whole_size);
-            }
+            nodecl_t temp = nodecl_shallow_copy(whole_size);
 
             upper_bound = nodecl_make_minus(
                     nodecl_make_parenthesized_expression(temp, 
@@ -2879,31 +2868,8 @@ static nodecl_t compute_whole_size_given_bounds(
     {
         nodecl_t one_tree = get_one_tree(nodecl_get_filename(lower_bound), nodecl_get_line(lower_bound));
 
-        if (nodecl_get_kind(lower_bound) == NODECL_SAVED_EXPR)
-        {
-            scope_entry_t* saved_sym = nodecl_get_symbol(lower_bound);
-            lower_bound = nodecl_make_symbol(saved_sym,
-                    nodecl_get_filename(lower_bound),
-                    nodecl_get_line(lower_bound));
-            nodecl_set_type(lower_bound, saved_sym->type_information);
-        }
-        else
-        {
-            lower_bound = nodecl_shallow_copy(lower_bound);
-        }
-
-        if (nodecl_get_kind(upper_bound) == NODECL_SAVED_EXPR)
-        {
-            scope_entry_t* saved_sym = nodecl_get_symbol(upper_bound);
-            upper_bound = nodecl_make_symbol(saved_sym,
-                    nodecl_get_filename(upper_bound),
-                    nodecl_get_line(upper_bound));
-            nodecl_set_type(upper_bound, saved_sym->type_information);
-        }
-        else
-        {
-            upper_bound = nodecl_shallow_copy(upper_bound);
-        }
+        lower_bound = nodecl_shallow_copy(lower_bound);
+        upper_bound = nodecl_shallow_copy(upper_bound);
 
         whole_size = 
             nodecl_make_add(
@@ -3562,6 +3528,24 @@ void class_type_set_enclosing_class_type(type_t* t, type_t* enclosing_class_type
     t = get_actual_class_type(t);
 
     t->type->class_info->enclosing_class_type = enclosing_class_type;
+}
+
+void class_type_set_is_packed(type_t* t, char is_packed)
+{
+    ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
+
+    t = get_actual_class_type(t);
+
+    t->type->class_info->is_packed = is_packed;
+}
+
+char class_type_is_packed(type_t* t)
+{
+    ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
+
+    t = get_actual_class_type(t);
+
+    return t->type->class_info->is_packed;
 }
 
 type_t* class_type_get_enclosing_class_type(type_t* t)
@@ -7063,7 +7047,8 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                         whole_size = uniquestr("[]");
                     }
                     // If this is a saved expression and it is not a parameter we use its saved expression instead
-                    else if (nodecl_get_kind(type_info->array->whole_size) == NODECL_SAVED_EXPR)
+                    else if (nodecl_get_kind(type_info->array->whole_size) == NODECL_SYMBOL
+                            && nodecl_get_symbol(type_info->array->whole_size)->entity_specs.is_saved_expression)
                     {
                         scope_entry_t* saved_sym = nodecl_get_symbol(type_info->array->whole_size);
                         whole_size = strappend("[", get_qualified_symbol_name(saved_sym, saved_sym->decl_context));
@@ -10321,13 +10306,74 @@ type_t* type_deep_copy(type_t* orig, decl_context_t new_decl_context, void *info
         type_t* element_type = array_type_get_element_type(orig);
         element_type = type_deep_copy(element_type, new_decl_context, info, map);
 
-        nodecl_t array_size = array_type_get_array_size_expr(orig);
-        array_size = nodecl_deep_copy(array_size, new_decl_context, info, map);
+        // Use the constructor that affects the least to the array type
+        if ((IS_C_LANGUAGE
+                    || IS_CXX_LANGUAGE)
+                && !array_type_has_region(orig))
+        {
+            nodecl_t array_size = array_type_get_array_size_expr(orig);
+            array_size = nodecl_deep_copy(array_size, new_decl_context, info, map);
 
-        result = get_array_type(
-                element_type,
-                array_size,
-                new_decl_context);
+            result = get_array_type(
+                    element_type,
+                    array_size,
+                    new_decl_context);
+        }
+        else if (IS_FORTRAN_LANGUAGE
+                && !array_type_has_region(orig))
+        {
+            nodecl_t lower_bound = array_type_get_array_lower_bound(orig);
+            nodecl_t upper_bound = array_type_get_array_upper_bound(orig);
+
+            lower_bound = nodecl_deep_copy(lower_bound, new_decl_context, info, map);
+            upper_bound = nodecl_deep_copy(upper_bound, new_decl_context, info, map);
+
+            bool has_descriptor = array_type_with_descriptor(orig);
+
+            if (!has_descriptor)
+            {
+                result = get_array_type_bounds(
+                        element_type,
+                        lower_bound,
+                        upper_bound,
+                        new_decl_context);
+            }
+            else
+            {
+                result = get_array_type_bounds_with_descriptor(
+                        element_type,
+                        lower_bound,
+                        upper_bound,
+                        new_decl_context);
+            }
+        }
+        else if (array_type_has_region(orig))
+        {
+            nodecl_t lower_bound = array_type_get_array_lower_bound(orig);
+            nodecl_t upper_bound = array_type_get_array_upper_bound(orig);
+
+            lower_bound = nodecl_deep_copy(lower_bound, new_decl_context, info, map);
+            upper_bound = nodecl_deep_copy(upper_bound, new_decl_context, info, map);
+
+            nodecl_t region_lower_bound = array_type_get_region_lower_bound(orig);
+            nodecl_t region_upper_bound = array_type_get_region_upper_bound(orig);
+            nodecl_t region_stride = array_type_get_region_stride(orig);
+
+            region_lower_bound = nodecl_deep_copy(region_lower_bound, new_decl_context, info, map);
+            region_upper_bound = nodecl_deep_copy(region_upper_bound, new_decl_context, info, map);
+
+            result = get_array_type_bounds_with_regions(element_type,
+                    lower_bound,
+                    upper_bound,
+                    new_decl_context,
+                    nodecl_make_range(region_lower_bound, region_upper_bound, region_stride,
+                        get_signed_int_type(), NULL, 0),
+                    new_decl_context);
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
+        }
     }
     else if (is_function_type(orig))
     {

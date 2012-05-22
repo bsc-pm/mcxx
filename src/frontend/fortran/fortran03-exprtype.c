@@ -434,7 +434,7 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context,
             }
             else if (*current_type == NULL)
             {
-                *current_type = get_rank0_type(nodecl_get_type(nodecl_expr));
+                *current_type = fortran_get_rank0_type(nodecl_get_type(nodecl_expr));
             }
 
             if ((*num_items) >= 0)
@@ -582,14 +582,14 @@ static void check_substring(AST expr, decl_context_t decl_context, nodecl_t node
     if (upper != NULL)
         fortran_check_expression_impl_(upper, decl_context, &nodecl_upper);
 
-    type_t* string_type = get_rank0_type(lhs_type);
-    ERROR_CONDITION(!is_fortran_character_type(string_type), "Bad string type", 0);
+    type_t* string_type = fortran_get_rank0_type(lhs_type);
+    ERROR_CONDITION(!fortran_is_character_type(string_type), "Bad string type", 0);
 
     // Rebuild string type
     type_t* synthesized_type = get_array_type_bounds(array_type_get_element_type(string_type), nodecl_lower, nodecl_upper, decl_context);
-    if (is_fortran_array_type(lhs_type))
+    if (fortran_is_array_type(lhs_type))
     {
-        synthesized_type = rebuild_array_type(synthesized_type, lhs_type);
+        synthesized_type = fortran_rebuild_array_type(synthesized_type, lhs_type);
     }
 
     nodecl_t nodecl_stride = const_value_to_nodecl(const_value_get_one(/* bytes */ fortran_get_default_integer_type_kind(), /* signed */ 1));
@@ -772,19 +772,19 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
 
     scope_entry_t* symbol = nodecl_get_symbol(nodecl_subscripted);
     if (symbol == NULL
-            || (!is_fortran_array_type(no_ref(symbol->type_information))
-                && !is_pointer_to_fortran_array_type(no_ref(symbol->type_information))))
+            || (!fortran_is_array_type(no_ref(symbol->type_information))
+                && !fortran_is_pointer_to_array_type(no_ref(symbol->type_information))))
     {
         symbol_is_invalid = 1;
     }
     else
     {
         array_type = no_ref(symbol->type_information);
-        if (is_pointer_to_fortran_array_type(array_type))
+        if (fortran_is_pointer_to_array_type(array_type))
             array_type = pointer_type_get_pointee_type(array_type);
 
-        synthesized_type = get_rank0_type(array_type);
-        rank_of_type = get_rank_of_type(array_type);
+        synthesized_type = fortran_get_rank0_type(array_type);
+        rank_of_type = fortran_get_rank_of_type(array_type);
     }
 
     AST subscript_list = ASTSon1(expr);
@@ -810,34 +810,7 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
         if (is_array_type(dimension_type))
         {
             nodecl_lower_dim[current_idx] = array_type_get_array_lower_bound(dimension_type);
-
-            // If this is a saved expressions we want the saved symbol
-            if (!nodecl_is_null(nodecl_lower_dim[current_idx])
-                    && nodecl_get_kind(nodecl_lower_dim[current_idx]) == NODECL_SAVED_EXPR)
-            {
-                scope_entry_t* saved_symbol = nodecl_get_symbol(nodecl_lower_dim[current_idx]);
-
-                nodecl_lower_dim[current_idx] = nodecl_make_symbol(
-                        saved_symbol,
-                        ASTFileName(expr),
-                        ASTLine(expr));
-                nodecl_set_type(nodecl_lower_dim[current_idx], lvalue_ref(saved_symbol->type_information));
-            }
-
             nodecl_upper_dim[current_idx] = array_type_get_array_upper_bound(dimension_type);
-
-            // If this is a saved expressions we want the saved symbol
-            if (!nodecl_is_null(nodecl_upper_dim[current_idx])
-                        && nodecl_get_kind(nodecl_upper_dim[current_idx]) == NODECL_SAVED_EXPR)
-            {
-                scope_entry_t* saved_symbol = nodecl_get_symbol(nodecl_upper_dim[current_idx]);
-
-                nodecl_upper_dim[current_idx] = nodecl_make_symbol(
-                        saved_symbol,
-                        ASTFileName(expr),
-                        ASTLine(expr));
-                nodecl_set_type(nodecl_upper_dim[current_idx], lvalue_ref(saved_symbol->type_information));
-            }
 
             dimension_type = array_type_get_element_type(dimension_type);
         }
@@ -952,7 +925,7 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
 
             type_t* t = nodecl_get_type(nodecl_indexes[num_subscripts]);
 
-            type_t* rank_0 = get_rank0_type(t);
+            type_t* rank_0 = fortran_get_rank0_type(t);
 
             if (!is_any_int_type(rank_0))
             {
@@ -970,7 +943,7 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
 
             if (!symbol_is_invalid)
             {
-                if (is_fortran_array_type(t))
+                if (fortran_is_array_type(t))
                 {
                     // We do not really know the range here
                     synthesized_type = get_array_type_bounds(
@@ -1001,7 +974,7 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
         {
             error_printf("%s: error: mismatch in subscripts of array reference, expecting %d got %d\n",
                     ast_location(expr),
-                    get_rank_of_type(symbol->type_information),
+                    fortran_get_rank_of_type(symbol->type_information),
                     num_subscripts);
         }
         *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
@@ -1083,15 +1056,15 @@ static void check_array_ref(AST expr, decl_context_t decl_context, nodecl_t* nod
     // This ordering is important to preserve the proper meaning of the subscript
     // A(1:2) where 'A' is an array
     if (ASTType(ASTSon0(expr)) != AST_ARRAY_SUBSCRIPT
-            && (is_fortran_array_type(no_ref(subscripted_type))
-                || is_pointer_to_fortran_array_type(no_ref(subscripted_type))))
+            && (fortran_is_array_type(no_ref(subscripted_type))
+                || fortran_is_pointer_to_array_type(no_ref(subscripted_type))))
     {
         check_array_ref_(expr, decl_context, nodecl_subscripted, nodecl_output);
         return;
     }
     // C(1:2) where 'C' is a scalar CHARACTER
-    else if (is_fortran_character_type(no_ref(subscripted_type))
-            || is_pointer_to_fortran_character_type(no_ref(subscripted_type)))
+    else if (fortran_is_character_type(no_ref(subscripted_type))
+            || fortran_is_pointer_to_character_type(no_ref(subscripted_type)))
     {
         check_substring(expr, decl_context, nodecl_subscripted, nodecl_output);
         return;
@@ -1100,11 +1073,11 @@ static void check_array_ref(AST expr, decl_context_t decl_context, nodecl_t* nod
     else if (
             ASTType(ASTSon0(expr)) == AST_ARRAY_SUBSCRIPT
             && (// An array of CHARACTER
-                (is_fortran_array_type(no_ref(subscripted_type))
-                 && is_fortran_character_type(get_rank0_type(no_ref(subscripted_type))))
+                (fortran_is_array_type(no_ref(subscripted_type))
+                 && fortran_is_character_type(fortran_get_rank0_type(no_ref(subscripted_type))))
                 // A pointer to array of CHARACTER
-                || (is_pointer_to_fortran_array_type(no_ref(subscripted_type))
-                    && is_pointer_to_fortran_character_type(get_rank0_type(no_ref(subscripted_type))))))
+                || (fortran_is_pointer_to_array_type(no_ref(subscripted_type))
+                    && fortran_is_pointer_to_character_type(fortran_get_rank0_type(no_ref(subscripted_type))))))
     {
         check_substring(expr, decl_context, nodecl_subscripted, nodecl_output);
         return;
@@ -1361,7 +1334,7 @@ static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t*
     if (is_pointer_type(lhs_type))
         lhs_type = pointer_type_get_pointee_type(lhs_type);
 
-    type_t* class_type = get_rank0_type(lhs_type);
+    type_t* class_type = fortran_get_rank0_type(lhs_type);
 
     if (!is_pointer_to_class_type(class_type)
             && !is_class_type(class_type))
@@ -1438,13 +1411,13 @@ static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t*
 
     if (ASTType(rhs) == AST_ARRAY_SUBSCRIPT)
     {
-        if (is_fortran_array_type(component_type)
-                || is_pointer_to_fortran_array_type(component_type))
+        if (fortran_is_array_type(component_type)
+                || fortran_is_pointer_to_array_type(component_type))
         {
             check_array_ref_(rhs, decl_context, nodecl_rhs, &nodecl_rhs);
         }
-        else if (is_fortran_character_type(component_type)
-                || is_pointer_to_fortran_character_type(component_type))
+        else if (fortran_is_character_type(component_type)
+                || fortran_is_pointer_to_character_type(component_type))
         {
             check_substring(rhs, decl_context, nodecl_rhs, &nodecl_rhs);
         }
@@ -1462,8 +1435,8 @@ static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t*
     if (is_pointer_type(rhs_type))
         rhs_type = pointer_type_get_pointee_type(rhs_type);
 
-    if (get_rank_of_type(lhs_type) != 0
-            && get_rank_of_type(rhs_type) != 0)
+    if (fortran_get_rank_of_type(lhs_type) != 0
+            && fortran_get_rank_of_type(rhs_type) != 0)
     {
         error_printf("%s: error: two or more nonzero ranks in part reference '%s'\n", 
                 ast_location(expr),
@@ -1472,13 +1445,13 @@ static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t*
 
     // char lhs_is_pointer = is_pointer_type(orig_lhs_type);
 
-    type_t* synthesized_type = get_rank0_type(rhs_type);
+    type_t* synthesized_type = fortran_get_rank0_type(rhs_type);
 
-    if (is_fortran_array_type(lhs_type))
+    if (fortran_is_array_type(lhs_type))
     {
-        synthesized_type = rebuild_array_type(synthesized_type, lhs_type);
+        synthesized_type = fortran_rebuild_array_type(synthesized_type, lhs_type);
     }
-    else if (is_fortran_array_type(rhs_type))
+    else if (fortran_is_array_type(rhs_type))
     {
         synthesized_type = rhs_type;
     }
@@ -1996,7 +1969,7 @@ static char check_argument_association(
     formal_type = no_ref(formal_type);
     real_type = no_ref(real_type);
 
-    if (!equivalent_tk_types(formal_type, real_type))
+    if (!fortran_equivalent_tk_types(formal_type, real_type))
     {
         if (!checking_ambiguity()
                 && diagnostic)
@@ -2020,25 +1993,25 @@ static char check_argument_association(
              || ranks_must_agree
              )
             // then their ranks should match
-            && get_rank_of_type(formal_type) != get_rank_of_type(real_type))
+            && fortran_get_rank_of_type(formal_type) != fortran_get_rank_of_type(real_type))
     {
         if (!checking_ambiguity()
                 && diagnostic)
         {
             error_printf("%s:%d: error: rank %d of actual argument %d does not agree rank %d of dummy argument\n",
                     filename, line,
-                    get_rank_of_type(real_type),
+                    fortran_get_rank_of_type(real_type),
                     argument_num + 1,
-                    get_rank_of_type(formal_type));
+                    fortran_get_rank_of_type(formal_type));
         }
         return 0;
     }
 
     // If the actual argument is a scalar, ...
-    if (!is_fortran_array_type(real_type))
+    if (!fortran_is_array_type(real_type))
     {
         // ... the dummy argument should be a scalar ...
-        if (is_fortran_array_type(formal_type))
+        if (fortran_is_array_type(formal_type))
         {
             char ok = 0;
             // ... unless the actual argument is an element of an array ...
@@ -2051,7 +2024,7 @@ static char check_argument_association(
                 if (array != NULL)
                 {
                     // ... or a substring of such element ...
-                    if (is_fortran_character_type(no_ref(array->type_information)))
+                    if (fortran_is_character_type(no_ref(array->type_information)))
                     {
                         // The argument was X(1)(1:2), we are now in X(1)  get 'X'
                         if (nodecl_get_kind(nodecl_get_child(real_argument, 0)) == NODECL_ARRAY_SUBSCRIPT)
@@ -2071,14 +2044,14 @@ static char check_argument_association(
                     if (ok
                             && array != NULL
                             && (array_type_with_descriptor(no_ref(array->type_information))
-                                || is_pointer_to_fortran_array_type(no_ref(array->type_information))))
+                                || fortran_is_pointer_to_array_type(no_ref(array->type_information))))
                     {
                         ok = 0;
                     }
                 }
             }
             // Fortran 2003: or a default character
-            else if (is_fortran_character_type(real_type)
+            else if (fortran_is_character_type(real_type)
                     && equivalent_types(get_unqualified_type(array_type_get_element_type(real_type)),
                         fortran_get_default_character_type()))
             {
@@ -2256,7 +2229,7 @@ static scope_entry_t* get_specific_interface(scope_entry_t* symbol,
                 // Note that for ELEMENTAL some more checks should be done
                 if (specific_symbol->entity_specs.is_elemental) 
                 {
-                    real_type = get_rank0_type(real_type);
+                    real_type = fortran_get_rank0_type(real_type);
                 }
 
                 if (!check_argument_association(
@@ -2481,7 +2454,7 @@ static void check_called_symbol_list(
             int i;
             for (i = 0; i < num_actual_arguments; i++)
             {
-                int current_rank = get_rank_of_type(nodecl_get_type(nodecl_actual_arguments[i]));
+                int current_rank = fortran_get_rank_of_type(nodecl_get_type(nodecl_actual_arguments[i]));
                 if (common_rank <= 0)
                 {
                     common_rank = current_rank;
@@ -2500,7 +2473,7 @@ static void check_called_symbol_list(
             }
             else if (common_rank > 0)
             {
-                return_type = get_n_ranked_type(
+                return_type = fortran_get_n_ranked_type(
                         function_type_get_return_type(entry->type_information),
                         common_rank, decl_context);
             }
@@ -2658,7 +2631,7 @@ static void check_called_symbol_list(
                 char ok = 1;
                 for (i = 0; i < num_completed_arguments && ok; i++)
                 {
-                    int current_rank = get_rank_of_type(fixed_argument_info_items[i].type); 
+                    int current_rank = fortran_get_rank_of_type(fixed_argument_info_items[i].type); 
                     if (common_rank <= 0)
                     {
                         common_rank = current_rank;
@@ -2675,7 +2648,7 @@ static void check_called_symbol_list(
                     // Remove rank if they match, otherwise let it fail later
                     for (i = 0; i < num_completed_arguments && ok; i++)
                     {
-                        fixed_argument_info_items[i].type = get_rank0_type(fixed_argument_info_items[i].type);
+                        fixed_argument_info_items[i].type = fortran_get_rank0_type(fixed_argument_info_items[i].type);
                     }
                 }
             }
@@ -2731,7 +2704,7 @@ static void check_called_symbol_list(
         {
             if (common_rank > 0)
             {
-                return_type = get_n_ranked_type(return_type, common_rank, decl_context);
+                return_type = fortran_get_n_ranked_type(return_type, common_rank, decl_context);
             }
         }
     }
@@ -4069,8 +4042,8 @@ static char is_intrinsic_assignment(type_t* lvalue_type, type_t* rvalue_type)
                 || is_complex_type(conf_rhs_type)))
         return 1;
 
-    if (is_fortran_character_type(conf_lhs_type)
-            && is_fortran_character_type(conf_rhs_type)
+    if (fortran_is_character_type(conf_lhs_type)
+            && fortran_is_character_type(conf_rhs_type)
             && equivalent_types(
                 get_unqualified_type(array_type_get_element_type(conf_lhs_type)), 
                 get_unqualified_type(array_type_get_element_type(conf_rhs_type)))) 
@@ -4373,7 +4346,7 @@ static void cast_initialization(
                     nodecl_get_line(*nodecl_output));
         }
     }
-    else if (is_fortran_character_type(initialized_type)
+    else if (fortran_is_character_type(initialized_type)
             && const_value_is_string(val))
     {
         *casted_const = val;
@@ -4415,7 +4388,7 @@ static void cast_initialization(
             *nodecl_output = const_value_to_nodecl(*casted_const);
         }
     }
-    else if (is_fortran_array_type(initialized_type)
+    else if (fortran_is_array_type(initialized_type)
             && !const_value_is_array(val))
     {
         nodecl_t nodecl_size = array_type_get_array_size_expr(initialized_type);
@@ -4839,9 +4812,9 @@ static type_t* combine_character_array(type_t* t1, type_t* t2)
     t1 = no_ref(t1);
     t2 = no_ref(t2);
 
-    if (is_pointer_to_fortran_character_type(t1))
+    if (fortran_is_pointer_to_character_type(t1))
         t1 = pointer_type_get_pointee_type(t1);
-    if (is_pointer_to_fortran_character_type(t2))
+    if (fortran_is_pointer_to_character_type(t2))
         t1 = pointer_type_get_pointee_type(t2);
 
     nodecl_t length1 = array_type_get_array_size_expr(t1);
@@ -4949,7 +4922,7 @@ static operand_types_t arithmetic_binary_power[] =
 
 static operand_types_t concat_op[] = 
 {
-    { is_fortran_character_type_or_pointer_to, is_fortran_character_type_or_pointer_to, combine_character_array, DO_NOT_CONVERT_TO_RESULT },
+    { fortran_is_character_type_or_pointer_to, fortran_is_character_type_or_pointer_to, combine_character_array, DO_NOT_CONVERT_TO_RESULT },
 };
 
 static operand_types_t relational_equality[] =
@@ -4963,7 +4936,7 @@ static operand_types_t relational_equality[] =
     { is_complex_type, is_integer_type, logical_type, DO_NOT_CONVERT_TO_RESULT },
     { is_complex_type, is_floating_type, logical_type, DO_NOT_CONVERT_TO_RESULT },
     { is_complex_type, is_complex_type, logical_type, DO_NOT_CONVERT_TO_RESULT },
-    { is_fortran_character_type, is_fortran_character_type, logical_type, DO_NOT_CONVERT_TO_RESULT },
+    { fortran_is_character_type, fortran_is_character_type, logical_type, DO_NOT_CONVERT_TO_RESULT },
 };
 
 static operand_types_t relational_weak[] =
@@ -4972,7 +4945,7 @@ static operand_types_t relational_weak[] =
     { is_integer_type, is_floating_type,  logical_type, DO_NOT_CONVERT_TO_RESULT },
     { is_floating_type, is_integer_type, logical_type, DO_NOT_CONVERT_TO_RESULT },
     { is_floating_type, is_floating_type, logical_type, DO_NOT_CONVERT_TO_RESULT },
-    { is_fortran_character_type, is_fortran_character_type, logical_type, DO_NOT_CONVERT_TO_RESULT },
+    { fortran_is_character_type, fortran_is_character_type, logical_type, DO_NOT_CONVERT_TO_RESULT },
 };
 
 static operand_types_t logical_unary[] =
@@ -5494,30 +5467,30 @@ static void conform_types_(type_t* lhs_type, type_t* rhs_type,
     lhs_type = no_ref(lhs_type);
     rhs_type = no_ref(rhs_type);
 
-    if (!is_fortran_array_type(lhs_type)
-            && !is_fortran_array_type(rhs_type))
+    if (!fortran_is_array_type(lhs_type)
+            && !fortran_is_array_type(rhs_type))
     {
         *conf_lhs_type = lhs_type;
         *conf_rhs_type = rhs_type;
     }
-    else if ((is_fortran_array_type(lhs_type)
-                && !is_fortran_array_type(rhs_type))
+    else if ((fortran_is_array_type(lhs_type)
+                && !fortran_is_array_type(rhs_type))
             || (!conform_only_lhs
-                && !is_fortran_array_type(lhs_type)
-                && is_fortran_array_type(rhs_type)))
+                && !fortran_is_array_type(lhs_type)
+                && fortran_is_array_type(rhs_type)))
     {
         // One is array and the other is scalar
-        *conf_lhs_type = get_rank0_type(lhs_type);
-        *conf_rhs_type = get_rank0_type(rhs_type);
+        *conf_lhs_type = fortran_get_rank0_type(lhs_type);
+        *conf_rhs_type = fortran_get_rank0_type(rhs_type);
     }
     else 
     {
         // Both are arrays, they only conform if their rank (and ultimately its
         // shape but this is not always checkable) matches
-        if (get_rank_of_type(lhs_type) == get_rank_of_type(rhs_type))
+        if (fortran_get_rank_of_type(lhs_type) == fortran_get_rank_of_type(rhs_type))
         {
-            *conf_lhs_type = get_rank0_type(lhs_type);
-            *conf_rhs_type = get_rank0_type(rhs_type);
+            *conf_lhs_type = fortran_get_rank0_type(lhs_type);
+            *conf_rhs_type = fortran_get_rank0_type(rhs_type);
         }
         else
         // Do not conform
@@ -5547,14 +5520,14 @@ static type_t* rerank_type(type_t* rank0_common, type_t* lhs_type, type_t* rhs_t
     lhs_type = no_ref(lhs_type);
     rhs_type = no_ref(rhs_type);
 
-    if (is_fortran_array_type(lhs_type))
+    if (fortran_is_array_type(lhs_type))
     {
         // They should have the same rank and shape so it does not matter very much which one we use, right?
-        return rebuild_array_type(rank0_common, lhs_type);
+        return fortran_rebuild_array_type(rank0_common, lhs_type);
     }
-    else if (is_fortran_array_type(rhs_type))
+    else if (fortran_is_array_type(rhs_type))
     {
-        return rebuild_array_type(rank0_common, rhs_type);
+        return fortran_rebuild_array_type(rank0_common, rhs_type);
     }
     else
     {

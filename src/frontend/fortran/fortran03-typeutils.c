@@ -56,7 +56,7 @@ const char* fortran_print_type_str(type_t* t)
 
     int array_spec_idx;
     for (array_spec_idx = MCXX_MAX_ARRAY_SPECIFIER - 1; 
-            is_fortran_array_type(t);
+            fortran_is_array_type(t);
             array_spec_idx--)
     {
         if (array_spec_idx < 0)
@@ -137,7 +137,7 @@ const char* fortran_print_type_str(type_t* t)
 
         result = uniquestr(c);
     }
-    else if (is_fortran_character_type(t))
+    else if (fortran_is_character_type(t))
     {
         nodecl_t length = array_type_get_array_size_expr(t);
         char c[128] = { 0 };
@@ -209,29 +209,21 @@ const char* fortran_print_type_str(type_t* t)
     return result;
 }
 
-char is_pointer_to_array_type(type_t* t)
+int fortran_get_rank_of_type(type_t* t)
 {
     t = no_ref(t);
 
-    return (is_pointer_type(t)
-            && is_array_type(pointer_type_get_pointee_type(t)));
-}
-
-int get_rank_of_type(type_t* t)
-{
-    t = no_ref(t);
-
-    if (!is_fortran_array_type(t)
-            && !is_pointer_to_fortran_array_type(t))
+    if (!fortran_is_array_type(t)
+            && !fortran_is_pointer_to_array_type(t))
         return 0;
 
-    if (is_pointer_to_fortran_array_type(t))
+    if (fortran_is_pointer_to_array_type(t))
     {
         t = pointer_type_get_pointee_type(t);
     }
 
     int result = 0;
-    while (is_fortran_array_type(t))
+    while (fortran_is_array_type(t))
     {
         result++;
         t = array_type_get_element_type(t);
@@ -240,26 +232,26 @@ int get_rank_of_type(type_t* t)
     return result;
 }
 
-type_t* get_rank0_type_internal(type_t* t, char ignore_pointer)
+type_t* fortran_get_rank0_type_internal(type_t* t, char ignore_pointer)
 {
     t = no_ref(t);
 
     if (ignore_pointer && is_pointer_type(t))
         t = pointer_type_get_pointee_type(t);
 
-    while (is_fortran_array_type(t))
+    while (fortran_is_array_type(t))
     {
         t = array_type_get_element_type(t);
     }
     return t;
 }
 
-type_t* get_rank0_type(type_t* t)
+type_t* fortran_get_rank0_type(type_t* t)
 {
-    return get_rank0_type_internal(t, /* ignore_pointer */ 0);
+    return fortran_get_rank0_type_internal(t, /* ignore_pointer */ 0);
 }
 
-char is_fortran_character_type(type_t* t)
+char fortran_is_character_type(type_t* t)
 {
     t = no_ref(t);
 
@@ -267,25 +259,25 @@ char is_fortran_character_type(type_t* t)
             && is_character_type(array_type_get_element_type(t)));
 }
 
-char is_fortran_character_type_or_pointer_to(type_t* t)
+char fortran_is_character_type_or_pointer_to(type_t* t)
 {
     t = no_ref(t);
-    return is_pointer_to_fortran_character_type(t)
-        || is_fortran_character_type(t);
+    return fortran_is_pointer_to_character_type(t)
+        || fortran_is_character_type(t);
 }
 
-char is_pointer_to_fortran_character_type(type_t* t)
+char fortran_is_pointer_to_character_type(type_t* t)
 {
     t = no_ref(t);
 
     if (is_pointer_type(t))
     {
-        return is_fortran_character_type(pointer_type_get_pointee_type(t));
+        return fortran_is_character_type(pointer_type_get_pointee_type(t));
     }
     return 0;
 }
 
-type_t* replace_return_type_of_function_type(type_t* function_type, type_t* new_return_type)
+type_t* fortran_replace_return_type_of_function_type(type_t* function_type, type_t* new_return_type)
 {
     ERROR_CONDITION(!is_function_type(function_type), "Must be a function type", 0);
 
@@ -308,28 +300,28 @@ type_t* replace_return_type_of_function_type(type_t* function_type, type_t* new_
     }
 }
 
-char equivalent_tk_types(type_t* t1, type_t* t2)
+char fortran_equivalent_tk_types(type_t* t1, type_t* t2)
 {
     type_t* r1 = t1;
     if (is_function_type(r1))
     {
         r1 = function_type_get_return_type(r1);
     }
-    r1 = get_rank0_type_internal(r1, /* ignore pointer */ 1);
+    r1 = fortran_get_rank0_type_internal(r1, /* ignore pointer */ 1);
 
     type_t* r2 = t2;
     if (is_function_type(r2))
     {
         r2 = function_type_get_return_type(r2);
     }
-    r2 = get_rank0_type_internal(r2, /* ignore pointer */ 1);
+    r2 = fortran_get_rank0_type_internal(r2, /* ignore pointer */ 1);
 
     // Preprocess for character types
-    if (is_fortran_character_type(r1))
+    if (fortran_is_character_type(r1))
     {
         r1 = get_unqualified_type(array_type_get_element_type(r1));
     }
-    if (is_fortran_character_type(r2))
+    if (fortran_is_character_type(r2))
     {
         r2 = get_unqualified_type(array_type_get_element_type(r2));
     }
@@ -337,13 +329,13 @@ char equivalent_tk_types(type_t* t1, type_t* t2)
     return equivalent_types(get_unqualified_type(r1), get_unqualified_type(r2));
 }
 
-char equivalent_tkr_types(type_t* t1, type_t* t2)
+char fortran_equivalent_tkr_types(type_t* t1, type_t* t2)
 {
-    if (!equivalent_tk_types(t1, t2))
+    if (!fortran_equivalent_tk_types(t1, t2))
         return 0;
 
-    int rank1 = get_rank_of_type(t1);
-    int rank2 = get_rank_of_type(t2);
+    int rank1 = fortran_get_rank_of_type(t1);
+    int rank2 = fortran_get_rank_of_type(t2);
 
     if (rank1 != rank2)
         return 0;
@@ -351,7 +343,7 @@ char equivalent_tkr_types(type_t* t1, type_t* t2)
     return 1;
 }
 
-type_t* update_basic_type_with_type(type_t* type_info, type_t* basic_type)
+type_t* fortran_update_basic_type_with_type(type_t* type_info, type_t* basic_type)
 {
     if (is_error_type(basic_type))
         return basic_type;
@@ -359,13 +351,13 @@ type_t* update_basic_type_with_type(type_t* type_info, type_t* basic_type)
     if (is_pointer_type(type_info))
     {
         return get_pointer_type(
-                update_basic_type_with_type(pointer_type_get_pointee_type(type_info), basic_type)
+                fortran_update_basic_type_with_type(pointer_type_get_pointee_type(type_info), basic_type)
                 );
     }
-    else if (is_fortran_array_type(type_info))
+    else if (fortran_is_array_type(type_info))
     {
         return get_array_type_bounds(
-                update_basic_type_with_type(array_type_get_element_type(type_info), basic_type),
+                fortran_update_basic_type_with_type(array_type_get_element_type(type_info), basic_type),
                 array_type_get_array_lower_bound(type_info),
                 array_type_get_array_upper_bound(type_info),
                 array_type_get_array_size_expr_context(type_info));
@@ -373,12 +365,12 @@ type_t* update_basic_type_with_type(type_t* type_info, type_t* basic_type)
     }
     else if (is_function_type(type_info))
     {
-        return replace_return_type_of_function_type(type_info, basic_type);
+        return fortran_replace_return_type_of_function_type(type_info, basic_type);
     }
     else if (is_lvalue_reference_type(type_info))
     {
         return get_lvalue_reference_type(
-                update_basic_type_with_type(reference_type_get_referenced_type(type_info), basic_type));
+                fortran_update_basic_type_with_type(reference_type_get_referenced_type(type_info), basic_type));
     }
     else
     {
@@ -386,7 +378,7 @@ type_t* update_basic_type_with_type(type_t* type_info, type_t* basic_type)
     }
 }
 
-char basic_type_is_implicit_none(type_t* t)
+char fortran_basic_type_is_implicit_none(type_t* t)
 {
     if (t == NULL)
     {
@@ -398,44 +390,44 @@ char basic_type_is_implicit_none(type_t* t)
     }
     else if (is_array_type(t))
     {
-        return basic_type_is_implicit_none(array_type_get_element_type(t));
+        return fortran_basic_type_is_implicit_none(array_type_get_element_type(t));
     }
     else if (is_function_type(t))
     {
-        return basic_type_is_implicit_none(function_type_get_return_type(t));
+        return fortran_basic_type_is_implicit_none(function_type_get_return_type(t));
     }
     else if (is_lvalue_reference_type(t))
     {
-        return basic_type_is_implicit_none(reference_type_get_referenced_type(t));
+        return fortran_basic_type_is_implicit_none(reference_type_get_referenced_type(t));
     }
     else if (is_pointer_type(t))
     {
-        return basic_type_is_implicit_none(pointer_type_get_pointee_type(t));
+        return fortran_basic_type_is_implicit_none(pointer_type_get_pointee_type(t));
     }
     else
         return 0;
 }
 
-char is_fortran_array_type(type_t* t)
+char fortran_is_array_type(type_t* t)
 {
     t = no_ref(t);
 
     return is_array_type(t)
-        && !is_fortran_character_type(t);
+        && !fortran_is_character_type(t);
 }
 
-char is_pointer_to_fortran_array_type(type_t* t)
+char fortran_is_pointer_to_array_type(type_t* t)
 {
     t = no_ref(t);
 
     return is_pointer_type(t)
-        && is_fortran_array_type(pointer_type_get_pointee_type(t));
+        && fortran_is_array_type(pointer_type_get_pointee_type(t));
 }
 
-char is_fortran_array_type_or_pointer_to(type_t* t)
+char fortran_is_array_type_or_pointer_to(type_t* t)
 {
-    return is_fortran_array_type(t)
-        || is_pointer_to_fortran_array_type(t);
+    return fortran_is_array_type(t)
+        || fortran_is_pointer_to_array_type(t);
 }
 
 char fortran_is_scalar_type(type_t* t)
@@ -449,20 +441,20 @@ char fortran_is_scalar_type(type_t* t)
             && !is_vector_type(t));
 }
 
-type_t* rebuild_array_type(type_t* rank0_type, type_t* array_type)
+type_t* fortran_rebuild_array_type(type_t* rank0_type, type_t* array_type)
 {
     rank0_type = no_ref(rank0_type);
 
     ERROR_CONDITION(!fortran_is_scalar_type(rank0_type)
-            && !is_fortran_character_type(rank0_type), "Invalid rank0 type", 0);
+            && !fortran_is_character_type(rank0_type), "Invalid rank0 type", 0);
 
-    if (!is_fortran_array_type(array_type))
+    if (!fortran_is_array_type(array_type))
     {
         return rank0_type;
     }
     else
     {
-        type_t* t = rebuild_array_type(rank0_type, array_type_get_element_type(array_type));
+        type_t* t = fortran_rebuild_array_type(rank0_type, array_type_get_element_type(array_type));
 
         if (array_type_has_region(array_type))
         {
@@ -497,11 +489,11 @@ type_t* rebuild_array_type(type_t* rank0_type, type_t* array_type)
     }
 }
 
-type_t* get_n_ranked_type(type_t* scalar_type, int rank, decl_context_t decl_context)
+type_t* fortran_get_n_ranked_type(type_t* scalar_type, int rank, decl_context_t decl_context)
 {
     scalar_type = no_ref(scalar_type);
 
-    ERROR_CONDITION(is_fortran_array_type(scalar_type), "This is not a scalar type!", 0);
+    ERROR_CONDITION(fortran_is_array_type(scalar_type), "This is not a scalar type!", 0);
 
     if (rank == 0)
     {
@@ -509,7 +501,7 @@ type_t* get_n_ranked_type(type_t* scalar_type, int rank, decl_context_t decl_con
     }
     else if (rank > 0)
     {
-        return get_array_type(get_n_ranked_type(scalar_type, rank-1, decl_context), nodecl_null(), decl_context);
+        return get_array_type(fortran_get_n_ranked_type(scalar_type, rank-1, decl_context), nodecl_null(), decl_context);
     }
     else
     {
@@ -517,7 +509,28 @@ type_t* get_n_ranked_type(type_t* scalar_type, int rank, decl_context_t decl_con
     }
 }
 
-char is_fortran_intrinsic_type(type_t* t)
+type_t* fortran_get_n_ranked_type_with_descriptor(type_t* scalar_type, int rank, decl_context_t decl_context)
+{
+    scalar_type = no_ref(scalar_type);
+
+    ERROR_CONDITION(fortran_is_array_type(scalar_type), "This is not a scalar type!", 0);
+
+    if (rank == 0)
+    {
+        return scalar_type;
+    }
+    else if (rank > 0)
+    {
+        return get_array_type_bounds_with_descriptor(
+                fortran_get_n_ranked_type(scalar_type, rank-1, decl_context), nodecl_null(), nodecl_null(), decl_context);
+    }
+    else
+    {
+        internal_error("Invalid rank %d\n", rank);
+    }
+}
+
+char fortran_is_intrinsic_type(type_t* t)
 {
     t = no_ref(t);
 
@@ -528,18 +541,18 @@ char is_fortran_intrinsic_type(type_t* t)
             || is_floating_type(t)
             || is_complex_type(t)
             || is_bool_type(t)
-            || is_fortran_character_type(t));
+            || fortran_is_character_type(t));
 }
 
-char are_conformable_types(type_t* t1, type_t* t2)
+char fortran_are_conformable_types(type_t* t1, type_t* t2)
 {
     t1 = no_ref(t1);
     t2 = no_ref(t2);
 
-    if (get_rank_of_type(t1) == get_rank_of_type(t2))
+    if (fortran_get_rank_of_type(t1) == fortran_get_rank_of_type(t2))
         return 1;
-    else if (get_rank_of_type(t1) == 1
-            || get_rank_of_type(t2) == 1)
+    else if (fortran_get_rank_of_type(t1) == 1
+            || fortran_get_rank_of_type(t2) == 1)
         return 1;
     else
         return 0;

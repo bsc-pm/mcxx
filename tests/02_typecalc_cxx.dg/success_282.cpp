@@ -31,26 +31,25 @@
 test_generator=config/mercurium
 </testinfo>
 */
-template<typename _CharT1, typename _Traits1 >
-class basic_ios { };
-
-template<typename _CharT3, typename _Traits3 >
-class basic_ios2 { struct C; };
-
-template<typename _CharT2, typename _Traits2 >
-class basic_streambuf
+template < typename T3>
+class D
 {
-    public :
-        typedef _CharT2 char_type;
-        typedef _Traits2 traits_type;
-
-        friend class basic_ios< char_type, traits_type >;
-
-        template < typename T1, typename T2>
-        friend class basic_ios2;
-
-        template < typename T1, typename T2>
-        friend class basic_ios2<T1,T2>::C;
-
+    struct E;
 };
+
+class A
+{
+    class B;
+
+    template < typename T1>
+        friend class D<T1>::E;
+};
+
+class A::B
+{
+    template < typename T2>
+        friend class D;
+};
+    
+
 

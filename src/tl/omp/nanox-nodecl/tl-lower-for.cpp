@@ -33,39 +33,14 @@
 
 namespace TL { namespace Nanox {
 
-    void LoweringVisitor::visit(const Nodecl::OpenMP::For& construct)
+    Source LoweringVisitor::get_loop_distribution_source(
+            const Nodecl::OpenMP::For &construct,
+            Nodecl::List& distribute_environment,
+            Nodecl::List& ranges,
+            OutlineInfo& outline_info,
+            Nodecl::NodeclBase &placeholder1,
+            Nodecl::NodeclBase &placeholder2)
     {
-        Nodecl::List distribute_environment = construct.get_environment().as<Nodecl::List>();
-
-        Nodecl::List ranges = construct.get_ranges().as<Nodecl::List>();
-        Nodecl::NodeclBase statements = construct.get_statements();
-
-        walk(statements);
-
-        // Get the new statements
-        statements = construct.get_statements();
-
-        Nodecl::NodeclBase environment = construct.get_environment();
-
-        OutlineInfo outline_info(environment);
-        Symbol function_symbol = Nodecl::Utils::get_enclosing_function(construct);
-
-        std::string outline_name = get_outline_name(function_symbol);
-
-        // Add field wsd
-        TL::Symbol sym = ReferenceScope(construct).get_scope().get_symbol_from_name("nanos_ws_desc_t");
-        ERROR_CONDITION(sym.is_invalid(), "Invalid symbol", 0);
-
-        TL::Type nanos_ws_desc_type = ::get_user_defined_type(sym.get_internal_symbol());
-        nanos_ws_desc_type = nanos_ws_desc_type.get_pointer_to();
-
-        OutlineDataItem &wsd_data_item = outline_info.prepend_field("wsd", nanos_ws_desc_type);
-        wsd_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE);
-
-        // Build the structure
-        TL::Symbol structure_symbol = declare_argument_structure(outline_info, construct);
-
-        Nodecl::NodeclBase placeholder1, placeholder2;
         Source for_code, reduction_code, barrier_code;
         if (ranges.size() == 1)
         {
@@ -73,6 +48,11 @@ namespace TL { namespace Nanox {
 
             TL::Symbol ind_var = range_item.get_symbol();
             Nodecl::OpenMP::ForRange range(range_item.as<Nodecl::OpenMP::ForRange>());
+
+            for_code
+                << "while (nanos_item_loop.execute)"
+                << "{"
+                ;
 
             if (range.get_step().is_constant())
             {
@@ -84,8 +64,8 @@ namespace TL { namespace Nanox {
                 {
 
                     for_code
-                        << "for (" << ind_var.get_name() << " = nanos_loop_info.lower;"
-                        << ind_var.get_name() << " <= nanos_loop_info.upper;"
+                        << "for (" << ind_var.get_name() << " = nanos_item_loop.lower;"
+                        << ind_var.get_name() << " <= nanos_item_loop.upper;"
                         << ind_var.get_name() << " += " << cval_nodecl.prettyprint() << ")"
                         << "{"
                         ;
@@ -93,8 +73,8 @@ namespace TL { namespace Nanox {
                 else
                 {
                     for_code
-                        << "for (" << ind_var.get_name() << " = nanos_loop_info.lower;"
-                        << ind_var.get_name() << " >= nanos_loop_info.upper;"
+                        << "for (" << ind_var.get_name() << " = nanos_item_loop.lower;"
+                        << ind_var.get_name() << " >= nanos_item_loop.upper;"
                         << ind_var.get_name() << " += " << cval_nodecl.prettyprint() << ")"
                         << "{"
                         ;
@@ -112,8 +92,8 @@ namespace TL { namespace Nanox {
                     << as_type(range.get_step().get_type()) << " nanos_step = " << as_expression(range.get_step()) << ";"
                     << "if (nanos_step > 0)"
                     << "{"
-                    <<    "for (" << ind_var.get_name() << " = nanos_loop_info.lower;"
-                    <<    ind_var.get_name() << " <= nanos_loop_info.upper;"
+                    <<    "for (" << ind_var.get_name() << " = nanos_item_loop.lower;"
+                    <<    ind_var.get_name() << " <= nanos_item_loop.upper;"
                     <<    ind_var.get_name() << " += nanos_step)"
                     <<    "{"
                     <<    statement_placeholder(placeholder1)
@@ -121,8 +101,8 @@ namespace TL { namespace Nanox {
                     << "}"
                     << "else"
                     << "{"
-                    <<    "for (" << ind_var.get_name() << " = nanos_loop_info.lower;"
-                    <<    ind_var.get_name() << " >= nanos_loop_info.upper;"
+                    <<    "for (" << ind_var.get_name() << " = nanos_item_loop.lower;"
+                    <<    ind_var.get_name() << " >= nanos_item_loop.upper;"
                     <<    ind_var.get_name() << " += nanos_step)"
                     <<    "{"
                     <<    statement_placeholder(placeholder2)
@@ -130,6 +110,11 @@ namespace TL { namespace Nanox {
                     << "}"
                     ;
             }
+
+            for_code
+                << "err = nanos_worksharing_next_item(wsd, (void**)&nanos_item_loop);"
+                << "}"
+                ;
         }
         else if (ranges.size() > 1)
         {
@@ -140,12 +125,12 @@ namespace TL { namespace Nanox {
             internal_error("Code unreachable", 0);
         }
 
-        Source outline_source;
-        outline_source
+        Source distribute_loop_source;
+        distribute_loop_source
             << "{"
-            << "nanos_ws_item_loop_t nanos_loop_info;"
+            << "nanos_ws_item_loop_t nanos_item_loop;"
             << "nanos_err_t err;"
-            << "err = nanos_worksharing_next_item(wsd, (nanos_ws_item_t*)&nanos_loop_info);"
+            << "err = nanos_worksharing_next_item(wsd, (void**)&nanos_item_loop);"
             << "if (err != NANOS_OK)"
             <<     "nanos_handle_error(err);"
             << for_code
@@ -154,17 +139,17 @@ namespace TL { namespace Nanox {
             << barrier_code
             ;
 
-        TL::ObjectList<OutlineDataItem> reduction_items = outline_info.get_data_items().filter(
-                predicate(&OutlineDataItem::is_reduction));
+        TL::ObjectList<OutlineDataItem*> reduction_items = outline_info.get_data_items().filter(
+                predicate(lift_pointer(functor(&OutlineDataItem::is_reduction))));
 
         if (!reduction_items.empty())
         {
-            for (TL::ObjectList<OutlineDataItem>::iterator it = reduction_items.begin();
+            for (TL::ObjectList<OutlineDataItem*>::iterator it = reduction_items.begin();
                     it != reduction_items.end();
                     it++)
             {
                 reduction_code
-                    << "rdp_" << it->get_field_name() << "[omp_get_thread_num()] = " << it->get_symbol().get_name() << ";"
+                    << "rdp_" << (*it)->get_field_name() << "[omp_get_thread_num()] = " << (*it)->get_symbol().get_name() << ";"
                     ;
             }
         }
@@ -176,7 +161,44 @@ namespace TL { namespace Nanox {
                 << full_barrier_source();
         }
 
-        emit_outline(outline_info, statements, outline_source, outline_name, structure_symbol);
+        return distribute_loop_source;
+    }
+
+    void LoweringVisitor::distribute_loop_with_outline(
+           const Nodecl::OpenMP::For& construct,
+           Nodecl::List& distribute_environment,
+           Nodecl::List& ranges,
+           OutlineInfo& outline_info,
+           Nodecl::NodeclBase& statements,
+           Source &distribute_loop_source,
+           Nodecl::NodeclBase& placeholder1,
+           Nodecl::NodeclBase& placeholder2
+           )
+    {
+        Symbol function_symbol = Nodecl::Utils::get_enclosing_function(construct);
+
+        std::string outline_name = get_outline_name(function_symbol);
+
+        // Add field wsd
+        TL::Symbol sym = ReferenceScope(construct).get_scope().get_symbol_from_name("nanos_ws_desc_t");
+        ERROR_CONDITION(sym.is_invalid(), "Invalid symbol", 0);
+
+        TL::Type nanos_ws_desc_type = ::get_user_defined_type(sym.get_internal_symbol());
+        nanos_ws_desc_type = nanos_ws_desc_type.get_pointer_to();
+
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            nanos_ws_desc_type = nanos_ws_desc_type.get_lvalue_reference_to();
+        }
+
+        OutlineDataItem &wsd_data_item = outline_info.prepend_field("wsd", nanos_ws_desc_type);
+        wsd_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE);
+
+        // Build the structure
+        TL::Symbol structure_symbol = declare_argument_structure(outline_info, construct);
+
+        Nodecl::Utils::SymbolMap *symbol_map = NULL;
+        emit_outline(outline_info, statements, distribute_loop_source, outline_name, structure_symbol, symbol_map);
 
         // Now complete the placeholder
         Source iteration_source;
@@ -184,16 +206,61 @@ namespace TL { namespace Nanox {
             << statements.prettyprint()
             ;
 
-        Nodecl::NodeclBase iteration_code = iteration_source.parse_statement(placeholder1);
-        placeholder1.integrate(iteration_code);
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            // Copy FUNCTIONs and other local stuff
+            symbol_map = new Nodecl::Utils::FortranProgramUnitSymbolMap(symbol_map,
+                    function_symbol,
+                    outline_info.get_unpacked_function_symbol());
+        }
+
+        placeholder1.integrate(
+                Nodecl::Utils::deep_copy(statements, placeholder1, *symbol_map)
+                );
 
         if (!placeholder2.is_null())
         {
-            Nodecl::NodeclBase iteration_code = iteration_source.parse_statement(placeholder2);
-            placeholder2.integrate(iteration_code);
+            placeholder2.integrate(
+                    Nodecl::Utils::deep_copy(statements, placeholder2, *symbol_map)
+                    );
         }
 
-        loop_spawn(outline_info, construct, distribute_environment, ranges, outline_name, structure_symbol, outline_source);
+        delete symbol_map; symbol_map = NULL;
+
+        loop_spawn(outline_info, construct, distribute_environment, ranges, outline_name, structure_symbol);
+    }
+
+    void LoweringVisitor::visit(const Nodecl::OpenMP::For& construct)
+    {
+        Nodecl::List ranges = construct.get_ranges().as<Nodecl::List>();
+
+        Nodecl::List distribute_environment = construct.get_environment().as<Nodecl::List>();
+
+        Nodecl::NodeclBase statements = construct.get_statements();
+
+        walk(statements);
+
+        // Get the new statements
+        statements = construct.get_statements();
+
+        Nodecl::NodeclBase environment = construct.get_environment();
+
+        OutlineInfo outline_info(environment);
+
+        Nodecl::NodeclBase placeholder1, placeholder2;
+        Source distribute_loop_source = get_loop_distribution_source(construct,
+                distribute_environment,
+                ranges,
+                outline_info,
+                placeholder1, placeholder2);
+
+        distribute_loop_with_outline(construct,
+                distribute_environment, ranges,
+                outline_info,
+                statements,
+                distribute_loop_source,
+                placeholder1,
+                placeholder2);
     }
 
 } }

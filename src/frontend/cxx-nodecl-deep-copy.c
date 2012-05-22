@@ -104,6 +104,7 @@ nodecl_t nodecl_deep_copy_context(nodecl_t n,
     return result;
 }
 
+
 typedef
 struct closure_hash_tag
 {
@@ -115,7 +116,8 @@ struct closure_hash_tag
     scope_entry_t** filled_symbols;
 } closure_hash_t;
 
-static void register_symbols(const char* name, scope_entry_list_t* entry_list, closure_hash_t* data)
+static void register_symbols_generic(const char* name, scope_entry_list_t* entry_list, closure_hash_t* data,
+        char (*filter)(scope_entry_t* entry))
 {
     scope_entry_list_iterator_t *it;
     for (it = entry_list_iterator_begin(entry_list);
@@ -123,6 +125,9 @@ static void register_symbols(const char* name, scope_entry_list_t* entry_list, c
             entry_list_iterator_next(it))
     {
         scope_entry_t* info = entry_list_iterator_current(it);
+
+        if (!filter(info))
+            continue;
 
         scope_entry_t* mapped_symbol = nested_map(info, data->nested_map_info);
 
@@ -143,11 +148,39 @@ static void register_symbols(const char* name, scope_entry_list_t* entry_list, c
     entry_list_iterator_free(it);
 }
 
+static char any_symbols(scope_entry_t* entry UNUSED_PARAMETER)
+{
+    return 1;
+}
+
+static char symbols_of_fortran_program_unit(scope_entry_t* entry)
+{
+    return (entry->kind == SK_FUNCTION
+            && !entry->entity_specs.is_nested_function);
+}
+
+static void register_symbols(const char* name, scope_entry_list_t* entry_list, closure_hash_t* data)
+{
+    register_symbols_generic(name, entry_list, data, any_symbols);
+}
+
+static void register_symbols_of_fortran_program_unit(const char* name, scope_entry_list_t* entry_list, closure_hash_t* data)
+{
+    register_symbols_generic(name, entry_list, data, symbols_of_fortran_program_unit);
+}
+
 static void fill_symbols(const char* name, scope_entry_list_t* entry_list, closure_hash_t* data);
+static void fill_symbols_of_fortran_program_unit(const char* name, scope_entry_list_t* entry_list, closure_hash_t* data);
+
+void free_closure_info(nested_map_info_t* nested_map_info)
+{
+    free(nested_map_info->source_list);
+    free(nested_map_info->target_list);
+}
 
 static void copy_block_scope(decl_context_t new_block_context_, scope_t* block_scope, nested_map_info_t *nested_map_info)
 {
-    closure_hash_t  closure_info;
+    closure_hash_t closure_info;
     memset(&closure_info, 0, sizeof(closure_info));
 
     closure_info.new_block_context_ = new_block_context_;
@@ -162,7 +195,41 @@ static void copy_block_scope(decl_context_t new_block_context_, scope_t* block_s
     free(closure_info.filled_symbols);
 }
 
-static void fill_symbols(const char* name, scope_entry_list_t* entry_list, closure_hash_t* data)
+static void register_symbols_of_fortran_program_unit(const char* name, scope_entry_list_t* entry_list, closure_hash_t* data);
+
+void copy_fortran_program_unit(scope_entry_t* new_program_unit,
+        scope_entry_t* original_program_unit,
+        void **out_info,
+        scope_entry_t* (**out_map)(scope_entry_t*, void*),
+        void (**free_fun)(void*))
+{
+    nested_map_info_t *nested_map_info = calloc(1, sizeof(*nested_map_info));
+    memset(nested_map_info, 0, sizeof(*nested_map_info));
+    nested_map_info->orig_map = empty_map;
+    nested_map_info->orig_info = NULL;
+
+    decl_context_t new_block_context_ = new_program_unit->related_decl_context;
+    scope_t* block_scope = original_program_unit->related_decl_context.current_scope;
+
+    closure_hash_t *closure_info = calloc(1, sizeof(*closure_info));
+    memset(closure_info, 0, sizeof(*closure_info));
+
+    closure_info->new_block_context_ = new_block_context_;
+    closure_info->original_block_scope = block_scope;
+    closure_info->nested_map_info = nested_map_info;
+
+    // First walk, sign in all the names but leave them empty
+    rb_tree_walk(block_scope->hash, (void (*)(const void*, void*, void*))register_symbols_of_fortran_program_unit, closure_info);
+    // Fill the created symbols
+    rb_tree_walk(block_scope->hash, (void (*)(const void*, void*, void*))fill_symbols_of_fortran_program_unit, closure_info);
+
+    *out_info = nested_map_info;
+    *out_map = nested_map;
+    *free_fun = (void(*)(void*))free_closure_info;
+}
+
+static void fill_symbols_generic(const char* name, scope_entry_list_t* entry_list, closure_hash_t* data,
+        char (*filter)(scope_entry_t*))
 {
     scope_entry_list_iterator_t *it;
     for (it = entry_list_iterator_begin(entry_list);
@@ -170,6 +237,9 @@ static void fill_symbols(const char* name, scope_entry_list_t* entry_list, closu
             entry_list_iterator_next(it))
     {
         scope_entry_t* info = entry_list_iterator_current(it);
+
+        if (!filter(info))
+            continue;
 
         scope_entry_t* mapped_symbol = nested_map(info, data->nested_map_info);
 
@@ -187,6 +257,16 @@ static void fill_symbols(const char* name, scope_entry_list_t* entry_list, closu
         symbol_deep_copy(mapped_symbol, info, data->new_block_context_, data->nested_map_info, nested_map);
     }
     entry_list_iterator_free(it);
+}
+
+static void fill_symbols(const char* name, scope_entry_list_t* entry_list, closure_hash_t* data)
+{
+    fill_symbols_generic(name, entry_list, data, any_symbols);
+}
+
+static void fill_symbols_of_fortran_program_unit(const char* name, scope_entry_list_t* entry_list, closure_hash_t* data)
+{
+    fill_symbols_generic(name, entry_list, data, symbols_of_fortran_program_unit);
 }
 
 nodecl_t nodecl_deep_copy(nodecl_t n, decl_context_t new_decl_context, void* info, scope_entry_t* (*map)(scope_entry_t*, void* info))

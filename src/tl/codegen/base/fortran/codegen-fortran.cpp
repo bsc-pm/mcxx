@@ -637,11 +637,18 @@ OPERATOR_TABLE
 
     void FortranBase::visit(const Nodecl::ClassMemberAccess &node) 
     { 
-        Nodecl::NodeclBase lhs = node.get_lhs(); 
-        Nodecl::NodeclBase member = node.get_member(); 
-        walk(lhs); 
-        file << " % "; 
-        walk(member);
+        if (is_bitfield_access(node))
+        {
+            emit_bitfield_load(node);
+        }
+        else
+        {
+            Nodecl::NodeclBase lhs = node.get_lhs(); 
+            Nodecl::NodeclBase member = node.get_member(); 
+            walk(lhs); 
+            file << " % "; 
+            walk(member);
+        }
     }
 
     void FortranBase::visit(const Nodecl::Range& node)
@@ -761,7 +768,7 @@ OPERATOR_TABLE
         TL::Type type = node.get_type();
         if (type.is_array())
         {
-            int n = get_rank_of_type(type.get_internal_type());
+            int n = fortran_get_rank_of_type(type.get_internal_type());
 
             if (n == 1
                     || state.flatten_array_construct)
@@ -777,7 +784,7 @@ OPERATOR_TABLE
                 std::string shape;
                 TL::Type t = type;
                 int n = 0;
-                while (is_fortran_array_type(t.get_internal_type()))
+                while (fortran_is_array_type(t.get_internal_type()))
                 {
 
                     std::stringstream ss;
@@ -1234,6 +1241,79 @@ OPERATOR_TABLE
         file << ")";
     }
 
+    void FortranBase::codegen_function_call_arguments(const Nodecl::NodeclBase arguments, TL::Type function_type)
+    {
+        Nodecl::List l = arguments.as<Nodecl::List>();
+
+        if (l.empty())
+            return;
+
+        TL::ObjectList<TL::Type> parameter_types = function_type.parameters();
+
+        int pos = 0;
+        for (Nodecl::List::iterator it = l.begin(); it != l.end(); it++, pos++)
+        {
+            if (pos > 0)
+                file << ", ";
+
+            Nodecl::NodeclBase keyword;
+            Nodecl::NodeclBase arg = *it;
+
+            TL::Type parameter_type(NULL);
+            if (it->is<Nodecl::FortranNamedPairSpec>())
+            {
+                keyword = it->as<Nodecl::FortranNamedPairSpec>().get_name();
+                arg = it->as<Nodecl::FortranNamedPairSpec>().get_argument();
+            }
+
+            if (!keyword.is_null())
+            {
+                parameter_type = keyword.get_symbol().get_type();
+                file << keyword.get_symbol().get_name() << " = ";
+            }
+            else if (pos < parameter_types.size())
+            {
+                parameter_type = parameter_types[pos];
+            }
+
+            if (!parameter_type.is_valid())
+            {
+                walk(arg);
+            }
+            else
+            {
+                if (parameter_type.is_pointer())
+                {
+                    // Several cases:
+                    //        Parameter       Argument         Pass
+                    //         non-Fortran     non-Fortran     Do nothing
+                    //         non-Fortran     Fortran         LOC
+                    //
+                    TL::Type arg_type = arg.get_type();
+                    bool is_ref = arg_type.is_any_reference();
+                    if (is_ref)
+                        arg_type = arg_type.references_to();
+                    if ((arg_type.is_pointer()
+                                && !is_fortran_representable_pointer(arg_type))
+                            || !is_ref)
+                    {
+                        walk(arg);
+                    }
+                    else
+                    {
+                        file << "LOC(";
+                        walk(arg);
+                        file << ")";
+                    }
+                }
+                else
+                {
+                    walk(arg);
+                }
+            }
+        }
+    }
+
     void FortranBase::visit(const Nodecl::FunctionCall& node)
     {
         Nodecl::NodeclBase called = node.get_called();
@@ -1285,7 +1365,7 @@ OPERATOR_TABLE
 
 
             file << entry.get_name() << "(";
-            codegen_comma_separated_list(arguments);
+            codegen_function_call_arguments(arguments, function_type);
             file << ")";
         }
         else
@@ -2167,7 +2247,16 @@ OPERATOR_TABLE
 
         if (source_type.is_any_reference())
             source_type = source_type.references_to();
-        
+
+        // If the cast is of the same type as the source expression
+        // we ignore it, unless for pointer types where we will
+        // cast to integer
+        if (source_type.is_same_type(dest_type))
+        {
+            walk(nest);
+            return;
+        }
+
         // C-style casts from/to int
         // or integers of different size
         if ((dest_type.is_integral_type()
@@ -2212,8 +2301,7 @@ OPERATOR_TABLE
             file << ", KIND=" << dest_type.get_size() << ")";
         }
         else if (dest_type.is_pointer()
-                && (source_type.is_array() || source_type.is_pointer())
-                && !nest.is<Nodecl::Reference>())
+                && nest.get_type().is_any_reference())
         {
             // We need a LOC here
             file << "LOC(";
@@ -2239,7 +2327,7 @@ OPERATOR_TABLE
     {
         if (node.get_expr().is_null())
         {
-            file << node.get_type().get_size();
+            file << node.get_size_type().get_type().get_size() << "_" << node.get_type().get_size();
         }
         else
         {
@@ -2832,11 +2920,27 @@ OPERATOR_TABLE
                 attribute_list += ", TARGET";
             if (entry.is_parameter() 
                     && !entry.get_type().is_any_reference()
-                    && !is_fortran_character_type(entry.get_type().get_internal_type()))
+                    && !fortran_is_character_type(entry.get_type().get_internal_type()))
             {
                 if (entry.get_type().is_pointer())
                 {
-                    declared_type = TL::Type(get_size_t_type());
+                    if ( entry.get_type().points_to().is_char())
+                    {
+                        declared_type = TL::Type(
+                                :: get_array_type(entry.get_type().points_to().get_internal_type(),
+                                    nodecl_null(),
+                                    entry.get_scope().get_decl_context()) );
+                    }
+                    else /* if (entry.get_type().points_to().is_void()
+                            || entry.get_type().points_to().is_pointer()) */
+                    {
+                        declared_type = TL::Type(get_size_t_type());
+                        attribute_list += ", VALUE";
+                    }
+                    // else
+                    // {
+                    //     declared_type = entry.get_type().points_to();
+                    // }
                 }
                 else if (entry.get_type().is_array())
                 {
@@ -2848,7 +2952,10 @@ OPERATOR_TABLE
                     internal_error("Error: struct/class types cannot be passed by value in Fortran\n", 
                             entry.get_name().c_str());
                 }
-                attribute_list += ", VALUE";
+                else
+                {
+                    attribute_list += ", VALUE";
+                }
             }
             if (entry.is_optional())
                 attribute_list += ", OPTIONAL";
@@ -3274,6 +3381,13 @@ OPERATOR_TABLE
             int first_bitfield_offset = 0;
 
             inc_indent();
+
+            if (entry.get_type().class_type_is_packed())
+            {
+                indent();
+                file << "SEQUENCE\n";
+            }
+
             // Second pass to declare components
             for (TL::ObjectList<TL::Symbol>::iterator it = members.begin();
                     it != members.end();
@@ -3611,12 +3725,6 @@ OPERATOR_TABLE
         }
     }
 
-    void FortranBase::visit(const Nodecl::SavedExpr& node)
-    {
-        TL::Symbol symbol = node.get_symbol();
-        file << rename(symbol);
-    }
-
     void FortranBase::visit(const Nodecl::CxxDepNameSimple& node)
     {
         file << node.get_text();
@@ -3706,18 +3814,20 @@ OPERATOR_TABLE
                     if (!lower.is_null())
                     {
                         declare_symbols_from_modules_rec(lower, sc);
-                        if (lower.is<Nodecl::SavedExpr>())
+                        if (lower.is<Nodecl::Symbol>()
+                                && lower.get_symbol().is_saved_expression())
                         {
-                            declare_symbols_from_modules_rec(lower.as<Nodecl::SavedExpr>().get_expression(), sc);
+                            declare_symbols_from_modules_rec(lower.get_symbol().get_value(), sc);
                         }
                     }
 
                     if (!upper.is_null())
                     {
                         declare_symbols_from_modules_rec(upper, sc);
-                        if (upper.is<Nodecl::SavedExpr>())
+                        if (upper.is<Nodecl::Symbol>()
+                                && upper.get_symbol().is_saved_expression())
                         {
-                            declare_symbols_from_modules_rec(upper.as<Nodecl::SavedExpr>().get_expression(), sc);
+                            declare_symbols_from_modules_rec(upper.get_symbol().get_value(), sc);
                         }
                     }
 
@@ -3832,7 +3942,7 @@ OPERATOR_TABLE
                 || t.is_array()
                 // Fortran 2003
                 // || t.is_function()
-                || (is_fortran_character_type(t.get_internal_type())));
+                || (fortran_is_character_type(t.get_internal_type())));
     }
 
     void FortranBase::codegen_type(TL::Type t, std::string& type_specifier, std::string& array_specifier, bool is_dummy)
@@ -3876,7 +3986,7 @@ OPERATOR_TABLE
         
         int array_spec_idx;
         for (array_spec_idx = MCXX_MAX_ARRAY_SPECIFIER - 1; 
-                is_fortran_array_type(t.get_internal_type());
+                fortran_is_array_type(t.get_internal_type());
                 array_spec_idx--)
         {
             if (array_spec_idx < 0)
@@ -3989,7 +4099,7 @@ OPERATOR_TABLE
 
             type_specifier = "TYPE(" + real_name + ")";
         }
-        else if (is_fortran_character_type(t.get_internal_type()))
+        else if (fortran_is_character_type(t.get_internal_type()))
         {
             std::stringstream ss;
             if (!array_type_is_unknown_size(t.get_internal_type()))
@@ -4015,6 +4125,12 @@ OPERATOR_TABLE
             }
 
             type_specifier = ss.str();
+        }
+        // Special case for char* / const char*
+        else if (t.is_pointer()
+                && t.points_to().is_char())
+        {
+            type_specifier = "CHARACTER(LEN=*)";
         }
         // Note: This is NOT a Fortran pointer, Fortran pointers will have
         // their basic type simplified at this point
@@ -4045,14 +4161,16 @@ OPERATOR_TABLE
 
                 // Get the real expression of this saved expression
                 if (!array_spec_list[array_spec_idx].lower.is_null()
-                        && array_spec_list[array_spec_idx].lower.is<Nodecl::SavedExpr>())
+                        && array_spec_list[array_spec_idx].lower.is<Nodecl::Symbol>()
+                        && array_spec_list[array_spec_idx].lower.get_symbol().is_saved_expression())
                 {
-                    array_spec_list[array_spec_idx].lower = array_spec_list[array_spec_idx].lower.as<Nodecl::SavedExpr>().get_expression();
+                    array_spec_list[array_spec_idx].lower = array_spec_list[array_spec_idx].lower.get_symbol().get_value();
                 }
                 if (!array_spec_list[array_spec_idx].upper.is_null()
-                        && array_spec_list[array_spec_idx].upper.is<Nodecl::SavedExpr>())
+                        && array_spec_list[array_spec_idx].upper.is<Nodecl::Symbol>()
+                        && array_spec_list[array_spec_idx].upper.get_symbol().is_saved_expression())
                 {
-                    array_spec_list[array_spec_idx].upper = array_spec_list[array_spec_idx].upper.as<Nodecl::SavedExpr>().get_expression();
+                    array_spec_list[array_spec_idx].upper = array_spec_list[array_spec_idx].upper.get_symbol().get_value();
                 }
 
                 if (!array_spec_list[array_spec_idx].is_undefined)
@@ -4254,6 +4372,37 @@ OPERATOR_TABLE
             return false;
 
         return true;
+    }
+
+    void FortranBase::emit_bitfield_load(const Nodecl::ClassMemberAccess &node)
+    {
+        TL::Symbol symbol = node.get_member().get_symbol();
+
+        ERROR_CONDITION(!symbol.is_valid() || !symbol.is_bitfield(), "Symbol '%s' must be a bitfield!\n", symbol.get_name().c_str());
+
+        Nodecl::NodeclBase lhs = node.get_lhs();
+
+        int bitfield_size = 
+            const_value_cast_to_4(
+                    nodecl_get_constant(symbol.get_bitfield_size().get_internal_nodecl())
+                    );
+
+        if (bitfield_size != 1)
+        {
+            running_error("%s: error: codegen of loads in bitfields larger than one bit is not implemented", 
+                    node.get_locus().c_str());
+        }
+
+        file << "IBITS(";
+        walk(lhs);
+        file << " % bitfield_pad_" << symbol.get_offset() << ", " << symbol.get_bitfield_first() << ", 1)";
+
+        TL::Type t = node.get_type();
+        if (t.is_any_reference())
+            t = t.references_to();
+
+        if (t.is_bool())
+            file << " /= 0";
     }
 
     void FortranBase::emit_bitfield_store(const Nodecl::Assignment &node)

@@ -604,6 +604,27 @@ int count_null_ended_array(void** v)
     return result;
 }
 
+void remove_string_from_null_ended_string_array(const char** string_arr, const char* to_remove)
+{
+    int i, idx = -1;
+    for (i = 0; string_arr[i] != NULL; i++)
+    {
+        if (strcmp(string_arr[i], to_remove) == 0)
+        {
+            idx = i;
+            break;
+        }
+    }
+
+    if (idx >= 0) // found
+    {
+        for (i = idx; string_arr[i] != NULL; i++)
+        {
+            string_arr[i] = string_arr[i + 1];
+        }
+    }
+}
+
 void timing_start(timing_t* t)
 {
     memset(t, 0, sizeof(*t));

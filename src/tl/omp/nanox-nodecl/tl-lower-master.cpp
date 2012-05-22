@@ -26,31 +26,43 @@
 
 
 
-/*
-<testinfo>
-test_generator=config/mercurium
-</testinfo>
-*/
-template<typename _CharT1, typename _Traits1 >
-class basic_ios { };
+#include "tl-source.hpp"
+#include "tl-lowering-visitor.hpp"
+#include "tl-nodecl-utils.hpp"
 
-template<typename _CharT3, typename _Traits3 >
-class basic_ios2 { struct C; };
+namespace TL { namespace Nanox {
 
-template<typename _CharT2, typename _Traits2 >
-class basic_streambuf
-{
-    public :
-        typedef _CharT2 char_type;
-        typedef _Traits2 traits_type;
+    void LoweringVisitor::visit(const Nodecl::OpenMP::Master& construct)
+    {
+        Nodecl::NodeclBase statements = construct.get_statements();
 
-        friend class basic_ios< char_type, traits_type >;
+        walk(statements);
 
-        template < typename T1, typename T2>
-        friend class basic_ios2;
+        statements = construct.get_statements();
 
-        template < typename T1, typename T2>
-        friend class basic_ios2<T1,T2>::C;
+        Nodecl::NodeclBase placeholder;
+        Source transform_code;
+        transform_code
+            << "if (nanos_omp_get_thread_num() == 0)"
+            << "{"
+            << statement_placeholder(placeholder)
+            << "}"
+            ;
 
-};
+        FORTRAN_LANGUAGE()
+        {
+            // Parse in C
+            Source::source_language = SourceLanguage::C;
+        }
+        Nodecl::NodeclBase n = transform_code.parse_statement(construct);
+        FORTRAN_LANGUAGE()
+        {
+            Source::source_language = SourceLanguage::Current;
+        }
+
+        Nodecl::NodeclBase copied_statements = Nodecl::Utils::deep_copy(statements, placeholder);
+        placeholder.integrate(copied_statements);
+    }
+
+} }
 

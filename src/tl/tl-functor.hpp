@@ -463,7 +463,30 @@ namespace TL
         DataMemberAdapter<Ret, T> result(pdm);
         return result;
     }
-    
+
+    template <class Ret, class T>
+    struct LiftPointer : public Functor<Ret, T*>
+    {
+        private:
+        const Functor<Ret, T>& _f;
+
+        public:
+        LiftPointer(const Functor<Ret, T>& f)
+            : _f(f) { }
+
+        virtual Ret do_(typename LiftPointer::ArgType t) const 
+        {
+            return _f(*t);
+        }
+    };
+
+    template <class Ret, class T>
+    LiftPointer<Ret, T> lift_pointer(const Functor<Ret, T>& fun)
+    {
+        LiftPointer<Ret, T> lift_pointer(fun);
+        return lift_pointer;
+    }
+
     //! @}
 }
 

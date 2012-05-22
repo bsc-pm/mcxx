@@ -49,6 +49,7 @@ codegen_phase, config_set_codegen_phase
 pragma_prefix, config_add_preprocessor_prefix
 environment, config_set_environment
 environ, config_set_environment
+fortran_arrayd-descriptor, config_set_fortran_array_descriptor
 target_options, config_set_target_options
 compiler_dto, config_set_compiler_dto
 fortran_preprocessor_name, config_set_fortran_preprocessor_name

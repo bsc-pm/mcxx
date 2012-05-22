@@ -31,26 +31,21 @@
 test_generator=config/mercurium
 </testinfo>
 */
-template<typename _CharT1, typename _Traits1 >
-class basic_ios { };
-
-template<typename _CharT3, typename _Traits3 >
-class basic_ios2 { struct C; };
-
-template<typename _CharT2, typename _Traits2 >
-class basic_streambuf
+namespace Glib
 {
-    public :
-        typedef _CharT2 char_type;
-        typedef _Traits2 traits_type;
-
-        friend class basic_ios< char_type, traits_type >;
-
-        template < typename T1, typename T2>
-        friend class basic_ios2;
-
-        template < typename T1, typename T2>
-        friend class basic_ios2<T1,T2>::C;
-
-};
-
+    class RecMutex;
+    struct StaticRecMutex;
+    
+    struct StaticRecMutex
+    {
+            void lock_full(unsigned int depth)
+            {}
+            operator RecMutex &();
+            RecMutex foo(RecMutex a, RecMutex b);
+            
+    };
+    
+    class RecMutex : public StaticRecMutex
+    {
+    };
+}

@@ -139,8 +139,6 @@ namespace Codegen
             void visit(const Nodecl::AddAssignment & node);
             void visit(const Nodecl::MinusAssignment & node);
 
-            void visit(const Nodecl::SavedExpr& node);
-
             void visit(const Nodecl::CxxDepNameSimple& node);
 
             void codegen_type(TL::Type t, 
@@ -257,6 +255,8 @@ namespace Codegen
             void codegen_comma_separated_list(Nodecl::NodeclBase);
             void codegen_reverse_comma_separated_list(Nodecl::NodeclBase);
 
+            void codegen_function_call_arguments(const Nodecl::NodeclBase arguments, TL::Type function_type);
+
             void do_declare_symbol(TL::Symbol entry, Nodecl::NodeclBase, void*);
             void do_declare_symbol_in_scope(TL::Symbol entry, Nodecl::NodeclBase, void*);
             void declare_symbol(TL::Symbol, TL::Scope sc);
@@ -313,6 +313,7 @@ namespace Codegen
 
             bool is_bitfield_access(const Nodecl::NodeclBase &node);
             void emit_bitfield_store(const Nodecl::Assignment &node);
+            void emit_bitfield_load(const Nodecl::ClassMemberAccess &node);
 
             bool name_has_already_been_used(std::string str);
             bool name_has_already_been_used(TL::Symbol sym);

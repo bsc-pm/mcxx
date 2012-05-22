@@ -29,6 +29,8 @@
 #include "tl-source.hpp"
 #include "tl-counters.hpp"
 
+#include "fortran03-typeutils.h"
+
 namespace TL { namespace Nanox {
 
     bool LoweringVisitor::c_type_needs_vla_handling(TL::Type t)
@@ -49,230 +51,112 @@ namespace TL { namespace Nanox {
         }
     }
 
-    bool LoweringVisitor::c_requires_vla_handling(OutlineDataItem& outline_data_item)
+    void LoweringVisitor::handle_vla_saved_expr(Nodecl::NodeclBase saved_expr, OutlineInfo& outline_info)
     {
-        if (!outline_data_item.get_symbol().is_valid())
-            return false;
-
-        TL::Type t = outline_data_item.get_symbol().get_type();
-
-        return c_type_needs_vla_handling(t);
+        OutlineDataItem& outline_data_item = outline_info.get_entity_for_symbol(saved_expr.get_symbol());
+        outline_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE);
     }
 
-    TL::Type LoweringVisitor::c_handle_vla_type_rec(
-            OutlineDataItem& outline_data_item,
-            TL::Type type, 
-            TL::Scope class_scope, 
-            TL::Symbol new_class_symbol,
-            TL::Type new_class_type,
-            TL::ObjectList<TL::Symbol>& new_symbols,
-            const std::string& filename, 
-            int line)
+    void LoweringVisitor::handle_vla_type_rec(TL::Type t, OutlineInfo& outline_info)
     {
-        if (type.is_array())
+        if (t.is_array())
         {
-            TL::Type synthesized_type = c_handle_vla_type_rec(
-                    outline_data_item,
-                    type.array_element(), 
-                    class_scope, 
-                    new_class_symbol, 
-                    new_class_type,
-                    new_symbols,
-                    filename, line);
-
-            Nodecl::NodeclBase array_size = type.array_get_size();
-
-            if (!array_size.is_null()
-                    && !array_size.is_constant())
+            if (IS_C_LANGUAGE
+                    || IS_CXX_LANGUAGE)
             {
-                ERROR_CONDITION(!array_size.is<Nodecl::SavedExpr>(), "This must be a saved expression", 0);
+                Nodecl::NodeclBase size = t.array_get_size();
 
-                TL::Symbol saved_symbol = array_size.as<Nodecl::SavedExpr>().get_symbol();
-                new_symbols.append(saved_symbol);
-
-                TL::Symbol vla_field = class_scope.new_symbol(saved_symbol.get_name());
-                vla_field.get_internal_symbol()->kind = SK_VARIABLE;
-                vla_field.get_internal_symbol()->type_information = saved_symbol.get_type().get_internal_type();
-
-                vla_field.get_internal_symbol()->entity_specs.class_type = ::get_user_defined_type(new_class_symbol.get_internal_symbol());
-
-                vla_field.get_internal_symbol()->entity_specs.access = AS_PUBLIC;
-
-                vla_field.get_internal_symbol()->file = uniquestr(filename.c_str());
-                vla_field.get_internal_symbol()->line = line;
-
-                class_type_add_member(new_class_type.get_internal_type(), vla_field.get_internal_symbol());
-
-                Nodecl::NodeclBase vla_sym = Nodecl::Symbol::make(saved_symbol, filename, line);
-                vla_sym.set_type(vla_field.get_type());
-
-                return synthesized_type.get_array_to(vla_sym, vla_field.get_scope());
+                if (size.is<Nodecl::Symbol>()
+                        && size.get_symbol().is_saved_expression())
+                {
+                    handle_vla_saved_expr(size, outline_info);
+                }
             }
-            else
-            {
-                // We do not care very much about this scope
-                TL::Scope sc(CURRENT_COMPILED_FILE->global_decl_context);
-                return synthesized_type.get_array_to(array_size, sc);
-            }
-        }
-        else if (type.is_pointer())
-        {
-            TL::Type synthesized_type = c_handle_vla_type_rec(
-                    outline_data_item,
-                    type.points_to(), 
-                    class_scope, new_class_symbol, 
-                    new_class_type,
-                    new_symbols,
-                    filename, line);
-            return synthesized_type.get_pointer_to();
-        }
-        else
-        {
-            return type;
-        }
-    }
-
-    void LoweringVisitor::c_handle_vla_type(
-            OutlineDataItem& outline_data_item,
-            TL::Scope class_scope, 
-            TL::Symbol new_class_symbol,
-            TL::Type new_class_type,
-            TL::ObjectList<TL::Symbol>& new_symbols,
-            const std::string& filename, 
-            int line)
-    {
-        TL::Type synthesized_type = c_handle_vla_type_rec(
-                outline_data_item,
-                outline_data_item.get_symbol().get_type(),
-                class_scope,
-                new_class_symbol, 
-                new_class_type,
-                new_symbols,
-                filename, line);
-
-        if (synthesized_type.is_array())
-        {
-            synthesized_type = synthesized_type.array_element().get_pointer_to();
-        }
-
-        outline_data_item.set_in_outline_type(synthesized_type);
-        outline_data_item.set_field_type(Type::get_void_type().get_pointer_to());
-
-        outline_data_item.set_item_kind(OutlineDataItem::ITEM_KIND_DATA_ADDRESS);
-
-        if (outline_data_item.get_symbol().get_type().is_array()
-                && outline_data_item.get_sharing() == OutlineDataItem::SHARING_CAPTURE)
-        {
-            outline_data_item.set_allocation_policy(
-                    OutlineDataItem::AllocationPolicyFlags(
-                        (outline_data_item.get_allocation_policy() | OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED)));
-        }
-    }
-
-    void LoweringVisitor::fortran_handle_vla_type(
-            OutlineDataItem& outline_data_item,
-            TL::Type field_type,
-            TL::Symbol field_symbol,
-            TL::Scope class_scope, 
-            TL::Symbol new_class_symbol,
-            TL::Type new_class_type,
-            TL::ObjectList<TL::Symbol>& new_symbols,
-            const std::string& filename, 
-            int line)
-    {
-        if (field_type.is_any_reference())
-            field_type = field_type.references_to();
-
-        bool is_pointer = false;
-
-        if (field_type.is_pointer())
-        {
-            is_pointer = true;
-            field_type = field_type.points_to();
-        }
-
-        TL::Type t = field_type;
-        if (t.array_is_vla())
-        {
-            while (t.is_array())
+            else if (IS_FORTRAN_LANGUAGE)
             {
                 Nodecl::NodeclBase lower, upper;
                 t.array_get_bounds(lower, upper);
 
-                if (!lower.is_null()
-                        && lower.is<Nodecl::SavedExpr>())
+                if (lower.is<Nodecl::Symbol>()
+                        && lower.get_symbol().is_saved_expression())
+                    handle_vla_saved_expr(lower, outline_info);
+
+                if (upper.is<Nodecl::Symbol>()
+                        && upper.get_symbol().is_saved_expression())
+                    handle_vla_saved_expr(upper, outline_info);
+            }
+            handle_vla_type_rec(t.array_element(), outline_info);
+        }
+        else if (t.is_pointer())
+        {
+            handle_vla_type_rec(t.points_to(), outline_info);
+        }
+        else if (t.is_any_reference())
+        {
+            handle_vla_type_rec(t.references_to(), outline_info);
+        }
+    }
+
+    void LoweringVisitor::handle_vla_entity(OutlineDataItem& data_item, OutlineInfo& outline_info)
+    {
+        if (!data_item.get_symbol().is_valid())
+            return;
+
+        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+        {
+            TL::Type t = data_item.get_symbol().get_type();
+
+            if (c_type_needs_vla_handling(t))
+            {
+                handle_vla_type_rec(t, outline_info);
+
+                data_item.set_field_type(Type::get_void_type().get_pointer_to());
+                data_item.set_item_kind(OutlineDataItem::ITEM_KIND_DATA_ADDRESS);
+
+                if (data_item.get_sharing() == OutlineDataItem::SHARING_CAPTURE)
                 {
-                    TL::Symbol saved_symbol = lower.as<Nodecl::SavedExpr>().get_symbol();
-                    new_symbols.append(saved_symbol);
-
-                    TL::Symbol vla_field = class_scope.new_symbol(saved_symbol.get_name());
-                    vla_field.get_internal_symbol()->kind = SK_VARIABLE;
-                    vla_field.get_internal_symbol()->type_information = saved_symbol.get_type().get_internal_type();
-
-                    vla_field.get_internal_symbol()->entity_specs.class_type = ::get_user_defined_type(new_class_symbol.get_internal_symbol());
-
-                    vla_field.get_internal_symbol()->entity_specs.access = AS_PUBLIC;
-
-                    vla_field.get_internal_symbol()->file = uniquestr(filename.c_str());
-                    vla_field.get_internal_symbol()->line = line;
-
-                    class_type_add_member(new_class_type.get_internal_type(), vla_field.get_internal_symbol());
+                    data_item.set_allocation_policy(OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED);
                 }
-
-                if (!upper.is_null()
-                        && upper.is<Nodecl::SavedExpr>())
-                {
-                    TL::Symbol saved_symbol = upper.as<Nodecl::SavedExpr>().get_symbol();
-                    new_symbols.append(saved_symbol);
-
-                    TL::Symbol vla_field = class_scope.new_symbol(saved_symbol.get_name());
-                    vla_field.get_internal_symbol()->kind = SK_VARIABLE;
-                    vla_field.get_internal_symbol()->type_information = saved_symbol.get_type().get_internal_type();
-
-                    vla_field.get_internal_symbol()->entity_specs.class_type = ::get_user_defined_type(new_class_symbol.get_internal_symbol());
-
-                    vla_field.get_internal_symbol()->entity_specs.access = AS_PUBLIC;
-
-                    vla_field.get_internal_symbol()->file = uniquestr(filename.c_str());
-                    vla_field.get_internal_symbol()->line = line;
-
-                    class_type_add_member(new_class_type.get_internal_type(), vla_field.get_internal_symbol());
-                }
-
-                t = t.array_element();
             }
         }
-
-        // Rebuild the array type as an unbounded array type
-        int k = 0;
-        while (field_type.is_array())
+        else if (IS_FORTRAN_LANGUAGE)
         {
-            field_type = field_type.array_element();
-            k++;
-        }
+            TL::Type t = data_item.get_field_type();
 
-        while (k > 0)
-        {
-            field_type = field_type.get_array_to_with_descriptor(
-                    Nodecl::NodeclBase::null(), 
-                    Nodecl::NodeclBase::null(),
-                    // This scope does not matter very much
-                    class_scope);
-            k--;
-        }
+            bool is_lvalue_ref = false;
+            if (is_lvalue_ref = t.is_lvalue_reference())
+                t = t.references_to();
 
-        if (is_pointer)
-        {
-            field_type = field_type.get_pointer_to();
-        }
-        else
-        {
-            // Make the field an ALLOCATABLE
-            field_symbol.get_internal_symbol()->entity_specs.is_allocatable = 1;
-        }
+            bool is_pointer = false;
+            if (is_pointer = t.is_pointer())
+                t = t.points_to();
 
-        outline_data_item.set_allocation_policy(OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE);
-        outline_data_item.set_field_type(field_type);
+            if (t.array_is_vla()
+                    || t.array_requires_descriptor())
+            {
+                handle_vla_type_rec(t, outline_info);
+
+                int rank = ::fortran_get_rank_of_type(t.get_internal_type());
+                t = TL::Type(
+                        ::fortran_get_n_ranked_type_with_descriptor(
+                            ::fortran_get_rank0_type(t.get_internal_type()), rank, CURRENT_COMPILED_FILE->global_decl_context)
+                        );
+
+                if (is_pointer)
+                {
+                    t = t.get_pointer_to();
+                }
+                else
+                {
+                    data_item.set_allocation_policy(OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE);
+                }
+
+                if (is_lvalue_ref)
+                    t = t.get_lvalue_reference_to();
+
+                data_item.set_field_type(t);
+            }
+        }
     }
 
     TL::Symbol LoweringVisitor::declare_argument_structure(OutlineInfo& outline_info, Nodecl::NodeclBase construct)
@@ -295,7 +179,17 @@ namespace TL { namespace Nanox {
             structure_name = ss.str();
         }
 
-        TL::ObjectList<OutlineDataItem> &data_items = outline_info.get_data_items();
+        TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
+        for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+                it != data_items.end();
+                it++)
+        {
+            // VLA types
+            handle_vla_entity(*(*it), outline_info);
+        }
+
+        // Update again
+        data_items = outline_info.get_data_items();
 
         // FIXME - Wrap lots of things
         TL::Scope sc(CURRENT_COMPILED_FILE->global_decl_context);
@@ -311,17 +205,15 @@ namespace TL { namespace Nanox {
 
         new_class_symbol.get_internal_symbol()->type_information = new_class_type;
 
-        TL::ObjectList<TL::Symbol> extra_symbols;
-
-        for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
+        for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
                 it != data_items.end();
                 it++)
         {
-            TL::Symbol field = class_scope.new_symbol(it->get_field_name());
+            TL::Symbol field = class_scope.new_symbol((*it)->get_field_name());
             field.get_internal_symbol()->kind = SK_VARIABLE;
             field.get_internal_symbol()->entity_specs.is_user_declared = 1;
 
-            TL::Type field_type = it->get_field_type();
+            TL::Type field_type = (*it)->get_field_type();
 
             field.get_internal_symbol()->entity_specs.is_member = 1;
             field.get_internal_symbol()->entity_specs.class_type = ::get_user_defined_type(new_class_symbol.get_internal_symbol());
@@ -333,45 +225,10 @@ namespace TL { namespace Nanox {
             // Language specific parts
             if (IS_FORTRAN_LANGUAGE)
             {
-                Type field_type_no_ptr = field_type;
-
-                if (field_type_no_ptr.is_pointer())
-                    field_type_no_ptr = field_type_no_ptr.points_to();
-
-                // Fix the type for Fortran arrays
-                if (field_type_no_ptr.is_array()
-                        && (field_type_no_ptr.array_requires_descriptor()
-                            || field_type_no_ptr.array_is_vla()))
+                if (((*it)->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE)
+                        == OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE)
                 {
-                    fortran_handle_vla_type(*it, 
-                            field_type,
-                            field,
-                            class_scope,
-                            new_class_symbol, 
-                            new_class_type,
-                            extra_symbols,
-                            construct.get_filename(),
-                            construct.get_line());
-
-                    // Fix the type for VLAs
-                    field_type = it->get_field_type();
-                }
-            }
-            else if (IS_C_LANGUAGE
-                    || IS_CXX_LANGUAGE)
-            {
-                if (c_requires_vla_handling(*it))
-                {
-                    c_handle_vla_type(*it, 
-                            class_scope,
-                            new_class_symbol, 
-                            new_class_type,
-                            extra_symbols,
-                            construct.get_filename(),
-                            construct.get_line());
-
-                    // Fix the type for VLAs
-                    field_type = it->get_field_type();
+                    field.get_internal_symbol()->entity_specs.is_allocatable = 1;
                 }
             }
 
@@ -379,20 +236,10 @@ namespace TL { namespace Nanox {
             class_type_add_member(new_class_type, field.get_internal_symbol());
         }
 
-        for (TL::ObjectList<TL::Symbol>::iterator it = extra_symbols.begin();
-                it != extra_symbols.end();
-                it++)
-        {
-            OutlineDataItem &data_item = outline_info.get_entity_for_symbol(*it);
-            data_item.set_item_kind(OutlineDataItem::ITEM_KIND_DATA_DIMENSION);
-            data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE);
-            data_item.set_field_type(it->get_type());
-        }
-
         nodecl_t nodecl_output = nodecl_null();
-        finish_class_type(new_class_type, 
+        finish_class_type(new_class_type,
                 ::get_user_defined_type(new_class_symbol.get_internal_symbol()),
-                sc.get_decl_context(), 
+                sc.get_decl_context(),
                 construct.get_filename().c_str(),
                 construct.get_line(),
                 &nodecl_output);
@@ -401,7 +248,7 @@ namespace TL { namespace Nanox {
 
         if (!nodecl_is_null(nodecl_output))
         {
-            std::cerr << "FIXME: finished class issues nonempty nodecl" << std::endl; 
+            std::cerr << "FIXME: finished class issues nonempty nodecl" << std::endl;
         }
 
         return new_class_symbol;

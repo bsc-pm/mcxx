@@ -998,6 +998,11 @@ namespace TL
         return ::class_type_get_class_kind(_type_info);
     }
 
+    bool Type::class_type_is_packed() const
+    {
+        return ::class_type_is_packed(_type_info);
+    }
+
     unsigned int Type::get_size() 
     {
         unsigned int result;

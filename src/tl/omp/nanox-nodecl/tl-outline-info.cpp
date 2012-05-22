@@ -36,11 +36,12 @@ namespace TL { namespace Nanox {
     std::string OutlineInfo::get_field_name(std::string name)
     {
         int times_name_appears = 0;
-        for (ObjectList<OutlineDataItem>::iterator it = _data_env_items.begin();
+        for (ObjectList<OutlineDataItem*>::iterator it = _data_env_items.begin();
                 it != _data_env_items.end();
                 it++)
         {
-            if (it->get_symbol().get_name() == name)
+            if ((*it)->get_symbol().is_valid()
+                    && (*it)->get_symbol().get_name() == name)
             {
                 times_name_appears++;
             }
@@ -59,19 +60,19 @@ namespace TL { namespace Nanox {
 
     OutlineDataItem& OutlineInfo::get_entity_for_symbol(TL::Symbol sym)
     {
-        for (ObjectList<OutlineDataItem>::iterator it = _data_env_items.begin();
+        for (ObjectList<OutlineDataItem*>::iterator it = _data_env_items.begin();
                 it != _data_env_items.end();
                 it++)
         {
-            if (it->get_symbol() == sym)
-                return *it;
+            if ((*it)->get_symbol() == sym)
+                return *(*it);
         }
 
         std::string field_name = get_field_name(sym.get_name());
-        OutlineDataItem env_item(sym, field_name);
+        OutlineDataItem* env_item = new OutlineDataItem(sym, field_name);
 
         _data_env_items.append(env_item);
-        return _data_env_items.back();
+        return (*_data_env_items.back());
     }
 
     class OutlineInfoSetupVisitor : public Nodecl::ExhaustiveVisitor<void>
@@ -316,7 +317,20 @@ namespace TL { namespace Nanox {
             }
     };
 
+    OutlineInfo::OutlineInfo() : _data_env_items() { }
+
+    OutlineInfo::~OutlineInfo() 
+    {
+        for (ObjectList<OutlineDataItem*>::iterator it = _data_env_items.begin();
+                it != _data_env_items.end();
+                it++)
+        {
+            delete *it;
+        }
+    }
+
     OutlineInfo::OutlineInfo(Nodecl::NodeclBase environment, bool is_function_task)
+        : _data_env_items()
     {
         OutlineInfoSetupVisitor setup_visitor(*this, is_function_task);
         setup_visitor.walk(environment);
@@ -325,10 +339,10 @@ namespace TL { namespace Nanox {
     OutlineDataItem& OutlineInfo::prepend_field(const std::string& str, TL::Type t)
     {
         std::string field_name = get_field_name(str);
-        OutlineDataItem env_item(field_name, t);
+        OutlineDataItem* env_item = new OutlineDataItem(field_name, t);
 
-        _data_env_items.std::vector<OutlineDataItem>::insert(_data_env_items.begin(), env_item);
-        return _data_env_items.front();
+        _data_env_items.std::vector<OutlineDataItem*>::insert(_data_env_items.begin(), env_item);
+        return *(_data_env_items.front());
     }
 
 } }

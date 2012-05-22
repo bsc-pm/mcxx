@@ -150,6 +150,8 @@ namespace TL
 
             //! States whether this symbol is a variable
             bool is_variable() const;
+            //! States whether this symbol is a variable that stores a runtime value of the program
+            bool is_saved_expression() const;
             //! States whether this symbol is the result variable
             /*! \note Only meaningful in Fortran */
             bool is_result_variable() const;
@@ -236,6 +238,12 @@ namespace TL
              * of the module. Use this function to get it
              */
             Symbol aliased_from_module() const;
+
+
+            bool has_alias_to() const;
+
+
+            Symbol get_alias_to() const;
 
             //! States that this symbol is a BLOCK DATA program unit
             /*! \note This only applies to Fortran */
@@ -594,6 +602,17 @@ namespace TL
             Nodecl::NodeclBase get_asm_specification() const;
 
             Nodecl::Symbol make_nodecl(const std::string& filename = "", int line = 0) const;
+
+            /*!
+             * States whether this symbol has a parameter i with a default argument
+             */
+            bool has_default_argument_num(int i) const;
+
+            /*!
+             * Returns the default argument of parameter i
+             */
+            Nodecl::NodeclBase get_default_argument_num(int i) const;
+
         private:
             scope_entry_t* _symbol;
     };
