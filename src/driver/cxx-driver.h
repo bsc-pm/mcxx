@@ -62,6 +62,8 @@ type_environment_t* get_environment(const char* env_id);
 target_options_map_t* get_target_options(compilation_configuration_t* configuration, 
         const char* configuration_name);
 
+fortran_array_descriptor_t* get_fortran_array_descriptor(const char* descriptor_id);
+
 const char* preprocess_file(const char* input_filename);
 
 void load_compiler_phases(compilation_configuration_t* config);

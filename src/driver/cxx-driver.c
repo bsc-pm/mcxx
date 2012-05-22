@@ -90,6 +90,7 @@
 #include "fortran03-split.h"
 #include "fortran03-buildscope.h"
 #include "fortran03-codegen.h"
+#include "fortran03-typeenviron.h"
 #include "cxx-driver-fortran.h"
 
 /* ------------------------------------------------------------------ */
@@ -166,7 +167,8 @@
 "  --env=<env-name>         Sets <env-name> as the specific\n" \
 "                           environment. Use --list-env to show\n" \
 "                           currently supported environments\n" \
-"  --list-env               Lists currently supported environments\n" \
+"  --list-env               Short form of --list-environments\n" \
+"  --list-environments      Lists currently supported environments\n" \
 "                           and does nothing else.\n" \
 "  --pass-through           Disables preprocessing and parsing but\n" \
 "                           invokes remaining steps. A previous\n" \
@@ -228,6 +230,11 @@
 "                           By default it is 4. Fortran only\n" \
 "  --character-kind=N       Set the default kind of CHARACTER\n" \
 "                           By default it is 1. Fortran only\n" \
+"  --fortran-array-descriptor=name\n" \
+"                           Selects Fortran array descriptor\n" \
+"  --list-fortran-array-descriptors\n" \
+"                           Prints list of supported Fortran\n" \
+"                           array descriptors\n" \
 "\n" \
 "gcc compatibility flags:\n" \
 "\n" \
@@ -320,6 +327,8 @@ typedef enum
     OPTION_FORTRAN_LOGICAL_KIND,
     OPTION_FORTRAN_REAL_KIND,
     OPTION_FORTRAN_CHARACTER_KIND,
+    OPTION_FORTRAN_ARRAY_DESCRIPTOR,
+    OPTION_LIST_FORTRAN_ARRAY_DESCRIPTORS,
     OPTION_VERBOSE,
 } COMMAND_LINE_OPTIONS;
 
@@ -363,6 +372,7 @@ struct command_line_long_options command_line_long_options[] =
     {"disable-sizeof", CLP_NO_ARGUMENT, OPTION_DISABLE_SIZEOF},
     {"env", CLP_REQUIRED_ARGUMENT, OPTION_SET_ENVIRONMENT},
     {"list-env", CLP_NO_ARGUMENT, OPTION_LIST_ENVIRONMENTS},
+    {"list-environments", CLP_NO_ARGUMENT, OPTION_LIST_ENVIRONMENTS},
     {"print-config-file", CLP_NO_ARGUMENT, OPTION_PRINT_CONFIG_FILE},
     {"print-config-dir", CLP_NO_ARGUMENT, OPTION_PRINT_CONFIG_DIR},
     {"upc", CLP_OPTIONAL_ARGUMENT, OPTION_ENABLE_UPC},
@@ -383,6 +393,8 @@ struct command_line_long_options command_line_long_options[] =
     {"double-kind",  CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_DOUBLEPRECISION_KIND},
     {"logical-kind", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_LOGICAL_KIND},
     {"character-kind", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_CHARACTER_KIND},
+    {"fortran-array-descriptor", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_ARRAY_DESCRIPTOR},
+    {"list-fortran-array-descriptors", CLP_NO_ARGUMENT, OPTION_LIST_FORTRAN_ARRAY_DESCRIPTORS},
     // sentinel
     {NULL, 0, 0}
 };
@@ -446,6 +458,7 @@ static int parse_special_parameters(int *should_advance, int argc,
 static int parse_implicit_parameter_flag(int *should_advance, const char *special_parameter);
 
 static void list_environments(void);
+static void list_fortran_array_descriptors(void);
 
 static char do_not_unload_phases = 0;
 static char show_help_message = 0;
@@ -1148,6 +1161,20 @@ int parse_arguments(int argc, const char* argv[],
                 case OPTION_LIST_ENVIRONMENTS:
                     {
                         list_environments();
+                        break;
+                    }
+                case OPTION_FORTRAN_ARRAY_DESCRIPTOR:
+                    {
+                        fortran_array_descriptor_t* chosen_fortran_array_descriptor = get_fortran_array_descriptor(parameter_info.argument);
+                        if (chosen_fortran_array_descriptor != NULL)
+                        {
+                            CURRENT_CONFIGURATION->fortran_array_descriptor = chosen_fortran_array_descriptor;
+                        }
+                        break;
+                    }
+                case OPTION_LIST_FORTRAN_ARRAY_DESCRIPTORS:
+                    {
+                        list_fortran_array_descriptors();
                         break;
                     }
                 case 'h' :
@@ -4460,7 +4487,7 @@ static void print_memory_report(void)
 
 type_environment_t* get_environment(const char* env_id)
 {
-    type_environment_t** type_env = type_environment_list;
+    type_environment_t** type_env = NULL;
 
     for (type_env = type_environment_list;
             (*type_env) != NULL;
@@ -4473,7 +4500,7 @@ type_environment_t* get_environment(const char* env_id)
     }
 
     fprintf(stderr, "Unknown environments '%s'. "
-            "Use '--list-env' to get a list of supported environments\n", env_id);
+            "Use '--list-environments' to get a list of supported environments\n", env_id);
     return NULL;
 }
 
@@ -4481,7 +4508,7 @@ static void list_environments(void)
 {
     fprintf(stdout, "Supported environments:\n\n");
 
-    type_environment_t** type_env = type_environment_list;
+    type_environment_t** type_env = NULL;
 
     for (type_env = type_environment_list;
             (*type_env) != NULL;
@@ -4501,3 +4528,45 @@ static void list_environments(void)
     exit(EXIT_SUCCESS);
 }
 
+fortran_array_descriptor_t* get_fortran_array_descriptor(const char* descriptor_id)
+{
+    fortran_array_descriptor_t** fortran_array_descriptor = NULL;
+
+    for (fortran_array_descriptor = fortran_array_descriptor_list;
+            (*fortran_array_descriptor) != NULL;
+            fortran_array_descriptor++)
+    {
+        if (strcmp(descriptor_id, (*fortran_array_descriptor)->descriptor_id) == 0)
+        {
+            return (*fortran_array_descriptor);
+        }
+    }
+
+    fprintf(stderr, "Unknown Fortran array descriptor '%s'. "
+            "Use '--list-fortran-descriptors' to get a list of supported Fortran array descriptors\n", descriptor_id);
+    return NULL;
+}
+
+static void list_fortran_array_descriptors(void)
+{
+    fprintf(stdout, "Supported Fortran array descriptors :\n\n");
+
+    fortran_array_descriptor_t** fortran_array_descriptor = NULL;
+
+    for (fortran_array_descriptor = fortran_array_descriptor_list;
+            (*fortran_array_descriptor) != NULL;
+            fortran_array_descriptor++)
+    {
+        fprintf(stdout, "  %-20s (%s)\n",
+                (*fortran_array_descriptor)->descriptor_id,
+                (*fortran_array_descriptor)->descriptor_name);
+    }
+
+    fprintf(stdout, "\n");
+    fprintf(stdout, "Command line parameter --fortran-descriptor=<env-id> can be used to choose a particular architecture.\n");
+    fprintf(stdout, "If not specified, default environment is '%s' (%s)\n",
+            default_fortran_array_descriptor->descriptor_id,
+            default_fortran_array_descriptor->descriptor_name);
+
+    exit(EXIT_SUCCESS);
+}

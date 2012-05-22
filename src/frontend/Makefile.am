@@ -47,10 +47,12 @@ libmcxx_process_la_CFLAGS=-DLIBMCXXPROCESS_DLL_EXPORT \
                           -I$(top_srcdir)/lib \
                           -I$(top_srcdir)/src/driver \
                           -I$(top_srcdir)/src/frontend \
+                          -I$(top_srcdir)/src/frontend/fortran \
                           -I$(top_srcdir)/src/mcxx_tl \
                           -I$(top_builddir)/lib \
                           -I$(top_builddir)/src/driver \
                           -I$(top_builddir)/src/frontend \
+                          -I$(top_builddir)/src/frontend/fortran \
                           -I$(top_builddir)/src/mcxx_tl \
                           $(END)
 
@@ -203,6 +205,7 @@ libmcxx_la_CFLAGS = -DLIBMCXX_DLL_EXPORT \
 				    -I$(top_srcdir)/lib \
 				    -I$(top_srcdir)/src/driver \
 					-I$(top_srcdir)/src/mcxx_tl \
+					-I$(top_srcdir)/src/frontend/fortran \
                     -fexceptions \
 				    -DPKGDATADIR=\"$(pkgdatadir)\"
 

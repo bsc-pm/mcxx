@@ -39,6 +39,9 @@
 #include "cxx-utils.h"
 #include "cxx-entrylist.h"
 
+#include "fortran03-typeenviron.h"
+#include "fortran03-typeutils.h"
+
 #ifdef MAX
   #warning MAX already defined here! Overriding
 #endif
@@ -124,21 +127,29 @@ static void system_v_field_layout(scope_entry_t* field,
     if (is_array_type(field_type)
             && nodecl_is_null(array_type_get_array_size_expr(field_type)))
     {
-        if (!is_last_field 
-                // Fortran stuff
-                && !array_type_with_descriptor(field_type))
+        type_t* element_type = array_type_get_element_type(field_type);
+        if (array_type_with_descriptor(field_type))
         {
-            internal_error("Invalid unbounded array found when computing type of struct\n", 0);
+            // Size of an array Fortran descriptor
+            type_set_size(field_type,
+                    fortran_size_of_array_descriptor(element_type,
+                        get_rank_of_type(field_type)));
+            type_set_alignment(field_type,
+                    fortran_alignment_of_array_descriptor(element_type,
+                        get_rank_of_type(field_type)));
         }
-        else
+        else if (is_last_field)
         {
             // Perform a special computation for this array
-            type_t* element_type = array_type_get_element_type(field_type);
             _size_t element_align = type_get_alignment(element_type);
 
             type_set_size(field_type, 0);
             type_set_alignment(field_type, element_align);
             type_set_valid_size(field_type, 1);
+        }
+        else
+        {
+            internal_error("Invalid unbounded array found when computing type of struct\n", 0);
         }
     }
     else

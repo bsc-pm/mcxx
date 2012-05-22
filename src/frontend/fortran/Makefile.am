@@ -49,6 +49,9 @@ libmf03_la_SOURCES = \
                      fortran03-utils.c \
                      fortran03-typeutils.h \
                      fortran03-typeutils.c \
+                     fortran03-typeenviron-decls.h \
+                     fortran03-typeenviron.h \
+                     fortran03-typeenviron.c \
                      fortran03-prettyprint.c \
                      fortran03-prettyprint.h \
                      fortran03-split.h \
