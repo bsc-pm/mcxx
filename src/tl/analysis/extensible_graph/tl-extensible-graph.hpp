@@ -341,6 +341,7 @@ namespace TL
                 static void clear_visits(Node* node);
                 static void clear_visits_aux(Node* node);
                 static void clear_visits_backwards(Node* node);
+                static void clear_visits_aux_backwards_in_level(Node* node, Node* outer_node);
                 static void clear_visits_in_level(Node* node, Node* outer_node);           
                 static void clear_visits_avoiding_branch(Node* current, Node* avoid_node);
                 

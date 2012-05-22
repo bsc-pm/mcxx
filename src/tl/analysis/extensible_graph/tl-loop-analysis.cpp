@@ -24,8 +24,6 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-
-
 #include "cxx-cexpr.h"
 #include "cxx-codegen.h"
 #include "cxx-process.h"
@@ -35,6 +33,7 @@
 #include "tl-extensible-graph.hpp"
 #include "tl-loop-analysis.hpp"
 #include "tl-static-analysis.hpp"
+
 
 namespace TL
 {
@@ -115,7 +114,7 @@ namespace TL
         }
     
         
-        // *** Node hash ans comparator *** //
+        // *** Node hash and comparator *** //
     
         size_t Node_hash::operator() (const int& n) const
         {
@@ -126,12 +125,12 @@ namespace TL
         {
             return (n1 == n2);
         }
-            
+        
         
         // *** Loop Analysis *** //
         
-        LoopAnalysis::LoopAnalysis()
-            : _induction_vars()
+        LoopAnalysis::LoopAnalysis(ObjectList<ExtensibleGraph*> cfgs)
+            : _constant(Nodecl::NodeclBase::null()), _defining(false), _cfgs(cfgs), _induction_vars()
         {}
         
         void LoopAnalysis::traverse_loop_init(Node* loop_node, Nodecl::NodeclBase init)
@@ -725,7 +724,7 @@ _induction_vars.equal_range(loop_node->get_id());
             {
                 node->set_visited(true);
                 
-                Node_type ntype = node->get_data<Node_type>(_NODE_TYPE);
+                Node_type ntype = node->get_type();
                 if (ntype != BASIC_EXIT_NODE)
                 {
                     if (ntype == GRAPH_NODE)
@@ -766,5 +765,6 @@ _induction_vars.equal_range(loop_node->get_id());
             compute_ranges_for_variables(node);
             ExtensibleGraph::clear_visits(node);
         }
+
     }
 }

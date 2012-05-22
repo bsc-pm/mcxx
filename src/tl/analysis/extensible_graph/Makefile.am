@@ -57,6 +57,7 @@ libextensible_graph_la_SOURCES = \
    tl-extensible-symbol.cpp \
    tl-extensible-symbol.hpp \
    tl-reaching-definitions.cpp \
+   tl-iv-analysis.cpp \
    tl-loop-analysis.cpp \
    tl-loop-analysis.hpp \
    tl-static-analysis.cpp \

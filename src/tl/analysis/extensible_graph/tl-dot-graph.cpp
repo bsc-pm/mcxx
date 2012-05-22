@@ -41,7 +41,6 @@ namespace TL
         static void makeup_dot_block(std::string& str);
         static std::string prettyprint_reaching_definitions(nodecl_map syms_def);
         static std::string prettyprint_ext_sym_set(ext_sym_set s);
-    //     static std::string prettyprint_sym_list(ObjectList<Symbol> s);
     
         void ExtensibleGraph::print_graph_to_dot()
         {
@@ -80,7 +79,7 @@ namespace TL
                     std::vector<Node*> outer_nodes;
                     get_nodes_dot_data(_graph, graph_data, outer_edges, outer_nodes, "\t", subgraph_id);
                     dot_cfg << graph_data;
-                dot_cfg << "}";
+                dot_cfg << "}\n";
                 
                 clear_visits(_graph);
                 
@@ -110,7 +109,7 @@ namespace TL
                 {
                     std::stringstream ssgid; ssgid << subgraph_id;
                     std::stringstream ssnode; ssnode << actual_node->get_id();
-                    std::string subgraph_label = /*ssnode.str() +*/ " ";
+                    std::string subgraph_label = ssnode.str() + " ";
                     Nodecl::NodeclBase actual_label(actual_node->get_graph_label());
                     if (!actual_label.is_null())
                     {
@@ -302,39 +301,56 @@ namespace TL
             switch(actual_node->get_type())
             {
                 case BASIC_ENTRY_NODE:
-                    dot_graph += indent + ss.str() + "[label=\"" /*+ ss.str()*/ + " ENTRY \\n" 
+                {    
+                    dot_graph += indent + ss.str() + "[label=\"" + ss.str() + " ENTRY \\n" 
 //                             + "REACH DEFS: " + prettyprint_reaching_definitions(actual_node->get_reaching_definitions())
                             + "\", shape=box, fillcolor=lightgray, style=filled];\n";
 //                     dot_graph += indent + ss.str() + "[label=\" ENTRY\", shape=box, fillcolor=lightgray, style=filled, " + basic_attrs + "];\n";
 
                     break;
+                }    
                 case BASIC_EXIT_NODE:
-                    dot_graph += indent + ss.str() + "[label=\"" /*+ ss.str()*/ + " EXIT\", shape=box, fillcolor=lightgray, style=filled];\n";
+                {    
+                    dot_graph += indent + ss.str() + "[label=\"" + ss.str() + " EXIT\", shape=box, fillcolor=lightgray, style=filled];\n";
 //                     dot_graph += indent + ss.str() + "[label=\"EXIT\", shape=box, fillcolor=lightgray, style=filled, " + basic_attrs + "];\n";
                     break;
+                }    
                 case UNCLASSIFIED_NODE:
+                {    
 //                     dot_graph += indent + ss.str() + "[label=\"" + ss.str() + " UNCLASSIFIED_NODE\"]\n";
                     dot_graph += indent + ss.str() + "[label=\"UNCLASSIFIED_NODE\"]\n";
                     break;
+                }    
                 case BARRIER_NODE:
+                {    
                     dot_graph += indent + ss.str() + "[label=\"BARRIER\", shape=diamond]\n";
                     break;
+                }    
                 case FLUSH_NODE:
+                {    
                     dot_graph += indent + ss.str() + "[label=\"FLUSH\", shape=ellipse]\n";
                     break;
+                }    
                 case TASKWAIT_NODE:
+                {    
                     dot_graph += indent + ss.str() + "[label=\"TASKWAIT\", shape=ellipse]\n";
                     break;
+                }    
                 case BASIC_PRAGMA_DIRECTIVE_NODE:
+                {    
                     internal_error("'%s' found while printing graph. We must think what to do with this kind of node", 
                                 actual_node->get_type_as_string().c_str());
-                    break;
+                }    
                 case BASIC_BREAK_NODE:
+                {    
                     dot_graph += indent + ss.str() + "[label=\"BREAK\", shape=diamond]\n";
                     break;
+                }    
                 case BASIC_CONTINUE_NODE:
+                {    
                     dot_graph += indent + ss.str() + "[label=\"CONTINUE\", shape=diamond]\n";
                     break;
+                }
                 case BASIC_GOTO_NODE:
                 case BASIC_NORMAL_NODE:
                 case BASIC_LABELED_NODE:
@@ -347,14 +363,24 @@ namespace TL
                             it != node_block.end();
                             it++)
                     {
-                        aux_str = codegen_to_str(it->get_internal_nodecl(), 
-                                nodecl_retrieve_context(it->get_internal_nodecl()));
+                        if (it->is<Nodecl::ObjectInit>())
+                        {
+                            Symbol it_s = it->as<Nodecl::ObjectInit>().get_symbol();
+                            aux_str = it_s.get_name() + " = " ;
+                            aux_str += codegen_to_str(it_s.get_initialization().get_internal_nodecl(), 
+                                                      nodecl_retrieve_context(it_s.get_initialization().get_internal_nodecl()));
+                        }
+                        else
+                        {    
+                            aux_str = codegen_to_str(it->get_internal_nodecl(), 
+                                                     nodecl_retrieve_context(it->get_internal_nodecl()));
+                        }    
                         makeup_dot_block(aux_str);
                         basic_block += aux_str + "\\n";
                     }
                     basic_block = basic_block.substr(0, basic_block.size()-2);   // Remove the last back space
 
-                    dot_graph += indent + ss.str() + "[label=\"{" /*+ ss.str()*/ + basic_block + live_info + "}\", shape=record, " 
+                    dot_graph += indent + ss.str() + "[label=\"{" + ss.str() + basic_block + live_info + "}\", shape=record, " 
                                + basic_attrs + "];\n";
         
                     break;

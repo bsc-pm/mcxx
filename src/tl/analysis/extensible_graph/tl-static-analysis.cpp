@@ -1699,9 +1699,25 @@ namespace TL
             _visited_functions.clear();
         }
         
+        void CfgVisitor::analyse_induction_variables(ExtensibleGraph* graph)
+        {
+            Node* node = graph->_graph;
+            if (CURRENT_CONFIGURATION->debug_options.analysis_verbose)
+                std::cerr << "  ==> Graph '" << _actual_cfg->get_name() << "'" << std::endl;
+            LoopAnalysis loop_analysis(_cfgs);
+            loop_analysis.induction_variable_detection(node);
+            ExtensibleGraph::clear_visits(node);
+            
+            if (CURRENT_CONFIGURATION->debug_options.analysis_verbose)
+            {
+                loop_analysis.print_induction_variables(node);
+                ExtensibleGraph::clear_visits(node);
+            }
+        }
+        
         void CfgVisitor::analyse_loops(Node* node)
         {
-            LoopAnalysis loop_analysis;
+            LoopAnalysis loop_analysis(_cfgs);
             loop_analysis.analyse_loops(node);
             
 //             DEBUG_CODE()

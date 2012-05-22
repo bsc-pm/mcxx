@@ -288,6 +288,8 @@ namespace TL
 
             
             // *** IPA *** //
+            void analyse_induction_variables(ExtensibleGraph* graph);
+            
             //! Computes the define-use chain of a node
             void compute_use_def_chains(Node* node);
             
@@ -424,6 +426,9 @@ namespace TL
             Ret visit(const Nodecl::FortranAllocateStatement& n);
             Ret visit(const Nodecl::FortranDeallocateStatement& n);
             Ret visit(const Nodecl::Comma& n);
+            
+            Ret visit(const Nodecl::CxxDef& n);
+            Ret visit(const Nodecl::CxxDecl& n);
         };
     }
 }

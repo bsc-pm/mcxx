@@ -13,7 +13,7 @@
   version 3 of the License, or (at your option) any later version.
   
   Mercurium C/C++ source-to-source compiler is distributed in the hope
-  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+    that it will be useful, but WITHOUT ANY WARRANTY; without even the
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
   PURPOSE.  See the GNU Lesser General Public License for more
   details.
@@ -492,5 +492,6 @@ namespace TL
         void print_function_call_nest(ExtensibleGraph *graph)
         {   // TODO Create a dot graph with the Call graph hanging from 'graph'
         }
+
     }
 }

@@ -24,6 +24,7 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include <algorithm>
 
 #include "cxx-process.h"
 
@@ -106,13 +107,10 @@ namespace TL
         {
             Symbol s = n.get_symbol();
             std::string func_decl = s.get_type().get_declaration(s.get_scope(), s.get_name());
-    //         DEBUG_CODE()
-            {
-                std::cerr << "Function '" << func_decl << "'" << std::endl;
-            }
             
-            std::string nom = s.get_name();
-        
+            std::string name = s.get_name();
+            name.erase(remove_if(name.begin(), name.end(), isspace), name.end());
+            
             // Create a new graph for the current function
             ExtensibleGraph* actual_cfg = new ExtensibleGraph(s.get_name(), n.retrieve_context());
             _actual_cfg = actual_cfg;
@@ -248,9 +246,7 @@ namespace TL
 
         CfgVisitor::Ret CfgVisitor::visit(const Nodecl::CompoundStatement& n)
         {
-            ObjectList<Node*> stmts = walk(n.get_statements());
-
-            return stmts;
+            return walk(n.get_statements());
         }
 
         CfgVisitor::Ret CfgVisitor::visit(const Nodecl::Conversion& n)
@@ -358,61 +354,21 @@ namespace TL
             }
             else
             {
-                ObjectList<Node*> object_init_last_nodes = _actual_cfg->_last_nodes;
                 nodecl_t n_sym = nodecl_make_symbol(n.get_symbol().get_internal_symbol(), n.get_filename().c_str(), n.get_line());
                 Nodecl::Symbol nodecl_symbol(n_sym);
                 ObjectList<Node*> init_sym = walk(nodecl_symbol);
                 ObjectList<Node*> init_expr = walk(n.get_symbol().get_initialization());
-            
+                                                                 
                 if (init_expr.empty())
                 {   // do nothing: The Object Init is not initialized
                     return Ret();
                 }
                 
                 Node* merged_node = merge_nodes(n, init_sym[0], init_expr[0]);
-                _actual_cfg->connect_nodes(object_init_last_nodes, merged_node);
-                _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(merged_node);
+                std::cerr << "    (" << merged_node->get_id() << ")" << std::endl;
                 return ObjectList<Node*>(1, merged_node);
             }
         }
-
-    //     static void get_array_subscript_as_list(Nodecl::ArraySubscript n, ObjectList<Nodecl::NodeclBase>& array, 
-    //                                             ObjectList<Nodecl::NodeclBase>& array_accesses)
-    //     {
-    //         // prologue
-    //         Nodecl::ArraySubscript node_array = n;
-    //         std::cerr << "PRO Appending to array accesses " << node_array.prettyprint() << std::endl;
-    //         Nodecl::NodeclBase subscripts = n.get_subscripts();
-    //         if (subscripts.is<Nodecl::List>())
-    //         {
-    //             for (ObjectList<std::vector>::iterator it = subscripts.begin(); it != subscripts.end(); ++it)
-    //             {
-    //                 
-    //             }
-    //         }
-    //         else
-    //         {
-    //             std::cerr << "PRO Appending to array " << subscripts.prettyprint() << std::endl;
-    //             array_accesses.append(subscripts);
-    //         }
-    //         array.append(n.get_subscripts());
-    //         
-    //         // code
-    //         Nodecl::NodeclBase node = n.get_subscripted();
-    //         while (node.is<Nodecl::ArraySubscript>())
-    //         {
-    //             array_accesses.append(node);
-    //             node_array = node.as<Nodecl::ArraySubscript>();
-    //             array.append(node_array.get_subscripts());
-    //             std::cerr << "IN Appending to array accesses " << node.prettyprint() << std::endl;
-    //             std::cerr << "IN Appending to array " << node_array.get_subscripts().prettyprint() << std::endl;
-    //             node = node_array.get_subscripted();
-    //         }
-    //         // epilogue
-    //         
-    //         array.append(node_array.get_subscripted());
-    //         std::cerr << "EP Appending to array " << node_array.get_subscripted().prettyprint() << std::endl;
-    //     }
 
         CfgVisitor::Ret CfgVisitor::visit(const Nodecl::ArraySubscript& n)
         {
@@ -1974,6 +1930,15 @@ namespace TL
             return Ret();
         }
         
+        CfgVisitor::Ret CfgVisitor::visit(const Nodecl::CxxDef& n)
+        {   //! Nothing to do
+            return Ret();
+        }
+        
+        CfgVisitor::Ret CfgVisitor::visit(const Nodecl::CxxDecl& n)
+        {   //! Nothing to do
+            return Ret();
+        }
 
         /* *********************** Non visiting methods *********************** */
         void CfgVisitor::compute_catch_parents(Node* node)
@@ -2219,7 +2184,7 @@ namespace TL
             
             previous_nodes.append(first);
             if (second != NULL)
-            {   // Only second node must be NULL and it will be the case of unary operations
+            {   // Only second node can be NULL and it will be the case of unary operations
                 previous_nodes.append(second);
             }
         

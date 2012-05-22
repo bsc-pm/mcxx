@@ -29,8 +29,8 @@
 #define TL_ANALYSIS_COMMON_HPP
 
 #include "tl-functor.hpp"
-#include "tl-node.hpp"
 #include "tl-extensible-graph.hpp"
+#include "tl-node.hpp"
 #include "tl-nodecl.hpp"
 
 namespace TL

@@ -29,6 +29,8 @@
 #ifndef NODE_HPP
 #define NODE_HPP
 
+#include <map>
+
 #include "tl-edge.hpp"
 #include "tl-extensible-symbol.hpp"
 #include "tl-structures.hpp"
@@ -43,9 +45,39 @@ namespace TL
     namespace Analysis
     {
         typedef std::tr1::unordered_map<Nodecl::NodeclBase, Nodecl::NodeclBase, Nodecl::Utils::Nodecl_hash, Nodecl::Utils::Nodecl_comp> nodecl_map;
-
+        
         class Edge;
         
+        ///////////////////////////////////////////////////////////////
+        /// Induction Variables data structure
+        ///////////////////////////////////////////////////////////////
+        struct InductionVariableData {
+            Nodecl::NodeclBase _lb;         /*!< Lower bound within a loop */
+            Nodecl::NodeclBase _ub;         /*!< Upper bound within a loop (included) */
+            Nodecl::NodeclBase _stride;     /*!< Stride within a loop */
+            char _type;                     /*!< Type of iv: '1' = basic, '2' = derived */
+            Nodecl::NodeclBase _family;     /*!< Family of the IV. For basic IVs, the family is the IV itself */
+            
+            InductionVariableData(char type, Nodecl::NodeclBase family)
+                : _lb(Nodecl::NodeclBase::null()), _ub(Nodecl::NodeclBase::null()), _stride(Nodecl::NodeclBase::null()),
+                  _type(type), _family(family)
+            {
+                if ( type != '1' && type != '2' )
+                    internal_error("Unexpected Induction Variable type '%c' while expecting 1 (basic) or 2 (derived)", 0);
+            }
+            
+            bool is_basic()
+            {
+                return (_type == '1');
+            }
+        };
+        
+        typedef std::tr1::unordered_map<Nodecl::NodeclBase, InductionVariableData, Nodecl::Utils::Nodecl_hash, Nodecl::Utils::Nodecl_comp> IV_map;
+        
+        
+        ///////////////////////////////////////////////////////////////
+        /// A Node in the Extensible Graph
+        ///////////////////////////////////////////////////////////////
         class LIBTL_CLASS Node : public LinkData {
             
             private:
@@ -300,6 +332,12 @@ namespace TL
                 
                 //! Set the type of loop contained in a loop graph node
                 void set_loop_node_type(Loop_type loop_type);
+                
+                //! Returns the map of induction variables associated to the node (Only valid for loop graph nodes)
+                IV_map get_induction_variables();
+                
+                //! Set a new induction variable in a loop graph node
+                void set_induction_variable(Nodecl::NodeclBase iv, struct InductionVariableData iv_data);
                 
                 //! Returns a pointer to the node which contains the actual node
                 //! When the node don't have an outer node, NULL is returned

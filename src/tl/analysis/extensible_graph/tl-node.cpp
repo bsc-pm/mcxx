@@ -777,6 +777,67 @@ namespace TL
             }        
         }
         
+        IV_map Node::get_induction_variables()
+        {
+            if (get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
+            {
+                if (get_data<Graph_type>(_GRAPH_TYPE) == LOOP)
+                {
+                    IV_map ivs;
+                    if (has_key(_INDUCTION_VARS))
+                        ivs = get_data<IV_map>(_INDUCTION_VARS);
+                    return ivs;
+                }
+                else
+                {
+                    internal_error("Unexpected node type '%s' while getting the induction variables of the node '%s'. LOOP expected.",
+                                get_type_as_string().c_str(), _id);
+                }
+            }
+            else
+            {
+                internal_error("Unexpected node type '%s' while getting the induction variables of the node '%s'. GRAPH_NODE expected.",
+                            get_type_as_string().c_str(), _id);
+            }
+        }
+        
+        void Node::set_induction_variable(Nodecl::NodeclBase iv, struct InductionVariableData iv_data)
+        {
+            if (get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
+            {
+                if (get_data<Graph_type>(_GRAPH_TYPE) == LOOP)
+                {
+                    IV_map ivs;
+                    if (has_key(_INDUCTION_VARS))
+                    {
+                        ivs = get_data<IV_map>(_INDUCTION_VARS);
+                    }
+                    if ( ivs.find(iv) != ivs.end() )
+                    {
+                        nodecl_t iv_internal = iv.get_internal_nodecl();
+                        internal_error("Trying to insert the Induction Variable '%s' in a loop that already contains this variable", 
+                                       codegen_to_str(iv_internal, nodecl_retrieve_context(iv_internal)));
+                    }
+                    else
+                    {
+                        ivs.insert ( std::pair<Nodecl::NodeclBase, struct InductionVariableData>(iv, iv_data) );
+                    }
+                    
+                    set_data(_INDUCTION_VARS, ivs);
+                }
+                else
+                {
+                    internal_error("Unexpected node type '%s' while setting a induction variable in the graph node '%s'. LOOP expected.",
+                                get_type_as_string().c_str(), _id);
+                }
+            }
+            else
+            {
+                internal_error("Unexpected node type '%s' while setting a induction variable in the node '%s'. GRAPH_NODE expected.",
+                            get_type_as_string().c_str(), _id);
+            }  
+        }
+        
         Symbol Node::get_label()
         {
             Node_type ntype = get_data<Node_type>(_NODE_TYPE);
@@ -1316,7 +1377,7 @@ namespace TL
         {
             ext_sym_set ue_vars;
         
-            if (this->has_key(_UPPER_EXPOSED))
+            if (has_key(_UPPER_EXPOSED))
             {   
                 ue_vars = get_data<ext_sym_set>(_UPPER_EXPOSED);
                 ue_vars = ue_vars.not_find(old_ue_var);

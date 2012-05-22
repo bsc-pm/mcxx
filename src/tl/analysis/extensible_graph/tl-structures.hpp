@@ -58,7 +58,7 @@ namespace TL
             SPLIT_STMT,                     //! Expression being split because it contains a sub-expression with a separated node
             FUNC_CALL,                      //! Function Call
             COND_EXPR,                      //! Conditional expression
-            LOOP,                           //! Set of nodes of a for loop
+            LOOP,                           //! Set of nodes of a for loopm (but the initialization)
             OMP_PRAGMA,                     //! Pragma Custom Definition / Statement
             TASK                            //! Pragma Task
         };
@@ -147,7 +147,7 @@ namespace TL
         * Type of the loop in a graph node. This will be a value of the enumeration Loop_type.
         * Mandatory in all loop graph nodes.
         */    
-        #define _LOOP_TYPE      "loop_type"    
+        #define _LOOP_TYPE      "loop_type"
         
         /*!
         * Nodecl containing the context associated to a task

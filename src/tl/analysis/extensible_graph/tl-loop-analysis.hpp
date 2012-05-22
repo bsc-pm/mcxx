@@ -24,16 +24,14 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-
-
 #ifndef TL_LOOP_ANALYSIS_HPP
 #define TL_LOOP_ANALYSIS_HPP
 
-
 #include "tl-nodecl.hpp"
+#include "tl-nodecl-visitor.hpp"
+#include "tl-extensible-graph.hpp"
 #include "tl-node.hpp"
 #include "tl-symbol.hpp"
-
 
 namespace TL
 {
@@ -76,11 +74,108 @@ namespace TL
         };
         
         typedef std::tr1::unordered_multimap<int, InductionVarInfo*, Node_hash, Node_comp> induc_vars_map;
+
         
-        class LIBTL_CLASS LoopAnalysis {    
-            
+        
+        
+        ///////////////////////////////////////////////////////////////
+        /// Visitor used during the induction variable analysis
+        /// Returns true when the Nodecl being visited contains or is equal to \_node_to_find
+        ///////////////////////////////////////////////////////////////
+        class LIBTL_CLASS MatchingVisitor : public Nodecl::ExhaustiveVisitor<bool>
+        {
         private:
-            induc_vars_map _induction_vars;
+            Nodecl::NodeclBase _node_to_find;
+            
+            //! Specialization of join_list Visitor method for lists of booleans
+            virtual bool join_list(TL::ObjectList<bool>& list);
+            
+        public:
+            MatchingVisitor(Nodecl::NodeclBase nodecl);  
+            Ret visit(const Nodecl::Symbol& n);
+            Ret visit(const Nodecl::ArraySubscript& n);
+            Ret visit(const Nodecl::ClassMemberAccess& n);
+        };
+        
+        
+        ///////////////////////////////////////////////////////////////
+        /// Loop Analysis class
+        ///////////////////////////////////////////////////////////////
+        class LIBTL_CLASS LoopAnalysis : public Nodecl::ExhaustiveVisitor<bool>
+        {
+        /*! 
+         * This part of the LoopAnalysis class implements a Visitor that checks whether a symbol is modified in a given Nodecl
+         * This is used during the induction variable analysis
+         * The Visitor returns true in case the symbol is modified, and false otherwise
+         */
+        private:
+            Nodecl::NodeclBase _constant;           /*!< Nodecl to be checked of being constant */
+            bool _defining;                         /*!< Boolean used during the visit indicating whether we are in a defining situation */
+            
+            //! Visiting method for any kind of assignment
+            bool visit_assignment(Nodecl::NodeclBase lhs, Nodecl::NodeclBase rhs);
+            //! Visiting method for any kind of function call
+            bool visit_function(Symbol func_sym, ObjectList<Type> param_types, Nodecl::List arguments);
+            
+            //! Specialization of join_list Visitor method for lists of booleans
+            virtual bool join_list(TL::ObjectList<bool>& list);
+            
+        public:
+            Ret visit(const Nodecl::Symbol& n);
+            Ret visit(const Nodecl::Derreference& n);
+            
+            Ret visit(const Nodecl::ArraySubscript& n);
+            Ret visit(const Nodecl::ClassMemberAccess& n);
+            
+            Ret visit(const Nodecl::Assignment& n);
+            Ret visit(const Nodecl::AddAssignment& n);
+            Ret visit(const Nodecl::MinusAssignment& n);
+            Ret visit(const Nodecl::MulAssignment& n);
+            Ret visit(const Nodecl::DivAssignment& n);
+            Ret visit(const Nodecl::ModAssignment& n);
+            Ret visit(const Nodecl::ShlAssignment& n);
+            Ret visit(const Nodecl::ShrAssignment& n);
+            Ret visit(const Nodecl::BitwiseAndAssignment& n);
+            Ret visit(const Nodecl::BitwiseOrAssignment& n);
+            Ret visit(const Nodecl::BitwiseXorAssignment& n);
+            
+            Ret visit(const Nodecl::FunctionCall& n);
+            Ret visit(const Nodecl::VirtualFunctionCall& n);
+            
+        /*!
+         * This part of the LoopAnalysis class implements the analysis of induction variables
+         */
+        private:
+            void detect_basic_induction_variables(Node* node, Node* loop);
+            void detect_derived_induction_variables(Node* node, Node* loop);
+            
+            //! This method returns true when \iv is defined more than once in the loop
+            //! The method is wrapped to deal with graph visits
+            bool is_false_induction_variable(Nodecl::NodeclBase iv, Nodecl::NodeclBase stmt, Node* node, int id_end);
+            bool is_false_induction_variable_(Nodecl::NodeclBase iv, Nodecl::NodeclBase stmt, Node* node, int id_end);
+            
+            bool only_definition_is_in_loop(Nodecl::NodeclBase family, Nodecl::NodeclBase iv_st, Node* iv_node, Node* loop);
+            bool only_definition_is_in_loop(Nodecl::NodeclBase family, Node* iv_node, Node* loop)
+            
+        public:
+            
+            void induction_variable_detection(Node* node);
+            
+            Nodecl::NodeclBase is_basic_induction_variable(Nodecl::NodeclBase st, Node* loop);
+            
+            Nodecl::NodeclBase is_derived_induction_variable(Nodecl::NodeclBase st, Node* loop, Nodecl::NodeclBase& family);
+            
+            //! This method returns true when member \_constant is a loop invariant
+            bool is_loop_invariant(Node* node, int id_end);
+            
+            void print_induction_variables(Node* node);
+            
+        /*!
+         * This part of the LoopAnalysis class implements any analysis performed over a loop
+         */
+        private:
+            ObjectList<ExtensibleGraph*> _cfgs;         /*!< List of cfgs available in case of IPA analysis */
+            induc_vars_map _induction_vars;             // DEPRECATED
             
             // *** Private methods *** //
             void compute_loop_induction_vars(Node* loop_node);
@@ -119,11 +214,11 @@ namespace TL
             
             void print_induction_vars_in_loop_info(Node* loop_node);
             
-            
         public:
             
             // *** Constructors *** //
-            LoopAnalysis();
+            //! Constructor
+            LoopAnalysis(ObjectList<ExtensibleGraph*> cfgs);
         
             
             // *** Modifiers *** //

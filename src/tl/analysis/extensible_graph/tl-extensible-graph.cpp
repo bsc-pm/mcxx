@@ -835,6 +835,26 @@ namespace TL
             }
         }
         
+        void clear_visits_aux_backwards_in_level(Node* node, Node* outer_node)
+        {
+            if (node->is_visited_aux() && (node->get_outer_node()->get_id() == outer_node->get_id()) )
+            {
+                node->set_visited_aux(false);
+                
+                Node_type ntype = node->get_type();
+                if (ntype == BASIC_ENTRY_NODE)
+                {
+                    return;
+                }
+                
+                ObjectList<Node*> parents = node->get_parents();
+                for(ObjectList<Node*>::iterator it = parents.begin(); it != parents.end(); ++it)
+                {
+                    clear_visits_aux_backwards_in_level(*it);
+                }
+            }
+        }
+        
         void ExtensibleGraph::clear_visits_in_level(Node* node, Node* outer_node)
         {
             if ( node->is_visited() && (node->get_outer_node()->get_id() == outer_node->get_id()) )

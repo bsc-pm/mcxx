@@ -51,6 +51,7 @@ prepare-check: ./config/bets
 	chmod +x config/mercurium-ss
 	chmod +x config/mercurium-ss2omp
 	chmod +x config/mercurium-stm
+	chmod +x config/mercurium-analysis
 	chmod +x */mercurium
 
 BETS_DIRS=$(srcdir)
