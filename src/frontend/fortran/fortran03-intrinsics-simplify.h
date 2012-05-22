@@ -66,7 +66,7 @@ static nodecl_t simplify_precision(int num_arguments UNUSED_PARAMETER, nodecl_t*
 
 static const_value_t* get_huge_value(type_t* t)
 {
-    t = get_rank0_type(t);
+    t = fortran_get_rank0_type(t);
 
     if (is_floating_type(t))
     {
@@ -120,7 +120,7 @@ static nodecl_t simplify_huge(int num_arguments UNUSED_PARAMETER, nodecl_t* argu
 
 static const_value_t* get_tiny_value(type_t* t)
 {
-    t = get_rank0_type(t);
+    t = fortran_get_rank0_type(t);
 
     if (is_floating_type(t))
     {
@@ -327,7 +327,7 @@ static nodecl_t simplify_len(int num_arguments UNUSED_PARAMETER, nodecl_t* argum
 {
     nodecl_t str = arguments[0];
 
-    type_t* t = get_rank0_type(no_ref(nodecl_get_type(str)));
+    type_t* t = fortran_get_rank0_type(no_ref(nodecl_get_type(str)));
 
     if (array_type_is_unknown_size(t))
         return nodecl_null();
@@ -340,13 +340,13 @@ static nodecl_t simplify_kind(int num_arguments UNUSED_PARAMETER, nodecl_t* argu
     nodecl_t x = arguments[0];
      
     type_t* t = no_ref(nodecl_get_type(x));
-    t = get_rank0_type(t);
+    t = fortran_get_rank0_type(t);
 
     if (is_complex_type(t))
     {
         t = complex_type_get_base_type(t);
     }
-    else if (is_fortran_character_type(t))
+    else if (fortran_is_character_type(t))
     {
         t = array_type_get_element_type(t);
     }
@@ -359,7 +359,7 @@ static nodecl_t simplify_digits(int num_arguments UNUSED_PARAMETER, nodecl_t* ar
     nodecl_t x = arguments[0];
 
     type_t* t = no_ref(nodecl_get_type(x));
-    t = get_rank0_type(t);
+    t = fortran_get_rank0_type(t);
 
     if (is_integer_type(t))
     {
@@ -380,7 +380,7 @@ static nodecl_t simplify_epsilon(int num_arguments UNUSED_PARAMETER, nodecl_t* a
     nodecl_t x = arguments[0];
 
     type_t* t = no_ref(nodecl_get_type(x));
-    t = get_rank0_type(t);
+    t = fortran_get_rank0_type(t);
 
     if (is_float_type(t))
     {
@@ -412,7 +412,7 @@ static nodecl_t simplify_maxexponent(int num_arguments UNUSED_PARAMETER, nodecl_
     nodecl_t x = arguments[0];
 
     type_t* t = no_ref(nodecl_get_type(x));
-    t = get_rank0_type(t);
+    t = fortran_get_rank0_type(t);
 
     const floating_type_info_t* model = floating_type_get_info(t);
 
@@ -424,7 +424,7 @@ static nodecl_t simplify_minexponent(int num_arguments UNUSED_PARAMETER, nodecl_
     nodecl_t x = arguments[0];
 
     type_t* t = no_ref(nodecl_get_type(x));
-    t = get_rank0_type(t);
+    t = fortran_get_rank0_type(t);
 
     const floating_type_info_t* model = floating_type_get_info(t);
 
@@ -450,7 +450,7 @@ static nodecl_t simplify_xbound(int num_arguments UNUSED_PARAMETER, nodecl_t* ar
     if (nodecl_is_null(dim))
     {
         type_t* t = no_ref(nodecl_get_type(array));
-        int i, rank = get_rank_of_type(t);
+        int i, rank = fortran_get_rank_of_type(t);
         nodecl_t nodecl_list = nodecl_null();
         for (i = 0; i < rank; i++)
         {
@@ -501,7 +501,7 @@ static nodecl_t simplify_xbound(int num_arguments UNUSED_PARAMETER, nodecl_t* ar
             type_t* t = no_ref(nodecl_get_type(array));
             int dim_ = const_value_cast_to_4(nodecl_get_constant(dim));
 
-            int rank = get_rank_of_type(t);
+            int rank = fortran_get_rank_of_type(t);
 
             if ((rank - dim_) < 0)
                 return nodecl_null();
@@ -570,7 +570,7 @@ static nodecl_t simplify_size(int num_arguments UNUSED_PARAMETER, nodecl_t* argu
             type_t* t = no_ref(nodecl_get_type(array));
             int dim_ = const_value_cast_to_4(nodecl_get_constant(dim));
 
-            int rank = get_rank_of_type(t);
+            int rank = fortran_get_rank_of_type(t);
 
             if ((rank - dim_) < 0)
                 return nodecl_null();
@@ -608,7 +608,7 @@ static nodecl_t simplify_shape(int num_arguments UNUSED_PARAMETER, nodecl_t* arg
     nodecl_t nodecl_list = nodecl_null();
 
     type_t* t = no_ref(nodecl_get_type(array));
-    int i, rank = get_rank_of_type(t);
+    int i, rank = fortran_get_rank_of_type(t);
     for (i = 0; i < rank; i++)
     {
         if (array_type_is_unknown_size(t))
@@ -1546,7 +1546,7 @@ static const_value_t* get_max_neuter_for_type(type_t* t)
     {
         return get_huge_value(t);
     }
-    else if (is_fortran_character_type(t))
+    else if (fortran_is_character_type(t))
     {
         nodecl_t nodecl_size = array_type_get_array_size_expr(t);
         const_value_t* size_constant = nodecl_get_constant(nodecl_size);
@@ -1578,8 +1578,8 @@ static nodecl_t simplify_maxval(int num_arguments, nodecl_t* arguments)
     nodecl_t array = arguments[0];
 
     type_t* array_type = no_ref(nodecl_get_type(array));
-    type_t* element_type = get_rank0_type(array_type);
-    int num_dimensions = get_rank_of_type(array_type);
+    type_t* element_type = fortran_get_rank0_type(array_type);
+    int num_dimensions = fortran_get_rank_of_type(array_type);
 
     return simplify_maxminval(
             num_arguments, arguments,
@@ -1612,7 +1612,7 @@ static const_value_t* get_min_neuter_for_type(type_t* t)
     {
         return get_huge_value(t);
     }
-    else if (is_fortran_character_type(t))
+    else if (fortran_is_character_type(t))
     {
         nodecl_t nodecl_size = array_type_get_array_size_expr(t);
         const_value_t* size_constant = nodecl_get_constant(nodecl_size);
@@ -1644,8 +1644,8 @@ static nodecl_t simplify_minval(int num_arguments, nodecl_t* arguments)
     nodecl_t array = arguments[0];
 
     type_t* array_type = no_ref(nodecl_get_type(array));
-    type_t* element_type = get_rank0_type(array_type);
-    int num_dimensions = get_rank_of_type(array_type);
+    type_t* element_type = fortran_get_rank0_type(array_type);
+    int num_dimensions = fortran_get_rank_of_type(array_type);
 
     return simplify_maxminval(
             num_arguments, arguments,

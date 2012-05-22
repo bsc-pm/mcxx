@@ -1190,8 +1190,8 @@ static sqlite3_uint64 insert_type(sqlite3* handle, type_t* t)
 
         result = insert_type_ref_to_list_types(handle, t, name, result, num_parameters, parameter_types);
     }
-    else if (is_fortran_character_type(t)
-            || is_fortran_array_type(t))
+    else if (fortran_is_character_type(t)
+            || fortran_is_array_type(t))
     {
         const char *name = "ARRAY";
 

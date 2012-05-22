@@ -768,7 +768,7 @@ OPERATOR_TABLE
         TL::Type type = node.get_type();
         if (type.is_array())
         {
-            int n = get_rank_of_type(type.get_internal_type());
+            int n = fortran_get_rank_of_type(type.get_internal_type());
 
             if (n == 1
                     || state.flatten_array_construct)
@@ -784,7 +784,7 @@ OPERATOR_TABLE
                 std::string shape;
                 TL::Type t = type;
                 int n = 0;
-                while (is_fortran_array_type(t.get_internal_type()))
+                while (fortran_is_array_type(t.get_internal_type()))
                 {
 
                     std::stringstream ss;
@@ -2920,7 +2920,7 @@ OPERATOR_TABLE
                 attribute_list += ", TARGET";
             if (entry.is_parameter() 
                     && !entry.get_type().is_any_reference()
-                    && !is_fortran_character_type(entry.get_type().get_internal_type()))
+                    && !fortran_is_character_type(entry.get_type().get_internal_type()))
             {
                 if (entry.get_type().is_pointer())
                 {
@@ -3942,7 +3942,7 @@ OPERATOR_TABLE
                 || t.is_array()
                 // Fortran 2003
                 // || t.is_function()
-                || (is_fortran_character_type(t.get_internal_type())));
+                || (fortran_is_character_type(t.get_internal_type())));
     }
 
     void FortranBase::codegen_type(TL::Type t, std::string& type_specifier, std::string& array_specifier, bool is_dummy)
@@ -3986,7 +3986,7 @@ OPERATOR_TABLE
         
         int array_spec_idx;
         for (array_spec_idx = MCXX_MAX_ARRAY_SPECIFIER - 1; 
-                is_fortran_array_type(t.get_internal_type());
+                fortran_is_array_type(t.get_internal_type());
                 array_spec_idx--)
         {
             if (array_spec_idx < 0)
@@ -4099,7 +4099,7 @@ OPERATOR_TABLE
 
             type_specifier = "TYPE(" + real_name + ")";
         }
-        else if (is_fortran_character_type(t.get_internal_type()))
+        else if (fortran_is_character_type(t.get_internal_type()))
         {
             std::stringstream ss;
             if (!array_type_is_unknown_size(t.get_internal_type()))

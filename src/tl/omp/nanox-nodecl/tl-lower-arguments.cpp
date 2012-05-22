@@ -136,10 +136,10 @@ namespace TL { namespace Nanox {
             {
                 handle_vla_type_rec(t, outline_info);
 
-                int rank = ::get_rank_of_type(t.get_internal_type());
+                int rank = ::fortran_get_rank_of_type(t.get_internal_type());
                 t = TL::Type(
-                        ::get_n_ranked_type_with_descriptor(
-                            ::get_rank0_type(t.get_internal_type()), rank, CURRENT_COMPILED_FILE->global_decl_context)
+                        ::fortran_get_n_ranked_type_with_descriptor(
+                            ::fortran_get_rank0_type(t.get_internal_type()), rank, CURRENT_COMPILED_FILE->global_decl_context)
                         );
 
                 if (is_pointer)

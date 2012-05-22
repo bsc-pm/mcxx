@@ -133,10 +133,10 @@ static void system_v_field_layout(scope_entry_t* field,
             // Size of an array Fortran descriptor
             type_set_size(field_type,
                     fortran_size_of_array_descriptor(element_type,
-                        get_rank_of_type(field_type)));
+                        fortran_get_rank_of_type(field_type)));
             type_set_alignment(field_type,
                     fortran_alignment_of_array_descriptor(element_type,
-                        get_rank_of_type(field_type)));
+                        fortran_get_rank_of_type(field_type)));
         }
         else if (is_last_field)
         {
