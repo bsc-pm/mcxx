@@ -4484,13 +4484,23 @@ static void compute_nodecl_name_from_unqualified_id(AST unqualified_id, decl_con
                 const char* name = ASTText(ASTSon0(unqualified_id));
                 AST template_arguments = ASTSon1(unqualified_id);
 
-                template_parameter_list_t* template_parameters = 
-                    get_template_parameters_from_syntax(template_arguments, decl_context);
+                template_parameter_list_t* template_parameters = NULL;
+                if (template_arguments != NULL &&
+                        ASTType(template_arguments) == AST_AMBIGUITY)
+                {
+                    template_parameters =
+                        solve_ambiguous_list_of_template_arguments(template_arguments, decl_context);
+                }
+                else
+                {
+                    template_parameters =
+                        get_template_parameters_from_syntax(template_arguments, decl_context);
+                }
 
                 if (template_parameters == NULL)
                 {
                     *nodecl_output = nodecl_make_err_expr(
-                            ASTFileName(unqualified_id), 
+                            ASTFileName(unqualified_id),
                             ASTLine(unqualified_id));
                     return;
                 }
@@ -4522,17 +4532,28 @@ static void compute_nodecl_name_from_unqualified_id(AST unqualified_id, decl_con
             }
         case AST_OPERATOR_FUNCTION_ID_TEMPLATE:
             {
-                const char* name = 
+                const char* name =
                         get_operator_function_name(unqualified_id);
 
                 AST template_arguments = ASTSon1(unqualified_id);
-                template_parameter_list_t* template_parameters = 
-                    get_template_parameters_from_syntax(template_arguments, decl_context);
+
+                template_parameter_list_t* template_parameters = NULL;
+                if (template_arguments != NULL &&
+                        ASTType(template_arguments) == AST_AMBIGUITY)
+                {
+                    template_parameters =
+                        solve_ambiguous_list_of_template_arguments(template_arguments, decl_context);
+                }
+                else
+                {
+                    template_parameters =
+                        get_template_parameters_from_syntax(template_arguments, decl_context);
+                }
 
                 if (template_parameters == NULL)
                 {
                     *nodecl_output = nodecl_make_err_expr(
-                            ASTFileName(unqualified_id), 
+                            ASTFileName(unqualified_id),
                             ASTLine(unqualified_id));
                     return;
                 }
