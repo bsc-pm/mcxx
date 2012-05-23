@@ -435,21 +435,7 @@ namespace TL { namespace Nanox {
             {
                 case OutlineDataItem::SHARING_PRIVATE:
                     {
-                        TL::Symbol sym = (*it)->get_symbol();
-
-                        std::string name;
-                        TL::Type t;
-                        if (sym.is_valid())
-                        {
-                            name = sym.get_name();
-                            t = sym.get_type();
-                        }
-                        else
-                        {
-                            name = (*it)->get_field_name();
-                            t = (*it)->get_in_outline_type();
-                        }
-
+                        // Do nothing
                         break;
                     }
                 case OutlineDataItem::SHARING_SHARED:
@@ -532,21 +518,6 @@ namespace TL { namespace Nanox {
                         // This is a mixture of private and shared
                         // A private is emitted for the partial reduction
                         // Such partial reduction must be initialized with the entity
-                        TL::Symbol sym = (*it)->get_symbol();
-
-                        std::string name;
-                        TL::Type t;
-                        if (sym.is_valid())
-                        {
-                            name = sym.get_name();
-                            t = sym.get_type();
-                        }
-                        else
-                        {
-                            name = (*it)->get_field_name();
-                            t = (*it)->get_in_outline_type();
-                        }
-
                         Source argument;
                         // Now the shared part
                         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
