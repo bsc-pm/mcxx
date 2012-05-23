@@ -6970,7 +6970,7 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                 }
 
                 (*left) = strappend((*left), 
-                        get_qualified_symbol_name(type_info->pointer->pointee_class, type_info->pointer->pointee_class->decl_context));
+                        get_qualified_symbol_name(type_info->pointer->pointee_class, decl_context));
 
                 (*left) = strappend((*left), "::");
                 (*left) = strappend((*left), "*");
