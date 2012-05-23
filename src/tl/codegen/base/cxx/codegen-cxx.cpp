@@ -4391,8 +4391,10 @@ void CxxBase::do_define_symbol(TL::Symbol symbol,
     }
     else if (symbol.is_function())
     {
-        // Functions are not defined but only declared
         (this->*decl_sym_fun)(symbol);
+        // Functions are not defined but only declared
+        // We early return here otherwise this function would be marked as defined
+        return;
     }
     else if (symbol.is_template_parameter())
     {
