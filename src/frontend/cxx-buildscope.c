@@ -3831,7 +3831,8 @@ void build_scope_base_clause(AST base_clause, type_t* class_type, decl_context_t
             SK_TEMPLATE_TYPE_PARAMETER, 
             SK_TEMPLATE_TEMPLATE_PARAMETER, 
             SK_TYPEDEF, 
-            SK_DEPENDENT_ENTITY
+            SK_DEPENDENT_ENTITY,
+            SK_USING,
         };
 
         // We do not want to examine uninstantiated typenames
@@ -3851,8 +3852,12 @@ void build_scope_base_clause(AST base_clause, type_t* class_type, decl_context_t
         }
 
         scope_entry_t* result = entry_list_head(filtered_result_list);
-
         entry_list_free(filtered_result_list);
+
+        if (result->kind == SK_USING)
+        {
+            result = entry_advance_aliases(result);
+        }
 
         if (result->kind != SK_TEMPLATE_TYPE_PARAMETER
                 && result->kind != SK_TEMPLATE_TEMPLATE_PARAMETER
