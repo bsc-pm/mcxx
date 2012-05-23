@@ -1148,7 +1148,7 @@ static char check_expression_statement(AST a, decl_context_t decl_context)
 }
 
 
-char solve_ambiguous_list(AST ambiguous_list, decl_context_t decl_context,
+char solve_ambiguous_list_of_expressions(AST ambiguous_list, decl_context_t decl_context,
         nodecl_t* nodecl_output)
 {
     ERROR_CONDITION(ASTType(ambiguous_list) != AST_AMBIGUITY, "invalid kind", 0);

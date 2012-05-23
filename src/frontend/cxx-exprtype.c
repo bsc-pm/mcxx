@@ -7542,7 +7542,7 @@ void check_function_arguments(AST arguments, decl_context_t decl_context,
     {
         if (ASTType(arguments) == AST_AMBIGUITY)
         {
-            char result = solve_ambiguous_list(arguments, decl_context, /* nodecl_output */ NULL);
+            char result = solve_ambiguous_list_of_expressions(arguments, decl_context, /* nodecl_output */ NULL);
             if (result == 0)
             {
                 internal_error("Ambiguity not solved %s", ast_location(arguments));
@@ -7556,7 +7556,7 @@ void check_function_arguments(AST arguments, decl_context_t decl_context,
         {
             if (ASTType(iter) == AST_AMBIGUITY)
             {
-                char result = solve_ambiguous_list(iter, decl_context, /* nodecl_output */ NULL);
+                char result = solve_ambiguous_list_of_expressions(iter, decl_context, /* nodecl_output */ NULL);
                 if (result == 0)
                 {
                     internal_error("Ambiguity not solved %s", ast_location(iter));
@@ -13523,7 +13523,7 @@ char check_list_of_expressions(AST expression_list,
 
     if (ASTType(expression_list) == AST_AMBIGUITY)
     {
-        return solve_ambiguous_list(expression_list, decl_context, nodecl_output);
+        return solve_ambiguous_list_of_expressions(expression_list, decl_context, nodecl_output);
     }
     else
     {
