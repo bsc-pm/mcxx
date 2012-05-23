@@ -144,16 +144,16 @@ namespace TL
 
         void Core::register_omp_constructs()
         {
-#define OMP_DIRECTIVE(_directive, _name) \
-                      register_directive(_directive); 
-#define OMP_CONSTRUCT_COMMON(_directive, _name, _noend) \
-            register_construct(_directive, _noend); 
+#define OMP_DIRECTIVE(_directive, _name, _pred) \
+                      if (_pred) register_directive(_directive); 
+#define OMP_CONSTRUCT_COMMON(_directive, _name, _noend, _pred) \
+            if (_pred) register_construct(_directive, _noend); 
 
             // Register pragmas
             if (!_already_registered)
             {
-#define OMP_CONSTRUCT(_directive, _name) OMP_CONSTRUCT_COMMON(_directive, _name, false)
-#define OMP_CONSTRUCT_NOEND(_directive, _name) OMP_CONSTRUCT_COMMON(_directive, _name, true)
+#define OMP_CONSTRUCT(_directive, _name, _pred) OMP_CONSTRUCT_COMMON(_directive, _name, false, _pred)
+#define OMP_CONSTRUCT_NOEND(_directive, _name, _pred) OMP_CONSTRUCT_COMMON(_directive, _name, true, _pred)
 #include "tl-omp-constructs.def"
                 // Note that section is not handled specially here, we always want it to be parsed as a directive
 #undef OMP_DIRECTIVE
@@ -165,25 +165,25 @@ namespace TL
             _already_registered = true;
 
             // Connect handlers to member functions
-#define OMP_DIRECTIVE(_directive, _name) \
-            { \
+#define OMP_DIRECTIVE(_directive, _name, _pred) \
+            if (_pred) { \
                 std::string directive_name = remove_separators_of_directive(_directive); \
                 dispatcher().directive.pre[directive_name].connect(functor((void (Core::*)(TL::PragmaCustomDirective))&Core::_name##_handler_pre, *this)); \
                 dispatcher().directive.post[directive_name].connect(functor((void (Core::*)(TL::PragmaCustomDirective))&Core::_name##_handler_post, *this)); \
             }
-#define OMP_CONSTRUCT_COMMON(_directive, _name, _noend) \
-            { \
+#define OMP_CONSTRUCT_COMMON(_directive, _name, _noend, _pred) \
+            if (_pred) { \
                 std::string directive_name = remove_separators_of_directive(_directive); \
                 dispatcher().declaration.pre[directive_name].connect(functor((void (Core::*)(TL::PragmaCustomDeclaration))&Core::_name##_handler_pre, *this)); \
                 dispatcher().declaration.post[directive_name].connect(functor((void (Core::*)(TL::PragmaCustomDeclaration))&Core::_name##_handler_post, *this)); \
                 dispatcher().statement.pre[directive_name].connect(functor((void (Core::*)(TL::PragmaCustomStatement))&Core::_name##_handler_pre, *this)); \
                 dispatcher().statement.post[directive_name].connect(functor((void (Core::*)(TL::PragmaCustomStatement))&Core::_name##_handler_post, *this)); \
             }
-#define OMP_CONSTRUCT(_directive, _name) OMP_CONSTRUCT_COMMON(_directive, _name, false)
-#define OMP_CONSTRUCT_NOEND(_directive, _name) OMP_CONSTRUCT_COMMON(_directive, _name, true)
+#define OMP_CONSTRUCT(_directive, _name, _pred) OMP_CONSTRUCT_COMMON(_directive, _name, false, _pred)
+#define OMP_CONSTRUCT_NOEND(_directive, _name, _pred) OMP_CONSTRUCT_COMMON(_directive, _name, true, _pred)
 #include "tl-omp-constructs.def"
             // Section is special
-            OMP_CONSTRUCT("section", section)
+            OMP_CONSTRUCT("section", section, true)
 #undef OMP_DIRECTIVE
 #undef OMP_CONSTRUCT_COMMON
 #undef OMP_CONSTRUCT

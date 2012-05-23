@@ -176,22 +176,22 @@ namespace TL { namespace OpenMP {
         set_phase_name("OpenMP directive to parallel IR");
         set_phase_description("This phase lowers the semantics of OpenMP into the parallel IR of Mercurium");
 
-#define OMP_DIRECTIVE(_directive, _name) \
-                { \
+#define OMP_DIRECTIVE(_directive, _name, _pred) \
+                if (_pred) { \
                     std::string directive_name = remove_separators_of_directive(_directive); \
                     dispatcher().directive.pre[directive_name].connect(functor(&Base::_name##_handler_pre, *this)); \
                     dispatcher().directive.post[directive_name].connect(functor(&Base::_name##_handler_post, *this)); \
                 }
-#define OMP_CONSTRUCT_COMMON(_directive, _name, _noend) \
-                { \
+#define OMP_CONSTRUCT_COMMON(_directive, _name, _noend, _pred) \
+                if (_pred) { \
                     std::string directive_name = remove_separators_of_directive(_directive); \
                     dispatcher().declaration.pre[directive_name].connect(functor((void (Base::*)(TL::PragmaCustomDeclaration))&Base::_name##_handler_pre, *this)); \
                     dispatcher().declaration.post[directive_name].connect(functor((void (Base::*)(TL::PragmaCustomDeclaration))&Base::_name##_handler_post, *this)); \
                     dispatcher().statement.pre[directive_name].connect(functor((void (Base::*)(TL::PragmaCustomStatement))&Base::_name##_handler_pre, *this)); \
                     dispatcher().statement.post[directive_name].connect(functor((void (Base::*)(TL::PragmaCustomStatement))&Base::_name##_handler_post, *this)); \
                 }
-#define OMP_CONSTRUCT(_directive, _name) OMP_CONSTRUCT_COMMON(_directive, _name, false)
-#define OMP_CONSTRUCT_NOEND(_directive, _name) OMP_CONSTRUCT_COMMON(_directive, _name, true)
+#define OMP_CONSTRUCT(_directive, _name, _pred) OMP_CONSTRUCT_COMMON(_directive, _name, false, _pred)
+#define OMP_CONSTRUCT_NOEND(_directive, _name, _pred) OMP_CONSTRUCT_COMMON(_directive, _name, true, _pred)
 #include "tl-omp-constructs.def"
 #undef OMP_DIRECTIVE
 #undef OMP_CONSTRUCT_COMMON
