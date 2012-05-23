@@ -398,6 +398,8 @@ namespace TL { namespace Nanox {
                 stmt_list,
                 function_symbol.get_related_scope(), "", 0);
 
+        function_symbol.get_internal_symbol()->defined = 1;
+
         function_code = Nodecl::FunctionCode::make(context,
                 Nodecl::NodeclBase::null(),
                 Nodecl::NodeclBase::null(),
