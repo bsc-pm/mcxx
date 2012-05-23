@@ -135,6 +135,8 @@ TL::Scope CxxBase::get_current_scope() const
     BINARY_EXPRESSION_ASSIG(BitwiseXorAssignment, " ^= ") \
     BINARY_EXPRESSION_ASSIG(ModAssignment, " %= ") \
     BINARY_EXPRESSION(Offset, ".*") \
+    BINARY_EXPRESSION(CxxDotPtrMember, ".*") \
+    BINARY_EXPRESSION(CxxArrowPtrMember, "->*") \
     BINARY_EXPRESSION(Comma, ", ") \
 
 #define PREFIX_UNARY_EXPRESSION(_name, _operand) \
@@ -651,20 +653,6 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxArrow& node)
     walk(node.get_member());
 }
 
-CxxBase::Ret CxxBase::visit(const Nodecl::CxxArrowPtrMember& node)
-{
-    walk(node.get_lhs());
-    file << "->*";
-    walk(node.get_ptr());
-}
-
-CxxBase::Ret CxxBase::visit(const Nodecl::CxxDotPtrMember& node)
-{
-    walk(node.get_lhs());
-    file << ".*";
-    walk(node.get_ptr());
-}
-
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxBracedInitializer& node)
 {
     file << "{";
@@ -1163,7 +1151,16 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
     // There are a lot of cases!
     if (!function_type.is_function())
     {
+        char needs_parentheses = operand_has_lower_priority(node, called_entity);
+        if (needs_parentheses)
+        {
+            file << "(";
+        }
         walk(called_entity);
+        if (needs_parentheses)
+        {
+            file << ")";
+        }
         file << "(";
         walk_expression_list(arguments);
         file << ")";
@@ -5461,6 +5458,7 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
             }
         case NODECL_ARRAY_SUBSCRIPT:
         case NODECL_FUNCTION_CALL:
+        case NODECL_VIRTUAL_FUNCTION_CALL:
         case NODECL_CLASS_MEMBER_ACCESS:
         case NODECL_PSEUDO_DESTRUCTOR_NAME:
         case NODECL_TYPEID:
@@ -5468,12 +5466,11 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
         case NODECL_POSTDECREMENT:
 
         case NODECL_CXX_ARROW:
-        case NODECL_CXX_ARROW_PTR_MEMBER:
-        case NODECL_CXX_DOT_PTR_MEMBER:
         case NODECL_CXX_POSTFIX_INITIALIZER:
         case NODECL_CXX_ARRAY_SECTION_RANGE:
         case NODECL_CXX_ARRAY_SECTION_SIZE:
         case NODECL_CXX_EXPLICIT_TYPE_CAST:
+        case NODECL_CXX_DEP_FUNCTION_CALL:
             {
                 return -2;
             }
@@ -5516,6 +5513,9 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
             }
             // This is a pointer to member
         case NODECL_OFFSET:
+        
+        case NODECL_CXX_ARROW_PTR_MEMBER:
+        case NODECL_CXX_DOT_PTR_MEMBER:
             return -5;
         case NODECL_MUL:
         case NODECL_DIV:
