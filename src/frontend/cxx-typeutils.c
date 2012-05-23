@@ -1322,14 +1322,29 @@ static type_t* remove_typedefs(type_t* t)
 
         int i, N = function_type_get_num_parameters(t);
 
-        parameter_info_t param_info[N+1];
+        parameter_info_t param_info[N];
         memset(param_info, 0, sizeof(param_info));
+
+        if (function_type_get_has_ellipsis(t))
+        {
+            //The last parameter is an ellipsis (It has not type)
+            param_info[N-1].is_ellipsis = 1;
+            param_info[N-1].type_info = NULL;
+            param_info[N-1].nonadjusted_type_info = NULL;
+            N = N - 1;
+        }
 
         for (i = 0; i < N; i++)
         {
             param_info[i].type_info = remove_typedefs(function_type_get_parameter_type_num(t, i));
         }
 
+        if (function_type_get_has_ellipsis(t))
+        {
+            //Restore the real number of parameters
+            N = N + 1;
+        }
+        
         return get_cv_qualified_type(get_new_function_type(return_type, param_info, N), cv_qualif); 
     }
     else if (is_vector_type(t))
