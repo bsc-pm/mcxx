@@ -382,11 +382,23 @@ namespace TL { namespace Nanox {
         empty_stmt = Nodecl::EmptyStatement::make("", 0);
         TL::ObjectList<Nodecl::NodeclBase> stmt_list_;
         stmt_list_.append(empty_stmt);
+
         Nodecl::List stmt_list = Nodecl::List::make(stmt_list_);
 
-        Nodecl::NodeclBase context = Nodecl::Context::make(stmt_list, function_symbol.get_related_scope(), "", 0);
+        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+        {
+            Nodecl::CompoundStatement compound_statement =
+                Nodecl::CompoundStatement::make(stmt_list,
+                        /* destructors */ Nodecl::NodeclBase::null(),
+                        "", 0);
+            stmt_list = Nodecl::List::make(compound_statement);
+        }
 
-        function_code = Nodecl::FunctionCode::make(context, 
+        Nodecl::NodeclBase context = Nodecl::Context::make(
+                stmt_list,
+                function_symbol.get_related_scope(), "", 0);
+
+        function_code = Nodecl::FunctionCode::make(context,
                 Nodecl::NodeclBase::null(),
                 Nodecl::NodeclBase::null(),
                 function_symbol,
