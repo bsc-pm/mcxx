@@ -170,9 +170,16 @@ namespace TL { namespace Nanox {
            Nodecl::List& ranges,
            OutlineInfo& outline_info,
            Nodecl::NodeclBase& statements,
-           Source &distribute_loop_source,
-           Nodecl::NodeclBase& placeholder1,
-           Nodecl::NodeclBase& placeholder2
+           Source &outline_distribute_loop_source,
+           // Loop (in the outline distributed code)
+           Nodecl::NodeclBase& outline_placeholder1,
+           // Auxiliar loop (when the step is not known at compile time, in the outline distributed code)
+           Nodecl::NodeclBase& outline_placeholder2,
+           Source &inline_distribute_loop_source,
+           // Loop (in the inline distributed code)
+           Nodecl::NodeclBase& inline_placeholder1,
+           // Auxiliar loop (when the step is not known at compile time, in the inline distributed code)
+           Nodecl::NodeclBase& inline_placeholder2
            )
     {
         Symbol function_symbol = Nodecl::Utils::get_enclosing_function(construct);
@@ -198,14 +205,11 @@ namespace TL { namespace Nanox {
         TL::Symbol structure_symbol = declare_argument_structure(outline_info, construct);
 
         Nodecl::Utils::SymbolMap *symbol_map = NULL;
-        emit_outline(outline_info, statements, distribute_loop_source, outline_name, structure_symbol, symbol_map);
+        emit_outline(outline_info, statements,
+                outline_distribute_loop_source,
+                outline_name, structure_symbol, symbol_map);
 
-        // Now complete the placeholder
-        Source iteration_source;
-        iteration_source
-            << statements.prettyprint()
-            ;
-
+        // Now complete the placeholders
         if (IS_FORTRAN_LANGUAGE)
         {
             // Copy FUNCTIONs and other local stuff
@@ -214,20 +218,31 @@ namespace TL { namespace Nanox {
                     outline_info.get_unpacked_function_symbol());
         }
 
-        placeholder1.integrate(
-                Nodecl::Utils::deep_copy(statements, placeholder1, *symbol_map)
+        outline_placeholder1.integrate(
+                Nodecl::Utils::deep_copy(statements, outline_placeholder1, *symbol_map)
                 );
 
-        if (!placeholder2.is_null())
+        if (!outline_placeholder2.is_null())
         {
-            placeholder2.integrate(
-                    Nodecl::Utils::deep_copy(statements, placeholder2, *symbol_map)
+            outline_placeholder2.integrate(
+                    Nodecl::Utils::deep_copy(statements, outline_placeholder2, *symbol_map)
                     );
         }
 
         delete symbol_map; symbol_map = NULL;
 
-        loop_spawn(outline_info, construct, distribute_environment, ranges, outline_name, structure_symbol);
+        loop_spawn(outline_info, construct, distribute_environment, ranges, outline_name, structure_symbol,
+                inline_distribute_loop_source);
+
+        // Note that inline ones should not need symbol map
+        inline_placeholder1.integrate(Nodecl::Utils::deep_copy(statements, inline_placeholder1));
+
+        if (!inline_placeholder2.is_null())
+        {
+            inline_placeholder2.integrate(
+                    Nodecl::Utils::deep_copy(statements, inline_placeholder2)
+                    );
+        }
     }
 
     void LoweringVisitor::visit(const Nodecl::OpenMP::For& construct)
@@ -247,20 +262,32 @@ namespace TL { namespace Nanox {
 
         OutlineInfo outline_info(environment);
 
-        Nodecl::NodeclBase placeholder1, placeholder2;
-        Source distribute_loop_source = get_loop_distribution_source(construct,
+        Nodecl::NodeclBase outline_placeholder1, outline_placeholder2;
+        Source outline_distribute_loop_source = get_loop_distribution_source(construct,
                 distribute_environment,
                 ranges,
                 outline_info,
-                placeholder1, placeholder2);
+                outline_placeholder1,
+                outline_placeholder2);
+
+        Nodecl::NodeclBase inline_placeholder1, inline_placeholder2;
+        Source inline_distribute_loop_source = get_loop_distribution_source(construct,
+                distribute_environment,
+                ranges,
+                outline_info,
+                inline_placeholder1,
+                inline_placeholder2);
 
         distribute_loop_with_outline(construct,
                 distribute_environment, ranges,
                 outline_info,
                 statements,
-                distribute_loop_source,
-                placeholder1,
-                placeholder2);
+                outline_distribute_loop_source,
+                outline_placeholder1,
+                outline_placeholder2,
+                inline_distribute_loop_source,
+                inline_placeholder1,
+                inline_placeholder2);
     }
 
 } }
