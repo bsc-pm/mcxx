@@ -963,7 +963,7 @@ namespace TL
                 // This will replace the tree
                 collapse_loop_first(construct);
             }
-            
+
             Nodecl::NodeclBase stmt = construct.get_statements();
 
             // Do we really need such a deep structure?
@@ -998,7 +998,7 @@ namespace TL
                 // This will replace the tree
                 collapse_loop_first(construct);
             }
-            
+
             Nodecl::NodeclBase stmt = construct.get_statements();
 
             ERROR_CONDITION(!stmt.is<Nodecl::List>(), "Invalid tree", 0);
@@ -1012,7 +1012,33 @@ namespace TL
 
         void Core::do_handler_post(TL::PragmaCustomStatement construct)
         {
-            // for_handler_post(construct);
+            _openmp_info->pop_current_data_sharing();
+        }
+
+        void Core::parallel_do_handler_pre(TL::PragmaCustomStatement construct)
+        {
+            DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct);
+
+            if (construct.get_pragma_line().get_clause("collapse").is_defined())
+            {
+                // This will replace the tree
+                collapse_loop_first(construct);
+            }
+
+            Nodecl::NodeclBase stmt = construct.get_statements();
+
+            ERROR_CONDITION(!stmt.is<Nodecl::List>(), "Invalid tree", 0);
+            stmt = stmt.as<Nodecl::List>().front();
+
+            _openmp_info->push_current_data_sharing(data_sharing);
+            common_parallel_handler(construct, data_sharing);
+            common_for_handler(stmt, data_sharing);
+            get_dependences_info(construct.get_pragma_line(), data_sharing);
+        }
+
+        void Core::parallel_do_handler_post(TL::PragmaCustomStatement construct)
+        {
+            _openmp_info->pop_current_data_sharing();
         }
 
         void Core::single_handler_pre(TL::PragmaCustomStatement construct)
@@ -1044,15 +1070,15 @@ namespace TL
         void Core::threadprivate_handler_pre(TL::PragmaCustomDirective construct)
         {
             DataSharingEnvironment& data_sharing = _openmp_info->get_current_data_sharing();
-            
+
             // Extract from the PragmaCustomDirective the context of declaration
             ReferenceScope context_of_decl = construct.get_context_of_declaration();
 
             // Extract from the PragmaCustomDirective the pragma line
             PragmaCustomLine pragma_line = construct.get_pragma_line();
-            PragmaCustomParameter param = pragma_line.get_parameter(); 
-            
-            // The expressions are parsed in the right context of declaration 
+            PragmaCustomParameter param = pragma_line.get_parameter();
+
+            // The expressions are parsed in the right context of declaration
             ObjectList<Nodecl::NodeclBase> expr_list = param.get_arguments_as_expressions(context_of_decl);
 
             for (ObjectList<Nodecl::NodeclBase>::iterator it = expr_list.begin();
@@ -1078,7 +1104,7 @@ namespace TL
                 }
             }
         }
-        
+
         void Core::threadprivate_handler_post(TL::PragmaCustomDirective construct) { }
 
         // Inline tasks
@@ -1166,7 +1192,7 @@ namespace TL
                     ctr.get_text().c_str(), \
                     ctr.get_pragma_line().get_text().c_str()); \
         } \
-        void Core::_name##_handler_post(TL::PragmaCustomStatement) { } 
+        void Core::_name##_handler_post(TL::PragmaCustomStatement) { }
 
 #define INVALID_DECLARATION_HANDLER(_name) \
         void Core::_name##_handler_pre(TL::PragmaCustomDeclaration ctr) { \
@@ -1175,11 +1201,12 @@ namespace TL
                     ctr.get_text().c_str(), \
                     ctr.get_pragma_line().get_text().c_str()); \
         } \
-        void Core::_name##_handler_post(TL::PragmaCustomDeclaration) { } 
+        void Core::_name##_handler_post(TL::PragmaCustomDeclaration) { }
 
         INVALID_DECLARATION_HANDLER(parallel)
         INVALID_DECLARATION_HANDLER(parallel_for)
         INVALID_DECLARATION_HANDLER(for)
+        INVALID_DECLARATION_HANDLER(parallel_do)
         INVALID_DECLARATION_HANDLER(do)
         INVALID_DECLARATION_HANDLER(parallel_sections)
         INVALID_DECLARATION_HANDLER(sections)
@@ -1194,7 +1221,7 @@ namespace TL
 
 #define EMPTY_HANDLERS_DIRECTIVE(_name) \
         void Core::_name##_handler_pre(TL::PragmaCustomDirective) { } \
-        void Core::_name##_handler_post(TL::PragmaCustomDirective) { } 
+        void Core::_name##_handler_post(TL::PragmaCustomDirective) { }
 
         EMPTY_HANDLERS_DIRECTIVE(barrier)
         EMPTY_HANDLERS_CONSTRUCT(atomic)
@@ -1202,7 +1229,6 @@ namespace TL
         EMPTY_HANDLERS_CONSTRUCT(critical)
         EMPTY_HANDLERS_DIRECTIVE(flush)
         EMPTY_HANDLERS_CONSTRUCT(ordered)
-        EMPTY_HANDLERS_CONSTRUCT(parallel_do)
         EMPTY_HANDLERS_DIRECTIVE(taskyield)
 
         void openmp_core_run_next_time(DTO& dto)
