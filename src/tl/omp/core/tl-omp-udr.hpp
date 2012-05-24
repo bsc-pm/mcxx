@@ -72,11 +72,9 @@ namespace TL
                 static UDRInfoItem& get_udr_info_item_from_symbol_holder(TL::Symbol symbol);
 
                 // Factory
-                static UDRInfoItem lookup_udr(
+                static UDRInfoItem* lookup_udr(
                         Scope sc,
-                        Nodecl::NodeclBase reductor_name_node,
-
-                        bool &found);
+                        Nodecl::NodeclBase reductor_name_node);
 
                 static std::string udr_get_symbol_name(
                         const std::string &reductor_name,

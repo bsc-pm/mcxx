@@ -705,14 +705,10 @@ namespace TL
             }
         }
 
-        UDRInfoItem UDRInfoItem::lookup_udr(
+        UDRInfoItem* UDRInfoItem::lookup_udr(
                 Scope sc,
-                Nodecl::NodeclBase reductor_name,
-
-                bool &found)
+                Nodecl::NodeclBase reductor_name)
         {
-            found = false;
-
             ERROR_CONDITION(!reductor_name.is<Nodecl::CxxDepNameSimple>(), "Invalid tree", 0);
 
             std::string udr_name = reductor_name.get_text();
@@ -725,11 +721,11 @@ namespace TL
             ObjectList<Symbol> lookup = sc.get_symbols_from_name(udr_name);
             if (!lookup.empty())
             {
-                found = true;
                 RefPtr<UDRInfoItem> obj =
                     RefPtr<UDRInfoItem>::cast_dynamic(lookup.at(0).get_attribute("udr_info"));
-                return (*obj);
+                return obj.get_pointer();
             }
+            return NULL;
         }
 
         // UDRInfoItem Getters, setters and consults
