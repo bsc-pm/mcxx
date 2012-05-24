@@ -5424,6 +5424,8 @@ scope_entry_t* finish_anonymous_class(scope_entry_t* class_symbol, decl_context_
 
         accessing_name = uniquestr(c);
     }
+    accessing_name = strappend("var_", accessing_name);
+
     scope_entry_t* accessor_symbol = new_symbol(class_symbol->decl_context, 
             class_symbol->decl_context.current_scope, 
             accessing_name);
@@ -5431,7 +5433,6 @@ scope_entry_t* finish_anonymous_class(scope_entry_t* class_symbol, decl_context_
     accessor_symbol->kind = SK_VARIABLE;
     accessor_symbol->file = class_symbol->file;
     accessor_symbol->line = class_symbol->line;
-    accessor_symbol->type_information = get_user_defined_type(class_symbol);
 
     class_symbol->entity_specs.anonymous_accessor = 
         nodecl_make_symbol(accessor_symbol, class_symbol->file, class_symbol->line);
@@ -11113,6 +11114,9 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
 
     type_t* member_type = NULL;
 
+    // This one is not converted to dependent typename type
+    type_t* original_member_type = NULL;
+
     AST decl_spec_seq = ASTSon0(a);
     AST member_init_declarator_list = ASTSon1(a);
 
@@ -11128,6 +11132,8 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
 
         build_scope_decl_specifier_seq(decl_spec_seq, &gather_info,
                 &member_type, new_decl_context, nodecl_output);
+
+        original_member_type = member_type;
 
         type_specifier = ASTSon1(decl_spec_seq);
 
@@ -11539,11 +11545,11 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
     }
     else
     {
-        if (is_named_type(member_type)
-                && is_class_type(member_type)
-                && named_type_get_symbol(member_type)->entity_specs.is_anonymous_union)
+        if (is_named_type(original_member_type)
+                && is_class_type(original_member_type)
+                && named_type_get_symbol(original_member_type)->entity_specs.is_anonymous_union)
         {
-            scope_entry_t* named_type = named_type_get_symbol(member_type);
+            scope_entry_t* named_type = named_type_get_symbol(original_member_type);
 
             // Anonymous unions are members even in C
             C_LANGUAGE()
@@ -11555,12 +11561,17 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
             }
 
             scope_entry_t* new_member = finish_anonymous_class(named_type, decl_context);
+            new_member->type_information = member_type;
 
             // Add this member to the current class
             new_member->entity_specs.is_member = 1;
             new_member->entity_specs.access = current_access;
             new_member->entity_specs.class_type = class_info;
-            class_type_add_member(class_type, new_member);
+
+            if (!is_dependent_type(class_type))
+            {
+                class_type_add_member(class_type, new_member);
+            }
         }
     }
 }

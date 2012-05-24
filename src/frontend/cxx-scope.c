@@ -1176,30 +1176,40 @@ static void build_dependent_parts_for_symbol_rec(
 
         build_dependent_parts_for_symbol_rec(named_type_get_symbol(enclosing), filename, line, dependent_entry, &nodecl_prev);
 
-        template_parameter_list_t* template_arguments = NULL;
-        if (is_template_specialized_type(entry->type_information))
+        if (!entry->entity_specs.is_anonymous_union)
         {
-            template_arguments = template_specialized_type_get_template_arguments(entry->type_information);
-        }
+            template_parameter_list_t* template_arguments = NULL;
+            if (is_template_specialized_type(entry->type_information))
+            {
+                template_arguments = template_specialized_type_get_template_arguments(entry->type_information);
+            }
 
-        nodecl_t nodecl_current = nodecl_make_cxx_dep_name_simple(entry->symbol_name, filename, line);
-        if (template_arguments != NULL)
-        {
-            // If our enclosing is dependent, we need a 'template '
-            nodecl_current = nodecl_make_cxx_dep_template_id(nodecl_current, "template ", template_arguments, filename, line);
-        }
+            nodecl_t nodecl_current = nodecl_make_cxx_dep_name_simple(entry->symbol_name, filename, line);
+            if (template_arguments != NULL)
+            {
+                // If our enclosing is dependent, we need a 'template '
+                nodecl_current = nodecl_make_cxx_dep_template_id(nodecl_current, "template ", template_arguments, filename, line);
+            }
 
-        if (nodecl_is_null(nodecl_prev))
-        {
-            *nodecl_output = nodecl_make_list_1(nodecl_current);
+            if (nodecl_is_null(nodecl_prev))
+            {
+                *nodecl_output = nodecl_make_list_1(nodecl_current);
+            }
+            else
+            {
+                *nodecl_output = nodecl_concat_lists(nodecl_prev, nodecl_make_list_1(nodecl_current));
+            }
         }
         else
         {
-            *nodecl_output = nodecl_concat_lists(nodecl_prev, nodecl_make_list_1(nodecl_current));
+            *nodecl_output = nodecl_prev;
         }
     }
     else
     {
+        ERROR_CONDITION(entry->entity_specs.is_anonymous_union, 
+                "Unexpected case of anonymous union dependent that is not enclosed in any class", 0);
+
         *dependent_entry = entry;
         *nodecl_output = nodecl_null();
     }

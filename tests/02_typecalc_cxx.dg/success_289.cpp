@@ -31,26 +31,20 @@
 test_generator=config/mercurium
 </testinfo>
 */
-template <typename _T>
-struct A
-{
-    union 
-    {
-        int *p;
-        int k;
-        union 
-        {
-            int f;
-        };
-    };
 
-    A()
-        : p(0) { }
+template < typename T>
+class SmallStringOpt
+{
+    
+private:
+    union
+    {
+        mutable T buf;
+    };
+    
+    void foo()
+    {
+        buf;
+    }
 };
 
-void f(void)
-{
-    A<float> a;
-    a.p;
-    a.f;
-}
