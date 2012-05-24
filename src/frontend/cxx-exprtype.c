@@ -5523,7 +5523,6 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
         nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
         nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
         return;
-        return ;
     }
 
 
