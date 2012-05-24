@@ -201,7 +201,8 @@ namespace TL { namespace Nanox {
                     {
                         // This is a mixture of private and shared
                         // A private is emitted for the partial reduction
-                        // Such partial reduction must be initialized with the entity
+                        // Such partial reduction must be initialized with the
+                        // identity
 
                         // Parameter
                         TL::Type param_type = (*it)->get_field_type();

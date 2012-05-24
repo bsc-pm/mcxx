@@ -68,6 +68,9 @@ namespace TL
 
                 Nodecl::List make_execution_environment(OpenMP::DataSharingEnvironment&, PragmaCustomLine);
 
+                Nodecl::List make_execution_environment_for_combined_worksharings(OpenMP::DataSharingEnvironment &data_sharing_env, 
+                        PragmaCustomLine pragma_line);
+
                 // void loop_handler_pre(TL::PragmaCustomStatement);
                 Nodecl::NodeclBase loop_handler_post(TL::PragmaCustomStatement directive, 
                         Nodecl::NodeclBase statement,

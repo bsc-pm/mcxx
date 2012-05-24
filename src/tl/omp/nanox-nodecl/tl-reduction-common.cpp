@@ -61,6 +61,7 @@ namespace TL { namespace Nanox {
 
                 reduction_declaration
                     << "nanos_reduction_t* " << nanos_red_name << ";"
+                    << "static " << as_type( (*it)->get_field_type() ) << " rdp_" << (*it)->get_field_name() << ";"
                     ;
 
                 register_code
@@ -69,20 +70,21 @@ namespace TL { namespace Nanox {
                     << "if (err != NANOS_OK)"
                     <<     "nanos_handle_error(err);"
                     << nanos_red_name << "->original = (void*)&" << (*it)->get_symbol().get_name() << ";"
-                   << "err = nanos_malloc(&" << nanos_red_name << "->privates, sizeof(" << as_type(reduction_type) << ") * " << max_threads <<", "
+                    << "err = nanos_malloc(&" << nanos_red_name << "->privates, sizeof(" << as_type(reduction_type) << ") * " << max_threads <<", "
                     << "\"" << construct.get_filename() << "\", " << construct.get_line() << ");"
                     << "if (err != NANOS_OK)"
                     <<     "nanos_handle_error(err);"
                     << nanos_red_name << "->bop = " << udr_info->get_basic_reductor_function().get_name() << ";"
                     << nanos_red_name << "->cleanup = " << udr_info->get_cleanup_function().get_name() << ";"
                     << "nanos_register_reduction(" << nanos_red_name << ");"
+                    << "rdp_" << (*it)->get_field_name() << " = (" <<  as_type( (*it)->get_field_type() ) << ")" << nanos_red_name << "->privates;"
                     ;
 
                 fill_outline_arguments
-                    << "ol_args->" << (*it)->get_field_name() << " = " << nanos_red_name << "->privates;"
+                    << "ol_args->" << (*it)->get_field_name() << " = (" <<  as_type( (*it)->get_field_type() ) << ")" << nanos_red_name << "->privates;"
                     ;
                 fill_immediate_arguments
-                    << "imm_args." << (*it)->get_field_name() << " = " << nanos_red_name << "->privates;"
+                    << "imm_args." << (*it)->get_field_name() << " = (" <<  as_type( (*it)->get_field_type() ) << ")" << nanos_red_name << "->privates;"
                     ;
             }
         }

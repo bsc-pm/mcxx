@@ -891,7 +891,7 @@ namespace TL { namespace OpenMP {
     {
         OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
-        Nodecl::List execution_environment = this->make_execution_environment(ds, pragma_line);
+        Nodecl::List execution_environment = this->make_execution_environment_for_combined_worksharings(ds, pragma_line);
 
         Nodecl::NodeclBase statement = directive.get_statements();
         ERROR_CONDITION(!statement.is<Nodecl::List>(), "Invalid tree", 0);
@@ -995,6 +995,39 @@ namespace TL { namespace OpenMP {
 
             result_list.append(T::make(Nodecl::List::make(nodecl_symbols), filename, line));
         }
+    }
+
+    Nodecl::List Base::make_execution_environment_for_combined_worksharings(OpenMP::DataSharingEnvironment &data_sharing_env, PragmaCustomLine pragma_line)
+    {
+        // Everything is set as shared except for what was defined as private
+        TL::ObjectList<Nodecl::NodeclBase> result_list;
+
+        make_data_sharing_list<Nodecl::OpenMP::Shared>(
+                data_sharing_env, OpenMP::DS_SHARED,
+                pragma_line.get_filename(), pragma_line.get_line(),
+                result_list);
+        make_data_sharing_list<Nodecl::OpenMP::Private>(
+                data_sharing_env, OpenMP::DS_PRIVATE,
+                pragma_line.get_filename(), pragma_line.get_line(),
+                result_list);
+        make_data_sharing_list<Nodecl::OpenMP::Shared>(
+                data_sharing_env, OpenMP::DS_FIRSTPRIVATE,
+                pragma_line.get_filename(), pragma_line.get_line(),
+                result_list);
+
+        TL::ObjectList<ReductionSymbol> reductions;
+        data_sharing_env.get_all_reduction_symbols(reductions);
+        TL::ObjectList<Symbol> reduction_symbols = reductions.map(functor(&ReductionSymbol::get_symbol));
+        if (!reduction_symbols.empty())
+        {
+            TL::ObjectList<Nodecl::NodeclBase> nodecl_symbols = 
+                reduction_symbols.map(SymbolBuilder(pragma_line.get_filename(), pragma_line.get_line()));
+
+            result_list.append(Nodecl::OpenMP::Shared::make(Nodecl::List::make(nodecl_symbols), 
+                        pragma_line.get_filename(), pragma_line.get_line()));
+        }
+
+        return Nodecl::List::make(result_list);
     }
 
     Nodecl::List Base::make_execution_environment(OpenMP::DataSharingEnvironment &data_sharing_env, PragmaCustomLine pragma_line)
