@@ -1737,12 +1737,18 @@ static type_t* promote_integral_type(type_t* t)
     }
 }
 
+static char operand_is_integral_or_enum_type(type_t* t)
+{
+    return (is_enum_type(t)
+            || is_integral_type(t));
+}
+
 static 
 char both_operands_are_integral(type_t* lhs_type, type_t* rhs_type)
 {
-    return (is_integral_type(lhs_type) || is_enum_type(lhs_type))
-        && (is_integral_type(rhs_type) || is_enum_type(rhs_type));
-};
+    return (operand_is_integral_or_enum_type(rhs_type)
+            && operand_is_integral_or_enum_type(lhs_type));
+}
 
 static 
 char both_operands_are_integral_noref(type_t* lhs_type, type_t* rhs_type)
@@ -4725,7 +4731,7 @@ static void compute_operator_plus_type(nodecl_t* op,
             nodecl_make_plus,
             const_value_plus, 
             compute_type_no_overload_plus,
-            is_integral_type,
+            operand_is_integral_or_enum_type,
             operator_unary_plus_pred,
             operator_unary_plus_result,
             /* save_conversions */ 1,
@@ -4800,7 +4806,7 @@ static void compute_operator_minus_type(nodecl_t* op, decl_context_t decl_contex
             nodecl_make_neg,
             const_value_neg, 
             compute_type_no_overload_neg,
-            is_integral_type,
+            operand_is_integral_or_enum_type,
             operator_unary_minus_pred,
             operator_unary_minus_result,
             /* save_conversions */ 1,
@@ -4854,7 +4860,7 @@ static void compute_operator_complement_type(nodecl_t* op,
             nodecl_make_bitwise_not,
             const_value_bitnot, 
             compute_type_no_overload_complement,
-            is_integral_type,
+            operand_is_integral_or_enum_type,
             operator_unary_complement_pred,
             operator_unary_complement_result,
             /* save_conversions */ 1,
@@ -4929,7 +4935,7 @@ static void compute_operator_not_type(nodecl_t* op,
             nodecl_make_logical_not,
             const_value_not, 
             compute_type_no_overload_logical_not,
-            is_integral_type,
+            operand_is_integral_or_enum_type,
             operator_unary_not_pred,
             operator_unary_not_result,
             /* save_conversions */ 1,
