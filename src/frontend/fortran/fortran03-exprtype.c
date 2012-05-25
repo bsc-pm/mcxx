@@ -2087,10 +2087,11 @@ struct actual_argument_info_tag
     nodecl_t argument;
 } actual_argument_info_t;
 
-static scope_entry_t* get_specific_interface(scope_entry_t* symbol, 
+static scope_entry_list_t* get_specific_interface_aux(scope_entry_t* symbol, 
         int num_arguments, 
         const char **keyword_names,
-        nodecl_t* nodecl_actual_arguments)
+        nodecl_t* nodecl_actual_arguments,
+        char ignore_elementals)
 {
     DEBUG_CODE()
     {
@@ -2107,11 +2108,15 @@ static scope_entry_t* get_specific_interface(scope_entry_t* symbol,
         }
     }
 
-    scope_entry_t* result = NULL;
+    scope_entry_list_t* result = NULL;
     int k;
     for (k = 0; k < symbol->entity_specs.num_related_symbols; k++)
     {
         scope_entry_t* specific_symbol = symbol->entity_specs.related_symbols[k];
+
+        if (specific_symbol->entity_specs.is_elemental
+                && ignore_elementals)
+            continue;
 
         char ok = 1;
 
@@ -2256,19 +2261,7 @@ static scope_entry_t* get_specific_interface(scope_entry_t* symbol,
             {
                 fprintf(stderr, "EXPRTYPE: Current specifier DOES match\n");
             }
-            if (result == NULL)
-            {
-                result = specific_symbol;
-            }
-            else
-            {
-                // More than one match, ambiguity detected
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "EXPRTYPE: More than one generic specifier matched!\n");
-                }
-                return NULL;
-            }
+            result = entry_list_add(result, specific_symbol);
         }
         else
         {
@@ -2279,18 +2272,23 @@ static scope_entry_t* get_specific_interface(scope_entry_t* symbol,
         }
     }
 
-    DEBUG_CODE()
-    {
-        if (result != NULL)
-        {
-            fprintf(stderr, "EXPRTYPE: Specifier '%s' at '%s:%d' matches\n", 
-                    result->symbol_name,
-                    result->file,
-                    result->line);
-        }
-    }
-
     return result;
+}
+
+static scope_entry_list_t* get_specific_interface(scope_entry_t* symbol,
+        int num_arguments,
+        const char **keyword_names,
+        nodecl_t* nodecl_actual_arguments)
+{
+    scope_entry_list_t* exact_match_nonelemental
+        = get_specific_interface_aux(symbol, num_arguments, keyword_names, nodecl_actual_arguments,
+            /* ignore_elementals */ 1);
+
+    if (exact_match_nonelemental != NULL)
+        return exact_match_nonelemental;
+
+    return get_specific_interface_aux(symbol, num_arguments, keyword_names, nodecl_actual_arguments,
+            /* ignore_elementals */ 0);
 }
 
 static char inside_context_of_symbol(decl_context_t decl_context, scope_entry_t* entry)
@@ -2327,6 +2325,7 @@ static void check_called_symbol_list(
     if (entry_list_size(symbol_list) > 1
             || entry_list_head(symbol_list)->entity_specs.is_generic_spec)
     {
+        scope_entry_list_t* specific_symbol_set = NULL;
         scope_entry_list_iterator_t* it = NULL;
         for (it = entry_list_iterator_begin(symbol_list);
                 !entry_list_iterator_end(it);
@@ -2334,37 +2333,27 @@ static void check_called_symbol_list(
         {
             scope_entry_t* current_generic_spec = entry_list_iterator_current(it);
 
-            scope_entry_t* specific_symbol = get_specific_interface(current_generic_spec, 
-                    num_actual_arguments, 
+            scope_entry_list_t* current_specific_symbol_set = get_specific_interface(current_generic_spec,
+                    num_actual_arguments,
                     actual_arguments_keywords,
                     nodecl_actual_arguments);
 
-            if (specific_symbol != NULL)
+            if (current_specific_symbol_set != NULL)
             {
-                if (symbol != NULL)
-                {
-                    error_printf("%s: error: more than one specific interface matches generic interface '%s' in function reference\n",
-                            ast_location(location),
-                            fortran_prettyprint_in_buffer(procedure_designator));
-                    info_printf("%s:%d: info: specific interface '%s' matches\n",
-                            symbol->file,
-                            symbol->line,
-                            symbol->symbol_name);
-                    info_printf("%s:%d: info: specific interface '%s' matches\n",
-                            specific_symbol->file,
-                            specific_symbol->line,
-                            specific_symbol->symbol_name);
-                }
+                // This may be overwritten when more than one generic specifier
+                // can match, which is wrong
                 *generic_specifier_symbol = current_generic_spec;
-                symbol = specific_symbol;
             }
+
+            specific_symbol_set = entry_list_merge(current_specific_symbol_set,
+                    specific_symbol_set);
         }
 
         entry_list_iterator_free(it);
 
-        if (symbol == NULL)
+        if (specific_symbol_set == NULL)
         {
-            if ( !checking_ambiguity())
+            if (!checking_ambiguity())
             {
                 error_printf("%s: error: no specific interface matches generic interface '%s' in function reference\n",
                         ast_location(location),
@@ -2373,7 +2362,35 @@ static void check_called_symbol_list(
             *result_type = get_error_type();
             return;
         }
+        else if (entry_list_size(specific_symbol_set) > 1)
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: more than one specific interface matches generic interface '%s' in function reference\n",
+                        ast_location(location),
+                        fortran_prettyprint_in_buffer(procedure_designator));
+                for (it = entry_list_iterator_begin(specific_symbol_set);
+                        !entry_list_iterator_end(it);
+                        entry_list_iterator_next(it))
+                {
+                    scope_entry_t* current_generic_spec = entry_list_iterator_current(it);
+                    info_printf("%s:%d: info: specific interface '%s' matches\n",
+                            current_generic_spec->file,
+                            current_generic_spec->line,
+                            current_generic_spec->symbol_name);
+                }
+                entry_list_iterator_free(it);
+            }
 
+            *result_type = get_error_type();
+            entry_list_free(specific_symbol_set);
+            return;
+        }
+        else
+        {
+            symbol = entry_list_head(specific_symbol_set);
+            entry_list_free(specific_symbol_set);
+        }
     }
     else if (entry_list_size(symbol_list) == 1)
     {
