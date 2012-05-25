@@ -116,18 +116,15 @@ namespace TL { namespace Nanox {
                 it++)
         {
             TL::Symbol sym = (*it)->get_symbol();
-            TL::Type type(NULL);
 
             std::string name;
             if (sym.is_valid())
             {
                 name = sym.get_name();
-                type = sym.get_type();
             }
             else
             {
                 name = (*it)->get_field_name();
-                type = (*it)->get_in_outline_type();
             }
 
             switch ((*it)->get_sharing())
@@ -229,6 +226,8 @@ namespace TL { namespace Nanox {
                         {
                             symbol_map->add_map(sym, private_sym);
                         }
+                        
+#warning FIXME - initialize with the identity
 
                         break;
                     }
