@@ -41,7 +41,6 @@ enum token_id
     b = !TokenTypeMask,
     c = -TokenTypeMask,
     d = +TokenTypeMask,
-    e = a << b,
     e = a & b,
     f = a && b,
     g = a | b,
@@ -50,4 +49,5 @@ enum token_id
     j = a - b,
     k = a * b,
     l = a / (!b),
+    m = a << b,
 };
