@@ -457,6 +457,11 @@ namespace TL
         return (_symbol->entity_specs.is_explicit);
     }
 
+    bool Symbol::is_friend() const
+    {
+        return (_symbol->entity_specs.is_friend);
+    }
+
     bool Symbol::is_friend_declared() const
     {
         return (_symbol->entity_specs.is_friend_declared);
@@ -759,5 +764,11 @@ namespace TL
     Nodecl::NodeclBase Symbol::get_default_argument_num(int i) const
     {
         return _symbol->entity_specs.default_argument_info[i]->argument;
+    }
+
+
+    Nodecl::NodeclBase Symbol::get_function_code() const
+    {
+        return _symbol->entity_specs.function_code;
     }
 }
