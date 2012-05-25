@@ -154,8 +154,7 @@ namespace TL { namespace Nanox {
             }
         }
 
-        if (!reduction_items.empty()
-                || !distribute_environment.find_first<Nodecl::OpenMP::BarrierAtEnd>().is_null())
+        if (!distribute_environment.find_first<Nodecl::OpenMP::BarrierAtEnd>().is_null())
         {
             barrier_code
                 << full_barrier_source();
@@ -174,12 +173,7 @@ namespace TL { namespace Nanox {
            // Loop (in the outline distributed code)
            Nodecl::NodeclBase& outline_placeholder1,
            // Auxiliar loop (when the step is not known at compile time, in the outline distributed code)
-           Nodecl::NodeclBase& outline_placeholder2,
-           Source &inline_distribute_loop_source,
-           // Loop (in the inline distributed code)
-           Nodecl::NodeclBase& inline_placeholder1,
-           // Auxiliar loop (when the step is not known at compile time, in the inline distributed code)
-           Nodecl::NodeclBase& inline_placeholder2
+           Nodecl::NodeclBase& outline_placeholder2
            )
     {
         Symbol function_symbol = Nodecl::Utils::get_enclosing_function(construct);
@@ -231,18 +225,7 @@ namespace TL { namespace Nanox {
 
         delete symbol_map; symbol_map = NULL;
 
-        loop_spawn(outline_info, construct, distribute_environment, ranges, outline_name, structure_symbol,
-                inline_distribute_loop_source);
-
-        // Note that inline ones should not need symbol map
-        inline_placeholder1.integrate(Nodecl::Utils::deep_copy(statements, inline_placeholder1));
-
-        if (!inline_placeholder2.is_null())
-        {
-            inline_placeholder2.integrate(
-                    Nodecl::Utils::deep_copy(statements, inline_placeholder2)
-                    );
-        }
+        loop_spawn(outline_info, construct, distribute_environment, ranges, outline_name, structure_symbol);
     }
 
     void LoweringVisitor::visit(const Nodecl::OpenMP::For& construct)
@@ -270,24 +253,13 @@ namespace TL { namespace Nanox {
                 outline_placeholder1,
                 outline_placeholder2);
 
-        Nodecl::NodeclBase inline_placeholder1, inline_placeholder2;
-        Source inline_distribute_loop_source = get_loop_distribution_source(construct,
-                distribute_environment,
-                ranges,
-                outline_info,
-                inline_placeholder1,
-                inline_placeholder2);
-
         distribute_loop_with_outline(construct,
                 distribute_environment, ranges,
                 outline_info,
                 statements,
                 outline_distribute_loop_source,
                 outline_placeholder1,
-                outline_placeholder2,
-                inline_distribute_loop_source,
-                inline_placeholder1,
-                inline_placeholder2);
+                outline_placeholder2);
     }
 
 } }

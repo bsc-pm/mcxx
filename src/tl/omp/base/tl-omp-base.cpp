@@ -999,14 +999,14 @@ namespace TL { namespace OpenMP {
 
     Nodecl::List Base::make_execution_environment_for_combined_worksharings(OpenMP::DataSharingEnvironment &data_sharing_env, PragmaCustomLine pragma_line)
     {
-        // Everything is set as shared except for what was defined as private
+        // Everything is set as shared in the outer parallel
         TL::ObjectList<Nodecl::NodeclBase> result_list;
 
         make_data_sharing_list<Nodecl::OpenMP::Shared>(
                 data_sharing_env, OpenMP::DS_SHARED,
                 pragma_line.get_filename(), pragma_line.get_line(),
                 result_list);
-        make_data_sharing_list<Nodecl::OpenMP::Private>(
+        make_data_sharing_list<Nodecl::OpenMP::Shared>(
                 data_sharing_env, OpenMP::DS_PRIVATE,
                 pragma_line.get_filename(), pragma_line.get_line(),
                 result_list);
