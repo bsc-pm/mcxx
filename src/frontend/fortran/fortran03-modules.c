@@ -116,6 +116,41 @@ static const_value_t* load_const_value(sqlite3* handle, sqlite3_uint64 oid);
     "prototype_scope, " \
     "current_scope"
 
+typedef
+enum type_kind_table_tag
+{
+    TKT_INVALID = 0,
+    TKT_INTEGER,
+    TKT_CHARACTER,
+    TKT_LOGICAL,
+    TKT_REAL,
+    TKT_COMPLEX,
+    TKT_POINTER,
+    TKT_REFERENCE,
+    TKT_FUNCTION,
+    TKT_ARRAY,
+    TKT_CLASS,
+    TKT_VOID,
+    TKT_INDIRECT,
+    TKT_NAMED,
+} type_kind_table_t;
+
+typedef
+enum const_kind_table_tag
+{
+    CKT_INVALID = 0,
+    CKT_INTEGER,
+    CKT_FLOAT,
+    CKT_DOUBLE,
+    CKT_LONG_DOUBLE,
+    CKT_COMPLEX,
+    CKT_STRUCT,
+    CKT_STRING,
+    CKT_ARRAY,
+    CKT_VECTOR,
+    CKT_RANGE,
+} const_kind_table_t;
+
 struct module_info_tag
 {
     const char* module_name;
@@ -438,6 +473,11 @@ static void define_schema(sqlite3* handle)
     }
 
     {
+        const char * create_string_table = "CREATE TABLE string_table(string, UNIQUE(string));";
+        run_query(handle, create_string_table);
+    }
+
+    {
         char * create_symbol = sqlite3_mprintf("CREATE TABLE symbol(decl_context, name, kind, type, file, line, "
                 "value, bit_entity_specs, %s);", attr_field_names);
         run_query(handle, create_symbol);
@@ -481,7 +521,7 @@ static void define_schema(sqlite3* handle)
         const char* create_const_value = "CREATE TABLE const_value(kind, sign, bytes, literal_value, compound_values);";
         run_query(handle, create_const_value);
     }
-    
+
     {
         const char* create_module_extra_name = "CREATE TABLE module_extra_name(name, PRIMARY KEY(name));";
         run_query(handle, create_module_extra_name);
@@ -509,6 +549,8 @@ static void define_schema(sqlite3* handle)
     PREPARED_STATEMENT(_insert_type_ref_to_ast_stmt) \
     PREPARED_STATEMENT(_insert_ast_stmt) \
     PREPARED_STATEMENT(_insert_extra_attr_stmt) \
+    PREPARED_STATEMENT(_insert_string_stmt) \
+    PREPARED_STATEMENT(_select_string_stmt) \
     PREPARED_STATEMENT(_get_extended_attr_stmt) \
 
 // End of list of prepared statements
@@ -550,7 +592,15 @@ static void prepare_statements(sqlite3* handle)
 
     DO_PREPARE_STATEMENT(_check_repeat_oid_ptr, "SELECT oid, ptr FROM oid_ptr_map WHERE oid = $OID AND ptr = $PTR;");
     DO_PREPARE_STATEMENT(_insert_oid_ptr, "INSERT INTO oid_ptr_map(oid, ptr) VALUES ($OID, $PTR);");
-    DO_PREPARE_STATEMENT(_load_symbol_stmt, "SELECT oid, * FROM symbol WHERE oid = $OID;");
+    
+    // DO_PREPARE_STATEMENT(_load_symbol_stmt, "SELECT oid, * FROM symbol WHERE oid = $OID;");
+    char* load_symbol_stmt_str = sqlite3_mprintf(
+            "SELECT s.oid, decl_context, str1.string AS name, kind, type, str2.string AS file, line, value, bit_entity_specs, %s "
+            "FROM symbol s, string_table str1, string_table str2 WHERE s.oid = $OID AND str1.oid = s.name AND str2.oid = s.file;", 
+            attr_field_names);
+    DO_PREPARE_STATEMENT(_load_symbol_stmt, load_symbol_stmt_str);
+    sqlite3_free(load_symbol_stmt_str);
+
     DO_PREPARE_STATEMENT(_get_ptr_of_oid_stmt, "SELECT ptr FROM oid_ptr_map WHERE oid = $OID;");
 
     // Already inserted statements
@@ -559,6 +609,10 @@ static void prepare_statements(sqlite3* handle)
     DO_PREPARE_STATEMENT(_oid_already_inserted_scope,       "SELECT oid FROM scope WHERE oid = $OID;");
     DO_PREPARE_STATEMENT(_oid_already_inserted_symbol,      "SELECT oid FROM symbol WHERE oid = $OID;");
     DO_PREPARE_STATEMENT(_oid_already_inserted_const_value, "SELECT oid FROM const_value WHERE oid = $OID;");
+
+    // String table
+    DO_PREPARE_STATEMENT(_insert_string_stmt, "INSERT INTO string_table VALUES($NAME);");
+    DO_PREPARE_STATEMENT(_select_string_stmt, "SELECT oid FROM string_table WHERE string = $NAME;");
 
     // Insert type
     DO_PREPARE_STATEMENT(_insert_type_simple_stmt, 
@@ -779,72 +833,83 @@ DEF_OID_ALREADY_INSERTED(symbol);
 static char oid_already_inserted_const_value(sqlite3* handle, void *ptr);
 DEF_OID_ALREADY_INSERTED(const_value);
 
-static const char* _cv_qualifier_map[8] = 
+static sqlite3_uint64 insert_string_in_string_table(sqlite3* handle, 
+        const char* str)
 {
-    // cvr
-    [0] = "",
-    [1] = "const",
-    [2] = "volatile", 
-    [3] = "const volatile",
-    [4] = "restrict",
-    [5] = "restrict const",
-    [6] = "restrict volatile",
-    [7] = "restrict const volatile",
-};
+    sqlite3_bind_text (_insert_string_stmt, 1, str, -1, SQLITE_STATIC);
 
-static const char* get_qualifier_name_of_type(type_t* t)
-{
-    int k = (is_const_qualified_type(t) | (is_volatile_qualified_type(t) << 1) | (is_restrict_qualified_type(t) << 2)) % 8;
-
-    return _cv_qualifier_map[k];
-}
-
-static type_t* get_qualified_type_with_cv_qualifier_name(type_t* t, const char* name)
-{
-    if (name == NULL
-            || strcmp(name, "") == 0)
-        return t;
-
-    int i;
-    for (i = 0; i < 8; i++)
+    int result_query = sqlite3_step(_insert_string_stmt);
+    if (result_query != SQLITE_DONE)
     {
-        if (strcmp(name, _cv_qualifier_map[i]) == 0)
-        {
-            char is_restrict = !!(i & (1<<2));
-            char is_volatile = !!(i & (1<<1));
-            char is_const = !!(i & (1<<0));
-
-            if (is_const)
-            {
-                t = get_const_qualified_type(t);
-            }
-            if (is_volatile)
-            {
-                t = get_volatile_qualified_type(t);
-            }
-            if (is_restrict)
-            {
-                t = get_restrict_qualified_type(t);
-            }
-        }
+        internal_error("Unexpected error %d when running query '%s'", 
+                result_query,
+                sqlite3_errmsg(handle));
     }
 
-    return t;
+    sqlite3_reset(_insert_string_stmt);
+
+    sqlite3_uint64 result = sqlite3_last_insert_rowid(handle);
+    return result;
+}
+
+static sqlite3_uint64 get_oid_from_string_table(sqlite3* handle,
+        const char* str)
+{
+    // Simplify null strings to empty ones
+    if (str == NULL)
+        str = "";
+
+
+    sqlite3_bind_text(_select_string_stmt, 1, str, -1, SQLITE_STATIC);
+    int result_query = sqlite3_step(_select_string_stmt);
+
+    sqlite3_uint64 result_oid = 0;
+
+    switch (result_query)
+    {
+        case SQLITE_ROW:
+            {
+                // OK
+                result_oid = sqlite3_column_int64(_select_string_stmt, 0);
+                break;
+            }
+        case SQLITE_DONE:
+            {
+                // Continue
+                break;
+            }
+        default:
+            {
+                internal_error("Unexpected error %d when running query '%s'", 
+                        result_query,
+                        sqlite3_errmsg(handle));
+            }
+    }
+
+    sqlite3_reset(_select_string_stmt);
+
+    if (result_oid == 0)
+    {
+        result_oid = insert_string_in_string_table(handle, str);
+    }
+    ERROR_CONDITION(result_oid == 0, "Invalid result oid", 0);
+
+    return result_oid;
 }
 
 static sqlite3_uint64 insert_type_simple(sqlite3* handle, type_t* t, 
-        const char* type_kind_name, 
+        type_kind_table_t type_kind_name, 
         sqlite3_uint64 kind_size)
 {
     ERROR_CONDITION(t == NULL, "Invalid type", 0);
     if (oid_already_inserted_type(handle, t))
         return (sqlite3_uint64)(uintptr_t)t;
 
-    const char* qualifier_name = get_qualifier_name_of_type(t);
+    cv_qualifier_t cv_qualif = get_cv_qualifier(t);
 
     sqlite3_bind_int64(_insert_type_simple_stmt, 1, P2ULL(t));
-    sqlite3_bind_text (_insert_type_simple_stmt, 2, type_kind_name, -1, SQLITE_STATIC);
-    sqlite3_bind_text (_insert_type_simple_stmt, 3, qualifier_name, -1, SQLITE_STATIC);
+    sqlite3_bind_int64(_insert_type_simple_stmt, 2, type_kind_name);
+    sqlite3_bind_int64(_insert_type_simple_stmt, 3, cv_qualif);
     sqlite3_bind_int64(_insert_type_simple_stmt, 4, kind_size);
 
     int result_query = sqlite3_step(_insert_type_simple_stmt);
@@ -861,17 +926,17 @@ static sqlite3_uint64 insert_type_simple(sqlite3* handle, type_t* t,
     return result;
 }
 
-static sqlite3_uint64 insert_type_ref_to(sqlite3* handle, type_t* t, const char* name, sqlite3_int64 ref_type)
+static sqlite3_uint64 insert_type_ref_to(sqlite3* handle, type_t* t, type_kind_table_t name, sqlite3_int64 ref_type)
 {
     ERROR_CONDITION(t == NULL, "Invalid type", 0);
     if (oid_already_inserted_type(handle, t))
         return (sqlite3_uint64)(uintptr_t)t;
 
-    const char* qualifier_name = get_qualifier_name_of_type(t);
+    cv_qualifier_t cv_qualif = get_cv_qualifier(t);
     
     sqlite3_bind_int64(_insert_type_ref_to_stmt, 1, P2ULL(t));
-    sqlite3_bind_text (_insert_type_ref_to_stmt, 2, name, -1, SQLITE_STATIC);
-    sqlite3_bind_text (_insert_type_ref_to_stmt, 3, qualifier_name, -1, SQLITE_STATIC);
+    sqlite3_bind_int64(_insert_type_ref_to_stmt, 2, name);
+    sqlite3_bind_int64(_insert_type_ref_to_stmt, 3, cv_qualif);
     sqlite3_bind_int64(_insert_type_ref_to_stmt, 4, ref_type);
 
     int result_query = sqlite3_step(_insert_type_ref_to_stmt);
@@ -890,7 +955,7 @@ static sqlite3_uint64 insert_type_ref_to(sqlite3* handle, type_t* t, const char*
 
 static sqlite3_uint64 insert_type_ref_to_list_types(sqlite3* handle, 
         type_t* t,
-        const char *name, 
+        type_kind_table_t name, 
         sqlite3_uint64 ref_type, 
         sqlite3_uint64 num_parameters, 
         sqlite3_uint64 *parameter_types)
@@ -899,7 +964,7 @@ static sqlite3_uint64 insert_type_ref_to_list_types(sqlite3* handle,
     if (oid_already_inserted_type(handle, t))
         return (sqlite3_uint64)(uintptr_t)t;
 
-    const char* qualifier_name = get_qualifier_name_of_type(t);
+    cv_qualifier_t cv_qualif = get_cv_qualifier(t);
     
     char *list = sqlite3_mprintf("%s", "");
     unsigned int i;
@@ -918,8 +983,8 @@ static sqlite3_uint64 insert_type_ref_to_list_types(sqlite3* handle,
     }
 
     sqlite3_bind_int64(_insert_type_ref_to_list_types_stmt, 1, P2ULL(t));
-    sqlite3_bind_text (_insert_type_ref_to_list_types_stmt, 2, name, -1, SQLITE_STATIC);
-    sqlite3_bind_text (_insert_type_ref_to_list_types_stmt, 3, qualifier_name, -1, SQLITE_STATIC);
+    sqlite3_bind_int64(_insert_type_ref_to_list_types_stmt, 2, name);
+    sqlite3_bind_int64(_insert_type_ref_to_list_types_stmt, 3, cv_qualif);
     sqlite3_bind_int64(_insert_type_ref_to_list_types_stmt, 4, ref_type);
     sqlite3_bind_text (_insert_type_ref_to_list_types_stmt, 5, list, -1, SQLITE_STATIC);
 
@@ -940,7 +1005,7 @@ static sqlite3_uint64 insert_type_ref_to_list_types(sqlite3* handle,
 
 static sqlite3_uint64 insert_type_ref_to_list_symbols(sqlite3* handle, 
         type_t* t,
-        const char *name, 
+        type_kind_table_t name,
         sqlite3_uint64 ref_type, 
         sqlite3_uint64 num_parameters, 
         sqlite3_uint64 *parameter_types)
@@ -965,11 +1030,11 @@ static sqlite3_uint64 insert_type_ref_to_list_symbols(sqlite3* handle,
         }
     }
 
-    const char* qualifier_name = get_qualifier_name_of_type(t);
+    cv_qualifier_t cv_qualifier = get_cv_qualifier(t);
     
     sqlite3_bind_int64(_insert_type_ref_to_list_symbols_stmt, 1, P2ULL(t));
-    sqlite3_bind_text (_insert_type_ref_to_list_symbols_stmt, 2, name, -1, SQLITE_STATIC);
-    sqlite3_bind_text (_insert_type_ref_to_list_symbols_stmt, 3, qualifier_name, -1, SQLITE_STATIC);
+    sqlite3_bind_int64(_insert_type_ref_to_list_symbols_stmt, 2, name);
+    sqlite3_bind_int64(_insert_type_ref_to_list_symbols_stmt, 3, cv_qualifier);
     sqlite3_bind_int64(_insert_type_ref_to_list_symbols_stmt, 4, ref_type);
     sqlite3_bind_text (_insert_type_ref_to_list_symbols_stmt, 5, list, -1, SQLITE_STATIC);
 
@@ -989,7 +1054,7 @@ static sqlite3_uint64 insert_type_ref_to_list_symbols(sqlite3* handle,
 
 static sqlite3_uint64 insert_type_ref_to_symbol(sqlite3* handle, 
         type_t* t,
-        const char* name,
+        type_kind_table_t name,
         sqlite3_uint64 ref_type,
         sqlite3_uint64 symbol)
 {
@@ -998,7 +1063,7 @@ static sqlite3_uint64 insert_type_ref_to_symbol(sqlite3* handle,
 
 static sqlite3_uint64 insert_type_ref_to_ast(sqlite3* handle, 
         type_t* t,
-        const char* name, 
+        type_kind_table_t name, 
         sqlite3_uint64 ref_type, 
         sqlite3_uint64 ast0, 
         sqlite3_uint64 ast1)
@@ -1007,11 +1072,11 @@ static sqlite3_uint64 insert_type_ref_to_ast(sqlite3* handle,
     if (oid_already_inserted_type(handle, t))
         return (sqlite3_uint64)(uintptr_t)t;
 
-    const char* qualifier_name = get_qualifier_name_of_type(t);
+    cv_qualifier_t cv_qualif = get_cv_qualifier(t);
     
     sqlite3_bind_int64(_insert_type_ref_to_ast_stmt, 1, P2ULL(t));
-    sqlite3_bind_text (_insert_type_ref_to_ast_stmt, 2, name, -1, SQLITE_STATIC);
-    sqlite3_bind_text (_insert_type_ref_to_ast_stmt, 3, qualifier_name, -1, SQLITE_STATIC);
+    sqlite3_bind_int64(_insert_type_ref_to_ast_stmt, 2, name);
+    sqlite3_bind_int64(_insert_type_ref_to_ast_stmt, 3, cv_qualif);
     sqlite3_bind_int64(_insert_type_ref_to_ast_stmt, 4, ref_type);
     sqlite3_bind_int64(_insert_type_ref_to_ast_stmt, 5, ast0);
     sqlite3_bind_int64(_insert_type_ref_to_ast_stmt, 6, ast1);
@@ -1077,23 +1142,9 @@ static sqlite3_uint64 insert_ast(sqlite3* handle, AST a)
     // 1
     sqlite3_bind_int64(_insert_ast_stmt, 1, P2ULL(a));
     sqlite3_bind_int  (_insert_ast_stmt, 2, ast_get_type(a));
-    if (ast_get_filename(a) != NULL)
-    {
-        sqlite3_bind_text (_insert_ast_stmt, 3, ast_get_filename(a), -1, SQLITE_STATIC);
-    }
-    else
-    {
-        sqlite3_bind_null(_insert_ast_stmt, 3);
-    }
+    sqlite3_bind_int64(_insert_ast_stmt, 3, get_oid_from_string_table(handle, ast_get_filename(a)));
     sqlite3_bind_int  (_insert_ast_stmt, 4, ast_get_line(a));
-    if (ast_get_text(a) != NULL)
-    {
-        sqlite3_bind_text(_insert_ast_stmt, 5, ast_get_text(a), -1, SQLITE_STATIC);
-    }
-    else
-    {
-        sqlite3_bind_null(_insert_ast_stmt, 5);
-    }
+    sqlite3_bind_int64(_insert_ast_stmt, 5, get_oid_from_string_table(handle, ast_get_text(a)));
     sqlite3_bind_int64(_insert_ast_stmt, 6, children[0]);
     sqlite3_bind_int64(_insert_ast_stmt, 7, children[1]);
     sqlite3_bind_int64(_insert_ast_stmt, 8, children[2]);
@@ -1139,39 +1190,36 @@ static sqlite3_uint64 insert_type(sqlite3* handle, type_t* t)
 
     if (is_any_int_type(t))
     {
-        result = insert_type_simple(handle, t, "INTEGER", type_get_size(t));
+        result = insert_type_simple(handle, t, TKT_INTEGER, type_get_size(t));
     }
     else if (is_character_type(t))
     {
-        result = insert_type_simple(handle, t, "CHARACTER", type_get_size(t));
+        result = insert_type_simple(handle, t, TKT_CHARACTER, type_get_size(t));
     }
     else if (is_bool_type(t))
     {
-        result = insert_type_simple(handle, t, "LOGICAL", type_get_size(t));
+        result = insert_type_simple(handle, t, TKT_LOGICAL, type_get_size(t));
     }
     else if (is_floating_type(t))
     {
-        result = insert_type_simple(handle, t, "REAL", type_get_size(t));
+        result = insert_type_simple(handle, t, TKT_REAL, type_get_size(t));
     }
     else if (is_complex_type(t))
     {
-        result = insert_type_simple(handle, t, "COMPLEX", type_get_size(complex_type_get_base_type(t)));
+        result = insert_type_simple(handle, t, TKT_COMPLEX, type_get_size(complex_type_get_base_type(t)));
     }
     else if (is_pointer_type(t))
     {
         result = insert_type(handle, pointer_type_get_pointee_type(t));
-        const char *name = "POINTER";
-        result = insert_type_ref_to(handle, t, name, result);
+        result = insert_type_ref_to(handle, t, TKT_POINTER, result);
     }
     else if (is_lvalue_reference_type(t))
     {
         result = insert_type(handle, reference_type_get_referenced_type(t));
-        const char *name = "REFERENCE";
-        result = insert_type_ref_to(handle, t, name, result);
+        result = insert_type_ref_to(handle, t, TKT_REFERENCE, result);
     }
     else if (is_function_type(t))
     {
-        const char *name = "FUNCTION";
         // +1 if the num parameters is zero
         int num_parameters = function_type_get_num_parameters(t);
         sqlite3_uint64 parameter_types[num_parameters + 1];
@@ -1188,24 +1236,20 @@ static sqlite3_uint64 insert_type(sqlite3* handle, type_t* t)
             result = insert_type(handle, function_type_get_return_type(t));
         }
 
-        result = insert_type_ref_to_list_types(handle, t, name, result, num_parameters, parameter_types);
+        result = insert_type_ref_to_list_types(handle, t, TKT_FUNCTION, result, num_parameters, parameter_types);
     }
     else if (fortran_is_character_type(t)
             || fortran_is_array_type(t))
     {
-        const char *name = "ARRAY";
-
         sqlite3_uint64 lower_tree = insert_nodecl(handle, array_type_get_array_lower_bound(t));
         sqlite3_uint64 upper_tree = insert_nodecl(handle, array_type_get_array_upper_bound(t));
 
         sqlite3_uint64 element_type = insert_type(handle, array_type_get_element_type(t));
 
-        result = insert_type_ref_to_ast(handle, t, name, element_type, lower_tree, upper_tree);
+        result = insert_type_ref_to_ast(handle, t, TKT_ARRAY, element_type, lower_tree, upper_tree);
     }
     else if (is_unnamed_class_type(t))
     {
-        const char* name = "CLASS";
-
         scope_entry_list_t* members = class_type_get_nonstatic_data_members(t);
 
         int num_fields = entry_list_size(members);
@@ -1227,11 +1271,11 @@ static sqlite3_uint64 insert_type(sqlite3* handle, type_t* t)
         entry_list_iterator_free(it);
         entry_list_free(members);
 
-        result = insert_type_ref_to_list_symbols(handle, t, name, 0, num_fields, field_list);
+        result = insert_type_ref_to_list_symbols(handle, t, TKT_CLASS, 0, num_fields, field_list);
     }
     else if (is_void_type(t))
     {
-        result = insert_type_simple(handle, t, "VOID", 0);
+        result = insert_type_simple(handle, t, TKT_VOID, 0);
     }
     else if (is_named_type(t))
     {
@@ -1239,11 +1283,11 @@ static sqlite3_uint64 insert_type(sqlite3* handle, type_t* t)
 
         if (is_indirect_type(t))
         {
-            result = insert_type_ref_to_symbol(handle, t, "INDIRECT", 0, sym_oid);
+            result = insert_type_ref_to_symbol(handle, t, TKT_INDIRECT, 0, sym_oid);
         }
         else
         {
-            result = insert_type_ref_to_symbol(handle, t, "NAMED", 0, sym_oid);
+            result = insert_type_ref_to_symbol(handle, t, TKT_NAMED, 0, sym_oid);
         }
     }
     else
@@ -1257,7 +1301,7 @@ static sqlite3_uint64 insert_type(sqlite3* handle, type_t* t)
 UNUSED_PARAMETER static void insert_extra_attr_int(sqlite3* handle, scope_entry_t* symbol, const char* name, sqlite3_uint64 value)
 {
     sqlite3_bind_int64(_insert_extra_attr_stmt, 1, P2ULL(symbol));
-    sqlite3_bind_text (_insert_extra_attr_stmt, 2, name, -1, SQLITE_STATIC);
+    sqlite3_bind_int64(_insert_extra_attr_stmt, 2, get_oid_from_string_table(handle, name));
     sqlite3_bind_int64(_insert_extra_attr_stmt, 3, value);
 
     int result_query = sqlite3_step(_insert_extra_attr_stmt);
@@ -1277,7 +1321,7 @@ static void insert_extra_attr_data(sqlite3* handle, scope_entry_t* symbol, const
     sqlite3_uint64 m = fun(handle, data);
 
     sqlite3_bind_int64(_insert_extra_attr_stmt, 1, P2ULL(symbol));
-    sqlite3_bind_text (_insert_extra_attr_stmt, 2, name, -1, SQLITE_STATIC);
+    sqlite3_bind_int64(_insert_extra_attr_stmt, 2, get_oid_from_string_table(handle, name));
     sqlite3_bind_int64(_insert_extra_attr_stmt, 3, m);
 
     int result_query = sqlite3_step(_insert_extra_attr_stmt);
@@ -1299,7 +1343,7 @@ static void insert_extra_gcc_attr(sqlite3* handle, scope_entry_t* symbol, const 
             P2ULL(nodecl_get_ast(gcc_attr->expression_list)));
 
     sqlite3_bind_int64(_insert_extra_attr_stmt, 1, P2ULL(symbol));
-    sqlite3_bind_text (_insert_extra_attr_stmt, 2, name,          -1, SQLITE_STATIC);
+    sqlite3_bind_int64(_insert_extra_attr_stmt, 2, get_oid_from_string_table(handle, name));
     sqlite3_bind_text (_insert_extra_attr_stmt, 3, name_and_tree, -1, SQLITE_STATIC);
 
     int result_query = sqlite3_step(_insert_extra_attr_stmt);
@@ -1474,7 +1518,7 @@ static void get_extended_attribute(sqlite3* handle, sqlite3_uint64 oid, const ch
         void *extra_info,
         int (*get_extra_info_fun)(void *datum, int ncols, char **values, char **names))
 {
-    char * query = sqlite3_mprintf("SELECT value FROM attributes WHERE symbol = %llu AND name = " Q ";",
+    char * query = sqlite3_mprintf("SELECT a.value FROM attributes a, string_table str WHERE a.symbol = %llu AND a.name = str.oid AND str.string = " Q ";",
          oid, attr_name);
 
     char * errmsg = NULL;
@@ -1649,14 +1693,14 @@ static sqlite3_uint64 insert_symbol(sqlite3* handle, scope_entry_t* symbol)
 
     char * update_symbol_query = sqlite3_mprintf("INSERT OR REPLACE INTO symbol(oid, decl_context, name, kind, type, file, line, value, "
             "bit_entity_specs, %s) "
-            "VALUES (%llu, %llu, " Q ", %d, %llu, " Q ", %d, %llu, " Q ", %s);",
+            "VALUES (%llu, %llu, %llu, %d, %llu, %llu, %d, %llu, " Q ", %s);",
             attr_field_names,
             P2ULL(symbol), // oid
             decl_context_oid, // decl_context
-            symbol->symbol_name, // name
+            get_oid_from_string_table(handle, symbol->symbol_name), // name
             symbol->kind, // kind
             type_id, // type
-            symbol->file, // file
+            get_oid_from_string_table(handle, symbol->file), // file
             symbol->line, // line
             value_oid,
             bit_str,
@@ -2114,8 +2158,9 @@ static AST load_ast(sqlite3* handle, sqlite3_uint64 oid)
     query_handle.handle = handle;
 
     char *errmsg = NULL;
-    char * select_ast_query = sqlite3_mprintf("SELECT oid, kind, file, line, text, ast0, ast1, ast2, ast3, "
-            "type, symbol, is_lvalue, is_const_val, const_val, is_value_dependent FROM ast WHERE oid = %llu;", oid);
+    char * select_ast_query = sqlite3_mprintf("SELECT a.oid, a.kind, str1.string AS file, a.line, str2.string AS text, a.ast0, a.ast1, a.ast2, a.ast3, "
+            "a.type, a.symbol, a.is_lvalue, a.is_const_val, a.const_val, a.is_value_dependent "
+            "FROM ast a, string_table str1, string_table str2 WHERE a.oid = %llu AND file = str1.oid AND text = str2.oid;", oid);
     if (run_select_query(handle, select_ast_query, get_ast, &query_handle, &errmsg) != SQLITE_OK)
     {
         running_error("Error while running query: %s\n", errmsg);
@@ -2156,8 +2201,8 @@ static int get_type(void *datum,
     type_t** pt = &((type_handle_t*)datum)->type;
 
     sqlite3_uint64 current_oid = safe_atoull(values[0]);
-    const char* kind = values[1];
-    const char* cv_qualifier_name = values[2];
+    sqlite3_uint64 kind = safe_atoull(values[1]);
+    sqlite3_uint64 cv_qualifier = safe_atoull(values[2]);
     int kind_size = safe_atoi(values[3]);
     sqlite3_uint64 ast0 = safe_atoull(values[4]);
     sqlite3_uint64 ast1 = safe_atoull(values[5]);
@@ -2171,126 +2216,142 @@ static int get_type(void *datum,
     *pt = _type_get_empty_type();
     insert_map_ptr(handle, current_oid, *pt);
 
-    if (strcmp(kind, "INTEGER") == 0)
+    switch (kind)
     {
-        _type_assign_to(*pt, choose_int_type_from_kind(nodecl_fake, kind_size));
-        _type_assign_to(*pt, get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name));
-    }
-    else if (strcmp(kind, "CHARACTER") == 0)
-    {
-        _type_assign_to(*pt, choose_character_type_from_kind(nodecl_fake, kind_size));
-        _type_assign_to(*pt, get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name));
-    }
-    else if (strcmp(kind, "REAL") == 0)
-    {
-        _type_assign_to(*pt, choose_float_type_from_kind(nodecl_fake, kind_size));
-        _type_assign_to(*pt, get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name));
-    }
-    else if (strcmp(kind, "LOGICAL") == 0)
-    {
-        _type_assign_to(*pt, choose_logical_type_from_kind(nodecl_fake, kind_size));
-        _type_assign_to(*pt, get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name));
-    }
-    else if (strcmp(kind, "COMPLEX") == 0)
-    {
-        _type_assign_to(*pt, get_complex_type(choose_float_type_from_kind(nodecl_fake, kind_size)));
-        _type_assign_to(*pt, get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name));
-    }
-    else if (strcmp(kind, "POINTER") == 0)
-    {
-        _type_assign_to(*pt, get_pointer_type(load_type(handle, ref)));
-        _type_assign_to(*pt, get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name));
-    }
-    else if (strcmp(kind, "REFERENCE") == 0)
-    {
-        _type_assign_to(*pt, get_lvalue_reference_type(load_type(handle, ref)));
-        _type_assign_to(*pt, get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name));
-    }
-    else if (strcmp(kind, "ARRAY") == 0)
-    {
-        nodecl_t lower_bound = load_nodecl(handle, ast0);
-        nodecl_t upper_bound = load_nodecl(handle, ast1);
-
-        type_t* element_type = load_type(handle, ref);
-
-        // At the moment we do not store the decl_context
-        // Hopefully this will be enough
-        decl_context_t decl_context = CURRENT_COMPILED_FILE->global_decl_context;
-        _type_assign_to(*pt, get_array_type_bounds(element_type, lower_bound, upper_bound, decl_context));
-        _type_assign_to(*pt, get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name));
-    }
-    else if (strcmp(kind, "CLASS") == 0)
-    {
-        char *copy = strdup(symbols);
-
-        _type_assign_to(*pt, get_new_class_type(CURRENT_COMPILED_FILE->global_decl_context, TT_STRUCT));
-        _type_assign_to(*pt, get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name));
-
-        char *context = NULL;
-        char *field = strtok_r(copy, ",", &context);
-        while (field != NULL)
+        case TKT_INTEGER:
         {
-            scope_entry_t* member = load_symbol(handle, safe_atoull(field));
-
-            ERROR_CONDITION(member == NULL, "Invalid member!\n", 0);
-            class_type_add_member(*pt, member);
-
-            field = strtok_r(NULL, ",", &context);
+            _type_assign_to(*pt, choose_int_type_from_kind(nodecl_fake, kind_size));
+            _type_assign_to(*pt, get_cv_qualified_type(*pt, cv_qualifier));
+            break;
         }
-        free(copy);
-    }
-    else if (strcmp(kind, "FUNCTION") == 0)
-    {
-        char *copy = strdup(types);
-
-        parameter_info_t parameter_info[MCXX_MAX_FUNCTION_PARAMETERS];
-        memset(parameter_info, 0, sizeof(parameter_info));
-
-        int num_parameters = 0;
-        char *context = NULL;
-        char *field = strtok_r(copy, ",", &context);
-        while (field != NULL)
+        case TKT_CHARACTER:
         {
-            ERROR_CONDITION(num_parameters == MCXX_MAX_FUNCTION_PARAMETERS, "Too many parameters %d", num_parameters);
-
-            parameter_info[num_parameters].type_info = load_type(handle, safe_atoull(field));
-
-            num_parameters++;
-            field = strtok_r(NULL, ",", &context);
+            _type_assign_to(*pt, choose_character_type_from_kind(nodecl_fake, kind_size));
+            _type_assign_to(*pt, get_cv_qualified_type(*pt, cv_qualifier));
+            break;
         }
-        free(copy);
+        case TKT_REAL:
+        {
+            _type_assign_to(*pt, choose_float_type_from_kind(nodecl_fake, kind_size));
+            _type_assign_to(*pt, get_cv_qualified_type(*pt, cv_qualifier));
+            break;
+        }
+        case TKT_LOGICAL:
+        {
+            _type_assign_to(*pt, choose_logical_type_from_kind(nodecl_fake, kind_size));
+            _type_assign_to(*pt, get_cv_qualified_type(*pt, cv_qualifier));
+            break;
+        }
+        case TKT_COMPLEX:
+        {
+            _type_assign_to(*pt, get_complex_type(choose_float_type_from_kind(nodecl_fake, kind_size)));
+            _type_assign_to(*pt, get_cv_qualified_type(*pt, cv_qualifier));
+            break;
+        }
+        case TKT_POINTER:
+        {
+            _type_assign_to(*pt, get_pointer_type(load_type(handle, ref)));
+            _type_assign_to(*pt, get_cv_qualified_type(*pt, cv_qualifier));
+            break;
+        }
+        case TKT_REFERENCE:
+        {
+            _type_assign_to(*pt, get_lvalue_reference_type(load_type(handle, ref)));
+            _type_assign_to(*pt, get_cv_qualified_type(*pt, cv_qualifier));
+            break;
+        }
+        case TKT_ARRAY:
+        {
+            nodecl_t lower_bound = load_nodecl(handle, ast0);
+            nodecl_t upper_bound = load_nodecl(handle, ast1);
 
-        type_t* result = load_type(handle, ref);
+            type_t* element_type = load_type(handle, ref);
 
-        _type_assign_to(*pt, get_new_function_type(result, parameter_info, num_parameters));
-        _type_assign_to(*pt, get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name));
-    }
-    else if (strcmp(kind, "VOID") == 0)
-    {
-        _type_assign_to(*pt, get_void_type());
-        _type_assign_to(*pt, get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name));
-    }
-    else if (strcmp(kind, "NAMED") == 0)
-    {
-        sqlite3_uint64 symbol_oid = safe_atoull(symbols);
+            // At the moment we do not store the decl_context
+            // Hopefully this will be enough
+            decl_context_t decl_context = CURRENT_COMPILED_FILE->global_decl_context;
+            _type_assign_to(*pt, get_array_type_bounds(element_type, lower_bound, upper_bound, decl_context));
+            _type_assign_to(*pt, get_cv_qualified_type(*pt, cv_qualifier));
+            break;
+        }
+        case TKT_CLASS:
+        {
+            char *copy = strdup(symbols);
 
-        scope_entry_t* symbol = load_symbol(handle, symbol_oid);
+            _type_assign_to(*pt, get_new_class_type(CURRENT_COMPILED_FILE->global_decl_context, TT_STRUCT));
+            _type_assign_to(*pt, get_cv_qualified_type(*pt, cv_qualifier));
 
-        _type_assign_to(*pt, get_user_defined_type(symbol));
-        _type_assign_to(*pt, get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name));
-    }
-    else if (strcmp(kind, "INDIRECT") == 0)
-    {
-        sqlite3_uint64 symbol_oid = safe_atoull(symbols);
+            char *context = NULL;
+            char *field = strtok_r(copy, ",", &context);
+            while (field != NULL)
+            {
+                scope_entry_t* member = load_symbol(handle, safe_atoull(field));
 
-        scope_entry_t* symbol = load_symbol(handle, symbol_oid);
+                ERROR_CONDITION(member == NULL, "Invalid member!\n", 0);
+                class_type_add_member(*pt, member);
 
-        _type_assign_to(*pt, get_indirect_type(symbol));
-        _type_assign_to(*pt, get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name));
-    }
-    else
-    {
-        internal_error("Invalid type '%s'\n", kind);
+                field = strtok_r(NULL, ",", &context);
+            }
+            free(copy);
+            break;
+        }
+        case TKT_FUNCTION:
+        {
+            char *copy = strdup(types);
+
+            parameter_info_t parameter_info[MCXX_MAX_FUNCTION_PARAMETERS];
+            memset(parameter_info, 0, sizeof(parameter_info));
+
+            int num_parameters = 0;
+            char *context = NULL;
+            char *field = strtok_r(copy, ",", &context);
+            while (field != NULL)
+            {
+                ERROR_CONDITION(num_parameters == MCXX_MAX_FUNCTION_PARAMETERS, "Too many parameters %d", num_parameters);
+
+                parameter_info[num_parameters].type_info = load_type(handle, safe_atoull(field));
+
+                num_parameters++;
+                field = strtok_r(NULL, ",", &context);
+            }
+            free(copy);
+
+            type_t* result = load_type(handle, ref);
+
+            _type_assign_to(*pt, get_new_function_type(result, parameter_info, num_parameters));
+            _type_assign_to(*pt, get_cv_qualified_type(*pt, cv_qualifier));
+            break;
+        }
+        case TKT_VOID:
+        {
+            _type_assign_to(*pt, get_void_type());
+            _type_assign_to(*pt, get_cv_qualified_type(*pt, cv_qualifier));
+            break;
+        }
+        case TKT_NAMED:
+        {
+            sqlite3_uint64 symbol_oid = safe_atoull(symbols);
+
+            scope_entry_t* symbol = load_symbol(handle, symbol_oid);
+
+            _type_assign_to(*pt, get_user_defined_type(symbol));
+            _type_assign_to(*pt, get_cv_qualified_type(*pt, cv_qualifier));
+            break;
+        }
+        case TKT_INDIRECT:
+        {
+            sqlite3_uint64 symbol_oid = safe_atoull(symbols);
+
+            scope_entry_t* symbol = load_symbol(handle, symbol_oid);
+
+            _type_assign_to(*pt, get_indirect_type(symbol));
+            _type_assign_to(*pt, get_cv_qualified_type(*pt, cv_qualifier));
+            break;
+        }
+        default:
+        {
+            internal_error("Invalid type '%d'\n", kind);
+        }
     }
 
     return 0;
@@ -2324,10 +2385,10 @@ static type_t* load_type(sqlite3* handle, sqlite3_uint64 oid)
     return type_handle.type;
 }
 
-static sqlite3_uint64 insert_single_const_value(sqlite3* handle, const_value_t* v, const char* kind, int sign, int bytes, const char* literal_value)
+static sqlite3_uint64 insert_single_const_value(sqlite3* handle, const_value_t* v, const_kind_table_t kind, int sign, int bytes, const char* literal_value)
 {
     char * insert_value = sqlite3_mprintf("INSERT INTO const_value(oid, kind, sign, bytes, literal_value, compound_values) "
-            "VALUES (%llu, " Q ", %d, %d, " Q ", NULL);",
+            "VALUES (%llu, %d, %d, %d, " Q ", NULL);",
             P2ULL(v),
             kind,
             sign,
@@ -2340,7 +2401,7 @@ static sqlite3_uint64 insert_single_const_value(sqlite3* handle, const_value_t* 
     return result;
 }
 
-static sqlite3_uint64 insert_multiple_const_value(sqlite3* handle, const_value_t* v, const char* kind)
+static sqlite3_uint64 insert_multiple_const_value(sqlite3* handle, const_value_t* v, const_kind_table_t kind)
 {
     int num_elems = const_value_get_num_elements(v);
     int i;
@@ -2367,7 +2428,7 @@ static sqlite3_uint64 insert_multiple_const_value(sqlite3* handle, const_value_t
     }
 
     char* insert_values = sqlite3_mprintf("INSERT INTO const_value(oid, kind, sign, bytes, literal_value, compound_values) "
-            "VALUES(%llu, " Q ", 0, 0, NULL, " Q ");",
+            "VALUES(%llu, %d, 0, 0, NULL, " Q ");",
             P2ULL(v),
             kind,
             list);
@@ -2397,7 +2458,7 @@ static sqlite3_uint64 insert_const_value(sqlite3* handle, const_value_t* value)
         char * literal_value = sqlite3_mprintf("%llu", const_value_cast_to_8(value));
 
         sqlite3_uint64 result = insert_single_const_value(handle, value, 
-                "INTEGER", 
+                TKT_INTEGER,
                 const_value_is_signed(value),
                 const_value_get_bytes(value),
                 literal_value);
@@ -2412,7 +2473,7 @@ static sqlite3_uint64 insert_const_value(sqlite3* handle, const_value_t* value)
         float_literal_value[2047] = '\0';
 
         sqlite3_uint64 result = insert_single_const_value(handle, value, 
-                "FLOAT", 
+                CKT_FLOAT,
                 0, 0,
                 float_literal_value);
 
@@ -2424,7 +2485,7 @@ static sqlite3_uint64 insert_const_value(sqlite3* handle, const_value_t* value)
         float_literal_value[2047] = '\0';
 
         sqlite3_uint64 result = insert_single_const_value(handle, value, 
-                "DOUBLE", 
+                CKT_DOUBLE,
                 0, 0,
                 float_literal_value);
 
@@ -2436,7 +2497,7 @@ static sqlite3_uint64 insert_const_value(sqlite3* handle, const_value_t* value)
         float_literal_value[2047] = '\0';
 
         sqlite3_uint64 result = insert_single_const_value(handle, value, 
-                "LONG DOUBLE", 
+                CKT_LONG_DOUBLE,
                 0, 0,
                 float_literal_value);
 
@@ -2444,27 +2505,27 @@ static sqlite3_uint64 insert_const_value(sqlite3* handle, const_value_t* value)
     }
     else if (const_value_is_complex(value))
     {
-        return insert_multiple_const_value(handle, value, "COMPLEX");
+        return insert_multiple_const_value(handle, value, CKT_COMPLEX);
     }
     else if (const_value_is_structured(value))
     {
-        return insert_multiple_const_value(handle, value, "STRUCT");
+        return insert_multiple_const_value(handle, value, CKT_STRUCT);
     }
     else if (const_value_is_array(value))
     {
-        return insert_multiple_const_value(handle, value, "ARRAY");
+        return insert_multiple_const_value(handle, value, CKT_ARRAY);
     }
     else if (const_value_is_vector(value))
     {
-        return insert_multiple_const_value(handle, value, "VECTOR");
+        return insert_multiple_const_value(handle, value, CKT_VECTOR);
     }
     else if (const_value_is_string(value))
     {
-        return insert_multiple_const_value(handle, value, "STRING");
+        return insert_multiple_const_value(handle, value, CKT_STRING);
     }
     else if (const_value_is_range(value))
     {
-        return insert_multiple_const_value(handle, value, "VALUE");
+        return insert_multiple_const_value(handle, value, CKT_RANGE);
     }
     else
     {
@@ -2488,115 +2549,133 @@ static int get_const_value(void *datum,
     const_value_helper_t* p = (const_value_helper_t*)datum;
 
     sqlite3_uint64 oid = safe_atoull(values[0]);
-    const char* kind = values[1];
+    sqlite3_uint64 kind = safe_atoull(values[1]);
     const char* sign_str = values[2];
     const char* bytes_str = values[3];
     const char* literal_value_str = values[4];
     const char* compound_values_str = values[5];
 
-    if (strcmp(kind, "INTEGER") == 0)
+    switch (kind)
     {
-        uint64_t t;
-        sscanf(literal_value_str, "%llu", (long long unsigned*)&t);
-
-        int bytes = safe_atoi(bytes_str);
-        int sign = !!safe_atoi(sign_str);
-
-        p->v = const_value_get_integer(t, bytes, sign);
-    }
-    else if (strcmp(kind, "FLOAT") == 0)
-    {
-        float f;
-        sscanf(literal_value_str, "%f", &f);
-        p->v = const_value_get_float(f);
-    }
-    else if (strcmp(kind, "DOUBLE") == 0)
-    {
-        double d;
-        sscanf(literal_value_str, "%lf", &d);
-        p->v = const_value_get_double(d);
-    }
-    else if (strcmp(kind, "LONG DOUBLE") == 0)
-    {
-        long double ld;
-        sscanf(literal_value_str, "%Lf", &ld);
-        p->v = const_value_get_long_double(ld);
-    }
-    else if ((strcmp(kind, "ARRAY") == 0)
-            || (strcmp(kind, "VECTOR") == 0)
-            || (strcmp(kind, "STRING") == 0)
-            || (strcmp(kind, "STRUCT") == 0)
-            || (strcmp(kind, "COMPLEX") == 0)
-            || (strcmp(kind, "RANGE") == 0))
-    {
-        int num_elems = 0;
-        char * copy = strdup(compound_values_str);
-        const_value_t** list = NULL;
-        if (strlen(copy) != 0)
+        case CKT_INTEGER:
         {
-            char *context = NULL;
-            char *field = strtok_r(copy, ",", &context);
-            while (field != NULL)
+            uint64_t t;
+            sscanf(literal_value_str, "%llu", (long long unsigned*)&t);
+
+            int bytes = safe_atoi(bytes_str);
+            int sign = !!safe_atoi(sign_str);
+
+            p->v = const_value_get_integer(t, bytes, sign);
+            break;
+        }
+        case CKT_FLOAT:
+        {
+            float f;
+            sscanf(literal_value_str, "%f", &f);
+            p->v = const_value_get_float(f);
+            break;
+        }
+        case CKT_DOUBLE:
+        {
+            double d;
+            sscanf(literal_value_str, "%lf", &d);
+            p->v = const_value_get_double(d);
+            break;
+        }
+        case CKT_LONG_DOUBLE:
+        {
+            long double ld;
+            sscanf(literal_value_str, "%Lf", &ld);
+            p->v = const_value_get_long_double(ld);
+            break;
+        }
+        case CKT_ARRAY:
+        case CKT_VECTOR:
+        case CKT_STRING:
+        case CKT_STRUCT:
+        case CKT_COMPLEX:
+        case CKT_RANGE:
+        {
+            int num_elems = 0;
+            char * copy = strdup(compound_values_str);
+            const_value_t** list = NULL;
+            if (strlen(copy) != 0)
             {
-                num_elems++;
-                field = strtok_r(NULL, ",", &context);
+                char *context = NULL;
+                char *field = strtok_r(copy, ",", &context);
+                while (field != NULL)
+                {
+                    num_elems++;
+                    field = strtok_r(NULL, ",", &context);
+                }
+                // strtok_r may have fried 'copy'
+                free(copy);
+                copy = strdup(compound_values_str);
+
+                list = calloc(num_elems, sizeof(*list));
+
+                int i = 0;
+                field = strtok_r(copy, ",", &context);
+                while (field != NULL)
+                {
+                    const_value_t* const_value = load_const_value(p->handle, safe_atoull(field));
+                    list[i] = const_value;
+
+                    field = strtok_r(NULL, ",", &context); 
+                    i++;
+                }
             }
-            // strtok_r may have fried 'copy'
+
+            switch (kind)
+            {
+                case CKT_ARRAY:
+                    {
+                        p->v = const_value_make_array(num_elems, list);
+                        break;
+                    }
+                case CKT_VECTOR:
+                    {
+                        p->v = const_value_make_vector(num_elems, list);
+                        break;
+                    }
+                case CKT_STRUCT:
+                    {
+                        p->v = const_value_make_struct(num_elems, list);
+                        break;
+                    }
+                case CKT_COMPLEX:
+                    {
+                        ERROR_CONDITION(num_elems != 2, "Invalid complex constant!", 0);
+
+                        p->v = const_value_make_complex(list[0], list[1]);
+                        break;
+                    }
+                case CKT_STRING:
+                    {
+                        p->v = const_value_make_string_from_values(num_elems, list);
+                        break;
+                    }
+                case CKT_RANGE:
+                    {
+                        ERROR_CONDITION(num_elems != 3, "Invalid range constant!", 0);
+
+                        p->v = const_value_make_range(list[0], list[1], list[2]);
+                        break;
+                    }
+                default:
+                    {
+                        internal_error("Code unreachable", 0);
+                    }
+            }
+            free(list);
             free(copy);
-            copy = strdup(compound_values_str);
-
-            list = calloc(num_elems, sizeof(*list));
-
-            int i = 0;
-            field = strtok_r(copy, ",", &context);
-            while (field != NULL)
-            {
-                const_value_t* const_value = load_const_value(p->handle, safe_atoull(field));
-                list[i] = const_value;
-
-                field = strtok_r(NULL, ",", &context); 
-                i++;
-            }
+            break;
         }
-
-        if (strcmp(kind, "ARRAY") == 0)
+        default:
         {
-            p->v = const_value_make_array(num_elems, list);
+            internal_error("Invalid literal kind '%s'\n", kind);
+            break;
         }
-        else if (strcmp(kind, "VECTOR") == 0)
-        {
-            p->v = const_value_make_vector(num_elems, list);
-        }
-        else if (strcmp(kind, "STRUCT") == 0)
-        {
-            p->v = const_value_make_struct(num_elems, list);
-        }
-        else if (strcmp(kind, "COMPLEX") == 0)
-        {
-            ERROR_CONDITION(num_elems != 2, "Invalid complex constant!", 0);
-
-            p->v = const_value_make_complex(list[0], list[1]);
-        }
-        else if (strcmp(kind, "STRING") == 0)
-        {
-            p->v = const_value_make_string_from_values(num_elems, list);
-        }
-        else if (strcmp(kind, "RANGE") == 0)
-        {
-            ERROR_CONDITION(num_elems != 3, "Invalid range constant!", 0);
-
-            p->v = const_value_make_range(list[0], list[1], list[2]);
-        }
-        else
-        {
-            internal_error("Code unreachable", 0);
-        }
-        free(list);
-        free(copy);
-    }
-    else
-    {
-        internal_error("Invalid literal kind '%s'\n", kind);
     }
 
     insert_map_ptr(p->handle, oid, p->v);
