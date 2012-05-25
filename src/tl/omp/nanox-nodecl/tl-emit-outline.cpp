@@ -226,8 +226,6 @@ namespace TL { namespace Nanox {
                         {
                             symbol_map->add_map(sym, private_sym);
                         }
-                        
-#warning FIXME - initialize with the identity
 
                         break;
                     }
@@ -533,6 +531,12 @@ namespace TL { namespace Nanox {
                             argument << "args % " << (*it)->get_field_name();
                         }
                         unpacked_arguments.append_with_separator(argument, ", ");
+
+                        std::string name = (*it)->get_symbol().get_name();
+
+                        private_entities
+                            << name << " = " << as_expression( (*it)->get_reduction_info()->get_identity().shallow_copy() ) << ";"
+                            ;
 
                         break;
                     }
