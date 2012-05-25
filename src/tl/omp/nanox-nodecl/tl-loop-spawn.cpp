@@ -38,8 +38,7 @@ namespace TL { namespace Nanox {
             Nodecl::List distribute_environment, 
             Nodecl::List ranges, 
             const std::string& outline_name,
-            TL::Symbol structure_symbol,
-            Source &inline_distribute_loop_source)
+            TL::Symbol structure_symbol)
     {
         if (ranges.size() != 1)
         {
@@ -228,15 +227,11 @@ namespace TL { namespace Nanox {
         <<         "}"
         <<     "}"
         <<     extra_sync_due_to_reductions
-#if ALWAYS_OUTLINE_IMMEDIATE_PATH
         <<     immediate_decl
         <<     "imm_args.wsd = wsd;"
         <<     statement_placeholder(fill_immediate_arguments_tree)
         <<     fill_immediate_arguments_reductions
         <<     outline_name << "(imm_args);"
-#else
-        <<     inline_distribute_loop_source
-#endif
         << "}"
         ;
 
@@ -259,13 +254,11 @@ namespace TL { namespace Nanox {
             fill_outline_arguments_tree.integrate(new_tree);
         }
 
-#if ALWAYS_OUTLINE_IMMEDIATE_PATH
         if (!fill_immediate_arguments.empty())
         {
             Nodecl::NodeclBase new_tree = fill_immediate_arguments.parse_statement(fill_immediate_arguments_tree);
             fill_immediate_arguments_tree.integrate(new_tree);
         }
-#endif
 
         construct.integrate(spawn_code_tree);
     }

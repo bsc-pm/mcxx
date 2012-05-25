@@ -167,12 +167,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 // Loop (in the outline distributed code)
                 Nodecl::NodeclBase& outline_placeholder1,
                 // Auxiliar loop (when the step is not known at compile time, in the outline distributed code)
-                Nodecl::NodeclBase& outline_placeholder2,
-                Source &inline_distribute_loop_source,
-                // Loop (in the inline distributed code)
-                Nodecl::NodeclBase& inline_placeholder1,
-                // Auxiliar loop (when the step is not known at compile time, in the inline distributed code)
-                Nodecl::NodeclBase& inline_placeholder2
+                Nodecl::NodeclBase& outline_placeholder2
                 );
 
         void loop_spawn(
@@ -181,8 +176,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::List distribute_environment,
                 Nodecl::List ranges,
                 const std::string& outline_name,
-                TL::Symbol structure_symbol,
-                Source &inline_distribute_loop_source);
+                TL::Symbol structure_symbol);
 
         Source full_barrier_source();
 
