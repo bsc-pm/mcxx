@@ -24,18 +24,26 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-SUBDIRS = core base simd @TL_OMP_EXTENSIONS@
+include ../../Makefile.phases
+
+phases_LTLIBRARIES = libtlsimd-ir.la
+
+
+libtlsimd_ir_la_CFLAGS = $(tl_cflags) -I$(srcdir)/../core 
+libtlsimd_ir_la_CXXFLAGS = $(tl_cflags) -I$(srcdir)/../core 
+
+libtlsimd_ir_la_LIBADD = $(tl_libadd) \
+								../core/libtlomp-core.la 
+libtlsimd_ir_la_LDFLAGS = $(tl_ldflags)
 
 END=
 
-DIST_SUBDIRS=base \
-             core \
-             fun-tasks \
-             nanos-common \
-             nanos4 \
-             nanox \
-             nanox-nodecl \
-             ss2omp \
-             profile \
-             simd \
-             $(END)
+libtlsimd_ir_la_SOURCES = \
+								 tl-simd.hpp \
+								 tl-simd.cpp \
+								 tl-simd-ir-visitor.hpp \
+								 tl-simd-ir-visitor.cpp \
+                                 tl-simd-ir-visitor-statement.hpp \
+                                 tl-simd-ir-visitor-statement.cpp \
+								 $(END)
+

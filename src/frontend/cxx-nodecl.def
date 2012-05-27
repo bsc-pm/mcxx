@@ -134,11 +134,15 @@ expression : literal
            | NODECL_PLUS([rhs]expression) type const-value-opt
            | NODECL_NEG([rhs]expression) type const-value-opt
            | NODECL_MUL([lhs]expression, [rhs]expression) type const-value-opt
+           | NODECL_VECTOR_MUL([lhs]expression, [rhs]expression) type const-value-opt
            | NODECL_POWER([lhs]expression, [rhs]expression) type const-value-opt
            | NODECL_DIV([lhs]expression, [rhs]expression) type const-value-opt
+           | NODECL_VECTOR_DIV([lhs]expression, [rhs]expression) type const-value-opt
            | NODECL_MOD([lhs]expression, [rhs]expression) type const-value-opt
            | NODECL_ADD([lhs]expression, [rhs]expression) type const-value-opt
+           | NODECL_VECTOR_ADD([lhs]expression, [rhs]expression) type const-value-opt
            | NODECL_MINUS([lhs]expression, [rhs]expression) type const-value-opt
+           | NODECL_VECTOR_MINUS([lhs]expression, [rhs]expression) type const-value-opt
            | NODECL_CONCAT([lhs]expression, [rhs]expression) type const-value-opt
            | NODECL_EQUAL([lhs]expression, [rhs]expression) type const-value-opt
            | NODECL_DIFFERENT([lhs]expression, [rhs]expression) type const-value-opt
@@ -156,6 +160,8 @@ expression : literal
            | NODECL_SHL([lhs] expression, [rhs] expression) type const-value-opt
            | NODECL_SHR([lhs] expression, [rhs] expression) type const-value-opt
            | NODECL_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt
+           | NODECL_VECTOR_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt
+           | NODECL_VECTOR_LOAD([lhs] expression, [rhs] expression) type const-value-opt
            | NODECL_PARENTHESIZED_EXPRESSION([nest]expression) type const-value-opt
            | NODECL_DERREFERENCE([rhs]expression) type const-value-opt
            | NODECL_CAST([rhs]expression) type text const-value-opt
