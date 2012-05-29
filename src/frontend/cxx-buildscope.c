@@ -8435,9 +8435,9 @@ static char find_function_declaration(AST declarator_id,
                 || entry->kind == SK_ENUM)
             continue;
 
-        char is_using = (entry->kind == SK_USING) ? 1:0;
-
-        entry = entry_advance_aliases(entry);
+        // Using symbols are filtered!
+        if (entry->kind == SK_USING)
+            continue;
 
         if (entry->kind != SK_FUNCTION
                 && (entry->kind != SK_TEMPLATE
@@ -8445,19 +8445,12 @@ static char find_function_declaration(AST declarator_id,
         {
             if (!checking_ambiguity())
             {
-                error_printf("%s: name '%s' has already been declared as a different entity kind",
+                error_printf("%s: name '%s' has already been declared as a different entity kind\n",
                         ast_location(declarator_id),
                         prettyprint_in_buffer(declarator_id));
             }
             return 0;
         }
-
-        if (is_using
-                && entry->entity_specs.is_member
-                && decl_context.current_scope->kind == CLASS_SCOPE
-                && !equivalent_types(get_actual_class_type(entry->entity_specs.class_type), 
-                    get_actual_class_type(decl_context.current_scope->related_entry->type_information)))
-            continue;
 
         scope_entry_t* considered_symbol = NULL;
         if (entry->kind == SK_TEMPLATE)
@@ -8465,7 +8458,7 @@ static char find_function_declaration(AST declarator_id,
             type_t* primary_named_type = template_type_get_primary_type(entry->type_information);
             considered_symbol = named_type_get_symbol(primary_named_type);
             templates_available |= 1;
-            if (!gather_info->is_friend) 
+            if (!gather_info->is_friend)
             {
                 entry->entity_specs.is_friend_declared = 0;
                 considered_symbol->entity_specs.is_friend_declared = 0;
