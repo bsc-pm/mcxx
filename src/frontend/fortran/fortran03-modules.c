@@ -2520,6 +2520,9 @@ static sqlite3_uint64 insert_multiple_const_value(sqlite3* handle, const_value_t
 
 static sqlite3_uint64 insert_const_value(sqlite3* handle, const_value_t* value)
 {
+    if (value == NULL)
+        return 0;
+
     if (oid_already_inserted_const_value(handle, value))
         return (sqlite3_uint64)(uintptr_t)value;
 
