@@ -7703,6 +7703,10 @@ const char* print_declarator(type_t* printed_declarator)
                 break;
             case TK_ARRAY :
                 tmp_result = strappend(tmp_result, "array ");
+                if (printed_declarator->array->with_descriptor)
+                {
+                    tmp_result = strappend(tmp_result, "(with descriptor) ");
+                }
                 tmp_result = strappend(tmp_result, "[");
                 tmp_result = strappend(tmp_result, codegen_to_str(printed_declarator->array->lower_bound, 
                             CURRENT_COMPILED_FILE->global_decl_context));
