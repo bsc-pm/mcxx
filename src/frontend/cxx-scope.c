@@ -1737,13 +1737,18 @@ static template_parameter_value_t* update_template_parameter_value_aux(
         char is_template_class,
         const char* filename, int line)
 {
-    template_parameter_value_t* result = counted_calloc(1, sizeof(*result), &_bytes_used_scopes);
+    type_t* updated_type = update_type(v->type, decl_context, filename, line);
+    if (updated_type == NULL)
+    {
+        return NULL;
+    }
 
+    template_parameter_value_t* result = counted_calloc(1, sizeof(*result), &_bytes_used_scopes);
     *result = *v;
     result->is_default = 0;
 
-    result->type = update_type(result->type, decl_context, filename, line);
-    
+    result->type = updated_type;
+
     if (is_template_class)
     {
         result->type = advance_over_typedefs(result->type);
