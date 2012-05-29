@@ -87,6 +87,7 @@ namespace Codegen
             Ret visit(const Nodecl::CxxExplicitTypeCast &);
             Ret visit(const Nodecl::CxxParenthesizedInitializer &);
             Ret visit(const Nodecl::CxxSizeof &);
+            Ret visit(const Nodecl::CxxAlignof &);
             Ret visit(const Nodecl::DefaultStatement &);
             Ret visit(const Nodecl::Delete &);
             Ret visit(const Nodecl::DeleteArray &);

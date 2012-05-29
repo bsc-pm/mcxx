@@ -14612,6 +14612,29 @@ static void instantiate_dep_sizeof_expr(nodecl_instantiate_expr_visitor_t* v, no
     v->nodecl_result = result;
 }
 
+static void instantiate_alignof(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    nodecl_t nodecl_type = nodecl_get_child(node, 0);
+
+    type_t* t = nodecl_get_type(nodecl_type);
+
+    t = update_type_for_instantiation(t,
+            v->decl_context,
+            nodecl_get_filename(node),
+            nodecl_get_line(node));
+
+    nodecl_t result = nodecl_null();
+
+    check_sizeof_type(t,
+            nodecl_null(),
+            v->decl_context,
+            nodecl_get_filename(node),
+            nodecl_get_line(node),
+            &result);
+
+    v->nodecl_result = result;
+}
+
 static void instantiate_nondep_sizeof(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
 {
     nodecl_t nodecl_type = nodecl_get_child(node, 0);
@@ -14933,6 +14956,9 @@ static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, 
     // Sizeof
     NODECL_VISITOR(v)->visit_sizeof = instantiate_expr_visitor_fun(instantiate_nondep_sizeof);
     NODECL_VISITOR(v)->visit_cxx_sizeof = instantiate_expr_visitor_fun(instantiate_dep_sizeof_expr);
+
+    // Alignof
+    NODECL_VISITOR(v)->visit_alignof = instantiate_expr_visitor_fun(instantiate_alignof);
 
     // Casts
     NODECL_VISITOR(v)->visit_cast = instantiate_expr_visitor_fun(instantiate_cast);

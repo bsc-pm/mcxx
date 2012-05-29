@@ -736,6 +736,20 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxParenthesizedInitializer& node)
     file << ")";
 }
 
+CxxBase::Ret CxxBase::visit(const Nodecl::CxxAlignof& node)
+{
+    if (IS_CXX1X_LANGUAGE)
+    {
+        file << "alignof(";
+    }
+    else
+    {
+        file << "__alignof__(";
+    }
+    walk(node.get_expr());
+    file << ")";
+}
+
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxSizeof& node)
 {
     file << "sizeof(";
