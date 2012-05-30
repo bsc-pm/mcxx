@@ -9008,7 +9008,6 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
             {
                 // Here the template scope is the one of the template declaration, 
                 // not for the symbol
-
                 decl_context_t initializer_context = entry->decl_context;
                 initializer_context.template_parameters = new_decl_context.template_parameters;
 
@@ -9018,6 +9017,7 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
                         get_unqualified_type(declarator_type),
                         &nodecl_expr);
                 entry->value = nodecl_expr;
+                entry->defined = 1;
             }
         }
         else if (is_function_type(declarator_type))
@@ -9025,12 +9025,15 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
             // Do nothing
         }
 
+
+        nodecl_t (*make_cxx_decl_or_def)(scope_entry_t*, const char*, int) =
+            (entry->defined) ? nodecl_make_cxx_def : nodecl_make_cxx_decl;
+
         // Keep declaration
-        *nodecl_output = 
-            nodecl_concat_lists(
-                    *nodecl_output,
-                    nodecl_make_list_1(
-                        nodecl_make_cxx_decl(entry, ASTFileName(init_declarator), ASTLine(init_declarator))));
+        *nodecl_output = nodecl_concat_lists(
+                *nodecl_output,
+                nodecl_make_list_1(
+                    make_cxx_decl_or_def(entry, ASTFileName(init_declarator), ASTLine(init_declarator))));
     }
 }
 
