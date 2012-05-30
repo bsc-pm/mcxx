@@ -535,7 +535,7 @@ namespace Codegen
         {
             if (entry.is_static())
             {
-                // Do nothing 
+                // Do nothing
                 //
                 // static int a = 3;
             }
@@ -2483,6 +2483,28 @@ OPERATOR_TABLE
                 && node.get_type().is_named_class())
         {
             (this->*do_declare)(node.get_type().get_symbol(), node, data);
+        }
+
+        if (node.is<Nodecl::ObjectInit>())
+        {
+            TL::Symbol entry = node.get_symbol();
+            if (entry.is_static())
+            {
+                // Do nothing 
+                // static int a = 3;
+            }
+            else if (entry.get_type().is_const()
+                            && !entry.get_initialization().is_null()
+                            && entry.get_initialization().is_constant())
+            {
+                // Do nothing
+                // const int n = x;
+            }
+            else
+            {
+                // This will be emitted like an assignment
+                traverse_looking_for_symbols(entry.get_initialization(), do_declare, data);
+            }
         }
 
         TL::Symbol entry = node.get_symbol();
