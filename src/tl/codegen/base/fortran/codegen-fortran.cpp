@@ -547,18 +547,6 @@ namespace Codegen
                 //
                 // const int n = x;
             }
-            else if (entry.get_type().is_array()
-                    && entry.get_type().array_is_vla()
-                    && !entry.is_parameter())
-            {
-                // ALLOCATE this non-dummy VLA
-                indent();
-                std::string type_spec, array_spec;
-                codegen_type(entry.get_type(), type_spec, array_spec, 
-                        // Note: we set it as a dummy because we want the full array_spec, not just (:, :)
-                        /* is_dummy */ true);
-                file << "ALLOCATE(" << rename(entry) << array_spec << ")\n";
-            }
             else
             {
                 // Fake an assignment statement
@@ -2908,13 +2896,7 @@ OPERATOR_TABLE
 
             std::string attribute_list = "";
 
-            // VLA that are not parameter are handled as if they were allocatable
-            bool handle_as_allocatable = declared_type.is_array()
-                && declared_type.array_is_vla()
-                && !entry.is_parameter();
-
-            if (entry.is_allocatable() 
-                    || handle_as_allocatable)
+            if (entry.is_allocatable())
                 attribute_list += ", ALLOCATABLE";
             if (entry.is_target())
                 attribute_list += ", TARGET";
@@ -3945,7 +3927,7 @@ OPERATOR_TABLE
                 || (fortran_is_character_type(t.get_internal_type())));
     }
 
-    void FortranBase::codegen_type(TL::Type t, std::string& type_specifier, std::string& array_specifier, bool is_dummy)
+    void FortranBase::codegen_type(TL::Type t, std::string& type_specifier, std::string& array_specifier, bool /* is_dummy */)
     {
         // We were requested to emit types as literals
         if (state.emit_types_as_literals)
@@ -3965,10 +3947,6 @@ OPERATOR_TABLE
         {
             t = t.points_to();
         }
-        
-        bool handle_as_allocatable = t.is_array()
-            && t.array_is_vla()
-            && !is_dummy;
         
         // If this is an enum, use its underlying integer type
         if (t.is_enum())
@@ -3994,8 +3972,7 @@ OPERATOR_TABLE
                 internal_error("too many array dimensions %d\n", MCXX_MAX_ARRAY_SPECIFIER);
             }
 
-            if (!is_fortran_pointer
-                    && !handle_as_allocatable)
+            if (!is_fortran_pointer)
             {
                 array_spec_list[array_spec_idx].lower = array_type_get_array_lower_bound(t.get_internal_type());
                 if (array_spec_list[array_spec_idx].lower.is_constant())
