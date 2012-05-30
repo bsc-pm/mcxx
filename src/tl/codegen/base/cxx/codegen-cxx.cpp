@@ -1397,10 +1397,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
 
     if (symbol.is_static()
             && (!symbol.is_member()
-                || (IS_CXX_LANGUAGE
-                    && symbol.is_defined_inside_class()
-                    && get_codegen_status(symbol) != CODEGEN_STATUS_DECLARED
-                    && get_codegen_status(symbol) != CODEGEN_STATUS_DEFINED)))
+                || (!state.classes_being_defined.empty()
+                    && state.classes_being_defined.back() == symbol.get_class_type().get_symbol())))
     {
         decl_spec_seq += "static ";
     }
@@ -1648,10 +1646,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 
     if (symbol.is_static()
             && (!symbol.is_member()
-                || (IS_CXX_LANGUAGE
-                    && symbol.is_defined_inside_class()
-                    && get_codegen_status(symbol) != CODEGEN_STATUS_DECLARED
-                    && get_codegen_status(symbol) != CODEGEN_STATUS_DEFINED)))
+                || (!state.classes_being_defined.empty()
+                    && state.classes_being_defined.back() == symbol.get_class_type().get_symbol())))
     {
         decl_spec_seq += "static ";
     }
@@ -4002,302 +3998,337 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
     ERROR_CONDITION(!symbol.is_variable(), "must be a variable", 0);
 
     // Builtins, anonymous unions and non-user declared varibles are not printed
-    if (!(symbol.is_builtin()
+    if ((symbol.is_builtin()
                 || (symbol.get_type().is_named_class()
                     && symbol.get_type().get_symbol().is_anonymous_union())))
     {
-        std::string decl_specifiers;
-        std::string gcc_attributes;
-        std::string declarator;
-        std::string bit_field;
+        set_codegen_status(symbol, CODEGEN_STATUS_DECLARED);
+        return;
+    }
 
-        bool requires_extern_linkage = false;
-        CXX_LANGUAGE()
+    // Generate the template headers if needed
+    CXX_LANGUAGE()
+    {
+        if (symbol.is_member()
+                && !symbol.is_defined_inside_class()
+                && state.classes_being_defined.empty())
         {
-            requires_extern_linkage = (!symbol.is_member()
-                    && symbol.has_nondefault_linkage());
+            TL::TemplateParameters template_parameters = symbol.get_scope().get_template_parameters();
+            codegen_template_headers_all_levels(template_parameters, false);
+        }
+    }
 
-            if (requires_extern_linkage)
+    // Generate the variable declaration/definition
+    bool has_been_declared = (get_codegen_status(symbol) == CODEGEN_STATUS_DECLARED
+            || get_codegen_status(symbol) == CODEGEN_STATUS_DEFINED);
+
+    std::string decl_specifiers;
+    std::string gcc_attributes;
+    std::string declarator;
+    std::string bit_field;
+
+    bool requires_extern_linkage = false;
+    CXX_LANGUAGE()
+    {
+        requires_extern_linkage = (!symbol.is_member()
+                && symbol.has_nondefault_linkage());
+
+        if (requires_extern_linkage)
+        {
+            file << "extern " + symbol.get_linkage() + "\n";
+            indent();
+            file << "{\n";
+
+            inc_indent();
+        }
+    }
+
+    if (symbol.is_static()
+            && (!symbol.is_member()
+                || (!state.classes_being_defined.empty()
+                    && state.classes_being_defined.back() == symbol.get_class_type().get_symbol())))
+    {
+        decl_specifiers += "static ";
+    }
+
+    else if (symbol.is_extern() || !is_definition)
+    {
+        decl_specifiers += "extern ";
+    }
+
+    // If this not a member, or if it is, is nonstatic, then it has already been defined
+    if (!symbol.is_member() || !symbol.is_static())
+    {
+        if (is_definition)
+        {
+            set_codegen_status(symbol, CODEGEN_STATUS_DEFINED);
+        }
+        else
+        {
+            set_codegen_status(symbol, CODEGEN_STATUS_DECLARED);
+        }
+    }
+
+    if (symbol.is_thread())
+    {
+        decl_specifiers += "__thread ";
+    }
+    if (symbol.is_mutable())
+    {
+        decl_specifiers += "mutable ";
+    }
+    if (symbol.is_register())
+    {
+        decl_specifiers += "register ";
+    }
+    if (symbol.is_bitfield())
+    {
+        unsigned int bits_of_bitfield =  const_value_cast_to_4(
+                nodecl_get_constant(symbol.get_bitfield_size().get_internal_nodecl()));
+
+        std::stringstream ss;
+        ss << ":" << bits_of_bitfield;
+
+        bit_field = ss.str();
+    }
+
+    std::string variable_name;
+    if(!has_been_declared)
+    {
+        variable_name = symbol.get_name();
+    }
+    else
+    {
+        variable_name = symbol.get_class_qualification(symbol.get_scope(),
+                /* without_template */ false);
+    }
+
+    declarator = this->get_declaration(symbol.get_type(),
+            symbol.get_scope(),
+            variable_name);
+
+    // Emit the initializer for nonmembers and nonstatic members in
+    // non member declarations or member declarations if they have
+    // integral or enum type
+    char emit_initializer = 0;
+    if (!symbol.get_initialization().is_null()
+            && (!symbol.is_member()
+                || (symbol.is_static()
+                    && (!state.in_member_declaration
+                        || (symbol.get_type().is_integral_type()
+                            || symbol.get_type().is_enum())
+                        && symbol.get_type().is_const())
+                    || symbol.is_defined_inside_class())))
+    {
+        emit_initializer = 1;
+        if (symbol.is_member()
+                // FIXME -> || !is_local_symbol_but_local_class(symbol))
+            || (!symbol.get_scope().is_block_scope()
+                    && !symbol.get_scope().is_function_scope()))
+                    {
+                        // This is a member or nonlocal symbol
+                        define_nonnested_entities_in_trees(symbol.get_initialization());
+                    }
+        else
+        {
+            // This is a local symbol
+            define_local_entities_in_trees(symbol.get_initialization());
+        }
+    }
+
+    if (symbol.has_gcc_attributes())
+    {
+        gcc_attributes = gcc_attributes_to_str(symbol) + " ";
+    }
+
+    move_to_namespace_of_symbol(symbol);
+    indent();
+    file << decl_specifiers << gcc_attributes << declarator << bit_field;
+
+    // Initializer
+    if (emit_initializer)
+    {
+        push_scope(symbol.get_scope());
+
+        char equal_is_needed = 0;
+        char is_call_to_self_constructor = 0;
+        C_LANGUAGE()
+        {
+            equal_is_needed = 1;
+        }
+
+        CXX03_LANGUAGE()
+        {
+            // We only need = if the initializer is a structured one
+            // and this is C++03, in C++1x syntax { } is always allowed
+            equal_is_needed = 1;
+
+            if (nodecl_calls_to_constructor(symbol.get_initialization(), symbol.get_type()))
             {
-                file << "extern " + symbol.get_linkage() + "\n";
-                indent();
-                file << "{\n";
+                equal_is_needed = 0;
+                is_call_to_self_constructor = 1;
 
-                inc_indent();
-            }
-        }
+                // But it might happen the user wrote
+                //
+                // A a = A(); which looks like A a(A()); and it will be parsed as a function declarator
+                Nodecl::List nodecl_args = symbol.get_initialization()
+                    .as<Nodecl::FunctionCall>()
+                    .get_arguments()
+                    .as<Nodecl::List>();
 
-        if (symbol.is_static())
-        {
-            decl_specifiers += "static ";
-        }
-        else if (symbol.is_extern() || !is_definition)
-        {
-            decl_specifiers += "extern ";
-        }
+                char zero_arg_types = 1;
 
-        // If this not a member, or if it is, is nonstatic, then it has already been defined
-        if (!symbol.is_member() || !symbol.is_static())
-        {
-            if (is_definition)
-            {
-                set_codegen_status(symbol, CODEGEN_STATUS_DEFINED);
-            }
-            else
-            {
-                set_codegen_status(symbol, CODEGEN_STATUS_DECLARED);
-            }
-        }
-
-        if (symbol.is_thread())
-        {
-            decl_specifiers += "__thread ";
-        }
-        if (symbol.is_mutable())
-        {
-            decl_specifiers += "mutable ";
-        }
-        if (symbol.is_register())
-        {
-            decl_specifiers += "register ";
-        }
-        if (symbol.is_bitfield())
-        {
-            unsigned int bits_of_bitfield =  const_value_cast_to_4(
-                    nodecl_get_constant(symbol.get_bitfield_size().get_internal_nodecl()));
-
-            std::stringstream ss;
-            ss << ":" << bits_of_bitfield;
-
-            bit_field = ss.str();
-        }
-
-        declarator = this->get_declaration(symbol.get_type(),
-                symbol.get_scope(),
-                unmangle_symbol_name(symbol));
-
-        // Emit the initializer for nonmembers and nonstatic members in
-        // non member declarations or member declarations if they have
-        // integral or enum type
-        char emit_initializer = 0;
-        if (!symbol.get_initialization().is_null()
-                && (!symbol.is_member()
-                    || (symbol.is_static()
-                        && (!state.in_member_declaration
-                            || (symbol.get_type().is_integral_type()
-                                || symbol.get_type().is_enum())
-                            && symbol.get_type().is_const())
-                        || symbol.is_defined_inside_class())))
-        {
-            emit_initializer = 1;
-            if (symbol.is_member()
-                    // FIXME -> || !is_local_symbol_but_local_class(symbol))
-                || (!symbol.get_scope().is_block_scope()
-                        && !symbol.get_scope().is_function_scope()))
-                        {
-                            // This is a member or nonlocal symbol
-                            define_nonnested_entities_in_trees(symbol.get_initialization());
-                        }
-            else
-            {
-                // This is a local symbol
-                define_local_entities_in_trees(symbol.get_initialization());
-            }
-        }
-
-        if (symbol.has_gcc_attributes())
-        {
-            gcc_attributes = gcc_attributes_to_str(symbol) + " ";
-        }
-
-        move_to_namespace_of_symbol(symbol);
-        indent();
-        file << decl_specifiers << gcc_attributes << declarator << bit_field;
-
-        // Initializer
-        if (emit_initializer)
-        {
-            push_scope(symbol.get_scope());
-
-            char equal_is_needed = 0;
-            char is_call_to_self_constructor = 0;
-            C_LANGUAGE()
-            {
-                equal_is_needed = 1;
-            }
-
-            CXX03_LANGUAGE()
-            {
-                // We only need = if the initializer is a structured one
-                // and this is C++03, in C++1x syntax { } is always allowed
-                equal_is_needed = 1;
-
-                if (nodecl_calls_to_constructor(symbol.get_initialization(), symbol.get_type()))
+                for (Nodecl::List::iterator it = nodecl_args.begin();
+                        it != nodecl_args.end() && zero_arg_types;
+                        it++)
                 {
-                    equal_is_needed = 0;
-                    is_call_to_self_constructor = 1;
+                    Nodecl::NodeclBase current = *it;
+                    if (current.is<Nodecl::Conversion>())
+                        current = current.as<Nodecl::Conversion>().get_nest();
 
-                    // But it might happen the user wrote
-                    //
-                    // A a = A(); which looks like A a(A()); and it will be parsed as a function declarator
-                    Nodecl::List nodecl_args = symbol.get_initialization()
+                    if (!nodecl_is_zero_args_call_to_constructor(current)
+                            && !nodecl_is_zero_args_structured_value(current))
+                    {
+                        zero_arg_types = 0;
+                    }
+                }
+
+                // In this case, to avoid printing something like
+                //
+                // A a(A(), B(), C());
+                //
+                // where A, B and C are types
+                //
+                // we mandate an equal so it looks like
+                //
+                // A a = A(A(), B(), C());
+                if (nodecl_args.size() != 0
+                        && zero_arg_types)
+                {
+                    equal_is_needed = 1;
+                }
+            }
+        }
+        if (is_definition)
+        {
+            if (equal_is_needed)
+            {
+                Nodecl::NodeclBase init = symbol.get_initialization();
+
+                //The equal will be inserted in the CxxEqualInitializer visitor
+                if (!init.is<Nodecl::CxxEqualInitializer>())
+                {
+                    file << " = ";
+                }
+
+                if (is_call_to_self_constructor)
+                {
+                    // Ignore the top constructor call
+                    Nodecl::List nodecl_args = init
                         .as<Nodecl::FunctionCall>()
                         .get_arguments()
                         .as<Nodecl::List>();
 
-                    char zero_arg_types = 1;
-
-                    for (Nodecl::List::iterator it = nodecl_args.begin();
-                            it != nodecl_args.end() && zero_arg_types;
-                            it++)
+                    if (!nodecl_args.empty())
                     {
-                        Nodecl::NodeclBase current = *it;
-                        if (current.is<Nodecl::Conversion>())
-                            current = current.as<Nodecl::Conversion>().get_nest();
-
-                        if (!nodecl_is_zero_args_call_to_constructor(current)
-                                && !nodecl_is_zero_args_structured_value(current))
-                        {
-                            zero_arg_types = 0;
-                        }
-                    }
-
-                    // In this case, to avoid printing something like
-                    //
-                    // A a(A(), B(), C());
-                    //
-                    // where A, B and C are types
-                    //
-                    // we mandate an equal so it looks like
-                    //
-                    // A a = A(A(), B(), C());
-                    if (nodecl_args.size() != 0
-                            && zero_arg_types)
-                    {
-                        equal_is_needed = 1;
+                        walk_expression_list(nodecl_args);
                     }
                 }
-            }
-            if (is_definition)
-            {
-                if (equal_is_needed)
+                else if (init.is<Nodecl::StructuredValue>())
                 {
-                    Nodecl::NodeclBase init = symbol.get_initialization();
-
-                    //The equal will be inserted in the CxxEqualInitializer visitor
-                    if (!init.is<Nodecl::CxxEqualInitializer>())
+                    if (!symbol.get_type().is_aggregate()
+                            && init
+                            .as<Nodecl::StructuredValue>()
+                            .get_items()
+                            .as<Nodecl::List>()
+                            .size() == 1)
                     {
-                        file << " = ";
-                    }
-
-                    if (is_call_to_self_constructor)
-                    {
-                        // Ignore the top constructor call
-                        Nodecl::List nodecl_args = init
-                            .as<Nodecl::FunctionCall>()
-                            .get_arguments()
-                            .as<Nodecl::List>();
-
-                        if (!nodecl_args.empty())
-                        {
-                            walk_expression_list(nodecl_args);
-                        }
-                    }
-                    else if (init.is<Nodecl::StructuredValue>())
-                    {
-                        if (!symbol.get_type().is_aggregate()
-                                && init
+                        // We can ignore '{' and '}'
+                        walk_expression_list(init
                                 .as<Nodecl::StructuredValue>()
                                 .get_items()
-                                .as<Nodecl::List>()
-                                .size() == 1)
-                        {
-                            // We can ignore '{' and '}'
-                            walk_expression_list(init
-                                    .as<Nodecl::StructuredValue>()
-                                    .get_items()
-                                    .as<Nodecl::List>());
-                        }
-                        else
-                        {
-                            char old_inside_struct = state.inside_structured_value;
-                            state.inside_structured_value = 1;
-
-                            walk(init);
-
-                            state.inside_structured_value = old_inside_struct;
-                        }
+                                .as<Nodecl::List>());
                     }
                     else
                     {
-                        char top_is_comma = init.is<Nodecl::Comma>();
+                        char old_inside_struct = state.inside_structured_value;
+                        state.inside_structured_value = 1;
 
-                        if (top_is_comma)
-                        {
-                            file << "(";
-                        }
-
-                        bool is_non_language_ref = (is_non_language_reference_variable(symbol)
-                                && !symbol.get_type().references_to().is_array());
-
-                        if (is_non_language_ref)
-                        {
-                            file << "(&(";
-                        }
                         walk(init);
-                        if (is_non_language_ref)
-                        {
-                            file << "))";
-                        }
 
-                        if (top_is_comma)
-                        {
-                            file << ")";
-                        }
+                        state.inside_structured_value = old_inside_struct;
                     }
                 }
                 else
                 {
-                    if (is_call_to_self_constructor)
-                    {
-                        // Do not print the top constructor call
-                        Nodecl::List nodecl_args = symbol
-                            .get_initialization()
-                            .as<Nodecl::FunctionCall>()
-                            .get_arguments()
-                            .as<Nodecl::List>();
+                    char top_is_comma = init.is<Nodecl::Comma>();
 
-                        if (!nodecl_args.empty())
-                        {
-                            file << "(";
-                            walk_expression_list(nodecl_args);
-                            file << ")";
-                        }
-                    }
-                    else
+                    if (top_is_comma)
                     {
-                        walk(symbol.get_initialization());
+                        file << "(";
+                    }
+
+                    bool is_non_language_ref = (is_non_language_reference_variable(symbol)
+                            && !symbol.get_type().references_to().is_array());
+
+                    if (is_non_language_ref)
+                    {
+                        file << "(&(";
+                    }
+                    walk(init);
+                    if (is_non_language_ref)
+                    {
+                        file << "))";
+                    }
+
+                    if (top_is_comma)
+                    {
+                        file << ")";
                     }
                 }
             }
-            pop_scope();
-        }
-
-        if (!state.in_condition)
-        {
-            file << ";\n";
-        }
-
-        CXX_LANGUAGE()
-        {
-            if (requires_extern_linkage)
+            else
             {
-                dec_indent();
-                indent();
-                file << "}\n";
+                if (is_call_to_self_constructor)
+                {
+                    // Do not print the top constructor call
+                    Nodecl::List nodecl_args = symbol
+                        .get_initialization()
+                        .as<Nodecl::FunctionCall>()
+                        .get_arguments()
+                        .as<Nodecl::List>();
+
+                    if (!nodecl_args.empty())
+                    {
+                        file << "(";
+                        walk_expression_list(nodecl_args);
+                        file << ")";
+                    }
+                }
+                else
+                {
+                    walk(symbol.get_initialization());
+                }
             }
         }
+        pop_scope();
     }
+
+    if (!state.in_condition)
+    {
+        file << ";\n";
+    }
+
+    CXX_LANGUAGE()
+    {
+        if (requires_extern_linkage)
+        {
+            dec_indent();
+            indent();
+            file << "}\n";
+        }
+    }
+
 }
 
 void CxxBase::do_define_symbol(TL::Symbol symbol,
@@ -4527,13 +4558,15 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
             )
         return;
 
-    set_codegen_status(symbol, CODEGEN_STATUS_DECLARED);
-
     if (symbol.is_variable())
     {
         define_or_declare_variable(symbol, /* is definition */ false);
+        return;
     }
-    else if (symbol.is_class())
+
+    set_codegen_status(symbol, CODEGEN_STATUS_DECLARED);
+
+    if (symbol.is_class())
     {
         C_LANGUAGE()
         {
@@ -4742,10 +4775,15 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         fill_parameter_names_and_parameter_attributes(symbol, parameter_names, parameter_attributes);
 
         std::string decl_spec_seq;
-        if (symbol.is_static())
+
+        if (symbol.is_static()
+                && (!symbol.is_member()
+                    || (!state.classes_being_defined.empty()
+                        && state.classes_being_defined.back() == symbol.get_class_type().get_symbol())))
         {
             decl_spec_seq += "static ";
         }
+
         if (symbol.is_extern())
         {
             decl_spec_seq += "extern ";
