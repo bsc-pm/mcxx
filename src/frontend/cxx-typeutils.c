@@ -2258,18 +2258,27 @@ type_t* get_pointer_type(type_t* t)
         pointed_type->pointer = counted_calloc(1, sizeof(*pointed_type->pointer), &_bytes_due_to_type_system);
         pointed_type->pointer->pointee = t;
 
-        if (is_function_type(t))
+        if (is_array_type(t)
+                && array_type_with_descriptor(t))
         {
-            pointed_type->info->size = CURRENT_CONFIGURATION->type_environment->sizeof_function_pointer;
-            pointed_type->info->alignment = CURRENT_CONFIGURATION->type_environment->alignof_function_pointer;
+            // This is an array with descriptor 
+            // let cxx-typeenviron.c compute this size
         }
         else
         {
-            pointed_type->info->size = CURRENT_CONFIGURATION->type_environment->sizeof_pointer;
-            pointed_type->info->alignment = CURRENT_CONFIGURATION->type_environment->alignof_pointer;
-        }
+            if (is_function_type(t))
+            {
+                pointed_type->info->size = CURRENT_CONFIGURATION->type_environment->sizeof_function_pointer;
+                pointed_type->info->alignment = CURRENT_CONFIGURATION->type_environment->alignof_function_pointer;
+            }
+            else
+            {
+                pointed_type->info->size = CURRENT_CONFIGURATION->type_environment->sizeof_pointer;
+                pointed_type->info->alignment = CURRENT_CONFIGURATION->type_environment->alignof_pointer;
+            }
 
-        pointed_type->info->valid_size = 1;
+            pointed_type->info->valid_size = 1;
+        }
 
         pointed_type->info->is_dependent = is_dependent_type(t);
 
@@ -2610,12 +2619,12 @@ static type_t* _get_array_type(type_t* element_type,
     //    int k[x + y];
     // }
     //
-    // // C++ 
+    // // C++
     // template <int _N, int _M>
     // void f()
     // {
     //   int k[_N + _M];
-    // } 
+    // }
     //
     //
     // First try to fold as many trees as possible
@@ -2625,14 +2634,14 @@ static type_t* _get_array_type(type_t* element_type,
             nodecl_t *nodecl;
             char* pred;
             _size_t* value;
-        } data[] = 
+        } data[] =
         {
             { &whole_size, &whole_size_is_constant, &whole_size_k },
             { &lower_bound, &lower_bound_is_constant, &lower_bound_k },
             { &upper_bound, &upper_bound_is_constant, &upper_bound_k },
             { NULL, NULL, NULL }
         };
-        
+
         int i;
         for (i = 0; data[i].nodecl != NULL; i++)
         {
@@ -2654,7 +2663,9 @@ static type_t* _get_array_type(type_t* element_type,
 
     if (nodecl_is_null(whole_size))
     {
-        // Use the same strategy we use for pointers
+        // Use the same strategy we use for pointers when all components (size,
+        // lower, upper) of the array are null otherwise create a new array
+        // every time (it is safer)
         static rb_red_blk_tree *_undefined_array_types[2] = { NULL, NULL };
 
         if (_undefined_array_types[!!with_descriptor] == NULL)
@@ -2668,7 +2679,7 @@ static type_t* _get_array_type(type_t* element_type,
                 && array_region == NULL)
         {
             undefined_array_type = rb_tree_query_type(_undefined_array_types[!!with_descriptor], element_type);
-        }         
+        }
         if (undefined_array_type == NULL)
         {
             _array_type_counter++;
@@ -2682,7 +2693,7 @@ static type_t* _get_array_type(type_t* element_type,
             // If we used the hash of array types, these two will be null
             result->array->lower_bound = lower_bound;
             result->array->upper_bound = upper_bound;
-            
+
             result->array->with_descriptor = with_descriptor;
 
             result->array->region = array_region;
@@ -2700,7 +2711,10 @@ static type_t* _get_array_type(type_t* element_type,
 
             result->array->array_expr_decl_context = decl_context;
 
-            result->info->is_incomplete = 1;
+            // Arrays with descriptor have a complete type even if their
+            // dimensions are not known at compile time (because the descriptor
+            // is a complete type actually
+            result->info->is_incomplete = !with_descriptor;
 
             result->info->is_dependent = is_dependent_type(element_type);
 
@@ -2736,7 +2750,7 @@ static type_t* _get_array_type(type_t* element_type,
                 result->unqualified_type = result;
                 result->array = counted_calloc(1, sizeof(*(result->array)), &_bytes_due_to_type_system);
                 result->array->element_type = element_type;
-                
+
                 result->array->with_descriptor = with_descriptor;
 
                 if (is_array_type(element_type))
