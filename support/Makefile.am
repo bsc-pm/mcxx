@@ -1,1 +1,1 @@
-SUBDIRS=openmp
+SUBDIRS=iso_fortran openmp

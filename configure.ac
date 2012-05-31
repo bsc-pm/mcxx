@@ -56,6 +56,9 @@ AC_PROG_SED
 dnl Check LN_S
 AC_PROG_LN_S
 
+dnl Check fortran compiler
+AC_PROG_FC
+
 dnl Check GNU Bash.
 AC_PATH_PROG([BASH], [bash], [])
 
@@ -1443,6 +1446,7 @@ AC_CONFIG_FILES([Makefile
            src/tl/superscalar/Makefile
            src/tl/ss_valgrind/Makefile
            support/Makefile
+           support/iso_fortran/Makefile
            support/openmp/Makefile
            support/openmp/fortran/Makefile
            config/Makefile
