@@ -986,12 +986,28 @@ static void build_scope_module_program_unit(AST program_unit,
     AST module_stmt = ASTSon0(program_unit);
     AST module_name = ASTSon0(module_stmt);
 
+    // This is a mercurium extension
+    AST module_nature = ASTSon1(module_stmt);
+
     scope_entry_t* new_entry = new_fortran_symbol_not_unknown(decl_context, ASTText(module_name));
     new_entry->kind = SK_MODULE;
 
     if (new_entry->decl_context.current_scope == decl_context.global_scope)
         new_entry->entity_specs.is_global_hidden = 1;
-    
+
+    if (module_nature != NULL)
+    {
+        if (strcasecmp(ASTText(module_nature), "intrinsic") == 0)
+        {
+            new_entry->entity_specs.is_builtin = 1;
+        }
+        else
+        {
+            running_error("%s: error: invalid module nature. Only INTRINSIC is allowed\n", 
+                    ast_location(module_nature));
+        }
+    }
+
     remove_unknown_kind_symbol(decl_context, new_entry);
 
     new_entry->related_decl_context = program_unit_context;

@@ -4544,7 +4544,14 @@ module : module_stmt opt_statement_seq module_subprogram_part end_module_stmt
 ;
 module_stmt : labeldef TOK_MODULE name eos
 {
-    $$ = ASTMake2Label(AST_MODULE_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake3Label(AST_MODULE_STATEMENT, $1, $3, NULL, $2.token_file, $2.token_line, $2.token_text);
+}
+// This is a mercurium extension
+| labeldef TOK_MODULE name ',' TOK_INTRINSIC eos
+{
+    $$ = ASTMake3Label(AST_MODULE_STATEMENT, $1, $3,
+        $$ = ASTLeaf(AST_SYMBOL, $5.token_file, $5.token_line, $5.token_text),
+        $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 end_module_stmt : labeldef TOK_END TOK_MODULE name eos

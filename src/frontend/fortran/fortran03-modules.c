@@ -62,7 +62,7 @@
   #define Q "%Q"
 #endif
 
-static void create_storage(sqlite3**, const char*);
+static void create_storage(sqlite3**, scope_entry_t*);
 static void init_storage(sqlite3*);
 static void dispose_storage(sqlite3*);
 static void prepare_statements(sqlite3*);
@@ -290,7 +290,7 @@ void dump_module_info(scope_entry_t* module)
     timing_start(&timing_dump_module);
 
     sqlite3* handle = NULL;
-    create_storage(&handle, module->symbol_name);
+    create_storage(&handle, module);
 
     start_transaction(handle);
 
@@ -355,8 +355,8 @@ void load_module_info(const char* module_name, scope_entry_t** module)
     ERROR_CONDITION(module == NULL, "Invalid parameter", 0);
     *module = NULL;
 
-    const char* filename = NULL; 
-    driver_fortran_retrieve_module(module_name, &filename);
+    const char *filename = NULL, *wrap_filename = NULL; 
+    driver_fortran_retrieve_module(module_name, &filename, &wrap_filename);
 
     if (filename == NULL)
     {
@@ -412,12 +412,25 @@ void load_module_info(const char* module_name, scope_entry_t** module)
                 module_name,
                 timing_elapsed(&timing_load_module));
     }
+
+    if (module != NULL
+            && wrap_filename != NULL)
+    {
+        if (!(*module)->entity_specs.is_builtin)
+        {
+            P_LIST_ADD(CURRENT_COMPILED_FILE->module_files_to_hide,
+                    CURRENT_COMPILED_FILE->num_module_files_to_hide,
+                    wrap_filename);
+        }
+    }
+
 }
 
-static void create_storage(sqlite3** handle, const char* module_name)
+static void create_storage(sqlite3** handle, scope_entry_t* module)
 {
     const char* filename = NULL;
-    driver_fortran_register_module(module_name, &filename);
+    driver_fortran_register_module(module->symbol_name, &filename, 
+            /* is_intrinsic */ module->entity_specs.is_builtin);
 
     DEBUG_CODE()
     {
@@ -2949,7 +2962,8 @@ void extend_module_info(scope_entry_t* module, const char* domain, int num_items
     sqlite3* handle = NULL;
     const char* filename = NULL;
 
-    driver_fortran_register_module(module_name, &filename);
+    driver_fortran_register_module(module_name, &filename, 
+            /* is_intrinsic */ module->entity_specs.is_builtin);
     load_storage(&handle, filename);
 
     prepare_statements(handle);

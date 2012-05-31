@@ -243,12 +243,6 @@ static const char* unwrap_module(const char* wrap_module, const char* module_nam
         }
         result = NULL;
     }
-    else
-    {
-        P_LIST_ADD(CURRENT_COMPILED_FILE->module_files_to_hide,
-                CURRENT_COMPILED_FILE->num_module_files_to_hide,
-                wrap_module);
-    }
 
     return result;
 }
@@ -383,29 +377,30 @@ void driver_fortran_discard_all_modules(void)
     CURRENT_COMPILED_FILE->num_modules_to_wrap = 0;
 }
 
-void driver_fortran_retrieve_module(const char* module_name, const char **mf03_filename)
+void driver_fortran_retrieve_module(const char* module_name, 
+        const char **mf03_filename,
+        const char **wrap_filename)
 {
     DEBUG_CODE()
     {
         fprintf(stderr, "DRIVER-FORTRAN: Retrieving module '%s'\n", module_name);
     }
     *mf03_filename = NULL;
+    *wrap_filename = NULL;
 
     const char* wrap_module = NULL;
 
-    if (CURRENT_CONFIGURATION->debug_options.disable_module_cache)
-    {
-        // Try first with a hypothetical unwrapped module
-        *mf03_filename = get_path_of_mercurium_nonwrapped_module(module_name);
-        if (*mf03_filename != NULL)
-            return;
-    }
+    // Try first with a hypothetical unwrapped module
+    *mf03_filename = get_path_of_mercurium_nonwrapped_module(module_name);
+    if (*mf03_filename != NULL)
+        return;
 
     wrap_module = get_path_of_mercurium_wrap_module(module_name);
 
     if (wrap_module != NULL)
     {
         *mf03_filename = unwrap_module(wrap_module, module_name);
+        *wrap_filename = wrap_module;
 
         DEBUG_CODE()
         {
@@ -421,7 +416,9 @@ void driver_fortran_retrieve_module(const char* module_name, const char **mf03_f
     }
 }
 
-void driver_fortran_register_module(const char* module_name, const char **mf03_filename)
+void driver_fortran_register_module(const char* module_name, 
+        const char **mf03_filename,
+        char is_intrinsic)
 {
     DEBUG_CODE()
     {
@@ -430,7 +427,10 @@ void driver_fortran_register_module(const char* module_name, const char **mf03_f
 
     *mf03_filename = get_path_of_mercurium_own_module(module_name);
 
-    register_module_for_later_wrap(module_name, *mf03_filename);
+    if (!is_intrinsic)
+    {
+        register_module_for_later_wrap(module_name, *mf03_filename);
+    }
 
     DEBUG_CODE()
     {
