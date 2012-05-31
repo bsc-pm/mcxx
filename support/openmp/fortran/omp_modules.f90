@@ -1,6 +1,6 @@
 module omp_lib_kinds
-   integer, parameter :: omp_lock_kind = mercurium_intptr_t
-   integer, parameter :: omp_nest_lock_kind = mercurium_intptr_t
+   integer, parameter :: omp_lock_kind = mercurium_c_intptr_t
+   integer, parameter :: omp_nest_lock_kind = mercurium_c_intptr_t
 
    integer, parameter :: omp_sched_kind = 4;
    integer(kind=omp_sched_kind), parameter :: omp_sched_static = 1

@@ -81,11 +81,59 @@ void fortran_initialize_translation_unit_scope(translation_unit_t* translation_u
 
 static void fortran_init_globals(decl_context_t decl_context)
 {
-    scope_entry_t* mercurium_intptr = new_symbol(decl_context, decl_context.global_scope, "mercurium_intptr_t");
-    mercurium_intptr->kind = SK_VARIABLE;
-    mercurium_intptr->type_information = get_const_qualified_type(fortran_get_default_integer_type());
-    mercurium_intptr->value = const_value_to_nodecl(const_value_get_signed_int(CURRENT_CONFIGURATION->type_environment->sizeof_pointer));
-    mercurium_intptr->do_not_print = 1;
+    type_t* int_8 = fortran_choose_int_type_from_kind(1);
+    type_t* int_16 = fortran_choose_int_type_from_kind(2);
+    type_t* int_32 = fortran_choose_int_type_from_kind(4);
+    type_t* int_64 = fortran_choose_int_type_from_kind(8);
+
+    struct {
+        const char* symbol_name;
+        type_t* backing_type;
+    } intrinsic_globals[] =
+    {
+        { "mercurium_c_int", get_signed_int_type() },
+        { "mercurium_c_short", get_signed_short_int_type() },
+        { "mercurium_c_long", get_signed_long_int_type() },
+        { "mercurium_c_long_long", get_signed_long_long_int_type() },
+        { "mercurium_c_signed_char", get_signed_byte_type() },
+        { "mercurium_c_size_t", get_size_t_type() },
+        { "mercurium_c_int8_t", int_8 },
+        { "mercurium_c_int16_t", int_16 },
+        { "mercurium_c_int32_t", int_32 },
+        { "mercurium_c_int64_t", int_64 },
+        { "mercurium_c_int_least8_t", int_8 },
+        { "mercurium_c_int_least16_t", int_16 },
+        { "mercurium_c_int_least32_t", int_32 },
+        { "mercurium_c_int_least64_t", int_64 },
+        { "mercurium_c_int_fast8_t", int_8 },
+        { "mercurium_c_int_fast16_t", int_16 },
+        { "mercurium_c_int_fast32_t", int_32 },
+        { "mercurium_c_int_fast64_t", int_64 },
+        { "mercurium_c_intmax_t", int_64 },
+        { "mercurium_c_intptr_t", get_pointer_type(get_void_type()) },
+        { "mercurium_c_float", get_float_type() },
+        { "mercurium_c_double", get_double_type() },
+        { "mercurium_c_long_double", get_long_double_type() },
+        { "mercurium_c_float_complex", get_complex_type(get_float_type()) },
+        { "mercurium_c_double_complex", get_complex_type(get_double_type()) },
+        { "mercurium_c_long_double_complex", get_complex_type(get_long_double_type()) },
+        { "mercurium_c_bool", get_bool_type() },
+        { "mercurium_c_char", get_char_type() },
+        // Sentinel
+        { NULL, NULL }
+    };
+
+    int i;
+    for (i = 0; intrinsic_globals[i].symbol_name != NULL; i++)
+    {
+        scope_entry_t* mercurium_intptr = new_symbol(decl_context, decl_context.global_scope, intrinsic_globals[i].symbol_name);
+        mercurium_intptr->kind = SK_VARIABLE;
+        mercurium_intptr->type_information = get_const_qualified_type(fortran_get_default_integer_type());
+        mercurium_intptr->value = const_value_to_nodecl(
+                const_value_get_signed_int(
+                    type_get_size(intrinsic_globals[i].backing_type)));
+        mercurium_intptr->do_not_print = 1;
+    }
 }
 
 nodecl_t build_scope_fortran_translation_unit(translation_unit_t* translation_unit)
