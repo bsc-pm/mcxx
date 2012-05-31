@@ -149,12 +149,16 @@ namespace TL { namespace Nanox {
                     fill_immediate_arguments_reductions);
 
             init_reduction_code
-                << "nanos_release_sync_init();"
+                << "err = nanos_release_sync_init();"
+                << "if (err != NANOS_OK)"
+                <<     "nanos_handle_error(err);"
                 ;
             extra_sync_due_to_reductions
                 << "else"
                 << "{"
-                <<     "nanos_wait_sync_init();"
+                <<     "err = nanos_wait_sync_init();"
+                <<     "if (err != NANOS_OK)"
+                <<         "nanos_handle_error(err);"
                 << "}"
                 ;
 

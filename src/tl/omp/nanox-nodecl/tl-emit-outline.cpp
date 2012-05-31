@@ -203,9 +203,21 @@ namespace TL { namespace Nanox {
 
                         // Parameter
                         TL::Type param_type = (*it)->get_field_type();
-                        if (IS_FORTRAN_LANGUAGE)
+                        if (IS_C_LANGUAGE
+                                || IS_CXX_LANGUAGE)
                         {
+                            // The type will already be a convenient T*
+                        }
+                        else if (IS_FORTRAN_LANGUAGE)
+                        {
+                            // The type will be a pointer to a descripted array
+                            // make it a reference to a descripted array
+                            param_type = param_type.points_to();
                             param_type = param_type.get_lvalue_reference_to();
+                        }
+                        else
+                        {
+                            internal_error("Code unreachable", 0);
                         }
 
                         scope_entry_t* reduction_private_sym = ::new_symbol(function_context, function_context.current_scope, 

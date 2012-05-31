@@ -61,8 +61,10 @@ namespace TL { namespace Nanox {
 
                 reduction_declaration
                     << "nanos_reduction_t* " << nanos_red_name << ";"
-                    << "static " << as_type( (*it)->get_field_type() ) << " rdp_" << (*it)->get_field_name() << ";"
+                    << as_type( (*it)->get_field_type() ) << " rdp_" << (*it)->get_field_name() << ";"
                     ;
+
+                Source allocate_private_buffer, cleanup_code;
 
                 register_code
                     << "err = nanos_malloc((void**)&" << nanos_red_name << ", sizeof(nanos_reduction_t), " 
@@ -70,22 +72,63 @@ namespace TL { namespace Nanox {
                     << "if (err != NANOS_OK)"
                     <<     "nanos_handle_error(err);"
                     << nanos_red_name << "->original = (void*)&" << (*it)->get_symbol().get_name() << ";"
-                    << "err = nanos_malloc(&" << nanos_red_name << "->privates, sizeof(" << as_type(reduction_type) << ") * " << max_threads <<", "
-                    << "\"" << construct.get_filename() << "\", " << construct.get_line() << ");"
+                    << allocate_private_buffer
+                    << nanos_red_name << "->bop = " << udr_info->get_basic_reductor_function().get_name() << ";"
+                    << nanos_red_name << "->element_size = sizeof(" << as_type(reduction_type) << ");"
+                    << cleanup_code
+                    << "err = nanos_register_reduction(" << nanos_red_name << ");"
                     << "if (err != NANOS_OK)"
                     <<     "nanos_handle_error(err);"
-                    << nanos_red_name << "->bop = " << udr_info->get_basic_reductor_function().get_name() << ";"
-                    << nanos_red_name << "->cleanup = " << udr_info->get_cleanup_function().get_name() << ";"
-                    << "nanos_register_reduction(" << nanos_red_name << ");"
-                    << "rdp_" << (*it)->get_field_name() << " = (" <<  as_type( (*it)->get_field_type() ) << ")" << nanos_red_name << "->privates;"
                     ;
 
-                fill_outline_arguments
-                    << "ol_args->" << (*it)->get_field_name() << " = (" <<  as_type( (*it)->get_field_type() ) << ")" << nanos_red_name << "->privates;"
-                    ;
-                fill_immediate_arguments
-                    << "imm_args." << (*it)->get_field_name() << " = (" <<  as_type( (*it)->get_field_type() ) << ")" << nanos_red_name << "->privates;"
-                    ;
+                if (IS_C_LANGUAGE
+                        || IS_CXX_LANGUAGE)
+                {
+                    allocate_private_buffer
+                        << "err = nanos_malloc(&" << nanos_red_name << "->privates, sizeof(" << as_type(reduction_type) << ") * " << max_threads <<", "
+                        << "\"" << construct.get_filename() << "\", " << construct.get_line() << ");"
+                        << "if (err != NANOS_OK)"
+                        <<     "nanos_handle_error(err);"
+                        << "rdp_" << (*it)->get_field_name() << " = (" <<  as_type( (*it)->get_field_type() ) << ")" << nanos_red_name << "->privates;"
+                        ;
+                    cleanup_code
+                        << nanos_red_name << "->cleanup = " << udr_info->get_cleanup_function().get_name() << ";"
+                        ;
+
+                    fill_outline_arguments
+                        << "ol_args->" << (*it)->get_field_name() << " = (" <<  as_type( (*it)->get_field_type() ) << ")" << nanos_red_name << "->privates;"
+                        ;
+                    fill_immediate_arguments
+                        << "imm_args." << (*it)->get_field_name() << " = (" <<  as_type( (*it)->get_field_type() ) << ")" << nanos_red_name << "->privates;"
+                        ;
+                }
+                else
+                {
+                    allocate_private_buffer
+                        // FIXME - We have to do an ALLOCATE but this is C :)
+                        << nanos_red_name << "->privates = &(*rdp_" << (*it)->get_field_name() << ");"
+                        << "err = nanos_malloc(&" << nanos_red_name << "->descriptor, sizeof(" << as_type((*it)->get_field_type()) << "), " 
+                        << "\"" << construct.get_filename() << "\", " << construct.get_line() << ");"
+                        << "if (err != NANOS_OK)"
+                        <<     "nanos_handle_error(err);"
+                        << "err = nanos_memcpy(" << nanos_red_name << "->descriptor, "
+                            "&rdp_" << (*it)->get_field_name() << ", sizeof(" << as_type((*it)->get_field_type()) << "));"
+                        << "if (err != NANOS_OK)"
+                        <<     "nanos_handle_error(err);"
+                        ;
+
+                    cleanup_code
+                        << nanos_red_name << "->cleanup = &nanos_reduction_default_cleanup_fortran;"
+                        ;
+
+                    fill_outline_arguments
+                        << "ol_args->" << (*it)->get_field_name() << " = rdp_" << (*it)->get_field_name() << ";"
+                        ;
+                    fill_immediate_arguments
+                        << "imm_args." << (*it)->get_field_name() << " = rdp_" << (*it)->get_field_name() << ";"
+                        ;
+                }
+
             }
         }
     }

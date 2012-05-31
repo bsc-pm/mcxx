@@ -759,6 +759,11 @@ void LoweringVisitor::fill_arguments(
                         }
                         break;
                     }
+                case OutlineDataItem::SHARING_REDUCTION:
+                    {
+                        // This is filled elsewhere 
+                        break;
+                    }
                 case OutlineDataItem::SHARING_PRIVATE:
                     {
                         // Do nothing
