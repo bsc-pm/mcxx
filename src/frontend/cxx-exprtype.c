@@ -10332,7 +10332,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
             //   char a[] = { "hello" };
             
             // The expression list has only one element of kind expression and this element is an array of chars o wchars
-            type_t * type_element = nodecl_get_type(nodecl_list_head(initializer_clause_list));
+            type_t * type_element = nodecl_get_type(nodecl_get_child(nodecl_list_head(initializer_clause_list), 0));
             if (nodecl_list_length(initializer_clause_list) == 1
                     && nodecl_get_kind(nodecl_list_head(initializer_clause_list)) != NODECL_CXX_BRACED_INITIALIZER
                     && nodecl_get_kind(nodecl_list_head(initializer_clause_list)) != NODECL_C99_DESIGNATED_INITIALIZER
@@ -10345,7 +10345,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
             {
                 // Attempt an interpretation like char a[] = "hello";
                 enter_test_expression();
-                check_nodecl_expr_initializer(nodecl_list_head(initializer_clause_list), 
+                check_nodecl_expr_initializer(nodecl_get_child(nodecl_list_head(initializer_clause_list), 0), 
                         decl_context,
                         declared_type,
                         nodecl_output);
@@ -11151,6 +11151,9 @@ static void compute_nodecl_initializer_clause(AST initializer, decl_context_t de
         default:
             {
                 check_expression_impl_(initializer, decl_context, nodecl_output);
+                *nodecl_output = nodecl_make_cxx_initializer(*nodecl_output, 
+                        nodecl_get_filename(*nodecl_output), 
+                        nodecl_get_line(*nodecl_output));
                 break;
             }
         case AST_INITIALIZER_BRACES:
@@ -12012,9 +12015,11 @@ static void check_nodecl_initializer_clause(nodecl_t initializer_clause,
     switch (nodecl_get_kind(initializer_clause))
     {
         // Default should be an expression
-        default:
+        case NODECL_CXX_INITIALIZER:
             {
-                check_nodecl_expr_initializer(initializer_clause, decl_context, declared_type, nodecl_output);
+                check_nodecl_expr_initializer(
+                        nodecl_get_child(initializer_clause, 0), 
+                        decl_context, declared_type, nodecl_output);
                 break;
             }
         case NODECL_CXX_BRACED_INITIALIZER:
@@ -12027,6 +12032,10 @@ static void check_nodecl_initializer_clause(nodecl_t initializer_clause,
                 // Note: GCC-style designated initializers are subsumed in NODECL_C99_DESIGNATED_INITIALIZER
                 check_nodecl_designated_initializer(initializer_clause, decl_context, declared_type, nodecl_output);
                 break;
+            }
+        default:
+            {
+                internal_error("Unexpected nodecl '%s'\n", ast_print_node_type(nodecl_get_kind(initializer_clause)));
             }
     }
 }
@@ -12042,6 +12051,14 @@ char check_initialization(AST initializer, decl_context_t decl_context, type_t* 
     nodecl_t nodecl_init = nodecl_null();
 
     compute_nodecl_initialization(initializer, decl_context, &nodecl_init);
+
+    if (is_dependent_type(declared_type))
+    {
+        // We do not bother to check anything else if the declared entity is
+        // dependent
+        *nodecl_output = nodecl_init;
+        return 1;
+    }
 
     check_initialization_nodecl(nodecl_init, decl_context, declared_type, nodecl_output);
     
@@ -14417,18 +14434,10 @@ static void instantiate_structured_value(nodecl_instantiate_expr_visitor_t* v, n
         nodecl_new_list = nodecl_append_to_list(nodecl_new_list, nodecl_new_item);
     }
 
-    // We use braced because it is the most generic 
-    nodecl_t nodecl_braced_init = 
-        nodecl_make_cxx_braced_initializer(
-                nodecl_new_list,
-                nodecl_get_filename(node),
-                nodecl_get_line(node));
+    v->nodecl_result =
+        nodecl_make_structured_value(nodecl_new_list, t, nodecl_get_filename(node), nodecl_get_line(node));
 
-    check_nodecl_braced_initializer(
-            nodecl_braced_init,
-            v->decl_context,
-            t,
-            &v->nodecl_result);
+    //FIXME: We should check this new structured value
 }
 
 static void instantiate_reference(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
@@ -14789,6 +14798,20 @@ static void instantiate_parenthesized_initializer(nodecl_instantiate_expr_visito
     v->nodecl_result = nodecl_make_cxx_parenthesized_initializer(nodecl_result_list, nodecl_get_filename(node), nodecl_get_line(node));
 }
 
+static void instantiate_initializer(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    nodecl_t expr = instantiate_expr_walk(v, nodecl_get_child(node, 0));
+
+    if (nodecl_is_err_expr(expr))
+    {
+        v->nodecl_result = expr;
+    }
+    else
+    {
+        v->nodecl_result = nodecl_make_cxx_initializer(expr, nodecl_get_filename(node), nodecl_get_line(node));
+    }
+}
+
 static void instantiate_equal_initializer(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
 {
     nodecl_t expr = instantiate_expr_walk(v, nodecl_get_child(node, 0));
@@ -14967,6 +14990,7 @@ static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, 
     NODECL_VISITOR(v)->visit_conversion = instantiate_expr_visitor_fun(instantiate_conversion);
 
     // Initializers
+    NODECL_VISITOR(v)->visit_cxx_initializer = instantiate_expr_visitor_fun(instantiate_initializer);
     NODECL_VISITOR(v)->visit_cxx_equal_initializer = instantiate_expr_visitor_fun(instantiate_equal_initializer);
     NODECL_VISITOR(v)->visit_cxx_braced_initializer = instantiate_expr_visitor_fun(instantiate_braced_initializer);
     NODECL_VISITOR(v)->visit_cxx_parenthesized_initializer = instantiate_expr_visitor_fun(instantiate_parenthesized_initializer);

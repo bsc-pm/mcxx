@@ -655,12 +655,12 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxArrow& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxBracedInitializer& node)
 {
-    file << "{";
+    file << "{ ";
     if (!node.get_init().is_null())
     {
-        walk(node.get_init());
+        walk_list(node.get_init().as<Nodecl::List>(), ", ");
     }
-    file << "}";
+    file << " }";
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepGlobalNameNested& node)
@@ -701,6 +701,11 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepTemplateId& node)
     {
         file << "<>";
     }
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::CxxInitializer& node)
+{
+    walk(node.get_init());
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxEqualInitializer& node)
