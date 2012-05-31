@@ -1442,6 +1442,9 @@ AC_CONFIG_FILES([Makefile
            src/tl/examples/multifile_test/Makefile
            src/tl/superscalar/Makefile
            src/tl/ss_valgrind/Makefile
+           support/Makefile
+           support/openmp/Makefile
+           support/openmp/fortran/Makefile
            config/Makefile
            tests/Makefile
            tests/config/Makefile

@@ -24,24 +24,35 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-SUBDIRS = gnulib lib src config tests scripts support
+omp_modules = \
+    omp_lib_kinds.mod \
+    omp_lib.mod \
+    $(END)
 
-DIST_SUBDIRS = $(SUBDIRS) doc
+EXTRA_DIST=\
+		   omp_modules.f90 \
+		   omp_lib.h \
+		   $(END)
 
-ACLOCAL_AMFLAGS=-I m4
+CLEANFILES =
+CLEANFILES += $(omp_modules) omp_modules.o
 
-# We should use AM_DISTCHECK_CONFIGURE_FLAGS but it is only available in Automake 1.11
-DISTCHECK_CONFIGURE_FLAGS =
-# We need to augment the command line variables
-override DISTCHECK_CONFIGURE_FLAGS += --enable-distcheck-processing=yes
+PLAINFC=$(top_builddir)/src/driver/mcxx --config-dir=$(top_builddir)/config --profile=plainfc
 
-dist-hook:
-	if [ -n "$(gitpath)" ]; \
-	then \
-	    run_gitversion=`"$(gitpath)" --git-dir=$(srcdir)/.git show "--pretty=format:%h %ci" HEAD | head -n 1`; \
-	    build_version="git $${run_gitversion} distributed version"; \
-	    echo "$${build_version}" > $(distdir)/DIST_REVISION; \
-	elif [ -e $(srcdir)/DIST_REVISION ]; \
-	then \
-	    cp $(srcdir)/DIST_REVISION $(distdir)/DIST_REVISION; \
-	fi
+configdir=$(pkgdatadir)/fortran/openmp
+config_DATA = \
+			  $(omp_modules) \
+			  omp_lib.h \
+			  $(END)
+
+if SUPPORTED_SILENT_RULES
+PLAINFC_verbose = $(PLAINFC_verbose_$(V))
+PLAINFC_verbose_ = $(PLAINFC_verbose_$(AM_DEFAULT_VERBOSITY))
+PLAINFC_verbose_0 = @echo "  PLAINFC" $@;
+endif
+
+# This is a noop to avoid breaking parallel builds
+omp_lib_kinds.mod : omp_lib.mod
+
+omp_lib.mod : $(srcdir)/omp_modules.f90
+	$(PLAINFC_verbose)$(PLAINFC) -c $(srcdir)/omp_modules.f90
