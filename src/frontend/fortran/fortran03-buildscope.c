@@ -57,6 +57,8 @@ static void unsupported_statement(AST a, const char* name);
 
 static void null_dtor(const void* p UNUSED_PARAMETER) { }
 
+static void fortran_init_globals(decl_context_t decl_context);
+
 void fortran_initialize_translation_unit_scope(translation_unit_t* translation_unit)
 {
     decl_context_t decl_context;
@@ -71,10 +73,20 @@ void fortran_initialize_translation_unit_scope(translation_unit_t* translation_u
 
     fortran_init_intrinsics(decl_context);
 
+    fortran_init_globals(decl_context);
+
     translation_unit->module_file_cache = rb_tree_create((int (*)(const void*, const void*))strcasecmp, null_dtor, null_dtor);
     translation_unit->module_symbol_cache = rb_tree_create((int (*)(const void*, const void*))strcasecmp, null_dtor, null_dtor);
 }
 
+static void fortran_init_globals(decl_context_t decl_context)
+{
+    scope_entry_t* mercurium_intptr = new_symbol(decl_context, decl_context.global_scope, "mercurium_intptr_t");
+    mercurium_intptr->kind = SK_VARIABLE;
+    mercurium_intptr->type_information = get_const_qualified_type(fortran_get_default_integer_type());
+    mercurium_intptr->value = const_value_to_nodecl(const_value_get_signed_int(CURRENT_CONFIGURATION->type_environment->sizeof_pointer));
+    mercurium_intptr->do_not_print = 1;
+}
 
 nodecl_t build_scope_fortran_translation_unit(translation_unit_t* translation_unit)
 {
