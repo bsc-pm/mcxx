@@ -235,6 +235,14 @@
 "  --list-fortran-array-descriptors\n" \
 "                           Prints list of supported Fortran\n" \
 "                           array descriptors\n" \
+"  --search-includes=<dir>  Adds <dir> to the directories searched\n" \
+"                           when solving a Fortran INCLUDE line.\n" \
+"                           Does not affect the native compiler like\n" \
+"                           -I does\n" \
+"  --search-modules=<dir>   Adds <dir> to the directories searched\n" \
+"                           when looking for a Fortran module. \n" \
+"                           Does not affect the native compiler like\n" \
+"                           -I does\n" \
 "\n" \
 "gcc compatibility flags:\n" \
 "\n" \
@@ -329,6 +337,8 @@ typedef enum
     OPTION_FORTRAN_CHARACTER_KIND,
     OPTION_FORTRAN_ARRAY_DESCRIPTOR,
     OPTION_LIST_FORTRAN_ARRAY_DESCRIPTORS,
+    OPTION_SEARCH_MODULES,
+    OPTION_SEARCH_INCLUDES,
     OPTION_VERBOSE,
 } COMMAND_LINE_OPTIONS;
 
@@ -395,6 +405,8 @@ struct command_line_long_options command_line_long_options[] =
     {"character-kind", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_CHARACTER_KIND},
     {"fortran-array-descriptor", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_ARRAY_DESCRIPTOR},
     {"list-fortran-array-descriptors", CLP_NO_ARGUMENT, OPTION_LIST_FORTRAN_ARRAY_DESCRIPTORS},
+    {"search-modules", CLP_REQUIRED_ARGUMENT, OPTION_SEARCH_MODULES},
+    {"search-includes", CLP_REQUIRED_ARGUMENT, OPTION_SEARCH_INCLUDES},
     // sentinel
     {NULL, 0, 0}
 };
@@ -500,7 +512,7 @@ int main(int argc, char* argv[])
             compilation_process.argv, 
             /* from_command_line= */ 1,
             /* parse_implicits_only */ 0);
-    
+
     if (parse_arguments_error)
     {
         if (show_help_message)
@@ -516,7 +528,7 @@ int main(int argc, char* argv[])
     // Compiler phases can define additional dynamic initializers
     // (besides the built in ones)
     run_dynamic_initializers();
-    
+
     // Compilation of every specified translation unit
     compile_every_translation_unit();
 
@@ -1050,6 +1062,11 @@ int parse_arguments(int argc, const char* argv[],
 
                         break;
                     }
+                case 'h' :
+                    {
+                        show_help_message = 1;
+                        return 1;
+                    }
                 case OPTION_PREPROCESSOR_NAME :
                     {
                         CURRENT_CONFIGURATION->preprocessor_name = uniquestr(parameter_info.argument);
@@ -1177,10 +1194,17 @@ int parse_arguments(int argc, const char* argv[],
                         list_fortran_array_descriptors();
                         break;
                     }
-                case 'h' :
+                case OPTION_SEARCH_MODULES:
                     {
-                        show_help_message = 1;
-                        return 1;
+                        P_LIST_ADD(CURRENT_CONFIGURATION->module_dirs, CURRENT_CONFIGURATION->num_module_dirs,
+                                uniquestr(parameter_info.argument));
+                        break;
+                    }
+                case OPTION_SEARCH_INCLUDES:
+                    {
+                        P_LIST_ADD(CURRENT_CONFIGURATION->include_dirs, CURRENT_CONFIGURATION->num_include_dirs,
+                                uniquestr(parameter_info.argument));
+                        break;
                     }
                 case OPTION_PRINT_CONFIG_FILE:
                     {
