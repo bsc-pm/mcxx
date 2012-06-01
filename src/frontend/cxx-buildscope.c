@@ -111,7 +111,8 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
         nodecl_t* nodecl_output,
         scope_entry_list_t** declared_symbols);
 
-static void common_gather_type_spec_from_simple_type_specifier(AST a, type_t** type_info,
+static void common_gather_type_spec_from_simple_type_specifier(AST a, 
+        decl_context_t decl_context, type_t** type_info,
         gather_decl_spec_t* gather_info, scope_entry_list_t* query_results);
 
 static void gather_type_spec_from_simple_type_specifier(AST a, type_t** type_info,
@@ -2572,12 +2573,14 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
             if (decl_context.current_scope->kind == CLASS_SCOPE)
             {
                 // If the enclosing class is dependent, so is this one
+                scope_entry_t* enclosing_class_symbol = decl_context.current_scope->related_entry;
+                type_t* enclosing_class_type = enclosing_class_symbol->type_information;
+
                 char c = is_dependent_type(class_entry->type_information);
-                type_t* enclosing_class_type = get_user_defined_type(decl_context.current_scope->related_entry);
                 c = c || is_dependent_type(enclosing_class_type);
                 set_is_dependent_type(class_entry->type_information, c);
 
-                class_type_set_enclosing_class_type(class_type, enclosing_class_type);
+                class_type_set_enclosing_class_type(class_type, get_user_defined_type(enclosing_class_symbol));
             }
             else if (decl_context.current_scope->kind == BLOCK_SCOPE)
             {
@@ -2820,7 +2823,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
 
             new_class->entity_specs.is_friend =
                 new_class->entity_specs.is_friend || gather_info->is_friend;
-            
+
             new_class->entity_specs.is_friend_declared = is_friend_class_declaration;
 
             if ((!gather_info->is_template
@@ -2906,13 +2909,20 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         // it is a nested class
         if (decl_context.current_scope->kind == CLASS_SCOPE)
         {
+            scope_entry_t* enclosing_class_symbol = decl_context.current_scope->related_entry;
+            type_t* enclosing_class_type = enclosing_class_symbol->type_information;
+            class_type_add_member(enclosing_class_type, class_entry);
+
+            class_entry->entity_specs.is_member = 1;
+            class_entry->entity_specs.access = gather_info->current_access;
+            class_entry->entity_specs.class_type = get_user_defined_type(enclosing_class_symbol);
+
+            class_type_set_enclosing_class_type(class_type, get_user_defined_type(enclosing_class_symbol));
+
             // If the enclosing class is dependent, so is this one
             char c = is_dependent_type(class_entry->type_information);
-            type_t* enclosing_class_type = get_user_defined_type(decl_context.current_scope->related_entry);
             c = c || is_dependent_type(enclosing_class_type);
             set_is_dependent_type(class_entry->type_information, c);
-
-            class_type_set_enclosing_class_type(class_type, enclosing_class_type);
         }
         else if (decl_context.current_scope->kind == BLOCK_SCOPE)
         {
@@ -3005,7 +3015,6 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
 
     ERROR_CONDITION(class_entry == NULL, "Invalid class entry", 0);
 
-
     if ((!is_template_specialized_type(class_entry->type_information) ||
             (gather_info->is_template && gather_info->no_declarators)))
     {
@@ -3013,7 +3022,6 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         class_entry->entity_specs.is_user_declared = 1;
         class_entry->entity_specs.is_instantiable = 1;
     }
-
 
     *type_info = get_user_defined_type(class_entry);
 
@@ -3147,10 +3155,18 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a,
 
             *type_info = get_user_defined_type(new_enum);
 
-            if (decl_context.current_scope->kind == CLASS_SCOPE
-                    && is_dependent_type(decl_context.current_scope->related_entry->type_information))
+            if (new_decl_context.current_scope->kind == CLASS_SCOPE)
             {
-                set_is_dependent_type(new_enum->type_information, 1);
+                scope_entry_t* class_symbol = new_decl_context.current_scope->related_entry;
+                type_t* class_type = class_symbol->type_information;
+                class_type_add_member(get_actual_class_type(class_type), new_enum);
+
+                new_enum->entity_specs.is_member = 1;
+                new_enum->entity_specs.access = gather_info->current_access;
+                new_enum->entity_specs.class_type = get_user_defined_type(class_symbol);
+
+                set_is_dependent_type(new_enum->type_information,
+                        is_dependent_type(class_type));
             }
         }
         else
@@ -3250,7 +3266,7 @@ static void gather_type_spec_from_dependent_typename(AST a, type_t** type_info,
     *type_info = entry->type_information;
 }
 
-static void common_gather_type_spec_from_simple_type_specifier(AST a,
+static void common_gather_type_spec_from_simple_type_specifier(AST a, decl_context_t decl_context,
         type_t** type_info, gather_decl_spec_t* gather_info, scope_entry_list_t* query_results)
 {
     if (query_results == NULL)
@@ -3306,8 +3322,17 @@ static void common_gather_type_spec_from_simple_type_specifier(AST a,
 
     entry_list_free(query_results);
 
+    scope_entry_t* current_class = NULL;
+    if (decl_context.class_scope != NULL)
+    {
+        current_class = decl_context.class_scope->related_entry;
+    }
+
     if (entry->entity_specs.is_member
-            && is_dependent_type(entry->entity_specs.class_type))
+            && (is_dependent_type(entry->entity_specs.class_type)
+                || (current_class != NULL
+                    && is_dependent_type(current_class->type_information)
+                    && class_type_is_base(entry->entity_specs.class_type, get_user_defined_type(current_class)))))
     {
         // Craft a nodecl name for it
         nodecl_t nodecl_simple_name = nodecl_make_cxx_dep_name_simple(
@@ -3354,7 +3379,7 @@ static void gather_type_spec_from_simple_type_specifier(AST a, type_t** type_inf
     decl_flags_t flags = DF_IGNORE_FRIEND_DECL;
     scope_entry_list_t* entry_list = query_id_expression_flags(decl_context, id_expression, flags);
 
-    common_gather_type_spec_from_simple_type_specifier(a, type_info, gather_info, entry_list);
+    common_gather_type_spec_from_simple_type_specifier(a, decl_context, type_info, gather_info, entry_list);
 }
 
 static void nodecl_gather_type_spec_from_simple_type_specifier(nodecl_t a, type_t** type_info,
@@ -3363,7 +3388,7 @@ static void nodecl_gather_type_spec_from_simple_type_specifier(nodecl_t a, type_
     decl_flags_t flags = DF_IGNORE_FRIEND_DECL;
     scope_entry_list_t* entry_list = query_nodecl_name_flags(decl_context, a, flags);
 
-    common_gather_type_spec_from_simple_type_specifier(nodecl_get_ast(a), type_info, gather_info, entry_list);
+    common_gather_type_spec_from_simple_type_specifier(nodecl_get_ast(a), decl_context, type_info, gather_info, entry_list);
 }
 
 
@@ -3463,7 +3488,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
 
     AST enum_name = ASTSon0(a);
 
-    scope_entry_t* new_entry;
+    scope_entry_t* new_enum;
 
     // If it has name, we register this type name in the symbol table
     // but only if it has not been declared previously
@@ -3487,7 +3512,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                 fprintf(stderr, "BUILDSCOPE: Enum '%s' already declared\n", enum_name_str);
             }
 
-            new_entry = entry_list_head(enum_entry_list);
+            new_enum = entry_list_head(enum_entry_list);
 
             entry_list_free(enum_entry_list);
         }
@@ -3498,15 +3523,15 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                 fprintf(stderr, "BUILDSCOPE: Registering enum '%s' in '%p'\n", enum_name_str, decl_context.current_scope);
             }
 
-            new_entry = new_symbol(decl_context, decl_context.current_scope, enum_name_str);
-            new_entry->line = ASTLine(enum_name);
-            new_entry->file = ASTFileName(enum_name);
-            new_entry->kind = SK_ENUM;
-            new_entry->type_information = get_new_enum_type(decl_context);
-            new_entry->entity_specs.is_user_declared = 1;
+            new_enum = new_symbol(decl_context, decl_context.current_scope, enum_name_str);
+            new_enum->line = ASTLine(enum_name);
+            new_enum->file = ASTFileName(enum_name);
+            new_enum->kind = SK_ENUM;
+            new_enum->type_information = get_new_enum_type(decl_context);
+            new_enum->entity_specs.is_user_declared = 1;
         }
 
-        gather_info->defined_type = new_entry;
+        gather_info->defined_type = new_enum;
     }
     else
     {
@@ -3524,31 +3549,40 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
         c[255] = '\0';
         anonymous_enums++;
 
-        new_entry = new_symbol(decl_context, decl_context.current_scope, uniquestr(c));
-        new_entry->line = ASTLine(a);
-        new_entry->file = ASTFileName(a);
-        new_entry->kind = SK_ENUM;
-        new_entry->type_information = get_new_enum_type(decl_context);
+        new_enum = new_symbol(decl_context, decl_context.current_scope, uniquestr(c));
+        new_enum->line = ASTLine(a);
+        new_enum->file = ASTFileName(a);
+        new_enum->kind = SK_ENUM;
+        new_enum->type_information = get_new_enum_type(decl_context);
 
-        new_entry->entity_specs.is_unnamed = 1;
-        new_entry->entity_specs.is_user_declared = 1;
+        new_enum->entity_specs.is_unnamed = 1;
+        new_enum->entity_specs.is_user_declared = 1;
     }
 
-    if (decl_context.current_scope->kind == CLASS_SCOPE
-            && is_dependent_type(decl_context.current_scope->related_entry->type_information))
+    if (decl_context.current_scope->kind == CLASS_SCOPE)
     {
-        set_is_dependent_type(new_entry->type_information, 1);
+        scope_entry_t* class_symbol = decl_context.current_scope->related_entry;
+        type_t* class_type = class_symbol->type_information;
+        class_type_add_member(get_actual_class_type(class_type), new_enum);
+
+        new_enum->entity_specs.is_member = 1;
+        new_enum->entity_specs.access = gather_info->current_access;
+        new_enum->entity_specs.class_type = get_user_defined_type(class_symbol);
+        new_enum->entity_specs.is_defined_inside_class_specifier = 1;
+
+        set_is_dependent_type(new_enum->type_information,
+                is_dependent_type(class_type));
     }
 
-    enum_type = new_entry->type_information;
+    enum_type = new_enum->type_information;
 
     char short_enums = CURRENT_CONFIGURATION->code_shape.short_enums;
     type_t* underlying_type = get_signed_int_type();
 
-    new_entry->defined = 1;
+    new_enum->defined = 1;
     // Since this type is not anonymous we'll want that type_info
     // refers to this newly created type
-    *type_info = get_user_defined_type(new_entry);
+    *type_info = get_user_defined_type(new_enum);
 
 
     AST list, iter;
@@ -3591,6 +3625,18 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
             enumeration_item->line = ASTLine(enumeration_name);
             enumeration_item->file = ASTFileName(enumeration_name);
             enumeration_item->kind = SK_ENUMERATOR;
+
+            if (decl_context.current_scope->kind == CLASS_SCOPE)
+            {
+                scope_entry_t* enclosing_class_symbol = decl_context.current_scope->related_entry;
+                type_t* enclosing_class_type = enclosing_class_symbol->type_information;
+
+                enumeration_item->entity_specs.is_member = 1;
+                enumeration_item->entity_specs.access = gather_info->current_access;
+                enumeration_item->entity_specs.is_defined_inside_class_specifier = 1;
+                enumeration_item->entity_specs.class_type  = get_user_defined_type(enclosing_class_symbol);
+                class_type_add_member(get_actual_class_type(enclosing_class_type), enumeration_item);
+            }
 
             if (enumeration_expr != NULL)
             {
@@ -3764,7 +3810,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
             nodecl_concat_lists(
                     *nodecl_output,
                     nodecl_make_list_1(
-                        nodecl_make_cxx_def(new_entry, ASTFileName(a), ASTLine(a))));
+                        nodecl_make_cxx_def(new_enum, ASTFileName(a), ASTLine(a))));
     }
 }
 
@@ -5984,13 +6030,21 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     // it is a nested class
     if (decl_context.current_scope->kind == CLASS_SCOPE)
     {
-        // If the enclosing class is dependent, so is this one
-        char c = is_dependent_type(class_type);
-        type_t* enclosing_class_type = get_user_defined_type(decl_context.current_scope->related_entry);
-        c = c || is_dependent_type(enclosing_class_type);
-        set_is_dependent_type(class_type, c);
+        scope_entry_t* enclosing_class_symbol = decl_context.current_scope->related_entry;
+        type_t* enclosing_class_type = enclosing_class_symbol->type_information;
+        class_type_add_member(enclosing_class_type, class_entry);
 
-        class_type_set_enclosing_class_type(class_type, enclosing_class_type);
+        class_entry->entity_specs.is_member = 1;
+        class_entry->entity_specs.access = gather_info->current_access;
+        class_entry->entity_specs.class_type = get_user_defined_type(enclosing_class_symbol);
+        class_entry->entity_specs.is_defined_inside_class_specifier = 1;
+
+        class_type_set_enclosing_class_type(class_type, get_user_defined_type(enclosing_class_symbol));
+
+        // If the enclosing class is dependent, so is this one
+        char c = is_dependent_type(class_entry->type_information);
+        c = c || is_dependent_type(enclosing_class_type);
+        set_is_dependent_type(class_entry->type_information, c);
     }
     else if (decl_context.current_scope->kind == BLOCK_SCOPE)
     {
@@ -11112,6 +11166,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
 
     gather_info.is_template = is_template;
     gather_info.is_explicit_instantiation = is_explicit_instantiation;
+    gather_info.current_access = current_access;
 
     type_t* class_type = NULL;
     const char* class_name = "";
@@ -11182,42 +11237,6 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                 && (member_init_declarator_list == NULL))))
                 {
                     scope_entry_t* entry = named_type_get_symbol(member_type);
-                    DEBUG_CODE()
-                    {
-                        fprintf(stderr, "BUILDSCOPE: Setting type '%s' as member\n", 
-                                entry->symbol_name);
-                    }
-
-                    char is_elaborated = (ASTType(type_specifier) == AST_ELABORATED_TYPE_CLASS_SPEC)
-                        || (ASTType(type_specifier) == AST_GCC_ELABORATED_TYPE_CLASS_SPEC)
-                        || (ASTType(type_specifier) == AST_ELABORATED_TYPE_ENUM_SPEC)
-                        || (ASTType(type_specifier) == AST_GCC_ELABORATED_TYPE_ENUM_SPEC);
-
-                    entry->entity_specs.is_member = 1;
-                    entry->entity_specs.access = current_access;
-                    entry->entity_specs.is_defined_inside_class_specifier = !is_elaborated;
-                    entry->entity_specs.class_type = class_info;
-                    class_type_add_member(get_actual_class_type(class_type), entry);
-
-                    // Register enumerators as well
-                    if ((ASTType(type_specifier) == AST_ENUM_SPECIFIER 
-                                || ASTType(type_specifier) == AST_GCC_ENUM_SPECIFIER))
-                    {
-                        ERROR_CONDITION(!is_enum_type(member_type), 
-                                "AST_ENUM_SPECIFIER did not compute an enumerator type", 0);
-
-                        int i, num_enums  = enum_type_get_num_enumerators(member_type);
-                        for (i = 0; i < num_enums; i++)
-                        {
-                            scope_entry_t* enumerator = enum_type_get_enumerator_num(member_type, i);
-
-                            enumerator->entity_specs.is_member = 1;
-                            enumerator->entity_specs.access = current_access;
-                            enumerator->entity_specs.is_defined_inside_class_specifier = 1;
-                            enumerator->entity_specs.class_type  = class_info;
-                            class_type_add_member(get_actual_class_type(class_type), enumerator);
-                        }
-                    }
 
                     // Update the type specifier to be a dependent typename
                     if (is_dependent_type(class_type))

@@ -1166,6 +1166,7 @@ type_t* get_indirect_type(scope_entry_t* entry)
     return get_indirect_type_(entry, /* indirect */ 1);
 }
 
+// This function must always return a new type
 type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entry, 
         nodecl_t dependent_parts)
 {
@@ -1210,6 +1211,20 @@ type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entry,
     result->info->is_dependent = 1;
 
     return result;
+}
+
+void dependent_typename_set_is_artificial(type_t* t, char is_artificial)
+{
+    ERROR_CONDITION(!is_dependent_typename_type(t), "This is not a dependent typename type", 0);
+
+    t->type->is_artificial = is_artificial;
+}
+
+char dependent_typename_is_artificial(type_t* t)
+{
+    ERROR_CONDITION(!is_dependent_typename_type(t), "This is not a dependent typename type", 0);
+
+    return t->type->is_artificial;
 }
 
 enum type_tag_t get_dependent_entry_kind(type_t* t)
@@ -4249,12 +4264,12 @@ char equivalent_types(type_t* t1, type_t* t2)
     t1 = advance_over_typedefs_with_cv_qualif(t1, &cv_qualifier_t1);
     t2 = advance_over_typedefs_with_cv_qualif(t2, &cv_qualifier_t2);
 
-    if (is_dependent_typename_type(t1)
-            || is_dependent_typename_type(t2))
+    if ((is_dependent_typename_type(t1) && dependent_typename_is_artificial(t1))
+            || (is_dependent_typename_type(t2) && dependent_typename_is_artificial(t2)))
     {
         DEBUG_CODE()
         {
-            fprintf(stderr, "TYPEUTILS: Comparing two different types where one is a dependent typename\n");
+            fprintf(stderr, "TYPEUTILS: Comparing two different types where one is a an artificial dependent typename\n");
         }
         // Try to advance dependent typenames if we are comparing a
         // dependent typename with another non dependent one
