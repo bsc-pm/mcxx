@@ -2406,6 +2406,15 @@ static void commit_configuration(void)
                 config_directive->funct(configuration, configuration_line->index, configuration_line->value);
             }
         }
+
+        if (configuration->source_language == SOURCE_LANGUAGE_FORTRAN)
+        {
+            // Add standard directories for Fortran
+            P_LIST_ADD(CURRENT_CONFIGURATION->module_dirs, CURRENT_CONFIGURATION->num_module_dirs,
+                    strappend(compilation_process.home_directory, FORTRAN_BASEDIR));
+            P_LIST_ADD(CURRENT_CONFIGURATION->include_dirs, CURRENT_CONFIGURATION->num_include_dirs,
+                    strappend(compilation_process.home_directory, FORTRAN_BASEDIR));
+        }
     }
 
     DEBUG_CODE()
