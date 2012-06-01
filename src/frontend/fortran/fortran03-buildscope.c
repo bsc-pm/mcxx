@@ -7769,10 +7769,10 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
         internal_error("Unexpected node %s", ast_print_node_type(ASTType(a)));
     }
 
+    char must_be_intrinsic_module = 0;
     if (module_nature != NULL)
     {
-        running_error("%s: error: specifying the nature of the module is not supported\n",
-                ast_location(a));
+        must_be_intrinsic_module = (strcasecmp(ASTText(module_nature), "INTRINSIC") == 0);
     }
 
     const char* module_name_str = strtolower(ASTText(module_name));
@@ -7806,14 +7806,27 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
 
         if (module_symbol == NULL)
         {
-            running_error("%s: error: cannot load module '%s'\n",
-                    ast_location(a),
-                    module_name_str);
+            if (must_be_intrinsic_module)
+            {
+                error_printf("%s: error: module '%s' is not an INTRINSIC module\n", ast_location(a), module_name_str);
+            }
+            else
+            {
+                running_error("%s: error: cannot load module '%s'\n",
+                        ast_location(a),
+                        module_name_str);
+            }
         }
 
         // And add it to the cache of opened modules
         ERROR_CONDITION(module_symbol == NULL, "Invalid symbol", 0);
         rb_tree_insert(CURRENT_COMPILED_FILE->module_file_cache, module_name_str, module_symbol);
+    }
+
+    if (must_be_intrinsic_module
+            && !module_symbol->entity_specs.is_builtin)
+    {
+        error_printf("%s: error: loaded module '%s' is not an INTRINSIC module\n", ast_location(a), module_name_str);
     }
 
     scope_entry_t* used_modules = get_or_create_used_modules_symbol_info(decl_context);
