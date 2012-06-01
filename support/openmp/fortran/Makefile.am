@@ -37,7 +37,7 @@ EXTRA_DIST=\
 CLEANFILES =
 CLEANFILES += $(omp_modules) omp_modules.o
 
-PLAINFC=$(top_builddir)/src/driver/mcxx --config-dir=$(top_builddir)/config --profile=plainfc
+PLAINFC=$(top_builddir)/src/driver/mcxx --config-dir=$(top_builddir)/config --profile=plainfc --do-not-warn-config
 
 configdir=$(pkgdatadir)/fortran/openmp
 config_DATA = \

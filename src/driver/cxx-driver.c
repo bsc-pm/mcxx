@@ -1247,7 +1247,6 @@ int parse_arguments(int argc, const char* argv[],
                     }
                 case OPTION_DO_NOT_WARN_BAD_CONFIG_FILENAMES :
                     {
-                        do_not_warn_bad_config_filenames = 1;
                         break;
                     }
                 case OPTION_INSTANTIATE_TEMPLATES:
@@ -2272,6 +2271,13 @@ static void load_configuration(void)
                 compilation_process.exec_basename =
                     uniquestr(&(compilation_process.argv[i][strlen("--profile=") ]));
 
+                remove_parameter_from_argv(i);
+                restart = 1;
+                break;
+            }
+            else if (strcmp(compilation_process.argv[i], "--do-not-warn-config") == 0)
+            {
+                do_not_warn_bad_config_filenames = 1;
                 remove_parameter_from_argv(i);
                 restart = 1;
                 break;
