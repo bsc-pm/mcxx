@@ -222,6 +222,9 @@ struct simple_type_tag {
     // States that the STK_INDIRECT is a not the last indirect
     unsigned char is_indirect:1;
 
+    // States that this STK_TEMPLATE_DEPENDENT_TYPE does not come from user code
+    unsigned char is_artificial:1;
+
     // Floating type model, only for BT_FLOAT, BT_DOUBLE and BT_OTHER_FLOAT
     floating_type_info_t* floating_info;
 

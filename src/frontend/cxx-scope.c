@@ -1262,6 +1262,9 @@ type_t* build_dependent_typename_for_entry(
 
     type_t* result = get_dependent_typename_type_from_parts(dependent_entry, dependent_parts);
 
+    // Mark this dependent typename as an artificial one.
+    dependent_typename_set_is_artificial(result, 1);
+
     return result;
 }
 
