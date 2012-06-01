@@ -4588,7 +4588,7 @@ static void list_fortran_array_descriptors(void)
     }
 
     fprintf(stdout, "\n");
-    fprintf(stdout, "Command line parameter --fortran-descriptor=<env-id> can be used to choose a particular architecture.\n");
+    fprintf(stdout, "Command line parameter --fortran-descriptor=<env-id> can be used to choose a particular descriptor.\n");
     fprintf(stdout, "If not specified, default Fortran array descriptor is '%s' (%s)\n",
             default_fortran_array_descriptor->descriptor_id,
             default_fortran_array_descriptor->descriptor_name);
