@@ -3896,10 +3896,17 @@ OPERATOR_TABLE
 
         set_codegen_status(entry, CODEGEN_STATUS_DEFINED);
 
+        std::string module_nature = " ";
+        if (module.is_intrinsic())
+        {
+            module_nature = ", INTRINSIC :: ";
+        }
+
         indent();
         if (!entry.get_internal_symbol()->entity_specs.is_renamed)
         {
-            file << "USE " 
+            file << "USE" 
+                << module_nature
                 << module.get_name()
                 << ", ONLY: " 
                 << get_generic_specifier_str(entry.get_name())
@@ -3907,7 +3914,8 @@ OPERATOR_TABLE
         }
         else
         {
-            file << "USE " 
+            file << "USE"
+                << module_nature
                 << module.get_name()
                 << ", ONLY: " 
                 << entry.get_name() 
