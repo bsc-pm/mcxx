@@ -5023,6 +5023,7 @@ static type_t* advance_dependent_typename_aux(
     scope_entry_t* member = entry_list_head(member_list);
 
     if (member->kind == SK_CLASS
+            || member->kind == SK_ENUM
             || member->kind == SK_TYPEDEF)
     {
         DEBUG_CODE()
