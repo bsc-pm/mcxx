@@ -1,8 +1,3 @@
-noinst_PROGRAMS=iso_fortran_env_generator
-
-iso_fortran_env_generator_SOURCES=\
-	 iso_fortran_env_generator.f90
-
 CLEANFILES =
 
 configdir=$(pkgdatadir)/fortran
@@ -17,10 +12,5 @@ PLAINFC_verbose_ = $(PLAINFC_verbose_$(AM_DEFAULT_VERBOSITY))
 PLAINFC_verbose_0 = @echo "  PLAINFC" $@;
 endif
 
-iso_fortran_env.mf03 : iso_fortran_env.f90
-	$(PLAINFC_verbose)$(PLAINFC) -y -o /dev/null iso_fortran_env.f90
-
-iso_fortran_env.f90 : iso_fortran_env_generator
-	$(AM_V_GEN)( ./iso_fortran_env_generator > $@ )
-
-CLEANFILES += iso_fortran_env.f90
+iso_fortran_env.mf03 : $(srcdir)/iso_fortran_env.f90
+	$(PLAINFC_verbose)$(PLAINFC) -y -o /dev/null $(srcdir)/iso_fortran_env.f90
