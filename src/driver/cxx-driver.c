@@ -243,6 +243,8 @@
 "                           when looking for a Fortran module. \n" \
 "                           Does not affect the native compiler like\n" \
 "                           -I does\n" \
+"  --do-not-warn-config     Do not warn about wrong configuration\n" \
+"                           file names\n" \
 "\n" \
 "gcc compatibility flags:\n" \
 "\n" \
@@ -339,6 +341,7 @@ typedef enum
     OPTION_LIST_FORTRAN_ARRAY_DESCRIPTORS,
     OPTION_SEARCH_MODULES,
     OPTION_SEARCH_INCLUDES,
+    OPTION_DO_NOT_WARN_BAD_CONFIG_FILENAMES,
     OPTION_VERBOSE,
 } COMMAND_LINE_OPTIONS;
 
@@ -407,6 +410,7 @@ struct command_line_long_options command_line_long_options[] =
     {"list-fortran-array-descriptors", CLP_NO_ARGUMENT, OPTION_LIST_FORTRAN_ARRAY_DESCRIPTORS},
     {"search-modules", CLP_REQUIRED_ARGUMENT, OPTION_SEARCH_MODULES},
     {"search-includes", CLP_REQUIRED_ARGUMENT, OPTION_SEARCH_INCLUDES},
+    {"do-not-warn-config", CLP_NO_ARGUMENT, OPTION_DO_NOT_WARN_BAD_CONFIG_FILENAMES},
     // sentinel
     {NULL, 0, 0}
 };
@@ -473,6 +477,7 @@ static void list_environments(void);
 static void list_fortran_array_descriptors(void);
 
 static char do_not_unload_phases = 0;
+static char do_not_warn_bad_config_filenames = 0;
 static char show_help_message = 0;
 
 void add_to_linker_command(const char *str, translation_unit_t* tr_unit);
@@ -1238,6 +1243,11 @@ int parse_arguments(int argc, const char* argv[],
                 case OPTION_DO_NOT_UNLOAD_PHASES:
                     {
                         do_not_unload_phases = 1;
+                        break;
+                    }
+                case OPTION_DO_NOT_WARN_BAD_CONFIG_FILENAMES :
+                    {
+                        do_not_warn_bad_config_filenames = 1;
                         break;
                     }
                 case OPTION_INSTANTIATE_TEMPLATES:
@@ -2311,7 +2321,7 @@ static void load_configuration(void)
                         const char * config_file = uniquestr(dir_entry->d_name);
                         P_LIST_ADD(list_config_files, num_config_files, config_file);
                     }
-                    else
+                    else if (!do_not_warn_bad_config_filenames)
                     {
                         fprintf(stderr, "warning: '%s' is not a valid configuration filename "
                                 "since it does not start with a digit. Maybe you need to update it.\n", dir_entry->d_name);
