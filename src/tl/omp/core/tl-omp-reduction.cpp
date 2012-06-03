@@ -150,8 +150,6 @@ namespace TL
                     else
                     {
                         bool found = false;
-                        UDRInfoItem udr;
-                        udr.set_type(var_type);
 
 
                         CXX_LANGUAGE()
@@ -169,17 +167,15 @@ namespace TL
                                 construct.get_line()
                                 );
 
-                        udr = UDRInfoItem::lookup_udr(
+                        UDRInfoItem *udr = UDRInfoItem::lookup_udr(
                                 construct.retrieve_context(),
-                                reductor_name_node,
-                                // out
-                                found);
+                                reductor_name_node);
 
-                        if (found)
+                        if (udr != NULL)
                         {
-                            ReductionSymbol red_sym(var_sym, udr);
+                            ReductionSymbol red_sym(var_sym, *udr);
                             sym_list.append(red_sym);
-                            if (!udr.is_builtin_operator())
+                            if (!udr->is_builtin_operator())
                             {
                                 std::cerr << construct.get_locus() 
                                     << ": note: reduction of variable '" << var_sym.get_name() << "' solved to '" 

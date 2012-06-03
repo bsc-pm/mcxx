@@ -1,8 +1,9 @@
 // These macros are defined in several places to automatically generate all OpenMP support
 // 
-// OMP_CONSTRUCT(pragma_directive, id)
+// OMP_CONSTRUCT(pragma_directive, id, predicate)
 //    * pragma_directive is a string | separated for compound directive names used when registering the construct
 //    * id an identifier used to build names
+//    * predicate is used to filter between languages: all languages "true"
 //
 // - OMP_DIRECTIVE is the same as OMP_CONSTRUCT but for directives
 // - OMP_CONSTRUCT_NOEND is the same as OMP_CONSTRUCT but *only* for Fortran constructs 
@@ -21,40 +22,40 @@
 // OMP_SECTIONS is special
 // 
 
-OMP_CONSTRUCT("parallel", parallel)
+OMP_CONSTRUCT("parallel", parallel, true)
 
-OMP_CONSTRUCT("parallel|for", parallel_for)
-OMP_CONSTRUCT("for", for)
+OMP_CONSTRUCT("parallel|for", parallel_for, true)
+OMP_CONSTRUCT("for", for, true)
 
-OMP_DIRECTIVE("barrier", barrier)
-OMP_CONSTRUCT("atomic", atomic)
-OMP_CONSTRUCT("master", master)
+OMP_DIRECTIVE("barrier", barrier, true)
+OMP_CONSTRUCT("atomic", atomic, true)
+OMP_CONSTRUCT("master", master, true)
 
-OMP_CONSTRUCT("critical", critical)
-OMP_DIRECTIVE("flush", flush)
+OMP_CONSTRUCT("critical", critical, true)
+OMP_DIRECTIVE("flush", flush, true)
 
-OMP_CONSTRUCT("single", single)
+OMP_CONSTRUCT("single", single, true)
 
-OMP_CONSTRUCT("parallel|sections", parallel_sections)
-OMP_CONSTRUCT("sections", sections)
+OMP_CONSTRUCT("parallel|sections", parallel_sections, true)
+OMP_CONSTRUCT("sections", sections, true)
 
 // section is closer to a construct but it cannot be handled as such
-OMP_DIRECTIVE("section", section)
+OMP_DIRECTIVE("section", section, true)
 
-OMP_CONSTRUCT("task", task)
-OMP_DIRECTIVE("taskwait", taskwait)
+OMP_CONSTRUCT("task", task, true)
+OMP_DIRECTIVE("taskwait", taskwait, true)
 
-OMP_DIRECTIVE("taskyield", taskyield)
+OMP_DIRECTIVE("taskyield", taskyield, true)
 
-OMP_DIRECTIVE("threadprivate", threadprivate)
+OMP_DIRECTIVE("threadprivate", threadprivate, true)
 
-OMP_CONSTRUCT("ordered", ordered)
+OMP_CONSTRUCT("ordered", ordered, true)
 
-OMP_DIRECTIVE("declare|reduction", declare_reduction)
+OMP_DIRECTIVE("declare|reduction", declare_reduction, true)
 
-OMP_CONSTRUCT("target", target)
+OMP_CONSTRUCT("target", target, true)
 
-OMP_CONSTRUCT_NOEND("parallel|do", parallel_do)
-OMP_CONSTRUCT_NOEND("do", do)
+OMP_CONSTRUCT_NOEND("parallel|do", parallel_do, IS_FORTRAN_LANGUAGE)
+OMP_CONSTRUCT_NOEND("do", do, IS_FORTRAN_LANGUAGE)
 
 OMP_CONSTRUCT("simd", simd)

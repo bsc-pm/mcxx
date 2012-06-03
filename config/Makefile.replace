@@ -30,4 +30,5 @@ config_edit = \
      -e 's|@GXLC[@]|$(GXLC)|g' \
      -e 's|@GXLCXX[@]|$(GXLCXX)|g' \
      -e 's|@NVCC[@]|$(NVCC)|g' \
+     -e 's|@PKGDATADIR[@]|$(pkgdatadir)|g' \
     $(END)

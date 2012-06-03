@@ -111,7 +111,8 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
         nodecl_t* nodecl_output,
         scope_entry_list_t** declared_symbols);
 
-static void common_gather_type_spec_from_simple_type_specifier(AST a, type_t** type_info,
+static void common_gather_type_spec_from_simple_type_specifier(AST a, 
+        decl_context_t decl_context, type_t** type_info,
         gather_decl_spec_t* gather_info, scope_entry_list_t* query_results);
 
 static void gather_type_spec_from_simple_type_specifier(AST a, type_t** type_info,
@@ -2426,6 +2427,8 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
     class_entry = entry;
     if (entry != NULL)
     {
+        entry->entity_specs.is_friend = 1;
+
         scope_entry_t* alias_to_entry = class_entry;
         if (gather_info->is_template || ASTType(id_expression) == AST_TEMPLATE_ID)
         {
@@ -2439,8 +2442,10 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
 
             alias_to_entry->symbol_name = class_name;
             alias_to_entry->decl_context = decl_context;
-            alias_to_entry->entity_specs.is_user_declared = 0;
+
+            alias_to_entry->entity_specs.is_friend = 1;
             alias_to_entry->entity_specs.is_friend_declared = 1;
+            alias_to_entry->entity_specs.is_user_declared = 0;
 
             alias_to_entry->entity_specs.alias_to = entry;
         }
@@ -2482,8 +2487,10 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
                 primary_symbol->kind = SK_DEPENDENT_FRIEND_CLASS;
                 primary_symbol->line = ASTLine(a);
                 primary_symbol->file = ASTFileName(a);
-                primary_symbol->entity_specs.is_user_declared = 0;
+
+                primary_symbol->entity_specs.is_friend = 1;
                 primary_symbol->entity_specs.is_friend_declared = 1;
+                primary_symbol->entity_specs.is_user_declared = 0;
 
                 class_type = primary_symbol->type_information;
 
@@ -2514,9 +2521,10 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
             new_class = new_symbol(decl_context, decl_context.current_scope, class_name);
             new_class->line = ASTLine(id_expression);
             new_class->file = ASTFileName(id_expression);
-
-            new_class->entity_specs.is_user_declared = 0;
+            
+            new_class->entity_specs.is_friend = 1;
             new_class->entity_specs.is_friend_declared = 1;
+            new_class->entity_specs.is_user_declared = 0;
 
             if(gather_info->is_template)
             {
@@ -2544,8 +2552,10 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
                 // Update some fields
                 class_entry->line = ASTLine(a);
                 class_entry->file = ASTFileName(a);
-                class_entry->entity_specs.is_user_declared = 0;
+
+                class_entry->entity_specs.is_friend = 1;
                 class_entry->entity_specs.is_friend_declared = 1;
+                class_entry->entity_specs.is_user_declared = 0;
 
                 class_type = class_entry->type_information;
             }
@@ -2563,12 +2573,14 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
             if (decl_context.current_scope->kind == CLASS_SCOPE)
             {
                 // If the enclosing class is dependent, so is this one
+                scope_entry_t* enclosing_class_symbol = decl_context.current_scope->related_entry;
+                type_t* enclosing_class_type = enclosing_class_symbol->type_information;
+
                 char c = is_dependent_type(class_entry->type_information);
-                type_t* enclosing_class_type = get_user_defined_type(decl_context.current_scope->related_entry);
                 c = c || is_dependent_type(enclosing_class_type);
                 set_is_dependent_type(class_entry->type_information, c);
 
-                class_type_set_enclosing_class_type(class_type, enclosing_class_type);
+                class_type_set_enclosing_class_type(class_type, get_user_defined_type(enclosing_class_symbol));
             }
             else if (decl_context.current_scope->kind == BLOCK_SCOPE)
             {
@@ -2809,11 +2821,15 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
             new_class->line = ASTLine(id_expression);
             new_class->file = ASTFileName(id_expression);
 
+            new_class->entity_specs.is_friend =
+                new_class->entity_specs.is_friend || gather_info->is_friend;
+
+            new_class->entity_specs.is_friend_declared = is_friend_class_declaration;
+
             if ((!gather_info->is_template
                         || !gather_info->no_declarators)
                     && ASTType(id_expression) != AST_TEMPLATE_ID)
             {
-
                 DEBUG_CODE()
                 {
                     fprintf(stderr, "BUILDSCOPE: Type not found, creating a stub in scope %p for '%s' %p\n",
@@ -2824,8 +2840,6 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
 
                 new_class->type_information = get_new_class_type(decl_context, class_kind);
                 new_class->kind = SK_CLASS;
-
-                new_class->entity_specs.is_friend_declared = is_friend_class_declaration;
 
                 class_entry = new_class;
                 class_type = class_entry->type_information;
@@ -2844,8 +2858,6 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
 
                     new_class->line = ASTLine(a);
                     new_class->file = ASTFileName(a);
-
-                    new_class->entity_specs.is_friend_declared = is_friend_class_declaration;
 
                     if (decl_context.current_scope->kind == CLASS_SCOPE)
                     {
@@ -2897,13 +2909,20 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         // it is a nested class
         if (decl_context.current_scope->kind == CLASS_SCOPE)
         {
+            scope_entry_t* enclosing_class_symbol = decl_context.current_scope->related_entry;
+            type_t* enclosing_class_type = enclosing_class_symbol->type_information;
+            class_type_add_member(enclosing_class_type, class_entry);
+
+            class_entry->entity_specs.is_member = 1;
+            class_entry->entity_specs.access = gather_info->current_access;
+            class_entry->entity_specs.class_type = get_user_defined_type(enclosing_class_symbol);
+
+            class_type_set_enclosing_class_type(class_type, get_user_defined_type(enclosing_class_symbol));
+
             // If the enclosing class is dependent, so is this one
             char c = is_dependent_type(class_entry->type_information);
-            type_t* enclosing_class_type = get_user_defined_type(decl_context.current_scope->related_entry);
             c = c || is_dependent_type(enclosing_class_type);
             set_is_dependent_type(class_entry->type_information, c);
-
-            class_type_set_enclosing_class_type(class_type, enclosing_class_type);
         }
         else if (decl_context.current_scope->kind == BLOCK_SCOPE)
         {
@@ -2996,7 +3015,6 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
 
     ERROR_CONDITION(class_entry == NULL, "Invalid class entry", 0);
 
-
     if ((!is_template_specialized_type(class_entry->type_information) ||
             (gather_info->is_template && gather_info->no_declarators)))
     {
@@ -3004,7 +3022,6 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         class_entry->entity_specs.is_user_declared = 1;
         class_entry->entity_specs.is_instantiable = 1;
     }
-
 
     *type_info = get_user_defined_type(class_entry);
 
@@ -3138,10 +3155,18 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a,
 
             *type_info = get_user_defined_type(new_enum);
 
-            if (decl_context.current_scope->kind == CLASS_SCOPE
-                    && is_dependent_type(decl_context.current_scope->related_entry->type_information))
+            if (new_decl_context.current_scope->kind == CLASS_SCOPE)
             {
-                set_is_dependent_type(new_enum->type_information, 1);
+                scope_entry_t* class_symbol = new_decl_context.current_scope->related_entry;
+                type_t* class_type = class_symbol->type_information;
+                class_type_add_member(get_actual_class_type(class_type), new_enum);
+
+                new_enum->entity_specs.is_member = 1;
+                new_enum->entity_specs.access = gather_info->current_access;
+                new_enum->entity_specs.class_type = get_user_defined_type(class_symbol);
+
+                set_is_dependent_type(new_enum->type_information,
+                        is_dependent_type(class_type));
             }
         }
         else
@@ -3241,7 +3266,7 @@ static void gather_type_spec_from_dependent_typename(AST a, type_t** type_info,
     *type_info = entry->type_information;
 }
 
-static void common_gather_type_spec_from_simple_type_specifier(AST a,
+static void common_gather_type_spec_from_simple_type_specifier(AST a, decl_context_t decl_context,
         type_t** type_info, gather_decl_spec_t* gather_info, scope_entry_list_t* query_results)
 {
     if (query_results == NULL)
@@ -3297,8 +3322,17 @@ static void common_gather_type_spec_from_simple_type_specifier(AST a,
 
     entry_list_free(query_results);
 
+    scope_entry_t* current_class = NULL;
+    if (decl_context.class_scope != NULL)
+    {
+        current_class = decl_context.class_scope->related_entry;
+    }
+
     if (entry->entity_specs.is_member
-            && is_dependent_type(entry->entity_specs.class_type))
+            && (is_dependent_type(entry->entity_specs.class_type)
+                || (current_class != NULL
+                    && is_dependent_type(current_class->type_information)
+                    && class_type_is_base(entry->entity_specs.class_type, get_user_defined_type(current_class)))))
     {
         // Craft a nodecl name for it
         nodecl_t nodecl_simple_name = nodecl_make_cxx_dep_name_simple(
@@ -3345,7 +3379,7 @@ static void gather_type_spec_from_simple_type_specifier(AST a, type_t** type_inf
     decl_flags_t flags = DF_IGNORE_FRIEND_DECL;
     scope_entry_list_t* entry_list = query_id_expression_flags(decl_context, id_expression, flags);
 
-    common_gather_type_spec_from_simple_type_specifier(a, type_info, gather_info, entry_list);
+    common_gather_type_spec_from_simple_type_specifier(a, decl_context, type_info, gather_info, entry_list);
 }
 
 static void nodecl_gather_type_spec_from_simple_type_specifier(nodecl_t a, type_t** type_info,
@@ -3354,7 +3388,7 @@ static void nodecl_gather_type_spec_from_simple_type_specifier(nodecl_t a, type_
     decl_flags_t flags = DF_IGNORE_FRIEND_DECL;
     scope_entry_list_t* entry_list = query_nodecl_name_flags(decl_context, a, flags);
 
-    common_gather_type_spec_from_simple_type_specifier(nodecl_get_ast(a), type_info, gather_info, entry_list);
+    common_gather_type_spec_from_simple_type_specifier(nodecl_get_ast(a), decl_context, type_info, gather_info, entry_list);
 }
 
 
@@ -3454,7 +3488,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
 
     AST enum_name = ASTSon0(a);
 
-    scope_entry_t* new_entry;
+    scope_entry_t* new_enum;
 
     // If it has name, we register this type name in the symbol table
     // but only if it has not been declared previously
@@ -3478,7 +3512,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                 fprintf(stderr, "BUILDSCOPE: Enum '%s' already declared\n", enum_name_str);
             }
 
-            new_entry = entry_list_head(enum_entry_list);
+            new_enum = entry_list_head(enum_entry_list);
 
             entry_list_free(enum_entry_list);
         }
@@ -3489,15 +3523,15 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                 fprintf(stderr, "BUILDSCOPE: Registering enum '%s' in '%p'\n", enum_name_str, decl_context.current_scope);
             }
 
-            new_entry = new_symbol(decl_context, decl_context.current_scope, enum_name_str);
-            new_entry->line = ASTLine(enum_name);
-            new_entry->file = ASTFileName(enum_name);
-            new_entry->kind = SK_ENUM;
-            new_entry->type_information = get_new_enum_type(decl_context);
-            new_entry->entity_specs.is_user_declared = 1;
+            new_enum = new_symbol(decl_context, decl_context.current_scope, enum_name_str);
+            new_enum->line = ASTLine(enum_name);
+            new_enum->file = ASTFileName(enum_name);
+            new_enum->kind = SK_ENUM;
+            new_enum->type_information = get_new_enum_type(decl_context);
+            new_enum->entity_specs.is_user_declared = 1;
         }
 
-        gather_info->defined_type = new_entry;
+        gather_info->defined_type = new_enum;
     }
     else
     {
@@ -3515,31 +3549,40 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
         c[255] = '\0';
         anonymous_enums++;
 
-        new_entry = new_symbol(decl_context, decl_context.current_scope, uniquestr(c));
-        new_entry->line = ASTLine(a);
-        new_entry->file = ASTFileName(a);
-        new_entry->kind = SK_ENUM;
-        new_entry->type_information = get_new_enum_type(decl_context);
+        new_enum = new_symbol(decl_context, decl_context.current_scope, uniquestr(c));
+        new_enum->line = ASTLine(a);
+        new_enum->file = ASTFileName(a);
+        new_enum->kind = SK_ENUM;
+        new_enum->type_information = get_new_enum_type(decl_context);
 
-        new_entry->entity_specs.is_unnamed = 1;
-        new_entry->entity_specs.is_user_declared = 1;
+        new_enum->entity_specs.is_unnamed = 1;
+        new_enum->entity_specs.is_user_declared = 1;
     }
 
-    if (decl_context.current_scope->kind == CLASS_SCOPE
-            && is_dependent_type(decl_context.current_scope->related_entry->type_information))
+    if (decl_context.current_scope->kind == CLASS_SCOPE)
     {
-        set_is_dependent_type(new_entry->type_information, 1);
+        scope_entry_t* class_symbol = decl_context.current_scope->related_entry;
+        type_t* class_type = class_symbol->type_information;
+        class_type_add_member(get_actual_class_type(class_type), new_enum);
+
+        new_enum->entity_specs.is_member = 1;
+        new_enum->entity_specs.access = gather_info->current_access;
+        new_enum->entity_specs.class_type = get_user_defined_type(class_symbol);
+        new_enum->entity_specs.is_defined_inside_class_specifier = 1;
+
+        set_is_dependent_type(new_enum->type_information,
+                is_dependent_type(class_type));
     }
 
-    enum_type = new_entry->type_information;
+    enum_type = new_enum->type_information;
 
     char short_enums = CURRENT_CONFIGURATION->code_shape.short_enums;
     type_t* underlying_type = get_signed_int_type();
 
-    new_entry->defined = 1;
+    new_enum->defined = 1;
     // Since this type is not anonymous we'll want that type_info
     // refers to this newly created type
-    *type_info = get_user_defined_type(new_entry);
+    *type_info = get_user_defined_type(new_enum);
 
 
     AST list, iter;
@@ -3582,6 +3625,18 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
             enumeration_item->line = ASTLine(enumeration_name);
             enumeration_item->file = ASTFileName(enumeration_name);
             enumeration_item->kind = SK_ENUMERATOR;
+
+            if (decl_context.current_scope->kind == CLASS_SCOPE)
+            {
+                scope_entry_t* enclosing_class_symbol = decl_context.current_scope->related_entry;
+                type_t* enclosing_class_type = enclosing_class_symbol->type_information;
+
+                enumeration_item->entity_specs.is_member = 1;
+                enumeration_item->entity_specs.access = gather_info->current_access;
+                enumeration_item->entity_specs.is_defined_inside_class_specifier = 1;
+                enumeration_item->entity_specs.class_type  = get_user_defined_type(enclosing_class_symbol);
+                class_type_add_member(get_actual_class_type(enclosing_class_type), enumeration_item);
+            }
 
             if (enumeration_expr != NULL)
             {
@@ -3755,7 +3810,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
             nodecl_concat_lists(
                     *nodecl_output,
                     nodecl_make_list_1(
-                        nodecl_make_cxx_def(new_entry, ASTFileName(a), ASTLine(a))));
+                        nodecl_make_cxx_def(new_enum, ASTFileName(a), ASTLine(a))));
     }
 }
 
@@ -3831,7 +3886,8 @@ void build_scope_base_clause(AST base_clause, type_t* class_type, decl_context_t
             SK_TEMPLATE_TYPE_PARAMETER, 
             SK_TEMPLATE_TEMPLATE_PARAMETER, 
             SK_TYPEDEF, 
-            SK_DEPENDENT_ENTITY
+            SK_DEPENDENT_ENTITY,
+            SK_USING,
         };
 
         // We do not want to examine uninstantiated typenames
@@ -3851,8 +3907,12 @@ void build_scope_base_clause(AST base_clause, type_t* class_type, decl_context_t
         }
 
         scope_entry_t* result = entry_list_head(filtered_result_list);
-
         entry_list_free(filtered_result_list);
+
+        if (result->kind == SK_USING)
+        {
+            result = entry_advance_aliases(result);
+        }
 
         if (result->kind != SK_TEMPLATE_TYPE_PARAMETER
                 && result->kind != SK_TEMPLATE_TEMPLATE_PARAMETER
@@ -5307,10 +5367,7 @@ static void build_scope_delayed_functions(nodecl_t* nodecl_output)
         build_scope_function_definition(function_def, previous_symbol, decl_context, 
                 is_template, is_explicit_instantiation, /* declared_symbols */ NULL, &nodecl_funct_def);
 
-        if (previous_symbol->kind != SK_DEPENDENT_FRIEND_FUNCTION)
-        {
-            *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_funct_def);
-        }
+        *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_funct_def);
     }
     build_scope_delayed_clear_pending();
 }
@@ -5419,6 +5476,8 @@ scope_entry_t* finish_anonymous_class(scope_entry_t* class_symbol, decl_context_
 
         accessing_name = uniquestr(c);
     }
+    accessing_name = strappend("var_", accessing_name);
+
     scope_entry_t* accessor_symbol = new_symbol(class_symbol->decl_context, 
             class_symbol->decl_context.current_scope, 
             accessing_name);
@@ -5426,7 +5485,6 @@ scope_entry_t* finish_anonymous_class(scope_entry_t* class_symbol, decl_context_
     accessor_symbol->kind = SK_VARIABLE;
     accessor_symbol->file = class_symbol->file;
     accessor_symbol->line = class_symbol->line;
-    accessor_symbol->type_information = get_user_defined_type(class_symbol);
 
     class_symbol->entity_specs.anonymous_accessor = 
         nodecl_make_symbol(accessor_symbol, class_symbol->file, class_symbol->line);
@@ -5972,13 +6030,21 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     // it is a nested class
     if (decl_context.current_scope->kind == CLASS_SCOPE)
     {
-        // If the enclosing class is dependent, so is this one
-        char c = is_dependent_type(class_type);
-        type_t* enclosing_class_type = get_user_defined_type(decl_context.current_scope->related_entry);
-        c = c || is_dependent_type(enclosing_class_type);
-        set_is_dependent_type(class_type, c);
+        scope_entry_t* enclosing_class_symbol = decl_context.current_scope->related_entry;
+        type_t* enclosing_class_type = enclosing_class_symbol->type_information;
+        class_type_add_member(enclosing_class_type, class_entry);
 
-        class_type_set_enclosing_class_type(class_type, enclosing_class_type);
+        class_entry->entity_specs.is_member = 1;
+        class_entry->entity_specs.access = gather_info->current_access;
+        class_entry->entity_specs.class_type = get_user_defined_type(enclosing_class_symbol);
+        class_entry->entity_specs.is_defined_inside_class_specifier = 1;
+
+        class_type_set_enclosing_class_type(class_type, get_user_defined_type(enclosing_class_symbol));
+
+        // If the enclosing class is dependent, so is this one
+        char c = is_dependent_type(class_entry->type_information);
+        c = c || is_dependent_type(enclosing_class_type);
+        set_is_dependent_type(class_entry->type_information, c);
     }
     else if (decl_context.current_scope->kind == BLOCK_SCOPE)
     {
@@ -7803,6 +7869,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
 
             new_entry->entity_specs.linkage_spec = linkage_current_get_name();
             new_entry->entity_specs.is_explicit = gather_info->is_explicit;
+            new_entry->entity_specs.is_friend = gather_info->is_friend;
             new_entry->entity_specs.is_friend_declared = gather_info->is_friend;
 
             if (is_named_type(declarator_type))
@@ -7867,6 +7934,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
             new_entry->line = ASTLine(declarator_id);
             new_entry->file = ASTFileName(declarator_id);
             
+            new_entry->entity_specs.is_friend = gather_info->is_friend;
             new_entry->entity_specs.is_friend_declared = gather_info->is_friend;
             if (decl_context.current_scope->kind == CLASS_SCOPE
                     && !new_entry->entity_specs.is_friend_declared)
@@ -7933,6 +8001,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
                     &_bytes_used_buildscope);
         
 
+        new_entry->entity_specs.is_friend = gather_info->is_friend;
         new_entry->entity_specs.is_friend_declared = gather_info->is_friend;
         
         // If the declaration context is CLASS_SCOPE and the function definition is friend,
@@ -8234,6 +8303,7 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
         func_templ->kind = SK_TEMPLATE;
         func_templ->line = ASTLine(declarator_id);
         func_templ->file = ASTFileName(declarator_id);
+        func_templ->entity_specs.is_friend = 1;
         func_templ->entity_specs.is_friend_declared = 1;
 
         func_templ->type_information =
@@ -8266,6 +8336,7 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
     entry->decl_context = decl_context;
     entry->type_information = declarator_type;
 
+    entry->entity_specs.is_friend = 1;
     entry->entity_specs.is_friend_declared = 1;
     entry->entity_specs.any_exception = gather_info->any_exception;
     entry->entity_specs.num_parameters = gather_info->num_parameters;
@@ -8418,9 +8489,9 @@ static char find_function_declaration(AST declarator_id,
                 || entry->kind == SK_ENUM)
             continue;
 
-        char is_using = (entry->kind == SK_USING) ? 1:0;
-
-        entry = entry_advance_aliases(entry);
+        // Using symbols are filtered!
+        if (entry->kind == SK_USING)
+            continue;
 
         if (entry->kind != SK_FUNCTION
                 && (entry->kind != SK_TEMPLATE
@@ -8428,19 +8499,12 @@ static char find_function_declaration(AST declarator_id,
         {
             if (!checking_ambiguity())
             {
-                error_printf("%s: name '%s' has already been declared as a different entity kind",
+                error_printf("%s: name '%s' has already been declared as a different entity kind\n",
                         ast_location(declarator_id),
                         prettyprint_in_buffer(declarator_id));
             }
             return 0;
         }
-
-        if (is_using
-                && entry->entity_specs.is_member
-                && decl_context.current_scope->kind == CLASS_SCOPE
-                && !equivalent_types(get_actual_class_type(entry->entity_specs.class_type), 
-                    get_actual_class_type(decl_context.current_scope->related_entry->type_information)))
-            continue;
 
         scope_entry_t* considered_symbol = NULL;
         if (entry->kind == SK_TEMPLATE)
@@ -8448,7 +8512,7 @@ static char find_function_declaration(AST declarator_id,
             type_t* primary_named_type = template_type_get_primary_type(entry->type_information);
             considered_symbol = named_type_get_symbol(primary_named_type);
             templates_available |= 1;
-            if (!gather_info->is_friend) 
+            if (!gather_info->is_friend)
             {
                 entry->entity_specs.is_friend_declared = 0;
                 considered_symbol->entity_specs.is_friend_declared = 0;
@@ -8578,6 +8642,9 @@ static char find_function_declaration(AST declarator_id,
     if (found_equal)
     {
         *result_entry = equal_entry;
+
+        (*result_entry)->entity_specs.is_friend =
+            (*result_entry)->entity_specs.is_friend || gather_info->is_friend;
     }
 
     return 1;
@@ -8995,7 +9062,6 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
             {
                 // Here the template scope is the one of the template declaration, 
                 // not for the symbol
-
                 decl_context_t initializer_context = entry->decl_context;
                 initializer_context.template_parameters = new_decl_context.template_parameters;
 
@@ -9005,6 +9071,7 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
                         get_unqualified_type(declarator_type),
                         &nodecl_expr);
                 entry->value = nodecl_expr;
+                entry->defined = 1;
             }
         }
         else if (is_function_type(declarator_type))
@@ -9012,12 +9079,15 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
             // Do nothing
         }
 
+
+        nodecl_t (*make_cxx_decl_or_def)(scope_entry_t*, const char*, int) =
+            (entry->defined) ? nodecl_make_cxx_def : nodecl_make_cxx_decl;
+
         // Keep declaration
-        *nodecl_output = 
-            nodecl_concat_lists(
-                    *nodecl_output,
-                    nodecl_make_list_1(
-                        nodecl_make_cxx_decl(entry, ASTFileName(init_declarator), ASTLine(init_declarator))));
+        *nodecl_output = nodecl_concat_lists(
+                *nodecl_output,
+                nodecl_make_list_1(
+                    make_cxx_decl_or_def(entry, ASTFileName(init_declarator), ASTLine(init_declarator))));
     }
 }
 
@@ -10059,6 +10129,9 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
         // The function symbol is not stored (currently) in the build scope because it's a SK_DEPENDENT_FRIEND_FUNCTION.
         // We don't use 'entry = build_scope_declarator_name' because this function searches the function symbol in the scope
         // and, if this symbol is not found, creates a new one.
+        build_scope_declarator_with_parameter_context(function_declarator, &gather_info, type_info, &declarator_type,
+                new_decl_context, &block_context, nodecl_output);
+
         entry = previous_symbol;
         declarator_type = entry->type_information;
     }
@@ -10333,9 +10406,12 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
 
     nodecl_t (*ptr_nodecl_make_func_code)(nodecl_t, nodecl_t, nodecl_t, scope_entry_t*,const char*, int) = NULL;
 
-    ptr_nodecl_make_func_code = (!is_dependent_type(entry->type_information) &&
-            !(entry->entity_specs.is_member && is_dependent_type(entry->entity_specs.class_type)))
-                ? &nodecl_make_function_code : &nodecl_make_template_function_code;
+    ptr_nodecl_make_func_code =
+        (!is_dependent_type(entry->type_information)
+         && (entry->kind != SK_DEPENDENT_FRIEND_FUNCTION)
+         && !(entry->entity_specs.is_member
+             && is_dependent_type(entry->entity_specs.class_type)))
+        ? &nodecl_make_function_code : &nodecl_make_template_function_code;
 
     // Create nodecl
     nodecl_t nodecl_function_def = ptr_nodecl_make_func_code(
@@ -10903,44 +10979,41 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
     entry = build_scope_declarator_name(function_declarator, declarator_type, &gather_info, decl_context, nodecl_output);
 
     ERROR_CONDITION(entry == NULL, "Invalid entry computed", 0);
-     
-    if(entry->kind != SK_DEPENDENT_FRIEND_FUNCTION)
+
+    entry->entity_specs.access = current_access;
+    entry->entity_specs.is_defined_inside_class_specifier = 1;
+    entry->entity_specs.is_inline = 1;
+    entry->entity_specs.access = current_access;
+    entry->entity_specs.class_type = class_info;
+
+    update_member_function_info(declarator_name, is_constructor, entry, class_type);
+
+    DEBUG_CODE()
     {
-        entry->entity_specs.access = current_access;
-        entry->entity_specs.is_defined_inside_class_specifier = 1;
-
-        entry->entity_specs.is_inline = 1;
-
-        update_member_function_info(declarator_name, is_constructor, entry, class_type);
-
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "BUILDSCOPE: Setting member function definition at '%s' of '%s' as a member\n", 
-                    ast_location(a),
-                    entry->symbol_name); 
-        }
-
-
-
-        entry->entity_specs.access = current_access;
-        entry->entity_specs.class_type = class_info;
-        class_type_add_member(get_actual_class_type(class_type), entry);
-
-        if (declared_symbols != NULL)
-        {
-            *declared_symbols = entry_list_new(entry);
-        }
-
-        // This function might be hiding using declarations, remove those
-        hide_using_declarations(class_info, entry);
-
-        // If it is a friend function definition 
-        // then we add entry symbol as a friend of the class
-        if (gather_info.is_friend) 
-        {
-            class_type_add_friend_symbol(get_actual_class_type(class_type), entry);
-        }
+        fprintf(stderr, "BUILDSCOPE: Setting member function definition at '%s' of '%s' as a member\n",
+                ast_location(a),
+                entry->symbol_name);
     }
+
+    if (declared_symbols != NULL)
+    {
+        *declared_symbols = entry_list_new(entry);
+    }
+
+    // This function might be hiding using declarations, remove those
+    hide_using_declarations(class_info, entry);
+
+    if (gather_info.is_friend)
+    {
+        // If it is a friend function definition then we add entry symbol as a friend of the class
+        class_type_add_friend_symbol(get_actual_class_type(class_type), entry);
+    }
+    else
+    {
+        // Otherwise, we add this symbol as a member of the class
+        class_type_add_member(get_actual_class_type(class_type), entry);
+    }
+
     build_scope_delayed_add_delayed_function_def(a, entry, decl_context, is_template, is_explicit_instantiation);
 
     return entry;
@@ -11093,6 +11166,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
 
     gather_info.is_template = is_template;
     gather_info.is_explicit_instantiation = is_explicit_instantiation;
+    gather_info.current_access = current_access;
 
     type_t* class_type = NULL;
     const char* class_name = "";
@@ -11107,6 +11181,9 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
     }
 
     type_t* member_type = NULL;
+
+    // This one is not converted to dependent typename type
+    type_t* original_member_type = NULL;
 
     AST decl_spec_seq = ASTSon0(a);
     AST member_init_declarator_list = ASTSon1(a);
@@ -11123,6 +11200,8 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
 
         build_scope_decl_specifier_seq(decl_spec_seq, &gather_info,
                 &member_type, new_decl_context, nodecl_output);
+
+        original_member_type = member_type;
 
         type_specifier = ASTSon1(decl_spec_seq);
 
@@ -11158,42 +11237,6 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                 && (member_init_declarator_list == NULL))))
                 {
                     scope_entry_t* entry = named_type_get_symbol(member_type);
-                    DEBUG_CODE()
-                    {
-                        fprintf(stderr, "BUILDSCOPE: Setting type '%s' as member\n", 
-                                entry->symbol_name);
-                    }
-
-                    char is_elaborated = (ASTType(type_specifier) == AST_ELABORATED_TYPE_CLASS_SPEC)
-                        || (ASTType(type_specifier) == AST_GCC_ELABORATED_TYPE_CLASS_SPEC)
-                        || (ASTType(type_specifier) == AST_ELABORATED_TYPE_ENUM_SPEC)
-                        || (ASTType(type_specifier) == AST_GCC_ELABORATED_TYPE_ENUM_SPEC);
-
-                    entry->entity_specs.is_member = 1;
-                    entry->entity_specs.access = current_access;
-                    entry->entity_specs.is_defined_inside_class_specifier = !is_elaborated;
-                    entry->entity_specs.class_type = class_info;
-                    class_type_add_member(get_actual_class_type(class_type), entry);
-
-                    // Register enumerators as well
-                    if ((ASTType(type_specifier) == AST_ENUM_SPECIFIER 
-                                || ASTType(type_specifier) == AST_GCC_ENUM_SPECIFIER))
-                    {
-                        ERROR_CONDITION(!is_enum_type(member_type), 
-                                "AST_ENUM_SPECIFIER did not compute an enumerator type", 0);
-
-                        int i, num_enums  = enum_type_get_num_enumerators(member_type);
-                        for (i = 0; i < num_enums; i++)
-                        {
-                            scope_entry_t* enumerator = enum_type_get_enumerator_num(member_type, i);
-
-                            enumerator->entity_specs.is_member = 1;
-                            enumerator->entity_specs.access = current_access;
-                            enumerator->entity_specs.is_defined_inside_class_specifier = 1;
-                            enumerator->entity_specs.class_type  = class_info;
-                            class_type_add_member(get_actual_class_type(class_type), enumerator);
-                        }
-                    }
 
                     // Update the type specifier to be a dependent typename
                     if (is_dependent_type(class_type))
@@ -11534,11 +11577,11 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
     }
     else
     {
-        if (is_named_type(member_type)
-                && is_class_type(member_type)
-                && named_type_get_symbol(member_type)->entity_specs.is_anonymous_union)
+        if (is_named_type(original_member_type)
+                && is_class_type(original_member_type)
+                && named_type_get_symbol(original_member_type)->entity_specs.is_anonymous_union)
         {
-            scope_entry_t* named_type = named_type_get_symbol(member_type);
+            scope_entry_t* named_type = named_type_get_symbol(original_member_type);
 
             // Anonymous unions are members even in C
             C_LANGUAGE()
@@ -11550,12 +11593,17 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
             }
 
             scope_entry_t* new_member = finish_anonymous_class(named_type, decl_context);
+            new_member->type_information = member_type;
 
             // Add this member to the current class
             new_member->entity_specs.is_member = 1;
             new_member->entity_specs.access = current_access;
             new_member->entity_specs.class_type = class_info;
-            class_type_add_member(class_type, new_member);
+
+            if (!is_dependent_type(class_type))
+            {
+                class_type_add_member(class_type, new_member);
+            }
         }
     }
 }
@@ -12432,7 +12480,8 @@ static void build_scope_return_statement(AST a,
     AST expression = ASTSon0(a);
 
     scope_entry_t* function = decl_context.current_scope->related_entry;
-    ERROR_CONDITION(function->kind != SK_FUNCTION, "Invalid related entry!", 0);
+    ERROR_CONDITION(function->kind != SK_FUNCTION
+            && function->kind != SK_DEPENDENT_FRIEND_FUNCTION, "Invalid related entry!", 0);
 
     type_t* return_type = function_type_get_return_type(function->type_information);
     if (return_type == NULL)

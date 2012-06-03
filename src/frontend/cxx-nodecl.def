@@ -253,7 +253,8 @@ cxx-atom-dependent-name : cxx-simple-name
 
 cxx-simple-name: NODECL_CXX_DEP_NAME_SIMPLE() text
 
-cxx-dependent-initializer : NODECL_CXX_BRACED_INITIALIZER([init]expression-seq-opt)
+cxx-dependent-initializer : NODECL_CXX_INITIALIZER([init] expression)
+    | NODECL_CXX_BRACED_INITIALIZER([init]expression-seq-opt)
     | NODECL_CXX_EQUAL_INITIALIZER([init]expression)
     | NODECL_CXX_PARENTHESIZED_INITIALIZER([init]expression-seq-opt)
     | NODECL_C99_DESIGNATED_INITIALIZER([designation]cxx-dependent-initializer-seq, [init]expression)

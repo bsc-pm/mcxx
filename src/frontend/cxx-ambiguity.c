@@ -1148,7 +1148,7 @@ static char check_expression_statement(AST a, decl_context_t decl_context)
 }
 
 
-char solve_ambiguous_list(AST ambiguous_list, decl_context_t decl_context,
+char solve_ambiguous_list_of_expressions(AST ambiguous_list, decl_context_t decl_context,
         nodecl_t* nodecl_output)
 {
     ERROR_CONDITION(ASTType(ambiguous_list) != AST_AMBIGUITY, "invalid kind", 0);
@@ -1195,6 +1195,32 @@ char solve_ambiguous_list(AST ambiguous_list, decl_context_t decl_context,
         choose_option(ambiguous_list, correct_choice);
         return 1;
     }
+}
+
+template_parameter_list_t* solve_ambiguous_list_of_template_arguments(AST ambiguous_list, decl_context_t decl_context)
+{
+    ERROR_CONDITION(ASTType(ambiguous_list) != AST_AMBIGUITY, "invalid kind", 0);
+
+    int i;
+    template_parameter_list_t* result = NULL;
+    for (i = 0; i < ast_get_num_ambiguities(ambiguous_list); i++)
+    {
+        AST current_template_argument_list = ast_get_ambiguity(ambiguous_list, i);
+
+        template_parameter_list_t* template_parameters =
+            get_template_parameters_from_syntax(current_template_argument_list, decl_context);
+
+        if (template_parameters != NULL)
+        {
+            if (result != NULL)
+            {
+                internal_error("More than one valid alternative\n", 0);
+                return NULL;
+            }
+            result = template_parameters;
+        }
+    }
+    return result;
 }
 
 // Returns if the template_parameter could be disambiguated.

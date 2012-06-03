@@ -1176,30 +1176,40 @@ static void build_dependent_parts_for_symbol_rec(
 
         build_dependent_parts_for_symbol_rec(named_type_get_symbol(enclosing), filename, line, dependent_entry, &nodecl_prev);
 
-        template_parameter_list_t* template_arguments = NULL;
-        if (is_template_specialized_type(entry->type_information))
+        if (!entry->entity_specs.is_anonymous_union)
         {
-            template_arguments = template_specialized_type_get_template_arguments(entry->type_information);
-        }
+            template_parameter_list_t* template_arguments = NULL;
+            if (is_template_specialized_type(entry->type_information))
+            {
+                template_arguments = template_specialized_type_get_template_arguments(entry->type_information);
+            }
 
-        nodecl_t nodecl_current = nodecl_make_cxx_dep_name_simple(entry->symbol_name, filename, line);
-        if (template_arguments != NULL)
-        {
-            // If our enclosing is dependent, we need a 'template '
-            nodecl_current = nodecl_make_cxx_dep_template_id(nodecl_current, "template ", template_arguments, filename, line);
-        }
+            nodecl_t nodecl_current = nodecl_make_cxx_dep_name_simple(entry->symbol_name, filename, line);
+            if (template_arguments != NULL)
+            {
+                // If our enclosing is dependent, we need a 'template '
+                nodecl_current = nodecl_make_cxx_dep_template_id(nodecl_current, "template ", template_arguments, filename, line);
+            }
 
-        if (nodecl_is_null(nodecl_prev))
-        {
-            *nodecl_output = nodecl_make_list_1(nodecl_current);
+            if (nodecl_is_null(nodecl_prev))
+            {
+                *nodecl_output = nodecl_make_list_1(nodecl_current);
+            }
+            else
+            {
+                *nodecl_output = nodecl_concat_lists(nodecl_prev, nodecl_make_list_1(nodecl_current));
+            }
         }
         else
         {
-            *nodecl_output = nodecl_concat_lists(nodecl_prev, nodecl_make_list_1(nodecl_current));
+            *nodecl_output = nodecl_prev;
         }
     }
     else
     {
+        ERROR_CONDITION(entry->entity_specs.is_anonymous_union, 
+                "Unexpected case of anonymous union dependent that is not enclosed in any class", 0);
+
         *dependent_entry = entry;
         *nodecl_output = nodecl_null();
     }
@@ -1251,6 +1261,9 @@ type_t* build_dependent_typename_for_entry(
     dependent_parts = nodecl_make_cxx_dep_name_nested(dependent_parts, filename, line);
 
     type_t* result = get_dependent_typename_type_from_parts(dependent_entry, dependent_parts);
+
+    // Mark this dependent typename as an artificial one.
+    dependent_typename_set_is_artificial(result, 1);
 
     return result;
 }
@@ -1727,13 +1740,18 @@ static template_parameter_value_t* update_template_parameter_value_aux(
         char is_template_class,
         const char* filename, int line)
 {
-    template_parameter_value_t* result = counted_calloc(1, sizeof(*result), &_bytes_used_scopes);
+    type_t* updated_type = update_type(v->type, decl_context, filename, line);
+    if (updated_type == NULL)
+    {
+        return NULL;
+    }
 
+    template_parameter_value_t* result = counted_calloc(1, sizeof(*result), &_bytes_used_scopes);
     *result = *v;
     result->is_default = 0;
 
-    result->type = update_type(result->type, decl_context, filename, line);
-    
+    result->type = updated_type;
+
     if (is_template_class)
     {
         result->type = advance_over_typedefs(result->type);
@@ -4484,13 +4502,23 @@ static void compute_nodecl_name_from_unqualified_id(AST unqualified_id, decl_con
                 const char* name = ASTText(ASTSon0(unqualified_id));
                 AST template_arguments = ASTSon1(unqualified_id);
 
-                template_parameter_list_t* template_parameters = 
-                    get_template_parameters_from_syntax(template_arguments, decl_context);
+                template_parameter_list_t* template_parameters = NULL;
+                if (template_arguments != NULL &&
+                        ASTType(template_arguments) == AST_AMBIGUITY)
+                {
+                    template_parameters =
+                        solve_ambiguous_list_of_template_arguments(template_arguments, decl_context);
+                }
+                else
+                {
+                    template_parameters =
+                        get_template_parameters_from_syntax(template_arguments, decl_context);
+                }
 
                 if (template_parameters == NULL)
                 {
                     *nodecl_output = nodecl_make_err_expr(
-                            ASTFileName(unqualified_id), 
+                            ASTFileName(unqualified_id),
                             ASTLine(unqualified_id));
                     return;
                 }
@@ -4522,17 +4550,28 @@ static void compute_nodecl_name_from_unqualified_id(AST unqualified_id, decl_con
             }
         case AST_OPERATOR_FUNCTION_ID_TEMPLATE:
             {
-                const char* name = 
+                const char* name =
                         get_operator_function_name(unqualified_id);
 
                 AST template_arguments = ASTSon1(unqualified_id);
-                template_parameter_list_t* template_parameters = 
-                    get_template_parameters_from_syntax(template_arguments, decl_context);
+
+                template_parameter_list_t* template_parameters = NULL;
+                if (template_arguments != NULL &&
+                        ASTType(template_arguments) == AST_AMBIGUITY)
+                {
+                    template_parameters =
+                        solve_ambiguous_list_of_template_arguments(template_arguments, decl_context);
+                }
+                else
+                {
+                    template_parameters =
+                        get_template_parameters_from_syntax(template_arguments, decl_context);
+                }
 
                 if (template_parameters == NULL)
                 {
                     *nodecl_output = nodecl_make_err_expr(
-                            ASTFileName(unqualified_id), 
+                            ASTFileName(unqualified_id),
                             ASTLine(unqualified_id));
                     return;
                 }

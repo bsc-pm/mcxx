@@ -222,6 +222,9 @@ struct simple_type_tag {
     // States that the STK_INDIRECT is a not the last indirect
     unsigned char is_indirect:1;
 
+    // States that this STK_TEMPLATE_DEPENDENT_TYPE does not come from user code
+    unsigned char is_artificial:1;
+
     // Floating type model, only for BT_FLOAT, BT_DOUBLE and BT_OTHER_FLOAT
     floating_type_info_t* floating_info;
 
@@ -1163,6 +1166,7 @@ type_t* get_indirect_type(scope_entry_t* entry)
     return get_indirect_type_(entry, /* indirect */ 1);
 }
 
+// This function must always return a new type
 type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entry, 
         nodecl_t dependent_parts)
 {
@@ -1207,6 +1211,20 @@ type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entry,
     result->info->is_dependent = 1;
 
     return result;
+}
+
+void dependent_typename_set_is_artificial(type_t* t, char is_artificial)
+{
+    ERROR_CONDITION(!is_dependent_typename_type(t), "This is not a dependent typename type", 0);
+
+    t->type->is_artificial = is_artificial;
+}
+
+char dependent_typename_is_artificial(type_t* t)
+{
+    ERROR_CONDITION(!is_dependent_typename_type(t), "This is not a dependent typename type", 0);
+
+    return t->type->is_artificial;
 }
 
 enum type_tag_t get_dependent_entry_kind(type_t* t)
@@ -1322,14 +1340,29 @@ static type_t* remove_typedefs(type_t* t)
 
         int i, N = function_type_get_num_parameters(t);
 
-        parameter_info_t param_info[N+1];
+        parameter_info_t param_info[N];
         memset(param_info, 0, sizeof(param_info));
+
+        if (function_type_get_has_ellipsis(t))
+        {
+            //The last parameter is an ellipsis (It has not type)
+            param_info[N-1].is_ellipsis = 1;
+            param_info[N-1].type_info = NULL;
+            param_info[N-1].nonadjusted_type_info = NULL;
+            N = N - 1;
+        }
 
         for (i = 0; i < N; i++)
         {
             param_info[i].type_info = remove_typedefs(function_type_get_parameter_type_num(t, i));
         }
 
+        if (function_type_get_has_ellipsis(t))
+        {
+            //Restore the real number of parameters
+            N = N + 1;
+        }
+        
         return get_cv_qualified_type(get_new_function_type(return_type, param_info, N), cv_qualif); 
     }
     else if (is_vector_type(t))
@@ -2243,18 +2276,27 @@ type_t* get_pointer_type(type_t* t)
         pointed_type->pointer = counted_calloc(1, sizeof(*pointed_type->pointer), &_bytes_due_to_type_system);
         pointed_type->pointer->pointee = t;
 
-        if (is_function_type(t))
+        if (is_array_type(t)
+                && array_type_with_descriptor(t))
         {
-            pointed_type->info->size = CURRENT_CONFIGURATION->type_environment->sizeof_function_pointer;
-            pointed_type->info->alignment = CURRENT_CONFIGURATION->type_environment->alignof_function_pointer;
+            // This is an array with descriptor 
+            // let cxx-typeenviron.c compute this size
         }
         else
         {
-            pointed_type->info->size = CURRENT_CONFIGURATION->type_environment->sizeof_pointer;
-            pointed_type->info->alignment = CURRENT_CONFIGURATION->type_environment->alignof_pointer;
-        }
+            if (is_function_type(t))
+            {
+                pointed_type->info->size = CURRENT_CONFIGURATION->type_environment->sizeof_function_pointer;
+                pointed_type->info->alignment = CURRENT_CONFIGURATION->type_environment->alignof_function_pointer;
+            }
+            else
+            {
+                pointed_type->info->size = CURRENT_CONFIGURATION->type_environment->sizeof_pointer;
+                pointed_type->info->alignment = CURRENT_CONFIGURATION->type_environment->alignof_pointer;
+            }
 
-        pointed_type->info->valid_size = 1;
+            pointed_type->info->valid_size = 1;
+        }
 
         pointed_type->info->is_dependent = is_dependent_type(t);
 
@@ -2595,12 +2637,12 @@ static type_t* _get_array_type(type_t* element_type,
     //    int k[x + y];
     // }
     //
-    // // C++ 
+    // // C++
     // template <int _N, int _M>
     // void f()
     // {
     //   int k[_N + _M];
-    // } 
+    // }
     //
     //
     // First try to fold as many trees as possible
@@ -2610,14 +2652,14 @@ static type_t* _get_array_type(type_t* element_type,
             nodecl_t *nodecl;
             char* pred;
             _size_t* value;
-        } data[] = 
+        } data[] =
         {
             { &whole_size, &whole_size_is_constant, &whole_size_k },
             { &lower_bound, &lower_bound_is_constant, &lower_bound_k },
             { &upper_bound, &upper_bound_is_constant, &upper_bound_k },
             { NULL, NULL, NULL }
         };
-        
+
         int i;
         for (i = 0; data[i].nodecl != NULL; i++)
         {
@@ -2639,7 +2681,9 @@ static type_t* _get_array_type(type_t* element_type,
 
     if (nodecl_is_null(whole_size))
     {
-        // Use the same strategy we use for pointers
+        // Use the same strategy we use for pointers when all components (size,
+        // lower, upper) of the array are null otherwise create a new array
+        // every time (it is safer)
         static rb_red_blk_tree *_undefined_array_types[2] = { NULL, NULL };
 
         if (_undefined_array_types[!!with_descriptor] == NULL)
@@ -2653,7 +2697,7 @@ static type_t* _get_array_type(type_t* element_type,
                 && array_region == NULL)
         {
             undefined_array_type = rb_tree_query_type(_undefined_array_types[!!with_descriptor], element_type);
-        }         
+        }
         if (undefined_array_type == NULL)
         {
             _array_type_counter++;
@@ -2667,7 +2711,7 @@ static type_t* _get_array_type(type_t* element_type,
             // If we used the hash of array types, these two will be null
             result->array->lower_bound = lower_bound;
             result->array->upper_bound = upper_bound;
-            
+
             result->array->with_descriptor = with_descriptor;
 
             result->array->region = array_region;
@@ -2685,7 +2729,10 @@ static type_t* _get_array_type(type_t* element_type,
 
             result->array->array_expr_decl_context = decl_context;
 
-            result->info->is_incomplete = 1;
+            // Arrays with descriptor have a complete type even if their
+            // dimensions are not known at compile time (because the descriptor
+            // is a complete type actually
+            result->info->is_incomplete = !with_descriptor;
 
             result->info->is_dependent = is_dependent_type(element_type);
 
@@ -2721,7 +2768,7 @@ static type_t* _get_array_type(type_t* element_type,
                 result->unqualified_type = result;
                 result->array = counted_calloc(1, sizeof(*(result->array)), &_bytes_due_to_type_system);
                 result->array->element_type = element_type;
-                
+
                 result->array->with_descriptor = with_descriptor;
 
                 if (is_array_type(element_type))
@@ -4217,12 +4264,12 @@ char equivalent_types(type_t* t1, type_t* t2)
     t1 = advance_over_typedefs_with_cv_qualif(t1, &cv_qualifier_t1);
     t2 = advance_over_typedefs_with_cv_qualif(t2, &cv_qualifier_t2);
 
-    if (is_dependent_typename_type(t1)
-            || is_dependent_typename_type(t2))
+    if ((is_dependent_typename_type(t1) && dependent_typename_is_artificial(t1))
+            || (is_dependent_typename_type(t2) && dependent_typename_is_artificial(t2)))
     {
         DEBUG_CODE()
         {
-            fprintf(stderr, "TYPEUTILS: Comparing two different types where one is a dependent typename\n");
+            fprintf(stderr, "TYPEUTILS: Comparing two different types where one is a an artificial dependent typename\n");
         }
         // Try to advance dependent typenames if we are comparing a
         // dependent typename with another non dependent one
@@ -4976,6 +5023,7 @@ static type_t* advance_dependent_typename_aux(
     scope_entry_t* member = entry_list_head(member_list);
 
     if (member->kind == SK_CLASS
+            || member->kind == SK_ENUM
             || member->kind == SK_TYPEDEF)
     {
         DEBUG_CODE()
@@ -6970,7 +7018,7 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                 }
 
                 (*left) = strappend((*left), 
-                        get_qualified_symbol_name(type_info->pointer->pointee_class, type_info->pointer->pointee_class->decl_context));
+                        get_qualified_symbol_name(type_info->pointer->pointee_class, decl_context));
 
                 (*left) = strappend((*left), "::");
                 (*left) = strappend((*left), "*");
@@ -7688,6 +7736,10 @@ const char* print_declarator(type_t* printed_declarator)
                 break;
             case TK_ARRAY :
                 tmp_result = strappend(tmp_result, "array ");
+                if (printed_declarator->array->with_descriptor)
+                {
+                    tmp_result = strappend(tmp_result, "(with descriptor) ");
+                }
                 tmp_result = strappend(tmp_result, "[");
                 tmp_result = strappend(tmp_result, codegen_to_str(printed_declarator->array->lower_bound, 
                             CURRENT_COMPILED_FILE->global_decl_context));

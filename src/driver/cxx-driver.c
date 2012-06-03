@@ -235,6 +235,16 @@
 "  --list-fortran-array-descriptors\n" \
 "                           Prints list of supported Fortran\n" \
 "                           array descriptors\n" \
+"  --search-includes=<dir>  Adds <dir> to the directories searched\n" \
+"                           when solving a Fortran INCLUDE line.\n" \
+"                           Does not affect the native compiler like\n" \
+"                           -I does\n" \
+"  --search-modules=<dir>   Adds <dir> to the directories searched\n" \
+"                           when looking for a Fortran module. \n" \
+"                           Does not affect the native compiler like\n" \
+"                           -I does\n" \
+"  --do-not-warn-config     Do not warn about wrong configuration\n" \
+"                           file names\n" \
 "\n" \
 "gcc compatibility flags:\n" \
 "\n" \
@@ -329,6 +339,9 @@ typedef enum
     OPTION_FORTRAN_CHARACTER_KIND,
     OPTION_FORTRAN_ARRAY_DESCRIPTOR,
     OPTION_LIST_FORTRAN_ARRAY_DESCRIPTORS,
+    OPTION_SEARCH_MODULES,
+    OPTION_SEARCH_INCLUDES,
+    OPTION_DO_NOT_WARN_BAD_CONFIG_FILENAMES,
     OPTION_VERBOSE,
 } COMMAND_LINE_OPTIONS;
 
@@ -395,6 +408,9 @@ struct command_line_long_options command_line_long_options[] =
     {"character-kind", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_CHARACTER_KIND},
     {"fortran-array-descriptor", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_ARRAY_DESCRIPTOR},
     {"list-fortran-array-descriptors", CLP_NO_ARGUMENT, OPTION_LIST_FORTRAN_ARRAY_DESCRIPTORS},
+    {"search-modules", CLP_REQUIRED_ARGUMENT, OPTION_SEARCH_MODULES},
+    {"search-includes", CLP_REQUIRED_ARGUMENT, OPTION_SEARCH_INCLUDES},
+    {"do-not-warn-config", CLP_NO_ARGUMENT, OPTION_DO_NOT_WARN_BAD_CONFIG_FILENAMES},
     // sentinel
     {NULL, 0, 0}
 };
@@ -461,6 +477,7 @@ static void list_environments(void);
 static void list_fortran_array_descriptors(void);
 
 static char do_not_unload_phases = 0;
+static char do_not_warn_bad_config_filenames = 0;
 static char show_help_message = 0;
 
 void add_to_linker_command(const char *str, translation_unit_t* tr_unit);
@@ -500,7 +517,7 @@ int main(int argc, char* argv[])
             compilation_process.argv, 
             /* from_command_line= */ 1,
             /* parse_implicits_only */ 0);
-    
+
     if (parse_arguments_error)
     {
         if (show_help_message)
@@ -516,7 +533,7 @@ int main(int argc, char* argv[])
     // Compiler phases can define additional dynamic initializers
     // (besides the built in ones)
     run_dynamic_initializers();
-    
+
     // Compilation of every specified translation unit
     compile_every_translation_unit();
 
@@ -1050,6 +1067,11 @@ int parse_arguments(int argc, const char* argv[],
 
                         break;
                     }
+                case 'h' :
+                    {
+                        show_help_message = 1;
+                        return 1;
+                    }
                 case OPTION_PREPROCESSOR_NAME :
                     {
                         CURRENT_CONFIGURATION->preprocessor_name = uniquestr(parameter_info.argument);
@@ -1177,10 +1199,17 @@ int parse_arguments(int argc, const char* argv[],
                         list_fortran_array_descriptors();
                         break;
                     }
-                case 'h' :
+                case OPTION_SEARCH_MODULES:
                     {
-                        show_help_message = 1;
-                        return 1;
+                        P_LIST_ADD(CURRENT_CONFIGURATION->module_dirs, CURRENT_CONFIGURATION->num_module_dirs,
+                                uniquestr(parameter_info.argument));
+                        break;
+                    }
+                case OPTION_SEARCH_INCLUDES:
+                    {
+                        P_LIST_ADD(CURRENT_CONFIGURATION->include_dirs, CURRENT_CONFIGURATION->num_include_dirs,
+                                uniquestr(parameter_info.argument));
+                        break;
                     }
                 case OPTION_PRINT_CONFIG_FILE:
                     {
@@ -1214,6 +1243,10 @@ int parse_arguments(int argc, const char* argv[],
                 case OPTION_DO_NOT_UNLOAD_PHASES:
                     {
                         do_not_unload_phases = 1;
+                        break;
+                    }
+                case OPTION_DO_NOT_WARN_BAD_CONFIG_FILENAMES :
+                    {
                         break;
                     }
                 case OPTION_INSTANTIATE_TEMPLATES:
@@ -2242,6 +2275,13 @@ static void load_configuration(void)
                 restart = 1;
                 break;
             }
+            else if (strcmp(compilation_process.argv[i], "--do-not-warn-config") == 0)
+            {
+                do_not_warn_bad_config_filenames = 1;
+                remove_parameter_from_argv(i);
+                restart = 1;
+                break;
+            }
         }
     }
 
@@ -2287,7 +2327,7 @@ static void load_configuration(void)
                         const char * config_file = uniquestr(dir_entry->d_name);
                         P_LIST_ADD(list_config_files, num_config_files, config_file);
                     }
-                    else
+                    else if (!do_not_warn_bad_config_filenames)
                     {
                         fprintf(stderr, "warning: '%s' is not a valid configuration filename "
                                 "since it does not start with a digit. Maybe you need to update it.\n", dir_entry->d_name);
@@ -2365,6 +2405,15 @@ static void commit_configuration(void)
             {
                 config_directive->funct(configuration, configuration_line->index, configuration_line->value);
             }
+        }
+
+        if (configuration->source_language == SOURCE_LANGUAGE_FORTRAN)
+        {
+            // Add standard directories for Fortran
+            P_LIST_ADD(CURRENT_CONFIGURATION->module_dirs, CURRENT_CONFIGURATION->num_module_dirs,
+                    strappend(compilation_process.home_directory, FORTRAN_BASEDIR));
+            P_LIST_ADD(CURRENT_CONFIGURATION->include_dirs, CURRENT_CONFIGURATION->num_include_dirs,
+                    strappend(compilation_process.home_directory, FORTRAN_BASEDIR));
         }
     }
 
@@ -4564,7 +4613,7 @@ static void list_fortran_array_descriptors(void)
     }
 
     fprintf(stdout, "\n");
-    fprintf(stdout, "Command line parameter --fortran-descriptor=<env-id> can be used to choose a particular architecture.\n");
+    fprintf(stdout, "Command line parameter --fortran-descriptor=<env-id> can be used to choose a particular descriptor.\n");
     fprintf(stdout, "If not specified, default Fortran array descriptor is '%s' (%s)\n",
             default_fortran_array_descriptor->descriptor_id,
             default_fortran_array_descriptor->descriptor_name);

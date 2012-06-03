@@ -60,7 +60,6 @@ print "#include \"tl-type.hpp\""
 
 print "void TL::OpenMP::initialize_builtin_udr_reductions(TL::Scope global_scope)"
 print "{"
-print "    return;"
 print "    static bool already_initialized = false;"
 print "    if (already_initialized)"
 print "        return;"
@@ -78,7 +77,11 @@ for red in builtin_reductions:
 
         print "      Source identity_src;"
         print "      identity_src << \"%s\";" % (identity)
+        print "      if (IS_FORTRAN_LANGUAGE)"
+        print "         Source::source_language = SourceLanguage::C;"
         print "      Nodecl::NodeclBase identity = identity_src.parse_expression(global_scope);"
+        print "      if (IS_FORTRAN_LANGUAGE)"
+        print "         Source::source_language = SourceLanguage::Current;"
         print "      builtin_udr.set_identity(identity);"
 
         print "      builtin_udr.set_name(\"%s\");"  % (op)

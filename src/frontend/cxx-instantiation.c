@@ -62,6 +62,7 @@ static scope_entry_t* add_duplicate_member_to_class(decl_context_t context_of_be
     new_member->entity_specs.is_member = 1;
     new_member->entity_specs.is_instantiable = 0;
     new_member->entity_specs.is_user_declared = 0;
+    new_member->entity_specs.is_member_of_anonymous = 0;
     new_member->decl_context = context_of_being_instantiated;
     new_member->entity_specs.class_type = being_instantiated;
 
@@ -299,17 +300,21 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                 if (!nodecl_is_null(member_of_template->value))
                 {
                     nodecl_t new_expr = instantiate_expression(member_of_template->value, context_of_being_instantiated);
-                    if (nodecl_get_kind(new_expr) == NODECL_CXX_EQUAL_INITIALIZER
+                    
+                    // Update the value of the new instantiated member 
+                    new_member->value = new_expr;
+
+                    if (nodecl_get_kind(new_expr) == NODECL_CXX_INITIALIZER
+                            || nodecl_get_kind(new_expr) == NODECL_CXX_EQUAL_INITIALIZER
                             || nodecl_get_kind(new_expr) == NODECL_CXX_PARENTHESIZED_INITIALIZER
                             || nodecl_get_kind(new_expr) == NODECL_CXX_BRACED_INITIALIZER)
                     {
-                        check_initialization_nodecl(new_expr, context_of_being_instantiated, new_member->type_information, 
+                        check_initialization_nodecl(new_expr, context_of_being_instantiated, get_unqualified_type(new_member->type_information), 
                                 &new_member->value);
                     }
                     else
                     {
-                        check_nodecl_expr_initializer(new_expr, context_of_being_instantiated, new_member->type_information,
-                                &new_member->value);
+                        // No need to check anything
                     }
                 }
 
@@ -479,18 +484,12 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                         instantiate_template_class(new_member, context_of_being_instantiated, filename, line);
                         scope_entry_t* anon_member = finish_anonymous_class(new_member, context_of_being_instantiated);
 
+                        anon_member->type_information = get_user_defined_type(new_member);
+
                         // Add this member to the current class
                         anon_member->entity_specs.is_member = 1;
-                        anon_member->entity_specs.class_type = being_instantiated;
                         anon_member->entity_specs.access = new_member->entity_specs.access;
-
-                        // The anonymous union will be defined in the class scope
-                        new_member->entity_specs.is_instantiable = 0;
-                        new_member->entity_specs.is_user_declared = 0;
-                        anon_member->entity_specs.is_instantiable = 0;
-                        anon_member->entity_specs.is_user_declared = 0;
-                        primary_template->entity_specs.is_instantiable = 0;
-                        primary_template->entity_specs.is_user_declared = 0;
+                        anon_member->entity_specs.class_type = get_user_defined_type(new_member);
 
                         class_type_add_member(being_instantiated, anon_member);
                     }

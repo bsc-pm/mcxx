@@ -1737,12 +1737,18 @@ static type_t* promote_integral_type(type_t* t)
     }
 }
 
+static char operand_is_integral_or_enum_type(type_t* t)
+{
+    return (is_enum_type(t)
+            || is_integral_type(t));
+}
+
 static 
 char both_operands_are_integral(type_t* lhs_type, type_t* rhs_type)
 {
-    return (is_integral_type(lhs_type) || is_enum_type(lhs_type))
-        && (is_integral_type(rhs_type) || is_enum_type(rhs_type));
-};
+    return (operand_is_integral_or_enum_type(rhs_type)
+            && operand_is_integral_or_enum_type(lhs_type));
+}
 
 static 
 char both_operands_are_integral_noref(type_t* lhs_type, type_t* rhs_type)
@@ -4725,7 +4731,7 @@ static void compute_operator_plus_type(nodecl_t* op,
             nodecl_make_plus,
             const_value_plus, 
             compute_type_no_overload_plus,
-            is_integral_type,
+            operand_is_integral_or_enum_type,
             operator_unary_plus_pred,
             operator_unary_plus_result,
             /* save_conversions */ 1,
@@ -4800,7 +4806,7 @@ static void compute_operator_minus_type(nodecl_t* op, decl_context_t decl_contex
             nodecl_make_neg,
             const_value_neg, 
             compute_type_no_overload_neg,
-            is_integral_type,
+            operand_is_integral_or_enum_type,
             operator_unary_minus_pred,
             operator_unary_minus_result,
             /* save_conversions */ 1,
@@ -4854,7 +4860,7 @@ static void compute_operator_complement_type(nodecl_t* op,
             nodecl_make_bitwise_not,
             const_value_bitnot, 
             compute_type_no_overload_complement,
-            is_integral_type,
+            operand_is_integral_or_enum_type,
             operator_unary_complement_pred,
             operator_unary_complement_result,
             /* save_conversions */ 1,
@@ -4929,7 +4935,7 @@ static void compute_operator_not_type(nodecl_t* op,
             nodecl_make_logical_not,
             const_value_not, 
             compute_type_no_overload_logical_not,
-            is_integral_type,
+            operand_is_integral_or_enum_type,
             operator_unary_not_pred,
             operator_unary_not_result,
             /* save_conversions */ 1,
@@ -5523,7 +5529,6 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
         nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
         nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
         return;
-        return ;
     }
 
 
@@ -7542,7 +7547,7 @@ void check_function_arguments(AST arguments, decl_context_t decl_context,
     {
         if (ASTType(arguments) == AST_AMBIGUITY)
         {
-            char result = solve_ambiguous_list(arguments, decl_context, /* nodecl_output */ NULL);
+            char result = solve_ambiguous_list_of_expressions(arguments, decl_context, /* nodecl_output */ NULL);
             if (result == 0)
             {
                 internal_error("Ambiguity not solved %s", ast_location(arguments));
@@ -7556,7 +7561,7 @@ void check_function_arguments(AST arguments, decl_context_t decl_context,
         {
             if (ASTType(iter) == AST_AMBIGUITY)
             {
-                char result = solve_ambiguous_list(iter, decl_context, /* nodecl_output */ NULL);
+                char result = solve_ambiguous_list_of_expressions(iter, decl_context, /* nodecl_output */ NULL);
                 if (result == 0)
                 {
                     internal_error("Ambiguity not solved %s", ast_location(iter));
@@ -10327,7 +10332,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
             //   char a[] = { "hello" };
             
             // The expression list has only one element of kind expression and this element is an array of chars o wchars
-            type_t * type_element = nodecl_get_type(nodecl_list_head(initializer_clause_list));
+            type_t * type_element = nodecl_get_type(nodecl_get_child(nodecl_list_head(initializer_clause_list), 0));
             if (nodecl_list_length(initializer_clause_list) == 1
                     && nodecl_get_kind(nodecl_list_head(initializer_clause_list)) != NODECL_CXX_BRACED_INITIALIZER
                     && nodecl_get_kind(nodecl_list_head(initializer_clause_list)) != NODECL_C99_DESIGNATED_INITIALIZER
@@ -10340,7 +10345,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
             {
                 // Attempt an interpretation like char a[] = "hello";
                 enter_test_expression();
-                check_nodecl_expr_initializer(nodecl_list_head(initializer_clause_list), 
+                check_nodecl_expr_initializer(nodecl_get_child(nodecl_list_head(initializer_clause_list), 0), 
                         decl_context,
                         declared_type,
                         nodecl_output);
@@ -11146,6 +11151,9 @@ static void compute_nodecl_initializer_clause(AST initializer, decl_context_t de
         default:
             {
                 check_expression_impl_(initializer, decl_context, nodecl_output);
+                *nodecl_output = nodecl_make_cxx_initializer(*nodecl_output, 
+                        nodecl_get_filename(*nodecl_output), 
+                        nodecl_get_line(*nodecl_output));
                 break;
             }
         case AST_INITIALIZER_BRACES:
@@ -12007,9 +12015,11 @@ static void check_nodecl_initializer_clause(nodecl_t initializer_clause,
     switch (nodecl_get_kind(initializer_clause))
     {
         // Default should be an expression
-        default:
+        case NODECL_CXX_INITIALIZER:
             {
-                check_nodecl_expr_initializer(initializer_clause, decl_context, declared_type, nodecl_output);
+                check_nodecl_expr_initializer(
+                        nodecl_get_child(initializer_clause, 0), 
+                        decl_context, declared_type, nodecl_output);
                 break;
             }
         case NODECL_CXX_BRACED_INITIALIZER:
@@ -12022,6 +12032,10 @@ static void check_nodecl_initializer_clause(nodecl_t initializer_clause,
                 // Note: GCC-style designated initializers are subsumed in NODECL_C99_DESIGNATED_INITIALIZER
                 check_nodecl_designated_initializer(initializer_clause, decl_context, declared_type, nodecl_output);
                 break;
+            }
+        default:
+            {
+                internal_error("Unexpected nodecl '%s'\n", ast_print_node_type(nodecl_get_kind(initializer_clause)));
             }
     }
 }
@@ -12037,6 +12051,14 @@ char check_initialization(AST initializer, decl_context_t decl_context, type_t* 
     nodecl_t nodecl_init = nodecl_null();
 
     compute_nodecl_initialization(initializer, decl_context, &nodecl_init);
+
+    if (is_dependent_type(declared_type))
+    {
+        // We do not bother to check anything else if the declared entity is
+        // dependent
+        *nodecl_output = nodecl_init;
+        return 1;
+    }
 
     check_initialization_nodecl(nodecl_init, decl_context, declared_type, nodecl_output);
     
@@ -13523,7 +13545,7 @@ char check_list_of_expressions(AST expression_list,
 
     if (ASTType(expression_list) == AST_AMBIGUITY)
     {
-        return solve_ambiguous_list(expression_list, decl_context, nodecl_output);
+        return solve_ambiguous_list_of_expressions(expression_list, decl_context, nodecl_output);
     }
     else
     {
@@ -14412,18 +14434,10 @@ static void instantiate_structured_value(nodecl_instantiate_expr_visitor_t* v, n
         nodecl_new_list = nodecl_append_to_list(nodecl_new_list, nodecl_new_item);
     }
 
-    // We use braced because it is the most generic 
-    nodecl_t nodecl_braced_init = 
-        nodecl_make_cxx_braced_initializer(
-                nodecl_new_list,
-                nodecl_get_filename(node),
-                nodecl_get_line(node));
+    v->nodecl_result =
+        nodecl_make_structured_value(nodecl_new_list, t, nodecl_get_filename(node), nodecl_get_line(node));
 
-    check_nodecl_braced_initializer(
-            nodecl_braced_init,
-            v->decl_context,
-            t,
-            &v->nodecl_result);
+    //FIXME: We should check this new structured value
 }
 
 static void instantiate_reference(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
@@ -14607,6 +14621,29 @@ static void instantiate_dep_sizeof_expr(nodecl_instantiate_expr_visitor_t* v, no
     v->nodecl_result = result;
 }
 
+static void instantiate_alignof(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    nodecl_t nodecl_type = nodecl_get_child(node, 0);
+
+    type_t* t = nodecl_get_type(nodecl_type);
+
+    t = update_type_for_instantiation(t,
+            v->decl_context,
+            nodecl_get_filename(node),
+            nodecl_get_line(node));
+
+    nodecl_t result = nodecl_null();
+
+    check_sizeof_type(t,
+            nodecl_null(),
+            v->decl_context,
+            nodecl_get_filename(node),
+            nodecl_get_line(node),
+            &result);
+
+    v->nodecl_result = result;
+}
+
 static void instantiate_nondep_sizeof(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
 {
     nodecl_t nodecl_type = nodecl_get_child(node, 0);
@@ -14759,6 +14796,20 @@ static void instantiate_parenthesized_initializer(nodecl_instantiate_expr_visito
     free(list);
 
     v->nodecl_result = nodecl_make_cxx_parenthesized_initializer(nodecl_result_list, nodecl_get_filename(node), nodecl_get_line(node));
+}
+
+static void instantiate_initializer(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    nodecl_t expr = instantiate_expr_walk(v, nodecl_get_child(node, 0));
+
+    if (nodecl_is_err_expr(expr))
+    {
+        v->nodecl_result = expr;
+    }
+    else
+    {
+        v->nodecl_result = nodecl_make_cxx_initializer(expr, nodecl_get_filename(node), nodecl_get_line(node));
+    }
 }
 
 static void instantiate_equal_initializer(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
@@ -14929,6 +14980,9 @@ static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, 
     NODECL_VISITOR(v)->visit_sizeof = instantiate_expr_visitor_fun(instantiate_nondep_sizeof);
     NODECL_VISITOR(v)->visit_cxx_sizeof = instantiate_expr_visitor_fun(instantiate_dep_sizeof_expr);
 
+    // Alignof
+    NODECL_VISITOR(v)->visit_alignof = instantiate_expr_visitor_fun(instantiate_alignof);
+
     // Casts
     NODECL_VISITOR(v)->visit_cast = instantiate_expr_visitor_fun(instantiate_cast);
 
@@ -14936,6 +14990,7 @@ static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, 
     NODECL_VISITOR(v)->visit_conversion = instantiate_expr_visitor_fun(instantiate_conversion);
 
     // Initializers
+    NODECL_VISITOR(v)->visit_cxx_initializer = instantiate_expr_visitor_fun(instantiate_initializer);
     NODECL_VISITOR(v)->visit_cxx_equal_initializer = instantiate_expr_visitor_fun(instantiate_equal_initializer);
     NODECL_VISITOR(v)->visit_cxx_braced_initializer = instantiate_expr_visitor_fun(instantiate_braced_initializer);
     NODECL_VISITOR(v)->visit_cxx_parenthesized_initializer = instantiate_expr_visitor_fun(instantiate_parenthesized_initializer);

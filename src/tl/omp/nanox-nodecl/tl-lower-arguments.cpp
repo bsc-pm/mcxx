@@ -131,8 +131,9 @@ namespace TL { namespace Nanox {
             if (is_pointer = t.is_pointer())
                 t = t.points_to();
 
-            if (t.array_is_vla()
-                    || t.array_requires_descriptor())
+            if (t.is_array()
+                    && (t.array_is_vla()
+                    || t.array_requires_descriptor()))
             {
                 handle_vla_type_rec(t, outline_info);
 

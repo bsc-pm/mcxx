@@ -57,6 +57,8 @@ static void unsupported_statement(AST a, const char* name);
 
 static void null_dtor(const void* p UNUSED_PARAMETER) { }
 
+static void fortran_init_globals(decl_context_t decl_context);
+
 void fortran_initialize_translation_unit_scope(translation_unit_t* translation_unit)
 {
     decl_context_t decl_context;
@@ -71,10 +73,68 @@ void fortran_initialize_translation_unit_scope(translation_unit_t* translation_u
 
     fortran_init_intrinsics(decl_context);
 
+    fortran_init_globals(decl_context);
+
     translation_unit->module_file_cache = rb_tree_create((int (*)(const void*, const void*))strcasecmp, null_dtor, null_dtor);
     translation_unit->module_symbol_cache = rb_tree_create((int (*)(const void*, const void*))strcasecmp, null_dtor, null_dtor);
 }
 
+static void fortran_init_globals(decl_context_t decl_context)
+{
+    type_t* int_8 = fortran_choose_int_type_from_kind(1);
+    type_t* int_16 = fortran_choose_int_type_from_kind(2);
+    type_t* int_32 = fortran_choose_int_type_from_kind(4);
+    type_t* int_64 = fortran_choose_int_type_from_kind(8);
+
+    struct {
+        const char* symbol_name;
+        type_t* backing_type;
+    } intrinsic_globals[] =
+    {
+        { "mercurium_c_int", get_signed_int_type() },
+        { "mercurium_c_short", get_signed_short_int_type() },
+        { "mercurium_c_long", get_signed_long_int_type() },
+        { "mercurium_c_long_long", get_signed_long_long_int_type() },
+        { "mercurium_c_signed_char", get_signed_byte_type() },
+        { "mercurium_c_size_t", get_size_t_type() },
+        { "mercurium_c_int8_t", int_8 },
+        { "mercurium_c_int16_t", int_16 },
+        { "mercurium_c_int32_t", int_32 },
+        { "mercurium_c_int64_t", int_64 },
+        { "mercurium_c_int_least8_t", int_8 },
+        { "mercurium_c_int_least16_t", int_16 },
+        { "mercurium_c_int_least32_t", int_32 },
+        { "mercurium_c_int_least64_t", int_64 },
+        { "mercurium_c_int_fast8_t", int_8 },
+        { "mercurium_c_int_fast16_t", int_16 },
+        { "mercurium_c_int_fast32_t", int_32 },
+        { "mercurium_c_int_fast64_t", int_64 },
+        { "mercurium_c_intmax_t", int_64 },
+        { "mercurium_c_intptr_t", get_pointer_type(get_void_type()) },
+        { "mercurium_c_float", get_float_type() },
+        { "mercurium_c_double", get_double_type() },
+        { "mercurium_c_long_double", get_long_double_type() },
+        { "mercurium_c_float_complex", get_complex_type(get_float_type()) },
+        { "mercurium_c_double_complex", get_complex_type(get_double_type()) },
+        { "mercurium_c_long_double_complex", get_complex_type(get_long_double_type()) },
+        { "mercurium_c_bool", get_bool_type() },
+        { "mercurium_c_char", get_char_type() },
+        // Sentinel
+        { NULL, NULL }
+    };
+
+    int i;
+    for (i = 0; intrinsic_globals[i].symbol_name != NULL; i++)
+    {
+        scope_entry_t* mercurium_intptr = new_symbol(decl_context, decl_context.global_scope, intrinsic_globals[i].symbol_name);
+        mercurium_intptr->kind = SK_VARIABLE;
+        mercurium_intptr->type_information = get_const_qualified_type(fortran_get_default_integer_type());
+        mercurium_intptr->value = const_value_to_nodecl(
+                const_value_get_signed_int(
+                    type_get_size(intrinsic_globals[i].backing_type)));
+        mercurium_intptr->do_not_print = 1;
+    }
+}
 
 nodecl_t build_scope_fortran_translation_unit(translation_unit_t* translation_unit)
 {
@@ -974,12 +1034,28 @@ static void build_scope_module_program_unit(AST program_unit,
     AST module_stmt = ASTSon0(program_unit);
     AST module_name = ASTSon0(module_stmt);
 
+    // This is a mercurium extension
+    AST module_nature = ASTSon1(module_stmt);
+
     scope_entry_t* new_entry = new_fortran_symbol_not_unknown(decl_context, ASTText(module_name));
     new_entry->kind = SK_MODULE;
 
     if (new_entry->decl_context.current_scope == decl_context.global_scope)
         new_entry->entity_specs.is_global_hidden = 1;
-    
+
+    if (module_nature != NULL)
+    {
+        if (strcasecmp(ASTText(module_nature), "intrinsic") == 0)
+        {
+            new_entry->entity_specs.is_builtin = 1;
+        }
+        else
+        {
+            running_error("%s: error: invalid module nature. Only INTRINSIC is allowed\n", 
+                    ast_location(module_nature));
+        }
+    }
+
     remove_unknown_kind_symbol(decl_context, new_entry);
 
     new_entry->related_decl_context = program_unit_context;
@@ -7693,10 +7769,10 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
         internal_error("Unexpected node %s", ast_print_node_type(ASTType(a)));
     }
 
+    char must_be_intrinsic_module = 0;
     if (module_nature != NULL)
     {
-        running_error("%s: error: specifying the nature of the module is not supported\n",
-                ast_location(a));
+        must_be_intrinsic_module = (strcasecmp(ASTText(module_nature), "INTRINSIC") == 0);
     }
 
     const char* module_name_str = strtolower(ASTText(module_name));
@@ -7730,14 +7806,27 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
 
         if (module_symbol == NULL)
         {
-            running_error("%s: error: cannot load module '%s'\n",
-                    ast_location(a),
-                    module_name_str);
+            if (must_be_intrinsic_module)
+            {
+                error_printf("%s: error: module '%s' is not an INTRINSIC module\n", ast_location(a), module_name_str);
+            }
+            else
+            {
+                running_error("%s: error: cannot load module '%s'\n",
+                        ast_location(a),
+                        module_name_str);
+            }
         }
 
         // And add it to the cache of opened modules
         ERROR_CONDITION(module_symbol == NULL, "Invalid symbol", 0);
         rb_tree_insert(CURRENT_COMPILED_FILE->module_file_cache, module_name_str, module_symbol);
+    }
+
+    if (must_be_intrinsic_module
+            && !module_symbol->entity_specs.is_builtin)
+    {
+        error_printf("%s: error: loaded module '%s' is not an INTRINSIC module\n", ast_location(a), module_name_str);
     }
 
     scope_entry_t* used_modules = get_or_create_used_modules_symbol_info(decl_context);

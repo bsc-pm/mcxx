@@ -176,22 +176,22 @@ namespace TL { namespace OpenMP {
         set_phase_name("OpenMP directive to parallel IR");
         set_phase_description("This phase lowers the semantics of OpenMP into the parallel IR of Mercurium");
 
-#define OMP_DIRECTIVE(_directive, _name) \
-                { \
+#define OMP_DIRECTIVE(_directive, _name, _pred) \
+                if (_pred) { \
                     std::string directive_name = remove_separators_of_directive(_directive); \
                     dispatcher().directive.pre[directive_name].connect(functor(&Base::_name##_handler_pre, *this)); \
                     dispatcher().directive.post[directive_name].connect(functor(&Base::_name##_handler_post, *this)); \
                 }
-#define OMP_CONSTRUCT_COMMON(_directive, _name, _noend) \
-                { \
+#define OMP_CONSTRUCT_COMMON(_directive, _name, _noend, _pred) \
+                if (_pred) { \
                     std::string directive_name = remove_separators_of_directive(_directive); \
                     dispatcher().declaration.pre[directive_name].connect(functor((void (Base::*)(TL::PragmaCustomDeclaration))&Base::_name##_handler_pre, *this)); \
                     dispatcher().declaration.post[directive_name].connect(functor((void (Base::*)(TL::PragmaCustomDeclaration))&Base::_name##_handler_post, *this)); \
                     dispatcher().statement.pre[directive_name].connect(functor((void (Base::*)(TL::PragmaCustomStatement))&Base::_name##_handler_pre, *this)); \
                     dispatcher().statement.post[directive_name].connect(functor((void (Base::*)(TL::PragmaCustomStatement))&Base::_name##_handler_post, *this)); \
                 }
-#define OMP_CONSTRUCT(_directive, _name) OMP_CONSTRUCT_COMMON(_directive, _name, false)
-#define OMP_CONSTRUCT_NOEND(_directive, _name) OMP_CONSTRUCT_COMMON(_directive, _name, true)
+#define OMP_CONSTRUCT(_directive, _name, _pred) OMP_CONSTRUCT_COMMON(_directive, _name, false, _pred)
+#define OMP_CONSTRUCT_NOEND(_directive, _name, _pred) OMP_CONSTRUCT_COMMON(_directive, _name, true, _pred)
 #include "tl-omp-constructs.def"
 #undef OMP_DIRECTIVE
 #undef OMP_CONSTRUCT_COMMON
@@ -903,7 +903,7 @@ namespace TL { namespace OpenMP {
     {
         OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
-        Nodecl::List execution_environment = this->make_execution_environment(ds, pragma_line);
+        Nodecl::List execution_environment = this->make_execution_environment_for_combined_worksharings(ds, pragma_line);
 
         Nodecl::NodeclBase statement = directive.get_statements();
         ERROR_CONDITION(!statement.is<Nodecl::List>(), "Invalid tree", 0);
@@ -1007,6 +1007,39 @@ namespace TL { namespace OpenMP {
 
             result_list.append(T::make(Nodecl::List::make(nodecl_symbols), filename, line));
         }
+    }
+
+    Nodecl::List Base::make_execution_environment_for_combined_worksharings(OpenMP::DataSharingEnvironment &data_sharing_env, PragmaCustomLine pragma_line)
+    {
+        // Everything is set as shared in the outer parallel
+        TL::ObjectList<Nodecl::NodeclBase> result_list;
+
+        make_data_sharing_list<Nodecl::OpenMP::Shared>(
+                data_sharing_env, OpenMP::DS_SHARED,
+                pragma_line.get_filename(), pragma_line.get_line(),
+                result_list);
+        make_data_sharing_list<Nodecl::OpenMP::Shared>(
+                data_sharing_env, OpenMP::DS_PRIVATE,
+                pragma_line.get_filename(), pragma_line.get_line(),
+                result_list);
+        make_data_sharing_list<Nodecl::OpenMP::Shared>(
+                data_sharing_env, OpenMP::DS_FIRSTPRIVATE,
+                pragma_line.get_filename(), pragma_line.get_line(),
+                result_list);
+
+        TL::ObjectList<ReductionSymbol> reductions;
+        data_sharing_env.get_all_reduction_symbols(reductions);
+        TL::ObjectList<Symbol> reduction_symbols = reductions.map(functor(&ReductionSymbol::get_symbol));
+        if (!reduction_symbols.empty())
+        {
+            TL::ObjectList<Nodecl::NodeclBase> nodecl_symbols = 
+                reduction_symbols.map(SymbolBuilder(pragma_line.get_filename(), pragma_line.get_line()));
+
+            result_list.append(Nodecl::OpenMP::Shared::make(Nodecl::List::make(nodecl_symbols), 
+                        pragma_line.get_filename(), pragma_line.get_line()));
+        }
+
+        return Nodecl::List::make(result_list);
     }
 
     Nodecl::List Base::make_execution_environment(OpenMP::DataSharingEnvironment &data_sharing_env, PragmaCustomLine pragma_line)

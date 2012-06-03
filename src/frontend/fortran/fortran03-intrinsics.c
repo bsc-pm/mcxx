@@ -1791,12 +1791,11 @@ scope_entry_t* compute_intrinsic_command_argument_count(scope_entry_t* symbol UN
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
-    get_intrinsic_symbol_("command_argument_count", fortran_get_default_integer_type(), 0, NULL, symbol->decl_context, 
+    return get_intrinsic_symbol_("command_argument_count", fortran_get_default_integer_type(), 0, NULL, symbol->decl_context, 
             /* is_elemental */ 0, 
             /* is_pure */ 0, 
             /* is_transformational */ 1, 
             /* is_inquiry */ 0); 
-    return NULL;
 }
 
 scope_entry_t* compute_intrinsic_conjg(scope_entry_t* symbol UNUSED_PARAMETER,

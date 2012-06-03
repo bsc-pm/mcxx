@@ -38,7 +38,8 @@ struct A
     {
         int *p;
         int k;
-        union {
+        union 
+        {
             int f;
         };
     };
@@ -50,6 +51,6 @@ struct A
 void f(void)
 {
     A<float> a;
-
     a.p;
+    a.f;
 }

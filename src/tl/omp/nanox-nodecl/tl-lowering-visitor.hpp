@@ -163,9 +163,11 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::List& ranges,
                 OutlineInfo& outline_info,
                 Nodecl::NodeclBase& statements,
-                Source &distribute_loop_source,
-                Nodecl::NodeclBase& placeholder1,
-                Nodecl::NodeclBase& placeholder2
+                Source &outline_distribute_loop_source,
+                // Loop (in the outline distributed code)
+                Nodecl::NodeclBase& outline_placeholder1,
+                // Auxiliar loop (when the step is not known at compile time, in the outline distributed code)
+                Nodecl::NodeclBase& outline_placeholder2
                 );
 
         void loop_spawn(

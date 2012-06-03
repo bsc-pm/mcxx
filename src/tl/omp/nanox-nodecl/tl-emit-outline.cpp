@@ -116,18 +116,15 @@ namespace TL { namespace Nanox {
                 it++)
         {
             TL::Symbol sym = (*it)->get_symbol();
-            TL::Type type(NULL);
 
             std::string name;
             if (sym.is_valid())
             {
                 name = sym.get_name();
-                type = sym.get_type();
             }
             else
             {
                 name = (*it)->get_field_name();
-                type = (*it)->get_in_outline_type();
             }
 
             switch ((*it)->get_sharing())
@@ -201,13 +198,26 @@ namespace TL { namespace Nanox {
                     {
                         // This is a mixture of private and shared
                         // A private is emitted for the partial reduction
-                        // Such partial reduction must be initialized with the entity
+                        // Such partial reduction must be initialized with the
+                        // identity
 
                         // Parameter
                         TL::Type param_type = (*it)->get_field_type();
-                        if (IS_FORTRAN_LANGUAGE)
+                        if (IS_C_LANGUAGE
+                                || IS_CXX_LANGUAGE)
                         {
+                            // The type will already be a convenient T*
+                        }
+                        else if (IS_FORTRAN_LANGUAGE)
+                        {
+                            // The type will be a pointer to a descripted array
+                            // make it a reference to a descripted array
+                            param_type = param_type.points_to();
                             param_type = param_type.get_lvalue_reference_to();
+                        }
+                        else
+                        {
+                            internal_error("Code unreachable", 0);
                         }
 
                         scope_entry_t* reduction_private_sym = ::new_symbol(function_context, function_context.current_scope, 
@@ -382,11 +392,25 @@ namespace TL { namespace Nanox {
         empty_stmt = Nodecl::EmptyStatement::make("", 0);
         TL::ObjectList<Nodecl::NodeclBase> stmt_list_;
         stmt_list_.append(empty_stmt);
+
         Nodecl::List stmt_list = Nodecl::List::make(stmt_list_);
 
-        Nodecl::NodeclBase context = Nodecl::Context::make(stmt_list, function_symbol.get_related_scope(), "", 0);
+        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+        {
+            Nodecl::CompoundStatement compound_statement =
+                Nodecl::CompoundStatement::make(stmt_list,
+                        /* destructors */ Nodecl::NodeclBase::null(),
+                        "", 0);
+            stmt_list = Nodecl::List::make(compound_statement);
+        }
 
-        function_code = Nodecl::FunctionCode::make(context, 
+        Nodecl::NodeclBase context = Nodecl::Context::make(
+                stmt_list,
+                function_symbol.get_related_scope(), "", 0);
+
+        function_symbol.get_internal_symbol()->defined = 1;
+
+        function_code = Nodecl::FunctionCode::make(context,
                 Nodecl::NodeclBase::null(),
                 Nodecl::NodeclBase::null(),
                 function_symbol,
@@ -423,43 +447,7 @@ namespace TL { namespace Nanox {
             {
                 case OutlineDataItem::SHARING_PRIVATE:
                     {
-                        TL::Symbol sym = (*it)->get_symbol();
-
-                        std::string name;
-                        TL::Type t;
-                        if (sym.is_valid())
-                        {
-                            name = sym.get_name();
-                            t = sym.get_type();
-                        }
-                        else
-                        {
-                            name = (*it)->get_field_name();
-                            t = (*it)->get_in_outline_type();
-                        }
-
-                        if (IS_C_LANGUAGE
-                                || IS_CXX_LANGUAGE)
-                        {
-                            private_entities
-                                << as_type(t) << " " << name << ";"
-                                ;
-                        }
-                        else if (IS_FORTRAN_LANGUAGE)
-                        {
-                            // @IS_VARIABLE@ means that this symbol must already be assumed a variable
-                            //
-                            // Fortran FE is very lax and this symbol would be left as a SK_UNDEFINED
-                            // which is a kind of symbol that the C/C++ FE does not know anything about
-                            private_entities
-                                << as_type(t) << ", @IS_VARIABLE@ :: " << name << "\n"
-                                ;
-                        }
-                        else
-                        {
-                            internal_error("Code unreachable", 0);
-                        }
-
+                        // Do nothing
                         break;
                     }
                 case OutlineDataItem::SHARING_SHARED:
@@ -480,8 +468,7 @@ namespace TL { namespace Nanox {
                                     param_type = TL::Type::get_void_type().get_pointer_to();
 
                                     private_entities
-                                        << as_type((*it)->get_in_outline_type()) 
-                                        << " " << (*it)->get_field_name() 
+                                        << (*it)->get_field_name() 
                                         << " = " << "(" << as_type((*it)->get_in_outline_type()) << ") ptr_" << (*it)->get_field_name() 
                                         << ";"
                                         ;
@@ -520,12 +507,11 @@ namespace TL { namespace Nanox {
                         {
                             argument << "args % " << (*it)->get_field_name();
 
-                            if (((*it)->get_allocation_policy()
-                                        & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE ==
-                                        OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE)
-                                    || ((*it)->get_allocation_policy()
-                                        & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_POINTER ==
-                                        OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_POINTER))
+                            bool is_allocatable = (*it)->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE;
+                            bool is_pointer = (*it)->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_POINTER;
+
+                            if (is_allocatable
+                                    || is_pointer)
                             {
                                 cleanup_code
                                     << "DEALLOCATE(args % " << (*it)->get_field_name() << ")\n"
@@ -544,51 +530,6 @@ namespace TL { namespace Nanox {
                         // This is a mixture of private and shared
                         // A private is emitted for the partial reduction
                         // Such partial reduction must be initialized with the entity
-                        TL::Symbol sym = (*it)->get_symbol();
-
-                        std::string name;
-                        TL::Type t;
-                        if (sym.is_valid())
-                        {
-                            name = sym.get_name();
-                            t = sym.get_type();
-                        }
-                        else
-                        {
-                            name = (*it)->get_field_name();
-                            t = (*it)->get_in_outline_type();
-                        }
-
-                        if (IS_C_LANGUAGE
-                                || IS_CXX_LANGUAGE)
-                        {
-                            private_entities
-                                << as_type(t) << " " << name << " = " << as_expression((*it)->get_reduction_info()->get_identity().shallow_copy()) << ";"
-                                ;
-                        }
-                        else if (IS_FORTRAN_LANGUAGE)
-                        {
-                            // @IS_VARIABLE@ means that this symbol must already be assumed a variable
-                            //
-                            // Fortran FE is very lax and this symbol would be left as a SK_UNDEFINED
-                            // which is a kind of symbol that the C/C++ FE does not know anything about
-                            private_entities
-                                << as_type(t) << ", @IS_VARIABLE@ :: " << name << "\n"
-                                << name << " = " << as_expression((*it)->get_reduction_info()->get_identity().shallow_copy()) << "\n"
-                                ;
-                        }
-                        else
-                        {
-                            internal_error("Code unreachable", 0);
-                        }
-
-                        // Note here that we use the same type as the field for convenience
-                        TL::Type param_type = (*it)->get_field_type();
-                        if (IS_FORTRAN_LANGUAGE)
-                        {
-                            param_type = param_type.get_lvalue_reference_to();
-                        }
-
                         Source argument;
                         // Now the shared part
                         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
@@ -602,6 +543,12 @@ namespace TL { namespace Nanox {
                             argument << "args % " << (*it)->get_field_name();
                         }
                         unpacked_arguments.append_with_separator(argument, ", ");
+
+                        std::string name = (*it)->get_symbol().get_name();
+
+                        private_entities
+                            << name << " = " << as_expression( (*it)->get_reduction_info()->get_identity().shallow_copy() ) << ";"
+                            ;
 
                         break;
                     }
