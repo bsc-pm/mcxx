@@ -742,7 +742,7 @@ void LoweringVisitor::fill_arguments(
                         fill_immediate_arguments << 
                             "imm_args % " << (*it)->get_field_name() << " => " << as_expression( (*it)->get_shared_expression().shallow_copy() ) << "\n"
                             ;
-                        
+
                         // Best effort, this may fail sometimes
                         DataReference data_ref((*it)->get_shared_expression());
                         if (data_ref.is_valid())
