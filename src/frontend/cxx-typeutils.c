@@ -10432,17 +10432,25 @@ type_t* type_deep_copy(type_t* orig, decl_context_t new_decl_context, void *info
         type_t* return_type = function_type_get_return_type(orig);
         return_type = type_deep_copy(return_type, new_decl_context, info, map);
 
-        int i, N = function_type_get_num_parameters(orig);
-
-        parameter_info_t param_info[N+1];
-        memset(param_info, 0, sizeof(param_info));
-
-        for (i = 0; i < N; i++)
+        if (function_type_get_lacking_prototype(orig))
         {
-            param_info[i].type_info = type_deep_copy(function_type_get_parameter_type_num(orig, i), new_decl_context, info, map);
+            result = get_nonproto_function_type(return_type, 
+                    function_type_get_num_parameters(orig));
         }
+        else
+        {
+            int i, N = function_type_get_num_parameters(orig);
 
-        result = get_new_function_type(return_type, param_info, N);
+            parameter_info_t param_info[N+1];
+            memset(param_info, 0, sizeof(param_info));
+
+            for (i = 0; i < N; i++)
+            {
+                param_info[i].type_info = type_deep_copy(function_type_get_parameter_type_num(orig, i), new_decl_context, info, map);
+            }
+
+            result = get_new_function_type(return_type, param_info, N);
+        }
     }
     else if (is_vector_type(orig))
     {

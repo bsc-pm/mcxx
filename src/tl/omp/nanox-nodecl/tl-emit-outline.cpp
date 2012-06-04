@@ -141,6 +141,11 @@ namespace TL { namespace Nanox {
                             symbol_map->add_map(sym, private_sym);
                         }
 
+                        if (!is_pointer_type(no_ref(private_sym->type_information)))
+                        {
+                            private_sym->entity_specs.is_target = 1;
+                        }
+
                         break;
                     }
                 case OutlineDataItem::SHARING_SHARED:
@@ -166,8 +171,7 @@ namespace TL { namespace Nanox {
                                     parameter_symbols.append(private_sym);
 
                                     // Make it TARGET
-                                    if (IS_FORTRAN_LANGUAGE
-                                            && (*it)->get_sharing() == OutlineDataItem::SHARING_SHARED)
+                                    if (!is_pointer_type(no_ref(private_sym->type_information)))
                                     {
                                         private_sym->entity_specs.is_target = 1;
                                     }
