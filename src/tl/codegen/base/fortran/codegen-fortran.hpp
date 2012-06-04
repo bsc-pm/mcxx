@@ -143,8 +143,11 @@ namespace Codegen
 
             void codegen_type(TL::Type t, 
                     std::string& type_specifier, 
+                    std::string& array_specifier);
+            void codegen_type_extended(TL::Type t, 
+                    std::string& type_specifier, 
                     std::string& array_specifier,
-                    bool is_dummy);
+                    bool force_deferred_shape);
 
             virtual void push_scope(TL::Scope sc) { }
             virtual void pop_scope() { }
