@@ -706,7 +706,8 @@ void LoweringVisitor::fill_arguments(
                 it != data_items.end();
                 it++)
         {
-            if (!(*it)->get_symbol().is_valid())
+            TL::Symbol sym = (*it)->get_symbol();
+            if (!sym.is_valid())
                 continue;
 
             switch ((*it)->get_sharing())
@@ -724,11 +725,27 @@ void LoweringVisitor::fill_arguments(
                     }
                 case OutlineDataItem::SHARING_SHARED:
                     {
+                        Source extra_ref;
+                        TL::Type t = sym.get_type();
+                        if (sym.is_parameter()
+                                && t.is_any_reference())
+                        {
+                            t = t.references_to();
+                            if (t.is_array()
+                                    && !t.array_requires_descriptor()
+                                    && t.array_get_size().is_null())
+                            {
+                                // This is an assumed-size
+                                extra_ref << "(1:1)";
+                            }
+                        }
+
+
                         fill_outline_arguments << 
-                            "ol_args %" << (*it)->get_field_name() << " => " << (*it)->get_symbol().get_name() << "\n"
+                            "ol_args %" << (*it)->get_field_name() << " => " << (*it)->get_symbol().get_name() << extra_ref << "\n"
                             ;
                         fill_immediate_arguments << 
-                            "imm_args % " << (*it)->get_field_name() << " => " << (*it)->get_symbol().get_name() << "\n"
+                            "imm_args % " << (*it)->get_field_name() << " => " << (*it)->get_symbol().get_name() << extra_ref << "\n"
                             ;
                         // Make (*it) TARGET as required by Fortran
                         (*it)->get_symbol().get_internal_symbol()->entity_specs.is_target = 1;
