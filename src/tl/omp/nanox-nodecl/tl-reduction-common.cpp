@@ -73,6 +73,7 @@ namespace TL { namespace Nanox {
                     <<     "nanos_handle_error(err);"
                     << nanos_red_name << "->original = (void*)&" << (*it)->get_symbol().get_name() << ";"
                     << allocate_private_buffer
+                    << nanos_red_name << "->vop = 0;"
                     << nanos_red_name << "->bop = " << udr_info->get_basic_reductor_function().get_name() << ";"
                     << nanos_red_name << "->element_size = sizeof(" << as_type(reduction_type) << ");"
                     << cleanup_code
