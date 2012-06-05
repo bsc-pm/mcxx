@@ -288,8 +288,7 @@ namespace Codegen
             {
                 std::string type_specifier;
                 std::string array_specifier;
-                codegen_type(entry.get_type().returns(), type_specifier, array_specifier,
-                        /* is_dummy */ 0);
+                codegen_type(entry.get_type().returns(), type_specifier, array_specifier);
 
                 indent();
                 file << type_specifier << " :: " << entry.get_name() << "\n";
@@ -550,19 +549,34 @@ namespace Codegen
             else
             {
                 // Fake an assignment statement
-                indent();
-                Nodecl::Symbol nodecl_sym = Nodecl::Symbol::make(entry, node.get_filename(), node.get_line());
-                nodecl_set_type(nodecl_sym.get_internal_nodecl(), entry.get_type().get_internal_type());
+                if (!entry.get_initialization().is_null())
+                {
+                    indent();
+                    Nodecl::Symbol nodecl_sym = Nodecl::Symbol::make(entry, node.get_filename(), node.get_line());
+                    nodecl_set_type(nodecl_sym.get_internal_nodecl(), entry.get_type().get_internal_type());
 
-                Nodecl::Assignment assig = Nodecl::Assignment::make(
-                        nodecl_sym,
-                        entry.get_initialization().shallow_copy(),
-                        entry.get_type(),
-                        node.get_filename(),
-                        node.get_line());
+                    Nodecl::Assignment assig = Nodecl::Assignment::make(
+                            nodecl_sym,
+                            entry.get_initialization().shallow_copy(),
+                            entry.get_type(),
+                            node.get_filename(),
+                            node.get_line());
 
-                walk(assig);
-                file << "\n";
+                    walk(assig);
+                    file << "\n";
+                }
+                else if (entry.get_type().is_array())
+                {
+                    // ALLOCATE this non-dummy VLA
+                    indent();
+                    std::string type_spec, array_spec;
+                    codegen_type(entry.get_type(), type_spec, array_spec);
+                    file << "ALLOCATE(" << rename(entry) << array_spec << ")\n";
+                }
+                // else
+                // {
+                //     internal_error("Do not know how to handle this object init", 0);
+                // }
             }
         }
         else
@@ -2500,6 +2514,13 @@ OPERATOR_TABLE
                 // Do nothing
                 // const int n = x;
             }
+            // This is a VLA
+            else if (entry.get_type().is_array()
+                    && entry.get_initialization().is_null())
+            {
+                // Make this an ALLOCATABLE
+                entry.get_internal_symbol()->entity_specs.is_allocatable = 1;
+            }
             else
             {
                 // This will be emitted like an assignment
@@ -2578,7 +2599,7 @@ OPERATOR_TABLE
         file << "INTEGER(" << CURRENT_CONFIGURATION->type_environment->sizeof_pointer << ") :: P\n";
 
         std::string type_spec, array_spec;
-        codegen_type(t, type_spec, array_spec, /* is_dummy */ true);
+        codegen_type(t, type_spec, array_spec);
 
         indent();
         file << type_spec << " :: X" << array_spec << "\n";
@@ -2703,8 +2724,7 @@ OPERATOR_TABLE
 
             std::string type_specifier;
             std::string array_specifier;
-            codegen_type(function_type.returns(), type_specifier, array_specifier,
-                    /* is_dummy */ false);
+            codegen_type(function_type.returns(), type_specifier, array_specifier);
 
             indent();
             file << type_specifier << " :: " << entry.get_name() << "\n";
@@ -3032,8 +3052,8 @@ OPERATOR_TABLE
 
             if (!is_function_pointer)
             {
-                codegen_type(declared_type, type_spec, array_specifier,
-                        /* is_dummy */ entry.is_parameter());
+                codegen_type_extended(declared_type, type_spec, array_specifier,
+                        /* force_deferred_shape */ entry.is_allocatable());
             }
             else
             {
@@ -3056,7 +3076,7 @@ OPERATOR_TABLE
                     else
                     {
                         attribute_list += ", POINTER";
-                        codegen_type(return_type, type_spec, array_specifier, /* is_dummy */ false);
+                        codegen_type(return_type, type_spec, array_specifier);
                     }
                 }
                 else
@@ -3253,7 +3273,7 @@ OPERATOR_TABLE
                     std::string type_spec;
                     std::string array_specifier;
                     codegen_type(function_type.returns(), 
-                            type_spec, array_specifier, /* is_dummy */ 0);
+                            type_spec, array_specifier);
                     file << type_spec << ", EXTERNAL :: " << entry.get_name() << "\n";
                 }
                 else
@@ -3288,8 +3308,7 @@ OPERATOR_TABLE
                 std::string type_spec;
                 std::string array_specifier;
                 codegen_type(entry.get_type().returns(), 
-                        type_spec, array_specifier,
-                        /* is_dummy */ false);
+                        type_spec, array_specifier);
 
                 // Declare the scalar representing this statement function statement
                 indent();
@@ -3507,8 +3526,7 @@ OPERATOR_TABLE
             std::string array_specifier;
             std::string initializer;
 
-            codegen_type(entry.get_type(), type_spec, array_specifier,
-                    /* is_dummy */ entry.is_parameter());
+            codegen_type(entry.get_type(), type_spec, array_specifier);
 
             initializer = " = " + codegen_to_str(entry.get_initialization(),
                     entry.get_initialization().retrieve_context());
@@ -3957,7 +3975,13 @@ OPERATOR_TABLE
                 || (fortran_is_character_type(t.get_internal_type())));
     }
 
-    void FortranBase::codegen_type(TL::Type t, std::string& type_specifier, std::string& array_specifier, bool /* is_dummy */)
+    void FortranBase::codegen_type(TL::Type t, std::string& type_specifier, std::string& array_specifier)
+    {
+        codegen_type_extended(t, type_specifier, array_specifier, /* force_deferred_shape */ false);
+    }
+
+    void FortranBase::codegen_type_extended(TL::Type t, std::string& type_specifier, std::string& array_specifier,
+            bool force_deferred_shape)
     {
         // We were requested to emit types as literals
         if (state.emit_types_as_literals)
@@ -4002,7 +4026,8 @@ OPERATOR_TABLE
                 internal_error("too many array dimensions %d\n", MCXX_MAX_ARRAY_SPECIFIER);
             }
 
-            if (!is_fortran_pointer)
+            if (!is_fortran_pointer
+                    && !force_deferred_shape)
             {
                 array_spec_list[array_spec_idx].lower = array_type_get_array_lower_bound(t.get_internal_type());
                 if (array_spec_list[array_spec_idx].lower.is_constant())

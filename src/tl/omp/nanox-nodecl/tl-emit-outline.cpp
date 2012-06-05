@@ -164,6 +164,13 @@ namespace TL { namespace Nanox {
                                     }
 
                                     parameter_symbols.append(private_sym);
+
+                                    // Make it TARGET
+                                    if (IS_FORTRAN_LANGUAGE
+                                            && (*it)->get_sharing() == OutlineDataItem::SHARING_SHARED)
+                                    {
+                                        private_sym->entity_specs.is_target = 1;
+                                    }
                                     break;
                                 }
                             case OutlineDataItem::ITEM_KIND_DATA_ADDRESS:
