@@ -350,7 +350,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             ;
     }
 
-    Source num_copies;
+    Source num_copies, num_copies_dimensions;
 
     ObjectList<OpenMP::CopyItem> copy_items = data_environ_info.get_copy_items();
 
@@ -362,6 +362,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
     if (copy_items.empty())
     {
         num_copies << "0";
+        num_copies_dimensions << "0";
         // Non immediate
         copy_data << "(nanos_copy_data_t**)0";
         // Immediate
@@ -386,13 +387,24 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         num_copies << copy_items.size();
 
         // Non immediate
-        copy_decl << "nanos_copy_data_t* copy_data = (nanos_copy_data_t*)0;";
+        copy_decl << "nanos_copy_data_t* copy_data = (nanos_copy_data_t*)0;"
+            ;
+        if (Nanos::Version::interface_is_at_least("copies_api", 1000))
+        {
+            copy_decl << "nanos_region_dimension_internal_t* nanos_copies_region_buffer = (nanos_region_dimension_internal_t*)0;"
+                ;
+        }
         Source copy_items_src;
         copy_setup << copy_items_src;
         copy_data << "&copy_data";
 
         // Immediate
         copy_immediate_setup << "nanos_copy_data_t imm_copy_data[" << num_copies << "];";
+        if (Nanos::Version::interface_is_at_least("copies_api", 1000))
+        {
+            copy_immediate_setup << "nanos_region_dimension_internal_t nanos_copies_imm_region_buffer[" << num_copies_dimensions << "];";
+                ;
+        }
         copy_imm_data << "imm_copy_data";
 
         Source wd_param, wd_arg;
@@ -458,6 +470,17 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             }
         }
 
+        // Number of total dimensions
+        int sum_copies_dim = 0;
+        for (ObjectList<OpenMP::CopyItem>::iterator it = copy_items.begin();
+                it != copy_items.end();
+                it++)
+        {
+            DataReference copy_expr = it->get_copy_expression();
+            Type copy_type = copy_expr.get_type();
+            sum_copies_dim += std::max(copy_type.get_num_dimensions(), 1);
+        }
+        num_copies_dimensions << sum_copies_dim;
 
         int i = 0;
         for (ObjectList<OpenMP::CopyItem>::iterator it = copy_items.begin();
@@ -529,30 +552,197 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             struct {
                 Source *source;
                 const char* array;
+                const char* region_buffer;
                 const char* struct_access;
                 const char* struct_addr;
             } fill_copy_data_info[] = {
-                { &copy_items_src, "copy_data", "ol_args->", "ol_args" },
-                { &copy_immediate_setup, "imm_copy_data",
+                { &copy_items_src, "copy_data", "nanos_copies_region_buffer", "ol_args->", "ol_args" },
+                { &copy_immediate_setup, "imm_copy_data", "nanos_copies_imm_region_buffer",
                     immediate_is_alloca ? "imm_args->" : "imm_args.",
                     immediate_is_alloca ? "imm_args" : "&imm_args" },
                 { NULL, "" },
             };
 
-            for (int j = 0; fill_copy_data_info[j].source != NULL; j++)
+            if (Nanos::Version::interface_is_at_least("copies_api", 1000))
             {
-                Source expression_size, expression_address;
-                const char* array_name = fill_copy_data_info[j].array;
-                (*(fill_copy_data_info[j].source))
-                    << array_name << "[" << i << "].address = (uintptr_t)(" << expression_address << ");"
-                    << array_name << "[" << i << "].sharing = " << copy_sharing << ";"
-                    << array_name << "[" << i << "].flags.input = " << copy_direction_in << ";"
-                    << array_name << "[" << i << "].flags.output = " << copy_direction_out << ";"
-                    << array_name << "[" << i << "].size = " << expression_size << ";"
-                    ;
+                for (int j = 0; fill_copy_data_info[j].source != NULL; j++)
+                {
+                    int region_buffer_index = 0;
+                    Source expression_size, expression_address;
+                    const char* array_name = fill_copy_data_info[j].array;
+                    const char* region_buffer = fill_copy_data_info[j].region_buffer;
+                    // 101 typedef struct {
+                    // 102    void *address;
+                    // 103    nanos_sharing_t sharing;
+                    // 104    struct {
+                    // 105       bool input: 1;
+                    // 106       bool output: 1;
+                    // 107    } flags;
+                    // 108    short dimension_count;
+                    // 109    nanos_region_dimension_internal_t const *dimensions;
+                    // 110    ptrdiff_t offset;  <<<<<-- ???
+                    // 111 } nanos_copy_data_internal_t;
+                    Type copy_type = copy_expr.get_type();
+                    int num_dimensions = copy_type.get_num_dimensions();
+                    Type copy_base_type = copy_type;
 
-                expression_address << copy_expr.get_address();
-                expression_size << copy_expr.get_sizeof();
+                    TL::ObjectList<std::string> dimension_sizes;
+                    TL::ObjectList<TL::Type> dimension_types;
+                    for (int dim = 0; dim < num_dimensions; dim++)
+                    {
+                        dimension_sizes.append(copy_base_type.array_get_size().prettyprint());
+                        dimension_types.append(copy_base_type);
+                        copy_base_type = copy_base_type.array_element();
+                    }
+
+                    Source base_address;
+
+                    TL::Symbol base_symbol = copy_expr.get_base_symbol();
+                    if (num_dimensions != 0)
+                    {
+                        base_address << base_symbol.get_name();
+                    }
+                    else // scalar
+                    {
+                        base_address << "&" << base_symbol.get_name();
+                    }
+
+                    std::string base_type_name = copy_base_type.get_declaration(data_ref.get_scope(), "");
+
+                    Source &target_source (*(fill_copy_data_info[j].source));
+                    target_source
+                        << array_name << "[" << i << "].address = (void*)(" << base_address << ");"
+                        << array_name << "[" << i << "].sharing = " << copy_sharing << ";"
+                        << array_name << "[" << i << "].flags.input = " << copy_direction_in << ";"
+                        << array_name << "[" << i << "].flags.output = " << copy_direction_out << ";"
+                        << array_name << "[" << i << "].dimension_count = " << num_dimensions << ";"
+                        ;
+
+                    // 32 typedef struct {
+                    // 33    /* NOTE: The first dimension is represented in terms of bytes. */
+                    // 34
+                    // 35    /* Size of the dimension in terms of the size of the previous dimension. */
+                    // 36    size_t size;
+                    // 37
+                    // 38    /* Lower bound in terms of the size of the previous dimension. */
+                    // 39    size_t lower_bound;
+                    // 40
+                    // 41    /* Accessed length in terms of the size of the previous dimension. */
+                    // 42    size_t accessed_length;
+                    // 43 } nanos_region_dimension_internal_t;
+
+                    int region_buffer_start_index = region_buffer_index;
+                    if (num_dimensions == 0)
+                    {
+                        // A scalar
+                        target_source
+                            << region_buffer << "[" << region_buffer_index << "].size = sizeof(" << base_type_name << ");"
+                            << region_buffer << "[" << region_buffer_index << "].lower_bound = 0;"
+                            << region_buffer << "[" << region_buffer_index << "].accessed_length = sizeof(" << base_type_name << ");"
+                            ;
+                        region_buffer_index++;
+                    }
+                    else
+                    {
+                        for (int k = num_dimensions - 1; k >= 0; k--)
+                        {
+                            Type &current_type = dimension_types[k];
+                            // First dimension in bytes
+                            if (k == num_dimensions - 1)
+                            {
+                                if (current_type.array_is_region())
+                                {
+                                    AST_t lb, ub, size;
+                                    current_type.array_get_region_bounds(lb, ub);
+                                    size = current_type.array_get_region_size();
+
+                                    target_source
+                                        << region_buffer << "[" << region_buffer_index << "].size = "
+                                        << "sizeof(" << base_type_name << ") * (" << dimension_sizes[k] << ");"
+                                        << region_buffer << "[" << region_buffer_index << "].lower_bound = "
+                                        << "sizeof(" << base_type_name << ") * (" << lb.prettyprint() << ");"
+                                        << region_buffer << "[" << region_buffer_index << "].accessed_length = "
+                                        << "sizeof(" << base_type_name << ") * (" << size.prettyprint() << ");"
+                                        ;
+                                    region_buffer_index++;
+                                }
+                                else
+                                {
+                                    std::string lb = "0";
+
+                                    target_source
+                                        << region_buffer << "[" << region_buffer_index << "].size = " 
+                                        << "sizeof(" << base_type_name << ") * (" << dimension_sizes[k] << ");"
+                                        << region_buffer << "[" << region_buffer_index << "].lower_bound = "
+                                        << lb << ";"
+                                        << region_buffer << "[" << region_buffer_index << "].accessed_length = "
+                                        << "sizeof(" << base_type_name << ") * (" << dimension_sizes[k] << ");"
+                                        ;
+                                    region_buffer_index++;
+                                }
+                            }
+                            else
+                            {
+                                if (current_type.array_is_region())
+                                {
+                                    AST_t lb, ub, size;
+                                    current_type.array_get_region_bounds(lb, ub);
+                                    size = current_type.array_get_region_size();
+
+                                    target_source
+                                        << region_buffer << "[" << region_buffer_index << "].size = "
+                                        << "(" << dimension_sizes[k] << ");"
+                                        << region_buffer << "[" << region_buffer_index << "].lower_bound = "
+                                        << "(" << lb.prettyprint() << ");"
+                                        << region_buffer << "[" << region_buffer_index << "].accessed_length = "
+                                        << "(" << size.prettyprint() << ");"
+                                        ;
+                                    region_buffer_index++;
+                                }
+                                else
+                                {
+                                    std::string lb = 0;
+
+                                    target_source
+                                        << region_buffer << "[" << region_buffer_index << "].size = "
+                                        << "(" << current_type.array_get_size().prettyprint() << ");"
+                                        << region_buffer << "[" << region_buffer_index << "].lower_bound = "
+                                        << "(" << lb << ");"
+                                        << region_buffer << "[" << region_buffer_index << "].accessed_length = "
+                                        << "(" << dimension_sizes[k] << ");"
+                                        ;
+                                    region_buffer_index++;
+                                }
+                            }
+                        }
+                    }
+
+                    target_source
+                        << array_name << "[" << i << "].dimensions = &nanos_copies_region_buffer[" << region_buffer_start_index << "];"
+                        << array_name << "[" << i << "].offset = (ptrdiff_t)("
+                        << "(char*)" << copy_expr.get_address() << " - (char*)" << base_address << ");"
+                        ;
+
+                    expression_address << copy_expr.get_address();
+                }
+            }
+            else
+            {
+                for (int j = 0; fill_copy_data_info[j].source != NULL; j++)
+                {
+                    Source expression_size, expression_address;
+                    const char* array_name = fill_copy_data_info[j].array;
+                    (*(fill_copy_data_info[j].source))
+                        << array_name << "[" << i << "].address = (uintptr_t)(" << expression_address << ");"
+                        << array_name << "[" << i << "].sharing = " << copy_sharing << ";"
+                        << array_name << "[" << i << "].flags.input = " << copy_direction_in << ";"
+                        << array_name << "[" << i << "].flags.output = " << copy_direction_out << ";"
+                        << array_name << "[" << i << "].size = " << expression_size << ";"
+                        ;
+
+                    expression_address << copy_expr.get_address();
+                    expression_size << copy_expr.get_sizeof();
+                }
             }
 
             i++;
@@ -737,6 +927,16 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                 <<          alignment   << ", "
                 <<          num_copies  << ", "
                 <<          num_devices << ", "
+                ;
+
+            if (Nanos::Version::interface_is_at_least("copies_api", 1000))
+            {
+                constant_variable_declaration 
+                    << num_copies_dimensions << ","
+                    ;
+            }
+
+            constant_variable_declaration
                 <<      "},"
                 <<      "{"
                 <<          device_description_line

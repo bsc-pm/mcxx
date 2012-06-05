@@ -338,6 +338,7 @@ namespace OpenMP
             Source fp_output_args;
             Source fp_inout_args;
             Source reduction_args;
+            Source commutative_args;
             Source shared_args;
             Source firstprivate_args;
 
@@ -368,9 +369,14 @@ namespace OpenMP
                                    &fp_inout_args : &inout_args;
                             break;
                         }
-                    case DEP_REDUCTION :
+                    case DEP_CONCURRENT :
                         {
                             args = &reduction_args;
+                            break;
+                        }
+                    case DEP_COMMUTATIVE :
+                        {
+                            args = &commutative_args;
                             break;
                         }
 
@@ -553,6 +559,10 @@ namespace OpenMP
             {
                 arg_clauses << " shared(" << shared_args << ")";
             }
+            if (!commutative_args.empty())
+            {
+                arg_clauses << " commutative(" << commutative_args << ")";
+            }
 
 
             // Add the task symbol name to the clause
@@ -595,7 +605,7 @@ namespace OpenMP
                 ObjectList<CopyItem> copy_out = target_info.get_copy_out();
                 ObjectList<CopyItem> copy_inout = target_info.get_copy_inout();
 
-                Source clause_in_args, clause_out_args, clause_inout_args;
+                Source clause_in_args, clause_out_args, clause_inout_args, clause_concurrent;
 
                 struct
                 {
@@ -684,6 +694,7 @@ namespace OpenMP
                                     break;
                                 }
                             case DEP_DIR_INOUT :
+                            case DEP_CONCURRENT :
                                 {
                                     clause_args = &clause_inout_args;
                                     break;

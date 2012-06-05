@@ -9901,7 +9901,8 @@ static AST get_enclosing_declaration(AST point_of_declarator)
             && ASTType(point) != AST_PARAMETER_DECL
             && ASTType(point) != AST_EXPLICIT_INSTANTIATION
             && ASTType(point) != AST_TYPE_ID
-            && ASTType(point) != AST_CONDITION)
+            && ASTType(point) != AST_CONDITION
+            && ASTType(point) != AST_EXCEPTION_DECLARATION)
     {
         point = ASTParent(point);
     }

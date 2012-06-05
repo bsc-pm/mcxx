@@ -138,7 +138,11 @@ namespace TL { namespace OpenMP {
 
         PragmaCustomClause concurrent_clause = construct.get_clause("concurrent");
         get_dependences_info_clause(concurrent_clause, data_sharing, 
-                (OpenMP::DependencyDirection)(DEP_REDUCTION));
+                (OpenMP::DependencyDirection)(DEP_CONCURRENT));
+
+        PragmaCustomClause commutative_clause = construct.get_clause("commutative");
+        get_dependences_info_clause(commutative_clause, data_sharing,
+                (OpenMP::DependencyDirection)(DEP_COMMUTATIVE));
 
         PragmaCustomClause fp_input_clause = construct.get_clause("__fp_input");
         get_dependences_info_clause(fp_input_clause, data_sharing, 
@@ -155,7 +159,7 @@ namespace TL { namespace OpenMP {
         // Same meaning as 'concurrent'
         PragmaCustomClause fp_reduction_clause = construct.get_clause("__fp_reduction");
         get_dependences_info_clause(fp_reduction_clause, data_sharing, 
-                (OpenMP::DependencyDirection)(DEP_REDUCTION));
+                (OpenMP::DependencyDirection)(DEP_CONCURRENT));
     }
 
     void Core::get_dependences_info_clause(PragmaCustomClause clause,
