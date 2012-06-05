@@ -571,6 +571,7 @@ namespace Codegen
                     indent();
                     std::string type_spec, array_spec;
                     codegen_type(entry.get_type(), type_spec, array_spec);
+                    file << "IF (ALLOCATED(" << rename(entry) << ")) DEALLOCATE(" << rename(entry) << ")\n";
                     file << "ALLOCATE(" << rename(entry) << array_spec << ")\n";
                 }
                 // else
