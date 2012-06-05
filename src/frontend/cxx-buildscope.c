@@ -13080,6 +13080,30 @@ static void build_scope_nodecl_literal(AST a, decl_context_t decl_context UNUSED
     *nodecl_output = nodecl_make_from_ast_nodecl_literal(a);
 }
 
+static void build_scope_fortran_allocate_statement(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
+{
+    // Mimick build_scope_allocate_stmt in fortran03-buildscope.c
+    nodecl_t nodecl_opt_value = nodecl_null();
+
+    AST expression = ASTSon0(a);
+
+    nodecl_t nodecl_expr = nodecl_null();
+    check_expression(expression, decl_context, &nodecl_expr);
+
+    if (nodecl_is_err_expr(nodecl_expr))
+    {
+        *nodecl_output = nodecl_make_err_statement(ASTFileName(a), ASTLine(a));
+        return;
+    }
+
+    nodecl_t nodecl_allocate_list = nodecl_make_list_1(nodecl_expr);
+
+    *nodecl_output = nodecl_make_list_1(
+            nodecl_make_fortran_allocate_statement(nodecl_allocate_list, 
+                nodecl_opt_value,
+                ASTFileName(a), ASTLine(a)));
+}
+
 #define STMT_HANDLER(type, hndl) [type] = { .handler = (hndl) }
 
 static stmt_scope_handler_map_t stmt_scope_handlers[] =
@@ -13115,6 +13139,7 @@ static stmt_scope_handler_map_t stmt_scope_handlers[] =
     STMT_HANDLER(AST_NODE_LIST, build_scope_implicit_compound_statement),
     STMT_HANDLER(AST_STATEMENT_PLACEHOLDER, check_statement_placeholder),
     STMT_HANDLER(AST_NODECL_LITERAL, build_scope_nodecl_literal),
+    STMT_HANDLER(AST_FORTRAN_ALLOCATE_STATEMENT, build_scope_fortran_allocate_statement),
 };
 
 static void build_scope_statement_seq(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
