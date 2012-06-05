@@ -34,7 +34,9 @@
 #include "codegen-phase.hpp"
 #include "codegen-fortran.hpp"
 
+#include "cxx-cexpr.h"
 #include "fortran03-scope.h"
+#include "fortran03-typeutils.h"
 
 using TL::Source;
 
@@ -222,8 +224,13 @@ namespace TL { namespace Nanox {
                         else if (IS_FORTRAN_LANGUAGE)
                         {
                             // The type will be a pointer to a descripted array
-                            // make it a reference to a descripted array
+                            // make it a reference to a descripted array with lower bound 0:
                             param_type = param_type.points_to();
+                            param_type = param_type.array_element();
+                            param_type = param_type.get_array_to_with_descriptor(
+                                    ::const_value_to_nodecl(::const_value_get_zero(fortran_get_default_integer_type_kind(), 1)),
+                                    Nodecl::NodeclBase::null(),
+                                    sc);
                             param_type = param_type.get_lvalue_reference_to();
                         }
                         else
