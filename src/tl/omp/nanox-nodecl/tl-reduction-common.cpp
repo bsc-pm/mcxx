@@ -106,6 +106,7 @@ namespace TL { namespace Nanox {
                 {
                     allocate_private_buffer
                         // FIXME - We have to do an ALLOCATE but this is C :)
+                        << "@FORTRAN_ALLOCATE@((*rdp_" << (*it)->get_field_name() << ")[0:(" << max_threads << "-1)]);"
                         << nanos_red_name << "->privates = &(*rdp_" << (*it)->get_field_name() << ");"
                         << "err = nanos_malloc(&" << nanos_red_name << "->descriptor, sizeof(" << as_type((*it)->get_field_type()) << "), " 
                         << "\"" << construct.get_filename() << "\", " << construct.get_line() << ");"
