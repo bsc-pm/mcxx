@@ -66,6 +66,7 @@ void DeviceCUDA::replace_kernel_config(AST_t &kernel_call, ScopeLink sl)
 
 	nanos_stream_call << "nanos_get_kernel_execution_stream()";
 	ObjectList<Expression> kernel_config = kcall.get_kernel_configuration();
+
 	if (kernel_config.size() == 2)
 	{
 		new_config << kernel_config[0] << ","
@@ -82,7 +83,11 @@ void DeviceCUDA::replace_kernel_config(AST_t &kernel_call, ScopeLink sl)
 	}
 	else if (kernel_config.size() == 4)
 	{
-		// Do nothing at the moment
+		// Do nothing by now
+		new_config << kernel_config[0] << ","
+				<< kernel_config[1] << ","
+				<< kernel_config[2] << ","
+				<< kernel_config[3];
 	}
 	else
 	{
@@ -471,6 +476,15 @@ void DeviceCUDA::create_outline(
 			// Check if we have already printed the function definition in the CUDA file
 			if (_taskSymbols.count(outline_flags.task_symbol) == 0)
 			{
+				// Look for kernel calls to add the Nanos++ kernel execution stream whenever possible
+				ObjectList<AST_t> kernel_call_list = function_tree.get_enclosing_function_definition().depth_subtrees(CUDA::KernelCall::predicate);
+				for (ObjectList<AST_t>::iterator it = kernel_call_list.begin();
+						it != kernel_call_list.end();
+						it++)
+				{
+					replace_kernel_config(*it, sl);
+				}
+
 				forward_declaration << function_tree.get_enclosing_function_definition().prettyprint_external();
 
 				// Keep record of which tasks have been printed to the CUDA file
@@ -515,6 +529,15 @@ void DeviceCUDA::create_outline(
 				// Check if we have already printed the function definition in the CUDA file
 				if (_taskSymbols.count(outline_flags.task_symbol) == 0)
 				{
+					// Look for kernel calls to add the Nanos++ kernel execution stream whenever possible
+					ObjectList<AST_t> kernel_call_list = funct_def_list[0].get_enclosing_function_definition().depth_subtrees(CUDA::KernelCall::predicate);
+					for (ObjectList<AST_t>::iterator it = kernel_call_list.begin();
+							it != kernel_call_list.end();
+							it++)
+					{
+						replace_kernel_config(*it, sl);
+					}
+
 					forward_declaration << funct_def_list[0].get_enclosing_function_definition().prettyprint_external();
 
 					// Keep record of which tasks have been printed to the CUDA file
@@ -729,7 +752,7 @@ void DeviceCUDA::create_outline(
 	std::ofstream cudaFile;
 	get_output_file(cudaFile);
 
-	// Look for kernel calls and add the Nanos++ kernel execution stream
+	// Look for kernel calls to add the Nanos++ kernel execution stream whenever possible
 	ObjectList<AST_t> kernel_call_list = outline_code_tree.depth_subtrees(CUDA::KernelCall::predicate);
 	for (ObjectList<AST_t>::iterator it = kernel_call_list.begin();
 			it != kernel_call_list.end();
