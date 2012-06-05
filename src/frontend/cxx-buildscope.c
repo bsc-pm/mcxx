@@ -2913,9 +2913,12 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
             type_t* enclosing_class_type = enclosing_class_symbol->type_information;
             class_type_add_member(enclosing_class_type, class_entry);
 
-            class_entry->entity_specs.is_member = 1;
-            class_entry->entity_specs.access = gather_info->current_access;
-            class_entry->entity_specs.class_type = get_user_defined_type(enclosing_class_symbol);
+            CXX_LANGUAGE()
+            {
+                class_entry->entity_specs.is_member = 1;
+                class_entry->entity_specs.access = gather_info->current_access;
+                class_entry->entity_specs.class_type = get_user_defined_type(enclosing_class_symbol);
+            }
 
             class_type_set_enclosing_class_type(class_type, get_user_defined_type(enclosing_class_symbol));
 
@@ -3161,9 +3164,12 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a,
                 type_t* class_type = class_symbol->type_information;
                 class_type_add_member(get_actual_class_type(class_type), new_enum);
 
-                new_enum->entity_specs.is_member = 1;
-                new_enum->entity_specs.access = gather_info->current_access;
-                new_enum->entity_specs.class_type = get_user_defined_type(class_symbol);
+                CXX_LANGUAGE()
+                {
+                    new_enum->entity_specs.is_member = 1;
+                    new_enum->entity_specs.access = gather_info->current_access;
+                    new_enum->entity_specs.class_type = get_user_defined_type(class_symbol);
+                }
 
                 set_is_dependent_type(new_enum->type_information,
                         is_dependent_type(class_type));
@@ -3564,14 +3570,16 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
         scope_entry_t* class_symbol = decl_context.current_scope->related_entry;
         type_t* class_type = class_symbol->type_information;
         class_type_add_member(get_actual_class_type(class_type), new_enum);
+        CXX_LANGUAGE()
+        {
+            new_enum->entity_specs.is_member = 1;
+            new_enum->entity_specs.access = gather_info->current_access;
+            new_enum->entity_specs.class_type = get_user_defined_type(class_symbol);
+            new_enum->entity_specs.is_defined_inside_class_specifier = 1;
 
-        new_enum->entity_specs.is_member = 1;
-        new_enum->entity_specs.access = gather_info->current_access;
-        new_enum->entity_specs.class_type = get_user_defined_type(class_symbol);
-        new_enum->entity_specs.is_defined_inside_class_specifier = 1;
-
-        set_is_dependent_type(new_enum->type_information,
-                is_dependent_type(class_type));
+            set_is_dependent_type(new_enum->type_information,
+                    is_dependent_type(class_type));
+        }
     }
 
     enum_type = new_enum->type_information;
@@ -3630,12 +3638,15 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
             {
                 scope_entry_t* enclosing_class_symbol = decl_context.current_scope->related_entry;
                 type_t* enclosing_class_type = enclosing_class_symbol->type_information;
-
-                enumeration_item->entity_specs.is_member = 1;
-                enumeration_item->entity_specs.access = gather_info->current_access;
-                enumeration_item->entity_specs.is_defined_inside_class_specifier = 1;
-                enumeration_item->entity_specs.class_type  = get_user_defined_type(enclosing_class_symbol);
                 class_type_add_member(get_actual_class_type(enclosing_class_type), enumeration_item);
+
+                CXX_LANGUAGE()
+                {
+                    enumeration_item->entity_specs.is_member = 1;
+                    enumeration_item->entity_specs.access = gather_info->current_access;
+                    enumeration_item->entity_specs.is_defined_inside_class_specifier = 1;
+                    enumeration_item->entity_specs.class_type  = get_user_defined_type(enclosing_class_symbol);
+                }
             }
 
             if (enumeration_expr != NULL)
@@ -6033,12 +6044,13 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
         scope_entry_t* enclosing_class_symbol = decl_context.current_scope->related_entry;
         type_t* enclosing_class_type = enclosing_class_symbol->type_information;
         class_type_add_member(enclosing_class_type, class_entry);
-
-        class_entry->entity_specs.is_member = 1;
-        class_entry->entity_specs.access = gather_info->current_access;
-        class_entry->entity_specs.class_type = get_user_defined_type(enclosing_class_symbol);
-        class_entry->entity_specs.is_defined_inside_class_specifier = 1;
-
+        CXX_LANGUAGE()
+        {
+            class_entry->entity_specs.is_member = 1;
+            class_entry->entity_specs.access = gather_info->current_access;
+            class_entry->entity_specs.class_type = get_user_defined_type(enclosing_class_symbol);
+            class_entry->entity_specs.is_defined_inside_class_specifier = 1;
+        }
         class_type_set_enclosing_class_type(class_type, get_user_defined_type(enclosing_class_symbol));
 
         // If the enclosing class is dependent, so is this one
