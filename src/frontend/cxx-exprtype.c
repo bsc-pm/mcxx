@@ -14563,15 +14563,20 @@ static void instantiate_cxx_dep_function_call(nodecl_instantiate_expr_visitor_t*
             &v->nodecl_result);
 }
 
+
+
+
 static void instantiate_gxx_trait(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
 {
     nodecl_t lhs_type = nodecl_get_child(node, 0);
     nodecl_t lhs_type_inst = instantiate_expr_walk(v, lhs_type);
+
     if (nodecl_is_err_expr(lhs_type_inst))
     {
         v->nodecl_result = nodecl_make_err_expr(nodecl_get_filename(node), nodecl_get_line(node));
         return;
     }
+    type_t* instantiated_type_lhs = nodecl_get_type(lhs_type_inst);
 
     nodecl_t rhs_type = nodecl_get_child(node, 1);
     nodecl_t rhs_type_inst_opt = nodecl_null();
@@ -14585,13 +14590,17 @@ static void instantiate_gxx_trait(nodecl_instantiate_expr_visitor_t* v, nodecl_t
         }
     }
 
-    v->nodecl_result = nodecl_make_gxx_trait(
-            lhs_type_inst,
-            rhs_type_inst_opt,
+    type_t* instantiated_type_rhs_opt =
+        (nodecl_is_null(rhs_type_inst_opt)) ? NULL : nodecl_get_type(rhs_type_inst_opt);
+
+    common_check_gxx_type_traits(instantiated_type_lhs,
+            instantiated_type_rhs_opt,
             nodecl_get_type(node),
             nodecl_get_text(node),
+            nodecl_retrieve_context(node),
             nodecl_get_filename(node),
-            nodecl_get_line(node));
+            nodecl_get_line(node),
+            &(v->nodecl_result));
 }
 
 static void instantiate_dep_sizeof_expr(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
