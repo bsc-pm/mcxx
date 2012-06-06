@@ -252,6 +252,8 @@ namespace TL { namespace Nanox {
                         private_sym->type_information = (*it)->get_in_outline_type().get_internal_type();
                         private_sym->defined = private_sym->entity_specs.is_user_declared = 1;
 
+                        private_sym->entity_specs.is_target = 1;
+
                         if (sym.is_valid())
                         {
                             symbol_map->add_map(sym, private_sym);
