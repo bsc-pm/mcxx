@@ -7436,6 +7436,14 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
                 // Keep the parent of the original declarator
                 ast_set_parent(operator_id, ast_get_parent(declarator_id)); 
 
+                if (gather_info->is_friend
+                        && AST_OPERATOR_FUNCTION_ID)
+                {
+                    // We should check the template arguments even if we are not going to use them
+                    nodecl_t nodecl_dummy = nodecl_null();
+                    compute_nodecl_name_from_id_expression(declarator_id, decl_context, &nodecl_dummy);
+                }
+
                 return register_new_variable_name(operator_id, declarator_type, gather_info, decl_context);
                 break;
             }
