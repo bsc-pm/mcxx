@@ -1,23 +1,23 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
-  
+
   This file is part of Mercurium C/C++ source-to-source compiler.
-  
-  See AUTHORS file in the top level directory for information 
+
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
-  
+
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
   version 3 of the License, or (at your option) any later version.
-  
+
   Mercurium C/C++ source-to-source compiler is distributed in the hope
   that it will be useful, but WITHOUT ANY WARRANTY; without even the
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
   PURPOSE.  See the GNU Lesser General Public License for more
   details.
-  
+
   You should have received a copy of the GNU Lesser General Public
   License along with Mercurium C/C++ source-to-source compiler; if
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
@@ -295,10 +295,11 @@ void DeviceCUDA::get_output_file(std::ofstream& cudaFile)
 
 void DeviceCUDA::insert_function_definition(PragmaCustomConstruct ctr, bool is_copy)
 {
-	std::ofstream cudaFile; 
+	std::ofstream cudaFile;
 	get_output_file(cudaFile);
 
 	bool needs_device = false;
+	bool is_global_defined = false;
 	bool needs_global = false;
 	bool needs_extern_c = false;
 	AST_t decl = ctr.get_declaration();
@@ -326,15 +327,15 @@ void DeviceCUDA::insert_function_definition(PragmaCustomConstruct ctr, bool is_c
 	}
 	else if (Declaration::predicate(decl))
 	{
-		Declaration decl(ctr.get_declaration(), ctr.get_scope_link());
+		Declaration declaration(decl, ctr.get_scope_link());
 
-		DeclarationSpec decl_specifier_seq = decl.get_declaration_specifiers();
+		DeclarationSpec decl_specifier_seq = declaration.get_declaration_specifiers();
 		if (decl_specifier_seq.get_ast().depth_subtrees(PredicateType(AST_TYPEDEF_SPEC)).empty())
 		{
 			needs_device = true;
 		}
 
-		ObjectList<DeclaredEntity> declared_entities = decl.get_declared_entities();
+		ObjectList<DeclaredEntity> declared_entities = declaration.get_declared_entities();
 
 		ObjectList<Symbol> sym_list;
 		for (ObjectList<DeclaredEntity>::iterator it = declared_entities.begin();
@@ -357,10 +358,30 @@ void DeviceCUDA::insert_function_definition(PragmaCustomConstruct ctr, bool is_c
 
 	if (needs_device)
 	{
-		needs_global = ctr.get_clause("cuda_global").is_defined();
+		// Check the kernel is not labeled as __global__
+		std::string global("global");
+		ObjectList<AST_t> ast_list = decl.depth_subtrees(GCCAttributeSpecifier::predicate);
+		for (ObjectList<AST_t>::iterator it = ast_list.begin(); it != ast_list.end(); it++)
+		{
+			AST_t &ast = *it;
+			if (GCCAttributeSpecifier::predicate(ast))
+			{
+				GCCAttributeSpecifier gcc_attr_spec(ast, ctr.get_scope_link());
+				ObjectList<GCCAttribute> gcc_attributes = gcc_attr_spec.get_gcc_attribute_list();
+
+				if (gcc_attributes.contains(functor(&GCCAttribute::get_name), global) && gcc_attributes.size() == 1)
+				{
+					// Remove the attribute from the list to avoid __attribute__((global)) appear in the CUDA file
+					ast.remove_in_list();
+					is_global_defined = true;
+					needs_global = true;
+					break;
+				}
+			}
+		}
 	}
 
-	if (!needs_device 
+	if (!needs_device
 			&& IS_C_LANGUAGE)
 	{
 		needs_extern_c = true;
@@ -377,13 +398,16 @@ void DeviceCUDA::insert_function_definition(PragmaCustomConstruct ctr, bool is_c
 		{
 			cudaFile << "__global__ ";
 		}
+		else if (is_global_defined) {
+			// Already defined, no need to add neither __global__ nor __device__
+		}
 		else
 		{
 			cudaFile << "__device__ ";
 		}
 	}
 
-	cudaFile << ctr.get_declaration().prettyprint_external() << "\n";
+	cudaFile << decl.prettyprint_external() << "\n";
 
 	if (needs_extern_c)
 	{
@@ -859,7 +883,7 @@ void DeviceCUDA::get_device_descriptor(const std::string& task_name,
 	{
 		outline_name << task_name;
 	}
-    
+
     Source nanos_dd_size_opt;
     if (Nanos::Version::interface_is_at_least("master", 5012))
     {
