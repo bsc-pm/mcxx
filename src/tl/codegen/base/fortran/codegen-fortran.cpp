@@ -2307,7 +2307,8 @@ OPERATOR_TABLE
             file << ", KIND=" << dest_type.get_size() << ")";
         }
         else if (dest_type.is_pointer()
-                && nest.get_type().is_any_reference())
+                && nest.get_type().is_any_reference()
+                && !nest.get_type().references_to().is_pointer())
         {
             // We need a LOC here
             file << "LOC(";
