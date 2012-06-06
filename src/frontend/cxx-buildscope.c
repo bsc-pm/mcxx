@@ -357,12 +357,13 @@ nodecl_t build_scope_translation_unit(translation_unit_t* translation_unit)
     {
         build_scope_declaration_sequence(list, decl_context, &nodecl);
     }
-
+    #if 0
     CXX_LANGUAGE()
     {
         nodecl_t instantiated_units = instantiation_instantiate_pending_functions();
         nodecl = nodecl_concat_lists(nodecl, instantiated_units);
     }
+#endif
 
     return nodecl;
 }
