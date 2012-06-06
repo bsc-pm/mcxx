@@ -209,13 +209,18 @@ namespace TL { namespace Nanox {
                     }
                 case OutlineDataItem::SHARING_REDUCTION:
                     {
-                        // This is a mixture of private and shared
-                        // A private is emitted for the partial reduction
-                        // Such partial reduction must be initialized with the
-                        // identity
+                        // Original reduced variable. Passed as we pass shared parameters
+                        TL::Type param_type = (*it)->get_in_outline_type();
+                        scope_entry_t* shared_reduction_sym = ::new_symbol(function_context, function_context.current_scope,
+                                (*it)->get_field_name().c_str());
+                        shared_reduction_sym->kind = SK_VARIABLE;
+                        shared_reduction_sym->type_information = param_type.get_internal_type();
+                        shared_reduction_sym->defined = shared_reduction_sym->entity_specs.is_user_declared = 1;
+                        parameter_symbols.append(shared_reduction_sym);
 
-                        // Parameter
-                        TL::Type param_type = (*it)->get_field_type();
+                        // Private vector of partial reductions. This is a local pointer variable
+                        // rdv stands for reduction vector
+                        TL::Type private_reduction_vector_type = (*it)->get_field_type();
                         if (IS_C_LANGUAGE
                                 || IS_CXX_LANGUAGE)
                         {
@@ -224,32 +229,30 @@ namespace TL { namespace Nanox {
                         else if (IS_FORTRAN_LANGUAGE)
                         {
                             // The type will be a pointer to a descripted array
-                            // make it a reference to a descripted array with lower bound 0:
-                            param_type = param_type.points_to();
-                            param_type = param_type.array_element();
-                            param_type = param_type.get_array_to_with_descriptor(
-                                    ::const_value_to_nodecl(::const_value_get_zero(fortran_get_default_integer_type_kind(), 1)),
+                            private_reduction_vector_type = private_reduction_vector_type.points_to();
+                            private_reduction_vector_type = private_reduction_vector_type.get_array_to_with_descriptor(
+                                    Nodecl::NodeclBase::null(),
                                     Nodecl::NodeclBase::null(),
                                     sc);
-                            param_type = param_type.get_lvalue_reference_to();
+                            private_reduction_vector_type = private_reduction_vector_type.get_pointer_to();
                         }
                         else
                         {
                             internal_error("Code unreachable", 0);
                         }
 
-                        scope_entry_t* reduction_private_sym = ::new_symbol(function_context, function_context.current_scope, 
-                                ("rdp_" + (*it)->get_field_name()).c_str());
-                        reduction_private_sym->kind = SK_VARIABLE;
-                        reduction_private_sym->type_information = param_type.get_internal_type();
-                        reduction_private_sym->defined = reduction_private_sym->entity_specs.is_user_declared = 1;
+                        scope_entry_t* private_reduction_vector_sym = ::new_symbol(function_context, function_context.current_scope,
+                                ("rdv_" + name).c_str());
+                        private_reduction_vector_sym->kind = SK_VARIABLE;
+                        private_reduction_vector_sym->type_information = private_reduction_vector_type.get_internal_type();
+                        private_reduction_vector_sym->defined = private_reduction_vector_sym->entity_specs.is_user_declared = 1;
 
-                        parameter_symbols.append(reduction_private_sym);
-
-                        // Local variable
-                        scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope, name.c_str());
+                        // Local variable (rdp stands for reduction private)
+                        // This variable must be initialized properly
+                        scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope,
+                                ("rdp_" + name).c_str());
                         private_sym->kind = SK_VARIABLE;
-                        private_sym->type_information = (*it)->get_in_outline_type().get_internal_type();
+                        private_sym->type_information = (*it)->get_symbol().get_type().get_internal_type();
                         private_sym->defined = private_sym->entity_specs.is_user_declared = 1;
 
                         private_sym->entity_specs.is_target = 1;
@@ -547,16 +550,11 @@ namespace TL { namespace Nanox {
                     }
                 case OutlineDataItem::SHARING_REDUCTION:
                     {
-                        // This is a mixture of private and shared
-                        // A private is emitted for the partial reduction
-                        // Such partial reduction must be initialized with the entity
+                        // Pass the original reduced variable as if it were a shared
                         Source argument;
-                        // Now the shared part
                         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
                         {
-                            // Normal shared items are passed by reference from a pointer,
-                            // derreference here
-                            argument << "args." << (*it)->get_field_name();
+                            argument << "*(args." << (*it)->get_field_name() << ")";
                         }
                         else if (IS_FORTRAN_LANGUAGE)
                         {
@@ -567,7 +565,7 @@ namespace TL { namespace Nanox {
                         std::string name = (*it)->get_symbol().get_name();
 
                         private_entities
-                            << name << " = " << as_expression( (*it)->get_reduction_info()->get_identity().shallow_copy() ) << ";"
+                            << "rdp_" << name << " = " << as_expression( (*it)->get_reduction_info()->get_identity().shallow_copy() ) << ";"
                             ;
 
                         break;

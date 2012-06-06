@@ -690,7 +690,8 @@ void LoweringVisitor::fill_arguments(
                         }
                         break;
                     }
-                case  OutlineDataItem::SHARING_SHARED:
+                case OutlineDataItem::SHARING_SHARED:
+                case OutlineDataItem::SHARING_REDUCTION: // Reductions are passed as if they were shared
                     {
                         fill_outline_arguments << 
                             "ol_args->" << (*it)->get_field_name() << " = &" << (*it)->get_symbol().get_name() << ";"
@@ -710,11 +711,6 @@ void LoweringVisitor::fill_arguments(
                         fill_immediate_arguments 
                             << "imm_args." << (*it)->get_field_name() << " = " << as_expression( (*it)->get_shared_expression().shallow_copy() ) << ";"
                             ;
-                        break;
-                    }
-                case OutlineDataItem::SHARING_REDUCTION:
-                    {
-                        // This is filled elsewhere
                         break;
                     }
                 case OutlineDataItem::SHARING_PRIVATE:
@@ -741,7 +737,6 @@ void LoweringVisitor::fill_arguments(
 
             switch ((*it)->get_sharing())
             {
-
                 case OutlineDataItem::SHARING_CAPTURE:
                     {
                         fill_outline_arguments << 
@@ -753,6 +748,7 @@ void LoweringVisitor::fill_arguments(
                         break;
                     }
                 case OutlineDataItem::SHARING_SHARED:
+                case OutlineDataItem::SHARING_REDUCTION: // Reductions are passed as if they were shared variables
                     {
                         Source extra_ref;
                         TL::Type t = sym.get_type();
@@ -806,11 +802,6 @@ void LoweringVisitor::fill_arguments(
                                 << ": warning: an argument is not a valid data-reference, compilation is likely to fail" 
                                 << std::endl;
                         }
-                        break;
-                    }
-                case OutlineDataItem::SHARING_REDUCTION:
-                    {
-                        // This is filled elsewhere 
                         break;
                     }
                 case OutlineDataItem::SHARING_PRIVATE:
