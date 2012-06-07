@@ -518,12 +518,18 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
         { "mercurium_dbl", get_double_type() },
         { "mercurium_flt", get_float_type() },
         { "mercurium_int", get_signed_int_type() },
+        { "mercurium_uint", get_unsigned_int_type() },
         { "mercurium_ldbl", get_long_double_type() },
         { "mercurium_long", get_signed_long_int_type() },
         { "mercurium_long_long", get_signed_long_long_int_type() },
+        { "mercurium_ulong", get_unsigned_long_int_type() },
+        { "mercurium_ulong_long", get_unsigned_long_long_int_type() },
         { "mercurium_ptrdiff", CURRENT_CONFIGURATION->type_environment->type_of_ptrdiff_t() },
+        { "mercurium_char", get_char_type() },
         { "mercurium_schar", get_signed_char_type() },
+        { "mercurium_uchar", get_unsigned_char_type() },
         { "mercurium_shrt", get_signed_short_int_type() },
+        { "mercurium_ushrt", get_unsigned_short_int_type() },
         { "mercurium_size", get_size_t_type() },
         { "mercurium_wchar", get_wchar_t_type() },
         { NULL, NULL }
@@ -534,6 +540,9 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
     {
         const char* base_name = mercurium_constant_limits[i].base_name;
         type_t* current_type = mercurium_constant_limits[i].related_type;
+
+        ERROR_CONDITION(current_type == NULL, "Invalid type %s\n", base_name);
+
         const_value_t *value_max = NULL, *value_min = NULL;
         if (is_floating_type(current_type))
         {
@@ -547,7 +556,8 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
         }
         else
         {
-            internal_error("Only integer or floating types are to be found here", 0);
+            internal_error("Only integer or floating types are to be found here. Type is '%s'", 
+                    print_declarator(current_type))
         }
 
         scope_entry_t* max_sym = new_symbol(decl_context, decl_context.global_scope, 
@@ -557,7 +567,6 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
         max_sym->file = "(global scope)";
         max_sym->value = const_value_to_nodecl(value_max);
         max_sym->entity_specs.is_user_declared = 1;
-        // max_sym->do_not_print = 1;
 
         scope_entry_t* min_sym = new_symbol(decl_context, decl_context.global_scope, 
                 strappend(base_name, "_min"));
@@ -566,7 +575,6 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
         min_sym->file = "(global scope)";
         min_sym->value = const_value_to_nodecl(value_min);
         min_sym->entity_specs.is_user_declared = 1;
-        // min_sym->do_not_print = 1;
     }
 }
 
