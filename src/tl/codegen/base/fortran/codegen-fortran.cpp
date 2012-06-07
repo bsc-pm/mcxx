@@ -2909,13 +2909,15 @@ OPERATOR_TABLE
         bool is_global = (entry_context.current_scope == entry_context.global_scope);
 
         bool is_global_variable = false;
-        
+
         // Let's protect ourselves with stuff that cannot be emitted in Fortran coming from
         // the global scope
         if (is_global)
         {
             // Global variables require a wicked treatment
-            if (entry.is_variable())
+            if (entry.is_variable()
+                    // Sometimes C parameters may slip in
+                    && !entry.get_type().is_const())
             {
                 is_global_variable = true;
             }
