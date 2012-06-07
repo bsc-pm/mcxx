@@ -35,11 +35,48 @@ integer_types = [
 
 all_types = integer_types + float_types +  complex_types
 
-zero = "0"
-float_zero = "0.0"
-one = "1"
-float_one = "1.0"
-neg_zero = "~0";
+zero = lambda t : "0"
+float_zero = lambda t : "0.0"
+one = lambda t : "1"
+float_one = lambda t : "1.0"
+neg_zero = lambda t : "~0";
+
+def get_identity(t, kind):
+    if (t  == "int"):
+        return "mercurium_int_%s" % (kind);
+    elif (t  == "uint"):
+        return "mercurium_uint_%s" % (kind);
+    elif (t  == "char"):
+        return "mercurium_schar_%s" % (kind);
+    elif (t  == "uchar"):
+        return "mercurium_uchar_%s" % (kind);
+    elif (t  == "short"):
+        return "mercurium_shrt_%s" % (kind);
+    elif (t  == "ushort"):
+        return "mercurium_ushrt_%s" % (kind);
+    elif (t  == "long"):
+        return "mercurium_long_%s" % (kind);
+    elif (t  == "longlong"):
+        return "mercurium_long_long_%s" % (kind);
+    elif (t  == "ulong"):
+        return "mercurium_ulong_%s" % (kind);
+    elif (t  == "ulonglong"):
+        return "mercurium_ulong_long_%s" % (kind);
+    elif (t == "_Bool"):
+        if (kind == "max"):
+            return "1";
+        elif (kind == "min"):
+            return "0";
+        else:
+            raise BaseException("Unhandled op %s for type %s" % (kind, t))
+    else:
+        raise BaseException("Unhandled type %s" % (t))
+
+def max_identity(t):
+    return get_identity(t, "min")
+
+def min_identity(t):
+    return get_identity(t, "max")
 
 builtin_reductions = [ \
             # arithmetic operators
@@ -57,7 +94,10 @@ builtin_reductions = [ \
             ("|", "or", integer_types, zero), \
             ("^", "xor", integer_types, zero), \
             ("&&", "land", all_types, one), \
-            ("||", "lor", all_types, zero) \
+            ("||", "lor", all_types, zero), \
+            # max
+            ("max", "max", integer_types, max_identity), \
+            ("max", "max", integer_types, min_identity), \
             ]
 
 print "// DO NOT MODIFY THIS FILE"
@@ -85,7 +125,7 @@ for red in builtin_reductions:
         print "      builtin_udr.set_type(t);"
 
         print "      Source identity_src;"
-        print "      identity_src << \"%s\";" % (identity)
+        print "      identity_src << \"%s\";" % (identity(internal_type_name))
         print "      if (IS_FORTRAN_LANGUAGE)"
         print "         Source::source_language = SourceLanguage::C;"
         print "      Nodecl::NodeclBase identity = identity_src.parse_expression(global_scope);"
