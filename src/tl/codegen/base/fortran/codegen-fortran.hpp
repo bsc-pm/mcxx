@@ -267,6 +267,8 @@ namespace Codegen
             void declare_everything_needed(Nodecl::NodeclBase statement_seq);
             void declare_everything_needed(Nodecl::NodeclBase statement_seq, TL::Scope sc);
 
+            void declare_everything_needed_by_the_type(TL::Type t, TL::Scope sc);
+
             void traverse_looking_for_symbols(Nodecl::NodeclBase node,
                     void (FortranBase::*do_declare)(TL::Symbol entry, Nodecl::NodeclBase node, void *data),
                     void *data);
