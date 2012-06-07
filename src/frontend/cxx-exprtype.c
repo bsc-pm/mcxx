@@ -9409,7 +9409,7 @@ static void check_nodecl_member_access(
         *nodecl_output = nodecl_make_class_member_access(
                 nodecl_field,
                 nodecl_make_symbol(entry, nodecl_get_filename(nodecl_accessed), nodecl_get_line(nodecl_accessed)),
-                lvalue_ref(entry->type_information),
+                lvalue_ref(get_cv_qualified_type(no_ref(entry->type_information), cv_qualif)),
                 nodecl_get_filename(nodecl_accessed), nodecl_get_line(nodecl_accessed));
     }
 
@@ -9430,7 +9430,7 @@ static void check_nodecl_member_access(
             *nodecl_output = nodecl_make_class_member_access(
                     nodecl_field,
                     nodecl_make_symbol(entry, nodecl_get_filename(nodecl_accessed), nodecl_get_line(nodecl_accessed)),
-                    lvalue_ref(entry->type_information), 
+                    lvalue_ref(get_cv_qualified_type(no_ref(entry->type_information), cv_qualif)),
                     nodecl_get_filename(nodecl_accessed), nodecl_get_line(nodecl_accessed));
         }
         // In C++ if we have overload remember it
