@@ -62,6 +62,12 @@ def get_identity(t, kind):
         return "mercurium_ulong_%s" % (kind);
     elif (t  == "ulonglong"):
         return "mercurium_ulong_long_%s" % (kind);
+    elif (t == "float"):
+        return "mercurium_flt_%s" % (kind);
+    elif (t == "double"):
+        return "mercurium_dbl_%s" % (kind);
+    elif (t == "longdouble"):
+        return "mercurium_ldbl_%s" % (kind);
     elif (t == "_Bool"):
         if (kind == "max"):
             return "1";
@@ -97,7 +103,9 @@ builtin_reductions = [ \
             ("||", "lor", all_types, zero), \
             # max
             ("max", "max", integer_types, max_identity), \
-            ("max", "max", integer_types, min_identity), \
+            ("max", "max", float_types, max_identity), \
+            ("min", "min", integer_types, min_identity), \
+            ("min", "min", float_types, min_identity), \
             ]
 
 print "// DO NOT MODIFY THIS FILE"
