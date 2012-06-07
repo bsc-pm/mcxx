@@ -13,6 +13,12 @@ float_types = [
             ("get_long_double_type()", "longdouble") \
             ]
 
+complex_types = [
+        ("get_complex_type(get_float_type())", "cfloat"), \
+        ("get_complex_type(get_double_type())", "cdouble"), \
+        ("get_complex_type(get_long_double_type())", "clongdouble") \
+        ]
+
 integer_types = [
             ("get_signed_char_type()", "char"), \
             ("get_unsigned_char_type()", "uchar"), \
@@ -27,7 +33,7 @@ integer_types = [
             ("get_bool_type()", "_Bool")  \
             ]
 
-all_types = integer_types + float_types
+all_types = integer_types + float_types +  complex_types
 
 zero = "0"
 float_zero = "0.0"
@@ -39,10 +45,13 @@ builtin_reductions = [ \
             # arithmetic operators
             ("+", "add", integer_types, zero), \
             ("+", "add", float_types, float_zero), \
+            ("+", "add", complex_types, float_zero), \
             ("-", "sub", integer_types, zero), \
             ("-", "sub", float_types, float_zero), \
+            ("-", "sub", complex_types, float_zero), \
             ("*", "prod", integer_types, one), \
             ("*", "prod", float_types, float_one), \
+            ("*", "prod", complex_types, float_one), \
             # logic bit operators
             ("&", "and", integer_types, neg_zero), \
             ("|", "or", integer_types, zero), \
