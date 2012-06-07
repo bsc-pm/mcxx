@@ -499,6 +499,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 /*!include cxx-subparse.y*/
 /*!include cxx-literal-nodes.y*/
 /*!include cxx-extensions.y*/
+/*!include cxx-fortran-compat.y*/
 /*!include cxx-placeholders.y*/
 /*!include cxx-pragma.y*/
 /*!include cxx-omp.y*/
@@ -5239,6 +5240,7 @@ right_bracket_token : '>'
 /*!include cxx-subparse.y*/
 /*!include cxx-literal-nodes.y*/
 /*!include cxx-extensions.y*/
+/*!include cxx-fortran-compat.y*/
 /*!include cxx-placeholders.y*/
 /*!include cxx-pragma.y*/
 /*!include cxx-omp.y*/

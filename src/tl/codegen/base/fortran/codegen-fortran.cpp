@@ -567,10 +567,14 @@ namespace Codegen
                 }
                 else if (entry.get_type().is_array())
                 {
-                    // ALLOCATE this non-dummy VLA
+                    // Deallocate if needed
                     indent();
+                    file << "IF (ALLOCATED(" << rename(entry) << ")) DEALLOCATE(" << rename(entry) << ")\n";
+
+                    // ALLOCATE this non-dummy VLA
                     std::string type_spec, array_spec;
                     codegen_type(entry.get_type(), type_spec, array_spec);
+                    indent();
                     file << "ALLOCATE(" << rename(entry) << array_spec << ")\n";
                 }
                 // else
@@ -2303,7 +2307,8 @@ OPERATOR_TABLE
             file << ", KIND=" << dest_type.get_size() << ")";
         }
         else if (dest_type.is_pointer()
-                && nest.get_type().is_any_reference())
+                && nest.get_type().is_any_reference()
+                && !nest.get_type().references_to().is_pointer())
         {
             // We need a LOC here
             file << "LOC(";

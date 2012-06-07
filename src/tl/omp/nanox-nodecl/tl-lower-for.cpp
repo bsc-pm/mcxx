@@ -41,7 +41,7 @@ namespace TL { namespace Nanox {
             Nodecl::NodeclBase &placeholder1,
             Nodecl::NodeclBase &placeholder2)
     {
-        Source for_code, reduction_code, barrier_code;
+        Source for_code, reduction_code, reduction_initialization, barrier_code;
         if (ranges.size() == 1)
         {
             Nodecl::Range range_item = ranges.front().as<Nodecl::Range>();
@@ -128,6 +128,7 @@ namespace TL { namespace Nanox {
         Source distribute_loop_source;
         distribute_loop_source
             << "{"
+            << reduction_initialization
             << "nanos_ws_item_loop_t nanos_item_loop;"
             << "nanos_err_t err;"
             << "err = nanos_worksharing_next_item(wsd, (void**)&nanos_item_loop);"
@@ -139,20 +140,8 @@ namespace TL { namespace Nanox {
             << barrier_code
             ;
 
-        TL::ObjectList<OutlineDataItem*> reduction_items = outline_info.get_data_items().filter(
-                predicate(lift_pointer(functor(&OutlineDataItem::is_reduction))));
-
-        if (!reduction_items.empty())
-        {
-            for (TL::ObjectList<OutlineDataItem*>::iterator it = reduction_items.begin();
-                    it != reduction_items.end();
-                    it++)
-            {
-                reduction_code
-                    << "rdp_" << (*it)->get_field_name() << "[omp_get_thread_num()] = " << (*it)->get_symbol().get_name() << ";"
-                    ;
-            }
-        }
+        reduction_initialization << reduction_initialization_code(outline_info, construct);
+        reduction_code << perform_partial_reduction(outline_info);
 
         if (!distribute_environment.find_first<Nodecl::OpenMP::BarrierAtEnd>().is_null())
         {

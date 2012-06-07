@@ -41,13 +41,6 @@ namespace TL { namespace Nanox {
             }
     };
 
-    namespace {
-        bool ptr_outline_data_item_is_reduction(OutlineDataItem* it)
-        {
-            return it->is_reduction();
-        }
-    }
-
     void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
     {
         Nodecl::NodeclBase num_replicas = construct.get_num_replicas();
@@ -66,30 +59,20 @@ namespace TL { namespace Nanox {
         Symbol function_symbol = Nodecl::Utils::get_enclosing_function(construct);
         std::string outline_name = get_outline_name(function_symbol);
 
-        Source outline_source, reduction_code;
+        Source outline_source, reduction_code, reduction_initialization;
         Nodecl::NodeclBase placeholder;
         outline_source
             << "nanos_err_t err = nanos_omp_set_implicit(nanos_current_wd());"
             << "if (err != NANOS_OK) nanos_handle_error(err);"
+            << reduction_initialization
             << statement_placeholder(placeholder)
             << reduction_code
             << "err = nanos_omp_barrier();"
             << "if (err != NANOS_OK) nanos_handle_error(err);"
             ;
 
-        TL::ObjectList<OutlineDataItem*> reduction_items = outline_info.get_data_items().filter(
-                predicate(lift_pointer(functor(&OutlineDataItem::is_reduction))));
-        if (!reduction_items.empty())
-        {
-            for (TL::ObjectList<OutlineDataItem*>::iterator it = reduction_items.begin();
-                    it != reduction_items.end();
-                    it++)
-            {
-                reduction_code
-                    << "rdp_" << (*it)->get_field_name() << "[omp_get_thread_num()] = " << (*it)->get_symbol().get_name() << ";"
-                    ;
-            }
-        }
+        reduction_initialization << reduction_initialization_code(outline_info, construct);
+        reduction_code << perform_partial_reduction(outline_info);
 
         Nodecl::Utils::SymbolMap *symbol_map = NULL;
         emit_outline(outline_info, statements, outline_source, outline_name, structure_symbol, symbol_map);

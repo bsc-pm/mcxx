@@ -287,23 +287,12 @@ namespace TL { namespace Nanox {
 
                 TL::Type t = symbol.get_type();
                 if (t.is_any_reference())
+                {
                     t = t.references_to();
-
-                outline_info.set_in_outline_type(symbol.get_type());
-
-                if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-                {
-                    outline_info.set_field_type(t.get_pointer_to());
                 }
-                else if (IS_FORTRAN_LANGUAGE)
-                {
-                    outline_info.set_field_type(
-                            t.get_array_to_with_descriptor(
-                                Nodecl::NodeclBase::null(),
-                                Nodecl::NodeclBase::null(),
-                                symbol.get_scope())
-                            .get_pointer_to());
-                }
+
+                outline_info.set_field_type(t.get_pointer_to());
+                outline_info.set_in_outline_type(t.get_lvalue_reference_to());
             }
 
             void visit(const Nodecl::OpenMP::ReductionItem& reduction)

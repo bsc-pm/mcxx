@@ -545,6 +545,35 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
 }
 
 
+namespace {
+    void fill_extra_ref_assumed_size(Source &extra_ref, TL::Type t)
+    {
+        if (t.is_array())
+        {
+            fill_extra_ref_assumed_size(extra_ref, t.array_element());
+
+            Source current_dims;
+            Nodecl::NodeclBase lower_bound, upper_bound;
+            t.array_get_bounds(lower_bound, upper_bound);
+
+            if (lower_bound.is_null())
+            {
+                current_dims << "1:1";
+            }
+            else if (upper_bound.is_null())
+            {
+                current_dims << as_expression(lower_bound) << ":" << as_expression(lower_bound);
+            }
+            else
+            {
+                current_dims << as_expression(lower_bound) << ":" << as_expression(upper_bound);
+            }
+
+            extra_ref.append_with_separator(current_dims, ",");
+        }
+    }
+}
+
 void LoweringVisitor::fill_arguments(
         Nodecl::NodeclBase ctr,
         OutlineInfo& outline_info,
@@ -661,7 +690,8 @@ void LoweringVisitor::fill_arguments(
                         }
                         break;
                     }
-                case  OutlineDataItem::SHARING_SHARED:
+                case OutlineDataItem::SHARING_SHARED:
+                case OutlineDataItem::SHARING_REDUCTION: // Reductions are passed as if they were shared
                     {
                         fill_outline_arguments << 
                             "ol_args->" << (*it)->get_field_name() << " = &" << (*it)->get_symbol().get_name() << ";"
@@ -683,11 +713,6 @@ void LoweringVisitor::fill_arguments(
                             ;
                         break;
                     }
-                case OutlineDataItem::SHARING_REDUCTION:
-                    {
-                        // This is filled elsewhere
-                        break;
-                    }
                 case OutlineDataItem::SHARING_PRIVATE:
                     {
                         // Do nothing
@@ -706,12 +731,12 @@ void LoweringVisitor::fill_arguments(
                 it != data_items.end();
                 it++)
         {
-            if (!(*it)->get_symbol().is_valid())
+            TL::Symbol sym = (*it)->get_symbol();
+            if (!sym.is_valid())
                 continue;
 
             switch ((*it)->get_sharing())
             {
-
                 case OutlineDataItem::SHARING_CAPTURE:
                     {
                         fill_outline_arguments << 
@@ -723,12 +748,32 @@ void LoweringVisitor::fill_arguments(
                         break;
                     }
                 case OutlineDataItem::SHARING_SHARED:
+                case OutlineDataItem::SHARING_REDUCTION: // Reductions are passed as if they were shared variables
                     {
+                        Source extra_ref;
+                        TL::Type t = sym.get_type();
+                        if (sym.is_parameter()
+                                && t.is_any_reference())
+                        {
+                            t = t.references_to();
+                            if (t.is_array()
+                                    && !t.array_requires_descriptor()
+                                    && t.array_get_size().is_null())
+                            {
+                                // This is an assumed-size
+                                // extra_ref << "(1:1)";
+                                Source array_section;
+                                fill_extra_ref_assumed_size(array_section, t);
+                                extra_ref << "(" << array_section << ")";
+                            }
+                        }
+
+
                         fill_outline_arguments << 
-                            "ol_args %" << (*it)->get_field_name() << " => " << (*it)->get_symbol().get_name() << "\n"
+                            "ol_args %" << (*it)->get_field_name() << " => " << (*it)->get_symbol().get_name() << extra_ref << "\n"
                             ;
                         fill_immediate_arguments << 
-                            "imm_args % " << (*it)->get_field_name() << " => " << (*it)->get_symbol().get_name() << "\n"
+                            "imm_args % " << (*it)->get_field_name() << " => " << (*it)->get_symbol().get_name() << extra_ref << "\n"
                             ;
                         // Make (*it) TARGET as required by Fortran
                         (*it)->get_symbol().get_internal_symbol()->entity_specs.is_target = 1;
@@ -757,11 +802,6 @@ void LoweringVisitor::fill_arguments(
                                 << ": warning: an argument is not a valid data-reference, compilation is likely to fail" 
                                 << std::endl;
                         }
-                        break;
-                    }
-                case OutlineDataItem::SHARING_REDUCTION:
-                    {
-                        // This is filled elsewhere 
                         break;
                     }
                 case OutlineDataItem::SHARING_PRIVATE:
