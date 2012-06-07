@@ -110,7 +110,7 @@ namespace TL { namespace Nanox {
 
         Nodecl::Utils::SimpleSymbolMap *symbol_map = new Nodecl::Utils::SimpleSymbolMap();
 
-        TL::ObjectList<TL::Symbol> parameter_symbols;
+        TL::ObjectList<TL::Symbol> parameter_symbols, private_symbols;
 
         TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
         for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
@@ -148,6 +148,7 @@ namespace TL { namespace Nanox {
                             private_sym->entity_specs.is_target = 1;
                         }
 
+                        private_symbols.append(private_sym);
                         break;
                     }
                 case OutlineDataItem::SHARING_SHARED:
@@ -274,6 +275,17 @@ namespace TL { namespace Nanox {
         // Update types of parameters (this is needed by VLAs)
         for (TL::ObjectList<TL::Symbol>::iterator it = parameter_symbols.begin();
                 it != parameter_symbols.end();
+                it++)
+        {
+            it->get_internal_symbol()->type_information =
+                type_deep_copy(it->get_internal_symbol()->type_information,
+                       function_context,
+                       symbol_map,
+                       Nodecl::Utils::SymbolMap::adapter);
+        }
+        // Update types of privates (this is needed by VLAs)
+        for (TL::ObjectList<TL::Symbol>::iterator it = private_symbols.begin();
+                it != private_symbols.end();
                 it++)
         {
             it->get_internal_symbol()->type_information =
