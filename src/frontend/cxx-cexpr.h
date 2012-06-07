@@ -103,6 +103,8 @@ LIBMCXX_EXTERN type_t* const_value_get_minimal_integer_type_from_list_of_types(
 
 LIBMCXX_EXTERN const_value_t* integer_type_get_maximum(type_t* t);
 LIBMCXX_EXTERN const_value_t* integer_type_get_minimum(type_t* t);
+LIBMCXX_EXTERN const_value_t* floating_type_get_maximum(type_t* t);
+LIBMCXX_EXTERN const_value_t* floating_type_get_minimum(type_t* t);
 
 LIBMCXX_EXTERN int const_value_get_bytes(const_value_t* val);
 
