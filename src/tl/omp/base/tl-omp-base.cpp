@@ -316,10 +316,14 @@ namespace TL { namespace OpenMP {
     void Base::flush_handler_post(TL::PragmaCustomDirective directive)
     {
         PragmaClauseArgList parameter = directive.get_pragma_line().get_parameter();
+
+        TL::ObjectList<Nodecl::NodeclBase> expr_list = parameter.get_arguments_as_expressions();
+
         directive.integrate(
                 Nodecl::OpenMP::FlushMemory::make(
-                    parameter.shallow_copy(),
-                    directive.get_filename(), directive.get_line())
+                    Nodecl::List::make(expr_list),
+                    directive.get_filename(),
+                    directive.get_line())
                 );
     }
 

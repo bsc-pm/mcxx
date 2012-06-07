@@ -33,14 +33,38 @@ namespace TL { namespace Nanox {
     void LoweringVisitor::visit(const Nodecl::OpenMP::FlushMemory& construct)
     {
         Source flush_source;
-        flush_source
-            << "{"
-            << "__sync_synchronize();"
-            << "}"
-            ;
+
+        if (IS_C_LANGUAGE
+                || IS_CXX_LANGUAGE)
+        {
+            flush_source
+                << "{"
+                << "__sync_synchronize();"
+                << "}"
+                ;
+        }
+        else
+        {
+            flush_source
+                << "{"
+                << "nanos_err_t err;"
+                << "err = nanos_memory_fence();"
+                << "if (err != NANOS_OK)"
+                <<    "nanos_handle_error(err);"
+                << "}"
+                ;
+        }
 
         Nodecl::NodeclBase flush_code;
+        FORTRAN_LANGUAGE()
+        {
+            Source::source_language = SourceLanguage::C;
+        }
         flush_code = flush_source.parse_statement(construct);
+        FORTRAN_LANGUAGE()
+        {
+            Source::source_language = SourceLanguage::Current;
+        }
 
         construct.integrate(flush_code);
     }
