@@ -969,6 +969,18 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context)
                             entry->file,
                             entry->line);
                 }
+
+                if (is_array_type(declarator_type)
+                        && is_array_type(entry->type_information)
+                        && array_type_get_array_size_expr(declarator_type) != NULL
+                        && array_type_get_array_size_expr(entry->type_information) == NULL)
+                {
+                    // extern int c[];
+                    // int c[10];       <-- We are in this declaration
+                    // Update the array type
+                    entry->type_information = declarator_type;
+                }
+
                 if (initializer != NULL)
                 {
                     DEBUG_CODE()
