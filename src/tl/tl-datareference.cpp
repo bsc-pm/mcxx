@@ -369,33 +369,66 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
             }
             else
             {
-                // Case *a
-                Source ptr_size, ptr_addr;
-                bool b = gather_info_data_expr_rec(ref_expr,
-                        base_sym,
-                        ptr_size, 
-                        ptr_addr, 
-                        type,
-                        enclosing_is_array,
-                        pointer_member_access,
-                        warnlog);
-
-                if (!b)
-                    return false;
-
-                if (type.is_pointer())
+                if (!enclosing_is_array)
                 {
-                    type = type.points_to();
+                    // Case *a
+                    Source ptr_size, ptr_addr;
+                    bool b = gather_info_data_expr_rec(ref_expr,
+                            base_sym,
+                            ptr_size, 
+                            ptr_addr, 
+                            type,
+                            enclosing_is_array,
+                            pointer_member_access,
+                            warnlog);
+
+                    if (!b)
+                        return false;
+
+                    if (type.is_pointer())
+                    {
+                        type = type.points_to();
+                    }
+                    else if (type.is_array())
+                    {
+                        type = type.array_element();
+                    }
+
+                    size = safe_expression_size(type, expr.get_scope());
+                    addr = "(" + ref_expr.prettyprint() + ")";
+
+                    return true;
                 }
-                else if (type.is_array())
+                else
                 {
-                    type = type.array_element();
+                    // Case (*a)[10]
+                    Source ptr_size, ptr_addr;
+                    bool b = gather_info_data_expr_rec(ref_expr,
+                            base_sym,
+                            ptr_size, 
+                            ptr_addr, 
+                            type,
+                            enclosing_is_array,
+                            pointer_member_access,
+                            warnlog);
+
+                    if (!b)
+                        return false;
+
+                    if (type.is_pointer())
+                    {
+                        type = type.points_to();
+                    }
+                    else if (type.is_array())
+                    {
+                        type = type.array_element();
+                    }
+
+                    size = safe_expression_size(type, expr.get_scope());
+                    addr = "(" + expr.prettyprint() + ")";
+
+                    return true;
                 }
-
-                size = safe_expression_size(type, expr.get_scope());
-                addr = "(" + ref_expr.prettyprint() + ")";
-
-                return true;
             }
         }
 
