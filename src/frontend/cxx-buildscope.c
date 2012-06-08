@@ -1537,6 +1537,17 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                     }
                 }
 
+                if (is_array_type(declarator_type)
+                        && is_array_type(entry->type_information)
+                        && !nodecl_is_null(array_type_get_array_size_expr(declarator_type))
+                        && nodecl_is_null(array_type_get_array_size_expr(entry->type_information)))
+                {
+                    // extern int c[];
+                    // int c[10];       <-- We are in this declaration
+                    // Update the array type
+                    entry->type_information = declarator_type;
+                }
+
                 nodecl_t nodecl_initializer = nodecl_null();
                 if (initializer != NULL)
                 {
