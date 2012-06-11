@@ -2909,13 +2909,15 @@ OPERATOR_TABLE
         bool is_global = (entry_context.current_scope == entry_context.global_scope);
 
         bool is_global_variable = false;
-        
+
         // Let's protect ourselves with stuff that cannot be emitted in Fortran coming from
         // the global scope
         if (is_global)
         {
             // Global variables require a wicked treatment
-            if (entry.is_variable())
+            if (entry.is_variable()
+                    // Sometimes C parameters may slip in
+                    && !entry.get_type().is_const())
             {
                 is_global_variable = true;
             }
@@ -3031,6 +3033,8 @@ OPERATOR_TABLE
                         }
                 }
             }
+
+            declare_everything_needed_by_the_type(entry.get_type(), entry.get_scope());
 
             if (!entry.get_initialization().is_null())
             {
@@ -3715,6 +3719,42 @@ OPERATOR_TABLE
 
         indent();
         file << "END BLOCK DATA " << real_name << "\n\n";
+    }
+
+    void FortranBase::declare_everything_needed_by_the_type(TL::Type t, TL::Scope sc)
+    {
+        if (t.is_array())
+        {
+            Nodecl::NodeclBase lower_bound, upper_bound;
+            t.array_get_bounds(lower_bound, upper_bound);
+
+            if (!lower_bound.is_null()
+                    && lower_bound.get_symbol().is_valid()
+                    && lower_bound.get_symbol().is_saved_expression())
+            {
+                lower_bound = lower_bound.get_symbol().get_initialization();
+            }
+
+            if (!upper_bound.is_null()
+                    && upper_bound.get_symbol().is_valid()
+                    && upper_bound.get_symbol().is_saved_expression())
+            {
+                upper_bound = upper_bound.get_symbol().get_initialization();
+            }
+
+            declare_everything_needed(lower_bound, sc);
+            declare_everything_needed(upper_bound, sc);
+
+            declare_everything_needed_by_the_type(t.array_element(), sc);
+        }
+        else if (t.is_pointer())
+        {
+            declare_everything_needed_by_the_type(t.points_to(), sc);
+        }
+        else if (t.is_any_reference())
+        {
+            declare_everything_needed_by_the_type(t.references_to(), sc);
+        }
     }
 
     void FortranBase::declare_everything_needed(Nodecl::NodeclBase node)

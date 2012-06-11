@@ -275,6 +275,8 @@ namespace TL { namespace Nanox {
                     TL::Symbol sym = it->as<Nodecl::Symbol>().get_symbol();
                     OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym);
 
+                    outline_info.set_in_outline_type(sym.get_type());
+
                     outline_info.set_sharing(OutlineDataItem::SHARING_PRIVATE);
                 }
             }

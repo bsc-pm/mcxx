@@ -676,7 +676,7 @@ type_t* get_wchar_t_type(void)
 
     if (_type == NULL)
     {
-        CXX_LANGUAGE()
+        if (IS_CXX_LANGUAGE)
         {
             _type = get_simple_type();
             _type->type->kind = STK_BUILTIN_TYPE;
@@ -685,8 +685,7 @@ type_t* get_wchar_t_type(void)
             _type->info->alignment = CURRENT_CONFIGURATION->type_environment->alignof_wchar_t;
             _type->info->valid_size = 1;
         }
-        // In C there is no wchar_t type, use 'int'
-        C_LANGUAGE()
+        else
         {
             _type = (CURRENT_CONFIGURATION->type_environment->int_type_of_wchar_t)();
         }

@@ -255,6 +255,9 @@ namespace TL
              * right after the pragma. You can perform the same operations as a PragmaCustomSingleClause
              */
             PragmaCustomParameter get_parameter() const;
+
+            private:
+                ObjectList<Nodecl::PragmaCustomClause> get_all_clauses_nodes() const;
     };
     
     // Note that this is TL::PragmaCustomDirective 

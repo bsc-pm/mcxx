@@ -34,6 +34,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <limits.h>
+#include <float.h>
 #include <math.h>
 #include <fenv.h>
 #ifdef HAVE_QUADMATH_H
@@ -1224,6 +1225,68 @@ const_value_t* integer_type_get_maximum(type_t* t)
 
     internal_error("Invalid type", 0);
     return NULL;
+}
+
+const_value_t* floating_type_get_maximum(type_t* t)
+{
+    // FIXME We should make this more independent! 
+    // Although it will work on most IEEE 754 environments
+    if (is_float_type(t))
+    {
+        return const_value_get_float(FLT_MAX);
+    }
+    else if (is_double_type(t))
+    {
+        return const_value_get_double(DBL_MAX);
+    }
+    else if (is_long_double_type(t))
+    {
+        return const_value_get_long_double(LDBL_MAX);
+    }
+    else 
+    {
+#ifdef HAVE_QUADMATH_H
+        const floating_type_info_t* floating_info = floating_type_get_info(t);
+        if (floating_info->bits == 128)
+        {
+            return const_value_get_float128(FLT128_MAX);
+        }
+        else
+#endif
+        {
+            internal_error("Invalid floating type", 0);
+        }
+    }
+}
+
+const_value_t* floating_type_get_minimum(type_t* t)
+{
+    if (is_float_type(t))
+    {
+        return const_value_get_float(FLT_MIN);
+    }
+    else if (is_double_type(t))
+    {
+        return const_value_get_double(DBL_MIN);
+    }
+    else if (is_long_double_type(t))
+    {
+        return const_value_get_long_double(LDBL_MIN);
+    }
+    else 
+    {
+#ifdef HAVE_QUADMATH_H
+        const floating_type_info_t* floating_info = floating_type_get_info(t);
+        if (floating_info->bits == 128)
+        {
+            return const_value_get_float128(FLT128_MIN);
+        }
+        else
+#endif
+        {
+            internal_error("Invalid floating type", 0);
+        }
+    }
 }
 
 int const_value_get_bytes(const_value_t* val)

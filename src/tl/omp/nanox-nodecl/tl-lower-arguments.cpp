@@ -138,14 +138,14 @@ namespace TL { namespace Nanox {
                 handle_vla_type_rec(t, outline_info);
 
                 int rank = ::fortran_get_rank_of_type(t.get_internal_type());
-                t = TL::Type(
+                TL::Type field_type = TL::Type(
                         ::fortran_get_n_ranked_type_with_descriptor(
                             ::fortran_get_rank0_type(t.get_internal_type()), rank, CURRENT_COMPILED_FILE->global_decl_context)
                         );
 
                 if (is_pointer)
                 {
-                    t = t.get_pointer_to();
+                    field_type = field_type.get_pointer_to();
                 }
                 else
                 {
@@ -153,9 +153,21 @@ namespace TL { namespace Nanox {
                 }
 
                 if (is_lvalue_ref)
-                    t = t.get_lvalue_reference_to();
+                    field_type = field_type.get_lvalue_reference_to();
 
-                data_item.set_field_type(t);
+                data_item.set_field_type(field_type);
+
+                // Rebuild the VLA array so it does not use saved expressions
+                // symbols
+                if (t.array_is_vla())
+                {
+                    // Its current type should be OK
+                }
+                else
+                {
+                    // This type is useable both for the field and for the outline
+                    data_item.set_in_outline_type(field_type);
+                }
             }
         }
     }
@@ -210,6 +222,9 @@ namespace TL { namespace Nanox {
                 it != data_items.end();
                 it++)
         {
+            if ((*it)->is_private())
+                continue;
+
             TL::Symbol field = class_scope.new_symbol((*it)->get_field_name());
             field.get_internal_symbol()->kind = SK_VARIABLE;
             field.get_internal_symbol()->entity_specs.is_user_declared = 1;
