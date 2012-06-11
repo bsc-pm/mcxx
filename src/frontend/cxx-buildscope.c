@@ -12040,6 +12040,7 @@ static void call_to_destructor(scope_entry_list_t* entry_list, void *data)
                     cxx_nodecl_make_function_call(
                         nodecl_make_symbol(class_type_get_destructor(entry->type_information), NULL, 0),
                         nodecl_make_list_1(nodecl_make_symbol(entry, NULL, 0)),
+                        /* function_form */ nodecl_null(),
                         get_void_type(),
                         NULL, 0), NULL, 0);
 
@@ -12230,6 +12231,7 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
                             "I expected a conversion function!", 0);
                     *nodecl_output = cxx_nodecl_make_function_call(nodecl_make_symbol(conversor, ASTFileName(initializer), ASTLine(initializer)),
                             nodecl_make_list_1(*nodecl_output),
+                            /* function_form */ nodecl_null(),
                             function_type_get_return_type(conversor->type_information), ASTFileName(initializer), ASTLine(initializer));
                 }
             }

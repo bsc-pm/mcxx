@@ -125,7 +125,7 @@ LIBMCXX_EXTERN void check_nodecl_expr_initializer(nodecl_t expr,
         nodecl_t* nodecl_output);
 
 // Like nodecl_make_function_call but takes care of virtual function calls
-LIBMCXX_EXTERN nodecl_t cxx_nodecl_make_function_call(nodecl_t, nodecl_t, type_t*, const char* filename, int line);
+LIBMCXX_EXTERN nodecl_t cxx_nodecl_make_function_call(nodecl_t, nodecl_t, nodecl_t, type_t*, const char* filename, int line);
 LIBMCXX_EXTERN nodecl_t cxx_nodecl_make_conversion(nodecl_t expr, type_t* dest_type, const char* filename, int line);
  
 // Not meant to be LIBMCXX_EXTERN (used by cxx-cuda.c)
