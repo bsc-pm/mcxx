@@ -3194,10 +3194,12 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a,
     if (entry == NULL)
     {
         // Create a stub but only if it is unqualified, otherwise it should exist elsewhere
+        char gcc_extern_enum = 0;
         if (is_unqualified_id_expression(id_expression)
                 // If does not exist and there are no declarators
-                && gather_info->no_declarators
-                && !gather_info->parameter_declaration)
+                && ((gather_info->no_declarators
+                        && !gather_info->parameter_declaration)
+                    || (gcc_extern_enum = (IS_C_LANGUAGE && gather_info->is_extern))))
         {
             DEBUG_CODE()
             {
@@ -3221,6 +3223,13 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a,
             C_LANGUAGE()
             {
                 enum_name = strappend("enum ", enum_name);
+            }
+
+            if (gcc_extern_enum)
+            {
+                warn_printf("%s: warning: previously undeclared '%s' is a GCC extension\n",
+                        ast_location(id_expression),
+                        enum_name);
             }
 
             decl_context_t new_decl_context = decl_context;

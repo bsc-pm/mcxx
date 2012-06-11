@@ -1,0 +1,1 @@
+extern enum E a;
