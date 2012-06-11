@@ -100,7 +100,9 @@ static void gather_type_spec_from_dependent_typename(AST a, type_t** simple_type
 
 static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** type_info,
         decl_context_t decl_context);
-static void gather_type_spec_from_elaborated_enum_specifier(AST a, type_t** type_info,
+static void gather_type_spec_from_elaborated_enum_specifier(AST a, 
+        type_t** type_info,
+        gather_decl_spec_t* gather_info,
         decl_context_t decl_context);
 
 static void gather_gcc_attributes_spread(AST a, gather_decl_spec_t* gather_info, 
@@ -1373,7 +1375,7 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
             break;
         case AST_ELABORATED_TYPE_ENUM_SPEC :
         case AST_GCC_ELABORATED_TYPE_ENUM_SPEC :
-            gather_type_spec_from_elaborated_enum_specifier(a, simple_type_info, decl_context);
+            gather_type_spec_from_elaborated_enum_specifier(a, simple_type_info, gather_info, decl_context);
             break;
         case AST_ELABORATED_TYPE_CLASS_SPEC :
         case AST_GCC_ELABORATED_TYPE_CLASS_SPEC :
@@ -1941,7 +1943,8 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
     *type_info = get_user_defined_type(class_entry);
 }
 
-static void gather_type_spec_from_elaborated_enum_specifier(AST a, type_t** type_info, decl_context_t decl_context)
+static void gather_type_spec_from_elaborated_enum_specifier(AST a, type_t** type_info, 
+        gather_decl_spec_t* gather_info, decl_context_t decl_context)
 {
     AST id_expression = ASTSon0(a);
 
@@ -2006,16 +2009,33 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, type_t** type
 
     if (entry == NULL)
     {
+        char gcc_extern_enum = 0;
         // Create a stub but only if it is unqualified, otherwise it should exist elsewhere
         if (is_unqualified_id_expression(id_expression)
-                // If does not exist and there are no declarators
-                && BITMAP_TEST(decl_context.decl_flags, DF_NO_DECLARATORS)
-                && !BITMAP_TEST(decl_context.decl_flags, DF_FRIEND)
-                && !BITMAP_TEST(decl_context.decl_flags, DF_PARAMETER_DECLARATION))
+                && (
+                    // If does not exist and there are no declarators
+                    (BITMAP_TEST(decl_context.decl_flags, DF_NO_DECLARATORS)
+                     && !BITMAP_TEST(decl_context.decl_flags, DF_FRIEND)
+                     && !BITMAP_TEST(decl_context.decl_flags, DF_PARAMETER_DECLARATION))
+                    // Or the user wrote "extern enum E"
+                    || (gcc_extern_enum = (IS_C_LANGUAGE && gather_info->is_extern))))
         {
             DEBUG_CODE()
             {
                 fprintf(stderr, "Enum type not found, creating a stub for this scope\n");
+            }
+
+            const char* enum_name = ASTText(id_expression);
+            C_LANGUAGE()
+            {
+                enum_name = strappend("enum ", enum_name);
+            }
+
+            if (gcc_extern_enum)
+            {
+                fprintf(stderr, "%s: warning: previously undeclared '%s' is a GCC extension\n", 
+                        ast_location(id_expression),
+                        enum_name);
             }
 
             if (ASTType(id_expression) != AST_SYMBOL)
@@ -2023,13 +2043,6 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, type_t** type
                 running_error("%s: invalid enum-name '%s'\n", 
                         ast_location(id_expression),
                         prettyprint_in_buffer(id_expression));
-            }
-
-            const char* enum_name = ASTText(id_expression);
-
-            C_LANGUAGE()
-            {
-                enum_name = strappend("enum ", enum_name);
             }
 
             decl_context_t new_decl_context = decl_context;
@@ -2055,7 +2068,7 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, type_t** type
                 set_is_dependent_type(new_enum->type_information, 1);
             }
         }
-        else
+        else 
         {
             running_error("%s: error: enum type '%s' not found\n", ast_location(a), prettyprint_in_buffer(a));
         }
