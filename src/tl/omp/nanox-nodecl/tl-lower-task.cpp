@@ -1541,13 +1541,30 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
     }
 
     Nodecl::List nodecl_arg_list = Nodecl::List::make(arg_list);
-
+    
+    Nodecl::NodeclBase called = function_call.get_called().shallow_copy();
+    Nodecl::NodeclBase function_form = nodecl_null();
+    Symbol called_symbol = called.get_symbol();
+    if (!called_symbol.is_valid()
+            && called_symbol.get_type().is_template_specialized_type())
+    {
+        function_form =
+            Nodecl::CxxFunctionFormTemplateId::make(
+                    function_call.get_filename(),
+                    function_call.get_line());
+        
+        TemplateParameters template_args =
+            called.get_template_parameters();
+        function_form.set_template_parameters(template_args);
+    }
+    
     Nodecl::NodeclBase expr_statement = 
                 Nodecl::ExpressionStatement::make(
                     Nodecl::FunctionCall::make(
-                        function_call.get_called().shallow_copy(),
+                        called,
                         nodecl_arg_list,
                         function_call.get_alternate_name().shallow_copy(),
+                        function_form,
                         Type::get_void_type(),
                         function_call.get_filename(),
                         function_call.get_line()),

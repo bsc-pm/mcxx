@@ -14061,8 +14061,21 @@ nodecl_t cxx_nodecl_make_function_call(nodecl_t called, nodecl_t arg_list, type_
 
     free(list);
 
+    nodecl_t function_form = nodecl_null();
     if (called_symbol != NULL)
     {
+        if (is_template_specialized_type(called_symbol->type_information))
+        {
+            function_form =
+                nodecl_make_cxx_function_form_template_id(
+                        nodecl_get_filename(called),
+                        nodecl_get_line(called));
+
+            template_parameter_list_t* template_args =
+                nodecl_get_template_parameters(called);
+            nodecl_set_template_parameters(function_form, template_args);
+        }
+
         if (called_symbol->kind == SK_FUNCTION)
         {
             ensure_function_is_emitted(called_symbol, nodecl_get_filename(called), nodecl_get_line(called));
@@ -14096,14 +14109,21 @@ nodecl_t cxx_nodecl_make_function_call(nodecl_t called, nodecl_t arg_list, type_
                 converted_arg_list = nodecl_append_to_list(converted_arg_list, new_default_argument);
             }
 
-            if (called_symbol->entity_specs.is_member 
+            if (called_symbol->entity_specs.is_member
                     && called_symbol->entity_specs.is_virtual)
             {
-                return nodecl_make_virtual_function_call(called, converted_arg_list, t, filename, line);
+                return nodecl_make_virtual_function_call(called,
+                        converted_arg_list,
+                        function_form, t,
+                        filename, line);
             }
             else
             {
-                return nodecl_make_function_call(called, converted_arg_list, /* alternate_name */ nodecl_null(), t, filename, line);
+                return nodecl_make_function_call(called,
+                        converted_arg_list,
+                        /* alternate_name */ nodecl_null(),
+                        function_form, t,
+                        filename, line);
             }
         }
         else if (called_symbol->kind == SK_VARIABLE
@@ -14114,18 +14134,28 @@ nodecl_t cxx_nodecl_make_function_call(nodecl_t called, nodecl_t arg_list, type_
                         lvalue_ref(pointer_type_get_pointee_type(called_symbol->type_information)),
                         nodecl_get_filename(called),
                         nodecl_get_line(called)),
-                    converted_arg_list, 
-                    /* alternate_name */ nodecl_null(), t, 
-                    filename, line);
+                    converted_arg_list,
+                    /* alternate_name */ nodecl_null(),
+                    /* function_form */ nodecl_null(),
+                    // A pointer to function cannot have template arguments
+                    t, filename, line);
         }
         else
         {
-            return nodecl_make_function_call(called, converted_arg_list, /* alternate_name */ nodecl_null(), t, filename, line);
+            return nodecl_make_function_call(called,
+                    converted_arg_list,
+                    /* alternate_name */ nodecl_null(),
+                    function_form, t,
+                    filename, line);
         }
     }
     else
     {
-        return nodecl_make_function_call(called, converted_arg_list, /* alternate_name */ nodecl_null(), t, filename, line);
+        return nodecl_make_function_call(called,
+                converted_arg_list,
+                /* alternate_name */ nodecl_null(),
+                function_form, t,
+                filename, line);
     }
 }
 
@@ -14506,9 +14536,25 @@ static void instantiate_function_call(nodecl_instantiate_expr_visitor_t* v, node
                 current_arg);
     }
 
+    nodecl_t function_form = nodecl_null();
+    scope_entry_t* called_symbol = nodecl_get_symbol(nodecl_called);
+    if (called_symbol != NULL
+            && is_template_specialized_type(called_symbol->type_information))
+    {
+        function_form =
+            nodecl_make_cxx_function_form_template_id(
+                    nodecl_get_filename(nodecl_called),
+                    nodecl_get_line(nodecl_called));
+
+        template_parameter_list_t* template_args =
+            nodecl_get_template_parameters(nodecl_called);
+        nodecl_set_template_parameters(function_form, template_args);
+    }
+
     v->nodecl_result =  nodecl_make_function_call(nodecl_called,
             new_list,
             /* alternate_name */ nodecl_null(),
+            function_form,
             nodecl_get_type(node),
             nodecl_get_filename(node),
             nodecl_get_line(node));

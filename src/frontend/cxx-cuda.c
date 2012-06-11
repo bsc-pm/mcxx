@@ -412,6 +412,21 @@ void check_cuda_kernel_call(AST expression, decl_context_t decl_context, nodecl_
         free(list);
     }
 
+    nodecl_t function_form = nodecl_null();
+    scope_entry_t* called_symbol = nodecl_get_symbol(nodecl_postfix);
+    if (called_symbol != NULL
+            && is_template_specialized_type(called_symbol->type_information))
+    {
+        function_form =
+            nodecl_make_cxx_function_form_template_id(
+                    nodecl_get_filename(nodecl_postfix),
+                    nodecl_get_line(nodecl_postfix));
+
+        template_parameter_list_t* template_args =
+            nodecl_get_template_parameters(nodecl_postfix);
+        nodecl_set_template_parameters(function_form, template_args);
+    }
+    
     if (is_dependent)
     {
         *nodecl_output = 
@@ -421,6 +436,7 @@ void check_cuda_kernel_call(AST expression, decl_context_t decl_context, nodecl_
                         nodecl_postfix,
                         nodecl_argument_list,
                         /* alternate_name */ nodecl_null(),
+                        function_form,
                         get_unknown_dependent_type(),
                         filename, line),
                     get_unknown_dependent_type(),

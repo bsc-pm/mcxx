@@ -1165,7 +1165,22 @@ namespace TL
                     arguments = Nodecl::NodeclBase(create_nodecl_list(renamed_arguments));
                 }
 
-                Nodecl::NodeclBase renamed = Nodecl::VirtualFunctionCall::make(called, arguments, n.get_type(), _filename, _line);
+                Nodecl::NodeclBase function_form = nodecl_null();
+                Symbol called_symbol = called.get_symbol();
+                if (!called_symbol.is_valid()
+                        && called_symbol.get_type().is_template_specialized_type())
+                {
+                    function_form =
+                        Nodecl::CxxFunctionFormTemplateId::make(
+                                _filename,
+                                _line);
+                    TemplateParameters template_args =
+                        called.get_template_parameters();
+                    function_form.set_template_parameters(template_args);
+                }
+
+                Nodecl::NodeclBase renamed = Nodecl::VirtualFunctionCall::make(called, arguments, function_form, n.get_type(), _filename, _line);
+
                 return ObjectList<Nodecl::NodeclBase>(1, renamed);
             }
         
@@ -1190,7 +1205,21 @@ namespace TL
                     arguments = Nodecl::NodeclBase(create_nodecl_list(renamed_arguments));
                 }
 
-                Nodecl::NodeclBase renamed = Nodecl::VirtualFunctionCall::make(called, arguments, n.get_type(), _filename, _line);
+                Nodecl::NodeclBase function_form = nodecl_null();
+                Symbol called_symbol = called.get_symbol();
+                if (!called_symbol.is_valid()
+                        && called_symbol.get_type().is_template_specialized_type())
+                {
+                    function_form =
+                        Nodecl::CxxFunctionFormTemplateId::make(
+                                _filename,
+                                _line);
+                    TemplateParameters template_args =
+                        called.get_template_parameters();
+                    function_form.set_template_parameters(template_args);
+                }
+
+                Nodecl::NodeclBase renamed = Nodecl::VirtualFunctionCall::make(called, arguments, function_form, n.get_type(), _filename, _line);
                 return ObjectList<Nodecl::NodeclBase>(1, renamed);
             }
         
