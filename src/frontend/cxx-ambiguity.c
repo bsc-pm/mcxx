@@ -718,6 +718,7 @@ static char check_type_specifier_or_class_template_name(AST type_id, decl_contex
     return check_type_specifier_aux(type_id, decl_context, /* allow_class_templates */ 1);
 }
 
+static char try_to_solve_ambiguous_init_declarator(AST a, decl_context_t decl_context);
 
 static char check_simple_or_member_declaration(AST a, decl_context_t decl_context)
 {
@@ -756,22 +757,26 @@ static char check_simple_or_member_declaration(AST a, decl_context_t decl_contex
             }
         }
 
-        if (first_init_declarator != NULL
-                && ASTType(first_init_declarator) == AST_AMBIGUITY)
+        AST first_declarator = NULL;
+        if (first_init_declarator != NULL)
         {
-            solve_ambiguous_init_declarator(first_init_declarator, decl_context);
+            if (ASTType(first_init_declarator) == AST_AMBIGUITY)
+            {
+                if (!try_to_solve_ambiguous_init_declarator(first_init_declarator, decl_context))
+                    return 0;
+            }
+            first_declarator = ASTSon0(first_init_declarator);
         }
 
-        // AST init_declarator_list = ASTSon1(a);
-        // if (init_declarator_list != NULL)
-        // {
-        //     if (!check_init_declarator_list(init_declarator_list, decl_context))
-        //     {
-        //         return 0;
-        //     }
-        // }
-        //
-        
+        if (first_declarator != NULL)
+        {
+            // Make sure this declarator is fine at this point
+            // This will avoid problems like
+            //
+            // typedef T(F)(S) where the intepretation with an empty type-specifier is not allowed
+            if (!check_declarator(first_declarator, decl_context))
+                return 0;
+        }
 
         // Additional check for this special case
         // typedef int T;
@@ -787,11 +792,9 @@ static char check_simple_or_member_declaration(AST a, decl_context_t decl_contex
         //    * 'T' is just a declarator_id_expr
         //    * 'T' names a type
 
-        if (first_init_declarator != NULL 
+        if (first_declarator != NULL 
                 && type_spec != NULL)
         {
-            AST first_declarator = ASTSon0(first_init_declarator);
-
             // This ambiguity brought to you by C++0x
             // struct X :   T { }; 
             // enum E : class { }; 
@@ -1354,6 +1357,61 @@ void solve_ambiguous_init_declarator(AST a, decl_context_t decl_context)
     else
     {
         choose_option(a, correct_choice);
+    }
+}
+
+// Like solve_ambiguous_init_declarator but does not fail
+static char try_to_solve_ambiguous_init_declarator(AST a, decl_context_t decl_context)
+{
+    int correct_choice = -1;
+    int i;
+
+    for (i = 0; i < ast_get_num_ambiguities(a); i++)
+    {
+        AST init_declarator = ast_get_ambiguity(a, i);
+
+        if (check_init_declarator(init_declarator, decl_context))
+        {
+            if (correct_choice < 0)
+            {
+                correct_choice = i;
+            }
+            else
+            {
+                // Ambiguity: T t(Q()); where T and Q are type-names always solves to 
+                // function declaration
+
+                AST previous_choice = ast_get_ambiguity(a, correct_choice);
+                AST previous_choice_declarator = ASTSon0(previous_choice);
+
+                AST current_choice_declarator = ASTSon0(init_declarator);
+
+                int either;
+                if ((either = either_type(ASTSon0(previous_choice_declarator), ASTSon0(current_choice_declarator), 
+                            AST_DECLARATOR_FUNC, AST_DECLARATOR_ID_EXPR)))
+                {
+                    // Always favor function declarations
+                    if (either < 0)
+                    {
+                        correct_choice = i;
+                    }
+                }
+                else
+                {
+                    internal_error("More than one valid choice!\n", 0);
+                }
+            }
+        }
+    }
+
+    if (correct_choice < 0)
+    {
+        return 0;
+    }
+    else
+    {
+        choose_option(a, correct_choice);
+        return 1;
     }
 }
 
