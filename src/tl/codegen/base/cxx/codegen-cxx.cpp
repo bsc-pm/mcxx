@@ -1195,6 +1195,8 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
         file << "(*(";
     }
 
+    int ignore_n_first_arguments;
+
     switch (kind)
     {
         case ORDINARY_CALL:
@@ -1210,11 +1212,7 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
                 {
                     file << ")";
                 }
-                file << "(";
-
-                codegen_function_call_arguments(arguments.begin(), arguments.end(), function_type, /* ignore_n_first */ 0);
-
-                file << ")";
+                ignore_n_first_arguments = 0;
                 break;
             }
         case NONSTATIC_MEMBER_CALL:
@@ -1244,23 +1242,14 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
                 {
                     walk(called_entity);
                 }
-
-                file << "(";
-
-                codegen_function_call_arguments(arguments.begin(), arguments.end(), function_type, /* ignore_n_first */ 1);
-
-                file << ")";
+                ignore_n_first_arguments = 1;
                 break;
             }
         case CONSTRUCTOR_INITIALIZATION:
             {
                 TL::Symbol class_symbol = called_symbol.get_class_type().get_symbol();
                 file << class_symbol.get_qualified_name();
-                file << "(";
-
-                codegen_function_call_arguments(arguments.begin(), arguments.end(), function_type, /* ignore_n_first */ 0);
-
-                file << ")";
+                ignore_n_first_arguments = 0;
                 break;
             }
         default:
@@ -1268,6 +1257,13 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
                 internal_error("Unhandled function call kind", 0);
             }
     }
+
+
+    file << "(";
+
+    codegen_function_call_arguments(arguments.begin(), arguments.end(), function_type, ignore_n_first_arguments);
+
+    file << ")";
 
     if (is_non_language_ref)
     {
