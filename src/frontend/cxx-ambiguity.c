@@ -1048,7 +1048,7 @@ void solve_ambiguous_statement(AST a, decl_context_t decl_context)
     }
 }
 
-
+static char try_to_solve_ambiguous_init_declarator(AST a, decl_context_t decl_context);
 
 static char check_for_simple_declaration(AST a, decl_context_t decl_context)
 {
@@ -1112,7 +1112,8 @@ static char check_for_simple_declaration(AST a, decl_context_t decl_context)
         {
             if (ASTType(first_init_declarator) == AST_AMBIGUITY)
             {
-                solve_ambiguous_init_declarator(first_init_declarator, decl_context);
+                if (!try_to_solve_ambiguous_init_declarator(first_init_declarator, decl_context))
+                    return 0;
             }
             first_declarator = ASTSon0(first_init_declarator);
         }
@@ -1924,6 +1925,60 @@ void solve_ambiguous_init_declarator(AST a, decl_context_t decl_context)
     else
     {
         choose_option(a, correct_choice);
+    }
+}
+
+static char try_to_solve_ambiguous_init_declarator(AST a, decl_context_t decl_context)
+{
+    int correct_choice = -1;
+    int i;
+
+    for (i = 0; i < ast_get_num_ambiguities(a); i++)
+    {
+        AST init_declarator = ast_get_ambiguity(a, i);
+
+        if (check_for_init_declarator(init_declarator, decl_context))
+        {
+            if (correct_choice < 0)
+            {
+                correct_choice = i;
+            }
+            else
+            {
+                // Ambiguity: T t(Q()); where T and Q are type-names always solves to 
+                // function declaration
+
+                AST previous_choice = ast_get_ambiguity(a, correct_choice);
+                AST previous_choice_declarator = ASTSon0(previous_choice);
+
+                AST current_choice_declarator = ASTSon0(init_declarator);
+
+                int either;
+                if ((either = either_type(ASTSon0(previous_choice_declarator), ASTSon0(current_choice_declarator), 
+                            AST_DECLARATOR_FUNC, AST_DECLARATOR_ID_EXPR)))
+                {
+                    // Always favor function declarations
+                    if (either < 0)
+                    {
+                        correct_choice = i;
+                    }
+                }
+                else
+                {
+                    internal_error("More than one valid choice!\n", 0);
+                }
+            }
+        }
+    }
+
+    if (correct_choice < 0)
+    {
+        return 0;
+    }
+    else
+    {
+        choose_option(a, correct_choice);
+        return 1;
     }
 }
 
