@@ -55,6 +55,14 @@ namespace Nodecl {
             bool has_type() const { return ::nodecl_get_type(_n) != NULL; }
             void set_type(TL::Type t) { ::nodecl_set_type(_n, t.get_internal_type()); }
             TL::Symbol get_symbol() const { return TL::Symbol(::nodecl_get_symbol(_n)); }
+            TL::TemplateParameters get_template_parameters() const 
+            {
+                return TL::TemplateParameters(::nodecl_get_template_parameters(_n));
+            }
+            void set_template_parameters(TL::TemplateParameters template_parameters)
+            {
+                ::nodecl_set_template_parameters(_n, template_parameters.get_internal_template_parameter_list());
+            }
             bool has_symbol() const { return ::nodecl_get_symbol(_n) != NULL; }
             void set_symbol(TL::Symbol sym) { ::nodecl_set_symbol(_n, sym.get_internal_symbol()); }
             TL::Scope retrieve_context() const { return nodecl_retrieve_context(_n); }

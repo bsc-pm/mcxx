@@ -689,7 +689,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepTemplateId& node)
     file << node.get_text();
 
     walk(node.get_name());
-    TL::TemplateParameters tpl(nodecl_get_template_parameters(node.get_internal_nodecl()));
+    TL::TemplateParameters tpl = node.get_template_parameters();
 
     file << ::template_arguments_to_str(
             tpl.get_internal_template_parameter_list(),
@@ -1424,6 +1424,13 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
         }
     }
 
+    if (symbol.is_explicit_constructor()
+            && get_codegen_status(symbol) != CODEGEN_STATUS_DECLARED
+            && get_codegen_status(symbol) != CODEGEN_STATUS_DECLARED)
+    {
+        decl_spec_seq += "explicit ";
+    }
+
     std::string gcc_attributes = "";
 
     if (symbol.has_gcc_attributes())
@@ -1671,6 +1678,13 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
         {
             decl_spec_seq += "inline ";
         }
+    }
+
+    if (symbol.is_explicit_constructor()
+            && get_codegen_status(symbol) != CODEGEN_STATUS_DECLARED
+            && get_codegen_status(symbol) != CODEGEN_STATUS_DECLARED)
+    {
+        decl_spec_seq += "explicit ";
     }
 
     std::string gcc_attributes = "";
@@ -4809,7 +4823,9 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
             }
         }
 
-        if (symbol.is_explicit_constructor())
+        if (symbol.is_explicit_constructor()
+                && get_codegen_status(symbol) != CODEGEN_STATUS_DECLARED
+                && get_codegen_status(symbol) != CODEGEN_STATUS_DECLARED)
         {
             decl_spec_seq += "explicit ";
         }

@@ -3007,6 +3007,8 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
                 nodecl_called,
                 nodecl_argument_list,
                 nodecl_generic_spec,
+                /* function_form */ nodecl_null(),
+                // Fortran has not template arguments
                 result_type,
                 ASTFileName(expr), ASTLine(expr));
 
@@ -3364,6 +3366,8 @@ static void check_user_defined_unary_op(AST expr, decl_context_t decl_context, n
                     ASTFileName(operand_expr),
                     ASTLine(operand_expr))),
             nodecl_generic_spec,
+            /* function_form */ nodecl_null(),
+            // Fortran has not template arguments
             result_type,
             ASTFileName(expr),
             ASTLine(expr));
@@ -3487,6 +3491,8 @@ static void check_user_defined_binary_op(AST expr, decl_context_t decl_context, 
                     ASTFileName(rhs_expr),
                     ASTLine(rhs_expr))),
             nodecl_generic_spec,
+            /* function_form */ nodecl_null(),
+            // Fortran has not template arguments
             result_type,
             ASTFileName(expr),
             ASTLine(expr));
@@ -4216,6 +4222,8 @@ static void check_assignment(AST expr, decl_context_t decl_context, nodecl_t* no
                         nodecl_rvalue,
                         ASTFileName(rvalue), ASTLine(rvalue))),
                 nodecl_generic_spec,
+                /* function_form */ nodecl_null(),
+                // Fortran has not template arguments
                 get_void_type(),
                 ASTFileName(expr), ASTLine(expr));
     }
@@ -5343,6 +5351,8 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
                         nodecl_called,
                         nodecl_argument_list,
                         nodecl_generic_spec,
+                        /* function_form */ nodecl_null(),
+                        // Fortran has not template arguments
                         result,
                         ASTFileName(expr), ASTLine(expr));
 
