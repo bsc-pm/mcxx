@@ -689,7 +689,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepTemplateId& node)
     file << node.get_text();
 
     walk(node.get_name());
-    TL::TemplateParameters tpl(nodecl_get_template_parameters(node.get_internal_nodecl()));
+    TL::TemplateParameters tpl = node.get_template_parameters();
 
     file << ::template_arguments_to_str(
             tpl.get_internal_template_parameter_list(),
