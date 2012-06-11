@@ -1172,6 +1172,11 @@ const_value_t* const_value_cast_to_float128_value(const_value_t* val)
 
 const_value_t* integer_type_get_minimum(type_t* t)
 {
+    if (is_wchar_t_type(t))
+    {
+        t = (CURRENT_CONFIGURATION->type_environment->int_type_of_wchar_t)();
+    }
+
     if (is_unsigned_char_type(t)
             || is_unsigned_short_int_type(t)
             || is_unsigned_long_int_type(t)
@@ -1197,6 +1202,11 @@ const_value_t* integer_type_get_minimum(type_t* t)
 
 const_value_t* integer_type_get_maximum(type_t* t)
 {
+    if (is_wchar_t_type(t))
+    {
+        t = (CURRENT_CONFIGURATION->type_environment->int_type_of_wchar_t)();
+    }
+
     if (is_unsigned_char_type(t)
             || is_unsigned_short_int_type(t)
             || is_unsigned_long_int_type(t)
