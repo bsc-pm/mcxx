@@ -8114,12 +8114,31 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
                 nodecl_called,
                 nodecl_argument_list_output,
                 /* function_form */ nodecl_null(),
+                // We don't need a function form in C language
                 return_type,
                 filename, line);
         return;
     }
 
     // From here only C++
+
+    // Let's build the function form
+    nodecl_t function_form = nodecl_null();
+    {
+        type_t* called_type = nodecl_get_type(nodecl_called);
+        if (called_type != NULL &&
+                is_unresolved_overloaded_type(called_type))
+        {
+            template_parameter_list_t* template_args =
+                unresolved_overloaded_type_get_explicit_template_arguments(called_type);
+            if (template_args != NULL)
+            {
+                function_form = nodecl_make_cxx_function_form_template_id(filename, line);
+                nodecl_set_template_parameters(function_form, template_args);
+            }
+        }
+    }
+
     // Let's check the called entity
     //  - If it is a NODECL_CXX_DEP_NAME_SIMPLE it will require Koenig lookup
     scope_entry_list_t* candidates = NULL;
@@ -8275,7 +8294,7 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
             *nodecl_output = cxx_nodecl_make_function_call(
                     nodecl_called,
                     nodecl_argument_list_output,
-                    /* function_form */ nodecl_null(),
+                    function_form,
                     return_type,
                     filename, line);
             return;
@@ -8525,7 +8544,7 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
         nodecl_called = cxx_nodecl_make_function_call(
                 nodecl_called_surrogate,
                 nodecl_make_list_1(nodecl_implicit_argument),
-                /* function_form */ nodecl_null(),
+                function_form,
                 function_type_get_return_type(overloaded_call->entity_specs.alias_to->type_information),
                 nodecl_get_filename(nodecl_implicit_argument), nodecl_get_line(nodecl_implicit_argument)
                 );
@@ -8641,7 +8660,7 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
                         nodecl_arg = cxx_nodecl_make_function_call(
                                 nodecl_conversor,
                                 nodecl_make_list_1(nodecl_arg),
-                                /* function_form */ nodecl_null(),
+                                function_form,
                                 actual_type_of_conversor(conversors[arg_i]), nodecl_get_filename(nodecl_arg), nodecl_get_line(nodecl_arg));
                     }
                 }
@@ -8658,7 +8677,7 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
     // Everything seems fine here
     *nodecl_output = cxx_nodecl_make_function_call(nodecl_called, 
             nodecl_argument_list_output, 
-            /* function_form */ nodecl_null(),
+            function_form,
             return_type,
             filename, line);
 }

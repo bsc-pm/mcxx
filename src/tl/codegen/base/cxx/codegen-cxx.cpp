@@ -1115,8 +1115,41 @@ CxxBase::Ret CxxBase::codegen_function_call_arguments(Iterator begin, Iterator e
 }
 
 template <typename Node>
+void CxxBase::visit_function_call_form(const Node& node)
+{
+    Nodecl::NodeclBase function_form = node.get_function_form();
+    TL::Symbol called_symbol = node.get_called().get_symbol();
+    if (!function_form.is_null())
+    {
+        TL::TemplateParameters template_args = function_form.get_template_parameters();
+        if (template_args.get_internal_template_parameter_list() != NULL)
+        {
+            if (template_args.get_num_parameters() > 0)
+            {
+                file << ::template_arguments_to_str(
+                        template_args.get_internal_template_parameter_list(),
+                        called_symbol.get_scope().get_decl_context());
+            }
+            else
+            {
+                file << "<>";
+            }
+        }
+    }
+}
+
+// This kind of Nodecl (CxxDepFunctionCall) has not a function form
+// For this reason exists this empty explicit specialization of 'visit_function_call_form' template function
+template <>
+void CxxBase::visit_function_call_form<Nodecl::CxxDepFunctionCall>(const Nodecl::CxxDepFunctionCall& node)
+{
+}
+
+
+template <typename Node>
 CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call)
 {
+
     Nodecl::NodeclBase called_entity = node.get_called();
     Nodecl::List arguments = node.get_arguments().template as<Nodecl::List>();
 
@@ -1195,8 +1228,13 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
         file << "(*(";
     }
 
-    int ignore_n_first_arguments;
+    bool old_visiting_called_entity_of_function_call =
+        state.visiting_called_entity_of_function_call;
+    
+    // We are going to visit the called entity of the current function call
+    state.visiting_called_entity_of_function_call = true;
 
+    int ignore_n_first_arguments;
     switch (kind)
     {
         case ORDINARY_CALL:
@@ -1258,10 +1296,17 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
             }
     }
 
+    visit_function_call_form(node);
 
     file << "(";
 
+    // Now, the called entity have been visited and we are going to generate the arguments of the function call
+    state.visiting_called_entity_of_function_call = false;
+
     codegen_function_call_arguments(arguments.begin(), arguments.end(), function_type, ignore_n_first_arguments);
+    
+    // Restore the old value (nested function calls: a<>)
+    state.visiting_called_entity_of_function_call = old_visiting_called_entity_of_function_call;
 
     file << ")";
 
@@ -2545,6 +2590,13 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Symbol& node)
         {
             // Builtins cannot be qualified
             file << entry.get_name();
+        }
+        else if (entry.is_function())
+        {
+            // If we are visiting the called entity of a function call, the template arguments
+            // (if any) will be added by 'visit_function_call_form' function
+            file << entry.get_qualified_name(this->get_current_scope(),
+                    /* without template id */ state.visiting_called_entity_of_function_call);
         }
         else
         {

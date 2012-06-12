@@ -215,12 +215,13 @@ namespace Codegen
                 bool in_dependent_template_function_code;
 
                 bool inside_structured_value;
-                
+
                 bool do_not_emit_other_declarations;
 
+                // States whether we are visiting the called entity of a function call
+                bool visiting_called_entity_of_function_call;
 
                 TL::ObjectList<TL::Symbol> classes_being_defined;
-
 
                 std::set<TL::Type> walked_types;
 
@@ -254,6 +255,7 @@ namespace Codegen
                     in_dependent_template_function_code(false),
                     inside_structured_value(),
                     do_not_emit_other_declarations(IS_CXX_LANGUAGE),
+                    visiting_called_entity_of_function_call(false),
                     classes_being_defined(),
                     walked_types(),
                     being_checked_for_required(),
@@ -384,6 +386,9 @@ namespace Codegen
 
             template <typename Iterator>
                 void codegen_function_call_arguments(Iterator begin, Iterator end, TL::Type function_type, int ignore_n_first);
+            
+            template <typename Node>
+                CxxBase::Ret visit_function_call_form(const Node&);
 
             template <typename Node>
                 CxxBase::Ret visit_function_call(const Node&, bool is_virtual_call);
