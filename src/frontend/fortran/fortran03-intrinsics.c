@@ -879,15 +879,29 @@ static scope_entry_t* register_specific_intrinsic_name(
         int num_args,
         type_t* t0, type_t* t1, type_t* t2, type_t* t3, type_t* t4, type_t* t5, type_t* t6)
 {
+#define MAX_SPECIFIC_PARAMETERS 7
     scope_entry_t* generic_entry = fortran_query_intrinsic_name_str(decl_context, generic_name);
     ERROR_CONDITION(generic_entry == NULL
             || !generic_entry->entity_specs.is_builtin, "Invalid symbol when registering specific intrinsic name\n", 0);
 
-    ERROR_CONDITION(num_args > 7, "Too many arguments", 0);
+    ERROR_CONDITION(num_args > MAX_SPECIFIC_PARAMETERS, "Too many arguments", 0);
 
-    const char* argument_keywords[7] = { NULL, NULL, NULL, NULL, NULL, NULL, NULL };
+    const char* argument_keywords[MAX_SPECIFIC_PARAMETERS] = { NULL, NULL, NULL, NULL, NULL, NULL, NULL };
 
-    nodecl_t nodecl_actual_arguments[7] = { 
+    // Sanity check with the input types
+    //
+    // We want them to be a (possibly empty) sequence of non-null types
+    // followed by a (possibly empty) sequence of null types
+    type_t* max_spec_param_types[MAX_SPECIFIC_PARAMETERS] = {t0, t1, t2, t3, t4, t5, t6};
+    int i;
+    char seen_null = 0;
+    for (i = 0; i < MAX_SPECIFIC_PARAMETERS; i++)
+    {
+        ERROR_CONDITION(seen_null && max_spec_param_types[i] != NULL, "Invalid inputs to the function", 0);
+        seen_null = (max_spec_param_types[i] == NULL);
+    }
+
+    nodecl_t nodecl_actual_arguments[MAX_SPECIFIC_PARAMETERS] = { 
         t0 != NULL ? nodecl_make_type(t0, NULL, 0) : nodecl_null(),
         t1 != NULL ? nodecl_make_type(t1, NULL, 0) : nodecl_null(),
         t2 != NULL ? nodecl_make_type(t2, NULL, 0) : nodecl_null(),
@@ -907,18 +921,61 @@ static scope_entry_t* register_specific_intrinsic_name(
             specific_name,
             generic_name);
 
-    // Insert alias only if they are different names
-    if (strcasecmp(generic_name, specific_name) != 0)
+    if (strcasecmp(generic_name, specific_name) == 0)
     {
-        specific_entry->symbol_name = specific_name;
-        insert_alias(generic_entry->decl_context.current_scope, specific_entry, specific_name);
+        // If the name is the same, mark it as the specific interface of this intrinsic
+        generic_entry->entity_specs.specific_intrinsic = specific_entry;
     }
     else
     {
-        generic_entry->entity_specs.specific_intrinsic = specific_entry;
+        // If the name is different, create a new symbol with the type of the specific one
+        type_t* specific_type = specific_entry->type_information;
+
+        type_t* result_type = function_type_get_return_type(specific_type);
+
+        type_t* param_types[MAX_SPECIFIC_PARAMETERS];
+        int N = function_type_get_num_parameters(specific_type);
+        ERROR_CONDITION(N > MAX_SPECIFIC_PARAMETERS, "Too many parameters", 0);
+        for (i = 0; i < MAX_SPECIFIC_PARAMETERS && i < N; i++)
+        {
+            param_types[i] = function_type_get_parameter_type_num(specific_type, i);
+        }
+
+        int real_num_parameters = 0;
+        // Add the keywords that are non null
+        for (i = 0; i < MAX_SPECIFIC_PARAMETERS; i++)
+        {
+            if (nodecl_is_null(nodecl_actual_arguments[i]))
+                break;
+            real_num_parameters++;
+        }
+
+        scope_entry_t* new_specific_entry = get_intrinsic_symbol_(specific_name,
+                result_type,
+                real_num_parameters, param_types,
+                generic_entry->decl_context,
+                generic_entry->entity_specs.is_elemental,
+                generic_entry->entity_specs.is_pure,
+                /* is_transformational */ 0,
+                /* is_inquiry */ 0);
+
+        // Add the keywords that are non null
+        for (i = 0; i < MAX_SPECIFIC_PARAMETERS; i++)
+        {
+            if (nodecl_is_null(nodecl_actual_arguments[i]))
+                break;
+
+            P_LIST_ADD(new_specific_entry->entity_specs.related_symbols,
+                    new_specific_entry->entity_specs.num_related_symbols,
+                    specific_entry->entity_specs.related_symbols[i]);
+            real_num_parameters++;
+        }
+
+        insert_entry(generic_entry->decl_context.current_scope, new_specific_entry);
     }
 
     return specific_entry;
+#undef MAX_SPECIFIC_PARAMETERS
 }
 
 static scope_entry_t* register_custom_intrinsic(
