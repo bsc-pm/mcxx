@@ -2798,9 +2798,13 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
             }
             else if (with_keyword) // keyword == NULL
             {
-                error_printf("%s: error: in function call, '%s' argument requires a keyword\n",
-                        ast_location(actual_arg_spec),
-                        fortran_prettyprint_in_buffer(actual_arg_spec));
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: in function call, '%s' argument requires a keyword\n",
+                            ast_location(actual_arg_spec),
+                            fortran_prettyprint_in_buffer(actual_arg_spec));
+                }
+                *nodecl_output = nodecl_make_err_expr(ASTFileName(actual_arg_spec), ASTLine(actual_arg_spec));
                 return;
             }
 
