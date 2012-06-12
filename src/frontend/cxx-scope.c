@@ -2873,19 +2873,27 @@ static const char* get_fully_qualified_symbol_name_simple(decl_context_t decl_co
 
 const char* template_arguments_to_str(
         template_parameter_list_t* template_parameters,
+        int first_argument_to_be_printed,
+        char print_first_level_bracket,
         decl_context_t decl_context)
+
 {
-    if (template_parameters->num_parameters == 0)
+    if (template_parameters->num_parameters == 0
+            || template_parameters->num_parameters <= first_argument_to_be_printed)
         return "";
 
     const char* result = "";
-    // It is not enough with the name, we have to print the arguments
-    result = strappend(result, "<");
+    if (print_first_level_bracket)
+    {
+        // It is not enough with the name, we have to print the arguments
+        result = strappend(result, "<");
+    }
 
     int i;
-    for (i = 0; i < template_parameters->num_parameters; i++)
+    char print_comma = 0;
+    for (i = first_argument_to_be_printed; i < template_parameters->num_parameters; i++, print_comma = 1)
     {
-        if (i != 0)
+        if (print_comma)
         {
             result = strappend(result, ", ");
         }
@@ -2934,13 +2942,16 @@ const char* template_arguments_to_str(
         result = strappend(result, argument_str);
     }
 
-    if (result[strlen(result) - 1] == '>')
+    if (print_first_level_bracket)
     {
-        result = strappend(result, " >");
-    }
-    else
-    {
-        result = strappend(result, ">");
+        if (result[strlen(result) - 1] == '>')
+        {
+            result = strappend(result, " >");
+        }
+        else
+        {
+            result = strappend(result, ">");
+        }
     }
 
     return result;
@@ -2951,7 +2962,10 @@ const char* get_template_arguments_str(scope_entry_t* entry,
         decl_context_t decl_context)
 {
     template_parameter_list_t* template_parameters = template_specialized_type_get_template_arguments(entry->type_information);
-    return template_arguments_to_str(template_parameters, decl_context);
+    return template_arguments_to_str(template_parameters,
+            /* first_argument_to_be_printed */ 0,
+            /* first_level_brackets */ 1, 
+            decl_context);
 }
 
 const char* unmangle_symbol_name(scope_entry_t* entry)

@@ -693,6 +693,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepTemplateId& node)
 
     file << ::template_arguments_to_str(
             tpl.get_internal_template_parameter_list(),
+            /* first_template_argument_to_be_printed */ 0,
+            /* print_first_level_bracket */ 1,
             this->get_current_scope().get_decl_context());
 
     // The function 'template_arguments_to_str' does not print anything when
@@ -1122,18 +1124,63 @@ void CxxBase::visit_function_call_form(const Node& node)
     if (!function_form.is_null())
     {
         TL::TemplateParameters template_args = function_form.get_template_parameters();
-        if (template_args.get_internal_template_parameter_list() != NULL)
+        TL::TemplateParameters deduced_template_args =
+            called_symbol.get_type().template_specialized_type_get_template_arguments();
+
+        if (template_args.get_num_parameters() == deduced_template_args.get_num_parameters())
         {
-            if (template_args.get_num_parameters() > 0)
-            {
-                file << ::template_arguments_to_str(
+            // First case: the user's code specifies all template arguments
+            file << ::template_arguments_to_str(
+                    template_args.get_internal_template_parameter_list(),
+                    /* first_template_argument_to_be_printed */ 0,
+                    /* print_first_level_bracket */ 1,
+                    called_symbol.get_scope().get_decl_context());
+        }
+        else
+        {
+            // Second case: the user's code specifies some template arguments but not all
+            std::string template_args_str =
+                ::template_arguments_to_str(
                         template_args.get_internal_template_parameter_list(),
+                        /* first_template_argument_to_be_printed */ 0,
+                        /* print_first_level_bracket */ 0,
                         called_symbol.get_scope().get_decl_context());
+
+            std::string deduced_template_args_str =
+                ::template_arguments_to_str(
+                        deduced_template_args.get_internal_template_parameter_list(),
+                        /* first_template_argument_to_be_printed */ template_args.get_num_parameters(),
+                        /* print_first_level_bracket */ 1,
+                        called_symbol.get_scope().get_decl_context());
+
+            // Reason of this: A<::B> it's not legal
+            if (template_args_str.length() != 0 && template_args_str[0] == ':')
+            {
+                file << "< ";
             }
             else
             {
-                file << "<>";
+                file << "<";
             }
+            file << template_args_str << "/*, " << deduced_template_args_str <<"*/>";
+        }
+    }
+    else
+    {
+        // Third case: the user's code does not specify any template argument
+        // We generate a comment with the deduced template arguments
+        if (called_symbol != NULL
+                && called_symbol.get_type().is_template_specialized_type())
+        {
+            TL::TemplateParameters deduced_template_args =
+                called_symbol.get_type().template_specialized_type_get_template_arguments();
+            file << "/*";
+            file << ::template_arguments_to_str(
+                    deduced_template_args.get_internal_template_parameter_list(),
+                    /* first_template_argument_to_be_printed */ 0,
+                    /* print_first_level_bracket */ 1,
+                    called_symbol.get_scope().get_decl_context());
+            file << "*/";
         }
     }
 }
@@ -1230,7 +1277,7 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
 
     bool old_visiting_called_entity_of_function_call =
         state.visiting_called_entity_of_function_call;
-    
+
     // We are going to visit the called entity of the current function call
     state.visiting_called_entity_of_function_call = true;
 
