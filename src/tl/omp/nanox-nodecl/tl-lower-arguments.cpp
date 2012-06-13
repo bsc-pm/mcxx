@@ -77,13 +77,42 @@ namespace TL { namespace Nanox {
                 Nodecl::NodeclBase lower, upper;
                 t.array_get_bounds(lower, upper);
 
-                if (lower.is<Nodecl::Symbol>()
-                        && lower.get_symbol().is_saved_expression())
-                    handle_vla_saved_expr(lower, outline_info);
 
-                if (upper.is<Nodecl::Symbol>()
+                if (lower.is_null())
+                {
+                    Counter& counter = CounterManager::get_counter("array-lower-boundaries");
+                    std::string structure_name;
+
+                    std::stringstream ss;
+                    ss << "mcc_lower_bound_" << (int)counter;
+                    counter++;
+
+                    OutlineDataItem& outline_item = outline_info.append_field(ss.str(), fortran_get_default_integer_type());
+                    outline_item.set_sharing(OutlineDataItem::SHARING_CAPTURE);
+                }
+                else if (lower.is<Nodecl::Symbol>()
+                        && lower.get_symbol().is_saved_expression())
+                {
+                    handle_vla_saved_expr(lower, outline_info);
+                }
+
+                if (upper.is_null())
+                {
+                    Counter& counter = CounterManager::get_counter("array-upper-boundaries");
+                    std::string structure_name;
+
+                    std::stringstream ss;
+                    ss << "mcc_upper_bound_" << (int)counter;
+                    counter++;
+
+                    OutlineDataItem& outline_item = outline_info.append_field(ss.str(), fortran_get_default_integer_type());
+                    outline_item.set_sharing(OutlineDataItem::SHARING_CAPTURE);
+                }
+                else if (upper.is<Nodecl::Symbol>()
                         && upper.get_symbol().is_saved_expression())
+                {
                     handle_vla_saved_expr(upper, outline_info);
+                }
             }
             handle_vla_type_rec(t.array_element(), outline_info);
         }

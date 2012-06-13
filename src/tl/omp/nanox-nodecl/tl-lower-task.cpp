@@ -727,6 +727,8 @@ void LoweringVisitor::fill_arguments(
     }
     else if (IS_FORTRAN_LANGUAGE)
     {
+        int lower_bound_index = 0;
+        int upper_bound_index = 0;
         for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
                 it != data_items.end();
                 it++)
@@ -807,6 +809,20 @@ void LoweringVisitor::fill_arguments(
                 case OutlineDataItem::SHARING_PRIVATE:
                     {
                         // Do nothing
+                        if (sym.is_allocatable())
+                        {
+                            TL::Type t = sym.get_type();
+                            if (t.is_any_reference())
+                                t = t.references_to();
+
+                            fill_allocatable_dimensions(
+                                    sym, sym.get_type(),
+                                    0, t.get_num_dimensions(),
+                                    fill_outline_arguments, 
+                                    fill_immediate_arguments, 
+                                    lower_bound_index, 
+                                    upper_bound_index);
+                        }
                         break;
                     }
                 default:
@@ -814,6 +830,61 @@ void LoweringVisitor::fill_arguments(
                         internal_error("Unexpected sharing kind", 0);
                     }
             }
+        }
+    }
+}
+
+void LoweringVisitor::fill_allocatable_dimensions(
+        TL::Symbol symbol,
+        TL::Type current_type,
+        int current_rank,
+        int rank_size,
+        Source &fill_outline_arguments, 
+        Source &fill_immediate_arguments, 
+        int &lower_bound_index, 
+        int &upper_bound_index)
+{
+    if (current_type.is_array())
+    {
+        fill_allocatable_dimensions(
+                symbol,
+                current_type.array_element(),
+                current_rank - 1,
+                rank_size,
+                fill_outline_arguments, 
+                fill_immediate_arguments,
+                lower_bound_index,
+                upper_bound_index);
+
+        Nodecl::NodeclBase lower, upper;
+        current_type.array_get_bounds(lower, upper);
+
+        if (lower.is_null())
+        {
+            fill_outline_arguments 
+                << "ol_args % mcc_lower_bound_" << lower_bound_index 
+                << " = LBOUND(" << symbol.get_name() <<", " << (current_rank+1) <<")\n"
+                ;
+            fill_immediate_arguments 
+                << "imm_args % mcc_lower_bound_" << lower_bound_index 
+                << " = LBOUND(" << symbol.get_name() <<", " << (current_rank+1) <<")\n"
+                ;
+
+            lower_bound_index++;
+        }
+
+        if (upper.is_null())
+        {
+            fill_outline_arguments 
+                << "ol_args % mcc_upper_bound_" << upper_bound_index 
+                << " = UBOUND(" << symbol.get_name() <<", " << (current_rank+1) <<")\n"
+                ;
+            fill_immediate_arguments 
+                << "imm_args % mcc_upper_bound_" << upper_bound_index 
+                << " = UBOUND(" << symbol.get_name() <<", " << (current_rank+1) <<")\n"
+                ;
+
+            upper_bound_index++;
         }
     }
 }

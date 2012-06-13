@@ -141,6 +141,9 @@ namespace TL { namespace Nanox {
                         if (sym.is_valid())
                         {
                             symbol_map->add_map(sym, private_sym);
+
+                            // Copy attributes that must be preserved
+                            private_sym->entity_specs.is_allocatable = sym.is_allocatable();
                         }
 
                         if (!is_pointer_type(no_ref(private_sym->type_information)))
@@ -452,6 +455,61 @@ namespace TL { namespace Nanox {
                 "", 0);
     }
 
+    Source LoweringVisitor::emit_allocate_statement(TL::Symbol sym, int &lower_bound_index, int &upper_bound_index)
+    {
+        Source result;
+
+        TL::Type t = sym.get_type();
+        if (t.is_any_reference())
+            t = t.references_to();
+
+        struct Aux
+        {
+            static void aux_rec(Source &array_shape, TL::Type t, int rank, int current_rank,
+                    int &lower_bound_index, int &upper_bound_index)
+            {
+                Source current_arg;
+                if (t.is_array())
+                {
+                    aux_rec(array_shape, t.array_element(), rank-1, current_rank, lower_bound_index, upper_bound_index);
+
+                    Source curent_arg;
+                    Nodecl::NodeclBase lower, upper;
+                    t.array_get_bounds(lower, upper);
+
+                    if (lower.is_null())
+                    {
+                        current_arg << "mcc_lower_bound_" << lower_bound_index << ":";
+                        lower_bound_index++;
+                    }
+
+                    if (upper.is_null())
+                    {
+                        current_arg << "mcc_upper_bound_" << upper_bound_index;
+                        upper_bound_index++;
+                    }
+
+                    array_shape.append_with_separator(current_arg, ",");
+                }
+            }
+
+            static void fill_array_shape(Source &array_shape, TL::Type t, int &lower_bound_index, int &upper_bound_index)
+            {
+                aux_rec(array_shape,
+                        t, t.get_num_dimensions(), t.get_num_dimensions(),
+                        lower_bound_index, upper_bound_index);
+            }
+        };
+
+        Source array_shape;
+        Aux::fill_array_shape(array_shape, t, lower_bound_index, upper_bound_index);
+
+        result << "ALLOCATE(" << sym.get_name() << "(" << array_shape <<  "));\n"
+            ;
+
+        return result;
+    }
+
     void LoweringVisitor::emit_outline(OutlineInfo& outline_info,
             Nodecl::NodeclBase original_statements,
             Source body_source,
@@ -473,6 +531,9 @@ namespace TL { namespace Nanox {
 
         Source unpack_code, unpacked_arguments, cleanup_code, private_entities, extra_declarations;
 
+        int lower_bound_index = 0;
+        int upper_bound_index = 0;
+
         TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
         for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
                 it != data_items.end();
@@ -483,6 +544,11 @@ namespace TL { namespace Nanox {
                 case OutlineDataItem::SHARING_PRIVATE:
                     {
                         // Do nothing
+                        if ((*it)->get_symbol().is_valid()
+                                && (*it)->get_symbol().is_allocatable())
+                        {
+                            private_entities << emit_allocate_statement((*it)->get_symbol(), lower_bound_index, upper_bound_index);
+                        }
                         break;
                     }
                 case OutlineDataItem::SHARING_SHARED:

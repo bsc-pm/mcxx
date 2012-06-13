@@ -383,6 +383,7 @@ namespace TL
                 }
 
                 OutlineDataItem& prepend_field(const std::string& str, TL::Type t);
+                OutlineDataItem& append_field(const std::string& str, TL::Type t);
 
                 TL::Symbol get_unpacked_function_symbol() const
                 {

@@ -336,4 +336,13 @@ namespace TL { namespace Nanox {
         return *(_data_env_items.front());
     }
 
+    OutlineDataItem& OutlineInfo::append_field(const std::string& str, TL::Type t)
+    {
+        std::string field_name = get_field_name(str);
+        OutlineDataItem* env_item = new OutlineDataItem(field_name, t);
+
+        _data_env_items.append(env_item);
+        return *(_data_env_items.back());
+    }
+
 } }

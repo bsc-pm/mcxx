@@ -192,6 +192,19 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 const std::string lock_name,
                 Nodecl::NodeclBase construct,
                 Nodecl::NodeclBase statements);
+
+        void fill_allocatable_dimensions(
+                TL::Symbol symbol,
+                TL::Type current_type,
+                int current_rank,
+                int rank_size,
+                Source &fill_outline_arguments, 
+                Source &fill_immediate_arguments, 
+                int &lower_bound_index, 
+                int &upper_bound_index);
+
+        Source emit_allocate_statement(TL::Symbol sym, 
+                int &lower_bound_index, int &upper_bound_index);
 };
 
 } }
