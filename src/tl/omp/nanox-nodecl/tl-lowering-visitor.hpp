@@ -187,6 +187,11 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         std::set<std::string> _lock_names;
 
         Source perform_partial_reduction(OutlineInfo& outline_info);
+
+        Nodecl::NodeclBase emit_critical_region(
+                const std::string lock_name,
+                Nodecl::NodeclBase construct,
+                Nodecl::NodeclBase statements);
 };
 
 } }

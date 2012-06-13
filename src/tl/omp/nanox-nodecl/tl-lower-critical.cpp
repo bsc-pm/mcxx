@@ -41,26 +41,11 @@ namespace TL { namespace Nanox {
 
     }
 
-    void LoweringVisitor::visit(const Nodecl::OpenMP::Critical& construct)
+    Nodecl::NodeclBase LoweringVisitor::emit_critical_region(
+            const std::string lock_name,
+            Nodecl::NodeclBase construct,
+            Nodecl::NodeclBase statements)
     {
-        Nodecl::NodeclBase environment = construct.get_environment();
-        Nodecl::NodeclBase statements = construct.get_statements();
-
-        walk(statements);
-
-        // Get the new statements
-        statements = construct.get_statements();
-
-        std::string lock_name = "nanos_default_critical_lock";
-        if (!environment.is_null())
-        {
-            Nodecl::NodeclBase critical_name_node = environment.as<Nodecl::List>().find_first<Nodecl::OpenMP::CriticalName>();
-            if (!critical_name_node.is_null())
-            {
-                lock_name = "nanos_critical_lock_" + critical_name_node.get_text();
-            }
-        }
-
         // We do this to use a macro from the code of nanox
 #define STR_(x) #x
 #define STR(x) STR_((x))
@@ -136,6 +121,31 @@ namespace TL { namespace Nanox {
         }
 
         stmt_placeholder.integrate(statements.shallow_copy());
+
+        return critical_code;
+    }
+
+    void LoweringVisitor::visit(const Nodecl::OpenMP::Critical& construct)
+    {
+        Nodecl::NodeclBase environment = construct.get_environment();
+        Nodecl::NodeclBase statements = construct.get_statements();
+
+        walk(statements);
+
+        // Get the new statements
+        statements = construct.get_statements();
+
+        std::string lock_name = "nanos_default_critical_lock";
+        if (!environment.is_null())
+        {
+            Nodecl::NodeclBase critical_name_node = environment.as<Nodecl::List>().find_first<Nodecl::OpenMP::CriticalName>();
+            if (!critical_name_node.is_null())
+            {
+                lock_name = "nanos_critical_lock_" + critical_name_node.get_text();
+            }
+        }
+
+        Nodecl::NodeclBase critical_code = emit_critical_region(lock_name, construct, statements);
 
         construct.integrate(critical_code);
     }

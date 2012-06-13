@@ -28,7 +28,7 @@ OMP_CONSTRUCT("parallel|for", parallel_for, true)
 OMP_CONSTRUCT("for", for, true)
 
 OMP_DIRECTIVE("barrier", barrier, true)
-OMP_CONSTRUCT("atomic", atomic, true)
+OMP_CONSTRUCT_NOEND("atomic", atomic, true)
 OMP_CONSTRUCT("master", master, true)
 
 OMP_CONSTRUCT("critical", critical, true)
