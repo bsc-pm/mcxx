@@ -76,7 +76,8 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 TL::Symbol structure_symbol);
 #endif
         void handle_vla_entity(OutlineDataItem& data_item, OutlineInfo& outline_info);
-        void handle_vla_type_rec(TL::Type t, OutlineInfo& outline_info);
+        void handle_vla_type_rec(TL::Type t, OutlineInfo& outline_info,
+            OutlineDataItem& outline_data_item);
         void handle_vla_saved_expr(Nodecl::NodeclBase saved_expr, OutlineInfo& outline_info);
 
         void fill_arguments(
