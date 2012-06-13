@@ -880,25 +880,38 @@ type_t* const_value_get_minimal_integer_for_value_at_least_signed_int(const_valu
     return get_minimal_integer_for_value_at_least_signed_int(val->sign, val->value.i);
 }
 
-nodecl_t const_value_to_nodecl(const_value_t* v)
+nodecl_t const_value_to_nodecl_with_basic_types(const_value_t* v, 
+        type_t* integer_type,
+        type_t* floating_type)
 {
     switch (v->kind)
     {
         case CVK_INTEGER:
             {
                 // Zero is special
-                if (v->value.i == 0)
+                if (integer_type == NULL && v->value.i == 0)
                     return nodecl_make_integer_literal(get_zero_type(), v, NULL, 0);
 
-                type_t* t = get_minimal_integer_for_value_at_least_signed_int(v->sign, v->value.i);
-                return nodecl_make_integer_literal(t, v, NULL, 0);
+                type_t* t = integer_type;
+                if (t == NULL)
+                    t = get_minimal_integer_for_value_at_least_signed_int(v->sign, v->value.i);
+                if (is_bool_type(t))
+                {
+                    return nodecl_make_boolean_literal(t, v, NULL, 0);
+                }
+                else
+                {
+                    return nodecl_make_integer_literal(t, v, NULL, 0);
+                }
                 break;
             }
         case CVK_FLOAT:
         case CVK_DOUBLE:
         case CVK_LONG_DOUBLE:
             {
-                type_t* t = get_minimal_floating_type(v);
+                type_t* t = floating_type;
+                if (t == NULL)
+                    t = get_minimal_floating_type(v);
                 return nodecl_make_floating_literal(t, v, NULL, 0);
                 break;
             }
@@ -919,7 +932,7 @@ nodecl_t const_value_to_nodecl(const_value_t* v)
                 int i;
                 for (i = 0; i < v->value.m->num_elements; i++)
                 {
-                    list = nodecl_append_to_list(list, const_value_to_nodecl(v->value.m->elements[i]));
+                    list = nodecl_append_to_list(list, const_value_to_nodecl_with_basic_types(v->value.m->elements[i], integer_type, floating_type));
                 }
 
                 // Get the type from the first element
@@ -951,6 +964,16 @@ nodecl_t const_value_to_nodecl(const_value_t* v)
                 break;
             }
     }
+}
+
+nodecl_t const_value_to_nodecl(const_value_t* v)
+{
+    return const_value_to_nodecl_with_basic_types(v, /* integer_type */ NULL, /* floating_type */ NULL);
+}
+
+nodecl_t const_value_to_nodecl_with_basic_type(const_value_t* v, type_t* basic_type)
+{
+    return const_value_to_nodecl_with_basic_types(v, basic_type, basic_type);
 }
 
 char const_value_is_integer(const_value_t* v)
