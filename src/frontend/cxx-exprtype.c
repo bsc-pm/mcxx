@@ -7603,33 +7603,21 @@ void check_function_arguments(AST arguments, decl_context_t decl_context,
 
 static scope_entry_list_t* do_koenig_lookup(nodecl_t nodecl_simple_name, 
         nodecl_t nodecl_argument_list, 
-        decl_context_t decl_context)
+        decl_context_t decl_context,
+        char *can_succeed)
 {
+    *can_succeed = 1;
+
     // First try to do a normal lookup
     scope_entry_list_t* entry_list = query_name_str_flags(decl_context, 
             nodecl_get_text(nodecl_simple_name), DF_IGNORE_FRIEND_DECL);
 
-    enum cxx_symbol_kind filter_function_names[] = 
-    {
-        SK_VARIABLE,
-        SK_FUNCTION,
-        SK_TEMPLATE, 
-        SK_DEPENDENT_ENTITY,
-        SK_USING,
-    };
-
-    scope_entry_list_t* old_entry_list = entry_list;
-    entry_list = filter_symbol_kind_set(old_entry_list,
-            STATIC_ARRAY_LENGTH(filter_function_names), filter_function_names);
-    entry_list_free(old_entry_list);
-
-    char still_requires_koenig = 1;
-
     if (entry_list != NULL)
     {
         // If no member is found we still have to perform member
-
-        char invalid = 0;
+        char invalid = 0,
+             still_requires_koenig = 1,
+             at_least_one_candidate = 0;
 
         scope_entry_list_iterator_t *it = NULL;
         for (it = entry_list_iterator_begin(entry_list);
@@ -7637,6 +7625,10 @@ static scope_entry_list_t* do_koenig_lookup(nodecl_t nodecl_simple_name,
                 entry_list_iterator_next(it))
         {
             scope_entry_t* entry = entry_advance_aliases(entry_list_iterator_current(it));
+
+            if (entry->kind == SK_CLASS
+                    || entry->kind == SK_ENUM)
+                continue;
 
             type_t* type = no_ref(advance_over_typedefs(entry->type_information));
             if (entry->kind != SK_FUNCTION
@@ -7661,6 +7653,8 @@ static scope_entry_list_t* do_koenig_lookup(nodecl_t nodecl_simple_name,
             }
             else
             {
+                at_least_one_candidate = 1;
+
                 // It can be a dependent entity because of a using of an undefined base
                 if (entry->kind == SK_DEPENDENT_ENTITY
                         || entry->entity_specs.is_member
@@ -7676,12 +7670,14 @@ static scope_entry_list_t* do_koenig_lookup(nodecl_t nodecl_simple_name,
         entry_list_iterator_free(it);
 
         // This cannot be called at all
-        if (invalid)
+        if (invalid || !at_least_one_candidate)
         {
             DEBUG_CODE()
             {
                 fprintf(stderr, "EXPRTYPE: Trying to call something not callable (it is not a function, template function or object)\n");
             }
+            *can_succeed = 0;
+            entry_list_free(entry_list);
             return NULL;
         }
 
@@ -7693,6 +7689,7 @@ static scope_entry_list_t* do_koenig_lookup(nodecl_t nodecl_simple_name,
                 fprintf(stderr, "EXPRTYPE: Not Koenig will be performed since we found something that "
                         "is member or pointer to function type or dependent entity\n");
             }
+            entry_list_free(entry_list);
             return NULL;
         }
     }
@@ -7755,20 +7752,18 @@ static scope_entry_list_t* do_koenig_lookup(nodecl_t nodecl_simple_name,
     }
 
     entry_list_free(entry_list);
+
     entry_list = koenig_lookup(
             num_arguments,
             argument_types,
             decl_context,
             nodecl_simple_name);
 
-    old_entry_list = entry_list;
-    entry_list = filter_symbol_kind_set(old_entry_list,
-            STATIC_ARRAY_LENGTH(filter_function_names), filter_function_names);
-    entry_list_free(old_entry_list);
-
-    // Filter the list again
     if (entry_list != NULL)
     {
+        char invalid = 0,
+             at_least_one_candidate = 0;
+
         // If no member is found we still have to perform member
         scope_entry_list_iterator_t *it = NULL;
         for (it = entry_list_iterator_begin(entry_list);
@@ -7776,6 +7771,11 @@ static scope_entry_list_t* do_koenig_lookup(nodecl_t nodecl_simple_name,
                 entry_list_iterator_next(it))
         {
             scope_entry_t* entry = entry_advance_aliases(entry_list_iterator_current(it));
+
+            if (entry->kind == SK_CLASS
+                    || entry->kind == SK_ENUM)
+                continue;
+
             type_t* type = no_ref(advance_over_typedefs(entry->type_information));
             if (entry->kind != SK_FUNCTION
                     && (entry->kind != SK_VARIABLE
@@ -7787,18 +7787,45 @@ static scope_entry_list_t* do_koenig_lookup(nodecl_t nodecl_simple_name,
                             named_type_get_symbol(template_type_get_primary_type(type))
                             ->type_information)))
             {
-                // This can't be called!
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "EXPRTYPE: Trying to call something not callable (it is not a function, template function or object)\n");
-                }
-                return 0;
+                invalid = 1;
             }
+            {
+                at_least_one_candidate = 1;
+            }
+        }
+        if (invalid || !at_least_one_candidate)
+        {
+            // This can't be called!
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "EXPRTYPE: Trying to call something not callable (it is not a function, template function or object)\n");
+            }
+            *can_succeed = 0;
+            entry_list_free(entry_list);
+            return NULL;
         }
         entry_list_iterator_free(it);
     }
 
-    return entry_list;
+    // If we arrive here, we have at least one function candidate
+
+    enum cxx_symbol_kind filter_function_names[] =
+    {
+        SK_VARIABLE,
+        SK_FUNCTION,
+        SK_TEMPLATE,
+        SK_DEPENDENT_ENTITY,
+        SK_USING,
+    };
+
+    // The entry-list may contain useless symbols (SK_CLASS or SK_ENUM), we should filter it
+    scope_entry_list_t* candidates_list = filter_symbol_kind_set(entry_list,
+            STATIC_ARRAY_LENGTH(filter_function_names),
+            filter_function_names);
+
+    entry_list_free(entry_list);
+
+    return candidates_list;
 }
 
 typedef
@@ -8147,9 +8174,12 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
     char success_koenig_lookup = 1;
     if (nodecl_get_kind(nodecl_called) == NODECL_CXX_DEP_NAME_SIMPLE)
     {
-        candidates = do_koenig_lookup(nodecl_called, nodecl_argument_list, decl_context);
+        char can_succeed = 1;
+        // If can_succeed becomes zero, this call is not possible at all (e.g.
+        // we are "calling" a typedef-name or class-name)
+        candidates = do_koenig_lookup(nodecl_called, nodecl_argument_list, decl_context, &can_succeed);
 
-        if (candidates == NULL)
+        if (candidates == NULL && can_succeed)
         {
             // Try a plain lookup
             success_koenig_lookup = 0;
