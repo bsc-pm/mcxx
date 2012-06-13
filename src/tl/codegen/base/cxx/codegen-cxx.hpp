@@ -253,7 +253,7 @@ namespace Codegen
                     condition_top(Nodecl::NodeclBase::null()),
                     in_member_declaration(false),
                     in_dependent_template_function_code(false),
-                    inside_structured_value(),
+                    inside_structured_value(false),
                     do_not_emit_other_declarations(IS_CXX_LANGUAGE),
                     visiting_called_entity_of_function_call(false),
                     classes_being_defined(),

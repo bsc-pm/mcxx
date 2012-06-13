@@ -4363,7 +4363,7 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
                                 .get_items()
                                 .as<Nodecl::List>());
                     }
-                    else
+                    else if (symbol.get_type().is_aggregate())
                     {
                         char old_inside_struct = state.inside_structured_value;
                         state.inside_structured_value = 1;
@@ -4371,6 +4371,12 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
                         walk(init);
 
                         state.inside_structured_value = old_inside_struct;
+                    }
+                    else
+                    {
+                        // This initialization is an explicit type cast. For this reason,
+                        // we do not set the variable 'inside_structured_value' to true
+                        walk(init);
                     }
                 }
                 else
