@@ -9482,6 +9482,12 @@ static void check_nodecl_member_access(
 
     CXX_LANGUAGE()
     {
+        if (entry->entity_specs.is_mutable)
+        {
+            // Remove const because of a mutable field
+            cv_qualif &= ~CV_CONST;
+        }
+
         if (entry->kind == SK_VARIABLE)
         {
             ok = 1;
