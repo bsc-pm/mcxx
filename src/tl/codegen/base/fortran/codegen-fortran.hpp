@@ -342,6 +342,8 @@ namespace Codegen
             void emit_interface_for_symbol(TL::Symbol entry);
 
             bool entry_is_in_scope(TL::Symbol entry, TL::Scope sc);
+
+            bool module_can_be_reached(TL::Symbol current_module, TL::Symbol module_target);
     };
 }
 

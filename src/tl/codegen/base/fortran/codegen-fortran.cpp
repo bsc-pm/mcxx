@@ -4054,6 +4054,30 @@ OPERATOR_TABLE
         being_checked.erase(entry);
     }
 
+    bool FortranBase::module_can_be_reached(TL::Symbol current_module, TL::Symbol module_target)
+    {
+        // Get the context of the given module
+        TL::Scope sc = current_module.get_related_scope();
+
+        TL::Symbol used_modules = ::get_used_modules_symbol_info(sc.get_decl_context());
+        if (!used_modules.is_valid())
+            return false;
+
+        TL::ObjectList<TL::Symbol> used_modules_list = used_modules.get_related_symbols();
+        bool found = used_modules_list.contains(module_target);
+        if (!found)
+        {
+            for (TL::ObjectList<TL::Symbol>::iterator it = used_modules_list.begin();
+                    it != used_modules_list.end() && !found;
+                    it++)
+            {
+                found = module_can_be_reached(*it, module_target);
+            }
+        }
+
+        return found;
+    }
+
     void FortranBase::codegen_use_statement(TL::Symbol entry, const TL::Scope &sc)
     {
         ERROR_CONDITION(!entry.is_from_module(),
@@ -4071,7 +4095,23 @@ OPERATOR_TABLE
 
         TL::ObjectList<TL::Symbol> used_modules_list = used_modules.get_related_symbols();
         bool found = used_modules_list.contains(module);
-        // This module was not explicitly used
+        // This module was not explicitly used but maybe can be explicitly reached
+        // using one of the USEd in the current program unit
+        if (!found)
+        {
+            for (TL::ObjectList<TL::Symbol>::iterator it = used_modules_list.begin();
+                    it != used_modules_list.end();
+                    it++)
+            {
+                if (module_can_be_reached(*it, module))
+                {
+                    // Use this module
+                    module = *it;
+                    break;
+                }
+            }
+        }
+
         if (!found)
             return;
 
