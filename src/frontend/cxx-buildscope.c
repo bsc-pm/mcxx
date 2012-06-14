@@ -7327,6 +7327,7 @@ static char is_constructor_declarator_rec(AST a, char seen_decl_func)
                     switch (ASTType(ASTSon0(a)))
                     {
                         case AST_SYMBOL :
+                        case AST_TEMPLATE_ID :
                             return 1;
                         case AST_QUALIFIED_ID :
                             {
@@ -10195,6 +10196,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
                 is_constructor = 1;
             }
         }
+
         C_LANGUAGE()
         {
             // There is no decl specifier sequence at all
@@ -11074,6 +11076,30 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
         if (is_constructor_declarator(function_declarator))
         {
             is_constructor = 1;
+            if (ASTType(declarator_name) == AST_TEMPLATE_ID)
+            {
+                scope_entry_list_t* entry_list = query_id_expression(decl_context, declarator_name);
+                if (entry_list == NULL ||
+                        entry_list_head(entry_list) != decl_context.current_scope->related_entry)
+                {
+                    if(!checking_ambiguity())
+                    {
+                        error_printf("%s: error: invalid constructor declaration '%s'\n",
+                                ast_location(declarator_name),
+                                prettyprint_in_buffer(a));
+                    }
+                    return NULL;
+                }
+                // Clobber declarator_name with something sane
+                //
+                // A<int>() will become A()
+                //
+                // This is mean but constructors in this form are too unwieldy
+                AST parent = ASTParent(declarator_name);
+                int child_num = ast_num_of_given_child(parent, declarator_name);
+                ast_replace(declarator_name, ASTSon0(declarator_name));
+                ast_set_child(parent, child_num, declarator_name);
+            }
         }
     }
 
@@ -11504,27 +11530,6 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                             break;
                         }
 
-                        AST declarator_name = get_declarator_name(declarator, decl_context);
-                        AST initializer = ASTSon1(declarator);
-
-                        // Change name of constructors
-                        if (type_specifier == NULL)
-                        {
-                            if (is_constructor_declarator(declarator))
-                            {
-                                if (strcmp(class_name, ASTText(declarator_name)) == 0)
-                                {
-                                    is_constructor = 1;
-                                }
-                            }
-                        }
-
-                        decl_context_t new_decl_context = decl_context;
-                        if (is_constructor)
-                        {
-                            new_decl_context.decl_flags |= DF_CONSTRUCTOR;
-                        }
-
                         AST too_much_qualified_declarator_name = get_declarator_name(declarator, decl_context);
 
                         if (ASTType(too_much_qualified_declarator_name) == AST_QUALIFIED_ID)
@@ -11538,6 +11543,52 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                         );
                             }
                             return;
+                        }
+
+                        AST declarator_name = get_declarator_name(declarator, decl_context);
+                        AST initializer = ASTSon1(declarator);
+
+                        // Change name of constructors
+                        if (type_specifier == NULL)
+                        {
+                            if (is_constructor_declarator(declarator))
+                            {
+                                if (ASTType(declarator_name) == AST_TEMPLATE_ID)
+                                {
+                                    scope_entry_list_t* entry_list = query_id_expression(decl_context, declarator_name);
+                                    if (entry_list == NULL ||
+                                            entry_list_head(entry_list) != decl_context.current_scope->related_entry)
+                                    {
+                                        if(!checking_ambiguity())
+                                        {
+                                            error_printf("%s: error: invalid constructor declaration '%s'\n",
+                                                ast_location(declarator_name),
+                                                prettyprint_in_buffer(a));
+                                        }
+                                        return;
+                                    }
+                                    // Clobber declarator_name with something sane
+                                    //
+                                    // A<int>() will become A()
+                                    //
+                                    // This is mean but constructors in this form are too unwieldy
+                                    AST parent = ASTParent(declarator_name);
+                                    int child_num = ast_num_of_given_child(parent, declarator_name);
+                                    ast_replace(declarator_name, ASTSon0(declarator_name));
+                                    ast_set_child(parent, child_num, declarator_name);
+                                }
+
+                                if (strcmp(class_name, ASTText(declarator_name)) == 0)
+                                {
+                                    is_constructor = 1;
+                                }
+                            }
+                        }
+
+                        decl_context_t new_decl_context = decl_context;
+                        if (is_constructor)
+                        {
+                            new_decl_context.decl_flags |= DF_CONSTRUCTOR;
                         }
 
                         type_t* declarator_type = NULL;
