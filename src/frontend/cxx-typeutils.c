@@ -6365,8 +6365,68 @@ static char is_function_or_template_function_name(scope_entry_t* entry, void* p 
                         template_type_get_primary_type(entry->type_information))->kind == SK_FUNCTION)));
 }
 
+static const char* get_simple_type_name_string_internal_common(scope_entry_t* entry, decl_context_t decl_context, 
+        void* data UNUSED_PARAMETER)
+{
+    char is_dependent = 0;
+    int max_level = 0;
+    const char* result = get_fully_qualified_symbol_name(entry,
+            decl_context, &is_dependent, &max_level);
+
+    // If is a dependent name and it is qualified then it can be
+    // given a "typename" keyword (in some cases one must do that)
+    if (is_dependent && max_level > 0)
+    {
+        result = strappend("typename ", result);
+    }
+
+    if (entry->kind == SK_CLASS
+            || entry->kind == SK_ENUM)
+    {
+        // It may happen that a function is hiding our typename in this scope
+        scope_entry_list_t* entry_list = query_in_scope_str(entry->decl_context, entry->symbol_name);
+        entry_list = filter_symbol_using_predicate(entry_list, is_function_or_template_function_name, NULL);
+
+        // It seems somebody is hiding our name in this scope
+        if (entry_list != NULL)
+        {
+            if (entry->kind == SK_ENUM)
+            {
+                result = strappend("enum ", result);
+            }
+            else if (entry->kind == SK_CLASS)
+            {
+                switch (class_type_get_class_kind(entry->type_information))
+                {
+                    case TT_UNION:
+                        result = strappend("union ", result); break;
+                    case TT_STRUCT:
+                        result = strappend("struct ", result); break;
+                    case TT_CLASS:
+                        result = strappend("class ", result); break;
+                    default:
+                        internal_error("Code unreachable", 0);
+                }
+            }
+        }
+
+        entry_list_free(entry_list);
+    }
+
+    return result;
+}
+
+static const char* get_simple_type_name_string(decl_context_t decl_context, 
+        type_t* type_info,
+        print_symbol_callback_t print_symbol_fun,
+        void* print_symbol_data);
+
 // Gives a string with the name of this simple type
-static const char* get_simple_type_name_string_internal(decl_context_t decl_context, type_t* t)
+static const char* get_simple_type_name_string_internal(decl_context_t decl_context, 
+        type_t* t,
+        print_symbol_callback_t print_symbol_fun,
+        void* print_symbol_data
+        )
 {
     simple_type_t* simple_type = t->type;
     ERROR_CONDITION(simple_type == NULL, "This cannot be null", 0);
@@ -6378,51 +6438,7 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
             {
                 scope_entry_t* entry = simple_type->user_defined_type;
 
-                char is_dependent = 0;
-                int max_level = 0;
-                result = get_fully_qualified_symbol_name(entry,
-                        decl_context, &is_dependent, &max_level);
-
-                // If is a dependent name and it is qualified then it can be
-                // given a "typename" keyword (in some cases one must do that)
-                if (is_dependent && max_level > 0)
-                {
-                    result = strappend("typename ", result);
-                }
-
-                if (entry->kind == SK_CLASS
-                        || entry->kind == SK_ENUM)
-                {
-                    // It may happen that a function is hiding our typename in this scope
-                    scope_entry_list_t* entry_list = query_in_scope_str(entry->decl_context, entry->symbol_name);
-                    entry_list = filter_symbol_using_predicate(entry_list, is_function_or_template_function_name, NULL);
-
-                    // It seems somebody is hiding our name in this scope
-                    if (entry_list != NULL)
-                    {
-                        if (entry->kind == SK_ENUM)
-                        {
-                            result = strappend("enum ", result);
-                        }
-                        else if (entry->kind == SK_CLASS)
-                        {
-                            switch (class_type_get_class_kind(entry->type_information))
-                            {
-                                case TT_UNION:
-                                    result = strappend("union ", result); break;
-                                case TT_STRUCT:
-                                    result = strappend("struct ", result); break;
-                                case TT_CLASS:
-                                    result = strappend("class ", result); break;
-                                default:
-                                    internal_error("Code unreachable", 0);
-                            }
-                        }
-                    }
-
-                    entry_list_free(entry_list);
-                }
-
+                result = print_symbol_fun(entry, decl_context, print_symbol_data);
                 break;
             }
         case STK_TYPEOF :
@@ -6553,7 +6569,7 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
             {
                 result = strappend(result, "_Complex ");
                 result = strappend(result, 
-                        get_simple_type_name_string(decl_context, simple_type->complex_element));
+                        get_simple_type_name_string(decl_context, simple_type->complex_element, print_symbol_fun, print_symbol_data));
                 break;
             }
         case STK_CLASS :
@@ -6698,7 +6714,8 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
             }
         case STK_TEMPLATE_TYPE:
             {
-                result = get_simple_type_name_string(decl_context, simple_type->primary_specialization);
+                result = get_simple_type_name_string(decl_context, simple_type->primary_specialization, 
+                        print_symbol_fun, print_symbol_data);
                 break;
             }
         case STK_TYPE_DEP_EXPR:
@@ -6717,7 +6734,10 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
 }
 
 // Gives the simple type name of a full fledged type
-const char* get_simple_type_name_string(decl_context_t decl_context, type_t* type_info)
+static const char* get_simple_type_name_string(decl_context_t decl_context, 
+        type_t* type_info,
+        print_symbol_callback_t print_symbol_fun,
+        void* print_symbol_data)
 {
     const char* result = "";
 
@@ -6735,7 +6755,8 @@ const char* get_simple_type_name_string(decl_context_t decl_context, type_t* typ
     else
     {
         result = get_cv_qualifier_string(type_info);
-        result = strappend(result, get_simple_type_name_string_internal(decl_context, type_info));
+        result = strappend(result, 
+                get_simple_type_name_string_internal(decl_context, type_info, print_symbol_fun, print_symbol_data));
     }
 
     return result;
@@ -6749,17 +6770,22 @@ static const char* get_type_name_string(decl_context_t decl_context,
         const char** parameter_attributes,
         char is_parameter);
 
-// Returns a declaration string given a type, a symbol name, an optional initializer
-// and a semicolon
-// For function types you can specify the names of the arguments
-const char* get_declaration_string_internal(type_t* type_info, 
+static const char* get_simple_type_name_string(decl_context_t decl_context, 
+        type_t* type_info,
+        print_symbol_callback_t print_symbol_fun,
+        void* print_symbol_data);
+
+static const char* get_declaration_string_internal_impl(type_t* type_info, 
         decl_context_t decl_context,
         const char* symbol_name, const char* initializer, 
         char semicolon,
         int num_parameter_names,
         const char** parameter_names,
         const char** parameter_attributes,
-        char is_parameter)
+        char is_parameter,
+        
+        print_symbol_callback_t print_symbol_fun,
+        void* print_symbol_data)
 {
     ERROR_CONDITION(type_info == NULL, "This cannot be null", 0);
 
@@ -6771,7 +6797,7 @@ const char* get_declaration_string_internal(type_t* type_info,
     }
 
     type_t* base_type = get_foundation_type(type_info);
-    const char* base_type_name = get_simple_type_name_string(decl_context, base_type);
+    const char* base_type_name = get_simple_type_name_string(decl_context, base_type, print_symbol_fun, print_symbol_data);
     const char* declarator_name = get_type_name_string(decl_context, type_info, symbol_name, 
             num_parameter_names, parameter_names, parameter_attributes, is_parameter);
 
@@ -6799,6 +6825,33 @@ const char* get_declaration_string_internal(type_t* type_info,
     }
 
     return result;
+}
+
+static const char* get_simple_type_name_string_internal_common(scope_entry_t* entry, decl_context_t decl_context, void*);
+
+// Returns a declaration string given a type, a symbol name, an optional initializer
+// and a semicolon
+// For function types you can specify the names of the arguments
+const char* get_declaration_string_internal(type_t* type_info, 
+        decl_context_t decl_context,
+        const char* symbol_name, const char* initializer, 
+        char semicolon,
+        int num_parameter_names,
+        const char** parameter_names,
+        const char** parameter_attributes,
+        char is_parameter)
+{
+    return  get_declaration_string_internal_impl(type_info, 
+        decl_context,
+        symbol_name, initializer, 
+        semicolon,
+        num_parameter_names,
+        parameter_names,
+        parameter_attributes,
+        is_parameter,
+        get_simple_type_name_string_internal_common,
+        NULL
+        );
 }
 
 static void get_type_name_str_internal(decl_context_t decl_context,
@@ -7385,14 +7438,6 @@ static const char* get_template_parameters_list_str(template_parameter_list_t* t
     return result;
 }
 
-const char* get_named_type_name(scope_entry_t* entry)
-{
-    ERROR_CONDITION(entry == NULL, "This cannot be null", 0);
-    return get_named_simple_type_name(entry);
-}
-
-
-
 // Gives the name of a builtin type. This routine is for debugging
 static const char* get_builtin_type_name(type_t* type_info)
 {
@@ -7737,7 +7782,8 @@ const char* print_declarator(type_t* printed_declarator)
                 tmp_result = strappend(tmp_result, "pointer to member of ");
                 if (printed_declarator->pointer->pointee_class != NULL)
                 {
-                    tmp_result = strappend(tmp_result, get_named_type_name(printed_declarator->pointer->pointee_class));
+                    tmp_result = strappend(tmp_result, 
+                            get_named_simple_type_name(printed_declarator->pointer->pointee_class));
                 }
                 else
                 {
