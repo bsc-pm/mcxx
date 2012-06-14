@@ -2861,10 +2861,6 @@ OPERATOR_TABLE
         if (get_codegen_status(entry) == CODEGEN_STATUS_DEFINED)
             return;
 
-        // If we are told not to declare it, ignore it
-        if (do_not_declare.contains(entry))
-            return;
-
         decl_context_t entry_context = entry.get_scope().get_decl_context();
         
         // We only declare entities in the current scope that are not internal subprograms or module procedures
@@ -3960,10 +3956,6 @@ OPERATOR_TABLE
         if (being_checked.find(entry) != being_checked.end())
             return;
 
-        // Do not declare if we are told not to declare it
-        if (do_not_declare.contains(entry))
-            return;
-
         being_checked.insert(entry);
 
         if (entry.is_from_module())
@@ -4744,41 +4736,6 @@ OPERATOR_TABLE
         return result;
     }
 
-#if 0
-    std::string FortranBase::emit_declaration_part(Nodecl::NodeclBase node, const TL::ObjectList<TL::Symbol>& do_not_declare)
-    {
-        clear_codegen_status();
-        clear_renames();
-
-        TL::Scope sc = node.retrieve_context();
-
-        state = State();
-        push_declaring_entity(sc.get_decl_context().current_scope->related_entry);
-
-        file.clear();
-        file.str("");
-
-        this->do_not_declare = do_not_declare;
-
-        declare_use_statements(node);
-        file << "IMPLICIT NONE" << "\n";
-        declare_everything_needed(node);
-
-        std::string result = file.str();
-
-        file.clear();
-        file.str("");
-
-        this->do_not_declare.clear();
-
-        pop_declaring_entity();
-
-        clear_codegen_status();
-        clear_renames();
-
-        return result;
-    }
-#endif
 
     void FortranBase::push_declaration_status()
     {

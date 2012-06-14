@@ -227,10 +227,6 @@ namespace Codegen
             typedef std::set<std::string> external_symbol_set_t;
             external_symbol_set_t _external_symbols;
 
-            // This is a set used for emit_declaration_part which states that a
-            // given symbol does not have to be declared at all
-            TL::ObjectList<TL::Symbol> do_not_declare;
-
             std::string define_ptr_loc(TL::Type t, const std::string& function_name);
 
             void set_codegen_status(TL::Symbol sym, codegen_status_t status);
