@@ -37,6 +37,7 @@
 #include "cxx-cexpr.h"
 #include "fortran03-scope.h"
 #include "fortran03-typeutils.h"
+#include "fortran03-buildscope.h"
 
 using TL::Source;
 
@@ -751,6 +752,22 @@ namespace TL { namespace Nanox {
                 TL::Scope sc = ref_scope.get_scope();
                 ::insert_entry(decl_context.current_scope, it->get_internal_symbol());
             }
+
+            // Copy USEd information
+            scope_entry_t* original_used_modules_info
+                = get_used_modules_symbol_info(original_statements.retrieve_context().get_decl_context());
+            if (original_used_modules_info != NULL)
+            {
+                scope_entry_t* new_used_modules_info
+                    = get_or_create_used_modules_symbol_info(decl_context);
+                int i;
+                for (i = 0 ; i< original_used_modules_info->entity_specs.num_related_symbols; i++)
+                {
+                    P_LIST_ADD(new_used_modules_info->entity_specs.related_symbols,
+                            new_used_modules_info->entity_specs.num_related_symbols,
+                            original_used_modules_info->entity_specs.related_symbols[i]);
+                }
+            }
         }
 
         Nodecl::NodeclBase new_unpacked_body = unpacked_source.parse_statement(unpacked_function_body);
@@ -792,6 +809,26 @@ namespace TL { namespace Nanox {
                 << "CALL " << outline_name << "_unpacked(" << unpacked_arguments << ")\n"
                 << cleanup_code
                 ;
+
+            TL::ReferenceScope ref_scope(outline_function_body);
+            decl_context_t decl_context = ref_scope.get_scope().get_decl_context();
+
+            // Copy USEd information
+            scope_entry_t* original_used_modules_info
+                = get_used_modules_symbol_info(original_statements.retrieve_context().get_decl_context());
+
+            if (original_used_modules_info != NULL)
+            {
+                scope_entry_t* new_used_modules_info
+                    = get_or_create_used_modules_symbol_info(decl_context);
+                int i;
+                for (i = 0 ; i< original_used_modules_info->entity_specs.num_related_symbols; i++)
+                {
+                    P_LIST_ADD(new_used_modules_info->entity_specs.related_symbols,
+                            new_used_modules_info->entity_specs.num_related_symbols,
+                            original_used_modules_info->entity_specs.related_symbols[i]);
+                }
+            }
         }
         else
         {

@@ -58,6 +58,8 @@ LIBMF03_EXTERN scope_entry_t* get_data_symbol_info(decl_context_t decl_context_t
 LIBMF03_EXTERN scope_entry_t* get_equivalence_symbol_info(decl_context_t decl_context);
 LIBMF03_EXTERN scope_entry_t* get_used_modules_symbol_info(decl_context_t decl_context);
 
+LIBMF03_EXTERN scope_entry_t* get_or_create_used_modules_symbol_info(decl_context_t decl_context);
+
 LIBMF03_EXTERN scope_entry_t* fortran_query_label(AST label, 
         decl_context_t decl_context, 
         char is_definition);
