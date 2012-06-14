@@ -113,12 +113,12 @@ namespace Codegen
             {
                 walk(node.get_top_level());
             }
-            
+
             void visit(const Nodecl::PragmaCustomDirective& node)
             {
                 Nodecl::NodeclBase context = node.get_context_of_decl();
                 decl_context_t decl_context = nodecl_get_decl_context(context.get_internal_nodecl());
-                    
+
                 if (decl_context.current_scope->related_entry != NULL)
                 {
                     scope_entry_t * related_entry = decl_context.current_scope->related_entry;  
@@ -129,9 +129,9 @@ namespace Codegen
                     }
                 }
             }
-            
+
         private:
-            
+
             void add_module_node_before(TL::Symbol module, Nodecl::NodeclBase node)
             {
                 bool found = false;
@@ -162,7 +162,7 @@ namespace Codegen
                     seen_modules.append(module_info);
                 }
             }
-            
+
             void add_module_node_after(TL::Symbol module, Nodecl::NodeclBase node)
             {
                 bool found = false;
@@ -213,9 +213,10 @@ namespace Codegen
 
             push_declaring_entity(current_module);
 
-            TL::ObjectList<Nodecl::NodeclBase> nodes_before_contains = it->nodes_before_contains;
-           
-            codegen_module_header(current_module, nodes_before_contains);
+            TL::ObjectList<Nodecl::NodeclBase> &nodes_before_contains = it->nodes_before_contains;
+            TL::ObjectList<Nodecl::NodeclBase> &nodes_after_contains = it->nodes_after_contains;
+
+            codegen_module_header(current_module, nodes_before_contains, nodes_after_contains);
 
             clear_renames();
 
@@ -229,7 +230,7 @@ namespace Codegen
                 clear_renames();
 
                 walk(node);
-                
+
                 pop_declaration_status();
             }
 
@@ -507,8 +508,10 @@ namespace Codegen
 
             push_declaring_entity(entry);
 
-            TL::ObjectList<Nodecl::NodeclBase> empty_set_of_nodes_before_contains;
-            codegen_module_header(entry, empty_set_of_nodes_before_contains);
+            TL::ObjectList<Nodecl::NodeclBase> empty_set_of_nodes;
+            codegen_module_header(entry,
+                    /* before_contains */ empty_set_of_nodes,
+                    /* after_contains */ empty_set_of_nodes);
             codegen_module_footer(entry);
 
             pop_declaring_entity();
@@ -3550,7 +3553,9 @@ OPERATOR_TABLE
         }
     }
 
-    void FortranBase::codegen_module_header(TL::Symbol entry, TL::ObjectList<Nodecl::NodeclBase> nodes_before_contains)
+    void FortranBase::codegen_module_header(TL::Symbol entry,
+            TL::ObjectList<Nodecl::NodeclBase> &nodes_before_contains,
+            TL::ObjectList<Nodecl::NodeclBase> &nodes_after_contains)
     {
         file << "MODULE " << entry.get_name() << "\n";
 
@@ -3614,13 +3619,22 @@ OPERATOR_TABLE
                 file << "PRIVATE :: " << sym.get_name() << "\n";
             }
         }
-        
+
         for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = nodes_before_contains.begin();
                 it != nodes_before_contains.end();
                 it++)
         {
             Nodecl::NodeclBase& node(*it);
             walk(node);
+        }
+
+        // Now traverse every node after contains looking for global stuff that we will emit here
+        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = nodes_after_contains.begin();
+                it != nodes_after_contains.end();
+                it++)
+        {
+            Nodecl::NodeclBase& node(*it);
+            declare_global_entities(node);
         }
 
         pop_declaring_entity();
@@ -3663,6 +3677,118 @@ OPERATOR_TABLE
     void FortranBase::declare_use_statements(Nodecl::NodeclBase node, TL::Scope sc)
     {
         declare_symbols_from_modules_rec(node, sc);
+    }
+
+    void FortranBase::do_declare_global_entities(TL::Symbol entry, Nodecl::NodeclBase node /* unused */, void *data /* unused */)
+    {
+         decl_context_t decl_context = entry.get_scope().get_decl_context();
+
+        static std::set<TL::Symbol> being_checked;
+
+        // Avoid infinite recursion
+        if (being_checked.find(entry) != being_checked.end())
+            return;
+
+        being_checked.insert(entry);
+
+        if (decl_context.current_scope == decl_context.global_scope)
+        {
+            declare_symbol(entry, entry.get_scope());
+        }
+        else
+        {
+            // From here we now that entry is not coming from any module
+            // but its components/parts/subobjects might
+            if (entry.is_class())
+            {
+                // Check every component recursively
+                TL::ObjectList<TL::Symbol> nonstatic_members = entry.get_type().get_nonstatic_data_members();
+
+                for (TL::ObjectList<TL::Symbol>::iterator it = nonstatic_members.begin();
+                        it != nonstatic_members.end();
+                        it++)
+                {
+                    TL::Symbol &member(*it);
+
+                    do_declare_global_entities(member, node, data);
+                    declare_global_entities(member.get_initialization());
+                }
+            }
+            else if (entry.is_variable())
+            {
+                TL::Type entry_type = entry.get_type();
+                if (entry_type.is_any_reference())
+                    entry_type = entry_type.references_to();
+
+                if (entry_type.is_pointer())
+                    entry_type = entry_type.points_to();
+
+                while (entry_type.is_array())
+                {
+                    Nodecl::NodeclBase lower;
+                    Nodecl::NodeclBase upper;
+                    entry_type.array_get_bounds(lower, upper);
+                    if (!lower.is_null())
+                    {
+                        declare_global_entities(lower);
+                        if (lower.is<Nodecl::Symbol>()
+                                && lower.get_symbol().is_saved_expression())
+                        {
+                            declare_global_entities(lower.get_symbol().get_value());
+                        }
+                    }
+
+                    if (!upper.is_null())
+                    {
+                        declare_global_entities(upper);
+                        if (upper.is<Nodecl::Symbol>()
+                                && upper.get_symbol().is_saved_expression())
+                        {
+                            declare_global_entities(upper.get_symbol().get_value());
+                        }
+                    }
+
+                    entry_type = entry_type.array_element();
+                }
+
+                // The 'entry_type' is the rank0 type of the array
+                // This type may be a derived type and may be defined in a module
+                if (entry_type.is_named_class())
+                {
+                    TL::Symbol class_entry = entry_type.get_symbol();
+                    do_declare_global_entities(class_entry, node, data);
+                }
+            }
+            else if (entry.is_fortran_namelist())
+            {
+                TL::ObjectList<TL::Symbol> symbols_in_namelist = entry.get_related_symbols();
+                int num_symbols = symbols_in_namelist.size();
+                for (TL::ObjectList<TL::Symbol>::iterator it = symbols_in_namelist.begin(); 
+                        it != symbols_in_namelist.end();
+                        it++)
+                {
+                    do_declare_global_entities(*it, node, data);
+                }
+            }
+            else if (entry.is_generic_specifier())
+            {
+                TL::ObjectList<TL::Symbol> specific_interfaces = entry.get_related_symbols();
+                int num_symbols = specific_interfaces.size();
+                for (TL::ObjectList<TL::Symbol>::iterator it = specific_interfaces.begin(); 
+                        it != specific_interfaces.end();
+                        it++)
+                {
+                    do_declare_global_entities(*it, node, data);
+                }
+            }
+        }
+
+        being_checked.erase(entry);
+    }
+
+    void FortranBase::declare_global_entities(Nodecl::NodeclBase node)
+    {
+        traverse_looking_for_symbols(node, &FortranBase::do_declare_global_entities, NULL);
     }
 
     void FortranBase::codegen_blockdata_header(TL::Symbol entry)

@@ -248,7 +248,9 @@ namespace Codegen
             void codegen_procedure_declaration_header(TL::Symbol entry, bool& lacks_result);
             void codegen_procedure_declaration_footer(TL::Symbol entry);
 
-            void codegen_module_header(TL::Symbol, TL::ObjectList<Nodecl::NodeclBase>);
+            void codegen_module_header(TL::Symbol, 
+                    TL::ObjectList<Nodecl::NodeclBase>& before_contains,
+                    TL::ObjectList<Nodecl::NodeclBase>& after_contains);
 
             void codegen_module_footer(TL::Symbol);
 
@@ -277,6 +279,9 @@ namespace Codegen
             void declare_use_statements(Nodecl::NodeclBase statement_seq);
             void declare_use_statements(Nodecl::NodeclBase node, TL::Scope sc);
             void emit_use_statement_if_symbol_comes_from_module(TL::Symbol entry, const TL::Scope &sc);
+
+            void declare_global_entities(Nodecl::NodeclBase node);
+            void do_declare_global_entities(TL::Symbol entry, Nodecl::NodeclBase, void *data);
 
             void codegen_write_or_read_statement(
                     const std::string& keyword,
