@@ -287,6 +287,12 @@ namespace TL { namespace Nanox {
 
         // FIXME - Wrap lots of things
         TL::Scope sc(CURRENT_COMPILED_FILE->global_decl_context);
+
+        if (construct.retrieve_context().get_related_symbol().is_in_module())
+        {
+            sc = construct.retrieve_context().get_related_symbol().in_module().get_related_scope();
+        }
+
         TL::Symbol new_class_symbol = sc.new_symbol(structure_name);
         new_class_symbol.get_internal_symbol()->kind = SK_CLASS;
         new_class_symbol.get_internal_symbol()->entity_specs.is_user_declared = 1;
@@ -346,6 +352,19 @@ namespace TL { namespace Nanox {
         if (!nodecl_is_null(nodecl_output))
         {
             std::cerr << "FIXME: finished class issues nonempty nodecl" << std::endl;
+        }
+
+        if (construct.retrieve_context().get_related_symbol().is_in_module())
+        {
+            // Add the newly created argument as a structure
+            TL::Symbol module = construct.retrieve_context().get_related_symbol().in_module();
+
+            new_class_symbol.get_internal_symbol()->entity_specs.in_module = module.get_internal_symbol();
+
+            P_LIST_ADD(
+                    module.get_internal_symbol()->entity_specs.related_symbols,
+                    module.get_internal_symbol()->entity_specs.num_related_symbols,
+                    new_class_symbol.get_internal_symbol());
         }
 
         return new_class_symbol;
