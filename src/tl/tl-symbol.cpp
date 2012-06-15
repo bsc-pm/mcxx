@@ -283,6 +283,11 @@ namespace TL
         return get_alias_to();
     }
 
+    Symbol Symbol::get_used_modules() const
+    {
+        return this->_symbol->entity_specs.used_modules;
+    }
+
     Symbol Symbol::get_alias_to() const
     {
         return this->_symbol->entity_specs.alias_to;

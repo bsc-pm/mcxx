@@ -239,10 +239,10 @@ namespace TL
              */
             Symbol aliased_from_module() const;
 
+            //! Symbol that contains the used modules information
+            Symbol get_used_modules() const;
 
             bool has_alias_to() const;
-
-
             Symbol get_alias_to() const;
 
             //! States that this symbol is a BLOCK DATA program unit

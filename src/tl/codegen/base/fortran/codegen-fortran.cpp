@@ -4059,7 +4059,7 @@ OPERATOR_TABLE
         // Get the context of the given module
         TL::Scope sc = current_module.get_related_scope();
 
-        TL::Symbol used_modules = ::get_used_modules_symbol_info(sc.get_decl_context());
+        TL::Symbol used_modules = current_module.get_used_modules();
         if (!used_modules.is_valid())
             return false;
 
@@ -4086,7 +4086,7 @@ OPERATOR_TABLE
         TL::Symbol module = entry.from_module();
 
         // // Is this a module actually used in this program unit?
-        TL::Symbol used_modules = ::get_used_modules_symbol_info(sc.get_decl_context());
+        TL::Symbol used_modules = sc.get_related_symbol().get_used_modules();
         if (!used_modules.is_valid())
             return;
 

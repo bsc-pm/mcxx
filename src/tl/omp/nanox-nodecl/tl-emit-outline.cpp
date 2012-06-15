@@ -755,7 +755,7 @@ namespace TL { namespace Nanox {
 
             // Copy USEd information
             scope_entry_t* original_used_modules_info
-                = get_used_modules_symbol_info(original_statements.retrieve_context().get_decl_context());
+                = original_statements.retrieve_context().get_related_symbol().get_used_modules().get_internal_symbol();
             if (original_used_modules_info != NULL)
             {
                 scope_entry_t* new_used_modules_info
@@ -815,7 +815,7 @@ namespace TL { namespace Nanox {
 
             // Copy USEd information
             scope_entry_t* original_used_modules_info
-                = get_used_modules_symbol_info(original_statements.retrieve_context().get_decl_context());
+                = original_statements.retrieve_context().get_related_symbol().get_used_modules().get_internal_symbol();
 
             if (original_used_modules_info != NULL)
             {
