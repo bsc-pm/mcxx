@@ -247,14 +247,24 @@ scope_entry_t* get_equivalence_symbol_info(decl_context_t decl_context)
     return get_special_symbol(decl_context, ".equivalence");
 }
 
-scope_entry_t* get_used_modules_symbol_info(decl_context_t decl_context)
-{
-    return get_special_symbol(decl_context, ".used_modules");
-}
-
 scope_entry_t* get_or_create_used_modules_symbol_info(decl_context_t decl_context)
 {
-    return get_or_create_special_symbol(decl_context, ".used_modules");
+    ERROR_CONDITION(decl_context.current_scope->related_entry == NULL, "No related symbol in the current scope!", 0);
+
+    if (decl_context.current_scope->related_entry->entity_specs.used_modules == NULL)
+    {
+        decl_context_t function_context = decl_context;
+        function_context.current_scope = function_context.function_scope;
+
+        scope_entry_t* new_sym = new_symbol(
+                function_context,
+                function_context.current_scope,
+                ".used_modules");
+        new_sym->kind = SK_OTHER;
+
+        decl_context.current_scope->related_entry->entity_specs.used_modules = new_sym;
+    }
+    return decl_context.current_scope->related_entry->entity_specs.used_modules;
 }
 
 static scope_entry_t* get_or_create_equivalence_symbol_info(decl_context_t decl_context)
