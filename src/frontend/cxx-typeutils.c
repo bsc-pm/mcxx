@@ -1012,7 +1012,7 @@ type_t* get_void_type(void)
     return _type;
 }
 
-type_t* get_gcc_typeof_expr_type(nodecl_t nodecl_expr, decl_context_t decl_context)
+type_t* get_gcc_typeof_expr_dependent_type(nodecl_t nodecl_expr, decl_context_t decl_context)
 {
     type_t* type = get_simple_type();
 
@@ -1020,6 +1020,8 @@ type_t* get_gcc_typeof_expr_type(nodecl_t nodecl_expr, decl_context_t decl_conte
     type->type->typeof_expr = nodecl_expr;
     type->type->typeof_decl_context = decl_context;
 
+    // We always return a dependent type
+    type->info->is_dependent = 1;
     return type;
 }
 

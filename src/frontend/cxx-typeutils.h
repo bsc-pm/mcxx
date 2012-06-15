@@ -87,7 +87,7 @@ LIBMCXX_EXTERN type_t* get_unknown_dependent_type(void);
 /* Fortran specialities */
 LIBMCXX_EXTERN type_t* get_bool_of_integer_type(type_t* t);
 
-LIBMCXX_EXTERN type_t* get_gcc_typeof_expr_type(nodecl_t nodecl_expr, decl_context_t decl_context);
+LIBMCXX_EXTERN type_t* get_gcc_typeof_expr_dependent_type(nodecl_t nodecl_expr, decl_context_t decl_context);
 
 LIBMCXX_EXTERN nodecl_t gcc_typeof_expr_type_get_expression(type_t* t);
 LIBMCXX_EXTERN decl_context_t gcc_typeof_expr_type_get_expression_context(type_t* t);
