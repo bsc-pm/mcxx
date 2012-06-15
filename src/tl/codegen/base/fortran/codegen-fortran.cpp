@@ -4059,6 +4059,9 @@ OPERATOR_TABLE
         // Get the context of the given module
         TL::Scope sc = current_module.get_related_scope();
 
+        if (current_module == module_target)
+            return true;
+
         TL::Symbol used_modules = current_module.get_used_modules();
         if (!used_modules.is_valid())
             return false;
@@ -4107,6 +4110,7 @@ OPERATOR_TABLE
                 {
                     // Use this module
                     module = *it;
+                    found = true;
                     break;
                 }
             }
