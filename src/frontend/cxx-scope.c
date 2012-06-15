@@ -2881,7 +2881,8 @@ static const char* template_arguments_to_str_impl(
         )
 
 {
-    if (template_parameters->num_parameters <= first_argument_to_be_printed)
+    if (template_parameters->num_parameters == 0
+            || template_parameters->num_parameters <= first_argument_to_be_printed)
         return "";
 
     const char* result = "";
@@ -3062,15 +3063,17 @@ static const char* get_fully_qualified_symbol_name_of_dependent_typename(
 
         if (template_parameters != NULL)
         {
+            result = strappend(result, "<");
             const char* template_arguments_str =
                 template_arguments_to_str_impl(template_parameters,
                         /* first argument to be printed */ 0,
-                        /* print first level brackets */ 1,
+                        /* we always emit < and > */ 0,
                         decl_context,
                         print_type_fun,
                         print_type_data);
 
             result = strappend(result, template_arguments_str);
+            result = strappend(result, ">");
         }
     }
 
