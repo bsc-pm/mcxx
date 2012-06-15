@@ -4220,17 +4220,6 @@ static scope_entry_list_t* query_nodecl_qualified_name_aux(decl_context_t decl_c
             }
             return NULL;
         }
-
-        if (check_symbol_in_nest != NULL
-                && !check_symbol_in_nest(previous_symbol, current_symbol, 
-                    /* is_last */ 0,
-                    nodecl_get_filename(current_name),
-                    nodecl_get_line(current_name),
-                    check_symbol_data))
-        {
-            return NULL;
-        }
-
         previous_symbol = current_symbol;
     }
 
