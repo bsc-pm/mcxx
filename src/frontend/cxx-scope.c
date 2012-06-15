@@ -2881,8 +2881,7 @@ static const char* template_arguments_to_str_impl(
         )
 
 {
-    if (template_parameters->num_parameters == 0
-            || template_parameters->num_parameters <= first_argument_to_be_printed)
+    if (template_parameters->num_parameters <= first_argument_to_be_printed)
         return "";
 
     const char* result = "";
@@ -2912,20 +2911,19 @@ static const char* template_arguments_to_str_impl(
         const char* argument_str = NULL;
         switch (argument->kind)
         {
-            // Print the type
-            case TPK_TEMPLATE:
             case TPK_TYPE:
                 {
-                    const char* abstract_declaration;
-
-                    abstract_declaration = print_type_fun(argument->type, decl_context, print_type_data);
-
-                    argument_str = abstract_declaration;
+                    argument_str = print_type_fun(argument->type, decl_context, print_type_data);
                     break;
                 }
             case TPK_NONTYPE:
                 {
                     argument_str = codegen_to_str(argument->value, decl_context);
+                    break;
+                }
+            case TPK_TEMPLATE:
+                {
+                    argument_str = get_qualified_symbol_name(named_type_get_symbol(argument->type), decl_context);
                     break;
                 }
             default:
@@ -3064,51 +3062,15 @@ static const char* get_fully_qualified_symbol_name_of_dependent_typename(
 
         if (template_parameters != NULL)
         {
-            result = strappend(result, "< ");
-            int j;
-            for (j = 0; j < template_parameters->num_parameters; j++)
-            {
-                template_parameter_value_t * template_arg = template_parameters->arguments[j];
+            const char* template_arguments_str =
+                template_arguments_to_str_impl(template_parameters,
+                        /* first argument to be printed */ 0,
+                        /* print first level brackets */ 1,
+                        decl_context,
+                        print_type_fun,
+                        print_type_data);
 
-                switch (template_arg->kind)
-                {
-                    case TPK_TYPE:
-                        {
-                            result = strappend(result, 
-                                    print_type_fun(template_arg->type, decl_context, print_type_data));
-                            break;
-                        }
-                    case TPK_NONTYPE:
-                        {
-                            result = strappend(result, 
-                                    codegen_to_str(template_arg->value, decl_context));
-                            break;
-                        }
-                    case TPK_TEMPLATE:
-                        {
-                            result = strappend(result,
-                                    get_qualified_symbol_name(named_type_get_symbol(template_arg->type), 
-                                        decl_context));
-                            break;
-                        }
-                    default:
-                        {
-                            internal_error("Invalid template argument kind", 0);
-                        }
-                }
-
-                if ((j + 1) < template_parameters->num_parameters)
-                {
-                    result = strappend(result, ", ");
-                }
-            }
-
-            if (result[strlen(result) - 1] == '>')
-            {
-                result = strappend(result, " ");
-            }
-
-            result = strappend(result, ">");
+            result = strappend(result, template_arguments_str);
         }
     }
 
