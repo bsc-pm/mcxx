@@ -205,6 +205,10 @@ namespace TL
             bool is_template_function_name() const;
             //! States whether this symbol is an anonymous union
             bool is_anonymous_union() const;
+
+            //! States whether this symbol is an anonymous union
+            bool is_member_of_anonymous_union() const;
+
             //! States that this symbol is the injected class name
             bool is_injected_class_name() const;
 
