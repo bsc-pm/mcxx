@@ -49,7 +49,8 @@ bool|all|is_surrogate_function|This function is a surrogate fake symbol created 
 bool|all|is_anonymous_union|This is an anonymous union (or class)
 bool|all|is_member_of_anonymous|This entity is a member of an anonymous entity
 bool|all|is_user_declared|This symbol has been written by the user in the source code
-bool|all|is_instantiable|This specialization of template can be instantiate
+bool|all|is_instantiable|This specialization of template can be instantiated
+bool|all|is_instantiated|This specialization has already been instantiated
 bool|all|is_template_parameter|This is a template parameter
 bool|all|is_parameter|This symbol is a parameter of a function
 bool|all|is_member|This symbol is a member of a class

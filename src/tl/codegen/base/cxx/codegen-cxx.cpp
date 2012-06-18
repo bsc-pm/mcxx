@@ -449,8 +449,19 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ClassMemberAccess& node)
 
     TL::Symbol sym = rhs.get_symbol();
 
-    bool is_anonymous = sym.is_valid()
-        && sym.is_member_of_anonymous_union();
+    /*
+     *     .
+     *    / \
+     *   .   c
+     *  / \
+     * a   <<anon>>
+     *
+     * We want a.<<anon>>.c become a.c
+     */
+
+    bool is_anonymous_union_accessor = sym.is_valid()
+        && sym.get_type().is_named_class()
+        && sym.get_type().get_symbol().is_anonymous_union();
 
     bool must_derref_all = (sym.is_valid()
             && is_non_language_reference_variable(sym)
@@ -464,45 +475,46 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ClassMemberAccess& node)
         file << "(*";
     }
 
-    // Left hand side does not care about the top level reference status
-    state.do_not_derref_rebindable_reference = false;
-    if (!is_anonymous)
-    {
-        char needs_parentheses = operand_has_lower_priority(node, lhs);
-        if (needs_parentheses)
-        {
-            file << "(";
-        }
-        walk(lhs);
-        if (needs_parentheses)
-        {
-            file << ")";
-        }
-        file << "."
-            << /* template tag if needed */ node.get_text();
-    }
-
-    // Right part can be a reference but we do not want to derref it
-    state.do_not_derref_rebindable_reference = true;
-
-    char needs_parentheses = operand_has_lower_priority(node, rhs);
+    char needs_parentheses = operand_has_lower_priority(node, lhs);
     if (needs_parentheses)
     {
         file << "(";
     }
-
-    walk(rhs);
-
+    // Left hand side does not care about the top level reference status
+    state.do_not_derref_rebindable_reference = false;
+    walk(lhs);
     if (needs_parentheses)
     {
         file << ")";
+    }
+
+    if (!is_anonymous_union_accessor)
+    {
+        // Right part can be a reference but we do not want to derref it
+        state.do_not_derref_rebindable_reference = true;
+
+        file << "."
+            << /* template tag if needed */ node.get_text();
+
+        needs_parentheses = operand_has_lower_priority(node, rhs);
+        if (needs_parentheses)
+        {
+            file << "(";
+        }
+
+        walk(rhs);
+        if (needs_parentheses)
+        {
+            file << ")";
+        }
+
+        state.do_not_derref_rebindable_reference = old_do_not_derref_rebindable_ref;
     }
 
     if (must_derref_all)
     {
         file << ")";
     }
-    state.do_not_derref_rebindable_reference = old_do_not_derref_rebindable_ref;
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::ComplexLiteral& node)
