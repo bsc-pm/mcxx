@@ -236,7 +236,9 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
         type_map_t** template_map, 
         int *num_items_template_map,
         type_map_t** enum_map,
-        int *num_items_enum_map
+        int *num_items_enum_map,
+        type_map_t** anonymous_unions_map,
+        int *num_items_anonymous_unions_map
         )
 {
     DEBUG_CODE()
@@ -255,10 +257,33 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                         being_instantiated,
                         member_of_template);
 
-                new_member->type_information = update_type_for_instantiation(
-                        new_member->type_information,
-                        context_of_being_instantiated,
-                        filename, line);
+
+                if (is_named_class_type(member_of_template->type_information)
+                        && named_type_get_symbol(member_of_template->type_information)->entity_specs.is_anonymous_union)
+                {
+                    // New class type
+                    type_t* new_type = NULL;
+                    // Lookup of related anonymous_unions type
+                    int i;
+                    for (i = 0; i < (*num_items_anonymous_unions_map); i++)
+                    {
+                        if ((*anonymous_unions_map)[i].orig_type == member_of_template->type_information)
+                        {
+                            new_type = (*anonymous_unions_map)[i].new_type;
+                            break;
+                        }
+                    }
+
+                    ERROR_CONDITION(new_type == NULL, "Anonymous union type not found in the map type!\n", 0);
+                    new_member->type_information = new_type;
+                }
+                else
+                {
+                    new_member->type_information = update_type_for_instantiation(
+                            new_member->type_information,
+                            context_of_being_instantiated,
+                            filename, line);
+                }
 
                 if (is_named_class_type(new_member->type_information))
                 {
@@ -480,6 +505,13 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     if (new_member->entity_specs.is_anonymous_union)
                     {
                         instantiate_template_class_if_needed(new_member, context_of_being_instantiated, filename, line);
+                        // Add a mapping for this new anonymous union
+                        type_map_t new_map;
+                        new_map.orig_type = get_user_defined_type(member_of_template);
+                        new_map.new_type = get_user_defined_type(new_member);
+
+                        P_LIST_ADD((*anonymous_unions_map), (*num_items_anonymous_unions_map), new_map);
+
                         scope_entry_t* anon_member = finish_anonymous_class(new_member, context_of_being_instantiated);
 
                         anon_member->type_information = get_user_defined_type(new_member);
@@ -1183,6 +1215,9 @@ static void instantiate_specialized_template_class(type_t* selected_template,
     type_map_t* enum_map = NULL;
     int num_items_enum_map = 0;
 
+    type_map_t* anonymous_unions_map = NULL;
+    int num_items_anonymous_unions_map = 0;
+
     scope_entry_list_t * members = class_type_get_members(get_actual_class_type(selected_template));
     scope_entry_list_t * friends = class_type_get_friends(get_actual_class_type(selected_template));
     DEBUG_CODE()
@@ -1203,7 +1238,8 @@ static void instantiate_specialized_template_class(type_t* selected_template,
                 inner_decl_context,
                 filename, line,
                 &template_map, &num_items_template_map,
-                &enum_map, &num_items_enum_map);
+                &enum_map, &num_items_enum_map,
+                &anonymous_unions_map, &num_items_anonymous_unions_map);
     }
     entry_list_iterator_free(it);
     entry_list_free(members);

@@ -11752,17 +11752,14 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
             }
 
             scope_entry_t* new_member = finish_anonymous_class(named_type, decl_context);
-            new_member->type_information = member_type;
+            new_member->type_information = original_member_type;
 
             // Add this member to the current class
             new_member->entity_specs.is_member = 1;
             new_member->entity_specs.access = current_access;
             new_member->entity_specs.class_type = class_info;
 
-            if (!is_dependent_type(class_type))
-            {
-                class_type_add_member(class_type, new_member);
-            }
+            class_type_add_member(class_type, new_member);
         }
     }
 }
