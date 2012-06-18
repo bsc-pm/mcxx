@@ -6874,11 +6874,10 @@ static void check_new_expression_impl(
                 && !is_global)
         {
             // Instantiate the class if needed
-            if (is_named_class_type(new_type)
-                    && class_type_is_incomplete_independent(new_type))
+            if (is_named_class_type(new_type))
             {
                 scope_entry_t* symbol = named_type_get_symbol(new_type);
-                instantiate_template_class(symbol, decl_context, filename, line);
+                instantiate_template_class_if_needed(symbol, decl_context, filename, line);
             }
 
             op_new_context = class_type_get_inner_context(new_type);
@@ -8349,11 +8348,10 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
             entry_list_free(first_set_candidates);
 
             int num_surrogate_functions = 0;
-            if (is_named_class_type(class_type)
-                    && class_type_is_incomplete_independent(class_type))
+            if (is_named_class_type(class_type))
             {
                 scope_entry_t* symbol = named_type_get_symbol(class_type);
-                instantiate_template_class(symbol, decl_context, filename, line);
+                instantiate_template_class_if_needed(symbol, decl_context, filename, line);
             }
 
             scope_entry_list_t* conversion_list = class_type_get_all_conversions(class_type, decl_context);
@@ -12251,11 +12249,10 @@ static void accessible_types_through_conversion(type_t* t, type_t ***result, int
     else if (is_class_type(t))
     {
         type_t* class_type = get_actual_class_type(t);
-        if (is_named_class_type(t)
-                && class_type_is_incomplete_independent(class_type))
+        if (is_named_class_type(t))
         {
             scope_entry_t* symbol = named_type_get_symbol(t);
-            instantiate_template_class(symbol, decl_context, 
+            instantiate_template_class_if_needed(symbol, decl_context, 
                     // FIXME - Locus was lost here!
                     0, 0);
         }
@@ -12622,11 +12619,10 @@ static void check_sizeof_type(type_t* t,
     {
         CXX_LANGUAGE()
         {
-            if (is_named_class_type(t)
-                    && class_type_is_incomplete_independent(get_actual_class_type(t)))
+            if (is_named_class_type(t))
             {
                 scope_entry_t* symbol = named_type_get_symbol(t);
-                instantiate_template_class(symbol, decl_context, 
+                instantiate_template_class_if_needed(symbol, decl_context, 
                        filename, line);
             }
         }
@@ -13026,11 +13022,10 @@ static void check_gcc_alignof_type(type_t* t,
     {
         CXX_LANGUAGE()
         {
-            if (is_named_class_type(t)
-                    && class_type_is_incomplete_independent(get_actual_class_type(t)))
+            if (is_named_class_type(t))
             {
                 scope_entry_t* symbol = named_type_get_symbol(t);
-                instantiate_template_class(symbol, decl_context, filename, line);
+                instantiate_template_class_if_needed(symbol, decl_context, filename, line);
             }
         }
 

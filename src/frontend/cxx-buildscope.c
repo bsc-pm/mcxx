@@ -4034,13 +4034,8 @@ void build_scope_base_clause(AST base_clause, type_t* class_type, decl_context_t
                         );
             }
 
-            type_t* base_class_type = base_class_symbol->type_information;
-
             // If the entity (being an independent one) has not been completed, then instantiate it
-            if (class_type_is_incomplete_independent(get_actual_class_type(base_class_type)))
-            {
-                instantiate_template_class(base_class_symbol, decl_context, ASTFileName(base_specifier), ASTLine(base_specifier));
-            }
+            instantiate_template_class_if_needed(base_class_symbol, decl_context, ASTFileName(base_specifier), ASTLine(base_specifier));
 
             result = base_class_symbol;
         }
@@ -4663,12 +4658,11 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 current_type = array_type_get_element_type(current_type);
             }
 
-            if (is_named_class_type(current_type)
-                    && class_type_is_incomplete_independent(get_actual_class_type(current_type)))
+            if (is_named_class_type(current_type))
             {
                 scope_entry_t* named_type_sym = named_type_get_symbol(current_type);
 
-                instantiate_template_class(named_type_sym, decl_context, filename, line);
+                instantiate_template_class_if_needed(named_type_sym, decl_context, filename, line);
             }
             DEBUG_CODE()
             {
@@ -6209,6 +6203,12 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
         current_access = AS_PUBLIC;
     }
 
+    class_entry->entity_specs.is_user_declared = 1;
+    if (class_type_is_incomplete_independent(class_entry->type_information))
+    {
+        class_entry->entity_specs.is_instantiated = 1;
+    }
+
     scope_entry_list_t* declared_symbols = NULL;
     build_scope_member_specification(inner_decl_context, member_specification, 
             current_access, *type_info, nodecl_output, &declared_symbols);
@@ -6246,7 +6246,6 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     // };
     //
 
-    class_entry->entity_specs.is_user_declared = 1;
     class_entry->entity_specs.is_instantiable = 1;
 
     class_entry->entity_specs.num_gcc_attributes = gather_info->num_gcc_attributes;
@@ -12079,11 +12078,8 @@ static void call_to_destructor(scope_entry_list_t* entry_list, void *data)
             && !entry->entity_specs.is_static
             && !entry->entity_specs.is_extern)
     {
-        if (class_type_is_incomplete_independent(entry->type_information))
-        {
-            instantiate_template_class(named_type_get_symbol(entry->type_information), 
-                    entry->decl_context, destructor_data->filename, destructor_data->line);
-        }
+        instantiate_template_class_if_needed(named_type_get_symbol(entry->type_information), 
+                entry->decl_context, destructor_data->filename, destructor_data->line);
 
         nodecl_t nodecl_call_to_destructor = 
             nodecl_make_expression_statement(

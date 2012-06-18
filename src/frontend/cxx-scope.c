@@ -1852,11 +1852,7 @@ static type_t* update_dependent_typename(
 
     scope_entry_t* current_member = dependent_entry;
 
-    if (class_type_is_incomplete_independent(current_member->type_information))
-    {
-        instantiate_template_class(current_member, current_member->decl_context,
-                filename, line);
-    }
+    instantiate_template_class_if_needed(current_member, current_member->decl_context, filename, line);
 
     // We need to update dependent parts, lest there was a template-id
     int num_parts = 0;
@@ -4152,9 +4148,9 @@ static scope_entry_list_t* query_nodecl_qualified_name_aux(decl_context_t decl_c
             {
                 type_t* class_type = current_symbol->type_information;
 
-                if (class_type_is_incomplete_independent(class_type))
+                if (template_class_needs_to_be_instantiated(current_symbol))
                 {
-                    instantiate_template_class(current_symbol, current_symbol->decl_context,
+                    instantiate_template_class_if_needed(current_symbol, current_symbol->decl_context,
                             nodecl_get_filename(current_name), nodecl_get_line(current_name));
                 }
                 else if (class_type_is_incomplete_dependent(class_type)
@@ -4457,11 +4453,8 @@ scope_entry_list_t* query_nodecl_name_in_class_flags(
 
     type_t* class_type = class_symbol->type_information;
 
-    if (class_type_is_incomplete_independent(class_type))
-    {
-        instantiate_template_class(class_symbol, class_symbol->decl_context, 
-                nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name));
-    }
+    instantiate_template_class_if_needed(class_symbol, class_symbol->decl_context, 
+            nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name));
 
     decl_context_t inner_class_context = class_type_get_inner_context(class_type);
     if (inner_class_context.class_scope == NULL)
@@ -4833,11 +4826,8 @@ scope_entry_list_t* query_dependent_entity_in_context(decl_context_t decl_contex
                     {
                         scope_entry_t* class_sym = named_type_get_symbol(new_class_type);
 
-                        if (class_type_is_incomplete_independent(class_sym->type_information))
-                        {
-                            instantiate_template_class(class_sym, class_sym->decl_context,
-                                    filename, line);
-                        }
+                        instantiate_template_class_if_needed(class_sym, class_sym->decl_context,
+                                filename, line);
 
                         return query_nodecl_name_flags(
                                 class_type_get_inner_context(class_sym->type_information),
