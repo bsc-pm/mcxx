@@ -871,32 +871,32 @@ static const char* safe_asttext(AST a)
 %token<token_atrib> TOK_ENDTYPE "ENDTYPE"
 %token<token_atrib> TOK_DOUBLECOMPLEX "DOUBLECOMPLEX"
 %token<token_atrib> TOK_GOTO "GOTO"
-%token<token_atrib> '-' "-"
+%token<token_atrib> '-' 
 %token<token_atrib> TOK_LOGICAL_NOT_EQUIVALENT ".NEQV."
-%token<token_atrib> '%' "%"
-%token<token_atrib> '[' "["
-%token<token_atrib> ']' "]"
+%token<token_atrib> '%' 
+%token<token_atrib> '[' 
+%token<token_atrib> ']' 
 %token<token_atrib> TOK_POINTER_ACCESS "=>"
 %token<token_atrib> TOK_GREATER_THAN ">"
-%token<token_atrib> ',' ","
+%token<token_atrib> ',' 
 %token<token_atrib> TOK_EQUAL "=="
-%token<token_atrib> '(' "("
-%token<token_atrib> '*' "*"
-%token<token_atrib> '=' "="
+%token<token_atrib> '(' 
+%token<token_atrib> '*' 
+%token<token_atrib> '=' 
 %token<token_atrib> TOK_LOGICAL_AND ".AND."
 %token<token_atrib> TOK_LOWER_THAN "<"
 %token<token_atrib> TOK_LOGICAL_NOT ".NOT."
-%token<token_atrib> ':' ":"
+%token<token_atrib> ':' 
 %token<token_atrib> TOK_LOGICAL_EQUIVALENT ".EQV."
 %token<token_atrib> TOK_GREATER_OR_EQUAL_THAN ">="
 %token<token_atrib> TOK_LOGICAL_OR ".OR".
 %token<token_atrib> TOK_LOWER_OR_EQUAL_THAN "<="
 %token<token_atrib> TOK_NOT_EQUAL "/="
-%token<token_atrib> ')' ")"
+%token<token_atrib> ')' 
 %token<token_atrib> TOK_RAISE "**"
-%token<token_atrib> '/' "/"
+%token<token_atrib> '/' 
 %token<token_atrib> TOK_DOUBLE_SLASH "//"
-%token<token_atrib> '+' "+"
+%token<token_atrib> '+' 
 %token<token_atrib> TOK_LPARENT_SLASH "(/"
 %token<token_atrib> TOK_SLASH_RPARENT "/)"
 %token<token_atrib> TOK_TRUE ".TRUE."
