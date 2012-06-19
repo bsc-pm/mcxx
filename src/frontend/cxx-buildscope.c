@@ -2510,7 +2510,9 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
         entry->entity_specs.is_friend = 1;
 
         scope_entry_t* alias_to_entry = class_entry;
-        if (gather_info->is_template || ASTType(id_expression) == AST_TEMPLATE_ID)
+        if (gather_info->is_template
+                || ASTType(id_expression) == AST_TEMPLATE_ID
+                || ASTType(id_expression) == AST_QUALIFIED_ID)
         {
             // We create a fake symbol with the right context and an alias to
             // the real friend (entry)
