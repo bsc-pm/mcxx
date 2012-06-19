@@ -5482,6 +5482,7 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
         if (entry->kind == SK_DEPENDENT_ENTITY)
         {
             *nodecl_output = nodecl_make_symbol(entry, nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name));
+            entry->value = nodecl_name;
             nodecl_set_type(*nodecl_output, entry->type_information);
             nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
             nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
@@ -5529,6 +5530,7 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
                 nodecl_name,
                 ast_get_filename(nodecl_get_ast(nodecl_name)),
                 ast_get_line(nodecl_get_ast(nodecl_name)));
+        new_sym->value = nodecl_name;
 
         *nodecl_output = nodecl_make_symbol(new_sym, nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name));
         nodecl_set_type(*nodecl_output, new_sym->type_information);
@@ -14421,6 +14423,105 @@ static void instantiate_expr_literal(nodecl_instantiate_expr_visitor_t* v, nodec
     v->nodecl_result = result;
 }
 
+
+static void add_namespaces_rec(scope_entry_t* sym, nodecl_t *nodecl_extended_parts)
+{
+    if (sym == NULL
+            || sym->symbol_name == NULL)
+        return;
+    ERROR_CONDITION(sym->kind != SK_NAMESPACE, "Invalid symbol", 0);
+
+    add_namespaces_rec(sym->decl_context.current_scope->related_entry, nodecl_extended_parts);
+
+    if (strcmp(sym->symbol_name, "(unnamed)") == 0)
+    {
+        // Do nothing
+    }
+    else
+    {
+        *nodecl_extended_parts = nodecl_append_to_list(*nodecl_extended_parts, 
+                nodecl_make_cxx_dep_name_simple(sym->symbol_name, NULL, 0));
+    }
+}
+
+static void add_classes_rec(type_t* class_type, nodecl_t* nodecl_extended_parts)
+{
+    scope_entry_t* class_sym = named_type_get_symbol(class_type);
+    if (class_sym->entity_specs.is_member)
+    {
+        add_classes_rec(class_sym->entity_specs.class_type, nodecl_extended_parts);
+    }
+
+    nodecl_t nodecl_name = nodecl_make_cxx_dep_name_simple(class_sym->symbol_name, NULL, 0);
+    if (is_template_specialized_type(class_type))
+    {
+        nodecl_name = nodecl_make_cxx_dep_template_id(
+                nodecl_name,
+                /* template_tag */ "",
+                template_specialized_type_get_template_arguments(class_type),
+                NULL, 0);
+    }
+
+    *nodecl_extended_parts = nodecl_append_to_list(*nodecl_extended_parts, nodecl_name);
+}
+
+// This function crafts a full NODECL_CXX_DEP_GLOBAL_NAME_NESTED for a dependent entry and its list of dependent parts
+// We may need this when updating a dependent entity
+//
+// namespace A {
+//   template < typename _T >
+//   struct B
+//   {
+//       enum mcc_enum_anon_0
+//       {
+//         value = 3
+//       };
+//   };
+//
+//  template < typename _T, int _N = B<_T>::value >
+//  struct C
+//  {
+//  };
+// }
+// template < typename _S >
+// void f(C<_S> &c);           --->   void f(C<_S, A::B<_S>::value);
+//
+// We need to complete C<_S> to C<_S, A::B<_S>::value>. Note that the symbol of
+// the dependent entity only contains "B<_S>::value" (without the namespace).
+// And after updating it we may need extra namespace-or-class qualification.
+// So we fully qualify the symbol lest it was a dependent entity again. Note
+// that this could bring problems if the symbol is the operand of a reference (&)
+// operator.
+static nodecl_t complete_nodecl_name_of_dependent_entity(scope_entry_t*
+        dependent_entry, nodecl_t list_of_dependent_parts)
+{
+    nodecl_t nodecl_extended_parts = nodecl_null();
+
+    add_namespaces_rec(dependent_entry->decl_context.namespace_scope->related_entry, &nodecl_extended_parts);
+
+    if (dependent_entry->entity_specs.is_member)
+        add_classes_rec(dependent_entry->entity_specs.class_type, &nodecl_extended_parts);
+
+    // The dependent entry itself
+    nodecl_t nodecl_name = nodecl_make_cxx_dep_name_simple(dependent_entry->symbol_name, NULL, 0);
+    if (is_template_specialized_type(dependent_entry->type_information))
+    {
+        nodecl_name = nodecl_make_cxx_dep_template_id(nodecl_name,
+                /* template_tag */ "",
+                template_specialized_type_get_template_arguments(dependent_entry->type_information),
+                NULL, 0);
+    }
+    nodecl_extended_parts = nodecl_append_to_list(nodecl_extended_parts, nodecl_name);
+
+    // Concat with the existing parts
+    nodecl_extended_parts = nodecl_concat_lists(nodecl_extended_parts, nodecl_shallow_copy(list_of_dependent_parts));
+
+    nodecl_t result =
+        nodecl_make_cxx_dep_global_name_nested(nodecl_extended_parts, NULL, 0);
+
+    return result;
+}
+
 static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
 {
     scope_entry_t* sym = nodecl_get_symbol(node);
@@ -14447,11 +14548,16 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
     {
         scope_entry_list_t *entry_list = query_dependent_entity_in_context(v->decl_context, sym, nodecl_get_filename(node), nodecl_get_line(node));
 
+        // cxx_compute_name_from_entry_list(sym->value, entry_list, v->decl_context, &result);
+
         scope_entry_t* dependent_entry = NULL;
         nodecl_t dependent_parts = nodecl_null();
         dependent_typename_get_components(sym->type_information, &dependent_entry, &dependent_parts);
 
-        cxx_compute_name_from_entry_list(dependent_parts, entry_list, v->decl_context, &result);
+        nodecl_t list_of_dependent_parts = nodecl_get_child(dependent_parts, 0);
+        nodecl_t complete_nodecl_name = complete_nodecl_name_of_dependent_entity(dependent_entry, list_of_dependent_parts);
+
+        cxx_compute_name_from_entry_list(complete_nodecl_name, entry_list, v->decl_context, &result);
     }
     else
     {

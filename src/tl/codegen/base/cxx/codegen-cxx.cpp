@@ -2655,9 +2655,14 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Symbol& node)
             file << entry.get_qualified_name(this->get_current_scope(),
                     /* without template id */ state.visiting_called_entity_of_function_call);
         }
-        else
+        else if (!entry.is_dependent_entity())
         {
             file << entry.get_qualified_name(this->get_current_scope());
+        }
+        else
+        {
+            ERROR_CONDITION(entry.get_value().is_null(), "A dependent entity must have a tree of its name!", 0);
+            walk(entry.get_value());
         }
     }
 
