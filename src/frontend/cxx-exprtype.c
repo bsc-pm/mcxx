@@ -9550,6 +9550,11 @@ static void check_member_access(AST member_access, decl_context_t decl_context, 
 
     nodecl_t nodecl_name = nodecl_null();
     compute_nodecl_name_from_id_expression(id_expression, decl_context, &nodecl_name);
+    if (nodecl_is_err_expr(nodecl_name))
+    {
+        *nodecl_output = nodecl_make_err_expr(ASTFileName(member_access), ASTLine(member_access));
+        return;
+    }
 
     check_nodecl_member_access(nodecl_accessed, nodecl_name, decl_context, is_arrow, has_template_tag,
             ASTFileName(member_access), ASTLine(member_access),
