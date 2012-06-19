@@ -92,6 +92,7 @@ namespace Nodecl
                         new_it != new_list.end();
                         new_it++)
                 {
+                    ERROR_CONDITION(*it == *new_it, "Cannot integrate the same node as the node to be replaced (this)", 0);
                     enclosing_list.insert(it, *new_it);
                 }
 

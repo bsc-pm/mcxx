@@ -1003,7 +1003,7 @@ namespace TL
         return ::class_type_is_packed(_type_info);
     }
 
-    unsigned int Type::get_size() 
+    unsigned int Type::get_size() const
     {
         unsigned int result;
 

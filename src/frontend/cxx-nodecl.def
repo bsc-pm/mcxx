@@ -73,6 +73,7 @@ statement-but-object-init: NODECL_EMPTY_STATEMENT()
           | NODECL_DO_STATEMENT([statement]statement-seq, [condition]expression)
           | NODECL_WHILE_STATEMENT([condition]expression, [statement]statement-seq, [loop_name]name-opt) 
           | NODECL_FOR_STATEMENT([loop_header]loop-control, [statement]statement-seq, [loop_name]name-opt) 
+          | NODECL_SIMD_EPILOG_STATEMENT([epilog]statement) 
           | NODECL_IF_ELSE_STATEMENT([condition]expression, [then]statement-seq, [else]statement-seq-opt) 
           | NODECL_LABELED_STATEMENT([statement]statement-seq) symbol
           | NODECL_SWITCH_STATEMENT([switch]expression, [statement]statement-seq)
@@ -134,15 +135,11 @@ expression : literal
            | NODECL_PLUS([rhs]expression) type const-value-opt
            | NODECL_NEG([rhs]expression) type const-value-opt
            | NODECL_MUL([lhs]expression, [rhs]expression) type const-value-opt
-           | NODECL_VECTOR_MUL([lhs]expression, [rhs]expression) type const-value-opt
            | NODECL_POWER([lhs]expression, [rhs]expression) type const-value-opt
            | NODECL_DIV([lhs]expression, [rhs]expression) type const-value-opt
-           | NODECL_VECTOR_DIV([lhs]expression, [rhs]expression) type const-value-opt
            | NODECL_MOD([lhs]expression, [rhs]expression) type const-value-opt
            | NODECL_ADD([lhs]expression, [rhs]expression) type const-value-opt
-           | NODECL_VECTOR_ADD([lhs]expression, [rhs]expression) type const-value-opt
            | NODECL_MINUS([lhs]expression, [rhs]expression) type const-value-opt
-           | NODECL_VECTOR_MINUS([lhs]expression, [rhs]expression) type const-value-opt
            | NODECL_CONCAT([lhs]expression, [rhs]expression) type const-value-opt
            | NODECL_EQUAL([lhs]expression, [rhs]expression) type const-value-opt
            | NODECL_DIFFERENT([lhs]expression, [rhs]expression) type const-value-opt
@@ -160,12 +157,21 @@ expression : literal
            | NODECL_SHL([lhs] expression, [rhs] expression) type const-value-opt
            | NODECL_SHR([lhs] expression, [rhs] expression) type const-value-opt
            | NODECL_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt
-           | NODECL_VECTOR_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt
-           | NODECL_VECTOR_LOAD([lhs] expression, [rhs] expression) type const-value-opt
            | NODECL_PARENTHESIZED_EXPRESSION([nest]expression) type const-value-opt
            | NODECL_DERREFERENCE([rhs]expression) type const-value-opt
            | NODECL_CAST([rhs]expression) type text const-value-opt
            | NODECL_COMPOUND_EXPRESSION([nest]context) type const-value-opt
+           | NODECL_VECTOR_DIV([lhs]expression, [rhs]expression) type const-value-opt
+           | NODECL_VECTOR_ADD([lhs]expression, [rhs]expression) type const-value-opt
+           | NODECL_VECTOR_MINUS([lhs]expression, [rhs]expression) type const-value-opt
+           | NODECL_VECTOR_MUL([lhs]expression, [rhs]expression) type const-value-opt
+           | NODECL_VECTOR_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt
+           | NODECL_VECTOR_STORE([lhs] expression, [rhs] expression) type const-value-opt
+           | NODECL_VECTOR_SCATTER([lhs] expression, [rhs] expression) type const-value-opt
+           | NODECL_VECTOR_LOAD([rhs] expression) type const-value-opt
+           | NODECL_VECTOR_GATHER([rhs] expression) type const-value-opt
+           | NODECL_CONSTANT_VECTOR_PROMOTION([rhs] expression) type const-value-opt
+           | NODECL_VECTOR_CONVERSION([src] expression, [dst] expression, [offset] literal) type const-value-opt
            | c-cxx-expressions
            | fortran-expressions
            | object-init

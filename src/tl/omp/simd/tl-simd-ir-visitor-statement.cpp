@@ -25,6 +25,7 @@
 --------------------------------------------------------------------*/
 
 #include "tl-simd-ir-visitor-statement.hpp"
+#include "tl-simd-ir-visitor-expression.hpp"
 
 namespace TL 
 {
@@ -37,14 +38,51 @@ namespace TL
             std::cerr << "Nested '#pragma omp simd' at " << construct.get_locus() << std::endl;
         }
 
+        void SimdIRVisitorStatement::visit(const Nodecl::Context& n)
+        {
+            walk(n.get_in_context());
+        }
+
+        void SimdIRVisitorStatement::visit(const Nodecl::CompoundStatement& n)
+        {
+            walk(n.get_statements());
+        }
+
+        // Nested ForStatement
         void SimdIRVisitorStatement::visit(const Nodecl::ForStatement& n)
         {
-            printf("Nested FS\n");
+            walk(n.get_statement());
+        }
+
+        void SimdIRVisitorStatement::visit(const Nodecl::ExpressionStatement& n)
+        {
+            SimdIRVisitorExpression visitor_expression;
+            visitor_expression.walk(n.get_nest());
+        }
+
+        void SimdIRVisitorStatement::visit(const Nodecl::ObjectInit& n)
+        {
+            if(n.has_symbol())
+            {
+                TL::Symbol sym = n.get_symbol();
+
+                // Vectorizing symbol type
+                sym.set_type(sym.get_type().get_generic_vector_to());
+
+                // Vectorizing initialization
+                if(sym.has_initialization())
+                {
+                    SimdIRVisitorExpression visitor_expression;
+                    visitor_expression.walk(sym.get_initialization());
+
+                    sym.set_initialization(visitor_expression.get_last_visited());
+                }
+            }
         }
 
         Nodecl::NodeclVisitor<void>::Ret SimdIRVisitorStatement::unhandled_node(const Nodecl::NodeclBase& n) 
         { 
-            std::cerr << "Unknown node " 
+            std::cerr << "Unknown 'Statement' node " 
                 << ast_print_node_type(n.get_kind()) 
                 << " at " << n.get_locus() 
                 << std::endl;

@@ -66,6 +66,11 @@ namespace TL
         return result;
     }
 
+    void Symbol::set_type(const Type& t) 
+    {
+        _symbol->type_information = t.get_internal_type();
+    }
+
     std::string Symbol::get_name() const
     {
         return (_symbol->symbol_name != NULL) ? 
@@ -497,6 +502,11 @@ namespace TL
     Nodecl::NodeclBase Symbol::get_initialization() const
     {
         return _symbol->value;
+    }
+
+    void Symbol::set_initialization(const Nodecl::NodeclBase& value) 
+    {
+        _symbol->value = value.get_internal_nodecl();
     }
 
     Nodecl::NodeclBase Symbol::get_value() const

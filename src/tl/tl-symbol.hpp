@@ -96,6 +96,9 @@ namespace TL
 
             //! Gets the type related to this symbol
             Type get_type() const;
+            //! Sets the type related to this symbol
+            void set_type(const Type& t);
+ 
             //! Gets the unqualified name of the symbol
             std::string get_name() const;
 
@@ -291,6 +294,8 @@ namespace TL
             bool has_initialization() const;
             //! Returns the initialization tree
             Nodecl::NodeclBase get_initialization() const;
+            //! Sets the initialization tree
+            void set_initialization(const Nodecl::NodeclBase& value);
 
             //! Returns the nodecl stored in the field _value
             Nodecl::NodeclBase get_value() const;

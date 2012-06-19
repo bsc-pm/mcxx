@@ -24,23 +24,54 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef TL_OMP_SIMD_IR_VISITOR_HPP
-#define TL_OMP_SIMD_IR_VISITOR_HPP
+/*
+<testinfo>
+test_generator=config/mercurium-simd
+</testinfo>
+*/
 
-#include "tl-nodecl-visitor.hpp"
 
-namespace TL { 
+#include <stdio.h>
+#include <stdlib.h>
+#include <malloc.h>
 
-    namespace SIMD {
+int main(int argc, char * argv[])
+{
 
-        class SimdIRVisitor : public Nodecl::ExhaustiveVisitor<void>
-        {
-            public:
-                SimdIRVisitor();
-                virtual void visit(const Nodecl::OpenMP::SimdConstruct& construct);
-        };
+#if __GNUC__ == 4 && __GNUC_MINOR__ >= 4
+
+    const int vec_size = 9000;
+    float time;
+
+    float *a = (float *) memalign(16, vec_size*sizeof(float));
+    float *b = (float *) memalign(16, vec_size*sizeof(float));
+    float *c = (float *) memalign(16, vec_size*sizeof(float));
+
+    int i;
+
+#pragma omp simd
+    for (i=0; i<vec_size; i++)
+    {
+        a[i] = 5.0f;
+        b[i] = 6.0f + a[i] + 4.0f;
     }
-}
 
-#endif //TL_OMP_SIMD_IR_VISITOR_HPP
+#pragma omp simd
+    for (i=0; i<vec_size; i++)
+    {
+        float tmp = a[i]+b[i] * 3;
+        float tmp2 = 1+6*6;
+
+        c[i] = tmp * tmp + 6 + 20.0f + 40.0;
+        c[i] = c[i] + tmp2;
+        c[i] = c[i] * c[i];
+    }
+
+    printf("%f %f\n", c[0], c[vec_size-1]);
+
+#else
+  #warning "This compiler is not supported"
+#endif
+    return 0;
+}
 

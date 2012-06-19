@@ -39,7 +39,11 @@ namespace TL
                 SimdIRVisitorStatement();
                 virtual void visit(const Nodecl::OpenMP::SimdConstruct& construct);
 
+                virtual void visit(const Nodecl::Context& n);
+                virtual void visit(const Nodecl::CompoundStatement& n);
                 virtual void visit(const Nodecl::ForStatement& n);
+                virtual void visit(const Nodecl::ExpressionStatement& n);
+                virtual void visit(const Nodecl::ObjectInit& n);
 
                 NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n); 
         };
