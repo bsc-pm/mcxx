@@ -86,7 +86,7 @@ void OMPTransform::section_postorder(PragmaCustomConstruct ctr)
     std::stringstream ss;
     ss << "_ol_" << function_symbol.get_name() << "_" << outline_num;
 
-    std::string outline_name = ss.str();
+    std::string outline_name = fix_outline_name(ss.str());
 
     Source final_barrier;
 

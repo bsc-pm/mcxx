@@ -62,7 +62,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
     std::stringstream ss;
     ss << "_ol_" << function_symbol.get_name() << "_" << outline_num;
-    std::string outline_name = ss.str();
+    std::string outline_name = fix_outline_name(ss.str());
     
 
     Source device_descriptor, 
@@ -195,7 +195,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
             std::stringstream ss;
             ss << "_ol_" << it->second.get_name() << "_" << outline_num;
-            std::string implemented_outline_name = ss.str();
+            std::string implemented_outline_name = fix_outline_name(ss.str());
 
             Source initial_setup, replaced_body;
 
