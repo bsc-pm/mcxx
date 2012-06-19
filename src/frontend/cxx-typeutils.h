@@ -87,7 +87,7 @@ LIBMCXX_EXTERN type_t* get_unknown_dependent_type(void);
 /* Fortran specialities */
 LIBMCXX_EXTERN type_t* get_bool_of_integer_type(type_t* t);
 
-LIBMCXX_EXTERN type_t* get_gcc_typeof_expr_type(nodecl_t nodecl_expr, decl_context_t decl_context);
+LIBMCXX_EXTERN type_t* get_gcc_typeof_expr_dependent_type(nodecl_t nodecl_expr, decl_context_t decl_context);
 
 LIBMCXX_EXTERN nodecl_t gcc_typeof_expr_type_get_expression(type_t* t);
 LIBMCXX_EXTERN decl_context_t gcc_typeof_expr_type_get_expression_context(type_t* t);
@@ -604,9 +604,6 @@ LIBMCXX_EXTERN const char* get_declaration_string_internal(type_t* type_info,
         const char** parameter_names,
         const char** parameter_attributes,
         char is_parameter);
-
-LIBMCXX_EXTERN const char* get_simple_type_name_string(decl_context_t decl_context, type_t* type_info);
-LIBMCXX_EXTERN const char* get_named_type_name(scope_entry_t* entry);
 
 LIBMCXX_EXTERN type_t* get_ellipsis_type(void);
 LIBMCXX_EXTERN char is_ellipsis_type(type_t* t);

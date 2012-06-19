@@ -404,18 +404,15 @@ namespace TL
 
                 virtual void visit(const Nodecl::ForStatement& for_stmt)
                 {
-                    Nodecl::LoopControl loop_control = for_stmt.get_loop_header().as<Nodecl::LoopControl>();
+                    if (!for_stmt.get_loop_header().is<Nodecl::RangeLoopControl>())
+                        return;
 
-                    Nodecl::NodeclBase init = loop_control.get_init();
+                    Nodecl::RangeLoopControl loop_control = for_stmt.get_loop_header().as<Nodecl::RangeLoopControl>();
 
-                    if (init.is<Nodecl::Assignment>())
-                    {
-                        Nodecl::Assignment assign = init.as<Nodecl::Assignment>();
-                        if (assign.get_lhs().is<Nodecl::Symbol>())
-                        {
-                            symbols.insert(assign.get_lhs().get_symbol());
-                        }
-                    }
+                    TL::Symbol induction_var = loop_control.get_symbol();
+                    symbols.insert(induction_var);
+
+                    walk(for_stmt.get_statement());
                 }
 
                 virtual void visit(const Nodecl::PragmaCustomStatement& construct)

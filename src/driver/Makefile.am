@@ -111,6 +111,8 @@ mcxx_LDADD = \
 mcxx_LDADD += $(top_builddir)/src/frontend/fortran/libmf03.la
 mcxx_LDADD += $(top_builddir)/src/driver/fortran/libmf03-driver.la
 mcxx_LDADD += $(sqlite3_LIBS)
+mcxx_LDADD += $(quadmath_LIBS)
+mcxx_LDADD += -lm
 
 if WINDOWS_BUILD
 else

@@ -34,7 +34,10 @@
 #include "codegen-phase.hpp"
 #include "codegen-fortran.hpp"
 
+#include "cxx-cexpr.h"
 #include "fortran03-scope.h"
+#include "fortran03-typeutils.h"
+#include "fortran03-buildscope.h"
 
 using TL::Source;
 
@@ -108,7 +111,7 @@ namespace TL { namespace Nanox {
 
         Nodecl::Utils::SimpleSymbolMap *symbol_map = new Nodecl::Utils::SimpleSymbolMap();
 
-        TL::ObjectList<TL::Symbol> parameter_symbols;
+        TL::ObjectList<TL::Symbol> parameter_symbols, private_symbols;
 
         TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
         for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
@@ -139,8 +142,17 @@ namespace TL { namespace Nanox {
                         if (sym.is_valid())
                         {
                             symbol_map->add_map(sym, private_sym);
+
+                            // Copy attributes that must be preserved
+                            private_sym->entity_specs.is_allocatable = sym.is_allocatable();
                         }
 
+                        if (!is_pointer_type(no_ref(private_sym->type_information)))
+                        {
+                            private_sym->entity_specs.is_target = 1;
+                        }
+
+                        private_symbols.append(private_sym);
                         break;
                     }
                 case OutlineDataItem::SHARING_SHARED:
@@ -164,6 +176,12 @@ namespace TL { namespace Nanox {
                                     }
 
                                     parameter_symbols.append(private_sym);
+
+                                    // Make it TARGET
+                                    if (!is_pointer_type(no_ref(private_sym->type_information)))
+                                    {
+                                        private_sym->entity_specs.is_target = 1;
+                                    }
                                     break;
                                 }
                             case OutlineDataItem::ITEM_KIND_DATA_ADDRESS:
@@ -196,13 +214,18 @@ namespace TL { namespace Nanox {
                     }
                 case OutlineDataItem::SHARING_REDUCTION:
                     {
-                        // This is a mixture of private and shared
-                        // A private is emitted for the partial reduction
-                        // Such partial reduction must be initialized with the
-                        // identity
+                        // Original reduced variable. Passed as we pass shared parameters
+                        TL::Type param_type = (*it)->get_in_outline_type();
+                        scope_entry_t* shared_reduction_sym = ::new_symbol(function_context, function_context.current_scope,
+                                (*it)->get_field_name().c_str());
+                        shared_reduction_sym->kind = SK_VARIABLE;
+                        shared_reduction_sym->type_information = param_type.get_internal_type();
+                        shared_reduction_sym->defined = shared_reduction_sym->entity_specs.is_user_declared = 1;
+                        parameter_symbols.append(shared_reduction_sym);
 
-                        // Parameter
-                        TL::Type param_type = (*it)->get_field_type();
+                        // Private vector of partial reductions. This is a local pointer variable
+                        // rdv stands for reduction vector
+                        TL::Type private_reduction_vector_type = (*it)->get_field_type();
                         if (IS_C_LANGUAGE
                                 || IS_CXX_LANGUAGE)
                         {
@@ -211,28 +234,33 @@ namespace TL { namespace Nanox {
                         else if (IS_FORTRAN_LANGUAGE)
                         {
                             // The type will be a pointer to a descripted array
-                            // make it a reference to a descripted array
-                            param_type = param_type.points_to();
-                            param_type = param_type.get_lvalue_reference_to();
+                            private_reduction_vector_type = private_reduction_vector_type.points_to();
+                            private_reduction_vector_type = private_reduction_vector_type.get_array_to_with_descriptor(
+                                    Nodecl::NodeclBase::null(),
+                                    Nodecl::NodeclBase::null(),
+                                    sc);
+                            private_reduction_vector_type = private_reduction_vector_type.get_pointer_to();
                         }
                         else
                         {
                             internal_error("Code unreachable", 0);
                         }
 
-                        scope_entry_t* reduction_private_sym = ::new_symbol(function_context, function_context.current_scope, 
-                                ("rdp_" + (*it)->get_field_name()).c_str());
-                        reduction_private_sym->kind = SK_VARIABLE;
-                        reduction_private_sym->type_information = param_type.get_internal_type();
-                        reduction_private_sym->defined = reduction_private_sym->entity_specs.is_user_declared = 1;
+                        scope_entry_t* private_reduction_vector_sym = ::new_symbol(function_context, function_context.current_scope,
+                                ("rdv_" + name).c_str());
+                        private_reduction_vector_sym->kind = SK_VARIABLE;
+                        private_reduction_vector_sym->type_information = private_reduction_vector_type.get_internal_type();
+                        private_reduction_vector_sym->defined = private_reduction_vector_sym->entity_specs.is_user_declared = 1;
 
-                        parameter_symbols.append(reduction_private_sym);
-
-                        // Local variable
-                        scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope, name.c_str());
+                        // Local variable (rdp stands for reduction private)
+                        // This variable must be initialized properly
+                        scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope,
+                                ("rdp_" + name).c_str());
                         private_sym->kind = SK_VARIABLE;
-                        private_sym->type_information = (*it)->get_in_outline_type().get_internal_type();
+                        private_sym->type_information = (*it)->get_symbol().get_type().get_internal_type();
                         private_sym->defined = private_sym->entity_specs.is_user_declared = 1;
+
+                        private_sym->entity_specs.is_target = 1;
 
                         if (sym.is_valid())
                         {
@@ -251,6 +279,17 @@ namespace TL { namespace Nanox {
         // Update types of parameters (this is needed by VLAs)
         for (TL::ObjectList<TL::Symbol>::iterator it = parameter_symbols.begin();
                 it != parameter_symbols.end();
+                it++)
+        {
+            it->get_internal_symbol()->type_information =
+                type_deep_copy(it->get_internal_symbol()->type_information,
+                       function_context,
+                       symbol_map,
+                       Nodecl::Utils::SymbolMap::adapter);
+        }
+        // Update types of privates (this is needed by VLAs)
+        for (TL::ObjectList<TL::Symbol>::iterator it = private_symbols.begin();
+                it != private_symbols.end();
                 it++)
         {
             it->get_internal_symbol()->type_information =
@@ -417,6 +456,61 @@ namespace TL { namespace Nanox {
                 "", 0);
     }
 
+    Source LoweringVisitor::emit_allocate_statement(TL::Symbol sym, int &lower_bound_index, int &upper_bound_index)
+    {
+        Source result;
+
+        TL::Type t = sym.get_type();
+        if (t.is_any_reference())
+            t = t.references_to();
+
+        struct Aux
+        {
+            static void aux_rec(Source &array_shape, TL::Type t, int rank, int current_rank,
+                    int &lower_bound_index, int &upper_bound_index)
+            {
+                Source current_arg;
+                if (t.is_array())
+                {
+                    aux_rec(array_shape, t.array_element(), rank-1, current_rank, lower_bound_index, upper_bound_index);
+
+                    Source curent_arg;
+                    Nodecl::NodeclBase lower, upper;
+                    t.array_get_bounds(lower, upper);
+
+                    if (lower.is_null())
+                    {
+                        current_arg << "mcc_lower_bound_" << lower_bound_index << ":";
+                        lower_bound_index++;
+                    }
+
+                    if (upper.is_null())
+                    {
+                        current_arg << "mcc_upper_bound_" << upper_bound_index;
+                        upper_bound_index++;
+                    }
+
+                    array_shape.append_with_separator(current_arg, ",");
+                }
+            }
+
+            static void fill_array_shape(Source &array_shape, TL::Type t, int &lower_bound_index, int &upper_bound_index)
+            {
+                aux_rec(array_shape,
+                        t, t.get_num_dimensions(), t.get_num_dimensions(),
+                        lower_bound_index, upper_bound_index);
+            }
+        };
+
+        Source array_shape;
+        Aux::fill_array_shape(array_shape, t, lower_bound_index, upper_bound_index);
+
+        result << "ALLOCATE(" << sym.get_name() << "(" << array_shape <<  "));\n"
+            ;
+
+        return result;
+    }
+
     void LoweringVisitor::emit_outline(OutlineInfo& outline_info,
             Nodecl::NodeclBase original_statements,
             Source body_source,
@@ -438,6 +532,9 @@ namespace TL { namespace Nanox {
 
         Source unpack_code, unpacked_arguments, cleanup_code, private_entities, extra_declarations;
 
+        int lower_bound_index = 0;
+        int upper_bound_index = 0;
+
         TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
         for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
                 it != data_items.end();
@@ -448,6 +545,11 @@ namespace TL { namespace Nanox {
                 case OutlineDataItem::SHARING_PRIVATE:
                     {
                         // Do nothing
+                        if ((*it)->get_symbol().is_valid()
+                                && (*it)->get_symbol().is_allocatable())
+                        {
+                            private_entities << emit_allocate_statement((*it)->get_symbol(), lower_bound_index, upper_bound_index);
+                        }
                         break;
                     }
                 case OutlineDataItem::SHARING_SHARED:
@@ -527,16 +629,11 @@ namespace TL { namespace Nanox {
                     }
                 case OutlineDataItem::SHARING_REDUCTION:
                     {
-                        // This is a mixture of private and shared
-                        // A private is emitted for the partial reduction
-                        // Such partial reduction must be initialized with the entity
+                        // Pass the original reduced variable as if it were a shared
                         Source argument;
-                        // Now the shared part
                         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
                         {
-                            // Normal shared items are passed by reference from a pointer,
-                            // derreference here
-                            argument << "args." << (*it)->get_field_name();
+                            argument << "*(args." << (*it)->get_field_name() << ")";
                         }
                         else if (IS_FORTRAN_LANGUAGE)
                         {
@@ -547,7 +644,7 @@ namespace TL { namespace Nanox {
                         std::string name = (*it)->get_symbol().get_name();
 
                         private_entities
-                            << name << " = " << as_expression( (*it)->get_reduction_info()->get_identity().shallow_copy() ) << ";"
+                            << "rdp_" << name << " = " << as_expression( (*it)->get_reduction_info()->get_identity().shallow_copy() ) << ";"
                             ;
 
                         break;
@@ -655,6 +752,22 @@ namespace TL { namespace Nanox {
                 TL::Scope sc = ref_scope.get_scope();
                 ::insert_entry(decl_context.current_scope, it->get_internal_symbol());
             }
+
+            // Copy USEd information
+            scope_entry_t* original_used_modules_info
+                = original_statements.retrieve_context().get_related_symbol().get_used_modules().get_internal_symbol();
+            if (original_used_modules_info != NULL)
+            {
+                scope_entry_t* new_used_modules_info
+                    = get_or_create_used_modules_symbol_info(decl_context);
+                int i;
+                for (i = 0 ; i< original_used_modules_info->entity_specs.num_related_symbols; i++)
+                {
+                    P_LIST_ADD(new_used_modules_info->entity_specs.related_symbols,
+                            new_used_modules_info->entity_specs.num_related_symbols,
+                            original_used_modules_info->entity_specs.related_symbols[i]);
+                }
+            }
         }
 
         Nodecl::NodeclBase new_unpacked_body = unpacked_source.parse_statement(unpacked_function_body);
@@ -696,6 +809,26 @@ namespace TL { namespace Nanox {
                 << "CALL " << outline_name << "_unpacked(" << unpacked_arguments << ")\n"
                 << cleanup_code
                 ;
+
+            TL::ReferenceScope ref_scope(outline_function_body);
+            decl_context_t decl_context = ref_scope.get_scope().get_decl_context();
+
+            // Copy USEd information
+            scope_entry_t* original_used_modules_info
+                = original_statements.retrieve_context().get_related_symbol().get_used_modules().get_internal_symbol();
+
+            if (original_used_modules_info != NULL)
+            {
+                scope_entry_t* new_used_modules_info
+                    = get_or_create_used_modules_symbol_info(decl_context);
+                int i;
+                for (i = 0 ; i< original_used_modules_info->entity_specs.num_related_symbols; i++)
+                {
+                    P_LIST_ADD(new_used_modules_info->entity_specs.related_symbols,
+                            new_used_modules_info->entity_specs.num_related_symbols,
+                            original_used_modules_info->entity_specs.related_symbols[i]);
+                }
+            }
         }
         else
         {

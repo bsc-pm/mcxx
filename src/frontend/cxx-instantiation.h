@@ -37,16 +37,15 @@
 
 MCXX_BEGIN_DECLS
 
-LIBMCXX_EXTERN void instantiate_template_class(scope_entry_t* entry, decl_context_t decl_context, 
-        const char *filename, int line);
+LIBMCXX_EXTERN char template_class_needs_to_be_instantiated(scope_entry_t* entry);
+LIBMCXX_EXTERN void instantiate_template_class_if_needed(scope_entry_t* entry, decl_context_t decl_context, const char* filename, int line);
+LIBMCXX_EXTERN void instantiate_template_class_if_possible(scope_entry_t* entry, decl_context_t decl_context, const char* filename, int line);
 
 LIBMCXX_EXTERN AST instantiate_tree(AST orig_tree, decl_context_t context_of_being_instantiated);
 
 LIBMCXX_EXTERN void instantiation_init(void);
 
 LIBMCXX_EXTERN nodecl_t instantiation_instantiate_pending_functions(void);
-
-LIBMCXX_EXTERN char can_be_instantiated(scope_entry_t* entry, decl_context_t decl_context, const char *filename, int line);
 
 LIBMCXX_EXTERN void instantiation_add_symbol_to_instantiate(scope_entry_t* entry,
         const char* filename,

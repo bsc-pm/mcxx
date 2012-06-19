@@ -179,6 +179,8 @@ LIBMCXX_EXTERN const char* get_template_arguments_str(scope_entry_t* entry,
         decl_context_t decl_context);
 
 LIBMCXX_EXTERN const char* template_arguments_to_str(template_parameter_list_t* template_parameters,
+        int first_argument_to_be_printed,
+        char print_first_level_bracket,
         decl_context_t decl_context);
 
 LIBMCXX_EXTERN template_parameter_value_t* update_template_parameter_value(

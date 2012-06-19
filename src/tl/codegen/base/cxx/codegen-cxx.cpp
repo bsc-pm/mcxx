@@ -449,7 +449,17 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ClassMemberAccess& node)
 
     TL::Symbol sym = rhs.get_symbol();
 
-    bool is_anonymous = sym.is_valid()
+    /*
+     *     .
+     *    / \
+     *   .   c
+     *  / \
+     * a   <<anon>>
+     *
+     * We want a.<<anon>>.c become a.c
+     */
+
+    bool is_anonymous_union_accessor = sym.is_valid()
         && sym.get_type().is_named_class()
         && sym.get_type().get_symbol().is_anonymous_union();
 
@@ -477,14 +487,14 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ClassMemberAccess& node)
     {
         file << ")";
     }
-    // Do not print anonymous symbols
-    if (!is_anonymous)
+
+    if (!is_anonymous_union_accessor)
     {
         // Right part can be a reference but we do not want to derref it
         state.do_not_derref_rebindable_reference = true;
 
         file << "."
-             << /* template tag if needed */ node.get_text();
+            << /* template tag if needed */ node.get_text();
 
         needs_parentheses = operand_has_lower_priority(node, rhs);
         if (needs_parentheses)
@@ -493,18 +503,18 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ClassMemberAccess& node)
         }
 
         walk(rhs);
-
         if (needs_parentheses)
         {
             file << ")";
         }
+
+        state.do_not_derref_rebindable_reference = old_do_not_derref_rebindable_ref;
     }
 
     if (must_derref_all)
     {
         file << ")";
     }
-    state.do_not_derref_rebindable_reference = old_do_not_derref_rebindable_ref;
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::ComplexLiteral& node)
@@ -689,10 +699,12 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepTemplateId& node)
     file << node.get_text();
 
     walk(node.get_name());
-    TL::TemplateParameters tpl(nodecl_get_template_parameters(node.get_internal_nodecl()));
+    TL::TemplateParameters tpl = node.get_template_parameters();
 
     file << ::template_arguments_to_str(
             tpl.get_internal_template_parameter_list(),
+            /* first_template_argument_to_be_printed */ 0,
+            /* print_first_level_bracket */ 1,
             this->get_current_scope().get_decl_context());
 
     // The function 'template_arguments_to_str' does not print anything when
@@ -1115,8 +1127,86 @@ CxxBase::Ret CxxBase::codegen_function_call_arguments(Iterator begin, Iterator e
 }
 
 template <typename Node>
+void CxxBase::visit_function_call_form(const Node& node)
+{
+    Nodecl::NodeclBase function_form = node.get_function_form();
+    TL::Symbol called_symbol = node.get_called().get_symbol();
+    if (!function_form.is_null())
+    {
+        TL::TemplateParameters template_args = function_form.get_template_parameters();
+        TL::TemplateParameters deduced_template_args =
+            called_symbol.get_type().template_specialized_type_get_template_arguments();
+
+        if (template_args.get_num_parameters() == deduced_template_args.get_num_parameters())
+        {
+            // First case: the user's code specifies all template arguments
+            file << ::template_arguments_to_str(
+                    template_args.get_internal_template_parameter_list(),
+                    /* first_template_argument_to_be_printed */ 0,
+                    /* print_first_level_bracket */ 1,
+                    called_symbol.get_scope().get_decl_context());
+        }
+        else
+        {
+            // Second case: the user's code specifies some template arguments but not all
+            std::string template_args_str =
+                ::template_arguments_to_str(
+                        template_args.get_internal_template_parameter_list(),
+                        /* first_template_argument_to_be_printed */ 0,
+                        /* print_first_level_bracket */ 0,
+                        called_symbol.get_scope().get_decl_context());
+
+            std::string deduced_template_args_str =
+                ::template_arguments_to_str(
+                        deduced_template_args.get_internal_template_parameter_list(),
+                        /* first_template_argument_to_be_printed */ template_args.get_num_parameters(),
+                        /* print_first_level_bracket */ 1,
+                        called_symbol.get_scope().get_decl_context());
+
+            // Reason of this: A<::B> it's not legal
+            if (template_args_str.length() != 0 && template_args_str[0] == ':')
+            {
+                file << "< ";
+            }
+            else
+            {
+                file << "<";
+            }
+            file << template_args_str << "/*, " << deduced_template_args_str <<"*/>";
+        }
+    }
+    else
+    {
+        // Third case: the user's code does not specify any template argument
+        // We generate a comment with the deduced template arguments
+        if (called_symbol != NULL
+                && called_symbol.get_type().is_template_specialized_type())
+        {
+            TL::TemplateParameters deduced_template_args =
+                called_symbol.get_type().template_specialized_type_get_template_arguments();
+            file << "/*";
+            file << ::template_arguments_to_str(
+                    deduced_template_args.get_internal_template_parameter_list(),
+                    /* first_template_argument_to_be_printed */ 0,
+                    /* print_first_level_bracket */ 1,
+                    called_symbol.get_scope().get_decl_context());
+            file << "*/";
+        }
+    }
+}
+
+// This kind of Nodecl (CxxDepFunctionCall) has not a function form
+// For this reason exists this empty explicit specialization of 'visit_function_call_form' template function
+template <>
+void CxxBase::visit_function_call_form<Nodecl::CxxDepFunctionCall>(const Nodecl::CxxDepFunctionCall& node)
+{
+}
+
+
+template <typename Node>
 CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call)
 {
+
     Nodecl::NodeclBase called_entity = node.get_called();
     Nodecl::List arguments = node.get_arguments().template as<Nodecl::List>();
 
@@ -1195,6 +1285,13 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
         file << "(*(";
     }
 
+    bool old_visiting_called_entity_of_function_call =
+        state.visiting_called_entity_of_function_call;
+
+    // We are going to visit the called entity of the current function call
+    state.visiting_called_entity_of_function_call = true;
+
+    int ignore_n_first_arguments;
     switch (kind)
     {
         case ORDINARY_CALL:
@@ -1210,11 +1307,7 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
                 {
                     file << ")";
                 }
-                file << "(";
-
-                codegen_function_call_arguments(arguments.begin(), arguments.end(), function_type, /* ignore_n_first */ 0);
-
-                file << ")";
+                ignore_n_first_arguments = 0;
                 break;
             }
         case NONSTATIC_MEMBER_CALL:
@@ -1244,23 +1337,14 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
                 {
                     walk(called_entity);
                 }
-
-                file << "(";
-
-                codegen_function_call_arguments(arguments.begin(), arguments.end(), function_type, /* ignore_n_first */ 1);
-
-                file << ")";
+                ignore_n_first_arguments = 1;
                 break;
             }
         case CONSTRUCTOR_INITIALIZATION:
             {
                 TL::Symbol class_symbol = called_symbol.get_class_type().get_symbol();
                 file << class_symbol.get_qualified_name();
-                file << "(";
-
-                codegen_function_call_arguments(arguments.begin(), arguments.end(), function_type, /* ignore_n_first */ 0);
-
-                file << ")";
+                ignore_n_first_arguments = 0;
                 break;
             }
         default:
@@ -1268,6 +1352,20 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
                 internal_error("Unhandled function call kind", 0);
             }
     }
+
+    visit_function_call_form(node);
+
+    file << "(";
+
+    // Now, the called entity have been visited and we are going to generate the arguments of the function call
+    state.visiting_called_entity_of_function_call = false;
+
+    codegen_function_call_arguments(arguments.begin(), arguments.end(), function_type, ignore_n_first_arguments);
+    
+    // Restore the old value (nested function calls: a<>)
+    state.visiting_called_entity_of_function_call = old_visiting_called_entity_of_function_call;
+
+    file << ")";
 
     if (is_non_language_ref)
     {
@@ -1422,6 +1520,13 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
         {
             decl_spec_seq += "inline ";
         }
+    }
+
+    if (symbol.is_explicit_constructor()
+            && get_codegen_status(symbol) != CODEGEN_STATUS_DECLARED
+            && get_codegen_status(symbol) != CODEGEN_STATUS_DECLARED)
+    {
+        decl_spec_seq += "explicit ";
     }
 
     std::string gcc_attributes = "";
@@ -1671,6 +1776,13 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
         {
             decl_spec_seq += "inline ";
         }
+    }
+
+    if (symbol.is_explicit_constructor()
+            && get_codegen_status(symbol) != CODEGEN_STATUS_DECLARED
+            && get_codegen_status(symbol) != CODEGEN_STATUS_DECLARED)
+    {
+        decl_spec_seq += "explicit ";
     }
 
     std::string gcc_attributes = "";
@@ -2535,6 +2647,13 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Symbol& node)
         {
             // Builtins cannot be qualified
             file << entry.get_name();
+        }
+        else if (entry.is_function())
+        {
+            // If we are visiting the called entity of a function call, the template arguments
+            // (if any) will be added by 'visit_function_call_form' function
+            file << entry.get_qualified_name(this->get_current_scope(),
+                    /* without template id */ state.visiting_called_entity_of_function_call);
         }
         else
         {
@@ -4254,7 +4373,7 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
                                 .get_items()
                                 .as<Nodecl::List>());
                     }
-                    else
+                    else if (symbol.get_type().is_aggregate())
                     {
                         char old_inside_struct = state.inside_structured_value;
                         state.inside_structured_value = 1;
@@ -4262,6 +4381,12 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
                         walk(init);
 
                         state.inside_structured_value = old_inside_struct;
+                    }
+                    else
+                    {
+                        // This initialization is an explicit type cast. For this reason,
+                        // we do not set the variable 'inside_structured_value' to true
+                        walk(init);
                     }
                 }
                 else
@@ -4809,7 +4934,9 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
             }
         }
 
-        if (symbol.is_explicit_constructor())
+        if (symbol.is_explicit_constructor()
+                && get_codegen_status(symbol) != CODEGEN_STATUS_DECLARED
+                && get_codegen_status(symbol) != CODEGEN_STATUS_DECLARED)
         {
             decl_spec_seq += "explicit ";
         }

@@ -128,7 +128,7 @@ string-literal: NODECL_STRING_LITERAL() type const-value
 expression : literal
            | name
            | context
-           | NODECL_FUNCTION_CALL([called] expression, [arguments] argument-seq-opt, [alternate_name]name-opt) type const-value-opt
+           | NODECL_FUNCTION_CALL([called] expression, [arguments] argument-seq-opt, [alternate_name]name-opt, [function_form] function-form-opt) type const-value-opt
            | NODECL_ARRAY_SUBSCRIPT([subscripted] expression, [subscripts]expression-seq) type const-value-opt
            | NODECL_RANGE([lower] expression-opt, [upper] expression-opt, [stride] expression) type const-value-opt
            | NODECL_CLASS_MEMBER_ACCESS([lhs]expression, [member]expression) type const-value-opt text-opt
@@ -179,8 +179,6 @@ expression : literal
            | NODECL_ERR_EXPR()
 # This one is intended to represent implicit conversions allowed by the base language
            | NODECL_CONVERSION([nest] expression) type const-value-opt
-# This one represents an expression the value of which is already saved in another symbol
-# | NODECL_SAVED_EXPR([expression]expression) type symbol const-value-opt
 
 structured-value: NODECL_STRUCTURED_VALUE([items]initializer-item-seq-opt) type const-value-opt
 
@@ -203,7 +201,7 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | NODECL_REFERENCE([rhs]expression) type const-value-opt
                   | NODECL_COMMA([rhs]expression, [lhs]expression) type const-value-opt
                   | NODECL_THROW([rhs]expression-opt) type const-value-opt
-                  | NODECL_VIRTUAL_FUNCTION_CALL([called] expression, [arguments] argument-seq) type const-value-opt
+                  | NODECL_VIRTUAL_FUNCTION_CALL([called] expression, [arguments] argument-seq, [function_form] function-form-opt) type const-value-opt
                   | NODECL_MUL_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt
                   | NODECL_DIV_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt
                   | NODECL_ADD_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt
@@ -290,6 +288,8 @@ cxx-dependent-expressions: NODECL_CXX_ARROW([lhs]expression, [member]expression)
 
 # id-expr(expr) in a member initializer
 cxx-mem-init: NODECL_CXX_MEMBER_INIT([name]cxx-dependent-name, [initializer]expression) type const-value-opt
+
+function-form: NODECL_CXX_FUNCTION_FORM_TEMPLATE_ID() template-parameters-opt
 
 cuda-expressions : NODECL_CUDA_KERNEL_CALL([kernel_config] expression-seq, [function_call] expression) type const-value-opt
 

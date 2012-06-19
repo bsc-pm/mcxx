@@ -72,7 +72,151 @@ void set_test_expression_status(char c)
     _ambiguity_testing = c;
 }
 
+// Generic routines
+typedef char ambiguity_check_intepretation_fun_t(AST, decl_context_t, void* info);
+typedef int ambiguity_choose_interpretation_fun_t(AST current, AST previous, decl_context_t, void* info);
+typedef char ambiguity_fallback_interpretation_fun_t(AST, decl_context_t, void* info);
+
 static void choose_option(AST a, int n);
+
+void solve_ambiguity_generic(AST a, decl_context_t decl_context, void *info,
+        ambiguity_check_intepretation_fun_t* ambiguity_check_intepretation,
+        ambiguity_choose_interpretation_fun_t* ambiguity_choose_interpretation,
+        ambiguity_fallback_interpretation_fun_t* ambiguity_fallback_interpretation
+        )
+{
+    ERROR_CONDITION(ASTType(a) != AST_AMBIGUITY, "Tree is not an ambiguity", 0);
+
+    int valid_option = -1;
+
+    int i, n = ast_get_num_ambiguities(a);
+    for (i = 0; i < n; i++)
+    {
+        AST current_interpretation = ast_get_ambiguity(a, i);
+
+        if (ambiguity_check_intepretation(current_interpretation, decl_context, info))
+        {
+            if (valid_option < 0)
+            {
+                valid_option = i;
+            }
+            else
+            {
+                AST previous_interpretation = ast_get_ambiguity(a, valid_option);
+                char chosen_result = 0;
+
+                if (ambiguity_choose_interpretation != NULL)
+                {
+                    chosen_result = ambiguity_choose_interpretation(
+                            current_interpretation,
+                            previous_interpretation,
+                            decl_context,
+                            info);
+                }
+
+                if (chosen_result < 0)
+                {
+                    valid_option = i;
+                }
+                else if (chosen_result > 0)
+                {
+                    // valid_option = valid_option;
+                }
+                else
+                {
+                    // Error
+                    internal_error("More than one valid intepretation of ambiguity '%s'\nat '%s'\n", 
+                            prettyprint_in_buffer(a),
+                            ast_location(a));
+                }
+            }
+        }
+    }
+
+    // Fallback, the first one chosen wins
+    if (valid_option < 0
+            && ambiguity_fallback_interpretation != NULL)
+    {
+        for (i = 0; i < n; i++)
+        {
+            AST current_interpretation = ast_get_ambiguity(a, i);
+            if (ambiguity_fallback_interpretation(current_interpretation, decl_context, info))
+            {
+                valid_option = i;
+                break;
+            }
+        }
+    }
+    
+    if (valid_option < 0)
+    {
+        internal_error("Could not solve ambiguity '%s'\nat '%s'\n", 
+                prettyprint_in_buffer(a),
+                ast_location(a));
+    }
+
+    choose_option(a, valid_option);
+}
+
+char try_to_solve_ambiguity_generic(AST a, decl_context_t decl_context, void *info,
+        ambiguity_check_intepretation_fun_t* ambiguity_check_intepretation,
+        ambiguity_choose_interpretation_fun_t* ambiguity_choose_interpretation
+        )
+{
+    ERROR_CONDITION(ASTType(a) != AST_AMBIGUITY, "Tree is not an ambiguity", 0);
+
+    int valid_option = -1;
+
+    int i, n = ast_get_num_ambiguities(a);
+    for (i = 0; i < n; i++)
+    {
+        AST current_interpretation = ast_get_ambiguity(a, i);
+
+        if (ambiguity_check_intepretation(current_interpretation, decl_context, info))
+        {
+            if (valid_option < 0)
+            {
+                valid_option = i;
+            }
+            else
+            {
+                AST previous_interpretation = ast_get_ambiguity(a, valid_option);
+                char chosen_result = 0;
+
+                if (ambiguity_choose_interpretation != NULL)
+                {
+                    chosen_result = ambiguity_choose_interpretation(
+                            current_interpretation,
+                            previous_interpretation,
+                            decl_context,
+                            info);
+                }
+
+                if (chosen_result < 0)
+                {
+                    valid_option = i;
+                }
+                else if (chosen_result > 0)
+                {
+                    // valid_option = valid_option;
+                }
+                else
+                {
+                    return 0;
+                }
+            }
+        }
+    }
+
+    if (valid_option < 0)
+    {
+        return 0;
+    }
+
+    choose_option(a, valid_option);
+    return 1;
+}
+
 static int select_node_type(AST a, node_t type);
 static AST recursive_search(AST a, node_t type);
 static AST look_for_node_type_within_ambig(AST a, node_t type, int n);
@@ -155,7 +299,7 @@ void solve_parameter_declaration_vs_type_parameter_class(AST a, decl_context_t d
     }
 }
 
-static char check_function_header(AST a, decl_context_t decl_context)
+static char check_function_header(AST a, decl_context_t decl_context, void* p UNUSED_PARAMETER)
 {
     AST declarator = ASTSon1(a);
     return check_declarator(declarator, decl_context);
@@ -163,114 +307,45 @@ static char check_function_header(AST a, decl_context_t decl_context)
 
 void solve_ambiguous_function_header(AST a, decl_context_t decl_context)
 {
-    int option_lacking_decl_spec = -1;
-    int correct_option = -1;
-    int i;
-    for (i = 0; i < ast_get_num_ambiguities(a); i++)
+    solve_ambiguity_generic(a, decl_context, NULL,
+            check_function_header,
+            NULL,
+            NULL);
+}
+
+static char solve_ambiguous_declaration_check_interpretation(AST declaration, decl_context_t decl_context, void* p UNUSED_PARAMETER)
+{
+    char current_valid = 0;
+    if (ASTType(declaration) == AST_FUNCTION_DEFINITION)
     {
-        AST option = ast_get_ambiguity(a, i);
-
-        C_LANGUAGE()
-        {
-            if (ASTSon0(option) == NULL)
-            {
-                option_lacking_decl_spec = i;
-            }
-        }
-
-        if (check_function_header(option, decl_context))
-        {
-            if (correct_option < 0)
-            {
-                correct_option = i;
-            }
-            else
-            {
-                AST previous_option = ast_get_ambiguity(a, correct_option);
-                AST current_option = option;
-                internal_error("More than one valid alternative! %s vs %s\n", 
-                        ast_print_node_type(ASTType(previous_option)),
-                        ast_print_node_type(ASTType(current_option)));
-            }
-        }
+        AST function_header = ASTSon0(declaration);
+        AST declarator = ASTSon1(function_header);
+        current_valid = check_function_definition_declarator(declarator, decl_context);
     }
-
-    if (correct_option < 0)
+    else if (ASTType(declaration) == AST_SIMPLE_DECLARATION
+            || ASTType(declaration) == AST_MEMBER_DECLARATION)
     {
-        // Silly case for a declaration like 'f(a) { ... } in K&R C
-        C_LANGUAGE()
-        {
-            if (option_lacking_decl_spec >= 0)
-            {
-                choose_option(a, option_lacking_decl_spec);
-                return;
-            }
-        }
-
-        internal_error("Ambiguity not solved %s", ast_location(a));
+        current_valid = check_simple_or_member_declaration(declaration, decl_context);
+    }
+    else if (ASTType(declaration) == AST_MEMBER_DECLARATION_QUALIF)
+    {
+        nodecl_t nodecl_expr = nodecl_null();
+        enter_test_expression();
+        AST id_expr = ASTSon0(declaration);
+        current_valid = check_expression(id_expr, decl_context, &nodecl_expr);
+        leave_test_expression();
     }
     else
     {
-        choose_option(a, correct_option);
+        internal_error("Unexpected ambiguous node '%s'\n", ast_print_node_type(ASTType(declaration)));
     }
+
+    return current_valid;
 }
 
 void solve_ambiguous_declaration(AST a, decl_context_t decl_context)
 {
-    int correct_option = -1;
-    int i;
-    for (i = 0; i < ast_get_num_ambiguities(a); i++)
-    {
-        AST declaration = ast_get_ambiguity(a, i);
-        char current_valid = 0;
-
-        if (ASTType(declaration) == AST_FUNCTION_DEFINITION)
-        {
-            AST function_header = ASTSon0(declaration);
-            AST declarator = ASTSon1(function_header);
-            current_valid = check_function_definition_declarator(declarator, decl_context);
-        }
-        else if (ASTType(declaration) == AST_SIMPLE_DECLARATION
-                || ASTType(declaration) == AST_MEMBER_DECLARATION)
-        {
-            current_valid = check_simple_or_member_declaration(declaration, decl_context);
-        }
-        else if (ASTType(declaration) == AST_MEMBER_DECLARATION_QUALIF)
-        {
-            nodecl_t nodecl_expr = nodecl_null();
-            enter_test_expression();
-            AST id_expr = ASTSon0(declaration);
-            current_valid = check_expression(id_expr, decl_context, &nodecl_expr);
-            leave_test_expression();
-        }
-        else
-        {
-            internal_error("Unexpected ambiguous node '%s'\n", ast_print_node_type(ASTType(declaration)));
-        }
-
-        if (current_valid)
-        {
-            if (correct_option < 0)
-            {
-                correct_option = i;
-            }
-            else
-            {
-                AST previous_option = ast_get_ambiguity(a, correct_option);
-                AST current_option = declaration;
-                internal_error("More than one valid alternative! %s vs %s\n", 
-                        ast_print_node_type(ASTType(previous_option)),
-                        ast_print_node_type(ASTType(current_option)));
-            }
-        }
-    }
-
-    if (correct_option < 0)
-    {
-        internal_error("Could not solve declaration ambiguity\n", 0);
-    }
-
-    choose_option(a, correct_option);
+    solve_ambiguity_generic(a, decl_context, NULL, solve_ambiguous_declaration_check_interpretation, NULL, NULL);
 }
 
 // Checks for old-styled functions
@@ -391,130 +466,92 @@ void solve_ambiguous_declarator(AST a, decl_context_t decl_context)
     internal_error("Don't know how to handle this ambiguity", 0);
 }
 
-void solve_ambiguous_statement(AST a, decl_context_t decl_context)
+static char solve_ambiguous_statement_check_interpretation(AST a, decl_context_t decl_context, void *p UNUSED_PARAMETER)
 {
-    // The strategy used here is to check every ambiguity and select
-    // the valid one
-    int correct_choice = -1;
-    int i;
-
-    for (i = 0; i < ast_get_num_ambiguities(a); i++)
+    char current_check = 0;
+    switch (ASTType(a))
     {
-        char current_check = 0;
-
-        switch (ASTType(ast_get_ambiguity(a, i)))
-        {
-            case AST_DECLARATION_STATEMENT :
-                {
-                    enter_test_expression();
-                    current_check = check_declaration_statement(ast_get_ambiguity(a, i), decl_context);
-                    leave_test_expression();
-                    break;
-                }
-            case AST_EXPRESSION_STATEMENT :
-                {
-                    enter_test_expression();
-                    current_check = check_expression_statement(ast_get_ambiguity(a, i), decl_context);
-                    leave_test_expression();
-                    break;
-                }
-            case AST_IF_ELSE_STATEMENT:
-                {
-                    /* 
-                       Normally the if-else ambiguity is solved in the parser but sometimes it may slip in
-                       because of the nature of C
-
-                       if (0)
-                           for (;;) // This for is not caught in the grammar
-                               if (0)
-                                   if (0)
-                                   {
-                                   }
-                                   else
-                                   {
-                                   }
-                    */
-                    // If this 'if' has an else it is the wrong interpretation
-                    // because we are 'raising' the else too much
-                    current_check = (ASTSon2(ast_get_ambiguity(a, i)) == NULL);
-                    break;
-                }
-            default :
-                {
-                    internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(a)));
-                    break;
-                }
-        }
-
-        if (current_check)
-        {
-            if (correct_choice < 0)
+        case AST_DECLARATION_STATEMENT :
             {
-                correct_choice = i;
+                enter_test_expression();
+                current_check = check_declaration_statement(a, decl_context);
+                leave_test_expression();
+                break;
             }
-            else
+        case AST_EXPRESSION_STATEMENT :
             {
-                // Consider the case described in the standard
-                //
-                //      T(a);
-                //
-                // where "T" is a typename, if the expression is OK it must be an expression
-                // if it were a declaration the symbol would not have been declared and thus
-                // it can't be an expression
-                AST first_option = ASTSon0(ast_get_ambiguity(a, correct_choice));
-                AST second_option = ASTSon0(ast_get_ambiguity(a, i));
-
-                int either;
-                if ((either = either_type(first_option, second_option, 
-                            AST_EXPRESSION, AST_SIMPLE_DECLARATION)))
-                {
-                    if (either < 0)
-                    {
-                        correct_choice = i;
-                    }
-                }
-                else
-                {
-                    internal_error("More than one valid choice! '%s' vs '%s' %s", 
-                            ast_print_node_type(ASTType(first_option)),
-                                ast_print_node_type(ASTType(second_option)),
-                                ast_location(second_option));
-                }
+                enter_test_expression();
+                current_check = check_expression_statement(a, decl_context);
+                leave_test_expression();
+                break;
             }
-        }
-    }
-
-    if (correct_choice < 0)
-    {
-        // Recheck the expression again
-        for (i = 0; i < ast_get_num_ambiguities(a); i++)
-        {
-            switch (ASTType(ast_get_ambiguity(a, i)))
+        case AST_IF_ELSE_STATEMENT:
             {
-                case AST_EXPRESSION_STATEMENT :
-                    {
-                        // This will output some informational messages that might
-                        // help solving this ambiguity
-                        // Best effort
-                        choose_option(a, i);
-                        return;
-                    }
-                default:
-                    {
-                        break;
-                    }
+                /* 
+                   Normally the if-else ambiguity is solved in the parser but sometimes it may slip in
+                   because of the nature of C
+
+                   if (0)
+                   for (;;) // This for is not caught in the grammar
+                   if (0)
+                   if (0)
+                   {
+                   }
+                   else
+                   {
+                   }
+                   */
+                // If this 'if' has an else it is the wrong interpretation
+                // because we are 'raising' the else too much
+                current_check = (ASTSon2(a) == NULL);
+                break;
             }
-        }
+        default :
+            {
+                internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(a)));
+                break;
+            }
     }
-    else
-    {
-        choose_option(a, correct_choice);
-    }
+    return current_check;
 }
 
-// This function is used in cxx-exprtype.c in explicit type conversions
-// Maybe we should refactor somehow with gather_type_spec_information
-static char check_simple_type_spec(AST type_spec, decl_context_t decl_context, 
+static int solve_ambiguous_statement_choose_interpretation(AST current_interpretation, AST previous_interpretation, 
+        decl_context_t decl_context UNUSED_PARAMETER, void * p UNUSED_PARAMETER)
+{
+    int either;
+    if ((either = either_type(current_interpretation, previous_interpretation, 
+                    AST_EXPRESSION, AST_SIMPLE_DECLARATION)))
+    {
+        // Favour the expression
+        if (either > 0)
+        {
+            // The expression is the first
+            return -1;
+        }
+        else
+        {
+            // The expression is the second
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static char solve_ambiguous_statement_fallback(AST a, decl_context_t decl_context UNUSED_PARAMETER, void *p UNUSED_PARAMETER)
+{
+    return (ASTType(a) == AST_EXPRESSION_STATEMENT);
+}
+
+void solve_ambiguous_statement(AST a, decl_context_t decl_context)
+{
+    solve_ambiguity_generic(a, decl_context, NULL,
+            solve_ambiguous_statement_check_interpretation, 
+            solve_ambiguous_statement_choose_interpretation,
+            solve_ambiguous_statement_fallback);
+}
+
+static char check_simple_type_spec(AST type_spec, 
+        decl_context_t decl_context, 
         type_t** computed_type,
         char allow_class_templates)
 {
@@ -614,6 +651,14 @@ static char check_simple_type_spec(AST type_spec, decl_context_t decl_context,
     return ok;
 }
 
+static char check_type_specifier_aux(AST type_id, decl_context_t decl_context, char allow_class_templates);
+
+static char solve_ambiguity_type_specifier_check_interpretation(AST a, decl_context_t decl_context, void *p)
+{
+    char *allow_class_templates = (char*)p;
+    return check_type_specifier_aux(a, decl_context, *allow_class_templates);
+}
+
 static char check_type_specifier_aux(AST type_id, decl_context_t decl_context, char allow_class_templates)
 {
     C_LANGUAGE()
@@ -669,36 +714,10 @@ static char check_type_specifier_aux(AST type_id, decl_context_t decl_context, c
             // There is an ambiguity between AST_GCC_TYPEOF_EXPR and AST_GCC_TYPEOF
         case AST_AMBIGUITY :
             {
-                int valid = -1;
-                int i;
-                for (i = 0; i < ast_get_num_ambiguities(type_id); i++)
-                {
-                    if (check_type_specifier_aux(ast_get_ambiguity(type_id, i), decl_context, allow_class_templates))
-                    {
-                        if (valid < 0)
-                        {
-                            valid = i;
-                        }
-                        else
-                        {
-                            internal_error("Two or more valid type-id trees '%s' in %s\n", 
-                                    prettyprint_in_buffer(type_id),
-                                    ast_location(type_id));
-                        }
-                    }
-                }
-
-                if (valid < 0)
-                {
-                    internal_error("Cannot solve ambiguity of type-id '%s' in '%s'\n", 
-                            prettyprint_in_buffer(type_id),
-                            ast_location(type_id));
-                }
-
-                choose_option(type_id, valid);
-
-                // This is always a valid type
-                return 1;
+                return try_to_solve_ambiguity_generic(
+                        type_id, decl_context, &allow_class_templates,
+                        solve_ambiguity_type_specifier_check_interpretation,
+                        NULL);
                 break;
             }
         default :
@@ -718,6 +737,14 @@ static char check_type_specifier_or_class_template_name(AST type_id, decl_contex
     return check_type_specifier_aux(type_id, decl_context, /* allow_class_templates */ 1);
 }
 
+static char try_to_solve_ambiguous_init_declarator(AST a, decl_context_t decl_context);
+
+static char solve_typeless_init_declarator_check_interpretation(AST opt_declarator, decl_context_t decl_context, void* p UNUSED_PARAMETER)
+{
+    AST declarator = ASTSon0(opt_declarator);
+
+    return check_typeless_declarator(declarator, decl_context);
+}
 
 static char check_simple_or_member_declaration(AST a, decl_context_t decl_context)
 {
@@ -731,7 +758,7 @@ static char check_simple_or_member_declaration(AST a, decl_context_t decl_contex
         //
         // is a declaration if "A" names a type. Otherwise this is not a valid
         // simple declaration
-        
+
         // Additional check. Ensure we are using the longest possible nested name seq
         AST first_init_declarator = NULL;
         AST list = ASTSon1(a);
@@ -756,22 +783,26 @@ static char check_simple_or_member_declaration(AST a, decl_context_t decl_contex
             }
         }
 
-        if (first_init_declarator != NULL
-                && ASTType(first_init_declarator) == AST_AMBIGUITY)
+        AST first_declarator = NULL;
+        if (first_init_declarator != NULL)
         {
-            solve_ambiguous_init_declarator(first_init_declarator, decl_context);
+            if (ASTType(first_init_declarator) == AST_AMBIGUITY)
+            {
+                if (!try_to_solve_ambiguous_init_declarator(first_init_declarator, decl_context))
+                    return 0;
+            }
+            first_declarator = ASTSon0(first_init_declarator);
         }
 
-        // AST init_declarator_list = ASTSon1(a);
-        // if (init_declarator_list != NULL)
-        // {
-        //     if (!check_init_declarator_list(init_declarator_list, decl_context))
-        //     {
-        //         return 0;
-        //     }
-        // }
-        //
-        
+        if (first_declarator != NULL)
+        {
+            // Make sure this declarator is fine at this point
+            // This will avoid problems like
+            //
+            // typedef T(F)(S) where the intepretation with an empty type-specifier is not allowed
+            if (!check_declarator(first_declarator, decl_context))
+                return 0;
+        }
 
         // Additional check for this special case
         // typedef int T;
@@ -787,11 +818,9 @@ static char check_simple_or_member_declaration(AST a, decl_context_t decl_contex
         //    * 'T' is just a declarator_id_expr
         //    * 'T' names a type
 
-        if (first_init_declarator != NULL 
+        if (first_declarator != NULL 
                 && type_spec != NULL)
         {
-            AST first_declarator = ASTSon0(first_init_declarator);
-
             // This ambiguity brought to you by C++0x
             // struct X :   T { }; 
             // enum E : class { }; 
@@ -883,34 +912,9 @@ static char check_simple_or_member_declaration(AST a, decl_context_t decl_contex
 
             if (ASTType(init_declarator) == AST_AMBIGUITY)
             {
-                int correct_choice = -1;
-                int i;
-                for (i = 0; i < ast_get_num_ambiguities(init_declarator); i++)
-                {
-                    AST opt_declarator = ASTSon0(ast_get_ambiguity(init_declarator, i));
-
-                    if (check_typeless_declarator(opt_declarator, decl_context))
-                    {
-                        if (correct_choice < 0)
-                        {
-                            correct_choice = i;
-                        }
-                        else
-                        {
-                            internal_error("More than one valid choice", 0);
-                        }
-                    }
-                }
-
-                // No choice was possible
-                if (correct_choice < 0)
-                {
+                if (!try_to_solve_ambiguity_generic(init_declarator, decl_context, NULL,
+                            solve_typeless_init_declarator_check_interpretation, NULL))
                     return 0;
-                }
-                else
-                {
-                    choose_option(init_declarator, correct_choice);
-                }
             }
             else
             {
@@ -925,6 +929,21 @@ static char check_simple_or_member_declaration(AST a, decl_context_t decl_contex
     return 1;
 }
 
+static char solve_ambiguous_declaration_statement_check_interpretation(AST a, decl_context_t decl_context, void *p UNUSED_PARAMETER)
+{
+    switch (ASTType(a))
+    {
+        case AST_SIMPLE_DECLARATION:
+            {
+                return check_simple_or_member_declaration(a, decl_context);
+            }
+        default:
+            internal_error("Unexpected ambiguity '%s'\n", ast_print_node_type(ASTType(a)));
+    }
+
+    return 0;
+}
+
 static char check_declaration_statement(AST declaration_statement, decl_context_t decl_context)
 {
     AST a = ASTSon0(declaration_statement);
@@ -936,47 +955,10 @@ static char check_declaration_statement(AST declaration_statement, decl_context_
     }
     else if (ASTType(a) == AST_AMBIGUITY)
     {
-        // In general only AST_SIMPLE_DECLARATION gets ambiguous here
-
-        int correct_choice = -1;
-        int i;
-        for (i = 0; i < ast_get_num_ambiguities(a); i++)
-        {
-            AST current_ambig = ast_get_ambiguity(a, i);
-
-            char result = 0;
-
-            switch (ASTType(current_ambig))
-            {
-                case AST_SIMPLE_DECLARATION:
-                    {
-                        result = check_simple_or_member_declaration(current_ambig, decl_context);
-                        break;
-                    }
-                default:
-                    internal_error("Unexpected ambiguity '%s'\n", ast_print_node_type(ASTType(current_ambig)));
-            }
-            if (result)
-            {
-                if (correct_choice < 0)
-                {
-                    correct_choice = i;
-                }
-                else
-                {
-                    internal_error("More than one valid alternative", 0);
-                }
-            }
-        }
-
-        if (correct_choice < 0)
-        {
-            return 0;
-        }
-        else
-        {
-            choose_option(a, correct_choice);
-        }
+        return try_to_solve_ambiguity_generic(
+                a, decl_context, NULL,
+                solve_ambiguous_declaration_statement_check_interpretation,
+                NULL);
     }
 
     return 1;
@@ -1357,6 +1339,61 @@ void solve_ambiguous_init_declarator(AST a, decl_context_t decl_context)
     }
 }
 
+// Like solve_ambiguous_init_declarator but does not fail
+static char try_to_solve_ambiguous_init_declarator(AST a, decl_context_t decl_context)
+{
+    int correct_choice = -1;
+    int i;
+
+    for (i = 0; i < ast_get_num_ambiguities(a); i++)
+    {
+        AST init_declarator = ast_get_ambiguity(a, i);
+
+        if (check_init_declarator(init_declarator, decl_context))
+        {
+            if (correct_choice < 0)
+            {
+                correct_choice = i;
+            }
+            else
+            {
+                // Ambiguity: T t(Q()); where T and Q are type-names always solves to 
+                // function declaration
+
+                AST previous_choice = ast_get_ambiguity(a, correct_choice);
+                AST previous_choice_declarator = ASTSon0(previous_choice);
+
+                AST current_choice_declarator = ASTSon0(init_declarator);
+
+                int either;
+                if ((either = either_type(ASTSon0(previous_choice_declarator), ASTSon0(current_choice_declarator), 
+                            AST_DECLARATOR_FUNC, AST_DECLARATOR_ID_EXPR)))
+                {
+                    // Always favor function declarations
+                    if (either < 0)
+                    {
+                        correct_choice = i;
+                    }
+                }
+                else
+                {
+                    internal_error("More than one valid choice!\n", 0);
+                }
+            }
+        }
+    }
+
+    if (correct_choice < 0)
+    {
+        return 0;
+    }
+    else
+    {
+        choose_option(a, correct_choice);
+        return 1;
+    }
+}
+
 static char check_init_declarator(AST init_declarator, decl_context_t decl_context)
 {
     AST declarator = ASTSon0(init_declarator);
@@ -1502,6 +1539,61 @@ static char is_non_abstract_declarator(AST a, decl_context_t decl_context)
     return !is_abstract_declarator(a, decl_context);
 }
 
+static char solve_ambiguous_function_declarator_parameter_check_intepretation(AST a, decl_context_t decl_context, void* p UNUSED_PARAMETER)
+{
+    AST decl_specifier_seq = ASTSon0(a);
+    AST type_specifier = ASTSon1(decl_specifier_seq);
+    AST declarator = ASTSon1(a);
+
+    char seems_ok = 1;
+
+    seems_ok = seems_ok && check_type_specifier(type_specifier, decl_context);
+
+    if (seems_ok && declarator != NULL)
+    {
+        seems_ok = seems_ok && check_declarator(declarator, decl_context);
+    }
+
+    return seems_ok;
+}
+
+static int solve_ambiguous_function_declarator_parameter_choose_intepretation(
+        AST current_interpretation, 
+        AST previous_interpretation,
+        decl_context_t decl_context, void* p UNUSED_PARAMETER)
+{
+    if (ASTSon1(current_interpretation) != NULL
+            && is_abstract_declarator(ASTSon1(current_interpretation), decl_context)
+            &&  ASTSon1(previous_interpretation) != NULL
+            && is_non_abstract_declarator(ASTSon1(previous_interpretation), decl_context))
+    {
+        // The current is the good one
+        return -1;
+    }
+    else if (ASTSon1(previous_interpretation) != NULL
+            && is_abstract_declarator(ASTSon1(previous_interpretation), decl_context)
+            &&  ASTSon1(current_interpretation) != NULL
+            && is_non_abstract_declarator(ASTSon1(current_interpretation), decl_context))
+    {
+        // The previous was the good one
+        return 1;
+    }
+    else
+    {
+        return 0;
+        // fprintf(stderr, "Previous interpretation\n");
+        // prettyprint(stderr, previous_interpretation);
+        // fprintf(stderr, "\n");
+        // fprintf(stderr, "Current interpretation\n");
+        // prettyprint(stderr, current_interpretation);
+        // fprintf(stderr, "\n");
+        // internal_error("More than one valid alternative '%s' vs '%s' %s", 
+        //         ast_print_node_type(ASTType(previous_interpretation)),
+        //         ast_print_node_type(ASTType(current_interpretation)),
+        //         ast_location(previous_interpretation));
+    }
+}
+
 static char check_function_declarator_parameters(AST parameter_declaration_clause, decl_context_t decl_context)
 {
     AST list = parameter_declaration_clause;
@@ -1523,79 +1615,10 @@ static char check_function_declarator_parameters(AST parameter_declaration_claus
 
         if (ASTType(parameter) == AST_AMBIGUITY)
         {
-            int correct_choice = -1;
-            int i;
-            for (i = 0; i < ast_get_num_ambiguities(parameter); i++)
-            {
-                AST parameter_decl = ast_get_ambiguity(parameter, i);
-
-                AST decl_specifier_seq = ASTSon0(parameter_decl);
-                AST type_specifier = ASTSon1(decl_specifier_seq);
-                AST declarator = ASTSon1(parameter_decl);
-
-                char seems_ok = 1;
-
-                seems_ok = seems_ok && check_type_specifier(type_specifier, decl_context);
-
-                if (seems_ok && declarator != NULL)
-                {
-                    seems_ok = seems_ok && check_declarator(declarator, decl_context);
-                }
-
-                if (seems_ok)
-                {
-                    if (correct_choice < 0)
-                    {
-                        correct_choice = i;
-                    }
-                    else
-                    {
-                        // A parameter like type-name(type-name) must be
-                        // interpreted as an abstract declarator and not as a
-                        // redundantly parenthesized declarator introducing a
-                        // parameter called like the type-name
-                        AST current_choice = parameter_decl;
-                        AST previous_choice = ast_get_ambiguity(parameter, correct_choice);
-                        if (ASTSon1(current_choice) != NULL
-                                && is_abstract_declarator(ASTSon1(current_choice), decl_context)
-                                &&  ASTSon1(previous_choice) != NULL
-                                && is_non_abstract_declarator(ASTSon1(previous_choice), decl_context))
-                        {
-                            // The current is the good one
-                            correct_choice = i;
-                        }
-                        else if (ASTSon1(previous_choice) != NULL
-                                && is_abstract_declarator(ASTSon1(previous_choice), decl_context)
-                                &&  ASTSon1(current_choice) != NULL
-                                && is_non_abstract_declarator(ASTSon1(current_choice), decl_context))
-                        {
-                            // The previous was the good one
-                        }
-                        else
-                        {
-                            fprintf(stderr, "Previous choice\n");
-                            prettyprint(stderr, previous_choice);
-                            fprintf(stderr, "\n");
-                            fprintf(stderr, "Current choice\n");
-                            prettyprint(stderr, current_choice);
-                            fprintf(stderr, "\n");
-                            internal_error("More than one valid alternative '%s' vs '%s' %s", 
-                                    ast_print_node_type(ASTType(previous_choice)),
-                                    ast_print_node_type(ASTType(current_choice)),
-                                    ast_location(previous_choice));
-                        }
-                    }
-                }
-            }
-
-            if (correct_choice < 0)
-            {
+            if (!try_to_solve_ambiguity_generic(parameter, decl_context, NULL,
+                    solve_ambiguous_function_declarator_parameter_check_intepretation,
+                    solve_ambiguous_function_declarator_parameter_choose_intepretation))
                 return 0;
-            }
-            else
-            {
-                choose_option(parameter, correct_choice);
-            }
         }
 
         if (ASTType(parameter) != AST_PARAMETER_DECL
@@ -1633,172 +1656,147 @@ static char check_function_declarator_parameters(AST parameter_declaration_claus
 
     return 1;
 }
-
-void solve_ambiguous_parameter_decl(AST parameter_declaration, decl_context_t decl_context)
+static char solve_ambiguous_parameter_declaration_check_interpretation(AST parameter_decl, 
+        decl_context_t decl_context, 
+        void* p UNUSED_PARAMETER)
 {
-    int current_choice = -1;
-    int i;
-    for (i = 0; i < ast_get_num_ambiguities(parameter_declaration); i++)
+    char current_valid = 1;
+
+    AST decl_specifier_seq = ASTSon0(parameter_decl);
+
+    AST type_specifier = ASTSon1(decl_specifier_seq);
+
+    if (type_specifier != NULL)
     {
-        char current_valid = 1;
-        AST parameter_decl = ast_get_ambiguity(parameter_declaration, i);
-
-        AST decl_specifier_seq = ASTSon0(parameter_decl);
-
-        AST type_specifier = ASTSon1(decl_specifier_seq);
-
-        if (type_specifier != NULL)
-        {
-            current_valid = current_valid && check_type_specifier(type_specifier, decl_context);
-        }
-        else
-        {
-            // There must be type_spec in a parameter_decl
-            // but it might be a stranded 'long/short/signed/unsigned' 
-            // because we have not yet called build_scope_decl_specifier_seq
-            gather_decl_spec_t gather_info;
-            memset(&gather_info, 0, sizeof(gather_info));
-            type_t* t = NULL;
-
-            nodecl_t dummy_nodecl_output = nodecl_null();
-            build_scope_decl_specifier_seq(decl_specifier_seq, 
-                    &gather_info, &t, decl_context, &dummy_nodecl_output);
-
-            current_valid = current_valid && (t != NULL);
-        }
-
-        AST declarator = ASTSon1(parameter_decl);
-
-        if (declarator != NULL)
-        {
-            current_valid = current_valid && check_declarator(declarator, decl_context);
-        }
-
-        if (current_valid)
-        {
-            if (current_choice < 0)
-            {
-                current_choice = i;
-            }
-            else
-            {
-                AST previous_parameter_decl = ast_get_ambiguity(parameter_declaration, current_choice);
-                AST current_parameter_decl = parameter_decl;
-
-                AST previous_declarator = ASTSon1(previous_parameter_decl);
-                AST current_declarator = ASTSon1(current_parameter_decl);
-
-                // If an abstract declarator is possible, then it must be an abstract declarator
-                char solved_ambiguity = 0;
-                if (previous_declarator != NULL
-                        && current_declarator != NULL)
-                {
-                    if (is_abstract_declarator(previous_declarator, decl_context)
-                            && is_non_abstract_declarator(current_declarator, decl_context))
-                    {
-                        solved_ambiguity = 1;
-                    }
-                    else if (is_non_abstract_declarator(previous_declarator, decl_context)
-                            && is_abstract_declarator(current_declarator, decl_context))
-                    {
-                        current_choice = i;
-                        solved_ambiguity = 1;
-                    }
-                }
-
-                if (!solved_ambiguity)
-                {
-                    internal_error("More than one option is possible in %s", 
-                            ast_location(parameter_declaration));
-                }
-            }
-        }
-    }
-
-    if (current_choice < 0)
-    {
-        internal_error("Ambiguity not solved %s", ast_location(parameter_declaration));
+        current_valid = current_valid && check_type_specifier(type_specifier, decl_context);
     }
     else
     {
-        choose_option(parameter_declaration, current_choice);
+        // There must be type_spec in a parameter_decl
+        // but it might be a stranded 'long/short/signed/unsigned' 
+        // because we have not yet called build_scope_decl_specifier_seq
+        gather_decl_spec_t gather_info;
+        memset(&gather_info, 0, sizeof(gather_info));
+        type_t* t = NULL;
+
+        nodecl_t dummy_nodecl_output = nodecl_null();
+        build_scope_decl_specifier_seq(decl_specifier_seq, 
+                &gather_info, &t, decl_context, &dummy_nodecl_output);
+
+        current_valid = current_valid && (t != NULL);
     }
+
+    AST declarator = ASTSon1(parameter_decl);
+
+    if (declarator != NULL)
+    {
+        current_valid = current_valid && check_declarator(declarator, decl_context);
+    }
+
+    return current_valid;
+}
+
+static int solve_ambiguous_parameter_declaration_choose_interpretation(
+        AST current_interpretation, AST previous_interpretation, 
+        decl_context_t decl_context, void *p UNUSED_PARAMETER)
+{
+    AST previous_parameter_decl = previous_interpretation;
+    AST current_parameter_decl = current_interpretation;
+
+    AST previous_declarator = ASTSon1(previous_parameter_decl);
+    AST current_declarator = ASTSon1(current_parameter_decl);
+
+    // If an abstract declarator is possible, then it must be an abstract declarator
+    if (previous_declarator != NULL
+            && current_declarator != NULL)
+    {
+        if (is_abstract_declarator(previous_declarator, decl_context)
+                && is_non_abstract_declarator(current_declarator, decl_context))
+        {
+            return 1;
+        }
+        else if (is_non_abstract_declarator(previous_declarator, decl_context)
+                && is_abstract_declarator(current_declarator, decl_context))
+        {
+            return -1;
+        }
+    }
+
+    return 0;
+}
+
+void solve_ambiguous_parameter_decl(AST parameter_declaration, decl_context_t decl_context)
+{
+    solve_ambiguity_generic(parameter_declaration, decl_context, NULL,
+            solve_ambiguous_parameter_declaration_check_interpretation,
+            solve_ambiguous_parameter_declaration_choose_interpretation, 
+            NULL);
+}
+
+static char solve_ambiguous_for_init_statement_check_interpretation(AST for_init_statement, decl_context_t decl_context, void *p UNUSED_PARAMETER)
+{
+    char current = 0;
+    switch (ASTType(for_init_statement))
+    {
+        case AST_SIMPLE_DECLARATION :
+            if (check_simple_or_member_declaration(for_init_statement, decl_context))
+            {
+                current = 1;
+            }
+            break;
+        case AST_EXPRESSION_STATEMENT :
+            {
+                nodecl_t nodecl_dummy = nodecl_null();
+                enter_test_expression();
+                if (check_expression(ASTSon0(for_init_statement), decl_context, &nodecl_dummy))
+                {
+                    current = 1;
+                }
+                leave_test_expression();
+            }
+            break;
+        default :
+            internal_error("Unknown node '%s' at '%s'\n", 
+                    ast_print_node_type(ASTType(for_init_statement)),
+                    ast_location(for_init_statement));
+    }
+
+    return current;
+}
+
+static char solve_ambiguous_for_init_statement_fallback(AST a, decl_context_t decl_context, void *p)
+{
+    return solve_ambiguous_statement_fallback(a, decl_context, p);
 }
 
 void solve_ambiguous_for_init_statement(AST a, decl_context_t decl_context)
 {
-    int correct_choice = -1;
-    int i;
-    for (i = 0; i < ast_get_num_ambiguities(a); i++)
+    solve_ambiguity_generic(a, decl_context, NULL,
+            solve_ambiguous_for_init_statement_check_interpretation,
+            NULL,
+            solve_ambiguous_for_init_statement_fallback);
+}
+
+static char solve_ambiguous_type_specifier_check_interpretation(AST type_specifier, decl_context_t decl_context, void* p UNUSED_PARAMETER)
+{
+    char current_typeof = 0;
+    AST typeof_argument = ASTSon0(type_specifier);
+    if (ASTType(type_specifier) == AST_GCC_TYPEOF)
     {
-        int current = 0;
-        AST for_init_statement = ast_get_ambiguity(a, i);
-
-        switch (ASTType(for_init_statement))
-        {
-            case AST_SIMPLE_DECLARATION :
-                if (check_simple_or_member_declaration(for_init_statement, decl_context))
-                {
-                    current = 1;
-                }
-                break;
-            case AST_EXPRESSION_STATEMENT :
-                {
-                    nodecl_t nodecl_dummy = nodecl_null();
-                    enter_test_expression();
-                    if (check_expression(ASTSon0(for_init_statement), decl_context, &nodecl_dummy))
-                    {
-                        current = 1;
-                    }
-                    leave_test_expression();
-                }
-                break;
-            default :
-                internal_error("Unknown node '%s' at '%s'\n", 
-                        ast_print_node_type(ASTType(for_init_statement)),
-                        ast_location(for_init_statement));
-        }
-
-        if (current)
-        {
-            if (correct_choice < 0)
-            {
-                correct_choice = i;
-            }
-            else
-            {
-                internal_error("More than one valid choice! %s vs %s\n", ast_print_node_type(ASTType(ast_get_ambiguity(a, i))),
-                        ast_print_node_type(ASTType(ast_get_ambiguity(a, correct_choice))));
-            }
-        }
+        current_typeof = check_type_id_tree(typeof_argument, decl_context);
     }
-
-    if (correct_choice < 0)
+    else if (ASTType(type_specifier) == AST_GCC_TYPEOF_EXPR)
     {
-        // Recheck the expression again
-        for (i = 0; i < ast_get_num_ambiguities(a); i++)
-        {
-            switch (ASTType(ast_get_ambiguity(a, i)))
-            {
-                case AST_EXPRESSION_STATEMENT :
-                    {
-                        // This will output some informational messages that might
-                        // help solving this ambiguity
-                        // Best effort
-                        choose_option(a, i);
-                        return;
-                    }
-                default:
-                    {
-                        break;
-                    }
-            }
-        }
+        nodecl_t nodecl_dummy = nodecl_null();
+        enter_test_expression();
+        current_typeof = check_expression_non_executable(typeof_argument, decl_context, &nodecl_dummy);
+        leave_test_expression();
     }
     else
     {
-        choose_option(a, correct_choice);
+        internal_error("Unexpected node type %s\n", ast_print_node_type(ASTType(type_specifier)));
     }
+    return current_typeof;
 }
 
 void solve_ambiguous_type_specifier(AST ambig_type, decl_context_t decl_context)
@@ -1825,51 +1823,10 @@ void solve_ambiguous_type_specifier(AST ambig_type, decl_context_t decl_context)
                 ast_location(ambig_type));
     }
 
-    // Solve typeof ambiguity
-    int typeof_choice = -1;
-    for (i = 0; i < ast_get_num_ambiguities(ambig_type); i++)
-    {
-        char current_typeof = 0;
-        AST type_specifier = ast_get_ambiguity(ambig_type, i);
-        AST typeof_argument = ASTSon0(type_specifier);
-
-        if (ASTType(type_specifier) == AST_GCC_TYPEOF)
-        {
-            current_typeof = check_type_id_tree(typeof_argument, decl_context);
-        }
-        else if (ASTType(type_specifier) == AST_GCC_TYPEOF_EXPR)
-        {
-            nodecl_t nodecl_dummy = nodecl_null();
-            enter_test_expression();
-            current_typeof = check_expression_non_executable(typeof_argument, decl_context, &nodecl_dummy);
-            leave_test_expression();
-        }
-        else
-        {
-            internal_error("Unexpected node type %s\n", ast_print_node_type(ASTType(type_specifier)));
-        }
-
-        if (current_typeof)
-        {
-            if (typeof_choice < 0)
-            {
-                typeof_choice = i;
-            }
-            else
-            {
-                internal_error("More than one possibility", 0);
-            }
-        }
-    }
-
-    if (typeof_choice < 0)
-    {
-        internal_error("Ambiguity not solved %s", ast_location(ambig_type));
-    }
-    else
-    {
-        choose_option(ambig_type, typeof_choice);
-    }
+    solve_ambiguity_generic(ambig_type, decl_context, NULL, 
+            solve_ambiguous_type_specifier_check_interpretation,
+            NULL,
+            NULL);
 }
 
 /*
@@ -1977,12 +1934,22 @@ char checking_ambiguity(void)
     return (_ambiguity_testing != 0);
 }
 
-static void favor_known_expression_ambiguities(AST previous_choice,
-        AST current_choice,
-        int current_index,
-        int *correct_choice,
-        nodecl_t current_nodecl,
-        nodecl_t* previous_output)
+static char solve_ambiguous_expression_check_intepretation(AST ambig_expression, decl_context_t decl_context, void* p UNUSED_PARAMETER)
+{
+    nodecl_t current_nodecl = nodecl_null();
+    enter_test_expression();
+    char current_check = 
+        check_expression(ambig_expression, decl_context, &current_nodecl);
+    leave_test_expression();
+
+    return current_check;
+}
+
+static int solve_ambiguous_expression_choose_interpretation(
+        AST current_choice, 
+        AST previous_choice, 
+        decl_context_t decl_context UNUSED_PARAMETER, 
+        void* p UNUSED_PARAMETER)
 {
     // How to read this checks
     //
@@ -2024,13 +1991,16 @@ static void favor_known_expression_ambiguities(AST previous_choice,
     //
     // But this last case is not ambiguous so it will never go
     // through this desambiguation code
-    if ((either = either_type(previous_choice, current_choice, 
-                    AST_EXPLICIT_TYPE_CONVERSION, AST_FUNCTION_CALL)))
+    if ((either = either_type(current_choice, previous_choice, 
+                    AST_FUNCTION_CALL, AST_EXPLICIT_TYPE_CONVERSION)))
     {
-        if (either < 0)
+        if (either > 0)
         {
-            (*correct_choice) = current_index;
-            (*previous_output) = current_nodecl;
+            return -1;
+        }
+        else
+        {
+            return 1;
         }
     }
     // If we see this is a valid function call forget anything about
@@ -2046,15 +2016,18 @@ static void favor_known_expression_ambiguities(AST previous_choice,
     //   f<_N>(3);
     // }
     //
-    // is obviously a call not the expression 'f < (_N > (3))'
+    // is obviously a call, not the expression 'f < (_N > (3))'
     //
-    else if ((either = either_type(previous_choice, current_choice,
+    else if ((either = either_type(current_choice, previous_choice,
                     AST_FUNCTION_CALL, AST_GREATER_THAN)))
     {
-        if (either < 0)
+        if (either > 0)
         {
-            (*correct_choice) = current_index;
-            (*previous_output) = current_nodecl;
+            return -1;
+        }
+        else
+        {
+            return 1;
         }
     }
     // If we see this is a valid explicit type conversion, forget anything  
@@ -2071,92 +2044,38 @@ static void favor_known_expression_ambiguities(AST previous_choice,
     //     };
     //
     // is a explicit type conversion, not the expression 'A < (_N > (*this) <<= __p)'
-    else if ((either = either_type(previous_choice, current_choice,
+    else if ((either = either_type(current_choice, previous_choice,
                     AST_EXPLICIT_TYPE_CONVERSION, AST_GREATER_THAN)))
     {
-        if (either < 0)
+        if (either > 0)
         {
-            (*correct_choice) = current_index;
-            (*previous_output) = current_nodecl;
+            return -1;
+        }
+        else
+        {
+            return 1;
         }
     }
     else
     {
-        internal_error("More than one valid choice for ambig_expression (%s)\n'%s' vs '%s'\n%s\n", 
-                ast_location(previous_choice), ast_print_node_type(ASTType(current_choice)),
-                ast_print_node_type(ASTType(previous_choice)),
-                prettyprint_in_buffer(previous_choice));
+        return 0;
     }
 }
 
 void solve_ambiguous_expression(AST ambig_expression, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    ERROR_CONDITION(ASTType(ambig_expression) != AST_AMBIGUITY,
-            "Must be ambiguous node", 0);
-
-    nodecl_t previous_nodecl = nodecl_null();
-    int correct_choice = -1;
-    int i;
-    for (i = 0; i < ast_get_num_ambiguities(ambig_expression); i++)
+    if (!try_to_solve_ambiguity_generic(ambig_expression, decl_context, NULL,
+            solve_ambiguous_expression_check_intepretation,
+            solve_ambiguous_expression_choose_interpretation))
     {
-        nodecl_t current_nodecl = nodecl_null();
-        enter_test_expression();
-        char current_check = 
-            check_expression(ast_get_ambiguity(ambig_expression, i), decl_context, &current_nodecl);
-        leave_test_expression();
-
-        if (current_check)
-        {
-            if (correct_choice < 0)
-            {
-                correct_choice = i;
-                previous_nodecl = current_nodecl;
-            }
-            else
-            {
-                AST previous_choice = ast_get_ambiguity(ambig_expression, correct_choice);
-                AST current_choice = ast_get_ambiguity(ambig_expression, i);
-                favor_known_expression_ambiguities(previous_choice, current_choice, i, &correct_choice, current_nodecl, &previous_nodecl);
-            }
-        }
+        // Prioritize function call if any
+        int m = select_node_type(ambig_expression, AST_FUNCTION_CALL);
+        if (m < 0) m = 0;
+        choose_option(ambig_expression, m);
     }
 
-    if (correct_choice < 0)
-    {
-        if (!checking_ambiguity())
-        {
-            // No ambiguity is valid
-            // Print some messages for the function calls being the first cause
-            // of problems
-            char diagnosed = 0;
-            for (i = 0; !diagnosed && i < ast_get_num_ambiguities(ambig_expression); i++)
-            {
-                if (ASTType(ast_get_ambiguity(ambig_expression, i)) == AST_FUNCTION_CALL)
-                {
-                    // Choose this one just to avoid spurious errors later
-                    choose_option(ambig_expression, i);
-                    diagnosed = 1;
-                }
-            }
-
-            // Use the first one if the ambiguity was not a function call problem
-            if (!diagnosed)
-            {
-                choose_option(ambig_expression, 0);
-            }
-
-            check_expression(ambig_expression, decl_context, nodecl_output);
-        }
-        else
-        {
-            *nodecl_output = nodecl_make_err_expr(ASTFileName(ambig_expression), ASTLine(ambig_expression));
-        }
-    }
-    else
-    {
-        choose_option(ambig_expression, correct_choice);
-        *nodecl_output = previous_nodecl;
-    }
+    // Recheck for hidden diagnostics
+    check_expression(ambig_expression, decl_context, nodecl_output);
 }
 
 static char check_function_definition_declarator(AST declarator, decl_context_t decl_context)
@@ -2164,79 +2083,73 @@ static char check_function_definition_declarator(AST declarator, decl_context_t 
     return check_declarator(declarator, decl_context);
 }
 
-void solve_condition_ambiguity(AST a, decl_context_t decl_context)
+static AST get_expression_of_condition(AST current_condition)
 {
-    ERROR_CONDITION(ASTType(a) != AST_AMBIGUITY,
-            "Must be ambiguous node", 0);
-    int correct_choice = -1;
-    int i;
-
-    AST previous_expression = NULL;
-    nodecl_t previous_nodecl = nodecl_null();
-
-    for (i = 0; i < ast_get_num_ambiguities(a); i++)
+    if (ASTSon0(current_condition) == NULL) // Expression
     {
-        nodecl_t current_nodecl = nodecl_null();
-        char current_check = 0;
-        AST current_expression = NULL;
-        AST current_condition = ast_get_ambiguity(a, i);
-        if (ASTSon0(current_condition) == NULL) // Expression
-        {
-            enter_test_expression();
-            current_expression = ASTSon2(current_condition);
-            current_check = check_expression(current_expression, decl_context, &current_nodecl);
-            leave_test_expression();
-        }
-        else
-        {
-            // Like a declaration
-            // type_specifier_seq declarator '=' assignment_expr
-            AST type_specifier_seq = ASTSon0(current_condition);
-            AST declarator = ASTSon1(current_condition);
-            AST equal_initializer = ASTSon2(current_condition);
-
-            AST type_specifier = ASTSon1(type_specifier_seq);
-            
-            
-            current_check = check_type_specifier(type_specifier, decl_context)
-                && check_declarator(declarator, decl_context);
-           
-            enter_test_expression();
-            current_expression = ASTSon0(equal_initializer);
-            current_check = current_check && check_expression(current_expression, decl_context, &current_nodecl);
-            leave_test_expression();
-        }
-
-        if (current_check)
-        {
-            if (correct_choice < 0)
-            {
-                correct_choice = i;
-                previous_expression = current_expression;
-                previous_nodecl = current_nodecl;
-            }
-            else
-            {
-                favor_known_expression_ambiguities(previous_expression, current_expression, i, &correct_choice, current_nodecl, &previous_nodecl);
-            }
-        }
-    }
-
-    if (correct_choice < 0)
-    {
-        for (i = 0; i < ast_get_num_ambiguities(a); i++)
-        {
-            AST current_condition = ast_get_ambiguity(a, i);
-            if (ASTSon0(current_condition) == NULL)
-            {
-                // Best effort
-                choose_option(a, i);
-                return;
-            }
-        }
+        enter_test_expression();
+        return ASTSon2(current_condition);
     }
     else
     {
-        choose_option(a, correct_choice);
+        AST equal_initializer = ASTSon2(current_condition);
+        return ASTSon0(equal_initializer);
+    }
+}
+
+static char solve_ambiguous_condition_interpretation(AST current_condition, decl_context_t decl_context, void *p UNUSED_PARAMETER)
+{
+    char current_check = 0;
+    AST current_expression;
+    nodecl_t current_nodecl = nodecl_null();
+
+    if (ASTSon0(current_condition) == NULL) // Expression
+    {
+        enter_test_expression();
+        current_expression = ASTSon2(current_condition);
+        current_check = check_expression(current_expression, decl_context, &current_nodecl);
+        leave_test_expression();
+    }
+    else
+    {
+        // Like a declaration
+        // type_specifier_seq declarator '=' assignment_expr
+        AST type_specifier_seq = ASTSon0(current_condition);
+        AST declarator = ASTSon1(current_condition);
+        AST equal_initializer = ASTSon2(current_condition);
+
+        AST type_specifier = ASTSon1(type_specifier_seq);
+
+        current_check = check_type_specifier(type_specifier, decl_context)
+            && check_declarator(declarator, decl_context);
+
+        enter_test_expression();
+        current_expression = ASTSon0(equal_initializer);
+        current_check = current_check && check_expression(current_expression, decl_context, &current_nodecl);
+        leave_test_expression();
+    }
+
+    return current_check;
+}
+
+static int solve_ambiguous_condition_choose_interpretation(AST current_condition,
+        AST previous_condition,
+        decl_context_t decl_context,
+        void *p)
+{
+    return solve_ambiguous_expression_choose_interpretation(
+            get_expression_of_condition(current_condition),
+            get_expression_of_condition(previous_condition),
+            decl_context, p);
+}
+
+void solve_condition_ambiguity(AST a, decl_context_t decl_context)
+{
+    if (!try_to_solve_ambiguity_generic(a, decl_context, NULL,
+                solve_ambiguous_condition_interpretation,
+                solve_ambiguous_condition_choose_interpretation))
+    {
+        // Best effort
+        choose_option(a, 0);
     }
 }

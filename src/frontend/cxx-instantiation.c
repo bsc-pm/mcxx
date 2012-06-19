@@ -236,7 +236,9 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
         type_map_t** template_map, 
         int *num_items_template_map,
         type_map_t** enum_map,
-        int *num_items_enum_map
+        int *num_items_enum_map,
+        type_map_t** anonymous_unions_map,
+        int *num_items_anonymous_unions_map
         )
 {
     DEBUG_CODE()
@@ -255,19 +257,40 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                         being_instantiated,
                         member_of_template);
 
-                new_member->type_information = update_type_for_instantiation(
-                        new_member->type_information,
-                        context_of_being_instantiated,
-                        filename, line);
+
+                if (is_named_class_type(member_of_template->type_information)
+                        && named_type_get_symbol(member_of_template->type_information)->entity_specs.is_anonymous_union)
+                {
+                    // New class type
+                    type_t* new_type = NULL;
+                    // Lookup of related anonymous_unions type
+                    int i;
+                    for (i = 0; i < (*num_items_anonymous_unions_map); i++)
+                    {
+                        if ((*anonymous_unions_map)[i].orig_type == member_of_template->type_information)
+                        {
+                            new_type = (*anonymous_unions_map)[i].new_type;
+                            break;
+                        }
+                    }
+
+                    ERROR_CONDITION(new_type == NULL, "Anonymous union type not found in the map type!\n", 0);
+                    new_member->type_information = new_type;
+                }
+                else
+                {
+                    new_member->type_information = update_type_for_instantiation(
+                            new_member->type_information,
+                            context_of_being_instantiated,
+                            filename, line);
+                }
 
                 if (is_named_class_type(new_member->type_information))
                 {
                     type_t* t = advance_over_typedefs(new_member->type_information);
-                    if (class_type_is_incomplete_independent(get_actual_class_type(t)))
-                    {
-                        scope_entry_t* class_entry = named_type_get_symbol(t);
-                        instantiate_template_class(class_entry, context_of_being_instantiated, filename, line);
-                    }
+
+                    scope_entry_t* class_entry = named_type_get_symbol(t);
+                    instantiate_template_class_if_needed(class_entry, context_of_being_instantiated, filename, line);
                 }
 
                 if (new_member->entity_specs.is_bitfield)
@@ -481,7 +504,14 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
 
                     if (new_member->entity_specs.is_anonymous_union)
                     {
-                        instantiate_template_class(new_member, context_of_being_instantiated, filename, line);
+                        instantiate_template_class_if_needed(new_member, context_of_being_instantiated, filename, line);
+                        // Add a mapping for this new anonymous union
+                        type_map_t new_map;
+                        new_map.orig_type = get_user_defined_type(member_of_template);
+                        new_map.new_type = get_user_defined_type(new_member);
+
+                        P_LIST_ADD((*anonymous_unions_map), (*num_items_anonymous_unions_map), new_map);
+
                         scope_entry_t* anon_member = finish_anonymous_class(new_member, context_of_being_instantiated);
 
                         anon_member->type_information = get_user_defined_type(new_member);
@@ -1113,6 +1143,9 @@ static void instantiate_specialized_template_class(type_t* selected_template,
     //translation_info.context_of_template = class_type_get_inner_context(get_actual_class_type(selected_template));
     //translation_info.context_of_being_instantiated = inner_decl_context;
 
+    // From now this class acts as instantiated
+    being_instantiated_sym->entity_specs.is_instantiated = 1;
+
     if (instantiation_base_clause != NULL)
     {
         instantiate_bases(
@@ -1182,6 +1215,9 @@ static void instantiate_specialized_template_class(type_t* selected_template,
     type_map_t* enum_map = NULL;
     int num_items_enum_map = 0;
 
+    type_map_t* anonymous_unions_map = NULL;
+    int num_items_anonymous_unions_map = 0;
+
     scope_entry_list_t * members = class_type_get_members(get_actual_class_type(selected_template));
     scope_entry_list_t * friends = class_type_get_friends(get_actual_class_type(selected_template));
     DEBUG_CODE()
@@ -1202,7 +1238,8 @@ static void instantiate_specialized_template_class(type_t* selected_template,
                 inner_decl_context,
                 filename, line,
                 &template_map, &num_items_template_map,
-                &enum_map, &num_items_enum_map);
+                &enum_map, &num_items_enum_map,
+                &anonymous_unions_map, &num_items_anonymous_unions_map);
     }
     entry_list_iterator_free(it);
     entry_list_free(members);
@@ -1352,10 +1389,7 @@ static void instantiate_bases(
         scope_entry_t* upd_base_class_sym = named_type_get_symbol(upd_base_class_named_type);
 
         // If the entity (being an independent one) has not been completed, then instantiate it
-        if (class_type_is_incomplete_independent(get_actual_class_type(upd_base_class_named_type)))
-        {
-            instantiate_template_class(upd_base_class_sym, context_of_being_instantiated, filename, line);
-        }
+        instantiate_template_class_if_needed(upd_base_class_sym, context_of_being_instantiated, filename, line);
 
         class_type_add_base_class(instantiated_class_type, upd_base_class_sym, is_virtual, /* is_dependent */ 0, access_specifier);
     }
@@ -1413,15 +1447,11 @@ static type_t* solve_template_for_instantiation(scope_entry_t* entry, decl_conte
     return selected_template;
 }
 
-char can_be_instantiated(scope_entry_t* entry, decl_context_t decl_context, const char *filename, int line)
-{
-    template_parameter_list_t* deduced_template_arguments = NULL;
-    type_t* selected_template =
-        solve_template_for_instantiation(entry, decl_context, &deduced_template_arguments, filename, line);
-    return (selected_template != NULL && !is_incomplete_type(selected_template));
-}
-
-void instantiate_template_class(scope_entry_t* entry, decl_context_t decl_context, const char *filename, int line)
+static void instantiate_template_class(scope_entry_t* entry, 
+        decl_context_t decl_context, 
+        type_t* selected_template, 
+        template_parameter_list_t* deduced_template_arguments,
+        const char *filename, int line)
 {
     //Ignore typedefs
     if (entry->kind != SK_CLASS)
@@ -1434,9 +1464,8 @@ void instantiate_template_class(scope_entry_t* entry, decl_context_t decl_contex
         ERROR_CONDITION(entry->kind != SK_CLASS, "Invalid class symbol", 0);
     }
     
-    template_parameter_list_t* deduced_template_arguments = NULL;
-    type_t* selected_template =
-        solve_template_for_instantiation(entry, decl_context, &deduced_template_arguments, filename, line);
+    if (selected_template == NULL)
+        selected_template = solve_template_for_instantiation(entry, decl_context, &deduced_template_arguments, filename, line);
 
     if (selected_template != NULL)
     {
@@ -1457,6 +1486,41 @@ void instantiate_template_class(scope_entry_t* entry, decl_context_t decl_contex
         running_error("%s:%d: instantiation of '%s' is not possible at this point\n", 
                 filename, line, print_type_str(get_user_defined_type(entry), decl_context));
     }
+}
+
+char template_class_needs_to_be_instantiated(scope_entry_t* entry)
+{
+    return (class_type_is_incomplete_independent(entry->type_information) // it is independent incomplete
+            && !entry->entity_specs.is_instantiated); // and we need to instantiated at this point
+}
+
+// Tries to instantiate if the current class is an independent incomplete class (and it is not an explicit specialization being defined)
+void instantiate_template_class_if_needed(scope_entry_t* entry, decl_context_t decl_context, const char* filename, int line)
+{
+    if (template_class_needs_to_be_instantiated(entry))
+    {
+        instantiate_template_class(entry, decl_context, /* selected_template */ NULL, /* deduced_template_arguments */ NULL, filename, line);
+    }
+}
+
+// Used in overload as it temptatively tries to instantiate classes lest they
+// were a based or a derived class of another
+void instantiate_template_class_if_possible(scope_entry_t* entry, decl_context_t decl_context, const char* filename, int line)
+{
+    if (!template_class_needs_to_be_instantiated(entry))
+        return;
+
+    // Try to see if it can actually be instantiated
+    template_parameter_list_t* deduced_template_arguments = NULL;
+    type_t* selected_template =
+        solve_template_for_instantiation(entry, decl_context, &deduced_template_arguments, filename, line);
+
+    // No specialized template is eligible for it, give up
+    if (selected_template == NULL
+        || is_incomplete_type(selected_template))
+        return;
+
+    instantiate_template_class(entry, decl_context, selected_template, deduced_template_arguments, filename, line);
 }
 
 static nodecl_t nodecl_instantiation_units;

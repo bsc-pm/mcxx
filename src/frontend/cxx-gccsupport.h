@@ -47,6 +47,15 @@ LIBMCXX_EXTERN void gather_gcc_attribute_list(AST attribute_list,
 LIBMCXX_EXTERN void check_gxx_type_traits(AST expression, 
         decl_context_t decl_context, nodecl_t* nodecl_output);
 
+LIBMCXX_EXTERN void common_check_gxx_type_traits(type_t* lhs_type,
+        type_t* rhs_type,
+        type_t* gxx_trait_type,
+        const char* trait_name,
+        decl_context_t decl_context,
+        const char* filename,
+        int line,
+        nodecl_t* nodecl_output);
+
 MCXX_END_DECLS
 
 #endif // CXX_GCCSUPPORT_H

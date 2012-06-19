@@ -57,7 +57,8 @@ namespace TL { namespace Nanox {
         outline_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE);
     }
 
-    void LoweringVisitor::handle_vla_type_rec(TL::Type t, OutlineInfo& outline_info)
+    void LoweringVisitor::handle_vla_type_rec(TL::Type t, OutlineInfo& outline_info,
+            OutlineDataItem& outline_data_item)
     {
         if (t.is_array())
         {
@@ -79,21 +80,63 @@ namespace TL { namespace Nanox {
 
                 if (lower.is<Nodecl::Symbol>()
                         && lower.get_symbol().is_saved_expression())
+                {
+                    // VLA case for lower bound
                     handle_vla_saved_expr(lower, outline_info);
+                }
+                else if (lower.is_null()
+                        && outline_data_item.get_symbol().is_valid()
+                        && outline_data_item.get_symbol().is_allocatable())
+                {
+                    if (outline_data_item.get_sharing() == OutlineDataItem::SHARING_PRIVATE)
+                    {
+                        // Note that the lower bound is always kept in some way
+                        Counter& counter = CounterManager::get_counter("array-lower-boundaries");
+                        std::string structure_name;
+
+                        std::stringstream ss;
+                        ss << "mcc_lower_bound_" << (int)counter;
+                        counter++;
+
+                        OutlineDataItem& outline_item = outline_info.append_field(ss.str(), fortran_get_default_integer_type());
+                        outline_item.set_sharing(OutlineDataItem::SHARING_CAPTURE);
+                    }
+                }
 
                 if (upper.is<Nodecl::Symbol>()
                         && upper.get_symbol().is_saved_expression())
+                {
+                    // VLA case for upper bound
                     handle_vla_saved_expr(upper, outline_info);
+                }
+                // If it is a private ALLOCATABLE, we keep the upper bound too
+                else if (upper.is_null()
+                        && outline_data_item.get_symbol().is_valid()
+                        && outline_data_item.get_symbol().is_allocatable())
+                {
+                    if (outline_data_item.get_sharing() == OutlineDataItem::SHARING_PRIVATE)
+                    {
+                        Counter& counter = CounterManager::get_counter("array-upper-boundaries");
+                        std::string structure_name;
+
+                        std::stringstream ss;
+                        ss << "mcc_upper_bound_" << (int)counter;
+                        counter++;
+
+                        OutlineDataItem& outline_item = outline_info.append_field(ss.str(), fortran_get_default_integer_type());
+                        outline_item.set_sharing(OutlineDataItem::SHARING_CAPTURE);
+                    }
+                }
             }
-            handle_vla_type_rec(t.array_element(), outline_info);
+            handle_vla_type_rec(t.array_element(), outline_info, outline_data_item);
         }
         else if (t.is_pointer())
         {
-            handle_vla_type_rec(t.points_to(), outline_info);
+            handle_vla_type_rec(t.points_to(), outline_info, outline_data_item);
         }
         else if (t.is_any_reference())
         {
-            handle_vla_type_rec(t.references_to(), outline_info);
+            handle_vla_type_rec(t.references_to(), outline_info, outline_data_item);
         }
     }
 
@@ -108,7 +151,7 @@ namespace TL { namespace Nanox {
 
             if (c_type_needs_vla_handling(t))
             {
-                handle_vla_type_rec(t, outline_info);
+                handle_vla_type_rec(t, outline_info, data_item);
 
                 data_item.set_field_type(Type::get_void_type().get_pointer_to());
                 data_item.set_item_kind(OutlineDataItem::ITEM_KIND_DATA_ADDRESS);
@@ -121,41 +164,91 @@ namespace TL { namespace Nanox {
         }
         else if (IS_FORTRAN_LANGUAGE)
         {
-            TL::Type t = data_item.get_field_type();
+            TL::Type t = data_item.get_symbol().get_type();
 
             bool is_lvalue_ref = false;
             if (is_lvalue_ref = t.is_lvalue_reference())
                 t = t.references_to();
 
-            bool is_pointer = false;
-            if (is_pointer = t.is_pointer())
-                t = t.points_to();
-
-            if (t.is_array()
-                    && (t.array_is_vla()
-                    || t.array_requires_descriptor()))
+            if (t.is_array())
             {
-                handle_vla_type_rec(t, outline_info);
+                handle_vla_type_rec(t, outline_info, data_item);
+
+                struct BuildArray
+                {
+                    static Type get_assumed_array(TL::Type t)
+                    {
+                        if (t.is_array())
+                        {
+                            Nodecl::NodeclBase lower, upper;
+                            t.array_get_bounds(lower, upper);
+
+                            TL::Type element_type = get_assumed_array(t.array_element());
+
+                            if (!lower.is_null()
+                                    && !upper.is_null()
+                                    && lower.is_constant()
+                                    && upper.is_constant()
+                                    && (!element_type.is_array()
+                                        || !element_type.array_requires_descriptor()))
+                            {
+                                return element_type.get_array_to(
+                                        lower,
+                                        upper,
+                                        CURRENT_COMPILED_FILE->global_decl_context);
+                            }
+                            else
+                            {
+                                return element_type.get_array_to_with_descriptor(
+                                        lower,
+                                        Nodecl::NodeclBase::null(),
+                                        CURRENT_COMPILED_FILE->global_decl_context);
+                            }
+                        }
+                        else
+                        {
+                            return t;
+                        }
+                    }
+                };
+
+                TL::Type assumed_array_descriptor = BuildArray::get_assumed_array(t);
 
                 int rank = ::fortran_get_rank_of_type(t.get_internal_type());
-                t = TL::Type(
+                TL::Type deferred_array_descriptor = TL::Type(
                         ::fortran_get_n_ranked_type_with_descriptor(
                             ::fortran_get_rank0_type(t.get_internal_type()), rank, CURRENT_COMPILED_FILE->global_decl_context)
                         );
 
-                if (is_pointer)
+                switch (data_item.get_sharing())
                 {
-                    t = t.get_pointer_to();
-                }
-                else
-                {
-                    data_item.set_allocation_policy(OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE);
-                }
+                    case OutlineDataItem::SHARING_PRIVATE:
+                        {
+                            data_item.set_in_outline_type(assumed_array_descriptor);
+                            // Since it does not appear in the structure, void is enough
+                            data_item.set_field_type(Type::get_void_type());
+                            break;
+                        }
+                    case OutlineDataItem::SHARING_CAPTURE:
+                        {
+                            data_item.set_in_outline_type(assumed_array_descriptor.get_lvalue_reference_to());
+                            data_item.set_field_type(deferred_array_descriptor);
 
-                if (is_lvalue_ref)
-                    t = t.get_lvalue_reference_to();
-
-                data_item.set_field_type(t);
+                            // We want the field be ALLOCATABLE
+                            data_item.set_allocation_policy(OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE);
+                            break;
+                        }
+                    case OutlineDataItem::SHARING_SHARED:
+                        {
+                            data_item.set_in_outline_type(deferred_array_descriptor.get_pointer_to().get_lvalue_reference_to());
+                            data_item.set_field_type(deferred_array_descriptor.get_pointer_to());
+                            break;
+                        }
+                    default:
+                        {
+                            break;
+                        }
+                }
             }
         }
     }
@@ -194,6 +287,12 @@ namespace TL { namespace Nanox {
 
         // FIXME - Wrap lots of things
         TL::Scope sc(CURRENT_COMPILED_FILE->global_decl_context);
+
+        if (construct.retrieve_context().get_related_symbol().is_in_module())
+        {
+            sc = construct.retrieve_context().get_related_symbol().in_module().get_related_scope();
+        }
+
         TL::Symbol new_class_symbol = sc.new_symbol(structure_name);
         new_class_symbol.get_internal_symbol()->kind = SK_CLASS;
         new_class_symbol.get_internal_symbol()->entity_specs.is_user_declared = 1;
@@ -210,6 +309,9 @@ namespace TL { namespace Nanox {
                 it != data_items.end();
                 it++)
         {
+            if ((*it)->is_private())
+                continue;
+
             TL::Symbol field = class_scope.new_symbol((*it)->get_field_name());
             field.get_internal_symbol()->kind = SK_VARIABLE;
             field.get_internal_symbol()->entity_specs.is_user_declared = 1;
@@ -250,6 +352,19 @@ namespace TL { namespace Nanox {
         if (!nodecl_is_null(nodecl_output))
         {
             std::cerr << "FIXME: finished class issues nonempty nodecl" << std::endl;
+        }
+
+        if (construct.retrieve_context().get_related_symbol().is_in_module())
+        {
+            // Add the newly created argument as a structure
+            TL::Symbol module = construct.retrieve_context().get_related_symbol().in_module();
+
+            new_class_symbol.get_internal_symbol()->entity_specs.in_module = module.get_internal_symbol();
+
+            P_LIST_ADD(
+                    module.get_internal_symbol()->entity_specs.related_symbols,
+                    module.get_internal_symbol()->entity_specs.num_related_symbols,
+                    new_class_symbol.get_internal_symbol());
         }
 
         return new_class_symbol;

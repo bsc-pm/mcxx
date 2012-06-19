@@ -1852,11 +1852,7 @@ static type_t* update_dependent_typename(
 
     scope_entry_t* current_member = dependent_entry;
 
-    if (class_type_is_incomplete_independent(current_member->type_information))
-    {
-        instantiate_template_class(current_member, current_member->decl_context,
-                filename, line);
-    }
+    instantiate_template_class_if_needed(current_member, current_member->decl_context, filename, line);
 
     // We need to update dependent parts, lest there was a template-id
     int num_parts = 0;
@@ -2871,21 +2867,32 @@ static const char* get_fully_qualified_symbol_name_simple(decl_context_t decl_co
     return result;
 }
 
-const char* template_arguments_to_str(
+static const char* template_arguments_to_str_impl(
         template_parameter_list_t* template_parameters,
-        decl_context_t decl_context)
+        int first_argument_to_be_printed,
+        char print_first_level_bracket,
+        decl_context_t decl_context,
+        print_type_callback_t print_type_fun,
+        void *print_type_data
+        )
+
 {
-    if (template_parameters->num_parameters == 0)
+    if (template_parameters->num_parameters == 0
+            || template_parameters->num_parameters <= first_argument_to_be_printed)
         return "";
 
     const char* result = "";
-    // It is not enough with the name, we have to print the arguments
-    result = strappend(result, "<");
+    if (print_first_level_bracket)
+    {
+        // It is not enough with the name, we have to print the arguments
+        result = strappend(result, "<");
+    }
 
     int i;
-    for (i = 0; i < template_parameters->num_parameters; i++)
+    char print_comma = 0;
+    for (i = first_argument_to_be_printed; i < template_parameters->num_parameters; i++, print_comma = 1)
     {
-        if (i != 0)
+        if (print_comma)
         {
             result = strappend(result, ", ");
         }
@@ -2901,20 +2908,19 @@ const char* template_arguments_to_str(
         const char* argument_str = NULL;
         switch (argument->kind)
         {
-            // Print the type
-            case TPK_TEMPLATE:
             case TPK_TYPE:
                 {
-                    const char* abstract_declaration;
-
-                    abstract_declaration = print_type_str(argument->type, decl_context);
-
-                    argument_str = abstract_declaration;
+                    argument_str = print_type_fun(argument->type, decl_context, print_type_data);
                     break;
                 }
             case TPK_NONTYPE:
                 {
                     argument_str = codegen_to_str(argument->value, decl_context);
+                    break;
+                }
+            case TPK_TEMPLATE:
+                {
+                    argument_str = get_qualified_symbol_name(named_type_get_symbol(argument->type), decl_context);
                     break;
                 }
             default:
@@ -2934,24 +2940,49 @@ const char* template_arguments_to_str(
         result = strappend(result, argument_str);
     }
 
-    if (result[strlen(result) - 1] == '>')
+    if (print_first_level_bracket)
     {
-        result = strappend(result, " >");
-    }
-    else
-    {
-        result = strappend(result, ">");
+        if (result[strlen(result) - 1] == '>')
+        {
+            result = strappend(result, " >");
+        }
+        else
+        {
+            result = strappend(result, ">");
+        }
     }
 
     return result;
 } 
 
+static const char* print_type_str_common(type_t* t, decl_context_t decl_context, void *data UNUSED_PARAMETER)
+{
+    return print_type_str(t, decl_context);
+}
+
+const char* template_arguments_to_str(
+        template_parameter_list_t* template_parameters,
+        int first_argument_to_be_printed,
+        char print_first_level_bracket,
+        decl_context_t decl_context)
+{
+    return template_arguments_to_str_impl(template_parameters,
+            first_argument_to_be_printed,
+            print_first_level_bracket,
+            decl_context,
+            print_type_str_common,
+            NULL
+            );
+}
 
 const char* get_template_arguments_str(scope_entry_t* entry, 
         decl_context_t decl_context)
 {
     template_parameter_list_t* template_parameters = template_specialized_type_get_template_arguments(entry->type_information);
-    return template_arguments_to_str(template_parameters, decl_context);
+    return template_arguments_to_str(template_parameters,
+            /* first_argument_to_be_printed */ 0,
+            /* first_level_brackets */ 1, 
+            decl_context);
 }
 
 const char* unmangle_symbol_name(scope_entry_t* entry)
@@ -2971,10 +3002,22 @@ const char* unmangle_symbol_name(scope_entry_t* entry)
     return name;
 }
 
+static const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry, 
+        decl_context_t decl_context, 
+        char* is_dependent, int* max_qualif_level,
+        char no_templates, 
+        char only_classes,
+        char do_not_emit_template_keywords,
+        print_type_callback_t print_type_fun,
+        void *print_type_data
+        );
+
 static const char* get_fully_qualified_symbol_name_of_dependent_typename(
         scope_entry_t* entry,
         decl_context_t decl_context,
-        char *is_dependent, int *max_qualif_level)
+        char *is_dependent, int *max_qualif_level,
+        print_type_callback_t print_type_fun,
+        void *print_type_data)
 {
     scope_entry_t* dependent_entry = NULL;
     nodecl_t nodecl_parts = nodecl_null();
@@ -2982,9 +3025,11 @@ static const char* get_fully_qualified_symbol_name_of_dependent_typename(
     dependent_typename_get_components(entry->type_information, 
             &dependent_entry, &nodecl_parts);
 
-    const char* result = get_fully_qualified_symbol_name(dependent_entry,
-            decl_context,
-            is_dependent, max_qualif_level);
+    const char* result = get_fully_qualified_symbol_name_ex(dependent_entry,
+            decl_context, is_dependent, max_qualif_level, 
+            /* no_templates */ 0, /* only_classes */ 0,
+            /* do_not_emit_template_keywords */ 0,
+            print_type_fun, print_type_data);
 
     int num_parts = 0;
     nodecl_t* list = nodecl_unpack_list(nodecl_get_child(nodecl_parts, 0), &num_parts);
@@ -3014,50 +3059,16 @@ static const char* get_fully_qualified_symbol_name_of_dependent_typename(
 
         if (template_parameters != NULL)
         {
-            result = strappend(result, "< ");
-            int j;
-            for (j = 0; j < template_parameters->num_parameters; j++)
-            {
-                template_parameter_value_t * template_arg = template_parameters->arguments[j];
+            result = strappend(result, "<");
+            const char* template_arguments_str =
+                template_arguments_to_str_impl(template_parameters,
+                        /* first argument to be printed */ 0,
+                        /* we always emit < and > */ 0,
+                        decl_context,
+                        print_type_fun,
+                        print_type_data);
 
-                switch (template_arg->kind)
-                {
-                    case TPK_TYPE:
-                        {
-                            result = strappend(result, 
-                                    print_type_str(template_arg->type, decl_context));
-                            break;
-                        }
-                    case TPK_NONTYPE:
-                        {
-                            result = strappend(result, 
-                                    codegen_to_str(template_arg->value, decl_context));
-                            break;
-                        }
-                    case TPK_TEMPLATE:
-                        {
-                            result = strappend(result,
-                                    get_qualified_symbol_name(named_type_get_symbol(template_arg->type), 
-                                        decl_context));
-                            break;
-                        }
-                    default:
-                        {
-                            internal_error("Invalid template argument kind", 0);
-                        }
-                }
-
-                if ((j + 1) < template_parameters->num_parameters)
-                {
-                    result = strappend(result, ", ");
-                }
-            }
-
-            if (result[strlen(result) - 1] == '>')
-            {
-                result = strappend(result, " ");
-            }
-
+            result = strappend(result, template_arguments_str);
             result = strappend(result, ">");
         }
     }
@@ -3067,10 +3078,14 @@ static const char* get_fully_qualified_symbol_name_of_dependent_typename(
 
 // Get the fully qualified symbol name in the scope of the ocurrence
 static const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry, 
-        decl_context_t decl_context, char* is_dependent, int* max_qualif_level,
+        decl_context_t decl_context, 
+        char* is_dependent, int* max_qualif_level,
         char no_templates, 
         char only_classes,
-        char do_not_emit_template_keywords)
+        char do_not_emit_template_keywords,
+        print_type_callback_t print_type_fun,
+        void *print_type_data
+        )
 {
     // DEBUG_CODE()
     // {
@@ -3123,7 +3138,8 @@ static const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
     else if (entry->kind == SK_DEPENDENT_ENTITY)
     {
         return get_fully_qualified_symbol_name_of_dependent_typename(entry, decl_context,
-                is_dependent, max_qualif_level);
+                is_dependent, max_qualif_level,
+                print_type_fun, print_type_str);
     }
     else if (!no_templates
             && entry->type_information != NULL
@@ -3132,7 +3148,13 @@ static const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
             && !entry->entity_specs.is_conversion)
     {
         current_has_template_parameters = 1;
-        const char *template_parameters = get_template_arguments_str(entry, decl_context);
+
+        template_parameter_list_t* template_parameter_list = template_specialized_type_get_template_arguments(entry->type_information);
+        const char* template_parameters =  template_arguments_to_str(template_parameter_list,
+                /* first_argument_to_be_printed */ 0,
+                /* first_level_brackets */ 1, 
+                decl_context);
+
         result = strappend(result, template_parameters);
 
         (*is_dependent) |= is_dependent_type(entry->type_information);
@@ -3164,7 +3186,7 @@ static const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
         char prev_is_dependent = 0;
         const char* class_qualification = 
             get_fully_qualified_symbol_name_ex(class_symbol, decl_context, &prev_is_dependent, max_qualif_level, 
-                    /* no_templates */ 0, only_classes, do_not_emit_template_keywords);
+                    /* no_templates */ 0, only_classes, do_not_emit_template_keywords, print_type_fun, print_type_data);
 
         if (!class_symbol->entity_specs.is_anonymous_union)
         {
@@ -3198,7 +3220,9 @@ const char* get_fully_qualified_symbol_name(scope_entry_t* entry,
     return get_fully_qualified_symbol_name_ex(entry,
             decl_context, is_dependent, max_qualif_level, 
             /* no_templates */ 0, /* only_classes */ 0,
-            /* do_not_emit_template_keywords */ 0);
+            /* do_not_emit_template_keywords */ 0,
+            print_type_str_common, 
+            NULL);
 }
 
 const char* get_fully_qualified_symbol_name_without_template(scope_entry_t* entry, 
@@ -3207,7 +3231,9 @@ const char* get_fully_qualified_symbol_name_without_template(scope_entry_t* entr
     return get_fully_qualified_symbol_name_ex(entry,
             decl_context, is_dependent, max_qualif_level, 
             /* no_templates */ 1, /* only_classes */ 0,
-            /* do_not_emit_template_keywords */ 0);
+            /* do_not_emit_template_keywords */ 0,
+            print_type_str_common, 
+            NULL);
 }
 
 const char* get_class_qualification_of_symbol(scope_entry_t* entry,
@@ -3216,7 +3242,9 @@ const char* get_class_qualification_of_symbol(scope_entry_t* entry,
     return get_fully_qualified_symbol_name_ex(entry,
             decl_context, is_dependent, max_qualif_level, 
             /* no_templates */ 0, /* only_classes */ 1,
-            /* do_not_emit_template_keywords */ 1);
+            /* do_not_emit_template_keywords */ 1,
+            print_type_str_common, 
+            NULL);
 }
 
 const char* get_class_qualification_of_symbol_without_template(scope_entry_t* entry,
@@ -3225,7 +3253,9 @@ const char* get_class_qualification_of_symbol_without_template(scope_entry_t* en
     return get_fully_qualified_symbol_name_ex(entry,
             decl_context, is_dependent, max_qualif_level, 
             /* no_templates */ 1, /* only_classes */ 1,
-            /* do_not_emit_template_keywords */ 1);
+            /* do_not_emit_template_keywords */ 1,
+            print_type_str_common, 
+            NULL);
 }
 
 
@@ -4118,9 +4148,9 @@ static scope_entry_list_t* query_nodecl_qualified_name_aux(decl_context_t decl_c
             {
                 type_t* class_type = current_symbol->type_information;
 
-                if (class_type_is_incomplete_independent(class_type))
+                if (template_class_needs_to_be_instantiated(current_symbol))
                 {
-                    instantiate_template_class(current_symbol, current_symbol->decl_context,
+                    instantiate_template_class_if_needed(current_symbol, current_symbol->decl_context,
                             nodecl_get_filename(current_name), nodecl_get_line(current_name));
                 }
                 else if (class_type_is_incomplete_dependent(class_type)
@@ -4186,17 +4216,6 @@ static scope_entry_list_t* query_nodecl_qualified_name_aux(decl_context_t decl_c
             }
             return NULL;
         }
-
-        if (check_symbol_in_nest != NULL
-                && !check_symbol_in_nest(previous_symbol, current_symbol, 
-                    /* is_last */ 0,
-                    nodecl_get_filename(current_name),
-                    nodecl_get_line(current_name),
-                    check_symbol_data))
-        {
-            return NULL;
-        }
-
         previous_symbol = current_symbol;
     }
 
@@ -4434,11 +4453,8 @@ scope_entry_list_t* query_nodecl_name_in_class_flags(
 
     type_t* class_type = class_symbol->type_information;
 
-    if (class_type_is_incomplete_independent(class_type))
-    {
-        instantiate_template_class(class_symbol, class_symbol->decl_context, 
-                nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name));
-    }
+    instantiate_template_class_if_needed(class_symbol, class_symbol->decl_context, 
+            nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name));
 
     decl_context_t inner_class_context = class_type_get_inner_context(class_type);
     if (inner_class_context.class_scope == NULL)
@@ -4810,11 +4826,8 @@ scope_entry_list_t* query_dependent_entity_in_context(decl_context_t decl_contex
                     {
                         scope_entry_t* class_sym = named_type_get_symbol(new_class_type);
 
-                        if (class_type_is_incomplete_independent(class_sym->type_information))
-                        {
-                            instantiate_template_class(class_sym, class_sym->decl_context,
-                                    filename, line);
-                        }
+                        instantiate_template_class_if_needed(class_sym, class_sym->decl_context,
+                                filename, line);
 
                         return query_nodecl_name_flags(
                                 class_type_get_inner_context(class_sym->type_information),

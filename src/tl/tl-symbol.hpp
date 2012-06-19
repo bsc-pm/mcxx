@@ -208,6 +208,10 @@ namespace TL
             bool is_template_function_name() const;
             //! States whether this symbol is an anonymous union
             bool is_anonymous_union() const;
+
+            //! States whether this symbol is an anonymous union
+            bool is_member_of_anonymous_union() const;
+
             //! States that this symbol is the injected class name
             bool is_injected_class_name() const;
 
@@ -242,10 +246,10 @@ namespace TL
              */
             Symbol aliased_from_module() const;
 
+            //! Symbol that contains the used modules information
+            Symbol get_used_modules() const;
 
             bool has_alias_to() const;
-
-
             Symbol get_alias_to() const;
 
             //! States that this symbol is a BLOCK DATA program unit

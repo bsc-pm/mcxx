@@ -45,7 +45,12 @@ struct A
     };
 
     A()
-        : p(0) { }
+        : p(0) {
+       p = 0;
+       k = 0;
+       f = 0; }
+    A(int)
+        : f(0) { }
 };
 
 void f(void)

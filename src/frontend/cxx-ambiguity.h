@@ -39,6 +39,15 @@
 
 MCXX_BEGIN_DECLS
 
+typedef char ambiguity_check_intepretation_fun_t(AST, decl_context_t, void* info);
+typedef int ambiguity_choose_interpretation_fun_t(AST current, AST previous, decl_context_t, void* info);
+typedef char ambiguity_fallback_interpretation_fun_t(AST, decl_context_t, void* info);
+
+LIBMCXX_EXTERN void solve_ambiguity_generic(AST a, decl_context_t decl_context, void *info,
+        ambiguity_check_intepretation_fun_t* ambiguity_check_intepretation,
+        ambiguity_choose_interpretation_fun_t* ambiguity_choose_interpretation,
+        ambiguity_fallback_interpretation_fun_t* ambiguity_fallback_interpretation);
+
 // Non contextual
 LIBMCXX_EXTERN void solve_parameter_declaration_vs_type_parameter_class(AST a, decl_context_t decl_context);
 

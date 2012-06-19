@@ -41,26 +41,11 @@ namespace TL { namespace Nanox {
 
     }
 
-    void LoweringVisitor::visit(const Nodecl::OpenMP::Critical& construct)
+    Nodecl::NodeclBase LoweringVisitor::emit_critical_region(
+            const std::string lock_name,
+            Nodecl::NodeclBase construct,
+            Nodecl::NodeclBase statements)
     {
-        Nodecl::NodeclBase environment = construct.get_environment();
-        Nodecl::NodeclBase statements = construct.get_statements();
-
-        walk(statements);
-
-        // Get the new statements
-        statements = construct.get_statements();
-
-        std::string lock_name = "nanos_default_critical_lock";
-        if (!environment.is_null())
-        {
-            Nodecl::NodeclBase critical_name_node = environment.as<Nodecl::List>().find_first<Nodecl::OpenMP::CriticalName>();
-            if (!critical_name_node.is_null())
-            {
-                lock_name = "nanos_critical_lock_" + critical_name_node.get_text();
-            }
-        }
-
         // We do this to use a macro from the code of nanox
 #define STR_(x) #x
 #define STR(x) STR_((x))
@@ -71,52 +56,42 @@ namespace TL { namespace Nanox {
         TL::Symbol nanos_lock_t_name = ReferenceScope(construct).get_scope().get_symbol_from_name("nanos_lock_t");
         ERROR_CONDITION(!nanos_lock_t_name.is_valid(), "nanos_lock_t required but not found in the scope", 0);
 
-        if (IS_C_LANGUAGE
-                || IS_CXX_LANGUAGE)
+        if (_lock_names.find(lock_name) == _lock_names.end())
         {
-            if (_lock_names.find(lock_name) == _lock_names.end())
+            _lock_names.insert(lock_name);
+            // We need to sign in the global lock
+            Source global_lock_decl;
+            if (IS_C_LANGUAGE
+                    || IS_FORTRAN_LANGUAGE)
             {
-                _lock_names.insert(lock_name);
-                // We need to sign in the global lock
-                Source global_lock_decl;
-                C_LANGUAGE()
-                {
-                    global_lock_decl
-                        << "__attribute__((weak)) " << as_type(nanos_lock_t_name.get_type()) << " " << lock_name << " = " << initializer << ";"
-                        ;
-                }
-                CXX_LANGUAGE()
-                {
-                    // There is a nice constructor doing what NANOS_INIT_LOCK_FREE does
-                    global_lock_decl
-                        << "__attribute__((weak)) " << as_type(nanos_lock_t_name.get_type()) << " " << lock_name << ";"
-                        ;
-                }
+                global_lock_decl
+                    << "__attribute__((weak)) " << as_type(nanos_lock_t_name.get_type()) << " " << lock_name << " = " << initializer << ";"
+                    ;
+            }
+            else if (IS_CXX_LANGUAGE)
+            {
+                // There is a nice constructor doing what NANOS_INIT_LOCK_FREE does
+                global_lock_decl
+                    << "__attribute__((weak)) " << as_type(nanos_lock_t_name.get_type()) << " " << lock_name << ";"
+                    ;
+            }
 
-                Nodecl::NodeclBase global_lock_tree = global_lock_decl.parse_global(construct);
+            FORTRAN_LANGUAGE()
+            {
+                // Parse in C
+                Source::source_language = SourceLanguage::C;
+            }
+
+            Nodecl::NodeclBase global_lock_tree = global_lock_decl.parse_global(construct);
+            FORTRAN_LANGUAGE()
+            {
+                Source::source_language = SourceLanguage::Current;
             }
         }
-        else if (IS_FORTRAN_LANGUAGE)
+        if (IS_FORTRAN_LANGUAGE)
         {
-            if (_lock_names.find(lock_name) == _lock_names.end())
-            {
-                _lock_names.insert(lock_name);
-                // We need to sign in the global lock
-                Source global_lock_decl;
-                global_lock_decl
-                    << "COMMON /nanos_lock_" << lock_name << "_/ " << lock_name << "\n"
-                    << as_type(nanos_lock_t_name.get_type()) << ", @IS_VARIABLE@ :: " << lock_name << "\n"
-                    ;
-
-                Nodecl::NodeclBase global_lock_tree = global_lock_decl.parse_statement(construct);
-            }
-
             // Make this TYPE a SEQUENCE one, otherwise we cannot put it in the COMMON
             class_type_set_is_packed(nanos_lock_t_name.get_type().get_internal_type(), 1);
-        }
-        else
-        {
-            internal_error("Code unreachable", 0);
         }
 
         Nodecl::NodeclBase stmt_placeholder;
@@ -146,6 +121,31 @@ namespace TL { namespace Nanox {
         }
 
         stmt_placeholder.integrate(statements.shallow_copy());
+
+        return critical_code;
+    }
+
+    void LoweringVisitor::visit(const Nodecl::OpenMP::Critical& construct)
+    {
+        Nodecl::NodeclBase environment = construct.get_environment();
+        Nodecl::NodeclBase statements = construct.get_statements();
+
+        walk(statements);
+
+        // Get the new statements
+        statements = construct.get_statements();
+
+        std::string lock_name = "nanos_default_critical_lock";
+        if (!environment.is_null())
+        {
+            Nodecl::NodeclBase critical_name_node = environment.as<Nodecl::List>().find_first<Nodecl::OpenMP::CriticalName>();
+            if (!critical_name_node.is_null())
+            {
+                lock_name = "nanos_critical_lock_" + critical_name_node.get_text();
+            }
+        }
+
+        Nodecl::NodeclBase critical_code = emit_critical_region(lock_name, construct, statements);
 
         construct.integrate(critical_code);
     }

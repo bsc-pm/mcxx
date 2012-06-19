@@ -275,6 +275,8 @@ namespace TL { namespace Nanox {
                     TL::Symbol sym = it->as<Nodecl::Symbol>().get_symbol();
                     OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym);
 
+                    outline_info.set_in_outline_type(sym.get_type());
+
                     outline_info.set_sharing(OutlineDataItem::SHARING_PRIVATE);
                 }
             }
@@ -287,23 +289,12 @@ namespace TL { namespace Nanox {
 
                 TL::Type t = symbol.get_type();
                 if (t.is_any_reference())
+                {
                     t = t.references_to();
-
-                outline_info.set_in_outline_type(symbol.get_type());
-
-                if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-                {
-                    outline_info.set_field_type(t.get_pointer_to());
                 }
-                else if (IS_FORTRAN_LANGUAGE)
-                {
-                    outline_info.set_field_type(
-                            t.get_array_to_with_descriptor(
-                                Nodecl::NodeclBase::null(),
-                                Nodecl::NodeclBase::null(),
-                                symbol.get_scope())
-                            .get_pointer_to());
-                }
+
+                outline_info.set_field_type(t.get_pointer_to());
+                outline_info.set_in_outline_type(t.get_lvalue_reference_to());
             }
 
             void visit(const Nodecl::OpenMP::ReductionItem& reduction)
@@ -343,6 +334,15 @@ namespace TL { namespace Nanox {
 
         _data_env_items.std::vector<OutlineDataItem*>::insert(_data_env_items.begin(), env_item);
         return *(_data_env_items.front());
+    }
+
+    OutlineDataItem& OutlineInfo::append_field(const std::string& str, TL::Type t)
+    {
+        std::string field_name = get_field_name(str);
+        OutlineDataItem* env_item = new OutlineDataItem(field_name, t);
+
+        _data_env_items.append(env_item);
+        return *(_data_env_items.back());
     }
 
 } }

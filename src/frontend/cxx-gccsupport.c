@@ -1077,6 +1077,78 @@ gxx_type_traits_fun_type_t type_traits_fun_list[] =
     {NULL, NULL},
 };
 
+// This function is used in this file and also in cxx-exprtype.c
+void common_check_gxx_type_traits(type_t* lhs_type,
+        type_t* rhs_type,
+        type_t* gxx_trait_type,
+        const char* trait_name,
+        decl_context_t decl_context,
+        const char* filename,
+        int line,
+        nodecl_t* nodecl_output)
+{
+    if (is_dependent_type(lhs_type)
+            || (rhs_type != NULL
+                && is_dependent_type(rhs_type)))
+    {
+        nodecl_t nodecl_lhs_type = nodecl_make_type(lhs_type, filename, line);
+        nodecl_t nodecl_rhs_type_opt =
+            (rhs_type == NULL) ?
+            nodecl_null() : nodecl_make_type(lhs_type, filename, line);
+
+        *nodecl_output = nodecl_make_gxx_trait(
+                nodecl_lhs_type,
+                nodecl_rhs_type_opt,
+                gxx_trait_type,
+                trait_name,
+                filename, line);
+
+        // This is like a constant expression with a dependent value
+        nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
+        return;
+    }
+
+    int i = 0;
+    char found = 0;
+    while (type_traits_fun_list[i].trait_name != NULL
+            && !found)
+    {
+        found = (strcmp(type_traits_fun_list[i].trait_name, trait_name) == 0);
+        i++;
+    }
+
+    if (!found)
+    {
+        internal_error("Unknown trait '%s' at '%s:%d'\n", trait_name, filename, line);
+    }
+
+    // We are one ahead
+    i--;
+
+    if (type_traits_fun_list[i].trait_calculus == NULL)
+    {
+        internal_error("Unimplemented trait '%s' at '%s:%d'\n", trait_name, filename, line);
+    }
+    else
+    {
+        type_t* t = get_bool_type();
+
+        const_value_t* val = NULL;
+
+        if ((type_traits_fun_list[i].trait_calculus)(lhs_type, rhs_type, decl_context))
+        {
+            // true
+            val = const_value_get_one(type_get_size(t), 0);
+        }
+        else
+        {
+            // false
+            val = const_value_get_zero(type_get_size(t), 0);
+        }
+        *nodecl_output = nodecl_make_boolean_literal(t, val, filename, line);
+    }
+}
+
 void check_gxx_type_traits(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST first_type_id = ASTSon0(expression);
@@ -1104,74 +1176,13 @@ void check_gxx_type_traits(AST expression, decl_context_t decl_context, nodecl_t
     }
 
     const char* trait_name = ASTText(expression);
-
-    if (is_dependent_type(first_type)
-            || (second_type_id != NULL
-                && is_dependent_type(second_type)))
-    {
-        if (second_type_id != NULL)
-        {
-            *nodecl_output = nodecl_make_gxx_trait(
-                    nodecl_make_type(first_type, ASTFileName(expression), ASTLine(expression)),
-                    nodecl_make_type(second_type, ASTFileName(expression), ASTLine(expression)),
-                    get_bool_type(),
-                    trait_name,
-                    ASTFileName(expression), ASTLine(expression));
-        }
-        else
-        {
-            *nodecl_output = nodecl_make_gxx_trait(
-                    nodecl_make_type(first_type, ASTFileName(expression), ASTLine(expression)),
-                    nodecl_null(),
-                    get_bool_type(),
-                    trait_name,
-                    ASTFileName(expression), ASTLine(expression));
-        }
-        // This is like a constant expression with a dependent value
-        nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
-        return;
-    }
-
-    int i = 0;
-    char found = 0;
-    while (type_traits_fun_list[i].trait_name != NULL
-            && !found)
-    {
-        found = (strcmp(type_traits_fun_list[i].trait_name, trait_name) == 0);
-        i++;
-    }
-
-    if (!found)
-    {
-        internal_error("Unknown type traits '%s' at '%s'\n", prettyprint_in_buffer(expression), ast_location(expression));
-    }
-
-    // We are one ahead
-    i--;
-
-    if (type_traits_fun_list[i].trait_calculus == NULL)
-    {
-        internal_error("Unimplemented type traits '%s' at '%s'\n", prettyprint_in_buffer(expression), ast_location(expression));
-    }
-    else
-    {
-        type_t* t = get_bool_type();
-
-        const_value_t* val = NULL;
-
-        if ((type_traits_fun_list[i].trait_calculus)(first_type, second_type, decl_context))
-        {
-            // true
-            val = const_value_get_one(type_get_size(t), 0);
-        }
-        else
-        {
-            // false
-            val = const_value_get_zero(type_get_size(t), 0);
-        }
-        *nodecl_output = nodecl_make_boolean_literal(t, val, ASTFileName(expression), ASTLine(expression));
-    }
-
-    return;
+    common_check_gxx_type_traits(first_type,
+            second_type,
+            get_bool_type(),
+            trait_name,
+            decl_context,
+            ASTFileName(expression),
+            ASTLine(expression),
+            nodecl_output);
 }
 

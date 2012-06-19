@@ -76,7 +76,8 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 TL::Symbol structure_symbol);
 #endif
         void handle_vla_entity(OutlineDataItem& data_item, OutlineInfo& outline_info);
-        void handle_vla_type_rec(TL::Type t, OutlineInfo& outline_info);
+        void handle_vla_type_rec(TL::Type t, OutlineInfo& outline_info,
+            OutlineDataItem& outline_data_item);
         void handle_vla_saved_expr(Nodecl::NodeclBase saved_expr, OutlineInfo& outline_info);
 
         void fill_arguments(
@@ -180,17 +181,31 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
 
         Source full_barrier_source();
 
-        void reduction_initialization_code(
-                Source max_threads,
+        Source reduction_initialization_code(
                 OutlineInfo& outline_info,
-                Nodecl::NodeclBase construct,
-                // out
-                Source &reduction_declaration,
-                Source &register_code,
-                Source &fill_outline_arguments,
-                Source &fill_immediate_arguments);
+                Nodecl::NodeclBase construct);
 
         std::set<std::string> _lock_names;
+
+        Source perform_partial_reduction(OutlineInfo& outline_info);
+
+        Nodecl::NodeclBase emit_critical_region(
+                const std::string lock_name,
+                Nodecl::NodeclBase construct,
+                Nodecl::NodeclBase statements);
+
+        void fill_allocatable_dimensions(
+                TL::Symbol symbol,
+                TL::Type current_type,
+                int current_rank,
+                int rank_size,
+                Source &fill_outline_arguments, 
+                Source &fill_immediate_arguments, 
+                int &lower_bound_index, 
+                int &upper_bound_index);
+
+        Source emit_allocate_statement(TL::Symbol sym, 
+                int &lower_bound_index, int &upper_bound_index);
 };
 
 } }

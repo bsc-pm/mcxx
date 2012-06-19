@@ -207,7 +207,7 @@ static void print_scope_entry(const char* key, scope_entry_t* entry, int global_
             || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
     {
         PRINT_INDENTED_LINE(stderr, global_indent+1, "Type: %s\n", 
-                get_named_type_name(entry));
+                print_type_str(get_user_defined_type(entry), entry->decl_context));
     }
     if (entry->kind == SK_VARIABLE && entry->entity_specs.is_parameter)
     {

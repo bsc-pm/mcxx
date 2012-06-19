@@ -1199,15 +1199,14 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
                             print_declarator(argument_types[i]),
                             print_declarator(updated_type));
                 }
-                if (is_named_class_type(no_ref(argument_types[i]))
-                        && class_type_is_incomplete_independent(get_actual_class_type(no_ref(argument_types[i]))))
+                if (is_named_class_type(no_ref(argument_types[i])))
                 {
                     DEBUG_CODE()
                     {
                         fprintf(stderr, "TYPEDEDUC: Instantiating argument type know if it is derived or not\n");
                     }
                     scope_entry_t* symbol = named_type_get_symbol(no_ref(argument_types[i]));
-                    instantiate_template_class(symbol, decl_context, filename, line);
+                    instantiate_template_class_if_needed(symbol, decl_context, filename, line);
                     DEBUG_CODE()
                     {
                         fprintf(stderr, "TYPEDEDUC: Argument type instantiated\n");

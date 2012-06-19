@@ -316,10 +316,14 @@ namespace TL { namespace OpenMP {
     void Base::flush_handler_post(TL::PragmaCustomDirective directive)
     {
         PragmaClauseArgList parameter = directive.get_pragma_line().get_parameter();
+
+        TL::ObjectList<Nodecl::NodeclBase> expr_list = parameter.get_arguments_as_expressions();
+
         directive.integrate(
                 Nodecl::OpenMP::FlushMemory::make(
-                    parameter.shallow_copy(),
-                    directive.get_filename(), directive.get_line())
+                    Nodecl::List::make(expr_list),
+                    directive.get_filename(),
+                    directive.get_line())
                 );
     }
 
@@ -520,7 +524,15 @@ namespace TL { namespace OpenMP {
     {
         OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
-        Nodecl::List execution_environment = this->make_execution_environment(ds, pragma_line);
+        Nodecl::List execution_environment;
+        if (!is_combined_worksharing)
+        {
+            execution_environment = this->make_execution_environment(ds, pragma_line);
+        }
+        else
+        {
+            execution_environment = this->make_execution_environment_for_combined_worksharings(ds, pragma_line);
+        }
 
         if (pragma_line.get_clause("schedule").is_defined())
         {
@@ -1011,14 +1023,14 @@ namespace TL { namespace OpenMP {
 
     Nodecl::List Base::make_execution_environment_for_combined_worksharings(OpenMP::DataSharingEnvironment &data_sharing_env, PragmaCustomLine pragma_line)
     {
-        // Everything is set as shared in the outer parallel
         TL::ObjectList<Nodecl::NodeclBase> result_list;
 
         make_data_sharing_list<Nodecl::OpenMP::Shared>(
                 data_sharing_env, OpenMP::DS_SHARED,
                 pragma_line.get_filename(), pragma_line.get_line(),
                 result_list);
-        make_data_sharing_list<Nodecl::OpenMP::Shared>(
+        // Keep privates as privates, though
+        make_data_sharing_list<Nodecl::OpenMP::Private>(
                 data_sharing_env, OpenMP::DS_PRIVATE,
                 pragma_line.get_filename(), pragma_line.get_line(),
                 result_list);
@@ -1038,6 +1050,49 @@ namespace TL { namespace OpenMP {
             result_list.append(Nodecl::OpenMP::Shared::make(Nodecl::List::make(nodecl_symbols), 
                         pragma_line.get_filename(), pragma_line.get_line()));
         }
+
+        // FIXME - Dependences and copies for combined worksharings???
+        //
+        // TL::ObjectList<OpenMP::DependencyItem> dependences;
+        // data_sharing_env.get_all_dependences(dependences);
+
+        // make_dependency_list<Nodecl::OpenMP::DepIn>(
+        //         dependences,
+        //         OpenMP::DEP_DIR_IN,
+        //         pragma_line.get_filename(), pragma_line.get_line(),
+        //         result_list);
+
+        // make_dependency_list<Nodecl::OpenMP::DepOut>(
+        //         dependences,
+        //         OpenMP::DEP_DIR_OUT,
+        //         pragma_line.get_filename(), pragma_line.get_line(),
+        //         result_list);
+
+        // make_dependency_list<Nodecl::OpenMP::DepInout>(
+        //         dependences, OpenMP::DEP_DIR_INOUT,
+        //         pragma_line.get_filename(), pragma_line.get_line(),
+        //         result_list);
+
+        // TL::ObjectList<OpenMP::CopyItem> copies;
+        // data_sharing_env.get_all_copies(copies);
+
+        // make_copy_list<Nodecl::OpenMP::CopyIn>(
+        //         copies,
+        //         OpenMP::COPY_DIR_IN,
+        //         pragma_line.get_filename(), pragma_line.get_line(),
+        //         result_list);
+
+        // make_copy_list<Nodecl::OpenMP::CopyOut>(
+        //         copies,
+        //         OpenMP::COPY_DIR_IN,
+        //         pragma_line.get_filename(), pragma_line.get_line(),
+        //         result_list);
+
+        // make_copy_list<Nodecl::OpenMP::CopyInout>(
+        //         copies,
+        //         OpenMP::COPY_DIR_INOUT,
+        //         pragma_line.get_filename(), pragma_line.get_line(),
+        //         result_list);
 
         return Nodecl::List::make(result_list);
     }
@@ -1114,6 +1169,7 @@ namespace TL { namespace OpenMP {
 
         return Nodecl::List::make(result_list);
     }
+
     } }
 
 EXPORT_PHASE(TL::OpenMP::Base)

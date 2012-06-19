@@ -1252,6 +1252,8 @@ static nodecl_t simplify_reshape(int num_arguments UNUSED_PARAMETER, nodecl_t* a
         if (!nodecl_is_null(arguments[3]))
             order = nodecl_get_constant(arguments[3]);
 
+        type_t *base_type = fortran_get_rank0_type(nodecl_get_type(arguments[0]));
+
         const_value_t* flattened_source = flatten_array(nodecl_get_constant(arguments[0]));
         const_value_t* flattened_pad = NULL;
         if (pad != NULL)
@@ -1268,7 +1270,9 @@ static nodecl_t simplify_reshape(int num_arguments UNUSED_PARAMETER, nodecl_t* a
         if (val == NULL)
             return nodecl_null();
 
-        return const_value_to_nodecl(val);
+        nodecl_t result = const_value_to_nodecl_with_basic_type(val, base_type);
+
+        return result;
     }
     return nodecl_null();
 }

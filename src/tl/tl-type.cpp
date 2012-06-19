@@ -118,7 +118,7 @@ namespace TL
         Codegen::FortranBase &codegen_phase = static_cast<Codegen::FortranBase&>(Codegen::get_current());
 
         std::string type_specifier, array_specifier;
-        codegen_phase.codegen_type(*this, type_specifier, array_specifier, /* is_dummy */ flags == PARAMETER_DECLARATION);
+        codegen_phase.codegen_type(*this, type_specifier, array_specifier);
 
         return type_specifier + " :: " + symbol_name + array_specifier;
     }

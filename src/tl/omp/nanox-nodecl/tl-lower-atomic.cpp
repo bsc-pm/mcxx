@@ -35,15 +35,12 @@ namespace TL { namespace Nanox {
 
     namespace {
 
-        Nodecl::NodeclBase inefficient_atomic(Nodecl::NodeclBase node)
-        {
-            internal_error("Not yet implemented", 0);
-            return node;
-        }
-
         // FIXME - Part of this logic must be moved to OpenMP::Core
         bool allowed_expressions_critical(Nodecl::NodeclBase expr, bool &using_builtin)
         {
+            if (IS_FORTRAN_LANGUAGE)
+                return false;
+
             node_t op_kind = expr.get_kind();
 
             switch (op_kind)
@@ -96,7 +93,6 @@ namespace TL { namespace Nanox {
                                 || !(lhs_is_integral
                                     || t.is_floating_type()))
                             return false;
-
 
                         // Likewise for rhs
                         Nodecl::NodeclBase rhs = expr.as<Nodecl::AddAssignment>().get_rhs();
@@ -364,7 +360,8 @@ namespace TL { namespace Nanox {
                 {
                     warn_printf("%s: warning: 'atomic' expression cannot be implemented efficiently\n", 
                             expr.get_locus().c_str());
-                    atomic_tree = inefficient_atomic(expr);
+                    std::string lock_name = "nanos_default_critical_lock";
+                    atomic_tree = emit_critical_region(lock_name, construct, statements);
                 }
                 else
                 {

@@ -89,38 +89,41 @@ static void fortran_init_globals(decl_context_t decl_context)
     struct {
         const char* symbol_name;
         type_t* backing_type;
+        int explicit_size;
     } intrinsic_globals[] =
     {
-        { "mercurium_c_int", get_signed_int_type() },
-        { "mercurium_c_short", get_signed_short_int_type() },
-        { "mercurium_c_long", get_signed_long_int_type() },
-        { "mercurium_c_long_long", get_signed_long_long_int_type() },
-        { "mercurium_c_signed_char", get_signed_byte_type() },
-        { "mercurium_c_size_t", get_size_t_type() },
-        { "mercurium_c_int8_t", int_8 },
-        { "mercurium_c_int16_t", int_16 },
-        { "mercurium_c_int32_t", int_32 },
-        { "mercurium_c_int64_t", int_64 },
-        { "mercurium_c_int_least8_t", int_8 },
-        { "mercurium_c_int_least16_t", int_16 },
-        { "mercurium_c_int_least32_t", int_32 },
-        { "mercurium_c_int_least64_t", int_64 },
-        { "mercurium_c_int_fast8_t", int_8 },
-        { "mercurium_c_int_fast16_t", int_16 },
-        { "mercurium_c_int_fast32_t", int_32 },
-        { "mercurium_c_int_fast64_t", int_64 },
-        { "mercurium_c_intmax_t", int_64 },
-        { "mercurium_c_intptr_t", get_pointer_type(get_void_type()) },
-        { "mercurium_c_float", get_float_type() },
-        { "mercurium_c_double", get_double_type() },
-        { "mercurium_c_long_double", get_long_double_type() },
-        { "mercurium_c_float_complex", get_complex_type(get_float_type()) },
-        { "mercurium_c_double_complex", get_complex_type(get_double_type()) },
-        { "mercurium_c_long_double_complex", get_complex_type(get_long_double_type()) },
-        { "mercurium_c_bool", get_bool_type() },
-        { "mercurium_c_char", get_char_type() },
+        { "mercurium_c_int", get_signed_int_type(), 0},
+        { "mercurium_c_short", get_signed_short_int_type(), 0},
+        { "mercurium_c_long", get_signed_long_int_type(), 0},
+        { "mercurium_c_long_long", get_signed_long_long_int_type(), 0},
+        { "mercurium_c_signed_char", get_signed_byte_type(), 0},
+        { "mercurium_c_size_t", get_size_t_type(), 0},
+        { "mercurium_c_int8_t", int_8, 0},
+        { "mercurium_c_int16_t", int_16, 0},
+        { "mercurium_c_int32_t", int_32, 0},
+        { "mercurium_c_int64_t", int_64, 0},
+        { "mercurium_c_int_least8_t", int_8, 0},
+        { "mercurium_c_int_least16_t", int_16, 0},
+        { "mercurium_c_int_least32_t", int_32, 0},
+        { "mercurium_c_int_least64_t", int_64, 0},
+        { "mercurium_c_int_fast8_t", int_8, 0},
+        { "mercurium_c_int_fast16_t", int_16, 0},
+        { "mercurium_c_int_fast32_t", int_32, 0},
+        { "mercurium_c_int_fast64_t", int_64, 0},
+        { "mercurium_c_intmax_t", int_64, 0},
+        { "mercurium_c_intptr_t", get_pointer_type(get_void_type()), 0},
+        { "mercurium_c_float", get_float_type(), 0},
+        { "mercurium_c_double", get_double_type(), 0},
+        { "mercurium_c_long_double", get_long_double_type(), 0},
+        { "mercurium_c_float_complex", get_complex_type(get_float_type()), 0},
+        { "mercurium_c_double_complex", get_complex_type(get_double_type()), 0},
+        { "mercurium_c_long_double_complex", get_complex_type(get_long_double_type()), 0},
+        { "mercurium_c_bool", get_bool_type(), 0},
+        { "mercurium_c_char", get_char_type(), 0},
+        { "mercurium_c_ptr", NULL, CURRENT_CONFIGURATION->type_environment->sizeof_pointer },
+        { "mercurium_c_funptr", NULL, CURRENT_CONFIGURATION->type_environment->sizeof_function_pointer },
         // Sentinel
-        { NULL, NULL }
+        { NULL, NULL, 0}
     };
 
     int i;
@@ -129,9 +132,19 @@ static void fortran_init_globals(decl_context_t decl_context)
         scope_entry_t* mercurium_intptr = new_symbol(decl_context, decl_context.global_scope, intrinsic_globals[i].symbol_name);
         mercurium_intptr->kind = SK_VARIABLE;
         mercurium_intptr->type_information = get_const_qualified_type(fortran_get_default_integer_type());
-        mercurium_intptr->value = const_value_to_nodecl(
-                const_value_get_signed_int(
-                    type_get_size(intrinsic_globals[i].backing_type)));
+        _size_t size = 0;
+        if (intrinsic_globals[i].backing_type != NULL)
+        {
+            size = type_get_size(intrinsic_globals[i].backing_type);
+            mercurium_intptr->value = const_value_to_nodecl(
+                    const_value_get_signed_int(
+                        type_get_size(intrinsic_globals[i].backing_type)));
+        }
+        else
+        {
+            size = intrinsic_globals[i].explicit_size;
+        }
+            mercurium_intptr->value = const_value_to_nodecl(const_value_get_signed_int(size));
         mercurium_intptr->do_not_print = 1;
     }
 }
@@ -234,14 +247,24 @@ scope_entry_t* get_equivalence_symbol_info(decl_context_t decl_context)
     return get_special_symbol(decl_context, ".equivalence");
 }
 
-scope_entry_t* get_used_modules_symbol_info(decl_context_t decl_context)
-{
-    return get_special_symbol(decl_context, ".used_modules");
-}
-
 scope_entry_t* get_or_create_used_modules_symbol_info(decl_context_t decl_context)
 {
-    return get_or_create_special_symbol(decl_context, ".used_modules");
+    ERROR_CONDITION(decl_context.current_scope->related_entry == NULL, "No related symbol in the current scope!", 0);
+
+    if (decl_context.current_scope->related_entry->entity_specs.used_modules == NULL)
+    {
+        decl_context_t function_context = decl_context;
+        function_context.current_scope = function_context.function_scope;
+
+        scope_entry_t* new_sym = new_symbol(
+                function_context,
+                function_context.current_scope,
+                ".used_modules");
+        new_sym->kind = SK_OTHER;
+
+        decl_context.current_scope->related_entry->entity_specs.used_modules = new_sym;
+    }
+    return decl_context.current_scope->related_entry->entity_specs.used_modules;
 }
 
 static scope_entry_t* get_or_create_equivalence_symbol_info(decl_context_t decl_context)

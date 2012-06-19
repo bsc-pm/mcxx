@@ -351,6 +351,8 @@ struct scope_tag
     scope_entry_t* related_entry;
 };
 
+typedef const char* (*print_symbol_callback_t)(scope_entry_t*, decl_context_t, void*);
+
 MCXX_END_DECLS
 
 #endif // CXX_SCOPE_DECLS_H

@@ -143,8 +143,11 @@ namespace Codegen
 
             void codegen_type(TL::Type t, 
                     std::string& type_specifier, 
+                    std::string& array_specifier);
+            void codegen_type_extended(TL::Type t, 
+                    std::string& type_specifier, 
                     std::string& array_specifier,
-                    bool is_dummy);
+                    bool force_deferred_shape);
 
             virtual void push_scope(TL::Scope sc) { }
             virtual void pop_scope() { }
@@ -224,10 +227,6 @@ namespace Codegen
             typedef std::set<std::string> external_symbol_set_t;
             external_symbol_set_t _external_symbols;
 
-            // This is a set used for emit_declaration_part which states that a
-            // given symbol does not have to be declared at all
-            TL::ObjectList<TL::Symbol> do_not_declare;
-
             std::string define_ptr_loc(TL::Type t, const std::string& function_name);
 
             void set_codegen_status(TL::Symbol sym, codegen_status_t status);
@@ -245,7 +244,9 @@ namespace Codegen
             void codegen_procedure_declaration_header(TL::Symbol entry, bool& lacks_result);
             void codegen_procedure_declaration_footer(TL::Symbol entry);
 
-            void codegen_module_header(TL::Symbol, TL::ObjectList<Nodecl::NodeclBase>);
+            void codegen_module_header(TL::Symbol, 
+                    TL::ObjectList<Nodecl::NodeclBase>& before_contains,
+                    TL::ObjectList<Nodecl::NodeclBase>& after_contains);
 
             void codegen_module_footer(TL::Symbol);
 
@@ -264,6 +265,8 @@ namespace Codegen
             void declare_everything_needed(Nodecl::NodeclBase statement_seq);
             void declare_everything_needed(Nodecl::NodeclBase statement_seq, TL::Scope sc);
 
+            void declare_everything_needed_by_the_type(TL::Type t, TL::Scope sc);
+
             void traverse_looking_for_symbols(Nodecl::NodeclBase node,
                     void (FortranBase::*do_declare)(TL::Symbol entry, Nodecl::NodeclBase node, void *data),
                     void *data);
@@ -272,6 +275,9 @@ namespace Codegen
             void declare_use_statements(Nodecl::NodeclBase statement_seq);
             void declare_use_statements(Nodecl::NodeclBase node, TL::Scope sc);
             void emit_use_statement_if_symbol_comes_from_module(TL::Symbol entry, const TL::Scope &sc);
+
+            void declare_global_entities(Nodecl::NodeclBase node);
+            void do_declare_global_entities(TL::Symbol entry, Nodecl::NodeclBase, void *data);
 
             void codegen_write_or_read_statement(
                     const std::string& keyword,
@@ -336,6 +342,8 @@ namespace Codegen
             void emit_interface_for_symbol(TL::Symbol entry);
 
             bool entry_is_in_scope(TL::Symbol entry, TL::Scope sc);
+
+            bool module_can_be_reached(TL::Symbol current_module, TL::Symbol module_target);
     };
 }
 

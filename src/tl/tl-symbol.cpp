@@ -248,6 +248,11 @@ namespace TL
         return this->_symbol->entity_specs.is_anonymous_union;
     }
 
+    bool Symbol::is_member_of_anonymous_union() const
+    {
+        return this->_symbol->entity_specs.is_member_of_anonymous;
+    }
+
     bool Symbol::is_injected_class_name() const
     {
         return this->_symbol->entity_specs.is_injected_class_name;
@@ -286,6 +291,11 @@ namespace TL
     Symbol Symbol::aliased_from_module() const
     {
         return get_alias_to();
+    }
+
+    Symbol Symbol::get_used_modules() const
+    {
+        return this->_symbol->entity_specs.used_modules;
     }
 
     Symbol Symbol::get_alias_to() const
