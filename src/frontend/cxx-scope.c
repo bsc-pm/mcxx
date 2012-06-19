@@ -4336,7 +4336,16 @@ static char check_symbol_is_base_or_member(scope_entry_t* previous_symbol,
         class_symbol = named_type_get_symbol(class_symbol->entity_specs.class_type);
     }
 
-    ERROR_CONDITION(class_symbol->kind != SK_CLASS, "This should be a class", 0);
+    if (class_symbol->kind != SK_CLASS)
+    {
+        if (!checking_ambiguity())
+        {
+            error_printf("%s:%d: error: '%s' must be a class\n",
+                    filename, line,
+                    class_symbol->symbol_name);
+        }
+        return 0;
+    }
 
     if (is_last)
     {
