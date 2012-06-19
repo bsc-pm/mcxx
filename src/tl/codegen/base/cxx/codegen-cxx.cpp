@@ -4332,6 +4332,10 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
                     equal_is_needed = 1;
                 }
             }
+            else if (symbol.get_initialization().is<Nodecl::CxxParenthesizedInitializer>())
+            {
+                equal_is_needed = 0;
+            }
         }
         if (is_definition)
         {
