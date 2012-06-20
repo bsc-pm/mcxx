@@ -14548,8 +14548,6 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
     {
         scope_entry_list_t *entry_list = query_dependent_entity_in_context(v->decl_context, sym, nodecl_get_filename(node), nodecl_get_line(node));
 
-        // cxx_compute_name_from_entry_list(sym->value, entry_list, v->decl_context, &result);
-
         scope_entry_t* dependent_entry = NULL;
         nodecl_t dependent_parts = nodecl_null();
         dependent_typename_get_components(sym->type_information, &dependent_entry, &dependent_parts);
