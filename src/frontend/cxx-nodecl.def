@@ -1,4 +1,3 @@
-
 #
 #   rule : another-rule
 #        | NODECL_TREE_CONSTRUCTOR([child_name] rule-name, ...) options
@@ -279,8 +278,6 @@ cxx-mem-init: NODECL_CXX_MEMBER_INIT([name]cxx-dependent-name, [initializer]expr
 
 function-form: NODECL_CXX_FUNCTION_FORM_TEMPLATE_ID() template-parameters-opt
 
-cuda-expressions : NODECL_CUDA_KERNEL_CALL([kernel_config] expression-seq, [function_call] expression) type const-value-opt
-
 type-or-expr : type
              | expression
 
@@ -441,3 +438,10 @@ synchronization : NODECL_OPEN_M_P*WAIT_ON_DEPENDENCES([environment]exec-environm
                 | NODECL_OPEN_M_P*BARRIER_SIGNAL()
 # Second half of a barrier (waiting phase)
                 | NODECL_OPEN_M_P*BARRIER_WAIT()
+
+##############################
+# CUDA                       #
+##############################
+
+cuda-expressions : NODECL_CUDA_KERNEL_CALL([kernel_config] expression-seq, [function_call] expression) type const-value-opt module(cuda)
+
