@@ -1197,8 +1197,7 @@ void CxxBase::visit_function_call_form(const Node& node)
     }
 }
 
-// This kind of Nodecl (CxxDepFunctionCall) has not a function form
-// For this reason exists this empty explicit specialization of 'visit_function_call_form' template function
+// Explicit specialitzation for Nodecl::CxxDepFunctionCall because this kind of node has not a function form
 template <>
 void CxxBase::visit_function_call_form<Nodecl::CxxDepFunctionCall>(const Nodecl::CxxDepFunctionCall& node)
 {
@@ -1211,8 +1210,7 @@ bool CxxBase::is_implicit_function_call(const Node& node) const
             && node.get_function_form().template is<Nodecl::CxxFunctionFormImplicit>());
 }
 
-// This kind of Nodecl (CxxDepFunctionCall) has not a function form
-// For this reason exists this trivial explicit specialization of 'is_implicit_function_call' template function
+// Explicit specialitzation for Nodecl::CxxDepFunctionCall because this kind of node has not a function form
 template <>
 bool CxxBase::is_implicit_function_call<Nodecl::CxxDepFunctionCall>(const Nodecl::CxxDepFunctionCall& node) const
 {
