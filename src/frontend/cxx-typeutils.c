@@ -70,7 +70,6 @@ enum type_kind
     TK_ARRAY,
     TK_FUNCTION,
     TK_OVERLOAD,
-    TK_VECTOR,
     TK_ELLIPSIS,
     TK_COMPUTED,
     TK_BRACED_LIST,
@@ -97,18 +96,19 @@ typedef
 enum simple_type_kind_tag
 {
     STK_UNDEFINED = 0, 
-    STK_BUILTIN_TYPE, // [1] int, float, char, wchar_t, bool, void;
+    STK_BUILTIN_TYPE, // int, float, char, wchar_t, bool, void;
     STK_COMPLEX,
-    STK_CLASS, // [2] struct {identifier};
-    STK_ENUM, // [3] enum {identifier}
-    STK_INDIRECT, // [4] A type defined after the type of another symbol
-    STK_TEMPLATE_TYPE, // [5] a template type
-    // An unknown type
-    STK_TEMPLATE_DEPENDENT_TYPE, // [6]
+    STK_CLASS, // struct {identifier};
+    STK_ENUM, // enum {identifier}
+    STK_INDIRECT, // A type defined after the type of another symbol
+    STK_TEMPLATE_TYPE, // a template type
+    STK_TEMPLATE_DEPENDENT_TYPE, // 
+    // Mercurium extensions
+    STK_VECTOR,
     // GCC Extensions
-    STK_VA_LIST, // [7] __builtin_va_list {identifier};
-    STK_TYPEOF,  // [8] __typeof__(int) {identifier};
-    STK_TYPE_DEP_EXPR,      // [9]
+    STK_VA_LIST, // __builtin_va_list {identifier};
+    STK_TYPEOF,  //  __typeof__(int) {identifier};
+    STK_TYPE_DEP_EXPR, // [9]
 } simple_type_kind_t;
 
 // Information of enums
@@ -282,6 +282,11 @@ struct simple_type_tag {
 
     // Complex types, base type of the complex type
     type_t* complex_element;
+
+    // Vector types, element type and vector size
+    // if vector_size == 0 then this is a generic vector
+    type_t* vector_element;
+    unsigned int vector_size;
 } simple_type_t;
 
 
@@ -365,13 +370,6 @@ struct array_tag
     unsigned char is_vla:1;
 } array_info_t;
 
-// Vector type
-typedef struct vector_tag
-{
-    unsigned int vector_size;
-    type_t* element_type;
-} vector_info_t;
-
 typedef
 struct braced_list_info_tag
 {
@@ -436,10 +434,6 @@ struct type_tag
 
     // Braced list type
     braced_list_info_t* braced_type;
-
-    // Vector Type
-    // (kind == TK_VECTOR)
-    vector_info_t* vector;
 
     // Unqualified type, itself if the type is not qualified
     type_t* unqualified_type;
@@ -558,7 +552,6 @@ size_t get_type_t_size(void)
 static char equivalent_pointer_type(pointer_info_t* t1, pointer_info_t* t2);
 static char equivalent_array_type(array_info_t* t1, array_info_t* t2);
 static char equivalent_function_type(type_t* t1, type_t* t2);
-static char equivalent_vector_type(type_t* t1, type_t* t2);
 static char compatible_parameters(function_info_t* t1, function_info_t* t2);
 static char compare_template_dependent_typename_types(type_t* t1, type_t* t2);
 static char equivalent_pointer_to_member_type(type_t* t1, type_t* t2);
@@ -2094,6 +2087,8 @@ type_t* get_complex_type(type_t* t)
         result->info->alignment = t->info->alignment;
         result->info->valid_size = 1;
 
+        result->info->is_dependent = is_dependent_type(t);
+
         rb_tree_insert(_complex_hash, t, result);
     }
 
@@ -3014,18 +3009,27 @@ type_t* get_vector_type(type_t* element_type, unsigned int vector_size)
 {
     ERROR_CONDITION(element_type == NULL, "Invalid type", 0);
 
-    _vector_type_counter++;
-    // This type is not efficiently managed
-    type_t* result = new_empty_type();
-    
-    result->kind = TK_VECTOR;
-    result->unqualified_type = result;
+    static rb_red_blk_tree *_vector_hash = NULL;
 
-    result->vector = counted_calloc(1, sizeof(*(result->vector)), &_bytes_due_to_type_system);
-    result->vector->element_type = element_type;
-    result->vector->vector_size = vector_size;
+    if (_vector_hash == NULL)
+    {
+        _vector_hash = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
+    }
 
-    result->info->is_dependent = is_dependent_type(element_type);
+    type_t* result = rb_tree_query_type(_vector_hash, element_type);
+
+    if (result == NULL)
+    {
+        result = get_simple_type();
+
+        result->type->kind = STK_VECTOR;
+        result->type->vector_element = element_type;
+        result->type->vector_size = vector_size;
+        
+        result->info->is_dependent = is_dependent_type(element_type);
+
+        rb_tree_insert(_vector_hash, element_type, result);
+    }
 
     return result;
 }
@@ -3034,7 +3038,8 @@ char is_vector_type(type_t* t)
 {
     t = advance_over_typedefs(t);
     return (t != NULL
-            && t->kind == TK_VECTOR);
+            && is_non_derived_type(t)
+            && t->type->kind == STK_VECTOR);
 }
 
 type_t* get_generic_vector_type(type_t* element_type)
@@ -3045,9 +3050,7 @@ type_t* get_generic_vector_type(type_t* element_type)
 char is_generic_vector_type(type_t* t)
 {
     t = advance_over_typedefs(t);
-    return (t != NULL
-            && t->kind == TK_VECTOR
-	    && t->vector->vector_size == 0);
+    return (is_vector_type(t) && t->type->vector_size == 0);
 }
 
 int vector_type_get_vector_size(type_t* t)
@@ -3055,7 +3058,7 @@ int vector_type_get_vector_size(type_t* t)
     ERROR_CONDITION(!is_vector_type(t), "This is not a vector type", 0);
     t = advance_over_typedefs(t);
 
-    return t->vector->vector_size;
+    return t->type->vector_size;
 }
 
 type_t* vector_type_get_element_type(type_t* t)
@@ -3063,7 +3066,7 @@ type_t* vector_type_get_element_type(type_t* t)
     ERROR_CONDITION(!is_vector_type(t), "This is not a vector type", 0);
     t = advance_over_typedefs(t);
 
-    return t->vector->element_type;
+    return t->type->vector_element;
 }
 
 static type_t* _get_new_function_type(type_t* t, parameter_info_t* parameter_info, int num_parameters)
@@ -4327,9 +4330,6 @@ char equivalent_types(type_t* t1, type_t* t2)
         case TK_FUNCTION :
             result = equivalent_function_type(t1, t2);
             break;
-        case TK_VECTOR :
-            result = equivalent_vector_type(t1, t2);
-            break;
         case TK_ERROR:
             // This is always true
             result = 1;
@@ -4412,6 +4412,8 @@ static char equivalent_named_types(scope_entry_t* s1, scope_entry_t* s2)
     }
 }
 
+static char equivalent_vector_type(type_t* t1, type_t* t2);
+
 char equivalent_simple_types(type_t *p_t1, type_t *p_t2)
 {
     simple_type_t* t1 = p_t1->type;
@@ -4455,6 +4457,8 @@ char equivalent_simple_types(type_t *p_t1, type_t *p_t2)
         case STK_COMPLEX:
             return equivalent_types(t1->complex_element, t2->complex_element);
             break;
+        case STK_VECTOR:
+            return equivalent_vector_type(p_t1, p_t2);
         case STK_TYPE_DEP_EXPR:
             // Always different
             return 0;
@@ -4596,8 +4600,8 @@ static char equivalent_array_type(array_info_t* t1, array_info_t* t2)
 static char equivalent_vector_type(type_t* t1, type_t* t2)
 {
     // This mimics gcc behaviour
-    return ((equivalent_types(t1->vector->element_type, t2->vector->element_type)))
-        && (t1->vector->vector_size == t2->vector->vector_size);
+    return ((equivalent_types(t1->type->vector_element, t2->type->vector_element)))
+        && (t1->type->vector_size == t2->type->vector_size);
 }
 
 static char equivalent_function_type(type_t* ft1, type_t* ft2)
@@ -6418,10 +6422,35 @@ static const char* get_simple_type_name_string_internal_common(scope_entry_t* en
     return result;
 }
 
+static const char* get_simple_type_name_string_internal(decl_context_t decl_context, 
+        type_t* t,
+        print_symbol_callback_t print_symbol_fun,
+        void* print_symbol_data);
+
+static const char* print_gnu_vector_type(
+        decl_context_t decl_context,
+        type_t* t,
+        print_symbol_callback_t print_symbol_fun,
+        void* print_symbol_data)
+{
+    const char* typename = get_simple_type_name_string_internal(decl_context,
+            vector_type_get_element_type(t),
+            print_symbol_fun,
+            print_symbol_data);
+
+    const char* c = NULL;
+    uniquestr_sprintf(&c, "__attribute__((vector_size(%d))) %s", 
+            vector_type_get_vector_size(t),
+            typename);
+
+    return c;
+}
+
 static const char* get_simple_type_name_string(decl_context_t decl_context, 
         type_t* type_info,
         print_symbol_callback_t print_symbol_fun,
         void* print_symbol_data);
+
 
 // Gives a string with the name of this simple type
 static const char* get_simple_type_name_string_internal(decl_context_t decl_context, 
@@ -6572,6 +6601,11 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
                 result = strappend(result, "_Complex ");
                 result = strappend(result, 
                         get_simple_type_name_string(decl_context, simple_type->complex_element, print_symbol_fun, print_symbol_data));
+                break;
+            }
+        case STK_VECTOR:
+            {
+                result = print_gnu_vector_type(decl_context, t, print_symbol_fun, print_symbol_data);
                 break;
             }
         case STK_CLASS :
@@ -7022,7 +7056,6 @@ char is_more_or_equal_cv_qualified_type(type_t* t1, type_t* t2)
     return !is_less_cv_qualified_type(t1, t2);
 }
 
-
 // Constructs a proper declarator
 static void get_type_name_str_internal(decl_context_t decl_context,
         type_t* type_info, 
@@ -7263,29 +7296,6 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                 }
 
                 (*right) = strappend(prototype, (*right));
-                break;
-            }
-        case TK_VECTOR :
-            {
-
-
-                get_type_name_str_internal(decl_context, type_info->vector->element_type, left, right, 
-                        num_parameter_names, parameter_names, parameter_attributes, is_parameter);
-
-               // //generic_vector
-               // char c[256];
-               // if (type_info->vector->vector_size == 0)
-               // {
-               //     snprintf(c, 255, "__attribute__((generic_vector)) ");
-               // }
-               // else
-               // {
-               //     snprintf(c, 255, "__attribute__((vector_size(%d))) ", 
-               //              type_info->vector->vector_size);
-               // }
-               // c[255] = '\0';
-
-               // (*left) = strappend((*left), c);
                 break;
             }
         case TK_OVERLOAD:
@@ -7543,6 +7553,16 @@ static const char* get_builtin_type_name(type_t* type_info)
             {
                 result = strappend(result, "_Complex ");
                 result = strappend(result, print_declarator(simple_type_info->complex_element));
+                break;
+            }
+        case STK_VECTOR:
+            {
+                char c[256];
+                snprintf(c, 255, "vector of size %d of ", 
+                        simple_type_info->vector_size);
+                c[255] = '\0';
+                result = strappend(result, c);
+                result = strappend(result, print_declarator(simple_type_info->vector_element));
                 break;
             }
         case STK_INDIRECT :
@@ -7896,16 +7916,6 @@ const char* print_declarator(type_t* printed_declarator)
                         tmp_result = strappend(tmp_result, " returning ");
                     }
                     printed_declarator = printed_declarator->function->return_type;
-                    break;
-                }
-            case TK_VECTOR:
-                {
-                    char c[256];
-                    snprintf(c, 255, "vector of size %d of ", 
-                            printed_declarator->vector->vector_size);
-                    c[255] = '\0';
-                    tmp_result = strappend(tmp_result, c);
-                    printed_declarator = printed_declarator->vector->element_type;
                     break;
                 }
             case TK_COMPUTED:
@@ -10293,10 +10303,6 @@ type_t* get_foundation_type(type_t* t)
     else if (is_array_type(t))
     {
         return get_foundation_type(array_type_get_element_type(t));
-    }
-    else if (is_vector_type(t))
-    {
-        return get_foundation_type(vector_type_get_element_type(t));
     }
     else if (is_unresolved_overloaded_type(t))
     {
