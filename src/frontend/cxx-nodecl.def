@@ -24,8 +24,8 @@
 # mandatory for the node. Use this when you want to ensure that copy routines
 # copy these values as well (otherwise these extra values will be ignored)
 #
-# There is a special rule 'nodecl' which is the root of the whole hierarchy,
-# while not enforced every rule should be referenced in another rule. The
+# There is a special rule 'nodecl' which is the root of the whole hierarchy and,
+# while not enforced, every rule should be referenced in another rule. The
 # structure must be nonambiguous (i.e. there must be a single way of
 # constructing a given hierarchy)
 #
