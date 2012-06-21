@@ -388,7 +388,7 @@ namespace Codegen
                 void codegen_function_call_arguments(Iterator begin, Iterator end, TL::Type function_type, int ignore_n_first);
 
             template <typename Node>
-                void visit_function_call_form(const Node&);
+                void visit_function_call_form_template_id(const Node&);
 
             template <typename Node>
                 bool is_implicit_function_call(const Node& node) const;

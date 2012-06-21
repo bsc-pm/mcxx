@@ -1127,11 +1127,11 @@ CxxBase::Ret CxxBase::codegen_function_call_arguments(Iterator begin, Iterator e
 }
 
 template <typename Node>
-void CxxBase::visit_function_call_form(const Node& node)
+void CxxBase::visit_function_call_form_template_id(const Node& node)
 {
     Nodecl::NodeclBase function_form = node.get_function_form();
     TL::Symbol called_symbol = node.get_called().get_symbol();
-    
+
     if (!function_form.is_null()
             && function_form.is<Nodecl::CxxFunctionFormTemplateId>())
     {
@@ -1199,7 +1199,7 @@ void CxxBase::visit_function_call_form(const Node& node)
 
 // Explicit specialitzation for Nodecl::CxxDepFunctionCall because this kind of node has not a function form
 template <>
-void CxxBase::visit_function_call_form<Nodecl::CxxDepFunctionCall>(const Nodecl::CxxDepFunctionCall& node)
+void CxxBase::visit_function_call_form_template_id<Nodecl::CxxDepFunctionCall>(const Nodecl::CxxDepFunctionCall& node)
 {
 }
 
@@ -1377,7 +1377,7 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
             }
     }
 
-    visit_function_call_form(node);
+    visit_function_call_form_template_id(node);
 
     file << "(";
 
@@ -2673,7 +2673,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Symbol& node)
         else if (entry.is_function())
         {
             // If we are visiting the called entity of a function call, the template arguments
-            // (if any) will be added by 'visit_function_call_form' function
+            // (if any) will be added by 'visit_function_call_form_template_id' function
             file << entry.get_qualified_name(this->get_current_scope(),
                     /* without template id */ state.visiting_called_entity_of_function_call);
         }
