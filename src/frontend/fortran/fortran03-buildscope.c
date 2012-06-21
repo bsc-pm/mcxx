@@ -1800,6 +1800,8 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
         result_sym->line = entry->line;
         result_sym->entity_specs.is_result = 1;
 
+        remove_unknown_kind_symbol(decl_context, result_sym);
+
         char function_has_type_spec = 0;
         result_sym->type_information = get_lvalue_reference_type(return_type);
         result_sym->entity_specs.is_implicit_basic_type = !function_has_type_spec;
