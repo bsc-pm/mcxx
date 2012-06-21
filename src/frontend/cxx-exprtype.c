@@ -12044,7 +12044,7 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
         *nodecl_output = cxx_nodecl_make_function_call(
                     nodecl_make_symbol(chosen_constructor, nodecl_get_filename(nodecl_expr), nodecl_get_line(nodecl_expr)),
                     nodecl_make_list_1(nodecl_expr),
-                    /* function_form */ nodecl_null(),
+                    nodecl_make_cxx_function_form_implicit(nodecl_get_filename(nodecl_expr), nodecl_get_line(nodecl_expr)),
                     declared_type_no_cv,
                     nodecl_get_filename(nodecl_expr), nodecl_get_line(nodecl_expr));
     }

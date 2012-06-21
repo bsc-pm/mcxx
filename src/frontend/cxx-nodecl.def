@@ -277,6 +277,7 @@ cxx-dependent-expressions: NODECL_CXX_ARROW([lhs]expression, [member]expression)
 cxx-mem-init: NODECL_CXX_MEMBER_INIT([name]cxx-dependent-name, [initializer]expression) type const-value-opt
 
 function-form: NODECL_CXX_FUNCTION_FORM_TEMPLATE_ID() template-parameters-opt
+    | NODECL_CXX_FUNCTION_FORM_IMPLICIT()
 
 type-or-expr : type
              | expression

@@ -386,9 +386,12 @@ namespace Codegen
 
             template <typename Iterator>
                 void codegen_function_call_arguments(Iterator begin, Iterator end, TL::Type function_type, int ignore_n_first);
-            
+
             template <typename Node>
-                CxxBase::Ret visit_function_call_form(const Node&);
+                void visit_function_call_form(const Node&);
+
+            template <typename Node>
+                bool is_implicit_function_call(const Node& node) const;
 
             template <typename Node>
                 CxxBase::Ret visit_function_call(const Node&, bool is_virtual_call);

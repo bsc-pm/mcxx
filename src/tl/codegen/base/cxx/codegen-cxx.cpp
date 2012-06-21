@@ -1131,7 +1131,9 @@ void CxxBase::visit_function_call_form(const Node& node)
 {
     Nodecl::NodeclBase function_form = node.get_function_form();
     TL::Symbol called_symbol = node.get_called().get_symbol();
-    if (!function_form.is_null())
+    
+    if (!function_form.is_null()
+            && function_form.is<Nodecl::CxxFunctionFormTemplateId>())
     {
         TL::TemplateParameters template_args = function_form.get_template_parameters();
         TL::TemplateParameters deduced_template_args =
@@ -1202,12 +1204,36 @@ void CxxBase::visit_function_call_form<Nodecl::CxxDepFunctionCall>(const Nodecl:
 {
 }
 
+template <typename Node>
+bool CxxBase::is_implicit_function_call(const Node& node) const
+{
+    return (!node.get_function_form().is_null()
+            && node.get_function_form().template is<Nodecl::CxxFunctionFormImplicit>());
+}
+
+// This kind of Nodecl (CxxDepFunctionCall) has not a function form
+// For this reason exists this trivial explicit specialization of 'is_implicit_function_call' template function
+template <>
+bool CxxBase::is_implicit_function_call<Nodecl::CxxDepFunctionCall>(const Nodecl::CxxDepFunctionCall& node) const
+{
+    return 0;
+}
+
 
 template <typename Node>
 CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call)
 {
 
     Nodecl::NodeclBase called_entity = node.get_called();
+
+    if (is_implicit_function_call(node))
+    {
+        // We don't want to generate the current function call because It has
+        // been added by the compiler. We should ignore it!
+        walk(node.get_arguments());
+        return;
+    }
+
     Nodecl::List arguments = node.get_arguments().template as<Nodecl::List>();
 
     enum call_kind
@@ -2366,9 +2392,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ReturnStatement& node)
 
     indent();
     file << "return ";
-
     walk(expression);
-
     file << ";\n";
 }
 
