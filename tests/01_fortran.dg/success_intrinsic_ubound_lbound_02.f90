@@ -1,0 +1,17 @@
+! <testinfo>
+! test_generator="config/mercurium-fortran run"
+! </testinfo>
+PROGRAM MAIN
+    IMPLICIT NONE
+    REAL, DIMENSION(1:2,1:5) :: ARR
+
+    IF( KIND(LBOUND(ARR, 1, 1)) /= 1) STOP "INVALID KIND 1"
+    IF( KIND(LBOUND(ARR, 1, 2)) /= 2) STOP "INVALID KIND 2"
+    IF( KIND(LBOUND(ARR, 1, 4)) /= 4) STOP "INVALID KIND 4"
+    IF( KIND(LBOUND(ARR, 1, 8)) /= 8) STOP "INVALID KIND 8"
+
+    IF( KIND(UBOUND(ARR, 1, 1)) /= 1) STOP "INVALID KIND 1"
+    IF( KIND(UBOUND(ARR, 1, 2)) /= 2) STOP "INVALID KIND 2"
+    IF( KIND(UBOUND(ARR, 1, 4)) /= 4) STOP "INVALID KIND 4"
+    IF( KIND(UBOUND(ARR, 1, 8)) /= 8) STOP "INVALID KIND 8"
+END PROGRAM MAIN

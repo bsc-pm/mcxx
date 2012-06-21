@@ -482,8 +482,9 @@ static nodecl_t simplify_xbound(int num_arguments UNUSED_PARAMETER, nodecl_t* ar
             for (i = 0; i < rank; i++)
             {
                 nodecl_t bound = nodecl_shallow_copy(bound_fun(t)); 
+                ERROR_CONDITION(!nodecl_is_constant(bound), "This should be constant!", 0);
 
-                const_vals[rank - i - 1] = nodecl_get_constant(bound);
+                const_vals[rank - i - 1] = const_value_cast_to_bytes(nodecl_get_constant(bound), kind_, /* signed */ 1);
 
                 t = array_type_get_element_type(t);
             }
@@ -514,7 +515,11 @@ static nodecl_t simplify_xbound(int num_arguments UNUSED_PARAMETER, nodecl_t* ar
 
             if (!array_type_is_unknown_size(t))
             {
-                return nodecl_shallow_copy(bound_fun(t));
+                nodecl_t bound = bound_fun(t);
+                ERROR_CONDITION(!nodecl_is_constant(bound), "This should be constant!", 0);
+
+                return const_value_to_nodecl_with_basic_type(nodecl_get_constant(bound), 
+                        choose_int_type_from_kind(kind, kind_));
             }
         }
     }
