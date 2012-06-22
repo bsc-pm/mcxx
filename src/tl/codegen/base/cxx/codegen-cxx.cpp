@@ -4543,9 +4543,16 @@ void CxxBase::do_define_symbol(TL::Symbol symbol,
         // Template parameters are not to be defined, ever
         if (!symbol.is_template_parameter())
         {
+            std::string gcc_attributes;
+            if (symbol.has_gcc_attributes())
+            {
+                gcc_attributes = gcc_attributes_to_str(symbol) + " ";
+            }
+
             move_to_namespace_of_symbol(symbol);
             indent();
             file << "typedef "
+                << gcc_attributes
                 << this->get_declaration(symbol.get_type(),
                         symbol.get_scope(),
                         symbol.get_name())
