@@ -5807,8 +5807,9 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
         case NODECL_CONDITIONAL_EXPRESSION:
             return -16;
         case NODECL_ASSIGNMENT:
-        case NODECL_MUL_ASSIGNMENT :
+        case NODECL_MUL_ASSIGNMENT:
         case NODECL_DIV_ASSIGNMENT:
+        case NODECL_MOD_ASSIGNMENT:
         case NODECL_ADD_ASSIGNMENT:
         case NODECL_MINUS_ASSIGNMENT:
         case NODECL_SHL_ASSIGNMENT:
