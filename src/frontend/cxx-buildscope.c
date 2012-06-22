@@ -7831,6 +7831,15 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
         }
     }
 
+    // Copy gcc attributes
+    entry->entity_specs.num_gcc_attributes = gather_info->num_gcc_attributes;
+    entry->entity_specs.gcc_attributes = counted_calloc(
+            entry->entity_specs.num_gcc_attributes,
+            sizeof(*entry->entity_specs.gcc_attributes), &_bytes_used_buildscope);
+    memcpy(entry->entity_specs.gcc_attributes, 
+            gather_info->gcc_attributes, 
+            entry->entity_specs.num_gcc_attributes * sizeof(*entry->entity_specs.gcc_attributes));
+
     entry->kind = SK_TYPEDEF;
     entry->type_information = declarator_type;
 
