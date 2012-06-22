@@ -1384,33 +1384,16 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
     // of the symbol
     state.visiting_called_entity_of_function_call = true;
 
-    char needs_parentheses;
-    // The function calls of kind CONSTRUCTOR_INITIALIZATION never needs parentheses!
-    if (kind != CONSTRUCTOR_INITIALIZATION)
-    {
-        if (called_symbol.is_valid()
-                && called_symbol.is_member()
-                && !called_symbol.is_static())
-        {
-            needs_parentheses = (get_rank(arguments[0]) < get_rank_kind(NODECL_CLASS_MEMBER_ACCESS, ""));
-        }
-        else
-        {
-            needs_parentheses = operand_has_lower_priority(node, called_entity);
-        }
-    }
-
     int ignore_n_first_arguments;
     switch (kind)
     {
         case ORDINARY_CALL:
         case STATIC_MEMBER_CALL:
             {
+                bool needs_parentheses = operand_has_lower_priority(node, called_entity);
                 if (needs_parentheses)
                     file << "(";
-
                 walk(called_entity);
-
                 if (needs_parentheses)
                     file << ")";
 
@@ -1421,11 +1404,10 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
             {
                 ERROR_CONDITION(!(arguments.size() >= 1), "A nonstatic member call lacks the implicit argument", 0);
 
+                bool needs_parentheses = (get_rank(arguments[0]) < get_rank_kind(NODECL_CLASS_MEMBER_ACCESS, ""));
                 if (needs_parentheses)
                     file << "(";
-
                 walk(arguments[0]);
-
                 if (needs_parentheses)
                     file << ")";
 
@@ -1453,17 +1435,17 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
             }
         case UNARY_PREFIX_OPERATOR:
             {
-                std::string called_operator = called_symbol.get_name().substr(9);
+                std::string called_operator = called_symbol.get_name().substr(std::string("operator ").size());
                 state.visiting_called_entity_of_function_call =
                     old_visiting_called_entity_of_function_call;
 
+                // We need this to avoid - - 1 to become --1
+                file << " " << called_operator;
+
+                bool needs_parentheses = operand_has_lower_priority(node, arguments[0]);
                 if (needs_parentheses)
                     file << "(";
-
-                file << called_operator;
-
                 walk(arguments[0]);
-
                 if (needs_parentheses)
                     file << ")";
 
@@ -1474,19 +1456,20 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
             }
         case UNARY_POSTFIX_OPERATOR:
             {
-                std::string called_operator = called_symbol.get_name().substr(9);
+                std::string called_operator = called_symbol.get_name().substr(std::string("operator ").size());
                 state.visiting_called_entity_of_function_call =
                     old_visiting_called_entity_of_function_call;
 
+                bool needs_parentheses = operand_has_lower_priority(node, arguments[0]);
                 if (needs_parentheses)
                     file << "(";
 
                 walk(arguments[0]);
 
-                file << called_operator;
-
                 if (needs_parentheses)
                     file << ")";
+
+                file << called_operator;
 
                 if (is_non_language_ref)
                     file << "))";
@@ -1495,19 +1478,23 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
             }
         case BINARY_INFIX_OPERATOR:
             {
-                std::string called_operator = called_symbol.get_name().substr(9);
+                std::string called_operator = called_symbol.get_name().substr(std::string("operator ").size());
                 state.visiting_called_entity_of_function_call =
                     old_visiting_called_entity_of_function_call;
 
+                bool needs_parentheses = operand_has_lower_priority(node, arguments[0]);
                 if (needs_parentheses)
                     file << "(";
-
                 walk(arguments[0]);
+                if (needs_parentheses)
+                    file << ")";
 
-                file << called_operator;
+                file << " " << called_operator << " ";
 
+                needs_parentheses = operand_has_lower_priority(node, arguments[1]);
+                if (needs_parentheses)
+                    file << "(";
                 walk(arguments[1]);
-
                 if (needs_parentheses)
                     file << ")";
 
