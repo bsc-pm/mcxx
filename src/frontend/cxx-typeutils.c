@@ -402,13 +402,16 @@ struct common_type_info_tag
 struct type_tag
 {
     // Kind of the type
+    // (all types)
     enum type_kind kind:4;
 
     // cv-qualifier related to this type
     // The cv-qualifier is in the type
+    // (all types)
     cv_qualifier_t cv_qualifier;
 
     // We use a pointer so we can safely copy in cv-qualified versions
+    // (all types)
     struct common_type_info_tag* info;
 
     // Pointer
@@ -433,19 +436,32 @@ struct type_tag
     scope_entry_list_t* overload_set;
 
     // Braced list type
+    // (kind == TK_BRACED_LIST)
     braced_list_info_t* braced_type;
 
     // Unqualified type, itself if the type is not qualified
+    // (all types)
     type_t* unqualified_type;
 
     // For parameter types, if not null it means some adjustement was done
+    // (all types)
     type_t* original_type;
+
     // For template specialized parameters and template types
+    // (kind == TK_DIRECT && (type->kind == STK_CLASS || type->kind == STK_TEMPLATE_TYPE))
+    // (kind == TK_FUNCTION)
     template_parameter_list_t* template_parameters;
     // For template specialized types and unresolved overloads
+    // (kind == TK_DIRECT && type->kind == STK_CLASS)
+    // (kind == TK_FUNCTION)
     template_parameter_list_t* template_arguments;
+    // For template specialized types and unresolved overloads
+    // (kind == TK_DIRECT && type->kind == STK_CLASS)
+    // (kind == TK_FUNCTION)
     type_t* related_template_type;
 
+    // Computed function type
+    // A parameterized function type (implemented in the compiler)
     // (kind == TK_COMPUTED)
     computed_function_type_t compute_type_function;
 };
