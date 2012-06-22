@@ -4428,173 +4428,136 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
         push_scope(symbol.get_scope());
 
         char equal_is_needed = 0;
-        char is_call_to_self_constructor = 0;
         C_LANGUAGE()
         {
             equal_is_needed = 1;
         }
 
-        CXX03_LANGUAGE()
-        {
-            // We only need = if the initializer is a structured one
-            // and this is C++03, in C++1x syntax { } is always allowed
-            equal_is_needed = 1;
+        // We try to always emit direct-initialization syntax
+        // except when infelicities in the syntax prevent us to do that
+        Nodecl::NodeclBase init = symbol.get_initialization();
 
-            if (nodecl_calls_to_constructor(symbol.get_initialization(), symbol.get_type()))
-            {
-                equal_is_needed = 0;
-                is_call_to_self_constructor = 1;
-
-                // But it might happen the user wrote
-                //
-                // A a = A(); which looks like A a(A()); and it will be parsed as a function declarator
-                Nodecl::List nodecl_args = symbol.get_initialization()
-                    .as<Nodecl::FunctionCall>()
-                    .get_arguments()
-                    .as<Nodecl::List>();
-
-                char zero_arg_types = 1;
-
-                for (Nodecl::List::iterator it = nodecl_args.begin();
-                        it != nodecl_args.end() && zero_arg_types;
-                        it++)
-                {
-                    Nodecl::NodeclBase current = *it;
-                    if (current.is<Nodecl::Conversion>())
-                        current = current.as<Nodecl::Conversion>().get_nest();
-
-                    if (!nodecl_is_zero_args_call_to_constructor(current)
-                            && !nodecl_is_zero_args_structured_value(current))
-                    {
-                        zero_arg_types = 0;
-                    }
-                }
-
-                // In this case, to avoid printing something like
-                //
-                // A a(A(), B(), C());
-                //
-                // where A, B and C are types
-                //
-                // we mandate an equal so it looks like
-                //
-                // A a = A(A(), B(), C());
-                if (nodecl_args.size() != 0
-                        && zero_arg_types)
-                {
-                    equal_is_needed = 1;
-                }
-            }
-            else if (symbol.get_initialization().is<Nodecl::CxxParenthesizedInitializer>())
-            {
-                equal_is_needed = 0;
-            }
-        }
         if (is_definition)
         {
-            if (equal_is_needed)
+            C_LANGUAGE()
             {
-                Nodecl::NodeclBase init = symbol.get_initialization();
+                file << " = ";
 
-                //The equal will be inserted in the CxxEqualInitializer visitor
-                if (!init.is<Nodecl::CxxEqualInitializer>())
+                bool old = state.inside_structured_value;
+                if (init.is<Nodecl::StructuredValue>())
                 {
+                    state.inside_structured_value = true;
+                }
+                if (init.is<Nodecl::Comma>())
+                {
+                    file << "(";
+                }
+                walk(init);
+                if (init.is<Nodecl::Comma>())
+                {
+                    file << ")";
+                }
+                state.inside_structured_value = old;
+            }
+            CXX_LANGUAGE()
+            {
+                if (init.is<Nodecl::CxxEqualInitializer>()
+                        || init.is<Nodecl::CxxBracedInitializer>()
+                        || init.is<Nodecl::CxxParenthesizedInitializer>())
+                {
+                    // Dependent cases are always printed verbatim
+                    walk(init);
+                }
+                else if (IS_CXX03_LANGUAGE
+                        && symbol.get_type().is_aggregate()
+                        && init.is<Nodecl::StructuredValue>())
+                {
+                    // int a[] = { 1, 2, 3 };
+                    // struct foo { int x; int y; } a = {1, 2};
+                    //
+                    // Note that C++11 allows struct foo { int x; int y; } a{1,2};
                     file << " = ";
+
+                    bool old = state.inside_structured_value;
+                    state.inside_structured_value = true;
+                    walk(init);
+                    state.inside_structured_value = old;
                 }
-
-                if (is_call_to_self_constructor)
+                else if (symbol.get_type().is_array()
+                        && !init.is<Nodecl::StructuredValue>())
                 {
-                    // Ignore the top constructor call
-                    Nodecl::List nodecl_args = init
-                        .as<Nodecl::FunctionCall>()
-                        .get_arguments()
-                        .as<Nodecl::List>();
-
-                    if (!nodecl_args.empty())
-                    {
-                        walk_expression_list(nodecl_args);
-                    }
+                    // Only for char and wchar_t
+                    // const char c[] = "1234";
+                    file << " = ";
+                    walk(init);
                 }
-                else if (init.is<Nodecl::StructuredValue>())
+                else if (!symbol.get_type().is_array()
+                        && init.is<Nodecl::StructuredValue>())
                 {
-                    if (!symbol.get_type().is_aggregate()
-                            && init
-                            .as<Nodecl::StructuredValue>()
-                            .get_items()
-                            .as<Nodecl::List>()
-                            .size() == 1)
+                    // char c = { 'a' };
+                    // int x = { 1 };
+                    file << " = ";
+                    bool old = state.inside_structured_value;
+                    state.inside_structured_value = true;
+                    walk(init);
+                    state.inside_structured_value = old;
+                }
+                else if (symbol.is_member()
+                        && symbol.is_static()
+                        && state.in_member_declaration)
+                {
+                    // This is an in member declaration initialization
+                    file << " = ";
+                    walk(init);
+                }
+                else if (state.in_condition)
+                {
+                    // This is something like if (bool foo = expression)
+                    file << " = ";
+                    walk(init);
+                }
+                else
+                {
+                    file << "(";
+                    // A a; we cannot emmit it as A a(); since this would declare a function () returning A
+                    if (nodecl_calls_to_constructor(init, symbol.get_type()))
                     {
-                        // We can ignore '{' and '}'
-                        walk_expression_list(init
-                                .as<Nodecl::StructuredValue>()
-                                .get_items()
-                                .as<Nodecl::List>());
-                    }
-                    else if (symbol.get_type().is_aggregate())
-                    {
-                        char old_inside_struct = state.inside_structured_value;
-                        state.inside_structured_value = 1;
-
-                        walk(init);
-
-                        state.inside_structured_value = old_inside_struct;
+                        Nodecl::List constructor_args = init.as<Nodecl::FunctionCall>().get_arguments().as<Nodecl::List>();
+                        if (!constructor_args.empty());
+                        {
+                            for (Nodecl::List::iterator it = constructor_args.begin();
+                                    it != constructor_args.end();
+                                    it++)
+                            {
+                                if (it != constructor_args.begin())
+                                    file << ", ";
+                                Nodecl::NodeclBase current(*it);
+                                // Here we add extra parentheses lest the direct-initialization looked like
+                                // as a function declarator (faced with this ambiguity, C++ chooses the latter!)
+                                //
+                                // A x( (A()) ); cannot become A x( A() ); because it would declare 'x' as a
+                                // "function (pointer to function() returning A) returning A"
+                                // [extra blanks added for clarity in the example above]
+                                file << "(";
+                                walk(current);
+                                file << ")";
+                            }
+                        }
                     }
                     else
                     {
-                        // This initialization is an explicit type cast. For this reason,
-                        // we do not set the variable 'inside_structured_value' to true
+                        // This is crazy
+                        if (init.is<Nodecl::Comma>())
+                        {
+                            file << "(";
+                        }
                         walk(init);
+                        if (init.is<Nodecl::Comma>())
+                        {
+                            file << ")";
+                        }
                     }
-                }
-                else
-                {
-                    char top_is_comma = init.is<Nodecl::Comma>();
-
-                    if (top_is_comma)
-                    {
-                        file << "(";
-                    }
-
-                    bool is_non_language_ref = (is_non_language_reference_variable(symbol)
-                            && !symbol.get_type().references_to().is_array());
-
-                    if (is_non_language_ref)
-                    {
-                        file << "(&(";
-                    }
-                    walk(init);
-                    if (is_non_language_ref)
-                    {
-                        file << "))";
-                    }
-
-                    if (top_is_comma)
-                    {
-                        file << ")";
-                    }
-                }
-            }
-            else
-            {
-                if (is_call_to_self_constructor)
-                {
-                    // Do not print the top constructor call
-                    Nodecl::List nodecl_args = symbol
-                        .get_initialization()
-                        .as<Nodecl::FunctionCall>()
-                        .get_arguments()
-                        .as<Nodecl::List>();
-
-                    if (!nodecl_args.empty())
-                    {
-                        file << "(";
-                        walk_expression_list(nodecl_args);
-                        file << ")";
-                    }
-                }
-                else
-                {
-                    walk(symbol.get_initialization());
+                    file << ")";
                 }
             }
         }
