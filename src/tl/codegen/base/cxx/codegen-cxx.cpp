@@ -1203,6 +1203,7 @@ void CxxBase::visit_function_call_form_template_id<Nodecl::CxxDepFunctionCall>(c
 {
 }
 
+
 template <typename Node>
 bool CxxBase::is_implicit_function_call(const Node& node) const
 {
@@ -1219,6 +1220,59 @@ bool CxxBase::is_implicit_function_call<Nodecl::CxxDepFunctionCall>(const Nodecl
 
 
 template <typename Node>
+bool CxxBase::is_binary_infix_operator_function_call(const Node& node)
+{
+    return (!node.get_function_form().is_null()
+            && node.get_function_form().template is<Nodecl::CxxFunctionFormBinaryInfix>());
+}
+
+// Explicit specialitzation for Nodecl::CxxDepFunctionCall because this kind of node has not a function form
+template <>
+bool CxxBase::is_binary_infix_operator_function_call<Nodecl::CxxDepFunctionCall>(const Nodecl::CxxDepFunctionCall& node)
+{
+    return 0;
+}
+
+
+template <typename Node>
+bool CxxBase::is_unary_prefix_operator_function_call(const Node& node)
+{
+    return (!node.get_function_form().is_null()
+            && node.get_function_form().template is<Nodecl::CxxFunctionFormUnaryPrefix>());
+}
+
+// Explicit specialitzation for Nodecl::CxxDepFunctionCall because this kind of node has not a function form
+template <>
+bool CxxBase::is_unary_prefix_operator_function_call<Nodecl::CxxDepFunctionCall>(const Nodecl::CxxDepFunctionCall& node)
+{
+    return 0;
+}
+
+
+template <typename Node>
+bool CxxBase::is_unary_postfix_operator_function_call(const Node& node)
+{
+    return (!node.get_function_form().is_null()
+            && node.get_function_form().template is<Nodecl::CxxFunctionFormUnaryPostfix>());
+}
+
+// Explicit specialitzation for Nodecl::CxxDepFunctionCall because this kind of node has not a function form
+template <>
+bool CxxBase::is_unary_postfix_operator_function_call<Nodecl::CxxDepFunctionCall>(const Nodecl::CxxDepFunctionCall& node)
+{
+    return 0;
+}
+
+
+template <typename Node>
+bool CxxBase::is_operator_function_call(const Node& node)
+{
+    return (is_unary_prefix_operator_function_call(node)
+            || is_unary_postfix_operator_function_call(node)
+            || is_binary_infix_operator_function_call(node));
+}
+
+template <typename Node>
 CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call)
 {
 
@@ -1232,40 +1286,10 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
         return;
     }
 
+    TL::Symbol called_symbol = called_entity.get_symbol();
     Nodecl::List arguments = node.get_arguments().template as<Nodecl::List>();
 
-    enum call_kind
-    {
-        INVALID_CALL = 0,
-        ORDINARY_CALL,
-        NONSTATIC_MEMBER_CALL,
-        STATIC_MEMBER_CALL,
-        CONSTRUCTOR_INITIALIZATION
-    } kind = ORDINARY_CALL;
-
-    TL::Symbol called_symbol = called_entity.get_symbol();
-    if (called_symbol.is_valid())
-    {
-        if (called_symbol.is_function()
-                && called_symbol.is_member())
-        {
-            if (called_symbol.is_constructor())
-            {
-                kind = CONSTRUCTOR_INITIALIZATION;
-            }
-            else if (!called_symbol.is_static())
-            {
-                kind = NONSTATIC_MEMBER_CALL;
-            }
-            else // if (called_symbol.is_static())
-            {
-                kind = STATIC_MEMBER_CALL;
-            }
-        }
-    }
-
     TL::Type function_type(NULL);
-
     if (called_entity.is<Nodecl::Symbol>())
     {
         function_type = called_entity.as<Nodecl::Symbol>().get_symbol().get_type();
@@ -1300,20 +1324,78 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
         return;
     }
 
-    // Currently, this never happens
-    ERROR_CONDITION(!function_type.is_function(), "Expecting a function type", 0);
+    enum call_kind
+    {
+        INVALID_CALL = 0,
+        ORDINARY_CALL,
+        NONSTATIC_MEMBER_CALL,
+        STATIC_MEMBER_CALL,
+        CONSTRUCTOR_INITIALIZATION,
+        BINARY_INFIX_OPERATOR,
+        UNARY_PREFIX_OPERATOR,
+        UNARY_POSTFIX_OPERATOR
+    } kind = ORDINARY_CALL;
+
+    if (called_symbol.is_valid())
+    {
+        if (is_unary_prefix_operator_function_call(node))
+        {
+            kind = UNARY_PREFIX_OPERATOR;
+        }
+        else if (is_unary_postfix_operator_function_call(node))
+        {
+            kind = UNARY_POSTFIX_OPERATOR;
+        }
+        else if (is_binary_infix_operator_function_call(node))
+        {
+            kind = BINARY_INFIX_OPERATOR;
+        }
+        else if (called_symbol.is_function()
+                && called_symbol.is_member())
+        {
+            if (called_symbol.is_constructor())
+            {
+                kind = CONSTRUCTOR_INITIALIZATION;
+            }
+            else if (!called_symbol.is_static())
+            {
+                kind = NONSTATIC_MEMBER_CALL;
+            }
+            else
+            {
+                kind = STATIC_MEMBER_CALL;
+            }
+        }
+    }
 
     bool is_non_language_ref = is_non_language_reference_type(function_type.returns());
     if (is_non_language_ref)
-    {
         file << "(*(";
-    }
 
     bool old_visiting_called_entity_of_function_call =
         state.visiting_called_entity_of_function_call;
 
-    // We are going to visit the called entity of the current function call
+    // We are going to visit the called entity of the current function call.
+    // The template arguments of this function (if any) will be printed by the
+    // function 'visit_function_call_form_template_id' and not by the visitor
+    // of the symbol
     state.visiting_called_entity_of_function_call = true;
+
+    char needs_parentheses;
+    // The function calls of kind CONSTRUCTOR_INITIALIZATION never needs parentheses!
+    if (kind != CONSTRUCTOR_INITIALIZATION)
+    {
+        if (called_symbol.is_valid()
+                && called_symbol.is_member()
+                && !called_symbol.is_static())
+        {
+            needs_parentheses = (get_rank(arguments[0]) < get_rank_kind(NODECL_CLASS_MEMBER_ACCESS, ""));
+        }
+        else
+        {
+            needs_parentheses = operand_has_lower_priority(node, called_entity);
+        }
+    }
 
     int ignore_n_first_arguments;
     switch (kind)
@@ -1321,16 +1403,14 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
         case ORDINARY_CALL:
         case STATIC_MEMBER_CALL:
             {
-                char needs_parentheses = operand_has_lower_priority(node, called_entity);
                 if (needs_parentheses)
-                {
                     file << "(";
-                }
+
                 walk(called_entity);
+
                 if (needs_parentheses)
-                {
                     file << ")";
-                }
+
                 ignore_n_first_arguments = 0;
                 break;
             }
@@ -1338,18 +1418,14 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
             {
                 ERROR_CONDITION(!(arguments.size() >= 1), "A nonstatic member call lacks the implicit argument", 0);
 
-                char needs_parentheses = (get_rank(arguments[0])
-                        < get_rank_kind(NODECL_CLASS_MEMBER_ACCESS, ""));
+                if (needs_parentheses)
+                    file << "(";
+
+                walk(arguments[0]);
 
                 if (needs_parentheses)
-                {
-                    file << "(";
-                }
-                walk(arguments[0]);
-                if (needs_parentheses)
-                {
                     file << ")";
-                }
+
                 file << ".";
 
                 if (is_virtual_call)
@@ -1361,6 +1437,7 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
                 {
                     walk(called_entity);
                 }
+
                 ignore_n_first_arguments = 1;
                 break;
             }
@@ -1370,6 +1447,71 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
                 file << class_symbol.get_qualified_name();
                 ignore_n_first_arguments = 0;
                 break;
+            }
+        case UNARY_PREFIX_OPERATOR:
+            {
+                std::string called_operator = called_symbol.get_name().substr(9);
+                state.visiting_called_entity_of_function_call =
+                    old_visiting_called_entity_of_function_call;
+
+                if (needs_parentheses)
+                    file << "(";
+
+                file << called_operator;
+
+                walk(arguments[0]);
+
+                if (needs_parentheses)
+                    file << ")";
+
+                if (is_non_language_ref)
+                    file << "))";
+
+                return;
+            }
+        case UNARY_POSTFIX_OPERATOR:
+            {
+                std::string called_operator = called_symbol.get_name().substr(9);
+                state.visiting_called_entity_of_function_call =
+                    old_visiting_called_entity_of_function_call;
+
+                if (needs_parentheses)
+                    file << "(";
+
+                walk(arguments[0]);
+
+                file << called_operator;
+
+                if (needs_parentheses)
+                    file << ")";
+
+                if (is_non_language_ref)
+                    file << "))";
+
+                return;
+            }
+        case BINARY_INFIX_OPERATOR:
+            {
+                std::string called_operator = called_symbol.get_name().substr(9);
+                state.visiting_called_entity_of_function_call =
+                    old_visiting_called_entity_of_function_call;
+
+                if (needs_parentheses)
+                    file << "(";
+
+                walk(arguments[0]);
+
+                file << called_operator;
+
+                walk(arguments[1]);
+
+                if (needs_parentheses)
+                    file << ")";
+
+                if (is_non_language_ref)
+                    file << "))";
+
+                return;
             }
         default:
             {
@@ -1381,20 +1523,14 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
 
     file << "(";
 
-    // Now, the called entity have been visited and we are going to generate the arguments of the function call
-    state.visiting_called_entity_of_function_call = false;
+    state.visiting_called_entity_of_function_call = old_visiting_called_entity_of_function_call;
 
     codegen_function_call_arguments(arguments.begin(), arguments.end(), function_type, ignore_n_first_arguments);
-    
-    // Restore the old value (nested function calls: a<>)
-    state.visiting_called_entity_of_function_call = old_visiting_called_entity_of_function_call;
 
     file << ")";
 
     if (is_non_language_ref)
-    {
         file << "))";
-    }
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCall& node)
@@ -5695,6 +5831,68 @@ void CxxBase::walk_expression_unpacked_list(Iterator begin, Iterator end)
     }
 }
 
+template < typename Node>
+node_t CxxBase::get_kind_of_operator_function_call(const Node & node)
+{
+    ERROR_CONDITION(!is_operator_function_call(node), "This function is not an operator\n", 0);
+
+    TL::Symbol called_sym = node.get_called().get_symbol();
+    std::string called_operator_str = called_sym.get_name().substr(9);
+    const char* called_operator = called_operator_str.c_str();
+
+    if (is_binary_infix_operator_function_call(node))
+    {
+        if (strcmp(called_operator, "->*") == 0)      return NODECL_CXX_ARROW_PTR_MEMBER;
+        else if (strcmp(called_operator, ".*") == 0)  return NODECL_CXX_DOT_PTR_MEMBER;
+        else if (strcmp(called_operator, "*") == 0)   return NODECL_MUL;
+        else if (strcmp(called_operator, "/") == 0)   return NODECL_DIV;
+        else if (strcmp(called_operator, "%") == 0)   return NODECL_MOD;
+        else if (strcmp(called_operator, "+") == 0)   return NODECL_ADD;
+        else if (strcmp(called_operator, "-") == 0)   return NODECL_MINUS;
+        else if (strcmp(called_operator, "<<") == 0)  return NODECL_SHL;
+        else if (strcmp(called_operator, ">>") == 0)  return NODECL_SHR;
+        else if (strcmp(called_operator, "<") == 0)   return NODECL_LOWER_THAN;
+        else if (strcmp(called_operator, "<=") == 0)  return NODECL_LOWER_OR_EQUAL_THAN;
+        else if (strcmp(called_operator, ">") == 0)   return NODECL_GREATER_THAN;
+        else if (strcmp(called_operator, ">=") == 0)  return NODECL_GREATER_OR_EQUAL_THAN;
+        else if (strcmp(called_operator, "==") == 0)  return NODECL_EQUAL;
+        else if (strcmp(called_operator, "!=") == 0)  return NODECL_DIFFERENT;
+        else if (strcmp(called_operator, "&") == 0)   return NODECL_BITWISE_AND;
+        else if (strcmp(called_operator, "^") == 0)   return NODECL_BITWISE_XOR;
+        else if (strcmp(called_operator, "|") == 0)   return NODECL_BITWISE_OR;
+        else if (strcmp(called_operator, "&&") == 0)  return NODECL_LOGICAL_AND;
+        else if (strcmp(called_operator, "||") == 0)  return NODECL_LOGICAL_OR;
+        else if (strcmp(called_operator, "?") == 0)   return NODECL_CONDITIONAL_EXPRESSION;
+        else if (strcmp(called_operator, "=") == 0)   return NODECL_ASSIGNMENT;
+        else if (strcmp(called_operator, "*=") == 0)  return NODECL_MUL_ASSIGNMENT;
+        else if (strcmp(called_operator, "/=") == 0)  return NODECL_DIV_ASSIGNMENT;
+        else if (strcmp(called_operator, "%=") == 0)  return NODECL_MOD_ASSIGNMENT;
+        else if (strcmp(called_operator, "+=") == 0)  return NODECL_ADD_ASSIGNMENT;
+        else if (strcmp(called_operator, "-=") == 0)  return NODECL_MINUS_ASSIGNMENT;
+        else if (strcmp(called_operator, "<<=") == 0) return NODECL_SHL_ASSIGNMENT;
+        else if (strcmp(called_operator, ">>=") == 0) return NODECL_SHL_ASSIGNMENT;
+        else if (strcmp(called_operator, "&=") == 0)  return NODECL_BITWISE_AND;
+        else if (strcmp(called_operator, "|=") == 0)  return NODECL_BITWISE_OR;
+        else if (strcmp(called_operator, "^=") == 0)  return NODECL_BITWISE_XOR;
+    }
+    else
+    {
+        if (strcmp(called_operator, "&") == 0)      return NODECL_REFERENCE;
+        else if (strcmp(called_operator, "*") == 0) return NODECL_DERREFERENCE;
+        else if (strcmp(called_operator, "+") == 0) return NODECL_PLUS;
+        else if (strcmp(called_operator, "-") == 0) return NODECL_NEG;
+        else if (strcmp(called_operator, "!") == 0) return NODECL_LOGICAL_NOT;
+        else if (strcmp(called_operator, "~") == 0) return NODECL_BITWISE_NOT;
+        else if (strcmp(called_operator, "~") == 0) return NODECL_BITWISE_NOT;
+        else if (strcmp(called_operator, "++") == 0 && is_unary_prefix_operator_function_call(node))  return NODECL_PREINCREMENT;
+        else if (strcmp(called_operator, "++") == 0 && is_unary_postfix_operator_function_call(node)) return NODECL_POSTINCREMENT;
+        else if (strcmp(called_operator, "--") == 0 && is_unary_prefix_operator_function_call(node))  return NODECL_PREDECREMENT;
+        else if (strcmp(called_operator, "--") == 0 && is_unary_postfix_operator_function_call(node)) return NODECL_POSTDECREMENT;
+    }
+    internal_error("function operator '%s' is not supported yet\n", called_sym.get_name().c_str());
+
+}
+
 int CxxBase::get_rank_kind(node_t n, const std::string& text)
 {
     switch (n)
@@ -5838,9 +6036,25 @@ int CxxBase::get_rank(const Nodecl::NodeclBase &n)
     }
     else
     {
-        return get_rank_kind(n.get_kind(), n.get_text());
+        node_t kind;
+        if (n.is<Nodecl::FunctionCall>()
+                && is_operator_function_call(n.as<Nodecl::FunctionCall>()))
+        {
+            kind = get_kind_of_operator_function_call(n.as<Nodecl::FunctionCall>());
+        }
+        else if (n.is<Nodecl::VirtualFunctionCall>()
+                && is_operator_function_call(n.as<Nodecl::VirtualFunctionCall>()))
+        {
+            kind = get_kind_of_operator_function_call(n.as<Nodecl::VirtualFunctionCall>());
+        }
+        else
+        {
+            kind = n.get_kind();
+        }
+        return get_rank_kind(kind, n.get_text());
     }
 }
+
 
 static char is_bitwise_bin_operator(node_t n)
 {

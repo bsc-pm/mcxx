@@ -2822,7 +2822,7 @@ void compute_bin_operator_generic(
             *nodecl_output = cxx_nodecl_make_function_call(
                     nodecl_selected_op,
                     nodecl_make_list_2(*lhs, *rhs),
-                    /* function_form */ nodecl_null(),
+                    nodecl_make_cxx_function_form_binary_infix(filename, line),
                     result, filename, line);
         }
     }
@@ -4569,7 +4569,7 @@ static void compute_unary_operator_generic(
                 cxx_nodecl_make_function_call(
                         nodecl_make_symbol(selected_operator, filename, line),
                         nodecl_make_list_1(*op),
-                        /* function_form */ nodecl_null(),
+                        nodecl_make_cxx_function_form_unary_prefix(filename, line),
                         result, filename, line);
         }
     }
@@ -9704,14 +9704,15 @@ static void check_postoperator_user_defined(
     }
     else
     {
-        *nodecl_output = cxx_nodecl_make_function_call(
-                nodecl_make_symbol(overloaded_call, nodecl_get_filename(postoperated_expr), nodecl_get_line(postoperated_expr)),
-                nodecl_make_list_2(/* 0 */ 
-                    postoperated_expr,
-                    const_value_to_nodecl(const_value_get_zero(type_get_size(get_signed_int_type()), /* signed */ 1))),
-                /* function_form */ nodecl_null(),
-                function_type_get_return_type(overloaded_call->type_information), 
-                nodecl_get_filename(postoperated_expr), nodecl_get_line(postoperated_expr));
+        *nodecl_output =
+            cxx_nodecl_make_function_call(
+                    nodecl_make_symbol(overloaded_call, nodecl_get_filename(postoperated_expr), nodecl_get_line(postoperated_expr)),
+                    nodecl_make_list_2(/* 0 */
+                        postoperated_expr,
+                        const_value_to_nodecl(const_value_get_zero(type_get_size(get_signed_int_type()), /* signed */ 1))),
+                    nodecl_make_cxx_function_form_unary_postfix(nodecl_get_filename(postoperated_expr), nodecl_get_line(postoperated_expr)),
+                    function_type_get_return_type(overloaded_call->type_information),
+                    nodecl_get_filename(postoperated_expr), nodecl_get_line(postoperated_expr));
     }
 }
 
@@ -9843,10 +9844,10 @@ static void check_preoperator_user_defined(AST operator,
     else
     {
         *nodecl_output = 
-                cxx_nodecl_make_function_call(
+            cxx_nodecl_make_function_call(
                     nodecl_make_symbol(overloaded_call, nodecl_get_filename(preoperated_expr), nodecl_get_line(preoperated_expr)),
                     nodecl_make_list_1(preoperated_expr),
-                    /* function_form */ nodecl_null(),
+                    nodecl_make_cxx_function_form_unary_prefix(nodecl_get_filename(preoperated_expr), nodecl_get_line(preoperated_expr)),
                     function_type_get_return_type(overloaded_call->type_information), 
                     nodecl_get_filename(preoperated_expr), nodecl_get_line(preoperated_expr));
     }
