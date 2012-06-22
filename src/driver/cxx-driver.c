@@ -245,6 +245,11 @@
 "                           -I does\n" \
 "  --do-not-warn-config     Do not warn about wrong configuration\n" \
 "                           file names\n" \
+"  --vector-flavor=name     When emitting vector types use given\n" \
+"                           flavor name. By default it is gnu.\n" \
+"                           See --vector-list-flavors\n" \
+"  --list-vector-flavors    Lists the supported vector flavors\n" \
+"                           and quits\n" \
 "\n" \
 "gcc compatibility flags:\n" \
 "\n" \
@@ -342,6 +347,8 @@ typedef enum
     OPTION_SEARCH_MODULES,
     OPTION_SEARCH_INCLUDES,
     OPTION_DO_NOT_WARN_BAD_CONFIG_FILENAMES,
+    OPTION_VECTOR_FLAVOR,
+    OPTION_LIST_VECTOR_FLAVORS,
     OPTION_VERBOSE,
 } COMMAND_LINE_OPTIONS;
 
@@ -411,6 +418,10 @@ struct command_line_long_options command_line_long_options[] =
     {"search-modules", CLP_REQUIRED_ARGUMENT, OPTION_SEARCH_MODULES},
     {"search-includes", CLP_REQUIRED_ARGUMENT, OPTION_SEARCH_INCLUDES},
     {"do-not-warn-config", CLP_NO_ARGUMENT, OPTION_DO_NOT_WARN_BAD_CONFIG_FILENAMES},
+    {"vector-flavor", CLP_REQUIRED_ARGUMENT, OPTION_VECTOR_FLAVOR},
+    {"vector-flavour", CLP_REQUIRED_ARGUMENT, OPTION_VECTOR_FLAVOR},
+    {"list-vector-flavors", CLP_NO_ARGUMENT, OPTION_LIST_VECTOR_FLAVORS},
+    {"list-vector-flavours", CLP_NO_ARGUMENT, OPTION_LIST_VECTOR_FLAVORS},
     // sentinel
     {NULL, 0, 0}
 };
@@ -475,6 +486,7 @@ static int parse_implicit_parameter_flag(int *should_advance, const char *specia
 
 static void list_environments(void);
 static void list_fortran_array_descriptors(void);
+static void list_vector_flavors(void);
 
 static char do_not_unload_phases = 0;
 static char do_not_warn_bad_config_filenames = 0;
@@ -1337,6 +1349,16 @@ int parse_arguments(int argc, const char* argv[],
                 case OPTION_FORTRAN_CHARACTER_KIND:
                     {
                         CURRENT_CONFIGURATION->default_character_kind = atoi(parameter_info.argument);
+                        break;
+                    }
+                case OPTION_VECTOR_FLAVOR:
+                    {
+                        vector_types_set_flavor(parameter_info.argument);
+                        break;
+                    }
+                case OPTION_LIST_VECTOR_FLAVORS:
+                    {
+                        list_vector_flavors();
                         break;
                     }
                 default:
@@ -4617,6 +4639,27 @@ static void list_fortran_array_descriptors(void)
     fprintf(stdout, "If not specified, default Fortran array descriptor is '%s' (%s)\n",
             default_fortran_array_descriptor->descriptor_id,
             default_fortran_array_descriptor->descriptor_name);
+
+    exit(EXIT_SUCCESS);
+}
+
+static void list_vector_flavors(void)
+{
+    fprintf(stdout, "List of supported vector flavours:\n\n");
+
+    const char** vector_flavors_ptr = vector_flavors;
+
+
+    for (vector_flavors_ptr = vector_flavors;
+            (*vector_flavors_ptr) != NULL;
+            vector_flavors_ptr++)
+    {
+        fprintf(stdout, "  %-20s\n", *vector_flavors_ptr);
+    }
+
+    fprintf(stdout, "\n");
+    fprintf(stdout, "Command line parameter --vector-flavor=name can be used to choose a specific vector flavor\n");
+    fprintf(stdout, "If not specified, default vector flavor is gnu\n");
 
     exit(EXIT_SUCCESS);
 }

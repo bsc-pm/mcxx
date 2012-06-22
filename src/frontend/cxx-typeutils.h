@@ -667,6 +667,10 @@ LIBMCXX_EXTERN const char* print_type_str(type_t* t, decl_context_t decl_context
 
 LIBMCXX_EXTERN type_t* type_deep_copy(type_t* orig, decl_context_t new_decl_context, void *info, scope_entry_t *(*map)(scope_entry_t*, void*));
 
+// Vector flavor (NULL-ended array of vector flavors)
+LIBMCXX_EXTERN const char* vector_flavors[];
+LIBMCXX_EXTERN void vector_types_set_flavor(const char* c);
+
 // DO NOT USE THESE FUNCTIONS!
 // They are used solely for Fortran modules and type serialization
 LIBMCXX_EXTERN type_t* _type_get_empty_type(void);

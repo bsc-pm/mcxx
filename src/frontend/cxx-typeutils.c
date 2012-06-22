@@ -6427,6 +6427,13 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
         print_symbol_callback_t print_symbol_fun,
         void* print_symbol_data);
 
+static const char* get_simple_type_name_string(decl_context_t decl_context, 
+        type_t* type_info,
+        print_symbol_callback_t print_symbol_fun,
+        void* print_symbol_data);
+
+// Vector flavors
+
 static const char* print_gnu_vector_type(
         decl_context_t decl_context,
         type_t* t,
@@ -6439,20 +6446,248 @@ static const char* print_gnu_vector_type(
             print_symbol_data);
 
     const char* c = NULL;
-    uniquestr_sprintf(&c, "__attribute__((vector_size(%d))) %s", 
+    uniquestr_sprintf(&c, "__attribute__((vector_size(%d))) %s",
             vector_type_get_vector_size(t),
             typename);
 
     return c;
 }
 
-static const char* get_simple_type_name_string(decl_context_t decl_context, 
-        type_t* type_info,
+static const char* print_intel_sse_avx_vector_type(
+        decl_context_t decl_context,
+        type_t* t,
         print_symbol_callback_t print_symbol_fun,
-        void* print_symbol_data);
+        void* print_symbol_data)
+{
+    type_t* element_type = vector_type_get_element_type(t);
+    int size = vector_type_get_vector_size(t);
+
+    switch (size)
+    {
+        case 8:
+            {
+                return "__m64";
+            }
+        case 16:
+            {
+                if (is_float_type(element_type))
+                {
+                    return "__m128";
+                }
+                else if (is_double_type(element_type))
+                {
+                    return "__m128d";
+                }
+                else if (is_integer_type(element_type))
+                {
+                    return "__m128i";
+                }
+            }
+      case 32:
+            {
+                if (is_float_type(element_type))
+                {
+                    return "__m256";
+                }
+                else if (is_double_type(element_type))
+                {
+                    return "__m256d";
+                }
+                else if (is_integer_type(element_type))
+                {
+                    return "__m256i";
+                }
+            }
+      case 64:
+            // Larrabee
+            // http://software.intel.com/en-us/articles/prototype-primitives-guide/
+            {
+                if (is_float_type(element_type))
+                {
+                    return "__M512";
+                }
+                else if (is_double_type(element_type))
+                {
+                    return "__M512D";
+                }
+                else if (is_integer_type(element_type))
+                {
+                    return "__M512I";
+                }
+            }
+    }
+
+    const char* typename = get_simple_type_name_string_internal(decl_context,
+            vector_type_get_element_type(t),
+            print_symbol_fun,
+            print_symbol_data);
+    const char* c = NULL;
+    uniquestr_sprintf(&c, "<<intel-vector-%s-%d>>",
+            typename,
+            vector_type_get_vector_size(t));
+    return c;
+}
+
+static const char* print_altivec_vector_type(
+        decl_context_t decl_context,
+        type_t* t,
+        print_symbol_callback_t print_symbol_fun,
+        void* print_symbol_data)
+{
+    const char* typename = get_simple_type_name_string_internal(decl_context,
+            vector_type_get_element_type(t),
+            print_symbol_fun,
+            print_symbol_data);
+
+    int size = vector_type_get_vector_size(t);
+
+    const char* c = NULL;
+    if (size == 16)
+    {
+        uniquestr_sprintf(&c, "vector %s",
+                typename);
+    }
+    else
+    {
+        uniquestr_sprintf(&c, "<<altivec-vector-%s-%d>>",
+                typename,
+                vector_type_get_vector_size(t));
+    }
+
+    return c;
+}
+
+static const char* print_opencl_vector_type(
+        decl_context_t decl_context,
+        type_t* t,
+        print_symbol_callback_t print_symbol_fun,
+        void* print_symbol_data)
+{
+    int size = vector_type_get_vector_size(t);
+    type_t* element_type = vector_type_get_element_type(t);
+
+    const char* c = NULL;
+    if (is_signed_char_type(element_type))
+    {
+        int num_items = size;
+        uniquestr_sprintf(&c, "char%d",
+                num_items);
+        return c;
+    }
+    else if (is_signed_char_type(element_type))
+    {
+        int num_items = size;
+        uniquestr_sprintf(&c, "char%d",
+                num_items);
+        return c;
+    }
+    else if (is_signed_short_int_type(element_type))
+    {
+        int num_items = size / 2;
+        uniquestr_sprintf(&c, "short%d",
+                num_items);
+        return c;
+    }
+    else if (is_unsigned_short_int_type(element_type))
+    {
+        int num_items = size / 2;
+        uniquestr_sprintf(&c, "ushort%d",
+                num_items);
+        return c;
+    }
+    else if (is_signed_int_type(element_type))
+    {
+        int num_items = size / 4;
+        uniquestr_sprintf(&c, "int%d",
+                num_items);
+        return c;
+    }
+    else if (is_unsigned_int_type(element_type))
+    {
+        int num_items = size / 4;
+        uniquestr_sprintf(&c, "uint%d",
+                num_items);
+        return c;
+    }
+    else if (is_signed_long_int_type(element_type))
+    {
+        int num_items = size / 8;
+        uniquestr_sprintf(&c, "long%d",
+                num_items);
+        return c;
+    }
+    else if (is_unsigned_long_int_type(element_type))
+    {
+        int num_items = size / 8;
+        uniquestr_sprintf(&c, "ulong%d",
+                num_items);
+        return c;
+    }
+    else if (is_float_type(element_type))
+    {
+        int num_items = size / 4;
+        uniquestr_sprintf(&c, "float%d",
+                num_items);
+        return c;
+    }
+    else if (is_double_type(element_type))
+    {
+        int num_items = size / 8;
+        uniquestr_sprintf(&c, "double%d",
+                num_items);
+        return c;
+    }
+
+    const char* typename = get_simple_type_name_string_internal(decl_context,
+            vector_type_get_element_type(t),
+            print_symbol_fun,
+            print_symbol_data);
+    uniquestr_sprintf(&c, "<<opencl-vector-%s-%d>>",
+            typename,
+            vector_type_get_vector_size(t));
+    return c;
+}
+
+// By default the flavor is GNU
+typedef const char* (*print_vector_type_fun)(decl_context_t, type_t*, print_symbol_callback_t, void*);
+static print_vector_type_fun print_vector_type = print_gnu_vector_type;
+
+// Arrays 'vector_flavors' and 'print_vector_functions' are parallel arrays
+#define VECTOR_FLAVORS \
+    VECTOR_FLAVOR(gnu, print_gnu_vector_type) \
+    VECTOR_FLAVOR(intel, print_intel_sse_avx_vector_type) \
+    VECTOR_FLAVOR(altivec, print_altivec_vector_type) \
+    VECTOR_FLAVOR(opencl, print_opencl_vector_type)
+
+#define VECTOR_FLAVOR(name, _) #name,
+const char* vector_flavors[] = {
+    VECTOR_FLAVORS
+    NULL
+};
+#undef VECTOR_FLAVOR
+
+#define VECTOR_FLAVOR(_, function) function,
+const print_vector_type_fun print_vector_type_functions[] = {
+    VECTOR_FLAVORS
+    NULL
+};
+#undef VECTOR_FLAVOR
+
+void vector_types_set_flavor(const char* c)
+{
+    int i;
+    for (i = 0; vector_flavors[i] != NULL; i++)
+    {
+        if (strcmp(vector_flavors[i], c) == 0)
+        {
+            print_vector_type = print_vector_type_functions[i];
+            break;
+        }
+    }
+}
 
 
-// Gives a string with the name of this simple type
+// Returns a string with the name of this simple type
 static const char* get_simple_type_name_string_internal(decl_context_t decl_context, 
         type_t* t,
         print_symbol_callback_t print_symbol_fun,
@@ -6605,7 +6840,7 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
             }
         case STK_VECTOR:
             {
-                result = print_gnu_vector_type(decl_context, t, print_symbol_fun, print_symbol_data);
+                result = print_vector_type(decl_context, t, print_symbol_fun, print_symbol_data);
                 break;
             }
         case STK_CLASS :
