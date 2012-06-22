@@ -1282,7 +1282,10 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
     {
         // We don't want to generate the current function call because It has
         // been added by the compiler. We should ignore it!
-        walk(node.get_arguments());
+        if (!node.get_arguments().is_null())
+        {
+            walk(node.get_arguments().template as<Nodecl::List>()[0]);
+        }
         return;
     }
 
