@@ -5790,57 +5790,56 @@ node_t CxxBase::get_kind_of_operator_function_call(const Node & node)
     ERROR_CONDITION(!is_operator_function_call(node), "This function is not an operator\n", 0);
 
     TL::Symbol called_sym = node.get_called().get_symbol();
-    std::string called_operator_str = called_sym.get_name().substr(9);
-    const char* called_operator = called_operator_str.c_str();
+    std::string operator_name = called_sym.get_name().substr(std::string("operator ").size());
 
     if (is_binary_infix_operator_function_call(node))
     {
-        if (strcmp(called_operator, "->*") == 0)      return NODECL_CXX_ARROW_PTR_MEMBER;
-        else if (strcmp(called_operator, ".*") == 0)  return NODECL_CXX_DOT_PTR_MEMBER;
-        else if (strcmp(called_operator, "*") == 0)   return NODECL_MUL;
-        else if (strcmp(called_operator, "/") == 0)   return NODECL_DIV;
-        else if (strcmp(called_operator, "%") == 0)   return NODECL_MOD;
-        else if (strcmp(called_operator, "+") == 0)   return NODECL_ADD;
-        else if (strcmp(called_operator, "-") == 0)   return NODECL_MINUS;
-        else if (strcmp(called_operator, "<<") == 0)  return NODECL_SHL;
-        else if (strcmp(called_operator, ">>") == 0)  return NODECL_SHR;
-        else if (strcmp(called_operator, "<") == 0)   return NODECL_LOWER_THAN;
-        else if (strcmp(called_operator, "<=") == 0)  return NODECL_LOWER_OR_EQUAL_THAN;
-        else if (strcmp(called_operator, ">") == 0)   return NODECL_GREATER_THAN;
-        else if (strcmp(called_operator, ">=") == 0)  return NODECL_GREATER_OR_EQUAL_THAN;
-        else if (strcmp(called_operator, "==") == 0)  return NODECL_EQUAL;
-        else if (strcmp(called_operator, "!=") == 0)  return NODECL_DIFFERENT;
-        else if (strcmp(called_operator, "&") == 0)   return NODECL_BITWISE_AND;
-        else if (strcmp(called_operator, "^") == 0)   return NODECL_BITWISE_XOR;
-        else if (strcmp(called_operator, "|") == 0)   return NODECL_BITWISE_OR;
-        else if (strcmp(called_operator, "&&") == 0)  return NODECL_LOGICAL_AND;
-        else if (strcmp(called_operator, "||") == 0)  return NODECL_LOGICAL_OR;
-        else if (strcmp(called_operator, "?") == 0)   return NODECL_CONDITIONAL_EXPRESSION;
-        else if (strcmp(called_operator, "=") == 0)   return NODECL_ASSIGNMENT;
-        else if (strcmp(called_operator, "*=") == 0)  return NODECL_MUL_ASSIGNMENT;
-        else if (strcmp(called_operator, "/=") == 0)  return NODECL_DIV_ASSIGNMENT;
-        else if (strcmp(called_operator, "%=") == 0)  return NODECL_MOD_ASSIGNMENT;
-        else if (strcmp(called_operator, "+=") == 0)  return NODECL_ADD_ASSIGNMENT;
-        else if (strcmp(called_operator, "-=") == 0)  return NODECL_MINUS_ASSIGNMENT;
-        else if (strcmp(called_operator, "<<=") == 0) return NODECL_SHL_ASSIGNMENT;
-        else if (strcmp(called_operator, ">>=") == 0) return NODECL_SHL_ASSIGNMENT;
-        else if (strcmp(called_operator, "&=") == 0)  return NODECL_BITWISE_AND;
-        else if (strcmp(called_operator, "|=") == 0)  return NODECL_BITWISE_OR;
-        else if (strcmp(called_operator, "^=") == 0)  return NODECL_BITWISE_XOR;
+        if (operator_name == "->*")      return NODECL_CXX_ARROW_PTR_MEMBER;
+        else if (operator_name == ".*")  return NODECL_CXX_DOT_PTR_MEMBER;
+        else if (operator_name == "*")   return NODECL_MUL;
+        else if (operator_name == "/")   return NODECL_DIV;
+        else if (operator_name == "%")   return NODECL_MOD;
+        else if (operator_name == "+")   return NODECL_ADD;
+        else if (operator_name == "-")   return NODECL_MINUS;
+        else if (operator_name == "<<")  return NODECL_SHL;
+        else if (operator_name == ">>")  return NODECL_SHR;
+        else if (operator_name == "<")   return NODECL_LOWER_THAN;
+        else if (operator_name == "<=")  return NODECL_LOWER_OR_EQUAL_THAN;
+        else if (operator_name == ">")   return NODECL_GREATER_THAN;
+        else if (operator_name == ">=")  return NODECL_GREATER_OR_EQUAL_THAN;
+        else if (operator_name == "==")  return NODECL_EQUAL;
+        else if (operator_name == "!=")  return NODECL_DIFFERENT;
+        else if (operator_name == "&")   return NODECL_BITWISE_AND;
+        else if (operator_name == "^")   return NODECL_BITWISE_XOR;
+        else if (operator_name == "|")   return NODECL_BITWISE_OR;
+        else if (operator_name == "&&")  return NODECL_LOGICAL_AND;
+        else if (operator_name == "||")  return NODECL_LOGICAL_OR;
+        else if (operator_name == "?")   return NODECL_CONDITIONAL_EXPRESSION;
+        else if (operator_name == "=")   return NODECL_ASSIGNMENT;
+        else if (operator_name == "*=")  return NODECL_MUL_ASSIGNMENT;
+        else if (operator_name == "/=")  return NODECL_DIV_ASSIGNMENT;
+        else if (operator_name == "%=")  return NODECL_MOD_ASSIGNMENT;
+        else if (operator_name == "+=")  return NODECL_ADD_ASSIGNMENT;
+        else if (operator_name == "-=")  return NODECL_MINUS_ASSIGNMENT;
+        else if (operator_name == "<<=") return NODECL_SHL_ASSIGNMENT;
+        else if (operator_name == ">>=") return NODECL_SHL_ASSIGNMENT;
+        else if (operator_name == "&=")  return NODECL_BITWISE_AND;
+        else if (operator_name == "|=")  return NODECL_BITWISE_OR;
+        else if (operator_name == "^=")  return NODECL_BITWISE_XOR;
+        else if (operator_name == ",")   return NODECL_COMMA;
     }
     else
     {
-        if (strcmp(called_operator, "&") == 0)      return NODECL_REFERENCE;
-        else if (strcmp(called_operator, "*") == 0) return NODECL_DERREFERENCE;
-        else if (strcmp(called_operator, "+") == 0) return NODECL_PLUS;
-        else if (strcmp(called_operator, "-") == 0) return NODECL_NEG;
-        else if (strcmp(called_operator, "!") == 0) return NODECL_LOGICAL_NOT;
-        else if (strcmp(called_operator, "~") == 0) return NODECL_BITWISE_NOT;
-        else if (strcmp(called_operator, "~") == 0) return NODECL_BITWISE_NOT;
-        else if (strcmp(called_operator, "++") == 0 && is_unary_prefix_operator_function_call(node))  return NODECL_PREINCREMENT;
-        else if (strcmp(called_operator, "++") == 0 && is_unary_postfix_operator_function_call(node)) return NODECL_POSTINCREMENT;
-        else if (strcmp(called_operator, "--") == 0 && is_unary_prefix_operator_function_call(node))  return NODECL_PREDECREMENT;
-        else if (strcmp(called_operator, "--") == 0 && is_unary_postfix_operator_function_call(node)) return NODECL_POSTDECREMENT;
+        if (operator_name == "&")      return NODECL_REFERENCE;
+        else if (operator_name == "*") return NODECL_DERREFERENCE;
+        else if (operator_name == "+") return NODECL_PLUS;
+        else if (operator_name == "-") return NODECL_NEG;
+        else if (operator_name == "!") return NODECL_LOGICAL_NOT;
+        else if (operator_name == "~") return NODECL_BITWISE_NOT;
+        else if (operator_name == "++" && is_unary_prefix_operator_function_call(node))  return NODECL_PREINCREMENT;
+        else if (operator_name == "++" && is_unary_postfix_operator_function_call(node)) return NODECL_POSTINCREMENT;
+        else if (operator_name == "--" && is_unary_prefix_operator_function_call(node))  return NODECL_PREDECREMENT;
+        else if (operator_name == "--" && is_unary_postfix_operator_function_call(node)) return NODECL_POSTDECREMENT;
     }
     internal_error("function operator '%s' is not supported yet\n", called_sym.get_name().c_str());
 
