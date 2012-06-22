@@ -62,7 +62,7 @@ namespace TL
                 bool _new_udr;
                 int _udr_counter;
                 void parse_new_udr(const std::string& str);
-
+                static bool _show_warnings;
 
                 void register_omp_constructs();
 

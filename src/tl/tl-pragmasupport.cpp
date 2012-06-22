@@ -458,7 +458,7 @@ namespace TL
 // Initialize here the warnings to the dispatcher
     PragmaCustomCompilerPhase::PragmaCustomCompilerPhase(const std::string& pragma_handled)
         : _pragma_handled(pragma_handled), 
-         _pragma_dispatcher(pragma_handled, on_directive_pre, on_directive_post, false)
+         _pragma_dispatcher(pragma_handled, on_directive_pre, on_directive_post, /* warning_clauses */ false)
     {
     }
 

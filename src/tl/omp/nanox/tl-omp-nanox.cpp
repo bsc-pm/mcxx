@@ -106,8 +106,6 @@ OMPTransform::OMPTransform()
     on_directive_post["parallel|sections"].connect(functor(&OMPTransform::unimplemented_yet, *this));
     on_directive_post["ordered"].connect(functor(&OMPTransform::unimplemented_yet, *this));
     on_directive_post["declare|reduction"].connect(functor(&OMPTransform::unimplemented_yet, *this));
-
-    PragmaCustomCompilerPhase::warning_pragma_unused_clauses(true);
 }
 
 void OMPTransform::unimplemented_yet(PragmaCustomConstruct construct)
