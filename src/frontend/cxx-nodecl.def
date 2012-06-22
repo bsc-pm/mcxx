@@ -172,6 +172,7 @@ expression : literal
            | NODECL_VECTOR_GATHER([rhs] expression) type const-value-opt
            | NODECL_CONSTANT_VECTOR_PROMOTION([rhs] expression) type const-value-opt
            | NODECL_VECTOR_CONVERSION([src] expression, [dst] expression, [offset] literal) type const-value-opt
+           | NODECL_VECTOR_FUNCTION_CALL([called] expression, [arguments] argument-seq-opt, [alternate_name]name-opt, [function_form] function-form-opt) type const-value-opt
            | c-cxx-expressions
            | fortran-expressions
            | object-init
@@ -454,5 +455,5 @@ synchronization : NODECL_OPEN_M_P*WAIT_ON_DEPENDENCES([environment]exec-environm
 # Second half of a barrier (waiting phase)
                 | NODECL_OPEN_M_P*BARRIER_WAIT()
 # SIMD    
-simd-construct : NODECL_OPEN_M_P*SIMD_CONSTRUCT([statements]statement-seq)
+simd-construct : NODECL_OPEN_M_P*SIMD_CONSTRUCT([statement] statement)
 

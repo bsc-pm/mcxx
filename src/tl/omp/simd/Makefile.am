@@ -41,6 +41,8 @@ END=
 libtlsimd_ir_la_SOURCES = \
 								 tl-simd.hpp \
 								 tl-simd.cpp \
+                                 tl-simd-functions.hpp \
+                                 tl-simd-functions.cpp \
 								 tl-simd-ir-visitor.hpp \
 								 tl-simd-ir-visitor.cpp \
                                  tl-simd-ir-visitor-statement.hpp \
