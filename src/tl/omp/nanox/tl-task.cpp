@@ -482,11 +482,15 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         }
         num_copies_dimensions << sum_copies_dim;
 
+        int region_buffer_index = 0;
         int i = 0;
         for (ObjectList<OpenMP::CopyItem>::iterator it = copy_items.begin();
                 it != copy_items.end();
-                it++)
+                it++, i++)
         {
+            int outline_region_buffer_index = region_buffer_index;
+            int immediate_region_buffer_index = region_buffer_index;
+
             OpenMP::CopyItem& copy_item(*it);
             DataReference copy_expr = copy_item.get_copy_expression();
 
@@ -555,11 +559,13 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                 const char* region_buffer;
                 const char* struct_access;
                 const char* struct_addr;
+                int *counter;
             } fill_copy_data_info[] = {
-                { &copy_items_src, "copy_data", "nanos_copies_region_buffer", "ol_args->", "ol_args" },
+                { &copy_items_src, "copy_data", "nanos_copies_region_buffer", "ol_args->", "ol_args", &outline_region_buffer_index },
                 { &copy_immediate_setup, "imm_copy_data", "nanos_copies_imm_region_buffer",
                     immediate_is_alloca ? "imm_args->" : "imm_args.",
-                    immediate_is_alloca ? "imm_args" : "&imm_args" },
+                    immediate_is_alloca ? "imm_args" : "&imm_args", 
+                    &immediate_region_buffer_index },
                 { NULL, "" },
             };
 
@@ -567,7 +573,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             {
                 for (int j = 0; fill_copy_data_info[j].source != NULL; j++)
                 {
-                    int region_buffer_index = 0;
+                    int& current_region_buffer_index = *(fill_copy_data_info[j].counter);
                     Source expression_size, expression_address;
                     const char* array_name = fill_copy_data_info[j].array;
                     const char* region_buffer = fill_copy_data_info[j].region_buffer;
@@ -631,16 +637,16 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                     // 42    size_t accessed_length;
                     // 43 } nanos_region_dimension_internal_t;
 
-                    int region_buffer_start_index = region_buffer_index;
+                    int region_buffer_start_index = current_region_buffer_index;
                     if (num_dimensions == 0)
                     {
                         // A scalar
                         target_source
-                            << region_buffer << "[" << region_buffer_index << "].size = sizeof(" << base_type_name << ");"
-                            << region_buffer << "[" << region_buffer_index << "].lower_bound = 0;"
-                            << region_buffer << "[" << region_buffer_index << "].accessed_length = sizeof(" << base_type_name << ");"
+                            << region_buffer << "[" << current_region_buffer_index << "].size = sizeof(" << base_type_name << ");"
+                            << region_buffer << "[" << current_region_buffer_index << "].lower_bound = 0;"
+                            << region_buffer << "[" << current_region_buffer_index << "].accessed_length = sizeof(" << base_type_name << ");"
                             ;
-                        region_buffer_index++;
+                        current_region_buffer_index++;
                     }
                     else
                     {
@@ -657,28 +663,28 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                                     size = current_type.array_get_region_size();
 
                                     target_source
-                                        << region_buffer << "[" << region_buffer_index << "].size = "
+                                        << region_buffer << "[" << current_region_buffer_index << "].size = "
                                         << "sizeof(" << base_type_name << ") * (" << dimension_sizes[k] << ");"
-                                        << region_buffer << "[" << region_buffer_index << "].lower_bound = "
+                                        << region_buffer << "[" << current_region_buffer_index << "].lower_bound = "
                                         << "sizeof(" << base_type_name << ") * (" << lb.prettyprint() << ");"
-                                        << region_buffer << "[" << region_buffer_index << "].accessed_length = "
+                                        << region_buffer << "[" << current_region_buffer_index << "].accessed_length = "
                                         << "sizeof(" << base_type_name << ") * (" << size.prettyprint() << ");"
                                         ;
-                                    region_buffer_index++;
+                                    current_region_buffer_index++;
                                 }
                                 else
                                 {
                                     std::string lb = "0";
 
                                     target_source
-                                        << region_buffer << "[" << region_buffer_index << "].size = " 
+                                        << region_buffer << "[" << current_region_buffer_index << "].size = " 
                                         << "sizeof(" << base_type_name << ") * (" << dimension_sizes[k] << ");"
-                                        << region_buffer << "[" << region_buffer_index << "].lower_bound = "
+                                        << region_buffer << "[" << current_region_buffer_index << "].lower_bound = "
                                         << lb << ";"
-                                        << region_buffer << "[" << region_buffer_index << "].accessed_length = "
+                                        << region_buffer << "[" << current_region_buffer_index << "].accessed_length = "
                                         << "sizeof(" << base_type_name << ") * (" << dimension_sizes[k] << ");"
                                         ;
-                                    region_buffer_index++;
+                                    current_region_buffer_index++;
                                 }
                             }
                             else
@@ -690,41 +696,44 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                                     size = current_type.array_get_region_size();
 
                                     target_source
-                                        << region_buffer << "[" << region_buffer_index << "].size = "
+                                        << region_buffer << "[" << current_region_buffer_index << "].size = "
                                         << "(" << dimension_sizes[k] << ");"
-                                        << region_buffer << "[" << region_buffer_index << "].lower_bound = "
+                                        << region_buffer << "[" << current_region_buffer_index << "].lower_bound = "
                                         << "(" << lb.prettyprint() << ");"
-                                        << region_buffer << "[" << region_buffer_index << "].accessed_length = "
+                                        << region_buffer << "[" << current_region_buffer_index << "].accessed_length = "
                                         << "(" << size.prettyprint() << ");"
                                         ;
-                                    region_buffer_index++;
+                                    current_region_buffer_index++;
                                 }
                                 else
                                 {
                                     std::string lb = 0;
 
                                     target_source
-                                        << region_buffer << "[" << region_buffer_index << "].size = "
+                                        << region_buffer << "[" << current_region_buffer_index << "].size = "
                                         << "(" << current_type.array_get_size().prettyprint() << ");"
-                                        << region_buffer << "[" << region_buffer_index << "].lower_bound = "
+                                        << region_buffer << "[" << current_region_buffer_index << "].lower_bound = "
                                         << "(" << lb << ");"
-                                        << region_buffer << "[" << region_buffer_index << "].accessed_length = "
+                                        << region_buffer << "[" << current_region_buffer_index << "].accessed_length = "
                                         << "(" << dimension_sizes[k] << ");"
                                         ;
-                                    region_buffer_index++;
+                                    current_region_buffer_index++;
                                 }
                             }
                         }
                     }
 
                     target_source
-                        << array_name << "[" << i << "].dimensions = &nanos_copies_region_buffer[" << region_buffer_start_index << "];"
+                        << array_name << "[" << i << "].dimensions = &" << region_buffer << "[" << region_buffer_start_index << "];"
                         << array_name << "[" << i << "].offset = (ptrdiff_t)("
                         << "(char*)" << copy_expr.get_address() << " - (char*)" << base_address << ");"
                         ;
 
                     expression_address << copy_expr.get_address();
                 }
+
+                // Update the outline region buffer index 
+                region_buffer_index = outline_region_buffer_index;
             }
             else
             {
@@ -744,8 +753,6 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                     expression_size << copy_expr.get_sizeof();
                 }
             }
-
-            i++;
         }
 
         if (_do_not_create_translation_fun)

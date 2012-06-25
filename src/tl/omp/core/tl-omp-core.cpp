@@ -38,6 +38,8 @@ namespace TL
 {
     namespace OpenMP
     {
+        bool Core::_show_warnings(true);
+        
         bool Core::_already_registered(false);
 
         Core::Core()
@@ -140,7 +142,13 @@ namespace TL
                 initialize_builtin_udr_reductions(global_scope);
             }
 
+
+            PragmaCustomCompilerPhase::warning_pragma_unused_clauses(_show_warnings);
+            _show_warnings = false;
+            
             PragmaCustomCompilerPhase::run(dto);
+            
+            PragmaCustomCompilerPhase::warning_pragma_unused_clauses(false);
         }
 
         void Core::register_omp_constructs()

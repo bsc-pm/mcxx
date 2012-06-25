@@ -109,7 +109,6 @@ static char check_for_init_declarator(AST init_declarator, decl_context_t decl_c
 static char check_for_function_definition_declarator(AST declarator, decl_context_t decl_context);
 
 static char check_for_declarator(AST declarator, decl_context_t decl_context);
-static char check_for_declarator_rec(AST declarator, decl_context_t decl_context);
 static char check_for_function_declarator_parameters(AST parameter_declaration_clause, decl_context_t decl_context);
 
 static char check_for_simple_declaration(AST a, decl_context_t decl_context);
@@ -1049,7 +1048,7 @@ void solve_ambiguous_statement(AST a, decl_context_t decl_context)
     }
 }
 
-
+static char try_to_solve_ambiguous_init_declarator(AST a, decl_context_t decl_context);
 
 static char check_for_simple_declaration(AST a, decl_context_t decl_context)
 {
@@ -1108,22 +1107,26 @@ static char check_for_simple_declaration(AST a, decl_context_t decl_context)
             }
         }
 
-        if (first_init_declarator != NULL
-                && ASTType(first_init_declarator) == AST_AMBIGUITY)
+        AST first_declarator = NULL;
+        if (first_init_declarator != NULL)
         {
-            solve_ambiguous_init_declarator(first_init_declarator, decl_context);
+            if (ASTType(first_init_declarator) == AST_AMBIGUITY)
+            {
+                if (!try_to_solve_ambiguous_init_declarator(first_init_declarator, decl_context))
+                    return 0;
+            }
+            first_declarator = ASTSon0(first_init_declarator);
         }
 
-        // AST init_declarator_list = ASTSon1(a);
-        // if (init_declarator_list != NULL)
-        // {
-        //     if (!check_for_init_declarator_list(init_declarator_list, decl_context))
-        //     {
-        //         return 0;
-        //     }
-        // }
-        //
-        
+        if (first_declarator != NULL)
+        {
+            // Make sure this declarator is fine at this point
+            // This will avoid problems like
+            //
+            // typedef T(F)(S) where the intepretation with an empty type-specifier is not allowed
+            if (!check_for_declarator(first_declarator, decl_context))
+                return 0;
+        }        
 
         // Additional check for this special case
         // typedef int T;
@@ -1142,8 +1145,6 @@ static char check_for_simple_declaration(AST a, decl_context_t decl_context)
         if (first_init_declarator != NULL 
                 && type_spec != NULL)
         {
-            AST first_declarator = ASTSon0(first_init_declarator);
-
             AST parenthesized_declarator;
             AST inner_declarator;
             AST declarator_id_expression;
@@ -1927,6 +1928,60 @@ void solve_ambiguous_init_declarator(AST a, decl_context_t decl_context)
     }
 }
 
+static char try_to_solve_ambiguous_init_declarator(AST a, decl_context_t decl_context)
+{
+    int correct_choice = -1;
+    int i;
+
+    for (i = 0; i < ast_get_num_ambiguities(a); i++)
+    {
+        AST init_declarator = ast_get_ambiguity(a, i);
+
+        if (check_for_init_declarator(init_declarator, decl_context))
+        {
+            if (correct_choice < 0)
+            {
+                correct_choice = i;
+            }
+            else
+            {
+                // Ambiguity: T t(Q()); where T and Q are type-names always solves to 
+                // function declaration
+
+                AST previous_choice = ast_get_ambiguity(a, correct_choice);
+                AST previous_choice_declarator = ASTSon0(previous_choice);
+
+                AST current_choice_declarator = ASTSon0(init_declarator);
+
+                int either;
+                if ((either = either_type(ASTSon0(previous_choice_declarator), ASTSon0(current_choice_declarator), 
+                            AST_DECLARATOR_FUNC, AST_DECLARATOR_ID_EXPR)))
+                {
+                    // Always favor function declarations
+                    if (either < 0)
+                    {
+                        correct_choice = i;
+                    }
+                }
+                else
+                {
+                    internal_error("More than one valid choice!\n", 0);
+                }
+            }
+        }
+    }
+
+    if (correct_choice < 0)
+    {
+        return 0;
+    }
+    else
+    {
+        choose_option(a, correct_choice);
+        return 1;
+    }
+}
+
 static char check_for_init_declarator(AST init_declarator, decl_context_t decl_context)
 {
     AST declarator = ASTSon0(init_declarator);
@@ -1969,12 +2024,7 @@ static char check_for_init_declarator(AST init_declarator, decl_context_t decl_c
     return result;
 }
 
-static char check_for_declarator(AST declarator, decl_context_t decl_context)
-{
-    return check_for_declarator_rec(declarator, decl_context);
-}
-
-static char check_for_declarator_rec(AST declarator, decl_context_t decl_context)
+static char check_declarator_rec(AST declarator, decl_context_t decl_context, char enclosing_is_array, char enclosing_is_function)
 {
     if (declarator == NULL)
         return 1;
@@ -1994,22 +2044,25 @@ static char check_for_declarator_rec(AST declarator, decl_context_t decl_context
                         return 0;
                     }
                 }
-                return check_for_declarator_rec(ASTSon0(declarator), decl_context);
+                return check_declarator_rec(ASTSon0(declarator), decl_context, 1, 0);
                 return 1;
             }
         case AST_PARENTHESIZED_DECLARATOR :
         case AST_DECLARATOR :
             {
-                return check_for_declarator_rec(ASTSon0(declarator), decl_context);
+                return check_declarator_rec(ASTSon0(declarator), decl_context, enclosing_is_array, enclosing_is_function);
                 break;
             }
         case AST_POINTER_DECLARATOR :
             {
-                return check_for_declarator_rec(ASTSon1(declarator), decl_context);
+                return check_declarator_rec(ASTSon1(declarator), decl_context, 0, 0);
                 break;
             }
         case AST_DECLARATOR_FUNC :
             {
+                if (enclosing_is_function || enclosing_is_array)
+                    return 0;
+
                 // Check for parameters here
                 AST parameter_declaration_clause = ASTSon1(declarator);
                 if (parameter_declaration_clause != NULL)
@@ -2019,7 +2072,7 @@ static char check_for_declarator_rec(AST declarator, decl_context_t decl_context
                         return 0;
                     }
                 }
-                return check_for_declarator_rec(ASTSon0(declarator), decl_context);
+                return check_declarator_rec(ASTSon0(declarator), decl_context, 0, 1);
                 break;
             }
         case AST_DECLARATOR_ID_EXPR :
@@ -2028,14 +2081,20 @@ static char check_for_declarator_rec(AST declarator, decl_context_t decl_context
                 return 1;
                 break;
             }
-	case AST_GCC_DECLARATOR :
-	    {
-		    return check_for_declarator_rec(ASTSon1(declarator), decl_context);
-	    }	
-	case AST_GCC_POINTER_DECLARATOR :
-	    {
-		    return check_for_declarator_rec(ASTSon2(declarator), decl_context);
-	    }	
+        case AST_GCC_DECLARATOR :
+            {
+                return check_declarator_rec(ASTSon1(declarator), decl_context, enclosing_is_array, enclosing_is_function);
+            }	
+        case AST_GCC_POINTER_DECLARATOR :
+            {
+                return check_declarator_rec(ASTSon2(declarator), decl_context, 0, 0);
+            }	
+        case AST_AMBIGUITY:
+            {
+                solve_ambiguous_declarator(declarator, decl_context);
+                return check_declarator_rec(declarator, decl_context, enclosing_is_array, enclosing_is_function);
+                break;
+            }
         default :
             {
                 internal_error("Unexpected node type '%s'\n", ast_print_node_type(ASTType(declarator)));
@@ -2044,6 +2103,11 @@ static char check_for_declarator_rec(AST declarator, decl_context_t decl_context
     }
 
     return 0;
+}
+
+static char check_for_declarator(AST declarator, decl_context_t decl_context)
+{
+    return check_declarator_rec(declarator, decl_context, /* enclosing_is_array */ 0, /* enclosing_is_function */ 0);
 }
 
 static char is_abstract_declarator(AST a, decl_context_t decl_context)
