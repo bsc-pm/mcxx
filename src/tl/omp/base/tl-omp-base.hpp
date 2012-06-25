@@ -29,6 +29,7 @@
 
 #include "tl-pragmasupport.hpp"
 #include "tl-omp-core.hpp"
+#include "tl-vectorizer.hpp"
 
 namespace TL
 {
@@ -47,6 +48,7 @@ namespace TL
 
             private:
                 OpenMP::Core _core;
+                TL::VECTORIZER::Vectorizer _vectorizer;
 
                 RefPtr<OpenMP::FunctionTaskSet> _function_task_set;
 

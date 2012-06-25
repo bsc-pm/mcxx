@@ -24,12 +24,15 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
+include vectorizer/Sources.am
+
 SUBDIRS = . codegen omp analysis
 # SUBDIRS = . hlt analysis manip @TL_EXTENSIONS@ 
 
 END=
 
 DIST_SUBDIRS=analysis \
+             vectorizer \
 			 omp \
              superscalar \
              instr \
@@ -161,6 +164,9 @@ libtl_la_SOURCES = \
     tl-modules-fwd.hpp \
     tl-modules.hpp \
     tl-modules.cpp \
+    tl-versioning.hpp \
+    tl-versioning.cpp \
+    $(VECTORIZER_SOURCES)
     $(END)
 
 if WINDOWS_BUILD

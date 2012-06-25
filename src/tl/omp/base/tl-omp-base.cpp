@@ -171,7 +171,7 @@ namespace TL { namespace OpenMP {
     };
 
     Base::Base()
-        : PragmaCustomCompilerPhase("omp"), _core()
+        : PragmaCustomCompilerPhase("omp"), _core(), _vectorizer()
     {
         set_phase_name("OpenMP directive to parallel IR");
         set_phase_description("This phase lowers the semantics of OpenMP into the parallel IR of Mercurium");
@@ -713,29 +713,38 @@ namespace TL { namespace OpenMP {
         
         // Skipping AST_LIST_NODE 
         Nodecl::NodeclBase node = stmt.get_statements();
-        ERROR_CONDITION(!node.is<Nodecl::List>(), "'pragma omp simd' Expecting a AST_LIST_NODE (1)", 0);
+        ERROR_CONDITION(!node.is<Nodecl::List>(), 
+                "'pragma omp simd' Expecting a AST_LIST_NODE (1)", 0);
         Nodecl::List ast_list_node = node.as<Nodecl::List>();
-        ERROR_CONDITION(ast_list_node.size() != 1, "AST_LIST_NODE after '#pragma omp simd' must be equal to 1 (1)", 0);
+        ERROR_CONDITION(ast_list_node.size() != 1, 
+                "AST_LIST_NODE after '#pragma omp simd' must be equal to 1 (1)", 0);
 
         // Skipping NODECL_CONTEXT
         Nodecl::NodeclBase context = ast_list_node.front();
-        ERROR_CONDITION(!context.is<Nodecl::Context>(), "'pragma omp simd' Expecting a NODECL_CONTEXT", 0);
+        ERROR_CONDITION(!context.is<Nodecl::Context>(), 
+                "'pragma omp simd' Expecting a NODECL_CONTEXT", 0);
 
         // Skipping AST_LIST_NODE
         Nodecl::NodeclBase in_context = context.as<Nodecl::Context>().get_in_context();
-        ERROR_CONDITION(!in_context.is<Nodecl::List>(), "'pragma omp simd' Expecting a AST_LIST_NODE (2)", 0);
+        ERROR_CONDITION(!in_context.is<Nodecl::List>(), 
+                "'pragma omp simd' Expecting a AST_LIST_NODE (2)", 0);
         Nodecl::List ast_list_node2 = in_context.as<Nodecl::List>();
-        ERROR_CONDITION(ast_list_node2.size() != 1, "AST_LIST_NODE after '#pragma omp simd' must be equal to 1 (2)", 0);
+        ERROR_CONDITION(ast_list_node2.size() != 1, 
+                "AST_LIST_NODE after '#pragma omp simd' must be equal to 1 (2)", 0);
 
         Nodecl::NodeclBase for_statement = ast_list_node2.front();
 
-        ERROR_CONDITION(!for_statement.is<Nodecl::ForStatement>(), "Unexpected node %s. Expecting a ForStatement after '#pragma omp simd'", 
+        ERROR_CONDITION(!for_statement.is<Nodecl::ForStatement>(), 
+                "Unexpected node %s. Expecting a ForStatement after '#pragma omp simd'", 
                 ast_print_node_type(for_statement.get_kind()));
 
-        for_statement.integrate(Nodecl::OpenMP::SimdConstruct::make(
-                    for_statement.shallow_copy()));
+        // SIMD starts here!
 
-        //Nodecl::Utils::remove_from_enclosing_list(stmt);
+        Nodecl::NodeclBase vectorized_code =
+            _vectorizer.vectorize(
+                    for_statement.shallow_copy().as<Nodecl::ForStatement>(), 16); // Deep_copy?
+
+        stmt.integrate(vectorized_code);
     }
     
     // SIMD Functions
@@ -751,10 +760,17 @@ namespace TL { namespace OpenMP {
         Nodecl::NodeclBase function_node = sym.get_function_code();
         ERROR_CONDITION(!function_node.is<Nodecl::FunctionCode>(), "Expecting a function definition here (3)", 0);
 
-        function_node.integrate(Nodecl::OpenMP::SimdConstruct::make(
-                    function_node.shallow_copy()));
+//        function_node.integrate(Nodecl::OpenMP::SimdConstruct::make(
+//                    function_node.shallow_copy()));
+/*
+                Nodecl::NodeclBase vectorized_code =
+                    vectorizer.vectorize(
+                            stmt.as<Nodecl::FunctionCode>().shallow_copy()); // Deep_copy?
 
-        Nodecl::Utils::remove_from_enclosing_list(decl);
+                construct.integrate(vectorized_code);
+ */
+
+        //Nodecl::Utils::remove_from_enclosing_list(decl);
     }
 
     void Base::lower_sections_into_switch(

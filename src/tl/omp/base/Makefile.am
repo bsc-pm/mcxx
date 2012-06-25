@@ -28,8 +28,9 @@ include ../../Makefile.phases
 
 phases_LTLIBRARIES = libtlomp-base.la
 
-libtlomp_base_la_CFLAGS = $(tl_cflags) -I $(srcdir)/../core
-libtlomp_base_la_CXXFLAGS = $(tl_cflags) -I $(srcdir)/../core
+libtlomp_base_la_CFLAGS = $(tl_cflags) -I $(srcdir)/../core -I $(srcdir)/../../vectorizer
+libtlomp_base_la_CXXFLAGS = $(tl_cflags) -I $(srcdir)/../core -I $(srcdir)/../../vectorizer
+
 
 libtlomp_base_la_LDFLAGS = $(tl_ldflags)
 libtlomp_base_la_LIBADD = $(tl_libadd) ../core/libtlomp-core.la
