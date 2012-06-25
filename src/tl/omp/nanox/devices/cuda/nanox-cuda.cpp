@@ -467,6 +467,12 @@ void DeviceCUDA::create_outline(
 		if (s.get_filename() != CompilationProcess::get_current_file().get_filename(/* fullpath */ true))
 			continue;
 
+		// TODO: check the symbol is not a global variable
+		// Ignore non-constant variables
+		if (s.is_variable()
+				&& !s.get_type().is_const())
+			continue;
+
 		if (s.get_internal_symbol()->kind == SK_ENUMERATOR)
 		{
 			s = s.get_type().get_symbol();
@@ -482,8 +488,6 @@ void DeviceCUDA::create_outline(
 
 			_fwdSymbols.insert(s);
 			//decl_closure.add(s);
-
-			// TODO: check the symbol is not a global variable
 
 			extern_symbols.insert(s);
 		}
