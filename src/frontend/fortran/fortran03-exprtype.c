@@ -2424,11 +2424,10 @@ static void check_called_symbol_list(
             return;
         }
 
-        scope_entry_t* entry = fortran_intrinsic_solve_call(symbol, 
+        scope_entry_t* entry = fortran_solve_generic_intrinsic_call(symbol, 
                 actual_arguments_keywords,
                 nodecl_actual_arguments, 
-                num_actual_arguments, 
-                nodecl_simplify);
+                num_actual_arguments);
 
         if (entry == NULL)
         {
@@ -2724,6 +2723,17 @@ static void check_called_symbol_list(
                 return_type = fortran_get_n_ranked_type(return_type, common_rank, decl_context);
             }
         }
+    }
+
+    // Simplify intrinsics
+    // FIXME - What about elemental invocations of non rank zero?
+    if (symbol->entity_specs.is_builtin)
+    {
+        fortran_simplify_specific_intrinsic_call(symbol,
+                actual_arguments_keywords,
+                nodecl_actual_arguments,
+                num_actual_arguments,
+                nodecl_simplify);
     }
 
     if (is_void_type(return_type))
