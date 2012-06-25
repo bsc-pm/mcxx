@@ -1,4 +1,3 @@
-
 #
 #   rule : another-rule
 #        | NODECL_TREE_CONSTRUCTOR([child_name] rule-name, ...) options
@@ -24,8 +23,8 @@
 # mandatory for the node. Use this when you want to ensure that copy routines
 # copy these values as well (otherwise these extra values will be ignored)
 #
-# There is a special rule 'nodecl' which is the root of the whole hierarchy,
-# while not enforced every rule should be referenced in another rule. The
+# There is a special rule 'nodecl' which is the root of the whole hierarchy and,
+# while not enforced, every rule should be referenced in another rule. The
 # structure must be nonambiguous (i.e. there must be a single way of
 # constructing a given hierarchy)
 #
@@ -290,8 +289,10 @@ cxx-dependent-expressions: NODECL_CXX_ARROW([lhs]expression, [member]expression)
 cxx-mem-init: NODECL_CXX_MEMBER_INIT([name]cxx-dependent-name, [initializer]expression) type const-value-opt
 
 function-form: NODECL_CXX_FUNCTION_FORM_TEMPLATE_ID() template-parameters-opt
-
-cuda-expressions : NODECL_CUDA_KERNEL_CALL([kernel_config] expression-seq, [function_call] expression) type const-value-opt
+    | NODECL_CXX_FUNCTION_FORM_IMPLICIT()
+    | NODECL_CXX_FUNCTION_FORM_BINARY_INFIX()
+    | NODECL_CXX_FUNCTION_FORM_UNARY_PREFIX()
+    | NODECL_CXX_FUNCTION_FORM_UNARY_POSTFIX()
 
 type-or-expr : type
              | expression
@@ -453,4 +454,10 @@ synchronization : NODECL_OPEN_M_P*WAIT_ON_DEPENDENCES([environment]exec-environm
                 | NODECL_OPEN_M_P*BARRIER_SIGNAL()
 # Second half of a barrier (waiting phase)
                 | NODECL_OPEN_M_P*BARRIER_WAIT()
+
+##############################
+# CUDA                       #
+##############################
+
+cuda-expressions : NODECL_CUDA_KERNEL_CALL([kernel_config] expression-seq, [function_call] expression) type const-value-opt module(cuda)
 

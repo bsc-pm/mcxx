@@ -98,7 +98,7 @@
 "Options: \n" \
 "  -h, --help               Shows this help and quits\n" \
 "  --version                Shows version and quits\n" \
-"  --verbose                Runs verbosely, displaying the programs\n" \
+"  --v, --verbose           Runs verbosely, displaying the programs\n" \
 "                           invoked by the compiler\n" \
 "  -o, --output=<file>      Sets <file> as the output file\n" \
 "  -c                       Does not link, just compile\n" \
@@ -114,11 +114,13 @@
 "  -O -O0 -O1 -O2 -O3       Sets optimization level to the\n" \
 "                           preprocessor and native compiler\n" \
 "  -y                       File will be parsed but it will not be\n" \
-"                           compiled not linked.\n" \
+"                           compiled nor linked\n" \
 "  -x lang                  Override language detection to <lang>\n" \
 "  -k, --keep-files         Do not remove intermediate files\n" \
 "  -K, --keep-all-files     Do not remove any generated file, including\n" \
 "                           temporal files\n" \
+"  -J <dir>                 Sets <dir> as the output module directory\n" \
+"                           This flag is only meaningful for Fortran\n" \
 "  --output-dir=<dir>       Prettyprinted files will be left in\n" \
 "                           directory <dir>. Otherwise the input\n" \
 "                           file directory is used\n" \
@@ -145,7 +147,7 @@
 "                           Like --W<flags>,<options> but for\n" \
 "                           a specific compiler profile\n" \
 "  --openmp                 Enables OpenMP support\n" \
-"  --no-openmp              Disables OpenMP support (by default)\n" \
+"  --no-openmp              Disables OpenMP support (default)\n" \
 "  --config-file=<file>     Uses <file> as config file.\n" \
 "                           Use --print-config-file to get the\n" \
 "                           default path\n" \
@@ -169,7 +171,7 @@
 "                           currently supported environments\n" \
 "  --list-env               Short form of --list-environments\n" \
 "  --list-environments      Lists currently supported environments\n" \
-"                           and does nothing else.\n" \
+"                           and quits.\n" \
 "  --pass-through           Disables preprocessing and parsing but\n" \
 "                           invokes remaining steps. A previous\n" \
 "                           invocation with --keep is required.\n" \
@@ -191,7 +193,7 @@
 "                           --debug-flags\n" \
 "  --help-target-options    Shows valid target options for\n" \
 "                           'target_options' option of configuration\n" \
-"                           file.\n" \
+"                           file and quits\n" \
 "  --instantiate            Instantiate explicitly templates. This is\n" \
 "                           an unsupported experimental feature\n" \
 "  --pp[=on]                Preprocess files\n"\
@@ -218,8 +220,6 @@
 "                           Empty sentinels are enabled by default\n" \
 "                           This flag is only meaningful for Fortran\n" \
 "  --disable-intrinsics     Ignore all known Fortran intrinsics\n" \
-"  -J <dir>                 Sets <dir> as the output module directory\n" \
-"                           This flag is only meaningful for Fortran\n" \
 "  --integer-kind=N         Set the default kind of INTEGER\n" \
 "                           By default it is 4. Fortran only\n" \
 "  --real-kind=N            Set the default kind of REAL\n" \
@@ -234,7 +234,7 @@
 "                           Selects Fortran array descriptor\n" \
 "  --list-fortran-array-descriptors\n" \
 "                           Prints list of supported Fortran\n" \
-"                           array descriptors\n" \
+"                           array descriptors and quits\n" \
 "  --search-includes=<dir>  Adds <dir> to the directories searched\n" \
 "                           when solving a Fortran INCLUDE line.\n" \
 "                           Does not affect the native compiler like\n" \
@@ -245,6 +245,11 @@
 "                           -I does\n" \
 "  --do-not-warn-config     Do not warn about wrong configuration\n" \
 "                           file names\n" \
+"  --vector-flavor=name     When emitting vector types use given\n" \
+"                           flavor name. By default it is gnu.\n" \
+"                           See --vector-list-flavors\n" \
+"  --list-vector-flavors    Lists the supported vector flavors\n" \
+"                           and quits\n" \
 "\n" \
 "gcc compatibility flags:\n" \
 "\n" \
@@ -342,6 +347,8 @@ typedef enum
     OPTION_SEARCH_MODULES,
     OPTION_SEARCH_INCLUDES,
     OPTION_DO_NOT_WARN_BAD_CONFIG_FILENAMES,
+    OPTION_VECTOR_FLAVOR,
+    OPTION_LIST_VECTOR_FLAVORS,
     OPTION_VERBOSE,
 } COMMAND_LINE_OPTIONS;
 
@@ -411,6 +418,10 @@ struct command_line_long_options command_line_long_options[] =
     {"search-modules", CLP_REQUIRED_ARGUMENT, OPTION_SEARCH_MODULES},
     {"search-includes", CLP_REQUIRED_ARGUMENT, OPTION_SEARCH_INCLUDES},
     {"do-not-warn-config", CLP_NO_ARGUMENT, OPTION_DO_NOT_WARN_BAD_CONFIG_FILENAMES},
+    {"vector-flavor", CLP_REQUIRED_ARGUMENT, OPTION_VECTOR_FLAVOR},
+    {"vector-flavour", CLP_REQUIRED_ARGUMENT, OPTION_VECTOR_FLAVOR},
+    {"list-vector-flavors", CLP_NO_ARGUMENT, OPTION_LIST_VECTOR_FLAVORS},
+    {"list-vector-flavours", CLP_NO_ARGUMENT, OPTION_LIST_VECTOR_FLAVORS},
     // sentinel
     {NULL, 0, 0}
 };
@@ -475,6 +486,7 @@ static int parse_implicit_parameter_flag(int *should_advance, const char *specia
 
 static void list_environments(void);
 static void list_fortran_array_descriptors(void);
+static void list_vector_flavors(void);
 
 static char do_not_unload_phases = 0;
 static char do_not_warn_bad_config_filenames = 0;
@@ -691,7 +703,7 @@ static void options_error(char* message)
 // Messages issued here must be ended with \n for sthetic reasons
 // if parse_implicits_only is true, then only implicit parameters are
 // considered, all other should be ignored
-int parse_arguments(int argc, const char* argv[], 
+int parse_arguments(int argc, const char* argv[],
         char from_command_line,
         char parse_implicits_only)
 {
@@ -1337,6 +1349,16 @@ int parse_arguments(int argc, const char* argv[],
                 case OPTION_FORTRAN_CHARACTER_KIND:
                     {
                         CURRENT_CONFIGURATION->default_character_kind = atoi(parameter_info.argument);
+                        break;
+                    }
+                case OPTION_VECTOR_FLAVOR:
+                    {
+                        vector_types_set_flavor(parameter_info.argument);
+                        break;
+                    }
+                case OPTION_LIST_VECTOR_FLAVORS:
+                    {
+                        list_vector_flavors();
                         break;
                     }
                 default:
@@ -4617,6 +4639,27 @@ static void list_fortran_array_descriptors(void)
     fprintf(stdout, "If not specified, default Fortran array descriptor is '%s' (%s)\n",
             default_fortran_array_descriptor->descriptor_id,
             default_fortran_array_descriptor->descriptor_name);
+
+    exit(EXIT_SUCCESS);
+}
+
+static void list_vector_flavors(void)
+{
+    fprintf(stdout, "List of supported vector flavours:\n\n");
+
+    const char** vector_flavors_ptr = vector_flavors;
+
+
+    for (vector_flavors_ptr = vector_flavors;
+            (*vector_flavors_ptr) != NULL;
+            vector_flavors_ptr++)
+    {
+        fprintf(stdout, "  %-20s\n", *vector_flavors_ptr);
+    }
+
+    fprintf(stdout, "\n");
+    fprintf(stdout, "Command line parameter --vector-flavor=name can be used to choose a specific vector flavor\n");
+    fprintf(stdout, "If not specified, default vector flavor is gnu\n");
 
     exit(EXIT_SUCCESS);
 }

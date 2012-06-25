@@ -33,6 +33,12 @@ test_generator=config/mercurium
 */
 
 template<typename T1>
+struct C
+{
+    struct foo;
+};
+
+template<typename T1>
 struct B
 {
     struct foo;
@@ -42,6 +48,7 @@ template<typename T>
 struct A
 {
     friend struct B<T>::foo;
+    friend struct ::C<T>::foo;
 };
 
 A<int> a;

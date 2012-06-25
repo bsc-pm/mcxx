@@ -139,11 +139,25 @@ LIBMCXX_EXTERN long double const_value_cast_to_long_double(const_value_t* val);
 LIBMCXX_EXTERN __float128 const_value_cast_to_float128(const_value_t* val);
 #endif
 
+LIBMCXX_EXTERN _Complex float const_value_cast_to_complex_float(const_value_t* val);
+LIBMCXX_EXTERN _Complex double const_value_cast_to_complex_double(const_value_t* val);
+LIBMCXX_EXTERN _Complex long double const_value_cast_to_complex_long_double(const_value_t* val);
+#ifdef HAVE_QUADMATH_H
+LIBMCXX_EXTERN __complex128 const_value_cast_to_complex_float128(const_value_t* val);
+#endif
+
 LIBMCXX_EXTERN const_value_t* const_value_cast_to_float_value(const_value_t* val);
 LIBMCXX_EXTERN const_value_t* const_value_cast_to_double_value(const_value_t* val);
 LIBMCXX_EXTERN const_value_t* const_value_cast_to_long_double_value(const_value_t* val);
 #ifdef HAVE_QUADMATH_H
 LIBMCXX_EXTERN const_value_t* const_value_cast_to_float128_value(const_value_t* val);
+#endif
+
+LIBMCXX_EXTERN const_value_t* const_value_get_complex_float(_Complex float f);
+LIBMCXX_EXTERN const_value_t* const_value_get_complex_double(_Complex double d);
+LIBMCXX_EXTERN const_value_t* const_value_get_complex_long_double(_Complex long double ld);
+#ifdef HAVE_QUADMATH_H
+LIBMCXX_EXTERN const_value_t* const_value_get_complex_float128(__complex128 ld);
 #endif
 
 LIBMCXX_EXTERN const_value_t* const_value_make_array(int num_elements, const_value_t **elements);
@@ -173,6 +187,11 @@ LIBMCXX_EXTERN const_value_t* const_value_real_to_complex(const_value_t* value);
 
 LIBMCXX_EXTERN const_value_t* const_value_round_to_zero(const_value_t* val);
 LIBMCXX_EXTERN const_value_t* const_value_round_to_zero_bytes(const_value_t* val, int num_bytes);
+
+LIBMCXX_EXTERN const_value_t* const_value_round_to_nearest(const_value_t* val);
+LIBMCXX_EXTERN const_value_t* const_value_round_to_nearest_bytes(const_value_t* val, int num_bytes);
+
+LIBMCXX_EXTERN const_value_t* const_value_round(const_value_t* val, int num_bytes, int rounding_mode);
 
 #define BINOP_DECL(_opname, _binop) \
 LIBMCXX_EXTERN const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2); \
@@ -204,6 +223,9 @@ UNOP_DECL(plus, +)
 UNOP_DECL(neg, -)
 UNOP_DECL(bitnot, ~)
 UNOP_DECL(not, !)
+
+LIBMCXX_EXTERN const_value_t* const_value_square(const_value_t* val);
+LIBMCXX_EXTERN const_value_t* const_value_sqrt(const_value_t* val);
 
 MCXX_END_DECLS
 

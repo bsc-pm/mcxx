@@ -381,17 +381,36 @@ namespace Codegen
 
             void walk_list(const Nodecl::List&, const std::string& separator);
             void walk_expression_list(const Nodecl::List&);
+
             template <typename Iterator>
-            void walk_expression_unpacked_list(Iterator begin, Iterator end);
+                void walk_expression_unpacked_list(Iterator begin, Iterator end);
 
             template <typename Iterator>
                 void codegen_function_call_arguments(Iterator begin, Iterator end, TL::Type function_type, int ignore_n_first);
-            
+
             template <typename Node>
-                CxxBase::Ret visit_function_call_form(const Node&);
+                void visit_function_call_form_template_id(const Node&);
+
+            template <typename Node>
+                bool is_implicit_function_call(const Node& node) const;
+
+            template <typename Node>
+                static bool is_binary_infix_operator_function_call(const Node& node);
+
+            template <typename Node>
+                static bool is_unary_prefix_operator_function_call(const Node& node);
+
+            template <typename Node>
+                static bool is_unary_postfix_operator_function_call(const Node& node);
+
+            template <typename Node>
+                static bool is_operator_function_call(const Node& node);
 
             template <typename Node>
                 CxxBase::Ret visit_function_call(const Node&, bool is_virtual_call);
+
+            template < typename Node>
+                static node_t get_kind_of_operator_function_call(const Node & node);
 
             static int get_rank_kind(node_t n, const std::string& t);
             static int get_rank(const Nodecl::NodeclBase &n);

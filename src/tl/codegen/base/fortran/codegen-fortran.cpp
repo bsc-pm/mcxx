@@ -2697,15 +2697,15 @@ OPERATOR_TABLE
                 TL::Symbol class_type  = t.get_symbol();
                 decl_context_t class_context = class_type.get_scope().get_decl_context();
 
-                // if (!class_type.is_from_module()
-                //         && (TL::Symbol(class_context.current_scope->related_entry) != entry)
-                //         // Global names must not be IMPORTed
-                //         && (class_context.current_scope != entry_context.global_scope
-                //             // Unless at this point they have already been defined
-                //             || get_codegen_status(class_type) == CODEGEN_STATUS_DEFINED))
-                if (!class_type.is_from_module()
+                if (
+                        // The symbol should not come from a module unless at this point
+                        // has not been emitted yet
+                        (!class_type.is_from_module()
+                            || get_codegen_status(class_type) == CODEGEN_STATUS_NONE)
+                        // The symbol should not be in the current module
                         && !class_type.is_in_module()
-                         && (TL::Symbol(class_context.current_scope->related_entry) != entry))
+                        // And its related entry should not be ours
+                        && (TL::Symbol(class_context.current_scope->related_entry) != entry))
                 {
                     if (already_imported.find(class_type) == already_imported.end())
                     {

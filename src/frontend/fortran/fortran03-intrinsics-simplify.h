@@ -30,6 +30,7 @@
 #include <math.h>
 #include <limits.h>
 #include <float.h>
+#include <complex.h>
 
 static nodecl_t nodecl_make_int_literal(int n)
 {
@@ -482,8 +483,9 @@ static nodecl_t simplify_xbound(int num_arguments UNUSED_PARAMETER, nodecl_t* ar
             for (i = 0; i < rank; i++)
             {
                 nodecl_t bound = nodecl_shallow_copy(bound_fun(t)); 
+                ERROR_CONDITION(!nodecl_is_constant(bound), "This should be constant!", 0);
 
-                const_vals[rank - i - 1] = nodecl_get_constant(bound);
+                const_vals[rank - i - 1] = const_value_cast_to_bytes(nodecl_get_constant(bound), kind_, /* signed */ 1);
 
                 t = array_type_get_element_type(t);
             }
@@ -514,7 +516,11 @@ static nodecl_t simplify_xbound(int num_arguments UNUSED_PARAMETER, nodecl_t* ar
 
             if (!array_type_is_unknown_size(t))
             {
-                return nodecl_shallow_copy(bound_fun(t));
+                nodecl_t bound = bound_fun(t);
+                ERROR_CONDITION(!nodecl_is_constant(bound), "This should be constant!", 0);
+
+                return const_value_to_nodecl_with_basic_type(nodecl_get_constant(bound), 
+                        choose_int_type_from_kind(kind, kind_));
             }
         }
     }
@@ -1656,6 +1662,737 @@ static nodecl_t simplify_minval(int num_arguments, nodecl_t* arguments)
             num_dimensions,
             const_value_compute_min,
             get_min_neuter_for_type(element_type));
+}
+
+static const_value_t* compute_abs(const_value_t* cval)
+{
+    // Array case
+    if (const_value_is_array(cval))
+    {
+        int i, N = const_value_get_num_elements(cval);
+        const_value_t* array[N];
+
+        for (i = 0; i < N; i++)
+        {
+            array[i] = compute_abs ( const_value_get_element_num(cval, i) );
+            if (array[i] == NULL)
+                return NULL;
+        }
+
+        return const_value_make_array(N, array);
+    }
+
+    if (const_value_is_integer(cval)
+            || const_value_is_floating(cval))
+    {
+        if (const_value_is_negative(cval))
+        {
+            cval = const_value_neg(cval);
+        }
+        return cval;
+    }
+    else if (const_value_is_complex(cval))
+    {
+        const_value_t* real_part = const_value_complex_get_real_part(cval);
+        const_value_t* imag_part = const_value_complex_get_imag_part(cval);
+
+        const_value_t* result = 
+            const_value_sqrt(
+                    const_value_add(
+                        const_value_square(real_part),
+                        const_value_square(imag_part)));
+
+        return result;
+    }
+    else 
+        return NULL;
+}
+
+static nodecl_t simplify_abs(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+{
+    nodecl_t x = arguments[0];
+
+    if (!nodecl_is_constant(x))
+        return nodecl_null();
+
+    const_value_t* cval = nodecl_get_constant(x);
+
+    const_value_t* abs_value = compute_abs(cval);
+    if (abs_value == NULL)
+        return nodecl_null();
+
+    return const_value_to_nodecl(abs_value);
+}
+
+static const_value_t* common_real_function_1(
+        const_value_t* cval, 
+        char domain_check(const_value_t*),
+        float funf(float),
+        double fun(double),
+        long double funl(long double),
+#ifdef HAVE_QUADMATH_H
+        __float128 funq(__float128),
+#else
+        void *funq UNUSED_PARAMETER,
+#endif
+        _Complex float cfunf(_Complex float),
+        _Complex double cfun(_Complex double),
+        _Complex long double cfunl(_Complex long double),
+#ifdef HAVE_QUADMATH_H
+        __complex128 cfunq(__complex128)
+#else
+        void *cfunq UNUSED_PARAMETER
+#endif
+         )
+{
+    // Array case
+    if (const_value_is_array(cval))
+    {
+        int i, N = const_value_get_num_elements(cval);
+        const_value_t* array[N];
+
+        for (i = 0; i < N; i++)
+        {
+            array[i] = common_real_function_1(
+                    const_value_get_element_num(cval, i),
+                    domain_check,
+                    funf, fun, funl, funq,
+                    cfunf, cfun, cfunl, cfunq);
+
+            if (array[i] == NULL)
+                return NULL;
+        }
+
+        return const_value_make_array(N, array);
+    }
+
+    if (domain_check != NULL
+            && !domain_check(cval))
+        return NULL;
+
+    if (funf != NULL && const_value_is_float(cval))
+    {
+        return const_value_get_float( funf(const_value_cast_to_float(cval)) );
+    }
+    else if (fun != NULL && const_value_is_double(cval))
+    {
+        return const_value_get_double( fun(const_value_cast_to_double(cval)) );
+    }
+    else if (funl != NULL && const_value_is_long_double(cval))
+    {
+        return const_value_get_long_double( funl(const_value_cast_to_long_double(cval)) );
+    }
+#ifdef HAVE_QUADMATH_H
+    else if (funq != NULL && const_value_is_float128(cval))
+    {
+        return const_value_get_float128( funq(const_value_cast_to_float128(cval)) );
+    }
+#endif
+    else if (const_value_is_complex(cval))
+    {
+        const_value_t* rval = const_value_complex_get_real_part(cval);
+        if (cfunf != NULL && const_value_is_float(rval))
+        {
+            return const_value_get_complex_float( cfunf(const_value_cast_to_complex_float(cval)) );
+        }
+        else if (cfun != NULL && const_value_is_double(rval))
+        {
+            return const_value_get_complex_double( cfun(const_value_cast_to_complex_double(cval)) );
+        }
+        else if (cfunl != NULL && const_value_is_long_double(rval))
+        {
+            return const_value_get_complex_long_double( cfunl(const_value_cast_to_complex_long_double(cval)) );
+        }
+#ifdef HAVE_QUADMATH_H
+        else if (cfunq != NULL && const_value_is_float128(rval))
+        {
+            return const_value_get_complex_float128( cfunq(const_value_cast_to_complex_float128(cval)) );
+        }
+#endif
+    }
+
+    return NULL;
+}
+
+static nodecl_t common_real_function_1_to_nodecl(
+        const_value_t* cval, 
+        char domain_check(const_value_t*),
+        float funf(float),
+        double fun(double),
+        long double funl(long double),
+#ifdef HAVE_QUADMATH_H
+        __float128 funq(__float128),
+#else
+        void *funq,
+#endif
+        _Complex float cfunf(_Complex float),
+        _Complex double cfun(_Complex double),
+        _Complex long double cfunl(_Complex long double),
+#ifdef HAVE_QUADMATH_H
+        __complex128 cfunq(__complex128)
+#else
+        void *cfunq
+#endif
+         )
+{
+    const_value_t* result = common_real_function_1(
+            cval,
+            domain_check,
+            funf,
+            fun,
+            funl,
+            funq,
+
+            cfunf,
+            cfun,
+            cfunl,
+            cfunq);
+
+    if (result == NULL)
+        return nodecl_null();
+
+    return const_value_to_nodecl(result);
+}
+
+static char abs_value_is_lte_1(const_value_t* cval)
+{
+    const_value_t* cval_abs = cval;
+    if (!const_value_is_complex(cval))
+    {
+        if (const_value_is_negative(cval))
+        {
+            cval_abs = const_value_neg(cval);
+        }
+    }
+    else
+    {
+        const_value_t* real_part = const_value_complex_get_real_part(cval);
+        const_value_t* imag_part = const_value_complex_get_imag_part(cval);
+
+        cval_abs = const_value_sqrt(
+                const_value_add(
+                    const_value_square(real_part),
+                    const_value_square(imag_part)));
+    }
+
+    return !const_value_is_zero(
+            const_value_lte(cval_abs, const_value_get_float(1.0f))
+            );
+}
+
+static nodecl_t simplify_acos(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+{
+    nodecl_t x = arguments[0];
+
+    if (!nodecl_is_constant(x))
+        return nodecl_null();
+
+    const_value_t* cval = nodecl_get_constant(x);
+
+    return common_real_function_1_to_nodecl(
+            cval,
+            abs_value_is_lte_1,
+            acosf,
+            acos,
+            acosl,
+#ifdef HAVE_QUADMATH_H
+            acosq,
+#else
+            NULL,
+#endif
+            cacosf,
+            cacos,
+            cacosl,
+#ifdef HAVE_QUADMATH_H
+            cacosq
+#else
+            NULL
+#endif
+            );
+
+}
+
+static nodecl_t simplify_acosh(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+{
+    nodecl_t x = arguments[0];
+
+    if (!nodecl_is_constant(x))
+        return nodecl_null();
+
+    const_value_t* cval = nodecl_get_constant(x);
+
+    return common_real_function_1_to_nodecl(
+            cval,
+            abs_value_is_lte_1,
+            acoshf,
+            acosh,
+            acoshl,
+#ifdef HAVE_QUADMATH_H
+            acoshq,
+#else
+            NULL,
+#endif
+            cacoshf,
+            cacosh,
+            cacoshl,
+#ifdef HAVE_QUADMATH_H
+            cacoshq
+#else
+            NULL
+#endif
+            );
+}
+
+static nodecl_t simplify_aimag(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+{
+    nodecl_t x = arguments[0];
+
+    if (!nodecl_is_constant(x))
+        return nodecl_null();
+
+    const_value_t* cval = nodecl_get_constant(x);
+
+    return const_value_to_nodecl(const_value_complex_get_imag_part(cval));
+}
+
+static const_value_t* compute_aint(const_value_t* cval)
+{
+    // Array case
+    if (const_value_is_array(cval))
+    {
+        int i, N = const_value_get_num_elements(cval);
+        const_value_t* array[N];
+
+        for (i = 0; i < N; i++)
+        {
+            array[i] = compute_aint ( const_value_get_element_num(cval, i) );
+            if (array[i] == NULL)
+                return NULL;
+        }
+
+        return const_value_make_array(N, array);
+    }
+
+    return const_value_round_to_zero( cval );
+}
+
+static nodecl_t simplify_aint(int num_arguments, nodecl_t* arguments)
+{
+    nodecl_t arg = arguments[0];
+    nodecl_t kind = nodecl_null();
+    if (num_arguments == 2)
+    {
+        kind = arguments[1];
+    }
+
+    if (!nodecl_is_constant(arg)
+            || (!nodecl_is_null(kind) && !nodecl_is_constant(kind)))
+        return nodecl_null();
+
+    int kind_ = type_get_size(no_ref(nodecl_get_type(arg)));
+    if (!nodecl_is_null(kind))
+    {
+        kind_ = const_value_cast_to_signed_int(nodecl_get_constant(kind));
+    }
+
+    return const_value_to_nodecl_with_basic_type(
+            compute_aint(nodecl_get_constant(arg)),
+            choose_int_type_from_kind(kind, kind_));
+}
+
+static const_value_t* compute_anint(const_value_t* cval)
+{
+    // Array case
+    if (const_value_is_array(cval))
+    {
+        int i, N = const_value_get_num_elements(cval);
+        const_value_t* array[N];
+
+        for (i = 0; i < N; i++)
+        {
+            array[i] = compute_anint ( const_value_get_element_num(cval, i) );
+            if (array[i] == NULL)
+                return NULL;
+        }
+
+        return const_value_make_array(N, array);
+    }
+
+    return const_value_round_to_nearest( cval );
+}
+
+static nodecl_t simplify_anint(int num_arguments, nodecl_t* arguments)
+{
+    nodecl_t arg = arguments[0];
+    nodecl_t kind = nodecl_null();
+    if (num_arguments == 2)
+    {
+        kind = arguments[1];
+    }
+
+    if (!nodecl_is_constant(arg)
+            || (!nodecl_is_null(kind) && !nodecl_is_constant(kind)))
+        return nodecl_null();
+
+    int kind_ = type_get_size(no_ref(nodecl_get_type(arg)));
+    if (!nodecl_is_null(kind))
+    {
+        kind_ = const_value_cast_to_signed_int(nodecl_get_constant(kind));
+    }
+
+    return const_value_to_nodecl_with_basic_type(
+            compute_anint(nodecl_get_constant(arg)),
+            choose_int_type_from_kind(kind, kind_));
+}
+
+static nodecl_t simplify_asin(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+{
+    nodecl_t x = arguments[0];
+
+    if (!nodecl_is_constant(x))
+        return nodecl_null();
+
+    const_value_t* cval = nodecl_get_constant(x);
+
+    return common_real_function_1_to_nodecl(
+            cval,
+            abs_value_is_lte_1,
+            asinf,
+            asin,
+            asinl,
+#ifdef HAVE_QUADMATH_H
+            asinq,
+#else
+            NULL,
+#endif
+            casinf,
+            casin,
+            casinl,
+#ifdef HAVE_QUADMATH_H
+            casinq
+#else
+            NULL
+#endif
+            );
+
+}
+
+static nodecl_t simplify_asinh(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+{
+    nodecl_t x = arguments[0];
+
+    if (!nodecl_is_constant(x))
+        return nodecl_null();
+
+    const_value_t* cval = nodecl_get_constant(x);
+
+    return common_real_function_1_to_nodecl(
+            cval,
+            abs_value_is_lte_1,
+            asinhf,
+            asinh,
+            asinhl,
+#ifdef HAVE_QUADMATH_H
+            asinhq,
+#else
+            NULL,
+#endif
+            casinhf,
+            casinh,
+            casinhl,
+#ifdef HAVE_QUADMATH_H
+            casinhq
+#else
+            NULL
+#endif
+            );
+}
+
+static nodecl_t simplify_atan(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+{
+    nodecl_t x = arguments[0];
+
+    if (!nodecl_is_constant(x))
+        return nodecl_null();
+
+    const_value_t* cval = nodecl_get_constant(x);
+
+    return common_real_function_1_to_nodecl(
+            cval,
+            /* domain_check */ NULL,
+            atanf,
+            atan,
+            atanl,
+#ifdef HAVE_QUADMATH_H
+            atanq,
+#else
+            NULL,
+#endif
+            catanf,
+            catan,
+            catanl,
+#ifdef HAVE_QUADMATH_H
+            catanq
+#else
+            NULL
+#endif
+            );
+}
+
+static nodecl_t simplify_atanh(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+{
+    nodecl_t x = arguments[0];
+
+    if (!nodecl_is_constant(x))
+        return nodecl_null();
+
+    const_value_t* cval = nodecl_get_constant(x);
+
+    return common_real_function_1_to_nodecl(
+            cval,
+            /* domain_check */ NULL,
+            atanhf,
+            atanh,
+            atanhl,
+#ifdef HAVE_QUADMATH_H
+            atanhq,
+#else
+            NULL,
+#endif
+            catanhf,
+            catanh,
+            catanhl,
+#ifdef HAVE_QUADMATH_H
+            catanhq
+#else
+            NULL
+#endif
+            );
+}
+
+static nodecl_t simplify_cos(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+{
+    nodecl_t x = arguments[0];
+
+    if (!nodecl_is_constant(x))
+        return nodecl_null();
+
+    const_value_t* cval = nodecl_get_constant(x);
+
+    return common_real_function_1_to_nodecl(
+            cval,
+            /* domain_check */ NULL,
+            cosf,
+            cos,
+            cosl,
+#ifdef HAVE_QUADMATH_H
+            cosq,
+#else
+            NULL,
+#endif
+            ccosf,
+            ccos,
+            ccosl,
+#ifdef HAVE_QUADMATH_H
+            ccosq
+#else
+            NULL
+#endif
+            );
+}
+
+static nodecl_t simplify_cosh(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+{
+    nodecl_t x = arguments[0];
+
+    if (!nodecl_is_constant(x))
+        return nodecl_null();
+
+    const_value_t* cval = nodecl_get_constant(x);
+
+    return common_real_function_1_to_nodecl(
+            cval,
+            /* domain_check */ NULL,
+            coshf,
+            cosh,
+            coshl,
+#ifdef HAVE_QUADMATH_H
+            coshq,
+#else
+            NULL,
+#endif
+            ccoshf,
+            ccosh,
+            ccoshl,
+#ifdef HAVE_QUADMATH_H
+            ccoshq
+#else
+            NULL
+#endif
+            );
+}
+
+static nodecl_t simplify_sin(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+{
+    nodecl_t x = arguments[0];
+
+    if (!nodecl_is_constant(x))
+        return nodecl_null();
+
+    const_value_t* cval = nodecl_get_constant(x);
+
+    return common_real_function_1_to_nodecl(
+            cval,
+            /* domain_check */ NULL,
+            sinf,
+            sin,
+            sinl,
+#ifdef HAVE_QUADMATH_H
+            sinq,
+#else
+            NULL,
+#endif
+            csinf,
+            csin,
+            csinl,
+#ifdef HAVE_QUADMATH_H
+            csinq
+#else
+            NULL
+#endif
+            );
+}
+
+static nodecl_t simplify_sinh(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+{
+    nodecl_t x = arguments[0];
+
+    if (!nodecl_is_constant(x))
+        return nodecl_null();
+
+    const_value_t* cval = nodecl_get_constant(x);
+
+    return common_real_function_1_to_nodecl(
+            cval,
+            /* domain_check */ NULL,
+            sinhf,
+            sinh,
+            sinhl,
+#ifdef HAVE_QUADMATH_H
+            sinhq,
+#else
+            NULL,
+#endif
+            csinhf,
+            csinh,
+            csinhl,
+#ifdef HAVE_QUADMATH_H
+            csinhq
+#else
+            NULL
+#endif
+            );
+}
+
+static nodecl_t simplify_tan(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+{
+    nodecl_t x = arguments[0];
+
+    if (!nodecl_is_constant(x))
+        return nodecl_null();
+
+    const_value_t* cval = nodecl_get_constant(x);
+
+    return common_real_function_1_to_nodecl(
+            cval,
+            /* domain_check */ NULL,
+            tanf,
+            tan,
+            tanl,
+#ifdef HAVE_QUADMATH_H
+            tanq,
+#else
+            NULL,
+#endif
+            ctanf,
+            ctan,
+            ctanl,
+#ifdef HAVE_QUADMATH_H
+            ctanq
+#else
+            NULL
+#endif
+            );
+}
+
+static nodecl_t simplify_tanh(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+{
+    nodecl_t x = arguments[0];
+
+    if (!nodecl_is_constant(x))
+        return nodecl_null();
+
+    const_value_t* cval = nodecl_get_constant(x);
+
+    return common_real_function_1_to_nodecl(
+            cval,
+            /* domain_check */ NULL,
+            tanhf,
+            tanh,
+            tanhl,
+#ifdef HAVE_QUADMATH_H
+            tanhq,
+#else
+            NULL,
+#endif
+            ctanhf,
+            ctanh,
+            ctanhl,
+#ifdef HAVE_QUADMATH_H
+            ctanhq
+#else
+            NULL
+#endif
+            );
+}
+
+static char value_is_positive(const_value_t* cval)
+{
+    if (const_value_is_complex(cval))
+        return 1;
+
+    return !const_value_is_negative(cval);
+}
+
+static nodecl_t simplify_sqrt(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+{
+    nodecl_t x = arguments[0];
+
+    if (!nodecl_is_constant(x))
+        return nodecl_null();
+
+    const_value_t* cval = nodecl_get_constant(x);
+
+    return common_real_function_1_to_nodecl(
+            cval,
+            value_is_positive,
+            sqrtf,
+            sqrt,
+            sqrtl,
+#ifdef HAVE_QUADMATH_H
+            sqrtq,
+#else
+            NULL,
+#endif
+            csqrtf,
+            csqrt,
+            csqrtl,
+#ifdef HAVE_QUADMATH_H
+            csqrtq
+#else
+            NULL
+#endif
+            );
 }
 
 #endif

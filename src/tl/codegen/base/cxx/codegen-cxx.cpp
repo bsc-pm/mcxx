@@ -1127,11 +1127,13 @@ CxxBase::Ret CxxBase::codegen_function_call_arguments(Iterator begin, Iterator e
 }
 
 template <typename Node>
-void CxxBase::visit_function_call_form(const Node& node)
+void CxxBase::visit_function_call_form_template_id(const Node& node)
 {
     Nodecl::NodeclBase function_form = node.get_function_form();
     TL::Symbol called_symbol = node.get_called().get_symbol();
-    if (!function_form.is_null())
+
+    if (!function_form.is_null()
+            && function_form.is<Nodecl::CxxFunctionFormTemplateId>())
     {
         TL::TemplateParameters template_args = function_form.get_template_parameters();
         TL::TemplateParameters deduced_template_args =
@@ -1195,53 +1197,102 @@ void CxxBase::visit_function_call_form(const Node& node)
     }
 }
 
-// This kind of Nodecl (CxxDepFunctionCall) has not a function form
-// For this reason exists this empty explicit specialization of 'visit_function_call_form' template function
+// Explicit specialitzation for Nodecl::CxxDepFunctionCall because this kind of node has not a function form
 template <>
-void CxxBase::visit_function_call_form<Nodecl::CxxDepFunctionCall>(const Nodecl::CxxDepFunctionCall& node)
+void CxxBase::visit_function_call_form_template_id<Nodecl::CxxDepFunctionCall>(const Nodecl::CxxDepFunctionCall& node)
 {
 }
 
+
+template <typename Node>
+bool CxxBase::is_implicit_function_call(const Node& node) const
+{
+    return (!node.get_function_form().is_null()
+            && node.get_function_form().template is<Nodecl::CxxFunctionFormImplicit>());
+}
+
+// Explicit specialitzation for Nodecl::CxxDepFunctionCall because this kind of node has not a function form
+template <>
+bool CxxBase::is_implicit_function_call<Nodecl::CxxDepFunctionCall>(const Nodecl::CxxDepFunctionCall& node) const
+{
+    return 0;
+}
+
+
+template <typename Node>
+bool CxxBase::is_binary_infix_operator_function_call(const Node& node)
+{
+    return (!node.get_function_form().is_null()
+            && node.get_function_form().template is<Nodecl::CxxFunctionFormBinaryInfix>());
+}
+
+// Explicit specialitzation for Nodecl::CxxDepFunctionCall because this kind of node has not a function form
+template <>
+bool CxxBase::is_binary_infix_operator_function_call<Nodecl::CxxDepFunctionCall>(const Nodecl::CxxDepFunctionCall& node)
+{
+    return 0;
+}
+
+
+template <typename Node>
+bool CxxBase::is_unary_prefix_operator_function_call(const Node& node)
+{
+    return (!node.get_function_form().is_null()
+            && node.get_function_form().template is<Nodecl::CxxFunctionFormUnaryPrefix>());
+}
+
+// Explicit specialitzation for Nodecl::CxxDepFunctionCall because this kind of node has not a function form
+template <>
+bool CxxBase::is_unary_prefix_operator_function_call<Nodecl::CxxDepFunctionCall>(const Nodecl::CxxDepFunctionCall& node)
+{
+    return 0;
+}
+
+
+template <typename Node>
+bool CxxBase::is_unary_postfix_operator_function_call(const Node& node)
+{
+    return (!node.get_function_form().is_null()
+            && node.get_function_form().template is<Nodecl::CxxFunctionFormUnaryPostfix>());
+}
+
+// Explicit specialitzation for Nodecl::CxxDepFunctionCall because this kind of node has not a function form
+template <>
+bool CxxBase::is_unary_postfix_operator_function_call<Nodecl::CxxDepFunctionCall>(const Nodecl::CxxDepFunctionCall& node)
+{
+    return 0;
+}
+
+
+template <typename Node>
+bool CxxBase::is_operator_function_call(const Node& node)
+{
+    return (is_unary_prefix_operator_function_call(node)
+            || is_unary_postfix_operator_function_call(node)
+            || is_binary_infix_operator_function_call(node));
+}
 
 template <typename Node>
 CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call)
 {
 
     Nodecl::NodeclBase called_entity = node.get_called();
-    Nodecl::List arguments = node.get_arguments().template as<Nodecl::List>();
 
-    enum call_kind
+    if (is_implicit_function_call(node))
     {
-        INVALID_CALL = 0,
-        ORDINARY_CALL,
-        NONSTATIC_MEMBER_CALL,
-        STATIC_MEMBER_CALL,
-        CONSTRUCTOR_INITIALIZATION
-    } kind = ORDINARY_CALL;
-
-    TL::Symbol called_symbol = called_entity.get_symbol();
-    if (called_symbol.is_valid())
-    {
-        if (called_symbol.is_function()
-                && called_symbol.is_member())
+        // We don't want to generate the current function call because It has
+        // been added by the compiler. We should ignore it!
+        if (!node.get_arguments().is_null())
         {
-            if (called_symbol.is_constructor())
-            {
-                kind = CONSTRUCTOR_INITIALIZATION;
-            }
-            else if (!called_symbol.is_static())
-            {
-                kind = NONSTATIC_MEMBER_CALL;
-            }
-            else // if (called_symbol.is_static())
-            {
-                kind = STATIC_MEMBER_CALL;
-            }
+            walk(node.get_arguments().template as<Nodecl::List>()[0]);
         }
+        return;
     }
 
-    TL::Type function_type(NULL);
+    TL::Symbol called_symbol = called_entity.get_symbol();
+    Nodecl::List arguments = node.get_arguments().template as<Nodecl::List>();
 
+    TL::Type function_type(NULL);
     if (called_entity.is<Nodecl::Symbol>())
     {
         function_type = called_entity.as<Nodecl::Symbol>().get_symbol().get_type();
@@ -1276,19 +1327,61 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
         return;
     }
 
-    // Currently, this never happens
-    ERROR_CONDITION(!function_type.is_function(), "Expecting a function type", 0);
+    enum call_kind
+    {
+        INVALID_CALL = 0,
+        ORDINARY_CALL,
+        NONSTATIC_MEMBER_CALL,
+        STATIC_MEMBER_CALL,
+        CONSTRUCTOR_INITIALIZATION,
+        BINARY_INFIX_OPERATOR,
+        UNARY_PREFIX_OPERATOR,
+        UNARY_POSTFIX_OPERATOR
+    } kind = ORDINARY_CALL;
+
+    if (called_symbol.is_valid())
+    {
+        if (is_unary_prefix_operator_function_call(node))
+        {
+            kind = UNARY_PREFIX_OPERATOR;
+        }
+        else if (is_unary_postfix_operator_function_call(node))
+        {
+            kind = UNARY_POSTFIX_OPERATOR;
+        }
+        else if (is_binary_infix_operator_function_call(node))
+        {
+            kind = BINARY_INFIX_OPERATOR;
+        }
+        else if (called_symbol.is_function()
+                && called_symbol.is_member())
+        {
+            if (called_symbol.is_constructor())
+            {
+                kind = CONSTRUCTOR_INITIALIZATION;
+            }
+            else if (!called_symbol.is_static())
+            {
+                kind = NONSTATIC_MEMBER_CALL;
+            }
+            else
+            {
+                kind = STATIC_MEMBER_CALL;
+            }
+        }
+    }
 
     bool is_non_language_ref = is_non_language_reference_type(function_type.returns());
     if (is_non_language_ref)
-    {
         file << "(*(";
-    }
 
     bool old_visiting_called_entity_of_function_call =
         state.visiting_called_entity_of_function_call;
 
-    // We are going to visit the called entity of the current function call
+    // We are going to visit the called entity of the current function call.
+    // The template arguments of this function (if any) will be printed by the
+    // function 'visit_function_call_form_template_id' and not by the visitor
+    // of the symbol
     state.visiting_called_entity_of_function_call = true;
 
     int ignore_n_first_arguments;
@@ -1297,16 +1390,13 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
         case ORDINARY_CALL:
         case STATIC_MEMBER_CALL:
             {
-                char needs_parentheses = operand_has_lower_priority(node, called_entity);
+                bool needs_parentheses = operand_has_lower_priority(node, called_entity);
                 if (needs_parentheses)
-                {
                     file << "(";
-                }
                 walk(called_entity);
                 if (needs_parentheses)
-                {
                     file << ")";
-                }
+
                 ignore_n_first_arguments = 0;
                 break;
             }
@@ -1314,18 +1404,13 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
             {
                 ERROR_CONDITION(!(arguments.size() >= 1), "A nonstatic member call lacks the implicit argument", 0);
 
-                char needs_parentheses = (get_rank(arguments[0])
-                        < get_rank_kind(NODECL_CLASS_MEMBER_ACCESS, ""));
-
+                bool needs_parentheses = (get_rank(arguments[0]) < get_rank_kind(NODECL_CLASS_MEMBER_ACCESS, ""));
                 if (needs_parentheses)
-                {
                     file << "(";
-                }
                 walk(arguments[0]);
                 if (needs_parentheses)
-                {
                     file << ")";
-                }
+
                 file << ".";
 
                 if (is_virtual_call)
@@ -1337,6 +1422,7 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
                 {
                     walk(called_entity);
                 }
+
                 ignore_n_first_arguments = 1;
                 break;
             }
@@ -1347,30 +1433,94 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
                 ignore_n_first_arguments = 0;
                 break;
             }
+        case UNARY_PREFIX_OPERATOR:
+            {
+                std::string called_operator = called_symbol.get_name().substr(std::string("operator ").size());
+                state.visiting_called_entity_of_function_call =
+                    old_visiting_called_entity_of_function_call;
+
+                // We need this to avoid - - 1 to become --1
+                file << " " << called_operator;
+
+                bool needs_parentheses = operand_has_lower_priority(node, arguments[0]);
+                if (needs_parentheses)
+                    file << "(";
+                walk(arguments[0]);
+                if (needs_parentheses)
+                    file << ")";
+
+                if (is_non_language_ref)
+                    file << "))";
+
+                return;
+            }
+        case UNARY_POSTFIX_OPERATOR:
+            {
+                std::string called_operator = called_symbol.get_name().substr(std::string("operator ").size());
+                state.visiting_called_entity_of_function_call =
+                    old_visiting_called_entity_of_function_call;
+
+                bool needs_parentheses = operand_has_lower_priority(node, arguments[0]);
+                if (needs_parentheses)
+                    file << "(";
+
+                walk(arguments[0]);
+
+                if (needs_parentheses)
+                    file << ")";
+
+                file << called_operator;
+
+                if (is_non_language_ref)
+                    file << "))";
+
+                return;
+            }
+        case BINARY_INFIX_OPERATOR:
+            {
+                std::string called_operator = called_symbol.get_name().substr(std::string("operator ").size());
+                state.visiting_called_entity_of_function_call =
+                    old_visiting_called_entity_of_function_call;
+
+                bool needs_parentheses = operand_has_lower_priority(node, arguments[0]);
+                if (needs_parentheses)
+                    file << "(";
+                walk(arguments[0]);
+                if (needs_parentheses)
+                    file << ")";
+
+                file << " " << called_operator << " ";
+
+                needs_parentheses = operand_has_lower_priority(node, arguments[1]);
+                if (needs_parentheses)
+                    file << "(";
+                walk(arguments[1]);
+                if (needs_parentheses)
+                    file << ")";
+
+                if (is_non_language_ref)
+                    file << "))";
+
+                return;
+            }
         default:
             {
                 internal_error("Unhandled function call kind", 0);
             }
     }
 
-    visit_function_call_form(node);
+    visit_function_call_form_template_id(node);
 
     file << "(";
 
-    // Now, the called entity have been visited and we are going to generate the arguments of the function call
-    state.visiting_called_entity_of_function_call = false;
+    state.visiting_called_entity_of_function_call = old_visiting_called_entity_of_function_call;
 
     codegen_function_call_arguments(arguments.begin(), arguments.end(), function_type, ignore_n_first_arguments);
-    
-    // Restore the old value (nested function calls: a<>)
-    state.visiting_called_entity_of_function_call = old_visiting_called_entity_of_function_call;
 
     file << ")";
 
     if (is_non_language_ref)
-    {
         file << "))";
-    }
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCall& node)
@@ -2366,9 +2516,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ReturnStatement& node)
 
     indent();
     file << "return ";
-
     walk(expression);
-
     file << ";\n";
 }
 
@@ -2651,13 +2799,18 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Symbol& node)
         else if (entry.is_function())
         {
             // If we are visiting the called entity of a function call, the template arguments
-            // (if any) will be added by 'visit_function_call_form' function
+            // (if any) will be added by 'visit_function_call_form_template_id' function
             file << entry.get_qualified_name(this->get_current_scope(),
                     /* without template id */ state.visiting_called_entity_of_function_call);
         }
-        else
+        else if (!entry.is_dependent_entity())
         {
             file << entry.get_qualified_name(this->get_current_scope());
+        }
+        else
+        {
+            ERROR_CONDITION(entry.get_value().is_null(), "A dependent entity must have a tree of its name!", 0);
+            walk(entry.get_value());
         }
     }
 
@@ -4275,169 +4428,136 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
         push_scope(symbol.get_scope());
 
         char equal_is_needed = 0;
-        char is_call_to_self_constructor = 0;
         C_LANGUAGE()
         {
             equal_is_needed = 1;
         }
 
-        CXX03_LANGUAGE()
-        {
-            // We only need = if the initializer is a structured one
-            // and this is C++03, in C++1x syntax { } is always allowed
-            equal_is_needed = 1;
+        // We try to always emit direct-initialization syntax
+        // except when infelicities in the syntax prevent us to do that
+        Nodecl::NodeclBase init = symbol.get_initialization();
 
-            if (nodecl_calls_to_constructor(symbol.get_initialization(), symbol.get_type()))
-            {
-                equal_is_needed = 0;
-                is_call_to_self_constructor = 1;
-
-                // But it might happen the user wrote
-                //
-                // A a = A(); which looks like A a(A()); and it will be parsed as a function declarator
-                Nodecl::List nodecl_args = symbol.get_initialization()
-                    .as<Nodecl::FunctionCall>()
-                    .get_arguments()
-                    .as<Nodecl::List>();
-
-                char zero_arg_types = 1;
-
-                for (Nodecl::List::iterator it = nodecl_args.begin();
-                        it != nodecl_args.end() && zero_arg_types;
-                        it++)
-                {
-                    Nodecl::NodeclBase current = *it;
-                    if (current.is<Nodecl::Conversion>())
-                        current = current.as<Nodecl::Conversion>().get_nest();
-
-                    if (!nodecl_is_zero_args_call_to_constructor(current)
-                            && !nodecl_is_zero_args_structured_value(current))
-                    {
-                        zero_arg_types = 0;
-                    }
-                }
-
-                // In this case, to avoid printing something like
-                //
-                // A a(A(), B(), C());
-                //
-                // where A, B and C are types
-                //
-                // we mandate an equal so it looks like
-                //
-                // A a = A(A(), B(), C());
-                if (nodecl_args.size() != 0
-                        && zero_arg_types)
-                {
-                    equal_is_needed = 1;
-                }
-            }
-        }
         if (is_definition)
         {
-            if (equal_is_needed)
+            C_LANGUAGE()
             {
-                Nodecl::NodeclBase init = symbol.get_initialization();
+                file << " = ";
 
-                //The equal will be inserted in the CxxEqualInitializer visitor
-                if (!init.is<Nodecl::CxxEqualInitializer>())
+                bool old = state.inside_structured_value;
+                if (init.is<Nodecl::StructuredValue>())
                 {
+                    state.inside_structured_value = true;
+                }
+                if (init.is<Nodecl::Comma>())
+                {
+                    file << "(";
+                }
+                walk(init);
+                if (init.is<Nodecl::Comma>())
+                {
+                    file << ")";
+                }
+                state.inside_structured_value = old;
+            }
+            CXX_LANGUAGE()
+            {
+                if (init.is<Nodecl::CxxEqualInitializer>()
+                        || init.is<Nodecl::CxxBracedInitializer>()
+                        || init.is<Nodecl::CxxParenthesizedInitializer>())
+                {
+                    // Dependent cases are always printed verbatim
+                    walk(init);
+                }
+                else if (IS_CXX03_LANGUAGE
+                        && symbol.get_type().is_aggregate()
+                        && init.is<Nodecl::StructuredValue>())
+                {
+                    // int a[] = { 1, 2, 3 };
+                    // struct foo { int x; int y; } a = {1, 2};
+                    //
+                    // Note that C++11 allows struct foo { int x; int y; } a{1,2};
                     file << " = ";
+
+                    bool old = state.inside_structured_value;
+                    state.inside_structured_value = true;
+                    walk(init);
+                    state.inside_structured_value = old;
                 }
-
-                if (is_call_to_self_constructor)
+                else if (symbol.get_type().is_array()
+                        && !init.is<Nodecl::StructuredValue>())
                 {
-                    // Ignore the top constructor call
-                    Nodecl::List nodecl_args = init
-                        .as<Nodecl::FunctionCall>()
-                        .get_arguments()
-                        .as<Nodecl::List>();
-
-                    if (!nodecl_args.empty())
-                    {
-                        walk_expression_list(nodecl_args);
-                    }
+                    // Only for char and wchar_t
+                    // const char c[] = "1234";
+                    file << " = ";
+                    walk(init);
                 }
-                else if (init.is<Nodecl::StructuredValue>())
+                else if (!symbol.get_type().is_array()
+                        && init.is<Nodecl::StructuredValue>())
                 {
-                    if (!symbol.get_type().is_aggregate()
-                            && init
-                            .as<Nodecl::StructuredValue>()
-                            .get_items()
-                            .as<Nodecl::List>()
-                            .size() == 1)
+                    // char c = { 'a' };
+                    // int x = { 1 };
+                    file << " = ";
+                    bool old = state.inside_structured_value;
+                    state.inside_structured_value = true;
+                    walk(init);
+                    state.inside_structured_value = old;
+                }
+                else if (symbol.is_member()
+                        && symbol.is_static()
+                        && state.in_member_declaration)
+                {
+                    // This is an in member declaration initialization
+                    file << " = ";
+                    walk(init);
+                }
+                else if (state.in_condition)
+                {
+                    // This is something like if (bool foo = expression)
+                    file << " = ";
+                    walk(init);
+                }
+                else
+                {
+                    file << "(";
+                    // A a; we cannot emmit it as A a(); since this would declare a function () returning A
+                    if (nodecl_calls_to_constructor(init, symbol.get_type()))
                     {
-                        // We can ignore '{' and '}'
-                        walk_expression_list(init
-                                .as<Nodecl::StructuredValue>()
-                                .get_items()
-                                .as<Nodecl::List>());
-                    }
-                    else if (symbol.get_type().is_aggregate())
-                    {
-                        char old_inside_struct = state.inside_structured_value;
-                        state.inside_structured_value = 1;
-
-                        walk(init);
-
-                        state.inside_structured_value = old_inside_struct;
+                        Nodecl::List constructor_args = init.as<Nodecl::FunctionCall>().get_arguments().as<Nodecl::List>();
+                        if (!constructor_args.empty());
+                        {
+                            for (Nodecl::List::iterator it = constructor_args.begin();
+                                    it != constructor_args.end();
+                                    it++)
+                            {
+                                if (it != constructor_args.begin())
+                                    file << ", ";
+                                Nodecl::NodeclBase current(*it);
+                                // Here we add extra parentheses lest the direct-initialization looked like
+                                // as a function declarator (faced with this ambiguity, C++ chooses the latter!)
+                                //
+                                // A x( (A()) ); cannot become A x( A() ); because it would declare 'x' as a
+                                // "function (pointer to function() returning A) returning A"
+                                // [extra blanks added for clarity in the example above]
+                                file << "(";
+                                walk(current);
+                                file << ")";
+                            }
+                        }
                     }
                     else
                     {
-                        // This initialization is an explicit type cast. For this reason,
-                        // we do not set the variable 'inside_structured_value' to true
+                        // This is crazy
+                        if (init.is<Nodecl::Comma>())
+                        {
+                            file << "(";
+                        }
                         walk(init);
+                        if (init.is<Nodecl::Comma>())
+                        {
+                            file << ")";
+                        }
                     }
-                }
-                else
-                {
-                    char top_is_comma = init.is<Nodecl::Comma>();
-
-                    if (top_is_comma)
-                    {
-                        file << "(";
-                    }
-
-                    bool is_non_language_ref = (is_non_language_reference_variable(symbol)
-                            && !symbol.get_type().references_to().is_array());
-
-                    if (is_non_language_ref)
-                    {
-                        file << "(&(";
-                    }
-                    walk(init);
-                    if (is_non_language_ref)
-                    {
-                        file << "))";
-                    }
-
-                    if (top_is_comma)
-                    {
-                        file << ")";
-                    }
-                }
-            }
-            else
-            {
-                if (is_call_to_self_constructor)
-                {
-                    // Do not print the top constructor call
-                    Nodecl::List nodecl_args = symbol
-                        .get_initialization()
-                        .as<Nodecl::FunctionCall>()
-                        .get_arguments()
-                        .as<Nodecl::List>();
-
-                    if (!nodecl_args.empty())
-                    {
-                        file << "(";
-                        walk_expression_list(nodecl_args);
-                        file << ")";
-                    }
-                }
-                else
-                {
-                    walk(symbol.get_initialization());
+                    file << ")";
                 }
             }
         }
@@ -4534,9 +4654,16 @@ void CxxBase::do_define_symbol(TL::Symbol symbol,
         // Template parameters are not to be defined, ever
         if (!symbol.is_template_parameter())
         {
+            std::string gcc_attributes;
+            if (symbol.has_gcc_attributes())
+            {
+                gcc_attributes = gcc_attributes_to_str(symbol) + " ";
+            }
+
             move_to_namespace_of_symbol(symbol);
             indent();
             file << "typedef "
+                << gcc_attributes
                 << this->get_declaration(symbol.get_type(),
                         symbol.get_scope(),
                         symbol.get_name())
@@ -5657,6 +5784,67 @@ void CxxBase::walk_expression_unpacked_list(Iterator begin, Iterator end)
     }
 }
 
+template < typename Node>
+node_t CxxBase::get_kind_of_operator_function_call(const Node & node)
+{
+    ERROR_CONDITION(!is_operator_function_call(node), "This function is not an operator\n", 0);
+
+    TL::Symbol called_sym = node.get_called().get_symbol();
+    std::string operator_name = called_sym.get_name().substr(std::string("operator ").size());
+
+    if (is_binary_infix_operator_function_call(node))
+    {
+        if (operator_name == "->*")      return NODECL_CXX_ARROW_PTR_MEMBER;
+        else if (operator_name == ".*")  return NODECL_CXX_DOT_PTR_MEMBER;
+        else if (operator_name == "*")   return NODECL_MUL;
+        else if (operator_name == "/")   return NODECL_DIV;
+        else if (operator_name == "%")   return NODECL_MOD;
+        else if (operator_name == "+")   return NODECL_ADD;
+        else if (operator_name == "-")   return NODECL_MINUS;
+        else if (operator_name == "<<")  return NODECL_SHL;
+        else if (operator_name == ">>")  return NODECL_SHR;
+        else if (operator_name == "<")   return NODECL_LOWER_THAN;
+        else if (operator_name == "<=")  return NODECL_LOWER_OR_EQUAL_THAN;
+        else if (operator_name == ">")   return NODECL_GREATER_THAN;
+        else if (operator_name == ">=")  return NODECL_GREATER_OR_EQUAL_THAN;
+        else if (operator_name == "==")  return NODECL_EQUAL;
+        else if (operator_name == "!=")  return NODECL_DIFFERENT;
+        else if (operator_name == "&")   return NODECL_BITWISE_AND;
+        else if (operator_name == "^")   return NODECL_BITWISE_XOR;
+        else if (operator_name == "|")   return NODECL_BITWISE_OR;
+        else if (operator_name == "&&")  return NODECL_LOGICAL_AND;
+        else if (operator_name == "||")  return NODECL_LOGICAL_OR;
+        else if (operator_name == "?")   return NODECL_CONDITIONAL_EXPRESSION;
+        else if (operator_name == "=")   return NODECL_ASSIGNMENT;
+        else if (operator_name == "*=")  return NODECL_MUL_ASSIGNMENT;
+        else if (operator_name == "/=")  return NODECL_DIV_ASSIGNMENT;
+        else if (operator_name == "%=")  return NODECL_MOD_ASSIGNMENT;
+        else if (operator_name == "+=")  return NODECL_ADD_ASSIGNMENT;
+        else if (operator_name == "-=")  return NODECL_MINUS_ASSIGNMENT;
+        else if (operator_name == "<<=") return NODECL_SHL_ASSIGNMENT;
+        else if (operator_name == ">>=") return NODECL_SHL_ASSIGNMENT;
+        else if (operator_name == "&=")  return NODECL_BITWISE_AND;
+        else if (operator_name == "|=")  return NODECL_BITWISE_OR;
+        else if (operator_name == "^=")  return NODECL_BITWISE_XOR;
+        else if (operator_name == ",")   return NODECL_COMMA;
+    }
+    else
+    {
+        if (operator_name == "&")      return NODECL_REFERENCE;
+        else if (operator_name == "*") return NODECL_DERREFERENCE;
+        else if (operator_name == "+") return NODECL_PLUS;
+        else if (operator_name == "-") return NODECL_NEG;
+        else if (operator_name == "!") return NODECL_LOGICAL_NOT;
+        else if (operator_name == "~") return NODECL_BITWISE_NOT;
+        else if (operator_name == "++" && is_unary_prefix_operator_function_call(node))  return NODECL_PREINCREMENT;
+        else if (operator_name == "++" && is_unary_postfix_operator_function_call(node)) return NODECL_POSTINCREMENT;
+        else if (operator_name == "--" && is_unary_prefix_operator_function_call(node))  return NODECL_PREDECREMENT;
+        else if (operator_name == "--" && is_unary_postfix_operator_function_call(node)) return NODECL_POSTDECREMENT;
+    }
+    internal_error("function operator '%s' is not supported yet\n", called_sym.get_name().c_str());
+
+}
+
 int CxxBase::get_rank_kind(node_t n, const std::string& text)
 {
     switch (n)
@@ -5769,8 +5957,9 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
         case NODECL_CONDITIONAL_EXPRESSION:
             return -16;
         case NODECL_ASSIGNMENT:
-        case NODECL_MUL_ASSIGNMENT :
+        case NODECL_MUL_ASSIGNMENT:
         case NODECL_DIV_ASSIGNMENT:
+        case NODECL_MOD_ASSIGNMENT:
         case NODECL_ADD_ASSIGNMENT:
         case NODECL_MINUS_ASSIGNMENT:
         case NODECL_SHL_ASSIGNMENT:
@@ -5799,9 +5988,25 @@ int CxxBase::get_rank(const Nodecl::NodeclBase &n)
     }
     else
     {
-        return get_rank_kind(n.get_kind(), n.get_text());
+        node_t kind;
+        if (n.is<Nodecl::FunctionCall>()
+                && is_operator_function_call(n.as<Nodecl::FunctionCall>()))
+        {
+            kind = get_kind_of_operator_function_call(n.as<Nodecl::FunctionCall>());
+        }
+        else if (n.is<Nodecl::VirtualFunctionCall>()
+                && is_operator_function_call(n.as<Nodecl::VirtualFunctionCall>()))
+        {
+            kind = get_kind_of_operator_function_call(n.as<Nodecl::VirtualFunctionCall>());
+        }
+        else
+        {
+            kind = n.get_kind();
+        }
+        return get_rank_kind(kind, n.get_text());
     }
 }
+
 
 static char is_bitwise_bin_operator(node_t n)
 {

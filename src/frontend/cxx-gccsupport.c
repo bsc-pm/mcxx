@@ -128,12 +128,15 @@ static void gather_one_gcc_attribute(const char* attribute_name,
         gather_decl_spec_t* gather_info,
         decl_context_t decl_context)
 {
+    char do_not_keep_attribute = 0;
+
     nodecl_t nodecl_expression_list = nodecl_null();
     /*
      * Vector support
      */
     if (strcmp(attribute_name, "vector_size") == 0)
     {
+        do_not_keep_attribute = 1;
         if (ASTSon0(expression_list) != NULL)
         {
             running_error("%s: error: attribute 'vector_size' only allows one argument",
@@ -168,6 +171,7 @@ static void gather_one_gcc_attribute(const char* attribute_name,
     }
     else if (strcmp(attribute_name, "generic_vector") == 0)
     {
+        do_not_keep_attribute = 1;
         if (expression_list != NULL)
         {
             running_error("%s: error: attribute 'generic_vector' does not allow arguments",
@@ -179,12 +183,14 @@ static void gather_one_gcc_attribute(const char* attribute_name,
     }
     else if (strcmp(attribute_name, "spu_vector") == 0)
     {
+        do_not_keep_attribute = 1;
         // Hardcoded to what a SPU can do
         gather_info->is_vector = 1;
         gather_info->vector_size = 16;
     }
     else if (strcmp(attribute_name, "altivec") == 0)
     {
+        do_not_keep_attribute = 1;
         AST argument = advance_expression_nest(ASTSon1(expression_list));
         if (ASTType(argument) == AST_SYMBOL)
         {
@@ -204,6 +210,7 @@ static void gather_one_gcc_attribute(const char* attribute_name,
     else if (strcmp(attribute_name, "mode") == 0
             || strcmp(attribute_name, "__mode__") == 0)
     {
+        do_not_keep_attribute = 1;
         if (ASTSon0(expression_list) != NULL)
         {
             running_error("%s: error: attribute 'mode' only allows one argument",
@@ -477,15 +484,18 @@ static void gather_one_gcc_attribute(const char* attribute_name,
     }
 
     // Save it in the gather_info structure
-    if (gather_info->num_gcc_attributes == MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL)
+    if (!do_not_keep_attribute)
     {
-        running_error("Too many gcc attributes, maximum supported is %d\n", MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL);
-    }
-    gather_gcc_attribute_t* current_gcc_attribute = &(gather_info->gcc_attributes[gather_info->num_gcc_attributes]);
-    gather_info->num_gcc_attributes++;
+        if (gather_info->num_gcc_attributes == MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL)
+        {
+            running_error("Too many gcc attributes, maximum supported is %d\n", MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL);
+        }
+        gather_gcc_attribute_t* current_gcc_attribute = &(gather_info->gcc_attributes[gather_info->num_gcc_attributes]);
+        gather_info->num_gcc_attributes++;
 
-    current_gcc_attribute->attribute_name = uniquestr(attribute_name);
-    current_gcc_attribute->expression_list = nodecl_expression_list;
+        current_gcc_attribute->attribute_name = uniquestr(attribute_name);
+        current_gcc_attribute->expression_list = nodecl_expression_list;
+    }
 }
 
 void gather_gcc_attribute(AST attribute, 

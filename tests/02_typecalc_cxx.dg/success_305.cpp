@@ -31,21 +31,21 @@
 test_generator=config/mercurium
 </testinfo>
 */
-template <typename T>
+
 struct A
 {
-    T x;
-
-    void g(T*);
-
-    void f()
-    {
-        g(&x);
-    }
+    A() {}
+    A(int) {}
+    operator int();
 };
 
-void h()
-{
-    A<int> a;
-    a.f();
+A f()
+{ 
+    A a;
+    return a;
+    return 2;
+    return A();
+    return A(2);
+    return A(A(2));
+    return A(A(A(2)));
 }

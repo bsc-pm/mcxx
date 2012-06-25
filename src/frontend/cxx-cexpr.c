@@ -36,6 +36,7 @@
 #include <limits.h>
 #include <float.h>
 #include <math.h>
+#include <complex.h>
 #include <fenv.h>
 #ifdef HAVE_QUADMATH_H
 #include <quadmath.h>
@@ -368,7 +369,7 @@ const_value_t* const_value_cast_to_signed_int_value(const_value_t* val)
     return const_value_cast_to_bytes(val, type_get_size(get_signed_int_type()), 1);
 }
 
-const_value_t* const_value_round_to_zero_bytes(const_value_t* val, int num_bytes)
+const_value_t* const_value_round(const_value_t* val, int num_bytes, int rounding_mode)
 {
     switch (val->kind)
     {
@@ -379,7 +380,7 @@ const_value_t* const_value_round_to_zero_bytes(const_value_t* val, int num_bytes
         case CVK_FLOAT:
             {
                 int old_round_mode = fegetround();
-                fesetround(FE_TOWARDZERO);
+                fesetround(rounding_mode);
 
                 long long int l = llrintf(val->value.f);
 
@@ -390,7 +391,7 @@ const_value_t* const_value_round_to_zero_bytes(const_value_t* val, int num_bytes
         case CVK_DOUBLE:
             {
                 int old_round_mode = fegetround();
-                fesetround(FE_TOWARDZERO);
+                fesetround(rounding_mode);
 
                 long long int l = llrint(val->value.d);
 
@@ -401,7 +402,7 @@ const_value_t* const_value_round_to_zero_bytes(const_value_t* val, int num_bytes
         case CVK_LONG_DOUBLE:
             {
                 int old_round_mode = fegetround();
-                fesetround(FE_TOWARDZERO);
+                fesetround(rounding_mode);
 
                 long long int l = llrintl(val->value.ld);
 
@@ -409,12 +410,30 @@ const_value_t* const_value_round_to_zero_bytes(const_value_t* val, int num_bytes
 
                 return const_value_get_integer(l, num_bytes, 1);
             }
+#ifdef HAVE_QUADMATH_H
+            // Not implemented yet
+#endif
         OTHER_KIND;
     }
     return NULL;
 }
 
+const_value_t* const_value_round_to_zero_bytes(const_value_t* val, int num_bytes)
+{
+    return const_value_round(val, num_bytes, FE_TOWARDZERO);
+}
+
 const_value_t* const_value_round_to_zero(const_value_t* val)
+{
+    return const_value_round_to_zero_bytes(val, type_get_size(get_signed_int_type()));
+}
+
+const_value_t* const_value_round_to_nearest_bytes(const_value_t* val, int num_bytes)
+{
+    return const_value_round(val, num_bytes, FE_TONEAREST);
+}
+
+const_value_t* const_value_round_to_nearest(const_value_t* val)
 {
     return const_value_round_to_zero_bytes(val, type_get_size(get_signed_int_type()));
 }
@@ -1155,6 +1174,32 @@ __float128 const_value_cast_to_float128(const_value_t* v)
 }
 #endif
 
+_Complex float const_value_cast_to_complex_float(const_value_t* val)
+{
+    return const_value_cast_to_float(const_value_complex_get_real_part(val)) + 
+        const_value_cast_to_float(const_value_complex_get_imag_part(val)) * _Complex_I;
+}
+
+_Complex double const_value_cast_to_complex_double(const_value_t* val)
+{
+    return const_value_cast_to_double(const_value_complex_get_real_part(val)) + 
+        const_value_cast_to_double(const_value_complex_get_imag_part(val)) * _Complex_I;
+}
+
+_Complex long double const_value_cast_to_complex_long_double(const_value_t* val)
+{
+    return const_value_cast_to_long_double(const_value_complex_get_real_part(val)) + 
+        const_value_cast_to_long_double(const_value_complex_get_imag_part(val)) * _Complex_I;
+}
+
+#ifdef HAVE_QUADMATH_H
+__complex128 const_value_cast_to_complex_float128(const_value_t* val)
+{
+    return const_value_cast_to_float128(const_value_complex_get_real_part(val)) + 
+        const_value_cast_to_float128(const_value_complex_get_imag_part(val)) * _Complex_I;
+}
+#endif
+
 const_value_t* const_value_cast_to_float_value(const_value_t* val)
 {
     if (IS_MULTIVALUE(val->kind))
@@ -1390,6 +1435,36 @@ const_value_t* const_value_make_complex(const_value_t* real_part, const_value_t*
     result->kind = CVK_COMPLEX;
     return result;
 }
+
+const_value_t* const_value_get_complex_float(_Complex float f)
+{
+    return const_value_make_complex(
+            const_value_get_float(__real__ f),
+            const_value_get_float(__imag__ f));
+}
+
+const_value_t* const_value_get_complex_double(_Complex double d)
+{
+    return const_value_make_complex(
+            const_value_get_double(__real__ d),
+            const_value_get_double(__imag__ d));
+}
+
+const_value_t* const_value_get_complex_long_double(_Complex long double ld)
+{
+    return const_value_make_complex(
+            const_value_get_long_double(__real__ ld),
+            const_value_get_long_double(__imag__ ld));
+}
+
+#ifdef HAVE_QUADMATH_H
+const_value_t* const_value_get_complex_float128(__complex128 f128)
+{
+    return const_value_make_complex(
+            const_value_get_float128(__real__ f128),
+            const_value_get_float128(__imag__ f128));
+}
+#endif
 
 const_value_t* const_value_make_range(const_value_t* lower, const_value_t* upper, const_value_t* stride)
 {
@@ -2837,3 +2912,35 @@ const_value_t* const_value_cast_as_another(const_value_t* val, const_value_t* mo
     return NULL;
 }
 
+const_value_t* const_value_square(const_value_t* val)
+{
+    const_value_t* result = const_value_mul(val, val);
+
+    return result;
+}
+
+const_value_t* const_value_sqrt(const_value_t* val)
+{
+    if (const_value_is_float(val))
+    {
+        return const_value_get_float(sqrtf(val->value.f));
+    }
+    else if (const_value_is_double(val))
+    {
+        return const_value_get_double(sqrt(val->value.d));
+    }
+    else if (const_value_is_long_double(val))
+    {
+        return const_value_get_long_double(sqrtl(val->value.ld));
+    }
+#ifdef HAVE_QUADMATH_H
+    else if (const_value_is_float128(val))
+    {
+        return const_value_get_float128(sqrtq(val->value.ld));
+    }
+#endif
+    else
+    {
+        internal_error("Not implemented yet", 0);
+    }
+}

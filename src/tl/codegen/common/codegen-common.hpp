@@ -42,7 +42,7 @@ namespace Codegen
         CODEGEN_STATUS_DEFINED = 2
     };
 
-    class CodegenVisitor : public Nodecl::NodeclVisitor<void>
+    class CodegenVisitor : public Nodecl::ModularVisitor<void>
     {
         private:
             bool _is_file_output;
@@ -62,6 +62,14 @@ namespace Codegen
 
             virtual void push_scope(TL::Scope sc) { }
             virtual void pop_scope() { }
+    };
+
+    class CodegenModuleVisitor : public Nodecl::ModuleVisitor<void>
+    {
+        CodegenModuleVisitor(CodegenVisitor* codegen_visitor)
+            : Nodecl::ModuleVisitor<void>(codegen_visitor)
+        {
+        }
     };
 }
 

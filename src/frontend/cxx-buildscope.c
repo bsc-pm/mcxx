@@ -2510,7 +2510,9 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
         entry->entity_specs.is_friend = 1;
 
         scope_entry_t* alias_to_entry = class_entry;
-        if (gather_info->is_template || ASTType(id_expression) == AST_TEMPLATE_ID)
+        if (gather_info->is_template
+                || ASTType(id_expression) == AST_TEMPLATE_ID
+                || ASTType(id_expression) == AST_QUALIFIED_ID)
         {
             // We create a fake symbol with the right context and an alias to
             // the real friend (entry)
@@ -7828,6 +7830,15 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
             copy_related_symbols(entry, named_type);
         }
     }
+
+    // Copy gcc attributes
+    entry->entity_specs.num_gcc_attributes = gather_info->num_gcc_attributes;
+    entry->entity_specs.gcc_attributes = counted_calloc(
+            entry->entity_specs.num_gcc_attributes,
+            sizeof(*entry->entity_specs.gcc_attributes), &_bytes_used_buildscope);
+    memcpy(entry->entity_specs.gcc_attributes, 
+            gather_info->gcc_attributes, 
+            entry->entity_specs.num_gcc_attributes * sizeof(*entry->entity_specs.gcc_attributes));
 
     entry->kind = SK_TYPEDEF;
     entry->type_information = declarator_type;

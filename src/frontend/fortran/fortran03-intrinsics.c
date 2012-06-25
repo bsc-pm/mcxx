@@ -56,6 +56,9 @@ enum intrinsic_kind_tag
     INTRINSIC_KIND_MIXED,
 } intrinsic_kind_t;
 
+// We do not use the I in <complex.h>
+#undef I
+
 #define A  INTRINSIC_KIND_ATOMIC_SUBROUTINE
 #define E  INTRINSIC_KIND_ELEMENTAL_FUNCTION
 #define ES INTRINSIC_KIND_ELEMENTAL_SUBROUTINE
@@ -88,24 +91,24 @@ enum intrinsic_kind_tag
  */
 
 #define FORTRAN_INTRINSIC_GENERIC_LIST \
-    FORTRAN_GENERIC_INTRINSIC(abs, "A", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(abs, "A", E, simplify_abs) \
 FORTRAN_GENERIC_INTRINSIC(achar, "I,?KIND", E, simplify_achar) \
-FORTRAN_GENERIC_INTRINSIC(acos, "X", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(acosh, "X", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(acos, "X", E, simplify_acos) \
+FORTRAN_GENERIC_INTRINSIC(acosh, "X", E, simplify_acosh) \
 FORTRAN_GENERIC_INTRINSIC(adjustl, "STRING", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(adjustr, "STRING", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(aimag, "Z", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(aint, "A,?KIND", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(aimag, "Z", E, simplify_aimag) \
+FORTRAN_GENERIC_INTRINSIC(aint, "A,?KIND", E, simplify_aint) \
 FORTRAN_GENERIC_INTRINSIC(all, "MASK,?DIM", T, NULL) \
 FORTRAN_GENERIC_INTRINSIC_2(allocated, "ARRAY", I, NULL, "SCALAR", I, NULL) \
-FORTRAN_GENERIC_INTRINSIC(anint, "A,?KIND", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(anint, "A,?KIND", E, simplify_anint) \
 FORTRAN_GENERIC_INTRINSIC(any, "MASK,?DIM", T, NULL) \
-FORTRAN_GENERIC_INTRINSIC(asin, "X", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(asinh, "X", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(asin, "X", E, simplify_asin) \
+FORTRAN_GENERIC_INTRINSIC(asinh, "X", E, simplify_asinh) \
 FORTRAN_GENERIC_INTRINSIC(associated, "POINTER,?TARGET", I, NULL) \
-FORTRAN_GENERIC_INTRINSIC_2(atan, "X", E, NULL, "Y,X", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC_2(atan, "X", E, simplify_atan, "Y,X", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(atan2, "Y,X", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(atanh, "X", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(atanh, "X", E, simplify_atanh) \
 FORTRAN_GENERIC_INTRINSIC(atomic_define, "ATOM,VALUE", A, NULL) \
 FORTRAN_GENERIC_INTRINSIC(atomic_ref, "VALUE,ATOM", A, NULL) \
 FORTRAN_GENERIC_INTRINSIC(bessel_j0, "X", E, NULL) \
@@ -126,8 +129,8 @@ FORTRAN_GENERIC_INTRINSIC(cmplx, "X,?Y,?KIND", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(dcmplx, "X,?Y", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(command_argument_count, "", T, NULL) \
 FORTRAN_GENERIC_INTRINSIC(conjg, "Z", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(cos, "X", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(cosh, "X", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(cos, "X", E, simplify_cos) \
+FORTRAN_GENERIC_INTRINSIC(cosh, "X", E, simplify_cosh) \
 FORTRAN_GENERIC_INTRINSIC(count, "MASK,?DIM,?KIND", T, NULL) \
 FORTRAN_GENERIC_INTRINSIC(cpu_time, "TIME", S, NULL) \
 FORTRAN_GENERIC_INTRINSIC(cshift, "ARRAY,SHIFT,?DIM", T, NULL) \
@@ -242,18 +245,18 @@ FORTRAN_GENERIC_INTRINSIC(shifta, "I,SHIFT", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(shiftl, "I,SHIFT", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(shiftr, "I,SHIFT", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(sign, "A,B", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(sin, "X", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(sinh, "X", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(sin, "X", E, simplify_sin) \
+FORTRAN_GENERIC_INTRINSIC(sinh, "X", E, simplify_sinh) \
 FORTRAN_GENERIC_INTRINSIC(size, "ARRAY,?DIM,?KIND", I, simplify_size) \
 FORTRAN_GENERIC_INTRINSIC(sizeof, NULL, I, NULL) \
 FORTRAN_GENERIC_INTRINSIC(spacing, "X", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(spread, "SOURCE,DIM,NCOPIES", T, NULL) \
-FORTRAN_GENERIC_INTRINSIC(sqrt, "X", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(sqrt, "X", E, simplify_sqrt) \
 FORTRAN_GENERIC_INTRINSIC(storage_size, "A,?KIND", I, NULL) \
 FORTRAN_GENERIC_INTRINSIC_2(sum, "ARRAY,DIM,?MASK", T, NULL, "ARRAY,?MASK", T, NULL) \
 FORTRAN_GENERIC_INTRINSIC(system_clock, "?COUNT,?COUNT_RATE,?COUNT_MAX", S, NULL) \
-FORTRAN_GENERIC_INTRINSIC(tan, "X", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(tanh, "X", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(tan, "X", E, simplify_tan) \
+FORTRAN_GENERIC_INTRINSIC(tanh, "X", E, simplify_tanh) \
 FORTRAN_GENERIC_INTRINSIC_2(this_image, "", T, NULL, "COARRAY,?DIM", T, NULL) \
 FORTRAN_GENERIC_INTRINSIC(tiny, "X", I, simplify_tiny) \
 FORTRAN_GENERIC_INTRINSIC(trailz, "I", T, NULL) \
@@ -538,7 +541,12 @@ static char generic_keyword_check(
         }
         else
         {
-            ERROR_CONDITION(seen_keywords, "Invalid argument list", 0);
+            if (seen_keywords)
+            {    
+                ok = 0;
+                break;
+            }
+
             if (position > current_variant.num_keywords)
             {
                 ok = 0;
@@ -616,6 +624,149 @@ static char generic_keyword_check(
     if (ok)
     {
         *num_arguments = current_variant.num_keywords;
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "INTRINSICS: Invocation to intrinsic '%s' seems fine\n",
+                    symbol->symbol_name);
+        }
+    }
+    else
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "INTRINSICS: Invocation to intrinsic '%s' has failed\n",
+                    symbol->symbol_name);
+        }
+    }
+
+    return ok;
+}
+
+static char specific_keyword_check(
+        scope_entry_t* symbol,
+        int num_arguments,
+        const char** actual_keywords,
+        nodecl_t *argument_expressions,
+        nodecl_t* reordered_exprs)
+{
+    char ok = 1;
+    int i;
+    int position = 0;
+    char seen_keywords = 0;
+    for (i = 0; i < num_arguments && ok; i++)
+    {
+        const char* keyword = actual_keywords[i];
+        nodecl_t expr = argument_expressions[i];
+
+        if (keyword != NULL)
+        {
+            char found = 0;
+            int j;
+            for (j = 0; j < symbol->entity_specs.num_related_symbols && !found; j++)
+            {
+                if (strcasecmp(symbol->entity_specs.related_symbols[j]->symbol_name, keyword) == 0)
+                {
+                    position = j;
+                    found = 1;
+                }
+            }
+
+            if (!found)
+            {
+                // fprintf(stderr, "%s: warning: no keyword '%s' for intrinsic '%s'\n",
+                //         ast_location(keyword),
+                //         ASTText(keyword),
+                //         intrinsic_info->intrinsic_name);
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "INTRINSICS: Intrinsic '%s' does not have any keyword '%s'\n",
+                            symbol->symbol_name,
+                            keyword);
+                }
+                ok = 0;
+                break;
+            }
+            seen_keywords = 1;
+        }
+        else
+        {
+            if (seen_keywords)
+            {    
+                ok = 0;
+                break;
+            }
+
+            if (position > symbol->entity_specs.num_related_symbols)
+            {
+                ok = 0;
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "INTRINSICS: Too many parameters (%d) for intrinsic '%s' (maximum is %d)\n",
+                            position,
+                            symbol->symbol_name,
+                            symbol->entity_specs.num_related_symbols);
+                }
+                break;
+            }
+        }
+        if (nodecl_is_null(reordered_exprs[position]))
+        {
+            if (!nodecl_is_null(expr))
+            {
+                if (nodecl_is_err_expr(expr))
+                {
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "INTRINSICS: Dummy argument '%s' of intrinsic '%s' is associated to an invalid expression\n",
+                                symbol->entity_specs.related_symbols[position]->symbol_name,
+                                symbol->symbol_name);
+                    }
+                    ok = 0;
+                    break;
+                }
+                reordered_exprs[position] = expr;
+            }
+        }
+        else
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "INTRINSICS: Dummy argument '%s' (position %d) of intrinsic '%s' already got an actual argument\n",
+                        symbol->entity_specs.related_symbols[position]->symbol_name,
+                        position,
+                        symbol->symbol_name);
+            }
+            ok = 0;
+            break;
+        }
+
+        position++;
+    }
+
+    // Now check every nonoptional dummy argument has a real argument
+    int j;
+    for (j = 0; j < symbol->entity_specs.num_related_symbols && ok; j++)
+    {
+        if (nodecl_is_null(reordered_exprs[j])
+                && !symbol->entity_specs.related_symbols[j]->entity_specs.is_optional)
+        {
+            // fprintf(stderr, "%s: warning: no real argument given for dummy argument '%s' of intrinsic '%s'\n",
+            //         ast_location(argument),
+            //         current_variant->keyword_names[j],
+            //         intrinsic_info->intrinsic_name);
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "INTRINSICS: No real argument given for nonoptional dummy argument '%s' of intrinsic '%s'\n",
+                        symbol->entity_specs.related_symbols[position]->symbol_name,
+                        symbol->symbol_name);
+            }
+            ok = 0;
+            break;
+        }
+    }
+
+    if (ok)
+    {
         DEBUG_CODE()
         {
             fprintf(stderr, "INTRINSICS: Invocation to intrinsic '%s' seems fine\n",
@@ -911,11 +1062,10 @@ static scope_entry_t* register_specific_intrinsic_name(
         t6 != NULL ? nodecl_make_type(t6, NULL, 0) : nodecl_null() 
     };
 
-    nodecl_t nodecl_simplified = nodecl_null();
-    scope_entry_t* specific_entry = fortran_intrinsic_solve_call(generic_entry, 
+    scope_entry_t* specific_entry = fortran_solve_generic_intrinsic_call(generic_entry, 
             argument_keywords, 
             nodecl_actual_arguments,
-            num_args, &nodecl_simplified);
+            num_args);
     
     ERROR_CONDITION(specific_entry == NULL, "No specific symbol is possible when registering specific intrinsic name '%s' of generic intrinsic '%s'\n", 
             specific_name,
@@ -958,6 +1108,8 @@ static scope_entry_t* register_specific_intrinsic_name(
                 generic_entry->entity_specs.is_pure,
                 /* is_transformational */ 0,
                 /* is_inquiry */ 0);
+
+        new_specific_entry->entity_specs.simplify_function = generic_entry->entity_specs.simplify_function;
 
         // Add the keywords that are non null
         for (i = 0; i < MAX_SPECIFIC_PARAMETERS; i++)
@@ -5066,15 +5218,11 @@ static void update_keywords_of_intrinsic(scope_entry_t* entry, const char* keywo
     }
 }
 
-scope_entry_t* fortran_intrinsic_solve_call(scope_entry_t* symbol, 
+scope_entry_t* fortran_solve_generic_intrinsic_call(scope_entry_t* symbol, 
         const char** actual_arguments_keywords, 
         nodecl_t* nodecl_actual_arguments,
-        int num_actual_arguments,
-        nodecl_t* nodecl_simplified)
+        int num_actual_arguments)
 {
-    if (nodecl_simplified != NULL)
-        *nodecl_simplified = nodecl_null();
-
     computed_function_type_t fun = computed_function_type_get_computing_function(symbol->type_information);
 
     scope_entry_t* entry = NULL;
@@ -5102,25 +5250,10 @@ scope_entry_t* fortran_intrinsic_solve_call(scope_entry_t* symbol,
 
             if (entry != NULL)
             {
-                // Update the keywords now
+                // Update the keywords
                 update_keywords_of_intrinsic(entry, current_keyword_set[i]);
-
-                if (nodecl_simplified != NULL
-                        && symbol->entity_specs.simplify_function != NULL)
-                {
-                    nodecl_t nodecl_arguments[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
-
-                    int j;
-                    for (j = 0; j < num_actual_arguments; j++)
-                    {
-                        if (!nodecl_is_null(reordered_exprs[j]))
-                            nodecl_arguments[j] = reordered_exprs[j];
-                        else
-                            nodecl_arguments[j] = nodecl_null();
-                    }
-
-                    *nodecl_simplified = (symbol->entity_specs.simplify_function)(num_actual_arguments, nodecl_arguments);
-                }
+                // Set the simplify function
+                entry->entity_specs.simplify_function = symbol->entity_specs.simplify_function;
             }
 
             return entry;
@@ -5128,4 +5261,36 @@ scope_entry_t* fortran_intrinsic_solve_call(scope_entry_t* symbol,
     }
 
     return NULL;
+}
+
+void fortran_simplify_specific_intrinsic_call(scope_entry_t* symbol,
+        const char** actual_arguments_keywords,
+        nodecl_t* nodecl_actual_arguments,
+        int num_actual_arguments,
+        nodecl_t* nodecl_simplified)
+{
+    nodecl_t reordered_exprs[MCXX_MAX_FUNCTION_CALL_ARGUMENTS] = { nodecl_null() };
+
+    if (specific_keyword_check(symbol,
+                num_actual_arguments,
+                actual_arguments_keywords,
+                nodecl_actual_arguments,
+                reordered_exprs))
+    {
+        if (symbol->entity_specs.simplify_function != NULL)
+        {
+            nodecl_t nodecl_arguments[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
+
+            int j;
+            for (j = 0; j < num_actual_arguments; j++)
+            {
+                if (!nodecl_is_null(reordered_exprs[j]))
+                    nodecl_arguments[j] = reordered_exprs[j];
+                else
+                    nodecl_arguments[j] = nodecl_null();
+            }
+
+            *nodecl_simplified = (symbol->entity_specs.simplify_function)(num_actual_arguments, nodecl_arguments);
+        }
+    }
 }

@@ -31,21 +31,27 @@
 test_generator=config/mercurium
 </testinfo>
 */
-template <typename T>
-struct A
+
+struct B
+{};
+
+namespace N
 {
-    T x;
+    template <int _T>
+        class C 
+        {
+        };
 
-    void g(T*);
+    template < >
+        class C<1> : B
+        {
+            
+            typedef int T;
+            T n;
+            int foo()
+            {
+                return (*this).::N::C<1>::n;
+            }
 
-    void f()
-    {
-        g(&x);
-    }
-};
-
-void h()
-{
-    A<int> a;
-    a.f();
+        };
 }
