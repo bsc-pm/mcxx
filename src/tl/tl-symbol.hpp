@@ -96,6 +96,10 @@ namespace TL
 
             //! Gets the type related to this symbol
             Type get_type() const;
+
+            //! Gets the user defined type related to this symbol
+            Type get_user_defined_type();
+
             //! Gets the unqualified name of the symbol
             std::string get_name() const;
 

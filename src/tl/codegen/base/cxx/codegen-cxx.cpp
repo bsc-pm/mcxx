@@ -728,8 +728,6 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxEqualInitializer& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxMemberInit& node)
 {
-    TL::Symbol function = this->get_current_scope().get_decl_context().current_scope->related_entry;
-
     walk(node.get_name());
     walk(node.get_initializer());
 }
@@ -2288,10 +2286,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::MemberInit& node)
 {
     TL::Symbol entry = node.get_symbol();
     Nodecl::NodeclBase init_expr = node.get_init_expr();
-
     file << entry.get_name() << "(";
 
-    if (nodecl_calls_to_constructor(init_expr, entry.get_type()))
+    if (nodecl_calls_to_constructor(init_expr, entry.get_user_defined_type()))
     {
         // Ignore top level constructor
         walk_expression_list(init_expr.as<Nodecl::FunctionCall>().get_arguments().as<Nodecl::List>());

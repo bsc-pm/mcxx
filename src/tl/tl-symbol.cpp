@@ -66,6 +66,11 @@ namespace TL
         return result;
     }
 
+    Type Symbol::get_user_defined_type()
+    {
+        return ::get_user_defined_type(_symbol);
+    }
+
     std::string Symbol::get_name() const
     {
         return (_symbol->symbol_name != NULL) ? 
