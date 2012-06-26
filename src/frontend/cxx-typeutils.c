@@ -7057,11 +7057,6 @@ static const char* get_type_name_string(decl_context_t decl_context,
         const char** parameter_attributes,
         char is_parameter);
 
-static const char* get_simple_type_name_string(decl_context_t decl_context, 
-        type_t* type_info,
-        print_symbol_callback_t print_symbol_fun,
-        void* print_symbol_data);
-
 static const char* get_declaration_string_internal_impl(type_t* type_info, 
         decl_context_t decl_context,
         const char* symbol_name, const char* initializer, 
@@ -7113,8 +7108,6 @@ static const char* get_declaration_string_internal_impl(type_t* type_info,
 
     return result;
 }
-
-static const char* get_simple_type_name_string_internal_common(scope_entry_t* entry, decl_context_t decl_context, void*);
 
 // Returns a declaration string given a type, a symbol name, an optional initializer
 // and a semicolon
