@@ -644,7 +644,7 @@ static char generic_keyword_check(
 
 static char specific_keyword_check(
         scope_entry_t* symbol,
-        int num_arguments,
+        int *num_arguments,
         const char** actual_keywords,
         nodecl_t *argument_expressions,
         nodecl_t* reordered_exprs)
@@ -653,7 +653,7 @@ static char specific_keyword_check(
     int i;
     int position = 0;
     char seen_keywords = 0;
-    for (i = 0; i < num_arguments && ok; i++)
+    for (i = 0; i < (*num_arguments) && ok; i++)
     {
         const char* keyword = actual_keywords[i];
         nodecl_t expr = argument_expressions[i];
@@ -767,6 +767,7 @@ static char specific_keyword_check(
 
     if (ok)
     {
+        *num_arguments = symbol->entity_specs.num_related_symbols;
         DEBUG_CODE()
         {
             fprintf(stderr, "INTRINSICS: Invocation to intrinsic '%s' seems fine\n",
@@ -5192,29 +5193,60 @@ scope_entry_t* compute_intrinsic_etime(scope_entry_t* symbol UNUSED_PARAMETER,
     return NULL;
 }
 
-static void update_keywords_of_intrinsic(scope_entry_t* entry, const char* keywords)
+static void update_keywords_of_intrinsic(scope_entry_t* entry, const char* keywords, int num_actual_arguments)
 {
     intrinsic_variant_info_t current_variant = get_variant(keywords);
 
-    if (entry->entity_specs.num_related_symbols != 0
-            || current_variant.num_keywords == 0)
-        return;
-
-    int i;
-    for (i = 0; i < current_variant.num_keywords; i++)
+    if (entry->entity_specs.related_symbols != 0)
     {
-        scope_entry_t* new_keyword_sym = calloc(1, sizeof(*new_keyword_sym));
-        new_keyword_sym->kind = SK_VARIABLE;
-        new_keyword_sym->symbol_name = current_variant.keyword_names[i];
-        new_keyword_sym->decl_context = entry->decl_context;
-        new_keyword_sym->type_information = function_type_get_parameter_type_num(entry->type_information, i);
+        // Already updated
+        return;
+    }
 
-        new_keyword_sym->entity_specs.is_parameter = 1;
-        new_keyword_sym->entity_specs.is_optional = current_variant.is_optional[i];
+    if (current_variant.num_keywords == 0)
+    {
+        // No arguments at all
+    }
+    else if (current_variant.num_keywords < 0)
+    {
+        // Unbounded arguments (like MAX and MIN)
+        int i;
+        for (i = 0; i < num_actual_arguments; i++)
+        {
+            scope_entry_t* new_keyword_sym = calloc(1, sizeof(*new_keyword_sym));
+            new_keyword_sym->kind = SK_VARIABLE;
+            uniquestr_sprintf(&new_keyword_sym->symbol_name, "A%d", (i+1));
+            new_keyword_sym->decl_context = entry->decl_context;
+            new_keyword_sym->type_information = function_type_get_parameter_type_num(entry->type_information, i);
 
-        P_LIST_ADD(entry->entity_specs.related_symbols,
-                entry->entity_specs.num_related_symbols,
-                new_keyword_sym);
+            new_keyword_sym->entity_specs.is_parameter = 1;
+            new_keyword_sym->entity_specs.is_optional = current_variant.is_optional[i];
+            new_keyword_sym->do_not_print = 1;
+
+            P_LIST_ADD(entry->entity_specs.related_symbols,
+                    entry->entity_specs.num_related_symbols,
+                    new_keyword_sym);
+        }
+    } 
+    else // current_variant.num_keywords > 0
+    {
+        // Usual case with a bounded set of keywords
+        int i;
+        for (i = 0; i < current_variant.num_keywords; i++)
+        {
+            scope_entry_t* new_keyword_sym = calloc(1, sizeof(*new_keyword_sym));
+            new_keyword_sym->kind = SK_VARIABLE;
+            new_keyword_sym->symbol_name = current_variant.keyword_names[i];
+            new_keyword_sym->decl_context = entry->decl_context;
+            new_keyword_sym->type_information = function_type_get_parameter_type_num(entry->type_information, i);
+
+            new_keyword_sym->entity_specs.is_parameter = 1;
+            new_keyword_sym->entity_specs.is_optional = current_variant.is_optional[i];
+
+            P_LIST_ADD(entry->entity_specs.related_symbols,
+                    entry->entity_specs.num_related_symbols,
+                    new_keyword_sym);
+        }
     }
 }
 
@@ -5251,7 +5283,7 @@ scope_entry_t* fortran_solve_generic_intrinsic_call(scope_entry_t* symbol,
             if (entry != NULL)
             {
                 // Update the keywords
-                update_keywords_of_intrinsic(entry, current_keyword_set[i]);
+                update_keywords_of_intrinsic(entry, current_keyword_set[i], num_actual_arguments);
                 // Set the simplify function
                 entry->entity_specs.simplify_function = symbol->entity_specs.simplify_function;
             }
@@ -5272,7 +5304,7 @@ void fortran_simplify_specific_intrinsic_call(scope_entry_t* symbol,
     nodecl_t reordered_exprs[MCXX_MAX_FUNCTION_CALL_ARGUMENTS] = { nodecl_null() };
 
     if (specific_keyword_check(symbol,
-                num_actual_arguments,
+                &num_actual_arguments,
                 actual_arguments_keywords,
                 nodecl_actual_arguments,
                 reordered_exprs))

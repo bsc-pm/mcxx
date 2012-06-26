@@ -1278,7 +1278,10 @@ OPERATOR_TABLE
             if (!keyword.is_null())
             {
                 parameter_type = keyword.get_symbol().get_type();
-                file << keyword.get_symbol().get_name() << " = ";
+                if (!keyword.get_symbol().not_to_be_printed())
+                {
+                    file << keyword.get_symbol().get_name() << " = ";
+                }
             }
             else if (pos < parameter_types.size())
             {
