@@ -5645,12 +5645,43 @@ static const_value_t* const_bin_mult(nodecl_t nodecl_lhs, nodecl_t nodecl_rhs)
 
 static const_value_t* const_bin_div(nodecl_t nodecl_lhs, nodecl_t nodecl_rhs)
 {
-    return const_bin_(nodecl_lhs, nodecl_rhs, const_value_div);
+    if (nodecl_is_constant(nodecl_lhs)
+            && nodecl_is_constant(nodecl_rhs))
+    {
+        const_value_t* lhs_value = nodecl_get_constant(nodecl_lhs);
+        const_value_t* rhs_value = nodecl_get_constant(nodecl_rhs);
+
+        if (const_value_is_zero(rhs_value))
+        {
+            error_printf("%s: error: right hand side of intrinsic operator / cannot be a zero constant expression\n", 
+                    nodecl_get_locus(nodecl_lhs));
+            return NULL;
+        }
+
+        return const_value_div(lhs_value, rhs_value);
+    }
+    return NULL;
 }
 
 static const_value_t* const_bin_power(nodecl_t nodecl_lhs, nodecl_t nodecl_rhs)
 {
-    return const_bin_(nodecl_lhs, nodecl_rhs, const_value_pow);
+    if (nodecl_is_constant(nodecl_lhs)
+            && nodecl_is_constant(nodecl_rhs))
+    {
+        const_value_t* lhs_value = nodecl_get_constant(nodecl_lhs);
+        const_value_t* rhs_value = nodecl_get_constant(nodecl_rhs);
+
+        if (const_value_is_floating(rhs_value)
+                && const_value_is_negative(lhs_value))
+        {
+            error_printf("%s: error: left hand side of intrinsic operator ** cannot be a negative constant expression\n", 
+                    nodecl_get_locus(nodecl_lhs));
+            return NULL;
+        }
+
+        return const_value_pow(lhs_value, rhs_value);
+    }
+    return NULL;
 }
 
 static const_value_t* const_bin_concat(nodecl_t nodecl_lhs, nodecl_t nodecl_rhs)
