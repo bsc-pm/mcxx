@@ -130,6 +130,8 @@ struct gather_decl_spec_tag {
         char is_constant;
     } cuda;
 
+    access_specifier_t current_access;
+
 } gather_decl_spec_t;
 
 MCXX_END_DECLS

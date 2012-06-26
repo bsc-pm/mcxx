@@ -417,7 +417,7 @@ namespace TL
             Type advance_over_typedefs();
 
             //! Get the symbol list of classes which are base of the type
-            ObjectList<Symbol> get_bases_class_symbol_list() DEPRECATED;
+            ObjectList<Symbol> get_bases_class_symbol_list();
 
             struct BaseInfo
             {
@@ -617,6 +617,8 @@ namespace TL
 
             type_tag_t class_type_get_class_kind() const;
 
+            bool class_type_is_packed() const;
+
             //! States whether the type is a lvalue or rvalue reference type
             bool is_any_reference() const;
 
@@ -700,6 +702,9 @@ namespace TL
             */
             bool is_template_specialized_type() const;
 
+            //! Returns the template parameters of a specialized template type
+            TemplateParameters template_specialized_type_get_template_parameters() const;
+            
             //! Returns the template arguments of a specialized template type
             TemplateParameters template_specialized_type_get_template_arguments() const;
             

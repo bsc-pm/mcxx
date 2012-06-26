@@ -210,7 +210,7 @@ namespace TL
                     Nodecl::NodeclBase iv_family;
                     Nodecl::NodeclBase iv = is_derived_induction_variable(*it, node, loop, iv_family);
                     if (!iv.is_null())
-                        loop->set_induction_variable(iv, InductionVariableData('2'));
+                        loop->set_induction_variable(iv, InductionVariableData('2', iv));
                 }
                 
                 // Traverse the children
@@ -254,35 +254,36 @@ namespace TL
                 
                 IV_map loop_ivs = loop->get_induction_variables();
                 _constant = Nodecl::NodeclBase::null();
-                if ( loop_ivs.find(lhs_rhs) )
+                if ( loop_ivs.find(lhs_rhs) != loop_ivs.end() )
                 {    
                     _constant = rhs_rhs;
                     family = lhs_rhs;
                 }
-                else if ( loop_ivs.find(rhs_rhs) )
+                else if ( loop_ivs.find(rhs_rhs) != loop_ivs.end() )
                 {    
                     _constant= lhs_rhs;
                     family = rhs_rhs;
                 }
                 if ( !_constant.is_null() )
                 {
+                    // FIXME This section of code is not implemented
                     if ( is_loop_invariant(loop_entry, id_end) )
                     {   //! expression of type: "lhs = family (+,*) _constant"
-                        if ( !loop_ivs[family].is_basic() )
+                        if ( true /*!loop_ivs[family].is_basic()*/ )
                         {
                             // The only definition of \family that reaches \lhs is within the loop
                             _constant = family;
                             if (only_definition_is_in_loop(st, node, loop))
                             // The family of \family must not be defined between the definition of \family and \lhs
                             // TODO
-                            if ()
+                            if (true)
                             {
                                 res = lhs;
                             }
                         }
                         else
                         {
-                            res = lhs
+                            res = lhs;
                         }
                     }
                 }
@@ -296,10 +297,11 @@ namespace TL
             return res;
         }
         
+        // FIXME The condition is not completely implemented
         bool LoopAnalysis::only_definition_is_in_loop(Nodecl::NodeclBase iv_st, Node* iv_node, Node* loop)
         {
-            if (is_there_unique_definition_in_loop(iv_st, iv_node, loop) && 
-                !is_there_definition_out_loop() )
+            if (is_there_unique_definition_in_loop(iv_st, iv_node, loop) 
+                /*&& !is_there_definition_out_loop()*/ )
                 return true;
             else
                 return false;
@@ -312,7 +314,7 @@ namespace TL
             //! Look for definitions of \family in \iv_node, before \iv_st
             ObjectList<Nodecl::NodeclBase> current_stmts = iv_node->get_statements();
             for (ObjectList<Nodecl::NodeclBase>::iterator it = current_stmts.begin(); 
-                 it != current_stmts.end() && !equal_nodecls(*it, iv_st); ++it)
+                 it != current_stmts.end() && !Nodecl::Utils::equal_nodecls(*it, iv_st); ++it)
             {
                 if ( walk(*it) )    // This visit returns true if the statement \*it contains a definition of the nodecl \_constant
                     defined = true;
@@ -323,14 +325,14 @@ namespace TL
             ObjectList<Node*> parents = iv_node->get_parents();
             for (ObjectList<Node*>::iterator it = parents.begin(); it!= parents.end(); ++it)
             {
-                if ( is_there_definition_in_loop_(*it, loop) )
+                if ( is_there_definition_in_loop_(iv_st, iv_node, *it, loop) )
                     if (defined)
                         return false;
                     else
                         defined = true;
             }
             
-            ExtensibleGraph::clear_visits_backwards(iv_node, loop);
+            ExtensibleGraph::clear_visits_backwards(iv_node);
             
             return defined;
             
@@ -340,11 +342,11 @@ namespace TL
         {
             bool defined = false;
             
-            if (iv_node->get_id() == node())
+            if (iv_node->get_id() == node->get_id())
             {   //! Look for definitions of \family in \iv_node, after \iv_st
                 ObjectList<Nodecl::NodeclBase> current_stmts = iv_node->get_statements();
                 ObjectList<Nodecl::NodeclBase>::iterator it = current_stmts.begin();
-                while ( !equal_nodecls(*it, iv_st) )
+                while ( !Nodecl::Utils::equal_nodecls(*it, iv_st) )
                     ++it;
                 ++it;   // Get the following statement
                 for (; it != current_stmts.end(); ++it)
@@ -360,7 +362,7 @@ namespace TL
 
                 //! Look for definitions of \family in \node
                 ObjectList<Nodecl::NodeclBase> current_stmts = node->get_statements();
-                for (ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin(); it != stmts.end(); ++it)
+                for (ObjectList<Nodecl::NodeclBase>::iterator it = current_stmts.begin(); it != current_stmts.end(); ++it)
                 {
                     if ( walk(*it) )    // This visit returns true if the statement \*it contains a definition of the nodecl \_constant
                         if ( defined )
@@ -373,12 +375,13 @@ namespace TL
                 ObjectList<Node*> parents = node->get_parents();
                 for (ObjectList<Node*>::iterator it = parents.begin(); it != parents.end(); ++it)
                 {
-                    if ( !ExtensibleGraph::node_is_in_outer_node(*it, loop) )
+                    // FIXME
+                    if ( /*!ExtensibleGraph::node_is_in_outer_node(*it, loop)*/ true )
                     {
                         //! Look for definitions out of the loop
                         // TODO
                     }
-                    else if ( !only_definition_is_in_loop(*it, loop) )
+                    else if ( !only_definition_is_in_loop(iv_st, *it, loop) )
                         return false;
                 }
             }
@@ -387,6 +390,9 @@ namespace TL
         }
         
         bool LoopAnalysis::definition_is_within_the_loop(Nodecl::NodeclBase family, Nodecl::NodeclBase iv_st, Node* iv_node, Node* loop)
+        {
+            
+        }
         
         bool LoopAnalysis::is_loop_invariant(Node* node, int id_end)
         {
@@ -412,11 +418,12 @@ namespace TL
                     ObjectList<Nodecl::NodeclBase> stmts = node->get_statements();
                     for (ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin(); it != stmts.end(); ++it)
                     {
-                        if ( walk(*it) )
+                        // FIXME Walk method cannot be called like this
+/*                        if ( it->walk() )
                         {    
                             res = false;    // The statement '*it' modifies some symbol contained in 'constant'
                             break;
-                        }    
+                        }  */  
                     }
                 }
                 

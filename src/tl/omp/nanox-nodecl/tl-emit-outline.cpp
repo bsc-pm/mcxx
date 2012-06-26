@@ -27,14 +27,17 @@
 #include "tl-lowering-visitor.hpp"
 #include "tl-source.hpp"
 #include "tl-counters.hpp"
-#include "tl-nodecl-alg.hpp"
+#include "tl-nodecl-utils.hpp"
 #include "tl-outline-info.hpp"
 #include "tl-replace.hpp"
 
 #include "codegen-phase.hpp"
 #include "codegen-fortran.hpp"
 
+#include "cxx-cexpr.h"
 #include "fortran03-scope.h"
+#include "fortran03-typeutils.h"
+#include "fortran03-buildscope.h"
 
 using TL::Source;
 
@@ -84,6 +87,266 @@ namespace TL { namespace Nanox {
                 }
             }
     };
+
+    static TL::Symbol new_function_symbol_unpacked(
+            Scope sc,
+            const std::string& function_name,
+            OutlineInfo& outline_info,
+            Nodecl::Utils::SymbolMap*& out_symbol_map)
+    {
+        decl_context_t decl_context = sc.get_decl_context();
+        decl_context_t function_context;
+
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            function_context = new_program_unit_context(decl_context);
+        }
+        else
+        {
+            function_context = new_function_context(decl_context);
+            function_context = new_block_context(function_context);
+        }
+
+        // Create all the symbols and an appropiate mapping
+
+        Nodecl::Utils::SimpleSymbolMap *symbol_map = new Nodecl::Utils::SimpleSymbolMap();
+
+        TL::ObjectList<TL::Symbol> parameter_symbols, private_symbols;
+
+        TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
+        for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+                it != data_items.end();
+                it++)
+        {
+            TL::Symbol sym = (*it)->get_symbol();
+
+            std::string name;
+            if (sym.is_valid())
+            {
+                name = sym.get_name();
+            }
+            else
+            {
+                name = (*it)->get_field_name();
+            }
+
+            switch ((*it)->get_sharing())
+            {
+                case OutlineDataItem::SHARING_PRIVATE:
+                    {
+                        scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope, name.c_str());
+                        private_sym->kind = SK_VARIABLE;
+                        private_sym->type_information = (*it)->get_in_outline_type().get_internal_type();
+                        private_sym->defined = private_sym->entity_specs.is_user_declared = 1;
+
+                        if (sym.is_valid())
+                        {
+                            symbol_map->add_map(sym, private_sym);
+
+                            // Copy attributes that must be preserved
+                            private_sym->entity_specs.is_allocatable = sym.is_allocatable();
+                        }
+
+                        if (!is_pointer_type(no_ref(private_sym->type_information)))
+                        {
+                            private_sym->entity_specs.is_target = 1;
+                        }
+
+                        private_symbols.append(private_sym);
+                        break;
+                    }
+                case OutlineDataItem::SHARING_SHARED:
+                case OutlineDataItem::SHARING_CAPTURE:
+                case OutlineDataItem::SHARING_CAPTURE_ADDRESS:
+                    {
+                        switch ((*it)->get_item_kind())
+                        {
+                            case OutlineDataItem::ITEM_KIND_NORMAL:
+                            case OutlineDataItem::ITEM_KIND_DATA_DIMENSION:
+                                {
+                                    scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope,
+                                            name.c_str());
+                                    private_sym->kind = SK_VARIABLE;
+                                    private_sym->type_information = (*it)->get_in_outline_type().get_internal_type();
+                                    private_sym->defined = private_sym->entity_specs.is_user_declared = 1;
+
+                                    if (sym.is_valid())
+                                    {
+                                        symbol_map->add_map(sym, private_sym);
+                                    }
+
+                                    parameter_symbols.append(private_sym);
+
+                                    // Make it TARGET
+                                    if (!is_pointer_type(no_ref(private_sym->type_information)))
+                                    {
+                                        private_sym->entity_specs.is_target = 1;
+                                    }
+                                    break;
+                                }
+                            case OutlineDataItem::ITEM_KIND_DATA_ADDRESS:
+                                {
+                                    scope_entry_t* param_addr_sym = ::new_symbol(function_context, function_context.current_scope, 
+                                            ("ptr_" + name).c_str());
+                                    param_addr_sym->kind = SK_VARIABLE;
+                                    param_addr_sym->type_information = ::get_pointer_type(::get_void_type());
+                                    param_addr_sym->defined = param_addr_sym->entity_specs.is_user_declared = 1;
+
+                                    parameter_symbols.append(param_addr_sym);
+
+                                    scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope, name.c_str());
+                                    private_sym->kind = SK_VARIABLE;
+                                    private_sym->type_information = (*it)->get_in_outline_type().get_internal_type();
+                                    private_sym->defined = private_sym->entity_specs.is_user_declared = 1;
+
+                                    if (sym.is_valid())
+                                    {
+                                        symbol_map->add_map(sym, private_sym);
+                                    }
+                                    break;
+                                }
+                            default:
+                                {
+                                    internal_error("Code unreachable", 0);
+                                }
+                        }
+                        break;
+                    }
+                case OutlineDataItem::SHARING_REDUCTION:
+                    {
+                        // Original reduced variable. Passed as we pass shared parameters
+                        TL::Type param_type = (*it)->get_in_outline_type();
+                        scope_entry_t* shared_reduction_sym = ::new_symbol(function_context, function_context.current_scope,
+                                (*it)->get_field_name().c_str());
+                        shared_reduction_sym->kind = SK_VARIABLE;
+                        shared_reduction_sym->type_information = param_type.get_internal_type();
+                        shared_reduction_sym->defined = shared_reduction_sym->entity_specs.is_user_declared = 1;
+                        parameter_symbols.append(shared_reduction_sym);
+
+                        // Private vector of partial reductions. This is a local pointer variable
+                        // rdv stands for reduction vector
+                        TL::Type private_reduction_vector_type = (*it)->get_field_type();
+                        if (IS_C_LANGUAGE
+                                || IS_CXX_LANGUAGE)
+                        {
+                            // The type will already be a convenient T*
+                        }
+                        else if (IS_FORTRAN_LANGUAGE)
+                        {
+                            // The type will be a pointer to a descripted array
+                            private_reduction_vector_type = private_reduction_vector_type.points_to();
+                            private_reduction_vector_type = private_reduction_vector_type.get_array_to_with_descriptor(
+                                    Nodecl::NodeclBase::null(),
+                                    Nodecl::NodeclBase::null(),
+                                    sc);
+                            private_reduction_vector_type = private_reduction_vector_type.get_pointer_to();
+                        }
+                        else
+                        {
+                            internal_error("Code unreachable", 0);
+                        }
+
+                        scope_entry_t* private_reduction_vector_sym = ::new_symbol(function_context, function_context.current_scope,
+                                ("rdv_" + name).c_str());
+                        private_reduction_vector_sym->kind = SK_VARIABLE;
+                        private_reduction_vector_sym->type_information = private_reduction_vector_type.get_internal_type();
+                        private_reduction_vector_sym->defined = private_reduction_vector_sym->entity_specs.is_user_declared = 1;
+
+                        // Local variable (rdp stands for reduction private)
+                        // This variable must be initialized properly
+                        scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope,
+                                ("rdp_" + name).c_str());
+                        private_sym->kind = SK_VARIABLE;
+                        private_sym->type_information = (*it)->get_symbol().get_type().get_internal_type();
+                        private_sym->defined = private_sym->entity_specs.is_user_declared = 1;
+
+                        private_sym->entity_specs.is_target = 1;
+
+                        if (sym.is_valid())
+                        {
+                            symbol_map->add_map(sym, private_sym);
+                        }
+
+                        break;
+                    }
+                default:
+                    {
+                        internal_error("Unexpected data sharing kind", 0);
+                    }
+            }
+        }
+
+        // Update types of parameters (this is needed by VLAs)
+        for (TL::ObjectList<TL::Symbol>::iterator it = parameter_symbols.begin();
+                it != parameter_symbols.end();
+                it++)
+        {
+            it->get_internal_symbol()->type_information =
+                type_deep_copy(it->get_internal_symbol()->type_information,
+                       function_context,
+                       symbol_map,
+                       Nodecl::Utils::SymbolMap::adapter);
+        }
+        // Update types of privates (this is needed by VLAs)
+        for (TL::ObjectList<TL::Symbol>::iterator it = private_symbols.begin();
+                it != private_symbols.end();
+                it++)
+        {
+            it->get_internal_symbol()->type_information =
+                type_deep_copy(it->get_internal_symbol()->type_information,
+                       function_context,
+                       symbol_map,
+                       Nodecl::Utils::SymbolMap::adapter);
+        }
+
+        // Now everything is set to register the function
+        scope_entry_t* new_function_sym = new_symbol(decl_context, decl_context.current_scope, function_name.c_str());
+        new_function_sym->entity_specs.is_user_declared = 1;
+
+        new_function_sym->kind = SK_FUNCTION;
+        new_function_sym->file = "";
+        new_function_sym->line = 0;
+
+        function_context.function_scope->related_entry = new_function_sym;
+        function_context.block_scope->related_entry = new_function_sym;
+
+        new_function_sym->related_decl_context = function_context;
+
+        parameter_info_t* p_types = new parameter_info_t[parameter_symbols.size()];
+
+        parameter_info_t* it_ptypes = &(p_types[0]);
+        for (ObjectList<TL::Symbol>::iterator it = parameter_symbols.begin();
+                it != parameter_symbols.end();
+                it++, it_ptypes++)
+        {
+            scope_entry_t* param = it->get_internal_symbol();
+
+            param->entity_specs.is_parameter = 1;
+
+            P_LIST_ADD(new_function_sym->entity_specs.related_symbols,
+                    new_function_sym->entity_specs.num_related_symbols,
+                    param);
+
+            it_ptypes->is_ellipsis = 0;
+            it_ptypes->nonadjusted_type_info = NULL;
+
+            // FIXME - We should do all the remaining lvalue adjustments
+            type_t* param_type = get_unqualified_type(param->type_information);
+            it_ptypes->type_info = param_type;
+        }
+
+        type_t *function_type = get_new_function_type(
+                get_void_type(),
+                p_types,
+                parameter_symbols.size());
+
+        new_function_sym->type_information = function_type;
+
+        delete[] p_types;
+
+        out_symbol_map = symbol_map;
+        return new_function_sym;
+    }
 
     static TL::Symbol new_function_symbol(Scope sc,
             const std::string& name,
@@ -136,7 +399,7 @@ namespace TL { namespace Nanox {
 
             param->entity_specs.is_parameter = 1;
 
-            param->type_information = type_it->get_internal_type();
+            param->type_information = get_unqualified_type(type_it->get_internal_type());
 
             P_LIST_ADD(entry->entity_specs.related_symbols,
                     entry->entity_specs.num_related_symbols,
@@ -168,22 +431,92 @@ namespace TL { namespace Nanox {
         empty_stmt = Nodecl::EmptyStatement::make("", 0);
         TL::ObjectList<Nodecl::NodeclBase> stmt_list_;
         stmt_list_.append(empty_stmt);
+
         Nodecl::List stmt_list = Nodecl::List::make(stmt_list_);
 
-        Nodecl::NodeclBase context = Nodecl::Context::make(stmt_list, function_symbol.get_related_scope(), "", 0);
+        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+        {
+            Nodecl::CompoundStatement compound_statement =
+                Nodecl::CompoundStatement::make(stmt_list,
+                        /* destructors */ Nodecl::NodeclBase::null(),
+                        "", 0);
+            stmt_list = Nodecl::List::make(compound_statement);
+        }
 
-        function_code = Nodecl::FunctionCode::make(context, 
+        Nodecl::NodeclBase context = Nodecl::Context::make(
+                stmt_list,
+                function_symbol.get_related_scope(), "", 0);
+
+        function_symbol.get_internal_symbol()->defined = 1;
+
+        function_code = Nodecl::FunctionCode::make(context,
                 Nodecl::NodeclBase::null(),
                 Nodecl::NodeclBase::null(),
                 function_symbol,
                 "", 0);
     }
 
+    Source LoweringVisitor::emit_allocate_statement(TL::Symbol sym, int &lower_bound_index, int &upper_bound_index)
+    {
+        Source result;
+
+        TL::Type t = sym.get_type();
+        if (t.is_any_reference())
+            t = t.references_to();
+
+        struct Aux
+        {
+            static void aux_rec(Source &array_shape, TL::Type t, int rank, int current_rank,
+                    int &lower_bound_index, int &upper_bound_index)
+            {
+                Source current_arg;
+                if (t.is_array())
+                {
+                    aux_rec(array_shape, t.array_element(), rank-1, current_rank, lower_bound_index, upper_bound_index);
+
+                    Source curent_arg;
+                    Nodecl::NodeclBase lower, upper;
+                    t.array_get_bounds(lower, upper);
+
+                    if (lower.is_null())
+                    {
+                        current_arg << "mcc_lower_bound_" << lower_bound_index << ":";
+                        lower_bound_index++;
+                    }
+
+                    if (upper.is_null())
+                    {
+                        current_arg << "mcc_upper_bound_" << upper_bound_index;
+                        upper_bound_index++;
+                    }
+
+                    array_shape.append_with_separator(current_arg, ",");
+                }
+            }
+
+            static void fill_array_shape(Source &array_shape, TL::Type t, int &lower_bound_index, int &upper_bound_index)
+            {
+                aux_rec(array_shape,
+                        t, t.get_num_dimensions(), t.get_num_dimensions(),
+                        lower_bound_index, upper_bound_index);
+            }
+        };
+
+        Source array_shape;
+        Aux::fill_array_shape(array_shape, t, lower_bound_index, upper_bound_index);
+
+        result << "ALLOCATE(" << sym.get_name() << "(" << array_shape <<  "));\n"
+            ;
+
+        return result;
+    }
+
     void LoweringVisitor::emit_outline(OutlineInfo& outline_info,
             Nodecl::NodeclBase original_statements,
             Source body_source,
             const std::string& outline_name,
-            TL::Symbol structure_symbol)
+            TL::Symbol structure_symbol,
+            Nodecl::Utils::SymbolMap* &symbol_map)
     {
         TL::Symbol current_function = original_statements.retrieve_context().get_decl_context().current_scope->related_entry;
 
@@ -197,74 +530,50 @@ namespace TL { namespace Nanox {
                         original_statements.get_locus().c_str());
         }
 
-        TL::ObjectList<std::string> parameter_names;
-        TL::ObjectList<TL::Type> parameter_types;
-
         Source unpack_code, unpacked_arguments, cleanup_code, private_entities, extra_declarations;
 
-        TL::ObjectList<OutlineDataItem> data_items = outline_info.get_data_items();
-        for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
+        int lower_bound_index = 0;
+        int upper_bound_index = 0;
+
+        TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
+        for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
                 it != data_items.end();
                 it++)
         {
-            switch (it->get_sharing())
+            switch ((*it)->get_sharing())
             {
                 case OutlineDataItem::SHARING_PRIVATE:
                     {
-                        TL::Symbol sym = it->get_symbol();
-
-                        std::string name;
-                        TL::Type t;
-                        if (sym.is_valid())
+                        // Do nothing
+                        if ((*it)->get_symbol().is_valid()
+                                && (*it)->get_symbol().is_allocatable())
                         {
-                            name = sym.get_name();
-                            t = sym.get_type();
+                            private_entities << emit_allocate_statement((*it)->get_symbol(), lower_bound_index, upper_bound_index);
                         }
-                        else
-                        {
-                            name = it->get_field_name();
-                            t = it->get_in_outline_type();
-                        }
-
-                        if (IS_C_LANGUAGE
-                                || IS_CXX_LANGUAGE)
-                        {
-                            private_entities
-                                << as_type(t) << " " << name << ";"
-                                ;
-                        }
-                        else if (IS_FORTRAN_LANGUAGE)
-                        {
-                            // @IS_VARIABLE@ means that this symbol must already be assumed a variable
-                            //
-                            // Fortran FE is very lax and this symbol would be left as a SK_UNDEFINED
-                            // which is a kind of symbol that the C/C++ FE does not know anything about
-                            private_entities
-                                << as_type(t) << ", @IS_VARIABLE@ :: " << name << "\n"
-                                ;
-                        }
-                        else
-                        {
-                            internal_error("Code unreachable", 0);
-                        }
-
                         break;
                     }
                 case OutlineDataItem::SHARING_SHARED:
                 case OutlineDataItem::SHARING_CAPTURE:
                 case OutlineDataItem::SHARING_CAPTURE_ADDRESS:
                     {
-                        switch (it->get_item_kind())
+                        TL::Type param_type = (*it)->get_in_outline_type();
+
+                        switch ((*it)->get_item_kind())
                         {
                             case OutlineDataItem::ITEM_KIND_NORMAL:
                             case OutlineDataItem::ITEM_KIND_DATA_DIMENSION:
                                 {
-                                    parameter_names.append(it->get_field_name());
                                     break;
                                 }
                             case OutlineDataItem::ITEM_KIND_DATA_ADDRESS:
                                 {
-                                    parameter_names.append("ptr_" + it->get_field_name());
+                                    param_type = TL::Type::get_void_type().get_pointer_to();
+
+                                    private_entities
+                                        << (*it)->get_field_name() 
+                                        << " = " << "(" << as_type((*it)->get_in_outline_type()) << ") ptr_" << (*it)->get_field_name() 
+                                        << ";"
+                                        ;
 
                                     break;
                                 }
@@ -274,39 +583,40 @@ namespace TL { namespace Nanox {
                                 }
                         }
 
-                        TL::Type param_type = it->get_in_outline_type();
-                        parameter_types.append(param_type);
-
                         Source argument;
                         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
                         {
                             // Normal shared items are passed by reference from a pointer,
                             // derreference here
-                            if (it->get_sharing() == OutlineDataItem::SHARING_SHARED
-                                    && it->get_item_kind() == OutlineDataItem::ITEM_KIND_NORMAL)
+                            if ((*it)->get_sharing() == OutlineDataItem::SHARING_SHARED
+                                    && (*it)->get_item_kind() == OutlineDataItem::ITEM_KIND_NORMAL)
                             {
-                                argument << "*(args." << it->get_field_name() << ")";
+                                argument << "*(args." << (*it)->get_field_name() << ")";
                             }
                             // Any other thing is passed by value
                             else
                             {
-                                argument << "args." << it->get_field_name();
+                                argument << "args." << (*it)->get_field_name();
                             }
 
                             if (IS_CXX_LANGUAGE
-                                    && it->get_allocation_policy() == OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DESTROY)
+                                    && (*it)->get_allocation_policy() == OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DESTROY)
                             {
                                 internal_error("Not yet implemented: call the destructor", 0);
                             }
                         }
                         else if (IS_FORTRAN_LANGUAGE)
                         {
-                            argument << "args % " << it->get_field_name();
+                            argument << "args % " << (*it)->get_field_name();
 
-                            if (it->get_allocation_policy() == OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE)
+                            bool is_allocatable = (*it)->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE;
+                            bool is_pointer = (*it)->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_POINTER;
+
+                            if (is_allocatable
+                                    || is_pointer)
                             {
                                 cleanup_code
-                                    << "DEALLOCATE(args % " << it->get_field_name() << ")\n"
+                                    << "DEALLOCATE(args % " << (*it)->get_field_name() << ")\n"
                                     ;
                             }
                         }
@@ -319,70 +629,23 @@ namespace TL { namespace Nanox {
                     }
                 case OutlineDataItem::SHARING_REDUCTION:
                     {
-                        // This is a mixture of private and shared
-                        // A private is emitted for the partial reduction
-                        // Such partial reduction must be initialized with the entity
-                        TL::Symbol sym = it->get_symbol();
-
-                        std::string name;
-                        TL::Type t;
-                        if (sym.is_valid())
-                        {
-                            name = sym.get_name();
-                            t = sym.get_type();
-                        }
-                        else
-                        {
-                            name = it->get_field_name();
-                            t = it->get_in_outline_type();
-                        }
-
-                        if (IS_C_LANGUAGE
-                                || IS_CXX_LANGUAGE)
-                        {
-                            private_entities
-                                << as_type(t) << " " << name << " = " << as_expression(it->get_reduction_info()->get_identity().copy()) << ";"
-                                ;
-                        }
-                        else if (IS_FORTRAN_LANGUAGE)
-                        {
-                            // @IS_VARIABLE@ means that this symbol must already be assumed a variable
-                            //
-                            // Fortran FE is very lax and this symbol would be left as a SK_UNDEFINED
-                            // which is a kind of symbol that the C/C++ FE does not know anything about
-                            private_entities
-                                << as_type(t) << ", @IS_VARIABLE@ :: " << name << "\n"
-                                << name << " = " << as_expression(it->get_reduction_info()->get_identity().copy()) << "\n"
-                                ;
-                        }
-                        else
-                        {
-                            internal_error("Code unreachable", 0);
-                        }
-
-                        // Note here that we use the same type as the field for convenience
-                        TL::Type param_type = it->get_field_type();
-                        if (IS_FORTRAN_LANGUAGE)
-                        {
-                            param_type = param_type.get_lvalue_reference_to();
-                        }
-
-                        parameter_names.append("rdp_" + it->get_field_name());
-                        parameter_types.append(param_type);
-
+                        // Pass the original reduced variable as if it were a shared
                         Source argument;
-                        // Now the shared part
                         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
                         {
-                            // Normal shared items are passed by reference from a pointer,
-                            // derreference here
-                            argument << "args." << it->get_field_name();
+                            argument << "*(args." << (*it)->get_field_name() << ")";
                         }
                         else if (IS_FORTRAN_LANGUAGE)
                         {
-                            argument << "args % " << it->get_field_name();
+                            argument << "args % " << (*it)->get_field_name();
                         }
                         unpacked_arguments.append_with_separator(argument, ", ");
+
+                        std::string name = (*it)->get_symbol().get_name();
+
+                        private_entities
+                            << "rdp_" << name << " = " << as_expression( (*it)->get_reduction_info()->get_identity().shallow_copy() ) << ";"
+                            ;
 
                         break;
                     }
@@ -393,13 +656,20 @@ namespace TL { namespace Nanox {
             }
         }
 
-        TL::Symbol unpacked_function = new_function_symbol(
-                // We want a sibling of the current function
+        TL::Symbol unpacked_function = new_function_symbol_unpacked(
                 current_function.get_scope(),
                 outline_name + "_unpacked",
-                TL::Type::get_void_type(),
-                parameter_names,
-                parameter_types);
+                outline_info,
+                symbol_map);
+        // TL::Symbol unpacked_function = new_function_symbol(
+        //         // We want a sibling of the current function
+        //         current_function.get_scope(),
+        //         outline_name + "_unpacked",
+        //         TL::Type::get_void_type(),
+        //         parameter_names,
+        //         parameter_types);
+
+        outline_info.set_unpacked_function_symbol(unpacked_function);
 
         // FIXME - C++ static for members and such
         ObjectList<std::string> structure_name;
@@ -444,20 +714,20 @@ namespace TL { namespace Nanox {
         Nodecl::Utils::append_to_top_level_nodecl(unpacked_function_code);
 
         Nodecl::NodeclBase body_placeholder;
-        Source outline_body;
+        Source unpacked_source;
         if (!IS_FORTRAN_LANGUAGE)
         {
-            outline_body
+            unpacked_source
                 << "{";
         }
-        outline_body 
+        unpacked_source
             << extra_declarations
             << private_entities
             << statement_placeholder(body_placeholder)
             ;
         if (!IS_FORTRAN_LANGUAGE)
         {
-            outline_body
+            unpacked_source
                 << "}";
         }
 
@@ -471,7 +741,7 @@ namespace TL { namespace Nanox {
                 << "IMPLICIT NONE\n";
 
             // Insert extra symbols
-            TL::Source::ReferenceScope ref_scope(unpacked_function_body);
+            TL::ReferenceScope ref_scope(unpacked_function_body);
             decl_context_t decl_context = ref_scope.get_scope().get_decl_context();
 
             for (ObjectList<Symbol>::iterator it = fun_visitor.extra_decl_sym.begin();
@@ -482,9 +752,25 @@ namespace TL { namespace Nanox {
                 TL::Scope sc = ref_scope.get_scope();
                 ::insert_entry(decl_context.current_scope, it->get_internal_symbol());
             }
+
+            // Copy USEd information
+            scope_entry_t* original_used_modules_info
+                = original_statements.retrieve_context().get_related_symbol().get_used_modules().get_internal_symbol();
+            if (original_used_modules_info != NULL)
+            {
+                scope_entry_t* new_used_modules_info
+                    = get_or_create_used_modules_symbol_info(decl_context);
+                int i;
+                for (i = 0 ; i< original_used_modules_info->entity_specs.num_related_symbols; i++)
+                {
+                    P_LIST_ADD(new_used_modules_info->entity_specs.related_symbols,
+                            new_used_modules_info->entity_specs.num_related_symbols,
+                            original_used_modules_info->entity_specs.related_symbols[i]);
+                }
+            }
         }
 
-        Nodecl::NodeclBase new_unpacked_body = outline_body.parse_statement(unpacked_function_body);
+        Nodecl::NodeclBase new_unpacked_body = unpacked_source.parse_statement(unpacked_function_body);
         unpacked_function_body.integrate(new_unpacked_body);
 
         FORTRAN_LANGUAGE()
@@ -523,6 +809,26 @@ namespace TL { namespace Nanox {
                 << "CALL " << outline_name << "_unpacked(" << unpacked_arguments << ")\n"
                 << cleanup_code
                 ;
+
+            TL::ReferenceScope ref_scope(outline_function_body);
+            decl_context_t decl_context = ref_scope.get_scope().get_decl_context();
+
+            // Copy USEd information
+            scope_entry_t* original_used_modules_info
+                = original_statements.retrieve_context().get_related_symbol().get_used_modules().get_internal_symbol();
+
+            if (original_used_modules_info != NULL)
+            {
+                scope_entry_t* new_used_modules_info
+                    = get_or_create_used_modules_symbol_info(decl_context);
+                int i;
+                for (i = 0 ; i< original_used_modules_info->entity_specs.num_related_symbols; i++)
+                {
+                    P_LIST_ADD(new_used_modules_info->entity_specs.related_symbols,
+                            new_used_modules_info->entity_specs.num_related_symbols,
+                            original_used_modules_info->entity_specs.related_symbols[i]);
+                }
+            }
         }
         else
         {

@@ -119,6 +119,8 @@ namespace TL
                     }
 
                     Type var_type = var_sym.get_type();
+                    if (var_type.is_any_reference())
+                        var_type = var_type.references_to();
 
                     std::string reductor_name = original_reductor_name;
                     // Ammend as needed the reductor name for this variable
@@ -150,8 +152,6 @@ namespace TL
                     else
                     {
                         bool found = false;
-                        UDRInfoItem udr;
-                        udr.set_type(var_type);
 
 
                         CXX_LANGUAGE()
@@ -169,17 +169,15 @@ namespace TL
                                 construct.get_line()
                                 );
 
-                        udr = UDRInfoItem::lookup_udr(
+                        UDRInfoItem *udr = UDRInfoItem::lookup_udr(
                                 construct.retrieve_context(),
-                                reductor_name_node,
-                                // out
-                                found);
+                                reductor_name_node);
 
-                        if (found)
+                        if (udr != NULL)
                         {
-                            ReductionSymbol red_sym(var_sym, udr);
+                            ReductionSymbol red_sym(var_sym, *udr);
                             sym_list.append(red_sym);
-                            if (!udr.is_builtin_operator())
+                            if (!udr->is_builtin_operator())
                             {
                                 std::cerr << construct.get_locus() 
                                     << ": note: reduction of variable '" << var_sym.get_name() << "' solved to '" 
@@ -194,7 +192,7 @@ namespace TL
                                     construct.get_locus().c_str(),
                                     reductor_name.c_str(),
                                     var_tree.prettyprint().c_str(),
-                                    var_sym.get_type().get_declaration(var_sym.get_scope(), "").c_str());
+                                    var_type.get_declaration(var_sym.get_scope(), "").c_str());
                         }
                     }
                 }

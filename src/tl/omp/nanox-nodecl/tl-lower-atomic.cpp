@@ -27,7 +27,7 @@
 
 #include "tl-lowering-visitor.hpp"
 
-#include "tl-nodecl-alg.hpp"
+#include "tl-nodecl-utils.hpp"
 #include "cxx-diagnostic.h"
 
 
@@ -35,15 +35,12 @@ namespace TL { namespace Nanox {
 
     namespace {
 
-        Nodecl::NodeclBase inefficient_atomic(Nodecl::NodeclBase node)
-        {
-            internal_error("Not yet implemented", 0);
-            return node;
-        }
-
         // FIXME - Part of this logic must be moved to OpenMP::Core
         bool allowed_expressions_critical(Nodecl::NodeclBase expr, bool &using_builtin)
         {
+            if (IS_FORTRAN_LANGUAGE)
+                return false;
+
             node_t op_kind = expr.get_kind();
 
             switch (op_kind)
@@ -96,7 +93,6 @@ namespace TL { namespace Nanox {
                                 || !(lhs_is_integral
                                     || t.is_floating_type()))
                             return false;
-
 
                         // Likewise for rhs
                         Nodecl::NodeclBase rhs = expr.as<Nodecl::AddAssignment>().get_rhs();
@@ -165,7 +161,7 @@ namespace TL { namespace Nanox {
                     || op_kind == NODECL_PREDECREMENT // --x
                     || op_kind == NODECL_POSTDECREMENT) // x--
             {
-                lhs << as_expression(expr.as<Nodecl::Preincrement>().get_rhs().copy());
+                lhs << as_expression(expr.as<Nodecl::Preincrement>().get_rhs().shallow_copy());
                 rhs << "1";
 
                 if (op_kind == NODECL_PREDECREMENT
@@ -181,11 +177,11 @@ namespace TL { namespace Nanox {
             }
             else
             {
-                lhs << as_expression(expr.as<Nodecl::AddAssignment>().get_lhs().copy());
+                lhs << as_expression(expr.as<Nodecl::AddAssignment>().get_lhs().shallow_copy());
                 op << Nodecl::Utils::get_elemental_operator_of_binary_expression(expr);
 
                 temporary
-                    << type << " __temp = " << as_expression(expr.as<Nodecl::AddAssignment>().get_rhs().copy()) << ";";
+                    << type << " __temp = " << as_expression(expr.as<Nodecl::AddAssignment>().get_rhs().shallow_copy()) << ";";
                 rhs << "__temp";
             }
 
@@ -259,7 +255,7 @@ namespace TL { namespace Nanox {
                         internal_error("Code unreachable", 0);
                 }
 
-                critical_source << intrinsic_function_name << "(&(" << as_expression(expr.as<Nodecl::Preincrement>().get_rhs().copy()) << "), 1);"
+                critical_source << intrinsic_function_name << "(&(" << as_expression(expr.as<Nodecl::Preincrement>().get_rhs().shallow_copy()) << "), 1);"
                     ;
             }
             // No need to check the other case as allowed_expressions_critical
@@ -325,8 +321,8 @@ namespace TL { namespace Nanox {
                 critical_source
                     << "{"
                     << as_type(expr.as<Nodecl::AddAssignment>().get_rhs().get_type()) << "__tmp = "
-                        << as_expression(expr.as<Nodecl::AddAssignment>().get_rhs().copy()) << ";"
-                    << intrinsic_function_name << "(&(" << as_expression(expr.as<Nodecl::AddAssignment>().get_lhs().copy()) << "), __tmp);"
+                        << as_expression(expr.as<Nodecl::AddAssignment>().get_rhs().shallow_copy()) << ";"
+                    << intrinsic_function_name << "(&(" << as_expression(expr.as<Nodecl::AddAssignment>().get_lhs().shallow_copy()) << "), __tmp);"
                     << "}"
                     ;
             }
@@ -335,7 +331,7 @@ namespace TL { namespace Nanox {
         }
     }
 
-    void LoweringVisitor::visit(const Nodecl::Parallel::Atomic& construct)
+    void LoweringVisitor::visit(const Nodecl::OpenMP::Atomic& construct)
     {
         Nodecl::List statements = construct.get_statements().as<Nodecl::List>();
 
@@ -364,7 +360,8 @@ namespace TL { namespace Nanox {
                 {
                     warn_printf("%s: warning: 'atomic' expression cannot be implemented efficiently\n", 
                             expr.get_locus().c_str());
-                    atomic_tree = inefficient_atomic(expr);
+                    std::string lock_name = "nanos_default_critical_lock";
+                    atomic_tree = emit_critical_region(lock_name, construct, statements);
                 }
                 else
                 {

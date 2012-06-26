@@ -499,6 +499,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 /*!include cxx-subparse.y*/
 /*!include cxx-literal-nodes.y*/
 /*!include cxx-extensions.y*/
+/*!include cxx-fortran-compat.y*/
 /*!include cxx-placeholders.y*/
 /*!include cxx-pragma.y*/
 /*!include cxx-omp.y*/
@@ -5061,14 +5062,19 @@ template_conditional_expression : template_logical_or_expression %merge<ambiguit
 }
 ;
 
+// The standard in C++2003 says that a nontype template argument can be an
+// assignment-expression but it is clear that an assignment expression can not
+// be a constant-expression. In C++2011 a nontype template argument must be a
+// constant-expression which starts from conditional-expression (so an
+// assignment expression is not constant)
 template_assignment_expression : template_conditional_expression %merge<ambiguityHandler>
 {
 	$$ = $1;
 }
-| template_logical_or_expression assignment_operator template_assignment_expression %merge<ambiguityHandler>
-{
-	$$ = ASTMake2($2, $1, $3, ASTFileName($1), ASTLine($1), NULL);
-}
+// | template_logical_or_expression assignment_operator template_assignment_expression %merge<ambiguityHandler>
+// {
+// 	$$ = ASTMake2($2, $1, $3, ASTFileName($1), ASTLine($1), NULL);
+// }
 // Extremely unlikely
 // | template_throw_expression
 // {
@@ -5239,6 +5245,7 @@ right_bracket_token : '>'
 /*!include cxx-subparse.y*/
 /*!include cxx-literal-nodes.y*/
 /*!include cxx-extensions.y*/
+/*!include cxx-fortran-compat.y*/
 /*!include cxx-placeholders.y*/
 /*!include cxx-pragma.y*/
 /*!include cxx-omp.y*/

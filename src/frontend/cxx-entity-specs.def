@@ -49,12 +49,14 @@ bool|all|is_surrogate_function|This function is a surrogate fake symbol created 
 bool|all|is_anonymous_union|This is an anonymous union (or class)
 bool|all|is_member_of_anonymous|This entity is a member of an anonymous entity
 bool|all|is_user_declared|This symbol has been written by the user in the source code
-bool|all|is_instantiable|This specialization of template can be instantiate
+bool|all|is_instantiable|This specialization of template can be instantiated
+bool|all|is_instantiated|This specialization has already been instantiated
 bool|all|is_template_parameter|This is a template parameter
 bool|all|is_parameter|This symbol is a parameter of a function
 bool|all|is_member|This symbol is a member of a class
 bool|all|is_bitfield|This symbol is a bitfield
 bool|all|is_unnamed_bitfield|This symbol is an unnamed bitfield
+bool|all|is_friend|States that this symbol is a friend
 bool|all|is_friend_declared|States that this symbol has been declared as a friend but not formally declared or defined
 bool|all|any_exception|States that this function can throw any exception
 bool|all|is_injected_class_name|This symbol is the injected class name
@@ -62,6 +64,7 @@ bool|all|is_unnamed|This is an unnamed struct or enum
 bool|all|is_defined_inside_class_specifier|This symbol has been defined inside the class specifier
 bool|all|is_non_emitted|States that this function symbol has not been emitted yet because it is a non-template member function of an instantiated template class
 bool|all|is_nested_function|States that this function is nested inside another one
+bool|all|is_saved_expression|States that this variable is actually a phony one created to store a runtime value used elsewhere
 bool|fortran|is_global_hidden|States that this global symbol does not have to be visible in normal lookups
 bool|fortran|is_implicit_basic_type|This entity has got an implicit basic type
 bool|fortran|is_allocatable|This entity has the ALLOCATABLE attribute
@@ -97,6 +100,7 @@ type|all|class_type|The class type where a member belongs. See is_member
 symbol|fortran|from_module|If not NULL, it means the symbol comes because the module was USEd
 symbol|fortran|in_module|If not NULL it means that this symbol is a component of the module
 symbol|fortran|cray_pointer|If this symbol is_cray_pointee then this is its Cray pointer
+symbol|fortran|used_modules|Symbol that keeps track of the USEd modules in this program unit
 string|all|linkage_spec|The linkage specifier (C, C++)
 array(type)|all|exceptions|Exception specifier for functions. Can be empty. See any_exception
 array(typeof(default_argument_info_t*))|all|num_parameters,default_argument_info|Default arguments for functions

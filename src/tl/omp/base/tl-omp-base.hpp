@@ -51,16 +51,16 @@ namespace TL
                 RefPtr<OpenMP::FunctionTaskSet> _function_task_set;
 
                 // Handler functions
-#define OMP_DIRECTIVE(_directive, _name) \
+#define OMP_DIRECTIVE(_directive, _name, _pred) \
                 void _name##_handler_pre(TL::PragmaCustomDirective); \
                 void _name##_handler_post(TL::PragmaCustomDirective);
-#define OMP_CONSTRUCT(_directive, _name) \
+#define OMP_CONSTRUCT(_directive, _name, _pred) \
                 void _name##_handler_pre(TL::PragmaCustomStatement); \
                 void _name##_handler_post(TL::PragmaCustomStatement); \
                 void _name##_handler_pre(TL::PragmaCustomDeclaration); \
                 void _name##_handler_post(TL::PragmaCustomDeclaration);
-#define OMP_CONSTRUCT_NOEND(_directive, _name) \
-                OMP_CONSTRUCT(_directive, _name)
+#define OMP_CONSTRUCT_NOEND(_directive, _name, _pred) \
+                OMP_CONSTRUCT(_directive, _name, _pred)
 #include "tl-omp-constructs.def"
 #undef OMP_CONSTRUCT
 #undef OMP_CONSTRUCT_NOEND
@@ -68,8 +68,24 @@ namespace TL
 
                 Nodecl::List make_execution_environment(OpenMP::DataSharingEnvironment&, PragmaCustomLine);
 
+                Nodecl::List make_execution_environment_for_combined_worksharings(OpenMP::DataSharingEnvironment &data_sharing_env, 
+                        PragmaCustomLine pragma_line);
+
                 // void loop_handler_pre(TL::PragmaCustomStatement);
-                Nodecl::NodeclBase loop_handler_post(TL::PragmaCustomStatement directive, Nodecl::NodeclBase statement);
+                Nodecl::NodeclBase loop_handler_post(TL::PragmaCustomStatement directive, 
+                        Nodecl::NodeclBase statement,
+                        bool barrier_at_end,
+                        bool is_combined_worksharing);
+
+                void lower_sections_into_switch(
+                        Nodecl::NodeclBase directive,
+                        Nodecl::NodeclBase statements,
+                        // modified
+                        OpenMP::DataSharingEnvironment &ds,
+                        // output
+                        Nodecl::NodeclBase& new_code,
+                        Nodecl::NodeclBase& for_code
+                        );
         };
     }
 }

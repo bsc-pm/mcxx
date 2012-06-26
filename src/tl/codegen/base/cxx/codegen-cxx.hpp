@@ -72,7 +72,6 @@ namespace Codegen
             Ret visit(const Nodecl::ConditionalExpression &);
             Ret visit(const Nodecl::Context &);
             Ret visit(const Nodecl::ContinueStatement &);
-            Ret visit(const Nodecl::SavedExpr &);
             Ret visit(const Nodecl::Conversion &);
             Ret visit(const Nodecl::CxxArrow &);
             Ret visit(const Nodecl::CxxArrowPtrMember& node);
@@ -83,11 +82,13 @@ namespace Codegen
             Ret visit(const Nodecl::CxxDepNameNested &);
             Ret visit(const Nodecl::CxxDepNameSimple &);
             Ret visit(const Nodecl::CxxDepTemplateId &);
+            Ret visit(const Nodecl::CxxInitializer &);
             Ret visit(const Nodecl::CxxEqualInitializer &);
             Ret visit(const Nodecl::CxxMemberInit &);
             Ret visit(const Nodecl::CxxExplicitTypeCast &);
             Ret visit(const Nodecl::CxxParenthesizedInitializer &);
             Ret visit(const Nodecl::CxxSizeof &);
+            Ret visit(const Nodecl::CxxAlignof &);
             Ret visit(const Nodecl::DefaultStatement &);
             Ret visit(const Nodecl::Delete &);
             Ret visit(const Nodecl::DeleteArray &);
@@ -175,6 +176,7 @@ namespace Codegen
             Ret visit(const Nodecl::CxxDef& node);
             Ret visit(const Nodecl::CxxExplicitInstantiation& node);
             Ret visit(const Nodecl::CxxExternExplicitInstantiation& node);
+            Ret visit(const Nodecl::CxxDepFunctionCall &);
 
             Ret visit(const Nodecl::Verbatim& node);
             Ret visit(const Nodecl::UnknownPragma& node);
@@ -213,12 +215,13 @@ namespace Codegen
                 bool in_dependent_template_function_code;
 
                 bool inside_structured_value;
-                
+
                 bool do_not_emit_other_declarations;
 
+                // States whether we are visiting the called entity of a function call
+                bool visiting_called_entity_of_function_call;
 
                 TL::ObjectList<TL::Symbol> classes_being_defined;
-
 
                 std::set<TL::Type> walked_types;
 
@@ -250,8 +253,9 @@ namespace Codegen
                     condition_top(Nodecl::NodeclBase::null()),
                     in_member_declaration(false),
                     in_dependent_template_function_code(false),
-                    inside_structured_value(),
-                    do_not_emit_other_declarations(false),
+                    inside_structured_value(false),
+                    do_not_emit_other_declarations(IS_CXX_LANGUAGE),
+                    visiting_called_entity_of_function_call(false),
                     classes_being_defined(),
                     walked_types(),
                     being_checked_for_required(),
@@ -267,6 +271,7 @@ namespace Codegen
 
             bool symbol_is_same_or_nested_in(TL::Symbol symbol, TL::Symbol class_sym);
             bool symbol_is_nested_in_defined_classes(TL::Symbol symbol);
+            bool symbol_or_its_bases_are_nested_in_defined_classes(TL::Symbol symbol);
 
             TL::ObjectList<TL::Symbol> define_required_before_class(TL::Symbol symbol,
                     void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
@@ -279,6 +284,9 @@ namespace Codegen
             void define_class_symbol(TL::Symbol symbol,
                     void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
                     void (CxxBase::*def_sym_fun)(TL::Symbol symbol));
+
+            void declare_friend_symbol(TL::Symbol friend_symbol,
+                    TL::Symbol class_symbol);
 
             void define_or_declare_variable(TL::Symbol,
                     bool is_definition);
@@ -373,14 +381,36 @@ namespace Codegen
 
             void walk_list(const Nodecl::List&, const std::string& separator);
             void walk_expression_list(const Nodecl::List&);
+
             template <typename Iterator>
-            void walk_expression_unpacked_list(Iterator begin, Iterator end);
+                void walk_expression_unpacked_list(Iterator begin, Iterator end);
 
             template <typename Iterator>
                 void codegen_function_call_arguments(Iterator begin, Iterator end, TL::Type function_type, int ignore_n_first);
 
             template <typename Node>
+                void visit_function_call_form_template_id(const Node&);
+
+            template <typename Node>
+                bool is_implicit_function_call(const Node& node) const;
+
+            template <typename Node>
+                static bool is_binary_infix_operator_function_call(const Node& node);
+
+            template <typename Node>
+                static bool is_unary_prefix_operator_function_call(const Node& node);
+
+            template <typename Node>
+                static bool is_unary_postfix_operator_function_call(const Node& node);
+
+            template <typename Node>
+                static bool is_operator_function_call(const Node& node);
+
+            template <typename Node>
                 CxxBase::Ret visit_function_call(const Node&, bool is_virtual_call);
+
+            template < typename Node>
+                static node_t get_kind_of_operator_function_call(const Node & node);
 
             static int get_rank_kind(node_t n, const std::string& t);
             static int get_rank(const Nodecl::NodeclBase &n);
@@ -421,6 +451,10 @@ namespace Codegen
             std::string gcc_asm_specifier_to_str(TL::Symbol);
 
             virtual Ret unhandled_node(const Nodecl::NodeclBase & n);
+
+            void fill_parameter_names_and_parameter_attributes(TL::Symbol symbol,
+                    TL::ObjectList<std::string>& parameter_names,
+                    TL::ObjectList<std::string>& parameter_attributes);
 
             std::string get_declaration(TL::Type t, TL::Scope scope, const std::string& name);
             std::string get_declaration_with_parameters(TL::Type, TL::Scope, const std::string& name,

@@ -43,7 +43,7 @@ void LoweringVisitor::fill_dependences_wait(
 
     int num_deps = count_dependences(outline_info);
 
-    TL::ObjectList<OutlineDataItem> data_items = outline_info.get_data_items();
+    TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
 
     if (num_deps == 0)
     {
@@ -72,15 +72,15 @@ void LoweringVisitor::fill_dependences_wait(
             ;
 
         int current_dep_num = 0;
-        for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
+        for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
                 it != data_items.end();
                 it++)
         {
-            OutlineDataItem::Directionality dir = it->get_directionality();
+            OutlineDataItem::Directionality dir = (*it)->get_directionality();
             if (dir == OutlineDataItem::DIRECTIONALITY_NONE)
                 continue;
 
-            TL::ObjectList<Nodecl::NodeclBase> deps = it->get_dependences();
+            TL::ObjectList<Nodecl::NodeclBase> deps = (*it)->get_dependences();
             for (ObjectList<Nodecl::NodeclBase>::iterator dep_it = deps.begin();
                     dep_it != deps.end();
                     dep_it++, current_dep_num++)
@@ -146,7 +146,7 @@ void LoweringVisitor::fill_dependences_wait(
                 {
                     Source dimension_size, dimension_lower_bound, dimension_accessed_length;
 
-                    dimension_size << as_expression(dimension_sizes[num_dimensions - 1].copy()) << "* sizeof(" << base_type_name << ")";
+                    dimension_size << as_expression(dimension_sizes[num_dimensions - 1].shallow_copy()) << "* sizeof(" << base_type_name << ")";
                     dimension_lower_bound << "0";
                     dimension_accessed_length << dimension_size;
 
@@ -194,9 +194,9 @@ void LoweringVisitor::fill_dependences_wait(
                         size = contiguous_array_type.array_get_size();
                     }
 
-                    dimension_size << "sizeof(" << base_type_name << ") * " << as_expression(dimension_sizes[num_dimensions - 1].copy());
-                    dimension_lower_bound << "sizeof(" << base_type_name << ") * " << as_expression(lb.copy());
-                    dimension_accessed_length << "sizeof(" << base_type_name << ") * " << as_expression(size.copy());
+                    dimension_size << "sizeof(" << base_type_name << ") * " << as_expression(dimension_sizes[num_dimensions - 1].shallow_copy());
+                    dimension_lower_bound << "sizeof(" << base_type_name << ") * " << as_expression(lb.shallow_copy());
+                    dimension_accessed_length << "sizeof(" << base_type_name << ") * " << as_expression(size.shallow_copy());
 
                     if (IS_C_LANGUAGE
                             || IS_CXX_LANGUAGE)
@@ -279,15 +279,15 @@ void LoweringVisitor::fill_dependences_wait(
             ;
 
         int current_dep_num = 0;
-        for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
+        for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
                 it != data_items.end();
                 it++)
         {
-            OutlineDataItem::Directionality dir = it->get_directionality();
+            OutlineDataItem::Directionality dir = (*it)->get_directionality();
             if (dir == OutlineDataItem::DIRECTIONALITY_NONE)
                 continue;
 
-            TL::ObjectList<Nodecl::NodeclBase> deps = it->get_dependences();
+            TL::ObjectList<Nodecl::NodeclBase> deps = (*it)->get_dependences();
             for (ObjectList<Nodecl::NodeclBase>::iterator dep_it = deps.begin();
                     dep_it != deps.end();
                     dep_it++, current_dep_num++)
@@ -344,7 +344,7 @@ void LoweringVisitor::fill_dependences_wait(
                 }
 
                 Nodecl::NodeclBase ptr_ref = 
-                    Nodecl::Reference::make(dep_expr.copy(),
+                    Nodecl::Reference::make(dep_expr.shallow_copy(),
                             dep_expr.get_type().get_pointer_to(),
                             dep_expr.get_filename(),
                             dep_expr.get_line());
@@ -438,13 +438,13 @@ void LoweringVisitor::emit_wait_async(Nodecl::NodeclBase construct,
     construct.integrate(n);
 }
 
-void LoweringVisitor::visit(const Nodecl::Parallel::WaitAsyncsShallow& construct)
+void LoweringVisitor::visit(const Nodecl::OpenMP::TaskwaitShallow& construct)
 {
     OutlineInfo outline_info(Nodecl::NodeclBase::null());
     emit_wait_async(construct, /* has_dependences */ false, outline_info);
 }
 
-void LoweringVisitor::visit(const Nodecl::Parallel::WaitAsyncsDependences& construct)
+void LoweringVisitor::visit(const Nodecl::OpenMP::WaitOnDependences& construct)
 {
     Nodecl::NodeclBase environment = construct.get_environment();
 

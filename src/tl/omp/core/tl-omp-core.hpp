@@ -68,19 +68,19 @@ namespace TL
 
 
                 // Handler functions
-#define OMP_DIRECTIVE(_directive, _name) \
+#define OMP_DIRECTIVE(_directive, _name, _pred) \
                 void _name##_handler_pre(TL::PragmaCustomDirective); \
                 void _name##_handler_post(TL::PragmaCustomDirective);
-#define OMP_CONSTRUCT(_directive, _name) \
+#define OMP_CONSTRUCT(_directive, _name, _pred) \
                 void _name##_handler_pre(TL::PragmaCustomStatement); \
                 void _name##_handler_post(TL::PragmaCustomStatement); \
                 void _name##_handler_pre(TL::PragmaCustomDeclaration); \
                 void _name##_handler_post(TL::PragmaCustomDeclaration); 
-#define OMP_CONSTRUCT_NOEND(_directive, _name) \
-                OMP_CONSTRUCT(_directive, _name)
+#define OMP_CONSTRUCT_NOEND(_directive, _name, _pred) \
+                OMP_CONSTRUCT(_directive, _name, _pred)
 #include "tl-omp-constructs.def"
                 // Section is special
-                OMP_CONSTRUCT("section", section)
+                OMP_CONSTRUCT("section", section, true)
 #undef OMP_CONSTRUCT
 #undef OMP_CONSTRUCT_NOEND
 #undef OMP_DIRECTIVE

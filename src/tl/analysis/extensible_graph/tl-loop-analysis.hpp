@@ -155,7 +155,12 @@ namespace TL
             bool is_false_induction_variable_(Nodecl::NodeclBase iv, Nodecl::NodeclBase stmt, Node* node, int id_end);
             
             bool only_definition_is_in_loop(Nodecl::NodeclBase family, Nodecl::NodeclBase iv_st, Node* iv_node, Node* loop);
-            bool only_definition_is_in_loop(Nodecl::NodeclBase family, Node* iv_node, Node* loop)
+            bool only_definition_is_in_loop(Nodecl::NodeclBase family, Node* iv_node, Node* loop);
+            
+            bool definition_is_within_the_loop(Nodecl::NodeclBase family, Nodecl::NodeclBase iv_st, Node* iv_node, Node* loop);
+            
+            bool is_there_unique_definition_in_loop(Nodecl::NodeclBase iv_st, Node* iv_node, Node* loop);
+            bool is_there_definition_in_loop_(Nodecl::NodeclBase iv_st, Node* iv_node, Node* node, Node* loop);
             
         public:
             
@@ -163,7 +168,7 @@ namespace TL
             
             Nodecl::NodeclBase is_basic_induction_variable(Nodecl::NodeclBase st, Node* loop);
             
-            Nodecl::NodeclBase is_derived_induction_variable(Nodecl::NodeclBase st, Node* loop, Nodecl::NodeclBase& family);
+            Nodecl::NodeclBase is_derived_induction_variable(Nodecl::NodeclBase st, Node* node, Node* loop, Nodecl::NodeclBase& family);
             
             //! This method returns true when member \_constant is a loop invariant
             bool is_loop_invariant(Node* node, int id_end);

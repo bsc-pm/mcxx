@@ -24,7 +24,7 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-SUBDIRS = gnulib lib src config tests scripts
+SUBDIRS = gnulib lib src config tests scripts support
 
 DIST_SUBDIRS = $(SUBDIRS) doc
 

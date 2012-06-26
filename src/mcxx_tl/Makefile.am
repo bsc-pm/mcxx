@@ -33,11 +33,13 @@ libmcxxtl_la_SOURCES = \
 
 COMMON_CFLAGS= -DLIBMCXXTL_DLL_EXPORT \
     -I $(top_srcdir)/src/frontend \
+    -I $(top_srcdir)/src/frontend/fortran \
     -I $(top_srcdir)/src/driver \
     -I $(top_srcdir)/src/tl \
     -I $(top_srcdir)/src/tl/codegen/common \
     -I $(top_srcdir)/lib \
     -I $(top_builddir)/src/frontend \
+    -I $(top_builddir)/src/frontend/fortran \
     -I $(top_builddir)/src/driver \
     -I $(top_builddir)/src/tl \
     -I $(top_builddir)/lib

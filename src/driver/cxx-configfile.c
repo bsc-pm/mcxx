@@ -286,7 +286,20 @@ int config_add_preprocessor_prefix(struct compilation_configuration_tag* config,
 int config_set_environment(struct compilation_configuration_tag* config, const char* index, const char* value)
 {
     type_environment_t* chosen_env = get_environment(value);
-    config->type_environment = chosen_env;
+    if (chosen_env != NULL)
+    {
+        config->type_environment = chosen_env;
+    }
+    return 0;
+}
+
+int config_set_fortran_array_descriptor(struct compilation_configuration_tag* config, const char* index, const char* value)
+{
+    fortran_array_descriptor_t* chosen_array_descriptor = get_fortran_array_descriptor(value);
+    if (chosen_array_descriptor != NULL)
+    {
+        config->fortran_array_descriptor = chosen_array_descriptor;
+    }
     return 0;
 }
 

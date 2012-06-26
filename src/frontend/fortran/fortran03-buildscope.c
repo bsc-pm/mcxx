@@ -57,6 +57,8 @@ static void unsupported_statement(AST a, const char* name);
 
 static void null_dtor(const void* p UNUSED_PARAMETER) { }
 
+static void fortran_init_globals(decl_context_t decl_context);
+
 void fortran_initialize_translation_unit_scope(translation_unit_t* translation_unit)
 {
     decl_context_t decl_context;
@@ -71,10 +73,81 @@ void fortran_initialize_translation_unit_scope(translation_unit_t* translation_u
 
     fortran_init_intrinsics(decl_context);
 
+    fortran_init_globals(decl_context);
+
     translation_unit->module_file_cache = rb_tree_create((int (*)(const void*, const void*))strcasecmp, null_dtor, null_dtor);
     translation_unit->module_symbol_cache = rb_tree_create((int (*)(const void*, const void*))strcasecmp, null_dtor, null_dtor);
 }
 
+static void fortran_init_globals(decl_context_t decl_context)
+{
+    type_t* int_8 = fortran_choose_int_type_from_kind(1);
+    type_t* int_16 = fortran_choose_int_type_from_kind(2);
+    type_t* int_32 = fortran_choose_int_type_from_kind(4);
+    type_t* int_64 = fortran_choose_int_type_from_kind(8);
+
+    struct {
+        const char* symbol_name;
+        type_t* backing_type;
+        int explicit_size;
+    } intrinsic_globals[] =
+    {
+        { "mercurium_c_int", get_signed_int_type(), 0},
+        { "mercurium_c_short", get_signed_short_int_type(), 0},
+        { "mercurium_c_long", get_signed_long_int_type(), 0},
+        { "mercurium_c_long_long", get_signed_long_long_int_type(), 0},
+        { "mercurium_c_signed_char", get_signed_byte_type(), 0},
+        { "mercurium_c_size_t", get_size_t_type(), 0},
+        { "mercurium_c_int8_t", int_8, 0},
+        { "mercurium_c_int16_t", int_16, 0},
+        { "mercurium_c_int32_t", int_32, 0},
+        { "mercurium_c_int64_t", int_64, 0},
+        { "mercurium_c_int_least8_t", int_8, 0},
+        { "mercurium_c_int_least16_t", int_16, 0},
+        { "mercurium_c_int_least32_t", int_32, 0},
+        { "mercurium_c_int_least64_t", int_64, 0},
+        { "mercurium_c_int_fast8_t", int_8, 0},
+        { "mercurium_c_int_fast16_t", int_16, 0},
+        { "mercurium_c_int_fast32_t", int_32, 0},
+        { "mercurium_c_int_fast64_t", int_64, 0},
+        { "mercurium_c_intmax_t", int_64, 0},
+        { "mercurium_c_intptr_t", get_pointer_type(get_void_type()), 0},
+        { "mercurium_c_float", get_float_type(), 0},
+        { "mercurium_c_double", get_double_type(), 0},
+        { "mercurium_c_long_double", get_long_double_type(), 0},
+        { "mercurium_c_float_complex", get_complex_type(get_float_type()), 0},
+        { "mercurium_c_double_complex", get_complex_type(get_double_type()), 0},
+        { "mercurium_c_long_double_complex", get_complex_type(get_long_double_type()), 0},
+        { "mercurium_c_bool", get_bool_type(), 0},
+        { "mercurium_c_char", get_char_type(), 0},
+        { "mercurium_c_ptr", NULL, CURRENT_CONFIGURATION->type_environment->sizeof_pointer },
+        { "mercurium_c_funptr", NULL, CURRENT_CONFIGURATION->type_environment->sizeof_function_pointer },
+        // Sentinel
+        { NULL, NULL, 0}
+    };
+
+    int i;
+    for (i = 0; intrinsic_globals[i].symbol_name != NULL; i++)
+    {
+        scope_entry_t* mercurium_intptr = new_symbol(decl_context, decl_context.global_scope, intrinsic_globals[i].symbol_name);
+        mercurium_intptr->kind = SK_VARIABLE;
+        mercurium_intptr->type_information = get_const_qualified_type(fortran_get_default_integer_type());
+        _size_t size = 0;
+        if (intrinsic_globals[i].backing_type != NULL)
+        {
+            size = type_get_size(intrinsic_globals[i].backing_type);
+            mercurium_intptr->value = const_value_to_nodecl(
+                    const_value_get_signed_int(
+                        type_get_size(intrinsic_globals[i].backing_type)));
+        }
+        else
+        {
+            size = intrinsic_globals[i].explicit_size;
+        }
+            mercurium_intptr->value = const_value_to_nodecl(const_value_get_signed_int(size));
+        mercurium_intptr->do_not_print = 1;
+    }
+}
 
 nodecl_t build_scope_fortran_translation_unit(translation_unit_t* translation_unit)
 {
@@ -174,14 +247,24 @@ scope_entry_t* get_equivalence_symbol_info(decl_context_t decl_context)
     return get_special_symbol(decl_context, ".equivalence");
 }
 
-scope_entry_t* get_used_modules_symbol_info(decl_context_t decl_context)
-{
-    return get_special_symbol(decl_context, ".used_modules");
-}
-
 scope_entry_t* get_or_create_used_modules_symbol_info(decl_context_t decl_context)
 {
-    return get_or_create_special_symbol(decl_context, ".used_modules");
+    ERROR_CONDITION(decl_context.current_scope->related_entry == NULL, "No related symbol in the current scope!", 0);
+
+    if (decl_context.current_scope->related_entry->entity_specs.used_modules == NULL)
+    {
+        decl_context_t function_context = decl_context;
+        function_context.current_scope = function_context.function_scope;
+
+        scope_entry_t* new_sym = new_symbol(
+                function_context,
+                function_context.current_scope,
+                ".used_modules");
+        new_sym->kind = SK_OTHER;
+
+        decl_context.current_scope->related_entry->entity_specs.used_modules = new_sym;
+    }
+    return decl_context.current_scope->related_entry->entity_specs.used_modules;
 }
 
 static scope_entry_t* get_or_create_equivalence_symbol_info(decl_context_t decl_context)
@@ -251,7 +334,7 @@ static void check_untyped_symbols(decl_context_t decl_context)
         scope_entry_t* entry = unknown_info->entity_specs.related_symbols[i];
         ERROR_CONDITION(entry->type_information == NULL, "A symbol here should have a void type, not NULL", 0);
 
-        if (!basic_type_is_implicit_none(entry->type_information))
+        if (!fortran_basic_type_is_implicit_none(entry->type_information))
         {
             if (entry->kind == SK_UNDEFINED)
             {
@@ -298,7 +381,7 @@ static void update_untyped_symbols(decl_context_t decl_context)
 
         type_t* implicit_type = get_implicit_type_for_symbol(decl_context, entry->symbol_name);
 
-        entry->type_information = update_basic_type_with_type(entry->type_information,
+        entry->type_information = fortran_update_basic_type_with_type(entry->type_information,
                 implicit_type);
 
         if (!is_implicit_none_type(implicit_type))
@@ -974,12 +1057,28 @@ static void build_scope_module_program_unit(AST program_unit,
     AST module_stmt = ASTSon0(program_unit);
     AST module_name = ASTSon0(module_stmt);
 
+    // This is a mercurium extension
+    AST module_nature = ASTSon1(module_stmt);
+
     scope_entry_t* new_entry = new_fortran_symbol_not_unknown(decl_context, ASTText(module_name));
     new_entry->kind = SK_MODULE;
 
     if (new_entry->decl_context.current_scope == decl_context.global_scope)
         new_entry->entity_specs.is_global_hidden = 1;
-    
+
+    if (module_nature != NULL)
+    {
+        if (strcasecmp(ASTText(module_nature), "intrinsic") == 0)
+        {
+            new_entry->entity_specs.is_builtin = 1;
+        }
+        else
+        {
+            running_error("%s: error: invalid module nature. Only INTRINSIC is allowed\n", 
+                    ast_location(module_nature));
+        }
+    }
+
     remove_unknown_kind_symbol(decl_context, new_entry);
 
     new_entry->related_decl_context = program_unit_context;
@@ -1700,6 +1799,8 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
         result_sym->file = entry->file;
         result_sym->line = entry->line;
         result_sym->entity_specs.is_result = 1;
+
+        remove_unknown_kind_symbol(decl_context, result_sym);
 
         char function_has_type_spec = 0;
         result_sym->type_information = get_lvalue_reference_type(return_type);
@@ -3199,12 +3300,12 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
                 new_vla_dim->line = nodecl_get_line(lower_bound);
                 new_vla_dim->value = lower_bound;
                 new_vla_dim->type_information = no_ref(nodecl_get_type(lower_bound));
+                new_vla_dim->entity_specs.is_saved_expression = 1;
 
-                lower_bound = nodecl_make_saved_expr(lower_bound,
-                        new_vla_dim,
-                        nodecl_get_type(lower_bound),
-                        nodecl_get_filename(lower_bound),
-                        nodecl_get_line(lower_bound));
+                lower_bound = nodecl_make_symbol(new_vla_dim,
+                        new_vla_dim->file,
+                        new_vla_dim->line);
+                nodecl_set_type(lower_bound, new_vla_dim->type_information);
 
                 *nodecl_output = nodecl_append_to_list(*nodecl_output,
                         nodecl_make_object_init(new_vla_dim, 
@@ -3235,12 +3336,12 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
                 new_vla_dim->line = nodecl_get_line(upper_bound);
                 new_vla_dim->value = upper_bound;
                 new_vla_dim->type_information = no_ref(nodecl_get_type(upper_bound));
+                new_vla_dim->entity_specs.is_saved_expression = 1;
 
-                upper_bound = nodecl_make_saved_expr(upper_bound,
-                        new_vla_dim,
-                        nodecl_get_type(upper_bound),
-                        nodecl_get_filename(upper_bound),
-                        nodecl_get_line(upper_bound));
+                upper_bound = nodecl_make_symbol(new_vla_dim,
+                        new_vla_dim->file,
+                        new_vla_dim->line);
+                nodecl_set_type(upper_bound, new_vla_dim->type_information);
 
                 *nodecl_output = nodecl_append_to_list(*nodecl_output,
                         nodecl_make_object_init(new_vla_dim, 
@@ -3427,8 +3528,8 @@ static void build_dimension_decl(AST a,
         return;
     }
     
-    if (is_fortran_array_type(no_ref(entry->type_information))
-            || is_pointer_to_fortran_array_type(no_ref(entry->type_information)))
+    if (fortran_is_array_type(no_ref(entry->type_information))
+            || fortran_is_pointer_to_array_type(no_ref(entry->type_information)))
     {
         error_printf("%s: error: entity '%s' already has a DIMENSION attribute\n",
                 ast_location(a),
@@ -3489,8 +3590,8 @@ static void build_scope_allocatable_stmt(AST a, decl_context_t decl_context, nod
             continue;
         }
 
-        if (!is_fortran_array_type(no_ref(entry->type_information))
-                && !is_pointer_to_fortran_array_type(no_ref(entry->type_information)))
+        if (!fortran_is_array_type(no_ref(entry->type_information))
+                && !fortran_is_pointer_to_array_type(no_ref(entry->type_information)))
         {
             error_printf("%s: error: ALLOCATABLE attribute cannot be set to scalar entity '%s'\n",
                     ast_location(name),
@@ -4011,8 +4112,8 @@ static void build_scope_common_stmt(AST a,
 
             if (array_spec != NULL)
             {
-                if (is_fortran_array_type(no_ref(sym->type_information))
-                        || is_pointer_to_fortran_array_type(no_ref(sym->type_information)))
+                if (fortran_is_array_type(no_ref(sym->type_information))
+                        || fortran_is_pointer_to_array_type(no_ref(sym->type_information)))
                 {
                     error_printf("%s: error: entity '%s' has already a DIMENSION attribute\n",
                             ast_location(a),
@@ -4492,7 +4593,7 @@ static void build_scope_data_stmt(AST a, decl_context_t decl_context, nodecl_t* 
                 uint64_t i;
                 for (i = 0; i < repeat; i++)
                 {
-                    nodecl_data_set = nodecl_append_to_list(nodecl_data_set, nodecl_copy(nodecl_value));
+                    nodecl_data_set = nodecl_append_to_list(nodecl_data_set, nodecl_shallow_copy(nodecl_value));
                 }
             }
             else
@@ -4855,7 +4956,7 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
 
                 if (char_length != NULL)
                 {
-                    if (!is_fortran_character_type(no_ref(entry->type_information)))
+                    if (!fortran_is_character_type(no_ref(entry->type_information)))
                     {
                         error_printf("%s: error: char-length specified but type is not CHARACTER\n", ast_location(declaration));
                     }
@@ -4972,6 +5073,7 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
     }
 
     set_is_complete_type(class_name->type_information, 1);
+    class_type_set_is_packed(class_name->type_information, is_sequence);
 
     if (decl_context.current_scope->related_entry != NULL
             && decl_context.current_scope->related_entry->kind == SK_MODULE)
@@ -4998,8 +5100,8 @@ static void build_scope_dimension_stmt(AST a, decl_context_t decl_context, nodec
 
         scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
 
-        if (is_fortran_array_type(no_ref(entry->type_information))
-                || is_pointer_to_fortran_array_type(no_ref(entry->type_information)))
+        if (fortran_is_array_type(no_ref(entry->type_information))
+                || fortran_is_pointer_to_array_type(no_ref(entry->type_information)))
         {
             error_printf("%s: error: entity '%s' already has a DIMENSION attribute\n",
                     ast_location(name),
@@ -6315,7 +6417,7 @@ static void build_scope_cray_pointer_stmt(AST a, decl_context_t decl_context, no
         }
         if (array_spec != NULL)
         {
-            if (is_fortran_array_type(no_ref(pointee_entry->type_information)))
+            if (fortran_is_array_type(no_ref(pointee_entry->type_information)))
             {
                 error_printf("%s: error: entity '%s' has already a DIMENSION attribute\n",
                         ast_location(pointee_name),
@@ -6383,8 +6485,8 @@ static void build_scope_pointer_stmt(AST a, decl_context_t decl_context, nodecl_
 
         if (array_spec != NULL)
         {
-            if (is_fortran_array_type(no_ref(entry->type_information))
-                    || is_pointer_to_fortran_array_type(no_ref(entry->type_information)))
+            if (fortran_is_array_type(no_ref(entry->type_information))
+                    || fortran_is_pointer_to_array_type(no_ref(entry->type_information)))
             {
                 error_printf("%s: error: entity '%s' has already a DIMENSION attribute\n",
                         ast_location(a),
@@ -6996,8 +7098,8 @@ static void build_scope_target_stmt(AST a, decl_context_t decl_context, nodecl_t
 
             if (array_spec != NULL)
             {
-                if (is_fortran_array_type(no_ref(entry->type_information))
-                        || is_pointer_to_fortran_array_type(no_ref(entry->type_information)))
+                if (fortran_is_array_type(no_ref(entry->type_information))
+                        || fortran_is_pointer_to_array_type(no_ref(entry->type_information)))
                 {
                     error_printf("%s: error: DIMENSION attribute specified twice for entity '%s'\n", 
                             ast_location(a),
@@ -7127,7 +7229,7 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
 
         remove_untyped_symbol(decl_context, entry);
 
-        entry->type_information = update_basic_type_with_type(entry->type_information, basic_type);
+        entry->type_information = fortran_update_basic_type_with_type(entry->type_information, basic_type);
         entry->entity_specs.is_implicit_basic_type = 0;
 
         entry->file = ASTFileName(declaration);
@@ -7145,7 +7247,7 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
                 scope_entry_t* sym = entry->entity_specs.related_symbols[i];
                 if (sym->entity_specs.is_result)
                 {
-                    sym->type_information = update_basic_type_with_type(sym->type_information, basic_type);
+                    sym->type_information = fortran_update_basic_type_with_type(sym->type_information, basic_type);
                     sym->entity_specs.is_implicit_basic_type = 0;
                 }
             }
@@ -7185,9 +7287,9 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
         {
             type_t* new_basic_type = NULL;
 
-            type_t* rank0 = get_rank0_type(basic_type);
+            type_t* rank0 = fortran_get_rank0_type(basic_type);
 
-            if (!is_fortran_character_type(rank0))
+            if (!fortran_is_character_type(rank0))
             {
                 error_printf("%s: error: char-length specified but type is not CHARACTER\n", ast_location(declaration));
                 continue;
@@ -7221,7 +7323,7 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
                         nodecl_null(), decl_context);
             }
 
-            entry->type_information = update_basic_type_with_type(entry->type_information, new_basic_type);
+            entry->type_information = fortran_update_basic_type_with_type(entry->type_information, new_basic_type);
         }
 
 
@@ -7692,10 +7794,10 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
         internal_error("Unexpected node %s", ast_print_node_type(ASTType(a)));
     }
 
+    char must_be_intrinsic_module = 0;
     if (module_nature != NULL)
     {
-        running_error("%s: error: specifying the nature of the module is not supported\n",
-                ast_location(a));
+        must_be_intrinsic_module = (strcasecmp(ASTText(module_nature), "INTRINSIC") == 0);
     }
 
     const char* module_name_str = strtolower(ASTText(module_name));
@@ -7729,14 +7831,27 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
 
         if (module_symbol == NULL)
         {
-            running_error("%s: error: cannot load module '%s'\n",
-                    ast_location(a),
-                    module_name_str);
+            if (must_be_intrinsic_module)
+            {
+                error_printf("%s: error: module '%s' is not an INTRINSIC module\n", ast_location(a), module_name_str);
+            }
+            else
+            {
+                running_error("%s: error: cannot load module '%s'\n",
+                        ast_location(a),
+                        module_name_str);
+            }
         }
 
         // And add it to the cache of opened modules
         ERROR_CONDITION(module_symbol == NULL, "Invalid symbol", 0);
         rb_tree_insert(CURRENT_COMPILED_FILE->module_file_cache, module_name_str, module_symbol);
+    }
+
+    if (must_be_intrinsic_module
+            && !module_symbol->entity_specs.is_builtin)
+    {
+        error_printf("%s: error: loaded module '%s' is not an INTRINSIC module\n", ast_location(a), module_name_str);
     }
 
     scope_entry_t* used_modules = get_or_create_used_modules_symbol_info(decl_context);
@@ -8368,8 +8483,8 @@ static char opt_common_int_expr(AST value, decl_context_t decl_context, const ch
 static char opt_common_character_expr(AST value, decl_context_t decl_context, const char* opt_name, nodecl_t* nodecl_value)
 {
     fortran_check_expression(value, decl_context, nodecl_value);
-    if (!is_fortran_character_type(no_ref(nodecl_get_type(*nodecl_value)))
-            && !is_pointer_to_fortran_character_type(no_ref(nodecl_get_type(*nodecl_value))))
+    if (!fortran_is_character_type(no_ref(nodecl_get_type(*nodecl_value)))
+            && !fortran_is_pointer_to_character_type(no_ref(nodecl_get_type(*nodecl_value))))
     {
         error_printf("%s: error: specifier %s requires a character expression\n",
                 ast_location(value),
@@ -8598,9 +8713,9 @@ static void opt_fmt_value(AST value, decl_context_t decl_context, nodecl_t* node
         else 
         {
             scope_entry_t* entry = nodecl_get_symbol(nodecl_value);
-            if (is_fortran_character_type(no_ref(t)) 
-                    || (is_fortran_array_type(no_ref(t)) && 
-                        is_fortran_character_type(no_ref(get_unqualified_type(get_rank0_type(t))))))
+            if (fortran_is_character_type(no_ref(t)) 
+                    || (fortran_is_array_type(no_ref(t)) && 
+                        fortran_is_character_type(no_ref(get_unqualified_type(fortran_get_rank0_type(t))))))
             {
                 // Character type is OK
             }
@@ -8909,8 +9024,8 @@ static void opt_unit_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_c
         type_t* t = nodecl_get_type(nodecl_value);
         if (!(is_integer_type(no_ref(t))
                     || (nodecl_get_symbol(nodecl_value) != NULL
-                        && is_fortran_character_type_or_pointer_to(
-                            get_rank0_type(no_ref(t))))))
+                        && fortran_is_character_type_or_pointer_to(
+                            fortran_get_rank0_type(no_ref(t))))))
         {
             error_printf("%s: error: specifier UNIT requires a character variable or a scalar integer expression\n",
                     ast_location(value));

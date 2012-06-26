@@ -28,6 +28,7 @@ linker_options =
 [plainfc : plain-base]
 language = Fortran
 options = 
+{openmp} options = -I @PKGDATADIR@/fortran/openmp
 fortran_preprocessor_name = gfortran
 fortran_preprocessor_options = -cpp -E
 compiler_name = gfortran

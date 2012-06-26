@@ -135,6 +135,8 @@ TL::Scope CxxBase::get_current_scope() const
     BINARY_EXPRESSION_ASSIG(BitwiseXorAssignment, " ^= ") \
     BINARY_EXPRESSION_ASSIG(ModAssignment, " %= ") \
     BINARY_EXPRESSION(Offset, ".*") \
+    BINARY_EXPRESSION(CxxDotPtrMember, ".*") \
+    BINARY_EXPRESSION(CxxArrowPtrMember, "->*") \
     BINARY_EXPRESSION(Comma, ", ") \
 
 #define PREFIX_UNARY_EXPRESSION(_name, _operand) \
@@ -447,7 +449,17 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ClassMemberAccess& node)
 
     TL::Symbol sym = rhs.get_symbol();
 
-    bool is_anonymous = sym.is_valid()
+    /*
+     *     .
+     *    / \
+     *   .   c
+     *  / \
+     * a   <<anon>>
+     *
+     * We want a.<<anon>>.c become a.c
+     */
+
+    bool is_anonymous_union_accessor = sym.is_valid()
         && sym.get_type().is_named_class()
         && sym.get_type().get_symbol().is_anonymous_union();
 
@@ -475,13 +487,15 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ClassMemberAccess& node)
     {
         file << ")";
     }
-    // Do not print anonymous symbols
-    if (!is_anonymous)
+
+    if (!is_anonymous_union_accessor)
     {
         // Right part can be a reference but we do not want to derref it
         state.do_not_derref_rebindable_reference = true;
 
-        file << ".";
+        file << "."
+            << /* template tag if needed */ node.get_text();
+
         needs_parentheses = operand_has_lower_priority(node, rhs);
         if (needs_parentheses)
         {
@@ -489,18 +503,18 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ClassMemberAccess& node)
         }
 
         walk(rhs);
-
         if (needs_parentheses)
         {
             file << ")";
         }
+
+        state.do_not_derref_rebindable_reference = old_do_not_derref_rebindable_ref;
     }
 
     if (must_derref_all)
     {
         file << ")";
     }
-    state.do_not_derref_rebindable_reference = old_do_not_derref_rebindable_ref;
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::ComplexLiteral& node)
@@ -641,41 +655,22 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Conversion& node)
     walk(node.get_nest());
 }
 
-CxxBase::Ret CxxBase::visit(const Nodecl::SavedExpr& node)
-{
-    // Do nothing
-    walk(node.get_expression());
-}
-
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxArrow& node)
 {
     walk(node.get_lhs());
-    file << "->";
+    file << "->"
+         << /* template tag if needed */ node.get_text();
     walk(node.get_member());
-}
-
-CxxBase::Ret CxxBase::visit(const Nodecl::CxxArrowPtrMember& node)
-{
-    walk(node.get_lhs());
-    file << "->*";
-    walk(node.get_ptr());
-}
-
-CxxBase::Ret CxxBase::visit(const Nodecl::CxxDotPtrMember& node)
-{
-    walk(node.get_lhs());
-    file << ".*";
-    walk(node.get_ptr());
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxBracedInitializer& node)
 {
-    file << "{";
+    file << "{ ";
     if (!node.get_init().is_null())
     {
-        walk(node.get_init());
+        walk_list(node.get_init().as<Nodecl::List>(), ", ");
     }
-    file << "}";
+    file << " }";
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepGlobalNameNested& node)
@@ -704,10 +699,12 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepTemplateId& node)
     file << node.get_text();
 
     walk(node.get_name());
-    TL::TemplateParameters tpl(nodecl_get_template_parameters(node.get_internal_nodecl()));
+    TL::TemplateParameters tpl = node.get_template_parameters();
 
     file << ::template_arguments_to_str(
             tpl.get_internal_template_parameter_list(),
+            /* first_template_argument_to_be_printed */ 0,
+            /* print_first_level_bracket */ 1,
             this->get_current_scope().get_decl_context());
 
     // The function 'template_arguments_to_str' does not print anything when
@@ -716,6 +713,11 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepTemplateId& node)
     {
         file << "<>";
     }
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::CxxInitializer& node)
+{
+    walk(node.get_init());
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxEqualInitializer& node)
@@ -748,6 +750,20 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxParenthesizedInitializer& node)
     {
         walk_expression_list(node.get_init().as<Nodecl::List>());
     }
+    file << ")";
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::CxxAlignof& node)
+{
+    if (IS_CXX1X_LANGUAGE)
+    {
+        file << "alignof(";
+    }
+    else
+    {
+        file << "__alignof__(";
+    }
+    walk(node.get_expr());
     file << ")";
 }
 
@@ -1111,43 +1127,172 @@ CxxBase::Ret CxxBase::codegen_function_call_arguments(Iterator begin, Iterator e
 }
 
 template <typename Node>
-CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call)
+void CxxBase::visit_function_call_form_template_id(const Node& node)
 {
-    Nodecl::NodeclBase called_entity = node.get_called();
-    Nodecl::List arguments = node.get_arguments().template as<Nodecl::List>();
+    Nodecl::NodeclBase function_form = node.get_function_form();
+    TL::Symbol called_symbol = node.get_called().get_symbol();
 
-    enum call_kind
+    if (!function_form.is_null()
+            && function_form.is<Nodecl::CxxFunctionFormTemplateId>())
     {
-        INVALID_CALL = 0,
-        ORDINARY_CALL,
-        NONSTATIC_MEMBER_CALL,
-        STATIC_MEMBER_CALL,
-        CONSTRUCTOR_INITIALIZATION
-    } kind = ORDINARY_CALL;
+        TL::TemplateParameters template_args = function_form.get_template_parameters();
+        TL::TemplateParameters deduced_template_args =
+            called_symbol.get_type().template_specialized_type_get_template_arguments();
 
-    TL::Symbol called_symbol = called_entity.get_symbol();
-    if (called_symbol.is_valid())
-    {
-        if (called_symbol.is_function()
-                && called_symbol.is_member())
+        if (template_args.get_num_parameters() == deduced_template_args.get_num_parameters())
         {
-            if (called_symbol.is_constructor())
+            // First case: the user's code specifies all template arguments
+            file << ::template_arguments_to_str(
+                    template_args.get_internal_template_parameter_list(),
+                    /* first_template_argument_to_be_printed */ 0,
+                    /* print_first_level_bracket */ 1,
+                    called_symbol.get_scope().get_decl_context());
+        }
+        else
+        {
+            // Second case: the user's code specifies some template arguments but not all
+            std::string template_args_str =
+                ::template_arguments_to_str(
+                        template_args.get_internal_template_parameter_list(),
+                        /* first_template_argument_to_be_printed */ 0,
+                        /* print_first_level_bracket */ 0,
+                        called_symbol.get_scope().get_decl_context());
+
+            std::string deduced_template_args_str =
+                ::template_arguments_to_str(
+                        deduced_template_args.get_internal_template_parameter_list(),
+                        /* first_template_argument_to_be_printed */ template_args.get_num_parameters(),
+                        /* print_first_level_bracket */ 1,
+                        called_symbol.get_scope().get_decl_context());
+
+            // Reason of this: A<::B> it's not legal
+            if (template_args_str.length() != 0 && template_args_str[0] == ':')
             {
-                kind = CONSTRUCTOR_INITIALIZATION;
+                file << "< ";
             }
-            else if (!called_symbol.is_static())
+            else
             {
-                kind = NONSTATIC_MEMBER_CALL;
+                file << "<";
             }
-            else // if (called_symbol.is_static())
-            {
-                kind = STATIC_MEMBER_CALL;
-            }
+            file << template_args_str << "/*, " << deduced_template_args_str <<"*/>";
         }
     }
+    else
+    {
+        // Third case: the user's code does not specify any template argument
+        // We generate a comment with the deduced template arguments
+        if (called_symbol != NULL
+                && called_symbol.get_type().is_template_specialized_type())
+        {
+            TL::TemplateParameters deduced_template_args =
+                called_symbol.get_type().template_specialized_type_get_template_arguments();
+            file << "/*";
+            file << ::template_arguments_to_str(
+                    deduced_template_args.get_internal_template_parameter_list(),
+                    /* first_template_argument_to_be_printed */ 0,
+                    /* print_first_level_bracket */ 1,
+                    called_symbol.get_scope().get_decl_context());
+            file << "*/";
+        }
+    }
+}
+
+// Explicit specialitzation for Nodecl::CxxDepFunctionCall because this kind of node has not a function form
+template <>
+void CxxBase::visit_function_call_form_template_id<Nodecl::CxxDepFunctionCall>(const Nodecl::CxxDepFunctionCall& node)
+{
+}
+
+
+template <typename Node>
+bool CxxBase::is_implicit_function_call(const Node& node) const
+{
+    return (!node.get_function_form().is_null()
+            && node.get_function_form().template is<Nodecl::CxxFunctionFormImplicit>());
+}
+
+// Explicit specialitzation for Nodecl::CxxDepFunctionCall because this kind of node has not a function form
+template <>
+bool CxxBase::is_implicit_function_call<Nodecl::CxxDepFunctionCall>(const Nodecl::CxxDepFunctionCall& node) const
+{
+    return 0;
+}
+
+
+template <typename Node>
+bool CxxBase::is_binary_infix_operator_function_call(const Node& node)
+{
+    return (!node.get_function_form().is_null()
+            && node.get_function_form().template is<Nodecl::CxxFunctionFormBinaryInfix>());
+}
+
+// Explicit specialitzation for Nodecl::CxxDepFunctionCall because this kind of node has not a function form
+template <>
+bool CxxBase::is_binary_infix_operator_function_call<Nodecl::CxxDepFunctionCall>(const Nodecl::CxxDepFunctionCall& node)
+{
+    return 0;
+}
+
+
+template <typename Node>
+bool CxxBase::is_unary_prefix_operator_function_call(const Node& node)
+{
+    return (!node.get_function_form().is_null()
+            && node.get_function_form().template is<Nodecl::CxxFunctionFormUnaryPrefix>());
+}
+
+// Explicit specialitzation for Nodecl::CxxDepFunctionCall because this kind of node has not a function form
+template <>
+bool CxxBase::is_unary_prefix_operator_function_call<Nodecl::CxxDepFunctionCall>(const Nodecl::CxxDepFunctionCall& node)
+{
+    return 0;
+}
+
+
+template <typename Node>
+bool CxxBase::is_unary_postfix_operator_function_call(const Node& node)
+{
+    return (!node.get_function_form().is_null()
+            && node.get_function_form().template is<Nodecl::CxxFunctionFormUnaryPostfix>());
+}
+
+// Explicit specialitzation for Nodecl::CxxDepFunctionCall because this kind of node has not a function form
+template <>
+bool CxxBase::is_unary_postfix_operator_function_call<Nodecl::CxxDepFunctionCall>(const Nodecl::CxxDepFunctionCall& node)
+{
+    return 0;
+}
+
+
+template <typename Node>
+bool CxxBase::is_operator_function_call(const Node& node)
+{
+    return (is_unary_prefix_operator_function_call(node)
+            || is_unary_postfix_operator_function_call(node)
+            || is_binary_infix_operator_function_call(node));
+}
+
+template <typename Node>
+CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call)
+{
+
+    Nodecl::NodeclBase called_entity = node.get_called();
+
+    if (is_implicit_function_call(node))
+    {
+        // We don't want to generate the current function call because It has
+        // been added by the compiler. We should ignore it!
+        if (!node.get_arguments().is_null())
+        {
+            walk(node.get_arguments().template as<Nodecl::List>()[0]);
+        }
+        return;
+    }
+
+    TL::Symbol called_symbol = called_entity.get_symbol();
+    Nodecl::List arguments = node.get_arguments().template as<Nodecl::List>();
 
     TL::Type function_type(NULL);
-
     if (called_entity.is<Nodecl::Symbol>())
     {
         function_type = called_entity.as<Nodecl::Symbol>().get_symbol().get_type();
@@ -1166,60 +1311,106 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
     // There are a lot of cases!
     if (!function_type.is_function())
     {
+        char needs_parentheses = operand_has_lower_priority(node, called_entity);
+        if (needs_parentheses)
+        {
+            file << "(";
+        }
         walk(called_entity);
+        if (needs_parentheses)
+        {
+            file << ")";
+        }
         file << "(";
         walk_expression_list(arguments);
         file << ")";
         return;
     }
 
-    // Currently, this never happens
-    ERROR_CONDITION(!function_type.is_function(), "Expecting a function type", 0);
+    enum call_kind
+    {
+        INVALID_CALL = 0,
+        ORDINARY_CALL,
+        NONSTATIC_MEMBER_CALL,
+        STATIC_MEMBER_CALL,
+        CONSTRUCTOR_INITIALIZATION,
+        BINARY_INFIX_OPERATOR,
+        UNARY_PREFIX_OPERATOR,
+        UNARY_POSTFIX_OPERATOR
+    } kind = ORDINARY_CALL;
+
+    if (called_symbol.is_valid())
+    {
+        if (is_unary_prefix_operator_function_call(node))
+        {
+            kind = UNARY_PREFIX_OPERATOR;
+        }
+        else if (is_unary_postfix_operator_function_call(node))
+        {
+            kind = UNARY_POSTFIX_OPERATOR;
+        }
+        else if (is_binary_infix_operator_function_call(node))
+        {
+            kind = BINARY_INFIX_OPERATOR;
+        }
+        else if (called_symbol.is_function()
+                && called_symbol.is_member())
+        {
+            if (called_symbol.is_constructor())
+            {
+                kind = CONSTRUCTOR_INITIALIZATION;
+            }
+            else if (!called_symbol.is_static())
+            {
+                kind = NONSTATIC_MEMBER_CALL;
+            }
+            else
+            {
+                kind = STATIC_MEMBER_CALL;
+            }
+        }
+    }
 
     bool is_non_language_ref = is_non_language_reference_type(function_type.returns());
     if (is_non_language_ref)
-    {
         file << "(*(";
-    }
 
+    bool old_visiting_called_entity_of_function_call =
+        state.visiting_called_entity_of_function_call;
+
+    // We are going to visit the called entity of the current function call.
+    // The template arguments of this function (if any) will be printed by the
+    // function 'visit_function_call_form_template_id' and not by the visitor
+    // of the symbol
+    state.visiting_called_entity_of_function_call = true;
+
+    int ignore_n_first_arguments;
     switch (kind)
     {
         case ORDINARY_CALL:
         case STATIC_MEMBER_CALL:
             {
-                char needs_parentheses = operand_has_lower_priority(node, called_entity);
+                bool needs_parentheses = operand_has_lower_priority(node, called_entity);
                 if (needs_parentheses)
-                {
                     file << "(";
-                }
                 walk(called_entity);
                 if (needs_parentheses)
-                {
                     file << ")";
-                }
-                file << "(";
 
-                codegen_function_call_arguments(arguments.begin(), arguments.end(), function_type, /* ignore_n_first */ 0);
-
-                file << ")";
+                ignore_n_first_arguments = 0;
                 break;
             }
         case NONSTATIC_MEMBER_CALL:
             {
                 ERROR_CONDITION(!(arguments.size() >= 1), "A nonstatic member call lacks the implicit argument", 0);
 
-                char needs_parentheses = (get_rank(arguments[0])
-                        < get_rank_kind(NODECL_CLASS_MEMBER_ACCESS, ""));
-
+                bool needs_parentheses = (get_rank(arguments[0]) < get_rank_kind(NODECL_CLASS_MEMBER_ACCESS, ""));
                 if (needs_parentheses)
-                {
                     file << "(";
-                }
                 walk(arguments[0]);
                 if (needs_parentheses)
-                {
                     file << ")";
-                }
+
                 file << ".";
 
                 if (is_virtual_call)
@@ -1232,23 +1423,85 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
                     walk(called_entity);
                 }
 
-                file << "(";
-
-                codegen_function_call_arguments(arguments.begin(), arguments.end(), function_type, /* ignore_n_first */ 1);
-
-                file << ")";
+                ignore_n_first_arguments = 1;
                 break;
             }
         case CONSTRUCTOR_INITIALIZATION:
             {
                 TL::Symbol class_symbol = called_symbol.get_class_type().get_symbol();
                 file << class_symbol.get_qualified_name();
-                file << "(";
-
-                codegen_function_call_arguments(arguments.begin(), arguments.end(), function_type, /* ignore_n_first */ 0);
-
-                file << ")";
+                ignore_n_first_arguments = 0;
                 break;
+            }
+        case UNARY_PREFIX_OPERATOR:
+            {
+                std::string called_operator = called_symbol.get_name().substr(std::string("operator ").size());
+                state.visiting_called_entity_of_function_call =
+                    old_visiting_called_entity_of_function_call;
+
+                // We need this to avoid - - 1 to become --1
+                file << " " << called_operator;
+
+                bool needs_parentheses = operand_has_lower_priority(node, arguments[0]);
+                if (needs_parentheses)
+                    file << "(";
+                walk(arguments[0]);
+                if (needs_parentheses)
+                    file << ")";
+
+                if (is_non_language_ref)
+                    file << "))";
+
+                return;
+            }
+        case UNARY_POSTFIX_OPERATOR:
+            {
+                std::string called_operator = called_symbol.get_name().substr(std::string("operator ").size());
+                state.visiting_called_entity_of_function_call =
+                    old_visiting_called_entity_of_function_call;
+
+                bool needs_parentheses = operand_has_lower_priority(node, arguments[0]);
+                if (needs_parentheses)
+                    file << "(";
+
+                walk(arguments[0]);
+
+                if (needs_parentheses)
+                    file << ")";
+
+                file << called_operator;
+
+                if (is_non_language_ref)
+                    file << "))";
+
+                return;
+            }
+        case BINARY_INFIX_OPERATOR:
+            {
+                std::string called_operator = called_symbol.get_name().substr(std::string("operator ").size());
+                state.visiting_called_entity_of_function_call =
+                    old_visiting_called_entity_of_function_call;
+
+                bool needs_parentheses = operand_has_lower_priority(node, arguments[0]);
+                if (needs_parentheses)
+                    file << "(";
+                walk(arguments[0]);
+                if (needs_parentheses)
+                    file << ")";
+
+                file << " " << called_operator << " ";
+
+                needs_parentheses = operand_has_lower_priority(node, arguments[1]);
+                if (needs_parentheses)
+                    file << "(";
+                walk(arguments[1]);
+                if (needs_parentheses)
+                    file << ")";
+
+                if (is_non_language_ref)
+                    file << "))";
+
+                return;
             }
         default:
             {
@@ -1256,13 +1509,26 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
             }
     }
 
+    visit_function_call_form_template_id(node);
+
+    file << "(";
+
+    state.visiting_called_entity_of_function_call = old_visiting_called_entity_of_function_call;
+
+    codegen_function_call_arguments(arguments.begin(), arguments.end(), function_type, ignore_n_first_arguments);
+
+    file << ")";
+
     if (is_non_language_ref)
-    {
         file << "))";
-    }
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCall& node)
+{
+    visit_function_call(node, /* is_virtual_call */ false);
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepFunctionCall& node)
 {
     visit_function_call(node, /* is_virtual_call */ false);
 }
@@ -1271,8 +1537,6 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
 {
     // We are going to generate dependent code
     state.in_dependent_template_function_code = true;
-    bool old = state.do_not_emit_other_declarations;
-    state.do_not_emit_other_declarations = true;
 
     Nodecl::Context context = node.get_statements().as<Nodecl::Context>();
     Nodecl::List statement_seq = context.get_in_context().as<Nodecl::List>();
@@ -1292,40 +1556,49 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
     Nodecl::NodeclBase statement = statement_seq[0];
 
     TL::Symbol symbol = node.get_symbol();
+
+    // We don't define twice a symbol
+    if (get_codegen_status(symbol) == CODEGEN_STATUS_DEFINED)
+        return;
+
+    // Two return cases for C++:
+    //  - The symbol is defined inside a certain class and we are not defining this class yet
+    //  - The symbol is not defined inside a class and, currently, we are defining one or more
+    if (IS_CXX_LANGUAGE &&
+            (symbol.is_defined_inside_class() &&
+             (state.classes_being_defined.empty() ||
+              state.classes_being_defined.back() != symbol.get_class_type().get_symbol()) ||
+             (!symbol.is_defined_inside_class() && !state.classes_being_defined.empty())))
+        return;
+
     TL::Type symbol_type = symbol.get_type();
     TL::Scope function_scope = context.retrieve_context();
 
 
-    ERROR_CONDITION(!symbol.is_function(), "Invalid symbol", 0);
+    ERROR_CONDITION(!symbol.is_function()
+            && !symbol.is_dependent_friend_function(), "Invalid symbol", 0);
 
-    // This is a member of a local class. Ignore unless we are defining its local class
-    if (is_local_symbol(symbol))
+    if (!symbol.is_friend())
     {
-        if (state.classes_being_defined.empty()
-                || (state.classes_being_defined.back() !=
-                    symbol.get_class_type().get_symbol()))
-            return;
-    }
-
-    if (symbol.is_member())
-    {
-        TL::Symbol class_symbol = symbol.get_class_type().get_symbol();
-        do_define_symbol(class_symbol,
-                &CxxBase::declare_symbol_always,
-                &CxxBase::define_symbol_always);
-    }
-    else
-    {
-        if (symbol_type.is_template_specialized_type()
-                && symbol_type.template_specialized_type_get_template_arguments().get_num_parameters() != 0)
+        if (symbol.is_member())
         {
-            TL::Type template_type = symbol_type.get_related_template_type();
-            TL::Type primary_type = template_type.get_primary_template();
-            TL::Symbol primary_symbol = primary_type.get_symbol();
-
-            do_declare_symbol(primary_symbol,
+            TL::Symbol class_symbol = symbol.get_class_type().get_symbol();
+            do_define_symbol(class_symbol,
                     &CxxBase::declare_symbol_always,
                     &CxxBase::define_symbol_always);
+        }
+        else
+        {
+            if (symbol_type.is_template_specialized_type())
+            {
+                TL::Type template_type = symbol_type.get_related_template_type();
+                TL::Type primary_type = template_type.get_primary_template();
+                TL::Symbol primary_symbol = primary_type.get_symbol();
+
+                do_declare_symbol(primary_symbol,
+                        &CxxBase::declare_symbol_always,
+                        &CxxBase::define_symbol_always);
+            }
         }
     }
 
@@ -1357,33 +1630,32 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
         define_nonlocal_entities_in_trees(statement);
     }
 
-    TL::ObjectList<TL::Symbol> related_symbols = symbol.get_related_symbols();
-    TL::ObjectList<std::string> parameter_names(related_symbols.size());
-    TL::ObjectList<std::string> parameter_attributes(related_symbols.size());
-    int i = 0;
-    for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
-            it != related_symbols.end();
-            it++, i++)
-    {
-        TL::Symbol current_param = *it;
-        if (current_param.is_valid())
-        {
-            parameter_names[i] = current_param.get_name();
-            set_codegen_status(current_param, CODEGEN_STATUS_DEFINED);
-            if (current_param.has_gcc_attributes())
-            {
-                parameter_attributes[i] = gcc_attributes_to_str(current_param);
-            }
-        }
-    }
+    int num_parameters = symbol.get_related_symbols().size();
+    TL::ObjectList<std::string> parameter_names(num_parameters);
+    TL::ObjectList<std::string> parameter_attributes(num_parameters);
+    fill_parameter_names_and_parameter_attributes(symbol, parameter_names, parameter_attributes);
 
     std::string decl_spec_seq;
 
+    if (symbol.is_friend()
+            // The function is friend of a class
+            && symbol.is_defined_inside_class()
+            // The friend function is defined within this class
+            && !state.classes_being_defined.empty()
+            && state.classes_being_defined.back() == symbol.get_class_type().get_symbol())
+            // The friend function is defined in the current being defined class
+    {
+        decl_spec_seq += "friend ";
+    }
+
     if (symbol.is_static()
-            && !symbol.is_member())
+            && (!symbol.is_member()
+                || (!state.classes_being_defined.empty()
+                    && state.classes_being_defined.back() == symbol.get_class_type().get_symbol())))
     {
         decl_spec_seq += "static ";
     }
+
     if (symbol.is_extern() && symbol.get_initialization().is_null())
     {
         decl_spec_seq += "extern ";
@@ -1400,6 +1672,13 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
         }
     }
 
+    if (symbol.is_explicit_constructor()
+            && get_codegen_status(symbol) != CODEGEN_STATUS_DECLARED
+            && get_codegen_status(symbol) != CODEGEN_STATUS_DECLARED)
+    {
+        decl_spec_seq += "explicit ";
+    }
+
     std::string gcc_attributes = "";
 
     if (symbol.has_gcc_attributes())
@@ -1411,7 +1690,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
 
     std::string declarator_name;
 
-    if (!is_local_symbol(symbol))
+    if (!symbol.is_defined_inside_class())
     {
         declarator_name = symbol.get_class_qualification(function_scope, /* without_template */ true);
     }
@@ -1419,12 +1698,6 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
     {
         declarator_name = unmangle_symbol_name(symbol);
     }
-
-    //if (symbol_type.is_template_specialized_type()
-    //        && !symbol.is_conversion_function())
-    //{
-    //    declarator_name += template_arguments_to_str(symbol);
-    //}
 
     TL::Type real_type = symbol_type.advance_over_typedefs();
 
@@ -1449,26 +1722,32 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
 
     move_to_namespace_of_symbol(symbol);
 
-    if (!is_local_symbol(symbol))
+    TL::TemplateParameters template_parameters = function_scope.get_template_parameters();
+    if (symbol.is_defined_inside_class())
     {
-        TL::TemplateParameters template_parameters = function_scope.get_template_parameters();
-        codegen_template_headers_all_levels(template_parameters, /*show default values*/ false);
+        TL::Symbol class_sym = symbol.get_class_type().get_symbol();
+        codegen_template_headers_bounded(
+                template_parameters,
+                class_sym.get_scope().get_template_parameters(),
+                /*show default variables*/ false);
+    }
+    else
+    {
+        codegen_template_headers_all_levels(
+                template_parameters,
+                /*show default values*/ false);
     }
 
-    bool requires_extern_linkage = false;
-    CXX_LANGUAGE()
+    bool requires_extern_linkage = (!symbol.is_member()
+            && symbol.has_nondefault_linkage());
+
+    if (requires_extern_linkage)
     {
-        requires_extern_linkage = (!symbol.is_member()
-                && symbol.has_nondefault_linkage());
+        file << "extern " + symbol.get_linkage() + "\n";
+        indent();
+        file << "{\n";
 
-        if (requires_extern_linkage)
-        {
-            file << "extern " + symbol.get_linkage() + "\n";
-            indent();
-            file << "{\n";
-
-            inc_indent();
-        }
+        inc_indent();
     }
 
     if (!symbol.is_member()
@@ -1503,22 +1782,16 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
 
     this->walk(context);
 
-    CXX_LANGUAGE()
+    if (requires_extern_linkage)
     {
-        if (requires_extern_linkage)
-        {
-            dec_indent();
-            indent();
-            file << "}\n";
-        }
+        dec_indent();
+        indent();
+        file << "}\n";
     }
-
-    state.do_not_emit_other_declarations = old;
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 {
-
     //Only independent code
     Nodecl::Context context = node.get_statements().as<Nodecl::Context>();
     Nodecl::List statement_seq = context.get_in_context().as<Nodecl::List>();
@@ -1539,40 +1812,49 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 
     TL::Symbol symbol = node.get_symbol();
 
-    // This is a member of a local class. Ignore unless we are defining its local class
-    if (is_local_symbol(symbol))
-    {
-        if (state.classes_being_defined.empty()
-                || (state.classes_being_defined.back() !=
-                    symbol.get_class_type().get_symbol()))
-            return;
-    }
+    // We don't define twice a symbol
+    if (get_codegen_status(symbol) == CODEGEN_STATUS_DEFINED)
+        return;
+
+    // Two return cases for C++:
+    //  - The symbol is defined inside a certain class and we are not defining this class yet
+    //  - The symbol is not defined inside a class and, currently, we are defining one or more
+    if (IS_CXX_LANGUAGE &&
+            (symbol.is_defined_inside_class() &&
+             (state.classes_being_defined.empty() ||
+              state.classes_being_defined.back() != symbol.get_class_type().get_symbol()) ||
+             (!symbol.is_defined_inside_class() && !state.classes_being_defined.empty())))
+        return;
 
     TL::Type symbol_type = symbol.get_type();
 
     TL::Scope symbol_scope = symbol.get_scope();
 
-    ERROR_CONDITION(!symbol.is_function(), "Invalid symbol", 0);
+    ERROR_CONDITION(!symbol.is_function()
+            && !symbol.is_dependent_friend_function(), "Invalid symbol", 0);
 
     bool is_template_specialized = symbol_type.is_template_specialized_type();
-    if (symbol.is_member())
+
+    if(!symbol.is_friend())
     {
-        TL::Symbol class_symbol = symbol.get_class_type().get_symbol();
-        do_define_symbol(class_symbol,
-                &CxxBase::declare_symbol_always,
-                &CxxBase::define_symbol_always);
-    }
-    else
-    {
-        if (is_template_specialized
-                && symbol_type.template_specialized_type_get_template_arguments().get_num_parameters() != 0)
+        if (symbol.is_member())
         {
-            TL::Type template_type = symbol_type.get_related_template_type();
-            TL::Type primary_type = template_type.get_primary_template();
-            TL::Symbol primary_symbol = primary_type.get_symbol();
-            do_declare_symbol(primary_symbol,
+            TL::Symbol class_symbol = symbol.get_class_type().get_symbol();
+            do_define_symbol(class_symbol,
                     &CxxBase::declare_symbol_always,
                     &CxxBase::define_symbol_always);
+        }
+        else
+        {
+            if (is_template_specialized)
+            {
+                TL::Type template_type = symbol_type.get_related_template_type();
+                TL::Type primary_type = template_type.get_primary_template();
+                TL::Symbol primary_symbol = primary_type.get_symbol();
+                do_declare_symbol(primary_symbol,
+                        &CxxBase::declare_symbol_always,
+                        &CxxBase::define_symbol_always);
+            }
         }
     }
 
@@ -1604,33 +1886,32 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
         define_nonlocal_entities_in_trees(statement);
     }
 
-    TL::ObjectList<TL::Symbol> related_symbols = symbol.get_related_symbols();
-    TL::ObjectList<std::string> parameter_names(related_symbols.size());
-    TL::ObjectList<std::string> parameter_attributes(related_symbols.size());
-    int i = 0;
-    for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
-            it != related_symbols.end();
-            it++, i++)
-    {
-        TL::Symbol current_param = *it;
-        if (current_param.is_valid())
-        {
-            parameter_names[i] = current_param.get_name();
-            set_codegen_status(current_param, CODEGEN_STATUS_DEFINED);
-            if (current_param.has_gcc_attributes())
-            {
-                parameter_attributes[i] = gcc_attributes_to_str(current_param);
-            }
-        }
-    }
+    int num_parameters = symbol.get_related_symbols().size();
+    TL::ObjectList<std::string> parameter_names(num_parameters);
+    TL::ObjectList<std::string> parameter_attributes(num_parameters);
+    fill_parameter_names_and_parameter_attributes(symbol, parameter_names, parameter_attributes);
 
     std::string decl_spec_seq;
 
+    if (symbol.is_friend()
+            // The function is friend of a class
+            && symbol.is_defined_inside_class()
+            // The friend function is defined within this class
+            && !state.classes_being_defined.empty()
+            && state.classes_being_defined.back() == symbol.get_class_type().get_symbol())
+            // The friend function is defined in the current being defined class
+    {
+        decl_spec_seq += "friend ";
+    }
+
     if (symbol.is_static()
-            && !symbol.is_member())
+            && (!symbol.is_member()
+                || (!state.classes_being_defined.empty()
+                    && state.classes_being_defined.back() == symbol.get_class_type().get_symbol())))
     {
         decl_spec_seq += "static ";
     }
+
     if (symbol.is_extern() && symbol.get_initialization().is_null())
     {
         decl_spec_seq += "extern ";
@@ -1647,6 +1928,13 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
         }
     }
 
+    if (symbol.is_explicit_constructor()
+            && get_codegen_status(symbol) != CODEGEN_STATUS_DECLARED
+            && get_codegen_status(symbol) != CODEGEN_STATUS_DECLARED)
+    {
+        decl_spec_seq += "explicit ";
+    }
+
     std::string gcc_attributes = "";
 
     if (symbol.has_gcc_attributes())
@@ -1657,13 +1945,20 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
     std::string asm_specification = gcc_asm_specifier_to_str(symbol);
 
     std::string declarator_name;
-    if (!is_local_symbol(symbol))
+    if (IS_C_LANGUAGE)
     {
-        declarator_name = symbol.get_class_qualification(symbol_scope, /* without_template */ true);
+        declarator_name = unmangle_symbol_name(symbol);
     }
     else
     {
-        declarator_name = unmangle_symbol_name(symbol);
+        if (!symbol.is_defined_inside_class())
+        {
+            declarator_name = symbol.get_class_qualification(symbol_scope, /* without_template */ true);
+        }
+        else
+        {
+            declarator_name = unmangle_symbol_name(symbol);
+        }
     }
 
     if (is_template_specialized
@@ -2221,9 +2516,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ReturnStatement& node)
 
     indent();
     file << "return ";
-
     walk(expression);
-
     file << ";\n";
 }
 
@@ -2503,9 +2796,21 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Symbol& node)
             // Builtins cannot be qualified
             file << entry.get_name();
         }
-        else
+        else if (entry.is_function())
+        {
+            // If we are visiting the called entity of a function call, the template arguments
+            // (if any) will be added by 'visit_function_call_form_template_id' function
+            file << entry.get_qualified_name(this->get_current_scope(),
+                    /* without template id */ state.visiting_called_entity_of_function_call);
+        }
+        else if (!entry.is_dependent_entity())
         {
             file << entry.get_qualified_name(this->get_current_scope());
+        }
+        else
+        {
+            ERROR_CONDITION(entry.get_value().is_null(), "A dependent entity must have a tree of its name!", 0);
+            walk(entry.get_value());
         }
     }
 
@@ -2610,14 +2915,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxDecl& node)
     TL::Symbol sym = node.get_symbol();
     state.must_be_object_init.erase(sym);
 
-    bool old = state.do_not_emit_other_declarations;
-    state.do_not_emit_other_declarations = true;
-
     do_declare_symbol(sym,
             &CxxBase::declare_symbol_always,
             &CxxBase::define_symbol_always);
-
-    state.do_not_emit_other_declarations = old;
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxDef& node)
@@ -2625,14 +2925,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxDef& node)
     TL::Symbol sym = node.get_symbol();
     state.must_be_object_init.erase(sym);
 
-    bool old = state.do_not_emit_other_declarations;
-    state.do_not_emit_other_declarations = true;
-
     do_define_symbol(sym,
             &CxxBase::declare_symbol_always,
             &CxxBase::define_symbol_always);
-
-    state.do_not_emit_other_declarations = old;
 }
 
 void CxxBase::codegen_explicit_instantiation(TL::Symbol sym,
@@ -2847,6 +3142,29 @@ bool CxxBase::symbol_is_nested_in_defined_classes(TL::Symbol symbol)
     return false;
 }
 
+bool CxxBase::symbol_or_its_bases_are_nested_in_defined_classes(TL::Symbol symbol)
+{
+    if (symbol_is_nested_in_defined_classes(symbol))
+    {
+        return true;
+    }
+
+    if (symbol.is_class())
+    {
+        TL::ObjectList<TL::Symbol> bases = symbol.get_type().get_bases_class_symbol_list();
+        for (TL::ObjectList<TL::Symbol>::iterator it = bases.begin();
+                it != bases.end();
+                it++)
+        {
+            if (symbol_is_nested_in_defined_classes(*it))
+            {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 TL::ObjectList<TL::Symbol> CxxBase::define_required_before_class(TL::Symbol symbol,
         void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
         void (CxxBase::*def_sym_fun)(TL::Symbol symbol))
@@ -2860,8 +3178,7 @@ TL::ObjectList<TL::Symbol> CxxBase::define_required_before_class(TL::Symbol symb
 
     if (symbol.is_class())
     {
-        if (symbol.get_type().is_template_specialized_type()
-                && symbol.get_type().template_specialized_type_get_template_arguments().get_num_parameters() != 0)
+        if (symbol.get_type().is_template_specialized_type())
         {
             TL::TemplateParameters template_arguments = symbol.get_type().template_specialized_type_get_template_arguments();
             declare_all_in_template_arguments(
@@ -2983,11 +3300,20 @@ TL::ObjectList<TL::Symbol> CxxBase::define_required_before_class(TL::Symbol symb
                     && _friend.is_member())
                 continue;
 
-            walk_type_for_symbols(
-                    _friend.get_type(),
-                    &CxxBase::declare_symbol_if_nonnested,
-                    &CxxBase::define_symbol_if_nonnested,
-                    &CxxBase::define_nonnested_entities_in_trees);
+
+            if (_friend.is_class())
+            {
+                (this->*decl_sym_fun)(_friend);
+            }
+            else
+            {
+                walk_type_for_symbols(
+                        _friend.get_type(),
+                        &CxxBase::declare_symbol_if_nonnested,
+                        &CxxBase::define_symbol_if_nonnested,
+                        &CxxBase::define_nonnested_entities_in_trees);
+            }
+
 
             if (_friend.is_dependent_friend_function())
             {
@@ -3143,8 +3469,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
         TL::Type primary_template(NULL);
         TL::Symbol primary_symbol(NULL);
 
-        if (symbol_type.is_template_specialized_type()
-                && symbol_type.template_specialized_type_get_template_arguments().get_num_parameters() != 0)
+        if (symbol_type.is_template_specialized_type())
         {
             is_template_specialized = 1;
             template_type = symbol_type.get_related_template_type();
@@ -3366,8 +3691,9 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                         && member.get_type().get_symbol().is_anonymous_union())
                 {
                     TL::Symbol class_sym = member.get_type().get_symbol();
+                    state.classes_being_defined.push_back(class_sym);
                     define_class_symbol_aux(class_sym, symbols_defined_inside_class, level + 1);
-                    set_codegen_status(class_sym, CODEGEN_STATUS_DEFINED);
+                    state.classes_being_defined.pop_back();
                 }
                 else
                 {
@@ -3381,19 +3707,18 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
             {
                 if (member.is_class())
                 {
-                    if (member.get_type().is_template_specialized_type()
-                            && member.get_type().template_specialized_type_get_template_arguments().get_num_parameters() != 0)
+                    if (member.get_type().is_template_specialized_type())
                     {
-                        TL::Type related_template = member.get_type().get_related_template_type();
-                        TL::Type primary_template = related_template.get_primary_template();
-                        char is_primary_template = (primary_template.get_symbol() == member);
-
-                        if (is_primary_template)
+                        // We should declare all user template specializations
+                        if (member.is_user_declared())
                         {
-                            if (is_complete_type(member.get_type().get_internal_type()))
+                            // Could this specialization be defined?
+                            if (member.is_defined_inside_class() &&
+                                    is_complete_type(member.get_type().get_internal_type()))
                             {
+                                state.classes_being_defined.push_back(member);
                                 define_class_symbol_aux(member, symbols_defined_inside_class, level + 1);
-                                set_codegen_status(member, CODEGEN_STATUS_DEFINED);
+                                state.classes_being_defined.pop_back();
                             }
                             else
                             {
@@ -3420,8 +3745,9 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                     {
                         if (member.is_defined_inside_class() || symbols_defined_inside_class.contains(member))
                         {
+                            state.classes_being_defined.push_back(member);
                             define_class_symbol_aux(member, symbols_defined_inside_class, level + 1);
-                            set_codegen_status(member, CODEGEN_STATUS_DEFINED);
+                            state.classes_being_defined.pop_back();
                         }
                         else
                         {
@@ -3453,26 +3779,27 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                 }
                 else if (member.is_function())
                 {
-                    // This is a local function, emit it here
-                    if (is_local_symbol(member)
-                            && !nodecl_is_null(member.get_internal_symbol()->entity_specs.function_code))
+                    if (!member.get_function_code().is_null() &&
+                            member.is_defined_inside_class())
                     {
-                        walk(member.get_internal_symbol()->entity_specs.function_code);
+                        walk(member.get_function_code());
                     }
                     else
                     {
                         do_declare_symbol(member,
-                            &CxxBase::declare_symbol_always,
-                            &CxxBase::define_symbol_always);
+                                &CxxBase::declare_symbol_always,
+                                &CxxBase::define_symbol_always);
                     }
                 }
                 else
                 {
                     if (member.is_variable()
                             && (!member.is_static()
-                                || ((member.get_type().is_integral_type()
-                                        || member.get_type().is_enum()
-                                    && member.get_type().is_const()))))
+                                || (member.get_type().is_integral_type()
+                                    || member.get_type().is_enum()
+                                    && member.get_type().is_const())
+                                || member.is_defined_inside_class()))
+
                     {
                         do_define_symbol(member,
                             &CxxBase::declare_symbol_always,
@@ -3503,165 +3830,22 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
 
     // 3. Declare friends
     TL::ObjectList<TL::Symbol> friends = symbol_type.class_get_friends();
-
     for (TL::ObjectList<TL::Symbol>::iterator it = friends.begin();
             it != friends.end();
             it++)
     {
         TL::Symbol &_friend(*it);
-
-         //The user did not declare it, ignore it
-        if (_friend.is_friend_declared() &&
-                  !(_friend.is_dependent_friend_class() ||
-                    _friend.is_dependent_friend_function()))
-            continue;
-
-        bool is_primary_template = false;
-        TL::Type friend_type = _friend.get_type();
         inc_indent();
-
-        // A. Generate a template header if this friend declaration has one
-        if (friend_type.is_template_specialized_type())
+        if ((_friend.is_function() || _friend.is_dependent_friend_function())
+                && !_friend.get_function_code().is_null()
+                && _friend.is_defined_inside_class())
         {
-            TL::Type template_type = friend_type.get_related_template_type();
-            TL::Type primary_template = template_type.get_primary_template();
-            TL::Symbol primary_symbol = primary_template.get_symbol();
-
-            if (friend_type.is_dependent())
-            {
-                is_primary_template = (_friend == primary_symbol);
-                TL::TemplateParameters template_parameters =
-                    _friend.get_scope().get_template_parameters();
-
-                codegen_template_headers_bounded(
-                        template_parameters,
-                        symbol.get_scope().get_template_parameters(),
-                        /* show default values */ false);
-            }
-        }
-
-        // B. Generate the function or class declaration
-        indent();
-        file << "friend ";
-
-        if (_friend.is_class())
-        {
-            std::string friend_class_key;
-            switch (friend_type.class_type_get_class_kind())
-            {
-                case TT_CLASS:
-                    friend_class_key = "class";
-                    break;
-                case TT_STRUCT:
-                    friend_class_key = "struct";
-                    break;
-                case TT_UNION:
-                    friend_class_key = "union";
-                    break;
-                default:
-                    internal_error("Invalid class kind", 0);
-            }
-
-            file << friend_class_key << " ";
-
-
-            // In the related symbols of _friend symbol we have stored the results of the query
-            // done in buildscope. If there are no results, we should not qualify the friend name
-            if (_friend.get_num_related_symbols() == 0)
-            {
-                file << _friend.get_name();
-            }
-            else
-            {
-                file << _friend.get_qualified_name(symbol.get_scope());
-            }
-        }
-        else if(_friend.is_dependent_friend_class())
-        {
-            enum type_tag_t class_key_tag;
-            if (friend_type.is_dependent_typename())
-            {
-                class_key_tag = get_dependent_entry_kind(friend_type.get_internal_type());
-            }
-            else
-            {
-                class_key_tag = friend_type.class_type_get_class_kind();
-            }
-
-            std::string friend_class_key;
-            switch (class_key_tag)
-            {
-                case TT_CLASS:
-                    friend_class_key = "class";
-                    break;
-                case TT_STRUCT:
-                    friend_class_key = "struct";
-                    break;
-                case TT_UNION:
-                    friend_class_key = "union";
-                    break;
-                default:
-                    internal_error("Invalid class kind", 0);
-            }
-
-            if (friend_type.is_dependent_typename())
-            {
-                file << this->get_declaration(friend_type, symbol.get_scope(), "");
-            }
-            else if(friend_type.is_template_specialized_type())
-            {
-                file << friend_class_key << " "
-                     << _friend.get_qualified_name(symbol.get_scope(), /* without template id */true);
-            }
-            else
-            {
-                file << friend_class_key << " "
-                     << this->get_declaration(friend_type, symbol.get_scope(), "");
-            }
-        }
-        else if (_friend.is_function())
-        {
-            std::string exception_spec = exception_specifier_to_str(_friend);
-            TL::Type real_type = friend_type;
-            if (symbol.is_conversion_function())
-            {
-                real_type = get_new_function_type(NULL, NULL, 0);
-            }
-
-            std::string function_name = (is_primary_template) ?
-                unmangle_symbol_name(_friend) : _friend.get_qualified_name();
-
-            file << this->get_declaration(real_type, symbol.get_scope(), function_name) << exception_spec;
-        }
-        else if (_friend.is_dependent_friend_function())
-        {
-            std::string exception_spec = exception_specifier_to_str(_friend);
-            TL::Type real_type = friend_type;
-            if (symbol.is_conversion_function())
-            {
-                real_type = get_new_function_type(NULL, NULL, 0);
-            }
-
-            std::string function_name;
-            if (friend_type.is_template_specialized_type())
-            {
-                function_name =
-                    _friend.get_qualified_name(symbol.get_scope(), /* without template id */ true);
-            }
-            else
-            {
-                function_name =
-                    _friend.get_qualified_name(symbol.get_scope(), /* without template id */ false);
-            }
-
-            file << this->get_declaration(real_type, symbol.get_scope(), function_name) << exception_spec;
+            walk(_friend.get_function_code());
         }
         else
         {
-            internal_error("Invalid friend symbol kind '%s'\n", symbol_kind_name(_friend.get_internal_symbol()));
+            declare_friend_symbol(*it, symbol);
         }
-
-        file << ";\n";
         dec_indent();
     }
 
@@ -3704,6 +3888,196 @@ void CxxBase::define_class_symbol(TL::Symbol symbol,
     state.classes_being_defined.pop_back();
 
     state.pending_nested_types_to_define = current_pending;
+}
+
+void CxxBase::declare_friend_symbol(TL::Symbol friend_symbol, TL::Symbol class_symbol)
+{
+    ERROR_CONDITION(!friend_symbol.is_friend(), "This symbol must be a friend", 0);
+
+    //The user did not declare it, ignore it
+    if (friend_symbol.is_friend_declared() &&
+            !(friend_symbol.is_dependent_friend_class() ||
+                friend_symbol.is_dependent_friend_function() ||
+                friend_symbol.is_template()))
+        return;
+
+    bool is_template_friend_declaration = false,
+         is_primary_template = false;
+
+    if (friend_symbol.is_template())
+    {
+        is_template_friend_declaration = true;
+        TL::Type primary_template = friend_symbol.get_type().get_primary_template();
+        TL::Symbol primary_symbol = primary_template.get_symbol();
+        friend_symbol = primary_symbol;
+    }
+
+    TL::Type friend_type = friend_symbol.get_type();
+
+    // A. Generate a template header if this friend declaration has one
+    if (friend_symbol.is_dependent_friend_class() && friend_symbol.has_alias_to())
+    {
+        // It's a special case: friend_symbol contains the right context
+        // of the template friend declaration and an alias to the real friend symbol
+        TL::Symbol pointed_symbol = friend_symbol.get_alias_to();
+        if (pointed_symbol.is_template())
+        {
+            is_template_friend_declaration = true;
+            TL::Type primary_template = pointed_symbol.get_type().get_primary_template();
+            TL::Symbol primary_symbol = primary_template.get_symbol();
+            pointed_symbol = primary_symbol;
+        }
+
+        codegen_template_headers_bounded(
+                friend_symbol.get_scope().get_template_parameters(),
+                class_symbol.get_scope().get_template_parameters(),
+                /* show default values */ false);
+
+        // Now, we should change the fake friend symbol by the real pointed symbol
+        friend_symbol = pointed_symbol;
+        friend_type = pointed_symbol.get_type();
+    }
+    else if (friend_type.is_template_specialized_type())
+    {
+        TL::Type template_type = friend_type.get_related_template_type();
+        TL::Type primary_template = template_type.get_primary_template();
+        TL::Symbol primary_symbol = primary_template.get_symbol();
+
+        if (friend_type.is_dependent())
+        {
+            is_primary_template = (friend_symbol == primary_symbol);
+            TL::TemplateParameters template_parameters =
+                friend_symbol.get_scope().get_template_parameters();
+
+            codegen_template_headers_bounded(
+                    template_parameters,
+                    class_symbol.get_scope().get_template_parameters(),
+                    /* show default values */ false);
+        }
+    }
+
+    // B. Generate the function or class declaration
+    indent();
+    file << "friend ";
+
+    if (friend_symbol.is_class())
+    {
+        std::string friend_class_key;
+        switch (friend_type.class_type_get_class_kind())
+        {
+            case TT_CLASS:
+                friend_class_key = "class";
+                break;
+            case TT_STRUCT:
+                friend_class_key = "struct";
+                break;
+            case TT_UNION:
+                friend_class_key = "union";
+                break;
+            default:
+                internal_error("Invalid class kind", 0);
+        }
+
+        file << friend_class_key << " ";
+
+        if ((get_codegen_status(friend_symbol) != CODEGEN_STATUS_DECLARED &&
+                    get_codegen_status(friend_symbol) != CODEGEN_STATUS_DEFINED))
+        {
+            // The class_symbol has not been declared or defined before this friend declaration
+            // We cannot print its qualified
+            file << friend_symbol.get_name();
+        }
+        else
+        {
+            file << friend_symbol.get_qualified_name(class_symbol.get_scope(),
+                    /*without template id */ is_template_friend_declaration);
+        }
+    }
+    else if(friend_symbol.is_dependent_friend_class())
+    {
+        enum type_tag_t class_key_tag;
+        if (friend_type.is_dependent_typename())
+        {
+            class_key_tag = get_dependent_entry_kind(friend_type.get_internal_type());
+        }
+        else
+        {
+            class_key_tag = friend_type.class_type_get_class_kind();
+        }
+
+        std::string friend_class_key;
+        switch (class_key_tag)
+        {
+            case TT_CLASS:
+                friend_class_key = "class";
+                break;
+            case TT_STRUCT:
+                friend_class_key = "struct";
+                break;
+            case TT_UNION:
+                friend_class_key = "union";
+                break;
+            default:
+                internal_error("Invalid class kind", 0);
+        }
+
+        file << this->get_declaration(friend_type, friend_symbol.get_scope(), "");
+    }
+    else if (friend_symbol.is_function()
+            || friend_symbol.is_dependent_friend_function())
+    {
+        std::string exception_spec = exception_specifier_to_str(friend_symbol);
+        TL::Type real_type = friend_type;
+        if (class_symbol.is_conversion_function())
+        {
+            real_type = get_new_function_type(NULL, NULL, 0);
+        }
+
+        std::string function_name;
+        if ((get_codegen_status(friend_symbol) != CODEGEN_STATUS_DECLARED &&
+                    get_codegen_status(friend_symbol) != CODEGEN_STATUS_DEFINED))
+        {
+            function_name = friend_symbol.get_name();
+        }
+        else
+        {
+            function_name = friend_symbol.get_qualified_name(class_symbol.get_scope(),
+                    /* without template id */ (friend_type.is_template_specialized_type()));
+        }
+
+        file << this->get_declaration(real_type, friend_symbol.get_scope(), function_name) << exception_spec;
+    }
+    else if (friend_symbol.is_dependent_friend_function())
+    {
+        std::string exception_spec = exception_specifier_to_str(friend_symbol);
+        TL::Type real_type = friend_type;
+        if (class_symbol.is_conversion_function())
+        {
+            real_type = get_new_function_type(NULL, NULL, 0);
+        }
+
+        std::string function_name;
+        TL::ObjectList<TL::Symbol> candidates_set = friend_symbol.get_related_symbols();
+        if (candidates_set.size() == 1 &&
+                (get_codegen_status(candidates_set[0]) == CODEGEN_STATUS_DECLARED ||
+                 get_codegen_status(candidates_set[0]) == CODEGEN_STATUS_DEFINED))
+        {
+            function_name = friend_symbol.get_qualified_name(candidates_set[0].get_scope(),
+                    /* without template id */ (friend_type.is_template_specialized_type()));
+        }
+        else
+        {
+            function_name = friend_symbol.get_name();
+        }
+
+        file << this->get_declaration(real_type, friend_symbol.get_scope(), function_name) << exception_spec;
+    }
+    else
+    {
+        internal_error("Invalid friend class_symbol kind '%s'\n", symbol_kind_name(friend_symbol.get_internal_symbol()));
+    }
+
+    file << ";\n";
 }
 
 bool CxxBase::is_local_symbol(TL::Symbol entry)
@@ -3845,11 +4219,11 @@ void CxxBase::declare_symbol_if_nonprototype(TL::Symbol symbol)
 
 void CxxBase::define_symbol_if_nonnested(TL::Symbol symbol)
 {
-    if (!symbol_is_nested_in_defined_classes(symbol))
+    if (!symbol_or_its_bases_are_nested_in_defined_classes(symbol))
     {
         do_define_symbol(symbol,
-               &CxxBase::declare_symbol_if_nonnested,
-               &CxxBase::define_symbol_if_nonnested);
+                &CxxBase::declare_symbol_if_nonnested,
+                &CxxBase::define_symbol_if_nonnested);
     }
     else
     {
@@ -3861,7 +4235,7 @@ void CxxBase::define_symbol_if_nonnested(TL::Symbol symbol)
 
 void CxxBase::declare_symbol_if_nonnested(TL::Symbol symbol)
 {
-    if (!symbol_is_nested_in_defined_classes(symbol)
+    if (!symbol_or_its_bases_are_nested_in_defined_classes(symbol)
             || !symbol.is_member())
     {
         do_declare_symbol(symbol,
@@ -3886,7 +4260,7 @@ void CxxBase::define_or_declare_if_complete(TL::Symbol sym,
     if ((sym.is_class()
                 || sym.is_enum())
             && ( ::is_incomplete_type(sym.get_type().get_internal_type())
-                || symbol_is_nested_in_defined_classes(sym)))
+                || symbol_or_its_bases_are_nested_in_defined_classes(sym)))
     {
         (this->*symbol_to_declare)(sym);
     }
@@ -3901,301 +4275,310 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
     ERROR_CONDITION(!symbol.is_variable(), "must be a variable", 0);
 
     // Builtins, anonymous unions and non-user declared varibles are not printed
-    if (!(symbol.is_builtin()
+    if ((symbol.is_builtin()
                 || (symbol.get_type().is_named_class()
                     && symbol.get_type().get_symbol().is_anonymous_union())))
     {
-        std::string decl_specifiers;
-        std::string gcc_attributes;
-        std::string declarator;
-        std::string bit_field;
+        set_codegen_status(symbol, CODEGEN_STATUS_DECLARED);
+        return;
+    }
 
-        bool requires_extern_linkage = false;
-        CXX_LANGUAGE()
+    // Generate the template headers if needed
+    CXX_LANGUAGE()
+    {
+        if (symbol.is_member()
+                && !symbol.is_defined_inside_class()
+                && state.classes_being_defined.empty())
         {
-            requires_extern_linkage = (!symbol.is_member()
-                    && symbol.has_nondefault_linkage());
+            TL::TemplateParameters template_parameters = symbol.get_scope().get_template_parameters();
+            codegen_template_headers_all_levels(template_parameters, false);
+        }
+    }
 
-            if (requires_extern_linkage)
-            {
-                file << "extern " + symbol.get_linkage() + "\n";
-                indent();
-                file << "{\n";
+    // Generate the variable declaration/definition
+    bool has_been_declared = (get_codegen_status(symbol) == CODEGEN_STATUS_DECLARED
+            || get_codegen_status(symbol) == CODEGEN_STATUS_DEFINED);
 
-                inc_indent();
-            }
+    std::string decl_specifiers;
+    std::string gcc_attributes;
+    std::string declarator;
+    std::string bit_field;
+
+    bool requires_extern_linkage = false;
+    CXX_LANGUAGE()
+    {
+        requires_extern_linkage = (!symbol.is_member()
+                && symbol.has_nondefault_linkage());
+
+        if (requires_extern_linkage)
+        {
+            file << "extern " + symbol.get_linkage() + "\n";
+            indent();
+            file << "{\n";
+
+            inc_indent();
+        }
+    }
+
+    if (symbol.is_static()
+            && (!symbol.is_member()
+                || (!state.classes_being_defined.empty()
+                    && state.classes_being_defined.back() == symbol.get_class_type().get_symbol())))
+    {
+        decl_specifiers += "static ";
+    }
+
+    else if (symbol.is_extern() || !is_definition)
+    {
+        decl_specifiers += "extern ";
+    }
+
+    // If this not a member, or if it is, is nonstatic, then it has already been defined
+    if (!symbol.is_member() || !symbol.is_static())
+    {
+        if (is_definition)
+        {
+            set_codegen_status(symbol, CODEGEN_STATUS_DEFINED);
+        }
+        else
+        {
+            set_codegen_status(symbol, CODEGEN_STATUS_DECLARED);
+        }
+    }
+
+    if (symbol.is_thread())
+    {
+        decl_specifiers += "__thread ";
+    }
+    if (symbol.is_mutable())
+    {
+        decl_specifiers += "mutable ";
+    }
+    if (symbol.is_register())
+    {
+        decl_specifiers += "register ";
+    }
+    if (symbol.is_bitfield())
+    {
+        unsigned int bits_of_bitfield =  const_value_cast_to_4(
+                nodecl_get_constant(symbol.get_bitfield_size().get_internal_nodecl()));
+
+        std::stringstream ss;
+        ss << ":" << bits_of_bitfield;
+
+        bit_field = ss.str();
+    }
+
+    std::string variable_name;
+    if(!has_been_declared)
+    {
+        variable_name = symbol.get_name();
+    }
+    else
+    {
+        variable_name = symbol.get_class_qualification(symbol.get_scope(),
+                /* without_template */ false);
+    }
+
+    declarator = this->get_declaration(symbol.get_type(),
+            symbol.get_scope(),
+            variable_name);
+
+    // Emit the initializer for nonmembers and nonstatic members in
+    // non member declarations or member declarations if they have
+    // integral or enum type
+    char emit_initializer = 0;
+    if (!symbol.get_initialization().is_null()
+            && (!symbol.is_member()
+                || (symbol.is_static()
+                    && (!state.in_member_declaration
+                        || (symbol.get_type().is_integral_type()
+                            || symbol.get_type().is_enum())
+                        && symbol.get_type().is_const())
+                    || symbol.is_defined_inside_class())))
+    {
+        emit_initializer = 1;
+        if (symbol.is_member()
+                // FIXME -> || !is_local_symbol_but_local_class(symbol))
+            || (!symbol.get_scope().is_block_scope()
+                    && !symbol.get_scope().is_function_scope()))
+                    {
+                        // This is a member or nonlocal symbol
+                        define_nonnested_entities_in_trees(symbol.get_initialization());
+                    }
+        else
+        {
+            // This is a local symbol
+            define_local_entities_in_trees(symbol.get_initialization());
+        }
+    }
+
+    if (symbol.has_gcc_attributes())
+    {
+        gcc_attributes = gcc_attributes_to_str(symbol) + " ";
+    }
+
+    move_to_namespace_of_symbol(symbol);
+    indent();
+    file << decl_specifiers << gcc_attributes << declarator << bit_field;
+
+    // Initializer
+    if (emit_initializer)
+    {
+        push_scope(symbol.get_scope());
+
+        char equal_is_needed = 0;
+        C_LANGUAGE()
+        {
+            equal_is_needed = 1;
         }
 
-        if (symbol.is_static())
-        {
-            decl_specifiers += "static ";
-        }
-        else if (symbol.is_extern() || !is_definition)
-        {
-            decl_specifiers += "extern ";
-        }
+        // We try to always emit direct-initialization syntax
+        // except when infelicities in the syntax prevent us to do that
+        Nodecl::NodeclBase init = symbol.get_initialization();
 
-        // If this not a member, or if it is, is nonstatic, then it has already been defined
-        if (!symbol.is_member() || !symbol.is_static())
+        if (is_definition)
         {
-            if (is_definition)
-            {
-                set_codegen_status(symbol, CODEGEN_STATUS_DEFINED);
-            }
-            else
-            {
-                set_codegen_status(symbol, CODEGEN_STATUS_DECLARED);
-            }
-        }
-
-        if (symbol.is_thread())
-        {
-            decl_specifiers += "__thread ";
-        }
-        if (symbol.is_mutable())
-        {
-            decl_specifiers += "mutable ";
-        }
-        if (symbol.is_register())
-        {
-            decl_specifiers += "register ";
-        }
-        if (symbol.is_bitfield())
-        {
-            unsigned int bits_of_bitfield =  const_value_cast_to_4(
-                    nodecl_get_constant(symbol.get_bitfield_size().get_internal_nodecl()));
-
-            std::stringstream ss;
-            ss << ":" << bits_of_bitfield;
-
-            bit_field = ss.str();
-        }
-
-        declarator = this->get_declaration(symbol.get_type(),
-                symbol.get_scope(),
-                unmangle_symbol_name(symbol));
-
-        // Emit the initializer for nonmembers and nonstatic members in
-        // non member declarations or member declarations if they have
-        // integral or enum type
-        char emit_initializer = 0;
-        if (!symbol.get_initialization().is_null()
-                && (!symbol.is_member()
-                    || (symbol.is_static()
-                        && (!state.in_member_declaration
-                            || (symbol.get_type().is_integral_type()
-                                || symbol.get_type().is_enum())
-                            && symbol.get_type().is_const()))))
-        {
-            emit_initializer = 1;
-            if (symbol.is_member()
-                    // FIXME -> || !is_local_symbol_but_local_class(symbol))
-                || (!symbol.get_scope().is_block_scope()
-                        && !symbol.get_scope().is_function_scope()))
-                        {
-                            // This is a member or nonlocal symbol
-                            define_nonnested_entities_in_trees(symbol.get_initialization());
-                        }
-            else
-            {
-                // This is a local symbol
-                define_local_entities_in_trees(symbol.get_initialization());
-            }
-        }
-
-        if (symbol.has_gcc_attributes())
-        {
-            gcc_attributes = gcc_attributes_to_str(symbol) + " ";
-        }
-
-        move_to_namespace_of_symbol(symbol);
-        indent();
-        file << decl_specifiers << gcc_attributes << declarator << bit_field;
-
-        // Initializer
-        if (emit_initializer)
-        {
-            push_scope(symbol.get_scope());
-
-            char equal_is_needed = 0;
-            char is_call_to_self_constructor = 0;
             C_LANGUAGE()
             {
-                equal_is_needed = 1;
-            }
+                file << " = ";
 
-            CXX03_LANGUAGE()
-            {
-                // We only need = if the initializer is a structured one
-                // and this is C++03, in C++1x syntax { } is always allowed
-                equal_is_needed = 1;
-
-                if (nodecl_calls_to_constructor(symbol.get_initialization(), symbol.get_type()))
+                bool old = state.inside_structured_value;
+                if (init.is<Nodecl::StructuredValue>())
                 {
-                    equal_is_needed = 0;
-                    is_call_to_self_constructor = 1;
-
-                    // But it might happen the user wrote
-                    //
-                    // A a = A(); which looks like A a(A()); and it will be parsed as a function declarator
-                    Nodecl::List nodecl_args = symbol.get_initialization()
-                        .as<Nodecl::FunctionCall>()
-                        .get_arguments()
-                        .as<Nodecl::List>();
-
-                    char zero_arg_types = 1;
-
-                    for (Nodecl::List::iterator it = nodecl_args.begin();
-                            it != nodecl_args.end() && zero_arg_types;
-                            it++)
-                    {
-                        Nodecl::NodeclBase current = *it;
-                        if (current.is<Nodecl::Conversion>())
-                            current = current.as<Nodecl::Conversion>().get_nest();
-
-                        if (!nodecl_is_zero_args_call_to_constructor(current)
-                                && !nodecl_is_zero_args_structured_value(current))
-                        {
-                            zero_arg_types = 0;
-                        }
-                    }
-
-                    // In this case, to avoid printing something like
-                    //
-                    // A a(A(), B(), C());
-                    //
-                    // where A, B and C are types
-                    //
-                    // we mandate an equal so it looks like
-                    //
-                    // A a = A(A(), B(), C());
-                    if (nodecl_args.size() != 0
-                            && zero_arg_types)
-                    {
-                        equal_is_needed = 1;
-                    }
+                    state.inside_structured_value = true;
                 }
-            }
-            if (is_definition)
-            {
-                if (equal_is_needed)
+                if (init.is<Nodecl::Comma>())
                 {
-                    Nodecl::NodeclBase init = symbol.get_initialization();
+                    file << "(";
+                }
+                walk(init);
+                if (init.is<Nodecl::Comma>())
+                {
+                    file << ")";
+                }
+                state.inside_structured_value = old;
+            }
+            CXX_LANGUAGE()
+            {
+                if (init.is<Nodecl::CxxEqualInitializer>()
+                        || init.is<Nodecl::CxxBracedInitializer>()
+                        || init.is<Nodecl::CxxParenthesizedInitializer>())
+                {
+                    // Dependent cases are always printed verbatim
+                    walk(init);
+                }
+                else if (IS_CXX03_LANGUAGE
+                        && symbol.get_type().is_aggregate()
+                        && init.is<Nodecl::StructuredValue>())
+                {
+                    // int a[] = { 1, 2, 3 };
+                    // struct foo { int x; int y; } a = {1, 2};
+                    //
+                    // Note that C++11 allows struct foo { int x; int y; } a{1,2};
+                    file << " = ";
 
-                    //The equal will be inserted in the CxxEqualInitializer visitor
-                    if (!init.is<Nodecl::CxxEqualInitializer>())
-                    {
-                        file << " = ";
-                    }
-
-                    if (is_call_to_self_constructor)
-                    {
-                        // Ignore the top constructor call
-                        Nodecl::List nodecl_args = init
-                            .as<Nodecl::FunctionCall>()
-                            .get_arguments()
-                            .as<Nodecl::List>();
-
-                        if (!nodecl_args.empty())
-                        {
-                            walk_expression_list(nodecl_args);
-                        }
-                    }
-                    else if (init.is<Nodecl::StructuredValue>())
-                    {
-                        if (!symbol.get_type().is_aggregate()
-                                && init
-                                .as<Nodecl::StructuredValue>()
-                                .get_items()
-                                .as<Nodecl::List>()
-                                .size() == 1)
-                        {
-                            // We can ignore '{' and '}'
-                            walk_expression_list(init
-                                    .as<Nodecl::StructuredValue>()
-                                    .get_items()
-                                    .as<Nodecl::List>());
-                        }
-                        else
-                        {
-                            char old_inside_struct = state.inside_structured_value;
-                            state.inside_structured_value = 1;
-
-                            walk(init);
-
-                            state.inside_structured_value = old_inside_struct;
-                        }
-                    }
-                    else
-                    {
-                        char top_is_comma = init.is<Nodecl::Comma>();
-
-                        if (top_is_comma)
-                        {
-                            file << "(";
-                        }
-
-                        bool is_non_language_ref = (is_non_language_reference_variable(symbol)
-                                && !symbol.get_type().references_to().is_array());
-
-                        if (is_non_language_ref)
-                        {
-                            file << "(&(";
-                        }
-                        walk(init);
-                        if (is_non_language_ref)
-                        {
-                            file << "))";
-                        }
-
-                        if (top_is_comma)
-                        {
-                            file << ")";
-                        }
-                    }
+                    bool old = state.inside_structured_value;
+                    state.inside_structured_value = true;
+                    walk(init);
+                    state.inside_structured_value = old;
+                }
+                else if (symbol.get_type().is_array()
+                        && !init.is<Nodecl::StructuredValue>())
+                {
+                    // Only for char and wchar_t
+                    // const char c[] = "1234";
+                    file << " = ";
+                    walk(init);
+                }
+                else if (!symbol.get_type().is_array()
+                        && init.is<Nodecl::StructuredValue>())
+                {
+                    // char c = { 'a' };
+                    // int x = { 1 };
+                    file << " = ";
+                    bool old = state.inside_structured_value;
+                    state.inside_structured_value = true;
+                    walk(init);
+                    state.inside_structured_value = old;
+                }
+                else if (symbol.is_member()
+                        && symbol.is_static()
+                        && state.in_member_declaration)
+                {
+                    // This is an in member declaration initialization
+                    file << " = ";
+                    walk(init);
+                }
+                else if (state.in_condition)
+                {
+                    // This is something like if (bool foo = expression)
+                    file << " = ";
+                    walk(init);
                 }
                 else
                 {
-                    if (is_call_to_self_constructor)
+                    file << "(";
+                    // A a; we cannot emmit it as A a(); since this would declare a function () returning A
+                    if (nodecl_calls_to_constructor(init, symbol.get_type()))
                     {
-                        // Do not print the top constructor call
-                        Nodecl::List nodecl_args = symbol
-                            .get_initialization()
-                            .as<Nodecl::FunctionCall>()
-                            .get_arguments()
-                            .as<Nodecl::List>();
-
-                        if (!nodecl_args.empty())
+                        Nodecl::List constructor_args = init.as<Nodecl::FunctionCall>().get_arguments().as<Nodecl::List>();
+                        if (!constructor_args.empty());
                         {
-                            file << "(";
-                            walk_expression_list(nodecl_args);
-                            file << ")";
+                            for (Nodecl::List::iterator it = constructor_args.begin();
+                                    it != constructor_args.end();
+                                    it++)
+                            {
+                                if (it != constructor_args.begin())
+                                    file << ", ";
+                                Nodecl::NodeclBase current(*it);
+                                // Here we add extra parentheses lest the direct-initialization looked like
+                                // as a function declarator (faced with this ambiguity, C++ chooses the latter!)
+                                //
+                                // A x( (A()) ); cannot become A x( A() ); because it would declare 'x' as a
+                                // "function (pointer to function() returning A) returning A"
+                                // [extra blanks added for clarity in the example above]
+                                file << "(";
+                                walk(current);
+                                file << ")";
+                            }
                         }
                     }
                     else
                     {
-                        walk(symbol.get_initialization());
+                        // This is crazy
+                        if (init.is<Nodecl::Comma>())
+                        {
+                            file << "(";
+                        }
+                        walk(init);
+                        if (init.is<Nodecl::Comma>())
+                        {
+                            file << ")";
+                        }
                     }
+                    file << ")";
                 }
             }
-            pop_scope();
         }
+        pop_scope();
+    }
 
-        if (!state.in_condition)
-        {
-            file << ";\n";
-        }
+    if (!state.in_condition)
+    {
+        file << ";\n";
+    }
 
-        CXX_LANGUAGE()
+    CXX_LANGUAGE()
+    {
+        if (requires_extern_linkage)
         {
-            if (requires_extern_linkage)
-            {
-                dec_indent();
-                indent();
-                file << "}\n";
-            }
+            dec_indent();
+            indent();
+            file << "}\n";
         }
     }
+
 }
 
 void CxxBase::do_define_symbol(TL::Symbol symbol,
@@ -4217,6 +4600,23 @@ void CxxBase::do_define_symbol(TL::Symbol symbol,
     if (symbol.is_injected_class_name())
         symbol = symbol.get_class_type().get_symbol();
 
+    if (symbol.get_type().is_template_specialized_type()
+            && !symbol.is_user_declared())
+    {
+        if (!state.do_not_emit_other_declarations)
+        {
+            //We may need to define or declare the template arguments
+            TL::TemplateParameters template_arguments =
+                symbol.get_type().template_specialized_type_get_template_arguments();
+
+            declare_all_in_template_arguments(
+                    template_arguments,
+                    decl_sym_fun,
+                    def_sym_fun);
+        }
+        return;
+    }
+
     if (symbol.is_dependent_entity())
     {
         TL::Symbol entry(NULL);
@@ -4229,7 +4629,7 @@ void CxxBase::do_define_symbol(TL::Symbol symbol,
     if (symbol.is_member())
     {
         TL::Symbol class_entry = symbol.get_class_type().get_symbol();
-        if (!symbol_is_nested_in_defined_classes(class_entry))
+        if (!symbol_or_its_bases_are_nested_in_defined_classes(class_entry))
         {
             define_symbol_if_nonnested(class_entry);
         }
@@ -4254,9 +4654,16 @@ void CxxBase::do_define_symbol(TL::Symbol symbol,
         // Template parameters are not to be defined, ever
         if (!symbol.is_template_parameter())
         {
+            std::string gcc_attributes;
+            if (symbol.has_gcc_attributes())
+            {
+                gcc_attributes = gcc_attributes_to_str(symbol) + " ";
+            }
+
             move_to_namespace_of_symbol(symbol);
             indent();
             file << "typedef "
+                << gcc_attributes
                 << this->get_declaration(symbol.get_type(),
                         symbol.get_scope(),
                         symbol.get_name())
@@ -4321,8 +4728,10 @@ void CxxBase::do_define_symbol(TL::Symbol symbol,
     }
     else if (symbol.is_function())
     {
-        // Functions are not defined but only declared
         (this->*decl_sym_fun)(symbol);
+        // Functions are not defined but only declared
+        // We early return here otherwise this function would be marked as defined
+        return;
     }
     else if (symbol.is_template_parameter())
     {
@@ -4369,6 +4778,9 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                     decl_sym_fun,
                     def_sym_fun);
         }
+
+        set_codegen_status(symbol, CODEGEN_STATUS_DECLARED);
+
         //We must declare ONLY the primary template
         TL::Symbol primary_symbol =
             symbol
@@ -4377,17 +4789,15 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
             .get_primary_template()
             .get_symbol();
 
+        (this->*decl_sym_fun)(primary_symbol);
 
-        define_or_declare_if_complete(primary_symbol,
-                &CxxBase::declare_symbol_always,
-                &CxxBase::define_symbol_always);
         return;
     }
 
     if (symbol.is_member())
     {
         TL::Symbol class_entry = symbol.get_class_type().get_symbol();
-        if (!symbol_is_nested_in_defined_classes(class_entry))
+        if (!symbol_or_its_bases_are_nested_in_defined_classes(class_entry))
         {
             define_symbol_if_nonnested(class_entry);
         }
@@ -4405,13 +4815,15 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
             )
         return;
 
-    set_codegen_status(symbol, CODEGEN_STATUS_DECLARED);
-
     if (symbol.is_variable())
     {
         define_or_declare_variable(symbol, /* is definition */ false);
+        return;
     }
-    else if (symbol.is_class())
+
+    set_codegen_status(symbol, CODEGEN_STATUS_DECLARED);
+
+    if (symbol.is_class())
     {
         C_LANGUAGE()
         {
@@ -4442,17 +4854,17 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
             TL::Type primary_template(NULL);
             TL::Symbol primary_symbol(NULL);
 
-            if (symbol.get_type().is_template_specialized_type()
-                    && symbol.get_type().template_specialized_type_get_template_arguments().get_num_parameters() != 0)
+            if (symbol.get_type().is_template_specialized_type())
             {
                 is_template_specialized = 1;
                 template_type = symbol.get_type().get_related_template_type();
                 primary_template = template_type.get_primary_template();
                 primary_symbol = primary_template.get_symbol();
-                (this->*decl_sym_fun)(primary_symbol);
 
                 if (primary_symbol != symbol)
                 {
+                    // Before the declaration of this specialization we should ensure
+                    // that the primary specialization has been defined
                     (this->*decl_sym_fun)(primary_symbol);
                 }
                 else
@@ -4515,12 +4927,14 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                 }
                 else
                 {
-                    ERROR_CONDITION(!is_primary_template, "Only the primary template is allowed "
+                    ERROR_CONDITION(!symbol.is_user_declared(),
+                            "Only user declared template specializations are allowed "
                             "as a dependent template specialized type!\n", 0);
 
-                    TL::TemplateParameters template_parameters = symbol.get_type().template_specialized_type_get_template_arguments();
-                    codegen_template_header(template_parameters,
-                            /*show default values*/ true);
+                    TL::TemplateParameters template_parameters =
+                        symbol.get_type().template_specialized_type_get_template_parameters();
+
+                    codegen_template_header(template_parameters, /*show default values*/ true);
                 }
             }
 
@@ -4590,8 +5004,7 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                 inc_indent();
             }
 
-            if (symbol.get_type().is_template_specialized_type()
-                    && symbol.get_type().template_specialized_type_get_template_arguments().get_num_parameters() != 0)
+            if (symbol.get_type().is_template_specialized_type())
             {
                 TL::Type template_type = symbol.get_type().get_related_template_type();
                 TL::Type primary_template = template_type.get_primary_template();
@@ -4613,30 +5026,21 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
             }
         }
 
-        TL::ObjectList<TL::Symbol> related_symbols = symbol.get_related_symbols();
-        TL::ObjectList<std::string> parameter_names(related_symbols.size());
-        TL::ObjectList<std::string> parameter_attributes(related_symbols.size());
-        int i = 0;
-        for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
-                it != related_symbols.end();
-                it++, i++)
-        {
-            TL::Symbol current_param = *it;
-            if (current_param.is_valid())
-            {
-                parameter_names[i] = current_param.get_name();
-                if (current_param.has_gcc_attributes())
-                {
-                    parameter_attributes[i] = gcc_attributes_to_str(current_param);
-                }
-            }
-        }
+        int num_parameters = symbol.get_related_symbols().size();
+        TL::ObjectList<std::string> parameter_names(num_parameters);
+        TL::ObjectList<std::string> parameter_attributes(num_parameters);
+        fill_parameter_names_and_parameter_attributes(symbol, parameter_names, parameter_attributes);
 
         std::string decl_spec_seq;
-        if (symbol.is_static())
+
+        if (symbol.is_static()
+                && (!symbol.is_member()
+                    || (!state.classes_being_defined.empty()
+                        && state.classes_being_defined.back() == symbol.get_class_type().get_symbol())))
         {
             decl_spec_seq += "static ";
         }
+
         if (symbol.is_extern())
         {
             decl_spec_seq += "extern ";
@@ -4657,7 +5061,9 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
             }
         }
 
-        if (symbol.is_explicit_constructor())
+        if (symbol.is_explicit_constructor()
+                && get_codegen_status(symbol) != CODEGEN_STATUS_DECLARED
+                && get_codegen_status(symbol) != CODEGEN_STATUS_DECLARED)
         {
             decl_spec_seq += "explicit ";
         }
@@ -4696,10 +5102,6 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         std::string pure_spec = "";
         if (!real_type.lacks_prototype())
         {
-            // declarator = this->get_declaration(
-            //         real_type,
-            //         symbol.get_scope(),
-            //         function_name);
             declarator = this->get_declaration_with_parameters(real_type, symbol.get_scope(),
                     function_name,
                     parameter_names,
@@ -5382,6 +5784,67 @@ void CxxBase::walk_expression_unpacked_list(Iterator begin, Iterator end)
     }
 }
 
+template < typename Node>
+node_t CxxBase::get_kind_of_operator_function_call(const Node & node)
+{
+    ERROR_CONDITION(!is_operator_function_call(node), "This function is not an operator\n", 0);
+
+    TL::Symbol called_sym = node.get_called().get_symbol();
+    std::string operator_name = called_sym.get_name().substr(std::string("operator ").size());
+
+    if (is_binary_infix_operator_function_call(node))
+    {
+        if (operator_name == "->*")      return NODECL_CXX_ARROW_PTR_MEMBER;
+        else if (operator_name == ".*")  return NODECL_CXX_DOT_PTR_MEMBER;
+        else if (operator_name == "*")   return NODECL_MUL;
+        else if (operator_name == "/")   return NODECL_DIV;
+        else if (operator_name == "%")   return NODECL_MOD;
+        else if (operator_name == "+")   return NODECL_ADD;
+        else if (operator_name == "-")   return NODECL_MINUS;
+        else if (operator_name == "<<")  return NODECL_SHL;
+        else if (operator_name == ">>")  return NODECL_SHR;
+        else if (operator_name == "<")   return NODECL_LOWER_THAN;
+        else if (operator_name == "<=")  return NODECL_LOWER_OR_EQUAL_THAN;
+        else if (operator_name == ">")   return NODECL_GREATER_THAN;
+        else if (operator_name == ">=")  return NODECL_GREATER_OR_EQUAL_THAN;
+        else if (operator_name == "==")  return NODECL_EQUAL;
+        else if (operator_name == "!=")  return NODECL_DIFFERENT;
+        else if (operator_name == "&")   return NODECL_BITWISE_AND;
+        else if (operator_name == "^")   return NODECL_BITWISE_XOR;
+        else if (operator_name == "|")   return NODECL_BITWISE_OR;
+        else if (operator_name == "&&")  return NODECL_LOGICAL_AND;
+        else if (operator_name == "||")  return NODECL_LOGICAL_OR;
+        else if (operator_name == "?")   return NODECL_CONDITIONAL_EXPRESSION;
+        else if (operator_name == "=")   return NODECL_ASSIGNMENT;
+        else if (operator_name == "*=")  return NODECL_MUL_ASSIGNMENT;
+        else if (operator_name == "/=")  return NODECL_DIV_ASSIGNMENT;
+        else if (operator_name == "%=")  return NODECL_MOD_ASSIGNMENT;
+        else if (operator_name == "+=")  return NODECL_ADD_ASSIGNMENT;
+        else if (operator_name == "-=")  return NODECL_MINUS_ASSIGNMENT;
+        else if (operator_name == "<<=") return NODECL_SHL_ASSIGNMENT;
+        else if (operator_name == ">>=") return NODECL_SHL_ASSIGNMENT;
+        else if (operator_name == "&=")  return NODECL_BITWISE_AND;
+        else if (operator_name == "|=")  return NODECL_BITWISE_OR;
+        else if (operator_name == "^=")  return NODECL_BITWISE_XOR;
+        else if (operator_name == ",")   return NODECL_COMMA;
+    }
+    else
+    {
+        if (operator_name == "&")      return NODECL_REFERENCE;
+        else if (operator_name == "*") return NODECL_DERREFERENCE;
+        else if (operator_name == "+") return NODECL_PLUS;
+        else if (operator_name == "-") return NODECL_NEG;
+        else if (operator_name == "!") return NODECL_LOGICAL_NOT;
+        else if (operator_name == "~") return NODECL_BITWISE_NOT;
+        else if (operator_name == "++" && is_unary_prefix_operator_function_call(node))  return NODECL_PREINCREMENT;
+        else if (operator_name == "++" && is_unary_postfix_operator_function_call(node)) return NODECL_POSTINCREMENT;
+        else if (operator_name == "--" && is_unary_prefix_operator_function_call(node))  return NODECL_PREDECREMENT;
+        else if (operator_name == "--" && is_unary_postfix_operator_function_call(node)) return NODECL_POSTDECREMENT;
+    }
+    internal_error("function operator '%s' is not supported yet\n", called_sym.get_name().c_str());
+
+}
+
 int CxxBase::get_rank_kind(node_t n, const std::string& text)
 {
     switch (n)
@@ -5404,6 +5867,7 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
             }
         case NODECL_ARRAY_SUBSCRIPT:
         case NODECL_FUNCTION_CALL:
+        case NODECL_VIRTUAL_FUNCTION_CALL:
         case NODECL_CLASS_MEMBER_ACCESS:
         case NODECL_PSEUDO_DESTRUCTOR_NAME:
         case NODECL_TYPEID:
@@ -5411,12 +5875,11 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
         case NODECL_POSTDECREMENT:
 
         case NODECL_CXX_ARROW:
-        case NODECL_CXX_ARROW_PTR_MEMBER:
-        case NODECL_CXX_DOT_PTR_MEMBER:
         case NODECL_CXX_POSTFIX_INITIALIZER:
         case NODECL_CXX_ARRAY_SECTION_RANGE:
         case NODECL_CXX_ARRAY_SECTION_SIZE:
         case NODECL_CXX_EXPLICIT_TYPE_CAST:
+        case NODECL_CXX_DEP_FUNCTION_CALL:
             {
                 return -2;
             }
@@ -5459,6 +5922,9 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
             }
             // This is a pointer to member
         case NODECL_OFFSET:
+        
+        case NODECL_CXX_ARROW_PTR_MEMBER:
+        case NODECL_CXX_DOT_PTR_MEMBER:
             return -5;
         case NODECL_MUL:
         case NODECL_DIV:
@@ -5491,8 +5957,9 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
         case NODECL_CONDITIONAL_EXPRESSION:
             return -16;
         case NODECL_ASSIGNMENT:
-        case NODECL_MUL_ASSIGNMENT :
+        case NODECL_MUL_ASSIGNMENT:
         case NODECL_DIV_ASSIGNMENT:
+        case NODECL_MOD_ASSIGNMENT:
         case NODECL_ADD_ASSIGNMENT:
         case NODECL_MINUS_ASSIGNMENT:
         case NODECL_SHL_ASSIGNMENT:
@@ -5521,9 +5988,25 @@ int CxxBase::get_rank(const Nodecl::NodeclBase &n)
     }
     else
     {
-        return get_rank_kind(n.get_kind(), n.get_text());
+        node_t kind;
+        if (n.is<Nodecl::FunctionCall>()
+                && is_operator_function_call(n.as<Nodecl::FunctionCall>()))
+        {
+            kind = get_kind_of_operator_function_call(n.as<Nodecl::FunctionCall>());
+        }
+        else if (n.is<Nodecl::VirtualFunctionCall>()
+                && is_operator_function_call(n.as<Nodecl::VirtualFunctionCall>()))
+        {
+            kind = get_kind_of_operator_function_call(n.as<Nodecl::VirtualFunctionCall>());
+        }
+        else
+        {
+            kind = n.get_kind();
+        }
+        return get_rank_kind(kind, n.get_text());
     }
 }
+
 
 static char is_bitwise_bin_operator(node_t n)
 {
@@ -6106,6 +6589,42 @@ std::string CxxBase::get_declaration(TL::Type t, TL::Scope scope, const std::str
     t = fix_references(t);
 
     return t.get_declaration(scope,  name);
+}
+
+void CxxBase::fill_parameter_names_and_parameter_attributes(TL::Symbol symbol,
+        TL::ObjectList<std::string>& parameter_names,
+        TL::ObjectList<std::string>& parameter_attributes)
+{
+    ERROR_CONDITION(!symbol.is_function()
+            && !symbol.is_dependent_friend_function(), "This symbol should be a function\n", -1);
+
+    int i = 0;
+    TL::ObjectList<TL::Symbol> related_symbols = symbol.get_related_symbols();
+    for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
+            it != related_symbols.end();
+            it++, i++)
+    {
+        TL::Symbol current_param = *it;
+        if (current_param.is_valid())
+        {
+            if(!current_param.not_to_be_printed())
+            {
+                parameter_names[i] = current_param.get_name();
+            }
+
+            if (current_param.has_gcc_attributes())
+            {
+                parameter_attributes[i] = gcc_attributes_to_str(current_param);
+            }
+
+            if (get_codegen_status(current_param) != CODEGEN_STATUS_DEFINED
+                    && symbol.has_default_argument_num(i))
+            {
+                parameter_attributes[i] += " = " + codegen(symbol.get_default_argument_num(i));
+            }
+            set_codegen_status(current_param, CODEGEN_STATUS_DEFINED);
+        }
+    }
 }
 
 std::string CxxBase::get_declaration_with_parameters(TL::Type t, TL::Scope scope,

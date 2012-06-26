@@ -28,6 +28,9 @@
 #define TL_NODECL_ALG_HPP
 
 #include "tl-nodecl.hpp"
+#include "tl-source.hpp"
+
+#include "cxx-nodecl-deep-copy.h"
 
 #include <tr1/unordered_map>
 
@@ -46,7 +49,7 @@ namespace Nodecl
         TL::ObjectList<Nodecl::Symbol> get_all_symbols_first_occurrence(Nodecl::NodeclBase);
         TL::ObjectList<Nodecl::Symbol> get_nonlocal_symbols_first_occurrence(Nodecl::NodeclBase);
         TL::ObjectList<Nodecl::Symbol> get_local_symbols_first_occurrence(Nodecl::NodeclBase);
-       
+
         bool equal_nodecls(Nodecl::NodeclBase n1, Nodecl::NodeclBase n2);
         struct Nodecl_hash {
             size_t operator() (const Nodecl::NodeclBase& n) const;
@@ -70,6 +73,88 @@ namespace Nodecl
 
         std::string get_elemental_operator_of_binary_expression(Nodecl::NodeclBase n);
         std::string get_elemental_operator_of_binary_expression(node_t);
+
+        struct SymbolMap
+        {
+            virtual TL::Symbol map(TL::Symbol) = 0;
+
+            static scope_entry_t* adapter(scope_entry_t* source, void *symbol_map_obj);
+        };
+
+        struct SimpleSymbolMap : public SymbolMap
+        {
+            virtual TL::Symbol map(TL::Symbol s)
+            {
+                if (!s.is_valid())
+                    return s;
+
+                symbol_map_t::iterator it = _symbol_map.find(s);
+                if (it != _symbol_map.end())
+                    return it->second;
+                else
+                    return s;
+            }
+
+            virtual void add_map(TL::Symbol source, TL::Symbol target)
+            {
+                _symbol_map[source] = target;
+            }
+
+            private:
+            typedef std::map<TL::Symbol, TL::Symbol> symbol_map_t;
+            symbol_map_t _symbol_map;
+        };
+
+        struct FortranProgramUnitSymbolMap : public SymbolMap
+        {
+            private:
+                SymbolMap* _orig_symbol_map;
+
+                void *_out_info;
+                scope_entry_t* (*_out_map_info)(scope_entry_t*, void*);
+                void (*_free_closure)(void*);
+
+            public:
+                FortranProgramUnitSymbolMap(SymbolMap* original_symbol_map,
+                        TL::Symbol source_program_unit,
+                        TL::Symbol target_program_unit)
+                    : _orig_symbol_map(original_symbol_map),
+                    _out_info(NULL),
+                    _out_map_info(NULL),
+                    _free_closure(NULL)
+                {
+                    // Copy Fortran functions
+                    copy_fortran_program_unit(
+                            target_program_unit.get_internal_symbol(),
+                            source_program_unit.get_internal_symbol(),
+                            &_out_info,
+                            &_out_map_info,
+                            &_free_closure);
+                }
+
+                ~FortranProgramUnitSymbolMap()
+                {
+                    _free_closure(_out_info);
+                    ::free(_out_info);
+                    delete _orig_symbol_map;
+                }
+
+                virtual TL::Symbol map(TL::Symbol s)
+                {
+                    TL::Symbol m = _out_map_info(s.get_internal_symbol(), _out_info);
+                    if (s == m)
+                    {
+                        m = _orig_symbol_map->map(s);
+                    }
+                    return m;
+                }
+        };
+
+
+        Nodecl::NodeclBase deep_copy(Nodecl::NodeclBase orig, TL::ReferenceScope ref_scope, SymbolMap& map);
+
+        // Like above but with an empty map
+        Nodecl::NodeclBase deep_copy(Nodecl::NodeclBase orig, TL::ReferenceScope ref_scope);
     }
 }
 

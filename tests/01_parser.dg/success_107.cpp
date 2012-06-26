@@ -38,18 +38,24 @@ struct A
     {
         int *p;
         int k;
-        union {
+        union 
+        {
             int f;
         };
     };
 
     A()
-        : p(0) { }
+        : p(0) {
+       p = 0;
+       k = 0;
+       f = 0; }
+    A(int)
+        : f(0) { }
 };
 
 void f(void)
 {
     A<float> a;
-
     a.p;
+    a.f;
 }

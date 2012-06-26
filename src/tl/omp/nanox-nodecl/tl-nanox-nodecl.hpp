@@ -28,6 +28,7 @@
 #define TL_NANOX_NODECL_HPP
 
 #include "tl-compilerphase.hpp"
+#include "tl-nodecl.hpp"
 
 namespace TL { namespace Nanox {
 
@@ -37,6 +38,10 @@ namespace TL { namespace Nanox {
             Lowering();
             virtual void run(DTO& dto);
             virtual void pre_run(DTO& dto);
+        private:
+            void finalize_phase(Nodecl::NodeclBase global_node);
+            void set_openmp_programming_model(Nodecl::NodeclBase global_node);
+
     };
 
 } } 

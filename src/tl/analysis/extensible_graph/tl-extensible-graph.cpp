@@ -850,7 +850,7 @@ namespace TL
                 ObjectList<Node*> parents = node->get_parents();
                 for(ObjectList<Node*>::iterator it = parents.begin(); it != parents.end(); ++it)
                 {
-                    clear_visits_aux_backwards_in_level(*it);
+                    clear_visits_aux_backwards_in_level(*it, outer_node);
                 }
             }
         }

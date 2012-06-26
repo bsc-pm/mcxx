@@ -33,7 +33,7 @@
 #include "cxx-process.h"
 
 #include "tl-extensible-symbol.hpp"
-#include "tl-nodecl-alg.hpp"
+#include "tl-nodecl-utils.hpp"
 #include "tl-cfg-renaming-visitor.hpp"
 
 

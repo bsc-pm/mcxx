@@ -191,7 +191,7 @@ namespace TL
         return tokenizer.tokenize(raw);
     }
 
-    ObjectList<Nodecl::NodeclBase> PragmaClauseArgList::get_arguments_as_expressions(Source::ReferenceScope ref_scope, 
+    ObjectList<Nodecl::NodeclBase> PragmaClauseArgList::get_arguments_as_expressions(ReferenceScope ref_scope, 
             const ClauseTokenizer& tokenizer) const
     {
         ObjectList<std::string> str_list = this->get_tokenized_arguments(tokenizer);
@@ -226,7 +226,7 @@ namespace TL
         return PragmaClauseArgList(this->get_arguments().as<Nodecl::List>()).get_tokenized_arguments(tokenizer);
     }
 
-    ObjectList<Nodecl::NodeclBase> PragmaCustomSingleClause::get_arguments_as_expressions(Source::ReferenceScope ref_scope, 
+    ObjectList<Nodecl::NodeclBase> PragmaCustomSingleClause::get_arguments_as_expressions(ReferenceScope ref_scope, 
             const ClauseTokenizer& tokenizer) const
     {
         return PragmaClauseArgList(this->get_arguments().as<Nodecl::List>()).get_arguments_as_expressions(ref_scope, tokenizer);
@@ -284,7 +284,7 @@ namespace TL
     }
 
     ObjectList<Nodecl::NodeclBase> PragmaCustomClause::get_arguments_as_expressions(
-        Source::ReferenceScope ref_scope, 
+        ReferenceScope ref_scope, 
         const ClauseTokenizer & tokenizer) const
     {
         ObjectList<Nodecl::NodeclBase> result;
@@ -311,13 +311,13 @@ namespace TL
             const ObjectList<std::string>& deprecated_names) const
     {
         ObjectList<Nodecl::PragmaCustomClause> result;
-        Nodecl::List clauses = this->get_clauses().as<Nodecl::List>();
+        ObjectList<TL::PragmaCustomSingleClause> clauses = this->get_all_clauses();
 
-        for (Nodecl::List::iterator it = clauses.begin(); 
+        for (ObjectList<TL::PragmaCustomSingleClause>::iterator it = clauses.begin();
                 it != clauses.end();
                 it++)
         {
-            Nodecl::PragmaCustomClause clause = it->as<Nodecl::PragmaCustomClause>();
+            TL::PragmaCustomSingleClause &clause = *it;
 
             if (aliased_names.contains(clause.get_text())
                     || deprecated_names.contains(clause.get_text()))
@@ -362,13 +362,21 @@ namespace TL
         return get_clause(name, ObjectList<std::string>());
     }
 
-    ObjectList<TL::PragmaCustomSingleClause> PragmaCustomLine::get_all_clauses() const
+    ObjectList<Nodecl::PragmaCustomClause> PragmaCustomLine::get_all_clauses_nodes() const
     {
-        ObjectList<TL::PragmaCustomSingleClause> result;
+        ObjectList<Nodecl::PragmaCustomClause> result;
         Nodecl::List clauses = this->get_clauses().as<Nodecl::List>();
-
         for (Nodecl::List::iterator it = clauses.begin(); 
                 it != clauses.end();
+                it++)
+        {
+            Nodecl::PragmaCustomClause clause = it->as<Nodecl::PragmaCustomClause>();
+            result.append(clause);
+        }
+
+        Nodecl::List end_clauses = this->get_end_clauses().as<Nodecl::List>();
+        for (Nodecl::List::iterator it = end_clauses.begin(); 
+                it != end_clauses.end();
                 it++)
         {
             Nodecl::PragmaCustomClause clause = it->as<Nodecl::PragmaCustomClause>();
@@ -378,19 +386,28 @@ namespace TL
         return result;
     }
 
-    ObjectList<std::string> PragmaCustomLine::get_all_clause_names() const
+    ObjectList<TL::PragmaCustomSingleClause> PragmaCustomLine::get_all_clauses() const
     {
-        ObjectList<std::string> result;
-        Nodecl::List clauses = this->get_clauses().as<Nodecl::List>();
-
-        for (Nodecl::List::iterator it = clauses.begin(); 
-                it != clauses.end();
+        ObjectList<Nodecl::PragmaCustomClause> nodes = this->get_all_clauses_nodes();
+        ObjectList<TL::PragmaCustomSingleClause> result;
+        for (ObjectList<Nodecl::PragmaCustomClause>::iterator it = nodes.begin();
+                it != nodes.end();
                 it++)
         {
-            result.append(it->get_text());
+            result.append(*it);
         }
 
         return result;
+    }
+
+    ObjectList<std::string> PragmaCustomLine::get_all_clause_names() const
+    {
+        ObjectList<Nodecl::PragmaCustomClause> nodes = this->get_all_clauses_nodes();
+        ObjectList<std::string> clauses_strings = 
+            // nodes.map(ThisMemberFunctionConstAdapter<std::string, Nodecl::PragmaCustomClause>(&Nodecl::NodeclBase::get_text));
+            nodes.map(functor<std::string, Nodecl::PragmaCustomClause>(&Nodecl::PragmaCustomClause::get_text));
+
+        return clauses_strings;
     }
 
     PragmaCustomParameter PragmaCustomLine::get_parameter() const
@@ -413,9 +430,9 @@ namespace TL
         return TL::PragmaCustomLine(this->Nodecl::PragmaCustomDirective::get_pragma_line().as<Nodecl::PragmaCustomLine>());
     }
 
-    Source::ReferenceScope TL::PragmaCustomDirective::get_context_of_declaration() const
+    ReferenceScope TL::PragmaCustomDirective::get_context_of_declaration() const
     {
-        return Source::ReferenceScope(this->Nodecl::PragmaCustomDirective::get_context_of_decl().as<Source::ReferenceScope>());
+        return ReferenceScope(this->Nodecl::PragmaCustomDirective::get_context_of_decl().as<ReferenceScope>());
     }
     
     bool PragmaUtils::is_pragma_construct(const std::string& prefix, 

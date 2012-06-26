@@ -30,6 +30,7 @@
 namespace TL
 {
     class Source;
+    class ReferenceScope;
 }
 
 #endif // TL_SOURCE_FWD_HPP

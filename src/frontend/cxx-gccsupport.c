@@ -128,12 +128,15 @@ static void gather_one_gcc_attribute(const char* attribute_name,
         gather_decl_spec_t* gather_info,
         decl_context_t decl_context)
 {
+    char do_not_keep_attribute = 0;
+
     nodecl_t nodecl_expression_list = nodecl_null();
     /*
      * Vector support
      */
     if (strcmp(attribute_name, "vector_size") == 0)
     {
+        do_not_keep_attribute = 1;
         if (ASTSon0(expression_list) != NULL)
         {
             running_error("%s: error: attribute 'vector_size' only allows one argument",
@@ -168,6 +171,7 @@ static void gather_one_gcc_attribute(const char* attribute_name,
     }
     else if (strcmp(attribute_name, "generic_vector") == 0)
     {
+        do_not_keep_attribute = 1;
         if (expression_list != NULL)
         {
             running_error("%s: error: attribute 'generic_vector' does not allow arguments",
@@ -179,12 +183,14 @@ static void gather_one_gcc_attribute(const char* attribute_name,
     }
     else if (strcmp(attribute_name, "spu_vector") == 0)
     {
+        do_not_keep_attribute = 1;
         // Hardcoded to what a SPU can do
         gather_info->is_vector = 1;
         gather_info->vector_size = 16;
     }
     else if (strcmp(attribute_name, "altivec") == 0)
     {
+        do_not_keep_attribute = 1;
         AST argument = advance_expression_nest(ASTSon1(expression_list));
         if (ASTType(argument) == AST_SYMBOL)
         {
@@ -204,6 +210,7 @@ static void gather_one_gcc_attribute(const char* attribute_name,
     else if (strcmp(attribute_name, "mode") == 0
             || strcmp(attribute_name, "__mode__") == 0)
     {
+        do_not_keep_attribute = 1;
         if (ASTSon0(expression_list) != NULL)
         {
             running_error("%s: error: attribute 'mode' only allows one argument",
@@ -477,15 +484,18 @@ static void gather_one_gcc_attribute(const char* attribute_name,
     }
 
     // Save it in the gather_info structure
-    if (gather_info->num_gcc_attributes == MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL)
+    if (!do_not_keep_attribute)
     {
-        running_error("Too many gcc attributes, maximum supported is %d\n", MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL);
-    }
-    gather_gcc_attribute_t* current_gcc_attribute = &(gather_info->gcc_attributes[gather_info->num_gcc_attributes]);
-    gather_info->num_gcc_attributes++;
+        if (gather_info->num_gcc_attributes == MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL)
+        {
+            running_error("Too many gcc attributes, maximum supported is %d\n", MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL);
+        }
+        gather_gcc_attribute_t* current_gcc_attribute = &(gather_info->gcc_attributes[gather_info->num_gcc_attributes]);
+        gather_info->num_gcc_attributes++;
 
-    current_gcc_attribute->attribute_name = uniquestr(attribute_name);
-    current_gcc_attribute->expression_list = nodecl_expression_list;
+        current_gcc_attribute->attribute_name = uniquestr(attribute_name);
+        current_gcc_attribute->expression_list = nodecl_expression_list;
+    }
 }
 
 void gather_gcc_attribute(AST attribute, 
@@ -1077,6 +1087,78 @@ gxx_type_traits_fun_type_t type_traits_fun_list[] =
     {NULL, NULL},
 };
 
+// This function is used in this file and also in cxx-exprtype.c
+void common_check_gxx_type_traits(type_t* lhs_type,
+        type_t* rhs_type,
+        type_t* gxx_trait_type,
+        const char* trait_name,
+        decl_context_t decl_context,
+        const char* filename,
+        int line,
+        nodecl_t* nodecl_output)
+{
+    if (is_dependent_type(lhs_type)
+            || (rhs_type != NULL
+                && is_dependent_type(rhs_type)))
+    {
+        nodecl_t nodecl_lhs_type = nodecl_make_type(lhs_type, filename, line);
+        nodecl_t nodecl_rhs_type_opt =
+            (rhs_type == NULL) ?
+            nodecl_null() : nodecl_make_type(lhs_type, filename, line);
+
+        *nodecl_output = nodecl_make_gxx_trait(
+                nodecl_lhs_type,
+                nodecl_rhs_type_opt,
+                gxx_trait_type,
+                trait_name,
+                filename, line);
+
+        // This is like a constant expression with a dependent value
+        nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
+        return;
+    }
+
+    int i = 0;
+    char found = 0;
+    while (type_traits_fun_list[i].trait_name != NULL
+            && !found)
+    {
+        found = (strcmp(type_traits_fun_list[i].trait_name, trait_name) == 0);
+        i++;
+    }
+
+    if (!found)
+    {
+        internal_error("Unknown trait '%s' at '%s:%d'\n", trait_name, filename, line);
+    }
+
+    // We are one ahead
+    i--;
+
+    if (type_traits_fun_list[i].trait_calculus == NULL)
+    {
+        internal_error("Unimplemented trait '%s' at '%s:%d'\n", trait_name, filename, line);
+    }
+    else
+    {
+        type_t* t = get_bool_type();
+
+        const_value_t* val = NULL;
+
+        if ((type_traits_fun_list[i].trait_calculus)(lhs_type, rhs_type, decl_context))
+        {
+            // true
+            val = const_value_get_one(type_get_size(t), 0);
+        }
+        else
+        {
+            // false
+            val = const_value_get_zero(type_get_size(t), 0);
+        }
+        *nodecl_output = nodecl_make_boolean_literal(t, val, filename, line);
+    }
+}
+
 void check_gxx_type_traits(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST first_type_id = ASTSon0(expression);
@@ -1104,74 +1186,13 @@ void check_gxx_type_traits(AST expression, decl_context_t decl_context, nodecl_t
     }
 
     const char* trait_name = ASTText(expression);
-
-    if (is_dependent_type(first_type)
-            || (second_type_id != NULL
-                && is_dependent_type(second_type)))
-    {
-        if (second_type_id != NULL)
-        {
-            *nodecl_output = nodecl_make_gxx_trait(
-                    nodecl_make_type(first_type, ASTFileName(expression), ASTLine(expression)),
-                    nodecl_make_type(second_type, ASTFileName(expression), ASTLine(expression)),
-                    get_bool_type(),
-                    trait_name,
-                    ASTFileName(expression), ASTLine(expression));
-        }
-        else
-        {
-            *nodecl_output = nodecl_make_gxx_trait(
-                    nodecl_make_type(first_type, ASTFileName(expression), ASTLine(expression)),
-                    nodecl_null(),
-                    get_bool_type(),
-                    trait_name,
-                    ASTFileName(expression), ASTLine(expression));
-        }
-        // This is like a constant expression with a dependent value
-        nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
-        return;
-    }
-
-    int i = 0;
-    char found = 0;
-    while (type_traits_fun_list[i].trait_name != NULL
-            && !found)
-    {
-        found = (strcmp(type_traits_fun_list[i].trait_name, trait_name) == 0);
-        i++;
-    }
-
-    if (!found)
-    {
-        internal_error("Unknown type traits '%s' at '%s'\n", prettyprint_in_buffer(expression), ast_location(expression));
-    }
-
-    // We are one ahead
-    i--;
-
-    if (type_traits_fun_list[i].trait_calculus == NULL)
-    {
-        internal_error("Unimplemented type traits '%s' at '%s'\n", prettyprint_in_buffer(expression), ast_location(expression));
-    }
-    else
-    {
-        type_t* t = get_bool_type();
-
-        const_value_t* val = NULL;
-
-        if ((type_traits_fun_list[i].trait_calculus)(first_type, second_type, decl_context))
-        {
-            // true
-            val = const_value_get_one(type_get_size(t), 0);
-        }
-        else
-        {
-            // false
-            val = const_value_get_zero(type_get_size(t), 0);
-        }
-        *nodecl_output = nodecl_make_boolean_literal(t, val, ASTFileName(expression), ASTLine(expression));
-    }
-
-    return;
+    common_check_gxx_type_traits(first_type,
+            second_type,
+            get_bool_type(),
+            trait_name,
+            decl_context,
+            ASTFileName(expression),
+            ASTLine(expression),
+            nodecl_output);
 }
 

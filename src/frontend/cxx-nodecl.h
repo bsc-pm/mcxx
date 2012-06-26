@@ -42,8 +42,11 @@ char nodecl_is_null(nodecl_t t);
 // Returns the internal AST
 AST nodecl_get_ast(nodecl_t t);
 
-// Deep copy of the tree
-nodecl_t nodecl_copy(nodecl_t t);
+// Replicates the tree but does not change symbols or other indirectly mentioned symbols
+nodecl_t nodecl_shallow_copy(nodecl_t t);
+
+// Replicates the tree and duplicates bound variables. Free variables may be replaced using the given map
+nodecl_t nodecl_deep_copy(nodecl_t, decl_context_t new_decl_context, void *info, scope_entry_t* (*map)(scope_entry_t*, void* info));
 
 // Parent
 nodecl_t nodecl_get_parent(nodecl_t t);

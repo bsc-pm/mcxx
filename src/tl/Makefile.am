@@ -51,8 +51,6 @@ BUILT_SOURCES += tl-lexer-tokens.hpp
 
 BUILT_SOURCES += tl-nodecl-visitor.hpp
 BUILT_SOURCES += tl-nodecl-visitor.cpp
-BUILT_SOURCES += tl-nodecl-copy-visitor.hpp
-BUILT_SOURCES += tl-nodecl-copy-visitor.cpp
 BUILT_SOURCES += tl-nodecl-fwd.hpp
 BUILT_SOURCES += tl-nodecl.hpp
 BUILT_SOURCES += tl-nodecl.cpp
@@ -100,18 +98,14 @@ libtl_la_SOURCES = \
     tl-builtin.cpp \
     tl-nodecl-visitor.hpp \
     tl-nodecl-visitor.cpp \
-    tl-nodecl-copy-visitor-base.hpp \
-    tl-nodecl-copy-visitor-base.cpp \
-    tl-nodecl-copy-visitor.hpp \
-    tl-nodecl-copy-visitor.cpp \
     tl-nodecl-fwd.hpp \
     tl-nodecl-base-fwd.hpp \
     tl-nodecl-base.hpp \
     tl-nodecl-base.cpp \
     tl-nodecl.hpp \
     tl-nodecl.cpp \
-    tl-nodecl-alg.hpp \
-    tl-nodecl-alg.cpp \
+    tl-nodecl-utils.hpp \
+    tl-nodecl-utils.cpp \
     tl-nodecl-calc.hpp \
     tl-nodecl-calc.cpp \
     tl-nodecl-replace.hpp \
@@ -217,12 +211,6 @@ tl-nodecl-visitor.hpp : $(NODECL_DEPS)
 CLEANFILES += tl-nodecl-visitor.cpp
 tl-nodecl-visitor.cpp : $(NODECL_DEPS)
 	$(PYTHON_verbose)$(PYTHON) $(srcdir)/../frontend/nodecl-generator.py $(srcdir)/../frontend/cxx-nodecl.def cxx_visitor_impl > $@
-CLEANFILES += tl-nodecl-copy-visitor.hpp
-tl-nodecl-copy-visitor.hpp : $(NODECL_DEPS)
-	$(PYTHON_verbose)$(PYTHON) $(srcdir)/../frontend/nodecl-generator.py $(srcdir)/../frontend/cxx-nodecl.def cxx_copy_visitor_decl > $@
-CLEANFILES += tl-nodecl-copy-visitor.cpp
-tl-nodecl-copy-visitor.cpp : $(NODECL_DEPS)
-	$(PYTHON_verbose)$(PYTHON) $(srcdir)/../frontend/nodecl-generator.py $(srcdir)/../frontend/cxx-nodecl.def cxx_copy_visitor_impl > $@
 
 libtl_la_LDFLAGS = -avoid-version $(no_undefined)
 libtl_la_LIBADD = \

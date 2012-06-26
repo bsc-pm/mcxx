@@ -64,12 +64,42 @@ def parse_rules(f):
                 ast_args = rhs[i + 1 : i + j]
                 ast_args = ast_args.strip()
                 remaining_flags = rhs[i+j+1:].split();
-                needs_symbol = "symbol" in remaining_flags
-                needs_type = "type" in remaining_flags
-                needs_text = "text" in remaining_flags
-                needs_cval = "const_value" in remaining_flags
-                needs_template_parameters = "template-parameters" in remaining_flags
-                needs_decl_context = "context" in remaining_flags
+                attributes = [
+                        ("symbol", "symbol"),
+                        ("type", "type"),
+                        ("text", "text"),
+                        ("cval", "const-value"),
+                        ("template_parameters", "template-parameters"),
+                        ("decl_context", "context")]
+
+                # Mandatory values
+                # This exec below performs the following statements
+                #      needs_symbol = "symbol" in remaining_flags
+                #      needs_type = "type" in remaining_flags
+                #      ...
+                for (base_var_name, attr) in attributes:
+                    statement = "needs_%s = \"%s\" in remaining_flags" % (base_var_name, attr)
+                    exec statement
+
+                # Optional values
+                # This exec below perfoms the following statements
+                #      may_have_symbol = "symbol-opt" in remaining_flags
+                #      may_have_type = "type-opt" in remaining_flags
+                #      ...
+                for (base_var_name, attr) in attributes:
+                    statement = "may_have_%s = \"%s-opt\" in remaining_flags" % (base_var_name, attr)
+                    exec statement
+
+                # Module
+                module_name = "base"
+                for flag in remaining_flags:
+                    if flag[0:len("module")] == "module":
+                        i = flag.find("(")
+                        if i < 0:
+                            raise Exception("invalid syntax, expecting (")
+                        j = find_matching_parentheses(flag[i:])
+                        module_name = flag[i+1: i + j].strip()
+
                 if ast_args :
                     ast_args_2 = map(lambda x : x.strip(), ast_args.split(","))
                     ast_args_3 = []
@@ -83,12 +113,20 @@ def parse_rules(f):
                             sys.stderr.write("Missing label for component %d in %s\n" % (i, rhs))
                         ast_args_3.append((r_label, r_ref))
                         i = i + 1
-                        
-                    rule_map[rule_name].append( NodeclStructure(tree_ast, ast_args_3, needs_symbol, needs_type, \
-                                needs_text, needs_cval, needs_template_parameters, needs_decl_context) )
+                    nodecl_structure = NodeclStructure(tree_ast, ast_args_3)
+                    # , needs_symbol, needs_type, \
+                    #             needs_text, needs_cval, needs_template_parameters, needs_decl_context) )
                 else:
-                    rule_map[rule_name].append( NodeclStructure(tree_ast, [], needs_symbol, needs_type, \
-                                needs_text, needs_cval, needs_template_parameters, needs_decl_context) )
+                    nodecl_structure = NodeclStructure(tree_ast, [])
+                    #needs_symbol, needs_type, \
+                    #needs_text, needs_cval, needs_template_parameters, needs_decl_context) )
+
+                for (base_var_name, attr) in attributes:
+                    setattr(nodecl_structure, "needs_%s" % (base_var_name), eval("needs_%s" % (base_var_name)))
+                    setattr(nodecl_structure, "may_have_%s" % (base_var_name), eval("may_have_%s" % (base_var_name)))
+
+                nodecl_structure.module_name = module_name
+                rule_map[rule_name].append( nodecl_structure )
             else:
                 rule_map[rule_name].append( RuleRef(rhs) )
     return rule_map
@@ -98,15 +136,10 @@ class Variable:
     pass
 
 class NodeclStructure(Variable):
-    def __init__(self, tree_kind, subtrees, needs_symbol, needs_type, needs_text, needs_cval, needs_template_parameters, needs_decl_context):
+    def __init__(self, tree_kind, subtrees):
         self.tree_kind = tree_kind
         self.subtrees = subtrees
-        self.needs_symbol = needs_symbol
-        self.needs_type = needs_type
-        self.needs_text = needs_text
-        self.needs_cval = needs_cval
-        self.needs_template_parameters = needs_template_parameters
-        self.needs_decl_context = needs_decl_context
+        self.module_name = "base"
 
     def name_to_underscore(self):
         return self.tree_kind.replace("-", "_").replace("*", "_")
@@ -387,6 +420,21 @@ def get_all_class_names_and_children_names_namespaces(rule_map):
                     result.append((class_name, subtrees, rhs.name_to_underscore(), rhs))
     return result
 
+def get_all_class_names_and_children_names_namespaces_and_modules(rule_map):
+    result = []
+    classes_set = set([])
+    for rule_name in rule_map:
+        rule_rhs = rule_map[rule_name]
+        for rhs in rule_rhs:
+            if rhs.__class__ == NodeclStructure:
+                class_name = from_underscore_to_camel_case_namespaces(rhs.base_name())
+                module_name = rhs.module_name
+                if class_name not in classes_set:
+                    classes_set.add(class_name)
+                    subtrees = map(lambda x : x[0], rhs.subtrees)
+                    result.append((class_name, subtrees, rhs.name_to_underscore(), rhs, module_name))
+    return result
+
 def generate_nodecl_classes_fwd_decls(rule_map):
     print "/* Autogenerated file. DO NOT MODIFY. */"
     print "/* Changes in nodecl-generator.py or cxx-nodecl.def will overwrite this file */"
@@ -500,8 +548,8 @@ def generate_visitor_class_header(rule_map):
     print "{"
     print "public:"
     print "     typedef typename NodeclVisitor<_Ret>::Ret Ret;"
-    classes_and_children = get_all_class_names_and_children_names_namespaces(rule_map)
-    for ((namespaces, class_name), children_name, tree_kind, nodecl_class) in classes_and_children:
+    classes_and_children = get_all_class_names_and_children_names_namespaces_and_modules(rule_map)
+    for ((namespaces, class_name), children_name, tree_kind, nodecl_class, module_name) in classes_and_children:
          qualified_name = get_qualified_name(namespaces, class_name)
          print "     virtual Ret visit_pre(const Nodecl::%s & n) { return Ret(); }" % (qualified_name)
          print "     virtual Ret visit_post(const Nodecl::%s & n) { return Ret(); }" % (qualified_name)
@@ -522,14 +570,59 @@ def generate_visitor_class_header(rule_map):
     print "public:"
     print "     ProxyVisitor() : _proxy(NULL) { }"
     print "     typedef typename NodeclVisitor<_Ret>::Ret Ret;"
-    for ((namespaces, class_name), children_name, tree_kind, nodecl_class) in classes_and_children:
+    for ((namespaces, class_name), children_name, tree_kind, nodecl_class, module_name) in classes_and_children:
          qualified_name = get_qualified_name(namespaces, class_name)
          print "     virtual Ret visit(const Nodecl::%s & n)" % (qualified_name)
          print "     {"
-         print "        return _proxy->visit(n);"
+         print "        return _proxy->walk(n);"
          print "     }"
     print "protected:"
     print "   BaseNodeclVisitor<_Ret> *_proxy;"
+    print "};"
+
+    print "template <typename _Ret>"
+    print "class ModularVisitor;"
+    print "template <typename _Ret>"
+    print "class ModuleVisitor : public NodeclVisitor<_Ret>"
+    print "{"
+    print "  protected:"
+    print "     ModularVisitor<_Ret> *_modular_visitor;"
+    print "  public:"
+    print "     typedef typename NodeclVisitor<_Ret>::Ret Ret;"
+    print "     ModuleVisitor(ModularVisitor<_Ret>* modular_visitor) : _modular_visitor(modular_visitor) { }"
+    for ((namespaces, class_name), children_name, tree_kind, nodecl_class, module_name) in classes_and_children:
+         qualified_name = get_qualified_name(namespaces, class_name)
+         print "     virtual Ret visit(const Nodecl::%s & n)" % (qualified_name)
+         print "     {"
+         print "        return _modular_visitor->walk(n);"
+         print "     }"
+    print "};"
+    print "template <typename _Ret>"
+    print "class ModularVisitor : public NodeclVisitor<_Ret>"
+    print "{"
+    print "  protected:"
+    module_set = set([])
+    for ((namespaces, class_name), children_name, tree_kind, nodecl_class, module_name) in classes_and_children:
+        module_set.add(module_name)
+    # modules discovered
+    for module_name in module_set:
+        if module_name != "base":
+            print "     ModuleVisitor<_Ret>* %s;" % ("_module_" + module_name)
+    print "  public:"
+    print "     typedef typename NodeclVisitor<_Ret>::Ret Ret;"
+    for module_name in module_set:
+        if module_name != "base":
+            print "     void set_%s(ModuleVisitor<_Ret>* module_visitor) { %s = module_visitor; }" \
+                    % ("module_" + module_name, "_module_" + module_name)
+    for ((namespaces, class_name), children_name, tree_kind, nodecl_class, module_name) in classes_and_children:
+         qualified_name = get_qualified_name(namespaces, class_name)
+         if (module_name == "base"):
+             pass
+         else:
+             print "     virtual Ret visit(const Nodecl::%s & n)" % (qualified_name)
+             print "     {"
+             print "        return %s->visit(n);" % ("_module_" + module_name)
+             print "     }"
     print "};"
 
     print "template <typename _Ret>"
@@ -610,9 +703,25 @@ def generate_copy_visitor_class_header(rule_map):
     print "#include \"tl-nodecl-copy-visitor-base.hpp\""
     print ""
     print "namespace Nodecl {"
-    print "   class CopyVisitor : public CopyVisitorBase"
+    print "   class ShallowCopyVisitor : public CopyVisitorBase"
     print "   {"
     print "      public:"
+    classes_and_children = get_all_class_names_and_children_names_namespaces(rule_map)
+    for ((namespaces, class_name), children_name, tree_kind, nodecl_class) in classes_and_children:
+         qualified_name = get_qualified_name(namespaces, class_name)
+         print "        virtual Ret visit(const Nodecl::%s & n);" % (qualified_name)
+    print "   };"
+    print "   struct SymbolMap"
+    print "   {"
+    print "       virtual TL::Symbol map(TL::Symbol sym) = 0;"
+    print "       virtual void add_map(TL::Symbol source, TL::Symbol target) = 0;"
+    print "   };"
+    print "   class DeepCopyVisitorBase : public CopyVisitorBase"
+    print "   {"
+    print "      protected:"
+    print "         SymbolMap &_map_symbol;"
+    print "      public:"
+    print "          DeepCopyVisitorBase(SymbolMap &map_symbol) : _map_symbol(map_symbol) { }"
     classes_and_children = get_all_class_names_and_children_names_namespaces(rule_map)
     for ((namespaces, class_name), children_name, tree_kind, nodecl_class) in classes_and_children:
          qualified_name = get_qualified_name(namespaces, class_name)
@@ -630,7 +739,7 @@ def generate_copy_visitor_class_impl(rule_map):
     classes_and_children = get_all_class_names_and_children_names_namespaces(rule_map)
     for ((namespaces, class_name), children_name, tree_kind, nodecl_class) in classes_and_children:
          qualified_name = get_qualified_name(namespaces, class_name)
-         print "  CopyVisitor::Ret CopyVisitor::visit(const Nodecl::%s & n)" % (qualified_name)
+         print "  ShallowCopyVisitor::Ret ShallowCopyVisitor::visit(const Nodecl::%s & n)" % (qualified_name)
          print "  {"
 
          factory_arguments = []
@@ -640,6 +749,43 @@ def generate_copy_visitor_class_impl(rule_map):
 
          if nodecl_class.needs_symbol:
              print "TL::Symbol symbol = n.get_symbol();"
+             factory_arguments.append("symbol")
+         if nodecl_class.needs_type:
+             print "TL::Type type = n.get_type();";
+             factory_arguments.append("type")
+         if nodecl_class.needs_text:
+             print "const std::string& text = n.get_text();"
+             factory_arguments.append("text")
+         if nodecl_class.needs_cval:
+             print "const_value_t* cval = n.get_constant();"
+             factory_arguments.append("cval")
+         if nodecl_class.needs_template_parameters:
+             print "template_parameter_list_t* template_parameters = nodecl_get_template_parameters(n.get_internal_nodecl());"
+             factory_arguments.append("template_parameters")
+         if nodecl_class.needs_decl_context:
+             print "TL::Scope sc = nodecl_get_decl_context(n.get_internal_nodecl());";
+             factory_arguments.append("sc")
+
+         print "const std::string &filename = n.get_filename();"
+         factory_arguments.append("filename")
+         print "int line = n.get_line();"
+         factory_arguments.append("line")
+
+         print "return %s::make(%s);" % (qualified_name, string.join(factory_arguments, ", "))
+
+         print "  }"
+    for ((namespaces, class_name), children_name, tree_kind, nodecl_class) in classes_and_children:
+         qualified_name = get_qualified_name(namespaces, class_name)
+         print "  DeepCopyVisitorBase::Ret DeepCopyVisitorBase::visit(const Nodecl::%s & n)" % (qualified_name)
+         print "  {"
+
+         factory_arguments = []
+         for child_name in children_name:
+             print "Nodecl::NodeclBase child_%s = walk(n.get_%s());" % (child_name, child_name)
+             factory_arguments.append("child_%s" % (child_name))
+
+         if nodecl_class.needs_symbol:
+             print "TL::Symbol symbol = _map_symbol.map( n.get_symbol() );"
              factory_arguments.append("symbol")
          if nodecl_class.needs_type:
              print "TL::Type type = n.get_type();";
@@ -1040,6 +1186,248 @@ def generate_asttypes(rule_map):
     for kind_name in l:
         print kind_name
 
+def generate_c_shallow_copy_def(rule_map):
+    print "#include \"cxx-nodecl.h\""
+    print "#include \"cxx-nodecl-output.h\""
+    print "#include \"cxx-scope.h\""
+    print "#include \"cxx-utils.h\""
+    print "/* Autogenerated file. DO NOT MODIFY. */"
+    print "/* Changes in nodecl-generator.py or cxx-nodecl.def will overwrite this file */"
+
+    print """
+nodecl_t nodecl_shallow_copy(nodecl_t n)
+{
+    if (nodecl_is_null(n))
+        return nodecl_null();
+    switch (nodecl_get_kind(n))
+    {
+        case AST_NODE_LIST:
+        {
+          int num_items = 0;
+          nodecl_t result = nodecl_null();
+          nodecl_t* list = nodecl_unpack_list(n, &num_items);
+          int i;
+          for (i = 0; i < num_items; i++)
+          {
+                  result = nodecl_append_to_list(result, nodecl_shallow_copy(list[i]));
+          }
+          return result;
+          break;
+        }
+"""
+
+    node_kind = []
+    for rule_name in rule_map:
+        rule_rhs = rule_map[rule_name]
+        for rhs in rule_rhs:
+            if rhs.__class__ == NodeclStructure:
+                node_kind.append((rhs.name_to_underscore(), rhs.base_name_to_underscore().lower(), rhs))
+    for node in node_kind:
+        nodecl_class = node[2]
+        print "       case %s:" % (node[0])
+        print "       {"
+        factory_arguments = []
+        i = 0
+        for subtree in nodecl_class.subtrees:
+            print "nodecl_t child_%d = nodecl_shallow_copy(nodecl_get_child(n, %d));" % (i, i)
+            factory_arguments.append("child_%d" % (i))
+            i = i + 1
+
+        needs_attr = lambda x : getattr(nodecl_class, "needs_%s" % (x))
+        may_have_attr = lambda x : getattr(nodecl_class, "may_have_%s" % (x))
+        has_attr = lambda x : needs_attr(x) or may_have_attr(x)
+
+        if has_attr("symbol"):
+            print "scope_entry_t* symbol = nodecl_get_symbol(n);"
+        if needs_attr("symbol"):
+            factory_arguments.append("symbol")
+
+        if has_attr("type"):
+            print "type_t* type = nodecl_get_type(n);"
+        if needs_attr("type"):
+            factory_arguments.append("type")
+
+        if has_attr("text"):
+            print "const char* text = nodecl_get_text(n);"
+        if needs_attr("text"):
+            factory_arguments.append("text")
+
+        if has_attr("cval"):
+            print "const_value_t* cval = nodecl_get_constant(n);"
+        if needs_attr("cval"):
+            factory_arguments.append("cval")
+
+        if has_attr("template_parameters"):
+            print "template_parameter_list_t* template_parameters = nodecl_get_template_parameters(n);"
+        if needs_attr("template_parameters"):
+            factory_arguments.append("template_parameters")
+
+        if has_attr("decl_context"):
+            print "decl_context_t decl_context = nodecl_get_decl_context(n);";
+        if needs_attr("decl_context"):
+            factory_arguments.append("decl_context")
+
+        print "const char* filename = nodecl_get_filename(n);"
+        factory_arguments.append("filename")
+        print "int line = nodecl_get_line(n);"
+        factory_arguments.append("line")
+        print "nodecl_t result = nodecl_make_%s(%s);" % (node[1], string.join(factory_arguments, ", "))
+
+        if may_have_attr("symbol"):
+            print "nodecl_set_symbol(result, symbol);"
+
+        if may_have_attr("type"):
+            print "nodecl_set_type(result, type);"
+
+        if may_have_attr("text"):
+            print "nodecl_set_text(result, text);"
+
+        if may_have_attr("cval"):
+            print "nodecl_set_constant(result, cval);"
+
+        if may_have_attr("template_parameters"):
+            print "nodecl_set_template_parameters(result, template_parameters);"
+
+        if may_have_attr("decl_context"):
+            print "nodecl_set_decl_context(n, decl_context);"
+
+        print "       return result;";
+        print "       break;"
+        print "       }"
+    print """
+       default:
+           { internal_error("Unexpected tree kind '%s'\\n", ast_print_node_type(nodecl_get_kind(n))); }
+       }
+       return nodecl_null();
+}
+"""
+
+def generate_c_deep_copy_def(rule_map):
+    print "#include \"cxx-nodecl.h\""
+    print "#include \"cxx-nodecl-output.h\""
+    print "#include \"cxx-scope.h\""
+    print "#include \"cxx-utils.h\""
+    print "/* Autogenerated file. DO NOT MODIFY. */"
+    print "/* Changes in nodecl-generator.py or cxx-nodecl.def will overwrite this file */"
+
+    print """
+
+nodecl_t nodecl_deep_copy_context(nodecl_t n, decl_context_t new_decl_context, void* info, scope_entry_t* (map)(scope_entry_t*, void* info));
+
+nodecl_t nodecl_deep_copy_rec(nodecl_t n, decl_context_t new_decl_context, void* info, scope_entry_t* (*map)(scope_entry_t*, void* info))
+{
+    if (nodecl_is_null(n))
+        return nodecl_null();
+    switch (nodecl_get_kind(n))
+    {
+        case AST_NODE_LIST:
+        {
+          int num_items = 0;
+          nodecl_t result = nodecl_null();
+          nodecl_t* list = nodecl_unpack_list(n, &num_items);
+          int i;
+          for (i = 0; i < num_items; i++)
+          {
+                  result = nodecl_append_to_list(result, nodecl_deep_copy_rec(list[i], new_decl_context, info, map));
+          }
+          return result;
+          break;
+        }
+"""
+    node_kind = []
+    for rule_name in rule_map:
+        rule_rhs = rule_map[rule_name]
+        for rhs in rule_rhs:
+            if rhs.__class__ == NodeclStructure:
+                node_kind.append((rhs.name_to_underscore(), rhs.base_name_to_underscore().lower(), rhs))
+    for node in node_kind:
+        nodecl_class = node[2]
+        print "       case %s:" % (node[0])
+        print "       {"
+
+        if (node[0] == "NODECL_CONTEXT"):
+            print "          return nodecl_deep_copy_context(n, new_decl_context, info, map);"
+            print "       }"
+            continue
+
+        factory_arguments = []
+        i = 0
+        for subtree in nodecl_class.subtrees:
+            print "nodecl_t child_%d = nodecl_deep_copy_rec(nodecl_get_child(n, %d), new_decl_context, info, map);" % (i, i)
+            factory_arguments.append("child_%d" % (i))
+            i = i + 1
+
+        needs_attr = lambda x : getattr(nodecl_class, "needs_%s" % (x))
+        may_have_attr = lambda x : getattr(nodecl_class, "may_have_%s" % (x))
+        has_attr = lambda x : needs_attr(x) or may_have_attr(x)
+
+        if has_attr("symbol"):
+            print "scope_entry_t* symbol = map(nodecl_get_symbol(n), info);"
+        if needs_attr("symbol"):
+            factory_arguments.append("symbol")
+
+        # FIXME - The type may have to be regenerated as well
+        if has_attr("type"):
+            print "type_t* type = nodecl_get_type(n);"
+        if needs_attr("type"):
+            factory_arguments.append("type")
+
+        if has_attr("text"):
+            print "const char* text = nodecl_get_text(n);"
+        if needs_attr("text"):
+            factory_arguments.append("text")
+
+        if has_attr("cval"):
+            print "const_value_t* cval = nodecl_get_constant(n);"
+        if needs_attr("cval"):
+            factory_arguments.append("cval")
+
+        if has_attr("template_parameters"):
+            print "template_parameter_list_t* template_parameters = nodecl_get_template_parameters(n);"
+        if needs_attr("template_parameters"):
+            factory_arguments.append("template_parameters")
+
+        if has_attr("decl_context"):
+            print "decl_context_t decl_context = nodecl_get_decl_context(n);";
+        if needs_attr("decl_context"):
+            factory_arguments.append("decl_context")
+
+        print "const char* filename = nodecl_get_filename(n);"
+        factory_arguments.append("filename")
+        print "int line = nodecl_get_line(n);"
+        factory_arguments.append("line")
+        print "nodecl_t result = nodecl_make_%s(%s);" % (node[1], string.join(factory_arguments, ", "))
+
+        if may_have_attr("symbol"):
+            print "nodecl_set_symbol(result, symbol);"
+
+        if may_have_attr("type"):
+            print "nodecl_set_type(result, type);"
+
+        if may_have_attr("text"):
+            print "nodecl_set_text(result, text);"
+
+        if may_have_attr("cval"):
+            print "nodecl_set_constant(result, cval);"
+
+        if may_have_attr("template_parameters"):
+            print "nodecl_set_template_parameters(result, template_parameters);"
+
+        if may_have_attr("decl_context"):
+            print "nodecl_set_decl_context(n, decl_context);"
+
+        print "       return result;";
+        print "       break;"
+        print "       }"
+    print """
+       default:
+           { internal_error("Unexpected tree kind '%s'\\n", ast_print_node_type(nodecl_get_kind(n))); }
+       }
+       return nodecl_null();
+}
+"""
+
+
 # MAIN
 
 op_mode = "check_routines"
@@ -1063,6 +1451,10 @@ elif op_mode == "c_visitor_def":
     generate_c_visitor_def(rule_map)
 elif op_mode == "asttype_nodecl":
     generate_asttypes(rule_map)
+elif op_mode == "c_shallow_copy_def":
+    generate_c_shallow_copy_def(rule_map)
+elif op_mode == "c_deep_copy_def":
+    generate_c_deep_copy_def(rule_map)
 elif op_mode == "cxx_nodecl_class_fwd_header":
     generate_nodecl_classes_fwd_decls(rule_map)
 elif op_mode == "cxx_nodecl_class_header":

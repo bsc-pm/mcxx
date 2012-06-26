@@ -432,21 +432,18 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
              *    }
              */
 
-            if (class_type_is_incomplete_independent(get_actual_class_type(t2)))
+            DEBUG_CODE()
             {
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "TYPEUNIF: Instantiating class '%s' since we will try to unificate against bases\n",
-                            print_declarator(t2));
-                }
+                fprintf(stderr, "TYPEUNIF: Instantiating class '%s' since we will try to unificate against bases\n",
+                        print_declarator(t2));
+            }
 
-                instantiate_template_class(named_type_get_symbol(t2), decl_context, filename, line);
+            instantiate_template_class_if_needed(named_type_get_symbol(t2), decl_context, filename, line);
 
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "TYPEUNIF: Class '%s' instantiated, now we can proceed to check bases\n",
-                            print_declarator(t2));
-                }
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "TYPEUNIF: Class '%s' instantiated, now we can proceed to check bases\n",
+                        print_declarator(t2));
             }
 
             scope_entry_list_t* all_bases = class_type_get_all_bases(get_actual_class_type(t2), /* include_dependent */ 0);

@@ -87,7 +87,7 @@ LIBMCXX_EXTERN type_t* get_unknown_dependent_type(void);
 /* Fortran specialities */
 LIBMCXX_EXTERN type_t* get_bool_of_integer_type(type_t* t);
 
-LIBMCXX_EXTERN type_t* get_gcc_typeof_expr_type(nodecl_t nodecl_expr, decl_context_t decl_context);
+LIBMCXX_EXTERN type_t* get_gcc_typeof_expr_dependent_type(nodecl_t nodecl_expr, decl_context_t decl_context);
 
 LIBMCXX_EXTERN nodecl_t gcc_typeof_expr_type_get_expression(type_t* t);
 LIBMCXX_EXTERN decl_context_t gcc_typeof_expr_type_get_expression_context(type_t* t);
@@ -103,6 +103,9 @@ LIBMCXX_EXTERN type_t* get_dependent_typename_type_from_parts(scope_entry_t* dep
         nodecl_t dependent_parts);
 LIBMCXX_EXTERN enum type_tag_t get_dependent_entry_kind(type_t* t);
 LIBMCXX_EXTERN void set_dependent_entry_kind(type_t* t, enum type_tag_t kind);
+
+LIBMCXX_EXTERN void dependent_typename_set_is_artificial(type_t* t, char is_artificial);
+LIBMCXX_EXTERN char dependent_typename_is_artificial(type_t* t);
 
 LIBMCXX_EXTERN type_t* get_new_enum_type(decl_context_t decl_context);
 LIBMCXX_EXTERN type_t* get_new_class_type(decl_context_t decl_context, enum type_tag_t class_kind);
@@ -552,6 +555,9 @@ LIBMCXX_EXTERN char class_type_is_dynamic(type_t* t);
 LIBMCXX_EXTERN char class_type_is_abstract(type_t* class_type);
 LIBMCXX_EXTERN void class_type_set_is_abstract(type_t* class_type, char is_abstract);
 
+LIBMCXX_EXTERN void class_type_set_is_packed(type_t* t, char is_packed);
+LIBMCXX_EXTERN char class_type_is_packed(type_t* class_type);
+
 LIBMCXX_EXTERN type_t* advance_over_typedefs(type_t* t);
 LIBMCXX_EXTERN type_t* advance_over_typedefs_with_cv_qualif(type_t* t1, cv_qualifier_t* cv_qualif);
 
@@ -598,9 +604,6 @@ LIBMCXX_EXTERN const char* get_declaration_string_internal(type_t* type_info,
         const char** parameter_names,
         const char** parameter_attributes,
         char is_parameter);
-
-LIBMCXX_EXTERN const char* get_simple_type_name_string(decl_context_t decl_context, type_t* type_info);
-LIBMCXX_EXTERN const char* get_named_type_name(scope_entry_t* entry);
 
 LIBMCXX_EXTERN type_t* get_ellipsis_type(void);
 LIBMCXX_EXTERN char is_ellipsis_type(type_t* t);
@@ -661,6 +664,12 @@ LIBMCXX_EXTERN size_t get_type_t_size(void);
 
 LIBMCXX_EXTERN const char* print_decl_type_str(type_t* t, decl_context_t decl_context, const char* name);
 LIBMCXX_EXTERN const char* print_type_str(type_t* t, decl_context_t decl_context);
+
+LIBMCXX_EXTERN type_t* type_deep_copy(type_t* orig, decl_context_t new_decl_context, void *info, scope_entry_t *(*map)(scope_entry_t*, void*));
+
+// Vector flavor (NULL-ended array of vector flavors)
+LIBMCXX_EXTERN const char* vector_flavors[];
+LIBMCXX_EXTERN void vector_types_set_flavor(const char* c);
 
 // DO NOT USE THESE FUNCTIONS!
 // They are used solely for Fortran modules and type serialization

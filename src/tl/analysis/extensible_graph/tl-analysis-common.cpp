@@ -26,7 +26,7 @@
 
 
 #include "tl-analysis-common.hpp"
-#include "tl-nodecl-alg.hpp"
+#include "tl-nodecl-utils.hpp"
 
 namespace TL
 {

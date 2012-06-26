@@ -118,7 +118,7 @@ namespace TL
         Codegen::FortranBase &codegen_phase = static_cast<Codegen::FortranBase&>(Codegen::get_current());
 
         std::string type_specifier, array_specifier;
-        codegen_phase.codegen_type(*this, type_specifier, array_specifier, /* is_dummy */ flags == PARAMETER_DECLARATION);
+        codegen_phase.codegen_type(*this, type_specifier, array_specifier);
 
         return type_specifier + " :: " + symbol_name + array_specifier;
     }
@@ -885,6 +885,11 @@ namespace TL
         return (::is_template_specialized_type(_type_info));
     }
 
+    TemplateParameters Type::template_specialized_type_get_template_parameters() const
+    {
+        return ::template_specialized_type_get_template_parameters(_type_info);
+    }
+    
     TemplateParameters Type::template_specialized_type_get_template_arguments() const
     {
         return ::template_specialized_type_get_template_arguments(_type_info);
@@ -991,6 +996,11 @@ namespace TL
     type_tag_t Type::class_type_get_class_kind() const
     {
         return ::class_type_get_class_kind(_type_info);
+    }
+
+    bool Type::class_type_is_packed() const
+    {
+        return ::class_type_is_packed(_type_info);
     }
 
     unsigned int Type::get_size() 

@@ -1123,6 +1123,8 @@ type {
 @SUPERSCALAR_DECLARATOR_LIST@ { parse_token_text(); return SUBPARSE_SUPERSCALAR_DECLARATOR_LIST; }
 @SUPERSCALAR_EXPRESSION@ { parse_token_text(); return SUBPARSE_SUPERSCALAR_EXPRESSION; }
 
+@FORTRAN_ALLOCATE@  { parse_token_text(); return C_FORTRAN_ALLOCATE; }
+
  /*!if C99*/
 @ref@ { parse_token_text(); return MCC_REFERENCE; }
  /*!endif*/

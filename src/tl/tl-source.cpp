@@ -51,17 +51,17 @@ namespace TL
 {
     SourceLanguage Source::source_language;
 
-    Source::ReferenceScope::ReferenceScope(Scope sc)
+    ReferenceScope::ReferenceScope(Scope sc)
         : _scope(sc)
     {
     }
 
-    Source::ReferenceScope::ReferenceScope(Nodecl::NodeclBase n)
+    ReferenceScope::ReferenceScope(Nodecl::NodeclBase n)
         : _scope(n.retrieve_context())
     {
     }
 
-    Scope Source::ReferenceScope::get_scope() const
+    Scope ReferenceScope::get_scope() const
     {
         return _scope;
     }

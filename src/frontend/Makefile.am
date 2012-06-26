@@ -47,10 +47,12 @@ libmcxx_process_la_CFLAGS=-DLIBMCXXPROCESS_DLL_EXPORT \
                           -I$(top_srcdir)/lib \
                           -I$(top_srcdir)/src/driver \
                           -I$(top_srcdir)/src/frontend \
+                          -I$(top_srcdir)/src/frontend/fortran \
                           -I$(top_srcdir)/src/mcxx_tl \
                           -I$(top_builddir)/lib \
                           -I$(top_builddir)/src/driver \
                           -I$(top_builddir)/src/frontend \
+                          -I$(top_builddir)/src/frontend/fortran \
                           -I$(top_builddir)/src/mcxx_tl \
                           $(END)
 
@@ -81,6 +83,13 @@ libmcxx_la_SOURCES = \
   cxx-nodecl-output.c \
   cxx-nodecl-visitor.h \
   cxx-nodecl-visitor.c \
+  cxx-nodecl-shallow-copy.c \
+  cxx-nodecl-deep-copy-base.c \
+  cxx-nodecl-deep-copy.h \
+  cxx-nodecl-deep-copy.c \
+  cxx-symbol-deep-copy-entity-specs.c \
+  cxx-symbol-deep-copy.h \
+  cxx-symbol-deep-copy.c \
   cxx-lexer.h \
   cxx-parser.h \
   cxx-parser-internal.h \
@@ -196,6 +205,7 @@ libmcxx_la_CFLAGS = -DLIBMCXX_DLL_EXPORT \
 				    -I$(top_srcdir)/lib \
 				    -I$(top_srcdir)/src/driver \
 					-I$(top_srcdir)/src/mcxx_tl \
+					-I$(top_srcdir)/src/frontend/fortran \
                     -fexceptions \
 				    -DPKGDATADIR=\"$(pkgdatadir)\"
 
@@ -243,6 +253,7 @@ ADDITIONAL_GRAMMARS += c99-upc.y
 ADDITIONAL_GRAMMARS += cxx-cuda.y
 ADDITIONAL_GRAMMARS += cxx-xl.y
 ADDITIONAL_GRAMMARS += cxx-extensions.y
+ADDITIONAL_GRAMMARS += cxx-fortran-compat.y
 
 EXTRA_DIST += $(ADDITIONAL_GRAMMARS)
 
@@ -410,6 +421,11 @@ BUILT_SOURCES += cxx-entity-specs.h
 cxx-entity-specs.h : $(srcdir)/cxx-entity-specs.def $(srcdir)/gen-symbol-attrs.py
 	$(PYTHON_verbose)$(PYTHON) $(srcdir)/gen-symbol-attrs.py $(srcdir)/cxx-entity-specs.def > $@
 
+CLEANFILES    += cxx-symbol-deep-copy-entity-specs.c
+BUILT_SOURCES += cxx-symbol-deep-copy-entity-specs.c
+cxx-symbol-deep-copy-entity-specs.c : $(srcdir)/cxx-entity-specs.def $(srcdir)/gen-symbol-attrs.py
+	$(PYTHON_verbose)$(PYTHON) $(srcdir)/gen-symbol-attrs.py $(srcdir)/cxx-entity-specs.def c_deep_copy_entity_specs > $@
+
 NODECL_DEPS = $(srcdir)/cxx-nodecl.def $(srcdir)/nodecl-generator.py
 
 CLEANFILES    += cxx-nodecl-checker.c
@@ -436,6 +452,16 @@ CLEANFILES    += cxx-nodecl-visitor.c
 BUILT_SOURCES += cxx-nodecl-visitor.c
 cxx-nodecl-visitor.c : $(NODECL_DEPS)
 	$(PYTHON_verbose)$(PYTHON) $(srcdir)/nodecl-generator.py $(srcdir)/cxx-nodecl.def c_visitor_def > $@
+
+CLEANFILES    += cxx-nodecl-shallow-copy.c
+BUILT_SOURCES += cxx-nodecl-shallow-copy.c
+cxx-nodecl-shallow-copy.c : $(NODECL_DEPS)
+	$(PYTHON_verbose)$(PYTHON) $(srcdir)/nodecl-generator.py $(srcdir)/cxx-nodecl.def c_shallow_copy_def > $@
+
+CLEANFILES    += cxx-nodecl-deep-copy-base.c
+BUILT_SOURCES += cxx-nodecl-deep-copy-base.c
+cxx-nodecl-deep-copy-base.c : $(NODECL_DEPS)
+	$(PYTHON_verbose)$(PYTHON) $(srcdir)/nodecl-generator.py $(srcdir)/cxx-nodecl.def c_deep_copy_def > $@
 
 CLEANFILES    += cxx-asttype-nodecl.def
 BUILT_SOURCES += cxx-asttype-nodecl.def

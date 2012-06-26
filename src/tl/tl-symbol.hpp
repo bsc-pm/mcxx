@@ -150,6 +150,8 @@ namespace TL
 
             //! States whether this symbol is a variable
             bool is_variable() const;
+            //! States whether this symbol is a variable that stores a runtime value of the program
+            bool is_saved_expression() const;
             //! States whether this symbol is the result variable
             /*! \note Only meaningful in Fortran */
             bool is_result_variable() const;
@@ -203,6 +205,10 @@ namespace TL
             bool is_template_function_name() const;
             //! States whether this symbol is an anonymous union
             bool is_anonymous_union() const;
+
+            //! States whether this symbol is an anonymous union
+            bool is_member_of_anonymous_union() const;
+
             //! States that this symbol is the injected class name
             bool is_injected_class_name() const;
 
@@ -236,6 +242,12 @@ namespace TL
              * of the module. Use this function to get it
              */
             Symbol aliased_from_module() const;
+
+            //! Symbol that contains the used modules information
+            Symbol get_used_modules() const;
+
+            bool has_alias_to() const;
+            Symbol get_alias_to() const;
 
             //! States that this symbol is a BLOCK DATA program unit
             /*! \note This only applies to Fortran */
@@ -380,13 +392,16 @@ namespace TL
             //! States whether this member function is a constructor flagged as explicit
             bool is_explicit_constructor() const;
 
+            //! States whether this symbol is friend of the class
+            bool is_friend() const;
+
             //! States whether symbol exists just because was mentioned in a friend declaration
             /*!
              * This symbol has not been technically declared by the user but the compiler
              * created it because it appeared in a friend declaration
              */
             bool is_friend_declared() const;
-            
+
             //! States whether this symbol is an ENTRY
             bool is_entry() const;
 
@@ -594,6 +609,18 @@ namespace TL
             Nodecl::NodeclBase get_asm_specification() const;
 
             Nodecl::Symbol make_nodecl(const std::string& filename = "", int line = 0) const;
+
+            /*!
+             * States whether this symbol has a parameter i with a default argument
+             */
+            bool has_default_argument_num(int i) const;
+
+            /*!
+             * Returns the default argument of parameter i
+             */
+            Nodecl::NodeclBase get_default_argument_num(int i) const;
+            Nodecl::NodeclBase get_function_code() const;
+
         private:
             scope_entry_t* _symbol;
     };

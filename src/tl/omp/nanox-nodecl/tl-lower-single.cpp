@@ -27,15 +27,20 @@
 
 #include "tl-source.hpp"
 #include "tl-lowering-visitor.hpp"
+#include "tl-nodecl-utils.hpp"
 
 namespace TL { namespace Nanox {
 
-    void LoweringVisitor::visit(const Nodecl::Parallel::Single& construct)
+    void LoweringVisitor::visit(const Nodecl::OpenMP::Single& construct)
     {
         Nodecl::NodeclBase environment = construct.get_environment();
         Nodecl::NodeclBase statements = construct.get_statements();
 
         walk(statements);
+
+        statements = construct.get_statements();
+
+        Nodecl::NodeclBase placeholder;
 
         TL::Source transform_code, final_barrier;
         transform_code
@@ -46,12 +51,25 @@ namespace TL { namespace Nanox {
 
             << "if (single_guard)"
             << "{"
-            <<     statements.prettyprint()
+            << statement_placeholder(placeholder)
             << "}"
             << "}"
             ;
 
+        FORTRAN_LANGUAGE()
+        {
+            // Parse in C
+            Source::source_language = SourceLanguage::C;
+        }
         Nodecl::NodeclBase n = transform_code.parse_statement(construct);
+        FORTRAN_LANGUAGE()
+        {
+            Source::source_language = SourceLanguage::Current;
+        }
+
+        Nodecl::NodeclBase copied_statements = Nodecl::Utils::deep_copy(statements, placeholder);
+        placeholder.integrate(copied_statements);
+
         construct.integrate(n);
     }
 

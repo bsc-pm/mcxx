@@ -118,21 +118,6 @@ namespace TL { namespace Nanox {
         Source fill_immediate_arguments,
                fill_dependences_immediate;
 
-        Source fill_outline_arguments_reductions,
-               fill_immediate_arguments_reductions;
-        Source reduction_variables_decl,
-               reduction_initialization;
-
-        reduction_initialization_code(
-                Source("nanos_num_threads"),
-                outline_info,
-                construct,
-                // out
-                reduction_variables_decl,
-                reduction_initialization,
-                fill_outline_arguments_reductions,
-                fill_immediate_arguments_reductions);
-
         Source spawn_code;
         spawn_code
             << "{"
@@ -140,14 +125,14 @@ namespace TL { namespace Nanox {
             <<   immediate_decl
             <<   "unsigned int nanos_num_threads = " << num_threads << ";"
             <<   "nanos_err_t err;"
-            <<   reduction_variables_decl
-            <<   reduction_initialization
             <<   "nanos_team_t nanos_team = (nanos_team_t)0;"
             <<   "nanos_thread_t nanos_team_threads[nanos_num_threads];"
             <<   "err = nanos_create_team(&nanos_team, (nanos_sched_t)0, &nanos_num_threads,"
             <<              "(nanos_constraint_t*)0, /* reuse_current */ 1, nanos_team_threads);"
             <<   "if (err != NANOS_OK) nanos_handle_error(err);"
-            <<  "nanos_wd_dyn_props_t dyn_props = { 0 };"
+            <<   "nanos_wd_dyn_props_t dyn_props;"
+            <<   "dyn_props.tie_to = (nanos_thread_t)0;"
+            <<   "dyn_props.priority = 0;"
             <<   "unsigned int nth_i;"
             <<   "for (nth_i = 1; nth_i < nanos_num_threads; nth_i = nth_i + 1)"
             <<   "{"
@@ -160,7 +145,6 @@ namespace TL { namespace Nanox {
             <<      "if (err != NANOS_OK) nanos_handle_error(err);"
             // This is a placeholder because arguments are filled using the base language (possibly Fortran)
             <<      statement_placeholder(fill_outline_arguments_tree)
-            <<      fill_outline_arguments_reductions
             <<      fill_dependences_outline
             <<      copy_ol_setup
             <<      "err = nanos_submit(wd, 0, (nanos_dependence_t*)0, 0);"
@@ -169,7 +153,6 @@ namespace TL { namespace Nanox {
             <<   "dyn_props.tie_to = nanos_team_threads[0];"
             // This is a placeholder because arguments are filled using the base language (possibly Fortran)
             <<   statement_placeholder(fill_immediate_arguments_tree)
-            <<   fill_immediate_arguments_reductions
             <<   fill_dependences_immediate
             <<   copy_imm_setup
             <<   "err = " << nanos_create_wd_and_run

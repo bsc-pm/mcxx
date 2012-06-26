@@ -36,11 +36,12 @@ namespace TL { namespace Nanox {
     std::string OutlineInfo::get_field_name(std::string name)
     {
         int times_name_appears = 0;
-        for (ObjectList<OutlineDataItem>::iterator it = _data_env_items.begin();
+        for (ObjectList<OutlineDataItem*>::iterator it = _data_env_items.begin();
                 it != _data_env_items.end();
                 it++)
         {
-            if (it->get_symbol().get_name() == name)
+            if ((*it)->get_symbol().is_valid()
+                    && (*it)->get_symbol().get_name() == name)
             {
                 times_name_appears++;
             }
@@ -59,19 +60,19 @@ namespace TL { namespace Nanox {
 
     OutlineDataItem& OutlineInfo::get_entity_for_symbol(TL::Symbol sym)
     {
-        for (ObjectList<OutlineDataItem>::iterator it = _data_env_items.begin();
+        for (ObjectList<OutlineDataItem*>::iterator it = _data_env_items.begin();
                 it != _data_env_items.end();
                 it++)
         {
-            if (it->get_symbol() == sym)
-                return *it;
+            if ((*it)->get_symbol() == sym)
+                return *(*it);
         }
 
         std::string field_name = get_field_name(sym.get_name());
-        OutlineDataItem env_item(sym, field_name);
+        OutlineDataItem* env_item = new OutlineDataItem(sym, field_name);
 
         _data_env_items.append(env_item);
-        return _data_env_items.back();
+        return (*_data_env_items.back());
     }
 
     class OutlineInfoSetupVisitor : public Nodecl::ExhaustiveVisitor<void>
@@ -101,7 +102,7 @@ namespace TL { namespace Nanox {
                 outline_info.set_in_outline_type(t.get_lvalue_reference_to());
             }
 
-            void visit(const Nodecl::Parallel::Shared& shared)
+            void visit(const Nodecl::OpenMP::Shared& shared)
             {
                 Nodecl::List l = shared.get_shared_symbols().as<Nodecl::List>();
                 for (Nodecl::List::iterator it = l.begin();
@@ -166,17 +167,17 @@ namespace TL { namespace Nanox {
                 }
             }
 
-            void visit(const Nodecl::Parallel::DepIn& dep_in)
+            void visit(const Nodecl::OpenMP::DepIn& dep_in)
             {
                 add_dependence(dep_in.get_in_deps().as<Nodecl::List>(), OutlineDataItem::DIRECTIONALITY_IN);
             }
 
-            void visit(const Nodecl::Parallel::DepOut& dep_out)
+            void visit(const Nodecl::OpenMP::DepOut& dep_out)
             {
                 add_dependence(dep_out.get_out_deps().as<Nodecl::List>(), OutlineDataItem::DIRECTIONALITY_OUT);
             }
 
-            void visit(const Nodecl::Parallel::DepInout& dep_inout)
+            void visit(const Nodecl::OpenMP::DepInout& dep_inout)
             {
                 add_dependence(dep_inout.get_inout_deps().as<Nodecl::List>(), OutlineDataItem::DIRECTIONALITY_INOUT);
             }
@@ -221,17 +222,17 @@ namespace TL { namespace Nanox {
                 }
             }
 
-            void visit(const Nodecl::Parallel::CopyIn& copy_in)
+            void visit(const Nodecl::OpenMP::CopyIn& copy_in)
             {
                 add_copies(copy_in.get_input_copies().as<Nodecl::List>(), OutlineDataItem::COPY_IN);
             }
 
-            void visit(const Nodecl::Parallel::CopyOut& copy_out)
+            void visit(const Nodecl::OpenMP::CopyOut& copy_out)
             {
                 add_copies(copy_out.get_output_copies().as<Nodecl::List>(), OutlineDataItem::COPY_OUT);
             }
 
-            void visit(const Nodecl::Parallel::CopyInout& copy_inout)
+            void visit(const Nodecl::OpenMP::CopyInout& copy_inout)
             {
                 add_copies(copy_inout.get_inout_copies().as<Nodecl::List>(), OutlineDataItem::COPY_INOUT);
             }
@@ -252,7 +253,7 @@ namespace TL { namespace Nanox {
                 outline_info.set_in_outline_type(t.get_lvalue_reference_to());
             }
 
-            void visit(const Nodecl::Parallel::Capture& shared)
+            void visit(const Nodecl::OpenMP::Firstprivate& shared)
             {
                 Nodecl::List l = shared.get_captured_symbols().as<Nodecl::List>();
                 for (Nodecl::List::iterator it = l.begin();
@@ -264,7 +265,7 @@ namespace TL { namespace Nanox {
                 }
             }
 
-            void visit(const Nodecl::Parallel::Private& private_)
+            void visit(const Nodecl::OpenMP::Private& private_)
             {
                 Nodecl::List l = private_.get_private_symbols().as<Nodecl::List>();
                 for (Nodecl::List::iterator it = l.begin();
@@ -273,6 +274,8 @@ namespace TL { namespace Nanox {
                 {
                     TL::Symbol sym = it->as<Nodecl::Symbol>().get_symbol();
                     OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym);
+
+                    outline_info.set_in_outline_type(sym.get_type());
 
                     outline_info.set_sharing(OutlineDataItem::SHARING_PRIVATE);
                 }
@@ -286,26 +289,15 @@ namespace TL { namespace Nanox {
 
                 TL::Type t = symbol.get_type();
                 if (t.is_any_reference())
+                {
                     t = t.references_to();
-
-                outline_info.set_in_outline_type(symbol.get_type());
-
-                if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-                {
-                    outline_info.set_field_type(t.get_pointer_to());
                 }
-                else if (IS_FORTRAN_LANGUAGE)
-                {
-                    outline_info.set_field_type(
-                            t.get_array_to_with_descriptor(
-                                Nodecl::NodeclBase::null(),
-                                Nodecl::NodeclBase::null(),
-                                symbol.get_scope())
-                            .get_pointer_to());
-                }
+
+                outline_info.set_field_type(t.get_pointer_to());
+                outline_info.set_in_outline_type(t.get_lvalue_reference_to());
             }
 
-            void visit(const Nodecl::Parallel::ReductionItem& reduction)
+            void visit(const Nodecl::OpenMP::ReductionItem& reduction)
             {
                 TL::Symbol udr_reductor = reduction.get_reductor().get_symbol();
                 TL::Symbol symbol = reduction.get_reduced_symbol().get_symbol();
@@ -316,7 +308,20 @@ namespace TL { namespace Nanox {
             }
     };
 
+    OutlineInfo::OutlineInfo() : _data_env_items() { }
+
+    OutlineInfo::~OutlineInfo() 
+    {
+        for (ObjectList<OutlineDataItem*>::iterator it = _data_env_items.begin();
+                it != _data_env_items.end();
+                it++)
+        {
+            delete *it;
+        }
+    }
+
     OutlineInfo::OutlineInfo(Nodecl::NodeclBase environment, bool is_function_task)
+        : _data_env_items()
     {
         OutlineInfoSetupVisitor setup_visitor(*this, is_function_task);
         setup_visitor.walk(environment);
@@ -325,10 +330,19 @@ namespace TL { namespace Nanox {
     OutlineDataItem& OutlineInfo::prepend_field(const std::string& str, TL::Type t)
     {
         std::string field_name = get_field_name(str);
-        OutlineDataItem env_item(field_name, t);
+        OutlineDataItem* env_item = new OutlineDataItem(field_name, t);
 
-        _data_env_items.std::vector<OutlineDataItem>::insert(_data_env_items.begin(), env_item);
-        return _data_env_items.front();
+        _data_env_items.std::vector<OutlineDataItem*>::insert(_data_env_items.begin(), env_item);
+        return *(_data_env_items.front());
+    }
+
+    OutlineDataItem& OutlineInfo::append_field(const std::string& str, TL::Type t)
+    {
+        std::string field_name = get_field_name(str);
+        OutlineDataItem* env_item = new OutlineDataItem(field_name, t);
+
+        _data_env_items.append(env_item);
+        return *(_data_env_items.back());
     }
 
 } }

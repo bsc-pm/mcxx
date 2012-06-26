@@ -27,7 +27,7 @@
 
 
 #include "tl-omp-core.hpp"
-#include "tl-nodecl-alg.hpp"
+#include "tl-nodecl-utils.hpp"
 #include "tl-modules.hpp"
 
 namespace TL

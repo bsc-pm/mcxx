@@ -28,7 +28,7 @@
 #include "tl-nanos.hpp"
 #include "tl-source.hpp"
 #include "tl-counters.hpp"
-#include "tl-nodecl-alg.hpp"
+#include "tl-nodecl-utils.hpp"
 #include "tl-datareference.hpp"
 
 #include "cxx-cexpr.h"
@@ -49,12 +49,12 @@ struct TaskEnvironmentVisitor : public Nodecl::ExhaustiveVisitor<void>
         {
         }
 
-        void visit(const Nodecl::Parallel::Priority& priority)
+        void visit(const Nodecl::OpenMP::Priority& priority)
         {
             this->priority = priority.get_priority();
         }
 
-        void visit(const Nodecl::Parallel::Untied& untied)
+        void visit(const Nodecl::OpenMP::Untied& untied)
         {
             this->is_untied = true;
         }
@@ -290,18 +290,18 @@ void LoweringVisitor::allocate_immediate_structure(
     const int overallocation_alignment = 8;
     const int overallocation_mask = overallocation_alignment - 1;
 
-    TL::ObjectList<OutlineDataItem> data_items = outline_info.get_data_items();
+    TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
     if (IS_C_LANGUAGE
             || IS_CXX_LANGUAGE)
     {
-        for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
+        for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
                 it != data_items.end();
                 it++)
         {
-            if ((it->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED) 
+            if (((*it)->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED) 
                     == OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED)
             {
-                dynamic_size << "+ " << overallocation_alignment << " + sizeof(" << it->get_symbol().get_name() << ")";
+                dynamic_size << "+ " << overallocation_alignment << " + sizeof(" << (*it)->get_symbol().get_name() << ")";
                 there_are_overallocated = true;
             }
         }
@@ -404,13 +404,20 @@ void LoweringVisitor::emit_async_common(
     Nodecl::NodeclBase placeholder;
     outline_source << statement_placeholder(placeholder);
 
-    emit_outline(outline_info, statements, outline_source, outline_name, structure_symbol);
+    Nodecl::Utils::SymbolMap *symbol_map = NULL;
+    emit_outline(outline_info, statements, outline_source, outline_name, structure_symbol, symbol_map);
 
-    Source outline_statements_source;
-    outline_statements_source
-        << statements.prettyprint();
+    if (IS_FORTRAN_LANGUAGE)
+    {
+        // Copy FUNCTIONs and other local stuff
+        symbol_map = new Nodecl::Utils::FortranProgramUnitSymbolMap(symbol_map,
+                function_symbol,
+                outline_info.get_unpacked_function_symbol());
+    }
 
-    Nodecl::NodeclBase outline_statements_code = outline_statements_source.parse_statement(placeholder);
+    Nodecl::NodeclBase outline_statements_code = Nodecl::Utils::deep_copy(statements, placeholder, *symbol_map);
+    delete symbol_map;
+
     placeholder.integrate(outline_statements_code);
 
     Source err_name;
@@ -510,7 +517,7 @@ void LoweringVisitor::emit_async_common(
     construct.integrate(spawn_code_tree);
 }
 
-void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
+void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
 {
     Nodecl::NodeclBase environment = construct.get_environment();
     Nodecl::NodeclBase statements = construct.get_statements();
@@ -538,6 +545,35 @@ void LoweringVisitor::visit(const Nodecl::Parallel::Async& construct)
 }
 
 
+namespace {
+    void fill_extra_ref_assumed_size(Source &extra_ref, TL::Type t)
+    {
+        if (t.is_array())
+        {
+            fill_extra_ref_assumed_size(extra_ref, t.array_element());
+
+            Source current_dims;
+            Nodecl::NodeclBase lower_bound, upper_bound;
+            t.array_get_bounds(lower_bound, upper_bound);
+
+            if (lower_bound.is_null())
+            {
+                current_dims << "1:1";
+            }
+            else if (upper_bound.is_null())
+            {
+                current_dims << as_expression(lower_bound) << ":" << as_expression(lower_bound);
+            }
+            else
+            {
+                current_dims << as_expression(lower_bound) << ":" << as_expression(upper_bound);
+            }
+
+            extra_ref.append_with_separator(current_dims, ",");
+        }
+    }
+}
+
 void LoweringVisitor::fill_arguments(
         Nodecl::NodeclBase ctr,
         OutlineInfo& outline_info,
@@ -553,7 +589,7 @@ void LoweringVisitor::fill_arguments(
     intptr_type << Type(::get_size_t_type()).get_declaration(ctr.retrieve_context(), "")
         ;
 
-    TL::ObjectList<OutlineDataItem> data_items = outline_info.get_data_items();
+    TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
     // Now fill the arguments information (this part is language dependent)
     if (IS_C_LANGUAGE
             || IS_CXX_LANGUAGE)
@@ -569,21 +605,21 @@ void LoweringVisitor::fill_arguments(
             << intptr_type << ")(char*)(&imm_args + 1) + " 
             << overallocation_mask << ") & (~" << overallocation_mask << "))";
 
-        for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
+        for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
                 it != data_items.end();
                 it++)
         {
-            if (!it->get_symbol().is_valid())
+            if (!(*it)->get_symbol().is_valid())
                 continue;
 
-            switch (it->get_sharing())
+            switch ((*it)->get_sharing())
             {
                 case OutlineDataItem::SHARING_CAPTURE:
                     {
-                        if ((it->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED)
+                        if (((*it)->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED)
                                 == OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED)
                         {
-                            TL::Type sym_type = it->get_symbol().get_type();
+                            TL::Type sym_type = (*it)->get_symbol().get_type();
                             if (sym_type.is_any_reference())
                                 sym_type = sym_type.references_to();
 
@@ -591,94 +627,90 @@ void LoweringVisitor::fill_arguments(
 
                             // Overallocated
                             fill_outline_arguments << 
-                                "ol_args->" << it->get_field_name() << " = " << Source(overallocation_base_offset) << ";"
+                                "ol_args->" << (*it)->get_field_name() << " = " << Source(overallocation_base_offset) << ";"
                                 ;
 
                             // Overwrite source
                             overallocation_base_offset = Source() << "(void*)((" 
                                 << intptr_type << ")((char*)(ol_args->" << 
-                                it->get_field_name() << ") + sizeof(" << it->get_symbol().get_name() << ") + " 
+                                (*it)->get_field_name() << ") + sizeof(" << (*it)->get_symbol().get_name() << ") + " 
                                 << overallocation_mask << ") & (~" << overallocation_mask << "))"
                                 ;
                             fill_immediate_arguments << 
-                                "imm_args." << it->get_field_name() << " = " << Source(imm_overallocation_base_offset) << ";";
+                                "imm_args." << (*it)->get_field_name() << " = " << Source(imm_overallocation_base_offset) << ";";
                             ;
                             // Overwrite source
                             imm_overallocation_base_offset = Source() << "(void*)((" 
                                 << intptr_type << ")((char*)(imm_args." << 
-                                it->get_field_name() << ") + sizeof(" << it->get_symbol().get_name() << ") + "
+                                (*it)->get_field_name() << ") + sizeof(" << (*it)->get_symbol().get_name() << ") + "
                                 << overallocation_mask << ") & (~" << overallocation_mask << "))"
                                 ;
 
                             fill_outline_arguments
-                                << "__builtin_memcpy(&ol_args->" << it->get_field_name() 
-                                << ", &" << it->get_symbol().get_name() 
-                                << ", sizeof(" << it->get_symbol().get_name() << "));"
+                                << "__builtin_memcpy(&ol_args->" << (*it)->get_field_name() 
+                                << ", &" << (*it)->get_symbol().get_name() 
+                                << ", sizeof(" << (*it)->get_symbol().get_name() << "));"
                                 ;
                             fill_immediate_arguments
-                                << "__builtin_memcpy(&imm_args." << it->get_field_name() 
-                                << ", &" << it->get_symbol().get_name() 
-                                << ", sizeof(" << it->get_symbol().get_name() << "));"
+                                << "__builtin_memcpy(&imm_args." << (*it)->get_field_name() 
+                                << ", &" << (*it)->get_symbol().get_name() 
+                                << ", sizeof(" << (*it)->get_symbol().get_name() << "));"
                                 ;
                         }
                         else
                         {
                             // Not overallocated
-                            TL::Type sym_type = it->get_symbol().get_type();
+                            TL::Type sym_type = (*it)->get_symbol().get_type();
                             if (sym_type.is_any_reference())
                                 sym_type = sym_type.references_to();
 
                             if (sym_type.is_array())
                             {
                                 fill_outline_arguments
-                                    << "__builtin_memcpy(&ol_args->" << it->get_field_name() 
-                                    << ", &" << it->get_symbol().get_name() 
-                                    << ", sizeof(" << it->get_symbol().get_name() << "));"
+                                    << "__builtin_memcpy(&ol_args->" << (*it)->get_field_name() 
+                                    << ", &" << (*it)->get_symbol().get_name() 
+                                    << ", sizeof(" << (*it)->get_symbol().get_name() << "));"
                                     ;
                                 fill_immediate_arguments
-                                    << "__builtin_memcpy(&imm_args." << it->get_field_name() 
-                                    << ", &" << it->get_symbol().get_name() 
-                                    << ", sizeof(" << it->get_symbol().get_name() << "));"
+                                    << "__builtin_memcpy(&imm_args." << (*it)->get_field_name() 
+                                    << ", &" << (*it)->get_symbol().get_name() 
+                                    << ", sizeof(" << (*it)->get_symbol().get_name() << "));"
                                     ;
                             }
                             else
                             {
                                 // Plain assignment is enough
                                 fill_outline_arguments << 
-                                    "ol_args->" << it->get_field_name() << " = " << it->get_symbol().get_name() << ";"
+                                    "ol_args->" << (*it)->get_field_name() << " = " << (*it)->get_symbol().get_name() << ";"
                                     ;
                                 fill_immediate_arguments << 
-                                    "imm_args." << it->get_field_name() << " = " << it->get_symbol().get_name() << ";"
+                                    "imm_args." << (*it)->get_field_name() << " = " << (*it)->get_symbol().get_name() << ";"
                                     ;
                             }
                         }
                         break;
                     }
-                case  OutlineDataItem::SHARING_SHARED:
+                case OutlineDataItem::SHARING_SHARED:
+                case OutlineDataItem::SHARING_REDUCTION: // Reductions are passed as if they were shared
                     {
                         fill_outline_arguments << 
-                            "ol_args->" << it->get_field_name() << " = &" << it->get_symbol().get_name() << ";"
+                            "ol_args->" << (*it)->get_field_name() << " = &" << (*it)->get_symbol().get_name() << ";"
                             ;
                         fill_immediate_arguments << 
-                            "imm_args." << it->get_field_name() << " = &" << it->get_symbol().get_name() << ";"
+                            "imm_args." << (*it)->get_field_name() << " = &" << (*it)->get_symbol().get_name() << ";"
                             ;
                         break;
                     }
                 case  OutlineDataItem::SHARING_CAPTURE_ADDRESS:
                     {
-                        Type t = it->get_shared_expression().get_type();
+                        Type t = (*it)->get_shared_expression().get_type();
 
                         fill_outline_arguments 
-                            << "ol_args->" << it->get_field_name() << " = " << as_expression( it->get_shared_expression().copy() ) << ";"
+                            << "ol_args->" << (*it)->get_field_name() << " = " << as_expression( (*it)->get_shared_expression().shallow_copy() ) << ";"
                             ;
                         fill_immediate_arguments 
-                            << "imm_args." << it->get_field_name() << " = " << as_expression( it->get_shared_expression().copy() ) << ";"
+                            << "imm_args." << (*it)->get_field_name() << " = " << as_expression( (*it)->get_shared_expression().shallow_copy() ) << ";"
                             ;
-                        break;
-                    }
-                case OutlineDataItem::SHARING_REDUCTION:
-                    {
-                        // This is filled elsewhere
                         break;
                     }
                 case OutlineDataItem::SHARING_PRIVATE:
@@ -695,58 +727,80 @@ void LoweringVisitor::fill_arguments(
     }
     else if (IS_FORTRAN_LANGUAGE)
     {
-        for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
+        int lower_bound_index = 0;
+        int upper_bound_index = 0;
+        for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
                 it != data_items.end();
                 it++)
         {
-            if (!it->get_symbol().is_valid())
+            TL::Symbol sym = (*it)->get_symbol();
+            if (!sym.is_valid())
                 continue;
 
-            switch (it->get_sharing())
+            switch ((*it)->get_sharing())
             {
-
                 case OutlineDataItem::SHARING_CAPTURE:
                     {
                         fill_outline_arguments << 
-                            "ol_args % " << it->get_field_name() << " = " << it->get_symbol().get_name() << "\n"
+                            "ol_args % " << (*it)->get_field_name() << " = " << (*it)->get_symbol().get_name() << "\n"
                             ;
                         fill_immediate_arguments << 
-                            "imm_args % " << it->get_field_name() << " = " << it->get_symbol().get_name() << "\n"
+                            "imm_args % " << (*it)->get_field_name() << " = " << (*it)->get_symbol().get_name() << "\n"
                             ;
                         break;
                     }
                 case OutlineDataItem::SHARING_SHARED:
+                case OutlineDataItem::SHARING_REDUCTION: // Reductions are passed as if they were shared variables
                     {
+                        Source extra_ref;
+                        TL::Type t = sym.get_type();
+                        if (sym.is_parameter()
+                                && t.is_any_reference())
+                        {
+                            t = t.references_to();
+                            if (t.is_array()
+                                    && !t.array_requires_descriptor()
+                                    && t.array_get_size().is_null())
+                            {
+                                // This is an assumed-size
+                                // extra_ref << "(1:1)";
+                                Source array_section;
+                                fill_extra_ref_assumed_size(array_section, t);
+                                extra_ref << "(" << array_section << ")";
+                            }
+                        }
+
+
                         fill_outline_arguments << 
-                            "ol_args %" << it->get_field_name() << " => " << it->get_symbol().get_name() << "\n"
+                            "ol_args %" << (*it)->get_field_name() << " => " << (*it)->get_symbol().get_name() << extra_ref << "\n"
                             ;
                         fill_immediate_arguments << 
-                            "imm_args % " << it->get_field_name() << " => " << it->get_symbol().get_name() << "\n"
+                            "imm_args % " << (*it)->get_field_name() << " => " << (*it)->get_symbol().get_name() << extra_ref << "\n"
                             ;
-                        // Make it TARGET as required by Fortran
-                        it->get_symbol().get_internal_symbol()->entity_specs.is_target = 1;
+                        // Make (*it) TARGET as required by Fortran
+                        (*it)->get_symbol().get_internal_symbol()->entity_specs.is_target = 1;
                         break;
                     }
                 case OutlineDataItem::SHARING_CAPTURE_ADDRESS:
                     {
                         fill_outline_arguments << 
-                            "ol_args %" << it->get_field_name() << " => " << as_expression( it->get_shared_expression().copy()) << "\n"
+                            "ol_args %" << (*it)->get_field_name() << " => " << as_expression( (*it)->get_shared_expression().shallow_copy()) << "\n"
                             ;
                         fill_immediate_arguments << 
-                            "imm_args % " << it->get_field_name() << " => " << as_expression( it->get_shared_expression().copy() ) << "\n"
+                            "imm_args % " << (*it)->get_field_name() << " => " << as_expression( (*it)->get_shared_expression().shallow_copy() ) << "\n"
                             ;
-                        
+
                         // Best effort, this may fail sometimes
-                        DataReference data_ref(it->get_shared_expression());
+                        DataReference data_ref((*it)->get_shared_expression());
                         if (data_ref.is_valid())
                         {
-                            // Make it TARGET as required by Fortran
+                            // Make (*it) TARGET as required by Fortran
                             data_ref.get_base_symbol().get_internal_symbol()->entity_specs.is_target = 1;
                         }
                         else
                         {
                             std::cerr 
-                                << it->get_shared_expression().get_locus() 
+                                << (*it)->get_shared_expression().get_locus() 
                                 << ": warning: an argument is not a valid data-reference, compilation is likely to fail" 
                                 << std::endl;
                         }
@@ -755,6 +809,20 @@ void LoweringVisitor::fill_arguments(
                 case OutlineDataItem::SHARING_PRIVATE:
                     {
                         // Do nothing
+                        if (sym.is_allocatable())
+                        {
+                            TL::Type t = sym.get_type();
+                            if (t.is_any_reference())
+                                t = t.references_to();
+
+                            fill_allocatable_dimensions(
+                                    sym, sym.get_type(),
+                                    0, t.get_num_dimensions(),
+                                    fill_outline_arguments, 
+                                    fill_immediate_arguments, 
+                                    lower_bound_index, 
+                                    upper_bound_index);
+                        }
                         break;
                     }
                 default:
@@ -766,19 +834,74 @@ void LoweringVisitor::fill_arguments(
     }
 }
 
+void LoweringVisitor::fill_allocatable_dimensions(
+        TL::Symbol symbol,
+        TL::Type current_type,
+        int current_rank,
+        int rank_size,
+        Source &fill_outline_arguments, 
+        Source &fill_immediate_arguments, 
+        int &lower_bound_index, 
+        int &upper_bound_index)
+{
+    if (current_type.is_array())
+    {
+        fill_allocatable_dimensions(
+                symbol,
+                current_type.array_element(),
+                current_rank - 1,
+                rank_size,
+                fill_outline_arguments, 
+                fill_immediate_arguments,
+                lower_bound_index,
+                upper_bound_index);
+
+        Nodecl::NodeclBase lower, upper;
+        current_type.array_get_bounds(lower, upper);
+
+        if (lower.is_null())
+        {
+            fill_outline_arguments 
+                << "ol_args % mcc_lower_bound_" << lower_bound_index 
+                << " = LBOUND(" << symbol.get_name() <<", " << (current_rank+1) <<")\n"
+                ;
+            fill_immediate_arguments 
+                << "imm_args % mcc_lower_bound_" << lower_bound_index 
+                << " = LBOUND(" << symbol.get_name() <<", " << (current_rank+1) <<")\n"
+                ;
+
+            lower_bound_index++;
+        }
+
+        if (upper.is_null())
+        {
+            fill_outline_arguments 
+                << "ol_args % mcc_upper_bound_" << upper_bound_index 
+                << " = UBOUND(" << symbol.get_name() <<", " << (current_rank+1) <<")\n"
+                ;
+            fill_immediate_arguments 
+                << "imm_args % mcc_upper_bound_" << upper_bound_index 
+                << " = UBOUND(" << symbol.get_name() <<", " << (current_rank+1) <<")\n"
+                ;
+
+            upper_bound_index++;
+        }
+    }
+}
+
 int LoweringVisitor::count_dependences(OutlineInfo& outline_info)
 {
     int num_deps = 0;
 
-    TL::ObjectList<OutlineDataItem> data_items = outline_info.get_data_items();
-    for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
+    TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
+    for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
             it != data_items.end();
             it++)
     {
-        if (it->get_directionality() == OutlineDataItem::DIRECTIONALITY_NONE)
+        if ((*it)->get_directionality() == OutlineDataItem::DIRECTIONALITY_NONE)
             continue;
 
-        num_deps += it->get_dependences().size();
+        num_deps += (*it)->get_dependences().size();
     }
 
     return num_deps;
@@ -788,15 +911,15 @@ int LoweringVisitor::count_copies(OutlineInfo& outline_info)
 {
     int num_copies = 0;
 
-    TL::ObjectList<OutlineDataItem> data_items = outline_info.get_data_items();
-    for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
+    TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
+    for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
             it != data_items.end();
             it++)
     {
-        if (it->get_copy_directionality() == OutlineDataItem::COPY_NONE)
+        if ((*it)->get_copy_directionality() == OutlineDataItem::COPY_NONE)
             continue;
 
-        num_copies += it->get_copies().size();
+        num_copies += (*it)->get_copies().size();
     }
 
     return num_copies;
@@ -857,18 +980,18 @@ void LoweringVisitor::fill_copies(
     //    size_t size;
     // } nanos_copy_data_internal_t;
 
-    TL::ObjectList<OutlineDataItem> data_items = outline_info.get_data_items();
+    TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
 
     int current_copy_num = 0;
-    for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
+    for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
             it != data_items.end();
             it++)
     {
-        OutlineDataItem::CopyDirectionality dir = it->get_copy_directionality();
+        OutlineDataItem::CopyDirectionality dir = (*it)->get_copy_directionality();
         if (dir == OutlineDataItem::COPY_NONE)
             continue;
 
-        TL::ObjectList<Nodecl::NodeclBase> copies = it->get_copies();
+        TL::ObjectList<Nodecl::NodeclBase> copies = (*it)->get_copies();
         for (ObjectList<Nodecl::NodeclBase>::iterator copy_it = copies.begin();
                 copy_it != copies.end();
                 copy_it++, current_copy_num++)
@@ -908,7 +1031,7 @@ void LoweringVisitor::fill_dependences(
 
     int num_deps = count_dependences(outline_info);
 
-    TL::ObjectList<OutlineDataItem> data_items = outline_info.get_data_items();
+    TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
 
     if (num_deps == 0)
     {
@@ -947,15 +1070,15 @@ void LoweringVisitor::fill_dependences(
             ;
 
         int current_dep_num = 0;
-        for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
+        for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
                 it != data_items.end();
                 it++)
         {
-            OutlineDataItem::Directionality dir = it->get_directionality();
+            OutlineDataItem::Directionality dir = (*it)->get_directionality();
             if (dir == OutlineDataItem::DIRECTIONALITY_NONE)
                 continue;
 
-            TL::ObjectList<Nodecl::NodeclBase> deps = it->get_dependences();
+            TL::ObjectList<Nodecl::NodeclBase> deps = (*it)->get_dependences();
             for (ObjectList<Nodecl::NodeclBase>::iterator dep_it = deps.begin();
                     dep_it != deps.end();
                     dep_it++, current_dep_num++)
@@ -1022,7 +1145,7 @@ void LoweringVisitor::fill_dependences(
                 {
                     Source dimension_size, dimension_lower_bound, dimension_accessed_length;
 
-                    dimension_size << as_expression(dimension_sizes[num_dimensions - 1].copy()) << "* sizeof(" << base_type_name << ")";
+                    dimension_size << as_expression(dimension_sizes[num_dimensions - 1].shallow_copy()) << "* sizeof(" << base_type_name << ")";
                     dimension_lower_bound << "0";
                     dimension_accessed_length << dimension_size;
 
@@ -1070,9 +1193,9 @@ void LoweringVisitor::fill_dependences(
                         size = contiguous_array_type.array_get_size();
                     }
 
-                    dimension_size << "sizeof(" << base_type_name << ") * " << as_expression(dimension_sizes[num_dimensions - 1].copy());
-                    dimension_lower_bound << "sizeof(" << base_type_name << ") * " << as_expression(lb.copy());
-                    dimension_accessed_length << "sizeof(" << base_type_name << ") * " << as_expression(size.copy());
+                    dimension_size << "sizeof(" << base_type_name << ") * " << as_expression(dimension_sizes[num_dimensions - 1].shallow_copy());
+                    dimension_lower_bound << "sizeof(" << base_type_name << ") * " << as_expression(lb.shallow_copy());
+                    dimension_accessed_length << "sizeof(" << base_type_name << ") * " << as_expression(size.shallow_copy());
 
                     if (IS_C_LANGUAGE
                             || IS_CXX_LANGUAGE)
@@ -1114,7 +1237,7 @@ void LoweringVisitor::fill_dependences(
                 {
                     dependency_init
                         << "{"
-                        << "(void*)" << arguments_accessor << it->get_field_name() << ","
+                        << "(void*)" << arguments_accessor << (*it)->get_field_name() << ","
                         << dependency_flags << ", "
                         << num_dimensions << ", "
                         << "dimensions_" << current_dep_num
@@ -1123,7 +1246,7 @@ void LoweringVisitor::fill_dependences(
                 else if (IS_FORTRAN_LANGUAGE)
                 {
                     result_src
-                        << "dependences[" << current_dep_num << "].address = (void*)" << arguments_accessor << it->get_field_name() << ";"
+                        << "dependences[" << current_dep_num << "].address = (void*)" << arguments_accessor << (*it)->get_field_name() << ";"
                         << "dependences[" << current_dep_num << "].flags.input = " << dependency_flags_in << ";"
                         << "dependences[" << current_dep_num << "].flags.output" << dependency_flags_out << ";"
                         << "dependences[" << current_dep_num << "].flags.can_rename = 0;"
@@ -1153,15 +1276,15 @@ void LoweringVisitor::fill_dependences(
             ;
 
         int current_dep_num = 0;
-        for (TL::ObjectList<OutlineDataItem>::iterator it = data_items.begin();
+        for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
                 it != data_items.end();
                 it++)
         {
-            OutlineDataItem::Directionality dir = it->get_directionality();
+            OutlineDataItem::Directionality dir = (*it)->get_directionality();
             if (dir == OutlineDataItem::DIRECTIONALITY_NONE)
                 continue;
 
-            TL::ObjectList<Nodecl::NodeclBase> deps = it->get_dependences();
+            TL::ObjectList<Nodecl::NodeclBase> deps = (*it)->get_dependences();
             for (ObjectList<Nodecl::NodeclBase>::iterator dep_it = deps.begin();
                     dep_it != deps.end();
                     dep_it++, current_dep_num++)
@@ -1181,7 +1304,7 @@ void LoweringVisitor::fill_dependences(
                 {
                     current_dependency_init
                         << "{"
-                        << "(void**)&(" << arguments_accessor << it->get_field_name() << "),"
+                        << "(void**)&(" << arguments_accessor << (*it)->get_field_name() << "),"
                         << dependency_offset << ","
                         << dependency_flags << ","
                         << dependency_size
@@ -1192,7 +1315,7 @@ void LoweringVisitor::fill_dependences(
                 {
                     // We use plain assignments in Fortran
                     result_src
-                        << "dependences[" << current_dep_num << "].address = " << "(void**)&(" << arguments_accessor << it->get_field_name() << ");"
+                        << "dependences[" << current_dep_num << "].address = " << "(void**)&(" << arguments_accessor << (*it)->get_field_name() << ");"
                         << "dependences[" << current_dep_num << "].offset = " << dependency_offset << ";"
                         << "dependences[" << current_dep_num << "].size = " << dependency_size << ";"
                         << "dependences[" << current_dep_num << "].flags.input = " << dependency_flags_in << ";"
@@ -1213,7 +1336,7 @@ void LoweringVisitor::fill_dependences(
                 dependency_size << as_expression(dep_expr.get_sizeof());
 
                 dependency_offset
-                    << "((char*)(" << dep_expr_addr << ") - " << "(char*)" << arguments_accessor << it->get_field_name() << ")"
+                    << "((char*)(" << dep_expr_addr << ") - " << "(char*)" << arguments_accessor << (*it)->get_field_name() << ")"
                     ;
 
                 if (Nanos::Version::interface_is_at_least("master", 5001))
@@ -1276,9 +1399,9 @@ void LoweringVisitor::fill_dimensions(int n_dims, int actual_dim, int current_de
             size = dep_type.array_get_size();
         }
 
-        dimension_size << as_expression(dim_sizes[n_dims - actual_dim - 1].copy());
-        dimension_lower_bound << as_expression(lb.copy());
-        dimension_accessed_length << as_expression(size.copy());
+        dimension_size << as_expression(dim_sizes[n_dims - actual_dim - 1].shallow_copy());
+        dimension_lower_bound << as_expression(lb.shallow_copy());
+        dimension_accessed_length << as_expression(size.shallow_copy());
 
         if (IS_C_LANGUAGE
                 || IS_CXX_LANGUAGE)
@@ -1314,7 +1437,7 @@ static Nodecl::NodeclBase rewrite_single_dependency(Nodecl::NodeclBase node, con
 
         if (it != map.end())
         {
-            return (it->second.copy());
+            return (it->second.shallow_copy());
         }
     }
 
@@ -1339,7 +1462,7 @@ static TL::ObjectList<Nodecl::NodeclBase> rewrite_dependences(
             it != deps.end();
             it++)
     {
-        Nodecl::NodeclBase copy = it->copy();
+        Nodecl::NodeclBase copy = it->shallow_copy();
         result.append( rewrite_single_dependency(copy, param_to_arg_expr) );
     }
 
@@ -1396,7 +1519,7 @@ static void fill_map_parameters_to_arguments(
     }
 }
 
-void LoweringVisitor::visit(const Nodecl::Parallel::AsyncCall& construct)
+void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
 {
     Nodecl::FunctionCall function_call = construct.get_call().as<Nodecl::FunctionCall>();
     ERROR_CONDITION(!function_call.get_called().is<Nodecl::Symbol>(), "Invalid ASYNC CALL!", 0);
@@ -1413,7 +1536,7 @@ void LoweringVisitor::visit(const Nodecl::Parallel::AsyncCall& construct)
     OutlineInfo arguments_outline_info;
     Nodecl::List arguments = function_call.get_arguments().as<Nodecl::List>();
 
-    TL::ObjectList<OutlineDataItem>& data_items  = parameters_outline_info.get_data_items();
+    TL::ObjectList<OutlineDataItem*> data_items  = parameters_outline_info.get_data_items();
 
     // This map associates every parameter symbol with its argument expression
     sym_to_argument_expr_t param_to_arg_expr;
@@ -1425,7 +1548,7 @@ void LoweringVisitor::visit(const Nodecl::Parallel::AsyncCall& construct)
             it != param_to_arg_expr.end();
             it++)
     {
-        ObjectList<OutlineDataItem> found = data_items.find(functor(&OutlineDataItem::get_symbol), it->first);
+        ObjectList<OutlineDataItem*> found = data_items.find(lift_pointer(functor(&OutlineDataItem::get_symbol)), it->first);
 
         if (found.empty())
         {
@@ -1489,13 +1612,30 @@ void LoweringVisitor::visit(const Nodecl::Parallel::AsyncCall& construct)
     }
 
     Nodecl::List nodecl_arg_list = Nodecl::List::make(arg_list);
-
+    
+    Nodecl::NodeclBase called = function_call.get_called().shallow_copy();
+    Nodecl::NodeclBase function_form = nodecl_null();
+    Symbol called_symbol = called.get_symbol();
+    if (!called_symbol.is_valid()
+            && called_symbol.get_type().is_template_specialized_type())
+    {
+        function_form =
+            Nodecl::CxxFunctionFormTemplateId::make(
+                    function_call.get_filename(),
+                    function_call.get_line());
+        
+        TemplateParameters template_args =
+            called.get_template_parameters();
+        function_form.set_template_parameters(template_args);
+    }
+    
     Nodecl::NodeclBase expr_statement = 
                 Nodecl::ExpressionStatement::make(
                     Nodecl::FunctionCall::make(
-                        function_call.get_called().copy(),
+                        called,
                         nodecl_arg_list,
-                        function_call.get_alternate_name().copy(),
+                        function_call.get_alternate_name().shallow_copy(),
+                        function_form,
                         Type::get_void_type(),
                         function_call.get_filename(),
                         function_call.get_line()),

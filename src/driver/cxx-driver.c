@@ -90,6 +90,7 @@
 #include "fortran03-split.h"
 #include "fortran03-buildscope.h"
 #include "fortran03-codegen.h"
+#include "fortran03-typeenviron.h"
 #include "cxx-driver-fortran.h"
 
 /* ------------------------------------------------------------------ */
@@ -97,7 +98,7 @@
 "Options: \n" \
 "  -h, --help               Shows this help and quits\n" \
 "  --version                Shows version and quits\n" \
-"  --verbose                Runs verbosely, displaying the programs\n" \
+"  --v, --verbose           Runs verbosely, displaying the programs\n" \
 "                           invoked by the compiler\n" \
 "  -o, --output=<file>      Sets <file> as the output file\n" \
 "  -c                       Does not link, just compile\n" \
@@ -113,11 +114,13 @@
 "  -O -O0 -O1 -O2 -O3       Sets optimization level to the\n" \
 "                           preprocessor and native compiler\n" \
 "  -y                       File will be parsed but it will not be\n" \
-"                           compiled not linked.\n" \
+"                           compiled nor linked\n" \
 "  -x lang                  Override language detection to <lang>\n" \
 "  -k, --keep-files         Do not remove intermediate files\n" \
 "  -K, --keep-all-files     Do not remove any generated file, including\n" \
 "                           temporal files\n" \
+"  -J <dir>                 Sets <dir> as the output module directory\n" \
+"                           This flag is only meaningful for Fortran\n" \
 "  --output-dir=<dir>       Prettyprinted files will be left in\n" \
 "                           directory <dir>. Otherwise the input\n" \
 "                           file directory is used\n" \
@@ -144,7 +147,7 @@
 "                           Like --W<flags>,<options> but for\n" \
 "                           a specific compiler profile\n" \
 "  --openmp                 Enables OpenMP support\n" \
-"  --no-openmp              Disables OpenMP support (by default)\n" \
+"  --no-openmp              Disables OpenMP support (default)\n" \
 "  --config-file=<file>     Uses <file> as config file.\n" \
 "                           Use --print-config-file to get the\n" \
 "                           default path\n" \
@@ -166,8 +169,9 @@
 "  --env=<env-name>         Sets <env-name> as the specific\n" \
 "                           environment. Use --list-env to show\n" \
 "                           currently supported environments\n" \
-"  --list-env               Lists currently supported environments\n" \
-"                           and does nothing else.\n" \
+"  --list-env               Short form of --list-environments\n" \
+"  --list-environments      Lists currently supported environments\n" \
+"                           and quits.\n" \
 "  --pass-through           Disables preprocessing and parsing but\n" \
 "                           invokes remaining steps. A previous\n" \
 "                           invocation with --keep is required.\n" \
@@ -189,7 +193,7 @@
 "                           --debug-flags\n" \
 "  --help-target-options    Shows valid target options for\n" \
 "                           'target_options' option of configuration\n" \
-"                           file.\n" \
+"                           file and quits\n" \
 "  --instantiate            Instantiate explicitly templates. This is\n" \
 "                           an unsupported experimental feature\n" \
 "  --pp[=on]                Preprocess files\n"\
@@ -216,8 +220,6 @@
 "                           Empty sentinels are enabled by default\n" \
 "                           This flag is only meaningful for Fortran\n" \
 "  --disable-intrinsics     Ignore all known Fortran intrinsics\n" \
-"  -J <dir>                 Sets <dir> as the output module directory\n" \
-"                           This flag is only meaningful for Fortran\n" \
 "  --integer-kind=N         Set the default kind of INTEGER\n" \
 "                           By default it is 4. Fortran only\n" \
 "  --real-kind=N            Set the default kind of REAL\n" \
@@ -228,6 +230,26 @@
 "                           By default it is 4. Fortran only\n" \
 "  --character-kind=N       Set the default kind of CHARACTER\n" \
 "                           By default it is 1. Fortran only\n" \
+"  --fortran-array-descriptor=name\n" \
+"                           Selects Fortran array descriptor\n" \
+"  --list-fortran-array-descriptors\n" \
+"                           Prints list of supported Fortran\n" \
+"                           array descriptors and quits\n" \
+"  --search-includes=<dir>  Adds <dir> to the directories searched\n" \
+"                           when solving a Fortran INCLUDE line.\n" \
+"                           Does not affect the native compiler like\n" \
+"                           -I does\n" \
+"  --search-modules=<dir>   Adds <dir> to the directories searched\n" \
+"                           when looking for a Fortran module. \n" \
+"                           Does not affect the native compiler like\n" \
+"                           -I does\n" \
+"  --do-not-warn-config     Do not warn about wrong configuration\n" \
+"                           file names\n" \
+"  --vector-flavor=name     When emitting vector types use given\n" \
+"                           flavor name. By default it is gnu.\n" \
+"                           See --vector-list-flavors\n" \
+"  --list-vector-flavors    Lists the supported vector flavors\n" \
+"                           and quits\n" \
 "\n" \
 "gcc compatibility flags:\n" \
 "\n" \
@@ -320,6 +342,13 @@ typedef enum
     OPTION_FORTRAN_LOGICAL_KIND,
     OPTION_FORTRAN_REAL_KIND,
     OPTION_FORTRAN_CHARACTER_KIND,
+    OPTION_FORTRAN_ARRAY_DESCRIPTOR,
+    OPTION_LIST_FORTRAN_ARRAY_DESCRIPTORS,
+    OPTION_SEARCH_MODULES,
+    OPTION_SEARCH_INCLUDES,
+    OPTION_DO_NOT_WARN_BAD_CONFIG_FILENAMES,
+    OPTION_VECTOR_FLAVOR,
+    OPTION_LIST_VECTOR_FLAVORS,
     OPTION_VERBOSE,
 } COMMAND_LINE_OPTIONS;
 
@@ -363,6 +392,7 @@ struct command_line_long_options command_line_long_options[] =
     {"disable-sizeof", CLP_NO_ARGUMENT, OPTION_DISABLE_SIZEOF},
     {"env", CLP_REQUIRED_ARGUMENT, OPTION_SET_ENVIRONMENT},
     {"list-env", CLP_NO_ARGUMENT, OPTION_LIST_ENVIRONMENTS},
+    {"list-environments", CLP_NO_ARGUMENT, OPTION_LIST_ENVIRONMENTS},
     {"print-config-file", CLP_NO_ARGUMENT, OPTION_PRINT_CONFIG_FILE},
     {"print-config-dir", CLP_NO_ARGUMENT, OPTION_PRINT_CONFIG_DIR},
     {"upc", CLP_OPTIONAL_ARGUMENT, OPTION_ENABLE_UPC},
@@ -383,6 +413,15 @@ struct command_line_long_options command_line_long_options[] =
     {"double-kind",  CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_DOUBLEPRECISION_KIND},
     {"logical-kind", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_LOGICAL_KIND},
     {"character-kind", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_CHARACTER_KIND},
+    {"fortran-array-descriptor", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_ARRAY_DESCRIPTOR},
+    {"list-fortran-array-descriptors", CLP_NO_ARGUMENT, OPTION_LIST_FORTRAN_ARRAY_DESCRIPTORS},
+    {"search-modules", CLP_REQUIRED_ARGUMENT, OPTION_SEARCH_MODULES},
+    {"search-includes", CLP_REQUIRED_ARGUMENT, OPTION_SEARCH_INCLUDES},
+    {"do-not-warn-config", CLP_NO_ARGUMENT, OPTION_DO_NOT_WARN_BAD_CONFIG_FILENAMES},
+    {"vector-flavor", CLP_REQUIRED_ARGUMENT, OPTION_VECTOR_FLAVOR},
+    {"vector-flavour", CLP_REQUIRED_ARGUMENT, OPTION_VECTOR_FLAVOR},
+    {"list-vector-flavors", CLP_NO_ARGUMENT, OPTION_LIST_VECTOR_FLAVORS},
+    {"list-vector-flavours", CLP_NO_ARGUMENT, OPTION_LIST_VECTOR_FLAVORS},
     // sentinel
     {NULL, 0, 0}
 };
@@ -437,8 +476,6 @@ static void parse_subcommand_arguments(const char* arguments);
 
 static void enable_debug_flag(const char* flag);
 
-static void load_compiler_phases(compilation_configuration_t* config);
-
 static void help_message(void);
 
 static void print_memory_report(void);
@@ -448,8 +485,11 @@ static int parse_special_parameters(int *should_advance, int argc,
 static int parse_implicit_parameter_flag(int *should_advance, const char *special_parameter);
 
 static void list_environments(void);
+static void list_fortran_array_descriptors(void);
+static void list_vector_flavors(void);
 
 static char do_not_unload_phases = 0;
+static char do_not_warn_bad_config_filenames = 0;
 static char show_help_message = 0;
 
 void add_to_linker_command(const char *str, translation_unit_t* tr_unit);
@@ -489,7 +529,7 @@ int main(int argc, char* argv[])
             compilation_process.argv, 
             /* from_command_line= */ 1,
             /* parse_implicits_only */ 0);
-    
+
     if (parse_arguments_error)
     {
         if (show_help_message)
@@ -505,7 +545,7 @@ int main(int argc, char* argv[])
     // Compiler phases can define additional dynamic initializers
     // (besides the built in ones)
     run_dynamic_initializers();
-    
+
     // Compilation of every specified translation unit
     compile_every_translation_unit();
 
@@ -663,7 +703,7 @@ static void options_error(char* message)
 // Messages issued here must be ended with \n for sthetic reasons
 // if parse_implicits_only is true, then only implicit parameters are
 // considered, all other should be ignored
-int parse_arguments(int argc, const char* argv[], 
+int parse_arguments(int argc, const char* argv[],
         char from_command_line,
         char parse_implicits_only)
 {
@@ -1039,6 +1079,11 @@ int parse_arguments(int argc, const char* argv[],
 
                         break;
                     }
+                case 'h' :
+                    {
+                        show_help_message = 1;
+                        return 1;
+                    }
                 case OPTION_PREPROCESSOR_NAME :
                     {
                         CURRENT_CONFIGURATION->preprocessor_name = uniquestr(parameter_info.argument);
@@ -1152,10 +1197,31 @@ int parse_arguments(int argc, const char* argv[],
                         list_environments();
                         break;
                     }
-                case 'h' :
+                case OPTION_FORTRAN_ARRAY_DESCRIPTOR:
                     {
-                        show_help_message = 1;
-                        return 1;
+                        fortran_array_descriptor_t* chosen_fortran_array_descriptor = get_fortran_array_descriptor(parameter_info.argument);
+                        if (chosen_fortran_array_descriptor != NULL)
+                        {
+                            CURRENT_CONFIGURATION->fortran_array_descriptor = chosen_fortran_array_descriptor;
+                        }
+                        break;
+                    }
+                case OPTION_LIST_FORTRAN_ARRAY_DESCRIPTORS:
+                    {
+                        list_fortran_array_descriptors();
+                        break;
+                    }
+                case OPTION_SEARCH_MODULES:
+                    {
+                        P_LIST_ADD(CURRENT_CONFIGURATION->module_dirs, CURRENT_CONFIGURATION->num_module_dirs,
+                                uniquestr(parameter_info.argument));
+                        break;
+                    }
+                case OPTION_SEARCH_INCLUDES:
+                    {
+                        P_LIST_ADD(CURRENT_CONFIGURATION->include_dirs, CURRENT_CONFIGURATION->num_include_dirs,
+                                uniquestr(parameter_info.argument));
+                        break;
                     }
                 case OPTION_PRINT_CONFIG_FILE:
                     {
@@ -1189,6 +1255,10 @@ int parse_arguments(int argc, const char* argv[],
                 case OPTION_DO_NOT_UNLOAD_PHASES:
                     {
                         do_not_unload_phases = 1;
+                        break;
+                    }
+                case OPTION_DO_NOT_WARN_BAD_CONFIG_FILENAMES :
+                    {
                         break;
                     }
                 case OPTION_INSTANTIATE_TEMPLATES:
@@ -1279,6 +1349,16 @@ int parse_arguments(int argc, const char* argv[],
                 case OPTION_FORTRAN_CHARACTER_KIND:
                     {
                         CURRENT_CONFIGURATION->default_character_kind = atoi(parameter_info.argument);
+                        break;
+                    }
+                case OPTION_VECTOR_FLAVOR:
+                    {
+                        vector_types_set_flavor(parameter_info.argument);
+                        break;
+                    }
+                case OPTION_LIST_VECTOR_FLAVORS:
+                    {
+                        list_vector_flavors();
                         break;
                     }
                 default:
@@ -1619,6 +1699,9 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
                     if (!dry_run)
                     {
                         add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, argument);
+
+                        // Remove -E as some drivers do not accept -E and -M/-MM at the same time
+                        remove_string_from_null_ended_string_array(CURRENT_CONFIGURATION->preprocessor_options, "-E");
                     }
                     (*should_advance)++;
                 }
@@ -2104,6 +2187,7 @@ static void initialize_default_values(void)
     }
 
     CURRENT_CONFIGURATION->type_environment = default_environment;
+    CURRENT_CONFIGURATION->fortran_array_descriptor = default_fortran_array_descriptor;
 
     CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_CXX;
 
@@ -2213,6 +2297,13 @@ static void load_configuration(void)
                 restart = 1;
                 break;
             }
+            else if (strcmp(compilation_process.argv[i], "--do-not-warn-config") == 0)
+            {
+                do_not_warn_bad_config_filenames = 1;
+                remove_parameter_from_argv(i);
+                restart = 1;
+                break;
+            }
         }
     }
 
@@ -2258,7 +2349,7 @@ static void load_configuration(void)
                         const char * config_file = uniquestr(dir_entry->d_name);
                         P_LIST_ADD(list_config_files, num_config_files, config_file);
                     }
-                    else
+                    else if (!do_not_warn_bad_config_filenames)
                     {
                         fprintf(stderr, "warning: '%s' is not a valid configuration filename "
                                 "since it does not start with a digit. Maybe you need to update it.\n", dir_entry->d_name);
@@ -2336,6 +2427,15 @@ static void commit_configuration(void)
             {
                 config_directive->funct(configuration, configuration_line->index, configuration_line->value);
             }
+        }
+
+        if (configuration->source_language == SOURCE_LANGUAGE_FORTRAN)
+        {
+            // Add standard directories for Fortran
+            P_LIST_ADD(CURRENT_CONFIGURATION->module_dirs, CURRENT_CONFIGURATION->num_module_dirs,
+                    strappend(compilation_process.home_directory, FORTRAN_BASEDIR));
+            P_LIST_ADD(CURRENT_CONFIGURATION->include_dirs, CURRENT_CONFIGURATION->num_include_dirs,
+                    strappend(compilation_process.home_directory, FORTRAN_BASEDIR));
         }
     }
 
@@ -3093,6 +3193,19 @@ static void warn_preprocessor_flags(
         const char* input_filename,
         int num_arguments)
 {
+    // Precheck that the preprocessor is not implicitly enabled
+    int i;
+    for (i = 0; CURRENT_CONFIGURATION->preprocessor_options[i] != NULL; i++)
+    {
+        const char* flag = CURRENT_CONFIGURATION->preprocessor_options[i];
+
+        if (strcmp(flag, "-M") == 0
+                || strcmp(flag, "-MM") == 0)
+        {
+            return;
+        }
+    }
+
     // Since this is easy to forget we will warn the user
     struct prepro_flags 
     {
@@ -3137,7 +3250,6 @@ static void warn_preprocessor_flags(
         { NULL, NULL }
     };
 
-    int i;
     for (i = 0; i < num_arguments; i++)
     {
         int j;
@@ -4167,7 +4279,7 @@ static char check_for_ambiguities(AST a, AST* ambiguous_node)
 }
 
 
-static void load_compiler_phases(compilation_configuration_t* config)
+void load_compiler_phases(compilation_configuration_t* config)
 {
     // Do nothing if they were already loaded 
     // This is also checked (and set) in cxx-compilerphases.cpp but here we
@@ -4447,7 +4559,7 @@ static void print_memory_report(void)
 
 type_environment_t* get_environment(const char* env_id)
 {
-    type_environment_t** type_env = type_environment_list;
+    type_environment_t** type_env = NULL;
 
     for (type_env = type_environment_list;
             (*type_env) != NULL;
@@ -4460,7 +4572,7 @@ type_environment_t* get_environment(const char* env_id)
     }
 
     fprintf(stderr, "Unknown environments '%s'. "
-            "Use '--list-env' to get a list of supported environments\n", env_id);
+            "Use '--list-environments' to get a list of supported environments\n", env_id);
     return NULL;
 }
 
@@ -4468,7 +4580,7 @@ static void list_environments(void)
 {
     fprintf(stdout, "Supported environments:\n\n");
 
-    type_environment_t** type_env = type_environment_list;
+    type_environment_t** type_env = NULL;
 
     for (type_env = type_environment_list;
             (*type_env) != NULL;
@@ -4488,3 +4600,66 @@ static void list_environments(void)
     exit(EXIT_SUCCESS);
 }
 
+fortran_array_descriptor_t* get_fortran_array_descriptor(const char* descriptor_id)
+{
+    fortran_array_descriptor_t** fortran_array_descriptor = NULL;
+
+    for (fortran_array_descriptor = fortran_array_descriptor_list;
+            (*fortran_array_descriptor) != NULL;
+            fortran_array_descriptor++)
+    {
+        if (strcmp(descriptor_id, (*fortran_array_descriptor)->descriptor_id) == 0)
+        {
+            return (*fortran_array_descriptor);
+        }
+    }
+
+    fprintf(stderr, "Unknown Fortran array descriptor '%s'. "
+            "Use '--list-fortran-descriptors' to get a list of supported Fortran array descriptors\n", descriptor_id);
+    return NULL;
+}
+
+static void list_fortran_array_descriptors(void)
+{
+    fprintf(stdout, "Supported Fortran array descriptors :\n\n");
+
+    fortran_array_descriptor_t** fortran_array_descriptor = NULL;
+
+    for (fortran_array_descriptor = fortran_array_descriptor_list;
+            (*fortran_array_descriptor) != NULL;
+            fortran_array_descriptor++)
+    {
+        fprintf(stdout, "  %-20s (%s)\n",
+                (*fortran_array_descriptor)->descriptor_id,
+                (*fortran_array_descriptor)->descriptor_name);
+    }
+
+    fprintf(stdout, "\n");
+    fprintf(stdout, "Command line parameter --fortran-descriptor=<env-id> can be used to choose a particular descriptor.\n");
+    fprintf(stdout, "If not specified, default Fortran array descriptor is '%s' (%s)\n",
+            default_fortran_array_descriptor->descriptor_id,
+            default_fortran_array_descriptor->descriptor_name);
+
+    exit(EXIT_SUCCESS);
+}
+
+static void list_vector_flavors(void)
+{
+    fprintf(stdout, "List of supported vector flavours:\n\n");
+
+    const char** vector_flavors_ptr = vector_flavors;
+
+
+    for (vector_flavors_ptr = vector_flavors;
+            (*vector_flavors_ptr) != NULL;
+            vector_flavors_ptr++)
+    {
+        fprintf(stdout, "  %-20s\n", *vector_flavors_ptr);
+    }
+
+    fprintf(stdout, "\n");
+    fprintf(stdout, "Command line parameter --vector-flavor=name can be used to choose a specific vector flavor\n");
+    fprintf(stdout, "If not specified, default vector flavor is gnu\n");
+
+    exit(EXIT_SUCCESS);
+}

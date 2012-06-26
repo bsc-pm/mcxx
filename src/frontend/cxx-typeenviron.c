@@ -39,6 +39,9 @@
 #include "cxx-utils.h"
 #include "cxx-entrylist.h"
 
+#include "fortran03-typeenviron.h"
+#include "fortran03-typeutils.h"
+
 #ifdef MAX
   #warning MAX already defined here! Overriding
 #endif
@@ -109,6 +112,21 @@ static void system_v_array_sizeof(type_t* t)
     }
 }
 
+static void size_of_fortran_array_with_descriptor(type_t* t)
+{
+    ERROR_CONDITION(!is_array_type(t), "This is not an array", 0);
+    ERROR_CONDITION(!array_type_with_descriptor(t), "This array does not have descriptor", 0);
+
+    type_t* element_type = array_type_get_element_type(t);
+    type_set_size(t,
+            fortran_size_of_array_descriptor(element_type,
+                fortran_get_rank_of_type(t)));
+    type_set_alignment(t,
+            fortran_alignment_of_array_descriptor(element_type,
+                fortran_get_rank_of_type(t)));
+    type_set_valid_size(t, 1);
+}
+
 static void system_v_field_layout(scope_entry_t* field,
         _size_t *offset,
         _size_t *whole_align,
@@ -120,25 +138,27 @@ static void system_v_field_layout(scope_entry_t* field,
 
     _size_t field_size = 0;
 
-    // gcc flexible arrays support
     if (is_array_type(field_type)
             && nodecl_is_null(array_type_get_array_size_expr(field_type)))
     {
-        if (!is_last_field 
-                // Fortran stuff
-                && !array_type_with_descriptor(field_type))
+        type_t* element_type = array_type_get_element_type(field_type);
+        if (array_type_with_descriptor(field_type))
         {
-            internal_error("Invalid unbounded array found when computing type of struct\n", 0);
+            size_of_fortran_array_with_descriptor(field_type);
         }
-        else
+        // gcc flexible arrays support
+        else if (is_last_field)
         {
             // Perform a special computation for this array
-            type_t* element_type = array_type_get_element_type(field_type);
             _size_t element_align = type_get_alignment(element_type);
 
             type_set_size(field_type, 0);
             type_set_alignment(field_type, element_align);
             type_set_valid_size(field_type, 1);
+        }
+        else
+        {
+            internal_error("Invalid unbounded array found when computing type of struct\n", 0);
         }
     }
     else
@@ -422,7 +442,14 @@ static void system_v_generic_sizeof(type_t* t)
     // typedef __attribute__((aligned(16))) int T;
     if (is_array_type(t))
     {
-        system_v_array_sizeof(t);
+        if (!array_type_with_descriptor(t))
+        {
+            system_v_array_sizeof(t);
+        }
+        else
+        {
+            size_of_fortran_array_with_descriptor(t);
+        }
     }
     // It must be unnamed
     else if (is_union_type(t))
@@ -442,6 +469,17 @@ static void system_v_generic_sizeof(type_t* t)
         // In C this are handled like pointers
         type_set_size(t, CURRENT_CONFIGURATION->type_environment->sizeof_pointer);
         type_set_alignment(t, CURRENT_CONFIGURATION->type_environment->alignof_pointer);
+        type_set_valid_size(t, 1);
+    }
+    else if (is_pointer_type(t)
+            && is_array_type(pointer_type_get_pointee_type(t))
+            && array_type_with_descriptor(pointer_type_get_pointee_type(t)))
+    {
+        type_t* array_type = pointer_type_get_pointee_type(t);
+        size_of_fortran_array_with_descriptor(array_type);
+
+        type_set_size(t, type_get_size(array_type));
+        type_set_alignment(t, type_get_alignment(array_type));
         type_set_valid_size(t, 1);
     }
     else

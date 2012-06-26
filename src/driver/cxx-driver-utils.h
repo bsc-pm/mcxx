@@ -47,9 +47,11 @@ MCXX_BEGIN_DECLS
 #ifndef PKGLIB_INSTALL
   #define CONFIG_RELATIVE_PATH DIR_SEPARATOR".."DIR_SEPARATOR"share"DIR_SEPARATOR"mcxx"DIR_SEPARATOR"config.mcxx"
   #define DIR_CONFIG_RELATIVE_PATH DIR_SEPARATOR".."DIR_SEPARATOR"share"DIR_SEPARATOR"mcxx"DIR_SEPARATOR"config.d"
+  #define FORTRAN_BASEDIR DIR_SEPARATOR".."DIR_SEPARATOR"share"DIR_SEPARATOR"mcxx"DIR_SEPARATOR"fortran"
 #else
   #define CONFIG_RELATIVE_PATH DIR_SEPARATOR".."DIR_SEPARATOR".."DIR_SEPARATOR"share"DIR_SEPARATOR"mcxx"DIR_SEPARATOR"config.mcxx"
   #define DIR_CONFIG_RELATIVE_PATH DIR_SEPARATOR".."DIR_SEPARATOR".."DIR_SEPARATOR"share"DIR_SEPARATOR"mcxx"DIR_SEPARATOR"config.d"
+  #define FORTRAN_BASEDIR DIR_SEPARATOR".."DIR_SEPARATOR".."DIR_SEPARATOR"share"DIR_SEPARATOR"mcxx"DIR_SEPARATOR"fortran"
 #endif
 
 
@@ -83,6 +85,7 @@ int execute_program_flags(const char* program_name, const char** arguments,
 
 // char** routines
 int count_null_ended_array(void** v);
+void remove_string_from_null_ended_string_array(const char** string_arr, const char* to_remove);
 
 typedef struct
 {

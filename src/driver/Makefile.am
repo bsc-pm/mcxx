@@ -56,9 +56,11 @@ mcxx_CFLAGS=-D_GNU_SOURCE \
 			-fexceptions \
 			-I$(top_srcdir)/lib \
 			-I$(top_srcdir)/src/frontend \
+			-I$(top_srcdir)/src/frontend/fortran \
 			-I$(top_srcdir)/src/mcxx_tl \
 			-I$(top_builddir)/lib \
 			-I$(top_builddir)/src/frontend \
+			-I$(top_builddir)/src/frontend/fortran \
 			-I$(top_builddir)/src/mcxx_tl \
 			-DPKGDATADIR=\"$(pkgdatadir)\" \
 			-Wall
@@ -109,6 +111,8 @@ mcxx_LDADD = \
 mcxx_LDADD += $(top_builddir)/src/frontend/fortran/libmf03.la
 mcxx_LDADD += $(top_builddir)/src/driver/fortran/libmf03-driver.la
 mcxx_LDADD += $(sqlite3_LIBS)
+mcxx_LDADD += $(quadmath_LIBS)
+mcxx_LDADD += -lm
 
 if WINDOWS_BUILD
 else
@@ -228,8 +232,10 @@ uninstall-local:
 mcxx_embedder_CFLAGS=\
 			-I$(top_srcdir)/lib \
 			-I$(top_srcdir)/src/frontend \
+			-I$(top_srcdir)/src/frontend/fortran \
 			-I$(top_builddir)/lib \
 			-I$(top_builddir)/src/frontend \
+			-I$(top_builddir)/src/frontend/fortran \
 			-DPKGDATADIR=\"$(pkgdatadir)\" \
 			-Wall
 

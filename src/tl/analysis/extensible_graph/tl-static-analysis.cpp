@@ -1079,7 +1079,7 @@ namespace TL
                 {
                     if (n.get_symbol() == s)
                     {
-                        return arg.copy();
+                        return arg.shallow_copy();
                     }
                 }
                 else if (n.is<Nodecl::ClassMemberAccess>())
