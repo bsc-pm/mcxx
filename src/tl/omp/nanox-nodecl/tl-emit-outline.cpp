@@ -147,11 +147,6 @@ namespace TL { namespace Nanox {
                             private_sym->entity_specs.is_allocatable = sym.is_allocatable();
                         }
 
-                        if (!is_pointer_type(no_ref(private_sym->type_information)))
-                        {
-                            private_sym->entity_specs.is_target = 1;
-                        }
-
                         private_symbols.append(private_sym);
                         break;
                     }
@@ -177,11 +172,6 @@ namespace TL { namespace Nanox {
 
                                     parameter_symbols.append(private_sym);
 
-                                    // Make it TARGET
-                                    if (!is_pointer_type(no_ref(private_sym->type_information)))
-                                    {
-                                        private_sym->entity_specs.is_target = 1;
-                                    }
                                     break;
                                 }
                             case OutlineDataItem::ITEM_KIND_DATA_ADDRESS:
@@ -259,8 +249,6 @@ namespace TL { namespace Nanox {
                         private_sym->kind = SK_VARIABLE;
                         private_sym->type_information = (*it)->get_symbol().get_type().get_internal_type();
                         private_sym->defined = private_sym->entity_specs.is_user_declared = 1;
-
-                        private_sym->entity_specs.is_target = 1;
 
                         if (sym.is_valid())
                         {
