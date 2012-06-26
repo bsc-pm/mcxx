@@ -305,6 +305,7 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context,
             else
             {
                 nodecl_stride = const_value_to_nodecl(const_value_get_one(/* bytes */ fortran_get_default_integer_type_kind(), /* signed */ 1));
+                nodecl_set_location_as(nodecl_stride, nodecl_upper);
             }
 
             scope_entry_t* do_variable = fortran_get_variable_with_locus(decl_context, ac_do_variable, ASTText(ac_do_variable));
@@ -360,6 +361,7 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context,
                     {
                         // Set the value of the variable
                         do_variable->value = const_value_to_nodecl(const_value_get_signed_int(i));
+                        nodecl_set_location_as(do_variable->value, nodecl_lower);
 
                         check_ac_value_list(implied_do_ac_value, decl_context, nodecl_output, current_type, num_items);
 
@@ -374,6 +376,7 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context,
                     {
                         // Set the value of the variable
                         do_variable->value = const_value_to_nodecl(const_value_get_signed_int(i));
+                        nodecl_set_location_as(do_variable->value, nodecl_lower);
 
                         check_ac_value_list(implied_do_ac_value, decl_context, nodecl_output, current_type, num_items);
 
@@ -593,7 +596,8 @@ static void check_substring(AST expr, decl_context_t decl_context, nodecl_t node
     }
 
     nodecl_t nodecl_stride = const_value_to_nodecl(const_value_get_one(/* bytes */ fortran_get_default_integer_type_kind(), /* signed */ 1));
-    
+    nodecl_set_location_as(nodecl_stride, nodecl_lower);
+
     char is_derref_subscripted = (nodecl_get_kind(nodecl_subscripted) == NODECL_DERREFERENCE);
 
     type_t* data_type = synthesized_type;
@@ -857,6 +861,7 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
             else
             {
                 nodecl_stride = const_value_to_nodecl(const_value_get_one(/* bytes */ fortran_get_default_integer_type_kind(), /* signed */ 1));
+                nodecl_set_location(nodecl_stride, ASTFileName(subscript), ASTLine(subscript));
             }
 
             if (!nodecl_is_null(nodecl_lower)
@@ -1032,8 +1037,11 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
         nodecl_t nodecl_const_val = fortran_const_value_to_nodecl(subconstant);
         if (!nodecl_is_null(nodecl_const_val))
         {
+            nodecl_t nodecl_old = *nodecl_output;
             *nodecl_output = nodecl_const_val;
             nodecl_set_type(*nodecl_output, synthesized_type);
+
+            nodecl_set_location_as(*nodecl_output, nodecl_old);
         }
 
         nodecl_set_constant(*nodecl_output, subconstant);
@@ -1524,9 +1532,13 @@ static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t*
         nodecl_t nodecl_const_val = fortran_const_value_to_nodecl(const_value_member);
         if (!nodecl_is_null(nodecl_const_val))
         {
+            nodecl_t nodecl_old = *nodecl_output;
             type_t* orig_type = nodecl_get_type(*nodecl_output);
+
             *nodecl_output = nodecl_const_val;
             nodecl_set_type(*nodecl_output, orig_type);
+
+            nodecl_set_location_as(*nodecl_output, nodecl_old);
         }
 
         nodecl_set_constant(*nodecl_output, const_value_member);
@@ -2726,14 +2738,15 @@ static void check_called_symbol_list(
     }
 
     // Simplify intrinsics
-    // FIXME - What about elemental invocations of non rank zero?
     if (symbol->entity_specs.is_builtin)
     {
         fortran_simplify_specific_intrinsic_call(symbol,
                 actual_arguments_keywords,
                 nodecl_actual_arguments,
                 num_actual_arguments,
-                nodecl_simplify);
+                nodecl_simplify,
+                ASTFileName(procedure_designator),
+                ASTLine(procedure_designator));
     }
 
     if (is_void_type(return_type))
@@ -3853,9 +3866,13 @@ static void check_symbol_name_as_a_variable(
         nodecl_t nodecl_const_val = fortran_const_value_to_nodecl(nodecl_get_constant(entry->value));
         if (!nodecl_is_null(nodecl_const_val))
         {
+            nodecl_t nodecl_old = *nodecl_output;
+
             type_t* orig_type = nodecl_get_type(*nodecl_output);
             *nodecl_output = nodecl_const_val;
             nodecl_set_type(*nodecl_output, orig_type);
+
+            nodecl_set_location_as(*nodecl_output, nodecl_old);
         }
         nodecl_set_constant(*nodecl_output, nodecl_get_constant(entry->value));
     }
@@ -5461,8 +5478,12 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
             nodecl_t nodecl_const_val = fortran_const_value_to_nodecl(val);
             if (!nodecl_is_null(nodecl_const_val))
             {
+                nodecl_t nodecl_old = *nodecl_output;
+
                 *nodecl_output = nodecl_const_val;
                 nodecl_set_type(*nodecl_output, result);
+
+                nodecl_set_location_as(*nodecl_output, nodecl_old);
             }
         }
 

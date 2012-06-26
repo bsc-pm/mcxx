@@ -42,7 +42,9 @@ void fortran_simplify_specific_intrinsic_call(scope_entry_t* symbol,
         const char** actual_arguments_keywords,
         nodecl_t* nodecl_actual_arguments,
         int num_actual_arguments,
-        nodecl_t* nodecl_simplified);
+        nodecl_t* nodecl_simplified,
+        const char* filename,
+        int line);
 
 MCXX_END_DECLS
 

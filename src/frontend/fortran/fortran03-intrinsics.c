@@ -5299,7 +5299,9 @@ void fortran_simplify_specific_intrinsic_call(scope_entry_t* symbol,
         const char** actual_arguments_keywords,
         nodecl_t* nodecl_actual_arguments,
         int num_actual_arguments,
-        nodecl_t* nodecl_simplified)
+        nodecl_t* nodecl_simplified,
+        const char* filename,
+        int line)
 {
     nodecl_t reordered_exprs[MCXX_MAX_FUNCTION_CALL_ARGUMENTS] = { nodecl_null() };
 
@@ -5323,6 +5325,10 @@ void fortran_simplify_specific_intrinsic_call(scope_entry_t* symbol,
             }
 
             *nodecl_simplified = (symbol->entity_specs.simplify_function)(num_actual_arguments, nodecl_arguments);
+            if (!nodecl_is_null(*nodecl_simplified))
+            {
+                nodecl_set_location(*nodecl_simplified, filename, line);
+            }
         }
     }
 }
