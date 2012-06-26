@@ -7088,6 +7088,16 @@ static void check_new_expression_impl(
             /* is_explicit */ 1,
             &nodecl_init_out);
 
+    // We should ensure that nodecl_init_out is a structured value
+    if (nodecl_get_kind(nodecl_init_out) != NODECL_STRUCTURED_VALUE)
+    {
+        nodecl_init_out = nodecl_make_structured_value(
+                nodecl_make_list_1(nodecl_init_out),
+                new_type,
+                filename,
+                line);
+    }
+
     type_t* synthesized_type = new_type;
 
     if (is_array_type(new_type))
@@ -7452,7 +7462,7 @@ static void check_nodecl_explicit_type_conversion(type_t* type_info,
             return;
         }
 
-        check_nodecl_parenthesized_initializer(parenthesized_init, decl_context, type_info, 
+        check_nodecl_parenthesized_initializer(parenthesized_init, decl_context, type_info,
                 /* is_explicit */ 1, nodecl_output);
 
         if (nodecl_is_err_expr(*nodecl_output))
@@ -11221,11 +11231,10 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
 
             check_nodecl_expr_initializer(expr, decl_context, declared_type, nodecl_output);
 
-            *nodecl_output = nodecl_make_structured_value(
-                    nodecl_make_list_1(*nodecl_output), 
-                    declared_type, 
-                    nodecl_get_filename(direct_initializer), 
-                    nodecl_get_line(direct_initializer));
+            // We do not build a structured value here because we do not need
+            // it in all the cases. Example:
+            //
+            // int* f(0); // We do not generate int* f = { 0 };
 
             if (!nodecl_is_err_expr(*nodecl_output))
             {
