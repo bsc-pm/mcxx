@@ -109,7 +109,7 @@ namespace TL
              * instead.
              */
             std::string get_qualified_name(bool without_template_id = false) const;
-            
+
             //! Returns a fully qualified name
             /*!
              * \param sc Scope used to lookup template parameter names
@@ -118,7 +118,7 @@ namespace TL
 
             //! Returns the part of the qualified name that involves classes
             std::string get_class_qualification(bool without_template_id = false) const;
-            
+
             //! Returns the part of the qualified name that involves classes
             /*!
              * \param sc Scope used to lookup template parameters names
@@ -127,7 +127,7 @@ namespace TL
 
             //! Gets the scope where this symbol is defined
             Scope get_scope() const;
-    
+
             //! Gets the scope related to this symbol
             /*
              * The scoping unit introduced by namespaces [C++] and program units [Fortran] and functions [C]

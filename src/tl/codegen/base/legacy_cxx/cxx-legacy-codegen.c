@@ -4377,7 +4377,7 @@ static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t no
         real_type = get_new_function_type(NULL, NULL, 0);
     }
 
-    const char* declarator = get_declaration_string_internal(real_type,
+    const char* declarator = get_declaration_string(real_type,
             symbol->decl_context,
             qualified_name,
             /* initializer */ "",

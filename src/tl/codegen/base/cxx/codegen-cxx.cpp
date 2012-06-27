@@ -919,7 +919,7 @@ void CxxBase::emit_range_loop_header(
     file << "; ";
 
     // I += S
-    file << ind_var.get_qualified_name() << " += ";
+    file <<ind_var.get_qualified_name() << " += ";
     walk(lc.get_step());
 
     file << ")\n";
@@ -2962,7 +2962,7 @@ void CxxBase::codegen_explicit_instantiation(TL::Symbol sym,
         if (is_extern)
             file << "extern ";
         std::string original_declarator_name = codegen(declarator_name);
-        file << "template " << get_declaration(sym.get_type(), sym.get_scope(), original_declarator_name) << ";\n";
+        file << "template " << this->get_declaration(sym.get_type(), sym.get_scope(), original_declarator_name) << ";\n";
     }
     else
     {
@@ -3986,7 +3986,8 @@ void CxxBase::declare_friend_symbol(TL::Symbol friend_symbol, TL::Symbol class_s
         }
         else
         {
-            file << friend_symbol.get_qualified_name(class_symbol.get_scope(),
+            file << friend_symbol.get_qualified_name(
+                    class_symbol.get_scope(),
                     /*without template id */ is_template_friend_declaration);
         }
     }
@@ -4038,7 +4039,8 @@ void CxxBase::declare_friend_symbol(TL::Symbol friend_symbol, TL::Symbol class_s
         }
         else
         {
-            function_name = friend_symbol.get_qualified_name(class_symbol.get_scope(),
+            function_name = friend_symbol.get_qualified_name(
+                    class_symbol.get_scope(),
                     /* without template id */ (friend_type.is_template_specialized_type()));
         }
 
@@ -4059,7 +4061,8 @@ void CxxBase::declare_friend_symbol(TL::Symbol friend_symbol, TL::Symbol class_s
                 (get_codegen_status(candidates_set[0]) == CODEGEN_STATUS_DECLARED ||
                  get_codegen_status(candidates_set[0]) == CODEGEN_STATUS_DEFINED))
         {
-            function_name = friend_symbol.get_qualified_name(candidates_set[0].get_scope(),
+            function_name = friend_symbol.get_qualified_name(
+                    candidates_set[0].get_scope(),
                     /* without template id */ (friend_type.is_template_specialized_type()));
         }
         else

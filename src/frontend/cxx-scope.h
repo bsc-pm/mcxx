@@ -132,7 +132,7 @@ LIBMCXX_EXTERN const char* get_class_qualification_of_symbol_without_template(sc
 LIBMCXX_EXTERN const char* get_qualified_symbol_name(scope_entry_t* entry, decl_context_t decl_context);
 
 // Template things, should be moved to typeutils
-LIBMCXX_EXTERN type_t* update_type(type_t* orig_type, 
+LIBMCXX_EXTERN type_t* update_type(type_t* orig_type,
         decl_context_t template_parameters_context,
         const char* filename, int line);
 

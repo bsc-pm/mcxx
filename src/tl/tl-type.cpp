@@ -44,7 +44,7 @@ namespace TL
     std::string Type::get_declaration_with_initializer(Scope sc, const std::string& symbol_name,
             const std::string& initializer, TypeDeclFlags flags) const
     {
-        return get_declaration_string_internal(_type_info, sc._decl_context, symbol_name.c_str(), 
+        return get_declaration_string(_type_info, sc._decl_context, symbol_name.c_str(),
                 initializer.c_str(), 0, 0, NULL, NULL, flags == PARAMETER_DECLARATION);
     }
 
@@ -52,7 +52,7 @@ namespace TL
             ObjectList<std::string>& parameters, ObjectList<std::string>& parameter_attributes, TypeDeclFlags flags) const
     {
         int num_parameters = this->parameters().size();
-        
+
         const char** parameter_names  = new const char*[num_parameters + 1];
         const char** param_attributes = new const char*[num_parameters + 1];
 
@@ -69,7 +69,7 @@ namespace TL
             param_attributes[i] = uniquestr(parameter_attributes[i].c_str());
         }
 
-        const char* result = get_declaration_string_internal(_type_info, sc._decl_context, symbol_name.c_str(), 
+        const char* result = get_declaration_string(_type_info, sc._decl_context, symbol_name.c_str(),
                 "", 0, num_parameters, parameter_names, param_attributes, flags == PARAMETER_DECLARATION);
 
         for (int i = 0; i < num_parameters; i++)
@@ -78,7 +78,7 @@ namespace TL
             {
                 parameters[i] = parameter_names[i];
             }
-            else 
+            else
             {
                 if (parameter_names[i] != NULL)
                     parameters.append(parameter_names[i]);
@@ -96,14 +96,14 @@ namespace TL
     std::string Type::get_simple_declaration(Scope sc, const std::string&
             symbol_name, TypeDeclFlags flags) const
     {
-        return get_declaration_string_internal(_type_info, sc._decl_context,
+        return get_declaration_string(_type_info, sc._decl_context,
                 symbol_name.c_str(), "", 0, 0, NULL, NULL, flags == PARAMETER_DECLARATION);
     }
 
     std::string Type::get_declaration(Scope sc, const std::string& symbol_name,
             TypeDeclFlags flags) const
     {
-        return get_declaration_string_internal(_type_info, sc._decl_context,
+        return get_declaration_string(_type_info, sc._decl_context,
                 symbol_name.c_str(), "", 0, 0, NULL, NULL, flags == PARAMETER_DECLARATION);
     }
 

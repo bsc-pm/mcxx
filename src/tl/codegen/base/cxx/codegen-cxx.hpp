@@ -426,13 +426,13 @@ namespace Codegen
             void declare_all_in_template_arguments(TL::TemplateParameters template_arguments,
                     void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
                     void (CxxBase::*def_sym_fun)(TL::Symbol symbol));
-            
+
             void declare_all_in_template_header(TL::TemplateParameters template_arguments);
 
             void codegen_template_headers_all_levels(
                     TL::TemplateParameters template_parameters,
                     bool show_default_values);
-            
+
             void codegen_template_headers_bounded(
                     TL::TemplateParameters template_parameters,
                     TL::TemplateParameters lim,

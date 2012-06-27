@@ -73,8 +73,8 @@ namespace TL
 
     std::string Symbol::get_name() const
     {
-        return (_symbol->symbol_name != NULL) ? 
-            std::string(_symbol->symbol_name) : 
+        return (_symbol->symbol_name != NULL) ?
+            std::string(_symbol->symbol_name) :
             std::string("");
     }
 
@@ -102,7 +102,7 @@ namespace TL
 
             int max_level = 0;
             char is_dependent = 0;
-            const char* qualified_name = ptr_fun(_symbol, sc._decl_context, 
+            const char* qualified_name = ptr_fun(_symbol, sc._decl_context,
                     &is_dependent, &max_level);
 
             return std::string(qualified_name);
