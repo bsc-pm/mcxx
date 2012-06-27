@@ -456,10 +456,16 @@ namespace Codegen
                     TL::ObjectList<std::string>& parameter_names,
                     TL::ObjectList<std::string>& parameter_attributes);
 
+            static const char* print_name_str(scope_entry_t* s, decl_context_t decl_context, void *data);
+            static const char* print_type_str(type_t* t, decl_context_t decl_context, void *data);
+
             std::string get_declaration(TL::Type t, TL::Scope scope, const std::string& name);
-            std::string get_declaration_with_parameters(TL::Type, TL::Scope, const std::string& name,
-                    TL::ObjectList<std::string>& names, TL::ObjectList<std::string> & parameter_attributes);
+            std::string get_declaration_with_parameters(TL::Type, TL::Scope, const std::string& symbol_name,
+                    TL::ObjectList<std::string>& parameter_names, TL::ObjectList<std::string> & parameter_attributes);
             TL::Type fix_references(TL::Type t);
+
+            std::string get_qualified_name(TL::Symbol sym, bool without_template_id = false) const;
+            std::string get_qualified_name(TL::Symbol sym, TL::Scope sc, bool without_template_id = false) const;
 
             TL::Scope get_current_scope() const;
 

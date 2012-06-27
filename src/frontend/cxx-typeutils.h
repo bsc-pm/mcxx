@@ -605,6 +605,17 @@ LIBMCXX_EXTERN const char* get_declaration_string(type_t* type_info,
         const char** parameter_attributes,
         char is_parameter);
 
+LIBMCXX_EXTERN const char* get_declaration_string_ex(type_t* type_info,
+        decl_context_t decl_context,
+        const char* symbol_name, const char* initializer,
+        char semicolon,
+        int num_parameter_names,
+        const char** parameter_names,
+        const char** parameter_attributes,
+        char is_parameter,
+        print_symbol_callback_t print_symbol_fun,
+        void* print_symbol_data);
+
 LIBMCXX_EXTERN type_t* get_ellipsis_type(void);
 LIBMCXX_EXTERN char is_ellipsis_type(type_t* t);
 
@@ -678,7 +689,7 @@ LIBMCXX_EXTERN void _type_assign_to(type_t*, type_t*);
 
 // TL::Source stuff
 LIBMCXX_EXTERN const char* type_to_source(type_t* t);
-
+LIBMCXX_EXTERN char is_function_or_template_function_name(scope_entry_t* entry, void* p UNUSED_PARAMETER);
 MCXX_END_DECLS
 
 #endif // CXX_TYPEUTILS_H

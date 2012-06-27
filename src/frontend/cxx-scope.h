@@ -118,6 +118,16 @@ LIBMCXX_EXTERN const char* get_fully_qualified_symbol_name(struct
         scope_entry_tag* entry, decl_context_t decl_context, char*
         is_dependent, int* max_qualif_level);
 
+LIBMCXX_EXTERN const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
+        decl_context_t decl_context,
+        char* is_dependent, int* max_qualif_level,
+        char no_templates,
+        char only_classes,
+        char do_not_emit_template_keywords,
+        print_type_callback_t print_type_fun,
+        void *print_type_data
+        );
+
 LIBMCXX_EXTERN const char* get_fully_qualified_symbol_name_without_template(scope_entry_t* entry,
         decl_context_t decl_context, char* is_dependent, int*
         max_qualif_level);

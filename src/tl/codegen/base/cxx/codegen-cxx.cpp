@@ -28,6 +28,7 @@
 #include "tl-objectlist.hpp"
 #include "tl-type.hpp"
 #include "cxx-cexpr.h"
+#include "cxx-entrylist.h"
 #include "string_utils.h"
 #include <iomanip>
 #ifdef HAVE_QUADMATH_H
@@ -903,23 +904,24 @@ void CxxBase::emit_range_loop_header(
 {
 
     TL::Symbol ind_var = lc.get_symbol();
+    std::string ind_var_name = this->get_qualified_name(ind_var);
 
     indent();
     file << "for (";
 
     // I = L
-    file << ind_var.get_qualified_name();
+    file << ind_var_name;
     file << " = ";
     walk(lc.get_lower());
     file << "; ";
 
     // I <= L     (or   I >= L)
-    file << ind_var.get_qualified_name() << rel_op;
+    file << ind_var_name << rel_op;
     walk(lc.get_upper());
     file << "; ";
 
     // I += S
-    file <<ind_var.get_qualified_name() << " += ";
+    file << ind_var_name << " += ";
     walk(lc.get_step());
 
     file << ")\n";
@@ -1427,7 +1429,7 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
         case CONSTRUCTOR_INITIALIZATION:
             {
                 TL::Symbol class_symbol = called_symbol.get_class_type().get_symbol();
-                file << class_symbol.get_qualified_name();
+                file << this->get_qualified_name(class_symbol);
                 ignore_n_first_arguments = 0;
                 break;
             }
@@ -2396,7 +2398,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::PointerToMember& node)
 {
     TL::Symbol symbol = node.get_symbol();
 
-    file << "&" << symbol.get_qualified_name();
+    file << "&" << this->get_qualified_name(symbol);
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::PragmaClauseArg& node)
@@ -2428,7 +2430,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::PragmaCustomDeclaration& node)
     // FIXME  parallel|for must be printed as parallel for
     file << "/* decl: #pragma " << node.get_text() << " ";
     walk(pragma_line);
-    file << "'" << symbol.get_qualified_name() << "' */\n";
+    file << "'" << this->get_qualified_name(symbol) << "' */\n";
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::PragmaCustomDirective& node)
@@ -2797,12 +2799,13 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Symbol& node)
         {
             // If we are visiting the called entity of a function call, the template arguments
             // (if any) will be added by 'visit_function_call_form_template_id' function
-            file << entry.get_qualified_name(this->get_current_scope(),
+            file << this->get_qualified_name(entry,
+                    this->get_current_scope(),
                     /* without template id */ state.visiting_called_entity_of_function_call);
         }
         else if (!entry.is_dependent_entity())
         {
-            file << entry.get_qualified_name(this->get_current_scope());
+            file << this->get_qualified_name(entry, this->get_current_scope());
         }
         else
         {
@@ -2952,7 +2955,7 @@ void CxxBase::codegen_explicit_instantiation(TL::Symbol sym,
         if (is_extern)
             file << "extern ";
 
-        file << "template " << class_key << " " << sym.get_qualified_name(sym.get_scope()) << ";\n";
+        file << "template " << class_key << " " << this->get_qualified_name(sym, sym.get_scope()) << ";\n";
 
     }
     else if (sym.is_function())
@@ -3613,7 +3616,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                     }
                 }
 
-                file << base.get_qualified_name(symbol.get_scope());
+                file << this->get_qualified_name(base, symbol.get_scope());
             }
         }
 
@@ -3764,7 +3767,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
 
                     TL::Symbol entry = unresolved[0];
 
-                    file << "using " << entry.get_qualified_name(/* without_template */ 1) << ";\n";
+                    file << "using " << this->get_qualified_name(entry, /* without_template */ 1) << ";\n";
                 }
                 else if (member.is_enum()
                         || member.is_typedef())
@@ -3986,7 +3989,8 @@ void CxxBase::declare_friend_symbol(TL::Symbol friend_symbol, TL::Symbol class_s
         }
         else
         {
-            file << friend_symbol.get_qualified_name(
+            file << this->get_qualified_name(
+                    friend_symbol,
                     class_symbol.get_scope(),
                     /*without template id */ is_template_friend_declaration);
         }
@@ -4039,7 +4043,8 @@ void CxxBase::declare_friend_symbol(TL::Symbol friend_symbol, TL::Symbol class_s
         }
         else
         {
-            function_name = friend_symbol.get_qualified_name(
+            function_name = this->get_qualified_name(
+                    friend_symbol,
                     class_symbol.get_scope(),
                     /* without template id */ (friend_type.is_template_specialized_type()));
         }
@@ -4061,7 +4066,8 @@ void CxxBase::declare_friend_symbol(TL::Symbol friend_symbol, TL::Symbol class_s
                 (get_codegen_status(candidates_set[0]) == CODEGEN_STATUS_DECLARED ||
                  get_codegen_status(candidates_set[0]) == CODEGEN_STATUS_DEFINED))
         {
-            function_name = friend_symbol.get_qualified_name(
+            function_name = this->get_qualified_name(
+                    friend_symbol,
                     candidates_set[0].get_scope(),
                     /* without template id */ (friend_type.is_template_specialized_type()));
         }
@@ -6440,7 +6446,11 @@ void CxxBase::codegen_template_header(
                     case TPK_TEMPLATE:
                         {
                             TL::Type temp_arg_type = temp_arg.get_type();
-                            file << print_type_str(temp_arg_type.get_internal_type(), symbol.get_scope().get_decl_context());
+                            file <<
+                                this->print_type_str(
+                                        temp_arg_type.get_internal_type(),
+                                        symbol.get_scope().get_decl_context(),
+                                        /* we need to store the current codegen */ (void*) this);
                             break;
                         }
                     case TPK_NONTYPE:
@@ -6584,11 +6594,167 @@ CxxBase::Ret CxxBase::unhandled_node(const Nodecl::NodeclBase & n)
     file << "/* <<< " << ast_print_node_type(n.get_kind()) << " <<< */\n";
 }
 
+
+const char* CxxBase::print_name_str(scope_entry_t* sym, decl_context_t decl_context, void *data)
+{
+    // We obtain the current codegen from the data
+    CxxBase* _this = (CxxBase*) data;
+
+    // The variable data must contain a valid pointer to the current codegen
+    ERROR_CONDITION(_this == NULL, "Invalid this", 0);
+    ERROR_CONDITION(sym == NULL, "Invalid symbol", 0);
+
+    const char* result = NULL;
+    if (_this->get_codegen_status(sym) == CODEGEN_STATUS_NONE
+       && ((sym->kind == SK_CLASS && !is_template_specialized_type(sym->type_information))
+            || sym->kind == SK_ENUM))
+    {
+        result = sym->symbol_name;
+
+        if (sym->kind == SK_ENUM)
+        {
+            result = strappend("enum ", result);
+        }
+        else if (sym->kind == SK_CLASS)
+        {
+            switch (class_type_get_class_kind(sym->type_information))
+            {
+                case TT_UNION:
+                    result = strappend("union ", result); break;
+                case TT_STRUCT:
+                    result = strappend("struct ", result); break;
+                case TT_CLASS:
+                    result = strappend("class ", result); break;
+                default:
+                    internal_error("Code unreachable", 0);
+            }
+        }
+    }
+    else
+    {
+        char is_dependent = 0;
+        int max_level = 0;
+        result =
+            get_fully_qualified_symbol_name_ex(sym,
+                    decl_context, &is_dependent, &max_level,
+                    /* no_templates */ 0, /* only_classes */ 0,
+                    /* do_not_emit_template_keywords */ 0,
+                    print_type_str,
+                    data);
+
+        // If is a dependent name and it is qualified then it can be
+        // given a "typename" keyword (in some cases one must do that)
+        if (is_dependent && max_level > 0)
+        {
+            result = strappend("typename ", result);
+        }
+
+        if (sym->kind == SK_CLASS
+                || sym->kind == SK_ENUM)
+        {
+
+            // It may happen that a function is hiding our typename in this scope
+            scope_entry_list_t* entry_list = query_in_scope_str(sym->decl_context, sym->symbol_name);
+            entry_list = filter_symbol_using_predicate(entry_list, is_function_or_template_function_name, NULL);
+
+            // It seems somebody is hiding our name in this scope
+            if (entry_list != NULL)
+            {
+                if (sym->kind == SK_ENUM)
+                {
+                    result = strappend("enum ", result);
+                }
+                else if (sym->kind == SK_CLASS)
+                {
+                    switch (class_type_get_class_kind(sym->type_information))
+                    {
+                        case TT_UNION:
+                            result = strappend("union ", result); break;
+                        case TT_STRUCT:
+                            result = strappend("struct ", result); break;
+                        case TT_CLASS:
+                            result = strappend("class ", result); break;
+                        default:
+                            internal_error("Code unreachable", 0);
+                    }
+                }
+            }
+
+            entry_list_free(entry_list);
+        }
+    }
+    return result;
+}
+
+const char* CxxBase::print_type_str(type_t* t, decl_context_t decl_context, void *data)
+{
+    const char* result = NULL;
+    if (t == NULL)
+    {
+        result = uniquestr("< unknown type >");
+    }
+    else
+    {
+        result = get_declaration_string_ex(t,
+                decl_context, /* symbol_name */"",
+                /* initializer */ "",
+                /* semicolon */ 0,
+                /* num_parameter_names */ 0,
+                /* parameter_names */ NULL,
+                /* parameter_attributes */ NULL,
+                /* is_parameter */ 0,
+                print_name_str,
+                data);
+    }
+    return result;
+}
+
 std::string CxxBase::get_declaration(TL::Type t, TL::Scope scope, const std::string& name)
 {
     t = fix_references(t);
 
-    return t.get_declaration(scope,  name);
+    return get_declaration_string_ex(t.get_internal_type(), scope.get_decl_context(),
+            name.c_str(), "", 0, 0, NULL, NULL, /* is_parameter */ 0, print_name_str,
+            /* we need to store the current codegen */ (void*) this);
+}
+
+
+std::string CxxBase::get_qualified_name(TL::Symbol sym, bool without_template_id) const
+{
+    return this->get_qualified_name(sym, sym.get_scope(), without_template_id);
+}
+
+std::string CxxBase::get_qualified_name(TL::Symbol sym, TL::Scope sc, bool without_template_id) const
+{
+    if (sym.get_internal_symbol()->symbol_name == NULL)
+    {
+        return std::string("");
+    }
+    else
+    {
+        const char* result = NULL;
+        int max_level = 0;
+        char is_dependent = 0;
+        if (without_template_id)
+        {
+            result = get_fully_qualified_symbol_name_ex(sym.get_internal_symbol(),
+                    sc.get_decl_context(), &is_dependent, &max_level,
+                    /* no_templates */ 1, /* only_classes */ 0,
+                    /* do_not_emit_template_keywords */ 0,
+                    print_type_str,
+                    /* we need to store the current codegen */ (void*) this);
+        }
+        else
+        {
+            result = get_fully_qualified_symbol_name_ex(sym.get_internal_symbol(),
+                    sc.get_decl_context(), &is_dependent, &max_level,
+                    /* no_templates */ 0, /* only_classes */ 0,
+                    /* do_not_emit_template_keywords */ 0,
+                    print_type_str,
+                    /* we need to store the current codegen */ (void*) this);
+        }
+        return std::string(result);
+    }
 }
 
 void CxxBase::fill_parameter_names_and_parameter_attributes(TL::Symbol symbol,
@@ -6627,12 +6793,57 @@ void CxxBase::fill_parameter_names_and_parameter_attributes(TL::Symbol symbol,
     }
 }
 
-std::string CxxBase::get_declaration_with_parameters(TL::Type t, TL::Scope scope,
-        const std::string& name, TL::ObjectList<std::string>& names, TL::ObjectList<std::string>& parameter_attributes)
+std::string CxxBase::get_declaration_with_parameters(TL::Type t,
+        TL::Scope scope,
+        const std::string& symbol_name,
+        TL::ObjectList<std::string>& parameters,
+        TL::ObjectList<std::string>& parameter_attributes)
 {
     t = fix_references(t);
 
-    return t.get_declaration_with_parameters(scope, name, names, parameter_attributes);
+    int num_parameters = t.parameters().size();
+
+    const char** parameter_names  = new const char*[num_parameters + 1];
+    const char** param_attributes = new const char*[num_parameters + 1];
+
+    for (int i = 0; i < num_parameters; i++)
+    {
+        parameter_names[i] = NULL;
+        param_attributes[i] = NULL;
+    }
+
+    int orig_size = parameters.size();
+    for (int i = 0; i < orig_size; i++)
+    {
+        parameter_names[i] = uniquestr(parameters[i].c_str());
+        param_attributes[i] = uniquestr(parameter_attributes[i].c_str());
+    }
+
+    const char* result = get_declaration_string_ex(t.get_internal_type(),
+            scope.get_decl_context(), symbol_name.c_str(), "", 0,
+            num_parameters, parameter_names, param_attributes,
+            /* is_parameter */ 0, print_name_str,
+            /* we need to store the current codegen */ (void*) this);
+
+    for (int i = 0; i < num_parameters; i++)
+    {
+        if (i < orig_size)
+        {
+            parameters[i] = parameter_names[i];
+        }
+        else
+        {
+            if (parameter_names[i] != NULL)
+                parameters.append(parameter_names[i]);
+            else
+                parameters.append("");
+        }
+    }
+
+    delete[] parameter_names;
+    delete[] param_attributes;
+
+    return result;
 }
 
 TL::Type CxxBase::fix_references(TL::Type t)

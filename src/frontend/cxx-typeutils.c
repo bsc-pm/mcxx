@@ -6379,7 +6379,7 @@ static char declarator_needs_parentheses(type_t* type_info)
     return result;
 }
 
-static char is_function_or_template_function_name(scope_entry_t* entry, void* p UNUSED_PARAMETER)
+char is_function_or_template_function_name(scope_entry_t* entry, void* p UNUSED_PARAMETER)
 {
     return (entry->kind == SK_FUNCTION
             || (entry->kind == SK_TEMPLATE
@@ -6431,7 +6431,6 @@ static const char* get_simple_type_name_string_internal_common(scope_entry_t* en
                 }
             }
         }
-
         entry_list_free(entry_list);
     }
 
@@ -7055,9 +7054,11 @@ static const char* get_type_name_string_internal(decl_context_t decl_context,
         int num_parameter_names,
         const char** parameter_names,
         const char** parameter_attributes,
-        char is_parameter);
+        char is_parameter,
+        print_symbol_callback_t print_symbol_fun,
+        void* print_symbol_data);
 
-static const char* get_declaration_string_internal_impl(type_t* type_info,
+const char* get_declaration_string_ex(type_t* type_info,
         decl_context_t decl_context,
         const char* symbol_name, const char* initializer,
         char semicolon,
@@ -7084,7 +7085,8 @@ static const char* get_declaration_string_internal_impl(type_t* type_info,
 
     const char* declarator_name =
         get_type_name_string_internal(decl_context, type_info, symbol_name,
-                num_parameter_names, parameter_names, parameter_attributes, is_parameter);
+                num_parameter_names, parameter_names, parameter_attributes,
+                is_parameter, print_symbol_fun, print_symbol_data);
 
     const char* result;
 
@@ -7124,7 +7126,7 @@ const char* get_declaration_string(type_t* type_info,
         const char** parameter_attributes,
         char is_parameter)
 {
-    return  get_declaration_string_internal_impl(type_info,
+    return get_declaration_string_ex(type_info,
         decl_context,
         symbol_name, initializer,
         semicolon,
@@ -7144,7 +7146,9 @@ static void get_type_name_string_internal_impl(decl_context_t decl_context,
         int num_parameter_names,
         const char** parameter_names,
         const char** parameter_attributes,
-        char is_parameter);
+        char is_parameter,
+        print_symbol_callback_t print_symbol_fun,
+        void* print_symbol_data);
 
 static const char* get_type_name_string_internal(decl_context_t decl_context,
         type_t* type_info,
@@ -7152,17 +7156,21 @@ static const char* get_type_name_string_internal(decl_context_t decl_context,
         int num_parameter_names,
         const char** parameter_names,
         const char** parameter_attributes,
-        char is_parameter)
+        char is_parameter,
+        print_symbol_callback_t print_symbol_fun,
+        void* print_symbol_data)
 {
     ERROR_CONDITION(type_info == NULL, "This cannot be null", 0);
 
     const char* left = "";
     const char* right = "";
-    get_type_name_string_internal_impl(decl_context, type_info, &left, &right, 
-            num_parameter_names, 
-            parameter_names, 
-            parameter_attributes, 
-            is_parameter);
+    get_type_name_string_internal_impl(decl_context, type_info, &left, &right,
+            num_parameter_names,
+            parameter_names,
+            parameter_attributes,
+            is_parameter,
+            print_symbol_fun,
+            print_symbol_data);
 
     const char* result = strappend(left, symbol_name);
     result = strappend(result, right);
@@ -7305,13 +7313,15 @@ char is_more_or_equal_cv_qualified_type(type_t* t1, type_t* t2)
 
 // Constructs a proper declarator
 static void get_type_name_string_internal_impl(decl_context_t decl_context,
-        type_t* type_info, 
+        type_t* type_info,
         const char** left,
         const char** right,
         int num_parameter_names,
         const char** parameter_names,
         const char** parameter_attributes,
-        char is_parameter)
+        char is_parameter,
+        print_symbol_callback_t print_symbol_fun,
+        void* print_symbol_data)
 {
     ERROR_CONDITION(type_info == NULL, "This cannot be null", 0);
 
@@ -7330,14 +7340,16 @@ static void get_type_name_string_internal_impl(decl_context_t decl_context,
                             num_parameter_names,
                             parameter_names,
                             parameter_attributes,
-                            is_parameter);
+                            is_parameter,
+                            print_symbol_fun,
+                            print_symbol_data);
                 }
                 break;
             }
         case TK_POINTER :
             {
-                get_type_name_string_internal_impl(decl_context, type_info->pointer->pointee, left, right, 
-                        num_parameter_names, parameter_names, parameter_attributes, is_parameter);
+                get_type_name_string_internal_impl(decl_context, type_info->pointer->pointee, left, right,
+                        num_parameter_names, parameter_names, parameter_attributes, is_parameter, print_symbol_fun, print_symbol_data);
 
                 if (declarator_needs_parentheses(type_info))
                 {
@@ -7356,15 +7368,15 @@ static void get_type_name_string_internal_impl(decl_context_t decl_context,
             }
         case TK_POINTER_TO_MEMBER :
             {
-                get_type_name_string_internal_impl(decl_context, type_info->pointer->pointee, left, right, 
-                        num_parameter_names, parameter_names, parameter_attributes, is_parameter);
+                get_type_name_string_internal_impl(decl_context, type_info->pointer->pointee, left, right,
+                        num_parameter_names, parameter_names, parameter_attributes, is_parameter, print_symbol_fun, print_symbol_data);
 
                 if (declarator_needs_parentheses(type_info))
                 {
                     (*left) = strappend((*left), "(");
                 }
 
-                (*left) = strappend((*left), 
+                (*left) = strappend((*left),
                         get_qualified_symbol_name(type_info->pointer->pointee_class, decl_context));
 
                 (*left) = strappend((*left), "::");
@@ -7381,8 +7393,8 @@ static void get_type_name_string_internal_impl(decl_context_t decl_context,
         case TK_RVALUE_REFERENCE :
         case TK_LVALUE_REFERENCE :
             {
-                get_type_name_string_internal_impl(decl_context, type_info->pointer->pointee, left, right, 
-                        num_parameter_names, parameter_names, parameter_attributes, is_parameter);
+                get_type_name_string_internal_impl(decl_context, type_info->pointer->pointee, left, right,
+                        num_parameter_names, parameter_names, parameter_attributes, is_parameter, print_symbol_fun, print_symbol_data);
 
                 if (declarator_needs_parentheses(type_info))
                 {
@@ -7413,8 +7425,8 @@ static void get_type_name_string_internal_impl(decl_context_t decl_context,
             }
         case TK_ARRAY :
             {
-                get_type_name_string_internal_impl(decl_context, type_info->array->element_type, left, right, 
-                        num_parameter_names, parameter_names, parameter_attributes, is_parameter);
+                get_type_name_string_internal_impl(decl_context, type_info->array->element_type, left, right,
+                        num_parameter_names, parameter_names, parameter_attributes, is_parameter, print_symbol_fun, print_symbol_data);
 
                 const char* whole_size = NULL;
                 if (is_parameter)
@@ -7465,8 +7477,8 @@ static void get_type_name_string_internal_impl(decl_context_t decl_context,
             {
                 if (type_info->function->return_type != NULL)
                 {
-                    get_type_name_string_internal_impl(decl_context, type_info->function->return_type, left, right, 
-                            0, NULL, NULL, 0);
+                    get_type_name_string_internal_impl(decl_context, type_info->function->return_type, left, right,
+                            0, NULL, NULL, 0, print_symbol_fun, print_symbol_data);
                 }
 
                 const char* prototype = "";
@@ -7491,15 +7503,15 @@ static void get_type_name_string_internal_impl(decl_context_t decl_context,
                         {
                             // Abstract declarator
                             prototype = strappend(prototype,
-                                    get_declaration_string(type_info->function->parameter_list[i]->type_info, decl_context, 
-                                        "", "", 0, 0, NULL, NULL, 1));
+                                    get_declaration_string_ex(type_info->function->parameter_list[i]->type_info, decl_context,
+                                        "", "", 0, 0, NULL, NULL, 1, print_symbol_fun, print_symbol_data));
                         }
                         else if (parameter_names != NULL
                                 && parameter_names[i] != NULL)
                         {
                             prototype = strappend(prototype,
-                                    get_declaration_string(type_info->function->parameter_list[i]->type_info, decl_context, 
-                                        parameter_names[i], "", 0, 0, NULL, NULL, 1));
+                                    get_declaration_string_ex(type_info->function->parameter_list[i]->type_info, decl_context,
+                                        parameter_names[i], "", 0, 0, NULL, NULL, 1, print_symbol_fun, print_symbol_data));
                         }
                         else // parameter_names != NULL && parameter_names[i] == NULL
                         {
@@ -7511,8 +7523,8 @@ static void get_type_name_string_internal_impl(decl_context_t decl_context,
                             parameter_names[i] = uniquestr(parameter_name);
 
                             prototype = strappend(prototype,
-                                    get_declaration_string(type_info->function->parameter_list[i]->type_info, decl_context, 
-                                        parameter_name, "", 0, 0, NULL, NULL, 1));
+                                    get_declaration_string_ex(type_info->function->parameter_list[i]->type_info, decl_context,
+                                        parameter_name, "", 0, 0, NULL, NULL, 1, print_symbol_fun, print_symbol_data));
                         }
                     }
 
