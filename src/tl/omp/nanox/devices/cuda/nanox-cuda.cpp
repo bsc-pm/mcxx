@@ -444,7 +444,7 @@ void DeviceCUDA::create_outline(
 	bool is_outline_task = (outline_flags.task_symbol != NULL);
 
 	ObjectList<IdExpression> extern_occurrences;
-	//DeclarationClosure decl_closure (sl);
+	DeclarationClosure decl_closure (sl);
 	std::set<Symbol> extern_symbols;
 
 	// Get all the needed symbols and CUDA included files
@@ -485,7 +485,6 @@ void DeviceCUDA::create_outline(
 		// Check we have not already added the symbol
 		if (_fwdSymbols.count(s) == 0)
 		{
-
 			_fwdSymbols.insert(s);
 			//decl_closure.add(s);
 
@@ -493,9 +492,80 @@ void DeviceCUDA::create_outline(
 		}
 	}
 
-	// Maybe it is not needed --> user-defined structs must be included in GPU kernel's file
-	// Plus, 'closure()' method is not working anyway...
-	//forward_declaration << decl_closure.closure() << "\n";
+	// Check we have the definition of all symbol local occurrences, like typedef's
+	ObjectList<IdExpression> local_occurrences;
+	local_occurrences = construct.all_symbol_occurrences(LangConstruct::ALL_SYMBOLS);
+
+	struct CheckIfInCudacompiler
+	{
+		static bool check(const std::string& path)
+		{
+			std::string cudaPath(CUDA_DIR);
+			if (path.substr(0, cudaPath.size()) == cudaPath)
+				return true;
+			else
+				return false;
+		}
+		static bool check_type(TL::Type t)
+		{
+			if (t.is_named())
+			{
+				return CheckIfInCudacompiler::check(t.get_symbol().get_filename());
+			}
+			else if (t.is_pointer())
+			{
+				return check_type(t.points_to());
+			}
+			else if (t.is_array())
+			{
+				return check_type(t.array_element());
+			}
+			else if (t.is_function())
+			{
+				TL::ObjectList<TL::Type> types = t.parameters();
+				types.append(t.returns());
+				for (TL::ObjectList<TL::Type>::iterator it = types.begin(); it != types.end(); it++)
+				{
+					if (!check_type(*it))
+						return false;
+				}
+				return true;
+			}
+			else
+			{
+				return true;
+			}
+		}
+	};
+
+	for (ObjectList<IdExpression>::iterator it = local_occurrences.begin();
+			it != local_occurrences.end();
+			it++)
+	{
+		Symbol s = it->get_symbol();
+
+		// If this symbol comes from the guts of CUDA, ignore it
+		if (CheckIfInCudacompiler::check(s.get_filename()))
+			continue;
+
+		// Let's check its type as well
+		TL::Type t = s.get_type();
+		if (CheckIfInCudacompiler::check_type(t))
+			continue;
+
+		// Check we have not already added the symbol
+		if (_localDecls.find(s.get_internal_symbol()->type_information) == _localDecls.end())
+		{
+			_localDecls.insert(s.get_internal_symbol()->type_information);
+
+			decl_closure.add(s);
+		}
+	}
+
+
+	// User-defined structs must be included in GPU kernel's file
+	// 'closure()' method is not working for extern symbols...
+	forward_declaration << decl_closure.closure() << "\n";
 
 	for (std::set<Symbol>::iterator it = extern_symbols.begin();
 			it != extern_symbols.end(); it++)

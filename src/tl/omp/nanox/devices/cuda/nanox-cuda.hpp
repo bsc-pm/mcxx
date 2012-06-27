@@ -44,6 +44,7 @@ namespace TL
                 AST_t _root;
                 std::set<Symbol> _taskSymbols;
                 std::set<Symbol> _fwdSymbols;
+                std::set<type_tag *> _localDecls;
 
                 void do_cuda_outline_replacements(
                         AST_t body,
