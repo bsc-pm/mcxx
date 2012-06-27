@@ -489,6 +489,8 @@ if test x$gpu_valid = xyes;
 then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.nvidia"
    COMPILER_NAMES="${COMPILER_NAMES} mnvcc mnvcxx"
+
+   AC_DEFINE_UNQUOTED([CUDA_DIR], ["$CUDADIR"], [CUDA installation path])
 fi
 
 # Use this if we want to conditionally disable compilation of GPU
