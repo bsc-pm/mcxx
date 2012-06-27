@@ -50,7 +50,10 @@ static type_t* cuda_get_dim3_type(void)
         new_class_sym->kind = SK_CLASS;
         new_class_sym->type_information = get_new_class_type(global_decl_context, CK_STRUCT);
         decl_context_t class_context = new_class_context(global_decl_context, new_class_sym);
-	class_type_set_inner_context(new_class_sym->type_information, class_context);
+        class_type_set_inner_context(new_class_sym->type_information, class_context);
+
+	new_class_sym->file = CUDA_DIR"/include/vector_types.h";
+
 
         class_type_set_inner_context(new_class_sym->type_information, class_context);
 
