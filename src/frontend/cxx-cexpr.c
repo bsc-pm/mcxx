@@ -411,7 +411,17 @@ const_value_t* const_value_round(const_value_t* val, int num_bytes, int rounding
                 return const_value_get_integer(l, num_bytes, 1);
             }
 #ifdef HAVE_QUADMATH_H
-            // Not implemented yet
+        case CVK_FLOAT128:
+            {
+                int old_round_mode = fegetround();
+                fesetround(rounding_mode);
+
+                long long int l = llrintq(val->value.ld);
+
+                fesetround(old_round_mode);
+
+                return const_value_get_integer(l, num_bytes, 1);
+            }
 #endif
         OTHER_KIND;
     }

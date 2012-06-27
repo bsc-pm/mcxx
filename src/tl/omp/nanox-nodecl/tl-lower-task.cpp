@@ -30,6 +30,7 @@
 #include "tl-counters.hpp"
 #include "tl-nodecl-utils.hpp"
 #include "tl-datareference.hpp"
+#include "tl-nanox-ptr.hpp"
 
 #include "cxx-cexpr.h"
 
@@ -770,34 +771,65 @@ void LoweringVisitor::fill_arguments(
                             }
                         }
 
+                        if ((*it)->get_symbol().is_target())
+                        {
+                            fill_outline_arguments << 
+                                "ol_args %" << (*it)->get_field_name() << " => " 
+                                << (*it)->get_symbol().get_name() << extra_ref << "\n"
+                                ;
+                            fill_immediate_arguments << 
+                                "imm_args % " << (*it)->get_field_name() << " => " 
+                                << (*it)->get_symbol().get_name() << extra_ref << "\n"
+                                ;
+                        }
+                        else
+                        {
+                            TL::Symbol ptr_of_sym = Nanox::get_function_ptr_of((*it)->get_symbol().get_type(),
+                                    ctr.retrieve_context());
 
-                        fill_outline_arguments << 
-                            "ol_args %" << (*it)->get_field_name() << " => " << (*it)->get_symbol().get_name() << extra_ref << "\n"
-                            ;
-                        fill_immediate_arguments << 
-                            "imm_args % " << (*it)->get_field_name() << " => " << (*it)->get_symbol().get_name() << extra_ref << "\n"
-                            ;
-                        // Make (*it) TARGET as required by Fortran
-                        (*it)->get_symbol().get_internal_symbol()->entity_specs.is_target = 1;
+                            fill_outline_arguments << 
+                                "ol_args %" << (*it)->get_field_name() << " => " 
+                                << ptr_of_sym.get_name() << "( " << (*it)->get_symbol().get_name() << extra_ref << ") \n"
+                                ;
+                            fill_immediate_arguments << 
+                                "imm_args % " << (*it)->get_field_name() << " => " 
+                                << ptr_of_sym.get_name() << "( " << (*it)->get_symbol().get_name() << extra_ref << ") \n"
+                                ;
+                        }
+
                         break;
                     }
                 case OutlineDataItem::SHARING_CAPTURE_ADDRESS:
                     {
-                        fill_outline_arguments << 
-                            "ol_args %" << (*it)->get_field_name() << " => " << as_expression( (*it)->get_shared_expression().shallow_copy()) << "\n"
-                            ;
-                        fill_immediate_arguments << 
-                            "imm_args % " << (*it)->get_field_name() << " => " << as_expression( (*it)->get_shared_expression().shallow_copy() ) << "\n"
-                            ;
+                        if ((*it)->get_symbol().is_target())
+                        {
+                            fill_outline_arguments << 
+                                "ol_args %" << (*it)->get_field_name() << " => " 
+                                << as_expression( (*it)->get_shared_expression().shallow_copy()) << "\n"
+                                ;
+                            fill_immediate_arguments << 
+                                "imm_args % " << (*it)->get_field_name() << " => " 
+                                << as_expression( (*it)->get_shared_expression().shallow_copy() ) << "\n"
+                                ;
+                        }
+                        else
+                        {
+                            TL::Symbol ptr_of_sym = Nanox::get_function_ptr_of((*it)->get_shared_expression().get_type(),
+                                    ctr.retrieve_context());
+
+                            fill_outline_arguments << 
+                                "ol_args %" << (*it)->get_field_name() << " => " 
+                                << ptr_of_sym.get_name() << "(" << as_expression( (*it)->get_shared_expression().shallow_copy()) << ")\n"
+                                ;
+                            fill_immediate_arguments << 
+                                "imm_args % " << (*it)->get_field_name() << " => " 
+                                << ptr_of_sym.get_name() << "(" << as_expression( (*it)->get_shared_expression().shallow_copy() ) << ")\n"
+                                ;
+                        }
 
                         // Best effort, this may fail sometimes
                         DataReference data_ref((*it)->get_shared_expression());
-                        if (data_ref.is_valid())
-                        {
-                            // Make (*it) TARGET as required by Fortran
-                            data_ref.get_base_symbol().get_internal_symbol()->entity_specs.is_target = 1;
-                        }
-                        else
+                        if (!data_ref.is_valid())
                         {
                             std::cerr 
                                 << (*it)->get_shared_expression().get_locus() 

@@ -62,4 +62,6 @@ libtlnanox_lowering_la_SOURCES = \
 								 tl-parallel-spawn.cpp \
 								 tl-loop-spawn.cpp \
 								 tl-reduction-common.cpp \
+								 tl-nanox-ptr.cpp \
+								 tl-nanox-ptr.hpp \
 								 $(END)

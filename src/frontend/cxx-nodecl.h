@@ -80,6 +80,12 @@ const char* nodecl_get_filename(nodecl_t);
 int nodecl_get_line(nodecl_t);
 const char* nodecl_get_locus(nodecl_t);
 
+void nodecl_set_location(nodecl_t n, const char* filename, int line);
+void nodecl_set_locus(nodecl_t n, const char* filename, int line);
+
+void nodecl_set_location_as(nodecl_t n, nodecl_t loc);
+void nodecl_set_locus_as(nodecl_t n, nodecl_t loc);
+
 // Kind of node
 node_t nodecl_get_kind(nodecl_t);
 

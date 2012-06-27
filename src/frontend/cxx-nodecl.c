@@ -407,6 +407,27 @@ void nodecl_set_child(nodecl_t n, int nc, nodecl_t c)
     ast_set_child(nodecl_get_ast(n), nc, nodecl_get_ast(c));
 }
 
+void nodecl_set_location(nodecl_t n, const char* filename, int line)
+{
+    ast_set_filename(nodecl_get_ast(n), filename);
+    ast_set_line(nodecl_get_ast(n), line);
+}
+
+void nodecl_set_locus(nodecl_t n, const char* filename, int line)
+{
+    nodecl_set_location(n, filename, line);
+}
+
+void nodecl_set_location_as(nodecl_t n, nodecl_t loc)
+{
+    nodecl_set_location(n, nodecl_get_filename(loc), nodecl_get_line(loc));
+}
+
+void nodecl_set_locus_as(nodecl_t n, nodecl_t loc)
+{
+    nodecl_set_location(n, nodecl_get_filename(loc), nodecl_get_line(loc));
+}
+
 #define LANG_DECL_CONTEXT "lang.decl_context_t"
 
 decl_context_t nodecl_get_decl_context(nodecl_t n)
