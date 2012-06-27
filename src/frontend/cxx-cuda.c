@@ -52,8 +52,9 @@ static type_t* cuda_get_dim3_type(void)
         decl_context_t class_context = new_class_context(global_decl_context, new_class_sym);
         class_type_set_inner_context(new_class_sym->type_information, class_context);
 
+#ifdef CUDA_DIR
 	new_class_sym->file = CUDA_DIR"/include/vector_types.h";
-
+#endif
 
         class_type_set_inner_context(new_class_sym->type_information, class_context);
 

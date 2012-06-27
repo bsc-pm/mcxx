@@ -500,7 +500,11 @@ void DeviceCUDA::create_outline(
 	{
 		static bool check(const std::string& path)
 		{
+#ifdef CUDA_DIR
 			std::string cudaPath(CUDA_DIR);
+#else
+			std::string cudaPath("???");
+#endif
 			if (path.substr(0, cudaPath.size()) == cudaPath)
 				return true;
 			else
