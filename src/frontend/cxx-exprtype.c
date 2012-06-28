@@ -11270,9 +11270,16 @@ static void compute_nodecl_initializer_clause(AST initializer, decl_context_t de
         default:
             {
                 check_expression_impl_(initializer, decl_context, nodecl_output);
+                char is_type_dependent = nodecl_expr_is_type_dependent(*nodecl_output);
+                char is_value_dependent = nodecl_expr_is_value_dependent(*nodecl_output);
+
                 *nodecl_output = nodecl_make_cxx_initializer(*nodecl_output, 
                         nodecl_get_filename(*nodecl_output), 
                         nodecl_get_line(*nodecl_output));
+
+                // Propagate attributes as needed
+                nodecl_expr_set_is_type_dependent(*nodecl_output, is_type_dependent);
+                nodecl_expr_set_is_value_dependent(*nodecl_output, is_value_dependent);
                 break;
             }
         case AST_INITIALIZER_BRACES:
@@ -11628,11 +11635,13 @@ static void compute_nodecl_equal_initializer(AST initializer, decl_context_t dec
     if (!nodecl_is_err_expr(*nodecl_output))
     {
         char is_type_dependent = nodecl_expr_is_type_dependent(*nodecl_output);
+        char is_value_dependent = nodecl_expr_is_value_dependent(*nodecl_output);
         type_t* t = nodecl_get_type(*nodecl_output);
 
         *nodecl_output = nodecl_make_cxx_equal_initializer(*nodecl_output, 
                 ASTFileName(initializer), ASTLine(initializer));
         nodecl_expr_set_is_type_dependent(*nodecl_output, is_type_dependent);
+        nodecl_expr_set_is_value_dependent(*nodecl_output, is_value_dependent);
 
         nodecl_set_type(*nodecl_output, t);
     }
@@ -11868,7 +11877,8 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
     type_t* initializer_expr_type = nodecl_get_type(nodecl_expr);
     type_t* declared_type_no_cv = get_unqualified_type(declared_type);
 
-    if (nodecl_expr_is_type_dependent(nodecl_expr))
+    if (nodecl_expr_is_type_dependent(nodecl_expr)
+            || nodecl_expr_is_value_dependent(nodecl_expr))
     {
         *nodecl_output = nodecl_expr;
         nodecl_set_type(*nodecl_output, declared_type_no_cv);
@@ -12092,8 +12102,16 @@ void check_nodecl_equal_initializer(nodecl_t nodecl_initializer,
 {
     ERROR_CONDITION(nodecl_get_kind(nodecl_initializer) != NODECL_CXX_EQUAL_INITIALIZER, "Invalid nodecl", 0);
 
-    nodecl_t nodecl_expr = nodecl_get_child(nodecl_initializer, 0);
-    check_nodecl_initializer_clause(nodecl_expr, decl_context, declared_type, nodecl_output);
+    if (nodecl_expr_is_type_dependent(nodecl_initializer)
+            || nodecl_expr_is_value_dependent(nodecl_initializer))
+    {
+        *nodecl_output = nodecl_initializer;
+    }
+    else
+    {
+        nodecl_t nodecl_expr = nodecl_get_child(nodecl_initializer, 0);
+        check_nodecl_initializer_clause(nodecl_expr, decl_context, declared_type, nodecl_output);
+    }
 }
 
 void check_initialization_nodecl(nodecl_t nodecl_initializer, decl_context_t decl_context, type_t* declared_type, nodecl_t* nodecl_output)
