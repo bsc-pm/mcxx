@@ -1087,6 +1087,18 @@ char is_gcc_builtin_va_list(type_t *t)
 
 static void null_dtor(const void* v UNUSED_PARAMETER) { }
 
+static void* rb_tree_query_uint(rb_red_blk_tree* tree, unsigned int u)
+{
+    type_t* result = NULL;
+    rb_red_blk_node* n = rb_tree_query(tree, &u);
+    if (n != NULL)
+    {
+        result = rb_node_get_info(n);
+    }
+
+    return result;
+}
+
 static type_t* rb_tree_query_type(rb_red_blk_tree* tree, type_t* t)
 {
     type_t* result = NULL;
@@ -1115,6 +1127,19 @@ static int intptr_t_comp(const void *v1, const void *v2)
 {
     intptr_t p1 = (intptr_t)(v1);
     intptr_t p2 = (intptr_t)(v2);
+
+    if (p1 < p2)
+        return -1;
+    else if (p1 > p2)
+        return 1;
+    else
+        return 0;
+}
+
+static int uint_comp(const void *v1, const void *v2)
+{
+    unsigned int p1 = *(unsigned int*)(v1);
+    unsigned int p2 = *(unsigned int*)(v2);
 
     if (p1 < p2)
         return -1;
@@ -3021,16 +3046,36 @@ type_t* get_array_type_bounds_with_regions(type_t* element_type,
             array_region, /* with_descriptor */ 0);
 }
 
+static rb_red_blk_tree* get_vector_sized_hash(unsigned int vector_size)
+{
+    static rb_red_blk_tree *_vector_size_hash = NULL;
+
+    if (_vector_size_hash == NULL)
+    {
+        _vector_size_hash = rb_tree_create(uint_comp, null_dtor, null_dtor);
+    }
+
+    rb_red_blk_tree* result = (rb_red_blk_tree*)rb_tree_query_uint(_vector_size_hash, vector_size);
+
+    if (result == NULL)
+    {
+        rb_red_blk_tree* new_hash = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
+
+        unsigned int *k = calloc(sizeof(*k), 1);
+        *k = vector_size;
+        rb_tree_insert(_vector_size_hash, k, new_hash);
+
+        result = new_hash;
+    }
+
+    return result;
+}
+
 type_t* get_vector_type(type_t* element_type, unsigned int vector_size)
 {
     ERROR_CONDITION(element_type == NULL, "Invalid type", 0);
 
-    static rb_red_blk_tree *_vector_hash = NULL;
-
-    if (_vector_hash == NULL)
-    {
-        _vector_hash = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
-    }
+    rb_red_blk_tree *_vector_hash = get_vector_sized_hash(vector_size);
 
     type_t* result = rb_tree_query_type(_vector_hash, element_type);
 
