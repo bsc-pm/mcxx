@@ -12102,9 +12102,13 @@ void check_nodecl_equal_initializer(nodecl_t nodecl_initializer,
 {
     ERROR_CONDITION(nodecl_get_kind(nodecl_initializer) != NODECL_CXX_EQUAL_INITIALIZER, "Invalid nodecl", 0);
 
-    if (nodecl_expr_is_type_dependent(nodecl_initializer)
-            || nodecl_expr_is_value_dependent(nodecl_initializer))
+    if (nodecl_get_kind(nodecl_initializer) == NODECL_CXX_INITIALIZER
+            && (nodecl_expr_is_type_dependent(nodecl_initializer)
+                || nodecl_expr_is_value_dependent(nodecl_initializer)))
     {
+        // If this is a simple expression that turns to be dependent, then
+        // preserve its equal initializer
+        // template <typename T> void f() { long t = sizeof(T); }
         *nodecl_output = nodecl_initializer;
     }
     else
@@ -12160,9 +12164,9 @@ static void check_nodecl_initializer_clause(nodecl_t initializer_clause,
 
     switch (nodecl_get_kind(initializer_clause))
     {
-        // Default should be an expression
         case NODECL_CXX_INITIALIZER:
             {
+                // This node wraps a simple expression
                 check_nodecl_expr_initializer(
                         nodecl_get_child(initializer_clause, 0), 
                         decl_context, declared_type, nodecl_output);
