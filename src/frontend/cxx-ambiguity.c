@@ -73,10 +73,6 @@ void set_test_expression_status(char c)
 }
 
 // Generic routines
-typedef char ambiguity_check_intepretation_fun_t(AST, decl_context_t, void* info);
-typedef int ambiguity_choose_interpretation_fun_t(AST current, AST previous, decl_context_t, void* info);
-typedef char ambiguity_fallback_interpretation_fun_t(AST, decl_context_t, void* info);
-
 static void choose_option(AST a, int n);
 
 void solve_ambiguity_generic(AST a, decl_context_t decl_context, void *info,
