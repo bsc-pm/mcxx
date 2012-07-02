@@ -64,10 +64,14 @@ namespace TL { namespace Nanox {
         outline_source
             << "nanos_err_t err = nanos_omp_set_implicit(nanos_current_wd());"
             << "if (err != NANOS_OK) nanos_handle_error(err);"
+            << "err = nanos_omp_enter_team();"
+            << "if (err != NANOS_OK) nanos_handle_error(err);"
             << reduction_initialization
             << statement_placeholder(placeholder)
             << reduction_code
             << "err = nanos_omp_barrier();"
+            << "if (err != NANOS_OK) nanos_handle_error(err);"
+            << "err = nanos_leave_team();"
             << "if (err != NANOS_OK) nanos_handle_error(err);"
             ;
 
