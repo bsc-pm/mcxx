@@ -8108,6 +8108,53 @@ char can_be_called_with_number_of_arguments(scope_entry_t *entry, int num_argume
     return 0;
 }
 
+static void handle_computed_function_type(
+        nodecl_t *nodecl_called,
+        type_t** called_type,
+        nodecl_t nodecl_argument_list,
+        decl_context_t decl_context UNUSED_PARAMETER,
+        const char* filename,
+        int line)
+{
+    nodecl_t nodecl_symbol = *nodecl_called;
+
+    ERROR_CONDITION(nodecl_get_kind(nodecl_symbol) != NODECL_SYMBOL, "Invalid called entity", 0);
+    scope_entry_t* generic_name = nodecl_get_symbol(nodecl_symbol);
+
+    int i, num_elements;
+    nodecl_t* list = nodecl_unpack_list(nodecl_argument_list, &num_elements);
+    type_t* arg_types[num_elements];
+
+    for (i = 0; i < num_elements; i++)
+    {
+        arg_types[i] = nodecl_get_type(list[i]);
+    }
+
+    computed_function_type_t compute_function = computed_function_type_get_computing_function(*called_type);
+
+    const_value_t* const_val = NULL;
+    scope_entry_t* specific_name = compute_function(generic_name, arg_types, list, num_elements, &const_val);
+
+    free(list);
+
+    if (specific_name == NULL)
+    {
+        if (!checking_ambiguity())
+        {
+            error_printf("%s:%d: error: invalid call to generic function '%s'\n", 
+                    filename, line,
+                    generic_name->symbol_name);
+        }
+        *nodecl_called = nodecl_make_err_expr(filename, line);
+        *called_type = get_error_type();
+    }
+    else
+    {
+        *nodecl_called = nodecl_make_symbol(specific_name, filename, line);
+        *called_type = specific_name->type_information;
+    }
+}
+
 void check_nodecl_function_call(nodecl_t nodecl_called, 
         nodecl_t nodecl_argument_list, 
         decl_context_t decl_context, 
@@ -8122,6 +8169,18 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
     C_LANGUAGE()
     {
         type_t* called_type = no_ref(nodecl_get_type(nodecl_called));
+
+        if (is_computed_function_type(called_type))
+        {
+            handle_computed_function_type(&nodecl_called, &called_type, nodecl_argument_list, decl_context, filename, line);
+
+            if (nodecl_is_err_expr(nodecl_called))
+            {
+                *nodecl_output = nodecl_called;
+                return;
+            }
+        }
+
         if (!is_function_type(called_type)
                 && !is_pointer_to_function_type(called_type))
         {
