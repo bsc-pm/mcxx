@@ -204,9 +204,12 @@ namespace Nodecl
             result.insert(n.as<Nodecl::Symbol>(), 
                     TL::ThisMemberFunctionConstAdapter<TL::Symbol, Nodecl::Symbol>(&Nodecl::Symbol::get_symbol));
         }
+        else if (n.is<Nodecl::ObjectInit>())
+        {
+            get_all_symbols_first_occurrence_rec(n.as<Nodecl::ObjectInit>().get_symbol().get_value(), result);
+        }
 
         TL::ObjectList<Nodecl::NodeclBase> children = n.children();
-
         for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
                 it != children.end();
                 it++)
