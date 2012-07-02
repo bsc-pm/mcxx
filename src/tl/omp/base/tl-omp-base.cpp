@@ -317,7 +317,11 @@ namespace TL { namespace OpenMP {
     {
         PragmaClauseArgList parameter = directive.get_pragma_line().get_parameter();
 
-        TL::ObjectList<Nodecl::NodeclBase> expr_list = parameter.get_arguments_as_expressions();
+        TL::ObjectList<Nodecl::NodeclBase> expr_list;
+        if (!parameter.is_null())
+        {
+            expr_list = parameter.get_arguments_as_expressions();
+        }
 
         directive.integrate(
                 Nodecl::OpenMP::FlushMemory::make(
