@@ -2290,7 +2290,13 @@ CxxBase::Ret CxxBase::visit(const Nodecl::MemberInit& node)
     Nodecl::NodeclBase init_expr = node.get_init_expr();
     file << entry.get_name() << "(";
 
-    if (nodecl_calls_to_constructor(init_expr, entry.get_user_defined_type()))
+    TL::Type type = entry.get_type();
+    if (entry.is_class())
+    {
+        type = entry.get_user_defined_type();
+    }
+
+    if (nodecl_calls_to_constructor(init_expr, type))
     {
         // Ignore top level constructor
         walk_expression_list(init_expr.as<Nodecl::FunctionCall>().get_arguments().as<Nodecl::List>());
