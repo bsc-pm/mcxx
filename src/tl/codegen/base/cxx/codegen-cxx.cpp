@@ -2936,6 +2936,31 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxDef& node)
             &CxxBase::define_symbol_always);
 }
 
+CxxBase::Ret CxxBase::visit(const Nodecl::CxxUsingNamespace & node)
+{
+    TL::Scope context = node.get_context().retrieve_context();
+    TL::Symbol sym = node.get_symbol();
+
+   ERROR_CONDITION(!sym.is_namespace(),
+           "This symbol '%s' is not a namespace",
+           sym.get_name().c_str());
+
+   if (context.is_namespace_scope())
+    {
+        // We define de namespace if it has not been defined yet.
+        // C++ only allows the definition of a namespace inside an other
+        // namespace or in the global scope
+        do_define_symbol(sym,
+                &CxxBase::declare_symbol_always,
+                &CxxBase::define_symbol_always);
+
+        move_to_namespace(context.get_related_symbol());
+    }
+
+   indent();
+    file << "using namespace " << this->get_qualified_name(sym) << ";\n";
+}
+
 void CxxBase::codegen_explicit_instantiation(TL::Symbol sym,
         const Nodecl::NodeclBase & declarator_name,
         const Nodecl::NodeclBase & context,
@@ -3633,123 +3658,76 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
 
     // 2. Now declare members
     TL::ObjectList<TL::Symbol> members = symbol_type.get_all_members();
-
     access_specifier_t current_access_spec = default_access_spec;
-
-    struct iteration_member_tag
+    for (TL::ObjectList<TL::Symbol>::iterator it = members.begin();
+            it != members.end();
+            it++)
     {
-        bool (*filter)(TL::Symbol);
-    } filter_set[] = {
-        { is_member_type },
-        { is_member_nontype },
-        { NULL }
-    };
+        TL::Symbol &member(*it);
+        access_specifier_t access_spec = member.get_access_specifier();
 
-    // We have to iterate several times
-    int i = 0;
-    while (filter_set[i].filter != NULL)
-    {
-        for (TL::ObjectList<TL::Symbol>::iterator it = members.begin();
-                it != members.end();
-                it++)
+        CXX_LANGUAGE()
         {
-            TL::Symbol &member(*it);
-            if (!(filter_set[i].filter)(member))
-                continue;
-
-            access_specifier_t access_spec = member.get_access_specifier();
-
-            CXX_LANGUAGE()
-            {
-                inc_indent();
-                if (current_access_spec != access_spec)
-                {
-                    current_access_spec = access_spec;
-
-                    indent();
-                    if (current_access_spec == AS_PUBLIC)
-                    {
-                        file << "public:\n";
-                    }
-                    else if (current_access_spec == AS_PRIVATE)
-                    {
-                        file << "private:\n";
-                    }
-                    else if (current_access_spec == AS_PROTECTED)
-                    {
-                        file << "protected:\n";
-                    }
-                    else
-                    {
-                        internal_error("Unreachable code", 0);
-                    }
-                }
-            }
-
             inc_indent();
-
-            char old_in_member_declaration = state.in_member_declaration;
-            state.in_member_declaration = 1;
-
-            C_LANGUAGE()
+            if (current_access_spec != access_spec)
             {
-                if (member.get_type().is_named_class()
-                        && member.get_type().get_symbol().is_anonymous_union())
+                current_access_spec = access_spec;
+
+                indent();
+                if (current_access_spec == AS_PUBLIC)
                 {
-                    TL::Symbol class_sym = member.get_type().get_symbol();
-                    state.classes_being_defined.push_back(class_sym);
-                    define_class_symbol_aux(class_sym, symbols_defined_inside_class, level + 1);
-                    state.classes_being_defined.pop_back();
+                    file << "public:\n";
+                }
+                else if (current_access_spec == AS_PRIVATE)
+                {
+                    file << "private:\n";
+                }
+                else if (current_access_spec == AS_PROTECTED)
+                {
+                    file << "protected:\n";
                 }
                 else
                 {
-                    do_define_symbol(member,
-                            &CxxBase::declare_symbol_always,
-                            &CxxBase::define_symbol_always);
+                    internal_error("Unreachable code", 0);
                 }
-                set_codegen_status(member, CODEGEN_STATUS_DEFINED);
             }
-            CXX_LANGUAGE()
+        }
+
+        inc_indent();
+
+        char old_in_member_declaration = state.in_member_declaration;
+        state.in_member_declaration = 1;
+
+        C_LANGUAGE()
+        {
+            if (member.get_type().is_named_class()
+                    && member.get_type().get_symbol().is_anonymous_union())
             {
-                if (member.is_class())
+                TL::Symbol class_sym = member.get_type().get_symbol();
+                state.classes_being_defined.push_back(class_sym);
+                define_class_symbol_aux(class_sym, symbols_defined_inside_class, level + 1);
+                state.classes_being_defined.pop_back();
+            }
+            else
+            {
+                do_define_symbol(member,
+                        &CxxBase::declare_symbol_always,
+                        &CxxBase::define_symbol_always);
+            }
+            set_codegen_status(member, CODEGEN_STATUS_DEFINED);
+        }
+        CXX_LANGUAGE()
+        {
+            if (member.is_class())
+            {
+                if (member.get_type().is_template_specialized_type())
                 {
-                    if (member.get_type().is_template_specialized_type())
+                    // We should declare all user template specializations
+                    if (member.is_user_declared())
                     {
-                        // We should declare all user template specializations
-                        if (member.is_user_declared())
-                        {
-                            // Could this specialization be defined?
-                            if (member.is_defined_inside_class() &&
-                                    is_complete_type(member.get_type().get_internal_type()))
-                            {
-                                state.classes_being_defined.push_back(member);
-                                define_class_symbol_aux(member, symbols_defined_inside_class, level + 1);
-                                state.classes_being_defined.pop_back();
-                            }
-                            else
-                            {
-                                do_declare_symbol(member,
-                                        &CxxBase::declare_symbol_always,
-                                        &CxxBase::define_symbol_always);
-                                set_codegen_status(member, CODEGEN_STATUS_DECLARED);
-                            }
-                        }
-                        else
-                        {
-                            // Do not emit anything but mark the symbols
-                            if (symbols_defined_inside_class.contains(member))
-                            {
-                                set_codegen_status(member, CODEGEN_STATUS_DEFINED);
-                            }
-                            else
-                            {
-                                set_codegen_status(member, CODEGEN_STATUS_DECLARED);
-                            }
-                        }
-                    }
-                    else
-                    {
-                        if (member.is_defined_inside_class() || symbols_defined_inside_class.contains(member))
+                        // Could this specialization be defined?
+                        if (member.is_defined_inside_class() &&
+                                is_complete_type(member.get_type().get_internal_type()))
                         {
                             state.classes_being_defined.push_back(member);
                             define_class_symbol_aux(member, symbols_defined_inside_class, level + 1);
@@ -3763,54 +3741,26 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                             set_codegen_status(member, CODEGEN_STATUS_DECLARED);
                         }
                     }
-                }
-                else if (member.is_using_symbol())
-                {
-                    indent();
-                    ERROR_CONDITION(!member.get_type().is_unresolved_overload(), "Invalid SK_USING symbol\n", 0);
-
-                    TL::ObjectList<TL::Symbol> unresolved = member.get_type().get_unresolved_overload_set();
-
-                    TL::Symbol entry = unresolved[0];
-
-                    file << "using " << this->get_qualified_name(entry, /* without_template */ 1) << ";\n";
-                }
-                else if (member.is_enum()
-                        || member.is_typedef())
-                {
-                    do_define_symbol(member,
-                            &CxxBase::declare_symbol_always,
-                            &CxxBase::define_symbol_always);
-                    set_codegen_status(member, CODEGEN_STATUS_DEFINED);
-                }
-                else if (member.is_function())
-                {
-                    if (!member.get_function_code().is_null() &&
-                            member.is_defined_inside_class())
-                    {
-                        walk(member.get_function_code());
-                    }
                     else
                     {
-                        do_declare_symbol(member,
-                                &CxxBase::declare_symbol_always,
-                                &CxxBase::define_symbol_always);
+                        // Do not emit anything but mark the symbols
+                        if (symbols_defined_inside_class.contains(member))
+                        {
+                            set_codegen_status(member, CODEGEN_STATUS_DEFINED);
+                        }
+                        else
+                        {
+                            set_codegen_status(member, CODEGEN_STATUS_DECLARED);
+                        }
                     }
                 }
                 else
                 {
-                    if (member.is_variable()
-                            && (!member.is_static()
-                                || (member.get_type().is_integral_type()
-                                    || member.get_type().is_enum()
-                                    && member.get_type().is_const())
-                                || member.is_defined_inside_class()))
-
+                    if (member.is_defined_inside_class() || symbols_defined_inside_class.contains(member))
                     {
-                        do_define_symbol(member,
-                            &CxxBase::declare_symbol_always,
-                            &CxxBase::define_symbol_always);
-                        set_codegen_status(member, CODEGEN_STATUS_DEFINED);
+                        state.classes_being_defined.push_back(member);
+                        define_class_symbol_aux(member, symbols_defined_inside_class, level + 1);
+                        state.classes_being_defined.pop_back();
                     }
                     else
                     {
@@ -3821,17 +3771,71 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                     }
                 }
             }
-            state.in_member_declaration = old_in_member_declaration;
-
-            dec_indent();
-
-            CXX_LANGUAGE()
+            else if (member.is_using_symbol())
             {
-                dec_indent();
+                indent();
+                ERROR_CONDITION(!member.get_type().is_unresolved_overload(), "Invalid SK_USING symbol\n", 0);
+
+                TL::ObjectList<TL::Symbol> unresolved = member.get_type().get_unresolved_overload_set();
+
+                TL::Symbol entry = unresolved[0];
+
+                file << "using " << this->get_qualified_name(entry, /* without_template */ 1) << ";\n";
+            }
+            else if (member.is_enum()
+                    || member.is_typedef())
+            {
+                do_define_symbol(member,
+                        &CxxBase::declare_symbol_always,
+                        &CxxBase::define_symbol_always);
+                set_codegen_status(member, CODEGEN_STATUS_DEFINED);
+            }
+            else if (member.is_function())
+            {
+                if (!member.get_function_code().is_null() &&
+                        member.is_defined_inside_class())
+                {
+                    walk(member.get_function_code());
+                }
+                else
+                {
+                    do_declare_symbol(member,
+                            &CxxBase::declare_symbol_always,
+                            &CxxBase::define_symbol_always);
+                }
+            }
+            else
+            {
+                if (member.is_variable()
+                        && (!member.is_static()
+                            || (member.get_type().is_integral_type()
+                                || member.get_type().is_enum()
+                                && member.get_type().is_const())
+                            || member.is_defined_inside_class()))
+
+                {
+                    do_define_symbol(member,
+                            &CxxBase::declare_symbol_always,
+                            &CxxBase::define_symbol_always);
+                    set_codegen_status(member, CODEGEN_STATUS_DEFINED);
+                }
+                else
+                {
+                    do_declare_symbol(member,
+                            &CxxBase::declare_symbol_always,
+                            &CxxBase::define_symbol_always);
+                    set_codegen_status(member, CODEGEN_STATUS_DECLARED);
+                }
             }
         }
+        state.in_member_declaration = old_in_member_declaration;
 
-        i++;
+        dec_indent();
+
+        CXX_LANGUAGE()
+        {
+            dec_indent();
+        }
     }
 
     // 3. Declare friends
@@ -4744,6 +4748,12 @@ void CxxBase::do_define_symbol(TL::Symbol symbol,
         // Functions are not defined but only declared
         // We early return here otherwise this function would be marked as defined
         return;
+    }
+    else if (symbol.is_namespace())
+    {
+            move_to_namespace_of_symbol(symbol);
+            indent();
+            file << "namespace " << symbol.get_name() << " { }\n";
     }
     else if (symbol.is_template_parameter())
     {
@@ -5678,7 +5688,9 @@ void CxxBase::codegen_move_namespace_from_to(TL::Symbol from, TL::Symbol to)
     for (i = common; i < num_to; i++)
     {
         std::string real_name = namespace_nesting_to[i]->symbol_name;
-        //
+
+        set_codegen_status(namespace_nesting_to[i], CODEGEN_STATUS_DEFINED);
+
         // Anonymous namespace has special properties that we want to preserve
         if (real_name == "(unnamed)")
         {
@@ -5725,7 +5737,7 @@ void CxxBase::move_to_namespace(TL::Symbol namespace_sym)
         return;
     }
 
-    ERROR_CONDITION(namespace_sym.get_internal_symbol()->kind != SK_NAMESPACE, "This is not a namespace", 0);
+    ERROR_CONDITION(!namespace_sym.is_namespace(), "This is not a namespace", 0);
 
     // First close the namespaces
     codegen_move_namespace_from_to(state.opened_namespace, namespace_sym.get_internal_symbol());

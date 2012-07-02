@@ -333,6 +333,11 @@ namespace TL
         return this->_symbol->kind == SK_CLASS;
     }
 
+    bool Symbol::is_namespace() const
+    {
+        return this->_symbol->kind == SK_NAMESPACE;
+    }
+
     bool Symbol::is_dependent_friend_class() const
     {
         return this->_symbol->kind == SK_DEPENDENT_FRIEND_CLASS;

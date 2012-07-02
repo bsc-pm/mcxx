@@ -1090,10 +1090,7 @@ static void build_scope_using_directive(AST a, decl_context_t decl_context, node
 
     entry_list_free(result_list);
 
-    if (turn_into_inline)
-    {
-        entry->entity_specs.is_inline = 1;
-    }
+    entry->entity_specs.is_inline = turn_into_inline;
 
     // Now add this namespace to the used namespaces of this scope
     scope_t* namespace_scope = decl_context.current_scope;
@@ -1101,9 +1098,23 @@ static void build_scope_using_directive(AST a, decl_context_t decl_context, node
     ERROR_CONDITION(entry->related_decl_context.current_scope->kind != NAMESPACE_SCOPE,
             "Error, related scope is not namespace scope", 0);
 
-    P_LIST_ADD_ONCE(namespace_scope->use_namespace, 
-            namespace_scope->num_used_namespaces, 
+    P_LIST_ADD_ONCE(namespace_scope->use_namespace,
+            namespace_scope->num_used_namespaces,
             entry);
+
+    nodecl_t cxx_using_namespace =
+        nodecl_make_cxx_using_namespace(
+                nodecl_make_context(
+                    /* optional statement sequence */ nodecl_null(),
+                    decl_context,
+                    ASTFileName(a),
+                    ASTLine(a)),
+                entry,
+                ASTFileName(a),
+                ASTLine(a));
+
+    *nodecl_output =
+        nodecl_make_list_1(cxx_using_namespace);
 }
 
 void introduce_using_entities(
@@ -9729,6 +9740,7 @@ static void build_scope_namespace_definition(AST a,
             entry->file = ASTFileName(namespace_name);
             entry->kind = SK_NAMESPACE;
             entry->related_decl_context = namespace_context;
+            entry->entity_specs.is_user_declared = 1;
 
             // Link the scope of this newly created namespace
             if (is_inline)

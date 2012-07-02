@@ -165,6 +165,8 @@ namespace TL
             bool is_typedef() const;
             //! States whether this symbol is a class
             bool is_class() const;
+            //! States whether this symbol is a namespace
+            bool is_namespace() const;
             //! States whether this symbol is a dependent friend class
             bool is_dependent_friend_class() const;
             //! States whether this symbol is an enum name
