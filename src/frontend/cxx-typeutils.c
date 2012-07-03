@@ -7484,6 +7484,16 @@ static void get_type_name_string_internal_impl(decl_context_t decl_context,
                     {
                         whole_size = uniquestr("[0]");
                     }
+                    // If this is a saved expression and it IS a parameter we use its saved expression instead
+                    else if (nodecl_get_kind(type_info->array->whole_size) == NODECL_SYMBOL
+                            && nodecl_get_symbol(type_info->array->whole_size)->entity_specs.is_saved_expression)
+                    {
+                        scope_entry_t* saved_expr = nodecl_get_symbol(type_info->array->whole_size);
+                        const char* whole_size_str = uniquestr(codegen_to_str(saved_expr->value, decl_context));
+
+                        whole_size = strappend("[", whole_size_str);
+                        whole_size = strappend(whole_size, "]");
+                    }
                     else
                     {
                         const char* whole_size_str = uniquestr(codegen_to_str(type_info->array->whole_size, decl_context));
@@ -7498,7 +7508,7 @@ static void get_type_name_string_internal_impl(decl_context_t decl_context,
                     {
                         whole_size = uniquestr("[]");
                     }
-                    // If this is a saved expression and it is not a parameter we use its saved expression instead
+                    // If this is a saved expression and it is NOT a parameter we use its saved expression instead
                     else if (nodecl_get_kind(type_info->array->whole_size) == NODECL_SYMBOL
                             && nodecl_get_symbol(type_info->array->whole_size)->entity_specs.is_saved_expression)
                     {
