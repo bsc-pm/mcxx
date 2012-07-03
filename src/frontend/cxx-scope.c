@@ -4861,5 +4861,4 @@ const char* symbol_to_source(scope_entry_t* entry)
             "@SYMBOL-LITERAL-REF@(", pack, ")");
 
     return c;
-
 }
