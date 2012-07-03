@@ -55,6 +55,7 @@ namespace TL { namespace Nanox {
     {
         OutlineDataItem& outline_data_item = outline_info.get_entity_for_symbol(saved_expr.get_symbol());
         outline_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE);
+        outline_data_item.set_field_type(saved_expr.get_type().get_unqualified_type());
     }
 
     void LoweringVisitor::handle_vla_type_rec(TL::Type t, OutlineInfo& outline_info,
