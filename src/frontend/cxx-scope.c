@@ -4850,3 +4850,16 @@ scope_entry_list_t* query_dependent_entity_in_context(decl_context_t decl_contex
 
     return NULL;
 }
+
+const char* symbol_to_source(scope_entry_t* entry)
+{
+    const char* pack = pack_pointer("symbol", (void*)entry);
+
+    const char* c = NULL;
+
+    uniquestr_sprintf(&c, "%s%s%s", 
+            "@SYMBOL-LITERAL-REF@(", pack, ")");
+
+    return c;
+
+}

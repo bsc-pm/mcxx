@@ -384,6 +384,8 @@ static void check_gcc_postfix_expression(AST expression, decl_context_t decl_con
 static void check_gcc_builtin_va_arg(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
 static void check_gcc_parenthesized_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
 
+static void solve_literal_symbol(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
+
 // Returns if the function is ok
 //
 // Do not return within this function, set result to 0 or 1 and let it
@@ -892,6 +894,11 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
         case AST_AMBIGUITY :
             {
                 solve_ambiguous_expression(expression, decl_context, nodecl_output);
+                break;
+            }
+        case AST_SYMBOL_LITERAL_REF:
+            {
+                solve_literal_symbol(expression, decl_context, nodecl_output);
                 break;
             }
         default :
@@ -5380,44 +5387,15 @@ static void check_throw_expression(AST expression, decl_context_t decl_context, 
 
 static void cxx_common_name_check(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output);
 
-static void compute_symbol_type(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void compute_symbol_type_from_entry_list(scope_entry_list_t* result, 
+        nodecl_t* nodecl_output,
+        const char* filename, int line)
 {
-    CXX_LANGUAGE()
-    {
-        // C++ names are handled in another routine
-        cxx_common_name_check(expr, decl_context, nodecl_output);
-        return;
-    }
-
-    scope_entry_list_t* result = NULL;
-    result = query_nested_name(decl_context, NULL, NULL, expr); 
-
-    // char names_a_builtin = 0;
-    // const char *name = ASTText(expr);
-
-    // if (name != NULL
-    //         && strncmp(name, builtin_prefix, strlen(builtin_prefix)) == 0)
-    // {
-    //     names_a_builtin = 1;
-    // }
-
-    if (result == NULL)
-    {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: symbol '%s' not found in current scope\n",
-                    ast_location(expr), ASTText(expr));
-        }
-
-        *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
-        return;
-    }
-
     scope_entry_t* entry = entry_advance_aliases(entry_list_head(result));
 
     if (entry->kind == SK_ENUMERATOR)
     {
-        *nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
+        *nodecl_output = nodecl_make_symbol(entry, filename, line);
 
         if (nodecl_is_constant(entry->value))
         {
@@ -5429,7 +5407,7 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, nodecl_t*
     else if (entry->kind == SK_VARIABLE
             || entry->kind == SK_FUNCTION)
     {
-        *nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
+        *nodecl_output = nodecl_make_symbol(entry, filename, line);
         if (entry->entity_specs.is_member_of_anonymous)
         {
             nodecl_t accessor = entry->entity_specs.anonymous_accessor;
@@ -5437,8 +5415,8 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, nodecl_t*
                     accessor,
                     *nodecl_output,
                     entry->type_information,
-                    ASTFileName(expr),
-                    ASTLine(expr));
+                    filename,
+                    line);
         }
 
         if (entry->kind == SK_VARIABLE
@@ -5456,13 +5434,40 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, nodecl_t*
     {
         if (!checking_ambiguity())
         {
-            error_printf("%s: error: name '%s' not valid in expression\n",
-                    ast_location(expr), ASTText(expr));
+            error_printf("%s:%d: error: name '%s' not valid in expression\n",
+                    filename, line, entry->symbol_name);
         }
-        *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
+        *nodecl_output = nodecl_make_err_expr(filename, line);
     }
 
     entry_list_free(result);
+}
+
+static void compute_symbol_type(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+{
+    CXX_LANGUAGE()
+    {
+        // C++ names are handled in another routine
+        cxx_common_name_check(expr, decl_context, nodecl_output);
+        return;
+    }
+
+    scope_entry_list_t* result = NULL;
+    result = query_nested_name(decl_context, NULL, NULL, expr); 
+
+    if (result == NULL)
+    {
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: error: symbol '%s' not found in current scope\n",
+                    ast_location(expr), ASTText(expr));
+        }
+
+        *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
+        return;
+    }
+
+    compute_symbol_type_from_entry_list(result, nodecl_output, ASTFileName(expr), ASTLine(expr));
 }
 
 static void check_symbol(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -5745,6 +5750,41 @@ static void cxx_common_name_check(AST expr, decl_context_t decl_context, nodecl_
             DF_DO_NOT_CREATE_UNQUALIFIED_DEPENDENT_ENTITY);
 
     cxx_compute_name_from_entry_list(nodecl_name, result_list, decl_context, nodecl_output);
+}
+
+static void solve_literal_symbol(AST expression, decl_context_t decl_context, 
+        nodecl_t* nodecl_output)
+{
+    const char *tmp = ASTText(ASTSon0(expression));
+
+    const char * prefix = NULL;
+    void *p = NULL;
+    unpack_pointer(tmp, &prefix, &p);
+    
+    ERROR_CONDITION(prefix == NULL || p == NULL || strcmp(prefix, "symbol") != 0,
+            "Failure during unpack of symbol", 0);
+
+    scope_entry_t* entry = (scope_entry_t*)p;
+    scope_entry_list_t* entry_list = entry_list_new(entry);
+
+    if (IS_C_LANGUAGE)
+    {
+        compute_symbol_type_from_entry_list(entry_list, nodecl_output,
+                ASTFileName(expression),
+                ASTLine(expression));
+    }
+    else if (IS_CXX_LANGUAGE)
+    {
+        nodecl_t nodecl_name = nodecl_make_cxx_dep_name_simple(entry->symbol_name,
+                ASTFileName(expression),
+                ASTLine(expression));
+
+        cxx_compute_name_from_entry_list(nodecl_name, entry_list, decl_context, nodecl_output);
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
 }
 
 static void check_nodecl_array_subscript_expression(

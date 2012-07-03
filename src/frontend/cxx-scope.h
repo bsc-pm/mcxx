@@ -252,6 +252,8 @@ LIBMCXX_EXTERN scope_entry_list_t* query_dependent_entity_in_context(decl_contex
 // Utils
 LIBMCXX_EXTERN char scope_is_enclosed_by(scope_t* scope, scope_t* potential_enclosing);
 
+LIBMCXX_EXTERN const char* symbol_to_source(scope_entry_t* entry);
+
 MCXX_END_DECLS
 
 #endif // CXX_SCOPE_H

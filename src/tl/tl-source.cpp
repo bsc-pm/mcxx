@@ -708,6 +708,11 @@ namespace TL
         return type_to_source(t.get_internal_type());
     }
 
+    std::string as_symbol(TL::Symbol s)
+    {
+        return symbol_to_source(s.get_internal_symbol());
+    }
+
     std::string statement_placeholder(Nodecl::NodeclBase& placeholder)
     {
         std::stringstream ss;
