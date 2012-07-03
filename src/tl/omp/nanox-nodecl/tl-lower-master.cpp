@@ -62,6 +62,8 @@ namespace TL { namespace Nanox {
 
         Nodecl::NodeclBase copied_statements = Nodecl::Utils::deep_copy(statements, placeholder);
         placeholder.integrate(copied_statements);
+
+        construct.integrate(n);
     }
 
 } }
