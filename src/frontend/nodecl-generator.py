@@ -594,7 +594,10 @@ def generate_visitor_class_header(rule_map):
          qualified_name = get_qualified_name(namespaces, class_name)
          print "     virtual Ret visit(const Nodecl::%s & n)" % (qualified_name)
          print "     {"
-         print "        return _modular_visitor->walk(n);"
+         if module_name == "base":
+                 print "        return _modular_visitor->walk(n);"
+         else:
+                 print "        return this->unhandled_node(n);"
          print "     }"
     print "};"
     print "template <typename _Ret>"
