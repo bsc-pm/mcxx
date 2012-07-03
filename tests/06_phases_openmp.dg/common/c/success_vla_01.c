@@ -51,6 +51,7 @@ test_exec_faulty_nanox_instrument_4thread=yes
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 void f(int n, int m, int v[n + 1][m * 2])
 {
@@ -71,7 +72,8 @@ void g(int n, int m, int v[n + 1][m * 2])
 
 int main(int argc, char *argv[])
 {
-    int c[2+1][3*2] = {0};
+    int c[2+1][3*2];
+    memset(c, 0, sizeof(c));
 
     g(2, 3, c);
 
