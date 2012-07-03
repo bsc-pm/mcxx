@@ -189,6 +189,18 @@ namespace TL { namespace Nanox {
                                     private_sym->type_information = (*it)->get_in_outline_type().get_internal_type();
                                     private_sym->defined = private_sym->entity_specs.is_user_declared = 1;
 
+                                    // Properly initialize it
+                                    nodecl_t nodecl_sym = nodecl_make_symbol(param_addr_sym, NULL, 0);
+                                    nodecl_set_type(nodecl_sym, lvalue_ref(param_addr_sym->type_information));
+
+                                    // This is doing
+                                    //    T v = (T)ptr_v;
+                                    private_sym->value = 
+                                        nodecl_make_cast(
+                                                nodecl_sym,
+                                                private_sym->type_information,
+                                                "C", NULL, 0);
+
                                     if (sym.is_valid())
                                     {
                                         symbol_map->add_map(sym, private_sym);
@@ -556,12 +568,6 @@ namespace TL { namespace Nanox {
                             case OutlineDataItem::ITEM_KIND_DATA_ADDRESS:
                                 {
                                     param_type = TL::Type::get_void_type().get_pointer_to();
-
-                                    private_entities
-                                        << (*it)->get_field_name() 
-                                        << " = " << "(" << as_type((*it)->get_in_outline_type()) << ") ptr_" << (*it)->get_field_name() 
-                                        << ";"
-                                        ;
 
                                     break;
                                 }
