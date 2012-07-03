@@ -115,6 +115,7 @@ typedef struct check_expression_handler_tag
  STATEMENT_HANDLER(AST_AMBIGUITY, disambiguate_expression) \
  STATEMENT_HANDLER(AST_USER_DEFINED_BINARY_OP, check_user_defined_binary_op) \
  STATEMENT_HANDLER(AST_NODECL_LITERAL, check_nodecl_literal) \
+ STATEMENT_HANDLER(AST_SYMBOL_LITERAL_REF, check_symbol_literal) \
 
 // Enable this if you really need extremely verbose typechecking
 // #define VERBOSE_DEBUG_EXPR 1
@@ -3535,6 +3536,41 @@ static void check_user_defined_binary_op(AST expr, decl_context_t decl_context, 
 static void check_nodecl_literal(AST expr, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
     *nodecl_output = nodecl_make_from_ast_nodecl_literal(expr);
+}
+
+static void check_symbol_literal(AST expr, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
+{
+    const char *prefix = NULL;
+    void *p = NULL;
+    const char *tmp = ASTText(ASTSon0(expr));
+    unpack_pointer(tmp, &prefix, &p);
+
+    ERROR_CONDITION(prefix == NULL || p == NULL || strcmp(prefix, "symbol") != 0,
+            "Failure during unpack of symbol literal", 0);
+
+    scope_entry_t* entry = (scope_entry_t*)p;
+
+    *nodecl_output = nodecl_make_symbol(
+            entry,
+            ASTFileName(expr),
+            ASTLine(expr));
+
+    if (entry->kind == SK_VARIABLE)
+    {
+        if (!is_const_qualified_type(no_ref(entry->type_information)))
+        {
+            nodecl_set_type(*nodecl_output, lvalue_ref(entry->type_information));
+        }
+        else
+        {
+            nodecl_set_type(*nodecl_output, entry->type_information);
+        }
+    }
+    else
+    {
+        // Best effort
+        nodecl_set_type(*nodecl_output, entry->type_information);
+    }
 }
 
 #if 0
