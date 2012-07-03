@@ -465,13 +465,36 @@ namespace TL { namespace OpenMP {
             num_threads = args[0];
         }
 
-        directive.integrate(
-                Nodecl::OpenMP::Parallel::make(
+        PragmaCustomClause if_clause = pragma_line.get_clause("if");
+
+        Nodecl::NodeclBase parallel_code = Nodecl::OpenMP::Parallel::make(
                     execution_environment,
                     num_threads,
                     directive.get_statements().shallow_copy(),
                     directive.get_filename(),
-                    directive.get_line()));
+                    directive.get_line());
+
+        // Honour if-clause
+        if (if_clause.is_defined())
+        {
+            TL::ObjectList<Nodecl::NodeclBase> expr_list = if_clause.get_arguments_as_expressions(directive);
+            if (expr_list.size() != 1)
+            {
+                warn_printf("%s: warning: ignoring invalid 'if' clause in 'task' construct\n",
+                        directive.get_locus().c_str());
+            }
+            else
+            {
+                parallel_code = Nodecl::IfElseStatement::make(
+                        expr_list[0],
+                        Nodecl::List::make(parallel_code),
+                        directive.get_statements().shallow_copy(),
+                        directive.get_filename(),
+                        directive.get_line());
+            }
+        }
+
+        directive.integrate(parallel_code);
     }
 
     void Base::single_handler_pre(TL::PragmaCustomStatement) { }
@@ -679,7 +702,9 @@ namespace TL { namespace OpenMP {
 
         Nodecl::NodeclBase code = loop_handler_post(directive, statement, /* barrier_at_end */ false, /* is_combined_worksharing */ true);
 
-        Nodecl::NodeclBase nodecl_parallel
+        PragmaCustomClause if_clause = pragma_line.get_clause("if");
+
+        Nodecl::NodeclBase parallel_code
             = Nodecl::OpenMP::Parallel::make(
                 execution_environment,
                 num_threads,
@@ -687,7 +712,27 @@ namespace TL { namespace OpenMP {
                 directive.get_filename(),
                 directive.get_line());
 
-        directive.integrate(nodecl_parallel);
+        // Honour if-clause
+        if (if_clause.is_defined())
+        {
+            TL::ObjectList<Nodecl::NodeclBase> expr_list = if_clause.get_arguments_as_expressions(directive);
+            if (expr_list.size() != 1)
+            {
+                warn_printf("%s: warning: ignoring invalid 'if' clause in 'task' construct\n",
+                        directive.get_locus().c_str());
+            }
+            else
+            {
+                parallel_code = Nodecl::IfElseStatement::make(
+                        expr_list[0],
+                        Nodecl::List::make(parallel_code),
+                        directive.get_statements().shallow_copy(),
+                        directive.get_filename(),
+                        directive.get_line());
+            }
+        }
+
+        directive.integrate(parallel_code);
     }
 
     // Function tasks
@@ -890,7 +935,9 @@ namespace TL { namespace OpenMP {
             num_threads = args[0];
         }
 
-        Nodecl::NodeclBase nodecl_parallel
+        PragmaCustomClause if_clause = pragma_line.get_clause("if");
+
+        Nodecl::NodeclBase parallel_code
             = Nodecl::OpenMP::Parallel::make(
                 execution_environment,
                 num_threads,
@@ -898,7 +945,27 @@ namespace TL { namespace OpenMP {
                 directive.get_filename(),
                 directive.get_line());
 
-        directive.integrate(nodecl_parallel);
+        // Honour if-clause
+        if (if_clause.is_defined())
+        {
+            TL::ObjectList<Nodecl::NodeclBase> expr_list = if_clause.get_arguments_as_expressions(directive);
+            if (expr_list.size() != 1)
+            {
+                warn_printf("%s: warning: ignoring invalid 'if' clause in 'task' construct\n",
+                        directive.get_locus().c_str());
+            }
+            else
+            {
+                parallel_code = Nodecl::IfElseStatement::make(
+                        expr_list[0],
+                        Nodecl::List::make(parallel_code),
+                        directive.get_statements().shallow_copy(),
+                        directive.get_filename(),
+                        directive.get_line());
+            }
+        }
+
+        directive.integrate(parallel_code);
     }
 
     void Base::parallel_for_handler_pre(TL::PragmaCustomStatement) { }
@@ -931,15 +998,37 @@ namespace TL { namespace OpenMP {
 
         Nodecl::NodeclBase code = loop_handler_post(directive, statement, /* barrier_at_end */ false, /* is_combined_worksharing */ true);
 
-        Nodecl::NodeclBase nodecl_parallel
-            = Nodecl::OpenMP::Parallel::make(
-                execution_environment,
-                num_threads,
-                code,
-                directive.get_filename(),
-                directive.get_line());
+        PragmaCustomClause if_clause = pragma_line.get_clause("if");
 
-        directive.integrate(nodecl_parallel);
+        Nodecl::NodeclBase parallel_code
+            = Nodecl::OpenMP::Parallel::make(
+                    execution_environment,
+                    num_threads,
+                    code,
+                    directive.get_filename(),
+                    directive.get_line());
+
+        // Honour if-clause
+        if (if_clause.is_defined())
+        {
+            TL::ObjectList<Nodecl::NodeclBase> expr_list = if_clause.get_arguments_as_expressions(directive);
+            if (expr_list.size() != 1)
+            {
+                warn_printf("%s: warning: ignoring invalid 'if' clause in 'task' construct\n",
+                        directive.get_locus().c_str());
+            }
+            else
+            {
+                parallel_code = Nodecl::IfElseStatement::make(
+                        expr_list[0],
+                        Nodecl::List::make(parallel_code),
+                        directive.get_statements().shallow_copy(),
+                        directive.get_filename(),
+                        directive.get_line());
+            }
+        }
+
+        directive.integrate(parallel_code);
     }
 
     // Keep these
