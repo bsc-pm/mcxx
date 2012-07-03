@@ -694,6 +694,26 @@ namespace Nodecl
         }
     }
 
+    void Utils::prepend_to_top_level_nodecl(Nodecl::NodeclBase n)
+    {
+        if (n.is<Nodecl::List>())
+        {
+            Nodecl::List l = n.as<Nodecl::List>();
+            for (Nodecl::List::iterator it = l.begin();
+                    it != l.end();
+                    it++)
+            {
+                prepend_to_top_level_nodecl(*it);
+            }
+        }
+        else
+        {
+            Nodecl::TopLevel top_level = Nodecl::NodeclBase(CURRENT_COMPILED_FILE->nodecl).as<Nodecl::TopLevel>();
+            Nodecl::List list = top_level.get_top_level().as<Nodecl::List>();
+            list.push_front(n);
+        }
+    }
+
     Nodecl::NodeclBase Utils::advance_conversions(Nodecl::NodeclBase n)
     {
         while (n.is<Nodecl::Conversion>())

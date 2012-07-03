@@ -67,6 +67,7 @@ namespace Nodecl
 
         TL::Symbol get_enclosing_function(Nodecl::NodeclBase n);
 
+        void prepend_to_top_level_nodecl(Nodecl::NodeclBase n);
         void append_to_top_level_nodecl(Nodecl::NodeclBase n);
 
         Nodecl::NodeclBase advance_conversions(Nodecl::NodeclBase n);
