@@ -658,10 +658,36 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Conversion& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxArrow& node)
 {
-    walk(node.get_lhs());
+    Nodecl::NodeclBase lhs = node.get_lhs();
+    Nodecl::NodeclBase rhs = node.get_member();
+
+    char needs_parentheses = operand_has_lower_priority(node, lhs);
+    if (needs_parentheses)
+    {
+        file << "(";
+    }
+    walk(lhs);
+
+    if (needs_parentheses)
+    {
+        file << ")";
+    }
+
     file << "->"
          << /* template tag if needed */ node.get_text();
-    walk(node.get_member());
+
+
+    needs_parentheses = operand_has_lower_priority(node, rhs);
+    if (needs_parentheses)
+    {
+        file << "(";
+    }
+    walk(rhs);
+
+    if (needs_parentheses)
+    {
+        file << ")";
+    }
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxBracedInitializer& node)
