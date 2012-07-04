@@ -1169,6 +1169,8 @@ static default_argument_info_t** empty_default_argument_info(int num_parameters)
 #undef ATTR_MATHFN_FPROUNDING_STORE
 #define ATTR_MATHFN_FPROUNDING_STORE ATTR_NOTHROW_LIST
 
+static void sign_in_sse_builtins(decl_context_t global_context);
+
 void gcc_sign_in_builtins(decl_context_t global_context)
 {
 
@@ -2174,6 +2176,7 @@ DEF_GOMP_BUILTIN (BUILT_IN_GOMP_SINGLE_COPY_START, "GOMP_single_copy_start",
 DEF_GOMP_BUILTIN (BUILT_IN_GOMP_SINGLE_COPY_END, "GOMP_single_copy_end",
 		  BT_FN_VOID_PTR, ATTR_NOTHROW_LEAF_LIST)
 
+sign_in_sse_builtins(global_context);
 }
 
 static scope_entry_t* solve_gcc_sync_builtins_overload_name(scope_entry_t* overloaded_function, 
@@ -2299,4 +2302,9 @@ static scope_entry_t* solve_gcc_sync_builtins_overload_name(scope_entry_t* overl
     }
 
     return result;
+}
+
+static void sign_in_sse_builtins(decl_context_t decl_context)
+{
+#include "cxx-gccbuiltins-sse.h"
 }
