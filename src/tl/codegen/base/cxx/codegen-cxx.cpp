@@ -3445,6 +3445,8 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
         TL::ObjectList<TL::Symbol> symbols_defined_inside_class,
         int level)
 {
+    bool has_been_declared =
+        (get_codegen_status(symbol) == CODEGEN_STATUS_DECLARED);
     set_codegen_status(symbol, CODEGEN_STATUS_DEFINED);
 
     access_specifier_t default_access_spec = AS_UNKNOWN;
@@ -3539,12 +3541,12 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                         TL::Symbol enclosing_class = symbol.get_class_type().get_symbol();
                         codegen_template_headers_bounded(template_parameters,
                                 enclosing_class.get_scope().get_template_parameters(),
-                                /*show default values*/ true);
+                                /*show default values*/ !has_been_declared);
                     }
                     else
                     {
                         // We want all template headers
-                        codegen_template_headers_all_levels(template_parameters, /*show default values*/ true);
+                        codegen_template_headers_all_levels(template_parameters, /*show default values*/ !has_been_declared);
                     }
                 }
                 else
@@ -3572,7 +3574,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                         if (!symbol.is_anonymous_union())
                         {
                             TL::TemplateParameters template_parameters = symbol.get_scope().get_template_parameters();
-                            codegen_template_headers_all_levels(template_parameters, /*show default values*/ true);
+                            codegen_template_headers_all_levels(template_parameters, /*show default values*/ !has_been_declared);
                         }
                     }
                 }
@@ -4954,7 +4956,7 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                             "as a dependent template specialized type!\n", 0);
 
                     TL::TemplateParameters template_parameters =
-                        symbol.get_type().template_specialized_type_get_template_parameters();
+                        template_type.get_related_template_symbol().get_type().template_type_get_template_parameters();
 
                     codegen_template_header(template_parameters, /*show default values*/ true);
                 }
@@ -6367,8 +6369,14 @@ void CxxBase::codegen_template_headers_bounded(
     {
         if (template_parameters.has_enclosing_parameters())
         {
-            TL::TemplateParameters enclosing_template_parameters = template_parameters.get_enclosing_parameters();
-            codegen_template_headers_bounded(enclosing_template_parameters, lim, show_default_values);
+            TL::TemplateParameters enclosing_template_parameters =
+                template_parameters.get_enclosing_parameters();
+
+            // We only print the default arguments of the innermost template header.
+            // For this reason we set show_default_values to false
+            codegen_template_headers_bounded(
+                    enclosing_template_parameters, lim,
+                    /* show_default_values */ false);
         }
         codegen_template_header(template_parameters, show_default_values);
     }
@@ -6380,8 +6388,14 @@ void CxxBase::codegen_template_headers_all_levels(
 {
     if (template_parameters.has_enclosing_parameters())
     {
-        TL::TemplateParameters enclosing_template_parameters = template_parameters.get_enclosing_parameters();
-        codegen_template_headers_all_levels(enclosing_template_parameters, show_default_values);
+        TL::TemplateParameters enclosing_template_parameters =
+            template_parameters.get_enclosing_parameters();
+
+        // We only print the default arguments of the innermost template header
+        // For this reason we set show_default_values to false
+        codegen_template_headers_all_levels(
+                enclosing_template_parameters,
+                /* show_default_values */ false);
     }
     codegen_template_header(template_parameters, show_default_values);
 }
