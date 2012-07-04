@@ -130,7 +130,8 @@ static void gather_one_gcc_attribute(const char* attribute_name,
     /*
      * Vector support
      */
-    if (strcmp(attribute_name, "vector_size") == 0)
+    if (strcmp(attribute_name, "vector_size") == 0
+            || strcmp(attribute_name, "__vector_size__") == 0)
     {
         if (ASTSon0(expression_list) != NULL)
         {
