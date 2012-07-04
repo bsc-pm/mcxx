@@ -14601,12 +14601,12 @@ static void add_namespaces_rec(scope_entry_t* sym, nodecl_t *nodecl_extended_par
     }
 }
 
-static void add_classes_rec(type_t* class_type, nodecl_t* nodecl_extended_parts)
+static void add_classes_rec(type_t* class_type, nodecl_t* nodecl_extended_parts, decl_context_t decl_context)
 {
     scope_entry_t* class_sym = named_type_get_symbol(class_type);
     if (class_sym->entity_specs.is_member)
     {
-        add_classes_rec(class_sym->entity_specs.class_type, nodecl_extended_parts);
+        add_classes_rec(class_sym->entity_specs.class_type, nodecl_extended_parts, decl_context);
     }
 
     nodecl_t nodecl_name = nodecl_make_cxx_dep_name_simple(class_sym->symbol_name, NULL, 0);
@@ -14615,7 +14615,10 @@ static void add_classes_rec(type_t* class_type, nodecl_t* nodecl_extended_parts)
         nodecl_name = nodecl_make_cxx_dep_template_id(
                 nodecl_name,
                 /* template_tag */ "",
-                template_specialized_type_get_template_arguments(class_type),
+                update_template_argument_list(
+                    decl_context,
+                    template_specialized_type_get_template_arguments(class_type),
+                    NULL, 0),
                 NULL, 0);
     }
 
@@ -14650,14 +14653,16 @@ static void add_classes_rec(type_t* class_type, nodecl_t* nodecl_extended_parts)
 // that this could bring problems if the symbol is the operand of a reference (&)
 // operator.
 static nodecl_t complete_nodecl_name_of_dependent_entity(scope_entry_t*
-        dependent_entry, nodecl_t list_of_dependent_parts)
+        dependent_entry, 
+        nodecl_t list_of_dependent_parts,
+        decl_context_t decl_context)
 {
     nodecl_t nodecl_extended_parts = nodecl_null();
 
     add_namespaces_rec(dependent_entry->decl_context.namespace_scope->related_entry, &nodecl_extended_parts);
 
     if (dependent_entry->entity_specs.is_member)
-        add_classes_rec(dependent_entry->entity_specs.class_type, &nodecl_extended_parts);
+        add_classes_rec(dependent_entry->entity_specs.class_type, &nodecl_extended_parts, decl_context);
 
     // The dependent entry itself
     nodecl_t nodecl_name = nodecl_make_cxx_dep_name_simple(dependent_entry->symbol_name, NULL, 0);
@@ -14665,7 +14670,10 @@ static nodecl_t complete_nodecl_name_of_dependent_entity(scope_entry_t*
     {
         nodecl_name = nodecl_make_cxx_dep_template_id(nodecl_name,
                 /* template_tag */ "",
-                template_specialized_type_get_template_arguments(dependent_entry->type_information),
+                update_template_argument_list(
+                    decl_context,
+                    template_specialized_type_get_template_arguments(dependent_entry->type_information),
+                    NULL, 0),
                 NULL, 0);
     }
     nodecl_extended_parts = nodecl_append_to_list(nodecl_extended_parts, nodecl_name);
@@ -14710,7 +14718,7 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
         dependent_typename_get_components(sym->type_information, &dependent_entry, &dependent_parts);
 
         nodecl_t list_of_dependent_parts = nodecl_get_child(dependent_parts, 0);
-        nodecl_t complete_nodecl_name = complete_nodecl_name_of_dependent_entity(dependent_entry, list_of_dependent_parts);
+        nodecl_t complete_nodecl_name = complete_nodecl_name_of_dependent_entity(dependent_entry, list_of_dependent_parts, v->decl_context);
 
         cxx_compute_name_from_entry_list(complete_nodecl_name, entry_list, v->decl_context, &result);
     }
