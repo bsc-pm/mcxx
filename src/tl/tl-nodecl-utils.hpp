@@ -70,6 +70,9 @@ namespace Nodecl
         void prepend_to_top_level_nodecl(Nodecl::NodeclBase n);
         void append_to_top_level_nodecl(Nodecl::NodeclBase n);
 
+        void prepend_to_enclosing_top_level_location(Nodecl::NodeclBase current_location, Nodecl::NodeclBase n);
+        void append_to_enclosing_top_level_location(Nodecl::NodeclBase current_location, Nodecl::NodeclBase n);
+
         Nodecl::NodeclBase advance_conversions(Nodecl::NodeclBase n);
 
         std::string get_elemental_operator_of_binary_expression(Nodecl::NodeclBase n);

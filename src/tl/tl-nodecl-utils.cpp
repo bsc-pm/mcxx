@@ -793,6 +793,56 @@ namespace Nodecl
         Utils::SimpleSymbolMap empty_map;
         return deep_copy(orig, ref_scope, empty_map);
     }
+
+    namespace
+    {
+        bool is_in_top_level_list(Nodecl::NodeclBase list)
+        {
+            ERROR_CONDITION(!list.is<Nodecl::List>(), "Must be a list", 0);
+            list = Nodecl::Utils::get_all_list_from_list_node(list.as<Nodecl::List>());
+
+            Nodecl::TopLevel top_level = Nodecl::NodeclBase(CURRENT_COMPILED_FILE->nodecl).as<Nodecl::TopLevel>();
+            Nodecl::List top_level_list = top_level.get_top_level().as<Nodecl::List>();
+
+            return (list == top_level_list);
+        }
+    }
+
+    void Utils::prepend_to_enclosing_top_level_location(Nodecl::NodeclBase current_location, Nodecl::NodeclBase n)
+    {
+        while (!current_location.is_null()
+                && (!current_location.is<Nodecl::List>()
+                || !is_in_top_level_list(current_location)))
+        {
+            current_location = current_location.get_parent();
+        }
+
+        ERROR_CONDITION(current_location.is_null(), "This should never be null", 0);
+
+        // This is a list node inside the top level list
+        Nodecl::List list = current_location.as<Nodecl::List>();
+
+        Nodecl::List::iterator it = list.last();
+        list.insert(it, n);
+    }
+
+    void Utils::append_to_enclosing_top_level_location(Nodecl::NodeclBase current_location, Nodecl::NodeclBase n)
+    {
+        while (!current_location.is_null()
+                && (!current_location.is<Nodecl::List>()
+                || !is_in_top_level_list(current_location)))
+        {
+            current_location = current_location.get_parent();
+        }
+
+        ERROR_CONDITION(current_location.is_null(), "This should never be null", 0);
+
+        // This is a list node inside the top level list
+        Nodecl::List list = current_location.as<Nodecl::List>();
+
+        Nodecl::List::iterator it = list.last();
+        list.insert(it, n);
+    }
 }
 
 namespace TL
@@ -841,7 +891,7 @@ namespace TL
 
             // _induction_var = lb
             if (init_expr.is<Nodecl::Assignment>())
-            { 
+            {
                 Nodecl::NodeclBase lhs = init_expr.as<Nodecl::Assignment>().get_lhs();
                 if (lhs.is<Nodecl::Symbol>())
                 {
