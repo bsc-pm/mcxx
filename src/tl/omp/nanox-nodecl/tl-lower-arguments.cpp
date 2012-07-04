@@ -368,6 +368,15 @@ namespace TL { namespace Nanox {
                     new_class_symbol.get_internal_symbol());
         }
 
+        CXX_LANGUAGE()
+        {
+            Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDef::make(
+                    new_class_symbol,
+                    construct.get_filename(),
+                    construct.get_line());
+            Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, nodecl_decl);
+        }
+
         return new_class_symbol;
     }
 } }
