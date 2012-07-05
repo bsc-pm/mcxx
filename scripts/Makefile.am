@@ -26,3 +26,13 @@
 
 EXTRA_DIST= \
 			bison-2.3-rofi-patch
+
+
+generate_sse.bin : builtins_ia32_sse.cpp
+	g++ -fabi-version=6 -o generate_sse.bin $(srcdir)/builtins_ia32_sse.cpp
+
+generate_sse: generate_sse.bin
+	./generate_sse.bin > $(top_srcdir)/src/frontend/cxx-gccbuiltins-sse.h
+
+CLEANFILES = 
+CLEANFILES += generate_sse.bin
