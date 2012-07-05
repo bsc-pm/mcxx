@@ -3097,15 +3097,23 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
             *type_info = get_error_type();
             return;
         }
-
-        // Update template parameters only if not defined and they are not
-        // empty (this happens for explicit instantiations)
-        if (is_template_specialized_type(class_entry->type_information)
-                && decl_context.template_parameters != NULL
-                && !class_entry->defined)
+        // We only update the template parameters of decl_context of the class symbol if:
+        //  1. The class has not been defined (we want to store the template parameters its definition!)
+        //  2. It is a template specialized class
+        //  3. It is not a explicit instantiation (they have not template parameters!)
+        if (!class_entry->defined
+                && is_template_specialized_type(class_entry->type_information)
+                && !gather_info->is_explicit_instantiation)
         {
             template_specialized_type_update_template_parameters(class_entry->type_information,
                     decl_context.template_parameters);
+
+            // Update the template_scope
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "BUILDSCOPE: Updating template scope\n");
+            }
+            class_entry->decl_context.template_parameters = decl_context.template_parameters;
         }
     }
 
@@ -5910,9 +5918,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                     return;
                 }
 
-                // Update the template parameters only if they are not empty
-                // (this may happen with explicit instantiations)
-                if (decl_context.template_parameters != NULL)
+                if (!gather_info->is_explicit_instantiation)
                 {
                     template_specialized_type_update_template_parameters(class_entry->type_information,
                             decl_context.template_parameters);

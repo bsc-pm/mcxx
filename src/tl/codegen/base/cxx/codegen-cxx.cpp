@@ -4032,8 +4032,13 @@ void CxxBase::declare_friend_symbol(TL::Symbol friend_symbol, TL::Symbol class_s
 
         file << friend_class_key << " ";
 
-        if ((get_codegen_status(friend_symbol) != CODEGEN_STATUS_DECLARED &&
-                    get_codegen_status(friend_symbol) != CODEGEN_STATUS_DEFINED))
+        if ((!friend_type.is_template_specialized_type()
+                    && get_codegen_status(friend_symbol) == CODEGEN_STATUS_NONE)
+                || (friend_type.is_template_specialized_type()
+                    && get_codegen_status(friend_type
+                        .get_related_template_type()
+                        .get_primary_template()
+                        .get_symbol()) == CODEGEN_STATUS_NONE))
         {
             // The class_symbol has not been declared or defined before this friend declaration
             // We cannot print its qualified
@@ -4995,8 +5000,9 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                             "Only user declared template specializations are allowed "
                             "as a dependent template specialized type!\n", 0);
 
-                    TL::TemplateParameters template_parameters =
-                        template_type.get_related_template_symbol().get_type().template_type_get_template_parameters();
+                    TL::TemplateParameters template_parameters = is_primary_template ?
+                        template_type.get_related_template_symbol().get_type().template_type_get_template_parameters()
+                        : symbol.get_type().template_specialized_type_get_template_parameters();
 
                     codegen_template_header(template_parameters, /*show default values*/ true);
                 }
