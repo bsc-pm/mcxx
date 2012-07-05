@@ -530,7 +530,8 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
                     if (is_pointer_to_class_type(entry->type_information))
                     {
                         *nodecl_output = nodecl_make_symbol(entry, ASTFileName(expression), ASTLine(expression));
-                        nodecl_set_type(*nodecl_output, lvalue_ref(entry->type_information));
+                        // Note that 'this' is an rvalue!
+                        nodecl_set_type(*nodecl_output, entry->type_information);
                         if (is_dependent_type(entry->type_information))
                         {
                             nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
