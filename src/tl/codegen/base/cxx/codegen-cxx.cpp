@@ -1854,6 +1854,15 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 
     TL::Type symbol_type = symbol.get_type();
 
+    if (!state.do_not_emit_other_declarations)
+    {
+        walk_type_for_symbols(
+                symbol_type,
+                &CxxBase::declare_symbol_if_nonlocal,
+                &CxxBase::define_symbol_if_nonlocal,
+                &CxxBase::define_nonlocal_entities_in_trees);
+    }
+
     TL::Scope symbol_scope = symbol.get_scope();
 
     ERROR_CONDITION(!symbol.is_function()
@@ -1882,14 +1891,6 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
                         &CxxBase::define_symbol_always);
             }
         }
-    }
-
-    if (!state.do_not_emit_other_declarations)
-    {
-        walk_type_for_symbols(symbol_type.returns(),
-                &CxxBase::declare_symbol_always,
-                &CxxBase::define_symbol_always,
-                &CxxBase::define_nonlocal_entities_in_trees);
     }
 
     state.current_symbol = symbol;
