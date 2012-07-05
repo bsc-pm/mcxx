@@ -1,5 +1,5 @@
 //
-// Generator of cxx-gccbuiltin-sse.h for gcc
+// Generator of src/frontend/cxx-gccbuiltin-sse.h for gcc
 //
 // Compile it with g++ 4.7 -fabi-version=6
 //
