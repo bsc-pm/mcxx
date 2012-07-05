@@ -158,7 +158,7 @@ struct generate_type<const T*>
     { 
         std::stringstream ss;
 
-        ss << "get_const_qualified_type(get_pointer_type(" << generate_type<T>::g() << "))";
+        ss << "get_pointer_type(get_const_qualified_type(" << generate_type<T>::g() << "))";
         return ss.str();
     }
 };
@@ -170,7 +170,7 @@ struct generate_type<volatile T*>
     { 
         std::stringstream ss;
 
-        ss << "get_volatile_qualified_type(get_pointer_type(" << generate_type<T>::g() << "))";
+        ss << "get_pointer_type(get_volatile_qualified_type(" << generate_type<T>::g() << "))";
         return ss.str();
     }
 };
@@ -182,7 +182,7 @@ struct generate_type<const volatile T*>
     { 
         std::stringstream ss;
 
-        ss << "get_const_qualified_type(get_volatile_qualified_type(get_pointer_type(" << generate_type<T>::g() << ")))";
+        ss << "get_pointer_type(get_const_qualified_type(get_volatile_qualified_type(" << generate_type<T>::g() << ")))";
         return ss.str();
     }
 };
@@ -220,7 +220,7 @@ struct generate_type<R(T1)>
         ss 
             << "({"
             << "type_t* return_type = " << generate_type<return_type>::g() << ";\n"
-            << "parameter_info_t p[1];"
+            << "parameter_info_t p[1]; memset(p, 0, sizeof(p));"
             << "p[0].type_info = " << generate_type<param1_type>::g() << ";\n"
             << "get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));\n"
             << "})\n"
@@ -243,7 +243,7 @@ struct generate_type<R(T1, T2)>
         ss 
             << "({"
             << "type_t* return_type = " << generate_type<return_type>::g() << ";\n"
-            << "parameter_info_t p[2];"
+            << "parameter_info_t p[2]; memset(p, 0, sizeof(p));"
             << "p[0].type_info = " << generate_type<param1_type>::g() << ";\n"
             << "p[1].type_info = " << generate_type<param2_type>::g() << ";\n"
             << "get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));\n"
@@ -267,7 +267,7 @@ struct generate_type<R(T1, T2, T3)>
         ss 
             << "({"
             << "type_t* return_type = " << generate_type<return_type>::g() << ";\n"
-            << "parameter_info_t p[3];"
+            << "parameter_info_t p[3]; memset(p, 0, sizeof(p));"
             << "p[0].type_info = " << generate_type<param1_type>::g() << ";\n"
             << "p[1].type_info = " << generate_type<param2_type>::g() << ";\n"
             << "p[2].type_info = " << generate_type<param3_type>::g() << ";\n"
@@ -293,7 +293,7 @@ struct generate_type<R(T1, T2, T3, T4)>
         ss
             << "({"
             << "type_t* return_type = " << generate_type<return_type>::g() << ";\n"
-            << "parameter_info_t p[4];"
+            << "parameter_info_t p[4]; memset(p, 0, sizeof(p));"
             << "p[0].type_info = " << generate_type<param1_type>::g() << ";\n"
             << "p[1].type_info = " << generate_type<param2_type>::g() << ";\n"
             << "p[2].type_info = " << generate_type<param3_type>::g() << ";\n"
@@ -321,7 +321,7 @@ struct generate_type<R(T1, T2, T3, T4, T5)>
         ss
             << "({"
             << "type_t* return_type = " << generate_type<return_type>::g() << ";\n"
-            << "parameter_info_t p[5];"
+            << "parameter_info_t p[5]; memset(p, 0, sizeof(p));"
             << "p[0].type_info = " << generate_type<param1_type>::g() << ";\n"
             << "p[1].type_info = " << generate_type<param2_type>::g() << ";\n"
             << "p[2].type_info = " << generate_type<param3_type>::g() << ";\n"
@@ -351,7 +351,7 @@ struct generate_type<R(T1, T2, T3, T4, T5, T6)>
         ss
             << "({"
             << "type_t* return_type = " << generate_type<return_type>::g() << ";\n"
-            << "parameter_info_t p[6];"
+            << "parameter_info_t p[6]; memset(p, 0, sizeof(p));"
             << "p[0].type_info = " << generate_type<param1_type>::g() << ";\n"
             << "p[1].type_info = " << generate_type<param2_type>::g() << ";\n"
             << "p[2].type_info = " << generate_type<param3_type>::g() << ";\n"
@@ -383,7 +383,7 @@ struct generate_type<R(T1, T2, T3, T4, T5, T6, T7)>
         ss
             << "({"
             << "type_t* return_type = " << generate_type<return_type>::g() << ";\n"
-            << "parameter_info_t p[7];"
+            << "parameter_info_t p[7]; memset(p, 0, sizeof(p));"
             << "p[0].type_info = " << generate_type<param1_type>::g() << ";\n"
             << "p[1].type_info = " << generate_type<param2_type>::g() << ";\n"
             << "p[2].type_info = " << generate_type<param3_type>::g() << ";\n"
@@ -417,7 +417,7 @@ struct generate_type<R(T1, T2, T3, T4, T5, T6, T7, T8)>
         ss
             << "({"
             << "type_t* return_type = " << generate_type<return_type>::g() << ";\n"
-            << "parameter_info_t p[8];"
+            << "parameter_info_t p[8]; memset(p, 0, sizeof(p));"
             << "p[0].type_info = " << generate_type<param1_type>::g() << ";\n"
             << "p[1].type_info = " << generate_type<param2_type>::g() << ";\n"
             << "p[2].type_info = " << generate_type<param3_type>::g() << ";\n"
@@ -740,13 +740,16 @@ VECTOR_INTRIN(__builtin_ia32_unpckhps) \
 VECTOR_INTRIN(__builtin_ia32_unpcklpd) \
 VECTOR_INTRIN(__builtin_ia32_unpcklps) \
 VECTOR_INTRIN(__builtin_ia32_vec_ext_v2di) \
+VECTOR_INTRIN(__builtin_ia32_vec_ext_v2df) \
 VECTOR_INTRIN(__builtin_ia32_vec_ext_v2si) \
 VECTOR_INTRIN(__builtin_ia32_vec_ext_v4si) \
+VECTOR_INTRIN(__builtin_ia32_vec_ext_v4sf) \
 VECTOR_INTRIN(__builtin_ia32_vec_init_v2si) \
 VECTOR_INTRIN(__builtin_ia32_vec_init_v4hi) \
 VECTOR_INTRIN(__builtin_ia32_vec_init_v8qi) \
 VECTOR_INTRIN(__builtin_ia32_xorpd) \
-VECTOR_INTRIN(__builtin_ia32_xorps)
+VECTOR_INTRIN(__builtin_ia32_xorps) \
+VECTOR_INTRIN(__builtin_ia32_storeupd)
 
 int main(int, char**)
 {
