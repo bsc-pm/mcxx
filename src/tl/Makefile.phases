@@ -2,6 +2,7 @@ phasesdir = $(pkglibdir)
 
 tl_cflags=\
     -I $(top_srcdir)/src/tl/codegen/common \
+    -I $(top_srcdir)/src/tl/codegen/vector \
     -I $(top_srcdir)/src/tl/codegen/base/cxx \
     -I $(top_srcdir)/src/tl/codegen/base/fortran \
     -I $(top_srcdir)/src/tl \
@@ -11,6 +12,7 @@ tl_cflags=\
     -I $(top_srcdir)/src/driver \
     -I $(top_srcdir)/lib \
     -I $(top_builddir)/src/tl/codegen/common \
+    -I $(top_builddir)/src/tl/codegen/vector \
     -I $(top_builddir)/src/tl/codegen/base/cxx \
     -I $(top_builddir)/src/tl/codegen/base/fortran \
     -I $(top_builddir)/src/tl \

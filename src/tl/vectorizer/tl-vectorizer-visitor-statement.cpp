@@ -29,7 +29,7 @@
 
 namespace TL 
 {
-    namespace VECTORIZER 
+    namespace Vectorizer 
     {
         VectorizerVisitorStatement::VectorizerVisitorStatement(
                 const unsigned int vector_length) : _vector_length(vector_length)

@@ -24,12 +24,12 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
+END=
+
 include vectorizer/Sources.am
 
 SUBDIRS = . codegen omp analysis
 # SUBDIRS = . hlt analysis manip @TL_EXTENSIONS@ 
-
-END=
 
 DIST_SUBDIRS=analysis \
              vectorizer \

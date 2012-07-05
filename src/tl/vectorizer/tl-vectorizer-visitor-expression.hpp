@@ -31,7 +31,7 @@
 
 namespace TL 
 { 
-    namespace VECTORIZER 
+    namespace Vectorizer 
     {
         class VectorizerVisitorExpression : public Nodecl::NodeclVisitor<void>
         {

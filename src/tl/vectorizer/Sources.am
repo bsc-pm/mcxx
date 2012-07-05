@@ -24,8 +24,6 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-END =
-
 VECTORIZER_SOURCES = \
     vectorizer/tl-vectorizer.hpp \
     vectorizer/tl-vectorizer.cpp \

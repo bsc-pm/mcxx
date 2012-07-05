@@ -1404,7 +1404,6 @@ AC_CONFIG_FILES([Makefile
            src/frontend/fortran/Makefile 
            src/mcxx_tl/Makefile 
            src/tl/Makefile
-           src/tl/vectorizer/Makefile
            src/tl/analysis/Makefile
            src/tl/analysis/extensible_graph/Makefile
            src/tl/hlt/Makefile
@@ -1416,6 +1415,8 @@ AC_CONFIG_FILES([Makefile
            src/tl/codegen/base/fortran/Makefile 
            src/tl/codegen/base/legacy_cxx/Makefile 
            src/tl/codegen/base/legacy_fortran/Makefile 
+           src/tl/codegen/vector/Makefile 
+           src/tl/codegen/vector/sse/Makefile 
            src/tl/omp/Makefile 
            src/tl/omp/core/Makefile
            src/tl/omp/base/Makefile

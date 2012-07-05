@@ -30,7 +30,7 @@
 
 namespace TL 
 {
-    namespace VECTORIZER 
+    namespace Vectorizer
     {
         Vectorizer::Vectorizer()
         {

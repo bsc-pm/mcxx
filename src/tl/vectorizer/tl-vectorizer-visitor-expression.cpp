@@ -28,7 +28,7 @@
 
 namespace TL 
 {
-    namespace VECTORIZER
+    namespace Vectorizer
     {
         VectorizerVisitorExpression::VectorizerVisitorExpression(
                 const unsigned int vector_length) : 
@@ -102,16 +102,38 @@ namespace TL
             Nodecl::NodeclBase lhs = n.get_lhs();
             walk(n.get_rhs());
 
+            // Computing new vector type
+            TL::Type vector_type = n.get_type();
+            if (vector_type.is_lvalue_reference())
+            {
+                vector_type = vector_type.references_to();
+            }
+            vector_type = vector_type.get_vector_to(_vector_length);
+
             // Vector Store
             if(lhs.is<Nodecl::ArraySubscript>())
             {
+                TL::Type basic_type = lhs.get_type();
+                if (basic_type.is_lvalue_reference())
+                {
+                    basic_type = basic_type.references_to();
+                }
+
                 const Nodecl::VectorStore vector_store = 
                     Nodecl::VectorStore::make(
-                            lhs.shallow_copy(), 
-                            n.get_rhs().shallow_copy(), 
-                            n.get_type().get_vector_to(_vector_length),
+                        Nodecl::Reference::make(
+                            Nodecl::ParenthesizedExpression::make(
+                                lhs.shallow_copy(),
+                                basic_type,
+                                n.get_filename(), 
+                                n.get_line()),
+                            basic_type.get_pointer_to(),
                             n.get_filename(), 
-                            n.get_line());
+                            n.get_line()),
+                        n.get_rhs().shallow_copy(), 
+                        vector_type,
+                        n.get_filename(), 
+                        n.get_line());
 
                 n.integrate(vector_store);
                 set_last_visited(vector_store);
@@ -122,7 +144,7 @@ namespace TL
                     Nodecl::VectorAssignment::make(
                             lhs.shallow_copy(), 
                             n.get_rhs().shallow_copy(), 
-                            n.get_type().get_vector_to(_vector_length),
+                            vector_type.get_lvalue_reference_to(),
                             n.get_filename(), 
                             n.get_line());
 
@@ -140,10 +162,32 @@ namespace TL
 
         void VectorizerVisitorExpression::visit(const Nodecl::ArraySubscript& n)
         {
+            // Computing new vector type
+            TL::Type vector_type = n.get_type();
+            if (vector_type.is_lvalue_reference())
+            {
+                vector_type = vector_type.references_to();
+            }
+            vector_type = vector_type.get_vector_to(_vector_length);
+
+            TL::Type basic_type = n.get_type();
+            if (basic_type.is_lvalue_reference())
+            {
+                basic_type = basic_type.references_to();
+            }
+
             const Nodecl::VectorLoad vector_load = 
                 Nodecl::VectorLoad::make(
-                        n.shallow_copy(), 
-                        n.get_type().get_vector_to(_vector_length),
+                        Nodecl::Reference::make(
+                            Nodecl::ParenthesizedExpression::make(
+                                n.shallow_copy(),
+                                basic_type,
+                                n.get_filename(), 
+                                n.get_line()),
+                            basic_type.get_pointer_to(),
+                            n.get_filename(), 
+                            n.get_line()),
+                        vector_type,
                         n.get_filename(), 
                         n.get_line());
 
