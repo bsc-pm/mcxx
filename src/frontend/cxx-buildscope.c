@@ -7581,13 +7581,14 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
                             ASTSon1(declarator_id),
                             ASTSon2(declarator_id));
 
-                    ERROR_CONDITION((entry_list == NULL), "Qualified id '%s' name not found (%s)", 
-                            prettyprint_in_buffer(declarator_id), ast_location(declarator_id));
+                    if (entry_list == NULL)
+                    {
+                        return NULL;
+                    }
 
                     scope_entry_t* entry = entry_list_head(entry_list);
 
                     entry_list_free(entry_list);
-
                     return entry;
                 }
                 else
@@ -10280,10 +10281,20 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     {
         if (!checking_ambiguity())
         {
-            error_printf("%s: error: function '%s' was not found in the current scope\n", 
-                    ast_location(function_header), 
-                    print_decl_type_str(declarator_type, new_decl_context, 
-                        prettyprint_in_buffer(get_declarator_name(function_declarator, new_decl_context))));
+            if (!is_error_type(declarator_type))
+            {
+                error_printf("%s: error: function '%s' was not found in the current scope\n",
+                        ast_location(function_header),
+                        print_decl_type_str(declarator_type, new_decl_context,
+                            prettyprint_in_buffer(get_declarator_name(function_declarator, new_decl_context))));
+            }
+            else
+            {
+                // If no type was synthesized at all use the declarator instead (less nice, though)
+                error_printf("%s: error: function '%s' was not found in the current scope\n",
+                        ast_location(function_header), 
+                        prettyprint_in_buffer(function_declarator));
+            }
         }
         return NULL;
     }
