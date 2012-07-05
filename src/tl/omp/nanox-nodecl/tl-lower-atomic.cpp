@@ -50,16 +50,15 @@ namespace TL { namespace Nanox {
                 case NODECL_PREDECREMENT :
                 case NODECL_POSTDECREMENT:
                     {
+                        // They have the same tree
                         Nodecl::NodeclBase operand = expr.as<Nodecl::Preincrement>().get_rhs();
 
-                        bool is_lvalue = false;
                         Type t = operand.get_type();
 
                         if (t.is_any_reference())
                             t = t.references_to();
 
-                        if (!is_lvalue
-                                || !(t.is_integral_type()
+                        if (!(t.is_integral_type()
                                     || t.is_floating_type()))
                             return false;
 

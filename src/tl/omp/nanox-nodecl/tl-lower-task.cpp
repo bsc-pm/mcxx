@@ -61,7 +61,7 @@ struct TaskEnvironmentVisitor : public Nodecl::ExhaustiveVisitor<void>
         }
 };
 
-static TL::Symbol declare_const_wd_type(int num_devices)
+static TL::Symbol declare_const_wd_type(int num_devices, Nodecl::NodeclBase construct)
 {
     static std::map<int, Symbol> _map;
     std::map<int, Symbol>::iterator it = _map.find(num_devices);
@@ -153,6 +153,15 @@ static TL::Symbol declare_const_wd_type(int num_devices)
             std::cerr << "FIXME: finished class issues nonempty nodecl" << std::endl; 
         }
 
+        if (IS_CXX_LANGUAGE)
+        {
+            Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDef::make(
+                    new_class_symbol,
+                    construct.get_filename(),
+                    construct.get_line());
+            Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, nodecl_decl);
+        }
+
         return new_class_symbol;
     }
     else
@@ -165,7 +174,8 @@ Source LoweringVisitor::fill_const_wd_info(
         Source &struct_arg_type_name,
         const std::string& outline_name,
         bool is_untied,
-        bool mandatory_creation)
+        bool mandatory_creation,
+        Nodecl::NodeclBase construct)
 {
     // Static stuff
     //
@@ -178,7 +188,7 @@ Source LoweringVisitor::fill_const_wd_info(
 
     // FIXME
     int num_devices = 1;
-    TL::Symbol const_wd_type = declare_const_wd_type(num_devices);
+    TL::Symbol const_wd_type = declare_const_wd_type(num_devices, construct);
 
     Source alignment, props_init, num_copies;
 
@@ -302,7 +312,7 @@ void LoweringVisitor::allocate_immediate_structure(
             if (((*it)->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED) 
                     == OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED)
             {
-                dynamic_size << "+ " << overallocation_alignment << " + sizeof(" << (*it)->get_symbol().get_name() << ")";
+                dynamic_size << "+ " << overallocation_alignment << " + sizeof(" << as_symbol((*it)->get_symbol()) << ")";
                 there_are_overallocated = true;
             }
         }
@@ -374,7 +384,8 @@ void LoweringVisitor::emit_async_common(
             struct_arg_type_name,
             outline_name,
             is_untied,
-            /* mandatory_creation */ 0);
+            /* mandatory_creation */ 0,
+            construct);
 
     if (priority_expr.is_null())
     {
@@ -634,7 +645,7 @@ void LoweringVisitor::fill_arguments(
                             // Overwrite source
                             overallocation_base_offset = Source() << "(void*)((" 
                                 << intptr_type << ")((char*)(ol_args->" << 
-                                (*it)->get_field_name() << ") + sizeof(" << (*it)->get_symbol().get_name() << ") + " 
+                                (*it)->get_field_name() << ") + sizeof(" << as_symbol((*it)->get_symbol()) << ") + " 
                                 << overallocation_mask << ") & (~" << overallocation_mask << "))"
                                 ;
                             fill_immediate_arguments << 
@@ -643,19 +654,19 @@ void LoweringVisitor::fill_arguments(
                             // Overwrite source
                             imm_overallocation_base_offset = Source() << "(void*)((" 
                                 << intptr_type << ")((char*)(imm_args." << 
-                                (*it)->get_field_name() << ") + sizeof(" << (*it)->get_symbol().get_name() << ") + "
+                                (*it)->get_field_name() << ") + sizeof(" << as_symbol((*it)->get_symbol()) << ") + "
                                 << overallocation_mask << ") & (~" << overallocation_mask << "))"
                                 ;
 
                             fill_outline_arguments
                                 << "__builtin_memcpy(&ol_args->" << (*it)->get_field_name() 
-                                << ", &" << (*it)->get_symbol().get_name() 
-                                << ", sizeof(" << (*it)->get_symbol().get_name() << "));"
+                                << ", &" << as_symbol((*it)->get_symbol()) 
+                                << ", sizeof(" << as_symbol((*it)->get_symbol()) << "));"
                                 ;
                             fill_immediate_arguments
                                 << "__builtin_memcpy(&imm_args." << (*it)->get_field_name() 
-                                << ", &" << (*it)->get_symbol().get_name() 
-                                << ", sizeof(" << (*it)->get_symbol().get_name() << "));"
+                                << ", &" << as_symbol((*it)->get_symbol()) 
+                                << ", sizeof(" << as_symbol((*it)->get_symbol()) << "));"
                                 ;
                         }
                         else
@@ -669,23 +680,23 @@ void LoweringVisitor::fill_arguments(
                             {
                                 fill_outline_arguments
                                     << "__builtin_memcpy(&ol_args->" << (*it)->get_field_name() 
-                                    << ", &" << (*it)->get_symbol().get_name() 
-                                    << ", sizeof(" << (*it)->get_symbol().get_name() << "));"
+                                    << ", &" << as_symbol((*it)->get_symbol())
+                                    << ", sizeof(" << as_symbol((*it)->get_symbol()) << "));"
                                     ;
                                 fill_immediate_arguments
                                     << "__builtin_memcpy(&imm_args." << (*it)->get_field_name() 
-                                    << ", &" << (*it)->get_symbol().get_name() 
-                                    << ", sizeof(" << (*it)->get_symbol().get_name() << "));"
+                                    << ", &" << as_symbol((*it)->get_symbol())
+                                    << ", sizeof(" << as_symbol((*it)->get_symbol()) << "));"
                                     ;
                             }
                             else
                             {
                                 // Plain assignment is enough
                                 fill_outline_arguments << 
-                                    "ol_args->" << (*it)->get_field_name() << " = " << (*it)->get_symbol().get_name() << ";"
+                                    "ol_args->" << (*it)->get_field_name() << " = " << as_symbol((*it)->get_symbol()) << ";"
                                     ;
                                 fill_immediate_arguments << 
-                                    "imm_args." << (*it)->get_field_name() << " = " << (*it)->get_symbol().get_name() << ";"
+                                    "imm_args." << (*it)->get_field_name() << " = " << as_symbol((*it)->get_symbol()) << ";"
                                     ;
                             }
                         }
@@ -695,10 +706,10 @@ void LoweringVisitor::fill_arguments(
                 case OutlineDataItem::SHARING_REDUCTION: // Reductions are passed as if they were shared
                     {
                         fill_outline_arguments << 
-                            "ol_args->" << (*it)->get_field_name() << " = &" << (*it)->get_symbol().get_name() << ";"
+                            "ol_args->" << (*it)->get_field_name() << " = &" << as_symbol((*it)->get_symbol()) << ";"
                             ;
                         fill_immediate_arguments << 
-                            "imm_args." << (*it)->get_field_name() << " = &" << (*it)->get_symbol().get_name() << ";"
+                            "imm_args." << (*it)->get_field_name() << " = &" << as_symbol((*it)->get_symbol()) << ";"
                             ;
                         break;
                     }

@@ -118,6 +118,16 @@ LIBMCXX_EXTERN const char* get_fully_qualified_symbol_name(struct
         scope_entry_tag* entry, decl_context_t decl_context, char*
         is_dependent, int* max_qualif_level);
 
+LIBMCXX_EXTERN const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
+        decl_context_t decl_context,
+        char* is_dependent, int* max_qualif_level,
+        char no_templates,
+        char only_classes,
+        char do_not_emit_template_keywords,
+        print_type_callback_t print_type_fun,
+        void *print_type_data
+        );
+
 LIBMCXX_EXTERN const char* get_fully_qualified_symbol_name_without_template(scope_entry_t* entry,
         decl_context_t decl_context, char* is_dependent, int*
         max_qualif_level);
@@ -132,7 +142,7 @@ LIBMCXX_EXTERN const char* get_class_qualification_of_symbol_without_template(sc
 LIBMCXX_EXTERN const char* get_qualified_symbol_name(scope_entry_t* entry, decl_context_t decl_context);
 
 // Template things, should be moved to typeutils
-LIBMCXX_EXTERN type_t* update_type(type_t* orig_type, 
+LIBMCXX_EXTERN type_t* update_type(type_t* orig_type,
         decl_context_t template_parameters_context,
         const char* filename, int line);
 
@@ -241,6 +251,8 @@ LIBMCXX_EXTERN scope_entry_list_t* query_dependent_entity_in_context(decl_contex
 
 // Utils
 LIBMCXX_EXTERN char scope_is_enclosed_by(scope_t* scope, scope_t* potential_enclosing);
+
+LIBMCXX_EXTERN const char* symbol_to_source(scope_entry_t* entry);
 
 MCXX_END_DECLS
 

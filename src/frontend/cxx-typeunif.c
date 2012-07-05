@@ -913,7 +913,15 @@ static char equivalent_nodecl_expressions(nodecl_t left_tree, nodecl_t right_tre
         }
         return 0;
     }
-    
+
+    if (nodecl_get_kind(left_tree) == NODECL_TYPE)
+    {
+        // This is a special node just holding a type, check its types instead
+        return equivalent_types(
+                nodecl_get_type(left_tree),
+                nodecl_get_type(right_tree));
+    }
+
     // FIXME - This can be done better
     // This is a crude implementation that applies equivalent_dependent_expressions to each nodecl
     char ok = 1;

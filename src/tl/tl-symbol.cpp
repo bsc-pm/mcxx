@@ -71,10 +71,15 @@ namespace TL
         _symbol->type_information = t.get_internal_type();
     }
 
+    Type Symbol::get_user_defined_type()
+    {
+        return ::get_user_defined_type(_symbol);
+    }
+
     std::string Symbol::get_name() const
     {
-        return (_symbol->symbol_name != NULL) ? 
-            std::string(_symbol->symbol_name) : 
+        return (_symbol->symbol_name != NULL) ?
+            std::string(_symbol->symbol_name) :
             std::string("");
     }
 
@@ -102,7 +107,7 @@ namespace TL
 
             int max_level = 0;
             char is_dependent = 0;
-            const char* qualified_name = ptr_fun(_symbol, sc._decl_context, 
+            const char* qualified_name = ptr_fun(_symbol, sc._decl_context,
                     &is_dependent, &max_level);
 
             return std::string(qualified_name);
@@ -331,6 +336,11 @@ namespace TL
     bool Symbol::is_class() const
     {
         return this->_symbol->kind == SK_CLASS;
+    }
+
+    bool Symbol::is_namespace() const
+    {
+        return this->_symbol->kind == SK_NAMESPACE;
     }
 
     bool Symbol::is_dependent_friend_class() const

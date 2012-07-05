@@ -204,9 +204,12 @@ namespace Nodecl
             result.insert(n.as<Nodecl::Symbol>(), 
                     TL::ThisMemberFunctionConstAdapter<TL::Symbol, Nodecl::Symbol>(&Nodecl::Symbol::get_symbol));
         }
+        else if (n.is<Nodecl::ObjectInit>())
+        {
+            get_all_symbols_first_occurrence_rec(n.as<Nodecl::ObjectInit>().get_symbol().get_value(), result);
+        }
 
         TL::ObjectList<Nodecl::NodeclBase> children = n.children();
-
         for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
                 it != children.end();
                 it++)
@@ -691,6 +694,26 @@ namespace Nodecl
         }
     }
 
+    void Utils::prepend_to_top_level_nodecl(Nodecl::NodeclBase n)
+    {
+        if (n.is<Nodecl::List>())
+        {
+            Nodecl::List l = n.as<Nodecl::List>();
+            for (Nodecl::List::iterator it = l.begin();
+                    it != l.end();
+                    it++)
+            {
+                prepend_to_top_level_nodecl(*it);
+            }
+        }
+        else
+        {
+            Nodecl::TopLevel top_level = Nodecl::NodeclBase(CURRENT_COMPILED_FILE->nodecl).as<Nodecl::TopLevel>();
+            Nodecl::List list = top_level.get_top_level().as<Nodecl::List>();
+            list.push_front(n);
+        }
+    }
+
     Nodecl::NodeclBase Utils::advance_conversions(Nodecl::NodeclBase n)
     {
         while (n.is<Nodecl::Conversion>())
@@ -770,6 +793,56 @@ namespace Nodecl
         Utils::SimpleSymbolMap empty_map;
         return deep_copy(orig, ref_scope, empty_map);
     }
+
+    namespace
+    {
+        bool is_in_top_level_list(Nodecl::NodeclBase list)
+        {
+            ERROR_CONDITION(!list.is<Nodecl::List>(), "Must be a list", 0);
+            list = Nodecl::Utils::get_all_list_from_list_node(list.as<Nodecl::List>());
+
+            Nodecl::TopLevel top_level = Nodecl::NodeclBase(CURRENT_COMPILED_FILE->nodecl).as<Nodecl::TopLevel>();
+            Nodecl::List top_level_list = top_level.get_top_level().as<Nodecl::List>();
+
+            return (list == top_level_list);
+        }
+    }
+
+    void Utils::prepend_to_enclosing_top_level_location(Nodecl::NodeclBase current_location, Nodecl::NodeclBase n)
+    {
+        while (!current_location.is_null()
+                && (!current_location.is<Nodecl::List>()
+                || !is_in_top_level_list(current_location)))
+        {
+            current_location = current_location.get_parent();
+        }
+
+        ERROR_CONDITION(current_location.is_null(), "This should never be null", 0);
+
+        // This is a list node inside the top level list
+        Nodecl::List list = current_location.as<Nodecl::List>();
+
+        Nodecl::List::iterator it = list.last();
+        list.insert(it, n);
+    }
+
+    void Utils::append_to_enclosing_top_level_location(Nodecl::NodeclBase current_location, Nodecl::NodeclBase n)
+    {
+        while (!current_location.is_null()
+                && (!current_location.is<Nodecl::List>()
+                || !is_in_top_level_list(current_location)))
+        {
+            current_location = current_location.get_parent();
+        }
+
+        ERROR_CONDITION(current_location.is_null(), "This should never be null", 0);
+
+        // This is a list node inside the top level list
+        Nodecl::List list = current_location.as<Nodecl::List>();
+
+        Nodecl::List::iterator it = list.last();
+        list.insert(it, n);
+    }
 }
 
 namespace TL
@@ -818,7 +891,7 @@ namespace TL
 
             // _induction_var = lb
             if (init_expr.is<Nodecl::Assignment>())
-            { 
+            {
                 Nodecl::NodeclBase lhs = init_expr.as<Nodecl::Assignment>().get_lhs();
                 if (lhs.is<Nodecl::Symbol>())
                 {

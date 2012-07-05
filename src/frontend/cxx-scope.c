@@ -2836,7 +2836,7 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
 
 // Only for "simple" symbols, this is, that are not members and they are simply contained
 // in a nest of namespaces
-static const char* get_fully_qualified_symbol_name_simple(decl_context_t decl_context, 
+static const char* get_fully_qualified_symbol_name_simple(decl_context_t decl_context,
         const char* current_qualif_name)
 {
     const char* result = current_qualif_name;
@@ -2867,7 +2867,7 @@ static const char* get_fully_qualified_symbol_name_simple(decl_context_t decl_co
     return result;
 }
 
-static const char* template_arguments_to_str_impl(
+static const char* template_arguments_to_str_ex(
         template_parameter_list_t* template_parameters,
         int first_argument_to_be_printed,
         char print_first_level_bracket,
@@ -2953,9 +2953,9 @@ static const char* template_arguments_to_str_impl(
     }
 
     return result;
-} 
+}
 
-static const char* print_type_str_common(type_t* t, decl_context_t decl_context, void *data UNUSED_PARAMETER)
+static const char* print_type_str_internal(type_t* t, decl_context_t decl_context, void *data UNUSED_PARAMETER)
 {
     return print_type_str(t, decl_context);
 }
@@ -2966,11 +2966,11 @@ const char* template_arguments_to_str(
         char print_first_level_bracket,
         decl_context_t decl_context)
 {
-    return template_arguments_to_str_impl(template_parameters,
+    return template_arguments_to_str_ex(template_parameters,
             first_argument_to_be_printed,
             print_first_level_bracket,
             decl_context,
-            print_type_str_common,
+            print_type_str_internal,
             NULL
             );
 }
@@ -3002,17 +3002,7 @@ const char* unmangle_symbol_name(scope_entry_t* entry)
     return name;
 }
 
-static const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry, 
-        decl_context_t decl_context, 
-        char* is_dependent, int* max_qualif_level,
-        char no_templates, 
-        char only_classes,
-        char do_not_emit_template_keywords,
-        print_type_callback_t print_type_fun,
-        void *print_type_data
-        );
-
-static const char* get_fully_qualified_symbol_name_of_dependent_typename(
+static const char* get_fully_qualified_symbol_name_of_depedent_typename_internal_impl(
         scope_entry_t* entry,
         decl_context_t decl_context,
         char *is_dependent, int *max_qualif_level,
@@ -3022,11 +3012,11 @@ static const char* get_fully_qualified_symbol_name_of_dependent_typename(
     scope_entry_t* dependent_entry = NULL;
     nodecl_t nodecl_parts = nodecl_null();
 
-    dependent_typename_get_components(entry->type_information, 
+    dependent_typename_get_components(entry->type_information,
             &dependent_entry, &nodecl_parts);
 
     const char* result = get_fully_qualified_symbol_name_ex(dependent_entry,
-            decl_context, is_dependent, max_qualif_level, 
+            decl_context, is_dependent, max_qualif_level,
             /* no_templates */ 0, /* only_classes */ 0,
             /* do_not_emit_template_keywords */ 0,
             print_type_fun, print_type_data);
@@ -3061,7 +3051,7 @@ static const char* get_fully_qualified_symbol_name_of_dependent_typename(
         {
             result = strappend(result, "<");
             const char* template_arguments_str =
-                template_arguments_to_str_impl(template_parameters,
+                template_arguments_to_str_ex(template_parameters,
                         /* first argument to be printed */ 0,
                         /* we always emit < and > */ 0,
                         decl_context,
@@ -3077,10 +3067,10 @@ static const char* get_fully_qualified_symbol_name_of_dependent_typename(
 }
 
 // Get the fully qualified symbol name in the scope of the ocurrence
-static const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry, 
-        decl_context_t decl_context, 
+const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
+        decl_context_t decl_context,
         char* is_dependent, int* max_qualif_level,
-        char no_templates, 
+        char no_templates,
         char only_classes,
         char do_not_emit_template_keywords,
         print_type_callback_t print_type_fun,
@@ -3137,9 +3127,9 @@ static const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
     }
     else if (entry->kind == SK_DEPENDENT_ENTITY)
     {
-        return get_fully_qualified_symbol_name_of_dependent_typename(entry, decl_context,
-                is_dependent, max_qualif_level,
-                print_type_fun, print_type_str);
+        return get_fully_qualified_symbol_name_of_depedent_typename_internal_impl(
+                entry, decl_context, is_dependent, max_qualif_level,
+                print_type_fun, print_type_data);
     }
     else if (!no_templates
             && entry->type_information != NULL
@@ -3150,10 +3140,12 @@ static const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
         current_has_template_parameters = 1;
 
         template_parameter_list_t* template_parameter_list = template_specialized_type_get_template_arguments(entry->type_information);
-        const char* template_parameters =  template_arguments_to_str(template_parameter_list,
+        const char* template_parameters =  template_arguments_to_str_ex(template_parameter_list,
                 /* first_argument_to_be_printed */ 0,
                 /* first_level_brackets */ 1, 
-                decl_context);
+                decl_context,
+                print_type_fun,
+                print_type_data);
 
         result = strappend(result, template_parameters);
 
@@ -3184,8 +3176,8 @@ static const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
         (*max_qualif_level)++;
 
         char prev_is_dependent = 0;
-        const char* class_qualification = 
-            get_fully_qualified_symbol_name_ex(class_symbol, decl_context, &prev_is_dependent, max_qualif_level, 
+        const char* class_qualification =
+            get_fully_qualified_symbol_name_ex(class_symbol, decl_context, &prev_is_dependent, max_qualif_level,
                     /* no_templates */ 0, only_classes, do_not_emit_template_keywords, print_type_fun, print_type_data);
 
         if (!class_symbol->entity_specs.is_anonymous_union)
@@ -3203,7 +3195,7 @@ static const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
         (*is_dependent) |= prev_is_dependent;
 
         result = strappend(class_qualification, result);
-    } 
+    }
     else if (!entry->entity_specs.is_member
             && !only_classes)
     {
@@ -3214,25 +3206,25 @@ static const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
     return result;
 }
 
-const char* get_fully_qualified_symbol_name(scope_entry_t* entry, 
+const char* get_fully_qualified_symbol_name(scope_entry_t* entry,
         decl_context_t decl_context, char* is_dependent, int* max_qualif_level)
 {
     return get_fully_qualified_symbol_name_ex(entry,
-            decl_context, is_dependent, max_qualif_level, 
+            decl_context, is_dependent, max_qualif_level,
             /* no_templates */ 0, /* only_classes */ 0,
             /* do_not_emit_template_keywords */ 0,
-            print_type_str_common, 
+            print_type_str_internal,
             NULL);
 }
 
-const char* get_fully_qualified_symbol_name_without_template(scope_entry_t* entry, 
+const char* get_fully_qualified_symbol_name_without_template(scope_entry_t* entry,
         decl_context_t decl_context, char* is_dependent, int* max_qualif_level)
 {
     return get_fully_qualified_symbol_name_ex(entry,
-            decl_context, is_dependent, max_qualif_level, 
+            decl_context, is_dependent, max_qualif_level,
             /* no_templates */ 1, /* only_classes */ 0,
             /* do_not_emit_template_keywords */ 0,
-            print_type_str_common, 
+            print_type_str_internal,
             NULL);
 }
 
@@ -3240,10 +3232,10 @@ const char* get_class_qualification_of_symbol(scope_entry_t* entry,
         decl_context_t decl_context, char* is_dependent, int* max_qualif_level)
 {
     return get_fully_qualified_symbol_name_ex(entry,
-            decl_context, is_dependent, max_qualif_level, 
+            decl_context, is_dependent, max_qualif_level,
             /* no_templates */ 0, /* only_classes */ 1,
             /* do_not_emit_template_keywords */ 1,
-            print_type_str_common, 
+            print_type_str_internal,
             NULL);
 }
 
@@ -3251,10 +3243,10 @@ const char* get_class_qualification_of_symbol_without_template(scope_entry_t* en
         decl_context_t decl_context, char* is_dependent, int* max_qualif_level)
 {
     return get_fully_qualified_symbol_name_ex(entry,
-            decl_context, is_dependent, max_qualif_level, 
+            decl_context, is_dependent, max_qualif_level,
             /* no_templates */ 1, /* only_classes */ 1,
             /* do_not_emit_template_keywords */ 1,
-            print_type_str_common, 
+            print_type_str_internal,
             NULL);
 }
 
@@ -4857,4 +4849,16 @@ scope_entry_list_t* query_dependent_entity_in_context(decl_context_t decl_contex
     }
 
     return NULL;
+}
+
+const char* symbol_to_source(scope_entry_t* entry)
+{
+    const char* pack = pack_pointer("symbol", (void*)entry);
+
+    const char* c = NULL;
+
+    uniquestr_sprintf(&c, "%s%s%s", 
+            "@SYMBOL-LITERAL-REF@(", pack, ")");
+
+    return c;
 }

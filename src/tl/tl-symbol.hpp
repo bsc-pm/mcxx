@@ -96,9 +96,13 @@ namespace TL
 
             //! Gets the type related to this symbol
             Type get_type() const;
+
             //! Sets the type related to this symbol
             void set_type(const Type& t);
- 
+
+            //! Gets the user defined type related to this symbol
+            Type get_user_defined_type();
+
             //! Gets the unqualified name of the symbol
             std::string get_name() const;
 
@@ -108,7 +112,7 @@ namespace TL
              * instead.
              */
             std::string get_qualified_name(bool without_template_id = false) const;
-            
+
             //! Returns a fully qualified name
             /*!
              * \param sc Scope used to lookup template parameter names
@@ -117,7 +121,7 @@ namespace TL
 
             //! Returns the part of the qualified name that involves classes
             std::string get_class_qualification(bool without_template_id = false) const;
-            
+
             //! Returns the part of the qualified name that involves classes
             /*!
              * \param sc Scope used to lookup template parameters names
@@ -126,7 +130,7 @@ namespace TL
 
             //! Gets the scope where this symbol is defined
             Scope get_scope() const;
-    
+
             //! Gets the scope related to this symbol
             /*
              * The scoping unit introduced by namespaces [C++] and program units [Fortran] and functions [C]
@@ -164,6 +168,8 @@ namespace TL
             bool is_typedef() const;
             //! States whether this symbol is a class
             bool is_class() const;
+            //! States whether this symbol is a namespace
+            bool is_namespace() const;
             //! States whether this symbol is a dependent friend class
             bool is_dependent_friend_class() const;
             //! States whether this symbol is an enum name

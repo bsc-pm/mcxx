@@ -113,7 +113,8 @@ namespace TL { namespace Nanox {
             << fill_const_wd_info(struct_arg_type_name,
                     outline_name,
                     /* is_untied */ false,
-                    /* mandatory_creation */ true);
+                    /* mandatory_creation */ true,
+                    construct);
 
         Source spawn_code;
         spawn_code

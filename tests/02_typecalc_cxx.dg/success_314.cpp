@@ -28,34 +28,35 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-omp
+test_generator=config/mercurium
 </testinfo>
 */
 
-#include <stdlib.h>
+template <bool x> struct STATIC_ASSERTION_FAILURE;
+template <> struct STATIC_ASSERTION_FAILURE<true> { enum { value = 1 }; };
+template<int x> struct static_assert_test{};
 
-int main(int argc, char *argv[])
+template <typename A, typename B>
+struct is_interoperable
 {
-    int s = 0;
+    static const int value = 1;
+};
 
-#pragma omp parallel sections reduction(+:s)
-    {
-#pragma omp section
-        {
-            s = s + 1;
-        }
-#pragma omp section
-        {
-            s = s + 1;
-        }
-#pragma omp section
-        {
-            s = s + 1;
-        }
-    }
 
-    if (s != 3)
-        abort();
+template < typename Derived1, typename Derived2>
+void foo()
+{
+    typedef static_assert_test< sizeof(STATIC_ASSERTION_FAILURE<is_interoperable<Derived1, Derived2>::value == 0 ? false : true>)> blah;
+}
 
-    return 0;
+template <typename A, typename B>
+struct is_convertible
+{
+    static const int value = 1;
+};
+
+template < typename Boo1>
+void bar()
+{
+    typedef static_assert_test< sizeof(STATIC_ASSERTION_FAILURE<is_convertible<Boo1, Boo1>::value == 0 ? false : true>)> blah;
 }

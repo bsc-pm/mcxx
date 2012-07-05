@@ -28,34 +28,58 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-omp
+test_generator=config/mercurium
 </testinfo>
 */
 
-#include <stdlib.h>
+template < bool b1, bool b2, bool b3, bool b4 = false >
+struct A;
 
-int main(int argc, char *argv[])
+template < bool c1, bool c2, bool c3 = false, bool c4 >
+struct A;
+
+template < bool d1, bool d2 = false, bool d3, bool d4 >
+struct A;
+
+
+
+template < bool b1, bool b2, bool b3, bool b4 = false >
+struct B;
+
+template < bool c1, bool c2, bool c3 = false, bool c4 >
+struct B;
+
+template < bool d1, bool d2 = false, bool d3, bool d4 >
+struct B;
+
+template < bool e1 = false , bool e2, bool e3, bool e4 >
+struct B
 {
-    int s = 0;
+    static const bool b = true;
+};
 
-#pragma omp parallel sections reduction(+:s)
+
+
+template < int i = 1 >
+struct C
+{
+    template < int j = 2 >
+    struct D
     {
-#pragma omp section
-        {
-            s = s + 1;
-        }
-#pragma omp section
-        {
-            s = s + 1;
-        }
-#pragma omp section
-        {
-            s = s + 1;
-        }
-    }
 
-    if (s != 3)
-        abort();
+    };
+};
 
-    return 0;
-}
+
+
+template < int i = 1 >
+class E
+{
+    template < int j = 2 >
+    class F;
+};
+
+template <int i>
+template <int j>
+class E<i>::F
+{};

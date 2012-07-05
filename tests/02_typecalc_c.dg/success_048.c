@@ -28,34 +28,13 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-omp
+test_generator=config/mercurium
 </testinfo>
 */
 
-#include <stdlib.h>
 
-int main(int argc, char *argv[])
+
+void f(int x, int v[x+1][x+2])
 {
-    int s = 0;
-
-#pragma omp parallel sections reduction(+:s)
-    {
-#pragma omp section
-        {
-            s = s + 1;
-        }
-#pragma omp section
-        {
-            s = s + 1;
-        }
-#pragma omp section
-        {
-            s = s + 1;
-        }
-    }
-
-    if (s != 3)
-        abort();
-
-    return 0;
+    v[x][x] = 3;
 }

@@ -28,34 +28,33 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-omp
+test_generator=config/mercurium
 </testinfo>
 */
 
-#include <stdlib.h>
-
-int main(int argc, char *argv[])
+template < int _n > struct C
 {
-    int s = 0;
+    static const int value = _n;
+};
 
-#pragma omp parallel sections reduction(+:s)
-    {
-#pragma omp section
-        {
-            s = s + 1;
-        }
-#pragma omp section
-        {
-            s = s + 1;
-        }
-#pragma omp section
-        {
-            s = s + 1;
-        }
-    }
+template < typename T >
+struct B : C<4>
+{
+};
 
-    if (s != 3)
-        abort();
 
-    return 0;
-}
+
+template<
+      typename T = void*
+    , typename Tag = void*
+    , typename Arity = C< B<T>::value >
+    >
+struct lambda;
+
+
+
+template< template< typename P1 > class F, typename T1, typename Tag >
+struct lambda< F<T1>, Tag, C< 1 > >
+{
+    typedef lambda< T1,Tag > l1;
+};

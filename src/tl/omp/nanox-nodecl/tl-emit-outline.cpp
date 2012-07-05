@@ -189,6 +189,18 @@ namespace TL { namespace Nanox {
                                     private_sym->type_information = (*it)->get_in_outline_type().get_internal_type();
                                     private_sym->defined = private_sym->entity_specs.is_user_declared = 1;
 
+                                    // Properly initialize it
+                                    nodecl_t nodecl_sym = nodecl_make_symbol(param_addr_sym, NULL, 0);
+                                    nodecl_set_type(nodecl_sym, lvalue_ref(param_addr_sym->type_information));
+
+                                    // This is doing
+                                    //    T v = (T)ptr_v;
+                                    private_sym->value = 
+                                        nodecl_make_cast(
+                                                nodecl_sym,
+                                                private_sym->type_information,
+                                                "C", NULL, 0);
+
                                     if (sym.is_valid())
                                     {
                                         symbol_map->add_map(sym, private_sym);
@@ -557,12 +569,6 @@ namespace TL { namespace Nanox {
                                 {
                                     param_type = TL::Type::get_void_type().get_pointer_to();
 
-                                    private_entities
-                                        << (*it)->get_field_name() 
-                                        << " = " << "(" << as_type((*it)->get_in_outline_type()) << ") ptr_" << (*it)->get_field_name() 
-                                        << ";"
-                                        ;
-
                                     break;
                                 }
                             default:
@@ -649,13 +655,6 @@ namespace TL { namespace Nanox {
                 outline_name + "_unpacked",
                 outline_info,
                 symbol_map);
-        // TL::Symbol unpacked_function = new_function_symbol(
-        //         // We want a sibling of the current function
-        //         current_function.get_scope(),
-        //         outline_name + "_unpacked",
-        //         TL::Type::get_void_type(),
-        //         parameter_names,
-        //         parameter_types);
 
         outline_info.set_unpacked_function_symbol(unpacked_function);
 
@@ -757,6 +756,14 @@ namespace TL { namespace Nanox {
                 }
             }
         }
+        else if (IS_CXX_LANGUAGE)
+        {
+            Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDecl::make(
+                    unpacked_function,
+                    original_statements.get_filename(),
+                    original_statements.get_line());
+            Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, nodecl_decl);
+        }
 
         Nodecl::NodeclBase new_unpacked_body = unpacked_source.parse_statement(unpacked_function_body);
         unpacked_function_body.integrate(new_unpacked_body);
@@ -789,6 +796,15 @@ namespace TL { namespace Nanox {
                 <<      cleanup_code
                 << "}"
                 ;
+
+            if (IS_CXX_LANGUAGE)
+            {
+                Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDecl::make(
+                        outline_function,
+                        original_statements.get_filename(),
+                        original_statements.get_line());
+                Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, nodecl_decl);
+            }
         }
         else if (IS_FORTRAN_LANGUAGE)
         {

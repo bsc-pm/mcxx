@@ -176,6 +176,7 @@ namespace Codegen
             Ret visit(const Nodecl::CxxDef& node);
             Ret visit(const Nodecl::CxxExplicitInstantiation& node);
             Ret visit(const Nodecl::CxxExternExplicitInstantiation& node);
+            Ret visit(const Nodecl::CxxUsingNamespace& node);
             Ret visit(const Nodecl::CxxDepFunctionCall &);
 
             Ret visit(const Nodecl::Verbatim& node);
@@ -426,13 +427,13 @@ namespace Codegen
             void declare_all_in_template_arguments(TL::TemplateParameters template_arguments,
                     void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
                     void (CxxBase::*def_sym_fun)(TL::Symbol symbol));
-            
+
             void declare_all_in_template_header(TL::TemplateParameters template_arguments);
 
             void codegen_template_headers_all_levels(
                     TL::TemplateParameters template_parameters,
                     bool show_default_values);
-            
+
             void codegen_template_headers_bounded(
                     TL::TemplateParameters template_parameters,
                     TL::TemplateParameters lim,
@@ -456,10 +457,16 @@ namespace Codegen
                     TL::ObjectList<std::string>& parameter_names,
                     TL::ObjectList<std::string>& parameter_attributes);
 
+            static const char* print_name_str(scope_entry_t* s, decl_context_t decl_context, void *data);
+            static const char* print_type_str(type_t* t, decl_context_t decl_context, void *data);
+
             std::string get_declaration(TL::Type t, TL::Scope scope, const std::string& name);
-            std::string get_declaration_with_parameters(TL::Type, TL::Scope, const std::string& name,
-                    TL::ObjectList<std::string>& names, TL::ObjectList<std::string> & parameter_attributes);
+            std::string get_declaration_with_parameters(TL::Type, TL::Scope, const std::string& symbol_name,
+                    TL::ObjectList<std::string>& parameter_names, TL::ObjectList<std::string> & parameter_attributes);
             TL::Type fix_references(TL::Type t);
+
+            std::string get_qualified_name(TL::Symbol sym, bool without_template_id = false) const;
+            std::string get_qualified_name(TL::Symbol sym, TL::Scope sc, bool without_template_id = false) const;
 
             TL::Scope get_current_scope() const;
 

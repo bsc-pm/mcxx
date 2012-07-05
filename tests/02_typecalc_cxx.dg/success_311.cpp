@@ -28,34 +28,24 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-omp
+test_generator=config/mercurium
 </testinfo>
 */
 
-#include <stdlib.h>
-
-int main(int argc, char *argv[])
+namespace M_ {}
+namespace B
 {
-    int s = 0;
-
-#pragma omp parallel sections reduction(+:s)
+    namespace M
     {
-#pragma omp section
-        {
-            s = s + 1;
-        }
-#pragma omp section
-        {
-            s = s + 1;
-        }
-#pragma omp section
-        {
-            s = s + 1;
-        }
+        using namespace ::M_;
     }
-
-    if (s != 3)
-        abort();
-
-    return 0;
 }
+
+namespace X
+{
+    namespace Y
+    {
+        using namespace ::X::Y;
+    }
+}
+

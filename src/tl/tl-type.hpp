@@ -301,6 +301,16 @@ namespace TL
              */
             Type get_function_returning(const ObjectList<Type>& type_list, bool has_ellipsis = false);
 
+            //! Returns a function to the current list of parameter types 
+            /*! 
+             * \param type_list List of parameter types of the function.
+             * \param nonadjusted_type_list List of nonadjusted parameter types of the function
+             * \param has_ellipsis Will be set to true if the function type has ellipsis
+             */
+            Type get_function_returning(const ObjectList<Type>& type_list, 
+                    const ObjectList<Type>& nonadjusted_type_list,
+                    bool has_ellipsis = false);
+
             //! If the type is a reference, it returns the referenced tye
             /*!
              * This function is a no-op in C and Fortran

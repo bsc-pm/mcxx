@@ -157,6 +157,7 @@ libmcxx_la_SOURCES = \
   cxx-gccsupport.h \
   cxx-gccsupport.c \
   cxx-gccbuiltins.h \
+  cxx-gccbuiltins-sse.h \
   cxx-gccbuiltins.c \
   cxx-gccspubuiltins.h \
   cxx-gccspubuiltins.c \

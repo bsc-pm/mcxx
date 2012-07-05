@@ -588,22 +588,33 @@ LIBMCXX_EXTERN char class_type_is_complete_independent(type_t* t);
 
 LIBMCXX_EXTERN char pointer_types_can_be_converted(type_t* orig, type_t* dest);
 
-LIBMCXX_EXTERN void set_as_template_specialized_type(type_t* type_to_specialize, 
-        template_parameter_list_t * template_parameters, 
+LIBMCXX_EXTERN void set_as_template_specialized_type(type_t* type_to_specialize,
+        template_parameter_list_t * template_parameters,
         type_t* template_type);
 
 LIBMCXX_EXTERN type_t* get_foundation_type(type_t* t);
 
 /* Naming types functions */
-LIBMCXX_EXTERN const char* get_declaration_string_internal(type_t* type_info, 
+LIBMCXX_EXTERN const char* get_declaration_string(type_t* type_info,
         decl_context_t decl_context,
-        const char* symbol_name, 
-        const char* initializer, 
+        const char* symbol_name,
+        const char* initializer,
         char semicolon,
         int num_parameter_names,
         const char** parameter_names,
         const char** parameter_attributes,
         char is_parameter);
+
+LIBMCXX_EXTERN const char* get_declaration_string_ex(type_t* type_info,
+        decl_context_t decl_context,
+        const char* symbol_name, const char* initializer,
+        char semicolon,
+        int num_parameter_names,
+        const char** parameter_names,
+        const char** parameter_attributes,
+        char is_parameter,
+        print_symbol_callback_t print_symbol_fun,
+        void* print_symbol_data);
 
 LIBMCXX_EXTERN type_t* get_ellipsis_type(void);
 LIBMCXX_EXTERN char is_ellipsis_type(type_t* t);
@@ -678,7 +689,7 @@ LIBMCXX_EXTERN void _type_assign_to(type_t*, type_t*);
 
 // TL::Source stuff
 LIBMCXX_EXTERN const char* type_to_source(type_t* t);
-
+LIBMCXX_EXTERN char is_function_or_template_function_name(scope_entry_t* entry, void* p UNUSED_PARAMETER);
 MCXX_END_DECLS
 
 #endif // CXX_TYPEUTILS_H

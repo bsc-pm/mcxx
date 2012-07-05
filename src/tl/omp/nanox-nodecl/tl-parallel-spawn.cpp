@@ -96,7 +96,8 @@ namespace TL { namespace Nanox {
         const_wd_info << fill_const_wd_info(struct_arg_type_name,
                 outline_name,
                 /* is_untied */ false,
-                /* mandatory_creation */ true);
+                /* mandatory_creation */ true,
+                construct);
 
         Source num_threads;
         if (num_replicas.is_null())

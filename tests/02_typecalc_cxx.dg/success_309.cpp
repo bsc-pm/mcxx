@@ -28,34 +28,35 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-omp
+test_generator="config/mercurium run"
+
 </testinfo>
 */
 
-#include <stdlib.h>
 
-int main(int argc, char *argv[])
+#include<assert.h>
+
+int j_value;
+
+struct A
 {
-    int s = 0;
-
-#pragma omp parallel sections reduction(+:s)
+    A(int i, int j = 2, int z = 3)
     {
-#pragma omp section
-        {
-            s = s + 1;
-        }
-#pragma omp section
-        {
-            s = s + 1;
-        }
-#pragma omp section
-        {
-            s = s + 1;
-        }
+        j_value = j;
     }
+};
 
-    if (s != 3)
-        abort();
+struct B
+{
+    A a;
+    B(int i, int j) : a(i, j)
+    {
+        assert(j_value == j);
+    }
+};
 
-    return 0;
+int main()
+{
+    A a(1, 2);
+    B b(1, 5);
 }

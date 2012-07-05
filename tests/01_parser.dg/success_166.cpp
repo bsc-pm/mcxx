@@ -28,34 +28,17 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-omp
+test_generator=config/mercurium
 </testinfo>
 */
+template <int N>
+struct A {};
 
-#include <stdlib.h>
-
-int main(int argc, char *argv[])
+template <int M>
+void f()
 {
-    int s = 0;
+    // This cannot be emitted as const int N(M) due to a bug in g++
+    const int N = M;
 
-#pragma omp parallel sections reduction(+:s)
-    {
-#pragma omp section
-        {
-            s = s + 1;
-        }
-#pragma omp section
-        {
-            s = s + 1;
-        }
-#pragma omp section
-        {
-            s = s + 1;
-        }
-    }
-
-    if (s != 3)
-        abort();
-
-    return 0;
+    A<N> b;
 }

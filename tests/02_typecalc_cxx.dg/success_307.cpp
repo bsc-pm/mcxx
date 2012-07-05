@@ -28,34 +28,31 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-omp
+test_generator=config/mercurium
 </testinfo>
 */
 
-#include <stdlib.h>
-
-int main(int argc, char *argv[])
+struct A
 {
-    int s = 0;
+    A(int x, int y);
+};
 
-#pragma omp parallel sections reduction(+:s)
-    {
-#pragma omp section
-        {
-            s = s + 1;
-        }
-#pragma omp section
-        {
-            s = s + 1;
-        }
-#pragma omp section
-        {
-            s = s + 1;
-        }
-    }
+struct B : A
+{
+    B() : A(0, 0) {}
+};
 
-    if (s != 3)
-        abort();
+struct C { };
+struct D
+{
+    D(const C&, int x = 3); /* converting constructor */
+};
 
-    return 0;
+void g(const D&);
+D f()
+{
+    C c;
+    g(c); // calls g(D(c, 3));
+    D d(c);
+    return c;
 }

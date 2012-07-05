@@ -460,8 +460,11 @@ namespace TL
     // Use these to embed TL::NodeclBase in Source where a statement is valid
     LIBTL_EXTERN std::string as_statement(const Nodecl::NodeclBase& nodecl);
 
-    // Use these to embed TL::Type in Source where a typename would be valid (in C/C++)
+    // Use these to embed TL::Type in Source where a typename would be valid
     LIBTL_EXTERN std::string as_type(TL::Type t);
+
+    // Use these to embed TL::Symbol in Source where an id-expression would be valid
+    LIBTL_EXTERN std::string as_symbol(TL::Symbol s);
 }
 
 #endif // TL_SOURCE_T_HPP

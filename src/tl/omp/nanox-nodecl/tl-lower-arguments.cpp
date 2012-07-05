@@ -55,6 +55,7 @@ namespace TL { namespace Nanox {
     {
         OutlineDataItem& outline_data_item = outline_info.get_entity_for_symbol(saved_expr.get_symbol());
         outline_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE);
+        outline_data_item.set_field_type(saved_expr.get_type().get_unqualified_type());
     }
 
     void LoweringVisitor::handle_vla_type_rec(TL::Type t, OutlineInfo& outline_info,
@@ -365,6 +366,15 @@ namespace TL { namespace Nanox {
                     module.get_internal_symbol()->entity_specs.related_symbols,
                     module.get_internal_symbol()->entity_specs.num_related_symbols,
                     new_class_symbol.get_internal_symbol());
+        }
+
+        CXX_LANGUAGE()
+        {
+            Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDef::make(
+                    new_class_symbol,
+                    construct.get_filename(),
+                    construct.get_line());
+            Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, nodecl_decl);
         }
 
         return new_class_symbol;
