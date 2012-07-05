@@ -29,7 +29,7 @@
 /*
 <testinfo>
 test_generator=config/mercurium
-test_compile_faulty=yes
+test_compile_fail=yes
 </testinfo>
 */
 
@@ -42,8 +42,8 @@ template <typename T2>
 template<typename T>
 struct A
 {
-    template <typename S2> 
-        friend class M<S2>;  //SK_CLASS
+    template <typename S2>
+        friend class M<S2>;
 };
 
 A<int> a;
