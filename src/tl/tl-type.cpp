@@ -216,7 +216,9 @@ namespace TL
         return Type(array_to);
     }
 
-    Type Type::get_function_returning(const ObjectList<Type>& type_list, bool has_ellipsis)
+    Type Type::get_function_returning(const ObjectList<Type>& type_list, 
+            const ObjectList<Type>& nonadjusted_type_list,
+            bool has_ellipsis)
     {
         int i;
         parameter_info_t *parameters_list;
@@ -228,10 +230,10 @@ namespace TL
         {
             parameters_list[i].is_ellipsis = 0;
             parameters_list[i].type_info = type_list[i]._type_info;
-            parameters_list[i].nonadjusted_type_info = NULL;
+            parameters_list[i].nonadjusted_type_info = nonadjusted_type_list[i]._type_info;
         }
 
-        if(has_ellipsis)
+        if (has_ellipsis)
         {
             num_parameters++;
             parameters_list[i].is_ellipsis = 1;
@@ -240,6 +242,13 @@ namespace TL
         }
 
         return (Type(get_new_function_type(_type_info, parameters_list, num_parameters)));
+    }
+
+    Type Type::get_function_returning(const ObjectList<Type>& type_list, bool has_ellipsis)
+    {
+        ObjectList<Type> nonadjusted_type_list(type_list.size());
+
+        return get_function_returning(type_list, nonadjusted_type_list, has_ellipsis);
     }
 
     bool Type::is_error_type() const

@@ -1725,7 +1725,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
         declarator_name = unmangle_symbol_name(symbol);
     }
 
-    TL::Type real_type = symbol_type.advance_over_typedefs();
+    TL::Type real_type = symbol_type;
 
     if (symbol.is_conversion_function()
             || symbol.is_destructor())
@@ -1993,7 +1993,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
         declarator_name += template_arguments_to_str(symbol);
     }
 
-    TL::Type real_type = symbol_type.advance_over_typedefs();
+    TL::Type real_type = symbol_type;
 
     if (symbol.is_conversion_function()
             || symbol.is_destructor())
@@ -5528,13 +5528,21 @@ void CxxBase::walk_type_for_symbols(TL::Type t,
         {
             walk_type_for_symbols(t.returns(),
                     symbol_to_declare, symbol_to_define, define_entities_in_tree);
-        }
 
-        if (!being_walked)
-        {
             TL::ObjectList<TL::Type> params = t.parameters();
             for (TL::ObjectList<TL::Type>::iterator it = params.begin();
                     it != params.end();
+                    it++)
+            {
+                walk_type_for_symbols(*it,
+                        symbol_to_declare,
+                        symbol_to_define,
+                        &CxxBase::define_nonprototype_entities_in_trees);
+            }
+
+            TL::ObjectList<TL::Type> nonadjusted_params = t.nonadjusted_parameters();
+            for (TL::ObjectList<TL::Type>::iterator it = nonadjusted_params.begin();
+                    it != nonadjusted_params.end();
                     it++)
             {
                 walk_type_for_symbols(*it,
@@ -6943,8 +6951,8 @@ TL::Type CxxBase::fix_references(TL::Type t)
         cv_qualifier_t cv_qualif = get_cv_qualifier(t.get_internal_type());
         TL::Type fixed_result = fix_references(t.returns());
         bool has_ellipsis = 0;
-        TL::ObjectList<TL::Type> fixed_parameters = t.parameters(has_ellipsis);
 
+        TL::ObjectList<TL::Type> fixed_parameters = t.parameters(has_ellipsis);
         for (TL::ObjectList<TL::Type>::iterator it = fixed_parameters.begin();
                 it != fixed_parameters.end();
                 it++)
@@ -6952,7 +6960,18 @@ TL::Type CxxBase::fix_references(TL::Type t)
             *it = fix_references(*it);
         }
 
-        TL::Type fixed_function = fixed_result.get_function_returning(fixed_parameters, has_ellipsis);
+        TL::ObjectList<TL::Type> nonadjusted_fixed_parameters = t.nonadjusted_parameters();
+        for (TL::ObjectList<TL::Type>::iterator it = nonadjusted_fixed_parameters.begin();
+                it != nonadjusted_fixed_parameters.end();
+                it++)
+        {
+            *it = fix_references(*it);
+        }
+
+        TL::Type fixed_function = fixed_result.get_function_returning(
+                fixed_parameters, 
+                nonadjusted_fixed_parameters, 
+                has_ellipsis);
 
         fixed_function = TL::Type(get_cv_qualified_type(fixed_function.get_internal_type(), cv_qualif));
 
