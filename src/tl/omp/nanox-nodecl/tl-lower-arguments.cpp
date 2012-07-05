@@ -287,11 +287,21 @@ namespace TL { namespace Nanox {
         data_items = outline_info.get_data_items();
 
         // FIXME - Wrap lots of things
-        TL::Scope sc(CURRENT_COMPILED_FILE->global_decl_context);
+        TL::Scope sc(construct.retrieve_context()
+                .get_decl_context()
+                .namespace_scope->related_entry // SK_NAMESPACE
+                ->decl_context);
 
-        if (construct.retrieve_context().get_related_symbol().is_in_module())
+        TL::Symbol related_symbol = construct.retrieve_context().get_related_symbol();
+        if (related_symbol.is_member())
         {
-            sc = construct.retrieve_context().get_related_symbol().in_module().get_related_scope();
+            // Class scope
+            sc = ::class_type_get_inner_context(related_symbol.get_class_type().get_internal_type());
+        }
+        else if (related_symbol.is_in_module())
+        {
+            // Scope of the module
+            sc = related_symbol.in_module().get_related_scope();
         }
 
         TL::Symbol new_class_symbol = sc.new_symbol(structure_name);
@@ -355,7 +365,26 @@ namespace TL { namespace Nanox {
             std::cerr << "FIXME: finished class issues nonempty nodecl" << std::endl;
         }
 
-        if (construct.retrieve_context().get_related_symbol().is_in_module())
+        if (related_symbol.is_member())
+        {
+            new_class_symbol.get_internal_symbol()->entity_specs.is_member = 1;
+            new_class_symbol.get_internal_symbol()->entity_specs.class_type 
+                = related_symbol.get_class_type().get_internal_type();
+            new_class_symbol.get_internal_symbol()->entity_specs.access = AS_PUBLIC;
+
+            new_class_symbol.get_internal_symbol()->entity_specs.is_defined_inside_class_specifier = 
+                related_symbol.get_internal_symbol()->entity_specs.is_defined_inside_class_specifier;
+
+            ::class_type_add_member_before(
+                    related_symbol.get_class_type().get_internal_type(), 
+                    related_symbol.get_internal_symbol(),
+                    new_class_symbol.get_internal_symbol());
+
+            // ::class_type_add_member(
+            //         related_symbol.get_class_type().get_internal_type(), 
+            //         new_class_symbol.get_internal_symbol());
+        }
+        else if (related_symbol.is_in_module())
         {
             // Add the newly created argument as a structure
             TL::Symbol module = construct.retrieve_context().get_related_symbol().in_module();

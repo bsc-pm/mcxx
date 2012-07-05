@@ -90,10 +90,10 @@ static TL::Symbol declare_const_wd_type(int num_devices, Nodecl::NodeclBase cons
 
         _map[num_devices] = new_class_symbol;
 
+        TL::Symbol base_class = sc.get_symbol_from_name("nanos_const_wd_definition_t");
+        ERROR_CONDITION(!base_class.is_valid(), "Invalid symbol", 0);
         {
             // Base field
-            TL::Symbol base_class = sc.get_symbol_from_name("nanos_const_wd_definition_t");
-            ERROR_CONDITION(!base_class.is_valid(), "Invalid symbol", 0);
 
             TL::Symbol field = class_scope.new_symbol("base");
             field.get_internal_symbol()->kind = SK_VARIABLE;
@@ -159,7 +159,13 @@ static TL::Symbol declare_const_wd_type(int num_devices, Nodecl::NodeclBase cons
                     new_class_symbol,
                     construct.get_filename(),
                     construct.get_line());
-            Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, nodecl_decl);
+
+            TL::ObjectList<Nodecl::NodeclBase> defs =
+                Nodecl::Utils::get_declarations_or_definitions_of_entity_at_top_level(base_class);
+            ERROR_CONDITION(defs.empty(), "No declaration of %s not found!\n", base_class.get_name().c_str());
+
+            // Append to the last declaration
+            Nodecl::Utils::append_to_enclosing_top_level_location(defs.back(), nodecl_decl);
         }
 
         return new_class_symbol;
@@ -705,12 +711,26 @@ void LoweringVisitor::fill_arguments(
                 case OutlineDataItem::SHARING_SHARED:
                 case OutlineDataItem::SHARING_REDUCTION: // Reductions are passed as if they were shared
                     {
-                        fill_outline_arguments << 
-                            "ol_args->" << (*it)->get_field_name() << " = &" << as_symbol((*it)->get_symbol()) << ";"
-                            ;
-                        fill_immediate_arguments << 
-                            "imm_args." << (*it)->get_field_name() << " = &" << as_symbol((*it)->get_symbol()) << ";"
-                            ;
+                        // 'this' is special in C++
+                        if (IS_CXX_LANGUAGE
+                                && (*it)->get_symbol().get_name() == "this")
+                        {
+                            fill_outline_arguments <<
+                                "ol_args->" << (*it)->get_field_name() << " = " << as_symbol((*it)->get_symbol()) << ";"
+                                ;
+                            fill_immediate_arguments <<
+                                "imm_args." << (*it)->get_field_name() << " = " << as_symbol((*it)->get_symbol()) << ";"
+                                ;
+                        }
+                        else
+                        {
+                            fill_outline_arguments <<
+                                "ol_args->" << (*it)->get_field_name() << " = &" << as_symbol((*it)->get_symbol()) << ";"
+                                ;
+                            fill_immediate_arguments <<
+                                "imm_args." << (*it)->get_field_name() << " = &" << as_symbol((*it)->get_symbol()) << ";"
+                                ;
+                        }
                         break;
                     }
                 case  OutlineDataItem::SHARING_CAPTURE_ADDRESS:

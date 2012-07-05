@@ -89,11 +89,13 @@ namespace TL { namespace Nanox {
     };
 
     static TL::Symbol new_function_symbol_unpacked(
-            Scope sc,
+            TL::Symbol current_function,
             const std::string& function_name,
             OutlineInfo& outline_info,
             Nodecl::Utils::SymbolMap*& out_symbol_map)
     {
+        Scope sc = current_function.get_scope();
+
         decl_context_t decl_context = sc.get_decl_context();
         decl_context_t function_context;
 
@@ -124,6 +126,11 @@ namespace TL { namespace Nanox {
             if (sym.is_valid())
             {
                 name = sym.get_name();
+                if (IS_CXX_LANGUAGE
+                        && name == "this")
+                {
+                    name = "this_";
+                }
             }
             else
             {
@@ -307,6 +314,21 @@ namespace TL { namespace Nanox {
         new_function_sym->file = "";
         new_function_sym->line = 0;
 
+        // Make it static
+        new_function_sym->entity_specs.is_static = 1;
+
+        // Make it member if the enclosing function is member
+        if (current_function.is_member())
+        {
+            new_function_sym->entity_specs.is_member = 1;
+            new_function_sym->entity_specs.class_type = current_function.get_class_type().get_internal_type();
+
+            new_function_sym->entity_specs.access = AS_PUBLIC;
+
+            ::class_type_add_member(new_function_sym->entity_specs.class_type,
+                    new_function_sym);
+        }
+
         function_context.function_scope->related_entry = new_function_sym;
         function_context.block_scope->related_entry = new_function_sym;
 
@@ -348,12 +370,15 @@ namespace TL { namespace Nanox {
         return new_function_sym;
     }
 
-    static TL::Symbol new_function_symbol(Scope sc,
+    static TL::Symbol new_function_symbol(
+            TL::Symbol current_function,
             const std::string& name,
             TL::Type return_type,
             ObjectList<std::string> parameter_names,
             ObjectList<TL::Type> parameter_types)
     {
+        Scope sc = current_function.get_scope();
+
         // FIXME - Wrap
         decl_context_t decl_context = sc.get_decl_context();
 
@@ -363,6 +388,20 @@ namespace TL { namespace Nanox {
         entry->kind = SK_FUNCTION;
         entry->file = "";
         entry->line = 0;
+
+        // Make it static
+        entry->entity_specs.is_static = 1;
+
+        // Make it member if the enclosing function is member
+        if (current_function.is_member())
+        {
+            entry->entity_specs.is_member = 1;
+            entry->entity_specs.class_type = current_function.get_class_type().get_internal_type();
+
+            entry->entity_specs.access = AS_PUBLIC;
+
+            ::class_type_add_member(entry->entity_specs.class_type, entry);
+        }
 
         ERROR_CONDITION(parameter_names.size() != parameter_types.size(), "Mismatch between names and types", 0);
 
@@ -583,7 +622,8 @@ namespace TL { namespace Nanox {
                             // Normal shared items are passed by reference from a pointer,
                             // derreference here
                             if ((*it)->get_sharing() == OutlineDataItem::SHARING_SHARED
-                                    && (*it)->get_item_kind() == OutlineDataItem::ITEM_KIND_NORMAL)
+                                    && (*it)->get_item_kind() == OutlineDataItem::ITEM_KIND_NORMAL
+                                    && !(IS_CXX_LANGUAGE && (*it)->get_symbol().get_name() == "this"))
                             {
                                 argument << "*(args." << (*it)->get_field_name() << ")";
                             }
@@ -651,7 +691,7 @@ namespace TL { namespace Nanox {
         }
 
         TL::Symbol unpacked_function = new_function_symbol_unpacked(
-                current_function.get_scope(),
+                current_function,
                 outline_name + "_unpacked",
                 outline_info,
                 symbol_map);
@@ -667,7 +707,7 @@ namespace TL { namespace Nanox {
                 );
 
         TL::Symbol outline_function = new_function_symbol(
-                current_function.get_scope(),
+                current_function,
                 outline_name,
                 TL::Type::get_void_type(),
                 structure_name,
@@ -758,11 +798,14 @@ namespace TL { namespace Nanox {
         }
         else if (IS_CXX_LANGUAGE)
         {
-            Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDecl::make(
-                    unpacked_function,
-                    original_statements.get_filename(),
-                    original_statements.get_line());
-            Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, nodecl_decl);
+            if (!unpacked_function.is_member())
+            {
+                Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDecl::make(
+                        unpacked_function,
+                        original_statements.get_filename(),
+                        original_statements.get_line());
+                Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, nodecl_decl);
+            }
         }
 
         Nodecl::NodeclBase new_unpacked_body = unpacked_source.parse_statement(unpacked_function_body);
@@ -799,11 +842,14 @@ namespace TL { namespace Nanox {
 
             if (IS_CXX_LANGUAGE)
             {
-                Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDecl::make(
-                        outline_function,
-                        original_statements.get_filename(),
-                        original_statements.get_line());
-                Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, nodecl_decl);
+                if (!outline_function.is_member())
+                {
+                    Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDecl::make(
+                            outline_function,
+                            original_statements.get_filename(),
+                            original_statements.get_line());
+                    Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, nodecl_decl);
+                }
             }
         }
         else if (IS_FORTRAN_LANGUAGE)
