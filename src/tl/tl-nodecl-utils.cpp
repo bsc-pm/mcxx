@@ -843,6 +843,60 @@ namespace Nodecl
         Nodecl::List::iterator it = list.last();
         list.insert(it+1, n);
     }
+
+    TL::ObjectList<Nodecl::NodeclBase> Utils::get_declarations_of_entity_at_top_level(TL::Symbol symbol)
+    {
+        TL::ObjectList<Nodecl::NodeclBase> result;
+        Nodecl::TopLevel top_level = Nodecl::NodeclBase(CURRENT_COMPILED_FILE->nodecl).as<Nodecl::TopLevel>();
+        Nodecl::List list = top_level.get_top_level().as<Nodecl::List>();
+        for (Nodecl::List::iterator it = list.begin();
+                it != list.end();
+                it++)
+        {
+            if (it->is<Nodecl::CxxDecl>()
+                    && it->get_symbol() == symbol)
+            {
+                result.append(*it);
+            }
+        }
+        return result;
+    }
+
+    TL::ObjectList<Nodecl::NodeclBase> Utils::get_definitions_of_entity_at_top_level(TL::Symbol symbol)
+    {
+        TL::ObjectList<Nodecl::NodeclBase> result;
+        Nodecl::TopLevel top_level = Nodecl::NodeclBase(CURRENT_COMPILED_FILE->nodecl).as<Nodecl::TopLevel>();
+        Nodecl::List list = top_level.get_top_level().as<Nodecl::List>();
+        for (Nodecl::List::iterator it = list.begin();
+                it != list.end();
+                it++)
+        {
+            if (it->is<Nodecl::CxxDef>()
+                    && it->get_symbol() == symbol)
+            {
+                result.append(*it);
+            }
+        }
+        return result;
+    }
+
+    TL::ObjectList<Nodecl::NodeclBase> Utils::get_declarations_or_definitions_of_entity_at_top_level(TL::Symbol symbol)
+    {
+        TL::ObjectList<Nodecl::NodeclBase> result;
+        Nodecl::TopLevel top_level = Nodecl::NodeclBase(CURRENT_COMPILED_FILE->nodecl).as<Nodecl::TopLevel>();
+        Nodecl::List list = top_level.get_top_level().as<Nodecl::List>();
+        for (Nodecl::List::iterator it = list.begin();
+                it != list.end();
+                it++)
+        {
+            if ((it->is<Nodecl::CxxDef>() 
+                        || it->is<Nodecl::CxxDecl>())
+                    && it->get_symbol() == symbol)
+            {
+                result.append(*it);
+            }
+        }
+        return result;
     }
 }
 

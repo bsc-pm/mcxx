@@ -75,6 +75,10 @@ namespace Nodecl
 
         Nodecl::NodeclBase advance_conversions(Nodecl::NodeclBase n);
 
+        TL::ObjectList<Nodecl::NodeclBase> get_declarations_of_entity_at_top_level(TL::Symbol);
+        TL::ObjectList<Nodecl::NodeclBase> get_definitions_of_entity_at_top_level(TL::Symbol);
+        TL::ObjectList<Nodecl::NodeclBase> get_declarations_or_definitions_of_entity_at_top_level(TL::Symbol);
+
         std::string get_elemental_operator_of_binary_expression(Nodecl::NodeclBase n);
         std::string get_elemental_operator_of_binary_expression(node_t);
 
