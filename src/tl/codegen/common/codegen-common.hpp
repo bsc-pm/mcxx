@@ -70,9 +70,10 @@ namespace Codegen
 
     class CodegenModuleVisitor : public Nodecl::ModuleVisitor<void>
     {
-        CodegenModuleVisitor(CodegenVisitor* codegen_visitor)
-            : Nodecl::ModuleVisitor<void>(codegen_visitor),
-            file(codegen_visitor->file)
+        public:
+            CodegenModuleVisitor(CodegenVisitor* codegen_visitor)
+                : Nodecl::ModuleVisitor<void>(codegen_visitor),
+                file(codegen_visitor->file)
         {
         }
 

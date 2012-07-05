@@ -27,5 +27,6 @@ linker_options = -Xlinker --add-needed
 {openmp,ompss} linker_options = -Xlinker --no-as-needed -lnanox-ss -lnanox-omp -lnanox-c -lnanox -pthread -lrt
 {acml} linker_options = -lacml_mv
 #{simd} linker_options = -lm
-{simd} compiler_phase = libtlsimd-ir.so
+#{simd} compiler_phase = libtlsimd-ir.so
 {openmp} compiler_phase = libtlnanox-lowering.so
+{openmp} compiler_phase = libcodegen-vector.so

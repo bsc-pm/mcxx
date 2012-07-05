@@ -159,18 +159,18 @@ expression : literal
            | NODECL_DERREFERENCE([rhs]expression) type const-value-opt
            | NODECL_CAST([rhs]expression) type text const-value-opt
            | NODECL_COMPOUND_EXPRESSION([nest]context) type const-value-opt
-           | NODECL_VECTOR_DIV([lhs]expression, [rhs]expression) type const-value-opt
-           | NODECL_VECTOR_ADD([lhs]expression, [rhs]expression) type const-value-opt
-           | NODECL_VECTOR_MINUS([lhs]expression, [rhs]expression) type const-value-opt
-           | NODECL_VECTOR_MUL([lhs]expression, [rhs]expression) type const-value-opt
-           | NODECL_VECTOR_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt
-           | NODECL_VECTOR_STORE([lhs] expression, [rhs] expression) type const-value-opt
-           | NODECL_VECTOR_SCATTER([lhs] expression, [rhs] expression) type const-value-opt
-           | NODECL_VECTOR_LOAD([rhs] expression) type const-value-opt
-           | NODECL_VECTOR_GATHER([rhs] expression) type const-value-opt
-           | NODECL_CONSTANT_VECTOR_PROMOTION([rhs] expression) type const-value-opt
-           | NODECL_VECTOR_CONVERSION([src] expression, [dst] expression, [offset] literal) type const-value-opt
-           | NODECL_VECTOR_FUNCTION_CALL([called] expression, [arguments] argument-seq-opt, [alternate_name]name-opt, [function_form] function-form-opt) type const-value-opt
+           | NODECL_VECTOR_DIV([lhs]expression, [rhs]expression) type const-value-opt module(vector)
+           | NODECL_VECTOR_ADD([lhs]expression, [rhs]expression) type const-value-opt module(vector)
+           | NODECL_VECTOR_MINUS([lhs]expression, [rhs]expression) type const-value-opt module(vector)
+           | NODECL_VECTOR_MUL([lhs]expression, [rhs]expression) type const-value-opt module(vector)
+           | NODECL_VECTOR_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt module(vector)
+           | NODECL_VECTOR_STORE([lhs] expression, [rhs] expression) type const-value-opt module(vector)
+           | NODECL_VECTOR_SCATTER([lhs] expression, [rhs] expression) type const-value-opt module(vector)
+           | NODECL_VECTOR_LOAD([rhs] expression) type const-value-opt module(vector)
+           | NODECL_VECTOR_GATHER([rhs] expression) type const-value-opt module(vector)
+           | NODECL_CONSTANT_VECTOR_PROMOTION([rhs] expression) type const-value-opt module(vector)
+           | NODECL_VECTOR_CONVERSION([src] expression, [dst] expression, [offset] literal) type const-value-opt module(vector)
+           | NODECL_VECTOR_FUNCTION_CALL([called] expression, [arguments] argument-seq-opt, [alternate_name]name-opt, [function_form] function-form-opt) type const-value-opt module(vector)
            | c-cxx-expressions
            | fortran-expressions
            | object-init

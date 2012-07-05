@@ -24,4 +24,27 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-SUBDIRS=common base vector
+
+include ../../../Makefile.phases
+
+phases_LTLIBRARIES = libcodegen-sse-module.la
+
+END=
+
+libcodegen_sse_module_la_CFLAGS = $(tl_cflags) \
+    -I $(srcdir)/../../common \
+    $(END)
+
+libcodegen_sse_module_la_CXXFLAGS = $(tl_cflags) \
+    -I $(srcdir)/../../common \
+    $(END)
+
+libcodegen_sse_module_la_LDFLAGS = $(tl_ldflags)
+libcodegen_sse_module_la_LIBADD = ../../common/libcodegen-common.la \
+					       $(END)
+
+
+libcodegen_sse_module_la_SOURCES = \
+	 codegen-sse-module.hpp \
+	 codegen-sse-module.cpp \
+  	 $(END)
