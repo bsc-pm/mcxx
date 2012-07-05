@@ -5537,7 +5537,7 @@ void CxxBase::walk_type_for_symbols(TL::Type t,
                 walk_type_for_symbols(*it,
                         symbol_to_declare,
                         symbol_to_define,
-                        &CxxBase::define_nonprototype_entities_in_trees);
+                        define_entities_in_tree);
             }
 
             TL::ObjectList<TL::Type> nonadjusted_params = t.nonadjusted_parameters();
@@ -5548,7 +5548,7 @@ void CxxBase::walk_type_for_symbols(TL::Type t,
                 walk_type_for_symbols(*it,
                         symbol_to_declare,
                         symbol_to_define,
-                        &CxxBase::define_nonprototype_entities_in_trees);
+                        define_entities_in_tree);
             }
         }
     }
