@@ -841,7 +841,8 @@ namespace Nodecl
         Nodecl::List list = current_location.as<Nodecl::List>();
 
         Nodecl::List::iterator it = list.last();
-        list.insert(it, n);
+        list.insert(it+1, n);
+    }
     }
 }
 
