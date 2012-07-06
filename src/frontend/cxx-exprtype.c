@@ -5579,10 +5579,10 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
         }
         else
         {
-            scope_entry_list_t* this_symbol_list
-                = query_name_str(decl_context, "this");
+            type_t* this_type = NULL;
             scope_entry_t* this_symbol = NULL;
-                type_t* this_type = NULL;
+
+            scope_entry_list_t* this_symbol_list = query_name_str(decl_context, "this");
             if (this_symbol_list != NULL)
             {
                 this_symbol =  entry_list_head(this_symbol_list);
