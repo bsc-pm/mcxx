@@ -6439,8 +6439,7 @@ void CxxBase::codegen_template_headers_bounded(
         TL::TemplateParameters lim,
         bool show_default_values)
 {
-    if (!template_parameters.is_valid()
-            || !lim.is_valid())
+    if (!template_parameters.is_valid())
         return;
 
     if (template_parameters != lim)
