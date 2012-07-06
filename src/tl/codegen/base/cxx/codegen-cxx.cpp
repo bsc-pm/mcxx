@@ -3835,13 +3835,26 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
             }
             else
             {
-                if (member.is_variable()
-                        && (!member.is_static()
-                            || (member.get_type().is_integral_type()
-                                || member.get_type().is_enum()
-                                && member.get_type().is_const())
-                            || member.is_defined_inside_class()))
+                bool member_declaration_does_define = true;
 
+                // If we are declaring a static member it is not a definition
+                // unless it is const integral type or const enum type
+                if (member.is_variable()
+                        && member.is_static()
+                        && (!member.get_type().is_const()
+                            || (!member.get_type().is_integral_type()
+                                && !member.get_type().is_enum())))
+                {
+                    member_declaration_does_define = false;
+                }
+
+                // Override whatever we might have deduced so far
+                if (member.is_defined_inside_class())
+                {
+                    member_declaration_does_define = true;
+                }
+
+                if (member_declaration_does_define)
                 {
                     do_define_symbol(member,
                             &CxxBase::declare_symbol_always,
@@ -6400,6 +6413,10 @@ void CxxBase::codegen_template_headers_bounded(
         TL::TemplateParameters lim,
         bool show_default_values)
 {
+    if (!template_parameters.is_valid()
+            || !lim.is_valid())
+        return;
+
     if (template_parameters != lim)
     {
         if (template_parameters.has_enclosing_parameters())
@@ -6421,6 +6438,9 @@ void CxxBase::codegen_template_headers_all_levels(
         TL::TemplateParameters template_parameters,
         bool show_default_values)
 {
+    if (!template_parameters.is_valid())
+        return;
+
     if (template_parameters.has_enclosing_parameters())
     {
         TL::TemplateParameters enclosing_template_parameters =
@@ -6440,6 +6460,9 @@ void CxxBase::codegen_template_header(
         bool show_default_values,
         bool endline)
 {
+    if (!template_parameters.is_valid())
+        return;
+
     indent();
     if (template_parameters.get_is_explicit_specialization())
     {
