@@ -144,6 +144,35 @@ namespace TL {
                 "", 0);
     }
 
+    namespace {
+        void fill_extra_ref_assumed_size(Source &extra_ref, TL::Type t)
+        {
+            if (t.is_array())
+            {
+                fill_extra_ref_assumed_size(extra_ref, t.array_element());
+
+                Source current_dims;
+                Nodecl::NodeclBase lower_bound, upper_bound;
+                t.array_get_bounds(lower_bound, upper_bound);
+
+                if (lower_bound.is_null())
+                {
+                    current_dims << "1:1";
+                }
+                else if (upper_bound.is_null())
+                {
+                    current_dims << as_expression(lower_bound) << ":" << as_expression(lower_bound);
+                }
+                else
+                {
+                    current_dims << as_expression(lower_bound) << ":" << as_expression(upper_bound);
+                }
+
+                extra_ref.append_with_separator(current_dims, ",");
+            }
+        }
+    }
+
     // This is for Fortran only
     TL::Symbol Nanox::get_function_ptr_of(TL::Type t, TL::Scope original_scope)
     {
@@ -199,8 +228,9 @@ namespace TL {
         {
             TL::ReferenceScope ref_scope(empty_stmt);
             decl_context_t decl_context = ref_scope.get_scope().get_decl_context();
+            TL::Symbol related_function = original_scope.get_related_symbol();
             scope_entry_t* original_used_modules_info
-                = original_scope.get_related_symbol().get_used_modules().get_internal_symbol();
+                = related_function.get_used_modules().get_internal_symbol();
 
             if (original_used_modules_info != NULL)
             {
@@ -214,14 +244,42 @@ namespace TL {
                             original_used_modules_info->entity_specs.related_symbols[i]);
                 }
             }
+
+            if (related_function.is_in_module())
+            {
+                TL::Symbol module = related_function.in_module();
+                original_used_modules_info = module.get_used_modules().get_internal_symbol();
+
+                if (original_used_modules_info != NULL)
+                {
+                    scope_entry_t* new_used_modules_info
+                        = get_or_create_used_modules_symbol_info(decl_context);
+                    int i;
+                    for (i = 0 ; i< original_used_modules_info->entity_specs.num_related_symbols; i++)
+                    {
+                        P_LIST_ADD(new_used_modules_info->entity_specs.related_symbols,
+                                new_used_modules_info->entity_specs.num_related_symbols,
+                                original_used_modules_info->entity_specs.related_symbols[i]);
+                    }
+                }
+            }
         }
 
-        TL::Source body_src;
+        TL::Source body_src, extra_ref;
         body_src
             << "IMPLICIT NONE\n"
             << "TARGET :: nanox_target_phony\n" // This is despicable, I know :)
-            << "nanox_pointer_phony => nanox_target_phony\n"
+            << "nanox_pointer_phony => nanox_target_phony" << extra_ref << "\n"
             ;
+
+        if (t.is_array()
+                && !t.array_requires_descriptor()
+                && t.array_get_size().is_null())
+        {
+            Source array_section;
+            fill_extra_ref_assumed_size(array_section, t);
+            extra_ref << "(" << array_section << ")";
+        }
 
         Nodecl::NodeclBase new_body = body_src.parse_statement(empty_stmt);
         empty_stmt.integrate(new_body);
