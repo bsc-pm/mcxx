@@ -11574,7 +11574,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                         {
                             if (!checking_ambiguity())
                             {
-                                error_printf("%s: error: extra qualification of member declaration is not allowed: '%s'. Did you mean '%s'?", 
+                                error_printf("%s: error: extra qualification of member declaration is not allowed: '%s'. Did you mean '%s'?\n",
                                         ast_location(too_much_qualified_declarator_name),
                                         prettyprint_in_buffer(declarator),
                                         prettyprint_in_buffer(ASTSon2(too_much_qualified_declarator_name))
