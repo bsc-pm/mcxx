@@ -138,9 +138,6 @@ void build_scope_friend_declarator(decl_context_t decl_context,
         type_t* member_type, 
         AST declarator);
 
-LIBMCXX_EXTERN void introduce_using_entity_nodecl_name(nodecl_t nodecl_name, 
-        decl_context_t decl_context, access_specifier_t current_access);
-
 LIBMCXX_EXTERN scope_entry_t* add_label_if_not_found(AST label, decl_context_t decl_context);
 
 LIBMCXX_EXTERN char function_is_copy_constructor(scope_entry_t* entry, type_t* class_type);

@@ -1243,10 +1243,13 @@ void introduce_using_entities(
     entry_list_free(already_using);
 }
 
-void introduce_using_entity_nodecl_name(nodecl_t nodecl_name, decl_context_t decl_context, access_specifier_t current_access)
+static void introduce_using_entity_nodecl_name(nodecl_t nodecl_name,
+        decl_context_t decl_context,
+        access_specifier_t current_access,
+        nodecl_t* nodecl_output)
 {
-    scope_entry_list_t* used_entities = query_nodecl_name_flags(decl_context, 
-            nodecl_name, 
+    scope_entry_list_t* used_entities = query_nodecl_name_flags(decl_context,
+            nodecl_name,
             // Do not examine uninstantiated templates
             DF_DEPENDENT_TYPENAME);
 
@@ -1278,13 +1281,32 @@ void introduce_using_entity_nodecl_name(nodecl_t nodecl_name, decl_context_t dec
         used_hub_symbol->kind = SK_USING;
         used_hub_symbol->type_information = get_unresolved_overloaded_type(used_entities, NULL);
         used_hub_symbol->entity_specs.access = current_access;
+        used_hub_symbol->line = nodecl_get_line(nodecl_name);
+        used_hub_symbol->file = nodecl_get_filename(nodecl_name);
 
         class_type_add_member(current_class->type_information, used_hub_symbol);
     }
+    else
+    {
+        scope_entry_t* entry = entry_list_head(used_entities);
+        *nodecl_output =
+            nodecl_make_list_1(
+                    nodecl_make_cxx_using_decl(
+                        nodecl_make_context(
+                            /* optional statement sequence */ nodecl_null(),
+                            decl_context,
+                            nodecl_get_filename(nodecl_name),
+                            nodecl_get_line(nodecl_name)),
+                        entry,
+                        nodecl_get_filename(nodecl_name),
+                        nodecl_get_line(nodecl_name)));
+    }
+
+    entry_list_free(used_entities);
 }
 
 static void build_scope_using_declaration(AST a, decl_context_t decl_context, access_specifier_t current_access,
-        nodecl_t* nodecl_output UNUSED_PARAMETER)
+        nodecl_t* nodecl_output)
 {
     AST id_expression = ASTSon0(a);
 
@@ -1306,12 +1328,12 @@ static void build_scope_using_declaration(AST a, decl_context_t decl_context, ac
     if (nodecl_is_err_expr(nodecl_name))
         return;
 
-    introduce_using_entity_nodecl_name(nodecl_name, decl_context, current_access);
+    introduce_using_entity_nodecl_name(nodecl_name, decl_context, current_access, nodecl_output);
 }
 
-static void build_scope_member_declaration_qualified(AST a, decl_context_t decl_context, 
+static void build_scope_member_declaration_qualified(AST a, decl_context_t decl_context,
         access_specifier_t current_access,
-        nodecl_t* nodecl_output UNUSED_PARAMETER)
+        nodecl_t* nodecl_output)
 {
     AST id_expression = ASTSon0(a);
 
@@ -1321,7 +1343,7 @@ static void build_scope_member_declaration_qualified(AST a, decl_context_t decl_
     if (nodecl_is_err_expr(nodecl_name))
         return;
 
-    introduce_using_entity_nodecl_name(nodecl_name, decl_context, current_access);
+    introduce_using_entity_nodecl_name(nodecl_name, decl_context, current_access, nodecl_output);
 }
 
 static void build_scope_static_assert(AST a, decl_context_t decl_context)

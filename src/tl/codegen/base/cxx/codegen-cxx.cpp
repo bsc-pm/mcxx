@@ -2963,6 +2963,26 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxDef& node)
             &CxxBase::define_symbol_always);
 }
 
+CxxBase::Ret CxxBase::visit(const Nodecl::CxxUsingDecl& node)
+{
+    TL::Scope context = node.get_context().retrieve_context();
+    TL::Symbol sym = node.get_symbol();
+
+    if (context.is_namespace_scope())
+    {
+        // We define de namespace if it has not been defined yet.
+        // C++ only allows the definition of a namespace inside an other
+        // namespace or in the global scope
+        do_define_symbol(sym,
+                &CxxBase::declare_symbol_always,
+                &CxxBase::define_symbol_always);
+
+        move_to_namespace(context.get_related_symbol());
+    }
+
+    indent();
+    file << "using " << this->get_qualified_name(sym) << ";\n";
+}
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxUsingNamespace & node)
 {
     TL::Scope context = node.get_context().retrieve_context();

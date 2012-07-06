@@ -234,6 +234,7 @@ cxx-decl : NODECL_CXX_DECL() symbol
     | NODECL_CXX_EXPLICIT_INSTANTIATION([declarator_name] cxx-dependent-name-opt, [context] context) symbol
     | NODECL_CXX_EXTERN_EXPLICIT_INSTANTIATION([declarator_name] cxx-dependent-name-opt, [context] context) symbol
     | NODECL_CXX_USING_NAMESPACE([context] context) symbol
+    | NODECL_CXX_USING_DECL([context] context) symbol
 
 # Special nodes for dependent names
 cxx-dependent-name : NODECL_CXX_DEP_GLOBAL_NAME_NESTED([items] cxx-atom-dependent-name-seq)
