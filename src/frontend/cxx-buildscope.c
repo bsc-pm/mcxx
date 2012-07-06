@@ -1690,7 +1690,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                 *declared_symbols = entry_list_add(*declared_symbols, entry);
             }
 
-            nodecl_t (*make_cxx_decl_or_def)(scope_entry_t*, const char*, int) =
+            nodecl_t (*make_cxx_decl_or_def)(nodecl_t, scope_entry_t*, const char*, int) =
                     (entry->defined) ? nodecl_make_cxx_def : nodecl_make_cxx_decl;
 
             CXX_LANGUAGE()
@@ -1698,7 +1698,11 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                 *nodecl_output = nodecl_concat_lists(
                         *nodecl_output,
                         nodecl_make_list_1(
-                           make_cxx_decl_or_def(entry, ASTFileName(init_declarator), ASTLine(init_declarator)))); 
+                            make_cxx_decl_or_def(
+                                /* optative context */ nodecl_null(),
+                                entry,
+                                ASTFileName(init_declarator),
+                                ASTLine(init_declarator))));
             }
         }
     }
@@ -3158,7 +3162,11 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
             nodecl_concat_lists(
                     *nodecl_output,
                     nodecl_make_list_1(
-                        nodecl_make_cxx_decl(class_entry, ASTFileName(a), ASTLine(a))));
+                        nodecl_make_cxx_decl(
+                            /* optative context */ nodecl_null(),
+                            class_entry,
+                            ASTFileName(a),
+                            ASTLine(a))));
     }
 }
 
@@ -3329,11 +3337,15 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a,
 
     CXX_LANGUAGE()
     {
-        *nodecl_output = 
+        *nodecl_output =
             nodecl_concat_lists(
                     *nodecl_output,
                     nodecl_make_list_1(
-                        nodecl_make_cxx_decl(entry, ASTFileName(a), ASTLine(a))));
+                        nodecl_make_cxx_decl(
+                            /* optative context */ nodecl_null(),
+                            entry,
+                            ASTFileName(a),
+                            ASTLine(a))));
     }
 }
 
@@ -3949,11 +3961,15 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
 
     CXX_LANGUAGE()
     {
-        *nodecl_output = 
+        *nodecl_output =
             nodecl_concat_lists(
                     *nodecl_output,
                     nodecl_make_list_1(
-                        nodecl_make_cxx_def(new_enum, ASTFileName(a), ASTLine(a))));
+                        nodecl_make_cxx_def(
+                            /* optative context */ nodecl_null(),
+                            new_enum,
+                            ASTFileName(a),
+                            ASTLine(a))));
     }
 }
 
@@ -6302,7 +6318,11 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
             nodecl_concat_lists(
                     *nodecl_output,
                     nodecl_make_list_1(
-                        nodecl_make_cxx_def(class_entry, ASTFileName(a), ASTLine(a))));
+                        nodecl_make_cxx_def(
+                            /* optative context */ nodecl_null(),
+                            class_entry,
+                            ASTFileName(a),
+                            ASTLine(a))));
     }
 
     ERROR_CONDITION(class_entry != NULL
@@ -9240,14 +9260,18 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
         }
 
 
-        nodecl_t (*make_cxx_decl_or_def)(scope_entry_t*, const char*, int) =
+        nodecl_t (*make_cxx_decl_or_def)(nodecl_t, scope_entry_t*, const char*, int) =
             (entry->defined) ? nodecl_make_cxx_def : nodecl_make_cxx_decl;
 
         // Keep declaration
         *nodecl_output = nodecl_concat_lists(
                 *nodecl_output,
                 nodecl_make_list_1(
-                    make_cxx_decl_or_def(entry, ASTFileName(init_declarator), ASTLine(init_declarator))));
+                    make_cxx_decl_or_def(
+                        /* optative context */ nodecl_null(),
+                        entry,
+                        ASTFileName(init_declarator),
+                        ASTLine(init_declarator))));
     }
 }
 

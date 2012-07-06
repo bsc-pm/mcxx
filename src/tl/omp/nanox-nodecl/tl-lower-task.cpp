@@ -156,6 +156,7 @@ static TL::Symbol declare_const_wd_type(int num_devices, Nodecl::NodeclBase cons
         if (IS_CXX_LANGUAGE)
         {
             Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDef::make(
+                    /* optative context */ nodecl_null(),
                     new_class_symbol,
                     construct.get_filename(),
                     construct.get_line());

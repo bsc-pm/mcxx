@@ -801,6 +801,7 @@ namespace TL { namespace Nanox {
             if (!unpacked_function.is_member())
             {
                 Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDecl::make(
+                        /* optative context */ nodecl_null(),
                         unpacked_function,
                         original_statements.get_filename(),
                         original_statements.get_line());
@@ -845,6 +846,7 @@ namespace TL { namespace Nanox {
                 if (!outline_function.is_member())
                 {
                     Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDecl::make(
+                            /* optative context */ nodecl_null(),
                             outline_function,
                             original_statements.get_filename(),
                             original_statements.get_line());
