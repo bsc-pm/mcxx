@@ -116,6 +116,10 @@ namespace TL { namespace Nanox {
                     /* mandatory_creation */ true,
                     construct);
 
+        Source dependence_type;
+        dependence_type
+            << "nanos_data_access_t*";
+
         Source spawn_code;
         spawn_code
         << "{"
@@ -164,7 +168,7 @@ namespace TL { namespace Nanox {
         <<                 "nanos_handle_error(err);"
         <<             "ol_args->wsd = wsd;"
         <<             statement_placeholder(fill_outline_arguments_tree)
-        <<             "err = nanos_submit(wd, 0, (nanos_dependence_t *) 0, (nanos_team_t) 0);"
+        <<             "err = nanos_submit(wd, 0, ( " << dependence_type << " *) 0, (nanos_team_t) 0);"
         <<             "if (err != NANOS_OK)"
         <<                 "nanos_handle_error(err);"
         <<             "err = nanos_free(wsd->threads);"

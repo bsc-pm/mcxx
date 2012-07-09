@@ -119,6 +119,10 @@ namespace TL { namespace Nanox {
         Source fill_immediate_arguments,
                fill_dependences_immediate;
 
+        Source dependence_type;
+        dependence_type
+            << "nanos_data_access_t*";
+
         Source spawn_code;
         spawn_code
             << "{"
@@ -148,7 +152,7 @@ namespace TL { namespace Nanox {
             <<      statement_placeholder(fill_outline_arguments_tree)
             <<      fill_dependences_outline
             <<      copy_ol_setup
-            <<      "err = nanos_submit(wd, 0, (nanos_dependence_t*)0, 0);"
+            <<      "err = nanos_submit(wd, 0, (" <<  dependence_type << ") 0, (nanos_team_t) nanos_team);"
             <<      "if (err != NANOS_OK) nanos_handle_error(err);"
             <<   "}"
             <<   "dyn_props.tie_to = nanos_team_threads[0];"

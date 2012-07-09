@@ -1098,7 +1098,7 @@ void LoweringVisitor::fill_dependences(
 
     if (num_deps == 0)
     {
-        if (Nanos::Version::interface_is_at_least("master", 6001))
+        if (Nanos::Version::interface_is_at_least("deps_api", 1001))
         {
             result_src << "nanos_data_access_t dependences[1];"
                 ;
@@ -1112,7 +1112,7 @@ void LoweringVisitor::fill_dependences(
         return;
     }
 
-    if (Nanos::Version::interface_is_at_least("master", 6001))
+    if (Nanos::Version::interface_is_at_least("deps_api", 1001))
     {
         Source dependency_regions;
 
