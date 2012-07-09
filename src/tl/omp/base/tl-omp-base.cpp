@@ -1031,9 +1031,28 @@ namespace TL { namespace OpenMP {
         directive.integrate(parallel_code);
     }
 
-    // Keep these
     void Base::threadprivate_handler_pre(TL::PragmaCustomDirective) { }
-    void Base::threadprivate_handler_post(TL::PragmaCustomDirective) { }
+    void Base::threadprivate_handler_post(TL::PragmaCustomDirective directive) 
+    {
+        OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
+
+        TL::ObjectList<Symbol> threadprivate_symbols;
+        ds.get_all_symbols(OpenMP::DS_THREADPRIVATE, threadprivate_symbols);
+
+        for (TL::ObjectList<Symbol>::iterator it = threadprivate_symbols.begin();
+                it != threadprivate_symbols.end();
+                it++)
+        {
+            TL::Symbol &sym(*it);
+
+            // Mark as __thread
+            scope_entry_t* entry = sym.get_internal_symbol();
+
+            entry->entity_specs.is_thread = 1;
+        }
+
+        Nodecl::Utils::remove_from_enclosing_list(directive);
+    }
 
     // Remove
     void Base::declare_reduction_handler_pre(TL::PragmaCustomDirective)

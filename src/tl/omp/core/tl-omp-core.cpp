@@ -1115,10 +1115,25 @@ namespace TL
                 {
                     Symbol sym = expr.get_symbol();
 
+                    if (!sym.is_variable())
+                    {
+                        std::cerr << expr.get_locus() 
+                            << ": warning: '" 
+                            << expr.prettyprint() 
+                            << "' is not a variable, skipping" 
+                            << std::endl;
+                        continue;
+                    }
+
                     if (sym.is_member()
                             && !sym.is_static())
                     {
-                        std::cerr << expr.get_locus() << ": warning: '" << expr.prettyprint() << "' is a nonstatic-member, skipping" << std::endl;
+                        std::cerr << expr.get_locus() 
+                            << ": warning: '" 
+                            << expr.prettyprint() 
+                            << "' is a nonstatic-member, skipping" 
+                            << std::endl;
+                        continue;
                     }
 
                     data_sharing.set_data_sharing(sym, DS_THREADPRIVATE);
