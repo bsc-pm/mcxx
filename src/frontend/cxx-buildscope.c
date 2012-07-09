@@ -3157,13 +3157,17 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
 
     CXX_LANGUAGE()
     {
+        nodecl_t nodecl_context =
+            nodecl_make_context(/* optional statement sequence */ nodecl_null(),
+                    decl_context, ASTFileName(a), ASTLine(a));
+
         // Remember the declaration
         *nodecl_output =
             nodecl_concat_lists(
                     *nodecl_output,
                     nodecl_make_list_1(
                         nodecl_make_cxx_decl(
-                            /* optative context */ nodecl_null(),
+                            nodecl_context,
                             class_entry,
                             ASTFileName(a),
                             ASTLine(a))));
@@ -6314,12 +6318,16 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
 
     CXX_LANGUAGE()
     {
+        nodecl_t nodecl_context =
+            nodecl_make_context(/* optional statement sequence */ nodecl_null(),
+                    decl_context, ASTFileName(a), ASTLine(a));
+
         *nodecl_output =
             nodecl_concat_lists(
                     *nodecl_output,
                     nodecl_make_list_1(
                         nodecl_make_cxx_def(
-                            /* optative context */ nodecl_null(),
+                            nodecl_context,
                             class_entry,
                             ASTFileName(a),
                             ASTLine(a))));

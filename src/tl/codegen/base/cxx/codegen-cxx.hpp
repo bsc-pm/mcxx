@@ -281,11 +281,13 @@ namespace Codegen
 
             void define_class_symbol_aux(TL::Symbol symbol,
                     TL::ObjectList<TL::Symbol> symbols_defined_inside_class,
-                    int level);
+                    int level,
+                    TL::Scope* scope = NULL);
 
             void define_class_symbol(TL::Symbol symbol,
                     void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
-                    void (CxxBase::*def_sym_fun)(TL::Symbol symbol));
+                    void (CxxBase::*def_sym_fun)(TL::Symbol symbol),
+                    TL::Scope* scope = NULL);
 
             void declare_friend_symbol(TL::Symbol friend_symbol,
                     TL::Symbol class_symbol);
@@ -295,11 +297,13 @@ namespace Codegen
 
             void do_define_symbol(TL::Symbol symbol,
                     void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
-                    void (CxxBase::*def_sym_fun)(TL::Symbol symbol));
+                    void (CxxBase::*def_sym_fun)(TL::Symbol symbol),
+                    TL::Scope* scope = NULL);
 
             void do_declare_symbol(TL::Symbol symbol,
                     void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
-                    void (CxxBase::*def_sym_fun)(TL::Symbol symbol));
+                    void (CxxBase::*def_sym_fun)(TL::Symbol symbol),
+                    TL::Scope* scope = NULL);
 
             void define_generic_entities(Nodecl::NodeclBase node,
                     void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),

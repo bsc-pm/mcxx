@@ -2946,11 +2946,23 @@ CxxBase::Ret CxxBase::visit(const Nodecl::WhileStatement& node)
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxDecl& node)
 {
     TL::Symbol sym = node.get_symbol();
+
+    TL::Scope* context_of_declaration = NULL;
+    TL::Scope context;
+
+    Nodecl::NodeclBase nodecl_context = node.get_context();
+    if (!nodecl_context.is_null())
+    {
+        context = nodecl_context.as<Nodecl::Context>().retrieve_context();
+        context_of_declaration = &context;
+    }
+
     state.must_be_object_init.erase(sym);
 
     do_declare_symbol(sym,
             &CxxBase::declare_symbol_always,
-            &CxxBase::define_symbol_always);
+            &CxxBase::define_symbol_always,
+            context_of_declaration);
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxDef& node)
@@ -2958,9 +2970,20 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxDef& node)
     TL::Symbol sym = node.get_symbol();
     state.must_be_object_init.erase(sym);
 
+    TL::Scope* context_of_declaration = NULL;
+    TL::Scope context;
+
+    Nodecl::NodeclBase nodecl_context = node.get_context();
+    if (!nodecl_context.is_null())
+    {
+        context = nodecl_context.as<Nodecl::Context>().retrieve_context();
+        context_of_declaration = &context;
+    }
+
     do_define_symbol(sym,
             &CxxBase::declare_symbol_always,
-            &CxxBase::define_symbol_always);
+            &CxxBase::define_symbol_always,
+            context_of_declaration);
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxUsingDecl& node)
@@ -3490,10 +3513,9 @@ static bool is_member_nontype(TL::Symbol t)
 
 void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
         TL::ObjectList<TL::Symbol> symbols_defined_inside_class,
-        int level)
+        int level,
+        TL::Scope* scope)
 {
-    bool has_been_declared =
-        (get_codegen_status(symbol) == CODEGEN_STATUS_DECLARED);
     set_codegen_status(symbol, CODEGEN_STATUS_DEFINED);
 
     access_specifier_t default_access_spec = AS_UNKNOWN;
@@ -3576,8 +3598,8 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
         {
             if (is_template_specialized)
             {
-                TL::TemplateParameters template_parameters(NULL);
-                template_parameters = symbol.get_scope().get_template_parameters();
+                TL::TemplateParameters template_parameters =
+                    (scope != NULL) ? scope->get_template_parameters() : symbol.get_scope().get_template_parameters();
 
                 if (!(symbol_type.class_type_is_complete_independent()
                             || symbol_type.class_type_is_incomplete_independent()))
@@ -3588,12 +3610,12 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                         TL::Symbol enclosing_class = symbol.get_class_type().get_symbol();
                         codegen_template_headers_bounded(template_parameters,
                                 enclosing_class.get_scope().get_template_parameters(),
-                                /*show default values*/ !has_been_declared);
+                                /* show_default_values */ true);
                     }
                     else
                     {
                         // We want all template headers
-                        codegen_template_headers_all_levels(template_parameters, /*show default values*/ !has_been_declared);
+                        codegen_template_headers_all_levels(template_parameters, /* show_default_values */ true);
                     }
                 }
                 else
@@ -3621,7 +3643,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                         if (!symbol.is_anonymous_union())
                         {
                             TL::TemplateParameters template_parameters = symbol.get_scope().get_template_parameters();
-                            codegen_template_headers_all_levels(template_parameters, /*show default values*/ !has_been_declared);
+                            codegen_template_headers_all_levels(template_parameters, /* show_default_values */ true);
                         }
                     }
                 }
@@ -3754,7 +3776,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
             {
                 TL::Symbol class_sym = member.get_type().get_symbol();
                 state.classes_being_defined.push_back(class_sym);
-                define_class_symbol_aux(class_sym, symbols_defined_inside_class, level + 1);
+                define_class_symbol_aux(class_sym, symbols_defined_inside_class, level + 1, scope);
                 state.classes_being_defined.pop_back();
             }
             else
@@ -3935,7 +3957,8 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
 
 void CxxBase::define_class_symbol(TL::Symbol symbol,
         void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
-        void (CxxBase::*def_sym_fun)(TL::Symbol symbol))
+        void (CxxBase::*def_sym_fun)(TL::Symbol symbol),
+        TL::Scope *scope)
 {
     if (symbol.is_anonymous_union() && !symbol.is_user_declared())
     {
@@ -3955,7 +3978,7 @@ void CxxBase::define_class_symbol(TL::Symbol symbol,
             define_required_before_class(symbol, decl_sym_fun, def_sym_fun);
     }
 
-    define_class_symbol_aux(symbol, symbols_defined_inside_class, /* level */ 0);
+    define_class_symbol_aux(symbol, symbols_defined_inside_class, /* level */ 0, scope);
 
     state.classes_being_defined.pop_back();
 
@@ -4666,7 +4689,8 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
 
 void CxxBase::do_define_symbol(TL::Symbol symbol,
         void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
-        void (CxxBase::*def_sym_fun)(TL::Symbol symbol))
+        void (CxxBase::*def_sym_fun)(TL::Symbol symbol),
+        TL::Scope* scope)
 {
     if (state.emit_declarations == State::EMIT_NO_DECLARATIONS)
         return;
@@ -4807,7 +4831,7 @@ void CxxBase::do_define_symbol(TL::Symbol symbol,
     }
     else if (symbol.is_class())
     {
-        define_class_symbol(symbol, decl_sym_fun, def_sym_fun);
+        define_class_symbol(symbol, decl_sym_fun, def_sym_fun, scope);
     }
     else if (symbol.is_function())
     {
@@ -4830,13 +4854,13 @@ void CxxBase::do_define_symbol(TL::Symbol symbol,
     {
         internal_error("I do not know how to define a %s\n", symbol_kind_name(symbol.get_internal_symbol()));
     }
-
     set_codegen_status(symbol, CODEGEN_STATUS_DEFINED);
 }
 
 void CxxBase::do_declare_symbol(TL::Symbol symbol,
         void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
-        void (CxxBase::*def_sym_fun)(TL::Symbol symbol))
+        void (CxxBase::*def_sym_fun)(TL::Symbol symbol),
+        TL::Scope* scope)
 {
     if (state.emit_declarations == State::EMIT_NO_DECLARATIONS)
         return;
@@ -4896,12 +4920,17 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
     if (!symbol.is_user_declared())
         return;
 
-    // Do nothing if already defined or declared
-    if (get_codegen_status(symbol) == CODEGEN_STATUS_DEFINED
-            || get_codegen_status(symbol) == CODEGEN_STATUS_DECLARED
-            // It is a symbol that will be object-inited
-            || state.must_be_object_init.find(symbol) != state.must_be_object_init.end()
-            )
+    // Do nothing if:
+    //  - The symbol has been declared or defined and
+    //  - It is not a template specialized class
+    if ((get_codegen_status(symbol) == CODEGEN_STATUS_DEFINED
+                || get_codegen_status(symbol) == CODEGEN_STATUS_DECLARED)
+                && !(symbol.is_class()
+                    && symbol.get_type().is_template_specialized_type()))
+        return;
+
+    // It is a symbol that will be object-inited
+    if (state.must_be_object_init.find(symbol) != state.must_be_object_init.end())
         return;
 
     if (symbol.is_variable())
@@ -5020,9 +5049,17 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                             "Only user declared template specializations are allowed "
                             "as a dependent template specialized type!\n", 0);
 
-                    TL::TemplateParameters template_parameters = is_primary_template ?
-                        template_type.get_related_template_symbol().get_type().template_type_get_template_parameters()
-                        : symbol.get_type().template_specialized_type_get_template_parameters();
+                    TL::TemplateParameters template_parameters(NULL);
+                    if (scope != NULL)
+                    {
+                        template_parameters = scope->get_template_parameters();
+                    }
+                    else
+                    {
+                     template_parameters = is_primary_template ?
+                         template_type.get_related_template_symbol().get_type().template_type_get_template_parameters()
+                         : symbol.get_type().template_specialized_type_get_template_parameters();
+                    }
 
                     codegen_template_header(template_parameters, /*show default values*/ true);
                 }
