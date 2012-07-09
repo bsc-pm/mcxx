@@ -41,6 +41,7 @@ namespace Codegen
 
             void visit(const Nodecl::VectorAdd& node);
             void visit(const Nodecl::VectorMinus& node);
+            void visit(const Nodecl::ConstantVectorPromotion& node);
             void visit(const Nodecl::VectorAssignment& node);
             void visit(const Nodecl::VectorLoad& node);
             void visit(const Nodecl::VectorStore& node);

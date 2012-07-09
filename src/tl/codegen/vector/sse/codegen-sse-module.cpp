@@ -125,6 +125,50 @@ namespace Codegen
         file << ")"; 
     }                                                 
 
+        void SSEModuleVisitor::visit(const Nodecl::ConstantVectorPromotion& node) 
+    { 
+        TL::Type type = node.get_type().basic_type();
+
+        // Intrinsic name
+        file << "_mm_set1";
+        
+        // Postfix
+        if (type.is_float()) 
+        { 
+            file << "_ps"; 
+        } 
+        else if (type.is_double()) 
+        { 
+            file << "_pd"; 
+        } 
+        else if (type.is_signed_int() ||
+            type.is_unsigned_int()) 
+        { 
+            file << "_epi32"; 
+        } 
+        else if (type.is_signed_short_int() ||
+            type.is_unsigned_short_int()) 
+        { 
+            file << "_epi16"; 
+        } 
+        else if (type.is_char() || 
+            type.is_signed_char() ||
+            type.is_unsigned_char()) 
+        { 
+            file << "_epi8"; 
+        } 
+        else
+        {
+            running_error("SSE Codegen: Node %s at %s has an unsupported type.", 
+                    ast_print_node_type(node.get_kind()),
+                    node.get_locus().c_str());
+        }      
+
+        file << "("; 
+        walk(node.get_rhs());
+        file << ")"; 
+    }        
+
     void SSEModuleVisitor::visit(const Nodecl::VectorAssignment& node) 
     { 
         walk(node.get_lhs());
@@ -200,10 +244,9 @@ namespace Codegen
 
     Nodecl::NodeclVisitor<void>::Ret SSEModuleVisitor::unhandled_node(const Nodecl::NodeclBase& n) 
     { 
-        std::cerr << "SSE Codegen: Unknown node " 
-            << ast_print_node_type(n.get_kind()) 
-            << " at " << n.get_locus() 
-            << std::endl;
+        running_error("SSE Codegen: Unknown node %s at %s.",
+                ast_print_node_type(n.get_kind()),
+                n.get_locus().c_str()); 
 
         return Ret(); 
     }
