@@ -8126,14 +8126,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
             ERROR_CONDITION(decl_context.template_parameters == NULL,
                     "Error, there must be template parameters", 0);
 
-            // If this function is template we have to create a template type
-            type_t* template_type = get_new_template_type(decl_context.template_parameters,
-                    declarator_type,
-                    function_name,
-                    decl_context,
-                    ASTLine(declarator_id),
-                    ASTFileName(declarator_id));
-
+            decl_context_t template_context = decl_context;
             if (!gather_info->is_friend)
             {
                 new_entry = new_symbol(decl_context, decl_context.current_scope, function_name);
@@ -8144,7 +8137,18 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
             {
                 new_entry = new_symbol(decl_context, decl_context.namespace_scope, function_name);
                 new_entry->decl_context.current_scope = decl_context.namespace_scope;
+
+                template_context.current_scope = decl_context.namespace_scope;
             }
+
+            // If this function is template we have to create a template type
+            // in the right context (It may be friend declared)
+            type_t* template_type = get_new_template_type(decl_context.template_parameters,
+                    declarator_type,
+                    function_name,
+                    template_context,
+                    ASTLine(declarator_id),
+                    ASTFileName(declarator_id));
 
             new_entry->type_information = template_type;
 
@@ -8152,15 +8156,16 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
             new_entry->kind = SK_TEMPLATE;
             new_entry->line = ASTLine(declarator_id);
             new_entry->file = ASTFileName(declarator_id);
-            
+
             new_entry->entity_specs.is_friend = gather_info->is_friend;
             new_entry->entity_specs.is_friend_declared = gather_info->is_friend;
+
             if (decl_context.current_scope->kind == CLASS_SCOPE
                     && !new_entry->entity_specs.is_friend_declared)
             {
                 new_entry->entity_specs.is_member = 1;
-                
-                new_entry->entity_specs.class_type = 
+
+                new_entry->entity_specs.class_type =
                     get_user_defined_type(decl_context.current_scope->related_entry);
             }
 
@@ -8179,8 +8184,8 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
             new_entry->entity_specs.is_explicit = gather_info->is_explicit;
 
             // Keep parameter names
-            set_parameters_as_related_symbols(new_entry, 
-                    gather_info, 
+            set_parameters_as_related_symbols(new_entry,
+                    gather_info,
                     /* is_definition */ 0,
                     ASTFileName(declarator_id),
                     ASTLine(declarator_id));
