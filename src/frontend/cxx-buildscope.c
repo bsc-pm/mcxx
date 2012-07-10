@@ -8022,7 +8022,7 @@ static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* decl
         entry->entity_specs.is_mutable = gather_info->is_mutable;
         entry->entity_specs.is_extern = gather_info->is_extern 
             // 'extern "C" int x;'  is like 'extern "C" extern int x;'
-            || (linkage_current_get_name() != NULL && !linkage_current_is_braced());
+            || (!entry->entity_specs.is_member && linkage_current_get_name() != NULL && !linkage_current_is_braced());
         entry->entity_specs.is_register = gather_info->is_register;
         entry->entity_specs.is_thread = gather_info->is_thread;
         entry->entity_specs.linkage_spec = linkage_current_get_name();
