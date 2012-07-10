@@ -7582,26 +7582,58 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
 
                 break;
             }
-        case AST_OPERATOR_FUNCTION_ID :
-        case AST_OPERATOR_FUNCTION_ID_TEMPLATE :
+
             {
                 // An unqualified operator_function_id "operator +"
                 const char* operator_function_name = get_operator_function_name(declarator_id);
-                AST operator_id = ASTLeaf(AST_SYMBOL, 
-                        ASTFileName(declarator_id), ASTLine(declarator_id), 
+                AST operator_id = ASTLeaf(AST_SYMBOL,
+                        ASTFileName(declarator_id), ASTLine(declarator_id),
                         operator_function_name);
                 // Keep the parent of the original declarator
-                ast_set_parent(operator_id, ast_get_parent(declarator_id)); 
+                ast_set_parent(operator_id, ast_get_parent(declarator_id));
 
-                if (gather_info->is_friend
-                        && AST_OPERATOR_FUNCTION_ID)
+                if (gather_info->is_friend)
                 {
                     // We should check the template arguments even if we are not going to use them
                     nodecl_t nodecl_dummy = nodecl_null();
                     compute_nodecl_name_from_id_expression(declarator_id, decl_context, &nodecl_dummy);
                 }
 
-                return register_new_variable_name(operator_id, declarator_type, gather_info, decl_context);
+
+                break;
+            }
+        case AST_OPERATOR_FUNCTION_ID:
+        case AST_OPERATOR_FUNCTION_ID_TEMPLATE: 
+            {
+                // An unqualified operator_function_id "operator +"
+                const char* operator_function_name = get_operator_function_name(declarator_id);
+                AST operator_id = ASTLeaf(AST_SYMBOL,
+                        ASTFileName(declarator_id), ASTLine(declarator_id),
+                        operator_function_name);
+                // Keep the parent of the original declarator
+                ast_set_parent(operator_id, ast_get_parent(declarator_id));
+
+                if (gather_info->is_friend)
+                {
+                    // We should check the template arguments even if we are not going to use them
+                    nodecl_t nodecl_dummy = nodecl_null();
+                    compute_nodecl_name_from_id_expression(declarator_id, decl_context, &nodecl_dummy);
+                }
+
+                if (ASTType(declarator_id) == AST_OPERATOR_FUNCTION_ID)
+                {
+                    return register_new_variable_name(operator_id, declarator_type, gather_info, decl_context);
+                }
+                else
+                {
+                    scope_entry_t *entry = NULL;
+                    char ok = find_function_declaration(declarator_id, declarator_type, gather_info, decl_context, &entry);
+                    if (ok && entry != NULL)
+                    {
+                        update_function_default_arguments(entry, declarator_type, gather_info);
+                    }
+                    return entry;
+                }
                 break;
             }
         case AST_CONVERSION_FUNCTION_ID :
@@ -8003,7 +8035,6 @@ static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* decl
         memcpy(entry->entity_specs.gcc_attributes, 
                 gather_info->gcc_attributes, 
                 entry->entity_specs.num_gcc_attributes * sizeof(*entry->entity_specs.gcc_attributes));
-
         return entry;
     }
     else
@@ -8353,12 +8384,14 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
 
     char is_template_function = gather_info->is_template;
 
-    char is_template_id = (ASTType(declarator_id) == AST_TEMPLATE_ID)
-        || ((ASTType(declarator_id) == AST_QUALIFIED_ID)
-                // friend A::f<>( ... )
-                // friend B<T>::template f<>( ... )
-                // friend T::template f<>( ... )
-                && (ASTType(ASTSon2(declarator_id)) == AST_TEMPLATE_ID));
+    AST considered_tree = declarator_id;
+    if (ASTType(declarator_id) == AST_QUALIFIED_ID)
+    {
+        considered_tree = ASTSon2(declarator_id);
+    }
+
+    char is_template_id = (ASTType(considered_tree) == AST_TEMPLATE_ID
+            || ASTType(considered_tree) == AST_OPERATOR_FUNCTION_ID_TEMPLATE);
 
     decl_flags_t decl_flags = DF_DEPENDENT_TYPENAME;
     decl_context_t lookup_context = decl_context;
@@ -8561,6 +8594,30 @@ static char find_function_declaration(AST declarator_id,
         scope_entry_t** result_entry)
 {
     *result_entry = NULL;
+
+    AST considered_tree = declarator_id;
+    if (ASTType(declarator_id) == AST_QUALIFIED_ID)
+    {
+        considered_tree = ASTSon2(declarator_id);
+    }
+
+    char declarator_is_template_id = (ASTType(considered_tree) == AST_TEMPLATE_ID
+            || ASTType(considered_tree) == AST_OPERATOR_FUNCTION_ID_TEMPLATE);
+
+    // Template function declarations that are friend declared cannot be partial specialized
+    if (gather_info->is_friend
+            && gather_info->is_template
+            && declarator_is_template_id)
+    {
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: invalid use of a template-id '%s' in a template friend function declaration\n",
+                    ast_location(declarator_id),
+                    prettyprint_in_buffer(declarator_id));
+        }
+        return 0;
+    }
+
     if (gather_info->is_friend
             && is_dependent_class_scope(decl_context))
     {
@@ -8623,17 +8680,6 @@ static char find_function_declaration(AST declarator_id,
             }
         }
     }
-
-     char declarator_is_template_id = 0;
-     AST considered_tree = declarator_id;
-     if (ASTType(declarator_id) == AST_QUALIFIED_ID)
-     {
-         considered_tree = ASTSon2(declarator_id);
-     }
-
-     declarator_is_template_id = (ASTType(considered_tree) == AST_TEMPLATE_ID
-             || ASTType(considered_tree) == AST_OPERATOR_FUNCTION_ID_TEMPLATE);
-
 
     if (declarator_is_template_id
        || gather_info->is_explicit_instantiation)

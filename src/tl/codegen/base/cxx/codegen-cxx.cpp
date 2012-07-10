@@ -4136,17 +4136,32 @@ void CxxBase::declare_friend_symbol(TL::Symbol friend_symbol, TL::Symbol class_s
         }
 
         std::string function_name;
-        if ((get_codegen_status(friend_symbol) != CODEGEN_STATUS_DECLARED &&
-                    get_codegen_status(friend_symbol) != CODEGEN_STATUS_DEFINED))
+        if (friend_type.is_template_specialized_type()
+                && !friend_type.is_dependent())
+        {
+              function_name = this->get_qualified_name(
+                      friend_symbol,
+                      class_symbol.get_scope(),
+                      /* without template id */ false);
+        }
+        else if(get_codegen_status(friend_symbol) == CODEGEN_STATUS_NONE)
         {
             function_name = friend_symbol.get_name();
         }
         else
         {
-            function_name = this->get_qualified_name(
-                    friend_symbol,
-                    class_symbol.get_scope(),
-                    /* without template id */ (friend_type.is_template_specialized_type()));
+             function_name = this->get_qualified_name(
+                     friend_symbol,
+                     class_symbol.get_scope(),
+                     /* without template id */ true);
+        }
+
+        // Dirty trick to remove the firsts two colons if the name of the function has them
+        if (function_name.size() >= 2 &&
+                function_name[0] == ':' &&
+                function_name[1] == ':')
+        {
+            function_name = function_name.substr(2);
         }
 
         file << this->get_declaration(real_type, friend_symbol.get_scope(), function_name) << exception_spec;
