@@ -24,41 +24,38 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#ifndef TL_DATA_FLOW_PHASE_HPP
+#define TL_DATA_FLOW_PHASE_HPP
 
-#ifndef TL_ANALYSIS_COMMON_HPP
-#define TL_ANALYSIS_COMMON_HPP
-
-#include "tl-functor.hpp"
-#include "tl-node.hpp"
-#include "tl-extensible-graph.hpp"
-#include "tl-nodecl.hpp"
+#include "tl-objectlist.hpp"
+#include "tl-compilerphase.hpp"
 
 namespace TL
 {
     namespace Analysis
     {
-        class ExtensibleGraph;
-        
-        struct var_usage_t {
-            Nodecl::Symbol _sym;
-            char _usage;     // 0 => KILLED, 1 => UE, 2 => UE + KILLED, 3 => UNDEF
-            
-            var_usage_t(Nodecl::Symbol s, char usage);
-            
-            Nodecl::Symbol get_nodecl() const;
-            char get_usage() const;
-            void set_usage(char usage);
+        //!This phase performs different data-flow analysis
+        /*!Further analysis and optimizations requiere this phase to be executed previously
+        * The analysis and optimizations implemented in this phase are:
+        * - Parallel Control Flow Analysis: This generates a PCFG
+        * - Use-Definition analysis
+        * - Constant propagation and folding
+        * - Unreachable code elimination
+        * - Common subexpression elimination
+        */ 
+        class LIBTL_CLASS DataFlowPhase : public CompilerPhase
+        {
+            public:
+                //!Constructor of this phase
+                DataFlowPhase();
+                
+                //!Entry point of the phase
+                /*!This function gets the different FunctionDefinitions / ProgramUnits of the DTO,
+                 * depending on the language of the code
+                 */
+                virtual void run(TL::DTO& dto);
         };
-
-        bool usage_list_contains_sym(Nodecl::Symbol n, ObjectList<struct var_usage_t*> list);
-        bool usage_list_contains_sym(Symbol n, ObjectList<struct var_usage_t*> list);
-        
-        std::map<Symbol, Nodecl::NodeclBase> map_params_to_args(Nodecl::NodeclBase func_call, ExtensibleGraph* called_func_graph,
-                                                                ObjectList<Symbol> &params, Nodecl::List &args);
-        ExtensibleGraph* find_function_for_ipa(Symbol s, ObjectList<ExtensibleGraph*> cfgs);
-        
-        void print_function_call_nest(ExtensibleGraph *graph);
     }
 }
 
-#endif      // TL_ANALYSIS_COMMON_HPP
+#endif  // TL_FLOW_PHASE_HPP

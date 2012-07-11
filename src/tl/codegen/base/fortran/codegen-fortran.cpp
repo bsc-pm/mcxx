@@ -1132,7 +1132,7 @@ OPERATOR_TABLE
             lhs_type = lhs_type.references_to();
 
         if (is_fortran_representable_pointer(lhs_type)
-                && !lhs.is<Nodecl::Derreference>())
+                && !lhs.is<Nodecl::Dereference>())
         {
             is_ptr_assignment = true;
         }
@@ -1200,7 +1200,7 @@ OPERATOR_TABLE
         codegen_comparison(node.get_lhs(), node.get_rhs(), " /= ", " .NEQV. ");
     }
 
-    void FortranBase::visit(const Nodecl::Derreference& node)
+    void FortranBase::visit(const Nodecl::Dereference& node)
     {
         // No explicit dereference happens in Fortran
         walk(node.get_rhs());
@@ -1349,8 +1349,8 @@ OPERATOR_TABLE
         if (function_type.is_pointer())
         {
             function_type = function_type.points_to();
-            ERROR_CONDITION(!called.is<Nodecl::Derreference>(), "The called entity should be derreferenced!", 0);
-            called = called.as<Nodecl::Derreference>().get_rhs();
+            ERROR_CONDITION(!called.is<Nodecl::Dereference>(), "The called entity should be derreferenced!", 0);
+            called = called.as<Nodecl::Dereference>().get_rhs();
         }
 
         ERROR_CONDITION(!function_type.is_function(), "Function type is not", 0);

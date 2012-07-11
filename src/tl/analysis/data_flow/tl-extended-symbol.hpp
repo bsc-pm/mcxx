@@ -36,33 +36,30 @@ namespace TL
 {
     namespace Analysis
     {
-        /*!
-        This class is used to stored extended information of a Symbol.
-        It can express:
-        - the accessed member of an structure.
-        - the set of accessed positions of an array.
-        */
-        class LIBTL_CLASS ExtensibleSymbol : public TL::Object
+        /*!This class is used to store l-values
+         * It can express:
+         * - the accessed member of an structure.
+         * - the set of accessed positions of an array.
+         */
+        class LIBTL_CLASS ExtendedSymbol : public TL::Object
         {
             private:
                 Nodecl::NodeclBase _n;
                 
                 //! Returns the symbol contained in a nodecl which is an Extensible Symbol or 
                 //! a part of a nodecl which is an Extensible Symbol
+                ObjectList<Symbol> get_nodecl_symbols(Nodecl::NodeclBase n) const;
+                
                 Symbol get_nodecl_symbol(Nodecl::NodeclBase n) const;
                 
             public:
-                // *** Constructors *** //
-            
-                ExtensibleSymbol();
-            
-                //! Constructor building an Extensible Symbol from a valid Symbol.
-                /*!
-                * Use is valid if the nodecl is be an lvalue.
-                * \param n Nodecl containing s Symbol. 
-                *          This will be more than a Symbol when the nodecl is a member access or an array access
-                */
-                ExtensibleSymbol(Nodecl::NodeclBase n);
+                // *** Constructors *** //            
+                /*! Constructor building an Extensible Symbol from a valid Symbol.
+                 * Use is valid if the nodecl is be an lvalue.
+                 * \param n Nodecl containing s Symbol. 
+                 *          This will be more than a Symbol when the nodecl is a member access or an array access
+                 */
+                ExtendedSymbol(Nodecl::NodeclBase n);
                 
                 
                 // *** Modifiers *** //
@@ -73,6 +70,8 @@ namespace TL
                 // *** Getters and Setters *** //
 
                 //! Returns the symbol wrapped in the Extended Symbol
+                ObjectList<Symbol> get_symbols() const;
+
                 Symbol get_symbol() const;
                 
                 //! Returns the name of the wrapped symbol.
@@ -84,6 +83,10 @@ namespace TL
                 //! Returns the nodecl associated with the wrapped symbol.
                 Nodecl::NodeclBase get_nodecl() const;           
 
+                static ObjectList<Nodecl::NodeclBase> get_nodecls_base(Nodecl::NodeclBase n);
+                
+                static Nodecl::NodeclBase get_nodecl_base(Nodecl::NodeclBase n);
+                
                 //! Returns true when the extensible symbol contains a symbols which do not represents
                 //! neither an array access nor a member access, but a symbol.
                 bool is_simple_symbol() const;
@@ -92,13 +95,13 @@ namespace TL
                 bool is_array() const;
                 
                 // *** Overloaded methods *** //
-                bool operator==(const ExtensibleSymbol &es) const;
-                bool operator<(const ExtensibleSymbol &es) const;
+                bool operator==(const ExtendedSymbol &es) const;
+                bool operator<(const ExtendedSymbol &es) const;
         };
         
         // FIXME This should be changed by an unordered_set in c++0x
         // Changing te type of ext_sym_set forces changing the static methods in "static_analysis" sets union, difference, equal and intersection
-        typedef ObjectList<ExtensibleSymbol> ext_sym_set;
+        typedef ObjectList<ExtendedSymbol> ext_sym_set;
     }
 }
 

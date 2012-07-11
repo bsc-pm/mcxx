@@ -54,6 +54,8 @@ namespace Codegen
             Ret visit(const Nodecl::BitwiseNot &);
             Ret visit(const Nodecl::BitwiseOr &);
             Ret visit(const Nodecl::BitwiseOrAssignment &);
+            Ret visit(const Nodecl::BitwiseShl &);
+            Ret visit(const Nodecl::BitwiseShlAssignment &);
             Ret visit(const Nodecl::BitwiseXor &);
             Ret visit(const Nodecl::BitwiseXorAssignment &);
             Ret visit(const Nodecl::BooleanLiteral &);
@@ -92,7 +94,7 @@ namespace Codegen
             Ret visit(const Nodecl::DefaultStatement &);
             Ret visit(const Nodecl::Delete &);
             Ret visit(const Nodecl::DeleteArray &);
-            Ret visit(const Nodecl::Derreference &);
+            Ret visit(const Nodecl::Dereference &);
             Ret visit(const Nodecl::Different &);
             Ret visit(const Nodecl::Div &);
             Ret visit(const Nodecl::DivAssignment &);
@@ -151,8 +153,6 @@ namespace Codegen
             Ret visit(const Nodecl::Reference &);
             Ret visit(const Nodecl::ReturnStatement &);
             Ret visit(const Nodecl::Shaping &);
-            Ret visit(const Nodecl::Shl &);
-            Ret visit(const Nodecl::ShlAssignment &);
             Ret visit(const Nodecl::Shr &);
             Ret visit(const Nodecl::ShrAssignment &);
             Ret visit(const Nodecl::Sizeof &);

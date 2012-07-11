@@ -37,8 +37,8 @@ namespace TL
     {
         AnalysisPhase::AnalysisPhase()
         {
-            set_phase_name("Experimental phase for analysis");
-            set_phase_description("This phase builds a Control Flow Graph and performs different analysis on demand. ");
+            set_phase_name("Experimental phase for data-flow analysis");
+            set_phase_description("This phase builds a Parallel Control Flow Graph and performs different data-flow analysis for static optimizations");
         }
         
         void AnalysisPhase::run(TL::DTO& dto)

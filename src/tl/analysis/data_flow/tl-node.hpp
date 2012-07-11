@@ -29,8 +29,10 @@
 #ifndef NODE_HPP
 #define NODE_HPP
 
+#include <map>
+
 #include "tl-edge.hpp"
-#include "tl-extensible-symbol.hpp"
+#include "tl-extended-symbol.hpp"
 #include "tl-structures.hpp"
 
 #include "tl-builtin.hpp"
@@ -43,9 +45,39 @@ namespace TL
     namespace Analysis
     {
         typedef std::tr1::unordered_map<Nodecl::NodeclBase, Nodecl::NodeclBase, Nodecl::Utils::Nodecl_hash, Nodecl::Utils::Nodecl_comp> nodecl_map;
-
+        
         class Edge;
         
+        ///////////////////////////////////////////////////////////////
+        /// Induction Variables data structure
+        ///////////////////////////////////////////////////////////////
+        struct InductionVariableData {
+            Nodecl::NodeclBase _lb;         /*!< Lower bound within a loop */
+            Nodecl::NodeclBase _ub;         /*!< Upper bound within a loop (included) */
+            Nodecl::NodeclBase _stride;     /*!< Stride within a loop */
+            char _type;                     /*!< Type of iv: '1' = basic, '2' = derived */
+            Nodecl::NodeclBase _family;     /*!< Family of the IV. For basic IVs, the family is the IV itself */
+            
+            InductionVariableData(char type, Nodecl::NodeclBase family)
+                : _lb(Nodecl::NodeclBase::null()), _ub(Nodecl::NodeclBase::null()), _stride(Nodecl::NodeclBase::null()),
+                  _type(type), _family(family)
+            {
+                if ( type != '1' && type != '2' )
+                    internal_error("Unexpected Induction Variable type '%c' while expecting 1 (basic) or 2 (derived)", 0);
+            }
+            
+            bool is_basic()
+            {
+                return (_type == '1');
+            }
+        };
+        
+        typedef std::tr1::unordered_map<Nodecl::NodeclBase, InductionVariableData, Nodecl::Utils::Nodecl_hash, Nodecl::Utils::Nodecl_comp> IV_map;
+        
+        
+        ///////////////////////////////////////////////////////////////
+        /// A Node in the Extensible Graph
+        ///////////////////////////////////////////////////////////////
         class LIBTL_CLASS Node : public LinkData {
             
             private:
@@ -55,6 +87,7 @@ namespace TL
                 ObjectList<Edge*> _entry_edges;
                 ObjectList<Edge*> _exit_edges;
                 bool _visited;
+                bool _visited_aux;
             
                 bool _has_deps_computed;    // This boolean only makes sense for Task nodes
                                             // It is true when the auto-dependencies for the node has been computed
@@ -174,9 +207,11 @@ namespace TL
                 * set_visited method.
                 */
                 bool is_visited() const;
+                bool is_visited_aux() const;
                 
                 //! Sets the node as visited.
                 void set_visited(bool visited);
+                void set_visited_aux(bool visited);
                 
                 //! Returns true when the node is a task node and its dependencies have already been calculated
                 bool has_deps_computed();
@@ -224,8 +259,17 @@ namespace TL
                 //! Returns the list children nodes of the node.
                 ObjectList<Node*> get_children();
             
-                //! Returns true when the node is not a composite node (does not contain nodes inside).
+                //! Returns true when the node is not a composite node (does not contain nodes inside)
                 bool is_basic_node();
+                
+                //! Returns true when the node is a composite node (contains nodes inside)
+                bool is_graph_node();
+                
+                //! Returns true when the node is an entry node
+                bool is_entry_node();
+                
+                //! Returns true when the node is an exit node
+                bool is_exit_node();
                 
                 //! Returns true when the node is connected to any parent and/or any child
                 bool is_connected();
@@ -254,9 +298,9 @@ namespace TL
                 Symbol get_function_node_symbol();
                 
                 
-                
-                // *** Getters and setters for liked data *** //
-            
+                // ********************************************** //
+                // ***** Getters and setters for liked data ***** //
+                // ********************************************** //
                 //! Returns the node type.
                 Node_type get_type();
                 
@@ -298,12 +342,25 @@ namespace TL
                 //! Set the type of loop contained in a loop graph node
                 void set_loop_node_type(Loop_type loop_type);
                 
+                //! Returns the map of induction variables associated to the node (Only valid for loop graph nodes)
+                IV_map get_induction_variables();
+                
+                //! Set a new induction variable in a loop graph node
+                void set_induction_variable(Nodecl::NodeclBase iv, struct InductionVariableData iv_data);
+                
                 //! Returns a pointer to the node which contains the actual node
                 //! When the node don't have an outer node, NULL is returned
                 Node* get_outer_node();
                 
                 //! Set the node that contains the actual node. It must be a graph node
                 void set_outer_node(Node* node);
+                
+                //! Returns the scope of a graph node containing a block of code.
+                //! If no block is contained in the grah node, then returns an empty scope
+                Scope get_scope();
+                
+                //! Set the scope of a graph node containing a block code
+                void set_scope(Scope sc);
                 
                 //! Returns the list of statements contained in the node
                 //! If the node does not contain statements, an empty list is returned
@@ -333,6 +390,11 @@ namespace TL
                 
                 void set_stride_node(Node* stride);
                 
+                bool is_stride_node();
+                
+                // ********************************************** //
+                // *** END Getters and setters for liked data *** //
+                // ********************************************** //
                 
                 // *** Consultants *** //
                 //! Returns true if the node has the same identifier and the same entries and exits
@@ -343,14 +405,6 @@ namespace TL
                 
                 void set_graph_node_use_def();
                 
-                //! Applies liveness analysis in a composite node.
-                /*!
-                The method extends the liveness information precomputed in the inner nodes of a
-                composite node to the outer node.
-                The method fails when it is tried to apply it in a basic node.
-                */
-                void set_graph_node_liveness();
-                
                 //! This method computes the reaching definitions of a graph node from the reaching definitions in the nodes within it
                 void set_graph_node_reaching_definitions();
             
@@ -359,19 +413,19 @@ namespace TL
                 ext_sym_set get_live_in_vars();
                 
                 //! Adds a new live in variable to the node.
-                void set_live_in(ExtensibleSymbol new_live_in_var);
+                void set_live_in(ExtendedSymbol new_live_in_var);
                 
                 //! Sets the list of live in variables.
                 /*!
-                If there was any other data in the list, it is removed.
-                */
+                 * If there was any other data in the list, it is removed.
+                 */
                 void set_live_in(ext_sym_set new_live_in_set);
                 
                 //! Returns the set of variables that are alive at the exit of the node.
                 ext_sym_set get_live_out_vars();
                 
                 //! Adds a new live out variable to the node.
-                void set_live_out(ExtensibleSymbol new_live_out_var);
+                void set_live_out(ExtendedSymbol new_live_out_var);
                 
                 //! Sets the list of live out variables.
                 /*!
@@ -383,37 +437,37 @@ namespace TL
                 ext_sym_set get_ue_vars();
                 
                 //! Adds a new upper exposed variable to the node
-                void set_ue_var(ExtensibleSymbol new_ue_var);
+                void set_ue_var(ExtendedSymbol new_ue_var);
                 
                 //! Adds a new set of upper exposed variable to the node
                 void set_ue_var(ext_sym_set new_ue_vars);
                 
                 //! Deletes an old upper exposed variable from the node
-                void unset_ue_var(ExtensibleSymbol old_ue_var);
+                void unset_ue_var(ExtendedSymbol old_ue_var);
                 
                 //! Returns the list of killed variables of the node
                 ext_sym_set get_killed_vars();
                 
                 //! Adds a new killed variable to the node
-                void set_killed_var(ExtensibleSymbol new_killed_var);
+                void set_killed_var(ExtendedSymbol new_killed_var);
 
                 //! Adds a new set of killed variables to the node
                 void set_killed_var(ext_sym_set new_killed_vars);
                 
                 //! Deletes an old killed variable from the node
-                void unset_killed_var(ExtensibleSymbol old_killed_var);            
+                void unset_killed_var(ExtendedSymbol old_killed_var);            
                 
                 //! Returns the list of undefined behaviour variables of the node
                 ext_sym_set get_undefined_behaviour_vars();
                 
                 //! Adds a new undefined behaviour variable to the node
-                void set_undefined_behaviour_var(ExtensibleSymbol new_undef_var);            
+                void set_undefined_behaviour_var(ExtendedSymbol new_undef_var);            
 
                 //! Adds a set of undefined behaviour variables to the node
                 void set_undefined_behaviour_var(ext_sym_set new_undef_vars);
 
                 //! Deletes an old undefined behaviour variable from the node
-                void unset_undefined_behaviour_var(ExtensibleSymbol old_undef_var);
+                void unset_undefined_behaviour_var(ExtendedSymbol old_undef_var);
                 
                 //! Returns the list of input dependences of a task node
                 ext_sym_set get_input_deps();
@@ -433,6 +487,40 @@ namespace TL
                 //! Insert a list of inout dependencies to the node
                 void set_inout_deps(ext_sym_set new_inout_deps);
                 
+                //! Returns the list of undefined dependences of a task node
+                ext_sym_set get_undef_deps();
+                               
+                //! Insert a list of undefined dependencies to the node
+                void set_undef_deps(ext_sym_set new_undef_deps);
+                
+                ext_sym_set get_shared_vars();
+                
+                void set_shared_var(ExtendedSymbol ei);
+                
+                void set_shared_var(ext_sym_set new_shared_vars);
+
+                ext_sym_set get_private_vars();
+                
+                void set_private_var(ExtendedSymbol ei);
+                
+                void set_private_var(ext_sym_set new_private_vars);
+                
+                ext_sym_set get_firstprivate_vars();
+                
+                void set_firstprivate_var(ExtendedSymbol ei);
+                
+                void set_firstprivate_var(ext_sym_set new_firstprivate_vars);
+                
+                ext_sym_set get_undef_sc_vars();
+                
+                void set_undef_sc_var(ExtendedSymbol ei);
+                
+                void set_undef_sc_var(ext_sym_set new_undef_sc_vars);
+                
+                ext_sym_set get_race_vars();
+
+                void set_race_var(ExtendedSymbol ei);
+                
                 //! Return the map containing, for each symbol defined until this moment, its correspondent expression
                 nodecl_map get_reaching_definitions();
 
@@ -450,6 +538,9 @@ namespace TL
                 
                 // *** Utils *** //
                 void print_use_def_chains();
+                void print_liveness();
+                void print_auto_scoping();
+                void print_task_dependencies();
                 
             friend class CfgAnalysisVisitor;
         };

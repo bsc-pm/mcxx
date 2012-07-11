@@ -24,9 +24,9 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-SUBDIRS = extensible_graph
+SUBDIRS = data_flow
 
 END=
 
-DIST_SUBDIRS=extensible_graph \
+DIST_SUBDIRS=data_flow \
              $(END)

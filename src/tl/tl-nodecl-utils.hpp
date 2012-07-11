@@ -50,6 +50,8 @@ namespace Nodecl
         TL::ObjectList<Nodecl::Symbol> get_nonlocal_symbols_first_occurrence(Nodecl::NodeclBase);
         TL::ObjectList<Nodecl::Symbol> get_local_symbols_first_occurrence(Nodecl::NodeclBase);
 
+        bool nodecl_is_modifiable_lvalue( Nodecl::NodeclBase n );
+        
         bool equal_nodecls(Nodecl::NodeclBase n1, Nodecl::NodeclBase n2);
         struct Nodecl_hash {
             size_t operator() (const Nodecl::NodeclBase& n) const;

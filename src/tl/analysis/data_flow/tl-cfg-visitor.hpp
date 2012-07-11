@@ -31,6 +31,7 @@
 
 #include <stack>
 
+#include "tl-analysis-singleton.hpp"
 #include "tl-extensible-graph.hpp"
 #include "tl-nodecl-visitor.hpp"
 #include "tl-node.hpp"
@@ -153,15 +154,13 @@ namespace TL
             }
         };  
     
-        class LIBTL_CLASS CfgVisitor : public Nodecl::NodeclVisitor<TL::ObjectList<Node*> >
+        class LIBTL_CLASS PCFGVisitor : public Nodecl::NodeclVisitor<TL::ObjectList<Node*> >
         {
-        protected:
-            ObjectList<ExtensibleGraph*> _cfgs;
+        private:
             
             // *** All these variables are used while building of the graphs *** //
             
-        private:
-            ExtensibleGraph* _actual_cfg;
+            ExtensibleGraph* _current_pcfg;
             
             std::stack<Nodecl::NodeclBase> _context_s;
             
@@ -177,6 +176,7 @@ namespace TL
             
             std::stack<Node*> _switch_cond_s;
             
+            ObjectList<Symbol> _visited_functions;
             
             //! This method creates a list with the nodes in an specific subgraph
             /*!
@@ -269,7 +269,6 @@ namespace TL
             bool propagate_use_rec(Node* actual);
             
             bool func_has_cyclic_calls_rec(Symbol reach_func, Symbol stop_func, ExtensibleGraph * graph);
-
             
             
         public:
@@ -279,30 +278,23 @@ namespace TL
             /*!
             * This method is used when we want to perform the analysis from the Analyisis phase
             */
-            CfgVisitor();
+            PCFGVisitor();
             
             //! Constructor which built a CFG
             /*!
             * This method is used when we want to perform the analysis starting from any piece of code.
             * Not necessarily from a TopLevel or a FunctionCode node.
             */        
-            CfgVisitor(std::string actual_cfg_name, int i);
+            PCFGVisitor(ExtensibleGraph* pcfg);
             
             
             // *** Non visiting methods *** //
             
+            void build_pcfg(const Nodecl::NodeclBase& n);
+            
             void set_actual_cfg(ExtensibleGraph* graph);
-            
-            //! This method returns the list of extensible graphs generated while visiting a Nodecl
-            ObjectList<ExtensibleGraph*> get_cfgs() const;
-            
-            //! This method build a CFG from 'nodecl'
-            /*!
-            * The method allows building a graph from any kind of nodecl, not only TopLevel or FunctionCode.
-            * \param nodecl Pointer to the nodecl containing the code to build the graph.
-            * \param graph_name Name for the new graph.
-            */
-            void build_cfg(RefPtr<Nodecl::NodeclBase> nodecl, std::string graph_name);
+
+            void analyse_induction_variables( ExtensibleGraph* graph );
 
             
             // *** IPA *** //
@@ -312,7 +304,7 @@ namespace TL
             //! Analyse loops and ranged access to variables. Recomputes use-def and reaching definitions
             //! with the info of iterated accesses
             void analyse_loops(Node* node);
-
+            
             //! Once the use-def chains are calculated for every graph, we are able to recalculate the use-def of every function call
             bool propagate_use_def_ipa(Node* node);        
             
@@ -331,7 +323,6 @@ namespace TL
             Ret visit(const Nodecl::Conversion& n);
             Ret visit(const Nodecl::Symbol& n);
             Ret visit(const Nodecl::ExpressionStatement& n);
-            Ret visit(const Nodecl::ParenthesizedExpression& n);
             Ret visit(const Nodecl::ObjectInit& n);
             Ret visit(const Nodecl::ArraySubscript& n);
             Ret visit(const Nodecl::Range& n);
@@ -389,7 +380,7 @@ namespace TL
             Ret visit(const Nodecl::BitwiseOrAssignment& n);
             Ret visit(const Nodecl::BitwiseXorAssignment& n);
             Ret visit(const Nodecl::ShrAssignment& n);
-            Ret visit(const Nodecl::ShlAssignment& n);
+            Ret visit(const Nodecl::BitwiseShlAssignment& n);
             Ret visit(const Nodecl::Add& n);
             Ret visit(const Nodecl::Minus& n);
             Ret visit(const Nodecl::Mul& n);
@@ -398,9 +389,11 @@ namespace TL
             Ret visit(const Nodecl::Power& n);
             Ret visit(const Nodecl::LogicalAnd& n);
             Ret visit(const Nodecl::LogicalOr& n);
+            Ret visit(const Nodecl::LogicalNot& n);
             Ret visit(const Nodecl::BitwiseAnd& n);
             Ret visit(const Nodecl::BitwiseOr& n);
             Ret visit(const Nodecl::BitwiseXor& n);
+            Ret visit(const Nodecl::BitwiseNot& n);
             Ret visit(const Nodecl::Equal& n);
             Ret visit(const Nodecl::Different& n);
             Ret visit(const Nodecl::LowerThan& n);
@@ -408,16 +401,14 @@ namespace TL
             Ret visit(const Nodecl::LowerOrEqualThan& n);
             Ret visit(const Nodecl::GreaterOrEqualThan& n);
             Ret visit(const Nodecl::Shr& n);
-            Ret visit(const Nodecl::Shl& n);
+            Ret visit(const Nodecl::BitwiseShl& n);
             Ret visit(const Nodecl::Predecrement& n);
             Ret visit(const Nodecl::Postdecrement& n);
             Ret visit(const Nodecl::Preincrement& n);
             Ret visit(const Nodecl::Postincrement& n);
             Ret visit(const Nodecl::Plus& n);
             Ret visit(const Nodecl::Neg& n);     
-            Ret visit(const Nodecl::BitwiseNot& n);
-            Ret visit(const Nodecl::LogicalNot& n);
-            Ret visit(const Nodecl::Derreference& n);
+            Ret visit(const Nodecl::Dereference& n);
             Ret visit(const Nodecl::Reference& n);
             Ret visit(const Nodecl::Text& n);
             Ret visit(const Nodecl::FortranWhere& n);

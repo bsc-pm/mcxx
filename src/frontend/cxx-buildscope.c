@@ -12024,7 +12024,7 @@ const char *get_operation_function_name(AST operation_tree)
             return STR_OPERATOR_MOD;
         case AST_MINUS :
             return STR_OPERATOR_MINUS;
-        case AST_SHL :
+        case AST_BITWISE_SHL :
             return STR_OPERATOR_SHIFT_LEFT;
         case AST_SHR :
             return STR_OPERATOR_SHIFT_RIGHT;
@@ -12072,7 +12072,7 @@ const char *get_operation_function_name(AST operation_tree)
             return STR_OPERATOR_ADD_ASSIGNMENT;
         case AST_SUB_ASSIGNMENT :
             return STR_OPERATOR_MINUS_ASSIGNMENT;
-        case AST_SHL_ASSIGNMENT :
+        case AST_BITWISE_SHL_ASSIGNMENT :
             return STR_OPERATOR_SHL_ASSIGNMENT;
         case AST_SHR_ASSIGNMENT :
             return STR_OPERATOR_SHR_ASSIGNMENT;

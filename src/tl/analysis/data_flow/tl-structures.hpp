@@ -58,7 +58,7 @@ namespace TL
             SPLIT_STMT,                     //! Expression being split because it contains a sub-expression with a separated node
             FUNC_CALL,                      //! Function Call
             COND_EXPR,                      //! Conditional expression
-            LOOP,                           //! Set of nodes of a for loop
+            LOOP,                           //! Set of nodes of a for loopm (but the initialization)
             OMP_PRAGMA,                     //! Pragma Custom Definition / Statement
             TASK                            //! Pragma Task
         };
@@ -96,10 +96,16 @@ namespace TL
         */
         #define _OUTER_NODE    "outer_node"
         
+        /*! \def _SCOPE
+         * Scope where the block code contained in the node is created 
+         * Only graph nodes that contain a block of code (all but SPLIT_STMT)
+         */
+        #define _SCOPE         "scope"
+        
         /*! \def _NODE_LABEL
         * String containing the label of a node.
         * It may have different meanings depending on the node type:
-        *   - Composite: is the Statement that defines the composition.
+        *   - Graph: is the Statement that defines the composition.
         *   - Goto / Label: label that identifies the source or target of the Statement contained.
         * Mandatory and only available in 'Composite', 'Labeled' or 'Goto' nodes.
         */    
@@ -141,7 +147,7 @@ namespace TL
         * Type of the loop in a graph node. This will be a value of the enumeration Loop_type.
         * Mandatory in all loop graph nodes.
         */    
-        #define _LOOP_TYPE      "loop_type"    
+        #define _LOOP_TYPE      "loop_type"
         
         /*!
         * Nodecl containing the context associated to a task
@@ -185,6 +191,36 @@ namespace TL
         */ 
         #define _UNDEF          "undefined_behaviour_vars"
 
+        /*! \def _SHARED
+        * Set of symbols with shared auto-scoping in a task
+        * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once Auto-scoping is performed).
+        */ 
+        #define _SHARED         "shared"
+
+        /*! \def _PRIVATE
+        * Set of symbols with private auto-scoping in a task
+        * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once Auto-scoping is performed).
+        */ 
+        #define _PRIVATE        "private"
+        
+        /*! \def _FIRSTPRIVATE
+        * Set of symbols with lastprivate auto-scoping in a task
+        * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once Auto-scoping is performed).
+        */ 
+        #define _FIRSTPRIVATE    "firstprivate"
+        
+        /*! \def _UNDEF_SC
+        * Set of symbols with non-computable auto-scoping in a task
+        * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once Auto-scoping is performed).
+        */ 
+        #define _UNDEF_SC       "undef_scope"
+        
+        /*! \def _RACE
+        * Set of symbols in a race situation in a task
+        * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once Auto-scoping is performed).
+        */ 
+        #define _RACE           "race"
+        
         /*! \def _IN_DEPS
         * Set of symbols with input dependence in a task
         * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once the Liveness analysis is performed).
@@ -201,7 +237,19 @@ namespace TL
         * Set of symbols with inout dependence in a task
         * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once the Liveness analysis is performed).
         */ 
-        #define _INOUT_DEPS     "inout_deps"   
+        #define _INOUT_DEPS     "inout_deps"
+
+        /*! \def _UNDEF_DEPS
+         * Set of symbols with which we are unable to compute the proper dependencies in a task
+         * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once the Liveness analysis is performed).
+         */ 
+        #define _UNDEF_DEPS     "undef_deps"
+        
+        /*! \def _INDUCTION_VARS
+        * Map containing the induction variables associated with a Loop Node
+        * Available only in Loop (Graph) nodes (Mandatory once the Loop analysis is performed).
+        */ 
+        #define _INDUCTION_VARS "induction_vars"
 
         /*! \def _REACH_DEFS
         * Map containing the reaching definitions in a given point
@@ -254,7 +302,13 @@ namespace TL
         * Boolean indicating whether an edge connects a target being a Task
         * Available and mandatory in all edges.
         */
-        #define _IS_TASK_EDGE     "is_task_edge"
+        #define _IS_TASK_EDGE       "is_task_edge"
+        
+        /*! \def _IS_EXECUTABLE_EDGE
+         * Boolean indicating whether an edge is executable or not
+         * Available and mandatory in all edges after constant propagation optimization.
+         */
+        #define _IS_EXECUTABLE_EDGE "is_executable_edge"
     }
 }
 

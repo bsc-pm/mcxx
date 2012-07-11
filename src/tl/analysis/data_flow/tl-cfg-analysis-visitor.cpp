@@ -75,7 +75,7 @@ namespace Analysis
                         break;
             case 7:     val = Nodecl::BitwiseXor::make(n, stride, n.get_type(), n.get_filename(), n.get_line());
                         break;
-            case 8:     val = Nodecl::Shl::make(n, stride, n.get_type(), n.get_filename(), n.get_line());
+            case 8:     val = Nodecl::BitwiseShl::make(n, stride, n.get_type(), n.get_filename(), n.get_line());
                         break;
             case 9:     val = Nodecl::Shr::make(n, stride, n.get_type(), n.get_filename(), n.get_line());
                         break;
@@ -141,7 +141,7 @@ namespace Analysis
         
         if (!_init_expression.is_null())
         {
-//             _node->set_reaching_definition(defined_var, _init_expression);
+            _node->set_reaching_definition(defined_var, _init_expression);
             _init_expression = Nodecl::NodeclBase::null();
         }
     }
@@ -157,7 +157,7 @@ namespace Analysis
         
         if (!init.is_null())
         {
-//             _node->set_reaching_definition(sym_node, init);
+            _node->set_reaching_definition(sym_node, init);
             walk(init);
         }
     }
@@ -235,7 +235,7 @@ namespace Analysis
         {
             _init_expression = compute_init_expr(rhs, lhs, 7);
         }
-        else if (n.template is <Nodecl::ShlAssignment>())
+        else if (n.template is <Nodecl::BitwiseShlAssignment>())
         {
             _init_expression = compute_init_expr(rhs, lhs, 8);
         }
@@ -298,7 +298,7 @@ namespace Analysis
         binary_assignment(n);
     }
     
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::ShlAssignment& n)
+    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::BitwiseShlAssignment& n)
     {
         binary_assignment(n);
     }
@@ -380,7 +380,7 @@ namespace Analysis
         binary_visit(n);
     }
     
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Shl& n)
+    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::BitwiseShl& n)
     {
         binary_visit(n);
     }
@@ -465,7 +465,7 @@ namespace Analysis
         walk(n.get_rhs());
     }
     
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Derreference& n)
+    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Dereference& n)
     {
         if (_actual_nodecl.is_null())
         {    
@@ -485,16 +485,18 @@ namespace Analysis
         unary_visit(n);
     } 
     
-    static void get_use_def_variables(Node* actual, int id_target_node, ext_sym_set &ue_vars, ext_sym_set &killed_vars)
+    static void get_use_def_variables(Node* actual, int id_target_node, ext_sym_set &ue_vars, ext_sym_set &killed_vars, ext_sym_set &undef_vars)
     {
         ObjectList<Node*> children = actual->get_children();
         for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
         {
             if ((*it)->get_id() != id_target_node)
             {
-                ue_vars.append((*it)->get_ue_vars());
-                killed_vars.append((*it)->get_killed_vars());
-                get_use_def_variables(*it, id_target_node, ue_vars, killed_vars);
+                ue_vars.insert((*it)->get_ue_vars());
+                killed_vars.insert((*it)->get_killed_vars());
+                undef_vars.insert((*it)->get_undefined_behaviour_vars());
+                
+                get_use_def_variables(*it, id_target_node, ue_vars, killed_vars, undef_vars);
             }
         }
     }
@@ -510,10 +512,11 @@ namespace Analysis
     void CfgAnalysisVisitor::function_visit(const T& n)
     {
         Node* outer_node = _node->get_outer_node();
-        ext_sym_set ue_vars, killed_vars;
-        get_use_def_variables(outer_node->get_graph_entry_node(), _node->get_id(), ue_vars, killed_vars);
+        ext_sym_set ue_vars, killed_vars, undef_vars;
+        get_use_def_variables(outer_node->get_graph_entry_node(), _node->get_id(), ue_vars, killed_vars, undef_vars);
         _node->set_ue_var(ue_vars);
         _node->set_killed_var(killed_vars);
+        _node->set_undefined_behaviour_var(undef_vars);
     }
     
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::FunctionCall& n)
@@ -530,15 +533,16 @@ namespace Analysis
     /// *** GLOBAL VARIABLES & FUNCTION PARAMETERS VISITOR *** //
     
     CfgIPAVisitor::CfgIPAVisitor(ExtensibleGraph* cfg, ObjectList<ExtensibleGraph*> cfgs,
-                                 ObjectList<var_usage_t*> glob_vars, ObjectList<Symbol> reference_params, 
+                                 ObjectList<var_usage_t*> glob_vars, ObjectList<Symbol> parameters, 
                                  std::map<Symbol, Nodecl::NodeclBase> params_to_args)
-        : _cfg(cfg), _cfgs(cfgs), _global_vars(glob_vars), _ref_params(), _usage(), _defining(false), 
+        : _cfg(cfg), _cfgs(cfgs), _global_vars(glob_vars), _params(parameters), _usage(), 
+          _defining(false), _last_nodecl(Nodecl::NodeclBase::null()),
           _params_to_args(params_to_args), _visited_functions()
     {
         Symbol s = cfg->get_function_symbol();
         if (s.is_valid())
         {
-            _visited_functions.append(s);
+            _visited_functions.insert(s);
         }
         else
         {
@@ -574,76 +578,14 @@ namespace Analysis
         }
     }
 
-    void CfgIPAVisitor::fill_graph_usage_info()
-    {
-        ObjectList<struct var_usage_t*> cfg_ref_params;
-        for(ObjectList<struct var_usage_t*>::iterator it = _usage.begin(); it != _usage.end(); ++it)
-        {
-            Nodecl::NodeclBase var = (*it)->get_nodecl();
-            if (var.is<Nodecl::Symbol>())
-            {
-                Nodecl::Symbol s = var.as<Nodecl::Symbol>();
-                if (usage_list_contains_sym(s, _global_vars))
-                {
-                    struct var_usage_t* ipa_var = get_var_in_list(s, _usage);
-                    struct var_usage_t* global_var = get_var_in_list(s, _global_vars);
-                    global_var->set_usage(ipa_var->get_usage());
-                }
-                else if (_ref_params.contains(s.get_symbol()))
-                {
-                    struct var_usage_t* ipa_var = get_var_in_list(s, _usage);
-                    cfg_ref_params.insert(ipa_var);
-                }
-                else
-                {
-                    // It can be a global var used in a called function within the current graph
-                    
-                    internal_error("Computed IPA in graph '%s' for the variable '%s' which is not in the global variables list "\
-                                   "nor in the reference parameters list", _cfg->get_name().c_str(), var.prettyprint().c_str());
-                }
-            }
-            else
-            {
-                internal_error("Computed usage for an invalid symbol. It shouldn't happen", 0);
-            }
-        }
-    }
-
     void CfgIPAVisitor::compute_usage()
     {
         Node* graph_node = _cfg->get_graph();
+        ExtensibleGraph::clear_visits(graph_node);
         
         compute_usage_rec(graph_node);
-        
-        fill_graph_usage_info();
-        
+       
         ExtensibleGraph::clear_visits(graph_node);
-    }
-  
-    struct var_usage_t* CfgIPAVisitor::get_var_in_list(Nodecl::Symbol n, ObjectList<struct var_usage_t*> list)
-    {
-        for (ObjectList<struct var_usage_t*>::iterator it = list.begin(); it != list.end(); ++it)
-        {
-            if (Nodecl::Utils::equal_nodecls((*it)->get_nodecl(), n))
-            {
-                return *it;
-            }
-        }
-        
-        internal_error("No symbol '%s' founded in usage list", n.get_symbol().get_name().c_str());
-    }
-    
-    struct var_usage_t* CfgIPAVisitor::get_var_in_list(Symbol n, ObjectList<struct var_usage_t*> list)
-    {
-        for (ObjectList<struct var_usage_t*>::iterator it = list.begin(); it != list.end(); ++it)
-        {
-            if ((*it)->get_nodecl().get_symbol() == n)
-            {
-                return *it;
-            }
-        }
-        
-        internal_error("No symbol '%s' founded in usage list", n.get_name().c_str());
     }
     
     ObjectList<struct var_usage_t*> CfgIPAVisitor::get_usage() const
@@ -651,37 +593,48 @@ namespace Analysis
         return _usage;
     }
     
-    void CfgIPAVisitor::set_up_symbol_usage(Nodecl::Symbol s)
+    void CfgIPAVisitor::set_up_usage(Nodecl::NodeclBase n)
     {
-        if (usage_list_contains_sym(s, _usage))
-        {   // The variable was already inserted in the result
-            struct var_usage_t* ipa_var = get_var_in_list(s, _usage);
+        if (usage_list_contains_nodecl(n, _usage))
+        {   // Some use in the nodecl was already registered. We upload it if necessary
+            struct var_usage_t* ipa_var = get_var_in_list(n, _usage);
             char usage = ipa_var->get_usage();
-            if (usage == '0' || usage == '2' || usage == '3')
-            {   // nothing to do: It doesn't matters what happens with an already Killed variable or the value is undefined at this point
-            }
-            else if (usage == '1')
+            if (usage == ' ')
             {
                 if (_defining)
-                {   // Set to 2 the usage value
-                    ipa_var->set_usage('2');
-                }
-                else {} // nothing to do, the variable was already used
+                    ipa_var->set_usage('0');
+                else
+                    ipa_var->set_usage('1');
             }
+            if (usage == '1')
+            {
+                if (_defining)  // Set to '2' (=> UE + KILLED) the usage value
+                    ipa_var->set_usage('2');
+                else 
+                {}  // Nothing to do, the variable was already used
+            }
+            else
+            {}  // nothing to do: It doesn't matters what happens with an already Killed or Undefined behaviour variable
         }
         else
-        {   // Is the first usage of this variable. We insert it in the result
-            char usage;
-            if (_defining) usage = '0';
-            else usage = '1';
-            struct var_usage_t* new_ipa_var = new var_usage_t(s, usage);
-            _usage.insert(new_ipa_var);
+        {   // Is the first time we use this nodecl
+            if (!usage_list_contains_englobing_nodecl(n, _usage))
+            {
+                if (usage_list_contains_englobed_nodecl(n, _usage))
+                {   // delete the englobed part
+                    delete_englobed_var_in_usage_list(n, _usage);
+                }
+                char usage = '1';
+                if (_defining) usage = '0';
+                struct var_usage_t* new_ipa_var = new var_usage_t(ExtendedSymbol(n), usage);
+                _usage.insert(new_ipa_var);
+            }
         }
     }
     
-    void CfgIPAVisitor::set_up_argument_usage(Nodecl::Symbol arg)
+    void CfgIPAVisitor::set_up_undefined_usage(Nodecl::NodeclBase arg)
     {
-        if (usage_list_contains_sym(arg, _usage))
+        if (usage_list_contains_nodecl(arg, _usage))
         {
             struct var_usage_t* ipa_var = get_var_in_list(arg, _usage);
             char ipa_usage = ipa_var->get_usage();
@@ -691,23 +644,72 @@ namespace Analysis
         }
         else
         {
-            struct var_usage_t* new_ipa_var = new var_usage_t(arg, '3');
+            struct var_usage_t* new_ipa_var = new var_usage_t(ExtendedSymbol(arg), '3');
             _usage.insert(new_ipa_var);
         }
     }
     
     CfgIPAVisitor::Ret CfgIPAVisitor::visit(const Nodecl::Symbol& n)
     {
-        if (_ref_params.contains(n.get_symbol()))
-        {
-            Symbol param = n.get_symbol();
-            Nodecl::Symbol arg = _params_to_args[param].as<Nodecl::Symbol>();
-            set_up_symbol_usage(arg);
+        Symbol s = n.get_symbol();
+        if (usage_list_contains_sym(s, _global_vars))
+        {   // Usage of a global variable
+            Nodecl::NodeclBase real_n = n;
+            if (!_last_nodecl.is_null())
+                real_n = _last_nodecl;
+            
+            // Set up the usage
+            set_up_usage(real_n);
         }
-        else if (TL::Analysis::usage_list_contains_sym(n, _global_vars))
-        {
-            set_up_symbol_usage(n);
+        else if (_params.contains(s))
+        {   // Usage of a parameter: We need to transform the usage of the parameter into an usage of the corresponding argument
+            // Get the corresponding argument
+            Nodecl::NodeclBase arg = _params_to_args[s];
+           
+            if (!_last_nodecl.is_null())
+            {
+                // Translate the parameter usage into an argument usage
+                if (_last_nodecl.is<Nodecl::Reference>())
+                {
+                    Nodecl::Reference aux = Nodecl::Reference::make(arg, arg.get_type(), arg.get_filename(), arg.get_line());
+                    arg = aux;
+                }
+                else if (_last_nodecl.is<Nodecl::Dereference>())
+                {
+                    Nodecl::Dereference aux = Nodecl::Dereference::make(arg, arg.get_type(), arg.get_filename(), arg.get_line());
+                    arg = aux;                    
+                }
+                else
+                {
+                    internal_error("Usage of node type '%s' not yet implemented", ast_print_node_type(_last_nodecl.get_kind()));
+                }
+                
+                // Set the usage into the list
+                set_up_usage(arg);
+            }
+            else
+            {
+                if (arg.is<Nodecl::Symbol>())
+                {   // Set the usage into the list
+                    set_up_usage(arg);
+                }
+                else
+                {   // The symbols in the argument can only be used
+                    if (!_defining)
+                    {
+                        ExtendedSymbolVisitor sv;
+                        sv.walk(arg);
+                        ObjectList<Nodecl::NodeclBase> arg_syms = sv.get_extensible_symbols();
+                        for (ObjectList<Nodecl::NodeclBase>::iterator it = arg_syms.begin(); it != arg_syms.end(); ++it)
+                            set_up_usage(*it);
+                    }
+                }
+            }
         }
+        else
+        {}  // The symbol is a local variable
+
+        _last_nodecl = Nodecl::NodeclBase::null();
     }
     
     template <typename T>
@@ -782,7 +784,7 @@ namespace Analysis
         op_assignment_visit(n);
     }
     
-    CfgIPAVisitor::Ret CfgIPAVisitor::visit(const Nodecl::ShlAssignment& n)
+    CfgIPAVisitor::Ret CfgIPAVisitor::visit(const Nodecl::BitwiseShlAssignment& n)
     {
         op_assignment_visit(n);
     }
@@ -807,43 +809,31 @@ namespace Analysis
         unary_visit(n);
     }
     
-    std::map<Symbol, Nodecl::NodeclBase> CfgIPAVisitor::compute_nested_param_args(Nodecl::NodeclBase n, ExtensibleGraph* called_func_graph)
+    CfgIPAVisitor::Ret CfgIPAVisitor::visit(const Nodecl::Reference& n)
     {
-        // Useless lists at that point, but they are a reference parameters to compute the mapping between parameters and arguments
-        ObjectList<Symbol> params; Nodecl::List args;
-        std::map<Symbol, Nodecl::NodeclBase> nested_params_to_args = map_params_to_args(n, called_func_graph, params, args);
-        
-        for(std::map<Symbol, Nodecl::NodeclBase>::iterator it = nested_params_to_args.begin(); 
-            it != nested_params_to_args.end(); ++it)
+        _last_nodecl = n;
+        walk(n.get_rhs());
+    }
+    
+    CfgIPAVisitor::Ret CfgIPAVisitor::visit(const Nodecl::Dereference& n)
+    {
+        _last_nodecl = n;
+        walk(n.get_rhs());
+    }
+    
+    static void print_params_to_args(std::map<Symbol, Nodecl::NodeclBase> params_to_args)
+    {
+        std::cerr << "Map between parameters and arguments: " << std::endl;
+        for (std::map<Symbol, Nodecl::NodeclBase>::iterator it = params_to_args.begin(); it != params_to_args.end(); ++it)
         {
-            Symbol param = it->first;
-            Nodecl::NodeclBase arg = it->second;
-            if (arg.is<Nodecl::Symbol>())
-            {
-                Symbol arg_sym = arg.get_symbol();
-                if (_params_to_args.find(arg_sym) != _params_to_args.end())
-                {
-                    nested_params_to_args[param] = _params_to_args[arg_sym];
-                }
-                else
-                {   // It is a reference parameter but the argument does not come from a reference parameter of the firs call
-                    // We don't care about this parameter
-                    nested_params_to_args.erase(param);
-                }
-            }
-            else
-            {}  // We don't care. If the argument is not a symbol, it cannot be a parameter by reference.
-                // If argument expression contains a global variable, we take care of the usage in the called function analysis
-                // Any other case does not matter for the analysis we are performing here
+            std::cerr << "  - " << it->first.get_name() << "  ->  " << it->second.prettyprint() << std::endl;
         }
-        
-        return nested_params_to_args;
     }
     
     template <typename T>
     void CfgIPAVisitor::function_visit(const T& n)
     {
-        // Hem de calcular IPA per la crida a la funció i afegir tota la informació que obtinguem a la informació actual.
+        // Compute IPA for the current function call and propagate the info to the current node
         Nodecl::FunctionCall call = n.template as<Nodecl::FunctionCall>();
         
         ExtensibleGraph* called_func_graph = find_function_for_ipa(n.get_called().get_symbol(), _cfgs);
@@ -854,51 +844,36 @@ namespace Analysis
             {
                 if (!_visited_functions.contains(s))
                 {
-                    _visited_functions.append(s);
+                    _visited_functions.insert(s);
                     ObjectList<struct var_usage_t*> nested_global_vars = called_func_graph->get_global_variables();
-                    for (ObjectList<struct var_usage_t*>::iterator it = nested_global_vars.begin(); it != nested_global_vars.end(); ++it)
+                    ObjectList<Symbol> nested_params = called_func_graph->get_function_parameters();
+                    if (!nested_global_vars.empty() || !nested_params.empty())
                     {
-                        if (!usage_list_contains_sym((*it)->get_nodecl(), _global_vars))
-                        {
-                            _global_vars.insert(*it);
-                        }
-                    }
-                        
-                    ObjectList<var_usage_t*> glob_vars = called_func_graph->get_global_variables();
-                    ObjectList<Symbol> params = called_func_graph->get_function_parameters();
-                    ObjectList<Symbol> reference_params;
-                    for(ObjectList<Symbol>::iterator it = params.begin(); it != params.end(); ++it)
-                    {
-                        Type t = it->get_type();
-                        if (t.is_any_reference() || t.is_pointer())
-                        {
-                            reference_params.append(*it);
-                        }
-                    }
-                    if (!glob_vars.empty() || !reference_params.empty())
-                    {   // Compute liveness for global variables and reference parameters
-                        std::map<Symbol, Nodecl::NodeclBase> nested_params_to_args = compute_nested_param_args(n, called_func_graph);
-                            
-                        // Reconvert those parameters form the original call
-                        CfgIPAVisitor ipa_visitor(called_func_graph, _cfgs, glob_vars, reference_params, nested_params_to_args);
+                        // Compute liveness for global variables and parameters
+                        std::map<Symbol, Nodecl::NodeclBase> nested_params_to_args = map_reference_params_to_args(n, called_func_graph);
+                        CfgIPAVisitor ipa_visitor(called_func_graph, _cfgs, nested_global_vars, nested_params, nested_params_to_args);
                         ipa_visitor.compute_usage();
                         
                         // Propagate this information to the current graph analysis
-                        ObjectList<struct var_usage_t*> ipa_usage = ipa_visitor.get_usage();
-                        for (ObjectList<struct var_usage_t*>::iterator it = ipa_usage.begin(); it != ipa_usage.end(); ++it)
+                        ObjectList<struct var_usage_t*> nested_usage = ipa_visitor.get_usage();
+                        for (ObjectList<struct var_usage_t*>::iterator it = nested_usage.begin(); it != nested_usage.end(); ++it)
                         {
-                            Nodecl::Symbol current_var = (*it)->get_nodecl();
-                            if (usage_list_contains_sym(current_var, _usage))
-                            {
-                                struct var_usage_t* ipa_var = get_var_in_list(current_var, _usage);
-                                char ipa_usage = ipa_var->get_usage();
+                            Nodecl::NodeclBase current_var = (*it)->get_nodecl();
+                            if (usage_list_contains_nodecl(current_var, _usage))
+                            {   // The variable was already used in the current graph
+                                struct var_usage_t* ipa_var_usage = get_var_in_list(current_var, _usage);
+                                char ipa_usage = ipa_var_usage->get_usage();
                                 if (ipa_usage == '1')
-                                    ipa_var->set_usage('3');
-                                else {} // If it was killed or undefined, we don't care now
+                                {
+                                    if ((*it)->get_usage() == '0' || (*it)->get_usage() == '2')
+                                        ipa_var_usage->set_usage('2');
+                                }
+                                else {} // If it was already killed or undefined, we don't care now
                             }
                             else
-                            {
-                                _usage.insert(*it);
+                            {   // Is the first use of the variable in the current graph
+                                struct var_usage_t* new_ipa_var = *it;
+                                _usage.insert(new_ipa_var);
                             }
                         }
                     }
@@ -908,18 +883,18 @@ namespace Analysis
             }
         }
         else
-        {   // All global variables and reference parameters has an undefined behaviour from this point
-            // If the variable was already killed, we don't care what happens from now on
+        {   // All global variables and parameters in the current function call that comes from parameters in the previous call (current _cfg)
+            // have an undefined behaviour from this point.
+            // If a variable was already killed, we don't care what happens from now on
             
             // Global variables
             for(ObjectList<struct var_usage_t*>::iterator it = _global_vars.begin(); it != _global_vars.end(); ++it)
             {
-                Nodecl::Symbol current_var = (*it)->get_nodecl();
-                set_up_argument_usage(current_var);
+                Nodecl::NodeclBase current_var = (*it)->get_nodecl();
+                set_up_undefined_usage(current_var);
             }
             
             // Reference parameters of the current function used in the current function call
-            ObjectList<Symbol> params = called_func_graph->get_function_parameters();
             Nodecl::List args;
             if (n.template is<Nodecl::FunctionCall>())
             {
@@ -931,18 +906,26 @@ namespace Analysis
                 Nodecl::VirtualFunctionCall func_call_nodecl = n.template as<Nodecl::VirtualFunctionCall>();
                 args = func_call_nodecl.get_arguments().as<Nodecl::List>();
             }
-            ObjectList<Symbol>::iterator itp = params.begin();
-            Nodecl::List::iterator ita = args.begin();
-            for(; itp != params.end() && ita != args.end(); ++itp, ++ita)
+           
+            for(Nodecl::List::iterator it = args.begin(); it != args.end(); ++it)
             {
-                Type t = itp->get_type();
-                if (t.is_any_reference() || t.is_pointer())
-                {   // A parameter in the function call is reference
-                    if (_ref_params.contains(*itp))
-                    {   // It was a reference in the current function
-                        Nodecl::Symbol current_arg = ita->template as<Nodecl::Symbol>();
-                        set_up_argument_usage(current_arg);
-                    }
+                if ( (it->is<Nodecl::Symbol>() || it->is<Nodecl::ClassMemberAccess>() || it->is<Nodecl::ArraySubscript>()
+                    || it->is<Nodecl::Reference>() || it->is<Nodecl::Dereference>() ) && !it->is_constant())
+                {   // Since they can be passed by reference, they can be modified
+                    set_up_undefined_usage(*it);
+                }
+                else if (it->is<Nodecl::FunctionCall>() || it->is<Nodecl::VirtualFunctionCall>())
+                {}  // Nothing to do, we don't need to propagate the usage of a temporal value
+                else
+                {   // Expressions cannot be passed by reference, so this arguments are only used
+                    // FIXME We can define a variable here passing as argument "(n = 3)"
+                    ExtendedSymbolVisitor sv;
+                    sv.walk(*it);
+                    ObjectList<Nodecl::NodeclBase> syms_in_arg = sv.get_extensible_symbols();
+                    for (ObjectList<Nodecl::NodeclBase>::iterator it = syms_in_arg.begin(); it != syms_in_arg.end(); ++it)
+                    {   // The variable is used
+                        set_up_usage(*it);
+                    }   
                 }
             }
         }
@@ -956,6 +939,34 @@ namespace Analysis
     CfgIPAVisitor::Ret CfgIPAVisitor::visit(const Nodecl::VirtualFunctionCall& n)
     {
         function_visit(n);
+    }
+    
+    // *** Symbols Visitor *** //
+    
+    ExtendedSymbolVisitor::ExtendedSymbolVisitor()
+        : _symbols()
+    {}
+            
+    ExtendedSymbolVisitor::Ret ExtendedSymbolVisitor::visit(const Nodecl::Symbol& n)
+    {
+        _symbols.insert(n);
+    }
+    
+    ExtendedSymbolVisitor::Ret ExtendedSymbolVisitor::visit(const Nodecl::Reference& n)
+    {
+        // FIXME We should see here if we have some symbol inside the expression
+        _symbols.insert(n);
+    }
+    
+    ExtendedSymbolVisitor::Ret ExtendedSymbolVisitor::visit(const Nodecl::Dereference& n)
+    {
+        // FIXME We should see here if we have some symbol inside the expression
+        _symbols.insert(n);
+    }
+    
+    ObjectList<Nodecl::NodeclBase> ExtendedSymbolVisitor::get_extensible_symbols()
+    {
+        return _symbols;
     }
 }
 }

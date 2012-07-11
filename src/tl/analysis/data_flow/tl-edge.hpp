@@ -91,6 +91,12 @@ namespace TL
                         is returned.
                 */
                 std::string get_label();
+                
+                
+                // * Methods for Constant Propagation linked data * //
+                
+                //! Set the attribute #executable as \value indicates
+                void set_executable( bool value );
         };
     }
 }

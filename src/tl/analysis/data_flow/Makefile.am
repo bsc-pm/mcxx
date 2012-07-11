@@ -26,41 +26,48 @@
 
 include ../../Makefile.phases
 
-phases_LTLIBRARIES = libextensible_graph.la
+phases_LTLIBRARIES = libdata_flow.la
 
-libextensible_graph_la_CFLAGS = $(tl_cflags)
-libextensible_graph_la_CXXFLAGS = $(tl_cflags) -I $(srcdir)/../../
-libextensible_graph_la_LDFLAGS = $(tl_ldflags)
-libextensible_graph_la_LIBADD = $(tl_libadd) ../../libtl.la
+libdata_flow_la_CFLAGS = $(tl_cflags)
+libdata_flow_la_CXXFLAGS = $(tl_cflags) -I $(srcdir)/../../
+libdata_flow_la_LDFLAGS = $(tl_ldflags)
+libdata_flow_la_LIBADD = $(tl_libadd) ../../libtl.la
 
 END=
 
 EXTRA_DIST =
 
-libextensible_graph_la_SOURCES = \
-   tl-analysis-common.cpp \
-   tl-analysis-common.hpp \
-   tl-analysis-phase.cpp \
-   tl-analysis-phase.hpp \
-   tl-cfg-analysis-visitor.cpp \
-   tl-cfg-analysis-visitor.hpp \
-   tl-cfg-renaming-visitor.cpp \
-   tl-cfg-renaming-visitor.hpp \
-   tl-cfg-visitor.cpp \
-   tl-cfg-visitor.hpp \
-   tl-dot-graph.cpp \
-   tl-edge.cpp \
-   tl-edge.hpp \
-   tl-extensible-graph.cpp \
-   tl-extensible-graph.hpp \
-   tl-extensible-symbol.cpp \
-   tl-extensible-symbol.hpp \
-   tl-loop-analysis.cpp \
-   tl-loop-analysis.hpp \
-   tl-node.cpp \
-   tl-node.hpp \
-   tl-static-analysis.cpp \
-   tl-static-analysis.hpp \
+libdata_flow_la_SOURCES = \
    tl-structures.hpp \
+   tl-analysis-common.hpp \
+   tl-analysis-common.cpp \
+   tl-analysis-singleton.hpp \
+   tl-analysis-singleton.cpp \
+   tl-analysis-phase.hpp \
+   tl-analysis-phase.cpp \
+   tl-cfg-analysis-visitor.hpp \
+   tl-cfg-analysis-visitor.cpp \
+   tl-cfg-renaming-visitor.hpp \
+   tl-cfg-renaming-visitor.cpp \
+   tl-cfg-visitor.hpp \
+   tl-cfg-visitor.cpp \
+   tl-edge.hpp \
+   tl-edge.cpp \
+   tl-node.hpp \
+   tl-node.cpp \
+   tl-extensible-graph.hpp \
+   tl-extensible-graph.cpp \
+   tl-extended-symbol.hpp \
+   tl-extended-symbol.cpp \
+   tl-reaching-definitions.cpp \
+   tl-iv-analysis.cpp \
+   tl-loop-analysis.hpp \
+   tl-loop-analysis.cpp \
+   tl-cfg-constants-analysis.hpp \
+   tl-cfg-constants-analysis.cpp \
+   tl-analysis-utils.hpp \
+   tl-static-analysis.hpp \
+   tl-static-analysis.cpp \
+   tl-dot-graph.cpp \
    $(END)
 

@@ -33,7 +33,7 @@ namespace TL
     namespace Analysis
     {    
         ExtensibleGraph::ExtensibleGraph(std::string name, Scope sc)
-            : _graph(NULL), _name(name), _nid(-1), _sc(sc), _global_vars(),
+            : _name(name), _graph(NULL), _nid(-1), _sc(sc), _global_vars(),
             _function_sym(NULL), nodes_m(),
             _continue_stack(), _break_stack(),
             _labeled_node_l(), _goto_node_l(),
@@ -50,7 +50,6 @@ namespace TL
             ExtensibleGraph* new_ext_graph = new ExtensibleGraph(this->_name, this->_sc);
             
             new_ext_graph->_name = this->_name;
-            new_ext_graph->_nid = this->_nid;
             new_ext_graph->_sc = this->_sc;
             new_ext_graph->_global_vars = this->_global_vars;
             new_ext_graph->_function_sym = this->_function_sym;
@@ -255,12 +254,12 @@ namespace TL
         }
 
         Node* ExtensibleGraph::append_new_node_to_parent(ObjectList<Node*> parents, ObjectList<Nodecl::NodeclBase> nodecls,
-                                                        Node_type ntype, Edge_type etype)
+                                                         Node_type ntype, Edge_type etype)
         {
             if (ntype == GRAPH_NODE)
             {
                 internal_error("A Graph node must be created with the function 'create_graph_node' "
-                            "and connected by hand [new id = %d]", _nid);
+                               "and connected by hand [new id = %d]", _nid);
             }
 
             if (!parents.empty())
@@ -309,7 +308,6 @@ namespace TL
             {
                 if (!parent->has_child(child))
                 {
-//                     std::cerr << "Connecting " << parent->get_id() << " with " << child->get_id() << std::endl;
                     Edge* new_edge = new Edge(parent, child, is_back_edge, is_task_edge, etype, label);
                     parent->set_exit_edge(new_edge);
                     child->set_entry_edge(new_edge);
@@ -1018,6 +1016,30 @@ namespace TL
                 }
             }
         }
+
+        void ExtensibleGraph::clear_visits_aux(Node* node)
+        {
+            if (node->is_visited_aux())
+            {
+                node->set_visited_aux(false);
+                
+                Node_type ntype = node->get_type();
+                if (ntype == BASIC_EXIT_NODE)
+                {
+                    return;
+                }
+                else if (ntype == GRAPH_NODE)
+                {
+                    clear_visits_aux(node->get_graph_entry_node());
+                }
+                
+                ObjectList<Node*> children = node->get_children();
+                for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
+                {
+                    clear_visits_aux(*it);
+                }
+            }
+        }
         
         void ExtensibleGraph::clear_visits_in_level(Node* node, Node* outer_node)
         {
@@ -1041,6 +1063,75 @@ namespace TL
                     {
                         clear_visits_in_level(*it, outer_node);
                     }
+                }
+            }
+        }
+    
+        void ExtensibleGraph::clear_visits_backwards(Node* node)
+        {
+            if (node->is_visited())
+            {
+                node->set_visited(false);
+                
+                Node_type ntype = node->get_type();
+                if (ntype == BASIC_ENTRY_NODE)
+                {
+                    return;
+                }
+                else if (ntype == GRAPH_NODE)
+                {
+                    clear_visits_backwards(node->get_graph_exit_node());
+                }
+                
+                ObjectList<Node*> parents = node->get_parents();
+                for(ObjectList<Node*>::iterator it = parents.begin(); it != parents.end(); ++it)
+                {
+                    clear_visits_backwards(*it);
+                }
+            }
+        }
+        
+        void clear_visits_aux_backwards_in_level(Node* node, Node* outer_node)
+        {
+            if (node->is_visited_aux() && (node->get_outer_node()->get_id() == outer_node->get_id()) )
+            {
+                node->set_visited_aux(false);
+                
+                Node_type ntype = node->get_type();
+                if (ntype == BASIC_ENTRY_NODE)
+                {
+                    return;
+                }
+                
+                ObjectList<Node*> parents = node->get_parents();
+                for(ObjectList<Node*>::iterator it = parents.begin(); it != parents.end(); ++it)
+                {
+                    clear_visits_aux_backwards_in_level(*it, outer_node);
+                }
+            }
+        }
+    
+        void ExtensibleGraph::clear_visits_avoiding_branch(Node* current, Node* avoid_node)
+        {
+            if (current->get_id() != avoid_node->get_id() && current->is_visited())
+            {
+                //                 std::cerr << "           clear visits avoiding branch  --> " << current->get_id() << std::endl;
+                current->set_visited(false);
+                
+                Node_type ntype = current->get_type();
+                if (ntype == BASIC_EXIT_NODE)
+                {
+                    return;
+                }
+                else if (ntype == GRAPH_NODE)
+                {
+                    clear_visits(current->get_graph_entry_node());
+                }
+                
+                ObjectList<Node*> children = current->get_children();
+                for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
+                {
+                    clear_visits(*it);
                 }
             }
         }

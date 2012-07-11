@@ -74,6 +74,36 @@ namespace TL
             return nodecl_l;
         }        
         
+        static Nodecl::NodeclBase non_constant_min(Nodecl::Symbol a, Nodecl::NodeclBase b)
+        {
+            Nodecl::NodeclBase result;
+            
+            if (b.is<Nodecl::Add>())
+            {    
+                Nodecl::Add add = b.as<Nodecl::Add>();
+                Nodecl::NodeclBase lhs = add.get_lhs();
+                Nodecl::NodeclBase rhs = add.get_rhs();
+                if (lhs.is_constant())
+                {
+                    if (Nodecl::Utils::equal_nodecls(a, rhs))
+                    {
+                        const_value_t* lhs_const_val = lhs.get_constant();
+                        const_value_t* zero = const_value_get_zero(/* bytes */ 4, /* signed*/ 0);
+                        if(lhs_const_val < zero)
+                            result = b;
+                        else
+                            result = a;   
+                    }
+                }
+            }
+            else
+            {
+                result = Nodecl::NodeclBase::null();
+            }
+            
+            return result;
+        }
+        
         // FIXME We should evaluate the type of both nodes, not just node 'a'
         static Nodecl::NodeclBase min(Nodecl::NodeclBase a, Nodecl::NodeclBase b)
         {
@@ -85,25 +115,67 @@ namespace TL
             if (a_const_val != NULL && b_const_val != NULL)
             {
                 const_value_t* const_val = (a_const_val < b_const_val) ? a_const_val : b_const_val;
-                if (a.is<Nodecl::IntegerLiteral>())
+                if (const_value_is_integer(a_const_val))
                 {
                     result = Nodecl::IntegerLiteral::make(a.get_type(), const_val, a.get_filename(), a.get_line());
                 }
-                else if (a.is<Nodecl::FloatingLiteral>())
+                else if (const_value_is_floating(a_const_val))
                 {
                     result = Nodecl::FloatingLiteral::make(a.get_type(), const_val, a.get_filename(), a.get_line());
                 }
                 else
                 {
-                    internal_error("Unexpected node type '%s' while computing initial value in a constant expression", 
-                                ast_print_node_type(a.get_kind()));
-                }             
-                return result;
+                    Nodecl::NodeclBase base(const_value_to_nodecl(a_const_val));
+                    internal_error("Unexpected constant value '%s' while computing initial value in a constant expression", 
+                                   base.prettyprint().c_str());
+                }
+            }
+            else if (a.is<Nodecl::Symbol>() && b.is<Nodecl::Add>())
+            {
+                result = non_constant_min(a.as<Nodecl::Symbol>(), b);
+            }
+            else if (a.is<Nodecl::Add>() && b.is<Nodecl::Symbol>())
+            {
+                result = non_constant_min(b.as<Nodecl::Symbol>(), a);
             }
             else
             {
-                return Nodecl::NodeclBase::null();
-            }        
+                result = Nodecl::NodeclBase::null();
+            } 
+            
+            return result;
+        }
+        
+        static Nodecl::NodeclBase non_constant_max(Nodecl::NodeclBase a, Nodecl::NodeclBase b)
+        {
+            Nodecl::NodeclBase result;
+           
+            if (b.is<Nodecl::Add>())
+            {    
+                Nodecl::Add add = b.as<Nodecl::Add>();
+                Nodecl::NodeclBase lhs = add.get_lhs();
+                Nodecl::NodeclBase rhs = add.get_rhs();
+                if (lhs.is_constant())
+                {
+                    if (Nodecl::Utils::equal_nodecls(a, rhs))
+                    {
+                        const_value_t* lhs_const_val = lhs.get_constant();
+                        const_value_t* zero = const_value_get_zero(/* bytes */ 4, /* signed*/ 1);
+                        if(lhs_const_val < zero)
+                        {
+                            result = a;
+                        }
+                        else
+                            result = b;    
+                    }
+                }
+            }
+            else
+            {
+                result = Nodecl::NodeclBase::null();
+            }
+            
+            return result;
         }
         
         static Nodecl::NodeclBase max(Nodecl::NodeclBase a, Nodecl::NodeclBase b)
@@ -128,13 +200,23 @@ namespace TL
                 {
                     internal_error("Unexpected node type '%s' while computing initial value in a constant expression", 
                                 ast_print_node_type(a.get_kind()));
-                }             
-                return result;
+                }
+            }
+            else if (a.is<Nodecl::Symbol>() && b.is<Nodecl::Add>())
+            {
+                
+                result = non_constant_max(a, b);
+            }
+            else if (a.is<Nodecl::Add>() && b.is<Nodecl::Symbol>())
+            {
+                result = non_constant_max(b, a);
             }
             else
             {
-                return Nodecl::NodeclBase::null();
-            }         
+                result = Nodecl::NodeclBase::null();
+            }   
+            
+            return result;
         }
         
         Nodecl::NodeclBase CfgRenamingVisitor::combine_variable_values(Nodecl::NodeclBase node1, Nodecl::NodeclBase node2)
@@ -190,6 +272,25 @@ namespace TL
                 if (Nodecl::Utils::equal_nodecls(node1, node2))
                 {
                     return node1;
+                }
+                else if (node1.is_constant() && node2.is_constant())
+                {
+                    int n1 = const_value_cast_to_4(node1.get_constant());
+                    int n2 = const_value_cast_to_4(node2.get_constant());
+                    if (n1 - n2 == 1)
+                    {   // Values are contiguous. Create a new range
+                        Nodecl::NodeclBase stride = const_value_to_nodecl(const_value_get_one(/* bytes */ 4, /* signed*/ 1));
+                        return Nodecl::Range::make(node2, node1, stride, node1.get_type(), node1.get_filename(), node1.get_line());
+                    }
+                    else if (n2 - n1 == 1)
+                    {
+                        Nodecl::NodeclBase stride = const_value_to_nodecl(const_value_get_one(/* bytes */ 4, /* signed*/ 1));
+                        return Nodecl::Range::make(node1, node2, stride, node1.get_type(), node1.get_filename(), node1.get_line()); 
+                    }
+                    else
+                    {
+                        return Nodecl::NodeclBase::null();
+                    }
                 }
                 else
                 {
@@ -253,6 +354,17 @@ namespace TL
                 }
                 else
                 {
+                    Nodecl::NodeclBase new_min = min(l, lb);
+                    Nodecl::NodeclBase new_max = max(l, ub);
+                    if (!new_min.is_null())
+                    {
+                        return Nodecl::Range::make(new_min, ub, stride, node1.get_type(), node1.get_filename(), node1.get_line());
+                    }
+                    else if (!new_max.is_null())
+                    {
+                        return Nodecl::Range::make(lb, new_max, stride, node1.get_type(), node1.get_filename(), node1.get_line());
+                    }
+                    
                     return Nodecl::NodeclBase::null();
                 }
             }
@@ -326,10 +438,10 @@ namespace TL
                 lb = Nodecl::Shr::make(lb1, lb2, n.get_type(), _filename, _line);
                 ub = Nodecl::Shr::make(ub1, ub2, n.get_type(), _filename, _line);
             }
-            else if (n.template is<Nodecl::Shl>())
+            else if (n.template is<Nodecl::BitwiseShl>())
             {
-                lb = Nodecl::Shl::make(lb1, lb2, n.get_type(), _filename, _line);
-                ub = Nodecl::Shl::make(ub1, ub2, n.get_type(), _filename, _line);
+                lb = Nodecl::BitwiseShl::make(lb1, lb2, n.get_type(), _filename, _line);
+                ub = Nodecl::BitwiseShl::make(ub1, ub2, n.get_type(), _filename, _line);
             }
             else if (n.template is<Nodecl::Assignment>())
             {
@@ -381,10 +493,10 @@ namespace TL
                 lb = Nodecl::ShrAssignment::make(lb1, lb2, n.get_type(), _filename, _line);
                 ub = Nodecl::ShrAssignment::make(ub1, ub2, n.get_type(), _filename, _line);
             }
-            else if (n.template is<Nodecl::ShlAssignment>())
+            else if (n.template is<Nodecl::BitwiseShlAssignment>())
             {
-                lb = Nodecl::ShlAssignment::make(lb1, lb2, n.get_type(), _filename, _line);
-                ub = Nodecl::ShlAssignment::make(ub1, ub2, n.get_type(), _filename, _line);
+                lb = Nodecl::BitwiseShlAssignment::make(lb1, lb2, n.get_type(), _filename, _line);
+                ub = Nodecl::BitwiseShlAssignment::make(ub1, ub2, n.get_type(), _filename, _line);
             }
             else if (n.template is<Nodecl::Equal>())
             {
@@ -440,6 +552,7 @@ namespace TL
         
         CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::Symbol& n)
         {
+            Nodecl::Symbol s = n.as<Nodecl::Symbol>();
             if (_rename_map.find(n.get_symbol()) != _rename_map.end())
             {
                 Nodecl::NodeclBase mapped_value = _rename_map[n.get_symbol()];
@@ -451,11 +564,10 @@ namespace TL
         }
 
         CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::ArraySubscript& n)
-        {
-            Nodecl::NodeclBase array = n;
+        {            
             Nodecl::NodeclBase subscripted = n.get_subscripted();
             Nodecl::NodeclBase subscripts = n.get_subscripts();
-            
+           
             ObjectList<Nodecl::NodeclBase> renamed_subscripted = walk(subscripted);
             ObjectList<Nodecl::NodeclBase> renamed_subscripts, aux_subscripts;
             if (subscripts.is<Nodecl::List>())
@@ -463,6 +575,7 @@ namespace TL
                 Nodecl::List subscripts_l = subscripts.as<Nodecl::List>();
                 for(Nodecl::List::iterator it = subscripts_l.begin(); it != subscripts_l.end(); ++it)
                 {
+                    Nodecl::NodeclBase s = *it;
                     ObjectList<Nodecl::NodeclBase> aux = walk(*it);
                     if (aux.empty())
                     {
@@ -637,9 +750,9 @@ namespace TL
             {
                 renamed = Nodecl::Shr::make(lhs, rhs, n.get_type(), _filename, _line);
             }
-            else if (n.template is<Nodecl::Shl>())
+            else if (n.template is<Nodecl::BitwiseShl>())
             {
-                renamed = Nodecl::Shl::make(lhs, rhs, n.get_type(), _filename, _line);
+                renamed = Nodecl::BitwiseShl::make(lhs, rhs, n.get_type(), _filename, _line);
             }
             else if (n.template is<Nodecl::Assignment>())
             {
@@ -681,9 +794,9 @@ namespace TL
             {
                 renamed = Nodecl::ShrAssignment::make(lhs, rhs, n.get_type(), _filename, _line);
             }
-            else if (n.template is<Nodecl::ShlAssignment>())
+            else if (n.template is<Nodecl::BitwiseShlAssignment>())
             {
-                renamed = Nodecl::ShlAssignment::make(lhs, rhs, n.get_type(), _filename, _line);
+                renamed = Nodecl::BitwiseShlAssignment::make(lhs, rhs, n.get_type(), _filename, _line);
             }
             else if (n.template is<Nodecl::Equal>())
             {
@@ -863,7 +976,7 @@ namespace TL
             return visit_binary(n);
         }
         
-        CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::Shl& n)
+        CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::BitwiseShl& n)
         {
             return visit_binary(n);
         }
@@ -918,7 +1031,7 @@ namespace TL
             return visit_binary(n);
         }
         
-        CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::ShlAssignment& n)
+        CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::BitwiseShlAssignment& n)
         {
             return visit_binary(n);
         }
@@ -996,9 +1109,9 @@ namespace TL
                 {
                     renamed = Nodecl::LogicalNot::make(rhs, n.get_type(), _filename, _line);
                 }
-                else if (n.template is<Nodecl::Derreference>())
+                else if (n.template is<Nodecl::Dereference>())
                 {
-                    renamed = Nodecl::Derreference::make(rhs, n.get_type(), _filename, _line);
+                    renamed = Nodecl::Dereference::make(rhs, n.get_type(), _filename, _line);
                 }
                 else if (n.template is<Nodecl::Reference>())
                 {
@@ -1051,7 +1164,7 @@ namespace TL
             return visit_unary(n);
         }
     
-        CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::Derreference& n)
+        CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::Dereference& n)
         {
             return visit_unary(n);
         }
@@ -1147,80 +1260,74 @@ namespace TL
             return ObjectList<Nodecl::NodeclBase>();
         }
         
-        CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::FunctionCall& n)
+        CfgRenamingVisitor::Ret CfgRenamingVisitor::visit( const Nodecl::FunctionCall& n )
         {
-            Nodecl::NodeclBase called = n.get_called();
-            Nodecl::NodeclBase arguments = n.get_arguments();
-            ObjectList<Nodecl::NodeclBase> renamed_called = walk(called);
-            ObjectList<Nodecl::NodeclBase> renamed_arguments = walk(arguments);
+            Nodecl::NodeclBase called = n.get_called( );
+            Nodecl::NodeclBase arguments = n.get_arguments( );
+            Nodecl::NodeclBase alternate_name = n.get_alternate_name();
+            Nodecl::NodeclBase function_form = n.get_function_form( );
             
-            if (!renamed_called.empty() || !renamed_arguments.empty())
+            ObjectList<Nodecl::NodeclBase> renamed_called = walk( called );
+            ObjectList<Nodecl::NodeclBase> renamed_arguments = walk( arguments );
+            ObjectList<Nodecl::NodeclBase> renamed_alternate_name = walk( alternate_name );
+            ObjectList<Nodecl::NodeclBase> renamed_function_form = walk( function_form );
+            
+            if ( !renamed_called.empty( ) || !renamed_arguments.empty( ) 
+                 || !renamed_alternate_name.empty() || !renamed_function_form.empty() )
             {
-                if (!renamed_called.empty())
+                if ( !renamed_called.empty())
                 {
                     called = renamed_called[0];
                 }
-                if (!renamed_arguments.empty())
+                if ( !renamed_arguments.empty( ) )
                 {
-                    arguments = Nodecl::NodeclBase(create_nodecl_list(renamed_arguments));
+                    arguments = Nodecl::NodeclBase( create_nodecl_list( renamed_arguments ) );
                 }
-
-                Nodecl::NodeclBase function_form = nodecl_null();
-                Symbol called_symbol = called.get_symbol();
-                if (!called_symbol.is_valid()
-                        && called_symbol.get_type().is_template_specialized_type())
+                if ( !renamed_alternate_name.empty( ) )
                 {
-                    function_form =
-                        Nodecl::CxxFunctionFormTemplateId::make(
-                                _filename,
-                                _line);
-                    TemplateParameters template_args =
-                        called.get_template_parameters();
-                    function_form.set_template_parameters(template_args);
+                    alternate_name = renamed_alternate_name[0];
                 }
-
-                Nodecl::NodeclBase renamed = Nodecl::VirtualFunctionCall::make(called, arguments, function_form, n.get_type(), _filename, _line);
-
-                return ObjectList<Nodecl::NodeclBase>(1, renamed);
+                if ( !renamed_function_form.empty( ) )
+                {
+                    function_form = renamed_function_form[0];
+                }
+                
+                Nodecl::NodeclBase renamed = Nodecl::FunctionCall::make( called, arguments, alternate_name, function_form, 
+                                                                                n.get_type(), _filename, _line );
+                return ObjectList<Nodecl::NodeclBase>( 1, renamed );
             }
         
-            return ObjectList<Nodecl::NodeclBase>();
+            return ObjectList<Nodecl::NodeclBase>( );
         }
         
         CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::VirtualFunctionCall& n)
         {
-            Nodecl::NodeclBase called = n.get_called();
-            Nodecl::NodeclBase arguments = n.get_arguments();
-            ObjectList<Nodecl::NodeclBase> renamed_called = walk(called);
-            ObjectList<Nodecl::NodeclBase> renamed_arguments = walk(arguments);
+            Nodecl::NodeclBase called = n.get_called( );
+            Nodecl::NodeclBase arguments = n.get_arguments( );
+            Nodecl::NodeclBase function_form = n.get_function_form( );
+            ObjectList<Nodecl::NodeclBase> renamed_called = walk( called );
+            ObjectList<Nodecl::NodeclBase> renamed_arguments = walk( arguments );
+            ObjectList<Nodecl::NodeclBase> renamed_function_form = walk( function_form );
             
-            if (!renamed_called.empty() || !renamed_arguments.empty())
+            if ( !renamed_called.empty( ) || !renamed_arguments.empty( ) 
+                || !renamed_function_form.empty() )
             {
-                if (!renamed_called.empty())
+                if ( !renamed_called.empty())
                 {
                     called = renamed_called[0];
                 }
-                if (!renamed_arguments.empty())
+                if ( !renamed_arguments.empty( ) )
                 {
-                    arguments = Nodecl::NodeclBase(create_nodecl_list(renamed_arguments));
+                    arguments = Nodecl::NodeclBase( create_nodecl_list( renamed_arguments ) );
                 }
-
-                Nodecl::NodeclBase function_form = nodecl_null();
-                Symbol called_symbol = called.get_symbol();
-                if (!called_symbol.is_valid()
-                        && called_symbol.get_type().is_template_specialized_type())
+                if ( !renamed_function_form.empty( ) )
                 {
-                    function_form =
-                        Nodecl::CxxFunctionFormTemplateId::make(
-                                _filename,
-                                _line);
-                    TemplateParameters template_args =
-                        called.get_template_parameters();
-                    function_form.set_template_parameters(template_args);
+                    function_form = renamed_function_form[0];
                 }
-
-                Nodecl::NodeclBase renamed = Nodecl::VirtualFunctionCall::make(called, arguments, function_form, n.get_type(), _filename, _line);
-                return ObjectList<Nodecl::NodeclBase>(1, renamed);
+                
+                Nodecl::NodeclBase renamed = Nodecl::VirtualFunctionCall::make( called, arguments, function_form, 
+                                                                                n.get_type(), _filename, _line );
+                return ObjectList<Nodecl::NodeclBase>( 1, renamed );
             }
         
             return ObjectList<Nodecl::NodeclBase>();

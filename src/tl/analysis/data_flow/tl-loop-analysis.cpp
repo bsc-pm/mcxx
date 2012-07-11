@@ -24,8 +24,6 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-
-
 #include "cxx-cexpr.h"
 #include "cxx-codegen.h"
 #include "cxx-process.h"
@@ -35,6 +33,7 @@
 #include "tl-extensible-graph.hpp"
 #include "tl-loop-analysis.hpp"
 #include "tl-static-analysis.hpp"
+
 
 namespace TL
 {
@@ -115,7 +114,7 @@ namespace TL
         }
     
         
-        // *** Node hash ans comparator *** //
+        // *** Node hash and comparator *** //
     
         size_t Node_hash::operator() (const int& n) const
         {
@@ -126,12 +125,12 @@ namespace TL
         {
             return (n1 == n2);
         }
-            
+        
         
         // *** Loop Analysis *** //
         
-        LoopAnalysis::LoopAnalysis()
-            : _induction_vars()
+        LoopAnalysis::LoopAnalysis(ObjectList<ExtensibleGraph*> cfgs)
+            : _constant(Nodecl::NodeclBase::null()), _defining(false), _cfgs(cfgs), _induction_vars()
         {}
         
         void LoopAnalysis::traverse_loop_init(Node* loop_node, Nodecl::NodeclBase init)
@@ -156,10 +155,12 @@ namespace TL
                 Nodecl::Assignment init_ = init.as<Nodecl::Assignment>();
                 Symbol def_var = init_.get_lhs().get_symbol();
                 Nodecl::NodeclBase def_expr = init_.get_rhs();
-                
+
                 InductionVarInfo* ind = new InductionVarInfo(def_var, def_expr);
                 _induction_vars.insert(induc_vars_map::value_type(loop_node->get_id(), ind));
             }
+            else if (init.is_null())
+            {}  // Nothing to do, no init expression
             else
             {
                 internal_error("Node kind '%s' while analysing the induction variables in loop init expression not yet implemented",
@@ -180,6 +181,7 @@ namespace TL
             return NULL;
         }
         
+        // FIXME LHS of comparisons can be not symbols, e.g.: (b = p[0]) > a
         void LoopAnalysis::traverse_loop_cond(Node* loop_node, Nodecl::NodeclBase cond)
         {
             Nodecl::LoopControl loop_control = loop_node->get_graph_label().as<Nodecl::LoopControl>();
@@ -225,10 +227,9 @@ namespace TL
                 }
                 else
                 {
-                    internal_error("Analysis of loops without an init expression not yet implemented", 0);
-                    // Look for the lb of the value!!!
-    //                 loop_info_var = new LoopAnalysis(def_var, );
-    //                 result[def_var] = def_expr;
+                    loop_info_var = new InductionVarInfo(def_var, def_expr);
+                    loop_info_var->set_ub(ub);
+                    _induction_vars.insert(induc_vars_map::value_type(loop_node->get_id(), loop_info_var));
                 }
             }
             else if (cond.is<Nodecl::LowerOrEqualThan>())
@@ -244,7 +245,9 @@ namespace TL
                 }
                 else
                 {
-                    internal_error("Analysis of loops without an init expression not yet implemented", 0);
+                    loop_info_var = new InductionVarInfo(def_var, def_expr);
+                    loop_info_var->set_ub(def_expr);
+                    _induction_vars.insert(induc_vars_map::value_type(loop_node->get_id(), loop_info_var));
                 }
                 
             }
@@ -268,7 +271,9 @@ namespace TL
                 }
                 else
                 {
-                    internal_error("Analysis of loops without an init expression not yet implemented", 0);
+                    loop_info_var = new InductionVarInfo(def_var, def_expr);
+                    loop_info_var->set_lb(lb);
+                    _induction_vars.insert(induc_vars_map::value_type(loop_node->get_id(), loop_info_var));
                 }
             }
             else if (cond.is<Nodecl::GreaterOrEqualThan>())
@@ -285,7 +290,9 @@ namespace TL
                 }
                 else
                 {
-                    internal_error("Analysis of loops without an init expression not yet implemented", 0);
+                    loop_info_var = new InductionVarInfo(def_var, def_expr);
+                    loop_info_var->set_lb(def_expr);
+                    _induction_vars.insert(induc_vars_map::value_type(loop_node->get_id(), loop_info_var));
                 }
             }
             else if (cond.is<Nodecl::Different>())
@@ -296,6 +303,8 @@ namespace TL
             {
                 internal_error("Analysis of loops with EQUAL condition expression not yet implemented", 0);
             }
+            else if (cond.is_null())
+            {}  // Nothing to do, no init expression
             else
             {   // TODO Complex expression in the condition node may contain an UB or LB of the induction variable
             }
@@ -316,7 +325,7 @@ namespace TL
                     Nodecl::Postincrement stride_ = stride.as<Nodecl::Postincrement>();
                     rhs = stride_.get_rhs();
                 }
-            
+
                 InductionVarInfo* loop_info_var;
                 if ( (loop_info_var = induction_vars_l_contains_symbol(loop_node, rhs.get_symbol())) != NULL )
                 {
@@ -374,6 +383,8 @@ namespace TL
                                 " This is not yet supported", loop_node->get_graph_label().prettyprint().c_str());
                 }
             }
+            else if (stride.is_null())
+            {}  // Nothing to do, no init expression
             else
             {
                 internal_error("Node kind '%s' while analysing the induction variables in loop stride expression not yet implemented",
@@ -426,10 +437,13 @@ namespace TL
                         }                       
                     }
                     
-                    ObjectList<Node*> children = node->get_children();
-                    for (ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
+                    if ((ntype != GRAPH_NODE) || (ntype == GRAPH_NODE && node->get_graph_type() != TASK) )
                     {
-                        delete_false_induction_vars(*it, loop_node);
+                        ObjectList<Node*> children = node->get_children();
+                        for (ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
+                        {
+                            delete_false_induction_vars(*it, loop_node);
+                        }
                     }
                 }
             }
@@ -466,8 +480,7 @@ namespace TL
                     std::pair<induc_vars_map::const_iterator, induc_vars_map::const_iterator> outer_ind_vars =
                             _induction_vars.equal_range(outer_node->get_id());
                            
-                    for (induc_vars_map::const_iterator it = outer_ind_vars.first; 
-                         it != outer_ind_vars.second/* && it != _induction_vars.end()*/; ++it)
+                    for (induc_vars_map::const_iterator it = outer_ind_vars.first; it != outer_ind_vars.second; ++it)
                     {
                         new_induction_vars.insert(induc_vars_map::value_type(loop_node->get_id(), it->second));
                     }
@@ -487,7 +500,7 @@ namespace TL
             traverse_loop_stride(loop_node, loop_control.get_next());
             
             // Check whether the statements within the loop modify the induction variables founded in the loop control
-            Node* entry = loop_node->get_data<Node*>(_ENTRY_NODE);
+            Node* entry = loop_node->get_graph_entry_node();
             delete_false_induction_vars(entry, loop_node);
             
             ExtensibleGraph::clear_visits(entry);
@@ -497,7 +510,7 @@ namespace TL
         {
             std::map<Symbol, Nodecl::NodeclBase> result;
             std::pair<induc_vars_map::const_iterator, induc_vars_map::const_iterator> actual_ind_vars =
-_induction_vars.equal_range(loop_node->get_id());
+                    _induction_vars.equal_range(loop_node->get_id());
             for(induc_vars_map::const_iterator it = actual_ind_vars.first; it != actual_ind_vars.second; ++it)
             {
                 InductionVarInfo* ivar = it->second;
@@ -505,8 +518,16 @@ _induction_vars.equal_range(loop_node->get_id());
     //                       << "[" << ivar->get_lb().prettyprint() << ":" << ivar->get_ub().prettyprint() << ":" 
     //                       << ivar->get_stride().prettyprint() << "]" << std::endl;
                 Symbol s(ivar->get_symbol());
-                result[s] = Nodecl::Range::make(ivar->get_lb(), ivar->get_ub(), ivar->get_stride(), ivar->get_type(), 
-                                                s.get_filename(), s.get_line());
+                if (ivar->get_lb().is_null() || ivar->get_ub().is_null() || ivar->get_stride().is_null())
+                {
+                    std::cerr << "warning: induction variable '" << s.get_name() << "' has incomplete information (either bounds or stride)."
+                              << " Check this result manually, it can be wrong" << std::endl;
+                }
+                else
+                {
+                    result[s] = Nodecl::Range::make(ivar->get_lb(), ivar->get_ub(), ivar->get_stride(), ivar->get_type(), 
+                                                    s.get_filename(), s.get_line());
+                }
             }
             
             return result;
@@ -552,10 +573,6 @@ _induction_vars.equal_range(loop_node->get_id());
                         compute_induction_variables_info(*it);
                     }
                 }
-                else
-                {
-                    return;
-                }
             }
         }
     
@@ -575,15 +592,14 @@ _induction_vars.equal_range(loop_node->get_id());
 //                     std::cerr << "Renaming performed: " << nodecl.prettyprint() << " --> " << renamed[0].prettyprint() << std::endl;
                     if (use_type == '0')
                     { 
-                        node->unset_ue_var(ExtensibleSymbol(nodecl));
-                        node->set_ue_var(ExtensibleSymbol(renamed[0]));
+                        node->unset_ue_var(ExtendedSymbol(nodecl));
+                        node->set_ue_var(ExtendedSymbol(renamed[0]));
                         renamed_nodecl = renamed[0];
                     }
                     else if (use_type == '1')
                     {
-                        
-                        node->unset_killed_var(ExtensibleSymbol(nodecl));
-                        node->set_killed_var(ExtensibleSymbol(renamed[0]));
+                        node->unset_killed_var(ExtendedSymbol(nodecl));
+                        node->set_killed_var(ExtendedSymbol(renamed[0]));
                         renamed_nodecl = renamed[0];
                     }
                     else if (use_type == '2' || use_type == '3')
@@ -620,8 +636,8 @@ _induction_vars.equal_range(loop_node->get_id());
                     }
                     else if (use_type == '4')
                     {
-                        node->unset_undefined_behaviour_var(ExtensibleSymbol(nodecl));
-                        node->set_undefined_behaviour_var(ExtensibleSymbol(renamed[0]));
+                        node->unset_undefined_behaviour_var(ExtendedSymbol(nodecl));
+                        node->set_undefined_behaviour_var(ExtendedSymbol(renamed[0]));
                         renamed_nodecl = renamed[0];
                     }
                     else
@@ -672,12 +688,17 @@ _induction_vars.equal_range(loop_node->get_id());
             {
                 node->set_visited(true);
                 
-                Node_type ntype = node->get_data<Node_type>(_NODE_TYPE);
+                Node_type ntype = node->get_type();
                 if (ntype != BASIC_EXIT_NODE)
                 {
                     if (ntype == GRAPH_NODE)
                     {
-                        compute_ranges_for_variables_in_loop(node->get_data<Node*>(_ENTRY_NODE), node);
+                        Node* next_loop = loop_node;
+                        if (node->get_graph_type() == LOOP)
+                            next_loop = node;
+                        compute_ranges_for_variables_in_loop(node->get_data<Node*>(_ENTRY_NODE), next_loop);
+                        ExtensibleGraph::clear_visits_in_level(node->get_data<Node*>(_ENTRY_NODE), node);
+                        node->set_visited(false);
                         node->set_graph_node_use_def();
                     }
                     else if (ntype == BASIC_NORMAL_NODE || ntype == BASIC_LABELED_NODE || ntype == BASIC_FUNCTION_CALL_NODE)
@@ -694,10 +715,6 @@ _induction_vars.equal_range(loop_node->get_id());
                         compute_ranges_for_variables_in_loop(*it, loop_node);
                     }
                 }
-                else
-                {
-                    return;
-                }
             }
         }
         
@@ -707,14 +724,14 @@ _induction_vars.equal_range(loop_node->get_id());
             {
                 node->set_visited(true);
                 
-                Node_type ntype = node->get_data<Node_type>(_NODE_TYPE);
+                Node_type ntype = node->get_type();
                 if (ntype != BASIC_EXIT_NODE)
                 {
                     if (ntype == GRAPH_NODE)
                     {
                         Node* entry = node->get_data<Node*>(_ENTRY_NODE);
                         if (node->get_data<Graph_type>(_GRAPH_TYPE) == LOOP)
-                        {    
+                        {   
                             compute_ranges_for_variables_in_loop(entry, node);
                         }
                         else
@@ -736,74 +753,7 @@ _induction_vars.equal_range(loop_node->get_id());
                     return;
                 }
             }        
-        }
-    
-        void LoopAnalysis::propagate_reach_defs_in_for_loop_special_nodes(Node* loop_node)
-        {   // Ranges for the Condition and Increment node are different that ranges for the code within the For Statement
-            
-            // Propagate reach defs to entry node
-            Node* entry = loop_node->get_graph_entry_node();
-            nodecl_map combined_parents_reach_defs = StaticAnalysis::compute_parents_reach_defs(loop_node);
-            nodecl_map actual_reach_defs = entry->get_reaching_definitions();
-            for(nodecl_map::iterator it = combined_parents_reach_defs.begin(); it != combined_parents_reach_defs.end(); ++it)
-            {
-                if (actual_reach_defs.find(it->first) == actual_reach_defs.end())
-                {   // Only if the definition is not performed within the node, we store the parents values
-                    entry->set_reaching_definition(it->first, it->second);
-                }
-            }
-            
-            // Propagate reach defs to conditional node
-            Node* cond = entry->get_children()[0];
-            combined_parents_reach_defs = StaticAnalysis::compute_parents_reach_defs(cond);
-            actual_reach_defs = cond->get_reaching_definitions();
-            for(nodecl_map::iterator it = combined_parents_reach_defs.begin(); it != combined_parents_reach_defs.end(); ++it)
-            {
-                if (actual_reach_defs.find(it->first) == actual_reach_defs.end())
-                {   // Only if the definition is not performed within the node, we store the parents values
-                    cond->set_reaching_definition(it->first, it->second);
-                }
-            }        
-        
-            ObjectList<Edge*> cond_exit_edges = cond->get_exit_edges();
-            ObjectList<Edge*>::iterator ite = cond_exit_edges.begin();
-            
-            // Nodes through the True edge has a smaller range for the induction variable
-            Node* true_node;
-            if ((*ite)->get_type() == TRUE_EDGE)
-            {
-                true_node = (*ite)->get_target();
-            }
-            else
-            {
-                true_node = (*(ite+1))->get_target();
-            }
-            if (true_node->get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
-            {
-                true_node = true_node->get_data<Node*>(_ENTRY_NODE);
-            }
-            combined_parents_reach_defs = StaticAnalysis::compute_parents_reach_defs(true_node);
-            actual_reach_defs = true_node->get_reaching_definitions();
-            std::map<Symbol, Nodecl::NodeclBase> induction_vars_m = get_induction_vars_mapping(loop_node);
-            for(nodecl_map::iterator it = combined_parents_reach_defs.begin(); it != combined_parents_reach_defs.end(); ++it)
-            {
-                if (actual_reach_defs.find(it->first) == actual_reach_defs.end())
-                {   // Only if the definition is not performed within the node, we store the parents values
-                    // If the variable is an induction var, we get here the range of the var within the loop
-                    if (it->first.is<Nodecl::Symbol>()
-                        && induction_vars_m.find(it->first.get_symbol()) != induction_vars_m.end())
-                    {
-                        Nodecl::NodeclBase first = it->first, second = induction_vars_m[it->first.get_symbol()];
-                        true_node->set_reaching_definition(it->first, induction_vars_m[it->first.get_symbol()]);
-                    }
-                    else
-                    {
-                        Nodecl::NodeclBase first = it->first, second = it->second;
-                        true_node->set_reaching_definition(it->first, it->second);
-                    }
-                }
-            }
-        }    
+        }  
 
         void LoopAnalysis::analyse_loops(Node* node)
         {
@@ -815,5 +765,6 @@ _induction_vars.equal_range(loop_node->get_id());
             compute_ranges_for_variables(node);
             ExtensibleGraph::clear_visits(node);
         }
+
     }
 }

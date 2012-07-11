@@ -47,9 +47,10 @@ namespace TL
         {
             protected:
                 // *** Class attributes *** //
-                Node* _graph;    // Node with type GRAPH_NODE which contains the whole graph
-                std::string _name;
-                int _nid;
+                std::string _name;  //! Unique name representing the graph
+                Node* _graph;       //! Node with type GRAPH_NODE which contains the whole graph
+                
+                int _nid;           //! Counter used to create nodes in the graph
                 
                 /*!
                  * Graph scope (This variable is used when the variables are tagged as global)
@@ -359,9 +360,12 @@ namespace TL
 
                 //! This function clears the attribute #visited from nodes bellow @actual node.
                 //! It works properly if there isn't any unreachable node in the graph bellow @actual.
-                static void clear_visits(Node* node);
-                static void clear_visits_in_level(Node* node, Node* outer_node);           
-
+                static void clear_visits( Node* node );
+                static void clear_visits_aux(Node* node);
+                static void clear_visits_in_level( Node* node, Node* outer_node );           
+                static void clear_visits_backwards( Node* node );
+                static void clear_visits_aux_backwards_in_level( Node* node, Node* outer_node );
+                static void clear_visits_avoiding_branch(Node* current, Node* avoid_node);
                 
                 // *** DOT Graph *** //
                 
@@ -410,7 +414,7 @@ namespace TL
                 void print_global_vars() const;
                 
                 
-            friend class CfgVisitor;
+            friend class PCFGVisitor;
         };
     }
 }

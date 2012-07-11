@@ -28,7 +28,7 @@
 
 #include "cxx-codegen.h"
 #include "cxx-process.h"
-
+#include "tl-analysis-common.hpp"
 #include "tl-cfg-renaming-visitor.hpp"
 #include "tl-node.hpp"
 
@@ -38,13 +38,13 @@ namespace TL
     namespace Analysis
     {
         Node::Node()
-            : _id(-1), _entry_edges(), _exit_edges(), _visited(false), _has_deps_computed(false)
+            : _id(-1), _entry_edges(), _exit_edges(), _visited(false), _visited_aux(false), _has_deps_computed(false)
         {
             set_data(_NODE_TYPE, UNCLASSIFIED_NODE);
         }
         
         Node::Node(int& id, Node_type ntype, Node* outer_node)
-            : _id(++id), _entry_edges(), _exit_edges(), _visited(false), _has_deps_computed(false)
+            : _id(++id), _entry_edges(), _exit_edges(), _visited(false), _visited_aux(false), _has_deps_computed(false)
         {
             set_data(_NODE_TYPE, ntype);
             
@@ -61,7 +61,7 @@ namespace TL
         }
         
         Node::Node(int& id, Node_type type, Node* outer_node, ObjectList<Nodecl::NodeclBase> nodecls)
-            : _id(++id), _entry_edges(), _exit_edges(), _visited(false), _has_deps_computed(false)
+            : _id(++id), _entry_edges(), _exit_edges(), _visited(false), _visited_aux(false), _has_deps_computed(false)
         {        
             set_data(_NODE_TYPE, type);
             
@@ -74,7 +74,7 @@ namespace TL
         }
         
         Node::Node(int& id, Node_type type, Node* outer_node, Nodecl::NodeclBase nodecl)
-            : _id(++id), _entry_edges(), _exit_edges(), _visited(false), _has_deps_computed(false)
+            : _id(++id), _entry_edges(), _exit_edges(), _visited(false), _visited_aux(false), _has_deps_computed(false)
         {      
             set_data(_NODE_TYPE, type);
             
@@ -150,10 +150,20 @@ namespace TL
         {
             return _visited;
         }
-        
+
+        bool Node::is_visited_aux() const
+        {
+            return _visited_aux;
+        }
+
         void Node::set_visited(bool visited)
         {
             _visited = visited;
+        }
+
+        void Node::set_visited_aux(bool visited)
+        {
+            _visited_aux = visited;
         }
         
         bool Node::has_deps_computed()
@@ -189,7 +199,7 @@ namespace TL
                     it != _entry_edges.end();
                     ++it)
             {
-                result.append((*it)->get_data<Edge_type>(_EDGE_TYPE));
+                    result.append((*it)->get_type());
             }
             
             return result;
@@ -241,7 +251,7 @@ namespace TL
                     it != _exit_edges.end();
                     ++it)
             {
-                result.append((*it)->get_data<Edge_type>(_EDGE_TYPE));
+                result.append((*it)->get_type());
             }
             
             return result;
@@ -307,6 +317,51 @@ namespace TL
             }
         }
 
+        bool Node::is_graph_node()
+        {
+            if (has_key(_NODE_TYPE))
+            {
+                Node_type nt = get_data<Node_type>(_NODE_TYPE);
+                return (nt == GRAPH_NODE);
+            }
+            else
+            {
+                std::cerr << " ** Node.cpp :: is_graph_node() ** "
+                    << "warning: The node '" << _id << "' has not type." << std::endl;
+                return false;
+            }
+        }
+        
+        bool Node::is_entry_node()
+        {
+            if (has_key(_NODE_TYPE))
+            {
+                Node_type nt = get_data<Node_type>(_NODE_TYPE);
+                return (nt == BASIC_ENTRY_NODE);
+            }
+            else
+            {
+                std::cerr << " ** Node.cpp :: is_entry_node() ** "
+                << "warning: The node '" << _id << "' has not type." << std::endl;
+                return false;
+            }
+        }
+        
+        bool Node::is_exit_node()
+        {
+            if (has_key(_NODE_TYPE))
+            {
+                Node_type nt = get_data<Node_type>(_NODE_TYPE);
+                return (nt == BASIC_EXIT_NODE);
+            }
+            else
+            {
+                std::cerr << " ** Node.cpp :: is_exit_node() ** "
+                << "warning: The node '" << _id << "' has not type." << std::endl;
+                return false;
+            }
+        }
+        
         bool Node::is_connected()
         {
             return (!_entry_edges.empty() || !_exit_edges.empty());
@@ -392,7 +447,8 @@ namespace TL
                     node_l.insert(this);
                 }
                 else if ((ntype == BASIC_GOTO_NODE) || (ntype == BASIC_BREAK_NODE) 
-                        || (ntype == FLUSH_NODE) || (ntype == BARRIER_NODE) || (ntype == BASIC_PRAGMA_DIRECTIVE_NODE))
+                        || (ntype == FLUSH_NODE) || (ntype == BARRIER_NODE) 
+                        || (ntype == BASIC_PRAGMA_DIRECTIVE_NODE) || (ntype == TASKWAIT_NODE))
                 {   // do nothing
                 }
                 else
@@ -474,6 +530,8 @@ namespace TL
                     break;
                     case BARRIER_NODE:                  type = "BARRIER_NODE";
                     break;
+                    case TASKWAIT_NODE:                 type = "TASKWAIT_NODE";
+                    break;
                     case GRAPH_NODE:                    type = "GRAPH_NODE";
                     break;
                     case UNCLASSIFIED_NODE:             type = "UNCLASSIFIED_NODE";
@@ -497,17 +555,19 @@ namespace TL
                 Graph_type ntype = get_data<Graph_type>(_GRAPH_TYPE);
                 switch(ntype)
                 {
-                    case SPLIT_STMT:    graph_type = "SPLIT_STMT";
+                    case SPLIT_STMT:        graph_type = "SPLIT_STMT";
                     break;
-                    case FUNC_CALL:     graph_type = "FUNC_CALL";
+                    case FUNC_CALL:         graph_type = "FUNC_CALL";
                     break;
-                    case COND_EXPR:     graph_type = "COND_EXPR";
+                    case COND_EXPR:         graph_type = "COND_EXPR";
                     break;
-                    case LOOP:          graph_type = "LOOP";
+                    case LOOP:              graph_type = "LOOP";
                     break;
-                    case OMP_PRAGMA:    graph_type = "OMP_PRAGMA";
+                    case OMP_PRAGMA:        graph_type = "OMP_PRAGMA";
                     break;
-                    case TASK:          graph_type = "TASK";
+                    case TASK:              graph_type = "TASK";
+                    break;
+                    case EXTENSIBLE_GRAPH:  graph_type = "EXTENSIBLE_GRAPH";
                     break;
                     default: internal_error("Unexpected type of node '%s'", ntype);
                 };
@@ -605,6 +665,39 @@ namespace TL
             }
         }
 
+        Scope Node::get_scope()
+        {
+            if (get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
+            {
+                if (has_key(_SCOPE))
+                {
+                    return get_data<Scope>(_SCOPE);
+                }
+                else
+                {
+                    return Scope();
+                }
+            }
+            else
+            {
+                internal_error("Unexpected node type '%s' while getting the scope of the graph node '%s'. GRAPH_NODE expected.",
+                            get_type_as_string().c_str(), _id);
+            } 
+        }
+        
+        void Node::set_scope(Scope sc)
+        {
+            if (get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
+            {
+                set_data(_SCOPE, sc);
+            }
+            else
+            {
+                internal_error("Unexpected node type '%s' while getting the scope of the graph node '%s'. GRAPH_NODE expected.",
+                            get_type_as_string().c_str(), _id);
+            } 
+        }
+        
         ObjectList<Nodecl::NodeclBase> Node::get_statements()
         {
             ObjectList<Nodecl::NodeclBase> stmts;
@@ -619,7 +712,7 @@ namespace TL
         {
             Node_type ntype = get_data<Node_type>(_NODE_TYPE);
             if (ntype == BASIC_NORMAL_NODE || ntype == BASIC_FUNCTION_CALL_NODE || ntype == BASIC_LABELED_NODE
-                || ntype == BASIC_BREAK_NODE || ntype == BASIC_CONTINUE_NODE)
+                || ntype == BASIC_BREAK_NODE || ntype == BASIC_CONTINUE_NODE || ntype == BASIC_GOTO_NODE)
             {
                 set_data(_NODE_STMTS, stmts);
             }
@@ -718,17 +811,78 @@ namespace TL
                 }
                 else
                 {
-                    internal_error("Unexpected node type '%s' while getting the loop type of the graph node '%s'. LOOP expected.",
+                    internal_error("Unexpected node type '%s' while setting the loop type of the graph node '%s'. LOOP expected.",
                                 get_type_as_string().c_str(), _id);
                 }
             }
             else
             {
-                internal_error("Unexpected node type '%s' while getting the loop type of the graph node '%s'. GRAPH_NODE expected.",
+                internal_error("Unexpected node type '%s' while setting the loop type of the graph node '%s'. GRAPH_NODE expected.",
                             get_type_as_string().c_str(), _id);
             }        
         }
-
+        
+        IV_map Node::get_induction_variables()
+        {
+            if (get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
+            {
+                if (get_data<Graph_type>(_GRAPH_TYPE) == LOOP)
+                {
+                    IV_map ivs;
+                    if (has_key(_INDUCTION_VARS))
+                        ivs = get_data<IV_map>(_INDUCTION_VARS);
+                    return ivs;
+                }
+                else
+                {
+                    internal_error("Unexpected node type '%s' while getting the induction variables of the node '%s'. LOOP expected.",
+                                get_type_as_string().c_str(), _id);
+                }
+            }
+            else
+            {
+                internal_error("Unexpected node type '%s' while getting the induction variables of the node '%s'. GRAPH_NODE expected.",
+                            get_type_as_string().c_str(), _id);
+            }
+        }
+        
+        void Node::set_induction_variable(Nodecl::NodeclBase iv, struct InductionVariableData iv_data)
+        {
+            if (get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
+            {
+                if (get_data<Graph_type>(_GRAPH_TYPE) == LOOP)
+                {
+                    IV_map ivs;
+                    if (has_key(_INDUCTION_VARS))
+                    {
+                        ivs = get_data<IV_map>(_INDUCTION_VARS);
+                    }
+                    if ( ivs.find(iv) != ivs.end() )
+                    {
+                        nodecl_t iv_internal = iv.get_internal_nodecl();
+                        internal_error("Trying to insert the Induction Variable '%s' in a loop that already contains this variable", 
+                                       codegen_to_str(iv_internal, nodecl_retrieve_context(iv_internal)));
+                    }
+                    else
+                    {
+                        ivs.insert ( std::pair<Nodecl::NodeclBase, struct InductionVariableData>(iv, iv_data) );
+                    }
+                    
+                    set_data(_INDUCTION_VARS, ivs);
+                }
+                else
+                {
+                    internal_error("Unexpected node type '%s' while setting a induction variable in the graph node '%s'. LOOP expected.",
+                                get_type_as_string().c_str(), _id);
+                }
+            }
+            else
+            {
+                internal_error("Unexpected node type '%s' while setting a induction variable in the node '%s'. GRAPH_NODE expected.",
+                            get_type_as_string().c_str(), _id);
+            }  
+        }
+        
         Symbol Node::get_label()
         {
             Node_type ntype = get_data<Node_type>(_NODE_TYPE);
@@ -891,6 +1045,23 @@ namespace TL
             }
         }
 
+        bool Node::is_stride_node()
+        {
+            bool res = false;
+            Node* outer_node = get_outer_node();
+            while (outer_node != NULL && outer_node->get_graph_type() != LOOP)
+            {
+                outer_node = outer_node->get_outer_node();
+            }
+            
+            if (outer_node != NULL)
+            {
+                Node* stride = outer_node->get_stride_node();
+                res = (stride->_id == _id);
+            }
+            return res;
+        }
+        
         Node* Node::advance_over_non_statement_nodes()
         {
             ObjectList<Node*> children = get_children();
@@ -962,6 +1133,100 @@ namespace TL
             return result;
         }
     
+        /*!
+         * Try to insert a new variable in a list
+         * If an englobing variable of the current variable already exists, then we don't include the variable
+         * If any variable englobed by the current variable exists, then we delete the variable
+         * If the variable is an array en we can form a range with the to access, we do that deleting the existing element of the list and
+         * including the new ranged access
+         */
+        static ext_sym_set insert_var_in_list(Nodecl::NodeclBase var, ext_sym_set list)
+        {
+            ext_sym_set new_list;
+            if (!ext_sym_set_contains_englobing_nodecl(var, list))
+            {
+                // Create a new list with the elements of 'list' that are not englobed by 'var'
+                ext_sym_set aux_list(1, ExtendedSymbol(var));
+                for(ext_sym_set::iterator it = list.begin(); it != list.end(); ++it)
+                {
+                    if (!ext_sym_set_contains_englobing_nodecl(it->get_nodecl(), aux_list))
+                    {
+                        new_list.insert(*it);
+                    }
+                }
+                
+                // Insert the new variable
+                new_list.insert(var);
+            }
+            else
+            {   // No need to insert the variable, its englobing symbol is already there
+                // FIXME We can create ranges for array accesses here
+                new_list = list;
+            }
+            return new_list;
+        }
+    
+        /*!
+         * Inserts the elements in 'l' to the list 'in_l' when they are not in the list 'killed' nor in 'undef'
+         * When avoiding lists, it take cares of elements englobing the current variable and of elements englobed by the current variable
+         */
+        static ext_sym_set compute_use_def_with_children(ext_sym_set l, ext_sym_set in_l, ext_sym_set& killed, ext_sym_set& undef, char compute_undef)
+        {
+            ext_sym_set new_l = in_l;
+            for (ext_sym_set::iterator it = l.begin(); it != l.end(); ++it)
+            {
+                Nodecl::NodeclBase var = it->get_nodecl();
+                if (!ext_sym_set_contains_englobing_nodecl(var, killed))
+                {   // No englobing variable in the avoiding list 1
+                    // Look for variables in avoiding list 1 englobed by 'var'
+                    ext_sym_set aux_set(1, var);
+                    ext_sym_set::iterator itk = killed.begin();
+                    for (; itk != killed.end(); ++itk)
+                    {
+                        if (ext_sym_set_contains_englobing_nodecl(itk->get_nodecl(), aux_set))
+                        {   // Delete from 'var' the englobed part of (*itk) and put the result in 'var'
+                            // TODO
+                            std::cerr << "warning: Part of nodecl " << itk->get_nodecl().prettyprint() << " founded in the current var "
+                                      << var.prettyprint() << " must be avoided. A subpart is killed." << std::endl;
+//                             var = nodecl_subtract(var, ita->get_nodecl());
+                            killed.erase(itk);
+                            if (compute_undef == '1')
+                                new_l = insert_var_in_list(var, new_l);
+                            else
+                                undef.insert(var);
+                            break;
+                        }
+                    }
+                        
+                    if (!ext_sym_set_contains_englobing_nodecl(var, undef))
+                    {   // No englobing variable in the avoiding list 2
+                        // Look for variables in avoiding list 2 englobed by 'var'
+                        ext_sym_set aux_set; aux_set.insert(*it);
+                        ext_sym_set::iterator itu = undef.begin();
+                        for (; itu != undef.end(); ++itu)
+                        {
+                            if (ext_sym_set_contains_englobing_nodecl(itu->get_nodecl(), aux_set))
+                            {   // Delete from var the englobed part of (*itu) and put the result in 'var'
+                                // TODO
+                            std::cerr << "warning: Part of nodecl " << itu->get_nodecl().prettyprint() << " founded in the current var "
+                                      << var.prettyprint() << " must be avoided. A subpart is undefined." << std::endl;
+                                undef.erase(itu);
+                                if (compute_undef == '1')
+                                    new_l = insert_var_in_list(var, new_l);
+                                else
+                                    undef.insert(var);
+                                break;
+                            }
+                        }
+                        if (itk == killed.end() && itu == undef.end())
+                        {
+                            new_l = insert_var_in_list(var, new_l);
+                        }
+                    }
+                }
+            }
+            return new_l;
+        }
     
         ObjectList<ext_sym_set> Node::get_use_def_over_nodes()
         {
@@ -969,50 +1234,34 @@ namespace TL
             
             if (!_visited)          
             {
-                ext_sym_set ue_vars, killed_vars, ue_aux, killed_aux;
-            
-    //             if (get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
-    //             {
-    //                 set_graph_node_use_def();
-    //             }
                 _visited = true;
+              
+                // Use-Def in current node
+                ext_sym_set ue_vars = get_ue_vars();
+                ext_sym_set killed_vars = get_killed_vars();
+                ext_sym_set undef_vars = get_undefined_behaviour_vars();
                 
-                // Compute upper exposed variables in actual node
-                ue_aux = get_ue_vars();
-                for(ext_sym_set::iterator it = ue_aux.begin(); it != ue_aux.end(); ++it)
-                {
-                    if (!killed_vars.contains(*it))
-                    {
-                        ue_vars.insert(*it);
-                    }
-                }
-                
-                // Compute killed variables in actual node
-                killed_vars.insert(get_killed_vars());
-                
-                // Complete the use-def info for every children of the node
+                // Concatenate info from children nodes
                 ObjectList<Node*> children = get_children();
+                ext_sym_set ue_children, killed_children, undef_children;
                 for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
                 {
                     use_def_aux = (*it)->get_use_def_over_nodes();
-                    
                     if (!use_def_aux.empty())
                     {
-                        // Compute upper exposed variables
-                        ue_aux = use_def_aux[0];
-                        for(ext_sym_set::iterator it_ue = ue_aux.begin(); it_ue != ue_aux.end(); ++it_ue)
-                        {
-                            if (!killed_vars.contains(*it_ue))
-                            {
-                                ue_vars.insert(*it_ue);
-                            }
-                        }
-                        // Compute killed variables
-                        killed_vars.insert(use_def_aux[1]);
+                        ue_children.insert(use_def_aux[0]);
+                        killed_children.insert(use_def_aux[1]);
+                        undef_children.insert(use_def_aux[2]);
                     }
                 }
                 
-                use_def.append(ue_vars); use_def.append(killed_vars);
+                // Append to current node info from children+
+                ext_sym_set null_list;
+                undef_vars = compute_use_def_with_children(undef_children, undef_vars, killed_vars, undef_vars, /*compute_undef*/'1');
+                ue_vars = compute_use_def_with_children(ue_children, ue_vars, killed_vars, undef_vars, /*compute_undef*/'0');
+                killed_vars = compute_use_def_with_children(killed_children, killed_vars, killed_vars, undef_vars, /*compute_undef*/'0');
+                
+                use_def.append(ue_vars); use_def.append(killed_vars); use_def.append(undef_vars);
             }
             
             return use_def;
@@ -1028,115 +1277,16 @@ namespace TL
                     
                     Node* entry_node = get_data<Node*>(_ENTRY_NODE);
                 
-                    // Get upper_exposed and killed variables
+                    // Get upper_exposed, killed and undefined variables
                     ObjectList<ext_sym_set> use_def = entry_node->get_use_def_over_nodes();
-                    
                     set_data(_UPPER_EXPOSED, use_def[0]);
                     set_data(_KILLED, use_def[1]);
+                    set_data(_UNDEF, use_def[2]);
                 }
             }
             else
             {
                 internal_error("Getting inner use-def information from node '%d' with type '%s' while "
-                                "here it is mandatory a Graph node.\n",
-                            _id, get_type_as_string().c_str());
-            }
-        }
-
-        ext_sym_set Node::get_live_in_over_nodes()
-        {
-            ext_sym_set live_in_vars;
-            
-            // Advance over non-statements nodes while the path is unique
-            Node* actual = advance_over_non_statement_nodes();
-            
-            // Get the live_in variables
-            if (actual->has_key(_NODE_STMTS))
-            {
-                live_in_vars = actual->get_live_in_vars();
-            }
-            else
-            {   // Node has more than one child
-                ObjectList<Node*> actual_children = actual->get_children();
-                ext_sym_set live_in_aux;
-                Node_type ntype;
-                
-                for(ObjectList<Node*>::iterator it = actual_children.begin();
-                    it != actual_children.end();
-                    ++it)
-                {
-                    // Advance over non-statements nodes while the path is unique
-                    ntype = (*it)->get_data<Node_type>(_NODE_TYPE);
-                    if (ntype == GRAPH_NODE)
-                    {
-                        actual = (*it)->get_data<Node*>(_ENTRY_NODE);
-                    }
-                    else
-                    {    
-                        actual = (*it);
-                    }
-                    actual = actual->advance_over_non_statement_nodes();
-                
-                    live_in_vars.insert(actual->get_live_in_vars());
-                }
-            }
-            
-            return live_in_vars;
-        }
-        
-        ext_sym_set Node::get_live_out_over_nodes()
-        {
-            ext_sym_set live_out_vars;
-
-            // Back over non-statements nodes while the path is unique
-            Node* actual = back_over_non_statement_nodes();
-            
-            // Get the live_out variables
-            if (actual->has_key(_NODE_STMTS))
-            {
-                live_out_vars = actual->get_live_out_vars();
-            }
-            else
-            {   // Node has more than one parent
-                ObjectList<Node*> actual_parents = actual->get_parents();
-            
-                for(ObjectList<Node*>::iterator it = actual_parents.begin();
-                    it != actual_parents.end();
-                    ++it)
-                {
-                    Node_type ntype = (*it)->get_data<Node_type>(_NODE_TYPE);
-                    if (ntype == GRAPH_NODE)
-                    {
-                        actual = (*it)->get_data<Node*>(_EXIT_NODE);
-                    }
-                    else
-                    {    
-                        actual = (*it);
-                    }
-                    actual = actual->back_over_non_statement_nodes();
-                
-                    live_out_vars.insert(actual->get_live_out_vars());
-                }
-            }
-            
-            return live_out_vars;
-        }
-        
-        void Node::set_graph_node_liveness()
-        {
-            if (get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
-            {
-                // Get live in variables from entry node children
-                Node* entry_node = get_data<Node*>(_ENTRY_NODE);
-                set_data(_LIVE_IN, entry_node->get_live_in_over_nodes());
-                
-                // Get live out variables from exit node parents
-                Node* exit_node = get_data<Node*>(_EXIT_NODE);
-                set_data(_LIVE_OUT, exit_node->get_live_out_over_nodes());
-            }
-            else
-            {
-                internal_error("Getting inner liveness analysis from node '%d' with type '%s' while "
                                 "here it is mandatory a Graph node.\n",
                             _id, get_type_as_string().c_str());
             }
@@ -1168,7 +1318,7 @@ namespace TL
             return live_in_vars;
         }
         
-        void Node::set_live_in(ExtensibleSymbol new_live_in_var)
+        void Node::set_live_in(ExtendedSymbol new_live_in_var)
         {
             ext_sym_set live_in_vars;
             
@@ -1198,7 +1348,7 @@ namespace TL
             return live_out_vars;
         }
         
-        void Node::set_live_out(ExtensibleSymbol new_live_out_var)
+        void Node::set_live_out(ExtendedSymbol new_live_out_var)
         {
             ext_sym_set live_out_vars;
             
@@ -1228,37 +1378,51 @@ namespace TL
             return ue_vars;
         }
         
-        void Node::set_ue_var(ExtensibleSymbol new_ue_var)
+        void Node::set_ue_var(ExtendedSymbol new_ue_var)
         {
             ext_sym_set ue_vars;
-        
+
             if (this->has_key(_UPPER_EXPOSED))
             {   
                 ue_vars = get_data<ext_sym_set>(_UPPER_EXPOSED);
             }
-            ue_vars.insert(new_ue_var);
-            
-            set_data(_UPPER_EXPOSED, ue_vars);
+            if (!ext_sym_set_contains_englobing_nodecl(new_ue_var, ue_vars))
+            {
+                ue_vars.insert(new_ue_var);
+                set_data(_UPPER_EXPOSED, ue_vars);
+            }
         }
         
         void Node::set_ue_var(ext_sym_set new_ue_vars)
         {
             ext_sym_set ue_vars;
-        
+
             if (this->has_key(_UPPER_EXPOSED))
             {   
                 ue_vars = get_data<ext_sym_set>(_UPPER_EXPOSED);
             }
-            ue_vars.insert(new_ue_vars);
             
-            set_data(_UPPER_EXPOSED, ue_vars);
+            ext_sym_set purged_ue_vars;
+            ext_sym_set::iterator it = new_ue_vars.begin();
+            for (; it != new_ue_vars.end(); ++it)
+            {
+                if (!ext_sym_set_contains_englobing_nodecl(*it, ue_vars))
+                {
+                    purged_ue_vars.insert(*it);
+                }
+            }
+            if (it == new_ue_vars.end())
+            {
+                ue_vars.insert(purged_ue_vars);
+                set_data(_UPPER_EXPOSED, ue_vars);
+            }
         }
         
-        void Node::unset_ue_var(ExtensibleSymbol old_ue_var)
+        void Node::unset_ue_var(ExtendedSymbol old_ue_var)
         {
             ext_sym_set ue_vars;
         
-            if (this->has_key(_UPPER_EXPOSED))
+            if (has_key(_UPPER_EXPOSED))
             {   
                 ue_vars = get_data<ext_sym_set>(_UPPER_EXPOSED);
                 ue_vars = ue_vars.not_find(old_ue_var);
@@ -1279,33 +1443,48 @@ namespace TL
             return killed_vars;
         }
         
-        void Node::set_killed_var(ExtensibleSymbol new_killed_var)
-        {
+        void Node::set_killed_var(ExtendedSymbol new_killed_var)
+        {           
             ext_sym_set killed_vars;
-            
+
             if (has_key(_KILLED))
             {
                 killed_vars = get_data<ext_sym_set>(_KILLED);
             }
-            killed_vars.insert(new_killed_var);
             
-            set_data(_KILLED, killed_vars);
+            if (!ext_sym_set_contains_englobing_nodecl(new_killed_var, killed_vars))
+            {
+                killed_vars.insert(new_killed_var);
+                set_data(_KILLED, killed_vars);
+            }
         }
         
         void Node::set_killed_var(ext_sym_set new_killed_vars)
         {
             ext_sym_set killed_vars;
-            
+
             if (has_key(_KILLED))
             {
                 killed_vars = get_data<ext_sym_set>(_KILLED);
             }
-            killed_vars.insert(new_killed_vars);
             
-            set_data(_KILLED, killed_vars);
+            ext_sym_set purged_killed_vars;
+            ext_sym_set::iterator it = new_killed_vars.begin();
+            for (; it != new_killed_vars.end(); ++it)
+            {
+                if (!ext_sym_set_contains_englobing_nodecl(*it, killed_vars))
+                {
+                    purged_killed_vars.insert(*it);
+                }
+            }
+            if (it == new_killed_vars.end())
+            {
+                killed_vars.insert(purged_killed_vars);
+                set_data(_KILLED, killed_vars);
+            }
         }
         
-        void Node::unset_killed_var(ExtensibleSymbol old_killed_var)
+        void Node::unset_killed_var(ExtendedSymbol old_killed_var)
         {
             ext_sym_set killed_vars;
             
@@ -1330,7 +1509,7 @@ namespace TL
             return undef_vars;
         }
         
-        void Node::set_undefined_behaviour_var(ExtensibleSymbol new_undef_var)
+        void Node::set_undefined_behaviour_var(ExtendedSymbol new_undef_var)
         {
             ext_sym_set undef_vars;
             
@@ -1338,12 +1517,15 @@ namespace TL
             {
                 undef_vars = get_data<ext_sym_set>(_UNDEF);
             }
-            undef_vars.insert(new_undef_var);
             
-            set_data(_UNDEF, undef_vars);
+            if (!ext_sym_set_contains_englobing_nodecl(new_undef_var, undef_vars))
+            {
+                undef_vars.insert(new_undef_var);
+                set_data(_UNDEF, undef_vars);
+            }
         }
 
-        void Node::unset_undefined_behaviour_var(ExtensibleSymbol old_undef_var)
+        void Node::unset_undefined_behaviour_var(ExtendedSymbol old_undef_var)
         {
             ext_sym_set undef_vars;
             
@@ -1364,9 +1546,22 @@ namespace TL
             {
                 undef_vars = get_data<ext_sym_set>(_UNDEF);
             }
-            undef_vars.insert(new_undef_vars);
             
-            set_data(_UNDEF, undef_vars);            
+            
+            ext_sym_set purged_undef_vars;
+            ext_sym_set::iterator it = new_undef_vars.begin();
+            for (; it != new_undef_vars.end(); ++it)
+            {
+                if (!ext_sym_set_contains_englobing_nodecl(*it, undef_vars))
+                {
+                    purged_undef_vars.insert(*it);
+                }
+            }
+            if (it == new_undef_vars.end())
+            {
+                undef_vars.insert(purged_undef_vars);
+                set_data(_UNDEF, undef_vars);
+            }         
         }
 
         ext_sym_set Node::get_input_deps()
@@ -1442,6 +1637,208 @@ namespace TL
             
             inout_deps.insert(new_inout_deps);
             set_data(_INOUT_DEPS, inout_deps);
+        }
+        
+        ext_sym_set Node::get_undef_deps()
+        {
+            ext_sym_set undef_deps;
+              
+            if (has_key(_UNDEF_DEPS))
+            {
+              undef_deps = get_data<ext_sym_set>(_UNDEF_DEPS);
+            }
+              
+            return undef_deps;
+        }
+                
+        void Node::set_undef_deps(ext_sym_set new_undef_deps)
+        {
+            ext_sym_set undef_deps;
+              
+            if (has_key(_UNDEF_DEPS))
+            {
+               undef_deps = get_data<ext_sym_set>(_UNDEF_DEPS);
+            }
+              
+            undef_deps.insert(new_undef_deps);
+            set_data(_UNDEF_DEPS, undef_deps);
+        }
+        
+        ext_sym_set Node::get_shared_vars()
+        {
+            ext_sym_set shared_vars;
+              
+            if (has_key(_SHARED))
+            {
+                shared_vars = get_data<ext_sym_set>(_SHARED);
+            }
+              
+            return shared_vars;
+        }
+                
+        void Node::set_shared_var(ExtendedSymbol ei)
+        {
+            ext_sym_set shared_vars;
+  
+            if (has_key(_SHARED))
+            {
+                shared_vars = get_data<ext_sym_set>(_SHARED);
+            }
+            
+            shared_vars.insert(ei);
+            set_data(_SHARED, shared_vars);
+        }
+
+        void Node::set_shared_var(ext_sym_set new_shared_vars)
+        {
+            ext_sym_set shared_vars;
+  
+            if (has_key(_SHARED))
+            {
+                shared_vars = get_data<ext_sym_set>(_SHARED);
+            }
+            
+            shared_vars.insert(new_shared_vars);
+            set_data(_SHARED, shared_vars);
+        }
+
+        ext_sym_set Node::get_private_vars()
+        {
+            ext_sym_set private_vars;
+              
+            if (has_key(_PRIVATE))
+            {
+                private_vars = get_data<ext_sym_set>(_PRIVATE);
+            }
+              
+            return private_vars;
+        }
+        
+        void Node::set_private_var(ExtendedSymbol ei)
+        {
+            ext_sym_set private_vars;
+              
+            if (has_key(_PRIVATE))
+            {
+                private_vars = get_data<ext_sym_set>(_PRIVATE);
+            }
+              
+            private_vars.insert(ei);
+            set_data(_PRIVATE, private_vars);
+        }
+
+        void Node::set_private_var(ext_sym_set new_private_vars)
+        {
+            ext_sym_set private_vars;
+              
+            if (has_key(_PRIVATE))
+            {
+                private_vars = get_data<ext_sym_set>(_PRIVATE);
+            }
+              
+            private_vars.insert(new_private_vars);
+            set_data(_PRIVATE, private_vars);
+        }
+
+        ext_sym_set Node::get_firstprivate_vars()
+        {
+            ext_sym_set firstprivate_vars;
+              
+            if (has_key(_FIRSTPRIVATE))
+            {
+                firstprivate_vars = get_data<ext_sym_set>(_FIRSTPRIVATE);
+            }
+              
+            return firstprivate_vars;
+        }
+        
+        void Node::set_firstprivate_var(ExtendedSymbol ei)
+        {
+            ext_sym_set firstprivate_vars;
+              
+            if (has_key(_FIRSTPRIVATE))
+            {
+                firstprivate_vars = get_data<ext_sym_set>(_FIRSTPRIVATE);
+            }
+              
+            firstprivate_vars.insert(ei);
+            set_data(_FIRSTPRIVATE, firstprivate_vars);
+        }
+        
+        void Node::set_firstprivate_var(ext_sym_set new_firstprivate_vars)
+        {
+            ext_sym_set firstprivate_vars;
+              
+            if (has_key(_FIRSTPRIVATE))
+            {
+                firstprivate_vars = get_data<ext_sym_set>(_FIRSTPRIVATE);
+            }
+              
+            firstprivate_vars.insert(new_firstprivate_vars);
+            set_data(_FIRSTPRIVATE, firstprivate_vars);
+        }
+        
+        ext_sym_set Node::get_undef_sc_vars()
+        {
+            ext_sym_set undef_sc_vars;
+              
+            if (has_key(_UNDEF_SC))
+            {
+                undef_sc_vars = get_data<ext_sym_set>(_UNDEF_SC);
+            }
+              
+            return undef_sc_vars;
+        }
+        
+        void Node::set_undef_sc_var(ExtendedSymbol ei)
+        {
+            ext_sym_set undef_sc_vars;
+              
+            if (has_key(_UNDEF_SC))
+            {
+                undef_sc_vars = get_data<ext_sym_set>(_UNDEF_SC);
+            }
+              
+            undef_sc_vars.insert(ei);
+            set_data(_UNDEF_SC, undef_sc_vars);
+        }
+        
+        void Node::set_undef_sc_var(ext_sym_set new_undef_sc_vars)
+        {
+            ext_sym_set undef_sc_vars;
+              
+            if (has_key(_UNDEF_SC))
+            {
+                undef_sc_vars = get_data<ext_sym_set>(_UNDEF_SC);
+            }
+              
+            undef_sc_vars.insert(new_undef_sc_vars);
+            set_data(_UNDEF_SC, undef_sc_vars);
+        }
+        
+        ext_sym_set Node::get_race_vars()
+        {
+            ext_sym_set race_vars;
+              
+            if (has_key(_RACE))
+            {
+                race_vars = get_data<ext_sym_set>(_RACE);
+            }
+              
+            return race_vars;
+        }
+        
+        void Node::set_race_var(ExtendedSymbol ei)
+        {
+            ext_sym_set race_vars;
+              
+            if (has_key(_RACE))
+            {
+                race_vars = get_data<ext_sym_set>(_RACE);
+            }
+              
+            race_vars.insert(ei);
+            set_data(_RACE, race_vars);
         }
         
         nodecl_map Node::get_reaching_definitions()
@@ -1543,7 +1940,7 @@ namespace TL
             if (CURRENT_CONFIGURATION->debug_options.analysis_verbose)
             {
                 ext_sym_set ue_vars = get_data<ext_sym_set>(_UPPER_EXPOSED);
-                std::cerr << "      - UE VARS: ";
+                std::cerr << std::endl << "      - UE VARS: ";
                 for(ext_sym_set::iterator it = ue_vars.begin(); it != ue_vars.end(); ++it)
                 {
                     std::cerr << it->get_nodecl().prettyprint() << ", ";
@@ -1552,12 +1949,165 @@ namespace TL
                 
                 ext_sym_set killed_vars = get_data<ext_sym_set>(_KILLED);
                 std::cerr << "      - KILLED VARS: ";
-        
                 for(ext_sym_set::iterator it = killed_vars.begin(); it != killed_vars.end(); ++it)
                 {
                     std::cerr << it->get_nodecl().prettyprint() << ", ";
                 }
                 std::cerr << std::endl;
+                
+                ext_sym_set undef_vars = get_data<ext_sym_set>(_UNDEF);
+                std::cerr << "      - UNDEF VARS: ";
+                for(ext_sym_set::iterator it = undef_vars.begin(); it != undef_vars.end(); ++it)
+                {
+                  std::cerr << it->get_nodecl().prettyprint() << ", ";
+                }
+                std::cerr << std::endl;
+            }
+        }
+        
+        void Node::print_liveness()
+        {
+            if (CURRENT_CONFIGURATION->debug_options.analysis_verbose)
+            {
+                ext_sym_set live_in_vars = get_data<ext_sym_set>(_LIVE_IN);
+                std::cerr << std::endl << "      - LIVE IN VARS: ";
+                for(ext_sym_set::iterator it = live_in_vars.begin(); it != live_in_vars.end(); ++it)
+                {
+                    std::cerr << it->get_nodecl().prettyprint() << ", ";
+                }
+                std::cerr << std::endl;
+            
+                ext_sym_set live_out_vars = get_data<ext_sym_set>(_LIVE_OUT);
+                std::cerr << "      - LIVE OUT VARS: ";
+                for(ext_sym_set::iterator it = live_out_vars.begin(); it != live_out_vars.end(); ++it)
+                {
+                    std::cerr << it->get_nodecl().prettyprint() << ", ";
+                }
+                std::cerr << std::endl;
+            }
+        }
+        
+        void Node::print_auto_scoping()
+        {
+            if (CURRENT_CONFIGURATION->debug_options.analysis_verbose ||
+                CURRENT_CONFIGURATION->debug_options.enable_debug_code)
+            {
+                ext_sym_set private_vars = get_private_vars();
+                std::cerr << std::endl << "     - Private(";
+                for(ext_sym_set::iterator it = private_vars.begin(); it != private_vars.end(); ++it)
+                {
+                    std::cerr << it->get_nodecl().prettyprint();
+                    if (it != private_vars.end()-1)
+                        std::cerr << ", ";
+                }
+                std::cerr << ")" << std::endl;
+
+                ext_sym_set firstprivate_vars = get_firstprivate_vars();
+                std::cerr << "     - Firstprivate(";
+                for(ext_sym_set::iterator it = firstprivate_vars.begin(); it != firstprivate_vars.end(); ++it)
+                {
+                    std::cerr << it->get_nodecl().prettyprint();
+                    if (it != firstprivate_vars.end()-1)
+                        std::cerr << ", ";
+                }
+                std::cerr << ")" << std::endl;
+                    
+                ext_sym_set race_vars = get_race_vars();
+                std::cerr << "     - Race(";
+                for(ext_sym_set::iterator it = race_vars.begin(); it != race_vars.end(); ++it)
+                {
+                    std::cerr << it->get_nodecl().prettyprint();
+                    if (it != race_vars.end()-1)
+                        std::cerr << ", ";
+                }
+                std::cerr << ")" << std::endl;
+
+                ext_sym_set shared_vars = get_shared_vars();
+                std::cerr << "     - Shared(";
+                for(ext_sym_set::iterator it = shared_vars.begin(); it != shared_vars.end(); ++it)
+                {
+                    std::cerr << it->get_nodecl().prettyprint();
+                    if (it != shared_vars.end()-1)
+                        std::cerr << ", ";
+                }
+                std::cerr << ")" << std::endl;
+                
+                ext_sym_set undef_vars = get_undef_sc_vars();
+                std::cerr << "     - Undef(";
+                for(ext_sym_set::iterator it = undef_vars.begin(); it != undef_vars.end(); ++it)
+                {
+                    std::cerr << it->get_nodecl().prettyprint();
+                    if (it != undef_vars.end()-1)
+                        std::cerr << ", ";
+                }
+                std::cerr << ")" << std::endl;
+            }            
+        }
+        
+        void Node::print_task_dependencies()
+        {
+            if (CURRENT_CONFIGURATION->debug_options.analysis_verbose ||
+                CURRENT_CONFIGURATION->debug_options.enable_debug_code)
+            {
+                ext_sym_set private_deps = get_private_vars();
+                std::cerr << std::endl << "     - Private(";
+                for(ext_sym_set::iterator it = private_deps.begin(); it != private_deps.end(); ++it)
+                {
+                    std::cerr << it->get_nodecl().prettyprint();
+                    if (it != private_deps.end()-1)
+                        std::cerr << ", ";
+                }
+                std::cerr << ")" << std::endl;
+
+                ext_sym_set firstprivate_deps = get_firstprivate_vars();
+                std::cerr << "     - Firstprivate(";
+                for(ext_sym_set::iterator it = firstprivate_deps.begin(); it != firstprivate_deps.end(); ++it)
+                {
+                    std::cerr << it->get_nodecl().prettyprint();
+                    if (it != firstprivate_deps.end()-1)
+                        std::cerr << ", ";
+                }
+                std::cerr << ")" << std::endl;
+                
+                ext_sym_set input_deps = get_input_deps();
+                std::cerr << "     - Input(";
+                for(ext_sym_set::iterator it = input_deps.begin(); it != input_deps.end(); ++it)
+                {
+                    std::cerr << it->get_nodecl().prettyprint();
+                    if (it != input_deps.end()-1)
+                        std::cerr << ", ";
+                }
+                std::cerr << ")" << std::endl;
+                    
+                ext_sym_set output_deps = get_output_deps();
+                std::cerr << "     - Output(";
+                for(ext_sym_set::iterator it = output_deps.begin(); it != output_deps.end(); ++it)
+                {
+                    std::cerr << it->get_nodecl().prettyprint();
+                    if (it != output_deps.end()-1)
+                       std::cerr << ", ";
+                }
+                std::cerr << ")" << std::endl;
+                    
+                ext_sym_set inout_deps = get_inout_deps();
+                std::cerr << "     - Inout(";
+                for(ext_sym_set::iterator it = inout_deps.begin(); it != inout_deps.end(); ++it)
+                {
+                    std::cerr << it->get_nodecl().prettyprint();
+                    if (it != inout_deps.end()-1)
+                        std::cerr << ", ";
+                }
+                std::cerr << ")" << std::endl;
+                
+                ext_sym_set undef_deps = get_undef_deps();
+                std::cerr << "     - Undef(";
+                for(ext_sym_set::iterator it = undef_deps.begin(); it != undef_deps.end(); ++it)
+                {
+                    std::cerr << it->get_nodecl().prettyprint();
+                    if (it != undef_deps.end()-1)
+                        std::cerr << ", ";
+                }
+                std::cerr << ")" << std::endl;
             }
         }
     }
