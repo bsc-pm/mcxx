@@ -41,6 +41,7 @@ namespace TL
         {
             private:
                 std::string _cudaFilename;
+                std::string _cudaHeaderFilename;
                 AST_t _root;
                 std::set<Symbol> _taskSymbols;
                 std::set<Symbol> _fwdSymbols;
@@ -64,13 +65,14 @@ namespace TL
 
                 void get_output_file(std::ofstream& cudaFile);
 
+                void get_output_file(std::ofstream& cudaFile, std::ofstream& cudaHeaderFile);
 
                 RefPtr<OpenMP::FunctionTaskSet> _function_task_set; 
             public:
 
                 // This phase does nothing
                 virtual void pre_run(DTO& dto);
-                virtual void run(DTO& dto) { }
+                virtual void run(DTO& dto);
 
                 DeviceCUDA();
 

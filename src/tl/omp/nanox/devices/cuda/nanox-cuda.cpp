@@ -244,13 +244,20 @@ void DeviceCUDA::do_cuda_outline_replacements(
 }
 
 DeviceCUDA::DeviceCUDA()
-: DeviceProvider("cuda"), _cudaFilename("")
+: DeviceProvider("cuda"), _cudaFilename(""), _cudaHeaderFilename("")
 {
 	set_phase_name("Nanox CUDA support");
 	set_phase_description("This phase is used by Nanox phases to implement CUDA device support");
 }
 
 void DeviceCUDA::get_output_file(std::ofstream& cudaFile)
+{
+	std::ofstream header;
+	get_output_file(cudaFile, header);
+	header.close();
+}
+
+void DeviceCUDA::get_output_file(std::ofstream& cudaFile, std::ofstream& cudaHeaderFile)
 {
 	// Check if the file has already been created (and written)
 	bool new_file = false;
@@ -263,19 +270,31 @@ void DeviceCUDA::get_output_file(std::ofstream& cudaFile)
 		_cudaFilename += CompilationProcess::get_current_file().get_filename(false);
 		size_t file_extension = _cudaFilename.find_last_of(".");
 		_cudaFilename.erase(file_extension, _cudaFilename.length());
+
+		// Set the header file name here since it is easier
+		_cudaHeaderFilename = _cudaFilename + ".cuh";
+
+		// Set the cuda file's extension
 		_cudaFilename += ".cu";
+
 		new_file = true;
 
-		// Remove the intermediate source file
+		// Remove the intermediate source files
 		mark_file_for_cleanup( _cudaFilename.c_str() );
+		mark_file_for_cleanup( _cudaHeaderFilename.c_str() );
 
 		// Get *.cu included files
 		ObjectList<IncludeLine> lines = CurrentFile::get_top_level_included_files();
+		std::string cuda_file_ext(".cu\"");
+		std::string cuda_header_ext(".cuh\"");
 
 		for (ObjectList<IncludeLine>::iterator it = lines.begin(); it != lines.end(); it++)
 		{
 			std::string line = (*it).get_preprocessor_line();
-			included_files << line << "\n";
+			std::string extension = line.substr(line.find_last_of("."));
+
+			if (extension == cuda_file_ext || extension == cuda_header_ext)
+				included_files << line << "\n";
 		}
 	}
 
@@ -285,11 +304,22 @@ void DeviceCUDA::get_output_file(std::ofstream& cudaFile)
 	if (new_file)
 	{
 		cudaFile.open (_cudaFilename.c_str());
-		cudaFile << included_files.get_source(false) << "\n";
+		cudaHeaderFile.open(_cudaHeaderFilename.c_str());
+
+		cudaFile << "#include \"" << _cudaHeaderFilename.c_str() << "\"\n";
+
+		// Protect the header with ifndef/define/endif
+		std::string def = "__"  + _cudaHeaderFilename.substr(0, _cudaHeaderFilename.find_last_of(".")) + "_CUH__";
+		cudaHeaderFile << "#ifndef " << def.c_str() << "\n";
+		cudaHeaderFile << "#define " << def.c_str() << "\n";
+
+		// Add .cu / .cuh includes
+		cudaHeaderFile << included_files.get_source(false) << "\n";
 	}
 	else
 	{
 		cudaFile.open (_cudaFilename.c_str(), std::ios_base::app);
+		cudaHeaderFile.open(_cudaHeaderFilename.c_str(), std::ios_base::app);
 	}
 }
 
@@ -455,17 +485,13 @@ void DeviceCUDA::create_outline(
 
 	// Get the definition of non local symbols
 	LangConstruct construct (function_tree, sl);
-	extern_occurrences = construct.non_local_symbol_occurrences();
+	extern_occurrences = construct.non_local_symbol_occurrences(LangConstruct::ALL_SYMBOLS);
 
 	for (ObjectList<IdExpression>::iterator it = extern_occurrences.begin();
 			it != extern_occurrences.end();
 			it++)
 	{
 		Symbol s = it->get_symbol();
-
-		// If this symbol does not come from the input file, do not consider it
-		if (s.get_filename() != CompilationProcess::get_current_file().get_filename(/* fullpath */ true))
-			continue;
 
 		// TODO: check the symbol is not a global variable
 		// Ignore non-constant variables
@@ -864,8 +890,8 @@ void DeviceCUDA::create_outline(
 			result.parse_declaration(enclosing_function.get_ast(), sl);
 
 	// This registers the output file in the compilation pipeline if needed
-	std::ofstream cudaFile;
-	get_output_file(cudaFile);
+	std::ofstream cudaFile, cudaHeaderFile;
+	get_output_file(cudaFile, cudaHeaderFile);
 
 	// Look for kernel calls to add the Nanos++ kernel execution stream whenever possible
 	ObjectList<AST_t> kernel_call_list = outline_code_tree.depth_subtrees(CUDA::KernelCall::predicate);
@@ -876,8 +902,25 @@ void DeviceCUDA::create_outline(
 		replace_kernel_config(*it, sl);
 	}
 
+	// Print declarations in header file in the following way:
+	// 1 - Protect the header with ifndef/define/endif
+	//     |--> Done at get_output_file() and run()
+	// 2 - Emit extern C when we're compiling a C code
+	//     |--> WARNING: C code included from CXX may need extern C, too, but this is not checked (not trivial)
+	// 3 - Write forward declarations
+
+ 	if (IS_C_LANGUAGE) {
+		cudaHeaderFile << "extern \"C\" {\n";
+	}
+	cudaHeaderFile << forward_declaration.get_source(false) << "\n";
+	if (IS_C_LANGUAGE) {
+		cudaHeaderFile << "}\n";
+	}
+	cudaHeaderFile.close();
+
+	// Print definitions in source file
 	cudaFile << "extern \"C\" {\n";
-	cudaFile << forward_declaration.get_source(false) << "\n";
+	//cudaFile << forward_declaration.get_source(false) << "\n";
 	cudaFile << outline_code_tree.prettyprint_external() << "\n";
 	cudaFile << "}\n";
 	cudaFile.close();
@@ -1002,6 +1045,7 @@ void DeviceCUDA::do_replacements(DataEnvironInfo& data_environ,
 void DeviceCUDA::phase_cleanup(DTO& data_flow)
 {
 	_cudaFilename = "";
+	_cudaHeaderFilename = "";
 	_root = AST_t(0);
 }
 
@@ -1011,6 +1055,19 @@ void DeviceCUDA::pre_run(DTO& dto)
 	if (dto.get_keys().contains("openmp_task_info"))
 	{
 		_function_task_set = RefPtr<OpenMP::FunctionTaskSet>::cast_static(dto["openmp_task_info"]);
+	}
+}
+
+void DeviceCUDA::run(DTO& dto)
+{
+	if (_cudaHeaderFilename != "") {
+		// Protect the header with ifndef/define/endif
+		// Here we emit the last endif
+		std::string def = "__"  + _cudaHeaderFilename.substr(0, _cudaHeaderFilename.find_last_of(".")) + "_CUH__";
+		std::ofstream cudaHeaderFile;
+		cudaHeaderFile.open(_cudaHeaderFilename.c_str(), std::ios_base::app);
+		cudaHeaderFile << "#endif // " << def.c_str() << "\n";
+		cudaHeaderFile.close();
 	}
 }
 
