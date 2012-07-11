@@ -2485,6 +2485,13 @@ void DeviceSMP::create_outline(
        init_code 
           << "nanos_omp_set_implicit(nanos_current_wd());"
           ;
+
+       if (Nanos::Version::interface_is_at_least("openmp", 6))
+       {
+           init_code
+               << "nanos_enter_team();"
+               ;
+       }
     }
 
     final_code
@@ -2496,6 +2503,17 @@ void DeviceSMP::create_outline(
         final_code
             << OMPTransform::get_barrier_code(reference_tree)
             ;
+    }
+
+
+    if (outline_flags.parallel)
+    {
+        if (Nanos::Version::interface_is_at_least("openmp", 6))
+        {
+            final_code
+                << "nanos_leave_team();"
+                ;
+        }
     }
 
     if (!is_inline_member_function)

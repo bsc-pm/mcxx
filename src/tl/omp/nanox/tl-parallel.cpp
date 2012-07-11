@@ -66,7 +66,7 @@ void OMPTransform::parallel_postorder(PragmaCustomConstruct ctr)
     std::stringstream ss;
     std::string outline_name;
     ss << "_ol_" << function_symbol.get_name() << "_" << outline_num;
-    outline_name = ss.str();
+    outline_name = fix_outline_name(ss.str());
 
     Source initial_replace_code, replaced_body;
 

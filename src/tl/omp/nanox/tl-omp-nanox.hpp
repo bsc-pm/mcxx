@@ -172,6 +172,8 @@ namespace Nanox
     Type compute_replacement_type_for_vla(Type type, 
             ObjectList<Source>::iterator dim_names_begin,
             ObjectList<Source>::iterator dim_names_end);
+
+     std::string fix_outline_name(const std::string &str);
 }
 }
 

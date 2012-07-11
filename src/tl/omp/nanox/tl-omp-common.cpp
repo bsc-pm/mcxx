@@ -253,5 +253,27 @@ namespace Nanox
 
          return create_wd_and_run;
      }
+
+     std::string fix_outline_name(const std::string &str)
+     {
+         std::string result;
+         for (std::string::const_iterator it = str.begin();
+                 it != str.end();
+                 it++)
+         {
+             if ((('a' <= *it)
+                         && (*it <= 'z'))
+                     || (('A' <= *it )
+                         && (*it <= 'Z'))
+                     || (('0' <= *it)
+                         && (*it <= '9'))
+                     || (*it == '_'))
+                 result += *it;
+             else
+                 result += "_";
+         }
+
+         return result;
+     }
 }
 }
