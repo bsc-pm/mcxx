@@ -433,10 +433,15 @@ namespace TL
                 lb = Nodecl::BitwiseXor::make(lb1, lb2, n.get_type(), _filename, _line);
                 ub = Nodecl::BitwiseXor::make(ub1, ub2, n.get_type(), _filename, _line);
             }
-            else if (n.template is<Nodecl::Shr>())
+            else if (n.template is<Nodecl::ArithmeticShr>())
             {
-                lb = Nodecl::Shr::make(lb1, lb2, n.get_type(), _filename, _line);
-                ub = Nodecl::Shr::make(ub1, ub2, n.get_type(), _filename, _line);
+                lb = Nodecl::ArithmeticShr::make(lb1, lb2, n.get_type(), _filename, _line);
+                ub = Nodecl::ArithmeticShr::make(ub1, ub2, n.get_type(), _filename, _line);
+            }
+            else if (n.template is<Nodecl::BitwiseShr>())
+            {
+                lb = Nodecl::BitwiseShr::make(lb1, lb2, n.get_type(), _filename, _line);
+                ub = Nodecl::BitwiseShr::make(ub1, ub2, n.get_type(), _filename, _line);
             }
             else if (n.template is<Nodecl::BitwiseShl>())
             {
@@ -488,10 +493,15 @@ namespace TL
                 lb = Nodecl::BitwiseXorAssignment::make(lb1, lb2, n.get_type(), _filename, _line);
                 ub = Nodecl::BitwiseXorAssignment::make(ub1, ub2, n.get_type(), _filename, _line);
             }
-            else if (n.template is<Nodecl::ShrAssignment>())
+            else if (n.template is<Nodecl::BitwiseShrAssignment>())
             {
-                lb = Nodecl::ShrAssignment::make(lb1, lb2, n.get_type(), _filename, _line);
-                ub = Nodecl::ShrAssignment::make(ub1, ub2, n.get_type(), _filename, _line);
+                lb = Nodecl::BitwiseShrAssignment::make(lb1, lb2, n.get_type(), _filename, _line);
+                ub = Nodecl::BitwiseShrAssignment::make(ub1, ub2, n.get_type(), _filename, _line);
+            }
+            else if (n.template is<Nodecl::ArithmeticShrAssignment>())
+            {
+                lb = Nodecl::ArithmeticShrAssignment::make(lb1, lb2, n.get_type(), _filename, _line);
+                ub = Nodecl::ArithmeticShrAssignment::make(ub1, ub2, n.get_type(), _filename, _line);
             }
             else if (n.template is<Nodecl::BitwiseShlAssignment>())
             {
@@ -746,9 +756,13 @@ namespace TL
             {
                 renamed = Nodecl::BitwiseXor::make(lhs, rhs, n.get_type(), _filename, _line);
             }
-            else if (n.template is<Nodecl::Shr>())
+            else if (n.template is<Nodecl::ArithmeticShr>())
             {
-                renamed = Nodecl::Shr::make(lhs, rhs, n.get_type(), _filename, _line);
+                renamed = Nodecl::ArithmeticShr::make(lhs, rhs, n.get_type(), _filename, _line);
+            }
+            else if (n.template is<Nodecl::BitwiseShr>())
+            {
+                renamed = Nodecl::BitwiseShr::make(lhs, rhs, n.get_type(), _filename, _line);
             }
             else if (n.template is<Nodecl::BitwiseShl>())
             {
@@ -790,9 +804,13 @@ namespace TL
             {
                 renamed = Nodecl::BitwiseXorAssignment::make(lhs, rhs, n.get_type(), _filename, _line);
             }
-            else if (n.template is<Nodecl::ShrAssignment>())
+            else if (n.template is<Nodecl::ArithmeticShrAssignment>())
             {
-                renamed = Nodecl::ShrAssignment::make(lhs, rhs, n.get_type(), _filename, _line);
+                renamed = Nodecl::ArithmeticShrAssignment::make(lhs, rhs, n.get_type(), _filename, _line);
+            }
+            else if (n.template is<Nodecl::BitwiseShrAssignment>())
+            {
+                renamed = Nodecl::BitwiseShrAssignment::make(lhs, rhs, n.get_type(), _filename, _line);
             }
             else if (n.template is<Nodecl::BitwiseShlAssignment>())
             {
@@ -971,7 +989,12 @@ namespace TL
             return visit_binary(n);
         }
         
-        CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::Shr& n)
+        CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::ArithmeticShr& n)
+        {
+            return visit_binary(n);
+        }
+
+        CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::BitwiseShr& n)
         {
             return visit_binary(n);
         }
@@ -1026,7 +1049,12 @@ namespace TL
             return visit_binary(n);
         }
         
-        CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::ShrAssignment& n)
+        CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::BitwiseShrAssignment& n)
+        {
+            return visit_binary(n);
+        }
+
+        CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::ArithmeticShrAssignment& n)
         {
             return visit_binary(n);
         }

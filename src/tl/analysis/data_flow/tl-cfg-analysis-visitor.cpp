@@ -77,7 +77,9 @@ namespace Analysis
                         break;
             case 8:     val = Nodecl::BitwiseShl::make(n, stride, n.get_type(), n.get_filename(), n.get_line());
                         break;
-            case 9:     val = Nodecl::Shr::make(n, stride, n.get_type(), n.get_filename(), n.get_line());
+            case 9:     val = Nodecl::BitwiseShr::make(n, stride, n.get_type(), n.get_filename(), n.get_line());
+                        break;
+            case 10:    val = Nodecl::ArithmeticShr::make(n, stride, n.get_type(), n.get_filename(), n.get_line());
                         break;
             default:    internal_error("Unexpected type of operation '%d' while computing initial expression", op);
         }
@@ -239,9 +241,13 @@ namespace Analysis
         {
             _init_expression = compute_init_expr(rhs, lhs, 8);
         }
-        else if (n.template is <Nodecl::ShrAssignment>())
+        else if (n.template is <Nodecl::BitwiseShrAssignment>())
         {
             _init_expression = compute_init_expr(rhs, lhs, 9);
+        }
+        else if (n.template is <Nodecl::ArithmeticShrAssignment>())
+        {
+            _init_expression = compute_init_expr(rhs, lhs, 10);
         }
         else
         {
@@ -293,7 +299,12 @@ namespace Analysis
         binary_assignment(n);
     }
     
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::ShrAssignment& n)
+    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::ArithmeticShrAssignment& n)
+    {
+        binary_assignment(n);
+    }
+
+    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::BitwiseShrAssignment& n)
     {
         binary_assignment(n);
     }
@@ -375,7 +386,12 @@ namespace Analysis
         binary_visit(n);
     }
     
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Shr& n)
+    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::BitwiseShr& n)
+    {
+        binary_visit(n);
+    }
+
+    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::ArithmeticShr& n)
     {
         binary_visit(n);
     }
@@ -779,7 +795,12 @@ namespace Analysis
         op_assignment_visit(n);
     }
     
-    CfgIPAVisitor::Ret CfgIPAVisitor::visit(const Nodecl::ShrAssignment& n)
+    CfgIPAVisitor::Ret CfgIPAVisitor::visit(const Nodecl::BitwiseShrAssignment& n)
+    {
+        op_assignment_visit(n);
+    }
+
+    CfgIPAVisitor::Ret CfgIPAVisitor::visit(const Nodecl::ArithmeticShrAssignment& n)
     {
         op_assignment_visit(n);
     }

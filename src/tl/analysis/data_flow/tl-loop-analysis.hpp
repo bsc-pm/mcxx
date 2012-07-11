@@ -134,7 +134,8 @@ namespace TL
             Ret visit(const Nodecl::DivAssignment& n);
             Ret visit(const Nodecl::ModAssignment& n);
             Ret visit(const Nodecl::BitwiseShlAssignment& n);
-            Ret visit(const Nodecl::ShrAssignment& n);
+            Ret visit(const Nodecl::BitwiseShrAssignment& n);
+            Ret visit(const Nodecl::ArithmeticShrAssignment& n);
             Ret visit(const Nodecl::BitwiseAndAssignment& n);
             Ret visit(const Nodecl::BitwiseOrAssignment& n);
             Ret visit(const Nodecl::BitwiseXorAssignment& n);

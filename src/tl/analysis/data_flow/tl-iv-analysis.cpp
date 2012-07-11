@@ -599,7 +599,12 @@ namespace TL
             return visit_assignment(n.get_lhs(), n.get_rhs());
         }
         
-        LoopAnalysis::Ret LoopAnalysis::visit(const Nodecl::ShrAssignment& n)
+        LoopAnalysis::Ret LoopAnalysis::visit(const Nodecl::BitwiseShrAssignment& n)
+        {
+            return visit_assignment(n.get_lhs(), n.get_rhs());
+        }
+
+        LoopAnalysis::Ret LoopAnalysis::visit(const Nodecl::ArithmeticShrAssignment& n)
         {
             return visit_assignment(n.get_lhs(), n.get_rhs());
         }

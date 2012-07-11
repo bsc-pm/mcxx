@@ -3278,6 +3278,41 @@ void compute_bin_operator_bitwise_shl_type(nodecl_t* lhs, nodecl_t* rhs, decl_co
             filename, line, nodecl_output);
 }
 
+static nodecl_t nodecl_make_shr_common(nodecl_t lhs, nodecl_t rhs, type_t* t, const char* filename, int line,
+        nodecl_t (*arithmetic_shr)(nodecl_t, nodecl_t, type_t*, const char*, int),
+        nodecl_t (*bitwise_shr)(nodecl_t, nodecl_t, type_t*, const char*, int))
+{
+    type_t* lhs_type = no_ref(nodecl_get_type(lhs));
+
+    if (is_enum_type(lhs_type))
+    {
+        lhs_type = enum_type_get_underlying_type(lhs_type);
+    }
+
+    if (is_signed_integral_type(lhs_type))
+    {
+        return arithmetic_shr(lhs, rhs, t, filename, line);
+    }
+    else
+    {
+        return bitwise_shr(lhs, rhs, t, filename, line);
+    }
+}
+
+static nodecl_t nodecl_make_shr(nodecl_t lhs, nodecl_t rhs, type_t* t, const char* filename, int line)
+{
+    return nodecl_make_shr_common(lhs, rhs, t, filename, line,
+            nodecl_make_arithmetic_shr,
+            nodecl_make_bitwise_shr);
+}
+
+static nodecl_t nodecl_make_shr_assignment(nodecl_t lhs, nodecl_t rhs, type_t* t, const char* filename, int line)
+{
+    return nodecl_make_shr_common(lhs, rhs, t, filename, line,
+            nodecl_make_arithmetic_shr_assignment,
+            nodecl_make_bitwise_shr_assignment);
+}
+
 void compute_bin_operator_shr_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t decl_context, 
         const char* filename, int line, nodecl_t* nodecl_output)
 {
@@ -5213,7 +5248,6 @@ static struct bin_operator_funct_type_t binary_expression_fun[] =
     [NODECL_DIV]                = OPERATOR_FUNCT_INIT(compute_bin_operator_div_type),
     [NODECL_MOD]                = OPERATOR_FUNCT_INIT(compute_bin_operator_mod_type),
     [NODECL_MINUS]              = OPERATOR_FUNCT_INIT(compute_bin_operator_sub_type),
-    [NODECL_SHR]                = OPERATOR_FUNCT_INIT(compute_bin_operator_shr_type),
     [NODECL_LOWER_THAN]            = OPERATOR_FUNCT_INIT(compute_bin_operator_lower_than_type),
     [NODECL_GREATER_THAN]          = OPERATOR_FUNCT_INIT(compute_bin_operator_greater_than_type),
     [NODECL_GREATER_OR_EQUAL_THAN] = OPERATOR_FUNCT_INIT(compute_bin_operator_greater_equal_type),
@@ -5224,6 +5258,8 @@ static struct bin_operator_funct_type_t binary_expression_fun[] =
     [NODECL_BITWISE_XOR]           = OPERATOR_FUNCT_INIT(compute_bin_operator_bitwise_xor_type),
     [NODECL_BITWISE_OR]            = OPERATOR_FUNCT_INIT(compute_bin_operator_bitwise_or_type),
     [NODECL_BITWISE_SHL]           = OPERATOR_FUNCT_INIT(compute_bin_operator_bitwise_shl_type),
+    [NODECL_BITWISE_SHR]           = OPERATOR_FUNCT_INIT(compute_bin_operator_shr_type),
+    [NODECL_ARITHMETIC_SHR]           = OPERATOR_FUNCT_INIT(compute_bin_operator_shr_type),
     [NODECL_LOGICAL_AND]           = OPERATOR_FUNCT_INIT(compute_bin_operator_logical_and_type),
     [NODECL_LOGICAL_OR]            = OPERATOR_FUNCT_INIT(compute_bin_operator_logical_or_type),
     [NODECL_POWER]              = OPERATOR_FUNCT_INIT(compute_bin_operator_pow_type),
@@ -5232,7 +5268,8 @@ static struct bin_operator_funct_type_t binary_expression_fun[] =
     [NODECL_DIV_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_div_assig_type),
     [NODECL_ADD_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_add_assig_type),
     [NODECL_MINUS_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_sub_assig_type),
-    [NODECL_SHR_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_shr_assig_type),
+    [NODECL_BITWISE_SHR_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_shr_assig_type),
+    [NODECL_ARITHMETIC_SHR_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_shr_assig_type),
     [NODECL_BITWISE_AND_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_bitwise_and_assig_type),
     [NODECL_BITWISE_OR_ASSIGNMENT ]        = OPERATOR_FUNCT_INIT(compute_bin_operator_bitwise_or_assig_type),
     [NODECL_BITWISE_XOR_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_bitwise_xor_assig_type),
@@ -15341,7 +15378,8 @@ static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, 
     NODECL_VISITOR(v)->visit_mod = instantiate_expr_visitor_fun(instantiate_binary_op);
     NODECL_VISITOR(v)->visit_minus = instantiate_expr_visitor_fun(instantiate_binary_op);
     NODECL_VISITOR(v)->visit_bitwise_shl = instantiate_expr_visitor_fun(instantiate_binary_op);
-    NODECL_VISITOR(v)->visit_shr = instantiate_expr_visitor_fun(instantiate_binary_op);
+    NODECL_VISITOR(v)->visit_bitwise_shr = instantiate_expr_visitor_fun(instantiate_binary_op);
+    NODECL_VISITOR(v)->visit_arithmetic_shr = instantiate_expr_visitor_fun(instantiate_binary_op);
     NODECL_VISITOR(v)->visit_lower_than = instantiate_expr_visitor_fun(instantiate_binary_op);
     NODECL_VISITOR(v)->visit_greater_than = instantiate_expr_visitor_fun(instantiate_binary_op);
     NODECL_VISITOR(v)->visit_greater_or_equal_than = instantiate_expr_visitor_fun(instantiate_binary_op);
@@ -15360,7 +15398,8 @@ static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, 
     NODECL_VISITOR(v)->visit_add_assignment = instantiate_expr_visitor_fun(instantiate_binary_op);
     NODECL_VISITOR(v)->visit_minus_assignment = instantiate_expr_visitor_fun(instantiate_binary_op);
     NODECL_VISITOR(v)->visit_bitwise_shl_assignment = instantiate_expr_visitor_fun(instantiate_binary_op);
-    NODECL_VISITOR(v)->visit_shr_assignment = instantiate_expr_visitor_fun(instantiate_binary_op);
+    NODECL_VISITOR(v)->visit_bitwise_shr_assignment = instantiate_expr_visitor_fun(instantiate_binary_op);
+    NODECL_VISITOR(v)->visit_arithmetic_shr_assignment = instantiate_expr_visitor_fun(instantiate_binary_op);
     NODECL_VISITOR(v)->visit_bitwise_and_assignment = instantiate_expr_visitor_fun(instantiate_binary_op);
     NODECL_VISITOR(v)->visit_bitwise_or_assignment  = instantiate_expr_visitor_fun(instantiate_binary_op);
     NODECL_VISITOR(v)->visit_bitwise_xor_assignment = instantiate_expr_visitor_fun(instantiate_binary_op);

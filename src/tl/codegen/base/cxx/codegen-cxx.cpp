@@ -123,14 +123,16 @@ TL::Scope CxxBase::get_current_scope() const
     BINARY_EXPRESSION(BitwiseOr, " | ") \
     BINARY_EXPRESSION(BitwiseXor, " ^ ") \
     BINARY_EXPRESSION(BitwiseShl, " << ") \
-    BINARY_EXPRESSION(Shr, " >> ") \
+    BINARY_EXPRESSION(BitwiseShr, " >> ") \
+    BINARY_EXPRESSION(ArithmeticShr, " >> ") \
     BINARY_EXPRESSION_ASSIG(Assignment, " = ") \
     BINARY_EXPRESSION_ASSIG(MulAssignment, " *= ") \
     BINARY_EXPRESSION_ASSIG(DivAssignment, " /= ") \
     BINARY_EXPRESSION_ASSIG(AddAssignment, " += ") \
     BINARY_EXPRESSION_ASSIG(MinusAssignment, " -= ") \
     BINARY_EXPRESSION_ASSIG(BitwiseShlAssignment, " <<= ") \
-    BINARY_EXPRESSION_ASSIG(ShrAssignment, " >>= ") \
+    BINARY_EXPRESSION_ASSIG(BitwiseShrAssignment, " >>= ") \
+    BINARY_EXPRESSION_ASSIG(ArithmeticShrAssignment, " >>= ") \
     BINARY_EXPRESSION_ASSIG(BitwiseAndAssignment, " &= ") \
     BINARY_EXPRESSION_ASSIG(BitwiseOrAssignment, " |= ") \
     BINARY_EXPRESSION_ASSIG(BitwiseXorAssignment, " ^= ") \
@@ -5954,7 +5956,7 @@ node_t CxxBase::get_kind_of_operator_function_call(const Node & node)
         else if (operator_name == "+")   return NODECL_ADD;
         else if (operator_name == "-")   return NODECL_MINUS;
         else if (operator_name == "<<")  return NODECL_BITWISE_SHL;
-        else if (operator_name == ">>")  return NODECL_SHR;
+        else if (operator_name == ">>")  return NODECL_BITWISE_SHR;
         else if (operator_name == "<")   return NODECL_LOWER_THAN;
         else if (operator_name == "<=")  return NODECL_LOWER_OR_EQUAL_THAN;
         else if (operator_name == ">")   return NODECL_GREATER_THAN;
@@ -5974,7 +5976,7 @@ node_t CxxBase::get_kind_of_operator_function_call(const Node & node)
         else if (operator_name == "+=")  return NODECL_ADD_ASSIGNMENT;
         else if (operator_name == "-=")  return NODECL_MINUS_ASSIGNMENT;
         else if (operator_name == "<<=") return NODECL_BITWISE_SHL_ASSIGNMENT;
-        else if (operator_name == ">>=") return NODECL_SHR_ASSIGNMENT;
+        else if (operator_name == ">>=") return NODECL_BITWISE_SHR_ASSIGNMENT;
         else if (operator_name == "&=")  return NODECL_BITWISE_AND;
         else if (operator_name == "|=")  return NODECL_BITWISE_OR;
         else if (operator_name == "^=")  return NODECL_BITWISE_XOR;
@@ -6074,7 +6076,7 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
             }
             // This is a pointer to member
         case NODECL_OFFSET:
-        
+
         case NODECL_CXX_ARROW_PTR_MEMBER:
         case NODECL_CXX_DOT_PTR_MEMBER:
             return -5;
@@ -6086,7 +6088,8 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
         case NODECL_MINUS:
             return -7;
         case NODECL_BITWISE_SHL:
-        case NODECL_SHR:
+        case NODECL_BITWISE_SHR:
+        case NODECL_ARITHMETIC_SHR:
             return -8;
         case NODECL_LOWER_THAN:
         case NODECL_LOWER_OR_EQUAL_THAN:
@@ -6115,7 +6118,8 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
         case NODECL_ADD_ASSIGNMENT:
         case NODECL_MINUS_ASSIGNMENT:
         case NODECL_BITWISE_SHL_ASSIGNMENT:
-        case NODECL_SHR_ASSIGNMENT:
+        case NODECL_BITWISE_SHR_ASSIGNMENT:
+        case NODECL_ARITHMETIC_SHR_ASSIGNMENT:
         case NODECL_BITWISE_AND_ASSIGNMENT:
         case NODECL_BITWISE_OR_ASSIGNMENT:
         case NODECL_BITWISE_XOR_ASSIGNMENT:
@@ -6176,7 +6180,8 @@ static char is_logical_bin_operator(node_t n)
 static char is_shift_bin_operator(node_t n)
 {
     return n == NODECL_BITWISE_SHL
-        || n == NODECL_SHR;
+        || n == NODECL_BITWISE_SHR
+        || n == NODECL_ARITHMETIC_SHR;
 }
 
 static char is_additive_bin_operator(node_t n)

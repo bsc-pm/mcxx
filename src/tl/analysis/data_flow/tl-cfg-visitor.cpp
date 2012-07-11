@@ -1450,7 +1450,14 @@ namespace TL
             return ObjectList<Node*>(1, merge_nodes(n, left, right));
         }
 
-        PCFGVisitor::Ret PCFGVisitor::visit(const Nodecl::ShrAssignment& n)
+        PCFGVisitor::Ret PCFGVisitor::visit(const Nodecl::ArithmeticShrAssignment& n)
+        {
+            Node* left = walk(n.get_lhs())[0];
+            Node* right = walk(n.get_rhs())[0];
+            return ObjectList<Node*>(1, merge_nodes(n, left, right));
+        }
+
+        PCFGVisitor::Ret PCFGVisitor::visit(const Nodecl::BitwiseShrAssignment& n)
         {
             Node* left = walk(n.get_lhs())[0];
             Node* right = walk(n.get_rhs())[0];
@@ -1592,7 +1599,14 @@ namespace TL
             return ObjectList<Node*>(1, merge_nodes(n, left, right));
         }
 
-        PCFGVisitor::Ret PCFGVisitor::visit(const Nodecl::Shr& n)
+        PCFGVisitor::Ret PCFGVisitor::visit(const Nodecl::BitwiseShr& n)
+        {
+            Node* left = walk(n.get_lhs())[0];
+            Node* right = walk(n.get_rhs())[0];
+            return ObjectList<Node*>(1,merge_nodes(n, left, right));
+        }
+
+        PCFGVisitor::Ret PCFGVisitor::visit(const Nodecl::ArithmeticShr& n)
         {
             Node* left = walk(n.get_lhs())[0];
             Node* right = walk(n.get_rhs())[0];

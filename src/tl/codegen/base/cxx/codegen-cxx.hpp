@@ -153,8 +153,10 @@ namespace Codegen
             Ret visit(const Nodecl::Reference &);
             Ret visit(const Nodecl::ReturnStatement &);
             Ret visit(const Nodecl::Shaping &);
-            Ret visit(const Nodecl::Shr &);
-            Ret visit(const Nodecl::ShrAssignment &);
+            Ret visit(const Nodecl::BitwiseShr &);
+            Ret visit(const Nodecl::ArithmeticShr &);
+            Ret visit(const Nodecl::BitwiseShrAssignment &);
+            Ret visit(const Nodecl::ArithmeticShrAssignment &);
             Ret visit(const Nodecl::Sizeof &);
             Ret visit(const Nodecl::StringLiteral &);
             Ret visit(const Nodecl::StructuredValue &);

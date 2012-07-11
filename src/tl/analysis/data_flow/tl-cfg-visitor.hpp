@@ -379,7 +379,8 @@ namespace TL
             Ret visit(const Nodecl::BitwiseAndAssignment& n);
             Ret visit(const Nodecl::BitwiseOrAssignment& n);
             Ret visit(const Nodecl::BitwiseXorAssignment& n);
-            Ret visit(const Nodecl::ShrAssignment& n);
+            Ret visit(const Nodecl::BitwiseShrAssignment& n);
+            Ret visit(const Nodecl::ArithmeticShrAssignment& n);
             Ret visit(const Nodecl::BitwiseShlAssignment& n);
             Ret visit(const Nodecl::Add& n);
             Ret visit(const Nodecl::Minus& n);
@@ -400,7 +401,8 @@ namespace TL
             Ret visit(const Nodecl::GreaterThan& n);
             Ret visit(const Nodecl::LowerOrEqualThan& n);
             Ret visit(const Nodecl::GreaterOrEqualThan& n);
-            Ret visit(const Nodecl::Shr& n);
+            Ret visit(const Nodecl::ArithmeticShr& n);
+            Ret visit(const Nodecl::BitwiseShr& n);
             Ret visit(const Nodecl::BitwiseShl& n);
             Ret visit(const Nodecl::Predecrement& n);
             Ret visit(const Nodecl::Postdecrement& n);

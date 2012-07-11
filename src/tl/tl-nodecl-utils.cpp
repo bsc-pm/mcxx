@@ -867,8 +867,10 @@ namespace Nodecl
             case NODECL_BITWISE_SHL:
             case NODECL_BITWISE_SHL_ASSIGNMENT:
                 return "<<";
-            case NODECL_SHR:
-            case NODECL_SHR_ASSIGNMENT:
+            case NODECL_BITWISE_SHR:
+            case NODECL_BITWISE_SHR_ASSIGNMENT:
+            case NODECL_ARITHMETIC_SHR:
+            case NODECL_ARITHMETIC_SHR_ASSIGNMENT:
                 return ">>";
             case NODECL_BITWISE_AND:
             case NODECL_BITWISE_AND_ASSIGNMENT:
