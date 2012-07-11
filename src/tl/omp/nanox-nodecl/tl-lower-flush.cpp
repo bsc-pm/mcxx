@@ -66,7 +66,7 @@ namespace TL { namespace Nanox {
             Source::source_language = SourceLanguage::Current;
         }
 
-        construct.integrate(flush_code);
+        construct.replace(flush_code);
     }
 
 } }

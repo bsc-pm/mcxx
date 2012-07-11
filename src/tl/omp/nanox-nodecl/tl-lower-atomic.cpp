@@ -382,7 +382,7 @@ namespace TL { namespace Nanox {
             }
         }
 
-        construct.integrate(replacements);
+        construct.replace(replacements);
     }
 
 } }

@@ -204,15 +204,15 @@ namespace TL { namespace Nanox {
         if (!fill_outline_arguments.empty())
         {
             Nodecl::NodeclBase new_tree = fill_outline_arguments.parse_statement(fill_outline_arguments_tree);
-            fill_outline_arguments_tree.integrate(new_tree);
+            fill_outline_arguments_tree.replace(new_tree);
         }
 
         if (!fill_immediate_arguments.empty())
         {
             Nodecl::NodeclBase new_tree = fill_immediate_arguments.parse_statement(fill_immediate_arguments_tree);
-            fill_immediate_arguments_tree.integrate(new_tree);
+            fill_immediate_arguments_tree.replace(new_tree);
         }
 
-        construct.integrate(spawn_code_tree);
+        construct.replace(spawn_code_tree);
     }
 } }

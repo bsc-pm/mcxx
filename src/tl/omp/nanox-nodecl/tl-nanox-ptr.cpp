@@ -282,7 +282,7 @@ namespace TL {
         }
 
         Nodecl::NodeclBase new_body = body_src.parse_statement(empty_stmt);
-        empty_stmt.integrate(new_body);
+        empty_stmt.replace(new_body);
 
         Nodecl::Utils::append_to_top_level_nodecl(function_code);
 

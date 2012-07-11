@@ -60,12 +60,29 @@ namespace Nodecl
             bool operator() (const Nodecl::NodeclBase& n1, const Nodecl::NodeclBase& n2) const;
         };
 
+
+        // Basic replacement
+        //
+        // After this operation dest will be updated to have the same contents
+        // as src (including children, type information, etc)
+        //
+        // If src is a list but dest is not, then dest will be updated to the
+        // contents of the first element of the list. The remaining ones, if
+        // any, will be appended to that node. Thus, if the list only has one
+        // element, this replace will behave as if we replaced it with its
+        // item.
+        void replace(Nodecl::NodeclBase dest, Nodecl::NodeclBase src);
+
         NodeclBase reduce_expression(Nodecl::NodeclBase n);
         NodeclBase algebraic_simplification(Nodecl::NodeclBase n);
 
         Nodecl::List get_all_list_from_list_node(Nodecl::List);
 
+        bool is_in_list(Nodecl::NodeclBase n);
         void remove_from_enclosing_list(Nodecl::NodeclBase n);
+
+        void append_items_after(Nodecl::NodeclBase n, Nodecl::NodeclBase items);
+        void prepend_items_before(Nodecl::NodeclBase n, Nodecl::NodeclBase items);
 
         TL::Symbol get_enclosing_function(Nodecl::NodeclBase n);
 

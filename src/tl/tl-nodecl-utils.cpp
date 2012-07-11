@@ -716,6 +716,101 @@ namespace Nodecl
         }
     }
 
+    namespace 
+    {
+        void simple_replace(Nodecl::NodeclBase dest, Nodecl::NodeclBase src)
+        {
+            // Simple case
+            Nodecl::NodeclBase nodecl_original_parent = dest.get_parent();
+            ::nodecl_replace(dest.get_internal_nodecl(), src.get_internal_nodecl());
+            ::nodecl_set_parent(dest.get_internal_nodecl(), nodecl_original_parent.get_internal_nodecl());
+        }
+    }
+
+    void Utils::replace(Nodecl::NodeclBase dest, Nodecl::NodeclBase src)
+    {
+        ERROR_CONDITION(src.is_null(), "Invalid node", 0);
+
+        if (src.is<Nodecl::List>()
+                && !dest.is<Nodecl::List>())
+        {
+            ERROR_CONDITION(!dest.is_in_list(), "Cannot replace a non-list node by a list if the first is not inside a list", 0);
+            Nodecl::List new_list = src.as<Nodecl::List>();
+
+            List::iterator new_list_it = new_list.begin();
+            simple_replace(dest, *new_list_it);
+            new_list_it++;
+
+            Nodecl::List parent_list = dest.get_parent().as<Nodecl::List>();
+            Nodecl::List::iterator last_it = parent_list.last();
+
+            for (; new_list_it != new_list.end(); new_list_it++)
+            {
+                parent_list.insert(last_it + 1, *new_list_it);
+                // We may have a new last node now
+                last_it = new_list_it->get_parent().as<Nodecl::List>().last();
+            }
+        }
+        else
+        {
+            simple_replace(dest, src);
+        }
+    }
+
+    bool Utils::is_in_list(Nodecl::NodeclBase n)
+    {
+        return (!n.get_parent().is_null()
+                && n.get_parent().is<Nodecl::List>());
+    }
+
+    void Utils::prepend_items_before(Nodecl::NodeclBase n, Nodecl::NodeclBase items)
+    {
+        ERROR_CONDITION(!Utils::is_in_list(n), "Node is not in a list", 0);
+
+        if (!items.is<Nodecl::List>())
+        {
+            items = Nodecl::List::make(items);
+        }
+
+        Nodecl::List list_items = items.as<Nodecl::List>();
+
+        Nodecl::List list = n.get_parent().as<Nodecl::List>();
+        Nodecl::List::iterator last_it = list.last();
+
+        for (Nodecl::List::iterator it = list_items.begin();
+                it != list_items.end();
+                it++)
+        {
+            list.insert(last_it, *it);
+            // We may have a new last node now
+            last_it = it->get_parent().as<Nodecl::List>().last();
+        }
+    }
+
+    void Utils::append_items_after(Nodecl::NodeclBase n, Nodecl::NodeclBase items)
+    {
+        ERROR_CONDITION(!Utils::is_in_list(n), "Node is not in a list", 0);
+
+        if (!items.is<Nodecl::List>())
+        {
+            items = Nodecl::List::make(items);
+        }
+
+        Nodecl::List list_items = items.as<Nodecl::List>();
+
+        Nodecl::List list = n.get_parent().as<Nodecl::List>();
+        Nodecl::List::iterator last_it = list.last();
+
+        for (Nodecl::List::iterator it = list_items.begin();
+                it != list_items.end();
+                it++)
+        {
+            list.insert(last_it + 1, *it);
+            // We may have a new last node now
+            last_it = it->get_parent().as<Nodecl::List>().last();
+        }
+    }
+
     void Utils::prepend_to_top_level_nodecl(Nodecl::NodeclBase n)
     {
         if (n.is<Nodecl::List>())

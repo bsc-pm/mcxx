@@ -209,13 +209,13 @@ namespace TL { namespace Nanox {
                     outline_info.get_unpacked_function_symbol());
         }
 
-        outline_placeholder1.integrate(
+        outline_placeholder1.replace(
                 Nodecl::Utils::deep_copy(statements, outline_placeholder1, *symbol_map)
                 );
 
         if (!outline_placeholder2.is_null())
         {
-            outline_placeholder2.integrate(
+            outline_placeholder2.replace(
                     Nodecl::Utils::deep_copy(statements, outline_placeholder2, *symbol_map)
                     );
         }

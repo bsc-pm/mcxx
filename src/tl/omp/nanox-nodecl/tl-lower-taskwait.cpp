@@ -435,7 +435,7 @@ void LoweringVisitor::emit_wait_async(Nodecl::NodeclBase construct,
         Source::source_language = SourceLanguage::Current;
     }
 
-    construct.integrate(n);
+    construct.replace(n);
 }
 
 void LoweringVisitor::visit(const Nodecl::OpenMP::TaskwaitShallow& construct)

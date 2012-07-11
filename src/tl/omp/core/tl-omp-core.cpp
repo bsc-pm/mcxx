@@ -768,7 +768,7 @@ namespace TL
 
             construct
                 .get_statements()
-                .integrate(compound_statement);
+                .replace(compound_statement);
         }
 
         void Core::common_for_handler(Nodecl::NodeclBase statement, DataSharingEnvironment& data_sharing)

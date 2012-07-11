@@ -50,6 +50,7 @@ nodecl_t nodecl_deep_copy(nodecl_t, decl_context_t new_decl_context, void *info,
 
 // Parent
 nodecl_t nodecl_get_parent(nodecl_t t);
+void nodecl_set_parent(nodecl_t node, nodecl_t parent);
 
 // Children
 nodecl_t nodecl_get_child(nodecl_t n, int i);
@@ -133,8 +134,11 @@ decl_context_t nodecl_retrieve_context(nodecl_t);
 decl_context_t nodecl_get_decl_context(nodecl_t n);
 void nodecl_set_decl_context(nodecl_t, decl_context_t);
 
+// Exchange
+DEPRECATED void nodecl_exchange(nodecl_t old_nod, nodecl_t new_node);
+
 // Replace
-void nodecl_exchange(nodecl_t old_nod, nodecl_t new_node);
+void nodecl_replace(nodecl_t old_node, nodecl_t new_node);
 
 // Hash table
 size_t nodecl_hash_table(nodecl_t key);

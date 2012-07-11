@@ -341,6 +341,13 @@ char nodecl_is_list(nodecl_t n)
     return !nodecl_is_null(n) && nodecl_get_kind(n) == AST_NODE_LIST;
 }
 
+#if 0
+char nodecl_is_in_list(nodecl_t n)
+{
+    return !nodecl_is_null(n) && nodecl_is_list(nodecl_get_parent(n));
+}
+#endif
+
 void nodecl_free(nodecl_t n)
 {
     ast_free(nodecl_get_ast(n));
@@ -497,11 +504,93 @@ decl_context_t nodecl_retrieve_context(nodecl_t n)
     return nodecl_retrieve_context_rec(n);
 }
 
-static void nodecl_set_parent(nodecl_t node, nodecl_t parent)
+void nodecl_set_parent(nodecl_t node, nodecl_t parent)
 {
     ast_set_parent(nodecl_get_ast(node), nodecl_get_ast(parent));
 }
 
+void nodecl_replace(nodecl_t old_node, nodecl_t new_node)
+{
+    ERROR_CONDITION(nodecl_is_null(old_node), "Old node cannot be null", 0);
+    ERROR_CONDITION(nodecl_is_null(new_node), "New node cannot be null", 0);
+
+    ERROR_CONDITION(!nodecl_is_list(old_node) && nodecl_is_list(new_node),
+            "Replacing a non-list nodecl with a list nodecl is not allowed. ", 0);
+
+    if (nodecl_is_list(old_node)
+            && !nodecl_is_list(new_node))
+    {
+        new_node = nodecl_make_list_1(new_node);
+    }
+
+    ast_replace(old_node.tree, new_node.tree);
+}
+
+#if 0
+void nodecl_append_after_node(nodecl_t node, nodecl_t items)
+{
+    ERROR_CONDITION(!nodecl_is_in_list(node), "Node is not inside a list", 0);
+    ERROR_CONDITION(nodecl_is_null(items), "Items cannot be NULL", 0);
+
+    // If not a list create a singleton
+    if (!nodecl_is_list(items))
+    {
+        items = nodecl_make_list_1(items);
+    }
+
+    // The parent list
+    nodecl_t parent_list = nodecl_get_parent(node);
+    // Previous items to 'node'
+    nodecl_t previous_items = nodecl_get_child(node, 0);
+
+    // Create a new list with all the previous items up to 'node'
+    nodecl_t new_node_list = nodecl_append_to_list(previous_items, node);
+
+    // Get the beginning of 'items'
+    nodecl_t head_of_list = items;
+    while (!nodecl_is_null(nodecl_get_child(head_of_list, 0)))
+    {
+        head_of_list = nodecl_get_child(head_of_list, 0);
+    }
+
+    // Add the new list before 'items'
+    nodecl_set_child(head_of_list, 0, new_node_list);
+
+    // Now replace the contents of the parent list with items list
+    nodecl_replace(parent_list, items);
+}
+
+void nodecl_prepend_before_node(nodecl_t node, nodecl_t items)
+{
+    ERROR_CONDITION(!nodecl_is_in_list(node), "Node is not inside a list", 0);
+    ERROR_CONDITION(nodecl_is_null(items), "Items cannot be NULL", 0);
+
+    // If not a list create a singleton
+    if (!nodecl_is_list(items))
+    {
+        items = nodecl_make_list_1(items);
+    }
+
+    // The parent list
+    nodecl_t parent_list = nodecl_get_parent(node);
+    nodecl_t previous = nodecl_get_child(parent_list, 0);
+
+    // Get the beginning of 'items'
+    nodecl_t head_of_list = items;
+    while (!nodecl_is_null(nodecl_get_child(head_of_list, 0)))
+    {
+        head_of_list = nodecl_get_child(head_of_list, 0);
+    }
+
+    // Add the new list before 'items'
+    nodecl_set_child(head_of_list, 0, previous);
+
+    // Update the previous elements to items
+    nodecl_set_child(parent_list, 0, items);
+}
+#endif
+
+// REMOVE THIS FUNCTION
 void nodecl_exchange(nodecl_t old_node, nodecl_t new_node)
 {
     ERROR_CONDITION(nodecl_is_null(old_node), "Old node cannot be null", 0);

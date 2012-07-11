@@ -437,7 +437,7 @@ void LoweringVisitor::emit_async_common(
     Nodecl::NodeclBase outline_statements_code = Nodecl::Utils::deep_copy(statements, placeholder, *symbol_map);
     delete symbol_map;
 
-    placeholder.integrate(outline_statements_code);
+    placeholder.replace(outline_statements_code);
 
     Source err_name;
     err_name << "err";
@@ -524,16 +524,16 @@ void LoweringVisitor::emit_async_common(
     if (!fill_outline_arguments.empty())
     {
         Nodecl::NodeclBase new_tree = fill_outline_arguments.parse_statement(fill_outline_arguments_tree);
-        fill_outline_arguments_tree.integrate(new_tree);
+        fill_outline_arguments_tree.replace(new_tree);
     }
 
     if (!fill_immediate_arguments.empty())
     {
         Nodecl::NodeclBase new_tree = fill_immediate_arguments.parse_statement(fill_immediate_arguments_tree);
-        fill_immediate_arguments_tree.integrate(new_tree);
+        fill_immediate_arguments_tree.replace(new_tree);
     }
 
-    construct.integrate(spawn_code_tree);
+    construct.replace(spawn_code_tree);
 }
 
 void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)

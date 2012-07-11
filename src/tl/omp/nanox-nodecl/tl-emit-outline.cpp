@@ -810,7 +810,7 @@ namespace TL { namespace Nanox {
         }
 
         Nodecl::NodeclBase new_unpacked_body = unpacked_source.parse_statement(unpacked_function_body);
-        unpacked_function_body.integrate(new_unpacked_body);
+        unpacked_function_body.replace(new_unpacked_body);
 
         FORTRAN_LANGUAGE()
         {
@@ -822,7 +822,7 @@ namespace TL { namespace Nanox {
         {
             Source::source_language = SourceLanguage::Current;
         }
-        body_placeholder.integrate(outline_body_code);
+        body_placeholder.replace(outline_body_code);
 
         Nodecl::NodeclBase outline_function_code, outline_function_body;
         build_empty_body_for_function(outline_function, 
@@ -888,7 +888,7 @@ namespace TL { namespace Nanox {
         }
 
         Nodecl::NodeclBase new_outline_body = outline_src.parse_statement(outline_function_body);
-        outline_function_body.integrate(new_outline_body);
+        outline_function_body.replace(new_outline_body);
     }
 
 
