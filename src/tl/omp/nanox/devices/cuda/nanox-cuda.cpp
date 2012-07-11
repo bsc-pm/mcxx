@@ -601,8 +601,9 @@ void DeviceCUDA::create_outline(
 			it != extern_symbols.end(); it++)
 	{
 		// Check the symbol is not a function definition before adding it to forward declaration (see #529)
+		// Check the symbol does not come from CUDA (see #753 and #959)
 		AST_t a = it->get_point_of_declaration();
-		if (!FunctionDefinition::predicate(a))
+		if (!FunctionDefinition::predicate(a) && !CheckIfInCudacompiler::check(it->get_filename()))
 		{
 			forward_declaration << a.prettyprint_external() << "\n";
 		}
