@@ -61,6 +61,10 @@ namespace TL
                         ReplaceSrcIdExpression& replace_src,
                         bool &err_declared);
 
+                std::string get_header_macro();
+
+                void char_replace_all_occurrences(std::string &str, std::string original, std::string replaced);
+
                 void replace_kernel_config(AST_t &kernel_call, ScopeLink sl);
 
                 void get_output_file(std::ofstream& cudaFile);

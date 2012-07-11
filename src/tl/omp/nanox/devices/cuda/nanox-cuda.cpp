@@ -46,6 +46,36 @@ static std::string gpu_outline_name(const std::string &task_name)
 	return "_gpu_" + task_name;
 }
 
+std::string DeviceCUDA::get_header_macro()
+{
+	//std::string macro = "__"  + _cudaHeaderFilename.substr(0, _cudaHeaderFilename.find_last_of(".")) + "_CUH__";
+
+	std::string macro = "__"  + _cudaHeaderFilename + "__";
+	std::string replacement("_");
+	char_replace_all_occurrences(macro, std::string("-"), replacement);
+	char_replace_all_occurrences(macro, std::string("."), replacement);
+
+	return macro;
+}
+
+void DeviceCUDA::char_replace_all_occurrences(std::string &str, // String to process
+		std::string original, // Matching pattern
+		std::string replaced) // Substitution
+{
+	std::cout << "PARSING STR '" << str << "' of length " << str.length() << std::endl
+			<< "and REPLACING '" << original << "' of length " << original.length() << std::endl
+			<< "WITH '"<< replaced << "' of length " << replaced.length() << std::endl;
+
+	size_t pos = str.find(original, original.size());
+	while (pos != std::string::npos)
+	{
+		str.replace(pos, original.size(), replaced.c_str());
+		pos = str.find(original, original.size());
+	}
+
+	std::cout << "RESULTING STR '" << str << "' of length " << str.length() << std::endl;
+}
+
 void DeviceCUDA::replace_kernel_config(AST_t &kernel_call, ScopeLink sl)
 {
 	CUDA::KernelCall kcall(kernel_call, sl);
@@ -309,7 +339,7 @@ void DeviceCUDA::get_output_file(std::ofstream& cudaFile, std::ofstream& cudaHea
 		cudaFile << "#include \"" << _cudaHeaderFilename.c_str() << "\"\n";
 
 		// Protect the header with ifndef/define/endif
-		std::string def = "__"  + _cudaHeaderFilename.substr(0, _cudaHeaderFilename.find_last_of(".")) + "_CUH__";
+		std::string def = get_header_macro();
 		cudaHeaderFile << "#ifndef " << def.c_str() << "\n";
 		cudaHeaderFile << "#define " << def.c_str() << "\n";
 
@@ -1064,7 +1094,7 @@ void DeviceCUDA::run(DTO& dto)
 	if (_cudaHeaderFilename != "") {
 		// Protect the header with ifndef/define/endif
 		// Here we emit the last endif
-		std::string def = "__"  + _cudaHeaderFilename.substr(0, _cudaHeaderFilename.find_last_of(".")) + "_CUH__";
+		std::string def = get_header_macro();
 		std::ofstream cudaHeaderFile;
 		cudaHeaderFile.open(_cudaHeaderFilename.c_str(), std::ios_base::app);
 		cudaHeaderFile << "#endif // " << def.c_str() << "\n";
