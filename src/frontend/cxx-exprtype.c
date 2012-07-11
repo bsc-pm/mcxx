@@ -7351,8 +7351,6 @@ static void check_delete_expression_nodecl(nodecl_t nodecl_deleted_expr,
             *nodecl_output = nodecl_make_err_expr(filename, line);
             return;
         }
-
-        nodecl_set_type(nodecl_deleted_expr, full_type);
     }
 
     if (is_array_delete)
