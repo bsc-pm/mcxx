@@ -166,7 +166,7 @@ static TL::Symbol declare_const_wd_type(int num_devices, Nodecl::NodeclBase cons
             ERROR_CONDITION(defs.empty(), "No declaration of %s not found!\n", base_class.get_name().c_str());
 
             // Append to the last declaration
-            Nodecl::Utils::append_to_enclosing_top_level_location(defs.back(), nodecl_decl);
+            defs.back().append_items_after(nodecl_decl);
         }
 
         return new_class_symbol;
