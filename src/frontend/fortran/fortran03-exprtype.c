@@ -594,7 +594,7 @@ static void check_substring(AST expr, decl_context_t decl_context, nodecl_t node
 
     nodecl_t nodecl_stride = const_value_to_nodecl(const_value_get_one(/* bytes */ fortran_get_default_integer_type_kind(), /* signed */ 1));
     
-    char is_derref_subscripted = (nodecl_get_kind(nodecl_subscripted) == NODECL_DERREFERENCE);
+    char is_derref_subscripted = (nodecl_get_kind(nodecl_subscripted) == NODECL_DEREFERENCE);
 
     type_t* data_type = synthesized_type;
     if (is_derref_subscripted)
@@ -618,7 +618,7 @@ static void check_substring(AST expr, decl_context_t decl_context, nodecl_t node
 
     if (is_derref_subscripted)
     {
-        *nodecl_output = nodecl_make_derreference(
+        *nodecl_output = nodecl_make_dereference(
                 *nodecl_output,
                 lvalue_ref(synthesized_type),
                 nodecl_get_filename(*nodecl_output),
@@ -990,7 +990,7 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
         nodecl_list = nodecl_append_to_list(nodecl_list, nodecl_indexes[i]);
     }
 
-    char is_derref_subscripted = (nodecl_get_kind(nodecl_subscripted) == NODECL_DERREFERENCE);
+    char is_derref_subscripted = (nodecl_get_kind(nodecl_subscripted) == NODECL_DEREFERENCE);
 
     type_t* data_type = synthesized_type;
     if (is_derref_subscripted)
@@ -1012,7 +1012,7 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
 
     if (is_derref_subscripted)
     {
-        *nodecl_output = nodecl_make_derreference(
+        *nodecl_output = nodecl_make_dereference(
                 *nodecl_output,
                 lvalue_ref(synthesized_type),
                 nodecl_get_filename(*nodecl_output),
@@ -1402,7 +1402,7 @@ static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t*
 
     if (is_pointer_type(component_type))
     {
-        nodecl_rhs = nodecl_make_derreference(nodecl_rhs, 
+        nodecl_rhs = nodecl_make_dereference(nodecl_rhs, 
                 lvalue_ref(pointer_type_get_pointee_type(component_type)),
                 ASTFileName(name),
                 ASTLine(name));
@@ -1459,7 +1459,7 @@ static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t*
     nodecl_t nodecl_rhs_adjusted = nodecl_rhs;
 
     char rhs_is_pointer = 0;
-    if (nodecl_get_kind(nodecl_rhs_adjusted) == NODECL_DERREFERENCE)
+    if (nodecl_get_kind(nodecl_rhs_adjusted) == NODECL_DEREFERENCE)
     {
         rhs_is_pointer = 1;
         nodecl_rhs_adjusted = nodecl_get_child(nodecl_rhs_adjusted, 0);
@@ -1487,7 +1487,7 @@ static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t*
     {
         // Move the derreference outside of the class access
         *nodecl_output = 
-            nodecl_make_derreference(
+            nodecl_make_dereference(
                     *nodecl_output,
                     lvalue_ref(pointer_type_get_pointee_type(synthesized_type)),
                     ASTFileName(expr),
@@ -2680,7 +2680,7 @@ static void check_called_symbol_list(
                 {
                     // If the actual argument is a pointer type and the dummy argument is a derreference,
                     // get the pointer type being derreferenced
-                    if (nodecl_get_kind(fixed_argument_info_items[i].argument) == NODECL_DERREFERENCE)
+                    if (nodecl_get_kind(fixed_argument_info_items[i].argument) == NODECL_DEREFERENCE)
                     {
                         real_type = no_ref(
                                 nodecl_get_type(
@@ -2999,7 +2999,7 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
             // This must be a pointer to function
             ERROR_CONDITION(!is_pointer_to_function_type(no_ref(called_symbol->type_information)), "Invalid symbol", 0);
 
-            nodecl_called = nodecl_make_derreference(
+            nodecl_called = nodecl_make_dereference(
                     nodecl_called,
                     lvalue_ref(called_symbol->type_information),
                     ASTFileName(procedure_designator),
@@ -3018,7 +3018,7 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
 
         if (is_pointer_type(no_ref(result_type)))
         {
-            *nodecl_output = nodecl_make_derreference(*nodecl_output, 
+            *nodecl_output = nodecl_make_dereference(*nodecl_output, 
                     lvalue_ref(pointer_type_get_pointee_type(no_ref(result_type))),
                     ASTFileName(expr), ASTLine(expr));
         }
@@ -3352,7 +3352,7 @@ static void check_user_defined_unary_op(AST expr, decl_context_t decl_context, n
         // This must be a pointer to function
         ERROR_CONDITION(!is_pointer_to_function_type(no_ref(called_symbol->type_information)), "Invalid symbol", 0);
 
-        nodecl_called = nodecl_make_derreference(
+        nodecl_called = nodecl_make_dereference(
                 nodecl_called,
                 lvalue_ref(called_symbol->type_information),
                 ASTFileName(expr),
@@ -3378,7 +3378,7 @@ static void check_user_defined_unary_op(AST expr, decl_context_t decl_context, n
 
     if (is_pointer_type(no_ref(result_type)))
     {
-        *nodecl_output = nodecl_make_derreference(*nodecl_output, 
+        *nodecl_output = nodecl_make_dereference(*nodecl_output, 
                 lvalue_ref(pointer_type_get_pointee_type(no_ref(result_type))),
                 ASTFileName(expr), ASTLine(expr));
     }
@@ -3471,7 +3471,7 @@ static void check_user_defined_binary_op(AST expr, decl_context_t decl_context, 
         // This must be a pointer to function
         ERROR_CONDITION(!is_pointer_to_function_type(no_ref(called_symbol->type_information)), "Invalid symbol", 0);
 
-        nodecl_called = nodecl_make_derreference(
+        nodecl_called = nodecl_make_dereference(
                 nodecl_called,
                 lvalue_ref(called_symbol->type_information),
                 ASTFileName(expr),
@@ -3503,7 +3503,7 @@ static void check_user_defined_binary_op(AST expr, decl_context_t decl_context, 
 
     if (is_pointer_type(no_ref(result_type)))
     {
-        *nodecl_output = nodecl_make_derreference(*nodecl_output, 
+        *nodecl_output = nodecl_make_dereference(*nodecl_output, 
                 lvalue_ref(pointer_type_get_pointee_type(no_ref(result_type))),
                 ASTFileName(expr), ASTLine(expr));
     }
@@ -3853,7 +3853,7 @@ static void check_symbol_name_as_a_variable(
     if (is_pointer_type(no_ref(entry->type_information)))
     {
         *nodecl_output = 
-            nodecl_make_derreference(
+            nodecl_make_dereference(
                     *nodecl_output,
                     lvalue_ref(pointer_type_get_pointee_type(no_ref(entry->type_information))),
                     ASTFileName(sym), ASTLine(sym));
@@ -4206,7 +4206,7 @@ static void check_assignment(AST expr, decl_context_t decl_context, nodecl_t* no
             // This must be a pointer to function
             ERROR_CONDITION(!is_pointer_to_function_type(no_ref(assignment_op->type_information)), "Invalid symbol", 0);
 
-            nodecl_called = nodecl_make_derreference(
+            nodecl_called = nodecl_make_dereference(
                     nodecl_called,
                     lvalue_ref(assignment_op->type_information),
                     ASTFileName(expr),
@@ -4486,7 +4486,7 @@ void fortran_check_initialization(
         char wrong_ptr_init = 0;
 
         // Just check that is => NULL()
-        if (nodecl_get_kind(*nodecl_output) == NODECL_DERREFERENCE)
+        if (nodecl_get_kind(*nodecl_output) == NODECL_DEREFERENCE)
         {
             *nodecl_output = nodecl_get_child(*nodecl_output, 0);
 
@@ -4659,7 +4659,7 @@ static void check_ptr_assignment(AST expr, decl_context_t decl_context, nodecl_t
     // If the right part is not a symbol name, but an expression of type
     // POINTER (currently only possible if we call a FUNCTION returning
     // POINTER), then it must be have been derreferenced
-    else if (nodecl_get_kind(nodecl_rvalue) != NODECL_DERREFERENCE)
+    else if (nodecl_get_kind(nodecl_rvalue) != NODECL_DEREFERENCE)
     {
         if (!checking_ambiguity())
         {
@@ -4670,7 +4670,7 @@ static void check_ptr_assignment(AST expr, decl_context_t decl_context, nodecl_t
         return;
     }
 
-    if (nodecl_get_kind(nodecl_rvalue) == NODECL_DERREFERENCE)
+    if (nodecl_get_kind(nodecl_rvalue) == NODECL_DEREFERENCE)
     {
         nodecl_rvalue = nodecl_get_child(nodecl_rvalue, 0);
     }
@@ -4689,7 +4689,7 @@ static void check_ptr_assignment(AST expr, decl_context_t decl_context, nodecl_t
         internal_error("Code unreachable", 0);
     }
 
-    ERROR_CONDITION(nodecl_get_kind(nodecl_lvalue) != NODECL_DERREFERENCE, 
+    ERROR_CONDITION(nodecl_get_kind(nodecl_lvalue) != NODECL_DEREFERENCE, 
             "A reference to a pointer entity must be derreferenced", 0);
 
     // Get the inner part of the derreference
@@ -5343,7 +5343,7 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
                     // This must be a pointer to function
                     ERROR_CONDITION(!is_pointer_to_function_type(no_ref(called_symbol->type_information)), "Invalid symbol", 0);
 
-                    nodecl_called = nodecl_make_derreference(
+                    nodecl_called = nodecl_make_dereference(
                             nodecl_called,
                             lvalue_ref(called_symbol->type_information),
                             ASTFileName(expr),
@@ -5362,7 +5362,7 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
 
                 if (is_pointer_type(no_ref(result)))
                 {
-                    *nodecl_output = nodecl_make_derreference(*nodecl_output, 
+                    *nodecl_output = nodecl_make_dereference(*nodecl_output, 
                             lvalue_ref(pointer_type_get_pointee_type(no_ref(result))),
                             ASTFileName(expr), ASTLine(expr));
                 }
@@ -5734,7 +5734,7 @@ static nodecl_t fortran_nodecl_adjust_function_argument(
 {
     if (is_pointer_type(no_ref(parameter_type)))
     {
-        ERROR_CONDITION(nodecl_get_kind(argument) != NODECL_DERREFERENCE, "Invalid pointer access", 0);
+        ERROR_CONDITION(nodecl_get_kind(argument) != NODECL_DEREFERENCE, "Invalid pointer access", 0);
         argument = nodecl_get_child(argument, 0);
     }
 

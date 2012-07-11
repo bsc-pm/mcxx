@@ -166,7 +166,7 @@ namespace Nodecl
         }
     }
     
-    Calculator::Ret Calculator::visit(const Nodecl::Shl& n)
+    Calculator::Ret Calculator::visit(const Nodecl::BitwiseShl& n)
     {
         TL::ObjectList<const_value_t*> lhs = walk(n.get_lhs());
         TL::ObjectList<const_value_t*> rhs = walk(n.get_rhs());
@@ -177,7 +177,7 @@ namespace Nodecl
         }
         else
         {
-            return TL::ObjectList<const_value_t*>(1, const_value_shl(lhs[0], rhs[0]));
+            return TL::ObjectList<const_value_t*>(1, const_value_bitshl(lhs[0], rhs[0]));
         }
     }
     
@@ -407,7 +407,7 @@ namespace Nodecl
         return TL::ObjectList<const_value_t*>();
     }
     
-    Calculator::Ret Calculator::visit(const Nodecl::Derreference& n)
+    Calculator::Ret Calculator::visit(const Nodecl::Dereference& n)
     {
         return TL::ObjectList<const_value_t*>();
     }

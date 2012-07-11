@@ -262,6 +262,12 @@ namespace Nodecl
         return false;
     }
     
+    
+    bool Utils::nodecl_is_modifiable_lvalue( Nodecl::NodeclBase n )
+    {
+        return n.get_type().is_lvalue_reference( );
+    }
+    
     bool Utils::equal_nodecls(Nodecl::NodeclBase n1, Nodecl::NodeclBase n2)
     {
         nodecl_t n1_ = n1.get_internal_nodecl();
@@ -292,7 +298,7 @@ namespace Nodecl
         NodeclBase simplified_expr;
         if (n.is<Symbol>() || n.is<BooleanLiteral>() || n.is<StringLiteral>()
             || n.is<IntegerLiteral>() || n.is<FloatingLiteral>() || n.is<ComplexLiteral>() 
-            || n.is<Derreference>() || n.is<ClassMemberAccess>())
+            || n.is<Dereference>() || n.is<ClassMemberAccess>())
         {
             simplified_expr = n;
         }
@@ -740,8 +746,8 @@ namespace Nodecl
             case NODECL_MOD:
             case NODECL_MOD_ASSIGNMENT:
                 return "%";
-            case NODECL_SHL:
-            case NODECL_SHL_ASSIGNMENT:
+            case NODECL_BITWISE_SHL:
+            case NODECL_BITWISE_SHL_ASSIGNMENT:
                 return "<<";
             case NODECL_SHR:
             case NODECL_SHR_ASSIGNMENT:

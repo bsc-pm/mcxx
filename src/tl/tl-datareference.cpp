@@ -83,7 +83,7 @@ namespace TL
                 _data_ref._sizeof = make_sizeof(sym);
             }
 
-            virtual void visit(const Nodecl::Derreference& derref)
+            virtual void visit(const Nodecl::Dereference& derref)
             {
                 if (derref.get_rhs().is<Nodecl::Reference>())
                 {
@@ -108,10 +108,10 @@ namespace TL
              
             virtual void visit(const Nodecl::Reference& ref)
             {
-                if (ref.get_rhs().is<Nodecl::Derreference>())
+                if (ref.get_rhs().is<Nodecl::Dereference>())
                 {
                     // &*a is like a
-                    walk(ref.get_rhs().as<Nodecl::Derreference>().get_rhs());
+                    walk(ref.get_rhs().as<Nodecl::Dereference>().get_rhs());
                     return;
                 }
 

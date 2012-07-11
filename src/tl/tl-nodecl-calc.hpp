@@ -51,7 +51,7 @@ namespace Nodecl
         Ret visit(const Nodecl::BitwiseOr& n);
         Ret visit(const Nodecl::BitwiseXor& n);
         Ret visit(const Nodecl::Shr& n);
-        Ret visit(const Nodecl::Shl& n);
+        Ret visit(const Nodecl::BitwiseShl& n);
         Ret visit(const Nodecl::Predecrement& n);
         Ret visit(const Nodecl::Postdecrement& n);
         Ret visit(const Nodecl::Preincrement& n);
@@ -65,7 +65,7 @@ namespace Nodecl
         Ret visit(const Nodecl::ComplexLiteral& n);
         Ret visit(const Nodecl::BooleanLiteral& n);
         Ret visit(const Nodecl::StringLiteral& n);
-        Ret visit(const Nodecl::Derreference& n);
+        Ret visit(const Nodecl::Dereference& n);
         Ret visit(const Nodecl::ArraySubscript& n);
         Ret visit(const Nodecl::ClassMemberAccess& n);
         Ret visit(const Nodecl::Cast& n);

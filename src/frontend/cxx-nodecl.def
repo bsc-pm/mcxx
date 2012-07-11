@@ -152,11 +152,11 @@ expression : literal
            | NODECL_BITWISE_AND([lhs] expression, [rhs] expression) type const-value-opt
            | NODECL_BITWISE_OR([lhs] expression, [rhs] expression) type const-value-opt
            | NODECL_BITWISE_XOR([lhs] expression, [rhs] expression) type const-value-opt
-           | NODECL_SHL([lhs] expression, [rhs] expression) type const-value-opt
+           | NODECL_BITWISE_SHL([lhs] expression, [rhs] expression) type const-value-opt
            | NODECL_SHR([lhs] expression, [rhs] expression) type const-value-opt
            | NODECL_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt
            | NODECL_PARENTHESIZED_EXPRESSION([nest]expression) type const-value-opt
-           | NODECL_DERREFERENCE([rhs]expression) type const-value-opt
+           | NODECL_DEREFERENCE([rhs]expression) type const-value-opt
            | NODECL_CAST([rhs]expression) type text const-value-opt
            | NODECL_COMPOUND_EXPRESSION([nest]context) type const-value-opt
            | c-cxx-expressions
@@ -193,7 +193,7 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | NODECL_DIV_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt
                   | NODECL_ADD_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt
                   | NODECL_MINUS_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt
-                  | NODECL_SHL_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt
+                  | NODECL_BITWISE_SHL_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt
                   | NODECL_SHR_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt
                   | NODECL_BITWISE_AND_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt
                   | NODECL_BITWISE_OR_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt

@@ -726,7 +726,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
         case AST_MOD :
         case AST_ADD :
         case AST_MINUS :
-        case AST_SHL :
+        case AST_BITWISE_SHL :
         case AST_SHR :
         case AST_LOWER_THAN :
         case AST_GREATER_THAN :
@@ -755,7 +755,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
         case AST_DIV_ASSIGNMENT :
         case AST_ADD_ASSIGNMENT :
         case AST_SUB_ASSIGNMENT :
-        case AST_SHL_ASSIGNMENT :
+        case AST_BITWISE_SHL_ASSIGNMENT :
         case AST_SHR_ASSIGNMENT :
         case AST_BITWISE_AND_ASSIGNMENT :
         case AST_BITWISE_OR_ASSIGNMENT :
@@ -3252,7 +3252,7 @@ void compute_bin_operator_only_integral_lhs_type(nodecl_t* lhs, nodecl_t* rhs,
             nodecl_output);
 }
 
-void compute_bin_operator_shl_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t decl_context, 
+void compute_bin_operator_bitwise_shl_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t decl_context, 
         const char* filename, int line, nodecl_t* nodecl_output)
 {
     static AST operation_tree = NULL;
@@ -3265,8 +3265,8 @@ void compute_bin_operator_shl_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t 
     compute_bin_operator_only_integral_lhs_type(lhs, rhs, 
             operation_tree, 
             decl_context, 
-            nodecl_make_shl,
-            const_value_shl,
+            nodecl_make_bitwise_shl,
+            const_value_bitshl,
             filename, line, nodecl_output);
 }
 
@@ -4241,7 +4241,7 @@ static void compute_bin_operator_mod_assig_type(nodecl_t* lhs, nodecl_t* rhs,
             nodecl_output);
 }
 
-static void compute_bin_operator_shl_assig_type(nodecl_t* lhs, nodecl_t* rhs,
+static void compute_bin_operator_bitwise_shl_assig_type(nodecl_t* lhs, nodecl_t* rhs,
         decl_context_t decl_context, const char* filename, int line, 
         nodecl_t* nodecl_output)
 {
@@ -4253,7 +4253,7 @@ static void compute_bin_operator_shl_assig_type(nodecl_t* lhs, nodecl_t* rhs,
     }
 
     compute_bin_operator_assig_only_integral_type(lhs, rhs, 
-            operation_tree, decl_context, nodecl_make_shl_assignment,
+            operation_tree, decl_context, nodecl_make_bitwise_shl_assignment,
             filename, line, nodecl_output);
 }
 
@@ -4645,7 +4645,7 @@ static void compute_operator_derreference_type(
     compute_unary_operator_generic(op, 
             operation_tree, decl_context,
             operand_is_class_or_enum,
-            nodecl_make_derreference,
+            nodecl_make_dereference,
             NULL, // No constants
             compute_type_no_overload_derref,
             NULL,
@@ -5173,7 +5173,6 @@ static struct bin_operator_funct_type_t binary_expression_fun[] =
     [AST_DIV]                = OPERATOR_FUNCT_INIT(compute_bin_operator_div_type),
     [AST_MOD]                = OPERATOR_FUNCT_INIT(compute_bin_operator_mod_type),
     [AST_MINUS]              = OPERATOR_FUNCT_INIT(compute_bin_operator_sub_type),
-    [AST_SHL]                = OPERATOR_FUNCT_INIT(compute_bin_operator_shl_type),
     [AST_SHR]                = OPERATOR_FUNCT_INIT(compute_bin_operator_shr_type),
     [AST_LOWER_THAN]            = OPERATOR_FUNCT_INIT(compute_bin_operator_lower_than_type),
     [AST_GREATER_THAN]          = OPERATOR_FUNCT_INIT(compute_bin_operator_greater_than_type),
@@ -5184,6 +5183,7 @@ static struct bin_operator_funct_type_t binary_expression_fun[] =
     [AST_BITWISE_AND]           = OPERATOR_FUNCT_INIT(compute_bin_operator_bitwise_and_type),
     [AST_BITWISE_XOR]           = OPERATOR_FUNCT_INIT(compute_bin_operator_bitwise_xor_type),
     [AST_BITWISE_OR]            = OPERATOR_FUNCT_INIT(compute_bin_operator_bitwise_or_type),
+    [AST_BITWISE_SHL]           = OPERATOR_FUNCT_INIT(compute_bin_operator_bitwise_shl_type),
     [AST_LOGICAL_AND]           = OPERATOR_FUNCT_INIT(compute_bin_operator_logical_and_type),
     [AST_LOGICAL_OR]            = OPERATOR_FUNCT_INIT(compute_bin_operator_logical_or_type),
     [AST_POWER]              = OPERATOR_FUNCT_INIT(compute_bin_operator_pow_type),
@@ -5192,11 +5192,11 @@ static struct bin_operator_funct_type_t binary_expression_fun[] =
     [AST_DIV_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_div_assig_type),
     [AST_ADD_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_add_assig_type),
     [AST_SUB_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_sub_assig_type),
-    [AST_SHL_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_shl_assig_type),
     [AST_SHR_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_shr_assig_type),
     [AST_BITWISE_AND_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_bitwise_and_assig_type),
     [AST_BITWISE_OR_ASSIGNMENT ]        = OPERATOR_FUNCT_INIT(compute_bin_operator_bitwise_or_assig_type),
     [AST_BITWISE_XOR_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_bitwise_xor_assig_type),
+    [AST_BITWISE_SHL_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_bitwise_shl_assig_type),
     [AST_MOD_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_mod_assig_type),
 
     // Same as above for nodecl
@@ -5205,7 +5205,6 @@ static struct bin_operator_funct_type_t binary_expression_fun[] =
     [NODECL_DIV]                = OPERATOR_FUNCT_INIT(compute_bin_operator_div_type),
     [NODECL_MOD]                = OPERATOR_FUNCT_INIT(compute_bin_operator_mod_type),
     [NODECL_MINUS]              = OPERATOR_FUNCT_INIT(compute_bin_operator_sub_type),
-    [NODECL_SHL]                = OPERATOR_FUNCT_INIT(compute_bin_operator_shl_type),
     [NODECL_SHR]                = OPERATOR_FUNCT_INIT(compute_bin_operator_shr_type),
     [NODECL_LOWER_THAN]            = OPERATOR_FUNCT_INIT(compute_bin_operator_lower_than_type),
     [NODECL_GREATER_THAN]          = OPERATOR_FUNCT_INIT(compute_bin_operator_greater_than_type),
@@ -5216,6 +5215,7 @@ static struct bin_operator_funct_type_t binary_expression_fun[] =
     [NODECL_BITWISE_AND]           = OPERATOR_FUNCT_INIT(compute_bin_operator_bitwise_and_type),
     [NODECL_BITWISE_XOR]           = OPERATOR_FUNCT_INIT(compute_bin_operator_bitwise_xor_type),
     [NODECL_BITWISE_OR]            = OPERATOR_FUNCT_INIT(compute_bin_operator_bitwise_or_type),
+    [NODECL_BITWISE_SHL]           = OPERATOR_FUNCT_INIT(compute_bin_operator_bitwise_shl_type),
     [NODECL_LOGICAL_AND]           = OPERATOR_FUNCT_INIT(compute_bin_operator_logical_and_type),
     [NODECL_LOGICAL_OR]            = OPERATOR_FUNCT_INIT(compute_bin_operator_logical_or_type),
     [NODECL_POWER]              = OPERATOR_FUNCT_INIT(compute_bin_operator_pow_type),
@@ -5224,11 +5224,11 @@ static struct bin_operator_funct_type_t binary_expression_fun[] =
     [NODECL_DIV_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_div_assig_type),
     [NODECL_ADD_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_add_assig_type),
     [NODECL_MINUS_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_sub_assig_type),
-    [NODECL_SHL_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_shl_assig_type),
     [NODECL_SHR_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_shr_assig_type),
     [NODECL_BITWISE_AND_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_bitwise_and_assig_type),
     [NODECL_BITWISE_OR_ASSIGNMENT ]        = OPERATOR_FUNCT_INIT(compute_bin_operator_bitwise_or_assig_type),
     [NODECL_BITWISE_XOR_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_bitwise_xor_assig_type),
+    [NODECL_BITWISE_SHL_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_bitwise_shl_assig_type),
     [NODECL_MOD_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_mod_assig_type),
 };
 
@@ -5242,7 +5242,7 @@ static struct unary_operator_funct_type_t unary_expression_fun[] =
     [AST_BITWISE_NOT]         = OPERATOR_FUNCT_INIT(compute_operator_complement_type),
 
     // Same as above for nodecl
-    [NODECL_DERREFERENCE]          = OPERATOR_FUNCT_INIT(compute_operator_derreference_type),
+    [NODECL_DEREFERENCE]          = OPERATOR_FUNCT_INIT(compute_operator_derreference_type),
     [NODECL_REFERENCE]             = OPERATOR_FUNCT_INIT(compute_operator_reference_type),
     [NODECL_PLUS]               = OPERATOR_FUNCT_INIT(compute_operator_plus_type),
     [NODECL_NEG]                = OPERATOR_FUNCT_INIT(compute_operator_minus_type),
@@ -5591,7 +5591,7 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
                 cv_qualifier_t this_qualifier = get_cv_qualifier(this_type);
 
                 nodecl_t nodecl_this_derref =
-                    nodecl_make_derreference(
+                    nodecl_make_dereference(
                             nodecl_make_symbol(this_symbol, nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name)),
                             get_lvalue_reference_type(this_type),
                             nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name));
@@ -8502,7 +8502,7 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
                 nodecl_set_type(nodecl_sym, ptr_class_type);
 
                 nodecl_implicit_argument = 
-                    nodecl_make_derreference(
+                    nodecl_make_dereference(
                             nodecl_sym,
                             class_type,
                             nodecl_get_filename(nodecl_called), 
@@ -9286,7 +9286,7 @@ static void check_nodecl_member_access(
             accessed_type = pointer_type_get_pointee_type(no_ref(accessed_type));
 
             nodecl_accessed_out = 
-                nodecl_make_derreference(
+                nodecl_make_dereference(
                         nodecl_accessed,
                         accessed_type,
                         nodecl_get_filename(nodecl_accessed), nodecl_get_line(nodecl_accessed));
@@ -9296,7 +9296,7 @@ static void check_nodecl_member_access(
             accessed_type = array_type_get_element_type(no_ref(accessed_type));
 
             nodecl_accessed_out = 
-                nodecl_make_derreference(
+                nodecl_make_dereference(
                         nodecl_accessed,
                         accessed_type,
                         nodecl_get_filename(nodecl_accessed), nodecl_get_line(nodecl_accessed));
@@ -9413,7 +9413,7 @@ static void check_nodecl_member_access(
         // a -> b becomes (*(a.operator->())).b
         // here we are building *(a.operator->())
         nodecl_accessed_out = 
-            nodecl_make_derreference(
+            nodecl_make_dereference(
                     cxx_nodecl_make_function_call(
                         nodecl_make_symbol(selected_operator_arrow, nodecl_get_filename(nodecl_accessed), nodecl_get_line(nodecl_accessed)),
                         nodecl_make_list_1(nodecl_accessed),
@@ -11422,7 +11422,7 @@ static void check_nodecl_pointer_to_pointer_member(
                         cv_qualif_object | cv_qualif_pointer));
 
         *nodecl_output = nodecl_make_offset(
-                nodecl_make_derreference(
+                nodecl_make_dereference(
                     nodecl_lhs,
                     lvalue_ref(pointed_lhs_type), 
                     nodecl_get_filename(nodecl_lhs), nodecl_get_line(nodecl_lhs)),
@@ -11462,7 +11462,7 @@ static void check_nodecl_pointer_to_pointer_member(
         if (selected_operator->entity_specs.is_builtin)
         {
             *nodecl_output = nodecl_make_offset(
-                    nodecl_make_derreference(
+                    nodecl_make_dereference(
                         nodecl_lhs,
                         lvalue_ref(pointer_type_get_pointee_type(lhs_type)), 
                         nodecl_get_filename(nodecl_lhs), nodecl_get_line(nodecl_lhs)),
@@ -14233,7 +14233,7 @@ nodecl_t cxx_nodecl_make_function_call(nodecl_t called, nodecl_t arg_list, nodec
                 && is_pointer_to_function_type(no_ref(called_symbol->type_information)))
         {
             return nodecl_make_function_call(
-                    nodecl_make_derreference(called,
+                    nodecl_make_dereference(called,
                         lvalue_ref(pointer_type_get_pointee_type(called_symbol->type_information)),
                         nodecl_get_filename(called),
                         nodecl_get_line(called)),
@@ -15195,7 +15195,7 @@ static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, 
     NODECL_VISITOR(v)->visit_div = instantiate_expr_visitor_fun(instantiate_binary_op);
     NODECL_VISITOR(v)->visit_mod = instantiate_expr_visitor_fun(instantiate_binary_op);
     NODECL_VISITOR(v)->visit_minus = instantiate_expr_visitor_fun(instantiate_binary_op);
-    NODECL_VISITOR(v)->visit_shl = instantiate_expr_visitor_fun(instantiate_binary_op);
+    NODECL_VISITOR(v)->visit_bitwise_shl = instantiate_expr_visitor_fun(instantiate_binary_op);
     NODECL_VISITOR(v)->visit_shr = instantiate_expr_visitor_fun(instantiate_binary_op);
     NODECL_VISITOR(v)->visit_lower_than = instantiate_expr_visitor_fun(instantiate_binary_op);
     NODECL_VISITOR(v)->visit_greater_than = instantiate_expr_visitor_fun(instantiate_binary_op);
@@ -15214,7 +15214,7 @@ static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, 
     NODECL_VISITOR(v)->visit_div_assignment = instantiate_expr_visitor_fun(instantiate_binary_op);
     NODECL_VISITOR(v)->visit_add_assignment = instantiate_expr_visitor_fun(instantiate_binary_op);
     NODECL_VISITOR(v)->visit_minus_assignment = instantiate_expr_visitor_fun(instantiate_binary_op);
-    NODECL_VISITOR(v)->visit_shl_assignment = instantiate_expr_visitor_fun(instantiate_binary_op);
+    NODECL_VISITOR(v)->visit_bitwise_shl_assignment = instantiate_expr_visitor_fun(instantiate_binary_op);
     NODECL_VISITOR(v)->visit_shr_assignment = instantiate_expr_visitor_fun(instantiate_binary_op);
     NODECL_VISITOR(v)->visit_bitwise_and_assignment = instantiate_expr_visitor_fun(instantiate_binary_op);
     NODECL_VISITOR(v)->visit_bitwise_or_assignment  = instantiate_expr_visitor_fun(instantiate_binary_op);
@@ -15222,7 +15222,7 @@ static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, 
     NODECL_VISITOR(v)->visit_mod_assignment = instantiate_expr_visitor_fun(instantiate_binary_op);
 
     // Unary
-    NODECL_VISITOR(v)->visit_derreference = instantiate_expr_visitor_fun(instantiate_unary_op);
+    NODECL_VISITOR(v)->visit_dereference = instantiate_expr_visitor_fun(instantiate_unary_op);
     NODECL_VISITOR(v)->visit_reference = instantiate_expr_visitor_fun(instantiate_reference);
     NODECL_VISITOR(v)->visit_plus = instantiate_expr_visitor_fun(instantiate_unary_op);
     NODECL_VISITOR(v)->visit_neg = instantiate_expr_visitor_fun(instantiate_unary_op);

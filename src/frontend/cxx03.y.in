@@ -4274,7 +4274,7 @@ shift_expression : additive_expression %merge<ambiguityHandler>
 }
 | shift_expression LEFT additive_expression %merge<ambiguityHandler>
 {
-	$$ = ASTMake2(AST_SHL, $1, $3, ASTFileName($1), ASTLine($1), NULL);
+	$$ = ASTMake2(AST_BITWISE_SHL, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 | shift_expression right_token additive_expression %merge<ambiguityHandler>
 {
@@ -4431,7 +4431,7 @@ assignment_operator : '='
 }
 | LEFT_ASSIGN
 {
-	$$ = AST_SHL_ASSIGNMENT;
+	$$ = AST_BITWISE_SHL_ASSIGNMENT;
 }
 | right_assign_token
 {
@@ -4952,7 +4952,7 @@ template_shift_expression : additive_expression %merge<ambiguityHandler>
 }
 | template_shift_expression LEFT additive_expression %merge<ambiguityHandler>
 {
-	$$ = ASTMake2(AST_SHL, $1, $3, ASTFileName($1), ASTLine($1), NULL);
+	$$ = ASTMake2(AST_BITWISE_SHL, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 // Not here
 // | template_shift_expression right_token additive_expression

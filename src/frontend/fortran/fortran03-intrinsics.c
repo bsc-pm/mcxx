@@ -1411,7 +1411,7 @@ scope_entry_t* compute_intrinsic_associated(scope_entry_t* symbol UNUSED_PARAMET
 {
     type_t* ptr_type = NULL;
     if (!nodecl_is_null(argument_expressions[0])
-            && nodecl_get_kind(argument_expressions[0]) == NODECL_DERREFERENCE
+            && nodecl_get_kind(argument_expressions[0]) == NODECL_DEREFERENCE
             && is_pointer_type(ptr_type = no_ref(nodecl_get_type(
                         nodecl_get_child(argument_expressions[0], 0)))))
     {
@@ -1425,7 +1425,7 @@ scope_entry_t* compute_intrinsic_associated(scope_entry_t* symbol UNUSED_PARAMET
         else
         {
             type_t* target_type = NULL;
-            if (nodecl_get_kind(argument_expressions[1]) == NODECL_DERREFERENCE
+            if (nodecl_get_kind(argument_expressions[1]) == NODECL_DEREFERENCE
                     && (target_type = no_ref(nodecl_get_type(
                                 nodecl_get_child(argument_expressions[1], 0)))))
             {

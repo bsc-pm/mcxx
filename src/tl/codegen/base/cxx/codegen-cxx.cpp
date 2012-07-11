@@ -96,7 +96,7 @@ TL::Scope CxxBase::get_current_scope() const
     PREFIX_UNARY_EXPRESSION(Neg, " -") \
     PREFIX_UNARY_EXPRESSION(LogicalNot, "!") \
     PREFIX_UNARY_EXPRESSION(BitwiseNot, "~") \
-    PREFIX_UNARY_EXPRESSION(Derreference, "*") \
+    PREFIX_UNARY_EXPRESSION(Dereference, "*") \
     PREFIX_UNARY_EXPRESSION(Preincrement, "++") \
     PREFIX_UNARY_EXPRESSION(Predecrement, "--") \
     PREFIX_UNARY_EXPRESSION(Delete, "delete ") \
@@ -121,14 +121,14 @@ TL::Scope CxxBase::get_current_scope() const
     BINARY_EXPRESSION(BitwiseAnd, " & ") \
     BINARY_EXPRESSION(BitwiseOr, " | ") \
     BINARY_EXPRESSION(BitwiseXor, " ^ ") \
-    BINARY_EXPRESSION(Shl, " << ") \
+    BINARY_EXPRESSION(BitwiseShl, " << ") \
     BINARY_EXPRESSION(Shr, " >> ") \
     BINARY_EXPRESSION_ASSIG(Assignment, " = ") \
     BINARY_EXPRESSION_ASSIG(MulAssignment, " *= ") \
     BINARY_EXPRESSION_ASSIG(DivAssignment, " /= ") \
     BINARY_EXPRESSION_ASSIG(AddAssignment, " += ") \
     BINARY_EXPRESSION_ASSIG(MinusAssignment, " -= ") \
-    BINARY_EXPRESSION_ASSIG(ShlAssignment, " <<= ") \
+    BINARY_EXPRESSION_ASSIG(BitwiseShlAssignment, " <<= ") \
     BINARY_EXPRESSION_ASSIG(ShrAssignment, " >>= ") \
     BINARY_EXPRESSION_ASSIG(BitwiseAndAssignment, " &= ") \
     BINARY_EXPRESSION_ASSIG(BitwiseOrAssignment, " |= ") \
@@ -1064,7 +1064,7 @@ CxxBase::Ret CxxBase::codegen_function_call_arguments(Iterator begin, Iterator e
 
             if (param_is_ref && !arg_is_ref)
             {
-                if (arg_it->template is<Nodecl::Derreference>())
+                if (arg_it->template is<Nodecl::Dereference>())
                 {
                     // Consider this case                 [ Emitted C ]
                     // void f(int &s, int (&v)[10])    -> void f(int* const s, int * const v)
@@ -1085,7 +1085,7 @@ CxxBase::Ret CxxBase::codegen_function_call_arguments(Iterator begin, Iterator e
                              && arg_it->get_type().references_to().is_array()));
                     if (!is_array_argument)
                     {
-                        actual_arg = arg_it->template as<Nodecl::Derreference>().get_rhs();
+                        actual_arg = arg_it->template as<Nodecl::Dereference>().get_rhs();
                     }
                 }
                 else
@@ -5801,7 +5801,7 @@ node_t CxxBase::get_kind_of_operator_function_call(const Node & node)
         else if (operator_name == "%")   return NODECL_MOD;
         else if (operator_name == "+")   return NODECL_ADD;
         else if (operator_name == "-")   return NODECL_MINUS;
-        else if (operator_name == "<<")  return NODECL_SHL;
+        else if (operator_name == "<<")  return NODECL_BITWISE_SHL;
         else if (operator_name == ">>")  return NODECL_SHR;
         else if (operator_name == "<")   return NODECL_LOWER_THAN;
         else if (operator_name == "<=")  return NODECL_LOWER_OR_EQUAL_THAN;
@@ -5821,8 +5821,8 @@ node_t CxxBase::get_kind_of_operator_function_call(const Node & node)
         else if (operator_name == "%=")  return NODECL_MOD_ASSIGNMENT;
         else if (operator_name == "+=")  return NODECL_ADD_ASSIGNMENT;
         else if (operator_name == "-=")  return NODECL_MINUS_ASSIGNMENT;
-        else if (operator_name == "<<=") return NODECL_SHL_ASSIGNMENT;
-        else if (operator_name == ">>=") return NODECL_SHL_ASSIGNMENT;
+        else if (operator_name == "<<=") return NODECL_BITWISE_SHL_ASSIGNMENT;
+        else if (operator_name == ">>=") return NODECL_SHR_ASSIGNMENT;
         else if (operator_name == "&=")  return NODECL_BITWISE_AND;
         else if (operator_name == "|=")  return NODECL_BITWISE_OR;
         else if (operator_name == "^=")  return NODECL_BITWISE_XOR;
@@ -5831,7 +5831,7 @@ node_t CxxBase::get_kind_of_operator_function_call(const Node & node)
     else
     {
         if (operator_name == "&")      return NODECL_REFERENCE;
-        else if (operator_name == "*") return NODECL_DERREFERENCE;
+        else if (operator_name == "*") return NODECL_DEREFERENCE;
         else if (operator_name == "+") return NODECL_PLUS;
         else if (operator_name == "-") return NODECL_NEG;
         else if (operator_name == "!") return NODECL_LOGICAL_NOT;
@@ -5884,7 +5884,7 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
                 return -2;
             }
         case NODECL_REFERENCE:
-        case NODECL_DERREFERENCE:
+        case NODECL_DEREFERENCE:
         case NODECL_PLUS:
         case NODECL_NEG:
         case NODECL_LOGICAL_NOT:
@@ -5933,7 +5933,7 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
         case NODECL_ADD:
         case NODECL_MINUS:
             return -7;
-        case NODECL_SHL:
+        case NODECL_BITWISE_SHL:
         case NODECL_SHR:
             return -8;
         case NODECL_LOWER_THAN:
@@ -5962,7 +5962,7 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
         case NODECL_MOD_ASSIGNMENT:
         case NODECL_ADD_ASSIGNMENT:
         case NODECL_MINUS_ASSIGNMENT:
-        case NODECL_SHL_ASSIGNMENT:
+        case NODECL_BITWISE_SHL_ASSIGNMENT:
         case NODECL_SHR_ASSIGNMENT:
         case NODECL_BITWISE_AND_ASSIGNMENT:
         case NODECL_BITWISE_OR_ASSIGNMENT:
@@ -6023,7 +6023,7 @@ static char is_logical_bin_operator(node_t n)
 
 static char is_shift_bin_operator(node_t n)
 {
-    return n == NODECL_SHL
+    return n == NODECL_BITWISE_SHL
         || n == NODECL_SHR;
 }
 
