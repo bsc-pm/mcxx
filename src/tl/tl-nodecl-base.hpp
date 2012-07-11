@@ -128,8 +128,8 @@ namespace Nodecl {
 
             // Append/prepend
             // Note that is_in_list must return true
-            void append_items_after(Nodecl::NodeclBase items) const;
-            void prepend_items_before(Nodecl::NodeclBase items) const;
+            void append_sibling(Nodecl::NodeclBase items) const;
+            void prepend_sibling(Nodecl::NodeclBase items) const;
 
             // Works like replace but handles lists. 
             DEPRECATED void integrate(Nodecl::NodeclBase new_node) const;

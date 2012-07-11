@@ -70,12 +70,12 @@ namespace Nodecl
         return Utils::is_in_list(*this);
     }
 
-    void NodeclBase::append_items_after(Nodecl::NodeclBase items) const
+    void NodeclBase::append_sibling(Nodecl::NodeclBase items) const
     {
         Utils::append_items_after(*this, items);
     }
 
-    void NodeclBase::prepend_items_before(Nodecl::NodeclBase items) const
+    void NodeclBase::prepend_sibling(Nodecl::NodeclBase items) const
     {
         Utils::prepend_items_before(*this, items);
     }
