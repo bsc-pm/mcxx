@@ -420,7 +420,7 @@ namespace TL
 
                 ObjectList<FunctionTaskDependency> _parameters;
 
-                typedef std::map<std::string, Symbol> implementation_table_t;
+                typedef std::multimap<std::string, Symbol> implementation_table_t;
                 implementation_table_t _implementation_table;
 
                 FunctionTaskTargetInfo _target_info;
