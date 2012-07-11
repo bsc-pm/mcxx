@@ -6213,15 +6213,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
         inner_decl_context = new_class_context(decl_context, class_entry);
         class_type_set_inner_context(class_type, inner_decl_context);
 
-        C_LANGUAGE()
-        {
-            class_entry->entity_specs.is_anonymous_union = gather_info->no_declarators;
-        }
-        CXX_LANGUAGE()
-        {
-            class_entry->entity_specs.is_anonymous_union = (class_kind == TT_UNION
-                    && gather_info->no_declarators);
-        }
+        class_entry->entity_specs.is_anonymous_union = gather_info->no_declarators;
     }
 
     ERROR_CONDITION(inner_decl_context.current_scope == NULL,
