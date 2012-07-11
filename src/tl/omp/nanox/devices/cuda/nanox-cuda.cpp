@@ -48,8 +48,6 @@ static std::string gpu_outline_name(const std::string &task_name)
 
 std::string DeviceCUDA::get_header_macro()
 {
-	//std::string macro = "__"  + _cudaHeaderFilename.substr(0, _cudaHeaderFilename.find_last_of(".")) + "_CUH__";
-
 	std::string macro = "__"  + _cudaHeaderFilename + "__";
 	std::string replacement("_");
 	char_replace_all_occurrences(macro, std::string("-"), replacement);
@@ -62,18 +60,12 @@ void DeviceCUDA::char_replace_all_occurrences(std::string &str, // String to pro
 		std::string original, // Matching pattern
 		std::string replaced) // Substitution
 {
-	std::cout << "PARSING STR '" << str << "' of length " << str.length() << std::endl
-			<< "and REPLACING '" << original << "' of length " << original.length() << std::endl
-			<< "WITH '"<< replaced << "' of length " << replaced.length() << std::endl;
-
 	size_t pos = str.find(original, original.size());
 	while (pos != std::string::npos)
 	{
 		str.replace(pos, original.size(), replaced.c_str());
 		pos = str.find(original, original.size());
 	}
-
-	std::cout << "RESULTING STR '" << str << "' of length " << str.length() << std::endl;
 }
 
 void DeviceCUDA::replace_kernel_config(AST_t &kernel_call, ScopeLink sl)
