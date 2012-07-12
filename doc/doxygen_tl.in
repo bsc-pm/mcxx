@@ -575,7 +575,10 @@ WARN_LOGFILE           =
 # with spaces.
 
 INPUT                  = @top_srcdir@/src/tl/ \
-                         @top_srcdir@/src/tl/hlt/ \
+                         @top_srcdir@/src/tl/vectorizer/ \
+                         @top_srcdir@/src/tl/codegen/common \
+                         @top_srcdir@/src/tl/codegen/vector \
+                         @top_srcdir@/src/tl/codegen/vector/sse \
                          @top_srcdir@/src/tl/omp/core \
                          @top_srcdir@/src/tl/omp/nanox/tl-devices.hpp \
                          @top_srcdir@/src/tl/omp/nanox/tl-data-env.hpp

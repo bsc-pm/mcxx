@@ -71,9 +71,9 @@ namespace TL
                 if(sym.has_initialization())
                 {
                     VectorizerVisitorExpression visitor_expression(_vector_length);
-                    visitor_expression.walk(sym.get_initialization());
+                    visitor_expression.walk(sym.get_value());
 
-                    sym.set_initialization(visitor_expression.get_last_visited());
+                    sym.set_value(visitor_expression.get_last_visited());
                 }
             }
         }

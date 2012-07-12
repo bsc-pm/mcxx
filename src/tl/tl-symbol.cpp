@@ -524,14 +524,14 @@ namespace TL
         return _symbol->value;
     }
 
-    void Symbol::set_initialization(const Nodecl::NodeclBase& value) 
-    {
-        _symbol->value = value.get_internal_nodecl();
-    }
-
     Nodecl::NodeclBase Symbol::get_value() const
     {
         return _symbol->value;
+    }
+
+    void Symbol::set_value(Nodecl::NodeclBase n)
+    {
+        _symbol->value = n.get_internal_nodecl();
     }
     
     bool Symbol::has_namespace_scope() const
