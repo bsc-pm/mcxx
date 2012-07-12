@@ -2803,7 +2803,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Symbol& node)
 {
     TL::Symbol entry = node.get_symbol();
 
-    if (entry.is_member())
+    if (entry.is_member()
+            && !state.do_not_emit_other_declarations)
     {
         do_define_symbol(entry.get_class_type().get_symbol(),
                 &CxxBase::declare_symbol_always,
