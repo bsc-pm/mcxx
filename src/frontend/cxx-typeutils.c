@@ -10870,3 +10870,54 @@ type_t* type_deep_copy(type_t* orig, decl_context_t new_decl_context, void *info
 
     return result;
 }
+
+static char _initialized_generics = 0;
+static type_t* _generic_types[MCXX_MAX_GENERIC_TYPES];
+type_t* get_generic_type(int num)
+{
+    if (!_initialized_generics)
+    {
+        int i;
+        for (i = 0; i < MCXX_MAX_GENERIC_TYPES; i++)
+        {
+            _generic_types[i] = get_simple_type();
+        }
+    }
+
+    ERROR_CONDITION((num < 0 || num > MCXX_MAX_GENERIC_TYPES), "Invalid generic number", 0);
+
+    return _generic_types[num];
+}
+
+char is_generic_type(type_t* t)
+{
+    if (t == NULL)
+        return 0;
+
+    t = get_unqualified_type(t);
+
+    int i;
+    for (i = 0; i < MCXX_MAX_GENERIC_TYPES; i++)
+    {
+        if (_generic_types[i] == t)
+            return 1;
+    }
+
+    return 0;
+}
+
+int generic_type_get_num(type_t* t)
+{
+    ERROR_CONDITION(!is_generic_type(t), "Invalid type", 0);
+
+    t = get_unqualified_type(t);
+
+    int i;
+    for (i = 0; i < MCXX_MAX_GENERIC_TYPES; i++)
+    {
+        if (_generic_types[i] == t)
+            return i;
+    }
+
+    return -1;
+}

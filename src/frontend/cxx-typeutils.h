@@ -692,6 +692,13 @@ LIBMCXX_EXTERN void _type_assign_to(type_t*, type_t*);
 // TL::Source stuff
 LIBMCXX_EXTERN const char* type_to_source(type_t* t);
 LIBMCXX_EXTERN char is_function_or_template_function_name(scope_entry_t* entry, void* p UNUSED_PARAMETER);
+
+// C genericity stuff. 
+// Used only to implement gcc builtins. Not to be used elsewhere!
+LIBMCXX_EXTERN type_t* get_generic_type(int num);
+LIBMCXX_EXTERN char is_generic_type(type_t*);
+LIBMCXX_EXTERN int generic_type_get_num(type_t*);
+
 MCXX_END_DECLS
 
 #endif // CXX_TYPEUTILS_H

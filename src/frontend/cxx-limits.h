@@ -79,6 +79,9 @@ enum
     // Fortran modules limits
     MCXX_MAX_RENAMED_SYMBOLS = 256,
     MCXX_MAX_ARRAY_SPECIFIER = 16,
+
+    // Generic types in c
+    MCXX_MAX_GENERIC_TYPES = 4,
 };
 
 #endif // CXX_LIMITS_H
