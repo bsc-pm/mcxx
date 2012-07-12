@@ -298,12 +298,23 @@ namespace TL
             intent_kind_t get_intent_kind() const;
 
             //! States whether this symbol has been initialized
-            bool has_initialization() const;
+            /*
+             * \deprecated Check the return of get_value
+             */
+            DEPRECATED bool has_initialization() const;
+            
             //! Returns the initialization tree
-            Nodecl::NodeclBase get_initialization() const;
+            //! States whether this symbol has been initialized
+            /*
+             * \deprecated Use get_value instead
+             */
+            DEPRECATED Nodecl::NodeclBase get_initialization() const;
 
             //! Returns the nodecl stored in the field _value
             Nodecl::NodeclBase get_value() const;
+
+            //! Modifies the value of this symbol
+            void set_value(Nodecl::NodeclBase n);
             
             //! States whether this symbol is static
             bool is_static() const;

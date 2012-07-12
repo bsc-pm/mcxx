@@ -865,10 +865,11 @@ def generate_nodecl_classes_base(rule_map):
        print ""
 
        if children_name:
-            print "    // Children getters "
+            print "    // Children getters and setters "
        child_num = 0
        for child_name in children_name:
             print "    NodeclBase get_%s() const { return NodeclBase(nodecl_get_child(_n, %d)); } " % (child_name, child_num)
+            print "    void set_%s(const Nodecl::NodeclBase &n) { nodecl_set_child(_n, %d, n.get_internal_nodecl()); } " % (child_name, child_num)
             child_num = child_num + 1
        print "};"
    print ""

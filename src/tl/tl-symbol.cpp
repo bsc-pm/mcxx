@@ -523,6 +523,11 @@ namespace TL
     {
         return _symbol->value;
     }
+
+    void Symbol::set_value(Nodecl::NodeclBase n)
+    {
+        _symbol->value = n.get_internal_nodecl();
+    }
     
     bool Symbol::has_namespace_scope() const
     {
