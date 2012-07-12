@@ -347,97 +347,116 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
 
     bool env_is_runtime_sized = data_environ_info.environment_is_runtime_sized();
 
+    Source dependence_type;
+    if (Nanos::Version::interface_is_at_least("deps_api", 1001))
+    {
+        dependence_type << "nanos_data_access_t";
+    }
+    else
+    {
+        dependence_type << "nanos_dependence_t";
+    }
+
+
     // Fill dependences, if any
     if (!dependences.empty())
     {
-        num_dependences << dependences.size();
-        Source dependency_defs_outline;
-        fill_dependences_outline
-            << "nanos_dependence_t _dependences[" << num_dependences << "] = {"
-            << dependency_defs_outline
-            << "};"
-            ;
-
-        dependency_array << "_dependences";
-
-        int num_dep = 0;
-        for (ObjectList<OpenMP::DependencyItem>::iterator it = dependences.begin();
-                it != dependences.end();
-                it++)
+        if (Nanos::Version::interface_is_at_least("deps_api", 1001))
         {
-            Source dependency_flags;
-            dependency_flags << "{";
-            OpenMP::DependencyDirection attr = it->get_kind();
-            if ((attr & OpenMP::DEP_DIR_INPUT) == OpenMP::DEP_DIR_INPUT)
-            {
-                dependency_flags << "1,"; 
-            }
-            else
-            {
-                dependency_flags << "0,"; 
-            }
-            if ((attr & OpenMP::DEP_DIR_OUTPUT) == OpenMP::DEP_DIR_OUTPUT)
-            {
-                dependency_flags << "1,"; 
-            }
-            else
-            {
-                dependency_flags << "0,"; 
-            }
-
-            Source dependency_field_name;
-
-            DataReference data_ref = it->get_dependency_expression();
-            Symbol sym = data_ref.get_base_symbol();
-
-            DataEnvironItem data_env_item = data_environ_info.get_data_of_symbol(sym);
-
-            if (data_env_item.get_symbol().is_valid())
-            {
-                dependency_field_name
-                    << data_env_item.get_field_name();
-            }
-            else
-            {
-                internal_error("symbol without data environment info %s",
-                        it->get_dependency_expression().prettyprint().c_str());
-            }
-
-            // Can rename in this case
-            dependency_flags << "1"
+            running_error("%s: error: regions api not supported yet in for worksharing\n", 
+                    ctr.get_ast().get_locus().c_str());
+        }
+        else
+        {
+            num_dependences << dependences.size();
+            Source dependency_defs_outline;
+            fill_dependences_outline
+                << "nanos_dependence_t _dependences[" << num_dependences << "] = {"
+                << dependency_defs_outline
+                << "};"
                 ;
 
-            dependency_flags << "}"
-                ;
+            dependency_array << "_dependences";
 
-            DataReference dependency_expression = it->get_dependency_expression();
-
-            Source dep_size;
-            dep_size << dependency_expression.get_sizeof();
-
-            Source dependency_offset;
-
-            dependency_defs_outline
-                << "{"
-                << "(void**)&ol_args->" << dependency_field_name << ","
-                << dependency_offset << ","
-                << dependency_flags << ","
-                << dep_size  
-                << "}"
-                ;
-
-            Source dep_expr_addr = data_ref.get_address();
-
-            dependency_offset
-                << "((char*)(" << dep_expr_addr << ") - " << "(char*)ol_args->" << dependency_field_name << ")"
-                ;
-
-            if ((it + 1) != dependences.end())
+            int num_dep = 0;
+            for (ObjectList<OpenMP::DependencyItem>::iterator it = dependences.begin();
+                    it != dependences.end();
+                    it++)
             {
-                dependency_defs_outline << ",";
-            }
+                Source dependency_flags;
+                dependency_flags << "{";
+                OpenMP::DependencyDirection attr = it->get_kind();
+                if ((attr & OpenMP::DEP_DIR_INPUT) == OpenMP::DEP_DIR_INPUT)
+                {
+                    dependency_flags << "1,"; 
+                }
+                else
+                {
+                    dependency_flags << "0,"; 
+                }
+                if ((attr & OpenMP::DEP_DIR_OUTPUT) == OpenMP::DEP_DIR_OUTPUT)
+                {
+                    dependency_flags << "1,"; 
+                }
+                else
+                {
+                    dependency_flags << "0,"; 
+                }
 
-            num_dep++;
+                Source dependency_field_name;
+
+                DataReference data_ref = it->get_dependency_expression();
+                Symbol sym = data_ref.get_base_symbol();
+
+                DataEnvironItem data_env_item = data_environ_info.get_data_of_symbol(sym);
+
+                if (data_env_item.get_symbol().is_valid())
+                {
+                    dependency_field_name
+                        << data_env_item.get_field_name();
+                }
+                else
+                {
+                    internal_error("symbol without data environment info %s",
+                            it->get_dependency_expression().prettyprint().c_str());
+                }
+
+                // Can rename in this case
+                dependency_flags << "1"
+                    ;
+
+                dependency_flags << "}"
+                    ;
+
+                DataReference dependency_expression = it->get_dependency_expression();
+
+                Source dep_size;
+                dep_size << dependency_expression.get_sizeof();
+
+                Source dependency_offset;
+
+                dependency_defs_outline
+                    << "{"
+                    << "(void**)&ol_args->" << dependency_field_name << ","
+                    << dependency_offset << ","
+                    << dependency_flags << ","
+                    << dep_size  
+                    << "}"
+                    ;
+
+                Source dep_expr_addr = data_ref.get_address();
+
+                dependency_offset
+                    << "((char*)(" << dep_expr_addr << ") - " << "(char*)ol_args->" << dependency_field_name << ")"
+                    ;
+
+                if ((it + 1) != dependences.end())
+                {
+                    dependency_defs_outline << ",";
+                }
+
+                num_dep++;
+            }
         }
     }
     else
@@ -1010,7 +1029,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
             <<              "if (err != NANOS_OK) nanos_handle_error(err);"
             <<              "ol_args_im->wsd = ol_args.wsd;"
             <<              fill_outline_arguments_im
-            <<            "err = nanos_submit(wd, " << num_dependences << ", (nanos_dependence_t*)" << dependency_array << ", (nanos_team_t)0);"
+            <<            "err = nanos_submit(wd, " << num_dependences << ", (" << dependence_type << "*)" << dependency_array << ", (nanos_team_t)0);"
             <<            "if (err != NANOS_OK) nanos_handle_error (err);"
             <<          "}"
             <<      "}"
@@ -1057,7 +1076,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
             <<            fill_dependences_outline
             <<            copy_setup
             <<            loop_information
-            <<            "err = nanos_submit(wd, " << num_dependences << ", (nanos_dependence_t*)" << dependency_array << ", (nanos_team_t)0);"
+            <<            "err = nanos_submit(wd, " << num_dependences << ", (" << dependence_type << "*)" << dependency_array << ", (nanos_team_t)0);"
             <<            "if (err != NANOS_OK) nanos_handle_error (err);"
             <<     "}"
             <<     final_barrier

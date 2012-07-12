@@ -125,6 +125,16 @@ void OMPTransform::sections_postorder(PragmaCustomConstruct ctr)
         decl_dynamic_props_opt << "nanos_wd_dyn_props_t dyn_props = { 0 };";
     }
 
+    Source dependence_type;
+    if (Nanos::Version::interface_is_at_least("deps_api", 1001))
+    {
+        dependence_type << "nanos_data_access_t";
+    }
+    else
+    {
+        dependence_type << "nanos_dependence_t";
+    }
+
     Source compound_wd_src;
     compound_wd_src
         << "{"
@@ -155,7 +165,7 @@ void OMPTransform::sections_postorder(PragmaCustomConstruct ctr)
         // Fill slicer data
         <<    "list_of_wds->nsect = " << section_list.size() << ";"
         <<    "__builtin_memcpy(list_of_wds->lwd, _wd_section_list, sizeof(_wd_section_list));"
-        <<    "err = nanos_submit(wd, 0, (nanos_dependence_t*)0, 0);"
+        <<    "err = nanos_submit(wd, 0, (" << dependence_type << "*)0, 0);"
         <<    "if (err != NANOS_OK) nanos_handle_error(err);"
         << "}"
         ;

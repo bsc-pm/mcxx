@@ -235,7 +235,14 @@ Source TL::Nanox::common_parallel_code(
            constant_code_opt, constant_struct_definition, constant_variable_declaration;
 
     num_dependences << "0";
-    deps << "(nanos_dependence_t*)0";
+    if (Nanos::Version::interface_is_at_least("deps_api", 1001))
+    {
+        deps << "(nanos_data_access_t*)0";
+    }
+    else
+    {
+        deps << "(nanos_dependence_t*)0";
+    }
     imm_data << (immediate_is_alloca ? "imm_args" : "&imm_args");
     data << "(void**)&ol_args";
 
@@ -312,6 +319,16 @@ Source TL::Nanox::common_parallel_code(
         modify_tie_to2 << "props.tie_to = _nanos_threads[0];";
     }
 
+    Source dependence_type;
+    if (Nanos::Version::interface_is_at_least("deps_api", 1001))
+    {
+        dependence_type << "nanos_data_access_t";
+    }
+    else
+    {
+        dependence_type << "nanos_dependence_t";
+    }
+
     result
         << "{"
         <<   "unsigned int _nanos_num_threads = " << num_threads << ";"
@@ -338,7 +355,7 @@ Source TL::Nanox::common_parallel_code(
         <<      nanos_create_wd
         <<      "if (err != NANOS_OK) nanos_handle_error(err);"
         <<      fill_outline_arguments
-        <<      "err = nanos_submit(wd, 0, (nanos_dependence_t*)0, 0);"
+        <<      "err = nanos_submit(wd, 0, (" << dependence_type << "*)0, 0);"
         <<      "if (err != NANOS_OK) nanos_handle_error(err);"
         <<   "}"
         <<   modify_tie_to2
@@ -603,7 +620,7 @@ void TL::Nanox::regions_spawn(
                     else
                     {
                         std::string lb;
-                        if (IS_C_LANGUAGE)
+                        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
                         {
                             lb = "0";
                         }
@@ -938,7 +955,7 @@ static void fill_dimensions(int n_dims, int actual_dim, std::string* dim_sizes, 
         else
         {
             std::string lb;
-            if (IS_C_LANGUAGE)
+            if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
             {
                 lb = "0";
             }
