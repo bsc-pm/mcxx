@@ -1794,7 +1794,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
 
     if (!initializers.is_null())
     {
-        push_scope(symbol.get_scope());
+        push_scope(function_scope);
         inc_indent();
 
         indent();
@@ -2065,7 +2065,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 
     if (!initializers.is_null())
     {
-        push_scope(symbol.get_scope());
+        push_scope(symbol_scope);
         inc_indent();
 
         indent();
