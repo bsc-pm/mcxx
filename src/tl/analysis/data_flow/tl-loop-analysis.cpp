@@ -145,7 +145,7 @@ namespace TL
             {
                 Nodecl::ObjectInit init_ = init.as<Nodecl::ObjectInit>();
                 Symbol def_var = init_.get_symbol();
-                Nodecl::NodeclBase def_expr = def_var.get_initialization();
+                Nodecl::NodeclBase def_expr = def_var.get_value();
                 
                 InductionVarInfo* ind = new InductionVarInfo(def_var, def_expr);
                 _induction_vars.insert(induc_vars_map::value_type(loop_node->get_id(), ind));
