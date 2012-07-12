@@ -31,19 +31,8 @@ namespace TL
     namespace Vectorizer
     {
         VectorizerVisitorExpression::VectorizerVisitorExpression(
-                const unsigned int vector_length) : 
-            _last_visited(NULL), _vector_length(vector_length)
+                const unsigned int vector_length) : _vector_length(vector_length)
         { 
-        }
-
-        Nodecl::NodeclBase VectorizerVisitorExpression::get_last_visited() const
-        {
-            return *_last_visited;
-        }
-
-        void VectorizerVisitorExpression::set_last_visited(const Nodecl::NodeclBase& n)
-        {
-            _last_visited = &n;
         }
 
         void VectorizerVisitorExpression::visit(const Nodecl::Add& n)
@@ -59,8 +48,7 @@ namespace TL
                         n.get_filename(), 
                         n.get_line());
 
-            n.integrate(vector_add);
-            set_last_visited(vector_add);
+            n.replace(vector_add);
         }
 
        void VectorizerVisitorExpression::visit(const Nodecl::Minus& n)
@@ -76,8 +64,7 @@ namespace TL
                         n.get_filename(), 
                         n.get_line());
 
-            n.integrate(vector_minus);
-            set_last_visited(vector_minus);
+            n.replace(vector_minus);
         }
 
        void VectorizerVisitorExpression::visit(const Nodecl::Mul& n)
@@ -93,8 +80,7 @@ namespace TL
                         n.get_filename(), 
                         n.get_line());
 
-            n.integrate(vector_mul);
-            set_last_visited(vector_mul);
+            n.replace(vector_mul);
         }
 
         void VectorizerVisitorExpression::visit(const Nodecl::Assignment& n)
@@ -135,8 +121,7 @@ namespace TL
                         n.get_filename(), 
                         n.get_line());
 
-                n.integrate(vector_store);
-                set_last_visited(vector_store);
+                n.replace(vector_store);
             }
             else // Register
             {
@@ -148,8 +133,7 @@ namespace TL
                             n.get_filename(), 
                             n.get_line());
 
-                n.integrate(vector_assignment);
-                set_last_visited(vector_assignment);
+                n.replace(vector_assignment);
             }
 
         }
@@ -157,7 +141,6 @@ namespace TL
         void VectorizerVisitorExpression::visit(const Nodecl::Conversion& n)
         {
             walk(n.get_nest());
-            set_last_visited(n);
         }
 
         void VectorizerVisitorExpression::visit(const Nodecl::ArraySubscript& n)
@@ -191,8 +174,7 @@ namespace TL
                         n.get_filename(), 
                         n.get_line());
 
-            n.integrate(vector_load);
-            set_last_visited(vector_load);
+            n.replace(vector_load);
         }
 
         void VectorizerVisitorExpression::visit(const Nodecl::FunctionCall& n)
@@ -214,13 +196,11 @@ namespace TL
                         n.get_filename(), 
                         n.get_line());
 
-            n.integrate(vector_function_call);
-            set_last_visited(vector_function_call);
+            n.replace(vector_function_call);            
         }
 
         void VectorizerVisitorExpression::visit(const Nodecl::Symbol& n)
         {
-            set_last_visited(n);
         }
 
         void VectorizerVisitorExpression::visit(const Nodecl::IntegerLiteral& n)
@@ -232,8 +212,7 @@ namespace TL
                         n.get_filename(), 
                         n.get_line());
 
-            n.integrate(vector_prom);
-            set_last_visited(vector_prom);
+            n.replace(vector_prom);
         }
 
         void VectorizerVisitorExpression::visit(const Nodecl::FloatingLiteral& n)
@@ -245,8 +224,7 @@ namespace TL
                         n.get_filename(), 
                         n.get_line());
 
-            n.integrate(vector_prom);
-            set_last_visited(vector_prom);
+            n.replace(vector_prom);
         }
 
 

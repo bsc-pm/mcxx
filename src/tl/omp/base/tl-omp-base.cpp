@@ -28,6 +28,7 @@
 #include "tl-nodecl-utils.hpp"
 #include "cxx-diagnostic.h"
 #include "cxx-cexpr.h"
+#include "tl-nodecl-utils.hpp"
 
 namespace TL { namespace OpenMP {
 
@@ -759,12 +760,11 @@ namespace TL { namespace OpenMP {
     void Base::simd_handler_pre(TL::PragmaCustomStatement) { }
     void Base::simd_handler_post(TL::PragmaCustomStatement stmt) 
     {
-        
         // Skipping AST_LIST_NODE 
-        Nodecl::NodeclBase node = stmt.get_statements();
-        ERROR_CONDITION(!node.is<Nodecl::List>(), 
+        Nodecl::NodeclBase statements = stmt.get_statements();
+        ERROR_CONDITION(!statements.is<Nodecl::List>(), 
                 "'pragma omp simd' Expecting a AST_LIST_NODE (1)", 0);
-        Nodecl::List ast_list_node = node.as<Nodecl::List>();
+        Nodecl::List ast_list_node = statements.as<Nodecl::List>();
         ERROR_CONDITION(ast_list_node.size() != 1, 
                 "AST_LIST_NODE after '#pragma omp simd' must be equal to 1 (1)", 0);
 
@@ -781,19 +781,16 @@ namespace TL { namespace OpenMP {
         ERROR_CONDITION(ast_list_node2.size() != 1, 
                 "AST_LIST_NODE after '#pragma omp simd' must be equal to 1 (2)", 0);
 
-        Nodecl::NodeclBase for_statement = ast_list_node2.front();
-
-        ERROR_CONDITION(!for_statement.is<Nodecl::ForStatement>(), 
+        Nodecl::NodeclBase node = ast_list_node2.front();
+        ERROR_CONDITION(!node.is<Nodecl::ForStatement>(), 
                 "Unexpected node %s. Expecting a ForStatement after '#pragma omp simd'", 
-                ast_print_node_type(for_statement.get_kind()));
+                ast_print_node_type(node.get_kind()));
 
         // SIMD starts here!
+        _vectorizer.vectorize(node.as<Nodecl::ForStatement>(), 16); 
 
-        Nodecl::NodeclBase vectorized_code =
-            _vectorizer.vectorize(
-                    for_statement.shallow_copy().as<Nodecl::ForStatement>(), 16); // Deep_copy?
-
-        stmt.integrate(vectorized_code);
+        // Removing #pragma
+        stmt.replace(statements);
     }
     
     // SIMD Functions
@@ -806,20 +803,14 @@ namespace TL { namespace OpenMP {
         TL::Symbol sym = decl.get_symbol();
         ERROR_CONDITION(!sym.is_function(), "Expecting a function definition here (2)", 0);
 
-        Nodecl::NodeclBase function_node = sym.get_function_code();
-        ERROR_CONDITION(!function_node.is<Nodecl::FunctionCode>(), "Expecting a function definition here (3)", 0);
+        Nodecl::NodeclBase node = sym.get_function_code();
+        ERROR_CONDITION(!node.is<Nodecl::FunctionCode>(), "Expecting a function definition here (3)", 0);
+        Nodecl::FunctionCode function_code = node.as<Nodecl::FunctionCode>();
 
-//        function_node.integrate(Nodecl::OpenMP::SimdConstruct::make(
-//                    function_node.shallow_copy()));
-/*
-                Nodecl::NodeclBase vectorized_code =
-                    vectorizer.vectorize(
-                            stmt.as<Nodecl::FunctionCode>().shallow_copy()); // Deep_copy?
+        // Vectorizing function
+        _vectorizer.vectorize(function_code, 16); 
 
-                construct.integrate(vectorized_code);
- */
-
-        //Nodecl::Utils::remove_from_enclosing_list(decl);
+        Nodecl::Utils::remove_from_enclosing_list(decl);
     }
 
     void Base::lower_sections_into_switch(

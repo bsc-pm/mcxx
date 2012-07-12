@@ -36,7 +36,6 @@ namespace TL
         class VectorizerVisitorExpression : public Nodecl::NodeclVisitor<void>
         {
             private:
-                const Nodecl::NodeclBase *_last_visited;
                 const unsigned int _vector_length;
 
             public:
@@ -52,9 +51,6 @@ namespace TL
                 virtual void visit(const Nodecl::Symbol& n);
                 virtual void visit(const Nodecl::IntegerLiteral& n);
                 virtual void visit(const Nodecl::FloatingLiteral& n);
-
-                Nodecl::NodeclBase get_last_visited() const;
-                void set_last_visited(const Nodecl::NodeclBase& n);
 
                 NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n); 
         };

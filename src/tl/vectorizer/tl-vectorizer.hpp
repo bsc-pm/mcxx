@@ -27,7 +27,8 @@
 #ifndef TL_VECTORIZER_HPP
 #define TL_VECTORIZER_HPP
 
-#include "tl-nodecl-visitor.hpp"
+#include "tl-nodecl-base.hpp"
+#include <list>
 
 namespace TL 
 { 
@@ -35,15 +36,13 @@ namespace TL
     {
         class Vectorizer
         {
-            private:
-
             public:
                 Vectorizer();
                 
-                Nodecl::NodeclBase vectorize(const Nodecl::ForStatement& for_statement, 
+                void vectorize(const Nodecl::ForStatement& for_statement, 
                         const unsigned int vector_length);
 //                        const TL::Type& target_type);
-                Nodecl::NodeclBase vectorize(const Nodecl::FunctionCode& func_code,
+                void vectorize(const Nodecl::FunctionCode& func_code,
                         const unsigned int vector_length);
 //                        const TL::Type& target_type);
         };

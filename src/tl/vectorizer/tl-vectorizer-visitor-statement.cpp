@@ -68,12 +68,11 @@ namespace TL
                 sym.set_type(sym.get_type().get_vector_to(_vector_length));
 
                 // Vectorizing initialization
-                if(sym.has_initialization())
+                Nodecl::NodeclBase init = sym.get_value();
+                if(init.is_null())
                 {
                     VectorizerVisitorExpression visitor_expression(_vector_length);
-                    visitor_expression.walk(sym.get_value());
-
-                    sym.set_value(visitor_expression.get_last_visited());
+                    visitor_expression.walk(init);
                 }
             }
         }

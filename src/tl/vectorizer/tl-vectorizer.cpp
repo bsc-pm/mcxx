@@ -25,8 +25,7 @@
 --------------------------------------------------------------------*/
 
 #include "tl-vectorizer.hpp"
-#include "tl-vectorizer-visitor-statement.hpp"
-#include "tl-nodecl-utils.hpp"
+#include "tl-vectorizer-visitor-for.hpp"
 
 namespace TL 
 {
@@ -36,38 +35,15 @@ namespace TL
         {
         }
 
-        Nodecl::NodeclBase Vectorizer::vectorize(const Nodecl::ForStatement& for_statement,
+        void Vectorizer::vectorize(const Nodecl::ForStatement& for_statement,
                 const unsigned int vector_length)
 //                const TL::Type& target_type)
         {
-            bool need_epilog = true;    // TODO
-            Nodecl::ForStatement epilog;
-
-            if (need_epilog)
-            {
-                // Save original ForStatement as Epilog
-                epilog = Nodecl::Utils::deep_copy(for_statement, for_statement).as<Nodecl::ForStatement>();
-            }
-
-            // Vectorization      
-            VectorizerVisitorStatement visitor_stmt(16);  
-            visitor_stmt.walk(for_statement.get_statement());
-
-            if (need_epilog)
-            {
-                Nodecl::List new_code;
-                new_code.push_back(for_statement);
-                new_code.push_back(epilog);
-
-                return new_code;
-            }
-            else
-            {
-                return for_statement;
-            }
+            VectorizerVisitorFor visitor_for(vector_length);
+            visitor_for.walk(for_statement);
         }
 
-        Nodecl::NodeclBase Vectorizer::vectorize(const Nodecl::FunctionCode& func_code,
+        void Vectorizer::vectorize(const Nodecl::FunctionCode& func_code,
                 const unsigned int vector_length)
         {
         }
